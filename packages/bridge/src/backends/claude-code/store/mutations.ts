@@ -38,6 +38,7 @@ export async function renameStored(
 	if (isRejected(located)) return located;
 	const failed = await attemptDone(() => ctx.deps.services.sdk.renameSession(sessionId, text));
 	if (failed !== undefined) return failed;
+	await ctx.deps.ownership.noteOwnWrite(sessionId, ctx.deps.services.clock.now());
 	ctx.index.drop(sessionId);
 	await announceSession(ctx, sessionId, live);
 	return ACCEPTED;
@@ -58,6 +59,7 @@ export async function forkStored(
 	const forked = await attempt(() => ctx.deps.services.sdk.forkSession(sessionId, options));
 	if (isRejected(forked)) return forked;
 	await ctx.deps.ownership.claim(forked.sessionId);
+	await ctx.deps.ownership.noteOwnWrite(forked.sessionId, ctx.deps.services.clock.now());
 	await ctx.forks.link(forked.sessionId, sessionId);
 	await announceSession(ctx, forked.sessionId, live);
 	return {

@@ -230,10 +230,10 @@ export function standInOwnership(): StandInOwnership {
 		claimed,
 		prompts,
 		released,
-		noteReleased: async (sessionId, at) => {
+		noteOwnWrite: async (sessionId, at) => {
 			released.set(sessionId, at);
 		},
-		releasedAt: (sessionId) => released.get(sessionId),
+		ownWriteAt: (sessionId) => released.get(sessionId),
 		load: async () => undefined,
 		origin: (sessionId) => (claimed.includes(sessionId) ? "broski" : "external"),
 		claim: async (sessionId) => {

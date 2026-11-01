@@ -71,7 +71,7 @@ export function terminalRig(home: ClaudeHome, options: RigOptions = {}): Termina
 		catalog: new CatalogFeed({ emit: () => undefined }),
 		mapping: CLAUDE_CODE_MAPPING,
 		hosted: (sessionId) => hosted.has(sessionId),
-		releasedAt: (sessionId) => released.get(sessionId),
+		ownWriteAt: (sessionId) => released.get(sessionId),
 		locate,
 	});
 	const sink: SessionSink = { emit: (record) => records.push(record) };

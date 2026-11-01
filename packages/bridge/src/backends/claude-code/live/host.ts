@@ -237,7 +237,7 @@ export class SessionHost {
 			/* the process closes whatever the desk says */
 		}
 		await this.slot.end();
-		if (this.launched > 0) await this.deps.ownership.noteReleased(this.id, this.deps.services.clock.now());
+		if (this.launched > 0) await this.deps.ownership.noteOwnWrite(this.id, this.deps.services.clock.now());
 	}
 
 	/** A Stop the CLI missed because it came ahead of the message: the same Stop, once the turn is there to stop. */

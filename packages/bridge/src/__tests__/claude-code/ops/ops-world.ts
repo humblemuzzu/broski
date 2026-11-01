@@ -75,8 +75,8 @@ const UNUSED_OWNERSHIP: Ownership = {
 	claim: async () => undefined,
 	notePrompt: async () => undefined,
 	prompt: () => undefined,
-	noteReleased: async () => undefined,
-	releasedAt: () => undefined,
+	noteOwnWrite: async () => undefined,
+	ownWriteAt: () => undefined,
 };
 
 const UNUSED_TERMINAL: TerminalWatch = {

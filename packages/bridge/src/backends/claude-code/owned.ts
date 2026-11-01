@@ -1,6 +1,6 @@
 /**
- * Lane A · the owner journal (D17, D37, D122): which sessions and prompts this bridge made, and when its host of a
- * session last ended, at `<stateDir>/owned.jsonl`.
+ * Lane A · the owner journal (D17, D37, D122): which sessions and prompts this bridge made, and until when the last
+ * writes to a session's file were its own, at `<stateDir>/owned.jsonl`.
  */
 
 import { join } from "node:path";
@@ -92,12 +92,12 @@ class OwnerJournal implements Ownership {
 		return this.prompts.get(promptKey(sessionId, sendUuid))?.record;
 	}
 
-	async noteReleased(sessionId: SessionId, at: number): Promise<void> {
+	async noteOwnWrite(sessionId: SessionId, at: number): Promise<void> {
 		this.release(sessionId, at);
 		await this.write({ k: "r", i: sessionId, t: at });
 	}
 
-	releasedAt(sessionId: SessionId): number | undefined {
+	ownWriteAt(sessionId: SessionId): number | undefined {
 		return this.releases.get(sessionId);
 	}
 
