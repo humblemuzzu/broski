@@ -278,7 +278,7 @@ One delegate assembles `backend.ts` and `factory.ts`, registers behind the flag 
 
 Three `review_code` runs in parallel: SDK correctness (opus), contract correctness, robustness/security/slop. One Opus fixer takes every finding, adds a test that fails without each fix, commits as it goes, and writes `reviews/FIXES.md` with mutation evidence. A cheap chad sweep afterwards checks for: `as any`, deep SDK imports, any timer near an ask, any read of the real `~/.claude` in tests, string prompts, `permissionPrompts`, `null` returned from a callback.
 
-### Step 7 — App wiring — **done** (`cc/app` on `356cb30`: `5fcd370a`, `7111dab8`, `96881982`, `d1801fa0`, `0ae21d97`, `45cb1fcb`, `57819b3e`, `bb3354b5`, `73088748`, `6686546f`, `b42fa515`, then the docs; decisions D150–D169 in the adapter README; the audit is [`REACHABILITY.md`](REACHABILITY.md))
+### Step 7 — App wiring — **done** (`cc/app` on `356cb30`: `5fcd370a`, `7111dab8`, `96881982`, `d1801fa0`, `0ae21d97`, `45cb1fcb`, `57819b3e`, `bb3354b5`, `73088748`, `6686546f`, `b42fa515`, docs `6cdad8fd`, the review fixes `a2ae28cc`, `b726b75b`, `f8130582`; decisions D150–D169 in the adapter README; the audit is [`REACHABILITY.md`](REACHABILITY.md))
 
 The selection storage and migration (D29), the picker entry during the flag period, and the parity audit of reachability: every PARITY row in §10 is reachable from the normal tabs, picker, chat menus or More sheet. No dev-only entry points.
 
