@@ -222,7 +222,9 @@ describe("session_settings", () => {
 			options: [{ value: "default" }, { value: "Concise" }],
 		});
 		expect(byKey(all, "autoMemoryEnabled")).toMatchObject({ kind: "toggle", enabled: true });
-		expect(byKey(all, "promptSuggestionEnabled")).toMatchObject({ kind: "toggle", enabled: true });
+		expect(byKey(all, "promptSuggestionEnabled")).toMatchObject({ kind: "toggle", enabled: false });
+		world.write(join(world.configDir, "settings.json"), JSON.stringify({ promptSuggestionEnabled: true }));
+		expect(byKey(settingsOf(await settings(sessionId)), "promptSuggestionEnabled")).toMatchObject({ enabled: true });
 		world.write(
 			join(world.configDir, "settings.json"),
 			JSON.stringify({ autoMemoryEnabled: false, promptSuggestionEnabled: false }),
@@ -242,6 +244,23 @@ describe("session_settings", () => {
 		expect(byKey(after, "autoMemoryEnabled")).toMatchObject({ enabled: false });
 		expect(JSON.parse(readFileSync(path, "utf8"))).toEqual({ model: "opus", theme: "dark", autoMemoryEnabled: false });
 		expect(Object.keys(JSON.parse(readFileSync(path, "utf8")))).toEqual(["model", "theme", "autoMemoryEnabled"]);
+		const on = settingsOf(await settings(sessionId, toggle("promptSuggestionEnabled", true)));
+		expect(byKey(on, "promptSuggestionEnabled")).toMatchObject({ enabled: true });
+		expect(JSON.parse(readFileSync(path, "utf8")).promptSuggestionEnabled).toBe(true);
+	});
+
+	test("prompt suggestions turned off by the environment show off, whatever the settings say", async () => {
+		const sessionId = randomUUID();
+		world = opsWorld({
+			hosts: { [sessionId]: { query: new FakeQuery() } },
+			env: { CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION: "false" },
+		});
+		world.write(join(world.configDir, "settings.json"), JSON.stringify({ promptSuggestionEnabled: true }));
+		const shown = byKey(settingsOf(await settings(sessionId)), "promptSuggestionEnabled");
+		expect(shown).toMatchObject({
+			enabled: false,
+			note: expect.stringContaining("CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION"),
+		});
 	});
 
 	test("the output style goes through the running host's own writer, not the file", async () => {

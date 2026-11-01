@@ -44,11 +44,18 @@ export function autoMemoryOn(reading: SettingsReading): boolean {
 	return reading.effective.autoMemoryEnabled !== false;
 }
 
+/** A host asks for suggestions only when a setting says `true` (D79), so an absent key is off here, unlike in the CLI. */
 export function promptSuggestionsOn(reading: SettingsReading): boolean {
 	const variable = reading.env.CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION;
-	if (variable !== undefined && TRUTHY.test(variable)) return true;
 	if (variable !== undefined && FALSY.test(variable)) return false;
-	return reading.effective.promptSuggestionEnabled !== false;
+	return reading.effective.promptSuggestionEnabled === true;
+}
+
+function suggestionsVariableNote(reading: SettingsReading): string | undefined {
+	const variable = reading.env.CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION;
+	return variable !== undefined && FALSY.test(variable)
+		? "The CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION environment variable turns this off, so it wins over the settings."
+		: undefined;
 }
 
 function environmentNote(reading: SettingsReading, name: string): string | undefined {
@@ -92,10 +99,7 @@ export function settingItems(reading: SettingsReading): SessionSetting[] {
 			label: "Prompt suggestions",
 			description: "Suggest what to send next after each answer. Saved in your user settings.",
 			enabled: promptSuggestionsOn(reading),
-			...withNote(
-				environmentNote(reading, "CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION") ??
-					overriddenBy(ownerOf(reading, PROMPT_SUGGESTIONS), "user"),
-			),
+			...withNote(suggestionsVariableNote(reading) ?? overriddenBy(ownerOf(reading, PROMPT_SUGGESTIONS), "user")),
 		},
 	];
 }
