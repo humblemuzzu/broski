@@ -40,7 +40,7 @@ function text(value: unknown): string | undefined {
 function hookOf(entry: Record<string, unknown>): HookFact | undefined {
 	const attachment = entry.attachment;
 	if (!isRecord(attachment) || typeof attachment.type !== "string") return undefined;
-	const status = STATUS_OF[attachment.type];
+	const status = Object.hasOwn(STATUS_OF, attachment.type) ? STATUS_OF[attachment.type] : undefined;
 	const name = text(attachment.hookName);
 	if (status === undefined || name === undefined || typeof entry.uuid !== "string") return undefined;
 	const event = text(attachment.hookEvent);
@@ -77,7 +77,9 @@ export class HookCollector {
 		const hook = hookOf(entry);
 		const anchor = hook === undefined ? undefined : this.anchorOf(hook.uuid);
 		if (hook === undefined || anchor === undefined) return;
-		this.byAnchor.set(anchor, [...(this.byAnchor.get(anchor) ?? []), hook]);
+		const held = this.byAnchor.get(anchor);
+		if (held === undefined) this.byAnchor.set(anchor, [hook]);
+		else held.push(hook);
 		this.count += 1;
 	}
 

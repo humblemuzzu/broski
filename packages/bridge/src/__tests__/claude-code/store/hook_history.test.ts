@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { HookCollector } from "../../../backends/claude-code/store/hook-facts";
 import { hookItems } from "../../../backends/claude-code/store/items-hooks";
 import { scanRaw } from "../../../backends/claude-code/store/raw-scan";
 
@@ -79,6 +80,17 @@ describe("hooks in history", () => {
 			[blocked, "failed"],
 			[cancelled, "cancelled"],
 		]);
+	});
+
+	test("an attachment type an object inherits is no hook", () => {
+		const chain = uuid();
+		const collector = new HookCollector(new Set([chain]));
+		for (const type of ["constructor", "toString", "__proto__"]) {
+			const id = uuid();
+			collector.link(id, chain);
+			collector.note({ type: "attachment", uuid: id, attachment: { type, hookName: "X" } });
+		}
+		expect(collector.hooks().size).toBe(0);
 	});
 
 	test("the name and output are shown without terminal escapes", () => {

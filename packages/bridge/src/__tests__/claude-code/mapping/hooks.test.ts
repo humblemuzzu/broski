@@ -112,6 +112,15 @@ describe("hook frames", () => {
 		expect(ended?.output).toBe("bad");
 	});
 
+	test("an outcome a newer CLI added, or one an object inherits, reads as failed", () => {
+		for (const outcome of ["timed_out", "toString"]) {
+			const mapper = newMapper();
+			mapper.map(started());
+			const frame = JSON.parse(JSON.stringify({ ...response("success"), outcome }));
+			expect(activities(mapper.map(frame))[0]?.status).toBe("failed");
+		}
+	});
+
 	test("a hook id that is empty shows nothing", () => {
 		expect(newMapper().map(started(""))).toEqual([]);
 	});

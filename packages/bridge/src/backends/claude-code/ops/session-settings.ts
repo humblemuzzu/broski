@@ -7,7 +7,6 @@
  */
 
 import type { SDKSystemMessage } from "@anthropic-ai/claude-agent-sdk";
-
 import type { BackendCallResult, Rejected, SessionId, SessionSettingsOp, SettingChange } from "../../../contract";
 import type { HostView, OpsDeps } from "../ports";
 import { isRejected, rejected } from "../rejections";

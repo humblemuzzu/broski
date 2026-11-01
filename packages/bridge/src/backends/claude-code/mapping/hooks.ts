@@ -69,7 +69,8 @@ export function hookEvents(state: MapperState, frame: HookFrame): MappedEvent[] 
 		case "hook_response": {
 			state.openHooks.delete(id);
 			const took = known === undefined ? undefined : Math.max(0, Math.round(state.now() - known.startedAt));
-			const ended = activity(id, hook, STATUS_OF[frame.outcome] ?? "failed", frame.output, took);
+			const status = Object.hasOwn(STATUS_OF, frame.outcome) ? STATUS_OF[frame.outcome] : "failed";
+			const ended = activity(id, hook, status, frame.output, took);
 			return [{ event: { type: "activity", activity: ended } }];
 		}
 	}

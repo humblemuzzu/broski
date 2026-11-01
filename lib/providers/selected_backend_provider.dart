@@ -40,10 +40,17 @@ class SelectedBackendNotifier extends StateNotifier<SelectedBackend> {
   /// still act for one see while a contract backend is selected.
   AgentType get lastLegacy => _lastLegacy;
 
+  /// A store that cannot be read leaves the default choice: the tabs waiting
+  /// on [ready] must not wait on a failure.
   Future<void> _load() async {
-    final saved = await _storage.getSelectedAgentType();
+    final String? saved;
+    try {
+      saved = await _storage.getSelectedAgentType();
+    } catch (_) {
+      return;
+    }
     final selection = saved == null ? null : SelectedBackend.fromWire(saved);
-    if (selection != null && !_chosen) _apply(selection);
+    if (selection != null && !_chosen && mounted) _apply(selection);
   }
 
   Future<void> select(SelectedBackend selection) async {

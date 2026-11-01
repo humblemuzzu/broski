@@ -87,12 +87,17 @@ function orgPolicyText(message: string): string | undefined {
 	return undefined;
 }
 
+/** A reason a newer CLI added is not in the table: frames may be newer than the types. */
+function refusalOf(reason: SDKStartupFailureReason): StartupRefusal | undefined {
+	return Object.hasOwn(REFUSALS, reason) ? REFUSALS[reason] : undefined;
+}
+
 export function refusalText(reason: SDKStartupFailureReason): string {
-	return REFUSALS[reason].text;
+	return refusalOf(reason)?.text ?? `Claude Code could not start (${reason}).`;
 }
 
 export function refusalNeedsSignIn(reason: SDKStartupFailureReason): boolean {
-	return REFUSALS[reason].signIn === true;
+	return refusalOf(reason)?.signIn === true;
 }
 
 export function failureText(failure: ProbeFailure): string {

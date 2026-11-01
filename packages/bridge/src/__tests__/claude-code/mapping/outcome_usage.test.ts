@@ -128,6 +128,15 @@ describe("turnOutcome by terminal_reason first", () => {
 		);
 	});
 
+	test("a startup refusal a newer CLI added is still an outcome, never a throw", () => {
+		const newer = JSON.parse(JSON.stringify(failure({ terminal_reason: undefined })));
+		newer.startup_failure_reason = "some_new_reason";
+		expect(outcome(newer)).toEqual({
+			kind: "error",
+			error: { code: "backend_unavailable", message: "Claude Code could not start (some_new_reason)." },
+		});
+	});
+
 	test("a startup refusal that signing in again fixes is an auth error", () => {
 		const mapped = outcome(failure({ terminal_reason: undefined, startup_failure_reason: "org_pin_mismatch" }));
 		expect(mapped).toEqual({
