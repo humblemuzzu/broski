@@ -13,6 +13,8 @@ export interface RealRunSpec {
 	readonly turns?: ScriptedTurn[];
 	readonly routes?: ScriptedRoute[];
 	readonly richServer?: boolean;
+	/** A rig built to break (a host that fails); default a plain one. */
+	readonly rig?: DeskRig;
 }
 
 export interface RealRun {
@@ -26,7 +28,7 @@ const RESULT_MS = 25_000;
 export async function withRealCli<T>(spec: RealRunSpec, body: (run: RealRun) => Promise<T>): Promise<T> {
 	const home = createClaudeHome();
 	if (spec.richServer) installRichElicitServer(home.root, home.configDir);
-	const rig = new DeskRig();
+	const rig = spec.rig ?? new DeskRig();
 	const spike = startSpike({
 		home,
 		permissionMode: spec.permissionMode,

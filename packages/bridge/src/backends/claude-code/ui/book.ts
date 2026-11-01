@@ -20,7 +20,7 @@ export interface AskSpec<R> {
 	readonly ended: R;
 }
 
-const REMEMBERED_ANSWERS = 256;
+const REMEMBERED_ANSWERS = 32;
 
 export class AskBook<R> {
 	private readonly open = new Map<string, Promise<R>>();

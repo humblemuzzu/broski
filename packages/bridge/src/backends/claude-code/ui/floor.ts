@@ -16,7 +16,7 @@ export class AskFloor {
 		this.emit({ type: "interaction_requested", interaction: ask.interaction });
 	}
 
-	/** Ends `id` once: false for an id already ended. The CLI's callback is settled by `end` or the caller. */
+	/** Ends `id` once, emitting its resolution; undefined for an id already ended. Settling the CLI's callback is the caller's. */
 	finish(id: InteractionId, reason: ResolutionReason): PendingAsk | undefined {
 		const ask = this.ledger.take(id);
 		if (ask) this.emit({ type: "interaction_resolved", interactionId: id, reason });

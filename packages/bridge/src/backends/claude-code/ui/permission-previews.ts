@@ -1,14 +1,9 @@
 /** What a tool permission shows besides its input: the command, the paths, the host, the file changes (bounded). */
 
-import {
-	MAX_LIST_ITEMS,
-	MAX_NAME_CHARS,
-	MAX_PATH_CHARS,
-	MAX_TEXT_CHARS,
-	type PermissionPreview,
-} from "../../../contract";
+import { MAX_LIST_ITEMS, MAX_NAME_CHARS, MAX_PATH_CHARS, MAX_TEXT_CHARS, PermissionPreview } from "../../../contract";
 import { boundList, clip } from "../bounds";
 import { fileChangesOf } from "../mapping/file-changes";
+import { reportAskProblem } from "./problems";
 import { plain } from "./text";
 
 const SHELLS = new Set(["Bash", "PowerShell"]);
@@ -24,13 +19,25 @@ export function permissionPreviews(
 	if (SHELLS.has(toolName) && command !== undefined) {
 		previews.push({ kind: "command", command: clip(command, MAX_TEXT_CHARS) });
 	}
-	const changes = boundList(fileChangesOf(toolName, input, undefined)).items;
-	if (changes.length > 0) previews.push({ kind: "file_changes", changes });
+	const changes = changesPreview(toolName, input);
+	if (changes) previews.push(changes);
 	const paths = pathsOf(input, blockedPath);
-	if (paths.length > 0 && changes.length === 0) previews.push({ kind: "paths", paths });
+	if (paths.length > 0 && !changes) previews.push({ kind: "paths", paths });
 	const network = networkOf(toolName, input);
 	if (network) previews.push(network);
 	return previews;
+}
+
+/** Lane B's reading of the pending call; a helper that fails or builds something the contract refuses costs the preview only. */
+function changesPreview(toolName: string, input: Readonly<Record<string, unknown>>): PermissionPreview | undefined {
+	try {
+		const changes = boundList(fileChangesOf(toolName, input, undefined)).items;
+		const preview = PermissionPreview.safeParse({ kind: "file_changes", changes });
+		return changes.length > 0 && preview.success ? preview.data : undefined;
+	} catch (error) {
+		reportAskProblem("file change preview", error);
+		return undefined;
+	}
 }
 
 function pathsOf(input: Readonly<Record<string, unknown>>, blockedPath: string | undefined): string[] {

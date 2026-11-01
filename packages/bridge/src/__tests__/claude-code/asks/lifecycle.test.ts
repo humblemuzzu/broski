@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { ToolPermissionReply } from "../../../contract";
-import { DeskRig, stillPending } from "./desk-rig";
+import { captureProblems, DeskRig, stillPending } from "./desk-rig";
 
 const BASH = { command: "ls" };
 const ALLOW: ToolPermissionReply = { kind: "tool_permission", optionId: "allow_once", grantIds: [] };
@@ -153,6 +153,7 @@ describe("a redelivered request id", () => {
 
 describe("stopping the run", () => {
 	test("is asked of the host once, after the answer is given, and a host that fails does not fail the answer", async () => {
+		const quiet = captureProblems();
 		const failing = new DeskRig({
 			abortRun: async () => {
 				throw new Error("cannot abort");
@@ -170,6 +171,9 @@ describe("stopping the run", () => {
 		const other = throwing.tool("Bash", BASH);
 		expect(throwing.answer(throwing.only(), { kind: "cancel", stopRun: true })).toEqual({ status: "accepted" });
 		expect(await other.promise).toMatchObject({ behavior: "deny", interrupt: true });
+		await Bun.sleep(5);
+		quiet.restore();
+		expect(quiet.lines.filter((line) => line.includes("abortRun: Error: cannot abort"))).toHaveLength(2);
 	});
 
 	test("a cancel that does not stop the run asks nothing of the host", async () => {

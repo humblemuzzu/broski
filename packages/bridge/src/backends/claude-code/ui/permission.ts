@@ -14,6 +14,7 @@ import { boundedJson } from "../json";
 import { toolTitle } from "../mapping/tool-titles";
 import { DENY_ONCE, type OptionEffect, permissionChoices } from "./permission-options";
 import { permissionPreviews } from "./permission-previews";
+import { reportAskProblem } from "./problems";
 import { plain } from "./text";
 import { DENIED_MESSAGE, type ToolAsk, textOr } from "./tool-ask";
 
@@ -42,10 +43,7 @@ export function permissionAsk(ask: PermissionAsk): ToolAsk {
 	};
 	const description = options.description === undefined ? "" : plain(options.description, MAX_TEXT_CHARS).trim();
 	return {
-		title: nameOr(
-			plain(options.title ?? "", MAX_NAME_CHARS),
-			toolTitle(toolName, input) ?? `Allow ${displayName(ask)}?`,
-		),
+		title: nameOr(plain(options.title ?? "", MAX_NAME_CHARS), fallbackTitle(ask)),
 		...(description !== "" && { body: description }),
 		request,
 		decide: (reply) => (reply.kind === "tool_permission" ? permitted(choices.effects, input, reply) : undefined),
@@ -56,7 +54,7 @@ export function permissionAsk(ask: PermissionAsk): ToolAsk {
 export function minimalPermissionAsk(toolName: string, input: Record<string, unknown>): ToolAsk {
 	const { options, effects } = permissionChoices([], true);
 	return {
-		title: `Allow ${clip(toolName, MAX_NAME_CHARS - 8)}?`,
+		title: `Allow ${plain(toolName, MAX_NAME_CHARS - 8)}?`,
 		request: { kind: "tool_permission", inputEditable: false, previews: [], options, grants: [], deliberate: true },
 		decide: (reply) => (reply.kind === "tool_permission" ? permitted(effects, input, reply) : undefined),
 	};
@@ -64,12 +62,23 @@ export function minimalPermissionAsk(toolName: string, input: Record<string, unk
 
 export function permissionOrigin(ask: PermissionAsk): InteractionOrigin {
 	const id = toolCallId(ask.options.toolUseID);
-	return { ...(id !== undefined && { toolCallId: id }), toolName: clip(ask.toolName, MAX_NAME_CHARS) };
+	return { ...(id !== undefined && { toolCallId: id }), toolName: plain(ask.toolName, MAX_NAME_CHARS) };
 }
 
 /** The CLI sets it when a one-tap answer must not be offered; the declared options omit it, the runtime passes it. */
 export function requiresUserInteraction(options: PermissionAskOptions): boolean {
 	return "requiresUserInteraction" in options && options.requiresUserInteraction === true;
+}
+
+/** Lane B's one-line title for the call when the CLI worded none; its failure costs the title only. */
+function fallbackTitle(ask: PermissionAsk): string {
+	try {
+		const title = toolTitle(ask.toolName, ask.input);
+		if (title !== undefined) return plain(title, MAX_NAME_CHARS);
+	} catch (error) {
+		reportAskProblem("tool title", error);
+	}
+	return `Allow ${displayName(ask)}?`;
 }
 
 function displayName(ask: PermissionAsk): string {

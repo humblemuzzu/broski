@@ -3,9 +3,7 @@
 import { describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { SessionEmitter } from "../../../backends/claude-code/ports/live";
-import type { AgentEvent, SessionSnapshot } from "../../../contract";
-import { DeskRig, stillPending } from "./desk-rig";
+import { captureProblems, DeskRig, stillPending, throwingLive } from "./desk-rig";
 
 const UI_DIR = join(import.meta.dir, "../../../backends/claude-code/ui");
 
@@ -104,9 +102,10 @@ describe("no ask ends without a human, the CLI or the process", () => {
 });
 
 describe("the desk's own code failing mid-callback", () => {
-	test("an emit that throws leaves the ask raised and answerable", async () => {
+	test("an emit that throws leaves the ask raised and answerable, and says so", async () => {
+		const quiet = captureProblems();
 		const rig = new DeskRig();
-		const emitting = throwingOn(rig, ["interaction_requested", "interaction_resolved"]);
+		const emitting = throwingLive(rig, ["interaction_requested", "interaction_resolved"]);
 		const failing = new DeskRig({ live: emitting });
 		const ask = failing.tool("Bash", { command: "ls" });
 		expect(await stillPending(ask.promise)).toBe(true);
@@ -119,9 +118,13 @@ describe("the desk's own code failing mid-callback", () => {
 		});
 		expect(answered).toEqual({ status: "accepted" });
 		expect(await ask.promise).toMatchObject({ behavior: "deny" });
+		quiet.restore();
+		expect(quiet.lines.join("")).toContain("[claude-code asks] interaction_requested: Error: the sink refused");
+		expect(quiet.lines.join("")).toContain("[claude-code asks] interaction_resolved");
 	});
 
 	test("an input the builder cannot read still reaches a person as a plain allow or deny", async () => {
+		const quiet = captureProblems();
 		const rig = new DeskRig();
 		const hostile = {
 			get command(): string {
@@ -135,9 +138,12 @@ describe("the desk's own code failing mid-callback", () => {
 		expect(await stillPending(ask.promise)).toBe(true);
 		rig.answer(interaction, { kind: "tool_permission", optionId: "allow_once", grantIds: [] });
 		expect(await ask.promise).toEqual({ behavior: "allow", updatedInput: hostile });
+		quiet.restore();
+		expect(quiet.lines.join("")).toContain("Bash ask: Error: unreadable input");
 	});
 
 	test("a callback that cannot raise anything at all waits for the CLI to withdraw it, and answers nothing before", async () => {
+		const quiet = captureProblems();
 		const rig = new DeskRig({
 			now: () => {
 				throw new Error("no clock");
@@ -152,15 +158,8 @@ describe("the desk's own code failing mid-callback", () => {
 		elicitation.controller.abort();
 		expect(await tool.promise).toMatchObject({ behavior: "deny" });
 		expect(await elicitation.promise).toEqual({ action: "cancel" });
+		quiet.restore();
+		expect(quiet.lines.join("")).toContain("canUseTool: Error: no clock");
+		expect(quiet.lines.join("")).toContain("onElicitation: Error: no clock");
 	});
 });
-
-function throwingOn(source: DeskRig, types: AgentEvent["type"][]): SessionEmitter {
-	return {
-		snapshot: (): SessionSnapshot => source.live.snapshot(),
-		emit: (event, native) => {
-			source.live.emit(event, native);
-			if (types.includes(event.type)) throw new Error(`the sink refused ${event.type}`);
-		},
-	};
-}

@@ -173,6 +173,31 @@ describe("a tool permission", () => {
 		expect(request(rig.only()).reason).toBe("Dangerous path");
 	});
 
+	test("bidi overrides and control characters in text a server wrote are removed", () => {
+		const rig = new DeskRig();
+		rig.tool("mcp__evil__run", BASH, {
+			title: "Run \u202eelif\u202c now\u0000",
+			decisionReason: "a\u2066b\u2069\u200fc",
+		});
+		const interaction = rig.only();
+		expect(interaction.title).toBe("Run elif now");
+		expect(request(interaction).reason).toBe("abc");
+	});
+
+	test("suggestions for one destination are one option that sends all of them, directories included", async () => {
+		const rig = new DeskRig();
+		const directories: PermissionUpdate = {
+			type: "addDirectories",
+			directories: ["/tmp/x"],
+			destination: "projectSettings",
+		};
+		const ask = rig.tool("Bash", BASH, { suggestions: [ALLOW_NPM("projectSettings"), directories] });
+		const interaction = rig.only();
+		expect(option(interaction, "allow_always_project").rule).toBe("Bash(npm test:*); addDirectories: /tmp/x");
+		rig.answer(interaction, reply("allow_always_project"));
+		expect(await ask.promise).toMatchObject({ updatedPermissions: [ALLOW_NPM("projectSettings"), directories] });
+	});
+
 	test("an answer that names no option, or edits the input, is refused and the ask stays raised", async () => {
 		const rig = new DeskRig();
 		const ask = rig.tool("Bash", BASH);

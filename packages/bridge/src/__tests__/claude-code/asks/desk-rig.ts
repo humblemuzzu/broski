@@ -1,5 +1,6 @@
 /** A desk over a real `LiveState`, a recording sink and a controllable host: what lane E's desk tests drive. */
 
+import { spyOn } from "bun:test";
 import type {
 	CanUseTool,
 	ElicitationRequest,
@@ -8,6 +9,7 @@ import type {
 } from "@anthropic-ai/claude-agent-sdk";
 import { LiveState } from "../../../backends/claude-code/live/live-state";
 import type { AskDesk, AskHost } from "../../../backends/claude-code/ports/asks";
+import type { SessionEmitter } from "../../../backends/claude-code/ports/live";
 import { createAskDesk } from "../../../backends/claude-code/ui/desk";
 import {
 	type AgentEvent,
@@ -124,6 +126,27 @@ export class DeskRig {
 		if (!first || rest.length > 0) throw new Error(`expected one interaction, got ${this.requested().length}`);
 		return first;
 	}
+}
+
+/** The rig's session emitter, but the sink refuses (throws on) events of the given types after the state took them. */
+export function throwingLive(source: DeskRig, types: AgentEvent["type"][]): SessionEmitter {
+	return {
+		snapshot: () => source.live.snapshot(),
+		emit: (event, native) => {
+			source.live.emit(event, native);
+			if (types.includes(event.type)) throw new Error(`the sink refused ${event.type}`);
+		},
+	};
+}
+
+/** Holds back what the desk reports to stderr while a test breaks it on purpose; `restore` hands it all back. */
+export function captureProblems(): { lines: string[]; restore: () => void } {
+	const lines: string[] = [];
+	const spy = spyOn(process.stderr, "write").mockImplementation((chunk) => {
+		lines.push(String(chunk));
+		return true;
+	});
+	return { lines, restore: () => spy.mockRestore() };
 }
 
 /** Whether `promise` is still pending after the event loop has turned a few times. */
