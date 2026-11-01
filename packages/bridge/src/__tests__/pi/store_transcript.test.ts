@@ -13,7 +13,15 @@ import { SessionIndex } from "../../backends/pi/store/session-index";
 import { entryOfItem, readTranscript } from "../../backends/pi/store/transcript";
 import { type PageRequest, type TranscriptItem, TranscriptReadResult } from "../../contract";
 import { createPiTestEnv, type PiTestEnv } from "./helpers/pi-test-env";
-import { itemsOfEntryStub, SessionBuilder, textBlock, thinkingBlock, toolCall, writeSession } from "./store_fixtures";
+import {
+	iso,
+	itemsOfEntryStub,
+	SessionBuilder,
+	textBlock,
+	thinkingBlock,
+	toolCall,
+	writeSession,
+} from "./store_fixtures";
 
 let env: PiTestEnv;
 let index: SessionIndex;
@@ -352,5 +360,20 @@ describe("naming an entry by an item", () => {
 		expect(await of(`${abandoned}:1`)).toBeUndefined();
 		expect(await of("nonsense")).toBeUndefined();
 		expect(await entryOfItem(index, "nobody", `${first}:0`, NOBODY, itemsOfEntryStub)).toBeUndefined();
+	});
+
+	test("the first item of an entry the tree never shows names nothing: Pi's usage records, a type a newer Pi wrote", async () => {
+		const builder = new SessionBuilder({ id: "hidden", cwd: env.cwd, version: 3 });
+		const first = builder.user("one", 10);
+		builder.raw({ type: "usage", id: "u0000001", parentId: first, timestamp: iso(15) });
+		builder.raw({ type: "from_the_future", id: "f0000001", parentId: "u0000001", timestamp: iso(16) });
+		builder.branchFrom("f0000001");
+		builder.user("two", 20);
+		writeSession(env.sessionDir, builder);
+		const of = (itemId: string) => entryOfItem(index, "hidden", itemId, NOBODY, itemsOfEntryStub);
+
+		expect(await of(`${first}:0`)).toBe(first);
+		expect(await of("u0000001:0")).toBeUndefined();
+		expect(await of("f0000001:0")).toBeUndefined();
 	});
 });

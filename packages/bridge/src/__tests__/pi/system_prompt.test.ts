@@ -93,6 +93,17 @@ describe("the system prompt", () => {
 		}
 	});
 
+	test("starts a page asked to begin inside a character at that character, so no half of a pair is shown", async () => {
+		t = await LiveRig.create();
+		contextFile(t, `marker:${"😀".repeat(10)}`);
+		const live = await t.rig.openNew();
+		const prompt = t.world.parts.hosts.session(live.ref.sessionId)?.systemPrompt ?? "";
+		const inside = prompt.indexOf("marker:") + "marker:".length + 1;
+		const page = promptIn(await callPrompt(t, live.ref, inside));
+		expect(page.offset).toBe(inside - 1);
+		expect(page.text.startsWith("😀")).toBe(true);
+	});
+
 	test("answers an offset past the end with an empty last page", async () => {
 		t = await LiveRig.create();
 		const live = await t.rig.openNew();

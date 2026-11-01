@@ -16,6 +16,7 @@ import type {
 } from "../../../contract";
 import { cursorScope, decodeCursor, encodeCursor } from "../cursor";
 import { parseEntryPart } from "../ids";
+import { isShownType } from "../mapping/tree-nodes";
 import { isCount } from "../mapping/usage";
 import type { LiveOverlay } from "../ports";
 import { rejected } from "../rejections";
@@ -131,7 +132,8 @@ async function walkDown(
 
 /**
  * The entry an item id names, when that entry is on the branch the transcript shows now and yields that item, or when
- * the id is the first-item id of any entry of the file (`TreeNode.itemId`: a node of another branch has no item here).
+ * the id is the first-item id of an entry of the file the tree shows (`TreeNode.itemId`: a node of another branch has
+ * no item here).
  */
 export async function entryOfItem(
 	index: SessionIndex,
@@ -146,5 +148,7 @@ export async function entryOfItem(
 	if ("rejection" in opened) return opened.rejection.code === "not_found" ? undefined : opened;
 	const position = opened.items.positionOf(part.entryId);
 	if (position >= 0 && (await opened.items.itemsAt(position)).some((item) => item.id === itemId)) return part.entryId;
-	return part.index === 0 && opened.file.byId.has(part.entryId) ? part.entryId : undefined;
+	if (part.index !== 0) return undefined;
+	const span = opened.file.entries[opened.file.byId.get(part.entryId) ?? -1];
+	return span !== undefined && isShownType(span.type) ? part.entryId : undefined;
 }
