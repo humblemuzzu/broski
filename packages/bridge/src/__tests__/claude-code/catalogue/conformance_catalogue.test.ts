@@ -19,7 +19,7 @@ const worlds: RealWorld[] = [];
 
 afterEach(async () => {
 	for (const world of worlds.splice(0)) await world.stop();
-	kit.dispose();
+	await kit.dispose();
 });
 
 describe("conformance rules 1 to 4 on the Claude Code adapter", () => {

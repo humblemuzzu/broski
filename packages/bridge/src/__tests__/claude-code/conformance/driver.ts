@@ -81,6 +81,18 @@ export class ClaudeCodeConformanceDriver implements ConformanceDriver {
 		return this.world.restart(host);
 	}
 
+	/** A real second CLI asks through the installed hook; the adapter raises it on the session it opens watch-only. */
+	watchedAsk(): Promise<SessionRef> {
+		const { world } = this;
+		return world.terminalAsks.watchedAsk({
+			configDir: world.home.configDir,
+			projectDir: world.home.projectDir,
+			cliPath: world.cliPath,
+			env: world.env,
+			router: world.router,
+		});
+	}
+
 	private async seedOne(cwd: string): Promise<void> {
 		const recorder = new SessionRecorder(this.timeoutMs);
 		const opened = await this.world.backend.open({ kind: "new", options: { cwd } }, recorder);
@@ -104,7 +116,7 @@ export class ClaudeCodeConformanceDriver implements ConformanceDriver {
 export interface ClaudeCodeConformanceKit {
 	readonly factory: ConformanceFactory;
 	/** Stops every world's endpoint and removes its home; fails when a request left the scripted endpoint. */
-	dispose(): void;
+	dispose(): Promise<void>;
 }
 
 export function claudeCodeConformanceKit(timeoutMs: number): ClaudeCodeConformanceKit {
@@ -115,10 +127,10 @@ export function claudeCodeConformanceKit(timeoutMs: number): ClaudeCodeConforman
 			worlds.push(world);
 			return { backend: world.backend, driver: new ClaudeCodeConformanceDriver(world, timeoutMs) };
 		},
-		dispose: () => {
+		dispose: async () => {
 			const made = worlds.splice(0);
 			const escapes = made.flatMap((world) => world.escapes());
-			for (const world of made) world.dispose();
+			for (const world of made) await world.dispose();
 			if (escapes.length > 0) throw new Error(`requests escaped the scripted endpoint: ${escapes.join(", ")}`);
 		},
 	};

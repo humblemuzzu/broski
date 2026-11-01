@@ -20,6 +20,6 @@ test("a conformance world builds the adapter over a temp home and the scripted e
 		expect(await driver.runExternally({ backend: "claude-code", sessionId: crypto.randomUUID() })).toBe(false);
 	} finally {
 		await backend.dispose();
-		kit.dispose();
+		await kit.dispose();
 	}
 });

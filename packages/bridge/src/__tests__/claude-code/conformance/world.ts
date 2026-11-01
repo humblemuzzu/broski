@@ -16,6 +16,7 @@ import { memoryCustomTools } from "./memory-custom-tools";
 import { ModelEcho } from "./model-echo";
 import { Activity, type Observed, observe } from "./observed-backend";
 import { SessionRouter } from "./session-router";
+import { TerminalAsks } from "./terminal-asks";
 
 export const CLI_VERSION = "2.1.316";
 
@@ -27,6 +28,7 @@ interface WorldParts {
 	readonly options: ClaudeCodeFactoryOptions;
 	readonly observed: Observed;
 	readonly cliPath: string;
+	readonly terminalAsks: TerminalAsks;
 }
 
 export class ClaudeWorld {
@@ -36,6 +38,8 @@ export class ClaudeWorld {
 	readonly activity: Activity;
 	readonly otherCwd: string;
 	readonly models: ModelEcho;
+	readonly terminalAsks: TerminalAsks;
+	readonly cliPath: string;
 	private readonly options: ClaudeCodeFactoryOptions;
 	private observed: Observed;
 
@@ -47,6 +51,8 @@ export class ClaudeWorld {
 		this.activity = parts.activity;
 		this.options = options;
 		this.observed = parts.observed;
+		this.terminalAsks = parts.terminalAsks;
+		this.cliPath = parts.cliPath;
 		this.otherCwd = realpathSync(mkdtempSync(join(home.root, "other-")));
 		writeFileSync(join(this.otherCwd, "README.md"), README_TEXT);
 		this.models = new ModelEcho(parts.cliPath, home.projectDir, { ...options.env });
@@ -59,6 +65,7 @@ export class ClaudeWorld {
 		const cli = resolveClaudeCliPath(defaultClaudeCliEnvironment());
 		if (!cli.ok) throw new Error(`conformance needs the Claude Code binary: ${cli.reason}`);
 		prepareHome(home);
+		const terminalAsks = new TerminalAsks();
 		const options: ClaudeCodeFactoryOptions = {
 			cli: { found: true, path: cli.path, source: cli.source },
 			configDir: home.configDir,
@@ -67,14 +74,19 @@ export class ClaudeWorld {
 			clientApp: "broski/conformance",
 			expectedCliVersion: CLI_VERSION,
 			customTools: memoryCustomTools(),
+			terminal: { hookAsks: terminalAsks.hookAsks },
 		};
 		const activity = new Activity();
 		const observed = observe(await claudeCodeBackendFactory(options)(host), activity);
-		return new ClaudeWorld({ home, server, router, activity, options, observed, cliPath: cli.path });
+		return new ClaudeWorld({ home, server, router, activity, options, observed, cliPath: cli.path, terminalAsks });
 	}
 
 	get backend(): AgentBackend {
 		return this.observed.backend;
+	}
+
+	get env(): Readonly<Record<string, string>> {
+		return this.options.env;
 	}
 
 	controlOf(sessionId: string) {
@@ -92,7 +104,8 @@ export class ClaudeWorld {
 		return this.server.escapes();
 	}
 
-	dispose(): void {
+	async dispose(): Promise<void> {
+		await this.terminalAsks.dispose();
 		this.server.stop();
 		this.home.cleanup();
 	}
