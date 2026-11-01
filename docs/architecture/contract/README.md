@@ -183,7 +183,7 @@ Declared traits are checked against behaviour, both ways where the contract can 
 | `interactions` | tool_permission, questions, form, plan_approval, external_url, choice (cc §8), confirm (empty MCP forms) | tool_permission, questions, form, external_url, confirm (cx §8) | tool_permission, questions, form, external_url (oc §8) | tool_permission (bridge-owned gate), choice, confirm, text (pi §8) | tool_permission (bridge-owned hook) (pd D8) |
 | `modelSwitch` | `next_request` (cc §7) | `next_run` (stable `turn/start.model`; exp `turn/settings/update` is not guaranteed) (cx §7) | `next_request` ("next step") (oc §7) | `next_request` ("next turn") (pi §7) | `next_request` (pd D7) |
 | `thinking` | ✓ effort levels (cc §7) | ✓ `effort` (cx §7) | ✓ model variants (oc §7) | ✓ levels, clamped (pi §7) | ✓ levels, unclamped (pd D7) |
-| `children` | ✓ subagents (cc §3) | ✓ child threads (cx §5.3) | ✓ child sessions (oc §3) | ✓ a tool call's sub-run in its result's `details`, forks and handoffs (Pi README decision 27) | ✓ task-owned conversations (pd D3) |
+| `children` | ✓ subagents (cc §3) | ✓ child threads (cx §5.3) | ✓ child sessions (oc §3) | ✓ a tool call's sub-run in its result's `details`, forks and handoffs (Pi README decision 32) | ✓ task-owned conversations (pd D3) |
 | `usage` | ✓ (cc §5) | ✓ tokens, no cost (cx §5.3) | ✓ (oc §5) | ✓ pulled after messages (pi §5) | ✓ (pd D5) |
 | `plan` (todo) | ✓ TodoWrite / Task tools, model-dependent (cc §13) | ✓ `turn/plan/updated` (cx §12) | ✗ experimental tool, off by default (oc §12) | ✗ | ✗ |
 | `planProposals` | ✗ (the plan reaches the app as a `plan_approval`) | ✓ Plan-mode `plan` item (cx §4.2) | ✗ | ✗ | ✗ |
@@ -270,7 +270,7 @@ SinkRecord    = EventEnvelope without seq and session      // what an adapter em
 **Tool updates** (`ToolUpdate`). `input` delivers the complete input once a backend that streams arguments finishes (OpenCode `tool.called`, oc §13; CC `input_json_delta`, cc §13; Pi `toolcall_*`, pi §5). The other kinds:
 
 - `output_appended`: Codex `outputDelta`, Pi Durable `append`.
-- `output_replaced`: Pi `partialResult` snapshots, Pi Durable `set` and `trimStart`.
+- `output_replaced`: Pi `partialResult` snapshots and the tail of a `!` command, Pi Durable `set` and `trimStart`.
 - `progress`: CC `tool_progress`, Codex MCP progress, OpenCode `tool.progress` title.
 - `file_changes`: Codex `patchUpdated`, replacing the previous list.
 - `child_session`: OpenCode metadata `{sessionID}` (oc §5), Codex `collabAgentToolCall` receiver (cx §5.3), Pi Durable `details.conversationId` (pd D5), CC subagent `agent_id` (cc §3).
@@ -564,10 +564,10 @@ Two typed escape hatches. Neither is an untyped blob.
 | pi | `session_settings{sessionId, change?}` (since 1.3) | `{settings[]}`: each a toggle (`enabled`) or a choice (`value`, `options`), with a label, a description and a `note` when a value shown may not be the one just chosen. With `change` that setting is set first, and the answer is the settings as the session now has them | Pi's auto-compaction, auto-retry, steering mode and follow-up mode, saved to the global `settings.json` as the terminal saves them (Pi README, decision 21) |
 | pi | `session_tools{sessionId, change?}` (since 1.3) | `{tools[], omitted?}`: name, description (cut with `…` at 2,048 characters), whether it is on, and a group; with `change` one tool is switched first | `getAllTools`, `getActiveToolNames`, `setActiveToolsByName`; the loadout is not a setting, it is recorded in the session file at the next prompt (Pi README, decision 22) |
 | pi | `system_prompt{sessionId, offset?}` (since 1.3) | `{text, offset, totalChars, nextOffset?}`: a page of at most 32,768 UTF-16 units, never cut inside a surrogate pair; `nextOffset` is absent on the last page | `session.systemPrompt`, read-only (Pi README, decision 23) |
-| pi | `read_tree{sessionId, page}` (since 1.3) | `TreeRead{leafId?, total, nodes[], nextCursor?}`: the entries of the session file as the terminal's `/tree` shows them, newest first; a node is `{id, parentId?, itemId, kind, at?, preview, previewCut, label?}` | The store's file read (Pi README decision 25) |
+| pi | `read_tree{sessionId, page}` (since 1.3) | `TreeRead{leafId?, total, nodes[], nextCursor?}`: the entries of the session file as the terminal's `/tree` shows them, newest first; a node is `{id, parentId?, itemId, kind, at?, preview, previewCut, label?}` | The store's file read (Pi README decision 30) |
 | pi | `label_entry{sessionId, entryId, label?}` (since 1.3) | `{}`; a blank or absent label clears | `sessionManager.appendLabelChange` |
 | pi | `abort_branch_summary{sessionId}` (since 1.3) | `{}`, also when nothing was summarising | `AgentSession.abortBranchSummary()` |
-| pi | `run_shell{sessionId, clientRequestId, command, excludeFromContext}` (since 1.3) | `{}` once the command started; it runs as a run with one `bash` tool call | `user_bash`, then `AgentSession.executeBash` (Pi README decision 26) |
+| pi | `run_shell{sessionId, clientRequestId, command, excludeFromContext}` (since 1.3) | `{}` once the command started; it runs as a run with one `bash` tool call | `user_bash`, then `AgentSession.executeBash` (Pi README decision 31) |
 | pi | `take_over{sessionId}` (since 1.2) | `{}` (`TakenOver`) | Marks a session another client made as this bridge's own (`broski.origin`), so it becomes controllable. Refused `busy` while a terminal holds it or its file changed in the last 10 s. The question the app asks says no terminal may be using the session; only the human knows |
 | pi | `export_session{sessionId, format: html\|jsonl}` (since 1.3) | `{exportId, name, mimeType, bytes}` | The terminal's `/export` as HTML, or the session file whole up to its last complete line, written aside on the Mac (`AgentSession.exportToHtml`, pi-coding-agent `src/core/agent-session.ts`) |
 | pi | `export_part{sessionId, exportId, offset}` (since 1.3) | `{offset, data (base64), done}` | The next part of an export; a part is at most `MAX_TRANSFER_PART_BYTES` (512 KiB), so its frame fits the smallest link cap (1 MiB) |

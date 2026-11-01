@@ -1,7 +1,7 @@
 /**
  * A session entry as a node of the tree the phone shows, with the text the terminal's `/tree` shows for it
- * (pi-coding-agent `src/modes/interactive/components/tree-selector.ts:560-640`). Entries that never appear in
- * the terminal's tree (`usage`) or that a newer Pi wrote have no node.
+ * (`getEntryDisplayText`, pi-coding-agent `src/modes/interactive/components/tree-selector.ts:774-861`). Entries that
+ * never appear in the terminal's tree (`usage`) or that a newer Pi wrote have no node.
  */
 
 import type { SessionEntry } from "@earendil-works/pi-coding-agent";

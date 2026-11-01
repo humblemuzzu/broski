@@ -75,7 +75,7 @@ tap finds the conversation.
 | What the core observed | The feed says |
 |---|---|
 | a run is active (`after.run`) | `link_busy true` (idempotent per event, so a session whose track was forgotten, or whose snapshot was replaced by a `resynced`, is busy again) |
-| `run_finished` with outcome `completed` | busy clears (3 s debounce); after 5 s idle one `done`, body = first line of the newest top-level `text` block of the run (an open block is newer than a finished one; thinking and subagent blocks never), `Turn finished` when there is none |
+| `run_finished` with outcome `completed` | busy clears (3 s debounce); after 5 s idle one `done`, body = first line of the newest top-level `text` block of the run (an open block is newer than a finished one; thinking and subagent blocks never); a run with no text, such as a `!` command, is told by its newest top-level call (`bash: npm test`, with `(exit code N)` when that was not 0); `Turn finished` when there is neither. The alert's `at` is the time the core observed the run end |
 | `run_finished` `error` / `limit` | `done` with `Run failed: <code>` / `Run stopped at its <limit> limit` — the backend's message is never quoted |
 | `run_finished` `aborted` / `suspended` / `deferred`, or a `resynced` that drops the run | busy clears, no `done`: the person stopped it, or it will resume |
 | a new run within the 5 s | no `done` (the timer is cleared by the run) |
@@ -132,12 +132,13 @@ The reply goes to `BridgeCore.answer(session, answer)`: a person's answer from o
 It meets the checks a phone's meets — `answerProblem` against the live interaction before any adapter sees it, first answer
 wins, a rejected answer releases the claim — and a deadline (120 s, then `backend_error`). The feed never answers by
 itself: a verdict is the daemon relaying a person's tap. The feed's own record closes at the first decision (as above), so a
-repeat tap is `already answered` before it reaches the core.
+repeat tap is `already answered` before it reaches the core; it opens again when the core could not apply the verdict
+for a passing reason (`busy`, `backend_error`, any rejection but the three below), so the next tap can answer.
 
 | the core's answer | `error` |
 |---|---|
 | accepted | `null` (`ok: true`) |
-| `stale`, `not_found` (answered on a phone meanwhile, withdrawn, the session closed) | `no longer pending` |
+| `stale`, `not_found`, `closed` (answered on a phone meanwhile, withdrawn, the session closed) | `no longer pending`, and the record stays closed |
 | `invalid_input` (`answerProblem` refused it) and any other rejection | the rejection's message |
 
 For a contract record the checks run in this order: `already answered`, `no longer pending` (taken back by the backend or

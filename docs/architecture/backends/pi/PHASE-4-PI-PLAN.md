@@ -140,7 +140,7 @@ Lanes never edit each other's files; a needed change to a shared interface goes 
 
 ### Step 2 — Integration (one delegate)
 
-`pi/backend.ts` + `factory.ts` assembled; `runConformance("pi")` **all 28 rules green**; registered in `server.ts`'s `contract.backends` behind a dev flag (`BROSKI_CONTRACT_PI=1`) so the old Pi path and the new one never open the same session file at once during testing.
+`pi/backend.ts` + `factory.ts` assembled; `runConformance("pi")` **all 29 rules green**; registered in `server.ts`'s `contract.backends` behind a dev flag (`BROSKI_CONTRACT_PI=1`) so the old Pi path and the new one never open the same session file at once during testing.
 
 ### Step 3 — Review and fix (the Phase 1 pattern)
 

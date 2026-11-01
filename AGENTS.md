@@ -17,7 +17,7 @@ Phone (Flutter + Rust core) ←Broski Link (Noise e2e; LAN or relay)→ broski-l
 - **Auth layers:** QR v2 pairing (`broski://pair?v=2&h=<fingerprint>&s=<one-time secret>&e=<expiry>&n=<name>[&r=<relay>][&l=<lan>]`), Noise end-to-end encryption (hybrid X25519 + ML-KEM-768) with the machine fingerprint pinned from the QR, and per-device revocable authorisation on the daemon. Design docs: `docs/architecture/connectivity-v2/`.
 - **693 Dart files** (~147K LOC under `lib/`, of which 32 files and ~14K LOC are the generated contract in `lib/contract/generated/` and 108 files the app core in `lib/agent/`), **577 TypeScript files** (~67K LOC under `packages/bridge/src/`, tests excluded).
 - **OpenCode** is wired to the 1.x SDK (`@opencode-ai/sdk` 1.3.17). The installed OpenCode CLI is 2.x (v2.1.4: new storage under `$XDG_DATA_HOME|~/.local/share/opencode`, one registered service). The integration is slated for a rewrite; until then treat OpenCode behaviour against a 2.x CLI as unverified.
-- **Pi** is served only through the backend contract (`src/backends/pi/`, below); the old Pi protocol (`pi_*`) and the experimental Pi Durable backend (`pd_*`) were deleted on 2026-10-30 (last in `e9d1a10`). The app reaches Pi only from the contract screens until the main screens are routed to them.
+- **Pi** is served only through the backend contract (`src/backends/pi/`, below); the old Pi protocol (`pi_*`) and the experimental Pi Durable backend (`pd_*`) were deleted on 2026-10-30 (last in `e9d1a10`). In the app Pi is a normal backend: it is chosen in the AI Backend picker and its sessions and projects are the Sessions and Projects tabs, drawn by the contract screens of `lib/agent/`.
 
 ### Core features that are INTENTIONAL, not vulnerabilities:
 - **PTY / terminal access from the phone.** This is a primary feature. Users open terminal sessions, type commands, see output. Do NOT flag this as a security issue or suggest blocking it.
@@ -65,8 +65,8 @@ The backend-agnostic contract that replaces the runtime abstraction below lives 
 - **The contract is a leaf**: `src/contract/` imports only `zod` and itself (its `testing/` may add `bun:test`); `src/backends/<id>/` imports only the contract, itself, `zod`, `node:` built-ins (not `node:module`) and its own SDK; no adapter reaches another adapter's directory. Every import specifier is a plain string. `bun run check:layers` enforces it in CI.
 - **Expected failures are values**: every adapter method that can fail returns `{status: "accepted", …} | Rejected`; `status()` never fails (its failures are `issues`). Every wire string, list and map is bounded (`src/contract/limits.ts`).
 - **Generated code is never edited by hand**: `lib/contract/generated/`, `test/contract/generated/`, `test/contract/fixtures/` and `src/contract/contract.schema.json` come from the zod schemas via `bun run contract:gen`; CI runs `bun run contract:check`.
-- **The protocol has a minor** (`PROTOCOL_VERSION`, 1.2): what a later minor added (`ADDED_IN_MINOR`) goes only to a client whose `hello` named it, and an adapter whose backend names a form field `__proto__` maps it to another key (`FieldKey` refuses it).
-- **Every adapter passes the conformance suite** (`runConformance` in `src/contract/testing/`, 28 rules, each proven to fail by the broken adapters in `src/__tests__/contract_negative_*.test.ts`), and every answer goes through `answerProblem` before it reaches a backend.
+- **The protocol has a minor** (`PROTOCOL_VERSION`, 1.3): what a later minor added (`ADDED_IN_MINOR`) goes only to a client whose `hello` named it, and an adapter whose backend names a form field `__proto__` maps it to another key (`FieldKey` refuses it).
+- **Every adapter passes the conformance suite** (`runConformance` in `src/contract/testing/`, 29 rules, each proven to fail by the broken adapters in `src/__tests__/contract_negative_*.test.ts`), and every answer goes through `answerProblem` before it reaches a backend.
 - **Pi's adapter** (`src/backends/pi/`, Phase 4) is the only Pi, registered by default in every bridge, compiled binaries included (`server/contract-backends.ts`); what it is, its decisions and open questions: [`docs/architecture/backends/pi/README.md`](docs/architecture/backends/pi/README.md).
 
 ## Bridge core (the rebuild, Phase 2)
@@ -84,7 +84,7 @@ The core that speaks the contract lives in `packages/bridge/src/core/`; its doc 
 
 ## App core (the rebuild, Phase 3)
 
-The phone side of the contract lives in `lib/agent/`; its doc is [`docs/architecture/app-core/README.md`](docs/architecture/app-core/README.md). It is additive: the old screens keep working, and the new ones are reached only by a long press on the version line in Settings (debug builds). Rules:
+The phone side of the contract lives in `lib/agent/`; its doc is [`docs/architecture/app-core/README.md`](docs/architecture/app-core/README.md). It is additive: the old screens keep working for the old protocol's backends, and a backend the bridge serves through the contract (Pi) is drawn by the new ones, from the AI Backend picker and the Sessions and Projects tabs. Rules:
 
 - **`lib/agent/` never steers by backend.** Branch on `Capabilities`, `SessionCapabilities` and the data. `BackendId` members and backend-id strings appear only in `ui/backend_label.dart`, for display; `AgentType` never appears.
 - **`lib/agent/` imports only** `dart:`, Flutter, Riverpod, the generated contract, itself, the theme, and the named infrastructure `tool/agent_core_check/import_rules.dart` lists, each with a `show` of only the names listed. `dart run tool/check_agent_core.dart` enforces both rules in CI; it catches accidents, not every determined bypass.
@@ -363,7 +363,7 @@ Other files over 400 lines (not tabulated): `lib/theme/themes/all_themes.dart` (
 lib/
   agent/                            ← the app core (Phase 3): contract client, session store, reducer and answer-check ports, generic screens
   screens/                          ← 50 files here (30,029 lines); 197 recursive, 61,735 lines
-    settings/                       ← the version line (`AppVersionLine`, the agent core's hidden entry)
+    settings/                       ← the version line (`AppVersionLine`)
     sheets/                         ← 52 extracted sheets (13,305 lines)
     chat/                           ← 52 extracted chat helpers incl. hydration/ (6,458 lines)
     sessions/                       ← 11 extracted session views (6,016 lines)

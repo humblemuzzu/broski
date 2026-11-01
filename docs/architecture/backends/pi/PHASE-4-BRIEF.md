@@ -10,7 +10,7 @@ The plan, with every design decision (D1–D20) and the file layout: [`PHASE-4-P
 
 ## 2. Sources of truth, in order
 
-1. **The contract**: `packages/bridge/src/contract/*.ts` (the code is the truth) and `docs/architecture/contract/README.md` (the spec). Conformance: `src/contract/testing/` (`runConformance`, the 28 rules in `rules-*.ts`, the reference `fake-backend.ts` and its helpers — the fake is the model of correct adapter behaviour).
+1. **The contract**: `packages/bridge/src/contract/*.ts` (the code is the truth) and `docs/architecture/contract/README.md` (the spec). Conformance: `src/contract/testing/` (`runConformance`, the 29 rules in `rules-*.ts`, the reference `fake-backend.ts` and its helpers — the fake is the model of correct adapter behaviour).
 2. **The pinned SDK, 1.4.0**: `packages/bridge/node_modules/@earendil-works/{pi-coding-agent,pi-agent-core,pi-ai}/` — `dist/**/*.d.ts` for signatures, `dist/**/*.js` for behaviour, `dist/**/*.js.map` `sourcesContent` for the original TypeScript. Docs: `node_modules/@earendil-works/pi-coding-agent/docs/` and `/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/docs/`. Upstream `main` (newer) is at `reference/pi-mono/` — **never** code against `main`; use it only to understand.
 3. **The research reports**: `docs/architecture/backends/pi/research/01..05-*.md`. They are good but written by another model: **verify every fact you rely on against the SDK code** before coding it. If a report is wrong, say so in your final report.
 4. **The core and app-core docs**: `docs/architecture/core/README.md` (esp. §5 sessions, §7 interactions, §8 prompts, §16 how Phase 4 plugs in), `docs/architecture/app-core/README.md`.

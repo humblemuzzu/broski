@@ -1,7 +1,7 @@
 /**
  * A session as the terminal's `/export` renders it. The package exports no renderer, only `AgentSession.exportToHtml`
  * (pi-coding-agent `src/core/agent-session.ts`, which calls `exportSessionToHtml`), and that wants a session over a file
- * on disk (`src/core/export-html/index.ts:165-173`). So the session file is copied aside, opened by a session that
+ * on disk (`src/core/export-html/index.ts:238-251`). So the session file is copied aside, opened by a session that
  * loads no extension, skill, template or tool, and rendered from there: the original is never opened by Pi, and the
  * HTML holds the conversation but not the live session's system prompt, tool list or an extension's own renderers.
  */
