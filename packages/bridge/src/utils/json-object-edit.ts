@@ -30,7 +30,7 @@ export async function editJsonObjectFile(
 	change: JsonObjectChange,
 	options: JsonEditOptions = {},
 ): Promise<JsonEditResult> {
-	const path = given;
+	const path = await realpath(given).catch(() => given);
 	try {
 		for (let attempt = 0; attempt < ATTEMPTS; attempt += 1) {
 			const done = await editOnce(path, change, options);
