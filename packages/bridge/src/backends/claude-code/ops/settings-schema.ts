@@ -7,8 +7,8 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { parseObject } from "../files/json-object";
 import type { ClaudeSdk } from "../ports";
-import { parseObject } from "./json-check";
 
 const SKIPPED = "its content does not satisfy Claude Code's settings schema, so Claude Code would skip the whole file";
 

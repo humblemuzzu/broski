@@ -1,9 +1,9 @@
 /** What a text must be before it may replace a config file: a file Claude Code would skip is never written. */
 
+import { parseObject } from "../files/json-object";
 import { isRecord } from "../json";
 import type { OpsDeps } from "../ports";
 import type { ConfigPlace } from "./config-paths";
-import { parseObject } from "./json-check";
 import { schemaProblem } from "./settings-schema";
 
 /** Why `text` may not be written to `place`, or undefined. */

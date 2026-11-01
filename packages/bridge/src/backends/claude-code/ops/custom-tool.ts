@@ -11,13 +11,13 @@ import {
 	type Rejected,
 } from "../../../contract";
 import { clip } from "../bounds";
+import { parseObject } from "../files/json-object";
 import type { CustomToolsPort, OpsDeps } from "../ports";
 import { rejected } from "../rejections";
 import { NO_PORT } from "./custom-tools";
 import { ABSENT_REVISION, revisionOfText } from "./file-state";
 import { guarded } from "./guard";
 import { messageOf } from "./host-access";
-import { parseObject } from "./json-check";
 import { serialized } from "./serialized";
 
 const MAX_ISSUED = 50;

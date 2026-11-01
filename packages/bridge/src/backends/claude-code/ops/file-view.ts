@@ -2,11 +2,11 @@
 
 import { type EditableFile, MAX_LIST_ITEMS, MAX_PATH_CHARS, MAX_TEXT_CHARS } from "../../../contract";
 import { clip } from "../bounds";
+import { parseObject } from "../files/json-object";
 import type { ConfigPlace } from "./config-paths";
 import { starterText } from "./config-paths";
 import type { Contained } from "./contained-path";
 import type { FileState } from "./file-state";
-import { parseObject } from "./json-check";
 import { SCHEMA_SKIP_PROBLEM } from "./settings-schema";
 
 export interface FileView {

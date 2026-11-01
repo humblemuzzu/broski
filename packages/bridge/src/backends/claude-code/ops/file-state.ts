@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { open, stat } from "node:fs/promises";
 import { MAX_TEXT_CHARS } from "../../../contract";
 import { clip } from "../bounds";
-import { isMissing } from "./contained-path";
+import { isMissing } from "../files/missing";
 
 export const ABSENT_REVISION = "absent";
 /** A UTF-16 unit takes at most three UTF-8 bytes, so a file longer than this cannot fit the contract's text bound. */

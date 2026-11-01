@@ -2,16 +2,13 @@
 
 import { lstat, realpath } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { isMissing } from "../files/missing";
 
 export type Contained = { readonly real: string } | { readonly problem: string };
 
 export function isContained(base: string, target: string): boolean {
 	const inside = relative(base, target);
 	return inside === "" || (inside !== ".." && !inside.startsWith(`..${sep}`) && !isAbsolute(inside));
-}
-
-export function isMissing(error: unknown): boolean {
-	return error instanceof Error && "code" in error && (error.code === "ENOENT" || error.code === "ENOTDIR");
 }
 
 /** The path with its deepest existing ancestor resolved, so a file or directory not made yet still has a real place. */

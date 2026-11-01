@@ -1,6 +1,7 @@
 /** Positional reads of a transcript as it grows, whole lines only; never a whole-file read (research 04 §7 rec. 5). */
 
 import { type FileHandle, open } from "node:fs/promises";
+import { isMissing } from "../files/missing";
 import { JsonlLines } from "./jsonl-lines";
 
 /** What a reset re-reads: the newest bytes of the file, whose lines are told apart by uuid. */
@@ -102,8 +103,4 @@ export class TranscriptTail {
 		}
 		return out;
 	}
-}
-
-function isMissing(error: unknown): boolean {
-	return typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
 }

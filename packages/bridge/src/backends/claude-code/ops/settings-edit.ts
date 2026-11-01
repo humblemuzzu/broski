@@ -1,13 +1,13 @@
 /** Changing one key of a settings file the way the CLI would: every other key kept, strict JSON in and out, atomic. */
 
 import type { Rejected } from "../../../contract";
+import { indentOf, jsonFileText, parseObject } from "../files/json-object";
 import type { ClaudeSdk } from "../ports";
 import { rejected } from "../rejections";
 import type { ConfigPlace } from "./config-paths";
 import { containedPath } from "./contained-path";
 import { readFileState } from "./file-state";
 import { writeIfUnchanged } from "./file-write";
-import { parseObject } from "./json-check";
 import { schemaProblem } from "./settings-schema";
 
 const ATTEMPTS = 3;
@@ -17,13 +17,6 @@ export type SettingsEdit = (root: Record<string, unknown>) => Rejected | undefin
 /** Sets an own property, also one named `__proto__`, which a plain assignment would turn into a prototype. */
 export function setOwn(target: Record<string, unknown>, key: string, value: unknown): void {
 	Object.defineProperty(target, key, { value, enumerable: true, writable: true, configurable: true });
-}
-
-/** The file's own indentation; a file written on one line stays on one line, and a new file gets two spaces. */
-function indentOf(text: string): string | undefined {
-	if (text.trim() === "" || text.trim() === "{}") return "  ";
-	if (!text.trim().includes("\n")) return undefined;
-	return /^([ \t]+)"/m.exec(text)?.[1] ?? "  ";
 }
 
 /** What `edit` leaves of the file at `place`, written back in the file's own indentation. */
@@ -48,7 +41,7 @@ export async function editSettings(
 		if (skipped !== undefined) return rejected("invalid_input", `${place.path}: ${skipped}; fix it first`);
 		const refused = edit(parsed.value);
 		if (refused !== undefined) return refused;
-		const text = `${JSON.stringify(parsed.value, null, indentOf(state.text))}\n`;
+		const text = jsonFileText(parsed.value, indentOf(state.text));
 		if (state.exists && text === state.text) return undefined;
 		const invalid = await schemaProblem(sdk, text);
 		if (invalid !== undefined)

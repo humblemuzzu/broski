@@ -1,7 +1,8 @@
 /** Lane A · a bounded append-only file of JSON lines, which never throws: a write that fails is dropped. */
 
-import { appendFile, mkdir, open, rename, stat, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, open, stat } from "node:fs/promises";
 import { dirname } from "node:path";
+import { writeAtomic } from "../files/atomic-write";
 
 const FILE_MODE = 0o600;
 const DIR_MODE = 0o700;
@@ -46,9 +47,7 @@ export class LineJournal {
 	rewrite(lines: readonly string[]): Promise<void> {
 		return this.enqueue(async () => {
 			await this.prepare();
-			const temporary = `${this.path}.${process.pid}.tmp`;
-			await writeFile(temporary, lines.length === 0 ? "" : `${lines.join("\n")}\n`, { mode: FILE_MODE });
-			await rename(temporary, this.path);
+			await writeAtomic(this.path, lines.length === 0 ? "" : `${lines.join("\n")}\n`, { mode: FILE_MODE });
 		});
 	}
 

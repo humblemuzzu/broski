@@ -1,8 +1,8 @@
 /** Writing a config file the way it can never be left half written or written over a change made meanwhile. */
 
-import { randomBytes } from "node:crypto";
-import { link, mkdir, open, rename, stat, unlink } from "node:fs/promises";
-import { basename, dirname, join } from "node:path";
+import { link, mkdir, rename, stat, unlink } from "node:fs/promises";
+import { basename, dirname } from "node:path";
+import { writeTempBeside } from "../files/atomic-write";
 import { isRejected } from "../rejections";
 import { moveToTrash, type TrashTarget } from "../trash";
 import { ABSENT_REVISION, readFileState } from "./file-state";
@@ -35,23 +35,11 @@ async function replace(real: string, text: string, revision: string): Promise<Wr
 	if (before.exists && !before.faithful) return failed(new Error(`${basename(real)} cannot be rewritten without loss`));
 	await mkdir(dirname(real), { recursive: true });
 	const mode = before.exists ? (await stat(real)).mode & 0o7777 : undefined;
-	const temp = join(dirname(real), `.${basename(real)}.${randomBytes(6).toString("hex")}.tmp`);
+	const temp = await writeTempBeside(real, text, mode);
 	try {
-		await writeTemp(temp, text, mode);
 		return revision === ABSENT_REVISION ? await create(temp, real) : await swap(temp, real, revision);
 	} finally {
 		await unlink(temp).catch(() => undefined);
-	}
-}
-
-async function writeTemp(temp: string, text: string, mode: number | undefined): Promise<void> {
-	const handle = await open(temp, "wx", mode ?? 0o644);
-	try {
-		await handle.writeFile(text, "utf8");
-		if (mode !== undefined) await handle.chmod(mode);
-		await handle.sync();
-	} finally {
-		await handle.close();
 	}
 }
 

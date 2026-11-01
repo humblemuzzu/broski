@@ -1,8 +1,8 @@
 /** Lane C · `initialize` answers by cwd: memory, then `<stateDir>/catalog.json`; 24 h, or until invalidated (D6). */
 
-import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
+import { readFile, stat } from "node:fs/promises";
 import type { SDKControlInitializeResponse } from "@anthropic-ai/claude-agent-sdk";
+import { writeAtomic } from "../files/atomic-write";
 import { CatalogFile, parseInitializeAnswer } from "./catalog-schema";
 
 export const CATALOG_MAX_AGE_MS = 24 * 60 * 60 * 1000;
@@ -121,11 +121,8 @@ export class CatalogCache {
 			cliPath: this.options.cliPath,
 			entries,
 		});
-		const temporary = `${this.options.path}.${process.pid}.tmp`;
 		try {
-			await mkdir(dirname(this.options.path), { recursive: true, mode: 0o700 });
-			await writeFile(temporary, text, { mode: 0o600 });
-			await rename(temporary, this.options.path);
+			await writeAtomic(this.options.path, text, { mode: 0o600, dirMode: 0o700 });
 		} catch {
 			// The cache is memory-only until the directory is writable again.
 		}

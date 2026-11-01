@@ -13,7 +13,11 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { installTerminalHook, removeTerminalHook } from "../../../backends/claude-code/terminal/hook-install";
+import {
+	installTerminalHook,
+	MAX_SETTINGS_BYTES,
+	removeTerminalHook,
+} from "../../../backends/claude-code/terminal/hook-install";
 import { type HookSpec, TERMINAL_HOOK_TIMEOUT_SECONDS } from "../../../backends/claude-code/terminal/hook-settings";
 
 let root: string;
@@ -237,6 +241,22 @@ describe("refusing a settings file it cannot edit safely", () => {
 		writeFileSync(join(root, "blocker"), "x");
 		const result = await installTerminalHook(join(root, "blocker", "nested"), SPEC);
 		expect(result.status).toBe("refused");
+	});
+
+	test("a settings file past the size bound is refused unread, and left as it is", async () => {
+		const content = `{"model": "opus", "padding": "${"x".repeat(MAX_SETTINGS_BYTES)}"}`;
+		writeFileSync(settingsPath, content);
+		const installed = await installTerminalHook(root, SPEC);
+		expect(installed.status).toBe("refused");
+		expect(installed.status === "refused" && installed.reason).toContain("larger than");
+		expect((await removeTerminalHook(root)).status).toBe("refused");
+		expect(readFileSync(settingsPath, "utf8")).toBe(content);
+	});
+
+	test("a file that starts with a byte order mark is read like the CLI reads it, and its keys are kept", async () => {
+		writeFileSync(settingsPath, '\uFEFF{\n  "model": "opus"\n}\n');
+		expect((await installTerminalHook(root, SPEC)).status).toBe("installed");
+		expect(read().model).toBe("opus");
 	});
 
 	test("a URL that is not the loopback hook URL is refused", async () => {

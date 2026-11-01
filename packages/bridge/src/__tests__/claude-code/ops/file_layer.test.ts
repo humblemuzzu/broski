@@ -17,10 +17,10 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { jsonProblem } from "../../../backends/claude-code/files/json-object";
 import { containedPath } from "../../../backends/claude-code/ops/contained-path";
 import { ABSENT_REVISION, readFileState, revisionOfText } from "../../../backends/claude-code/ops/file-state";
 import { trashIfUnchanged, writeIfUnchanged } from "../../../backends/claude-code/ops/file-write";
-import { jsonProblem } from "../../../backends/claude-code/ops/json-check";
 import { trashTargetOf } from "../../../backends/claude-code/trash";
 
 const roots: string[] = [];
