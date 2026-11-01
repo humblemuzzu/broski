@@ -7,6 +7,7 @@ import { userItemId } from "../ids";
 import type { MappedEvent } from "../ports/mapping";
 import { fileChangesOf } from "./file-changes";
 import { imageRefsOf } from "./images";
+import { refusedToolUseIds } from "./result-meta";
 import { fanOut, placementOf } from "./routing";
 import type { MapperState } from "./state";
 import { endTool } from "./tool-calls";
@@ -41,12 +42,14 @@ function toolResultEvents(
 	results: ReturnType<typeof toolResults>,
 ): MappedEvent[] {
 	const structured = results.length === 1 ? frame.tool_use_result : undefined;
+	const refused = refusedToolUseIds(frame);
 	return results.flatMap(({ block, index }) => {
 		const id = wireToolCallId(block.tool_use_id);
 		const open = id === undefined ? undefined : state.openTools.get(id);
 		if (id === undefined || open === undefined) return [];
 		const mapped = toolResultOf(block, structured, { entryUuid: frame.uuid ?? "", blockIndex: index }, open.name);
-		const outcome = mapped.outcome === "failed" && state.denied.has(id) ? "denied" : mapped.outcome;
+		const deniedHere = state.denied.has(id) || refused.has(block.tool_use_id);
+		const outcome = mapped.outcome === "failed" && deniedHere ? "denied" : mapped.outcome;
 		const changes =
 			mapped.outcome === "completed" && mapped.result.fileChanges.length === 0
 				? fileChangesOf(open.name, open.input, structured)

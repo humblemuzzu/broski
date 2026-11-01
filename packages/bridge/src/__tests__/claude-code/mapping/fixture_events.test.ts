@@ -27,7 +27,11 @@ const MAIN_STREAMS: readonly [scenario: string, shape: string, note: string][] =
 	["tool-read", TOOL_THEN_ANSWER("completed"), "a Read call and its result, then the answer"],
 	["steer-next", TOOL_THEN_ANSWER("completed"), "the steer is the host's; the frames are one turn"],
 	["permission-allow", TOOL_THEN_ANSWER("completed"), "the ask is the desk's: only the Write call shows"],
-	["permission-deny", TOOL_THEN_ANSWER("failed"), "a person's deny message reads as failed (see tool_results.test.ts)"],
+	[
+		"permission-deny",
+		TOOL_THEN_ANSWER("denied"),
+		"the live frame's tool_result_meta says reject, whatever words the person's deny message used",
+	],
 	["ask-user-question", TOOL_THEN_ANSWER("completed"), "AskUserQuestion is a tool call like any other"],
 	["elicitation-form", TOOL_THEN_ANSWER("completed"), "the elicitation is the desk's"],
 	["elicitation-url", TOOL_THEN_ANSWER("completed"), "the elicitation is the desk's"],
@@ -73,10 +77,10 @@ describe("what each scenario shows", () => {
 		});
 	}
 
-	test("exit-plan-deny: the denied ExitPlanMode fails with the person's feedback", () => {
+	test("exit-plan-deny: the rejected ExitPlanMode is denied (tool_result_meta), with the person's feedback", () => {
 		const events = playFixture("exit-plan-deny").streams.get("");
 		const ended = ofType(events, "tool_finished");
-		expect(ended.map((event) => event.outcome)).toEqual(["completed", "failed"]);
+		expect(ended.map((event) => event.outcome)).toEqual(["completed", "denied"]);
 		expect(ended[1]?.result.error).toBe("Add a test step first.");
 	});
 });
