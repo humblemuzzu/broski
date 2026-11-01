@@ -53,7 +53,8 @@ describe("compaction on the real CLI", () => {
 				const events = live
 					.events()
 					.slice(mark)
-					.map((event) => event.type);
+					.map((event) => event.type)
+					.filter((type) => type !== "usage_updated");
 				expect(events).toEqual(["run_started", "compaction_started", "compaction_finished", "run_finished"]);
 				live.assertSettled();
 				expect([rig.server.served("main"), rig.server.served("compact")]).toEqual([1, 1]);

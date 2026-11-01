@@ -5,6 +5,7 @@ import type { AskDesk } from "../ports/asks";
 import type { LiveDeps } from "../ports/deps";
 import type { SessionEmitter } from "../ports/live";
 import type { ChildRouter } from "./child-router";
+import { reportContextAfterRun } from "./context-after-run";
 import { FrameHandler } from "./frame-handler";
 import type { MappedRouting } from "./mapped-routing";
 import type { ProcessSlot } from "./process-slot";
@@ -50,6 +51,8 @@ export function runEndOf(host: HostParts, prompts: PromptDesk): RunEndDeps {
 		mapper: () => host.routing.current,
 		emitMapped: (events) => host.routing.emit(events),
 		finished: () => host.rowChanged(),
+		measureContext: () =>
+			reportContextAfterRun({ live: host.live, query: () => host.slot.alive?.query, closed: () => host.ended }),
 	};
 }
 

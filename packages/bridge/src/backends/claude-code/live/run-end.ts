@@ -22,6 +22,8 @@ export interface RunEndDeps {
 	readonly emitMapped: (events: readonly MappedEvent[]) => void;
 	/** The session's file changed and its row did too (running to idle). */
 	readonly finished: () => void;
+	/** Asks the live host for its context figure once `run_finished` is out (`context-after-run.ts`). */
+	readonly measureContext: () => void;
 }
 
 /**
@@ -43,6 +45,7 @@ export function endRun(deps: RunEndDeps, outcome?: RunOutcome): void {
 	attempt(live, "closing a compaction", () => closeOpenParts(live, final));
 	deps.runs.finish(final);
 	deps.finished();
+	attempt(live, "asking for the context usage", deps.measureContext);
 	if (run.aborting) {
 		returnQueued(deps.queue, deps.live);
 		return;
