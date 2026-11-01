@@ -84,14 +84,6 @@ export class InputQueue {
 		return held?.send;
 	}
 
-	/** Steered sends the CLI never reported delivered; the run is over, so they will not be. */
-	takeSteered(): PreparedSend[] {
-		const sends = this.steered.map((held) => held.send);
-		this.steered = [];
-		if (sends.length > 0) this.emit();
-		return sends;
-	}
-
 	/** Everything not delivered, steering first, for `input_returned`; the queue is empty afterwards. */
 	takeAll(): PreparedSend[] {
 		const all = [...this.steered, ...this.pending].map((held) => held.send);

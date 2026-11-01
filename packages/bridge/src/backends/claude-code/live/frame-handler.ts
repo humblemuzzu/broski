@@ -4,6 +4,8 @@
  */
 
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
+import { MAX_TEXT_CHARS } from "../../../contract";
+import { clip } from "../bounds";
 import type { AskDesk } from "../ports/asks";
 import type { CatalogueAccess } from "../ports/catalogue";
 import type { SessionEmitter } from "../ports/live";
@@ -139,8 +141,16 @@ export class FrameHandler {
 			if (frame.state === "started") runs.markStarted();
 			return;
 		}
+		if (frame.state !== "cancelled") return;
 		const run = runs.current;
-		if (frame.state === "cancelled" && run?.aborting && !run.started) this.deps.cancelledBeforeStart();
+		if (run?.aborting) {
+			if (!run.started) this.deps.cancelledBeforeStart();
+			return;
+		}
+		const dropped = queue.settleSteered(frame.commandUuid);
+		if (dropped && dropped.typedText !== "") {
+			live.emit({ type: "input_returned", texts: [clip(dropped.typedText, MAX_TEXT_CHARS)] });
+		}
 	}
 
 	private show(frame: SDKMessage): void {

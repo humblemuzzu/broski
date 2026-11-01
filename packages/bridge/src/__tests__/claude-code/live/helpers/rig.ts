@@ -119,7 +119,7 @@ function parts(options: RigOptions, sdk: ClaudeSdk) {
 		ownership: standInOwnership(),
 		catalogue: options.catalogue ?? standInCatalogue(),
 		mapping: options.mapping ?? standInMapping(),
-		desk: options.desk ?? standInDesk(),
+		desk: options.createDesk ? { ...standInDesk(), factory: options.createDesk } : (options.desk ?? standInDesk()),
 	};
 }
 

@@ -1,7 +1,6 @@
 /** What a run's end closes, in the order the stream rules need, before `run_finished` (D7). */
 
-import { type CompactionOutcome, MAX_TEXT_CHARS, type RunOutcome } from "../../../contract";
-import { clip } from "../bounds";
+import type { CompactionOutcome, RunOutcome } from "../../../contract";
 import type { AskDesk } from "../ports/asks";
 import type { SessionEmitter } from "../ports/live";
 import type { FrameMapper, MappedEvent } from "../ports/mapping";
@@ -48,7 +47,6 @@ export function endRun(deps: RunEndDeps, outcome?: RunOutcome): void {
 		returnQueued(deps.queue, deps.live);
 		return;
 	}
-	handBackSteered(deps);
 	deps.prompts.dispatchNext();
 }
 
@@ -60,12 +58,4 @@ function closeOpenParts(live: SessionEmitter, outcome: RunOutcome): void {
 			outcome.kind === "aborted" ? { kind: "aborted" } : { kind: "failed", message: "the compaction did not finish" };
 		live.emit({ type: "compaction_finished", outcome: finished });
 	}
-}
-
-function handBackSteered(deps: RunEndDeps): void {
-	const texts = deps.queue
-		.takeSteered()
-		.map((send) => clip(send.typedText, MAX_TEXT_CHARS))
-		.filter((text) => text !== "");
-	if (texts.length > 0) deps.live.emit({ type: "input_returned", texts });
 }

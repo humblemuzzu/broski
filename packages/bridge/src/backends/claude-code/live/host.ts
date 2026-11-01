@@ -64,6 +64,7 @@ export class SessionHost {
 	readonly slot: ProcessSlot;
 	private sink: SessionSink | undefined;
 	private persisted: boolean;
+	private launched = 0;
 	private finished = false;
 	private readonly watch: IdleWatch;
 
@@ -252,22 +253,36 @@ export class SessionHost {
 	private processSlot(): ProcessSlot {
 		return new ProcessSlot({
 			sdk: this.deps.services.sdk,
-			launch: () =>
-				launchOptions({
-					services: this.deps.services,
-					cwd: this.cwd,
-					sessionId: this.id,
-					resume: this.persisted,
-					snapshot: this.state.snapshot(),
-					explicitModel: this.settings.explicitModel,
-					desk: this.desk,
-				}),
+			launch: () => this.launchOptions(),
 			finished: () => this.finished,
 			frame: (message) => this.frames.handle(message),
 			fault: (error) => this.fault(`a frame could not be handled: ${errorText(error)}`),
 			ended: (process, error) => this.processEnded(process, error),
 			initialized: (init) => this.deps.catalogue.observe(this.cwd, init),
 		});
+	}
+
+	/** A process started again resumes a session the CLI wrote, even when no `init` was seen before it ended. */
+	private async launchOptions() {
+		const restart = this.launched++ > 0;
+		const resume = this.persisted || (restart && (await this.onDisk()));
+		return launchOptions({
+			services: this.deps.services,
+			cwd: this.cwd,
+			sessionId: this.id,
+			resume,
+			snapshot: this.state.snapshot(),
+			explicitModel: this.settings.explicitModel,
+			desk: this.desk,
+		});
+	}
+
+	private async onDisk(): Promise<boolean> {
+		try {
+			return !isRejected(await this.deps.store.locate(this.id));
+		} catch {
+			return false;
+		}
 	}
 
 	private processEnded(process: HostProcess, error: unknown): void {

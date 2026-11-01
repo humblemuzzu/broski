@@ -308,21 +308,61 @@ describe("lifecycle frames (D8)", () => {
 		await rig.dispose();
 	});
 
-	test("steered input the CLI never delivered goes back to the person when the run ends", async () => {
+	test("steered input the CLI cancelled goes back to the person at once; the run goes on", async () => {
 		const { rig, query, live } = await hosted();
 		const steer = promptOf("never delivered", "steer");
 		await live.control.prompt(promptOf("work"));
 		await live.control.prompt(steer);
-		query.push(running(), lifecycle("cancelled", steer.clientRequestId), result(), idle());
+		query.push(running(), lifecycle("cancelled", steer.clientRequestId));
 		await flush();
 		expect(
 			live
 				.events()
-				.slice(-3)
+				.slice(-2)
 				.map((event) => event.type),
-		).toEqual(["run_finished", "queue_changed", "input_returned"]);
+		).toEqual(["queue_changed", "input_returned"]);
 		expect(live.events().at(-1)).toEqual({ type: "input_returned", texts: ["never delivered"] });
 		expect(live.reduced().queue).toEqual([]);
+		expect(live.reduced().run).toBeDefined();
+		await rig.dispose();
+	});
+
+	test("steered input the CLI has not reported when the run ends stays queued; the run it starts shows it", async () => {
+		const { rig, query, live } = await hosted();
+		const steer = promptOf("late steer", "steer");
+		await live.control.prompt(promptOf("work"));
+		await live.control.prompt(steer);
+		query.push(running(), result(), idle());
+		await flush();
+		expect(live.reduced().queue.map((item) => item.delivery)).toEqual(["steer"]);
+		expect(live.events().some((event) => event.type === "input_returned")).toBe(false);
+		query.push(running(), lifecycle("started", steer.clientRequestId), result(), idle());
+		await flush();
+		expect(live.reduced().queue).toEqual([]);
+		const shown = live.events().filter((event) => event.type === "user_message");
+		expect(shown.map((event) => event.type === "user_message" && event.text)).toEqual(["work", "late steer"]);
+		expect(live.events().filter((event) => event.type === "run_started")).toHaveLength(2);
+		await rig.dispose();
+	});
+
+	test("a Stop with no run gives back input left queued, and says nothing when there is none", async () => {
+		const { rig, query, live } = await hosted();
+		const steer = promptOf("stranded", "steer");
+		await live.control.prompt(promptOf("work"));
+		await live.control.prompt(steer);
+		query.push(running(), result(), idle());
+		await flush();
+		const mark = live.recorder.items.length;
+		expect((await live.control.abort()).status).toBe("accepted");
+		expect(
+			live
+				.events()
+				.slice(mark)
+				.map((event) => event.type),
+		).toEqual(["queue_changed", "input_returned"]);
+		const quiet = live.recorder.items.length;
+		await live.control.abort();
+		expect(live.recorder.items.length).toBe(quiet);
 		await rig.dispose();
 	});
 

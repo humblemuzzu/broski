@@ -238,6 +238,26 @@ describe("the options of a resumed host", () => {
 		expect(rig.sdk.started[2]?.options.sessionId).toBeUndefined();
 		await rig.dispose();
 	});
+
+	test("a restarted host resumes a session found on disk even when no init was seen before the CLI ended", async () => {
+		const dir = tempDir();
+		const first = new FakeQuery();
+		const rig = fakeRig([first, new FakeQuery()]);
+		const live = await rig.openNew(dir);
+		rig.sdk.getSessionInfo = async () => ({ sessionId: live.ref.sessionId, summary: "x", lastModified: 1, cwd: dir });
+		first.end();
+		await Bun.sleep(20);
+		await live.control.prompt({
+			clientRequestId: crypto.randomUUID(),
+			mode: "start",
+			text: "go",
+			attachments: [],
+			mentions: [],
+		});
+		expect(rig.sdk.started[1]?.options).toMatchObject({ resume: live.ref.sessionId });
+		expect(rig.sdk.started[1]?.options.sessionId).toBeUndefined();
+		await rig.dispose();
+	});
 });
 
 describe("ids that are not sessions", () => {

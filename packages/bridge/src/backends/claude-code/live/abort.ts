@@ -30,10 +30,16 @@ export function returnQueued(queue: InputQueue, live: SessionEmitter): void {
 	if (texts.length > 0) live.emit({ type: "input_returned", texts });
 }
 
-/** Ends the active run; accepted and without effect when there is none. Does not wait for the run to end. */
+/**
+ * Ends the active run; accepted and without effect when there is none, except that input left queued with no run to
+ * deliver it goes back to the person. Does not wait for the run to end.
+ */
 export async function abortRun(deps: AbortDeps): Promise<ActionResult> {
 	if (deps.closed()) return CLOSED;
-	if (!deps.runs.current) return ACCEPTED;
+	if (!deps.runs.current) {
+		returnQueued(deps.queue, deps.live);
+		return ACCEPTED;
+	}
 	deps.runs.markAborting();
 	const query = deps.query();
 	if (query) await interruptOrKill(deps, query);
