@@ -9,8 +9,10 @@ import { setClaudeExecutableProvider } from "../../src/connectors/claude-code/ex
 import { claudeTestEnv, createClaudeHome } from "../../src/__tests__/helpers/claude-home";
 import { serveScriptedAnthropic } from "../../src/__tests__/helpers/scripted-anthropic-server";
 import type { ClaudeCliPath } from "../../src/server/claude-cli-path";
+import { refuseRealHome } from "./temp-home-guard";
 
 export async function runOldPath(cli: () => ClaudeCliPath): Promise<Record<string, unknown>> {
+	refuseRealHome("compiled-probe --old-path");
 	setClaudeExecutableProvider(cli);
 	const server = serveScriptedAnthropic([{ text: ["Hello from the old path."] }]);
 	const home = createClaudeHome({ git: false });

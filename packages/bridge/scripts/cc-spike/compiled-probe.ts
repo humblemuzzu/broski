@@ -13,12 +13,14 @@ import { claudeTestEnv, createClaudeHome } from "../../src/__tests__/helpers/cla
 import { serveScriptedAnthropic } from "../../src/__tests__/helpers/scripted-anthropic-server";
 import { claudeCliPathOnce } from "../../src/server/claude-cli-path";
 import { runOldPath } from "./compiled-probe-old-path";
+import { refuseRealHome } from "./temp-home-guard";
 
 async function* onePrompt(): AsyncGenerator<SDKUserMessage> {
 	yield { type: "user", message: { role: "user", content: "say hello" }, parent_tool_use_id: null, origin: { kind: "human" } };
 	await new Promise(() => {});
 }
 
+refuseRealHome("compiled-probe");
 const started = performance.now();
 const resolveStarted = performance.now();
 const resolveCli = claudeCliPathOnce();
