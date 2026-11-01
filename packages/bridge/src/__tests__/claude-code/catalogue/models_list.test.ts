@@ -10,9 +10,9 @@ function wireOf(row: ModelInfo): string {
 }
 
 describe("the model list", () => {
-	test("lists the five rows as valid, unique contract models with exactly one default", () => {
+	test("lists the rows as valid, unique contract models with exactly one default", () => {
 		const models = modelSummaries(FIVE_MODELS);
-		expect(models.map((model) => model.id).sort()).toEqual(["default", "fable", "haiku", "opus", "sonnet"]);
+		expect(models.map((model) => model.id)).toEqual(["default", "fable", "sonnet", "haiku"]);
 		for (const model of models) expect(ModelSummary.safeParse(model).success).toBe(true);
 		expect(models.filter((model) => model.isDefault).map((model) => model.id)).toEqual(["default"]);
 		expect(models.find((model) => model.id === "sonnet")).toMatchObject({
@@ -21,15 +21,23 @@ describe("the model list", () => {
 		});
 	});
 
-	test("puts rows whose wire id is their own before the aliases that share one (conformance rule 20)", () => {
+	test("keeps the CLI's order, Default first, and drops a row that runs the Default row's model (conformance rule 20)", () => {
 		const rows = listedRows(FIVE_MODELS);
-		expect(rows.map((row) => row.value)).toEqual(["fable", "sonnet", "haiku", "default", "opus"]);
+		expect(rows.map((row) => row.value)).toEqual(["default", "fable", "sonnet", "haiku"]);
 		const [first, second] = rows;
 		if (!first || !second) throw new Error("fewer than two rows");
-		const sharing = (row: ModelInfo) => FIVE_MODELS.filter((other) => wireOf(other) === wireOf(row)).length;
 		expect(wireOf(first)).not.toBe(wireOf(second));
-		expect(sharing(first)).toBe(1);
-		expect(sharing(second)).toBe(1);
+		expect(new Set(rows.map(wireOf)).size).toBe(rows.length);
+	});
+
+	test("keeps two other rows that share a wire id, and every row when the CLI names no default row", () => {
+		const twins: ModelInfo[] = [
+			...FIVE_MODELS,
+			{ value: "sonnet-latest", resolvedModel: "claude-sonnet-5-5", displayName: "S", description: "" },
+		];
+		expect(listedRows(twins).map((row) => row.value)).toEqual(["default", "fable", "sonnet", "haiku", "sonnet-latest"]);
+		const noDefault = FIVE_MODELS.filter((row) => row.value !== "default");
+		expect(listedRows(noDefault).map((row) => row.value)).toEqual(["opus", "fable", "sonnet", "haiku"]);
 	});
 
 	test("keeps the CLI's order when every row has a wire id of its own", () => {
@@ -44,6 +52,11 @@ describe("the model list", () => {
 		];
 		expect(listedRows(rows).map((row) => row.value)).toEqual(["a", "b"]);
 		expect(listedModelIdOf(rows, "a")).toBe("a");
+		const defaulted: ModelInfo[] = [
+			{ value: "default", displayName: "D", description: "" },
+			{ value: "x", resolvedModel: "default", displayName: "X", description: "" },
+		];
+		expect(listedRows(defaulted).map((row) => row.value)).toEqual(["default"]);
 	});
 
 	test("drops repeated values and ids that cannot be ids, and omits an empty description", () => {
@@ -72,7 +85,7 @@ describe("listedModelIdOf", () => {
 		expect(listedModelIdOf(FIVE_MODELS, "haiku")).toBe("haiku");
 	});
 
-	test("a wire id several rows share goes to the first of them listed, the CLI's default row", () => {
+	test("the Default row's wire id goes to the Default row, the one listed for it", () => {
 		expect(listedModelIdOf(FIVE_MODELS, "claude-opus-5-5")).toBe("default");
 	});
 

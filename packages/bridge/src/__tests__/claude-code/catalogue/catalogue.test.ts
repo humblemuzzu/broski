@@ -237,8 +237,9 @@ describe("observe", () => {
 describe("model lookups", () => {
 	test("model() finds a listed model, and is undefined for one the list does not offer", async () => {
 		const rig = rigOf({ queries: scripted(1) });
-		const found = await rig.catalogue.model("/p", "opus");
-		expect(found && !isRejected(found) && found.id).toBe("opus");
+		const found = await rig.catalogue.model("/p", "sonnet");
+		expect(found && !isRejected(found) && found.id).toBe("sonnet");
+		expect(await rig.catalogue.model("/p", "opus")).toBeUndefined();
 		expect(await rig.catalogue.model("/p", "claude-opus-4-1")).toBeUndefined();
 		expect(await rig.catalogue.model("/p", "not-a-model")).toBeUndefined();
 	});

@@ -13,10 +13,9 @@ function wireOf(row: ModelInfo): string {
 }
 
 /**
- * Rows the phone may choose, once each. A row whose wire id no other row shares comes before the aliases that share
- * one (`default` and `opus` both resolve to `claude-opus-5-5`), so a request's wire model names its row, which the
- * conformance suite's `echo_model` reads off the first two listed models (STEP-3 §11). The CLI's order is kept inside
- * both groups.
+ * Rows the phone may choose, once each, in the CLI's own order ("Default (recommended)" first). A row that runs the
+ * Default row's model (`opus` resolves to `claude-opus-5-5` as `default` does) is left out, so the phone never shows
+ * one model twice and a request's wire model names its row (D120, conformance rule 20).
  */
 export function listedRows(models: readonly ModelInfo[]): ModelInfo[] {
 	const rows: ModelInfo[] = [];
@@ -26,10 +25,9 @@ export function listedRows(models: readonly ModelInfo[]): ModelInfo[] {
 		seen.add(row.value);
 		rows.push(row);
 	}
-	const sharing = new Map<string, number>();
-	for (const row of rows) sharing.set(wireOf(row), (sharing.get(wireOf(row)) ?? 0) + 1);
-	const own = rows.filter((row) => sharing.get(wireOf(row)) === 1);
-	return [...own, ...rows.filter((row) => sharing.get(wireOf(row)) !== 1)];
+	const defaultRow = rows.find((row) => row.value === DEFAULT_ROW);
+	if (defaultRow === undefined) return rows;
+	return rows.filter((row) => row === defaultRow || wireOf(row) !== wireOf(defaultRow));
 }
 
 export function modelSummary(row: ModelInfo): ModelSummary {

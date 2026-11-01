@@ -44,13 +44,13 @@ async function initOf(w: RealWorld): Promise<SDKControlInitializeResponse> {
 
 describe("models and thinking", () => {
 	test(
-		"the five built-in rows list with effort low to max, one default, and the first two on wire ids of their own",
+		"the built-in rows list in the CLI's order with effort low to max, one default, and no model twice",
 		async () => {
 			const w = world();
 			const init = await initOf(w);
 			const listed = await w.catalogue.models(w.home.projectDir);
 			if (listed.status !== "accepted") throw new Error("not listed");
-			expect(listed.models.map((model) => model.id).sort()).toEqual(["default", "fable", "haiku", "opus", "sonnet"]);
+			expect(listed.models.map((model) => model.id)).toEqual(["default", "fable", "sonnet", "haiku"]);
 			expect(listed.models.filter((model) => model.isDefault).map((model) => model.id)).toEqual(["default"]);
 			for (const model of listed.models) {
 				expect(model.thinking.options.map((option) => option.value)).toEqual(["low", "medium", "high", "xhigh", "max"]);
@@ -58,11 +58,10 @@ describe("models and thinking", () => {
 			const wire = (id: string) => init.models.find((row) => row.value === id)?.resolvedModel;
 			const [first, second] = listed.models;
 			expect(wire(first?.id ?? "")).not.toBe(wire(second?.id ?? ""));
-			for (const lead of [first, second]) {
-				const sharing = init.models.filter((row) => row.resolvedModel === wire(lead?.id ?? ""));
-				expect(sharing).toHaveLength(1);
-			}
+			expect(new Set(listed.models.map((model) => wire(model.id))).size).toBe(listed.models.length);
+			expect(init.models.map((row) => row.value)).toEqual(["default", "opus", "fable", "sonnet", "haiku"]);
 			expect(wire("default")).toBe(wire("opus"));
+			expect(await w.catalogue.listedModelId(w.home.projectDir, wire("opus") ?? "")).toBe("default");
 			expect(await w.catalogue.listedModelId(w.home.projectDir, wire("sonnet") ?? "")).toBe("sonnet");
 		},
 		CLI_TEST_MS,
