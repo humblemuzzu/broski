@@ -35,6 +35,7 @@ import {
 	transcriptPagesConcatenate,
 } from "./rules-sessions";
 import { compactionRuns, modelAndThinkingCanBeSet, modesCanBeSet } from "./rules-settings";
+import { watchedAsksAreAnsweredOnce } from "./rules-watched-asks";
 
 export interface ConformanceRule {
 	readonly name: string;
@@ -84,6 +85,10 @@ export const CONFORMANCE_RULES: readonly ConformanceRule[] = [
 	{
 		name: "editable files are written only at their revision, and a JSON file only when it parses",
 		check: editableFilesKeepTheirRevision,
+	},
+	{
+		name: "a watched session that takes answers checks them and resolves its ask once",
+		check: watchedAsksAreAnsweredOnce,
 	},
 ];
 

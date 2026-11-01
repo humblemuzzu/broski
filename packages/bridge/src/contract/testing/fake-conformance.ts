@@ -51,6 +51,13 @@ function fakeDriver(first: FakeBackend): ConformanceDriver {
 			backend.fake.runExternally(session, "From the terminal.", [{ kind: "text", text: "Done there." }]);
 			return true;
 		},
+		watchedAsk: async () => {
+			const steps = scenarioSteps(backend.traits, { kind: "interaction", interaction: "tool_permission" });
+			if (!steps) return undefined;
+			const session = backend.fake.seed({ cwd: FAKE_CWD, external: true, answerable: true });
+			backend.fake.runExternally(session, "From the terminal.", steps);
+			return session;
+		},
 		restart: async (host: BackendHost) => {
 			backend = await backend.fake.restart(host);
 			return backend;
