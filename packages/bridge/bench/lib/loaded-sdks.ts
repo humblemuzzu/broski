@@ -1,4 +1,4 @@
-const SDK_PACKAGE_PATTERN = /node_modules\/(@anthropic-ai\/[^/]+|@opencode-ai\/[^/]+|@earendil-works\/[^/]+)\//;
+const SDK_PACKAGE_PATTERN = /node_modules\/(@anthropic-ai\/[^/]+|@earendil-works\/[^/]+)\//;
 
 /** Which agent SDK packages the current process has evaluated, by package directory name. */
 export function loadedAgentSdkPackages(): string[] {

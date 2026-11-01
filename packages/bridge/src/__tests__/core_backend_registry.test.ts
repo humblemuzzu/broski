@@ -30,14 +30,14 @@ describe("the backend registry", () => {
 	test("starts a backend with a host whose catalog news carries the backend's id, and announces it", async () => {
 		const { registry: backends, news, arrivals } = registry();
 		let started: ReturnType<typeof createFakeBackend> | undefined;
-		expect(await backends.add("codex", async (host) => (started = createFakeBackend(host, { id: "codex" })))).toBe(
-			true,
-		);
+		expect(
+			await backends.add("claude-code", async (host) => (started = createFakeBackend(host, { id: "claude-code" }))),
+		).toBe(true);
 		started?.fake.seed({ cwd: "/p" });
-		expect(news.map(([backend, event]) => [backend, event.type])).toEqual([["codex", "session_updated"]]);
-		expect(backendOf(await backends.reach("codex"))).toBe(started);
-		expect(backends.descriptors().map((descriptor) => descriptor.id)).toEqual(["codex"]);
-		expect(arrivals).toEqual(["codex"]);
+		expect(news.map(([backend, event]) => [backend, event.type])).toEqual([["claude-code", "session_updated"]]);
+		expect(backendOf(await backends.reach("claude-code"))).toBe(started);
+		expect(backends.descriptors().map((descriptor) => descriptor.id)).toEqual(["claude-code"]);
+		expect(arrivals).toEqual(["claude-code"]);
 	});
 
 	test("refuses a second backend under one id, and disposes one whose factory made another backend", async () => {
@@ -46,16 +46,16 @@ describe("the backend registry", () => {
 		expect(() => backends.add("pi", async (host) => createFakeBackend(host))).toThrow("registered twice");
 		let disposed = 0;
 		expect(
-			await backends.add("codex", async (host) => ({
-				...createFakeBackend(host, { id: "opencode" }),
+			await backends.add("claude-code", async (host) => ({
+				...createFakeBackend(host, { id: "pi-durable" }),
 				dispose: async () => void disposed++,
 			})),
 		).toBe(false);
 		expect(disposed).toBe(1);
-		expect(missingOf(await backends.reach("codex"))).toBe(
-			"the codex backend did not start: the factory made a opencode backend",
+		expect(missingOf(await backends.reach("claude-code"))).toBe(
+			"the claude-code backend did not start: the factory made a pi-durable backend",
 		);
-		expect(log.errors.some((line) => line.includes("made a opencode backend"))).toBe(true);
+		expect(log.errors.some((line) => line.includes("made a pi-durable backend"))).toBe(true);
 	});
 
 	test("goes on without a backend whose factory fails, and says why to whoever asks for it", async () => {
@@ -71,10 +71,10 @@ describe("the backend registry", () => {
 			"the claude-code backend did not start: Error: not installed",
 		);
 		expect(missingOf(await backends.reach("pi"))).toBe("no pi backend is registered");
-		await backends.add("codex", async () => {
+		await backends.add("pi-durable", async () => {
 			throw new Error("y".repeat(10_000));
 		});
-		expect(missingOf(await backends.reach("codex"))?.length).toBeLessThan(4_200);
+		expect(missingOf(await backends.reach("pi-durable"))?.length).toBeLessThan(4_200);
 	});
 
 	test("a request for a backend still starting waits for it, but no longer than the start may take", async () => {
@@ -92,14 +92,14 @@ describe("the backend registry", () => {
 		expect(clock.pending()).toBe(0);
 
 		const slow = Promise.withResolvers<AgentBackend>();
-		const slowAdding = backends.add("codex", () => slow.promise);
-		const waiting = backends.reach("codex");
+		const slowAdding = backends.add("claude-code", () => slow.promise);
+		const waiting = backends.reach("claude-code");
 		clock.advance(BACKEND_START_WAIT_MS);
-		expect(missingOf(await waiting)).toBe("the codex backend is still starting");
-		expect(missingOf(await backends.reach("codex"))).toBe("the codex backend is still starting");
-		slow.resolve(createFakeBackend({ catalog: { emit: () => {} } }, { id: "codex" }));
+		expect(missingOf(await waiting)).toBe("the claude-code backend is still starting");
+		expect(missingOf(await backends.reach("claude-code"))).toBe("the claude-code backend is still starting");
+		slow.resolve(createFakeBackend({ catalog: { emit: () => {} } }, { id: "claude-code" }));
 		expect(await slowAdding).toBe(true);
-		expect(arrivals).toEqual(["pi", "codex"]);
+		expect(arrivals).toEqual(["pi", "claude-code"]);
 	});
 
 	test("an invalid status becomes an unusable one, and so does a status() that throws", async () => {
@@ -124,27 +124,27 @@ describe("the backend registry", () => {
 		const { registry: backends, log, arrivals, clock } = registry();
 		let disposed = 0;
 		await backends.add("pi", async (host) => ({ ...createFakeBackend(host), dispose: async () => void disposed++ }));
-		await backends.add("codex", async (host) => ({
-			...createFakeBackend(host, { id: "codex" }),
+		await backends.add("claude-code", async (host) => ({
+			...createFakeBackend(host, { id: "claude-code" }),
 			dispose: async () => {
 				throw new Error("stuck");
 			},
 		}));
 		const late = Promise.withResolvers<AgentBackend>();
-		const lateAdding = backends.add("opencode", () => late.promise);
-		const waiting = backends.reach("opencode");
+		const lateAdding = backends.add("pi-durable", () => late.promise);
+		const waiting = backends.reach("pi-durable");
 		await backends.dispose();
 		expect(clock.pending()).toBe(0);
 		expect(disposed).toBe(1);
 		expect(backends.descriptors()).toEqual([]);
-		expect(log.errors.some((line) => line.includes("codex dispose failed"))).toBe(true);
-		expect(missingOf(await waiting)).toBe("the opencode backend is still starting");
+		expect(log.errors.some((line) => line.includes("claude-code dispose failed"))).toBe(true);
+		expect(missingOf(await waiting)).toBe("the pi-durable backend is still starting");
 		late.resolve({
-			...createFakeBackend({ catalog: { emit: () => {} } }, { id: "opencode" }),
+			...createFakeBackend({ catalog: { emit: () => {} } }, { id: "pi-durable" }),
 			dispose: async () => void disposed++,
 		});
 		expect(await lateAdding).toBe(false);
 		expect(disposed).toBe(2);
-		expect(arrivals).toEqual(["pi", "codex"]);
+		expect(arrivals).toEqual(["pi", "claude-code"]);
 	});
 });

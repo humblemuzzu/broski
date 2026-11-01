@@ -4,8 +4,8 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { mapCodexThreadToRuntimeSession } from "../runtime/codex-runtime-read-models";
-import type { CodexThread } from "../types";
+import { mapClaudeCodeSessionToRuntimeSession } from "../runtime/claude-code-runtime-read-models";
+import type { ClaudeCodeSession } from "../types";
 import { SESSION_PREVIEW_ELLIPSIS, SESSION_PREVIEW_MAX_CHARS, sessionPreview } from "../utils/session-preview";
 
 describe("sessionPreview", () => {
@@ -37,15 +37,15 @@ describe("sessionPreview", () => {
 describe("summaries carry a preview, not the whole message", () => {
 	const huge = "u".repeat(100_000);
 
-	test("a Codex runtime summary caps its title", () => {
-		const thread: CodexThread = {
-			id: "cx-1",
-			preview: huge,
+	test("a Claude Code runtime summary caps its title", () => {
+		const session: ClaudeCodeSession = {
+			id: "cc-1",
+			title: huge,
 			createdAt: 1,
 			updatedAt: 2,
 			cwd: "/tmp/project",
 		};
-		const summary = mapCodexThreadToRuntimeSession(thread);
+		const summary = mapClaudeCodeSessionToRuntimeSession(session);
 		expect(summary.title.length).toBeLessThanOrEqual(SESSION_PREVIEW_MAX_CHARS);
 	});
 });

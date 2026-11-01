@@ -1,4 +1,4 @@
-const SDK_MODULE_PATTERN = /node_modules\/(@anthropic-ai|@opencode-ai|@earendil-works)\//;
+const SDK_MODULE_PATTERN = /node_modules\/(@anthropic-ai|@earendil-works)\//;
 
 function loadedSdkModules(): string[] {
 	return Object.keys(require.cache).filter((path) => SDK_MODULE_PATTERN.test(path));

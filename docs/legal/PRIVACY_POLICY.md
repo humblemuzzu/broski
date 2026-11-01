@@ -92,7 +92,7 @@ Your Computer (Bridge Server)
         |
         | Local process communication
         ↓
-AI Agents (Claude Code, OpenCode, Codex)
+AI Agents (Claude Code, Pi)
         |
         | API calls using YOUR configured keys
         ↓

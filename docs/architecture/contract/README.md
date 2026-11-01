@@ -1,12 +1,10 @@
 # The Broski backend contract
 
-Status: Phase 1, protocol **1.3** (1.0 plus the `replaced` attach answer, 1.1, the `take_over` op and `input_returned` event, 1.2, and, in 1.3, the separate cancel of a compaction and of a retry, the Pi ops `session_settings`, `session_tools` and `system_prompt`, the Pi session-file ops, `refresh_models` and the unavailable models of a model list, and Pi's tree and shell ops; §12.4). Built on commit `9678394`. Nothing here is wired into the running bridge or the app yet. Phase 2 builds the bridge core on it, Phase 3 the Flutter core, and Phase 4 one adapter per backend.
+Status: Phase 1, protocol **1.3** (1.0 plus the `replaced` attach answer, 1.1, the `take_over` op and `input_returned` event, 1.2, and, in 1.3, the separate cancel of a compaction and of a retry, the Pi ops `session_settings`, `session_tools` and `system_prompt`, the Pi session-file ops, `refresh_models` and the unavailable models of a model list, and Pi's tree and shell ops; §12.4). Built on commit `9678394`. The bridge core (Phase 2) and the app core (Phase 3) speak it, and Phase 4 adds one adapter per backend: Pi's is registered in every bridge (`server/contract-backends.ts`).
 
 This document is the spec. The code is the definition: `packages/bridge/src/contract/` (zod schemas, interfaces, reducer, answer checker) and `packages/bridge/src/contract/testing/` (fake backend, conformance suite). Every backend fact below cites the research in [`research/`](research/):
 
 - `cc §n`: [`claude-code.md`](research/claude-code.md), Claude Agent SDK 0.3.312.
-- `cx §n`: [`codex.md`](research/codex.md), Codex app-server v2 at CLI 0.164.0.
-- `oc §n`: [`opencode.md`](research/opencode.md), OpenCode 2.x at CLI 2.1.4.
 - `pi §n`: [`pi.md`](research/pi.md) part 1, Pi 1.4.0.
 - `pd Dn`: [`pi.md`](research/pi.md) part 2, Pi Durable 1.4.0.
 
@@ -49,9 +47,9 @@ Commands, from `packages/bridge`: `bun run contract:gen` writes every generated 
 3. **The contract is a leaf.** `src/contract/` imports only `zod` and itself. Its `testing/` may also import `bun:test`. `src/backends/<id>/` may import only the contract (not its test kit), itself, `zod` (to check frames that cross a process boundary the adapter owns, such as Pi's terminal link), `node:` built-ins (not `node:module`, whose `createRequire` loads what no check sees) and that backend's own SDK. No adapter imports another adapter's directory. Every specifier must be a plain string. `bun run check:layers` enforces all of it in CI: it reads every import, type-only ones included, from the file's tokens (`import-scan.ts`, so comments and strings never count), joined with Bun's own `Transpiler.scanImports`.
 4. **Generated code is never edited by hand.** Change the zod schema, run `bun run contract:gen`, commit the result. CI fails on a stale file.
 5. **Expected failures are values.** Every adapter method that can fail returns a result union, `{status: "accepted", …} | Rejected`, the same unions the wire carries (`PromptResult`, `ActionResult`, `NewSessionResult`, `BackendCallResult`, the read results of `read-results.ts`, and `OpenResult` for `open`). `status()` cannot fail: whatever stops it from finding out is an `error` issue in `BackendStatus.issues`, with `usable: false`. A thrown error is an adapter bug.
-6. **No invalid answer reaches a backend.** An adapter runs `answerProblem` on every answer and rejects a faulted one with `invalid_input`. Codex turns a malformed answer into a silent denial or an over-grant (cx §8.1, §16 items 1-3), and Broski's current code ships exactly those bugs.
+6. **No invalid answer reaches a backend.** An adapter runs `answerProblem` on every answer and rejects a faulted one with `invalid_input`. A malformed answer can otherwise become a silent denial or an over-grant.
 7. **Sinks never throw, and adapters never throw into the core from a callback.** Pi's `_emit` has no try/catch, so a throwing listener breaks the agent loop (pi §1).
-8. **Every wire value is bounded.** Each string, list and map has a maximum (`limits.ts`): ids 256 characters, names 1,024, paths 4,096, text 1,048,576 (Codex's per-turn input limit, cx §6.1), the images of one prompt 4 MiB of base64, lists and maps 1,000 entries, catalogs 10,000, free JSON 64 levels deep. One message is capped whole: `MAX_MESSAGE_BYTES` (8 MiB of UTF-8 frame, the link's `LINK_MAX_MESSAGE_BYTES`), and a client message holds at most `MAX_CLIENT_MESSAGE_VALUES` (50,000) JSON values, because checking a message costs the bridge in proportion to its values; a prompt with every list full holds about 8,000. An adapter shortens a native value past its bound; §15 lists where that happens. A test walks the JSON Schema and fails on any unbounded string, list or map.
+8. **Every wire value is bounded.** Each string, list and map has a maximum (`limits.ts`): ids 256 characters, names 1,024, paths 4,096, text 1,048,576, the images of one prompt 4 MiB of base64, lists and maps 1,000 entries, catalogs 10,000, free JSON 64 levels deep. One message is capped whole: `MAX_MESSAGE_BYTES` (8 MiB of UTF-8 frame, the link's `LINK_MAX_MESSAGE_BYTES`), and a client message holds at most `MAX_CLIENT_MESSAGE_VALUES` (50,000) JSON values, because checking a message costs the bridge in proportion to its values; a prompt with every list full holds about 8,000. An adapter shortens a native value past its bound; §15 lists where that happens. A test walks the JSON Schema and fails on any unbounded string, list or map.
 
 ## 3. Single source of truth and generation
 
@@ -105,11 +103,11 @@ The last two fixtures hold the app's ports of the reducer and the answer check e
 
 | Id | Type | Minted by | Rule |
 |---|---|---|---|
-| `BackendId` | `claude-code \| codex \| opencode \| pi \| pi-durable` | contract | |
-| `SessionRef` | `{backend, sessionId}` | adapter | `sessionId` is the backend's own durable session id: CC UUID (cc §3), Codex thread UUIDv7 (cx §3), OpenCode `ses_…` (oc §3), Pi header UUIDv7 (pi §3), Pi Durable Broski's storage directory UUID (pd D3). Stable for the session's life. |
-| `RunId` | string | adapter | Unique per session for good (a UUID is the safe choice). Codex's turn id names its run, one turn per run (cx §5.3); Pi Durable's submission ids name inputs, several of which can share a run (pd D5); CC and Pi have nothing (cc §5, pi §13). A run that survives a bridge restart (`durableRuns`) keeps its id, so a durable backend derives it from what it persists: Codex the active turn's id (cx §5.3), OpenCode the session id and the newest `idle` message before the run, one per busy period (oc §4), Pi Durable the run's first submission id (pd D5). |
-| `MessageId`, `BlockId` | string | adapter | Unique per session. Derive from native identity where it exists, so live ids match transcript ids: CC `message.id` + block index (cc §5), Codex `itemId` (+ summary/content index) (cx §13), OpenCode `assistantMessageID:kind:ordinal` (oc §5). Pi and Pi Durable have no message id mid-stream, so the adapter mints one (pi §5, pd D5). |
-| `ToolCallId` | string | adapter | Unique per session. OpenCode call ids are unique only per step, so key by `(assistantMessageID, callId)` (oc §4). |
+| `BackendId` | `claude-code \| pi \| pi-durable` | contract | |
+| `SessionRef` | `{backend, sessionId}` | adapter | `sessionId` is the backend's own durable session id: CC UUID (cc §3), Pi header UUIDv7 (pi §3), Pi Durable Broski's storage directory UUID (pd D3). Stable for the session's life. |
+| `RunId` | string | adapter | Unique per session for good (a UUID is the safe choice). Pi Durable's submission ids name inputs, several of which can share a run (pd D5); CC and Pi have nothing (cc §5, pi §13). A run that survives a bridge restart (`durableRuns`) keeps its id, so a durable backend derives it from what it persists: Pi Durable the run's first submission id (pd D5). |
+| `MessageId`, `BlockId` | string | adapter | Unique per session. Derive from native identity where it exists, so live ids match transcript ids: CC `message.id` + block index (cc §5). Pi and Pi Durable have no message id mid-stream, so the adapter mints one (pi §5, pd D5). |
+| `ToolCallId` | string | adapter | Unique per session. |
 | `InteractionId`, `QueueItemId`, `AttachmentId` | string | adapter | Unique per session. An `AttachmentId` names image bytes the adapter can read back (§10). |
 | `TranscriptItemId` | string ≤512 | adapter | Unique per session. May combine two ids: a tool result the live stream finished is `<toolCallId>:result` (`run-items.ts`). |
 | `ClientRequestId` | UUID | phone | On every prompt; the key prompts are de-duplicated by (§10). |
@@ -143,11 +141,11 @@ Every method that can fail resolves with `{status: "accepted", …} | Rejected` 
 
 1. ✓ `open` resolves with the live state `snapshot` at that moment. Nothing is emitted into the sink before that moment, and everything emitted afterwards applies on top of `snapshot`. Putting the snapshot in the result closes the race between "read the snapshot" and "the first event".
 2. ✓ `snapshot()` always equals the open snapshot with every emitted event applied by `applyEvent`.
-3. ✓ `close()` detaches the sink: **from the call on**, nothing is emitted and `control` methods reject `closed`. It aborts nothing; a run in progress goes on in the backend. A second call does nothing. An in-process backend (CC's CLI child, Pi, Pi Durable) keeps whatever it needs alive until the run settles. An ask pending at `close`, or raised after it, is held by the adapter and appears in the next `open`'s snapshot, where it can be answered: every backend can re-deliver (CC keeps its own registry of pending callbacks, cc §8.7; Codex replays on `thread/resume`, cx §8; OpenCode lists per session, oc §8.1; Pi and Pi Durable asks are the bridge's own, pi §8.5, pd D8).
+3. ✓ `close()` detaches the sink: **from the call on**, nothing is emitted and `control` methods reject `closed`. It aborts nothing; a run in progress goes on in the backend. A second call does nothing. An in-process backend (CC's CLI child, Pi, Pi Durable) keeps whatever it needs alive until the run settles. An ask pending at `close`, or raised after it, is held by the adapter and appears in the next `open`'s snapshot, where it can be answered: every backend can re-deliver (CC keeps its own registry of pending callbacks, cc §8.7; Pi and Pi Durable asks are the bridge's own, pi §8.5, pd D8).
    **The core's side of it:** while a session's snapshot has an active run, a pending interaction, a compaction or retry under way, or queued input, the core keeps its `OpenSession` open, phones attached or not, so no ask is raised to nobody and no event is lost from the log. It closes a session only once it is idle, and never aborts a run to do so; bridge shutdown is the one exception, and then the asks expire (§9).
 4. ✓ `dispose()` closes every open session and silences the catalog sink.
 5. ✓ Optional methods carry capabilities. An absent `rename`, `delete`, `archive`, `fork`, `call`, `compact`, `cancelQueued`, `cancelCompaction` or `cancelRetry` *is* the capability being false; nothing declares it separately (§6).
-6. ✓ `abort()` ends the active run with outcome `aborted`; with no run it is accepted and emits nothing. It resolves once the backend has taken the abort (Codex answers `turn/interrupt` only after `TurnAborted`, cx §7; Pi's `abort()` awaits idle, pi §7; OpenCode acknowledges at once, oc §7). `run_finished` may follow the resolution.
+6. ✓ `abort()` ends the active run with outcome `aborted`; with no run it is accepted and emits nothing. It resolves once the backend has taken the abort (Pi's `abort()` awaits idle, pi §7). `run_finished` may follow the resolution.
 7. ✓ `prompt` is idempotent per `clientRequestId` within the session for accepted prompts; a rejection is not remembered (§10).
 8. ✓ A malformed answer is rejected `invalid_input` and changes nothing. An answer to a resolved interaction is rejected `stale`.
 9. ✓ `setModel` takes a listed model and nothing else (`not_found`); `setThinking` takes one of the current model's thinking values (`invalid_input`); `setMode` takes a listed mode and one of its values (`invalid_input`). Each shows as the event that changes the snapshot (`model_changed`, `mode_changed`).
@@ -156,7 +154,7 @@ Every method that can fail resolves with `{status: "accepted", …} | Rejected` 
 12. The core opens at most one `OpenSession` per `SessionRef` at a time and fans its events out to phones. Adapters may assume this.
 13. The sink, the catalog sink, and every adapter callback into the core never throw.
 
-**Catalog sink.** Backend-wide news: `session_updated{summary}`, `session_removed{session}`, `status_changed{status}`, `catalog_invalidated{scope: models|commands|modes}`, `transcript_invalidated{session}`. An adapter emits `transcript_invalidated` whenever a session's history is rewritten, so every phone re-reads it: after its own history-rewriting op (`rewritesHistory(kind)` in `backend-ops.ts`: Codex `revert`, OpenCode `revert_commit`, Pi `navigate_tree`; §13), and when another client rewrites it (Codex global `thread/reverted`, cx §5.2; OpenCode `session.revert.committed`, oc §5). An adapter emits `session_updated` after its own create, rename, archive, fork and first persist, whenever a row's status, title, model or archived flag changes, and when a run ends. It emits `session_removed` after a delete. It relays external changes when the backend reports them (Codex global `thread/*` broadcasts, cx §5.1; OpenCode `session.*` events, oc §5). CC and Pi report nothing live, so their adapters watch the session directories (cc §13, pi §11). Codex `thread/closed` means unloaded, not deleted, and is never `session_removed` (cx §14 #18). A session list is never broadcast whole. The core sends one `status_changed` of its own for each backend as it lands: backends start after the bridge listens, so a phone that listed the backends before may learn of one this way.
+**Catalog sink.** Backend-wide news: `session_updated{summary}`, `session_removed{session}`, `status_changed{status}`, `catalog_invalidated{scope: models|commands|modes}`, `transcript_invalidated{session}`. An adapter emits `transcript_invalidated` whenever a session's history is rewritten, so every phone re-reads it: after its own history-rewriting op (`rewritesHistory(kind)` in `backend-ops.ts`: Pi `navigate_tree`; §13), and when another client rewrites it. An adapter emits `session_updated` after its own create, rename, archive, fork and first persist, whenever a row's status, title, model or archived flag changes, and when a run ends. It emits `session_removed` after a delete. It relays external changes when the backend reports them. CC and Pi report nothing live, so their adapters watch the session directories (cc §13, pi §11). A session list is never broadcast whole. The core sends one `status_changed` of its own for each backend as it lands: backends start after the bridge listens, so a phone that listed the backends before may learn of one this way.
 
 ## 6. Capabilities
 
@@ -171,33 +169,33 @@ Declared traits are checked against behaviour, both ways where the contract can 
 - `externalLive` and `durableRuns` are checked by a run another client starts and by a restart of the bridge (§14).
 - `call` must exist exactly when `backendOps` is non-empty, and every declared op must answer in kind.
 
-| Capability | Claude Code | Codex | OpenCode | Pi | Pi Durable |
-|---|---|---|---|---|---|
-| `streamText` | ✓ `stream_event` text deltas with `includePartialMessages` (cc §12) | ✓ `item/agentMessage/delta` (cx §12) | ✓ `session.text.delta`, batched 100 ms (oc §5) | ✓ `message_update` (pi §12) | ✓ commits ≤100 ms apart (pd D12) |
-| `streamThinking` | ✓ unless `thinking.display:'omitted'` (cc §12) | ✓ reasoning summary deltas; raw only when exposed (cx §12) | ✓ `session.reasoning.*` | ✓ (`redacted` arrives whole) | ✓ |
-| `promptModes` | start, steer (`priority:'next'`), queue (`'later'`) (cc §6) | start, steer (`turn/steer`), queue (exp `thread/queue/*` or bridge-side) (cx §6.2) | start, steer, queue (`delivery`) (oc §6) | start, steer, queue (`followUp`) (pi §6) | start, steer, queue (`whenBusy`) (pd D6) |
-| `attachments` | image (base64 blocks) (cc §6) | image (`image`/`localImage`; no remote URLs) (cx §6.1) | image, file (`files[].uri`) (oc §6) | image (pi §6) | image (pd D6) |
-| `mentions` | file (`@path` in text) (cc §6) | file (`mention{name,path}`) (cx §6.2) | file, agent (oc §6) | — | — |
-| `commands` | ✓ slash commands, skills (cc §9) | ✓ skills (no slash commands) (cx §9) | ✓ commands, skills (oc §9) | ✓ extension commands, templates, skills (pi §9) | ✗ (pd D9) |
-| `queue` (visible) | ✓ via internal `command_lifecycle`; default emission UNVERIFIED (cc §5, Q2) | ✓ experimental `thread/queue/changed` + list (cx §6.2) | ✓ `session.inbox.*` (oc §5) | ✓ `queue_update`, texts only (pi §5) | ✓ `inbox_update` (pd D5) |
-| `interactions` | tool_permission, questions, form, plan_approval, external_url, choice (cc §8), confirm (empty MCP forms) | tool_permission, questions, form, external_url, confirm (cx §8) | tool_permission, questions, form, external_url (oc §8) | tool_permission (bridge-owned gate), choice, confirm, text (pi §8) | tool_permission (bridge-owned hook) (pd D8) |
-| `modelSwitch` | `next_request` (cc §7) | `next_run` (stable `turn/start.model`; exp `turn/settings/update` is not guaranteed) (cx §7) | `next_request` ("next step") (oc §7) | `next_request` ("next turn") (pi §7) | `next_request` (pd D7) |
-| `thinking` | ✓ effort levels (cc §7) | ✓ `effort` (cx §7) | ✓ model variants (oc §7) | ✓ levels, clamped (pi §7) | ✓ levels, unclamped (pd D7) |
-| `children` | ✓ subagents (cc §3) | ✓ child threads (cx §5.3) | ✓ child sessions (oc §3) | ✓ a tool call's sub-run in its result's `details`, forks and handoffs (Pi README decision 32) | ✓ task-owned conversations (pd D3) |
-| `usage` | ✓ (cc §5) | ✓ tokens, no cost (cx §5.3) | ✓ (oc §5) | ✓ pulled after messages (pi §5) | ✓ (pd D5) |
-| `plan` (todo) | ✓ TodoWrite / Task tools, model-dependent (cc §13) | ✓ `turn/plan/updated` (cx §12) | ✗ experimental tool, off by default (oc §12) | ✗ | ✗ |
-| `planProposals` | ✗ (the plan reaches the app as a `plan_approval`) | ✓ Plan-mode `plan` item (cx §4.2) | ✗ | ✗ | ✗ |
-| `externalLive` | ✗ file tail only (cc §11) | ✓ through the shared daemon (cx §11) | ✓ through the managed service (oc §11) | ✗ tail only (pi §11) | ✗ no external writers (pd D11) |
-| `durableRuns` | ✗ the CLI child dies with the bridge (cc §1) | ✓ daemon / ✗ private stdio child (cx §1.5) | ✓ the service owns the run (oc §1) | ✗ in-process (pi §1) | ✓ (pd D1) |
-| `extensions` | rate_limit | turn_diff, rate_limit | — | — | — |
-| `backendOps` | rewind_files | review_start, revert | revert_stage, revert_clear, revert_commit | navigate_tree, take_over, read_tree, label_entry, abort_branch_summary, run_shell | — |
-| `fork` (derived) | ✓ `forkSession` (cc §7) | ✓ `thread/fork` (cx §7) | ✓ (oc §7) | ✓ `runtime.fork` (pi §7) | ✓ (pd D7) |
-| `rename` | ✓ | ✓ | ✓ | ✓ `setSessionName` | ✓ bridge `meta.json` |
-| `delete` | ✓ | ✓ | ✓ | ✓ bridge deletes the file (pi §3) | ✓ bridge directory |
-| `archive` | ✗ (cc §3) | ✓ | ✓ | ✗ | ✗ |
-| `compact` (session) | ✓ as a `/compact` prompt (cc §7) | ✓ (cx §7) | ✓ (oc §7) | ✓, but refuse while running: Pi's `compact()` aborts the run (pi §7) | ✓ (pd D7) |
-| `cancelQueued` (session) | per item through `cancel_async_message`, which no capability gates but is runtime-only (cc §6, Errata 10; availability Q4). `interrupt_cancel_queued_v1` gates something else: the abort that also cancels every queued command | ✓ experimental `thread/queue/delete` | ✓ `DELETE inbox` | ✗ clear-all only (pi §6) | ✓ `submission.abort()` |
-| `controllable` (session) | ✗ for terminal sessions (cc §11) | ✗ for embedded-TUI threads (cx §11) | ✗ for standalone-server sessions (oc §11) | ✗ for terminal sessions (pi §11) | ✓ |
+| Capability | Claude Code | Pi | Pi Durable |
+|---|---|---|---|
+| `streamText` | ✓ `stream_event` text deltas with `includePartialMessages` (cc §12) | ✓ `message_update` (pi §12) | ✓ commits ≤100 ms apart (pd D12) |
+| `streamThinking` | ✓ unless `thinking.display:'omitted'` (cc §12) | ✓ (`redacted` arrives whole) | ✓ |
+| `promptModes` | start, steer (`priority:'next'`), queue (`'later'`) (cc §6) | start, steer, queue (`followUp`) (pi §6) | start, steer, queue (`whenBusy`) (pd D6) |
+| `attachments` | image (base64 blocks) (cc §6) | image (pi §6) | image (pd D6) |
+| `mentions` | file (`@path` in text) (cc §6) | — | — |
+| `commands` | ✓ slash commands, skills (cc §9) | ✓ extension commands, templates, skills (pi §9) | ✗ (pd D9) |
+| `queue` (visible) | ✓ via internal `command_lifecycle`; default emission UNVERIFIED (cc §5, Q2) | ✓ `queue_update`, texts only (pi §5) | ✓ `inbox_update` (pd D5) |
+| `interactions` | tool_permission, questions, form, plan_approval, external_url, choice (cc §8), confirm (empty MCP forms) | tool_permission (bridge-owned gate), choice, confirm, text (pi §8) | tool_permission (bridge-owned hook) (pd D8) |
+| `modelSwitch` | `next_request` (cc §7) | `next_request` ("next turn") (pi §7) | `next_request` (pd D7) |
+| `thinking` | ✓ effort levels (cc §7) | ✓ levels, clamped (pi §7) | ✓ levels, unclamped (pd D7) |
+| `children` | ✓ subagents (cc §3) | ✓ a tool call's sub-run in its result's `details`, forks and handoffs (Pi README decision 32) | ✓ task-owned conversations (pd D3) |
+| `usage` | ✓ (cc §5) | ✓ pulled after messages (pi §5) | ✓ (pd D5) |
+| `plan` (todo) | ✓ TodoWrite / Task tools, model-dependent (cc §13) | ✗ | ✗ |
+| `planProposals` | ✗ (the plan reaches the app as a `plan_approval`) | ✗ | ✗ |
+| `externalLive` | ✗ file tail only (cc §11) | ✓ a terminal `pi` through the terminal link (Pi README decision 19) | ✗ no external writers (pd D11) |
+| `durableRuns` | ✗ the CLI child dies with the bridge (cc §1) | ✗ in-process (pi §1) | ✓ (pd D1) |
+| `extensions` | rate_limit | — | — |
+| `backendOps` | rewind_files | navigate_tree, take_over, session_settings, session_tools, system_prompt, export_session, export_part, import_session, changed_files, refresh_models, read_tree, label_entry, abort_branch_summary, run_shell | — |
+| `fork` (derived) | ✓ `forkSession` (cc §7) | ✓ `runtime.fork` (pi §7) | ✓ (pd D7) |
+| `rename` | ✓ | ✓ `setSessionName` | ✓ bridge `meta.json` |
+| `delete` | ✓ | ✓ bridge deletes the file (pi §3) | ✓ bridge directory |
+| `archive` | ✗ (cc §3) | ✗ | ✗ |
+| `compact` (session) | ✓ as a `/compact` prompt (cc §7) | ✓, but refuse while running: Pi's `compact()` aborts the run (pi §7) | ✓ (pd D7) |
+| `cancelQueued` (session) | per item through `cancel_async_message`, which no capability gates but is runtime-only (cc §6, Errata 10; availability Q4). `interrupt_cancel_queued_v1` gates something else: the abort that also cancels every queued command | ✗ clear-all only (pi §6) | ✓ `submission.abort()` |
+| `controllable` (session) | ✗ for terminal sessions (cc §11) | ✗ for terminal sessions (pi §11) | ✓ |
 
 ## 7. Events
 
@@ -211,7 +209,7 @@ SinkRecord    = EventEnvelope without seq and session      // what an adapter em
 **Sequence and order.**
 
 - `seq` is assigned by the core: 1, 2, 3… per session and stream epoch, without gaps (§12.2). The adapter emits in causal order.
-- Every backend delivers a session's events in order: CC is one pipe (cc §1); Codex orders per thread (cx §5.1); OpenCode serializes per session aggregate but batches deltas, so the adapter drops a delta for a block that has already ended (oc §5); Pi is synchronous (pi §5); Pi Durable emits one batch per commit (pd D5).
+- Every backend delivers a session's events in order: CC is one pipe (cc §1); Pi is synchronous (pi §5); Pi Durable emits one batch per commit (pd D5).
 - Content between `run_started` and `run_finished` belongs to that run by position, so events carry no `runId` except the run events themselves and `Interaction.runId`.
 
 **Stream rules**, checked by `contract/testing/stream-rules.ts` in every conformance scenario:
@@ -227,57 +225,57 @@ SinkRecord    = EventEnvelope without seq and session      // what an adapter em
 
 **The events and their sources.** "synth." means the adapter synthesizes the event.
 
-| Event | Meaning | Claude Code | Codex | OpenCode | Pi | Pi Durable |
-|---|---|---|---|---|---|---|
-| `run_started{runId, trigger}` | The agent began a run | synth.: first frame after a send to an idle session, or opt-in `session_state_changed running` (cc §5) | `turn/started` (cx §5.3) | `session.execution.started` (oc §5) | synth.: first `agent_start`/`compaction_start` while idle, or `preflightResult("started")` (pi §5) | `run_start` (pd D5) |
-| `run_finished{runId, outcome}` | It will not continue on its own | at settle: `idle` after `result` with `queued_turn_count == 0` and no background tasks (cc §5) | `turn/completed` (cx §5.3) | one of `execution.succeeded/failed/interrupted` (oc §5) | `agent_settled` (pi §5) | `run_end` with no `run_start` in its batch, plus the submission's status (pd D5) |
-| `user_message` | Input reaching the model, including delivered steer and queue input | the adapter's own send; `user` echoes with `replay-user-messages` (cc §5) | `userMessage` item, `clientId` (cx §4.2) | `inbox.delivered` → user message (oc §6) | `message_start` role user (pi §5) | `pi.user` entry (pd D4) |
-| `block_started/delta/finished` | One text, thinking or plan block | `stream_event` `content_block_*`; whole `assistant` frames (cc §5) | `agentMessage`/`reasoning`/`plan` item deltas; `item/completed` authoritative (cx §5.2) | `session.text.*`, `session.reasoning.*`; `*.ended` authoritative (oc §5) | `text_*`/`thinking_*` in `message_update` (pi §5) | `message_update.changes` (pd D5) |
-| `tool_started/updated/finished` | One tool call | `tool_use`; `tool_progress`; `tool_result` + `tool_use_result` (cc §13) | `item/started`; `outputDelta`, `patchUpdated`, `mcpToolCall/progress`; `item/completed` (cx §5.2) | `tool.input.*`; `tool.called`; `tool.progress` (replace); `tool.success/failed` (oc §5) | `tool_execution_*`; `partialResult` is a snapshot (pi §5) | `tool_execution_*`; output trim/append windows (pd D5) |
-| `interaction_requested/resolved` | A human is asked; the ask ended | `canUseTool`, `onElicitation`, `onUserDialog`; resolved synth. (cc §8) | server requests; `serverRequest/resolved` (cx §8) | `permission.asked`, `form.created`; `*.replied`, `form.cancelled`, reconcile on run end (oc §8) | bridge dialogs and `tool_call` gate; resolved synth. (pi §8) | `beforeTool` hook; resolved synth. (pd D8) |
-| `queue_changed{items}` | The whole pending queue | `command_lifecycle` (cc §5) | `thread/queue/changed` → `thread/queue/list` (cx §6.2) | `session.inbox.*` (oc §5) | `queue_update` (pi §5) | `inbox_update` (pd D5) |
-| `compaction_started/finished` | Context compaction | `status:'compacting'` … `compact_boundary` + `compact_result` (cc §5) | `contextCompaction` item started/completed (cx §5.3) | `compaction.started/ended/failed` (oc §5) | `compaction_start/end` (pi §5) | `compaction_start/end` (pd D5) |
-| `retry_scheduled/finished` | A transient failure will be retried | `system/api_retry`; finish synth. (cc §5) | `error{willRetry:true}`; finish synth. (cx §5.3) | `retry.scheduled`; finish synth. (oc §5) | `auto_retry_start/end` (pi §5) | `auto_retry_start/end` (pd D5) |
-| `usage_updated{usage}` | Session totals changed | `result` `modelUsage`, `total_cost_usd`; `getContextUsage` (cc §5) | `thread/tokenUsage/updated` (cx §5.2) | `session.usage.updated` (oc §5) | pull after `message_end` (pi §5) | `usage_changed` (pd D5) |
-| `plan_updated{plan}` | The todo list, whole | `TodoWrite` (replace) / `TaskCreate/Update` (accumulated) (cc §13) | `turn/plan/updated` (cx §5.2) | — | — | — |
-| `messages_retracted{messageIds}` | Withdrawn messages disappear, with their blocks and tool calls (and those calls' results), open or finished | `retracted_message_uuids`, `supersedes` (cc §5) | — | — | — | — |
-| `model_changed{modelId?, thinking?}` | Model and thinking, both replaced | the adapter's `setModel`; per-turn `system/init` (cc §5) | `thread/settings/updated` (exp) or the adapter's own overrides (cx §5.3) | `session.model.selected` (oc §5) | the adapter's own calls; `thinking_level_changed` (pi §5) | `agent_changed` (pd D5) |
-| `mode_changed{axis, value}` | One session mode now has `value` (§11.5) | `system/status.permissionMode`, the adapter's own `setPermissionMode` (cc §5, §7) | `thread/settings/updated` (exp) or the adapter's own overrides (cx §5.2) | `session.agent.selected` (oc §5) | — | — |
-| `notice{level, text}` | Something to show, not a turn | `system/informational`, `system/notification` (cc §5) | `warning`, `deprecationNotice`, `configWarning` (cx §5.2) | synthetic messages (oc §4) | extension `notify` (pi §8) | — |
-| `error{error, retryable}` | A failure outside a run's outcome | process exit, transport error (cc §1) | connection drop (cx §1.5) | SSE end, service restart (oc §10) | — | `onReport`, `harness.closed` (pd D14) |
-| `extension{extension}` | Typed per-backend extra (§13) | `rate_limit_event` | `turn/diff/updated`, `account/rateLimits/updated` | — | — | — |
-| `session_replaced{session}` | The live session goes on under a new id; this event is the last under the old one. A phone away when it happened is told at its next attach (§12.2). `session` may also name the same session: what it allows changed (Pi: a terminal began or ended running it, or a phone took it over), and the only way to hand viewers the new `SessionCapabilities` is a new stream | `conversation_reset` (`/clear`, plan-exit context clear) (cc §5) | — | — | — (the adapter hosts one runtime per session, pi §1) | — |
-| `input_returned{texts}` (since 1.2) | Input the backend took back out of its queue because the run was stopped, in the order the backend's own interface would restore it; the client puts it back where the human types. Not state: the reducer ignores it. Needs `queue`. A client below 1.2 is sent a `notice` with the same texts and the same `seq` | — | — | — | `abort` after `clearQueue()` (pi §7) | — |
-| `resynced{snapshot}` | The live state is replaced | the CLI child restarted | re-`thread/resume` after reconnect (cx §10) | `server.connected` rehydration, overflow (oc §10) | — | a replacement snapshot for a slow watcher (pd D5) |
+| Event | Meaning | Claude Code | Pi | Pi Durable |
+|---|---|---|---|---|
+| `run_started{runId, trigger}` | The agent began a run | synth.: first frame after a send to an idle session, or opt-in `session_state_changed running` (cc §5) | synth.: first `agent_start`/`compaction_start` while idle, or `preflightResult("started")` (pi §5) | `run_start` (pd D5) |
+| `run_finished{runId, outcome}` | It will not continue on its own | at settle: `idle` after `result` with `queued_turn_count == 0` and no background tasks (cc §5) | `agent_settled` (pi §5) | `run_end` with no `run_start` in its batch, plus the submission's status (pd D5) |
+| `user_message` | Input reaching the model, including delivered steer and queue input | the adapter's own send; `user` echoes with `replay-user-messages` (cc §5) | `message_start` role user (pi §5) | `pi.user` entry (pd D4) |
+| `block_started/delta/finished` | One text, thinking or plan block | `stream_event` `content_block_*`; whole `assistant` frames (cc §5) | `text_*`/`thinking_*` in `message_update` (pi §5) | `message_update.changes` (pd D5) |
+| `tool_started/updated/finished` | One tool call | `tool_use`; `tool_progress`; `tool_result` + `tool_use_result` (cc §13) | `tool_execution_*`; `partialResult` is a snapshot (pi §5) | `tool_execution_*`; output trim/append windows (pd D5) |
+| `interaction_requested/resolved` | A human is asked; the ask ended | `canUseTool`, `onElicitation`, `onUserDialog`; resolved synth. (cc §8) | bridge dialogs and `tool_call` gate; resolved synth. (pi §8) | `beforeTool` hook; resolved synth. (pd D8) |
+| `queue_changed{items}` | The whole pending queue | `command_lifecycle` (cc §5) | `queue_update` (pi §5) | `inbox_update` (pd D5) |
+| `compaction_started/finished` | Context compaction | `status:'compacting'` … `compact_boundary` + `compact_result` (cc §5) | `compaction_start/end` (pi §5) | `compaction_start/end` (pd D5) |
+| `retry_scheduled/finished` | A transient failure will be retried | `system/api_retry`; finish synth. (cc §5) | `auto_retry_start/end` (pi §5) | `auto_retry_start/end` (pd D5) |
+| `usage_updated{usage}` | Session totals changed | `result` `modelUsage`, `total_cost_usd`; `getContextUsage` (cc §5) | pull after `message_end` (pi §5) | `usage_changed` (pd D5) |
+| `plan_updated{plan}` | The todo list, whole | `TodoWrite` (replace) / `TaskCreate/Update` (accumulated) (cc §13) | — | — |
+| `messages_retracted{messageIds}` | Withdrawn messages disappear, with their blocks and tool calls (and those calls' results), open or finished | `retracted_message_uuids`, `supersedes` (cc §5) | — | — |
+| `model_changed{modelId?, thinking?}` | Model and thinking, both replaced | the adapter's `setModel`; per-turn `system/init` (cc §5) | the adapter's own calls; `thinking_level_changed` (pi §5) | `agent_changed` (pd D5) |
+| `mode_changed{axis, value}` | One session mode now has `value` (§11.5) | `system/status.permissionMode`, the adapter's own `setPermissionMode` (cc §5, §7) | — | — |
+| `notice{level, text}` | Something to show, not a turn | `system/informational`, `system/notification` (cc §5) | extension `notify` (pi §8) | — |
+| `error{error, retryable}` | A failure outside a run's outcome | process exit, transport error (cc §1) | — | `onReport`, `harness.closed` (pd D14) |
+| `extension{extension}` | Typed per-backend extra (§13) | `rate_limit_event` | — | — |
+| `session_replaced{session}` | The live session goes on under a new id; this event is the last under the old one. A phone away when it happened is told at its next attach (§12.2). `session` may also name the same session: what it allows changed (Pi: a terminal began or ended running it, or a phone took it over), and the only way to hand viewers the new `SessionCapabilities` is a new stream | `conversation_reset` (`/clear`, plan-exit context clear) (cc §5) | — (the adapter hosts one runtime per session, pi §1) | — |
+| `input_returned{texts}` (since 1.2) | Input the backend took back out of its queue because the run was stopped, in the order the backend's own interface would restore it; the client puts it back where the human types. Not state: the reducer ignores it. Needs `queue`. A client below 1.2 is sent a `notice` with the same texts and the same `seq` | — | `abort` after `clearQueue()` (pi §7) | — |
+| `resynced{snapshot}` | The live state is replaced | the CLI child restarted | — | a replacement snapshot for a slow watcher (pd D5) |
 
-**Run triggers.** `prompt` (input through this bridge, including an action the backend runs as a run: a Codex manual compaction is a compact-kind turn, cx §5.3, and `review_start` is a review turn), `queue` (a queued prompt dispatched as the previous run ended: Codex trigger `"queue"`, cx §5.3; Pi Durable chained runs, pd D5), `system` (goal, wakeup, background task, restart recovery: cc §5, cx §5.3, oc §1), `external` (another client: a Codex TUI turn, cx §11; an OpenCode TUI run, oc §11).
+**Run triggers.** `prompt` (input through this bridge, including an action the backend runs as a run), `queue` (a queued prompt dispatched as the previous run ended: Pi Durable chained runs, pd D5), `system` (goal, wakeup, background task, restart recovery: cc §5), `external` (another client, such as a terminal run).
 
 **Run outcomes** (`RunOutcome`):
 
-| Outcome | Claude Code `terminal_reason` (cc §5) | Codex (cx §5.3) | OpenCode (oc §5) | Pi (pi §5) | Pi Durable (pd D5) |
-|---|---|---|---|---|---|
-| `completed` | `completed`, `background_requested`, `stop_hook_prevented`, `hook_stopped` | `completed` | `succeeded` | `stopReason` stop/toolUse | submission `done` |
-| `aborted` | `aborted_streaming`, `aborted_tools` | `interrupted` | `interrupted{user}` | `aborted:true` / `stopReason:"aborted"` | `unanswered{aborted}` |
-| `error{ErrorInfo}` | `prompt_too_long`, `model_error`, `api_error`, … (BIN `isError`) | `failed` + `turn.error` | `failed{error}` | `stopReason:"error"` | `unanswered{model_error, no_model, faulted, run_failed}` (Q34) |
-| `limit{max_turns\|budget\|output_tokens}` | `max_turns`, `budget_exhausted`, `max_output_tokens` | — | — | `stopReason:"length"` | — |
-| `suspended` | — | — | `interrupted{shutdown}`: resumes at next service start | — | — |
-| `deferred` | `tool_deferred` | — | — | `stopReason:"deferred"` | — |
+| Outcome | Claude Code `terminal_reason` (cc §5) | Pi (pi §5) | Pi Durable (pd D5) |
+|---|---|---|---|
+| `completed` | `completed`, `background_requested`, `stop_hook_prevented`, `hook_stopped` | `stopReason` stop/toolUse | submission `done` |
+| `aborted` | `aborted_streaming`, `aborted_tools` | `aborted:true` / `stopReason:"aborted"` | `unanswered{aborted}` |
+| `error{ErrorInfo}` | `prompt_too_long`, `model_error`, `api_error`, … (BIN `isError`) | `stopReason:"error"` | `unanswered{model_error, no_model, faulted, run_failed}` (Q34) |
+| `limit{max_turns\|budget\|output_tokens}` | `max_turns`, `budget_exhausted`, `max_output_tokens` | `stopReason:"length"` | — |
+| `suspended` | — | — | — |
+| `deferred` | `tool_deferred` | `stopReason:"deferred"` | — |
 
-`ErrorCode` normalizes CC `SDKAssistantMessageError` (cc §2), Codex `CodexErrorInfo` (cx §5.3), OpenCode `SessionError.type` (oc §5) and Pi's error strings. The full mapping is in §15. The native code may go in `envelope.native`.
+`ErrorCode` normalizes CC `SDKAssistantMessageError` (cc §2) and Pi's error strings. The full mapping is in §15. The native code may go in `envelope.native`.
 
-**Block kinds.** `text`, `thinking`, and `plan`, the last for a plan the agent proposes (Codex Plan-mode `plan` item, cx §4.2). The todo list is not a block; it is `plan_updated`.
+**Block kinds.** `text`, `thinking`, and `plan`, the last for a plan the agent proposes. The todo list is not a block; it is `plan_updated`.
 
-**Tool updates** (`ToolUpdate`). `input` delivers the complete input once a backend that streams arguments finishes (OpenCode `tool.called`, oc §13; CC `input_json_delta`, cc §13; Pi `toolcall_*`, pi §5). The other kinds:
+**Tool updates** (`ToolUpdate`). `input` delivers the complete input once a backend that streams arguments finishes (CC `input_json_delta`, cc §13; Pi `toolcall_*`, pi §5). The other kinds:
 
-- `output_appended`: Codex `outputDelta`, Pi Durable `append`.
+- `output_appended`: Pi Durable `append`.
 - `output_replaced`: Pi `partialResult` snapshots and the tail of a `!` command, Pi Durable `set` and `trimStart`.
-- `progress`: CC `tool_progress`, Codex MCP progress, OpenCode `tool.progress` title.
-- `file_changes`: Codex `patchUpdated`, replacing the previous list.
-- `child_session`: OpenCode metadata `{sessionID}` (oc §5), Codex `collabAgentToolCall` receiver (cx §5.3), Pi Durable `details.conversationId` (pd D5), CC subagent `agent_id` (cc §3).
+- `progress`: CC `tool_progress`.
+- `file_changes`: a backend's patch update, replacing the previous list.
+- `child_session`: Pi Durable `details.conversationId` (pd D5), CC subagent `agent_id` (cc §3).
 
-**Children.** A subagent's session is a session of its own: its events go to its own `OpenSession` when one is open, and its row reaches lists through the catalog. OpenCode and Codex deliver a child's events on the parent's connection; the adapter routes them by session id (oc §5, cx §5.1). CC forwards a subagent's tool calls (and its text with `forwardSubagentText`) inside the parent's run (cc §5); those stay in the parent's stream, nested by `parentToolCallId`.
+**Children.** A subagent's session is a session of its own: its events go to its own `OpenSession` when one is open, and its row reaches lists through the catalog. CC forwards a subagent's tool calls (and its text with `forwardSubagentText`) inside the parent's run (cc §5); those stay in the parent's stream, nested by `parentToolCallId`.
 
-**Tool results** (`ToolResult`) carry `content` (text, images by `ImageRef`, file references), `fileChanges` (CC `structuredPatch`/`gitDiff`, cc §4; Codex `fileChange.changes`, cx §4.2; OpenCode `FileDiff.Info`, oc §4; Pi edit `details.diff`, pi §4), `error`, and `exitCode` where the backend has one: Codex has `exitCode`; CC's `BashOutput` has none (Errata 5). `ToolOutcome` is `completed | failed | denied | aborted`: Codex `declined` → `denied` (cx §4.2); OpenCode `permission.rejected` → `denied` (oc §5).
+**Tool results** (`ToolResult`) carry `content` (text, images by `ImageRef`, file references), `fileChanges` (CC `structuredPatch`/`gitDiff`, cc §4; Pi edit `details.diff`, pi §4), `error`, and `exitCode` where the backend has one: CC's `BashOutput` has none (Errata 5). `ToolOutcome` is `completed | failed | denied | aborted`.
 
 ## 8. Live state, snapshot and reconnect
 
@@ -287,13 +285,13 @@ SinkRecord    = EventEnvelope without seq and session      // what an adapter em
 
 **Reconnect is two-sided.**
 
-- *Phone ↔ bridge* is the core's job: a per-session event log with `seq`, plus the snapshot it maintains with `applyEvent`. A phone reattaching with `{epoch, seq}` gets the missed events, or, if the log no longer reaches back or the epoch changed, a `SnapshotSync` (§12.2). No backend offers replay, so the bridge must: CC (cc §10), Codex (cx §10), OpenCode (oc §10), Pi (pi §10); Pi Durable is snapshot-first by design (pd D10).
-- *Bridge ↔ backend* is the adapter's job. After a gap it re-reads (Codex `thread/resume` + `turns/list`, cx §10; OpenCode's refetch recipe, oc §10; Pi Durable's snapshot, pd D10) and either emits corrective events or one `resynced{snapshot}`. Partial text lost in the gap reappears at the block's authoritative `block_finished`.
+- *Phone ↔ bridge* is the core's job: a per-session event log with `seq`, plus the snapshot it maintains with `applyEvent`. A phone reattaching with `{epoch, seq}` gets the missed events, or, if the log no longer reaches back or the epoch changed, a `SnapshotSync` (§12.2). No backend offers replay, so the bridge must: CC (cc §10), Pi (pi §10); Pi Durable is snapshot-first by design (pd D10).
+- *Bridge ↔ backend* is the adapter's job. After a gap it re-reads (Pi Durable's snapshot, pd D10) and either emits corrective events or one `resynced{snapshot}`. Partial text lost in the gap reappears at the block's authoritative `block_finished`.
 
-**Transcript vs live: the merge rule.** A phone attaching mid-run must render the run's finished part, its open part and the history before it, with no duplicate and no gap. Transcript ids cannot be the key: Pi has no ids until an entry is persisted (pi §5, Q28), Codex legacy threads synthesize `item-N` on every read (cx §4.2), OpenCode's block positions are unverified (Q25). So the contract splits the two by run instead of by id:
+**Transcript vs live: the merge rule.** A phone attaching mid-run must render the run's finished part, its open part and the history before it, with no duplicate and no gap. Transcript ids cannot be the key: Pi has no ids until an entry is persisted (pi §5, Q28). So the contract splits the two by run instead of by id:
 
 1. **The snapshot carries the active run whole.** `run.items` holds every item the run has finished, oldest first, in the live stream's ids, exactly as `applyEvent` builds them from the events (`run-items.ts`): its user messages, finished blocks, tool calls as they start (completed with their final input and child session when they finish) and tool results (`<toolCallId>:result`). Notices, compaction markers and model changes stay out; the live state already shows them. A retraction removes the retracted messages' items; `session_replaced` empties the list, because what came before belongs to the old session. Past 1,000 items the oldest leave and `run.droppedItems` counts them.
-2. **The transcript holds finished runs only.** While a session open in this bridge has an active run, `readTranscript` ends just before that run's first item. Each backend knows where its run starts: CC the first chain entry after the send (cc §4), Codex the `inProgress` turn (cx §4.1), OpenCode the first message after `execution.started` (oc §4, ascending `msg_` ids), Pi the leaf at run start (pi §4), Pi Durable the last committed entry id at `run_start` (pd D4).
+2. **The transcript holds finished runs only.** While a session open in this bridge has an active run, `readTranscript` ends just before that run's first item. Each backend knows where its run starts: CC the first chain entry after the send (cc §4), Pi the leaf at run start (pi §4), Pi Durable the last committed entry id at `run_start` (pd D4).
 3. **At `run_finished` the phone re-reads the transcript's newest page** and replaces the run's live rendering with it.
 
 The snapshot and the events that follow it are consistent by construction (§5 rule 1), and the transcript never overlaps them, so neither a race nor an id mismatch can double or drop an item. The cost is a larger snapshot for a long run; the bound and `droppedItems` keep it finite.
@@ -324,7 +322,7 @@ interaction_resolved { interactionId, reason: answered | withdrawn | expired }
 
 **Permission options.** Each `PermissionOption` is `{id, label, effect: allow|deny, scope: once|turn|session|always, stopsRun, message: none|optional|required, rule?}`. The adapter builds the options from what the backend offers and maps the chosen `id` back to the native payload, so allow-once, allow-for-session, allow-always-with-rule, deny-and-continue-with-message and deny-and-stop all fit one shape. `grants` carry a requested permission profile; allowing grants a non-empty subset.
 
-**Cancel.** `cancel{stopRun, message?}` answers any kind: the human dismissed it. `stopRun` says whether the run ends. No backend times out on its own (cc §8.8, cx §8, oc §8.1, pi §8.4, pd D8), and the bridge has no timeout policy either: nothing answers for a human. An interaction ends only when a human answers or cancels it, or the backend withdraws it or lets it expire. `expiresAt` is the backend's own deadline, shown and never acted on.
+**Cancel.** `cancel{stopRun, message?}` answers any kind: the human dismissed it. `stopRun` says whether the run ends. No backend times out on its own (cc §8.8, pi §8.4, pd D8), and the bridge has no timeout policy either: nothing answers for a human. An interaction ends only when a human answers or cancels it, or the backend withdraws it or lets it expire. `expiresAt` is the backend's own deadline, shown and never acted on.
 
 **Validation.** `answerProblem(interaction, answer)` faults:
 
@@ -342,14 +340,14 @@ interaction_resolved { interactionId, reason: answered | withdrawn | expired }
 - a choice that is not an option;
 - newlines in single-line text.
 
-**Field keys.** A field's `key` is any string but `__proto__` (`FieldKey`; the JSON Schema says so as a `pattern`). A reply holds its answers in an object keyed by field key, and `JSON.parse` gives such an object a `__proto__` key of its own that zod's record parse then drops without a word, so a field so keyed could never be answered. The schema refuses the key in a field, a `when` condition and a reply (`invalid_message` naming it), and an adapter whose backend names a field `__proto__` owns the mapping: it shows the phone another key, unique among the form's, and maps the answer back to the backend's. Only `__proto__` is lost: every other name an object, a function or an array inherits, and the names around them, survives the parse (a test holds more than fifty of them to it). Any backend can name one: an MCP server's elicitation schema chooses its property names (cc §8.4, cx §8.1), and OpenCode's `Form.Info` keys are free (oc §8.2).
+**Field keys.** A field's `key` is any string but `__proto__` (`FieldKey`; the JSON Schema says so as a `pattern`). A reply holds its answers in an object keyed by field key, and `JSON.parse` gives such an object a `__proto__` key of its own that zod's record parse then drops without a word, so a field so keyed could never be answered. The schema refuses the key in a field, a `when` condition and a reply (`invalid_message` naming it), and an adapter whose backend names a field `__proto__` owns the mapping: it shows the phone another key, unique among the form's, and maps the answer back to the backend's. Only `__proto__` is lost: every other name an object, a function or an array inherits, and the names around them, survives the parse (a test holds more than fifty of them to it). Any backend can name one: an MCP server's elicitation schema chooses its property names (cc §8.4).
 
-`fieldIsActive` evaluates `when` (all conditions must hold; `eq` against a multiselect means "includes"; a condition on an unanswered field is false), as OpenCode defines it (oc §8.2).
+`fieldIsActive` evaluates `when` (all conditions must hold; `eq` against a multiselect means "includes"; a condition on an unanswered field is false).
 
-Where backends validate differently, `field-check.ts` is the strictest of them, so no backend refuses an answer it passes (OpenCode's `validateAnswer`, `core/src/form.ts:235-370`, is the strictest; Errata 8):
+Where backends validate differently, `field-check.ts` is the strictest of them, so no backend refuses an answer it passes (Errata 8):
 
 - `minLength` counts code points and `maxLength` UTF-16 units, so the value passes both readings.
-- A `pattern` must match both as OpenCode compiles it (no flags) and as JSON Schema means it (the `u` flag); a pattern neither compiles makes every answer fail.
+- A `pattern` must match both compiled without flags and as JSON Schema means it (the `u` flag); a pattern neither compiles makes every answer fail.
 - An email needs a dotted domain.
 - A `date` is a real calendar day (`2026-02-30` is not); a `date-time` is RFC 3339 with an offset, a real day and a clock time.
 
@@ -359,23 +357,23 @@ Where backends validate differently, `field-check.ts` is the strictest of them, 
 - `withdrawn` when the backend ended the ask without that answer: run interrupted, tool call ended, another client answered, or a batch reject.
 - `expired` when nothing can answer it any more: the backend process or the bridge restarted.
 
-The core gives first-answer-wins across phones by calling `answer` once and refusing later answers `stale`. It re-delivers pending interactions on reattach from the snapshot, and never answers one on its own: a phone may come back hours later and the ask is still pending. When a backend loses pending asks on restart (CC, Pi, OpenCode, Codex stdio child) and re-asks after recovery, the re-ask is a new interaction.
+The core gives first-answer-wins across phones by calling `answer` once and refusing later answers `stale`. It re-delivers pending interactions on reattach from the snapshot, and never answers one on its own: a phone may come back hours later and the ask is still pending. When a backend loses pending asks on restart (CC, Pi) and re-asks after recovery, the re-ask is a new interaction.
 
 **Per backend.** "✗" means the backend has no such ask; the capability omits the kind.
 
-| Kind | Claude Code | Codex | OpenCode | Pi | Pi Durable |
-|---|---|---|---|---|---|
-| `tool_permission` | `canUseTool` (cc §8.1). Options: allow once; one allow-always per `permission_suggestions` (rule text, `PermissionUpdate[]` echoed); deny (message, `interrupt:false`); deny-and-stop (`interrupt:true`). `suppress_always_allow_rule` drops always; `default_to_no` → `defaultOptionId`; `requires_user_interaction` → `deliberate`; `updatedInput` → `inputEditable`. Previews from the tool input and `blocked_path`. | Command approval: `availableDecisions` → options (`accept` once, `acceptForSession` session, `acceptWithExecpolicyAmendment` always + prefix rule, `applyNetworkPolicyAmendment` always ± host rule, `decline` deny-continue, `cancel` deny-stop); previews: command, cwd, network host. File change: same four decisions, file-changes preview. Permissions request: `grants` from network/read/write/entries, options allow-turn, allow-session, deny (empty grant). MCP tool approval (elicitation `codex_approval_kind`, or the `requestUserInput` fallback): accept / `persist` session / `persist` always / decline / cancel (cx §8.1). | `permission.asked`: once, always (rule = `save` patterns, project scope), reject-with-message (deny-continue, message required), reject (deny-stop) (oc §8.1). Previews: `metadata.files`, `resources`. | Bridge-owned `tool_call` gate: allow once/session/always (bridge policy), deny (`block` + reason), deny-and-stop (block + abort); `input` mutable (pi §8.6). | `beforeTool` hook: allow, deny (`block`), deny-and-stop (block + `abort`); `arguments` replace input; verdict memoized per task (pd D8). |
-| `questions` | `AskUserQuestion` via `canUseTool` (cc §8.2). Question id = index; answers mapped to question-text keys, multi-select comma-joined; `allowCustom` always (CC adds "Other"); `required` unless the CLI advertises `ask_user_question_unanswered_v1`. Cancel → deny (`interrupt` = `stopRun`). | `item/tool/requestUserInput` (cx §8.1): `isOther` → `allowCustom`, `isSecret` → `secret`, `options:null` → no options + custom, `isBlocking` → `blocksRun`, `required` true. Cancel → empty answers (+ `turn/interrupt` when `stopRun`). | Form with `metadata.kind:"question"` (oc §8.2): keys `q{i}`, `custom` → `allowCustom`, multiselect → `multiSelect`. Cancel → `DELETE` with message (continue) or without (stop). | ✗ | ✗ |
-| `form` | `onElicitation` form mode: `requestedSchema` + `property_order` → fields (cc §8.4). Submit → `accept` + `content`. | `mcpServer/elicitation/request` `form` / `openai/form` (cx §8.1). | Generic `Form.Info`, every field type incl. `when`, `hidden`, `external` (oc §8.2). | ✗ | ✗ |
-| `plan_approval` | `ExitPlanMode` via `canUseTool` (cc §8.3): approve → `updatedInput.plan` = edited plan; reject → deny with feedback. | ✗ (Plan mode ends with a `plan` item and the next prompt, cx §12) | ✗ | ✗ | ✗ |
-| `external_url` | Elicitation `url` mode, completion via `elicitation_complete` (cc §8.4). | Elicitation `url` mode (cx §8.1). | Form with one `external` field (oc §8.2). | ✗ | ✗ |
-| `choice` | `onUserDialog` `refusal_fallback_prompt`: `retry_fallback` / `edit_prompt` (cc §8.5). | ✗ | ✗ | `ctx.ui.select` (pi §8). | ✗ |
-| `confirm` | an elicitation with an empty schema | an elicitation with an empty schema | ✗ | `ctx.ui.confirm`. | ✗ |
-| `text` | ✗ | ✗ | ✗ | `ctx.ui.input` (single line), `ctx.ui.editor` (multiline, `prefill` → `initialText`). | ✗ |
-| cancel → native | deny `{message, interrupt: stopRun}`; elicitation `decline` (+ `interrupt()` when `stopRun`); dialog `{behavior:'cancelled'}` | `decline`/`cancel` by `stopRun`; elicitation `decline`; empty answers or empty grant (+ `turn/interrupt`) | reject / `DELETE` with message when continuing (default text if none), without when stopping | `{cancelled:true}`; gate `block` (+ abort) | `block` (+ `abort`) |
-| resolved: withdrawn | `control_cancel_request` (cc §8.7) | `serverRequest/resolved` not following our answer (cx §8) | `*.replied`/`form.cancelled` not ours; reconcile pending on every run end, since a run end publishes no `permission.replied` (oc §8.1); a reject resolves every pending permission of the session | extension timeout or abort signal (pi §8.4) | task context aborted (pd D8) |
-| resolved: expired | CLI child died (cc §8.7) | stdio child died; thread unloaded | service restarted (oc §8.1) | bridge restart (pi §8.5) | bridge restart; the rerun re-asks (pd D8, Q33) |
+| Kind | Claude Code | Pi | Pi Durable |
+|---|---|---|---|
+| `tool_permission` | `canUseTool` (cc §8.1). Options: allow once; one allow-always per `permission_suggestions` (rule text, `PermissionUpdate[]` echoed); deny (message, `interrupt:false`); deny-and-stop (`interrupt:true`). `suppress_always_allow_rule` drops always; `default_to_no` → `defaultOptionId`; `requires_user_interaction` → `deliberate`; `updatedInput` → `inputEditable`. Previews from the tool input and `blocked_path`. | Bridge-owned `tool_call` gate: allow once/session/always (bridge policy), deny (`block` + reason), deny-and-stop (block + abort); `input` mutable (pi §8.6). | `beforeTool` hook: allow, deny (`block`), deny-and-stop (block + `abort`); `arguments` replace input; verdict memoized per task (pd D8). |
+| `questions` | `AskUserQuestion` via `canUseTool` (cc §8.2). Question id = index; answers mapped to question-text keys, multi-select comma-joined; `allowCustom` always (CC adds "Other"); `required` unless the CLI advertises `ask_user_question_unanswered_v1`. Cancel → deny (`interrupt` = `stopRun`). | ✗ | ✗ |
+| `form` | `onElicitation` form mode: `requestedSchema` + `property_order` → fields (cc §8.4). Submit → `accept` + `content`. | ✗ | ✗ |
+| `plan_approval` | `ExitPlanMode` via `canUseTool` (cc §8.3): approve → `updatedInput.plan` = edited plan; reject → deny with feedback. | ✗ | ✗ |
+| `external_url` | Elicitation `url` mode, completion via `elicitation_complete` (cc §8.4). | ✗ | ✗ |
+| `choice` | `onUserDialog` `refusal_fallback_prompt`: `retry_fallback` / `edit_prompt` (cc §8.5). | `ctx.ui.select` (pi §8). | ✗ |
+| `confirm` | an elicitation with an empty schema | `ctx.ui.confirm`. | ✗ |
+| `text` | ✗ | `ctx.ui.input` (single line), `ctx.ui.editor` (multiline, `prefill` → `initialText`). | ✗ |
+| cancel → native | deny `{message, interrupt: stopRun}`; elicitation `decline` (+ `interrupt()` when `stopRun`); dialog `{behavior:'cancelled'}` | `{cancelled:true}`; gate `block` (+ abort) | `block` (+ `abort`) |
+| resolved: withdrawn | `control_cancel_request` (cc §8.7) | extension timeout or abort signal (pi §8.4) | task context aborted (pd D8) |
+| resolved: expired | CLI child died (cc §8.7) | bridge restart (pi §8.5) | bridge restart; the rerun re-asks (pd D8, Q33) |
 
 ## 10. Input
 
@@ -386,25 +384,25 @@ Rejected { status: rejected, rejection: Rejection }
 Rejection { code: busy|not_steerable|no_model|auth|invalid_input|unsupported|not_found|stale|closed|backend_error, message }
 ```
 
-**Modes.** `start` begins a run and is rejected `busy` while one is active. `steer` joins the active run at its next safe boundary. `queue` is delivered when the agent would otherwise stop: CC, Pi and OpenCode go on with it inside the same run (cc §5 `queued_turn_count`; pi §6 `followUp`; oc §5 "covers every coalesced drain"), while Codex and Pi Durable start the next run (cx §6.2; pd D5). With no active run, `steer` and `queue` start one (disposition `started`).
+**Modes.** `start` begins a run and is rejected `busy` while one is active. `steer` joins the active run at its next safe boundary. `queue` is delivered when the agent would otherwise stop: CC and Pi go on with it inside the same run (cc §5 `queued_turn_count`; pi §6 `followUp`), while Pi Durable starts the next run (pd D5). With no active run, `steer` and `queue` start one (disposition `started`).
 
-| | Claude Code | Codex | OpenCode | Pi | Pi Durable |
-|---|---|---|---|---|---|
-| start | open-stream send (cc §6) | `turn/start` only when idle; on a busy thread it steers by accident, so the adapter routes by its own state (cx §6.2, §14 #4) | `prompt` (oc §6) | `prompt()` when idle (pi §6) | `submit` (pd D6) |
-| steer | `priority:'next'` | `turn/steer{expectedTurnId}`; `activeTurnNotSteerable` → `not_steerable` | `delivery:"steer"` | `prompt{streamingBehavior:"steer"}` | `whenBusy:"steer"` |
-| queue | `priority:'later'` | exp `thread/queue/add`, else held by the adapter until `turn/completed` | `delivery:"queue"` | `followUp` | `whenBusy:"followUp"` |
-| idempotency | `uuid` = `clientRequestId`; dedupe of a repeat unverified (Q3) | none; the adapter dedupes (cx §6.1) | prompt `id`, durable; the adapter maps `clientRequestId` to an ascending `msg_` id and must persist the mapping (oc §6) | none; the adapter dedupes (pi §6) | `requestId` = `clientRequestId`, durable (pd D6) |
-| accepted signal | none synchronous; the adapter accepts on write (cc §6) | `turn/start` response (cx §6.1) | `200 Inbox.User` (oc §6) | `preflightResult` (pi §6) | `submit` resolved (pd D6) |
-| typed rejections | — | `not_steerable`, `invalid_input` (`input_too_large`), `busy` (cx §6.2) | `invalid_input` (400), `not_found` (404), `stale` (409) (oc §6) | `no_model`, `auth`, `busy` (compacting) (pi §6) | `busy` (`ConversationBusy`) (pd D6) |
-| command | text `/name args` (cc §6) | `skill` input item + text (cx §6.2) | `POST …/command`, or `skills[]` (oc §6) | text `/name` or `/skill:name` (pi §6) | ✗ |
+| | Claude Code | Pi | Pi Durable |
+|---|---|---|---|
+| start | open-stream send (cc §6) | `prompt()` when idle (pi §6) | `submit` (pd D6) |
+| steer | `priority:'next'` | `prompt{streamingBehavior:"steer"}` | `whenBusy:"steer"` |
+| queue | `priority:'later'` | `followUp` | `whenBusy:"followUp"` |
+| idempotency | `uuid` = `clientRequestId`; dedupe of a repeat unverified (Q3) | none; the adapter dedupes (pi §6) | `requestId` = `clientRequestId`, durable (pd D6) |
+| accepted signal | none synchronous; the adapter accepts on write (cc §6) | `preflightResult` (pi §6) | `submit` resolved (pd D6) |
+| typed rejections | — | `no_model`, `auth`, `busy` (compacting) (pi §6) | `busy` (`ConversationBusy`) (pd D6) |
+| command | text `/name args` (cc §6) | text `/name` or `/skill:name` (pi §6) | ✗ |
 
-**Rules.** Every prompt carries a `clientRequestId`. The adapter de-duplicates within an open session: a repeat of an **accepted** prompt returns the first result and does nothing else. A rejection is not remembered, so a phone that retries with the same id after the cause is gone (the run that made it `busy` ended, the user signed in) is served; no backend admits anything on a rejection either (OpenCode admits nothing on a 4xx, oc §6; Pi Durable writes nothing on `ConversationBusy`, pd D6). It passes the id to backends that persist it (CC `uuid`, Pi Durable `requestId`, OpenCode `id` via the mapping). The core de-duplicates across bridge restarts. The prompt's `user_message` carries its `clientRequestId`, which is how a phone matches its optimistic bubble. Every phone prompt is human input, so the adapter stamps the backend's human attribution itself (CC `origin:{kind:'human'}`, which changes `priority:'now'` semantics, cc §6). Failures after acceptance are events, not rejections (cx §6.1, oc §6, pi §6).
+**Rules.** Every prompt carries a `clientRequestId`. The adapter de-duplicates within an open session: a repeat of an **accepted** prompt returns the first result and does nothing else. A rejection is not remembered, so a phone that retries with the same id after the cause is gone (the run that made it `busy` ended, the user signed in) is served; no backend admits anything on a rejection either (Pi Durable writes nothing on `ConversationBusy`, pd D6). It passes the id to backends that persist it (CC `uuid`, Pi Durable `requestId`). The core de-duplicates across bridge restarts. The prompt's `user_message` carries its `clientRequestId`, which is how a phone matches its optimistic bubble. Every phone prompt is human input, so the adapter stamps the backend's human attribution itself (CC `origin:{kind:'human'}`, which changes `priority:'now'` semantics, cc §6). Failures after acceptance are events, not rejections (pi §6).
 
-**Mentions and attachments.** `Attachment` = `ImageContent{mimeType, data(base64)}` | `FileContent{uri, mimeType?}`; the images of one prompt hold at most 4 MiB of base64 together. `Mention` = `file{path}` | `agent{name}`, for backends that take structured mentions (Codex `mention`, OpenCode `files[].mention`/`agents[]`); CC takes `@path` in the text (cc §6).
+**Mentions and attachments.** `Attachment` = `ImageContent{mimeType, data(base64)}` | `FileContent{uri, mimeType?}`; the images of one prompt hold at most 4 MiB of base64 together. `Mention` = `file{path}` | `agent{name}`, for backends that take structured mentions; CC takes `@path` in the text (cc §6).
 
-**Images go back by reference.** Inline bytes travel only in a prompt and in an `attachment.read` answer. Everything the bridge sends about input, the live `user_message` and the transcript's `user_message` items alike, carries `AttachmentRef` = `ImageRef{id, mimeType, name?}` | `FileContent`, and tool results carry `ImageRef` too (`ToolContent`). `readAttachment(session, id)` returns the bytes. Every backend keeps them where an id can find them: CC and Pi in the session JSONL (entry and block index, cc §4, pi §4), Codex in the `userMessage` item (cx §4.2), OpenCode in the message's `files` (oc §4), Pi Durable in the entry (pd D4). This keeps a 200-item transcript page small whatever its images weigh.
+**Images go back by reference.** Inline bytes travel only in a prompt and in an `attachment.read` answer. Everything the bridge sends about input, the live `user_message` and the transcript's `user_message` items alike, carries `AttachmentRef` = `ImageRef{id, mimeType, name?}` | `FileContent`, and tool results carry `ImageRef` too (`ToolContent`). `readAttachment(session, id)` returns the bytes. Every backend keeps them where an id can find them: CC and Pi in the session JSONL (entry and block index, cc §4, pi §4), Pi Durable in the entry (pd D4). This keeps a 200-item transcript page small whatever its images weigh.
 
-**Queued input after an abort.** An abort leaves the queue as the backend leaves it, and `queue_changed` shows the result: Pi Durable withdraws queued input (pd D7); Codex keeps it and skips the automatic dispatch after an interrupt (cx §7); OpenCode keeps inbox items (oc §7); Pi clears both queues on Stop and hands the texts back in `input_returned` (since 1.2), as the terminal's Esc does (pi §7); Claude Code keeps queued commands unless the interrupt cancels them (cc §7). What stays is delivered by a later run, as the backend schedules it, and can be cancelled where `cancelQueued` exists. What a backend takes back out is handed to the human in `input_returned{texts}` (since 1.2): the app joins those texts with a blank line between them and puts them in front of what is already typed, and nothing is sent again by itself.
+**Queued input after an abort.** An abort leaves the queue as the backend leaves it, and `queue_changed` shows the result: Pi Durable withdraws queued input (pd D7); Pi clears both queues on Stop and hands the texts back in `input_returned` (since 1.2), as the terminal's Esc does (pi §7); Claude Code keeps queued commands unless the interrupt cancels them (cc §7). What stays is delivered by a later run, as the backend schedules it, and can be cancelled where `cancelQueued` exists. What a backend takes back out is handed to the human in `input_returned{texts}` (since 1.2): the app joins those texts with a blank line between them and puts them in front of what is already typed, and nothing is sent again by itself.
 
 ## 11. Read models
 
@@ -412,16 +410,16 @@ Rejection { code: busy|not_steerable|no_model|auth|invalid_input|unsupported|not
 
 `SessionSummary { session, title?{text, source: user|generated|first_prompt}, cwd?, createdAt?, updatedAt, parent?{kind: fork|subagent, session}, archived, modelId?, status, origin: broski|external, source? }`, listed newest-updated first by `listSessions(SessionQuery{cwd?, archived, parent?}, PageRequest)`.
 
-| Field | Claude Code (cc §3) | Codex (cx §3) | OpenCode (oc §3) | Pi (pi §3) | Pi Durable (pd D3) |
-|---|---|---|---|---|---|
-| title | `customTitle` user / `aiTitle` generated / prompts first_prompt | `name` user / `preview` first_prompt | `title`: generated or renamed, indistinguishable (Q27) | `name` user / `firstMessage` | Broski `meta.json` |
-| cwd | `cwd` | `cwd` | `location.directory` | header `cwd` (`""` for old sessions → absent) | `meta.json` |
-| createdAt / updatedAt | `createdAt?` / `lastModified` | seconds → ms | `time.created/updated` | `created` / `modified` | `meta.json` |
-| parent | ✗ fork link not exposed (Q10); subagents via `listSubagents` | `forkedFromId` fork, `parentThreadId` subagent | `fork` fork, `parentID` subagent | `parentSessionPath` fork (path → id by the bridge index) | `parent` fork, `owner` subagent |
-| archived | always false | the query's `archived` (no row flag) | `time.archived` | always false | false |
-| status | live for hosted sessions, else `unknown` | `notLoaded`/`idle`/`systemError` → idle, `active` + flags → running / waiting_for_user | `GET session/active`, process-local | live for hosted sessions, else `unknown` | live |
-| origin | `entrypoint` `cli` → external | `originator` ≠ Broski → external (app-server threads say `source:"vscode"`, cx §3.2) | Broski's own `metadata` tag | the bridge's index | always broski |
-| paging | offset/limit, unstable under inserts; dedupe by id (cc §3) | cursor, ≤100 per call (cx §3.2) | anchor cursor (oc §3) | none: a bridge-side index (pi §3) | none: Broski directories |
+| Field | Claude Code (cc §3) | Pi (pi §3) | Pi Durable (pd D3) |
+|---|---|---|---|
+| title | `customTitle` user / `aiTitle` generated / prompts first_prompt | `name` user / `firstMessage` | Broski `meta.json` |
+| cwd | `cwd` | header `cwd` (`""` for old sessions → absent) | `meta.json` |
+| createdAt / updatedAt | `createdAt?` / `lastModified` | `created` / `modified` | `meta.json` |
+| parent | ✗ fork link not exposed (Q10); subagents via `listSubagents` | `parentSessionPath` fork (path → id by the bridge index) | `parent` fork, `owner` subagent |
+| archived | always false | always false | false |
+| status | live for hosted sessions, else `unknown` | live for hosted sessions, else `unknown` | live |
+| origin | `entrypoint` `cli` → external | the bridge's index | always broski |
+| paging | offset/limit, unstable under inserts; dedupe by id (cc §3) | none: a bridge-side index (pi §3) | none: Broski directories |
 
 **Paging rules** (`PageRequest{cursor?, limit 1..200}`):
 
@@ -435,52 +433,52 @@ Rejection { code: busy|not_steerable|no_model|auth|invalid_input|unsupported|not
 
 `readTranscript(session, page)` returns `TranscriptPage{items, nextCursor?, idStability: stable|positional}`, newest first. Items are flat, one per block, so a page boundary can never split a message. Items of one assistant message share `messageId`. A page holds finished runs only (§8) and names images by reference (§10).
 
-| Item | Claude Code (cc §4) | Codex (cx §4.2) | OpenCode (oc §4) | Pi (pi §4) | Pi Durable (pd D4) |
-|---|---|---|---|---|---|
-| `user_message` | `user` text + image blocks | `userMessage` (`clientId`) | `user` (+ `files`) | role `user` | `pi.user` |
-| `block` (text/thinking/plan) | one `assistant` line per block | `agentMessage`, `reasoning` parts, `plan` | `assistant.content` text/reasoning | `text`/`thinking` blocks | assistant blocks |
-| `tool_call` + `tool_result` | `tool_use` + `tool_result`/`toolUseResult` | one item → both | `tool` block with its state | `toolCall` block + `toolResult` | assistant `toolCall` + `pi.tool-result` |
-| `notice` | `system` informational | review mode, hook prompts | `synthetic`, `skill`, `agent-switched`, `location-switched` | `custom` display, `branchSummary` | `pi.reset` |
-| `compaction` | `compact_boundary` (+ tokens) | `contextCompaction` (no summary) | `compaction` (summary) | `compaction` (summary, tokens) | `pi.compaction` |
-| `model_change` | `attachment.type:"model"` (disk only) | — | `model-switched` (+ variant) | `model_change`, `thinking_level_change` | `agent_changed` history |
-| `run_boundary` | `turn_duration` / `result` (disk) | turn status | `idle` message | — | — |
-| ids | entry `uuid`, stable | stable (paginated threads) / `item-N` positional (legacy) | message ids stable; block position derived (Q25) | entry ids stable | entry ids stable |
-| paging | chain offset from the start; whole file parsed (cc §4) | two-level: turns, then items | cursor ≤200 | none: whole file (bridge pages) | native cursor |
+| Item | Claude Code (cc §4) | Pi (pi §4) | Pi Durable (pd D4) |
+|---|---|---|---|
+| `user_message` | `user` text + image blocks | role `user` | `pi.user` |
+| `block` (text/thinking/plan) | one `assistant` line per block | `text`/`thinking` blocks | assistant blocks |
+| `tool_call` + `tool_result` | `tool_use` + `tool_result`/`toolUseResult` | `toolCall` block + `toolResult` | assistant `toolCall` + `pi.tool-result` |
+| `notice` | `system` informational | `custom` display, `branchSummary` | `pi.reset` |
+| `compaction` | `compact_boundary` (+ tokens) | `compaction` (summary, tokens) | `pi.compaction` |
+| `model_change` | `attachment.type:"model"` (disk only) | `model_change`, `thinking_level_change` | `agent_changed` history |
+| `run_boundary` | `turn_duration` / `result` (disk) | — | — |
+| ids | entry `uuid`, stable | entry ids stable | entry ids stable |
+| paging | chain offset from the start; whole file parsed (cc §4) | none: whole file (bridge pages) | native cursor |
 
 ### 11.3 Models and thinking
 
 `ModelSummary{id, displayName, description?, providerId?, providerName?, contextWindow?, inputModalities?, thinking: ThinkingSpec, isDefault, unavailableReason?}`. A plain `models.list` holds usable models only. With `includeUnavailable` (since 1.3) the models the backend knows but cannot use now follow them, each with an `unavailableReason` that says what is missing; `setModel` refuses one (`auth`), and the conformance rule for models checks the order and the reason. `ThinkingSpec{options[{value, label?, description?}], defaultValue?}`: no options means thinking cannot be set. `setThinking(value)` takes one of the current model's option values and nothing else; anything else is rejected `invalid_input`. `setModel(id)` takes a listed model; anything else is rejected `not_found`. The snapshot's `modelId` is the model chosen; `modelSwitch` says when the choice reaches the model.
 
-| | Claude Code | Codex | OpenCode | Pi | Pi Durable |
-|---|---|---|---|---|---|
-| list | `supportedModels()` (cc §9) | `model/list` (cx §9) | `GET /api/model` (oc §9) | `refresh({allowNetwork:false})` + `getAvailable()` (pi §9) | the shared Pi `ModelRuntime` (pd D9) |
-| `id` | `value` (alias or id) | `id` | `providerID/id` | `provider/id` | `provider/modelId` |
-| thinking options | `supportedEffortLevels` (cc §7, Q11) | `supportedReasoningEfforts` | `variants[].id` | `getSupportedThinkingLevels(model)` (Errata 1) | same levels, unclamped (Q32) |
-| default | — | `defaultReasoningEffort` | none (no variant = default) | per-model or global default, clamped | — |
-| context window | ✗ until `modelUsage` (cc §9) | ✗ until token usage (cx §9) | `limit.context` | `contextWindow` | `contextWindow` |
-| `isDefault` | — | `isDefault` | `GET model/default` | settings default | — |
+| | Claude Code | Pi | Pi Durable |
+|---|---|---|---|
+| list | `supportedModels()` (cc §9) | `refresh({allowNetwork:false})` + `getAvailable()` (pi §9) | the shared Pi `ModelRuntime` (pd D9) |
+| `id` | `value` (alias or id) | `provider/id` | `provider/modelId` |
+| thinking options | `supportedEffortLevels` (cc §7, Q11) | `getSupportedThinkingLevels(model)` (Errata 1) | same levels, unclamped (Q32) |
+| default | — | per-model or global default, clamped | — |
+| context window | ✗ until `modelUsage` (cc §9) | `contextWindow` | `contextWindow` |
+| `isDefault` | — | settings default | — |
 
 ### 11.4 Commands, usage, status
 
-- `CommandSummary{id, name, kind: command|skill|prompt, description?, argumentHint?}`. A prompt invokes one with `PromptInput.command = id` and its arguments as `text`. Sources: CC `SlashCommand` and skills, with `terminal_slash_commands` filtered out (cc §9); Codex `skills/list` (cx §9); OpenCode commands and skills (oc §9); Pi extension commands, prompt templates and skills (pi §9). Pi Durable has none.
-- `Usage{inputTokens?, outputTokens?, cacheReadTokens?, cacheWriteTokens?, reasoningTokens?, costUsd?, contextTokens?, contextWindow?}` holds session totals as reported; an unreported field is absent. CC `modelUsage` is cumulative per CLI process (cc §5). Codex has no cost (cx §5.3). OpenCode's context fill is derived from the last step against `limit.context` (oc §5). Pi's is `getContextUsage()` and may be null after compaction (pi §18 #23).
-- `BackendStatus{installed, version?, auth: signed_in|signed_out|unknown, usable, issues[]}`, from cc §2, cx §2, oc §2, pi §2, pd D2. Finding it out never fails: an unreachable OpenCode service (oc §1), a Codex daemon that will not start (cx §1.3) or a Pi `ModelRuntime` error (`getError()`, pi §2) becomes an `error` issue with `usable: false`. The catalog lists that can fail return a result: `listModels` (Codex `model/list` fails without working auth, cx §2), `listCommands`, `listModes`.
+- `CommandSummary{id, name, kind: command|skill|prompt, description?, argumentHint?}`. A prompt invokes one with `PromptInput.command = id` and its arguments as `text`. Sources: CC `SlashCommand` and skills, with `terminal_slash_commands` filtered out (cc §9); Pi extension commands, prompt templates and skills (pi §9). Pi Durable has none.
+- `Usage{inputTokens?, outputTokens?, cacheReadTokens?, cacheWriteTokens?, reasoningTokens?, costUsd?, contextTokens?, contextWindow?}` holds session totals as reported; an unreported field is absent. CC `modelUsage` is cumulative per CLI process (cc §5). Pi's is `getContextUsage()` and may be null after compaction (pi §18 #23).
+- `BackendStatus{installed, version?, auth: signed_in|signed_out|unknown, usable, issues[]}`, from cc §2, pi §2, pd D2. Finding it out never fails: a Pi `ModelRuntime` error (`getError()`, pi §2) becomes an `error` issue with `usable: false`. The catalog lists that can fail return a result: `listModels`, `listCommands`, `listModes`.
 
 ### 11.5 Session modes
 
-The settings a session runs under that change what the agent may do or how it works: Claude Code's permission mode, Codex's approval policy, sandbox and collaboration mode, OpenCode's agent. They are normalized, because the research shows one shape behind all of them, the same shape the contract already uses for thinking:
+The settings a session runs under that change what the agent may do or how it works: Claude Code's permission mode, Pi's thinking level and the like. They are normalized, because the research shows one shape behind them, the same shape the contract already uses for thinking:
 
-| | Claude Code | Codex | OpenCode | Pi | Pi Durable |
-|---|---|---|---|---|---|
-| what | `PermissionMode` (cc §7) | `approvalPolicy`, `sandbox`, exp `collaborationMode` (cx §7) | the primary agents (oc §7, §9) | none (pi §7) | none (pd D7) |
-| finite list | fixed enum: `default`, `acceptEdits`, `bypassPermissions`, `plan`, `dontAsk`, `auto` (`sdk.d.ts:2562`) | `on-request`/`never`; `read-only`/`workspace-write`/`danger-full-access`; presets from exp `collaborationMode/list` | `GET /api/agent` (`mode` primary or all, not `hidden`) | — | — |
-| at start | `Options.permissionMode`, always passed (cc §14 #2) | `thread/start` | `POST /api/session {agent}` | — | — |
-| set later | `Query.setPermissionMode`, mid-run | `turn/start` overrides, kept for later turns; exp `thread/settings/update` | `POST …/agent`, next step | — | — |
-| changed elsewhere | `system/status.permissionMode` | exp `thread/settings/updated` | `session.agent.selected` | — | — |
+| | Claude Code | Pi | Pi Durable |
+|---|---|---|---|
+| what | `PermissionMode` (cc §7) | none (pi §7) | none (pd D7) |
+| finite list | fixed enum: `default`, `acceptEdits`, `bypassPermissions`, `plan`, `dontAsk`, `auto` (`sdk.d.ts:2562`) | — | — |
+| at start | `Options.permissionMode`, always passed (cc §14 #2) | — | — |
+| set later | `Query.setPermissionMode`, mid-run | — | — |
+| changed elsewhere | `system/status.permissionMode` | — | — |
 
-So the contract has **mode axes**: `ModeAxis{id, label, description?, options: Option[], defaultValue?}`, listed by `listModes(cwd)` (OpenCode's agents depend on the directory), each session's current values in `snapshot.modes: ModeSetting{axis, value}[]` (one per listed axis), `mode_changed{axis, value}` when one changes, `setMode(axis, value)` to change one (an unknown axis or value is `invalid_input`), and `NewSessionOptions.modes` to start in them. Values are opaque, like thinking values: the app shows the backend's labels and never branches on a value. What a value allows is said in its option's `description`, which is where an adapter words a risk such as `bypassPermissions` or `danger-full-access`. A list that changes (OpenCode `agent.updated`) is `catalog_invalidated{scope: modes}`.
+So the contract has **mode axes**: `ModeAxis{id, label, description?, options: Option[], defaultValue?}`, listed by `listModes(cwd)` (a backend's modes may depend on the directory), each session's current values in `snapshot.modes: ModeSetting{axis, value}[]` (one per listed axis), `mode_changed{axis, value}` when one changes, `setMode(axis, value)` to change one (an unknown axis or value is `invalid_input`), and `NewSessionOptions.modes` to start in them. Values are opaque, like thinking values: the app shows the backend's labels and never branches on a value. What a value allows is said in its option's `description`, which is where an adapter words a risk such as `bypassPermissions`. A list that changes is `catalog_invalidated{scope: modes}`.
 
-What this leaves out, and why, is in §15: when a change takes effect is not a capability, because no backend lets the contract observe a mode's effect (a permission mode changes which tools ask, not anything the model or the stream shows), so it could not be checked; per backend it is CC mid-run, Codex the next run, OpenCode the next step. Typed per-backend ops were the alternative; they would have put three backend-specific panels in the app for one concept the backends share.
+What this leaves out, and why, is in §15: when a change takes effect is not a capability, because no backend lets the contract observe a mode's effect (a permission mode changes which tools ask, not anything the model or the stream shows), so it could not be checked; for CC it is mid-run. Typed per-backend ops were the alternative; they would have put backend-specific panels in the app for one concept the backends share.
 
 ## 12. Wire protocol
 
@@ -549,17 +547,13 @@ Two typed escape hatches. Neither is an untyped blob.
 
 **Extensions** (`extension{extension}` events, declared in `Capabilities.extensions`):
 
-- `turn_diff{diff}` (Codex `turn/diff/updated`: the run's aggregated unified diff, not in history, cx §4.2).
-- `rate_limit{window, status?, usedPercent?, resetsAt?}` (CC `rate_limit_event`, cc §2; Codex `account/rateLimits/updated`, cx §5.2; units in Q13, Q22).
+- `rate_limit{window, status?, usedPercent?, resetsAt?}` (CC `rate_limit_event`, cc §2; units in Q13).
 
 **Ops** (`backend.call{call: {backend, op}}` → `BackendCallResult`, declared in `Capabilities.backendOps`, served by `AgentBackend.call`). Each backend's ops form their own union, so an adapter receives only its own:
 
 | Backend | Op | Result | Source |
 |---|---|---|---|
 | claude-code | `rewind_files{sessionId, userItemId, dryRun}` | `{canRewind, filesChanged?, insertions?, deletions?, skippedLinks?, error?}`: `filesChanged` absent when the CLI does not say; `skippedLinks` counts files a real rewind left alone because a link sat at their path, so a partial rewind shows as one | `Query.rewindFiles` (cc §7; `RewindFilesResult`, `sdk.d.ts:3442-3452`) |
-| codex | `review_start{sessionId, target: uncommitted\|base_branch\|commit\|custom}` | `{}` (the review is a run of the session) | `review/start` inline (cx §6.2) |
-| codex | `revert{sessionId, beforeItemId}` | `{}` | `thread/revert`, paginated threads only, history only (cx §7) |
-| opencode | `revert_stage{sessionId, itemId, restoreFiles}` / `revert_clear` / `revert_commit` | `{files}` / `{}` / `{}` | stage/clear/commit; 409 while busy (oc §7) |
 | pi | `navigate_tree{sessionId, itemId, summarize, instructions?}` | `{}` | `navigateTree` (pi §7) |
 | pi | `session_settings{sessionId, change?}` (since 1.3) | `{settings[]}`: each a toggle (`enabled`) or a choice (`value`, `options`), with a label, a description and a `note` when a value shown may not be the one just chosen. With `change` that setting is set first, and the answer is the settings as the session now has them | Pi's auto-compaction, auto-retry, steering mode and follow-up mode, saved to the global `settings.json` as the terminal saves them (Pi README, decision 21) |
 | pi | `session_tools{sessionId, change?}` (since 1.3) | `{tools[], omitted?}`: name, description (cut with `…` at 2,048 characters), whether it is on, and a group; with `change` one tool is switched first | `getAllTools`, `getActiveToolNames`, `setActiveToolsByName`; the loadout is not a setting, it is recorded in the session file at the next prompt (Pi README, decision 22) |
@@ -575,11 +569,11 @@ Two typed escape hatches. Neither is an untyped blob.
 | pi | `changed_files{sessionId}` (since 1.3) | `{files[], omitted, additions, deletions}` | The files `edit` and `write` calls changed on the branch the transcript shows, folded per file |
 | pi | `refresh_models{}` (since 1.3) | `{problems[]}` | `pi update --models`: every signed-in provider's catalogue fetched again from the network, then the model files read again |
 
-Two Pi ops name no session (`import_session`, `refresh_models`): the ops rule (§14, rule 9) asks for `not_found` on a random session only of an op that names one. None of the five rewrites history.
+Two Pi ops name no session (`import_session`, `refresh_models`): the ops rule (§14, rule 9) asks for `not_found` on a random session only of an op that names one. Of the Pi ops only `navigate_tree` rewrites history.
 
-Revert is an op, not a capability: its meaning differs per backend (CC files only; Codex history only; OpenCode staged with files; Pi a leaf move; Pi Durable a fork), and one normalized "revert" would lie.
+Revert is an op, not a capability: its meaning differs per backend (CC files only; Pi a leaf move; Pi Durable a fork), and one normalized "revert" would lie.
 
-An op that rewrites what the transcript reads is marked by `rewritesHistory(kind)`: `revert`, `revert_commit` and `navigate_tree` (`take_over` does not: it appends one bookkeeping entry that no transcript item shows; nor do `session_settings`, `session_tools` and `system_prompt`). After one is accepted the adapter emits `transcript_invalidated{session}` (§5). A staged OpenCode revert is not one of them: the messages stay until the commit (oc §7).
+An op that rewrites what the transcript reads is marked by `rewritesHistory(kind)`: `navigate_tree` (`rewind_files` does not: it changes files, not the transcript; `take_over` does not either: it appends one bookkeeping entry that no transcript item shows; nor do `session_settings`, `session_tools` and `system_prompt`). After one is accepted the adapter emits `transcript_invalidated{session}` (§5).
 
 ## 14. Conformance
 
@@ -587,7 +581,7 @@ An op that rewrites what the transcript reads is marked by `rewritesHistory(kind
 
 - **`createFakeBackend(host, options)`**: in-memory and scriptable (`FakeStep`). It simulates streaming text, thinking and plan blocks; tools with streamed input, nested calls, child sessions and file changes; every interaction kind and every answer outcome; steer; queue with ids and cancel; compaction; retry; usage; plans; retractions; notices, errors and extensions; failure, limit, suspend and defer outcomes; external sessions and external runs; `resynced`; backend loss with expiry; modes; images stored and read back by reference; both model-switch timings; a restart of the bridge that runs survive or not. `traits`, `methods` and `modes` narrow it, which is how a capability is switched off.
 - **`runConformance(name, factory, timeoutMs?)`** registers one bun test per rule. `checkRule(factory, rule)` runs one rule against a fresh backend and rejects with the reason it failed.
-- **`ConformanceFactory = (host) => Promise<{backend, driver}>`**. Phase 4 writes one driver per adapter; Pi's natural seam is the scripted OpenAI endpoint and live rig in `src/__tests__/helpers/` (pi §16), and a scripted endpoint serves the others too (a custom provider for Codex and OpenCode, `ANTHROPIC_BASE_URL` for CC). The driver (`conformance-types.ts`):
+- **`ConformanceFactory = (host) => Promise<{backend, driver}>`**. Phase 4 writes one driver per adapter; Pi's natural seam is the scripted OpenAI endpoint and live rig in `src/__tests__/helpers/` (pi §16), and a scripted endpoint serves CC too (`ANTHROPIC_BASE_URL`). The driver (`conformance-types.ts`):
   - knows a `cwd` holding a `README.md`, an `otherCwd`, and an `agentName` when agent mentions are declared;
   - `seedSessions(cwd, n)`;
   - `arrange(session, scenario)` for `reply`, `tool` (a tool call, then a text answer), `hold` (until aborted or `release`d), `interaction{kind}`, `feature{thinking|usage|plan|plan_proposal|children}` and `echo_model` (two requests, each answering with the id of the model it ran with, a hold between), `slow_compaction` (the next compaction, started by `compact`, waits until cancelled, aborted or released) and `slow_retry` (the run's first request fails transiently and its retry waits likewise, then answers). It returns false when the backend cannot, and that is a failure whenever the capability is declared;
@@ -639,9 +633,9 @@ What each backend cannot carry through the contract, and what is lost on the way
 
 **Every backend**
 
-- Per message: the model that wrote an assistant message, its usage and its stop reason are not carried (CC `message.model` and `usage`, cc §4; OpenCode `assistant.model`, `cost`, `tokens`, `finish`, oc §4; Pi and Pi Durable `model`, `usage`, `stopReason`, pi §4, pd D4). The session's totals are `Usage`, its current model is `modelId`, and model switches in history are `model_change` items.
-- Past a bound (§2 rule 8) a value is shortened by the adapter: a tool's output beyond `MAX_TEXT_CHARS` (CC's Bash output, Codex `aggregatedOutput`), a title beyond `MAX_NAME_CHARS`, a list beyond its maximum. A running tool's output in the snapshot keeps its newest `MAX_TEXT_CHARS` characters.
-- Inline documents that are not images (CC `document` blocks, cc §4; OpenCode non-image `data:` files, oc §4) are left out of history: only images are read back by reference, and a file attached by path stays a `FileContent`.
+- Per message: the model that wrote an assistant message, its usage and its stop reason are not carried (CC `message.model` and `usage`, cc §4; Pi and Pi Durable `model`, `usage`, `stopReason`, pi §4, pd D4). The session's totals are `Usage`, its current model is `modelId`, and model switches in history are `model_change` items.
+- Past a bound (§2 rule 8) a value is shortened by the adapter: a tool's output beyond `MAX_TEXT_CHARS` (CC's Bash output), a title beyond `MAX_NAME_CHARS`, a list beyond its maximum. A running tool's output in the snapshot keeps its newest `MAX_TEXT_CHARS` characters.
+- Inline documents that are not images (CC `document` blocks, cc §4) are left out of history: only images are read back by reference, and a file attached by path stays a `FileContent`.
 - What queued input does after an abort differs per backend (§10); the contract shows the result in `queue_changed`, not a promise about it.
 - When a mode change takes effect (§11.5).
 
@@ -656,27 +650,9 @@ What each backend cannot carry through the contract, and what is lost on the way
 - Lost, input and catalog: `priority:'now'` interrupt-and-send (do abort then start); transcript `gitBranch` and `tag`; the CLI's `capabilities` strings (the adapter uses them to set traits); effort as a single scale, so the adaptive/enabled/budget thinking modes are not chosen separately (cc §7).
 - Lost, errors: `SDKAssistantMessageError` → `ErrorCode`: `authentication_failed`, `oauth_org_not_allowed`, `account_on_hold`, `verification_required`, `cloud_credential_error` → `auth`; `billing_error` → `quota`; `rate_limit` → `rate_limit`; `overloaded`, `server_error` → `server`; `invalid_request` → `invalid_request`; `model_not_found` → `model_unavailable`; `max_output_tokens` → the `limit` outcome; `unknown` → `unknown`.
 
-**Codex**
-
-- Unsupported: `plan_approval`, `choice`, `text`; dynamic tool calls (`item/tool/call`, a client-executed tool, not an ask) and auth/attestation requests are answered by the adapter itself (cx §8.1).
-- Lost, input: per-turn overrides on `turn/start` (`cwd`, `outputSchema`; cx §6.1) and `text_elements` spans.
-- Lost, modes: the experimental `granular` approval policy and the `sandboxPolicy` details (`writableRoots`, `networkAccess`; cx §7) beyond the three thread-level sandbox values; `approvalsReviewer` (auto-review); a collaboration preset's own model and effort settings.
-- Lost, events: `agentMessage.phase` (commentary vs final answer); `model/rerouted` (shown as a notice); hook run events; `commandActions` summaries; `terminalInteraction` stdin; `additionalPermissions` on command approvals unless experimental (cx §14 #3); `strictAutoReview`; auto-review (guardian) events; `collabAgentToolCall` with several receiver threads links only the spawned one; goals; `thread/shellCommand`; service tiers; `hidden` and `upgrade` model info.
-- Lost, history: legacy threads give positional ids (cx §4.2); the turn diff is not in history (kept as the `turn_diff` extension, live only).
-- Listing: `SessionQuery` has no source filter. The adapter lists the interactive sources (`cli`, `vscode`, `appServer`; cx §3.2) and shows sub-agent threads only as children (`parent` query). `exec` runs are not listed.
-- Lost, errors: `CodexErrorInfo` → `ErrorCode`: `contextWindowExceeded` → `context_overflow`; `sessionBudgetExceeded`, `usageLimitExceeded` → `quota`; `rateLimitExceeded` → `rate_limit`; `serverOverloaded`, `flexUnavailable`, `internalServerError` → `server`; `cyberPolicy`, `misalignmentPolicyViolation` → `content_filter`; `httpConnectionFailed`, `responseStream*`, `responseTooManyFailedAttempts` → `network`; `unauthorized` → `auth`; `badRequest` → `invalid_request`; `sandboxError`, `tooManyDenials` → `tool`; `activeTurnNotSteerable` → the `not_steerable` rejection; the rest → `unknown`.
-
-**OpenCode**
-
-- Unsupported: `plan` (experimental tool, off, oc §12); `planProposals`; `plan_approval`, `choice`, `confirm`, `text`; changing a queued item's delivery (PATCH); the `move` control item (shown in the queue, not controllable); share; LSP.
-- Lost, modes: subagent-only agents (`mode: subagent`) and `hidden` ones are not offered (oc §9); session-level permission rules (`PATCH permissions`, oc §7).
-- Lost: the `executed` flag (provider-hosted vs local tool); `tool.progress` metadata beyond a progress line and the child session; unread tracking (`time.viewed`, `session.viewed`, oc §3); `resume:false` admission (oc §6); cost tiers; whether a title was generated or renamed (Q27); the `system` model-facing instruction messages (shown as notices).
-- Batch effect: a reject rejects every pending permission of the session; the adapter emits `withdrawn` for the others (oc §8.1).
-- Lost, errors: `SessionError.type` → `ErrorCode`: `provider.rate-limit` → `rate_limit`; `provider.auth` → `auth`; `provider.quota`, `free-limit`, `budget-limit`, `model-budget-limit` → `quota`; `provider.content-filter` → `content_filter`; `provider.transport`, `timeout` → `network`; `provider.internal`, `invalid-output` → `server`; `provider.invalid-request`, `unsupported-operation` → `invalid_request`; `provider.no-route` → `model_unavailable`; `tool.*` → `tool`; `unknown`, `provider.unknown` → `unknown`; `aborted` → the `aborted` outcome; `permission.rejected` → tool outcome `denied`.
-
 **Pi**
 
-- Unsupported: archive; children; `plan`; `planProposals`; `questions`, `form`, `plan_approval`, `external_url`; per-item queue cancel (only `clearQueue`, pi §6); `externalLive`; `durableRuns`; file attachments.
+- Unsupported: archive; `plan`; `planProposals`; `questions`, `form`, `plan_approval`, `external_url`; per-item queue cancel (only `clearQueue`, pi §6); `durableRuns`; file attachments.
 - Lost: `custom()` TUI dialogs cannot be answered remotely and become a notice (pi §8.1); fire-and-forget extension UI (`setStatus`, `setWidget`, `setTitle`); confirm's cancel-vs-false distinction (pi §8.3); `summarization_retry_*` (compaction-internal retries); `bashExecution` user shell output (shown as a notice); `entry_appended` custom entries; error strings carry no class, so most errors are `unknown` (Q31).
 
 **Pi Durable**
@@ -692,21 +668,21 @@ The brief names proposals and says to refine them. These are the places the cont
 | Brief | Contract | Why |
 |---|---|---|
 | `session_state` event | `sessionStatus(snapshot)`, derived | Every state is a function of runs, pending asks and the last outcome, so a separate event could only disagree with them. `unknown` exists only for list rows. |
-| `message_started{messageId, role}` | `messageId` on every block (and optionally on tools); a separate atomic `user_message` event | Codex has no message grouping (cx §4.2) and a block is never orphaned by a lost marker. User input is complete when it arrives. |
+| `message_started{messageId, role}` | `messageId` on every block (and optionally on tools); a separate atomic `user_message` event | A block is never orphaned by a lost marker. User input is complete when it arrives. |
 | `runId` on the envelope | `runId` only on run events and `Interaction.runId` | Position in the ordered stream already attributes content to a run (§7). A redundant id could disagree with it. |
-| `interaction_resolved{answered\|cancelled\|expired\|superseded}`, synthesized by the core | `answered\|withdrawn\|expired`, emitted by the adapter | Only the adapter knows whether its answer landed (OpenCode 404/409, oc §8.1) or the backend withdrew the ask (CC `control_cancel_request`, Codex `serverRequest/resolved`). The core still owns first-answer-wins. The reply is not echoed, which keeps secret answers (Codex `isSecret`) out of the broadcast and the log. |
-| `InteractionAnswer{outcome: answered\|cancelled, payload, message?}` | `reply`: a per-kind union plus `cancel{stopRun, message?}` | Continue vs stop is explicit. Decline and cancel are distinct natively: Codex `decline`/`cancel` (cx §8.2), OpenCode reject with or without a message (oc §8.1). |
-| `plan_updated{kind: todo\|proposal}` | `plan_updated` (todo) + `block` kind `plan` (proposal) | A proposal streams as deltas (Codex `item/plan/delta`, cx §5.2); a block streams without resending the whole text on every change. |
+| `interaction_resolved{answered\|cancelled\|expired\|superseded}`, synthesized by the core | `answered\|withdrawn\|expired`, emitted by the adapter | Only the adapter knows whether its answer landed or the backend withdrew the ask (CC `control_cancel_request`). The core still owns first-answer-wins. The reply is not echoed, which keeps secret answers out of the broadcast and the log. |
+| `InteractionAnswer{outcome: answered\|cancelled, payload, message?}` | `reply`: a per-kind union plus `cancel{stopRun, message?}` | Continue vs stop is explicit. Decline and cancel are distinct for some backends natively. |
+| `plan_updated{kind: todo\|proposal}` | `plan_updated` (todo) + `block` kind `plan` (proposal) | A proposal streams as deltas; a block streams without resending the whole text on every change. |
 | `PromptInput.origin: human`, `skills?` | dropped; `command?` | Every phone prompt is human, so the adapter stamps it. Skills and commands are both invoked by id. |
-| `PromptResult.accepted{runId?}` | no `runId` | CC and OpenCode cannot know the run at acceptance (cc §6, oc §6 "no correlation"). The `user_message.clientRequestId` links a prompt to its run. |
+| `PromptResult.accepted{runId?}` | no `runId` | CC cannot know the run at acceptance (cc §6). The `user_message.clientRequestId` links a prompt to its run. |
 | `Page{nextCursor?, prevCursor?}` | `nextCursor?` only; a `TranscriptPage` also says `idStability` | Catch-up re-reads the newest page (§8); no backend-agnostic need for backward cursors. |
 | Capabilities `pagedListing`, `pagedTranscript`, `revert`, "reconnect strategy" | paging mandatory; revert is an op (§13); `durableRuns` | Every adapter must page (natively or over a bridge index), so the flag would say nothing. Revert means different things per backend. Whether a run survives the bridge is the actionable part of the reconnect strategy. |
-| `ModelSummary.ref{providerId, modelId}` | opaque `id` + `providerId?`/`providerName?` | CC models have no provider (cc §9). OpenCode's ref carries a variant, which is thinking. The adapter encodes its own composite. |
+| `ModelSummary.ref{providerId, modelId}` | opaque `id` + `providerId?`/`providerName?` | CC models have no provider (cc §9). The adapter encodes its own composite. |
 | `ThinkingSpec{options, default}` | `defaultValue` | `default` is reserved in Dart. |
 | `open(ref \| new, sink)` → `OpenSession` | `OpenResult = {status: accepted, session, snapshot} \| Rejected` | Typed rejection instead of a throw, and no race between snapshot and first event (§5). |
 | `status(): BackendStatus`, `listModels()`, `listCommands()` | `status()` never fails; the lists return results | A failure to find out the status is itself status (`issues`, `usable: false`); a list that fails has a reason the app can show, not an empty list. |
 | `SessionSnapshot` — open blocks, running tools | plus the active run's finished items; the transcript holds finished runs only | The merge rule (§8): no backend gives live and transcript ids that always agree. |
-| — | added session modes (§11.5), `attachment.read` (§10), `transcript_invalidated` (§5) | Modes: the research shows one shape across CC, Codex and OpenCode. Attachments: transcript pages must not carry inline images. Invalidation: other phones must learn of a rewritten history. |
+| — | added session modes (§11.5), `attachment.read` (§10), `transcript_invalidated` (§5) | Modes: the research shows one shape across the backends. Attachments: transcript pages must not carry inline images. Invalidation: other phones must learn of a rewritten history. |
 | `tool_started{childSession?}` | `ToolChildSession` update | The child is known only after the call starts in every backend that has one. |
 | `Interaction.session` | dropped | The envelope already names the session. |
 | — | added `input_returned{texts}` and the Pi op `take_over` (1.2) | A terminal's Esc gives queued input back to the human, and the contract had no way to say so; a session another client made could never become controllable. |
@@ -715,10 +691,10 @@ The brief names proposals and says to refine them. These are the places the cont
 
 ## 17. Not in Phase 1
 
-- **Background-task control** in CC (`stopTask`, `backgroundTasks`, `perTaskStopAffordance`, cc §7), Codex goals (cx §7), OpenCode `move`/`background`/delivery change (oc §7).
-- **Catalogs** beyond models and commands: MCP servers, plugins, hooks, config and settings (including Pi's global vs project scope, pi §13), auth and login flows (cc §9, cx §9, oc §9).
+- **Background-task control** in CC (`stopTask`, `backgroundTasks`, `perTaskStopAffordance`, cc §7).
+- **Catalogs** beyond models and commands: MCP servers, plugins, hooks, config and settings (including Pi's global vs project scope, pi §13), auth and login flows (cc §9).
 - **External-session takeover** (resuming a terminal-owned CC or Pi session interleaves writers, cc §11, pi §11).
-- **Title search** in `SessionQuery`: Codex `searchTerm` and OpenCode `search` have it natively (cx §3.2, oc §3); CC and Pi would need the bridge index. An additive field later.
+- **Title search** in `SessionQuery`: CC and Pi would need the bridge index. An additive field later.
 - The core: the event log, `seq`, epochs, first-answer-wins, de-duplication across restarts (Phase 2). The Flutter reducer that mirrors `applyEvent` (Phase 3).
 
 ## 18. Open questions
@@ -741,19 +717,6 @@ Every UNVERIFIED research item that affects the contract, with the experiment th
 | Q12 | How CC extended AskUserQuestion kinds (`text`, `number`) reach SDK sessions | `questions` vs `form` for CC | Enable `CLAUDE_CODE_QUESTION_EXTENDED`; log `canUseTool` input (cc §8.2) |
 | Q13 | Units of CC `rate_limit_event.resetsAt` and the scale of `utilization` | `rate_limit` extension | Log a real event next to the claude.ai usage page (found in Pass 2; `sdk.d.ts:5921` documents neither) |
 | Q14 | Purpose of `~/.claude/sessions/` | CC external session status | Run a terminal `claude`; list the directory; close it (cc §17) |
-| Q15 | Partial in-flight text in Codex `thread/resume` / `turns/list` snapshots | Open blocks after an adapter reconnect | `turns/list itemsView:"full"` mid-stream (cx §17) |
-| Q16 | Two processes on one Codex thread (stdio child + embedded TUI) | `controllable` for such threads | Resume from both while one runs (cx §17) |
-| Q17 | Does Codex Plan mode need an explicit approval step? | Codex `plan_approval` | Read `tui/src` plan flow, or run Plan mode via `collaborationMode` (cx §17) |
-| Q18 | Does Codex expire an approval or a user-input request on its own? (The core never answers one; §9) | `Interaction.expiresAt` for Codex | Leave an approval >10 min (cx §17) |
-| Q19 | Codex queue dispatch after a failed turn | `queue` semantics | Enqueue behind a failing turn (cx §17) |
-| Q20 | `thread/started` for Codex sub-agent children | Catalog rows for children | Spawn a sub-agent; watch globals (cx §17) |
-| Q21 | Bun WebSocket over a unix socket for the Codex daemon | `externalLive`/`durableRuns` for Codex | `new WebSocket("ws://localhost/", {unix})` against a live daemon (cx §17) |
-| Q22 | Codex `RateLimitWindow.resetsAt` units | `rate_limit` extension | Read `account/rateLimits/read` beside the TUI's status (found in Pass 2; `account.rs:782-787` gives `i64` only) |
-| Q23 | Does declining an OpenCode permission without a message emit `execution.interrupted{shutdown}` and keep the claim? | OpenCode outcome: `aborted` vs `suspended` | Reject while tailing SSE; read `session_v2.time_suspended` (oc §17) |
-| Q24 | Does a user interrupt with a pending OpenCode permission publish no `permission.replied`? | Resolution reconciliation | Interrupt while pending; compare SSE and `GET …/permission` (oc §17) |
-| Q25 | `ordinal` → content-index mapping in multi-block OpenCode messages | Block id alignment live vs transcript | Read a real interleaved transcript (oc §17) |
-| Q26 | Attribution of OpenCode `sessionID:"global"` MCP forms | `Interaction` belongs to a session | Trigger an MCP elicitation with two sessions in one location; correlate by run (oc §8.2) |
-| Q27 | Can OpenCode titles be told apart (generated vs renamed)? | `TitleSource` for OpenCode | Rename a session; diff `session.renamed` and the row (oc §5) |
 | Q28 | Does a Pi listener microtask after `message_end` see the new entry as `getLeafId()`? | Transcript id alignment for Pi | (pi §17) |
 | Q29 | Pi `tool_call` handler that never resolves, then abort: does `agent_settled` fire? | `withdrawn` + `run_finished` guarantee for the Pi gate | (pi §17) |
 | Q30 | Stability of Pi `preflightResult` across versions | Pi's accepted signal | Pin and add a contract test (pi §17) |
@@ -767,17 +730,12 @@ Every UNVERIFIED research item that affects the contract, with the experiment th
 Found in Pass 2 (SDK source against the research):
 
 1. **pi.md §7, §11.3 path**: `getSupportedThinkingLevels` and `clampThinkingLevel` live in `packages/ai/src/models.ts:1260-1290` (pi-ai, exported from `@earendil-works/pi-ai` `dist/models.d.ts:271`). The citation `PM models.ts:1260-1269` reads, by the report's citation key, as `packages/coding-agent/src/core/models.ts`, which does not exist at `v1.4.0`. The behaviour described is correct.
-2. **opencode.md §6, §13 (inbox items)**: the inbox also has `synthetic` items (`packages/schema/src/session-inbox.ts:44-56`: `user | synthetic | compaction | move`). They appear in `queue_changed` like other control items.
-3. **opencode.md §12 (plan)**: the experimental todo status set is `pending | in_progress | completed | cancelled` (`core/src/tool/plugin/todo.ts:15`). The contract's `PlanItemStatus` includes `cancelled` for it.
 4. **claude-code.md §3 (fork)**: `forkSession`'s `upToMessageId` is **inclusive** (`sdk.d.ts` `ForkSessionOptions`). The report does not say so. The contract's `ForkPoint{position: before|through}` relies on it.
 5. **claude-code.md §4 (diffs)**: `BashOutput` has no exit code, only `returnCodeInterpretation` (`sdk-tools.d.ts`), so `ToolResult.exitCode` is absent for CC.
-6. **codex.md §5.2**: `TurnStatus` also has `inProgress` (`TurnStatus.ts`). The report is right that `turn/completed` carries only `completed | interrupted | failed`.
-7. **Brief §3 vs research**: the brief lists OpenCode run outcomes "completed, aborted, error, suspended". The research adds that a declined permission may surface as `interrupted{shutdown}` (oc §5), so an adapter must not map every `shutdown` to `suspended` blindly (Q23).
 
 Found in round 2 (SDK source against the research and the contract):
 
-8. **opencode.md §8.2 (form validation)** lists the checks but not how strict they are. `validateAnswer` (`packages/core/src/form.ts:235-370`) counts lengths in UTF-16 units, compiles `pattern` without flags and refuses every answer to a field whose pattern does not compile, requires a dotted email domain (`/^[^\s@]+@[^\s@]+\.[^\s@]+$/`), refuses an empty string or empty selection for a required field, and does not excuse a hidden required field. `field-check.ts` adopts each of these (§9).
-9. **codex.md §3.2**: the `thread/list` limits are at `thread_processor.rs:46-47` at the tag (`THREAD_LIST_DEFAULT_LIMIT = 25`, `THREAD_LIST_MAX_LIMIT = 100`), not `:48-49`. The values are right.
+8. **Form validation strictness**: the strictest validator among the researched backends counts lengths in UTF-16 units, compiles `pattern` without flags and refuses every answer to a field whose pattern does not compile, requires a dotted email domain (`/^[^\s@]+@[^\s@]+\.[^\s@]+$/`), refuses an empty string or empty selection for a required field, and does not excuse a hidden required field. `field-check.ts` adopts each of these (§9).
 10. **claude-code.md §6, §12 (`cancelQueued`)**: `interrupt_cancel_queued_v1` gates only `interrupt{cancel_queued: true}`, which aborts the turn and cancels every queued command (`sdk.d.ts:4836`). Per-item cancel is `cancel_async_message{message_uuid}`, which no capability gates (`sdk.d.ts:3987-3992`); it is still runtime-only on `Query` (Q4).
 11. **claude-code.md §8.4**: `ElicitResult.content` is typed `Record<string, unknown>` (`sdk.d.ts:778`), not the primitive record the report gives; the values MCP accepts are the primitives `FormValue` carries.
 

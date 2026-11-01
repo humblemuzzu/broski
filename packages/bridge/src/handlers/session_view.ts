@@ -46,14 +46,6 @@ export type SessionViewHandlerContext = {
 		cwd?: string;
 		isStreaming: boolean;
 	}) => Record<string, unknown>;
-	// Codex
-	cxActiveTurns: Map<string, string>;
-	cxThreadOwners: Map<string, ServerWebSocket<unknown>>;
-	cxThreadCwds: Map<string, string>;
-	buildCodexRuntimeState: (params: { threadId: string; cwd?: string; isStreaming: boolean }) => Record<string, unknown>;
-	// OpenCode
-	ocSessionOwners: Map<string, ServerWebSocket<unknown>>;
-	ocSessionProjectPaths: Map<string, string>;
 	replayRuntimeEventsSince: (params: {
 		ws: ServerWebSocket<unknown>;
 		backend: AgentType;
@@ -86,12 +78,6 @@ export function register(router: MessageRouter, deps: ServerDeps): void {
 			ccSessionOwners: deps.ccSessionOwners,
 			ccSessionCwds: deps.ccSessionCwds,
 			buildClaudeCodeRuntimeState: deps.buildClaudeCodeRuntimeState,
-			cxActiveTurns: deps.cxActiveTurns,
-			cxThreadOwners: deps.cxThreadOwners,
-			cxThreadCwds: deps.cxThreadCwds,
-			buildCodexRuntimeState: deps.buildCodexRuntimeState,
-			ocSessionOwners: deps.ocSessionOwners,
-			ocSessionProjectPaths: deps.ocSessionProjectPaths,
 			replayRuntimeEventsSince: deps.replayRuntimeEventsSince,
 		});
 	});
@@ -142,14 +128,6 @@ export async function handle(
 		viewAgent: nextAgent,
 	});
 
-	// Track project path for OpenCode external tails
-	if (nextAgent === "opencode" && nextSessionId && message.projectPath) {
-		ctx.ocSessionProjectPaths.set(nextSessionId, message.projectPath as string);
-		if (ctx.DEBUG_RTS) {
-			ctx.logDebug(`[RTS] set_view: Stored projectPath for OpenCode session ${nextSessionId}: ${message.projectPath}`);
-		}
-	}
-
 	// Helper: consider a socket "stale" if it's gone from the sockets set OR
 	// if its last pong is older than 30s (likely dead but TCP hasn't caught up).
 	const isSocketStale = (sock: ServerWebSocket<unknown>): boolean => {
@@ -161,7 +139,7 @@ export async function handle(
 
 	// Re-bind ownership for active BRIDGE-OWNED sessions on reconnect.
 	// IMPORTANT: Only re-bind if there was a previous owner (meaning the bridge
-	// started this session via cc_chat/oc_chat/cx_chat). If there's no previous
+	// started this session via cc_chat). If there's no previous
 	// owner, the session is running externally in the terminal, and the external
 	// tail should handle streaming — setting ownership here would prevent it.
 	if (nextAgent === "claude-code" && nextSessionId) {
@@ -194,45 +172,6 @@ export async function handle(
 					`[RTS] set_view: CC session ${nextSessionId} active but not bridge-owned, external tail will stream`,
 				);
 			}
-		}
-	}
-	if (nextAgent === "codex" && nextSessionId) {
-		const isActive = ctx.cxActiveTurns.has(nextSessionId);
-		const prevOwner = ctx.cxThreadOwners.get(nextSessionId);
-		const hadBridgeOwner = prevOwner != null;
-
-		if (isActive && hadBridgeOwner) {
-			// Bridge started this session — re-bind on reconnect
-			if (prevOwner !== ws && isSocketStale(prevOwner)) {
-				ctx.cxThreadOwners.set(nextSessionId, ws);
-				ctx.logInfo(`[RTS] set_view: Re-bound CX thread ${nextSessionId} owner (stale socket)`);
-			}
-			ctx.send(ws, {
-				type: "runtime_state",
-				backend: "codex",
-				data: ctx.buildCodexRuntimeState({
-					threadId: nextSessionId,
-					cwd: ctx.cxThreadCwds.get(nextSessionId),
-					isStreaming: true,
-				}),
-			} as ServerMessage);
-		} else if (isActive && !hadBridgeOwner) {
-			if (ctx.DEBUG_RTS) {
-				ctx.logDebug(
-					`[RTS] set_view: CX thread ${nextSessionId} active but not bridge-owned, external tail will stream`,
-				);
-			}
-		}
-	}
-	if (nextAgent === "opencode" && nextSessionId) {
-		// NEVER set ownership on view. Ownership is set ONLY when the bridge
-		// actively sends a prompt via oc_chat. Setting ownership here blocks
-		// the external tail from starting (syncExternalTailForKey checks !owner).
-		if (ctx.DEBUG_RTS) {
-			const prevOwner = ctx.ocSessionOwners.get(nextSessionId);
-			ctx.logDebug(
-				`[RTS] set_view: OC session ${nextSessionId}, owner=${prevOwner ? "bridge" : "none (external tail)"}`,
-			);
 		}
 	}
 	if (nextAgent && (nextSessionId || message.projectPath) && lastRuntimeSeq != null) {

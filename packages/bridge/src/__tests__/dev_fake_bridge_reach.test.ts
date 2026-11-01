@@ -72,7 +72,7 @@ describe("the dev fake bridge's start", () => {
 			expect(homeOutsideTemp({ HOME: home, [name]: join(home, "x") })).toBeNull();
 			expect(homeOutsideTemp({ HOME: home, [name]: "/Users/someone/.x" })).toContain(`${name}=`);
 		}
-		expect(homeOutsideTemp({ HOME: home, CODEX_HOME: join(tmpdir(), "..", "escape") })).not.toBeNull();
+		expect(homeOutsideTemp({ HOME: home, CLAUDE_CONFIG_DIR: join(tmpdir(), "..", "escape") })).not.toBeNull();
 	});
 
 	test("uses them anyway only when told to", () => {

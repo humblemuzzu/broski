@@ -1,5 +1,4 @@
 import 'package:broski/models/project.dart';
-import 'package:broski/models/session.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Represents a selected model with provider and model IDs
@@ -28,21 +27,18 @@ class SelectedModel {
 }
 
 class SelectionState {
-  const SelectionState({this.project, this.session, this.model});
+  const SelectionState({this.project, this.model});
 
   final ProjectSummary? project;
-  final SessionSummary? session;
   final SelectedModel? model;
 
   SelectionState copyWith({
     ProjectSummary? project,
-    SessionSummary? session,
     SelectedModel? model,
     bool clearModel = false,
   }) {
     return SelectionState(
       project: project ?? this.project,
-      session: session ?? this.session,
       model: clearModel ? null : (model ?? this.model),
     );
   }
@@ -53,11 +49,7 @@ class SelectionNotifier extends StateNotifier<SelectionState> {
 
   void selectProject(ProjectSummary project) {
     // Keep model selection when changing projects
-    state = SelectionState(project: project, session: null, model: state.model);
-  }
-
-  void selectSession(SessionSummary session) {
-    state = state.copyWith(session: session);
+    state = SelectionState(project: project, model: state.model);
   }
 
   void selectModel(SelectedModel model) {

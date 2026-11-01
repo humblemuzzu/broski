@@ -34,7 +34,7 @@ const everything = Capabilities(
   externalLive: true,
   durableRuns: true,
   extensions: ExtensionKind.values,
-  backendOps: [BackendOpKind.reviewStart, BackendOpKind.revertStage],
+  backendOps: [BackendOpKind.changedFiles, BackendOpKind.rewindFiles],
   fork: true,
   rename: true,
   delete: true,

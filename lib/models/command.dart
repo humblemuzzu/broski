@@ -1,4 +1,4 @@
-/// Slash command source from OpenCode SDK.
+/// Where a slash command comes from.
 enum CommandSource {
   command,
   mcp,
@@ -40,7 +40,7 @@ enum CommandSource {
   }
 }
 
-/// A slash command from OpenCode.
+/// A slash command.
 class SlashCommand {
   final String name;
   final String? description;

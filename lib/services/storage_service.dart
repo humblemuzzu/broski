@@ -1,30 +1,16 @@
 import 'dart:convert';
 
-import 'package:broski/models/agent.dart';
 import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/claude_code.dart';
-import 'package:broski/models/codex.dart';
-import 'package:broski/models/command.dart';
 import 'package:broski/models/highlight_color.dart';
-import 'package:broski/models/mcp.dart';
 import 'package:broski/models/message.dart';
-import 'package:broski/models/permission_rule.dart';
 import 'package:broski/models/project.dart';
-import 'package:broski/models/provider.dart';
-import 'package:broski/models/session.dart';
-import 'package:broski/models/session_context.dart';
 import 'package:broski/models/stt_settings.dart';
 import 'package:broski/models/terminal_settings.dart';
-import 'package:broski/models/todo.dart';
-import 'package:broski/models/tool.dart';
-import 'package:broski/models/vcs.dart';
 import 'package:broski/services/storage/broski_secure_storage.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-part 'storage/storage_codex.dart';
-
 class StorageService {
-  static const _disabledToolsKey = 'broski_disabled_tools';
   static const _lastBrowsePathKey = 'broski_last_browse_path';
   static const _notificationsEnabledKey = 'broski_notifications_enabled';
   static const _selectedAgentTypeKey = 'broski_selected_agent_type';
@@ -46,10 +32,7 @@ class StorageService {
   // Card style keys
   static const _cardHeaderStyleKey = 'broski_card_header_style';
   static const _cardBorderVisibilityKey = 'broski_card_border_visibility';
-  static const _codexSettingsKey = 'broski_codex_settings';
   static const _terminalSettingsKey = 'broski_terminal_settings';
-  static const _permissionRulesKey = 'broski_permission_rules';
-  static const _openCodeVariantsKey = 'broski_opencode_variants';
   static const _claudeCodeVariantKey = 'broski_claude_code_variant';
 
   // STT (Voice Input) keys
@@ -58,27 +41,9 @@ class StorageService {
   static const _sttOpenaiApiKeyKey = 'broski_stt_openai_api_key';
 
   // Cache keys for offline mode
-  static const _cachedProjectsKey = 'broski_cached_projects';
-  static const _cachedSessionsKey = 'broski_cached_sessions';
-  static const _cachedMessagesPrefix = 'broski_cached_messages_';
-
-  // Extended offline cache keys
-  static const _cachedSessionContextPrefix = 'broski_cached_context_';
-  static const _cachedTodosPrefix = 'broski_cached_todos_';
-  static const _cachedVcsPrefix = 'broski_cached_vcs_';
-  static const _cachedAgentsKey = 'broski_cached_agents';
-  static const _cachedCommandsKey = 'broski_cached_commands';
-  static const _cachedToolsKey = 'broski_cached_tools';
-  static const _cachedMcpServersKey = 'broski_cached_mcp_servers';
-  static const _cachedProvidersKey = 'broski_cached_providers';
-  static const _cachedProviderAuthKey = 'broski_cached_provider_auth';
   static const _cachedPtySessionsKey = 'broski_cached_pty_sessions';
   static const _cachedCCSessionsKey = 'broski_cached_cc_sessions';
   static const _cachedCCMessagesPrefix = 'broski_cached_cc_messages_';
-  static const _cachedCodexModelsKey = 'broski_cached_codex_models';
-  static const _cachedCodexProjectsKey = 'broski_cached_codex_projects';
-  static const _cachedCodexThreadsKey = 'broski_cached_codex_threads';
-  static const _cachedCodexMessagesPrefix = 'broski_cached_codex_messages_';
   static const _cachedSubagentsKey = 'broski_cached_subagents';
   static const _cachedCustomToolsKey = 'broski_cached_custom_tools';
   static const _cachedPluginsKey = 'broski_cached_plugins';
@@ -113,34 +78,17 @@ class StorageService {
 
     // Delete all cached data from secure storage
     final keysToDelete = [
-      _cachedProjectsKey,
-      _cachedSessionsKey,
-      _cachedAgentsKey,
-      _cachedCommandsKey,
-      _cachedToolsKey,
-      _cachedMcpServersKey,
-      _cachedProvidersKey,
-      _cachedProviderAuthKey,
       _cachedPtySessionsKey,
       _cachedCCSessionsKey,
-      _cachedCodexModelsKey,
-      _cachedCodexProjectsKey,
-      _cachedCodexThreadsKey,
       _cachedSubagentsKey,
       _cachedCustomToolsKey,
       _cachedPluginsKey,
       _cachedCCProjectsKey,
-      StorageCodex._cachedCodexConfigKey,
-      StorageCodex._cachedCodexExperimentalFeaturesKey,
     ];
 
     for (final key in keysToDelete) {
       await _storage.delete(key: key);
     }
-
-    // Delete all prefixed cache entries (messages, context, todos, vcs)
-    // Note: flutter_secure_storage doesn't support listing keys,
-    // so we delete known patterns
   }
 
   /// Check if cache is still fresh (within TTL)
@@ -211,104 +159,6 @@ class StorageService {
     }
   }
 
-  /// Cache a single object (L1 memory + L2 secure storage).
-  Future<void> _putObject<T>(
-    String key,
-    T item,
-    Map<String, dynamic> Function(T) toJson,
-  ) async {
-    _memoryCache[key] = item;
-    _updateCacheTimestamp(key);
-    await _storage.write(key: key, value: jsonEncode(toJson(item)));
-  }
-
-  /// Load a cached object (L1 memory → L2 secure storage fallback).
-  Future<T?> _getObject<T>(
-    String key,
-    T Function(Map<String, dynamic>) fromJson,
-  ) async {
-    final mem = _memoryCache[key];
-    if (mem is T) return mem;
-    final raw = await _storage.read(key: key);
-    if (raw == null) return null;
-    try {
-      final obj = fromJson(jsonDecode(raw) as Map<String, dynamic>);
-      _memoryCache[key] = obj;
-      return obj;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  /// Check if sessions cache is fresh (can skip network)
-  bool isSessionsCacheFresh() => isCacheFresh(_cachedSessionsKey);
-
-  /// Check if projects cache is fresh (can skip network)
-  bool isProjectsCacheFresh() => isCacheFresh(_cachedProjectsKey);
-
-  // ============================================================
-  // Phase 4: Session Permission Presets (OpenCode)
-  // ============================================================
-
-  Future<void> savePermissionRules({
-    required PermissionPreset preset,
-    required PermissionRuleset customRules,
-  }) async {
-    final payload = <String, dynamic>{
-      'preset': preset.name,
-      'customRules': customRules.map((r) => r.toJson()).toList(),
-    };
-    await _storage.write(key: _permissionRulesKey, value: jsonEncode(payload));
-  }
-
-  Future<({PermissionPreset preset, PermissionRuleset customRules})?>
-  loadPermissionRules() async {
-    final raw = await _storage.read(key: _permissionRulesKey);
-    if (raw == null || raw.isEmpty) return null;
-    try {
-      final json = jsonDecode(raw) as Map<String, dynamic>;
-      final presetName = json['preset'] as String? ?? 'askEverything';
-      final preset = PermissionPreset.values.firstWhere(
-        (p) => p.name == presetName,
-        orElse: () => PermissionPreset.askEverything,
-      );
-      final custom =
-          (json['customRules'] as List<dynamic>?)
-              ?.whereType<Map<String, dynamic>>()
-              .map(PermissionRule.fromJson)
-              .toList() ??
-          <PermissionRule>[];
-      return (preset: preset, customRules: custom);
-    } catch (_) {
-      return null;
-    }
-  }
-
-  // ============================================================
-  // Codex Settings (app-side defaults; applied programmatically)
-  // ============================================================
-
-  Future<void> saveCodexSettings(CodexSettings settings) async {
-    await _storage.write(key: _codexSettingsKey, value: jsonEncode(settings));
-  }
-
-  Future<CodexSettings?> loadCodexSettings() async {
-    final raw = await _storage.read(key: _codexSettingsKey);
-    if (raw == null) return null;
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is Map<String, dynamic>) {
-        return CodexSettings.fromJson(decoded);
-      }
-      if (decoded is Map) {
-        return CodexSettings.fromJson(decoded.cast<String, dynamic>());
-      }
-      return null;
-    } catch (_) {
-      return null;
-    }
-  }
-
   // ============================================================
   // Terminal Settings (PTY UX)
   // ============================================================
@@ -330,31 +180,6 @@ class StorageService {
       }
       if (decoded is Map) {
         return TerminalSettings.fromJson(decoded.cast<String, dynamic>());
-      }
-      return null;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  // ============================================================
-  // OpenCode Variant Settings (thinking levels per model)
-  // ============================================================
-
-  Future<void> saveOpenCodeVariants(Map<String, dynamic> data) async {
-    await _storage.write(key: _openCodeVariantsKey, value: jsonEncode(data));
-  }
-
-  Future<Map<String, dynamic>?> loadOpenCodeVariants() async {
-    final raw = await _storage.read(key: _openCodeVariantsKey);
-    if (raw == null) return null;
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is Map<String, dynamic>) {
-        return decoded;
-      }
-      if (decoded is Map) {
-        return decoded.cast<String, dynamic>();
       }
       return null;
     } catch (_) {
@@ -450,23 +275,6 @@ class StorageService {
     await _storage.write(key: key, value: value);
   }
 
-  // Tool settings
-  Future<Set<String>> getDisabledTools() async {
-    final raw = await _storage.read(key: _disabledToolsKey);
-    if (raw == null) return {};
-    try {
-      final List<dynamic> list = jsonDecode(raw);
-      return Set<String>.from(list.cast<String>());
-    } catch (_) {
-      return {};
-    }
-  }
-
-  Future<void> saveDisabledTools(Set<String> disabledTools) async {
-    final json = jsonEncode(disabledTools.toList());
-    await _storage.write(key: _disabledToolsKey, value: json);
-  }
-
   // Browse tab
   Future<String?> loadLastBrowsePath() async {
     return _storage.read(key: _lastBrowsePathKey);
@@ -510,12 +318,11 @@ class StorageService {
     }
 
     final selectedWire = await getSelectedAgentType();
-    final targetAgent = selectedWire != null
-        ? AgentType.fromWireValue(selectedWire)
-        : requestingAgent;
 
     // Only migrate when the user is currently viewing the target backend.
-    if (targetAgent != requestingAgent) return;
+    if (selectedWire != null && selectedWire != requestingAgent.wireValue) {
+      return;
+    }
 
     await _storage.write(
       key: _sessionsTitleExcludeFiltersKeyForAgent(requestingAgent),
@@ -553,261 +360,12 @@ class StorageService {
     );
   }
 
-  /// Legacy API: defaults to OpenCode filters.
-  Future<List<String>> getSessionsTitleExcludeFilters() async {
-    return getSessionsTitleExcludeFiltersForAgent(AgentType.opencode);
-  }
-
-  /// Legacy API: defaults to OpenCode filters.
-  Future<void> setSessionsTitleExcludeFilters(List<String> filters) async {
-    return setSessionsTitleExcludeFiltersForAgent(AgentType.opencode, filters);
-  }
-
   // ============================================================
   // Offline Mode Cache
   // ============================================================
 
   // Maximum messages to cache per session (context pruning)
   static const int _maxCachedMessagesPerSession = 50;
-
-  /// Cache projects for offline viewing
-  Future<void> cacheProjects(List<ProjectSummary> projects) =>
-      _putList(_cachedProjectsKey, projects, _projectToJson);
-
-  /// Load cached projects
-  Future<List<ProjectSummary>> getCachedProjects() =>
-      _getList(_cachedProjectsKey, (j) => ProjectSummary.fromJson(j));
-
-  /// Cache Codex models returned by `model/list`.
-  Future<void> cacheCodexModels(List<Map<String, dynamic>> models) =>
-      _putList(_cachedCodexModelsKey, models, (m) => m);
-
-  /// Load cached Codex models.
-  Future<List<Map<String, dynamic>>> getCachedCodexModels() =>
-      _getList(_cachedCodexModelsKey, (j) => j);
-
-  /// Cache Codex projects (derived from Codex thread cwd values)
-  Future<void> cacheCodexProjects(List<ProjectSummary> projects) =>
-      _putList(_cachedCodexProjectsKey, projects, _projectToJson);
-
-  /// Load cached Codex projects
-  Future<List<ProjectSummary>> getCachedCodexProjects() =>
-      _getList(_cachedCodexProjectsKey, (j) => ProjectSummary.fromJson(j));
-
-  /// Cache sessions for offline viewing
-  Future<void> cacheSessions(List<SessionSummary> sessions) =>
-      _putList(_cachedSessionsKey, sessions, _sessionToJson);
-
-  /// Load cached sessions
-  Future<List<SessionSummary>> getCachedSessions() =>
-      _getList(_cachedSessionsKey, (j) => SessionSummary.fromJson(j));
-
-  /// Cache messages for a specific session (prunes to last 50)
-  Future<void> cacheSessionMessages(
-    String sessionId,
-    List<ChatMessage> messages,
-  ) async {
-    final key = '$_cachedMessagesPrefix$sessionId';
-    final pruned = messages.length > _maxCachedMessagesPerSession
-        ? messages.sublist(messages.length - _maxCachedMessagesPerSession)
-        : messages;
-    await _putList(key, pruned, _messageToJson);
-  }
-
-  /// Load cached messages for a session
-  Future<List<ChatMessage>> getCachedMessages(String sessionId) =>
-      _getList('$_cachedMessagesPrefix$sessionId', _messageFromJson);
-
-  /// Check if we have any cached data for offline mode
-  Future<bool> hasCachedData() async {
-    final projects = await _storage.read(key: _cachedProjectsKey);
-    final sessions = await _storage.read(key: _cachedSessionsKey);
-    final codexProjects = await _storage.read(key: _cachedCodexProjectsKey);
-    final codexThreads = await _storage.read(key: _cachedCodexThreadsKey);
-    return (projects != null && projects.isNotEmpty) ||
-        (sessions != null && sessions.isNotEmpty) ||
-        (codexProjects != null && codexProjects.isNotEmpty) ||
-        (codexThreads != null && codexThreads.isNotEmpty);
-  }
-
-  // ============================================================
-  // Session Context Cache (tokens, LSP, modified files)
-  // ============================================================
-
-  /// Cache session context for a specific session
-  Future<void> cacheSessionContext(String sessionId, SessionContext context) =>
-      _putObject(
-        '$_cachedSessionContextPrefix$sessionId',
-        context,
-        _sessionContextToJson,
-      );
-
-  /// Get cached session context
-  Future<SessionContext?> getCachedSessionContext(String sessionId) =>
-      _getObject(
-        '$_cachedSessionContextPrefix$sessionId',
-        (j) => SessionContext.fromJson(j),
-      );
-
-  // ============================================================
-  // Todos/Plan Cache
-  // ============================================================
-
-  /// Cache todos for a session
-  Future<void> cacheSessionTodos(String sessionId, List<Todo> todos) =>
-      _putList('$_cachedTodosPrefix$sessionId', todos, (t) => t.toJson());
-
-  /// Get cached todos for a session
-  Future<List<Todo>> getCachedSessionTodos(String sessionId) =>
-      _getList('$_cachedTodosPrefix$sessionId', (j) => Todo.fromJson(j));
-
-  // ============================================================
-  // VCS/Git Info Cache
-  // ============================================================
-
-  /// Cache VCS info for a session
-  Future<void> cacheSessionVcs(String sessionId, VcsInfo vcs) =>
-      _putObject('$_cachedVcsPrefix$sessionId', vcs, (v) => v.toJson());
-
-  /// Get cached VCS info for a session
-  Future<VcsInfo?> getCachedSessionVcs(String sessionId) =>
-      _getObject('$_cachedVcsPrefix$sessionId', (j) => VcsInfo.fromJson(j));
-
-  // ============================================================
-  // Agents Cache
-  // ============================================================
-
-  /// Cache agents list
-  Future<void> cacheAgents(List<Agent> agents) =>
-      _putList(_cachedAgentsKey, agents, (a) => a.toJson());
-
-  /// Get cached agents
-  Future<List<Agent>> getCachedAgents() =>
-      _getList(_cachedAgentsKey, (j) => Agent.fromJson(j));
-
-  // ============================================================
-  // Commands Cache
-  // ============================================================
-
-  /// Cache slash commands list
-  Future<void> cacheCommands(List<SlashCommand> commands) =>
-      _putList(_cachedCommandsKey, commands, (c) => c.toJson());
-
-  /// Get cached commands
-  Future<List<SlashCommand>> getCachedCommands() =>
-      _getList(_cachedCommandsKey, (j) => SlashCommand.fromJson(j));
-
-  // ============================================================
-  // Tools Cache
-  // ============================================================
-
-  /// Cache tools list
-  Future<void> cacheTools(List<ToolInfo> tools) =>
-      _putList(_cachedToolsKey, tools, _toolInfoToJson);
-
-  /// Get cached tools
-  Future<List<ToolInfo>> getCachedTools() =>
-      _getList(_cachedToolsKey, (j) => ToolInfo.fromJson(j));
-
-  // ============================================================
-  // MCP Servers Cache
-  // ============================================================
-
-  /// Cache MCP servers status
-  Future<void> cacheMcpServers(Map<String, McpServerStatus> servers) async {
-    _memoryCache[_cachedMcpServersKey] = servers;
-    _updateCacheTimestamp(_cachedMcpServersKey);
-
-    final jsonMap = <String, dynamic>{};
-    for (final entry in servers.entries) {
-      jsonMap[entry.key] = _mcpServerToJson(entry.value);
-    }
-    await _storage.write(key: _cachedMcpServersKey, value: jsonEncode(jsonMap));
-  }
-
-  /// Get cached MCP servers
-  Future<Map<String, McpServerStatus>> getCachedMcpServers() async {
-    final memCached = _memoryCache[_cachedMcpServersKey];
-    if (memCached != null && memCached is Map<String, McpServerStatus>) {
-      return memCached;
-    }
-
-    final raw = await _storage.read(key: _cachedMcpServersKey);
-    if (raw == null) return {};
-    try {
-      final Map<String, dynamic> jsonMap = jsonDecode(raw);
-      final servers = <String, McpServerStatus>{};
-      for (final entry in jsonMap.entries) {
-        servers[entry.key] = McpServerStatus.fromJson(
-          entry.value as Map<String, dynamic>,
-        );
-      }
-      _memoryCache[_cachedMcpServersKey] = servers;
-      return servers;
-    } catch (_) {
-      return {};
-    }
-  }
-
-  // ============================================================
-  // Providers Cache
-  // ============================================================
-
-  /// Cache provider info
-  Future<void> cacheProviders(ProviderInfo info) =>
-      _putObject(_cachedProvidersKey, info, _providerInfoToJson);
-
-  /// Get cached providers
-  Future<ProviderInfo?> getCachedProviders() =>
-      _getObject(_cachedProvidersKey, (j) => ProviderInfo.fromJson(j));
-
-  /// Cache provider auth methods
-  Future<void> cacheProviderAuth(
-    Map<String, List<ProviderAuthMethod>> authMethods,
-  ) async {
-    _memoryCache[_cachedProviderAuthKey] = authMethods;
-    _updateCacheTimestamp(_cachedProviderAuthKey);
-
-    final jsonMap = <String, dynamic>{};
-    for (final entry in authMethods.entries) {
-      jsonMap[entry.key] = entry.value
-          .map((m) => _providerAuthToJson(m))
-          .toList();
-    }
-    await _storage.write(
-      key: _cachedProviderAuthKey,
-      value: jsonEncode(jsonMap),
-    );
-  }
-
-  /// Get cached provider auth methods
-  Future<Map<String, List<ProviderAuthMethod>>> getCachedProviderAuth() async {
-    final memCached = _memoryCache[_cachedProviderAuthKey];
-    if (memCached != null &&
-        memCached is Map<String, List<ProviderAuthMethod>>) {
-      return memCached;
-    }
-
-    final raw = await _storage.read(key: _cachedProviderAuthKey);
-    if (raw == null) return {};
-    try {
-      final Map<String, dynamic> jsonMap = jsonDecode(raw);
-      final result = <String, List<ProviderAuthMethod>>{};
-      for (final entry in jsonMap.entries) {
-        final list = (entry.value as List<dynamic>)
-            .map(
-              (item) =>
-                  ProviderAuthMethod.fromJson(item as Map<String, dynamic>),
-            )
-            .toList();
-        result[entry.key] = list;
-      }
-      _memoryCache[_cachedProviderAuthKey] = result;
-      return result;
-    } catch (_) {
-      return {};
-    }
-  }
 
   // ============================================================
   // PTY Sessions Cache
@@ -862,34 +420,6 @@ class StorageService {
       _getList(_cachedCCProjectsKey, (j) => ProjectSummary.fromJson(j));
 
   // ============================================================
-  // Codex Threads Cache
-  // ============================================================
-
-  /// Cache Codex threads list
-  Future<void> cacheCodexThreads(List<CodexThread> threads) =>
-      _putList(_cachedCodexThreadsKey, threads, (t) => t.toJson());
-
-  /// Get cached Codex threads
-  Future<List<CodexThread>> getCachedCodexThreads() =>
-      _getList(_cachedCodexThreadsKey, (j) => CodexThread.fromJson(j));
-
-  /// Cache Codex thread messages (prunes to last 50)
-  Future<void> cacheCodexThreadMessages(
-    String threadId,
-    List<ChatMessage> messages,
-  ) async {
-    final key = '$_cachedCodexMessagesPrefix$threadId';
-    final pruned = messages.length > _maxCachedMessagesPerSession
-        ? messages.sublist(messages.length - _maxCachedMessagesPerSession)
-        : messages;
-    await _putList(key, pruned, _messageToJson);
-  }
-
-  /// Get cached Codex thread messages
-  Future<List<ChatMessage>> getCachedCodexMessages(String threadId) =>
-      _getList('$_cachedCodexMessagesPrefix$threadId', _messageFromJson);
-
-  // ============================================================
   // Subagents Cache
   // ============================================================
 
@@ -935,29 +465,6 @@ class StorageService {
       'name': p.name,
       'path': p.path,
       'lastOpened': p.lastOpened,
-    };
-  }
-
-  Map<String, dynamic> _sessionToJson(SessionSummary s) {
-    return {
-      'id': s.id,
-      'title': s.title,
-      'projectID': s.projectID,
-      'directory': s.directory,
-      'parentID': s.parentID,
-      'time': {
-        'created': s.time.created,
-        'updated': s.time.updated,
-        'compacting': s.time.compacting,
-      },
-      'summary': s.summary == null
-          ? null
-          : {
-              'additions': s.summary!.additions,
-              'deletions': s.summary!.deletions,
-              'files': s.summary!.files,
-            },
-      'share': s.share == null ? null : {'url': s.share!.url},
     };
   }
 
@@ -1047,88 +554,6 @@ class StorageService {
       diff: json['diff'] as String?,
       partId: json['partId'] as String?,
     );
-  }
-
-  Map<String, dynamic> _toolInfoToJson(ToolInfo t) {
-    return {
-      'id': t.id,
-      'description': t.description,
-      'parameters': t.parameters,
-    };
-  }
-
-  Map<String, dynamic> _mcpServerToJson(McpServerStatus s) {
-    return {
-      'name': s.name,
-      'status': s.status.name,
-      'error': s.error,
-      'tools': s.tools,
-      'resources': s.resources,
-    };
-  }
-
-  Map<String, dynamic> _sessionContextToJson(SessionContext c) {
-    return {
-      'tokens': {
-        'input': c.tokens.input,
-        'output': c.tokens.output,
-        'total': c.tokens.total,
-        'contextWindow': c.tokens.contextWindow,
-      },
-      'cost': c.cost,
-      if (c.budgetLimitUsd != null) 'budgetLimitUsd': c.budgetLimitUsd,
-      'lsp': c.lsp.map((l) => _lspServerToJson(l)).toList(),
-      'modifiedFiles': c.modifiedFiles
-          .map((f) => _modifiedFileToJson(f))
-          .toList(),
-    };
-  }
-
-  Map<String, dynamic> _lspServerToJson(LspServer l) {
-    return {
-      'id': l.id,
-      'name': l.name,
-      'status': l.status.name,
-      'language': l.language,
-      'root': l.root,
-    };
-  }
-
-  Map<String, dynamic> _modifiedFileToJson(ModifiedFile f) {
-    return {'file': f.file, 'additions': f.additions, 'deletions': f.deletions};
-  }
-
-  Map<String, dynamic> _providerInfoToJson(ProviderInfo info) {
-    return {
-      'all': info.all.map((p) => _providerDetailsToJson(p)).toList(),
-      'default': info.defaults,
-      'connected': info.connected,
-    };
-  }
-
-  Map<String, dynamic> _providerDetailsToJson(ProviderDetails p) {
-    final modelsMap = <String, dynamic>{};
-    for (final entry in p.models.entries) {
-      modelsMap[entry.key] = _modelInfoToJson(entry.value);
-    }
-    return {'id': p.id, 'name': p.name, 'models': modelsMap};
-  }
-
-  Map<String, dynamic> _modelInfoToJson(ModelInfo m) {
-    return {
-      'name': m.name,
-      'contextWindow': m.contextWindow,
-      'pricing': {'input': m.inputPricing, 'output': m.outputPricing},
-    };
-  }
-
-  Map<String, dynamic> _providerAuthToJson(ProviderAuthMethod m) {
-    return {
-      'type': m.type == ProviderAuthType.oauth ? 'oauth' : 'api',
-      'name': m.name,
-      'description': m.description,
-      'url': m.url,
-    };
   }
 
   // ============================================================

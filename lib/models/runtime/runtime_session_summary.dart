@@ -80,7 +80,7 @@ class RuntimeSessionSummary {
     return RuntimeSessionSummary(
       id: json['id'] as String? ?? '',
       backend: AgentType.fromWireValue(
-        json['backend'] as String? ?? 'opencode',
+        json['backend'] as String? ?? 'claude-code',
       ),
       title: json['title'] as String? ?? '',
       cwd: json['cwd'] as String? ?? '',

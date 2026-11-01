@@ -22,13 +22,11 @@ const GA_MEASUREMENT_ID = "G-Y1PVGBFJQW";
 export const metadata: Metadata = {
   title: "Broski — Mobile Companion for AI Coding Agents",
   description:
-    "The native iOS app for Claude Code, OpenCode, Codex, and Pi. Monitor sessions, review code, and ship — all from your phone.",
+    "The native iOS app for Claude Code and Pi. Monitor sessions, review code, and ship — all from your phone.",
   keywords: [
     "AI coding agent",
     "mobile",
     "Claude Code",
-    "OpenCode",
-    "Codex",
     "Pi",
     "iOS",
     "developer tools",
@@ -42,14 +40,14 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Broski — Mobile Companion for AI Coding Agents",
     description:
-      "The native iOS app for Claude Code, OpenCode, Codex, and Pi. Not a terminal wrapper — a real mobile interface.",
+      "The native iOS app for Claude Code and Pi. Not a terminal wrapper — a real mobile interface.",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
     title: "Broski — Mobile Companion for AI Coding Agents",
     description:
-      "The native iOS app for Claude Code, OpenCode, Codex, and Pi.",
+      "The native iOS app for Claude Code and Pi.",
   },
 };
 

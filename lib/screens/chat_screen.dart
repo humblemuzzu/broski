@@ -2,18 +2,13 @@ import 'dart:async';
 
 import 'package:broski/models/agent.dart';
 import 'package:broski/models/claude_code.dart';
-import 'package:broski/models/codex.dart';
 import 'package:broski/models/command.dart';
 import 'package:broski/models/file_attachment.dart';
 import 'package:broski/models/message.dart';
-import 'package:broski/models/project.dart';
 import 'package:broski/models/question.dart';
-import 'package:broski/models/session.dart';
 import 'package:broski/models/session_context.dart';
-import 'package:broski/models/vcs.dart';
 import 'package:broski/providers/appearance_provider.dart';
 import 'package:broski/providers/chat_provider.dart';
-import 'package:broski/providers/codex_settings_provider.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/file_search_provider.dart';
 import 'package:broski/providers/notifications/chat_presence.dart';
@@ -21,29 +16,21 @@ import 'package:broski/providers/selection_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/screens/chat/actions_sheet_opener.dart';
 import 'package:broski/screens/chat/auto_send_cc.dart' as ascc;
-import 'package:broski/screens/chat/auto_send_cx.dart' as ascx;
 import 'package:broski/screens/chat/cc_elicitation_form_dialog.dart';
 import 'package:broski/screens/chat/chat_init.dart' as ci;
 import 'package:broski/screens/chat/chat_read_only_footer.dart';
-import 'package:broski/screens/chat/clear_instance_dialog.dart' as cid;
-import 'package:broski/screens/chat/codex_actions.dart' as ca;
 import 'package:broski/screens/chat/command_handler.dart';
 import 'package:broski/screens/chat/commands_loader.dart';
 import 'package:broski/screens/chat/context_loader.dart';
-import 'package:broski/screens/chat/cx_background_sync.dart' as cxbg;
 import 'package:broski/screens/chat/image_picker_handler.dart' as iph;
 import 'package:broski/screens/chat/menu_handlers.dart';
-import 'package:broski/screens/chat/oc_menu_handler.dart' as omh;
-import 'package:broski/screens/chat/oc_message_delete_action.dart';
 import 'package:broski/screens/chat/ordered_parts_builder.dart' as opb;
 import 'package:broski/screens/chat/permission_responder.dart';
-import 'package:broski/screens/chat/project_initializer.dart';
 import 'package:broski/screens/chat/project_tools_handler.dart' as pth;
 import 'package:broski/screens/chat/question_prompt_handler.dart' as qph;
 import 'package:broski/screens/chat/scroll_handler.dart' as sh;
 import 'package:broski/screens/chat/send_message.dart';
 import 'package:broski/screens/chat/session_actions.dart';
-import 'package:broski/screens/chat/session_compactor.dart';
 import 'package:broski/screens/chat/session_forker.dart';
 import 'package:broski/screens/chat/session_hydrator.dart';
 import 'package:broski/screens/chat/session_setup.dart';
@@ -54,10 +41,7 @@ import 'package:broski/screens/chat/transcript_clipboard.dart' as tc;
 import 'package:broski/screens/chat/transcript_exporter.dart';
 import 'package:broski/screens/chat/transcript_scroll_anchor.dart';
 import 'package:broski/screens/dialogs/agents_dialog.dart';
-import 'package:broski/screens/dialogs/fork_dialog.dart';
 import 'package:broski/screens/dialogs/help_dialog.dart';
-import 'package:broski/screens/dialogs/models_dialog.dart';
-import 'package:broski/screens/dialogs/rename_dialog.dart';
 import 'package:broski/screens/dialogs/timeline_dialog.dart';
 import 'package:broski/screens/sheets/attachment_options_sheet.dart';
 import 'package:broski/screens/sheets/cc_commands_sheet.dart';
@@ -65,9 +49,6 @@ import 'package:broski/screens/sheets/cc_mcp_sheet.dart';
 import 'package:broski/screens/sheets/cc_memory_scope_picker.dart';
 import 'package:broski/screens/sheets/cc_model_sheet.dart';
 import 'package:broski/screens/sheets/cc_tools_sheet.dart';
-import 'package:broski/screens/sheets/cx_agents_sheet.dart';
-import 'package:broski/screens/sheets/cx_apps_sheet.dart';
-import 'package:broski/screens/sheets/cx_model_sheet.dart';
 import 'package:broski/services/haptics_service.dart';
 import 'package:broski/services/image_picker_service.dart';
 import 'package:broski/services/websocket_service.dart';
@@ -81,16 +62,12 @@ import 'package:broski/widgets/app_background.dart';
 import 'package:broski/widgets/chat/cc_queue_bar.dart';
 import 'package:broski/widgets/chat/command_autocomplete.dart';
 import 'package:broski/widgets/chat/custom_tool_autocomplete.dart';
-import 'package:broski/widgets/chat/cx_queue_bar.dart';
-import 'package:broski/widgets/chat/cx_steer_bar.dart';
 import 'package:broski/widgets/chat/input_bar_content.dart';
 import 'package:broski/widgets/chat/message_group.dart';
 import 'package:broski/widgets/chat/retry_status_banner.dart';
-import 'package:broski/widgets/chat/revert_state_banner.dart';
 import 'package:broski/widgets/chat/running_stop_bar.dart';
 import 'package:broski/widgets/chat/variant_card_builder.dart';
 import 'package:broski/widgets/file_tagging.dart';
-import 'package:broski/widgets/opencode_branding.dart';
 import 'package:broski/widgets/session_sidebar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -102,49 +79,17 @@ Color fade(Color color, double opacity) {
 }
 
 class ChatScreen extends ConsumerStatefulWidget {
-  /// Constructor for OpenCode sessions
-  const ChatScreen({
-    super.key,
-    required this.project,
-    required this.session,
-    this.initialPrompt,
-    this.readOnly = false,
-  }) : ccSession = null,
-       ccDraftCwd = null,
-       ccDraftTitle = null,
-       ccDraftModel = null,
-       cxThread = null,
-       cxDraftCwd = null,
-       cxDraftTitle = null,
-       cxDraftModel = null,
-       isClaudeCode = false,
-       isCodex = false;
-
-  /// Named constructor for Claude Code sessions
+  /// Constructor for Claude Code sessions
   const ChatScreen.claudeCode({
     super.key,
     required this.ccSession,
     this.initialPrompt,
     this.readOnly = false,
-  }) : project = const ProjectSummary(id: '', name: '', path: ''),
-       session = const SessionSummary(
-         id: '',
-         title: '',
-         projectID: '',
-         directory: '',
-         time: SessionTime(created: 0, updated: 0),
-       ),
-       ccDraftCwd = null,
+  }) : ccDraftCwd = null,
        ccDraftTitle = null,
-       ccDraftModel = null,
-       cxThread = null,
-       cxDraftCwd = null,
-       cxDraftTitle = null,
-       cxDraftModel = null,
-       isClaudeCode = true,
-       isCodex = false;
+       ccDraftModel = null;
 
-  /// Named constructor for a new Claude Code chat (session ID assigned on first turn)
+  /// Constructor for a new Claude Code chat (session ID assigned on first turn)
   const ChatScreen.claudeCodeDraft({
     super.key,
     required String cwd,
@@ -152,115 +97,30 @@ class ChatScreen extends ConsumerStatefulWidget {
     String? model,
     this.initialPrompt,
   }) : readOnly = false,
-       project = const ProjectSummary(id: '', name: '', path: ''),
-       session = const SessionSummary(
-         id: '',
-         title: '',
-         projectID: '',
-         directory: '',
-         time: SessionTime(created: 0, updated: 0),
-       ),
        ccSession = null,
        ccDraftCwd = cwd,
        ccDraftTitle = title,
-       ccDraftModel = model,
-       cxThread = null,
-       cxDraftCwd = null,
-       cxDraftTitle = null,
-       cxDraftModel = null,
-       isClaudeCode = true,
-       isCodex = false;
-
-  /// Named constructor for Codex threads
-  const ChatScreen.codex({
-    super.key,
-    required this.cxThread,
-    this.initialPrompt,
-    this.readOnly = false,
-  }) : project = const ProjectSummary(id: '', name: '', path: ''),
-       session = const SessionSummary(
-         id: '',
-         title: '',
-         projectID: '',
-         directory: '',
-         time: SessionTime(created: 0, updated: 0),
-       ),
-       ccSession = null,
-       ccDraftCwd = null,
-       ccDraftTitle = null,
-       ccDraftModel = null,
-       cxDraftCwd = null,
-       cxDraftTitle = null,
-       cxDraftModel = null,
-       isClaudeCode = false,
-       isCodex = true;
-
-  /// Named constructor for a new Codex chat (thread ID assigned on first turn)
-  const ChatScreen.codexDraft({
-    super.key,
-    required String cwd,
-    String? title,
-    String? model,
-    this.initialPrompt,
-  }) : readOnly = false,
-       project = const ProjectSummary(id: '', name: '', path: ''),
-       session = const SessionSummary(
-         id: '',
-         title: '',
-         projectID: '',
-         directory: '',
-         time: SessionTime(created: 0, updated: 0),
-       ),
-       ccSession = null,
-       ccDraftCwd = null,
-       ccDraftTitle = null,
-       ccDraftModel = null,
-       cxThread = null,
-       cxDraftCwd = cwd,
-       cxDraftTitle = title,
-       cxDraftModel = model,
-       isClaudeCode = false,
-       isCodex = true;
-  final ProjectSummary project;
-  final SessionSummary session;
+       ccDraftModel = model;
   final ClaudeCodeSession? ccSession;
   final String? ccDraftCwd;
   final String? ccDraftTitle;
   final String? ccDraftModel;
-  final CodexThread? cxThread;
-  final String? cxDraftCwd;
-  final String? cxDraftTitle;
-  final String? cxDraftModel;
-  final bool isClaudeCode;
-  final bool isCodex;
   final String? initialPrompt;
 
   /// When true, hides the input bar and skips side-effectful live-state
   /// operations. Used to view finished subagent transcripts without
   /// accidentally mutating live bridge state.
   final bool readOnly;
-  bool get isOpenCode => !isClaudeCode && !isCodex;
 
   /// Get the effective session ID
-  String get effectiveSessionId => isClaudeCode
-      ? (ccSession?.id ?? '')
-      : isCodex
-      ? (cxThread?.id ?? '')
-      : session.id;
+  String get effectiveSessionId => ccSession?.id ?? '';
 
   /// Get the effective project path
-  String get effectivePath => isClaudeCode
-      ? (ccSession?.cwd ?? ccDraftCwd ?? '')
-      : isCodex
-      ? (cxThread?.cwd ?? cxDraftCwd ?? '')
-      : project.path;
+  String get effectivePath => ccSession?.cwd ?? ccDraftCwd ?? '';
 
   /// Get the effective title
-  String get effectiveTitle => isClaudeCode
-      ? (ccSession?.displayTitle ?? ccDraftTitle ?? 'Claude Code')
-      : isCodex
-      ? (cxThread?.displayTitle ?? cxDraftTitle ?? 'Codex')
-      : session.title;
+  String get effectiveTitle =>
+      ccSession?.displayTitle ?? ccDraftTitle ?? 'Claude Code';
 
   /// Get project name from path
   String get projectName {
@@ -283,7 +143,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   String? _activeQuestionId;
   final Set<String> _answeredQuestionIds =
       {}; // Prevent re-showing answered questions
-  String? _activeCxQuestionId; // Codex request_user_input
   // Auto-scroll state: tracks if user has intentionally scrolled up
   // When true, we don't auto-scroll (respect user's intent to view history)
   // When false (user is at/near bottom), we auto-scroll as new content arrives
@@ -291,7 +150,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   // Track previous message count to detect new content
   int _previousMessageCount = 0;
   int _previousContentLength = 0;
-  String? _lastShownMcpOAuthUrl;
   // Sidebar state
   bool _sidebarOpen = false;
   SessionContext _sessionContext = SessionContext.empty();
@@ -304,8 +162,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   List<Agent> _agents = [];
   String? _selectedAgent;
   String? _ccResumeSessionAtMessageId;
-  // Feature 10: VCS/Git info
-  VcsInfo _vcsInfo = const VcsInfo();
   // Feature 21: File @ tagging
   final List<FileAttachment> _attachedFiles = [];
   bool _showFileAutocomplete = false;
@@ -328,10 +184,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   ProviderSubscription<AsyncValue<ClaudeCodeConfig>>? _ccConfigSubscription;
   // CC queue: listen for ccIsStreaming true→false to auto-send pending message
   ProviderSubscription<bool>? _ccQueueSubscription;
-  // CX queue: listen for cxIsStreaming true→false to auto-send queued messages
-  ProviderSubscription<bool>? _cxQueueSubscription;
-  // Codex background sync timer (rate limits + context refresh)
-  Timer? _bgSyncTimer;
   @override
   void initState() {
     super.initState();
@@ -358,12 +210,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         ci.setViewForAgent(bridge: bridge, widget: widget);
         _hydrateSession().whenComplete(() {
           _resyncingAfterReconnect = false;
-          if (widget.isOpenCode &&
-              !ref.read(connectionProvider).isOfflineMode) {
-            ref
-                .read(chatSessionProvider.notifier)
-                .rehydrateOpenCodePending(projectPath: widget.project.path);
-          }
           _maybeSendInitialPrompt();
         });
       }
@@ -377,56 +223,27 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     // Defer _hydrateSession to after first frame - it modifies provider state
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _hydrateSession().whenComplete(() {
-        if (widget.isOpenCode && !ref.read(connectionProvider).isOfflineMode) {
-          ref
-              .read(chatSessionProvider.notifier)
-              .rehydrateOpenCodePending(projectPath: widget.project.path);
-        }
-        _maybeSendInitialPrompt();
-      });
+      _hydrateSession().whenComplete(_maybeSendInitialPrompt);
     });
     _controller.addListener(_onTextChanged);
     _scrollController.addListener(_onScroll);
-    // Load commands for both modes (different implementations)
     _loadCommandsAndAgents();
-    if (widget.isOpenCode) {
-      _loadVcsInfo();
-    } else if (widget.isClaudeCode) {
-      final ccSubs = ci.setupClaudeCodeSubscriptions(
-        ref: ref,
-        widget: widget,
-        onSubagentsChanged: (agents) {
-          if (!mounted) return;
-          setState(() => _agents = agents);
-        },
-        onQueueTurnComplete: _autoSendPendingCCMessage,
-      );
-      _ccConfigSubscription = ccSubs.configSub;
-      _ccQueueSubscription = ccSubs.queueSub;
-    } else if (widget.isCodex) {
-      _cxQueueSubscription = ci.setupCodexQueueSubscription(
-        ref: ref,
-        widget: widget,
-        onQueueTurnComplete: _autoSendQueuedCxMessage,
-      );
-      ci.setupCxErrorListenerIfCodex(
-        ref: ref,
-        context: context,
-        widget: widget,
-      );
-    }
-    // Refresh header context pill when token usage changes (CC/CX turn ends)
+    final ccSubs = ci.setupClaudeCodeSubscriptions(
+      ref: ref,
+      widget: widget,
+      onSubagentsChanged: (agents) {
+        if (!mounted) return;
+        setState(() => _agents = agents);
+      },
+      onQueueTurnComplete: _autoSendPendingCCMessage,
+    );
+    _ccConfigSubscription = ccSubs.configSub;
+    _ccQueueSubscription = ccSubs.queueSub;
+    // Refresh header context pill when token usage changes (turn ends)
     ci.setupTokenUsageListeners(
       ref: ref,
       widget: widget,
       onTokenUsageChanged: _loadSessionContext,
-    );
-    // Codex: periodic background sync (rate limits + context)
-    _bgSyncTimer = cxbg.setupCxBackgroundSyncTimer(
-      ref: ref,
-      isCodex: widget.isCodex,
-      onRefreshContext: _loadSessionContext,
     );
   }
 
@@ -459,47 +276,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     if (shouldLoadContext) _loadSessionContext();
   }
 
-  // Feature 2 & 3: Load available commands and agents
   Future<void> _loadCommandsAndAgents() async {
-    // Claude Code mode
-    if (widget.isClaudeCode) {
-      final commands = await loadClaudeCodeCommands(
-        ref: ref,
-        cwd: widget.ccSession?.cwd ?? widget.ccDraftCwd,
-      );
-      if (mounted) setState(() => _commands = commands);
-      return;
-    }
-    // Codex mode
-    if (widget.isCodex) {
-      if (mounted) {
-        setState(() {
-          _agents = const [];
-          _commands = kCodexBuiltinCommands;
-        });
-      }
-      return;
-    }
-    // OpenCode mode
-    final result = await loadOpenCodeCommandsAndAgents(
+    final commands = await loadClaudeCodeCommands(
       ref: ref,
-      projectPath: widget.project.path,
+      cwd: widget.ccSession?.cwd ?? widget.ccDraftCwd,
     );
-    if (mounted) {
-      setState(() {
-        _commands = result.commands;
-        _agents = result.agents;
-      });
-    }
-    // Also load variants for thinking level support (SDK v1.1.23+)
-    if (result.commands.isNotEmpty) _loadOpenCodeVariants();
+    if (mounted) setState(() => _commands = commands);
   }
-
-  /// Load available variants (thinking levels) for OpenCode models.
-  Future<void> _loadOpenCodeVariants() =>
-      loadOpenCodeVariants(ref: ref, isOpenCode: widget.isOpenCode);
-
-  /// Load slash commands for Claude Code
 
   Future<void> _loadSessionContext() async {
     if (_loadingContext) return;
@@ -515,18 +298,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   void _closeSidebar() {
     setState(() => _sidebarOpen = false);
-  }
-
-  // Feature 10: Load VCS/Git info
-  Future<void> _loadVcsInfo() async {
-    final vcsInfo = await loadVcsInfo(
-      ref: ref,
-      sessionId: widget.session.id,
-      projectPath: widget.project.path,
-    );
-    if (mounted && vcsInfo != null) {
-      setState(() => _vcsInfo = vcsInfo);
-    }
   }
 
   Future<void> _forkSession({String? messageId}) async {
@@ -546,35 +317,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     onResumeIdChanged: (id) => setState(() => _ccResumeSessionAtMessageId = id),
   );
 
-  // Feature 7: Revert/Undo changes
-  Future<void> _revertMessage(String messageId, {String? partId}) =>
-      revertMessage(
-        context: context,
-        ref: ref,
-        sessionId: widget.session.id,
-        messageId: messageId,
-        projectPath: widget.project.path,
-        haptics: _haptics,
-        onRefreshContext: _loadSessionContext,
-        partId: partId,
-      );
-
-  void _openDiffView(DiffEntry diff, {String? messageId}) => openDiffView(
-    context: context,
-    diff: diff,
-    messageId: messageId,
-    onUndo: _revertMessage,
-  );
-
-  // Feature 7: Unrevert session (reserved for future use)
-  // ignore: unused_element
-  Future<void> _unrevertSession() => unrevertSession(
-    context: context,
-    ref: ref,
-    sessionId: widget.session.id,
-    projectPath: widget.project.path,
-    onRefreshContext: _loadSessionContext,
-  );
+  void _openDiffView(DiffEntry diff, {String? messageId}) =>
+      openDiffView(context: context, diff: diff, messageId: messageId);
 
   // Claude Code: Rewind files to the most recent checkpoint.
   Future<void> _ccRewindToCheckpoint() => ccRewindToCheckpoint(
@@ -583,45 +327,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     effectivePath: widget.effectivePath,
     haptics: _haptics,
   );
-
-  // Feature 8: Share Session
-  Future<void> _shareSession() => shareSession(
-    context: context,
-    ref: ref,
-    sessionId: widget.session.id,
-    projectPath: widget.project.path,
-    haptics: _haptics,
-  );
-  // Feature 8: Unshare Session
-  Future<void> _unshareSession() => unshareSession(
-    context: context,
-    ref: ref,
-    sessionId: widget.session.id,
-    projectPath: widget.project.path,
-  );
-
-  // Feature 9: Summarize/Compact Session
-  Future<void> _compactSession() async {
-    return compactSession(
-      context: context,
-      ref: ref,
-      sessionId: widget.session.id,
-      projectPath: widget.project.path,
-      haptics: _haptics,
-      onRefreshContext: _loadSessionContext,
-    );
-  }
-
-  // Feature 20: Initialize Project (Create AGENTS.md)
-  Future<void> _initializeProject() async {
-    return initializeProject(
-      context: context,
-      ref: ref,
-      sessionId: widget.session.id,
-      projectPath: widget.project.path,
-      haptics: _haptics,
-    );
-  }
 
   /// Dismiss keyboard if the input field is focused.
   /// Called on tap/drag in the chat area for smooth UX.
@@ -638,7 +343,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     final result = tch.computeAutocomplete(
       text: text,
       agents: _agents,
-      isClaudeCode: widget.isClaudeCode,
       effectivePath: widget.effectivePath,
       currentShowCommand: _showCommandAutocomplete,
       currentCommandFilter: _commandFilter,
@@ -710,7 +414,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   void _handleFileSelection(FileAttachment attachment) {
-    // Add as file attachment (OpenCode + Claude Code)
     if (_attachedFiles.contains(attachment)) return;
     final text = _controller.text;
     final newText = text.replaceFirst(RegExp(r'@\S*$'), '');
@@ -733,11 +436,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     setState(() {
       _showAgentAutocomplete = false;
       _agentQuery = '';
-      // OpenCode: set selected agent for this message.
-      // Claude Code: keep selection explicit in the prompt (@subagent).
-      if (widget.isOpenCode) {
-        _selectedAgent = agent.name;
-      }
     });
   }
 
@@ -781,73 +479,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     onFork: _forkSession,
   );
 
-  void _handleCodexMenuAction(String value) => handleCodexMenuAction(
-    context,
-    ref,
-    value,
-    onStop: _stopGeneration,
-    onShowProjectTools: _showProjectToolsSheet,
-    onShowSkills: _showCodexSkillsSheet,
-    onShowAgents: _showCodexAgentsSheet,
-  );
-
-  /// Opens the backend-specific actions sheet (⋯ menu from input bar).
+  /// Opens the actions sheet (⋯ menu from input bar).
   void _openActionsSheet() {
-    final onAction = widget.isClaudeCode
-        ? _handleClaudeCodeMenuAction
-        : widget.isCodex
-        ? _handleCodexMenuAction
-        : (String value) => _handleMenuActionWithMessages(
-            value,
-            ref.read(chatSessionProvider).messages,
-          );
     openActionsSheet(
       context: context,
       ref: ref,
-      isClaudeCode: widget.isClaudeCode,
-      isCodex: widget.isCodex,
-      onAction: onAction,
+      onAction: _handleClaudeCodeMenuAction,
       ccSessionModel: widget.ccSession?.model,
       ccDraftModel: widget.ccDraftModel,
-      vcsInfo: _vcsInfo,
-      isSessionShared: widget.isOpenCode ? widget.session.isShared : false,
       isCompacting: ref.read(chatSessionProvider).isCompacting,
-      onModelTap: widget.isOpenCode ? () => _showModelSelector(context) : null,
       onOpenSidebar: () => Scaffold.of(context).openEndDrawer(),
     );
-  }
-
-  void _showCodexAppsSheet() {
-    // Delegate to modular sheet
-    CxAppsSheet.show(context);
-  }
-
-  void _showCodexAgentsSheet() {
-    final chatState = ref.read(chatSessionProvider);
-    final cwd = chatState.cxCwd ?? widget.cxThread?.cwd ?? widget.cxDraftCwd;
-    if (cwd == null || cwd.isEmpty) return;
-    showCodexAgentsSheet(context, ref, cwd);
-  }
-
-  void _showCodexSkillsSheet() {
-    final chatState = ref.read(chatSessionProvider);
-    final cwd = chatState.cxCwd ?? widget.cxThread?.cwd ?? widget.cxDraftCwd;
-    ca.showCodexSkillsSheet(context: context, ref: ref, cwd: cwd);
-  }
-
-  Future<void> _startCodexReview() async {
-    final chatState = ref.read(chatSessionProvider);
-    final cwd = chatState.cxCwd ?? widget.cxThread?.cwd ?? widget.cxDraftCwd;
-    await ca.startCodexReview(ref: ref, cwd: cwd);
-  }
-
-  /// Set Codex reasoning effort by wireValue string (e.g., 'high', 'xhigh')
-  void _setCodexReasoningEffort(String? wireValue) =>
-      ca.setCodexReasoningEffort(ref: ref, wireValue: wireValue);
-
-  void _showCodexModelSheet() {
-    // Delegate to modular dynamic sheet (fetches from Codex model/list API)
-    CxModelSheet.show(context);
   }
 
   void _showClaudeCodeModelSheet() => showCcModelSheet(
@@ -926,7 +568,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   void _handleAutoScroll(ChatSessionState? previous, ChatSessionState next) {
     sh.handleAutoScroll(
       context: context,
-      isOpenCode: widget.isOpenCode,
       previous: previous,
       next: next,
       userHasScrolledUp: _userHasScrolledUp,
@@ -936,8 +577,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       setPreviousContentLength: (v) => _previousContentLength = v,
       scrollToBottom: ({bool animate = true}) =>
           _scrollToBottom(animate: animate),
-      lastShownMcpOAuthUrl: _lastShownMcpOAuthUrl,
-      setLastShownMcpOAuthUrl: (v) => _lastShownMcpOAuthUrl = v,
     );
   }
 
@@ -946,7 +585,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     widget: widget,
     loadingMoreMessages: _loadingMoreMessages,
     hasLoadedAllMessages: _hasLoadedAllMessages,
-    projectPath: widget.project.path,
     scrollController: _scrollController,
     anchorKeys: _transcriptAnchorKeys,
     setPaginationState: ({required bool loadingMore, required bool loadedAll}) {
@@ -971,22 +609,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   // Feature 2: Handle command selection from autocomplete
   void _selectCommand(SlashCommand command) => handleSlashCommand(
     context: context,
-    ref: ref,
     command: command,
-    session: widget.session,
-    project: widget.project,
     controller: _controller,
     callbacks: CommandCallbacks(
-      shareSession: _shareSession,
-      unshareSession: _unshareSession,
       showHelp: _showHelpDialog,
-      showRename: _showRenameSessionDialog,
       copyTranscript: _copyTranscriptToClipboard,
       exportTranscript: _exportTranscript,
       showTimeline: _showTimelineDialog,
-      showFork: _showForkDialog,
       toggleThinking: _toggleThinkingVisibility,
-      showModels: _showModelsDialog,
+      showModels: _showClaudeCodeModelSheet,
       showAgents: _showAgentsDialog,
     ),
     onDismiss: () => setState(() {
@@ -1001,19 +632,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   /// Show help dialog with all available commands
   void _showHelpDialog() => showHelpDialog(context, commands: _commands);
 
-  /// Show rename session dialog
-  void _showRenameSessionDialog() => showRenameSessionDialog(
-    context,
-    ref: ref,
-    session: widget.session,
-    project: widget.project,
-  );
-
   /// Copy transcript to clipboard
   void _copyTranscriptToClipboard() => tc.copyTranscriptToClipboard(
     context: context,
     ref: ref,
-    sessionTitle: widget.session.title,
+    sessionTitle: widget.effectiveTitle,
   );
 
   /// Export transcript (show options)
@@ -1027,7 +650,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   /// Share transcript via system share sheet
   void _shareTranscript() =>
-      tc.shareTranscript(ref: ref, sessionTitle: widget.session.title);
+      tc.shareTranscript(ref: ref, sessionTitle: widget.effectiveTitle);
 
   /// Show timeline dialog to jump to a specific message
   void _showTimelineDialog() {
@@ -1039,16 +662,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     showTimelineDialog(context, scrollController: _scrollController);
   }
 
-  /// Show fork dialog to create a branch from a specific message
-  void _showForkDialog() {
-    final chatState = ref.read(chatSessionProvider);
-    if (chatState.messages.isEmpty) {
-      showInfo(context, 'No messages to fork from');
-      return;
-    }
-    showForkDialog(context, session: widget.session, project: widget.project);
-  }
-
   /// Toggle thinking/reasoning visibility
   void _toggleThinkingVisibility() {
     // Toggle the state - for now we'll use a simple snackbar notification
@@ -1057,7 +670,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   /// Show models selection dialog
-  void _showModelsDialog() => showModelsDialog(context, ref);
 
   /// Show agents selection dialog
   void _showAgentsDialog() => showAgentsDialog(
@@ -1074,8 +686,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     _chatSubscription?.close();
     _ccConfigSubscription?.close();
     _ccQueueSubscription?.close();
-    _cxQueueSubscription?.close();
-    _bgSyncTimer?.cancel();
     ref.read(bridgeServiceProvider).setView(projectPath: 'global');
     ref.read(chatPresenceProvider).closed();
     _controller.dispose();
@@ -1096,9 +706,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     final pendingQuestion = ref.watch(
       chatSessionProvider.select((s) => s.pendingQuestion),
     );
-    final cxPendingUserInput = ref.watch(
-      chatSessionProvider.select((s) => s.cxPendingUserInput),
-    );
     final todos = ref.watch(chatSessionProvider.select((s) => s.todos));
     final sessionDiffs = ref.watch(
       chatSessionProvider.select((s) => s.sessionDiffs),
@@ -1110,53 +717,25 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     final ccIsStreaming = ref.watch(
       chatSessionProvider.select((s) => s.ccIsStreaming),
     );
-    final cxIsStreaming = widget.isCodex
-        ? ref.watch(chatSessionProvider.select((s) => s.cxIsStreaming))
-        : false;
     final ccInit = ref.watch(chatSessionProvider.select((s) => s.ccInit));
     final ccModel = ref.watch(chatSessionProvider.select((s) => s.ccModel));
     // Watch these for rebuild triggers (values accessed via ref.read in callbacks)
     ref.watch(chatSessionProvider.select((s) => s.ccCwd));
     ref.watch(chatSessionProvider.select((s) => s.ccSessionId));
     final connection = ref.watch(connectionProvider);
-    // Watch session revert state for revert banner (Task 2)
-    final sessionRevert = ref.watch(
-      chatSessionProvider.select((s) => s.session?.revert),
-    );
     _maybeShowPermissionPromptFromList(permissions);
     _maybeShowQuestionPrompt(pendingQuestion);
-    _maybeShowCodexQuestionPrompt(cxPendingUserInput);
     return Scaffold(
       backgroundColor: theme.background,
       // Use endDrawer for right-side sidebar that can be swiped from edge
       endDrawer: SessionSidebar(
-        sessionTitle: widget.isClaudeCode
-            ? (widget.ccSession?.displayTitle ??
-                  widget.ccDraftTitle ??
-                  'Claude Code')
-            : widget.isCodex
-            ? (widget.cxThread?.displayTitle ?? 'Codex')
-            : widget.session.title,
+        sessionTitle: widget.effectiveTitle,
         sessionContext: _sessionContext,
-        todos: todos, // Both OC and CC have todos (CC via TodoWrite tool)
+        todos: todos,
         onClose: _closeSidebar,
-        vcsInfo: _vcsInfo,
         sessionDiffs: sessionDiffs,
         onOpenDiff: (diff) => _openDiffView(diff),
-        isClaudeCode: widget.isClaudeCode,
-        isCodex: widget.isCodex,
-        ccInit: widget.isClaudeCode ? ccInit : null,
-        cxInfo: widget.isCodex
-            ? () {
-                final cxState = ref.read(chatSessionProvider);
-                return CodexSessionInfo(
-                  threadId: cxState.cxThreadId,
-                  model: cxState.cxModel,
-                  cwd: cxState.cxCwd,
-                  settings: ref.read(codexSettingsProvider),
-                );
-              }()
-            : null,
+        ccInit: ccInit,
       ),
       onEndDrawerChanged: (isOpen) {
         if (isOpen && !_sidebarOpen) {
@@ -1185,11 +764,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                       onPanDown: (_) => _dismissKeyboardIfFocused(),
                       child: Stack(
                         children: [
-                          // Agent branding - shown centered when empty
-                          if (widget.isOpenCode && messages.isEmpty)
-                            const Center(
-                              child: OpenCodeBranding(width: 280, opacity: 1.0),
-                            ),
                           // Message list
                           ScrollbarTheme(
                             data: ScrollbarThemeData(
@@ -1339,7 +913,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             ),
           ),
           // Floating input bar at bottom (style based on settings)
-          // When Codex is streaming, show a steer bar above the main input
           Positioned(
             key: const ValueKey('chat-input-bar'),
             left: 0,
@@ -1349,7 +922,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               mainAxisSize: MainAxisSize.min,
               children: [
                 // Claude Code: show queued message bar when a message is pending
-                if (widget.isClaudeCode && ccIsStreaming)
+                if (ccIsStreaming)
                   Consumer(
                     builder: (context, ref, _) {
                       final pending = ref.watch(
@@ -1372,31 +945,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                     },
                   ),
                 RunningStopBar(onStop: _stopGeneration),
-                // Codex: show steer bar when streaming
-                if (widget.isCodex && cxIsStreaming) const CxSteerBar(),
-                // Codex: show queued message bar when messages are queued
-                if (widget.isCodex && cxIsStreaming)
-                  Consumer(
-                    builder: (context, ref, _) {
-                      final queue = ref.watch(
-                        chatSessionProvider.select((s) => s.cxQueuedMessages),
-                      );
-                      if (queue.isEmpty) return const SizedBox.shrink();
-                      return CxQueueBar(
-                        queuedMessages: queue,
-                        onCancel: (index) {
-                          ref
-                              .read(chatSessionProvider.notifier)
-                              .cancelQueuedCodexMessage(index);
-                        },
-                        onClearAll: () {
-                          ref
-                              .read(chatSessionProvider.notifier)
-                              .clearCodexQueue();
-                        },
-                      );
-                    },
-                  ),
                 if (!widget.readOnly)
                   _buildInputBarWithParams(
                     connection: connection,
@@ -1416,16 +964,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               right: 16,
               top: MediaQuery.of(context).padding.top + 50,
               child: RetryStatusBanner(status: sessionStatus),
-            ),
-          // Task 2: Revert state banner
-          if (widget.isOpenCode && sessionRevert != null)
-            Positioned(
-              left: 16,
-              right: 16,
-              top:
-                  MediaQuery.of(context).padding.top +
-                  (sessionStatus.isRetry ? 90 : 50),
-              child: RevertStateBanner(onUndoRevert: _unrevertSession),
             ),
           // Slim floating header: [←] title [context pill]
           Positioned(
@@ -1562,53 +1100,30 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ccIsStreaming: ccIsStreaming,
       ccInit: ccInit,
       ccModel: ccModel,
-      isClaudeCode: widget.isClaudeCode,
-      isCodex: widget.isCodex,
-      selectedAgent: _selectedAgent,
-      agents: _agents,
-      project: widget.project,
       projectName: widget.projectName,
       effectivePath: widget.effectivePath,
       ccSessionModel: widget.ccSession?.model,
       ccDraftModel: widget.ccDraftModel,
       onSend: () => _sendMessageWithParams(connection, messages, ccIsStreaming),
-      onLongPressSend: widget.isCodex ? _queueCodexMessage : null,
       onRemoveAttachment: _removeAttachedFile,
       onFileSelect: _handleFileSelection,
       onAttachTap: () => _showAttachmentOptions(context),
       onTakePhoto: _pickImageFromCamera,
-      onAgentChanged: (agent) => setState(() => _selectedAgent = agent),
-      onModelTap: widget.isClaudeCode
-          ? _showClaudeCodeModelSheet
-          : widget.isCodex
-          ? _showCodexModelSheet
-          : _showModelsDialog,
-      onSetCodexReasoningEffort: _setCodexReasoningEffort,
+      onModelTap: _showClaudeCodeModelSheet,
       onMenuTap: _openActionsSheet,
     );
   }
 
   /// Builds the appropriate compact card for a tool call
-  Widget _buildToolCard(ToolCall tool, String messageId) => tcb.buildToolCard(
-    tool: tool,
-    messageId: messageId,
-    isClaudeCode: widget.isClaudeCode,
-    isCodex: widget.isCodex,
-    onRevert: _revertMessage,
-  );
+  Widget _buildToolCard(ToolCall tool, String messageId) =>
+      tcb.buildToolCard(tool: tool, messageId: messageId);
 
   /// Delegates to MessageGroup widget — extracted to message_group.dart.
   Widget _buildMessageGroup(ChatMessage message) {
     return MessageGroup(
       message: message,
-      isClaudeCode: widget.isClaudeCode,
-      isOpenCode: widget.isOpenCode,
-      isCodex: widget.isCodex,
-      projectPath: widget.project.path,
       onFork: ({String? messageId}) => _forkSession(messageId: messageId),
       onResumeFromHere: _setClaudeResumeFromHere,
-      onRevert: (messageId, {String? partId}) =>
-          _revertMessage(messageId, partId: partId),
       onOpenDiffView: (diff, {String? messageId}) =>
           _openDiffView(diff, messageId: messageId),
       onCcRewind: _ccRewindToCheckpoint,
@@ -1627,107 +1142,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   List<Widget> _buildOrderedParts(ChatMessage message) => opb.buildOrderedParts(
     context: context,
     message: message,
-    isClaudeCode: widget.isClaudeCode,
-    isOpenCode: widget.isOpenCode,
-    isCodex: widget.isCodex,
     buildToolCardFn: _buildToolCard,
     onFork: ({String? messageId}) => _forkSession(messageId: messageId),
     onResumeFromHere: _setClaudeResumeFromHere,
-    onDeleteMessage: widget.isOpenCode
-        ? (messageId) => deleteOpenCodeMessageFromChat(
-            context: context,
-            ref: ref,
-            sessionId: message.sessionId,
-            messageId: message.id,
-            projectPath:
-                ref.read(chatSessionProvider).projectPath ??
-                widget.project.path,
-          )
-        : null,
-  );
-
-  // PERF: Menu action handler that takes messages list directly (used with select())
-  void _handleMenuActionWithMessages(
-    String value,
-    List<ChatMessage> messages,
-  ) => omh.handleOcMenuAction(
-    context: context,
-    value: value,
-    messages: messages,
-    isClaudeCode: widget.isClaudeCode,
-    onStopGeneration: _stopGeneration,
-    onShowProjectTools: _showProjectToolsSheet,
-    onFork: () => _forkSession(),
-    onShare: _shareSession,
-    onUnshare: _unshareSession,
-    onCompact: _compactSession,
-    onInit: _initializeProject,
-    onRevert: _revertMessage,
-    onCcRewind: _ccRewindToCheckpoint,
-    onClearInstance: _clearInstance,
   );
 
   void _showProjectToolsSheet() => pth.showProjectToolsSheetAction(
     context: context,
     ref: ref,
-    isClaudeCode: widget.isClaudeCode,
-    isCodex: widget.isCodex,
     projectName: widget.projectName,
     effectivePath: widget.effectivePath,
-    project: widget.project,
-    session: widget.session,
   );
 
-  Future<void> _clearInstance() => cid.showClearInstanceDialog(
-    context: context,
-    ref: ref,
-    projectPath: widget.project.path,
-  );
-
-  /// Stop AI generation for all backends
-  /// Sends abort to bridge and clears local streaming states
-  void _stopGeneration() => sg.stopGeneration(
-    ref: ref,
-    isClaudeCode: widget.isClaudeCode,
-    isCodex: widget.isCodex,
-    sessionId: widget.session.id,
-    projectPath: widget.project.path,
-  );
-
-  void _showModelSelector(BuildContext context) =>
-      showModelsDialog(context, ref);
-
-  /// Queue the current input text for the next Codex turn (long-press send).
-  void _queueCodexMessage() {
-    final text = _controller.text.trim();
-    if (text.isEmpty) return;
-    final chatState = ref.read(chatSessionProvider);
-    if (!chatState.cxIsStreaming) return;
-    ref.read(chatSessionProvider.notifier).queueCodexMessage(text);
-    _controller.clear();
-  }
-
-  /// Auto-send queued Codex messages when the turn completes.
-  void _autoSendQueuedCxMessage() {
-    ascx.autoSendQueuedCxMessage(
-      ref: ref,
-      isCodex: widget.isCodex,
-      isMounted: () => mounted,
-      cxThreadCwd: widget.cxThread?.cwd,
-      cxDraftCwd: widget.cxDraftCwd,
-      resetScrollAndScrollToBottom: () {
-        _userHasScrolledUp = false;
-        _scrollToBottom();
-      },
-    );
-  }
+  /// Stop AI generation: sends abort to bridge and clears local streaming state.
+  void _stopGeneration() => sg.stopGeneration(ref: ref);
 
   /// Auto-send a pending CC message when the turn completes.
   /// Uses the same CC send flow as _sendMessage (config, model, sessionId, etc.)
   void _autoSendPendingCCMessage() {
     ascc.autoSendPendingCCMessage(
       ref: ref,
-      isClaudeCode: widget.isClaudeCode,
       isMounted: () => mounted,
       ccSessionCwd: widget.ccSession?.cwd,
       ccSessionModel: widget.ccSession?.model,
@@ -1764,16 +1198,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       attachedFiles: _attachedFiles,
       selectedAgent: _selectedAgent,
       agents: _agents,
-      isClaudeCode: widget.isClaudeCode,
-      isCodex: widget.isCodex,
       ccSession: widget.ccSession,
       ccDraftCwd: widget.ccDraftCwd,
       ccDraftModel: widget.ccDraftModel,
       ccResumeSessionAtMessageId: _ccResumeSessionAtMessageId,
-      cxThread: widget.cxThread,
-      cxDraftCwd: widget.cxDraftCwd,
-      sessionId: widget.session.id,
-      projectPath: widget.project.path,
       clearAttachments: () => setState(() => _attachedFiles.clear()),
       scrollToBottom: () {
         _userHasScrolledUp = false;
@@ -1781,11 +1209,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       },
       onCcResumeIdCleared: () => _ccResumeSessionAtMessageId = null,
       isMounted: () => mounted,
-      showCodexAppsSheet: _showCodexAppsSheet,
-      startCodexReview: _startCodexReview,
-      openDiffView: (diff) => _openDiffView(diff),
-      loadSessionContext: _loadSessionContext,
-      showCodexAgentsSheet: _showCodexAgentsSheet,
     );
   }
 
@@ -1812,15 +1235,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       permissions: permissions,
       activePermissionId: _activePermissionId,
       haptics: _haptics,
-      isCodex: widget.isCodex,
-      isClaudeCode: widget.isClaudeCode,
-      onRespond: (request, response, {message, execpolicyAmendment}) =>
-          _respondToPermission(
-            request,
-            response,
-            message: message,
-            execpolicyAmendment: execpolicyAmendment,
-          ),
+      onRespond: _respondToPermission,
       setActivePermissionId: (id) => _activePermissionId = id,
     );
   }
@@ -1829,26 +1244,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     qph.maybeShowQuestionPrompt(
       context: context,
       ref: ref,
-      isOpenCode: widget.isOpenCode,
-      isClaudeCode: widget.isClaudeCode,
       request: request,
       activeQuestionId: _activeQuestionId,
       answeredQuestionIds: _answeredQuestionIds,
       haptics: _haptics,
       setActiveQuestionId: (id) => _activeQuestionId = id,
-      isMounted: () => mounted,
-    );
-  }
-
-  void _maybeShowCodexQuestionPrompt(CodexUserInputRequest? request) {
-    if (!widget.isCodex) return;
-    qph.maybeShowCodexQuestionPrompt(
-      context: context,
-      ref: ref,
-      request: request,
-      activeCxQuestionId: _activeCxQuestionId,
-      haptics: _haptics,
-      setActiveCxQuestionId: (id) => _activeCxQuestionId = id,
       isMounted: () => mounted,
     );
   }
@@ -1861,21 +1261,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   Future<void> _respondToPermission(
     PermissionRequest request,
-    String response, {
-    String? message,
-    Object? execpolicyAmendment,
-  }) async {
+    String response,
+  ) async {
     return respondToPermission(
       context: context,
       ref: ref,
       request: request,
       response: response,
-      isClaudeCode: widget.isClaudeCode,
-      isCodex: widget.isCodex,
-      projectPath: widget.project.path,
       showElicitationFormDialog: _showElicitationFormInputDialog,
-      message: message,
-      execpolicyAmendment: execpolicyAmendment,
     );
   }
 }

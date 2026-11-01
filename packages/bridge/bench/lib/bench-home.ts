@@ -1,6 +1,6 @@
 /**
  * A bench scenario that starts a bridge server must run with a temp HOME: the server installs the
- * Claude Code and Codex permission hooks into `~/.claude` and `~/.codex` and opens its log, auth-token
+ * Claude Code permission hook into `~/.claude` and opens its log, auth-token
  * and TLS stores under `~/.broski`. Bun caches the home directory from the environment at process
  * start, so a process that inherited the real home is re-executed once with HOME pointed at a fresh
  * temp directory rather than editing the developer's files.

@@ -23,7 +23,7 @@ export default function FAQPage() {
             <h3 className="font-semibold mb-2">What is Broski?</h3>
             <p className="text-muted-foreground">
               Broski is a mobile companion app that turns your phone into a remote control for AI coding agents. 
-              It connects to Claude Code, OpenCode, Codex, or Pi running on your system, letting you chat with AI, 
+              It connects to Claude Code or Pi running on your system, letting you chat with AI, 
               view code changes, and approve actions from anywhere.
             </p>
           </div>
@@ -80,7 +80,7 @@ export default function FAQPage() {
             <ul className="text-muted-foreground space-y-2">
               <li>&#8226; A Mac or Linux machine</li>
               <li>&#8226; Broski bridge installed on your computer</li>
-              <li>&#8226; Claude Code, OpenCode, Codex, or Pi CLI installed</li>
+              <li>&#8226; Claude Code or Pi CLI installed</li>
               <li>&#8226; An AI provider account (Claude, OpenAI, etc.)</li>
               <li>&#8226; An iPhone/iPad (iOS 15+) or Android device (8.0+)</li>
               <li>&#8226; Same WiFi network, or a relay configured for remote access</li>
@@ -225,47 +225,10 @@ broski-link pair`}</CodeBlock>
         
         <div className="space-y-6">
           <div className="border border-border/50 rounded-lg p-5">
-            <h3 className="font-semibold mb-2">What&apos;s the difference between OpenCode and Claude Code?</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-muted-foreground mt-3">
-                <thead>
-                  <tr className="border-b border-border/50">
-                    <th className="text-left py-2 text-foreground">Aspect</th>
-                    <th className="text-left py-2 text-foreground">OpenCode</th>
-                    <th className="text-left py-2 text-foreground">Claude Code</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr className="border-b border-border/30">
-                    <td className="py-2">Creator</td>
-                    <td className="py-2">Open source</td>
-                    <td className="py-2">Anthropic (official)</td>
-                  </tr>
-                  <tr className="border-b border-border/30">
-                    <td className="py-2">AI Providers</td>
-                    <td className="py-2">75+ (Claude, GPT, Gemini, etc.)</td>
-                    <td className="py-2">Claude only</td>
-                  </tr>
-                  <tr className="border-b border-border/30">
-                    <td className="py-2">MCP Support</td>
-                    <td className="py-2">Full</td>
-                    <td className="py-2">Yes</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2">Best for</td>
-                    <td className="py-2">Multi-provider flexibility</td>
-                    <td className="py-2">Claude-only users</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="border border-border/50 rounded-lg p-5">
             <h3 className="font-semibold mb-2">Can I switch between backends?</h3>
             <p className="text-muted-foreground">
-              Yes! Go to Settings &gt; AI Backend in the app to switch between Claude Code, 
-              OpenCode, Codex, and Pi. The bridge will reconnect with the selected backend. 
+              Yes! Go to Settings &gt; AI Backend in the app to switch between Claude Code 
+              and Pi. The bridge will reconnect with the selected backend. 
               Note that sessions are per-backend - they don&apos;t transfer.
             </p>
           </div>
@@ -273,8 +236,8 @@ broski-link pair`}</CodeBlock>
           <div className="border border-border/50 rounded-lg p-5">
             <h3 className="font-semibold mb-2">Are my sessions shared between backends?</h3>
             <p className="text-muted-foreground">
-              No - each backend maintains separate session storage. OpenCode sessions are in 
-              <code className="px-1 py-0.5 bg-muted rounded text-sm">~/.opencode/</code>, Claude Code sessions 
+              No - each backend maintains separate session storage. Pi sessions are in 
+              <code className="px-1 py-0.5 bg-muted rounded text-sm">~/.pi/</code>, Claude Code sessions 
               are stored separately. Switching backends shows different sessions.
             </p>
           </div>
@@ -282,16 +245,16 @@ broski-link pair`}</CodeBlock>
           <div className="border border-border/50 rounded-lg p-5">
             <h3 className="font-semibold mb-2">Can I use local/self-hosted models?</h3>
             <p className="text-muted-foreground">
-              Yes, if you use OpenCode with Ollama or similar local inference. Install Ollama, 
+              Yes, if you use Pi with Ollama or similar local inference. Install Ollama, 
               pull a model (<code className="px-1 py-0.5 bg-muted rounded text-sm">ollama pull llama3</code>), 
-              configure OpenCode to use it, and Broski will work with the local model.
+              configure Pi to use it, and Broski will work with the local model.
             </p>
           </div>
 
           <div className="border border-border/50 rounded-lg p-5">
             <h3 className="font-semibold mb-2">How do I configure my API key?</h3>
             <p className="text-muted-foreground">
-              API keys are configured in your chosen backend (OpenCode, Claude Code, Codex, or Pi), not in Broski. Set environment variables 
+              API keys are configured in your chosen backend (Claude Code or Pi), not in Broski. Set environment variables 
               like <code className="px-1 py-0.5 bg-muted rounded text-sm">ANTHROPIC_API_KEY</code> or use 
               <code className="px-1 py-0.5 bg-muted rounded text-sm">claude login</code> for Claude Code.
             </p>
@@ -397,7 +360,6 @@ BROSKI_PORT=8080 broski`}</CodeBlock>
             </p>
             <ul className="text-muted-foreground text-sm space-y-1">
               <li>&#8226; <code className="px-1 py-0.5 bg-muted rounded">BROSKI_PORT</code> - Port number</li>
-              <li>&#8226; <code className="px-1 py-0.5 bg-muted rounded">OPENCODE_BASE_URL</code> - OpenCode server URL</li>
             </ul>
           </div>
 
@@ -405,10 +367,7 @@ BROSKI_PORT=8080 broski`}</CodeBlock>
             <h3 className="font-semibold mb-2">How do I reset everything and start fresh?</h3>
             <CodeBlock language="bash">{`# Clear bridge and link data (removes every pairing; pair again afterwards)
 broski uninstall
-rm -rf ~/.broski
-
-# Clear OpenCode data (deletes all sessions!)
-rm -rf ~/.opencode`}</CodeBlock>
+rm -rf ~/.broski`}</CodeBlock>
             <p className="text-muted-foreground text-sm mt-2">
               On your phone: Settings &gt; Clear Cache, or uninstall and reinstall the app.
             </p>
@@ -426,7 +385,7 @@ rm -rf ~/.opencode`}</CodeBlock>
             <p className="text-muted-foreground">
               No. Your code stays on your system at all times. When you chat with AI, your prompts are sent to your
               configured AI provider (Anthropic, OpenAI, etc.) by the agent running on your system &mdash; exactly
-              the same as if you used Claude Code or OpenCode directly in your terminal. Broski doesn&apos;t add,
+              the same as if you used Claude Code or Pi directly in your terminal. Broski doesn&apos;t add,
               intercept, or route anything through our servers. We don&apos;t operate servers that touch your code.
             </p>
           </div>
@@ -562,21 +521,6 @@ broski --port 8080`}</CodeBlock>
               <li>Pull down to refresh the session list</li>
               <li>Restart the bridge (Ctrl+C, then <code className="px-1 py-0.5 bg-muted rounded text-sm">broski</code>)</li>
             </ol>
-          </div>
-
-          <div className="border border-border/50 rounded-lg p-5">
-            <h3 className="font-semibold mb-2">OpenCode won&apos;t start</h3>
-            <CodeBlock language="bash">{`# Check if installed
-which opencode
-
-# If not found, install it
-curl -fsSL https://opencode.ai/install | bash
-# or: bun add -g opencode-ai
-
-# Try manual mode
-opencode serve
-# Then in another terminal:
-broski --opencode-url http://localhost:4096`}</CodeBlock>
           </div>
 
           <div className="border border-border/50 rounded-lg p-5">

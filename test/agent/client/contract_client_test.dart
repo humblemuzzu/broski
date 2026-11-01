@@ -157,7 +157,7 @@ void main() {
 
     test('answers are matched by request id, in any order', () async {
       final first = listBackends();
-      final second = client.backendStatus(BackendId.codex);
+      final second = client.backendStatus(BackendId.claudeCode);
       await pumpEventQueue();
       final status = link.last<BackendStatusRequest>();
       link.deliver(

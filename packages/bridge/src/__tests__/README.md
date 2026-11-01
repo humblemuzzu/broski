@@ -26,7 +26,7 @@ This directory contains comprehensive tests for the Broski bridge setup wizard a
 ### What's Tested ✅
 1. **Platform Detection**: OS detection, binary finding, daemon type mapping
 2. **Configuration System**: Schema validation, defaults, type safety
-3. **Agent Detection**: Binary discovery for OpenCode, Claude Code, Codex
+3. **Agent Detection**: Binary discovery for Claude Code and Pi
 4. **Network Configuration**: Mode selection, port validation, IP detection
 5. **Security Setup**: TLS configuration, token TTL validation
 6. **Daemon Management**: Service type mapping, config generation

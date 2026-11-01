@@ -1,12 +1,9 @@
 import 'dart:async';
 
-import 'package:broski/models/agent.dart';
-import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/claude_code.dart';
 import 'package:broski/models/file_attachment.dart';
 import 'package:broski/models/glow_style.dart';
 import 'package:broski/models/project.dart';
-import 'package:broski/providers/selection_provider.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/theme/opencode_theme.dart';
@@ -18,7 +15,7 @@ import 'package:broski/widgets/voice_input_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// CLI-style input bar (OpenCode terminal aesthetic).
+/// CLI-style input bar (terminal aesthetic).
 /// Extracted from chat_screen.dart.
 class CliStyleInputBar extends StatefulWidget {
   const CliStyleInputBar({
@@ -29,13 +26,8 @@ class CliStyleInputBar extends StatefulWidget {
     this.onLongPressSend,
     required this.isBusy,
     required this.canSend,
-    required this.backend,
     required this.project,
     this.isOfflineMode = false,
-    this.currentAgent,
-    this.agents = const [],
-    this.onAgentChanged,
-    this.currentModel,
     this.onModelTap,
     this.attachedFiles = const [],
     this.onRemoveAttachment,
@@ -48,9 +40,6 @@ class CliStyleInputBar extends StatefulWidget {
     this.ccPermissionMode,
     this.ccModel,
     this.onCCModelTap,
-    // Codex specific props
-    this.codexModel,
-    this.onCodexModelTap,
     // Custom accent color (null = use agent/permission mode color)
     this.customAccentColor,
     // Glow style for border accent
@@ -63,11 +52,11 @@ class CliStyleInputBar extends StatefulWidget {
     this.onMenuTap,
     // Unified model display string (for all backends)
     this.modelDisplay,
-    // Permission/mode chip (CC/CX only)
+    // Permission/mode chip
     this.currentMode,
     this.modeOptions = const {},
     this.onModeChanged,
-    // Fast mode (CC/CX only, per-model)
+    // Fast mode (per-model)
     this.showFastToggle = false,
     this.fastEnabled = false,
     this.onFastChanged,
@@ -78,13 +67,8 @@ class CliStyleInputBar extends StatefulWidget {
   final VoidCallback? onLongPressSend;
   final bool isBusy;
   final bool canSend;
-  final AgentType backend;
   final ProjectSummary project;
   final bool isOfflineMode;
-  final String? currentAgent;
-  final List<Agent> agents;
-  final void Function(String?)? onAgentChanged;
-  final SelectedModel? currentModel;
   final VoidCallback? onModelTap;
   final List<FileAttachment> attachedFiles;
   final void Function(FileAttachment)? onRemoveAttachment;
@@ -97,9 +81,6 @@ class CliStyleInputBar extends StatefulWidget {
   final ClaudeCodePermissionMode? ccPermissionMode;
   final String? ccModel;
   final VoidCallback? onCCModelTap;
-  // Codex specific props
-  final String? codexModel;
-  final VoidCallback? onCodexModelTap;
   // Custom accent color (null = use agent/permission mode color)
   final Color? customAccentColor;
   // Glow style for border accent
@@ -112,11 +93,11 @@ class CliStyleInputBar extends StatefulWidget {
   final VoidCallback? onMenuTap;
   // Unified model display string
   final String? modelDisplay;
-  // Permission/mode chip (CC/CX only) — wireValue → displayLabel
+  // Permission/mode chip — wireValue → displayLabel
   final String? currentMode;
   final Map<String, String> modeOptions;
   final void Function(String)? onModeChanged;
-  // Fast mode (CC/CX only, per-model)
+  // Fast mode (per-model)
   final bool showFastToggle;
   final bool fastEnabled;
   final void Function(bool)? onFastChanged;
@@ -166,7 +147,7 @@ class _CliStyleInputBarState extends State<CliStyleInputBar> {
 
   /// Get unified model display string for the chip.
   /// Uses the pre-computed modelDisplay from input_bar_content when available,
-  /// falls back to backend-specific model fields.
+  /// falls back to the Claude Code model.
   String _getUnifiedModelDisplay() {
     if (widget.modelDisplay != null && widget.modelDisplay!.isNotEmpty) {
       return getModelDisplayName(
@@ -175,26 +156,8 @@ class _CliStyleInputBarState extends State<CliStyleInputBar> {
         maxLength: 14,
       );
     }
-    // Fallback to backend-specific fields
-    final isClaudeCode = widget.backend == AgentType.claudeCode;
-    final isCodex = widget.backend == AgentType.codex;
-    if (isClaudeCode) {
-      return getModelDisplayName(
-        widget.ccModel,
-        fallback: 'Model',
-        maxLength: 14,
-      );
-    }
-    if (isCodex) {
-      return getModelDisplayName(
-        widget.codexModel,
-        fallback: 'Model',
-        maxLength: 14,
-      );
-    }
-    // OpenCode / Pi — use SelectedModel
     return getModelDisplayName(
-      widget.currentModel?.modelID,
+      widget.ccModel,
       fallback: 'Model',
       maxLength: 14,
     );
@@ -202,41 +165,18 @@ class _CliStyleInputBarState extends State<CliStyleInputBar> {
 
   /// Format thinking level display for CLI prompt bar
   String _formatThinkingLevelDisplay(String variant) {
-    final backend = widget.backend;
-    if (backend == AgentType.claudeCode) {
-      switch (variant.toLowerCase()) {
-        case 'low':
-          return 'Low';
-        case 'medium':
-          return 'Med';
-        case 'high':
-          return 'High';
-        case 'max':
-          return 'Max';
-        default:
-          return variant;
-      }
-    } else if (backend == AgentType.codex) {
-      switch (variant.toLowerCase()) {
-        case 'none':
-          return 'None';
-        case 'minimal':
-          return 'Min';
-        case 'low':
-          return 'Low';
-        case 'medium':
-          return 'Med';
-        case 'high':
-          return 'High';
-        case 'xhigh':
-          return 'XHigh';
-        default:
-          return variant;
-      }
+    switch (variant.toLowerCase()) {
+      case 'low':
+        return 'Low';
+      case 'medium':
+        return 'Med';
+      case 'high':
+        return 'High';
+      case 'max':
+        return 'Max';
+      default:
+        return variant;
     }
-    // OpenCode: capitalize first letter
-    if (variant.isEmpty) return 'Default';
-    return variant[0].toUpperCase() + variant.substring(1);
   }
 
   /// Get color for permission mode (used for glow accent)
@@ -265,18 +205,9 @@ class _CliStyleInputBarState extends State<CliStyleInputBar> {
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
-    final agent = _getCurrentAgent();
-    // Priority: custom accent color > permission mode color (CC) > agent color (OC)
-    final isClaudeCode = widget.backend == AgentType.claudeCode;
-    final isCodex = widget.backend == AgentType.codex;
-    final Color agentColor;
-    if (widget.customAccentColor != null) {
-      agentColor = widget.customAccentColor!;
-    } else if (isClaudeCode) {
-      agentColor = _getPermissionModeColor(widget.ccPermissionMode, theme);
-    } else {
-      agentColor = agent?.resolveColor(theme) ?? theme.primary;
-    }
+    final agentColor =
+        widget.customAccentColor ??
+        _getPermissionModeColor(widget.ccPermissionMode, theme);
     // During streaming, hide the input bar
     return AnimatedSlide(
       duration: const Duration(milliseconds: 200),
@@ -404,11 +335,7 @@ class _CliStyleInputBarState extends State<CliStyleInputBar> {
                             const SizedBox(width: Spacing.xs),
                             // Model chip
                             GestureDetector(
-                              onTap: isClaudeCode
-                                  ? widget.onCCModelTap
-                                  : isCodex
-                                  ? widget.onCodexModelTap
-                                  : widget.onModelTap,
+                              onTap: widget.onCCModelTap ?? widget.onModelTap,
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 10,
@@ -697,15 +624,6 @@ class _CliStyleInputBarState extends State<CliStyleInputBar> {
           ),
         );
     }
-  }
-
-  Agent? _getCurrentAgent() {
-    final primaryAgents = widget.agents.where((a) => a.isPrimary).toList();
-    if (primaryAgents.isEmpty) return null;
-    return primaryAgents.firstWhere(
-      (a) => a.name == widget.currentAgent,
-      orElse: () => primaryAgents.first,
-    );
   }
 }
 

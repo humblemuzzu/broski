@@ -66,19 +66,6 @@ extension BridgeServiceFiles on BridgeService {
   // File Search
   // ============================================================
 
-  Future<List<String>> findFiles(String query, {String? projectPath}) async {
-    final requestId = _generateRequestId();
-    _socket.send({
-      'type': 'find_files',
-      'query': query,
-      'requestId': requestId,
-      if (projectPath != null) 'projectPath': projectPath,
-    });
-    final response = await _waitFor('files_found', requestId: requestId);
-    final data = response['data'] as List<dynamic>? ?? [];
-    return data.map((item) => item.toString()).toList();
-  }
-
   Future<List<String>> searchFilesAndDirs(
     String query, {
     String? projectPath,
@@ -96,45 +83,6 @@ extension BridgeServiceFiles on BridgeService {
     );
     final data = response['data'] as List<dynamic>? ?? [];
     return data.map((item) => item.toString()).toList();
-  }
-
-  Future<List<TextSearchResult>> findText(
-    String pattern, {
-    String? include,
-    String? projectPath,
-  }) async {
-    final requestId = _generateRequestId();
-    _socket.send({
-      'type': 'find_text',
-      'pattern': pattern,
-      'requestId': requestId,
-      if (include != null) 'include': include,
-      if (projectPath != null) 'projectPath': projectPath,
-    });
-    final response = await _waitFor('text_found', requestId: requestId);
-    final data = response['data'] as List<dynamic>? ?? [];
-    return data
-        .map((item) => TextSearchResult.fromJson(item as Map<String, dynamic>))
-        .toList();
-  }
-
-  /// Find symbols in codebase (LSP search)
-  Future<List<SymbolResult>> findSymbols(
-    String query, {
-    String? projectPath,
-  }) async {
-    final requestId = _generateRequestId();
-    _socket.send({
-      'type': 'find_symbols',
-      'query': query,
-      'requestId': requestId,
-      if (projectPath != null) 'projectPath': projectPath,
-    });
-    final response = await _waitFor('symbols_found', requestId: requestId);
-    final data = response['data'] as List<dynamic>? ?? [];
-    return data
-        .map((item) => SymbolResult.fromJson(item as Map<String, dynamic>))
-        .toList();
   }
 
   // ============================================================

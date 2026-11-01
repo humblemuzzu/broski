@@ -14,8 +14,6 @@ const _stoppedToolOutput = 'Stopped';
 /// that would end the turn with it. The next resync replaces this local view with what the Mac recorded.
 extension ChatLocalCancel on ChatSessionNotifier {
   void cancelRunLocally() {
-    _textDebounceTimer?.cancel();
-    _textDebounceTimer = null;
     _runtimeProjectionTimer?.cancel();
     _runtimeProjectionTimer = null;
     _pendingProjectionTurn = null;
@@ -47,11 +45,7 @@ extension ChatLocalCancel on ChatSessionNotifier {
 
     markAllStreamingComplete();
     _emitMessages();
-    state = state.copyWith(
-      ccIsStreaming: false,
-      cxIsStreaming: false,
-      isCompacting: false,
-    );
+    state = state.copyWith(ccIsStreaming: false, isCompacting: false);
   }
 }
 

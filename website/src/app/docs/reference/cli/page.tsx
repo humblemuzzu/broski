@@ -108,10 +108,7 @@ broski logs --no-redact`}</CodeBlock>
 broski --port 8080
 
 # New local hook token
-broski --new-token
-
-# OpenCode manual mode
-broski --manual --opencode-url http://localhost:4096`}</CodeBlock>
+broski --new-token`}</CodeBlock>
       </section>
 
       <section className="mt-12 pt-8 border-t border-border">

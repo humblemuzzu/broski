@@ -132,11 +132,11 @@ describe("the core's protocol: backend-wide requests", () => {
 	test("an unregistered backend is unknown_backend for every request that names one", async () => {
 		const rig = await startCoreRig();
 		const client = await rig.client("a");
-		const session = { backend: "codex" as const, sessionId: "s" };
+		const session = { backend: "claude-code" as const, sessionId: "s" };
 		const answers = [
-			await client.request("backend.status", { backend: "codex" }),
-			await client.request("models.list", { backend: "codex" }),
-			await client.request("sessions.list", { backend: "codex", query: { archived: false }, page: { limit: 5 } }),
+			await client.request("backend.status", { backend: "claude-code" }),
+			await client.request("models.list", { backend: "claude-code" }),
+			await client.request("sessions.list", { backend: "claude-code", query: { archived: false }, page: { limit: 5 } }),
 			await client.request("session.get", { session }),
 			await client.request("session.attach", { session }),
 			await client.request("prompt", {
@@ -144,7 +144,7 @@ describe("the core's protocol: backend-wide requests", () => {
 				input: { clientRequestId: crypto.randomUUID(), mode: "start", text: "x", attachments: [], mentions: [] },
 			}),
 			await client.request("backend.call", {
-				call: { backend: "codex", op: { kind: "revert", sessionId: "s", beforeItemId: "i" } },
+				call: { backend: "claude-code", op: { kind: "rewind_files", sessionId: "s", userItemId: "i", dryRun: true } },
 			}),
 		];
 		expect(answers.map((answer) => (answer.type === "error" ? answer.error.code : answer.type))).toEqual(

@@ -17,11 +17,6 @@ import { fitEvent } from "./wire-fit";
 /** The minor that added each op: 0 for those of 1.0, so a new op the table misses does not compile. */
 const OP_ADDED_IN: Readonly<Record<BackendOpKind, number>> = {
 	rewind_files: 0,
-	review_start: 0,
-	revert: 0,
-	revert_stage: 0,
-	revert_clear: 0,
-	revert_commit: 0,
 	navigate_tree: 0,
 	take_over: ADDED_IN_MINOR.takeOver,
 	session_settings: ADDED_IN_MINOR.sessionControls,

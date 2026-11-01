@@ -54,7 +54,7 @@ export type ClaudeCodeHook = {
 	path?: string;
 };
 
-// Claude Code Session (different from OpenCode session)
+// Claude Code Session
 export type ClaudeCodeSession = {
 	id: string;
 	title?: string;

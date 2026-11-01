@@ -1,4 +1,4 @@
-export type BroskiBackend = "opencode" | "claude-code" | "codex";
+export type BroskiBackend = "claude-code";
 
 export type BroskiBackendData = Record<string, unknown>;
 

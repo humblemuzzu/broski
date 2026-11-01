@@ -2,26 +2,26 @@
 
 ## What Broski Is
 
-Broski is a **mobile app that gives you full remote control of AI coding agents running on your computer** from your phone. It connects to 4 agent backends through a bridge server:
+Broski is a **mobile app that gives you full remote control of AI coding agents running on your computer** from your phone. It connects to 2 agent backends through a bridge server:
 
 ```
-Phone (Flutter + Rust core) ←Broski Link (Noise e2e; LAN or relay)→ broski-link daemon (Rust, your Mac) ←unix socket→ Bridge (Bun/TS) ←SDK→ {Claude Code, OpenCode, Codex, Pi}
+Phone (Flutter + Rust core) ←Broski Link (Noise e2e; LAN or relay)→ broski-link daemon (Rust, your Mac) ←unix socket→ Bridge (Bun/TS) ←SDK→ {Claude Code, Pi}
 ```
 
-- **Bridge** (`packages/bridge/`) — TypeScript server on the user's dev machine. It listens before a managed OpenCode start finishes (that start runs beside the listeners; a request that needs OpenCode waits for it up to 30 s, then gets `OpenCode unavailable: <reason>` — `server/opencode-slot.ts`, `server/opencode-gate.ts`). Connects to local AI agents via their SDKs. Serves the app protocol to the daemon over the unix socket `~/.broski/link/bridge.sock`, where every upgrade must quote the key the daemon wrote to `~/.broski/link/bridge.key` (`x-broski-link-key`, 32 random bytes hex, `0600`, rewritten by the daemon at every start and re-read by the bridge per upgrade — `server/link-key.ts`); its TCP listener is loopback-only (127.0.0.1) and exists for local things only: the CC permission hook, the dashboard, `/proxy/<port>`.
+- **Bridge** (`packages/bridge/`) — TypeScript server on the user's dev machine. Connects to local AI agents via their SDKs. Serves the app protocol to the daemon over the unix socket `~/.broski/link/bridge.sock`, where every upgrade must quote the key the daemon wrote to `~/.broski/link/bridge.key` (`x-broski-link-key`, 32 random bytes hex, `0600`, rewritten by the daemon at every start and re-read by the bridge per upgrade — `server/link-key.ts`); its TCP listener is loopback-only (127.0.0.1) and exists for local things only: the CC permission hook, the dashboard, `/proxy/<port>`.
 - **The bridge's environment** — a service start inherits only `PATH` and `HOME` from launchd/systemd, so at startup the bridge asks the user's login shell once (`platform/shell-env.ts`: one interactive `env -0` between markers, 10 s timeout, process-group kill) and runs every agent and PTY with the result. A `~/.zshrc` change applies on the next bridge start (`broski restart`, or the app's restart button). A compiled binary never takes `BROSKI_*`/`BUN_*` from a shell: those stay the service manager's and config's.
 - **broski-link daemon** (`packages/link/daemon/`, Rust) — runs as a launchd (macOS) / systemd (Linux) service installed by `broski install`; supervises the bridge, terminates the Noise session with each paired phone, and dials the relay. Windows is not supported.
 - **Relay** (`packages/link/relay/`) — blind rendezvous the phone and daemon both dial out to. It forwards encrypted frames and never sees plaintext.
 - **Flutter app** (`lib/`, Rust core via `packages/link_dart/`) — iOS/Android app. Renders UI only; all AI logic stays on Mac.
 - **Connection:** direct over the LAN when reachable, otherwise through the relay. No VPN, tunnel, port forwarding or public exposure of the bridge.
 - **Auth layers:** QR v2 pairing (`broski://pair?v=2&h=<fingerprint>&s=<one-time secret>&e=<expiry>&n=<name>[&r=<relay>][&l=<lan>]`), Noise end-to-end encryption (hybrid X25519 + ML-KEM-768) with the machine fingerprint pinned from the QR, and per-device revocable authorisation on the daemon. Design docs: `docs/architecture/connectivity-v2/`.
-- **693 Dart files** (~147K LOC under `lib/`, of which 32 files and ~14K LOC are the generated contract in `lib/contract/generated/` and 108 files the app core in `lib/agent/`), **577 TypeScript files** (~67K LOC under `packages/bridge/src/`, tests excluded).
-- **OpenCode** is wired to the 1.x SDK (`@opencode-ai/sdk` 1.3.17). The installed OpenCode CLI is 2.x (v2.1.4: new storage under `$XDG_DATA_HOME|~/.local/share/opencode`, one registered service). The integration is slated for a rewrite; until then treat OpenCode behaviour against a 2.x CLI as unverified.
+- **604 Dart files** (~113K LOC under `lib/`, of which 37 files and ~15K LOC are the generated contract in `lib/contract/generated/` and 147 files the app core in `lib/agent/`), **527 TypeScript files** (~55K LOC under `packages/bridge/src/`, tests excluded).
+- **OpenCode and Codex were removed** on 2026-11-01 (bridge connectors, handlers, mappers, app screens, contract ids); so was the unlaunched web app (`web-app/`).
 - **Pi** is served only through the backend contract (`src/backends/pi/`, below); the old Pi protocol (`pi_*`) and the experimental Pi Durable backend (`pd_*`) were deleted on 2026-10-30 (last in `e9d1a10`). In the app Pi is a normal backend: it is chosen in the AI Backend picker and its sessions and projects are the Sessions and Projects tabs, drawn by the contract screens of `lib/agent/`.
 
 ### Core features that are INTENTIONAL, not vulnerabilities:
 - **PTY / terminal access from the phone.** This is a primary feature. Users open terminal sessions, type commands, see output. Do NOT flag this as a security issue or suggest blocking it.
-- **Command execution from the app.** The app sends commands to AI agents (Claude Code, Codex, OpenCode, Pi) and to the shell. This is the product. Do NOT suggest removing or restricting command execution.
+- **Command execution from the app.** The app sends commands to AI agents (Claude Code, Pi) and to the shell. This is the product. Do NOT suggest removing or restricting command execution.
 - **File reading/writing from the phone.** Users browse, read, and edit files on their dev machine through the app. This is intentional.
 - **AI agent control.** Users chat with AI agents, approve/reject permission prompts, and manage coding sessions. The bridge is the relay between phone and agents.
 - **QR code pairing.** `broski-link pair` shows a QR v2 code in the user's terminal. It carries the machine fingerprint, a one-time pairing secret and an expiry, plus relay/LAN hints. This is the pairing mechanism (like SSH keys). The QR is only visible on the user's own screen, and the secret is consumed by the first successful pairing.
@@ -37,7 +37,6 @@ Phone (Flutter + Rust core) ←Broski Link (Noise e2e; LAN or relay)→ broski-l
 - This is a **personal dev tool**, not a multi-tenant SaaS. The user owns both the phone and the machine.
 - A one-time pairing secret plus a Noise end-to-end channel with a pinned machine fingerprint is the SSH-style trust model for this category; the relay is untrusted by design.
 - The bridge deliberately has broad filesystem and process access because that is its job.
-- Web app (`web-app/`) exists but is NOT launched yet. Bridge serves its static assets without auth (standard SPA behavior) but all API/WS endpoints require auth.
 - Compiled production binaries disable all debug flags, force TLS on the loopback listener, and ignore env overrides that could weaken security.
 
 ### What IS worth auditing:
@@ -58,7 +57,7 @@ Phone (Flutter + Rust core) ←Broski Link (Noise e2e; LAN or relay)→ broski-l
 
 ## Backend contract (the rebuild, Phase 1)
 
-The backend-agnostic contract that replaces the runtime abstraction below lives in `packages/bridge/src/contract/`. Its spec is [`docs/architecture/contract/README.md`](docs/architecture/contract/README.md). Nothing is wired to it yet: Phase 2 builds the bridge core on it, Phase 3 the Flutter core, Phase 4 one adapter per backend under `packages/bridge/src/backends/<id>/`. Hard rules:
+The backend-agnostic contract that replaces the runtime abstraction below lives in `packages/bridge/src/contract/`. Its spec is [`docs/architecture/contract/README.md`](docs/architecture/contract/README.md). The bridge core (Phase 2) and the Flutter core (Phase 3) are built on it, and each backend gets one adapter under `packages/bridge/src/backends/<id>/` (Phase 4; Pi's is live, Claude Code still speaks the old protocol). Hard rules:
 
 - **The UI never branches on the backend**, only on `Capabilities` / `SessionCapabilities` and the shape of the data. Backend extras arrive as typed `extension` events and `backend.call` ops.
 - **Adapters are reached only through the contract** (`AgentBackend`). The core never imports `backends/<id>/`; an adapter never sees sockets, phones or the wire.
@@ -71,7 +70,7 @@ The backend-agnostic contract that replaces the runtime abstraction below lives 
 
 ## Bridge core (the rebuild, Phase 2)
 
-The core that speaks the contract lives in `packages/bridge/src/core/`; its doc is [`docs/architecture/core/README.md`](docs/architecture/core/README.md). Production registers no backend yet (Phase 4 does, one adapter at a time). Rules:
+The core that speaks the contract lives in `packages/bridge/src/core/`; its doc is [`docs/architecture/core/README.md`](docs/architecture/core/README.md). Production registers Pi (`server/contract-backends.ts`); Phase 4 adds the others one adapter at a time. Rules:
 
 - **Contract messages travel as `{"type":"contract","message":…}`** on the same sockets as the old protocol, which owns every other frame type. The seam is `server/contract-seam.ts`; old code knows the core only through the seam's calls: in `server.ts` one `createContractSeam(…)` line, `contract` handed to three dependency objects, and `contract.start()` once the listeners are bound (backends start after the bridge listens); `server/messages.ts` hands an owned frame to the core before the old prototype-poison check; `server/connections.ts` calls `disconnect` on close and `refuse` when the rate limit refuses a contract frame; `server/shutdown.ts` calls `stop`. Do not route contract messages through `routing/`.
 - **`src/core/` imports only itself, the contract (not its test kit), `zod` and `CORE_INFRASTRUCTURE`** (`state/bounded-map`, `transport/send-limits`, which may import only `zod` and each other; `scripts/contract-gen/layers.ts`). `bun run check:layers` enforces it. Adapters reach the core only through the `AgentBackend` they give the registry.
@@ -98,15 +97,15 @@ This is the core architecture of the app. **Read this before adding any agent fe
 
 ### The Problem
 
-3 old-protocol backends (Claude Code, OpenCode, Codex), each with its own event types, session models, and streaming protocols. Without abstraction, every feature needs a separate implementation per backend.
+Claude Code is the one old-protocol backend: its own event types, session model and streaming protocol. Pi speaks the backend contract instead (below). The runtime layer keeps the app's chat code independent of the Claude Code SDK's shapes.
 
 ### The Solution: BroskiRuntimeEvent
 
-A unified event stream that normalizes the 3 old-protocol backends (Claude Code, OpenCode, Codex) into one type system; Pi speaks the contract instead. The Flutter app receives `BroskiRuntimeEvent`s and doesn't care which backend produced them.
+A unified event stream that normalizes the old-protocol backend (Claude Code) into one type system; Pi speaks the contract instead. The Flutter app receives `BroskiRuntimeEvent`s and doesn't care how the SDK shaped them.
 
 **Bridge side** (`packages/bridge/src/types/runtime.ts`):
 ```typescript
-type BroskiBackend = "opencode" | "claude-code" | "codex";
+type BroskiBackend = "claude-code";
 
 type BroskiRuntimeEvent =
   | BroskiAgentStartedEvent
@@ -135,7 +134,7 @@ Every event has: `{ type, backend, timestampMs, sessionId?, cwd?, messageId?, to
 
 ### The Mapper Pattern
 
-Each agent has an event mapper in `packages/bridge/src/runtime/`:
+The event mapper lives in `packages/bridge/src/runtime/`:
 
 ```
 agent SDK event → runtime event mapper → BroskiRuntimeEvent → WebSocket → Flutter
@@ -144,12 +143,10 @@ agent SDK event → runtime event mapper → BroskiRuntimeEvent → WebSocket �
 | Backend | Mapper file | Read models file |
 |---------|------------|-----------------|
 | Claude Code | `runtime/claude-code-runtime-event-mapper.ts` (262) | `runtime/claude-code-runtime-read-models.ts` (86) |
-| OpenCode | `runtime/opencode-runtime-event-mapper.ts` (417) | `runtime/opencode-runtime-read-models.ts` (80) |
-| Codex | `runtime/codex-runtime-event-mapper.ts` (578) | `runtime/codex-runtime-read-models.ts` (90) |
 
-Plus shared: `runtime/stream-contract.ts` (120) and `runtime/shared.ts` (27).
+Plus shared: `runtime/stream-contract.ts` (120) and `runtime/shared.ts` (17).
 
-**When adding a new event type:** Add it to `types/runtime.ts`, implement mapping in each backend's mapper that emits it, add the Dart model to `models/runtime/runtime_event.dart`, and handle it in the Flutter `runtime_common_reducer.dart`.
+**When adding a new event type:** Add it to `types/runtime.ts`, implement mapping in the mapper that emits it, add the Dart model to `models/runtime/runtime_event.dart`, and handle it in the Flutter `runtime_common_reducer.dart`.
 
 ### Flutter Side
 
@@ -160,28 +157,26 @@ Dart models in `lib/models/runtime/` (6 files, 1,046 lines):
 - `runtime_session_summary.dart` (125)
 - `runtime_model_summary.dart` (68)
 
-Provider layer in `lib/providers/chat/` (26 files, 6,503 lines; 10 `runtime_*` files, 3,641 lines):
-- `runtime_chat_ingest.dart` (661) — main ingestion pipeline
+Provider layer in `lib/providers/chat/` (16 files, 3,003 lines; 7 `runtime_*` files, 2,034 lines):
+- `runtime_chat_ingest.dart` (457) — main ingestion pipeline
 - `runtime_common_reducer.dart` (403) — reduces events into state updates
-- `runtime_cx_handlers.dart` (383) — Codex-specific event handling
-- `runtime_oc_message_handler.dart` (521) / `runtime_oc_part_handler.dart` (383) — OpenCode handling
 - `runtime_cc_system_messages.dart` (421) / `runtime_cc_metadata_handler.dart` (288) — Claude Code handling
-- `runtime_permission_handler.dart` (354) — permission request flow
+- `runtime_permission_handler.dart` (238) — permission request flow
 - `runtime_common_models.dart` (143) — shared data types
 
 ### The Unified Handler
 
-`packages/bridge/src/handlers/unified.ts` (379 lines) — instead of per-agent messages (`cc_list_sessions`, `cx_list_threads`), the app sends ONE message with a `backend` parameter:
+`packages/bridge/src/handlers/unified.ts` (106 lines) — instead of per-agent messages (`cc_list_sessions`), the app sends ONE message with a `backend` parameter:
 
 ```
-{ type: "unified_list_sessions", backend: "codex", cwd: "...", limit: 100, before: "<cursor>" }
-→ { type: "unified_sessions", backend: "codex", data: [...], hasMore: true, nextCursor: "...", requestId: "..." }
+{ type: "unified_list_sessions", backend: "claude-code", cwd: "...", limit: 100, before: "<cursor>" }
+→ { type: "unified_sessions", backend: "claude-code", data: [...], hasMore: true, nextCursor: "...", requestId: "..." }
 ```
 
 Old per-agent messages still work for backward compatibility. New features should use unified messages.
 
-**Every session/thread list is paged** (`utils/session-list-page.ts`, one implementation for all of
-`cc_sessions`, `cx_threads`, OC `sessions` and `unified_sessions`): `limit` defaults to
+**Every session list is paged** (`utils/session-list-page.ts`, one implementation for
+`cc_sessions` and `unified_sessions`): `limit` defaults to
 100, is clamped to 500, rows are newest-modified first with `id` breaking ties, and `nextCursor` is a
 cursor into that order. A request with neither `limit` nor `before` still gets the whole list.
 
@@ -199,7 +194,7 @@ its cached list. A whole list is only ever the reply to an explicit list request
 |-----------|------|---------|
 | Send queue | `utils/runtime-send-queue.ts` (369) | Batches runtime events, RTT-adaptive |
 | Replay buffer | `utils/runtime-replay-buffer.ts` (106) | Buffers events for reconnection replay |
-| Bounded pool | `utils/bounded-pool.ts` (28) | Caps concurrency (Claude Code and Codex session enrichment) |
+| Bounded pool | `utils/bounded-pool.ts` (28) | Caps concurrency (Claude Code session enrichment) |
 | Single-flight | `utils/single-flight.ts` (17) | Dedupes concurrent work on the same key |
 | Replay tracker | `lib/services/bridge/runtime_replay_tracker.dart` (41) | Flutter-side replay handling |
 | Bridge runtime | `lib/services/bridge/bridge_runtime.dart` (56) | Flutter→bridge runtime API |
@@ -215,21 +210,20 @@ Every edit must make the codebase more modular, not less. New code goes in new f
 
 | File | Lines | What it has | Where new code goes |
 |------|-------|-------------|-------------------|
-| `packages/bridge/src/types.ts` | 28 | Barrel re-exporting `types/*.ts` (ClientMessage/ServerMessage unions) | `types/*.ts` (32 files: `types/runtime.ts`, `types/codex*.ts`, …) |
+| `packages/bridge/src/types.ts` | 19 | Barrel re-exporting `types/*.ts` (ClientMessage/ServerMessage unions) | `types/*.ts` (22 files: `types/runtime.ts`, `types/claude-code*.ts`, …) |
 | `packages/bridge/src/connectors/claude-code.ts` | 39 | Facade re-exporting `connectors/claude-code/` | `connectors/claude-code/` (31 files) |
-| `packages/bridge/src/server.ts` | 373 | Server wiring; routing lives in `routing/` | `handlers/{domain}.ts` (106 handler files already extracted), `server/*.ts` (37 files) |
-| `packages/bridge/src/connectors/opencode.ts` | 633 | OC connector class | `connectors/opencode/` (21 files, session-list already extracted) |
+| `packages/bridge/src/server.ts` | 269 | Server wiring; routing lives in `routing/` | `handlers/{domain}.ts` (36 handler files already extracted), `server/*.ts` (39 files) |
 
 **Flutter (Dart):**
 
 | File | Lines | What it has | Where new code goes |
 |------|-------|-------------|-------------------|
-| `lib/screens/chat_screen.dart` | 2,135 | Main chat screen build + routing | `lib/screens/sheets/` (52 files), `lib/screens/chat/` (52 files), `lib/screens/dialogs/` (9 files) |
-| `lib/screens/settings_screen.dart` | 1,284 | All settings | Extract sections to `lib/screens/settings/`, `lib/screens/sheets/` or dedicated screens |
+| `lib/screens/chat_screen.dart` | 1,274 | Main chat screen build + routing | `lib/screens/sheets/` (17 files), `lib/screens/chat/` (29 files), `lib/screens/dialogs/` (4 files) |
+| `lib/screens/settings_screen.dart` | 1,048 | All settings | Extract sections to `lib/screens/settings/`, `lib/screens/sheets/` or dedicated screens |
 | `lib/screens/claude_code_settings_screen.dart` | 1,502 | CC settings | Extract to `lib/screens/sheets/cc_*.dart` |
-| `lib/screens/projects_screen.dart` | 1,261 | Project management | Extract sections |
-| `lib/screens/browse_screen.dart` | 1,312 | File browser | Extract sections |
-| `lib/screens/sessions_screen.dart` | 1,233 | Session list + filters | `lib/screens/sessions/` (11 files) |
+| `lib/screens/projects_screen.dart` | 543 | Project management | Extract sections |
+| `lib/screens/browse_screen.dart` | 917 | File browser | Extract sections |
+| `lib/screens/sessions_screen.dart` | 103 | Sessions tab shell | `lib/screens/sessions/` (3 files) |
 
 ### ✅ Graduated Files (previously frozen, now clean — keep them lean)
 
@@ -237,9 +231,9 @@ These were 2,700–5,100 lines. Extraction is done. Keep adding to their extract
 
 | File | Was | Now | Where the code went |
 |------|-----|-----|-------------------|
-| `lib/services/bridge_service.dart` | 5,058 | 296 | `lib/services/bridge/` (52 extension files, 7,182 lines) |
-| `lib/providers/chat_provider.dart` | 5,092 | 293 | `lib/providers/chat/` (26 files, 6,503 lines) |
-| `lib/screens/onboarding_screen.dart` | 4,314 | 114 | `lib/screens/onboarding/` (10 files, 2,954 lines) |
+| `lib/services/bridge_service.dart` | 5,058 | 259 | `lib/services/bridge/` (28 extension files, 2,691 lines) |
+| `lib/providers/chat_provider.dart` | 5,092 | 186 | `lib/providers/chat/` (16 files, 3,003 lines) |
+| `lib/screens/onboarding_screen.dart` | 4,314 | 114 | `lib/screens/onboarding/` (10 files, 2,920 lines) |
 | `lib/models/claude_code.dart` | 2,759 | 21 (barrel) | `lib/models/claude_code/` (17 files, 3,077 lines) |
 
 ### ⚠️ WATCH LIST — Files over 400 lines (extract on next touch)
@@ -250,36 +244,27 @@ Prioritised, not exhaustive. Recompute with `find lib packages/bridge/src \( -na
 
 | File | Lines | What to extract |
 |------|-------|----------------|
-| `lib/widgets/permission_rules_sheet.dart` | 1,660 | Item widgets → separate files |
-| `lib/widgets/session_sidebar.dart` | 1,383 | Section widgets |
-| `lib/widgets/power_sheet.dart` | 1,136 | Section widgets |
-| `lib/widgets/permission_prompt.dart` | 936 | Action buttons, content sections |
-| `lib/widgets/chat/compact_agent_card.dart` | 823 | Sub-widgets |
-| `lib/widgets/chat/cli_input_bar.dart` | 753 | Sub-widgets |
-| `lib/widgets/chat/compact_edit_card.dart` | 616 | Sub-widgets |
+| `lib/widgets/session_sidebar.dart` | 1,101 | Section widgets |
+| `lib/widgets/permission_prompt.dart` | 841 | Action buttons, content sections |
+| `lib/widgets/chat/compact_agent_card.dart` | 770 | Sub-widgets |
+| `lib/widgets/chat/cli_input_bar.dart` | 671 | Sub-widgets |
+| `lib/widgets/chat/compact_edit_card.dart` | 562 | Sub-widgets |
 | `lib/widgets/file_tagging.dart` | 606 | Sub-widgets |
 | `lib/widgets/sessions/session_helpers.dart` | 595 | Helper functions |
 | `lib/widgets/question_prompt_sheet.dart` | 582 | Sub-widgets |
 | `lib/widgets/onboarding_widgets.dart` | 575 | Step widgets |
-| `lib/widgets/chat/input_bar_content.dart` | 537 | Sub-widgets |
 | `lib/widgets/chat/compact_tool_card.dart` | 531 | Sub-widgets |
-| `lib/widgets/message_bubble.dart` | 519 | Sub-widgets |
-| `lib/widgets/chat/floating_input_bar.dart` | 516 | Sub-widgets |
+| `lib/widgets/message_bubble.dart` | 494 | Sub-widgets |
+| `lib/widgets/chat/floating_input_bar.dart` | 513 | Sub-widgets |
 | `lib/widgets/voice_recording_sheet.dart` | 503 | Sub-widgets |
-| `lib/widgets/chat/floating_header.dart` | 483 | Sub-widgets |
 | `lib/widgets/chat/adaptive_table.dart` | 452 | Sub-widgets |
-| `lib/widgets/project_tools_sheet.dart` | 408 | Sub-widgets |
 
 **Flutter providers:**
 
 | File | Lines |
 |------|-------|
-| `lib/providers/sessions_provider.dart` | 875 |
 | `lib/providers/claude_code_provider.dart` | 718 |
-| `lib/providers/chat/chat_session_state.dart` | 693 |
-| `lib/providers/chat/runtime_chat_ingest.dart` | 661 |
-| `lib/providers/chat/runtime_oc_message_handler.dart` | 521 |
-| `lib/providers/codex_provider.dart` | 462 |
+| `lib/providers/chat/runtime_chat_ingest.dart` | 457 |
 | `lib/providers/connection/link_connection_controller.dart` | 460 |
 | `lib/providers/chat/runtime_cc_system_messages.dart` | 421 |
 | `lib/providers/chat/runtime_common_reducer.dart` | 403 |
@@ -288,34 +273,28 @@ Prioritised, not exhaustive. Recompute with `find lib packages/bridge/src \( -na
 
 | File | Lines |
 |------|-------|
-| `lib/screens/sessions/cc_sessions_view.dart` | 1,401 |
-| `lib/screens/sessions/cx_threads_view.dart` | 1,266 |
+| `lib/screens/sessions/cc_sessions_view.dart` | 1,399 |
 | `lib/screens/sheets/git_panel_sheet.dart` | 1,131 |
-| `lib/screens/mcp_servers_screen.dart` | 1,094 |
 | `lib/screens/subagents_screen.dart` | 1,074 |
 | `lib/screens/appearance_screen.dart` | 1,027 |
-| `lib/screens/subscription_usage_screen.dart` | 929 |
-| `lib/screens/terminal_screen.dart` | 842 |
-| `lib/screens/skills_screen.dart` | 832 |
+| `lib/screens/subscription_usage_screen.dart` | 927 |
+| `lib/screens/terminal_screen.dart` | 838 |
+| `lib/screens/skills_screen.dart` | 810 |
 | `lib/screens/plugins_screen.dart` | 811 |
 | `lib/screens/custom_tool_editor_screen.dart` | 795 |
 | `lib/screens/background_screen.dart` | 762 |
 | `lib/screens/customization_screen.dart` | 746 |
 | `lib/screens/sheets/cc_tools_sheet.dart` | 685 |
 | `lib/screens/voice_settings_screen.dart` | 679 |
-| `lib/screens/tools_screen.dart` | 668 |
 | `lib/screens/theme_selector_screen.dart` | 634 |
-| `lib/screens/codex_mcp_screen.dart` | 553 |
-| `lib/screens/opencode_global_config_screen.dart` | 540 |
 | `lib/screens/hooks_screen.dart` | 528 |
-| `lib/screens/sessions/subagent_tasks_view.dart` | 503 |
+| `lib/screens/sessions/subagent_tasks_view.dart` | 406 |
 
 **Flutter services:**
 
 | File | Lines | What to extract |
 |------|-------|----------------|
-| `lib/services/storage_service.dart` | 1,289 | `lib/services/storage/` (5 files, 144 lines extracted so far) |
-| `lib/services/bridge/bridge_git.dart` | 405 | Git method group → smaller extensions |
+| `lib/services/storage_service.dart` | 685 | `lib/services/storage/` (3 files, 80 lines extracted so far) |
 
 **Bridge:**
 
@@ -323,20 +302,16 @@ Prioritised, not exhaustive. Recompute with `find lib packages/bridge/src \( -na
 |------|-------|----------------|
 | `packages/bridge/src/cc-external-tail.ts` | 743 | Split tail vs parse |
 | `packages/bridge/src/custom-tools.ts` | 708 | Split registry vs execution |
-| `packages/bridge/src/subscription-tracker.ts` | 672 | Split per-provider trackers |
+| `packages/bridge/src/subscription-tracker.ts` | 412 | Split per-provider trackers |
 | `packages/bridge/src/handlers/git/git_commands.ts` | 611 | Split into git_operations, git_diff, etc. |
-| `packages/bridge/src/runtime/codex-runtime-event-mapper.ts` | 578 | Split by event category |
 | `packages/bridge/src/platform.ts` | 558 | Split platform / build-flag probes |
-| `packages/bridge/src/cx-external-tail.ts` | 533 | Split tail vs parse |
-| `packages/bridge/src/pty/runtime.ts` | 496 | Split session vs I/O |
-| `packages/bridge/src/cli.ts` | 440 | Split command groups |
+| `packages/bridge/src/pty/runtime.ts` | 419 | Split session vs I/O |
 | `packages/bridge/src/updater.ts` | 448 | Split check vs apply |
-| `packages/bridge/src/file-search.ts` | 447 | Split walk vs match |
+| `packages/bridge/src/file-search.ts` | 445 | Split walk vs match |
 | `packages/bridge/src/pty/native-pty.ts` | 446 | Split by backend |
-| `packages/bridge/src/runtime/opencode-runtime-event-mapper.ts` | 417 | Split by event category |
 | `packages/bridge/src/plugins.ts` | 402 | Split registry vs loader |
 
-Other files over 400 lines (not tabulated): `lib/theme/themes/all_themes.dart` (2,950, generated theme table — leave alone), `lib/models/codex.dart` (871), `lib/theme/opencode_theme.dart` (651), `lib/models/runtime/runtime_event.dart` (605), `lib/models/message.dart` (566), `lib/models/claude_code/cc_custom_tool.dart` (497).
+Other files over 400 lines (not tabulated): `lib/theme/themes/all_themes.dart` (2,950, generated theme table — leave alone), `lib/theme/opencode_theme.dart` (651), `lib/models/runtime/runtime_event.dart` (605), `lib/models/message.dart` (566), `lib/models/claude_code/cc_custom_tool.dart` (497).
 
 ### 🔢 Hard Limits
 
@@ -357,88 +332,79 @@ Other files over 400 lines (not tabulated): `lib/theme/themes/all_themes.dart` (
 
 ## Where Code Lives
 
-### Flutter (`lib/`) — 760 files, ~163K LOC (32 generated under `contract/generated/`)
+### Flutter (`lib/`) — 604 files, ~113K LOC (37 generated under `contract/generated/`)
 
 ```
 lib/
-  agent/                            ← the app core (Phase 3): contract client, session store, reducer and answer-check ports, generic screens
-  screens/                          ← 50 files here (30,029 lines); 197 recursive, 61,735 lines
-    settings/                       ← the version line (`AppVersionLine`)
-    sheets/                         ← 52 extracted sheets (13,305 lines)
-    chat/                           ← 52 extracted chat helpers incl. hydration/ (6,458 lines)
-    sessions/                       ← 11 extracted session views (6,016 lines)
-    dialogs/                        ← 9 extracted dialogs (921 lines)
-    onboarding/                     ← 10 step files (2,954 lines)
-    pi/                             ← extension UI handler (272 lines)
-    opencode/                       ← OC-specific screen widgets (589 lines)
-  widgets/                          ← 33 files here (12,066 lines); 134 recursive, 30,840 lines
-    chat/                           ← chat widgets (62 files, 12,639 lines)
-    sessions/                       ← session card widgets (16 files, 3,282 lines)
+  agent/                            ← the app core (Phase 3): contract client, session store, reducer and answer-check ports, generic screens (147 files)
+  screens/                          ← 37 files here (20,921 lines); 115 recursive, 34,021 lines
+    settings/                       ← the version line (`AppVersionLine`), contract feature tiles
+    sheets/                         ← 17 extracted sheets (4,168 lines)
+    chat/                           ← 29 extracted chat helpers incl. hydration/ (2,211 lines)
+    sessions/                       ← 3 extracted session views (1,913 lines)
+    dialogs/                        ← 4 extracted dialogs (344 lines)
+    onboarding/                     ← 10 step files (2,920 lines)
+  widgets/                          ← 25 files here (7,704 lines); 88 recursive, 19,198 lines
+    chat/                           ← chat widgets (38 files, 8,099 lines)
+    sessions/                       ← session card widgets (7 files, 1,477 lines)
     git/                            ← git file tile, diff inline, status badge
     file_viewers/                   ← file content rendering
     sidebar/                        ← sidebar widgets
-    opencode/                       ← OC-specific widgets
     link/                           ← machine list, link status, reconnect banner
-  services/                         ← 10 files here (3,330 lines)
-    bridge/                         ← 52 bridge extension files (7,182 lines)
+  services/                         ← 9 files here (1,927 lines)
+    bridge/                         ← 28 bridge extension files (2,691 lines)
     link/                           ← pairing, machine store, discovery, push registration (20 files, 1,433 lines)
-    storage/                        ← storage extensions (5 files, 144 lines)
+    storage/                        ← storage extensions (3 files, 80 lines)
     websocket/                      ← WebSocket connector, JSON decoder
-  providers/                        ← 37 files here (5,794 lines)
-    chat/                           ← 26 files (6,503 lines) — runtime event processing
+  providers/                        ← 27 files here (3,863 lines)
+    chat/                           ← 16 files (3,003 lines) — runtime event processing
     sessions/                       ← 3 runtime session handlers
-    codex/                          ← 4 Codex-specific providers
     connection/                     ← Link connection controller, status mapping
     link/                           ← machines, link status, push providers
-  models/                           ← 44 files here (8,236 lines); 78 recursive, 13,134 lines
+  models/                           ← 29 files here (4,441 lines); 56 recursive, 8,756 lines
     claude_code/                    ← 17 CC model files (3,077 lines)
     runtime/                        ← 6 runtime model files (1,046 lines)
-    codex/                          ← 3 Codex model files (257 lines)
   theme/                            ← design system, semantic color tokens
   utils/                            ← shared utilities
 ```
 
-### Bridge (`packages/bridge/src/`) — 546 files, ~68K LOC (tests excluded; 744 files with tests)
+### Bridge (`packages/bridge/src/`) — 527 files, ~55K LOC (tests excluded; 836 files with tests)
 
 ```
 packages/bridge/src/
-  server.ts                         ← 373 lines — server wiring; delegates to server/, routing/ and handlers/
-  types.ts                          ← 28-line barrel — ClientMessage/ServerMessage unions live in types/
+  server.ts                         ← 269 lines — server wiring; delegates to server/, routing/ and handlers/
+  types.ts                          ← 19-line barrel — ClientMessage/ServerMessage unions live in types/
   index.ts                          ← 127 lines — CLI entry + startup
-  connectors/                       ← 117 files (15,891 lines)
+  connectors/                       ← 32 files (4,529 lines)
     claude-code/                    ← 31 modules (4,490 lines) — query, live-session, sessions, hooks, config, …
-    opencode/                       ← 21 modules — session-list, sessions, messages, permissions, …
-    codex/                          ← cx-sqlite, cx-session-stats, …
-    pi/                             ← 34 modules (4,900 lines) — pi-events, pi-instance, pi-session-lifecycle, pi-session-queries, pi-session-list-cache, pi-model-runtime, pi-session-stats, …
     claude-code.ts                  ← 39-line facade re-exporting connectors/claude-code/*
-    opencode.ts                     ← 633 lines — FROZEN, extract to subdirectory
-    codex.ts                        ← 326 lines
-    codex-fs.ts                     ← 149 lines
-  handlers/                         ← 106 files (14,055 lines)
+  backends/pi/                      ← the Pi adapter behind the contract (163 files, 14,801 lines)
+  contract/                         ← the backend contract (71 files, 7,301 lines)
+  core/                             ← the bridge core on the contract (35 files, 2,693 lines)
+  handlers/                         ← 36 files (4,953 lines)
     git/                            ← 9 files — git_commands, github, parse, security
-    codex/                          ← 22 files — cx_threads, cx_chat, cx_files, cx_workspace, cx_agents, cx_plugins, cx_skills, cx_mcp, cx_fuzzy_search, etc.
     cc_*.ts                         ← 17 files — cc_chat, cc_sessions, cc_config, cc_skills, cc_hooks_mcp, cc_commands, cc_plugins, cc_custom_tools, cc_subagents, cc_memory, cc_live_session, cc_elicitation, cc_permission_hook, cc_hook_installer, cc_ask_user_question, cc_routing, …
-    oc_*.ts                         ← OpenCode handlers — oc_routing, oc_sessions, oc_chat, oc_messages, oc_providers, …
-    unified.ts                      ← 379 lines — unified backend-agnostic handler (plus unified_session_lists, unified_session_children, unified_pi)
+    unified.ts                      ← 106 lines — unified backend-agnostic handler (plus unified_session_lists, unified_session_children)
+    files.ts                        ← read_file, read_file_binary, browse, search_files_and_dirs
     devices.ts, misc.ts             ← shared handlers
     session_view.ts, session-stats.ts
   routing/                          ← 5 files — registry, routes (ALL_MESSAGE_TYPES), types, validate, messages
-  server/                           ← 42 files (4,393 lines) — wiring: streams, sessions, codex notifications/requests, link-feed/, opencode events, the contract seam
-  runtime/                          ← 14 files (2,531 lines)
-    *-runtime-event-mapper.ts       ← 3 per-backend event mappers
-    *-runtime-read-models.ts        ← 5 per-backend read models
+  server/                           ← 39 files (3,309 lines) — wiring: streams, sessions, link-feed/, the contract seam
+  runtime/                          ← 4 files (485 lines)
+    claude-code-runtime-event-mapper.ts ← the Claude Code event mapper
+    claude-code-runtime-read-models.ts  ← the Claude Code read models
     stream-contract.ts              ← shared streaming contract
     shared.ts                       ← shared types
-  types/                            ← 32 files (4,301 lines) — per-agent client/server unions
+  types/                            ← 22 files (2,158 lines) — client/server unions
     runtime.ts                      ← BroskiRuntimeEvent, BroskiRuntimeState, BroskiBackend
     runtime-messages.ts             ← runtime_event / runtime_state / session-row server messages
-    codex*.ts                       ← Codex types
-  pty/                              ← 9 files (1,439 lines) — runtime, native-pty (+reader/writer), manager, output, types, …
-  doctor/                           ← 20 files (1,600 lines) — checks for agents, network, security, daemon
-  config/                           ← 5 files (199 lines) — schema, defaults, read-write
+    workspace-client.ts, workspace-server.ts ← PTY, git, GitHub and file messages
+  pty/                              ← 9 files (1,309 lines) — runtime, native-pty (+reader/writer), manager, output, types, …
+  doctor/                           ← 20 files (1,520 lines) — checks for agents, network, security, daemon
+  config/                           ← 5 files (197 lines) — schema, defaults, read-write
   logging/                          ← 5 files (390 lines) — structured logger, redaction
-  wizard/                           ← 13 files (1,086 lines) — onboarding, troubleshoot, steps
-  utils/                            ← 17 files (1,386 lines) — runtime-send-queue, runtime-replay-buffer, bounded-pool, single-flight, session-list-page, jsonl-*, fs-helpers, …
+  wizard/                           ← 13 files (1,022 lines) — onboarding, troubleshoot, steps
+  utils/                            ← 17 files (1,385 lines) — runtime-send-queue, runtime-replay-buffer, bounded-pool, single-flight, session-list-page, jsonl-*, fs-helpers, …
   __tests__/                        ← test files
 ```
 
@@ -451,9 +417,7 @@ types → handler (registered in routing/routes.ts) → connector → runtime ma
 ### Message Naming
 
 Prefix by agent:
-- **OpenCode:** no prefix or `oc_` (`list_sessions`, `oc_list_skills`)
 - **Claude Code:** `cc_` (`cc_list_skills`, `cc_chat`, `cc_abort`)
-- **Codex:** `cx_` (`cx_chat`, `cx_list_threads`)
 - **Pi:** none — Pi speaks the backend contract (`{"type":"contract",…}`), not prefixed messages
 
 Request → Response:
@@ -546,11 +510,10 @@ void _handleXxMenuAction(String value) => handleXxMenuAction(context, ref, value
 ```
 
 ### Existing extractions to use as reference:
-- `lib/screens/sheets/cx_model_sheet.dart` (248 lines) — sheet from chat_screen ✅
-- `lib/screens/sheets/cx_apps_sheet.dart` (165 lines) — sheet from chat_screen ✅
+- `lib/screens/sheets/cc_model_sheet.dart` — sheet from chat_screen ✅
 - `lib/screens/sheets/git_branch_sheet.dart` (109 lines) — sheet from chat_screen ✅
 - `packages/bridge/src/handlers/git/` (9 files) — handlers from server.ts ✅
-- `packages/bridge/src/handlers/codex_features.ts` (372 lines) — handler from server.ts ✅
+- `packages/bridge/src/handlers/files.ts` — handler from server.ts ✅
 
 ## SDK Integration Rules
 
@@ -565,8 +528,7 @@ When the current SDK returns `{ data: [...] }`, don't also handle the old format
 | Situation | Do this | Not this |
 |-----------|---------|----------|
 | SDK exports `SDKAssistantMessage` | `import type { SDKAssistantMessage }` | `(block as any).text` |
-| Codex returns `{ data: [...] }` | `result.data` | `result?.data ?? result ?? []` |
-| OpenCode `{ responseStyle: 'data' }` | Use typed return | `(result as any) ?? []` |
+| An SDK returns `{ data: [...] }` | `result.data` | `result?.data ?? result ?? []` |
 | Filesystem read might fail | `try { readdir() } catch { return [] }` ← fine | — |
 | JSON from WebSocket has null fields | `json['name'] as String? ?? ''` ← fine | — |
 
@@ -575,8 +537,6 @@ When the current SDK returns `{ data: [...] }`, don't also handle the old format
 ## SDK-Specific Notes
 
 - **Claude Code** (`@anthropic-ai/claude-agent-sdk` 0.2.92, exact pin): Model aliases (sonnet/opus/haiku). New version of same tier = no code change. New tier = add to model union + enum + picker. Docs in `reference/cc-docs/`.
-- **OpenCode** (`@opencode-ai/sdk` 1.3.17, exact pin, imported through its `/v2` subpath — that is the SDK's API generation, not the OpenCode CLI version; the installed CLI is 2.x and the integration is slated for a rewrite): Fully dynamic models from `provider.list()`. SDK returns `{ data, error }` wrapper — always destructure `.data`.
-- **Codex** (`codex app-server` child process): JSON-RPC over stdio. Bridge talks via `request(method, params)` and `notify(method, params)`.
 - **Pi** (`@earendil-works/pi-coding-agent` 1.4.0, with `@earendil-works/pi-ai` / `pi-agent-core` at 1.4.0, exact pins): Event-driven `AgentSession` with `AgentSessionEvent` streaming. Dynamic models via `ModelRuntime` — it replaced the removed `AuthStorage` / `ModelRegistry.create`, and `createAgentSession` now takes `{ modelRuntime }`. Models/auth come from the user's `~/.pi/agent`: `auth.json` (credentials), `models.json` (custom providers) and `models-store.json` (the pi.dev catalogue cache `pi update --models` writes). A model listing must call `refresh({ allowNetwork: false })` first and read `getAvailable()` — that is exactly what `pi --list-models` prints, and the bridge runs for days over files that change under it (`backends/pi/models/model-runtime.ts`). The user's own `enabledModels` list is resolved by the SDK's `resolveModelScopeWithDiagnostics()` (same file) — never parse `settings.json` by hand. All Pi code lives in `backends/pi/` behind the contract; extension dialogs reach the phone as contract interactions.
 
 ### SDK Trust Order (Claude Code)
@@ -588,7 +548,7 @@ When the current SDK returns `{ data: [...] }`, don't also handle the old format
 
 ### SDK Sync
 
-- `./reference/sync-sdks.sh --all` — thin redirect to `reference/sync.sh --all`: pulls the 4 SDK reference repos into `reference/` (claude-code, codex, opencode, pi → `pi-mono`), updates CC npm, writes `reference/<date>_sdk-changes.md`
+- `./reference/sync-sdks.sh --all` — thin redirect to `reference/sync.sh --all`: pulls the 2 SDK reference repos into `reference/` (claude-code, pi → `pi-mono`), updates CC npm, writes `reference/<date>_sdk-changes.md`
 - `./reference/generate-codebase-map.sh` — static architecture reference with line counts → `reference/codebase-map.md`
 - `./reference/sync-refs.sh --all` — thin redirect to `reference/sync.sh --refs`: pulls competitor/reference repos, Cursor docs, OneContext
 
@@ -620,7 +580,7 @@ broski-bridge doctor                         # Diagnose environment
 
 ## Test Hygiene
 
-- **Never let a test touch real user data.** Tests must not read or write `~/.pi`, `~/.broski`, `~/.claude`, or `~/.codex`. Inject temp roots instead: config read/write take an explicit path, and the Pi adapter takes its agent directory from its `agentDir` option or `$PI_CODING_AGENT_DIR` (the e2e harness sets it). Real user dirs belong to the running bridge, never to a test.
+- **Never let a test touch real user data.** Tests must not read or write `~/.pi`, `~/.broski` or `~/.claude`. Inject temp roots instead: config read/write take an explicit path, and the Pi adapter takes its agent directory from its `agentDir` option or `$PI_CODING_AGENT_DIR` (the e2e harness sets it). Real user dirs belong to the running bridge, never to a test.
 - **Drive a real agent with a scripted model, not a mock of it.** `packages/bridge/src/__tests__/helpers/` has a scripted OpenAI-compatible endpoint (`scripted-openai-server.ts`); the Pi adapter's tests (`__tests__/pi/`) run a real Pi `AgentSession` against Pi's faux provider or that endpoint, in a throwaway agent dir.
 - **Bound long-running / real-data scripts** (session scans, index rebuilds) with a memory watchdog. A session-stats scan over 3,217 real (old-connector) Pi sessions once reached **38 GB RSS** before it was rewritten to stream JSONL through a bounded pool (`utils/bounded-pool.ts`).
 

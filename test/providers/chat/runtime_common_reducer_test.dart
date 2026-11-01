@@ -106,10 +106,10 @@ void main() {
 
     test('dedupes repeated runtime events by fingerprint', () {
       final event = RuntimeEvent.fromJson({
-        'backend': 'opencode',
+        'backend': 'claude-code',
         'type': 'assistant_text_delta',
         'timestampMs': 10,
-        'sessionId': 'oc-1',
+        'sessionId': 'cc-1',
         'messageId': 'msg-1',
         'delta': 'dup',
       });

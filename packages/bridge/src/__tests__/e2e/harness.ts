@@ -15,7 +15,7 @@ import type { BridgeServer, BridgeServerOptions } from "../../server";
 
 /**
  * `os.homedir()` is fixed at process start, so a server started in-process would install its
- * Claude/Codex permission hooks into the developer's real `~/.claude` and `~/.codex`. The
+ * Claude Code permission hook into the developer's real `~/.claude`. The
  * installers are the only thing that writes there, so they are stubbed out for every e2e file.
  */
 mock.module("../../handlers/cc_hook_installer", () => ({
@@ -82,7 +82,6 @@ export async function startBridge(overrides: Partial<BridgeServerOptions> = {}):
 	};
 	const server = await createBridgeServer({
 		port: 0,
-		opencode: null,
 		version: "0.0.0-e2e",
 		auth,
 		...overrides,

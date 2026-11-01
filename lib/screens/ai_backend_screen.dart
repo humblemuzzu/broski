@@ -131,38 +131,14 @@ class _BackendLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    switch (agentType) {
-      case AgentType.codex:
-        return Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: Radii.brMd,
-          ),
-          padding: Insets.cardXs,
-          child: Image.asset('docs/assets/codex-icon.png', fit: BoxFit.contain),
-        );
-      case AgentType.opencode:
-        return ClipRRect(
-          borderRadius: Radii.brMd,
-          child: Image.asset(
-            'docs/assets/opencode-mark.png',
-            width: 50,
-            height: 50,
-            fit: BoxFit.cover,
-          ),
-        );
-      case AgentType.claudeCode:
-        return ClipRRect(
-          borderRadius: Radii.brMd,
-          child: Image.asset(
-            'docs/assets/claude-code.png',
-            width: 50,
-            height: 50,
-            fit: BoxFit.cover,
-          ),
-        );
-    }
+    return ClipRRect(
+      borderRadius: Radii.brMd,
+      child: Image.asset(
+        'docs/assets/claude-code.png',
+        width: 50,
+        height: 50,
+        fit: BoxFit.cover,
+      ),
+    );
   }
 }

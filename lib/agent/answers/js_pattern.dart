@@ -3,7 +3,7 @@ import 'package:broski/agent/answers/js_search.dart';
 import 'package:broski/agent/answers/js_unicode_reading.dart';
 
 /// Why [text] fails a form field's [pattern], or null when it passes: it must
-/// match under both readings a backend may use, plain ECMAScript (OpenCode)
+/// match under both readings a backend may use, plain ECMAScript
 /// and the `u` flag (JSON Schema); a pattern neither compiles fails every
 /// answer. A reading Dart's engine cannot judge is left to the bridge.
 String? patternProblem(String pattern, String text) {

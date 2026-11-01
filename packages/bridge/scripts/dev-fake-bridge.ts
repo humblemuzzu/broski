@@ -69,7 +69,6 @@ async function serve(): Promise<void> {
 	const fake = Promise.withResolvers<FakeBackend>();
 	const server = await createBridgeServer({
 		port: 0,
-		opencode: null,
 		version: "0.0.0-fake",
 		auth: { version: 1, token: randomUUID(), createdAt: Date.now() },
 		linkSocket,

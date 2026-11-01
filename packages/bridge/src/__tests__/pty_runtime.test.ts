@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { PtyRuntime } from "../pty/runtime";
 import type { PtySession, ServerMessage } from "../types";
 
@@ -21,140 +21,7 @@ async function waitFor(condition: () => boolean, timeoutMs = 10_000): Promise<bo
 	return condition();
 }
 
-const findOutput = (sent: Array<{ message: ServerMessage }>, ptyId: string) =>
-	sent.find((m) => m.message.type === "pty_output" && (m.message as any).ptyId === ptyId);
-
-class FakeUpstreamWebSocket {
-	static CONNECTING = 0;
-	static OPEN = 1;
-	static CLOSING = 2;
-	static CLOSED = 3;
-	static instances: FakeUpstreamWebSocket[] = [];
-
-	readonly url: string;
-	readyState = FakeUpstreamWebSocket.CONNECTING;
-	sent: string[] = [];
-
-	private listeners = new Map<string, Array<(event: any) => void>>();
-
-	constructor(url: string) {
-		this.url = url;
-		FakeUpstreamWebSocket.instances.push(this);
-	}
-
-	addEventListener(type: string, handler: (event: any) => void): void {
-		const list = this.listeners.get(type) ?? [];
-		list.push(handler);
-		this.listeners.set(type, list);
-	}
-
-	send(payload: string): void {
-		this.sent.push(payload);
-	}
-
-	close(code = 1000): void {
-		if (this.readyState === FakeUpstreamWebSocket.CLOSED) return;
-		this.readyState = FakeUpstreamWebSocket.CLOSED;
-		this.emit("close", { code });
-	}
-
-	emitOpen(): void {
-		this.readyState = FakeUpstreamWebSocket.OPEN;
-		this.emit("open", {});
-	}
-
-	emitMessage(data: string): void {
-		this.emit("message", { data });
-	}
-
-	emitError(): void {
-		this.emit("error", {});
-	}
-
-	private emit(type: string, event: any): void {
-		for (const handler of this.listeners.get(type) ?? []) {
-			handler(event);
-		}
-	}
-}
-
 describe("PtyRuntime", () => {
-	const originalWebSocket = globalThis.WebSocket;
-
-	beforeEach(() => {
-		FakeUpstreamWebSocket.instances = [];
-	});
-
-	afterEach(() => {
-		globalThis.WebSocket = originalWebSocket;
-	});
-
-	test("OpenCode path keeps smooth output buffering and bidirectional I/O", async () => {
-		globalThis.WebSocket = FakeUpstreamWebSocket as any;
-
-		const sentMessages: Array<{ ws: any; message: ServerMessage }> = [];
-		const replies: ServerMessage[] = [];
-
-		const manager = {
-			backend: "opencode" as const,
-			available: true,
-			getWebSocketUrl: () => "ws://127.0.0.1:4096/pty/p1/connect",
-			connectNative: () => null,
-			stop: async () => {},
-			listPty: async () => [],
-			createPty: async () => null,
-			getPty: async () => null,
-			updatePty: async () => null,
-			deletePty: async () => true,
-			resize: async () => {},
-		};
-
-		const runtime = new PtyRuntime({
-			ptyManager: manager as any,
-			send: (ws, message) => sentMessages.push({ ws, message }),
-			log: () => {},
-			resolveSecurePath: async (path) => path,
-		});
-
-		const wsA = { id: "A" } as any;
-
-		await runtime.handleMessage(wsA, { type: "pty_connect", ptyId: "p1" } as any, (m) => replies.push(m));
-
-		expect(FakeUpstreamWebSocket.instances.length).toBe(1);
-		const upstream = FakeUpstreamWebSocket.instances[0]!;
-		upstream.emitOpen();
-
-		expect(replies.some((m) => m.type === "pty_connected")).toBe(true);
-
-		// Fast consecutive chunks should be coalesced into one output frame (~16ms flush).
-		upstream.emitMessage("hel");
-		upstream.emitMessage("lo");
-		expect(await waitFor(() => findOutput(sentMessages, "p1") !== undefined)).toBe(true);
-
-		const outputs = sentMessages.filter((m) => m.message.type === "pty_output" && (m.message as any).ptyId === "p1");
-		expect(outputs.length).toBe(1);
-		expect((outputs[0]!.message as any).data).toBe("hello");
-
-		const hugeBurst = "x".repeat(600 * 1024);
-		upstream.emitMessage(hugeBurst);
-		expect(
-			await waitFor(() =>
-				sentMessages
-					.filter((m) => m.message.type === "pty_output" && (m.message as any).ptyId === "p1")
-					.some((m) => String((m.message as any).data).includes("[broski] terminal output truncated")),
-			),
-		).toBe(true);
-
-		await runtime.handleMessage(wsA, { type: "pty_input", ptyId: "p1", data: "ls\n" } as any, (m) => replies.push(m));
-		expect(upstream.sent.includes("ls\n")).toBe(true);
-
-		await runtime.handleMessage(wsA, { type: "pty_disconnect", ptyId: "p1" } as any, (m) => replies.push(m));
-		expect(replies.some((m) => m.type === "pty_disconnected")).toBe(true);
-		expect(upstream.readyState).toBe(FakeUpstreamWebSocket.CLOSED);
-
-		await runtime.stop();
-	});
-
 	test("native path supports input/output, errors, health, and exit events", async () => {
 		const sentMessages: Array<{ ws: any; message: ServerMessage }> = [];
 		const replies: ServerMessage[] = [];
@@ -180,9 +47,7 @@ describe("PtyRuntime", () => {
 		let resizeCall: any[] | null = null;
 
 		const manager = {
-			backend: "native" as const,
 			available: true,
-			getWebSocketUrl: () => null,
 			connectNative: () => nativeConn,
 			stop: async () => {},
 			listPty: async () => [makeSession("n1")],
@@ -249,9 +114,7 @@ describe("PtyRuntime", () => {
 		const replies: ServerMessage[] = [];
 
 		const manager = {
-			backend: "native" as const,
 			available: true,
-			getWebSocketUrl: () => null,
 			connectNative: () => null,
 			stop: async () => {},
 			listPty: async () => [makeSession("n1")],

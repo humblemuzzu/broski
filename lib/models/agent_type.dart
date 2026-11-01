@@ -1,51 +1,13 @@
 enum AgentType {
-  opencode,
-  claudeCode,
-  codex;
+  claudeCode;
 
-  String get displayName {
-    switch (this) {
-      case AgentType.opencode:
-        return 'OpenCode';
-      case AgentType.claudeCode:
-        return 'Claude Code';
-      case AgentType.codex:
-        return 'Codex';
-    }
-  }
+  String get displayName => 'Claude Code';
 
-  String get description {
-    switch (this) {
-      case AgentType.opencode:
-        return 'Open source AI coding agent';
-      case AgentType.claudeCode:
-        return 'Anthropic Claude Code SDK';
-      case AgentType.codex:
-        return 'OpenAI Codex app-server';
-    }
-  }
+  String get description => 'Anthropic Claude Code SDK';
 
-  String get wireValue {
-    switch (this) {
-      case AgentType.opencode:
-        return 'opencode';
-      case AgentType.claudeCode:
-        return 'claude-code';
-      case AgentType.codex:
-        return 'codex';
-    }
-  }
+  String get wireValue => 'claude-code';
 
-  static AgentType fromWireValue(String value) {
-    switch (value) {
-      case 'claude-code':
-        return AgentType.claudeCode;
-      case 'codex':
-        return AgentType.codex;
-      default:
-        return AgentType.opencode;
-    }
-  }
+  static AgentType fromWireValue(String value) => AgentType.claudeCode;
 }
 
 class AgentStatusInfo {
@@ -77,38 +39,17 @@ class AgentStatusInfo {
 }
 
 class AgentsStatus {
-  final AgentStatusInfo opencode;
   final AgentStatusInfo claudeCode;
-  final AgentStatusInfo codex;
 
-  const AgentsStatus({
-    required this.opencode,
-    required this.claudeCode,
-    required this.codex,
-  });
+  const AgentsStatus({required this.claudeCode});
 
   factory AgentsStatus.fromJson(Map<String, dynamic> json) {
     return AgentsStatus(
-      opencode: AgentStatusInfo.fromJson(
-        json['opencode'] as Map<String, dynamic>? ?? const {},
-      ),
       claudeCode: AgentStatusInfo.fromJson(
         json['claude-code'] as Map<String, dynamic>? ?? const {},
-      ),
-      codex: AgentStatusInfo.fromJson(
-        json['codex'] as Map<String, dynamic>? ?? const {},
       ),
     );
   }
 
-  AgentStatusInfo forType(AgentType type) {
-    switch (type) {
-      case AgentType.opencode:
-        return opencode;
-      case AgentType.claudeCode:
-        return claudeCode;
-      case AgentType.codex:
-        return codex;
-    }
-  }
+  AgentStatusInfo forType(AgentType type) => claudeCode;
 }

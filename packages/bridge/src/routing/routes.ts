@@ -1,11 +1,10 @@
 import * as ccChat from "../handlers/cc_chat";
 import * as ccElicitation from "../handlers/cc_elicitation";
 import * as ccRouting from "../handlers/cc_routing";
-import * as cxRouting from "../handlers/cx_routing";
 import * as devices from "../handlers/devices";
+import * as files from "../handlers/files";
 import * as git from "../handlers/git/index";
 import * as misc from "../handlers/misc";
-import * as ocRouting from "../handlers/oc_routing";
 import * as sessionView from "../handlers/session_view";
 import * as unified from "../handlers/unified";
 import * as unifiedChildren from "../handlers/unified_session_children";
@@ -37,11 +36,10 @@ export const ALL_MESSAGE_TYPES = [
 	...ccChat.MODULE_TYPES,
 	...ccElicitation.MODULE_TYPES,
 	...ccRouting.MODULE_TYPES,
-	...cxRouting.MODULE_TYPES,
 	...devices.MODULE_TYPES,
+	...files.MODULE_TYPES,
 	...git.MODULE_TYPES,
 	...misc.MODULE_TYPES,
-	...ocRouting.MODULE_TYPES,
 	...sessionView.MODULE_TYPES,
 	...unified.MODULE_TYPES,
 	...unifiedChildren.MODULE_TYPES,
@@ -67,11 +65,10 @@ export function createMessageRegistry(deps: ServerDeps): RouteRegistry {
 	ccChat.register(router, deps);
 	ccElicitation.register(router, deps);
 	ccRouting.register(router, deps);
-	cxRouting.register(router, deps);
 	devices.register(router, deps);
+	files.register(router, deps);
 	git.register(router, deps);
 	misc.register(router, deps);
-	ocRouting.register(router, deps);
 	sessionView.register(router, deps);
 	unified.register(router, deps);
 	unifiedChildren.register(router, deps);

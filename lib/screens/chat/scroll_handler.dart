@@ -1,7 +1,6 @@
 import 'package:broski/app/app_messenger.dart';
 import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/screens/chat/load_earlier.dart';
-import 'package:broski/screens/chat/mcp_oauth_snackbar.dart';
 import 'package:broski/screens/chat/transcript_scroll_anchor.dart';
 import 'package:broski/screens/chat_screen.dart';
 import 'package:flutter/material.dart';
@@ -12,7 +11,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// Extracted from `_ChatScreenState._handleAutoScroll`.
 void handleAutoScroll({
   required BuildContext context,
-  required bool isOpenCode,
   required ChatSessionState? previous,
   required ChatSessionState next,
   required bool userHasScrolledUp,
@@ -21,20 +19,7 @@ void handleAutoScroll({
   required void Function(int) setPreviousMessageCount,
   required void Function(int) setPreviousContentLength,
   required void Function({bool animate}) scrollToBottom,
-  required String? lastShownMcpOAuthUrl,
-  required void Function(String?) setLastShownMcpOAuthUrl,
 }) {
-  if (isOpenCode) {
-    setLastShownMcpOAuthUrl(
-      maybeShowMcpOAuthFailureSnackbar(
-        context: context,
-        previous: previous?.mcpOAuthPending,
-        next: next.mcpOAuthPending,
-        lastShownUrl: lastShownMcpOAuthUrl,
-      ),
-    );
-  }
-
   if (userHasScrolledUp) return;
   final messages = next.messages;
   final currentCount = messages.length;
@@ -64,14 +49,13 @@ void handleAutoScroll({
 }
 
 /// Loads the page of messages older than the loaded window when the user
-/// scrolls to the top. Every backend pages, OpenCode included: one frame is all
-/// a long chat's whole transcript would ever be, and a page that fails is
-/// offered again instead of ending the history there.
+/// scrolls to the top: one frame is all a long chat's whole transcript would
+/// ever be, and a page that fails is offered again instead of ending the
+/// history there.
 Future<void> loadMoreMessages({
   required WidgetRef ref,
   required bool loadingMoreMessages,
   required bool hasLoadedAllMessages,
-  required String projectPath,
   required ScrollController scrollController,
   required TranscriptAnchorKeys anchorKeys,
   required void Function({required bool loadingMore, required bool loadedAll})
@@ -80,15 +64,14 @@ Future<void> loadMoreMessages({
   ChatScreen? widget,
 }) async {
   final screen = widget;
-  if (screen == null || !supportsTranscriptPaging(screen)) {
+  if (screen == null) {
     setPaginationState(loadingMore: false, loadedAll: true);
     return;
   }
   final chat = ref.read(chatSessionProvider.notifier);
   // The user can leave a chat while a page is still loading: a page for the
-  // session or project they left would land in the wrong window.
-  if (transcriptOwnerId(screen) != chat.transcriptSessionId ||
-      projectPath != screen.project.path) {
+  // session they left would land in the wrong window.
+  if (transcriptOwnerId(screen) != chat.transcriptSessionId) {
     setPaginationState(loadingMore: false, loadedAll: true);
     return;
   }
@@ -119,7 +102,6 @@ Future<void> loadMoreMessages({
           ref: ref,
           loadingMoreMessages: false,
           hasLoadedAllMessages: false,
-          projectPath: projectPath,
           scrollController: scrollController,
           anchorKeys: anchorKeys,
           setPaginationState: setPaginationState,

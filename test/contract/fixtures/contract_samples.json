@@ -486,8 +486,18 @@
     {
       "type": "extension",
       "extension": {
-        "kind": "turn_diff",
-        "diff": "x"
+        "kind": "rate_limit",
+        "window": "x",
+        "status": "allowed",
+        "usedPercent": 1.5,
+        "resetsAt": 1
+      }
+    },
+    {
+      "type": "extension",
+      "extension": {
+        "kind": "rate_limit",
+        "window": "x"
       }
     },
     {
@@ -1196,34 +1206,6 @@
       }
     },
     {
-      "backend": "codex",
-      "op": {
-        "kind": "review_start",
-        "sessionId": "x",
-        "target": {
-          "kind": "uncommitted"
-        }
-      }
-    },
-    {
-      "backend": "opencode",
-      "op": {
-        "kind": "revert_stage",
-        "sessionId": "x",
-        "itemId": "x",
-        "restoreFiles": true
-      }
-    },
-    {
-      "backend": "opencode",
-      "op": {
-        "kind": "revert_stage",
-        "sessionId": "x",
-        "itemId": "x",
-        "restoreFiles": false
-      }
-    },
-    {
       "backend": "pi",
       "op": {
         "kind": "navigate_tree",
@@ -1384,7 +1366,7 @@
         "externalLive": true,
         "durableRuns": true,
         "extensions": [
-          "turn_diff"
+          "rate_limit"
         ],
         "backendOps": [
           "rewind_files"
@@ -1423,7 +1405,7 @@
         "externalLive": false,
         "durableRuns": false,
         "extensions": [
-          "turn_diff"
+          "rate_limit"
         ],
         "backendOps": [
           "rewind_files"
@@ -1436,10 +1418,6 @@
     }
   ],
   "BackendExtension": [
-    {
-      "kind": "turn_diff",
-      "diff": "x"
-    },
     {
       "kind": "rate_limit",
       "window": "x",
@@ -1454,18 +1432,11 @@
   ],
   "BackendId": [
     "claude-code",
-    "codex",
-    "opencode",
     "pi",
     "pi-durable"
   ],
   "BackendOpKind": [
     "rewind_files",
-    "review_start",
-    "revert",
-    "revert_stage",
-    "revert_clear",
-    "revert_commit",
     "navigate_tree",
     "take_over",
     "session_settings",
@@ -1496,40 +1467,6 @@
     {
       "kind": "rewind_files",
       "canRewind": false
-    },
-    {
-      "kind": "review_start"
-    },
-    {
-      "kind": "revert"
-    },
-    {
-      "kind": "revert_stage",
-      "files": [
-        {
-          "path": "x",
-          "change": "added",
-          "previousPath": "x",
-          "diff": "x",
-          "additions": 1,
-          "deletions": 1
-        }
-      ]
-    },
-    {
-      "kind": "revert_stage",
-      "files": [
-        {
-          "path": "x",
-          "change": "added"
-        }
-      ]
-    },
-    {
-      "kind": "revert_clear"
-    },
-    {
-      "kind": "revert_commit"
     },
     {
       "kind": "navigate_tree"
@@ -1803,7 +1740,7 @@
             "externalLive": true,
             "durableRuns": true,
             "extensions": [
-              "turn_diff"
+              "rate_limit"
             ],
             "backendOps": [
               "rewind_files"
@@ -1848,7 +1785,7 @@
             "externalLive": false,
             "durableRuns": false,
             "extensions": [
-              "turn_diff"
+              "rate_limit"
             ],
             "backendOps": [
               "rewind_files"
@@ -1860,12 +1797,6 @@
           }
         }
       ]
-    }
-  ],
-  "BaseBranchReview": [
-    {
-      "kind": "base_branch",
-      "branch": "x"
     }
   ],
   "BlockDeltaEvent": [
@@ -2013,7 +1944,7 @@
       "externalLive": true,
       "durableRuns": true,
       "extensions": [
-        "turn_diff"
+        "rate_limit"
       ],
       "backendOps": [
         "rewind_files"
@@ -2049,7 +1980,7 @@
       "externalLive": false,
       "durableRuns": false,
       "extensions": [
-        "turn_diff"
+        "rate_limit"
       ],
       "backendOps": [
         "rewind_files"
@@ -2805,38 +2736,6 @@
   "ClientRequestId": [
     "00000000-0000-4000-8000-000000000000"
   ],
-  "CodexCall": [
-    {
-      "backend": "codex",
-      "op": {
-        "kind": "review_start",
-        "sessionId": "x",
-        "target": {
-          "kind": "uncommitted"
-        }
-      }
-    }
-  ],
-  "CodexOp": [
-    {
-      "kind": "review_start",
-      "sessionId": "x",
-      "target": {
-        "kind": "uncommitted"
-      }
-    },
-    {
-      "kind": "revert",
-      "sessionId": "x",
-      "beforeItemId": "x"
-    }
-  ],
-  "CodexTurnDiff": [
-    {
-      "kind": "turn_diff",
-      "diff": "x"
-    }
-  ],
   "CommandId": [
     "x"
   ],
@@ -2972,17 +2871,6 @@
           "kind": "command"
         }
       ]
-    }
-  ],
-  "CommitReview": [
-    {
-      "kind": "commit",
-      "sha": "x",
-      "title": "x"
-    },
-    {
-      "kind": "commit",
-      "sha": "x"
     }
   ],
   "CompactRequest": [
@@ -3135,12 +3023,6 @@
   "ConfirmRequest": [
     {
       "kind": "confirm"
-    }
-  ],
-  "CustomReview": [
-    {
-      "kind": "custom",
-      "instructions": "x"
     }
   ],
   "EntryLabelled": [
@@ -3307,13 +3189,22 @@
     {
       "type": "extension",
       "extension": {
-        "kind": "turn_diff",
-        "diff": "x"
+        "kind": "rate_limit",
+        "window": "x",
+        "status": "allowed",
+        "usedPercent": 1.5,
+        "resetsAt": 1
+      }
+    },
+    {
+      "type": "extension",
+      "extension": {
+        "kind": "rate_limit",
+        "window": "x"
       }
     }
   ],
   "ExtensionKind": [
-    "turn_diff",
     "rate_limit"
   ],
   "ExternalField": [
@@ -5295,48 +5186,6 @@
       "text": "x"
     }
   ],
-  "OpenCodeCall": [
-    {
-      "backend": "opencode",
-      "op": {
-        "kind": "revert_stage",
-        "sessionId": "x",
-        "itemId": "x",
-        "restoreFiles": true
-      }
-    },
-    {
-      "backend": "opencode",
-      "op": {
-        "kind": "revert_stage",
-        "sessionId": "x",
-        "itemId": "x",
-        "restoreFiles": false
-      }
-    }
-  ],
-  "OpenCodeOp": [
-    {
-      "kind": "revert_stage",
-      "sessionId": "x",
-      "itemId": "x",
-      "restoreFiles": true
-    },
-    {
-      "kind": "revert_stage",
-      "sessionId": "x",
-      "itemId": "x",
-      "restoreFiles": false
-    },
-    {
-      "kind": "revert_clear",
-      "sessionId": "x"
-    },
-    {
-      "kind": "revert_commit",
-      "sessionId": "x"
-    }
-  ],
   "Option": [
     {
       "value": "x",
@@ -6461,114 +6310,6 @@
       "message": "x"
     }
   ],
-  "RevertClearOp": [
-    {
-      "kind": "revert_clear",
-      "sessionId": "x"
-    }
-  ],
-  "RevertCleared": [
-    {
-      "kind": "revert_clear"
-    }
-  ],
-  "RevertCommitOp": [
-    {
-      "kind": "revert_commit",
-      "sessionId": "x"
-    }
-  ],
-  "RevertCommitted": [
-    {
-      "kind": "revert_commit"
-    }
-  ],
-  "RevertOp": [
-    {
-      "kind": "revert",
-      "sessionId": "x",
-      "beforeItemId": "x"
-    }
-  ],
-  "RevertStageOp": [
-    {
-      "kind": "revert_stage",
-      "sessionId": "x",
-      "itemId": "x",
-      "restoreFiles": true
-    },
-    {
-      "kind": "revert_stage",
-      "sessionId": "x",
-      "itemId": "x",
-      "restoreFiles": false
-    }
-  ],
-  "RevertStaged": [
-    {
-      "kind": "revert_stage",
-      "files": [
-        {
-          "path": "x",
-          "change": "added",
-          "previousPath": "x",
-          "diff": "x",
-          "additions": 1,
-          "deletions": 1
-        }
-      ]
-    },
-    {
-      "kind": "revert_stage",
-      "files": [
-        {
-          "path": "x",
-          "change": "added"
-        }
-      ]
-    }
-  ],
-  "Reverted": [
-    {
-      "kind": "revert"
-    }
-  ],
-  "ReviewStartOp": [
-    {
-      "kind": "review_start",
-      "sessionId": "x",
-      "target": {
-        "kind": "uncommitted"
-      }
-    }
-  ],
-  "ReviewStarted": [
-    {
-      "kind": "review_start"
-    }
-  ],
-  "ReviewTarget": [
-    {
-      "kind": "uncommitted"
-    },
-    {
-      "kind": "base_branch",
-      "branch": "x"
-    },
-    {
-      "kind": "commit",
-      "sha": "x",
-      "title": "x"
-    },
-    {
-      "kind": "commit",
-      "sha": "x"
-    },
-    {
-      "kind": "custom",
-      "instructions": "x"
-    }
-  ],
   "RewindFilesOp": [
     {
       "kind": "rewind_files",
@@ -6813,7 +6554,7 @@
             "externalLive": true,
             "durableRuns": true,
             "extensions": [
-              "turn_diff"
+              "rate_limit"
             ],
             "backendOps": [
               "rewind_files"
@@ -6858,7 +6599,7 @@
             "externalLive": false,
             "durableRuns": false,
             "extensions": [
-              "turn_diff"
+              "rate_limit"
             ],
             "backendOps": [
               "rewind_files"
@@ -10192,11 +9933,6 @@
           "previewCut": false
         }
       ]
-    }
-  ],
-  "UncommittedReview": [
-    {
-      "kind": "uncommitted"
     }
   ],
   "UploadId": [

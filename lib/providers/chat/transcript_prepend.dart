@@ -19,19 +19,6 @@ extension TranscriptPrepend on ChatSessionNotifier {
     _prependMessages(additions);
   }
 
-  void prependCodexTranscript(
-    List<CodexTranscriptMessage> items, {
-    required String threadId,
-  }) {
-    if (!ownsTranscript(threadId) || items.isEmpty) return;
-    final additions = <ChatMessage>[];
-    for (final item in items) {
-      if (item.id.isEmpty || _messages.containsKey(item.id)) continue;
-      additions.add(cxTranscriptMessage(item, threadId));
-    }
-    _prependMessages(additions);
-  }
-
   /// Inserts [messages] in front of the loaded window, dropping any whose id the window already
   /// holds or that repeats inside the page. A duplicated id would render one key twice.
   void _prependMessages(List<ChatMessage> messages) {

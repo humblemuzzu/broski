@@ -16,7 +16,6 @@ export type CoreClientMessage =
 			lastRuntimeSeq?: number;
 	  }
 	| { type: "set_agent"; agent: AgentType }
-	| { type: "restart_opencode" }
 	| { type: "pong"; id: string; sentAt: number }
 	// Client-initiated ping (for app lifecycle detection)
 	| { type: "client_ping"; id: string; sentAt: number }
@@ -29,5 +28,4 @@ export type CoreClientMessage =
 			protocolVersion?: string;
 	  }
 	| { type: "list_devices" }
-	| { type: "disconnect_device"; deviceId: string }
-	| { type: "list_projects" };
+	| { type: "disconnect_device"; deviceId: string };

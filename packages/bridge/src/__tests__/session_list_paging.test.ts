@@ -5,11 +5,9 @@
 
 import { describe, expect, test } from "bun:test";
 import { handle as handleCcSessions } from "../handlers/cc_sessions";
-import { type CxThreadListContext, handleCxThreadList } from "../handlers/codex/cx_thread_list";
-import { handle as handleOcSessions } from "../handlers/oc_sessions";
 import { sessionListReply } from "../handlers/session_list_reply";
 import { unifiedListSessions } from "../handlers/unified_session_lists";
-import type { ClaudeCodeSession, CodexThread, ServerMessage, SessionSummary } from "../types";
+import type { ClaudeCodeSession, ServerMessage } from "../types";
 import { DEFAULT_SESSION_PAGE_LIMIT, pageSessionList } from "../utils/session-list-page";
 
 const LARGE_LIST = 3000;
@@ -138,91 +136,6 @@ describe("Claude Code session list paging", () => {
 	});
 });
 
-const codexContext = (threads: CodexThread[]): CxThreadListContext => ({
-	codexClient: null,
-	ensureCodexClient: unused,
-	codexFs: { listThreadsFromFs: async () => threads, enrichThreadsWithStats: async () => undefined },
-	logInfo: () => {},
-	logError: () => {},
-	cxThreadCache: new Map(),
-	CODEX_THREAD_CACHE_TTL_MS: 0,
-	cxThreadNames: new Map<string, string>(),
-	listFromDb: () => threads,
-	dbPath: "/fake/state.sqlite",
-});
-
-describe("Codex thread list paging", () => {
-	const threads: CodexThread[] = Array.from({ length: SMALL_PROJECT_SESSIONS }, (_, index) => ({
-		id: `x${String(index).padStart(4, "0")}`,
-		preview: `Thread ${index}`,
-		createdAt: 1_700_000_000 + index,
-		updatedAt: 1_700_000_000 + index,
-		cwd: "/tmp/cx-project",
-	}));
-	const context = codexContext(threads);
-
-	const repliesFor = async (message: {
-		limit?: number;
-		before?: string;
-		refresh?: boolean;
-	}): Promise<ServerMessage[]> => {
-		const replies: ServerMessage[] = [];
-		await handleCxThreadList(
-			{ type: "cx_list_threads", ...message },
-			(reply) => replies.push(reply as ServerMessage),
-			context,
-		);
-		return replies;
-	};
-
-	test("pages newest first and never sends a runtime list", async () => {
-		const replies = await repliesFor({ refresh: true });
-		expect(replies.map((reply) => reply.type)).toEqual(["cx_threads"]);
-
-		const walked = await walk(
-			async (before) => {
-				const [reply] = await repliesFor({ limit: PAGE_LIMIT, ...(before ? { before } : {}) });
-				const page = reply as Extract<ServerMessage, { type: "cx_threads" }>;
-				return { items: page.data, hasMore: page.hasMore ?? false, nextCursor: page.nextCursor ?? undefined };
-			},
-			(thread) => thread.updatedAt,
-		);
-		expect(walked).toHaveLength(SMALL_PROJECT_SESSIONS);
-		expectUniqueNewestFirst(walked, (thread) => thread.updatedAt);
-	});
-});
-
-describe("OpenCode session list paging", () => {
-	const sessions: SessionSummary[] = Array.from({ length: SMALL_PROJECT_SESSIONS }, (_, index) => ({
-		id: `o${String(index).padStart(4, "0")}`,
-		title: `OC session ${index}`,
-		projectID: "p1",
-		directory: "/tmp/oc-project",
-		time: { created: 1_700_000_000_000 + index * 1000, updated: 1_700_000_000_000 + index * 1000 },
-	}));
-
-	test("pages newest first with no repeats", async () => {
-		const walked = await walk(
-			async (before) => {
-				let reply: ServerMessage | undefined;
-				const handled = await handleOcSessions(
-					{ type: "list_sessions", limit: PAGE_LIMIT, ...(before ? { before } : {}) },
-					(message) => {
-						reply = message;
-					},
-					() => ({ listSessions: async () => sessions }),
-				);
-				expect(handled).toBeTrue();
-				const page = reply as Extract<ServerMessage, { type: "sessions" }>;
-				return { items: page.data, hasMore: page.hasMore ?? false, nextCursor: page.nextCursor };
-			},
-			(session) => session.time.updated,
-		);
-		expect(walked).toHaveLength(SMALL_PROJECT_SESSIONS);
-		expectUniqueNewestFirst(walked, (session) => session.time.updated);
-	});
-});
-
 describe("unified_list_sessions paging", () => {
 	const ccSessions: ClaudeCodeSession[] = Array.from({ length: SMALL_PROJECT_SESSIONS }, (_, index) => ({
 		id: `u${String(index).padStart(4, "0")}`,
@@ -248,8 +161,6 @@ describe("unified_list_sessions paging", () => {
 					},
 					{
 						claudeCode: { listSessions: async () => ccSessions },
-						requireOpenCode: () => null,
-						codex: codexContext([]),
 					},
 				);
 				return { items: reply?.data ?? [], hasMore: reply?.hasMore ?? false, nextCursor: reply?.nextCursor };

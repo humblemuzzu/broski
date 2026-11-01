@@ -37,17 +37,7 @@ Future<_Harness> _pump(WidgetTester tester) async {
   return (socket: socket, chat: chat, ref: ref);
 }
 
-void _stop(
-  _Harness harness, {
-  bool isClaudeCode = false,
-  bool isCodex = false,
-}) => stopGeneration(
-  ref: harness.ref,
-  isClaudeCode: isClaudeCode,
-  isCodex: isCodex,
-  sessionId: 'session-1',
-  projectPath: '/work/repo',
-);
+void _stop(_Harness harness) => stopGeneration(ref: harness.ref);
 
 Iterable<Map<String, dynamic>> _sent(_Harness harness, String type) =>
     harness.socket.sent.where((message) => message['type'] == type);
@@ -60,22 +50,9 @@ void main() {
     harness.chat.setCCStreaming(true);
     expect(chatIsRunning(harness.chat.state), isTrue);
 
-    _stop(harness, isClaudeCode: true);
+    _stop(harness);
 
     expect(_sent(harness, 'cc_abort').single['sessionId'], 'cc-1');
-    expect(chatIsRunning(harness.chat.state), isFalse);
-  });
-
-  testWidgets('Stop on a Codex chat sends cx_abort and leaves the running '
-      'state', (tester) async {
-    final harness = await _pump(tester);
-    harness.chat.setCodexThread(threadId: 'cx-1', cwd: '/work/repo');
-    harness.chat.setCodexStreaming(true);
-    expect(chatIsRunning(harness.chat.state), isTrue);
-
-    _stop(harness, isCodex: true);
-
-    expect(_sent(harness, 'cx_abort').single['threadId'], 'cx-1');
     expect(chatIsRunning(harness.chat.state), isFalse);
   });
 }

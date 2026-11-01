@@ -2,7 +2,6 @@ import { uninstallCcHook } from "../handlers/cc_hook_installer";
 import { stopBridgeResources } from "../lifecycle/bridge-teardown";
 import { DEFAULT_TEARDOWN_TIMEOUT_MS, type TeardownResult } from "../lifecycle/teardown";
 import type { PtyRuntime } from "../pty/runtime";
-import type { CodexClient } from "./codex-client";
 import type { ContractSeam } from "./contract-seam";
 import type { FsWatchers } from "./fs-watchers";
 import type { LeveledLogger } from "./logger";
@@ -13,7 +12,6 @@ export type StopDeps = {
 	log: LeveledLogger;
 	fsWatchers: FsWatchers;
 	ptyRuntime: PtyRuntime;
-	codexClient: CodexClient;
 	contract: ContractSeam;
 };
 
@@ -35,21 +33,15 @@ export function createStop(deps: StopDeps): (force?: boolean) => Promise<Teardow
 			waiter.resolve({ action: "cancel" });
 		}
 		state.ccElicitationWaiters.clear();
-		for (const waiter of state.cxApprovalWaiters.values()) {
-			clearTimeout(waiter.timer);
-			waiter.resolve({ response: "reject" });
-		}
-		state.cxApprovalWaiters.clear();
 		for (const unregister of state.unregisterBoundedState) unregister();
 
 		return stopBridgeResources(
 			{
-				externalTails: [state.ccExternalTails, state.cxExternalTails],
-				eventBuffers: [state.ccEventBuffers, state.cxEventBuffers],
+				externalTails: [state.ccExternalTails],
+				eventBuffers: [state.ccEventBuffers],
 				closeFsWatchers: () => deps.fsWatchers.closeAll(),
 				stopPtyRuntime: () => deps.ptyRuntime.stop(),
 				uninstallHooks: [() => uninstallCcHook(deps.log.logInfo)],
-				stopCodexAppServer: () => deps.codexClient.stopCodexAppServer(),
 				disposeBackends: [() => deps.contract.stop()],
 				stopServers: () => {
 					state.secureServer?.stop(force);

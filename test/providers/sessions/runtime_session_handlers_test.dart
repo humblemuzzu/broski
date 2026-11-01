@@ -32,8 +32,8 @@ void main() {
       expect(
         runtimeSessionStatusFromState(
           const RuntimeState(
-            backend: AgentType.opencode,
-            sessionId: 'oc-1',
+            backend: AgentType.claudeCode,
+            sessionId: 'cc-1',
             isStreaming: true,
           ),
         ).isBusy,
@@ -42,7 +42,7 @@ void main() {
 
       expect(
         runtimeSessionStatusFromState(
-          const RuntimeState(backend: AgentType.opencode, sessionId: 'oc-1'),
+          const RuntimeState(backend: AgentType.claudeCode, sessionId: 'cc-1'),
         ).isIdle,
         isTrue,
       );
@@ -67,10 +67,10 @@ void main() {
     test('maps normalized events to session statuses', () {
       final retryStatus = runtimeSessionStatusFromEvent(
         RuntimeEvent.fromJson({
-          'backend': 'codex',
+          'backend': 'claude-code',
           'type': 'retry_started',
           'timestampMs': 20,
-          'sessionId': 'cx-1',
+          'sessionId': 'cc-1',
           'attempt': 2,
           'delayMs': 800,
           'errorMessage': 'rate limited',
@@ -84,13 +84,13 @@ void main() {
 
       final stateStatus = runtimeSessionStatusFromEvent(
         RuntimeEvent.fromJson({
-          'backend': 'opencode',
+          'backend': 'claude-code',
           'type': 'session_state_changed',
           'timestampMs': 30,
-          'sessionId': 'oc-1',
+          'sessionId': 'cc-1',
           'state': {
-            'backend': 'opencode',
-            'sessionId': 'oc-1',
+            'backend': 'claude-code',
+            'sessionId': 'cc-1',
             'isStreaming': true,
           },
         }),
@@ -100,10 +100,10 @@ void main() {
       expect(
         runtimeSessionStatusFromEvent(
           RuntimeEvent.fromJson({
-            'backend': 'opencode',
+            'backend': 'claude-code',
             'type': 'agent_finished',
             'timestampMs': 31,
-            'sessionId': 'oc-1',
+            'sessionId': 'cc-1',
           }),
         )?.isIdle,
         isTrue,

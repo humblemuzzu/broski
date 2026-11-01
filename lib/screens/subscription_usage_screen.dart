@@ -189,7 +189,7 @@ class _SubscriptionUsageScreenState
               ),
               const SizedBox(height: Spacing.sm),
               Text(
-                'Run `claude login` or `codex` on your Mac to configure providers.',
+                'Run `claude login` on your Mac to configure providers.',
                 style: TextStyle(color: ocTheme.textMuted, fontSize: 14),
                 textAlign: TextAlign.center,
               ),
@@ -688,9 +688,7 @@ class _ProviderCard extends StatelessWidget {
                     const SizedBox(width: Spacing.md),
                     Expanded(
                       child: Text(
-                        provider.providerId == 'claude'
-                            ? 'Run `claude login` on your Mac to view usage.'
-                            : 'Run `codex` on your Mac to authenticate.',
+                        'Run `claude login` on your Mac to view usage.',
                         style: TextStyle(
                           color: ocTheme.textMuted,
                           fontSize: 13,

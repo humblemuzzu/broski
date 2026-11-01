@@ -588,7 +588,7 @@ class RuntimeBackendEvent extends RuntimeEvent {
 }
 
 AgentType _backendFromJson(Map<String, dynamic> json) {
-  return AgentType.fromWireValue(json['backend'] as String? ?? 'opencode');
+  return AgentType.fromWireValue(json['backend'] as String? ?? 'claude-code');
 }
 
 int _timestampFromJson(Map<String, dynamic> json) {

@@ -1,4 +1,3 @@
-import 'package:broski/agent/ui/chat/file_change_view.dart';
 import 'package:broski/agent/ui/panels/result_actions.dart';
 import 'package:broski/agent/ui/panels/settings_view.dart';
 import 'package:broski/agent/ui/panels/text_pages_view.dart';
@@ -25,23 +24,12 @@ class OpResultView extends StatelessWidget {
   @override
   Widget build(BuildContext context) => switch (result) {
     final RewindFilesResult rewind => _RewindView(result: rewind),
-    RevertStaged(:final files) => Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Staged. Commit or undo it from the session menu.'),
-        for (final change in files) FileChangeView(change: change),
-      ],
-    ),
-    ReviewStarted() => const Text('The review runs in this session.'),
-    Reverted() ||
-    RevertCommitted() ||
     TreeNavigated() => const Text('Done. The conversation reloads.'),
     TakenOver() => const Text('This session now runs from your phone.'),
     TreeRead() ||
     EntryLabelled() ||
     BranchSummaryAborted() ||
     ShellStarted() => const Text('Done.'),
-    RevertCleared() => const Text('The staged revert was undone.'),
     SessionSettingsResult(:final settings) => SessionSettingsView(
       settings: settings,
       actions: actions,

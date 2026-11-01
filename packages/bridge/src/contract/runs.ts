@@ -3,7 +3,7 @@ import { MAX_TEXT_CHARS } from "./limits";
 
 /**
  * `prompt`: input sent through this bridge, including an action the backend runs as a run, such as
- * a Codex compaction or review. `queue`: a queued prompt dispatched as the previous run ended.
+ * a compaction. `queue`: a queued prompt dispatched as the previous run ended.
  * `system`: the backend woke itself (goal, scheduled wakeup, background task, restart recovery).
  * `external`: another client of the same backend, such as its terminal UI.
  */

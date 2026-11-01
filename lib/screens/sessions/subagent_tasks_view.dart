@@ -1,9 +1,6 @@
 import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/claude_code.dart';
-import 'package:broski/models/codex.dart';
-import 'package:broski/models/project.dart';
 import 'package:broski/models/runtime/runtime_session_summary.dart';
-import 'package:broski/models/session.dart';
 import 'package:broski/providers/agent_type_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/screens/chat_screen.dart';
@@ -233,13 +230,6 @@ class _TaskCard extends ConsumerWidget {
         final msgCount = data['messageCount'] as int?;
         if (msgCount != null && msgCount > 0) return '$msgCount messages';
         return '';
-      case AgentType.codex:
-        // Codex: show agent role
-        final role = data['agentRole'] as String?;
-        if (role != null && role.isNotEmpty) return role;
-        return '';
-      case AgentType.opencode:
-        return '';
     }
   }
 
@@ -262,36 +252,6 @@ class _TaskCard extends ConsumerWidget {
             parentSessionId: task.parentSessionId,
           ),
           readOnly: true,
-        );
-      case AgentType.opencode:
-        final session = SessionSummary(
-          id: task.id,
-          title: task.title,
-          projectID: '',
-          directory: task.cwd,
-          parentID: task.parentSessionId ?? '',
-          time: SessionTime(
-            created: task.createdAtMs,
-            updated: task.updatedAtMs,
-          ),
-        );
-        final project = ProjectSummary(
-          id: '',
-          name:
-              task.cwd.split('/').where((p) => p.isNotEmpty).lastOrNull ??
-              'Project',
-          path: task.cwd,
-        );
-        screen = ChatScreen(project: project, session: session);
-      case AgentType.codex:
-        screen = ChatScreen.codex(
-          cxThread: CodexThread(
-            id: task.id,
-            preview: task.title,
-            cwd: task.cwd,
-            createdAt: task.createdAtMs,
-            updatedAt: task.updatedAtMs,
-          ),
         );
     }
 
@@ -441,10 +401,6 @@ class _TaskCard extends ConsumerWidget {
     switch (backend) {
       case AgentType.claudeCode:
         return AppIcons.terminal;
-      case AgentType.opencode:
-        return AppIcons.code;
-      case AgentType.codex:
-        return AppIcons.smartToy;
     }
   }
 }

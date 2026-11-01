@@ -15,7 +15,6 @@ enum ConnectionEvent { connected, disconnected, reconnected }
 class BridgeConnectionState {
   const BridgeConnectionState({
     this.status = ConnectionStatus.disconnected,
-    this.opencodeRunning = true,
     this.backends,
     this.isReconnecting = false,
     this.rttMs,
@@ -30,7 +29,6 @@ class BridgeConnectionState {
   });
 
   final ConnectionStatus status;
-  final bool opencodeRunning;
   final AgentsStatus? backends;
   final bool isReconnecting;
   final int? rttMs;
@@ -64,7 +62,6 @@ class BridgeConnectionState {
 
   BridgeConnectionState copyWith({
     ConnectionStatus? status,
-    bool? opencodeRunning,
     AgentsStatus? backends,
     bool? isReconnecting,
     int? rttMs,
@@ -78,7 +75,6 @@ class BridgeConnectionState {
   }) {
     return BridgeConnectionState(
       status: status ?? this.status,
-      opencodeRunning: opencodeRunning ?? this.opencodeRunning,
       backends: backends ?? this.backends,
       isReconnecting: isReconnecting ?? this.isReconnecting,
       rttMs: rttMs ?? this.rttMs,
@@ -194,7 +190,6 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState> {
       case 'status':
         final backendsJson = data['backends'] as Map<String, dynamic>?;
         state = state.copyWith(
-          opencodeRunning: data['opencodeRunning'] == true,
           backends: backendsJson != null
               ? AgentsStatus.fromJson(backendsJson)
               : state.backends,

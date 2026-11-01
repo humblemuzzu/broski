@@ -339,7 +339,7 @@ describe("answerProblem", () => {
 			for (const value of invalid) expect(problem(dateTime, text(value))).toMatch(/not a valid date-time/);
 		});
 
-		test("an email has a dotted domain, as OpenCode requires", () => {
+		test("an email has a dotted domain", () => {
 			expect(problem(field({ format: "email" }), text("a@b.co"))).toBeUndefined();
 			expect(problem(field({ format: "email" }), text("a@localhost"))).toMatch(/not a valid email/);
 		});

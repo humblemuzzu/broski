@@ -6,7 +6,7 @@ enum InputBarStyle {
   /// ChatGPT-style: Rounded pill with plus button and send arrow
   chatgpt,
 
-  /// CLI-style: OpenCode terminal-like input with agent/model selector at bottom
+  /// CLI-style: terminal-like input with the model selector at the bottom
   cli,
 }
 

@@ -1,14 +1,12 @@
 /**
  * Prints the size of every session list reply against this machine's real session stores.
  *
- * Read-only: a measurement never writes to `~/.broski`, `~/.claude` or `~/.codex`. A backend that
+ * Read-only: a measurement never writes to `~/.broski` or `~/.claude`. A backend that
  * is not installed is reported and skipped. Run it with `bun scripts/measure-session-lists.ts`.
  */
 
 import * as claudeCode from "../src/connectors/claude-code";
-import { findCodexStateDbPath, listThreadsFromDb } from "../src/connectors/codex/cx-sqlite";
 import { mapClaudeCodeSessionToRuntimeSession } from "../src/runtime/claude-code-runtime-read-models";
-import { mapCodexThreadToRuntimeSession } from "../src/runtime/codex-runtime-read-models";
 import { DEFAULT_SESSION_PAGE_LIMIT, pageSessionList, type SessionListRow } from "../src/utils/session-list-page";
 
 /** A measurement is a scan of local files; standing over this means the run is out of bounds. */
@@ -80,32 +78,9 @@ async function measureClaudeCode(): Promise<void> {
 	);
 }
 
-function measureCodex(): void {
-	const dbPath = findCodexStateDbPath();
-	if (!dbPath) {
-		console.log("codex        not installed (no state_5.sqlite); skipped");
-		return;
-	}
-	const threads = listThreadsFromDb({ limit: 0 }, dbPath);
-	guard();
-	report(
-		measure("codex", "cx_threads", threads, (thread) => ({ id: thread.id, modified: thread.updatedAt }), "cx_threads"),
-	);
-	report(
-		measure(
-			"codex",
-			"runtime_sessions (old side reply)",
-			threads.map(mapCodexThreadToRuntimeSession),
-			(session: { id: string; updatedAtMs: number }) => ({ id: session.id, modified: session.updatedAtMs }),
-			"runtime_sessions",
-		),
-	);
-}
-
 async function main(): Promise<void> {
 	console.log(`first page = limit ${DEFAULT_SESSION_PAGE_LIMIT}; full = the whole list in one reply\n`);
 	await measureClaudeCode();
-	measureCodex();
 	guard();
 	console.log(`\nrss after the run: ${mib(process.memoryUsage().rss)}`);
 }

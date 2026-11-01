@@ -330,11 +330,6 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                         ),
                         const SizedBox(height: Spacing.md),
                       ],
-                      // V2 permission details (writableRoots, networkAccess, scope)
-                      _V2DetailsSection(
-                        metadata: widget.request.metadata,
-                        theme: theme,
-                      ),
                       // Show diff preview if available
                       if (diffText != null && diffText.trim().isNotEmpty) ...[
                         Text(
@@ -517,96 +512,6 @@ class _PermissionPromptState extends State<PermissionPrompt> {
           ),
         );
       },
-    );
-  }
-}
-
-/// Shows V2 Codex permission details (writableRoots, networkAccess, scope)
-class _V2DetailsSection extends StatelessWidget {
-  const _V2DetailsSection({required this.metadata, required this.theme});
-  final Map<String, dynamic> metadata;
-  final OpenCodeTheme theme;
-
-  @override
-  Widget build(BuildContext context) {
-    final widgets = <Widget>[];
-
-    // Writable roots
-    final writableRoots = metadata['writableRoots'];
-    if (writableRoots is List && writableRoots.isNotEmpty) {
-      widgets.add(
-        Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: Wrap(
-            spacing: 4,
-            runSpacing: 4,
-            children: [
-              for (final root in writableRoots)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: theme.warning.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(
-                      color: theme.warning.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: Text(
-                    root.toString().split('/').last,
-                    style: TextStyle(fontSize: 11, color: theme.warning),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // Network access
-    final networkAccess = metadata['networkAccess'];
-    if (networkAccess is Map) {
-      final host = networkAccess['host']?.toString() ?? '';
-      if (host.isNotEmpty) {
-        widgets.add(
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.language, size: 12, color: theme.info),
-                const SizedBox(width: 4),
-                Text(host, style: TextStyle(fontSize: 11, color: theme.info)),
-              ],
-            ),
-          ),
-        );
-      }
-    }
-
-    // Scope
-    final scope = metadata['scope']?.toString();
-    if (scope != null && scope.isNotEmpty) {
-      widgets.add(
-        Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Text(
-            'Scope: $scope',
-            style: TextStyle(fontSize: 10, color: theme.textMuted),
-          ),
-        ),
-      );
-    }
-
-    if (widgets.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(bottom: Spacing.md),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: widgets,
-      ),
     );
   }
 }

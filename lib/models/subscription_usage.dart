@@ -1,5 +1,5 @@
 // Subscription usage models for tracking AI coding service limits.
-// Based on data from Claude OAuth API and OpenAI/Codex OAuth API.
+// Based on data from the Claude OAuth API.
 
 class UsageWindow {
   final double usedPercent; // 0-100
@@ -180,7 +180,7 @@ class Credits {
 }
 
 class ProviderUsage {
-  final String providerId; // 'claude' or 'openai'
+  final String providerId; // 'claude'
   final String providerName;
   final String? plan;
   final UsageWindow? sessionWindow; // 5-hour window
@@ -288,8 +288,6 @@ class SubscriptionUsage {
       providers.where((p) => p.providerId == 'claude').firstOrNull;
 
   /// Get OpenAI provider usage (if available)
-  ProviderUsage? get openai =>
-      providers.where((p) => p.providerId == 'openai').firstOrNull;
 
   /// Get relative time since fetch
   String get fetchedAgoString {

@@ -13,13 +13,9 @@ import 'package:flutter/material.dart';
 List<Widget> buildOrderedParts({
   required BuildContext context,
   required ChatMessage message,
-  required bool isClaudeCode,
-  required bool isOpenCode,
-  required bool isCodex,
   required Widget Function(ToolCall tool, String messageId) buildToolCardFn,
   required void Function({String? messageId}) onFork,
   void Function(String messageId)? onResumeFromHere,
-  void Function(String messageId)? onDeleteMessage,
 }) {
   final widgets = <Widget>[];
   final toolsById = {for (final t in message.toolCalls) t.callId: t};
@@ -43,13 +39,8 @@ List<Widget> buildOrderedParts({
                 onForkFromHere: message.role == MessageRole.assistant
                     ? (_) => onFork(messageId: message.id)
                     : null,
-                onResumeFromHere:
-                    isClaudeCode && message.role == MessageRole.assistant
+                onResumeFromHere: message.role == MessageRole.assistant
                     ? (_) => onResumeFromHere?.call(message.id)
-                    : null,
-                onDeleteMessage:
-                    isOpenCode && message.role == MessageRole.assistant
-                    ? (_) => onDeleteMessage?.call(message.id)
                     : null,
               ),
             ),
@@ -128,12 +119,8 @@ List<Widget> buildOrderedParts({
           onForkFromHere: message.role == MessageRole.assistant
               ? (messageId) => onFork(messageId: message.id)
               : null,
-          onResumeFromHere:
-              isClaudeCode && message.role == MessageRole.assistant
+          onResumeFromHere: message.role == MessageRole.assistant
               ? (messageId) => onResumeFromHere?.call(messageId)
-              : null,
-          onDeleteMessage: isOpenCode && message.role == MessageRole.assistant
-              ? (_) => onDeleteMessage?.call(message.id)
               : null,
         ),
       );

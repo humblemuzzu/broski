@@ -397,12 +397,6 @@
           "$ref": "#/$defs/ClaudeCodeCall"
         },
         {
-          "$ref": "#/$defs/CodexCall"
-        },
-        {
-          "$ref": "#/$defs/OpenCodeCall"
-        },
-        {
           "$ref": "#/$defs/PiCall"
         }
       ]
@@ -507,9 +501,6 @@
       "$id": "#/$defs/BackendExtension",
       "oneOf": [
         {
-          "$ref": "#/$defs/CodexTurnDiff"
-        },
-        {
           "$ref": "#/$defs/RateLimitUpdate"
         }
       ]
@@ -520,8 +511,6 @@
       "type": "string",
       "enum": [
         "claude-code",
-        "codex",
-        "opencode",
         "pi",
         "pi-durable"
       ]
@@ -532,11 +521,6 @@
       "type": "string",
       "enum": [
         "rewind_files",
-        "review_start",
-        "revert",
-        "revert_stage",
-        "revert_clear",
-        "revert_commit",
         "navigate_tree",
         "take_over",
         "session_settings",
@@ -559,21 +543,6 @@
       "oneOf": [
         {
           "$ref": "#/$defs/RewindFilesResult"
-        },
-        {
-          "$ref": "#/$defs/ReviewStarted"
-        },
-        {
-          "$ref": "#/$defs/Reverted"
-        },
-        {
-          "$ref": "#/$defs/RevertStaged"
-        },
-        {
-          "$ref": "#/$defs/RevertCleared"
-        },
-        {
-          "$ref": "#/$defs/RevertCommitted"
         },
         {
           "$ref": "#/$defs/TreeNavigated"
@@ -731,7 +700,7 @@
           "$ref": "#/$defs/RequestId"
         },
         "backends": {
-          "maxItems": 5,
+          "maxItems": 3,
           "type": "array",
           "items": {
             "$ref": "#/$defs/BackendDescriptor"
@@ -742,27 +711,6 @@
         "type",
         "requestId",
         "backends"
-      ],
-      "additionalProperties": false
-    },
-    "BaseBranchReview": {
-      "x-module": "backend-ops",
-      "$id": "#/$defs/BaseBranchReview",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "base_branch"
-        },
-        "branch": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1024
-        }
-      },
-      "required": [
-        "kind",
-        "branch"
       ],
       "additionalProperties": false
     },
@@ -1072,14 +1020,14 @@
           "type": "boolean"
         },
         "extensions": {
-          "maxItems": 2,
+          "maxItems": 1,
           "type": "array",
           "items": {
             "$ref": "#/$defs/ExtensionKind"
           }
         },
         "backendOps": {
-          "maxItems": 20,
+          "maxItems": 15,
           "type": "array",
           "items": {
             "$ref": "#/$defs/BackendOpKind"
@@ -1543,57 +1491,6 @@
       "format": "uuid",
       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
     },
-    "CodexCall": {
-      "x-module": "backend-ops",
-      "$id": "#/$defs/CodexCall",
-      "type": "object",
-      "properties": {
-        "backend": {
-          "type": "string",
-          "const": "codex"
-        },
-        "op": {
-          "$ref": "#/$defs/CodexOp"
-        }
-      },
-      "required": [
-        "backend",
-        "op"
-      ],
-      "additionalProperties": false
-    },
-    "CodexOp": {
-      "x-module": "backend-ops",
-      "$id": "#/$defs/CodexOp",
-      "oneOf": [
-        {
-          "$ref": "#/$defs/ReviewStartOp"
-        },
-        {
-          "$ref": "#/$defs/RevertOp"
-        }
-      ]
-    },
-    "CodexTurnDiff": {
-      "x-module": "extensions",
-      "$id": "#/$defs/CodexTurnDiff",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "turn_diff"
-        },
-        "diff": {
-          "type": "string",
-          "maxLength": 1048576
-        }
-      },
-      "required": [
-        "kind",
-        "diff"
-      ],
-      "additionalProperties": false
-    },
     "CommandId": {
       "x-module": "ids",
       "$id": "#/$defs/CommandId",
@@ -1751,31 +1648,6 @@
       "required": [
         "status",
         "commands"
-      ],
-      "additionalProperties": false
-    },
-    "CommitReview": {
-      "x-module": "backend-ops",
-      "$id": "#/$defs/CommitReview",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "commit"
-        },
-        "sha": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 256
-        },
-        "title": {
-          "type": "string",
-          "maxLength": 1024
-        }
-      },
-      "required": [
-        "kind",
-        "sha"
       ],
       "additionalProperties": false
     },
@@ -2099,27 +1971,6 @@
       ],
       "additionalProperties": false
     },
-    "CustomReview": {
-      "x-module": "backend-ops",
-      "$id": "#/$defs/CustomReview",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "custom"
-        },
-        "instructions": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1048576
-        }
-      },
-      "required": [
-        "kind",
-        "instructions"
-      ],
-      "additionalProperties": false
-    },
     "EntryLabelled": {
       "x-module": "tree-ops",
       "$id": "#/$defs/EntryLabelled",
@@ -2381,7 +2232,6 @@
       "$id": "#/$defs/ExtensionKind",
       "type": "string",
       "enum": [
-        "turn_diff",
         "rate_limit"
       ]
     },
@@ -4287,40 +4137,6 @@
       ],
       "additionalProperties": false
     },
-    "OpenCodeCall": {
-      "x-module": "backend-ops",
-      "$id": "#/$defs/OpenCodeCall",
-      "type": "object",
-      "properties": {
-        "backend": {
-          "type": "string",
-          "const": "opencode"
-        },
-        "op": {
-          "$ref": "#/$defs/OpenCodeOp"
-        }
-      },
-      "required": [
-        "backend",
-        "op"
-      ],
-      "additionalProperties": false
-    },
-    "OpenCodeOp": {
-      "x-module": "backend-ops",
-      "$id": "#/$defs/OpenCodeOp",
-      "oneOf": [
-        {
-          "$ref": "#/$defs/RevertStageOp"
-        },
-        {
-          "$ref": "#/$defs/RevertClearOp"
-        },
-        {
-          "$ref": "#/$defs/RevertCommitOp"
-        }
-      ]
-    },
     "Option": {
       "x-module": "option",
       "$id": "#/$defs/Option",
@@ -5523,218 +5339,6 @@
         "message"
       ],
       "additionalProperties": false
-    },
-    "RevertClearOp": {
-      "x-module": "backend-ops",
-      "$id": "#/$defs/RevertClearOp",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "revert_clear"
-        },
-        "sessionId": {
-          "$ref": "#/$defs/SessionId"
-        }
-      },
-      "required": [
-        "kind",
-        "sessionId"
-      ],
-      "additionalProperties": false
-    },
-    "RevertCleared": {
-      "x-module": "backend-ops",
-      "$id": "#/$defs/RevertCleared",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "revert_clear"
-        }
-      },
-      "required": [
-        "kind"
-      ],
-      "additionalProperties": false
-    },
-    "RevertCommitOp": {
-      "x-module": "backend-ops",
-      "$id": "#/$defs/RevertCommitOp",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "revert_commit"
-        },
-        "sessionId": {
-          "$ref": "#/$defs/SessionId"
-        }
-      },
-      "required": [
-        "kind",
-        "sessionId"
-      ],
-      "additionalProperties": false
-    },
-    "RevertCommitted": {
-      "x-module": "backend-ops",
-      "$id": "#/$defs/RevertCommitted",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "revert_commit"
-        }
-      },
-      "required": [
-        "kind"
-      ],
-      "additionalProperties": false
-    },
-    "RevertOp": {
-      "x-module": "backend-ops",
-      "$id": "#/$defs/RevertOp",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "revert"
-        },
-        "sessionId": {
-          "$ref": "#/$defs/SessionId"
-        },
-        "beforeItemId": {
-          "$ref": "#/$defs/TranscriptItemId"
-        }
-      },
-      "required": [
-        "kind",
-        "sessionId",
-        "beforeItemId"
-      ],
-      "additionalProperties": false
-    },
-    "RevertStageOp": {
-      "x-module": "backend-ops",
-      "$id": "#/$defs/RevertStageOp",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "revert_stage"
-        },
-        "sessionId": {
-          "$ref": "#/$defs/SessionId"
-        },
-        "itemId": {
-          "$ref": "#/$defs/TranscriptItemId"
-        },
-        "restoreFiles": {
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "kind",
-        "sessionId",
-        "itemId",
-        "restoreFiles"
-      ],
-      "additionalProperties": false
-    },
-    "RevertStaged": {
-      "x-module": "backend-ops",
-      "$id": "#/$defs/RevertStaged",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "revert_stage"
-        },
-        "files": {
-          "maxItems": 1000,
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/FileChange"
-          }
-        }
-      },
-      "required": [
-        "kind",
-        "files"
-      ],
-      "additionalProperties": false
-    },
-    "Reverted": {
-      "x-module": "backend-ops",
-      "$id": "#/$defs/Reverted",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "revert"
-        }
-      },
-      "required": [
-        "kind"
-      ],
-      "additionalProperties": false
-    },
-    "ReviewStartOp": {
-      "x-module": "backend-ops",
-      "$id": "#/$defs/ReviewStartOp",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "review_start"
-        },
-        "sessionId": {
-          "$ref": "#/$defs/SessionId"
-        },
-        "target": {
-          "$ref": "#/$defs/ReviewTarget"
-        }
-      },
-      "required": [
-        "kind",
-        "sessionId",
-        "target"
-      ],
-      "additionalProperties": false
-    },
-    "ReviewStarted": {
-      "x-module": "backend-ops",
-      "$id": "#/$defs/ReviewStarted",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "review_start"
-        }
-      },
-      "required": [
-        "kind"
-      ],
-      "additionalProperties": false
-    },
-    "ReviewTarget": {
-      "x-module": "backend-ops",
-      "$id": "#/$defs/ReviewTarget",
-      "oneOf": [
-        {
-          "$ref": "#/$defs/UncommittedReview"
-        },
-        {
-          "$ref": "#/$defs/BaseBranchReview"
-        },
-        {
-          "$ref": "#/$defs/CommitReview"
-        },
-        {
-          "$ref": "#/$defs/CustomReview"
-        }
-      ]
     },
     "RewindFilesOp": {
       "x-module": "backend-ops",
@@ -8613,21 +8217,6 @@
         "kind",
         "total",
         "nodes"
-      ],
-      "additionalProperties": false
-    },
-    "UncommittedReview": {
-      "x-module": "backend-ops",
-      "$id": "#/$defs/UncommittedReview",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "uncommitted"
-        }
-      },
-      "required": [
-        "kind"
       ],
       "additionalProperties": false
     },

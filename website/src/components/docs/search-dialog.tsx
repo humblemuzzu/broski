@@ -19,7 +19,7 @@ interface SearchResult {
 // Search index - all docs content
 const searchIndex: SearchResult[] = [
   // Getting Started
-  { title: "Introduction", href: "/docs", section: "What is Broski?", content: "Broski is a mobile companion app for AI coding agents. Control Claude Code, OpenCode, Codex, or Pi from your phone.", category: "Get Started" },
+  { title: "Introduction", href: "/docs", section: "What is Broski?", content: "Broski is a mobile companion app for AI coding agents. Control Claude Code or Pi from your phone.", category: "Get Started" },
   { title: "Quick Start", href: "/docs/setup", section: "Prerequisites", content: "Mac running macOS 12+, Node.js 18+ or Bun, iPhone or iPad running iOS 15+", category: "Get Started" },
   { title: "Quick Start", href: "/docs/setup", section: "Install the Bridge", content: "bunx broski or npx broski to start the bridge server", category: "Get Started" },
   { title: "Quick Start", href: "/docs/setup", section: "Scan QR Code", content: "Open Broski app and scan the QR code displayed in terminal", category: "Get Started" },
@@ -44,8 +44,7 @@ const searchIndex: SearchResult[] = [
   { title: "File Browser", href: "/docs/app/files", section: "File Viewer", content: "Syntax highlighting line numbers copy button images pinch zoom", category: "Mobile App" },
   { title: "Settings", href: "/docs/app/settings", section: "Connection", content: "Paired computers status local network relay device manager forget switch", category: "Mobile App" },
   { title: "Settings", href: "/docs/app/settings", section: "Appearance", content: "27 themes icon packs input bar style navigation style customization", category: "Mobile App" },
-  { title: "Settings", href: "/docs/app/settings", section: "AI Backend", content: "OpenCode Claude Code Codex Pi switch backend providers models API keys", category: "Mobile App" },
-  { title: "Settings", href: "/docs/app/settings", section: "OpenCode Settings", content: "Terminal sessions skills commands agents plugins MCP tools permissions", category: "Mobile App" },
+  { title: "Settings", href: "/docs/app/settings", section: "AI Backend", content: "Claude Code Pi switch backend providers models API keys", category: "Mobile App" },
   { title: "Settings", href: "/docs/app/settings", section: "Claude Code Settings", content: "Subagents custom tools plugins hooks MCP commands skills", category: "Mobile App" },
   { title: "Settings", href: "/docs/app/settings", section: "About", content: "Replay onboarding clear cache version support legal privacy terms", category: "Mobile App" },
   
@@ -56,24 +55,18 @@ const searchIndex: SearchResult[] = [
   // Bridge
   { title: "Bridge Installation", href: "/docs/bridge", section: "Installation", content: "bunx broski, npx broski, bun install -g broski, npm install -g broski", category: "Bridge" },
   { title: "Bridge Commands", href: "/docs/bridge", section: "Commands", content: "broski install, broski-link pair, broski --port, broski --help, broski --version", category: "Bridge" },
-  { title: "Configuration", href: "/docs/bridge/configuration", section: "CLI Options", content: "--port --verbose --new-token --tls --managed --manual --opencode-url", category: "Bridge" },
+  { title: "Configuration", href: "/docs/bridge/configuration", section: "CLI Options", content: "--port --verbose --new-token --tls", category: "Bridge" },
   { title: "Configuration", href: "/docs/bridge/configuration", section: "Environment Variables", content: "BROSKI_PORT BROSKI_VERBOSE BROSKI_TLS ANTHROPIC_API_KEY", category: "Bridge" },
-  { title: "Configuration", href: "/docs/bridge/configuration", section: "OpenCode Modes", content: "--managed --manual connect to OpenCode server", category: "Bridge" },
   { title: "Remote Access", href: "/docs/bridge/remote-access", section: "Setup", content: "broski install, broski-link pair, scan the QR code with the Broski app", category: "Bridge" },
   { title: "Remote Access", href: "/docs/bridge/remote-access", section: "Using a Relay", content: "relay in ~/.broski/link/config.json, end-to-end encrypted, access from anywhere", category: "Bridge" },
   { title: "Background Service", href: "/docs/bridge/background-service", section: "LaunchAgent", content: "Run broski-link as a macOS service that starts automatically on login", category: "Bridge" },
   { title: "Background Service", href: "/docs/bridge/background-service", section: "systemd", content: "Linux systemd user service for persistent bridge", category: "Bridge" },
   
   // AI Backends
-  { title: "AI Backends Overview", href: "/docs/backends", section: "Comparison", content: "Compare OpenCode, Claude Code, Codex, and Pi backends, choose the right one", category: "AI Backends" },
+  { title: "AI Backends Overview", href: "/docs/backends", section: "Comparison", content: "Compare Claude Code and Pi backends, choose the right one", category: "AI Backends" },
   { title: "Claude Code", href: "/docs/backends/claude-code", section: "Setup", content: "npm install -g @anthropic-ai/claude-code, Anthropic official SDK", category: "AI Backends" },
   { title: "Claude Code", href: "/docs/backends/claude-code", section: "Features", content: "Extended thinking, subagents, file checkpointing, plugins", category: "AI Backends" },
   { title: "Claude Code", href: "/docs/backends/claude-code", section: "Authentication", content: "ANTHROPIC_API_KEY or claude login for OAuth", category: "AI Backends" },
-  { title: "OpenCode", href: "/docs/backends/opencode", section: "Setup", content: "npm install -g opencode, multi-provider support, open source", category: "AI Backends" },
-  { title: "OpenCode", href: "/docs/backends/opencode", section: "Providers", content: "Anthropic, OpenAI, Google Gemini, Amazon Bedrock, Azure, Mistral, Groq", category: "AI Backends" },
-  { title: "OpenCode", href: "/docs/backends/opencode", section: "MCP Integration", content: "Full Model Context Protocol support for custom tools", category: "AI Backends" },
-  { title: "Codex", href: "/docs/backends/codex", section: "Setup", content: "OpenAI official CLI agent with sandbox and own tooling", category: "AI Backends" },
-  { title: "Codex", href: "/docs/backends/codex", section: "Models", content: "GPT-4 Turbo, GPT-4, GPT-3.5 Turbo, o1 models", category: "AI Backends" },
   { title: "Pi", href: "/docs/backends/pi", section: "Setup", content: "npm install -g @earendil-works/pi-coding-agent, multi-provider, extension system, open source", category: "AI Backends" },
   { title: "Pi", href: "/docs/backends/pi", section: "Features", content: "Multi-provider support, extensions, skills, auto-compaction, session tree, fork, HTML export", category: "AI Backends" },
   { title: "Pi", href: "/docs/backends/pi", section: "Providers", content: "Anthropic, OpenAI, Google Gemini, Groq, Mistral, Ollama, any OpenAI-compatible provider", category: "AI Backends" },
@@ -85,9 +78,8 @@ const searchIndex: SearchResult[] = [
   { title: "Network Issues", href: "/docs/troubleshooting/network", section: "Firewall", content: "macOS firewall settings, allow broski-link port 18275, socketfilterfw", category: "Troubleshooting" },
   { title: "Network Issues", href: "/docs/troubleshooting/network", section: "WiFi Issues", content: "Same network requirement, client isolation, connection drops", category: "Troubleshooting" },
   { title: "Network Issues", href: "/docs/troubleshooting/network", section: "Relay Issues", content: "Relay not connected, relay URL, machine asleep, broski-link status", category: "Troubleshooting" },
-  { title: "AI Backend Issues", href: "/docs/troubleshooting/ai-backends", section: "OpenCode", content: "OpenCode not starting, provider errors, tool failures", category: "Troubleshooting" },
   { title: "AI Backend Issues", href: "/docs/troubleshooting/ai-backends", section: "Claude Code", content: "Authentication failures, rate limiting, permission issues", category: "Troubleshooting" },
-  { title: "Error Reference", href: "/docs/troubleshooting/errors", section: "Startup Errors", content: "Port in use, OpenCode not found, managed server failed", category: "Troubleshooting" },
+  { title: "Error Reference", href: "/docs/troubleshooting/errors", section: "Startup Errors", content: "Port in use, startup failures", category: "Troubleshooting" },
   { title: "Error Reference", href: "/docs/troubleshooting/errors", section: "Connection Errors", content: "Machine did not answer, no address, pairing not confirmed, offline, asleep", category: "Troubleshooting" },
   { title: "Error Reference", href: "/docs/troubleshooting/errors", section: "HTTP Codes", content: "400 401 403 404 429 500 502 error codes explained", category: "Troubleshooting" },
   
@@ -95,21 +87,20 @@ const searchIndex: SearchResult[] = [
   { title: "CLI Reference", href: "/docs/reference/cli", section: "Commands", content: "broski, broski install, broski doctor, broski-link pair status devices revoke subcommands", category: "Reference" },
   { title: "CLI Reference", href: "/docs/reference/cli", section: "Options", content: "--port --verbose --new-token --tls --managed --manual", category: "Reference" },
   { title: "Environment Variables", href: "/docs/reference/env", section: "Bridge Variables", content: "BROSKI_PORT BROSKI_VERBOSE BROSKI_TLS", category: "Reference" },
-  { title: "Environment Variables", href: "/docs/reference/env", section: "API Keys", content: "ANTHROPIC_API_KEY OPENAI_API_KEY GOOGLE_API_KEY", category: "Reference" },
+  { title: "Environment Variables", href: "/docs/reference/env", section: "API Keys", content: "ANTHROPIC_API_KEY OPENAI_API_KEY GEMINI_API_KEY", category: "Reference" },
   { title: "Privacy & Security", href: "/docs/reference/privacy", section: "Data Flow", content: "What stays local, what goes to AI providers, no telemetry", category: "Reference" },
   { title: "Privacy & Security", href: "/docs/reference/privacy", section: "Authentication", content: "One-time pairing secret, Noise encryption, device revocation", category: "Reference" },
   
   // FAQ
-  { title: "FAQ", href: "/docs/faq", section: "What is Broski?", content: "Mobile companion app for AI coding agents, remote control for OpenCode, Claude Code, Codex, and Pi", category: "FAQ" },
+  { title: "FAQ", href: "/docs/faq", section: "What is Broski?", content: "Mobile companion app for AI coding agents, remote control for Claude Code and Pi", category: "FAQ" },
   { title: "FAQ", href: "/docs/faq", section: "Is Broski free?", content: "Yes, completely free. You need your own AI provider subscription.", category: "FAQ" },
   { title: "FAQ", href: "/docs/faq", section: "Platforms supported", content: "iOS 15+, Android 8+, macOS 12+, Linux", category: "FAQ" },
-  { title: "FAQ", href: "/docs/faq", section: "OpenCode vs Claude Code", content: "OpenCode supports multiple providers, Claude Code is Anthropic official", category: "FAQ" },
   { title: "FAQ", href: "/docs/faq", section: "Multiple phones", content: "Can multiple phones connect to same bridge simultaneously, all see same sessions", category: "FAQ" },
   { title: "FAQ", href: "/docs/faq", section: "Cellular data", content: "Use Broski over cellular through a relay for remote access", category: "FAQ" },
   { title: "FAQ", href: "/docs/faq", section: "Custom port", content: "broski --port 8080 or BROSKI_PORT environment variable", category: "FAQ" },
   { title: "FAQ", href: "/docs/faq", section: "Background service", content: "Run broski-link as a service with launchd on macOS or systemd on Linux", category: "FAQ" },
   { title: "FAQ", href: "/docs/faq", section: "Session sharing", content: "Sessions stored per-computer, not shared between backends or machines", category: "FAQ" },
-  { title: "FAQ", href: "/docs/faq", section: "Local models", content: "Use Ollama with OpenCode for free local AI models", category: "FAQ" },
+  { title: "FAQ", href: "/docs/faq", section: "Local models", content: "Use Ollama with Pi for free local AI models", category: "FAQ" },
   
   // Guides
   { title: "Your First Session", href: "/docs/guides/first-session", section: "Before You Start", content: "Bridge running phone connected AI backend configured prerequisites", category: "Guides" },

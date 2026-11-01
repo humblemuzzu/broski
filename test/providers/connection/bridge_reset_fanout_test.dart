@@ -28,8 +28,8 @@ void main() {
   test('one reset fails every request still waiting', () async {
     final bridge = container.read(bridgeServiceProvider);
 
-    final sessions = bridge.listSessions();
-    final projects = bridge.listProjects();
+    final sessions = bridge.ccListSessions();
+    final projects = bridge.ccListProjects();
     await pumpEventQueue();
     expect(socket.sent, hasLength(2));
 
@@ -54,8 +54,8 @@ void main() {
   test('a refused send fails only the request it named', () async {
     final bridge = container.read(bridgeServiceProvider);
 
-    final refused = bridge.listSessions();
-    final other = bridge.listProjects();
+    final refused = bridge.ccListSessions();
+    final other = bridge.ccListProjects();
     await pumpEventQueue();
     final refusedId = socket.sent.first['requestId'] as String;
 
@@ -89,10 +89,10 @@ void main() {
         .read(bridgeResetFanoutProvider)
         .failAll(BridgeResetReason.bridgeUnavailable);
 
-    final sessions = container.read(bridgeServiceProvider).listSessions();
+    final sessions = container.read(bridgeServiceProvider).ccListSessions();
     await pumpEventQueue();
     socket.deliver({
-      'type': 'sessions',
+      'type': 'cc_sessions',
       'requestId': socket.lastRequestId,
       'data': <Map<String, dynamic>>[],
     });

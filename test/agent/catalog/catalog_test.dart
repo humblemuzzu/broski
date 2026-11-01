@@ -21,7 +21,7 @@ const _status = BackendStatus(
 
 SessionSummary _row(String id, int updatedAt, {bool archived = false}) =>
     SessionSummary(
-      session: SessionRef(backend: BackendId.codex, sessionId: id),
+      session: SessionRef(backend: BackendId.claudeCode, sessionId: id),
       updatedAt: updatedAt,
       archived: archived,
       status: SessionStatus.idle,
@@ -78,7 +78,7 @@ void main() {
       ),
     );
     final list = SessionListController(client, (
-      backend: BackendId.codex,
+      backend: BackendId.claudeCode,
       query: const SessionQuery(archived: false),
     ));
     await pumpEventQueue();
@@ -88,22 +88,25 @@ void main() {
     ];
     expect(ids(), ['b', 'a'], reason: 'a row on two pages shows once');
     expect(list.state.complete, isTrue);
-    bridge.catalog(BackendId.codex, SessionUpdatedEvent(summary: _row('c', 3)));
     bridge.catalog(
-      BackendId.codex,
+      BackendId.claudeCode,
+      SessionUpdatedEvent(summary: _row('c', 3)),
+    );
+    bridge.catalog(
+      BackendId.claudeCode,
       SessionUpdatedEvent(summary: _row('x', 9, archived: true)),
     );
     bridge.catalog(BackendId.pi, SessionUpdatedEvent(summary: _row('y', 9)));
     expect(ids(), ['c', 'b', 'a']);
     bridge.catalog(
-      BackendId.codex,
+      BackendId.claudeCode,
       SessionUpdatedEvent(summary: _row('b', 2, archived: true)),
     );
     expect(ids(), ['c', 'a'], reason: 'an archived row leaves this list');
     bridge.catalog(
-      BackendId.codex,
+      BackendId.claudeCode,
       const SessionRemovedEvent(
-        session: SessionRef(backend: BackendId.codex, sessionId: 'a'),
+        session: SessionRef(backend: BackendId.claudeCode, sessionId: 'a'),
       ),
     );
     expect(ids(), ['c']);
@@ -112,7 +115,7 @@ void main() {
 
   test('a directory list keeps a row it holds; a new row must match', () async {
     SessionSummary at(String id, String cwd) => SessionSummary(
-      session: SessionRef(backend: BackendId.codex, sessionId: id),
+      session: SessionRef(backend: BackendId.claudeCode, sessionId: id),
       cwd: cwd,
       updatedAt: 5,
       archived: false,
@@ -128,16 +131,16 @@ void main() {
       ),
     );
     final list = SessionListController(client, (
-      backend: BackendId.codex,
+      backend: BackendId.claudeCode,
       query: const SessionQuery(cwd: '/work', archived: false),
     ));
     await pumpEventQueue();
     bridge.catalog(
-      BackendId.codex,
+      BackendId.claudeCode,
       SessionUpdatedEvent(summary: at('a', '/private/work')),
     );
     bridge.catalog(
-      BackendId.codex,
+      BackendId.claudeCode,
       SessionUpdatedEvent(summary: at('b', '/else')),
     );
     expect([for (final row in list.state.rows) row.session.sessionId], ['a']);
@@ -153,7 +156,10 @@ void main() {
           page: SessionPage(
             items: [
               SessionSummary(
-                session: SessionRef(backend: BackendId.codex, sessionId: 'a'),
+                session: SessionRef(
+                  backend: BackendId.claudeCode,
+                  sessionId: 'a',
+                ),
                 cwd: '/work',
                 updatedAt: 1,
                 archived: false,
@@ -165,7 +171,7 @@ void main() {
         ),
       ),
     );
-    final directories = DirectoriesController(client, BackendId.codex);
+    final directories = DirectoriesController(client, BackendId.claudeCode);
     addTearDown(directories.dispose);
     final first = await directories.load();
     expect([for (final d in first.directories) d.cwd], ['/work']);
@@ -194,7 +200,7 @@ void main() {
         overrides: [contractClientProvider.overrideWithValue(client)],
       );
       addTearDown(container.dispose);
-      const key = (backend: BackendId.codex, cwd: null);
+      const key = (backend: BackendId.claudeCode, cwd: null);
       final subscription = container.listen(modelsProvider(key), (_, _) {});
       addTearDown(subscription.close);
       expect(
@@ -202,7 +208,7 @@ void main() {
         isA<Done<List<ModelSummary>>>(),
       );
       bridge.catalog(
-        BackendId.codex,
+        BackendId.claudeCode,
         const CatalogInvalidatedEvent(scope: CatalogScope.models),
       );
       await container.read(modelsProvider(key).future);

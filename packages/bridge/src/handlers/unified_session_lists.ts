@@ -2,11 +2,11 @@
  * `unified_list_sessions`: one listing for whichever backend the app names.
  *
  * Every case answers with the same page contract as that backend's own list message, so the app
- * pages all five backends with one piece of code.
+ * pages every backend with one piece of code.
  */
 
 import type { UnifiedMessage } from "../routing/messages";
-import type { ClaudeCodeSession, CodexThread, SessionSummary } from "../types";
+import type { ClaudeCodeSession } from "../types";
 import type { BroskiBackend } from "../types/runtime";
 import {
 	isPagedSessionRequest,
@@ -15,14 +15,9 @@ import {
 	sessionPageFields,
 	sessionPageRequest,
 } from "../utils/session-list-page";
-import { type CxThreadListContext, localThreads } from "./codex/cx_thread_list";
 
 export type UnifiedSessionListContext = {
 	claudeCode: { listSessions: (cwd?: string) => Promise<ClaudeCodeSession[]> };
-	requireOpenCode: () => {
-		listSessions: (dir?: string, opts?: { roots?: boolean; limit?: number }) => Promise<SessionSummary[]>;
-	} | null;
-	codex: CxThreadListContext;
 };
 
 type UnifiedListMessage = UnifiedMessage & { type: "unified_list_sessions" };
@@ -51,13 +46,7 @@ function replyPage<T>(
 	});
 }
 
-/** A page is cut from the whole listing, so the source is asked for all of it and for no cursor of its own. */
-const sourceLimit = (message: UnifiedListMessage): number | undefined =>
-	isPagedSessionRequest(sessionPageRequest(message)) ? undefined : message.limit;
-
 const ccRow = (session: ClaudeCodeSession): SessionListRow => ({ id: session.id, modified: session.updatedAt });
-const cxRow = (thread: CodexThread): SessionListRow => ({ id: thread.id, modified: thread.updatedAt });
-const ocRow = (session: SessionSummary): SessionListRow => ({ id: session.id, modified: session.time?.updated ?? 0 });
 
 export async function unifiedListSessions(
 	message: UnifiedListMessage,
@@ -69,18 +58,6 @@ export async function unifiedListSessions(
 		case "claude-code": {
 			const sessions = await ctx.claudeCode.listSessions(message.cwd);
 			replyPage(message, reply, backend, sessions, ccRow);
-			return;
-		}
-		case "codex": {
-			const threads = await localThreads({ cwd: message.cwd }, ctx.codex);
-			replyPage(message, reply, backend, threads, cxRow);
-			return;
-		}
-		case "opencode": {
-			const openCode = ctx.requireOpenCode();
-			const roots = message.roots ?? true;
-			const sessions = openCode ? await openCode.listSessions(message.cwd, { roots, limit: sourceLimit(message) }) : [];
-			replyPage(message, reply, backend, sessions, ocRow);
 			return;
 		}
 		default: {

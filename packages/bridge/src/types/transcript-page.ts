@@ -1,6 +1,5 @@
 /**
- * Shared contract for paged transcript reads: `cc_session_messages`, `cx_thread_messages` and
- * OpenCode's `session_messages`.
+ * Shared contract for paged transcript reads: `cc_session_messages`.
  *
  * A page holds the newest messages that end at a cursor, and `nextCursor` names the boundary the
  * next, older page ends at — paging always walks backwards from the tail. The cursor is opaque to

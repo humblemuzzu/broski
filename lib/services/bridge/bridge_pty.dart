@@ -26,7 +26,6 @@ extension BridgeServicePty on BridgeService {
     List<String>? args,
     String? cwd,
     String? title,
-    Map<String, String>? env,
     String? projectPath,
   }) {
     // Dedupe by command + cwd to prevent duplicate terminals
@@ -38,7 +37,6 @@ extension BridgeServicePty on BridgeService {
         args: args,
         cwd: cwd,
         title: title,
-        env: env,
         projectPath: projectPath,
       ),
     );
@@ -49,7 +47,6 @@ extension BridgeServicePty on BridgeService {
     List<String>? args,
     String? cwd,
     String? title,
-    Map<String, String>? env,
     String? projectPath,
   }) async {
     final requestId = _generateRequestId();
@@ -60,7 +57,6 @@ extension BridgeServicePty on BridgeService {
       if (args != null) 'args': args,
       if (cwd != null) 'cwd': cwd,
       if (title != null) 'title': title,
-      if (env != null && env.isNotEmpty) 'env': env,
       if (projectPath != null) 'projectPath': projectPath,
     };
     developer.log('[PTY] Sending create_pty: $message', name: 'BridgeService');

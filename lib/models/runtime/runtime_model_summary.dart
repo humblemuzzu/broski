@@ -31,7 +31,7 @@ class RuntimeModelSummary {
     return RuntimeModelSummary(
       id: json['id'] as String? ?? '',
       backend: AgentType.fromWireValue(
-        json['backend'] as String? ?? 'opencode',
+        json['backend'] as String? ?? 'claude-code',
       ),
       label: json['label'] as String? ?? '',
       providerId: json['providerId'] as String?,

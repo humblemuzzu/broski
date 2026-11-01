@@ -11,33 +11,15 @@ import 'package:flutter/material.dart';
 
 /// Builds the appropriate compact card for a tool call.
 /// Extracted from `_ChatScreenState._buildToolCard`.
-Widget buildToolCard({
-  required ToolCall tool,
-  required String messageId,
-  required bool isClaudeCode,
-  required bool isCodex,
-  required Future<void> Function(String, {String? partId}) onRevert,
-}) {
+Widget buildToolCard({required ToolCall tool, required String messageId}) {
   final toolName = tool.name.toLowerCase().replaceFirst('mcp_', '');
   // Edit/Patch tools -> CompactEditCard
   if (isEditTool(toolName)) {
-    return CompactEditCard(
-      tool: tool,
-      messageId: messageId,
-      onUndo: isClaudeCode || isCodex
-          ? null
-          : (msgId, partId) => onRevert(msgId, partId: partId),
-    );
+    return CompactEditCard(tool: tool, messageId: messageId);
   }
   // Write tool -> CompactWriteCard
   if (toolName == 'write') {
-    return CompactWriteCard(
-      tool: tool,
-      messageId: messageId,
-      onUndo: isClaudeCode
-          ? null
-          : (msgId, partId) => onRevert(msgId, partId: partId),
-    );
+    return CompactWriteCard(tool: tool, messageId: messageId);
   }
   // Task/subtask/agent tool -> CompactAgentCard
   if (toolName == 'task' || toolName == 'subtask' || toolName == 'agent') {
@@ -51,13 +33,7 @@ Widget buildToolCard({
     }
   }
   // All other tools -> CompactToolCard
-  return CompactToolCard(
-    tool: tool,
-    messageId: messageId,
-    onUndo: canUndoTool(toolName)
-        ? (msgId, partId) => onRevert(msgId, partId: partId)
-        : null,
-  );
+  return CompactToolCard(tool: tool, messageId: messageId);
 }
 
 /// Build a patch card with compact file list.
@@ -137,9 +113,4 @@ List<Todo> extractTodosFromTool(ToolCall tool) {
   } catch (e) {
     return [];
   }
-}
-
-/// Check if a tool can be undone (write operations).
-bool canUndoTool(String toolName) {
-  return toolName == 'write';
 }

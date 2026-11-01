@@ -30,9 +30,7 @@ function recordingSocket(): RecordingSocket {
 
 function newBridge() {
 	const state = createBridgeState({
-		opencode: null,
 		auth: { version: 1, token: "cc-live-test", createdAt: Date.now() },
-		webDistDir: "/tmp",
 		defaultAgent: "claude-code",
 		limits: createLimits(),
 		logInfo: () => {},

@@ -7,7 +7,7 @@ part of '../chat_provider.dart';
 /// Extracted from runtime_chat_ingest.dart.
 extension _RuntimePermissionHandler on ChatSessionNotifier {
   // ---------------------------------------------------------------------------
-  // Permission requested (unified across agents)
+  // Permission requested
   // ---------------------------------------------------------------------------
 
   void _handleRuntimePermissionRequested(
@@ -23,9 +23,8 @@ extension _RuntimePermissionHandler on ChatSessionNotifier {
     // Determine session ID
     final sessionId = event.sessionId ?? state.effectiveSessionId ?? '';
 
-    // CC AskUserQuestion: special permission that becomes a QuestionRequest
-    if (event.backend == AgentType.claudeCode &&
-        request.kind == 'AskUserQuestion') {
+    // AskUserQuestion: special permission that becomes a QuestionRequest
+    if (request.kind == 'AskUserQuestion') {
       _handleCcAskUserQuestion(event, sessionId);
       return;
     }
@@ -36,76 +35,15 @@ extension _RuntimePermissionHandler on ChatSessionNotifier {
       metadata.addAll(request.metadata!);
     }
 
-    // For CX, extract structured approval data from metadata
-    String? command;
-    String title = request.title ?? 'Permission required';
-    if (event.backend == AgentType.codex) {
-      command = _extractCxApprovalCommand(metadata);
-      // Use buildCodexApprovalTitle for CX approval requests
-      final method = metadata['method']?.toString() ?? request.kind ?? '';
-      if (method.contains('requestApproval')) {
-        title = buildCodexApprovalTitle(
-          method: method,
-          reason: metadata['reason'],
-          grantRoot: metadata['grantRoot'],
-          networkApprovalContext: metadata['networkApprovalContext'],
-          writableRoots: metadata['writableRoots'],
-          scope: metadata['scope'],
-          networkAccess: metadata['networkAccess'],
-        );
-      }
-    }
-
-    // For OC, extract additional fields
-    ToolReference? tool;
-    List<String> patterns = const [];
-    List<String> always = const [];
-    if (event.backend == AgentType.opencode) {
-      final toolData = metadata['tool'] as Map<String, dynamic>?;
-      tool = toolData != null ? ToolReference.fromJson(toolData) : null;
-      patterns =
-          (metadata['patterns'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
-          const [];
-      always =
-          (metadata['always'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
-          const [];
-      command ??= metadata['metadata'] is Map<String, dynamic>
-          ? (metadata['metadata'] as Map<String, dynamic>)['command'] as String?
-          : null;
-    }
-
     final permission = PermissionRequest(
       id: requestId,
       sessionId: sessionId,
-      title: title,
-      command: command,
-      permission: event.backend == AgentType.opencode
-          ? metadata['permission'] as String?
-          : request.kind,
-      patterns: patterns,
-      always: always,
-      tool: tool,
-      metadata: event.backend == AgentType.opencode
-          ? (metadata['metadata'] as Map<String, dynamic>? ?? metadata)
-          : metadata,
+      title: request.title ?? 'Permission required',
+      permission: request.kind,
+      metadata: metadata,
     );
 
     state = state.copyWith(permissions: [permission, ...state.permissions]);
-  }
-
-  String? _extractCxApprovalCommand(Map<String, dynamic> metadata) {
-    final cachedItem = metadata['cachedItem'];
-    if (cachedItem is Map<String, dynamic>) {
-      if (cachedItem['type'] == 'commandExecution') {
-        return cachedItem['command'] as String?;
-      }
-    }
-    return metadata['command'] as String? ??
-        metadata['approvalCommand'] as String?;
   }
 
   // ---------------------------------------------------------------------------
@@ -185,60 +123,6 @@ extension _RuntimePermissionHandler on ChatSessionNotifier {
         ),
       );
     }
-  }
-
-  // ---------------------------------------------------------------------------
-  // User input requested (CX + OC)
-  // ---------------------------------------------------------------------------
-
-  void _handleRuntimeUserInputRequested(RuntimeUserInputRequestedEvent event) {
-    final request = event.request;
-    final sessionId = event.sessionId ?? state.effectiveSessionId ?? '';
-
-    if (event.backend == AgentType.codex) {
-      // CX user input → set cxPendingUserInput
-      final requestId = request.requestId ?? '';
-      if (requestId.isEmpty) return;
-      // Dedup: skip if we already have pending CX input with this requestId
-      if (state.cxPendingUserInput?.requestId == requestId) return;
-      final metadata = request.metadata ?? <String, dynamic>{};
-      final cxRequest = CodexUserInputRequest.fromJson(
-        requestId,
-        sessionId,
-        metadata,
-      );
-      state = state.copyWith(cxPendingUserInput: cxRequest);
-      return;
-    }
-
-    if (event.backend == AgentType.opencode) {
-      // OC question → set pendingQuestion
-      _handleOcQuestionFromRuntime(event, sessionId);
-      return;
-    }
-  }
-
-  void _handleOcQuestionFromRuntime(
-    RuntimeUserInputRequestedEvent event,
-    String sessionId,
-  ) {
-    final request = event.request;
-    final requestId = request.requestId ?? '';
-    if (requestId.isEmpty) return;
-
-    final metadata = request.metadata ?? <String, dynamic>{};
-
-    // Build QuestionRequest from the OC question data in metadata
-    final questionRequest = QuestionRequest.fromJson({
-      'id': requestId,
-      'sessionID': sessionId,
-      ...metadata,
-    });
-
-    // Check for duplicates
-    if (state.pendingQuestion?.id == requestId) return;
-
-    state = state.copyWith(pendingQuestion: questionRequest);
   }
 
   // ---------------------------------------------------------------------------

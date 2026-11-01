@@ -10,28 +10,6 @@ export const SCENARIOS: ScenarioSpec[] = [
 	{ name: "startup-version", description: "spawn `bun src/index.ts version` -> exit" },
 	{ name: "module-load", description: "import ../src/server.ts, no server started" },
 	{
-		name: "codex-list-projects",
-		description: "cx_list_projects path: listProjectsFromFs + sqlite fallback",
-		requiresDatasets: ["codex-sessions"],
-	},
-	{ name: "codex-list-threads", description: "cx_list_threads sqlite path", requiresDatasets: ["codex-sessions"] },
-	{
-		name: "codex-enrich-stats",
-		description: "enrichThreadsWithStats over the 200 newest threads",
-		requiresDatasets: ["codex-sessions"],
-	},
-	{
-		name: "codex-read-largest-transcript",
-		description: "getThreadMessagesFromFs on the largest rollout",
-		requiresDatasets: ["codex-sessions"],
-	},
-	{
-		name: "open-chat-codex",
-		description:
-			"cx_get_thread_messages on the largest rollout: paged open vs the whole transcript (OPEN_CHAT_MODE=legacy)",
-		requiresDatasets: ["codex-sessions"],
-	},
-	{
 		name: "cc-list-sessions",
 		description: "claude-code listSessions() across all projects",
 		requiresDatasets: ["claude-code-projects"],

@@ -30,14 +30,13 @@ List<SessionNotice> withNotice(
       : next.sublist(next.length - maxSessionNotices);
 }
 
-/// The newest extension of each kind and window (contract §13): a turn diff
-/// replaces the last, each rate-limit window keeps its own.
+/// The newest extension of each kind and window (contract §13): each
+/// rate-limit window keeps its own.
 Map<String, BackendExtension> withExtension(
   Map<String, BackendExtension> extensions,
   BackendExtension extension,
 ) => {...extensions, extensionKey(extension): extension};
 
 String extensionKey(BackendExtension extension) => switch (extension) {
-  CodexTurnDiff() => 'turn_diff',
   RateLimitUpdate(:final window) => 'rate_limit:$window',
 };

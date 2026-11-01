@@ -8,8 +8,6 @@ import { hasPrototypePoisonKeys } from "../security";
 import { frameBytes } from "../transport/send-limits";
 import type { ClientMessage, ServerMessage } from "../types";
 import type { ContractSeam } from "./contract-seam";
-import { awaitOpenCode, needsOpenCode } from "./opencode-gate";
-import type { OpenCodeSlot } from "./opencode-slot";
 
 export type MessageHandlerDeps = {
 	registry: RouteRegistry;
@@ -17,10 +15,6 @@ export type MessageHandlerDeps = {
 	send: (ws: ServerWebSocket<unknown>, message: ServerMessage) => void;
 	maxBatchSize: number;
 	getSecurePath: (path: string) => Promise<string | null>;
-	/** The backend a managed start may still be bringing up, for the requests that need it. */
-	opencode: OpenCodeSlot;
-	/** How long one of those requests waits for it. */
-	opencodeReadyTimeoutMs?: number;
 	contract: ContractSeam;
 };
 
@@ -39,17 +33,9 @@ export function createMessageHandler(
 			return;
 		}
 
-		if (needsOpenCode(message.type)) {
-			const ready = await awaitOpenCode(deps.opencode, deps.opencodeReadyTimeoutMs);
-			if (!ready.ok) {
-				reply({ type: "error", message: ready.error, requestId: message.requestId });
-				return;
-			}
-		}
-
 		// Security: never trust client-supplied filesystem roots.
 		// Many message types accept `cwd` / `projectPath` and downstream SDKs
-		// (Codex/OpenCode/Claude Code) will happily use whatever we pass.
+		// (Claude Code) will happily use whatever we pass.
 		// We canonicalize to a real path and enforce the allowed-base allowlist.
 		const rawCwd = (message as unknown as Record<string, unknown>).cwd;
 		if (typeof rawCwd === "string" && rawCwd.trim()) {

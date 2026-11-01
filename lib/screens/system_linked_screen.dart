@@ -55,65 +55,30 @@ class _SystemLinkedScreenState extends ConsumerState<SystemLinkedScreen>
 
   Future<void> _loadStats() async {
     final bridge = ref.read(bridgeServiceProvider);
-    final reads = <BackendRead>[
-      await _readOpenCode(bridge),
-      await _readBackend(
-        name: 'Claude Code',
-        projects: () => bridge.ccListProjects(),
-        sessions: (path) async =>
-            (await bridge.ccListSessions(cwd: path)).length,
-      ),
-      await _readBackend(
-        name: 'Codex',
-        projects: () => bridge.cxListProjects(),
-        sessions: (path) async =>
-            (await bridge.cxListThreads(cwd: path)).length,
-      ),
-    ];
+    final read = await _readBackend(
+      name: 'Claude Code',
+      projects: () => bridge.ccListProjects(),
+      sessions: (path) async => (await bridge.ccListSessions(cwd: path)).length,
+    );
+    final agents = await _agentCount(bridge);
     if (!mounted) return;
     setState(() {
-      _counts = LinkedMachineCounts.combine(reads);
+      _counts = LinkedMachineCounts.combine([
+        BackendRead(
+          name: read.name,
+          projectPaths: read.projectPaths,
+          sessions: read.sessions,
+          agents: agents,
+          failure: read.failure,
+        ),
+      ]);
       _loaded = true;
     });
   }
 
-  /// OpenCode is the one backend with subagents, so its read is the one that
-  /// counts them.
-  Future<BackendRead> _readOpenCode(BridgeService bridge) async {
+  Future<int> _agentCount(BridgeService bridge) async {
     try {
-      final projects = await bridge.listProjects();
-      var sessions = 0;
-      for (final project in projects) {
-        try {
-          sessions += (await bridge.listSessions(
-            projectPath: project.path,
-          )).length;
-        } on Object catch (error) {
-          return BackendRead(
-            name: 'OpenCode',
-            projectPaths: [for (final project in projects) project.path],
-            sessions: sessions,
-            failure: 'sessions: $error',
-          );
-        }
-      }
-      final agents = projects.isEmpty
-          ? 0
-          : await _agentCount(bridge, projects.first.path);
-      return BackendRead(
-        name: 'OpenCode',
-        projectPaths: [for (final project in projects) project.path],
-        sessions: sessions,
-        agents: agents,
-      );
-    } on Object catch (error) {
-      return BackendRead(name: 'OpenCode', failure: '$error');
-    }
-  }
-
-  Future<int> _agentCount(BridgeService bridge, String projectPath) async {
-    try {
-      return (await bridge.listAgents(projectPath: projectPath)).length;
+      return (await bridge.ccListAgents()).length;
     } on Object {
       return 0;
     }

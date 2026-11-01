@@ -1,10 +1,9 @@
 import type { ServerWebSocket } from "bun";
 import { maybeSynthesizeAskUserQuestion } from "../handlers/cc_ask_user_question";
 import { mapClaudeCodeStreamToRuntimeEvent } from "../runtime/claude-code-runtime-event-mapper";
-import { mapCodexStreamToRuntimeEvent } from "../runtime/codex-runtime-event-mapper";
 import { RuntimeEventCoalescer } from "../transport/runtime-event-coalescer";
 import { deliverRuntimeEvent } from "../transport/session-delivery";
-import type { AgentType, ClaudeCodeStreamMessage, CodexStreamMessage, ServerMessage } from "../types";
+import type { AgentType, ClaudeCodeStreamMessage, ServerMessage } from "../types";
 import { recordRuntimeEvent, replayRuntimeEventsSince } from "../utils/runtime-replay-buffer";
 import type { LeveledLogger } from "./logger";
 import { observeRuntimeEvent } from "./runtime-observers";
@@ -28,7 +27,6 @@ export type Streams = {
 		streamMessage: ClaudeCodeStreamMessage,
 		owner?: ServerWebSocket<unknown> | null,
 	) => void;
-	emitCxStream: (threadId: string, streamMessage: CodexStreamMessage, owner?: ServerWebSocket<unknown> | null) => void;
 	replayRuntimeEventsForSocket: (params: ReplayParams) => number;
 };
 
@@ -53,15 +51,9 @@ export function createStreams(deps: StreamsDeps): Streams {
 		if (message.type !== "runtime_event") return;
 		const sessionId = message.data.sessionId;
 		const key = makeSessionKey(message.backend, sessionId);
-		const ownerMap =
-			message.backend === "claude-code"
-				? state.ccSessionOwners
-				: message.backend === "codex"
-					? state.cxThreadOwners
-					: null;
 		deliverRuntimeEvent({
 			message,
-			owner: owner ?? (ownerMap && sessionId ? ownerMap.get(sessionId) : null),
+			owner: owner ?? (sessionId ? state.ccSessionOwners.get(sessionId) : null),
 			viewers: key ? state.sessionWatchers.get(key) : undefined,
 			sockets: state.sockets,
 			send,
@@ -134,40 +126,11 @@ export function createStreams(deps: StreamsDeps): Streams {
 		);
 	};
 
-	const emitCxStream = (
-		threadId: string,
-		streamMsg: CodexStreamMessage,
-		owner?: ServerWebSocket<unknown> | null,
-	): void => {
-		if (deps.debugRts) {
-			const msgType = "type" in streamMsg ? String((streamMsg as Record<string, unknown>).type) : "unknown";
-			const resolvedOwner = owner ?? state.cxThreadOwners.get(threadId) ?? null;
-			deps.log.logDebug(`[RTS] emitCxStream: thread=${threadId}, msgType=${msgType}, owner=${!!resolvedOwner}`);
-		}
-
-		const runtimeEvent = mapCodexStreamToRuntimeEvent(streamMsg, {
-			backend: "codex",
-			threadId,
-			cwd: state.cxThreadCwds.get(threadId),
-		});
-		if (!runtimeEvent) return;
-
-		runtimeCoalescer.push(
-			{
-				type: "runtime_event",
-				backend: "codex",
-				data: runtimeEvent,
-			},
-			owner,
-		);
-	};
-
 	return {
 		send,
 		broadcast,
 		deliverRuntimeEventMessage,
 		emitCcStream,
-		emitCxStream,
 		replayRuntimeEventsForSocket,
 	};
 }

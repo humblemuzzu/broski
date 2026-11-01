@@ -1,4 +1,3 @@
-import 'package:broski/models/codex.dart';
 import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/services/bridge_service.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -47,48 +46,9 @@ void main() {
 
       expect(chat.state.messages.map((m) => m.id), ['cc-old']);
     });
-
-    test('a Codex page is dropped once another thread is open', () {
-      chat.setCodexThread(threadId: 'A', cwd: '/p');
-      chat.setTranscriptCursor('cursor-a');
-      chat.setCodexThread(threadId: 'B', cwd: '/p');
-
-      chat.prependCodexTranscript([
-        const CodexTranscriptMessage(
-          id: 'cx-old',
-          role: 'user',
-          createdAt: 1,
-          text: 'belongs to A',
-        ),
-      ], threadId: 'A');
-
-      expect(chat.state.messages, isEmpty);
-      expect(chat.transcriptCursor, isNull);
-    });
   });
 
   group('page contents', () {
-    test('a page repeating an id is prepended once', () {
-      chat.setCodexThread(threadId: 't1', cwd: '/p');
-
-      chat.prependCodexTranscript([
-        const CodexTranscriptMessage(
-          id: 'dup',
-          role: 'user',
-          createdAt: 1,
-          text: 'once',
-        ),
-        const CodexTranscriptMessage(
-          id: 'dup',
-          role: 'user',
-          createdAt: 1,
-          text: 'once',
-        ),
-      ], threadId: 't1');
-
-      expect(chat.state.messages.map((m) => m.id), ['dup']);
-    });
-
     test('a Claude Code page repeating an id is prepended once', () {
       chat.setCCSession(sessionId: 'A', cwd: '/p');
 

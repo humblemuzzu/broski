@@ -206,7 +206,7 @@ class MessageBubble extends StatelessWidget {
   }
 
   Widget _buildAssistantMessage(BuildContext context, OpenCodeTheme theme) {
-    // Feature 6/CodeX: Long press actions
+    // Long press actions
     return GestureDetector(
       onLongPress:
           (onForkFromHere != null ||

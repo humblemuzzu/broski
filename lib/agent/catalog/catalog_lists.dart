@@ -9,7 +9,7 @@ import 'package:broski/contract/generated/contract.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// A backend's list for one directory; some backends answer per directory
-/// (OpenCode agents, contract §11.5).
+/// (contract §11.5).
 typedef CatalogKey = ({BackendId backend, String? cwd});
 
 /// What `commands.list` is asked for: a directory and, once there is one,

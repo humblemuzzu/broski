@@ -1,6 +1,6 @@
 # broski
 
-Bridge server connecting [Broski](https://github.com/humblemuzzu/broski) mobile app to AI coding agents (OpenCode, Claude Code, Codex).
+Bridge server connecting [Broski](https://github.com/humblemuzzu/broski) mobile app to AI coding agents (Claude Code, Pi).
 
 **Vibe code from anywhere.** Control your AI coding agents from your phone - even with your Mac lid closed.
 
@@ -53,7 +53,7 @@ broski uninstall
 ## Usage
 
 ```bash
-# Start the bridge in the foreground (spawns OpenCode automatically)
+# Start the bridge in the foreground
 broski
 
 # Show a pairing QR for your phone
@@ -62,9 +62,6 @@ broski-link pair
 # List and revoke paired phones
 broski-link devices
 broski-link revoke <device id prefix>
-
-# Connect to specific OpenCode URL
-broski --opencode-url http://localhost:4096
 
 # Custom loopback port
 broski --port 8080
@@ -79,7 +76,7 @@ broski doctor
 ## What it does
 
 1. Serves the Broski app protocol to `broski-link` over a Unix socket (`~/.broski/link/bridge.sock`)
-2. Spawns and manages AI agent servers (OpenCode, Claude Code, Codex, Pi)
+2. Runs the AI agents through their SDKs (Claude Code, Pi)
 3. Bridges messages between the Broski app and the AI agents
 4. Handles file operations, permissions, and event streaming
 5. Listens on `127.0.0.1` only, for the agent permission hooks, the dashboard and `/proxy/<port>`
@@ -97,12 +94,11 @@ The relay is blind: it forwards encrypted frames and cannot read them. See `docs
 
 ## Requirements
 
-- [Bun](https://bun.sh) 1.0+
+- [Bun](https://bun.sh) 1.4.2+
 - macOS or Linux (Windows is not supported)
 - One of:
-  - [OpenCode](https://github.com/opencode-ai/opencode)
   - [Claude Code](https://github.com/anthropics/claude-code)
-  - [Codex](https://github.com/openai/codex)
+  - [Pi](https://github.com/mariozechner/pi-coding-agent)
 
 ## Security
 
@@ -119,8 +115,8 @@ The bridge reads `~/.broski/config.json`. See `src/config/schema.ts` for the ful
 
 A bridge started by the service inherits almost nothing: launchd and systemd hand it a `PATH` and a `HOME`, and
 nothing from `~/.zshrc`. So at startup the bridge asks your login shell for its environment once (one interactive
-`env -0` through `zsh`/`bash`/`fish`, 10 s timeout) and runs every agent with it — Claude Code, Codex, OpenCode,
-Pi, Pi Durable and every terminal opened from the phone.
+`env -0` through `zsh`/`bash`/`fish`, 10 s timeout) and runs every agent with it — Claude Code, Pi and every
+terminal opened from the phone.
 
 That means provider keys, `~/.local/bin` and version-manager shims exported in your shell profile work from the
 app exactly as they do in your terminal.
@@ -139,7 +135,7 @@ app exactly as they do in your terminal.
 names the provider variables it finds; compare that with `pi --list-models` in your terminal. If they differ, check
 `~/.broski/logs/bridge.log` for the `[shell-env]` line.
 
-**`Ensure OpenCode is installed and on PATH`.** Same cause: `~/.local/bin`, `~/.npm-global/bin` or a version
+**An agent CLI is not found.** Same cause: `~/.local/bin`, `~/.npm-global/bin` or a version
 manager's shims were not on the service's `PATH`. The login-shell import puts them there; restart the bridge.
 
 **A provider row says "No API key — set X".** That `X` is the environment variable Pi's own auth check reads for
@@ -162,15 +158,14 @@ bun test                   # Bun test runner
 bun scripts/measure-session-lists.ts
 ```
 
-`measure-session-lists.ts` is read-only: it never writes to `~/.broski`, `~/.claude` or `~/.codex`, stops
-if the process passes 2 GiB RSS, and prints the full-list and first-page size of `cc_sessions`, `cx_threads`, `sessions`
-(OpenCode) and the `runtime_sessions` shape each one used to send whole. A backend that is not
+`measure-session-lists.ts` is read-only: it never writes to `~/.broski` or `~/.claude`, stops
+if the process passes 2 GiB RSS, and prints the full-list and first-page size of `cc_sessions` and the
+`runtime_sessions` shape it used to send whole. A backend that is not
 installed is reported and skipped.
 
 ## Links
 
 - [Broski App](https://github.com/humblemuzzu/broski)
-- [OpenCode](https://github.com/opencode-ai/opencode)
 - [Documentation](https://github.com/humblemuzzu/broski#readme)
 
 ## License

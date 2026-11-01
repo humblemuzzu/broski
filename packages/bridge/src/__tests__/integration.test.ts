@@ -19,9 +19,8 @@ describe("Setup Wizard Integration", () => {
 		expect(typeof config.wizard.completedSetup).toBe("boolean");
 		expect(typeof config.network.port).toBe("number");
 		expect(typeof config.security.tls).toBe("boolean");
-		expect(typeof config.agents.opencode).toBe("boolean");
 		expect(typeof config.agents.claudeCode).toBe("boolean");
-		expect(typeof config.agents.codex).toBe("boolean");
+		expect(typeof config.agents.pi).toBe("boolean");
 		expect(typeof config.daemon.installed).toBe("boolean");
 		expect(typeof config.daemon.type).toBe("string");
 	});
@@ -40,7 +39,7 @@ describe("Setup Wizard Integration", () => {
 	test("agent configuration allows at least one enabled", () => {
 		const config = getDefaultConfig();
 
-		const enabledAgents = [config.agents.opencode, config.agents.claudeCode, config.agents.codex].filter(Boolean);
+		const enabledAgents = [config.agents.claudeCode, config.agents.pi].filter(Boolean);
 
 		// At least one agent should be enabled by default
 		expect(enabledAgents.length).toBeGreaterThan(0);
@@ -150,7 +149,7 @@ describe("End-to-End Configuration Flow", () => {
 	test("wizard result types create valid config", () => {
 		// Simulate results from each wizard step
 		const mockWelcomeResult = { action: "continue" as const };
-		const mockAgentsResult = { opencode: true, claudeCode: false, codex: true };
+		const mockAgentsResult = { claudeCode: true, pi: true };
 		const mockNetworkResult = { port: 8080 };
 		const mockSecurityResult = { tls: true };
 		const mockDaemonResult = { installed: true, type: "systemd" as const };
@@ -158,9 +157,8 @@ describe("End-to-End Configuration Flow", () => {
 		// Verify each result type is valid
 		expect(["continue", "modify", "reset", "keep"].includes(mockWelcomeResult.action)).toBe(true);
 
-		expect(typeof mockAgentsResult.opencode).toBe("boolean");
 		expect(typeof mockAgentsResult.claudeCode).toBe("boolean");
-		expect(typeof mockAgentsResult.codex).toBe("boolean");
+		expect(typeof mockAgentsResult.pi).toBe("boolean");
 
 		expect(typeof mockNetworkResult.port).toBe("number");
 
@@ -185,9 +183,8 @@ describe("End-to-End Configuration Flow", () => {
 				verifyCodeSignature: true,
 			},
 			agents: {
-				opencode: mockAgentsResult.opencode,
 				claudeCode: mockAgentsResult.claudeCode,
-				codex: mockAgentsResult.codex,
+				pi: mockAgentsResult.pi,
 			},
 			daemon: {
 				installed: mockDaemonResult.installed,
@@ -200,8 +197,8 @@ describe("End-to-End Configuration Flow", () => {
 		expect(finalConfig.wizard.completedSetup).toBe(true);
 		expect(finalConfig.network.port).toBe(8080);
 		expect(finalConfig.security.tls).toBe(true);
-		expect(finalConfig.agents.opencode).toBe(true);
-		expect(finalConfig.agents.codex).toBe(true);
+		expect(finalConfig.agents.claudeCode).toBe(true);
+		expect(finalConfig.agents.pi).toBe(true);
 		expect(finalConfig.daemon.type).toBe("systemd");
 	});
 });

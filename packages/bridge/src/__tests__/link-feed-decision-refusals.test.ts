@@ -42,15 +42,15 @@ describe("decisions that cannot be applied", () => {
 	test("a request that needs an answer, not a decision, is refused with unsupported", async () => {
 		const feed = await openFeed(h.socketPath);
 		try {
-			h.ocStream("question.asked", {
-				id: "oc-q-dec",
-				sessionID: "oc-q-dec",
-				title: "Pick one",
-				prompt: "Which environment?",
-			});
-			await h.alertFor(feed, "opencode", "oc-q-dec");
+			h.inputRequest("cc-input-dec", { requestId: "cc-input-1", title: "Pick one", prompt: "Which environment?" });
+			await h.alertFor(feed, "claude-code", "cc-input-dec");
 			expect(
-				await h.decide(feed, { backend: "opencode", session: "oc-q-dec", request: "oc-q-dec", decision: "allow" }),
+				await h.decide(feed, {
+					backend: "claude-code",
+					session: "cc-input-dec",
+					request: "cc-input-1",
+					decision: "allow",
+				}),
 			).toMatchObject({ ok: false, error: "unsupported" });
 
 			h.ccStream(

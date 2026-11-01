@@ -1,7 +1,6 @@
 import type { ServerWebSocket } from "bun";
 import { startClaudeCodeExternalTail as _startClaudeCodeExternalTail } from "../cc-external-tail";
 import * as claudeCode from "../connectors/claude-code";
-import { startCodexExternalTail as _startCodexExternalTail } from "../cx-external-tail";
 import type { AgentType, ServerMessage } from "../types";
 import type { LeveledLogger } from "./logger";
 import { makeSessionKey, parseSessionKey } from "./session-keys";
@@ -19,7 +18,6 @@ export type Sessions = {
 		owner?: ServerWebSocket<unknown> | null,
 	) => void;
 	stopCcExternalTail: (sessionId: string) => void;
-	stopCxExternalTail: (threadId: string) => void;
 };
 
 export type SessionsDeps = {
@@ -48,7 +46,6 @@ export function createSessions(deps: SessionsDeps): Sessions {
 		map.delete(id);
 	};
 	const stopCcExternalTail = (sessionId: string): void => stopExternalTail(state.ccExternalTails, sessionId);
-	const stopCxExternalTail = (threadId: string): void => stopExternalTail(state.cxExternalTails, threadId);
 
 	const broadcastRaw = deps.streams.broadcast as (message: Record<string, unknown>) => void;
 
@@ -56,16 +53,6 @@ export function createSessions(deps: SessionsDeps): Sessions {
 		return _startClaudeCodeExternalTail(sessionId, {
 			claudeCode,
 			emitCcStream: deps.streams.emitCcStream,
-			broadcastRaw,
-			safeString,
-			logDebug: deps.log.logDebug,
-			DEBUG_RTS: deps.debugRts,
-		});
-	};
-
-	const startCodexExternalTail = (threadId: string): { stop: () => void } => {
-		return _startCodexExternalTail(threadId, {
-			emitCxStream: deps.streams.emitCxStream,
 			broadcastRaw,
 			safeString,
 			logDebug: deps.log.logDebug,
@@ -98,27 +85,6 @@ export function createSessions(deps: SessionsDeps): Sessions {
 				}
 			} else {
 				stopCcExternalTail(id);
-			}
-			return;
-		}
-
-		if (agent === "codex") {
-			const owner = state.cxThreadOwners.get(id) ?? null;
-			const shouldRun = watcherCount > 0 && !owner;
-			if (deps.debugRts) {
-				deps.log.logDebug(
-					`[RTS] syncExternalTail(CX): id=${id}, watchers=${watcherCount}, owner=${!!owner}, shouldRun=${shouldRun}, alreadyRunning=${state.cxExternalTails.has(id)}`,
-				);
-			}
-			if (shouldRun) {
-				if (!state.cxExternalTails.has(id)) {
-					if (deps.debugRts) {
-						deps.log.logDebug(`[RTS] Starting Codex external tail for thread ${id}`);
-					}
-					state.cxExternalTails.set(id, startCodexExternalTail(id));
-				}
-			} else {
-				stopCxExternalTail(id);
 			}
 			return;
 		}
@@ -169,6 +135,5 @@ export function createSessions(deps: SessionsDeps): Sessions {
 		syncExternalTailForKey,
 		broadcastToSessionWatchers,
 		stopCcExternalTail,
-		stopCxExternalTail,
 	};
 }

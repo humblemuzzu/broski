@@ -40,7 +40,7 @@ async function _writeImageAttachmentToDisk(cwd: string, attachment: FileAttachme
 }
 
 /**
- * Claude Code SDK doesn't have a first-class "attachments" parameter like OpenCode.
+ * Claude Code SDK doesn't have a first-class "attachments" parameter.
  * To support Broski's attachment UX, we:
  * - Pass file paths as explicit references in the prompt (Claude can Read them)
  * - Persist mobile-picked images to disk under the session cwd and reference them

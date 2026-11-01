@@ -5,7 +5,7 @@
  * Bun resolves the home directory from the initial environment and caches it, so a process that
  * inherits the real `HOME` cannot be redirected by assigning `process.env.HOME` later. The real home
  * is captured into `BROSKI_REAL_HOME` before anything moves `HOME`; without that capture it falls
- * back to `os.userInfo().homedir`. The hook installers write into `~/.claude` and `~/.codex`, so a
+ * back to `os.userInfo().homedir`. The hook installer writes into `~/.claude`, so a
  * scenario started without a temp home used to edit the developer's live settings.
  */
 

@@ -22,7 +22,7 @@ const SAMPLE_MS = 500;
 const STEP_MS = 25;
 const MIN_SESSION_SWITCHES = Math.max(50, Math.floor(DURATION_MS / STEP_MS / 2));
 const EVENT_EVERY = 8;
-const AGENTS: BroskiBackend[] = ["codex", "claude-code", "opencode"];
+const AGENTS: BroskiBackend[] = ["claude-code"];
 const HOT_SESSION_ID = "soak-hot-session";
 
 function emitRuntimeEvent(index: number): void {

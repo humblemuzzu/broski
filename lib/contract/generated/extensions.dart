@@ -6,48 +6,24 @@ part of 'contract.dart';
 sealed class BackendExtension {
   factory BackendExtension.fromJson(Map<String, Object?> json) =>
       switch (json['kind']) {
-        'turn_diff' => CodexTurnDiff.fromJson(json),
         'rate_limit' => RateLimitUpdate.fromJson(json),
         final tag => throw FormatException(
           'Unknown BackendExtension kind: $tag',
         ),
       };
 
+  String get window;
+
+  RateLimitStatus? get status;
+
+  double? get usedPercent;
+
+  Timestamp? get resetsAt;
+
   Map<String, Object?> toJson();
 }
 
-final class CodexTurnDiff implements BackendExtension {
-  const CodexTurnDiff({required this.diff});
-
-  factory CodexTurnDiff.fromJson(Map<String, Object?> json) {
-    _expectShape(
-      json,
-      'CodexTurnDiff',
-      const <String>{'kind', 'diff'},
-      const <String, String>{'kind': 'turn_diff'},
-    );
-    return CodexTurnDiff(diff: _as<String>(json['diff'], 'CodexTurnDiff.diff'));
-  }
-
-  final String diff;
-
-  @override
-  Map<String, Object?> toJson() => {'kind': 'turn_diff', 'diff': diff};
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is CodexTurnDiff && _equal(diff, other.diff);
-
-  @override
-  int get hashCode => Object.hashAll([_hash(diff)]);
-
-  @override
-  String toString() => 'CodexTurnDiff(diff: $diff)';
-}
-
 enum ExtensionKind {
-  turnDiff('turn_diff'),
   rateLimit('rate_limit');
 
   const ExtensionKind(this.wire);
@@ -113,9 +89,13 @@ final class RateLimitUpdate implements BackendExtension {
     );
   }
 
+  @override
   final String window;
+  @override
   final RateLimitStatus? status;
+  @override
   final double? usedPercent;
+  @override
   final Timestamp? resetsAt;
 
   @override

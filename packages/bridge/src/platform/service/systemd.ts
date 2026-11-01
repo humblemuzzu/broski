@@ -38,7 +38,7 @@ ExecStart=${execStart}
 Restart=on-failure
 RestartSec=5
 Environment=HOME=%h
-Environment=PATH=/usr/local/bin:/usr/bin:/bin:%h/.local/bin:%h/.bun/bin:%h/.opencode/bin
+Environment=PATH=/usr/local/bin:/usr/bin:/bin:%h/.local/bin:%h/.bun/bin
 
 StandardOutput=append:${logFile}
 StandardError=append:${logFile}

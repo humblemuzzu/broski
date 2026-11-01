@@ -5,7 +5,7 @@ function id() {
 	return z.string().min(1).max(MAX_ID_CHARS);
 }
 
-export const BackendId = z.enum(["claude-code", "codex", "opencode", "pi", "pi-durable"]);
+export const BackendId = z.enum(["claude-code", "pi", "pi-durable"]);
 export type BackendId = z.infer<typeof BackendId>;
 
 /** Milliseconds since the Unix epoch. */

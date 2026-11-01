@@ -118,8 +118,8 @@ export default function SecurityPage() {
 
         <p className="text-muted-foreground mb-4">
           The bridge server runs in your terminal on your own machine. It
-          translates between your phone and the AI agent (Claude Code, OpenCode,
-          or Codex) running locally. At no point does any of this traffic pass
+          translates between your phone and the AI agent (Claude Code or Pi)
+          running locally. At no point does any of this traffic pass
           through a Broski-operated server.
         </p>
 
@@ -220,7 +220,7 @@ export default function SecurityPage() {
               </li>
             </ul>
             <p className="text-xs text-muted-foreground mt-3">
-              This is handled by the AI agent (Claude Code, OpenCode, Codex) on
+              This is handled by the AI agent (Claude Code, Pi) on
               your system &mdash; exactly the same data that would be sent if you
               used the agent directly in your terminal. Broski doesn&apos;t add
               anything extra.
@@ -548,7 +548,7 @@ export default function SecurityPage() {
           </code>
           , all with restricted file permissions (owner read/write only). Your AI
           agent&apos;s credentials stay in their own secure storage (the OS keychain (macOS
-          Keychain, Windows Credential Manager, or Linux keyring) for Claude Code, config files for OpenCode).
+          Keychain or Linux keyring) for Claude Code, <code>~/.pi/agent/auth.json</code> for Pi).
         </p>
       </section>
 

@@ -96,7 +96,7 @@ describe("the session paging rule fails", () => {
 
 	test("for a row of another backend", () =>
 		fails(
-			rows((items) => items.map((row) => ({ ...row, session: { ...row.session, backend: "codex" } }))),
+			rows((items) => items.map((row) => ({ ...row, session: { ...row.session, backend: "claude-code" } }))),
 			sessionPagesConcatenate,
 			/not a valid summary of this backend/,
 		));

@@ -46,7 +46,6 @@ export type CcChatHandlerContext = {
 		streamMsg: ClaudeCodeStreamMessage,
 		owner?: ServerWebSocket<unknown> | null,
 	) => void;
-	enqueueSdkEvent: (event: unknown) => void;
 	syncExternalTailForKey: (key: string | null) => void;
 	makeSessionKey: (agent: any, sessionId: any) => string | null;
 };
@@ -71,7 +70,6 @@ export function register(router: MessageRouter, deps: ServerDeps): void {
 		buildClaudeCodeRuntimeState: deps.buildClaudeCodeRuntimeState,
 		broadcastToSessionWatchers: deps.broadcastToSessionWatchers,
 		emitCcStream: deps.emitCcStream,
-		enqueueSdkEvent: deps.enqueueSdkEvent,
 		syncExternalTailForKey: deps.syncExternalTailForKey,
 		makeSessionKey: deps.makeSessionKey,
 	}));
@@ -99,7 +97,6 @@ export async function handleCcChat(
 		buildClaudeCodeRuntimeState,
 		broadcastToSessionWatchers,
 		emitCcStream,
-		enqueueSdkEvent,
 		syncExternalTailForKey,
 		makeSessionKey,
 	} = ctx;
@@ -163,17 +160,6 @@ export async function handleCcChat(
 			send(owner, runtimeStatePayload);
 		}
 		broadcastToSessionWatchers("claude-code", sessionId, runtimeStatePayload, owner);
-		// Broadcast idle to all watchers, not just the owner.
-		// On reconnect the owner may have changed; on disconnect the
-		// owner may be gone — enqueueSdkEvent handles both cases.
-		enqueueSdkEvent({
-			payload: {
-				type: "session.idle",
-				properties: {
-					sessionID: sessionId,
-				},
-			},
-		});
 	};
 
 	const available = await claudeCode.checkClaudeCodeAvailable();

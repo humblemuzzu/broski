@@ -40,9 +40,6 @@ BROSKI_PORT=8080 broski --port 9090
             ["Bridge Loopback Port", "--port", "BROSKI_PORT", "18274"],
             ["Loopback TLS", "--tls / --no-tls", "BROSKI_TLS", "enabled"],
             ["New Local Hook Token", "--new-token", "-", "false"],
-            ["OpenCode URL", "--opencode-url", "OPENCODE_BASE_URL", "-"],
-            ["OpenCode Hostname", "--opencode-hostname", "BROSKI_OPENCODE_HOSTNAME", "127.0.0.1"],
-            ["OpenCode Port", "--opencode-port", "BROSKI_OPENCODE_PORT", "0 (random)"],
           ]}
         />
       </section>
@@ -132,34 +129,6 @@ broski --port 0`}</CodeBlock>
         </div>
       </section>
 
-      {/* OpenCode Mode Options */}
-      <section className="mb-12">
-        <h2 id="opencode-modes" className="text-2xl font-semibold mb-4">OpenCode Mode Options</h2>
-        <p className="text-muted-foreground mb-4">Broski can connect to OpenCode in three modes:</p>
-        
-        <div className="space-y-6">
-          <div className="border border-border rounded-lg p-4">
-            <h3 className="font-mono font-medium mb-2">--managed (default)</h3>
-            <p className="text-muted-foreground text-sm mb-3">Let Broski start and manage an OpenCode server.</p>
-            <ul className="text-sm text-muted-foreground space-y-1">
-              <li>Broski starts OpenCode on a random port</li>
-              <li>Automatically restarts if OpenCode crashes</li>
-              <li>OpenCode stops when Broski stops</li>
-            </ul>
-          </div>
-
-          <div className="border border-border rounded-lg p-4">
-            <h3 className="font-mono font-medium mb-2">--manual</h3>
-            <p className="text-muted-foreground text-sm mb-3">Connect to an existing OpenCode server (requires URL).</p>
-            <CodeBlock language="bash">{`# Manual mode with explicit URL
-broski --manual --opencode-url http://localhost:4096
-
-# Via environment variable
-OPENCODE_BASE_URL=http://localhost:4096 broski`}</CodeBlock>
-          </div>
-        </div>
-      </section>
-
       {/* Configuration Files */}
       <section className="mb-12">
         <h2 id="config-files" className="text-2xl font-semibold mb-4">Configuration Files</h2>
@@ -181,7 +150,7 @@ OPENCODE_BASE_URL=http://localhost:4096 broski`}</CodeBlock>
 
           <div className="border border-border rounded-lg p-4">
             <h3 className="font-mono font-medium mb-2">~/.broski/token.json</h3>
-            <p className="text-muted-foreground text-sm mb-3">Local bearer token for the bridge&apos;s loopback listener, used by the Claude Code and Codex permission hooks.</p>
+            <p className="text-muted-foreground text-sm mb-3">Local bearer token for the bridge&apos;s loopback listener, used by the Claude Code permission hook.</p>
             <SimpleTable
               headers={["Property", "Value"]}
               rows={[
@@ -247,22 +216,12 @@ OPENCODE_BASE_URL=http://localhost:4096 broski`}</CodeBlock>
           ]}
         />
 
-        <h3 className="text-lg font-medium mb-3 mt-6">OpenCode Variables</h3>
-        <SimpleTable
-          headers={["Variable", "Type", "Default", "Description"]}
-          rows={[
-            ["OPENCODE_BASE_URL", "string", "-", "URL of existing OpenCode server"],
-            ["BROSKI_OPENCODE_HOSTNAME", "string", "127.0.0.1", "Hostname for managed OpenCode"],
-            ["BROSKI_OPENCODE_PORT", "number", "0", "Port for managed OpenCode (0 = random)"],
-          ]}
-        />
-
         <h3 className="text-lg font-medium mb-3 mt-6">AI Provider Variables</h3>
         <SimpleTable
           headers={["Variable", "Type", "Description"]}
           rows={[
             ["ANTHROPIC_API_KEY", "string", "Anthropic API key for Claude Code"],
-            ["OPENAI_API_KEY", "string", "OpenAI API key for Codex/GPT models"],
+            ["OPENAI_API_KEY", "string", "OpenAI API key for Pi's OpenAI models"],
           ]}
         />
       </section>
@@ -275,7 +234,7 @@ OPENCODE_BASE_URL=http://localhost:4096 broski`}</CodeBlock>
           <div className="border border-border rounded-lg p-4">
             <h4 className="font-medium mb-2">Minimal Setup</h4>
             <CodeBlock language="bash">{`broski`}</CodeBlock>
-            <p className="text-sm text-muted-foreground mt-2">Uses all defaults: loopback port 18274, managed OpenCode.</p>
+            <p className="text-sm text-muted-foreground mt-2">Uses all defaults: loopback port 18274.</p>
           </div>
 
           <div className="border border-border rounded-lg p-4">
@@ -288,15 +247,6 @@ OPENCODE_BASE_URL=http://localhost:4096 broski`}</CodeBlock>
             <CodeBlock language="bash">{`broski install
 broski-link pair`}</CodeBlock>
             <p className="text-sm text-muted-foreground mt-2">Starts Broski Link and shows a QR code for the Broski app.</p>
-          </div>
-
-          <div className="border border-border rounded-lg p-4">
-            <h4 className="font-medium mb-2">Manual OpenCode Connection</h4>
-            <CodeBlock language="bash">{`# Start OpenCode separately
-opencode serve --port 4096
-
-# Connect Broski to it
-broski --opencode-url http://localhost:4096`}</CodeBlock>
           </div>
 
           <div className="border border-border rounded-lg p-4">
@@ -335,7 +285,6 @@ broski`}</CodeBlock>
           headers={["Issue", "Cause", "Fix"]}
           rows={[
             ["Port in use", "Another broski or process running", "Kill process or use --port 0"],
-            ["Connection refused", "Wrong OpenCode URL", "Check URL with curl <url>/path"],
             ["Agent hooks get 401", "Stale local hook token", "Restart the bridge, or run broski --new-token"],
             ["Claude Code unavailable", "Missing API key", "Set ANTHROPIC_API_KEY or run claude login"],
             ["QR code not scanning", "QR expired or already used", "Run broski-link pair for a new one"],

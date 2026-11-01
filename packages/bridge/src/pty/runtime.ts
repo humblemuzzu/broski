@@ -30,9 +30,7 @@ export class PtyRuntime {
 	private readonly log: RuntimeDeps["log"];
 	private readonly resolveSecurePath: RuntimeDeps["resolveSecurePath"];
 
-	private readonly ptyConnections = new Map<string, WebSocket>();
 	private readonly nativeConnections = new Map<string, NativePtyConnection>();
-	private readonly connecting = new Set<string>();
 	private readonly ptyListeners = new Map<string, Set<ServerWebSocket<unknown>>>();
 	private readonly ptyOutputBuffers = new Map<string, PtyBufferState>();
 	private readonly ptyHealth = new Map<string, PtyHealth>();
@@ -54,11 +52,7 @@ export class PtyRuntime {
 	async stop(): Promise<void> {
 		this.healthTimer.stop();
 
-		const ptyIds = new Set<string>([
-			...this.ptyConnections.keys(),
-			...this.nativeConnections.keys(),
-			...this.ptyListeners.keys(),
-		]);
+		const ptyIds = new Set<string>([...this.nativeConnections.keys(), ...this.ptyListeners.keys()]);
 
 		for (const ptyId of ptyIds) {
 			this.cleanupPtyState(ptyId, { clearListeners: true, closeUpstream: true });
@@ -95,16 +89,14 @@ export class PtyRuntime {
 				}
 
 				let cwd = message.cwd;
-				if (this.ptyManager.backend === "native") {
-					const requested = (message.cwd ?? message.projectPath ?? "").trim();
-					if (requested) {
-						const securePath = await this.resolveSecurePath(requested);
-						if (!securePath) {
-							reply({ type: "error", message: "Invalid terminal directory" });
-							break;
-						}
-						cwd = securePath;
+				const requested = (message.cwd ?? message.projectPath ?? "").trim();
+				if (requested) {
+					const securePath = await this.resolveSecurePath(requested);
+					if (!securePath) {
+						reply({ type: "error", message: "Invalid terminal directory" });
+						break;
 					}
+					cwd = securePath;
 				}
 
 				const pty = await this.ptyManager.createPty({
@@ -112,8 +104,6 @@ export class PtyRuntime {
 					args: message.args,
 					cwd,
 					title: message.title,
-					env: message.env,
-					projectPath: message.projectPath,
 				});
 
 				if (!pty) {
@@ -126,7 +116,7 @@ export class PtyRuntime {
 			}
 
 			case "get_pty": {
-				const pty = await this.ptyManager.getPty(message.ptyId, message.projectPath);
+				const pty = await this.ptyManager.getPty(message.ptyId);
 				if (!pty) {
 					reply({ type: "error", message: "PTY session not found" });
 					break;
@@ -141,7 +131,7 @@ export class PtyRuntime {
 				const cols =
 					typeof message.cols === "number" ? Math.max(1, Math.min(500, Math.floor(message.cols))) : undefined;
 
-				const pty = await this.ptyManager.updatePty(message.ptyId, message.title, rows, cols, message.projectPath);
+				const pty = await this.ptyManager.updatePty(message.ptyId, message.title, rows, cols);
 
 				if (!pty) {
 					reply({ type: "error", message: "Failed to update PTY session" });
@@ -152,14 +142,14 @@ export class PtyRuntime {
 			}
 
 			case "delete_pty": {
-				const deleted = await this.ptyManager.deletePty(message.ptyId, message.projectPath);
+				const deleted = await this.ptyManager.deletePty(message.ptyId);
 				this.cleanupPtyState(message.ptyId, { clearListeners: true, closeUpstream: true });
 				reply({ type: "pty_deleted", data: deleted, ptyId: message.ptyId });
 				break;
 			}
 
 			case "pty_connect": {
-				await this.connectPty(ws, message.ptyId, message.projectPath, reply);
+				this.connectPty(ws, message.ptyId, reply);
 				break;
 			}
 
@@ -177,16 +167,6 @@ export class PtyRuntime {
 				const health = this.ensurePtyHealth(message.ptyId);
 				health.lastInputTime = Date.now();
 				health.bytesIn += data.length;
-
-				const ptyWs = this.ptyConnections.get(message.ptyId);
-				if (ptyWs && ptyWs.readyState === WebSocket.OPEN) {
-					try {
-						ptyWs.send(data);
-						break;
-					} catch {
-						this.ptyConnections.delete(message.ptyId);
-					}
-				}
 
 				const nativeConn = this.nativeConnections.get(message.ptyId);
 				if (nativeConn) {
@@ -211,7 +191,7 @@ export class PtyRuntime {
 			case "pty_resize": {
 				const rows = Math.max(1, Math.min(500, Math.floor(message.rows)));
 				const cols = Math.max(1, Math.min(500, Math.floor(message.cols)));
-				await this.ptyManager.resize(message.ptyId, rows, cols, message.projectPath);
+				this.ptyManager.resize(message.ptyId, rows, cols);
 				break;
 			}
 
@@ -302,18 +282,7 @@ export class PtyRuntime {
 			this.ptyListeners.delete(ptyId);
 		}
 
-		this.connecting.delete(ptyId);
-
 		if (opts.closeUpstream) {
-			const ptyWs = this.ptyConnections.get(ptyId);
-			if (ptyWs) {
-				try {
-					ptyWs.close();
-				} catch {
-					// ignore
-				}
-			}
-
 			const nativeConn = this.nativeConnections.get(ptyId);
 			if (nativeConn) {
 				try {
@@ -324,7 +293,6 @@ export class PtyRuntime {
 			}
 		}
 
-		this.ptyConnections.delete(ptyId);
 		this.nativeConnections.delete(ptyId);
 	}
 
@@ -419,56 +387,11 @@ export class PtyRuntime {
 		return sent > 0;
 	}
 
-	private async connectPty(
-		ws: ServerWebSocket<unknown>,
-		ptyId: string,
-		projectPath: string | undefined,
-		reply: PtyReply,
-	): Promise<void> {
+	private connectPty(ws: ServerWebSocket<unknown>, ptyId: string, reply: PtyReply): void {
 		this.getPtyListeners(ptyId).add(ws);
 
-		if (this.ptyConnections.has(ptyId) || this.nativeConnections.has(ptyId) || this.connecting.has(ptyId)) {
+		if (this.nativeConnections.has(ptyId)) {
 			reply({ type: "pty_connected", data: { ptyId } });
-			return;
-		}
-
-		const wsUrl = this.ptyManager.getWebSocketUrl(ptyId, projectPath);
-
-		if (wsUrl) {
-			this.connecting.add(ptyId);
-
-			try {
-				const upstream = new WebSocket(wsUrl);
-
-				upstream.addEventListener("open", () => {
-					this.connecting.delete(ptyId);
-					this.ptyConnections.set(ptyId, upstream);
-					this.ensurePtyHealth(ptyId);
-					reply({ type: "pty_connected", data: { ptyId } });
-				});
-
-				upstream.addEventListener("message", (event) => {
-					const data = typeof event.data === "string" ? event.data : event.data.toString();
-					this.queuePtyOutput(ptyId, data);
-				});
-
-				upstream.addEventListener("error", () => {
-					this.connecting.delete(ptyId);
-					this.emitPtyError(ptyId, "PTY connection failed");
-				});
-
-				upstream.addEventListener("close", (event) => {
-					this.connecting.delete(ptyId);
-					this.ptyConnections.delete(ptyId);
-					this.emitPtyExit(ptyId, event.code);
-				});
-			} catch (error) {
-				this.connecting.delete(ptyId);
-				this.log(`[PTY] connect failed: ${error}`);
-				this.emitPtyError(ptyId, "PTY connection failed");
-				reply({ type: "error", message: "PTY connect failed" });
-			}
-
 			return;
 		}
 

@@ -1,11 +1,3 @@
-// Feature 18: File Status (Git)
-export type FileStatusInfo = {
-	path: string;
-	added: number;
-	removed: number;
-	status: "modified" | "added" | "deleted";
-};
-
 export type GitChangeStatus = "modified" | "added" | "deleted" | "renamed" | "copied";
 
 export type GitFileChange = {

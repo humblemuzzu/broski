@@ -42,7 +42,7 @@ export default function TermsOfServicePage() {
         <h2 className="text-xl font-semibold mb-4">2. About Broski</h2>
         <p className="text-muted-foreground leading-relaxed">
           Broski is a mobile application that lets you remotely control AI
-          coding agents (Claude Code, OpenCode, Codex) running on your computer
+          coding agents (Claude Code, Pi) running on your computer
           from your phone. It connects to a bridge server you run on your own
           machine. Broski is free and open source; there is no paid
           subscription or cloud account.

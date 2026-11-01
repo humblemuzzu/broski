@@ -183,8 +183,7 @@ function WaitlistForm({ id }: { id?: string }) {
 function SessionsDemo() {
   const sessions = [
     { agent: "Claude Code", project: "broski-app", color: "#e8c4a0", active: true },
-    { agent: "OpenCode", project: "api-server", color: "#78a8b8", active: true },
-    { agent: "Codex", project: "landing-page", color: "#a8a29e", active: false },
+    { agent: "Pi", project: "api-server", color: "#78a8b8", active: true },
   ];
   return (
     <div className="space-y-2">
@@ -346,7 +345,7 @@ function HeroPhone() {
           {/* Bottom hint */}
           <div className="mt-3 text-center" style={{ animation: "fadeInUp 0.5s ease-out 1.2s both" }}>
             <div className="inline-flex items-center gap-1 text-[9px] text-muted-foreground/50 px-2 py-1 rounded-full bg-surface-1">
-              <span>3 active sessions</span>
+              <span>2 active sessions</span>
             </div>
           </div>
         </div>
@@ -403,7 +402,7 @@ function Hero() {
           </Reveal>
           <Reveal delay={300}>
             <p className="text-[15px] sm:text-base text-muted-foreground max-w-md mb-8 leading-relaxed">
-              The native iOS app for Claude Code, OpenCode, Codex, and Pi.
+              The native iOS app for Claude Code and Pi.
               Not a terminal wrapper — a real interface built for your phone.
             </p>
           </Reveal>
@@ -412,7 +411,7 @@ function Hero() {
           </Reveal>
           <Reveal delay={500}>
             <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-6 text-[13px] text-muted-foreground/60">
-              <span className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-primary/50" />4 agents supported</span>
+              <span className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-primary/50" />2 agents supported</span>
               <span className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-primary/50" />7-day free trial</span>
               <span className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-primary/50" />No credit card</span>
             </div>
@@ -493,9 +492,7 @@ function Problem() {
 
 function AgentsSection() {
   const agents = [
-    { name: "OpenCode", desc: "Open source AI coding agent", logo: "/logos/opencode.svg" },
     { name: "Claude Code", desc: "Anthropic's coding CLI", logo: "/logos/cc-real.png" },
-    { name: "Codex", desc: "OpenAI's coding agent", logo: "/logos/codex-icon.png" },
     { name: "Pi", desc: "Extensible coding agent harness", logo: "/logos/pi.svg" },
   ];
   return (
@@ -511,7 +508,7 @@ function AgentsSection() {
             Works with any terminal-based AI coding agent. Connect to the ones you already use.
           </p>
         </Reveal>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 gap-3 max-w-md mx-auto">
           {agents.map((a, i) => (
             <Reveal key={a.name} delay={200 + i * 80}>
               <div className="group p-4 sm:p-5 rounded-2xl border border-surface-2 bg-surface-glass backdrop-blur-md hover:border-primary/20 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(0,0,0,0.12)] transition-all duration-300 text-center">
@@ -681,7 +678,7 @@ function Pricing() {
             </div>
             <p className="text-muted-foreground mb-6">Open source. No subscription, no paywall.</p>
             <div className="grid grid-cols-2 gap-2 text-left max-w-xs mx-auto">
-              {["All 4 agents", "25+ screens", "Unlimited sessions", "File browser", "Built-in terminal", "Priority support"].map((f, i) => (
+              {["Both agents", "25+ screens", "Unlimited sessions", "File browser", "Built-in terminal", "Priority support"].map((f, i) => (
                 <div key={i} className="flex items-center gap-2 text-[13px] text-muted-foreground">
                   <Check className="w-3.5 h-3.5 text-primary/50 shrink-0" />{f}
                 </div>
@@ -746,7 +743,7 @@ function Footer() {
 function StatsBar() {
   const stats = [
     { value: 25, suffix: "+", label: "Screens" },
-    { value: 4, suffix: "", label: "Agents" },
+    { value: 2, suffix: "", label: "Agents" },
     { value: 60, suffix: "s", label: "Setup" },
     { value: 0, suffix: "", label: "Cloud servers", override: "Zero" },
   ];
@@ -848,7 +845,7 @@ function ComparisonTable() {
     { feature: "Interface", broski: "Native mobile UI", ssh: "Raw terminal", wrappers: "Web view" },
     { feature: "Setup time", broski: "60 seconds", ssh: "15+ minutes", wrappers: "5+ minutes" },
     { feature: "Network switch", broski: "Seamless", ssh: "Disconnects", wrappers: "Often drops" },
-    { feature: "Agent support", broski: "4 agents, native", ssh: "Generic", wrappers: "1-2 agents" },
+    { feature: "Agent support", broski: "2 agents, native", ssh: "Generic", wrappers: "1-2 agents" },
     { feature: "File browsing", broski: "Built-in", ssh: "CLI only", wrappers: "Limited" },
     { feature: "Code diffs", broski: "Native viewer", ssh: "Terminal diff", wrappers: "Basic" },
     { feature: "Session management", broski: "Multi-session", ssh: "tmux required", wrappers: "Single" },

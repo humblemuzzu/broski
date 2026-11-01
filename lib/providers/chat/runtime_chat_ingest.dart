@@ -52,7 +52,7 @@ extension _RuntimeChatIngest on ChatSessionNotifier {
     );
     _runtimeChatTurns[sessionKey] = next;
 
-    _applyRuntimeStateToChat(event.backend, runtimeState: null, turn: next);
+    _applyRuntimeStateToChat(runtimeState: null, turn: next);
     _scheduleRuntimeTurnProjection(next);
 
     if (event case RuntimeErrorEvent()) {
@@ -76,10 +76,6 @@ extension _RuntimeChatIngest on ChatSessionNotifier {
     // Permission/approval requests via runtime (runtime_permission_handler.dart)
     if (event case RuntimePermissionRequestedEvent()) {
       _handleRuntimePermissionRequested(event);
-    }
-
-    if (event case RuntimeUserInputRequestedEvent()) {
-      _handleRuntimeUserInputRequested(event);
     }
 
     // Confirm delivery of pending user messages when any agent starts
@@ -107,18 +103,6 @@ extension _RuntimeChatIngest on ChatSessionNotifier {
       if (event case RuntimeToolFinishedEvent()) {
         _handleRuntimeCcToolFinished(event);
       }
-    }
-
-    // OC message lifecycle + metadata (runtime_oc_message_handler.dart)
-    if (event case RuntimeBackendEvent()
-        when event.backend == AgentType.opencode) {
-      _handleRuntimeOcBackendEvent(event);
-    }
-
-    // CX metadata + collab (runtime_cx_handlers.dart)
-    if (event case RuntimeBackendEvent()
-        when event.backend == AgentType.codex) {
-      _handleRuntimeCxBackendEvent(event);
     }
 
     // External user message — prompt typed on Mac terminal, show it on phone
@@ -161,11 +145,7 @@ extension _RuntimeChatIngest on ChatSessionNotifier {
     );
     _runtimeChatTurns[sessionKey] = next;
 
-    _applyRuntimeStateToChat(
-      runtimeState.backend,
-      runtimeState: runtimeState,
-      turn: next,
-    );
+    _applyRuntimeStateToChat(runtimeState: runtimeState, turn: next);
     _scheduleRuntimeTurnProjection(next);
   }
 
@@ -222,16 +202,11 @@ extension _RuntimeChatIngest on ChatSessionNotifier {
     String? sessionId,
     String? cwd,
   }) {
-    final activeBackend = state.isClaudeCode
-        ? AgentType.claudeCode
-        : state.isCodex
-        ? AgentType.codex
-        : AgentType.opencode;
-    if (backend != activeBackend) return false;
+    if (backend != state.agentType) return false;
 
     // Backend matches — accept. Session/cwd filtering caused silent event
-    // drops for CC/CX where session ID formats differ between the bridge
-    // connector and the Flutter state. On single-device, if you're viewing a backend,
+    // drops where session ID formats differ between the bridge connector
+    // and the Flutter state. On single-device, if you're viewing a backend,
     // events from that backend are for you.
     return true;
   }
@@ -291,44 +266,21 @@ extension _RuntimeChatIngest on ChatSessionNotifier {
     );
   }
 
-  void _applyRuntimeStateToChat(
-    AgentType backend, {
+  void _applyRuntimeStateToChat({
     required RuntimeState? runtimeState,
     required RuntimeChatTurnState turn,
   }) {
     final sessionStatus = _runtimeSessionStatus(runtimeState, turn);
-    switch (backend) {
-      case AgentType.opencode:
-        state = state.copyWith(
-          sessionStatus: sessionStatus,
-          isCompacting: runtimeState?.isCompacting ?? state.isCompacting,
-        );
-        break;
-      case AgentType.claudeCode:
-        state = state.copyWith(
-          sessionStatus: sessionStatus,
-          ccSessionId: (state.ccSessionId ?? '').isEmpty
-              ? turn.sessionId
-              : state.ccSessionId,
-          ccCwd: (state.ccCwd ?? '').isEmpty ? turn.cwd : state.ccCwd,
-          ccModel: runtimeState?.model?.id ?? state.ccModel,
-          ccIsStreaming: turn.isStreaming,
-          isCompacting: runtimeState?.isCompacting ?? state.isCompacting,
-        );
-        break;
-      case AgentType.codex:
-        state = state.copyWith(
-          sessionStatus: sessionStatus,
-          cxThreadId: (state.cxThreadId ?? '').isEmpty
-              ? turn.sessionId
-              : state.cxThreadId,
-          cxCwd: (state.cxCwd ?? '').isEmpty ? turn.cwd : state.cxCwd,
-          cxModel: runtimeState?.model?.id ?? state.cxModel,
-          cxIsStreaming: turn.isStreaming,
-          isCompacting: runtimeState?.isCompacting ?? state.isCompacting,
-        );
-        break;
-    }
+    state = state.copyWith(
+      sessionStatus: sessionStatus,
+      ccSessionId: (state.ccSessionId ?? '').isEmpty
+          ? turn.sessionId
+          : state.ccSessionId,
+      ccCwd: (state.ccCwd ?? '').isEmpty ? turn.cwd : state.ccCwd,
+      ccModel: runtimeState?.model?.id ?? state.ccModel,
+      ccIsStreaming: turn.isStreaming,
+      isCompacting: runtimeState?.isCompacting ?? state.isCompacting,
+    );
   }
 
   SessionStatus _runtimeSessionStatus(
@@ -370,45 +322,12 @@ extension _RuntimeChatIngest on ChatSessionNotifier {
             _ccMetadataFromToolUseResult(_runtimeMap(toolUseResult)),
           );
         }
-        if (event.backend == AgentType.opencode) {
-          final rawMetadata = backendData?['metadata'];
-          if (rawMetadata is Map<String, dynamic>) {
-            metadata.addAll(rawMetadata);
-          } else if (rawMetadata is Map) {
-            metadata.addAll(rawMetadata.cast<String, dynamic>());
-          }
-        }
-        if (event.backend == AgentType.codex) {
-          _appendCodexRuntimeDiffMetadata(metadata, event);
-        }
         break;
       default:
         break;
     }
 
     return metadata;
-  }
-
-  void _appendCodexRuntimeDiffMetadata(
-    Map<String, dynamic> metadata,
-    RuntimeEvent event,
-  ) {
-    final input = switch (event) {
-      RuntimeToolStartedEvent() => event.input,
-      RuntimeToolUpdatedEvent() => event.input,
-      RuntimeToolFinishedEvent() => event.input,
-      _ => null,
-    };
-    final inputMap = _runtimeMap(input);
-    final changes = inputMap?['changes'];
-    if (changes is! List || changes.isEmpty) return;
-    final first = _runtimeMap(changes.first);
-    if (first == null) return;
-    final path = first['path'] as String?;
-    final diff = first['diff'] as String?;
-    if ((path ?? '').isEmpty || (diff ?? '').isEmpty) return;
-    metadata['filediff'] = {'file': path, 'path': path, 'diff': diff};
-    metadata['diff'] = diff;
   }
 
   void _addRuntimeErrorMessage(RuntimeErrorEvent event) {
@@ -439,22 +358,6 @@ extension _RuntimeChatIngest on ChatSessionNotifier {
         'server_error' => '🔥 Server error - please retry',
         'invalid_request' => '⚠️ Invalid request',
         _ => '⚠️ Error: ${event.message}',
-      };
-    }
-
-    if (event.backend == AgentType.opencode) {
-      final details = _runtimeMap(event.details);
-      final errorName = details?['name'] as String?;
-      final errorData = _runtimeMap(details?['data']);
-      final rawMessage = errorData?['message'] as String? ?? event.message;
-      return switch (errorName) {
-        'ContextOverflowError' =>
-          'Context window full. Try compacting or starting a new session.',
-        'StructuredOutputError' =>
-          'Output validation failed after ${(errorData?['retries'] as int?) ?? 0} retries',
-        'MessageOutputLengthError' =>
-          'Response too long - output was truncated',
-        _ => rawMessage,
       };
     }
 

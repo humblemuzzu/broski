@@ -147,8 +147,7 @@ else
 fi
 
 # ── Download native PTY library ──────────────
-# Enables terminal sessions from the app. Optional — bridge works without it
-# if OpenCode is running, but needed for standalone terminal access.
+# Enables terminal sessions from the app.
 PTY_LIB=""
 case "$OS" in
   darwin) PTY_LIB="libbroski_pty.dylib" ;;
@@ -163,7 +162,7 @@ if [ -n "$PTY_LIB" ]; then
       echo "  ✓ PTY library installed (not listed in SHA256SUMS)"
     fi
   else
-    echo "  ⚠ PTY library not available (terminal still works via OpenCode)"
+    echo "  ⚠ PTY library not available (terminal sessions disabled)"
     rm -f "${INSTALL_DIR}/${PTY_LIB}" 2>/dev/null
   fi
 fi

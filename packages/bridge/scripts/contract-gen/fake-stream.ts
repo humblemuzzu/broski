@@ -64,7 +64,10 @@ export async function fakeSessionStream(): Promise<ServerMessage[]> {
 		{ kind: "usage", usage: { inputTokens: 1200, outputTokens: 80, cacheReadTokens: 900, costUsd: 0.0125 } },
 		{ kind: "retry", attempts: 1 },
 		{ kind: "compaction" },
-		{ kind: "extension", extension: { kind: "turn_diff", diff: "diff --git a/a.ts b/a.ts" } },
+		{
+			kind: "extension",
+			extension: { kind: "rate_limit", window: "five_hour", status: "allowed_warning", usedPercent: 82 },
+		},
 		{ kind: "notice", level: "warning", text: "Close to the context limit." },
 		{ kind: "backend_error", error: { code: "network", message: "The stream dropped." }, retryable: true },
 		{ kind: "retract" },

@@ -2,7 +2,7 @@
  * Scanner Audit Tests
  *
  * Verifies that the bridge scanners correctly discover all commands, skills,
- * agents, hooks, and prompts from the broski project's .claude/, .codex/, .opencode/ dirs.
+ * agents, hooks, and prompts from the broski project's .claude/ dir.
  */
 import { describe, expect, it } from "bun:test";
 import { existsSync } from "node:fs";
@@ -116,60 +116,6 @@ describe("Claude Code Scanners", () => {
 
 		const postToolUse = hooks.find((h) => h.event === "PostToolUse");
 		expect(postToolUse?.matcher).toBe("Write|Edit");
-	});
-});
-
-describe("OpenCode Scanners (filesystem-based)", () => {
-	it("listOpenCodeSkills finds all .opencode/skill/*/SKILL.md files", async () => {
-		const { listOpenCodeSkills } = await import("../skills");
-		const skills = await listOpenCodeSkills(BROSKI_ROOT);
-
-		const projectSkills = skills.filter((s) => s.source === "project");
-		const names = projectSkills.map((s) => s.name);
-		console.log("[OC Skills]", names);
-
-		expect(names).toContain("broski-helper");
-		expect(names).toContain("api-debugger");
-		expect(names).toContain("flutter-expert");
-		expect(projectSkills.length).toBeGreaterThanOrEqual(3);
-	});
-});
-
-describe("Codex Scanners (filesystem-based)", () => {
-	it("listCodexRepoSkills finds all .codex/skills/*/SKILL.md files", async () => {
-		const { listCodexRepoSkills } = await import("../skills");
-		const skills = await listCodexRepoSkills(BROSKI_ROOT);
-
-		const names = skills.map((s) => s.name);
-		console.log("[CX Skills]", names);
-
-		expect(names).toContain("broski-helper");
-		expect(names).toContain("api-debugger");
-		expect(names).toContain("flutter-expert");
-		expect(skills.length).toBeGreaterThanOrEqual(3);
-	});
-
-	it("listCodexPrompts finds all .codex/prompts/*.md files", async () => {
-		const { listCodexPrompts } = await import("../skills");
-		const prompts = await listCodexPrompts(BROSKI_ROOT);
-
-		const names = prompts.map((p) => p.name);
-		console.log("[CX Prompts]", names);
-
-		// BUG 3 FIX: These files exist on disk in .codex/prompts/
-		expect(names).toContain("run-tests");
-		expect(names).toContain("fix-lint");
-		expect(names).toContain("debug-connection");
-		expect(names).toContain("code-review");
-		expect(names).toContain("generate-model");
-		expect(prompts.length).toBeGreaterThanOrEqual(5);
-
-		// Verify frontmatter is parsed
-		const runTests = prompts.find((p) => p.name === "run-tests");
-		expect(runTests?.description).toBeTruthy();
-		expect(runTests?.argumentHint).toBeTruthy();
-		expect(runTests?.source).toBe("project");
-		expect(runTests?.content).toContain("flutter test");
 	});
 });
 

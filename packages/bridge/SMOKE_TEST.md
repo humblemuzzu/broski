@@ -10,7 +10,7 @@ Binary: `broski-darwin-arm64`
 - [ ] `broski --version` — same output as `broski version`
 - [ ] `broski --help` — shows help text with all commands listed
 - [ ] `broski update` — checks for updates (prints result or "Could not reach update server")
-- [ ] `broski doctor` — runs diagnostics, checks Bun, OpenCode, port availability
+- [ ] `broski doctor` — runs diagnostics, checks Bun, agents, port availability
 - [ ] `broski install` — installs the `broski-link` LaunchAgent (`~/Library/LaunchAgents/com.broski.link.plist`)
 - [ ] `broski status` — shows service installed/running, port 18274 status, version, update check
 - [ ] `broski stop` — stops the background service

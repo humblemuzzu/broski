@@ -6,9 +6,7 @@ import 'package:flutter/material.dart';
 
 /// A small pill badge showing the command source (command / mcp / skill).
 ///
-/// Used in:
-/// - `chat_screen.dart` (slash command autocomplete/picker)
-/// - `opencode_commands_screen.dart` (command list)
+/// Used in `chat_screen.dart` (slash command autocomplete/picker).
 ///
 /// Returns [SizedBox.shrink] when [source] is null.
 class CommandSourceBadge extends StatelessWidget {

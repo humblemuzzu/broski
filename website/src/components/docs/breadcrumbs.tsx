@@ -13,8 +13,6 @@ const pathTitles: Record<string, string> = {
   "background-service": "Background Service",
   backends: "AI Backends",
   "claude-code": "Claude Code",
-  opencode: "OpenCode",
-  codex: "Codex",
   troubleshooting: "Troubleshooting",
   connection: "Connection Issues",
   network: "Network Issues",

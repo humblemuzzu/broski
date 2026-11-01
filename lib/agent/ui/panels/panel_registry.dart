@@ -11,11 +11,6 @@ export 'package:broski/agent/ui/panels/op_panel.dart';
 /// kind does not compile until it is given one.
 OpPanel panelFor(BackendOpKind kind) => switch (kind) {
   BackendOpKind.rewindFiles => rewindFilesPanel,
-  BackendOpKind.reviewStart => reviewStartPanel,
-  BackendOpKind.revert => revertPanel,
-  BackendOpKind.revertStage => revertStagePanel,
-  BackendOpKind.revertClear => revertClearPanel,
-  BackendOpKind.revertCommit => revertCommitPanel,
   BackendOpKind.navigateTree => navigateTreePanel,
   BackendOpKind.readTree => treePanel,
   BackendOpKind.labelEntry ||

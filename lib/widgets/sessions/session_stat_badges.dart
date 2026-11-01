@@ -4,7 +4,7 @@ import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
 
-/// Build stat badges for CC/Codex/Pi session cards from a [SessionSummaryStats].
+/// Build stat badges for session cards from a [SessionSummaryStats].
 /// Returns empty list if no meaningful stats.
 List<Widget> buildSessionStatBadges(
   SessionSummaryStats? summary,

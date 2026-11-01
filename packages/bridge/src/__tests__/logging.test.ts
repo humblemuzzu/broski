@@ -152,17 +152,6 @@ actual key content here
 			expect(text.includes("ws rejected")).toBe(true);
 		});
 
-		test("detects OpenCode availability issues", () => {
-			const logs = [
-				"Checking available agents",
-				"opencode not available in current runtime",
-				"Falling back to other agents",
-			];
-
-			const text = logs.join("\n").toLowerCase();
-			expect(text.includes("opencode not available")).toBe(true);
-		});
-
 		test("detects proxy blocking", () => {
 			const logs = [
 				"Handling proxy request to localhost:3000",
@@ -180,20 +169,15 @@ actual key content here
 			const text = logs.join("\n").toLowerCase();
 			expect(text.includes("eaddrinuse")).toBe(false);
 			expect(text.includes("ws rejected")).toBe(false);
-			expect(text.includes("opencode not available")).toBe(false);
 		});
 
 		test("issue detection is case insensitive", () => {
-			const testCases = [
-				"EADDRINUSE error occurred",
-				"WS Rejected due to auth failure",
-				"OpenCode Not Available currently",
-			];
+			const testCases = ["EADDRINUSE error occurred", "WS Rejected due to auth failure", "Proxy Blocked by allowlist"];
 
 			for (const testCase of testCases) {
 				const text = testCase.toLowerCase();
 				const hasKnownIssue =
-					text.includes("eaddrinuse") || text.includes("ws rejected") || text.includes("opencode not available");
+					text.includes("eaddrinuse") || text.includes("ws rejected") || text.includes("proxy blocked");
 
 				expect(hasKnownIssue).toBe(true);
 			}

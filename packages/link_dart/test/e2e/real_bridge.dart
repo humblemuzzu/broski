@@ -21,9 +21,8 @@ Map<String, String> sandboxEnvironment(LinkSandbox sandbox) {
   };
 }
 
-/// The repo's real Bun bridge, as the daemon's `--bridge-cmd`: headless, no
-/// OpenCode bootstrap, an ephemeral port, and the `--link-socket` the daemon
-/// appends to it.
+/// The repo's real Bun bridge, as the daemon's `--bridge-cmd`: headless, an
+/// ephemeral port, and the `--link-socket` the daemon appends to it.
 Future<List<String>> realBridgeCommand() async {
   final root = await _repoRoot();
   return <String>[
@@ -32,7 +31,6 @@ Future<List<String>> realBridgeCommand() async {
     'serve',
     '--daemon',
     '--skip-wizard',
-    '--manual',
     '--port',
     '0',
   ];

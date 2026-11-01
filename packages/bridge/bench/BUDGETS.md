@@ -13,7 +13,7 @@ done
 bun bench/check-budget.ts /tmp/broski-bench-1.json /tmp/broski-bench-2.json /tmp/broski-bench-3.json
 ```
 
-Scenarios that read `~/.pi`, `~/.codex` or `~/.claude` carry `requiresDatasets` in
+Scenarios that read `~/.pi` or `~/.claude` carry `requiresDatasets` in
 `bench/lib/scenarios.ts` and are skipped automatically when the dataset is missing (a bare CI
 runner has none).
 

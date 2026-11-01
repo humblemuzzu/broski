@@ -137,9 +137,8 @@ async function showDiagnosis(prompter: WizardPrompter, problem: Problem): Promis
 		case "agent-not-responding":
 			await prompter.note(
 				`${bold("Install commands (official):")}\n\n` +
-					`  ${muted("OpenCode:")}    ${brand("curl -fsSL https://opencode.ai/install | bash")}\n` +
 					`  ${muted("Claude Code:")} ${brand("curl -fsSL https://claude.ai/install.sh | bash")}\n` +
-					`  ${muted("Codex:")}       ${brand("npm i -g @openai/codex")}\n\n` +
+					`  ${muted("Pi:")}          ${brand("npm i -g @earendil-works/pi-coding-agent")}\n\n` +
 					`${muted("Then run:")} ${brand("broski doctor --profile agents")}`,
 				"Agent Issues",
 			);

@@ -22,7 +22,5 @@ Future<bool> hydrateSession({
     setPaginationState: setPaginationState,
     scrollToBottom: scrollToBottom,
   );
-  if (widget.isClaudeCode) return hydrateClaudeCode(hydration);
-  if (widget.isCodex) return hydrateCodex(hydration);
-  return hydrateOpenCode(hydration);
+  return hydrateClaudeCode(hydration);
 }

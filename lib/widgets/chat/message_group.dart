@@ -1,8 +1,5 @@
 import 'package:broski/models/message.dart';
-import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/providers/claude_code_provider.dart';
-import 'package:broski/providers/service_providers.dart';
-import 'package:broski/screens/chat/oc_message_delete_action.dart';
 import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/theme/opencode_theme.dart';
 import 'package:broski/widgets/chat/cc_undo_turn_bar.dart';
@@ -72,14 +69,9 @@ class MessageGroup extends ConsumerWidget {
   const MessageGroup({
     super.key,
     required this.message,
-    required this.isClaudeCode,
-    required this.isOpenCode,
-    required this.isCodex,
-    required this.projectPath,
     // Action callbacks
     required this.onFork,
     required this.onResumeFromHere,
-    required this.onRevert,
     required this.onOpenDiffView,
     required this.onCcRewind,
     // Builder callbacks for complex sub-widgets that remain in chat_screen
@@ -89,19 +81,12 @@ class MessageGroup extends ConsumerWidget {
   });
 
   final ChatMessage message;
-  final bool isClaudeCode;
-  final bool isOpenCode;
-  final bool isCodex;
-  final String projectPath;
 
   /// Called when the user taps "Fork from here" on a message.
   final void Function({String? messageId}) onFork;
 
   /// Called when the user taps "Resume from here" (Claude Code).
   final void Function(String messageId) onResumeFromHere;
-
-  /// Called to revert/undo a message or part.
-  final void Function(String messageId, {String? partId}) onRevert;
 
   /// Called to open the full diff view.
   final void Function(DiffEntry diff, {String? messageId}) onOpenDiffView;
@@ -130,10 +115,6 @@ class MessageGroup extends ConsumerWidget {
         auto: true,
         overflow: true,
       );
-    }
-    // Context overflow → action buttons
-    if (message.error == 'ContextOverflowError') {
-      return _buildContextOverflowError(context, ref);
     }
     // Variant-tagged system messages → compact cards
     if (message.role == MessageRole.system && message.variant != null) {
@@ -167,21 +148,8 @@ class MessageGroup extends ConsumerWidget {
                 onForkFromHere: message.role == MessageRole.assistant
                     ? (messageId) => onFork(messageId: messageId)
                     : null,
-                onResumeFromHere:
-                    isClaudeCode && message.role == MessageRole.assistant
+                onResumeFromHere: message.role == MessageRole.assistant
                     ? (messageId) => onResumeFromHere(messageId)
-                    : null,
-                onDeleteMessage:
-                    isOpenCode && message.role == MessageRole.assistant
-                    ? (messageId) => deleteOpenCodeMessageFromChat(
-                        context: context,
-                        ref: ref,
-                        sessionId: message.sessionId,
-                        messageId: messageId,
-                        projectPath:
-                            ref.read(chatSessionProvider).projectPath ??
-                            projectPath,
-                      )
                     : null,
               ),
             // Tool calls
@@ -199,10 +167,6 @@ class MessageGroup extends ConsumerWidget {
                 child: DiffViewer(
                   diff: diff,
                   messageId: message.id,
-                  onUndo: isClaudeCode
-                      ? null
-                      : (messageId, partId) =>
-                            onRevert(messageId, partId: partId),
                   onViewFull: () => onOpenDiffView(diff, messageId: message.id),
                 ),
               ),
@@ -214,8 +178,7 @@ class MessageGroup extends ConsumerWidget {
             ),
           // Claude Code: Turn-level undo bar after assistant messages with
           // file changes. Uses the SDK's rewindFiles(userMessageId).
-          if (isClaudeCode &&
-              message.role == MessageRole.assistant &&
+          if (message.role == MessageRole.assistant &&
               !message.isStreaming &&
               messageHasFileChanges(message))
             Builder(
@@ -267,60 +230,6 @@ class MessageGroup extends ConsumerWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  /// Context overflow error with compact action button.
-  Widget _buildContextOverflowError(BuildContext context, WidgetRef ref) {
-    final theme = OpenCodeTheme.of(context);
-    return Padding(
-      padding: Insets.screenV,
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: theme.warning.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: theme.warning.withValues(alpha: 0.3)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '⚠️ ${message.text}',
-              style: TextStyle(
-                color: theme.warning,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                TextButton.icon(
-                  onPressed: () {
-                    final bridge = ref.read(bridgeServiceProvider);
-                    final chatState = ref.read(chatSessionProvider);
-                    final sessionId = chatState.session?.id;
-                    if (sessionId != null) {
-                      bridge.executeCommand(
-                        sessionId: sessionId,
-                        command: 'compact',
-                        arguments: '',
-                        projectPath: chatState.projectPath,
-                      );
-                    }
-                  },
-                  icon: Icon(Icons.compress, size: 16, color: theme.accent),
-                  label: Text(
-                    'Compact',
-                    style: TextStyle(color: theme.accent, fontSize: 12),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
       ),
     );
   }

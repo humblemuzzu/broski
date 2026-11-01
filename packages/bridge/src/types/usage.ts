@@ -44,7 +44,7 @@ export type SubscriptionUsage = {
 // Subscription Usage Tracking
 export type UsageClientMessage =
 	| { type: "get_subscription_usage" }
-	| { type: "get_provider_usage"; providerId: "claude" | "openai" };
+	| { type: "get_provider_usage"; providerId: "claude" };
 
 export type UsageServerMessage =
 	| { type: "subscription_usage"; data: SubscriptionUsage; requestId?: string }

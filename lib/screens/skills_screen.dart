@@ -50,7 +50,7 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
           return;
         }
         showInfo(context, 'Skills updated');
-        _load(forceReload: true);
+        _load();
       });
     }
     _load();
@@ -62,7 +62,7 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
     super.dispose();
   }
 
-  Future<void> _load({bool forceReload = false}) async {
+  Future<void> _load() async {
     setState(() {
       _isLoading = true;
       _error = null;
@@ -71,17 +71,10 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
     final cwd = selection.project?.path;
     try {
       final bridge = ref.read(bridgeServiceProvider);
-      final skills = await bridge.listSkills(
-        backend: widget.backend,
-        cwd: cwd,
-        forceReload: forceReload,
-      );
-      final sdkSkills = widget.backend == AgentType.opencode
-          ? await bridge.ocListSdkSkills(projectPath: cwd)
-          : const <Skill>[];
+      final skills = await bridge.listSkills(backend: widget.backend, cwd: cwd);
       if (!mounted) return;
       setState(() {
-        _skills = [...skills, ...sdkSkills];
+        _skills = skills;
         _isLoading = false;
       });
     } catch (e) {
@@ -248,8 +241,7 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
         actions: [
           IconButton(
             icon: const Icon(AppIcons.refresh),
-            onPressed: () =>
-                _load(forceReload: widget.backend == AgentType.codex),
+            onPressed: _load,
             tooltip: 'Refresh',
           ),
           IconButton(

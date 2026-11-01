@@ -1,6 +1,6 @@
 /**
  * Probe script for `real-home-guard.test.ts`. Never a `bun test` file — the parent spawns it with a
- * controlled HOME so the probes cannot reach the developer's real `~/.claude`, `~/.codex` or
+ * controlled HOME so the probes cannot reach the developer's real `~/.claude` or
  * `~/.broski`. Prints one report line and always exits 0: the parent asserts on the outcomes.
  */
 

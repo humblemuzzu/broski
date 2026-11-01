@@ -73,7 +73,6 @@ function runtimePath(binaryPath: string, home: string): string {
 		"/bin",
 		"/opt/homebrew/bin",
 		dirname(binaryPath),
-		`${home}/.opencode/bin`,
 		`${home}/.local/bin`,
 		`${home}/.npm-global/bin`,
 		`${home}/.bun/bin`,

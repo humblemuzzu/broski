@@ -65,21 +65,6 @@ void main() {
       expect(ctx.modifiedFiles[1].file, 'b.dart');
     });
 
-    test('fromCodex passes modifiedFiles through', () {
-      final files = [
-        const ModifiedFile(file: 'server.ts', additions: 10, deletions: 1),
-      ];
-      final ctx = SessionContext.fromCodex(modifiedFiles: files);
-      expect(ctx.modifiedFiles.length, 1);
-      expect(ctx.modifiedFiles[0].file, 'server.ts');
-      expect(ctx.modifiedFiles[0].additions, 10);
-    });
-
-    test('fromCodex defaults to empty modifiedFiles', () {
-      final ctx = SessionContext.fromCodex();
-      expect(ctx.modifiedFiles, isEmpty);
-    });
-
     test('fromJson parses modifiedFiles from bridge response', () {
       final ctx = SessionContext.fromJson({
         'tokens': {

@@ -36,15 +36,6 @@ const SCHEMAS: Partial<Record<ClientMessage["type"], Schema>> = {
 	read_file: [string("path"), string("projectPath", true)],
 	read_file_binary: [string("path"), number("maxSizeMb", true)],
 
-	abort: [string("sessionId")],
-	chat: [string("sessionId"), string("content")],
-	set_model: [string("model")],
-	get_session: [string("sessionId")],
-	delete_session: [string("sessionId")],
-	permission_response: [string("sessionId"), string("permissionId"), string("response")],
-	create_session: [string("projectPath", true), string("title", true)],
-	list_sessions: [string("projectPath", true)],
-
 	cc_chat: [string("prompt"), string("sessionId", true), string("cwd", true)],
 	cc_abort: [string("sessionId")],
 	cc_get_session: [string("sessionId"), string("cwd", true)],
@@ -52,12 +43,6 @@ const SCHEMAS: Partial<Record<ClientMessage["type"], Schema>> = {
 	cc_delete_session: [string("sessionId"), string("cwd", true)],
 	cc_permission_response: [string("sessionId"), string("toolUseId"), string("response")],
 	cc_elicitation_response: [string("sessionId"), string("requestId"), string("action")],
-
-	cx_chat: [string("prompt"), string("threadId", true), string("cwd", true)],
-	cx_abort: [string("threadId")],
-	cx_get_thread_messages: [string("threadId")],
-	cx_permission_response: [string("requestId"), string("response")],
-	cx_shell_command: [string("threadId"), string("command")],
 
 	unified_list_sessions: [string("backend")],
 	unified_list_projects: [string("backend")],

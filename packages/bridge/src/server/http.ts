@@ -1,5 +1,4 @@
 import { validateAuthToken } from "../auth-token";
-import type { OpenCodeConnector } from "../connectors/opencode";
 import { type CcPermissionHookContext, handleCcPermissionHook } from "../handlers/cc_permission_hook";
 import { createFetchHandler, type FetchHandlerDeps, type HandleHttpDeps } from "../http-handler";
 import { buildProxyPortAllowlist } from "../http-utils";
@@ -21,22 +20,19 @@ export type HttpWiringDeps = {
 	log: LeveledLogger;
 	limits: BridgeLimits;
 	version: string;
-	getOpenCode: () => OpenCodeConnector | null;
 	listFilesDirectly: (path: string) => Promise<unknown>;
 	debugRts: boolean;
 };
 
-/** HTTP/WS upgrade fetch wiring: auth, TLS enforcement, dashboard, proxy and the permission hooks. */
+/** HTTP/WS upgrade fetch wiring: auth, TLS enforcement, proxy and the permission hooks. */
 export function createHttpWiring(deps: HttpWiringDeps): HttpWiring {
 	const { state } = deps;
 	const allowedProxyPorts = buildProxyPortAllowlist();
 
 	const httpDeps: HandleHttpDeps = {
 		tlsEnabled: state.tlsEnabled,
-		webDistDir: state.webDistDir,
 		version: deps.version,
 		allowedProxyPorts,
-		getOpenCode: deps.getOpenCode,
 		listFilesDirectly: deps.listFilesDirectly,
 		logUser: deps.log.logUser,
 		handleCcPermissionHook: (request: Request) => {

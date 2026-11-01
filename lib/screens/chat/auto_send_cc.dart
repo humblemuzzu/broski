@@ -9,7 +9,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// Extracted from `_ChatScreenState._autoSendPendingCCMessage`.
 void autoSendPendingCCMessage({
   required WidgetRef ref,
-  required bool isClaudeCode,
   required bool Function() isMounted,
   required String? ccSessionCwd,
   required String? ccSessionModel,
@@ -17,7 +16,7 @@ void autoSendPendingCCMessage({
   required String? ccDraftModel,
   required void Function() resetScrollAndScrollToBottom,
 }) {
-  if (!isClaudeCode || !isMounted()) return;
+  if (!isMounted()) return;
   final chat = ref.read(chatSessionProvider.notifier);
   final chatState = ref.read(chatSessionProvider);
   final pendingText = chatState.pendingCCMessage;

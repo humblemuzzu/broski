@@ -144,40 +144,6 @@ class _UnifiedIntelligencePageState extends State<UnifiedIntelligencePage>
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              // Codex card
-                              _AgentCard(
-                                iconWidget: Container(
-                                  width: 44,
-                                  height: 44,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: Radii.brMd,
-                                  ),
-                                  child: Padding(
-                                    padding: Insets.cardXs,
-                                    child: Image.asset(
-                                      'docs/assets/codex-icon.png',
-                                      fit: BoxFit.contain,
-                                    ),
-                                  ),
-                                ),
-                                name: 'Codex',
-                              ),
-                              const SizedBox(height: 19),
-                              // OpenCode card
-                              _AgentCard(
-                                iconWidget: ClipRRect(
-                                  borderRadius: Radii.brMd,
-                                  child: Image.asset(
-                                    'docs/assets/opencode-mark.png',
-                                    width: 44,
-                                    height: 44,
-                                    fit: BoxFit.cover,
-                                  ),
-                                ),
-                                name: 'OpenCode',
-                              ),
-                              const SizedBox(height: 19),
                               // Claude Code card
                               _AgentCard(
                                 iconWidget: ClipRRect(

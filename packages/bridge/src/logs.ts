@@ -134,9 +134,6 @@ function detectLikelyIssues(lines: string[]): string[] {
 	if (text.includes("proxy blocked")) {
 		issues.push("Proxy request was blocked by allowlist/security checks.");
 	}
-	if (text.includes("opencode not available") || text.includes("opencode not detected")) {
-		issues.push("OpenCode backend not available in current runtime.");
-	}
 
 	return issues;
 }

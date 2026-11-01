@@ -14,18 +14,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// more than asked for — a page reaches back to the prompt that opened its oldest turn.
 const int kTranscriptPageLimit = 60;
 
-/// Whether the open chat loads older messages a page at a time.
-bool supportsTranscriptPaging(ChatScreen widget) =>
-    widget.isOpenCode || widget.isClaudeCode || widget.isCodex;
-
 /// The session id the loaded window belongs to, matching
-/// [ChatSessionNotifier.transcriptSessionId] for this backend. A page fetched for one session must
-/// never be applied to another.
-String? transcriptOwnerId(ChatScreen widget) {
-  if (widget.isClaudeCode) return widget.ccSession?.id;
-  if (widget.isCodex) return widget.cxThread?.id;
-  return widget.session.id;
-}
+/// [ChatSessionNotifier.transcriptSessionId]. A page fetched for one session must never be applied
+/// to another.
+String? transcriptOwnerId(ChatScreen widget) => widget.ccSession?.id;
 
 /// Fetches the page of messages older than the loaded window and prepends it, keeping the message
 /// under the viewport in place.
@@ -40,7 +32,6 @@ Future<void> loadEarlierTranscript({
   setPaginationState,
 }) async {
   if (loadingMoreMessages || hasLoadedAllMessages) return;
-  if (!supportsTranscriptPaging(widget)) return;
 
   final chat = ref.read(chatSessionProvider.notifier);
   final cursor = chat.transcriptCursor;
@@ -98,67 +89,19 @@ _fetchAndPrepend(
 ) async {
   final chat = ref.read(chatSessionProvider.notifier);
   final bridge = ref.read(bridgeServiceProvider);
-
-  if (widget.isOpenCode) {
-    final id = widget.session.id;
-    final page = await bridge.pageSessionMessages(
-      id,
-      projectPath: widget.project.path,
-      limit: kTranscriptPageLimit,
-      before: cursor,
-    );
-    if (!chat.ownsTranscript(sessionId)) return null;
-    final extent = _extentOf(scrollController);
-    chat.setTranscriptCursor(page.nextCursor);
-    if (page.cursorUnknown) {
-      // The cursor named a message the session no longer has: the reply is the
-      // newest page, so the transcript is replaced rather than prepended to.
-      chat.hydrate(page.items);
-      chat.setTranscriptSession(id);
-      return (
-        hasOlder: page.hasOlder,
-        offsetAtPrepend: extent.extent,
-        extentAtPrepend: extent.extent,
-      );
-    }
-    chat.prependOpenCodeTranscript(page.items, sessionId: id);
-    return (
-      hasOlder: page.hasOlder,
-      offsetAtPrepend: extent.offset,
-      extentAtPrepend: extent.extent,
-    );
-  }
-
-  if (widget.isClaudeCode) {
-    final id = widget.ccSession?.id ?? '';
-    final page = await fetchBridgePage(
-      (limit) => bridge.ccGetSessionMessagesPage(
-        id,
-        cwd: widget.ccSession?.cwd ?? widget.ccDraftCwd ?? '',
-        limit: limit,
-        before: cursor,
-      ),
-      limit: kTranscriptPageLimit,
-    );
-    if (!chat.ownsTranscript(sessionId)) return null;
-    final extent = _extentOf(scrollController);
-    chat.prependClaudeCodeTranscript(page.items, sessionId: id);
-    chat.setTranscriptCursor(page.nextCursor);
-    return (
-      hasOlder: page.hasOlder,
-      offsetAtPrepend: extent.offset,
-      extentAtPrepend: extent.extent,
-    );
-  }
-
-  final id = widget.cxThread?.id ?? '';
+  final id = widget.ccSession?.id ?? '';
   final page = await fetchBridgePage(
-    (limit) => bridge.cxGetThreadMessagesPage(id, limit: limit, before: cursor),
+    (limit) => bridge.ccGetSessionMessagesPage(
+      id,
+      cwd: widget.ccSession?.cwd ?? widget.ccDraftCwd ?? '',
+      limit: limit,
+      before: cursor,
+    ),
     limit: kTranscriptPageLimit,
   );
   if (!chat.ownsTranscript(sessionId)) return null;
   final extent = _extentOf(scrollController);
-  chat.prependCodexTranscript(page.items, threadId: id);
+  chat.prependClaudeCodeTranscript(page.items, sessionId: id);
   chat.setTranscriptCursor(page.nextCursor);
   return (
     hasOlder: page.hasOlder,

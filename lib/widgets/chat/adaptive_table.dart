@@ -368,7 +368,7 @@ class AdaptiveTable extends StatelessWidget {
 
   /// Longest unbreakable segment width — splits on whitespace AND
   /// code-friendly delimiters (/, \, _, -) so file paths like
-  /// "lib/screens/sheets/cx_settings_sheet.dart" break into smaller
+  /// "lib/screens/sheets/cc_settings_sheet.dart" break into smaller
   /// segments instead of being treated as one 280px word.
   ///
   /// Intentionally more aggressive than [_addBreakHints] (which only

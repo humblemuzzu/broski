@@ -5,7 +5,7 @@ import type { RequestContext, ServerDeps } from "../routing/types";
 import { validateMessageShape } from "../routing/validate";
 import type { ClientMessage, ServerMessage } from "../types";
 
-const HOT_TYPES = ["cc_chat", "chat", "set_view", "cx_chat"] as const;
+const HOT_TYPES = ["cc_chat", "cc_abort", "set_view", "pty_input"] as const;
 
 describe("message shape validation", () => {
 	test("accepts well-formed messages", () => {
@@ -23,7 +23,7 @@ describe("message shape validation", () => {
 
 	test("rejects a wrong primitive type", () => {
 		expect(validateMessageShape({ type: "pty_resize", ptyId: "p1", rows: "24", cols: 80 })).toContain("rows");
-		expect(validateMessageShape({ type: "chat", sessionId: 1, content: "x" })).toContain("sessionId");
+		expect(validateMessageShape({ type: "cc_abort", sessionId: 1 })).toContain("sessionId");
 		expect(validateMessageShape({ type: "batch", messages: {} })).toContain("messages");
 	});
 
@@ -80,46 +80,6 @@ describe("validation and dispatch cost", () => {
 		expect(perMessageUs).toBeLessThan(50);
 	});
 
-	test("one awaited map lookup replaces the old sequential chain", async () => {
-		const iterations = 100_000;
-		const registry = new RouteRegistry();
-		const deps = {} as ServerDeps;
-		for (const type of HOT_TYPES) {
-			registerAll(registry, [type], async () => {});
-		}
-		const reply = (_message: ServerMessage) => {};
-
-		const newRun = async () => {
-			for (let i = 0; i < iterations; i++) {
-				const type = HOT_TYPES[i % HOT_TYPES.length] as string;
-				const ctx = { ...deps, ws: {} as RequestContext["ws"], reply } as RequestContext;
-				await registry.dispatch({ type } as unknown as ClientMessage, ctx);
-			}
-		};
-		const oldRun = async () => {
-			for (let i = 0; i < iterations; i++) {
-				await simulateOldChain(HOT_TYPES[i % HOT_TYPES.length] as string);
-			}
-		};
-
-		// One sample can lose to a single scheduling stall on a loaded machine, so alternate the two
-		// loops and compare the best of each: a stall can only ever make one round look slower.
-		let newUs = Number.POSITIVE_INFINITY;
-		let oldUs = Number.POSITIVE_INFINITY;
-		for (let round = 0; round < 5; round++) {
-			const newStart = performance.now();
-			await newRun();
-			newUs = Math.min(newUs, ((performance.now() - newStart) / iterations) * 1000);
-
-			const oldStart = performance.now();
-			await oldRun();
-			oldUs = Math.min(oldUs, ((performance.now() - oldStart) / iterations) * 1000);
-		}
-
-		console.log(`[bench] dispatch: old chain=${oldUs.toFixed(3)}us/msg new registry=${newUs.toFixed(3)}us/msg`);
-		expect(newUs).toBeLessThan(oldUs);
-	});
-
 	test("per-message context spread is negligible", () => {
 		const iterations = 100_000;
 		const wide: Record<string, unknown> = {};
@@ -134,49 +94,3 @@ describe("validation and dispatch cost", () => {
 		expect(perMessageUs).toBeLessThan(20);
 	});
 });
-
-/**
- * Stand-in for the removed `processSingleMessage` chain, kept to a step count
- * and shape that matches what each hot type actually walked: prefix gates, the
- * awaited OpenCode sub-handlers up to the matching one, then the tail gates.
- */
-const OC_ORDER = [
-	"list_sessions",
-	"oc_delete_message",
-	"oc_list_workspaces",
-	"list_worktrees",
-	"create_session",
-	"get_config",
-	"list_providers",
-	"list_projects",
-	"read_file",
-	"get_mcp_status",
-	"chat",
-	"delete_part",
-	"oc_question_reply",
-	"oc_session_shell",
-	"oc_list_skills",
-	"oc_init_git",
-	"oc_health",
-];
-const UNIFIED_ORDER = ["unified_list_sessions", "unified_list_session_children"];
-const CHAIN_TAIL = ["cc_elicitation_response", "cc_chat"];
-
-async function matchesOwned(owned: string, type: string): Promise<boolean> {
-	return owned === type;
-}
-
-async function simulateOldChain(type: string): Promise<void> {
-	if (type.startsWith("unified_")) {
-		for (const owned of UNIFIED_ORDER) {
-			if (await matchesOwned(owned, type)) return;
-		}
-		return;
-	}
-	for (const owned of OC_ORDER) {
-		if (await matchesOwned(owned, type)) return;
-	}
-	for (const owned of CHAIN_TAIL) {
-		if (await matchesOwned(owned, type)) return;
-	}
-}

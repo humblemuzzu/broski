@@ -35,7 +35,6 @@ class AutocompleteResult {
 AutocompleteResult computeAutocomplete({
   required String text,
   required List<Agent> agents,
-  required bool isClaudeCode,
   required String effectivePath,
   // Current state for comparison to avoid unnecessary rebuilds
   required bool currentShowCommand,
@@ -58,7 +57,7 @@ AutocompleteResult computeAutocomplete({
     final lowerQuery = query.toLowerCase();
 
     // Claude Code: "@tool:" opens custom tools autocomplete
-    if (isClaudeCode && lowerQuery.startsWith('tool:')) {
+    if (lowerQuery.startsWith('tool:')) {
       return AutocompleteResult(
         showCustomTool: true,
         customToolQuery: query.length > 5 ? query.substring(5) : '',
@@ -131,26 +130,6 @@ void handleFileSelection({
     attachedFiles.add(attachment);
   });
   fileSearch.clear();
-}
-
-/// Handle @agent selection - replace @query with @agentname.
-/// Extracted from `_ChatScreenState._handleAgentSelection`.
-void handleAgentSelection({
-  required TextEditingController controller,
-  required Agent agent,
-  required bool isOpenCode,
-  required void Function(VoidCallback) setState,
-  required void Function(String?) setSelectedAgent,
-}) {
-  final text = controller.text;
-  final newText = text.replaceFirst(RegExp(r'@\S*$'), '@${agent.name} ');
-  controller.text = newText;
-  controller.selection = TextSelection.collapsed(offset: newText.length);
-  setState(() {
-    if (isOpenCode) {
-      setSelectedAgent(agent.name);
-    }
-  });
 }
 
 /// Insert a memory prompt template into the input.

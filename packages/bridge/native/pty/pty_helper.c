@@ -2,7 +2,7 @@
  * Broski Native PTY helper.
  *
  * Provides a tiny C ABI around forkpty + read/write/resize so Bun can use a
- * real PTY even when OpenCode is unavailable.
+ * real PTY.
  */
 
 #if defined(__APPLE__)

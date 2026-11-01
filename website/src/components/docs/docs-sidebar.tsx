@@ -55,8 +55,6 @@ const navigation: NavItem[] = [
     items: [
       { title: "Overview", href: "/docs/backends" },
       { title: "Claude Code", href: "/docs/backends/claude-code" },
-      { title: "OpenCode", href: "/docs/backends/opencode" },
-      { title: "Codex", href: "/docs/backends/codex" },
       { title: "Pi", href: "/docs/backends/pi" },
     ],
   },

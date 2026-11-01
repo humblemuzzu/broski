@@ -80,9 +80,9 @@ void main() {
 
     test('a backend id spelled as a string, in any quoting', () {
       for (final literal in [
-        "'codex'",
+        "'claude-code'",
         '"pi-durable"',
-        "r'opencode'",
+        "r'pi'",
         "'''claude-code'''",
         "'PI'",
         "'Pi Durable'",
@@ -98,11 +98,11 @@ void main() {
 
     test('a backend id put together from pieces', () {
       for (final source in [
-        "final id = 'co' 'dex';",
-        "final id = 'open' + 'code';",
+        "final id = 'clau' 'de-code';",
+        "final id = 'claude' + 'code';",
         "final id = 'p' 'i';",
-        r"final id = '${'co'}dex';",
-        "final id = ['c', 'odex'].join();",
+        r"final id = '${'clau'}decode';",
+        "final id = ['p', 'i'].join();",
         "final id = ['claude', '-', 'code'].join();",
         "final x = b.toString().contains('Durable');",
         "final x = BackendId.values.where((b) => b.name == 'pi' 'Durable');",
@@ -112,13 +112,11 @@ void main() {
     });
 
     test('a BackendId member, written out or as a dot shorthand', () {
-      expect(_check('if (b == BackendId.codex) {}'), hasLength(1));
+      expect(_check('if (b == BackendId.pi) {}'), hasLength(1));
       expect(_check('switch (b) { case .piDurable: }'), hasLength(1));
       expect(_check('f(.claudeCode);'), hasLength(1));
       expect(
-        _check(
-          'String f(BackendId b) => switch (b) { .opencode => 1, _ => 0 };',
-        ),
+        _check('String f(BackendId b) => switch (b) { .pi => 1, _ => 0 };'),
         hasLength(1),
       );
     });
@@ -165,7 +163,7 @@ void main() {
     test('words in comments and documentation', () {
       expect(
         _check(
-          "// BackendId.codex and 'pi'\n/* AgentType /* nested */ codex */\n"
+          "// BackendId.pi and 'pi'\n/* AgentType /* nested */ claudeCode */\n"
           "/// AgentType\nfinal x = 1;",
         ),
         isEmpty,

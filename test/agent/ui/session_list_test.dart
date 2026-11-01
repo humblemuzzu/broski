@@ -143,11 +143,11 @@ void main() {
   test('panels follow the declared operations, each in its place', () {
     expect(
       [for (final panel in panelsAt(everything, OpPlace.session)) panel.kind],
-      [BackendOpKind.reviewStart],
+      [BackendOpKind.changedFiles],
     );
     expect(
       [for (final panel in panelsAt(everything, OpPlace.item)) panel.kind],
-      [BackendOpKind.revertStage],
+      [BackendOpKind.rewindFiles],
     );
     expect(panelsAt(nothing, OpPlace.session), isEmpty);
     for (final kind in BackendOpKind.values) {

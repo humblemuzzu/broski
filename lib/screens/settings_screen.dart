@@ -16,28 +16,18 @@ import 'package:broski/screens/ai_backend_screen.dart';
 import 'package:broski/screens/claude_code_commands_screen.dart';
 import 'package:broski/screens/claude_code_mcp_screen.dart';
 import 'package:broski/screens/claude_code_settings_screen.dart';
-import 'package:broski/screens/codex_agents_screen.dart';
-import 'package:broski/screens/codex_mcp_screen.dart';
 import 'package:broski/screens/custom_tools_screen.dart';
 import 'package:broski/screens/customization_screen.dart';
 import 'package:broski/screens/hooks_screen.dart';
-import 'package:broski/screens/mcp_servers_screen.dart';
-import 'package:broski/screens/opencode_agents_screen.dart';
-import 'package:broski/screens/opencode_commands_screen.dart';
-import 'package:broski/screens/opencode_global_config_screen.dart';
-import 'package:broski/screens/opencode_plugins_screen.dart';
-import 'package:broski/screens/permission_rules_screen.dart';
 import 'package:broski/screens/plugins_screen.dart';
 import 'package:broski/screens/scan_screen.dart';
 import 'package:broski/screens/settings/app_version_line.dart';
 import 'package:broski/screens/settings/contract_feature_tiles.dart';
-import 'package:broski/screens/sheets/cx_apps_sheet.dart';
 import 'package:broski/screens/sheets/git_panel_sheet.dart';
 import 'package:broski/screens/skills_screen.dart';
 import 'package:broski/screens/subagents_screen.dart';
 import 'package:broski/screens/subscription_usage_screen.dart';
 import 'package:broski/screens/terminal_screen.dart';
-import 'package:broski/screens/tools_screen.dart';
 import 'package:broski/screens/voice_settings_screen.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/design_tokens.dart';
@@ -535,7 +525,7 @@ class _PowerFeaturesTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final featureCount = _getFeatureCount(currentAgent);
+    const featureCount = 9;
     return InkWell(
       onTap: onToggle,
       borderRadius: Radii.brLg,
@@ -607,17 +597,6 @@ class _PowerFeaturesTile extends StatelessWidget {
       ),
     );
   }
-
-  int _getFeatureCount(AgentType agent) {
-    switch (agent) {
-      case AgentType.opencode:
-        return 9;
-      case AgentType.claudeCode:
-        return 9;
-      case AgentType.codex:
-        return 4;
-    }
-  }
 }
 
 class _PowerFeaturesExpandedCard extends StatelessWidget {
@@ -625,114 +604,6 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
   final AgentType currentAgent;
   List<Widget> _getPowerFeatures(BuildContext context, AgentType agent) {
     switch (agent) {
-      case AgentType.opencode:
-        return [
-          _SettingsTile(
-            title: 'AI Usage',
-            subtitle: 'Your AI provider limits & credits',
-            icon: AppIcons.dataUsage,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const SubscriptionUsageScreen(),
-              ),
-            ),
-          ),
-          const _Divider(),
-          _SettingsTile(
-            title: 'Terminal Sessions',
-            subtitle: 'PTY terminal sessions',
-            icon: AppIcons.terminal,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const TerminalScreen()),
-            ),
-          ),
-          const _Divider(),
-          _SettingsTile(
-            title: 'Skills',
-            subtitle: 'SKILL.md management',
-            icon: AppIcons.autoFix,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const SkillsScreen(backend: AgentType.opencode),
-              ),
-            ),
-          ),
-          const _Divider(),
-          _SettingsTile(
-            title: 'Commands',
-            subtitle: '.opencode/command/*.md',
-            icon: AppIcons.code,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const OpenCodeCommandsScreen()),
-            ),
-          ),
-          const _Divider(),
-          _SettingsTile(
-            title: 'Agents',
-            subtitle: '.opencode/agent/*.md',
-            icon: AppIcons.agent,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const OpenCodeAgentsScreen()),
-            ),
-          ),
-          const _Divider(),
-          _SettingsTile(
-            title: 'Plugins',
-            subtitle: '.opencode/plugin hooks',
-            icon: AppIcons.extension_,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const OpenCodePluginsScreen()),
-            ),
-          ),
-          const _Divider(),
-          _SettingsTile(
-            title: 'MCP Servers',
-            subtitle: 'Model Context Protocol',
-            icon: AppIcons.dns,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const McpServersScreen()),
-            ),
-          ),
-          const _Divider(),
-          _SettingsTile(
-            title: 'Tools',
-            subtitle: 'AI tools configuration',
-            icon: AppIcons.build,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ToolsScreen()),
-            ),
-          ),
-          const _Divider(),
-          _SettingsTile(
-            title: 'Permission Rules',
-            subtitle: 'Default session permissions',
-            icon: AppIcons.security,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const PermissionRulesScreen()),
-            ),
-          ),
-          const _Divider(),
-          _SettingsTile(
-            title: 'Global Configuration',
-            subtitle: 'Settings across all projects',
-            icon: AppIcons.tune,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const OpenCodeGlobalConfigScreen(),
-              ),
-            ),
-          ),
-        ];
       case AgentType.claudeCode:
         return [
           _SettingsTile(
@@ -844,69 +715,6 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
             ),
           ),
         ];
-      case AgentType.codex:
-        return [
-          _SettingsTile(
-            title: 'AI Usage',
-            subtitle: 'Your AI provider limits & credits',
-            icon: AppIcons.dataUsage,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const SubscriptionUsageScreen(),
-              ),
-            ),
-          ),
-          const _Divider(),
-          _SettingsTile(
-            title: 'Terminal Sessions',
-            subtitle: 'PTY terminal sessions',
-            icon: AppIcons.terminal,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const TerminalScreen()),
-            ),
-          ),
-          const _Divider(),
-          _SettingsTile(
-            title: 'Skills',
-            subtitle: 'SKILL.md management',
-            icon: AppIcons.autoFix,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const SkillsScreen(backend: AgentType.codex),
-              ),
-            ),
-          ),
-          const _Divider(),
-          _SettingsTile(
-            title: 'Agents',
-            subtitle: 'AGENTS.md',
-            icon: AppIcons.agent,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const CodexAgentsScreen()),
-            ),
-          ),
-          const _Divider(),
-          _SettingsTile(
-            title: 'MCP',
-            subtitle: 'Servers and config',
-            icon: AppIcons.dns,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const CodexMcpScreen()),
-            ),
-          ),
-          const _Divider(),
-          _SettingsTile(
-            title: 'Apps',
-            subtitle: 'Connectors & integrations',
-            icon: AppIcons.extension_,
-            onTap: () => CxAppsSheet.show(context),
-          ),
-        ];
     }
   }
 
@@ -990,12 +798,12 @@ class _ProjectPickerContentState extends ConsumerState<_ProjectPickerContent> {
     try {
       List<ProjectSummary> projects;
       if (connection.isOfflineMode) {
-        projects = await storage.getCachedProjects();
+        projects = await storage.getCachedCCProjects();
       } else {
         final bridge = ref.read(bridgeServiceProvider);
-        projects = await bridge.listProjects();
+        projects = await bridge.ccListProjects();
         if (projects.isNotEmpty) {
-          await storage.cacheProjects(projects);
+          await storage.cacheCCProjects(projects);
         }
       }
       projects.sort((a, b) {
@@ -1016,7 +824,7 @@ class _ProjectPickerContentState extends ConsumerState<_ProjectPickerContent> {
         }
       });
     } catch (e) {
-      final cached = await storage.getCachedProjects();
+      final cached = await storage.getCachedCCProjects();
       if (!mounted) return;
       if (cached.isNotEmpty) {
         setState(() {

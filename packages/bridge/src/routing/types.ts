@@ -1,6 +1,4 @@
 import type { ServerWebSocket } from "bun";
-import type { CodexAppServerClient } from "../connectors/codex";
-import type { OpenCodeConnector } from "../connectors/opencode";
 import type { ClaudeElicitationReply } from "../handlers/cc_elicitation";
 import type { PtyRuntime } from "../pty/runtime";
 import type {
@@ -9,12 +7,8 @@ import type {
 	ClaudeCodeSession,
 	ClaudeCodeStreamMessage,
 	ClientMessage,
-	CodexStreamMessage,
-	CodexThread,
 	DeviceInfo,
-	PermissionResponse,
 	ServerMessage,
-	SessionStatusInfo,
 } from "../types";
 import type { BroskiSessionSummary } from "../types/runtime";
 
@@ -54,21 +48,7 @@ export type ElicitationWaiter = {
 	timer: Timer;
 };
 
-export type ApprovalWaiter = {
-	resolve: (response: {
-		response?: PermissionResponse;
-		execpolicyAmendment?: unknown;
-		networkPolicyAmendment?: { host: string; action: "allow" | "deny" };
-		answers?: Record<string, { answers: string[] }>;
-	}) => void;
-	timer: Timer;
-};
-
-export type CxProjectCacheEntry = { fetchedAt: number; data: unknown[] };
-export type CxThreadCacheEntry = { fetchedAt: number; data: CodexThread[]; nextCursor: string | null };
-
 type ClaudeCodeConnector = typeof import("../connectors/claude-code");
-type CodexFsConnector = typeof import("../connectors/codex-fs");
 type FileSearchConnector = typeof import("../file-search");
 
 /**
@@ -94,7 +74,6 @@ export type ServerDeps = {
 	logDebug: (message: string) => void;
 	logError: (message: string, ...args: unknown[]) => void;
 	DEBUG_RTS: boolean;
-	DEBUG_CX_GLOBAL: boolean;
 	BRIDGE_PROTOCOL_VERSION: string;
 	ALLOWED_DEVICE_IDS: Set<string>;
 	getDeviceInfo: (ws: ServerWebSocket<unknown>) => DeviceInfo | null;
@@ -106,15 +85,7 @@ export type ServerDeps = {
 		getSubagentMessages: (sessionId: string, agentId: string, cwd?: string) => Promise<unknown[]>;
 	}>;
 	claudeCode: ClaudeCodeConnector;
-	opencode: OpenCodeConnector | null;
-	codexFs: CodexFsConnector;
-	ensureCodexClient: () => Promise<CodexAppServerClient>;
-	codexClient: CodexAppServerClient | null;
-	requireOpenCode: () => OpenCodeConnector;
-	requireOpenCodeOrNull: () => OpenCodeConnector | null;
-	checkCodexAvailable: () => Promise<boolean>;
 	getBackendsStatus: () => Promise<Record<AgentType, AgentStatusInfo>>;
-	restartOpenCode?: () => Promise<boolean | undefined>;
 	safeString: (value: unknown) => string;
 	getSecurePath: (path: string) => Promise<string | null>;
 	isSafeClaudeCommandName: (name: string) => boolean;
@@ -143,25 +114,7 @@ export type ServerDeps = {
 	ccEventBuffers: Map<string, Array<{ event: unknown; ts: number }>>;
 	ccPermissionWaiters: Map<string, PermissionWaiter>;
 	ccElicitationWaiters: Map<string, ElicitationWaiter>;
-	cxApprovalWaiters: Map<string, ApprovalWaiter>;
-	cxActiveTurns: Map<string, string>;
-	cxThreadOwners: Map<string, ServerWebSocket<unknown>>;
-	cxThreadCwds: Map<string, string>;
-	cxThreadNames: Map<string, string>;
-	cxThreadCache: Map<string, CxThreadCacheEntry>;
-	cxProjectCache: CxProjectCacheEntry | null;
-	setProjectCache: (cache: CxProjectCacheEntry | null) => void;
-	cxSearchSessions: Map<string, string>;
-	CODEX_PROJECT_CACHE_TTL_MS: number;
-	CODEX_THREAD_CACHE_TTL_MS: number;
-	invalidateCodexCaches: (cwd?: string) => void;
-	ensureUndoStack: (threadId: string) => string[];
-	applyCodexUndo: (threadId: string, key: string) => Promise<string[]>;
-	mapCodexThread: (thread: unknown, nameOverride?: string) => CodexThread & { threadName?: string };
-	mapCodexThreadToRuntimeSession: (thread: CodexThread) => BroskiSessionSummary;
 	mapClaudeCodeSessionToRuntimeSession: (session: ClaudeCodeSession) => BroskiSessionSummary;
-	ocSessionOwners: Map<string, ServerWebSocket<unknown>>;
-	ocSessionProjectPaths: Map<string, string>;
 	sessionWatchers: Map<string, Set<ServerWebSocket<unknown>>>;
 	updateSessionWatchers: (ws: ServerWebSocket<unknown>, prevKey: string | null, nextKey: string | null) => void;
 	makeSessionKey: (agent: AgentType | undefined, sessionId: string | undefined) => string | null;
@@ -180,12 +133,6 @@ export type ServerDeps = {
 		cwd?: string;
 		isStreaming: boolean;
 	}) => Record<string, unknown>;
-	buildCodexRuntimeState: (params: { threadId: string; cwd?: string; isStreaming: boolean }) => Record<string, unknown>;
-	mapOpenCodeStatusToRuntimeState: (
-		sessionId: string,
-		status: SessionStatusInfo,
-		projectPath?: string,
-	) => Record<string, unknown>;
 	replayRuntimeEventsSince: (params: {
 		ws: ServerWebSocket<unknown>;
 		backend: AgentType;
@@ -198,8 +145,6 @@ export type ServerDeps = {
 		streamMessage: ClaudeCodeStreamMessage,
 		owner?: ServerWebSocket<unknown> | null,
 	) => void;
-	emitCxStream: (threadId: string, streamMessage: CodexStreamMessage, owner?: ServerWebSocket<unknown> | null) => void;
-	enqueueSdkEvent: (event: unknown) => void;
 	PERMISSION_TIMEOUT_MS: number;
 	ptyRuntime: PtyRuntime;
 };

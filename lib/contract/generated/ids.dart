@@ -7,8 +7,6 @@ typedef AttachmentId = String;
 
 enum BackendId {
   claudeCode('claude-code'),
-  codex('codex'),
-  opencode('opencode'),
   pi('pi'),
   piDurable('pi-durable');
 

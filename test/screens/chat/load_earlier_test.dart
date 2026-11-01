@@ -1,7 +1,4 @@
 import 'package:broski/models/claude_code.dart';
-import 'package:broski/models/codex.dart';
-import 'package:broski/models/project.dart';
-import 'package:broski/models/session.dart';
 import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/service_providers.dart';
@@ -16,14 +13,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../../support/fake_websocket.dart';
 
-ChatScreen _codexChat({String id = 'cx-1'}) => ChatScreen.codex(
-  cxThread: CodexThread(
-    id: id,
-    preview: '',
-    cwd: '/p',
-    createdAt: 0,
-    updatedAt: 0,
-  ),
+ChatScreen _ccChat({String id = 'cc-1'}) => ChatScreen.claudeCode(
+  ccSession: ClaudeCodeSession(id: id, cwd: '/p', createdAt: 0, updatedAt: 0),
 );
 
 Map<String, dynamic> _message(String id, String text, int at) => {
@@ -34,9 +25,7 @@ Map<String, dynamic> _message(String id, String text, int at) => {
 };
 
 void _seed(ChatSessionNotifier chat, Map<String, dynamic> message) =>
-    chat.prependCodexTranscript([
-      CodexTranscriptMessage.fromJson(message),
-    ], threadId: 'cx-1');
+    chat.prependClaudeCodeTranscript([message], sessionId: 'cc-1');
 
 void _setPagination({required bool loadingMore, required bool loadedAll}) {}
 
@@ -79,12 +68,12 @@ void main() {
     final ref = await _pumpHost(tester, socket);
 
     final chat = ref.read(chatSessionProvider.notifier);
-    chat.setCodexThread(threadId: 'A', cwd: '/p');
+    chat.setCCSession(sessionId: 'A', cwd: '/p');
     chat.setTranscriptCursor('cursor-a');
 
     final pending = loadEarlierTranscript(
       ref: ref,
-      widget: _codexChat(id: 'A'),
+      widget: _ccChat(id: 'A'),
       loadingMoreMessages: false,
       hasLoadedAllMessages: false,
       scrollController: ScrollController(),
@@ -93,14 +82,14 @@ void main() {
     );
 
     final request = socket.sent.firstWhere(
-      (message) => message['type'] == 'cx_get_thread_messages',
+      (message) => message['type'] == 'cc_get_session_messages',
     );
     expect(request['before'], 'cursor-a');
 
-    chat.setCodexThread(threadId: 'B', cwd: '/p');
+    chat.setCCSession(sessionId: 'B', cwd: '/p');
 
     socket.deliver({
-      'type': 'cx_thread_messages',
+      'type': 'cc_session_messages',
       'requestId': request['requestId'],
       'data': [_message('a1', 'belongs to A', 1)],
       'hasMore': true,
@@ -124,14 +113,14 @@ void main() {
     final ref = await _pumpHost(tester, socket);
 
     final chat = ref.read(chatSessionProvider.notifier);
-    chat.setCodexThread(threadId: 'cx-1', cwd: '/p');
+    chat.setCCSession(sessionId: 'cc-1', cwd: '/p');
     chat.setTranscriptCursor('cursor-1');
     ref.read(connectionProvider.notifier).enterOfflineMode();
 
     final states = <({bool loadingMore, bool loadedAll})>[];
     await loadEarlierTranscript(
       ref: ref,
-      widget: _codexChat(),
+      widget: _ccChat(),
       loadingMoreMessages: false,
       hasLoadedAllMessages: false,
       scrollController: ScrollController(),
@@ -145,7 +134,7 @@ void main() {
     expect(states.last.loadedAll, isTrue);
     expect(states.last.loadingMore, isFalse);
     expect(
-      socket.sent.where((m) => m['type'] == 'cx_get_thread_messages'),
+      socket.sent.where((m) => m['type'] == 'cc_get_session_messages'),
       isEmpty,
     );
   });
@@ -158,7 +147,7 @@ void main() {
     final ref = await _pumpHost(tester, socket);
 
     final chat = ref.read(chatSessionProvider.notifier);
-    chat.setCodexThread(threadId: 'cx-1', cwd: '/p');
+    chat.setCCSession(sessionId: 'cc-1', cwd: '/p');
     _seed(chat, _message('m3', 'newest prompt', 3));
     chat.setTranscriptCursor('cursor-2');
 
@@ -179,7 +168,7 @@ void main() {
     for (final page in pages) {
       final loading = loadEarlierTranscript(
         ref: ref,
-        widget: _codexChat(),
+        widget: _ccChat(),
         loadingMoreMessages: false,
         hasLoadedAllMessages: pagination.loadedAll,
         scrollController: ScrollController(),
@@ -190,10 +179,10 @@ void main() {
             },
       );
       final request = socket.sent.lastWhere(
-        (message) => message['type'] == 'cx_get_thread_messages',
+        (message) => message['type'] == 'cc_get_session_messages',
       );
       socket.deliver({
-        'type': 'cx_thread_messages',
+        'type': 'cc_session_messages',
         'requestId': request['requestId'],
         'data': page.messages,
         'hasMore': page.hasMore,
@@ -220,7 +209,7 @@ void main() {
     final ref = await _pumpHost(tester, socket);
 
     final chat = ref.read(chatSessionProvider.notifier);
-    chat.setCodexThread(threadId: 'cx-1', cwd: '/p');
+    chat.setCCSession(sessionId: 'cc-1', cwd: '/p');
     _seed(chat, _message('m2', 'newest prompt', 2));
     chat.setTranscriptCursor('cursor-1');
 
@@ -229,7 +218,6 @@ void main() {
       ref: ref,
       loadingMoreMessages: false,
       hasLoadedAllMessages: false,
-      projectPath: '',
       scrollController: ScrollController(),
       anchorKeys: TranscriptAnchorKeys(),
       setPaginationState:
@@ -237,10 +225,10 @@ void main() {
             states.add((loadingMore: loadingMore, loadedAll: loadedAll));
           },
       isMounted: () => true,
-      widget: _codexChat(id: 'cx-1'),
+      widget: _ccChat(id: 'cc-1'),
     );
     final request = socket.sent.lastWhere(
-      (message) => message['type'] == 'cx_get_thread_messages',
+      (message) => message['type'] == 'cc_get_session_messages',
     );
     socket.deliver({
       'type': 'error',
@@ -266,7 +254,7 @@ void main() {
     final ref = await _pumpHost(tester, socket);
 
     final chat = ref.read(chatSessionProvider.notifier);
-    chat.setCodexThread(threadId: 'cx-2', cwd: '/p');
+    chat.setCCSession(sessionId: 'cc-2', cwd: '/p');
     chat.setTranscriptCursor('cursor-1');
 
     var pagination = (loading: false, loadedAll: false);
@@ -274,7 +262,6 @@ void main() {
       ref: ref,
       loadingMoreMessages: false,
       hasLoadedAllMessages: false,
-      projectPath: '',
       scrollController: ScrollController(),
       anchorKeys: TranscriptAnchorKeys(),
       setPaginationState:
@@ -282,46 +269,18 @@ void main() {
             pagination = (loading: loadingMore, loadedAll: loadedAll);
           },
       isMounted: () => true,
-      widget: _codexChat(id: 'cx-1'),
+      widget: _ccChat(id: 'cc-1'),
     );
 
     expect(pagination.loadedAll, isTrue);
     expect(
-      socket.sent.where((m) => m['type'] == 'cx_get_thread_messages'),
+      socket.sent.where((m) => m['type'] == 'cc_get_session_messages'),
       isEmpty,
-      reason: 'the open transcript is cx-2, not the thread this screen shows',
+      reason: 'the open transcript is cc-2, not the session this screen shows',
     );
   });
 
-  test('the owner of a transcript is the backend its cursor came from', () {
-    expect(transcriptOwnerId(_codexChat(id: 'cx-7')), 'cx-7');
-    expect(
-      transcriptOwnerId(
-        const ChatScreen.claudeCode(
-          ccSession: ClaudeCodeSession(
-            id: 'cc-7',
-            cwd: '/p',
-            createdAt: 0,
-            updatedAt: 0,
-          ),
-        ),
-      ),
-      'cc-7',
-    );
-    expect(
-      transcriptOwnerId(
-        const ChatScreen(
-          project: ProjectSummary(id: 'p', name: 'p', path: '/p'),
-          session: SessionSummary(
-            id: 'oc-7',
-            title: '',
-            projectID: 'p',
-            directory: '/p',
-            time: SessionTime(created: 0, updated: 0),
-          ),
-        ),
-      ),
-      'oc-7',
-    );
+  test('the owner of a transcript is the session its cursor came from', () {
+    expect(transcriptOwnerId(_ccChat(id: 'cc-7')), 'cc-7');
   });
 }

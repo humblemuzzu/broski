@@ -2,10 +2,8 @@
  * File Search Module for Broski Bridge
  *
  * Provides project-scoped file and directory search for @ autocomplete.
- * Works independently of OpenCode SDK - uses Bun's native filesystem APIs
+ * Uses Bun's native filesystem APIs
  * with ripgrep for performance (falls back to Bun glob if rg not available).
- *
- * Inspired by OpenCode's file search implementation.
  */
 
 import { readdir, realpath, stat } from "node:fs/promises";
@@ -365,7 +363,7 @@ export async function searchFilesAndDirs(options: FileSearchOptions): Promise<Fi
 	// Combine files and dirs based on option
 	const allItems = includeDirs ? [...cached.files, ...cached.dirs] : cached.files;
 
-	// If no query, return sorted dirs first then files (like OpenCode)
+	// If no query, return sorted dirs first then files
 	if (!query) {
 		const sorted = includeDirs
 			? [...cached.dirs.sort(), ...cached.files.slice(0, limit - cached.dirs.length)]

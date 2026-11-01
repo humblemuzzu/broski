@@ -25,7 +25,7 @@ export default function DocsPage() {
         <div className="mb-6">
           <h3 className="text-base font-medium mb-2 text-muted-foreground">The Problem</h3>
           <p className="text-muted-foreground mb-4">
-            You&apos;re working with an AI coding agent like Claude Code, OpenCode, or Pi on your system. 
+            You&apos;re working with an AI coding agent like Claude Code or Pi on your system. 
             It&apos;s powerful, but you have to be at your system to use it. What if you want to:
           </p>
           <ul className="text-muted-foreground space-y-1 ml-4 list-disc">
@@ -111,8 +111,6 @@ export default function DocsPage() {
           headers={["Backend", "Description", "Status"]}
           rows={[
             [<strong key="cc">Claude Code</strong>, "Anthropic's official CLI for Claude", "Fully Supported"],
-            [<strong key="oc">OpenCode</strong>, "Open-source AI coding assistant (multi-provider)", "Fully Supported"],
-            [<strong key="cx">Codex</strong>, "OpenAI's CLI agent for GPT models", "Fully Supported"],
             [<strong key="pi">Pi</strong>, "Open-source multi-provider agent (extensions, session tree)", "Fully Supported"],
           ]}
         />
@@ -155,7 +153,7 @@ export default function DocsPage() {
       <CardGrid>
         <FeatureCard
           title="Real-time Chat"
-          description="Stream responses from Claude Code, OpenCode, Codex, or Pi at 60fps."
+          description="Stream responses from Claude Code or Pi at 60fps."
           color="primary"
         />
         <FeatureCard
@@ -197,7 +195,7 @@ export default function DocsPage() {
         <Card
           href="/docs/backends"
           title="AI Backends"
-          description="Claude Code, OpenCode, Codex, Pi setup guides."
+          description="Claude Code and Pi setup guides."
         />
         <Card
           href="/docs/security"

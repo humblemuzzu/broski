@@ -31,7 +31,7 @@ Future<bool> hydrateClaudeCode(Hydration h) async {
     if (connection.isOfflineMode) {
       final cachedMessages = await storage.getCachedCCMessages(sessionId);
       if (cachedMessages.isNotEmpty) {
-        chat.hydrate(cachedMessages.map((m) => messageToRaw(m)).toList());
+        chat.hydrateCached(cachedMessages);
       }
     } else {
       try {
@@ -66,7 +66,7 @@ Future<bool> hydrateClaudeCode(Hydration h) async {
         transcriptUnavailable();
         final cachedMessages = await storage.getCachedCCMessages(sessionId);
         if (cachedMessages.isNotEmpty) {
-          chat.hydrate(cachedMessages.map((m) => messageToRaw(m)).toList());
+          chat.hydrateCached(cachedMessages);
         }
       }
     }

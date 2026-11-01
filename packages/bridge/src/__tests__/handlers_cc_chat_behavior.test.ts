@@ -31,7 +31,7 @@ function harness(options: {
 }) {
 	const emitted: Emitted[] = [];
 	const sent: ServerMessage[] = [];
-	const sdkEvents: unknown[] = [];
+	const watched: Array<Record<string, unknown>> = [];
 	const maps = {
 		owners: new Map<string, ServerWebSocket<unknown>>(),
 		cwds: new Map<string, string>(),
@@ -83,18 +83,17 @@ function harness(options: {
 			cwd: params.cwd,
 			isStreaming: params.isStreaming,
 		}),
-		broadcastToSessionWatchers: () => {},
+		broadcastToSessionWatchers: (_agent, _sessionId, message) => {
+			watched.push(message as unknown as Record<string, unknown>);
+		},
 		emitCcStream: (sessionId: string, message: unknown, ...owner: unknown[]) => {
 			emitted.push({ sessionId, message: message as Record<string, unknown>, ownerArgCount: owner.length });
-		},
-		enqueueSdkEvent: (event) => {
-			sdkEvents.push(event);
 		},
 		syncExternalTailForKey: () => {},
 		makeSessionKey: () => null,
 	};
 
-	return { ctx, maps, ws, emitted, sent, sdkEvents, done: () => pending ?? Promise.resolve() };
+	return { ctx, maps, ws, emitted, sent, watched, done: () => pending ?? Promise.resolve() };
 }
 
 async function runCcChat(h: ReturnType<typeof harness>, message: Record<string, unknown> = {}): Promise<void> {
@@ -170,8 +169,9 @@ describe("cc_chat session lifecycle", () => {
 		expect(h.maps.owners.has("cc-done")).toBe(false);
 		expect(h.maps.cwds.has("cc-done")).toBe(false);
 		expect(h.maps.eventBuffers.has("cc-done")).toBe(false);
-		const idle = h.sdkEvents.find(
-			(event) => (event as { payload?: { type?: string } })?.payload?.type === "session.idle",
+		const idle = h.watched.find(
+			(message) =>
+				message.type === "runtime_state" && (message.data as { isStreaming?: boolean })?.isStreaming === false,
 		);
 		expect(idle).toBeDefined();
 	});

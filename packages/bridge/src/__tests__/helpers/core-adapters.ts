@@ -128,7 +128,7 @@ export function noticeRightAfterOpen(backend: AgentBackend): AgentBackend {
 	};
 }
 
-/** The fake with no memory of prompt ids, as Codex and Pi have none: only the core can tell a repeat. */
+/** The fake with no memory of prompt ids, as Pi has none: only the core can tell a repeat. */
 export function forgetfulPrompts(backend: AgentBackend): AgentBackend {
 	return wrappingSessions(backend, (session) =>
 		changedSession(session, {

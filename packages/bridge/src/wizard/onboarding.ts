@@ -39,20 +39,16 @@ export interface OnboardingOptions {
 // Non-interactive setup (for CI / automated environments)
 // ---------------------------------------------------------------------------
 
-function detectAgentsNonInteractive(): { opencode: boolean; claudeCode: boolean; codex: boolean; pi: boolean } {
+function detectAgentsNonInteractive(): { claudeCode: boolean; pi: boolean } {
 	return {
-		opencode: !!findBinary("opencode"),
 		claudeCode: !!findBinary("claude"),
-		codex: !!findBinary("codex"),
 		pi: !!findBinary("pi"),
 	};
 }
 
-function agentNameFromFlag(flag: string): "opencode" | "claude" | "codex" | "pi" | null {
+function agentNameFromFlag(flag: string): "claude" | "pi" | null {
 	const lower = flag.toLowerCase().trim();
-	if (lower === "opencode") return "opencode";
 	if (lower === "claude" || lower === "claude-code" || lower === "claudecode") return "claude";
-	if (lower === "codex") return "codex";
 	if (lower === "pi") return "pi";
 	return null;
 }
@@ -69,14 +65,12 @@ async function runNonInteractiveSetup(options: OnboardingOptions): Promise<void>
 	log("Non-interactive setup");
 
 	// 1. Agents — use flag or auto-detect
-	let agents: { opencode: boolean; claudeCode: boolean; codex: boolean; pi: boolean };
+	let agents: { claudeCode: boolean; pi: boolean };
 	if (options.agents && options.agents.length > 0) {
-		agents = { opencode: false, claudeCode: false, codex: false, pi: false };
+		agents = { claudeCode: false, pi: false };
 		for (const a of options.agents) {
 			const name = agentNameFromFlag(a);
-			if (name === "opencode") agents.opencode = true;
-			else if (name === "claude") agents.claudeCode = true;
-			else if (name === "codex") agents.codex = true;
+			if (name === "claude") agents.claudeCode = true;
 			else if (name === "pi") agents.pi = true;
 			else log(`Warning: unknown agent "${a}", skipping`);
 		}
@@ -85,9 +79,7 @@ async function runNonInteractiveSetup(options: OnboardingOptions): Promise<void>
 	}
 
 	const agentNames: string[] = [];
-	if (agents.opencode) agentNames.push("OpenCode");
 	if (agents.claudeCode) agentNames.push("Claude Code");
-	if (agents.codex) agentNames.push("Codex");
 	if (agents.pi) agentNames.push("Pi");
 	log(`Agents: ${agentNames.length > 0 ? agentNames.join(", ") : "none detected"}`);
 
@@ -158,9 +150,7 @@ async function runNonInteractiveSetup(options: OnboardingOptions): Promise<void>
 			verifyCodeSignature: defaults.security.verifyCodeSignature,
 		},
 		agents: {
-			opencode: agents.opencode,
 			claudeCode: agents.claudeCode,
-			codex: agents.codex,
 			pi: agents.pi,
 		},
 		daemon: {
@@ -247,9 +237,7 @@ export async function runOnboardingWizard(prompter: WizardPrompter | null, optio
 				verifyCodeSignature: wizardDefaults.security.verifyCodeSignature,
 			},
 			agents: {
-				opencode: agents.opencode,
 				claudeCode: agents.claudeCode,
-				codex: agents.codex,
 				pi: agents.pi,
 			},
 			daemon: {
@@ -270,12 +258,7 @@ export async function runOnboardingWizard(prompter: WizardPrompter | null, optio
 		if (runValidation) {
 			const { runDoctor } = await import("../doctor");
 			await runDoctor({ profile: "pairing" });
-			if (
-				finalConfig.agents.opencode ||
-				finalConfig.agents.claudeCode ||
-				finalConfig.agents.codex ||
-				finalConfig.agents.pi
-			) {
+			if (finalConfig.agents.claudeCode || finalConfig.agents.pi) {
 				await runDoctor({ profile: "agents" });
 			}
 		}

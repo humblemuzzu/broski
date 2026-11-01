@@ -7,7 +7,7 @@ export type ModeAxisId = z.infer<typeof ModeAxisId>;
 
 /**
  * One setting a session runs under that the human picks from the backend's own list, such as
- * Claude Code's permission mode or an OpenCode agent. Values are opaque; an option's description
+ * Claude Code's permission mode. Values are opaque; an option's description
  * says what it allows.
  */
 export const ModeAxis = z.strictObject({

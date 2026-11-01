@@ -7,13 +7,11 @@ import { findBinary } from "../platform";
 describe("Agent Detection (from agents step)", () => {
 	// Test the same logic used in the agents step
 	function detectAgents() {
-		const oc = findBinary("opencode");
+		const piPath = findBinary("pi");
 		const cc = findBinary("claude");
-		const cx = findBinary("codex");
 		return {
-			opencode: { found: !!oc, path: oc },
+			pi: { found: !!piPath, path: piPath },
 			claudeCode: { found: !!cc, path: cc },
-			codex: { found: !!cx, path: cx },
 		};
 	}
 
@@ -21,53 +19,43 @@ describe("Agent Detection (from agents step)", () => {
 		const result = detectAgents();
 
 		expect(typeof result).toBe("object");
-		expect("opencode" in result).toBe(true);
+		expect("pi" in result).toBe(true);
 		expect("claudeCode" in result).toBe(true);
-		expect("codex" in result).toBe(true);
 
 		// Each agent should have found boolean and path
-		expect(typeof result.opencode.found).toBe("boolean");
-		expect(result.opencode.path === null || typeof result.opencode.path === "string").toBe(true);
+		expect(typeof result.pi.found).toBe("boolean");
+		expect(result.pi.path === null || typeof result.pi.path === "string").toBe(true);
 
 		expect(typeof result.claudeCode.found).toBe("boolean");
 		expect(result.claudeCode.path === null || typeof result.claudeCode.path === "string").toBe(true);
-
-		expect(typeof result.codex.found).toBe("boolean");
-		expect(result.codex.path === null || typeof result.codex.path === "string").toBe(true);
 	});
 
 	test("found flag matches path existence", () => {
 		const result = detectAgents();
 
-		expect(result.opencode.found).toBe(!!result.opencode.path);
+		expect(result.pi.found).toBe(!!result.pi.path);
 		expect(result.claudeCode.found).toBe(!!result.claudeCode.path);
-		expect(result.codex.found).toBe(!!result.codex.path);
 	});
 });
 
 describe("Agent Name Parsing (from onboarding)", () => {
 	// Test the agentNameFromFlag function logic from onboarding.ts
-	function agentNameFromFlag(flag: string): "opencode" | "claude" | "codex" | null {
+	function agentNameFromFlag(flag: string): "pi" | "claude" | null {
 		const lower = flag.toLowerCase().trim();
-		if (lower === "opencode") return "opencode";
+		if (lower === "pi") return "pi";
 		if (lower === "claude" || lower === "claude-code" || lower === "claudecode") return "claude";
-		if (lower === "codex") return "codex";
 		return null;
 	}
 
 	test("agentNameFromFlag handles valid agent names", () => {
-		expect(agentNameFromFlag("opencode")).toBe("opencode");
-		expect(agentNameFromFlag("OPENCODE")).toBe("opencode");
-		expect(agentNameFromFlag(" opencode ")).toBe("opencode");
+		expect(agentNameFromFlag("pi")).toBe("pi");
+		expect(agentNameFromFlag("PI")).toBe("pi");
+		expect(agentNameFromFlag(" pi ")).toBe("pi");
 
 		expect(agentNameFromFlag("claude")).toBe("claude");
 		expect(agentNameFromFlag("claude-code")).toBe("claude");
 		expect(agentNameFromFlag("claudecode")).toBe("claude");
 		expect(agentNameFromFlag("CLAUDE-CODE")).toBe("claude");
-
-		expect(agentNameFromFlag("codex")).toBe("codex");
-		expect(agentNameFromFlag("CODEX")).toBe("codex");
-		expect(agentNameFromFlag(" codex ")).toBe("codex");
 	});
 
 	test("agentNameFromFlag returns null for invalid names", () => {
@@ -101,20 +89,17 @@ describe("Daemon Type Mapping (from daemon step)", () => {
 describe("Configuration Result Types", () => {
 	test("AgentsResult structure", () => {
 		type AgentsResult = {
-			opencode: boolean;
+			pi: boolean;
 			claudeCode: boolean;
-			codex: boolean;
 		};
 
 		const mockResult: AgentsResult = {
-			opencode: true,
+			pi: true,
 			claudeCode: false,
-			codex: true,
 		};
 
-		expect(typeof mockResult.opencode).toBe("boolean");
+		expect(typeof mockResult.pi).toBe("boolean");
 		expect(typeof mockResult.claudeCode).toBe("boolean");
-		expect(typeof mockResult.codex).toBe("boolean");
 	});
 
 	test("DaemonResult structure", () => {

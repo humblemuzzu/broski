@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Available thinking level variants for Claude Code.
 /// These map to maxThinkingTokens values in the bridge.
-/// Unlike OpenCode which has dynamic discovery, Claude Code uses static presets.
+/// Claude Code uses static presets.
 const List<String> claudeCodeVariants = [
   'low', // Quick responses (4096 tokens)
   'medium', // Balanced (16384 tokens)

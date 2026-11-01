@@ -1,4 +1,3 @@
-import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/file_attachment.dart';
 import 'package:broski/models/glow_style.dart';
 import 'package:broski/models/project.dart';
@@ -23,7 +22,6 @@ class FloatingInputBar extends ConsumerWidget {
     this.onLongPressSend,
     required this.isBusy,
     required this.canSend,
-    required this.backend,
     required this.project,
     this.isOfflineMode = false,
     this.attachedFiles = const [],
@@ -60,7 +58,6 @@ class FloatingInputBar extends ConsumerWidget {
   final VoidCallback? onLongPressSend;
   final bool isBusy;
   final bool canSend;
-  final AgentType backend;
   final ProjectSummary project;
   final bool isOfflineMode;
   final List<FileAttachment> attachedFiles;

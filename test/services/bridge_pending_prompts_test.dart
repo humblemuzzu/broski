@@ -5,9 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 Map<String, dynamic> _sessionsActive(Map<String, dynamic> pending) => {
   'claudeCode': const [],
-  'codex': const [],
-  'opencode': const [],
-  'pi': const [],
   'pendingPermissions': pending,
 };
 
@@ -30,22 +27,6 @@ void main() {
     expect(
       (event as RuntimePermissionRequestedEvent).request.requestId,
       'toolu-1',
-    );
-  });
-
-  test('a pending Codex approval is keyed by its bare request id', () {
-    final payloads = pendingPromptPayloads(
-      _sessionsActive({
-        'codex': ['cx-7'],
-      }),
-      nowMs: 1700000000000,
-    );
-
-    final event = RuntimeEvent.fromJson(payloads.single);
-    expect(event.backend, AgentType.codex);
-    expect(
-      (event as RuntimePermissionRequestedEvent).request.requestId,
-      'cx-7',
     );
   });
 
@@ -78,37 +59,6 @@ void main() {
     });
   });
 
-  test('a pending OpenCode approval keeps the request the backend asked', () {
-    final payloads = pendingPromptPayloads(
-      _sessionsActive({
-        'opencode': [
-          {
-            'sessionId': 'oc-1',
-            'requestId': 'per_1',
-            'request': {
-              'requestId': 'per_1',
-              'kind': 'bash',
-              'title': 'Run bash',
-              'metadata': {
-                'permission': 'bash',
-                'patterns': ['src/**'],
-              },
-            },
-          },
-        ],
-      }),
-      nowMs: 1700000000000,
-    );
-
-    final event = RuntimeEvent.fromJson(payloads.single);
-    expect(event.backend, AgentType.opencode);
-    expect(event.sessionId, 'oc-1');
-    final request = (event as RuntimePermissionRequestedEvent).request;
-    expect(request.requestId, 'per_1');
-    expect(request.kind, 'bash');
-    expect(request.metadata?['patterns'], ['src/**']);
-  });
-
   test('everything pending comes back together', () {
     final payloads = pendingPromptPayloads(
       _sessionsActive({
@@ -119,12 +69,11 @@ void main() {
         'claudeCodeElicitations': [
           {'sessionId': 'cc-3', 'requestId': 'elic-1'},
         ],
-        'codex': ['cx-7'],
       }),
       nowMs: 1700000000000,
     );
 
-    expect(payloads, hasLength(4));
+    expect(payloads, hasLength(3));
   });
 
   test('an entry without a request id is skipped rather than guessed', () {
@@ -134,7 +83,9 @@ void main() {
           'claudeCode': [
             {'sessionId': 'cc-1'},
           ],
-          'codex': ['', '  '],
+          'claudeCodeElicitations': [
+            {'sessionId': 'cc-2'},
+          ],
         }),
       ),
       isEmpty,

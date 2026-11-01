@@ -5,7 +5,7 @@ import { SimpleTable, Callout, CodeBlock } from "@/components/docs";
 
 export const metadata: Metadata = {
   title: "AI Backends - Broski",
-  description: "Claude Code, OpenCode, Codex, and Pi support",
+  description: "Claude Code and Pi support",
 };
 
 export default function BackendsOverviewPage() {
@@ -77,28 +77,6 @@ export default function BackendsOverviewPage() {
         </Link>
 
         <Link 
-          href="/docs/backends/opencode"
-          className="flex items-center gap-4 p-4 border border-border/40 rounded-lg hover:border-primary/40 hover:bg-primary/5 transition-colors"
-        >
-          <Image src="/logos/opencode.svg" alt="OpenCode" width={32} height={32} className="shrink-0" />
-          <div>
-            <div className="font-medium text-sm">OpenCode</div>
-            <p className="text-xs text-muted-foreground">Multi-provider &mdash; use Anthropic, OpenAI, Google, or 75+ providers with one tool</p>
-          </div>
-        </Link>
-
-        <Link 
-          href="/docs/backends/codex"
-          className="flex items-center gap-4 p-4 border border-border/40 rounded-lg hover:border-[#10a37f]/40 hover:bg-[#10a37f]/5 transition-colors"
-        >
-          <Image src="/logos/openai.svg" alt="Codex" width={32} height={32} className="shrink-0" />
-          <div>
-            <div className="font-medium text-sm">Codex</div>
-            <p className="text-xs text-muted-foreground">OpenAI&apos;s official agent &mdash; native sandbox, own tooling system</p>
-          </div>
-        </Link>
-
-        <Link 
           href="/docs/backends/pi"
           className="flex items-center gap-4 p-4 border border-border/40 rounded-lg hover:border-[#7c3aed]/40 hover:bg-[#7c3aed]/5 transition-colors"
         >
@@ -124,22 +102,6 @@ export default function BackendsOverviewPage() {
           </ul>
         </div>
         <div className="p-4 rounded-lg border border-border/40 bg-card/30">
-          <div className="font-medium mb-2 text-sm">Use OpenCode if you...</div>
-          <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
-            <li>Want flexibility to switch between providers (Anthropic, OpenAI, Google, 75+ more)</li>
-            <li>Prefer open-source with full customization</li>
-            <li>Need extensive MCP server integration</li>
-          </ul>
-        </div>
-        <div className="p-4 rounded-lg border border-border/40 bg-card/30">
-          <div className="font-medium mb-2 text-sm">Use Codex if you...</div>
-          <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
-            <li>Want OpenAI&apos;s official CLI agent experience</li>
-            <li>Need built-in sandboxing for command execution</li>
-            <li>Use OpenAI models exclusively</li>
-          </ul>
-        </div>
-        <div className="p-4 rounded-lg border border-border/40 bg-card/30">
           <div className="font-medium mb-2 text-sm">Use Pi if you...</div>
           <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
             <li>Want multi-provider flexibility with an extension system</li>
@@ -152,16 +114,15 @@ export default function BackendsOverviewPage() {
       <h2 id="comparison" className="text-xl font-semibold mb-4">Feature Comparison</h2>
       
       <SimpleTable
-        headers={["Feature", "Claude Code", "OpenCode", "Codex", "Pi"]}
+        headers={["Feature", "Claude Code", "Pi"]}
         rows={[
-          ["Provider", "Anthropic", "75+ providers", "OpenAI", "Multi (any)"],
-          ["Own Tooling", "Yes", "Yes", "Yes", "Yes"],
-          ["MCP Support", "Yes", "Full", "Yes", "No"],
-          ["Subagents", "Yes", "Yes", "Yes", "No"],
-          ["Sandbox Mode", "No", "No", "Yes (built-in)", "No"],
-          ["Extensions", "Plugins", "Plugins", "Apps", "Yes (plugin API)"],
-          ["Session Tree", "No", "No", "No", "Yes"],
-          ["Open Source", "No", "Yes", "Yes", "Yes"],
+          ["Provider", "Anthropic", "Multi (any)"],
+          ["Own Tooling", "Yes", "Yes"],
+          ["MCP Support", "Yes", "No"],
+          ["Subagents", "Yes", "No"],
+          ["Extensions", "Plugins", "Yes (plugin API)"],
+          ["Session Tree", "No", "Yes"],
+          ["Open Source", "No", "Yes"],
         ]}
       />
 
@@ -175,10 +136,9 @@ export default function BackendsOverviewPage() {
       <SimpleTable
         headers={["Scenario", "What Happens"]}
         rows={[
-          ["Switch OpenCode → Claude Code", "OpenCode sessions hidden, Claude Code sessions shown"],
-          ["Switch Claude Code → OpenCode", "Claude Code sessions hidden, OpenCode sessions shown"],
+          ["Switch Pi → Claude Code", "Pi sessions hidden, Claude Code sessions shown"],
+          ["Switch Claude Code → Pi", "Claude Code sessions hidden, Pi sessions shown"],
           ["Sessions deleted?", "No — both session sets are preserved"],
-          ["Switch to/from Pi", "Pi sessions hidden/shown, other sessions preserved"],
           ["Transfer sessions?", "No — sessions cannot migrate between backends"],
         ]}
       />
@@ -195,7 +155,7 @@ export default function BackendsOverviewPage() {
         </div>
         <div className="p-4 rounded-lg border border-border/40 bg-card/30">
           <div className="font-medium mb-2 text-sm">From the Command Line</div>
-          <CodeBlock language="bash">{`# Default (OpenCode)
+          <CodeBlock language="bash">{`# Start the bridge
 broski
 
 # The backend is selected in the app settings

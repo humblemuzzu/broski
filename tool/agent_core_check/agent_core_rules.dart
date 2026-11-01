@@ -6,9 +6,9 @@ const backendLabelFile = 'lib/agent/ui/backend_label.dart';
 
 /// The backend ids, lowercased with everything but letters and digits gone,
 /// so `'Pi-Durable'`, `'pi durable'` and `'pi' 'Durable'` all read as one.
-const _backendIds = {'claudecode', 'codex', 'opencode', 'pi', 'pidurable'};
+const _backendIds = {'claudecode', 'pi', 'pidurable'};
 
-const _backendMembers = {'claudeCode', 'codex', 'opencode', 'pi', 'piDurable'};
+const _backendMembers = {'claudeCode', 'pi', 'piDurable'};
 
 /// What reads a backend value as text or as a number.
 const _backendReadings = {'wire', 'name', 'index', 'toString', 'toJson'};
@@ -160,7 +160,7 @@ String? _listJoinedFrom(List<DartToken> tokens, int index) {
   return joined ? parts.join() : null;
 }
 
-/// `.codex` where a `BackendId` is expected: a dot that follows no value.
+/// `.claudeCode` where a `BackendId` is expected: a dot that follows no value.
 bool _isShorthand(List<DartToken> tokens, int index) {
   final member = index + 1 < tokens.length ? tokens[index + 1] : null;
   if (member is! WordToken || !_backendMembers.contains(member.word)) {

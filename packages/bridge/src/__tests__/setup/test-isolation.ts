@@ -1,6 +1,6 @@
 /**
  * Arms the real-home guard for every `bun test` run, whose instrumented write sites throw
- * `RealHomeWriteError` rather than edit the developer's live `~/.claude`, `~/.codex`, `~/.pi` or
+ * `RealHomeWriteError` rather than edit the developer's live `~/.claude`, `~/.pi` or
  * `~/.broski`.
  */
 

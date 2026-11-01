@@ -58,15 +58,6 @@ function exampleCall(op: BackendOpKind, sessionId: string, itemId: string): Back
 	switch (op) {
 		case "rewind_files":
 			return { backend: "claude-code", op: { kind: op, sessionId, userItemId: itemId, dryRun: true } };
-		case "review_start":
-			return { backend: "codex", op: { kind: op, sessionId, target: { kind: "uncommitted" } } };
-		case "revert":
-			return { backend: "codex", op: { kind: op, sessionId, beforeItemId: itemId } };
-		case "revert_stage":
-			return { backend: "opencode", op: { kind: op, sessionId, itemId, restoreFiles: false } };
-		case "revert_clear":
-		case "revert_commit":
-			return { backend: "opencode", op: { kind: op, sessionId } };
 		case "navigate_tree":
 			return { backend: "pi", op: { kind: op, sessionId, itemId, summarize: false } };
 		case "take_over":

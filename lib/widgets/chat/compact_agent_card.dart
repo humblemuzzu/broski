@@ -1,10 +1,7 @@
 import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/card_style.dart';
 import 'package:broski/models/claude_code.dart';
-import 'package:broski/models/codex.dart';
 import 'package:broski/models/message.dart';
-import 'package:broski/models/project.dart';
-import 'package:broski/models/session.dart';
 import 'package:broski/models/session_context.dart';
 import 'package:broski/providers/agent_type_provider.dart';
 import 'package:broski/providers/card_style_provider.dart';
@@ -765,35 +762,6 @@ class _ViewFullSessionButton extends ConsumerWidget {
             parentSessionId: parentSessionId,
           ),
           readOnly: true,
-        );
-      case AgentType.opencode:
-        // OC subagents are real sessions — they can be opened directly.
-        final session = SessionSummary(
-          id: sessionId,
-          title: title,
-          projectID: '',
-          directory: cwd,
-          parentID: '',
-          time: const SessionTime(created: 0, updated: 0),
-        );
-        final project = ProjectSummary(
-          id: '',
-          name:
-              cwd.split('/').where((p) => p.isNotEmpty).lastOrNull ?? 'Project',
-          path: cwd,
-        );
-        screen = ChatScreen(project: project, session: session);
-      case AgentType.codex:
-        // Codex child threads can be opened as read-only transcripts.
-        screen = ChatScreen.codex(
-          cxThread: CodexThread(
-            id: sessionId,
-            preview: title,
-            cwd: cwd,
-            createdAt: DateTime.now().millisecondsSinceEpoch,
-            updatedAt: DateTime.now().millisecondsSinceEpoch,
-            agentNickname: agentType,
-          ),
         );
     }
 

@@ -10,7 +10,7 @@ describe("the keys the core files sessions under", () => {
 			sessionScopedKey({ backend: "pi", sessionId: "a" }, "b:c"),
 			sessionScopedKey({ backend: "pi", sessionId: 'a","b' }, "c"),
 			sessionScopedKey({ backend: "pi", sessionId: "a" }, 'b","c'),
-			sessionScopedKey({ backend: "codex", sessionId: "a" }, "b"),
+			sessionScopedKey({ backend: "claude-code", sessionId: "a" }, "b"),
 			sessionScopedKey({ backend: "pi", sessionId: "a" }, "b"),
 		];
 		expect(new Set(keys).size).toBe(keys.length);

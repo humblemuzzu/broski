@@ -48,9 +48,7 @@ describe("Config Schema", () => {
 				verifyCodeSignature: true,
 			},
 			agents: {
-				opencode: true,
-				claudeCode: false,
-				codex: false,
+				claudeCode: true,
 			},
 			daemon: {
 				installed: false,
@@ -137,9 +135,8 @@ describe("Default Config", () => {
 		expect(defaults.wizard.completedSetup).toBe(false);
 		expect(defaults.network.port).toBe(18274);
 		expect(defaults.security.tls).toBe(true);
-		expect(defaults.agents.opencode).toBe(true);
-		expect(defaults.agents.claudeCode).toBe(false);
-		expect(defaults.agents.codex).toBe(false);
+		expect(defaults.agents.claudeCode).toBe(true);
+		expect(defaults.agents.pi).toBe(false);
 		expect(defaults.daemon.installed).toBe(false);
 		expect(defaults.daemon.type).toBe("none");
 	});

@@ -66,7 +66,6 @@ Future<void> showSkillReadonlySheet({
 }
 
 String _sourceLabel(Skill skill) {
-  if (skill.source == SkillSource.builtin) return 'OpenCode SDK';
   final piSource = skill.extra?['piSource'] as String?;
   if (piSource != null && piSource.isNotEmpty) return piSource;
   return skill.source.displayName;

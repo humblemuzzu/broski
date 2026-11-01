@@ -46,10 +46,8 @@ export async function runConfigure(prompter: WizardPrompter): Promise<void> {
 				updatedConfig = {
 					...updatedConfig,
 					agents: {
-						opencode: result.opencode,
 						claudeCode: result.claudeCode,
-						codex: result.codex,
-						pi: result.pi ?? updatedConfig.agents.pi,
+						pi: result.pi,
 					},
 				};
 				break;

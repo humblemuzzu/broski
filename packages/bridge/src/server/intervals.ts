@@ -56,7 +56,6 @@ export function startBridgeIntervals(deps: { state: BridgeState; streams: Stream
 	};
 	state.eventBufferPruneTimer = setInterval(() => {
 		pruneEventBuffers(state.ccEventBuffers);
-		pruneEventBuffers(state.cxEventBuffers);
 		sweepBoundedState();
 	}, EVENT_BUFFER_PRUNE_INTERVAL_MS);
 

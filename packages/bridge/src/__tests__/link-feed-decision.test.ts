@@ -1,6 +1,5 @@
 /**
- * The daemon's lock-screen decisions on the link socket: the request id each backend's alert
- * carries, and that allow and deny reach the handler the phone's own response message reaches.
+ * The daemon's lock-screen decisions on the link socket: the request id an alert carries, and that allow and deny reach the handler the phone's own response message reaches.
  */
 
 import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test";
@@ -23,7 +22,7 @@ afterAll(async () => {
 });
 
 describe("the request id an alert carries", () => {
-	test("is the id the phone's own response message uses, for every backend that asks", async () => {
+	test("is the id the phone's own response message uses", async () => {
 		const feed = await openFeed(h.socketPath);
 		try {
 			h.ccStream(
@@ -37,20 +36,7 @@ describe("the request id an alert carries", () => {
 				"cc-id",
 				CWD,
 			);
-			h.ocStream("permission.asked", { id: "oc-perm-1", sessionID: "oc-id", permission: "bash", patterns: ["src/**"] });
-			h.cxStream(
-				{
-					type: "request",
-					requestId: "cx-req-1",
-					method: "item/commandExecution/requestApproval",
-					params: { command: "npm test" },
-				},
-				"cx-id",
-			);
-
 			expect((await h.alertFor(feed, "claude-code", "cc-id")).request).toBe("toolu-id-1");
-			expect((await h.alertFor(feed, "opencode", "oc-id")).request).toBe("oc-perm-1");
-			expect((await h.alertFor(feed, "codex", "cx-id")).request).toBe("cx-req-1");
 		} finally {
 			feed.close();
 		}
@@ -95,49 +81,6 @@ describe("claude-code decisions", () => {
 			});
 			expect(denyResult).toMatchObject({ ok: true, error: null });
 			expect(await h.hookDecision(await deny)).toBe("deny");
-		} finally {
-			feed.close();
-		}
-	});
-});
-
-describe("opencode decisions", () => {
-	test("allow and deny reach the connector's permission reply", async () => {
-		const feed = await openFeed(h.socketPath);
-		try {
-			h.ocStream("permission.asked", {
-				id: "oc-dec-allow",
-				sessionID: "oc-dec",
-				permission: "bash",
-				patterns: ["src/**"],
-			});
-			await h.alertFor(feed, "opencode", "oc-dec");
-			const allow = await h.decide(feed, {
-				backend: "opencode",
-				session: "oc-dec",
-				request: "oc-dec-allow",
-				decision: "allow",
-			});
-			expect(allow).toMatchObject({ ok: true, error: null });
-			expect(h.permissionReplies()).toHaveLength(1);
-			expect(h.permissionReplies()[0]?.args[0]).toMatchObject({ requestID: "oc-dec-allow", reply: "once" });
-
-			h.ocStream("permission.asked", {
-				id: "oc-dec-deny",
-				sessionID: "oc-dec",
-				permission: "bash",
-				patterns: ["src/**"],
-			});
-			await h.alertFor(feed, "opencode", "oc-dec");
-			const deny = await h.decide(feed, {
-				backend: "opencode",
-				session: "oc-dec",
-				request: "oc-dec-deny",
-				decision: "deny",
-			});
-			expect(deny).toMatchObject({ ok: true, error: null });
-			expect(h.permissionReplies()).toHaveLength(2);
-			expect(h.permissionReplies()[1]?.args[0]).toMatchObject({ requestID: "oc-dec-deny", reply: "reject" });
 		} finally {
 			feed.close();
 		}

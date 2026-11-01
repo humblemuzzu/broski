@@ -45,43 +45,6 @@ export default function EnvVariablesPage() {
         </div>
       </section>
 
-      {/* OpenCode Variables */}
-      <section className="mb-12">
-        <h2 id="opencode-vars" className="text-2xl font-semibold mb-4">OpenCode Variables</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm border border-border rounded-lg">
-            <thead className="bg-muted/30">
-              <tr>
-                <th className="text-left p-3 border-b border-border">Variable</th>
-                <th className="text-left p-3 border-b border-border">Type</th>
-                <th className="text-left p-3 border-b border-border">Default</th>
-                <th className="text-left p-3 border-b border-border">Description</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td className="p-3 border-b border-border/50 font-mono text-xs">OPENCODE_BASE_URL</td>
-                <td className="p-3 border-b border-border/50">string</td>
-                <td className="p-3 border-b border-border/50">-</td>
-                <td className="p-3 border-b border-border/50">URL of existing OpenCode server</td>
-              </tr>
-              <tr>
-                <td className="p-3 border-b border-border/50 font-mono text-xs">BROSKI_OPENCODE_HOSTNAME</td>
-                <td className="p-3 border-b border-border/50">string</td>
-                <td className="p-3 border-b border-border/50">127.0.0.1</td>
-                <td className="p-3 border-b border-border/50">Hostname for managed OpenCode</td>
-              </tr>
-              <tr>
-                <td className="p-3 font-mono text-xs">BROSKI_OPENCODE_PORT</td>
-                <td className="p-3">number</td>
-                <td className="p-3">0</td>
-                <td className="p-3">Port for managed OpenCode (0 = random)</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
       {/* API Keys */}
       <section className="mb-12">
         <h2 id="api-keys" className="text-2xl font-semibold mb-4">API Keys</h2>
@@ -102,17 +65,17 @@ export default function EnvVariablesPage() {
               </tr>
               <tr>
                 <td className="p-3 border-b border-border/50 font-mono text-xs">OPENAI_API_KEY</td>
-                <td className="p-3 border-b border-border/50">OpenCode</td>
+                <td className="p-3 border-b border-border/50">Pi</td>
                 <td className="p-3 border-b border-border/50">OpenAI API key</td>
               </tr>
               <tr>
-                <td className="p-3 border-b border-border/50 font-mono text-xs">GOOGLE_AI_API_KEY</td>
-                <td className="p-3 border-b border-border/50">OpenCode</td>
+                <td className="p-3 border-b border-border/50 font-mono text-xs">GEMINI_API_KEY</td>
+                <td className="p-3 border-b border-border/50">Pi</td>
                 <td className="p-3 border-b border-border/50">Google Gemini API key</td>
               </tr>
               <tr>
                 <td className="p-3 font-mono text-xs">OPENROUTER_API_KEY</td>
-                <td className="p-3">OpenCode</td>
+                <td className="p-3">Pi</td>
                 <td className="p-3">OpenRouter API key</td>
               </tr>
             </tbody>

@@ -241,7 +241,7 @@ Raw results: `bench/results/2026-10-10T03-27-34-371Z-bun1.4.2.json`.
 cd packages/bridge
 bun bench/run.ts --selftest                 # prove the RSS hard-kill works (200 MB cap)
 bun bench/run.ts                            # full suite, default caps 3 GB / 120 s
-bun bench/run.ts --filter=codex-enrich-stats,cc-list-projects
+bun bench/run.ts --filter=cc-list-projects,cc-list-sessions
 bun bench/run.ts --cap-rss-mb=1024 --cap-time-ms=90000
 ```
 

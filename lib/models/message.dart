@@ -112,7 +112,7 @@ class StepStartIndicatorPart extends MessagePart {
   final String? snapshot;
 }
 
-/// Step finish part metadata from OpenCode SDK.
+/// Step finish part metadata.
 /// Carries per-step completion reason, snapshot, and token/cost usage.
 class StepFinishIndicatorPart extends MessagePart {
   const StepFinishIndicatorPart({
@@ -162,7 +162,7 @@ class ChatMessage {
   final DateTime createdAt;
   final String text;
 
-  /// OpenCode/Codex message variant (e.g. thinking level)
+  /// Message variant (e.g. thinking level)
   final String? variant;
 
   /// Why the assistant message finished (SDK v1.2.10+), e.g. stop/length/tool_use.
@@ -262,10 +262,10 @@ class ToolCall {
     this.metadata = const {},
   });
 
-  /// OpenCode tool call ID (ToolPart.callID)
+  /// Tool call ID
   final String callId;
 
-  /// OpenCode part ID (ToolPart.id) - required for precise undo (SessionRevert.partID).
+  /// Part ID of the tool call.
   final String partId;
   final String name;
   final String status;
@@ -421,7 +421,7 @@ class DiffEntry {
 }
 
 /// Represents model reasoning/thinking content.
-/// These are ReasoningParts from the OpenCode SDK that show
+/// These are reasoning parts that show
 /// the model's internal reasoning process (e.g., Claude's extended thinking).
 class ReasoningPart {
   const ReasoningPart({
@@ -499,7 +499,7 @@ class ReasoningPart {
 }
 
 /// Represents a background task completion notification.
-/// These are SubtaskParts from the OpenCode SDK that notify when
+/// These are subtask parts that notify when
 /// background agents complete their work.
 class SubtaskNotification {
   const SubtaskNotification({

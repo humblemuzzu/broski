@@ -1,5 +1,4 @@
 import 'package:broski/models/message.dart';
-import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/providers/claude_code_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/theme/opencode_theme.dart';
@@ -7,12 +6,6 @@ import 'package:broski/widgets/chat/cc_system_message_cards.dart';
 import 'package:broski/widgets/chat/compact_hook_card.dart';
 import 'package:broski/widgets/chat/compact_task_notification_card.dart';
 import 'package:broski/widgets/chat/compact_tool_summary_chip.dart';
-import 'package:broski/widgets/chat/cx_compaction_divider.dart';
-import 'package:broski/widgets/chat/cx_hook_status_row.dart';
-import 'package:broski/widgets/chat/cx_model_rerouted_banner.dart';
-import 'package:broski/widgets/chat/cx_plan_card.dart';
-import 'package:broski/widgets/chat/cx_review_mode_indicator.dart';
-import 'package:broski/widgets/chat/cx_terminal_interaction_card.dart';
 import 'package:broski/widgets/chat/files_persisted_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -179,65 +172,6 @@ Widget? buildVariantCard({
         ],
       ),
     );
-  }
-
-  // Codex: model rerouted banner
-  if (variant == 'cx-model-rerouted') {
-    final from = message.metadata['from']?.toString() ?? '';
-    final to = message.metadata['to']?.toString() ?? '';
-    final reason = message.metadata['reason']?.toString();
-    return CxModelReroutedBanner(fromModel: from, toModel: to, reason: reason);
-  }
-
-  // Codex: hook started/completed
-  if (variant == 'cx-hook-started' || variant == 'cx-hook-completed') {
-    final status = variant == 'cx-hook-started'
-        ? 'running'
-        : (message.metadata['status']?.toString() ?? 'completed');
-    final handlerType =
-        message.metadata['handlerType']?.toString() ??
-        message.metadata['eventName']?.toString() ??
-        '';
-    final durationMs = message.metadata['durationMs'] as num?;
-    final statusMessage = message.metadata['statusMessage']?.toString();
-    return CxHookStatusRow(
-      hooks: [
-        {
-          'status': status,
-          'handlerType': handlerType,
-          'durationMs': durationMs,
-          'statusMessage': statusMessage,
-        },
-      ],
-    );
-  }
-
-  // Codex: review mode divider
-  if (variant == 'cx-review-mode') {
-    final entered =
-        message.metadata['entered'] as bool? ??
-        message.text.contains('Entered');
-    final reviewType = message.metadata['reviewType']?.toString();
-    return CxReviewModeIndicator(entered: entered, reviewType: reviewType);
-  }
-
-  // Codex: context compaction divider
-  if (variant == 'cx-context-compaction') {
-    return const CxCompactionDivider();
-  }
-
-  // Codex: plan mode card — inline plan progress
-  if (variant == 'cx-plan-update') {
-    // Read current todos from chat provider for live progress
-    final todos = ref.watch(chatSessionProvider.select((s) => s.todos));
-    final explanation = message.metadata['explanation']?.toString();
-    return CxPlanCard(todos: todos, explanation: explanation);
-  }
-
-  // Codex: terminal interaction — agent waiting for stdin
-  if (variant == 'cx-terminal-interaction') {
-    final itemId = message.metadata['itemId']?.toString();
-    return CxTerminalInteractionCard(itemId: itemId);
   }
 
   // CC terminal reason: variant = 'cc-terminal:tool_deferred' etc.

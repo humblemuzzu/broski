@@ -70,8 +70,8 @@ describe("the layer check", () => {
 		expect(check("backends/pi/a.ts", "const m = import.meta.require(name);")).toEqual([
 			"backends/pi/a.ts: an import whose specifier is not a plain string",
 		]);
-		expect(check("backends/pi/a.ts", 'const m = require("../codex/x");')).toEqual([
-			"backends/pi/a.ts: ../codex/x is neither this backend nor the contract",
+		expect(check("backends/pi/a.ts", 'const m = require("../claude-code/x");')).toEqual([
+			"backends/pi/a.ts: ../claude-code/x is neither this backend nor the contract",
 		]);
 	});
 
@@ -106,8 +106,8 @@ describe("the layer check", () => {
 	});
 
 	test("an adapter reaches no other adapter's directory", () => {
-		expect(check("backends/codex/index.ts", 'import { x } from "../pi/sessions";')).toEqual([
-			"backends/codex/index.ts: ../pi/sessions is neither this backend nor the contract",
+		expect(check("backends/claude-code/index.ts", 'import { x } from "../pi/sessions";')).toEqual([
+			"backends/claude-code/index.ts: ../pi/sessions is neither this backend nor the contract",
 		]);
 	});
 
@@ -156,7 +156,7 @@ describe("the layer check", () => {
 			'import { x } from "../connectors/pi";',
 			'import { y } from "../handlers/unified";',
 			'import { z } from "../runtime/pi-runtime-event-mapper";',
-			'import { a } from "../backends/codex/index";',
+			'import { a } from "../backends/claude-code/index";',
 			'import { b } from "../server/streams";',
 			'import type { ServerMessage } from "../types";',
 			'import { createFakeBackend } from "../contract/testing/fake-backend";',
@@ -169,7 +169,7 @@ describe("the layer check", () => {
 			`core/hub.ts: ../connectors/pi ${outside}`,
 			`core/hub.ts: ../handlers/unified ${outside}`,
 			`core/hub.ts: ../runtime/pi-runtime-event-mapper ${outside}`,
-			`core/hub.ts: ../backends/codex/index ${outside}`,
+			`core/hub.ts: ../backends/claude-code/index ${outside}`,
 			`core/hub.ts: ../server/streams ${outside}`,
 			`core/hub.ts: ../types ${outside}`,
 			`core/hub.ts: ../contract/testing/fake-backend ${outside}`,

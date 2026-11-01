@@ -6,8 +6,6 @@ import type { ClientMessage } from "../types";
  * checked against the wire contract at compile time.
  */
 export type CcMessage = Extract<ClientMessage, { type: `cc_${string}` }> & { requestId?: string };
-export type CxMessage = Extract<ClientMessage, { type: `cx_${string}` }> & { requestId?: string };
-export type OcMessage = Extract<ClientMessage, { type: `oc_${string}` }> & { requestId?: string };
 export type UnifiedMessage = Extract<ClientMessage, { type: `unified_${string}` }> & { requestId?: string };
 export type GitMessage = Extract<ClientMessage, { type: `git_${string}` | `github_${string}` }> & {
 	requestId?: string;

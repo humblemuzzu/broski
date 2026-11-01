@@ -1,13 +1,11 @@
 import 'package:broski/agent/agent_providers.dart';
 import 'package:broski/agent/session/agent_session_state.dart';
-import 'package:broski/agent/ui/chat/file_change_view.dart';
 import 'package:broski/agent/ui/shared/status_look.dart';
 import 'package:broski/contract/generated/contract.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/app_typography.dart';
 import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/theme/opencode_theme.dart';
-import 'package:broski/widgets/chat/detail_sheet.dart' show DetailSheet;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -79,20 +77,6 @@ class _ExtensionRow extends StatelessWidget {
             style: AppTypography.caption(color: theme.textMuted),
           ),
         ),
-      CodexTurnDiff(:final diff) => TextButton(
-        onPressed: () => DetailSheet.show<void>(
-          context: context,
-          title: 'Changes in this run',
-          child: FileChangeView(
-            change: FileChange(
-              path: 'this run',
-              change: FileChangeKind.modified,
-              diff: diff,
-            ),
-          ),
-        ),
-        child: const Text('Changes in this run'),
-      ),
     };
   }
 }

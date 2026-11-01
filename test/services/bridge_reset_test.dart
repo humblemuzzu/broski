@@ -20,8 +20,8 @@ void main() {
   });
 
   test('a reset fails every request still waiting for a reply', () async {
-    final sessions = bridge.listSessions();
-    final projects = bridge.listProjects();
+    final sessions = bridge.ccListSessions();
+    final projects = bridge.ccListProjects();
     await pumpEventQueue();
     expect(socket.sent, hasLength(2));
 
@@ -34,10 +34,10 @@ void main() {
   test('a reset with nothing in flight is harmless', () async {
     bridge.failPendingBridgeRequests(BridgeResetReason.linkClosed);
 
-    final sessions = bridge.listSessions();
+    final sessions = bridge.ccListSessions();
     await pumpEventQueue();
     socket.deliver({
-      'type': 'sessions',
+      'type': 'cc_sessions',
       'requestId': socket.lastRequestId,
       'data': <Map<String, dynamic>>[],
     });
@@ -48,8 +48,8 @@ void main() {
   test(
     'response_too_large fails the request that asked for it, and only it',
     () async {
-      final big = bridge.listSessions();
-      final other = bridge.listProjects();
+      final big = bridge.ccListSessions();
+      final other = bridge.ccListProjects();
       await pumpEventQueue();
       final bigId = socket.sent.first['requestId'] as String;
       final otherId = socket.sent.last['requestId'] as String;
@@ -73,7 +73,7 @@ void main() {
       );
 
       socket.deliver({
-        'type': 'projects',
+        'type': 'cc_projects',
         'requestId': otherId,
         'data': <Map<String, dynamic>>[],
       });
@@ -83,7 +83,7 @@ void main() {
   );
 
   test('a plain bridge error keeps its code', () async {
-    final sessions = bridge.listSessions();
+    final sessions = bridge.ccListSessions();
     await pumpEventQueue();
 
     socket.deliver({

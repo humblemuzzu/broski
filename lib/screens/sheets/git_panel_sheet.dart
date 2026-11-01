@@ -1,9 +1,8 @@
 import 'package:broski/models/git.dart';
-import 'package:broski/models/vcs.dart';
 import 'package:broski/providers/git_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/screens/sheets/git_commit_sheet.dart';
-import 'package:broski/screens/sheets/oc_review_tab.dart';
+import 'package:broski/screens/sheets/review_tab.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/app_typography.dart';
 import 'package:broski/theme/design_tokens.dart';
@@ -21,18 +20,15 @@ class GitPanelSheet extends ConsumerStatefulWidget {
     super.key,
     required this.projectPath,
     this.projectName,
-    this.vcsInfo,
     required this.scrollController,
   });
   final String projectPath;
   final String? projectName;
-  final VcsInfo? vcsInfo;
   final ScrollController scrollController;
   static Future<void> show({
     required BuildContext context,
     required String projectPath,
     String? projectName,
-    VcsInfo? vcsInfo,
   }) {
     return showModalBottomSheet<void>(
       context: context,
@@ -47,7 +43,6 @@ class GitPanelSheet extends ConsumerStatefulWidget {
           return GitPanelSheet(
             projectPath: projectPath,
             projectName: projectName,
-            vcsInfo: vcsInfo,
             scrollController: scrollController,
           );
         },
@@ -312,10 +307,7 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
       case 0:
         return _buildChangesTab(theme, statusAsync);
       case 1:
-        return ReviewTab(
-          projectPath: widget.projectPath,
-          defaultBranch: widget.vcsInfo?.defaultBranch,
-        );
+        return ReviewTab(projectPath: widget.projectPath);
       case 2:
         return _buildGitHubTab(theme, remoteAsync, issuesAsync, prsAsync);
       case 3:

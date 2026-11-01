@@ -29,7 +29,7 @@ export async function startBenchServer(): Promise<BenchServerHandle> {
 		token: BENCH_TOKEN,
 		createdAt: Date.now(),
 	};
-	const options: BridgeServerOptions = { port: 0, opencode: null, version: "0.0.0-bench", auth };
+	const options: BridgeServerOptions = { port: 0, version: "0.0.0-bench", auth };
 	const server = await createBridgeServer(options);
 	const homeDir = homedir();
 

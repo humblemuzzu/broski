@@ -237,7 +237,7 @@ claude login`}</CodeBlock>
 
       <h2 id="next-steps" className="text-lg font-semibold mb-4 mt-10">Next</h2>
       <CardGrid>
-        <Card href="/docs/backends/opencode" title="OpenCode" description="Multi-provider alternative" />
+        <Card href="/docs/backends/pi" title="Pi" description="Multi-provider alternative" />
         <Card href="/docs/backends" title="Backend Overview" description="Compare all backends" />
         <Card href="/docs/troubleshooting/ai-backends" title="Troubleshooting" description="More backend issues" />
       </CardGrid>

@@ -290,7 +290,7 @@ describe("listing sessions", () => {
 		expect(all.find((row) => row.session.sessionId === "fork")?.parent).toEqual({ kind: "fork", session: parentRef });
 		expect(all.find((row) => row.session.sessionId === "orphan")?.parent).toBeUndefined();
 		expect((await rows({ parent: parentRef })).map((row) => row.session.sessionId)).toEqual(["fork"]);
-		expect(await rows({ parent: { backend: "codex", sessionId: "parent" } })).toEqual([]);
+		expect(await rows({ parent: { backend: "claude-code", sessionId: "parent" } })).toEqual([]);
 	});
 
 	test("archived sessions do not exist", async () => {

@@ -11,9 +11,7 @@ extension SelectedBackendLabel on SelectedBackend {
   };
 
   String get badge => switch (this) {
-    LegacySelection(type: AgentType.opencode) => 'OC',
     LegacySelection(type: AgentType.claudeCode) => 'CC',
-    LegacySelection(type: AgentType.codex) => 'CX',
     ContractSelection(:final id) => backendBadge(id),
   };
 }

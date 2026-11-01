@@ -18,9 +18,7 @@ interface Particle {
 }
 
 const AGENTS: AgentNode[] = [
-  { label: "OpenCode", baseAngle: 0.3, orbitRadius: 0.3, speed: 0.12, size: 4 },
   { label: "Claude Code", baseAngle: 1.8, orbitRadius: 0.35, speed: -0.09, size: 4.5 },
-  { label: "Codex", baseAngle: 3.4, orbitRadius: 0.26, speed: 0.15, size: 3.5 },
   { label: "Pi", baseAngle: 4.9, orbitRadius: 0.22, speed: -0.07, size: 3 },
 ];
 

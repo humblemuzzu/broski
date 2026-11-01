@@ -9,9 +9,9 @@ void main() {
       }
     });
 
-    test('an unknown wire value still falls back to OpenCode', () {
-      expect(AgentType.fromWireValue('not-a-backend'), AgentType.opencode);
-      expect(AgentType.fromWireValue(''), AgentType.opencode);
+    test('an unknown wire value falls back to Claude Code', () {
+      expect(AgentType.fromWireValue('not-a-backend'), AgentType.claudeCode);
+      expect(AgentType.fromWireValue(''), AgentType.claudeCode);
     });
   });
 
@@ -19,12 +19,9 @@ void main() {
     test('reads each backend by its wire key', () {
       final status = AgentsStatus.fromJson(const {
         'claude-code': {'available': true, 'version': '2.1.0'},
-        'codex': {'available': false},
       });
       expect(status.forType(AgentType.claudeCode).available, isTrue);
       expect(status.forType(AgentType.claudeCode).version, '2.1.0');
-      expect(status.forType(AgentType.codex).available, isFalse);
-      expect(status.forType(AgentType.opencode).available, isFalse);
     });
   });
 }

@@ -24,7 +24,7 @@ export default function PiPage() {
       </p>
 
       <Callout type="info">
-        Pi is a separate project from OpenCode. While both support multiple providers, Pi has its own 
+        Pi is an independent open-source project. It supports multiple providers and has its own 
         extension system, skill framework, and session management with conversation tree navigation.
       </Callout>
 
@@ -84,7 +84,7 @@ export ANTHROPIC_API_KEY=sk-ant-...
 export OPENAI_API_KEY=sk-...
 
 # Google (Gemini)
-export GOOGLE_GENERATIVE_AI_API_KEY=...
+export GEMINI_API_KEY=...
 
 # Groq
 export GROQ_API_KEY=gsk_...
@@ -106,7 +106,7 @@ export OPENAI_API_KEY=ollama`}</CodeBlock>
         rows={[
           ["Anthropic", "Claude 4 Sonnet, Claude 4 Opus, Claude 3.5 Sonnet", "ANTHROPIC_API_KEY"],
           ["OpenAI", "GPT-4o, GPT-4o mini, o1, o3", "OPENAI_API_KEY"],
-          ["Google", "Gemini 2.5 Pro, Gemini 2.5 Flash", "GOOGLE_GENERATIVE_AI_API_KEY"],
+          ["Google", "Gemini 2.5 Pro, Gemini 2.5 Flash", "GEMINI_API_KEY"],
           ["Groq", "Llama, Mixtral", "GROQ_API_KEY"],
           ["Mistral", "Mistral Large, Codestral", "MISTRAL_API_KEY"],
           ["Ollama", "Any local model", "OPENAI_API_BASE + OPENAI_API_KEY"],
@@ -161,16 +161,15 @@ export OPENAI_API_KEY=ollama`}</CodeBlock>
       <h2 id="comparison" className="text-xl font-semibold mb-4 mt-10">Pi vs Other Backends</h2>
 
       <SimpleTable
-        headers={["Feature", "Pi", "Claude Code", "OpenCode", "Codex"]}
+        headers={["Feature", "Pi", "Claude Code"]}
         rows={[
-          ["Providers", "Multi (any)", "Anthropic only", "75+ providers", "OpenAI only"],
-          ["Open Source", "Yes", "No", "Yes", "Yes"],
-          ["Extensions", "Yes (plugin API)", "Plugins", "Plugins", "Apps"],
-          ["Session Tree", "Yes (fork/navigate)", "No", "No", "No"],
-          ["HTML Export", "Yes", "No", "No", "No"],
-          ["MCP Support", "No", "Yes", "Full", "Yes"],
-          ["Sandbox", "No", "No", "No", "Yes (built-in)"],
-          ["Thinking Levels", "Configurable", "Presets", "Variants", "Reasoning effort"],
+          ["Providers", "Multi (any)", "Anthropic only"],
+          ["Open Source", "Yes", "No"],
+          ["Extensions", "Yes (plugin API)", "Plugins"],
+          ["Session Tree", "Yes (fork/navigate)", "No"],
+          ["HTML Export", "Yes", "No"],
+          ["MCP Support", "No", "Yes"],
+          ["Thinking Levels", "Configurable", "Presets"],
         ]}
       />
 
@@ -193,7 +192,7 @@ pi --version`}</CodeBlock>
           </p>
           <CodeBlock language="bash">{`echo $ANTHROPIC_API_KEY
 echo $OPENAI_API_KEY
-echo $GOOGLE_GENERATIVE_AI_API_KEY`}</CodeBlock>
+echo $GEMINI_API_KEY`}</CodeBlock>
         </div>
         <div className="p-4 rounded-lg border border-border/40 bg-card/30">
           <div className="font-medium mb-2 text-sm">Context too long</div>

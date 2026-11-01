@@ -6,7 +6,7 @@
  * starts at the prompt that opened its oldest turn, so no page opens on an answer whose question
  * is on a page the reader has not loaded.
  *
- * The real-session block is read-only and skips itself without ~/.codex or ~/.claude data.
+ * The real-session block is read-only and skips itself without ~/.claude data.
  * The largest files (a 400 MB session costs 1.6 GB to read whole) need TRANSCRIPT_PARITY_REAL=1.
  */
 
@@ -16,8 +16,6 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { legacyGetSessionMessages } from "../../bench/lib/cc-legacy-transcript-oracle";
 import { buildTranscriptMessages, readCcTranscriptPage } from "../connectors/claude-code/cc-transcript";
-import { readCxTranscript, readCxTranscriptPage } from "../connectors/codex/cx-transcript";
-import { normalizeTranscript } from "./codex_legacy_reference";
 
 const REAL_ENABLED = process.env.TRANSCRIPT_PARITY_REAL === "1";
 const PAGE_LIMITS = [1, 2, 3, 5, 8, 40];
@@ -170,145 +168,6 @@ describe("Claude Code transcript paging parity", () => {
 	});
 });
 
-describe("Codex transcript paging parity", () => {
-	function rollout(turns: number): string {
-		const lines: string[] = [JSON.stringify({ type: "session_meta", payload: { id: "t1", cwd: "/tmp/work" } })];
-		for (let turn = 0; turn < turns; turn++) {
-			lines.push(JSON.stringify({ type: "event_msg", payload: { type: "user_message", message: `prompt ${turn}` } }));
-			lines.push(
-				JSON.stringify({
-					type: "response_item",
-					payload: { type: "reasoning", summary: [{ text: `thinking ${turn}` }] },
-				}),
-			);
-			lines.push(
-				JSON.stringify({
-					type: "response_item",
-					payload: { type: "message", role: "assistant", content: [{ type: "output_text", text: `reply ${turn}` }] },
-				}),
-			);
-			lines.push(
-				JSON.stringify({
-					type: "response_item",
-					payload: { type: "function_call", name: "shell_command", call_id: `c${turn}`, arguments: '{"command":"ls"}' },
-				}),
-			);
-			lines.push(
-				JSON.stringify({
-					type: "response_item",
-					payload: { type: "function_call_output", call_id: `c${turn}`, output: `out ${turn}` },
-				}),
-			);
-			lines.push(
-				JSON.stringify({
-					type: "response_item",
-					payload: {
-						type: "custom_tool_call",
-						name: "apply_patch",
-						call_id: `p${turn}`,
-						status: "completed",
-						input: "*** Update File: /tmp/a.ts\n+a\n-b\n",
-					},
-				}),
-			);
-		}
-		return `${lines.join("\n")}\n`;
-	}
-
-	it("names a message after the rollout record that wrote it, whichever window read it", async () => {
-		const dir = await tempRoot("cx-identity");
-		const path = join(dir, "rollout-identity.jsonl");
-		// Codex writes `ordinal` and `timestamp` next to every record; a window of the file and the
-		// whole file must therefore agree on what each message is called and when it was written.
-		const lines = rollout(6)
-			.trim()
-			.split("\n")
-			.map((line, ordinal) =>
-				JSON.stringify({
-					...(JSON.parse(line) as Record<string, unknown>),
-					ordinal,
-					timestamp: "2026-05-31T03:23:35.000Z",
-				}),
-			);
-		await writeFile(path, `${lines.join("\n")}\n`);
-
-		const whole = await readCxTranscript(path, { limit: 100_000 });
-		const paged = await walkPages(
-			(before) =>
-				readCxTranscriptPage(path, {
-					limit: 4,
-					end: before === undefined ? undefined : Number.parseInt(before, 10),
-				}),
-			40,
-		);
-
-		const byText = new Map(whole.map((message) => [message.text ?? message.id, message]));
-		for (const message of paged as typeof whole) {
-			const same = byText.get(message.text ?? message.id);
-			expect(same, message.text ?? message.id).toBeDefined();
-			expect(same?.id).toBe(message.id);
-			expect(same?.createdAt).toBe(message.createdAt);
-		}
-		const written = Math.floor(Date.parse("2026-05-31T03:23:35.000Z") / 1000);
-		expect(whole.every((message) => message.createdAt === written)).toBe(true);
-	});
-
-	it("concatenates to the whole-file transcript", async () => {
-		const dir = await tempRoot("cx-paging");
-		for (const turns of [1, 4, 25]) {
-			const path = join(dir, `rollout-${turns}.jsonl`);
-			await writeFile(path, rollout(turns));
-			const expected = normalizeTranscript(await readCxTranscript(path, { limit: 100_000 }));
-			expect(expected.length).toBeGreaterThan(turns);
-			for (const limit of PAGE_LIMITS) {
-				const { messages } = await concatPages((before) =>
-					readCxTranscriptPage(path, { limit, end: before === undefined ? undefined : Number.parseInt(before, 10) }),
-				);
-				expect(normalizeTranscript(messages), `turns=${turns} limit=${limit}`).toEqual(expected);
-			}
-		}
-	});
-
-	it("starts the newest page at the prompt that opened its turn", async () => {
-		const dir = await tempRoot("cx-paging-turn");
-		const path = join(dir, "turns.jsonl");
-		await writeFile(path, rollout(8));
-
-		const page = await readCxTranscriptPage(path, { limit: 3 });
-		expect(page?.messages[0]?.role).toBe("user");
-		expect(page?.messages).toHaveLength(4);
-		expect(page?.nextCursor).toBe("12");
-
-		const { messages } = await concatPages((before) =>
-			readCxTranscriptPage(path, { limit: 3, end: before === undefined ? undefined : Number.parseInt(before, 10) }),
-		);
-		expect(normalizeTranscript(messages)).toEqual(
-			normalizeTranscript(await readCxTranscript(path, { limit: 100_000 })),
-		);
-	});
-
-	it("keeps older pages on the same messages when the rollout grows at the end", async () => {
-		const dir = await tempRoot("cx-paging-append");
-		const path = join(dir, "growing.jsonl");
-		await writeFile(path, rollout(20));
-		const original = normalizeTranscript(await readCxTranscript(path, { limit: 100_000 }));
-
-		const first = await readCxTranscriptPage(path, { limit: 7 });
-		expect(first?.hasMore).toBe(true);
-
-		const appended = rollout(2).trimEnd().split("\n").slice(1).join("\n");
-		await writeFile(path, `${rollout(20).trimEnd()}\n${appended}\n`);
-
-		const second = await readCxTranscriptPage(path, {
-			limit: 7,
-			end: first?.nextCursor === undefined ? undefined : Number.parseInt(first.nextCursor, 10),
-		});
-		const walked = normalizeTranscript([...(second?.messages ?? []), ...(first?.messages ?? [])]);
-		expect(walked.length).toBeGreaterThan(second?.messages.length ?? 0);
-		expect(walked).toEqual(original.slice(original.length - walked.length));
-	});
-});
-
 type RealFile = { path: string; size: number };
 
 async function collectFiles(dir: string, matches: (name: string) => boolean, depth = 0): Promise<RealFile[]> {
@@ -342,76 +201,7 @@ function selectedBySize(files: RealFile[], count: number): RealFile[] {
 	return small.sort((a, b) => b.size - a.size).slice(0, count);
 }
 
-function largestFile(files: RealFile[]): RealFile | null {
-	const sized = files.filter((file) => file.size > 0).sort((a, b) => b.size - a.size);
-	return sized[0] ?? null;
-}
-
-/**
- * Walks pages from the tail and returns them oldest-first, without holding more than the pages it
- * walked — a whole transcript of a multi-hundred-megabyte session does not fit the RSS cap.
- */
-async function walkPages(
-	fetch: (cursor: string | undefined) => Promise<{ messages: unknown[]; hasMore: boolean; nextCursor?: string } | null>,
-	pages: number,
-): Promise<unknown[]> {
-	const collected: unknown[] = [];
-	let cursor: string | undefined;
-	for (let attempt = 0; attempt < pages; attempt++) {
-		const page = await fetch(cursor);
-		expect(page, "reader could not build a page").not.toBeNull();
-		if (!page) break;
-		collected.unshift(...page.messages);
-		if (!page.hasMore) break;
-		cursor = page.nextCursor;
-	}
-	return collected;
-}
-
-/** A message the bridge had to cut down to fit a page matches the text it was cut from. */
-const CUT_AT = "…[truncated by the bridge: ";
-
-function sameTranscript(actual: unknown, expected: unknown): boolean {
-	if (typeof actual === "string" && typeof expected === "string") {
-		const cut = actual.lastIndexOf(CUT_AT);
-		return cut === -1 ? actual === expected : expected.startsWith(actual.slice(0, cut));
-	}
-	if (Array.isArray(actual) && Array.isArray(expected)) {
-		return actual.length === expected.length && actual.every((item, index) => sameTranscript(item, expected[index]));
-	}
-	if (actual && expected && typeof actual === "object" && typeof expected === "object") {
-		const left = actual as Record<string, unknown>;
-		const right = expected as Record<string, unknown>;
-		const keys = new Set([...Object.keys(left), ...Object.keys(right)]);
-		for (const key of keys) if (!sameTranscript(left[key], right[key])) return false;
-		return true;
-	}
-	return actual === expected;
-}
-
 describe("paged transcript parity on real sessions", () => {
-	it("matches the whole-file read on this machine's Codex rollouts", async () => {
-		const files = await collectFiles(join(homedir(), ".codex", "sessions"), (name) => name.endsWith(".jsonl"));
-		if (files.length === 0) {
-			console.warn("[transcript-paging] no ~/.codex/sessions on this machine — skipped");
-			return;
-		}
-		const selected = selectedBySize(files, 4);
-		for (const file of selected) {
-			const expected = normalizeTranscript(await readCxTranscript(file.path, { limit: 100_000 }));
-			const { messages } = await concatPages((before) =>
-				readCxTranscriptPage(file.path, {
-					limit: 20,
-					end: before === undefined ? undefined : Number.parseInt(before, 10),
-				}),
-			);
-			expect(normalizeTranscript(messages), file.path).toEqual(expected);
-		}
-		console.log(
-			`[transcript-paging] Codex: ${selected.length} rollout(s), largest ${(selected[0]?.size ?? 0) / 1e6} MB`,
-		);
-	}, 600_000);
-
 	it("matches the whole-file read on this machine's Claude Code sessions", async () => {
 		const files = await collectFiles(join(homedir(), ".claude", "projects"), (name) => name.endsWith(".jsonl"));
 		if (files.length === 0) {
@@ -433,37 +223,4 @@ describe("paged transcript parity on real sessions", () => {
 			`[transcript-paging] Claude Code: ${selected.length} session(s), largest ${(selected[0]?.size ?? 0) / 1e6} MB`,
 		);
 	}, 300_000);
-
-	// A whole-file read of a 400 MB session peaks near 2 GB, so the largest files are compared a
-	// page at a time against the bounded tail reader instead of against the whole transcript.
-	describe.skipIf(!REAL_ENABLED)("largest files, page by page", () => {
-		it("pages the largest Codex rollout to the same messages as the bounded tail read", async () => {
-			const files = await collectFiles(join(homedir(), ".codex", "sessions"), (name) => name.endsWith(".jsonl"));
-			const file = largestFile(files);
-			if (!file) return;
-
-			const tail = await readCxTranscript(file.path, { limit: 120 });
-			expect(tail.length).toBeGreaterThan(0);
-
-			const collected = await walkPages(
-				(before) =>
-					readCxTranscriptPage(file.path, {
-						limit: 60,
-						end: before === undefined ? undefined : Number.parseInt(before, 10),
-					}),
-				8,
-			);
-			expect(collected.length).toBeGreaterThanOrEqual(tail.length);
-			// The pages are the whole history; the tail read is its newest end.
-			expect(
-				sameTranscript(
-					normalizeTranscript(collected.slice(collected.length - tail.length) as never),
-					normalizeTranscript(tail),
-				),
-			).toBe(true);
-			console.log(
-				`[transcript-paging] Codex largest ${(file.size / 1e6).toFixed(0)} MB: ${collected.length} messages in pages`,
-			);
-		}, 300_000);
-	});
 });

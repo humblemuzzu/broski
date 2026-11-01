@@ -1,7 +1,7 @@
 /**
  * Miscellaneous message handlers.
  *
- * Handles: pong, client_ping, restart_opencode, set_agent, get_agents_status,
+ * Handles: pong, client_ping, set_agent, get_agents_status,
  * get_subscription_usage, get_provider_usage
  */
 
@@ -16,7 +16,6 @@ type ReplyFn = (msg: ServerMessage) => void;
 const MISC_OPS = [
 	"pong",
 	"client_ping",
-	"restart_opencode",
 	"set_agent",
 	"get_agents_status",
 	"get_subscription_usage",
@@ -34,9 +33,7 @@ export function register(router: MessageRouter, deps: ServerDeps): void {
 		setCurrentAgent: deps.setCurrentAgent,
 		ensureClaudeWatchDir: deps.ensureClaudeWatchDir,
 		claudeCode: deps.claudeCode,
-		checkCodexAvailable: deps.checkCodexAvailable,
 		getBackendsStatus: deps.getBackendsStatus,
-		restartOpenCode: deps.restartOpenCode,
 	};
 	registerAll(router, MISC_OPS, async (message, c) => {
 		await handle(c.ws, message, c.reply, ctx);
@@ -69,10 +66,7 @@ export type MiscHandlerContext = {
 	claudeCode: {
 		checkClaudeCodeAvailable: () => Promise<boolean>;
 	};
-	checkCodexAvailable: () => Promise<boolean>;
 	getBackendsStatus: () => Promise<Record<AgentType, AgentStatusInfo>>;
-	// restart
-	restartOpenCode?: () => Promise<boolean | undefined>;
 };
 
 export async function handle(
@@ -116,11 +110,6 @@ export async function handle(
 			} as ServerMessage);
 			return true;
 		}
-		case "restart_opencode": {
-			const ok = await ctx.restartOpenCode?.();
-			reply({ type: "opencode_restarted", data: ok === true } as ServerMessage);
-			return true;
-		}
 		case "set_agent": {
 			const agent = message.agent as AgentType;
 			ctx.setCurrentAgent(agent);
@@ -146,10 +135,6 @@ export async function handle(
 					);
 				}
 			}
-			if (agent === "codex") {
-				const available = await ctx.checkCodexAvailable();
-				ctx.log(`[Codex] ${available ? "OK" : "MISSING"} (requires 'codex' in PATH)`);
-			}
 			return true;
 		}
 		case "get_agents_status": {
@@ -165,7 +150,7 @@ export async function handle(
 		}
 		case "get_provider_usage": {
 			const subscriptionTracker = await import("../subscription-tracker");
-			const usage = await subscriptionTracker.getProviderUsage(message.providerId as "claude" | "openai");
+			const usage = await subscriptionTracker.getProviderUsage(message.providerId as "claude");
 			reply({ type: "provider_usage", data: usage } as ServerMessage);
 			return true;
 		}

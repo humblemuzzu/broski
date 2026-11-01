@@ -251,7 +251,7 @@ describe("approvals", () => {
 			error: "unknown request",
 		});
 		expect(await decide(current, "never-asked", "allow")).toMatchObject({ ok: false, error: "unknown request" });
-		expect(await decide(current, request, "allow", current.session.sessionId, "codex")).toMatchObject({
+		expect(await decide(current, request, "allow", current.session.sessionId, "claude-code")).toMatchObject({
 			ok: false,
 			error: "unknown request",
 		});

@@ -103,7 +103,7 @@ function blockCase(): ReducerCase {
 
 function toolCase(): ReducerCase {
 	const changes = [{ path: "a.ts", change: "modified" as const, additions: 1, deletions: 0 }];
-	const child = { backend: "codex" as const, sessionId: "child" };
+	const child = { backend: "claude-code" as const, sessionId: "child" };
 	return {
 		name: "tools: every update, nesting, and the call item completed at finish",
 		initial: emptySnapshot(),

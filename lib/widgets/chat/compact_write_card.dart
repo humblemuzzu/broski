@@ -28,11 +28,7 @@ class CompactWriteCard extends ConsumerWidget {
     this.onUndo,
   });
 
-  /// Get the file path from tool input
-  /// Handles different backend naming conventions:
-  /// - OpenCode: filePath
-  /// - Claude Code: path, file_path
-  /// - Codex: path in item
+  /// Get the file path from tool input (`filePath`, `path` or `file_path`).
   String _getFilePath() {
     return tool.input['filePath'] as String? ??
         tool.input['path'] as String? ??

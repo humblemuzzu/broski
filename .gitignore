@@ -112,7 +112,6 @@ reference/
 reference/
 # critical-g-*.md
 # optimization.md
-#cursor-codex-cc-chat.md
 
 # Logs and temp files
 *.log
@@ -136,8 +135,6 @@ analysis.log
 .claude/scripts/
 .claude/settings.json
 
-# AI tool undo/cache data
-.broski/codex-undo/
 # thoughts/
 
 # Node.js build artifacts

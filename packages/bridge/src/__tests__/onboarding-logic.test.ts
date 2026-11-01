@@ -5,12 +5,11 @@ import { describe, expect, test } from "bun:test";
 
 describe("Non-Interactive Agent Detection", () => {
 	// Simulate the detectAgentsNonInteractive function
-	function detectAgentsNonInteractive(): { opencode: boolean; claudeCode: boolean; codex: boolean } {
+	function detectAgentsNonInteractive(): { pi: boolean; claudeCode: boolean } {
 		// This is a simplified version - the real function uses findBinary
 		return {
-			opencode: false, // Would be !!findBinary('opencode') in real implementation
+			pi: false, // Would be !!findBinary('pi') in real implementation
 			claudeCode: false, // Would be !!findBinary('claude') in real implementation
-			codex: false, // Would be !!findBinary('codex') in real implementation
 		};
 	}
 
@@ -18,29 +17,26 @@ describe("Non-Interactive Agent Detection", () => {
 		const result = detectAgentsNonInteractive();
 
 		expect(typeof result).toBe("object");
-		expect("opencode" in result).toBe(true);
+		expect("pi" in result).toBe(true);
 		expect("claudeCode" in result).toBe(true);
-		expect("codex" in result).toBe(true);
 
-		expect(typeof result.opencode).toBe("boolean");
+		expect(typeof result.pi).toBe("boolean");
 		expect(typeof result.claudeCode).toBe("boolean");
-		expect(typeof result.codex).toBe("boolean");
 	});
 });
 
 describe("Agent Flag Parsing", () => {
-	function agentNameFromFlag(flag: string): "opencode" | "claude" | "codex" | null {
+	function agentNameFromFlag(flag: string): "pi" | "claude" | null {
 		const lower = flag.toLowerCase().trim();
-		if (lower === "opencode") return "opencode";
+		if (lower === "pi") return "pi";
 		if (lower === "claude" || lower === "claude-code" || lower === "claudecode") return "claude";
-		if (lower === "codex") return "codex";
 		return null;
 	}
 
-	test("handles opencode variants", () => {
-		expect(agentNameFromFlag("opencode")).toBe("opencode");
-		expect(agentNameFromFlag("OPENCODE")).toBe("opencode");
-		expect(agentNameFromFlag(" opencode ")).toBe("opencode");
+	test("handles pi variants", () => {
+		expect(agentNameFromFlag("pi")).toBe("pi");
+		expect(agentNameFromFlag("PI")).toBe("pi");
+		expect(agentNameFromFlag(" pi ")).toBe("pi");
 	});
 
 	test("handles claude variants", () => {
@@ -48,12 +44,6 @@ describe("Agent Flag Parsing", () => {
 		expect(agentNameFromFlag("claude-code")).toBe("claude");
 		expect(agentNameFromFlag("claudecode")).toBe("claude");
 		expect(agentNameFromFlag("CLAUDE-CODE")).toBe("claude");
-	});
-
-	test("handles codex variants", () => {
-		expect(agentNameFromFlag("codex")).toBe("codex");
-		expect(agentNameFromFlag("CODEX")).toBe("codex");
-		expect(agentNameFromFlag(" codex ")).toBe("codex");
 	});
 
 	test("rejects invalid flags", () => {
@@ -112,9 +102,8 @@ describe("Non-Interactive Config Assembly", () => {
 				verifyCodeSignature: true,
 			},
 			agents: {
-				opencode: false,
+				pi: false,
 				claudeCode: false,
-				codex: false,
 			},
 			daemon: {
 				installed: false,
@@ -132,9 +121,8 @@ describe("Non-Interactive Config Assembly", () => {
 
 		expect(typeof mockConfig.security.tls).toBe("boolean");
 
-		expect(typeof mockConfig.agents.opencode).toBe("boolean");
+		expect(typeof mockConfig.agents.pi).toBe("boolean");
 		expect(typeof mockConfig.agents.claudeCode).toBe("boolean");
-		expect(typeof mockConfig.agents.codex).toBe("boolean");
 
 		expect(typeof mockConfig.daemon.installed).toBe("boolean");
 		expect(["launchagent", "systemd", "none"].includes(mockConfig.daemon.type)).toBe(true);
@@ -154,24 +142,22 @@ describe("Onboarding Options Processing", () => {
 
 	test("processes agent flags correctly", () => {
 		const options: OnboardingOptions = {
-			agents: ["opencode", "claude-code", "codex"],
+			agents: ["pi", "claude-code"],
 		};
 
 		// Simulate agent processing
-		const processedAgents = { opencode: false, claudeCode: false, codex: false };
+		const processedAgents = { pi: false, claudeCode: false };
 
 		if (options.agents) {
 			for (const agent of options.agents) {
 				const name = agent.toLowerCase().trim();
-				if (name === "opencode") processedAgents.opencode = true;
+				if (name === "pi") processedAgents.pi = true;
 				else if (name === "claude" || name === "claude-code") processedAgents.claudeCode = true;
-				else if (name === "codex") processedAgents.codex = true;
 			}
 		}
 
-		expect(processedAgents.opencode).toBe(true);
+		expect(processedAgents.pi).toBe(true);
 		expect(processedAgents.claudeCode).toBe(true);
-		expect(processedAgents.codex).toBe(true);
 	});
 
 	test("applies default values for missing options", () => {

@@ -44,7 +44,6 @@ export default function ChatPage() {
         headers={["Option", "Description"]}
         rows={[
           ["Fork Session", "Create a branch from current point"],
-          ["Share Session", "Generate shareable URL (OpenCode)"],
           ["Compact", "Summarize old messages to save context"],
           ["Initialize", "Create AGENTS.md for the project"],
         ]}
@@ -74,7 +73,7 @@ export default function ChatPage() {
           ["Token Usage", "Input/output/cache read tokens"],
           ["Cost", "Estimated API cost in USD"],
           ["Modified Files", "List of changed files with +/- counts"],
-          ["Todos", "Task list (OpenCode)"],
+          ["Todos", "Task list"],
         ]}
       />
 

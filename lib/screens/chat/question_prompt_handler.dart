@@ -16,15 +16,7 @@ void maybeShowPermissionPromptFromList({
   required List<PermissionRequest> permissions,
   required String? activePermissionId,
   required HapticsService haptics,
-  required bool isCodex,
-  required bool isClaudeCode,
-  required void Function(
-    PermissionRequest,
-    String, {
-    String? message,
-    Object? execpolicyAmendment,
-  })
-  onRespond,
+  required void Function(PermissionRequest, String) onRespond,
   required void Function(String?) setActivePermissionId,
 }) {
   if (permissions.isEmpty) {
@@ -38,26 +30,7 @@ void maybeShowPermissionPromptFromList({
   WidgetsBinding.instance.addPostFrameCallback((_) {
     final isClaudeElicitation =
         request.metadata['ccElicitationRequestId'] != null;
-    final alwaysLabel = isCodex
-        ? 'Session'
-        : isClaudeElicitation
-        ? 'Approve'
-        : 'Always';
-    VoidCallback? onExecpolicy;
-    String? execpolicyLabel;
-    if (isCodex) {
-      final method = request.metadata['method'] as String?;
-      final proposed = request.metadata['proposedExecpolicyAmendment'];
-      if (method == 'item/commandExecution/requestApproval' &&
-          proposed is List) {
-        final prefix = proposed.whereType<String>().take(3).toList().join(' ');
-        if (prefix.isNotEmpty) {
-          execpolicyLabel = 'Always allow "$prefix…"';
-          onExecpolicy = () =>
-              onRespond(request, 'execpolicy', execpolicyAmendment: proposed);
-        }
-      }
-    }
+    final alwaysLabel = isClaudeElicitation ? 'Approve' : 'Always';
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -70,10 +43,6 @@ void maybeShowPermissionPromptFromList({
             ? () => onRespond(request, 'once')
             : () => onRespond(request, 'always'),
         approveAlwaysLabel: alwaysLabel,
-        onApproveWithExecpolicy: onExecpolicy,
-        approveWithExecpolicyLabel: execpolicyLabel,
-        onDenyWithMessage: (message) =>
-            onRespond(request, 'reject', message: message),
         // NOTE: onDefer not wired yet — SDK PermissionResult only supports
         // allow/deny. Defer is valid in HookPermissionDecision but the bridge
         // doesn't distinguish hook vs SDK waiter permissions yet.
@@ -82,13 +51,10 @@ void maybeShowPermissionPromptFromList({
   });
 }
 
-/// Shows a question prompt for OpenCode/Claude Code.
-/// Extracted from `_ChatScreenState._maybeShowQuestionPrompt`.
+/// Shows Claude Code's AskUserQuestion prompt.
 void maybeShowQuestionPrompt({
   required BuildContext context,
   required WidgetRef ref,
-  required bool isOpenCode,
-  required bool isClaudeCode,
   required QuestionRequest? request,
   required String? activeQuestionId,
   required Set<String> answeredQuestionIds,
@@ -96,7 +62,6 @@ void maybeShowQuestionPrompt({
   required void Function(String?) setActiveQuestionId,
   required bool Function() isMounted,
 }) {
-  if (!isOpenCode && !isClaudeCode) return;
   if (request == null || request.id.isEmpty) {
     setActiveQuestionId(null);
     return;
@@ -131,72 +96,5 @@ void maybeShowQuestionPrompt({
         );
       },
     ).whenComplete(() => setActiveQuestionId(null));
-  });
-}
-
-/// Shows a Codex-specific question prompt (user input request).
-/// Extracted from `_ChatScreenState._maybeShowCodexQuestionPrompt`.
-void maybeShowCodexQuestionPrompt({
-  required BuildContext context,
-  required WidgetRef ref,
-  required CodexUserInputRequest? request,
-  required String? activeCxQuestionId,
-  required HapticsService haptics,
-  required void Function(String?) setActiveCxQuestionId,
-  required bool Function() isMounted,
-}) {
-  if (request == null || request.requestId.isEmpty) {
-    setActiveCxQuestionId(null);
-    return;
-  }
-  if (activeCxQuestionId == request.requestId) return;
-  setActiveCxQuestionId(request.requestId);
-  haptics.mediumImpact();
-  // Convert CodexUserInputRequest to QuestionRequest for the existing UI
-  final convertedRequest = QuestionRequest(
-    id: request.requestId,
-    sessionId: request.threadId,
-    questions: request.questions
-        .map(
-          (q) => QuestionInfo(
-            question: q.question,
-            header: q.header,
-            options: q.options
-                .map(
-                  (o) => QuestionOption(
-                    label: o.label,
-                    description: o.description,
-                  ),
-                )
-                .toList(),
-            multiple: false,
-          ),
-        )
-        .toList(),
-  );
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    if (!isMounted()) return;
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      isDismissible: false,
-      enableDrag: false,
-      builder: (_) {
-        return QuestionPromptSheet(
-          request: convertedRequest,
-          onReply: (answers) {
-            ref
-                .read(chatSessionProvider.notifier)
-                .replyToCodexUserInput(answers);
-            if (isMounted()) Navigator.pop(context);
-          },
-          onReject: () {
-            ref.read(chatSessionProvider.notifier).rejectCodexUserInput();
-            if (isMounted()) Navigator.pop(context);
-          },
-        );
-      },
-    ).whenComplete(() => setActiveCxQuestionId(null));
   });
 }

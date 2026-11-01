@@ -70,8 +70,8 @@ void _prewarmCaches() {
     // Load cached data into memory (L2 → L1 promotion)
     // These calls will populate the in-memory cache
     await Future.wait([
-      storage.getCachedProjects(),
-      storage.getCachedSessions(),
+      storage.getCachedCCProjects(),
+      storage.getCachedCCSessions(),
     ]);
 
     // Initialize notification plugin (registers channels, etc.)

@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 
 /// Shared status bar showing latency pill + model selector pill.
 ///
-/// Used across all agent actions sheets (CC, Codex, Pi, OpenCode).
+/// Used across the agent actions sheets.
 /// [leading] allows extra widgets before the latency pill (e.g. branch info).
 /// [bottomPadding] defaults to 16 but can be overridden (Pi uses 12).
 class AgentStatusBar extends StatelessWidget {

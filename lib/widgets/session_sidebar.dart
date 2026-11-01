@@ -1,9 +1,7 @@
 import 'package:broski/models/claude_code.dart';
-import 'package:broski/models/codex.dart';
 import 'package:broski/models/message.dart';
 import 'package:broski/models/session_context.dart';
 import 'package:broski/models/todo.dart';
-import 'package:broski/models/vcs.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/app_typography.dart';
 import 'package:broski/theme/design_tokens.dart';
@@ -14,23 +12,8 @@ import 'package:broski/widgets/sidebar/cc_context_details.dart';
 import 'package:broski/widgets/status_indicator.dart';
 import 'package:flutter/material.dart';
 
-/// Codex session info passed to the sidebar for display.
-class CodexSessionInfo {
-  const CodexSessionInfo({
-    this.threadId,
-    this.model,
-    this.cwd,
-    required this.settings,
-  });
-
-  final String? threadId;
-  final String? model;
-  final String? cwd;
-  final CodexSettings settings;
-}
-
-/// Session sidebar showing plan/todos, context usage, LSP servers, and modified files
-/// Designed to match the OpenCode desktop sidebar shown in the screenshot
+/// Session sidebar showing context usage, session info, plan/todos and
+/// modified files.
 class SessionSidebar extends StatelessWidget {
   const SessionSidebar({
     super.key,
@@ -38,28 +21,17 @@ class SessionSidebar extends StatelessWidget {
     required this.sessionContext,
     this.todos = const [],
     this.onClose,
-    this.vcsInfo,
     this.sessionDiffs = const [],
     this.onOpenDiff,
-    this.isClaudeCode = false,
-    this.isCodex = false,
     this.ccInit,
-    this.cxInfo,
   });
   final String sessionTitle;
   final SessionContext sessionContext;
   final List<Todo> todos;
   final VoidCallback? onClose;
-  // Feature 10: VCS/Git info
-  final VcsInfo? vcsInfo;
   final List<DiffEntry> sessionDiffs;
   final void Function(DiffEntry diff)? onOpenDiff;
-  // Claude Code mode
-  final bool isClaudeCode;
-  // Codex mode
-  final bool isCodex;
   final CCSessionInit? ccInit;
-  final CodexSessionInfo? cxInfo;
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -81,36 +53,20 @@ class SessionSidebar extends StatelessWidget {
                 children: [
                   const SizedBox(height: Spacing.sm),
                   _buildContextSection(context, theme),
-                  if (isClaudeCode)
-                    CCContextDetails(sessionId: ccInit?.sessionId),
+                  CCContextDetails(sessionId: ccInit?.sessionId),
                   const SizedBox(height: Spacing.xl),
-                  // Claude Code: Show session info + plan (CC has TodoWrite tool)
-                  if (isClaudeCode) ...[
-                    _buildClaudeCodeInfoSection(context, theme),
-                    const SizedBox(height: Spacing.xl),
-                    if ((ccInit?.mcpServers ?? const []).isNotEmpty) ...[
-                      _buildClaudeCodeMcpSection(context, theme),
-                      const SizedBox(height: Spacing.xl),
-                    ],
-                    if ((ccInit?.skills ?? const []).isNotEmpty) ...[
-                      _buildClaudeCodeSkillsSection(context, theme),
-                      const SizedBox(height: Spacing.xl),
-                    ],
-                    _buildPlanSection(context, theme),
-                    const SizedBox(height: Spacing.xl),
-                  ] else if (isCodex) ...[
-                    // Codex: Session info + Plan + changes, no LSP
-                    _buildCodexInfoSection(context, theme),
-                    const SizedBox(height: Spacing.xl),
-                    _buildPlanSection(context, theme),
-                    const SizedBox(height: Spacing.xl),
-                  ] else ...[
-                    // OpenCode: Plan + LSP
-                    _buildPlanSection(context, theme),
-                    const SizedBox(height: Spacing.xl),
-                    _buildLspSection(context, theme),
+                  _buildClaudeCodeInfoSection(context, theme),
+                  const SizedBox(height: Spacing.xl),
+                  if ((ccInit?.mcpServers ?? const []).isNotEmpty) ...[
+                    _buildClaudeCodeMcpSection(context, theme),
                     const SizedBox(height: Spacing.xl),
                   ],
+                  if ((ccInit?.skills ?? const []).isNotEmpty) ...[
+                    _buildClaudeCodeSkillsSection(context, theme),
+                    const SizedBox(height: Spacing.xl),
+                  ],
+                  _buildPlanSection(context, theme),
+                  const SizedBox(height: Spacing.xl),
                   _buildChangesSection(context, theme),
                   const SizedBox(height: Spacing.xl),
                   _buildModifiedFilesSection(context, theme),
@@ -151,40 +107,6 @@ class SessionSidebar extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    // Feature 10: VCS branch display
-                    if (vcsInfo != null && vcsInfo!.isAvailable)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Row(
-                          children: [
-                            Icon(
-                              AppIcons.callSplit,
-                              size: 14,
-                              color: theme.success,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              vcsInfo!.branch ?? '',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: theme.textMuted,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            if (vcsInfo!.isOnFeatureBranch) ...[
-                              const SizedBox(width: 6),
-                              Text(
-                                '← ${vcsInfo!.defaultBranch}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: theme.textMuted.withValues(alpha: 0.6),
-                                  fontWeight: FontWeight.w400,
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
                   ],
                 ),
               ),
@@ -211,8 +133,6 @@ class SessionSidebar extends StatelessWidget {
     final ctx = sessionContext;
     final usagePercent = ctx.contextUsagePercent;
     final remainingTokens = ctx.tokens.contextWindow - ctx.tokens.contextTokens;
-    // Codex SDK doesn't provide cost data — only show cost for Claude Code and OpenCode
-    final showCost = !isCodex;
     return _SidebarSection(
       theme: theme,
       title: 'Context',
@@ -277,14 +197,12 @@ class SessionSidebar extends StatelessWidget {
                 sublabel: 'remaining',
                 icon: AppIcons.dataUsage,
               ),
-            // Cost: only show for backends that report it (Claude Code, OpenCode)
-            if (showCost)
-              _StatItem(
-                theme: theme,
-                label: ctx.formattedCost,
-                sublabel: 'spent',
-                icon: AppIcons.wallet,
-              ),
+            _StatItem(
+              theme: theme,
+              label: ctx.formattedCost,
+              sublabel: 'spent',
+              icon: AppIcons.wallet,
+            ),
             // Budget remaining: only for Claude Code (maxBudgetUsd)
             if (ctx.budgetRemainingUsd != null)
               _StatItem(
@@ -460,107 +378,6 @@ class SessionSidebar extends StatelessWidget {
     );
   }
 
-  /// Codex session info section showing model, approvals, sandbox, effort.
-  Widget _buildCodexInfoSection(BuildContext context, OpenCodeTheme theme) {
-    final info = cxInfo;
-    if (info == null) {
-      return _SidebarSection(
-        theme: theme,
-        title: 'Session Info',
-        icon: AppIcons.info,
-        children: [
-          Container(
-            padding: Insets.cardSm,
-            decoration: BoxDecoration(
-              color: theme.backgroundPanel,
-              borderRadius: Radii.brSm,
-              border: Border.all(color: theme.borderSubtle, width: 1),
-            ),
-            child: Row(
-              children: [
-                Icon(AppIcons.hourglass, color: theme.textMuted, size: 16),
-                const SizedBox(width: Spacing.sm),
-                Text(
-                  'Waiting for thread...',
-                  style: AppTypography.bodySmall(color: theme.textMuted),
-                ),
-              ],
-            ),
-          ),
-        ],
-      );
-    }
-    final s = info.settings;
-    return _SidebarSection(
-      theme: theme,
-      title: 'Codex',
-      icon: AppIcons.agent,
-      children: [
-        Container(
-          decoration: BoxDecoration(
-            color: theme.backgroundPanel,
-            borderRadius: Radii.brMd,
-            border: Border.all(color: theme.borderSubtle, width: 1),
-          ),
-          child: Column(
-            children: [
-              // Model
-              _InfoRow(
-                theme: theme,
-                icon: AppIcons.memory,
-                label: 'Model',
-                value: info.model?.isNotEmpty == true ? info.model! : 'default',
-              ),
-              Divider(height: 1, color: theme.borderSubtle),
-              // Approval policy
-              _InfoRow(
-                theme: theme,
-                icon: AppIcons.security,
-                label: 'Approvals',
-                value: s.approvalPolicy.wireValue,
-              ),
-              Divider(height: 1, color: theme.borderSubtle),
-              // Sandbox mode
-              _InfoRow(
-                theme: theme,
-                icon: AppIcons.vpn,
-                label: 'Sandbox',
-                value: s.sandboxMode == CodexSandboxMode.workspaceWrite
-                    ? '${s.sandboxMode.threadWireValue} (net=${s.networkAccessEnabled})'
-                    : s.sandboxMode.threadWireValue,
-              ),
-              Divider(height: 1, color: theme.borderSubtle),
-              // Reasoning effort
-              _InfoRow(
-                theme: theme,
-                icon: AppIcons.psychology,
-                label: 'Effort',
-                value: s.reasoningEffort.wireValue,
-              ),
-              Divider(height: 1, color: theme.borderSubtle),
-              // Web search
-              _InfoRow(
-                theme: theme,
-                icon: AppIcons.search,
-                label: 'Web Search',
-                value: s.webSearchMode.wireValue,
-              ),
-              if (s.skillsEnabled) ...[
-                Divider(height: 1, color: theme.borderSubtle),
-                _InfoRow(
-                  theme: theme,
-                  icon: AppIcons.autoAwesome,
-                  label: 'Skills',
-                  value: 'enabled',
-                ),
-              ],
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildClaudeCodeMcpSection(BuildContext context, OpenCodeTheme theme) {
     final init = ccInit;
     final servers = init?.mcpServers ?? const <Map<String, dynamic>>[];
@@ -690,48 +507,6 @@ class SessionSidebar extends StatelessWidget {
             ],
           ),
         ),
-      ],
-    );
-  }
-
-  Widget _buildLspSection(BuildContext context, OpenCodeTheme theme) {
-    final lspServers = sessionContext.lsp;
-    if (lspServers.isEmpty) {
-      return _SidebarSection(
-        theme: theme,
-        title: 'LSP',
-        icon: AppIcons.code,
-        children: [
-          Container(
-            padding: Insets.cardSm,
-            decoration: BoxDecoration(
-              color: theme.backgroundPanel,
-              borderRadius: Radii.brSm,
-              border: Border.all(color: theme.borderSubtle, width: 1),
-            ),
-            child: Row(
-              children: [
-                Icon(AppIcons.info, color: theme.textMuted, size: 16),
-                const SizedBox(width: Spacing.sm),
-                Text(
-                  'No LSP servers active',
-                  style: AppTypography.bodySmall(color: theme.textMuted),
-                ),
-              ],
-            ),
-          ),
-        ],
-      );
-    }
-    return _SidebarSection(
-      theme: theme,
-      title: 'LSP',
-      icon: AppIcons.code,
-      children: [
-        for (final server in lspServers) ...[
-          _LspServerItem(theme: theme, server: server),
-          if (server != lspServers.last) const SizedBox(height: Spacing.sm),
-        ],
       ],
     );
   }
@@ -1063,63 +838,6 @@ class _McpServerRow extends StatelessWidget {
           Text(
             status.isEmpty ? 'unknown' : status,
             style: AppTypography.label(color: theme.textMuted),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// LSP server item showing status and name
-class _LspServerItem extends StatelessWidget {
-  const _LspServerItem({required this.theme, required this.server});
-  final OpenCodeTheme theme;
-  final LspServer server;
-  @override
-  Widget build(BuildContext context) {
-    final statusType = switch (server.status) {
-      LspStatus.running => StatusType.success,
-      LspStatus.error => StatusType.error,
-      LspStatus.stopped => StatusType.pending,
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: theme.backgroundPanel,
-        borderRadius: Radii.brSm,
-        border: Border.all(color: theme.borderSubtle, width: 1),
-      ),
-      child: Row(
-        children: [
-          StatusIndicator(
-            status: statusType,
-            size: 8,
-            showGlow: server.status == LspStatus.running,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  server.displayName,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: theme.text,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                if (server.shortRoot != null) ...[
-                  const SizedBox(height: Spacing.xxs),
-                  Text(
-                    server.shortRoot!,
-                    style: AppTypography.caption(color: theme.textMuted),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ],
-            ),
           ),
         ],
       ),

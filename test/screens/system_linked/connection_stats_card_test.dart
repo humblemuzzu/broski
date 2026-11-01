@@ -17,13 +17,13 @@ void main() {
   test('counts add up across backends and project paths are deduplicated', () {
     final counts = LinkedMachineCounts.combine(const [
       BackendRead(
-        name: 'OpenCode',
+        name: 'Pi',
         projectPaths: ['/repo', '/other'],
         sessions: 4,
         agents: 2,
       ),
       BackendRead(name: 'Claude Code', projectPaths: ['/repo'], sessions: 3),
-      BackendRead(name: 'Codex', projectPaths: ['/third'], sessions: 1),
+      BackendRead(name: 'Pi Durable', projectPaths: ['/third'], sessions: 1),
     ]);
 
     expect(counts.projects, 3);
@@ -34,13 +34,13 @@ void main() {
 
   test('a backend that failed adds nothing and is named', () {
     final counts = LinkedMachineCounts.combine(const [
-      BackendRead(name: 'OpenCode', projectPaths: ['/repo'], sessions: 2),
-      BackendRead(name: 'Codex', failure: 'TimeoutException: no reply'),
+      BackendRead(name: 'Pi', projectPaths: ['/repo'], sessions: 2),
+      BackendRead(name: 'Claude Code', failure: 'TimeoutException: no reply'),
     ]);
 
     expect(counts.projects, 1);
     expect(counts.sessions, 2);
-    expect(counts.failures, ['Codex: TimeoutException: no reply']);
+    expect(counts.failures, ['Claude Code: TimeoutException: no reply']);
   });
 
   testWidgets('shows the reason a read failed instead of a zero', (
@@ -50,12 +50,18 @@ void main() {
       latencyMs: 23,
       route: 'Local network',
       counts: LinkedMachineCounts.combine(const [
-        BackendRead(name: 'Codex', failure: 'the bridge refused the request'),
+        BackendRead(
+          name: 'Claude Code',
+          failure: 'the bridge refused the request',
+        ),
       ]),
     ));
 
     expect(find.text('COULD NOT READ'), findsOneWidget);
-    expect(find.text('Codex: the bridge refused the request'), findsOneWidget);
+    expect(
+      find.text('Claude Code: the bridge refused the request'),
+      findsOneWidget,
+    );
     expect(find.textContaining('PROJECTS'), findsNothing);
     expect(find.text('23ms'), findsOneWidget);
     expect(find.text('Local network'), findsOneWidget);

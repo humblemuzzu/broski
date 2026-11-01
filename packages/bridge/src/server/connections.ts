@@ -1,5 +1,4 @@
 import type { ServerWebSocket } from "bun";
-import * as cxRouting from "../handlers/cx_routing";
 import type { PtyRuntime } from "../pty/runtime";
 import type { AgentType, DeviceInfo } from "../types";
 import type { ContractSeam } from "./contract-seam";
@@ -195,27 +194,14 @@ export function createConnections(deps: ConnectionsDeps): Connections {
 			const prevKey = makeSessionKey(ctx?.viewAgent, ctx?.sessionId);
 			sessions.updateSessionWatchers(ws, prevKey, null);
 			deps.contract.disconnect(ws);
-			cxRouting.detachCxFsWatches(ws, state.codexClient);
 
-			// If this socket owned any CC/Codex/OpenCode sessions, release ownership so watchers
+			// If this socket owned any CC sessions, release ownership so watchers
 			// can fall back to external tailing (or another owner) correctly.
 			const releasedKeys: Array<{ agent: AgentType; id: string }> = [];
 			for (const [sid, owner] of state.ccSessionOwners.entries()) {
 				if (owner === ws) {
 					state.ccSessionOwners.delete(sid);
 					releasedKeys.push({ agent: "claude-code", id: sid });
-				}
-			}
-			for (const [tid, owner] of state.cxThreadOwners.entries()) {
-				if (owner === ws) {
-					state.cxThreadOwners.delete(tid);
-					releasedKeys.push({ agent: "codex", id: tid });
-				}
-			}
-			for (const [sid, owner] of state.ocSessionOwners.entries()) {
-				if (owner === ws) {
-					state.ocSessionOwners.delete(sid);
-					releasedKeys.push({ agent: "opencode", id: sid });
 				}
 			}
 			for (const k of releasedKeys) {

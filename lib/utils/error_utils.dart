@@ -106,26 +106,6 @@ String humanErrorLabel(String? code) {
     'cc_error' => 'Claude Code Error',
     'cc_auth_missing' => 'Authentication Required',
 
-    // Codex
-    'codex_error' => 'Codex Error',
-    'turn_failed' => 'Response Failed',
-    'model_cap' => 'Rate Limited',
-    'server_overloaded' => 'Server Overloaded',
-    'context_window_exceeded' => 'Context Window Exceeded',
-    'usage_limit_exceeded' => 'Usage Limit Exceeded',
-    'http_connection_failed' => 'Connection Failed',
-    'response_stream_disconnected' => 'Stream Disconnected',
-    'response_too_many_failed_attempts' => 'Too Many Retries',
-    'unauthorized' => 'Unauthorized',
-    'sandbox_error' => 'Sandbox Error',
-    'thread_rollback_failed' => 'Rollback Failed',
-    'app_server_crashed' => 'Agent Crashed',
-
-    // OpenCode
-    'AbortError' => 'Cancelled',
-    'TypeError' => 'Internal Error',
-    'Error' => 'Error',
-
     // Bridge-level
     'INVALID_SESSION' => 'Session Expired',
     'RATE_LIMITED' => 'Rate Limited',

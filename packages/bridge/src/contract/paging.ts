@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const MAX_PAGE_LIMIT = 200;
 
-/** An OpenCode cursor carries its own filters, a directory among them, base64-encoded (oc §3). */
+/** A cursor may carry its own filters, base64-encoded. */
 const MAX_CURSOR_CHARS = 8_192;
 
 export const PageCursor = z.string().min(1).max(MAX_CURSOR_CHARS);

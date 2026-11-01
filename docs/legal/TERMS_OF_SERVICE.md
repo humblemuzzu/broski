@@ -13,7 +13,7 @@ These Terms constitute a legally binding agreement between you ("User," "you," o
 
 ## 2. Description of Service
 
-Broski is a mobile application that allows you to remotely control AI coding agents (such as Claude Code, OpenCode, and Codex) running on your personal computer from your mobile device. The App enables you to:
+Broski is a mobile application that allows you to remotely control AI coding agents (such as Claude Code and Pi) running on your personal computer from your mobile device. The App enables you to:
 
 - Chat with AI coding assistants running on your computer
 - Review and approve or reject code changes and tool usage

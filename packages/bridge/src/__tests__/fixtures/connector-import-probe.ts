@@ -1,7 +1,7 @@
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-const SDK_MODULE_PATTERN = /node_modules\/(@anthropic-ai|@opencode-ai|@earendil-works)\//;
+const SDK_MODULE_PATTERN = /node_modules\/(@anthropic-ai|@earendil-works)\//;
 
 const target = process.env.PROBE_MODULE;
 if (!target) throw new Error("PROBE_MODULE is required");

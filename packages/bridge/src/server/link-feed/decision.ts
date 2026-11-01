@@ -48,14 +48,14 @@ export function createLinkDecisionApplier(sources: LinkDecisionSources): LinkDec
 		if (record?.contract) {
 			return await applyContractDecision(decision, record, record.contract, sources.requests, sources.contractAnswer);
 		}
-		const answer = answerOf(decision, record, sources.serverDeps);
+		const answer = answerOf(decision, record);
 		if (!answer.ok) return { ok: false, error: answer.error };
 		sources.requests.markAnswered(decision.backend, decision.session, decision.request);
 		return await dispatch(answer.message, ws, sources);
 	};
 }
 
-function answerOf(decision: LinkDecision, record: LinkFeedRequestRecord | undefined, serverDeps: ServerDeps): Answer {
+function answerOf(decision: LinkDecision, record: LinkFeedRequestRecord | undefined): Answer {
 	if (!BackendId.safeParse(decision.backend).success) return { ok: false, error: "unknown backend" };
 	if (!record) return { ok: false, error: "unknown request" };
 	if (record.answered) return { ok: false, error: "already answered" };
@@ -66,34 +66,18 @@ function answerOf(decision: LinkDecision, record: LinkFeedRequestRecord | undefi
 		return { ok: false, error: "unsupported" };
 	}
 	if (!isBroskiBackend(decision.backend)) return { ok: false, error: "unknown backend" };
-	return { ok: true, message: responseMessage(decision.backend, decision, serverDeps) };
+	return { ok: true, message: responseMessage(decision) };
 }
 
-/** The message the phone sends to answer this backend's request, carrying the daemon's verdict. */
-function responseMessage(backend: BroskiBackend, decision: LinkDecision, serverDeps: ServerDeps): ClientMessage {
-	const response = decision.decision === "allow" ? "once" : "reject";
-	switch (backend) {
-		case "claude-code":
-			return {
-				type: "cc_permission_response",
-				sessionId: decision.session,
-				toolUseId: decision.request,
-				response,
-				decisionClassification: decision.decision === "allow" ? "user_temporary" : "user_reject",
-			};
-		case "opencode": {
-			const projectPath = serverDeps.ocSessionProjectPaths.get(decision.session);
-			return {
-				type: "permission_response",
-				sessionId: decision.session,
-				permissionId: decision.request,
-				response,
-				...(projectPath !== undefined ? { projectPath } : {}),
-			};
-		}
-		case "codex":
-			return { type: "cx_permission_response", requestId: decision.request, response };
-	}
+/** The message the phone sends to answer a Claude Code request, carrying the daemon's verdict. */
+function responseMessage(decision: LinkDecision): ClientMessage {
+	return {
+		type: "cc_permission_response",
+		sessionId: decision.session,
+		toolUseId: decision.request,
+		response: decision.decision === "allow" ? "once" : "reject",
+		decisionClassification: decision.decision === "allow" ? "user_temporary" : "user_reject",
+	};
 }
 
 async function dispatch(
@@ -116,7 +100,7 @@ async function dispatch(
 	return outcomeOf(reply);
 }
 
-const BROSKI_BACKENDS: readonly string[] = ["opencode", "claude-code", "codex"];
+const BROSKI_BACKENDS: readonly string[] = ["claude-code"];
 
 function isBroskiBackend(value: string): value is BroskiBackend {
 	return BROSKI_BACKENDS.includes(value);

@@ -1,5 +1,5 @@
 /**
- * Unified handler for listing child/subagent sessions across all backends.
+ * Unified handler for listing child/subagent sessions.
  *
  * Message: unified_list_session_children
  *   { backend, sessionId, cwd? }
@@ -11,23 +11,15 @@ import type { UnifiedMessage } from "../routing/messages";
 import { registerAll } from "../routing/registry";
 import type { MessageRouter, ServerDeps } from "../routing/types";
 import { mapClaudeCodeSessionToRuntimeSession } from "../runtime/claude-code-runtime-read-models";
-import { mapCodexThreadToRuntimeSession } from "../runtime/codex-runtime-read-models";
-import { mapOpenCodeSessionToRuntimeSession } from "../runtime/opencode-runtime-read-models";
 import type { BroskiBackend, BroskiSessionSummary } from "../types/runtime";
 
 type Reply = (msg: any) => void;
 
 export type SessionChildrenContext = {
-	requireOpenCode: () => {
-		listSessionChildren: (sessionId: string, dir?: string) => Promise<any[]>;
-	} | null;
 	claudeCode: {
 		listSubagents: (sessionId: string, cwd?: string) => Promise<string[]>;
 		getSubagentMessages: (sessionId: string, agentId: string, cwd?: string) => Promise<any[]>;
 	};
-	ensureCodexClient: () => Promise<{
-		request: (method: string, params: any) => Promise<any>;
-	}>;
 	log: (...args: any[]) => void;
 };
 
@@ -39,9 +31,7 @@ export function register(router: MessageRouter, deps: ServerDeps): void {
 	registerAll(router, CHILDREN_OPS, async (message, c) => {
 		const children = await deps.getClaudeCodeChildren();
 		await handle(message, c.reply, {
-			requireOpenCode: deps.requireOpenCodeOrNull,
 			claudeCode: children,
-			ensureCodexClient: deps.ensureCodexClient,
 			log: deps.logInfo,
 		});
 	});
@@ -55,20 +45,6 @@ export async function handle(message: UnifiedMessage, reply: Reply, ctx: Session
 			let data: BroskiSessionSummary[] = [];
 
 			switch (backend) {
-				case "opencode": {
-					try {
-						const oc = ctx.requireOpenCode();
-						if (oc) {
-							const children = await oc.listSessionChildren(sessionId, message.cwd);
-							data = children.map(mapOpenCodeSessionToRuntimeSession);
-						}
-					} catch (e) {
-						ctx.log("[unified_session_children] OC error:", e);
-						data = [];
-					}
-					break;
-				}
-
 				case "claude-code": {
 					try {
 						const agentIds = await ctx.claudeCode.listSubagents(sessionId, message.cwd);
@@ -131,24 +107,6 @@ export async function handle(message: UnifiedMessage, reply: Reply, ctx: Session
 						data = summaries;
 					} catch (e) {
 						ctx.log("[unified_session_children] CC error:", e);
-						data = [];
-					}
-					break;
-				}
-
-				case "codex": {
-					try {
-						const client = await ctx.ensureCodexClient();
-						const result: any = await client.request("thread/list", {
-							limit: 200,
-						});
-						const threads: any[] = result?.data ?? [];
-
-						const forkChildren = threads.filter((t: any) => t.forkedFromId === sessionId);
-
-						data = forkChildren.map((t: any) => mapCodexThreadToRuntimeSession(t));
-					} catch (e) {
-						ctx.log("[unified_session_children] CX error:", e);
 						data = [];
 					}
 					break;

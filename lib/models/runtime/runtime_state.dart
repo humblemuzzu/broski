@@ -124,7 +124,7 @@ class RuntimeState {
     final permissionJson = _asMap(json['permissionRequest']);
     return RuntimeState(
       backend: AgentType.fromWireValue(
-        json['backend'] as String? ?? 'opencode',
+        json['backend'] as String? ?? 'claude-code',
       ),
       sessionId: json['sessionId'] as String?,
       cwd: json['cwd'] as String?,

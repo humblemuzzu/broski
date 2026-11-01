@@ -28,7 +28,7 @@ String formatContextWindow(int windowSize) {
 ///
 /// Handles all agent model formats:
 /// - Claude Code: "claude-sonnet-4-..." → "Sonnet", "claude-opus-..." → "Opus"
-/// - Codex/OpenAI: "o3-..." → "o3", "gpt-4o-..." → "GPT-4o"
+/// - OpenAI: "o3-..." → "o3", "gpt-4o-..." → "GPT-4o"
 /// - Pi/Generic: "provider/model-name" → "model-name" (truncated)
 ///
 /// [fallback] is returned when model is null/empty. Defaults to "Unknown".

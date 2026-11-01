@@ -90,16 +90,15 @@ describe("Problem Descriptions", () => {
 
 	test("agent installation commands are properly formatted", () => {
 		const installCommands = {
-			opencode: "curl -fsSL https://opencode.ai/install | bash",
 			claudeCode: "curl -fsSL https://claude.ai/install.sh | bash",
-			codex: "npm i -g @openai/codex",
+			pi: "npm i -g @earendil-works/pi-coding-agent",
 		};
 
 		Object.entries(installCommands).forEach(([agent, command]) => {
 			expect(typeof command).toBe("string");
 			expect(command.length).toBeGreaterThan(10);
 
-			if (agent === "codex") {
+			if (agent === "pi") {
 				expect(command).toContain("npm");
 			} else {
 				expect(command).toContain("curl");

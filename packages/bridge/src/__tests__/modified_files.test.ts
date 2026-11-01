@@ -3,7 +3,6 @@
  *
  * Tests the per-file modified files pipeline used by the sidebar:
  * - CC: scanCCFileDiffs + getCCModifiedFiles (structuredPatch, oldString/newString)
- * - Codex: scanCxFileDiffs + getCxModifiedFiles (apply_patch, fileChange items)
  * - Shared: deduplicateFileDiffs (merges same-file edits)
  */
 
@@ -12,7 +11,6 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getCCModifiedFiles } from "../connectors/claude-code/cc-session-stats";
-import { getCxModifiedFiles } from "../connectors/codex/cx-session-stats";
 import { deduplicateFileDiffs } from "../handlers/session-stats";
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -199,115 +197,6 @@ describe("getCCModifiedFiles", () => {
 
 	test("returns empty for nonexistent file", async () => {
 		const files = await getCCModifiedFiles("/nonexistent/path/session.jsonl");
-		expect(files).toHaveLength(0);
-	});
-});
-
-// ── Codex Modified Files ─────────────────────────────────────────────
-
-describe("getCxModifiedFiles", () => {
-	test("extracts from custom_tool_call apply_patch", async () => {
-		const patchInput = `*** Update File: src/server.ts
---- a/src/server.ts
-+++ b/src/server.ts
-@@ -10,3 +10,5 @@
- context
--old line
-+new line 1
-+new line 2
-+new line 3
- context`;
-		const fp = await makeTempJsonl([
-			{
-				type: "response_item",
-				payload: {
-					type: "custom_tool_call",
-					name: "apply_patch",
-					input: patchInput,
-				},
-			},
-		]);
-		const files = await getCxModifiedFiles(fp);
-		expect(files).toHaveLength(1);
-		expect(files[0]?.file).toBe("src/server.ts");
-		expect(files[0]?.additions).toBe(3);
-		expect(files[0]?.deletions).toBe(1);
-	});
-
-	test("extracts from function_call apply_patch", async () => {
-		const patchContent = `*** Add File: src/new.ts
-+line 1
-+line 2`;
-		const fp = await makeTempJsonl([
-			{
-				type: "response_item",
-				payload: {
-					type: "function_call",
-					name: "apply_patch",
-					arguments: JSON.stringify({ patch: patchContent }),
-				},
-			},
-		]);
-		const files = await getCxModifiedFiles(fp);
-		expect(files).toHaveLength(1);
-		expect(files[0]?.file).toBe("src/new.ts");
-		expect(files[0]?.additions).toBe(2);
-	});
-
-	test("extracts from v2 fileChange items", async () => {
-		const fp = await makeTempJsonl([
-			{
-				type: "event_msg",
-				payload: {
-					item: {
-						type: "fileChange",
-						changes: [
-							{
-								path: "lib/widget.dart",
-								diff: "--- a/lib/widget.dart\n+++ b/lib/widget.dart\n@@ -1,2 +1,3 @@\n context\n-old\n+new1\n+new2",
-							},
-						],
-					},
-				},
-			},
-		]);
-		const files = await getCxModifiedFiles(fp);
-		expect(files).toHaveLength(1);
-		expect(files[0]?.file).toBe("lib/widget.dart");
-		expect(files[0]?.additions).toBe(2);
-		expect(files[0]?.deletions).toBe(1);
-	});
-
-	test("merges same file from different events", async () => {
-		const fp = await makeTempJsonl([
-			{
-				type: "event_msg",
-				payload: {
-					item: {
-						type: "fileChange",
-						changes: [{ path: "app.ts", diff: "+line1\n+line2" }],
-					},
-				},
-			},
-			{
-				type: "event_msg",
-				payload: {
-					item: {
-						type: "fileChange",
-						changes: [{ path: "app.ts", diff: "-removed\n+added" }],
-					},
-				},
-			},
-		]);
-		const files = await getCxModifiedFiles(fp);
-		expect(files).toHaveLength(1);
-		expect(files[0]?.file).toBe("app.ts");
-		expect(files[0]?.additions).toBe(3); // 2 + 1
-		expect(files[0]?.deletions).toBe(1); // 0 + 1
-	});
-
-	test("returns empty for nonexistent file", async () => {
-		const files = await getCxModifiedFiles("/nonexistent/path.jsonl");
 		expect(files).toHaveLength(0);
 	});
 });

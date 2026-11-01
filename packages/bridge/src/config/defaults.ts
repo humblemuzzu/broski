@@ -20,9 +20,7 @@ export function getDefaultConfig(): BroskiConfig {
 			verifyCodeSignature: true, // Legacy field; integrity checks are always-on in compiled binaries regardless of this value.
 		},
 		agents: {
-			opencode: true,
-			claudeCode: false,
-			codex: false,
+			claudeCode: true,
 			pi: false,
 		},
 		pi: {

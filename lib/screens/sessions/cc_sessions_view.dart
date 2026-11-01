@@ -194,8 +194,7 @@ class CCActiveSessionsSection extends ConsumerWidget {
 }
 
 class ClaudeCodeSessionsView extends ConsumerStatefulWidget {
-  const ClaudeCodeSessionsView({super.key, required this.onRefresh});
-  final Future<void> Function() onRefresh;
+  const ClaudeCodeSessionsView({super.key});
   @override
   ConsumerState<ClaudeCodeSessionsView> createState() =>
       ClaudeCodeSessionsViewState();
@@ -236,7 +235,6 @@ class ClaudeCodeSessionsViewState
   Future<void> _refresh() async {
     await ref.read(ccSessionsProvider.notifier).refresh();
     ref.invalidate(ccProjectsForSessionsProvider);
-    await widget.onRefresh();
   }
 
   void _showTitleFiltersSheet(BuildContext context) {
@@ -642,7 +640,7 @@ class ClaudeCodeSessionsViewState
               child: CustomScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 slivers: [
-                  // Active sessions (busy/retry) - parity with OpenCode
+                  // Active sessions (busy/retry)
                   SliverToBoxAdapter(
                     child: CCActiveSessionsSection(onSessionTap: _openSession),
                   ),

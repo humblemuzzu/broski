@@ -4001,8 +4001,10 @@
             "event": {
               "type": "extension",
               "extension": {
-                "kind": "turn_diff",
-                "diff": "diff --git a/a.ts b/a.ts"
+                "kind": "rate_limit",
+                "window": "five_hour",
+                "status": "allowed_warning",
+                "usedPercent": 82
               }
             }
           },
@@ -9612,7 +9614,7 @@
               "update": {
                 "kind": "child_session",
                 "session": {
-                  "backend": "codex",
+                  "backend": "claude-code",
                   "sessionId": "child"
                 }
               }
@@ -9663,7 +9665,7 @@
                 },
                 "messageId": "m1",
                 "childSession": {
-                  "backend": "codex",
+                  "backend": "claude-code",
                   "sessionId": "child"
                 },
                 "output": "three",
@@ -9743,7 +9745,7 @@
                 },
                 "messageId": "m1",
                 "childSession": {
-                  "backend": "codex",
+                  "backend": "claude-code",
                   "sessionId": "child"
                 },
                 "output": "three",
@@ -9835,7 +9837,7 @@
                 },
                 "messageId": "m1",
                 "childSession": {
-                  "backend": "codex",
+                  "backend": "claude-code",
                   "sessionId": "child"
                 },
                 "output": "three",
@@ -9897,7 +9899,7 @@
                     ]
                   },
                   "childSession": {
-                    "backend": "codex",
+                    "backend": "claude-code",
                     "sessionId": "child"
                   }
                 },
@@ -9993,7 +9995,7 @@
                     ]
                   },
                   "childSession": {
-                    "backend": "codex",
+                    "backend": "claude-code",
                     "sessionId": "child"
                   }
                 },

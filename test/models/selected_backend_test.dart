@@ -24,12 +24,15 @@ void main() {
 
   test('a contract selection has no old-protocol agent', () {
     expect(const ContractSelection(BackendId.pi).legacy, isNull);
-    expect(const LegacySelection(AgentType.codex).legacy, AgentType.codex);
+    expect(
+      const LegacySelection(AgentType.claudeCode).legacy,
+      AgentType.claudeCode,
+    );
   });
 
   test('a selection shows as the person reads it', () {
     expect(const ContractSelection(BackendId.pi).displayName, 'Pi');
     expect(const ContractSelection(BackendId.pi).badge, 'PI');
-    expect(const LegacySelection(AgentType.opencode).badge, 'OC');
+    expect(const LegacySelection(AgentType.claudeCode).badge, 'CC');
   });
 }

@@ -34,14 +34,13 @@ export default function ErrorsPage() {
           rows={[
             ["Old Broski QR", "Pairing", "Update broski on your Mac, then run broski-link pair"],
             ["Port in use", "Bridge", <><code className="text-xs">kill &lt;PID&gt;</code> or <code className="text-xs">--port 0</code></>],
-            ["OpenCode not found", "OpenCode", <code key="oc" className="text-xs">bun add -g opencode-ai</code>],
 
             ["Claude Code auth missing", "Claude Code", <><code key="cc" className="text-xs">export ANTHROPIC_API_KEY=...</code> or <code className="text-xs">claude login</code></>],
             ["Offline or Asleep", "Link", "Wake the Mac; check broski-link status"],
             ["Pairing QR expired", "Pairing", "Run broski-link pair and scan the new code"],
             ["Access denied", "Files", "Use paths under ~ or /tmp"],
             ["Rate limited (429)", "API", "Wait 1 minute, retry"],
-            ["OAuth token expired", "Auth", <><code key="login" className="text-xs">claude login</code> or <code className="text-xs">codex</code></>],
+            ["OAuth token expired", "Auth", <code key="login" className="text-xs">claude login</code>],
 
             ["Scan timeout", "File Search", "Informational, cached results used"],
           ]}
@@ -70,50 +69,6 @@ kill <PID>
 
 # Or use random port
 broski --port 0`}</CodeBlock>
-          </div>
-
-          <div className="border border-border rounded-lg p-4">
-            <div className="font-mono font-medium mb-2 text-red-400">&quot;Failed to start managed OpenCode server&quot;</div>
-            <p className="text-sm text-muted-foreground mb-2">
-              <strong>Source:</strong> OpenCode bootstrap
-            </p>
-            <p className="text-sm text-muted-foreground mb-3">
-              <strong>Cause:</strong> OpenCode is not installed or not in PATH.
-            </p>
-            <CodeBlock language="bash">{`# Verify installation
-which opencode && opencode --version
-
-# Install if missing
-bun add -g opencode-ai`}</CodeBlock>
-          </div>
-
-          <div className="border border-border rounded-lg p-4">
-            <div className="font-mono font-medium mb-2 text-red-400">&quot;OpenCode started but did not become ready&quot;</div>
-            <p className="text-sm text-muted-foreground mb-2">
-              <strong>Source:</strong> OpenCode health check
-            </p>
-            <p className="text-sm text-muted-foreground mb-3">
-              <strong>Cause:</strong> OpenCode process started but HTTP server didn&apos;t respond within 10 seconds.
-            </p>
-            <CodeBlock language="bash">{`# Try running OpenCode manually to see errors
-opencode serve
-
-# Try manual mode
-broski --manual --opencode-url http://localhost:4096`}</CodeBlock>
-          </div>
-
-          <div className="border border-border rounded-lg p-4">
-            <div className="font-mono font-medium mb-2 text-red-400">&quot;Manual mode requires --opencode-url&quot;</div>
-            <p className="text-sm text-muted-foreground mb-2">
-              <strong>Source:</strong> CLI validation
-            </p>
-            <p className="text-sm text-muted-foreground mb-3">
-              <strong>Cause:</strong> You specified <code>--manual</code> without providing the OpenCode server URL.
-            </p>
-            <CodeBlock language="bash">{`broski --manual --opencode-url http://localhost:4096
-
-# Or via environment variable
-OPENCODE_BASE_URL=http://localhost:4096 broski --manual`}</CodeBlock>
           </div>
         </div>
       </section>
@@ -251,45 +206,6 @@ broski-link revoke <device id prefix>`}</CodeBlock>
         </div>
       </section>
 
-      {/* OpenCode Errors */}
-      <section className="mb-12">
-        <h2 id="opencode-errors" className="text-2xl font-semibold mb-4">OpenCode Errors</h2>
-        
-        <div className="space-y-6">
-          <div className="border border-border rounded-lg p-4">
-            <div className="font-mono font-medium mb-2 text-red-400">&quot;OpenCode not found&quot;</div>
-            <p className="text-sm text-muted-foreground mb-2">
-              <strong>Source:</strong> Doctor check
-            </p>
-            <p className="text-sm text-muted-foreground mb-3">
-              <strong>Cause:</strong> OpenCode is not installed or not in your PATH.
-            </p>
-            <CodeBlock language="bash">{`# Install OpenCode
-bun add -g opencode-ai
-
-# Reload shell
-source ~/.bashrc  # or ~/.zshrc`}</CodeBlock>
-          </div>
-
-          <div className="border border-border rounded-lg p-4">
-            <div className="font-mono font-medium mb-2 text-red-400">&quot;OpenCode not responding&quot;</div>
-            <p className="text-sm text-muted-foreground mb-2">
-              <strong>Source:</strong> Health check
-            </p>
-            <p className="text-sm text-muted-foreground mb-3">
-              <strong>Cause:</strong> OpenCode process is running but not responding to HTTP requests.
-            </p>
-            <CodeBlock language="bash">{`# Restart bridge (it will restart OpenCode)
-# Press Ctrl+C, then:
-broski
-
-# Or test OpenCode directly
-opencode serve`}</CodeBlock>
-          </div>
-        </div>
-      </section>
-
-      {/* Claude Code Errors */}
       <section className="mb-12">
         <h2 id="claude-code-errors" className="text-2xl font-semibold mb-4">Claude Code Errors</h2>
         
@@ -368,16 +284,9 @@ broski restart`}</CodeBlock>
         
         <div className="space-y-6">
           <div className="border border-border rounded-lg p-4">
-            <div className="font-mono font-medium mb-2 text-red-400">&quot;PTY list failed&quot;</div>
-            <p className="text-sm text-muted-foreground mb-3">
-              Failed to list terminal sessions from OpenCode. Verify OpenCode is running and restart the bridge.
-            </p>
-          </div>
-
-          <div className="border border-border rounded-lg p-4">
             <div className="font-mono font-medium mb-2 text-red-400">&quot;Failed to create PTY session&quot;</div>
             <p className="text-sm text-muted-foreground mb-3">
-              OpenCode failed to create a new terminal session. Check OpenCode logs and verify the project path exists.
+              The bridge's native terminal helper could not start a session. Verify the project path exists and restart the bridge.
             </p>
           </div>
 
@@ -447,7 +356,7 @@ broski restart`}</CodeBlock>
           headers={["Code", "Meaning", "Solution"]}
           rows={[
             ["500", "Internal Server Error", "Check bridge logs, restart bridge"],
-            ["502", "Bad Gateway", "Backend (OpenCode/Claude) unavailable, restart bridge"],
+            ["502", "Bad Gateway", "Backend (Claude Code/Pi) unavailable, restart bridge"],
             ["503", "Service Unavailable", "Wait and retry, or restart bridge"],
           ]}
         />

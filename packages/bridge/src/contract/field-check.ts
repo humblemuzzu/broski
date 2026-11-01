@@ -26,8 +26,7 @@ function holds(condition: FieldCondition, answer: FormValue | undefined): boolea
 
 /**
  * Why `value` does not fit `field`, or undefined when it does. Where backends validate differently
- * this is the strictest of them, so no backend refuses a value it passes (OpenCode's validator,
- * oc §8.2, is the strictest on emails, lengths and empty required answers).
+ * this is the strictest of them, so no backend refuses a value it passes.
  */
 export function fieldProblem(field: FormFieldSpec, value: FormValue): string | undefined {
 	switch (field.kind) {
@@ -71,8 +70,7 @@ function stringProblem(field: StringField, text: string): string | undefined {
 }
 
 /**
- * The text must match under every reading of the pattern a backend may use: plain ECMAScript, as
- * OpenCode compiles it (oc §8.2), and with the `u` flag, as JSON Schema means it.
+ * The text must match under every reading of the pattern a backend may use: plain ECMAScript, and with the `u` flag, as JSON Schema means it.
  */
 function patternProblem(pattern: string, text: string): string | undefined {
 	const readings = ["", "u"].flatMap((flags) => compiled(pattern, flags));

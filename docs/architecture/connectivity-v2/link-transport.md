@@ -90,12 +90,12 @@ frames. Text deltas are capped at 32 KB by the coalescer long before either limi
 
 ## Transcript paging
 
-The shared contract in `types/transcript-page.ts` covers all four transcript readers, OpenCode
-included, so the app pages every backend's history the same way:
+The shared contract in `types/transcript-page.ts` covers every transcript reader, so the app pages
+every backend's history the same way:
 
 ```json
-{"type":"get_session_messages","sessionId":"<id>","projectPath":"<path>","limit":80,"before":"<nextCursor>"}
-{"type":"session_messages","data":[...],"sessionId":"<id>","hasMore":true,"nextCursor":"<message id>"}
+{"type":"cc_get_session_messages","sessionId":"<id>","cwd":"<path>","limit":80,"before":"<nextCursor>"}
+{"type":"cc_session_messages","data":[...],"sessionId":"<id>","hasMore":true,"nextCursor":"<message id>"}
 ```
 
 `nextCursor` is the `id` of the oldest message in the page, and `before` names the boundary the next
@@ -107,8 +107,8 @@ frame cap above.
 
 A page is **turn-aligned**: it starts at the message that opened its oldest turn, not at the `limit`th
 message from the tail, so a page never opens on an answer whose prompt is still on the page before
-it. `utils/turn-aligned-page.ts` is the one cut every reader uses — Pi and Codex user turns, Claude
-Code prompts that are not tool-result carriers, OpenCode user messages. The step back is bounded by
+it. `utils/turn-aligned-page.ts` is the one cut every reader uses — Pi user turns, Claude Code prompts
+that are not tool-result carriers. The step back is bounded by
 `TURN_EXTENSION_MAX` (200) messages, so a page is at most `limit + 200` messages, and a turn longer
 than that opens mid-turn: the rest of it is one page away.
 
@@ -133,14 +133,9 @@ looking at another one) answers the **newest** page with `cursorUnknown: true` f
 fetch, for every backend including Pi. The app replaces its transcript with that page instead of
 prepending a page that does not sit before what it holds.
 
-The bridge windows the fetched list itself instead of passing `limit`/`before` to the OpenCode
-server: a server that honoured neither would answer the whole transcript (the reply this page exists
-to keep small), and one that honoured `before` differently would hand out a boundary the app cannot
-resume from (`connectors/opencode/oc-transcript-page.ts`).
-
 ## Session list paging
 
-Every list of sessions, threads or projects takes the same page contract as a transcript, so one
+Every list of sessions or projects takes the same page contract as a transcript, so one
 reply can never grow with the number of sessions a machine has recorded:
 
 ```json
@@ -148,8 +143,7 @@ reply can never grow with the number of sessions a machine has recorded:
 {"type":"cc_sessions","data":[...],"hasMore":true,"nextCursor":"<opaque>"}
 ```
 
-`cc_list_sessions`/`cc_sessions`, `cx_list_threads`/`cx_threads`,
-OpenCode's `list_sessions`/`sessions` and `unified_list_sessions`/`unified_sessions` all use it, out
+`cc_list_sessions`/`cc_sessions` and `unified_list_sessions`/`unified_sessions` both use it, out
 of one implementation (`utils/session-list-page.ts`). `limit` defaults to 100 and is clamped to 500.
 Rows are ordered newest-modified first with `id` breaking ties, and `nextCursor` is base64url of
 `[modified, id]` — a place in that order, not a distance from the top, so a session created between
@@ -159,9 +153,7 @@ the whole list with no `hasMore`/`nextCursor`, as before.
 
 A list row carries a preview, never the whole first message: every free-text preview field is cut to
 `SESSION_PREVIEW_MAX_CHARS` (280, code points, with `…`) by `utils/session-preview.ts`. The Pi
-`firstMessage`, a Codex `preview` and every runtime `title` go through it. OpenCode summaries also
-drop the file-sized parts of a diff (`summary.diffs[].before`/`after`, `revert.diff`/`snapshot`) and
-the fields the app never reads.
+`firstMessage` and every runtime `title` go through it.
 
 A session list is never broadcast whole. A state change that used to re-send the whole list for
 every session sends one row instead:

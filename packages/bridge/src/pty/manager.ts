@@ -1,4 +1,3 @@
-import type { OpenCodeConnector } from "../connectors/opencode";
 import type { PtySession } from "../types";
 import {
 	isNativePtyAvailable,
@@ -14,28 +13,12 @@ import {
 	nativeUpdatePty,
 } from "./native-pty";
 
-export type PtyBackend = "opencode" | "native";
-
 export class PtyManager {
-	constructor(private opencode: OpenCodeConnector | null) {}
-
-	get backend(): PtyBackend {
-		return this.opencode ? "opencode" : "native";
-	}
-
 	get available(): boolean {
-		return !!this.opencode || isNativePtyAvailable();
-	}
-
-	updateOpenCode(opencode: OpenCodeConnector | null): void {
-		this.opencode = opencode;
+		return isNativePtyAvailable();
 	}
 
 	async listPty(projectPath?: string): Promise<PtySession[]> {
-		if (this.opencode) {
-			return await this.opencode.listPty(projectPath);
-		}
-
 		try {
 			const sessions = await nativeListPty(projectPath);
 			return sessions.map(mapNativeToWire);
@@ -49,13 +32,7 @@ export class PtyManager {
 		args?: string[];
 		cwd?: string;
 		title?: string;
-		env?: Record<string, string>;
-		projectPath?: string;
 	}): Promise<PtySession | null> {
-		if (this.opencode) {
-			return await this.opencode.createPty(opts.command, opts.args, opts.cwd, opts.title, opts.env, opts.projectPath);
-		}
-
 		try {
 			const session = await nativeCreatePty({
 				command: opts.command,
@@ -69,11 +46,7 @@ export class PtyManager {
 		}
 	}
 
-	async getPty(id: string, projectPath?: string): Promise<PtySession | null> {
-		if (this.opencode) {
-			return await this.opencode.getPty(id, projectPath);
-		}
-
+	async getPty(id: string): Promise<PtySession | null> {
 		try {
 			const session = await nativeGetPty(id);
 			return session ? mapNativeToWire(session) : null;
@@ -82,17 +55,7 @@ export class PtyManager {
 		}
 	}
 
-	async updatePty(
-		id: string,
-		title?: string,
-		rows?: number,
-		cols?: number,
-		projectPath?: string,
-	): Promise<PtySession | null> {
-		if (this.opencode) {
-			return await this.opencode.updatePty(id, title, rows, cols, projectPath);
-		}
-
+	async updatePty(id: string, title?: string, rows?: number, cols?: number): Promise<PtySession | null> {
 		try {
 			const session = await nativeUpdatePty(id, { title, rows, cols });
 			return session ? mapNativeToWire(session) : null;
@@ -101,11 +64,7 @@ export class PtyManager {
 		}
 	}
 
-	async deletePty(id: string, projectPath?: string): Promise<boolean> {
-		if (this.opencode) {
-			return await this.opencode.deletePty(id, projectPath);
-		}
-
+	async deletePty(id: string): Promise<boolean> {
 		try {
 			return await nativeDeletePty(id);
 		} catch {
@@ -113,12 +72,7 @@ export class PtyManager {
 		}
 	}
 
-	async resize(id: string, rows: number, cols: number, projectPath?: string): Promise<void> {
-		if (this.opencode) {
-			await this.opencode.updatePty(id, undefined, rows, cols, projectPath);
-			return;
-		}
-
+	resize(id: string, rows: number, cols: number): void {
 		try {
 			nativeResizePty(id, rows, cols);
 		} catch {
@@ -126,14 +80,7 @@ export class PtyManager {
 		}
 	}
 
-	getWebSocketUrl(id: string, projectPath?: string): string | null {
-		if (!this.opencode) return null;
-		return this.opencode.getPtyWebSocketUrl(id, projectPath);
-	}
-
 	connectNative(id: string): NativePtyConnection | null {
-		if (this.opencode) return null;
-
 		try {
 			return nativeConnectPty(id);
 		} catch {

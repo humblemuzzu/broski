@@ -1,6 +1,6 @@
 /**
  * The real-home guard is the only thing standing between an isolated `bun test` / bench process and
- * the developer's live `~/.claude`, `~/.codex`, `~/.pi`, `~/.broski`. The write sites are probed in
+ * the developer's live `~/.claude`, `~/.pi`, `~/.broski`. The write sites are probed in
  * a spawned child whose home is a temp directory, so nothing here can reach the real files.
  */
 
@@ -122,7 +122,6 @@ describe("real-home guard", () => {
 		for (const outcome of refused) expect(outcome).toStartWith("threw:RealHomeWriteError");
 
 		expect(existsSync(join(fakeRealHome, ".claude"))).toBe(false);
-		expect(existsSync(join(fakeRealHome, ".codex"))).toBe(false);
 		expect(existsSync(join(fakeRealHome, ".broski"))).toBe(false);
 		expect(existsSync(join(fakeRealHome, ".pi"))).toBe(false);
 	});
@@ -139,6 +138,5 @@ describe("real-home guard", () => {
 		expect(existsSync(join(workHome, ".claude", "settings.json"))).toBe(true);
 
 		expect(existsSync(join(fakeRealHome, ".claude"))).toBe(false);
-		expect(existsSync(join(fakeRealHome, ".codex"))).toBe(false);
 	});
 });

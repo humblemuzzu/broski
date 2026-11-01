@@ -9,8 +9,6 @@ export interface SourceFile {
 /** The SDK packages each directory under `src/backends` may import, by directory name. */
 const BACKEND_SDKS = new Map<string, readonly string[]>([
 	["claude-code", ["@anthropic-ai/claude-agent-sdk"]],
-	["codex", []],
-	["opencode", ["@opencode/client"]],
 	["pi", ["@earendil-works/pi-coding-agent", "@earendil-works/pi-ai", "@earendil-works/pi-agent-core"]],
 ]);
 

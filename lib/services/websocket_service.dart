@@ -51,25 +51,14 @@ class WebSocketService {
   final _frameErrors = StreamController<String>.broadcast();
 
   static const _immediateTypes = {
-    'permission_response',
     'cc_permission_response',
-    'cx_permission_response',
-    'cx_chat',
-    'oc_question_reply',
-    'oc_question_reject',
-    'abort',
     'cc_abort',
     'pong',
     'set_view',
     'cc_chat',
   };
 
-  static const _highPriorityTypes = {
-    'chat',
-    'execute_command',
-    'create_session',
-    'delete_session',
-  };
+  static const _highPriorityTypes = <String>{};
 
   Stream<Map<String, dynamic>> get messages => _messageController.stream;
 

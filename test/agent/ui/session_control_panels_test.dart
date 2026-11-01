@@ -121,7 +121,7 @@ void main() {
           OpPlace.session,
           controllable: true,
         ).map((panel) => panel.kind),
-        [BackendOpKind.reviewStart],
+        [BackendOpKind.changedFiles],
       );
     });
   });

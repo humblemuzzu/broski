@@ -1,7 +1,7 @@
 /**
  * The text progress a delta emitter needs to keep per message or part.
  *
- * Holding the full text of every message for the life of a tail is what the CC and OpenCode tails used
+ * Holding the full text of every message for the life of a tail is what the CC tail used
  * to do, and it grows without bound. A digest keeps a length and a hash instead, which is all the
  * "was this appended or replaced, and what is the suffix" question needs: a stored prefix matches when
  * the new text is at least as long and the hash of its first `length` characters equals the stored one.

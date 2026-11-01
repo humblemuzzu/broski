@@ -3,7 +3,7 @@ export const MAX_ID_CHARS = 256;
 export const MAX_NAME_CHARS = 1_024;
 /** Linux's `PATH_MAX`. */
 export const MAX_PATH_CHARS = 4_096;
-/** Codex's limit on one turn's input (cx §6.1). */
+/** One turn's input. */
 export const MAX_TEXT_CHARS = 1_048_576;
 /** Base64 of all the images one prompt carries, and of one image read back. */
 export const MAX_IMAGE_CHARS = 4 * 1_048_576;

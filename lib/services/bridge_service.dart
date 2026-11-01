@@ -2,34 +2,20 @@ import 'dart:async';
 import 'dart:developer' as developer;
 import 'dart:math';
 
-import 'package:broski/models/agent.dart';
 import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/claude_code.dart';
-import 'package:broski/models/codex.dart';
-import 'package:broski/models/codex/codex_plugin.dart';
-import 'package:broski/models/command.dart';
 import 'package:broski/models/device.dart';
 import 'package:broski/models/file_attachment.dart';
 import 'package:broski/models/file_binary_content.dart';
 import 'package:broski/models/file_content.dart';
 import 'package:broski/models/git.dart';
-import 'package:broski/models/mcp.dart';
-import 'package:broski/models/opencode_markdown_file.dart';
-import 'package:broski/models/opencode_plugin_file.dart';
-import 'package:broski/models/permission_rule.dart';
 import 'package:broski/models/project.dart';
-import 'package:broski/models/provider.dart';
 import 'package:broski/models/runtime/runtime_session_summary.dart';
-import 'package:broski/models/search_result.dart';
-import 'package:broski/models/session.dart';
 import 'package:broski/models/session_page.dart';
 import 'package:broski/models/skill.dart';
 import 'package:broski/models/subscription_usage.dart';
-import 'package:broski/models/todo.dart';
-import 'package:broski/models/tool.dart';
 import 'package:broski/models/transcript_page.dart';
 import 'package:broski/models/vcs.dart';
-import 'package:broski/models/worktree.dart';
 import 'package:broski/services/bridge/bridge_page_fetch.dart';
 import 'package:broski/services/bridge/bridge_reset_exception.dart';
 import 'package:broski/services/bridge/bridge_response_error.dart';
@@ -49,36 +35,19 @@ part 'bridge/bridge_cc_skills.dart';
 part 'bridge/bridge_cc_subagents.dart';
 part 'bridge/bridge_claude_code_updates.dart';
 // ============================================================
-// Existing part files (CC, CX, OC)
+// Existing part files
 // ============================================================
-part 'bridge/bridge_codex_core.dart';
-part 'bridge/bridge_codex_features.dart';
-part 'bridge/bridge_codex_fs.dart';
-part 'bridge/bridge_codex_search.dart';
-part 'bridge/bridge_codex_workspace.dart';
-part 'bridge/bridge_codex_plugins.dart';
-part 'bridge/bridge_codex_runtime.dart';
-part 'bridge/bridge_codex_threads.dart';
 part 'bridge/bridge_config.dart';
 part 'bridge/bridge_files.dart';
 part 'bridge/bridge_git.dart';
-part 'bridge/bridge_mcp.dart';
 part 'bridge/bridge_misc.dart';
 // ============================================================
 // New part files (extracted to reduce file size)
 // ============================================================
-part 'bridge/bridge_opencode_features.dart';
-part 'bridge/bridge_opencode_sessions.dart';
-part 'bridge/bridge_opencode_updates.dart';
 part 'bridge/bridge_pty.dart';
 part 'bridge/bridge_reset_guard.dart';
-part 'bridge/bridge_sessions_actions.dart';
-part 'bridge/bridge_sessions_core.dart';
-part 'bridge/bridge_sessions_lifecycle.dart';
 part 'bridge/bridge_session_lists_page.dart';
-part 'bridge/bridge_sessions_messages_page.dart';
 part 'bridge/bridge_skills_universal.dart';
-part 'bridge/bridge_worktrees.dart';
 part 'bridge/bridge_unified.dart';
 part 'bridge/bridge_unified_children.dart';
 

@@ -54,11 +54,9 @@ not, since a mid-turn error would report a false `done`; a session that never fi
 | backend | approval | attention | busy |
 |---|---|---|---|
 | claude-code | `permission_requested` | — (AskUserQuestion is a permission request) | ✓ |
-| opencode | `permission_requested` | `user_input_requested` (`question.asked`) | ✓ `session_state_changed` |
-| codex | `permission_requested` (`requestApproval`) | `user_input_requested` (elicitation) | ✓ |
 | pi (contract) | a pending `tool_permission` interaction | every other pending interaction | ✓ an active run |
 
-Every kind of the first three comes from `BroskiRuntimeEvent`s the bridge already maps; nothing is parsed per backend. A
+Every kind of the first row comes from `BroskiRuntimeEvent`s the bridge already maps; nothing is parsed per backend. A
 backend served through the contract (Pi) never produces one: its sessions reach the feed through the core's observer
 (below).
 
@@ -113,8 +111,6 @@ no per-backend decision logic exists here.
 | backend | `request` is | synthesized message | allow | deny |
 |---|---|---|---|---|
 | claude-code | the `toolUseId` | `cc_permission_response` | `once` | `reject` |
-| opencode | the permission `id` | `permission_response` | `once` | `reject` |
-| codex | the `requestId` | `cx_permission_response` | `once` | `reject` |
 | pi (contract) | the interaction id | `CoreSeam.answer` → the core's interaction desk | the request's plain allow-once option | the request's plain deny-once option |
 
 A decision on a contract session does not go through the message registry: the record the alert left in
@@ -162,8 +158,8 @@ Contract sessions: `contractFeedObserver` (`server/link-feed/feed.ts`), handed t
 
 Runtime events: `tapRuntimeEvent(event)` sits where a *complete* event leaves the mapping layer. The mappers build the
 envelope with `enrichRuntimeEvent` and only then spread `request`/`delta` onto it, so the tap is at
-each envelope site instead: `server/streams.ts`'s coalescer callback (Claude Code, Codex,
-hand-built broadcasts) and `server/opencode-events.ts`'s `enqueueSdkEvent`.
+each envelope site instead: `server/streams.ts`'s coalescer callback (Claude Code and
+hand-built broadcasts).
 
 ## Known gaps
 

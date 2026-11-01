@@ -89,14 +89,14 @@ describe("streamViolations", () => {
 			{ type: "queue_changed", items: [] },
 			{ type: "usage_updated", usage: {} },
 			{ type: "plan_updated", plan: { items: [] } },
-			{ type: "extension", extension: { kind: "turn_diff", diff: "" } },
+			{ type: "extension", extension: { kind: "rate_limit", window: "five_hour" } },
 		];
 		expect(violations(undeclared, MINIMAL_TRAITS)).toEqual([
 			expect.stringContaining("thinking deltas"),
 			expect.stringContaining("a queue from a backend without one"),
 			expect.stringContaining("usage from a backend"),
 			expect.stringContaining("a plan from a backend"),
-			expect.stringContaining("undeclared extension turn_diff"),
+			expect.stringContaining("undeclared extension rate_limit"),
 		]);
 	});
 

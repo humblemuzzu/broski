@@ -13,9 +13,9 @@ Map<String, dynamic> rttEvent({
     'type': 'runtime_event',
     'data': {
       'type': type,
-      'backend': 'codex',
+      'backend': 'claude-code',
       'timestampMs': seq,
-      'sessionId': 'cx-1',
+      'sessionId': 'cc-1',
       'streamId': 'stream-1',
       'seq': seq,
       if (seqStart != null) 'seqStart': seqStart,
@@ -31,7 +31,7 @@ void main() {
   setUp(() {
     socket = FakeWebSocket();
     chat = ChatSessionNotifier(BridgeService(socket));
-    chat.setCodexThread(threadId: 'cx-1', cwd: '/tmp/p');
+    chat.setCCSession(sessionId: 'cc-1', cwd: '/tmp/p');
     socket.sent.clear();
   });
 

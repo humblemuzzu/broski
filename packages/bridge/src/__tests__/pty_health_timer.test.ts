@@ -46,11 +46,7 @@ class FakeNativeConnection implements NativePtyConnection {
 
 class FakePtyManager extends PtyManager {
 	constructor(private readonly connection: NativePtyConnection) {
-		super(null);
-	}
-
-	override get backend(): "native" {
-		return "native";
+		super();
 	}
 
 	override get available(): boolean {
@@ -77,11 +73,7 @@ class FakePtyManager extends PtyManager {
 		return true;
 	}
 
-	override async resize(): Promise<void> {}
-
-	override getWebSocketUrl(): string | null {
-		return null;
-	}
+	override resize(): void {}
 
 	override connectNative(_id: string): NativePtyConnection | null {
 		return this.connection;

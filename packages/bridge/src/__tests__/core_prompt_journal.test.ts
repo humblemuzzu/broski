@@ -18,7 +18,7 @@ function journalPath(): string {
 
 function entry(index: number): JournalEntry {
 	return {
-		session: { backend: "codex", sessionId: `s${index}` },
+		session: { backend: "claude-code", sessionId: `s${index}` },
 		clientRequestId: crypto.randomUUID(),
 		result: { status: "accepted", disposition: "started" },
 	};

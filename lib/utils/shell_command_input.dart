@@ -1,6 +1,6 @@
 /// The parameter names a shell tool takes its command under.
 ///
-/// Claude Code, Codex, OpenCode and Pi's built-in bash call it `command`; a user's own Pi tools extension
+/// Claude Code and Pi's built-in bash call it `command`; a user's own Pi tools extension
 /// can replace bash with one that calls it `cmd`. The card reads whichever the tool actually used.
 const _commandKeys = ['command', 'cmd'];
 

@@ -1,8 +1,8 @@
 import 'package:broski/contract/generated/contract.dart';
 import 'package:broski/models/agent_type.dart';
 
-/// The backend the person works with: one of the three that still speak the
-/// old protocol, or one the bridge serves through the contract. Only this
+/// The backend the person works with: the one that still speaks the old
+/// protocol (Claude Code), or one the bridge serves through the contract. Only this
 /// file and what is built on it know both kinds; `lib/agent/` never sees
 /// [AgentType].
 sealed class SelectedBackend {

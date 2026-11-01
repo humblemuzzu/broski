@@ -82,7 +82,7 @@ export const FULL_TRAITS: BackendTraits = {
 	planProposals: true,
 	externalLive: true,
 	durableRuns: true,
-	extensions: ["turn_diff", "rate_limit"],
+	extensions: ["rate_limit"],
 	backendOps: ["navigate_tree"],
 };
 
@@ -113,12 +113,6 @@ export function fakeOpResult(call: BackendCall): BackendOpResult {
 	switch (op.kind) {
 		case "rewind_files":
 			return { kind: op.kind, canRewind: true, filesChanged: [], insertions: 0, deletions: 0, skippedLinks: 0 };
-		case "revert_stage":
-			return { kind: op.kind, files: [] };
-		case "review_start":
-		case "revert":
-		case "revert_clear":
-		case "revert_commit":
 		case "navigate_tree":
 		case "take_over":
 		case "label_entry":

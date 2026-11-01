@@ -27,12 +27,10 @@ export const BroskiConfigSchema = z.object({
 		.default({ tls: true, verifyCodeSignature: false }),
 	agents: z
 		.object({
-			opencode: z.boolean().default(true),
-			claudeCode: z.boolean().default(false),
-			codex: z.boolean().default(false),
+			claudeCode: z.boolean().default(true),
 			pi: z.boolean().default(false),
 		})
-		.default({ opencode: true, claudeCode: false, codex: false, pi: false }),
+		.default({ claudeCode: true, pi: false }),
 	pi: z
 		.object({
 			enabled: z.boolean().optional(),

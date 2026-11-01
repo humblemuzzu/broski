@@ -1,29 +1,19 @@
 import type { ServerWebSocket } from "bun";
 import * as claudeCode from "../connectors/claude-code";
-import { checkCodexAvailable } from "../connectors/codex";
-import * as codexFs from "../connectors/codex-fs";
-import type { OpenCodeConnector } from "../connectors/opencode";
 import * as fileSearch from "../file-search";
-import { mapCodexThreadFromSdk } from "../handlers/codex/map-thread";
 import type { PtyRuntime } from "../pty/runtime";
 import type { ServerDeps } from "../routing/types";
 import {
 	buildClaudeCodeRuntimeState,
 	mapClaudeCodeSessionToRuntimeSession,
 } from "../runtime/claude-code-runtime-read-models";
-import { buildCodexRuntimeState, mapCodexThreadToRuntimeSession } from "../runtime/codex-runtime-read-models";
-import { mapOpenCodeStatusToRuntimeState } from "../runtime/opencode-runtime-read-models";
 import { getSecurePath, isSafeClaudeCommandName, resolveClaudeCommandFilePath } from "../security";
-import type { AgentType, CodexThread } from "../types";
+import type { AgentType } from "../types";
 import type { Backends } from "./backends";
-import type { CodexCaches } from "./codex-caches";
-import type { CodexClient } from "./codex-client";
-import type { CodexFileUndo } from "./codex-file-undo";
 import type { Connections } from "./connections";
 import type { FsWatchers } from "./fs-watchers";
 import type { BridgeLimits } from "./limits";
 import type { LeveledLogger } from "./logger";
-import type { OpenCodeEvents } from "./opencode-events";
 import { makeSessionKey } from "./session-keys";
 import type { Sessions } from "./sessions";
 import type { BridgeState } from "./state";
@@ -35,10 +25,6 @@ export type ServerDepsContext = {
 	streams: Streams;
 	sessions: Sessions;
 	backends: Backends;
-	codexClient: CodexClient;
-	codexCaches: CodexCaches;
-	opencodeEvents: OpenCodeEvents;
-	codexFileUndo: CodexFileUndo;
 	fsWatchers: FsWatchers;
 	connections: Connections;
 	limits: BridgeLimits;
@@ -48,23 +34,16 @@ export type ServerDepsContext = {
 	readFileBinaryDirectly: ServerDeps["readFileBinaryDirectly"];
 	listFilesDirectly: ServerDeps["listFilesDirectly"];
 	version: string;
-	opencode: OpenCodeConnector | null;
-	restartOpenCode?: () => Promise<boolean | undefined>;
 	permissionTimeoutMs: number;
 	debugRts: boolean;
-	debugCxGlobal: boolean;
 	ptyRuntime: PtyRuntime;
 };
 
 const BRIDGE_PROTOCOL_VERSION = "1.0.0";
 
-function mapCodexThread(thread: unknown, nameOverride?: string): CodexThread & { threadName?: string } {
-	return mapCodexThreadFromSdk({ thread, nameOverride, safeString });
-}
-
 /** Assembles the single `ServerDeps` object every message handler receives. */
 export function buildServerDeps(ctx: ServerDepsContext): ServerDeps {
-	const { state, streams, sessions, backends, codexCaches } = ctx;
+	const { state, streams, sessions, backends } = ctx;
 
 	return {
 		contexts: state.contexts,
@@ -79,7 +58,6 @@ export function buildServerDeps(ctx: ServerDepsContext): ServerDeps {
 		logDebug: ctx.log.logDebug,
 		logError: ctx.log.logError,
 		DEBUG_RTS: ctx.debugRts,
-		DEBUG_CX_GLOBAL: ctx.debugCxGlobal,
 		BRIDGE_PROTOCOL_VERSION,
 		ALLOWED_DEVICE_IDS: ctx.limits.allowedDeviceIds,
 		getDeviceInfo: ctx.connections.getDeviceInfo,
@@ -94,19 +72,7 @@ export function buildServerDeps(ctx: ServerDepsContext): ServerDeps {
 			};
 		},
 		claudeCode,
-		get opencode() {
-			return state.opencode.current();
-		},
-		codexFs,
-		ensureCodexClient: ctx.codexClient.ensureCodexClient,
-		get codexClient() {
-			return state.codexClient;
-		},
-		requireOpenCode: backends.requireOpenCode,
-		requireOpenCodeOrNull: backends.requireOpenCodeOrNull,
-		checkCodexAvailable,
 		getBackendsStatus: backends.getBackendsStatus,
-		restartOpenCode: ctx.restartOpenCode,
 		safeString,
 		getSecurePath,
 		isSafeClaudeCommandName,
@@ -121,27 +87,7 @@ export function buildServerDeps(ctx: ServerDepsContext): ServerDeps {
 		ccEventBuffers: state.ccEventBuffers,
 		ccPermissionWaiters: state.ccPermissionWaiters,
 		ccElicitationWaiters: state.ccElicitationWaiters,
-		cxApprovalWaiters: state.cxApprovalWaiters,
-		cxActiveTurns: state.cxActiveTurns,
-		cxThreadOwners: state.cxThreadOwners,
-		cxThreadCwds: state.cxThreadCwds,
-		cxThreadNames: state.cxThreadNames,
-		cxThreadCache: codexCaches.threadCache,
-		get cxProjectCache() {
-			return codexCaches.getProjectCache();
-		},
-		setProjectCache: codexCaches.setProjectCache,
-		cxSearchSessions: state.cxSearchSessions,
-		CODEX_PROJECT_CACHE_TTL_MS: codexCaches.projectTtlMs,
-		CODEX_THREAD_CACHE_TTL_MS: codexCaches.threadTtlMs,
-		invalidateCodexCaches: codexCaches.invalidate,
-		ensureUndoStack: ctx.codexFileUndo.ensureUndoStack,
-		applyCodexUndo: ctx.codexFileUndo.applyCodexUndo,
-		mapCodexThread,
-		mapCodexThreadToRuntimeSession,
 		mapClaudeCodeSessionToRuntimeSession,
-		ocSessionOwners: state.ocSessionOwners,
-		ocSessionProjectPaths: state.ocSessionProjectPaths,
 		sessionWatchers: state.sessionWatchers,
 		updateSessionWatchers: sessions.updateSessionWatchers,
 		makeSessionKey,
@@ -155,12 +101,8 @@ export function buildServerDeps(ctx: ServerDepsContext): ServerDeps {
 			state.currentAgent = agent;
 		},
 		buildClaudeCodeRuntimeState,
-		buildCodexRuntimeState,
-		mapOpenCodeStatusToRuntimeState,
 		replayRuntimeEventsSince: streams.replayRuntimeEventsForSocket,
 		emitCcStream: streams.emitCcStream,
-		emitCxStream: streams.emitCxStream,
-		enqueueSdkEvent: ctx.opencodeEvents.enqueueSdkEvent,
 		PERMISSION_TIMEOUT_MS: ctx.permissionTimeoutMs,
 		ptyRuntime: ctx.ptyRuntime,
 	} as ServerDeps;

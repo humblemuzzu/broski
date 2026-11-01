@@ -242,7 +242,7 @@ describe("applyEvent", () => {
 			[
 				{ type: "notice", level: "info", text: "hi" },
 				{ type: "error", error: { code: "network", message: "x" }, retryable: true },
-				{ type: "extension", extension: { kind: "turn_diff", diff: "" } },
+				{ type: "extension", extension: { kind: "rate_limit", window: "five_hour" } },
 				{ type: "user_message", messageId: "u", text: "hi", attachments: [] },
 				{ type: "session_replaced", session: { backend: "claude-code", sessionId: "next" } },
 			],

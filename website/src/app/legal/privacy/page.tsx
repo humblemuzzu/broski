@@ -142,7 +142,7 @@ export default function PrivacyPolicyPage() {
           </p>
           <p>Your Computer (Bridge Server)</p>
           <p className="ml-4">&darr;&uarr; Local process</p>
-          <p>AI Agents (Claude Code, OpenCode, Codex)</p>
+          <p>AI Agents (Claude Code, Pi)</p>
           <p className="ml-4">&darr;&uarr; API calls using YOUR keys</p>
           <p>AI Providers (Anthropic, OpenAI, Google)</p>
         </div>

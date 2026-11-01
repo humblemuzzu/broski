@@ -77,7 +77,7 @@ broski logs --export   # Export diagnostics bundle`}</CodeBlock>
               <div className="text-center text-muted-foreground text-xs">↓</div>
               <div className="px-3 py-2 bg-muted border border-border rounded text-sm">
                 <span className="font-medium">AI Backend</span>
-                <span className="text-xs text-muted-foreground ml-2">OpenCode / Claude</span>
+                <span className="text-xs text-muted-foreground ml-2">Claude Code / Pi</span>
               </div>
               <div className="text-center text-muted-foreground text-xs">↓</div>
               <div className="px-3 py-2 bg-muted border border-border rounded text-sm">Your Code (Filesystem)</div>
@@ -171,21 +171,16 @@ broski logs --export   # Export diagnostics bundle`}</CodeBlock>
 
       <h2 id="agents" className="text-2xl font-semibold mb-4 mt-10">Supported AI Agents</h2>
       
-      <div className="grid grid-cols-3 gap-3 mb-6">
+      <div className="grid grid-cols-2 gap-3 mb-6">
         <div className="flex flex-col items-center p-3 border border-border/40 rounded-lg">
           <Image src="/logos/anthropic.svg" alt="Claude" width={24} height={24} className="mb-2" />
           <span className="text-xs font-medium">Claude Code</span>
           <span className="text-xs text-muted-foreground">Official Anthropic CLI</span>
         </div>
         <div className="flex flex-col items-center p-3 border border-border/40 rounded-lg">
-          <Image src="/logos/opencode.svg" alt="OpenCode" width={24} height={24} className="mb-2" />
-          <span className="text-xs font-medium">OpenCode</span>
+          <Image src="/logos/pi.svg" alt="Pi" width={24} height={24} className="mb-2" />
+          <span className="text-xs font-medium">Pi</span>
           <span className="text-xs text-muted-foreground">Multi-provider agent</span>
-        </div>
-        <div className="flex flex-col items-center p-3 border border-border/40 rounded-lg">
-          <Image src="/logos/openai.svg" alt="Codex" width={24} height={24} className="mb-2" />
-          <span className="text-xs font-medium">Codex</span>
-          <span className="text-xs text-muted-foreground">OpenAI models</span>
         </div>
       </div>
 
@@ -194,8 +189,8 @@ broski logs --export   # Export diagnostics bundle`}</CodeBlock>
       <SimpleTable
         headers={["Component", "Minimum Version", "Recommended"]}
         rows={[
-          ["OpenCode", "Latest", "Latest"],
           ["Claude Code CLI", "Latest", "Latest"],
+          ["Pi", "Latest", "Latest"],
           ["macOS", "12 (Monterey)", "14+ (Sonoma)"],
           ["Linux", "Ubuntu 20.04+", "Ubuntu 22.04+"],
         ]}

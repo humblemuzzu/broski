@@ -51,7 +51,7 @@ final class LinkSandbox {
   String get controlSocket => p.join(home, 'control.sock');
 
   /// A throwaway `$HOME` for a supervised bridge, so it never reads or writes
-  /// the developer's real `~/.claude`, `~/.codex`, `~/.pi` or `~/.broski`.
+  /// the developer's real `~/.claude`, `~/.pi` or `~/.broski`.
   /// Resolved through symlinks, so it is also a base the bridge accepts paths
   /// under: something the phone names has to land inside it.
   String get bridgeHome => p.join(realDirectory, 'bridge-home');

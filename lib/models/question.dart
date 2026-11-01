@@ -14,7 +14,7 @@ class QuestionOption {
 
 class QuestionInfo {
   final String question;
-  final String header; // max 30 chars in OpenCode
+  final String header;
   final List<QuestionOption> options;
   final bool multiple;
 
@@ -100,92 +100,6 @@ class QuestionRequest {
       tool: toolJson is Map<String, dynamic>
           ? QuestionToolRef.fromJson(toolJson)
           : null,
-    );
-  }
-}
-
-// ============================================================================
-// CODEX REQUEST_USER_INPUT (SDK v0.87.0+)
-// ============================================================================
-
-/// A question option for Codex request_user_input
-class CodexQuestionOption {
-  final String label;
-  final String description;
-
-  const CodexQuestionOption({required this.label, required this.description});
-
-  factory CodexQuestionOption.fromJson(Map<String, dynamic> json) {
-    return CodexQuestionOption(
-      label: json['label'] as String? ?? '',
-      description: json['description'] as String? ?? '',
-    );
-  }
-}
-
-/// A single question in a Codex request_user_input event
-class CodexQuestion {
-  final String id;
-  final String header;
-  final String question;
-  final List<CodexQuestionOption> options;
-
-  const CodexQuestion({
-    required this.id,
-    required this.header,
-    required this.question,
-    required this.options,
-  });
-
-  factory CodexQuestion.fromJson(Map<String, dynamic> json) {
-    final options =
-        (json['options'] as List<dynamic>?)
-            ?.whereType<Map<String, dynamic>>()
-            .map(CodexQuestionOption.fromJson)
-            .toList() ??
-        const <CodexQuestionOption>[];
-    return CodexQuestion(
-      id: json['id'] as String? ?? '',
-      header: json['header'] as String? ?? '',
-      question: json['question'] as String? ?? '',
-      options: options,
-    );
-  }
-}
-
-/// A Codex request_user_input request from the agent
-class CodexUserInputRequest {
-  final String requestId; // The JSON-RPC request ID to respond to
-  final String callId; // Tool call ID
-  final String turnId; // Turn this belongs to
-  final String threadId; // Thread ID
-  final List<CodexQuestion> questions;
-
-  const CodexUserInputRequest({
-    required this.requestId,
-    required this.callId,
-    required this.turnId,
-    required this.threadId,
-    required this.questions,
-  });
-
-  factory CodexUserInputRequest.fromJson(
-    String requestId,
-    String threadId,
-    Map<String, dynamic> params,
-  ) {
-    final questions =
-        (params['questions'] as List<dynamic>?)
-            ?.whereType<Map<String, dynamic>>()
-            .map(CodexQuestion.fromJson)
-            .toList() ??
-        const <CodexQuestion>[];
-    return CodexUserInputRequest(
-      requestId: requestId,
-      threadId: threadId,
-      callId: params['callId'] as String? ?? params['call_id'] as String? ?? '',
-      turnId: params['turnId'] as String? ?? params['turn_id'] as String? ?? '',
-      questions: questions,
     );
   }
 }

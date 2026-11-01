@@ -101,39 +101,6 @@ class SessionContext {
     );
   }
 
-  /// Create context from Codex token usage (cumulative from SDK stream)
-  /// Codex SDK provides: totalTokens, inputTokens, cachedInputTokens,
-  /// outputTokens, reasoningOutputTokens, modelContextWindow
-  /// NOTE: Codex SDK does NOT provide cost information.
-  factory SessionContext.fromCodex({
-    int inputTokens = 0,
-    int outputTokens = 0,
-    int cachedInputTokens = 0,
-    int reasoningTokens = 0,
-    int cacheWriteTokens = 0,
-    int contextWindow = kDefaultContextWindow,
-    int contextTokens = 0,
-    List<ModifiedFile> modifiedFiles = const [],
-  }) {
-    final total = inputTokens + outputTokens;
-    return SessionContext(
-      tokens: TokenUsage(
-        input: inputTokens,
-        output: outputTokens,
-        total: total,
-        contextTokens: contextTokens,
-        contextWindow: contextWindow,
-        reasoning: reasoningTokens > 0 ? reasoningTokens : null,
-        cacheRead: cachedInputTokens > 0 ? cachedInputTokens : null,
-        cacheWrite: cacheWriteTokens > 0 ? cacheWriteTokens : null,
-      ),
-      // Codex SDK does not provide cost data
-      cost: 0.0,
-      lsp: const [],
-      modifiedFiles: modifiedFiles,
-    );
-  }
-
   /// Percentage of context window used (0-100)
   /// Based on contextTokens (input + cache reads + cache writes) which actually
   /// occupy the context window, NOT the total (which is just fresh tokens).

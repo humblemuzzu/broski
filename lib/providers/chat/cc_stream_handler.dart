@@ -26,7 +26,7 @@ extension CcStreamHandler on ChatSessionNotifier {
     );
   }
 
-  /// Set a Claude Code session (instead of OpenCode session)
+  /// Set a Claude Code session.
   void setCCSession({
     required String sessionId,
     required String cwd,
@@ -37,13 +37,7 @@ extension CcStreamHandler on ChatSessionNotifier {
     _order.clear();
     _transcriptCursor = null;
     _transcriptSessionId = sessionId;
-    _rolesByMessageId.clear();
-    _pendingLocalUserTextByMessageId.clear();
-    _localAuthoredUserMessageIds.clear();
-    _pendingTextBuffers.clear(); // FIX: Clear text buffers for old session
     _runtimeChatTurns.clear();
-    _textDebounceTimer?.cancel();
-    _textDebounceTimer = null;
     _runtimeProjectionTimer?.cancel();
     _runtimeProjectionTimer = null;
     _pendingProjectionTurn = null;

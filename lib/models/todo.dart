@@ -61,7 +61,7 @@ enum TodoPriority {
   }
 }
 
-/// A todo item from OpenCode's plan/task tracking system
+/// A todo item from the agent's plan/task tracking
 class Todo {
   final String id;
   final String content;

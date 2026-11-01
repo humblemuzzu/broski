@@ -15,13 +15,3 @@ export function normalizeString(value: unknown): string | undefined {
 	const trimmed = value.trim();
 	return trimmed.length > 0 ? trimmed : undefined;
 }
-
-/**
- * Extract tool call ID from an item/part. Handles different SDK field naming conventions.
- * Field order: callId (Codex) → callID (OpenCode) → call_id → id.
- * Safe because no known SDK event sets both callId and callID simultaneously.
- */
-export function extractToolCallId(source: any): string | undefined {
-	const value = source?.callId ?? source?.callID ?? source?.call_id ?? source?.id;
-	return typeof value === "string" && value.length > 0 ? value : undefined;
-}

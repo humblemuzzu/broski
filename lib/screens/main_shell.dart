@@ -33,7 +33,7 @@ class MainShell extends ConsumerStatefulWidget {
 }
 
 class _MainShellState extends ConsumerState<MainShell> {
-  static const _defaultSelection = LegacySelection(AgentType.opencode);
+  static const _defaultSelection = LegacySelection(AgentType.claudeCode);
 
   int _index = 0;
 

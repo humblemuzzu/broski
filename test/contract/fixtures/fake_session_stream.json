@@ -813,8 +813,10 @@
       "event": {
         "type": "extension",
         "extension": {
-          "kind": "turn_diff",
-          "diff": "diff --git a/a.ts b/a.ts"
+          "kind": "rate_limit",
+          "window": "five_hour",
+          "status": "allowed_warning",
+          "usedPercent": 82
         }
       }
     }

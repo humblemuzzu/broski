@@ -1,7 +1,6 @@
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
-import { fileExists } from "./utils/fs-helpers";
 
 export type SkillSource = "project" | "user" | "system" | "admin" | "plugin";
 
@@ -100,55 +99,6 @@ async function listSkillsInRoot(rootDir: string, source: SkillSource): Promise<S
 }
 
 // ============================================================================
-// OpenCode Skills (.opencode/skill + ~/.config/opencode/skill)
-// ============================================================================
-
-export function getOpenCodeSkillFilePath(params: {
-	name: string;
-	source: Extract<SkillSource, "project" | "user">;
-	cwd?: string;
-}): string {
-	const { name, source } = params;
-	const cwd = params.cwd || process.cwd();
-	const base =
-		source === "project"
-			? join(cwd, ".opencode", "skill", name)
-			: join(homedir(), ".config", "opencode", "skill", name);
-	return join(base, SKILL_FILENAME);
-}
-
-export async function resolveOpenCodeSkillFilePath(params: {
-	name: string;
-	source: Extract<SkillSource, "project" | "user">;
-	cwd?: string;
-}): Promise<string> {
-	const { name, source } = params;
-	const cwd = params.cwd || process.cwd();
-	const root = source === "project" ? join(cwd, ".opencode") : join(homedir(), ".config", "opencode");
-
-	const candidates = [join(root, "skills", name, SKILL_FILENAME), join(root, "skill", name, SKILL_FILENAME)];
-
-	for (const candidate of candidates) {
-		if (await fileExists(candidate)) return candidate;
-	}
-
-	// Default for new skills: keep legacy `.opencode/skill/<name>/SKILL.md` structure.
-	return join(root, "skill", name, SKILL_FILENAME);
-}
-
-export async function listOpenCodeSkills(cwd?: string): Promise<SkillListEntry[]> {
-	const userRoots = [join(homedir(), ".config", "opencode", "skill"), join(homedir(), ".config", "opencode", "skills")];
-	const user = (await Promise.all(userRoots.map((r) => listSkillsInRoot(r, "user")))).flat();
-
-	if (!cwd) return user;
-
-	const projectRoots = [join(cwd, ".opencode", "skill"), join(cwd, ".opencode", "skills")];
-	const project = (await Promise.all(projectRoots.map((r) => listSkillsInRoot(r, "project")))).flat();
-
-	return [...project, ...user];
-}
-
-// ============================================================================
 // Claude Code Skills (.claude/skills + ~/.claude/skills)
 // ============================================================================
 
@@ -171,107 +121,6 @@ export async function listClaudeCodeSkills(cwd?: string): Promise<SkillListEntry
 		listSkillsInRoot(userRoot, "user"),
 	]);
 	return [...project, ...user];
-}
-
-// ============================================================================
-// Codex Skills (.codex/skills + $CODEX_HOME/skills + system/admin)
-// ============================================================================
-
-export type CodexSkillScope = "Repo" | "User" | "System" | "Admin";
-
-export function codexHomeDir(): string {
-	return process.env.CODEX_HOME || join(homedir(), ".codex");
-}
-
-export function getCodexSkillFilePath(params: { name: string; scope: CodexSkillScope; cwd?: string }): string {
-	const { name, scope } = params;
-	const cwd = params.cwd || process.cwd();
-	const codexHome = codexHomeDir();
-	const root =
-		scope === "Repo"
-			? join(cwd, ".codex", "skills", name)
-			: scope === "User"
-				? join(codexHome, "skills", name)
-				: scope === "System"
-					? join(codexHome, "skills", ".system", name)
-					: join("/etc/codex/skills", name);
-	return join(root, SKILL_FILENAME);
-}
-
-export async function listCodexRepoSkills(cwd?: string): Promise<SkillListEntry[]> {
-	const root = join(cwd || process.cwd(), ".codex", "skills");
-	return await listSkillsInRoot(root, "project");
-}
-
-// ============================================================================
-// Codex Custom Prompts (.codex/prompts + $CODEX_HOME/prompts)
-// ============================================================================
-
-export type CodexPrompt = {
-	name: string;
-	description?: string;
-	argumentHint?: string;
-	content: string;
-	path: string;
-	source: "project" | "user";
-};
-
-function parsePromptFrontmatter(content: string): { description?: string; argumentHint?: string } {
-	const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
-	if (!frontmatterMatch) return {};
-	const fm = frontmatterMatch[1]!;
-	const descMatch = fm.match(/(?:^|\n)description:\s*"?(.+?)"?\s*$/m);
-	const hintMatch = fm!.match(/(?:^|\n)argument-hint:\s*"?(.+?)"?\s*$/m);
-	return {
-		description: descMatch?.[1]?.trim() || undefined,
-		argumentHint: hintMatch?.[1]?.trim() || undefined,
-	};
-}
-
-/**
- * List Codex custom prompts from .codex/prompts/ (project) and $CODEX_HOME/prompts/ (user).
- * These are .md files with optional YAML frontmatter (description, argument-hint).
- */
-export async function listCodexPrompts(cwd?: string): Promise<CodexPrompt[]> {
-	const prompts: CodexPrompt[] = [];
-
-	const scanDir = async (dir: string, source: "project" | "user") => {
-		try {
-			const entries = await readdir(dir, { withFileTypes: true });
-			for (const entry of entries) {
-				if (!entry.isFile()) continue;
-				if (!entry.name.endsWith(".md")) continue;
-				if (entry.name.startsWith(".")) continue;
-
-				const filePath = join(dir, entry.name);
-				const name = entry.name.replace(/\.md$/, "");
-
-				// Validate name
-				if (!name || name === "." || name === "..") continue;
-
-				try {
-					const content = await readFile(filePath, "utf-8");
-					const { description, argumentHint } = parsePromptFrontmatter(content);
-					prompts.push({ name, description, argumentHint, content, path: filePath, source });
-				} catch {
-					prompts.push({ name, content: "", path: filePath, source });
-				}
-			}
-		} catch {
-			// Directory doesn't exist — fine
-		}
-	};
-
-	// Project-level prompts
-	if (cwd) {
-		await scanDir(join(cwd, ".codex", "prompts"), "project");
-	}
-
-	// User-level prompts ($CODEX_HOME/prompts)
-	await scanDir(join(codexHomeDir(), "prompts"), "user");
-
-	prompts.sort((a, b) => a.name.localeCompare(b.name));
-	return prompts;
 }
 
 export async function readSkillFile(skillPath: string): Promise<string> {

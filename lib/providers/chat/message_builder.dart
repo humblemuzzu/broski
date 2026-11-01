@@ -5,179 +5,23 @@ part of '../chat_provider.dart';
 /// Core message operations: construction, reconciliation, diff extraction.
 /// Extracted from chat_provider.dart.
 extension MessageBuilder on ChatSessionNotifier {
-  String _normalizeUserText(String text) {
-    return text.trim().replaceAll(RegExp(r'\s+'), ' ');
-  }
-
-  bool _isTextMatch(String a, String b) {
-    if (a.isEmpty || b.isEmpty) return false;
-    if (a == b) return true;
-    return a.startsWith(b) || b.startsWith(a);
-  }
-
-  String? _findPendingLocalUserMessageId({
-    required String sessionId,
-    required String candidateText,
-  }) {
-    final normalizedCandidate = _normalizeUserText(candidateText);
-    if (normalizedCandidate.isEmpty) return null;
-
-    String? matchId;
-    for (final entry in _pendingLocalUserTextByMessageId.entries) {
-      final localId = entry.key;
-      final localMsg = _messages[localId];
-      if (localMsg == null) continue;
-      if (localMsg.sessionId != sessionId) continue;
-      if (localMsg.role != MessageRole.user) continue;
-      // Accept both local-xxx (no messageId supplied) and msg_xxx (client-
-      // generated OpenCode IDs) — any ID in _pendingLocalUserTextByMessageId
-      // is an optimistic local message awaiting reconciliation.
-      if (_isTextMatch(entry.value, normalizedCandidate)) {
-        matchId = localId; // keep last match (most recent insertion order)
-      }
-    }
-    return matchId;
-  }
-
-  ChatMessage _copyWithRole(ChatMessage message, MessageRole role) {
-    return ChatMessage(
-      id: message.id,
-      sessionId: message.sessionId,
-      role: role,
-      createdAt: message.createdAt,
-      text: message.text,
-      toolCalls: message.toolCalls,
-      diffs: message.diffs,
-      subtaskNotifications: message.subtaskNotifications,
-      reasoningParts: message.reasoningParts,
-      parts: message.parts,
-      isStreaming: message.isStreaming,
-      error: message.error,
-    );
-  }
-
-  void _reconcileLocalUserMessage({
-    required String localMessageId,
-    required String serverMessageId,
-    required String sessionId,
-  }) {
-    final localMsg = _messages[localMessageId];
-    if (localMsg == null) return;
-
-    final localIndex = _order.indexOf(localMessageId);
-    _messages.remove(localMessageId);
-    if (localIndex >= 0) {
-      _order.removeAt(localIndex);
-    }
-    _pendingLocalUserTextByMessageId.remove(localMessageId);
-    _localAuthoredUserMessageIds.remove(localMessageId);
-
-    final existingServer = _messages[serverMessageId];
-    if (existingServer == null) {
-      _messages[serverMessageId] = ChatMessage(
-        id: serverMessageId,
-        sessionId: sessionId,
-        role: MessageRole.user,
-        createdAt: localMsg.createdAt,
-        text: localMsg.text,
-        toolCalls: localMsg.toolCalls,
-        diffs: localMsg.diffs,
-        subtaskNotifications: localMsg.subtaskNotifications,
-        reasoningParts: localMsg.reasoningParts,
-        parts: localMsg.parts,
-        isStreaming: false,
-        error: localMsg.error,
-      );
-    }
-
-    final existingIndex = _order.indexOf(serverMessageId);
-    if (existingIndex >= 0) {
-      _order.removeAt(existingIndex);
-    }
-    final insertIndex = localIndex >= 0
-        ? localIndex.clamp(0, _order.length).toInt()
-        : _order.length;
-    _order.insert(insertIndex, serverMessageId);
-
-    if (_suppressEmit) {
-      _pendingEmitMessages = true;
-    } else {
-      _emitMessages();
-    }
-  }
-
   String appendUserMessage(String content, {String? messageId}) {
-    // Handle Claude Code mode
-    if (state.isClaudeCode) {
-      final sessionId = state.ccSessionId ?? '';
-      final id = messageId ?? 'local-${DateTime.now().microsecondsSinceEpoch}';
-      final message = ChatMessage(
-        id: id,
-        sessionId: sessionId,
-        role: MessageRole.user,
-        createdAt: DateTime.now(),
-        text: content,
-        metadata: const {'deliveryState': 'pending'},
-      );
-      _addMessage(message);
-      return id;
-    }
-
-    // Codex mode
-    if (state.isCodex) {
-      final threadId = state.cxThreadId ?? '';
-      final id = messageId ?? 'local-${DateTime.now().microsecondsSinceEpoch}';
-      final message = ChatMessage(
-        id: id,
-        sessionId: threadId,
-        role: MessageRole.user,
-        createdAt: DateTime.now(),
-        text: content,
-        metadata: const {'deliveryState': 'pending'},
-      );
-      _addMessage(message);
-      return id;
-    }
-
-    // OpenCode mode
-    final session = state.session;
-    if (session == null) return '';
-
     final id = messageId ?? 'local-${DateTime.now().microsecondsSinceEpoch}';
-    final message = ChatMessage(
-      id: id,
-      sessionId: session.id,
-      role: MessageRole.user,
-      createdAt: DateTime.now(),
-      text: content,
-      metadata: const {'deliveryState': 'pending'},
+    _addMessage(
+      ChatMessage(
+        id: id,
+        sessionId: state.ccSessionId ?? '',
+        role: MessageRole.user,
+        createdAt: DateTime.now(),
+        text: content,
+        metadata: const {'deliveryState': 'pending'},
+      ),
     );
-    _addMessage(message);
-    if (messageId != null && messageId.isNotEmpty) {
-      _localAuthoredUserMessageIds.add(messageId);
-      // Also register text for reconciliation: OpenCode SDK generates its own
-      // message ID (different from the client-generated one), so we need
-      // text-based matching to detect & replace this optimistic message when
-      // the server echo arrives with a different ID.
-      final normalized = _normalizeUserText(content);
-      if (normalized.isNotEmpty) {
-        _pendingLocalUserTextByMessageId[id] = normalized;
-      }
-    } else {
-      final normalized = _normalizeUserText(content);
-      if (normalized.isNotEmpty) {
-        _pendingLocalUserTextByMessageId[id] = normalized;
-      }
-    }
     return id;
   }
 
   void appendLocalAssistantMessage(String content) {
-    final sessionId = state.isClaudeCode
-        ? (state.ccSessionId ?? '')
-        : state.isCodex
-        ? (state.cxThreadId ?? '')
-        : (state.session?.id ?? '');
+    final sessionId = state.ccSessionId ?? '';
     if (sessionId.isEmpty) return;
     final message = ChatMessage(
       id: 'local-assistant-${DateTime.now().microsecondsSinceEpoch}',
@@ -293,11 +137,6 @@ extension MessageBuilder on ChatSessionNotifier {
   /// Set compacting state (called when starting summarize)
   void setCompacting(bool isCompacting) {
     state = state.copyWith(isCompacting: isCompacting);
-  }
-
-  /// Update VCS info from fetched data
-  void setVcsInfo(VcsInfo vcsInfo) {
-    state = state.copyWith(vcsInfo: vcsInfo);
   }
 
   /// Update session status from fetched data

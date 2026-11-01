@@ -1,14 +1,9 @@
 import 'package:broski/models/message.dart';
 
-/// Check if a tool is an edit/patch tool (handles all backend naming conventions).
-/// - OpenCode: 'edit', 'patch'
-/// - Claude Code: 'str_replace_editor', 'edit'
-/// - Codex: 'applypatch', 'ApplyPatch'
+/// Check if a tool is an edit tool (lowercased tool name).
 bool isEditTool(String toolName) {
   return toolName == 'edit' ||
       toolName == 'multiedit' ||
-      toolName == 'patch' ||
-      toolName == 'applypatch' ||
       toolName == 'str_replace_editor' ||
       toolName == 'str_replace' ||
       toolName == 'file_editor';
@@ -24,7 +19,7 @@ bool isFileModificationTool(String toolName) {
 }
 
 /// Check if a diff came from a file modification tool (to avoid duplicate display).
-/// For Claude Code and Codex, file tools and diffs represent the same changes,
+/// File tools and diffs represent the same changes,
 /// so we hide diffs when file modification tools are present.
 bool isDiffFromEditTool(DiffEntry diff, List<ToolCall> tools) {
   return tools.any((t) {
@@ -55,17 +50,6 @@ List<String> extractChangedFilePaths(ChatMessage message) {
         tool.input['file'] as String?;
     if (path != null && path.isNotEmpty) {
       paths.add(path);
-      continue;
-    }
-    // Codex live: changes array
-    final changes = tool.input['changes'];
-    if (changes is List && changes.isNotEmpty) {
-      for (final c in changes) {
-        if (c is Map<String, dynamic>) {
-          final cp = c['path'] as String?;
-          if (cp != null && cp.isNotEmpty) paths.add(cp);
-        }
-      }
     }
   }
   return paths.toList();

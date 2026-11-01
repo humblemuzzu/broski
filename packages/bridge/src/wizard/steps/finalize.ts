@@ -4,9 +4,8 @@ import type { WizardPrompter } from "../prompter";
 
 function formatAgents(config: BroskiConfig): string {
 	const agents: string[] = [];
-	if (config.agents.opencode) agents.push("OpenCode");
 	if (config.agents.claudeCode) agents.push("Claude Code");
-	if (config.agents.codex) agents.push("Codex");
+	if (config.agents.pi) agents.push("Pi");
 	return agents.length > 0 ? agents.join(", ") : muted("none configured");
 }
 

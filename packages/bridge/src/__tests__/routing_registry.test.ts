@@ -37,8 +37,6 @@ function errorText(message: ServerMessage): string | undefined {
  * have exactly one owner, or `createMessageRegistry` throws on duplicates.
  */
 const OVERLAPS = [
-	{ type: "oc_delete_message", claimedBy: ["oc_messages", "oc_parts"], owner: "oc_messages" },
-	{ type: "oc_get_message", claimedBy: ["oc_messages", "oc_parts"], owner: "oc_messages" },
 	{
 		type: "unified_list_session_children",
 		claimedBy: ["unified", "unified_session_children"],

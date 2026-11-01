@@ -82,8 +82,6 @@ describe("e2e device registration", () => {
 			const active = await client.messages.waitFor("sessions_active");
 			const data = active.data as Record<string, unknown>;
 			expect(Array.isArray(data.claudeCode)).toBe(true);
-			expect(Array.isArray(data.codex)).toBe(true);
-			expect(Array.isArray(data.opencode)).toBe(true);
 			expect(data.pendingPermissions).toBeDefined();
 		} finally {
 			client.ws.close();
@@ -98,7 +96,7 @@ describe("e2e backend status", () => {
 			send(client.ws, { type: "get_agents_status", requestId: "status-1" });
 			const reply = await client.messages.waitFor("agents_status");
 			const data = reply.data as Record<string, Record<string, unknown>>;
-			expect(Object.keys(data).sort()).toEqual(["claude-code", "codex", "opencode"]);
+			expect(Object.keys(data).sort()).toEqual(["claude-code"]);
 		} finally {
 			client.ws.close();
 		}
@@ -180,12 +178,16 @@ describe("e2e message routing replies", () => {
 });
 
 describe("e2e reconnects and backend switching", () => {
-	test("rapid set_view switching across backends keeps the socket alive", async () => {
+	test("rapid set_view switching across sessions keeps the socket alive", async () => {
 		const client = await connect(bridge.port, bridge.token);
 		try {
 			for (let i = 0; i < 20; i += 1) {
-				const agent = ["claude-code", "opencode", "codex"][i % 3];
-				send(client.ws, { type: "set_view", agent, sessionId: `switch-${i}`, projectPath: "/tmp/e2e-switch" });
+				send(client.ws, {
+					type: "set_view",
+					agent: "claude-code",
+					sessionId: `switch-${i}`,
+					projectPath: "/tmp/e2e-switch",
+				});
 			}
 			await Bun.sleep(150);
 			send(client.ws, { type: "get_agents_status", requestId: "alive" });
@@ -210,10 +212,10 @@ describe("e2e reconnects and backend switching", () => {
 		}
 	});
 
-	test("set_agent for every backend does not crash the socket", async () => {
+	test("repeated set_agent does not crash the socket", async () => {
 		const client = await connect(bridge.port, bridge.token);
 		try {
-			for (const agent of ["opencode", "claude-code", "codex"]) {
+			for (const agent of ["claude-code", "claude-code"]) {
 				send(client.ws, { type: "set_agent", agent });
 			}
 			await Bun.sleep(100);
@@ -281,7 +283,7 @@ describe("e2e graceful stop", () => {
 			expect(result.timedOut).toBe(false);
 			expect(result.pending).toEqual([]);
 			expect(result.failed).toEqual([]);
-			for (const task of ["external-tails", "event-buffers", "fs-watchers", "pty-runtime", "codex-app-server"]) {
+			for (const task of ["external-tails", "event-buffers", "fs-watchers", "pty-runtime"]) {
 				expect(result.completed).toContain(task);
 			}
 			expect(disposable.server.connections()).toBe(0);

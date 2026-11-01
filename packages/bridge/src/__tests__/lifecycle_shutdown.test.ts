@@ -118,8 +118,7 @@ function makeResources(overrides?: Partial<BridgeTeardownResources>): {
 			await sleep(5);
 			calls.push("pty");
 		},
-		uninstallHooks: [async () => calls.push("hook-cc"), async () => calls.push("hook-cx")],
-		stopCodexAppServer: async () => calls.push("codex"),
+		uninstallHooks: [async () => calls.push("hook-cc")],
 		disposeBackends: [() => calls.push("pi")],
 		stopServers: () => calls.push("servers"),
 		...overrides,
@@ -137,7 +136,7 @@ describe("stopBridgeResources", () => {
 		expect(calls[0]).toBe("servers");
 		expect(tails.size).toBe(0);
 		expect(buffers.size).toBe(0);
-		for (const expected of ["fs-watchers", "pty", "hook-cc", "hook-cx", "codex", "pi"]) {
+		for (const expected of ["fs-watchers", "pty", "hook-cc", "pi"]) {
 			expect(calls).toContain(expected);
 		}
 		expect(result.pending).toEqual([]);
@@ -154,24 +153,24 @@ describe("stopBridgeResources", () => {
 
 		expect(result.timedOut).toBe(true);
 		expect(result.pending).toEqual(["pty-runtime"]);
-		expect(calls).toContain("codex");
+		expect(calls).toContain("hook-cc");
 		expect(calls).toContain("pi");
 		expect(logs.some((line) => line.includes("pty-runtime"))).toBe(true);
 	});
 
 	test("a throwing cleanup is logged and does not abort the rest", async () => {
 		const { resources, calls } = makeResources({
-			stopCodexAppServer: () => {
-				throw new Error("codex refused to die");
+			closeFsWatchers: () => {
+				throw new Error("watchers refused to close");
 			},
 		});
 		const logs: string[] = [];
 
 		const result = await stopBridgeResources(resources, { timeoutMs: 200, log: (message) => logs.push(message) });
 
-		expect(result.failed.map((failure) => failure.name)).toEqual(["codex-app-server"]);
+		expect(result.failed.map((failure) => failure.name)).toEqual(["fs-watchers"]);
 		expect(calls).toContain("pty");
-		expect(logs.some((line) => line.includes("codex refused to die"))).toBe(true);
+		expect(logs.some((line) => line.includes("watchers refused to close"))).toBe(true);
 	});
 
 	test("clears every tail map it is given", async () => {

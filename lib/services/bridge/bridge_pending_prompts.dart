@@ -9,8 +9,6 @@
 library;
 
 const _claudeCode = 'claude-code';
-const _codex = 'codex';
-const _opencode = 'opencode';
 
 /// The runtime event payloads one `sessions_active` reply stands for.
 List<Map<String, dynamic>> pendingPromptPayloads(Object? data, {int? nowMs}) {
@@ -30,22 +28,6 @@ List<Map<String, dynamic>> pendingPromptPayloads(Object? data, {int? nowMs}) {
     for (final entry in _entriesOf(pending['claudeCodeElicitations']))
       if (_idOf(entry, 'requestId') case final id?)
         _elicitation(entry, requestId: id, at: at),
-    for (final entry in _entriesOf(pending['codex']))
-      if (_idOf(entry, 'requestId') case final id?)
-        _approval(
-          backend: _codex,
-          sessionId: null,
-          request: {'requestId': id},
-          at: at,
-        ),
-    for (final entry in _entriesOf(pending['opencode']))
-      if (_idOf(entry, 'requestId') case final id?)
-        _approval(
-          backend: _opencode,
-          sessionId: _stringOr(entry['sessionId']),
-          request: _mapOf(entry['request']) ?? {'requestId': id},
-          at: at,
-        ),
   ];
 }
 
@@ -88,16 +70,11 @@ Map<String, dynamic> _elicitation(
   },
 };
 
-/// Codex waiters are keyed by the request id alone, so an entry is that string.
 Iterable<Map<String, dynamic>> _entriesOf(Object? raw) sync* {
   if (raw is! List) return;
   for (final entry in raw) {
     final map = _mapOf(entry);
-    if (map != null) {
-      yield map;
-    } else if (entry is String && entry.trim().isNotEmpty) {
-      yield {'requestId': entry.trim()};
-    }
+    if (map != null) yield map;
   }
 }
 

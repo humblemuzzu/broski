@@ -6,10 +6,10 @@ describe("Runtime replay buffer", () => {
 	test("replays sequenced runtime events after a given seq", () => {
 		const first: ServerMessage = {
 			type: "runtime_event",
-			backend: "opencode",
+			backend: "claude-code",
 			data: {
 				type: "assistant_text_delta",
-				backend: "opencode",
+				backend: "claude-code",
 				timestampMs: 1,
 				sessionId: "oc-1",
 				seq: 1,
@@ -18,10 +18,10 @@ describe("Runtime replay buffer", () => {
 		};
 		const second: ServerMessage = {
 			type: "runtime_event",
-			backend: "opencode",
+			backend: "claude-code",
 			data: {
 				type: "assistant_text_delta",
-				backend: "opencode",
+				backend: "claude-code",
 				timestampMs: 2,
 				sessionId: "oc-1",
 				seq: 2,
@@ -33,7 +33,7 @@ describe("Runtime replay buffer", () => {
 		recordRuntimeEvent(second);
 
 		const replayed = replayRuntimeEventsSince({
-			backend: "opencode",
+			backend: "claude-code",
 			sessionId: "oc-1",
 			lastSeq: 1,
 		});

@@ -116,35 +116,8 @@ export default function SettingsPage() {
       <SimpleTable
         headers={["Backend", "Badge", "Description"]}
         rows={[
-          ["OpenCode", "OC", "Multi-provider AI coding assistant"],
           ["Claude Code", "CC", "Anthropic's Claude with tools"],
-          ["Codex", "CX", "OpenAI's official CLI agent"],
-        ]}
-      />
-
-      <h3 id="providers" className="text-lg font-medium mb-3 mt-6">Providers</h3>
-      <ul className="list-disc list-inside text-muted-foreground space-y-1 mb-6">
-        <li><strong>Model providers</strong> - OpenAI, Anthropic, etc.</li>
-        <li><strong>API keys</strong> - Configure credentials</li>
-        <li><strong>Model selection</strong> - Choose default model</li>
-      </ul>
-
-      <h2 id="opencode" className="text-xl font-semibold mb-4 mt-10">OpenCode Section</h2>
-      <p className="text-muted-foreground mb-4">
-        Only visible when OpenCode is selected:
-      </p>
-
-      <SimpleTable
-        headers={["Setting", "Description"]}
-        rows={[
-          ["Terminal Sessions", "PTY terminal sessions - create, attach"],
-          ["Skills", "SKILL.md management"],
-          ["Commands", ".opencode/command/*.md"],
-          ["Agents", ".opencode/agent/*.md"],
-          ["Plugins", ".opencode/plugin hooks"],
-          ["MCP Servers", "Model Context Protocol servers"],
-          ["Tools", "AI tools - enable/disable each"],
-          ["Permission Rules", "Default session permissions"],
+          ["Pi", "PI", "Open-source multi-provider agent"],
         ]}
       />
 
@@ -187,20 +160,6 @@ export default function SettingsPage() {
         <li><strong>Enable/Disable</strong> - Toggle each tool</li>
       </ul>
 
-      <h2 id="codex" className="text-xl font-semibold mb-4 mt-10">Codex Section</h2>
-      <p className="text-muted-foreground mb-4">
-        Only visible when Codex is selected:
-      </p>
-
-      <SimpleTable
-        headers={["Setting", "Description"]}
-        rows={[
-          ["Skills", "SKILL.md management"],
-          ["Agents", "AGENTS.md configuration"],
-          ["MCP", "Servers and configuration"],
-        ]}
-      />
-
       <h2 id="voice" className="text-xl font-semibold mb-4 mt-10">Voice Input</h2>
       <p className="text-muted-foreground mb-4">
         Use speech-to-text to dictate messages to your AI agent. Voice input is entirely optional and off by default.
@@ -225,7 +184,7 @@ export default function SettingsPage() {
 
       <h3 id="subscription" className="text-lg font-medium mb-3 mt-6">Provider Usage</h3>
       <ul className="list-disc list-inside text-muted-foreground space-y-1 mb-6">
-        <li><strong>API limits</strong> - Current Claude / OpenAI / Codex usage vs limits</li>
+        <li><strong>API limits</strong> - Current Claude usage vs limits</li>
         <li><strong>Credits</strong> - Remaining balance on your AI provider</li>
       </ul>
 

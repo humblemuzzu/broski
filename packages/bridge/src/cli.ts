@@ -1,7 +1,6 @@
 import { isCompiledBinary } from "./compiled-binary";
 import { DEFAULT_PORT, parsePort } from "./config/port";
 
-export type OpencodeMode = "managed" | "manual";
 export type SubCommand =
 	| "serve"
 	| "doctor"
@@ -21,10 +20,6 @@ export type SubCommand =
 export type CliOptions = {
 	subCommand: SubCommand;
 	bridgePort: number;
-	opencodeMode: OpencodeMode;
-	opencodeUrl?: string;
-	opencodeHostname: string;
-	opencodePort: number;
 	verbose: boolean;
 	help: boolean;
 	/** Unix socket path for the broski-link ingress; unset means the ingress is off. */
@@ -69,10 +64,6 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
 
 	let subCommand: SubCommand = null;
 	let bridgePort = parsePort(env.BROSKI_PORT, DEFAULT_PORT);
-	let opencodeMode: OpencodeMode = "managed";
-	let opencodeUrl: string | undefined = env.OPENCODE_BASE_URL;
-	let opencodeHostname = env.BROSKI_OPENCODE_HOSTNAME ?? "127.0.0.1";
-	let opencodePort = parseNumber(env.BROSKI_OPENCODE_PORT, 0);
 	let verbose = false; // Set below after arg parsing; gated by isCompiledBinary
 	let help = false;
 	let linkSocket: string | undefined = env.BROSKI_LINK_SOCKET?.trim() || undefined;
@@ -167,29 +158,6 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
 		if (arg === "--port" || arg === "--bridge-port") {
 			bridgePort = parsePort(args[i + 1], bridgePort);
 			i++;
-			continue;
-		}
-		if (arg === "--opencode-url") {
-			opencodeUrl = args[i + 1];
-			i++;
-			continue;
-		}
-		if (arg === "--opencode-hostname") {
-			opencodeHostname = args[i + 1] ?? opencodeHostname;
-			i++;
-			continue;
-		}
-		if (arg === "--opencode-port") {
-			opencodePort = parseNumber(args[i + 1], opencodePort);
-			i++;
-			continue;
-		}
-		if (arg === "--manual") {
-			opencodeMode = "manual";
-			continue;
-		}
-		if (arg === "--managed") {
-			opencodeMode = "managed";
 			continue;
 		}
 		if (arg === "--link-socket") {
@@ -308,10 +276,6 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
 		}
 	}
 
-	if (opencodeUrl) {
-		opencodeMode = "manual";
-	}
-
 	// Allow BROSKI_VERBOSE env var only in dev mode
 	if (!verbose && env.BROSKI_VERBOSE === "1") {
 		verbose = !isCompiledBinary();
@@ -320,10 +284,6 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
 	return {
 		subCommand,
 		bridgePort,
-		opencodeMode,
-		opencodeUrl,
-		opencodeHostname,
-		opencodePort,
 		verbose,
 		help,
 		linkSocket,
@@ -391,7 +351,7 @@ Options:
 
 Setup (non-interactive):
   --non-interactive           Run setup without prompts (uses defaults + flags)
-  --agents LIST               Comma-separated agents: opencode,claude,codex
+  --agents LIST               Comma-separated agents: claude,pi
   --tls / --no-tls            Enable/disable TLS on the loopback agent-hook listener (default: enabled)
   --no-daemon                 Don't install background service
 
@@ -411,13 +371,6 @@ Logs:
   --export                    Export redacted diagnostics bundle to file
   --no-errors                 Exclude bridge.error.log
   --redact / --no-redact      Force log redaction on/off
-
-OpenCode:
-  --managed                 Force managed mode (default)
-  --manual                  Force manual mode (requires --opencode-url or OPENCODE_BASE_URL)
-  --opencode-url URL        Attach to an existing OpenCode server (power users)
-  --opencode-hostname HOST  Hostname for managed OpenCode server (default: 127.0.0.1)
-  --opencode-port N         Port for managed OpenCode server (default: 0 for random)
 
 Examples:
   broski                         Start the bridge

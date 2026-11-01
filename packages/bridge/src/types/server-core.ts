@@ -1,37 +1,6 @@
 import type { DeviceInfo, StatusPayload } from "./common";
-import type { LspServerStatus, ProjectSummary, SessionContextInfo, SessionSummary } from "./session";
 
 export type CoreServerMessage =
-	| { type: "projects"; data: ProjectSummary[]; requestId?: string }
-	| {
-			type: "sessions";
-			data: SessionSummary[];
-			projectPath?: string;
-			hasMore?: boolean;
-			nextCursor?: string;
-			requestId?: string;
-	  }
-	| { type: "providers"; data: unknown; requestId?: string }
-	| { type: "config"; data: unknown; requestId?: string }
-	| { type: "session"; data: SessionSummary; requestId?: string }
-	| {
-			type: "session_messages";
-			data: unknown;
-			sessionId: string;
-			/** Paged reads only: the shared transcript-page contract names the older page's cursor. */
-			hasMore?: boolean;
-			nextCursor?: string;
-			/** The cursor named no message of this session: `data` is the newest page. */
-			cursorUnknown?: boolean;
-			requestId?: string;
-	  }
-	| { type: "session_created"; data: SessionSummary; requestId?: string }
-	| { type: "diff"; data: unknown; sessionId: string; requestId?: string }
-	| {
-			type: "browse_result";
-			data: { path: string; items: unknown[] };
-			requestId?: string;
-	  }
 	| { type: "batch"; messages: unknown[]; count: number; timestamp: number }
 	| { type: "ping"; data: { id: string; sentAt: number } }
 	| { type: "client_pong"; id: string; sentAt: number; receivedAt: number }
@@ -39,16 +8,8 @@ export type CoreServerMessage =
 			type: "connection_metrics";
 			data: { rttMs: number; lastPongAt: number };
 	  }
-	| { type: "opencode_restarted"; data: boolean; requestId?: string }
 	| { type: "status"; data: StatusPayload }
 	| { type: "error"; message: string; code?: string; requestId?: string }
-	| { type: "lsp_status"; data: LspServerStatus[]; requestId?: string }
-	| {
-			type: "session_context";
-			data: SessionContextInfo;
-			sessionId: string;
-			requestId?: string;
-	  }
 	| {
 			type: "device_registered";
 			data: DeviceInfo;
@@ -62,19 +23,14 @@ export type CoreServerMessage =
 			requestId?: string;
 	  }
 	| { type: "device_connected"; data: DeviceInfo }
-	| { type: "pending_permissions"; data: unknown[]; requestId?: string }
-	| { type: "pending_questions"; data: unknown[]; requestId?: string }
 	// Active sessions snapshot (sent on connect)
 	| {
 			type: "sessions_active";
 			data: {
 				claudeCode: Array<{ sessionId: string; cwd?: string; startedAt?: number }>;
-				codex: Array<{ threadId: string; turnId?: string; cwd?: string }>;
-				opencode: Array<{ sessionId: string; projectPath?: string; statusType: "busy" | "retry" }>;
 				pendingPermissions: {
 					claudeCode: Array<{ sessionId: string; toolUseId: string }>;
 					claudeCodeElicitations: Array<{ sessionId: string; requestId: string }>;
-					codex: string[];
 				};
 			};
 	  };

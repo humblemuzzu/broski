@@ -49,7 +49,7 @@ class AgentModelRef {
   }
 }
 
-/// An AI agent from OpenCode.
+/// An AI agent (a Claude Code subagent).
 class Agent {
   final String name;
   final String? description;

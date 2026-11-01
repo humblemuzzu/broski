@@ -2,7 +2,6 @@ import type { ServerWebSocket } from "bun";
 import { registerAll } from "../routing/registry";
 import type { MessageRouter, ServerDeps } from "../routing/types";
 import { pendingElicitations } from "../server/pending-elicitation";
-import { pendingPermissions } from "../server/pending-permissions";
 import type { AgentType, DeviceInfo, ServerMessage } from "../types";
 import type { ClaudeElicitationReply } from "./cc_elicitation";
 
@@ -28,16 +27,9 @@ export function register(router: MessageRouter, deps: ServerDeps): void {
 		logError: deps.logError,
 		safeString: deps.safeString,
 		claudeCode: deps.claudeCode,
-		opencode: deps.opencode,
 		ccPermissionWaiters: deps.ccPermissionWaiters,
 		ccElicitationWaiters: deps.ccElicitationWaiters,
-		cxApprovalWaiters: deps.cxApprovalWaiters,
-		cxActiveTurns: deps.cxActiveTurns,
-		cxThreadCwds: deps.cxThreadCwds,
-		ocSessionProjectPaths: deps.ocSessionProjectPaths,
 		buildClaudeCodeRuntimeState: deps.buildClaudeCodeRuntimeState,
-		buildCodexRuntimeState: deps.buildCodexRuntimeState,
-		mapOpenCodeStatusToRuntimeState: deps.mapOpenCodeStatusToRuntimeState,
 	};
 	registerAll(router, DEVICE_OPS, async (message, c) => {
 		await handle(c.ws, message, c.reply, ctx);
@@ -67,11 +59,6 @@ type ElicitationWaiter = {
 	timer: Timer;
 };
 
-type ApprovalWaiter = {
-	resolve: (response: Record<string, unknown>) => void;
-	timer: Timer;
-};
-
 export type DevicesHandlerContext = {
 	sockets: Set<ServerWebSocket<unknown>>;
 	contexts: Map<ServerWebSocket<unknown>, ConnectionContext>;
@@ -90,26 +77,13 @@ export type DevicesHandlerContext = {
 	claudeCode: {
 		listActiveSessions: () => { sessionId: string; cwd: string; startedAt: number | undefined }[];
 	};
-	opencode: {
-		getSessionStatus: () => Promise<Record<string, { type: string } | undefined>>;
-	} | null;
 	ccPermissionWaiters: Map<string, PermissionWaiter>;
 	ccElicitationWaiters: Map<string, ElicitationWaiter>;
-	cxApprovalWaiters: Map<string, ApprovalWaiter>;
-	cxActiveTurns: Map<string, string>;
-	cxThreadCwds: Map<string, string>;
-	ocSessionProjectPaths: Map<string, string>;
 	buildClaudeCodeRuntimeState: (params: {
 		sessionId: string;
 		cwd?: string;
 		isStreaming: boolean;
 	}) => Record<string, unknown>;
-	buildCodexRuntimeState: (params: { threadId: string; cwd?: string; isStreaming: boolean }) => Record<string, unknown>;
-	mapOpenCodeStatusToRuntimeState: (
-		sessionId: string,
-		status: import("../types").SessionStatusInfo,
-		projectPath?: string,
-	) => Record<string, unknown>;
 };
 
 export async function handle(
@@ -204,35 +178,11 @@ async function pushActiveSessionsOnConnect(ws: ServerWebSocket<unknown>, ctx: De
 			startedAt: s.startedAt,
 		}));
 
-		const activeCX = Array.from(ctx.cxActiveTurns.entries()).map(([threadId, turnId]) => ({
-			threadId,
-			turnId,
-			cwd: ctx.cxThreadCwds.get(threadId) ?? "",
-		}));
-
-		let activeOC: Array<{ sessionId: string; projectPath?: string; statusType: "busy" | "retry" }> = [];
-		if (ctx.opencode) {
-			try {
-				const statuses = await ctx.opencode.getSessionStatus().catch(() => ({}));
-				activeOC = Object.entries(statuses)
-					.filter(([, s]) => s?.type === "busy" || s?.type === "retry")
-					.map(([id, s]) => ({
-						sessionId: id,
-						projectPath: ctx.ocSessionProjectPaths.get(id),
-						statusType: s?.type === "retry" ? ("retry" as const) : ("busy" as const),
-					}));
-			} catch {
-				// best-effort
-			}
-		}
-
 		const pendingCCPerms = Array.from(ctx.ccPermissionWaiters.keys()).map((key) => {
 			const parts = key.split(":");
 			return { sessionId: parts[0], toolUseId: parts[1] };
 		});
 		const pendingCCElicitations = pendingElicitations.pending();
-		const pendingCXPerms = Array.from(ctx.cxApprovalWaiters.keys());
-		const pendingOCPerms = pendingPermissions.pending("opencode");
 
 		for (const active of activeCC) {
 			ctx.send(ws, {
@@ -246,41 +196,13 @@ async function pushActiveSessionsOnConnect(ws: ServerWebSocket<unknown>, ctx: De
 			} as ServerMessage);
 		}
 
-		for (const active of activeCX) {
-			ctx.send(ws, {
-				type: "runtime_state",
-				backend: "codex",
-				data: ctx.buildCodexRuntimeState({
-					threadId: active.threadId,
-					cwd: active.cwd,
-					isStreaming: true,
-				}),
-			} as ServerMessage);
-		}
-
-		for (const active of activeOC) {
-			ctx.send(ws, {
-				type: "runtime_state",
-				backend: "opencode",
-				data: ctx.mapOpenCodeStatusToRuntimeState(
-					active.sessionId,
-					active.statusType === "retry" ? { type: "retry", attempt: 0, message: "", next: 0 } : { type: "busy" },
-					active.projectPath,
-				),
-			} as ServerMessage);
-		}
-
 		ctx.send(ws, {
 			type: "sessions_active",
 			data: {
 				claudeCode: activeCC,
-				codex: activeCX,
-				opencode: activeOC,
 				pendingPermissions: {
 					claudeCode: pendingCCPerms,
 					claudeCodeElicitations: pendingCCElicitations,
-					codex: pendingCXPerms,
-					opencode: pendingOCPerms,
 				},
 			},
 		} as ServerMessage);

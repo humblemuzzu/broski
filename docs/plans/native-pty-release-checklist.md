@@ -26,8 +26,7 @@ Ship both in the same directory:
 - `libbroski_pty.so`
 
 ### Windows
-- Native PTY fallback is not shipped yet (ConPTY future work).
-- Terminal relies on OpenCode PTY path.
+- Not supported (ConPTY future work).
 
 ## 3) Artifact Integrity Checks
 
@@ -43,7 +42,6 @@ For each platform output in `dist/`:
 Run from `packages/bridge/`:
 
 ```bash
-bun test src/__tests__/pty_manager.test.ts
 bun test src/__tests__/pty_runtime.test.ts
 bun test src/__tests__/native_pty.test.ts
 bun test src/__tests__/
@@ -55,16 +53,10 @@ Expected:
 
 ## 5) Runtime Smoke (on clean machine)
 
-### Scenario A: OpenCode installed/running
 - Create terminal from app
 - Send input
-- Resize terminal
+- Resize terminal, run `stty size` before and after
 - Confirm output is smooth and responsive
-
-### Scenario B: OpenCode missing
-- Create terminal from app
-- Confirm terminal still works (native PTY fallback)
-- Run `stty size`, resize, run `stty size` again
 
 ## 6) Update Flow Check
 
@@ -78,7 +70,7 @@ Expected:
 - [ ] Binary + sidecar pair present for Linux targets
 - [ ] PTY tests green
 - [ ] Full bridge tests green
-- [ ] Manual smoke test passed for OpenCode and native fallback paths
+- [ ] Manual smoke test passed
 
 ## 8) Rollback Plan
 

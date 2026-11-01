@@ -154,7 +154,7 @@ journalctl --user -u broski-link -f`}</CodeBlock>
             <h3 className="font-medium mb-2">Bridge keeps restarting</h3>
             <ul className="text-sm text-muted-foreground space-y-1">
               <li>Check <code className="bg-muted/50 px-1 rounded">~/.broski/logs/bridge.error.log</code> for the crash reason</li>
-              <li>Verify OpenCode is installed: <code className="bg-muted/50 px-1 rounded">opencode --version</code></li>
+              <li>Verify an agent is installed: <code className="bg-muted/50 px-1 rounded">claude --version</code> or <code className="bg-muted/50 px-1 rounded">pi --version</code></li>
               <li>Check if port 18274 is in use by another process</li>
               <li>Try running manually first: <code className="bg-muted/50 px-1 rounded">broski</code> in a terminal</li>
             </ul>

@@ -84,9 +84,6 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
   'BackendsListResponse': (json) => BackendsListResponse.fromJson(
     _as<Map<String, Object?>>(json, 'BackendsListResponse'),
   ),
-  'BaseBranchReview': (json) => BaseBranchReview.fromJson(
-    _as<Map<String, Object?>>(json, 'BaseBranchReview'),
-  ),
   'BlockDeltaEvent': (json) => BlockDeltaEvent.fromJson(
     _as<Map<String, Object?>>(json, 'BlockDeltaEvent'),
   ),
@@ -147,12 +144,6 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
   'ClientMessage': (json) =>
       ClientMessage.fromJson(_as<Map<String, Object?>>(json, 'ClientMessage')),
   'ClientRequestId': (json) => _as<String>(json, 'ClientRequestId'),
-  'CodexCall': (json) =>
-      CodexCall.fromJson(_as<Map<String, Object?>>(json, 'CodexCall')),
-  'CodexOp': (json) =>
-      CodexOp.fromJson(_as<Map<String, Object?>>(json, 'CodexOp')),
-  'CodexTurnDiff': (json) =>
-      CodexTurnDiff.fromJson(_as<Map<String, Object?>>(json, 'CodexTurnDiff')),
   'CommandId': (json) => _as<String>(json, 'CommandId'),
   'CommandKind': (json) =>
       CommandKind.fromJson(_as<String>(json, 'CommandKind')),
@@ -174,8 +165,6 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
   'CommandsListed': (json) => CommandsListed.fromJson(
     _as<Map<String, Object?>>(json, 'CommandsListed'),
   ),
-  'CommitReview': (json) =>
-      CommitReview.fromJson(_as<Map<String, Object?>>(json, 'CommitReview')),
   'CompactRequest': (json) => CompactRequest.fromJson(
     _as<Map<String, Object?>>(json, 'CompactRequest'),
   ),
@@ -221,8 +210,6 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
   'ConfirmRequest': (json) => ConfirmRequest.fromJson(
     _as<Map<String, Object?>>(json, 'ConfirmRequest'),
   ),
-  'CustomReview': (json) =>
-      CustomReview.fromJson(_as<Map<String, Object?>>(json, 'CustomReview')),
   'EntryLabelled': (json) =>
       EntryLabelled.fromJson(_as<Map<String, Object?>>(json, 'EntryLabelled')),
   'ErrorCode': (json) => ErrorCode.fromJson(_as<String>(json, 'ErrorCode')),
@@ -442,10 +429,6 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
       NumberValue.fromJson(_as<Map<String, Object?>>(json, 'NumberValue')),
   'OpenBlock': (json) =>
       OpenBlock.fromJson(_as<Map<String, Object?>>(json, 'OpenBlock')),
-  'OpenCodeCall': (json) =>
-      OpenCodeCall.fromJson(_as<Map<String, Object?>>(json, 'OpenCodeCall')),
-  'OpenCodeOp': (json) =>
-      OpenCodeOp.fromJson(_as<Map<String, Object?>>(json, 'OpenCodeOp')),
   'Option': (json) =>
       Option.fromJson(_as<Map<String, Object?>>(json, 'Option')),
   'PageCursor': (json) => _as<String>(json, 'PageCursor'),
@@ -575,30 +558,6 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
   ),
   'RetryState': (json) =>
       RetryState.fromJson(_as<Map<String, Object?>>(json, 'RetryState')),
-  'RevertClearOp': (json) =>
-      RevertClearOp.fromJson(_as<Map<String, Object?>>(json, 'RevertClearOp')),
-  'RevertCleared': (json) =>
-      RevertCleared.fromJson(_as<Map<String, Object?>>(json, 'RevertCleared')),
-  'RevertCommitOp': (json) => RevertCommitOp.fromJson(
-    _as<Map<String, Object?>>(json, 'RevertCommitOp'),
-  ),
-  'RevertCommitted': (json) => RevertCommitted.fromJson(
-    _as<Map<String, Object?>>(json, 'RevertCommitted'),
-  ),
-  'RevertOp': (json) =>
-      RevertOp.fromJson(_as<Map<String, Object?>>(json, 'RevertOp')),
-  'RevertStageOp': (json) =>
-      RevertStageOp.fromJson(_as<Map<String, Object?>>(json, 'RevertStageOp')),
-  'RevertStaged': (json) =>
-      RevertStaged.fromJson(_as<Map<String, Object?>>(json, 'RevertStaged')),
-  'Reverted': (json) =>
-      Reverted.fromJson(_as<Map<String, Object?>>(json, 'Reverted')),
-  'ReviewStartOp': (json) =>
-      ReviewStartOp.fromJson(_as<Map<String, Object?>>(json, 'ReviewStartOp')),
-  'ReviewStarted': (json) =>
-      ReviewStarted.fromJson(_as<Map<String, Object?>>(json, 'ReviewStarted')),
-  'ReviewTarget': (json) =>
-      ReviewTarget.fromJson(_as<Map<String, Object?>>(json, 'ReviewTarget')),
   'RewindFilesOp': (json) =>
       RewindFilesOp.fromJson(_as<Map<String, Object?>>(json, 'RewindFilesOp')),
   'RewindFilesResult': (json) => RewindFilesResult.fromJson(
@@ -892,9 +851,6 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
       TreeNodeKind.fromJson(_as<String>(json, 'TreeNodeKind')),
   'TreeRead': (json) =>
       TreeRead.fromJson(_as<Map<String, Object?>>(json, 'TreeRead')),
-  'UncommittedReview': (json) => UncommittedReview.fromJson(
-    _as<Map<String, Object?>>(json, 'UncommittedReview'),
-  ),
   'UploadId': (json) => _as<String>(json, 'UploadId'),
   'Usage': (json) => Usage.fromJson(_as<Map<String, Object?>>(json, 'Usage')),
   'UsageUpdatedEvent': (json) => UsageUpdatedEvent.fromJson(
@@ -1003,9 +959,6 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
   'BackendsListResponse': (json) => (BackendsListResponse.fromJson(
     _as<Map<String, Object?>>(json, 'BackendsListResponse'),
   )).toJson(),
-  'BaseBranchReview': (json) => (BaseBranchReview.fromJson(
-    _as<Map<String, Object?>>(json, 'BaseBranchReview'),
-  )).toJson(),
   'BlockDeltaEvent': (json) => (BlockDeltaEvent.fromJson(
     _as<Map<String, Object?>>(json, 'BlockDeltaEvent'),
   )).toJson(),
@@ -1081,14 +1034,6 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
     _as<Map<String, Object?>>(json, 'ClientMessage'),
   )).toJson(),
   'ClientRequestId': (json) => (_as<String>(json, 'ClientRequestId')),
-  'CodexCall': (json) => (CodexCall.fromJson(
-    _as<Map<String, Object?>>(json, 'CodexCall'),
-  )).toJson(),
-  'CodexOp': (json) =>
-      (CodexOp.fromJson(_as<Map<String, Object?>>(json, 'CodexOp'))).toJson(),
-  'CodexTurnDiff': (json) => (CodexTurnDiff.fromJson(
-    _as<Map<String, Object?>>(json, 'CodexTurnDiff'),
-  )).toJson(),
   'CommandId': (json) => (_as<String>(json, 'CommandId')),
   'CommandKind': (json) =>
       (CommandKind.fromJson(_as<String>(json, 'CommandKind'))).toJson(),
@@ -1109,9 +1054,6 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
   )).toJson(),
   'CommandsListed': (json) => (CommandsListed.fromJson(
     _as<Map<String, Object?>>(json, 'CommandsListed'),
-  )).toJson(),
-  'CommitReview': (json) => (CommitReview.fromJson(
-    _as<Map<String, Object?>>(json, 'CommitReview'),
   )).toJson(),
   'CompactRequest': (json) => (CompactRequest.fromJson(
     _as<Map<String, Object?>>(json, 'CompactRequest'),
@@ -1160,9 +1102,6 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
   )).toJson(),
   'ConfirmRequest': (json) => (ConfirmRequest.fromJson(
     _as<Map<String, Object?>>(json, 'ConfirmRequest'),
-  )).toJson(),
-  'CustomReview': (json) => (CustomReview.fromJson(
-    _as<Map<String, Object?>>(json, 'CustomReview'),
   )).toJson(),
   'EntryLabelled': (json) => (EntryLabelled.fromJson(
     _as<Map<String, Object?>>(json, 'EntryLabelled'),
@@ -1418,12 +1357,6 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
   'OpenBlock': (json) => (OpenBlock.fromJson(
     _as<Map<String, Object?>>(json, 'OpenBlock'),
   )).toJson(),
-  'OpenCodeCall': (json) => (OpenCodeCall.fromJson(
-    _as<Map<String, Object?>>(json, 'OpenCodeCall'),
-  )).toJson(),
-  'OpenCodeOp': (json) => (OpenCodeOp.fromJson(
-    _as<Map<String, Object?>>(json, 'OpenCodeOp'),
-  )).toJson(),
   'Option': (json) =>
       (Option.fromJson(_as<Map<String, Object?>>(json, 'Option'))).toJson(),
   'PageCursor': (json) => (_as<String>(json, 'PageCursor')),
@@ -1573,37 +1506,6 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
   )).toJson(),
   'RetryState': (json) => (RetryState.fromJson(
     _as<Map<String, Object?>>(json, 'RetryState'),
-  )).toJson(),
-  'RevertClearOp': (json) => (RevertClearOp.fromJson(
-    _as<Map<String, Object?>>(json, 'RevertClearOp'),
-  )).toJson(),
-  'RevertCleared': (json) => (RevertCleared.fromJson(
-    _as<Map<String, Object?>>(json, 'RevertCleared'),
-  )).toJson(),
-  'RevertCommitOp': (json) => (RevertCommitOp.fromJson(
-    _as<Map<String, Object?>>(json, 'RevertCommitOp'),
-  )).toJson(),
-  'RevertCommitted': (json) => (RevertCommitted.fromJson(
-    _as<Map<String, Object?>>(json, 'RevertCommitted'),
-  )).toJson(),
-  'RevertOp': (json) =>
-      (RevertOp.fromJson(_as<Map<String, Object?>>(json, 'RevertOp'))).toJson(),
-  'RevertStageOp': (json) => (RevertStageOp.fromJson(
-    _as<Map<String, Object?>>(json, 'RevertStageOp'),
-  )).toJson(),
-  'RevertStaged': (json) => (RevertStaged.fromJson(
-    _as<Map<String, Object?>>(json, 'RevertStaged'),
-  )).toJson(),
-  'Reverted': (json) =>
-      (Reverted.fromJson(_as<Map<String, Object?>>(json, 'Reverted'))).toJson(),
-  'ReviewStartOp': (json) => (ReviewStartOp.fromJson(
-    _as<Map<String, Object?>>(json, 'ReviewStartOp'),
-  )).toJson(),
-  'ReviewStarted': (json) => (ReviewStarted.fromJson(
-    _as<Map<String, Object?>>(json, 'ReviewStarted'),
-  )).toJson(),
-  'ReviewTarget': (json) => (ReviewTarget.fromJson(
-    _as<Map<String, Object?>>(json, 'ReviewTarget'),
   )).toJson(),
   'RewindFilesOp': (json) => (RewindFilesOp.fromJson(
     _as<Map<String, Object?>>(json, 'RewindFilesOp'),
@@ -1941,9 +1843,6 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
       (TreeNodeKind.fromJson(_as<String>(json, 'TreeNodeKind'))).toJson(),
   'TreeRead': (json) =>
       (TreeRead.fromJson(_as<Map<String, Object?>>(json, 'TreeRead'))).toJson(),
-  'UncommittedReview': (json) => (UncommittedReview.fromJson(
-    _as<Map<String, Object?>>(json, 'UncommittedReview'),
-  )).toJson(),
   'UploadId': (json) => (_as<String>(json, 'UploadId')),
   'Usage': (json) =>
       (Usage.fromJson(_as<Map<String, Object?>>(json, 'Usage'))).toJson(),

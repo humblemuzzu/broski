@@ -218,28 +218,12 @@ describe("Doctor System", () => {
 			}
 		});
 
-		test("checks for opencode agent", async () => {
-			const results = await runDependencyChecks();
-
-			const opencodeCheck = results.find((r) => r.id === "opencode");
-			expect(opencodeCheck).toBeDefined();
-			expect(opencodeCheck?.message).toMatch(/opencode/i);
-		});
-
 		test("checks for claude code agent", async () => {
 			const results = await runDependencyChecks();
 
 			const claudeCheck = results.find((r) => r.id === "claude_code");
 			expect(claudeCheck).toBeDefined();
 			expect(claudeCheck?.message).toMatch(/claude.*code/i);
-		});
-
-		test("checks for codex agent", async () => {
-			const results = await runDependencyChecks();
-
-			const codexCheck = results.find((r) => r.id === "codex");
-			expect(codexCheck).toBeDefined();
-			expect(codexCheck?.message).toMatch(/codex/i);
 		});
 
 		test("includes any_agent summary check", async () => {

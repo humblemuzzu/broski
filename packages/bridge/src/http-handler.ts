@@ -1,12 +1,10 @@
 /**
  * HTTP request handler extracted from server.ts.
  *
- * Handles all HTTP routes: reverse proxy, web dashboard, API endpoints
- * (/projects, /browse), and the fetch handler factory (auth + security).
+ * Handles all HTTP routes: reverse proxy, API endpoints (/browse), the CC
+ * permission hook, and the fetch handler factory (auth + security).
  */
-import { join, resolve, sep } from "node:path";
 import type { ServerWebSocket } from "bun";
-import type { OpenCodeConnector } from "./connectors/opencode";
 import {
 	buildProxyForwardHeaders,
 	buildProxyShim,
@@ -26,10 +24,8 @@ import {
 
 export interface HandleHttpDeps {
 	tlsEnabled: boolean;
-	webDistDir: string;
 	version: string;
 	allowedProxyPorts: Set<number>;
-	getOpenCode: () => OpenCodeConnector | null;
 	listFilesDirectly: (path: string) => Promise<unknown>;
 	logUser: (msg: string) => void;
 	handleCcPermissionHook?: (request: Request) => Promise<Response>;
@@ -41,8 +37,6 @@ export interface HandleHttpDeps {
  */
 export async function handleHttpRequest(request: Request, deps: HandleHttpDeps): Promise<Response> {
 	const url = new URL(request.url);
-	const accept = request.headers.get("accept") ?? "";
-	const wantsHtml = accept.includes("text/html");
 
 	// ── Reverse proxy for embedded previews ────────────────────────────
 	if (url.pathname.startsWith("/proxy/")) {
@@ -108,48 +102,9 @@ export async function handleHttpRequest(request: Request, deps: HandleHttpDeps):
 		return new Response(buf, { status: upstreamRes.status, headers });
 	}
 
-	// ── Serve embedded web dashboard ───────────────────────────────────
-	if (
-		request.method === "GET" &&
-		(wantsHtml ||
-			url.pathname.startsWith("/assets/") ||
-			url.pathname === "/favicon.ico" ||
-			url.pathname === "/manifest.json" ||
-			url.pathname === "/robots.txt")
-	) {
-		const indexPath = join(deps.webDistDir, "index.html");
-		const indexFile = Bun.file(indexPath);
-		if (await indexFile.exists()) {
-			const safePath = (() => {
-				if (url.pathname === "/" || url.pathname === "") return indexPath;
-				const target = resolve(deps.webDistDir, `.${url.pathname}`);
-				const base = resolve(deps.webDistDir) + sep;
-				if (!target.startsWith(base)) return null;
-				return target;
-			})();
-			if (safePath) {
-				const file = Bun.file(safePath);
-				if (await file.exists()) return new Response(file);
-			}
-			return new Response(indexFile);
-		}
-	}
-
 	// ── Root status endpoint ───────────────────────────────────────────
 	if (url.pathname === "/") {
 		return jsonResponse({ status: "ok", version: deps.version });
-	}
-
-	// ── /projects ──────────────────────────────────────────────────────
-	if (url.pathname === "/projects") {
-		const opencode = deps.getOpenCode();
-		if (!opencode) return jsonResponse({ error: "OpenCode not available" }, 503);
-		try {
-			const data = await opencode.listProjects();
-			return jsonResponse(data);
-		} catch {
-			return jsonResponse({ error: "Request failed" }, 500);
-		}
 	}
 
 	// ── /browse ────────────────────────────────────────────────────────
@@ -282,23 +237,6 @@ export function createFetchHandler(deps: FetchHandlerDeps) {
 		}
 
 		if (!isValidToken) {
-			const accept = request.headers.get("accept") ?? "";
-			const wantsHtml = accept.includes("text/html");
-			const looksLikeDashboardAsset =
-				wantsHtml ||
-				url.pathname.startsWith("/assets/") ||
-				url.pathname.startsWith("/proxy/") ||
-				url.pathname === "/favicon.ico" ||
-				url.pathname === "/manifest.json" ||
-				url.pathname === "/robots.txt";
-			if (request.method === "GET" && looksLikeDashboardAsset) {
-				try {
-					return await handleHttpRequest(request, deps.httpDeps);
-				} catch (error) {
-					deps.log(`[HTTP] Error: ${toErrorMessage(error)}`);
-					return publicJson({ error: toPublicErrorMessage(error) }, 500);
-				}
-			}
 			return publicJson({ error: "Unauthorized" }, 401);
 		}
 

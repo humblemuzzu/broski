@@ -52,19 +52,27 @@ async function settle(): Promise<void> {
 }
 
 describe("a feed that attaches after an approval was announced", () => {
+	let hook: Promise<Response> | undefined;
+
 	test("is told the busy state and then the alert, unchanged", async () => {
 		const first = await attachFeed();
 		let announced: Record<string, unknown>;
 		try {
-			h.ocStream("permission.asked", { id: "oc-replay-1", sessionID: "oc-replay", permission: "bash" });
-			announced = await alertOn(first, "oc-replay");
+			hook = h.postHook("cc-hook", {
+				hook_event_name: "PreToolUse",
+				session_id: "cc-hook-replay",
+				tool_use_id: "toolu-hook-replay",
+				tool_name: "Bash",
+				tool_input: { command: "ls" },
+			});
+			announced = await alertOn(first, "cc-hook-replay");
 		} finally {
 			first.close();
 		}
 
 		const second = await attachFeed();
 		try {
-			const replayed = await alertOn(second, "oc-replay");
+			const replayed = await alertOn(second, "cc-hook-replay");
 			expect(replayed).toEqual(announced);
 			expect(second.frames().map((frame) => frame.type)).toEqual(["link_busy", "link_event"]);
 		} finally {
@@ -75,12 +83,12 @@ describe("a feed that attaches after an approval was announced", () => {
 	test("a replayed alert is still answerable", async () => {
 		const feed = await attachFeed();
 		try {
-			const alert = await alertOn(feed, "oc-replay");
+			const alert = await alertOn(feed, "cc-hook-replay");
 			feed.clear();
 			feed.send({
 				type: "link_decision",
-				backend: "opencode",
-				session: "oc-replay",
+				backend: "claude-code",
+				session: "cc-hook-replay",
 				request: String(alert.request),
 				decision: "allow",
 			});
@@ -89,6 +97,7 @@ describe("a feed that attaches after an approval was announced", () => {
 				"link_decision_result",
 			);
 			expect(result.ok).toBe(true);
+			expect(await h.hookDecision(await (hook as Promise<Response>))).toBe("allow");
 		} finally {
 			feed.close();
 		}
@@ -98,7 +107,7 @@ describe("a feed that attaches after an approval was announced", () => {
 		const feed = await attachFeed();
 		try {
 			await settle();
-			expect(alertsOn(feed, "oc-replay")).toEqual([]);
+			expect(alertsOn(feed, "cc-hook-replay")).toEqual([]);
 		} finally {
 			feed.close();
 		}
@@ -129,10 +138,10 @@ describe("an alert announced with no feed attached", () => {
 	});
 
 	test("a user-input request is replayed as attention", async () => {
-		h.ocStream("question.asked", { id: "oc-replay-q", sessionID: "oc-replay-q", title: "Pick one", prompt: "Which?" });
+		h.inputRequest("cc-replay-q", { requestId: "cc-replay-q-1", title: "Pick one", prompt: "Which?" });
 		const feed = await attachFeed();
 		try {
-			const alert = await alertOn(feed, "oc-replay-q");
+			const alert = await alertOn(feed, "cc-replay-q");
 			expect(alert.kind).toBe("attention");
 			expect(alert.body).toBe("Which?");
 		} finally {

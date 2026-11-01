@@ -43,7 +43,7 @@ broski doctor --export`}</CodeBlock>
             ["Pairing", "Loopback TLS, hook token, network readiness", "broski doctor --profile pairing"],
             ["Network", "Port conflicts, service and port state", "broski doctor --profile network"],
             ["Link", "Bridge, relay and each phone's route", "broski-link status"],
-            ["Agents", "OpenCode / Claude / Codex availability", "broski doctor --profile agents"],
+            ["Agents", "Claude Code / Pi availability", "broski doctor --profile agents"],
             ["Daemon", "Background service state and config", "broski doctor --profile daemon"],
           ]}
         />
@@ -97,7 +97,7 @@ broski logs --export`}</CodeBlock>
           </a>
           <a href="/docs/troubleshooting/ai-backends" className="block p-4 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/30 transition-colors">
             <h3 className="font-medium mb-1">AI Backend Issues</h3>
-            <p className="text-sm text-muted-foreground">OpenCode, Claude Code, Codex</p>
+            <p className="text-sm text-muted-foreground">Claude Code, Pi</p>
           </a>
           <a href="/docs/troubleshooting/errors" className="block p-4 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/30 transition-colors">
             <h3 className="font-medium mb-1">Error Reference</h3>
@@ -115,7 +115,6 @@ broski logs --export`}</CodeBlock>
             ["Can't connect", <><code key="link" className="text-xs">broski restart</code>, then <code className="text-xs">broski-link pair</code></>],
             ["Port in use", <><code className="text-xs">lsof -nP -iTCP:18274</code> (macOS/Linux) or <code className="text-xs">netstat -ano | findstr :18274</code> (Windows) then kill the PID</>],
             ["Pairing failed", <code key="auth" className="text-xs">broski-link pair</code>],
-            ["OpenCode missing", <code key="oc" className="text-xs">curl -fsSL https://opencode.ai/install | bash</code>],
             ["Everything broken", <><code className="text-xs">broski uninstall</code>, <code className="text-xs">rm -rf ~/.broski/</code>, then <code className="text-xs">broski install</code> and pair again (this removes all pairings)</>],
           ]}
         />
@@ -232,7 +231,6 @@ broski troubleshoot`}</CodeBlock>
             ["Bridge logs", "broski logs (or check ~/.broski/logs/bridge.log)"],
             ["Local hook token", "~/.broski/token.json"],
             ["Link log", "~/.broski/logs/link.log"],
-            ["OpenCode logs", "Terminal output"],
             ["Claude Code sessions", "~/.claude/projects/"],
             ["iOS app logs", "Xcode Console or Analytics Data"],
             ["Android app logs", "adb logcat"],

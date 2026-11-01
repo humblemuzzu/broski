@@ -28,7 +28,7 @@ export default function FirstSessionPage() {
           rows={[
             ["Bridge running on your system", "Terminal shows QR code and \"Bridge listening on port 18274\""],
             ["Phone connected", "Green connection indicator in the app"],
-            ["AI backend configured", "OpenCode or Claude Code with valid API key"],
+            ["AI backend configured", "Claude Code or Pi with valid API key"],
           ]}
         />
 

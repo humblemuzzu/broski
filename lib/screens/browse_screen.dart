@@ -2,8 +2,6 @@ import 'dart:convert';
 
 import 'package:broski/models/file_binary_content.dart';
 import 'package:broski/models/file_content.dart';
-import 'package:broski/models/search_result.dart';
-import 'package:broski/models/vcs.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/selected_agent_available.dart';
 import 'package:broski/providers/selection_provider.dart';
@@ -38,10 +36,8 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
   // Search state
   final TextEditingController _searchController = TextEditingController();
   bool _showSearch = false;
-  SearchType _searchType = SearchType.files;
   List<String>? _fileResults;
-  List<TextSearchResult>? _textResults;
-  List<SymbolResult>? _symbolResults;
+  String? _searchRoot;
   bool _isSearching = false;
   // File viewer state
   String? _viewingFilePath;
@@ -49,15 +45,12 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
   Uint8List? _viewingBinaryData;
   bool _isLoadingFile = false;
   String? _fileTooLargeMessage;
-  // Feature 18: File status (git)
-  Map<String, FileStatusInfo>? _fileStatusMap;
   @override
   void initState() {
     super.initState();
     _path = widget.initialPath ?? '~';
     _itemsFuture = _loadItems();
     _loadInitialPath();
-    _loadFileStatus();
   }
 
   void _handleSelectionChange(SelectionState? previous, SelectionState next) {
@@ -92,7 +85,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       _path = saved;
       _itemsFuture = _loadItems();
     });
-    _loadFileStatus();
   }
 
   Future<void> _persistPath(String path) async {
@@ -113,26 +105,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     });
     if (persist) {
       _persistPath(path);
-    }
-    _loadFileStatus();
-  }
-
-  // Feature 18: Load git file status
-  Future<void> _loadFileStatus() async {
-    try {
-      final bridge = ref.read(bridgeServiceProvider);
-      final selection = ref.read(selectionProvider);
-      final projectPath = selection.project?.path;
-      if (projectPath == null) return;
-      if (!_path.startsWith(projectPath)) return;
-      final fileStatus = await bridge.getFileStatus(projectPath: projectPath);
-      if (mounted) {
-        setState(() {
-          _fileStatusMap = {for (final fs in fileStatus) fs.path: fs};
-        });
-      }
-    } catch (_) {
-      // File status might not be available
     }
   }
 
@@ -241,7 +213,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     });
   }
 
-  // Feature 12: Search
   Future<void> _performSearch() async {
     final query = _searchController.text.trim();
     if (query.isEmpty) return;
@@ -251,7 +222,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       if (mounted) {
         showInfo(
           context,
-          'Select a project to use OpenCode search. File browsing works without it.',
+          'Select a project to search it. File browsing works without it.',
         );
       }
       return;
@@ -259,48 +230,19 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     setState(() {
       _isSearching = true;
       _fileResults = null;
-      _textResults = null;
-      _symbolResults = null;
     });
     try {
       final bridge = ref.read(bridgeServiceProvider);
-      switch (_searchType) {
-        case SearchType.files:
-          final results = await bridge.findFiles(
-            query,
-            projectPath: projectPath,
-          );
-          if (mounted) {
-            setState(() {
-              _fileResults = results;
-              _isSearching = false;
-            });
-          }
-          break;
-        case SearchType.text:
-          final results = await bridge.findText(
-            query,
-            projectPath: projectPath,
-          );
-          if (mounted) {
-            setState(() {
-              _textResults = results;
-              _isSearching = false;
-            });
-          }
-          break;
-        case SearchType.symbols:
-          final results = await bridge.findSymbols(
-            query,
-            projectPath: projectPath,
-          );
-          if (mounted) {
-            setState(() {
-              _symbolResults = results;
-              _isSearching = false;
-            });
-          }
-          break;
+      final results = await bridge.searchFilesAndDirs(
+        query,
+        projectPath: projectPath,
+      );
+      if (mounted) {
+        setState(() {
+          _searchRoot = projectPath;
+          _fileResults = results;
+          _isSearching = false;
+        });
       }
     } catch (e) {
       if (mounted) {
@@ -314,8 +256,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     setState(() {
       _searchController.clear();
       _fileResults = null;
-      _textResults = null;
-      _symbolResults = null;
     });
   }
 
@@ -473,42 +413,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
                   ),
                 ),
           actions: [
-            // Search type selector (when searching)
-            if (_showSearch)
-              PopupMenuButton<SearchType>(
-                icon: Icon(_getSearchTypeIcon(), color: theme.text),
-                color: theme.backgroundPanel,
-                onSelected: (type) {
-                  setState(() => _searchType = type);
-                  _performSearch();
-                },
-                itemBuilder: (context) => [
-                  PopupMenuItem(
-                    value: SearchType.files,
-                    child: _SearchTypeItem(
-                      icon: AppIcons.description,
-                      label: 'Files',
-                      isSelected: _searchType == SearchType.files,
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: SearchType.text,
-                    child: _SearchTypeItem(
-                      icon: AppIcons.textFields,
-                      label: 'Text',
-                      isSelected: _searchType == SearchType.text,
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: SearchType.symbols,
-                    child: _SearchTypeItem(
-                      icon: AppIcons.code,
-                      label: 'Symbols',
-                      isSelected: _searchType == SearchType.symbols,
-                    ),
-                  ),
-                ],
-              ),
             // Search button (when not searching)
             if (!_showSearch)
               IconButton(
@@ -622,7 +526,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       autofocus: true,
       style: TextStyle(color: theme.text, fontSize: 16),
       decoration: InputDecoration(
-        hintText: _getSearchHint(),
+        hintText: _searchHint,
         hintStyle: TextStyle(color: theme.textMuted),
         border: InputBorder.none,
         suffixIcon: _searchController.text.isNotEmpty
@@ -636,27 +540,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     );
   }
 
-  String _getSearchHint() {
-    switch (_searchType) {
-      case SearchType.files:
-        return 'Search files...';
-      case SearchType.text:
-        return 'Search in files...';
-      case SearchType.symbols:
-        return 'Search symbols...';
-    }
-  }
-
-  IconData _getSearchTypeIcon() {
-    switch (_searchType) {
-      case SearchType.files:
-        return AppIcons.description;
-      case SearchType.text:
-        return AppIcons.textFields;
-      case SearchType.symbols:
-        return AppIcons.code;
-    }
-  }
+  static const _searchHint = 'Search files and folders...';
 
   Widget _buildSearchResults(OpenCodeTheme theme) {
     if (_isSearching) {
@@ -665,20 +549,14 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     if (_fileResults != null) {
       return _buildFileSearchResults(theme);
     }
-    if (_textResults != null) {
-      return _buildTextSearchResults(theme);
-    }
-    if (_symbolResults != null) {
-      return _buildSymbolSearchResults(theme);
-    }
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(_getSearchTypeIcon(), size: 48, color: theme.textMuted),
+          Icon(AppIcons.search, size: 48, color: theme.textMuted),
           const SizedBox(height: Spacing.lg),
           Text(
-            _getSearchHint(),
+            _searchHint,
             style: TextStyle(color: theme.textMuted, fontSize: 16),
           ),
         ],
@@ -689,63 +567,32 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
   Widget _buildFileSearchResults(OpenCodeTheme theme) {
     if (_fileResults!.isEmpty) {
       return Center(
-        child: Text('No files found', style: TextStyle(color: theme.textMuted)),
+        child: Text('Nothing found', style: TextStyle(color: theme.textMuted)),
       );
     }
     return ListView.builder(
       padding: Insets.card,
       itemCount: _fileResults!.length,
       itemBuilder: (context, index) {
-        final path = _fileResults![index];
-        final filename = path.split('/').last;
+        final relative = _fileResults![index];
+        final isDir = relative.endsWith('/');
+        final trimmed = isDir
+            ? relative.substring(0, relative.length - 1)
+            : relative;
+        final absolute = _joinPath(_searchRoot ?? _path, trimmed);
         return _FileResultTile(
-          filename: filename,
-          path: path,
-          onTap: () => _viewFile(path),
-        );
-      },
-    );
-  }
-
-  Widget _buildTextSearchResults(OpenCodeTheme theme) {
-    if (_textResults!.isEmpty) {
-      return Center(
-        child: Text(
-          'No matches found',
-          style: TextStyle(color: theme.textMuted),
-        ),
-      );
-    }
-    return ListView.builder(
-      padding: Insets.card,
-      itemCount: _textResults!.length,
-      itemBuilder: (context, index) {
-        final result = _textResults![index];
-        return _TextResultTile(
-          result: result,
-          onTap: () => _viewFile(result.path),
-        );
-      },
-    );
-  }
-
-  Widget _buildSymbolSearchResults(OpenCodeTheme theme) {
-    if (_symbolResults!.isEmpty) {
-      return Center(
-        child: Text(
-          'No symbols found',
-          style: TextStyle(color: theme.textMuted),
-        ),
-      );
-    }
-    return ListView.builder(
-      padding: Insets.card,
-      itemCount: _symbolResults!.length,
-      itemBuilder: (context, index) {
-        final result = _symbolResults![index];
-        return _SymbolResultTile(
-          result: result,
-          onTap: () => _viewFile(result.path),
+          filename: trimmed.split('/').last,
+          path: relative,
+          isDirectory: isDir,
+          onTap: () {
+            if (!isDir) {
+              _viewFile(absolute);
+              return;
+            }
+            setState(() => _showSearch = false);
+            _clearSearch();
+            _navigate(absolute);
+          },
         );
       },
     );
@@ -829,8 +676,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
               final nextPath = resolvedNextPath.isNotEmpty
                   ? resolvedNextPath
                   : _joinPath(_path, name);
-              // Feature 18: Get file status
-              final fileStatus = _fileStatusFor(nextPath);
               return _FileTile(
                 icon: type == 'directory'
                     ? AppIcons.folder
@@ -840,7 +685,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
                     : theme.textMuted,
                 name: name,
                 subtitle: type == 'directory' ? 'Folder' : _getFileSize(item),
-                fileStatus: type != 'directory' ? fileStatus : null,
                 onTap: () {
                   if (type == 'directory') {
                     _navigate(nextPath);
@@ -928,19 +772,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     if (base.endsWith('/')) return '$base$name';
     return '$base/$name';
   }
-
-  FileStatusInfo? _fileStatusFor(String absolutePath) {
-    final selection = ref.read(selectionProvider);
-    final projectPath = selection.project?.path;
-    if (projectPath == null || projectPath.isEmpty) return null;
-    if (!_path.startsWith(projectPath)) return null;
-    if (!absolutePath.startsWith(projectPath)) return null;
-    final relative = absolutePath == projectPath
-        ? ''
-        : absolutePath.substring(projectPath.length).replaceFirst('/', '');
-    if (relative.isEmpty) return null;
-    return _fileStatusMap?[relative];
-  }
 }
 
 // File tile widget
@@ -951,15 +782,12 @@ class _FileTile extends StatelessWidget {
     required this.name,
     required this.subtitle,
     required this.onTap,
-    this.fileStatus,
   });
   final IconData icon;
   final Color iconColor;
   final String name;
   final String subtitle;
   final VoidCallback onTap;
-  // Feature 18: Git file status
-  final FileStatusInfo? fileStatus;
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -982,66 +810,20 @@ class _FileTile extends StatelessWidget {
           ),
           child: Icon(icon, color: iconColor, size: 22),
         ),
-        title: Row(
-          children: [
-            Expanded(
-              child: Text(
-                name,
-                style: TextStyle(
-                  color: theme.text,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            // Feature 18: Show git status badge
-            if (fileStatus != null) ...[
-              const SizedBox(width: Spacing.sm),
-              _FileStatusBadge(status: fileStatus!),
-            ],
-          ],
+        title: Text(
+          name,
+          style: TextStyle(
+            color: theme.text,
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+          overflow: TextOverflow.ellipsis,
         ),
         subtitle: Text(
           subtitle,
           style: AppTypography.label(color: theme.textMuted),
         ),
         trailing: Icon(AppIcons.chevronRight, color: theme.textMuted, size: 20),
-      ),
-    );
-  }
-}
-
-// Feature 18: Git file status badge
-class _FileStatusBadge extends StatelessWidget {
-  const _FileStatusBadge({required this.status});
-  final FileStatusInfo status;
-  @override
-  Widget build(BuildContext context) {
-    final theme = OpenCodeTheme.of(context);
-    final (label, color) = switch (status.status) {
-      FileStatusType.modified => ('M', theme.primary),
-      FileStatusType.added => ('A', theme.success),
-      FileStatusType.deleted => ('D', theme.error),
-      FileStatusType.renamed => ('R', theme.warning),
-      FileStatusType.copied => ('C', theme.info),
-      FileStatusType.untracked => ('?', theme.textMuted),
-      FileStatusType.ignored => ('!', theme.textMuted),
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: Radii.brXs,
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-          fontFamily: AppTypography.codeFontFamily,
-        ),
       ),
     );
   }
@@ -1077,50 +859,17 @@ class _PathChip extends StatelessWidget {
   }
 }
 
-// Search type item
-class _SearchTypeItem extends StatelessWidget {
-  const _SearchTypeItem({
-    required this.icon,
-    required this.label,
-    required this.isSelected,
-  });
-  final IconData icon;
-  final String label;
-  final bool isSelected;
-  @override
-  Widget build(BuildContext context) {
-    final theme = OpenCodeTheme.of(context);
-    return Row(
-      children: [
-        Icon(
-          icon,
-          color: isSelected ? theme.primary : theme.textMuted,
-          size: 20,
-        ),
-        const SizedBox(width: Spacing.md),
-        Text(
-          label,
-          style: TextStyle(
-            color: isSelected ? theme.primary : theme.text,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-          ),
-        ),
-        const Spacer(),
-        if (isSelected) Icon(AppIcons.check, color: theme.primary, size: 18),
-      ],
-    );
-  }
-}
-
 // File search result tile
 class _FileResultTile extends StatelessWidget {
   const _FileResultTile({
     required this.filename,
     required this.path,
+    required this.isDirectory,
     required this.onTap,
   });
   final String filename;
   final String path;
+  final bool isDirectory;
   final VoidCallback onTap;
   @override
   Widget build(BuildContext context) {
@@ -1142,7 +891,11 @@ class _FileResultTile extends StatelessWidget {
             color: theme.primary.withValues(alpha: 0.15),
             borderRadius: Radii.brMd,
           ),
-          child: Icon(AppIcons.description, color: theme.primary, size: 20),
+          child: Icon(
+            isDirectory ? AppIcons.folder : AppIcons.description,
+            color: theme.primary,
+            size: 20,
+          ),
         ),
         title: Text(
           filename,
@@ -1160,149 +913,5 @@ class _FileResultTile extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-// Text search result tile
-class _TextResultTile extends StatelessWidget {
-  const _TextResultTile({required this.result, required this.onTap});
-  final TextSearchResult result;
-  final VoidCallback onTap;
-  @override
-  Widget build(BuildContext context) {
-    final theme = OpenCodeTheme.of(context);
-    final themeData = Theme.of(context);
-    return Container(
-      margin: Insets.bottomSm,
-      decoration: BoxDecoration(
-        color: themeData.colorScheme.surface.withValues(alpha: 0.5),
-        borderRadius: Radii.brMd,
-        border: Border.all(color: theme.borderSubtle),
-      ),
-      child: ListTile(
-        onTap: onTap,
-        title: Row(
-          children: [
-            Text(
-              result.filename,
-              style: TextStyle(
-                color: theme.text,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(width: Spacing.sm),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: theme.textMuted.withValues(alpha: 0.2),
-                borderRadius: Radii.brXs,
-              ),
-              child: Text(
-                'L${result.lineNumber}',
-                style: AppTypography.caption(color: theme.textMuted),
-              ),
-            ),
-          ],
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Text(
-            result.lineText.trim(),
-            style: TextStyle(
-              color: theme.textMuted,
-              fontSize: 12,
-              fontFamily: AppTypography.codeFontFamily,
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// Symbol search result tile
-class _SymbolResultTile extends StatelessWidget {
-  const _SymbolResultTile({required this.result, required this.onTap});
-  final SymbolResult result;
-  final VoidCallback onTap;
-  @override
-  Widget build(BuildContext context) {
-    final theme = OpenCodeTheme.of(context);
-    final themeData = Theme.of(context);
-    return Container(
-      margin: Insets.bottomSm,
-      decoration: BoxDecoration(
-        color: themeData.colorScheme.surface.withValues(alpha: 0.5),
-        borderRadius: Radii.brMd,
-        border: Border.all(color: theme.borderSubtle),
-      ),
-      child: ListTile(
-        onTap: onTap,
-        leading: Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: _getSymbolColor(result.kind, theme).withValues(alpha: 0.15),
-            borderRadius: Radii.brSm,
-          ),
-          child: Center(
-            child: Text(
-              result.icon,
-              style: TextStyle(
-                color: _getSymbolColor(result.kind, theme),
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ),
-        title: Text(
-          result.name,
-          style: TextStyle(
-            color: theme.text,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        subtitle: Text(
-          '${result.filename}:${result.line}',
-          style: AppTypography.label(color: theme.textMuted),
-        ),
-        trailing: Container(
-          padding: Insets.chip,
-          decoration: BoxDecoration(
-            color: theme.textMuted.withValues(alpha: 0.2),
-            borderRadius: Radii.brSm,
-          ),
-          child: Text(
-            result.kind,
-            style: AppTypography.caption(color: theme.textMuted),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Color _getSymbolColor(String kind, OpenCodeTheme theme) {
-    switch (kind.toLowerCase()) {
-      case 'class':
-      case 'interface':
-        return theme.warning;
-      case 'function':
-      case 'method':
-        return theme.info;
-      case 'variable':
-      case 'field':
-      case 'property':
-        return theme.primary;
-      case 'enum':
-      case 'enummember':
-        return theme.success;
-      default:
-        return theme.textMuted;
-    }
   }
 }

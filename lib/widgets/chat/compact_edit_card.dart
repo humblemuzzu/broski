@@ -29,45 +29,18 @@ class CompactEditCard extends ConsumerWidget {
     this.onUndo,
   });
 
-  /// Get the file path from tool input
-  /// Handles different backend naming conventions:
-  /// - OpenCode: filePath
-  /// - Claude Code: path, file_path
-  /// - Codex live: changes[0].path or path in item
-  /// - Codex transcript: extracted from patch "*** Update File: `<path>`"
+  /// Get the file path from tool input (`filePath`, `path` or `file_path`).
   String _getFilePath() {
-    // Try standard field names first
     final filePath =
         tool.input['filePath'] as String? ??
         tool.input['path'] as String? ??
         tool.input['file_path'] as String?;
     if (filePath != null && filePath.isNotEmpty) return filePath;
-    // Codex live: Check changes array
-    final changes = tool.input['changes'];
-    if (changes is List && changes.isNotEmpty) {
-      final first = changes[0];
-      if (first is Map<String, dynamic>) {
-        final changePath = first['path'] as String?;
-        if (changePath != null && changePath.isNotEmpty) return changePath;
-      }
-    }
-    // Codex transcript: Extract from patch "*** Update File: <path>"
-    final patch = tool.input['patch'] as String? ?? tool.output;
-    if (patch != null && patch.isNotEmpty) {
-      final match = RegExp(r'\*\*\* Update File: ([^\n]+)').firstMatch(patch);
-      if (match != null) {
-        final extractedPath = match.group(1)?.trim();
-        if (extractedPath != null && extractedPath.isNotEmpty) {
-          return extractedPath;
-        }
-      }
-    }
     return 'Unknown';
   }
 
   /// Get old string content (before edit)
   /// Handles different backend data locations:
-  /// - OpenCode: input.oldString
   /// - Claude Code: metadata.filediff.before, metadata.toolUseResult.oldString
   /// - str_replace_editor: input.old_str
   /// - Pi: input.oldText
@@ -102,7 +75,6 @@ class CompactEditCard extends ConsumerWidget {
 
   /// Get new string content (after edit)
   /// Handles different backend data locations:
-  /// - OpenCode: input.newString
   /// - Claude Code: metadata.filediff.after, metadata.toolUseResult.newString
   /// - str_replace_editor: input.new_str
   /// - Pi: input.newText
@@ -135,35 +107,10 @@ class CompactEditCard extends ConsumerWidget {
     return '';
   }
 
-  /// Get unified diff text
-  /// Handles different backend data locations:
-  /// - Codex live: input.changes[0].diff or input.aggregatedOutput
-  /// - Codex transcript: input.patch (from transcript file parsing)
-  /// - Claude Code: metadata.diff (from toolUseResult)
+  /// Unified diff text from metadata.diff (Claude Code's toolUseResult).
   String? get _unifiedDiff {
-    // Claude Code: check metadata.diff first (most reliable)
     final metaDiff = tool.metadata['diff'] as String?;
     if (metaDiff != null && metaDiff.isNotEmpty) return metaDiff;
-    // Codex live: check changes array with diff
-    final changes = tool.input['changes'];
-    if (changes is List && changes.isNotEmpty) {
-      final first = changes[0];
-      if (first is Map<String, dynamic>) {
-        final diff = first['diff'] as String?;
-        if (diff != null && diff.isNotEmpty) return diff;
-      }
-    }
-    // Codex: check aggregatedOutput
-    final aggregated = tool.input['aggregatedOutput'] as String?;
-    if (aggregated != null && aggregated.isNotEmpty) return aggregated;
-    // Codex transcript: check patch field (from transcript file parsing)
-    final patch = tool.input['patch'] as String?;
-    if (patch != null && patch.isNotEmpty) return patch;
-    // Also check tool.output for patch data (transcript stores output here too)
-    final output = tool.output;
-    if (output != null && output.isNotEmpty && output.contains('***')) {
-      return output;
-    }
     return null;
   }
 
@@ -171,7 +118,6 @@ class CompactEditCard extends ConsumerWidget {
   /// Handles both oldString/newString format and unified diff format
   List<_DiffLine> _buildPreviewLines() {
     final lines = <_DiffLine>[];
-    // First check for unified diff (Codex format)
     final diff = _unifiedDiff;
     if (diff != null && diff.isNotEmpty) {
       return _parseUnifiedDiff(diff);

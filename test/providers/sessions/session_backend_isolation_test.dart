@@ -1,8 +1,6 @@
 import 'package:broski/models/claude_code.dart';
-import 'package:broski/models/codex.dart';
 import 'package:broski/models/project.dart';
 import 'package:broski/providers/claude_code_provider.dart';
-import 'package:broski/providers/codex_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/services/bridge/bridge_response_error.dart';
 import 'package:broski/services/storage_service.dart';
@@ -12,8 +10,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../../support/fake_websocket.dart';
 
-/// Every backend's list and every backend's project picker load on their own: the Claude Code list
-/// being refused by the link must leave the Codex list and the project picker working.
+/// The session list and the project picker load on their own: the Claude Code list being refused
+/// by the link must leave the project picker working.
 void main() {
   late FakeWebSocket socket;
   late ProviderContainer container;
@@ -69,7 +67,7 @@ void main() {
   }
 
   test(
-    'a refused Claude Code list leaves the Codex list and the picker working',
+    'a refused Claude Code list leaves the project picker working',
     () async {
       final ccLoading = container.read(ccSessionsProvider.notifier).load();
       await settle(() => socket.sent.isNotEmpty);
@@ -77,31 +75,6 @@ void main() {
       expect(await refuseEveryCcPage(), greaterThan(1));
       await ccLoading;
       expect(container.read(ccSessionsProvider).hasError, isTrue);
-
-      final cxThreads = container.read(codexThreadsProvider.notifier);
-      final cxLoading = cxThreads.load();
-      await settle(
-        () => socket.sent.any((m) => m['type'] == 'cx_list_threads'),
-      );
-      socket.deliver({
-        'type': 'cx_threads',
-        'requestId': lastSent('cx_list_threads')['requestId'],
-        'data': <Map<String, dynamic>>[
-          {
-            'id': 'cx-1',
-            'preview': 'Codex thread',
-            'createdAt': 1700000000,
-            'updatedAt': 1700000000,
-            'cwd': '/tmp/cx-project',
-          },
-        ],
-        'hasMore': false,
-      });
-      await cxLoading;
-
-      final cxRows = container.read(codexThreadsProvider).valueOrNull;
-      expect(cxRows, isNotNull);
-      expect(cxRows!.single, isA<CodexThread>());
 
       final ccProjects = container.read(ccProjectsForSessionsProvider.future);
       await settle(

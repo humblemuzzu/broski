@@ -11,7 +11,6 @@ export type BridgeTeardownResources = {
 	closeFsWatchers: () => void;
 	stopPtyRuntime: () => unknown;
 	uninstallHooks: Array<() => unknown>;
-	stopCodexAppServer: () => unknown;
 	disposeBackends: Array<() => unknown>;
 	/** Called synchronously first so no new work is accepted while cleanup runs. */
 	stopServers: () => void;
@@ -52,7 +51,6 @@ export function buildTeardownTasks(resources: BridgeTeardownResources): Teardown
 		{ name: "fs-watchers", run: resources.closeFsWatchers },
 		{ name: "pty-runtime", run: resources.stopPtyRuntime },
 		...resources.uninstallHooks.map((run, index) => ({ name: `hook-uninstall-${index + 1}`, run })),
-		{ name: "codex-app-server", run: resources.stopCodexAppServer },
 		{ name: "backends", run: disposeBackends },
 	];
 }
