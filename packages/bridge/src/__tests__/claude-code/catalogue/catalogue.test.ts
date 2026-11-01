@@ -80,6 +80,22 @@ describe("the probe", () => {
 	});
 });
 
+describe("a probe whose skills never come", () => {
+	test("still gives models and commands once the timeout passes, with every command a command", async () => {
+		const slow = new FakeQuery({
+			initializationResult: async () => initAnswer({ commands: [command("demo")] }),
+			reloadSkills: () => new Promise(() => undefined),
+		});
+		const rig = rigOf({ queries: [slow] });
+		const pending = rig.catalogue.commands("/project");
+		await Bun.sleep(20);
+		rig.clock.advance(PROBE_TIMEOUT_MS);
+		const listed = await pending;
+		expect(listed.status === "accepted" && listed.commands.map((entry) => entry.kind)).toEqual(["command"]);
+		expect(slow.closed).toBe(true);
+	});
+});
+
 describe("the cache", () => {
 	test("answers models, commands and modes of one cwd from one probe", async () => {
 		const rig = rigOf({ queries: scripted(2) });

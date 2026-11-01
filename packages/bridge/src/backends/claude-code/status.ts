@@ -11,7 +11,8 @@ import { versionIssue } from "./process/version-check";
 export type StatusSource =
 	| { readonly kind: "missing"; readonly reason: string }
 	| { readonly kind: "answered"; readonly init: SDKControlInitializeResponse }
-	| { readonly kind: "refused"; readonly failure: ProbeFailure };
+	| { readonly kind: "refused"; readonly failure: ProbeFailure }
+	| { readonly kind: "unreadable"; readonly installed: boolean; readonly reason: string };
 
 const SIGNED_OUT: StatusIssue = {
 	severity: "error",
@@ -52,6 +53,13 @@ export function claudeCodeStatus(source: StatusSource, expectedCliVersion: strin
 				auth: "unknown",
 				usable: false,
 				issues: [error(failureText(source.failure))],
+			};
+		case "unreadable":
+			return {
+				installed: source.installed,
+				auth: "unknown",
+				usable: false,
+				issues: [error(`Claude Code's state could not be found out: ${source.reason}`)],
 			};
 		case "answered":
 			return answered(source.init, expectedCliVersion);

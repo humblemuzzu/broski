@@ -6,7 +6,8 @@ import type {
 	SDKControlInitializeResponse,
 	SDKStartupFailureReason,
 } from "@anthropic-ai/claude-agent-sdk";
-import { clip } from "../bounds";
+import { MAX_CATALOG_ITEMS } from "../../../contract";
+import { boundList, clip } from "../bounds";
 import type { ProbeFailure } from "../models/startup-failures";
 import type { Clock } from "../ports/time";
 import type { ClaudeCodeServices } from "../services";
@@ -16,6 +17,7 @@ import { createInbox } from "./inbox";
 export const PROBE_TIMEOUT_MS = 20_000;
 const DRAIN_GRACE_MS = 3_000;
 const MAX_FAILURE_CHARS = 500;
+const TIMED_OUT = Symbol("timed out");
 
 export interface ProbeAnswer {
 	readonly init: SDKControlInitializeResponse;
@@ -63,12 +65,22 @@ function settled(work: Promise<void>, clock: Clock): Promise<void> {
 	});
 }
 
-async function answerOf(query: Query): Promise<ProbeAnswer> {
-	const init = await query.initializationResult();
-	const skills = await query.reloadSkills().then(
-		(reloaded) => reloaded.skills.map((skill) => skill.name),
+/** Skills are a refinement: a CLI that cannot list them, or is slow to, still gives its models and commands. */
+function skillNames(query: Query): Promise<string[]> {
+	return query.reloadSkills().then(
+		(reloaded) =>
+			boundList(
+				reloaded.skills.map((skill) => skill.name),
+				MAX_CATALOG_ITEMS,
+			).items,
 		() => [],
 	);
+}
+
+async function answerOf(query: Query, expired: Promise<typeof TIMED_OUT>): Promise<ProbeAnswer> {
+	const init = await Promise.race([query.initializationResult(), expired]);
+	if (init === TIMED_OUT) throw new Error("Claude Code did not answer in time");
+	const skills = await Promise.race([skillNames(query), expired.then(() => [])]);
 	return { init, skills };
 }
 
@@ -97,13 +109,10 @@ export async function probeInitialize(services: ClaudeCodeServices, cwd: string)
 			options: probeOptions(services, cli.path, cwd),
 		});
 		drained = drain(query, seen);
-		const timeout = new Promise<never>((_, reject) => {
-			cancelTimeout = clock.after(PROBE_TIMEOUT_MS, () => reject(new Error("Claude Code did not answer in time")));
+		const expired = new Promise<typeof TIMED_OUT>((resolve) => {
+			cancelTimeout = clock.after(PROBE_TIMEOUT_MS, () => resolve(TIMED_OUT));
 		});
-		return {
-			kind: "answered",
-			answer: await Promise.race([answerOf(query), timeout]),
-		};
+		return { kind: "answered", answer: await answerOf(query, expired) };
 	} catch (error) {
 		query?.close();
 		await settled(drained, clock);

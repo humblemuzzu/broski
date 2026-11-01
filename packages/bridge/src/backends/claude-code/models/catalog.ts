@@ -112,17 +112,7 @@ class Catalogue implements CatalogueAccess {
 			return claudeCodeStatus(source, expectedCliVersion);
 		} catch (error) {
 			const reason = error instanceof Error ? error.message : String(error);
-			return {
-				installed: cli.found,
-				auth: "unknown",
-				usable: false,
-				issues: [
-					{
-						severity: "error",
-						message: `Claude Code's state could not be found out: ${reason}`,
-					},
-				],
-			};
+			return claudeCodeStatus({ kind: "unreadable", installed: cli.found, reason }, expectedCliVersion);
 		}
 	}
 
@@ -145,7 +135,7 @@ class Catalogue implements CatalogueAccess {
 	}
 
 	private async statusSource(): Promise<StatusSource> {
-		const { latest } = this;
+		const latest = this.latest;
 		if (latest && this.services.clock.now() - latest.at < STATUS_FRESH_MS)
 			return { kind: "answered", init: latest.init };
 		const probed = await this.probe(await this.neutralCwd());

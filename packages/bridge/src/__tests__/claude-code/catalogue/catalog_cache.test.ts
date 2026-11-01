@@ -131,6 +131,16 @@ describe("the catalogue cache", () => {
 		expect(await cache.get("/p39")).toBeDefined();
 	});
 
+	test("reads no more than 32 working folders from a file that holds more", async () => {
+		const path = join(temp(), "catalog.json");
+		const clock = { time: 0 };
+		const entries = Array.from({ length: 40 }, (_, at) => ({ cwd: `/p${at}`, at: 0, init: initAnswer() }));
+		writeFileSync(path, JSON.stringify({ version: 1, cliPath: "/fake/claude", entries }));
+		const cache = cacheAt(path, clock);
+		expect(await cache.get("/p7")).toBeUndefined();
+		expect(await cache.get("/p8")).toBeDefined();
+	});
+
 	test("works from memory when the state dir cannot be written, and takes any cwd as a key", async () => {
 		const blocker = join(temp(), "file");
 		writeFileSync(blocker, "x");

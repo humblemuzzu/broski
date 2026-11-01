@@ -96,12 +96,12 @@ describe("status()", () => {
 		]);
 	});
 
-	test("an org-disabled message is passed on as the CLI worded it", async () => {
-		const message = "This service is disabled for your org. Ask your admin.";
-		const rig = rigOf({ queries: [failingQuery(message)] });
+	test("an org-disabled message is passed on as the CLI worded it, without the SDK's wrapper", async () => {
+		const sentence = "This service is disabled for your org. Ask your admin.";
+		const rig = rigOf({ queries: [failingQuery(`Claude Code returned an error result: ${sentence}`)] });
 		const status = await statusOf(rig);
 		expect(status.usable).toBe(false);
-		expect(status.issues[0]?.message).toBe(message);
+		expect(status.issues[0]?.message).toBe(sentence);
 	});
 
 	test("a CLI that will not start is not usable, and the issue carries the failure", async () => {

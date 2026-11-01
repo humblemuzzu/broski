@@ -103,6 +103,7 @@ export class CatalogCache {
 				const answer = parseInitializeAnswer(init);
 				if (answer) this.entries.set(cwd, { at, init: answer, skills });
 			}
+			this.evictOldest();
 		} catch {
 			// A missing or unreadable file is an empty cache.
 		}

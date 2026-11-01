@@ -78,14 +78,18 @@ export interface ProbeFailure {
 	readonly startupFailure?: SDKStartupFailureReason;
 }
 
-export function isOrgPolicyText(message: string): boolean {
-	return ORG_POLICY_LIMIT_PREFIXES.some((prefix) => message.startsWith(prefix));
+/** The CLI's org-policy sentence, from where it starts: the SDK wraps an error result's text in its own words. */
+function orgPolicyText(message: string): string | undefined {
+	for (const prefix of ORG_POLICY_LIMIT_PREFIXES) {
+		const at = message.indexOf(prefix);
+		if (at >= 0) return message.slice(at);
+	}
+	return undefined;
 }
 
 export function failureText(failure: ProbeFailure): string {
 	if (failure.startupFailure !== undefined) return REFUSALS[failure.startupFailure].text;
-	if (isOrgPolicyText(failure.message)) return failure.message;
-	return `Claude Code could not start: ${failure.message}`;
+	return orgPolicyText(failure.message) ?? `Claude Code could not start: ${failure.message}`;
 }
 
 export function failureCode(failure: ProbeFailure): RejectionCode {

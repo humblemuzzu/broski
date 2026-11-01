@@ -20,8 +20,11 @@ function wireOf(row: ModelInfo): string {
  */
 export function listedRows(models: readonly ModelInfo[]): ModelInfo[] {
 	const rows: ModelInfo[] = [];
+	const seen = new Set<string>();
 	for (const row of models) {
-		if (fitsId(row.value) && !rows.some((kept) => kept.value === row.value)) rows.push(row);
+		if (!fitsId(row.value) || seen.has(row.value)) continue;
+		seen.add(row.value);
+		rows.push(row);
 	}
 	const sharing = new Map<string, number>();
 	for (const row of rows) sharing.set(wireOf(row), (sharing.get(wireOf(row)) ?? 0) + 1);
