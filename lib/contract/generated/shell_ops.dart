@@ -3,7 +3,7 @@
 
 part of 'contract.dart';
 
-final class RunShellOp implements PiOp {
+final class RunShellOp implements BackendOp, PiOp {
   const RunShellOp({
     required this.sessionId,
     required this.clientRequestId,

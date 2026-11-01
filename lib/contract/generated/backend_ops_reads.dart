@@ -70,7 +70,7 @@ final class ChangedFilesListed implements BackendOpResult {
       'ChangedFilesListed(files: $files, omitted: $omitted, additions: $additions, deletions: $deletions)';
 }
 
-final class ChangedFilesOp implements PiOp {
+final class ChangedFilesOp implements BackendOp, ClaudeCodeOp, PiOp {
   const ChangedFilesOp({required this.sessionId});
 
   factory ChangedFilesOp.fromJson(Map<String, Object?> json) {
@@ -146,7 +146,7 @@ final class ModelsRefreshed implements BackendOpResult {
   String toString() => 'ModelsRefreshed(problems: $problems)';
 }
 
-final class RefreshModelsOp implements PiOp {
+final class RefreshModelsOp implements BackendOp, ClaudeCodeOp, PiOp {
   const RefreshModelsOp();
 
   factory RefreshModelsOp.fromJson(Map<String, Object?> json) {

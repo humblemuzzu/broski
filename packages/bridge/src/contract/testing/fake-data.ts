@@ -1,9 +1,10 @@
 import type { BackendTraits } from "../backend";
-import type { BackendCall, BackendOpResult } from "../backend-ops";
+import { type BackendCall, type BackendOpKind, type BackendOpResult, ClaudeCodeOp } from "../backend-ops";
 import type { CommandSummary } from "../commands";
 import type { ModelSummary } from "../models";
 import type { ModeAxis } from "../modes";
 import type { BackendStatus } from "../status";
+import { fakeConfigResult } from "./fake-config-results";
 
 export const FAKE_MODELS: readonly ModelSummary[] = [
 	{
@@ -86,6 +87,9 @@ export const FULL_TRAITS: BackendTraits = {
 	backendOps: ["navigate_tree"],
 };
 
+/** Every op of Claude Code's union, for the fake standing in for that backend. */
+export const CLAUDE_CODE_OPS: readonly BackendOpKind[] = ClaudeCodeOp.options.map((option) => option.shape.kind.value);
+
 /** A backend with nothing optional: whole blocks, no queue view, no interactions, start-only prompts. */
 export const MINIMAL_TRAITS: BackendTraits = {
 	streamText: false,
@@ -137,5 +141,15 @@ export function fakeOpResult(call: BackendCall): BackendOpResult {
 			return { kind: op.kind, problems: [] };
 		case "read_tree":
 			return { kind: op.kind, total: 0, nodes: [] };
+		case "config_files":
+		case "config_file":
+		case "settings_overview":
+		case "mcp_servers":
+		case "plugins":
+		case "tasks":
+		case "context_usage":
+		case "custom_tools":
+		case "custom_tool":
+			return fakeConfigResult(op);
 	}
 }

@@ -1,7 +1,8 @@
-import type { ResponseFor } from "../contract";
+import type { AgentBackend, BackendCall, BackendCallResult, ResponseFor } from "../contract";
 import { onBackend } from "./context";
-import { allowedDirectory } from "./directories";
+import { allowedCall, allowedDirectory } from "./directories";
 import { pageWithinFrame } from "./paged-read";
+import type { DirectoryPolicy } from "./ports";
 import { unsupported } from "./results";
 
 export const sessionCreate = onBackend<"session.create">(
@@ -76,11 +77,24 @@ export const attachmentRead = onBackend<"attachment.read">(
 	},
 );
 
-/** A backend's own op; history-rewriting ones are followed by the adapter's `transcript_invalidated`. */
+/**
+ * A backend's own op; history-rewriting ones are followed by the adapter's `transcript_invalidated`. An op that names a
+ * project directory reaches the adapter with it canonical, as every request's `cwd` does.
+ */
 export const backendCall = onBackend<"backend.call">(
 	(request) => request.call.backend,
-	async ({ request, respond, backend }) => {
-		const result = backend.call ? await backend.call(request.call) : unsupported(`run ${request.call.op.kind}`);
+	async ({ ctx, request, respond, backend }) => {
+		const result = await servedCall(ctx.directories, backend, request.call);
 		respond({ type: "backend.call.result", requestId: request.requestId, result });
 	},
 );
+
+async function servedCall(
+	directories: DirectoryPolicy,
+	backend: AgentBackend,
+	call: BackendCall,
+): Promise<BackendCallResult> {
+	if (!backend.call) return unsupported(`run ${call.op.kind}`);
+	const allowed = await allowedCall(directories, call);
+	return allowed.status === "allowed" ? backend.call(allowed.call) : allowed;
+}

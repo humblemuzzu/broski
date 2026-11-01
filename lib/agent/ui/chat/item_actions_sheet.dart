@@ -63,8 +63,11 @@ void showItemActions(
                 'item-panel:${panel.kind.wire}',
                 panel.label,
                 () => run(
-                  (tools) =>
-                      runOp(context, tools, panel, session, itemId: itemId),
+                  (tools) => runOp(context, tools, panel, (
+                    session: session,
+                    cwd: null,
+                    itemId: itemId,
+                  )),
                 ),
               ),
           ],

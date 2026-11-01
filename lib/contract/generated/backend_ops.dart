@@ -64,6 +64,39 @@ sealed class BackendCallResult {
   Map<String, Object?> toJson();
 }
 
+sealed class BackendOp {
+  factory BackendOp.fromJson(Map<String, Object?> json) =>
+      switch (json['kind']) {
+        'rewind_files' => RewindFilesOp.fromJson(json),
+        'navigate_tree' => NavigateTreeOp.fromJson(json),
+        'take_over' => TakeOverOp.fromJson(json),
+        'session_settings' => SessionSettingsOp.fromJson(json),
+        'session_tools' => SessionToolsOp.fromJson(json),
+        'system_prompt' => SystemPromptOp.fromJson(json),
+        'export_session' => ExportSessionOp.fromJson(json),
+        'export_part' => ExportPartOp.fromJson(json),
+        'import_session' => ImportSessionOp.fromJson(json),
+        'changed_files' => ChangedFilesOp.fromJson(json),
+        'refresh_models' => RefreshModelsOp.fromJson(json),
+        'read_tree' => ReadTreeOp.fromJson(json),
+        'label_entry' => LabelEntryOp.fromJson(json),
+        'abort_branch_summary' => AbortBranchSummaryOp.fromJson(json),
+        'run_shell' => RunShellOp.fromJson(json),
+        'config_files' => ConfigFilesOp.fromJson(json),
+        'config_file' => ConfigFileOp.fromJson(json),
+        'settings_overview' => SettingsOverviewOp.fromJson(json),
+        'mcp_servers' => McpServersOp.fromJson(json),
+        'plugins' => PluginsOp.fromJson(json),
+        'tasks' => TasksOp.fromJson(json),
+        'context_usage' => ContextUsageOp.fromJson(json),
+        'custom_tools' => CustomToolsOp.fromJson(json),
+        'custom_tool' => CustomToolOp.fromJson(json),
+        final tag => throw FormatException('Unknown BackendOp kind: $tag'),
+      };
+
+  Map<String, Object?> toJson();
+}
+
 enum BackendOpKind {
   rewindFiles('rewind_files'),
   navigateTree('navigate_tree'),
@@ -79,7 +112,16 @@ enum BackendOpKind {
   readTree('read_tree'),
   labelEntry('label_entry'),
   abortBranchSummary('abort_branch_summary'),
-  runShell('run_shell');
+  runShell('run_shell'),
+  configFiles('config_files'),
+  configFile('config_file'),
+  settingsOverview('settings_overview'),
+  mcpServers('mcp_servers'),
+  plugins('plugins'),
+  tasks('tasks'),
+  contextUsage('context_usage'),
+  customTools('custom_tools'),
+  customTool('custom_tool');
 
   const BackendOpKind(this.wire);
 
@@ -111,6 +153,15 @@ sealed class BackendOpResult {
         'label_entry' => EntryLabelled.fromJson(json),
         'abort_branch_summary' => BranchSummaryAborted.fromJson(json),
         'run_shell' => ShellStarted.fromJson(json),
+        'config_files' => ConfigFilesListed.fromJson(json),
+        'config_file' => ConfigFileRead.fromJson(json),
+        'settings_overview' => SettingsOverviewRead.fromJson(json),
+        'mcp_servers' => McpServersListed.fromJson(json),
+        'plugins' => PluginsListed.fromJson(json),
+        'tasks' => TasksListed.fromJson(json),
+        'context_usage' => ContextUsageRead.fromJson(json),
+        'custom_tools' => CustomToolsListed.fromJson(json),
+        'custom_tool' => CustomToolRead.fromJson(json),
         final tag => throw FormatException(
           'Unknown BackendOpResult kind: $tag',
         ),
@@ -159,19 +210,25 @@ sealed class ClaudeCodeOp {
   factory ClaudeCodeOp.fromJson(Map<String, Object?> json) =>
       switch (json['kind']) {
         'rewind_files' => RewindFilesOp.fromJson(json),
+        'session_settings' => SessionSettingsOp.fromJson(json),
+        'changed_files' => ChangedFilesOp.fromJson(json),
+        'refresh_models' => RefreshModelsOp.fromJson(json),
+        'config_files' => ConfigFilesOp.fromJson(json),
+        'config_file' => ConfigFileOp.fromJson(json),
+        'settings_overview' => SettingsOverviewOp.fromJson(json),
+        'mcp_servers' => McpServersOp.fromJson(json),
+        'plugins' => PluginsOp.fromJson(json),
+        'tasks' => TasksOp.fromJson(json),
+        'context_usage' => ContextUsageOp.fromJson(json),
+        'custom_tools' => CustomToolsOp.fromJson(json),
+        'custom_tool' => CustomToolOp.fromJson(json),
         final tag => throw FormatException('Unknown ClaudeCodeOp kind: $tag'),
       };
-
-  SessionId get sessionId;
-
-  TranscriptItemId get userItemId;
-
-  bool get dryRun;
 
   Map<String, Object?> toJson();
 }
 
-final class NavigateTreeOp implements PiOp {
+final class NavigateTreeOp implements BackendOp, PiOp {
   const NavigateTreeOp({
     required this.sessionId,
     required this.itemId,
@@ -291,7 +348,7 @@ sealed class PiOp {
   Map<String, Object?> toJson();
 }
 
-final class RewindFilesOp implements ClaudeCodeOp {
+final class RewindFilesOp implements BackendOp, ClaudeCodeOp {
   const RewindFilesOp({
     required this.sessionId,
     required this.userItemId,
@@ -312,11 +369,8 @@ final class RewindFilesOp implements ClaudeCodeOp {
     );
   }
 
-  @override
   final SessionId sessionId;
-  @override
   final TranscriptItemId userItemId;
-  @override
   final bool dryRun;
 
   @override
@@ -439,7 +493,7 @@ final class RewindFilesResult implements BackendOpResult {
       'RewindFilesResult(canRewind: $canRewind, filesChanged: $filesChanged, insertions: $insertions, deletions: $deletions, skippedLinks: $skippedLinks, error: $error)';
 }
 
-final class TakeOverOp implements PiOp {
+final class TakeOverOp implements BackendOp, PiOp {
   const TakeOverOp({required this.sessionId});
 
   factory TakeOverOp.fromJson(Map<String, Object?> json) {

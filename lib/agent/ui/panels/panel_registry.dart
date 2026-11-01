@@ -1,3 +1,4 @@
+import 'package:broski/agent/ui/panels/config_panels.dart';
 import 'package:broski/agent/ui/panels/file_panels.dart';
 import 'package:broski/agent/ui/panels/history_panels.dart';
 import 'package:broski/agent/ui/panels/op_panel.dart';
@@ -25,6 +26,15 @@ OpPanel panelFor(BackendOpKind kind) => switch (kind) {
   BackendOpKind.importSession => importSessionPanel,
   BackendOpKind.changedFiles => changedFilesPanel,
   BackendOpKind.refreshModels => refreshModelsPanel,
+  BackendOpKind.configFiles => configFilesPanel,
+  BackendOpKind.configFile => configFilePanel,
+  BackendOpKind.settingsOverview => settingsOverviewPanel,
+  BackendOpKind.mcpServers => mcpServersPanel,
+  BackendOpKind.plugins => pluginsPanel,
+  BackendOpKind.tasks => tasksPanel,
+  BackendOpKind.contextUsage => contextUsagePanel,
+  BackendOpKind.customTools => customToolsPanel,
+  BackendOpKind.customTool => customToolPanel,
 };
 
 /// The panels [capabilities] allow at [place], in the order declared. A panel

@@ -31,6 +31,7 @@ Future<void> runImport(
   unawaited(navigator.push(dialog));
   final end = await uploadSessionFile(
     client: client,
+    backend: backend,
     file: picked,
     onProgress: (bytes) => sending.sent.value = bytes,
     stopped: () => sending.stopped.value,

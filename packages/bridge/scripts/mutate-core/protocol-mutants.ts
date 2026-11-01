@@ -99,6 +99,28 @@ export const PROTOCOL_MUTANTS: Mutant[] = [
 			find: "await allowedDirectory(ctx.directories, request.options.cwd)",
 			replace: '({ status: "allowed" as const, cwd: request.options.cwd })',
 		},
+		{
+			name: "directories: a backend call skips the policy",
+			find: "const allowed = await allowedCall(directories, call);",
+			replace: 'const allowed = { status: "allowed" as const, call };',
+		},
+	]),
+	...mutantsOf("core/directories.ts", [
+		{
+			name: "directories: an op's directory reaches the adapter as sent",
+			find: 'if (!("cwd" in call.op)) return { status: "allowed", call };',
+			replace: 'return { status: "allowed", call };',
+		},
+		{
+			name: "directories: a refused op directory is answered as one the contract cannot carry",
+			find: 'if (directory.status === "rejected") return directory;',
+			replace: "",
+		},
+		{
+			name: "directories: a canonical op directory is not checked against the contract",
+			find: "const allowed = BackendCall.safeParse({ ...call, op: { ...call.op, cwd: directory.cwd } });",
+			replace: "const allowed = { success: true, data: { ...call, op: { ...call.op, cwd: directory.cwd } } };",
+		},
 	]),
 	...mutantsOf("core/context.ts", [
 		{

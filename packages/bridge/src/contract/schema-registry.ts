@@ -1,12 +1,17 @@
 import { z } from "zod";
+import * as actionList from "./action-list";
 import * as backendOps from "./backend-ops";
+import * as backendOpsLists from "./backend-ops-lists";
 import * as backendOpsReads from "./backend-ops-reads";
 import * as backendOpsTransfer from "./backend-ops-transfer";
 import * as capabilities from "./capabilities";
 import * as catalogEvents from "./catalog-events";
 import * as commands from "./commands";
 import * as compaction from "./compaction";
+import * as configOps from "./config-ops";
 import * as content from "./content";
+import * as customToolOps from "./custom-tool-ops";
+import * as editableFile from "./editable-file";
 import * as events from "./events";
 import * as extensions from "./extensions";
 import * as forms from "./forms";
@@ -60,6 +65,11 @@ const SCHEMA_MODULES = {
 	"backend-ops-transfer": backendOpsTransfer,
 	"tree-ops": treeOps,
 	"shell-ops": shellOps,
+	"action-list": actionList,
+	"editable-file": editableFile,
+	"config-ops": configOps,
+	"backend-ops-lists": backendOpsLists,
+	"custom-tool-ops": customToolOps,
 	models,
 	commands,
 	modes,

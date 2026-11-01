@@ -1,6 +1,7 @@
 import 'package:broski/agent/client/contract_client.dart';
 import 'package:broski/agent/client/outcome.dart';
 import 'package:broski/agent/client/requests/session_requests.dart';
+import 'package:broski/agent/ui/panels/op_panel.dart';
 import 'package:broski/agent/ui/panels/result_actions.dart';
 import 'package:broski/contract/generated/contract.dart';
 import 'package:broski/theme/app_typography.dart';
@@ -15,13 +16,13 @@ class OpResultHost extends StatefulWidget {
   const OpResultHost({
     super.key,
     required this.client,
-    required this.session,
+    required this.target,
     required this.first,
     required this.builder,
   });
 
   final ContractClient client;
-  final SessionRef session;
+  final OpTarget target;
   final BackendOpResult first;
 
   /// Shows a result with the controls [ResultActions] gives it.
@@ -36,14 +37,12 @@ class _OpResultHostState extends State<OpResultHost> {
   String? _problem;
   bool _busy = false;
 
-  Future<void> _call(BackendCall Function(SessionId sessionId) build) async {
+  Future<void> _call(BackendCall Function(OpTarget target) build) async {
     setState(() {
       _busy = true;
       _problem = null;
     });
-    final outcome = await widget.client.callBackend(
-      build(widget.session.sessionId),
-    );
+    final outcome = await widget.client.callBackend(build(widget.target));
     if (!mounted) return;
     setState(() {
       _busy = false;

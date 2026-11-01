@@ -3,14 +3,19 @@
 
 library;
 
+part 'action_list.dart';
 part 'backend_ops.dart';
+part 'backend_ops_lists.dart';
 part 'backend_ops_reads.dart';
 part 'backend_ops_transfer.dart';
 part 'capabilities.dart';
 part 'catalog_events.dart';
 part 'commands.dart';
 part 'compaction.dart';
+part 'config_ops.dart';
 part 'content.dart';
+part 'custom_tool_ops.dart';
+part 'editable_file.dart';
 part 'events.dart';
 part 'extensions.dart';
 part 'forms.dart';
@@ -41,7 +46,7 @@ part 'tree_ops.dart';
 part 'usage.dart';
 
 const int contractProtocolMajor = 1;
-const int contractProtocolMinor = 3;
+const int contractProtocolMinor = 4;
 
 const int contractMaxCatalogItems = 10000;
 const int contractMaxClientMessageValues = 50000;

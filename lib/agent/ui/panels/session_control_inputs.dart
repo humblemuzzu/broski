@@ -4,23 +4,26 @@
 library;
 
 import 'package:broski/agent/client/requests/op_call.dart';
+import 'package:broski/agent/ui/panels/op_panel.dart';
 import 'package:broski/contract/generated/contract.dart';
 import 'package:flutter/material.dart';
 
 Future<BackendCall?> askSessionSettings(
   BuildContext context,
-  SessionId sessionId,
-  TranscriptItemId? _,
-) async => opCall(SessionSettingsOp(sessionId: sessionId));
+  OpTarget target,
+) async => opCall(
+  target.session,
+  SessionSettingsOp(sessionId: target.session.sessionId),
+);
 
 Future<BackendCall?> askSessionTools(
   BuildContext context,
-  SessionId sessionId,
-  TranscriptItemId? _,
-) async => opCall(SessionToolsOp(sessionId: sessionId));
+  OpTarget target,
+) async =>
+    opCall(target.session, SessionToolsOp(sessionId: target.session.sessionId));
 
 Future<BackendCall?> askSystemPrompt(
   BuildContext context,
-  SessionId sessionId,
-  TranscriptItemId? _,
-) async => opCall(SystemPromptOp(sessionId: sessionId));
+  OpTarget target,
+) async =>
+    opCall(target.session, SystemPromptOp(sessionId: target.session.sessionId));

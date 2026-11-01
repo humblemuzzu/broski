@@ -25,6 +25,7 @@ Future<String?> downloadExport({
   while (!stopped()) {
     final outcome = await client.callBackend(
       opCall(
+        session,
         ExportPartOp(
           sessionId: session.sessionId,
           exportId: exported.exportId,

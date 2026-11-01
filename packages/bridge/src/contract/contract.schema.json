@@ -4,7 +4,7 @@
   "title": "Broski backend contract",
   "x-protocolVersion": {
     "major": 1,
-    "minor": 3
+    "minor": 4
   },
   "$defs": {
     "AbortBranchSummaryOp": {
@@ -86,6 +86,166 @@
         "status"
       ],
       "additionalProperties": false
+    },
+    "ActionList": {
+      "x-module": "action-list",
+      "$id": "#/$defs/ActionList",
+      "type": "object",
+      "properties": {
+        "rows": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ActionListRow"
+          }
+        },
+        "omitted": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 1048576
+        }
+      },
+      "required": [
+        "rows",
+        "omitted"
+      ],
+      "additionalProperties": false
+    },
+    "ActionListAction": {
+      "x-module": "action-list",
+      "$id": "#/$defs/ActionListAction",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "destructive": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "destructive"
+      ],
+      "additionalProperties": false
+    },
+    "ActionListChange": {
+      "x-module": "action-list",
+      "$id": "#/$defs/ActionListChange",
+      "type": "object",
+      "properties": {
+        "rowId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "actionId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      },
+      "required": [
+        "rowId",
+        "actionId"
+      ],
+      "additionalProperties": false
+    },
+    "ActionListRow": {
+      "x-module": "action-list",
+      "$id": "#/$defs/ActionListRow",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "subtitle": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "status": {
+          "$ref": "#/$defs/ActionListStatus"
+        },
+        "group": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "badges": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          }
+        },
+        "actions": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ActionListAction"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "badges",
+        "actions"
+      ],
+      "additionalProperties": false
+    },
+    "ActionListStatus": {
+      "x-module": "action-list",
+      "$id": "#/$defs/ActionListStatus",
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "tone": {
+          "$ref": "#/$defs/ActionListTone"
+        }
+      },
+      "required": [
+        "label",
+        "tone"
+      ],
+      "additionalProperties": false
+    },
+    "ActionListTone": {
+      "x-module": "action-list",
+      "$id": "#/$defs/ActionListTone",
+      "type": "string",
+      "enum": [
+        "neutral",
+        "ok",
+        "busy",
+        "warning",
+        "error"
+      ]
     },
     "ActionResult": {
       "x-module": "input",
@@ -515,6 +675,84 @@
         "pi-durable"
       ]
     },
+    "BackendOp": {
+      "x-module": "backend-ops",
+      "$id": "#/$defs/BackendOp",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/RewindFilesOp"
+        },
+        {
+          "$ref": "#/$defs/NavigateTreeOp"
+        },
+        {
+          "$ref": "#/$defs/TakeOverOp"
+        },
+        {
+          "$ref": "#/$defs/SessionSettingsOp"
+        },
+        {
+          "$ref": "#/$defs/SessionToolsOp"
+        },
+        {
+          "$ref": "#/$defs/SystemPromptOp"
+        },
+        {
+          "$ref": "#/$defs/ExportSessionOp"
+        },
+        {
+          "$ref": "#/$defs/ExportPartOp"
+        },
+        {
+          "$ref": "#/$defs/ImportSessionOp"
+        },
+        {
+          "$ref": "#/$defs/ChangedFilesOp"
+        },
+        {
+          "$ref": "#/$defs/RefreshModelsOp"
+        },
+        {
+          "$ref": "#/$defs/ReadTreeOp"
+        },
+        {
+          "$ref": "#/$defs/LabelEntryOp"
+        },
+        {
+          "$ref": "#/$defs/AbortBranchSummaryOp"
+        },
+        {
+          "$ref": "#/$defs/RunShellOp"
+        },
+        {
+          "$ref": "#/$defs/ConfigFilesOp"
+        },
+        {
+          "$ref": "#/$defs/ConfigFileOp"
+        },
+        {
+          "$ref": "#/$defs/SettingsOverviewOp"
+        },
+        {
+          "$ref": "#/$defs/McpServersOp"
+        },
+        {
+          "$ref": "#/$defs/PluginsOp"
+        },
+        {
+          "$ref": "#/$defs/TasksOp"
+        },
+        {
+          "$ref": "#/$defs/ContextUsageOp"
+        },
+        {
+          "$ref": "#/$defs/CustomToolsOp"
+        },
+        {
+          "$ref": "#/$defs/CustomToolOp"
+        }
+      ]
+    },
     "BackendOpKind": {
       "x-module": "backend-ops",
       "$id": "#/$defs/BackendOpKind",
@@ -534,7 +772,16 @@
         "read_tree",
         "label_entry",
         "abort_branch_summary",
-        "run_shell"
+        "run_shell",
+        "config_files",
+        "config_file",
+        "settings_overview",
+        "mcp_servers",
+        "plugins",
+        "tasks",
+        "context_usage",
+        "custom_tools",
+        "custom_tool"
       ]
     },
     "BackendOpResult": {
@@ -585,6 +832,33 @@
         },
         {
           "$ref": "#/$defs/ShellStarted"
+        },
+        {
+          "$ref": "#/$defs/ConfigFilesListed"
+        },
+        {
+          "$ref": "#/$defs/ConfigFileRead"
+        },
+        {
+          "$ref": "#/$defs/SettingsOverviewRead"
+        },
+        {
+          "$ref": "#/$defs/McpServersListed"
+        },
+        {
+          "$ref": "#/$defs/PluginsListed"
+        },
+        {
+          "$ref": "#/$defs/TasksListed"
+        },
+        {
+          "$ref": "#/$defs/ContextUsageRead"
+        },
+        {
+          "$ref": "#/$defs/CustomToolsListed"
+        },
+        {
+          "$ref": "#/$defs/CustomToolRead"
         }
       ]
     },
@@ -1027,7 +1301,7 @@
           }
         },
         "backendOps": {
-          "maxItems": 15,
+          "maxItems": 24,
           "type": "array",
           "items": {
             "$ref": "#/$defs/BackendOpKind"
@@ -1369,6 +1643,42 @@
       "oneOf": [
         {
           "$ref": "#/$defs/RewindFilesOp"
+        },
+        {
+          "$ref": "#/$defs/SessionSettingsOp"
+        },
+        {
+          "$ref": "#/$defs/ChangedFilesOp"
+        },
+        {
+          "$ref": "#/$defs/RefreshModelsOp"
+        },
+        {
+          "$ref": "#/$defs/ConfigFilesOp"
+        },
+        {
+          "$ref": "#/$defs/ConfigFileOp"
+        },
+        {
+          "$ref": "#/$defs/SettingsOverviewOp"
+        },
+        {
+          "$ref": "#/$defs/McpServersOp"
+        },
+        {
+          "$ref": "#/$defs/PluginsOp"
+        },
+        {
+          "$ref": "#/$defs/TasksOp"
+        },
+        {
+          "$ref": "#/$defs/ContextUsageOp"
+        },
+        {
+          "$ref": "#/$defs/CustomToolsOp"
+        },
+        {
+          "$ref": "#/$defs/CustomToolOp"
         }
       ]
     },
@@ -1937,6 +2247,162 @@
         "neq"
       ]
     },
+    "ConfigFileEntry": {
+      "x-module": "config-ops",
+      "$id": "#/$defs/ConfigFileEntry",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "group": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "exists": {
+          "type": "boolean"
+        },
+        "editable": {
+          "type": "boolean"
+        },
+        "format": {
+          "$ref": "#/$defs/EditableFileFormat"
+        },
+        "template": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "group",
+        "scope",
+        "path",
+        "exists",
+        "editable",
+        "format",
+        "template"
+      ],
+      "additionalProperties": false
+    },
+    "ConfigFileOp": {
+      "x-module": "config-ops",
+      "$id": "#/$defs/ConfigFileOp",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "config_file"
+        },
+        "cwd": {
+          "$ref": "#/$defs/WorkingDirectory"
+        },
+        "fileId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "change": {
+          "$ref": "#/$defs/EditableFileChange"
+        }
+      },
+      "required": [
+        "kind",
+        "cwd",
+        "fileId"
+      ],
+      "additionalProperties": false
+    },
+    "ConfigFileRead": {
+      "x-module": "config-ops",
+      "$id": "#/$defs/ConfigFileRead",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "config_file"
+        },
+        "file": {
+          "$ref": "#/$defs/EditableFile"
+        }
+      },
+      "required": [
+        "kind",
+        "file"
+      ],
+      "additionalProperties": false
+    },
+    "ConfigFilesListed": {
+      "x-module": "config-ops",
+      "$id": "#/$defs/ConfigFilesListed",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "config_files"
+        },
+        "files": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ConfigFileEntry"
+          }
+        },
+        "omitted": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "kind",
+        "files",
+        "omitted"
+      ],
+      "additionalProperties": false
+    },
+    "ConfigFilesOp": {
+      "x-module": "config-ops",
+      "$id": "#/$defs/ConfigFilesOp",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "config_files"
+        },
+        "cwd": {
+          "$ref": "#/$defs/WorkingDirectory"
+        }
+      },
+      "required": [
+        "kind",
+        "cwd"
+      ],
+      "additionalProperties": false
+    },
     "ConfirmReply": {
       "x-module": "interaction-replies",
       "$id": "#/$defs/ConfirmReply",
@@ -1968,6 +2434,257 @@
       },
       "required": [
         "kind"
+      ],
+      "additionalProperties": false
+    },
+    "ContextUsageOp": {
+      "x-module": "backend-ops-lists",
+      "$id": "#/$defs/ContextUsageOp",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "context_usage"
+        },
+        "sessionId": {
+          "$ref": "#/$defs/SessionId"
+        }
+      },
+      "required": [
+        "kind",
+        "sessionId"
+      ],
+      "additionalProperties": false
+    },
+    "ContextUsageRead": {
+      "x-module": "backend-ops-lists",
+      "$id": "#/$defs/ContextUsageRead",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "context_usage"
+        },
+        "list": {
+          "$ref": "#/$defs/ActionList"
+        }
+      },
+      "required": [
+        "kind",
+        "list"
+      ],
+      "additionalProperties": false
+    },
+    "CustomToolOp": {
+      "x-module": "custom-tool-ops",
+      "$id": "#/$defs/CustomToolOp",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "custom_tool"
+        },
+        "toolId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "change": {
+          "$ref": "#/$defs/EditableFileChange"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "CustomToolRead": {
+      "x-module": "custom-tool-ops",
+      "$id": "#/$defs/CustomToolRead",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "custom_tool"
+        },
+        "file": {
+          "$ref": "#/$defs/EditableFile"
+        }
+      },
+      "required": [
+        "kind",
+        "file"
+      ],
+      "additionalProperties": false
+    },
+    "CustomToolsListed": {
+      "x-module": "custom-tool-ops",
+      "$id": "#/$defs/CustomToolsListed",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "custom_tools"
+        },
+        "list": {
+          "$ref": "#/$defs/ActionList"
+        }
+      },
+      "required": [
+        "kind",
+        "list"
+      ],
+      "additionalProperties": false
+    },
+    "CustomToolsOp": {
+      "x-module": "custom-tool-ops",
+      "$id": "#/$defs/CustomToolsOp",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "custom_tools"
+        },
+        "change": {
+          "$ref": "#/$defs/ActionListChange"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "EditableFile": {
+      "x-module": "editable-file",
+      "$id": "#/$defs/EditableFile",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "format": {
+          "$ref": "#/$defs/EditableFileFormat"
+        },
+        "exists": {
+          "type": "boolean"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "revision": {
+          "$ref": "#/$defs/EditableFileRevision"
+        },
+        "editable": {
+          "type": "boolean"
+        },
+        "truncated": {
+          "type": "boolean"
+        },
+        "problems": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 1048576
+          }
+        }
+      },
+      "required": [
+        "id",
+        "path",
+        "scope",
+        "format",
+        "exists",
+        "text",
+        "revision",
+        "editable",
+        "truncated",
+        "problems"
+      ],
+      "additionalProperties": false
+    },
+    "EditableFileChange": {
+      "x-module": "editable-file",
+      "$id": "#/$defs/EditableFileChange",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/EditableFileWrite"
+        },
+        {
+          "$ref": "#/$defs/EditableFileDelete"
+        }
+      ]
+    },
+    "EditableFileDelete": {
+      "x-module": "editable-file",
+      "$id": "#/$defs/EditableFileDelete",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "delete"
+        },
+        "revision": {
+          "$ref": "#/$defs/EditableFileRevision"
+        }
+      },
+      "required": [
+        "kind",
+        "revision"
+      ],
+      "additionalProperties": false
+    },
+    "EditableFileFormat": {
+      "x-module": "editable-file",
+      "$id": "#/$defs/EditableFileFormat",
+      "type": "string",
+      "enum": [
+        "json",
+        "markdown",
+        "text"
+      ]
+    },
+    "EditableFileRevision": {
+      "x-module": "editable-file",
+      "$id": "#/$defs/EditableFileRevision",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "EditableFileWrite": {
+      "x-module": "editable-file",
+      "$id": "#/$defs/EditableFileWrite",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "write"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "revision": {
+          "$ref": "#/$defs/EditableFileRevision"
+        }
+      },
+      "required": [
+        "kind",
+        "text",
+        "revision"
       ],
       "additionalProperties": false
     },
@@ -3191,6 +3908,47 @@
         "kind",
         "sessionId",
         "entryId"
+      ],
+      "additionalProperties": false
+    },
+    "McpServersListed": {
+      "x-module": "backend-ops-lists",
+      "$id": "#/$defs/McpServersListed",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "mcp_servers"
+        },
+        "list": {
+          "$ref": "#/$defs/ActionList"
+        }
+      },
+      "required": [
+        "kind",
+        "list"
+      ],
+      "additionalProperties": false
+    },
+    "McpServersOp": {
+      "x-module": "backend-ops-lists",
+      "$id": "#/$defs/McpServersOp",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "mcp_servers"
+        },
+        "sessionId": {
+          "$ref": "#/$defs/SessionId"
+        },
+        "change": {
+          "$ref": "#/$defs/ActionListChange"
+        }
+      },
+      "required": [
+        "kind",
+        "sessionId"
       ],
       "additionalProperties": false
     },
@@ -4524,6 +5282,50 @@
       "required": [
         "type",
         "plan"
+      ],
+      "additionalProperties": false
+    },
+    "PluginsListed": {
+      "x-module": "backend-ops-lists",
+      "$id": "#/$defs/PluginsListed",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "plugins"
+        },
+        "list": {
+          "$ref": "#/$defs/ActionList"
+        }
+      },
+      "required": [
+        "kind",
+        "list"
+      ],
+      "additionalProperties": false
+    },
+    "PluginsOp": {
+      "x-module": "backend-ops-lists",
+      "$id": "#/$defs/PluginsOp",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "plugins"
+        },
+        "cwd": {
+          "$ref": "#/$defs/WorkingDirectory"
+        },
+        "sessionId": {
+          "$ref": "#/$defs/SessionId"
+        },
+        "change": {
+          "$ref": "#/$defs/ActionListChange"
+        }
+      },
+      "required": [
+        "kind",
+        "cwd"
       ],
       "additionalProperties": false
     },
@@ -6883,6 +7685,44 @@
       "minLength": 1,
       "maxLength": 256
     },
+    "SettingsOverviewOp": {
+      "x-module": "config-ops",
+      "$id": "#/$defs/SettingsOverviewOp",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "settings_overview"
+        },
+        "cwd": {
+          "$ref": "#/$defs/WorkingDirectory"
+        }
+      },
+      "required": [
+        "kind",
+        "cwd"
+      ],
+      "additionalProperties": false
+    },
+    "SettingsOverviewRead": {
+      "x-module": "config-ops",
+      "$id": "#/$defs/SettingsOverviewRead",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "settings_overview"
+        },
+        "list": {
+          "$ref": "#/$defs/ActionList"
+        }
+      },
+      "required": [
+        "kind",
+        "list"
+      ],
+      "additionalProperties": false
+    },
     "ShellStarted": {
       "x-module": "shell-ops",
       "$id": "#/$defs/ShellStarted",
@@ -7176,6 +8016,47 @@
       },
       "required": [
         "kind"
+      ],
+      "additionalProperties": false
+    },
+    "TasksListed": {
+      "x-module": "backend-ops-lists",
+      "$id": "#/$defs/TasksListed",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "tasks"
+        },
+        "list": {
+          "$ref": "#/$defs/ActionList"
+        }
+      },
+      "required": [
+        "kind",
+        "list"
+      ],
+      "additionalProperties": false
+    },
+    "TasksOp": {
+      "x-module": "backend-ops-lists",
+      "$id": "#/$defs/TasksOp",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "tasks"
+        },
+        "sessionId": {
+          "$ref": "#/$defs/SessionId"
+        },
+        "change": {
+          "$ref": "#/$defs/ActionListChange"
+        }
+      },
+      "required": [
+        "kind",
+        "sessionId"
       ],
       "additionalProperties": false
     },

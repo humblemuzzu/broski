@@ -18,6 +18,7 @@ import type {
 import type { SessionSnapshot } from "../snapshot";
 import type { TranscriptItem } from "../transcript";
 import { fakeOpResult } from "./fake-data";
+import { FakeFiles } from "./fake-files";
 import { type FakeEnvironment, FakeSession } from "./fake-session";
 import { defaultModelId, initialModes, newSessionProblem, rejected } from "./fake-validation";
 
@@ -64,6 +65,7 @@ interface OpenView {
 /** The fake backend between two restarts of the bridge: its open views and catalog over the shared store. */
 export class FakeWorld implements FakeEnvironment {
 	private readonly views = new Set<OpenView>();
+	private readonly files = new FakeFiles();
 	private disposed = false;
 
 	constructor(
@@ -199,8 +201,10 @@ export class FakeWorld implements FakeEnvironment {
 		if (call.backend !== this.id || !this.traits.backendOps.includes(call.op.kind)) {
 			return rejected("unsupported", `${call.backend} ${call.op.kind}`);
 		}
-		if (!("sessionId" in call.op)) return { status: "accepted", result: fakeOpResult(call) };
-		const ref: SessionRef = { backend: this.id, sessionId: call.op.sessionId };
+		if (call.op.kind === "config_file" || call.op.kind === "custom_tool") return this.files.answer(call.op);
+		const sessionId = "sessionId" in call.op ? call.op.sessionId : undefined;
+		if (sessionId === undefined) return { status: "accepted", result: fakeOpResult(call) };
+		const ref: SessionRef = { backend: this.id, sessionId };
 		const found = this.find(ref);
 		if (!(found instanceof FakeSession)) return found;
 		if (found.snapshot.run) return rejected("busy", "a run is active");

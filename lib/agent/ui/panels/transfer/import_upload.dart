@@ -38,6 +38,7 @@ final class UploadStopped extends UploadEnd {
 /// no part is sent once [stopped] says so.
 Future<UploadEnd> uploadSessionFile({
   required ContractClient client,
+  required BackendId backend,
   required PickedFile file,
   required void Function(int sent) onProgress,
   required bool Function() stopped,
@@ -57,6 +58,7 @@ Future<UploadEnd> uploadSessionFile({
     if (stopped()) return const UploadStopped();
     final outcome = await client.callBackend(
       opCall(
+        SessionRef(backend: backend, sessionId: ''),
         ImportSessionOp(
           uploadId: id,
           offset: sent,

@@ -54,9 +54,10 @@ class SessionToolsView extends StatelessWidget {
               onChanged: actions.busy
                   ? null
                   : (on) => actions.call(
-                      (sessionId) => opCall(
+                      (target) => opCall(
+                        target.session,
                         SessionToolsOp(
-                          sessionId: sessionId,
+                          sessionId: target.session.sessionId,
                           change: ToolChange(name: tool.name, active: on),
                         ),
                       ),

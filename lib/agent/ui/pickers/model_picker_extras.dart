@@ -42,7 +42,7 @@ class ModelPickerExtras extends ConsumerWidget {
                 context,
                 opToolsOf(ref),
                 panel,
-                SessionRef(backend: backend, sessionId: ''),
+                sessionTarget(SessionRef(backend: backend, sessionId: '')),
               ),
               child: Text(panel.label),
             ),

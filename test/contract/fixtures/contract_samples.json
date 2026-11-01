@@ -29,6 +29,120 @@
       "status": "accepted"
     }
   ],
+  "ActionList": [
+    {
+      "rows": [
+        {
+          "id": "x",
+          "title": "x",
+          "subtitle": "x",
+          "status": {
+            "label": "x",
+            "tone": "neutral"
+          },
+          "group": "x",
+          "badges": [
+            "x"
+          ],
+          "actions": [
+            {
+              "id": "x",
+              "label": "x",
+              "destructive": true
+            }
+          ]
+        }
+      ],
+      "omitted": 1,
+      "note": "x"
+    },
+    {
+      "rows": [
+        {
+          "id": "x",
+          "title": "x",
+          "badges": [
+            "x"
+          ],
+          "actions": [
+            {
+              "id": "x",
+              "label": "x",
+              "destructive": false
+            }
+          ]
+        }
+      ],
+      "omitted": 1
+    }
+  ],
+  "ActionListAction": [
+    {
+      "id": "x",
+      "label": "x",
+      "destructive": true
+    },
+    {
+      "id": "x",
+      "label": "x",
+      "destructive": false
+    }
+  ],
+  "ActionListChange": [
+    {
+      "rowId": "x",
+      "actionId": "x"
+    }
+  ],
+  "ActionListRow": [
+    {
+      "id": "x",
+      "title": "x",
+      "subtitle": "x",
+      "status": {
+        "label": "x",
+        "tone": "neutral"
+      },
+      "group": "x",
+      "badges": [
+        "x"
+      ],
+      "actions": [
+        {
+          "id": "x",
+          "label": "x",
+          "destructive": true
+        }
+      ]
+    },
+    {
+      "id": "x",
+      "title": "x",
+      "badges": [
+        "x"
+      ],
+      "actions": [
+        {
+          "id": "x",
+          "label": "x",
+          "destructive": false
+        }
+      ]
+    }
+  ],
+  "ActionListStatus": [
+    {
+      "label": "x",
+      "tone": "neutral"
+    }
+  ],
+  "ActionListTone": [
+    "neutral",
+    "ok",
+    "busy",
+    "warning",
+    "error"
+  ],
   "ActionResult": [
     {
       "status": "accepted"
@@ -1435,6 +1549,234 @@
     "pi",
     "pi-durable"
   ],
+  "BackendOp": [
+    {
+      "kind": "rewind_files",
+      "sessionId": "x",
+      "userItemId": "x",
+      "dryRun": true
+    },
+    {
+      "kind": "rewind_files",
+      "sessionId": "x",
+      "userItemId": "x",
+      "dryRun": false
+    },
+    {
+      "kind": "navigate_tree",
+      "sessionId": "x",
+      "itemId": "x",
+      "summarize": true,
+      "instructions": "x"
+    },
+    {
+      "kind": "navigate_tree",
+      "sessionId": "x",
+      "itemId": "x",
+      "summarize": false
+    },
+    {
+      "kind": "take_over",
+      "sessionId": "x"
+    },
+    {
+      "kind": "session_settings",
+      "sessionId": "x",
+      "change": {
+        "kind": "toggle",
+        "key": "x",
+        "enabled": true
+      }
+    },
+    {
+      "kind": "session_settings",
+      "sessionId": "x"
+    },
+    {
+      "kind": "session_tools",
+      "sessionId": "x",
+      "change": {
+        "name": "x",
+        "active": true
+      }
+    },
+    {
+      "kind": "session_tools",
+      "sessionId": "x"
+    },
+    {
+      "kind": "system_prompt",
+      "sessionId": "x",
+      "offset": 1
+    },
+    {
+      "kind": "system_prompt",
+      "sessionId": "x"
+    },
+    {
+      "kind": "export_session",
+      "sessionId": "x",
+      "format": "html"
+    },
+    {
+      "kind": "export_part",
+      "sessionId": "x",
+      "exportId": "x",
+      "offset": 1
+    },
+    {
+      "kind": "import_session",
+      "uploadId": "x",
+      "offset": 1,
+      "data": "x",
+      "last": true
+    },
+    {
+      "kind": "import_session",
+      "uploadId": "x",
+      "offset": 1,
+      "data": "x",
+      "last": false
+    },
+    {
+      "kind": "changed_files",
+      "sessionId": "x"
+    },
+    {
+      "kind": "refresh_models"
+    },
+    {
+      "kind": "read_tree",
+      "sessionId": "x",
+      "page": {
+        "cursor": "x",
+        "limit": 1
+      }
+    },
+    {
+      "kind": "read_tree",
+      "sessionId": "x",
+      "page": {
+        "limit": 1
+      }
+    },
+    {
+      "kind": "label_entry",
+      "sessionId": "x",
+      "entryId": "x",
+      "label": "x"
+    },
+    {
+      "kind": "label_entry",
+      "sessionId": "x",
+      "entryId": "x"
+    },
+    {
+      "kind": "abort_branch_summary",
+      "sessionId": "x"
+    },
+    {
+      "kind": "run_shell",
+      "sessionId": "x",
+      "clientRequestId": "00000000-0000-4000-8000-000000000000",
+      "command": "x",
+      "excludeFromContext": true
+    },
+    {
+      "kind": "run_shell",
+      "sessionId": "x",
+      "clientRequestId": "00000000-0000-4000-8000-000000000000",
+      "command": "x",
+      "excludeFromContext": false
+    },
+    {
+      "kind": "config_files",
+      "cwd": "x"
+    },
+    {
+      "kind": "config_file",
+      "cwd": "x",
+      "fileId": "x",
+      "name": "x",
+      "change": {
+        "kind": "write",
+        "text": "x",
+        "revision": "x"
+      }
+    },
+    {
+      "kind": "config_file",
+      "cwd": "x",
+      "fileId": "x"
+    },
+    {
+      "kind": "settings_overview",
+      "cwd": "x"
+    },
+    {
+      "kind": "mcp_servers",
+      "sessionId": "x",
+      "change": {
+        "rowId": "x",
+        "actionId": "x"
+      }
+    },
+    {
+      "kind": "mcp_servers",
+      "sessionId": "x"
+    },
+    {
+      "kind": "plugins",
+      "cwd": "x",
+      "sessionId": "x",
+      "change": {
+        "rowId": "x",
+        "actionId": "x"
+      }
+    },
+    {
+      "kind": "plugins",
+      "cwd": "x"
+    },
+    {
+      "kind": "tasks",
+      "sessionId": "x",
+      "change": {
+        "rowId": "x",
+        "actionId": "x"
+      }
+    },
+    {
+      "kind": "tasks",
+      "sessionId": "x"
+    },
+    {
+      "kind": "context_usage",
+      "sessionId": "x"
+    },
+    {
+      "kind": "custom_tools",
+      "change": {
+        "rowId": "x",
+        "actionId": "x"
+      }
+    },
+    {
+      "kind": "custom_tools"
+    },
+    {
+      "kind": "custom_tool",
+      "toolId": "x",
+      "change": {
+        "kind": "write",
+        "text": "x",
+        "revision": "x"
+      }
+    },
+    {
+      "kind": "custom_tool"
+    }
+  ],
   "BackendOpKind": [
     "rewind_files",
     "navigate_tree",
@@ -1450,7 +1792,16 @@
     "read_tree",
     "label_entry",
     "abort_branch_summary",
-    "run_shell"
+    "run_shell",
+    "config_files",
+    "config_file",
+    "settings_overview",
+    "mcp_servers",
+    "plugins",
+    "tasks",
+    "context_usage",
+    "custom_tools",
+    "custom_tool"
   ],
   "BackendOpResult": [
     {
@@ -1634,6 +1985,414 @@
     },
     {
       "kind": "run_shell"
+    },
+    {
+      "kind": "config_files",
+      "files": [
+        {
+          "id": "x",
+          "label": "x",
+          "group": "x",
+          "scope": "x",
+          "path": "x",
+          "exists": true,
+          "editable": true,
+          "format": "json",
+          "template": true
+        }
+      ],
+      "omitted": 1
+    },
+    {
+      "kind": "config_files",
+      "files": [
+        {
+          "id": "x",
+          "label": "x",
+          "group": "x",
+          "scope": "x",
+          "path": "x",
+          "exists": false,
+          "editable": false,
+          "format": "json",
+          "template": false
+        }
+      ],
+      "omitted": 1
+    },
+    {
+      "kind": "config_file",
+      "file": {
+        "id": "x",
+        "path": "x",
+        "scope": "x",
+        "format": "json",
+        "exists": true,
+        "text": "x",
+        "revision": "x",
+        "editable": true,
+        "truncated": true,
+        "problems": [
+          "x"
+        ]
+      }
+    },
+    {
+      "kind": "config_file",
+      "file": {
+        "id": "x",
+        "path": "x",
+        "scope": "x",
+        "format": "json",
+        "exists": false,
+        "text": "x",
+        "revision": "x",
+        "editable": false,
+        "truncated": false,
+        "problems": [
+          "x"
+        ]
+      }
+    },
+    {
+      "kind": "settings_overview",
+      "list": {
+        "rows": [
+          {
+            "id": "x",
+            "title": "x",
+            "subtitle": "x",
+            "status": {
+              "label": "x",
+              "tone": "neutral"
+            },
+            "group": "x",
+            "badges": [
+              "x"
+            ],
+            "actions": [
+              {
+                "id": "x",
+                "label": "x",
+                "destructive": true
+              }
+            ]
+          }
+        ],
+        "omitted": 1,
+        "note": "x"
+      }
+    },
+    {
+      "kind": "settings_overview",
+      "list": {
+        "rows": [
+          {
+            "id": "x",
+            "title": "x",
+            "badges": [
+              "x"
+            ],
+            "actions": [
+              {
+                "id": "x",
+                "label": "x",
+                "destructive": false
+              }
+            ]
+          }
+        ],
+        "omitted": 1
+      }
+    },
+    {
+      "kind": "mcp_servers",
+      "list": {
+        "rows": [
+          {
+            "id": "x",
+            "title": "x",
+            "subtitle": "x",
+            "status": {
+              "label": "x",
+              "tone": "neutral"
+            },
+            "group": "x",
+            "badges": [
+              "x"
+            ],
+            "actions": [
+              {
+                "id": "x",
+                "label": "x",
+                "destructive": true
+              }
+            ]
+          }
+        ],
+        "omitted": 1,
+        "note": "x"
+      }
+    },
+    {
+      "kind": "mcp_servers",
+      "list": {
+        "rows": [
+          {
+            "id": "x",
+            "title": "x",
+            "badges": [
+              "x"
+            ],
+            "actions": [
+              {
+                "id": "x",
+                "label": "x",
+                "destructive": false
+              }
+            ]
+          }
+        ],
+        "omitted": 1
+      }
+    },
+    {
+      "kind": "plugins",
+      "list": {
+        "rows": [
+          {
+            "id": "x",
+            "title": "x",
+            "subtitle": "x",
+            "status": {
+              "label": "x",
+              "tone": "neutral"
+            },
+            "group": "x",
+            "badges": [
+              "x"
+            ],
+            "actions": [
+              {
+                "id": "x",
+                "label": "x",
+                "destructive": true
+              }
+            ]
+          }
+        ],
+        "omitted": 1,
+        "note": "x"
+      }
+    },
+    {
+      "kind": "plugins",
+      "list": {
+        "rows": [
+          {
+            "id": "x",
+            "title": "x",
+            "badges": [
+              "x"
+            ],
+            "actions": [
+              {
+                "id": "x",
+                "label": "x",
+                "destructive": false
+              }
+            ]
+          }
+        ],
+        "omitted": 1
+      }
+    },
+    {
+      "kind": "tasks",
+      "list": {
+        "rows": [
+          {
+            "id": "x",
+            "title": "x",
+            "subtitle": "x",
+            "status": {
+              "label": "x",
+              "tone": "neutral"
+            },
+            "group": "x",
+            "badges": [
+              "x"
+            ],
+            "actions": [
+              {
+                "id": "x",
+                "label": "x",
+                "destructive": true
+              }
+            ]
+          }
+        ],
+        "omitted": 1,
+        "note": "x"
+      }
+    },
+    {
+      "kind": "tasks",
+      "list": {
+        "rows": [
+          {
+            "id": "x",
+            "title": "x",
+            "badges": [
+              "x"
+            ],
+            "actions": [
+              {
+                "id": "x",
+                "label": "x",
+                "destructive": false
+              }
+            ]
+          }
+        ],
+        "omitted": 1
+      }
+    },
+    {
+      "kind": "context_usage",
+      "list": {
+        "rows": [
+          {
+            "id": "x",
+            "title": "x",
+            "subtitle": "x",
+            "status": {
+              "label": "x",
+              "tone": "neutral"
+            },
+            "group": "x",
+            "badges": [
+              "x"
+            ],
+            "actions": [
+              {
+                "id": "x",
+                "label": "x",
+                "destructive": true
+              }
+            ]
+          }
+        ],
+        "omitted": 1,
+        "note": "x"
+      }
+    },
+    {
+      "kind": "context_usage",
+      "list": {
+        "rows": [
+          {
+            "id": "x",
+            "title": "x",
+            "badges": [
+              "x"
+            ],
+            "actions": [
+              {
+                "id": "x",
+                "label": "x",
+                "destructive": false
+              }
+            ]
+          }
+        ],
+        "omitted": 1
+      }
+    },
+    {
+      "kind": "custom_tools",
+      "list": {
+        "rows": [
+          {
+            "id": "x",
+            "title": "x",
+            "subtitle": "x",
+            "status": {
+              "label": "x",
+              "tone": "neutral"
+            },
+            "group": "x",
+            "badges": [
+              "x"
+            ],
+            "actions": [
+              {
+                "id": "x",
+                "label": "x",
+                "destructive": true
+              }
+            ]
+          }
+        ],
+        "omitted": 1,
+        "note": "x"
+      }
+    },
+    {
+      "kind": "custom_tools",
+      "list": {
+        "rows": [
+          {
+            "id": "x",
+            "title": "x",
+            "badges": [
+              "x"
+            ],
+            "actions": [
+              {
+                "id": "x",
+                "label": "x",
+                "destructive": false
+              }
+            ]
+          }
+        ],
+        "omitted": 1
+      }
+    },
+    {
+      "kind": "custom_tool",
+      "file": {
+        "id": "x",
+        "path": "x",
+        "scope": "x",
+        "format": "json",
+        "exists": true,
+        "text": "x",
+        "revision": "x",
+        "editable": true,
+        "truncated": true,
+        "problems": [
+          "x"
+        ]
+      }
+    },
+    {
+      "kind": "custom_tool",
+      "file": {
+        "id": "x",
+        "path": "x",
+        "scope": "x",
+        "format": "json",
+        "exists": false,
+        "text": "x",
+        "revision": "x",
+        "editable": false,
+        "truncated": false,
+        "problems": [
+          "x"
+        ]
+      }
     }
   ],
   "BackendStatus": [
@@ -2282,6 +3041,113 @@
       "sessionId": "x",
       "userItemId": "x",
       "dryRun": false
+    },
+    {
+      "kind": "session_settings",
+      "sessionId": "x",
+      "change": {
+        "kind": "toggle",
+        "key": "x",
+        "enabled": true
+      }
+    },
+    {
+      "kind": "session_settings",
+      "sessionId": "x"
+    },
+    {
+      "kind": "changed_files",
+      "sessionId": "x"
+    },
+    {
+      "kind": "refresh_models"
+    },
+    {
+      "kind": "config_files",
+      "cwd": "x"
+    },
+    {
+      "kind": "config_file",
+      "cwd": "x",
+      "fileId": "x",
+      "name": "x",
+      "change": {
+        "kind": "write",
+        "text": "x",
+        "revision": "x"
+      }
+    },
+    {
+      "kind": "config_file",
+      "cwd": "x",
+      "fileId": "x"
+    },
+    {
+      "kind": "settings_overview",
+      "cwd": "x"
+    },
+    {
+      "kind": "mcp_servers",
+      "sessionId": "x",
+      "change": {
+        "rowId": "x",
+        "actionId": "x"
+      }
+    },
+    {
+      "kind": "mcp_servers",
+      "sessionId": "x"
+    },
+    {
+      "kind": "plugins",
+      "cwd": "x",
+      "sessionId": "x",
+      "change": {
+        "rowId": "x",
+        "actionId": "x"
+      }
+    },
+    {
+      "kind": "plugins",
+      "cwd": "x"
+    },
+    {
+      "kind": "tasks",
+      "sessionId": "x",
+      "change": {
+        "rowId": "x",
+        "actionId": "x"
+      }
+    },
+    {
+      "kind": "tasks",
+      "sessionId": "x"
+    },
+    {
+      "kind": "context_usage",
+      "sessionId": "x"
+    },
+    {
+      "kind": "custom_tools",
+      "change": {
+        "rowId": "x",
+        "actionId": "x"
+      }
+    },
+    {
+      "kind": "custom_tools"
+    },
+    {
+      "kind": "custom_tool",
+      "toolId": "x",
+      "change": {
+        "kind": "write",
+        "text": "x",
+        "revision": "x"
+      }
+    },
+    {
+      "kind": "custom_tool"
     }
   ],
   "ClientInfo": [
@@ -3010,6 +3876,126 @@
     "eq",
     "neq"
   ],
+  "ConfigFileEntry": [
+    {
+      "id": "x",
+      "label": "x",
+      "group": "x",
+      "scope": "x",
+      "path": "x",
+      "exists": true,
+      "editable": true,
+      "format": "json",
+      "template": true
+    },
+    {
+      "id": "x",
+      "label": "x",
+      "group": "x",
+      "scope": "x",
+      "path": "x",
+      "exists": false,
+      "editable": false,
+      "format": "json",
+      "template": false
+    }
+  ],
+  "ConfigFileOp": [
+    {
+      "kind": "config_file",
+      "cwd": "x",
+      "fileId": "x",
+      "name": "x",
+      "change": {
+        "kind": "write",
+        "text": "x",
+        "revision": "x"
+      }
+    },
+    {
+      "kind": "config_file",
+      "cwd": "x",
+      "fileId": "x"
+    }
+  ],
+  "ConfigFileRead": [
+    {
+      "kind": "config_file",
+      "file": {
+        "id": "x",
+        "path": "x",
+        "scope": "x",
+        "format": "json",
+        "exists": true,
+        "text": "x",
+        "revision": "x",
+        "editable": true,
+        "truncated": true,
+        "problems": [
+          "x"
+        ]
+      }
+    },
+    {
+      "kind": "config_file",
+      "file": {
+        "id": "x",
+        "path": "x",
+        "scope": "x",
+        "format": "json",
+        "exists": false,
+        "text": "x",
+        "revision": "x",
+        "editable": false,
+        "truncated": false,
+        "problems": [
+          "x"
+        ]
+      }
+    }
+  ],
+  "ConfigFilesListed": [
+    {
+      "kind": "config_files",
+      "files": [
+        {
+          "id": "x",
+          "label": "x",
+          "group": "x",
+          "scope": "x",
+          "path": "x",
+          "exists": true,
+          "editable": true,
+          "format": "json",
+          "template": true
+        }
+      ],
+      "omitted": 1
+    },
+    {
+      "kind": "config_files",
+      "files": [
+        {
+          "id": "x",
+          "label": "x",
+          "group": "x",
+          "scope": "x",
+          "path": "x",
+          "exists": false,
+          "editable": false,
+          "format": "json",
+          "template": false
+        }
+      ],
+      "omitted": 1
+    }
+  ],
+  "ConfigFilesOp": [
+    {
+      "kind": "config_files",
+      "cwd": "x"
+    }
+  ],
   "ConfirmReply": [
     {
       "kind": "confirm",
@@ -3023,6 +4009,242 @@
   "ConfirmRequest": [
     {
       "kind": "confirm"
+    }
+  ],
+  "ContextUsageOp": [
+    {
+      "kind": "context_usage",
+      "sessionId": "x"
+    }
+  ],
+  "ContextUsageRead": [
+    {
+      "kind": "context_usage",
+      "list": {
+        "rows": [
+          {
+            "id": "x",
+            "title": "x",
+            "subtitle": "x",
+            "status": {
+              "label": "x",
+              "tone": "neutral"
+            },
+            "group": "x",
+            "badges": [
+              "x"
+            ],
+            "actions": [
+              {
+                "id": "x",
+                "label": "x",
+                "destructive": true
+              }
+            ]
+          }
+        ],
+        "omitted": 1,
+        "note": "x"
+      }
+    },
+    {
+      "kind": "context_usage",
+      "list": {
+        "rows": [
+          {
+            "id": "x",
+            "title": "x",
+            "badges": [
+              "x"
+            ],
+            "actions": [
+              {
+                "id": "x",
+                "label": "x",
+                "destructive": false
+              }
+            ]
+          }
+        ],
+        "omitted": 1
+      }
+    }
+  ],
+  "CustomToolOp": [
+    {
+      "kind": "custom_tool",
+      "toolId": "x",
+      "change": {
+        "kind": "write",
+        "text": "x",
+        "revision": "x"
+      }
+    },
+    {
+      "kind": "custom_tool"
+    }
+  ],
+  "CustomToolRead": [
+    {
+      "kind": "custom_tool",
+      "file": {
+        "id": "x",
+        "path": "x",
+        "scope": "x",
+        "format": "json",
+        "exists": true,
+        "text": "x",
+        "revision": "x",
+        "editable": true,
+        "truncated": true,
+        "problems": [
+          "x"
+        ]
+      }
+    },
+    {
+      "kind": "custom_tool",
+      "file": {
+        "id": "x",
+        "path": "x",
+        "scope": "x",
+        "format": "json",
+        "exists": false,
+        "text": "x",
+        "revision": "x",
+        "editable": false,
+        "truncated": false,
+        "problems": [
+          "x"
+        ]
+      }
+    }
+  ],
+  "CustomToolsListed": [
+    {
+      "kind": "custom_tools",
+      "list": {
+        "rows": [
+          {
+            "id": "x",
+            "title": "x",
+            "subtitle": "x",
+            "status": {
+              "label": "x",
+              "tone": "neutral"
+            },
+            "group": "x",
+            "badges": [
+              "x"
+            ],
+            "actions": [
+              {
+                "id": "x",
+                "label": "x",
+                "destructive": true
+              }
+            ]
+          }
+        ],
+        "omitted": 1,
+        "note": "x"
+      }
+    },
+    {
+      "kind": "custom_tools",
+      "list": {
+        "rows": [
+          {
+            "id": "x",
+            "title": "x",
+            "badges": [
+              "x"
+            ],
+            "actions": [
+              {
+                "id": "x",
+                "label": "x",
+                "destructive": false
+              }
+            ]
+          }
+        ],
+        "omitted": 1
+      }
+    }
+  ],
+  "CustomToolsOp": [
+    {
+      "kind": "custom_tools",
+      "change": {
+        "rowId": "x",
+        "actionId": "x"
+      }
+    },
+    {
+      "kind": "custom_tools"
+    }
+  ],
+  "EditableFile": [
+    {
+      "id": "x",
+      "path": "x",
+      "scope": "x",
+      "format": "json",
+      "exists": true,
+      "text": "x",
+      "revision": "x",
+      "editable": true,
+      "truncated": true,
+      "problems": [
+        "x"
+      ]
+    },
+    {
+      "id": "x",
+      "path": "x",
+      "scope": "x",
+      "format": "json",
+      "exists": false,
+      "text": "x",
+      "revision": "x",
+      "editable": false,
+      "truncated": false,
+      "problems": [
+        "x"
+      ]
+    }
+  ],
+  "EditableFileChange": [
+    {
+      "kind": "write",
+      "text": "x",
+      "revision": "x"
+    },
+    {
+      "kind": "delete",
+      "revision": "x"
+    }
+  ],
+  "EditableFileDelete": [
+    {
+      "kind": "delete",
+      "revision": "x"
+    }
+  ],
+  "EditableFileFormat": [
+    "json",
+    "markdown",
+    "text"
+  ],
+  "EditableFileRevision": [
+    "x"
+  ],
+  "EditableFileWrite": [
+    {
+      "kind": "write",
+      "text": "x",
+      "revision": "x"
     }
   ],
   "EntryLabelled": [
@@ -4481,6 +5703,73 @@
       "entryId": "x"
     }
   ],
+  "McpServersListed": [
+    {
+      "kind": "mcp_servers",
+      "list": {
+        "rows": [
+          {
+            "id": "x",
+            "title": "x",
+            "subtitle": "x",
+            "status": {
+              "label": "x",
+              "tone": "neutral"
+            },
+            "group": "x",
+            "badges": [
+              "x"
+            ],
+            "actions": [
+              {
+                "id": "x",
+                "label": "x",
+                "destructive": true
+              }
+            ]
+          }
+        ],
+        "omitted": 1,
+        "note": "x"
+      }
+    },
+    {
+      "kind": "mcp_servers",
+      "list": {
+        "rows": [
+          {
+            "id": "x",
+            "title": "x",
+            "badges": [
+              "x"
+            ],
+            "actions": [
+              {
+                "id": "x",
+                "label": "x",
+                "destructive": false
+              }
+            ]
+          }
+        ],
+        "omitted": 1
+      }
+    }
+  ],
+  "McpServersOp": [
+    {
+      "kind": "mcp_servers",
+      "sessionId": "x",
+      "change": {
+        "rowId": "x",
+        "actionId": "x"
+      }
+    },
+    {
+      "kind": "mcp_servers",
+      "sessionId": "x"
+    }
+  ],
   "Mention": [
     {
       "kind": "file",
@@ -5542,6 +6831,74 @@
           }
         ]
       }
+    }
+  ],
+  "PluginsListed": [
+    {
+      "kind": "plugins",
+      "list": {
+        "rows": [
+          {
+            "id": "x",
+            "title": "x",
+            "subtitle": "x",
+            "status": {
+              "label": "x",
+              "tone": "neutral"
+            },
+            "group": "x",
+            "badges": [
+              "x"
+            ],
+            "actions": [
+              {
+                "id": "x",
+                "label": "x",
+                "destructive": true
+              }
+            ]
+          }
+        ],
+        "omitted": 1,
+        "note": "x"
+      }
+    },
+    {
+      "kind": "plugins",
+      "list": {
+        "rows": [
+          {
+            "id": "x",
+            "title": "x",
+            "badges": [
+              "x"
+            ],
+            "actions": [
+              {
+                "id": "x",
+                "label": "x",
+                "destructive": false
+              }
+            ]
+          }
+        ],
+        "omitted": 1
+      }
+    }
+  ],
+  "PluginsOp": [
+    {
+      "kind": "plugins",
+      "cwd": "x",
+      "sessionId": "x",
+      "change": {
+        "rowId": "x",
+        "actionId": "x"
+      }
+    },
+    {
+      "kind": "plugins",
+      "cwd": "x"
     }
   ],
   "PromptAccepted": [
@@ -8441,6 +9798,65 @@
   "SettingKey": [
     "x"
   ],
+  "SettingsOverviewOp": [
+    {
+      "kind": "settings_overview",
+      "cwd": "x"
+    }
+  ],
+  "SettingsOverviewRead": [
+    {
+      "kind": "settings_overview",
+      "list": {
+        "rows": [
+          {
+            "id": "x",
+            "title": "x",
+            "subtitle": "x",
+            "status": {
+              "label": "x",
+              "tone": "neutral"
+            },
+            "group": "x",
+            "badges": [
+              "x"
+            ],
+            "actions": [
+              {
+                "id": "x",
+                "label": "x",
+                "destructive": true
+              }
+            ]
+          }
+        ],
+        "omitted": 1,
+        "note": "x"
+      }
+    },
+    {
+      "kind": "settings_overview",
+      "list": {
+        "rows": [
+          {
+            "id": "x",
+            "title": "x",
+            "badges": [
+              "x"
+            ],
+            "actions": [
+              {
+                "id": "x",
+                "label": "x",
+                "destructive": false
+              }
+            ]
+          }
+        ],
+        "omitted": 1
+      }
+    }
+  ],
   "ShellStarted": [
     {
       "kind": "run_shell"
@@ -8852,6 +10268,73 @@
   "TakenOver": [
     {
       "kind": "take_over"
+    }
+  ],
+  "TasksListed": [
+    {
+      "kind": "tasks",
+      "list": {
+        "rows": [
+          {
+            "id": "x",
+            "title": "x",
+            "subtitle": "x",
+            "status": {
+              "label": "x",
+              "tone": "neutral"
+            },
+            "group": "x",
+            "badges": [
+              "x"
+            ],
+            "actions": [
+              {
+                "id": "x",
+                "label": "x",
+                "destructive": true
+              }
+            ]
+          }
+        ],
+        "omitted": 1,
+        "note": "x"
+      }
+    },
+    {
+      "kind": "tasks",
+      "list": {
+        "rows": [
+          {
+            "id": "x",
+            "title": "x",
+            "badges": [
+              "x"
+            ],
+            "actions": [
+              {
+                "id": "x",
+                "label": "x",
+                "destructive": false
+              }
+            ]
+          }
+        ],
+        "omitted": 1
+      }
+    }
+  ],
+  "TasksOp": [
+    {
+      "kind": "tasks",
+      "sessionId": "x",
+      "change": {
+        "rowId": "x",
+        "actionId": "x"
+      }
+    },
+    {
+      "kind": "tasks",
+      "sessionId": "x"
     }
   ],
   "TextContent": [

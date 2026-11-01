@@ -27,7 +27,7 @@ import { BackendStatus } from "./status";
  * field, a new request, a new union member or enum value) bumps `minor`; anything else bumps `major`.
  * Neither side sends the other anything newer than the other's `minor`, learnt from `hello`.
  */
-export const PROTOCOL_VERSION = { major: 1, minor: 3 } as const;
+export const PROTOCOL_VERSION = { major: 1, minor: 4 } as const;
 
 /**
  * The minor that introduced each addition to 1.0. The bridge sends it only to a client whose `hello`
@@ -37,7 +37,12 @@ export const PROTOCOL_VERSION = { major: 1, minor: 3 } as const;
  * `retry.cancel` requests with the `SessionCapabilities` fields that announce them, and the Pi ops `session_settings`,
  * `session_tools` and `system_prompt`; `sessionFiles` and `modelAvailability`, the Pi session-file ops,
  * `refresh_models` and the unavailable models of a model list; `treeOps` and `shellOps`, the Pi tree ops
- * (`read_tree`, `label_entry`, `abort_branch_summary`) and `run_shell`. An older client is told of none of them.
+ * (`read_tree`, `label_entry`, `abort_branch_summary`) and `run_shell`. 1.4: `configOps`, the ops of a project's
+ * configuration, a session's lists and the bridge's own tools (`config_files`, `config_file`, `settings_overview`,
+ * `mcp_servers`, `plugins`, `tasks`, `context_usage`, `custom_tools`, `custom_tool`), Claude Code serving the existing
+ * `session_settings`, `changed_files` and `refresh_models`, the `prompt_suggestion` extension (an older client is sent a
+ * `notice` in its place), and a plan approval's next mode (`modeOptions`, `modeAfter`: an older client is sent the plan
+ * without the options, and its answer may not name one). An older client is told of none of them.
  */
 export const ADDED_IN_MINOR = {
 	replacedSync: 1,
@@ -48,6 +53,7 @@ export const ADDED_IN_MINOR = {
 	modelAvailability: 3,
 	treeOps: 3,
 	shellOps: 3,
+	configOps: 4,
 } as const;
 
 export const ProtocolVersion = z.strictObject({ major: z.int().nonnegative(), minor: z.int().nonnegative() });

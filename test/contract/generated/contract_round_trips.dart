@@ -14,6 +14,21 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
   'ActionAccepted': (json) => ActionAccepted.fromJson(
     _as<Map<String, Object?>>(json, 'ActionAccepted'),
   ),
+  'ActionList': (json) =>
+      ActionList.fromJson(_as<Map<String, Object?>>(json, 'ActionList')),
+  'ActionListAction': (json) => ActionListAction.fromJson(
+    _as<Map<String, Object?>>(json, 'ActionListAction'),
+  ),
+  'ActionListChange': (json) => ActionListChange.fromJson(
+    _as<Map<String, Object?>>(json, 'ActionListChange'),
+  ),
+  'ActionListRow': (json) =>
+      ActionListRow.fromJson(_as<Map<String, Object?>>(json, 'ActionListRow')),
+  'ActionListStatus': (json) => ActionListStatus.fromJson(
+    _as<Map<String, Object?>>(json, 'ActionListStatus'),
+  ),
+  'ActionListTone': (json) =>
+      ActionListTone.fromJson(_as<String>(json, 'ActionListTone')),
   'ActionResult': (json) =>
       ActionResult.fromJson(_as<Map<String, Object?>>(json, 'ActionResult')),
   'ActiveRun': (json) =>
@@ -65,6 +80,8 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
     _as<Map<String, Object?>>(json, 'BackendExtension'),
   ),
   'BackendId': (json) => BackendId.fromJson(_as<String>(json, 'BackendId')),
+  'BackendOp': (json) =>
+      BackendOp.fromJson(_as<Map<String, Object?>>(json, 'BackendOp')),
   'BackendOpKind': (json) =>
       BackendOpKind.fromJson(_as<String>(json, 'BackendOpKind')),
   'BackendOpResult': (json) => BackendOpResult.fromJson(
@@ -205,10 +222,53 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
       CompactionTrigger.fromJson(_as<String>(json, 'CompactionTrigger')),
   'ConditionOperator': (json) =>
       ConditionOperator.fromJson(_as<String>(json, 'ConditionOperator')),
+  'ConfigFileEntry': (json) => ConfigFileEntry.fromJson(
+    _as<Map<String, Object?>>(json, 'ConfigFileEntry'),
+  ),
+  'ConfigFileOp': (json) =>
+      ConfigFileOp.fromJson(_as<Map<String, Object?>>(json, 'ConfigFileOp')),
+  'ConfigFileRead': (json) => ConfigFileRead.fromJson(
+    _as<Map<String, Object?>>(json, 'ConfigFileRead'),
+  ),
+  'ConfigFilesListed': (json) => ConfigFilesListed.fromJson(
+    _as<Map<String, Object?>>(json, 'ConfigFilesListed'),
+  ),
+  'ConfigFilesOp': (json) =>
+      ConfigFilesOp.fromJson(_as<Map<String, Object?>>(json, 'ConfigFilesOp')),
   'ConfirmReply': (json) =>
       ConfirmReply.fromJson(_as<Map<String, Object?>>(json, 'ConfirmReply')),
   'ConfirmRequest': (json) => ConfirmRequest.fromJson(
     _as<Map<String, Object?>>(json, 'ConfirmRequest'),
+  ),
+  'ContextUsageOp': (json) => ContextUsageOp.fromJson(
+    _as<Map<String, Object?>>(json, 'ContextUsageOp'),
+  ),
+  'ContextUsageRead': (json) => ContextUsageRead.fromJson(
+    _as<Map<String, Object?>>(json, 'ContextUsageRead'),
+  ),
+  'CustomToolOp': (json) =>
+      CustomToolOp.fromJson(_as<Map<String, Object?>>(json, 'CustomToolOp')),
+  'CustomToolRead': (json) => CustomToolRead.fromJson(
+    _as<Map<String, Object?>>(json, 'CustomToolRead'),
+  ),
+  'CustomToolsListed': (json) => CustomToolsListed.fromJson(
+    _as<Map<String, Object?>>(json, 'CustomToolsListed'),
+  ),
+  'CustomToolsOp': (json) =>
+      CustomToolsOp.fromJson(_as<Map<String, Object?>>(json, 'CustomToolsOp')),
+  'EditableFile': (json) =>
+      EditableFile.fromJson(_as<Map<String, Object?>>(json, 'EditableFile')),
+  'EditableFileChange': (json) => EditableFileChange.fromJson(
+    _as<Map<String, Object?>>(json, 'EditableFileChange'),
+  ),
+  'EditableFileDelete': (json) => EditableFileDelete.fromJson(
+    _as<Map<String, Object?>>(json, 'EditableFileDelete'),
+  ),
+  'EditableFileFormat': (json) =>
+      EditableFileFormat.fromJson(_as<String>(json, 'EditableFileFormat')),
+  'EditableFileRevision': (json) => _as<String>(json, 'EditableFileRevision'),
+  'EditableFileWrite': (json) => EditableFileWrite.fromJson(
+    _as<Map<String, Object?>>(json, 'EditableFileWrite'),
   ),
   'EntryLabelled': (json) =>
       EntryLabelled.fromJson(_as<Map<String, Object?>>(json, 'EntryLabelled')),
@@ -329,6 +389,11 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
   'JsonValue': (json) => JsonValue.fromJson(json),
   'LabelEntryOp': (json) =>
       LabelEntryOp.fromJson(_as<Map<String, Object?>>(json, 'LabelEntryOp')),
+  'McpServersListed': (json) => McpServersListed.fromJson(
+    _as<Map<String, Object?>>(json, 'McpServersListed'),
+  ),
+  'McpServersOp': (json) =>
+      McpServersOp.fromJson(_as<Map<String, Object?>>(json, 'McpServersOp')),
   'Mention': (json) =>
       Mention.fromJson(_as<Map<String, Object?>>(json, 'Mention')),
   'MentionKind': (json) =>
@@ -469,6 +534,10 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
   'PlanUpdatedEvent': (json) => PlanUpdatedEvent.fromJson(
     _as<Map<String, Object?>>(json, 'PlanUpdatedEvent'),
   ),
+  'PluginsListed': (json) =>
+      PluginsListed.fromJson(_as<Map<String, Object?>>(json, 'PluginsListed')),
+  'PluginsOp': (json) =>
+      PluginsOp.fromJson(_as<Map<String, Object?>>(json, 'PluginsOp')),
   'PromptAccepted': (json) => PromptAccepted.fromJson(
     _as<Map<String, Object?>>(json, 'PromptAccepted'),
   ),
@@ -721,6 +790,12 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
   'SettingChange': (json) =>
       SettingChange.fromJson(_as<Map<String, Object?>>(json, 'SettingChange')),
   'SettingKey': (json) => _as<String>(json, 'SettingKey'),
+  'SettingsOverviewOp': (json) => SettingsOverviewOp.fromJson(
+    _as<Map<String, Object?>>(json, 'SettingsOverviewOp'),
+  ),
+  'SettingsOverviewRead': (json) => SettingsOverviewRead.fromJson(
+    _as<Map<String, Object?>>(json, 'SettingsOverviewRead'),
+  ),
   'ShellStarted': (json) =>
       ShellStarted.fromJson(_as<Map<String, Object?>>(json, 'ShellStarted')),
   'SnapshotSync': (json) =>
@@ -748,6 +823,10 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
       TakeOverOp.fromJson(_as<Map<String, Object?>>(json, 'TakeOverOp')),
   'TakenOver': (json) =>
       TakenOver.fromJson(_as<Map<String, Object?>>(json, 'TakenOver')),
+  'TasksListed': (json) =>
+      TasksListed.fromJson(_as<Map<String, Object?>>(json, 'TasksListed')),
+  'TasksOp': (json) =>
+      TasksOp.fromJson(_as<Map<String, Object?>>(json, 'TasksOp')),
   'TextContent': (json) =>
       TextContent.fromJson(_as<Map<String, Object?>>(json, 'TextContent')),
   'TextReply': (json) =>
@@ -878,6 +957,23 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
   'ActionAccepted': (json) => (ActionAccepted.fromJson(
     _as<Map<String, Object?>>(json, 'ActionAccepted'),
   )).toJson(),
+  'ActionList': (json) => (ActionList.fromJson(
+    _as<Map<String, Object?>>(json, 'ActionList'),
+  )).toJson(),
+  'ActionListAction': (json) => (ActionListAction.fromJson(
+    _as<Map<String, Object?>>(json, 'ActionListAction'),
+  )).toJson(),
+  'ActionListChange': (json) => (ActionListChange.fromJson(
+    _as<Map<String, Object?>>(json, 'ActionListChange'),
+  )).toJson(),
+  'ActionListRow': (json) => (ActionListRow.fromJson(
+    _as<Map<String, Object?>>(json, 'ActionListRow'),
+  )).toJson(),
+  'ActionListStatus': (json) => (ActionListStatus.fromJson(
+    _as<Map<String, Object?>>(json, 'ActionListStatus'),
+  )).toJson(),
+  'ActionListTone': (json) =>
+      (ActionListTone.fromJson(_as<String>(json, 'ActionListTone'))).toJson(),
   'ActionResult': (json) => (ActionResult.fromJson(
     _as<Map<String, Object?>>(json, 'ActionResult'),
   )).toJson(),
@@ -939,6 +1035,9 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
   )).toJson(),
   'BackendId': (json) =>
       (BackendId.fromJson(_as<String>(json, 'BackendId'))).toJson(),
+  'BackendOp': (json) => (BackendOp.fromJson(
+    _as<Map<String, Object?>>(json, 'BackendOp'),
+  )).toJson(),
   'BackendOpKind': (json) =>
       (BackendOpKind.fromJson(_as<String>(json, 'BackendOpKind'))).toJson(),
   'BackendOpResult': (json) => (BackendOpResult.fromJson(
@@ -1097,11 +1196,60 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
   'ConditionOperator': (json) => (ConditionOperator.fromJson(
     _as<String>(json, 'ConditionOperator'),
   )).toJson(),
+  'ConfigFileEntry': (json) => (ConfigFileEntry.fromJson(
+    _as<Map<String, Object?>>(json, 'ConfigFileEntry'),
+  )).toJson(),
+  'ConfigFileOp': (json) => (ConfigFileOp.fromJson(
+    _as<Map<String, Object?>>(json, 'ConfigFileOp'),
+  )).toJson(),
+  'ConfigFileRead': (json) => (ConfigFileRead.fromJson(
+    _as<Map<String, Object?>>(json, 'ConfigFileRead'),
+  )).toJson(),
+  'ConfigFilesListed': (json) => (ConfigFilesListed.fromJson(
+    _as<Map<String, Object?>>(json, 'ConfigFilesListed'),
+  )).toJson(),
+  'ConfigFilesOp': (json) => (ConfigFilesOp.fromJson(
+    _as<Map<String, Object?>>(json, 'ConfigFilesOp'),
+  )).toJson(),
   'ConfirmReply': (json) => (ConfirmReply.fromJson(
     _as<Map<String, Object?>>(json, 'ConfirmReply'),
   )).toJson(),
   'ConfirmRequest': (json) => (ConfirmRequest.fromJson(
     _as<Map<String, Object?>>(json, 'ConfirmRequest'),
+  )).toJson(),
+  'ContextUsageOp': (json) => (ContextUsageOp.fromJson(
+    _as<Map<String, Object?>>(json, 'ContextUsageOp'),
+  )).toJson(),
+  'ContextUsageRead': (json) => (ContextUsageRead.fromJson(
+    _as<Map<String, Object?>>(json, 'ContextUsageRead'),
+  )).toJson(),
+  'CustomToolOp': (json) => (CustomToolOp.fromJson(
+    _as<Map<String, Object?>>(json, 'CustomToolOp'),
+  )).toJson(),
+  'CustomToolRead': (json) => (CustomToolRead.fromJson(
+    _as<Map<String, Object?>>(json, 'CustomToolRead'),
+  )).toJson(),
+  'CustomToolsListed': (json) => (CustomToolsListed.fromJson(
+    _as<Map<String, Object?>>(json, 'CustomToolsListed'),
+  )).toJson(),
+  'CustomToolsOp': (json) => (CustomToolsOp.fromJson(
+    _as<Map<String, Object?>>(json, 'CustomToolsOp'),
+  )).toJson(),
+  'EditableFile': (json) => (EditableFile.fromJson(
+    _as<Map<String, Object?>>(json, 'EditableFile'),
+  )).toJson(),
+  'EditableFileChange': (json) => (EditableFileChange.fromJson(
+    _as<Map<String, Object?>>(json, 'EditableFileChange'),
+  )).toJson(),
+  'EditableFileDelete': (json) => (EditableFileDelete.fromJson(
+    _as<Map<String, Object?>>(json, 'EditableFileDelete'),
+  )).toJson(),
+  'EditableFileFormat': (json) => (EditableFileFormat.fromJson(
+    _as<String>(json, 'EditableFileFormat'),
+  )).toJson(),
+  'EditableFileRevision': (json) => (_as<String>(json, 'EditableFileRevision')),
+  'EditableFileWrite': (json) => (EditableFileWrite.fromJson(
+    _as<Map<String, Object?>>(json, 'EditableFileWrite'),
   )).toJson(),
   'EntryLabelled': (json) => (EntryLabelled.fromJson(
     _as<Map<String, Object?>>(json, 'EntryLabelled'),
@@ -1246,6 +1394,12 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
   'JsonValue': (json) => (JsonValue.fromJson(json)).toJson(),
   'LabelEntryOp': (json) => (LabelEntryOp.fromJson(
     _as<Map<String, Object?>>(json, 'LabelEntryOp'),
+  )).toJson(),
+  'McpServersListed': (json) => (McpServersListed.fromJson(
+    _as<Map<String, Object?>>(json, 'McpServersListed'),
+  )).toJson(),
+  'McpServersOp': (json) => (McpServersOp.fromJson(
+    _as<Map<String, Object?>>(json, 'McpServersOp'),
   )).toJson(),
   'Mention': (json) =>
       (Mention.fromJson(_as<Map<String, Object?>>(json, 'Mention'))).toJson(),
@@ -1402,6 +1556,12 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
       (PlanItemStatus.fromJson(_as<String>(json, 'PlanItemStatus'))).toJson(),
   'PlanUpdatedEvent': (json) => (PlanUpdatedEvent.fromJson(
     _as<Map<String, Object?>>(json, 'PlanUpdatedEvent'),
+  )).toJson(),
+  'PluginsListed': (json) => (PluginsListed.fromJson(
+    _as<Map<String, Object?>>(json, 'PluginsListed'),
+  )).toJson(),
+  'PluginsOp': (json) => (PluginsOp.fromJson(
+    _as<Map<String, Object?>>(json, 'PluginsOp'),
   )).toJson(),
   'PromptAccepted': (json) => (PromptAccepted.fromJson(
     _as<Map<String, Object?>>(json, 'PromptAccepted'),
@@ -1692,6 +1852,12 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
     _as<Map<String, Object?>>(json, 'SettingChange'),
   )).toJson(),
   'SettingKey': (json) => (_as<String>(json, 'SettingKey')),
+  'SettingsOverviewOp': (json) => (SettingsOverviewOp.fromJson(
+    _as<Map<String, Object?>>(json, 'SettingsOverviewOp'),
+  )).toJson(),
+  'SettingsOverviewRead': (json) => (SettingsOverviewRead.fromJson(
+    _as<Map<String, Object?>>(json, 'SettingsOverviewRead'),
+  )).toJson(),
   'ShellStarted': (json) => (ShellStarted.fromJson(
     _as<Map<String, Object?>>(json, 'ShellStarted'),
   )).toJson(),
@@ -1725,6 +1891,11 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
   'TakenOver': (json) => (TakenOver.fromJson(
     _as<Map<String, Object?>>(json, 'TakenOver'),
   )).toJson(),
+  'TasksListed': (json) => (TasksListed.fromJson(
+    _as<Map<String, Object?>>(json, 'TasksListed'),
+  )).toJson(),
+  'TasksOp': (json) =>
+      (TasksOp.fromJson(_as<Map<String, Object?>>(json, 'TasksOp'))).toJson(),
   'TextContent': (json) => (TextContent.fromJson(
     _as<Map<String, Object?>>(json, 'TextContent'),
   )).toJson(),

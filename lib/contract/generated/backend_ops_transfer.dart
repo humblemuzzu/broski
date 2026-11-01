@@ -5,7 +5,7 @@ part of 'contract.dart';
 
 typedef ExportId = String;
 
-final class ExportPartOp implements PiOp {
+final class ExportPartOp implements BackendOp, PiOp {
   const ExportPartOp({
     required this.sessionId,
     required this.exportId,
@@ -104,7 +104,7 @@ final class ExportPartRead implements BackendOpResult {
       'ExportPartRead(offset: $offset, data: $data, done: $done)';
 }
 
-final class ExportSessionOp implements PiOp {
+final class ExportSessionOp implements BackendOp, PiOp {
   const ExportSessionOp({required this.sessionId, required this.format});
 
   factory ExportSessionOp.fromJson(Map<String, Object?> json) {
@@ -147,7 +147,7 @@ final class ExportSessionOp implements PiOp {
       'ExportSessionOp(sessionId: $sessionId, format: $format)';
 }
 
-final class ImportSessionOp implements PiOp {
+final class ImportSessionOp implements BackendOp, PiOp {
   const ImportSessionOp({
     required this.uploadId,
     required this.offset,

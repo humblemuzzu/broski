@@ -1,18 +1,19 @@
 /// What each backend operation asks the person before it is called. The
-/// call's type is the contract's own: each operation belongs to one backend's
-/// union (contract §13), and only that backend lists it in `backendOps`.
+/// call's type is the contract's own, wrapped for the backend of the session
+/// it is run on (`opCall`).
 library;
 
 import 'package:broski/agent/client/requests/op_call.dart';
+import 'package:broski/agent/ui/panels/op_panel.dart';
 import 'package:broski/agent/ui/shared/text_entry_dialog.dart';
 import 'package:broski/contract/generated/contract.dart';
 import 'package:flutter/material.dart';
 
 Future<BackendCall?> askRewindFiles(
   BuildContext context,
-  SessionId sessionId,
-  TranscriptItemId? itemId,
+  OpTarget target,
 ) async {
+  final itemId = target.itemId;
   if (itemId == null) return null;
   final dryRun = await _choose(
     context,
@@ -21,16 +22,21 @@ Future<BackendCall?> askRewindFiles(
     options: const {'Preview the rewind': true, 'Rewind now': false},
   );
   if (dryRun == null) return null;
-  return ClaudeCodeCall(
-    op: RewindFilesOp(sessionId: sessionId, userItemId: itemId, dryRun: dryRun),
+  return opCall(
+    target.session,
+    RewindFilesOp(
+      sessionId: target.session.sessionId,
+      userItemId: itemId,
+      dryRun: dryRun,
+    ),
   );
 }
 
 Future<BackendCall?> askNavigateTree(
   BuildContext context,
-  SessionId sessionId,
-  TranscriptItemId? itemId,
+  OpTarget target,
 ) async {
+  final itemId = target.itemId;
   if (itemId == null) return null;
   final summarize = await _choose(
     context,
@@ -41,15 +47,16 @@ Future<BackendCall?> askNavigateTree(
   );
   if (summarize == null) return null;
   return opCall(
-    NavigateTreeOp(sessionId: sessionId, itemId: itemId, summarize: summarize),
+    target.session,
+    NavigateTreeOp(
+      sessionId: target.session.sessionId,
+      itemId: itemId,
+      summarize: summarize,
+    ),
   );
 }
 
-Future<BackendCall?> askTakeOver(
-  BuildContext context,
-  SessionId sessionId,
-  TranscriptItemId? _,
-) async {
+Future<BackendCall?> askTakeOver(BuildContext context, OpTarget target) async {
   final sure = await askToConfirm(
     context,
     title: 'Take over this session?',
@@ -59,13 +66,14 @@ Future<BackendCall?> askTakeOver(
         'can corrupt it. Broski then runs the session from your phone.',
     action: 'Take over',
   );
-  return sure ? opCall(TakeOverOp(sessionId: sessionId)) : null;
+  return sure
+      ? opCall(target.session, TakeOverOp(sessionId: target.session.sessionId))
+      : null;
 }
 
 Future<BackendCall?> askExportSession(
   BuildContext context,
-  SessionId sessionId,
-  TranscriptItemId? _,
+  OpTarget target,
 ) async {
   final format = await _choose(
     context,
@@ -78,27 +86,26 @@ Future<BackendCall?> askExportSession(
   );
   return format == null
       ? null
-      : opCall(ExportSessionOp(sessionId: sessionId, format: format));
+      : opCall(
+          target.session,
+          ExportSessionOp(sessionId: target.session.sessionId, format: format),
+        );
 }
 
 Future<BackendCall?> askChangedFiles(
   BuildContext context,
-  SessionId sessionId,
-  TranscriptItemId? _,
-) async => opCall(ChangedFilesOp(sessionId: sessionId));
+  OpTarget target,
+) async =>
+    opCall(target.session, ChangedFilesOp(sessionId: target.session.sessionId));
 
 Future<BackendCall?> askRefreshModels(
   BuildContext context,
-  SessionId sessionId,
-  TranscriptItemId? _,
-) async => opCall(const RefreshModelsOp());
+  OpTarget target,
+) async => opCall(target.session, const RefreshModelsOp());
 
 /// For a panel that is run by its `flow`, or never run on its own.
-Future<BackendCall?> askNothing(
-  BuildContext context,
-  SessionId sessionId,
-  TranscriptItemId? _,
-) async => null;
+Future<BackendCall?> askNothing(BuildContext context, OpTarget target) async =>
+    null;
 
 Future<T?> _choose<T>(
   BuildContext context, {

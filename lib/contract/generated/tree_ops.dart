@@ -3,7 +3,7 @@
 
 part of 'contract.dart';
 
-final class AbortBranchSummaryOp implements PiOp {
+final class AbortBranchSummaryOp implements BackendOp, PiOp {
   const AbortBranchSummaryOp({required this.sessionId});
 
   factory AbortBranchSummaryOp.fromJson(Map<String, Object?> json) {
@@ -95,7 +95,7 @@ final class EntryLabelled implements BackendOpResult {
   String toString() => 'EntryLabelled()';
 }
 
-final class LabelEntryOp implements PiOp {
+final class LabelEntryOp implements BackendOp, PiOp {
   const LabelEntryOp({
     required this.sessionId,
     required this.entryId,
@@ -147,7 +147,7 @@ final class LabelEntryOp implements PiOp {
       'LabelEntryOp(sessionId: $sessionId, entryId: $entryId, label: $label)';
 }
 
-final class ReadTreeOp implements PiOp {
+final class ReadTreeOp implements BackendOp, PiOp {
   const ReadTreeOp({required this.sessionId, required this.page});
 
   factory ReadTreeOp.fromJson(Map<String, Object?> json) {

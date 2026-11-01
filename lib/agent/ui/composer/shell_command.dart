@@ -38,6 +38,7 @@ Future<String?> startShellCommand(
 ) async => problemOf(
   await client.callBackend(
     opCall(
+      session,
       RunShellOp(
         sessionId: session.sessionId,
         clientRequestId: const Uuid().v4(),

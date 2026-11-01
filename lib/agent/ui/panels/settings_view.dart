@@ -52,9 +52,10 @@ class _ToggleRow extends StatelessWidget {
     onChanged: actions.busy
         ? null
         : (enabled) => actions.call(
-            (sessionId) => opCall(
+            (target) => opCall(
+              target.session,
               SessionSettingsOp(
-                sessionId: sessionId,
+                sessionId: target.session.sessionId,
                 change: ToggleChange(key: setting.key, enabled: enabled),
               ),
             ),
@@ -86,9 +87,10 @@ class _ChoiceRow extends StatelessWidget {
                 onSelected: actions.busy
                     ? null
                     : (_) => actions.call(
-                        (sessionId) => opCall(
+                        (target) => opCall(
+                          target.session,
                           SessionSettingsOp(
-                            sessionId: sessionId,
+                            sessionId: target.session.sessionId,
                             change: ChoiceChange(
                               key: setting.key,
                               value: option.value,

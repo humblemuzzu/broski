@@ -158,7 +158,7 @@ sealed class SessionSetting {
   Map<String, Object?> toJson();
 }
 
-final class SessionSettingsOp implements PiOp {
+final class SessionSettingsOp implements BackendOp, ClaudeCodeOp, PiOp {
   const SessionSettingsOp({required this.sessionId, this.change});
 
   factory SessionSettingsOp.fromJson(Map<String, Object?> json) {
@@ -308,7 +308,7 @@ final class SessionTool {
       'SessionTool(name: $name, description: $description, active: $active, group: $group)';
 }
 
-final class SessionToolsOp implements PiOp {
+final class SessionToolsOp implements BackendOp, PiOp {
   const SessionToolsOp({required this.sessionId, this.change});
 
   factory SessionToolsOp.fromJson(Map<String, Object?> json) {
@@ -420,7 +420,7 @@ sealed class SettingChange {
 
 typedef SettingKey = String;
 
-final class SystemPromptOp implements PiOp {
+final class SystemPromptOp implements BackendOp, PiOp {
   const SystemPromptOp({required this.sessionId, this.offset});
 
   factory SystemPromptOp.fromJson(Map<String, Object?> json) {

@@ -69,6 +69,7 @@ class _TreePanelState extends ConsumerState<TreePanel> {
         .read(contractClientProvider)
         .callBackend(
           opCall(
+            widget.session,
             ReadTreeOp(
               sessionId: widget.session.sessionId,
               page: PageRequest(
@@ -118,6 +119,7 @@ class _TreePanelState extends ConsumerState<TreePanel> {
     );
     final outcome = await client.callBackend(
       opCall(
+        widget.session,
         NavigateTreeOp(
           sessionId: widget.session.sessionId,
           itemId: node.itemId,
@@ -148,7 +150,10 @@ class _TreePanelState extends ConsumerState<TreePanel> {
     final outcome = await ref
         .read(contractClientProvider)
         .callBackend(
-          opCall(AbortBranchSummaryOp(sessionId: widget.session.sessionId)),
+          opCall(
+            widget.session,
+            AbortBranchSummaryOp(sessionId: widget.session.sessionId),
+          ),
         );
     if (mounted) showProblem(context, problemOf(outcome));
   }
@@ -158,6 +163,7 @@ class _TreePanelState extends ConsumerState<TreePanel> {
         .read(contractClientProvider)
         .callBackend(
           opCall(
+            widget.session,
             LabelEntryOp(
               sessionId: widget.session.sessionId,
               entryId: node.id,

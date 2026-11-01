@@ -4,11 +4,22 @@ import 'package:broski/contract/generated/contract.dart';
 import 'package:flutter/material.dart';
 
 /// Where an operation is offered: on the session, on one finished item of its
-/// history, on the backend as a whole (it names no session: its panel is run
-/// with a [SessionRef] whose session id is empty), beside the model choice, or
-/// in no menu, because another panel or screen calls it (an export's later
-/// parts, the tree's label and cancel, the composer's shell command).
-enum OpPlace { session, item, backend, modelPicker, unlisted }
+/// history, on the session's project directory (where a screen knows it), on
+/// the backend as a whole (it names no session: its panel is run with a
+/// [SessionRef] whose session id is empty), beside the model choice, or in no
+/// menu, because another panel or screen calls it (an export's later parts,
+/// the tree's label and cancel, the composer's shell command).
+enum OpPlace { session, item, project, backend, modelPicker, unlisted }
+
+/// What an operation is run on; [cwd] is the project directory, where known.
+typedef OpTarget = ({
+  SessionRef session,
+  String? cwd,
+  TranscriptItemId? itemId,
+});
+
+OpTarget sessionTarget(SessionRef session, {String? cwd}) =>
+    (session: session, cwd: cwd, itemId: null);
 
 /// Which sessions an operation applies to, by what the session allows.
 enum OpAudience {
@@ -41,13 +52,9 @@ final class OpPanel {
   final OpPlace place;
   final OpAudience audience;
 
-  /// Asks for what the call needs; null when the person cancels. [itemId]
-  /// is set for an item operation.
-  final Future<BackendCall?> Function(
-    BuildContext context,
-    SessionId sessionId,
-    TranscriptItemId? itemId,
-  )
+  /// Asks for what the call needs; null when the person cancels, or when the
+  /// target lacks what the call names.
+  final Future<BackendCall?> Function(BuildContext context, OpTarget target)
   ask;
 
   /// For an operation that is more than one call, or a screen of its own: it

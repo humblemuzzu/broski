@@ -7,6 +7,7 @@ import {
 	modelsAreConsistent,
 	modesAreConsistent,
 } from "./rules-catalog";
+import { editableFilesKeepTheirRevision } from "./rules-files";
 import { imagesComeBackByReference, inputReachesTheModel } from "./rules-input";
 import { declaredInteractionsAnswerCorrectly } from "./rules-interactions";
 import {
@@ -80,6 +81,10 @@ export const CONFORMANCE_RULES: readonly ConformanceRule[] = [
 	{ name: "dispose silences every sink", check: disposeSilencesEverything },
 	{ name: "runs another client starts are live when declared", check: externalRunsAreLive },
 	{ name: "runs survive a restart exactly when durable", check: runsSurviveARestartWhenDurable },
+	{
+		name: "editable files are written only at their revision, and a JSON file only when it parses",
+		check: editableFilesKeepTheirRevision,
+	},
 ];
 
 export const DEFAULT_RULE_TIMEOUT_MS = 2_000;

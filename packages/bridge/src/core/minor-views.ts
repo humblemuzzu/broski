@@ -3,6 +3,7 @@
 import {
 	ADDED_IN_MINOR,
 	type BackendDescriptor,
+	type BackendId,
 	type BackendOpKind,
 	type EventEnvelope,
 	MAX_TEXT_CHARS,
@@ -31,11 +32,36 @@ const OP_ADDED_IN: Readonly<Record<BackendOpKind, number>> = {
 	label_entry: ADDED_IN_MINOR.treeOps,
 	abort_branch_summary: ADDED_IN_MINOR.treeOps,
 	run_shell: ADDED_IN_MINOR.shellOps,
+	config_files: ADDED_IN_MINOR.configOps,
+	config_file: ADDED_IN_MINOR.configOps,
+	settings_overview: ADDED_IN_MINOR.configOps,
+	mcp_servers: ADDED_IN_MINOR.configOps,
+	plugins: ADDED_IN_MINOR.configOps,
+	tasks: ADDED_IN_MINOR.configOps,
+	context_usage: ADDED_IN_MINOR.configOps,
+	custom_tools: ADDED_IN_MINOR.configOps,
+	custom_tool: ADDED_IN_MINOR.configOps,
 };
+
+/**
+ * The minor in which an existing op kind joined another backend's union: a client of an older minor has no call that
+ * carries it to that backend, so it is not offered there.
+ */
+const OP_JOINED_IN: { readonly [backend in BackendId]?: Readonly<Partial<Record<BackendOpKind, number>>> } = {
+	"claude-code": {
+		session_settings: ADDED_IN_MINOR.configOps,
+		changed_files: ADDED_IN_MINOR.configOps,
+		refresh_models: ADDED_IN_MINOR.configOps,
+	},
+};
+
+function opAddedIn(backend: BackendId, op: BackendOpKind): number {
+	return Math.max(OP_ADDED_IN[op], OP_JOINED_IN[backend]?.[op] ?? 0);
+}
 
 /** The descriptor as `client` may know it: without the ops a later minor added. */
 export function descriptorFor(client: CoreClient, descriptor: BackendDescriptor): BackendDescriptor {
-	const backendOps = descriptor.capabilities.backendOps.filter((op) => client.speaks(OP_ADDED_IN[op]));
+	const backendOps = descriptor.capabilities.backendOps.filter((op) => client.speaks(opAddedIn(descriptor.id, op)));
 	if (backendOps.length === descriptor.capabilities.backendOps.length) return descriptor;
 	return { ...descriptor, capabilities: { ...descriptor.capabilities, backendOps } };
 }

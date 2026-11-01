@@ -1,3 +1,4 @@
+import 'package:broski/agent/ui/panels/config_result_view.dart';
 import 'package:broski/agent/ui/panels/result_actions.dart';
 import 'package:broski/agent/ui/panels/settings_view.dart';
 import 'package:broski/agent/ui/panels/text_pages_view.dart';
@@ -50,6 +51,15 @@ class OpResultView extends StatelessWidget {
     SessionImported() => const Text('Imported. It is in the list.'),
     final ChangedFilesListed changed => ChangedFilesView(changed: changed),
     ModelsRefreshed(:final problems) => _RefreshedView(problems: problems),
+    ConfigFilesListed() ||
+    ConfigFileRead() ||
+    SettingsOverviewRead() ||
+    McpServersListed() ||
+    PluginsListed() ||
+    TasksListed() ||
+    ContextUsageRead() ||
+    CustomToolsListed() ||
+    CustomToolRead() => ConfigResultView(result: result, actions: actions),
   };
 }
 

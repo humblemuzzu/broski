@@ -7,7 +7,6 @@ import 'package:broski/agent/ui/panels/op_result_view.dart';
 import 'package:broski/agent/ui/panels/panel_registry.dart';
 import 'package:broski/agent/ui/panels/transfer/file_transfers.dart';
 import 'package:broski/agent/ui/shared/text_entry_dialog.dart';
-import 'package:broski/contract/generated/contract.dart';
 import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/widgets/chat/detail_sheet.dart' show DetailSheet;
 import 'package:flutter/material.dart';
@@ -30,13 +29,12 @@ Future<void> runOp(
   BuildContext context,
   OpTools tools,
   OpPanel panel,
-  SessionRef session, {
-  TranscriptItemId? itemId,
-}) async {
+  OpTarget target,
+) async {
   final (:client, :files) = tools;
   final flow = panel.flow;
-  if (flow != null) return flow(context, client, session, files);
-  final call = await panel.ask(context, session.sessionId, itemId);
+  if (flow != null) return flow(context, client, target.session, files);
+  final call = await panel.ask(context, target);
   if (call == null || !context.mounted) return;
   final outcome = await client.callBackend(call);
   if (!context.mounted) return;
@@ -49,12 +47,12 @@ Future<void> runOp(
           padding: Insets.screen,
           child: OpResultHost(
             client: client,
-            session: session,
+            target: target,
             first: result,
             builder: (result, actions) => OpResultView(
               result: result,
               actions: actions,
-              session: session,
+              session: target.session,
             ),
           ),
         ),

@@ -80,11 +80,15 @@ class ChatActions extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final controls = ref.read(sessionProvider(session).notifier).controls;
-    final panels = panelsAt(
-      capabilities,
-      OpPlace.session,
-      controllable: state.controllable,
-    );
+    final cwd = state.summary?.cwd;
+    final panels = [
+      ...panelsAt(
+        capabilities,
+        OpPlace.session,
+        controllable: state.controllable,
+      ),
+      if (cwd != null) ...panelsAt(capabilities, OpPlace.project),
+    ];
     final lastAnswer = ref.watch(lastAnswerProvider(session));
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -127,7 +131,11 @@ class ChatActions extends ConsumerWidget {
             key: const ValueKey('chat-panels'),
             tooltip: 'More',
             icon: const Icon(AppIcons.moreVertical),
-            onPressed: () => showPanelsSheet(context, panels, session),
+            onPressed: () => showPanelsSheet(
+              context,
+              panels,
+              sessionTarget(session, cwd: cwd),
+            ),
           ),
       ],
     );

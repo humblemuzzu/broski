@@ -1,5 +1,16 @@
 import { z } from "zod";
 import {
+	ContextUsageOp,
+	ContextUsageRead,
+	LIST_OP_KINDS,
+	McpServersListed,
+	McpServersOp,
+	PluginsListed,
+	PluginsOp,
+	TasksListed,
+	TasksOp,
+} from "./backend-ops-lists";
+import {
 	ChangedFilesListed,
 	ChangedFilesOp,
 	ModelsRefreshed,
@@ -15,6 +26,22 @@ import {
 	SessionImported,
 	TRANSFER_OP_KINDS,
 } from "./backend-ops-transfer";
+import {
+	CONFIG_OP_KINDS,
+	ConfigFileOp,
+	ConfigFileRead,
+	ConfigFilesListed,
+	ConfigFilesOp,
+	SettingsOverviewOp,
+	SettingsOverviewRead,
+} from "./config-ops";
+import {
+	CUSTOM_TOOL_OP_KINDS,
+	CustomToolOp,
+	CustomToolRead,
+	CustomToolsListed,
+	CustomToolsOp,
+} from "./custom-tool-ops";
 import { SessionId, TranscriptItemId } from "./ids";
 import { MAX_LIST_ITEMS, MAX_PATH_CHARS, MAX_TEXT_CHARS } from "./limits";
 import { Rejected } from "./rejection";
@@ -47,6 +74,9 @@ export const BackendOpKind = z.enum([
 	...READ_OP_KINDS,
 	...TREE_OP_KINDS,
 	...SHELL_OP_KINDS,
+	...CONFIG_OP_KINDS,
+	...LIST_OP_KINDS,
+	...CUSTOM_TOOL_OP_KINDS,
 ]);
 export type BackendOpKind = z.infer<typeof BackendOpKind>;
 
@@ -69,6 +99,15 @@ export function rewritesHistory(kind: BackendOpKind): boolean {
 		case "label_entry":
 		case "abort_branch_summary":
 		case "run_shell":
+		case "config_files":
+		case "config_file":
+		case "settings_overview":
+		case "mcp_servers":
+		case "plugins":
+		case "tasks":
+		case "context_usage":
+		case "custom_tools":
+		case "custom_tool":
 			return false;
 	}
 }
@@ -104,7 +143,22 @@ export const TakeOverOp = z.strictObject({
 });
 export type TakeOverOp = z.infer<typeof TakeOverOp>;
 
-export const ClaudeCodeOp = z.discriminatedUnion("kind", [RewindFilesOp]);
+/** A kind may belong to several backends' unions; the call's `backend` says which one serves it. */
+export const ClaudeCodeOp = z.discriminatedUnion("kind", [
+	RewindFilesOp,
+	SessionSettingsOp,
+	ChangedFilesOp,
+	RefreshModelsOp,
+	ConfigFilesOp,
+	ConfigFileOp,
+	SettingsOverviewOp,
+	McpServersOp,
+	PluginsOp,
+	TasksOp,
+	ContextUsageOp,
+	CustomToolsOp,
+	CustomToolOp,
+]);
 export type ClaudeCodeOp = z.infer<typeof ClaudeCodeOp>;
 
 export const PiOp = z.discriminatedUnion("kind", [
@@ -125,13 +179,42 @@ export const PiOp = z.discriminatedUnion("kind", [
 ]);
 export type PiOp = z.infer<typeof PiOp>;
 
+/** Every op of every backend, each kind once: what a client builds before it wraps the op in its backend's call. */
+export const BackendOp = z.discriminatedUnion("kind", [
+	RewindFilesOp,
+	NavigateTreeOp,
+	TakeOverOp,
+	SessionSettingsOp,
+	SessionToolsOp,
+	SystemPromptOp,
+	ExportSessionOp,
+	ExportPartOp,
+	ImportSessionOp,
+	ChangedFilesOp,
+	RefreshModelsOp,
+	ReadTreeOp,
+	LabelEntryOp,
+	AbortBranchSummaryOp,
+	RunShellOp,
+	ConfigFilesOp,
+	ConfigFileOp,
+	SettingsOverviewOp,
+	McpServersOp,
+	PluginsOp,
+	TasksOp,
+	ContextUsageOp,
+	CustomToolsOp,
+	CustomToolOp,
+]);
+export type BackendOp = z.infer<typeof BackendOp>;
+
 export const ClaudeCodeCall = z.strictObject({ backend: z.literal("claude-code"), op: ClaudeCodeOp });
 export type ClaudeCodeCall = z.infer<typeof ClaudeCodeCall>;
 
 export const PiCall = z.strictObject({ backend: z.literal("pi"), op: PiOp });
 export type PiCall = z.infer<typeof PiCall>;
 
-/** The escape hatch for a feature only one backend has. Pi Durable has none. */
+/** The escape hatch for what the normalized protocol does not cover. Pi Durable has none. */
 export const BackendCall = z.discriminatedUnion("backend", [ClaudeCodeCall, PiCall]);
 export type BackendCall = z.infer<typeof BackendCall>;
 
@@ -169,6 +252,15 @@ export const BackendOpResult = z.discriminatedUnion("kind", [
 	EntryLabelled,
 	BranchSummaryAborted,
 	ShellStarted,
+	ConfigFilesListed,
+	ConfigFileRead,
+	SettingsOverviewRead,
+	McpServersListed,
+	PluginsListed,
+	TasksListed,
+	ContextUsageRead,
+	CustomToolsListed,
+	CustomToolRead,
 ]);
 export type BackendOpResult = z.infer<typeof BackendOpResult>;
 

@@ -5,13 +5,13 @@ import 'package:broski/widgets/chat/detail_sheet.dart' show DetailSheet;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// The "More" sheet: [panels], each run on [session] from [context], the
+/// The "More" sheet: [panels], each run on [target] from [context], the
 /// screen under the sheet, once the sheet has closed. A backend's own
 /// operations name no session: theirs is a [SessionRef] with an empty id.
 void showPanelsSheet(
   BuildContext context,
   List<OpPanel> panels,
-  SessionRef session,
+  OpTarget target,
 ) => DetailSheet.show<void>(
   context: context,
   title: 'More',
@@ -25,7 +25,7 @@ void showPanelsSheet(
             onTap: () {
               final tools = opToolsOf(ref);
               Navigator.of(sheetContext).pop();
-              runOp(context, tools, panel, session);
+              runOp(context, tools, panel, target);
             },
           ),
       ],
@@ -37,6 +37,6 @@ void showPanelsSheet(
 List<OpPanel> backendPanels(BackendDescriptor backend) =>
     panelsAt(backend.capabilities, OpPlace.backend);
 
-/// The session that stands for "no session" when a backend operation runs.
-SessionRef backendWide(BackendDescriptor backend) =>
-    SessionRef(backend: backend.id, sessionId: '');
+/// What a backend operation runs on: the session that stands for "no session".
+OpTarget backendWide(BackendDescriptor backend) =>
+    sessionTarget(SessionRef(backend: backend.id, sessionId: ''));

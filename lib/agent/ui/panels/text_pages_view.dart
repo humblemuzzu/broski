@@ -58,8 +58,12 @@ class _TextPagesViewState extends State<TextPagesView> {
             onPressed: widget.actions.busy
                 ? null
                 : () => widget.actions.call(
-                    (sessionId) => opCall(
-                      SystemPromptOp(sessionId: sessionId, offset: next),
+                    (target) => opCall(
+                      target.session,
+                      SystemPromptOp(
+                        sessionId: target.session.sessionId,
+                        offset: next,
+                      ),
                     ),
                   ),
             child: const Text('Show more'),

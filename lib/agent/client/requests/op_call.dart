@@ -1,6 +1,12 @@
 import 'package:broski/contract/generated/contract.dart';
 
-/// The `backend.call` that carries [op] (contract §13). Every op the generic
-/// screens send belongs to one of the contract's unions of ops, so this is the
-/// one place that names the call wrapping it.
-BackendCall opCall(PiOp op) => PiCall(op: op);
+/// The `backend.call` that carries [op] to the backend [session] belongs to
+/// (contract §13). One op kind may be in several backends' unions, so the
+/// session says which call wraps it: its backend id goes into the call as it
+/// came, never read. A backend whose union has no such op makes the call
+/// throw a [FormatException]; a panel is only offered for an op the backend
+/// lists in `backendOps`.
+BackendCall opCall(SessionRef session, BackendOp op) => BackendCall.fromJson({
+  'backend': session.toJson()['backend'],
+  'op': op.toJson(),
+});
