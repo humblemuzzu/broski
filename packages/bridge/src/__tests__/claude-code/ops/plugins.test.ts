@@ -87,6 +87,17 @@ describe("plugins: enabling and disabling", () => {
 		expect(project.enabledPlugins["deploy@team"]).toBe(true);
 	});
 
+	test("a settings file written on one line stays on one line, and an empty one gets two-space indentation", async () => {
+		world = opsWorld();
+		seed();
+		world.write(localPath(), '{"outputStyle":"Concise"}\n');
+		await plugins({ rowId: "fmt@tools", actionId: "disable" });
+		expect(readFileSync(localPath(), "utf8")).toBe('{"outputStyle":"Concise","enabledPlugins":{"fmt@tools":false}}\n');
+		world.write(localPath(), "{}\n");
+		await plugins({ rowId: "lint@tools", actionId: "enable" });
+		expect(readFileSync(localPath(), "utf8")).toBe('{\n  "enabledPlugins": {\n    "lint@tools": true\n  }\n}\n');
+	});
+
 	test("enabling creates local settings when there are none", async () => {
 		world = opsWorld();
 		seed();

@@ -1,6 +1,6 @@
 /**
  * `mcp_servers` (D22): the session's MCP servers by live status. Enabling and disabling go through the CLI, which
- * writes the per-project list in its own `.claude.json` itself (verified in `mcp_servers.test.ts`); the adapter never
+ * writes the per-project list in its own `.claude.json` itself (verified in `real_cli.test.ts`); the adapter never
  * touches that file, which also holds the account.
  */
 

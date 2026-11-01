@@ -107,9 +107,12 @@ export async function customTool(deps: OpsDeps, op: CustomToolOp): Promise<Backe
 		}
 		const { toolId } = op;
 		const template = issuedBy(port).get(toolId);
-		if ((await port.read(toolId)) === undefined && template === undefined)
-			return rejected("not_found", `no custom tool ${toolId}`);
+		const current = await port.read(toolId);
+		if (current === undefined && template === undefined) return rejected("not_found", `no custom tool ${toolId}`);
 		if (op.change !== undefined) {
+			const shown = fileOf(toolId, current, template);
+			if (!shown.editable)
+				return rejected("unsupported", shown.problems[0] ?? "this tool cannot be edited from the phone");
 			try {
 				const refused = await change(port, toolId, op.change);
 				if (refused !== undefined) return refused;

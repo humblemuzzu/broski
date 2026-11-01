@@ -19,9 +19,11 @@ export function setOwn(target: Record<string, unknown>, key: string, value: unkn
 	Object.defineProperty(target, key, { value, enumerable: true, writable: true, configurable: true });
 }
 
-function indentOf(text: string): string {
-	const found = /^([ \t]+)"/m.exec(text);
-	return found?.[1] ?? "  ";
+/** The file's own indentation; a file written on one line stays on one line, and a new file gets two spaces. */
+function indentOf(text: string): string | undefined {
+	if (text.trim() === "" || text.trim() === "{}") return "  ";
+	if (!text.trim().includes("\n")) return undefined;
+	return /^([ \t]+)"/m.exec(text)?.[1] ?? "  ";
 }
 
 /** What `edit` leaves of the file at `place`, written back in the file's own indentation. */

@@ -162,6 +162,26 @@ describe("custom_tool", () => {
 		expect(results.filter((result) => result.status === "accepted")).toHaveLength(1);
 	});
 
+	test("a definition longer than the phone can show is truncated and never written back", async () => {
+		const big = { name: "big", blob: "a".repeat(1_100_000) };
+		const saved: unknown[] = [];
+		const port: CustomToolsPort = {
+			...memoryCustomTools(),
+			read: async () => big,
+			save: async (_id, definition) => {
+				saved.push(definition);
+				return { ok: true };
+			},
+		};
+		world = opsWorld({ customTools: port });
+		const file = fileOf(await tool("big"));
+		expect(file).toMatchObject({ truncated: true, editable: false });
+		expect(file.text.length).toBe(1_048_576);
+		const refused = await tool("big", { kind: "write", text: "{}", revision: file.revision });
+		expect(codeOf(refused)).toBe("unsupported");
+		expect(saved).toEqual([]);
+	});
+
 	test("delete is compare-and-swap, and a deleted tool reads as absent", async () => {
 		world = opsWorld({ customTools: memoryCustomTools() });
 		const file = fileOf(await tool("echo"));
