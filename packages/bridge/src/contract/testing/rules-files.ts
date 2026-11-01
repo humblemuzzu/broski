@@ -8,10 +8,11 @@ const OTHER_REVISION = "conformance-another-revision";
 const NO_SUCH_FILE = "conformance-no-such-file";
 
 /**
- * Every declared op that reads an editable file writes it only at the revision read: another revision is `stale`, a
- * JSON file only when the text parses (`invalid_input`), and a file the backend may not change never (`unsupported`).
- * Writing back what was read, at its revision, through the id the answer named, lands and answers the same text. An id
- * the backend never named is `not_found`.
+ * Every declared op that reads an editable file writes or deletes it only at the revision read: another revision is
+ * `stale`, a JSON file is written only when the text parses (`invalid_input`), and a file the backend may not change
+ * never (`unsupported`), nor one it answered `truncated`, which is never `editable`. Writing back what was read, at its
+ * revision, through the id the answer named, lands and answers the same text. An id the backend never named is
+ * `not_found`.
  */
 export async function editableFilesKeepTheirRevision(rig: Rig): Promise<void> {
 	const { backend } = rig;
@@ -30,10 +31,14 @@ export async function editableFilesKeepTheirRevision(rig: Rig): Promise<void> {
 		if (!file.editable) {
 			const refused = await write({ kind: "write", text: file.text, revision: file.revision });
 			expect(rejectedAs(refused, "unsupported"), `a write to a file ${op} cannot change must be unsupported`);
+			const kept = await write({ kind: "delete", revision: file.revision });
+			expect(rejectedAs(kept, "unsupported"), `a delete of a file ${op} cannot change must be unsupported`);
 			continue;
 		}
 		const stale = await write({ kind: "write", text: file.text, revision: OTHER_REVISION });
 		expect(rejectedAs(stale, "stale"), `a ${op} write at another revision must be stale`);
+		const staleDelete = await write({ kind: "delete", revision: OTHER_REVISION });
+		expect(rejectedAs(staleDelete, "stale"), `a ${op} delete at another revision must be stale`);
 		if (file.format === "json") {
 			const broken = await write({ kind: "write", text: "{", revision: file.revision });
 			expect(rejectedAs(broken, "invalid_input"), `a ${op} write that is not JSON must be invalid_input`);
@@ -52,7 +57,9 @@ function fileOf(op: FileOpKind, result: BackendCallResult): EditableFile {
 	if (result.status === "rejected") fail(`${op} was rejected: ${result.rejection.message}`);
 	if (result.result.kind !== op) fail(`${op} answered with a ${result.result.kind} result`);
 	if (result.result.kind !== "config_file" && result.result.kind !== "custom_tool") fail(`${op} answered no file`);
-	return result.result.file;
+	const { file } = result.result;
+	expect(!(file.truncated && file.editable), `${op} answered a truncated file as editable`);
+	return file;
 }
 
 function rejectedAs(result: BackendCallResult, code: string): boolean {

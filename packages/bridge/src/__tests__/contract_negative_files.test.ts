@@ -119,6 +119,40 @@ describe("the editable file rule fails", () => {
 			/a write to a file custom_tool cannot change must be unsupported/,
 		));
 
+	test("for a truncated file answered as editable", () =>
+		fails(
+			changingCalls("config_file", (_call, result) =>
+				result.status === "accepted"
+					? { status: "accepted", result: { kind: "config_file", file: { ...fileFrom(result), truncated: true } } }
+					: result,
+			),
+			editableFilesKeepTheirRevision,
+			/config_file answered a truncated file as editable/,
+		));
+
+	test("for a delete at another revision that lands", () =>
+		fails(
+			changingCalls("config_file", (call, result) =>
+				call.op.kind === "config_file" && call.op.change?.kind === "delete"
+					? { status: "accepted", result: { kind: "config_file", file: { ...fileFrom(result), exists: false } } }
+					: result,
+			),
+			editableFilesKeepTheirRevision,
+			/config_file delete at another revision must be stale/,
+		));
+
+	test("for a file the backend may not change that takes a delete", () =>
+		fails(
+			changingCalls("custom_tool", (call, result) => {
+				if (call.op.kind === "custom_tool" && call.op.change?.kind === "write")
+					return { status: "rejected", rejection: { code: "unsupported", message: "read only" } };
+				if (call.op.kind !== "custom_tool" || result.status !== "accepted") return result;
+				return { status: "accepted", result: { kind: "custom_tool", file: { ...fileFrom(result), editable: false } } };
+			}),
+			editableFilesKeepTheirRevision,
+			/a delete of a file custom_tool cannot change must be unsupported/,
+		));
+
 	test("for a write that answers other text", () =>
 		fails(
 			changingCalls("config_file", (call, result) =>
