@@ -1,4 +1,4 @@
-/** The custom tools port (D30) over an in-memory map, for the conformance world; the server layer's is Step 5's. */
+/** A custom tools port (D30) over an in-memory map, for the ops' unit tests; the conformance world runs the server's. */
 
 import type { CustomToolSaved, CustomToolSummary, CustomToolsPort } from "../../../backends/claude-code/ports";
 import type { JsonValue } from "../../../contract";

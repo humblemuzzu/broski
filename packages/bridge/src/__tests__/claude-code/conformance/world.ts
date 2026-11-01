@@ -12,11 +12,11 @@ import { defaultClaudeCliEnvironment, resolveClaudeCliPath } from "../../../serv
 import { type ClaudeHome, claudeTestEnv, createClaudeHome, README_TEXT } from "../../helpers/claude-home";
 import { type ScriptedAnthropic, serveScriptedAnthropic } from "../../helpers/scripted-anthropic-server";
 import { installElicitServer } from "./elicit-server";
-import { memoryCustomTools } from "./memory-custom-tools";
 import { ModelEcho } from "./model-echo";
 import { Activity, type Observed, observe } from "./observed-backend";
 import { SessionRouter } from "./session-router";
 import { TerminalAsks } from "./terminal-asks";
+import { worldCustomTools } from "./world-custom-tools";
 
 export const CLI_VERSION = "2.1.316";
 
@@ -73,7 +73,7 @@ export class ClaudeWorld {
 			stateDir: join(home.root, "broski-state"),
 			clientApp: "broski/conformance",
 			expectedCliVersion: CLI_VERSION,
-			customTools: memoryCustomTools(),
+			customTools: worldCustomTools(home.homeDir),
 			terminal: { hookAsks: terminalAsks.hookAsks },
 		};
 		const activity = new Activity();
