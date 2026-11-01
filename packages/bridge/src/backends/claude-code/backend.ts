@@ -4,26 +4,17 @@
  * host, and one a terminal is writing by the terminal watch (D21).
  */
 
-import type {
-	AgentBackend,
-	BackendHost,
-	CommandsListResult,
-	OpenResult,
-	OpenTarget,
-	Rejected,
-	SessionRef,
-	SessionSink,
-} from "../../contract";
+import type { AgentBackend, BackendHost, CommandsListResult, SessionRef } from "../../contract";
 import { callOp } from "./call-op";
 import { CatalogFeed } from "./catalog-feed";
-import { parseChildRef } from "./ids";
 import { createLiveSessions } from "./live/registry";
 import { CLAUDE_CODE_MAPPING } from "./mapping";
 import { createCatalogue } from "./models/catalog";
+import { notFound, openSession } from "./open-session";
 import { type ConfigWatch, createConfigWatch } from "./ops/config-watch";
 import { createOwnership } from "./owned";
 import type { CatalogueAccess, LiveSessions, Ownership, SessionStore, TerminalWatch } from "./ports";
-import { isRejected, rejected } from "./rejections";
+import { isRejected } from "./rejections";
 import type { ClaudeCodeServices } from "./services";
 import { createSessionStore } from "./store/session-store";
 import { createTerminalWatch } from "./terminal/watch-only";
@@ -105,30 +96,6 @@ export function claudeCodeBackendOf(parts: ClaudeCodeParts): AgentBackend {
 	};
 }
 
-async function openSession(parts: ClaudeCodeParts, target: OpenTarget, sink: SessionSink): Promise<OpenResult> {
-	if (target.kind === "new") {
-		const opened = await parts.live.open(target, sink);
-		if (!isRejected(opened)) parts.configWatch.track(target.options.cwd);
-		return opened;
-	}
-	const { session } = target;
-	if (!mine(session)) return notFound(session);
-	const child = parseChildRef(session.sessionId);
-	if (child) return parts.live.openChild(session, child, sink);
-	if (!parts.live.isHosted(session.sessionId) && (await parts.terminal.writing(session.sessionId))) {
-		const stored = await parts.store.locate(session.sessionId);
-		return isRejected(stored) ? stored : parts.terminal.openWatchOnly(session, stored, sink);
-	}
-	const opened = await parts.live.open(target, sink);
-	if (!isRejected(opened)) void trackStored(parts, session.sessionId);
-	return opened;
-}
-
-async function trackStored(parts: ClaudeCodeParts, sessionId: string): Promise<void> {
-	const stored = await parts.store.locate(sessionId).catch(() => undefined);
-	if (stored !== undefined && !isRejected(stored) && stored.cwd !== undefined) parts.configWatch.track(stored.cwd);
-}
-
 async function listCommands(
 	parts: ClaudeCodeParts,
 	scope: { cwd?: string; session?: SessionRef },
@@ -141,8 +108,4 @@ async function listCommands(
 
 function mine(ref: SessionRef): boolean {
 	return ref.backend === "claude-code";
-}
-
-function notFound(ref: SessionRef): Rejected {
-	return rejected("not_found", `no Claude Code session ${ref.backend}/${ref.sessionId}`);
 }
