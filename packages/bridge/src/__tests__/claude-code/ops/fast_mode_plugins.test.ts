@@ -136,6 +136,13 @@ describe("plugins with a live session", () => {
 		});
 	});
 
+	test("an init with no plugins key still lists its failures", async () => {
+		const bare = JSON.parse(JSON.stringify(loadedInit));
+		delete bare.plugins;
+		const rows = (await list(bare)).rows;
+		expect(rows.map((row) => row.group)).toEqual([FAILED_GROUP]);
+	});
+
 	test("without a session, or before its first turn, shows none of them", async () => {
 		expect((await list(loadedInit, false)).rows.filter((row) => row.group === LOADED_GROUP)).toEqual([]);
 		expect((await list(undefined)).rows).toEqual([]);

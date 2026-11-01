@@ -15,7 +15,8 @@ export const FAILED_GROUP = "Failed to load in this session";
 /** The rows for [init]; none before the session's process ran a turn (no init yet). */
 export function pluginLoadRows(init: SDKSystemMessage | undefined): RowSpec[] {
 	if (init === undefined) return [];
-	const loaded = init.plugins.map(
+	const plugins: SDKSystemMessage["plugins"] = Array.isArray(init.plugins) ? init.plugins : [];
+	const loaded = plugins.map(
 		(plugin, index): RowSpec => ({
 			id: `loaded:${index}`,
 			title: phoneText(plugin.name, MAX_NAME_CHARS),
