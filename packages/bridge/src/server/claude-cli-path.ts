@@ -124,11 +124,19 @@ export function defaultClaudeCliEnvironment(configured?: string): ClaudeCliEnvir
 	};
 }
 
-/** Resolves on first call, then answers from memory (an extraction reads the whole ~310 MB binary). */
-export function claudeCliPathOnce(configured?: string): () => ClaudeCliPath {
-	let resolved: ClaudeCliPath | null = null;
+/**
+ * Resolves on first use and keeps a found path (an extraction reads the whole ~310 MB binary); a miss is
+ * resolved again on the next call, so a binary that appears later (or a transient extraction failure) heals.
+ */
+export function claudeCliPathOnce(
+	configured?: string,
+	resolve: () => ClaudeCliPath = () => resolveClaudeCliPath(defaultClaudeCliEnvironment(configured)),
+): () => ClaudeCliPath {
+	let found: ClaudeCliPath | null = null;
 	return () => {
-		resolved ??= resolveClaudeCliPath(defaultClaudeCliEnvironment(configured));
-		return resolved;
+		if (found) return found;
+		const result = resolve();
+		if (result.ok) found = result;
+		return result;
 	};
 }

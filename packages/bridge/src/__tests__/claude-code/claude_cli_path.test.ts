@@ -3,6 +3,8 @@ import { claudeExecutableOption, setClaudeExecutableProvider } from "../../conne
 import { claudeCliCheck } from "../../doctor/checks/claude-cli";
 import {
 	type ClaudeCliEnvironment,
+	type ClaudeCliPath,
+	claudeCliPathOnce,
 	defaultClaudeCliEnvironment,
 	packageCandidates,
 	resolveClaudeCliPath,
@@ -104,6 +106,19 @@ describe("claude executable resolution", () => {
 			}),
 		);
 		expect(thrown).toEqual({ ok: false, reason: "finding the Claude Code binary failed: disk full", notes: [] });
+	});
+
+	test("the memo keeps a found path and retries a miss", () => {
+		const answers: ClaudeCliPath[] = [
+			{ ok: false, reason: "not yet", notes: [] },
+			{ ok: true, path: "/x/claude", source: "package", notes: [] },
+		];
+		let calls = 0;
+		const cli = claudeCliPathOnce(undefined, () => answers[Math.min(calls++, 1)] as ClaudeCliPath);
+		expect(cli().ok).toBe(false);
+		expect(cli()).toMatchObject({ ok: true, path: "/x/claude" });
+		expect(cli()).toMatchObject({ ok: true, path: "/x/claude" });
+		expect(calls).toBe(2);
 	});
 
 	test("in this checkout the default environment finds the optional package's binary, as the SDK would", () => {
