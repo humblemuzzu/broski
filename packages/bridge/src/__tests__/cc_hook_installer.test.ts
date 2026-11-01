@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { HOOK_MARKER, installCcHook, uninstallCcHook } from "../handlers/cc_hook_installer";
+import { CC_HOOK_MARKER, installCcHookAt, uninstallCcHookAt } from "../handlers/cc_hook_file";
 
 let root: string;
 let settingsPath: string;
@@ -21,8 +21,8 @@ afterEach(() => {
 });
 
 const install = () =>
-	installCcHook({ port: 18274, token: "t0ken", scheme: "https", settingsPath, log: (line) => said.push(line) });
-const uninstall = () => uninstallCcHook((line) => said.push(line), settingsPath);
+	installCcHookAt(settingsPath, { port: 18274, token: "t0ken", scheme: "https", log: (line) => said.push(line) });
+const uninstall = () => uninstallCcHookAt(settingsPath, (line) => said.push(line));
 
 const USER = {
 	model: "opus",
@@ -58,7 +58,7 @@ describe("the old hook installer never loses the user's settings", () => {
 		expect(installed.model).toBe("opus");
 		expect(installed.permissions).toEqual(USER.permissions);
 		expect(installed.hooks.PostToolUse).toEqual(USER.hooks.PostToolUse);
-		expect(installed.hooks.PreToolUse[0].hooks[0].command).toContain(HOOK_MARKER);
+		expect(installed.hooks.PreToolUse[0].hooks[0].command).toContain(CC_HOOK_MARKER);
 		expect(readFileSync(settingsPath, "utf8")).toContain('\n\t"model"');
 		expect(statSync(settingsPath).mode & 0o777).toBe(0o640);
 		await uninstall();

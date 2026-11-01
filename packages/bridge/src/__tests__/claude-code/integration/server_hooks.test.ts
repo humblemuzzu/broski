@@ -6,7 +6,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { installCcHook, uninstallCcHook } from "../../../handlers/cc_hook_installer";
+import { installCcHookAt, uninstallCcHookAt } from "../../../handlers/cc_hook_file";
 import { keepsOldHook, removeClaudeCodeHooks, setClaudeCodeHooks } from "../../../server/claude-code-hooks";
 import { createClaudeCodeWiring } from "../../../server/claude-code-wiring";
 import { type ClaudeHome, createClaudeHome } from "../../helpers/claude-home";
@@ -93,14 +93,13 @@ describe("the hooks set once the listener is bound, with the contract on", () =>
 		expect(settingsOf(home)).toEqual({});
 	});
 
-	test("a bridge started with the contract off takes our hook out and puts the old one in, in the temp home", async () => {
+	test("a bridge started with the contract off takes our hook out of the user's settings", async () => {
 		home = createClaudeHome();
 		const bound = listener(home, []);
 		await setClaudeCodeHooks(wiring(true), bound);
+		expect(JSON.stringify(settingsOf(home))).toContain("cc-terminal-hook");
 		await setClaudeCodeHooks(wiring(false), bound);
 		expect(settingsOf(home)).toEqual({});
-		const old = JSON.parse(readFileSync(bound.oldHook.file, "utf8"));
-		expect(old.hooks.PreToolUse[0].hooks[0].command).toContain("broski-permission-proxy");
 	});
 
 	test("broski uninstall takes both hooks and our certificate setting out, and leaves the user's keys", async () => {
@@ -112,16 +111,10 @@ describe("the hooks set once the listener is bound, with the contract on", () =>
 			certPath: join(claude.root, "server.cert.pem"),
 			log: () => undefined,
 			configRoot: claude.configDir,
-			oldHook: { file: oldFile, uninstall: (log: (line: string) => void) => uninstallCcHook(log, oldFile) },
+			oldHook: { file: oldFile, uninstall: (log: (line: string) => void) => uninstallCcHookAt(oldFile, log) },
 		};
 		await setClaudeCodeHooks(wiring(true), { ...place, port: 18274, token: "a-token" });
-		await installCcHook({
-			port: 18274,
-			token: "a-token",
-			scheme: "https",
-			settingsPath: oldFile,
-			log: () => undefined,
-		});
+		await installCcHookAt(oldFile, { port: 18274, token: "a-token", scheme: "https", log: () => undefined });
 		expect(readFileSync(oldFile, "utf8")).toContain("broski-permission-proxy");
 		await removeClaudeCodeHooks(place);
 		expect(settingsOf(claude)).toEqual({});
