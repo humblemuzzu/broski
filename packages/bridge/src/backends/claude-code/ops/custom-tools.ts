@@ -1,9 +1,46 @@
-/** Lane F · `customTools`: the custom tools (D30) as an `ActionList`: test (output in `note`) and delete. */
+/** `custom_tools` (D30): Broski's own tools, served to every session, as a list with test and delete. */
 
-import type { BackendCallResult, CustomToolsOp } from "../../../contract";
-import type { OpsDeps } from "../ports/deps";
-import { notBuilt } from "../rejections";
+import { type BackendCallResult, type CustomToolsOp, MAX_NAME_CHARS, MAX_TEXT_CHARS } from "../../../contract";
+import { clip } from "../bounds";
+import type { CustomToolsPort, OpsDeps } from "../ports";
+import { isRejected, rejected } from "../rejections";
+import { guarded } from "./guard";
+import { messageOf } from "./host-access";
+import { action, actionList, findAction, type RowSpec } from "./list-rows";
 
-export async function customTools(_deps: OpsDeps, _op: CustomToolsOp): Promise<BackendCallResult> {
-	return notBuilt("lane F: customTools");
+export const NO_PORT = "Broski's custom tools are not available in this bridge";
+
+async function rowsOf(port: CustomToolsPort): Promise<RowSpec[]> {
+	return (await port.list()).map((tool) => ({
+		id: tool.toolId,
+		title: tool.name,
+		subtitle: tool.description,
+		status: tool.enabled ? { label: "enabled", tone: "ok" as const } : { label: "disabled", tone: "neutral" as const },
+		badges: [clip(tool.handler, MAX_NAME_CHARS)],
+		actions: [action("test", "Test"), action("delete", "Delete", true)],
+	}));
+}
+
+async function test(port: CustomToolsPort, toolId: string): Promise<string> {
+	try {
+		const run = await port.test(toolId);
+		return clip(run.ok ? run.output : `Failed: ${run.output}`, MAX_TEXT_CHARS);
+	} catch (error) {
+		return `Failed: ${messageOf(error)}`;
+	}
+}
+
+export async function customTools(deps: OpsDeps, op: CustomToolsOp): Promise<BackendCallResult> {
+	return guarded("custom_tools", async () => {
+		const port = deps.services.customTools;
+		if (port === undefined) return rejected("unsupported", NO_PORT);
+		if (op.change === undefined) return { kind: "custom_tools", list: actionList(await rowsOf(port)) };
+		const found = findAction(actionList(await rowsOf(port)).rows, op.change);
+		if (isRejected(found)) return found;
+		let note: string;
+		if (found.action.id === "test") note = await test(port, found.row.id);
+		else if (await port.remove(found.row.id)) note = `Deleted ${found.row.title}.`;
+		else return rejected("not_found", `no custom tool ${found.row.id}`);
+		return { kind: "custom_tools", list: actionList(await rowsOf(port), note) };
+	});
 }
