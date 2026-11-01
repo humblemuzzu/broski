@@ -64,8 +64,8 @@ String? usageLine(Usage usage) {
   return parts.isEmpty ? null : parts.join(' ');
 }
 
-/// The session-wide actions its capabilities allow: settings, compaction and
-/// the backend's own operations.
+/// The session-wide actions its capabilities allow: settings, compaction,
+/// copying and forking the conversation, and the backend's own operations.
 class ChatActions extends ConsumerWidget {
   const ChatActions({
     super.key,
@@ -77,6 +77,26 @@ class ChatActions extends ConsumerWidget {
   final SessionRef session;
   final AgentSessionState state;
   final Capabilities capabilities;
+
+  List<SheetEntry> _entries(WidgetRef ref, {required bool answered}) => [
+    if (answered)
+      (
+        key: 'chat-copy-conversation',
+        label: 'Copy conversation',
+        detail: 'What was said so far, as Markdown',
+        run: (screen) async {
+          final text = conversationNow(ref, session);
+          if (text != null) await copyToClipboard(screen, text);
+        },
+      ),
+    if (capabilities.fork)
+      (
+        key: 'chat-open-as-fork',
+        label: 'Open as fork',
+        detail: 'A copy to go on with; this session stays as it is',
+        run: (screen) => openAsFork(screen, ref, session),
+      ),
+  ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -90,16 +110,8 @@ class ChatActions extends ConsumerWidget {
       ),
       if (cwd != null) ...panelsAt(capabilities, OpPlace.project),
     ];
-    final entries = <SheetEntry>[
-      if (capabilities.fork)
-        (
-          key: 'chat-open-as-fork',
-          label: 'Open as fork',
-          detail: 'A copy to go on with; this session stays as it is',
-          run: (screen) => openAsFork(screen, ref, session),
-        ),
-    ];
     final lastAnswer = ref.watch(lastAnswerProvider(session));
+    final entries = _entries(ref, answered: lastAnswer != null);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [

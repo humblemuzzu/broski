@@ -113,6 +113,36 @@ void main() {
     });
   });
 
+  group('copying the conversation', () {
+    testWidgets('puts what was said, oldest first, as Markdown on the '
+        'clipboard; the thinking stays out', (tester) async {
+      await _chat(
+        tester,
+        newestFirst: [_secondAnswer, _followUp, _answer, _thinking, _question],
+      );
+      await tester.tap(_key('chat-panels'));
+      await tester.pumpAndSettle();
+      await tester.tap(_key('chat-copy-conversation'));
+      await tester.pumpAndSettle();
+      expect(_clipboard, [
+        '**You:** How do I read a file?\n\nUse File.readAsString.\n\n'
+            '**You:** And a directory?\n\nUse Directory.list.',
+      ]);
+    });
+
+    testWidgets('is not offered while the session has said nothing', (
+      tester,
+    ) async {
+      await _chat(tester, newestFirst: [_question]);
+      expect(
+        _key('chat-panels'),
+        findsNothing,
+        reason: 'nothing else to offer',
+      );
+      expect(_key('chat-copy-conversation'), findsNothing);
+    });
+  });
+
   group('copying a message', () {
     /// Text under a finger selects words instead of opening the actions, so
     /// the actions are opened as a screen reader opens them.

@@ -27,6 +27,28 @@ final lastAnswerProvider = Provider.autoDispose.family<String?, SessionRef>(
   ),
 );
 
+/// The conversation read so far as Markdown, oldest first: what the person
+/// wrote and what the session answered in text. Null when nothing was said.
+String? conversationOf(List<TimelineEntry> finished, List<TimelineEntry> live) {
+  final parts = [
+    for (final entry in [...finished, ...live])
+      if (entry case UserEntry(:final item) when item.text.trim().isNotEmpty)
+        '**You:** ${item.text.trim()}'
+      else if (entry case BlockEntry(
+        kind: BlockKind.text,
+        :final text,
+      ) when text.trim().isNotEmpty)
+        text.trim(),
+  ];
+  return parts.isEmpty ? null : parts.join('\n\n');
+}
+
+/// [conversationOf] as it stands now, read once: for a tap, not for a build.
+String? conversationNow(WidgetRef ref, SessionRef session) => conversationOf(
+  ref.read(historyTimelineProvider(session)).entries,
+  ref.read(liveTimelineProvider(session)),
+);
+
 /// The text a row of the conversation says, for copying: what the person
 /// wrote, or what the session wrote in a block. Null for any other row.
 String? copyableTextOf(TimelineEntry entry) => switch (entry) {
