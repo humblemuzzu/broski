@@ -97,4 +97,7 @@ export interface Ownership {
 	notePrompt(sessionId: SessionId, sendUuid: string, record: PromptRecord): Promise<void>;
 	/** Defined exactly for a prompt this bridge sent: the store then gives its item `clientRequestId = sendUuid`. */
 	prompt(sessionId: SessionId, sendUuid: string): PromptRecord | undefined;
+	/** This bridge's host of the session ended at `at` (epoch ms): writes up to then were its own (D122). */
+	noteReleased(sessionId: SessionId, at: number): Promise<void>;
+	releasedAt(sessionId: SessionId): number | undefined;
 }

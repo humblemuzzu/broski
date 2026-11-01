@@ -219,14 +219,21 @@ export function standInDesk(): StandInDesk {
 export interface StandInOwnership extends Ownership {
 	readonly claimed: string[];
 	readonly prompts: { sessionId: string; uuid: string; record: PromptRecord }[];
+	readonly released: Map<string, number>;
 }
 
 export function standInOwnership(): StandInOwnership {
 	const claimed: string[] = [];
 	const prompts: StandInOwnership["prompts"] = [];
+	const released = new Map<string, number>();
 	return {
 		claimed,
 		prompts,
+		released,
+		noteReleased: async (sessionId, at) => {
+			released.set(sessionId, at);
+		},
+		releasedAt: (sessionId) => released.get(sessionId),
 		load: async () => undefined,
 		origin: (sessionId) => (claimed.includes(sessionId) ? "broski" : "external"),
 		claim: async (sessionId) => {

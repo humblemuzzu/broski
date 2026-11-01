@@ -50,6 +50,7 @@ export function createClaudeCodeParts(host: BackendHost, services: ClaudeCodeSer
 		catalog,
 		mapping: CLAUDE_CODE_MAPPING,
 		hosted: (sessionId) => live.isHosted(sessionId),
+		releasedAt: (sessionId) => ownership.releasedAt(sessionId),
 		locate: (sessionId) => store.locate(sessionId),
 	});
 	const store = createSessionStore({ services, catalog, ownership, terminal });

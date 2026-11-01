@@ -18,6 +18,8 @@ import { TerminalSessions } from "./terminal-sessions";
 
 /** A file written this recently, by a process this bridge does not host, belongs to a terminal (research 04 §7 rec. 6). */
 export const WRITING_MS = 10_000;
+/** The CLI flushes its transcript about 100 ms late (D103), so a write this soon after this bridge's host ended was its. */
+export const OWN_FLUSH_MS = 1_000;
 const MAX_KNOWN_PATHS = 5_000;
 
 /**
@@ -56,8 +58,10 @@ export function createTerminalWatch(deps: TerminalDeps): TerminalWatchWithAsks {
 		const path = await pathOf(sessionId);
 		if (path === undefined) return false;
 		try {
-			const age = services.clock.now() - (await stat(path)).mtimeMs;
-			return age <= WRITING_MS;
+			const written = (await stat(path)).mtimeMs;
+			const released = deps.releasedAt(sessionId);
+			if (released !== undefined && written <= released + OWN_FLUSH_MS) return false;
+			return services.clock.now() - written <= WRITING_MS;
 		} catch {
 			paths.delete(sessionId);
 			return false;

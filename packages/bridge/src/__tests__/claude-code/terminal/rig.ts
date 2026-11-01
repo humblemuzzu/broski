@@ -32,6 +32,7 @@ export interface RigOptions {
 	readonly clock?: Clock;
 	readonly terminal?: TerminalOptions;
 	readonly hosted?: Set<string>;
+	readonly released?: Map<string, number>;
 }
 
 export interface TerminalRig {
@@ -48,6 +49,7 @@ export interface TerminalRig {
 export function terminalRig(home: ClaudeHome, options: RigOptions = {}): TerminalRig {
 	const records: SinkRecord[] = [];
 	const hosted = options.hosted ?? new Set<string>();
+	const released = options.released ?? new Map<string, number>();
 	const clock = options.clock ?? FAST_CLOCK;
 	const services = createClaudeCodeServices({
 		cli: { found: false, reason: "not needed" },
@@ -69,6 +71,7 @@ export function terminalRig(home: ClaudeHome, options: RigOptions = {}): Termina
 		catalog: new CatalogFeed({ emit: () => undefined }),
 		mapping: CLAUDE_CODE_MAPPING,
 		hosted: (sessionId) => hosted.has(sessionId),
+		releasedAt: (sessionId) => released.get(sessionId),
 		locate,
 	});
 	const sink: SessionSink = { emit: (record) => records.push(record) };

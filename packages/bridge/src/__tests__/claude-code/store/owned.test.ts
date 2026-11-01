@@ -47,6 +47,20 @@ describe("the owner journal", () => {
 		expect(second.origin(mine)).toBe("broski");
 	});
 
+	test("when the bridge's host of a session last ended survives a restart; the newest end wins", async () => {
+		const first = journal();
+		await first.load();
+		const session = crypto.randomUUID();
+		expect(first.releasedAt(session)).toBeUndefined();
+		await first.noteReleased(session, 1_000);
+		await first.noteReleased(session, 2_000);
+		expect(first.releasedAt(session)).toBe(2_000);
+		const second = journal();
+		await second.load();
+		expect(second.releasedAt(session)).toBe(2_000);
+		expect(second.origin(session)).toBe("external");
+	});
+
 	test("a prompt has a record exactly when it was noted, with its image names in order", async () => {
 		const first = journal();
 		await first.load();
@@ -98,7 +112,7 @@ describe("the owner journal", () => {
 		mkdirSync(join(root, "state"), { recursive: true });
 		const lines: string[] = [];
 		const ids: string[] = [];
-		for (let n = 0; n < 150_000; n++) {
+		for (let n = 0; n < 190_000; n++) {
 			const id = crypto.randomUUID();
 			ids.push(id);
 			lines.push(JSON.stringify({ k: "s", i: id }));
