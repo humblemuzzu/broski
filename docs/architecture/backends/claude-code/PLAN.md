@@ -239,7 +239,7 @@ One delegate, serial, the only step that edits shared contract files. Following 
 
 ### Step 3 — Foundation — **done** (`f829b83`…`86556b9`; `STEP-3-INTERFACES.md`, adapter `README.md` with D36–D39; owner-side choices: `plan: false` accepted (D38: the CLI's default models have no todo tools), the watch-only answer gap goes to Step 3b)
 
-### Step 3b — Answers on watch-only sessions (runs beside the lanes) — **done** (`35ad4e3`, `b0365dc`, `a200e61`, docs after them)
+### Step 3b — Answers on watch-only sessions (runs beside the lanes) — **done** (`35ad4e3`, `b0365dc`, `a200e61`, `e2d1658`, `666d036`, `3076a37`)
 
 Step 3 found that the core refuses any answer on a session without `control` (`core/controlled.ts`, `core/bridge-answer.ts`), which is exactly the terminal-ask case (D26). One delegate, serial on shared files: an `OpenSession` may offer answering without offering control; the core routes `interaction.answer` and `BridgeCore.answer` to it; the session capabilities say so, so the app shows and answers the ask on a watch-only session while the composer stays hidden; conformance, negative tests, `mutate:core`, the Dart side and the READMEs follow. Lane G wires terminal asks after it merges.
 
