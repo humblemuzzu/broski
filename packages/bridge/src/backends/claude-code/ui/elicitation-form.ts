@@ -22,6 +22,7 @@ export function formPlan(schema: Record<string, unknown> | undefined): FormPlan 
 	const properties = Object.entries(schema.properties);
 	if (properties.length > MAX_LIST_ITEMS) return undefined;
 	const required = new Set(Array.isArray(schema.required) ? schema.required : []);
+	if (![...required].every((name) => properties.some(([property]) => property === name))) return undefined;
 	const keys = contractKeys(properties.map(([name]) => name));
 	if (!keys) return undefined;
 	const fields: FormFieldSpec[] = [];

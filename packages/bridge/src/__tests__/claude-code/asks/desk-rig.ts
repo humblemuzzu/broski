@@ -107,6 +107,17 @@ export class DeskRig {
 		return this.desk.answer({ interactionId: interaction.id, reply });
 	}
 
+	/** The `index`th interaction requested, once it is (the real CLI raises it on its own time). */
+	async requestedAt(index: number, timeoutMs = 20_000): Promise<Interaction> {
+		const deadline = Date.now() + timeoutMs;
+		while (Date.now() < deadline) {
+			const found = this.requested()[index];
+			if (found) return found;
+			await Bun.sleep(5);
+		}
+		throw new Error(`interaction ${index} was never requested`);
+	}
+
 	/** The one interaction requested so far. */
 	only(): Interaction {
 		const [first, ...rest] = this.requested();

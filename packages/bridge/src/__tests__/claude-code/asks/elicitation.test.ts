@@ -266,6 +266,7 @@ describe("an elicitation the contract cannot show", () => {
 		["an enum with no values", { type: "object", properties: { a: { type: "string", enum: [] } } }],
 		["a schema that is not an object", { type: "array" }],
 		["required names without properties", { type: "object", required: ["a"] }],
+		["a required name no property defines", { type: "object", properties: { a: { type: "string" } }, required: ["b"] }],
 	])("%s is raised as a decline-or-dismiss confirm", (_name, schema) => {
 		const rig = new DeskRig();
 		rig.elicit(form(schema));
