@@ -38,6 +38,11 @@ export class MessageLedger {
 		return this.blocks.get(index);
 	}
 
+	/** The message ended: nothing more will be said about any block it announced. */
+	endAll(): void {
+		for (const block of this.blocks.values()) block.done = true;
+	}
+
 	/** The block an `assistant` frame carries: the announced one it completes, else the next index. */
 	claim(type: string, toolUseId?: string): LedgerBlock {
 		const announced = [...this.blocks.values()]

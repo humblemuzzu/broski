@@ -9,6 +9,7 @@ import type { MappedEvent } from "../ports/mapping";
 import { finishAllBlocks, finishBlock, growBlock, idOfBlock, startBlock } from "./blocks";
 import { type Placement, placementOf } from "./routing";
 import type { MapperState } from "./state";
+import { wireId, wireIndex } from "./wire-id";
 
 type StreamEvent = SDKPartialAssistantMessage["event"];
 
@@ -19,10 +20,12 @@ export function streamEvents(state: MapperState, frame: SDKPartialAssistantMessa
 	});
 	const event = frame.event;
 	switch (event.type) {
-		case "message_start":
-			state.streaming = state.ledger(event.message.id);
+		case "message_start": {
+			const messageId = wireId(event.message.id);
+			state.streaming = messageId === undefined ? undefined : state.ledger(messageId);
 			state.turnUnderway = true;
 			return [];
+		}
 		case "content_block_start":
 		case "content_block_delta":
 		case "content_block_stop":
@@ -30,7 +33,10 @@ export function streamEvents(state: MapperState, frame: SDKPartialAssistantMessa
 		case "message_stop": {
 			const ledger = state.streaming;
 			state.streaming = undefined;
-			return ledger === undefined ? [] : finishAllBlocks(state, ledger.messageId);
+			if (ledger === undefined) return [];
+			const finished = finishAllBlocks(state, ledger.messageId);
+			ledger.endAll();
+			return finished;
 		}
 		case "message_delta":
 			return [];
@@ -48,17 +54,20 @@ function blockEvents(
 	placement: Placement,
 ): MappedEvent[] {
 	const ledger = state.streaming;
-	if (ledger === undefined || placement.streams.length === 0) return [];
-	const id = idOfBlock(ledger.messageId, event.index);
+	const index = wireIndex(event.index);
+	if (ledger === undefined || index === undefined || placement.streams.length === 0) return [];
+	const id = idOfBlock(ledger.messageId, index);
 	switch (event.type) {
 		case "content_block_start": {
 			const block = event.content_block;
-			if (block.type === "tool_use") ledger.announce(event.index, block.type, block.id);
-			else ledger.announce(event.index, block.type);
+			if (block.type === "tool_use") ledger.announce(index, block.type, wireId(block.id));
+			else ledger.announce(index, block.type);
 			if (block.type !== "text" && block.type !== "thinking") return [];
-			const started = startBlock(state, ledger.messageId, event.index, block.type, placement);
+			const started = startBlock(state, ledger.messageId, index, block.type, placement);
 			const initial = block.type === "text" ? block.text : block.thinking;
-			return id === undefined || initial === "" ? started : [...started, ...growBlock(state, id, block.type, initial)];
+			return id === undefined || typeof initial !== "string" || initial === ""
+				? started
+				: [...started, ...growBlock(state, id, block.type, initial)];
 		}
 		case "content_block_delta": {
 			if (id === undefined) return [];
@@ -67,7 +76,7 @@ function blockEvents(
 			return delta.type === "thinking_delta" ? growBlock(state, id, "thinking", delta.thinking) : [];
 		}
 		case "content_block_stop": {
-			const announced = ledger.block(event.index);
+			const announced = ledger.block(index);
 			if (id === undefined || announced === undefined || announced.done) return [];
 			announced.done = true;
 			return finishBlock(state, id);

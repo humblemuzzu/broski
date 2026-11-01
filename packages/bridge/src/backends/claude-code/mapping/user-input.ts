@@ -2,8 +2,8 @@
 
 import type { SDKUserMessage, SDKUserMessageReplay } from "@anthropic-ai/claude-agent-sdk";
 import { MAX_TEXT_CHARS } from "../../../contract";
-import { clip, fitsId } from "../bounds";
-import { toolCallId, userItemId } from "../ids";
+import { clip } from "../bounds";
+import { userItemId } from "../ids";
 import type { MappedEvent } from "../ports/mapping";
 import { fileChangesOf } from "./file-changes";
 import { imageRefsOf } from "./images";
@@ -11,6 +11,7 @@ import { fanOut, placementOf } from "./routing";
 import type { MapperState } from "./state";
 import { endTool } from "./tool-calls";
 import { toolResultOf } from "./tool-results";
+import { wireId, wireToolCallId } from "./wire-id";
 
 type UserFrame = SDKUserMessage;
 type Blocks = Exclude<UserFrame["message"]["content"], string>;
@@ -41,7 +42,7 @@ function toolResultEvents(
 ): MappedEvent[] {
 	const structured = results.length === 1 ? frame.tool_use_result : undefined;
 	return results.flatMap(({ block, index }) => {
-		const id = toolCallId(block.tool_use_id);
+		const id = wireToolCallId(block.tool_use_id);
 		const open = id === undefined ? undefined : state.openTools.get(id);
 		if (id === undefined || open === undefined) return [];
 		const mapped = toolResultOf(block, structured, { entryUuid: frame.uuid ?? "", blockIndex: index }, open.name);
@@ -63,9 +64,8 @@ function promptEvents(state: MapperState, frame: UserFrame): MappedEvent[] {
 		agentId: frame.agent_id,
 		parentToolUseId: frame.parent_tool_use_id,
 	});
-	const uuid: unknown = frame.uuid;
-	if (typeof uuid !== "string" || !fitsId(uuid) || placement.streams.length === 0 || state.ownSends.has(uuid))
-		return [];
+	const uuid = wireId(frame.uuid);
+	if (uuid === undefined || placement.streams.length === 0 || state.ownSends.has(uuid)) return [];
 	if (frame.isSynthetic === true || (frame.origin !== undefined && frame.origin.kind !== "human")) return [];
 	const text = textOf(frame.message.content);
 	if (CLI_TEXT_PREFIXES.some((prefix) => text.startsWith(prefix))) return [];

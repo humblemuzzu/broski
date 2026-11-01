@@ -1,15 +1,15 @@
 /** Lane B · the two backend extensions Claude Code declares: `rate_limit` and `prompt_suggestion` (D24). */
 
 import type { SDKPromptSuggestionMessage, SDKRateLimitEvent } from "@anthropic-ai/claude-agent-sdk";
-import { MAX_NAME_CHARS, MAX_TEXT_CHARS, type RateLimitUpdate } from "../../../contract";
+import { MAX_NAME_CHARS, MAX_TEXT_CHARS, RateLimitStatus, type RateLimitUpdate } from "../../../contract";
 import { clip } from "../bounds";
 import type { MappedEvent } from "../ports/mapping";
 import type { MapperState } from "./state";
 
 const UNNAMED_WINDOW = "account";
 
-function nonNegative(value: number | undefined): number | undefined {
-	return value !== undefined && Number.isFinite(value) && value >= 0 ? value : undefined;
+function nonNegative(value: unknown): number | undefined {
+	return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined;
 }
 
 /**
@@ -19,10 +19,13 @@ function nonNegative(value: number | undefined): number | undefined {
 function rateLimitOf(info: SDKRateLimitEvent["rate_limit_info"]): RateLimitUpdate {
 	const resetsAt = nonNegative(info.resetsAt);
 	const utilization = nonNegative(info.utilization);
+	const status = RateLimitStatus.safeParse(info.status);
+	const named: unknown = info.rateLimitType;
+	const window = typeof named === "string" && named !== "" ? named : UNNAMED_WINDOW;
 	return {
 		kind: "rate_limit",
-		window: clip(info.rateLimitType ?? UNNAMED_WINDOW, MAX_NAME_CHARS),
-		status: info.status,
+		window: clip(window, MAX_NAME_CHARS),
+		...(status.success && { status: status.data }),
 		...(utilization !== undefined && {
 			usedPercent: Math.round(utilization * 1000) / 10,
 		}),
@@ -41,7 +44,7 @@ export function rateLimitEvents(state: MapperState, frame: SDKRateLimitEvent): M
 
 /** An empty suggestion says nothing; a newer one replaces the one before it, so only a change is sent. */
 export function promptSuggestionEvents(state: MapperState, frame: SDKPromptSuggestionMessage): MappedEvent[] {
-	const text = clip(frame.suggestion.trim(), MAX_TEXT_CHARS);
+	const text = typeof frame.suggestion === "string" ? clip(frame.suggestion.trim(), MAX_TEXT_CHARS) : "";
 	if (text === "" || state.lastSuggestion === text) return [];
 	state.lastSuggestion = text;
 	return [

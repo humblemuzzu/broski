@@ -6,6 +6,7 @@ import { AgentEvent } from "../../../contract";
 import { frameScenarios, readFrameFixture } from "../helpers/frame-fixtures";
 import { assistant, text, toolResult, toolUse } from "./frames";
 import { deepFreeze, newMapper } from "./helpers";
+import { SAMPLES } from "./samples";
 
 const REPLACEMENTS: readonly unknown[] = [
 	null,
@@ -64,6 +65,19 @@ describe("frames of every shape", () => {
 			});
 		}
 		expect(tried).toBeGreaterThan(10_000);
+	});
+
+	test("a frame of every kind with any field wrong never throws, and what is sent is valid", () => {
+		let tried = 0;
+		for (const sample of Object.values(SAMPLES)) {
+			for (const mutated of mutations(sample)) {
+				tried += 1;
+				const mapper = newMapper();
+				for (const item of mapper.map(mutated)) expect(AgentEvent.safeParse(item.event).success).toBe(true);
+				for (const item of mapper.settle("completed")) expect(AgentEvent.safeParse(item.event).success).toBe(true);
+			}
+		}
+		expect(tried).toBeGreaterThan(1_000);
 	});
 
 	test("a frame of a type nobody has heard of shows nothing", () => {

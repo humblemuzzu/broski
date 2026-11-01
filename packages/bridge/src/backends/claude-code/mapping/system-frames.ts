@@ -1,7 +1,6 @@
 /** Lane B · system frames shown as notices and extensions (`rate_limit`, `prompt_suggestion`); the rest ignored. */
 
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
-import { toolCallId } from "../ids";
 import type { MappedEvent } from "../ports/mapping";
 import { compactionEvents } from "./compaction";
 import {
@@ -16,10 +15,11 @@ import {
 } from "./notices";
 import type { MapperState } from "./state";
 import { taskProgressEvents, taskStartedEvents } from "./tool-calls";
+import { wireToolCallId } from "./wire-id";
 
 /** A tool call the CLI refused without asking is `denied`, not `failed`, when its result arrives. */
-function noteDenial(state: MapperState, toolUseId: string): MappedEvent[] {
-	const id = toolCallId(toolUseId);
+function noteDenial(state: MapperState, toolUseId: unknown): MappedEvent[] {
+	const id = wireToolCallId(toolUseId);
 	if (id !== undefined && state.openTools.has(id)) state.denied.add(id);
 	return [];
 }

@@ -7,6 +7,7 @@ import { noticeEvent } from "./notices";
 import { fanOut, type Placement, placementOf } from "./routing";
 import type { MapperState } from "./state";
 import { startTool } from "./tool-calls";
+import { wireId } from "./wire-id";
 
 type Block = SDKAssistantMessage["message"]["content"][number];
 
@@ -38,7 +39,7 @@ function blockEvents(state: MapperState, messageId: string, block: Block, placem
 		case "thinking":
 			return textBlock(state, messageId, "thinking", block.thinking, placement);
 		case "tool_use":
-			state.ledger(messageId).claim(block.type, block.id).done = true;
+			state.ledger(messageId).claim(block.type, wireId(block.id)).done = true;
 			return startTool(state, block, messageId, placement);
 		default:
 			state.ledger(messageId).claim(block.type).done = true;
@@ -58,12 +59,12 @@ function errorNotice(frame: SDKAssistantMessage, placement: Placement): MappedEv
 }
 
 export function assistantEvents(state: MapperState, frame: SDKAssistantMessage): MappedEvent[] {
-	const messageId = frame.message.id;
+	const messageId = wireId(frame.message.id);
 	const placement = placementOf(state, {
 		agentId: frame.agent_id,
 		parentToolUseId: frame.parent_tool_use_id,
 	});
-	if (placement.streams.length === 0 || state.frameMessages.has(frame.uuid)) return [];
+	if (messageId === undefined || placement.streams.length === 0 || state.frameMessages.has(frame.uuid)) return [];
 	state.rememberFrame(frame.uuid, messageId, placement.streams);
 	if (frame.error !== undefined) return errorNotice(frame, placement);
 	return frame.message.content.flatMap((block) => blockEvents(state, messageId, block, placement));

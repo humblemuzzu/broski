@@ -6,13 +6,17 @@ import { blockId } from "../ids";
 import type { MappedEvent } from "../ports/mapping";
 import { fanOut, nestsIn, type Placement } from "./routing";
 import type { MapperState } from "./state";
+import { wireId, wireIndex } from "./wire-id";
 
 type BlockKind = "text" | "thinking";
 
 /** The block's id, or undefined when `<message.id>:<index>` or the message id does not fit an id. */
-export function idOfBlock(messageId: string, index: number): BlockId | undefined {
-	const id = blockId(messageId, index);
-	return fitsId(messageId) && fitsId(id) ? id : undefined;
+export function idOfBlock(messageId: unknown, index: unknown): BlockId | undefined {
+	const message = wireId(messageId);
+	const at = wireIndex(index);
+	if (message === undefined || at === undefined) return undefined;
+	const id = blockId(message, at);
+	return fitsId(id) ? id : undefined;
 }
 
 export function startBlock(

@@ -75,6 +75,18 @@ describe("a streamed text block", () => {
 		]);
 	});
 
+	test("an assistant frame that comes after message_stop does not start the block a second time", () => {
+		const events = play([
+			messageStart(MSG),
+			blockStart(0, text("")),
+			textDelta(0, "partial"),
+			messageStop(),
+			assistant(MSG, [text("partial")]),
+		]).streams.get("");
+		expect(ofType(events, "block_started")).toHaveLength(1);
+		expect(ofType(events, "block_finished")).toHaveLength(1);
+	});
+
 	test("an assistant frame after the block finished adds nothing, and so does the same frame twice", () => {
 		const frames = streamedText("hello", "stop-first");
 		const events = play([...frames, ...frames.filter((frame) => frame.type === "assistant")]).streams.get("");

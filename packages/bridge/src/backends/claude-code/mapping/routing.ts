@@ -5,9 +5,10 @@
  */
 
 import type { AgentEvent, ToolCallId } from "../../../contract";
-import { childRef, toolCallId } from "../ids";
+import { childRef } from "../ids";
 import type { MappedEvent } from "../ports/mapping";
 import { MAIN, type MapperState } from "./state";
+import { wireId, wireToolCallId } from "./wire-id";
 
 /** What a frame says about who produced it (`agent_id`, `parent_tool_use_id`). */
 export interface Producer {
@@ -28,8 +29,9 @@ export function placementOf(state: MapperState, producer: Producer): Placement {
 	if (agentId === undefined && (parentToolUseId === null || parentToolUseId === undefined)) {
 		return { streams: [MAIN], parent: undefined, own: undefined };
 	}
-	const own = agentId !== undefined && childRef(state.seed.sessionId, agentId) !== undefined ? agentId : undefined;
-	const parentId = parentToolUseId === null || parentToolUseId === undefined ? undefined : toolCallId(parentToolUseId);
+	const agent = wireId(agentId);
+	const own = agent !== undefined && childRef(state.seed.sessionId, agent) !== undefined ? agent : undefined;
+	const parentId = wireToolCallId(parentToolUseId);
 	const parent = parentId === undefined ? undefined : state.openTools.get(parentId);
 	const streams = [...new Set([...(own === undefined ? [] : [own]), ...(parent?.streams ?? [])])];
 	return { streams, parent: parent === undefined ? undefined : parentId, own };
