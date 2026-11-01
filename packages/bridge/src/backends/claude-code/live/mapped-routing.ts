@@ -29,6 +29,7 @@ export class MappedRouting {
 
 	emit(events: readonly MappedEvent[]): void {
 		for (const mapped of events) {
+			if (this.outsideRun(mapped.event)) continue;
 			if (mapped.agentId !== undefined) this.deps.children.route(mapped);
 			else this.deps.live.emit(this.asStopped(mapped.event), mapped.native);
 		}
@@ -38,6 +39,14 @@ export class MappedRouting {
 	restart(sessionId: SessionId): void {
 		this.emit(this.mapper.settle("completed"));
 		this.mapper = this.deps.mapping.createMapper({ sessionId });
+	}
+
+	/**
+	 * An activity belongs to a run (contract stream rules): a hook the CLI runs while no run is on, such as `SessionEnd`
+	 * as the process closes, is left out of the live view; history shows it where the transcript records it.
+	 */
+	private outsideRun(event: AgentEvent): boolean {
+		return event.type === "activity" && this.deps.runs.current === undefined;
 	}
 
 	/** A compaction the CLI reports failed while a Stop was asked for was stopped (it calls it "Request was aborted"). */

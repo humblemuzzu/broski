@@ -79,6 +79,11 @@ export function toolCallId(toolUseId: string): ToolCallId | undefined {
 	return fitsId(toolUseId) ? toolUseId : undefined;
 }
 
+/** A live hook's activity: `hook:<hook_id>` (a UUID per run of a hook); undefined when it does not fit. */
+export function hookActivityId(hookId: string): TranscriptItemId | undefined {
+	return hookId !== "" && fitsId(hookId) ? `hook:${hookId}` : undefined;
+}
+
 /** The transcript item of a tool call's result: the contract's own `<toolCallId>:result`. */
 export function toolResultItemId(id: ToolCallId): TranscriptItemId {
 	return `${id}:result`;

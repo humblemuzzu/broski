@@ -32,6 +32,12 @@ export interface OpenTool {
 	childLinked: boolean;
 }
 
+export interface OpenHook {
+	readonly label: string;
+	readonly detail: string | undefined;
+	readonly startedAt: number;
+}
+
 /** The compaction the CLI reported: `status: compacting` seen, and whether its `compact_boundary` is still to come. */
 export type CompactionPhase = "none" | "running" | "awaiting_boundary";
 
@@ -59,6 +65,8 @@ export class MapperState {
 	readonly retracted = new RecentSet(MAX_REMEMBERED);
 	readonly openBlocks = new Map<BlockId, OpenBlock>();
 	readonly openTools = new Map<ToolCallId, OpenTool>();
+	/** Hooks started and not yet answered, by activity id (`mapping/hooks.ts`). */
+	readonly openHooks = new Map<string, OpenHook>();
 	/** Tools a `permission_denied` frame named, until their result arrives. */
 	readonly denied = new Set<ToolCallId>();
 	/** Assistant frame uuid → its `message.id` and the streams it was shown in, for the frames a retraction names. */

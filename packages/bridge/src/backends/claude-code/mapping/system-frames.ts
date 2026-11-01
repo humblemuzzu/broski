@@ -1,8 +1,9 @@
-/** Lane B · system frames shown as notices and extensions (`rate_limit`, `prompt_suggestion`); the rest ignored. */
+/** Lane B · system frames shown as notices, extensions (`rate_limit`, `prompt_suggestion`) and hook activities. */
 
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { MappedEvent } from "../ports/mapping";
 import { compactionEvents } from "./compaction";
+import { hookEvents } from "./hooks";
 import {
 	informationalNotice,
 	localCommandNotice,
@@ -65,6 +66,10 @@ export function systemEvents(state: MapperState, frame: Extract<SDKMessage, { ty
 			return shuttingDownNotice(frame);
 		case "plugin_install":
 			return pluginInstallNotice(frame);
+		case "hook_started":
+		case "hook_progress":
+		case "hook_response":
+			return hookEvents(state, frame);
 		case "api_retry": // `retryEvents` reads every frame, this one included
 		case "session_state_changed":
 		case "background_tasks_changed":
@@ -72,9 +77,6 @@ export function systemEvents(state: MapperState, frame: Extract<SDKMessage, { ty
 		case "task_updated":
 		case "task_notification":
 		case "thinking_tokens":
-		case "hook_started":
-		case "hook_progress":
-		case "hook_response":
 		case "memory_recall":
 		case "files_persisted":
 		case "elicitation_complete":

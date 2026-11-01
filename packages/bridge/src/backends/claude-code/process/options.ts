@@ -36,6 +36,7 @@ export function hostOptions(input: HostOptionsInput): Options | Rejected {
 		permissionMode: input.permissionMode,
 		...(services.mayBypassPermissions && { allowDangerouslySkipPermissions: true }),
 		includePartialMessages: true,
+		includeHookEvents: true,
 		forwardSubagentText: true,
 		agentProgressSummaries: true,
 		enableFileCheckpointing: true,

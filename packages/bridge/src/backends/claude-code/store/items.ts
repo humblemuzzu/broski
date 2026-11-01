@@ -3,7 +3,9 @@
 import type { SessionMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { SessionId, TranscriptItem } from "../../../contract";
 import type { PromptRecord } from "../ports/store";
+import type { HookFact } from "./hook-facts";
 import { assistantItems } from "./items-assistant";
+import { hookItems } from "./items-hooks";
 import { systemItems } from "./items-system";
 import { userItems } from "./items-user";
 import type { SystemFact } from "./system-facts";
@@ -22,9 +24,15 @@ export interface ItemContext {
 	/** What the raw file says of this entry when it is a `system` entry, and of the chain entry before it. */
 	readonly system?: SystemFact;
 	readonly previousSystem?: SystemFact;
+	/** The hooks the file records between this entry and the next returned one. */
+	readonly hooks?: readonly HookFact[];
 }
 
 export function itemsOf(message: SessionMessage, context: ItemContext): TranscriptItem[] {
+	return [...ownItems(message, context), ...hookItems(context.hooks)];
+}
+
+function ownItems(message: SessionMessage, context: ItemContext): TranscriptItem[] {
 	if (message.type === "assistant") return assistantItems(message, context);
 	if (message.type === "user") return userItems(message, context);
 	return systemItems(message, context.system);

@@ -39,6 +39,7 @@ describe("the options of a new host", () => {
 		expect(options).toMatchObject({
 			permissionMode: "default",
 			includePartialMessages: true,
+			includeHookEvents: true,
 			forwardSubagentText: true,
 			agentProgressSummaries: true,
 			enableFileCheckpointing: true,
