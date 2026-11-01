@@ -133,7 +133,7 @@ interface AgentBackend {
   dispose();
 }
 type OpenResult = {status:"accepted", session: OpenSession, snapshot} | Rejected;
-interface OpenSession { session; snapshot(); control?: SessionControl; close(); }   // control absent = watch-only
+interface OpenSession { session; snapshot(); control?: SessionControl; answer?(answer); close(); }   // control absent = watch-only; answer only beside no control
 interface SessionControl { prompt; abort; answer; setModel; setThinking; setMode; compact?; cancelQueued?; cancelCompaction?; cancelRetry?; }
 ```
 
@@ -143,10 +143,10 @@ Every method that can fail resolves with `{status: "accepted", …} | Rejected` 
 
 1. ✓ `open` resolves with the live state `snapshot` at that moment. Nothing is emitted into the sink before that moment, and everything emitted afterwards applies on top of `snapshot`. Putting the snapshot in the result closes the race between "read the snapshot" and "the first event".
 2. ✓ `snapshot()` always equals the open snapshot with every emitted event applied by `applyEvent`.
-3. ✓ `close()` detaches the sink: **from the call on**, nothing is emitted and `control` methods reject `closed`. It aborts nothing; a run in progress goes on in the backend. A second call does nothing. An in-process backend (CC's CLI child, Pi, Pi Durable) keeps whatever it needs alive until the run settles. An ask pending at `close`, or raised after it, is held by the adapter and appears in the next `open`'s snapshot, where it can be answered: every backend can re-deliver (CC keeps its own registry of pending callbacks, cc §8.7; Pi and Pi Durable asks are the bridge's own, pi §8.5, pd D8).
+3. ✓ `close()` detaches the sink: **from the call on**, nothing is emitted and `control` methods and `answer` reject `closed`. It aborts nothing; a run in progress goes on in the backend. A second call does nothing. An in-process backend (CC's CLI child, Pi, Pi Durable) keeps whatever it needs alive until the run settles. An ask pending at `close`, or raised after it, is held by the adapter and appears in the next `open`'s snapshot, where it can be answered: every backend can re-deliver (CC keeps its own registry of pending callbacks, cc §8.7; Pi and Pi Durable asks are the bridge's own, pi §8.5, pd D8).
    **The core's side of it:** while a session's snapshot has an active run, a pending interaction, a compaction or retry under way, or queued input, the core keeps its `OpenSession` open, phones attached or not, so no ask is raised to nobody and no event is lost from the log. It closes a session only once it is idle, and never aborts a run to do so; bridge shutdown is the one exception, and then the asks expire (§9).
 4. ✓ `dispose()` closes every open session and silences the catalog sink.
-5. ✓ Optional methods carry capabilities. An absent `rename`, `delete`, `archive`, `fork`, `call`, `compact`, `cancelQueued`, `cancelCompaction` or `cancelRetry` *is* the capability being false; nothing declares it separately (§6).
+5. ✓ Optional methods carry capabilities. An absent `rename`, `delete`, `archive`, `fork`, `call`, `compact`, `cancelQueued`, `cancelCompaction` or `cancelRetry` *is* the capability being false; nothing declares it separately (§6). So is `SessionCapabilities.answer`: true exactly when `control` or `OpenSession.answer` exists (`sessionAnswerer`).
 6. ✓ `abort()` ends the active run with outcome `aborted`; with no run it is accepted and emits nothing. It resolves once the backend has taken the abort (Pi's `abort()` awaits idle, pi §7). `run_finished` may follow the resolution.
 7. ✓ `prompt` is idempotent per `clientRequestId` within the session for accepted prompts; a rejection is not remembered (§10).
 8. ✓ A malformed answer is rejected `invalid_input` and changes nothing. An answer to a resolved interaction is rejected `stale`.
@@ -155,12 +155,13 @@ Every method that can fail resolves with `{status: "accepted", …} | Rejected` 
 11. ✓ A run another client starts is reported live exactly when `externalLive` says so, and survives a bridge restart (same `runId`) exactly when `durableRuns` says so.
 12. The core opens at most one `OpenSession` per `SessionRef` at a time and fans its events out to phones. Adapters may assume this.
 13. The sink, the catalog sink, and every adapter callback into the core never throw.
+14. ✓ **Answering without control.** A session this bridge may watch but not control (`control` absent) may still take answers to its asks through `OpenSession.answer`: a `claude` in a terminal raises a permission prompt through the bridge's hook (Claude Code PLAN D26), and a person answers it from the phone or the lock screen while the terminal keeps the session. `answer` follows `SessionControl.answer` in everything: checked by the core's desk and `answerProblem` first, `stale` once resolved, `closed` after `close`. A session with `control` has no `answer` of its own; its answers go through `control.answer` as ever, so there is one path per session. Prompting, steering, stopping and every setting stay out of reach of a session without `control`.
 
 **Catalog sink.** Backend-wide news: `session_updated{summary}`, `session_removed{session}`, `status_changed{status}`, `catalog_invalidated{scope: models|commands|modes}`, `transcript_invalidated{session}`. An adapter emits `transcript_invalidated` whenever a session's history is rewritten, so every phone re-reads it: after its own history-rewriting op (`rewritesHistory(kind)` in `backend-ops.ts`: Pi `navigate_tree`; §13), and when another client rewrites it. An adapter emits `session_updated` after its own create, rename, archive, fork and first persist, whenever a row's status, title, model or archived flag changes, and when a run ends. It emits `session_removed` after a delete. It relays external changes when the backend reports them. CC and Pi report nothing live, so their adapters watch the session directories (cc §13, pi §11). A session list is never broadcast whole. The core sends one `status_changed` of its own for each backend as it lands: backends start after the bridge listens, so a phone that listed the backends before may learn of one this way.
 
 ## 6. Capabilities
 
-`Capabilities` replaces `RuntimeCapabilities`. The old type stays until a later phase deletes it. Most fields are **declared** by the adapter as `traits`. `fork`, `rename`, `delete` and `archive` are **derived** by `backendCapabilities(backend)` from whether the method exists, so they cannot lie. `SessionCapabilities` (`controllable`, `compact`, `cancelQueued`) are derived per open session by `sessionCapabilities(session)`.
+`Capabilities` replaces `RuntimeCapabilities`. The old type stays until a later phase deletes it. Most fields are **declared** by the adapter as `traits`. `fork`, `rename`, `delete` and `archive` are **derived** by `backendCapabilities(backend)` from whether the method exists, so they cannot lie. `SessionCapabilities` (`controllable`, `compact`, `cancelQueued`, `cancelCompaction`, `cancelRetry`, `answer`) are derived per open session by `sessionCapabilities(session)`. `answer` (since 1.4) says the session's asks can be answered here, controllable or not (§5 rule 14): the app shows an ask's Answer by it, and the composer by `controllable`. A field rather than a rule such as "interactions are answerable whenever there are any", because a watch-only session that takes no answers (a Pi terminal session, a Claude Code session written by a terminal without the hook) shows its asks without a button, and only the adapter knows which one it has.
 
 Declared traits are checked against behaviour, both ways where the contract can observe it:
 
@@ -529,7 +530,7 @@ The bridge replays only when it still holds every event after `resume.seq` in th
 
 ### 12.3 Interactions over the wire
 
-Pending interactions arrive in the snapshot or the replayed `interaction_requested` events, so a reconnecting phone always sees every pending ask. Several phones may answer: the first answer the core forwards wins, and the others get `stale`.
+Pending interactions arrive in the snapshot or the replayed `interaction_requested` events, so a reconnecting phone always sees every pending ask. Several phones may answer: the first answer the core forwards wins, and the others get `stale`. A session without control takes `interaction.answer` when its capabilities say `answer` (§5 rule 14); every other control request on it is `unsupported`.
 
 ### 12.4 Versioning
 
@@ -541,6 +542,7 @@ Pending interactions arrive in the snapshot or the replayed `interaction_request
 - Claude Code serving the existing kinds `session_settings`, `changed_files` and `refresh_models`: an older client has no call that carries them to Claude Code (its `ClaudeCodeOp` lacks them), so its Claude Code descriptor does not list them (`OP_JOINED_IN`, by backend), while Pi's still does.
 - The `prompt_suggestion` extension: an older client is sent an info `notice` ("Suggested next prompt: …") with the same `seq`.
 - `PlanApprovalRequest.modeOptions`: taken out of every plan approval an older client is sent, in `interaction_requested`, in a `resynced` snapshot, in an attach's snapshot, and in the live state a frame that does not fit is replaced by. `PlanApprovalReply.modeAfter` from an older client is refused `invalid_input`.
+- Answering a session without control (`ADDED_IN_MINOR.watchedAnswers`, §5 rule 14): `SessionCapabilities.answer` is taken out of the capabilities an older client is sent (its Dart models refuse an unknown field), and that client's `interaction.answer` on such a session is refused `unsupported`, as before 1.4. An answer from outside the phones (`BridgeCore.answer`, the lock screen) has no client minor and reaches it. 1.4 had not shipped when this was added, so it joined 1.4 instead of making a 1.5: no released app or bridge speaks a 1.4 without it.
 
 An event can have a stand-in for more than one older minor; `EncodedFrame.instead` is then a chain, newest minor first, and each client is sent the first stand-in its minor speaks. The rules:
 
@@ -618,6 +620,7 @@ An op that rewrites what the transcript reads is marked by `rewritesHistory(kind
   - `delivered(session)`: the latest user input as it reached the model;
   - `backendCall(session, op)`: a valid call of a declared op;
   - `runExternally(session)`: another client runs one reply;
+  - `watchedAsk?()`: another client raises an ask in a session it owns that this bridge opens without `control` but with `answer` (§5 rule 14); absent or undefined when the backend has none, and a backend that has them must offer it;
   - `restart(host)`: the bridge restarts over the same backend state.
 
 **The rules** (`conformance.ts`, each on a fresh backend):
@@ -652,10 +655,11 @@ An op that rewrites what the transcript reads is marked by `rewritesHistory(kind
 28. A run survives a restart of the bridge, under its id, exactly when `durableRuns` is declared; the session survives always.
 29. A session that can cancel a compaction or a retry does so on its own: with none under way the cancel is accepted and silent; a compaction cancelled while under way finishes `aborted` and the session compacts again; a retry cancelled while scheduled finishes unsuccessfully and its run does not complete.
 30. Every declared op that reads an editable file (`config_file`, `custom_tool`) writes it only at the revision read (another is `stale`), a JSON file only when the text parses (`invalid_input`), a file it may not change never (`unsupported`); writing back what was read, at its revision, through the id the answer named, lands and answers the same text; an id the backend never named is `not_found`.
+31. A session with `control` has no `answer` of its own; with `watchedAsk`, the watched session opens without `control` and with `answer`, its ask is pending (in the open snapshot or raised after), invalid answers are `invalid_input` and leave it pending, a valid one resolves it `answered`, a repeat is `stale`, and an answer after `close` is `closed`.
 
 Every scenario's stream also passes the stream rules (§7), and every catalog event is validated as it arrives. `src/__tests__/contract_conformance.test.ts` runs the suite against the fake with every capability, as Claude Code with every op of its union, and with none.
 
-**The suite can fail.** The `contract_negative_*.test.ts` files run 226 deliberately broken adapters (one change each to the honest fake or its driver): every assertion of every rule, and every stream rule a rule relies on, fails at least one of them, for the reason it names. `fails()` (`src/__tests__/helpers/broken-adapters.ts`) requires the rule to reject with that reason, so a rule that lets its broken adapter through, or catches it only by accident, fails its negative test.
+**The suite can fail.** The `contract_negative_*.test.ts` files run 236 deliberately broken adapters (one change each to the honest fake or its driver): every assertion of every rule, and every stream rule a rule relies on, fails at least one of them, for the reason it names. `fails()` (`src/__tests__/helpers/broken-adapters.ts`) requires the rule to reject with that reason, so a rule that lets its broken adapter through, or catches it only by accident, fails its negative test.
 
 ## 15. Lossy points and unsupported capabilities
 
@@ -718,6 +722,7 @@ The brief names proposals and says to refine them. These are the places the cont
 | — | added `input_returned{texts}` and the Pi op `take_over` (1.2) | A terminal's Esc gives queued input back to the human, and the contract had no way to say so; a session another client made could never become controllable. |
 | — | added `compaction.cancel`, `retry.cancel` and the Pi ops `session_settings`, `session_tools`, `system_prompt` (1.3) | Stop ended a compaction and a retry together with the run it belonged to, and the human could not end only one. The state is already normalized (`snapshot.compaction`, `snapshot.retry`), so the cancel is normalized too, as optional methods that announce themselves in `SessionCapabilities` like `compact` and `cancelQueued`. Pi's settings, tools and system prompt are its own and global in part, so they are typed ops, not modes (Pi README, decision 21). |
 | — | added the configuration, list and custom tool ops, the `prompt_suggestion` extension and a plan approval's `modeOptions`/`modeAfter` (1.4) | A backend's configuration is files and its live lists (MCP servers, plugins, tasks, context) are its own, so they are ops; two shared payloads, a list of rows with actions and one file at a revision, let the phone draw every one by shape instead of one screen per backend feature (Claude Code PLAN D22, D24, D25, D30). |
+| — | added `OpenSession.answer` and `SessionCapabilities.answer` (1.4) | A terminal's permission prompt reaches the bridge (Claude Code PLAN D26) on a session the phone may only watch; giving that session a `control` would let the phone prompt and stop a session a terminal owns. The core refused every answer without `control`, so answering became its own optional method and its own capability. |
 | — | added `session_replaced{session}` | CC continues a live session under a new id after `/clear` or a plan-exit context clear (`conversation_reset`, cc §5); without it the phone would keep watching a session that no longer receives anything. |
 
 ## 17. Not in Phase 1

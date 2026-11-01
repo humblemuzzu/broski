@@ -1,4 +1,5 @@
 import type { ClientMessage, ServerMessage } from "../contract";
+import { interactionAnswer } from "./answering";
 import type { CoreClient } from "./client";
 import type { CoreContext } from "./context";
 import {
@@ -15,7 +16,6 @@ import {
 	abort,
 	compact,
 	compactionCancel,
-	interactionAnswer,
 	modelSet,
 	modeSet,
 	prompt,

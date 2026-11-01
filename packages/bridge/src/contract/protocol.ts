@@ -42,7 +42,9 @@ export const PROTOCOL_VERSION = { major: 1, minor: 4 } as const;
  * `mcp_servers`, `plugins`, `tasks`, `context_usage`, `custom_tools`, `custom_tool`), Claude Code serving the existing
  * `session_settings`, `changed_files` and `refresh_models`, the `prompt_suggestion` extension (an older client is sent a
  * `notice` in its place), and a plan approval's next mode (`modeOptions`, `modeAfter`: an older client is sent the plan
- * without the options, and its answer may not name one). An older client is told of none of them.
+ * without the options, and its answer may not name one); `watchedAnswers`, answering the asks of a session without
+ * control (`SessionCapabilities.answer`: an older client is sent the capabilities without it, and its answer on such a
+ * session is refused as before). An older client is told of none of them.
  */
 export const ADDED_IN_MINOR = {
 	replacedSync: 1,
@@ -54,6 +56,7 @@ export const ADDED_IN_MINOR = {
 	treeOps: 3,
 	shellOps: 3,
 	configOps: 4,
+	watchedAnswers: 4,
 } as const;
 
 export const ProtocolVersion = z.strictObject({ major: z.int().nonnegative(), minor: z.int().nonnegative() });

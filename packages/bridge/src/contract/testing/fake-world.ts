@@ -49,6 +49,8 @@ export interface SeedOptions {
 	readonly title?: string;
 	/** Created by another client; it can be watched but not controlled. */
 	readonly external?: boolean;
+	/** With `external`: its asks can still be answered here, as a terminal's permission prompt can. */
+	readonly answerable?: boolean;
 	readonly archived?: boolean;
 	readonly parent?: SessionRef;
 }
@@ -159,7 +161,9 @@ export class FakeWorld implements FakeEnvironment {
 					return session.summary.session;
 				},
 				snapshot: () => session.snapshot,
-				...(!session.external && { control: control(session, methods, () => view.closed) }),
+				...(session.external
+					? session.answersWatched && { answer: watchedAnswer(session, () => view.closed) }
+					: { control: control(session, methods, () => view.closed) }),
 				close: async () => view.close(),
 			},
 			snapshot: session.snapshot,
@@ -217,6 +221,7 @@ export class FakeWorld implements FakeEnvironment {
 
 	seed(options: SeedOptions): SessionRef {
 		const session = this.create(options, options.external ?? false);
+		session.answersWatched = options.answerable ?? false;
 		const at = this.now();
 		const messageId = this.newId();
 		session.history.append([
@@ -324,6 +329,10 @@ function control(session: FakeSession, methods: FakeMethods, isClosed: () => boo
 		}),
 		...(methods.cancelRetry && { cancelRetry: async () => (isClosed() ? CLOSED : session.cancelRetry()) }),
 	};
+}
+
+function watchedAnswer(session: FakeSession, isClosed: () => boolean): SessionControl["answer"] {
+	return async (answer) => (isClosed() ? CLOSED : session.answer(answer));
 }
 
 function sameRef(a: SessionRef | undefined, b: SessionRef | undefined): boolean {

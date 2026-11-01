@@ -24,6 +24,7 @@ describe("the core's session streams", () => {
 			cancelQueued: true,
 			cancelCompaction: true,
 			cancelRetry: true,
+			answer: true,
 		});
 		expect(answer.sync).toMatchObject({ kind: "snapshot", lastSeq: 0 });
 		if (answer.sync.kind !== "snapshot") throw new Error("expected a snapshot");

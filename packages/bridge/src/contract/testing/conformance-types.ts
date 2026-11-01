@@ -54,6 +54,12 @@ export interface ConformanceDriver {
 	backendCall(session: SessionRef, op: BackendOpKind): Promise<BackendCall | undefined>;
 	/** Another client of the backend runs one reply in the session; false when no other client can. */
 	runExternally(session: SessionRef): Promise<boolean>;
+	/**
+	 * Another client of the backend raises an ask of a declared kind in a session it owns, one this bridge opens without
+	 * `control` but whose asks it answers (`OpenSession.answer`, such as a terminal's permission prompt). Absent, or
+	 * undefined, when the backend has no such session; a backend that has them must offer it.
+	 */
+	watchedAsk?(): Promise<SessionRef | undefined>;
 	/** The bridge restarts: the current backend is disposed and a new one starts over the same backend state. */
 	restart(host: BackendHost): Promise<AgentBackend>;
 }

@@ -70,8 +70,10 @@ export function descriptorFor(client: CoreClient, descriptor: BackendDescriptor)
 
 /** A session's capabilities as `client` may know them: without the fields a later minor added. */
 export function capabilitiesFor(client: CoreClient, capabilities: SessionCapabilities): SessionCapabilities {
-	if (client.speaks(ADDED_IN_MINOR.sessionControls)) return capabilities;
-	const { cancelCompaction: _compaction, cancelRetry: _retry, ...older } = capabilities;
+	if (client.speaks(ADDED_IN_MINOR.watchedAnswers)) return capabilities;
+	const { answer: _answer, ...before14 } = capabilities;
+	if (client.speaks(ADDED_IN_MINOR.sessionControls)) return before14;
+	const { cancelCompaction: _compaction, cancelRetry: _retry, ...older } = before14;
 	return older;
 }
 

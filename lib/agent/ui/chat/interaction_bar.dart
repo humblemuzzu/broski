@@ -10,8 +10,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Every question the session waits on, with how this phone's answer to it
-/// stands. A watch-only session shows them without an answer button: the
-/// client that owns it answers (core README §18).
+/// stands. A session whose asks this phone cannot answer shows them without
+/// an answer button: the client that owns it answers (core README §18). A
+/// watch-only session may still take answers (core README §21).
 class InteractionBar extends ConsumerWidget {
   const InteractionBar({super.key, required this.session, required this.state});
 
@@ -45,7 +46,7 @@ class InteractionBar extends ConsumerWidget {
                 style: AppTypography.bodySmall(color: theme.error),
               ),
             },
-            trailing: state.controllable
+            trailing: state.answerable
                 ? TextButton(
                     onPressed: () {
                       if (state.answering[interaction.id] is AnswerNotTaken) {

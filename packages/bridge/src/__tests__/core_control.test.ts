@@ -200,6 +200,7 @@ describe("the core's prompt path", () => {
 			cancelQueued: false,
 			cancelCompaction: false,
 			cancelRetry: false,
+			answer: false,
 		});
 		const results = [
 			(await a.ok("prompt", { session, input: promptInput("x") })).result,

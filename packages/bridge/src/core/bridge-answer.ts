@@ -1,4 +1,4 @@
-import type { ActionResult, InteractionAnswer, SessionRef } from "../contract";
+import { type ActionResult, type InteractionAnswer, type SessionRef, sessionAnswerer } from "../contract";
 import { WATCH_ONLY } from "./controlled";
 import { settled, within } from "./deadline";
 import type { InteractionDesk } from "./interaction-desk";
@@ -19,7 +19,8 @@ export interface BridgeAnswerDeps {
  * An answer a person gave somewhere other than a phone attached to the session, such as a decision on
  * a lock screen. It goes where a phone's answer goes (`InteractionDesk.answer`): checked with
  * `answerProblem`, first answer wins, the adapter sees it once. The session must be open: a pending
- * interaction keeps it open, so a session that is not has nothing to answer.
+ * interaction keeps it open, so a session that is not has nothing to answer. A session that can only
+ * be watched takes it when it answers without control (`OpenSession.answer`).
  */
 export async function answerFromBridge(
 	deps: BridgeAnswerDeps,
@@ -28,9 +29,9 @@ export async function answerFromBridge(
 ): Promise<ActionResult> {
 	const live = deps.hub.find(ref);
 	if (!live) return rejected("not_found", "the session is not open");
-	const control = live.open.control;
-	if (!control) return rejected("unsupported", WATCH_ONLY);
-	const answering = settled(() => deps.desk.answer(live, control, answer));
+	const answerer = sessionAnswerer(live.open);
+	if (!answerer) return rejected("unsupported", WATCH_ONLY);
+	const answering = settled(() => deps.desk.answer(live, answerer, answer));
 	const outcome = await within(deps.clock, REQUEST_DEADLINE_MS, answering, () => undefined);
 	if (outcome === undefined) {
 		deps.log.error(`[core] ${sessionLabel(ref)}: the adapter did not take an answer within ${REQUEST_DEADLINE_MS} ms`);

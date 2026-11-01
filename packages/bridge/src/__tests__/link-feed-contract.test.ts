@@ -50,12 +50,13 @@ afterEach(async () => {
 	await finishFeed(current?.feed ?? null, restoreTiming);
 });
 
-async function startScene(steps: FakeStep[]): Promise<Scene> {
+/** `watched`: the session belongs to another client, can only be watched, and takes answers to its asks. */
+async function startScene(steps: FakeStep[], watched = false): Promise<Scene> {
 	const answers: InteractionAnswer[] = [];
 	const rig = await startCoreBridge({ adapt: (backend) => recordingAnswers(backend, answers) });
 	const phone = await rig.phone("phone");
-	const session = rig.fake.fake.seed({ cwd: rig.cwd, title: "Fix the build" });
-	rig.fake.fake.script(session, steps);
+	const session = rig.fake.fake.seed({ cwd: rig.cwd, title: "Fix the build", external: watched, answerable: watched });
+	if (!watched) rig.fake.fake.script(session, steps);
 	await phone.ok("session.attach", { session });
 	const feed = await openFeed(rig.socketPath);
 	scene = { rig, phone, feed, session, answers };
@@ -205,6 +206,17 @@ describe("approvals", () => {
 
 		const [done] = await alertsOf(current.feed, 1);
 		expect(done).toMatchObject({ kind: "done", body: "Cleaned the build." });
+	});
+
+	test("an approval another client's run raised in a watched session is answered from the lock screen", async () => {
+		const current = await startScene(TOOL, true);
+		current.rig.fake.fake.runExternally(current.session, "From the terminal.", TOOL);
+		const request = interactionOf((await alertsOf(current.feed, 1))[0] as LinkFrame);
+		expect(await decide(current, request, "allow")).toMatchObject({ ok: true, error: null });
+		await waitForResolution(current);
+		expect(current.answers).toEqual([
+			{ interactionId: request, reply: { kind: "tool_permission", optionId: "allow_once", grantIds: [] } },
+		]);
 	});
 
 	test("a deny answers the plain deny, not the one that stops the run", async () => {

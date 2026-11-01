@@ -92,7 +92,12 @@ export interface OpenSession {
 	/** Absent for a session that can only be watched. */
 	readonly control?: SessionControl;
 	/**
-	 * Detaches the sink: from the call on nothing is emitted, and `control` methods reject `closed`.
+	 * Only on a session without `control` whose asks can still be answered here, such as a terminal's
+	 * permission prompt; a session with `control` answers through `control.answer` and has no `answer`.
+	 */
+	answer?(answer: InteractionAnswer): Promise<ActionResult>;
+	/**
+	 * Detaches the sink: from the call on nothing is emitted, and `control` methods and `answer` reject `closed`.
 	 * Aborts nothing; a run in progress goes on in the backend, and an ask it raises waits for the
 	 * next `open`. Calling it again does nothing.
 	 */
@@ -132,6 +137,21 @@ export function backendCapabilities(backend: AgentBackend): Capabilities {
 	};
 }
 
+/** What takes answers to a session's asks. */
+export interface SessionAnswerer {
+	answer(answer: InteractionAnswer): Promise<ActionResult>;
+}
+
+/** The session's `control`, or the session itself when it answers without control; undefined when nothing answers. */
+export function sessionAnswerer(session: OpenSession): SessionAnswerer | undefined {
+	if (session.control) return session.control;
+	return answersWithoutControl(session) ? session : undefined;
+}
+
+function answersWithoutControl(session: OpenSession): session is OpenSession & SessionAnswerer {
+	return session.answer !== undefined;
+}
+
 export function sessionCapabilities(session: OpenSession): SessionCapabilities {
 	return {
 		controllable: session.control !== undefined,
@@ -139,5 +159,6 @@ export function sessionCapabilities(session: OpenSession): SessionCapabilities {
 		cancelQueued: session.control?.cancelQueued !== undefined,
 		cancelCompaction: session.control?.cancelCompaction !== undefined,
 		cancelRetry: session.control?.cancelRetry !== undefined,
+		answer: sessionAnswerer(session) !== undefined,
 	};
 }

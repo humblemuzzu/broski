@@ -29,17 +29,24 @@ export interface SessionChanges {
 	readonly close?: OpenSession["close"];
 	/** Applied to the session's control, when it has one. */
 	readonly control?: (control: SessionControl) => SessionControl;
+	/** Applied to the session's own `answer`, when it has one. */
+	readonly answer?: (answer: WatchedAnswer) => WatchedAnswer;
 }
+
+type WatchedAnswer = NonNullable<OpenSession["answer"]>;
 
 /** `session`, with `changes` in place of what they name. */
 export function changedSession(session: OpenSession, changes: SessionChanges): OpenSession {
 	const control = session.control && (changes.control ? changes.control(session.control) : session.control);
+	const own = session.answer?.bind(session);
+	const answer = own && (changes.answer ? changes.answer(own) : own);
 	return {
 		get session() {
 			return session.session;
 		},
 		snapshot: changes.snapshot ?? (() => session.snapshot()),
 		...(control && { control }),
+		...(answer && { answer }),
 		close: changes.close ?? (() => session.close()),
 	};
 }
@@ -74,6 +81,10 @@ export function recordingAnswers(backend: AgentBackend, answers: InteractionAnsw
 					return control.answer(answer);
 				},
 			}),
+			answer: (own) => (answer) => {
+				answers.push(answer);
+				return own(answer);
+			},
 		}),
 	);
 }

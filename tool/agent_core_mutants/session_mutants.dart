@@ -280,6 +280,25 @@ final sessionMutants = [
       'if (false) {\n      return',
     ),
   ]),
+  ...mutantsOf('session/agent_session_state.dart', const [
+    Mutant(
+      'answers: a watch-only session that takes answers takes none',
+      'bool get answerable => capabilities?.answer ?? controllable;',
+      'bool get answerable => controllable;',
+    ),
+    Mutant(
+      'answers: a bridge that does not say is taken to allow them',
+      'bool get answerable => capabilities?.answer ?? controllable;',
+      'bool get answerable => capabilities?.answer ?? true;',
+    ),
+  ]),
+  ...mutantsOf('ui/chat/interaction_bar.dart', const [
+    Mutant(
+      'answers: the bar offers Answer only to a controllable session',
+      'trailing: state.answerable',
+      'trailing: state.controllable',
+    ),
+  ]),
   ...mutantsOf('session/history_loader.dart', const [
     Mutant(
       'history: an overtaken read lands',

@@ -76,6 +76,7 @@ describe("a session replaced while the phone is away", () => {
 			cancelQueued: true,
 			cancelCompaction: true,
 			cancelRetry: true,
+			answer: true,
 		});
 		expect(await back.request("abort", { session: away.old })).toMatchObject({ error: { code: "not_attached" } });
 		expect(await back.request("abort", { session: away.first })).toMatchObject({

@@ -7,10 +7,10 @@ import { sessionKey } from "./session-key";
 
 export const WATCH_ONLY = "this session can only be watched";
 
+/** The requests that need the session's control. */
 type ControlType =
 	| "prompt"
 	| "abort"
-	| "interaction.answer"
 	| "queue.cancel"
 	| "model.set"
 	| "thinking.set"
@@ -19,32 +19,41 @@ type ControlType =
 	| "compaction.cancel"
 	| "retry.cancel";
 
-/** `RequestOf<T>`, written so that the fields every control request has stay reachable for a generic `T`. */
-type ControlRequest<T extends ControlType> = Extract<ClientMessage, { type: ControlType }> & { type: T };
-/** A control request, with the session it acts on and that session's control. */
-export interface Controlled<T extends ControlType> {
+/** The requests that act on a session the client views: the control requests and an answer (`answering.ts`). */
+type ViewedType = ControlType | "interaction.answer";
+
+/** `RequestOf<T>`, written so that the fields every such request has stay reachable for a generic `T`. */
+type ViewedRequest<T extends ViewedType> = Extract<ClientMessage, { type: ViewedType }> & { type: T };
+
+/** A request that acts on a session, with the session. */
+export interface Viewed<T extends ViewedType> {
 	readonly ctx: CoreContext;
 	readonly client: CoreClient;
-	readonly request: ControlRequest<T>;
+	readonly request: ViewedRequest<T>;
 	readonly live: LiveSession;
+}
+
+/** A control request, with the session it acts on and that session's control. */
+export interface Controlled<T extends ControlType> extends Viewed<T> {
 	readonly control: SessionControl;
 }
+
+type ViewedHandler<T extends ViewedType> = (
+	ctx: CoreContext,
+	client: CoreClient,
+	request: ViewedRequest<T>,
+	respond: Respond<ResponseFor<T>>,
+) => Promise<void>;
 
 /**
  * The handler of a request that acts on a session. The client must view the session, once every
  * attach and detach it sent before has run, because it acts on state it saw (`not_attached`
- * otherwise); a session that can only be watched answers `unsupported`. `answer` words the result
- * as the request's response.
+ * otherwise). `answer` words the result as the request's response.
  */
-export function controlled<T extends ControlType, R extends ActionResult | PromptResult>(
-	answer: (request: ControlRequest<T>, result: R | Rejected) => ResponseFor<T>,
-	run: (target: Controlled<T>) => Promise<R | Rejected>,
-): (
-	ctx: CoreContext,
-	client: CoreClient,
-	request: ControlRequest<T>,
-	respond: Respond<ResponseFor<T>>,
-) => Promise<void> {
+export function viewed<T extends ViewedType, R extends ActionResult | PromptResult>(
+	answer: (request: ViewedRequest<T>, result: R | Rejected) => ResponseFor<T>,
+	run: (target: Viewed<T>) => Promise<R | Rejected>,
+): ViewedHandler<T> {
 	return async (ctx, client, request, respond) => {
 		const key = sessionKey(request.session);
 		const live = await client.viewing(key);
@@ -54,12 +63,17 @@ export function controlled<T extends ControlType, R extends ActionResult | Promp
 			}
 			return;
 		}
-		const control = live.open.control;
-		respond(
-			answer(
-				request,
-				control ? await run({ ctx, client, request, live, control }) : rejected("unsupported", WATCH_ONLY),
-			),
-		);
+		respond(answer(request, await run({ ctx, client, request, live })));
 	};
+}
+
+/** `viewed`, for a request that needs the session's control: a session that can only be watched answers `unsupported`. */
+export function controlled<T extends ControlType, R extends ActionResult | PromptResult>(
+	answer: (request: ViewedRequest<T>, result: R | Rejected) => ResponseFor<T>,
+	run: (target: Controlled<T>) => Promise<R | Rejected>,
+): ViewedHandler<T> {
+	return viewed(answer, async (target) => {
+		const control = target.live.open.control;
+		return control ? run({ ...target, control }) : rejected("unsupported", WATCH_ONLY);
+	});
 }

@@ -3,7 +3,7 @@ import { movedTo, redirectAttach } from "./attach-redirect";
 import { type BackendRequest, type Handler, reachBackend } from "./context";
 import { controlled } from "./controlled";
 import { LiveSession } from "./live-session";
-import { answerTooNew, capabilitiesFor, syncFor } from "./minor-views";
+import { capabilitiesFor, syncFor } from "./minor-views";
 import { HELLO_FIRST, openFailure, protocolError, unsupported } from "./results";
 import { sessionKey } from "./session-key";
 
@@ -92,12 +92,6 @@ export const sessionDetach: Handler<"session.detach"> = async (ctx, client, requ
 export const prompt = controlled<"prompt", PromptResult>(
 	(request, result) => ({ type: "prompt.result", requestId: request.requestId, result }),
 	({ ctx, request, live, control }) => ctx.ledger.submit(live.ref, request.input, (input) => control.prompt(input)),
-);
-
-export const interactionAnswer = controlled<"interaction.answer", ActionResult>(
-	(request, result) => ({ type: "interaction.answer.result", requestId: request.requestId, result }),
-	async ({ ctx, client, request, live, control }) =>
-		answerTooNew(client, request.answer) ?? ctx.desk.answer(live, control, request.answer),
 );
 
 export const abort = controlled<"abort", ActionResult>(
