@@ -217,6 +217,8 @@ describe("refusing a settings file it cannot edit safely", () => {
 		["a trailing comma", '{"model": "opus",}'],
 		["a comment", '{"model": "opus" // x\n}'],
 		["truncated JSON", '{"model": "op'],
+		["a key written twice", '{"model": "opus", "model": "sonnet"}'],
+		["a number a double cannot hold", '{"cleanupPeriodDays": 1e400}'],
 		["an array", "[1, 2]"],
 		["a string", '"settings"'],
 		["null", "null"],

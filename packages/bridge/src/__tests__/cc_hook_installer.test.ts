@@ -35,6 +35,7 @@ describe("the old hook installer never loses the user's settings", () => {
 		["a comment", '{ // my notes\n "model": "opus", "permissions": {"allow": []}\n}'],
 		["a trailing comma", '{"model": "opus", "permissions": {"allow": []},}'],
 		["truncated JSON", '{"model": "op'],
+		["a key written twice", '{"model": "opus", "model": "sonnet"}'],
 		["hooks that are not an object", '{"model": "opus", "hooks": []}'],
 		["a PreToolUse that is not a list", '{"hooks": {"PreToolUse": {}}}'],
 	];

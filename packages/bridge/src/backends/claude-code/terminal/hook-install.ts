@@ -8,6 +8,7 @@ import { open, readFile, realpath } from "node:fs/promises";
 import { join } from "node:path";
 import { writeAtomic } from "../files/atomic-write";
 import { indentOf, jsonFileText, parseObject } from "../files/json-object";
+import { roundTripProblem } from "../files/json-round-trip";
 import { isMissing } from "../files/missing";
 import { type HookSpec, type Settings, withHook, withoutHook } from "./hook-settings";
 
@@ -100,6 +101,9 @@ async function read(path: string): Promise<Read> {
 	const parsed = parseObject(text);
 	if ("problem" in parsed)
 		return { ...nothing, text, mode, problem: `${path} is not a JSON object: ${parsed.problem}` };
+	const lossy = roundTripProblem(text);
+	if (lossy !== undefined)
+		return { ...nothing, text, mode, problem: `${path} cannot be rewritten without changing it: ${lossy}` };
 	return { settings: parsed.value, text, indent: indentOf(text), mode };
 }
 

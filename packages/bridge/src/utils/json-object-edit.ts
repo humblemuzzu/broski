@@ -20,6 +20,8 @@ export type JsonEditResult =
 export interface JsonEditOptions {
 	/** Mode of a file this edit creates; undefined: a missing file stays missing (`absent`). */
 	readonly createMode?: number;
+	/** Why a file that parses still must not be rewritten (a key written twice, a number a double cannot hold). */
+	readonly lossy?: (text: string) => string | undefined;
 }
 
 export async function editJsonObjectFile(
@@ -52,6 +54,9 @@ async function editOnce(
 	const parsed = text === undefined || text.trim() === "" ? { value: {} } : parseJsonObject(text);
 	if ("problem" in parsed)
 		return { status: "refused", path, reason: `${path} is not strict JSON (${parsed.problem}); left as it is` };
+	const lossy = text === undefined ? undefined : options.lossy?.(text);
+	if (lossy !== undefined)
+		return { status: "refused", path, reason: `${path} cannot be rewritten without changing it: ${lossy}` };
 	const changed = change(parsed.value);
 	if (typeof changed === "string") return { status: "refused", path, reason: changed };
 	if (!changed) return { status: "unchanged", path };

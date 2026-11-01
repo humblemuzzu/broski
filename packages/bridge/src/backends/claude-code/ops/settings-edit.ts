@@ -2,6 +2,7 @@
 
 import type { Rejected } from "../../../contract";
 import { indentOf, jsonFileText, parseObject } from "../files/json-object";
+import { roundTripProblem } from "../files/json-round-trip";
 import type { ClaudeSdk } from "../ports";
 import { rejected } from "../rejections";
 import type { ConfigPlace } from "./config-paths";
@@ -37,6 +38,9 @@ export async function editSettings(
 				"invalid_input",
 				`${place.path} is not valid JSON, so Claude Code skips it; fix it first: ${parsed.problem}`,
 			);
+		const lossy = state.exists ? roundTripProblem(state.text) : undefined;
+		if (lossy !== undefined)
+			return rejected("invalid_input", `${place.path} cannot be rewritten without changing it: ${lossy}; fix it first`);
 		const skipped = state.exists ? await schemaProblem(sdk, state.text) : undefined;
 		if (skipped !== undefined) return rejected("invalid_input", `${place.path}: ${skipped}; fix it first`);
 		const refused = edit(parsed.value);

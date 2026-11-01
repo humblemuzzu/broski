@@ -3,6 +3,7 @@
  * (`utils/json-object-edit.ts`): a file that exists but does not parse is never replaced, and a write is atomic.
  */
 
+import { roundTripProblem } from "./backends/claude-code/files/json-round-trip";
 import type { CustomToolDefinition } from "./custom-tools";
 import { assertNotRealHome } from "./safety/real-home-guard";
 import { readFileForEdit } from "./utils/atomic-file";
@@ -50,7 +51,7 @@ export function createCustomToolStore(path: string, now: () => number = Date.now
 				kept = tools;
 				return true;
 			},
-			{ createMode: NEW_FILE_MODE },
+			{ createMode: NEW_FILE_MODE, lossy: roundTripProblem },
 		);
 		if (result.status === "refused") throw new Error(`custom tools not saved: ${result.reason}`);
 		if (kept !== undefined) cache = kept;

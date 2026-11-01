@@ -11,6 +11,7 @@
  */
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { roundTripProblem } from "../backends/claude-code/files/json-round-trip";
 import { assertNotRealHome } from "../safety/real-home-guard";
 import { isJsonObject } from "../utils/json-object";
 import { editJsonObjectFile, type JsonEditResult } from "../utils/json-object-edit";
@@ -60,7 +61,7 @@ export async function installCcHook(target: HookInstallTarget): Promise<void> {
 			const removed = removeHookFromEvent(hooks, "PermissionRequest");
 			return typeof removed === "string" ? removed : installed || removed;
 		},
-		{ createMode: NEW_FILE_MODE },
+		{ createMode: NEW_FILE_MODE, lossy: roundTripProblem },
 	);
 	report(result, "Installed PreToolUse hook", target.log);
 }
@@ -71,16 +72,20 @@ export async function installCcHook(target: HookInstallTarget): Promise<void> {
  */
 export async function uninstallCcHook(log?: (msg: string) => void, settingsPath = ccHookSettingsPath()): Promise<void> {
 	assertNotRealHome(settingsPath, "cc hook uninstall");
-	const result = await editJsonObjectFile(settingsPath, (settings) => {
-		const hooks = hooksOf(settings, false);
-		if (typeof hooks !== "object") return hooks ?? false;
-		const fromPre = removeHookFromEvent(hooks, "PreToolUse");
-		if (typeof fromPre === "string") return fromPre;
-		const fromRequest = removeHookFromEvent(hooks, "PermissionRequest");
-		if (typeof fromRequest === "string") return fromRequest;
-		if (Object.keys(hooks).length === 0) delete settings.hooks;
-		return fromPre || fromRequest;
-	});
+	const result = await editJsonObjectFile(
+		settingsPath,
+		(settings) => {
+			const hooks = hooksOf(settings, false);
+			if (typeof hooks !== "object") return hooks ?? false;
+			const fromPre = removeHookFromEvent(hooks, "PreToolUse");
+			if (typeof fromPre === "string") return fromPre;
+			const fromRequest = removeHookFromEvent(hooks, "PermissionRequest");
+			if (typeof fromRequest === "string") return fromRequest;
+			if (Object.keys(hooks).length === 0) delete settings.hooks;
+			return fromPre || fromRequest;
+		},
+		{ lossy: roundTripProblem },
+	);
 	report(result, "Uninstalled hooks", log);
 }
 

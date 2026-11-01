@@ -249,6 +249,24 @@ describe("session_settings", () => {
 		expect(JSON.parse(readFileSync(path, "utf8")).promptSuggestionEnabled).toBe(true);
 	});
 
+	test("a file whose rewrite would change data is refused with the reason, and left byte for byte", async () => {
+		const sessionId = randomUUID();
+		world = opsWorld({ hosts: { [sessionId]: { query: new FakeQuery() } } });
+		const file = join(world.configDir, "settings.json");
+		for (const [text, said] of [
+			['{"model": "opus", "model": "sonnet"}', "written twice"],
+			['{"model": "opus", "cleanupPeriodDays": 1e400}', "cannot be written back exactly"],
+		]) {
+			const path = world.write(file, text ?? "");
+			const result = await settings(sessionId, toggle("autoMemoryEnabled", false));
+			expect(result.status === "rejected" && result.rejection).toMatchObject({
+				code: "invalid_input",
+				message: expect.stringContaining(said ?? ""),
+			});
+			expect(readFileSync(path, "utf8")).toBe(text ?? "");
+		}
+	});
+
 	test("prompt suggestions turned off by the environment show off, whatever the settings say", async () => {
 		const sessionId = randomUUID();
 		world = opsWorld({
