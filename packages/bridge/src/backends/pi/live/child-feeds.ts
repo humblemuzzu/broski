@@ -8,6 +8,7 @@
 import {
 	emptySnapshot,
 	type OpenResult,
+	type RunOutcome,
 	type SessionRef,
 	type SessionSink,
 	type SessionSummary,
@@ -39,6 +40,20 @@ interface Feed {
 }
 
 const REMEMBERED_FEEDS = 256;
+
+/** The child's run ends as the call that ran it did: a call that failed or was refused did not finish its work. */
+function childOutcome(outcome: ToolOutcome): RunOutcome {
+	switch (outcome) {
+		case "completed":
+			return { kind: "completed" };
+		case "aborted":
+			return { kind: "aborted" };
+		case "failed":
+			return { kind: "error", error: { code: "tool", message: "The subagent's tool call failed." } };
+		case "denied":
+			return { kind: "error", error: { code: "tool", message: "The subagent's tool call was denied." } };
+	}
+}
 
 export class ChildFeeds {
 	private readonly feeds = new Map<string, Feed>();
@@ -72,11 +87,7 @@ export class ChildFeeds {
 				result: { content: [], fileChanges: [], error: "The tool call did not finish." },
 			});
 		}
-		feed.live.emit({
-			type: "run_finished",
-			runId: feed.runId,
-			outcome: outcome === "aborted" ? { kind: "aborted" } : { kind: "completed" },
-		});
+		feed.live.emit({ type: "run_finished", runId: feed.runId, outcome: childOutcome(outcome) });
 		feed.finished = true;
 		this.announce(feed, "idle");
 	}
@@ -128,10 +139,17 @@ export class ChildFeeds {
 		};
 		live.emit({ type: "run_started", runId: feed.runId, trigger: "system" });
 		this.feeds.set(piToolCallId, feed);
-		const oldest = this.feeds.keys().next().value;
-		if (this.feeds.size > REMEMBERED_FEEDS && oldest !== undefined) this.feeds.delete(oldest);
+		this.forgetFinished();
 		this.announce(feed, "running");
 		return feed;
+	}
+
+	/** Past the bound the oldest finished feeds go; a running one stays, or its call could never end it. */
+	private forgetFinished(): void {
+		for (const [id, feed] of this.feeds) {
+			if (this.feeds.size <= REMEMBERED_FEEDS) return;
+			if (feed.finished) this.feeds.delete(id);
+		}
 	}
 
 	private announce(feed: Feed, status: "running" | "idle"): void {

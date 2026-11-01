@@ -34,7 +34,10 @@ export class ToolChildren {
 	private readonly scans = new Map<string, Scanned>();
 	private reading: Promise<unknown> = Promise.resolve();
 
-	constructor(private readonly index: SessionIndex) {}
+	constructor(
+		private readonly index: SessionIndex,
+		private readonly read: typeof readEntries = readEntries,
+	) {}
 
 	/** The children of the session's file, in file order, and the file they were read from. */
 	async of(parentId: SessionId): Promise<{ file: SessionFileIndex; children: readonly ToolChild[] } | Rejected> {
@@ -50,7 +53,7 @@ export class ToolChildren {
 		const position = file.byId.get(child.resultEntryId);
 		const span = position === undefined ? undefined : file.entries[position];
 		if (span === undefined) return [];
-		const [entry] = await readEntries(file, [span]);
+		const [entry] = await this.read(file, [span]);
 		return entry?.type === "message" && entry.message.role === "toolResult" ? subRunsOf(entry.message.details) : [];
 	}
 
@@ -64,18 +67,26 @@ export class ToolChildren {
 	private async scan(file: SessionFileIndex): Promise<readonly ToolChild[]> {
 		const known = this.scans.get(file.path);
 		const state = known !== undefined && stillTheSameFile(known, file) ? known : this.fresh(file);
-		const spans = file.entries.slice(state.scanned);
-		for (let at = 0; at < spans.length; at += READ_BATCH) {
-			const batch = spans.slice(at, at + READ_BATCH);
-			const entries = await readEntries(file, batch);
-			for (const [offset, entry] of entries.entries()) {
-				const span = batch[offset];
-				if (span !== undefined && entry !== undefined) await this.note(file, span, entry, state.children);
-			}
+		while (state.scanned < file.entries.length) {
+			const batch = file.entries.slice(state.scanned, state.scanned + READ_BATCH);
+			const room = MAX_LIST_ITEMS - state.children.length;
+			if (room > 0) state.children.push(...(await this.childrenIn(file, batch)).slice(0, room));
+			state.scanned += batch.length;
+			state.lastEntryId = batch.at(-1)?.entryId;
 		}
-		state.scanned = file.entries.length;
-		state.lastEntryId = file.entries.at(-1)?.entryId;
 		return state.children;
+	}
+
+	/** The children among `batch`; a read that fails adds none of them, so the next scan reads the batch again. */
+	private async childrenIn(file: SessionFileIndex, batch: readonly EntrySpan[]): Promise<ToolChild[]> {
+		const entries = await this.read(file, batch);
+		const found: ToolChild[] = [];
+		for (const [offset, entry] of entries.entries()) {
+			const span = batch[offset];
+			const child = span === undefined || entry === undefined ? undefined : await this.childOf(file, span, entry);
+			if (child !== undefined) found.push(child);
+		}
+		return found;
 	}
 
 	private fresh(file: SessionFileIndex): Scanned {
@@ -87,21 +98,16 @@ export class ToolChildren {
 		return state;
 	}
 
-	private async note(
-		file: SessionFileIndex,
-		span: EntrySpan,
-		entry: SessionEntry,
-		children: ToolChild[],
-	): Promise<void> {
-		if (entry.type !== "message" || entry.message.role !== "toolResult" || children.length >= MAX_LIST_ITEMS) return;
-		if (subRunsOf(entry.message.details).length === 0) return;
+	private async childOf(file: SessionFileIndex, span: EntrySpan, entry: SessionEntry): Promise<ToolChild | undefined> {
+		if (entry.type !== "message" || entry.message.role !== "toolResult") return undefined;
+		if (subRunsOf(entry.message.details).length === 0) return undefined;
 		const at = Date.parse(entry.timestamp);
-		children.push({
+		return {
 			piToolCallId: entry.message.toolCallId,
 			resultEntryId: entry.id,
 			title: childTitle(entry.message.toolName, await this.argumentsOf(file, span, entry.message.toolCallId)),
 			at: isCount(at) ? at : undefined,
-		});
+		};
 	}
 
 	/** The arguments of the call a result answers: the nearest assistant message before it holds the call. */
@@ -111,7 +117,7 @@ export class ToolChildren {
 			const span = file.entries[at];
 			if (span === undefined || span.type !== "message" || (span.role !== undefined && span.role !== "assistant"))
 				continue;
-			const [entry] = await readEntries(file, [span]);
+			const [entry] = await this.read(file, [span]);
 			if (entry?.type !== "message" || entry.message.role !== "assistant") continue;
 			const call = entry.message.content?.find((block) => block.type === "toolCall" && block.id === piToolCallId);
 			return call?.type === "toolCall" ? call.arguments : undefined;

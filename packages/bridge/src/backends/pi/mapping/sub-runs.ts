@@ -3,7 +3,11 @@
  * pi-coding-agent's `examples/extensions/subagent`) runs another agent of its own and returns its conversation in the
  * result's `details`: a `messages` list of Pi messages, one per sub-run, anywhere in a small tree of objects
  * (`details.messages`, `details.results[i].messages`). Pi gives the shape no name, so a sub-run is found by what it
- * holds: a list with at least one recognised message. What the extension adds beside it is not read.
+ * holds: the messages a Pi agent emits at `message_end`, as the example pushes them. Every item is an agent message
+ * (an object with a string `role` and a numeric `timestamp`: pi-ai `dist/types.d.ts:346-436`, pi-coding-agent
+ * `dist/core/messages.d.ts:16-51`), and at least one is a user, assistant or tool result message of pi-ai's shape. A
+ * list with anything else in it is another tool's data. Messages of other roles (system, custom, bash, summaries) are
+ * not shown, and what the extension adds beside the list is not read.
  */
 
 import { type JsonValue, MAX_LIST_ITEMS, MAX_TEXT_CHARS } from "../../../contract";
@@ -62,36 +66,39 @@ function collect(value: unknown, depth: number, runs: SubRun[]): void {
 function runOf(list: readonly unknown[]): SubRun | undefined {
 	const messages: SubMessage[] = [];
 	for (const item of list.slice(0, MAX_MESSAGES_PER_RUN)) {
+		if (!isAgentMessage(item)) return undefined;
 		const message = messageOf(item);
 		if (message !== undefined) messages.push(message);
 	}
 	return messages.length === 0 ? undefined : { messages };
 }
 
-function messageOf(value: unknown): SubMessage | undefined {
-	if (!isFields(value)) return undefined;
+function isAgentMessage(value: unknown): value is Fields {
+	return isFields(value) && typeof value.role === "string" && typeof value.timestamp === "number";
+}
+
+/** A user, assistant or tool result message of pi-ai's shape; undefined for any other. */
+function messageOf(value: Fields): SubMessage | undefined {
+	const { content } = value;
 	switch (value.role) {
 		case "user":
-			return { role: "user", text: textOf(value.content) };
+			return typeof content === "string" || Array.isArray(content)
+				? { role: "user", text: textOf(content) }
+				: undefined;
 		case "assistant":
-			return assistantOf(value);
+			return Array.isArray(content) && typeof value.stopReason === "string" ? assistantOf(value, content) : undefined;
 		case "toolResult":
-			if (typeof value.toolCallId !== "string") return undefined;
-			return {
-				role: "toolResult",
-				toolCallId: value.toolCallId,
-				text: textOf(value.content),
-				isError: value.isError === true,
-			};
+			if (typeof value.toolCallId !== "string" || typeof value.toolName !== "string") return undefined;
+			if (!Array.isArray(content) || typeof value.isError !== "boolean") return undefined;
+			return { role: "toolResult", toolCallId: value.toolCallId, text: textOf(content), isError: value.isError };
 		default:
 			return undefined;
 	}
 }
 
-function assistantOf(message: Fields): SubMessage {
+function assistantOf(message: Fields, content: readonly unknown[]): SubMessage {
 	const blocks: SubBlock[] = [];
-	const content = Array.isArray(message.content) ? message.content.slice(0, MAX_BLOCKS_PER_MESSAGE) : [];
-	for (const block of content) {
+	for (const block of content.slice(0, MAX_BLOCKS_PER_MESSAGE)) {
 		const sub = blockOf(block);
 		if (sub !== undefined) blocks.push(sub);
 	}

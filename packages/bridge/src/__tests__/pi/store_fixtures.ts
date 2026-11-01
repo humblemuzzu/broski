@@ -92,12 +92,13 @@ export class SessionBuilder {
 		});
 	}
 
-	toolResult(toolCallId: string, text: string, at: number, toolName = "read"): string {
+	toolResult(toolCallId: string, text: string, at: number, toolName = "read", details?: object): string {
 		const message = {
 			role: "toolResult",
 			toolCallId,
 			toolName,
 			content: [{ type: "text", text }],
+			...(details !== undefined && { details }),
 			isError: false,
 			timestamp: T0 + at,
 		};
