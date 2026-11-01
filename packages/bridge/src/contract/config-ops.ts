@@ -49,10 +49,11 @@ export const ConfigFilesListed = z.strictObject({
 export type ConfigFilesListed = z.infer<typeof ConfigFilesListed>;
 
 /**
- * One file `config_files` listed, read, or changed first and then read. `name` names the new file a `template` entry
- * makes (and only such an entry takes one). Refusals: a file id the listing does not have is `not_found`; a `name`
- * missing, given where none is taken, or not a file name is `invalid_input`; a change against another revision is
- * `stale`; a JSON write that does not parse is `invalid_input`; a file the backend may not change is `unsupported`.
+ * One file, read, or changed first and then read. `fileId` is an id `config_files` listed or a `config_file` answer
+ * named: the answer's `file.id` addresses the file from then on, also a new one not written yet. `name` names the new
+ * file a `template` entry makes (and only such an entry takes one). Refusals: an id neither names is `not_found`; a
+ * `name` missing, given where none is taken, or not a file name is `invalid_input`; a change against another revision
+ * is `stale`; a JSON write that does not parse is `invalid_input`; a file the backend may not change is `unsupported`.
  */
 export const ConfigFileOp = z.strictObject({
 	kind: z.literal("config_file"),

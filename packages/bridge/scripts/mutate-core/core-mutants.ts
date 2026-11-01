@@ -286,32 +286,46 @@ export const SESSION_MUTANTS: Mutant[] = [
 			find: "if (client.speaks(ADDED_IN_MINOR.sessionControls)) return capabilities;",
 			replace: "return capabilities;",
 		},
+	]),
+	...mutantsOf("core/older-events.ts", [
 		{
-			name: "minor views: no stand-in for the returned input",
-			find: "return { ...frame, instead: { minor: ADDED_IN_MINOR.inputReturned, frame: instead } };",
-			replace: "return frame;",
+			name: "older events: no stand-in for the returned input",
+			find: 'if (before14.type === "input_returned") {',
+			replace: "if (false) {",
 		},
 		{
-			name: "minor views: the stand-in can cut a surrogate pair",
+			name: "older events: no stand-in for a prompt suggestion",
+			find: 'if (event.type === "extension" && event.extension.kind === "prompt_suggestion") {',
+			replace: "if (false) {",
+		},
+		{
+			name: "older events: the stand-in can cut a surrogate pair",
 			find: "return last >= 0xd800 && last <= 0xdbff ? cut.slice(0, -1) : cut;",
 			replace: "return cut;",
 		},
 		{
-			name: "minor views: every event gets a stand-in",
-			find: 'if (event.type !== "input_returned") return frame;',
-			replace: "",
+			name: "older events: the stand-in is not cut to the contract's bound",
+			find: "if (text.length <= MAX_TEXT_CHARS) return text;",
+			replace: "return text;",
+		},
+		{
+			name: "older events: every event gets a 1.4 stand-in",
+			find: "if (before14 !== event) views.push(",
+			replace: "views.push(",
+			equivalent:
+				"speed only: the stand-in of an event 1.4 left unchanged is that event, encoded again into the same frame",
 		},
 	]),
 	...mutantsOf("core/client.ts", [
 		{
 			name: "client: the stand-in goes to a client that speaks the event",
-			find: "const sent = frame.instead && !this.speaks(frame.instead.minor) ? frame.instead.frame : frame;",
-			replace: "const sent = frame.instead ? frame.instead.frame : frame;",
+			find: "while (sent.instead && !this.speaks(sent.instead.minor))",
+			replace: "while (sent.instead)",
 		},
 		{
 			name: "client: the stand-in is never sent",
-			find: "const sent = frame.instead && !this.speaks(frame.instead.minor) ? frame.instead.frame : frame;",
-			replace: "const sent = frame;",
+			find: "while (sent.instead && !this.speaks(sent.instead.minor))",
+			replace: "while (false)",
 		},
 	]),
 	...mutantsOf("core/keep-open.ts", [

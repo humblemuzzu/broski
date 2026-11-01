@@ -12,7 +12,7 @@ import {
 import type { CoreClient } from "./client";
 import { EventLog, type ReplayWindow } from "./event-log";
 import type { EncodedFrame } from "./frame";
-import { withOlderView } from "./minor-views";
+import { withOlderView } from "./older-events";
 import type { CoreClock, CoreLog } from "./ports";
 import { sameState } from "./same-state";
 import { sessionKey, sessionLabel } from "./session-key";

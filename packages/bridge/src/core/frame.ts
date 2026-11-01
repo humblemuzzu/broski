@@ -22,7 +22,10 @@ export interface EncodedFrame {
 	readonly text: string;
 	/** UTF-8, as the link counts. */
 	readonly bytes: number;
-	/** What a client that speaks less than `minor` is sent in this frame's place (contract README §12.4). */
+	/**
+	 * What a client that speaks less than `minor` is sent in this frame's place (contract README §12.4); that frame's own
+	 * `instead`, of a lower minor, serves a client older still.
+	 */
 	readonly instead?: { readonly minor: number; readonly frame: EncodedFrame };
 }
 

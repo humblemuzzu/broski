@@ -83,7 +83,7 @@ export const FULL_TRAITS: BackendTraits = {
 	planProposals: true,
 	externalLive: true,
 	durableRuns: true,
-	extensions: ["rate_limit"],
+	extensions: ["rate_limit", "prompt_suggestion"],
 	backendOps: ["navigate_tree"],
 };
 

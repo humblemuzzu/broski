@@ -662,6 +662,9 @@
       "oneOf": [
         {
           "$ref": "#/$defs/RateLimitUpdate"
+        },
+        {
+          "$ref": "#/$defs/PromptSuggestion"
         }
       ]
     },
@@ -1294,7 +1297,7 @@
           "type": "boolean"
         },
         "extensions": {
-          "maxItems": 1,
+          "maxItems": 2,
           "type": "array",
           "items": {
             "$ref": "#/$defs/ExtensionKind"
@@ -2949,7 +2952,8 @@
       "$id": "#/$defs/ExtensionKind",
       "type": "string",
       "enum": [
-        "rate_limit"
+        "rate_limit",
+        "prompt_suggestion"
       ]
     },
     "ExternalField": {
@@ -5475,6 +5479,27 @@
           "$ref": "#/$defs/Rejected"
         }
       ]
+    },
+    "PromptSuggestion": {
+      "x-module": "extensions",
+      "$id": "#/$defs/PromptSuggestion",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "prompt_suggestion"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1048576
+        }
+      },
+      "required": [
+        "kind",
+        "text"
+      ],
+      "additionalProperties": false
     },
     "ProtocolError": {
       "x-module": "protocol",

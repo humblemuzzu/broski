@@ -553,6 +553,9 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
   ),
   'PromptResult': (json) =>
       PromptResult.fromJson(_as<Map<String, Object?>>(json, 'PromptResult')),
+  'PromptSuggestion': (json) => PromptSuggestion.fromJson(
+    _as<Map<String, Object?>>(json, 'PromptSuggestion'),
+  ),
   'ProtocolError': (json) =>
       ProtocolError.fromJson(_as<Map<String, Object?>>(json, 'ProtocolError')),
   'ProtocolErrorCode': (json) =>
@@ -1582,6 +1585,9 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
   )).toJson(),
   'PromptResult': (json) => (PromptResult.fromJson(
     _as<Map<String, Object?>>(json, 'PromptResult'),
+  )).toJson(),
+  'PromptSuggestion': (json) => (PromptSuggestion.fromJson(
+    _as<Map<String, Object?>>(json, 'PromptSuggestion'),
   )).toJson(),
   'ProtocolError': (json) => (ProtocolError.fromJson(
     _as<Map<String, Object?>>(json, 'ProtocolError'),

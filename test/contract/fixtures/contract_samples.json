@@ -1542,6 +1542,10 @@
     {
       "kind": "rate_limit",
       "window": "x"
+    },
+    {
+      "kind": "prompt_suggestion",
+      "text": "x"
     }
   ],
   "BackendId": [
@@ -4427,7 +4431,8 @@
     }
   ],
   "ExtensionKind": [
-    "rate_limit"
+    "rate_limit",
+    "prompt_suggestion"
   ],
   "ExternalField": [
     {
@@ -7054,6 +7059,12 @@
         "code": "busy",
         "message": "x"
       }
+    }
+  ],
+  "PromptSuggestion": [
+    {
+      "kind": "prompt_suggestion",
+      "text": "x"
     }
   ],
   "ProtocolError": [

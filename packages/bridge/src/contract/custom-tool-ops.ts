@@ -28,8 +28,9 @@ export type CustomToolsListed = z.infer<typeof CustomToolsListed>;
 
 /**
  * One definition. `toolId` absent: a new one, answered as a starting template (`exists` false) under an id no tool
- * has yet; a write to that id at the template's revision creates the tool. A `toolId` no tool has is `not_found` for
- * a read. A definition that is not valid JSON, or not a valid tool, is `invalid_input`; another revision is `stale`.
+ * has yet; a write to that id at the template's revision creates the tool. A change always names its `toolId`
+ * (`invalid_input` otherwise). A `toolId` no tool has and no template named is `not_found`. A definition that is not
+ * valid JSON, or not a valid tool, is `invalid_input`; another revision is `stale`.
  */
 export const CustomToolOp = z.strictObject({
 	kind: z.literal("custom_tool"),

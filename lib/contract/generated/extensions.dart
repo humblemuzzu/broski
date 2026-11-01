@@ -7,24 +7,18 @@ sealed class BackendExtension {
   factory BackendExtension.fromJson(Map<String, Object?> json) =>
       switch (json['kind']) {
         'rate_limit' => RateLimitUpdate.fromJson(json),
+        'prompt_suggestion' => PromptSuggestion.fromJson(json),
         final tag => throw FormatException(
           'Unknown BackendExtension kind: $tag',
         ),
       };
 
-  String get window;
-
-  RateLimitStatus? get status;
-
-  double? get usedPercent;
-
-  Timestamp? get resetsAt;
-
   Map<String, Object?> toJson();
 }
 
 enum ExtensionKind {
-  rateLimit('rate_limit');
+  rateLimit('rate_limit'),
+  promptSuggestion('prompt_suggestion');
 
   const ExtensionKind(this.wire);
 
@@ -36,6 +30,38 @@ enum ExtensionKind {
   final String wire;
 
   String toJson() => wire;
+}
+
+final class PromptSuggestion implements BackendExtension {
+  const PromptSuggestion({required this.text});
+
+  factory PromptSuggestion.fromJson(Map<String, Object?> json) {
+    _expectShape(
+      json,
+      'PromptSuggestion',
+      const <String>{'kind', 'text'},
+      const <String, String>{'kind': 'prompt_suggestion'},
+    );
+    return PromptSuggestion(
+      text: _as<String>(json['text'], 'PromptSuggestion.text'),
+    );
+  }
+
+  final String text;
+
+  @override
+  Map<String, Object?> toJson() => {'kind': 'prompt_suggestion', 'text': text};
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PromptSuggestion && _equal(text, other.text);
+
+  @override
+  int get hashCode => Object.hashAll([_hash(text)]);
+
+  @override
+  String toString() => 'PromptSuggestion(text: $text)';
 }
 
 enum RateLimitStatus {
@@ -89,13 +115,9 @@ final class RateLimitUpdate implements BackendExtension {
     );
   }
 
-  @override
   final String window;
-  @override
   final RateLimitStatus? status;
-  @override
   final double? usedPercent;
-  @override
   final Timestamp? resetsAt;
 
   @override
