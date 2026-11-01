@@ -3,7 +3,7 @@
 import type { SDKResultMessage, TerminalReason } from "@anthropic-ai/claude-agent-sdk";
 import { type ErrorCode, MAX_TEXT_CHARS, type RunOutcome } from "../../../contract";
 import { clip } from "../bounds";
-import { phoneText } from "./phone-text";
+import { phoneText } from "../phone-text";
 
 type Failure = { readonly code: ErrorCode; readonly fallback: string };
 

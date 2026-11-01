@@ -3,8 +3,8 @@
 import { MAX_LIST_ITEMS, MAX_NAME_CHARS, MAX_PATH_CHARS, MAX_TEXT_CHARS, PermissionPreview } from "../../../contract";
 import { boundList, clip } from "../bounds";
 import { fileChangesOf } from "../mapping/file-changes";
+import { phoneText } from "../phone-text";
 import { reportAskProblem } from "./problems";
-import { plain } from "./text";
 
 const SHELLS = new Set(["Bash", "PowerShell"]);
 const PATH_KEYS = ["file_path", "notebook_path", "path"] as const;
@@ -17,7 +17,7 @@ export function permissionPreviews(
 	const previews: PermissionPreview[] = [];
 	const command = text(input.command);
 	if (SHELLS.has(toolName) && command !== undefined) {
-		previews.push({ kind: "command", command: clip(command, MAX_TEXT_CHARS) });
+		previews.push({ kind: "command", command: phoneText(command) });
 	}
 	const changes = changesPreview(toolName, input);
 	if (changes) previews.push(changes);
@@ -42,7 +42,7 @@ function changesPreview(toolName: string, input: Readonly<Record<string, unknown
 
 function pathsOf(input: Readonly<Record<string, unknown>>, blockedPath: string | undefined): string[] {
 	const found = [...PATH_KEYS.map((key) => text(input[key])), blockedPath].flatMap((path) =>
-		path === undefined || path === "" ? [] : [clip(path, MAX_PATH_CHARS)],
+		path === undefined || path === "" ? [] : [phoneText(path, MAX_PATH_CHARS)],
 	);
 	return boundList([...new Set(found)], MAX_LIST_ITEMS).items;
 }
@@ -51,9 +51,9 @@ function networkOf(toolName: string, input: Readonly<Record<string, unknown>>): 
 	const url = toolName === "WebFetch" ? text(input.url) : undefined;
 	if (url === undefined || !URL.canParse(url)) return undefined;
 	const parsed = new URL(url);
-	const host = plain(parsed.host, MAX_NAME_CHARS);
+	const host = phoneText(parsed.host, MAX_NAME_CHARS);
 	if (host === "") return undefined;
-	return { kind: "network", host, protocol: plain(parsed.protocol.replace(/:$/, ""), MAX_NAME_CHARS) };
+	return { kind: "network", host, protocol: phoneText(parsed.protocol.replace(/:$/, ""), MAX_NAME_CHARS) };
 }
 
 function text(value: unknown): string | undefined {

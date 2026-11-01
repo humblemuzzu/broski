@@ -3,7 +3,7 @@
 import type { PermissionUpdate, PermissionUpdateDestination } from "@anthropic-ai/claude-agent-sdk";
 import { MAX_LIST_ITEMS, MAX_NAME_CHARS, MAX_TEXT_CHARS, type PermissionOption } from "../../../contract";
 import { clip } from "../bounds";
-import { plain } from "./text";
+import { phoneText } from "../phone-text";
 
 export const ALLOW_ONCE = "allow_once";
 export const DENY_ONCE = "deny_once";
@@ -126,12 +126,12 @@ function updateText(update: PermissionUpdate): string {
 			return `mode ${update.mode}`;
 		case "addDirectories":
 		case "removeDirectories":
-			return `${update.type}: ${update.directories.map((dir) => plain(dir, MAX_NAME_CHARS)).join(", ")}`;
+			return `${update.type}: ${update.directories.map((dir) => phoneText(dir, MAX_NAME_CHARS)).join(", ")}`;
 	}
 }
 
 function ruleOf(rule: { toolName: string; ruleContent?: string }): string {
-	const name = plain(rule.toolName, MAX_NAME_CHARS);
+	const name = phoneText(rule.toolName, MAX_NAME_CHARS);
 	if (rule.ruleContent === undefined || rule.ruleContent === "") return name;
-	return `${name}(${plain(rule.ruleContent, MAX_NAME_CHARS)})`;
+	return `${name}(${phoneText(rule.ruleContent, MAX_NAME_CHARS)})`;
 }

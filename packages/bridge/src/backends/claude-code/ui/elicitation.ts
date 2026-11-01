@@ -9,10 +9,10 @@ import {
 	MAX_TEXT_CHARS,
 } from "../../../contract";
 import { clip, nameOr } from "../bounds";
+import { phoneText } from "../phone-text";
 import { formContent, formPlan } from "./elicitation-form";
 import { isValidAsk } from "./probe";
 import { reportAskProblem } from "./problems";
-import { plain } from "./text";
 
 export interface ElicitationAsk {
 	readonly title: string;
@@ -25,10 +25,10 @@ export interface ElicitationAsk {
 export const ELICITATION_CANCELLED: ElicitationResult = { action: "cancel" };
 
 export function elicitationAsk(request: ElicitationRequest): ElicitationAsk {
-	const server = plain(request.serverName, MAX_NAME_CHARS);
-	const message = plain(request.message, MAX_TEXT_CHARS);
-	const title = nameOr(plain(request.title ?? "", MAX_NAME_CHARS), nameOr(message, `${server} asks for input`));
-	const subtitle = plain(request.description ?? "", MAX_TEXT_CHARS).trim();
+	const server = phoneText(request.serverName, MAX_NAME_CHARS);
+	const message = phoneText(request.message, MAX_TEXT_CHARS);
+	const title = nameOr(phoneText(request.title ?? "", MAX_NAME_CHARS), nameOr(message, `${server} asks for input`));
+	const subtitle = phoneText(request.description ?? "", MAX_TEXT_CHARS).trim();
 	const body = clip([subtitle, message].filter((part) => part !== "").join("\n\n"), MAX_TEXT_CHARS);
 	const shown = shownAsk(request, server, title, body);
 	return shown !== undefined && isValidAsk(shown) ? shown : unrenderable(request, server, title, message);

@@ -1,7 +1,7 @@
 /** Lane B · a one-line title for a tool call (`Read README.md`, `Bash: ls`). Shared with lanes A, E and G. */
 
 import { isRecord } from "../json";
-import { phoneLine } from "./phone-text";
+import { phoneLine } from "../phone-text";
 
 const TITLE_CHARS = 160;
 const MCP_PREFIX = "mcp__";

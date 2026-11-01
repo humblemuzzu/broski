@@ -11,7 +11,7 @@ import {
 } from "../../../contract";
 import { clip } from "../bounds";
 import { isRecord } from "../json";
-import { plain } from "./text";
+import { phoneText } from "../phone-text";
 
 type Definition = Record<string, unknown>;
 
@@ -57,8 +57,9 @@ export function fieldFor(key: string, definition: unknown, required: boolean): F
 }
 
 function baseOf(key: string, definition: Definition, required: boolean): Base {
-	const title = typeof definition.title === "string" ? plain(definition.title, MAX_NAME_CHARS).trim() : "";
-	const description = typeof definition.description === "string" ? plain(definition.description, MAX_TEXT_CHARS) : "";
+	const title = typeof definition.title === "string" ? phoneText(definition.title, MAX_NAME_CHARS).trim() : "";
+	const description =
+		typeof definition.description === "string" ? phoneText(definition.description, MAX_TEXT_CHARS) : "";
 	return {
 		key,
 		...(title !== "" && { title }),

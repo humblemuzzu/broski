@@ -12,11 +12,11 @@ import { clip, nameOr } from "../bounds";
 import { toolCallId } from "../ids";
 import { boundedJson } from "../json";
 import { toolTitle } from "../mapping/tool-titles";
+import { phoneText } from "../phone-text";
 import { humanDenial } from "./denial";
 import { DENY_ONCE, type OptionEffect, permissionChoices } from "./permission-options";
 import { permissionPreviews } from "./permission-previews";
 import { reportAskProblem } from "./problems";
-import { plain } from "./text";
 import type { ToolAsk } from "./tool-ask";
 
 export type PermissionAskOptions = Parameters<CanUseTool>[2];
@@ -30,7 +30,7 @@ export interface PermissionAsk {
 export function permissionAsk(ask: PermissionAsk): ToolAsk {
 	const { toolName, input, options } = ask;
 	const choices = permissionChoices(options.suggestions ?? [], options.suppressAlwaysAllowRule === true);
-	const reason = options.decisionReason === undefined ? undefined : plain(options.decisionReason, MAX_TEXT_CHARS);
+	const reason = options.decisionReason === undefined ? undefined : phoneText(options.decisionReason, MAX_TEXT_CHARS);
 	const request: ToolPermissionRequest = {
 		kind: "tool_permission",
 		input: boundedJson(input),
@@ -42,9 +42,9 @@ export function permissionAsk(ask: PermissionAsk): ToolAsk {
 		...(options.defaultToNo === true && { defaultOptionId: DENY_ONCE }),
 		deliberate: requiresUserInteraction(options),
 	};
-	const description = options.description === undefined ? "" : plain(options.description, MAX_TEXT_CHARS).trim();
+	const description = options.description === undefined ? "" : phoneText(options.description, MAX_TEXT_CHARS).trim();
 	return {
-		title: nameOr(plain(options.title ?? "", MAX_NAME_CHARS), fallbackTitle(ask)),
+		title: nameOr(phoneText(options.title ?? "", MAX_NAME_CHARS), fallbackTitle(ask)),
 		...(description !== "" && { body: description }),
 		request,
 		decide: (reply) => (reply.kind === "tool_permission" ? permitted(choices.effects, input, reply) : undefined),
@@ -55,7 +55,7 @@ export function permissionAsk(ask: PermissionAsk): ToolAsk {
 export function minimalPermissionAsk(toolName: string, input: Record<string, unknown>): ToolAsk {
 	const { options, effects } = permissionChoices([], true);
 	return {
-		title: `Allow ${plain(toolName, MAX_NAME_CHARS - 8)}?`,
+		title: `Allow ${phoneText(toolName, MAX_NAME_CHARS - 8)}?`,
 		request: { kind: "tool_permission", inputEditable: false, previews: [], options, grants: [], deliberate: true },
 		decide: (reply) => (reply.kind === "tool_permission" ? permitted(effects, input, reply) : undefined),
 	};
@@ -63,7 +63,7 @@ export function minimalPermissionAsk(toolName: string, input: Record<string, unk
 
 export function permissionOrigin(ask: PermissionAsk): InteractionOrigin {
 	const id = toolCallId(ask.options.toolUseID);
-	return { ...(id !== undefined && { toolCallId: id }), toolName: plain(ask.toolName, MAX_NAME_CHARS) };
+	return { ...(id !== undefined && { toolCallId: id }), toolName: phoneText(ask.toolName, MAX_NAME_CHARS) };
 }
 
 /** The CLI sets it when a one-tap answer must not be offered; the declared options omit it, the runtime passes it. */
@@ -75,7 +75,7 @@ export function requiresUserInteraction(options: PermissionAskOptions): boolean 
 function fallbackTitle(ask: PermissionAsk): string {
 	try {
 		const title = toolTitle(ask.toolName, ask.input);
-		if (title !== undefined) return plain(title, MAX_NAME_CHARS);
+		if (title !== undefined) return phoneText(title, MAX_NAME_CHARS);
 	} catch (error) {
 		reportAskProblem("tool title", error);
 	}
@@ -83,7 +83,7 @@ function fallbackTitle(ask: PermissionAsk): string {
 }
 
 function displayName(ask: PermissionAsk): string {
-	return clip(plain(ask.options.displayName ?? ask.toolName, MAX_NAME_CHARS), MAX_NAME_CHARS - 8);
+	return clip(phoneText(ask.options.displayName ?? ask.toolName, MAX_NAME_CHARS), MAX_NAME_CHARS - 8);
 }
 
 function permitted(

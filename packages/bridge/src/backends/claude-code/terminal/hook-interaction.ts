@@ -16,6 +16,7 @@ import { clip, nameOr } from "../bounds";
 import { boundedJson, isRecord } from "../json";
 import { fileChangesOf } from "../mapping/file-changes";
 import { toolTitle } from "../mapping/tool-titles";
+import { phoneText } from "../phone-text";
 import type { TerminalPermissionDecision } from "../ports/terminal";
 import { humanDenial } from "../ui/denial";
 
@@ -101,8 +102,8 @@ function previewsOf(ask: PermissionRequestHookInput): PermissionPreview[] {
 		return [
 			{
 				kind: "command",
-				command: clip(input.command, MAX_TEXT_CHARS),
-				cwd: clip(ask.cwd, MAX_PATH_CHARS),
+				command: phoneText(input.command),
+				cwd: phoneText(ask.cwd, MAX_PATH_CHARS),
 			},
 		];
 	}

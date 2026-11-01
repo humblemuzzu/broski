@@ -3,8 +3,8 @@
 import { MAX_LIST_ITEMS, type ToolContent } from "../../../contract";
 import { imageAttachmentId } from "../ids";
 import { isRecord } from "../json";
+import { phoneLine, phoneText } from "../phone-text";
 import { base64ImageOf } from "./images";
-import { phoneLine, phoneText } from "./phone-text";
 
 const SHELL_TOOLS: ReadonlySet<string> = new Set(["Bash", "PowerShell"]);
 const AGENT_TOOLS: ReadonlySet<string> = new Set(["Agent", "Task"]);

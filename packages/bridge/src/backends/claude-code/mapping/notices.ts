@@ -2,8 +2,8 @@
 
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { AgentEvent, NoticeLevel } from "../../../contract";
+import { phoneText } from "../phone-text";
 import type { MappedEvent } from "../ports/mapping";
-import { phoneText } from "./phone-text";
 
 type System<S extends string> = Extract<SDKMessage, { type: "system"; subtype: S }>;
 
