@@ -3,13 +3,15 @@ import 'dart:io';
 
 import 'agent_core_mutants/frame_mutants.dart';
 import 'agent_core_mutants/mutant.dart';
+import 'agent_core_mutants/offline_mutants.dart';
 import 'agent_core_mutants/port_mutants.dart';
 import 'agent_core_mutants/session_mutants.dart';
 
 /// Mutation check of the app core. Each mutant changes one guard in a copy of
-/// the app and the agent tests (end to end excepted) must fail on it; one
-/// that leaves them green survives. A mutant expected to survive says why it
-/// changes nothing a test can see (`equivalent`).
+/// the app, and the agent tests (end to end excepted) and those of the
+/// notification taps must fail on it; one that leaves them green survives. A
+/// mutant expected to survive says why it changes nothing a test can see
+/// (`equivalent`).
 ///
 ///   dart run tool/mutate_agent_core.dart [--jobs N] [--check] [name filter]
 ///
@@ -32,12 +34,13 @@ Future<void> main(List<String> args) async {
     ...sessionMutants,
     ...frameMutants,
     ...portMutants,
+    ...offlineMutants,
   ].where((mutant) => filter == null || mutant.name.contains(filter)).toList();
   final stale = [
     for (final mutant in mutants)
       if (_count(_source(mutant.file), mutant.find) case final count
           when count != 1)
-        '${mutant.name}: matches lib/agent/${mutant.file} $count times',
+        '${mutant.name}: matches lib/${mutant.file} $count times',
   ];
   if (stale.isNotEmpty) {
     stderr.writeln('Mutants out of date:\n${stale.join('\n')}');
@@ -73,7 +76,7 @@ Future<void> _worker(
   try {
     while (queue.isNotEmpty) {
       final mutant = queue.removeAt(0);
-      final file = File('${copy.root}/lib/agent/${mutant.file}');
+      final file = File('${copy.root}/lib/${mutant.file}');
       final original = file.readAsStringSync();
       file.writeAsStringSync(
         original.replaceFirst(mutant.find, mutant.replace),
@@ -115,18 +118,32 @@ int _report(List<(Mutant, _Verdict)> outcomes) {
   return unexplained.isEmpty && disproved.isEmpty ? 0 : 1;
 }
 
-String _source(String file) => File('lib/agent/$file').readAsStringSync();
+String _source(String file) => File('lib/$file').readAsStringSync();
 
 int _count(String source, String find) => find.allMatches(source).length;
 
-/// A copy of what the agent tests need: the app's sources and the agent
-/// tests, with the packages, assets and fonts linked rather than copied.
+/// The tests a mutant must fail: the app core's, and those of the
+/// notification taps that open its screens.
+const _testDirectories = [
+  'test/agent',
+  'test/screens/notifications',
+  'test/services/notifications',
+];
+
+/// A copy of what those tests need: the app's sources, the tests and the
+/// helpers they share, with the packages, assets and fonts linked rather than
+/// copied.
 final class _Copy {
   _Copy(this.root);
 
   factory _Copy.create() {
     final root = Directory.systemTemp.createTempSync('broski-mutant-').path;
-    for (final path in ['lib', 'test/agent', 'test/contract/fixtures']) {
+    for (final path in [
+      'lib',
+      ..._testDirectories,
+      'test/support',
+      'test/contract/fixtures',
+    ]) {
       _copyTree(Directory(path), Directory('$root/$path'));
     }
     Directory('$root/test/agent/e2e').deleteSync(recursive: true);
@@ -158,7 +175,7 @@ final class _Copy {
       '--no-pub',
       '--reporter',
       'failures-only',
-      'test/agent',
+      ..._testDirectories,
     ], workingDirectory: root);
     final output = StringBuffer();
     final read = Future.wait([

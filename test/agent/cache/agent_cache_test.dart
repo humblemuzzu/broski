@@ -88,8 +88,8 @@ void main() {
   });
 
   test('the cache holds at most its characters in all', () async {
-    final chunk = 'y' * 60000;
-    for (var i = 0; i < 40; i++) {
+    final chunk = 'y' * 150000;
+    for (var i = 0; i < AgentCache.maxEntries - 1; i++) {
       await cache.saveHistory(sessionRefOf('s$i'), [
         _item('i', chunk),
       ], IdStability.stable);
@@ -98,7 +98,10 @@ void main() {
         .where((entry) => entry.key != 'broski_agent_cache_index')
         .fold<int>(0, (sum, entry) => sum + entry.value.length);
     expect(total, lessThanOrEqualTo(AgentCache.maxChars));
-    expect(await cache.history(sessionRefOf('s39')), isNotNull);
+    expect(
+      await cache.history(sessionRefOf('s${AgentCache.maxEntries - 2}')),
+      isNotNull,
+    );
   });
 
   test('an entry another version wrote, or a broken one, is a miss', () async {
