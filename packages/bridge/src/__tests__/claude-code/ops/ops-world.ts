@@ -1,6 +1,6 @@
 /** Lane F's test world: real files in a temp config dir and project, fakes for everything the ops reach through ports. */
 
-import { chmodSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import type { Query, ResolvedSettings, SDKControlInitializeResponse } from "@anthropic-ai/claude-agent-sdk";
@@ -57,19 +57,14 @@ export interface OpsWorld {
 	readonly transient: FakeQuery[];
 	call(op: ClaudeCodeOp): Promise<BackendCallResult>;
 	write(path: string, text: string): string;
-	/** Names of the files the fake `trash` command was given; the real Trash is never reachable from a test world. */
+	/** Names of the files in the world's own trash (under its temp `HOME`); the real one is never reachable. */
 	trashed(): string[];
 	cleanup(): Promise<void>;
 }
 
-function installFakeTrash(root: string): { bin: string; bucket: string } {
-	const bin = join(root, "fake-bin");
-	const bucket = join(root, "trashed");
-	mkdirSync(bin);
-	mkdirSync(bucket);
-	writeFileSync(join(bin, "trash"), `#!/bin/sh\nexec /bin/mv "$1" '${bucket}/'\n`);
-	chmodSync(join(bin, "trash"), 0o755);
-	return { bin, bucket };
+function trashedIn(home: string): string[] {
+	const files = process.platform === "darwin" ? join(home, ".Trash") : join(home, ".local", "share", "Trash", "files");
+	return existsSync(files) ? readdirSync(files) : [];
 }
 
 const NEVER: Rejected = rejected("unsupported", "not part of lane F's world");
@@ -146,7 +141,7 @@ function liveWith(options: WorldOptions, transient: FakeQuery[], cwd: string): L
 
 export function opsWorld(options: WorldOptions = {}): OpsWorld {
 	const root = options.claudeHome?.root ?? realpathSync(mkdtempSync(join(tmpdir(), "broski-ops-")));
-	const trash = installFakeTrash(root);
+	const home = join(root, "home");
 	const configDir = options.claudeHome?.configDir ?? join(root, "home", ".claude");
 	const cwd = options.claudeHome?.projectDir ?? join(root, "project");
 	mkdirSync(configDir, { recursive: true });
@@ -160,7 +155,7 @@ export function opsWorld(options: WorldOptions = {}): OpsWorld {
 	});
 	const services = createClaudeCodeServices({
 		cli: { found: false, reason: "not needed" },
-		env: { HOME: join(root, "home"), PATH: `${trash.bin}:/usr/bin:/bin`, ...options.env },
+		env: { HOME: home, PATH: "/usr/bin:/bin", ...options.env },
 		stateDir: join(root, "state"),
 		clientApp: "broski/test",
 		configDir,
@@ -211,7 +206,7 @@ export function opsWorld(options: WorldOptions = {}): OpsWorld {
 			writeFileSync(path, text);
 			return path;
 		},
-		trashed: () => readdirSync(trash.bucket),
+		trashed: () => trashedIn(home),
 		cleanup: async () => {
 			await deps.services.sdk.dispose();
 			if (options.claudeHome === undefined) rmSync(root, { recursive: true, force: true });

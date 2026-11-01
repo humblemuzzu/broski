@@ -21,6 +21,7 @@ import { containedPath } from "../../../backends/claude-code/ops/contained-path"
 import { ABSENT_REVISION, readFileState, revisionOfText } from "../../../backends/claude-code/ops/file-state";
 import { trashIfUnchanged, writeIfUnchanged } from "../../../backends/claude-code/ops/file-write";
 import { jsonProblem } from "../../../backends/claude-code/ops/json-check";
+import { trashTargetOf } from "../../../backends/claude-code/trash";
 
 const roots: string[] = [];
 
@@ -177,34 +178,29 @@ describe("writeIfUnchanged", () => {
 });
 
 describe("trashIfUnchanged", () => {
-	function fakeTrash(root: string): { env: Record<string, string>; trashed: () => string[] } {
-		const bin = join(root, "bin");
-		const bucket = join(root, "bucket");
-		mkdirSync(bin);
-		mkdirSync(bucket);
-		const command = join(bin, "trash");
-		writeFileSync(command, `#!/bin/sh\nexec /bin/mv "$1" '${bucket}/'\n`);
-		chmodSync(command, 0o755);
-		return { env: { PATH: `${bin}:/usr/bin:/bin` }, trashed: () => readdirSync(bucket) };
+	const NOW = new Date(2026, 10, 1, 12, 0, 0);
+
+	for (const platform of ["darwin", "linux"] as const) {
+		test(`moves the file to the ${platform} trash under the given HOME, only at its revision`, async () => {
+			const root = temp();
+			const home = join(root, "home");
+			const trash = trashTargetOf({ HOME: home }, NOW, platform);
+			const target = join(root, "agent.md");
+			writeFileSync(target, "x");
+			expect(await trashIfUnchanged(target, "sha256-other", trash)).toMatchObject({ ok: false, reason: "stale" });
+			expect(existsSync(target)).toBe(true);
+			expect(await trashIfUnchanged(target, revisionOfText("x"), trash)).toEqual({ ok: true });
+			expect(existsSync(target)).toBe(false);
+			const files = platform === "darwin" ? join(home, ".Trash") : join(home, ".local", "share", "Trash", "files");
+			expect(readdirSync(files)).toEqual(["agent.md"]);
+		});
 	}
 
-	test("moves the file with the trash command found on the injected PATH, only at its revision", async () => {
-		const root = temp();
-		const { env, trashed } = fakeTrash(root);
-		const target = join(root, "agent.md");
-		writeFileSync(target, "x");
-		expect(await trashIfUnchanged(target, "sha256-other", env)).toMatchObject({ ok: false, reason: "stale" });
-		expect(existsSync(target)).toBe(true);
-		expect(await trashIfUnchanged(target, revisionOfText("x"), env)).toEqual({ ok: true });
-		expect(existsSync(target)).toBe(false);
-		expect(trashed()).toEqual(["agent.md"]);
-	});
-
-	test("leaves the file when there is no trash command", async () => {
+	test("leaves the file when the trash is unknown", async () => {
 		const root = temp();
 		const target = join(root, "agent.md");
 		writeFileSync(target, "x");
-		const outcome = await trashIfUnchanged(target, revisionOfText("x"), { PATH: join(root, "nowhere") });
+		const outcome = await trashIfUnchanged(target, revisionOfText("x"), trashTargetOf({}, NOW));
 		expect(outcome).toMatchObject({ ok: false, reason: "failed" });
 		expect(existsSync(target)).toBe(true);
 	});

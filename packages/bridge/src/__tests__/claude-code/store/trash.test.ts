@@ -14,7 +14,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createClaudeCodeServices } from "../../../backends/claude-code/services";
-import { moveToTrash, type TrashTarget, trashTargetOf } from "../../../backends/claude-code/store/trash";
+import { moveToTrash, type TrashTarget, trashTargetOf } from "../../../backends/claude-code/trash";
 import { fakeClaudeSdk } from "../helpers/fake-claude-sdk";
 
 let root: string;
@@ -104,16 +104,16 @@ describe("trashTargetOf", () => {
 			clientApp: "broski/test",
 			sdk: fakeClaudeSdk(),
 			clock: { now: () => NOW.getTime(), after: () => () => undefined },
-		});
+		}).cliEnv;
 
 	test("comes from the environment the CLI gets, so a test's temp HOME is the only trash it can reach", () => {
-		const found = trashTargetOf(services({ HOME: join(root, "home"), XDG_DATA_HOME: join(root, "xdg") }), "linux");
+		const found = trashTargetOf(services({ HOME: join(root, "home"), XDG_DATA_HOME: join(root, "xdg") }), NOW, "linux");
 		expect(found).toMatchObject({ platform: "linux", home: join(root, "home"), xdgDataHome: join(root, "xdg") });
 		expect(found?.now.getTime()).toBe(NOW.getTime());
-		expect(trashTargetOf(services({}))).toBeUndefined();
-		expect(trashTargetOf(services({ HOME: "relative/home" }))).toBeUndefined();
+		expect(trashTargetOf(services({}), NOW)).toBeUndefined();
+		expect(trashTargetOf(services({ HOME: "relative/home" }), NOW)).toBeUndefined();
 		expect(
-			trashTargetOf(services({ HOME: join(root, "home"), XDG_DATA_HOME: "relative" }))?.xdgDataHome,
+			trashTargetOf(services({ HOME: join(root, "home"), XDG_DATA_HOME: "relative" }), NOW)?.xdgDataHome,
 		).toBeUndefined();
 	});
 });

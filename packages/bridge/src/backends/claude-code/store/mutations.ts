@@ -14,6 +14,7 @@ import { clip } from "../bounds";
 import { parseChildRef } from "../ids";
 import type { LiveOverlay } from "../ports/store";
 import { ACCEPTED, isRejected, rejected } from "../rejections";
+import { moveToTrash, servicesTrash } from "../trash";
 import { finishedEnd, positionOfItem } from "./chain-lookup";
 import { openChain } from "./chain-reader";
 import { sourceOf } from "./chain-sources";
@@ -21,7 +22,6 @@ import type { StoreContext } from "./context";
 import { announceSession } from "./get";
 import { attempt, attemptDone } from "./guard";
 import { locateSession } from "./info";
-import { moveToTrash, trashTargetOf } from "./trash";
 
 const CHILD_REFUSAL = "a subagent's session cannot be renamed, forked or deleted: it belongs to its parent";
 
@@ -95,7 +95,7 @@ export async function removeStored(ctx: StoreContext, sessionId: SessionId): Pro
 	const located = await locateSession(ctx, sessionId);
 	if (isRejected(located)) return located;
 	const directory = join(dirname(located.path), sessionId);
-	const target = trashTargetOf(ctx.deps.services);
+	const target = servicesTrash(ctx.deps.services);
 	const moved = await moveToTrash([located.path], target);
 	if (isRejected(moved)) return moved;
 	if (await isDirectory(directory)) await moveToTrash([directory], target);

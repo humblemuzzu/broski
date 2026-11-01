@@ -1,14 +1,15 @@
 /**
- * Lane A · moving a transcript and its `<id>/` directory to the OS trash (D19, OQ5): macOS `~/.Trash`, Linux the XDG
- * trash with its `info/<name>.trashinfo`. A move never copies and never removes: on a failure the files stay where they
- * are. Where the trash lies comes from the environment the CLI is given, so a test's temp `HOME` keeps it off the real one.
+ * The one way this adapter deletes a file (a transcript, a config file, a custom tool): a move to the OS trash (D19,
+ * OQ5, D121), macOS `~/.Trash`, Linux the XDG trash with its `info/<name>.trashinfo`. A move never copies and never
+ * removes: on a failure the files stay where they are. Where the trash lies comes from the environment the CLI is
+ * given, so a test's temp `HOME` keeps it off the real one.
  */
 
 import { lstat, mkdir, rename, unlink, writeFile } from "node:fs/promises";
 import { basename, extname, isAbsolute, join } from "node:path";
-import type { ActionResult } from "../../../contract";
-import { ACCEPTED, rejected } from "../rejections";
-import type { ClaudeCodeServices } from "../services";
+import type { ActionResult } from "../../contract";
+import { ACCEPTED, rejected } from "./rejections";
+import type { ClaudeCodeServices } from "./services";
 
 export interface TrashTarget {
 	readonly platform: NodeJS.Platform;
@@ -22,18 +23,18 @@ const MAX_NAME_TRIES = 1_000;
 
 /** Undefined when `HOME` is not known: with an explicit config dir (a test) the process's own home is never assumed. */
 export function trashTargetOf(
-	services: ClaudeCodeServices,
+	env: Readonly<Record<string, string>>,
+	now: Date,
 	platform: NodeJS.Platform = process.platform,
 ): TrashTarget | undefined {
-	const home = services.cliEnv.HOME;
+	const home = env.HOME;
 	if (home === undefined || !isAbsolute(home)) return undefined;
-	const xdg = services.cliEnv.XDG_DATA_HOME;
-	return {
-		platform,
-		home,
-		xdgDataHome: xdg !== undefined && isAbsolute(xdg) ? xdg : undefined,
-		now: new Date(services.clock.now()),
-	};
+	const xdg = env.XDG_DATA_HOME;
+	return { platform, home, xdgDataHome: xdg !== undefined && isAbsolute(xdg) ? xdg : undefined, now };
+}
+
+export function servicesTrash(services: ClaudeCodeServices): TrashTarget | undefined {
+	return trashTargetOf(services.cliEnv, new Date(services.clock.now()));
 }
 
 export async function moveToTrash(paths: readonly string[], target: TrashTarget | undefined): Promise<ActionResult> {

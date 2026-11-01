@@ -3,6 +3,7 @@
 import type { BackendCallResult, ConfigFileOp, EditableFileChange, Rejected } from "../../../contract";
 import type { OpsDeps } from "../ports";
 import { rejected } from "../rejections";
+import { servicesTrash } from "../trash";
 import { type ConfigPlace, type PlaceRoots, resolvePlace } from "./config-paths";
 import { placeRoots } from "./config-roots";
 import { type Contained, containedPath } from "./contained-path";
@@ -39,7 +40,7 @@ async function change(
 	const outcome =
 		requested.kind === "write"
 			? await writeIfUnchanged(real, requested.text, requested.revision)
-			: await trashIfUnchanged(real, requested.revision, deps.services.cliEnv);
+			: await trashIfUnchanged(real, requested.revision, servicesTrash(deps.services));
 	return outcome.ok ? undefined : refusedWrite(outcome);
 }
 

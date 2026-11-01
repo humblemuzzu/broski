@@ -1,9 +1,10 @@
 /** Writing a config file the way it can never be left half written or written over a change made meanwhile. */
 
-import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { link, mkdir, open, rename, stat, unlink } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
+import { isRejected } from "../rejections";
+import { moveToTrash, type TrashTarget } from "../trash";
 import { ABSENT_REVISION, readFileState } from "./file-state";
 import { serialized } from "./serialized";
 
@@ -75,28 +76,15 @@ async function swap(temp: string, real: string, revision: string): Promise<Write
 	return { ok: true };
 }
 
-const TRASH_TIMEOUT_MS = 15_000;
-
-/** Moves `real` to the system Trash with the `trash` command found on `env`'s PATH; the file stays when that fails. */
+/** Moves `real` to the OS trash while it still holds `revision`; the file stays when that fails. */
 export function trashIfUnchanged(
 	real: string,
 	revision: string,
-	env: Readonly<Record<string, string>>,
+	target: TrashTarget | undefined,
 ): Promise<WriteOutcome> {
 	return serialized(real, async () => {
 		if ((await readFileState(real)).revision !== revision) return STALE;
-		return moveToTrash(real, env);
-	});
-}
-
-function moveToTrash(real: string, env: Readonly<Record<string, string>>): Promise<WriteOutcome> {
-	return new Promise((resolve) => {
-		const child = spawn("trash", [real], { stdio: "ignore", timeout: TRASH_TIMEOUT_MS, env: { ...env } });
-		child.once("error", (error) => resolve(failed(new Error(`the trash command could not run: ${error.message}`))));
-		child.once("close", (code, signal) => {
-			if (code === 0) return resolve({ ok: true });
-			const why = signal === null ? `the trash command failed (exit ${code})` : "the trash command did not finish";
-			resolve(failed(new Error(why)));
-		});
+		const moved = await moveToTrash([real], target);
+		return isRejected(moved) ? failed(new Error(moved.rejection.message)) : { ok: true };
 	});
 }
