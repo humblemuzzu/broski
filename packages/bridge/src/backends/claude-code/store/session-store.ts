@@ -3,7 +3,7 @@
 import type { SessionId } from "../../../contract";
 import { parseChildRef } from "../ids";
 import type { StoreDeps } from "../ports/deps";
-import type { LiveOverlay, SessionStore } from "../ports/store";
+import type { SessionStore } from "../ports/store";
 import { isRejected } from "../rejections";
 import { readImage } from "./attachments";
 import { entryOf, lastChainUuid } from "./chain-lookup";
@@ -17,22 +17,18 @@ import { transcriptPage } from "./transcript-page";
 
 export function createSessionStore(deps: StoreDeps): SessionStore {
 	const ctx = createStoreContext(deps);
-	const remember = (live: LiveOverlay): LiveOverlay => {
-		ctx.live = live;
-		return live;
-	};
 	return {
-		list: (query, page, live) => listPage(ctx, query, page, remember(live)),
-		get: (sessionId, live) => getSession(ctx, sessionId, remember(live)),
-		transcript: (sessionId, page, live) => transcriptPage(ctx, sessionId, page, remember(live)),
+		list: (query, page, live) => listPage(ctx, query, page, live),
+		get: (sessionId, live) => getSession(ctx, sessionId, live),
+		transcript: (sessionId, page, live) => transcriptPage(ctx, sessionId, page, live),
 		attachment: (sessionId, attachment) => readImage(ctx, sessionId, attachment),
 		locate: (sessionId) => locate(ctx, sessionId),
 		lastChainUuid: (sessionId) => lastChainUuid(ctx, sessionId),
 		entryOf: (sessionId, itemId) => entryOf(ctx, sessionId, itemId),
-		rename: (sessionId, title) => renameStored(ctx, sessionId, title),
-		fork: (sessionId, at, live) => forkStored(ctx, sessionId, at, remember(live)),
+		rename: (sessionId, title, live) => renameStored(ctx, sessionId, title, live),
+		fork: (sessionId, at, live) => forkStored(ctx, sessionId, at, live),
 		remove: (sessionId) => removeStored(ctx, sessionId),
-		announce: (sessionId, live) => announceSession(ctx, sessionId, remember(live)),
+		announce: (sessionId, live) => announceSession(ctx, sessionId, live),
 		invalidate: (sessionId) => invalidate(ctx, sessionId),
 		dispose: () => ctx.index.clear(),
 	};

@@ -74,7 +74,7 @@ export function claudeCodeBackendOf(parts: ClaudeCodeParts): AgentBackend {
 		listCommands: (scope) => listCommands(parts, scope),
 		listModes: (cwd) => catalogue.modes(cwd),
 		open: (target, sink) => openSession(parts, target, sink),
-		rename: async (ref, title) => (mine(ref) ? store.rename(ref.sessionId, title) : notFound(ref)),
+		rename: async (ref, title) => (mine(ref) ? store.rename(ref.sessionId, title, live) : notFound(ref)),
 		delete: async (ref) => {
 			if (!mine(ref)) return notFound(ref);
 			await live.end(ref.sessionId);

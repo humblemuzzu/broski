@@ -68,7 +68,7 @@ export interface SessionStore {
 	/** The newest entry of the session's chain; null for a session with none. */
 	lastChainUuid(sessionId: SessionId): Promise<string | null | Rejected>;
 	entryOf(sessionId: SessionId, itemId: TranscriptItemId): Promise<EntryRef | Rejected>;
-	rename(sessionId: SessionId, title: string): Promise<ActionResult>;
+	rename(sessionId: SessionId, title: string, live: LiveOverlay): Promise<ActionResult>;
 	/** The fork is claimed in the owner journal and announced with `session_updated`. */
 	fork(sessionId: SessionId, at: ForkPoint | undefined, live: LiveOverlay): Promise<NewSessionResult>;
 	/** Moves the transcript and its `<id>/` directory to the OS trash (D19) and emits `session_removed`. */

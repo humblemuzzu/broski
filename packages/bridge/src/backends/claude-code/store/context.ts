@@ -10,12 +10,8 @@ import { FileLocator } from "./locator";
 import { ProjectDirs } from "./project-dirs";
 import { TranscriptIndex } from "./transcript-index";
 
-const NO_LIVE: LiveOverlay = { row: () => undefined };
-
 export interface StoreContext {
 	readonly deps: StoreDeps;
-	/** The overlay of the latest call that had one: events a call without one emits (`rename`, `remove`) use it. */
-	live: LiveOverlay;
 	readonly locator: FileLocator;
 	readonly index: TranscriptIndex;
 	readonly dirs: ProjectDirs;
@@ -27,7 +23,6 @@ export function createStoreContext(deps: StoreDeps): StoreContext {
 	const { sdk, stateDir } = deps.services;
 	return {
 		deps,
-		live: NO_LIVE,
 		locator: new FileLocator(() => sdk.configRoot()),
 		index: new TranscriptIndex(),
 		dirs: new ProjectDirs(),

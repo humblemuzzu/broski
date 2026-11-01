@@ -41,20 +41,23 @@ async function texts(sessionId: string): Promise<(string | undefined)[]> {
 describe("rename", () => {
 	test("renames through the SDK, emits session_updated with a user title, and the row shows it", async () => {
 		const { built } = session();
-		expect((await world.store.rename(built.sessionId, "  A better name ")).status).toBe("accepted");
+		world.live.rows.set(built.sessionId, { status: "running" });
+		expect((await world.store.rename(built.sessionId, "  A better name ", world.live)).status).toBe("accepted");
 		const update = world.events.find((event) => event.type === "session_updated");
 		expect(update?.type === "session_updated" && update.summary.title).toEqual({
 			text: "A better name",
 			source: "user",
 		});
+		expect(update?.type === "session_updated" && update.summary.status).toBe("running");
+		world.live.rows.delete(built.sessionId);
 		const found = await world.store.get(built.sessionId, world.live);
 		expect(found.status === "accepted" && found.summary.title?.text).toBe("A better name");
 	});
 
 	test("refuses an empty title and an unknown session", async () => {
 		const { built } = session();
-		const empty = await world.store.rename(built.sessionId, "   ");
-		const unknown = await world.store.rename(crypto.randomUUID(), "x");
+		const empty = await world.store.rename(built.sessionId, "   ", world.live);
+		const unknown = await world.store.rename(crypto.randomUUID(), "x", world.live);
 		expect(empty.status === "rejected" && empty.rejection.code).toBe("invalid_input");
 		expect(unknown.status === "rejected" && unknown.rejection.code).toBe("not_found");
 	});

@@ -200,7 +200,7 @@ describe("transcripts the real CLI wrote", () => {
 	test(
 		"rename, fork through the first answer, and delete work on files the CLI made",
 		async () => {
-			expect((await world.store.rename(sessionId, "Renamed by the phone")).status).toBe("accepted");
+			expect((await world.store.rename(sessionId, "Renamed by the phone", world.live)).status).toBe("accepted");
 			const renamed = await world.store.get(sessionId, world.live);
 			expect(renamed.status === "accepted" && renamed.summary.title).toEqual({
 				text: "Renamed by the phone",

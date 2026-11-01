@@ -112,7 +112,7 @@ describe("child sessions", () => {
 		const parent = parentWithAgents();
 		const ref = childRef(parent.sessionId, "a1") ?? "";
 		const results = [
-			await world.store.rename(ref, "x"),
+			await world.store.rename(ref, "x", world.live),
 			await world.store.fork(ref, undefined, world.live),
 			await world.store.remove(ref),
 		];

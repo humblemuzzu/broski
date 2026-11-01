@@ -25,7 +25,12 @@ import { locateSession } from "./info";
 
 const CHILD_REFUSAL = "a subagent's session cannot be renamed, forked or deleted: it belongs to its parent";
 
-export async function renameStored(ctx: StoreContext, sessionId: SessionId, title: string): Promise<ActionResult> {
+export async function renameStored(
+	ctx: StoreContext,
+	sessionId: SessionId,
+	title: string,
+	live: LiveOverlay,
+): Promise<ActionResult> {
 	if (parseChildRef(sessionId) !== undefined) return rejected("unsupported", CHILD_REFUSAL);
 	const text = clip(title.trim(), MAX_NAME_CHARS);
 	if (text === "") return rejected("invalid_input", "a title cannot be empty");
@@ -34,7 +39,7 @@ export async function renameStored(ctx: StoreContext, sessionId: SessionId, titl
 	const failed = await attemptDone(() => ctx.deps.services.sdk.renameSession(sessionId, text));
 	if (failed !== undefined) return failed;
 	ctx.index.drop(sessionId);
-	await announceSession(ctx, sessionId, ctx.live);
+	await announceSession(ctx, sessionId, live);
 	return ACCEPTED;
 }
 
