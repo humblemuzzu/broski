@@ -68,6 +68,11 @@ final class AgentSessionState {
 
   bool get controllable => capabilities?.controllable ?? false;
 
+  /// Its asks can be answered here, which a session that can only be watched
+  /// may allow too (a terminal's permission prompt). A bridge before 1.4 does
+  /// not say, and its sessions take answers exactly when controllable.
+  bool get answerable => capabilities?.answer ?? controllable;
+
   AgentSessionState copyWith({
     SessionLink? link,
     SessionSnapshot? snapshot,
