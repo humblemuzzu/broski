@@ -6,7 +6,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { keepsOldHook, setClaudeCodeHooks } from "../../../server/claude-code-hooks";
+import { installCcHook, uninstallCcHook } from "../../../handlers/cc_hook_installer";
+import { keepsOldHook, removeClaudeCodeHooks, setClaudeCodeHooks } from "../../../server/claude-code-hooks";
 import { createClaudeCodeWiring } from "../../../server/claude-code-wiring";
 import { type ClaudeHome, createClaudeHome } from "../../helpers/claude-home";
 
@@ -90,6 +91,41 @@ describe("the hooks set once the listener is bound, with the contract on", () =>
 		await setClaudeCodeHooks(wiring(true, false), bound);
 		expect(uninstalled).toEqual([]);
 		expect(settingsOf(home)).toEqual({});
+	});
+
+	test("a bridge started with the contract off takes our hook out and puts the old one in, in the temp home", async () => {
+		home = createClaudeHome();
+		const bound = listener(home, []);
+		await setClaudeCodeHooks(wiring(true), bound);
+		await setClaudeCodeHooks(wiring(false), bound);
+		expect(settingsOf(home)).toEqual({});
+		const old = JSON.parse(readFileSync(bound.oldHook.file, "utf8"));
+		expect(old.hooks.PreToolUse[0].hooks[0].command).toContain("broski-permission-proxy");
+	});
+
+	test("broski uninstall takes both hooks and our certificate setting out, and leaves the user's keys", async () => {
+		home = createClaudeHome();
+		const claude = home;
+		const oldFile = join(claude.homeDir, ".claude-old-settings.json");
+		writeFileSync(oldFile, JSON.stringify({ model: "opus" }));
+		const place = {
+			certPath: join(claude.root, "server.cert.pem"),
+			log: () => undefined,
+			configRoot: claude.configDir,
+			oldHook: { file: oldFile, uninstall: (log: (line: string) => void) => uninstallCcHook(log, oldFile) },
+		};
+		await setClaudeCodeHooks(wiring(true), { ...place, port: 18274, token: "a-token" });
+		await installCcHook({
+			port: 18274,
+			token: "a-token",
+			scheme: "https",
+			settingsPath: oldFile,
+			log: () => undefined,
+		});
+		expect(readFileSync(oldFile, "utf8")).toContain("broski-permission-proxy");
+		await removeClaudeCodeHooks(place);
+		expect(settingsOf(claude)).toEqual({});
+		expect(JSON.parse(readFileSync(oldFile, "utf8"))).toEqual({ model: "opus" });
 	});
 
 	test("a listener without TLS gets an http hook and no certificate setting", async () => {
