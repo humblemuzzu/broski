@@ -20,6 +20,8 @@ export type ScriptedTurn = {
 	delayMs?: number;
 	/** Appends `model=<the request's model>` to the text, so a test can see which model the CLI asked for. */
 	echoModel?: boolean;
+	/** The answer waits until this settles: a run held at a request until the test lets it go. */
+	gate?: Promise<unknown>;
 };
 
 export type WireBlock =

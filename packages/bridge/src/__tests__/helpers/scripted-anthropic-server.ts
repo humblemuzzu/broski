@@ -174,7 +174,9 @@ export function serveScriptedAnthropic(
 				const { name, turn } = dispatch.pick(request);
 				if (name === "main") main.push(request);
 				messageCount += 1;
-				return answer(turn, request.body, `msg_scripted_${messageCount}`, options.gapMs ?? DEFAULT_CHUNK_GAP_MS);
+				const messageId = `msg_scripted_${messageCount}`;
+				if (turn.gate) await turn.gate;
+				return answer(turn, request.body, messageId, options.gapMs ?? DEFAULT_CHUNK_GAP_MS);
 			}
 			escaped.push(`${route}${request.search}`);
 			console.error(`[scripted-anthropic] ESCAPE: ${route}${request.search}`);
