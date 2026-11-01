@@ -32,7 +32,7 @@ async function started(rig: FakeRig) {
 
 describe("the options of a new host", () => {
 	test("are D5's, with a session id of ours and an open iterable for a prompt", async () => {
-		const rig = fakeRig([new FakeQuery()]);
+		const rig = fakeRig([new FakeQuery()], { uid: 501 });
 		const { call, options, live } = await started(rig);
 		expect(typeof call.prompt).not.toBe("string");
 		expect(Symbol.asyncIterator in Object(call.prompt)).toBe(true);
@@ -72,6 +72,15 @@ describe("the options of a new host", () => {
 		await rig.dispose();
 	});
 
+	test("as root outside a sandbox leave the bypass flag out, which would stop the CLI at startup", async () => {
+		const root = fakeRig([new FakeQuery()], { uid: 0 });
+		expect((await started(root)).options.allowDangerouslySkipPermissions).toBeUndefined();
+		await root.dispose();
+		const user = fakeRig([new FakeQuery()], { uid: 501 });
+		expect((await started(user)).options.allowDangerouslySkipPermissions).toBe(true);
+		await user.dispose();
+	});
+
 	test("carry D4's environment, which the SDK takes whole", async () => {
 		const rig = fakeRig([new FakeQuery()]);
 		const { options } = await started(rig);
@@ -79,6 +88,7 @@ describe("the options of a new host", () => {
 			PATH: "/usr/bin",
 			CLAUDE_AGENT_SDK_CLIENT_APP: "broski/fake-test",
 			CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS: "1",
+			CLAUDE_CODE_STARTUP_FAILURE_RESULTS: "1",
 		});
 		expect(options.env?.CLAUDE_CODE_ENTRYPOINT).toBeUndefined();
 		await rig.dispose();

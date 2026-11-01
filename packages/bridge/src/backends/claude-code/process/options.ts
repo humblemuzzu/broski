@@ -34,7 +34,7 @@ export function hostOptions(input: HostOptionsInput): Options | Rejected {
 		env: { ...services.cliEnv },
 		pathToClaudeCodeExecutable: services.cli.path,
 		permissionMode: input.permissionMode,
-		allowDangerouslySkipPermissions: true,
+		...(services.mayBypassPermissions && { allowDangerouslySkipPermissions: true }),
 		includePartialMessages: true,
 		forwardSubagentText: true,
 		agentProgressSummaries: true,

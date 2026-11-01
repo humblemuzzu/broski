@@ -38,9 +38,11 @@ const TEXT: {
 };
 
 /** `auto` is a property of a model (`supportsAutoMode`, `d.ts:1478`), and the axis is the backend's, so one model offering it is enough. */
-export function permissionsAxis(models: readonly ModelInfo[]): ModeAxis {
+export function permissionsAxis(models: readonly ModelInfo[], mayBypass: boolean): ModeAxis {
 	const autoOffered = models.some((model) => model.supportsAutoMode === true);
-	const options: Option[] = PERMISSION_MODES.filter((mode) => mode !== "auto" || autoOffered).map((mode) => ({
+	const offered = (mode: PermissionMode) =>
+		(mode !== "auto" || autoOffered) && (mode !== "bypassPermissions" || mayBypass);
+	const options: Option[] = PERMISSION_MODES.filter(offered).map((mode) => ({
 		value: mode,
 		...TEXT[mode],
 	}));

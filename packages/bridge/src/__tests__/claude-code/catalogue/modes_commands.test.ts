@@ -3,12 +3,13 @@ import type { ModelInfo } from "@anthropic-ai/claude-agent-sdk";
 import { commandsOf } from "../../../backends/claude-code/commands";
 import { permissionsAxis } from "../../../backends/claude-code/modes";
 import { PERMISSION_MODES } from "../../../backends/claude-code/permission-modes";
+import { mayBypassPermissions } from "../../../backends/claude-code/process/bypass";
 import { CommandSummary, MAX_ID_CHARS, MAX_NAME_CHARS, MAX_TEXT_CHARS, ModeAxis } from "../../../contract";
 import { command, FIVE_MODELS } from "./rig";
 
 describe("the permissions axis", () => {
 	test("offers the six modes of D12 in order, with a warning on bypass, and defaults to default", () => {
-		const axis = permissionsAxis(FIVE_MODELS);
+		const axis = permissionsAxis(FIVE_MODELS, true);
 		expect(ModeAxis.safeParse(axis).success).toBe(true);
 		expect(axis.id).toBe("permissions");
 		expect(axis.options.map((option) => option.value)).toEqual([...PERMISSION_MODES]);
@@ -20,7 +21,7 @@ describe("the permissions axis", () => {
 
 	test("lists auto only where a model supports it", () => {
 		const without: ModelInfo[] = FIVE_MODELS.map((model) => ({ ...model, supportsAutoMode: false }));
-		expect(permissionsAxis(without).options.map((option) => option.value)).toEqual([
+		expect(permissionsAxis(without, true).options.map((option) => option.value)).toEqual([
 			"default",
 			"acceptEdits",
 			"plan",
@@ -28,8 +29,20 @@ describe("the permissions axis", () => {
 			"bypassPermissions",
 		]);
 		const one = without.map((model, at) => (at === 3 ? { ...model, supportsAutoMode: true } : model));
-		expect(permissionsAxis(one).options.map((option) => option.value)).toContain("auto");
-		expect(permissionsAxis([]).options.map((option) => option.value)).not.toContain("auto");
+		expect(permissionsAxis(one, true).options.map((option) => option.value)).toContain("auto");
+		expect(permissionsAxis([], true).options.map((option) => option.value)).not.toContain("auto");
+	});
+
+	test("leaves bypass out where the CLI would refuse to start with it (root outside a sandbox)", () => {
+		const values = permissionsAxis(FIVE_MODELS, false).options.map((option) => option.value);
+		expect(values).not.toContain("bypassPermissions");
+		expect(values).toContain("default");
+		expect(mayBypassPermissions(0, {})).toBe(false);
+		expect(mayBypassPermissions(0, { IS_SANDBOX: "1" })).toBe(true);
+		expect(mayBypassPermissions(0, { IS_SANDBOX: "yes" })).toBe(false);
+		expect(mayBypassPermissions(0, { CLAUDE_CODE_BUBBLEWRAP: "1" })).toBe(true);
+		expect(mayBypassPermissions(501, {})).toBe(true);
+		expect(mayBypassPermissions(undefined, {})).toBe(true);
 	});
 });
 

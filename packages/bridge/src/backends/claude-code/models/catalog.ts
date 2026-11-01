@@ -89,7 +89,9 @@ class Catalogue implements CatalogueAccess {
 	modes(cwd: string | undefined): Promise<ModesListResult> {
 		return this.read(async () => {
 			const entry = await this.entryFor(cwd, false);
-			return isRejected(entry) ? entry : { status: "accepted", modes: [permissionsAxis(entry.init.models)] };
+			return isRejected(entry)
+				? entry
+				: { status: "accepted", modes: [permissionsAxis(entry.init.models, this.services.mayBypassPermissions)] };
 		});
 	}
 

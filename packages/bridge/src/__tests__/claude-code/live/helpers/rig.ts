@@ -165,7 +165,7 @@ export interface FakeRig extends LiveRig {
 /** The host over `FakeQuery`s: each `query()` call gets the next, and the test pushes its frames. */
 export function fakeRig(
 	queries: FakeQuery[],
-	options: RigOptions & { cli?: boolean; sdk?: Partial<SessionFunctions> } = {},
+	options: RigOptions & { cli?: boolean; sdk?: Partial<SessionFunctions>; uid?: number } = {},
 ): FakeRig {
 	const sdk = fakeClaudeSdk({ queries, overrides: options.sdk });
 	const clock = new ManualClock();
@@ -180,6 +180,7 @@ export function fakeRig(
 		clock,
 		sdk,
 		...(options.customTools !== undefined && { customTools: options.customTools }),
+		...(options.uid !== undefined && { uid: options.uid }),
 	});
 	const made = parts(options, sdk);
 	const rig = new LiveRig(

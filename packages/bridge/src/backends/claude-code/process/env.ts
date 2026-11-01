@@ -16,6 +16,7 @@ export function cliEnv(input: CliEnvInput): Record<string, string> {
 	for (const [key, value] of Object.entries(input.base)) if (!STAMPED_BY_THE_SDK.has(key)) env[key] = value;
 	env.CLAUDE_AGENT_SDK_CLIENT_APP = input.clientApp;
 	env.CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS = "1";
+	env.CLAUDE_CODE_STARTUP_FAILURE_RESULTS = "1";
 	if (input.configDir !== undefined) env.CLAUDE_CONFIG_DIR = input.configDir;
 	return env;
 }

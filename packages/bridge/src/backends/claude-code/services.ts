@@ -4,6 +4,7 @@ import type { CustomToolsPort } from "./ports/custom-tools";
 import type { ClaudeSdk } from "./ports/sdk";
 import type { TerminalOptions } from "./ports/terminal";
 import { type Clock, SYSTEM_CLOCK } from "./ports/time";
+import { mayBypassPermissions, processUid } from "./process/bypass";
 import { cliEnv } from "./process/env";
 import { createClaudeSdk } from "./sdk/claude-sdk";
 
@@ -29,6 +30,8 @@ export interface ClaudeCodeFactoryOptions {
 	readonly clock?: Clock;
 	/** Unit tests inject a fake; otherwise `createClaudeSdk`. */
 	readonly sdk?: ClaudeSdk;
+	/** Tests only: the uid the CLI runs as; otherwise the bridge's own. */
+	readonly uid?: number;
 }
 
 export interface ClaudeCodeServices {
@@ -37,6 +40,8 @@ export interface ClaudeCodeServices {
 	readonly configDir: string | undefined;
 	/** D4's environment for every CLI, `CLAUDE_CONFIG_DIR` included when `configDir` is set. */
 	readonly cliEnv: Readonly<Record<string, string>>;
+	/** `bypassPermissions` can be offered and its flag passed (`process/bypass.ts`). */
+	readonly mayBypassPermissions: boolean;
 	readonly stateDir: string;
 	readonly expectedCliVersion: string | undefined;
 	readonly customTools: CustomToolsPort | undefined;
@@ -51,6 +56,7 @@ export function createClaudeCodeServices(options: ClaudeCodeFactoryOptions): Cla
 		cli: options.cli,
 		configDir: options.configDir,
 		cliEnv: env,
+		mayBypassPermissions: mayBypassPermissions("uid" in options ? options.uid : processUid(), env),
 		stateDir: options.stateDir,
 		expectedCliVersion: options.expectedCliVersion,
 		customTools: options.customTools,

@@ -133,6 +133,7 @@ export interface RigOptions {
 	readonly queries?: FakeQuery[];
 	readonly cli?: CliLocation;
 	readonly expectedCliVersion?: string;
+	readonly uid?: number;
 }
 
 export function catalogueRig(options: RigOptions = {}): Rig {
@@ -148,6 +149,7 @@ export function catalogueRig(options: RigOptions = {}): Rig {
 		expectedCliVersion: options.expectedCliVersion,
 		sdk,
 		clock,
+		...(options.uid !== undefined && { uid: options.uid }),
 	});
 	const make = () => createCatalogue({ services, catalog: new CatalogFeed({ emit: (event) => events.push(event) }) });
 	return {

@@ -96,6 +96,17 @@ describe("a probe whose skills never come", () => {
 	});
 });
 
+describe("the modes", () => {
+	test("a bridge running as root outside a sandbox does not offer bypass", async () => {
+		const valuesOf = async (uid: number) => {
+			const listed = await rigOf({ queries: scripted(1), uid }).catalogue.modes("/project");
+			return listed.status === "accepted" ? listed.modes[0]?.options.map((option) => option.value) : [];
+		};
+		expect(await valuesOf(0)).not.toContain("bypassPermissions");
+		expect(await valuesOf(501)).toContain("bypassPermissions");
+	});
+});
+
 describe("the cache", () => {
 	test("answers models, commands and modes of one cwd from one probe", async () => {
 		const rig = rigOf({ queries: scripted(2) });

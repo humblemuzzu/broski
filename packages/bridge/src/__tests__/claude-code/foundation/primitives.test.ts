@@ -21,6 +21,7 @@ describe("D4 environment", () => {
 			PATH: "/bin",
 			CLAUDE_AGENT_SDK_CLIENT_APP: "broski/1.0.0",
 			CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS: "1",
+			CLAUDE_CODE_STARTUP_FAILURE_RESULTS: "1",
 			CLAUDE_CONFIG_DIR: "/tmp/claude",
 		});
 		expect(cliEnv({ base: {}, clientApp: "b" })).not.toHaveProperty("CLAUDE_CONFIG_DIR");
