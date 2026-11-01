@@ -30,6 +30,14 @@ export class SessionRouter {
 		this.scripts.set(sessionId, [...(this.scripts.get(sessionId) ?? []), ...steps]);
 	}
 
+	/**
+	 * The session's next run is `steps`: what an earlier run left unconsumed goes (a Stop that reached the CLI before its
+	 * message did leaves its whole scenario unread, D74).
+	 */
+	replace(sessionId: string, steps: readonly ScriptStep[]): void {
+		this.scripts.set(sessionId, [...steps]);
+	}
+
 	/** Settles at the session's next `release`. */
 	gate(sessionId: string): Promise<void> {
 		const known = this.gates.get(sessionId);

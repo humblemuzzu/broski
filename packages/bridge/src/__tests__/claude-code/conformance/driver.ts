@@ -51,7 +51,7 @@ export class ClaudeCodeConformanceDriver implements ConformanceDriver {
 			const control = this.world.controlOf(session.sessionId);
 			if ((await control?.setMode("permissions", "plan"))?.status !== "accepted") return false;
 		}
-		router.script(session.sessionId, steps);
+		router.replace(session.sessionId, steps);
 		return true;
 	}
 

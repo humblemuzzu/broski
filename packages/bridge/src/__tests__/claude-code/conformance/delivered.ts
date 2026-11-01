@@ -1,7 +1,8 @@
 /**
  * The newest user message of a session's newest main request, read back as the suite's `DeliveredInput` (rule 13).
- * D10's wire forms are parsed back: `@agent-<name>` and `@<path>` mentions, a slash command's `<command-name>` tag
- * (the CLI's expansion; unverified until Step 5 runs it). Image names never reach a model, so they come from the
+ * CLI 2.1.316 puts a `system`-role "# Environment" message after the first user message, so the last message whose
+ * role is `user` is read, not the last message. D10's wire forms are parsed back: `@agent-<name>` and `@<path>`
+ * mentions, a slash command's `<command-name>` tag. Image names never reach a model, so they come from the
  * transcript's `ImageRef`s, which the store reads from the owner journal (D37).
  */
 
@@ -48,7 +49,10 @@ export async function deliveredInput(
 
 function lastUserBlocks(body: unknown): WireBlock[] | undefined {
 	if (typeof body !== "object" || body === null || !("messages" in body) || !Array.isArray(body.messages)) return;
-	const last: unknown = body.messages.at(-1);
+	const last: unknown = body.messages.findLast(
+		(message: unknown) =>
+			typeof message === "object" && message !== null && "role" in message && message.role === "user",
+	);
 	if (typeof last !== "object" || last === null || !("content" in last)) return undefined;
 	const { content } = last;
 	if (typeof content === "string") return [{ type: "text", text: content }];
