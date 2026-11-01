@@ -49,17 +49,7 @@ class ActionListView extends StatelessWidget {
             semanticsLabel: 'Working',
           ),
         if (reload case final reload?)
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              key: const ValueKey('action-list-refresh'),
-              onPressed: actions.busy
-                  ? null
-                  : () => actions.call((target) => reload(target)),
-              icon: const Icon(Icons.refresh, size: 16),
-              label: const Text('Refresh'),
-            ),
-          ),
+          _Refresh(actions: actions, reload: reload),
         if (list.rows.isEmpty) Text('Nothing to show.', style: muted),
         for (final section in groupedInOrder(
           list.rows,
@@ -82,20 +72,48 @@ class ActionListView extends StatelessWidget {
               onOpen: onOpenRow,
             ),
         ],
-        if (list.omitted > 0)
-          Padding(
-            key: const ValueKey('action-list-omitted'),
-            padding: Insets.chipV,
-            child: Text(
-              '${list.omitted} more ${list.omitted == 1 ? 'is' : 'are'} not '
-              'shown: the list is at its limit.',
-              style: muted,
-            ),
-          ),
+        if (list.omitted > 0) _Omitted(count: list.omitted),
         if (list.note case final note?) _Note(text: note),
       ],
     );
   }
+}
+
+class _Refresh extends StatelessWidget {
+  const _Refresh({required this.actions, required this.reload});
+
+  final ResultActions actions;
+  final BackendCall Function(OpTarget target) reload;
+
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: Alignment.centerRight,
+    child: TextButton.icon(
+      key: const ValueKey('action-list-refresh'),
+      onPressed: actions.busy ? null : () => actions.call(reload),
+      icon: const Icon(Icons.refresh, size: 16),
+      label: const Text('Refresh'),
+    ),
+  );
+}
+
+class _Omitted extends StatelessWidget {
+  const _Omitted({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    key: const ValueKey('action-list-omitted'),
+    padding: Insets.chipV,
+    child: Text(
+      '$count more ${count == 1 ? 'is' : 'are'} not shown: the list is at '
+      'its limit.',
+      style: AppTypography.bodySmall(
+        color: OpenCodeTheme.of(context).textMuted,
+      ),
+    ),
+  );
 }
 
 class _Note extends StatelessWidget {

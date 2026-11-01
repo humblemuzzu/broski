@@ -73,17 +73,7 @@ class _SessionListViewState extends ConsumerState<SessionListView> {
           ..._rows(context, shown, live),
           if (list.loaded && shown.isEmpty) _empty(list.rows.isEmpty),
           if (_options.filtering && !list.complete && list.loaded)
-            Padding(
-              key: const ValueKey('session-search-scope'),
-              padding: Insets.chip,
-              child: Text(
-                'Looking through the ${list.rows.length} sessions read so '
-                'far.',
-                style: AppTypography.caption(
-                  color: OpenCodeTheme.of(context).textMuted,
-                ),
-              ),
-            ),
+            _SearchScope(read: list.rows.length),
           if (!list.complete && list.loaded && live)
             TextButton(
               onPressed: list.loading ? null : controller.loadMore,
@@ -148,6 +138,22 @@ class _SessionListViewState extends ConsumerState<SessionListView> {
           : null,
     );
   }
+}
+
+class _SearchScope extends StatelessWidget {
+  const _SearchScope({required this.read});
+
+  final int read;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    key: const ValueKey('session-search-scope'),
+    padding: Insets.chip,
+    child: Text(
+      'Looking through the $read sessions read so far.',
+      style: AppTypography.caption(color: OpenCodeTheme.of(context).textMuted),
+    ),
+  );
 }
 
 class _DirectoryHeader extends StatelessWidget {

@@ -1,9 +1,8 @@
 import 'package:broski/agent/client/outcome.dart';
 import 'package:broski/agent/client/requests/op_call.dart';
-import 'package:broski/agent/ui/panels/op_panel.dart';
 import 'package:broski/agent/ui/panels/op_result_host.dart';
-import 'package:broski/agent/ui/panels/result_actions.dart';
 import 'package:broski/agent/ui/panels/panel_registry.dart';
+import 'package:broski/agent/ui/panels/result_actions.dart';
 import 'package:broski/contract/generated/contract.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
