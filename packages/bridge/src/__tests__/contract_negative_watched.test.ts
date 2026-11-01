@@ -40,7 +40,7 @@ describe("the watched-ask rule fails", () => {
 		fails(
 			breakSessions((session) => (session.control ? session : { ...session, control: refusing })),
 			watchedAsksAreAnsweredOnce,
-			/asked in from elsewhere can be controlled/,
+			/the watched session another client asked in can be controlled/,
 		));
 
 	test("for a watched session that takes no answers", () =>

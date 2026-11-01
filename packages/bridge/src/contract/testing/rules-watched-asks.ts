@@ -17,7 +17,7 @@ export async function watchedAsksAreAnsweredOnce(rig: Rig): Promise<void> {
 	if (!ref) return;
 	await rig.driver.quiesce();
 	const live = await rig.open(ref);
-	expect(live.session.control === undefined, "the session the driver asked in from elsewhere can be controlled");
+	expect(live.session.control === undefined, "the watched session another client asked in can be controlled");
 	expect(live.session.answer !== undefined, "the watched session takes no answers");
 	const interaction = await pendingAsk(live);
 	await answersAreChecked(live, interaction);
