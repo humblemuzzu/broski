@@ -1,4 +1,4 @@
-/** The Step 3 skeleton: constructible, typed, honest about what is not built, and silent once disposed. */
+/** The assembled backend over a fake SDK: constructible, typed, every op built, and silent once disposed. */
 
 import { describe, expect, test } from "bun:test";
 import { claudeCodeBackendFactory } from "../../../backends/claude-code/factory";
@@ -42,7 +42,7 @@ function emptyCustomTools() {
 	};
 }
 
-describe("the Claude Code skeleton", () => {
+describe("the Claude Code backend, assembled", () => {
 	test("declares valid capabilities, every op of ClaudeCodeOp, and call() with them", async () => {
 		const { backend } = await skeleton(true);
 		expect(Capabilities.safeParse(backendCapabilities(backend)).success).toBe(true);
@@ -58,7 +58,7 @@ describe("the Claude Code skeleton", () => {
 		expect(claudeCodeTraits({ customTools: true })).toBe(CLAUDE_CODE_TRAITS);
 	});
 
-	test("answers every op of its own as not built, another backend's as unsupported", async () => {
+	test("answers every op of its own in kind (a session nobody has is not_found), another backend's as unsupported", async () => {
 		const { backend } = await skeleton(true);
 		const call = backend.call?.bind(backend);
 		if (!call) throw new Error("no call()");
@@ -67,7 +67,9 @@ describe("the Claude Code skeleton", () => {
 			if (!made) throw new Error(`no example call for ${op}`);
 			const result = await call(made);
 			expect(BackendCallResult.safeParse(result).success).toBe(true);
-			expect(result.status === "rejected" && result.rejection.message).toContain("not built yet");
+			if (result.status === "rejected") expect(result.rejection.message).not.toContain("not built");
+			else expect(result.result.kind).toBe(op);
+			if ("sessionId" in made.op && result.status === "rejected") expect(result.rejection.code).toBe("not_found");
 		}
 		const foreign = await call({ backend: "pi", op: { kind: "refresh_models" } });
 		expect(foreign.status === "rejected" && foreign.rejection.code).toBe("unsupported");

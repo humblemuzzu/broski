@@ -1,7 +1,6 @@
 /** `AgentBackend.call`: Claude Code's own ops (`ClaudeCodeOp`), each to its file in `ops/`; another backend's is `unsupported`. */
 
 import type { BackendCall, BackendCallResult } from "../../contract";
-import type { ClaudeCodeParts } from "./backend";
 import { changedFiles } from "./ops/changed-files";
 import { configFile } from "./ops/config-file";
 import { configFiles } from "./ops/config-files";
@@ -18,10 +17,9 @@ import { tasks } from "./ops/tasks";
 import type { OpsDeps } from "./ports";
 import { rejected } from "./rejections";
 
-export async function callOp(parts: ClaudeCodeParts, call: BackendCall): Promise<BackendCallResult> {
+export async function callOp(deps: OpsDeps, call: BackendCall): Promise<BackendCallResult> {
 	if (call.backend !== "claude-code")
 		return rejected("unsupported", `Claude Code has no ${call.backend} op ${call.op.kind}`);
-	const deps: OpsDeps = parts;
 	const { op } = call;
 	switch (op.kind) {
 		case "rewind_files":

@@ -20,6 +20,7 @@ import { parseChildRef } from "./ids";
 import { createLiveSessions } from "./live/registry";
 import { CLAUDE_CODE_MAPPING } from "./mapping";
 import { createCatalogue } from "./models/catalog";
+import { type ConfigWatch, createConfigWatch } from "./ops/config-watch";
 import { createOwnership } from "./owned";
 import type { CatalogueAccess, LiveSessions, Ownership, SessionStore, TerminalWatch } from "./ports";
 import { isRejected, rejected } from "./rejections";
@@ -38,6 +39,7 @@ export interface ClaudeCodeParts {
 	readonly store: SessionStore;
 	readonly catalogue: CatalogueAccess;
 	readonly live: LiveSessions;
+	readonly configWatch: ConfigWatch;
 }
 
 export function createClaudeCodeParts(host: BackendHost, services: ClaudeCodeServices): ClaudeCodeParts {
@@ -62,11 +64,12 @@ export function createClaudeCodeParts(host: BackendHost, services: ClaudeCodeSer
 		mapping: CLAUDE_CODE_MAPPING,
 		createDesk: createAskDesk,
 	});
-	return { services, catalog, ownership, terminal, store, catalogue, live };
+	const configWatch = createConfigWatch({ configRoot: services.sdk.configRoot(), catalogue });
+	return { services, catalog, ownership, terminal, store, catalogue, live, configWatch };
 }
 
 export function claudeCodeBackendOf(parts: ClaudeCodeParts): AgentBackend {
-	const { services, catalog, terminal, store, catalogue, live } = parts;
+	const { services, catalog, terminal, store, catalogue, live, configWatch } = parts;
 	return {
 		id: "claude-code",
 		traits: claudeCodeTraits({ customTools: services.customTools !== undefined }),
@@ -89,6 +92,7 @@ export function claudeCodeBackendOf(parts: ClaudeCodeParts): AgentBackend {
 		call: (call) => callOp(parts, call),
 		dispose: async () => {
 			try {
+				configWatch.dispose();
 				await terminal.dispose();
 				await live.dispose();
 				store.dispose();
@@ -101,7 +105,11 @@ export function claudeCodeBackendOf(parts: ClaudeCodeParts): AgentBackend {
 }
 
 async function openSession(parts: ClaudeCodeParts, target: OpenTarget, sink: SessionSink): Promise<OpenResult> {
-	if (target.kind === "new") return parts.live.open(target, sink);
+	if (target.kind === "new") {
+		const opened = await parts.live.open(target, sink);
+		if (!isRejected(opened)) parts.configWatch.track(target.options.cwd);
+		return opened;
+	}
 	const { session } = target;
 	if (!mine(session)) return notFound(session);
 	const child = parseChildRef(session.sessionId);
@@ -110,7 +118,14 @@ async function openSession(parts: ClaudeCodeParts, target: OpenTarget, sink: Ses
 		const stored = await parts.store.locate(session.sessionId);
 		return isRejected(stored) ? stored : parts.terminal.openWatchOnly(session, stored, sink);
 	}
-	return parts.live.open(target, sink);
+	const opened = await parts.live.open(target, sink);
+	if (!isRejected(opened)) void trackStored(parts, session.sessionId);
+	return opened;
+}
+
+async function trackStored(parts: ClaudeCodeParts, sessionId: string): Promise<void> {
+	const stored = await parts.store.locate(sessionId).catch(() => undefined);
+	if (stored !== undefined && !isRejected(stored) && stored.cwd !== undefined) parts.configWatch.track(stored.cwd);
 }
 
 async function listCommands(

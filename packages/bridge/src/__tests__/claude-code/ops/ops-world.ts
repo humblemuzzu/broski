@@ -51,7 +51,7 @@ export interface OpsWorld {
 	readonly root: string;
 	readonly configDir: string;
 	readonly cwd: string;
-	readonly deps: ClaudeCodeParts;
+	readonly deps: Omit<ClaudeCodeParts, "configWatch">;
 	readonly events: CatalogEvent[];
 	readonly invalidated: (string | undefined)[];
 	readonly transient: FakeQuery[];
@@ -182,7 +182,7 @@ export function opsWorld(options: WorldOptions = {}): OpsWorld {
 		listedModelId: async () => undefined,
 		status: async () => ({ installed: false, auth: "unknown", usable: false, issues: [] }),
 	};
-	const deps: ClaudeCodeParts = {
+	const deps: Omit<ClaudeCodeParts, "configWatch"> = {
 		services,
 		catalog: new CatalogFeed({ emit: (event) => events.push(event) }),
 		ownership: UNUSED_OWNERSHIP,
