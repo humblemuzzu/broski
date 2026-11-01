@@ -21,7 +21,7 @@ export function sessionOf(request: ScriptedRequest): string | undefined {
 
 export class SessionRouter {
 	private readonly scripts = new Map<string, ScriptStep[]>();
-	private readonly heldCompactions = new Set<string>();
+	private readonly heldCompactions = new Map<string, Promise<void>>();
 	private readonly gates = new Map<string, { promise: Promise<void>; open: () => void }>();
 	private readonly seen = new Map<string, ScriptedRequest[]>();
 
@@ -47,8 +47,9 @@ export class SessionRouter {
 		this.gates.delete(sessionId);
 	}
 
+	/** The gate is taken now, so a `release` that comes before the compaction's request still lets it go. */
 	holdNextCompaction(sessionId: string): void {
-		this.heldCompactions.add(sessionId);
+		this.heldCompactions.set(sessionId, this.gate(sessionId));
 	}
 
 	/** The session's main-thread requests, oldest first. */
@@ -79,8 +80,9 @@ export class SessionRouter {
 
 	private compaction(request: ScriptedRequest): ScriptedTurn {
 		const sessionId = sessionOf(request) ?? "";
+		const gate = this.heldCompactions.get(sessionId);
 		this.heldCompactions.delete(sessionId);
 		const summary = "<analysis>held</analysis>\n<summary>A held summary.</summary>";
-		return { text: [summary], gate: this.gate(sessionId) };
+		return { text: [summary], ...(gate && { gate }) };
 	}
 }

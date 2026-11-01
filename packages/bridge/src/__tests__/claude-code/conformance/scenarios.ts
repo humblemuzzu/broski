@@ -34,11 +34,13 @@ export function scenarioSteps(scenario: Scenario, context: ScenarioContext): Scr
 			return interactionSteps(scenario.interaction);
 		case "feature":
 			return featureSteps(scenario.feature);
-		case "echo_model":
+		case "echo_model": {
+			const held = context.gate();
 			return [
 				(request) => ({ ...readReadme(context), text: [context.echo(request)] }),
-				(request) => ({ text: [context.echo(request)], gate: context.gate() }),
+				(request) => ({ text: [context.echo(request)], gate: held }),
 			];
+		}
 		case "slow_compaction":
 		case "slow_retry":
 			return undefined;
