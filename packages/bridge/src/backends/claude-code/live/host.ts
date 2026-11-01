@@ -16,7 +16,6 @@ import {
 	sessionStatus,
 } from "../../../contract";
 import { clip } from "../bounds";
-import { isUuid } from "../ids";
 import type { AskDesk } from "../ports/asks";
 import type { LiveDeps } from "../ports/deps";
 import type { BackgroundTask, HostView, SessionEmitter } from "../ports/live";
@@ -27,44 +26,46 @@ import { abortRun, returnQueued } from "./abort";
 import { ChildRouter } from "./child-router";
 import { cancelCompaction, startCompaction } from "./compaction";
 import { errorText } from "./error-text";
-import { FrameHandler } from "./frame-handler";
+import type { FrameHandler } from "./frame-handler";
 import { HostEmitter } from "./host-emitter";
 import { launchOptions } from "./host-launch";
 import type { HostProcess } from "./host-process";
 import type { HostControl, HostHooks, HostStart } from "./host-types";
+import { frameHandlerOf, promptDeskOf, runEndOf } from "./host-wiring";
+import { IdleWatch } from "./idle-watch";
 import { LiveState } from "./live-state";
 import { MappedRouting } from "./mapped-routing";
 import { processEnded } from "./process-end";
 import { ProcessSlot } from "./process-slot";
-import { PromptDesk } from "./prompt-desk";
+import type { PromptDesk } from "./prompt-desk";
 import { InputQueue } from "./queue";
 import { endRun, type RunEndDeps } from "./run-end";
 import { RunTracker } from "./run-tracker";
 import { SerialLock } from "./serial";
+import { startNewConversation } from "./session-reset";
 import { SessionSettings } from "./settings";
-import { IDLE_GRACE_MS } from "./shutdown";
 import { TaskBoard } from "./task-board";
 
 export class SessionHost {
 	readonly cwd: string;
 	private id: SessionId;
 	private readonly state: LiveState;
-	private readonly live: HostEmitter;
-	private readonly runs: RunTracker;
-	private readonly queue: InputQueue;
-	private readonly tasks = new TaskBoard();
-	private readonly children: ChildRouter;
-	private readonly desk: AskDesk;
-	private readonly settings: SessionSettings;
+	readonly live: HostEmitter;
+	readonly runs: RunTracker;
+	readonly queue: InputQueue;
+	readonly tasks = new TaskBoard();
+	readonly children: ChildRouter;
+	readonly desk: AskDesk;
+	readonly settings: SessionSettings;
 	private readonly prompts: PromptDesk;
 	private readonly frames: FrameHandler;
-	private readonly lock = new SerialLock();
-	private readonly routing: MappedRouting;
-	private readonly slot: ProcessSlot;
+	readonly lock = new SerialLock();
+	readonly routing: MappedRouting;
+	readonly slot: ProcessSlot;
 	private sink: SessionSink | undefined;
 	private persisted: boolean;
 	private finished = false;
-	private cancelIdle: (() => void) | undefined;
+	private readonly watch: IdleWatch;
 
 	constructor(
 		readonly deps: LiveDeps,
@@ -76,6 +77,11 @@ export class SessionHost {
 		this.id = start.sessionId;
 		this.persisted = start.resume;
 		const now = () => deps.services.clock.now();
+		this.watch = new IdleWatch(
+			deps.services.clock,
+			() => !this.finished && !this.state.attached && this.idle(),
+			() => this.hooks.idle(this),
+		);
 		this.state = new LiveState(start.snapshot, now);
 		this.live = new HostEmitter(this.state, () => this.reviewIdle());
 		this.runs = new RunTracker(this.live, start.tail);
@@ -107,8 +113,8 @@ export class SessionHost {
 			planModeOptions: () => this.settings.planModeOptions(),
 			now,
 		});
-		this.prompts = this.promptDesk();
-		this.frames = this.frameHandler();
+		this.prompts = promptDeskOf(this);
+		this.frames = frameHandlerOf(this, this.prompts);
 	}
 
 	get ref(): SessionRef {
@@ -117,6 +123,10 @@ export class SessionHost {
 
 	get sessionId(): SessionId {
 		return this.id;
+	}
+
+	markPersisted(): void {
+		this.persisted = true;
 	}
 
 	get ended(): boolean {
@@ -150,8 +160,7 @@ export class SessionHost {
 
 	attach(sink: SessionSink): SessionSnapshot {
 		this.sink = sink;
-		this.cancelIdle?.();
-		this.cancelIdle = undefined;
+		this.watch.stop();
 		return this.state.attach(sink);
 	}
 
@@ -217,12 +226,15 @@ export class SessionHost {
 	async finish(): Promise<void> {
 		if (this.finished) return;
 		this.finished = true;
-		this.cancelIdle?.();
-		this.cancelIdle = undefined;
+		this.watch.stop();
 		this.hooks.forget(this);
-		this.desk.expireAll();
 		if (this.sink) this.state.detach(this.sink);
 		this.sink = undefined;
+		try {
+			this.desk.expireAll();
+		} catch {
+			/* the process closes whatever the desk says */
+		}
 		await this.slot.end();
 	}
 
@@ -266,7 +278,7 @@ export class SessionHost {
 				runs: this.runs,
 				queue: this.queue,
 				desk: this.desk,
-				endRun: (outcome) => endRun(this.runEnd(), outcome),
+				endRun: (outcome) => endRun(runEndOf(this, this.prompts), outcome),
 			},
 			process.isClosing,
 			error,
@@ -274,90 +286,32 @@ export class SessionHost {
 		this.reviewIdle();
 	}
 
-	private promptDesk(): PromptDesk {
-		return new PromptDesk({
-			live: this.live,
-			runs: this.runs,
-			queue: this.queue,
-			ownership: this.deps.ownership,
-			sessionId: () => this.id,
-			noteSend: (uuid) => this.routing.current.noteSend(uuid),
-			ensureProcess: () => this.ensureProcess(),
-			push: (message) => this.slot.push(message),
-			alive: () => this.slot.alive !== undefined,
-			closed: () => this.finished,
-			locked: (work) => this.lock.run(work),
-			runBegan: () => this.rowChanged(),
-		});
-	}
-
-	private frameHandler(): FrameHandler {
-		return new FrameHandler({
-			live: this.live,
-			runs: this.runs,
-			queue: this.queue,
-			tasks: this.tasks,
-			children: this.children,
-			desk: this.desk,
-			settings: this.settings,
-			mapping: this.deps.mapping,
-			mapper: () => this.routing.current,
-			catalogue: this.deps.catalogue,
-			cwd: this.cwd,
-			emitMapped: (events) => this.routing.emit(events),
-			persisted: () => {
-				this.persisted = true;
-			},
-			systemRun: () => {
-				this.runs.start("system");
-				this.rowChanged();
-			},
-			endRun: () => endRun(this.runEnd()),
-			cancelledBeforeStart: () => this.cancelledBeforeStart(),
-			conversationReset: (newId) => this.conversationReset(newId),
-		});
-	}
-
-	private runEnd(): RunEndDeps {
-		return {
-			live: this.live,
-			runs: this.runs,
-			queue: this.queue,
-			prompts: this.prompts,
-			children: this.children,
-			desk: this.desk,
-			mapper: () => this.routing.current,
-			emitMapped: (events) => this.routing.emit(events),
-			finished: () => this.rowChanged(),
-		};
-	}
-
 	/** A Stop cancelled the only send of a run before the CLI began it: no `idle` is owed, so the run ends here. */
-	private cancelledBeforeStart(): void {
+	cancelledBeforeStart(): void {
 		setImmediate(() => {
 			const run = this.runs.current;
-			if (!this.finished && run?.aborting && !run.started) endRun(this.runEnd());
+			if (!this.finished && run?.aborting && !run.started) endRun(runEndOf(this, this.prompts));
 		});
 	}
 
-	/** `/clear` and its kin: the conversation goes on under a new session id, and the old one keeps its history. */
-	private conversationReset(newId: SessionId): void {
+	/** The conversation goes on under a new session id; the old one keeps its history. */
+	conversationReset(newId: SessionId): void {
 		if (newId === this.id) return;
-		if (!isUuid(newId)) {
-			this.fault("Claude Code began a conversation under an id this bridge cannot use");
-			return;
-		}
 		const previous = this.id;
-		this.routing.restart(newId);
+		const deps = {
+			routing: this.routing,
+			children: this.children,
+			runs: this.runs,
+			ownership: this.deps.ownership,
+			live: this.live,
+		};
+		if (!startNewConversation(deps, newId)) return;
 		this.id = newId;
-		this.children.reset();
-		this.runs.resetChain();
 		this.hooks.renamed(this, previous);
-		this.deps.ownership.claim(newId).catch(() => undefined);
 		this.live.emit({ type: "session_replaced", session: this.ref });
 	}
 
-	private rowChanged(): void {
+	rowChanged(): void {
 		const { store } = this.deps;
 		try {
 			store.invalidate(this.id);
@@ -376,16 +330,6 @@ export class SessionHost {
 	}
 
 	private reviewIdle(): void {
-		if (this.finished || !this.runs) return;
-		const wanted = !this.state.attached && this.idle();
-		if (!wanted) {
-			this.cancelIdle?.();
-			this.cancelIdle = undefined;
-			return;
-		}
-		this.cancelIdle ??= this.deps.services.clock.after(IDLE_GRACE_MS, () => {
-			this.cancelIdle = undefined;
-			if (!this.finished && !this.state.attached && this.idle()) this.hooks.idle(this);
-		});
+		if (!this.finished) this.watch?.review(!this.state.attached && this.idle());
 	}
 }

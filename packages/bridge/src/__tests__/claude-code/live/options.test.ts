@@ -239,3 +239,25 @@ describe("the options of a resumed host", () => {
 		await rig.dispose();
 	});
 });
+
+describe("ids that are not sessions", () => {
+	test("are not_found for a session, and a subagent's session has no host of its own", async () => {
+		const rig = fakeRig([]);
+		const other = { emit: () => undefined };
+		const notFound = { status: "rejected", rejection: { code: "not_found" } };
+		for (const id of ["../etc/passwd", "", "not-a-uuid", `${"a".repeat(300)}`]) {
+			expect(
+				await rig.live.open({ kind: "existing", session: { backend: "claude-code", sessionId: id } }, other),
+			).toMatchObject(notFound);
+			expect(await rig.live.withHost(id, async () => "never")).toMatchObject(notFound);
+			expect(await rig.live.withLiveHost(id, async () => "never")).toMatchObject(notFound);
+		}
+		const child = `${sessionId}/agent-1`;
+		expect(await rig.live.withHost(child, async () => "never")).toMatchObject({
+			status: "rejected",
+			rejection: { code: "unsupported" },
+		});
+		expect(rig.sdk.started).toEqual([]);
+		await rig.dispose();
+	});
+});

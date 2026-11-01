@@ -13,7 +13,8 @@ import {
 	type SessionSink,
 	type SessionSnapshot,
 } from "../../../contract";
-import { type ChildPart, parseChildRef } from "../ids";
+import { clip } from "../bounds";
+import { type ChildPart, isUuid, parseChildRef } from "../ids";
 import { DEFAULT_PERMISSION_MODE, PERMISSIONS_AXIS } from "../permission-modes";
 import type { LiveDeps } from "../ports/deps";
 import type { HostView, LiveSessions } from "../ports/live";
@@ -27,6 +28,10 @@ import { KeyedLock } from "./keyed-lock";
 import { newSessionState } from "./new-session";
 import { openView } from "./open-view";
 import { withTransientHost } from "./transient-host";
+
+function notASession(sessionId: string): Rejected {
+	return rejected("not_found", `no Claude Code session ${clip(sessionId, 64)}`);
+}
 
 function isDirectory(path: string): boolean {
 	try {
@@ -73,6 +78,7 @@ class Registry implements LiveSessions, LiveOverlay {
 	open(target: OpenTarget, sink: SessionSink): Promise<OpenResult> {
 		if (target.kind === "new") return this.openNew(target.options, sink);
 		const { sessionId } = target.session;
+		if (!isUuid(sessionId)) return Promise.resolve(notASession(sessionId));
 		return this.locks.run(sessionId, () => this.openExisting(sessionId, sink));
 	}
 
@@ -90,6 +96,7 @@ class Registry implements LiveSessions, LiveOverlay {
 	}
 
 	async withLiveHost<T>(sessionId: SessionId, work: (host: HostView | undefined) => Promise<T>): Promise<T | Rejected> {
+		if (!isUuid(sessionId) && !parseChildRef(sessionId)) return notASession(sessionId);
 		const host = this.hosts.get(sessionId);
 		if (host && !host.ended) return work(host.view());
 		const stored = await this.deps.store.locate(sessionId);
@@ -98,6 +105,11 @@ class Registry implements LiveSessions, LiveOverlay {
 
 	async withHost<T>(sessionId: SessionId, work: (host: HostView) => Promise<T>): Promise<T | Rejected> {
 		if (this.disposing) return CLOSED;
+		if (!isUuid(sessionId)) {
+			return parseChildRef(sessionId)
+				? rejected("unsupported", "a subagent's session has no host of its own")
+				: notASession(sessionId);
+		}
 		const host = this.hosts.get(sessionId);
 		if (host && !host.ended) return this.onHost(host, work);
 		const stored = await this.deps.store.locate(sessionId);

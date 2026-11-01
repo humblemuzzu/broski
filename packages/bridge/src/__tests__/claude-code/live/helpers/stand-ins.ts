@@ -101,6 +101,8 @@ export interface StandInMapping extends MappingPort {
 	readonly settled: ("completed" | "aborted")[];
 	/** The session id each mapper was created for, in order. */
 	readonly seeds: string[];
+	/** True: `settle` throws, as a broken part of another lane would. */
+	failSettle: boolean;
 	/** Events `map` returns for each frame, to drive the host's routing. */
 	script(events: (frame: SDKMessage) => readonly MappedEvent[]): void;
 	/** Resolves once a frame of `type` has been mapped (now, if one has). */
@@ -126,10 +128,18 @@ export function standInMapping(): StandInMapping {
 		},
 		settle: (outcome) => {
 			settled.push(outcome);
+			if (state.failSettle) throw new Error("the mapper is broken");
 			return [];
 		},
 	};
+	const state = { failSettle: false };
 	return {
+		get failSettle() {
+			return state.failSettle;
+		},
+		set failSettle(value: boolean) {
+			state.failSettle = value;
+		},
 		mapped,
 		noted,
 		settled,

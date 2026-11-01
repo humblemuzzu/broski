@@ -83,6 +83,16 @@ describe("run boundaries (D7)", () => {
 		await rig.dispose();
 	});
 
+	test("a part that fails while the run ends is a notice, and the run still finishes", async () => {
+		const { rig, query, live } = await hosted();
+		rig.mapping.failSettle = true;
+		query.push(running(), idle());
+		await flush();
+		expect(types(live.events())).toEqual(["run_started", "notice", "run_finished"]);
+		expect(live.events()[1]).toMatchObject({ level: "error", text: expect.stringContaining("the mapper is broken") });
+		await rig.dispose();
+	});
+
 	test("requires_action does not end the run, and an ask is withdrawn with it", async () => {
 		const { rig, query, live } = await hosted();
 		query.push(running(), requiresAction(), running(), idle());
@@ -150,22 +160,22 @@ describe("the mode and the model the CLI reports (D11, D12)", () => {
 	});
 
 	test("a model chosen here is not undone by the report that follows it; a later change by the CLI is shown", async () => {
-		const catalogue = standInCatalogue({ "claude-opus-5-5": "opus", "claude-sonnet-5-5": "sonnet" });
+		const catalogue = standInCatalogue({ "claude-opus-5-5": "default", "claude-sonnet-5-5": "sonnet" });
 		const { rig, query, live } = await hosted({ catalogue });
-		await live.control.setModel("sonnet");
-		query.push(running(), init({ model: "claude-sonnet-5-5" }), idle());
+		await live.control.setModel("opus");
+		query.push(running(), init({ model: "claude-opus-5-5" }), idle());
 		await flush();
 		expect(live.events().filter((event) => event.type === "model_changed")).toEqual([
-			{ type: "model_changed", modelId: "sonnet" },
+			{ type: "model_changed", modelId: "opus" },
 		]);
-		query.push(running(), init({ model: "claude-opus-5-5" }), idle());
+		query.push(running(), init({ model: "claude-sonnet-5-5" }), idle());
 		await flush();
 		expect(
 			live
 				.events()
 				.filter((event) => event.type === "model_changed")
 				.at(-1),
-		).toEqual({ type: "model_changed", modelId: "opus" });
+		).toEqual({ type: "model_changed", modelId: "sonnet" });
 		await rig.dispose();
 	});
 

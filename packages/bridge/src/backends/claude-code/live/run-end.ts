@@ -6,6 +6,7 @@ import type { AskDesk } from "../ports/asks";
 import type { SessionEmitter } from "../ports/live";
 import type { FrameMapper, MappedEvent } from "../ports/mapping";
 import { returnQueued } from "./abort";
+import { attempt } from "./attempt";
 import type { ChildRouter } from "./child-router";
 import type { PromptDesk } from "./prompt-desk";
 import type { InputQueue } from "./queue";
@@ -34,10 +35,13 @@ export function endRun(deps: RunEndDeps, outcome?: RunOutcome): void {
 	if (!run) return;
 	const final = outcome ?? deps.runs.outcomeOf();
 	const aborted = final.kind === "aborted";
-	deps.emitMapped(deps.mapper().settle(aborted ? "aborted" : "completed"));
-	deps.children.endRuns(final);
-	deps.desk.withdrawRun(run.runId);
-	closeOpenParts(deps.live, final);
+	const { live } = deps;
+	attempt(live, "closing what the run left open", () =>
+		deps.emitMapped(deps.mapper().settle(aborted ? "aborted" : "completed")),
+	);
+	attempt(live, "ending the subagents' runs", () => deps.children.endRuns(final));
+	attempt(live, "withdrawing the run's asks", () => deps.desk.withdrawRun(run.runId));
+	attempt(live, "closing a compaction", () => closeOpenParts(live, final));
 	deps.runs.finish(final);
 	deps.finished();
 	if (run.aborting) {
