@@ -45,6 +45,13 @@ Future<void> _tab(
 
 Finder _rowOf(String id) => find.byKey(ValueKey('session-row:$id'));
 
+Future<void> _closeSheet(WidgetTester tester) async {
+  final input = find.byKey(const ValueKey('title-filter-input'));
+  Navigator.of(tester.element(input)).pop();
+  await tester.pumpAndSettle();
+  expect(input, findsNothing);
+}
+
 Future<void> _addFilter(WidgetTester tester, String filter) async {
   await tester.tap(find.byKey(const ValueKey('title-filters')));
   await tester.pumpAndSettle();
@@ -54,8 +61,7 @@ Future<void> _addFilter(WidgetTester tester, String filter) async {
   );
   await tester.tap(find.byKey(const ValueKey('title-filter-add')));
   await tester.pumpAndSettle();
-  await tester.tapAt(const Offset(10, 10));
-  await tester.pumpAndSettle();
+  await _closeSheet(tester);
 }
 
 void main() {
@@ -110,8 +116,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Remove'));
     await tester.pumpAndSettle();
-    await tester.tapAt(const Offset(10, 10));
-    await tester.pumpAndSettle();
+    await _closeSheet(tester);
     expect(_rowOf('a'), findsOneWidget);
     expect(find.byKey(const ValueKey('session-hidden-count')), findsNothing);
   });
