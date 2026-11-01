@@ -1,8 +1,8 @@
 import 'package:broski/agent/catalog/session_actions.dart';
 import 'package:broski/agent/ui/chat/agent_chat_screen.dart';
 import 'package:broski/agent/ui/panels/panel_registry.dart';
-import 'package:broski/agent/ui/sessions/session_list_screen.dart';
 import 'package:broski/contract/generated/contract.dart';
+import 'package:broski/screens/sessions/contract_sessions_tab.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -18,15 +18,7 @@ Future<WidgetRig> _list(WidgetTester tester, Capabilities capabilities) async {
       result: const SessionsListed(page: SessionPage(items: [summary])),
     ),
   );
-  await rig.pump(
-    tester,
-    SessionListScreen(
-      backend: BackendDescriptor(
-        id: sessionRef.backend,
-        capabilities: capabilities,
-      ),
-    ),
-  );
+  await rig.pump(tester, ContractSessionsTab(backend: sessionRef.backend));
   return rig;
 }
 

@@ -1,4 +1,3 @@
-import 'package:broski/agent/agent_providers.dart';
 import 'package:broski/agent/ui/panels/panel_registry.dart';
 import 'package:broski/agent/ui/panels/run_op.dart';
 import 'package:broski/contract/generated/contract.dart';
@@ -41,7 +40,7 @@ class ModelPickerExtras extends ConsumerWidget {
               key: ValueKey('model-panel:${panel.kind.wire}'),
               onPressed: () => runOp(
                 context,
-                ref.read(contractClientProvider),
+                opToolsOf(ref),
                 panel,
                 SessionRef(backend: backend, sessionId: ''),
               ),

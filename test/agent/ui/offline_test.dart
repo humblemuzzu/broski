@@ -1,18 +1,13 @@
 import 'package:broski/agent/cache/agent_cache.dart';
 import 'package:broski/agent/ui/chat/agent_chat_screen.dart';
-import 'package:broski/agent/ui/sessions/session_list_screen.dart';
 import 'package:broski/contract/generated/contract.dart';
+import 'package:broski/screens/sessions/contract_sessions_tab.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../support/memory_text_store.dart';
 import '../support/session_fixtures.dart';
 import '../support/widget_rig.dart';
-
-final _backend = BackendDescriptor(
-  id: sessionRef.backend,
-  capabilities: everything,
-);
 
 const _said = UserMessageItem(id: 'u1', text: 'Fix the build', attachments: []);
 
@@ -44,7 +39,7 @@ void main() {
     tester,
   ) async {
     final cache = AgentCache(MemoryTextStore());
-    final home = SessionListScreen(backend: _backend);
+    const home = ContractSessionsTab(backend: BackendId.pi);
     await _screen(tester, cache, home);
     expect(find.byKey(const ValueKey('session-row:s1')), findsOneWidget);
     expect(find.byKey(_banner), findsNothing);
@@ -71,7 +66,7 @@ void main() {
     await _screen(
       tester,
       AgentCache(MemoryTextStore()),
-      SessionListScreen(backend: _backend),
+      const ContractSessionsTab(backend: BackendId.pi),
       reachable: false,
     );
     expect(find.byKey(_banner), findsNothing);

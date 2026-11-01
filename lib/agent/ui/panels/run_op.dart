@@ -1,15 +1,10 @@
+import 'package:broski/agent/agent_providers.dart';
 import 'package:broski/agent/client/contract_client.dart';
 import 'package:broski/agent/client/outcome.dart';
 import 'package:broski/agent/client/requests/session_requests.dart';
-import 'package:broski/agent/ui/chat/file_change_view.dart';
 import 'package:broski/agent/ui/panels/op_result_host.dart';
+import 'package:broski/agent/ui/panels/op_result_view.dart';
 import 'package:broski/agent/ui/panels/panel_registry.dart';
-import 'package:broski/agent/ui/panels/result_actions.dart';
-import 'package:broski/agent/ui/panels/settings_view.dart';
-import 'package:broski/agent/ui/panels/text_pages_view.dart';
-import 'package:broski/agent/ui/panels/tools_view.dart';
-import 'package:broski/agent/ui/panels/transfer/changed_files_view.dart';
-import 'package:broski/agent/ui/panels/transfer/export_share_view.dart';
 import 'package:broski/agent/ui/panels/transfer/file_transfers.dart';
 import 'package:broski/agent/ui/shared/text_entry_dialog.dart';
 import 'package:broski/contract/generated/contract.dart';
@@ -18,23 +13,29 @@ import 'package:broski/widgets/chat/detail_sheet.dart' show DetailSheet;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+/// What an operation runs with: the contract client and the phone's files.
+typedef OpTools = ({ContractClient client, FileTransfers files});
+
+/// Read while the widget that offers the operation is still there: a sheet
+/// that closes before the operation runs takes its `ref` with it.
+OpTools opToolsOf(WidgetRef ref) => (
+  client: ref.read(contractClientProvider),
+  files: ref.read(fileTransfersProvider),
+);
+
 /// Asks what [panel] needs, calls the backend, and shows what came back. A
 /// history-rewriting operation reaches the conversation through the
 /// catalog's `transcript_invalidated` (contract §13).
 Future<void> runOp(
   BuildContext context,
-  ContractClient client,
+  OpTools tools,
   OpPanel panel,
   SessionRef session, {
   TranscriptItemId? itemId,
 }) async {
+  final (:client, :files) = tools;
   final flow = panel.flow;
-  if (flow != null) {
-    final files = ProviderScope.containerOf(
-      context,
-    ).read(fileTransfersProvider);
-    return flow(context, client, session, files);
-  }
+  if (flow != null) return flow(context, client, session, files);
   final call = await panel.ask(context, session.sessionId, itemId);
   if (call == null || !context.mounted) return;
   final outcome = await client.callBackend(call);
@@ -61,96 +62,4 @@ Future<void> runOp(
     case Refused() || Unreached():
       showProblem(context, problemOf(outcome));
   }
-}
-
-class OpResultView extends StatelessWidget {
-  const OpResultView({
-    super.key,
-    required this.result,
-    required this.actions,
-    required this.session,
-  });
-
-  final BackendOpResult result;
-  final ResultActions actions;
-
-  final SessionRef session;
-
-  @override
-  Widget build(BuildContext context) => switch (result) {
-    RewindFilesResult(
-      :final canRewind,
-      :final filesChanged,
-      :final insertions,
-      :final deletions,
-      :final skippedLinks,
-      :final error,
-    ) =>
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            canRewind
-                ? 'The files can be rewound.'
-                : 'The files cannot be rewound.',
-          ),
-          if (error != null) Text(error),
-          if (filesChanged != null)
-            for (final path in filesChanged) Text(path),
-          if (insertions != null || deletions != null)
-            Text('+${insertions ?? 0} −${deletions ?? 0}'),
-          if (skippedLinks != null && skippedLinks > 0)
-            Text(
-              '$skippedLinks files were left alone: a link sat at their path.',
-            ),
-        ],
-      ),
-    RevertStaged(:final files) => Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Staged. Commit or undo it from the session menu.'),
-        for (final change in files) FileChangeView(change: change),
-      ],
-    ),
-    ReviewStarted() => const Text('The review runs in this session.'),
-    Reverted() ||
-    RevertCommitted() ||
-    TreeNavigated() => const Text('Done. The conversation reloads.'),
-    TakenOver() => const Text('This session now runs from your phone.'),
-    TreeRead() ||
-    EntryLabelled() ||
-    BranchSummaryAborted() ||
-    ShellStarted() => const Text('Done.'),
-    RevertCleared() => const Text('The staged revert was undone.'),
-    SessionSettingsResult(:final settings) => SessionSettingsView(
-      settings: settings,
-      actions: actions,
-    ),
-    final SessionToolsResult tools => SessionToolsView(
-      result: tools,
-      actions: actions,
-    ),
-    final SystemPromptResult page => TextPagesView(
-      page: page,
-      actions: actions,
-    ),
-    final SessionExported exported => ExportShareView(
-      session: session,
-      exported: exported,
-    ),
-    ExportPartRead() => const SizedBox.shrink(),
-    SessionImported() => const Text('Imported. It is in the list.'),
-    final ChangedFilesListed changed => ChangedFilesView(changed: changed),
-    ModelsRefreshed(:final problems) => Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          problems.isEmpty
-              ? 'The model lists are up to date.'
-              : 'Some catalogues could not be refreshed:',
-        ),
-        for (final problem in problems) Text(problem),
-      ],
-    ),
-  };
 }

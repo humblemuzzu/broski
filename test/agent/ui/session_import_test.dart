@@ -3,8 +3,8 @@ import 'dart:typed_data';
 
 import 'package:broski/agent/ui/chat/agent_chat_screen.dart';
 import 'package:broski/agent/ui/panels/transfer/file_transfers.dart';
-import 'package:broski/agent/ui/sessions/session_list_screen.dart';
 import 'package:broski/contract/generated/contract.dart';
+import 'package:broski/screens/sessions/contract_sessions_tab.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -48,12 +48,7 @@ Future<(WidgetRig, MemoryFileTransfers)> _list(
   );
   await rig.pump(
     tester,
-    SessionListScreen(
-      backend: BackendDescriptor(
-        id: sessionRef.backend,
-        capabilities: capabilities,
-      ),
-    ),
+    ContractSessionsTab(backend: sessionRef.backend),
     overrides: [fileTransfersProvider.overrideWithValue(transfers)],
   );
   return (rig, transfers);
@@ -68,7 +63,7 @@ Future<void> _tap(WidgetTester tester, Finder finder) async {
 
 Future<void> _startImport(WidgetTester tester) async {
   await _tap(tester, _key('backend-panels'));
-  await _tap(tester, _key('backend-panel:import_session'));
+  await _tap(tester, _key('panel:import_session'));
 }
 
 List<ImportSessionOp> _uploads(WidgetRig rig) => [

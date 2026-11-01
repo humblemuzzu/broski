@@ -1,4 +1,3 @@
-import 'package:broski/agent/agent_providers.dart';
 import 'package:broski/agent/client/contract_client.dart';
 import 'package:broski/agent/client/outcome.dart';
 import 'package:broski/agent/client/requests/session_requests.dart';
@@ -34,10 +33,10 @@ void showItemActions(
     child: Consumer(
       builder: (sheetContext, ref, _) {
         // Runs from `context`, the screen under the sheet, once it closed.
-        void run(Future<void> Function(ContractClient client) action) {
-          final client = ref.read(contractClientProvider);
+        void run(Future<void> Function(OpTools tools) action) {
+          final tools = opToolsOf(ref);
           Navigator.of(sheetContext).pop();
-          action(client);
+          action(tools);
         }
 
         return Column(
@@ -55,8 +54,8 @@ void showItemActions(
                       ? 'Fork just before this'
                       : 'Fork through this',
                   () => run(
-                    (client) =>
-                        _fork(context, client, session, itemId, position),
+                    (tools) =>
+                        _fork(context, tools.client, session, itemId, position),
                   ),
                 ),
             for (final panel in panels)
@@ -64,8 +63,8 @@ void showItemActions(
                 'item-panel:${panel.kind.wire}',
                 panel.label,
                 () => run(
-                  (client) =>
-                      runOp(context, client, panel, session, itemId: itemId),
+                  (tools) =>
+                      runOp(context, tools, panel, session, itemId: itemId),
                 ),
               ),
           ],

@@ -3,7 +3,7 @@ import 'package:broski/agent/catalog/session_actions.dart';
 import 'package:broski/agent/catalog/session_list_controller.dart';
 import 'package:broski/agent/client/outcome.dart';
 import 'package:broski/agent/ui/chat/agent_chat_screen.dart';
-import 'package:broski/agent/ui/sessions/session_list_screen.dart';
+import 'package:broski/agent/ui/sessions/child_sessions_screen.dart';
 import 'package:broski/agent/ui/shared/text_entry_dialog.dart';
 import 'package:broski/contract/generated/contract.dart';
 import 'package:broski/theme/app_icons.dart';
@@ -73,7 +73,7 @@ Future<void> _run(
     case RowAction.children:
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (_) => SessionListScreen(backend: backend, parent: row),
+          builder: (_) => ChildSessionsScreen(backend: backend, parent: row),
         ),
       );
   }

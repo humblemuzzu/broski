@@ -1,10 +1,8 @@
 import 'package:broski/agent/agent_providers.dart';
 import 'package:broski/agent/ui/backend_label.dart';
-import 'package:broski/agent/ui/panels/backend_panels_sheet.dart';
-import 'package:broski/agent/ui/sessions/new_session_sheet.dart';
+import 'package:broski/agent/ui/sessions/session_list_actions.dart';
 import 'package:broski/agent/ui/sessions/session_list_view.dart';
 import 'package:broski/contract/generated/contract.dart';
-import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/utils/responsive.dart';
 import 'package:broski/widgets/adaptive_container.dart';
@@ -56,7 +54,13 @@ class _ContractSessionsTabState extends ConsumerState<ContractSessionsTab> {
                         ),
                       ),
                     ),
-                    if (descriptor != null && live) ..._actions(descriptor),
+                    if (descriptor != null && live)
+                      SessionListActions(
+                        backend: descriptor,
+                        archived: _archived,
+                        onArchivedChanged: (archived) =>
+                            setState(() => _archived = archived),
+                      ),
                   ],
                 ),
               ),
@@ -81,29 +85,6 @@ class _ContractSessionsTabState extends ConsumerState<ContractSessionsTab> {
       ),
     );
   }
-
-  List<Widget> _actions(BackendDescriptor descriptor) => [
-    if (hasBackendPanels(descriptor))
-      IconButton(
-        key: const ValueKey('backend-panels'),
-        tooltip: 'More',
-        icon: const Icon(AppIcons.moreVertical),
-        onPressed: () => showBackendPanels(context, descriptor),
-      ),
-    if (descriptor.capabilities.archive)
-      IconButton(
-        key: const ValueKey('toggle-archived'),
-        tooltip: _archived ? 'Show active' : 'Show archived',
-        icon: Icon(_archived ? AppIcons.unarchive : AppIcons.archive),
-        onPressed: () => setState(() => _archived = !_archived),
-      ),
-    if (!_archived)
-      IconButton(
-        tooltip: 'New session',
-        icon: const Icon(AppIcons.add),
-        onPressed: () => showNewSessionSheet(context, descriptor),
-      ),
-  ];
 }
 
 class _Unavailable extends StatelessWidget {

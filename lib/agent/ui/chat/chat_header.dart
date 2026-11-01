@@ -127,12 +127,7 @@ class ChatActions extends ConsumerWidget {
             key: const ValueKey('chat-panels'),
             tooltip: 'More',
             icon: const Icon(AppIcons.moreVertical),
-            onPressed: () => showPanels(
-              context,
-              session,
-              capabilities,
-              controllable: state.controllable,
-            ),
+            onPressed: () => showPanelsSheet(context, panels, session),
           ),
       ],
     );
