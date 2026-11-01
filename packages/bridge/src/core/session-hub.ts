@@ -1,4 +1,5 @@
 import {
+	type ActionResult,
 	type AgentBackend,
 	type NewSessionOptions,
 	type NewSessionResult,
@@ -43,6 +44,8 @@ export class SessionHub {
 	private readonly opening = new Map<string, Promise<LiveSession | Rejected>>();
 	/** Per session, the end of its previous `OpenSession`: a close, or a late open being closed. */
 	private readonly closing = new Map<string, Promise<void>>();
+	/** How many holders pin each session open with no viewer (`hold`), by session key. */
+	private readonly holds = new Map<string, number>();
 	private disposed = false;
 
 	constructor(private readonly deps: HubDeps) {}
@@ -65,6 +68,30 @@ export class SessionHub {
 		return opened instanceof LiveSession ? { status: "accepted", session: opened.ref } : opened;
 	}
 
+	/**
+	 * One more holder of `ref`: the session opens as for an attach, if it is not open, and stays open while held, viewed
+	 * or not, as work in flight keeps it. Each hold needs its own `release`. An open that fails takes the hold back.
+	 */
+	async hold(backend: AgentBackend, ref: SessionRef): Promise<ActionResult> {
+		const key = sessionKey(ref);
+		this.holds.set(key, (this.holds.get(key) ?? 0) + 1);
+		const live = await this.acquire(backend, ref);
+		if (!(live instanceof LiveSession)) {
+			this.dropHold(key);
+			return live;
+		}
+		this.reviewIdle(live);
+		return { status: "accepted" };
+	}
+
+	/** One holder of `ref` lets it go; unheld, it closes as any idle session nobody views. */
+	release(ref: SessionRef): void {
+		const key = sessionKey(ref);
+		this.dropHold(key);
+		const live = this.live.get(key);
+		if (live) this.reviewIdle(live);
+	}
+
 	/** The open session `ref` names now, if it is one. */
 	find(ref: SessionRef): LiveSession | undefined {
 		return this.live.get(sessionKey(ref));
@@ -81,7 +108,7 @@ export class SessionHub {
 	 * being so. Every viewer change and every event comes through here, so a timer that fires is right.
 	 */
 	reviewIdle(live: LiveSession): void {
-		const idle = live.viewers.size === 0 && !holdsOpen(live.snapshot);
+		const idle = live.viewers.size === 0 && !holdsOpen(live.snapshot) && !this.holds.has(live.key);
 		if (idle && !live.cancelIdleClose) {
 			live.cancelIdleClose = this.deps.clock.after(this.deps.idleCloseMs, () => {
 				live.cancelIdleClose = undefined;
@@ -103,6 +130,12 @@ export class SessionHub {
 	dispose(): void {
 		this.disposed = true;
 		for (const live of [...this.live.values()]) this.retire(live);
+	}
+
+	private dropHold(key: string): void {
+		const left = (this.holds.get(key) ?? 0) - 1;
+		if (left > 0) this.holds.set(key, left);
+		else this.holds.delete(key);
 	}
 
 	private async openExisting(backend: AgentBackend, ref: SessionRef): Promise<LiveSession | Rejected> {

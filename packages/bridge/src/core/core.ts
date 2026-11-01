@@ -20,6 +20,7 @@ import type { ClientLink, CoreClock, CoreLog, DirectoryPolicy, PromptJournal, Re
 import { PromptLedger } from "./prompt-ledger";
 import { ProtocolServer } from "./protocol-server";
 import { Replacements } from "./replacements";
+import { rejected } from "./results";
 import { SessionHub } from "./session-hub";
 
 export interface CoreOptions {
@@ -135,6 +136,20 @@ export class BridgeCore {
 			ref,
 			answer,
 		);
+	}
+
+	/**
+	 * Pins the session open with no client attached, opening it as an attach would: its events reach the observer, and
+	 * what it raises keeps it open and can be answered (core README §20). Never answers anything itself.
+	 */
+	async hold(ref: SessionRef): Promise<ActionResult> {
+		const reached = await this.registry.reach(ref.backend);
+		return "backend" in reached ? this.hub.hold(reached.backend, ref) : rejected("not_found", reached.missing);
+	}
+
+	/** Lets one `hold` of the session go. */
+	release(ref: SessionRef): void {
+		this.hub.release(ref);
 	}
 
 	/** Bridge shutdown: every backend is disposed, which closes their sessions; pending asks expire with them. */

@@ -65,6 +65,32 @@ export const SESSION_MUTANTS: Mutant[] = [
 		},
 	]),
 	...mutantsOf("core/session-hub.ts", [
+		{ name: "hub: a hold does not hold", find: " && !this.holds.has(live.key)", replace: "" },
+		{
+			name: "hub: holds are not counted",
+			find: "this.holds.set(key, (this.holds.get(key) ?? 0) + 1);",
+			replace: "this.holds.set(key, 1);",
+		},
+		{
+			name: "hub: a hold whose open failed is kept",
+			find: "\t\t\tthis.dropHold(key);\n\t\t\treturn live;",
+			replace: "\t\t\treturn live;",
+		},
+		{
+			name: "hub: a hold of an open session leaves its idle close set",
+			find: '\t\tthis.reviewIdle(live);\n\t\treturn { status: "accepted" };',
+			replace: '\t\treturn { status: "accepted" };',
+		},
+		{
+			name: "hub: a release never lets the session close",
+			find: "\t\tthis.dropHold(key);\n\t\tconst live = this.live.get(key);\n\t\tif (live) this.reviewIdle(live);",
+			replace: "\t\tthis.dropHold(key);",
+		},
+		{
+			name: "hub: holds go below zero",
+			find: "\t\tif (left > 0) this.holds.set(key, left);\n\t\telse this.holds.delete(key);",
+			replace: "\t\tthis.holds.set(key, left);",
+		},
 		{ name: "hub: concurrent opens are not shared", find: "if (pending) return pending;", replace: "" },
 		{ name: "hub: a live session is opened again", find: "if (known) return Promise.resolve(known);", replace: "" },
 		{
@@ -214,6 +240,12 @@ export const SESSION_MUTANTS: Mutant[] = [
 			find: "observation.publish(live, record, before);",
 			replace: "",
 		},
+		{
+			name: "core: a hold of a backend not served reaches the hub",
+			find: 'return "backend" in reached ? this.hub.hold(reached.backend, ref)',
+			replace: "return true ? this.hub.hold(reached.backend, ref)",
+		},
+		{ name: "core: a release does nothing", find: "\t\tthis.hub.release(ref);", replace: "" },
 	]),
 	...mutantsOf("core/session-sink.ts", [
 		{ name: "sink: early records are lost", find: "for (const record of held) this.emit(record);", replace: "" },

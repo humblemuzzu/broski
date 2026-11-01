@@ -97,6 +97,12 @@ export const SEAM_MUTANTS: Mutant[] = [
 		{ name: "seam: a disconnect is ignored", find: "connections.get(ws)?.close();", replace: "" },
 		{ name: "seam: stop disposes nothing", find: "stop: () => core.dispose(),", replace: "stop: async () => {}," },
 		{
+			name: "seam: a hold reaches no core",
+			find: "hold: (session) => core.hold(session),",
+			replace: 'hold: async () => ({ status: "accepted" as const }),',
+		},
+		{ name: "seam: a release reaches no core", find: "release: (session) => core.release(session),", replace: "release: () => {}," },
+		{
 			name: "seam: no backend ever starts",
 			find: "for (const [id, factory] of backends) void core.addBackend(id, factory);",
 			replace: "",

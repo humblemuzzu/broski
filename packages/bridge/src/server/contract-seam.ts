@@ -47,6 +47,10 @@ export type ContractSeam = {
 	 * relays a decision made on a lock screen. Checked and applied as a phone's answer is.
 	 */
 	answer(session: SessionRef, answer: InteractionAnswer): Promise<ActionResult>;
+	/** Pins a session open with no phone attached, so what it raises reaches the feed (core README §20). */
+	hold(session: SessionRef): Promise<ActionResult>;
+	/** Lets one `hold` of the session go. */
+	release(session: SessionRef): void;
 	/** Starts the backends, once the listeners are up: a slow start keeps no phone from connecting. */
 	start(): void;
 	stop(): Promise<void>;
@@ -114,6 +118,8 @@ export function createContractSeam(
 			connections.delete(ws);
 		},
 		answer: (session, answer) => core.answer(session, answer),
+		hold: (session) => core.hold(session),
+		release: (session) => core.release(session),
 		start: () => {
 			for (const [id, factory] of backends) void core.addBackend(id, factory);
 		},
