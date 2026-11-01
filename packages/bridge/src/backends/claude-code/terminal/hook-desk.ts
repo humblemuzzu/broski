@@ -16,6 +16,8 @@ export interface DeskSession {
 	/** The run the ask blocks; starts an external one when the tail has seen none. */
 	ensureRun(): RunId;
 	toolMatching(name: string, input: unknown): ToolCallId | undefined;
+	/** Resolves once what the terminal has written so far has been shown. */
+	catchUp(): Promise<void>;
 	now(): number;
 }
 
@@ -27,6 +29,7 @@ interface Pending {
 
 export class HookDesk {
 	private readonly pending = new Map<InteractionId, Pending>();
+	private shut = false;
 
 	constructor(private readonly session: DeskSession) {}
 
@@ -35,8 +38,10 @@ export class HookDesk {
 	}
 
 	/** Resolves with the person's decision; undefined when the terminal is left to decide. */
-	raise(ask: PermissionRequestHookInput, signal: AbortSignal): Promise<HookDecision> {
-		if (signal.aborted) return Promise.resolve({ decision: undefined });
+	async raise(ask: PermissionRequestHookInput, signal: AbortSignal): Promise<HookDecision> {
+		if (signal.aborted) return { decision: undefined };
+		await this.session.catchUp();
+		if (signal.aborted || this.shut) return { decision: undefined };
 		const id = mintInteractionId();
 		const runId = this.session.ensureRun();
 		const toolCallId = this.session.toolMatching(ask.tool_name, ask.tool_input);
@@ -94,7 +99,9 @@ export class HookDesk {
 		for (const [id, entry] of [...this.pending]) if (entry.runId === runId) this.withdraw(id);
 	}
 
+	/** The session is going: what is open is withdrawn and nothing new is raised. */
 	withdrawAll(): void {
+		this.shut = true;
 		for (const id of [...this.pending.keys()]) this.withdraw(id);
 	}
 }

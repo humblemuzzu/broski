@@ -1,7 +1,14 @@
 /** The `TerminalWatch` `backend.ts` builds (D21): a session another process writes opens watch-only, never resumed. */
 
 import { stat } from "node:fs/promises";
-import type { OpenResult, SessionId, SessionRef, SessionSink } from "../../../contract";
+import type {
+	ActionResult,
+	InteractionAnswer,
+	OpenResult,
+	SessionId,
+	SessionRef,
+	SessionSink,
+} from "../../../contract";
 import type { TerminalDeps } from "../ports/deps";
 import type { StoredSession } from "../ports/store";
 import type { TerminalWatch } from "../ports/terminal";
@@ -12,7 +19,15 @@ import { TerminalSessions } from "./terminal-sessions";
 /** A file written this recently, by a process this bridge does not host, belongs to a terminal (research 04 §7 rec. 6). */
 export const WRITING_MS = 10_000;
 
-export function createTerminalWatch(deps: TerminalDeps): TerminalWatch {
+/**
+ * `answerAsk` is where a person's answer to a terminal ask goes once the core can route one to a session it only
+ * watches (Step 3b); `backend.ts` sees a `TerminalWatch`.
+ */
+export interface TerminalWatchWithAsks extends TerminalWatch {
+	answerAsk(sessionId: SessionId, answer: InteractionAnswer): ActionResult;
+}
+
+export function createTerminalWatch(deps: TerminalDeps): TerminalWatchWithAsks {
 	const { services } = deps;
 	const enabled = services.terminal.watch !== false;
 	const sessions = new TerminalSessions(services.clock);
@@ -63,6 +78,7 @@ export function createTerminalWatch(deps: TerminalDeps): TerminalWatch {
 	return {
 		writing,
 		openWatchOnly,
+		answerAsk: (sessionId, answer) => sessions.answer(sessionId, answer),
 		start: async () => {
 			if (enabled) services.terminal.hookAsks?.(createHookAsks({ sessions, hosted: deps.hosted }));
 		},

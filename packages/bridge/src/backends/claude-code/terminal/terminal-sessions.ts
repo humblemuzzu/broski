@@ -1,8 +1,9 @@
 /** The sessions a terminal writes that are open here: one `WatchedSession` per session, one `ProjectWatch` per directory. */
 
 import { dirname } from "node:path";
-import type { SessionId, SessionSink } from "../../../contract";
+import type { ActionResult, InteractionAnswer, SessionId, SessionSink } from "../../../contract";
 import type { Clock } from "../ports/time";
+import { rejected } from "../rejections";
 import { ProjectWatch } from "./project-watch";
 import { WatchedSession } from "./watch-session";
 
@@ -59,6 +60,12 @@ export class TerminalSessions {
 
 	isAsked(sessionId: SessionId): boolean {
 		return this.asked.has(sessionId);
+	}
+
+	/** A person's answer to a terminal ask on an open watch-only session. */
+	answer(sessionId: SessionId, answer: InteractionAnswer): ActionResult {
+		const entry = this.entries.get(sessionId);
+		return entry === undefined ? rejected("not_found", "that session is not open") : entry.session.desk.answer(answer);
 	}
 
 	/** The open session, now or when it opens; undefined when `signal` aborts first. */

@@ -4,7 +4,14 @@
  * file's only writer (D21).
  */
 
-import { type AgentEvent, emptySnapshot, type RunId, type SessionSink, type SessionSnapshot } from "../../../contract";
+import {
+	type AgentEvent,
+	applyEvent,
+	emptySnapshot,
+	type RunId,
+	type SessionSink,
+	type SessionSnapshot,
+} from "../../../contract";
 import { LiveState } from "../live/live-state";
 import type { MappedEvent } from "../ports/mapping";
 import type { Clock } from "../ports/time";
@@ -20,42 +27,55 @@ const HISTORY_SLACK_MS = 1_000;
 export class WatchedSession {
 	readonly live: LiveState;
 	readonly desk: HookDesk;
-	private readonly tail: TranscriptTail;
-	private readonly translator = new LineTranslator();
 	private readonly attachedAt: number;
-	private pumping = false;
+	private pumping: Promise<void> | undefined;
 	private dirty = false;
 	private closed = false;
 	private cancelQuiet: (() => void) | undefined;
+	private readonly sinks = new Set<SessionSink>();
 
 	private constructor(
 		readonly path: string,
 		private readonly clock: Clock,
+		private readonly tail: TranscriptTail,
+		private readonly translator: LineTranslator,
+		initial: SessionSnapshot,
 	) {
-		this.live = new LiveState(emptySnapshot(), () => clock.now());
-		this.tail = new TranscriptTail(path);
+		this.live = new LiveState(initial, () => clock.now());
+		this.live.attach({
+			emit: (record) => {
+				for (const sink of this.sinks) sink.emit(record);
+			},
+		});
 		this.attachedAt = clock.now();
 		this.desk = new HookDesk({
 			emit: (event) => this.publish([{ event }]),
 			ensureRun: () => this.ensureRun(),
 			toolMatching: (name, input) => this.translator.openToolMatching(name, input),
+			catchUp: () => this.catchUp(),
 			now: () => clock.now(),
 		});
 	}
 
-	/** Starts at the end of the file: what it holds now is the transcript's to show. */
+	/**
+	 * Starts at the end of the file. What it held is the transcript's to show, except a turn still under way: that one is
+	 * the open snapshot's run, so its running tools can be finished, and its asks answered, by what is written next.
+	 */
 	static async open(path: string, clock: Clock): Promise<WatchedSession> {
-		const session = new WatchedSession(path, clock);
-		for (const line of await session.tail.attach()) session.translator.remember(parse(line));
-		return session;
+		const tail = new TranscriptTail(path);
+		const translator = new LineTranslator();
+		const initial = seeded(translator, await tail.attach(), clock.now());
+		return new WatchedSession(path, clock, tail, translator, initial);
 	}
 
+	/** Every open of the session gets its events; the snapshot is the state they apply on top of. */
 	attach(sink: SessionSink): SessionSnapshot {
-		return this.live.attach(sink);
+		this.sinks.add(sink);
+		return this.live.snapshot();
 	}
 
 	detach(sink: SessionSink): void {
-		this.live.detach(sink);
+		this.sinks.delete(sink);
 	}
 
 	get runId(): RunId | undefined {
@@ -66,7 +86,13 @@ export class WatchedSession {
 	schedule(): void {
 		if (this.closed) return;
 		this.dirty = true;
-		if (!this.pumping) void this.pump();
+		this.pumping ??= this.pump();
+	}
+
+	/** Resolves once everything written to the file by now has been read and shown. */
+	catchUp(): Promise<void> {
+		this.schedule();
+		return this.pumping ?? Promise.resolve();
 	}
 
 	dispose(): void {
@@ -77,7 +103,6 @@ export class WatchedSession {
 	}
 
 	private async pump(): Promise<void> {
-		this.pumping = true;
 		try {
 			while (this.dirty && !this.closed) {
 				this.dirty = false;
@@ -87,7 +112,7 @@ export class WatchedSession {
 				if (read.more) this.dirty = true;
 			}
 		} finally {
-			this.pumping = false;
+			this.pumping = undefined;
 		}
 	}
 
@@ -131,6 +156,18 @@ export class WatchedSession {
 	private beforeEmit(event: AgentEvent): void {
 		if (event.type === "tool_finished") this.desk.withdrawForTool(event.toolCallId);
 		else if (event.type === "run_finished") this.desk.withdrawForRun(event.runId);
+	}
+}
+
+/** The live state of the lines already in the file: the turn still under way, else nothing. */
+function seeded(translator: LineTranslator, lines: readonly string[], now: number): SessionSnapshot {
+	const events = lines.flatMap((line) => translator.translate(parse(line)));
+	events.push(...translator.settle());
+	try {
+		const state = events.reduce((snapshot, { event }) => applyEvent(snapshot, { at: now, event }), emptySnapshot());
+		return state.run === undefined ? emptySnapshot() : state;
+	} catch {
+		return emptySnapshot();
 	}
 }
 

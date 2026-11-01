@@ -101,7 +101,8 @@ describe("TranscriptTail", () => {
 
 	test("the tail path never reads a whole file", () => {
 		const root = join(import.meta.dir, "../../../backends/claude-code/terminal");
-		for (const name of readdirSync(root)) {
+		const notTheTail = new Set(["hook-install.ts"]);
+		for (const name of readdirSync(root).filter((file) => !notTheTail.has(file))) {
 			expect(readFileSync(join(root, name), "utf8"), name).not.toMatch(/readFile(Sync)?\(/);
 		}
 	});

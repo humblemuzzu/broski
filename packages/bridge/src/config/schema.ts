@@ -35,8 +35,10 @@ export const BroskiConfigSchema = z.object({
 		.object({
 			/** The `claude` executable to run instead of the one the bridge carries (`server/claude-cli-path.ts`). */
 			cliPath: z.string().optional(),
+			/** Answer a terminal `claude`'s permission prompts from the phone: installs a hook in the user's Claude settings. */
+			terminalAsks: z.boolean().default(true),
 		})
-		.default({}),
+		.default({ terminalAsks: true }),
 	pi: z
 		.object({
 			enabled: z.boolean().optional(),

@@ -41,7 +41,11 @@ export class ProjectWatch {
 
 	stop(): void {
 		this.stopped = true;
-		this.watcher?.close();
+		try {
+			this.watcher?.close();
+		} catch {
+			// A watcher whose directory is gone may refuse to close; there is nothing left to release.
+		}
 		this.watcher = undefined;
 		this.cancelSweep?.();
 		this.cancelSweep = undefined;
