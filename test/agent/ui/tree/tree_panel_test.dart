@@ -1,5 +1,6 @@
 import 'package:broski/agent/ui/chat/agent_chat_screen.dart';
 import 'package:broski/contract/generated/contract.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -106,6 +107,11 @@ void main() {
   testWidgets('shows the newest entries with the position and the labels, and '
       'reads the earlier ones when asked', (tester) async {
     final rig = await _tree(tester);
+    final sheet = find.ancestor(
+      of: _key('tree-panel'),
+      matching: find.byType(DetailSheet),
+    );
+    expect(tester.widget<DetailSheet>(sheet).title, 'Session tree');
     expect(find.text('Second answer'), findsOneWidget);
     expect(find.text('First answer'), findsOneWidget);
     expect(find.text('#checkpoint'), findsOneWidget);

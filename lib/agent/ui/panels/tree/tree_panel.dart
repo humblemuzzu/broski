@@ -11,6 +11,7 @@ import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/app_typography.dart';
 import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart' show DetailSheet;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -25,16 +26,12 @@ const _pageLimit = 200;
 /// (`navigate_tree`, optionally summarising the branch left; cancellable) and
 /// to label a node.
 Future<void> showTreeSheet(BuildContext context, SessionRef session) =>
-    showModalBottomSheet<void>(
+    DetailSheet.showScrolling<void>(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (_) => DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.9,
-        maxChildSize: 0.95,
-        builder: (_, scroll) => TreePanel(session: session, scroll: scroll),
-      ),
+      title: 'Session tree',
+      initialSize: 0.9,
+      maxSize: 0.95,
+      builder: (scroll) => TreePanel(session: session, scroll: scroll),
     );
 
 class TreePanel extends ConsumerStatefulWidget {
@@ -210,8 +207,8 @@ class _TreePanelState extends ConsumerState<TreePanel> {
   Widget _header(OpenCodeTheme theme, int shown) => Padding(
     padding: Insets.cardSm,
     child: Row(
+      mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        Expanded(child: Text('Session tree', style: AppTypography.h3())),
         PopupMenuButton<TreeFilter>(
           key: const ValueKey('tree-filter'),
           tooltip: 'Show',

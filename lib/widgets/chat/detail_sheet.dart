@@ -36,6 +36,27 @@ class DetailSheet extends StatelessWidget {
     double initialSize = 0.5,
     double maxSize = 0.9,
     double minSize = 0.25,
+  }) => showScrolling<T>(
+    context: context,
+    title: title,
+    trailing: trailing,
+    initialSize: initialSize,
+    maxSize: maxSize,
+    minSize: minSize,
+    builder: (scrollController) =>
+        SingleChildScrollView(controller: scrollController, child: child),
+  );
+
+  /// Like [show], for a child that scrolls itself, such as a long list: it is
+  /// given the sheet's scroll controller, so dragging it drags the sheet.
+  static Future<T?> showScrolling<T>({
+    required BuildContext context,
+    required String title,
+    required Widget Function(ScrollController scrollController) builder,
+    Widget? trailing,
+    double initialSize = 0.5,
+    double maxSize = 0.9,
+    double minSize = 0.25,
   }) {
     return showModalBottomSheet<T>(
       context: context,
@@ -47,16 +68,11 @@ class DetailSheet extends StatelessWidget {
         maxChildSize: maxSize,
         minChildSize: minSize,
         expand: false,
-        builder: (context, scrollController) {
-          return DetailSheet(
-            title: title,
-            trailing: trailing,
-            child: SingleChildScrollView(
-              controller: scrollController,
-              child: child,
-            ),
-          );
-        },
+        builder: (context, scrollController) => DetailSheet(
+          title: title,
+          trailing: trailing,
+          child: builder(scrollController),
+        ),
       ),
     );
   }
