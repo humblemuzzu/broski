@@ -5,6 +5,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import { BackendStatus } from "../contract";
+import { createClaudeCodeWiring } from "../server/claude-code-wiring";
 import { contractOptions } from "../server/contract-backends";
 import { E2E_TEST_TIMEOUT_MS, startBridge } from "./e2e/harness";
 import { connectPhone } from "./helpers/link-contract-client";
@@ -18,8 +19,18 @@ afterEach(() => {
 });
 
 describe("which backends the core serves", () => {
-	test("pi", () => {
+	const wiring = (contract: boolean) =>
+		createClaudeCodeWiring({
+			settings: { contract, terminalAsks: true },
+			cli: () => ({ ok: false, reason: "not needed", notes: [] }),
+			version: "0.0.0-test",
+			log: () => undefined,
+		});
+
+	test("pi, and Claude Code only with claudeCode.contract on", () => {
 		expect((contractOptions().backends ?? []).map(([id]) => id)).toEqual(["pi"]);
+		expect((contractOptions(wiring(false)).backends ?? []).map(([id]) => id)).toEqual(["pi"]);
+		expect((contractOptions(wiring(true)).backends ?? []).map(([id]) => id)).toEqual(["pi", "claude-code"]);
 	});
 });
 

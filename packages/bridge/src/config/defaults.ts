@@ -23,7 +23,7 @@ export function getDefaultConfig(): BroskiConfig {
 			claudeCode: true,
 			pi: false,
 		},
-		claudeCode: { terminalAsks: true },
+		claudeCode: { contract: false, terminalAsks: true },
 		pi: {
 			enabled: false,
 			defaultThinkingLevel: "medium",

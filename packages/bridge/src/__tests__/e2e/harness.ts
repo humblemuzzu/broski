@@ -19,6 +19,8 @@ import type { BridgeServer, BridgeServerOptions } from "../../server";
  * installers are the only thing that writes there, so they are stubbed out for every e2e file.
  */
 mock.module("../../handlers/cc_hook_installer", () => ({
+	HOOK_MARKER: "broski-permission-proxy",
+	ccHookSettingsPath: () => "/nonexistent/broski-e2e/.claude/settings.json",
 	installCcHook: async () => {},
 	uninstallCcHook: async () => {},
 }));

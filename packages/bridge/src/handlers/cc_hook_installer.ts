@@ -14,7 +14,12 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { assertNotRealHome } from "../safety/real-home-guard";
 
-const HOOK_MARKER = "broski-permission-proxy";
+export const HOOK_MARKER = "broski-permission-proxy";
+
+/** The file this installer edits: `~/.claude/settings.json`, whatever `CLAUDE_CONFIG_DIR` says. */
+export function ccHookSettingsPath(): string {
+	return join(homedir(), ".claude", "settings.json");
+}
 
 /** The loopback listener the hook calls: its real scheme, never an assumed one. */
 export type HookInstallTarget = {
@@ -31,7 +36,7 @@ export type HookInstallTarget = {
  */
 export async function installCcHook(target: HookInstallTarget): Promise<void> {
 	const { log } = target;
-	const settingsPath = join(homedir(), ".claude", "settings.json");
+	const settingsPath = ccHookSettingsPath();
 	assertNotRealHome(settingsPath, "cc hook install");
 
 	let settings: Record<string, unknown> = {};
@@ -125,7 +130,7 @@ function removeHookFromEvent(hooks: Record<string, unknown>, eventName: string):
  * Removes both PreToolUse and PermissionRequest hooks.
  */
 export async function uninstallCcHook(log?: (msg: string) => void): Promise<void> {
-	const settingsPath = join(homedir(), ".claude", "settings.json");
+	const settingsPath = ccHookSettingsPath();
 	assertNotRealHome(settingsPath, "cc hook uninstall");
 
 	try {

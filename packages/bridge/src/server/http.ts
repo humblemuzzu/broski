@@ -3,6 +3,7 @@ import { type CcPermissionHookContext, handleCcPermissionHook } from "../handler
 import { createFetchHandler, type FetchHandlerDeps, type HandleHttpDeps } from "../http-handler";
 import { buildProxyPortAllowlist } from "../http-utils";
 import { isLoopbackAddress } from "../security";
+import type { TerminalHookReceiver } from "./cc-terminal-hook";
 import type { BridgeLimits } from "./limits";
 import type { LeveledLogger } from "./logger";
 import type { BridgeState } from "./state";
@@ -22,6 +23,8 @@ export type HttpWiringDeps = {
 	version: string;
 	listFilesDirectly: (path: string) => Promise<unknown>;
 	debugRts: boolean;
+	/** The Claude Code terminal hook's receiver (D26), served only with `claudeCode.contract` and `terminalAsks`. */
+	terminalHook?: TerminalHookReceiver;
 };
 
 /** HTTP/WS upgrade fetch wiring: auth, TLS enforcement, proxy and the permission hooks. */
@@ -44,6 +47,7 @@ export function createHttpWiring(deps: HttpWiringDeps): HttpWiring {
 			};
 			return handleCcPermissionHook(request, hookCtx);
 		},
+		...(deps.terminalHook && { handleCcTerminalHook: deps.terminalHook.handle }),
 	};
 
 	const fetchHandlerDeps: FetchHandlerDeps = {

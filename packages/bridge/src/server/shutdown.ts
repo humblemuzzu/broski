@@ -13,6 +13,8 @@ export type StopDeps = {
 	fsWatchers: FsWatchers;
 	ptyRuntime: PtyRuntime;
 	contract: ContractSeam;
+	/** False with `claudeCode.contract`: the old hook was never installed, and the adapter's own hook stays. */
+	keepsOldHook: boolean;
 };
 
 /** Cancels the timers, drains the waiters, and runs the resource teardown behind `server.stop()`. */
@@ -41,7 +43,7 @@ export function createStop(deps: StopDeps): (force?: boolean) => Promise<Teardow
 				eventBuffers: [state.ccEventBuffers],
 				closeFsWatchers: () => deps.fsWatchers.closeAll(),
 				stopPtyRuntime: () => deps.ptyRuntime.stop(),
-				uninstallHooks: [() => uninstallCcHook(deps.log.logInfo)],
+				uninstallHooks: deps.keepsOldHook ? [() => uninstallCcHook(deps.log.logInfo)] : [],
 				disposeBackends: [() => deps.contract.stop()],
 				stopServers: () => {
 					state.secureServer?.stop(force);

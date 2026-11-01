@@ -12,6 +12,7 @@ import { shutdown } from "./serve/shutdown";
 import { serveState } from "./serve/state";
 import { createBridgeServer, loadOrCreateAuthState } from "./server";
 import { claudeCliPathOnce } from "./server/claude-cli-path";
+import { type ClaudeCodeWiring, createClaudeCodeWiring } from "./server/claude-code-wiring";
 import { contractOptions } from "./server/contract-backends";
 import { startPeriodicUpdateCheck, startupUpdateCheck } from "./updater";
 
@@ -50,6 +51,7 @@ async function bindBridgeServer(
 	effectivePort: number,
 	logger: ReturnType<typeof createBridgeLogger>,
 	daemonLog: (message: string) => void,
+	claudeCode: ClaudeCodeWiring,
 ): Promise<void> {
 	const auth = await loadOrCreateAuthState(cli.newToken);
 	if (cli.newToken) {
@@ -68,7 +70,8 @@ async function bindBridgeServer(
 					linkSocket: cli.linkSocket,
 					linkKeyFile: cli.linkKeyFile,
 					bridgeLogger: logger,
-					contract: contractOptions(),
+					contract: contractOptions(claudeCode),
+					claudeCode,
 				}),
 			{
 				mode: cli.daemon ? "daemon" : "once",
@@ -135,11 +138,18 @@ export async function runServe(cli: CliOptions, config: BroskiConfig): Promise<v
 		{ daemon: cli.daemon, linkSocket: cli.linkSocket },
 	);
 
-	setClaudeExecutableProvider(claudeCliPathOnce(config.claudeCode.cliPath));
+	const claudeCli = claudeCliPathOnce(config.claudeCode.cliPath);
+	setClaudeExecutableProvider(claudeCli);
+	const claudeCode = createClaudeCodeWiring({
+		settings: config.claudeCode,
+		cli: claudeCli,
+		version,
+		log: bridgeLogger.info,
+	});
 
 	daemonLog("[daemon] Loading auth token...");
 	daemonLog("[daemon] Creating bridge server...");
-	await bindBridgeServer(cli, effectivePort, bridgeLogger, daemonLog);
+	await bindBridgeServer(cli, effectivePort, bridgeLogger, daemonLog, claudeCode);
 	const bridgeServer = serveState.bridgeServer;
 	if (!bridgeServer) return;
 	const bridgePort = bridgeServer.port();
