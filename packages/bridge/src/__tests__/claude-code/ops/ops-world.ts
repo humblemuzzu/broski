@@ -3,7 +3,12 @@
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import type { Query, ResolvedSettings, SDKControlInitializeResponse } from "@anthropic-ai/claude-agent-sdk";
+import type {
+	Query,
+	ResolvedSettings,
+	SDKControlInitializeResponse,
+	SDKSystemMessage,
+} from "@anthropic-ai/claude-agent-sdk";
 import type { ClaudeCodeParts } from "../../../backends/claude-code/backend";
 import { callOp } from "../../../backends/claude-code/call-op";
 import { CatalogFeed } from "../../../backends/claude-code/catalog-feed";
@@ -30,6 +35,8 @@ export interface HostSpec {
 	readonly tasks?: HostView["tasks"];
 	readonly busy?: boolean;
 	readonly cwd?: string;
+	/** The host's latest `system/init`, read live so a test can change it between calls. */
+	readonly init?: () => SDKSystemMessage | undefined;
 }
 
 export interface WorldOptions {
@@ -117,6 +124,7 @@ function liveWith(options: WorldOptions, transient: FakeQuery[], cwd: string): L
 		query: spec.query,
 		tasks: spec.tasks ?? (() => []),
 		busy: () => spec.busy ?? false,
+		latestInit: spec.init ?? (() => undefined),
 	});
 	return {
 		row: () => undefined,

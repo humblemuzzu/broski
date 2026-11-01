@@ -3,7 +3,7 @@
  * the model, the mode, the asks' withdrawals, the catalogue's news and the tasks. What a frame shows is the mapper's.
  */
 
-import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
+import type { SDKMessage, SDKSystemMessage } from "@anthropic-ai/claude-agent-sdk";
 import { MAX_TEXT_CHARS } from "../../../contract";
 import { clip } from "../bounds";
 import type { AskDesk } from "../ports/asks";
@@ -36,6 +36,8 @@ export interface FrameDeps {
 	readonly emitMapped: (events: readonly MappedEvent[]) => void;
 	/** The CLI wrote the session's file: a resume finds it. */
 	readonly persisted: () => void;
+	/** The turn's `system/init`, kept for the ops (`HostView.latestInit`). */
+	readonly initSeen: (init: SDKSystemMessage) => void;
 	/** A run begins that no send of ours started (a wake-up turn, a background task). */
 	readonly systemRun: () => void;
 	readonly endRun: () => void;
@@ -86,6 +88,7 @@ export class FrameHandler {
 				return;
 			case "init":
 				deps.persisted();
+				deps.initSeen(frame);
 				deps.settings.modelFromInit(frame.model);
 				deps.settings.modeFromFrame(frame.permissionMode);
 				this.began();

@@ -1,6 +1,9 @@
-/** `plugins` (D22): the plugins `enabledPlugins` names, enabled or disabled in local settings, reloaded in a live session. */
+/**
+ * `plugins` (D22): the plugins `enabledPlugins` names, enabled or disabled in local settings, reloaded in a live session;
+ * with a live session, also what its CLI loaded and what failed (Step 7).
+ */
 
-import type { ResolvedSettings } from "@anthropic-ai/claude-agent-sdk";
+import type { ResolvedSettings, SDKSystemMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { ActionList, BackendCallResult, PluginsOp, Rejected } from "../../../contract";
 import { isRecord } from "../json";
 import type { HostView, OpsDeps } from "../ports";
@@ -10,14 +13,15 @@ import { placeRoots } from "./config-roots";
 import { guarded } from "./guard";
 import { messageOf, withOptionalHost } from "./host-access";
 import { actionList, findAction } from "./list-rows";
+import { pluginLoadRows } from "./plugin-load-rows";
 import { pluginEntries, pluginRow } from "./plugin-rows";
 import { editSettings, setOwn } from "./settings-edit";
 
 const INSTALL_NOTE = "Installing a plugin is done in a terminal with `claude plugin`.";
 const SAVED_NOTE = "Saved in local settings; it applies when a session next starts.";
 
-function listOf(resolved: ResolvedSettings, note?: string): ActionList {
-	return actionList(pluginEntries(resolved).map(pluginRow), note ?? INSTALL_NOTE);
+function listOf(resolved: ResolvedSettings, init: SDKSystemMessage | undefined, note?: string): ActionList {
+	return actionList([...pluginEntries(resolved).map(pluginRow), ...pluginLoadRows(init)], note ?? INSTALL_NOTE);
 }
 
 async function setEnabled(
@@ -64,7 +68,7 @@ export async function plugins(deps: OpsDeps, op: PluginsOp): Promise<BackendCall
 	return guarded("plugins", async () => {
 		const result = await withOptionalHost(deps, op.sessionId, async (host) => {
 			const before = await deps.services.sdk.resolveSettings({ cwd: op.cwd });
-			if (op.change === undefined) return { kind: "plugins" as const, list: listOf(before) };
+			if (op.change === undefined) return { kind: "plugins" as const, list: listOf(before, host?.latestInit()) };
 			const rows = actionList(pluginEntries(before).map(pluginRow)).rows;
 			const found = findAction(rows, op.change);
 			if (isRejected(found)) return found;
@@ -73,7 +77,7 @@ export async function plugins(deps: OpsDeps, op: PluginsOp): Promise<BackendCall
 			deps.catalogue.invalidate(op.cwd);
 			const note = host === undefined ? SAVED_NOTE : await reloadIn(host);
 			const after = await deps.services.sdk.resolveSettings({ cwd: op.cwd });
-			return { kind: "plugins" as const, list: listOf(after, note) };
+			return { kind: "plugins" as const, list: listOf(after, host?.latestInit(), note) };
 		});
 		return result;
 	});

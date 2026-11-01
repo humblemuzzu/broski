@@ -1,5 +1,6 @@
 /** One hosted session: one `query()`, its inbox, its consumer, its desk and mapper, its live state (D1). */
 
+import type { SDKSystemMessage } from "@anthropic-ai/claude-agent-sdk";
 import {
 	type ActionResult,
 	type InteractionAnswer,
@@ -59,6 +60,7 @@ export class SessionHost {
 	readonly slot: ProcessSlot;
 	private sink: SessionSink | undefined;
 	private persisted: boolean;
+	private init: SDKSystemMessage | undefined;
 	private launched = 0;
 	private finished = false;
 	private readonly watch: IdleWatch;
@@ -123,6 +125,10 @@ export class SessionHost {
 
 	markPersisted(): void {
 		this.persisted = true;
+	}
+
+	noteInit(init: SDKSystemMessage): void {
+		this.init = init;
 	}
 
 	get ended(): boolean {
@@ -210,6 +216,7 @@ export class SessionHost {
 			query: process.query,
 			tasks: (): readonly BackgroundTask[] => this.tasks.list(),
 			busy: () => !this.idle(),
+			latestInit: () => this.init,
 		};
 	}
 
@@ -269,6 +276,7 @@ export class SessionHost {
 
 	/** A process started again resumes a session the CLI wrote, even when no `init` was seen before it ended. */
 	private async launchOptions() {
+		this.init = undefined;
 		const restart = this.launched++ > 0;
 		const resume = this.persisted || (restart && (await this.onDisk()));
 		return launchOptions({

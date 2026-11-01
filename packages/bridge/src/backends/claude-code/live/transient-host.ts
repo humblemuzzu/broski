@@ -78,6 +78,7 @@ export async function withTransientHost<T>(
 			query: process.query,
 			tasks: () => [],
 			busy: () => false,
+			latestInit: () => undefined,
 		});
 	} finally {
 		process.close();

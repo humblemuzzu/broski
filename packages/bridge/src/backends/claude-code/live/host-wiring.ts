@@ -1,5 +1,6 @@
 /** How a host's parts are joined: what each one is given of the others. The host's parts are public for this file only. */
 
+import type { SDKSystemMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { Rejected, SessionId } from "../../../contract";
 import type { AskDesk } from "../ports/asks";
 import type { LiveDeps } from "../ports/deps";
@@ -35,6 +36,7 @@ export interface HostParts {
 	ensureProcess(): Promise<Rejected | undefined>;
 	rowChanged(): void;
 	markPersisted(): void;
+	noteInit(init: SDKSystemMessage): void;
 	cancelledBeforeStart(): void;
 	stopAgain(): void;
 	conversationReset(newId: SessionId): void;
@@ -88,6 +90,7 @@ export function frameHandlerOf(host: HostParts, prompts: PromptDesk): FrameHandl
 		cwd: host.cwd,
 		emitMapped: (events) => host.routing.emit(events),
 		persisted: () => host.markPersisted(),
+		initSeen: (init) => host.noteInit(init),
 		systemRun: () => {
 			host.runs.start("system");
 			host.rowChanged();

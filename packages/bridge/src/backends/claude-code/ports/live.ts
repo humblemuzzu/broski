@@ -1,6 +1,11 @@
 /** The live sessions (lane D, `live/`, `process/`): what the backend, the asks and the ops reach them through. */
 
-import type { Query, SDKTaskNotificationMessage, SDKTaskUpdatedMessage } from "@anthropic-ai/claude-agent-sdk";
+import type {
+	Query,
+	SDKSystemMessage,
+	SDKTaskNotificationMessage,
+	SDKTaskUpdatedMessage,
+} from "@anthropic-ai/claude-agent-sdk";
 import type {
 	AgentEvent,
 	NativeIds,
@@ -41,6 +46,12 @@ export interface HostView {
 	tasks(): readonly BackgroundTask[];
 	/** A run, an ask or a compaction is under way. */
 	busy(): boolean;
+	/**
+	 * The latest `system/init` of the host's current process: what the CLI loaded and decided for the session (its
+	 * model, plugins and plugin errors, fast mode). One comes with every turn and none before the first, so it is
+	 * undefined until the process ran a turn, after a new process starts, and always on a transient host (Step 7).
+	 */
+	latestInit(): SDKSystemMessage | undefined;
 }
 
 /**
