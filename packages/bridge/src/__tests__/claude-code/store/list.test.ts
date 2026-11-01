@@ -167,6 +167,21 @@ describe("rows", () => {
 		expect(odd.status === "rejected" && odd.rejection.code).toBe("not_found");
 	});
 
+	test("a session of a git worktree is listed under the worktree, never under the repository it belongs to", async () => {
+		const repo = world.project("repo");
+		const git = (...args: string[]) => Bun.spawnSync(["git", "-C", repo, ...args], { stderr: "ignore" });
+		git("init", "-q");
+		git("-c", "user.email=t@example.com", "-c", "user.name=t", "commit", "-q", "--allow-empty", "-m", "one");
+		const tree = join(dirname(repo), "repo-tree");
+		expect(git("worktree", "add", "-q", tree).exitCode).toBe(0);
+		const inRepo = seed(repo, "in the repo", new Date(Date.UTC(2026, 0, 1)));
+		const inTree = seed(tree, "in the worktree", new Date(Date.UTC(2026, 0, 2)));
+		const ids = async (cwd: string) =>
+			(await everyPage({ cwd, archived: false }, 10)).map((row) => row.session.sessionId);
+		expect(await ids(repo)).toEqual([inRepo]);
+		expect(await ids(tree)).toEqual([inTree]);
+	});
+
 	test("an AI title is generated, a /rename or the custom-title sidecar is the user's, whatever the SDK folds", async () => {
 		const cwd = world.project("titles");
 		const titleOf = async (sessionId: string) => {
