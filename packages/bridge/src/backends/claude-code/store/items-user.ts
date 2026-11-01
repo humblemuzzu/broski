@@ -8,6 +8,7 @@ import { imageRefsOf } from "../mapping/images";
 import { toolResultOf } from "../mapping/tool-results";
 import type { PromptRecord } from "../ports/store";
 import type { ItemContext } from "./items";
+import { localCommandText } from "./local-commands";
 import {
 	contentList,
 	contentText,
@@ -52,22 +53,39 @@ export function userItems(message: SessionMessage, context: ItemContext): Transc
 		const result = resultItem(block, { message, blockIndex, at, context });
 		if (result !== undefined) items.push(result);
 	});
+	const local = localCommandText(textOf(message));
+	if (local?.kind === "output") {
+		if (local.text !== "")
+			items.push({
+				kind: "notice",
+				id: message.uuid,
+				...(at !== undefined && { at }),
+				level: local.level,
+				text: clip(local.text, MAX_TEXT_CHARS),
+			});
+		return items;
+	}
+	const prompt = promptItem(message, context, at, local?.text ?? textOf(message));
+	return prompt === undefined ? items : [...items, prompt];
+}
+
+function promptItem(
+	message: SessionMessage,
+	context: ItemContext,
+	at: number | undefined,
+	text: string,
+): TranscriptItem | undefined {
 	const record = context.prompt(message.uuid);
 	const attachments = nameImages(imageRefsOf(rawContent(message), message.uuid), record);
-	const text = textOf(message);
-	if (text.trim() === "" && attachments.length === 0) return items;
-	items.push({
+	if (text.trim() === "" && attachments.length === 0) return undefined;
+	return {
 		kind: "user_message",
 		id: message.uuid,
 		...(at !== undefined && { at }),
 		text: clip(text, MAX_TEXT_CHARS),
 		attachments,
-		...(record !== undefined &&
-			ClientRequestId.safeParse(message.uuid).success && {
-				clientRequestId: message.uuid,
-			}),
-	});
-	return items;
+		...(record !== undefined && ClientRequestId.safeParse(message.uuid).success && { clientRequestId: message.uuid }),
+	};
 }
 
 interface ResultSite {
