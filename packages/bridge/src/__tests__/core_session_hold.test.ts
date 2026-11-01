@@ -134,6 +134,25 @@ describe("holding a session", () => {
 		expect(closedTimes(rig.opens.closed, session)).toBe(1);
 	});
 
+	test("follows its session when the backend replaces it, until the old ref's release lets the new one go", async () => {
+		const { rig, session } = await rigWithObserver();
+		await rig.core.hold(session);
+		await rig.core.hold(session);
+		rig.fake.fake.runExternally(session, "Clear it.", [{ kind: "replace_session" }]);
+		await quiesce();
+		rig.clock.advance(100 * DEFAULT_IDLE_CLOSE_MS);
+		await quiesce();
+		expect(rig.opens.closed).toEqual([]);
+		rig.core.release(session);
+		rig.clock.advance(100 * DEFAULT_IDLE_CLOSE_MS);
+		await quiesce();
+		expect(rig.opens.closed).toEqual([]);
+		rig.core.release(session);
+		rig.clock.advance(DEFAULT_IDLE_CLOSE_MS);
+		await quiesce();
+		expect(rig.opens.closed).toHaveLength(1);
+	});
+
 	test("of a backend the bridge does not serve is refused not_found", async () => {
 		const { rig } = await rigWithObserver();
 		const refused = await rig.core.hold({ backend: "claude-code", sessionId: "s" });

@@ -13,6 +13,7 @@ import {
 } from "../contract";
 import type { CoreClient } from "./client";
 import { SESSION_CALL_DEADLINE_MS, type Settled, settled, within } from "./deadline";
+import { Holds } from "./holds";
 import { holdsOpen } from "./keep-open";
 import { LiveSession, type LiveSessionDeps } from "./live-session";
 import type { Replacements } from "./replacements";
@@ -45,7 +46,7 @@ export class SessionHub {
 	/** Per session, the end of its previous `OpenSession`: a close, or a late open being closed. */
 	private readonly closing = new Map<string, Promise<void>>();
 	/** How many holders pin each session open with no viewer (`hold`), by session key. */
-	private readonly holds = new Map<string, number>();
+	private readonly holds = new Holds();
 	private disposed = false;
 
 	constructor(private readonly deps: HubDeps) {}
@@ -74,21 +75,19 @@ export class SessionHub {
 	 */
 	async hold(backend: AgentBackend, ref: SessionRef): Promise<ActionResult> {
 		const key = sessionKey(ref);
-		this.holds.set(key, (this.holds.get(key) ?? 0) + 1);
+		this.holds.add(key);
 		const live = await this.acquire(backend, ref);
 		if (!(live instanceof LiveSession)) {
-			this.dropHold(key);
+			this.holds.drop(key);
 			return live;
 		}
 		this.reviewIdle(live);
 		return { status: "accepted" };
 	}
 
-	/** One holder of `ref` lets it go; unheld, it closes as any idle session nobody views. */
+	/** One holder of `ref` lets it go, also after `ref` was replaced; unheld, it closes as any idle session nobody views. */
 	release(ref: SessionRef): void {
-		const key = sessionKey(ref);
-		this.dropHold(key);
-		const live = this.live.get(key);
+		const live = this.live.get(this.holds.drop(sessionKey(ref)));
 		if (live) this.reviewIdle(live);
 	}
 
@@ -130,12 +129,6 @@ export class SessionHub {
 	dispose(): void {
 		this.disposed = true;
 		for (const live of [...this.live.values()]) this.retire(live);
-	}
-
-	private dropHold(key: string): void {
-		const left = (this.holds.get(key) ?? 0) - 1;
-		if (left > 0) this.holds.set(key, left);
-		else this.holds.delete(key);
 	}
 
 	private async openExisting(backend: AgentBackend, ref: SessionRef): Promise<LiveSession | Rejected> {
@@ -211,6 +204,7 @@ export class SessionHub {
 			old.claims,
 		);
 		this.deps.replacements.record(old.epoch, ref, next.epoch);
+		this.holds.move(old.key, next.key);
 		this.live.set(next.key, next);
 		old.sink.deliverTo(next);
 		this.reviewIdle(next);

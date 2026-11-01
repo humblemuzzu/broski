@@ -64,16 +64,33 @@ export const SESSION_MUTANTS: Mutant[] = [
 			replace: "if (false) this.deps.log.error",
 		},
 	]),
+	...mutantsOf("core/holds.ts", [
+		{
+			name: "holds: holds are not counted",
+			find: "this.counts.set(key, (this.counts.get(key) ?? 0) + 1);",
+			replace: "this.counts.set(key, 1);",
+		},
+		{
+			name: "holds: holds go below zero",
+			find: "\t\tif (left > 0) this.counts.set(at, left);\n\t\telse this.counts.delete(at);",
+			replace: "\t\tthis.counts.set(at, left);",
+		},
+		{
+			name: "holds: a release of the old key does not follow the move",
+			find: "moved !== undefined && !this.counts.has(at);",
+			replace: "false;",
+		},
+		{
+			name: "holds: a move drops the holds it carries",
+			find: "this.counts.set(to, (this.counts.get(to) ?? 0) + count);",
+			replace: "",
+		},
+	]),
 	...mutantsOf("core/session-hub.ts", [
 		{ name: "hub: a hold does not hold", find: " && !this.holds.has(live.key)", replace: "" },
 		{
-			name: "hub: holds are not counted",
-			find: "this.holds.set(key, (this.holds.get(key) ?? 0) + 1);",
-			replace: "this.holds.set(key, 1);",
-		},
-		{
 			name: "hub: a hold whose open failed is kept",
-			find: "\t\t\tthis.dropHold(key);\n\t\t\treturn live;",
+			find: "\t\t\tthis.holds.drop(key);\n\t\t\treturn live;",
 			replace: "\t\t\treturn live;",
 		},
 		{
@@ -83,13 +100,18 @@ export const SESSION_MUTANTS: Mutant[] = [
 		},
 		{
 			name: "hub: a release never lets the session close",
-			find: "\t\tthis.dropHold(key);\n\t\tconst live = this.live.get(key);\n\t\tif (live) this.reviewIdle(live);",
-			replace: "\t\tthis.dropHold(key);",
+			find: "\t\tconst live = this.live.get(this.holds.drop(sessionKey(ref)));\n\t\tif (live) this.reviewIdle(live);",
+			replace: "\t\tthis.holds.drop(sessionKey(ref));",
 		},
 		{
-			name: "hub: holds go below zero",
-			find: "\t\tif (left > 0) this.holds.set(key, left);\n\t\telse this.holds.delete(key);",
-			replace: "\t\tthis.holds.set(key, left);",
+			name: "hub: a release of a replaced session's ref reviews the old key",
+			find: "this.live.get(this.holds.drop(sessionKey(ref)))",
+			replace: "(this.holds.drop(sessionKey(ref)), this.live.get(sessionKey(ref)))",
+		},
+		{
+			name: "hub: a replaced session leaves its holds behind",
+			find: "\t\tthis.holds.move(old.key, next.key);\n",
+			replace: "",
 		},
 		{ name: "hub: concurrent opens are not shared", find: "if (pending) return pending;", replace: "" },
 		{ name: "hub: a live session is opened again", find: "if (known) return Promise.resolve(known);", replace: "" },
