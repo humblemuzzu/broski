@@ -1,0 +1,198 @@
+import { describe, expect, test } from "bun:test";
+import type { PermissionUpdate } from "@anthropic-ai/claude-agent-sdk";
+import type { Interaction, PermissionOption, ToolPermissionReply, ToolPermissionRequest } from "../../../contract";
+import { permissionVerdicts } from "../../../server/link-feed/contract-replies";
+import { DeskRig } from "./desk-rig";
+
+const BASH = { command: "npm test", description: "Run the tests" };
+const ACCEPT_EDITS: PermissionUpdate = { type: "setMode", mode: "acceptEdits", destination: "session" };
+const ALLOW_NPM = (destination: "localSettings" | "userSettings" | "projectSettings"): PermissionUpdate => ({
+	type: "addRules",
+	rules: [{ toolName: "Bash", ruleContent: "npm test:*" }],
+	behavior: "allow",
+	destination,
+});
+
+function request(interaction: Interaction): ToolPermissionRequest {
+	if (interaction.request.kind !== "tool_permission") throw new Error(`a ${interaction.request.kind} ask`);
+	return interaction.request;
+}
+
+function reply(optionId: string, extra: Partial<ToolPermissionReply> = {}): ToolPermissionReply {
+	return { kind: "tool_permission", optionId, grantIds: [], ...extra };
+}
+
+function option(interaction: Interaction, id: string): PermissionOption {
+	const found = request(interaction).options.find((candidate) => candidate.id === id);
+	if (!found) throw new Error(`no option ${id}`);
+	return found;
+}
+
+describe("a tool permission", () => {
+	test("always offers a plain allow once and deny once, so a lock-screen tap works", async () => {
+		const rig = new DeskRig();
+		const ask = rig.tool("Bash", BASH, { title: "Claude wants to run npm test", description: "Run the tests" });
+		const interaction = rig.only();
+		expect(request(interaction).options.map((candidate) => candidate.id)).toEqual([
+			"allow_once",
+			"deny_once",
+			"deny_stop",
+		]);
+		expect(option(interaction, "allow_once")).toMatchObject({
+			effect: "allow",
+			scope: "once",
+			stopsRun: false,
+			message: "none",
+		});
+		expect(option(interaction, "deny_once")).toMatchObject({
+			effect: "deny",
+			scope: "once",
+			stopsRun: false,
+			message: "optional",
+		});
+		expect(option(interaction, "deny_stop")).toMatchObject({ effect: "deny", stopsRun: true });
+		const verdicts = permissionVerdicts(request(interaction));
+		expect(verdicts.allow?.optionId).toBe("allow_once");
+		expect(verdicts.deny?.optionId).toBe("deny_once");
+		expect(interaction).toMatchObject({
+			title: "Claude wants to run npm test",
+			body: "Run the tests",
+			blocksRun: true,
+			runId: "run-1",
+			origin: { toolName: "Bash", toolCallId: expect.stringMatching(/^toolu_/) },
+		});
+		expect(request(interaction)).toMatchObject({
+			inputEditable: false,
+			deliberate: false,
+			grants: [],
+			previews: [{ kind: "command", command: "npm test" }],
+		});
+		expect(rig.answer(interaction, verdicts.allow ?? reply("allow_once"))).toEqual({ status: "accepted" });
+		expect(await ask.promise).toEqual({ behavior: "allow", updatedInput: BASH });
+	});
+
+	test("deny once carries the person's words to the model; deny and stop interrupts and aborts the run", async () => {
+		const rig = new DeskRig();
+		const first = rig.tool("Bash", BASH);
+		rig.answer(rig.only(), reply("deny_once", { message: "Not that one." }));
+		expect(await first.promise).toEqual({ behavior: "deny", message: "Not that one." });
+		expect(rig.aborts).toEqual([]);
+
+		const second = rig.tool("Bash", BASH);
+		const asked = rig.requested()[1];
+		if (!asked) throw new Error("no second ask");
+		rig.answer(asked, reply("deny_stop"));
+		expect(await second.promise).toEqual({
+			behavior: "deny",
+			message: "The user denied this request.",
+			interrupt: true,
+		});
+		expect(rig.aborts).toEqual(["abort"]);
+	});
+
+	test("a session suggestion becomes allow-for-this-session and sends its updates back", async () => {
+		const rig = new DeskRig();
+		const ask = rig.tool("Write", { file_path: "notes.txt", content: "hi\n" }, { suggestions: [ACCEPT_EDITS] });
+		const interaction = rig.only();
+		expect(option(interaction, "allow_session")).toMatchObject({
+			label: "Allow all edits this session",
+			effect: "allow",
+			scope: "session",
+		});
+		rig.answer(interaction, reply("allow_session"));
+		expect(await ask.promise).toEqual({
+			behavior: "allow",
+			updatedInput: { file_path: "notes.txt", content: "hi\n" },
+			updatedPermissions: [ACCEPT_EDITS],
+		});
+	});
+
+	test("settings suggestions become always options with the CLI's rule text, one per destination", async () => {
+		const rig = new DeskRig();
+		const ask = rig.tool("Bash", BASH, {
+			suggestions: [ALLOW_NPM("localSettings"), ALLOW_NPM("userSettings"), ACCEPT_EDITS],
+		});
+		const interaction = rig.only();
+		expect(request(interaction).options.map((candidate) => candidate.id)).toEqual([
+			"allow_once",
+			"allow_session",
+			"allow_always_user",
+			"allow_always_local",
+			"deny_once",
+			"deny_stop",
+		]);
+		expect(option(interaction, "allow_always_local")).toMatchObject({
+			scope: "always",
+			effect: "allow",
+			rule: "Bash(npm test:*)",
+			label: "Always allow Bash(npm test:*) (this project, only for you)",
+		});
+		rig.answer(interaction, reply("allow_always_local"));
+		expect(await ask.promise).toEqual({
+			behavior: "allow",
+			updatedInput: BASH,
+			updatedPermissions: [ALLOW_NPM("localSettings")],
+			decisionClassification: "user_permanent",
+		});
+	});
+
+	test("suppressAlwaysAllowRule hides the options that persist a rule and keeps the others", () => {
+		const rig = new DeskRig();
+		rig.tool("Bash", BASH, {
+			suggestions: [ALLOW_NPM("projectSettings"), ACCEPT_EDITS],
+			suppressAlwaysAllowRule: true,
+		});
+		const ids = request(rig.only()).options.map((candidate) => candidate.id);
+		expect(ids).toEqual(["allow_once", "allow_session", "deny_once", "deny_stop"]);
+	});
+
+	test("defaultToNo defaults to deny once; requiresUserInteraction is deliberate and offers no lock-screen allow", () => {
+		const rig = new DeskRig();
+		rig.tool("Bash", BASH, { defaultToNo: true, requiresUserInteraction: true });
+		const asked = request(rig.only());
+		expect(asked.defaultOptionId).toBe("deny_once");
+		expect(asked.deliberate).toBe(true);
+		expect(permissionVerdicts(asked).allow).toBeUndefined();
+		expect(permissionVerdicts(asked).deny?.optionId).toBe("deny_once");
+	});
+
+	test("an update destination the desk does not know is never offered", () => {
+		const rig = new DeskRig();
+		const odd: PermissionUpdate = JSON.parse('{"type":"setMode","mode":"acceptEdits","destination":"elsewhere"}');
+		rig.tool("Bash", BASH, { suggestions: [odd] });
+		expect(request(rig.only()).options.map((candidate) => candidate.id)).toEqual([
+			"allow_once",
+			"deny_once",
+			"deny_stop",
+		]);
+	});
+
+	test("the CLI's escape sequences are stripped from the reason", () => {
+		const rig = new DeskRig();
+		rig.tool("Bash", BASH, { decisionReason: "\u001b[31mDangerous\u001b[0m path\u0007" });
+		expect(request(rig.only()).reason).toBe("Dangerous path");
+	});
+
+	test("an answer that names no option, or edits the input, is refused and the ask stays raised", async () => {
+		const rig = new DeskRig();
+		const ask = rig.tool("Bash", BASH);
+		const interaction = rig.only();
+		const unknown = rig.answer(interaction, reply("allow_forever"));
+		const edited = rig.answer(interaction, reply("allow_once", { editedInput: { command: "rm -rf /" } }));
+		expect(unknown).toMatchObject({ status: "rejected", rejection: { code: "invalid_input" } });
+		expect(edited).toMatchObject({ status: "rejected", rejection: { code: "invalid_input" } });
+		expect(rig.pending()).toHaveLength(1);
+		rig.answer(interaction, reply("allow_once"));
+		expect(await ask.promise).toMatchObject({ behavior: "allow" });
+	});
+
+	test("an ask with no title or description is still titled, and previews list the paths and hosts involved", () => {
+		const rig = new DeskRig();
+		rig.tool("WebFetch", { url: "https://example.com/a?b=1" }, { displayName: "Fetch" });
+		rig.tool("Read", { file_path: "/etc/hosts" }, { blockedPath: "/etc/hosts" });
+		const [fetch, read] = rig.requested();
+		expect(fetch?.title).toBe("Allow Fetch?");
+		expect(fetch?.request).toMatchObject({ previews: [{ kind: "network", host: "example.com", protocol: "https" }] });
+		expect(read?.request).toMatchObject({ previews: [{ kind: "paths", paths: ["/etc/hosts"] }] });
+	});
+});
