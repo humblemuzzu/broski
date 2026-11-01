@@ -21,6 +21,7 @@ class StreamState {
 	readonly seenTools = new Set<ToolCallId>();
 	readonly interactions = new Map<InteractionId, RunId | undefined>();
 	readonly resolved = new Set<InteractionId>();
+	readonly runningActivities = new Set<string>();
 	retrying = false;
 	compacting = false;
 
@@ -34,6 +35,7 @@ class StreamState {
 		this.tools.clear();
 		this.runTools.clear();
 		this.interactions.clear();
+		this.runningActivities.clear();
 		for (const block of snapshot.blocks) {
 			this.blocks.set(block.blockId, { kind: block.kind, text: block.text, deltas: true });
 			this.seenBlocks.add(block.blockId);
@@ -45,6 +47,7 @@ class StreamState {
 		}
 		for (const item of snapshot.run?.items ?? []) {
 			if (item.kind === "block") this.seenBlocks.add(item.id);
+			if (item.kind === "activity" && item.status === "running") this.runningActivities.add(item.id);
 			if (item.kind === "tool_call") {
 				this.runTools.add(item.toolCallId);
 				this.seenTools.add(item.toolCallId);
@@ -89,6 +92,7 @@ export function unsettledParts(records: readonly SinkRecord[], initial: SessionS
 		...[...state.blocks.keys()].map((id) => `block ${id} never finished`),
 		...[...state.tools].map((id) => `tool ${id} never finished`),
 		...[...state.interactions.keys()].map((id) => `interaction ${id} never resolved`),
+		...[...state.runningActivities].map((id) => `activity ${id} never ended`),
 		...(state.compacting ? ["a compaction never finished"] : []),
 		...(state.retrying ? ["a retry never finished"] : []),
 	];
@@ -116,6 +120,10 @@ function eventProblems(state: StreamState, traits: BackendTraits | undefined, ev
 			return state.run ? [] : ["a retry outside a run"];
 		case "retry_finished":
 			return wasOpen(state, "retrying", "a retry finished that never started");
+		case "activity":
+			if (event.activity.status === "running") state.runningActivities.add(event.activity.id);
+			else state.runningActivities.delete(event.activity.id);
+			return state.run ? [] : ["an activity outside a run"];
 		case "compaction_started": {
 			const problems = state.compacting ? ["a compaction started while one is under way"] : [];
 			state.compacting = true;
@@ -143,11 +151,14 @@ function runFinished(state: StreamState, runId: RunId): string[] {
 	if (state.run !== runId) problems.push(`run ${runId} finished but the active run is ${state.run ?? "none"}`);
 	if (state.blocks.size > 0) problems.push(`blocks still open: ${[...state.blocks.keys()].join(", ")}`);
 	if (state.tools.size > 0) problems.push(`tools still running: ${[...state.tools].join(", ")}`);
+	if (state.runningActivities.size > 0)
+		problems.push(`activities still running: ${[...state.runningActivities].join(", ")}`);
 	const pending = [...state.interactions].filter(([, run]) => run === runId).map(([id]) => id);
 	if (pending.length > 0) problems.push(`interactions of the run still pending: ${pending.join(", ")}`);
 	if (state.retrying) problems.push("a retry is still scheduled");
 	if (state.compacting) problems.push("a compaction is still under way");
 	state.run = undefined;
+	state.runningActivities.clear();
 	return problems;
 }
 

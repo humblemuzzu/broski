@@ -53,6 +53,29 @@ describe("streamViolations", () => {
 		]);
 	});
 
+	test("an activity lives inside a run, and ends before it", () => {
+		const running: AgentEvent = { type: "activity", activity: { id: "h1", label: "Stop", status: "running" } };
+		const done: AgentEvent = { type: "activity", activity: { id: "h1", label: "Stop", status: "succeeded" } };
+		expect(violations([running])).toEqual(["#0 activity: an activity outside a run"]);
+		expect(violations([start, running, done, finish])).toEqual([]);
+		expect(violations([start, running, finish])).toEqual(["#2 run_finished: activities still running: h1"]);
+		const records = [start, running].map((event, index) => ({ at: index, event }));
+		expect(unsettledParts(records, emptySnapshot())).toContain("activity h1 never ended");
+		const held: SessionSnapshot = {
+			...emptySnapshot(),
+			run: {
+				runId: "r1",
+				trigger: "prompt",
+				startedAt: 0,
+				items: [{ kind: "activity", id: "h1", label: "Stop", status: "running" }],
+				droppedItems: 0,
+			},
+		};
+		expect(streamViolations([{ at: 0, event: finish }], FULL_TRAITS, held)).toEqual([
+			"#0 run_finished: activities still running: h1",
+		]);
+	});
+
 	test("a finished block must equal its deltas", () => {
 		expect(
 			violations([

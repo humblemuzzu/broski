@@ -37,6 +37,9 @@ String outcomeText(RunOutcome outcome) => switch (outcome) {
     theme.textMuted,
   ),
   RunBoundaryItem(:final outcome) => (outcomeText(outcome), theme.textMuted),
-  UserMessageItem() || BlockItem() || ToolCallItem() || ToolResultItem() =>
-    throw ArgumentError.value(item, 'item', 'a turn, not a marker'),
+  UserMessageItem() ||
+  BlockItem() ||
+  ToolCallItem() ||
+  ToolResultItem() ||
+  ActivityItem() => throw ArgumentError.value(item, 'item', 'not a marker'),
 };

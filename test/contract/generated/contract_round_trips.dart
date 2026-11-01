@@ -33,6 +33,14 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
       ActionResult.fromJson(_as<Map<String, Object?>>(json, 'ActionResult')),
   'ActiveRun': (json) =>
       ActiveRun.fromJson(_as<Map<String, Object?>>(json, 'ActiveRun')),
+  'Activity': (json) =>
+      Activity.fromJson(_as<Map<String, Object?>>(json, 'Activity')),
+  'ActivityEvent': (json) =>
+      ActivityEvent.fromJson(_as<Map<String, Object?>>(json, 'ActivityEvent')),
+  'ActivityItem': (json) =>
+      ActivityItem.fromJson(_as<Map<String, Object?>>(json, 'ActivityItem')),
+  'ActivityStatus': (json) =>
+      ActivityStatus.fromJson(_as<String>(json, 'ActivityStatus')),
   'AgentEvent': (json) =>
       AgentEvent.fromJson(_as<Map<String, Object?>>(json, 'AgentEvent')),
   'AgentMention': (json) =>
@@ -986,6 +994,16 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
   'ActiveRun': (json) => (ActiveRun.fromJson(
     _as<Map<String, Object?>>(json, 'ActiveRun'),
   )).toJson(),
+  'Activity': (json) =>
+      (Activity.fromJson(_as<Map<String, Object?>>(json, 'Activity'))).toJson(),
+  'ActivityEvent': (json) => (ActivityEvent.fromJson(
+    _as<Map<String, Object?>>(json, 'ActivityEvent'),
+  )).toJson(),
+  'ActivityItem': (json) => (ActivityItem.fromJson(
+    _as<Map<String, Object?>>(json, 'ActivityItem'),
+  )).toJson(),
+  'ActivityStatus': (json) =>
+      (ActivityStatus.fromJson(_as<String>(json, 'ActivityStatus'))).toJson(),
   'AgentEvent': (json) => (AgentEvent.fromJson(
     _as<Map<String, Object?>>(json, 'AgentEvent'),
   )).toJson(),

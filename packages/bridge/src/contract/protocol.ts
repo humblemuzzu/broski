@@ -57,6 +57,7 @@ export const ADDED_IN_MINOR = {
 	shellOps: 3,
 	configOps: 4,
 	watchedAnswers: 4,
+	activities: 4,
 } as const;
 
 export const ProtocolVersion = z.strictObject({ major: z.int().nonnegative(), minor: z.int().nonnegative() });

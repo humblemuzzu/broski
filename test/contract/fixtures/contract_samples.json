@@ -203,6 +203,66 @@
       "droppedItems": 1
     }
   ],
+  "Activity": [
+    {
+      "id": "x",
+      "label": "x",
+      "detail": "x",
+      "status": "running",
+      "output": "x",
+      "durationMs": 1
+    },
+    {
+      "id": "x",
+      "label": "x",
+      "status": "running"
+    }
+  ],
+  "ActivityEvent": [
+    {
+      "type": "activity",
+      "activity": {
+        "id": "x",
+        "label": "x",
+        "detail": "x",
+        "status": "running",
+        "output": "x",
+        "durationMs": 1
+      }
+    },
+    {
+      "type": "activity",
+      "activity": {
+        "id": "x",
+        "label": "x",
+        "status": "running"
+      }
+    }
+  ],
+  "ActivityItem": [
+    {
+      "kind": "activity",
+      "at": 1,
+      "id": "x",
+      "label": "x",
+      "detail": "x",
+      "status": "running",
+      "output": "x",
+      "durationMs": 1
+    },
+    {
+      "kind": "activity",
+      "id": "x",
+      "label": "x",
+      "status": "running"
+    }
+  ],
+  "ActivityStatus": [
+    "running",
+    "succeeded",
+    "failed",
+    "cancelled"
+  ],
   "AgentEvent": [
     {
       "type": "run_started",
@@ -583,6 +643,25 @@
       "type": "notice",
       "level": "info",
       "text": "x"
+    },
+    {
+      "type": "activity",
+      "activity": {
+        "id": "x",
+        "label": "x",
+        "detail": "x",
+        "status": "running",
+        "output": "x",
+        "durationMs": 1
+      }
+    },
+    {
+      "type": "activity",
+      "activity": {
+        "id": "x",
+        "label": "x",
+        "status": "running"
+      }
     },
     {
       "type": "error",
@@ -11197,6 +11276,22 @@
       "outcome": {
         "kind": "completed"
       }
+    },
+    {
+      "kind": "activity",
+      "at": 1,
+      "id": "x",
+      "label": "x",
+      "detail": "x",
+      "status": "running",
+      "output": "x",
+      "durationMs": 1
+    },
+    {
+      "kind": "activity",
+      "id": "x",
+      "label": "x",
+      "status": "running"
     }
   ],
   "TranscriptItemId": [

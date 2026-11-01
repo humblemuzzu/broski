@@ -83,6 +83,17 @@ final class MarkerEntry extends TimelineEntry {
   String get key => 'marker:${item.id}';
 }
 
+/// Work the backend's harness ran around the turn, such as a hook: one row
+/// per activity, its latest state.
+final class ActivityEntry extends TimelineEntry {
+  const ActivityEntry(this.item);
+
+  final ActivityItem item;
+
+  @override
+  String get key => 'activity:${item.id}';
+}
+
 /// Items of a long run the live view no longer holds; the transcript shows
 /// them once the run ends (`droppedItems`, contract §8).
 final class DroppedEntry extends TimelineEntry {

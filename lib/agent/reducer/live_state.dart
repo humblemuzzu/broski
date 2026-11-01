@@ -38,6 +38,7 @@ SessionSnapshot applyToLiveState(
   ResyncedEvent() => event.snapshot,
   UserMessageEvent() ||
   InputReturnedEvent() ||
+  ActivityEvent() ||
   NoticeEvent() ||
   ErrorEvent() ||
   ExtensionEvent() ||

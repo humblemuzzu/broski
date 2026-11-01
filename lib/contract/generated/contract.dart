@@ -4,6 +4,7 @@
 library;
 
 part 'action_list.dart';
+part 'activity.dart';
 part 'backend_ops.dart';
 part 'backend_ops_lists.dart';
 part 'backend_ops_reads.dart';

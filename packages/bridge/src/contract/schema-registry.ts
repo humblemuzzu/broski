@@ -1,5 +1,6 @@
 import { z } from "zod";
 import * as actionList from "./action-list";
+import * as activity from "./activity";
 import * as backendOps from "./backend-ops";
 import * as backendOpsLists from "./backend-ops-lists";
 import * as backendOpsReads from "./backend-ops-reads";
@@ -59,6 +60,7 @@ const SCHEMA_MODULES = {
 	usage,
 	compaction,
 	notice,
+	activity,
 	extensions,
 	"backend-ops": backendOps,
 	"backend-ops-reads": backendOpsReads,

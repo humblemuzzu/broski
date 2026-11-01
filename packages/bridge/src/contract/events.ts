@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { Activity } from "./activity";
 import { CompactionOutcome, CompactionTrigger } from "./compaction";
 import { AttachmentRef, BlockKind } from "./content";
 import { BackendExtension } from "./extensions";
@@ -187,6 +188,13 @@ export const NoticeEvent = z.strictObject({
 });
 export type NoticeEvent = z.infer<typeof NoticeEvent>;
 
+/**
+ * A harness activity inside the active run started or changed; one with the same `id` is replaced. Not state outside
+ * a run. A client below 1.4 is sent a `notice` with the same `seq` instead.
+ */
+export const ActivityEvent = z.strictObject({ type: z.literal("activity"), activity: Activity });
+export type ActivityEvent = z.infer<typeof ActivityEvent>;
+
 /** A failure outside any run's outcome, such as the connection to the backend dropping. */
 export const ErrorEvent = z.strictObject({ type: z.literal("error"), error: ErrorInfo, retryable: z.boolean() });
 export type ErrorEvent = z.infer<typeof ErrorEvent>;
@@ -229,6 +237,7 @@ export const AgentEvent = z.discriminatedUnion("type", [
 	ModelChangedEvent,
 	ModeChangedEvent,
 	NoticeEvent,
+	ActivityEvent,
 	ErrorEvent,
 	ExtensionEvent,
 	SessionReplacedEvent,

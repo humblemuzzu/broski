@@ -182,6 +182,9 @@ export class FakeRun {
 			case "extension":
 				this.host.emit({ type: "extension", extension: step.extension });
 				return undefined;
+			case "activity":
+				this.host.emit({ type: "activity", activity: step.activity });
+				return undefined;
 			case "backend_error":
 				this.host.emit({ type: "error", error: step.error, retryable: step.retryable });
 				return undefined;

@@ -81,6 +81,13 @@ export function nextRun(run: ActiveRun, before: SessionSnapshot, record: Pick<Si
 			return { ...run, items: [], droppedItems: 0 };
 		case "messages_retracted":
 			return { ...run, items: withoutRetracted(run.items, event.messageIds) };
+		case "activity": {
+			const held = run.items.find((item) => item.kind === "activity" && item.id === event.activity.id);
+			const item: TranscriptItem = { kind: "activity", at: held?.at ?? record.at, ...event.activity };
+			return held
+				? { ...run, items: run.items.map((other) => (other === held ? item : other)) }
+				: bounded({ ...run, items: [...run.items, item] });
+		}
 		case "tool_finished":
 			return bounded({
 				...run,

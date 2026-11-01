@@ -71,6 +71,28 @@ describe("the run rule fails", () => {
 			/started more than one run/,
 		));
 
+	test("for an activity after its run ended", () =>
+		fails(
+			breakStream((item) =>
+				item.event.type === "run_finished"
+					? [item, record({ type: "activity", activity: { id: "late", label: "SessionEnd", status: "running" } })]
+					: [item],
+			),
+			aRunStreamsAndEnds,
+			/an activity outside a run/,
+		));
+
+	test("for a run that ends with an activity still running", () =>
+		fails(
+			breakStream((item) =>
+				item.event.type === "run_finished"
+					? [record({ type: "activity", activity: { id: "hung", label: "Stop", status: "running" } }), item]
+					: [item],
+			),
+			aRunStreamsAndEnds,
+			/activities still running: hung/,
+		));
+
 	test("for a user message without the prompt's clientRequestId", () =>
 		fails(
 			breakStream((item) =>

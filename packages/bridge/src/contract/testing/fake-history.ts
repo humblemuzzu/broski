@@ -1,3 +1,4 @@
+import type { Activity } from "../activity";
 import type { AgentEvent } from "../events";
 import type { TranscriptItemId } from "../ids";
 import { completedCall, finishedItems, withoutRetracted } from "../run-items";
@@ -44,6 +45,10 @@ export class FakeHistory {
 
 	/** Writes what `event` adds to history; `before` is the live state just before it applies. */
 	record(before: SessionSnapshot, at: number, event: AgentEvent): void {
+		if (event.type === "activity") {
+			if (before.run) this.keepActivity(at, event.activity);
+			return;
+		}
 		if (event.type === "messages_retracted") this.retract(event.messageIds);
 		if (event.type === "tool_finished") this.completeCall(before, event.toolCallId);
 		this.append([...finishedItems(before, { at, event }), ...this.backendItems(before, at, event)]);
@@ -70,6 +75,13 @@ export class FakeHistory {
 			default:
 				return [];
 		}
+	}
+
+	/** An activity keeps its first entry and the time it was written; a later state replaces what it says. */
+	private keepActivity(at: number, activity: Activity): void {
+		const entry = this.entries.find((held) => held.item.kind === "activity" && held.item.id === activity.id);
+		if (entry) entry.item = { kind: "activity", at: entry.item.at ?? at, ...activity };
+		else this.append([{ kind: "activity", at, ...activity }]);
 	}
 
 	private completeCall(before: SessionSnapshot, toolCallId: string): void {

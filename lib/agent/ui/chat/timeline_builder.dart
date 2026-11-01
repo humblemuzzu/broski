@@ -113,6 +113,8 @@ final class _Assembly {
           ModelChangeItem() ||
           RunBoundaryItem():
         addTop(MarkerEntry(item));
+      case ActivityItem():
+        addTop(ActivityEntry(item));
     }
   }
 

@@ -1,6 +1,13 @@
-import type { AgentBackend, BackendCall, BackendCallResult, ResponseFor } from "../contract";
+import {
+	ADDED_IN_MINOR,
+	type AgentBackend,
+	type BackendCall,
+	type BackendCallResult,
+	type ResponseFor,
+} from "../contract";
 import { onBackend } from "./context";
 import { allowedCall, allowedDirectory } from "./directories";
+import { transcriptBefore14 } from "./older-activities";
 import { pageWithinFrame } from "./paged-read";
 import type { DirectoryPolicy } from "./ports";
 import { unsupported } from "./results";
@@ -55,15 +62,19 @@ export const sessionArchive = onBackend<"session.archive">(
 
 export const transcriptRead = onBackend<"transcript.read">(
 	(request) => request.session.backend,
-	async ({ ctx, request, respond, backend }) => {
+	async ({ ctx, client, request, respond, backend }) => {
+		const older = !client.speaks(ADDED_IN_MINOR.activities);
 		const message = await pageWithinFrame(
 			ctx.maxFrameBytes,
 			request.page.limit,
-			async (limit): Promise<ResponseFor<"transcript.read">> => ({
-				type: "transcript.read.result",
-				requestId: request.requestId,
-				result: await backend.readTranscript(request.session, { ...request.page, limit }),
-			}),
+			async (limit): Promise<ResponseFor<"transcript.read">> => {
+				const result = await backend.readTranscript(request.session, { ...request.page, limit });
+				return {
+					type: "transcript.read.result",
+					requestId: request.requestId,
+					result: older ? transcriptBefore14(result) : result,
+				};
+			},
 		);
 		respond(message);
 	},

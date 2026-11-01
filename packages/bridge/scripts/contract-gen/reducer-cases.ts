@@ -30,6 +30,7 @@ export function reducerCases(): ReducerCase[] {
 		outsideRunCase(),
 		blockCase(),
 		toolCase(),
+		activityCase(),
 		retractionCase(),
 		droppedItemsCase(),
 		textCapCase(),
@@ -74,6 +75,24 @@ function outsideRunCase(): ReducerCase {
 			{ type: "tool_finished", toolCallId: "t0", outcome: "failed", result: { ...NO_RESULT, error: "no" } },
 			{ type: "session_replaced", session: { backend: "claude-code", sessionId: "other" } },
 			{ type: "messages_retracted", messageIds: ["m0"] },
+			{ type: "activity", activity: { id: "h0", label: "Stop", status: "running" } },
+		],
+	};
+}
+
+function activityCase(): ReducerCase {
+	const hook = { id: "h1", label: "PreToolUse:Read", detail: "PreToolUse" };
+	return {
+		name: "activities: one run item each, replaced in place by id, keeping when it began",
+		initial: emptySnapshot(),
+		events: [
+			run("r1"),
+			{ type: "activity", activity: { ...hook, status: "running" } },
+			{ type: "user_message", messageId: "u1", text: "go", attachments: [] },
+			{ type: "activity", activity: { ...hook, status: "running", output: "half" } },
+			{ type: "activity", activity: { id: "h2", label: "Stop", status: "cancelled" } },
+			{ type: "activity", activity: { ...hook, status: "failed", output: "half done", durationMs: 12 } },
+			{ type: "run_finished", runId: "r1", outcome: { kind: "completed" } },
 		],
 	};
 }

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { Activity } from "./activity";
 import { CompactionTrigger } from "./compaction";
 import { AttachmentRef, BlockKind } from "./content";
 import { ClientRequestId, MessageId, ModelId, SessionRef, Timestamp, ToolCallId, TranscriptItemId } from "./ids";
@@ -93,6 +94,14 @@ export const RunBoundaryItem = z.strictObject({
 });
 export type RunBoundaryItem = z.infer<typeof RunBoundaryItem>;
 
+/** A harness activity, such as a hook that ran (since 1.4; a client below it reads a `notice` with the same `id`). */
+export const ActivityItem = z.strictObject({
+	kind: z.literal("activity"),
+	at: Timestamp.optional(),
+	...Activity.shape,
+});
+export type ActivityItem = z.infer<typeof ActivityItem>;
+
 export const TranscriptItem = z.discriminatedUnion("kind", [
 	UserMessageItem,
 	BlockItem,
@@ -102,6 +111,7 @@ export const TranscriptItem = z.discriminatedUnion("kind", [
 	CompactionItem,
 	ModelChangeItem,
 	RunBoundaryItem,
+	ActivityItem,
 ]);
 export type TranscriptItem = z.infer<typeof TranscriptItem>;
 

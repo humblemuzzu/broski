@@ -3,6 +3,43 @@
 
 part of 'contract.dart';
 
+final class ActivityEvent implements AgentEvent {
+  const ActivityEvent({required this.activity});
+
+  factory ActivityEvent.fromJson(Map<String, Object?> json) {
+    _expectShape(
+      json,
+      'ActivityEvent',
+      const <String>{'type', 'activity'},
+      const <String, String>{'type': 'activity'},
+    );
+    return ActivityEvent(
+      activity: Activity.fromJson(
+        _as<Map<String, Object?>>(json['activity'], 'ActivityEvent.activity'),
+      ),
+    );
+  }
+
+  final Activity activity;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'activity',
+    'activity': activity.toJson(),
+  };
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ActivityEvent && _equal(activity, other.activity);
+
+  @override
+  int get hashCode => Object.hashAll([_hash(activity)]);
+
+  @override
+  String toString() => 'ActivityEvent(activity: $activity)';
+}
+
 sealed class AgentEvent {
   factory AgentEvent.fromJson(Map<String, Object?> json) =>
       switch (json['type']) {
@@ -29,6 +66,7 @@ sealed class AgentEvent {
         'model_changed' => ModelChangedEvent.fromJson(json),
         'mode_changed' => ModeChangedEvent.fromJson(json),
         'notice' => NoticeEvent.fromJson(json),
+        'activity' => ActivityEvent.fromJson(json),
         'error' => ErrorEvent.fromJson(json),
         'extension' => ExtensionEvent.fromJson(json),
         'session_replaced' => SessionReplacedEvent.fromJson(json),

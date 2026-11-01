@@ -69,6 +69,21 @@ export async function fakeSessionStream(): Promise<ServerMessage[]> {
 			extension: { kind: "rate_limit", window: "five_hour", status: "allowed_warning", usedPercent: 82 },
 		},
 		{ kind: "notice", level: "warning", text: "Close to the context limit." },
+		{
+			kind: "activity",
+			activity: { id: "hook-1", label: "PostToolUse:Edit", detail: "PostToolUse", status: "running" },
+		},
+		{
+			kind: "activity",
+			activity: {
+				id: "hook-1",
+				label: "PostToolUse:Edit",
+				detail: "PostToolUse",
+				status: "succeeded",
+				output: "formatted a.ts",
+				durationMs: 42,
+			},
+		},
 		{ kind: "backend_error", error: { code: "network", message: "The stream dropped." }, retryable: true },
 		{ kind: "retract" },
 		{ kind: "return_input", texts: ["Also lint", "Then commit"] },

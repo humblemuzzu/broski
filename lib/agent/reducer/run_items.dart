@@ -105,7 +105,8 @@ List<TranscriptItem> withoutRetracted(
         NoticeItem() ||
         CompactionItem() ||
         ModelChangeItem() ||
-        RunBoundaryItem() => true,
+        RunBoundaryItem() ||
+        ActivityItem() => true,
       })
         item,
   ];
@@ -130,8 +131,33 @@ ActiveRun nextRun(
           : item,
     ...finishedItems(before, at, event),
   ]),
+  ActivityEvent() => _withActivity(run, at, event.activity),
   _ => _bounded(run, [...run.items, ...finishedItems(before, at, event)]),
 };
+
+/// One item per activity id: a later state replaces it where it stands and
+/// keeps the time it began.
+ActiveRun _withActivity(ActiveRun run, Timestamp at, Activity activity) {
+  final held = run.items
+      .where((item) => item is ActivityItem && item.id == activity.id)
+      .firstOrNull;
+  final item = ActivityItem(
+    at: held?.at ?? at,
+    id: activity.id,
+    label: activity.label,
+    detail: activity.detail,
+    status: activity.status,
+    output: activity.output,
+    durationMs: activity.durationMs,
+  );
+  if (held == null) return _bounded(run, [...run.items, item]);
+  return runWith(
+    run,
+    items: [
+      for (final other in run.items) identical(other, held) ? item : other,
+    ],
+  );
+}
 
 ActiveRun _bounded(ActiveRun run, List<TranscriptItem> items) {
   final excess = items.length - contractMaxListItems;

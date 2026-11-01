@@ -1,7 +1,9 @@
 /** The events a client of an older minor is sent in place of what a later minor added (contract README §12.4). */
 
-import { ADDED_IN_MINOR, type AgentEvent, type EventEnvelope, MAX_TEXT_CHARS, type SessionSnapshot } from "../contract";
+import { ADDED_IN_MINOR, type AgentEvent, type EventEnvelope, type SessionSnapshot } from "../contract";
+import { clipped } from "./clipped-text";
 import type { EncodedFrame } from "./frame";
+import { activityNotice } from "./older-activities";
 import { interactionBefore14, snapshotBefore14 } from "./older-plans";
 import type { CoreLog } from "./ports";
 import { fitEvent } from "./wire-fit";
@@ -41,7 +43,7 @@ export function withOlderView(
 }
 
 /**
- * Newest minor first. 1.4: a prompt suggestion becomes an info `notice` with its text, and a plan approval, in the
+ * Newest minor first. 1.4: a prompt suggestion and a harness activity become a `notice`, and a plan approval, in the
  * event or in the live state after it (which a frame that does not fit is replaced by), loses its `modeOptions`. 1.2:
  * `input_returned` becomes a `notice` carrying the same texts. None of the notices is state, so an older client's live
  * state differs only by the modes it cannot read.
@@ -74,6 +76,8 @@ function eventBefore14(event: AgentEvent): AgentEvent {
 			const snapshot = snapshotBefore14(event.snapshot);
 			return snapshot === event.snapshot ? event : { ...event, snapshot };
 		}
+		case "activity":
+			return activityNotice(event.activity);
 		default:
 			return event;
 	}
@@ -88,12 +92,4 @@ function notice(text: string): AgentEvent {
 
 function returnedText(texts: readonly string[]): string {
 	return clipped(`${RETURNED_HEADING}\n\n${texts.join("\n\n")}`);
-}
-
-/** `text` within the contract's text bound, never cut inside a surrogate pair. */
-function clipped(text: string): string {
-	if (text.length <= MAX_TEXT_CHARS) return text;
-	const cut = text.slice(0, MAX_TEXT_CHARS);
-	const last = cut.charCodeAt(cut.length - 1);
-	return last >= 0xd800 && last <= 0xdbff ? cut.slice(0, -1) : cut;
 }

@@ -3,6 +3,104 @@
 
 part of 'contract.dart';
 
+final class ActivityItem implements TranscriptItem {
+  const ActivityItem({
+    this.at,
+    required this.id,
+    required this.label,
+    this.detail,
+    required this.status,
+    this.output,
+    this.durationMs,
+  });
+
+  factory ActivityItem.fromJson(Map<String, Object?> json) {
+    _expectShape(
+      json,
+      'ActivityItem',
+      const <String>{
+        'kind',
+        'at',
+        'id',
+        'label',
+        'detail',
+        'status',
+        'output',
+        'durationMs',
+      },
+      const <String, String>{'kind': 'activity'},
+    );
+    return ActivityItem(
+      at: json.containsKey('at')
+          ? _as<int>(json['at'], 'ActivityItem.at')
+          : null,
+      id: _as<String>(json['id'], 'ActivityItem.id'),
+      label: _as<String>(json['label'], 'ActivityItem.label'),
+      detail: json.containsKey('detail')
+          ? _as<String>(json['detail'], 'ActivityItem.detail')
+          : null,
+      status: ActivityStatus.fromJson(
+        _as<String>(json['status'], 'ActivityItem.status'),
+      ),
+      output: json.containsKey('output')
+          ? _as<String>(json['output'], 'ActivityItem.output')
+          : null,
+      durationMs: json.containsKey('durationMs')
+          ? _as<int>(json['durationMs'], 'ActivityItem.durationMs')
+          : null,
+    );
+  }
+
+  @override
+  final Timestamp? at;
+  @override
+  final TranscriptItemId id;
+  final String label;
+  final String? detail;
+  final ActivityStatus status;
+  final String? output;
+  final int? durationMs;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'kind': 'activity',
+    if (at case final value?) 'at': value,
+    'id': id,
+    'label': label,
+    if (detail case final value?) 'detail': value,
+    'status': status.toJson(),
+    if (output case final value?) 'output': value,
+    if (durationMs case final value?) 'durationMs': value,
+  };
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ActivityItem &&
+          _equal(at, other.at) &&
+          _equal(id, other.id) &&
+          _equal(label, other.label) &&
+          _equal(detail, other.detail) &&
+          _equal(status, other.status) &&
+          _equal(output, other.output) &&
+          _equal(durationMs, other.durationMs);
+
+  @override
+  int get hashCode => Object.hashAll([
+    _hash(at),
+    _hash(id),
+    _hash(label),
+    _hash(detail),
+    _hash(status),
+    _hash(output),
+    _hash(durationMs),
+  ]);
+
+  @override
+  String toString() =>
+      'ActivityItem(at: $at, id: $id, label: $label, detail: $detail, status: $status, output: $output, durationMs: $durationMs)';
+}
+
 final class BlockItem implements TranscriptItem {
   const BlockItem({
     required this.id,
@@ -573,6 +671,7 @@ sealed class TranscriptItem {
         'compaction' => CompactionItem.fromJson(json),
         'model_change' => ModelChangeItem.fromJson(json),
         'run_boundary' => RunBoundaryItem.fromJson(json),
+        'activity' => ActivityItem.fromJson(json),
         final tag => throw FormatException('Unknown TranscriptItem kind: $tag'),
       };
 

@@ -1,3 +1,4 @@
+import type { Activity } from "../activity";
 import type { FileChange } from "../content";
 import type { BackendExtension } from "../extensions";
 import type { InteractionRequest } from "../interactions";
@@ -51,6 +52,8 @@ export type FakeSignalStep =
 	| { kind: "plan"; plan: Plan }
 	| { kind: "notice"; level: NoticeLevel; text: string }
 	| { kind: "extension"; extension: BackendExtension }
+	/** A harness activity starts or changes; one with the same id replaces it. */
+	| { kind: "activity"; activity: Activity }
 	| { kind: "backend_error"; error: ErrorInfo; retryable: boolean }
 	/** The backend starts a new conversation in the live session, under a new id. */
 	| { kind: "replace_session" }

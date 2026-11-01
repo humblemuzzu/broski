@@ -70,6 +70,7 @@ Widget _nestedView(SessionRef session, TimelineEntry nested) =>
       UserEntry() ||
       PendingPromptEntry() ||
       MarkerEntry() ||
+      ActivityEntry() ||
       DroppedEntry() => const SizedBox.shrink(),
     };
 

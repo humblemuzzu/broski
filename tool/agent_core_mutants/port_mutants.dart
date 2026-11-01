@@ -76,6 +76,16 @@ final portMutants = [
       'tool.childSession ?? item.childSession',
       'item.childSession',
     ),
+    Mutant(
+      'reducer: a later state of an activity is a second item',
+      'if (held == null) return _bounded(run, [...run.items, item]);',
+      'return _bounded(run, [...run.items, item]);',
+    ),
+    Mutant(
+      'reducer: an activity takes the time of its latest state',
+      'at: held?.at ?? at,',
+      'at: at,',
+    ),
   ]),
   ...mutantsOf('reducer/live_state.dart', const [
     Mutant(

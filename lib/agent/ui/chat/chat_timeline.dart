@@ -1,4 +1,5 @@
 import 'package:broski/agent/agent_providers.dart';
+import 'package:broski/agent/ui/chat/activity_card.dart';
 import 'package:broski/agent/ui/chat/copy_text.dart';
 import 'package:broski/agent/ui/chat/entry_views.dart';
 import 'package:broski/agent/ui/chat/item_actions_sheet.dart';
@@ -70,6 +71,7 @@ class ChatTimeline extends ConsumerWidget {
       BlockEntry() => BlockView(entry: entry),
       ToolEntry() => ToolCard(session: session, entry: entry),
       MarkerEntry(:final item) => MarkerView(item: item),
+      ActivityEntry(:final item) => ActivityCard(item: item),
       DroppedEntry(:final count) => DroppedView(count: count),
     };
     final itemId = switch (entry) {

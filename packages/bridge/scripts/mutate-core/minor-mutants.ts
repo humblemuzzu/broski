@@ -86,16 +86,6 @@ export const MINOR_MUTANTS: Mutant[] = [
 			replace: "return false",
 		},
 		{
-			name: "older events: the stand-in can cut a surrogate pair",
-			find: "return last >= 0xd800 && last <= 0xdbff ? cut.slice(0, -1) : cut;",
-			replace: "return cut;",
-		},
-		{
-			name: "older events: the stand-in is not cut to the contract's bound",
-			find: "if (text.length <= MAX_TEXT_CHARS) return text;",
-			replace: "return text;",
-		},
-		{
 			name: "older events: every event gets a 1.4 stand-in",
 			find: "if (before14 !== event || after14 !== after) {",
 			replace: "if (true) {",
@@ -107,6 +97,11 @@ export const MINOR_MUTANTS: Mutant[] = [
 			find: "if (fitted.text === newer) continue;",
 			replace: "",
 			equivalent: "memory only: a client given that stand-in receives the very text it would have received anyway",
+		},
+		{
+			name: "older events: no stand-in for an activity",
+			find: "return activityNotice(event.activity);",
+			replace: "return event;",
 		},
 		{
 			name: "older events: a plan approval keeps its modes in the event",
@@ -132,10 +127,56 @@ export const MINOR_MUTANTS: Mutant[] = [
 		},
 		{
 			name: "older plans: a snapshot with nothing to take out is copied",
-			find: "return interactions.every((interaction, index) => interaction === snapshot.interactions[index])",
-			replace: "return false",
+			find: "if (plansKept && items === run?.items) return snapshot;",
+			replace: "",
 			equivalent:
 				"speed only: the copy equals the snapshot, so every stand-in built from it encodes to the frame it stands in for and is left out",
+		},
+		{
+			name: "older plans: a snapshot's run keeps its activities",
+			find: "const items = run === undefined ? undefined : itemsBefore14(run.items);",
+			replace: "const items = run?.items;",
+		},
+	]),
+	...mutantsOf("core/clipped-text.ts", [
+		{
+			name: "older events: the stand-in can cut a surrogate pair",
+			find: "return last >= 0xd800 && last <= 0xdbff ? cut.slice(0, -1) : cut;",
+			replace: "return cut;",
+		},
+		{
+			name: "older events: the stand-in is not cut to the contract's bound",
+			find: "if (text.length <= MAX_TEXT_CHARS) return text;",
+			replace: "return text;",
+		},
+	]),
+	...mutantsOf("core/older-activities.ts", [
+		{
+			name: "older activities: an activity item stays an activity",
+			find: 'if (item.kind !== "activity") return item;',
+			replace: "return item;",
+		},
+		{
+			name: "older activities: a failed activity reads as information",
+			find: 'return activity.status === "failed" ? "warning" : "info";',
+			replace: 'return "info";',
+		},
+		{
+			name: "older activities: a page with activities is sent as it is",
+			find: "const items = itemsBefore14(result.page.items);",
+			replace: "const items = result.page.items;",
+		},
+	]),
+	...mutantsOf("core/requests-sessions.ts", [
+		{
+			name: "requests: an older client reads activity items in the transcript",
+			find: "result: older ? transcriptBefore14(result) : result,",
+			replace: "result,",
+		},
+		{
+			name: "requests: a client of this minor reads activities as notices",
+			find: "const older = !client.speaks(ADDED_IN_MINOR.activities);",
+			replace: "const older = true;",
 		},
 	]),
 	...mutantsOf("core/client.ts", [
