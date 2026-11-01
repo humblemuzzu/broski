@@ -8,7 +8,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 export const ELICIT_SERVER = "elicit";
-export const ELICIT_TOOLS = ["ask_form", "ask_url", "ask_confirm"] as const;
+export const ELICIT_TOOLS = ["ask_form", "ask_url", "ask_confirm", "ask_url_completed"] as const;
 export type ElicitTool = (typeof ELICIT_TOOLS)[number];
 
 const SOURCE = `
@@ -22,6 +22,11 @@ const tools = ${JSON.stringify(ELICIT_TOOLS)}.map((name) => ({ name, description
 async function call(name) {
 	if (name === "ask_form") return ask({ mode: "form", message: "What is your name?", requestedSchema: FORM });
 	if (name === "ask_confirm") return ask({ mode: "form", message: "Go ahead?", requestedSchema: EMPTY });
+	if (name === "ask_url_completed") {
+		const early = ask({ mode: "url", message: "Consent in the browser", url: "https://example.invalid/done", elicitationId: "el-2" });
+		setTimeout(() => write({ method: "notifications/elicitation/complete", params: { elicitationId: "el-2" } }), 300);
+		return early;
+	}
 	const answer = await ask({ mode: "url", message: "Consent in the browser", url: "https://example.invalid/consent", elicitationId: "el-1" });
 	if (answer.action === "accept") write({ method: "notifications/elicitation/complete", params: { elicitationId: "el-1" } });
 	return answer;
