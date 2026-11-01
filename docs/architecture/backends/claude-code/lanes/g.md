@@ -1,5 +1,7 @@
 # Lane G · Terminal (D100–D109)
 
+> Merged in Step 5 (`cc/integrate`). This file is the lane's record as delivered; where the adapter [README](../README.md)'s integration decisions D120–D129 changed something here, the README wins.
+
 Branch `cc/lane-g-terminal`. Files: `backends/claude-code/terminal/*`, `server/cc-terminal-hook.ts`, tests in `src/__tests__/claude-code/terminal/`; two lines in `http-handler.ts`, one key in `config/`. Status: D21 (watching) and D26 (terminal asks, on Step 3b's `OpenSession.answer`) complete as far as the adapter and the receiver go; wiring them into `server/` and the Claude Code driver is integration's, see "Integration" and "Open".
 
 ## Decisions

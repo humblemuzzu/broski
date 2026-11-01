@@ -1,5 +1,7 @@
 # Lane B · Mapping (D50–D59)
 
+> Merged in Step 5 (`cc/integrate`). This file is the lane's record as delivered; where the adapter [README](../README.md)'s integration decisions D120–D129 changed something here, the README wins.
+
 `packages/bridge/src/backends/claude-code/mapping/` (pure: no I/O, no SDK at run time, nothing throws). Tests: `packages/bridge/src/__tests__/claude-code/mapping/` (11 files, 272 tests, ~0.4 s, no CLI process). Entry point `CLAUDE_CODE_MAPPING = {createMapper, turnOutcome}` is unchanged; `createFrameMapper(seed, now = Date.now)` takes an optional clock (a compatible extra parameter, not a port change) for `retry_scheduled.retryAt`.
 
 `SDKMessage` is mapped by `mapper.ts` (a `switch` the type check keeps exhaustive) and documented, kind by kind, in `frame-kinds.ts` (`FRAME_KINDS: Record<FrameKey, shows | ignored>`, typed over the union: an SDK that adds a variant fails the type check there). 42 kinds = the 39 variants with `result` in 5 subtypes and `system` in 28. Frames `sdk.mjs` passes through that the types do not declare are listed in `UNDECLARED_FRAMES` and ignored.

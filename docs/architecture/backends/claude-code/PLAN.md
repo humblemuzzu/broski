@@ -1,6 +1,6 @@
 # Claude Code on the contract: the plan
 
-Status: plan, written 2026-11-01 on `main` at `6ce0895`, after the SDK moved from 0.2.92 to **0.3.316** (bundled CLI 2.1.316).
+Status: plan, written 2026-11-01 on `main` at `6ce0895`, after the SDK moved from 0.2.92 to **0.3.316** (bundled CLI 2.1.316). Steps 1–5 done (§6).
 Goal: Claude Code becomes a contract backend (`packages/bridge/src/backends/claude-code/`) that rides the generic app (`lib/agent/`) exactly as Pi does, reaches parity with the old `cc_*` path, and then the old path is deleted.
 
 This file is the single plan from start to finish: what we know, what we decided, what we still have to prove, what gets built in which order, by whom, and how we know each step is done.
@@ -123,7 +123,7 @@ D1–D29 are this plan's. Lanes number their own decisions in their reserved ran
 
 **D20. Subagents are child sessions.** Child ref `"<sessionId>/<agentId>"`, `parent{kind:"subagent"}`, listed by `listSubagents` + the `.meta.json` sidecar, read by `getSubagentMessages`. Live: the parent's `Agent` tool call gets `tool_updated{child_session}`; while a child is open, its forwarded messages go to its sink.
 
-**D21. Terminal sessions are watched, never written.** `externalLive: false` at first. A session whose file changed in the last 10 s and that this bridge does not host opens **watch-only** (`controllable: false`) with a live read-only tail: one watcher per project directory, positional reads, translation as 04 §7 (rec. 4). "Continue here" is a fork (D19). Once the tail produces correct `run_started{external}`…`run_finished` (proved by rule 27 with a second `query()` process writing the same session), `externalLive` turns true.
+**D21. Terminal sessions are watched, never written.** `externalLive: false` at first. A session whose file changed in the last 10 s and that this bridge does not host opens **watch-only** (`controllable: false`) with a live read-only tail: one watcher per project directory, positional reads, translation as 04 §7 (rec. 4). "Continue here" is a fork (D19). Once the tail produces correct `run_started{external}`…`run_finished` (proved by rule 27 with a second `query()` process writing the same session), `externalLive` turns true. *Step 5 (README D128): it stays false; rule 27 expects the other client's run on a session this bridge hosts, and a hosted session follows only its own process.*
 
 ### Ops and config
 
@@ -131,7 +131,7 @@ D1–D29 are this plan's. Lanes number their own decisions in their reserved ran
 - `config_files` — lists the CLI's own config files for a cwd: settings (user/project/local), `.mcp.json`, CLAUDE.md files (user/project/local), auto memory, agents, commands, skills, output styles; each row has scope, path, existence, editability and format. Managed files are read-only.
 - `config_file` — reads one file; with `change {text, revision}` writes it: compare-and-swap on the revision, strict JSON validation for JSON files (a file that does not parse is refused, never replaced), atomic write, realpath under the expected base. Creating a new command/skill/agent is a `config_file` write to a new path the listing offered.
 - `settings_overview` — read-only `resolveSettings()` with provenance: effective permission rules by source, model/effort, sandbox summary, MCP approvals, enabled plugins, managed keys with their policy origin, parse errors, and the account.
-- `mcp_servers` — live status per server; actions enable/disable (writes the per-project list in `~/.claude.json` and calls `toggleMcpServer`) and reconnect.
+- `mcp_servers` — live status per server; actions enable/disable (`toggleMcpServer`: the CLI's own `mcp_toggle` writes the per-project list in `~/.claude.json` with its locked writer; the bridge never writes that file, lane F D92) and reconnect.
 - `plugins` — rows from `system/init` plugins + `plugin_errors` + `enabledPlugins`; action enable/disable writes `enabledPlugins` in local settings and calls `reloadPlugins`. Installing from a marketplace is out of scope.
 - `tasks` — background tasks of a session (`background_tasks_changed`, `task_*`), with stop (`stopTask`).
 - `context_usage` — `getContextUsage({detail:"summary"})` as rows.
@@ -264,7 +264,7 @@ One Sonnet delegate per lane, each in its own worktree (`git worktree add ../bro
 | **G · Terminal** | `terminal/`, `server/cc-terminal-hook.ts` | project watcher, tail, translation, watch-only sessions, "continue here" by fork (D21); the terminal permission hook (D26): install/remove behind the setting, the loopback receiver, the asks raised through `BridgeCore.hold` | a second CLI process writing a session shows live on a watch-only open; rule 27 once declared |
 | **H · App** | `lib/agent/ui/panels/`, composer hint | the generic `ActionListView` and `ConfigFileEditor` panels (§8), the prompt-suggestion chip, the plan-approval mode picker | widget tests with the scripted bridge; `check_agent_core`; `mutate_agent_core --check` |
 
-### Step 5 — Integration
+### Step 5 — Integration — **done** (merges `10dbb2f` B, `e193775` A, `b1474fd` C, `f7bfacf` E, `df76306` F, `a6af006` D, `3837ade` G, `b731316` H on `cc/integrate`; fixes between them; all 31 conformance rules pass on the real CLI; registered behind `claudeCode.contract`; decisions D120–D129 in the adapter README)
 
 One delegate assembles `backend.ts` and `factory.ts`, registers behind the flag (D28), and makes all 29 conformance rules pass. Then I merge lanes one at a time: after each merge, regenerate the contract output (never resolve generated files by hand), rerun every check, and re-run any failure on `main` before believing or dismissing it. The cross-lane checklist:
 - A finished run flips the catalogue row `running → idle`, so the run-done notification fires and opens the right chat.
@@ -358,7 +358,7 @@ Every user-visible feature of the old path (07 §1) → where it lives on the co
 |---|---|
 | Sessions tab, project grouping, search, sort, title filters | contract: sessions tab and projects (`lib/agent`); search/filters are app-side (check the contract list view has them; if not, app lane H adds them generically) |
 | Session previews, subagent rows, orphan subagent dirs | contract: rows (D16) and child sessions (D20) |
-| Diff-stat badges on rows | drop? (they read every whole transcript at list time); `changed_files` per session instead |
+| Diff-stat badges on rows | **dropped** (owner decision of 2026-11-01; they read every whole transcript at list time); `changed_files` per session instead |
 | Active/working pill | contract: `status` from live hosts |
 | Rename, delete | contract: `rename`, `delete` (D19); rename now shows (custom title read back) |
 | Open session, load earlier, big transcripts | contract: `readTranscript` pages (D15, D18) |
@@ -371,7 +371,7 @@ Every user-visible feature of the old path (07 §1) → where it lives on the co
 | Compaction divider, retry banner, errors, refusal line | contract: compaction, retry, `error`, `notice` |
 | Token usage / cost, context bar | contract: `usage_updated`; op: `context_usage` |
 | Structured output | contract: `notice` (rare; no UI in old app beyond raw text) |
-| Hook activity cards | drop? (needs `includeHookEvents`; noise on a phone) |
+| Hook activity cards | **keep** (owner decision of 2026-11-01), Step 7: the host turns on `includeHookEvents`, and `hook_started`/`hook_progress`/`hook_response` reach the phone as compact activity entries; the shape (a `notice`, an extension kind, or a contract addition) is Step 7's, by the rules of 06 §4.4 |
 | Background task cards, stop task | op: `tasks`; contract: `child_session` progress |
 | Tool-use summaries, files persisted | contract: `notice` |
 | Rate-limit info | contract: `extension{rate_limit}` |
@@ -396,14 +396,14 @@ Every user-visible feature of the old path (07 §1) → where it lives on the co
 | MCP elicitation (URL, form), completion | contract: `form`/`external_url`/`confirm` (D13) |
 | Undo turn's file changes, checkpoint counter | op: `rewind_files` (D23); the item menu on a user message |
 | Fork session, fork from a message | contract: `fork` |
-| Fork-on-resume, continue-latest (API only, no UI) | drop? (no UI existed) |
+| Fork-on-resume, continue-latest (API only, no UI) | **keep** (owner decision of 2026-11-01), Step 7: reachable phone actions, generic for any backend the contract allows (fork-on-resume = open an existing session as a fork; continue-latest = open the most recent session of a project directory) |
 | Custom subagent definitions editor | op: `config_files`/`config_file` on `.claude/agents` |
 | Filesystem agents list, active subagent per turn | op: `config_files`; contract: agent mention |
 | Subagent task sessions view | contract: child sessions |
-| Agent teams toggle | drop? (teams never run under the SDK, 04 fact 13) |
+| Agent teams toggle | **dropped** (owner decision of 2026-11-01; teams never run under the SDK, 04 fact 13) |
 | Commands list/editor | op: `config_files`/`config_file` on `.claude/commands`; contract: `listCommands` |
 | Skills list/editor | op: `config_files`/`config_file` on `.claude/skills`; contract: `listCommands` (`kind: skill`) |
-| Plugins list, toggle, add/remove path, reload | op: `plugins`; add/remove local path → `config_file` on settings; drop? for Broski's own plugin-path config |
+| Plugins list, toggle, add/remove path, reload | op: `plugins`; add/remove local path → `config_file` on settings; Broski's own plugin-path config **dropped** (owner decision of 2026-11-01, the plan owner's call on the owner's behalf: Claude's real plugin settings, edited through `plugins`/`config_file`, replace it) |
 | Hooks list/editor | op: `config_file` on settings (`hooks`), listing via `settings_overview` |
 | MCP editor (`.mcp.json`), status, reconnect, toggle, set servers | op: `config_file` on `.mcp.json`; op: `mcp_servers` |
 | claude.ai MCP servers toggle | op: `config_file` on settings (`disableClaudeAiConnectors`) |

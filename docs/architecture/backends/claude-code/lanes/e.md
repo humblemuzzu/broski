@@ -1,5 +1,7 @@
 # Lane E · Asks (D80–D89)
 
+> Merged in Step 5 (`cc/integrate`). This file is the lane's record as delivered; where the adapter [README](../README.md)'s integration decisions D120–D129 changed something here, the README wins.
+
 The ask desk: `packages/bridge/src/backends/claude-code/ui/`, tests in `src/__tests__/claude-code/asks/`. Citations: `d.ts:N` = `sdk.d.ts`, `mjs:` = `sdk.mjs` symbol, `T/` = `src/__tests__/claude-code/`.
 
 ## Decisions

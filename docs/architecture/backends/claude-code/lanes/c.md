@@ -1,5 +1,7 @@
 # Lane C · Catalogue: decisions D60–D66, facts and hand-offs
 
+> Merged in Step 5 (`cc/integrate`). This file is the lane's record as delivered; where the adapter [README](../README.md)'s integration decisions D120–D129 changed something here, the README wins.
+
 Owns `models/*`, `modes.ts`, `commands.ts`, `status.ts`, `process/probe.ts`, `process/version-check.ts`; tests in `T/catalogue/`. Citations as in STEP-3 (`d.ts:N` = `sdk.d.ts`; `T` = `packages/bridge/src/__tests__/claude-code/`). No port change is needed.
 
 ## Decisions

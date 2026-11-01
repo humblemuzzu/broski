@@ -1,5 +1,7 @@
 # Lane A · Store (D40–D49)
 
+> Merged in Step 5 (`cc/integrate`). This file is the lane's record as delivered; where the adapter [README](../README.md)'s integration decisions D120–D129 changed something here, the README wins.
+
 Built on `cc/lane-a-store`. Files: `owned.ts`, `store/*` (33 files), tests in `src/__tests__/claude-code/store/`. Citations as in STEP-3 (`d.ts:N` = `sdk.d.ts`, `mjs:N` = `sdk.mjs` line, minified: the function is named).
 
 ## Decisions

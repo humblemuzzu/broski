@@ -1,5 +1,7 @@
 # Lane F · Ops (D90–D99)
 
+> Merged in Step 5 (`cc/integrate`). This file is the lane's record as delivered; where the adapter [README](../README.md)'s integration decisions D120–D129 changed something here, the README wins.
+
 Files: `packages/bridge/src/backends/claude-code/ops/*` (34 files, none over 253 lines); tests `packages/bridge/src/__tests__/claude-code/ops/` (10 test files and `ops-world.ts`; 4 tests run the real bundled CLI, most of the others the SDK's real settings reader in its worker, the rest a scripted `FakeQuery`). Paths below are relative to `ops/`. `d.ts:N` = `sdk.d.ts`; `mjs` = `sdk.mjs`; `bin` = strings of the 2.1.316 `claude` binary.
 
 ## Decisions

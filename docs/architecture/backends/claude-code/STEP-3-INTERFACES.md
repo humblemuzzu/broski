@@ -87,7 +87,7 @@ Facts the plan already cites twice (08-spike §2) and the seams rely on without 
 | `children` | true | 12 (`tool_updated{child_session}`) | B, D |
 | `usage` | true | 12 | B |
 | `plan` | **false** (D38) | 12 | — (B emits no `plan_updated`) |
-| `planProposals`, `externalLive`, `durableRuns` | false | 12, 27, 28 | D (28: a restart ends the run) |
+| `planProposals`, `externalLive`, `durableRuns` | false | 12, 27, 28 | D (28: a restart ends the run); `externalLive` stays false after Step 5 (README D128) |
 | `extensions` | rate_limit, prompt_suggestion | stream gating only | B |
 | `backendOps` | all 13 `ClaudeCodeOp` kinds; the two custom tool ops only with the port | 1, 9, 30 | F |
 | `fork`, `rename`, `delete` | derived (methods exist) | 8 | A |
@@ -289,6 +289,8 @@ No other part of the adapter needs something the contract or core cannot express
 | `model-echo.ts` | wire model → listed id via a probe's `ModelInfo.resolvedModel` |
 | `memory-custom-tools.ts` | `CustomToolsPort` over a map, one tool seeded |
 
+**Step 5 changed the driver** (README D129): `delivered()` reads the last `user`-role message, `arrange` replaces the session's unconsumed steps (`SessionRouter.replace`), `watchedAsk()` raises a real terminal CLI's ask through the installed hook and the server's receiver (`terminal-asks.ts`), custom tools are the server's port (`world-custom-tools.ts`), and the elicitation server has `ask_url_completed`. All 31 rules pass; the three unverified points below were checked by the runs.
+
 **Decisions in the driver.** `seedSessions` runs real sessions through the backend (rows are `origin: "broski"` with real history; fixture transcripts are lane A's tests). `quiesce` waits until no session emitted for 300 ms. `runExternally` returns false (`externalLive: false`). `slow_retry` → `false` (`cancelRetry` is not a method, so rule 29 never asks for it); `slow_compaction` holds the next `/compact` side request until `release`. `plan` and `plan_proposal` features → `false` (not declared). `plan_approval` switches the session to `plan` through its control first (`setMode("permissions", "plan")`, so lane D's `setMode` must work for rule 23's plan cases). `agentName` = `general-purpose` (a built-in agent, Q11).
 
 | Scenario | Steps (08-spike evidence) |
@@ -310,7 +312,7 @@ No other part of the adapter needs something the contract or core cannot express
 ## 11. Traps
 
 - **`expect(p).rejects` hangs** with a worker-backed `ClaudeSdk` (§1). Use `.then(ok, err)`.
-- **Two listed models that resolve to the same wire id** (`default` and `opus` may both be `claude-opus-5-5`) make `echo_model` ambiguous: rule 20 uses the first two listed models. Lane C (D60s) must list so that the first two resolve differently, or choose ids that are wire ids. `model-echo.ts` assumes the listed id is `ModelInfo.value`; if C chooses another id, the echo follows C.
+- **Two listed models that resolve to the same wire id** (`default` and `opus` both are `claude-opus-5-5`, with identical requests: README D120) make `echo_model` ambiguous: rule 20 uses the first two listed models. Lane C (D60s) must list so that the first two resolve differently, or choose ids that are wire ids. `model-echo.ts` assumes the listed id is `ModelInfo.value`; if C chooses another id, the echo follows C.
 - **The first listed command that starts a run must reach the model as that command** (rule 13): a built-in like `/compact` or `/clear` reaches no main request. Lane C orders commands (a project command first, or built-ins that do not reach the model answered `handled` by D); the world writes `.claude/commands/conformance.md`.
 - **Frame uuids**: D37 proves that a send's uuid is its entry's uuid; that every `user`/`assistant` frame's `uuid` is its transcript entry's (which `TranscriptCut.lastUuidBefore` needs when D tracks it from frames) is unverified: lane D proves it in its first real-CLI test or reads `store.lastChainUuid` at run start instead.
 - **cwd canonical**: the core hands the adapter a canonical cwd; temp dirs on macOS are `/private/var/…`; `createClaudeHome` realpaths its root, and rows must carry the same string (rule 5 compares `row.cwd === driver.cwd`).
@@ -319,3 +321,14 @@ No other part of the adapter needs something the contract or core cannot express
 - **No test reads the real `~/.claude`**: always a temp `configDir` (D36) and `claudeTestEnv`; `assertTempClaudePath` guards both helpers.
 - **`plan: false`** (D38): B must not emit `plan_updated`; a TodoWrite call (older models) is an ordinary tool call.
 - **Comments**: the repo's tooling refuses an edit with more than 0.5 comment lines per line of code; contracts live in this file and the ports' short doc comments.
+
+---
+
+## 12. What Step 5 changed in these seams
+
+- `Ownership` gained `noteOwnWrite(sessionId, at)` and `ownWriteAt(sessionId)`; `TerminalDeps` gained `ownWriteAt` (README D122).
+- `SessionStore.rename(sessionId, title, live)` takes the overlay (lane A's wish); `StoreContext.live` is gone.
+- `callOp(deps: OpsDeps, call)`; `ClaudeCodeParts.configWatch` (lane F's watcher, started by the factory, disposed first).
+- `open-session.ts` holds `backend.ts`'s open routing, and waits up to 3 s for a session a terminal asked about before its first flush (D126).
+- `store/trash.ts` is `trash.ts`, `trashTargetOf(env, now)` and `servicesTrash(services)`; every delete uses it (D121).
+- The server side (`server/claude-code-*.ts`, `cc-custom-tools.ts`) is built: registration behind `claudeCode.contract`, the receiver, the hooks, the custom tools port (D127).

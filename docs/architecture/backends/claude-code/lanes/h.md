@@ -1,5 +1,7 @@
 # Lane H · App — decisions (D110–D119)
 
+> Merged in Step 5 (`cc/integrate`). This file is the lane's record as delivered; where the adapter [README](../README.md)'s integration decisions D120–D129 changed something here, the README wins.
+
 Everything is under `lib/agent/ui/` and `test/agent/`; the bridge, the generated contract and the old screens are untouched. Contract facts were read from the zod schemas (`action-list.ts`, `editable-file.ts`, `config-ops.ts`, `custom-tool-ops.ts`, `interactions.ts`, `interaction-replies.ts`, `answer-check.ts`, `extensions.ts`) and checked a second time against the generated Dart (`lib/contract/generated/`: field names, nullability, enums, `contractMaxTextChars` = 1,048,576 = `MAX_TEXT_CHARS`).
 
 **D110. A file opens beside its list, inside the same result sheet.** `ResultActions` gained `attempt`: it calls the backend and hands back the `Outcome` without replacing the result the host shows (`call` still replaces it and tells a refusal above the view). `FileDrillDown` (`panels/file_drill_down.dart`) holds the list result, opens a file with `attempt`, shows `EditableFileView` in its place with a *Files* back button, and on the way back reads the list again (so a saved, created or deleted file shows) with the list's own read call. `ConfigFilesView` and `CustomToolsView` are presentational and use it. Evidence: `editable_file_test.dart` "a file opens with a way back…", "going back with unsaved text asks first".
