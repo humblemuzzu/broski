@@ -11,10 +11,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 void showPanelsSheet(
   BuildContext context,
   List<OpPanel> panels,
-  OpTarget target,
-) => DetailSheet.show<void>(
+  OpTarget target, {
+  String title = 'More',
+}) => DetailSheet.show<void>(
   context: context,
-  title: 'More',
+  title: title,
   child: Consumer(
     builder: (sheetContext, ref, _) => Column(
       children: [
@@ -36,6 +37,28 @@ void showPanelsSheet(
 /// A backend's own operations, the ones that name no session (contract §13).
 List<OpPanel> backendPanels(BackendDescriptor backend) =>
     panelsAt(backend.capabilities, OpPlace.backend);
+
+/// A backend's operations on a project directory: its configuration, the
+/// settings in effect. They name the directory, not a session, so a screen
+/// that lists projects offers them for a row.
+List<OpPanel> projectPanels(BackendDescriptor backend) =>
+    panelsAt(backend.capabilities, OpPlace.project);
+
+/// The sheet of [projectPanels] for the project at [cwd], titled [name].
+void showProjectPanels(
+  BuildContext context,
+  BackendDescriptor backend, {
+  required String cwd,
+  required String name,
+}) => showPanelsSheet(
+  context,
+  projectPanels(backend),
+  sessionTarget(
+    SessionRef(backend: backend.id, sessionId: ''),
+    cwd: cwd,
+  ),
+  title: name,
+);
 
 /// What a backend operation runs on: the session that stands for "no session".
 OpTarget backendWide(BackendDescriptor backend) =>
