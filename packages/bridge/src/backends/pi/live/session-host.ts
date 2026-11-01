@@ -13,7 +13,6 @@ import {
 	type NoticeEvent,
 	type Rejected,
 	type RunShellOp,
-	type SessionControl,
 	type SessionSink,
 	type SessionSnapshot,
 	type SessionSummary,
@@ -24,13 +23,12 @@ import type { AskHost, LiveRow } from "../ports";
 import { ACCEPTED, CLOSED, rejected } from "../rejections";
 import { InteractionDesk } from "../ui/interactions";
 import { createRemoteUiContext } from "../ui/ui-context";
-import { cancelCompaction, cancelRetry } from "./cancel-requests";
 import { ChildFeeds } from "./child-feeds";
 import { CommandScope } from "./command-scope";
-import { requestCompaction } from "./compaction-request";
 import { EventBridge } from "./event-bridge";
 import type { ExtensionBinding } from "./extension-binding";
 import { extensionBindings } from "./host-bindings";
+import { type HostControl, hostControl } from "./host-control";
 import type { HostEnvironment, HostStart } from "./host-environment";
 import { HostLiveState } from "./host-live-state";
 import { HostRow } from "./host-row";
@@ -45,13 +43,6 @@ import { SessionSettings } from "./settings";
 import { ShellRun } from "./shell-run";
 import { ABORT_DEADLINE_MS, BINDING_WAIT_MS, boundedAbort, shutdownRuntime, within } from "./shutdown";
 import { UsageFeed } from "./usage-feed";
-
-/** `SessionControl` with the one method a session this bridge made always has. */
-type HostControl = Omit<SessionControl, "compact" | "cancelCompaction" | "cancelRetry"> & {
-	compact(instructions: string | undefined): Promise<ActionResult>;
-	cancelCompaction(): Promise<ActionResult>;
-	cancelRetry(): Promise<ActionResult>;
-};
 
 export const BINDING: Rejected = rejected("busy", "the session's extensions are still starting");
 
@@ -256,28 +247,20 @@ export class SessionHost {
 		return this.listRow.summary();
 	}
 
-	/**
-	 * The control every view of this host shares; it takes the session lock for what D2 lists. What reaches Pi waits
-	 * for the extensions to start, as a terminal takes no input before then: until they have, it is `busy`.
-	 */
 	get control(): HostControl {
-		return {
-			prompt: (input) => this.whenBound(() => this.prompts.prompt(input)),
+		return hostControl({
+			session: () => this.session,
+			ended: () => this.ended,
+			locked: (work) => this.locked(work),
+			whenBound: (work) => this.whenBound(work),
 			abort: () => this.abort(),
-			answer: async (answer) => (this.ended ? CLOSED : this.interactions.answer(answer)),
-			setModel: (modelId) => this.whenBound(() => this.settings.setModel(modelId)),
-			setThinking: (value) => this.whenBound(async () => this.settings.setThinking(value)),
-			setMode: (axis, value) => this.locked(async () => this.settings.setMode(axis, value)),
-			compact: (instructions) =>
-				this.whenBound(() =>
-					requestCompaction(this.session, instructions, {
-						running: this.runs.current() !== undefined,
-						started: () => this.events.nextCompactionStart(),
-					}),
-				),
-			cancelCompaction: async () => (this.ended ? CLOSED : cancelCompaction(this.session)),
-			cancelRetry: async () => (this.ended ? CLOSED : cancelRetry(this.session, this.live.snapshot())),
-		};
+			prompt: (input) => this.prompts.prompt(input),
+			interactions: this.interactions,
+			settings: this.settings,
+			running: () => this.runs.current() !== undefined,
+			nextCompactionStart: () => this.events.nextCompactionStart(),
+			snapshot: () => this.live.snapshot(),
+		});
 	}
 
 	/** `!command` (`run_shell`), under the lock and once the extensions have started. */
