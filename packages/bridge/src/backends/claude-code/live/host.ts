@@ -239,6 +239,11 @@ export class SessionHost {
 		await this.slot.end();
 	}
 
+	/** A Stop the CLI missed because it came ahead of the message: the same Stop, once the turn is there to stop. */
+	stopAgain(): void {
+		void this.abort();
+	}
+
 	private abort(): Promise<ActionResult> {
 		return abortRun({
 			runs: this.runs,

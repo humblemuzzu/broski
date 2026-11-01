@@ -79,8 +79,12 @@ export class RunTracker {
 		if (this.active) this.active.aborting = true;
 	}
 
-	markStarted(): void {
-		if (this.active) this.active.started = true;
+	/** True the first time the CLI shows it has begun the run's turn. */
+	markStarted(): boolean {
+		const run = this.active;
+		if (!run || run.started) return false;
+		run.started = true;
+		return true;
 	}
 
 	/** Emits `run_finished` and ends the run; the outcome is `outcomeOf` unless the caller knows better. */

@@ -35,6 +35,7 @@ export interface HostParts {
 	rowChanged(): void;
 	markPersisted(): void;
 	cancelledBeforeStart(): void;
+	stopAgain(): void;
 	conversationReset(newId: SessionId): void;
 }
 
@@ -90,6 +91,7 @@ export function frameHandlerOf(host: HostParts, prompts: PromptDesk): FrameHandl
 		},
 		endRun: () => endRun(runEndOf(host, prompts)),
 		cancelledBeforeStart: () => host.cancelledBeforeStart(),
+		stopAgain: () => host.stopAgain(),
 		conversationReset: (newId) => host.conversationReset(newId),
 	});
 }

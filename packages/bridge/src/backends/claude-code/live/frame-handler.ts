@@ -40,6 +40,8 @@ export interface FrameDeps {
 	readonly systemRun: () => void;
 	readonly endRun: () => void;
 	readonly cancelledBeforeStart: () => void;
+	/** Asks the CLI to stop the run again. */
+	readonly stopAgain: () => void;
 	readonly conversationReset: (newConversationId: string) => void;
 }
 
@@ -62,10 +64,10 @@ export class FrameHandler {
 			case "assistant":
 			case "user":
 				this.entry(frame);
-				this.deps.runs.markStarted();
+				this.began();
 				break;
 			case "stream_event":
-				this.deps.runs.markStarted();
+				this.began();
 				break;
 			case "conversation_reset":
 				this.deps.conversationReset(frame.new_conversation_id);
@@ -86,7 +88,7 @@ export class FrameHandler {
 				deps.persisted();
 				deps.settings.modelFromInit(frame.model);
 				deps.settings.modeFromFrame(frame.permissionMode);
-				deps.runs.markStarted();
+				this.began();
 				break;
 			case "status":
 				if (frame.permissionMode !== undefined) deps.settings.modeFromFrame(frame.permissionMode);
@@ -116,6 +118,15 @@ export class FrameHandler {
 		this.show(frame);
 	}
 
+	/**
+	 * The CLI began the run's turn. A Stop asked for before that reached the CLI ahead of the message it was meant for
+	 * (the receipt then lists nothing), so it is asked for again now that there is a turn to stop.
+	 */
+	private began(): void {
+		const { runs } = this.deps;
+		if (runs.markStarted() && runs.current?.aborting) this.deps.stopAgain();
+	}
+
 	private state(state: "idle" | "running" | "requires_action"): void {
 		const { runs } = this.deps;
 		if (state === "idle") {
@@ -123,7 +134,7 @@ export class FrameHandler {
 			return;
 		}
 		if (state === "running" && !runs.current) this.deps.systemRun();
-		runs.markStarted();
+		this.began();
 	}
 
 	/** Every main-thread `user` and `assistant` frame is a chain entry under its own uuid (D70). */
@@ -138,7 +149,7 @@ export class FrameHandler {
 		if (frame.state === "started" || frame.state === "completed") {
 			const delivered = queue.settleSteered(frame.commandUuid);
 			if (delivered) live.emit(delivered.event);
-			if (frame.state === "started") runs.markStarted();
+			if (frame.state === "started") this.began();
 			return;
 		}
 		if (frame.state !== "cancelled") return;

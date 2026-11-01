@@ -88,6 +88,26 @@ describe("Stop", () => {
 		await rig.dispose();
 	});
 
+	test("a Stop that reached the CLI ahead of its message is asked again once the turn begins, and only once", async () => {
+		const query = new FakeQuery({ interrupt: async () => ({ still_queued: [], cancelled: [] }) });
+		const { rig, live } = await hosted(query);
+		const request = promptOf("work");
+		await live.control.prompt(request);
+		await live.control.abort();
+		const asked = () => query.calls.filter((call) => call.method === "interrupt").length;
+		expect(asked()).toBe(1);
+		query.push(running(), lifecycle("started", request.clientRequestId), init());
+		await flush();
+		expect(asked()).toBe(2);
+		query.push(frame({ type: "system", subtype: "hook_started" }), running());
+		await flush();
+		expect(asked()).toBe(2);
+		query.push(abortedTurn(), idle());
+		await flush();
+		expect(live.events().at(-1)).toMatchObject({ type: "run_finished", outcome: { kind: "aborted" } });
+		await rig.dispose();
+	});
+
 	test("a Stop that cancelled the only send before the CLI began it ends the run; one the CLI began does not", async () => {
 		const first = promptOf("never began");
 		const query = new FakeQuery({ interrupt: async () => ({ still_queued: [], cancelled: [first.clientRequestId] }) });

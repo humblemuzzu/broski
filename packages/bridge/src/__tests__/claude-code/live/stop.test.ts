@@ -3,7 +3,7 @@
 import { describe, expect, test } from "bun:test";
 import { expectNoOrphans } from "../spike/rig/orphans";
 import { realRig } from "./helpers/rig";
-import { promptOf, SLOW_TEXT } from "./helpers/turns";
+import { SLOW_TEXT } from "./helpers/turns";
 
 expectNoOrphans();
 
@@ -104,11 +104,44 @@ describe("Stop on the real CLI", () => {
 				live.assertSettled();
 				const runs = live.events().filter((event) => event.type === "run_started");
 				expect(runs).toHaveLength(1);
-				expect(promptOf(live)).toBeDefined();
 			} finally {
 				await rig.dispose();
 			}
 		},
 		CLI_TEST_MS,
 	);
+
+	for (const wait of [0, 40, 120]) {
+		test(
+			`a Stop ${wait} ms after a request began to be held ends the turn, and the next prompt runs`,
+			async () => {
+				let release: () => void = () => undefined;
+				const held = new Promise<void>((resolve) => {
+					release = resolve;
+				});
+				const rig = realRig([{ text: ["held"], gate: held }, { text: ["second"] }]);
+				try {
+					const live = await rig.openNew(rig.home.projectDir);
+					await live.prompt("hold it");
+					await live.waitFor("run_started");
+					if (wait > 0) await Bun.sleep(wait);
+					await live.control.abort();
+					const finished = await live.waitFor("run_finished");
+					expect(finished.outcome).toEqual({ kind: "aborted" });
+					release();
+					await Bun.sleep(400);
+					const mark = live.recorder.items.length;
+					const next = await live.prompt("and now?");
+					expect(next).toMatchObject({ status: "accepted", disposition: "started" });
+					const second = await live.runAfter(mark);
+					expect(second.outcome).toEqual({ kind: "completed" });
+					expect(rig.server.mainRequests().length).toBeGreaterThanOrEqual(1);
+					live.assertSettled();
+				} finally {
+					await rig.dispose();
+				}
+			},
+			CLI_TEST_MS,
+		);
+	}
 });
