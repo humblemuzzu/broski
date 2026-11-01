@@ -4,6 +4,7 @@ import { FormFieldSpec } from "./forms";
 import { InteractionId, RunId, Timestamp, ToolCallId } from "./ids";
 import { JsonValue } from "./json";
 import { MAX_ID_CHARS, MAX_LIST_ITEMS, MAX_NAME_CHARS, MAX_PATH_CHARS, MAX_TEXT_CHARS } from "./limits";
+import { ModeAxisId } from "./modes";
 import { Option } from "./option";
 
 export const InteractionKind = z.enum([
@@ -137,12 +138,24 @@ export const FormRequest = z.strictObject({
 });
 export type FormRequest = z.infer<typeof FormRequest>;
 
+/**
+ * The values of one of the session's mode axes it may continue in once the plan is approved (since 1.4). `defaultValue`
+ * is the one it takes when the approval names none.
+ */
+export const PlanModeOptions = z.strictObject({
+	axis: ModeAxisId,
+	options: z.array(Option).min(1).max(MAX_LIST_ITEMS),
+	defaultValue: z.string().max(MAX_NAME_CHARS).optional(),
+});
+export type PlanModeOptions = z.infer<typeof PlanModeOptions>;
+
 export const PlanApprovalRequest = z.strictObject({
 	kind: z.literal("plan_approval"),
 	/** Markdown. */
 	plan: z.string().max(MAX_TEXT_CHARS),
 	editable: z.boolean(),
 	path: z.string().max(MAX_PATH_CHARS).optional(),
+	modeOptions: PlanModeOptions.optional(),
 });
 export type PlanApprovalRequest = z.infer<typeof PlanApprovalRequest>;
 

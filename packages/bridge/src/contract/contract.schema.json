@@ -5195,6 +5195,10 @@
         "feedback": {
           "type": "string",
           "maxLength": 1048576
+        },
+        "modeAfter": {
+          "type": "string",
+          "maxLength": 1024
         }
       },
       "required": [
@@ -5222,6 +5226,9 @@
         "path": {
           "type": "string",
           "maxLength": 4096
+        },
+        "modeOptions": {
+          "$ref": "#/$defs/PlanModeOptions"
         }
       },
       "required": [
@@ -5269,6 +5276,33 @@
         "completed",
         "cancelled"
       ]
+    },
+    "PlanModeOptions": {
+      "x-module": "interactions",
+      "$id": "#/$defs/PlanModeOptions",
+      "type": "object",
+      "properties": {
+        "axis": {
+          "$ref": "#/$defs/ModeAxisId"
+        },
+        "options": {
+          "minItems": 1,
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Option"
+          }
+        },
+        "defaultValue": {
+          "type": "string",
+          "maxLength": 1024
+        }
+      },
+      "required": [
+        "axis",
+        "options"
+      ],
+      "additionalProperties": false
     },
     "PlanUpdatedEvent": {
       "x-module": "events",

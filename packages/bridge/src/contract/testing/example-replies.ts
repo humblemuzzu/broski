@@ -21,8 +21,10 @@ export function validReply(interaction: Interaction): InteractionReply {
 			};
 		case "form":
 			return { kind: "form", values: formValues(request) };
-		case "plan_approval":
-			return { kind: "plan_approval", decision: "approve" };
+		case "plan_approval": {
+			const mode = request.modeOptions?.options[0]?.value;
+			return { kind: "plan_approval", decision: "approve", ...(mode !== undefined && { modeAfter: mode }) };
+		}
 		case "external_url":
 			return { kind: "external_url" };
 		case "choice":
@@ -115,7 +117,10 @@ function brokenReplies(request: InteractionRequest): InteractionReply[] {
 		case "choice":
 			return [{ kind: "choice", value: "no-such-option" }];
 		case "plan_approval":
-			return [{ kind: "plan_approval", decision: "approve", feedback: "feedback goes with a rejection" }];
+			return [
+				{ kind: "plan_approval", decision: "approve", feedback: "feedback goes with a rejection" },
+				{ kind: "plan_approval", decision: "approve", modeAfter: "no-such-mode" },
+			];
 		case "external_url":
 		case "confirm":
 		case "text":

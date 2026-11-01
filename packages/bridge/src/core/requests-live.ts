@@ -3,7 +3,7 @@ import { movedTo, redirectAttach } from "./attach-redirect";
 import { type BackendRequest, type Handler, reachBackend } from "./context";
 import { controlled } from "./controlled";
 import { LiveSession } from "./live-session";
-import { capabilitiesFor } from "./minor-views";
+import { answerTooNew, capabilitiesFor, syncFor } from "./minor-views";
 import { HELLO_FIRST, openFailure, protocolError, unsupported } from "./results";
 import { sessionKey } from "./session-key";
 
@@ -66,7 +66,7 @@ async function join(target: BackendRequest<"session.attach">): Promise<void> {
 		type: "session.attach.result",
 		requestId: request.requestId,
 		capabilities: capabilitiesFor(client, sessionCapabilities(live.open)),
-		sync,
+		sync: syncFor(client, sync),
 	});
 	if (!sent) return;
 	for (const frame of replay) client.send(frame);
@@ -96,7 +96,8 @@ export const prompt = controlled<"prompt", PromptResult>(
 
 export const interactionAnswer = controlled<"interaction.answer", ActionResult>(
 	(request, result) => ({ type: "interaction.answer.result", requestId: request.requestId, result }),
-	({ ctx, request, live, control }) => ctx.desk.answer(live, control, request.answer),
+	async ({ ctx, client, request, live, control }) =>
+		answerTooNew(client, request.answer) ?? ctx.desk.answer(live, control, request.answer),
 );
 
 export const abort = controlled<"abort", ActionResult>(

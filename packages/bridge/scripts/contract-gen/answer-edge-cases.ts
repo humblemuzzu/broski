@@ -9,7 +9,14 @@ import { type AnswerInput, PERMISSION } from "./answer-input";
 
 /** Every branch of `answerProblem` and `fieldProblem` past the kind check, one input per branch or edge. */
 export function answerEdgeCases(): AnswerInput[] {
-	return [...permissionCases(), ...questionCases(), ...formCases(), ...valueCases(), ...otherKindCases()];
+	return [
+		...permissionCases(),
+		...questionCases(),
+		...formCases(),
+		...valueCases(),
+		...otherKindCases(),
+		...planModeCases(),
+	];
 }
 
 const permit = (optionId: string, extra: Partial<Extract<InteractionReply, { kind: "tool_permission" }>> = {}) =>
@@ -265,6 +272,40 @@ function valueCases(): AnswerInput[] {
 			name: `${name} field given ${JSON.stringify(value)}`,
 			request: { kind: "form", fields: [field] } satisfies InteractionRequest,
 			reply: { kind: "form", values: { v: value } } satisfies InteractionReply,
+		})),
+	);
+}
+
+/** An approval may name the mode the session goes on in, only one the plan offers. */
+function planModeCases(): AnswerInput[] {
+	const offering: InteractionRequest = {
+		kind: "plan_approval",
+		plan: "1. Do it",
+		editable: true,
+		modeOptions: {
+			axis: "permissions",
+			options: [
+				{ value: "default", label: "Ask" },
+				{ value: "acceptEdits", label: "Accept edits" },
+			],
+			defaultValue: "default",
+		},
+	};
+	const silent: InteractionRequest = { kind: "plan_approval", plan: "1. Do it", editable: true };
+	const replies: InteractionReply[] = [
+		{ kind: "plan_approval", decision: "approve", modeAfter: "acceptEdits" },
+		{ kind: "plan_approval", decision: "approve", plan: "edited", modeAfter: "default" },
+		{ kind: "plan_approval", decision: "approve", modeAfter: "plan" },
+		{ kind: "plan_approval", decision: "approve", modeAfter: "" },
+		{ kind: "plan_approval", decision: "approve", modeAfter: "AcceptEdits" },
+		{ kind: "plan_approval", decision: "reject", feedback: "smaller", modeAfter: "acceptEdits" },
+		{ kind: "plan_approval", decision: "approve" },
+	];
+	return [offering, silent].flatMap((request) =>
+		replies.map((reply) => ({
+			name: `plan (modes ${request.kind === "plan_approval" && request.modeOptions !== undefined}): ${JSON.stringify(reply)}`,
+			request,
+			reply,
 		})),
 	);
 }

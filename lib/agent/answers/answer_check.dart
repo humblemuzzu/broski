@@ -57,7 +57,16 @@ String? _planProblem(PlanApprovalRequest request, PlanApprovalReply reply) {
   if (reply.plan != null && !request.editable) {
     return 'this plan cannot be edited';
   }
-  return null;
+  final modeAfter = reply.modeAfter;
+  if (modeAfter == null) return null;
+  if (reply.decision == PlanDecision.reject) {
+    return 'a mode goes with an approval';
+  }
+  final modes = request.modeOptions;
+  if (modes == null) return 'this plan offers no mode to continue in';
+  return modes.options.any((option) => option.value == modeAfter)
+      ? null
+      : 'not one of the modes offered';
 }
 
 String? _permissionProblem(

@@ -133,7 +133,19 @@ export function sampleRequest(kind: Exclude<InteractionKind, "tool_permission">)
 				],
 			};
 		case "plan_approval":
-			return { kind, plan: "# Plan\n1. Read\n2. Write", editable: true };
+			return {
+				kind,
+				plan: "# Plan\n1. Read\n2. Write",
+				editable: true,
+				modeOptions: {
+					axis: "permissions",
+					options: [
+						{ value: "ask", label: "Ask first" },
+						{ value: "edits", label: "Accept edits" },
+					],
+					defaultValue: "ask",
+				},
+			};
 		case "external_url":
 			return { kind, url: "https://example.com/authorize", server: "docs" };
 		case "choice":

@@ -240,13 +240,18 @@ sealed class InteractionReply {
 }
 
 final class PlanApprovalReply implements InteractionReply {
-  const PlanApprovalReply({required this.decision, this.plan, this.feedback});
+  const PlanApprovalReply({
+    required this.decision,
+    this.plan,
+    this.feedback,
+    this.modeAfter,
+  });
 
   factory PlanApprovalReply.fromJson(Map<String, Object?> json) {
     _expectShape(
       json,
       'PlanApprovalReply',
-      const <String>{'kind', 'decision', 'plan', 'feedback'},
+      const <String>{'kind', 'decision', 'plan', 'feedback', 'modeAfter'},
       const <String, String>{'kind': 'plan_approval'},
     );
     return PlanApprovalReply(
@@ -259,12 +264,16 @@ final class PlanApprovalReply implements InteractionReply {
       feedback: json.containsKey('feedback')
           ? _as<String>(json['feedback'], 'PlanApprovalReply.feedback')
           : null,
+      modeAfter: json.containsKey('modeAfter')
+          ? _as<String>(json['modeAfter'], 'PlanApprovalReply.modeAfter')
+          : null,
     );
   }
 
   final PlanDecision decision;
   final String? plan;
   final String? feedback;
+  final String? modeAfter;
 
   @override
   Map<String, Object?> toJson() => {
@@ -272,6 +281,7 @@ final class PlanApprovalReply implements InteractionReply {
     'decision': decision.toJson(),
     if (plan case final value?) 'plan': value,
     if (feedback case final value?) 'feedback': value,
+    if (modeAfter case final value?) 'modeAfter': value,
   };
 
   @override
@@ -280,15 +290,20 @@ final class PlanApprovalReply implements InteractionReply {
       other is PlanApprovalReply &&
           _equal(decision, other.decision) &&
           _equal(plan, other.plan) &&
-          _equal(feedback, other.feedback);
+          _equal(feedback, other.feedback) &&
+          _equal(modeAfter, other.modeAfter);
 
   @override
-  int get hashCode =>
-      Object.hashAll([_hash(decision), _hash(plan), _hash(feedback)]);
+  int get hashCode => Object.hashAll([
+    _hash(decision),
+    _hash(plan),
+    _hash(feedback),
+    _hash(modeAfter),
+  ]);
 
   @override
   String toString() =>
-      'PlanApprovalReply(decision: $decision, plan: $plan, feedback: $feedback)';
+      'PlanApprovalReply(decision: $decision, plan: $plan, feedback: $feedback, modeAfter: $modeAfter)';
 }
 
 enum PlanDecision {

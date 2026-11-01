@@ -754,13 +754,14 @@ final class PlanApprovalRequest implements InteractionRequest {
     required this.plan,
     required this.editable,
     this.path,
+    this.modeOptions,
   });
 
   factory PlanApprovalRequest.fromJson(Map<String, Object?> json) {
     _expectShape(
       json,
       'PlanApprovalRequest',
-      const <String>{'kind', 'plan', 'editable', 'path'},
+      const <String>{'kind', 'plan', 'editable', 'path', 'modeOptions'},
       const <String, String>{'kind': 'plan_approval'},
     );
     return PlanApprovalRequest(
@@ -769,12 +770,21 @@ final class PlanApprovalRequest implements InteractionRequest {
       path: json.containsKey('path')
           ? _as<String>(json['path'], 'PlanApprovalRequest.path')
           : null,
+      modeOptions: json.containsKey('modeOptions')
+          ? PlanModeOptions.fromJson(
+              _as<Map<String, Object?>>(
+                json['modeOptions'],
+                'PlanApprovalRequest.modeOptions',
+              ),
+            )
+          : null,
     );
   }
 
   final String plan;
   final bool editable;
   final String? path;
+  final PlanModeOptions? modeOptions;
 
   @override
   Map<String, Object?> toJson() => {
@@ -782,6 +792,7 @@ final class PlanApprovalRequest implements InteractionRequest {
     'plan': plan,
     'editable': editable,
     if (path case final value?) 'path': value,
+    if (modeOptions case final value?) 'modeOptions': value.toJson(),
   };
 
   @override
@@ -790,15 +801,77 @@ final class PlanApprovalRequest implements InteractionRequest {
       other is PlanApprovalRequest &&
           _equal(plan, other.plan) &&
           _equal(editable, other.editable) &&
-          _equal(path, other.path);
+          _equal(path, other.path) &&
+          _equal(modeOptions, other.modeOptions);
 
   @override
-  int get hashCode =>
-      Object.hashAll([_hash(plan), _hash(editable), _hash(path)]);
+  int get hashCode => Object.hashAll([
+    _hash(plan),
+    _hash(editable),
+    _hash(path),
+    _hash(modeOptions),
+  ]);
 
   @override
   String toString() =>
-      'PlanApprovalRequest(plan: $plan, editable: $editable, path: $path)';
+      'PlanApprovalRequest(plan: $plan, editable: $editable, path: $path, modeOptions: $modeOptions)';
+}
+
+final class PlanModeOptions {
+  const PlanModeOptions({
+    required this.axis,
+    required this.options,
+    this.defaultValue,
+  });
+
+  factory PlanModeOptions.fromJson(Map<String, Object?> json) {
+    _expectShape(json, 'PlanModeOptions', const <String>{
+      'axis',
+      'options',
+      'defaultValue',
+    }, const <String, String>{});
+    return PlanModeOptions(
+      axis: _as<String>(json['axis'], 'PlanModeOptions.axis'),
+      options: [
+        for (final e0 in _as<List<Object?>>(
+          json['options'],
+          'PlanModeOptions.options',
+        ))
+          Option.fromJson(
+            _as<Map<String, Object?>>(e0, 'PlanModeOptions.options[]'),
+          ),
+      ],
+      defaultValue: json.containsKey('defaultValue')
+          ? _as<String>(json['defaultValue'], 'PlanModeOptions.defaultValue')
+          : null,
+    );
+  }
+
+  final ModeAxisId axis;
+  final List<Option> options;
+  final String? defaultValue;
+
+  Map<String, Object?> toJson() => {
+    'axis': axis,
+    'options': [for (final e0 in options) e0.toJson()],
+    if (defaultValue case final value?) 'defaultValue': value,
+  };
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PlanModeOptions &&
+          _equal(axis, other.axis) &&
+          _equal(options, other.options) &&
+          _equal(defaultValue, other.defaultValue);
+
+  @override
+  int get hashCode =>
+      Object.hashAll([_hash(axis), _hash(options), _hash(defaultValue)]);
+
+  @override
+  String toString() =>
+      'PlanModeOptions(axis: $axis, options: $options, defaultValue: $defaultValue)';
 }
 
 final class Question {

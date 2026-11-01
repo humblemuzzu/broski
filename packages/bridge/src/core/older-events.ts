@@ -2,6 +2,7 @@
 
 import { ADDED_IN_MINOR, type AgentEvent, type EventEnvelope, MAX_TEXT_CHARS, type SessionSnapshot } from "../contract";
 import type { EncodedFrame } from "./frame";
+import { interactionBefore14, snapshotBefore14 } from "./older-plans";
 import type { CoreLog } from "./ports";
 import { fitEvent } from "./wire-fit";
 
@@ -14,8 +15,8 @@ interface OlderView {
 
 /**
  * `frame` for the event in `envelope`, with the frames older clients are sent instead, newest minor first: each client
- * gets the first one its minor speaks (`CoreClient.send`). Every stand-in keeps the event's `seq`, so the stream stays
- * gapless for every client.
+ * gets the first one its minor speaks (`CoreClient.send`). A stand-in that encodes to the frame before it is left out.
+ * Every stand-in keeps the event's `seq`, so the stream stays gapless for every client.
  */
 export function withOlderView(
 	frame: EncodedFrame,
@@ -24,34 +25,58 @@ export function withOlderView(
 	maxBytes: number,
 	log: CoreLog,
 ): EncodedFrame {
-	let chain: EncodedFrame["instead"];
-	for (const view of olderViews(envelope.event, after).reverse()) {
+	const standIns: { minor: number; frame: EncodedFrame }[] = [];
+	let newer = frame.text;
+	for (const view of olderViews(envelope.event, after)) {
 		const fitted = fitEvent({ ...envelope, event: view.event }, view.after, maxBytes, log);
-		chain = { minor: view.minor, frame: chain ? { ...fitted, instead: chain } : fitted };
+		if (fitted.text === newer) continue;
+		standIns.push({ minor: view.minor, frame: fitted });
+		newer = fitted.text;
+	}
+	let chain: EncodedFrame["instead"];
+	for (const { minor, frame: older } of standIns.reverse()) {
+		chain = { minor, frame: chain ? { ...older, instead: chain } : older };
 	}
 	return chain ? { ...frame, instead: chain } : frame;
 }
 
 /**
- * Newest minor first. 1.4: a prompt suggestion becomes an info `notice` with its text. 1.2: `input_returned` becomes a
- * `notice` carrying the same texts. None of these events is state, so an older client's live state is the same.
+ * Newest minor first. 1.4: a prompt suggestion becomes an info `notice` with its text, and a plan approval, in the
+ * event or in the live state after it (which a frame that does not fit is replaced by), loses its `modeOptions`. 1.2:
+ * `input_returned` becomes a `notice` carrying the same texts. None of the notices is state, so an older client's live
+ * state differs only by the modes it cannot read.
  */
 function olderViews(event: AgentEvent, after: SessionSnapshot): OlderView[] {
 	const views: OlderView[] = [];
 	const before14 = eventBefore14(event);
-	if (before14 !== event) views.push({ minor: ADDED_IN_MINOR.configOps, event: before14, after });
+	const after14 = snapshotBefore14(after);
+	if (before14 !== event || after14 !== after) {
+		views.push({ minor: ADDED_IN_MINOR.configOps, event: before14, after: after14 });
+	}
 	if (before14.type === "input_returned") {
-		views.push({ minor: ADDED_IN_MINOR.inputReturned, event: notice(returnedText(before14.texts)), after });
+		views.push({ minor: ADDED_IN_MINOR.inputReturned, event: notice(returnedText(before14.texts)), after: after14 });
 	}
 	return views;
 }
 
 /** `event` without what 1.4 added; the same object when it has none. */
 function eventBefore14(event: AgentEvent): AgentEvent {
-	if (event.type === "extension" && event.extension.kind === "prompt_suggestion") {
-		return notice(clipped(`${SUGGESTION_HEADING} ${event.extension.text}`));
+	switch (event.type) {
+		case "extension":
+			return event.extension.kind === "prompt_suggestion"
+				? notice(clipped(`${SUGGESTION_HEADING} ${event.extension.text}`))
+				: event;
+		case "interaction_requested": {
+			const interaction = interactionBefore14(event.interaction);
+			return interaction === event.interaction ? event : { ...event, interaction };
+		}
+		case "resynced": {
+			const snapshot = snapshotBefore14(event.snapshot);
+			return snapshot === event.snapshot ? event : { ...event, snapshot };
+		}
+		default:
+			return event;
 	}
-	return event;
 }
 
 const RETURNED_HEADING = "Not sent. These were queued when the run was stopped:";

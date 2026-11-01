@@ -5304,7 +5304,8 @@
       "kind": "plan_approval",
       "decision": "approve",
       "plan": "x",
-      "feedback": "x"
+      "feedback": "x",
+      "modeAfter": "x"
     },
     {
       "kind": "plan_approval",
@@ -5520,7 +5521,18 @@
       "kind": "plan_approval",
       "plan": "x",
       "editable": true,
-      "path": "x"
+      "path": "x",
+      "modeOptions": {
+        "axis": "x",
+        "options": [
+          {
+            "value": "x",
+            "label": "x",
+            "description": "x"
+          }
+        ],
+        "defaultValue": "x"
+      }
     },
     {
       "kind": "plan_approval",
@@ -6777,7 +6789,8 @@
       "kind": "plan_approval",
       "decision": "approve",
       "plan": "x",
-      "feedback": "x"
+      "feedback": "x",
+      "modeAfter": "x"
     },
     {
       "kind": "plan_approval",
@@ -6789,7 +6802,18 @@
       "kind": "plan_approval",
       "plan": "x",
       "editable": true,
-      "path": "x"
+      "path": "x",
+      "modeOptions": {
+        "axis": "x",
+        "options": [
+          {
+            "value": "x",
+            "label": "x",
+            "description": "x"
+          }
+        ],
+        "defaultValue": "x"
+      }
     },
     {
       "kind": "plan_approval",
@@ -6812,6 +6836,28 @@
     "in_progress",
     "completed",
     "cancelled"
+  ],
+  "PlanModeOptions": [
+    {
+      "axis": "x",
+      "options": [
+        {
+          "value": "x",
+          "label": "x",
+          "description": "x"
+        }
+      ],
+      "defaultValue": "x"
+    },
+    {
+      "axis": "x",
+      "options": [
+        {
+          "value": "x",
+          "label": "x"
+        }
+      ]
+    }
   ],
   "PlanUpdatedEvent": [
     {

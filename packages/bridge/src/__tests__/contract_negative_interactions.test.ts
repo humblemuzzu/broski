@@ -29,6 +29,27 @@ describe("the interaction rule fails", () => {
 			/was not rejected invalid_input/,
 		));
 
+	test("for a plan approval that takes a mode the plan did not offer", () =>
+		fails(
+			breakSessions((session) => {
+				const control = session.control;
+				if (!control) return session;
+				return {
+					...session,
+					control: {
+						...control,
+						answer: async (answer) => {
+							if (answer.reply.kind !== "plan_approval") return control.answer(answer);
+							const { modeAfter: _ignored, ...reply } = answer.reply;
+							return control.answer({ ...answer, reply });
+						},
+					},
+				};
+			}),
+			declaredInteractionsAnswerCorrectly,
+			/no-such-mode.*was not rejected invalid_input/,
+		));
+
 	test("for an invalid answer that still resolves the ask", () =>
 		fails(
 			breakSessions((session) => {

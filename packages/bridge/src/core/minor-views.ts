@@ -5,12 +5,17 @@
 
 import {
 	ADDED_IN_MINOR,
+	type AttachSync,
 	type BackendDescriptor,
 	type BackendId,
 	type BackendOpKind,
+	type InteractionAnswer,
+	type Rejected,
 	type SessionCapabilities,
 } from "../contract";
 import type { CoreClient } from "./client";
+import { snapshotBefore14 } from "./older-plans";
+import { rejected } from "./results";
 
 /** The minor that added each op: 0 for those of 1.0, so a new op the table misses does not compile. */
 const OP_ADDED_IN: Readonly<Record<BackendOpKind, number>> = {
@@ -68,4 +73,22 @@ export function capabilitiesFor(client: CoreClient, capabilities: SessionCapabil
 	if (client.speaks(ADDED_IN_MINOR.sessionControls)) return capabilities;
 	const { cancelCompaction: _compaction, cancelRetry: _retry, ...older } = capabilities;
 	return older;
+}
+
+/** An attach's sync as `client` may know it: a snapshot without the plan approvals' modes before 1.4. */
+export function syncFor(client: CoreClient, sync: AttachSync): AttachSync {
+	if (sync.kind !== "snapshot" || client.speaks(ADDED_IN_MINOR.configOps)) return sync;
+	return { ...sync, snapshot: snapshotBefore14(sync.snapshot) };
+}
+
+/**
+ * Why `client` may not send `answer`: a client below 1.4 was never told the modes a plan offers, so its approval names
+ * none.
+ */
+export function answerTooNew(client: CoreClient, answer: InteractionAnswer): Rejected | undefined {
+	const { reply } = answer;
+	if (client.speaks(ADDED_IN_MINOR.configOps) || reply.kind !== "plan_approval" || reply.modeAfter === undefined) {
+		return undefined;
+	}
+	return rejected("invalid_input", "a client of this protocol minor cannot choose a mode after a plan");
 }

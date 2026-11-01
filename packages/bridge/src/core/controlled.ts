@@ -24,6 +24,7 @@ type ControlRequest<T extends ControlType> = Extract<ClientMessage, { type: Cont
 /** A control request, with the session it acts on and that session's control. */
 export interface Controlled<T extends ControlType> {
 	readonly ctx: CoreContext;
+	readonly client: CoreClient;
 	readonly request: ControlRequest<T>;
 	readonly live: LiveSession;
 	readonly control: SessionControl;
@@ -55,7 +56,10 @@ export function controlled<T extends ControlType, R extends ActionResult | Promp
 		}
 		const control = live.open.control;
 		respond(
-			answer(request, control ? await run({ ctx, request, live, control }) : rejected("unsupported", WATCH_ONLY)),
+			answer(
+				request,
+				control ? await run({ ctx, client, request, live, control }) : rejected("unsupported", WATCH_ONLY),
+			),
 		);
 	};
 }

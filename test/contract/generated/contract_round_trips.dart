@@ -531,6 +531,9 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
       PlanItem.fromJson(_as<Map<String, Object?>>(json, 'PlanItem')),
   'PlanItemStatus': (json) =>
       PlanItemStatus.fromJson(_as<String>(json, 'PlanItemStatus')),
+  'PlanModeOptions': (json) => PlanModeOptions.fromJson(
+    _as<Map<String, Object?>>(json, 'PlanModeOptions'),
+  ),
   'PlanUpdatedEvent': (json) => PlanUpdatedEvent.fromJson(
     _as<Map<String, Object?>>(json, 'PlanUpdatedEvent'),
   ),
@@ -1557,6 +1560,9 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
       (PlanItem.fromJson(_as<Map<String, Object?>>(json, 'PlanItem'))).toJson(),
   'PlanItemStatus': (json) =>
       (PlanItemStatus.fromJson(_as<String>(json, 'PlanItemStatus'))).toJson(),
+  'PlanModeOptions': (json) => (PlanModeOptions.fromJson(
+    _as<Map<String, Object?>>(json, 'PlanModeOptions'),
+  )).toJson(),
   'PlanUpdatedEvent': (json) => (PlanUpdatedEvent.fromJson(
     _as<Map<String, Object?>>(json, 'PlanUpdatedEvent'),
   )).toJson(),

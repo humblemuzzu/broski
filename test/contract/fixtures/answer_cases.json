@@ -570,7 +570,8 @@
         "interactionId": "i-1",
         "reply": {
           "kind": "plan_approval",
-          "decision": "approve"
+          "decision": "approve",
+          "modeAfter": "ask"
         }
       },
       "problem": "a plan_approval reply cannot answer a tool_permission interaction"
@@ -1309,7 +1310,8 @@
         "interactionId": "i-1",
         "reply": {
           "kind": "plan_approval",
-          "decision": "approve"
+          "decision": "approve",
+          "modeAfter": "ask"
         }
       },
       "problem": "a plan_approval reply cannot answer a questions interaction"
@@ -2276,7 +2278,8 @@
         "interactionId": "i-1",
         "reply": {
           "kind": "plan_approval",
-          "decision": "approve"
+          "decision": "approve",
+          "modeAfter": "ask"
         }
       },
       "problem": "a plan_approval reply cannot answer a form interaction"
@@ -2607,14 +2610,29 @@
         "request": {
           "kind": "plan_approval",
           "plan": "# Plan\n1. Read\n2. Write",
-          "editable": true
+          "editable": true,
+          "modeOptions": {
+            "axis": "permissions",
+            "options": [
+              {
+                "value": "ask",
+                "label": "Ask first"
+              },
+              {
+                "value": "edits",
+                "label": "Accept edits"
+              }
+            ],
+            "defaultValue": "ask"
+          }
         }
       },
       "answer": {
         "interactionId": "i-2",
         "reply": {
           "kind": "plan_approval",
-          "decision": "approve"
+          "decision": "approve",
+          "modeAfter": "ask"
         }
       },
       "problem": "the answer names another interaction"
@@ -2630,7 +2648,21 @@
         "request": {
           "kind": "plan_approval",
           "plan": "# Plan\n1. Read\n2. Write",
-          "editable": true
+          "editable": true,
+          "modeOptions": {
+            "axis": "permissions",
+            "options": [
+              {
+                "value": "ask",
+                "label": "Ask first"
+              },
+              {
+                "value": "edits",
+                "label": "Accept edits"
+              }
+            ],
+            "defaultValue": "ask"
+          }
         }
       },
       "answer": {
@@ -2653,7 +2685,21 @@
         "request": {
           "kind": "plan_approval",
           "plan": "# Plan\n1. Read\n2. Write",
-          "editable": true
+          "editable": true,
+          "modeOptions": {
+            "axis": "permissions",
+            "options": [
+              {
+                "value": "ask",
+                "label": "Ask first"
+              },
+              {
+                "value": "edits",
+                "label": "Accept edits"
+              }
+            ],
+            "defaultValue": "ask"
+          }
         }
       },
       "answer": {
@@ -2677,7 +2723,21 @@
         "request": {
           "kind": "plan_approval",
           "plan": "# Plan\n1. Read\n2. Write",
-          "editable": true
+          "editable": true,
+          "modeOptions": {
+            "axis": "permissions",
+            "options": [
+              {
+                "value": "ask",
+                "label": "Ask first"
+              },
+              {
+                "value": "edits",
+                "label": "Accept edits"
+              }
+            ],
+            "defaultValue": "ask"
+          }
         }
       },
       "answer": {
@@ -2700,7 +2760,21 @@
         "request": {
           "kind": "plan_approval",
           "plan": "# Plan\n1. Read\n2. Write",
-          "editable": true
+          "editable": true,
+          "modeOptions": {
+            "axis": "permissions",
+            "options": [
+              {
+                "value": "ask",
+                "label": "Ask first"
+              },
+              {
+                "value": "edits",
+                "label": "Accept edits"
+              }
+            ],
+            "defaultValue": "ask"
+          }
         }
       },
       "answer": {
@@ -2714,6 +2788,44 @@
       "problem": "feedback goes with a rejection"
     },
     {
+      "name": "plan_approval: invalid 2",
+      "interaction": {
+        "id": "i-1",
+        "runId": "r-1",
+        "createdAt": 1,
+        "title": "Asked",
+        "blocksRun": true,
+        "request": {
+          "kind": "plan_approval",
+          "plan": "# Plan\n1. Read\n2. Write",
+          "editable": true,
+          "modeOptions": {
+            "axis": "permissions",
+            "options": [
+              {
+                "value": "ask",
+                "label": "Ask first"
+              },
+              {
+                "value": "edits",
+                "label": "Accept edits"
+              }
+            ],
+            "defaultValue": "ask"
+          }
+        }
+      },
+      "answer": {
+        "interactionId": "i-1",
+        "reply": {
+          "kind": "plan_approval",
+          "decision": "approve",
+          "modeAfter": "no-such-mode"
+        }
+      },
+      "problem": "not one of the modes offered"
+    },
+    {
       "name": "plan_approval: a tool_permission reply",
       "interaction": {
         "id": "i-1",
@@ -2724,7 +2836,21 @@
         "request": {
           "kind": "plan_approval",
           "plan": "# Plan\n1. Read\n2. Write",
-          "editable": true
+          "editable": true,
+          "modeOptions": {
+            "axis": "permissions",
+            "options": [
+              {
+                "value": "ask",
+                "label": "Ask first"
+              },
+              {
+                "value": "edits",
+                "label": "Accept edits"
+              }
+            ],
+            "defaultValue": "ask"
+          }
         }
       },
       "answer": {
@@ -2748,7 +2874,21 @@
         "request": {
           "kind": "plan_approval",
           "plan": "# Plan\n1. Read\n2. Write",
-          "editable": true
+          "editable": true,
+          "modeOptions": {
+            "axis": "permissions",
+            "options": [
+              {
+                "value": "ask",
+                "label": "Ask first"
+              },
+              {
+                "value": "edits",
+                "label": "Accept edits"
+              }
+            ],
+            "defaultValue": "ask"
+          }
         }
       },
       "answer": {
@@ -2783,7 +2923,21 @@
         "request": {
           "kind": "plan_approval",
           "plan": "# Plan\n1. Read\n2. Write",
-          "editable": true
+          "editable": true,
+          "modeOptions": {
+            "axis": "permissions",
+            "options": [
+              {
+                "value": "ask",
+                "label": "Ask first"
+              },
+              {
+                "value": "edits",
+                "label": "Accept edits"
+              }
+            ],
+            "defaultValue": "ask"
+          }
         }
       },
       "answer": {
@@ -2825,14 +2979,29 @@
         "request": {
           "kind": "plan_approval",
           "plan": "# Plan\n1. Read\n2. Write",
-          "editable": true
+          "editable": true,
+          "modeOptions": {
+            "axis": "permissions",
+            "options": [
+              {
+                "value": "ask",
+                "label": "Ask first"
+              },
+              {
+                "value": "edits",
+                "label": "Accept edits"
+              }
+            ],
+            "defaultValue": "ask"
+          }
         }
       },
       "answer": {
         "interactionId": "i-1",
         "reply": {
           "kind": "plan_approval",
-          "decision": "approve"
+          "decision": "approve",
+          "modeAfter": "ask"
         }
       },
       "problem": null
@@ -2848,7 +3017,21 @@
         "request": {
           "kind": "plan_approval",
           "plan": "# Plan\n1. Read\n2. Write",
-          "editable": true
+          "editable": true,
+          "modeOptions": {
+            "axis": "permissions",
+            "options": [
+              {
+                "value": "ask",
+                "label": "Ask first"
+              },
+              {
+                "value": "edits",
+                "label": "Accept edits"
+              }
+            ],
+            "defaultValue": "ask"
+          }
         }
       },
       "answer": {
@@ -2870,7 +3053,21 @@
         "request": {
           "kind": "plan_approval",
           "plan": "# Plan\n1. Read\n2. Write",
-          "editable": true
+          "editable": true,
+          "modeOptions": {
+            "axis": "permissions",
+            "options": [
+              {
+                "value": "ask",
+                "label": "Ask first"
+              },
+              {
+                "value": "edits",
+                "label": "Accept edits"
+              }
+            ],
+            "defaultValue": "ask"
+          }
         }
       },
       "answer": {
@@ -2893,7 +3090,21 @@
         "request": {
           "kind": "plan_approval",
           "plan": "# Plan\n1. Read\n2. Write",
-          "editable": true
+          "editable": true,
+          "modeOptions": {
+            "axis": "permissions",
+            "options": [
+              {
+                "value": "ask",
+                "label": "Ask first"
+              },
+              {
+                "value": "edits",
+                "label": "Accept edits"
+              }
+            ],
+            "defaultValue": "ask"
+          }
         }
       },
       "answer": {
@@ -2916,7 +3127,21 @@
         "request": {
           "kind": "plan_approval",
           "plan": "# Plan\n1. Read\n2. Write",
-          "editable": true
+          "editable": true,
+          "modeOptions": {
+            "axis": "permissions",
+            "options": [
+              {
+                "value": "ask",
+                "label": "Ask first"
+              },
+              {
+                "value": "edits",
+                "label": "Accept edits"
+              }
+            ],
+            "defaultValue": "ask"
+          }
         }
       },
       "answer": {
@@ -3139,7 +3364,8 @@
         "interactionId": "i-1",
         "reply": {
           "kind": "plan_approval",
-          "decision": "approve"
+          "decision": "approve",
+          "modeAfter": "ask"
         }
       },
       "problem": "a plan_approval reply cannot answer a external_url interaction"
@@ -3542,7 +3768,8 @@
         "interactionId": "i-1",
         "reply": {
           "kind": "plan_approval",
-          "decision": "approve"
+          "decision": "approve",
+          "modeAfter": "ask"
         }
       },
       "problem": "a plan_approval reply cannot answer a choice interaction"
@@ -3866,7 +4093,8 @@
         "interactionId": "i-1",
         "reply": {
           "kind": "plan_approval",
-          "decision": "approve"
+          "decision": "approve",
+          "modeAfter": "ask"
         }
       },
       "problem": "a plan_approval reply cannot answer a confirm interaction"
@@ -4166,7 +4394,8 @@
         "interactionId": "i-1",
         "reply": {
           "kind": "plan_approval",
-          "decision": "approve"
+          "decision": "approve",
+          "modeAfter": "ask"
         }
       },
       "problem": "a plan_approval reply cannot answer a text interaction"
@@ -14421,6 +14650,442 @@
         "reply": {
           "kind": "confirm",
           "confirmed": false
+        }
+      },
+      "problem": null
+    },
+    {
+      "name": "plan (modes true): {\"kind\":\"plan_approval\",\"decision\":\"approve\",\"modeAfter\":\"acceptEdits\"}",
+      "interaction": {
+        "id": "i-1",
+        "runId": "r-1",
+        "createdAt": 1,
+        "title": "Asked",
+        "blocksRun": true,
+        "request": {
+          "kind": "plan_approval",
+          "plan": "1. Do it",
+          "editable": true,
+          "modeOptions": {
+            "axis": "permissions",
+            "options": [
+              {
+                "value": "default",
+                "label": "Ask"
+              },
+              {
+                "value": "acceptEdits",
+                "label": "Accept edits"
+              }
+            ],
+            "defaultValue": "default"
+          }
+        }
+      },
+      "answer": {
+        "interactionId": "i-1",
+        "reply": {
+          "kind": "plan_approval",
+          "decision": "approve",
+          "modeAfter": "acceptEdits"
+        }
+      },
+      "problem": null
+    },
+    {
+      "name": "plan (modes true): {\"kind\":\"plan_approval\",\"decision\":\"approve\",\"plan\":\"edited\",\"modeAfter\":\"default\"}",
+      "interaction": {
+        "id": "i-1",
+        "runId": "r-1",
+        "createdAt": 1,
+        "title": "Asked",
+        "blocksRun": true,
+        "request": {
+          "kind": "plan_approval",
+          "plan": "1. Do it",
+          "editable": true,
+          "modeOptions": {
+            "axis": "permissions",
+            "options": [
+              {
+                "value": "default",
+                "label": "Ask"
+              },
+              {
+                "value": "acceptEdits",
+                "label": "Accept edits"
+              }
+            ],
+            "defaultValue": "default"
+          }
+        }
+      },
+      "answer": {
+        "interactionId": "i-1",
+        "reply": {
+          "kind": "plan_approval",
+          "decision": "approve",
+          "plan": "edited",
+          "modeAfter": "default"
+        }
+      },
+      "problem": null
+    },
+    {
+      "name": "plan (modes true): {\"kind\":\"plan_approval\",\"decision\":\"approve\",\"modeAfter\":\"plan\"}",
+      "interaction": {
+        "id": "i-1",
+        "runId": "r-1",
+        "createdAt": 1,
+        "title": "Asked",
+        "blocksRun": true,
+        "request": {
+          "kind": "plan_approval",
+          "plan": "1. Do it",
+          "editable": true,
+          "modeOptions": {
+            "axis": "permissions",
+            "options": [
+              {
+                "value": "default",
+                "label": "Ask"
+              },
+              {
+                "value": "acceptEdits",
+                "label": "Accept edits"
+              }
+            ],
+            "defaultValue": "default"
+          }
+        }
+      },
+      "answer": {
+        "interactionId": "i-1",
+        "reply": {
+          "kind": "plan_approval",
+          "decision": "approve",
+          "modeAfter": "plan"
+        }
+      },
+      "problem": "not one of the modes offered"
+    },
+    {
+      "name": "plan (modes true): {\"kind\":\"plan_approval\",\"decision\":\"approve\",\"modeAfter\":\"\"}",
+      "interaction": {
+        "id": "i-1",
+        "runId": "r-1",
+        "createdAt": 1,
+        "title": "Asked",
+        "blocksRun": true,
+        "request": {
+          "kind": "plan_approval",
+          "plan": "1. Do it",
+          "editable": true,
+          "modeOptions": {
+            "axis": "permissions",
+            "options": [
+              {
+                "value": "default",
+                "label": "Ask"
+              },
+              {
+                "value": "acceptEdits",
+                "label": "Accept edits"
+              }
+            ],
+            "defaultValue": "default"
+          }
+        }
+      },
+      "answer": {
+        "interactionId": "i-1",
+        "reply": {
+          "kind": "plan_approval",
+          "decision": "approve",
+          "modeAfter": ""
+        }
+      },
+      "problem": "not one of the modes offered"
+    },
+    {
+      "name": "plan (modes true): {\"kind\":\"plan_approval\",\"decision\":\"approve\",\"modeAfter\":\"AcceptEdits\"}",
+      "interaction": {
+        "id": "i-1",
+        "runId": "r-1",
+        "createdAt": 1,
+        "title": "Asked",
+        "blocksRun": true,
+        "request": {
+          "kind": "plan_approval",
+          "plan": "1. Do it",
+          "editable": true,
+          "modeOptions": {
+            "axis": "permissions",
+            "options": [
+              {
+                "value": "default",
+                "label": "Ask"
+              },
+              {
+                "value": "acceptEdits",
+                "label": "Accept edits"
+              }
+            ],
+            "defaultValue": "default"
+          }
+        }
+      },
+      "answer": {
+        "interactionId": "i-1",
+        "reply": {
+          "kind": "plan_approval",
+          "decision": "approve",
+          "modeAfter": "AcceptEdits"
+        }
+      },
+      "problem": "not one of the modes offered"
+    },
+    {
+      "name": "plan (modes true): {\"kind\":\"plan_approval\",\"decision\":\"reject\",\"feedback\":\"smaller\",\"modeAfter\":\"acceptEdits\"}",
+      "interaction": {
+        "id": "i-1",
+        "runId": "r-1",
+        "createdAt": 1,
+        "title": "Asked",
+        "blocksRun": true,
+        "request": {
+          "kind": "plan_approval",
+          "plan": "1. Do it",
+          "editable": true,
+          "modeOptions": {
+            "axis": "permissions",
+            "options": [
+              {
+                "value": "default",
+                "label": "Ask"
+              },
+              {
+                "value": "acceptEdits",
+                "label": "Accept edits"
+              }
+            ],
+            "defaultValue": "default"
+          }
+        }
+      },
+      "answer": {
+        "interactionId": "i-1",
+        "reply": {
+          "kind": "plan_approval",
+          "decision": "reject",
+          "feedback": "smaller",
+          "modeAfter": "acceptEdits"
+        }
+      },
+      "problem": "a mode goes with an approval"
+    },
+    {
+      "name": "plan (modes true): {\"kind\":\"plan_approval\",\"decision\":\"approve\"}",
+      "interaction": {
+        "id": "i-1",
+        "runId": "r-1",
+        "createdAt": 1,
+        "title": "Asked",
+        "blocksRun": true,
+        "request": {
+          "kind": "plan_approval",
+          "plan": "1. Do it",
+          "editable": true,
+          "modeOptions": {
+            "axis": "permissions",
+            "options": [
+              {
+                "value": "default",
+                "label": "Ask"
+              },
+              {
+                "value": "acceptEdits",
+                "label": "Accept edits"
+              }
+            ],
+            "defaultValue": "default"
+          }
+        }
+      },
+      "answer": {
+        "interactionId": "i-1",
+        "reply": {
+          "kind": "plan_approval",
+          "decision": "approve"
+        }
+      },
+      "problem": null
+    },
+    {
+      "name": "plan (modes false): {\"kind\":\"plan_approval\",\"decision\":\"approve\",\"modeAfter\":\"acceptEdits\"}",
+      "interaction": {
+        "id": "i-1",
+        "runId": "r-1",
+        "createdAt": 1,
+        "title": "Asked",
+        "blocksRun": true,
+        "request": {
+          "kind": "plan_approval",
+          "plan": "1. Do it",
+          "editable": true
+        }
+      },
+      "answer": {
+        "interactionId": "i-1",
+        "reply": {
+          "kind": "plan_approval",
+          "decision": "approve",
+          "modeAfter": "acceptEdits"
+        }
+      },
+      "problem": "this plan offers no mode to continue in"
+    },
+    {
+      "name": "plan (modes false): {\"kind\":\"plan_approval\",\"decision\":\"approve\",\"plan\":\"edited\",\"modeAfter\":\"default\"}",
+      "interaction": {
+        "id": "i-1",
+        "runId": "r-1",
+        "createdAt": 1,
+        "title": "Asked",
+        "blocksRun": true,
+        "request": {
+          "kind": "plan_approval",
+          "plan": "1. Do it",
+          "editable": true
+        }
+      },
+      "answer": {
+        "interactionId": "i-1",
+        "reply": {
+          "kind": "plan_approval",
+          "decision": "approve",
+          "plan": "edited",
+          "modeAfter": "default"
+        }
+      },
+      "problem": "this plan offers no mode to continue in"
+    },
+    {
+      "name": "plan (modes false): {\"kind\":\"plan_approval\",\"decision\":\"approve\",\"modeAfter\":\"plan\"}",
+      "interaction": {
+        "id": "i-1",
+        "runId": "r-1",
+        "createdAt": 1,
+        "title": "Asked",
+        "blocksRun": true,
+        "request": {
+          "kind": "plan_approval",
+          "plan": "1. Do it",
+          "editable": true
+        }
+      },
+      "answer": {
+        "interactionId": "i-1",
+        "reply": {
+          "kind": "plan_approval",
+          "decision": "approve",
+          "modeAfter": "plan"
+        }
+      },
+      "problem": "this plan offers no mode to continue in"
+    },
+    {
+      "name": "plan (modes false): {\"kind\":\"plan_approval\",\"decision\":\"approve\",\"modeAfter\":\"\"}",
+      "interaction": {
+        "id": "i-1",
+        "runId": "r-1",
+        "createdAt": 1,
+        "title": "Asked",
+        "blocksRun": true,
+        "request": {
+          "kind": "plan_approval",
+          "plan": "1. Do it",
+          "editable": true
+        }
+      },
+      "answer": {
+        "interactionId": "i-1",
+        "reply": {
+          "kind": "plan_approval",
+          "decision": "approve",
+          "modeAfter": ""
+        }
+      },
+      "problem": "this plan offers no mode to continue in"
+    },
+    {
+      "name": "plan (modes false): {\"kind\":\"plan_approval\",\"decision\":\"approve\",\"modeAfter\":\"AcceptEdits\"}",
+      "interaction": {
+        "id": "i-1",
+        "runId": "r-1",
+        "createdAt": 1,
+        "title": "Asked",
+        "blocksRun": true,
+        "request": {
+          "kind": "plan_approval",
+          "plan": "1. Do it",
+          "editable": true
+        }
+      },
+      "answer": {
+        "interactionId": "i-1",
+        "reply": {
+          "kind": "plan_approval",
+          "decision": "approve",
+          "modeAfter": "AcceptEdits"
+        }
+      },
+      "problem": "this plan offers no mode to continue in"
+    },
+    {
+      "name": "plan (modes false): {\"kind\":\"plan_approval\",\"decision\":\"reject\",\"feedback\":\"smaller\",\"modeAfter\":\"acceptEdits\"}",
+      "interaction": {
+        "id": "i-1",
+        "runId": "r-1",
+        "createdAt": 1,
+        "title": "Asked",
+        "blocksRun": true,
+        "request": {
+          "kind": "plan_approval",
+          "plan": "1. Do it",
+          "editable": true
+        }
+      },
+      "answer": {
+        "interactionId": "i-1",
+        "reply": {
+          "kind": "plan_approval",
+          "decision": "reject",
+          "feedback": "smaller",
+          "modeAfter": "acceptEdits"
+        }
+      },
+      "problem": "a mode goes with an approval"
+    },
+    {
+      "name": "plan (modes false): {\"kind\":\"plan_approval\",\"decision\":\"approve\"}",
+      "interaction": {
+        "id": "i-1",
+        "runId": "r-1",
+        "createdAt": 1,
+        "title": "Asked",
+        "blocksRun": true,
+        "request": {
+          "kind": "plan_approval",
+          "plan": "1. Do it",
+          "editable": true
+        }
+      },
+      "answer": {
+        "interactionId": "i-1",
+        "reply": {
+          "kind": "plan_approval",
+          "decision": "approve"
         }
       },
       "problem": null

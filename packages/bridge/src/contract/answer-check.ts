@@ -56,7 +56,13 @@ function planProblem(request: PlanApprovalRequest, reply: PlanApprovalReply): st
 	if (reply.decision === "approve" && reply.feedback !== undefined) return "feedback goes with a rejection";
 	if (reply.decision === "reject" && reply.plan !== undefined) return "an edited plan goes with an approval";
 	if (reply.plan !== undefined && !request.editable) return "this plan cannot be edited";
-	return undefined;
+	if (reply.modeAfter === undefined) return undefined;
+	if (reply.decision === "reject") return "a mode goes with an approval";
+	if (request.modeOptions === undefined) return "this plan offers no mode to continue in";
+	const { modeAfter } = reply;
+	return request.modeOptions.options.some((option) => option.value === modeAfter)
+		? undefined
+		: "not one of the modes offered";
 }
 
 function permissionProblem(request: ToolPermissionRequest, reply: ToolPermissionReply): string | undefined {

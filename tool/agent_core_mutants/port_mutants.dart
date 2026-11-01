@@ -118,6 +118,21 @@ final portMutants = [
       '_isRequired(field) && !(_isHidden(field) && _hasDefault(field))',
       '_isRequired(field)',
     ),
+    Mutant(
+      'answers: a rejection may name a mode',
+      'if (reply.decision == PlanDecision.reject) {\n    return \'a mode goes',
+      'if (false) {\n    return \'a mode goes',
+    ),
+    Mutant(
+      'answers: a plan that offers no mode takes one',
+      "if (modes == null) return 'this plan offers no mode to continue in';",
+      'if (modes == null) return null;',
+    ),
+    Mutant(
+      'answers: any mode is one the plan offers',
+      'modes.options.any((option) => option.value == modeAfter)',
+      'true',
+    ),
   ]),
   ...mutantsOf('answers/js_pattern.dart', const [
     Mutant(

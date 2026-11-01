@@ -49,6 +49,8 @@ export const PlanApprovalReply = z.strictObject({
 	plan: z.string().max(MAX_TEXT_CHARS).optional(),
 	/** Why, rejecting. */
 	feedback: z.string().max(MAX_TEXT_CHARS).optional(),
+	/** One of the request's `modeOptions`, approving (since 1.4). */
+	modeAfter: z.string().max(MAX_NAME_CHARS).optional(),
 });
 export type PlanApprovalReply = z.infer<typeof PlanApprovalReply>;
 

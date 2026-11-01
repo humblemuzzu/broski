@@ -93,9 +93,11 @@ ReplyDraft planDraft({
   required PlanDecision decision,
   required String editedPlan,
   required String feedback,
+  String? modeAfter,
 }) => DraftReply(
   PlanApprovalReply(
     decision: decision,
+    modeAfter: decision == PlanDecision.approve ? modeAfter : null,
     plan:
         decision == PlanDecision.approve &&
             request.editable &&
