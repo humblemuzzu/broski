@@ -57,7 +57,7 @@ Each one is cited in the research files; they are listed here because every lane
 
 **Sessions**
 14. The session API is **pure in-process file I/O**. `listSessions`/`getSessionInfo` read 64 KiB head + 64 KiB tail per file; `getSessionMessages` walks the live `parentUuid` chain, and above 5 MiB scans only what follows the last compaction. `getSubagentMessages` reads the whole subagent file (04 §3, §8).
-15. `listSessions` sorts mtime desc, id **asc**; paging is offset-only, oldest-first for messages. Matching `claude --resume` needs `includeProgrammatic:false`, which also hides every SDK-made session — Broski's own (04 §3).
+15. `listSessions` sorts mtime desc, then `sessionId` **descending** on ties (corrected in Step 3, `foundation/session_order.test.ts`; research 04 said ascending); paging is offset-only, oldest-first for messages. Matching `claude --resume` needs `includeProgrammatic:false`, which also hides every SDK-made session — Broski's own (04 §3).
 16. The project directory is the cwd with **every non-alphanumeric character** replaced by `-`, hashed past 200 chars, under `$CLAUDE_CONFIG_DIR`. The old encoder is wrong (04 §2.1).
 17. `rewindFiles` restores **files only**, needs a **live** `Query` with `enableFileCheckpointing`. Forks copy no checkpoints. There is no conversation rewind in the SDK; "resume from a message" is a fork (04 §4).
 18. Terminal sessions: **no attach, no lock, no pid file**. `bridge.d.ts` is claude.ai Remote Control. A terminal session is a file to tail; taking it over safely means forking it (04 §7).
@@ -237,7 +237,11 @@ One delegate, serial, the only step that edits shared contract files. Following 
 
 **Exit:** `contract:check`, `check:layers`, `mutate:core`, bridge suite, `flutter analyze`, `flutter test`, `check_agent_core`, `mutate_agent_core --check`, `dart format` all green.
 
-### Step 3 — Foundation
+### Step 3 — Foundation — **done** (`f829b83`…`86556b9`; `STEP-3-INTERFACES.md`, adapter `README.md` with D36–D39; owner-side choices: `plan: false` accepted (D38: the CLI's default models have no todo tools), the watch-only answer gap goes to Step 3b)
+
+### Step 3b — Answers on watch-only sessions (runs beside the lanes)
+
+Step 3 found that the core refuses any answer on a session without `control` (`core/controlled.ts`, `core/bridge-answer.ts`), which is exactly the terminal-ask case (D26). One delegate, serial on shared files: an `OpenSession` may offer answering without offering control; the core routes `interaction.answer` and `BridgeCore.answer` to it; the session capabilities say so, so the app shows and answers the ask on a watch-only session while the composer stays hidden; conformance, negative tests, `mutate:core`, the Dart side and the READMEs follow. Lane G wires terminal asks after it merges.
 
 One delegate, serial: interfaces only under `backends/claude-code/`, nothing registered. The layout in §7 with every file's exported types and signatures, `ports.ts` (the seams between store, live, mapping, ui and ops, so lanes build apart), `traits.ts` (the declared capabilities, final once Q13 is answered), the conformance driver skeleton, and `README.md` with D1–D29 and the lane ranges.
 
