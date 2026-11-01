@@ -1,8 +1,9 @@
 /** Lane B · D31: a turn's outcome by `terminal_reason` first; a refusal is an error, never `completed`. */
 
-import type { SDKResultMessage, TerminalReason } from "@anthropic-ai/claude-agent-sdk";
+import type { SDKResultMessage, SDKStartupFailureReason, TerminalReason } from "@anthropic-ai/claude-agent-sdk";
 import { type ErrorCode, MAX_TEXT_CHARS, type RunOutcome } from "../../../contract";
 import { clip } from "../bounds";
+import { refusalNeedsSignIn, refusalText } from "../models/startup-failures";
 import { phoneText } from "../phone-text";
 
 type Failure = { readonly code: ErrorCode; readonly fallback: string };
@@ -69,6 +70,12 @@ function messageOf(result: SDKResultMessage, fallback: string): string {
 	return clip(clean === "" ? fallback : clean, MAX_TEXT_CHARS);
 }
 
+/** The CLI refused to start: said in the phone's words for the reason, never its code or the CLI's text. */
+function startupRefusal(reason: SDKStartupFailureReason): RunOutcome {
+	const code: ErrorCode = refusalNeedsSignIn(reason) ? "auth" : "backend_unavailable";
+	return { kind: "error", error: { code, message: refusalText(reason) } };
+}
+
 function failure(result: SDKResultMessage, code: ErrorCode, fallback: string): RunOutcome {
 	return {
 		kind: "error",
@@ -90,7 +97,7 @@ export function turnOutcome(result: SDKResultMessage): RunOutcome {
 	if (reason === "tool_deferred") return { kind: "deferred" };
 	if (result.stop_reason === "refusal") return failure(result, "content_filter", "The model refused the request");
 	if (result.subtype !== "success" && result.startup_failure_reason !== undefined) {
-		return failure(result, "backend_unavailable", `Claude Code could not start: ${result.startup_failure_reason}`);
+		return startupRefusal(result.startup_failure_reason);
 	}
 	const known = reason === undefined ? undefined : FAILURES.get(reason);
 	if (known !== undefined) {

@@ -87,11 +87,19 @@ function orgPolicyText(message: string): string | undefined {
 	return undefined;
 }
 
+export function refusalText(reason: SDKStartupFailureReason): string {
+	return REFUSALS[reason].text;
+}
+
+export function refusalNeedsSignIn(reason: SDKStartupFailureReason): boolean {
+	return REFUSALS[reason].signIn === true;
+}
+
 export function failureText(failure: ProbeFailure): string {
-	if (failure.startupFailure !== undefined) return REFUSALS[failure.startupFailure].text;
+	if (failure.startupFailure !== undefined) return refusalText(failure.startupFailure);
 	return orgPolicyText(failure.message) ?? `Claude Code could not start: ${failure.message}`;
 }
 
 export function failureCode(failure: ProbeFailure): RejectionCode {
-	return failure.startupFailure !== undefined && REFUSALS[failure.startupFailure].signIn ? "auth" : "backend_error";
+	return failure.startupFailure !== undefined && refusalNeedsSignIn(failure.startupFailure) ? "auth" : "backend_error";
 }

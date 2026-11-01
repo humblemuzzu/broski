@@ -114,11 +114,26 @@ describe("turnOutcome by terminal_reason first", () => {
 		});
 	});
 
-	test("a CLI that could not start is backend_unavailable", () => {
+	test("a CLI that could not start is backend_unavailable, said in words and never by its code", () => {
 		const mapped = outcome(
-			failure({ terminal_reason: undefined, startup_failure_reason: "cli_version_too_old", errors: ["old"] }),
+			failure({ terminal_reason: undefined, startup_failure_reason: "bypass_root", errors: ["bypass_root"] }),
 		);
-		expect(mapped).toEqual({ kind: "error", error: { code: "backend_unavailable", message: "old" } });
+		expect(mapped).toEqual({
+			kind: "error",
+			error: { code: "backend_unavailable", message: "Bypass permissions mode cannot run as root." },
+		});
+		const bare = outcome(failure({ terminal_reason: undefined, startup_failure_reason: "cli_version_too_old" }));
+		expect(bare.kind === "error" && bare.error.message).toBe(
+			"This Claude Code version is older than the minimum Anthropic requires. Update it.",
+		);
+	});
+
+	test("a startup refusal that signing in again fixes is an auth error", () => {
+		const mapped = outcome(failure({ terminal_reason: undefined, startup_failure_reason: "org_pin_mismatch" }));
+		expect(mapped).toEqual({
+			kind: "error",
+			error: { code: "auth", message: "You are signed in to an organization your policy does not allow." },
+		});
 	});
 
 	test("the message is bounded and free of terminal escapes", () => {
