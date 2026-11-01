@@ -16,13 +16,22 @@ final legacyAgentProvider = Provider<AgentType?>(
   (ref) => ref.watch(selectedBackendProvider).legacy,
 );
 
+/// Whether the stored selection has been read: until then the selection is
+/// the default, not necessarily the person's.
+final selectedBackendReadyProvider = FutureProvider<void>(
+  (ref) => ref.watch(selectedBackendProvider.notifier).ready,
+);
+
 class SelectedBackendNotifier extends StateNotifier<SelectedBackend> {
   SelectedBackendNotifier(this._storage)
     : super(const LegacySelection(AgentType.claudeCode)) {
-    _load();
+    ready = _load();
   }
 
   final StorageService _storage;
+
+  /// Completes once the stored selection has been read and applied.
+  late final Future<void> ready;
 
   AgentType _lastLegacy = AgentType.claudeCode;
   bool _chosen = false;

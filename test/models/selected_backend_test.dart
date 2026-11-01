@@ -22,6 +22,32 @@ void main() {
     );
   });
 
+  test('the contract Claude Code is stored apart from the old one', () {
+    const contract = ContractSelection(BackendId.claudeCode);
+    expect(contract.wire, 'contract:claude-code');
+    expect(SelectedBackend.fromWire(contract.wire), contract);
+    expect(
+      const LegacySelection(AgentType.claudeCode).wire,
+      'claude-code',
+      reason: 'a stored old selection keeps its name',
+    );
+    expect(
+      contract,
+      isNot(const LegacySelection(AgentType.claudeCode)),
+      reason: 'the two never compare equal, so the picker marks one',
+    );
+  });
+
+  test('a backend no old agent shares keeps its bare name', () {
+    expect(const ContractSelection(BackendId.pi).wire, 'pi');
+    expect(
+      SelectedBackend.fromWire('contract:pi'),
+      const ContractSelection(BackendId.pi),
+    );
+    expect(SelectedBackend.fromWire('contract:nothing'), isNull);
+    expect(SelectedBackend.fromWire('contract:'), isNull);
+  });
+
   test('a contract selection has no old-protocol agent', () {
     expect(const ContractSelection(BackendId.pi).legacy, isNull);
     expect(
@@ -34,5 +60,13 @@ void main() {
     expect(const ContractSelection(BackendId.pi).displayName, 'Pi');
     expect(const ContractSelection(BackendId.pi).badge, 'PI');
     expect(const LegacySelection(AgentType.claudeCode).badge, 'CC');
+    expect(
+      const LegacySelection(AgentType.claudeCode).displayName,
+      'Claude Code',
+    );
+    expect(
+      const ContractSelection(BackendId.claudeCode).displayName,
+      'Claude Code (new)',
+    );
   });
 }

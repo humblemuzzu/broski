@@ -1,8 +1,9 @@
 import 'package:broski/agent/agent_providers.dart';
-import 'package:broski/agent/ui/backend_label.dart';
 import 'package:broski/agent/ui/sessions/session_list_actions.dart';
 import 'package:broski/agent/ui/sessions/session_list_view.dart';
 import 'package:broski/contract/generated/contract.dart';
+import 'package:broski/models/selected_backend.dart';
+import 'package:broski/screens/ai_backend/selected_backend_label.dart';
 import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/utils/responsive.dart';
 import 'package:broski/widgets/adaptive_container.dart';
@@ -46,7 +47,7 @@ class _ContractSessionsTabState extends ConsumerState<ContractSessionsTab> {
                   children: [
                     Expanded(
                       child: Text(
-                        '${backendLabel(widget.backend)} sessions',
+                        '${_name(widget.backend)} sessions',
                         style: TextStyle(
                           color: theme.colorScheme.onSurface,
                           fontSize: 28,
@@ -87,6 +88,8 @@ class _ContractSessionsTabState extends ConsumerState<ContractSessionsTab> {
   }
 }
 
+String _name(BackendId backend) => ContractSelection(backend).displayName;
+
 class _Unavailable extends StatelessWidget {
   const _Unavailable({required this.backend, required this.loaded});
 
@@ -96,8 +99,8 @@ class _Unavailable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = loaded
-        ? '${backendLabel(backend)} is not available on this Mac.'
-        : 'Waiting for the connection to list ${backendLabel(backend)}.';
+        ? '${_name(backend)} is not available on this Mac.'
+        : 'Waiting for the connection to list ${_name(backend)}.';
     return Center(
       child: Padding(
         padding: Insets.screen,

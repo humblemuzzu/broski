@@ -1,10 +1,10 @@
 import 'package:broski/agent/agent_providers.dart';
 import 'package:broski/agent/ui/backend_label.dart';
 import 'package:broski/contract/generated/contract.dart';
-import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/selected_backend.dart';
 import 'package:broski/providers/selected_backend_provider.dart';
 import 'package:broski/screens/ai_backend/backend_option_card.dart';
+import 'package:broski/screens/ai_backend/selected_backend_label.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/theme/opencode_theme.dart';
@@ -12,9 +12,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-/// The backends of the bridge's contract that the old list above does not
-/// carry, listed from what the bridge serves (or last served), and the one
-/// selected even while the bridge cannot be asked.
+/// The backends of the bridge's contract, listed from what the bridge serves
+/// (or last served), and the one selected even while the bridge cannot be
+/// asked. One that goes by an old agent's name is listed too, beside it,
+/// only while the bridge serves it (the bridge's `claudeCode.contract`).
 final contractBackendChoicesProvider = Provider<List<BackendId>>((ref) {
   final selected = ref.watch(selectedBackendProvider);
   final listed = [
@@ -23,10 +24,7 @@ final contractBackendChoicesProvider = Provider<List<BackendId>>((ref) {
   final held = selected is ContractSelection && !listed.contains(selected.id)
       ? [selected.id]
       : const <BackendId>[];
-  return [
-    for (final id in [...listed, ...held])
-      if (!AgentType.values.any((type) => type.wireValue == id.wire)) id,
-  ];
+  return [...listed, ...held];
 });
 
 class ContractBackendOptions extends ConsumerWidget {
@@ -41,7 +39,7 @@ class ContractBackendOptions extends ConsumerWidget {
         for (final id in ref.watch(contractBackendChoicesProvider)) ...[
           BackendOptionCard(
             key: ValueKey('backend-option:${id.wire}'),
-            title: backendLabel(id),
+            title: ContractSelection(id).displayName,
             subtitle: _subtitle(id, statuses[id]),
             icon: _ContractBackendLogo(backend: id),
             isSelected: selected == ContractSelection(id),

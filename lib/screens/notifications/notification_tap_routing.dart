@@ -3,9 +3,11 @@ import 'package:broski/agent/catalog/backends_controller.dart';
 import 'package:broski/agent/ui/chat/agent_chat_screen.dart';
 import 'package:broski/contract/generated/contract.dart';
 import 'package:broski/models/link/machine.dart';
+import 'package:broski/models/selected_backend.dart';
 import 'package:broski/providers/link/machine_switch_provider.dart';
 import 'package:broski/providers/link/machines_provider.dart';
 import 'package:broski/providers/notifications/notification_tap_provider.dart';
+import 'package:broski/providers/selected_backend_provider.dart';
 import 'package:broski/services/notifications/notification_tap.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,14 +21,21 @@ final notificationSessionOpenerProvider =
 /// The session a tap opens on the contract core's screens, or null when the
 /// bridge does not serve its backend that way: the old protocol's sessions
 /// have their own screens. Which backends the core serves is what the bridge
-/// listed, not something the app knows.
-SessionRef? contractSessionOf(NotificationTap tap, BackendsState backends) {
+/// listed, not something the app knows. A backend that goes by an old agent's
+/// name is both, and a tap names only the name: it opens on the core's
+/// screens only while [selected] is the contract one.
+SessionRef? contractSessionOf(
+  NotificationTap tap,
+  BackendsState backends,
+  SelectedBackend selected,
+) {
   final served = backends.backends
       .where((listed) => listed.id.wire == tap.backend)
       .firstOrNull;
-  return served == null
-      ? null
-      : SessionRef(backend: served.id, sessionId: tap.session);
+  if (served == null) return null;
+  final choice = ContractSelection(served.id);
+  if (choice.sharesLegacyName && selected != choice) return null;
+  return SessionRef(backend: served.id, sessionId: tap.session);
 }
 
 /// Where a tap's session is, as the paired machines stand.
@@ -86,7 +95,12 @@ void routeNotificationTaps(BuildContext context, WidgetRef ref) {
 void _openWhenListed(BuildContext context, WidgetRef ref, NotificationTap tap) {
   final backends = ref.watch(backendsProvider);
   if (!backends.loaded && backends.savedAt == null) return;
-  final session = contractSessionOf(tap, backends);
+  if (ref.watch(selectedBackendReadyProvider).isLoading) return;
+  final session = contractSessionOf(
+    tap,
+    backends,
+    ref.read(selectedBackendProvider),
+  );
   final open = ref.read(notificationSessionOpenerProvider);
   final pending = ref.read(pendingNotificationTapProvider.notifier);
   _afterFrame(context, () {

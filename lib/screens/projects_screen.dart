@@ -1,15 +1,13 @@
 import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/highlight_color.dart';
 import 'package:broski/models/project.dart';
-import 'package:broski/models/selected_backend.dart';
 import 'package:broski/providers/agent_type_provider.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/highlights_provider.dart';
-import 'package:broski/providers/selected_backend_provider.dart';
-import 'package:broski/providers/service_providers.dart';
 import 'package:broski/screens/dialogs/project_context_menu.dart';
 import 'package:broski/screens/projects/contract_projects.dart'
-    show ProjectsSource, loadContractProjects, projectsSourceProvider;
+    show ProjectsSource, projectsSourceProvider;
+import 'package:broski/screens/projects/load_projects.dart';
 import 'package:broski/screens/projects/open_project.dart';
 import 'package:broski/screens/sheets/add_project_sheet.dart';
 import 'package:broski/theme/app_icons.dart';
@@ -55,28 +53,8 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     super.dispose();
   }
 
-  Future<List<ProjectSummary>> _loadProjects(AgentType agentType) async {
-    if (ref.read(selectedBackendProvider) case ContractSelection(:final id)) {
-      return loadContractProjects(ref, id);
-    }
-    final connection = ref.read(connectionProvider);
-    final storage = ref.read(storageServiceProvider);
-    if (connection.isOfflineMode) {
-      return storage.getCachedCCProjects();
-    }
-    // Live data first, the cache when the bridge cannot be reached.
-    try {
-      final projects = await ref.read(bridgeServiceProvider).ccListProjects();
-      if (projects.isNotEmpty) {
-        await storage.cacheCCProjects(projects);
-      }
-      return projects;
-    } catch (e) {
-      final cached = await storage.getCachedCCProjects();
-      if (cached.isNotEmpty) return cached;
-      rethrow;
-    }
-  }
+  Future<List<ProjectSummary>> _loadProjects(AgentType agentType) =>
+      loadProjectsForSelection(ref);
 
   Future<void> _refresh() async {
     setState(() {

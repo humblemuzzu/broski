@@ -289,6 +289,62 @@ void main() {
     expect(container.read(pendingNotificationTapProvider), isNull);
   });
 
+  group('a backend that goes by an old agent\'s name', () {
+    WidgetRig bothServed() {
+      final rig = WidgetRig();
+      rig.bridge.on<BackendsListRequest>(
+        (request) => BackendsListResponse(
+          requestId: request.requestId,
+          backends: const [
+            BackendDescriptor(id: BackendId.pi, capabilities: everything),
+            BackendDescriptor(
+              id: BackendId.claudeCode,
+              capabilities: everything,
+            ),
+          ],
+        ),
+      );
+      return rig;
+    }
+
+    const ccTap = {'backend': 'claude-code', 'session': 'cc-1'};
+
+    testWidgets('opens on the core\'s screens while the new one is chosen', (
+      tester,
+    ) async {
+      FlutterSecureStorage.setMockInitialValues({
+        'broski_selected_agent_type': 'contract:claude-code',
+      });
+      final rig = bothServed();
+      addTearDown(rig.dispose);
+      final relay = NotificationTapRelay()..add(ccTap);
+      await _pump(tester, rig, relay);
+
+      final screen = tester.widget<AgentChatScreen>(
+        find.byType(AgentChatScreen),
+      );
+      expect(
+        screen.session,
+        const SessionRef(backend: BackendId.claudeCode, sessionId: 'cc-1'),
+      );
+    });
+
+    testWidgets('is left to the old screens while the old one is chosen', (
+      tester,
+    ) async {
+      FlutterSecureStorage.setMockInitialValues({
+        'broski_selected_agent_type': 'claude-code',
+      });
+      final rig = bothServed();
+      addTearDown(rig.dispose);
+      final relay = NotificationTapRelay()..add(ccTap);
+      final container = await _pump(tester, rig, relay);
+
+      expect(find.byType(AgentChatScreen), findsNothing);
+      expect(container.read(pendingNotificationTapProvider), isNull);
+    });
+  });
+
   testWidgets('a tap made offline opens from the backends saved for the '
       'machine', (tester) async {
     final rig = WidgetRig(reachable: false);
