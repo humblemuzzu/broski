@@ -164,7 +164,7 @@ class _EditableFileViewState extends State<EditableFileView> {
           child: TextField(
             key: const ValueKey('editable-file-text'),
             controller: _text,
-            readOnly: !_file.editable,
+            readOnly: !_file.editable || busy,
             minLines: 8,
             maxLines: 20,
             autocorrect: false,

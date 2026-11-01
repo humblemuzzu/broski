@@ -1,10 +1,16 @@
+import 'package:broski/agent/client/outcome.dart';
 import 'package:broski/agent/client/requests/op_call.dart';
+import 'package:broski/agent/ui/panels/op_panel.dart';
+import 'package:broski/agent/ui/panels/op_result_host.dart';
+import 'package:broski/agent/ui/panels/result_actions.dart';
 import 'package:broski/agent/ui/panels/panel_registry.dart';
 import 'package:broski/contract/generated/contract.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../support/op_sheet_rig.dart';
 import '../support/session_fixtures.dart';
+import '../support/widget_rig.dart';
 
 final _offered = offering([
   'config_files',
@@ -42,6 +48,41 @@ void main() {
       [for (final p in panelsAt(_offered, OpPlace.backend)) p.kind],
       [BackendOpKind.customTools],
     );
+  });
+
+  testWidgets('an operation the session\'s backend has no such kind for is '
+      'refused on the phone, not left waiting', (tester) async {
+    final rig = WidgetRig();
+    addTearDown(rig.dispose);
+    ResultActions? held;
+    await rig.pump(
+      tester,
+      Scaffold(
+        body: OpResultHost(
+          client: rig.client,
+          target: sessionTarget(sessionRef),
+          first: const ConfigFilesListed(files: [], omitted: 0),
+          builder: (result, actions) {
+            held = actions;
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+    final outcome = await held!.attempt(
+      (target) => opCall(target.session, const CustomToolOp()),
+    );
+    await tester.pump();
+    expect(
+      outcome,
+      isA<Refused<BackendOpResult>>().having(
+        (refused) => refused.rejection.code,
+        'code',
+        RejectionCode.unsupported,
+      ),
+    );
+    expect(held!.busy, isFalse);
+    expect(rig.link.sent.whereType<BackendCallRequest>(), isEmpty);
   });
 
   testWidgets('configuration files are asked for the session\'s directory', (
