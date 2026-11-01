@@ -2,6 +2,7 @@
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
+import { entryTimestamp, isCompactSummary } from "../../../backends/claude-code/store/message-parts";
 import type { TranscriptItem } from "../../../contract";
 import { type ClaudeHome, createClaudeHome } from "../../helpers/claude-home";
 import { indexOf } from "../spike/rig/order";
@@ -86,3 +87,10 @@ test(
 	},
 	CLI_TEST_MS,
 );
+
+test("getSessionMessages still returns the timestamp and isCompactSummary the SDK's type does not declare", async () => {
+	const messages = await world.sdk.getSessionMessages(sessionId);
+	expect(messages.length).toBeGreaterThan(0);
+	for (const message of messages) expect(entryTimestamp(message)).toBeNumber();
+	expect(messages.filter(isCompactSummary)).toHaveLength(1);
+});
