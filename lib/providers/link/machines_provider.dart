@@ -23,10 +23,17 @@ final machinesProvider = StateNotifierProvider<MachinesNotifier, MachinesState>(
 );
 
 class MachinesState {
-  const MachinesState({this.machines = const [], this.selectedId});
+  const MachinesState({
+    this.machines = const [],
+    this.selectedId,
+    this.loaded = false,
+  });
 
   final List<Machine> machines;
   final String? selectedId;
+
+  /// The stored machines have been read: an empty list means none is paired.
+  final bool loaded;
 }
 
 class MachinesNotifier extends StateNotifier<MachinesState> {
@@ -171,6 +178,7 @@ class MachinesNotifier extends StateNotifier<MachinesState> {
     state = MachinesState(
       machines: List.unmodifiable(machines),
       selectedId: selectedId,
+      loaded: true,
     );
   }
 }

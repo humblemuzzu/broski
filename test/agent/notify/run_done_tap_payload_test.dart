@@ -4,12 +4,13 @@ import 'package:broski/services/notifications/notification_tap.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('a run-done notification opens the session it is about', () {
+  test('a run-done notification opens the session it is about, on the '
+      'machine it ran on', () {
     const session = SessionRef(backend: BackendId.pi, sessionId: 's-42');
 
     expect(
-      NotificationTap.parse(runDoneTapPayload(session)),
-      const NotificationTap(backend: 'pi', session: 's-42'),
+      NotificationTap.parse(runDoneTapPayload(session, 'mac-1')),
+      const NotificationTap(backend: 'pi', session: 's-42', machine: 'mac-1'),
     );
   });
 }

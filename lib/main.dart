@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:broski/agent/agent_providers.dart';
 import 'package:broski/app/app_messenger.dart';
 import 'package:broski/providers/font_provider.dart';
+import 'package:broski/providers/link/machines_provider.dart';
 import 'package:broski/providers/theme_provider.dart';
 import 'package:broski/screens/root_screen.dart';
 import 'package:broski/services/notification_service.dart';
@@ -45,7 +46,11 @@ void main() {
   runApp(
     ProviderScope(
       overrides: [
-        runDoneNotifierProvider.overrideWithValue(const LocalRunDoneNotifier()),
+        runDoneNotifierProvider.overrideWith(
+          (ref) => LocalRunDoneNotifier(
+            machine: () => ref.read(machinesProvider).selectedId,
+          ),
+        ),
       ],
       child: const BroskiApp(),
     ),

@@ -1,6 +1,7 @@
 import 'dart:developer' as developer;
 import 'dart:io';
 
+import 'package:broski/services/notifications/launch_tap.dart';
 import 'package:broski/services/notifications/notification_tap_relay.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -67,6 +68,10 @@ class NotificationService {
       );
 
       _initialized = result ?? false;
+      relayLaunchTap(
+        await _plugin.getNotificationAppLaunchDetails(),
+        NotificationTapRelay.instance,
+      );
 
       if (kDebugMode) {
         developer.log(
@@ -253,31 +258,13 @@ class NotificationService {
     await _plugin.cancelAll();
   }
 
-  /// Handle notification tapped.
   void _onNotificationTapped(NotificationResponse response) {
-    final payload = response.payload;
     if (kDebugMode) {
       developer.log(
         'Notification tapped: ${response.payload}',
         name: 'NotificationService',
       );
     }
-
-    // The payload contains the sessionId.
-    // Navigation to the session will be handled by the app's navigation system.
-    // This can be wired up with a stream or callback if needed.
-    _notificationTappedSessionId = payload;
-    NotificationTapRelay.instance.add(payload);
-  }
-
-  /// The session ID from the last tapped notification.
-  /// Check this on app resume to navigate to the session.
-  String? _notificationTappedSessionId;
-
-  /// Get and clear the tapped session ID.
-  String? consumeTappedSessionId() {
-    final id = _notificationTappedSessionId;
-    _notificationTappedSessionId = null;
-    return id;
+    NotificationTapRelay.instance.add(response.payload);
   }
 }

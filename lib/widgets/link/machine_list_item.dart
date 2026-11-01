@@ -1,6 +1,6 @@
 import 'package:broski/models/link/machine.dart';
-import 'package:broski/providers/connection/link_connection_controller.dart';
 import 'package:broski/providers/link/link_status_provider.dart';
+import 'package:broski/providers/link/machine_switch_provider.dart';
 import 'package:broski/providers/link/machines_provider.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/app_typography.dart';
@@ -63,10 +63,8 @@ class MachineListItem extends ConsumerWidget {
     );
   }
 
-  Future<void> _switch(WidgetRef ref) async {
-    await ref.read(machinesProvider.notifier).select(machine.id);
-    await ref.read(linkConnectionControllerProvider).switchTo(machine);
-  }
+  Future<void> _switch(WidgetRef ref) =>
+      ref.read(machineSwitchProvider)(machine);
 
   Future<void> _forget(BuildContext context, WidgetRef ref) async {
     final confirmed = await showDialog<bool>(

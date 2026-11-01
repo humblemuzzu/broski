@@ -2,6 +2,9 @@ import 'package:broski/agent/agent_providers.dart';
 import 'package:broski/agent/catalog/backends_controller.dart';
 import 'package:broski/agent/ui/chat/agent_chat_screen.dart';
 import 'package:broski/contract/generated/contract.dart';
+import 'package:broski/models/link/machine.dart';
+import 'package:broski/providers/link/machine_switch_provider.dart';
+import 'package:broski/providers/link/machines_provider.dart';
 import 'package:broski/providers/notifications/notification_tap_provider.dart';
 import 'package:broski/services/notifications/notification_tap.dart';
 import 'package:flutter/widgets.dart';
@@ -26,21 +29,72 @@ SessionRef? contractSessionOf(NotificationTap tap, BackendsState backends) {
       : SessionRef(backend: served.id, sessionId: tap.session);
 }
 
-/// Opens the conversation a tapped notification is about. A tap waits until
-/// the bridge has listed its backends; one that is not a contract session is
-/// dropped. Called from a widget's `build`, under the app's navigator.
+/// Where a tap's session is, as the paired machines stand.
+sealed class _Whereabouts {
+  const _Whereabouts();
+}
+
+/// On the machine the app is on (or the tap does not say).
+final class _Here extends _Whereabouts {
+  const _Here();
+}
+
+/// On another paired machine, which the app moves to first.
+final class _Elsewhere extends _Whereabouts {
+  const _Elsewhere(this.machine);
+
+  final Machine machine;
+}
+
+/// On a machine this phone is no longer paired with.
+final class _Unpaired extends _Whereabouts {
+  const _Unpaired();
+}
+
+_Whereabouts _whereabouts(NotificationTap tap, MachinesState machines) {
+  final id = tap.machine;
+  if (id == null || id == machines.selectedId) return const _Here();
+  final machine = machines.machines.where((paired) => paired.id == id);
+  return machine.isEmpty ? const _Unpaired() : _Elsewhere(machine.first);
+}
+
+/// Opens the conversation a tapped notification is about, on the machine it
+/// came from: the app moves to that machine first, and a tap for a machine no
+/// longer paired is dropped. It opens once the backends are known, from the
+/// bridge or from the list saved for that machine, so a tap made offline
+/// opens what was saved; one that is not a contract session is dropped.
+/// Called from a widget's `build`, under the app's navigator.
 void routeNotificationTaps(BuildContext context, WidgetRef ref) {
   final tap = ref.watch(pendingNotificationTapProvider);
   if (tap == null) return;
+  final machines = ref.watch(machinesProvider);
+  if (!machines.loaded) return;
+  final pending = ref.read(pendingNotificationTapProvider.notifier);
+  switch (_whereabouts(tap, machines)) {
+    case _Unpaired():
+      _afterFrame(context, () => pending.consume(tap));
+    case _Elsewhere(:final machine):
+      final move = ref.read(machineSwitchProvider);
+      _afterFrame(context, () {
+        if (pending.claimSwitch(tap)) move(machine);
+      });
+    case _Here():
+      _openWhenListed(context, ref, tap);
+  }
+}
+
+void _openWhenListed(BuildContext context, WidgetRef ref, NotificationTap tap) {
   final backends = ref.watch(backendsProvider);
-  if (!backends.loaded) return;
+  if (!backends.loaded && backends.savedAt == null) return;
   final session = contractSessionOf(tap, backends);
   final open = ref.read(notificationSessionOpenerProvider);
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    if (!context.mounted) return;
-    final taken = ref
-        .read(pendingNotificationTapProvider.notifier)
-        .consume(tap);
-    if (taken && session != null) open(context, session);
+  final pending = ref.read(pendingNotificationTapProvider.notifier);
+  _afterFrame(context, () {
+    if (pending.consume(tap) && session != null) open(context, session);
   });
 }
+
+void _afterFrame(BuildContext context, void Function() action) =>
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (context.mounted) action();
+    });

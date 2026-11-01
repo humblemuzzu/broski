@@ -31,6 +31,27 @@ void main() {
       },
     );
 
+    test('reads the machine a push or a local notification came from', () {
+      expect(
+        NotificationTap.parse({
+          'backend': 'pi',
+          'session': 's-1',
+          'machine': 'mac-1',
+        }),
+        const NotificationTap(backend: 'pi', session: 's-1', machine: 'mac-1'),
+      );
+      const local = NotificationTap(
+        backend: 'pi',
+        session: 's-1',
+        machine: 'mac-2',
+      );
+      expect(NotificationTap.parse(local.toPayload()), local);
+      expect(
+        NotificationTap.parse({'backend': 'pi', 'session': 's', 'machine': ''}),
+        const NotificationTap(backend: 'pi', session: 's'),
+      );
+    });
+
     test('names nothing when backend or session is missing or empty', () {
       expect(NotificationTap.parse({'backend': 'pi'}), isNull);
       expect(NotificationTap.parse({'session': 's-1'}), isNull);

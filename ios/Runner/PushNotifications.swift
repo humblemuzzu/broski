@@ -214,9 +214,9 @@ final class PushNotifications: NSObject {
   }
 }
 
-/// Hands the session a tapped push names to Dart: now when Dart is listening,
-/// otherwise as soon as it asks, which is how a tap that launched the app
-/// reaches it.
+/// Hands the session a tapped push names, and the machine it came from (the
+/// relay's `m`), to Dart: now when Dart is listening, otherwise as soon as it
+/// asks, which is how a tap that launched the app reaches it.
 final class NotificationTapChannel {
   static let channelName = "broski/notification_taps"
 
@@ -246,6 +246,7 @@ final class NotificationTapChannel {
     for key in ["backend", "session", "request"] {
       if let value = userInfo[key] as? String { tap[key] = value }
     }
+    if let machine = userInfo["m"] as? String { tap["machine"] = machine }
     guard tap["backend"] != nil, tap["session"] != nil else { return }
     if listening, let channel {
       channel.invokeMethod("onTap", arguments: tap)
