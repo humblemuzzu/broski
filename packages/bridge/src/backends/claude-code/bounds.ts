@@ -46,7 +46,7 @@ export function boundList<T>(items: readonly T[], max: number = MAX_LIST_ITEMS):
 
 /**
  * The first `max` entries of `record` in insertion order, keys clipped to `MAX_NAME_CHARS` (a clipped key that repeats
- * an earlier one is dropped and counted). Own keys only, written so that a `__proto__` key stays an own key.
+ * an earlier one is dropped and counted). Own keys only, as pairs, so a `__proto__` key is kept like any other.
  */
 export function boundRecord<V>(
 	record: Readonly<Record<string, V>>,
