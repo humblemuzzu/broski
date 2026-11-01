@@ -16,7 +16,11 @@ const SUGGESTIONS: PermissionUpdate[] = [
 ];
 
 function sdkContext(overrides: Partial<CanUseToolContext> = {}): CanUseToolContext {
-	return { signal: new AbortController().signal, toolUseID: "toolu_9", ...overrides };
+	return { signal: new AbortController().signal, toolUseID: "toolu_9", requestId: "req_9", ...overrides };
+}
+
+function elicitationContext(signal: AbortSignal = new AbortController().signal) {
+	return { signal, requestId: "req_elicit" };
 }
 
 async function installPermissionHandler(handler: PermissionRequestHandler): Promise<CanUseTool> {
@@ -193,7 +197,7 @@ describe("queryClaudeCode elicitation handling", () => {
 				elicitationId: "e1",
 				requestedSchema: { type: "object" },
 			},
-			{ signal: new AbortController().signal },
+			elicitationContext(),
 		);
 
 		expect(requests[0]).toEqual({
@@ -216,10 +220,7 @@ describe("queryClaudeCode elicitation handling", () => {
 		const onElicitation = captured.options?.onElicitation;
 		if (!onElicitation) throw new Error("onElicitation was not installed on the SDK options");
 
-		const result = await onElicitation(
-			{ serverName: "srv", message: "Authorize" },
-			{ signal: new AbortController().signal },
-		);
+		const result = await onElicitation({ serverName: "srv", message: "Authorize" }, elicitationContext());
 
 		expect(result).toEqual({ action: "accept" });
 	});
@@ -229,10 +230,7 @@ describe("queryClaudeCode elicitation handling", () => {
 		const onElicitation = captured.options?.onElicitation;
 		if (!onElicitation) throw new Error("onElicitation was not installed on the SDK options");
 
-		const result = await onElicitation(
-			{ serverName: "srv", message: "Authorize" },
-			{ signal: new AbortController().signal },
-		);
+		const result = await onElicitation({ serverName: "srv", message: "Authorize" }, elicitationContext());
 
 		expect(result).toEqual({ action: "decline" });
 	});
@@ -243,7 +241,7 @@ describe("queryClaudeCode elicitation handling", () => {
 		});
 		const declineHandler = decline.captured.options?.onElicitation;
 		if (!declineHandler) throw new Error("onElicitation was not installed on the SDK options");
-		expect(await declineHandler({ serverName: "s", message: "m" }, { signal: new AbortController().signal })).toEqual({
+		expect(await declineHandler({ serverName: "s", message: "m" }, elicitationContext())).toEqual({
 			action: "decline",
 		});
 
@@ -252,7 +250,7 @@ describe("queryClaudeCode elicitation handling", () => {
 		});
 		const cancelHandler = cancel.captured.options?.onElicitation;
 		if (!cancelHandler) throw new Error("onElicitation was not installed on the SDK options");
-		expect(await cancelHandler({ serverName: "s", message: "m" }, { signal: new AbortController().signal })).toEqual({
+		expect(await cancelHandler({ serverName: "s", message: "m" }, elicitationContext())).toEqual({
 			action: "cancel",
 		});
 	});
@@ -270,7 +268,7 @@ describe("queryClaudeCode elicitation handling", () => {
 
 		const controller = new AbortController();
 		controller.abort();
-		const result = await onElicitation({ serverName: "s", message: "m" }, { signal: controller.signal });
+		const result = await onElicitation({ serverName: "s", message: "m" }, elicitationContext(controller.signal));
 
 		expect(result).toEqual({ action: "cancel" });
 		expect(calls).toBe(0);
