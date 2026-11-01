@@ -2,6 +2,7 @@
 
 import { readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
+import { boundedGrowth } from "./bounded";
 
 const MAX_CACHED = 4_096;
 
@@ -57,7 +58,7 @@ export class FileLocator {
 
 	private remember(sessionId: string, path: string): void {
 		this.known.set(sessionId, path);
-		if (this.known.size > MAX_CACHED) this.known.delete(this.known.keys().next().value ?? sessionId);
+		boundedGrowth(this.known, MAX_CACHED);
 	}
 
 	private async isTranscript(path: string): Promise<boolean> {

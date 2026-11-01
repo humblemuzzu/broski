@@ -3,6 +3,8 @@
  * the directories of other projects without encoding a path (D15). Learned from rows already read; bounded.
  */
 
+import { boundedGrowth } from "./bounded";
+
 const MAX_DIRS = 4_096;
 const MAX_CWDS_PER_DIR = 8;
 
@@ -15,9 +17,8 @@ export class ProjectDirs {
 		if (cwd === undefined) return;
 		const cwds = this.seen.get(dir) ?? new Set<string>();
 		if (cwds.size < MAX_CWDS_PER_DIR) cwds.add(cwd);
-		this.seen.delete(dir);
 		this.seen.set(dir, cwds);
-		if (this.seen.size > MAX_DIRS) this.seen.delete(this.seen.keys().next().value ?? dir);
+		boundedGrowth(this.seen, MAX_DIRS);
 	}
 
 	/** `unknown` until a row of the directory has been read; `in` when one of them lies in a wanted directory. */

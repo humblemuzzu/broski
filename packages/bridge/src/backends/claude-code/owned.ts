@@ -6,6 +6,7 @@ import type { SessionId, SessionOrigin } from "../../contract";
 import { clip } from "./bounds";
 import type { OwnershipDeps } from "./ports/deps";
 import type { Ownership, PromptRecord } from "./ports/store";
+import { boundedGrowth, trimOldest } from "./store/bounded";
 import { LineJournal } from "./store/line-journal";
 
 const MAX_SESSIONS = 20_000;
@@ -59,6 +60,8 @@ class OwnerJournal implements Ownership {
 			if (line.k === "s") this.remember(line.i);
 			else this.recall(line.s, line.u, line.n);
 		}
+		trimOldest(this.sessions, MAX_SESSIONS);
+		trimOldest(this.prompts, MAX_PROMPTS);
 		if (this.lines > this.capacityLines()) await this.compact();
 	}
 
@@ -84,7 +87,7 @@ class OwnerJournal implements Ownership {
 	private remember(sessionId: SessionId): void {
 		this.sessions.delete(sessionId);
 		this.sessions.add(sessionId);
-		if (this.sessions.size > MAX_SESSIONS) this.sessions.delete(this.sessions.values().next().value ?? sessionId);
+		boundedGrowth(this.sessions, MAX_SESSIONS);
 	}
 
 	private recall(sessionId: SessionId, sendUuid: string, names: readonly (string | null)[]): void {
@@ -95,7 +98,7 @@ class OwnerJournal implements Ownership {
 			sendUuid,
 			record: { imageNames: names.map((name) => name ?? undefined) },
 		});
-		if (this.prompts.size > MAX_PROMPTS) this.prompts.delete(this.prompts.keys().next().value ?? key);
+		boundedGrowth(this.prompts, MAX_PROMPTS);
 	}
 
 	private async write(line: z.infer<typeof JournalLine>): Promise<void> {

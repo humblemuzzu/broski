@@ -17,6 +17,8 @@ import { type ClaudeHome, createClaudeHome } from "../../../helpers/claude-home"
 export interface SdkCalls {
 	getSessionInfo: number;
 	getSessionMessages: number;
+	/** The `offset` and `limit` of each `getSessionMessages` call, in order. */
+	messageReads: { offset: number | undefined; limit: number | undefined }[];
 	getSubagentMessages: number;
 	listSessions: number;
 	listSubagents: number;
@@ -48,7 +50,10 @@ export interface StoreWorld {
 
 function counting(sdk: ClaudeSdk, calls: SdkCalls): ClaudeSdk {
 	const count =
-		<A extends unknown[], R>(key: keyof SdkCalls, fn: (...args: A) => R) =>
+		<A extends unknown[], R>(
+			key: "getSessionInfo" | "getSubagentMessages" | "listSessions" | "listSubagents" | "forkSession",
+			fn: (...args: A) => R,
+		) =>
 		(...args: A): R => {
 			calls[key] += 1;
 			return fn(...args);
@@ -56,7 +61,11 @@ function counting(sdk: ClaudeSdk, calls: SdkCalls): ClaudeSdk {
 	return {
 		...sdk,
 		getSessionInfo: count("getSessionInfo", sdk.getSessionInfo),
-		getSessionMessages: count("getSessionMessages", sdk.getSessionMessages),
+		getSessionMessages: (sessionId, options) => {
+			calls.getSessionMessages += 1;
+			calls.messageReads.push({ offset: options?.offset, limit: options?.limit });
+			return sdk.getSessionMessages(sessionId, options);
+		},
 		getSubagentMessages: count("getSubagentMessages", sdk.getSubagentMessages),
 		listSessions: count("listSessions", sdk.listSessions),
 		listSubagents: count("listSubagents", sdk.listSubagents),
@@ -74,6 +83,7 @@ export async function createStoreWorld(): Promise<StoreWorld> {
 	const calls: SdkCalls = {
 		getSessionInfo: 0,
 		getSessionMessages: 0,
+		messageReads: [],
 		getSubagentMessages: 0,
 		listSessions: 0,
 		listSubagents: 0,

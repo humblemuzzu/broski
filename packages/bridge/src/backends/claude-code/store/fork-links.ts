@@ -3,6 +3,7 @@
 import { join } from "node:path";
 import { z } from "zod";
 import type { SessionId } from "../../../contract";
+import { boundedGrowth } from "./bounded";
 import { LineJournal } from "./line-journal";
 
 const MAX_LINKS = 20_000;
@@ -44,7 +45,7 @@ export class ForkLinks {
 	private remember(forkId: SessionId, parentId: SessionId): void {
 		this.parents.delete(forkId);
 		this.parents.set(forkId, parentId);
-		if (this.parents.size > MAX_LINKS) this.parents.delete(this.parents.keys().next().value ?? forkId);
+		boundedGrowth(this.parents, MAX_LINKS);
 	}
 }
 
