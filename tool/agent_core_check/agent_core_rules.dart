@@ -2,7 +2,7 @@ import 'dart_tokens.dart';
 import 'import_rules.dart';
 
 /// The one file that may name a backend, for display (see its doc comment).
-const backendLabelFile = 'lib/agent/ui/backend_label.dart';
+const backendLabelFile = 'lib/screens/agent/backend_label.dart';
 
 /// The backend ids, lowercased with everything but letters and digits gone,
 /// so `'Pi-Durable'`, `'pi durable'` and `'pi' 'Durable'` all read as one.
@@ -37,7 +37,15 @@ const _keywordsBeforeAValue = {
 /// shorthand, by a string or by reading a backend value as text. Each problem
 /// reads `path:line: what`. The check is lexical: it catches the ways code
 /// steers by backend by accident, not every way a determined author could.
-List<String> agentCoreViolations(String path, String source) {
+///
+/// With [checkImports] false only the steering rules apply: the shared
+/// screens under `lib/screens/agent/` draw with the app's own widgets, so
+/// they may import any of them, but they name no backend either.
+List<String> agentCoreViolations(
+  String path,
+  String source, {
+  bool checkImports = true,
+}) {
   final tokens = dartTokens(source);
   final labels = path == backendLabelFile;
   final problems = <String>[];
@@ -46,7 +54,7 @@ List<String> agentCoreViolations(String path, String source) {
   for (var index = 0; index < tokens.length; index++) {
     final token = tokens[index];
     switch (token) {
-      case WordToken(word: 'import' || 'export' || 'part'):
+      case WordToken(word: 'import' || 'export' || 'part') when checkImports:
         directiveProblems(tokens, index).forEach((what) => report(token, what));
       case WordToken(word: 'AgentType'):
         report(

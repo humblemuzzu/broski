@@ -13,33 +13,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 bool hiddenByTitleFilters(List<String> filters, SessionSummary row) =>
     sessionTitleMatchesExcludeFilters(row.title?.text ?? '', filters);
 
-/// The header button that opens [backend]'s title filters, with their count.
-class ContractTitleFiltersButton extends ConsumerWidget {
-  const ContractTitleFiltersButton({super.key, required this.backend});
-
-  final BackendId backend;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final count = ref.watch(contractTitleFiltersProvider(backend)).length;
-    return IconButton(
-      key: const ValueKey('title-filters'),
-      tooltip: count == 0 ? 'Title filters' : 'Title filters ($count)',
-      icon: Badge(
-        isLabelVisible: count > 0,
-        label: Text('$count'),
-        child: const Icon(Icons.filter_alt_outlined),
-      ),
-      onPressed: () => showContractTitleFiltersSheet(context, backend),
-    );
-  }
-}
-
-/// Adds and removes [backend]'s title filters.
+/// Adds and removes [backend]'s title filters: the titles a person never wants
+/// to see in that backend's session list.
 void showContractTitleFiltersSheet(BuildContext context, BackendId backend) {
   DetailSheet.show<void>(
     context: context,
     title: 'Title Filters',
+    initialSize: 0.6,
+    minSize: 0.3,
+    maxSize: 0.85,
     child: _FiltersEditor(backend: backend),
   );
 }
@@ -71,69 +53,191 @@ class _FiltersEditorState extends ConsumerState<_FiltersEditor> {
 
   @override
   Widget build(BuildContext context) {
-    final oc = OpenCodeTheme.of(context);
+    final theme = OpenCodeTheme.of(context);
     final filters = ref.watch(contractTitleFiltersProvider(widget.backend));
     final notifier = ref.read(
       contractTitleFiltersProvider(widget.backend).notifier,
     );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Hide sessions whose titles match any filter. Use /regex/ for a '
+            'regular expression; anything else matches anywhere in the title, '
+            'whatever the case.',
+            style: TextStyle(color: theme.textMuted, fontSize: 13),
+          ),
+          const SizedBox(height: Spacing.md),
+          Row(
+            children: [
+              Expanded(
+                child: _FilterField(controller: _text, onSubmitted: _add),
+              ),
+              const SizedBox(width: 10),
+              _AddButton(onTap: _add),
+            ],
+          ),
+          _FilterRows(
+            filters: filters,
+            onClear: notifier.clear,
+            onRemove: notifier.remove,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FilterRows extends StatelessWidget {
+  const _FilterRows({
+    required this.filters,
+    required this.onClear,
+    required this.onRemove,
+  });
+
+  final List<String> filters;
+  final VoidCallback onClear;
+  final void Function(String filter) onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
+    if (filters.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: Center(
+          child: Text(
+            'No filters yet',
+            style: TextStyle(color: theme.textMuted),
+          ),
+        ),
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          'Hide sessions whose titles match any filter. Use /regex/ for a '
-          'regular expression; anything else matches anywhere in the title, '
-          'whatever the case.',
-          style: TextStyle(color: oc.textMuted, fontSize: 13),
-        ),
-        const SizedBox(height: Spacing.md),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                key: const ValueKey('title-filter-input'),
-                controller: _text,
-                decoration: const InputDecoration(hintText: 'e.g. /^test/'),
-                onSubmitted: (_) => _add(),
-              ),
-            ),
-            const SizedBox(width: Spacing.sm),
-            TextButton(
-              key: const ValueKey('title-filter-add'),
-              onPressed: _add,
-              child: const Text('Add'),
-            ),
-          ],
-        ),
-        const SizedBox(height: Spacing.md),
-        if (filters.isEmpty)
-          Text('No filters yet', style: TextStyle(color: oc.textMuted)),
-        for (final filter in filters)
-          ListTile(
-            key: ValueKey('title-filter:$filter'),
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(
-              filter.length >= 3 &&
-                      filter.startsWith('/') &&
-                      filter.endsWith('/')
-                  ? AppIcons.code
-                  : AppIcons.textFields,
-              color: oc.textMuted,
-            ),
-            title: Text(filter, style: TextStyle(color: oc.text)),
-            trailing: IconButton(
-              tooltip: 'Remove',
-              icon: Icon(AppIcons.close, color: oc.textMuted),
-              onPressed: () => notifier.remove(filter),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton(
+            onPressed: onClear,
+            child: Text(
+              'Clear all',
+              style: TextStyle(color: theme.error, fontSize: 13),
             ),
           ),
-        if (filters.isNotEmpty)
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-              onPressed: notifier.clear,
-              child: Text('Clear all', style: TextStyle(color: oc.error)),
+        ),
+        for (final (index, filter) in filters.indexed) ...[
+          if (index > 0) Divider(height: 1, color: theme.borderSubtle),
+          _FilterRow(filter: filter, onRemove: () => onRemove(filter)),
+        ],
+      ],
+    );
+  }
+}
+
+class _FilterField extends StatelessWidget {
+  const _FilterField({required this.controller, required this.onSubmitted});
+
+  final TextEditingController controller;
+  final VoidCallback onSubmitted;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
+    OutlineInputBorder border(Color color) => OutlineInputBorder(
+      borderRadius: Radii.brMd,
+      borderSide: BorderSide(color: color),
+    );
+    return TextField(
+      key: const ValueKey('title-filter-input'),
+      controller: controller,
+      style: TextStyle(color: theme.text),
+      textInputAction: TextInputAction.done,
+      decoration: InputDecoration(
+        hintText: 'e.g. test, tmp, /wip.*/',
+        hintStyle: TextStyle(color: theme.textMuted),
+        filled: true,
+        fillColor: theme.backgroundElement,
+        border: border(theme.borderSubtle),
+        enabledBorder: border(theme.borderSubtle),
+        focusedBorder: border(theme.primary),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 10,
+        ),
+      ),
+      onSubmitted: (_) => onSubmitted(),
+    );
+  }
+}
+
+class _AddButton extends StatelessWidget {
+  const _AddButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
+    return ElevatedButton(
+      key: const ValueKey('title-filter-add'),
+      onPressed: onTap,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: theme.primary,
+        foregroundColor: theme.selectedListItemText,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        shape: RoundedRectangleBorder(borderRadius: Radii.brMd),
+      ),
+      child: const Text('Add'),
+    );
+  }
+}
+
+class _FilterRow extends StatelessWidget {
+  const _FilterRow({required this.filter, required this.onRemove});
+
+  final String filter;
+  final VoidCallback onRemove;
+
+  bool get _pattern =>
+      filter.length >= 3 && filter.startsWith('/') && filter.endsWith('/');
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
+    return Row(
+      key: ValueKey('title-filter:$filter'),
+      children: [
+        Icon(
+          _pattern ? AppIcons.code : AppIcons.textFields,
+          size: 18,
+          color: theme.textMuted,
+        ),
+        const SizedBox(width: Spacing.md),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Text(
+              filter,
+              style: TextStyle(color: theme.text, fontSize: 14),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
+        ),
+        Tooltip(
+          message: 'Remove',
+          child: InkWell(
+            onTap: onRemove,
+            borderRadius: Radii.brSm,
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: Icon(AppIcons.delete, size: 18, color: theme.error),
+            ),
+          ),
+        ),
       ],
     );
   }

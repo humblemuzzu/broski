@@ -34,13 +34,13 @@ const extensions = descriptor.capabilities.extensions.filter((kind) => client.sp
 
 ### low · `showProjectPanels` and `projectPanels` have no production caller
 
-- **Filename:** lib/agent/ui/panels/panels_sheet.dart
+- **Filename:** lib/screens/agent/panels/panels_sheet.dart
 - **Start line:** 41
 - **End line:** 60
 - **Comment type:** bug
 - **Text:** The doc comment says a screen that lists projects offers the project panels for a row, but no screen calls these functions.
 - **Why:** The project-level panels (`config_files`, `settings_overview`, `plugins`, all `OpPlace.project`) are reachable only from an open chat's More menu (`chat_header.dart:90`). A project with no open session has no way to reach them. The `OpPlace.backend` panels do have a caller (`session_list_actions.dart:25`). `showProjectPanels` is dead code that looks like a feature.
-- **Checked:** ran `grep -rn "showProjectPanels\|projectPanels" lib test` → matches only in `panels_sheet.dart` and `test/agent/ui/project_panels_test.dart`.
+- **Checked:** ran `grep -rn "showProjectPanels\|projectPanels" lib test` → matches only in `panels_sheet.dart` and `test/screens/agent/project_panels_test.dart`.
 - **Fix:** Call `showProjectPanels(context, backend, cwd:, name:)` from the project or directory row in `session_list_view.dart` (where `byDirectory` grouping already exists), or delete the two functions and the test and correct the comment.
 
 ### low · A hold does not carry over when its session is replaced

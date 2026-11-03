@@ -292,11 +292,11 @@ final sessionMutants = [
       'bool get answerable => capabilities?.answer ?? true;',
     ),
   ]),
-  ...mutantsOf('ui/chat/interaction_bar.dart', const [
+  ...appMutantsOf('screens/agent/chat/interaction_bar.dart', const [
     Mutant(
       'answers: the bar offers Answer only to a controllable session',
-      'trailing: state.answerable',
-      'trailing: state.controllable',
+      'onAnswer: widget.state.answerable',
+      'onAnswer: widget.state.controllable',
     ),
   ]),
   ...mutantsOf('session/history_loader.dart', const [

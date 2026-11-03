@@ -9,7 +9,12 @@ import 'package:flutter/material.dart';
 /// Subagents that cannot be resumed by their SDK (Claude Code subagents —
 /// SDK has no continue API) open with this footer so the user sees the full transcript but can't type.
 class ChatReadOnlyFooter extends StatelessWidget {
-  const ChatReadOnlyFooter({super.key});
+  const ChatReadOnlyFooter({
+    super.key,
+    this.message = 'Read-only — finished subagent transcript',
+  });
+
+  final String message;
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +39,7 @@ class ChatReadOnlyFooter extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                'Read-only — finished subagent transcript',
+                message,
                 style: TextStyle(
                   color: theme.textMuted,
                   fontSize: 12,

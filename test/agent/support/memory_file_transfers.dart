@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:broski/agent/ui/panels/transfer/file_transfers.dart';
+import 'package:broski/screens/agent/panels/transfer/file_transfers.dart';
 import 'package:flutter/painting.dart' show Rect;
 
 /// The phone's files, in memory: what is downloaded is kept for the test to

@@ -1,9 +1,9 @@
 import 'dart:async';
 
-import 'package:broski/agent/ui/chat/agent_chat_screen.dart';
 import 'package:broski/contract/generated/contract.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/service_providers.dart';
+import 'package:broski/screens/agent/chat/agent_chat_screen.dart';
 import 'package:broski/screens/main_shell.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';

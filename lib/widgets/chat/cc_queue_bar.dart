@@ -14,13 +14,18 @@ class CCQueueBar extends StatelessWidget {
     required this.textColor,
     required this.mutedColor,
     required this.surfaceColor,
+    this.label = 'Queued — will send when turn completes',
   });
 
   /// The queued message text (preview shown to user).
   final String pendingMessage;
 
-  /// Called when the user cancels the queued message.
-  final VoidCallback onCancel;
+  /// Called when the user cancels the queued message; without it the
+  /// message cannot be cancelled from here.
+  final VoidCallback? onCancel;
+
+  /// What the bar says about when the message goes.
+  final String label;
   final Color primaryColor;
   final Color textColor;
   final Color mutedColor;
@@ -49,7 +54,7 @@ class CCQueueBar extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'Queued — will send when turn completes',
+                  label,
                   style: TextStyle(
                     color: mutedColor,
                     fontSize: 10,
@@ -66,17 +71,19 @@ class CCQueueBar extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: Spacing.sm),
-          SizedBox(
-            height: 28,
-            width: 28,
-            child: IconButton(
-              onPressed: onCancel,
-              icon: Icon(AppIcons.close, size: 16, color: mutedColor),
-              padding: EdgeInsets.zero,
-              tooltip: 'Cancel queued message',
+          if (onCancel != null) ...[
+            const SizedBox(width: Spacing.sm),
+            SizedBox(
+              height: 28,
+              width: 28,
+              child: IconButton(
+                onPressed: onCancel,
+                icon: Icon(AppIcons.close, size: 16, color: mutedColor),
+                padding: EdgeInsets.zero,
+                tooltip: 'Cancel queued message',
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );

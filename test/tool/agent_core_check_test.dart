@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../tool/agent_core_check/agent_core_rules.dart';
 import '../../tool/agent_core_check/import_rules.dart';
 
-const _path = 'lib/agent/ui/thing.dart';
+const _path = 'lib/agent/session/thing.dart';
 
 List<String> _check(String source, {String path = _path}) =>
     agentCoreViolations(path, source);
@@ -20,6 +20,37 @@ void main() {
     for (final file in files) {
       expect(_check(file.readAsStringSync(), path: file.path), isEmpty);
     }
+  });
+
+  test('the shared screens name no backend, whatever they import', () {
+    final files = Directory('lib/screens/agent')
+        .listSync(recursive: true)
+        .whereType<File>()
+        .where((file) => file.path.endsWith('.dart'));
+    expect(files, isNotEmpty);
+    for (final file in files) {
+      expect(
+        agentCoreViolations(
+          file.path,
+          file.readAsStringSync(),
+          checkImports: false,
+        ),
+        isEmpty,
+        reason: file.path,
+      );
+    }
+  });
+
+  test('a shared screen may import any app widget, never steer by backend', () {
+    const screen = 'lib/screens/agent/chat/thing.dart';
+    List<String> check(String source) =>
+        agentCoreViolations(screen, source, checkImports: false);
+    expect(
+      check("import 'package:broski/widgets/message_bubble.dart';"),
+      isEmpty,
+    );
+    expect(check('void f(AgentType type) {}'), hasLength(1));
+    expect(check('final x = BackendId.pi;'), hasLength(1));
   });
 
   group('refuses', () {

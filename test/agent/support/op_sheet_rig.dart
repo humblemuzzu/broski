@@ -1,5 +1,5 @@
-import 'package:broski/agent/ui/chat/agent_chat_screen.dart';
 import 'package:broski/contract/generated/contract.dart';
+import 'package:broski/screens/agent/chat/agent_chat_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

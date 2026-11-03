@@ -1,6 +1,5 @@
 import 'package:broski/agent/agent_providers.dart';
 import 'package:broski/agent/catalog/backends_controller.dart';
-import 'package:broski/agent/ui/chat/agent_chat_screen.dart';
 import 'package:broski/contract/generated/contract.dart';
 import 'package:broski/models/link/machine.dart';
 import 'package:broski/models/selected_backend.dart';
@@ -8,6 +7,7 @@ import 'package:broski/providers/link/machine_switch_provider.dart';
 import 'package:broski/providers/link/machines_provider.dart';
 import 'package:broski/providers/notifications/notification_tap_provider.dart';
 import 'package:broski/providers/selected_backend_provider.dart';
+import 'package:broski/screens/agent/chat/agent_chat_screen.dart';
 import 'package:broski/services/notifications/notification_tap.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

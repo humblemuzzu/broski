@@ -1,8 +1,8 @@
 import 'package:broski/agent/agent_providers.dart';
 import 'package:broski/agent/notify/run_completion_watcher.dart';
 import 'package:broski/agent/notify/session_viewing.dart';
-import 'package:broski/agent/ui/chat/agent_chat_screen.dart';
 import 'package:broski/contract/generated/contract.dart';
+import 'package:broski/screens/agent/chat/agent_chat_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';

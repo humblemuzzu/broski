@@ -122,10 +122,11 @@ String _source(String file) => File('lib/$file').readAsStringSync();
 
 int _count(String source, String find) => find.allMatches(source).length;
 
-/// The tests a mutant must fail: the app core's, and those of the
-/// notification taps that open its screens.
+/// The tests a mutant must fail: the app core's, its shared screens', and
+/// those of the notification taps that open them.
 const _testDirectories = [
   'test/agent',
+  'test/screens/agent',
   'test/screens/notifications',
   'test/services/notifications',
 ];

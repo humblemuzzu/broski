@@ -102,7 +102,7 @@ secureServer = Bun.serve({
 - **Fix:** Move one `isMissing`, one `indentOf`, one strict `parseObject` and one atomic writer into a shared module inside `backends/claude-code/` and have these callers import them. The layer rules allow this.
 
 ### low · Delete confirmation says the file cannot be recovered, but it goes to the Trash
-- **Filename:** lib/agent/ui/panels/editable_file_view.dart
+- **Filename:** lib/screens/agent/panels/editable_file_view.dart
 - **Start line:** 105
 - **End line:** 110
 - **Comment type:** bug

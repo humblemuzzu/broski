@@ -73,7 +73,7 @@ class MessageGroup extends ConsumerWidget {
     required this.onFork,
     required this.onResumeFromHere,
     required this.onOpenDiffView,
-    required this.onCcRewind,
+    this.onCcRewind,
     // Builder callbacks for complex sub-widgets that remain in chat_screen
     required this.buildVariantCard,
     required this.buildOrderedParts,
@@ -91,8 +91,9 @@ class MessageGroup extends ConsumerWidget {
   /// Called to open the full diff view.
   final void Function(DiffEntry diff, {String? messageId}) onOpenDiffView;
 
-  /// Called to rewind to the last checkpoint (Claude Code turn-level undo).
-  final VoidCallback onCcRewind;
+  /// Called to rewind to the last checkpoint (Claude Code turn-level undo);
+  /// without it the undo bar is not offered.
+  final VoidCallback? onCcRewind;
 
   /// Builds a variant-tagged system message card. Returns null if unrecognized.
   final Widget? Function(ChatMessage) buildVariantCard;
@@ -178,16 +179,17 @@ class MessageGroup extends ConsumerWidget {
             ),
           // Claude Code: Turn-level undo bar after assistant messages with
           // file changes. Uses the SDK's rewindFiles(userMessageId).
-          if (message.role == MessageRole.assistant &&
-              !message.isStreaming &&
-              messageHasFileChanges(message))
+          if (onCcRewind case final rewind?
+              when message.role == MessageRole.assistant &&
+                  !message.isStreaming &&
+                  messageHasFileChanges(message))
             Builder(
               builder: (context) {
                 final ccState = ref.watch(ccChatProvider);
                 if (!ccState.canUndo) return const SizedBox.shrink();
                 return CCUndoTurnBar(
                   changedFiles: extractChangedFilePaths(message),
-                  onUndo: onCcRewind,
+                  onUndo: rewind,
                 );
               },
             ),

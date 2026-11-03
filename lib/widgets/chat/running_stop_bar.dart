@@ -17,9 +17,38 @@ class RunningStopBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final running = ref.watch(chatSessionProvider.select(chatIsRunning));
     if (!running) return const SizedBox.shrink();
+    return RunningStopBarView(
+      barKey: const ValueKey('running-stop-bar'),
+      stopKey: const ValueKey('running-stop-button'),
+      onStop: onStop,
+    );
+  }
+}
+
+/// The working bar itself: a spinner, what is going on, and Stop.
+class RunningStopBarView extends StatelessWidget {
+  const RunningStopBarView({
+    super.key,
+    required this.onStop,
+    this.label = 'Working',
+    this.barKey,
+    this.stopKey,
+    this.spinnerLabel,
+  });
+
+  final VoidCallback onStop;
+  final String label;
+  final Key? barKey;
+  final Key? stopKey;
+
+  /// What a screen reader says the spinner shows.
+  final String? spinnerLabel;
+
+  @override
+  Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     return Container(
-      key: const ValueKey('running-stop-bar'),
+      key: barKey,
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       decoration: BoxDecoration(
@@ -36,17 +65,18 @@ class RunningStopBar extends ConsumerWidget {
             child: CircularProgressIndicator(
               strokeWidth: 1.5,
               color: theme.primary,
+              semanticsLabel: spinnerLabel,
             ),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Working',
+              label,
               style: AppTypography.label(color: theme.primary),
             ),
           ),
           TextButton.icon(
-            key: const ValueKey('running-stop-button'),
+            key: stopKey,
             onPressed: onStop,
             icon: Icon(AppIcons.stop, size: 14, color: theme.error),
             label: Text('Stop', style: AppTypography.label(color: theme.error)),

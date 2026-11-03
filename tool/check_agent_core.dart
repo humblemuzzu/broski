@@ -4,7 +4,8 @@ import 'agent_core_check/agent_core_rules.dart';
 import 'agent_core_check/import_rules.dart';
 
 /// Fails when a file under lib/agent/ steers by backend or reaches outside
-/// the layers it may use, or when an app layer it imports whole exports
+/// the layers it may use, when a shared screen under lib/screens/agent/
+/// steers by backend, or when an app layer the core imports whole exports
 /// something outside them (docs/architecture/app-core/README.md, "Rules").
 ///
 ///   dart run tool/check_agent_core.dart
@@ -15,9 +16,12 @@ void main() {
     exit(2);
   }
   final core = _dartFiles(root);
+  final screens = _dartFiles(Directory('lib/screens/agent'));
   final theme = _dartFiles(Directory('lib/theme'));
   final problems = [
     for (final (path, source) in core) ...agentCoreViolations(path, source),
+    for (final (path, source) in screens)
+      ...agentCoreViolations(path, source, checkImports: false),
     for (final (path, source) in theme)
       ...openLayerExportProblems(path, source),
   ];
@@ -26,8 +30,9 @@ void main() {
     exit(1);
   }
   stdout.writeln(
-    'agent core: ${core.length} files under lib/agent steer by capability '
-    'only; ${theme.length} theme files export nothing outside the layers',
+    'agent core: ${core.length} files under lib/agent and ${screens.length} '
+    'under lib/screens/agent steer by capability only; ${theme.length} theme '
+    'files export nothing outside the layers',
   );
 }
 

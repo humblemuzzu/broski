@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:broski/models/project.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/design_tokens.dart';
@@ -521,14 +523,20 @@ class DelayedSkeletonList extends StatefulWidget {
 
 class DelayedSkeletonListState extends State<DelayedSkeletonList> {
   bool _showSkeleton = false;
+  Timer? _show;
+
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(milliseconds: 100), () {
-      if (mounted) {
-        setState(() => _showSkeleton = true);
-      }
+    _show = Timer(const Duration(milliseconds: 100), () {
+      if (mounted) setState(() => _showSkeleton = true);
     });
+  }
+
+  @override
+  void dispose() {
+    _show?.cancel();
+    super.dispose();
   }
 
   @override

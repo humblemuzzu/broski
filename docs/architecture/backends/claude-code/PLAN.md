@@ -262,7 +262,7 @@ One Sonnet delegate per lane, each in its own worktree (`git worktree add ../bro
 | **E · Asks** | `ui/` | the ask desk (D13, D14): permissions with option payloads, questions, plan approval with `modeAfter`, form/confirm/url elicitation, refusal dialog, redelivery dedupe | rule 23 for every declared kind; a test that no ask resolves without an answer, a cancel or a CLI withdrawal |
 | **F · Ops** | `ops/` | the ops of D22, D23 and D30 behind the conventions of §8, plus the custom-tools port wiring | rule 9; per-op tests in a temp config dir, including a refused write of invalid JSON and a revision conflict |
 | **G · Terminal** | `terminal/`, `server/cc-terminal-hook.ts` | project watcher, tail, translation, watch-only sessions, "continue here" by fork (D21); the terminal permission hook (D26): install/remove behind the setting, the loopback receiver, the asks raised through `BridgeCore.hold` | a second CLI process writing a session shows live on a watch-only open; rule 27 once declared |
-| **H · App** | `lib/agent/ui/panels/`, composer hint | the generic `ActionListView` and `ConfigFileEditor` panels (§8), the prompt-suggestion chip, the plan-approval mode picker | widget tests with the scripted bridge; `check_agent_core`; `mutate_agent_core --check` |
+| **H · App** | `lib/screens/agent/panels/`, composer hint | the generic `ActionListView` and `ConfigFileEditor` panels (§8), the prompt-suggestion chip, the plan-approval mode picker | widget tests with the scripted bridge; `check_agent_core`; `mutate_agent_core --check` |
 
 ### Step 5 — Integration — **done** (merges `10dbb2f` B, `e193775` A, `b1474fd` C, `f7bfacf` E, `df76306` F, `a6af006` D, `3837ade` G, `b731316` H on `cc/integrate`; fixes between them; all 31 conformance rules pass on the real CLI; registered behind `claudeCode.contract`; decisions D120–D129 in the adapter README)
 
@@ -329,7 +329,7 @@ packages/bridge/src/backends/claude-code/
 
 packages/bridge/src/server/        claude-cli-path.ts, contract-backends.ts (flag), cc-terminal-hook.ts (OQ2)
 packages/bridge/src/__tests__/     claude-code/*.test.ts, helpers/scripted-anthropic-server.ts, helpers/claude-home.ts
-lib/agent/ui/panels/               action_list_view.dart, config_file_editor.dart (+ registry entries)
+lib/screens/agent/panels/               action_list_view.dart, config_file_editor.dart (+ registry entries)
 docs/architecture/backends/claude-code/
   PLAN.md  README.md (decisions, traps, gaps, as built)  research/  reviews/
 ```

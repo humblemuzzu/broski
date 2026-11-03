@@ -1,13 +1,13 @@
 import 'dart:async';
 
 import 'package:broski/agent/agent_providers.dart';
-import 'package:broski/agent/ui/chat/agent_chat_screen.dart';
 import 'package:broski/contract/generated/contract.dart';
 import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/selected_backend.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/selected_backend_provider.dart';
 import 'package:broski/providers/service_providers.dart';
+import 'package:broski/screens/agent/chat/agent_chat_screen.dart';
 import 'package:broski/screens/ai_backend/backend_option_card.dart';
 import 'package:broski/screens/ai_backend_screen.dart';
 import 'package:broski/screens/main_shell.dart';

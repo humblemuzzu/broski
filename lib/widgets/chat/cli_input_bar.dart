@@ -9,6 +9,7 @@ import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/theme/opencode_theme.dart';
 import 'package:broski/utils/format_utils.dart';
 import 'package:broski/widgets/chat/glow_border_painter.dart';
+import 'package:broski/widgets/chat/input_bar_keys.dart';
 import 'package:broski/widgets/chat/input_popup_menu.dart';
 import 'package:broski/widgets/file_tagging.dart';
 import 'package:broski/widgets/voice_input_button.dart';
@@ -60,6 +61,7 @@ class CliStyleInputBar extends StatefulWidget {
     this.showFastToggle = false,
     this.fastEnabled = false,
     this.onFastChanged,
+    this.keys = const InputBarKeys(),
   });
   final TextEditingController controller;
   final FocusNode focusNode;
@@ -101,6 +103,7 @@ class CliStyleInputBar extends StatefulWidget {
   final bool showFastToggle;
   final bool fastEnabled;
   final void Function(bool)? onFastChanged;
+  final InputBarKeys keys;
   @override
   State<CliStyleInputBar> createState() => _CliStyleInputBarState();
 }
@@ -270,6 +273,7 @@ class _CliStyleInputBarState extends State<CliStyleInputBar> {
                         child: ValueListenableBuilder<int>(
                           valueListenable: _placeholderIndex,
                           builder: (context, placeholderIdx, _) => TextField(
+                            key: widget.keys.text,
                             controller: widget.controller,
                             focusNode: widget.focusNode,
                             enabled: !widget.isOfflineMode && !widget.isBusy,
@@ -322,6 +326,7 @@ class _CliStyleInputBarState extends State<CliStyleInputBar> {
                             // Attachment button (+)
                             if (widget.onAttachTap != null)
                               GestureDetector(
+                                key: widget.keys.attach,
                                 onTap: widget.onAttachTap,
                                 child: Padding(
                                   padding: Insets.cardXs,
@@ -335,6 +340,7 @@ class _CliStyleInputBarState extends State<CliStyleInputBar> {
                             const SizedBox(width: Spacing.xs),
                             // Model chip
                             GestureDetector(
+                              key: widget.keys.model,
                               onTap: widget.onCCModelTap ?? widget.onModelTap,
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
@@ -467,6 +473,7 @@ class _CliStyleInputBarState extends State<CliStyleInputBar> {
                             if (widget.onMenuTap != null) ...[
                               const SizedBox(width: Spacing.sm),
                               GestureDetector(
+                                key: widget.keys.menu,
                                 onTap: widget.onMenuTap,
                                 child: Padding(
                                   padding: Insets.cardXs,
@@ -510,6 +517,7 @@ class _CliStyleInputBarState extends State<CliStyleInputBar> {
                             const SizedBox(width: 6),
                             // Send button (minimal)
                             GestureDetector(
+                              key: widget.keys.send,
                               onTap: widget.canSend ? widget.onSend : null,
                               onLongPress: widget.canSend
                                   ? widget.onLongPressSend

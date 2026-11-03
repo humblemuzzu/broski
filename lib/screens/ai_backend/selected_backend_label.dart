@@ -1,6 +1,6 @@
-import 'package:broski/agent/ui/backend_label.dart';
 import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/selected_backend.dart';
+import 'package:broski/screens/agent/backend_label.dart';
 
 /// How a chosen backend is named on screen: the old protocol's own name and
 /// badge, or the contract backend's label, marked new where an old agent

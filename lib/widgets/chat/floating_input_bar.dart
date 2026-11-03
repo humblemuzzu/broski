@@ -5,6 +5,7 @@ import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/theme/opencode_theme.dart';
 import 'package:broski/utils/format_utils.dart';
+import 'package:broski/widgets/chat/input_bar_keys.dart';
 import 'package:broski/widgets/chat/input_popup_menu.dart';
 import 'package:broski/widgets/chat/pill_glow_painter.dart';
 import 'package:broski/widgets/file_tagging.dart';
@@ -51,6 +52,7 @@ class FloatingInputBar extends ConsumerWidget {
     this.showFastToggle = false,
     this.fastEnabled = false,
     this.onFastChanged,
+    this.keys = const InputBarKeys(),
   });
   final TextEditingController controller;
   final FocusNode focusNode;
@@ -87,6 +89,7 @@ class FloatingInputBar extends ConsumerWidget {
   final bool showFastToggle;
   final bool fastEnabled;
   final void Function(bool)? onFastChanged;
+  final InputBarKeys keys;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -153,6 +156,7 @@ class FloatingInputBar extends ConsumerWidget {
                         Padding(
                           padding: const EdgeInsets.fromLTRB(18, 6, 18, 0),
                           child: TextField(
+                            key: keys.text,
                             controller: controller,
                             focusNode: focusNode,
                             enabled: !isOfflineMode && !isBusy,
@@ -198,6 +202,7 @@ class FloatingInputBar extends ConsumerWidget {
                               // Attach button (+)
                               if (onAttachTap != null)
                                 GestureDetector(
+                                  key: keys.attach,
                                   onTap: onAttachTap,
                                   child: Padding(
                                     padding: Insets.cardXs,
@@ -211,6 +216,7 @@ class FloatingInputBar extends ConsumerWidget {
                               const SizedBox(width: Spacing.xs),
                               // Model chip
                               GestureDetector(
+                                key: keys.model,
                                 onTap: onModelTap,
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(
@@ -334,6 +340,7 @@ class FloatingInputBar extends ConsumerWidget {
                               if (onMenuTap != null) ...[
                                 const SizedBox(width: Spacing.sm),
                                 GestureDetector(
+                                  key: keys.menu,
                                   onTap: onMenuTap,
                                   child: Padding(
                                     padding: Insets.cardXs,
@@ -372,6 +379,7 @@ class FloatingInputBar extends ConsumerWidget {
                               const SizedBox(width: 6),
                               // Send button
                               GestureDetector(
+                                key: keys.send,
                                 onTap: canSend ? onSend : null,
                                 onLongPress: canSend ? onLongPressSend : null,
                                 child: Container(

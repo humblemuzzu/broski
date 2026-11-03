@@ -1,0 +1,107 @@
+import 'package:broski/agent/client/contract_client.dart';
+import 'package:broski/agent/client/outcome.dart';
+import 'package:broski/agent/client/requests/session_requests.dart';
+import 'package:broski/contract/generated/contract.dart';
+import 'package:broski/screens/agent/panels/notice_card.dart';
+import 'package:broski/screens/agent/panels/op_panel.dart';
+import 'package:broski/screens/agent/panels/result_actions.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:flutter/material.dart';
+
+/// The body of a result sheet. A result that has controls (a switch, a choice,
+/// a next page) calls the backend again through [ResultActions] and shows the
+/// answer in its place; a refusal is told above it and leaves it as it was.
+class OpResultHost extends StatefulWidget {
+  const OpResultHost({
+    super.key,
+    required this.client,
+    required this.target,
+    required this.first,
+    required this.builder,
+  });
+
+  final ContractClient client;
+  final OpTarget target;
+  final BackendOpResult first;
+
+  /// Shows a result with the controls [ResultActions] gives it.
+  final Widget Function(BackendOpResult result, ResultActions actions) builder;
+
+  @override
+  State<OpResultHost> createState() => _OpResultHostState();
+}
+
+class _OpResultHostState extends State<OpResultHost> {
+  late BackendOpResult _result = widget.first;
+  String? _problem;
+  bool _busy = false;
+
+  Future<Outcome<BackendOpResult>> _run(
+    BackendCall Function(OpTarget target) build,
+  ) async {
+    final BackendCall call;
+    try {
+      call = build(widget.target);
+    } on FormatException {
+      return const Refused(
+        Rejection(
+          code: RejectionCode.unsupported,
+          message: 'This backend does not offer that.',
+        ),
+      );
+    }
+    setState(() {
+      _busy = true;
+      _problem = null;
+    });
+    return widget.client.callBackend(call);
+  }
+
+  Future<Outcome<BackendOpResult>> _attempt(
+    BackendCall Function(OpTarget target) build,
+  ) async {
+    final outcome = await _run(build);
+    if (mounted) setState(() => _busy = false);
+    return outcome;
+  }
+
+  Future<void> _call(BackendCall Function(OpTarget target) build) async {
+    final outcome = await _run(build);
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      switch (outcome) {
+        case Done(value: final result):
+          _result = result;
+        case Refused() || Unreached():
+          _problem = problemOf(outcome);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (_problem case final problem?)
+          Padding(
+            padding: Insets.bottomMd,
+            child: NoticeCard(
+              key: const ValueKey('result-problem'),
+              icon: AppIcons.error,
+              color: theme.error,
+              text: problem,
+            ),
+          ),
+        widget.builder(
+          _result,
+          ResultActions(call: _call, attempt: _attempt, busy: _busy),
+        ),
+      ],
+    );
+  }
+}

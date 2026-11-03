@@ -76,65 +76,45 @@ class _CCContextDetailsState extends ConsumerState<CCContextDetails> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Expandable header
-        GestureDetector(
-          onTap: _toggle,
-          behavior: HitTestBehavior.opaque,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            child: Row(
-              children: [
-                Icon(
-                  _expanded ? AppIcons.expandLess : AppIcons.expandMore,
-                  size: 14,
-                  color: theme.textMuted,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  "What's using context?",
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: theme.textMuted,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-              ],
+        _ContextHeader(expanded: _expanded, onTap: _toggle),
+        if (_expanded) ..._expandedContent(theme),
+      ],
+    );
+  }
+
+  List<Widget> _expandedContent(OpenCodeTheme theme) {
+    if (_loading) {
+      return const [
+        Padding(
+          padding: EdgeInsets.symmetric(vertical: 12),
+          child: Center(
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
             ),
           ),
         ),
-        // Expanded content
-        if (_expanded) ...[
-          if (_loading)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
-              child: Center(
-                child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              ),
-            )
-          else if (_error != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Text(
-                _error!,
-                style: AppTypography.caption(color: theme.textMuted),
-              ),
-            )
-          else if (_usage != null)
-            _buildContent(theme),
-        ],
-      ],
-    );
+      ];
+    }
+    if (_error case final error?) {
+      return [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Text(
+            error,
+            style: AppTypography.caption(color: theme.textMuted),
+          ),
+        ),
+      ];
+    }
+    if (_usage != null) return [_buildContent(theme)];
+    return const [];
   }
 
   Widget _buildContent(OpenCodeTheme theme) {
     final usage = _usage!;
 
-    // Filter & sort categories by token count descending
     final cats = usage.categories.where((c) => c.tokens > 0).toList()
       ..sort((a, b) => b.tokens.compareTo(a.tokens));
 
@@ -151,64 +131,104 @@ class _CCContextDetailsState extends ConsumerState<CCContextDetails> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Categories
-          if (cats.isNotEmpty)
-            for (final cat in cats)
-              _CategoryRow(
-                theme: theme,
-                category: cat,
-                total: usage.totalTokens,
-              ),
+          for (final cat in cats)
+            _CategoryRow(theme: theme, category: cat, total: usage.totalTokens),
+          ..._memoryFileRows(theme, memFiles),
+          ..._mcpToolRows(theme, mcpTools),
+          ..._autoCompactRows(theme, usage),
+        ],
+      ),
+    );
+  }
 
-          // Memory Files
-          if (memFiles.isNotEmpty) ...[
-            const SizedBox(height: Spacing.sm),
-            _SubsectionLabel(theme: theme, label: 'Memory Files'),
-            for (final mf in memFiles)
-              _DetailRow(
-                theme: theme,
-                icon: AppIcons.fileText,
-                label: mf.displayName,
-                value: formatTokenCount(mf.tokens),
-              ),
-          ],
+  List<Widget> _memoryFileRows(
+    OpenCodeTheme theme,
+    List<CCMemoryFileUsage> files,
+  ) {
+    if (files.isEmpty) return const [];
+    return [
+      const SizedBox(height: Spacing.sm),
+      _SubsectionLabel(theme: theme, label: 'Memory Files'),
+      for (final file in files)
+        _DetailRow(
+          theme: theme,
+          icon: AppIcons.fileText,
+          label: file.displayName,
+          value: formatTokenCount(file.tokens),
+        ),
+    ];
+  }
 
-          // MCP Tools
-          if (mcpTools.isNotEmpty) ...[
-            const SizedBox(height: Spacing.sm),
-            _SubsectionLabel(theme: theme, label: 'MCP Tools'),
-            for (final tool in mcpTools)
-              _DetailRow(
-                theme: theme,
-                icon: tool.isLoaded == true
-                    ? AppIcons.checkCircle
-                    : AppIcons.pending,
-                label: tool.name,
-                value: formatTokenCount(tool.tokens),
-                iconColor: tool.isLoaded == true
-                    ? theme.success
-                    : theme.textMuted,
-              ),
-          ],
+  List<Widget> _mcpToolRows(OpenCodeTheme theme, List<CCMcpToolUsage> tools) {
+    if (tools.isEmpty) return const [];
+    return [
+      const SizedBox(height: Spacing.sm),
+      _SubsectionLabel(theme: theme, label: 'MCP Tools'),
+      for (final tool in tools)
+        _DetailRow(
+          theme: theme,
+          icon: tool.isLoaded == true ? AppIcons.checkCircle : AppIcons.pending,
+          label: tool.name,
+          value: formatTokenCount(tool.tokens),
+          iconColor: tool.isLoaded == true ? theme.success : theme.textMuted,
+        ),
+    ];
+  }
 
-          // Auto-compact info
-          if (usage.isAutoCompactEnabled &&
-              usage.autoCompactThreshold != null) ...[
-            const SizedBox(height: Spacing.sm),
-            Row(
-              children: [
-                Text('⚡', style: TextStyle(fontSize: 11, color: theme.warning)),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    'Auto-compact at ${usage.autoCompactThreshold}%',
-                    style: AppTypography.caption(color: theme.textMuted),
-                  ),
-                ),
-              ],
+  List<Widget> _autoCompactRows(OpenCodeTheme theme, CCContextUsage usage) {
+    final threshold = usage.autoCompactThreshold;
+    if (!usage.isAutoCompactEnabled || threshold == null) return const [];
+    return [
+      const SizedBox(height: Spacing.sm),
+      Row(
+        children: [
+          Text('⚡', style: TextStyle(fontSize: 11, color: theme.warning)),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Text(
+              'Auto-compact at $threshold%',
+              style: AppTypography.caption(color: theme.textMuted),
+            ),
+          ),
+        ],
+      ),
+    ];
+  }
+}
+
+class _ContextHeader extends StatelessWidget {
+  const _ContextHeader({required this.expanded, required this.onTap});
+
+  final bool expanded;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          children: [
+            Icon(
+              expanded ? AppIcons.expandLess : AppIcons.expandMore,
+              size: 14,
+              color: theme.textMuted,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              "What's using context?",
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: theme.textMuted,
+                letterSpacing: 0.3,
+              ),
             ),
           ],
-        ],
+        ),
       ),
     );
   }

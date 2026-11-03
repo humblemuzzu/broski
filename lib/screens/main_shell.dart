@@ -60,9 +60,7 @@ class _MainShellState extends ConsumerState<MainShell> {
     // Defer until after first frame so ref is fully available.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(runCompletionWatcherProvider);
-      if (ref.read(selectedBackendProvider) != _defaultSelection) {
-        setState(() => _index = 2);
-      }
+      setState(() => _index = 2);
       ref
           .read(bridgeServiceProvider)
           .setView(

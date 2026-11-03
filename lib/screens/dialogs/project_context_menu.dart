@@ -1,11 +1,11 @@
 import 'package:broski/agent/agent_providers.dart';
-import 'package:broski/agent/ui/panels/panels_sheet.dart';
-import 'package:broski/agent/ui/sessions/session_openers.dart';
 import 'package:broski/contract/generated/contract.dart';
 import 'package:broski/models/project.dart';
 import 'package:broski/models/selected_backend.dart';
 import 'package:broski/providers/highlights_provider.dart';
 import 'package:broski/providers/selected_backend_provider.dart';
+import 'package:broski/screens/agent/panels/panels_sheet.dart';
+import 'package:broski/screens/agent/sessions/session_openers.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/theme/opencode_theme.dart';

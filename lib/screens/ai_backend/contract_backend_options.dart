@@ -1,8 +1,8 @@
 import 'package:broski/agent/agent_providers.dart';
-import 'package:broski/agent/ui/backend_label.dart';
 import 'package:broski/contract/generated/contract.dart';
 import 'package:broski/models/selected_backend.dart';
 import 'package:broski/providers/selected_backend_provider.dart';
+import 'package:broski/screens/agent/backend_label.dart';
 import 'package:broski/screens/ai_backend/backend_option_card.dart';
 import 'package:broski/screens/ai_backend/selected_backend_label.dart';
 import 'package:broski/theme/app_icons.dart';

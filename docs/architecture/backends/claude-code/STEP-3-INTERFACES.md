@@ -217,7 +217,7 @@ Each brief: **Owns** (files; nothing else), **Entry point** (frozen, called by `
 
 ### H · App (D110–D119)
 
-- **Owns**: `lib/agent/ui/panels/` (`action_list_view.dart`, `config_file_editor.dart`, registry entries), the composer's prompt-suggestion chip, the plan-approval mode picker; tests in `test/agent/`.
+- **Owns**: `lib/screens/agent/panels/` (`action_list_view.dart`, `config_file_editor.dart`, registry entries), the composer's prompt-suggestion chip, the plan-approval mode picker; tests in `test/agent/`.
 - **Implements**: rendering by shape of `ActionList` (`CT/action-list.ts`) and `EditableFile` (`CT/editable-file.ts`), `extension{prompt_suggestion}` (`CT/extensions.ts`), `PlanApprovalRequest.modeOptions` / `PlanApprovalReply.modeAfter` (`CT/interactions.ts`, `interaction-replies.ts`).
 - **Consumes**: the generated contract only (`lib/contract/generated/`); nothing of the bridge adapter.
 - **Exit**: widget tests with the scripted bridge; `dart run tool/check_agent_core.dart`; `dart run tool/mutate_agent_core.dart --check`; `flutter analyze`; `dart format`.
