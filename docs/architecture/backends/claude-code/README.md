@@ -26,7 +26,7 @@ backends/claude-code/
   factory.ts        claudeCodeBackendFactory(options) → BackendFactory
   backend.ts        the AgentBackend over the parts; dispose order
   services.ts       the factory's options and the services every part shares
-  traits.ts         CLAUDE_CODE_TRAITS (D31)
+  traits.ts         CLAUDE_CODE_TRAITS (D30)
   ports.ts, ports/  the seams between the parts
   ids.ts cursor.ts bounds.ts json.ts rejections.ts catalog-feed.ts phone-text.ts trash.ts
   permission-modes.ts modes.ts commands.ts status.ts open-session.ts owned.ts
@@ -446,7 +446,7 @@ host and whichever decides first applies.
 
 ## 8. Capabilities
 
-### D31. The declared traits
+### D30. The declared traits
 
 `CLAUDE_CODE_TRAITS` (`traits.ts`): `streamText`, `streamThinking`, `promptModes` start, steer and queue,
 `attachments: ["image"]` (D11), `commands`, `queue`, `interactions` tool_permission, questions, plan_approval, form
@@ -458,7 +458,7 @@ the hook is installed.
 
 ## 9. Tests
 
-### D30. Tests run the real CLI against a scripted endpoint
+### D31. Tests run the real CLI against a scripted endpoint
 
 `src/__tests__/claude-code/`: `helpers/claude-home.ts` makes a temp `CLAUDE_CONFIG_DIR` and `HOME` with every
 off-switch and a proxy trap, `helpers/scripted-anthropic-server.ts` answers the Messages API from a script (side

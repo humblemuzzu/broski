@@ -1,4 +1,4 @@
-/** The backend extension Claude Code declares: `rate_limit` (D31). */
+/** The backend extension Claude Code declares: `rate_limit` (D30). */
 
 import type { SDKRateLimitEvent } from "@anthropic-ai/claude-agent-sdk";
 import { MAX_NAME_CHARS, RateLimitStatus, type RateLimitUpdate } from "../../../contract";

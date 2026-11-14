@@ -170,7 +170,7 @@ Declared traits are checked against behaviour, both ways where the contract can 
 | `fork` (derived) | ✓ `forkSession` (CC D27) | ✓ a file written by the store |
 | `rename` | ✓ | ✓ `setSessionName` |
 | `delete` | ✓ | ✓ the Trash (pi §3) |
-| `compact` (session) | ✓ as a `/compact` prompt (CC D31) | ✓, but refused while running: Pi's `compact()` aborts the run (pi §7) |
+| `compact` (session) | ✓ as a `/compact` prompt (CC D30) | ✓, but refused while running: Pi's `compact()` aborts the run (pi §7) |
 | `cancelQueued` (session) | ✓ per item, the adapter's queue (CC D9) | ✗ clear-all only (pi §6) |
 | `controllable` (session) | ✗ for terminal sessions (CC D28) | ✓ for a session this bridge runs, and for a terminal's through the link (message and Stop only); ✗ for one another client made |
 | `answer` (session) | ✓ for a terminal session the hook raised an ask on | ✗ a terminal's asks stay in the terminal |
