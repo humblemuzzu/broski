@@ -1,187 +1,487 @@
 # The Claude Code adapter
 
-Status: the only Claude Code. The adapter is registered in every bridge (`server/contract-backends.ts`), drives the user's installed `claude` (`server/claude-cli-path.ts`) and passes all 28 conformance rules against the real CLI (`src/__tests__/claude-code/conformance/`). Its terminal permission prompts arrive through a `PermissionRequest` hook (`claudeCode.terminalAsks`, default true). It serves no ops, custom tools, hook activities or prompt suggestions: the phone is not where those are managed (`docs/rebuild/PLAN.md`).
+The contract backend for Claude Code (`packages/bridge/src/backends/claude-code/`). It implements `AgentBackend`
+(`src/contract/backend.ts`, [contract README](../../contract/README.md) §5) on `@anthropic-ai/claude-agent-sdk`
+**0.3.325** (exact pin), whose package names the CLI it was released with: `claudeCodeVersion` **2.1.325**. It drives
+the `claude` the user installed; the bridge carries no Claude Code binary. It is registered in every bridge
+(`server/contract-backends.ts`) and passes all 28 conformance rules against the real CLI
+(`src/__tests__/claude-code/conformance/`).
 
-The decisions below (D-numbers) are the record of how it was built; the code cites them. The plan is [`PLAN.md`](PLAN.md), the seams [`STEP-3-INTERFACES.md`](STEP-3-INTERFACES.md) and each part's notes are in [`lanes/`](lanes/); those files and `research/` and `reviews/` were written before the rebuild and are marked historical: where one names an op, the old protocol, the Flutter app or a protocol minor, that part no longer exists.
+It serves no ops, custom tools, hook activities or prompt suggestions: the phone is not where those are managed
+(`docs/rebuild/PLAN.md`).
 
-## What it is
+Evidence below cites the installed SDK (`sdk.d.ts`, `sdk.mjs` of 0.3.325), the hooks reference
+(<https://code.claude.com/docs/en/hooks>), and the tests that hold each fact to the real CLI. Decisions are numbered
+D1–D31; the code cites them by these numbers.
 
-The contract backend for Claude Code (`packages/bridge/src/backends/claude-code/`): it implements `AgentBackend` (`src/contract/backend.ts`) on `@anthropic-ai/claude-agent-sdk` 0.3.316 (CLI 2.1.316), so a phone drives Claude Code exactly as it drives Pi. It may import only the contract (not its test kit), itself, `node:` built-ins (not `node:module`), `zod` and the SDK (`bun run check:layers`).
+**Contents.** [1 Layout](#1-layout) · [2 Process and hosting](#2-process-and-hosting) ·
+[3 Runs and input](#3-runs-and-input) · [4 Asks](#4-asks) · [5 Mapping](#5-mapping-sdk-frames-to-contract-events) ·
+[6 Store](#6-store) · [7 Terminal sessions](#7-terminal-sessions-and-the-hook) · [8 Capabilities](#8-capabilities) ·
+[9 Tests](#9-tests) · [10 Limits](#10-limits-and-known-gaps)
 
-## Layout
+## 1. Layout
 
 ```
 backends/claude-code/
   factory.ts        claudeCodeBackendFactory(options) → BackendFactory
-  backend.ts        the AgentBackend over the parts; open routing; dispose order
-  traits.ts         CLAUDE_CODE_TRAITS (D38)
-  ports.ts, ports/  every seam between the parts
-  services.ts       factory options, shared services
+  backend.ts        the AgentBackend over the parts; dispose order
+  services.ts       the factory's options and the services every part shares
+  traits.ts         CLAUDE_CODE_TRAITS (D31)
+  ports.ts, ports/  the seams between the parts
   ids.ts cursor.ts bounds.ts json.ts rejections.ts catalog-feed.ts phone-text.ts trash.ts
-  permission-modes.ts modes.ts commands.ts status.ts
-  sdk/              the ClaudeSdk port: in process, or a worker under a config dir (D36)
-  process/          env, options, the open inbox, the probe, the version check, the bypass rule
-  owned.ts store/   the owner journal; sessions, history, forks, titles read from the CLI's files
+  permission-modes.ts modes.ts commands.ts status.ts open-session.ts owned.ts
+  sdk/              the ClaudeSdk port over the SDK (D6), command_lifecycle and interrupt typing
+  process/          the CLI's env, a host's options, the open inbox, the probe, the version check, the bypass rule
+  models/           the catalogue: models, startup refusals, the cache, the config watch
+  live/             one host per hosted session: the CLI process, runs, queue, Stop, settings, children
   mapping/          SDK frames → contract events
-  models/           the catalogue: models, thinking, the cache, the config watcher
-  live/             one host per hosted session: the CLI process, runs, queue, Stop, asks' lifetime
   ui/               the ask desk: permissions, questions, forms, plan approval
-  terminal/         a terminal `claude`'s session: tail, hook installer and receiver, watch-only sessions
+  store/            sessions, history, forks and titles read from the CLI's files
+  terminal/         a terminal claude's session: tail, watch-only sessions, the hook installer and its asks
   files/            strict, atomic edits of a user's JSON file
-  open-session.ts   open routing: new/stored → live, child → parent host, written → terminal
 
-src/server/  (the bridge side, outside the adapter's layer)
-  claude-code-wiring.ts   the hook receiver and the factory, from `claudeCode.terminalAsks`
-  claude-code-backend.ts  the factory options production passes
-  claude-code-hooks.ts    which permission hook lands in the user's settings after listen
-  cc-terminal-hook.ts     the terminal hook's receiver
-src/tls-loopback.ts       is the loopback certificate one a terminal claude trusts (D124)
+src/server/
+  claude-cli-path.ts       which claude the bridge runs (D3)
+  claude-code-backend.ts   the factory options production passes; EXPECTED_CLAUDE_CLI_VERSION
+  claude-code-wiring.ts    the hook receiver and the factory, from claudeCode.terminalAsks
+  claude-code-hooks.ts     the hook installed into, or removed from, the user's settings after listen
+  cc-terminal-hook.ts      the hook's receiver behind the loopback listener
+src/tls-loopback.ts        the loopback certificate a terminal claude trusts (D29)
+src/doctor/checks/claude-cli.ts   the doctor's check of the same binary
 ```
 
-Tests: `src/__tests__/claude-code/`: `foundation/`, `conformance/` (the driver and the rules on the real CLI), `integration/` (cross-part checks and the server wiring), `spike/` (the real CLI's behaviour, the regression suite for every SDK pin bump), `helpers/`, and one directory per part.
+## 2. Process and hosting
 
-## Decisions
+### D1. One host per open session, outliving `OpenSession`
 
-D1–D35 are [`PLAN.md`](PLAN.md) §3.
+A host (`live/host.ts`) owns one `query()` whose prompt is an `AsyncIterable` inbox that stays open between runs
+(`process/inbox.ts`; a string prompt would close stdin at the end of the first run), and one consumer loop over its
+frames (`live/consumer.ts`). `OpenSession.close()` detaches the sink only: contract rule 24 (close aborts nothing, an
+ask pending at close is in the next open's snapshot). The process ends when the host is idle (no run, ask,
+compaction, retry or queued input) **and** detached, after a 30 s grace (`live/shutdown.ts` `IDLE_GRACE_MS`), and at
+`dispose()`. A process that ended while the host lives is started again on the next need, resuming the session.
 
-### D36. An explicit config dir runs the SDK's session functions in a worker; production calls them in process
+### D2. The session id is ours from the start
 
-The SDK's session and settings functions (`listSessions`, `getSessionInfo`, `getSessionMessages`, `getSubagentMessages`, `listSubagents`, `forkSession`, `renameSession`, `resolveSettings`) read `CLAUDE_CONFIG_DIR` from the environment of the thread they run in: `sdk.mjs:30` `function hu(){return process.env.CLAUDE_CONFIG_DIR}` and `Mt=PP(()=>(hu()??join(homedir(),".claude")).normalize("NFC"),hu)`; their options have no config dir (`sdk.d.ts:939` `GetSessionMessagesOptions`, `:1143` `ListSessionsOptions`, `:3418` `ResolveSettingsOptions`).
+A new session passes a fresh UUID as `Options.sessionId`, so its `SessionRef` exists when `open` resolves, before
+any `system/init`; a stored one passes `resume`. A restarted process resumes once the CLI wrote the file.
 
-When they read it decides the mechanism. Read in `sdk.mjs`:
+### D3. The user's `claude`, found once, as a value
 
-| Function | First read of the config dir | Before its first `await`? |
-|---|---|---|
-| `listSessions` | `X0(e,t,n=Et())` default parameter (`sdk.mjs:117`) | yes |
-| `getSessionInfo`, `getSessionMessages`, `getSubagentMessages`, `listSubagents` | `ws(…,o=Et())` default parameter, called synchronously (`:56`, `:114`, `:117`) | yes |
-| `forkSession` with `dir` | `qn(l,o)` defaults `n=Et()` after `await No(t,…)` (`:117` `kxe`) | **no** |
-| `renameSession` with `dir`, `deleteSession` with `dir` | `qn(…)` after `await No(…)` (`:161` `J3`, `aJe`) | **no** |
-| `resolveSettings` | after `await R6()` (`:152` `k6`) | **no** |
+`server/claude-cli-path.ts` is the only place that finds it: the bridge config key `claudeCode.cliPath` when it
+names a file, else `claude` on `PATH`. By then `PATH` is the user's login shell's: `serve.ts` applies the login-shell
+environment (`platform/shell-env.ts`) before it builds the Claude Code wiring, and the factory resolves the path when
+the backend starts. The answer is a value (`CliLocation`): no binary is an `error` issue in `status()` with
+`usable: false` and a fix text, and every read that needs the CLI is rejected `backend_error`; nothing throws. The
+doctor runs the same resolver and `claude --version` in a scratch home. The SDK spawns `pathToClaudeCodeExecutable`
+directly unless it ends in `.js`/`.mjs`/`.ts`/`.tsx`/`.jsx` (`sdk.mjs` `Qtt`), so a native binary, a symlink to one
+(the native installer's `~/.local/bin/claude`) and an npm shim all run as the terminal runs them.
 
-A synchronous swap of `process.env` around the call would therefore leave `fork`, `rename` and `resolveSettings` reading whatever the environment says after the first `await`, and a swap held across that `await` mutates the bridge's environment while other code runs (forbidden). So:
+`EXPECTED_CLAUDE_CLI_VERSION` is the SDK package's `claudeCodeVersion`. The CLI's `initialize` answer names its own
+version, and a different one is a `warning` issue in `status()` that names both (`process/version-check.ts`); the
+session stays usable, since the user's CLI updates on its own schedule.
 
-- **`configDir` unset (production):** the functions run in process. The bridge's `process.env` already is the login shell's (`applyServiceShellEnv` imports it, `platform/shell-env.ts`), so a `CLAUDE_CONFIG_DIR` set in `~/.zshrc` reaches the SDK and the CLI alike (the CLI gets `services.cliEnv`, built from the same shell env).
-- **`configDir` set (tests, and any future override):** they run in a `node:worker_threads` worker started with `env: {…cliEnv, CLAUDE_CONFIG_DIR: configDir}` (`sdk/worker-client.ts`, `sdk/sdk-worker.ts`). Bun gives a worker its own `process.env`. The bridge's `process.env` is never written. The worker starts on the first call, is `unref`'d, and ends at `dispose()`.
+### D4. The CLI's environment
 
-Evidence: `src/__tests__/claude-code/foundation/config_dir.test.ts` — two ports over two temp config dirs, concurrent reads, with the bridge's own `CLAUDE_CONFIG_DIR` pointed at a third, decoy dir: each port sees exactly its own sessions and the decoy is untouched; `renameSession` and `forkSession` with `dir` land in the right dir; a disposed port refuses. A compiled bridge never starts the worker (D142).
+`Options.env` replaces the whole environment, so every CLI gets the bridge's login-shell environment plus
+`CLAUDE_AGENT_SDK_CLIENT_APP=broski/<version>`, `CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS=1` (without it no
+`session_state_changed` arrives, and runs could not end, D8) and `CLAUDE_CODE_STARTUP_FAILURE_RESULTS=1` (a known
+startup refusal arrives as a `result` carrying `startup_failure_reason`, not stderr alone; `sdk.d.ts`
+`SDKResultError.startup_failure_reason`). `CLAUDE_CODE_ENTRYPOINT` and `CLAUDE_AGENT_SDK_VERSION` are dropped when
+inherited from a terminal `claude`, so the SDK stamps its own (`process/env.ts`).
 
-### D37. A prompt's send `uuid` is its `clientRequestId`
+### D5. The options of every host
 
-The `SDKUserMessage` that carries a prompt has `uuid = clientRequestId` (`ids.ts` `sendUuid`). The CLI keeps a send's uuid as its transcript entry's uuid (`sdk.d.ts:878-882`; proven by `conformance/session_router.test.ts`: the first chain entry's uuid is the uuid sent), keys `command_lifecycle` and `result.user_message_uuids` by it (08-spike Q4), so one id names the prompt in the live `user_message.messageId`, the transcript item id (`userItemId`), and the image refs `<uuid>:<blockIndex>`. The owner journal (`owned.ts`) records each prompt this bridge sent with its image names (the CLI keeps none); the store gives a user item `clientRequestId = uuid` exactly when the journal has it, so a prompt typed in a terminal never carries one. A fork remaps every uuid, so a fork's prompts carry none.
+`process/options.ts`: `cwd`, `env` (D4), `pathToClaudeCodeExecutable` (D3), `permissionMode` always explicit
+(omitted is not `default`), `includePartialMessages` (text and thinking deltas), `forwardSubagentText` (a subagent's
+text, D20), `agentProgressSummaries`, `systemPrompt: {type: "preset", preset: "claude_code"}` (the CLI's own prompt,
+as the terminal has it), `canUseTool` and `onElicitation` (D15), `sessionId` or `resume` (D2), and `model` / `effort`
+when the person chose them. `allowDangerouslySkipPermissions` is passed only where `process/bypass.ts` allows it
+(D13). Never set: `settingSources` (the user's settings load as in the terminal), `persistSession: false`,
+`sessionStore`, `permissionPrompts`, `hooks`.
 
-### D38. The declared capabilities
+`agentProgressSummaries` costs a little: the CLI forks a running subagent's conversation about every 30 s for a
+summary, a small billed call on the subagent's model and prompt cache, made only while the conversation changes
+(`sdk.d.ts` `Options.agentProgressSummaries`); the summary is the progress shown on the Agent call (D22).
 
-`CLAUDE_CODE_TRAITS` (`traits.ts`): `streamText`, `streamThinking`, `promptModes` start, steer and queue, `attachments: ["image"]`, `commands`, `queue`, `interactions` tool_permission, questions, plan_approval, form and confirm, `thinking`, `children`, `usage`, `extensions: ["rate_limit"]`; `planProposals` and `externalLive` false. `fork`, `rename` and `delete` follow from the methods `backend.ts` implements. Session capabilities: `compact` (a `/compact` prompt) and `cancelQueued` for a session this bridge hosts; a session a terminal writes is watch-only, and takes answers (`answer`) when the hook raised an ask on it.
+### D6. The SDK's session functions run in process, under the bridge's config dir
 
-- **Files are not an attachment kind here.** A contract file attachment is a path on the Mac (`FileContent.uri`); the CLI takes a file as `@<path>` in the text, which a driver reading the model request cannot tell from the user typing it, so no conformance rule could pass a declared file attachment.
-- **No todo list.** On the CLI's current models the todo tools are off (the 2.1.316 binary enables `TodoWrite`/`TaskCreate` only for an older model, a launch opt-in, or `CLAUDE_CODE_ENABLE_TODO_TOOLS`), and the contract has no plan-list event; a plan the agent proposes reaches the phone as a `plan_approval`.
+`listSessions`, `getSessionInfo`, `getSessionMessages`, `getSubagentMessages`, `listSubagents`, `forkSession`,
+`renameSession` and `resolveSettings` read `CLAUDE_CONFIG_DIR` from the environment of the thread they run in; their
+options have none. The bridge's `process.env` is the login shell's (D3) and the CLI gets the same variable through
+D4, so both read one config dir, and `ClaudeSdk.configRoot()` resolves it as the SDK does (`sdk/claude-sdk.ts`).
+Tests, which run many homes in one process, inject an SDK whose session functions run in a worker thread started
+with the home's environment (`__tests__/claude-code/helpers/isolated-sdk.ts`): some functions read the variable only
+after their first `await`, so swapping `process.env` around a call would leak between tests.
 
-### D39. Every live id the adapter mints is a random UUID; the CLI's own ids are used where they are unique
+### D7. The catalogue: a probe, a cache, the status
 
-`ids.ts` is the one place for id formats: run, interaction and queue item ids are minted (`crypto.randomUUID()`, never reused in a session across CLI processes); a tool call is its API `tool_use` id; a block is `<message.id>:<index>`; a tool result item `<toolCallId>:result`; an image `<entryUuid>:<blockIndex>[:<innerIndex>]`; a child session `<sessionId>/<agentId>`; a command its name. The CLI's `request_id` of an ask is per process and is mapped to a minted interaction id by the desk, so a redelivered ask keeps its interaction and a new process never reuses one.
+Models, commands and the account come from the CLI's `initialize` answer. With no host for the cwd, a probe
+(`process/probe.ts`) starts a `query()` with an empty inbox, `settings: {disableAllHooks: true}` (a project's
+`SessionStart` hook would otherwise run) and `persistSession: false`, awaits `initializationResult()` and the skill
+names `reloadSkills()` lists, and closes it; it is bounded by 20 s, since no control request has a timeout of its
+own. A probe without a project runs in the bridge's state dir, never the user's home, whose `.claude` the CLI would
+read as a project's. Answers are cached per cwd in memory and in `<stateDir>/catalog.json` for 24 h; a host's own
+`initialize`, `commands_changed`, and a change the config watch sees in the user's or a tracked project's settings
+refresh them (`models/catalog.ts`, `catalog-cache.ts`, `config-watch.ts`).
 
-## Part decisions
+`status()` reuses an answer younger than a minute, else probes: not installed, refused at startup (in words for the
+reason, `models/startup-failures.ts`), signed out (`firstParty` with no key, token or sign-in, `models/account-state.ts`),
+or answered; the version warning (D3) and a hook that a URL list blocks (D29) are added. It never fails.
 
-One line per decision; the reasoning and the SDK facts are in each part's notes (linked, historical).
+Commands (`commands.ts`): what a user, project, plugin or MCP server defined first, then the CLI's own, each group in
+the CLI's order; skills are marked from `reloadSkills()`; the built-ins the CLI tags terminal-oriented (`color`,
+`doctor`, `exit`, `focus`, `reload-plugins`, `send-to-project`, `statusline`; `init.terminal_slash_commands`, held to
+the real CLI by `catalogue/real_catalogue.test.ts`) are not listed.
 
-### Store (D40–D49) — [`lanes/A.md`](lanes/A.md)
+## 3. Runs and input
 
-- **D40** A list page is ordered from `readdir`/`stat` like the SDK's `$we` (mtime desc, then the greater `sessionId`) and reads only its own rows with `getSessionInfo`: at most `limit + 32` lite reads.
-- **D41** History is what the SDK's reader returns; it drops `tool_use_result` and system details. **D41a** one streamed pass over the session's own file adds them back, keyed by uuids the SDK already returned. **D41b** `turn_duration` → `run_boundary`, informational/away/local-command → `notice`, `compact_boundary` → the next compaction item's tokens.
-- **D42** A per-session index (8 sessions) from one full read; cursor `{entry uuid, items left}`; `LiveRow.cut` limits a running session's history; a lost cut gives an empty page.
-- **D43** Fork lineage in `<stateDir>/forks.jsonl`; `through` a tool call forks at its result.
-- **D44** Delete moves the transcript and its directory to the OS trash by `rename` (`trash.ts`).
-- **D45** The owner journal `<stateDir>/owned.jsonl` (sessions, prompts with image names, the bridge's own last writes), bounded, compacted at 180,000 lines.
-- **D46** Subagents are child sessions from `listSubagents` + sidecars. **D47** Row titles follow the SDK's `summary` (which prefers the last prompt); the title's source is D131's. **D48** `lastChainUuid` of a session with no file is `null`. **D49** rename/fork/remove emit their catalog events.
+### D8. Run boundaries and outcomes
 
-### Mapping (D50–D59) — [`lanes/b.md`](lanes/b.md)
+A run starts when the adapter dispatches a prompt, or when a frame of a turn arrives with no send pending
+(`session_state_changed: running`, trigger `system`: a background agent's wake-up turn). It ends on
+`session_state_changed: idle` and on nothing else: `idle` comes after the last `result`, not between turns the CLI
+chains without a send, and it waits for background agents (`spike/subagent.test.ts`). It also ends when the process
+ends (aborted after a Stop, else an `error` outcome `backend_unavailable`), and when a Stop cancelled the only send
+before the CLI began it.
 
-- **D50** A subagent's work goes to its own stream, and nested (`parentToolCallId`) in the parent's only while the parent's call is open.
-- **D51** A tool call starts at its `assistant` frame (whole input, title). **D52** Block ids `<message.id>:<index>`, finished by the first of assistant frame / `content_block_stop` / `message_stop`.
-- **D53** Tool outcomes from the CLI's wording; a person's denial reads `denied` only when it starts with `HUMAN_DENIAL_PREFIX` (D125). Live, the frame's `tool_result_meta` decides first (D133).
-- **D54** Compaction start/finish/tokens; the `auto` trigger is inferred and unverified offline. **D55** Usage from `modelUsage`/`total_cost_usd`, replaced not summed. **D56** Notices. **D57** `settle` closes everything open. **D58** Retry with no finish frame. **D59** Never throws; a fault is one warning notice.
+A turn's outcome (`mapping/outcome.ts`) reads `terminal_reason` first: `aborted_streaming`/`aborted_tools` are
+`aborted` although the subtype is `error_during_execution` and `is_error` is true; `max_turns`, `budget_exhausted`
+are `limit`; `tool_deferred` is `deferred`; a `refusal` stop reason is an error (`content_filter`), never
+`completed`; a `startup_failure_reason` is an error in the phone's words (`auth` when signing in again is the fix,
+else `backend_unavailable`), naming the file for `config_file_invalid` (`invalid_config_file.path`, proven with a
+broken `.claude.json`, `real_catalogue.test.ts`); the remaining failure reasons map to their `ErrorCode`s, an API
+error by its HTTP status. The first turn of a run that failed decides the run's outcome.
 
-### Catalogue (D60–D66) — [`lanes/c.md`](lanes/c.md)
+### D9. Steer goes to the CLI; queue stays in the adapter; Stop
 
-- **D60** Models are `ModelInfo` rows, id = `value`, in the order D135 sets.
-- **D61** Commands: user/project/plugin/MCP first, terminal-only built-ins hidden, skills from `reloadSkills()`. **D62** The probe (empty inbox, hooks disabled, 20 s bound). **D63** Cache in memory + `<stateDir>/catalog.json`, 24 h. **D64** Status cases (missing binary, refused, signed out, version mismatch). **D65** One `permissions` axis, `auto` only when a model supports it. **D66** Failures are values.
+`promptModes: start, steer, queue`. Steer pushes the message now with `priority: "next"`; the CLI folds it into the
+running turn beside the next tool result, and it is shown as `queue_changed` until its `command_lifecycle: started`.
+Queue holds the input in the adapter's own queue (`live/queue.ts`), shown and cancellable one item at a time, and
+sends one item per run once the previous run settled: the CLI's own `later` queue batches sends into one turn and
+cannot show or cancel them one by one (`spike/queue.test.ts`).
 
-### Live session (D70–D78) — [`lanes/D.md`](lanes/D.md)
+Stop (`live/abort.ts`) sends `interrupt` with `cancelQueued: true` (the runtime takes it; `sdk.d.ts` declares no
+argument, so `sdk/interrupt.ts` types it), which also kills background agents; the CLI has 5 s to answer, then the
+process is ended. A Stop that reached the CLI before the message it was meant for (the receipt lists nothing) is
+sent again once the turn begins. Everything queued or steered and not yet delivered goes back to the person as one
+`input_returned`, steering first.
 
-- **D70** The transcript cut is tracked from frames.
-- **D71** A run starts at dispatch or on `running`, ends on `idle` (or the process ending, or a Stop that cancelled an unstarted send).
-- **D72** A steer is a queue item until the CLI starts it. **D73** The queue is the adapter's, one item per run. **D74** Stop = `interrupt({cancelQueued})`, a 5 s deadline, and a second Stop when the first beat the message; what was queued comes back as `input_returned`. **D75** Run outcome rules. **D77** `/clear` re-keys the host as `session_replaced`. **D78** Model, thinking and mode.
+### D10. A prompt's send uuid is its `clientRequestId`
 
-### Asks (D80–D89) — [`lanes/e.md`](lanes/e.md)
+The `SDKUserMessage` of a prompt has `uuid = clientRequestId` (`ids.ts` `sendUuid`) and `origin: {kind: "human"}`.
+The CLI keeps a send's uuid as its transcript entry's uuid and keys `command_lifecycle` and
+`result.user_message_uuids` by it (`conformance/session_router.test.ts`), so one id names the prompt in the live
+`user_message.messageId`, the transcript item and its image refs. Prompts are de-duplicated per open session by that
+id (`live/prompt-desk.ts`). The owner journal (D25) records each prompt this bridge sent with its image names, which
+the CLI does not keep; the store gives a user item its `clientRequestId` exactly when the journal has it, so a prompt
+typed in a terminal never carries one, and a fork, which remaps every uuid, carries none.
 
-- **D80** One ask per CLI request id; an answered one is replayed. **D81** Permission options (allow once, session, always per destination, deny once, deny and stop); payloads stay in the desk.
-- **D82** A request the contract cannot hold, a URL elicitation included, is raised as a decline-or-dismiss `confirm`, never answered for the person. **D83** Field order is the schema's key order. **D84** Plan approval with `modeOptions` from the host. **D86** Failures keep the ask raised; nothing returns `null`. **D87** CLI and MCP text stripped of ANSI/bidi. **D88** `requiresUserInteraction` read with an `in` check. **D89** Stop the run = deny with `interrupt` and the host's abort.
+### D11. Input shapes
 
-### Terminal (D100–D109) — [`lanes/g.md`](lanes/g.md)
+Images go as base64 `image` blocks (`live/input.ts`). `PromptInput.command` becomes `/<name> <args>` in the text.
+Files are not an attachment kind: the CLI takes a file as `@<path>` in the text, which the model request cannot tell
+from the person typing it, so no conformance rule could hold a declared file attachment.
 
-- **D100** The tail: one watcher per project directory, positional reads, bounded lines. **D101** What is translated; block ids by `apiBlockIndex` (equal live, in history and in the tail: `integration/ids_three_ways.test.ts`). **D102** Run ends, with a quiet rule for SDK-written sessions. **D103** Opening mid-turn. **D104** `writing(id)` (ignoring the bridge's own writes, D122).
-- **D105** The hook in the user's settings (never creates `allowedHttpHookUrls`, D123). **D106** The certificate blocker (fixed by D124). **D107** The receiver, no timer. **D108** The ask on the phone (allow once, deny, deny and stop). **D109** `claudeCode.terminalAsks`.
+### D12. Models and thinking
 
-## Integration decisions
+`listModels` lists the CLI's `ModelInfo` rows, id = `value`, in the CLI's order with the Default row first; a row
+whose `resolvedModel` equals the Default row's is left out, so no model shows twice (offline the CLI lists
+`default, opus, fable, sonnet, haiku` with `default` and `opus` both `claude-opus-5-5`). Thinking is the effort
+level: a model's `supportedEffortLevels`. `setModel` is `Query.setModel`; `setThinking` is
+`applyFlagSettings({effortLevel})` (its rejection is caught and answered `backend_error`); both apply from the next
+request. The model a turn runs on is read from `init.model` and shown by its listed id (`live/settings.ts`).
 
-### D121. One trash
+### D13. One mode axis: `permissions`
 
-`trash.ts` is the one move-to-trash, with `trashTargetOf(env, now)`; a session delete uses it. **Unverified:** macOS protects `~/.Trash` from processes without Full Disk Access in some setups; a refused `rename` is a `backend_error` that says so (D138) and the file stays.
+The SDK's `PermissionMode`s, in this order: `default`, `acceptEdits`, `plan`, `auto` (only when a listed model
+`supportsAutoMode`), `dontAsk`, `bypassPermissions` (`modes.ts`, labels and descriptions there; the description of
+bypass warns). `setMode` is `setPermissionMode`; a mode the CLI reports (`init`, `status.permissionMode`, a plan
+approval's `setMode`) is shown as `mode_changed`. A new session starts in the mode asked for, else `default`.
 
-### D122. A file this bridge wrote last is not a terminal writing it
+Bypass is offered, and `allowDangerouslySkipPermissions` passed, only outside the case where the CLI exits at
+startup: uid 0 without `IS_SANDBOX=1` or `CLAUDE_CODE_BUBBLEWRAP` (read in the 2.1.325 binary: `bypass_root`;
+`process/bypass.ts`).
 
-After a restart the reopened session took the terminal's watch-only path (its file was written seconds ago by the bridge's own, now killed, CLI) and showed a run no process would finish. `Ownership.noteOwnWrite(id, at)` / `ownWriteAt(id)` (journal line `{k:"r"}`) record when a host ends, a rename appends its title and a fork writes its file; `writing(id)` ignores a file last written at or before that time plus `OWN_FLUSH_MS` (1 s, the CLI's batched flush). Proven by conformance rule 27 (sessions survive a restart and runs end with it), `terminal/released.test.ts` and `integration/own_writes.test.ts`.
+### D14. Usage and the context figure
 
-### D123. The terminal hook never creates `allowedHttpHookUrls`
+`usage_updated` carries the process's running totals from `result.modelUsage` and `total_cost_usd` (subagents and
+compaction included), replacing what was shown, never summed (`mapping/usage.ts`). The context figure comes after
+each run: once `run_finished` is out, if the host's process is still live, one `getContextUsage({detail:
+"summary"})`, sent as `usage_updated` over the snapshot's usage with `contextTokens = totalTokens` and
+`contextWindow = maxTokens` (the window `/context` divides by; `live/context-after-run.ts`). It is never awaited by
+the run's end. A failure is logged and sends nothing, except when the process asked has ended or been told to close
+meanwhile: the SDK rejects every pending control request when its query closes (`sdk.mjs`: `Query closed before
+response received`), which is how a session that ends right after a run answers. `integration/core_smoke.test.ts`
+proves totals and the figure reach a phone through the core while the session stays open.
 
-`sdk.d.ts:7647`: "When set, HTTP hooks with non-matching URLs are blocked. If undefined, all URLs are allowed. If empty array, no HTTP hooks are allowed. Arrays merge across settings sources". So the installer appends our URL only to a non-empty list the user keeps, refuses an empty one (the user forbids HTTP hooks), and removes a list that holds only our URL. A list set by project or managed settings without our URL still blocks the hook (it fails open to the terminal's own prompt); D136 tells it.
+## 4. Asks
 
-### D124. The loopback certificate names 127.0.0.1 and is no CA; the CLI trusts it by `NODE_EXTRA_CA_CERTS`
+### D15. One interaction per CLI ask
 
-`platform.ts` generates `-addext subjectAltName=IP:127.0.0.1,DNS:localhost -addext basicConstraints=critical,CA:FALSE`, and `ensureTlsMaterial` regenerates a certificate that lacks the name or is a CA (`tls-loopback.ts`, `tls_loopback_name.test.ts`). The hook installer writes `env.NODE_EXTRA_CA_CERTS = ~/.broski/tls/server.cert.pem` into the user's Claude settings and refuses when the user already names another file there. **Trade-off:** every `claude` the user runs trusts this one certificate for `127.0.0.1`/`localhost`; being no CA, it cannot vouch for any other host, and its key is the user's own `0600` file. The settings edit is strict JSON, atomic and key-preserving (D139). The file then holds the loopback bearer token in the hook's header: a settings file the installer creates is `0600`; an existing one keeps the mode the user gave it (never a silent chmod), so a `0644` file or one kept in a dotfiles repository exposes the token to whoever can read it.
+The ask desk (`ui/desk.ts`) is each host's `canUseTool` and `onElicitation`. Each CLI request id is one interaction
+with a minted id; a redelivered request keeps its interaction, and an answered one is replayed to it (`ui/book.ts`).
 
-### D125. A person's "no" is sent in the CLI's own words
+- **Tool permission** (`ui/permission.ts`, `permission-options.ts`): Allow, an allow for the session when the CLI
+  suggested session updates, one Always-allow per settings file the CLI suggested a rule for (with the rule text,
+  the updates echoed back; none when `suppressAlwaysAllowRule`), Deny (optional words), Deny and stop. Previews from
+  the tool input (the command, the file changes, `blocked_path`). `requiresUserInteraction`, read with an `in`
+  check, is `deliberate`.
+- **AskUserQuestion** → `questions`: question id = index, answers keyed by question text, multi-select joined with
+  a comma, free text always allowed, every question required.
+- **ExitPlanMode** → `plan_approval` (D17).
+- **MCP elicitation**: a flat form schema → `form`, fields in the schema's key order; an empty schema → `confirm`.
 
-`ui/denial.ts` builds a denial from `HUMAN_DENIAL_PREFIX` exactly as the 2.1.316 binary words its own; a tool permission's deny, a cancel, a plan rejection and the terminal hook's deny use it. A denial reads `denied` live and in history (`integration/denial.test.ts`) and in the terminal CLI's tool result (`hook_cli.test.ts`).
+### D16. Nothing answers for a person
 
-### D126. A terminal session asked about before its first flush is waited for
+No timer answers an ask. The CLI's withdrawal (`control_cancel_request`, the signal) is `withdrawn`, the process
+ending `expired`. A callback never throws: a throw is an automatic denial in the CLI, so a failure inside one leaves
+the ask raised for a person, and an ask that cannot even be raised waits until the CLI withdraws it. A request the
+contract cannot hold (a URL elicitation, fields the app cannot show, a malformed AskUserQuestion) is raised as a
+`confirm` whose body says so: confirm declines it, dismiss cancels it; it is never answered for the person
+(`ui/elicitation.ts`, `questions.ts`).
 
-A terminal's hook ask can arrive before the CLI wrote the session's first lines (about 100 ms late, D103): `open-session.ts` looks for a session a terminal is writing for up to `FIRST_FLUSH_MS` (3 s) before `not_found`.
+### D17. Plan approval chooses the next mode
 
-### D128. `externalLive` stays false
+`plan_approval` shows the plan the CLI read from its plan file (`input.plan`, `planFilePath`), editable when it
+fits, with `modeOptions` = the permissions axis without `plan`, starting on `default`. Approve answers
+`updatedInput` (the edited plan when edited) and `updatedPermissions: [{type: "setMode", mode, destination:
+"session"}]` for `modeAfter`; reject is a denial carrying the feedback, and the session stays in plan
+(`ui/plan.ts`, `asks/real_plan.test.ts`).
 
-Conformance rule 26 opens a **new** session (hosted by this bridge) and expects another client's run on that same open. A hosted session follows only its own process (one writer per file); the terminal tail shows another process's run on a **watch-only** open (`terminal/watch_live_cli.test.ts`), which is not what the rule opens.
+### D18. A person's "no" is sent in the CLI's own words
 
-### D129. The conformance world runs the real path
+`ui/denial.ts` builds a denial from the 2.1.325 binary's own sentence ("The user doesn't want to proceed with this
+tool use. …"), used by a permission's deny, a cancel, a plan rejection and the terminal hook's deny. The mapping
+reads a failed tool result as `denied` when it starts with that sentence, or another of the CLI's refusals
+(`Permission to use `, `Permission for this `), so a denial reads `denied` live and in history. Live, the `user`
+frame's `tool_result_meta` decides first: it is `@internal` and absent from `sdk.d.ts`; in the binary it is
+`[{id, permission_decision?: {decision: "accept" | "reject" | …, source, …}, …}]`, and `reject` makes the result
+`denied` whatever the words (`mapping/result-meta.ts`).
 
-The watched-ask rule goes through a real second `claude` process whose Write asks, the installed `PermissionRequest` hook over TLS, the server's own receiver and the adapter's handler (`conformance/terminal-asks.ts`). `delivered()` reads the last `user`-role message (CLI 2.1.316 puts a `system` "# Environment" message after the first one), and `arrange` replaces a session's unconsumed script (a Stop that beat its message leaves the scenario unread, D74).
+### D19. One sanitiser for what the phone shows
 
-## Hardening decisions
+`phone-text.ts` strips terminal escapes (CSI, OSC, two-character), C0 and C1 controls but tab, newline and carriage
+return, and the invisible direction characters of UAX #9. Every ask title, body, option label and preview, every
+tool title, tool output and notice goes through it, on the hosted and the terminal path alike. A person's prompt and
+the model's text are content and are not touched.
 
-- **D130 · One sanitiser for what the phone shows.** `phone-text.ts` strips terminal escapes (CSI, OSC, two-character), C0 and C1 controls but tab, newline and carriage return, and the invisible direction characters of UAX #9; every ask title, body, option label and preview, every tool title, tool output and notice goes through it, on the hosted and the terminal path alike. A user's own prompt and the model's text are content and are not touched.
-- **D131 · A title's source is read where the SDK read it.** The SDK folds the AI title into `customTitle` (`sdk.mjs` `ml`), so `store/title-source.ts` looks at the same 64 KiB head and tail and the `<session>/custom-title.json` sidecar, cached by size and mtime: a `customTitle` key or the sidecar is `user`; a `customTitle` the SDK took from `aiTitle` is `generated`; with neither, `first_prompt` only when the shown text is the first prompt, else `generated`.
-- **D132 · No bypass flag as root.** The 2.1.316 binary exits 1 (`startup_failure_reason: "bypass_root"`) when `allowDangerouslySkipPermissions` or the mode meets uid 0 without `IS_SANDBOX=1` or `CLAUDE_CODE_BUBBLEWRAP`. `process/bypass.ts` passes the flag only outside that case, and the permissions axis then leaves `bypassPermissions` out. The CLI's env carries `CLAUDE_CODE_STARTUP_FAILURE_RESULTS=1`, so any startup refusal reaches the run outcome typed, in words (`models/startup-failures.ts`).
-- **D133 · A live refusal is read from `tool_result_meta`.** The binary's schema (`@internal`, absent from `sdk.d.ts`): `[{id, non_execution_kind?, permission_decision?: {decision: "accept"|"reject"|"cancelled", source}}]`; `reject` makes a failed call `denied` (`mapping/result-meta.ts`), whatever the person wrote; history, which has no such field, keeps reading the wording.
-- **D134 · The context figure after each run.** After `run_finished`, if the host's process is still live, one `getContextUsage({detail: "summary"})`, sent as `usage_updated` over the snapshot's usage: `contextTokens = totalTokens`, `contextWindow = maxTokens` (the window the CLI's `/context` divides by). Never awaited by the run's end. A failure is logged to stderr and sends nothing, unless the process asked has ended or been told to close meanwhile: the SDK rejects every pending control request when its query closes (`sdk.mjs`, `Query closed before response received`), which is how a session that ends right after a run answers, not a fault (`live/context-after-run.ts`).
-- **D135 · Models in the CLI's order, the Default row first, no model twice.** A row whose wire id (`resolvedModel`) equals the Default row's is left out: offline the CLI lists `default, opus, fable, sonnet, haiku` with `default` and `opus` both `claude-opus-5-5`, so the phone shows `default, fable, sonnet, haiku`. Rule 19 (models and thinking can be set) passes on the real CLI; `conformance/model-echo.ts` maps a wire id over the listed rows.
-- **D136 · A URL list that blocks the terminal hook is told, never edited.** `allowedHttpHookUrls` merges across sources; when the merged list leaves our hook's URL out (`terminal/allowed-urls.ts` reads a pattern as the binary does), `status()` carries a warning naming the sources that keep a list.
-- **D137 · An ending host counts as hosted until its own last write is noted.** `finish()` forgets the host at once but notes the bridge's own write (D122) only after its process ended, up to 2.5 s later; the registry keeps it in `ending` until then, so a terminal check does not take an open in that window for a terminal writing the file.
-- **D138 · A trash move macOS refuses says why.** EPERM or EACCES on darwin (a service without Full Disk Access) is a `backend_error` naming Full Disk Access; the file stays.
-- **D139 · Every edit of a user's file is strict.** In `files/` and the hook installer: a file that does not parse is refused and left byte for byte; one past 4 MiB is refused unread; one whose rewrite would change data (a key written twice, a number a double cannot hold: `files/json-round-trip.ts`) is refused as `invalid_input`; the write is temp-then-rename with the file's mode kept, compare-and-swap on the text read; a file we create holding the hook token is `0600`.
-- **D140 · The loopback listener never idles out a request.** `server/loopback-listener.ts` sets `idleTimeout: 0`: Bun's 10 s default reset the real CLI's held hook request (`hook_cli.test.ts` fails without it). The listener is loopback-only.
-- **D141 · `broski uninstall` takes the hook out.** After the service is removed, `removeClaudeCodeTerminalHook` takes our `PermissionRequest` hook and its certificate setting out of the user's Claude settings; a bridge started with `claudeCode.terminalAsks` off removes them at start. Left behind: a bridge binary deleted without `broski uninstall` leaves the hook pointing at a dead port; the CLI's behaviour against a refused hook URL is not verified.
-- **D142 · A compiled bridge given a config dir refuses, it does not crash.** The SDK worker (D36) is not a compile entry point, so `createClaudeSdk` in a `/$bunfs/` binary with `configDir` set answers every session read with a rejection that says why.
-- **D143 · A worktree's sessions are the worktree's.** Conformance rule 5 makes each row's `cwd` the asked cwd, so a session started in a git worktree lists under the worktree, not under its repository, although the SDK's `listSessions({dir})` would include worktrees (`store/list.test.ts`).
-- **D144 · Costs a user does not see.** `agentProgressSummaries` stays on: the CLI forks a running subagent's conversation about every 30 s for a summary, a small billed call that reuses the prompt cache (`sdk.d.ts:2135-2143`). A probe starts the user's MCP servers (settings are not narrowed; only hooks are off).
+## 5. Mapping SDK frames to contract events
 
-## Corrections to the research
+`mapping/` turns each frame into events (`mapper.ts`); the host (`live/frame-handler.ts`) owns runs, the queue, the
+model, the mode, asks and catalogues. The table below is `__tests__/claude-code/mapping/frame-kinds.ts`, typed over
+the `SDKMessage` union, so an SDK that adds a variant fails the type check until someone decides what it shows; the
+mapper's `system` switch is exhaustive the same way (`mapping/system-frames.ts`).
 
-- `listSessions` breaks a `lastModified` tie by the **greater** `sessionId` first (`sdk.mjs:117` `zwe`, `$we`; `src/__tests__/claude-code/foundation/session_order.test.ts`), not ascending as research 04 §3 and PLAN fact 15 say.
-- Findings that correct the plan or the research (details in the part notes): a schema-invalid settings file is skipped whole; an aborted tool shows only in its result's text; a failed tool's `tool_use_result` is a string; no `user` echo of host sends; `system/init` comes only with a turn; a probe runs `SessionStart` hooks unless disabled; the terminal prompt and the hook race; `turn_duration` is written by the REPL only; the SDK already drops in-flight duplicate asks; nested forms never reach `onElicitation`.
+| Frame | Shows |
+|---|---|
+| `assistant` | `block_started`/`block_finished`, `tool_started` (whole input, title); a synthetic error frame as `notice(error)`; `supersedes` as `messages_retracted` |
+| `user` | `tool_result` blocks as `tool_finished`; a prompt this host did not send as `user_message` |
+| `stream_event` | text and thinking as `block_started`/`block_delta`/`block_finished` |
+| `result/success`, `result/error_during_execution`, `result/error_max_turns`, `result/error_max_budget_usd`, `result/error_max_structured_output_retries` | `usage_updated`; a compaction still open ends; the outcome is the host's `run_finished` (D8) |
+| `system/init` | the host's: model, mode, catalogues; the mapper reads the model and that a turn began |
+| `system/status` | `compacting` as `compaction_started`; `null` with `compact_result` as `compaction_finished`; the permission mode is the host's |
+| `system/compact_boundary` | `compaction_finished` with the token counts |
+| `system/api_retry` | `retry_scheduled`; `retry_finished` from the next frame of the main loop |
+| `system/informational`, `system/notification`, `system/local_command_output` | `notice` |
+| `system/model_refusal_fallback` | `notice(warning)` and `messages_retracted` for `retracted_message_uuids` |
+| `system/model_refusal_no_fallback` | `notice(warning)`; the error outcome comes from the result |
+| `system/mirror_error` | `notice(error)` |
+| `system/worker_shutting_down` | `notice(warning)` |
+| `system/plugin_install` | `notice(warning)` when an install failed |
+| `system/session_writes_lost` | `notice(error)` saying what was not saved (transcript lines, `~/.claude.json`) and why (disk full, quota) |
+| `system/permission_denied` | marks the tool call, whose result is then `denied` |
+| `system/task_started` | `tool_updated(child_session)` on the Agent call that started a subagent |
+| `system/task_progress` | `tool_updated(progress)` on the call that started the task |
+| `tool_progress` | `tool_updated(progress)` while the call runs |
+| `rate_limit_event` | `extension(rate_limit)`: `resetsAt` epoch seconds → milliseconds, `utilization` fraction → percent |
+| `conversation_reset` | `session_replaced` (`/clear`, a plan-exit context clear): the host goes on under the new id |
+| `system/session_state_changed` | the host's: `idle` ends the run, `running` may start one (D8) |
+| `system/commands_changed` | the host's: the command catalogue is invalidated |
+| `system/task_notification` | the host ends the subagent's feed; the call ends with its `tool_result` |
+| `system/elicitation_complete` | the host's: it withdraws a URL ask |
+| `prompt_suggestion`, `auth_status`, `tool_use_summary`, `system/hook_started`, `system/hook_progress`, `system/hook_response`, `system/background_tasks_changed`, `system/task_updated`, `system/thinking_tokens`, `system/memory_recall`, `system/files_persisted`, `system/control_request_progress` | nothing: not asked for, or no contract home |
 
-## Known gaps
+`system/session_writes_lost` comes once, as the CLI exits after a full disk or quota cost it writes; a resume reads
+only what was written, so a person is told, at `error` level, in plain words and with the fix (`mapping/notices.ts`).
+`sdk.mjs` also passes through frames `SDKMessage` does not declare: `command_lifecycle` is the host's (D9); the rest
+(`active_goal`, `session_title_changed`, `turn_preempted`, …) have no contract home.
 
-- A project or managed URL list that leaves our hook out still blocks it; it is told (D136).
-- Unverified against a real API (no offline recording): the `auto` compaction trigger and `result.usage.iterations` (the context figure comes from D134), an `ORG_POLICY_LIMIT_PREFIXES` refusal, a real terminal REPL's `turn_duration` and dialog, macOS Trash permissions for a service (D121), a root-run bridge (D132, read in the binary, not run).
-- A watch-only (terminal) session shows asks only when the hook raised them; without the hook it is watch-only with no answers.
-- `externalLive` is false (D128), so a terminal's run shows only on the watch-only open.
+### D20. Subagents are child sessions
+
+A subagent is the child session `<sessionId>/<agentId>` with `parent{kind: "subagent"}`, listed from
+`listSubagents` and its `.meta.json` sidecar, read by `getSubagentMessages`. Live, the parent's Agent call gets
+`tool_updated{child_session}`; the subagent's frames (`forwardSubagentText`) go to the child's own stream when it is
+open, as a run of its own, and are nested in the parent's run (`parentToolCallId`) only while the parent's call is
+open. A background agent's call ends first, so its work reaches the child alone (`integration/children_real.test.ts`).
+
+### D21. Ids
+
+`ids.ts` is the one place for id formats. Run, interaction and queue item ids are minted (`crypto.randomUUID()`, never
+reused across a session's processes). A tool call is its API `tool_use` id; a block `<message.id>:<index>`, the
+index its position in the API message, equal live, in history and in the terminal tail
+(`integration/ids_three_ways.test.ts`); a tool result item `<toolCallId>:result`; an image
+`<entryUuid>:<blockIndex>[:<innerIndex>]`; a command its name.
+
+### D22. How the rest maps
+
+A tool call starts at its `assistant` frame with its whole input; a block ends at the first of its assistant frame,
+`content_block_stop` and `message_stop`. A tool's outcome reads `tool_result_meta` and the CLI's wording (D18); a
+running call the CLI cut short is `aborted`. A compaction's trigger is inferred: one that starts before the turn's
+`init` is the person's (`manual`), one inside a turn the context filling (`auto`). A retry has no finish frame, so
+the next frame of the turn finishes it. At the end of a run (`settle.ts`) everything still open closes: blocks with
+their text so far, tools as `aborted` or `failed`, a retry, a compaction. A mapping fault is one warning notice; the
+mapper never throws.
+
+## 6. Store
+
+### D23. Listing reads only its own rows
+
+`store/list.ts` orders a page from `readdir`/`stat` exactly as the SDK's lister does (mtime newest first, then the
+greater `sessionId` first: `foundation/session_order.test.ts`) and reads only that page's rows with
+`getSessionInfo`: at most `limit + 32` lite reads however deep the page. Cursors are versioned and bound to the read
+they page (`cursor.ts`); a foreign one is `invalid_input`. A row's `cwd` is the asked cwd, so a session started in a
+git worktree lists under the worktree, not under its repository as `listSessions({dir})` would include it
+(`store/list.test.ts`). Archived sessions (`SDKSessionInfo.archived`, set by Claude's apps) are listed like any
+other: the contract has no archive, and hiding them would lose sessions the phone cannot get back.
+
+### D24. Rows and titles
+
+`status` is live for a hosted session, `unknown` otherwise; `origin` comes from the owner journal (D25). The title is
+the SDK's `summary`, which prefers a custom title, then the AI title, then the last prompt. The SDK folds the AI
+title into `customTitle`, so `store/title-source.ts` reads where the SDK read: the newest `custom-title` entry of
+the last and first 64 KiB of the transcript and the `<session>/custom-title.json` sidecar; a non-empty one, or the
+sidecar, is `user`; otherwise `first_prompt` when the shown text is the first prompt, else `generated`.
+
+### D25. The owner journal and the bridge's own writes
+
+`<stateDir>/owned.jsonl` (`owned.ts`) records the sessions this bridge made (`origin: broski`), each prompt it sent
+with its image names (D10), and when the last writes to a session's file were its own: a host ending, a rename, a
+fork. Bounded; compacted past twice its capacity. A file last written at or before that time plus 1 s (the CLI's
+batched flush) is not a terminal writing it, so a session reopened after a bridge restart is resumed, not watched
+(conformance rule 27, `integration/own_writes.test.ts`). An ending host counts as hosted until its process ended and
+its write was noted.
+
+### D26. History
+
+The transcript is what `getSessionMessages` returns, the chain of the session's live branch. The SDK's reader drops
+`toolUseResult` and the details of `system` entries, so one streamed pass over the session's own file adds them
+back, keyed by uuids the SDK already returned (`store/raw-scan.ts`): `turn_duration` → `run_boundary`; informational,
+away and local-command entries → `notice`; a `compact_boundary`'s tokens → the next compaction item. Items are flat,
+one per block, newest first; a per-session index (8 kept) from one full read turns a page into a window, with a
+cursor `{entry uuid, items left}`. While a session this bridge hosts has a run, history ends before that run's first
+entry (the cut the host tracks from the frames it saw), so the transcript never overlaps the snapshot (contract §8).
+Images are `ImageRef`s read back from the entry.
+
+### D27. Mutations
+
+Rename is `renameSession`. Fork is `forkSession` (`upToMessageId` is inclusive): `through` an item forks at it, and
+through a tool call at its result; `before` at the chain entry before it; a running session forks only what is
+finished. The lineage is kept in `<stateDir>/forks.jsonl`, since the CLI keeps none. Delete moves the transcript and
+its directory to the OS trash by `rename` (`trash.ts`: macOS `~/.Trash`, Linux the XDG trash with its `.trashinfo`),
+the trash found from the environment the CLI gets, so a test's temp `HOME` keeps it off the real one; a move never
+copies or removes, and EPERM/EACCES on darwin (a service without Full Disk Access) is a `backend_error` that says so.
+Each emits its catalog event; a child session refuses all three.
+
+## 7. Terminal sessions and the hook
+
+### D28. A session a terminal writes is watched, never written
+
+A session whose file changed in the last 10 s and that this bridge does not host opens watch-only (no `control`)
+with a live tail (`terminal/`): one watcher per project directory plus a 250 ms `stat` sweep, positional reads from
+a 512 KiB baseline, bounded lines, translation of the terminal's entries into the same events and ids as live
+(D21). A run without a closing entry ends after 2.5 s of quiet unless an ask is on it. A hook ask can come before the
+CLI's first flush of a new session, so `open-session.ts` looks for it for up to 3 s before `not_found`.
+`externalLive` stays false: conformance rule 26 expects another client's run on a session this bridge hosts, and a
+hosted session follows only its own process.
+
+### D29. Terminal permission prompts through a `PermissionRequest` hook
+
+With `claudeCode.terminalAsks` on (default), once the loopback listener is bound the bridge installs into the user's
+`settings.json` (under `CLAUDE_CONFIG_DIR`, else `~/.claude`) one hook (`terminal/hook-settings.ts`):
+
+```json
+{ "hooks": { "PermissionRequest": [ { "hooks": [ {
+  "type": "http", "url": "https://127.0.0.1:<port>/cc-terminal-hook", "timeout": 86400,
+  "headers": { "Authorization": "Bearer <loopback token>" },
+  "statusMessage": "Waiting for the Broski app (or answer here)" } ] } ] },
+  "env": { "NODE_EXTRA_CA_CERTS": "~/.broski/tls/server.cert.pem" } }
+```
+
+Per the hooks reference: an `http` hook POSTs the event's JSON; `url`, `headers`, `timeout` (seconds; default 600),
+`statusMessage` are its fields; a PermissionRequest hook decides by
+`hookSpecificOutput.decision {behavior: "allow" | "deny", message?, interrupt?}`; a 2xx response with an empty body,
+a non-2xx status, a connection failure and a timeout are non-blocking (unless `onFailure: "block"`, never set
+here), so the CLI goes on to its own prompt. For a call that reaches the SDK's `canUseTool`, the hook runs beside the
+host and whichever decides first applies.
+
+- **The receiver** (`server/cc-terminal-hook.ts`, behind the loopback listener's bearer token) checks the body,
+  hands the ask to the adapter, and holds the session open in the core (`BridgeCore.hold`, core README §20) while a
+  person decides. The ask is raised on the watch-only session as a `tool_permission` with Allow once, Deny and Deny
+  and stop (`terminal/hook-interaction.ts`), answerable through `OpenSession.answer` (contract §5 rule 14), the lock
+  screen included. A decision is the response; no decision is `{}`, which leaves it to the terminal's own prompt.
+  It never answers for the person: the ask ends only when someone answers, the terminal's user answers first (the
+  tool's result reaches the tail, or the run ends), or the CLI drops the request. The listener never idles a request
+  out (`idleTimeout: 0`; Bun's 10 s default reset the real CLI's held request, `terminal/hook_cli.test.ts`).
+- **Not raised:** a session this bridge hosts (its own `canUseTool` asks; `integration/hosted_hook.test.ts`), and
+  AskUserQuestion and ExitPlanMode, whose terminal dialogs are questions a hook's allow cannot answer.
+- **TLS.** The loopback certificate names `IP:127.0.0.1,DNS:localhost` and is no CA (`platform.ts`,
+  `tls-loopback.ts` regenerates one that is not); the CLI trusts it through `env.NODE_EXTRA_CA_CERTS`, which the
+  installer refuses to overwrite when it names another file. Every `claude` the user runs then trusts this one
+  certificate for the loopback names; being no CA it vouches for no other host, and its key is the user's `0600`
+  file.
+- **`allowedHttpHookUrls`**: when defined anywhere, only matching hook URLs run; the lists merge across sources; an
+  empty list allows none (`sdk.d.ts` `Settings.allowedHttpHookUrls`). The installer never creates one (that would
+  block the user's other HTTP hooks): it appends our URL to a non-empty list the user keeps, refuses an empty one,
+  and removes a list that holds only our URL. A project or managed list that leaves our URL out still blocks the hook;
+  `status()` says so and names the sources (`terminal/allowed-urls.ts` matches a pattern as the binary does,
+  `hook-blocked.ts`). Project and managed settings are never edited.
+- **The edit** (`terminal/hook-install.ts`, `files/`) is strict JSON, key-preserving, atomic (temp then rename,
+  compare-and-swap on the text read), idempotent (an unchanged file is not written), edits a symlinked file where it
+  points, refuses a file that does not parse, one past 4 MiB, or one whose rewrite would change data. A file it
+  creates is `0600`, since it holds the bearer token; an existing one keeps its mode.
+- **Removal.** A bridge started with `terminalAsks` off removes the hook and its certificate setting at start;
+  `broski uninstall` removes them whether or not a service was installed (`commands/daemon-service.ts`). A bridge that
+  is not running leaves the URL dead, which the CLI treats as a non-blocking failure: the terminal prompts as usual.
+
+## 8. Capabilities
+
+### D31. The declared traits
+
+`CLAUDE_CODE_TRAITS` (`traits.ts`): `streamText`, `streamThinking`, `promptModes` start, steer and queue,
+`attachments: ["image"]` (D11), `commands`, `queue`, `interactions` tool_permission, questions, plan_approval, form
+and confirm, `thinking`, `children`, `usage`, `extensions: ["rate_limit"]`; `planProposals` false (the todo tools are
+off on the CLI's current models unless a launch opts in, and a plan reaches the phone as a `plan_approval`) and
+`externalLive` false (D28). `fork`, `rename` and `delete` follow from the methods. Session capabilities: `compact` (a
+`/compact` prompt) and `cancelQueued` for a hosted session; a terminal's session is watch-only and takes answers when
+the hook is installed.
+
+## 9. Tests
+
+### D30. Tests run the real CLI against a scripted endpoint
+
+`src/__tests__/claude-code/`: `helpers/claude-home.ts` makes a temp `CLAUDE_CONFIG_DIR` and `HOME` with every
+off-switch and a proxy trap, `helpers/scripted-anthropic-server.ts` answers the Messages API from a script (side
+requests for subagents, compaction and titles routed apart) and counts every escape, and each real-CLI test asserts
+none. No test reads or writes the real `~/.claude`. The CLI is the SDK's own platform package binary, the one the
+pin was released with; `BROSKI_TEST_CLAUDE_CLI` points the suite at another, such as the user's. Unit tests drive a
+scripted `Query` (`helpers/fake-query.ts`).
+
+- `conformance/`: the 28 rules on the real CLI, one script per session routed by its `X-Claude-Code-Session-Id`;
+  the watched-ask rule runs a second real `claude` whose Write asks through the installed hook over TLS.
+- `integration/core_smoke.test.ts`: a phone through the core end to end; `children_real.test.ts`,
+  `hosted_hook.test.ts`, `own_writes.test.ts`, `ids_three_ways.test.ts`.
+- `spike/`: the real CLI's behaviour the adapter relies on, the regression suite for every pin bump; the frame
+  fixtures (`fixtures/frames/`) are re-recorded with `CC_SPIKE_RECORD=1` after a bump and the diff reviewed.
+- One directory per part: `catalogue/`, `live/`, `mapping/`, `asks/`, `store/`, `terminal/`, `foundation/`.
+
+## 10. Limits and known gaps
+
+- A project or managed `allowedHttpHookUrls` that leaves our hook out still blocks it; it is told, not fixed (D29).
+- A terminal session without the hook is watch-only with no answers; its asks stay in the terminal.
+- `externalLive` is false, so a terminal's run shows only on a watch-only open (D28).
+- Unverified offline: the `auto` compaction trigger against a real API, an `ORG_POLICY_LIMIT_PREFIXES` refusal, a
+  real terminal REPL's `turn_duration`, macOS Trash permissions for a service, a root-run bridge (D13, read in the
+  binary, not run), and `system/session_writes_lost` from a real full disk (mapped from `sdk.d.ts`).
+- `canUseTool` with `bypassPermissions` logs the SDK's `CLAUDE_SDK_CAN_USE_TOOL_SHADOWED` warning when such a session
+  starts: in that mode the CLI asks nothing, which is what the person chose.

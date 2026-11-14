@@ -138,11 +138,13 @@ Keep files under 400 lines and functions under 50; a new concern gets a new file
 
 ## SDK notes
 
-- **Claude Code** (`@anthropic-ai/claude-agent-sdk` 0.3.316, exact pin). The SDK spawns a native `claude`; the bridge
-  runs the user's installed one, found from the `claudeCode.cliPath` config key or `PATH`
-  (`server/claude-cli-path.ts`). Tests use the SDK's own platform package (`testClaudeBinary()`), run the real CLI
-  against a scripted endpoint in a temp home, and never touch the real `~/.claude`. The installed `.d.ts` wins over
-  any doc.
+- **Claude Code** (`@anthropic-ai/claude-agent-sdk` 0.3.325, exact pin, released with CLI 2.1.325). The SDK's
+  JavaScript spawns `claude`; the bridge embeds no binary and runs the user's installed one, found from the
+  `claudeCode.cliPath` config key or the login shell's `PATH` (`server/claude-cli-path.ts`); a different version is a
+  status warning. Tests run the SDK's own platform package (`testClaudeBinary()`; `BROSKI_TEST_CLAUDE_CLI` names
+  another, such as the user's) against a scripted endpoint in a temp home, with an SDK bound to that home
+  (`isolatedClaudeSdk`), and never touch the real `~/.claude`. After a pin bump, re-record the frame fixtures
+  (`CC_SPIKE_RECORD=1`). The installed `.d.ts` wins over any doc.
 - **Pi** (`@earendil-works/pi-coding-agent` 1.4.0, with `pi-ai` / `pi-agent-core` 1.4.0, exact pins). Models and auth
   come from `~/.pi/agent` through `ModelRuntime`; a listing calls `refresh({ allowNetwork: false })` and reads
   `getAvailable()`, as `pi --list-models` does (`backends/pi/models/model-runtime.ts`). `enabledModels` is resolved by
