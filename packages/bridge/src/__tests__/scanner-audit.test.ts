@@ -123,28 +123,28 @@ describe("File Search Module", () => {
 	it("finds files in the broski project", async () => {
 		const { searchFilesAndDirs } = await import("../file-search");
 		const results = await searchFilesAndDirs({
-			query: "chat_screen",
+			query: "contract-seam",
 			cwd: BROSKI_ROOT,
 			limit: 10,
 			includeDirs: false,
 		});
 
-		console.log('[File Search] "chat_screen" →', results.slice(0, 3));
+		console.log('[File Search] "contract-seam" →', results.slice(0, 3));
 		expect(results.length).toBeGreaterThan(0);
-		expect(results.some((r) => r.includes("chat_screen.dart"))).toBe(true);
+		expect(results.some((r) => r.includes("contract-seam.ts"))).toBe(true);
 	});
 
 	it("finds directories in the broski project", async () => {
 		const { searchFilesAndDirs } = await import("../file-search");
 		const results = await searchFilesAndDirs({
-			query: "providers",
+			query: "connectivity-v2",
 			cwd: BROSKI_ROOT,
 			limit: 20,
 			includeDirs: true,
 		});
 
-		console.log('[File Search] "providers" →', results.slice(0, 5));
-		expect(results.some((r) => r.includes("providers"))).toBe(true);
+		console.log('[File Search] "connectivity-v2" →', results.slice(0, 5));
+		expect(results.some((r) => r.includes("connectivity-v2"))).toBe(true);
 	});
 
 	it("serves repeat searches from the project cache", async () => {
