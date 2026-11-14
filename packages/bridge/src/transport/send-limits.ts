@@ -37,37 +37,6 @@ export const NETWORK_SEND_LIMITS: SendLimits = {
 export const LINK_OVERFLOW_CLOSE_CODE = 4013;
 export const LINK_OVERFLOW_CLOSE_REASON = "link overflow";
 
-export const RESPONSE_TOO_LARGE_CODE = "response_too_large";
-export const RESPONSE_TOO_LARGE_MESSAGE = "Response too large for the link; request a smaller page";
-
-export type ResponseTooLargeFrame = {
-	type: "error";
-	code: typeof RESPONSE_TOO_LARGE_CODE;
-	requestId?: string;
-	bytes: number;
-	limit: number;
-	message: string;
-};
-
-/**
- * What a link socket gets instead of a reply it could never take whole. It carries the requester's
- * `requestId`, so the phone matches it to the request it made and can retry with a smaller page.
- */
-export function responseTooLargeFrame(
-	requestId: string | undefined,
-	bytes: number,
-	limit: number,
-): ResponseTooLargeFrame {
-	return {
-		type: "error",
-		code: RESPONSE_TOO_LARGE_CODE,
-		requestId,
-		bytes,
-		limit,
-		message: RESPONSE_TOO_LARGE_MESSAGE,
-	};
-}
-
 /** UTF-8 length of a frame, which is what every peer counts; `length` counts UTF-16 units. */
 export function frameBytes(payload: string | Uint8Array): number {
 	return typeof payload === "string" ? Buffer.byteLength(payload, "utf8") : payload.byteLength;

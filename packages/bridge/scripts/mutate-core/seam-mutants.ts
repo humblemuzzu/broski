@@ -110,13 +110,15 @@ export const FIT_MUTANTS: Mutant[] = [
 export const SEAM_MUTANTS: Mutant[] = [
 	...mutantsOf("server/contract-seam.ts", [
 		{
-			name: "seam: owns any object",
-			find: " && !Array.isArray(frame) && frame.type === CONTRACT_FRAME_TYPE",
-			replace: " && frame.type === CONTRACT_FRAME_TYPE",
-			equivalent:
-				"a list has no `type` property, so it is never owned either way; the check is there for the type narrowing",
+			name: "seam: the core is told a frame has no size",
+			find: ".receive(parsedFrame(raw), frameBytes(raw))",
+			replace: ".receive(parsedFrame(raw), 0)",
 		},
-		{ name: "seam: owns everything", find: "&& frame.type === CONTRACT_FRAME_TYPE;", replace: "&& true;" },
+		{
+			name: "seam: unparsable text is not answered",
+			find: "\t} catch {\n\t\treturn null;\n\t}",
+			replace: "\t} catch (error) {\n\t\tthrow error;\n\t}",
+		},
 		{ name: "seam: a disconnect is ignored", find: "connections.get(ws)?.close();", replace: "" },
 		{ name: "seam: stop disposes nothing", find: "stop: () => core.dispose(),", replace: "stop: async () => {}," },
 		{
@@ -135,9 +137,9 @@ export const SEAM_MUTANTS: Mutant[] = [
 			replace: "",
 		},
 		{
-			name: "seam: a rate-limited contract frame is left to the old protocol",
-			find: "\t\t\tconnectionOf(ws).refuse(frame);\n\t\t\treturn true;",
-			replace: "\t\t\treturn false;",
+			name: "seam: a rate-limited frame is not answered",
+			find: "refuse: (ws, raw) => connectionOf(ws).refuse(parsedFrame(raw)),",
+			replace: "refuse: () => {},",
 		},
 		{
 			name: "seam: a backend may be configured twice",
@@ -174,34 +176,20 @@ export const SEAM_MUTANTS: Mutant[] = [
 			replace: "",
 		},
 	]),
-	...mutantsOf("server/messages.ts", [
-		{
-			name: "messages: the old poison check runs before the core",
-			find: "\t\tif (deps.contract.owns(parsed)) return deps.contract.receive(ws, parsed, frameBytes(raw));\n\t\tif (hasPrototypePoisonKeys(parsed)) {",
-			replace:
-				'\t\tif (hasPrototypePoisonKeys(parsed)) { deps.send(ws, { type: "error", message: "Invalid JSON payload" }); return; }\n\t\tif (deps.contract.owns(parsed)) return deps.contract.receive(ws, parsed, frameBytes(raw));\n\t\tif (hasPrototypePoisonKeys(parsed)) {',
-		},
-		{
-			name: "messages: contract frames go to the old routes",
-			find: "if (deps.contract.owns(parsed)) return",
-			replace: "if (false) return",
-		},
-		{
-			name: "messages: the core is told a frame has no size",
-			find: "deps.contract.receive(ws, parsed, frameBytes(raw))",
-			replace: "deps.contract.receive(ws, parsed, 0)",
-		},
-	]),
 	...mutantsOf("server/connections.ts", [
 		{ name: "connections: a closed socket keeps its sessions", find: "deps.contract.disconnect(ws);", replace: "" },
 		{
-			name: "connections: rate-limited contract frames get the old refusal",
-			find: "if (deps.contract.refuse(ws, raw)) return;",
-			replace: "",
+			name: "connections: the rate limit refuses nothing",
+			find: "if (!withinRateLimit(ws)) {",
+			replace: "if (false) {",
 		},
 	]),
 	...mutantsOf("server/shutdown.ts", [
-		{ name: "shutdown: the core is not stopped", find: "() => deps.contract.stop()", replace: "" },
+		{
+			name: "shutdown: the core is not stopped",
+			find: "disposeBackends: () => deps.contract.stop(),",
+			replace: "disposeBackends: () => {},",
+		},
 	]),
 	...mutantsOf("server.ts", [{ name: "server: backends never start", find: "\tcontract.start();\n", replace: "" }]),
 	...mutantsOf("contract/session-reducer.ts", [

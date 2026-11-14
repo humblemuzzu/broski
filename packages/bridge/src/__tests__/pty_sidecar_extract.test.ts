@@ -8,7 +8,7 @@ import { describe, expect, it } from "bun:test";
 import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { extractPtySidecar, ptySidecarName, sha256Hex } from "../pty/sidecar-embed";
+import { extractPtySidecar, ptySidecarName, sha256Hex } from "../workspace/pty/sidecar-embed";
 
 const HOST = process.platform === "darwin" ? "darwin" : "linux";
 const LIB_NAME = ptySidecarName(HOST) as string;

@@ -36,20 +36,7 @@ describe("lazy agent SDK imports", () => {
 		expect(output).toContain("PROBE_SDK_MODULES=0");
 	});
 
-	for (const module of ["src/connectors/claude-code.ts"]) {
-		test(`${module} loads without an agent SDK`, async () => {
-			const { output } = await runProbe(resolve(FIXTURES, "connector-import-probe.ts"), { PROBE_MODULE: module });
-			expect(output).toContain("PROBE_SDK_MODULES=0");
-		});
-	}
-
-	const MODULES_THE_SERVER_GRAPH_REACHES = [
-		"src/server.ts",
-		"src/routing/routes.ts",
-		"src/handlers/cc_routing.ts",
-		"src/handlers/cc_subagents.ts",
-		"src/custom-tools.ts",
-	];
+	const MODULES_THE_SERVER_GRAPH_REACHES = ["src/server.ts", "src/custom-tools.ts"];
 
 	for (const module of MODULES_THE_SERVER_GRAPH_REACHES) {
 		test(`${module} loads without an agent SDK`, async () => {

@@ -73,9 +73,9 @@ export function isAllowedOrigin(origin: string | null): boolean {
 	return false;
 }
 
-export function isAllowedBrowserRequest(request: Request, safeString: (v: unknown) => string): boolean {
+export function isAllowedBrowserRequest(request: Request): boolean {
 	try {
-		const site = safeString(request.headers.get("sec-fetch-site")).toLowerCase().trim();
+		const site = (request.headers.get("sec-fetch-site") ?? "").toLowerCase().trim();
 		if (site && site !== "same-origin" && site !== "none") return false;
 
 		const origin = request.headers.get("origin");

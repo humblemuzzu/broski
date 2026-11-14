@@ -17,7 +17,6 @@
   "include": [
     "src/**/*.ts",
     "bench/**/*.ts",
-    "scripts/measure-session-lists.ts",
     "scripts/gen-contract.ts",
     "scripts/check-layers.ts",
     "scripts/contract-gen/**/*.ts",

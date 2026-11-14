@@ -1,13 +1,12 @@
 /**
- * `claudeCode.contract` in the server layer (PLAN D28, D26): what is wired, which hook lands in the user's settings
- * after the listener binds, and that the old protocol's terminal hook stands down. Every file is in a temp home.
+ * Claude Code in the server layer (PLAN D28, D26): what is wired, and which hook lands in the user's settings after
+ * the listener binds. Every file is in a temp home.
  */
 
 import { afterEach, describe, expect, test } from "bun:test";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { installCcHookAt, uninstallCcHookAt } from "../../../handlers/cc_hook_file";
-import { keepsOldHook, removeClaudeCodeHooks, setClaudeCodeHooks } from "../../../server/claude-code-hooks";
+import { removeClaudeCodeTerminalHook, setClaudeCodeTerminalHook } from "../../../server/claude-code-hooks";
 import { createClaudeCodeWiring } from "../../../server/claude-code-wiring";
 import { type ClaudeHome, createClaudeHome } from "../../helpers/claude-home";
 
@@ -18,113 +17,77 @@ afterEach(() => {
 	home = undefined;
 });
 
-function wiring(contract: boolean, terminalAsks = true) {
+function wiring(terminalAsks: boolean) {
 	return createClaudeCodeWiring({
-		settings: { contract, terminalAsks },
+		settings: { terminalAsks },
 		cli: () => ({ ok: false, reason: "not needed", notes: [] }),
 		version: "0.0.0-test",
 		log: () => undefined,
 	});
 }
 
-function listener(claude: ClaudeHome, uninstalled: string[]) {
-	const oldFile = join(claude.homeDir, ".claude-old-settings.json");
+function listener(claude: ClaudeHome) {
 	return {
 		port: 18274,
 		token: "a-token",
 		certPath: join(claude.root, "server.cert.pem"),
 		log: () => undefined,
 		configRoot: claude.configDir,
-		oldHook: {
-			file: oldFile,
-			uninstall: async () => {
-				uninstalled.push(oldFile);
-			},
-		},
 	};
 }
 
 const settingsOf = (claude: ClaudeHome) => JSON.parse(readFileSync(join(claude.configDir, "settings.json"), "utf8"));
 
-describe("the wiring claudeCode.contract switches", () => {
-	test("off: no adapter, no receiver, and the old hook is the bridge's to take out at shutdown", () => {
-		const off = wiring(false);
-		expect(off.backend).toBeUndefined();
-		expect(off.receiver).toBeUndefined();
-		expect(keepsOldHook(off)).toBe(true);
-		expect(keepsOldHook(undefined)).toBe(true);
-	});
-
-	test("on: the adapter and the receiver; terminal asks off leaves the receiver out; the old hook is never kept", () => {
+describe("the wiring", () => {
+	test("the adapter always, and the hook's receiver exactly while terminal asks are on", () => {
 		expect(wiring(true).backend).toBeDefined();
 		expect(wiring(true).receiver).toBeDefined();
-		expect(wiring(true, false).receiver).toBeUndefined();
-		expect(keepsOldHook(wiring(true))).toBe(false);
+		expect(wiring(false).backend).toBeDefined();
+		expect(wiring(false).receiver).toBeUndefined();
 	});
 });
 
-describe("the hooks set once the listener is bound, with the contract on", () => {
-	test("our PermissionRequest hook over https with the certificate trusted, and a leftover old hook taken out", async () => {
+describe("the hook set once the listener is bound", () => {
+	test("our PermissionRequest hook over https with the certificate trusted", async () => {
 		home = createClaudeHome();
-		const uninstalled: string[] = [];
-		const bound = listener(home, uninstalled);
-		writeFileSync(bound.oldHook.file, JSON.stringify({ hooks: { PreToolUse: ["# broski-permission-proxy"] } }));
-		await setClaudeCodeHooks(wiring(true), bound);
-		expect(uninstalled).toEqual([bound.oldHook.file]);
+		await setClaudeCodeTerminalHook(true, listener(home));
 		const settings = settingsOf(home);
 		expect(settings.hooks.PermissionRequest[0].hooks[0]).toMatchObject({
 			type: "http",
 			url: "https://127.0.0.1:18274/cc-terminal-hook",
 			headers: { Authorization: "Bearer a-token" },
 		});
-		expect(settings.env).toEqual({ NODE_EXTRA_CA_CERTS: bound.certPath });
+		expect(settings.env).toEqual({ NODE_EXTRA_CA_CERTS: listener(home).certPath });
 		expect("allowedHttpHookUrls" in settings).toBe(false);
-		expect(settings.hooks.PreToolUse).toBeUndefined();
 	});
 
-	test("terminal asks off removes our hook, and an old file without the marker is not touched", async () => {
+	test("terminal asks off removes our hook", async () => {
 		home = createClaudeHome();
-		const uninstalled: string[] = [];
-		const bound = listener(home, uninstalled);
-		writeFileSync(bound.oldHook.file, JSON.stringify({ model: "opus" }));
-		await setClaudeCodeHooks(wiring(true), bound);
-		await setClaudeCodeHooks(wiring(true, false), bound);
-		expect(uninstalled).toEqual([]);
-		expect(settingsOf(home)).toEqual({});
-	});
-
-	test("a bridge started with the contract off takes our hook out of the user's settings", async () => {
-		home = createClaudeHome();
-		const bound = listener(home, []);
-		await setClaudeCodeHooks(wiring(true), bound);
+		await setClaudeCodeTerminalHook(true, listener(home));
 		expect(JSON.stringify(settingsOf(home))).toContain("cc-terminal-hook");
-		await setClaudeCodeHooks(wiring(false), bound);
+		await setClaudeCodeTerminalHook(false, listener(home));
 		expect(settingsOf(home)).toEqual({});
 	});
 
-	test("broski uninstall takes both hooks and our certificate setting out, and leaves the user's keys", async () => {
+	test("broski uninstall takes our hook and our certificate setting out, and leaves the user's keys", async () => {
 		home = createClaudeHome();
 		const claude = home;
-		const oldFile = join(claude.homeDir, ".claude-old-settings.json");
-		writeFileSync(oldFile, JSON.stringify({ model: "opus" }));
+		const settingsPath = join(claude.configDir, "settings.json");
+		writeFileSync(settingsPath, JSON.stringify({ model: "opus" }));
 		const place = {
 			certPath: join(claude.root, "server.cert.pem"),
 			log: () => undefined,
 			configRoot: claude.configDir,
-			oldHook: { file: oldFile, uninstall: (log: (line: string) => void) => uninstallCcHookAt(oldFile, log) },
 		};
-		await setClaudeCodeHooks(wiring(true), { ...place, port: 18274, token: "a-token" });
-		await installCcHookAt(oldFile, { port: 18274, token: "a-token", scheme: "https", log: () => undefined });
-		expect(readFileSync(oldFile, "utf8")).toContain("broski-permission-proxy");
-		await removeClaudeCodeHooks(place);
-		expect(settingsOf(claude)).toEqual({});
-		expect(JSON.parse(readFileSync(oldFile, "utf8"))).toEqual({ model: "opus" });
+		await setClaudeCodeTerminalHook(true, { ...place, port: 18274, token: "a-token" });
+		expect(readFileSync(settingsPath, "utf8")).toContain("cc-terminal-hook");
+		await removeClaudeCodeTerminalHook(place);
+		expect(settingsOf(claude)).toEqual({ model: "opus" });
 	});
 
 	test("a listener without TLS gets an http hook and no certificate setting", async () => {
 		home = createClaudeHome();
-		const bound = { ...listener(home, []), certPath: undefined };
-		await setClaudeCodeHooks(wiring(true), bound);
+		await setClaudeCodeTerminalHook(true, { ...listener(home), certPath: undefined });
 		const settings = settingsOf(home);
 		expect(settings.hooks.PermissionRequest[0].hooks[0].url).toBe("http://127.0.0.1:18274/cc-terminal-hook");
 		expect(settings.env).toBeUndefined();

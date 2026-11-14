@@ -1,8 +1,6 @@
 /**
- * HTTP request handler extracted from server.ts.
- *
- * Handles all HTTP routes: reverse proxy, API endpoints (/browse), the CC
- * permission hook, and the fetch handler factory (auth + security).
+ * The loopback listener's HTTP routes (the dev-server reverse proxy, the status root, the Claude Code
+ * terminal hook) and its fetch handler factory (auth, origin and TLS checks, WebSocket upgrades).
  */
 import type { ServerWebSocket } from "bun";
 import {
@@ -26,16 +24,11 @@ export interface HandleHttpDeps {
 	tlsEnabled: boolean;
 	version: string;
 	allowedProxyPorts: Set<number>;
-	listFilesDirectly: (path: string) => Promise<unknown>;
 	logUser: (msg: string) => void;
-	handleCcPermissionHook?: (request: Request) => Promise<Response>;
 	handleCcTerminalHook?: (request: Request) => Promise<Response>;
 }
 
-/**
- * Handles HTTP requests for all bridge routes.
- * Extracted from the `handleHttp` closure in server.ts.
- */
+/** Handles one HTTP request that passed the fetch handler's checks. */
 export async function handleHttpRequest(request: Request, deps: HandleHttpDeps): Promise<Response> {
 	const url = new URL(request.url);
 
@@ -108,26 +101,6 @@ export async function handleHttpRequest(request: Request, deps: HandleHttpDeps):
 		return jsonResponse({ status: "ok", version: deps.version });
 	}
 
-	// ── /browse ────────────────────────────────────────────────────────
-	if (url.pathname === "/browse") {
-		const path = url.searchParams.get("path");
-		if (!path) return jsonResponse({ error: "Missing path" }, 400);
-		try {
-			const items = await deps.listFilesDirectly(path);
-			return jsonResponse({ path, items });
-		} catch {
-			return jsonResponse({ error: "Request failed" }, 500);
-		}
-	}
-
-	// ── CC Permission Hook endpoint ───────────────────────────────────
-	if (url.pathname === "/cc-hook") {
-		if (!deps.handleCcPermissionHook) {
-			return jsonResponse({ error: "CC hook handler not available" }, 503);
-		}
-		return await deps.handleCcPermissionHook(request);
-	}
-
 	if (url.pathname === "/cc-terminal-hook" && deps.handleCcTerminalHook)
 		return await deps.handleCcTerminalHook(request);
 
@@ -138,7 +111,6 @@ export async function handleHttpRequest(request: Request, deps: HandleHttpDeps):
 
 export interface FetchHandlerDeps {
 	httpDeps: HandleHttpDeps;
-	safeString: (v: unknown) => string;
 	allowTokenInUrl: boolean;
 	validateAuthToken: (provided: string, expected: string) => boolean;
 	getAuthToken: () => string;
@@ -196,7 +168,7 @@ export function createFetchHandler(deps: FetchHandlerDeps) {
 		// WebSocket proxy (loopback-only, no auth token).
 		if (isWebSocketUpgrade && url.pathname.startsWith("/proxy-ws/")) {
 			if (!isLoopback) return new Response("Forbidden", { status: 403 });
-			if (!isAllowedBrowserRequest(request, deps.safeString)) return new Response("Forbidden", { status: 403 });
+			if (!isAllowedBrowserRequest(request)) return new Response("Forbidden", { status: 403 });
 			const rest = url.pathname.slice("/proxy-ws/".length);
 			const slashIdx = rest.indexOf("/");
 			const portRaw = (slashIdx === -1 ? rest : rest.slice(0, slashIdx)).trim();
@@ -219,7 +191,7 @@ export function createFetchHandler(deps: FetchHandlerDeps) {
 		// HTTP preview proxy — loopback-only, no auth required.
 		if (!isWebSocketUpgrade && url.pathname.startsWith("/proxy/")) {
 			if (!isLoopback) return new Response("Forbidden", { status: 403 });
-			if (!isAllowedBrowserRequest(request, deps.safeString)) return new Response("Forbidden", { status: 403 });
+			if (!isAllowedBrowserRequest(request)) return new Response("Forbidden", { status: 403 });
 			try {
 				return await handleHttpRequest(request, deps.httpDeps);
 			} catch (error) {

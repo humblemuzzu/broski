@@ -1,6 +1,4 @@
-import type { ConnectionContext } from "../routing/types";
-
-/** Identity a broski-link connection carries in `ws.data` and in the shared connection context. */
+/** Identity a broski-link connection carries in `ws.data`. */
 export type LinkSocketData = {
 	kind: "link";
 	deviceId: string;
@@ -52,10 +50,4 @@ export function isLinkSocketData(data: unknown): data is LinkSocketData {
 		"deviceId" in data &&
 		typeof data.deviceId === "string"
 	);
-}
-
-/** The context fields a link socket adds on open, so it is registered like any other device. */
-export function linkContextFields(data: unknown): Partial<ConnectionContext> {
-	if (!isLinkSocketData(data)) return {};
-	return { deviceId: data.deviceId, deviceName: data.deviceName };
 }

@@ -117,8 +117,10 @@ describe("real-home guard", () => {
 		expect(report.isolationActive).toBe(true);
 		expect(report.configPath.startsWith(resolve(fakeRealHome))).toBe(true);
 
-		const refused = Object.entries(report.outcomes).map(([, outcome]) => outcome);
-		expect(refused.length).toBeGreaterThanOrEqual(6);
+		const { claudeCodeTerminalHook, ...thrown } = report.outcomes;
+		expect(claudeCodeTerminalHook).toContain("not changed: refusing to write");
+		const refused = Object.values(thrown);
+		expect(refused.length).toBeGreaterThanOrEqual(4);
 		for (const outcome of refused) expect(outcome).toStartWith("threw:RealHomeWriteError");
 
 		expect(existsSync(join(fakeRealHome, ".claude"))).toBe(false);
@@ -133,7 +135,8 @@ describe("real-home guard", () => {
 
 		expect(report.home).toBe(resolve(workHome));
 		expect(report.realHome).toBe(resolve(fakeRealHome));
-		expect(report.outcomes.installCcHook).toBe("ok:done");
+		expect(report.outcomes.claudeCodeTerminalHook).toStartWith("ok:");
+		expect(report.outcomes.claudeCodeTerminalHook).not.toContain("not changed");
 		expect(report.outcomes["writeConfig.defaultPath"]).toBe("ok:done");
 		expect(existsSync(join(workHome, ".claude", "settings.json"))).toBe(true);
 

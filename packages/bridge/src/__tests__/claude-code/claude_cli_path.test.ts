@@ -2,7 +2,6 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { chmodSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { claudeExecutableOption, setClaudeExecutableProvider } from "../../connectors/claude-code/executable";
 import { claudeCliCheck } from "../../doctor/checks/claude-cli";
 import {
 	type ClaudeCliEnvironment,
@@ -18,7 +17,6 @@ function env(overrides: Partial<ClaudeCliEnvironment>): ClaudeCliEnvironment {
 const savedPath = process.env.PATH;
 
 afterEach(() => {
-	setClaudeExecutableProvider(null);
 	process.env.PATH = savedPath;
 });
 
@@ -78,16 +76,6 @@ describe("claude executable resolution", () => {
 		});
 		process.env.PATH = join(dir, "empty");
 		expect(resolveClaudeCliPath(defaultClaudeCliEnvironment()).ok).toBe(false);
-	});
-});
-
-describe("the old connector's executable option", () => {
-	test("absent without a provider; the path with one; the reason as an error when there is no binary", () => {
-		expect(claudeExecutableOption()).toEqual({});
-		setClaudeExecutableProvider(() => ({ ok: true, path: "/x/claude", source: "path", notes: [] }));
-		expect(claudeExecutableOption()).toEqual({ pathToClaudeCodeExecutable: "/x/claude" });
-		setClaudeExecutableProvider(() => ({ ok: false, reason: "no binary here", notes: [] }));
-		expect(() => claudeExecutableOption()).toThrow("Claude Code is not available: no binary here");
 	});
 });
 

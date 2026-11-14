@@ -10,52 +10,8 @@ export const SCENARIOS: ScenarioSpec[] = [
 	{ name: "startup-version", description: "spawn `bun src/index.ts version` -> exit" },
 	{ name: "module-load", description: "import ../src/server.ts, no server started" },
 	{
-		name: "cc-list-sessions",
-		description: "claude-code listSessions() across all projects",
-		requiresDatasets: ["claude-code-projects"],
-	},
-	{ name: "cc-list-projects", description: "claude-code listProjects()", requiresDatasets: ["claude-code-projects"] },
-	{
-		name: "cc-read-largest-transcript",
-		description: "getSessionMessages on the largest CC session, limit 200",
-		requiresDatasets: ["claude-code-projects"],
-	},
-	{
-		name: "cc-parity-real",
-		description: "new vs whole-file read paths on real ~/.claude data (read-only), mismatch counts",
-		requiresDatasets: ["claude-code-projects"],
-	},
-	{
-		name: "cc-synthetic-list-sessions",
-		description: "2000 synthetic sessions + one 300 MB transcript: cold/warm vs whole-file listing",
-	},
-	{
-		name: "cc-synthetic-list-projects",
-		description: "synthetic home tree: cached walk cold/warm vs uncached walk",
-	},
-	{
 		name: "server-idle",
 		description: "createBridgeServer on a random port (TLS off, temp HOME), 60 s idle (BENCH_SERVER_IDLE_MS)",
-		needsTempHome: true,
-	},
-	{
-		name: "stream-throughput",
-		description: "20k synthetic runtime text deltas to 1 and 4 clients",
-		needsTempHome: true,
-	},
-	{
-		name: "stream-stalled-client",
-		description: "200k deltas with one client that stops reading: shed at the limit, healthy client unaffected",
-		needsTempHome: true,
-	},
-	{
-		name: "ws-deflate",
-		description: "permessage-deflate on/off: wire bytes and CPU for a stream, a session list and lone deltas",
-		needsTempHome: true,
-	},
-	{
-		name: "soak-sessions",
-		description: "2k session views/switches + runtime events over 60 s (BENCH_SOAK_DURATION_MS), reports state sizes",
 		needsTempHome: true,
 	},
 	{
@@ -63,18 +19,6 @@ export const SCENARIOS: ScenarioSpec[] = [
 		description: "3 idle native PTY sessions (BENCH_PTY_SESSIONS): JS-thread yield p99 plus an echo round trip",
 		needsTempHome: true,
 	},
-];
-
-/** Scenarios that need nothing from the developer's machine; safe on a bare CI runner. */
-export const SYNTHETIC_SCENARIOS = [
-	"module-load",
-	"cc-synthetic-list-sessions",
-	"cc-synthetic-list-projects",
-	"server-idle",
-	"stream-throughput",
-	"stream-stalled-client",
-	"soak-sessions",
-	"pty-main-thread-stall",
 ];
 
 export const SELFTEST: ScenarioSpec = {

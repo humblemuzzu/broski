@@ -9,6 +9,7 @@ import { randomBytes } from "node:crypto";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { PROTOCOL_VERSION } from "../contract";
 import { LINK_KEY_HEADER, linkKeyMatches, readLinkKey } from "../server/link-key";
 import { type BridgeHandle, E2E_TEST_TIMEOUT_MS, setupTestEnv, startBridge } from "./e2e/harness";
 import { connectUnixWs, unixUpgradeStatus } from "./link/unix-ws";
@@ -136,13 +137,19 @@ describe("a link socket started without a key file", () => {
 	});
 });
 
-describe("the keyed socket carries the device it names", () => {
-	test("a keyed upgrade is registered under its device id", async () => {
+describe("the keyed socket is a client", () => {
+	test("a keyed upgrade's frames reach the core", async () => {
 		const client = await connectUnixWs(socketPath, { ...DEVICE_HEADERS, [LINK_KEY_HEADER]: FIRST_KEY });
 		try {
-			client.send({ type: "list_devices", requestId: "keyed-1" });
-			const reply = await client.waitFor("devices");
-			expect(reply.requestId).toBe("keyed-1");
+			const hello = {
+				type: "hello",
+				requestId: "keyed-1",
+				protocol: PROTOCOL_VERSION,
+				client: { name: "k", version: "0" },
+			};
+			client.send({ type: "contract", message: hello });
+			const reply = await client.waitFor("contract");
+			expect(reply.message).toMatchObject({ type: "hello.result", requestId: "keyed-1" });
 		} finally {
 			client.close();
 		}

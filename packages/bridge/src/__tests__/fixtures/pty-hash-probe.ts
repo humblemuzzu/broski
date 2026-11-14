@@ -3,6 +3,6 @@
  * check. Compiled with `--define BROSKI_PTY_LIB_HASH="…"` by the PTY integrity test.
  */
 
-import { isNativePtyAvailable } from "../../pty/native-pty";
+import { isNativePtyAvailable } from "../../workspace/pty/native-pty";
 
 console.log(`PTY_AVAILABLE=${isNativePtyAvailable() ? 1 : 0}`);

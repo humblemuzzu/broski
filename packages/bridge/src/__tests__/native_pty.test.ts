@@ -8,7 +8,7 @@ import {
 	nativeCreatePty,
 	nativeDeletePty,
 	nativeResizePty,
-} from "../pty/native-pty";
+} from "../workspace/pty/native-pty";
 
 const CHILD_OUTPUT_DEADLINE_MS = 10_000;
 const PTY_TEST_TIMEOUT_MS = 25_000;

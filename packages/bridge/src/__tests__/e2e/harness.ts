@@ -2,28 +2,16 @@
  * In-process bridge server on a random port, isolated from the developer's real config.
  *
  * `os.homedir()` is fixed at process start, so `HOME` here is only advisory: the real isolation is
- * the stubbed hook installers, the temp Pi agent dir, and the real-home guard `bun test` arms in
- * its preload. The server module is imported lazily so `PI_CODING_AGENT_DIR` is set first.
+ * the temp Pi agent dir, a server started without Claude Code's terminal hook unless a test gives
+ * it a temp config dir, and the real-home guard `bun test` arms in its preload. The server module
+ * is imported lazily so `PI_CODING_AGENT_DIR` is set first.
  */
 
-import { mock } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { connect as netConnect } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { BridgeServer, BridgeServerOptions } from "../../server";
-
-/**
- * `os.homedir()` is fixed at process start, so a server started in-process would install its
- * Claude Code permission hook into the developer's real `~/.claude`. The
- * installers are the only thing that writes there, so they are stubbed out for every e2e file.
- */
-mock.module("../../handlers/cc_hook_installer", () => ({
-	HOOK_MARKER: "broski-permission-proxy",
-	ccHookSettingsPath: () => "/nonexistent/broski-e2e/.claude/settings.json",
-	installCcHook: async () => {},
-	uninstallCcHook: async () => {},
-}));
 
 export type TestEnv = {
 	home: string;
@@ -93,14 +81,12 @@ export async function startBridge(overrides: Partial<BridgeServerOptions> = {}):
 
 export type MessageCollector = {
 	all: () => Array<Record<string, unknown>>;
-	clear: () => void;
 	waitFor: (type: string, timeoutMs?: number) => Promise<Record<string, unknown>>;
 	waitForWhere: (
 		predicate: (message: Record<string, unknown>) => boolean,
 		label: string,
 		timeoutMs?: number,
 	) => Promise<Record<string, unknown>>;
-	ofType: (type: string) => Array<Record<string, unknown>>;
 };
 
 export function collect(ws: WebSocket): MessageCollector {
@@ -127,18 +113,7 @@ export function collect(ws: WebSocket): MessageCollector {
 		try {
 			const parsed: unknown = JSON.parse(event.data);
 			if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return;
-			const record = parsed as Record<string, unknown>;
-			// The send queue wraps several frames into one `batch` envelope; the app sees the
-			// inner messages, so the collector does too.
-			if (record.type === "batch" && Array.isArray(record.messages)) {
-				for (const inner of record.messages) {
-					if (typeof inner === "object" && inner !== null && !Array.isArray(inner)) {
-						push(inner as Record<string, unknown>);
-					}
-				}
-				return;
-			}
-			push(record);
+			push(parsed as Record<string, unknown>);
 		} catch {
 			// non-JSON frames are never part of the contract
 		}
@@ -162,10 +137,6 @@ export function collect(ws: WebSocket): MessageCollector {
 
 	return {
 		all: () => [...messages],
-		clear: () => {
-			messages.length = 0;
-		},
-		ofType: (type: string) => messages.filter((message) => message.type === type),
 		waitFor: (type: string, timeoutMs = E2E_WAIT_MS) =>
 			waitForWhere((message) => message.type === type, type, timeoutMs),
 		waitForWhere,
@@ -176,10 +147,7 @@ export async function connectWs(port: number, token: string, timeoutMs = E2E_WAI
 	return (await connect(port, token, timeoutMs)).ws;
 }
 
-/**
- * Opens a socket with the message collector already attached, so the `status` frame the server
- * sends on open cannot slip past the listener before it is registered.
- */
+/** Opens a socket with the message collector already attached, so no frame slips past it. */
 export async function connect(
 	port: number,
 	token: string,
@@ -198,19 +166,6 @@ export async function connect(
 			reject(new Error("ws connect error"));
 		};
 	});
-}
-
-/** Points the socket at a session and waits until the server has processed the view. */
-export async function viewSession(
-	ws: WebSocket,
-	messages: MessageCollector,
-	agent: string,
-	sessionId: string,
-): Promise<void> {
-	await messages.waitFor("status");
-	messages.clear();
-	send(ws, { type: "set_view", agent, sessionId });
-	await messages.waitFor("status");
 }
 
 export function send(ws: WebSocket, message: Record<string, unknown>): void {
@@ -235,6 +190,7 @@ export function upgradeStatus(
 				`Host: ${options.host ?? `127.0.0.1:${port}`}`,
 				"Upgrade: websocket",
 				"Connection: Upgrade",
+				// The sample nonce of RFC 6455 section 1.3: any 16 bytes in base64 will do.
 				"Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==",
 				"Sec-WebSocket-Version: 13",
 			];
@@ -255,68 +211,6 @@ export function upgradeStatus(
 			reject(error);
 		});
 	});
-}
-
-/** A phone that stopped reading: completes the handshake, asks to view a session, then pauses. */
-export function stalledClient(
-	port: number,
-	token: string,
-	sessionId: string,
-	agent = "claude-code",
-): { closed: () => boolean } {
-	const socket = netConnect(port, "127.0.0.1");
-	let closed = false;
-	socket.on("close", () => {
-		closed = true;
-	});
-	socket.on("error", () => {
-		closed = true;
-	});
-	socket.on("connect", () => {
-		socket.write(
-			[
-				"GET /ws HTTP/1.1",
-				`Host: 127.0.0.1:${port}`,
-				"Upgrade: websocket",
-				"Connection: Upgrade",
-				"Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==",
-				"Sec-WebSocket-Version: 13",
-				`Sec-WebSocket-Protocol: broski-auth.${token}`,
-				"",
-				"",
-			].join("\r\n"),
-		);
-	});
-	let watched = false;
-	socket.on("data", () => {
-		if (watched) return;
-		watched = true;
-		socket.write(maskedTextFrame(JSON.stringify({ type: "set_view", agent, sessionId })));
-		socket.pause();
-	});
-	return { closed: () => closed };
-}
-
-function maskedTextFrame(text: string): Buffer {
-	const payload = Buffer.from(text, "utf8");
-	const mask = Buffer.from([1, 2, 3, 4]);
-	const header = Buffer.alloc(payload.length < 126 ? 6 : 8);
-	header[0] = 0x81;
-	if (payload.length < 126) {
-		header[1] = 0x80 | payload.length;
-		mask.copy(header, 2);
-	} else {
-		header[1] = 0x80 | 126;
-		header.writeUInt16BE(payload.length, 2);
-		mask.copy(header, 4);
-	}
-	const masked = Buffer.alloc(payload.length);
-	for (let i = 0; i < payload.length; i += 1) masked[i] = payload[i]! ^ mask[i % 4]!;
-	return Buffer.concat([header, masked]);
-}
-
-export function sleep(ms: number): Promise<void> {
-	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -358,11 +252,4 @@ export function timerProbe(): { live: () => number; restore: () => void } {
 			globalThis.clearInterval = realClearInterval;
 		},
 	};
-}
-
-export function writeJsonlSession(dir: string, name: string, lines: unknown[]): string {
-	mkdirSync(dir, { recursive: true });
-	const path = join(dir, name);
-	writeFileSync(path, `${lines.map((line) => JSON.stringify(line)).join("\n")}\n`);
-	return path;
 }

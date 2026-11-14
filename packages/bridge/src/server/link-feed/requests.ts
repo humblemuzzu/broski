@@ -5,7 +5,7 @@ import type { LinkFeedAlertKind, LinkFeedEventMessage } from "./format";
 const MAX_TRACKED_REQUESTS = 512;
 const REQUEST_TTL_MS = 10 * 60 * 1000;
 
-/** What a decision on an alert of a contract session answers, and with what. */
+/** What a decision on an alert answers, and with what. */
 export type LinkFeedContractTarget = {
 	session: SessionRef;
 	interaction: InteractionId;
@@ -16,10 +16,7 @@ export type LinkFeedContractTarget = {
 /** What a decision needs to know about an alert the daemon was told about. */
 export type LinkFeedRequest = {
 	kind: LinkFeedAlertKind;
-	/** The backend's own label for the request. */
-	requestKind?: string;
-	/** Set for a request of a contract session, whose decisions go through the core. */
-	contract?: LinkFeedContractTarget;
+	contract: LinkFeedContractTarget;
 };
 
 export type LinkFeedRequestRecord = LinkFeedRequest & {

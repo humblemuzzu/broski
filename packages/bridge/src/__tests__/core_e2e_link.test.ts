@@ -1,6 +1,6 @@
 /**
- * The bridge core end to end over the real broski-link path: a real bridge, its unix socket, the
- * old protocol's connection layer and send queue, and phones speaking the contract beside it.
+ * The bridge core end to end over the real broski-link path: a real bridge, its unix socket, its
+ * connection layer and send queue, and phones speaking the contract.
  */
 
 import { afterAll, describe, expect, setDefaultTimeout, test } from "bun:test";
@@ -36,12 +36,11 @@ function errorsOf(phone: LinkContractClient): Array<[string | undefined, string]
 }
 
 describe("the core over the link", () => {
-	test("hello is required and checked, broken frames are refused, and the old protocol still answers beside it", async () => {
+	test("hello is required and checked, and broken frames and frames that are not contract frames are refused", async () => {
 		const rig = await startCoreBridge();
 		roots.push(rig.root);
 		try {
 			const phone = await connectPhone(rig.socketPath, "phone");
-			await phone.socket.waitFor("status");
 			await phone.request("backends.list", {});
 			await phone.request("hello", {
 				protocol: { major: PROTOCOL_VERSION.major + 1, minor: 0 },
@@ -51,15 +50,19 @@ describe("the core over the link", () => {
 			expect((await phone.ok("backends.list", {})).backends.map((backend) => backend.id)).toEqual(["pi"]);
 			phone.sendRaw({ type: "no.such.request", requestId: "bad-1" });
 			phone.socket.send({ type: "contract" });
-			phone.socket.send({ type: "abort", sessionId: "an-old-protocol-abort", requestId: "old-1" });
-			const old = await phone.socket.waitForWhere((frame) => frame.requestId === "old-1", "the old protocol's answer");
-			expect(old.type).toBe("error");
+			phone.socket.send({ type: "abort", sessionId: "not-a-contract-frame", requestId: "old-1" });
+			await phone.waitForMessage(
+				() => errorsOf(phone).filter(([requestId]) => requestId === undefined).length === 2,
+				"the refusals of both frames",
+			);
 			expect(errorsOf(phone)).toEqual([
 				["phone-0", "invalid_message"],
 				["phone-1", "unsupported_version"],
 				["bad-1", "invalid_message"],
 				[undefined, "invalid_message"],
+				[undefined, "invalid_message"],
 			]);
+			expect(phone.foreignFrames()).toEqual([]);
 		} finally {
 			await rig.stop();
 		}
@@ -190,7 +193,7 @@ describe("the core over the link", () => {
 			expect(await a.request("prompt", { session, input: promptInput("x") })).toMatchObject({
 				error: { code: "not_attached" },
 			});
-			expect(a.refusals()).toEqual([]);
+			expect(a.foreignFrames()).toEqual([]);
 		} finally {
 			await rig.stop();
 		}

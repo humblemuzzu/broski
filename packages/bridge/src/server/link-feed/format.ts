@@ -1,5 +1,4 @@
 import type { BackendId } from "../../contract";
-import type { BroskiPermissionRequest, BroskiUserInputRequest } from "../../types/runtime";
 
 const TITLE_MAX = 80;
 const BODY_MAX = 200;
@@ -17,7 +16,7 @@ export type LinkFeedEventMessage = {
 	title: string;
 	body: string;
 	at: number;
-	/** The id a decision on this alert carries back; absent when the backend's event had none. */
+	/** The id a decision on this alert carries back: the interaction's, on `approval` and `attention`. */
 	request?: string;
 };
 
@@ -40,71 +39,6 @@ export function backendName(backend: BackendId): string {
 
 export function busyMessage(busy: boolean): LinkFeedBusyMessage {
 	return { type: "link_busy", busy };
-}
-
-export function approvalMessage(
-	backend: BackendId,
-	sessionId: string,
-	cwd: string | undefined,
-	request: BroskiPermissionRequest,
-	at: number,
-): LinkFeedEventMessage {
-	const metadata = request.metadata;
-	const tool = stringOf(metadata?.tool) ?? stringOf(metadata?.toolName) ?? lastSegment(stringOf(request.kind));
-	const detail =
-		summarize(metadata?.input) ??
-		summarize(metadata) ??
-		stringOf(request.message) ??
-		stringOf(request.title) ??
-		"approval required";
-	return alertEvent(
-		"approval",
-		backend,
-		sessionId,
-		cwd,
-		`${backendName(backend)} needs approval`,
-		tool ? `${tool}: ${detail}` : detail,
-		at,
-		stringOf(request.requestId),
-	);
-}
-
-export function attentionMessage(
-	backend: BackendId,
-	sessionId: string,
-	cwd: string | undefined,
-	request: BroskiUserInputRequest,
-	at: number,
-): LinkFeedEventMessage {
-	const detail = stringOf(request.prompt) ?? stringOf(request.title) ?? "input required";
-	return alertEvent(
-		"attention",
-		backend,
-		sessionId,
-		cwd,
-		`${backendName(backend)} needs input`,
-		detail,
-		at,
-		stringOf(request.requestId),
-	);
-}
-
-export function doneMessage(
-	backend: BackendId,
-	sessionId: string,
-	cwd: string | undefined,
-	summary: string | undefined,
-	at: number,
-): LinkFeedEventMessage {
-	return alertEvent(
-		"done",
-		backend,
-		sessionId,
-		cwd,
-		`${backendName(backend)} finished`,
-		summary ?? "Turn finished",
-		at,
-	);
 }
 
 export function firstLine(text: string): string | undefined {
@@ -152,11 +86,6 @@ function clamp(text: string, max: number): string {
 
 export function stringOf(value: unknown): string | undefined {
 	return typeof value === "string" && value.trim().length > 0 ? value : undefined;
-}
-
-function lastSegment(value: string | undefined): string | undefined {
-	const index = value?.lastIndexOf("/") ?? -1;
-	return index === -1 ? value : value?.slice(index + 1);
 }
 
 export function summarize(source: unknown): string | undefined {

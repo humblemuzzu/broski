@@ -2,7 +2,6 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { JsonValue } from "../contract";
 import { createFakeBackend } from "../contract/testing/fake-backend";
 import { DEFAULT_IDLE_CLOSE_MS } from "../core/keep-open";
 import { createContractSeam } from "../server/contract-seam";
@@ -31,12 +30,26 @@ function seam(backends: Parameters<typeof createContractSeam>[0], clock = new Ma
 }
 
 describe("the contract seam", () => {
-	test("claims exactly the frames of type contract", () => {
-		const contract = seam({});
-		expect(contract.owns({ type: "contract", message: {} })).toBe(true);
-		const others: JsonValue[] = [{ type: "abort" }, { message: {} }, ["contract"], null, "contract", 1];
-		for (const frame of others) {
-			expect(contract.owns(frame)).toBe(false);
+	test("answers every frame that is not a contract frame, unparsable text included, invalid_message", async () => {
+		const sent: string[] = [];
+		const root = mkdtempSync(join(tmpdir(), "broski-seam-"));
+		roots.push(root);
+		const contract = createContractSeam(
+			{ journalDirectory: join(root, "journals") },
+			"0.0.0-test",
+			{ sendPayload: (_ws, payload) => sent.push(payload) },
+			LIMITS,
+			LOG,
+		);
+		const ws = {} as Parameters<typeof contract.receive>[0];
+		const others = ["{not json", JSON.stringify({ type: "abort" }), JSON.stringify(["contract"]), "null", "1"];
+		for (const raw of others) await contract.receive(ws, raw);
+		expect(sent).toHaveLength(others.length);
+		for (const payload of sent) {
+			expect(JSON.parse(payload)).toMatchObject({
+				type: "contract",
+				message: { type: "error", error: { code: "invalid_message" } },
+			});
 		}
 	});
 

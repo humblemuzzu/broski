@@ -1,7 +1,7 @@
 /**
- * The Claude Code adapter as the bridge registers it behind `claudeCode.contract` (PLAN D28): the CLI the one resolver
- * finds (D35), the CLI version this build carries (D3), the bridge's login-shell environment, `~/.broski/claude-code`
- * for its own state, the custom tools of `custom-tools.ts` (D30) and the terminal hook's receiver (D26).
+ * The Claude Code adapter as the bridge registers it (PLAN D28): the user's `claude` the resolver finds (D35), the CLI
+ * version the pinned SDK was released with (D3), the bridge's login-shell environment, `~/.broski/claude-code` for its
+ * own state, the custom tools of `custom-tools.ts` (D30) and the terminal hook's receiver (D26).
  */
 
 import { homedir } from "node:os";

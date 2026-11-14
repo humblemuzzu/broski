@@ -1,7 +1,6 @@
 import { piBackendFactory } from "../backends/pi/factory";
 import { defaultLinkDirectory } from "../backends/pi/terminal/link";
 import { readConfig } from "../config";
-import type { BackendFactory, BackendId } from "../contract";
 import type { ClaudeCodeWiring } from "./claude-code-wiring";
 import type { ContractOptions } from "./contract-seam";
 
@@ -13,9 +12,12 @@ const piWithLink: ReturnType<typeof piBackendFactory> = async (host) => {
 	);
 };
 
-/** The backends the bridge core serves: Pi, and Claude Code once `claudeCode.contract` is on (PLAN D28). */
-export function contractOptions(claudeCode?: ClaudeCodeWiring): ContractOptions {
-	const backends: [BackendId, BackendFactory][] = [["pi", piWithLink]];
-	if (claudeCode?.backend) backends.push(["claude-code", claudeCode.backend]);
-	return { backends };
+/** The backends the bridge core serves: Pi and Claude Code. */
+export function contractOptions(claudeCode: ClaudeCodeWiring): ContractOptions {
+	return {
+		backends: [
+			["pi", piWithLink],
+			["claude-code", claudeCode.backend],
+		],
+	};
 }

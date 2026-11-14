@@ -44,11 +44,3 @@ export function parseFrame(data: unknown): Record<string, unknown> | null {
 		return null;
 	}
 }
-
-/**
- * Tell the bridge this socket is looking at `sessionId`. Runtime events for other sessions are
- * only cross-session activity, so a bench client that never does this receives no deltas.
- */
-export function watchSession(ws: WebSocket, agent: string, sessionId: string): void {
-	ws.send(JSON.stringify({ type: "set_view", agent, sessionId }));
-}

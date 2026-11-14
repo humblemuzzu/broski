@@ -1,79 +1,16 @@
-import { runTeardown, type TeardownResult, type TeardownTask } from "./teardown";
-
-export type StoppableResource = {
-	stop: () => unknown;
-};
+import { runTeardown, type TeardownResult } from "./teardown";
 
 export type BridgeTeardownResources = {
-	/** Session -> tailer maps for every backend that runs external tails. */
-	externalTails: Array<Map<string, StoppableResource>>;
-	eventBuffers: Array<Map<string, unknown>>;
-	closeFsWatchers: () => void;
-	stopPtyRuntime: () => unknown;
-	uninstallHooks: Array<() => unknown>;
-	disposeBackends: Array<() => unknown>;
 	/** Called synchronously first so no new work is accepted while cleanup runs. */
 	stopServers: () => void;
+	/** The bridge core and every backend it serves. */
+	disposeBackends: () => unknown;
 };
 
 export type BridgeTeardownOptions = {
 	timeoutMs?: number;
 	log?: (message: string) => void;
 };
-
-export function buildTeardownTasks(resources: BridgeTeardownResources): TeardownTask[] {
-	const stopTails = () => {
-		for (const tails of resources.externalTails) {
-			for (const tail of tails.values()) {
-				try {
-					tail.stop();
-				} catch {
-					// A failed tail must not block the rest of the teardown.
-				}
-			}
-			tails.clear();
-		}
-	};
-
-	const clearBuffers = () => {
-		for (const buffer of resources.eventBuffers) {
-			buffer.clear();
-		}
-	};
-
-	const disposeBackends = async () => {
-		await Promise.all(resources.disposeBackends.map((dispose) => dispose()));
-	};
-
-	return [
-		{ name: "external-tails", run: stopTails },
-		{ name: "event-buffers", run: clearBuffers },
-		{ name: "fs-watchers", run: resources.closeFsWatchers },
-		{ name: "pty-runtime", run: resources.stopPtyRuntime },
-		...resources.uninstallHooks.map((run, index) => ({ name: `hook-uninstall-${index + 1}`, run })),
-		{ name: "backends", run: disposeBackends },
-	];
-}
-
-export type FailedBindResources = {
-	intervals: Array<ReturnType<typeof setInterval> | null>;
-	/** Directory watchers a server instance created before its bind failed. */
-	closeFsWatchers?: () => void;
-	/** Unregisters the bounded-state collections a server instance registered for the sweep. */
-	unregisterSweepables?: Array<() => void>;
-};
-
-/**
- * Cancels the timers, watchers and registered state a server instance started before its port bind
- * failed, so a retry does not stack them.
- */
-export function releaseFailedBindResources(resources: FailedBindResources): void {
-	for (const interval of resources.intervals) {
-		if (interval) clearInterval(interval);
-	}
-	resources.closeFsWatchers?.();
-	for (const unregister of resources.unregisterSweepables ?? []) unregister();
-}
 
 export async function stopBridgeResources(
 	resources: BridgeTeardownResources,
@@ -85,7 +22,7 @@ export async function stopBridgeResources(
 		// Server is already down or refused to stop.
 	}
 
-	return await runTeardown(buildTeardownTasks(resources), {
+	return await runTeardown([{ name: "backends", run: resources.disposeBackends }], {
 		timeoutMs: options?.timeoutMs,
 		onError: (name, error) => options?.log?.(`[shutdown] ${name} cleanup failed: ${describeError(error)}`),
 		onTimeout: (pending) => options?.log?.(`[shutdown] cleanup timed out; still pending: ${pending.join(", ")}`),

@@ -6,7 +6,7 @@ export type AllowedDirectory = { status: "allowed"; cwd: string } | Rejected;
 
 /**
  * A request's working directory as the bridge's directory policy (`getSecurePath` in production)
- * allows it: canonical, or refused `invalid_input`, as the old protocol refuses it with "Access denied".
+ * allows it: canonical, or refused `invalid_input`.
  */
 export async function allowedDirectory(policy: DirectoryPolicy, cwd: string): Promise<AllowedDirectory> {
 	const canonical = await policy(cwd);

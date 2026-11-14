@@ -1,7 +1,6 @@
 import packageMeta from "../package.json";
 import type { CliOptions } from "./cli";
 import type { BroskiConfig } from "./config";
-import { setClaudeExecutableProvider } from "./connectors/claude-code/executable";
 import { bindWithRetry, isAddressInUse } from "./lifecycle/port-retry";
 import { logDaemon, setDaemonLogger } from "./logging/daemon-log";
 import { createBridgeLogger } from "./logging/logger";
@@ -138,11 +137,9 @@ export async function runServe(cli: CliOptions, config: BroskiConfig): Promise<v
 		{ daemon: cli.daemon, linkSocket: cli.linkSocket },
 	);
 
-	const claudeCli = () => resolveClaudeCliPath(defaultClaudeCliEnvironment(config.claudeCode.cliPath));
-	setClaudeExecutableProvider(claudeCli);
 	const claudeCode = createClaudeCodeWiring({
 		settings: config.claudeCode,
-		cli: claudeCli,
+		cli: () => resolveClaudeCliPath(defaultClaudeCliEnvironment(config.claudeCode.cliPath)),
 		version,
 		log: bridgeLogger.info,
 	});
@@ -161,36 +158,12 @@ export async function runServe(cli: CliOptions, config: BroskiConfig): Promise<v
 		logDaemon("  Press Ctrl+C to shutdown");
 	}
 
-	startupUpdateCheck(version, (msg) => logDaemon(msg))
-		.then((result) => {
-			if (!result?.updateAvailable) return;
-			bridgeServer.broadcast({
-				type: "status",
-				data: {
-					updateAvailable: true,
-					latestVersion: result.latestVersion,
-					currentVersion: result.currentVersion,
-				},
-			});
-		})
-		.catch(() => {
-			/* best-effort */
-		});
+	void startupUpdateCheck(version, (msg) => logDaemon(msg));
 
 	if (cli.daemon) {
 		startPeriodicUpdateCheck(
 			version,
-			(result) => {
-				logDaemon(`[update] Bridge v${result.latestVersion} available (current: v${result.currentVersion})`);
-				serveState.bridgeServer?.broadcast({
-					type: "status",
-					data: {
-						updateAvailable: true,
-						latestVersion: result.latestVersion,
-						currentVersion: result.currentVersion,
-					},
-				});
-			},
+			(result) => logDaemon(`[update] Bridge v${result.latestVersion} available (current: v${result.currentVersion})`),
 			(msg) => logDaemon(msg),
 		);
 	}

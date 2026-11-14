@@ -16,7 +16,7 @@
 
 import { existsSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { extractPtySidecar } from "./pty/sidecar-embed";
+import { extractPtySidecar } from "./workspace/pty/sidecar-embed";
 
 const binDir = dirname(process.execPath);
 

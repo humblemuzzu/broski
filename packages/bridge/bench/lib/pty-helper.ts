@@ -6,8 +6,8 @@
 
 import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { isNativePtyAvailable } from "../../src/pty/native-pty";
-import { ptySidecarName } from "../../src/pty/sidecar-embed";
+import { isNativePtyAvailable } from "../../src/workspace/pty/native-pty";
+import { ptySidecarName } from "../../src/workspace/pty/sidecar-embed";
 
 const BRIDGE_ROOT = resolve(import.meta.dir, "..", "..");
 const PTY_SOURCE = resolve(BRIDGE_ROOT, "native", "pty", "pty_helper.c");

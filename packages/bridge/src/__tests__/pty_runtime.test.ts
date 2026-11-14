@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { PtyRuntime } from "../pty/runtime";
-import type { PtySession, ServerMessage } from "../types";
+import type { PtyManager } from "../workspace/pty/manager";
+import type { NativePtyConnection } from "../workspace/pty/native-pty";
+import { PtyRuntime } from "../workspace/pty/runtime";
+import type { PtyEvent, PtySession } from "../workspace/pty/types";
 
 function makeSession(id: string): PtySession {
 	return {
@@ -14,121 +16,126 @@ function makeSession(id: string): PtySession {
 	};
 }
 
-/** Flushes and health frames are timer-driven; wait for the frame instead of guessing how long it takes. */
+/** Flushes and health snapshots are timer-driven; wait for the event instead of guessing how long it takes. */
 async function waitFor(condition: () => boolean, timeoutMs = 10_000): Promise<boolean> {
 	const deadline = Date.now() + timeoutMs;
 	while (!condition() && Date.now() < deadline) await Bun.sleep(10);
 	return condition();
 }
 
-describe("PtyRuntime", () => {
-	test("native path supports input/output, errors, health, and exit events", async () => {
-		const sentMessages: Array<{ ws: any; message: ServerMessage }> = [];
-		const replies: ServerMessage[] = [];
+/** A manager over no native library: the runtime only calls these. */
+function fakeManager(overrides: Partial<PtyManager> = {}): PtyManager {
+	const manager = {
+		available: true,
+		connectNative: () => null,
+		stop: async () => {},
+		listPty: async () => [makeSession("n1")],
+		createPty: async () => makeSession("n1"),
+		getPty: async () => makeSession("n1"),
+		updatePty: async (_id: string, title?: string) => ({ ...makeSession("n1"), title: title ?? "t" }),
+		deletePty: async () => true,
+		resize: () => {},
+		...overrides,
+	};
+	return manager as unknown as PtyManager;
+}
 
+describe("PtyRuntime", () => {
+	test("a connected terminal: output batched to its listener, input written, resize clamped, health, then exit", async () => {
 		let onData: ((data: string) => void) | null = null;
 		let onExit: ((code?: number) => void) | null = null;
 		const writes: string[] = [];
-
-		const nativeConn = {
-			onData: (cb: (data: string) => void) => {
-				onData = cb;
+		const connection: NativePtyConnection = {
+			onData: (callback) => {
+				onData = callback;
 			},
-			onExit: (cb: (code?: number) => void) => {
-				onExit = cb;
+			onExit: (callback) => {
+				onExit = callback;
 			},
-			write: (data: string) => {
+			write: (data) => {
 				writes.push(data);
 			},
 			resize: () => {},
 			disconnect: () => {},
 		};
-
-		let resizeCall: any[] | null = null;
-
-		const manager = {
-			available: true,
-			connectNative: () => nativeConn,
-			stop: async () => {},
-			listPty: async () => [makeSession("n1")],
-			createPty: async () => makeSession("n1"),
-			getPty: async () => makeSession("n1"),
-			updatePty: async (_id: string, title?: string) => ({ ...makeSession("n1"), title: title ?? "t" }),
-			deletePty: async () => true,
-			resize: async (...args: any[]) => {
-				resizeCall = args;
-			},
-		};
-
+		let resized: unknown[] | null = null;
 		const runtime = new PtyRuntime({
-			ptyManager: manager as any,
-			send: (ws, message) => sentMessages.push({ ws, message }),
+			ptyManager: fakeManager({
+				connectNative: () => connection,
+				resize: (...args: unknown[]) => {
+					resized = args;
+				},
+			}),
 			log: () => {},
 			resolveSecurePath: async (path) => path,
 		});
+		const events: PtyEvent[] = [];
 
-		const wsA = { id: "A" } as any;
-
-		await runtime.handleMessage(wsA, { type: "pty_connect", ptyId: "n1" } as any, (m) => replies.push(m));
-		expect(replies.some((m) => m.type === "pty_connected")).toBe(true);
+		expect(runtime.connect("n1", (event) => events.push(event))).toEqual({ ok: true, value: null });
 
 		onData!("foo");
 		onData!("bar");
-		expect(await waitFor(() => sentMessages.some((m) => m.message.type === "pty_output"))).toBe(true);
-		const output = sentMessages.find((m) => m.message.type === "pty_output");
-		expect(output).toBeTruthy();
-		expect((output!.message as any).data).toBe("foobar");
+		expect(await waitFor(() => events.some((event) => event.type === "output"))).toBe(true);
+		expect(events.find((event) => event.type === "output")).toEqual({ type: "output", ptyId: "n1", data: "foobar" });
 
-		await runtime.handleMessage(wsA, { type: "pty_input", ptyId: "n1", data: "pwd\n" } as any, (m) => replies.push(m));
+		expect(runtime.input("n1", "pwd\n")).toEqual({ ok: true, value: null });
 		expect(writes).toEqual(["pwd\n"]);
+		expect(runtime.input("n1", "x".repeat(10_001))).toEqual({ ok: false, error: "Input too large (max 10KB)" });
+		expect(runtime.input("nope", "ls\n")).toEqual({ ok: false, error: "PTY is not connected" });
 
-		await runtime.handleMessage(wsA, { type: "pty_input", ptyId: "n1", data: "x".repeat(10_001) } as any, (m) =>
-			replies.push(m),
-		);
-		const sizeError = sentMessages.find((m) => m.message.type === "pty_error");
-		expect(sizeError).toBeTruthy();
-		expect((sizeError!.message as any).error).toContain("max 10KB");
+		runtime.resize("n1", 45, 9000);
+		expect(resized!).toEqual(["n1", 45, 500]);
 
-		await runtime.handleMessage(wsA, { type: "pty_resize", ptyId: "n1", rows: 45, cols: 160 } as any, (m) =>
-			replies.push(m),
-		);
-		expect(resizeCall!).toEqual(["n1", 45, 160, undefined]);
-
-		// Health snapshot cadence and stats
-		expect(await waitFor(() => sentMessages.some((m) => m.message.type === "pty_health"))).toBe(true);
-		const health = sentMessages.find((m) => m.message.type === "pty_health");
-		expect(health).toBeTruthy();
-		expect((health!.message as any).bytesIn).toBeGreaterThan(0);
-		expect((health!.message as any).bytesOut).toBeGreaterThan(0);
+		const counted = (event: PtyEvent) => event.type === "health" && event.bytesIn === 4 && event.bytesOut === 6;
+		expect(await waitFor(() => events.some(counted))).toBe(true);
 
 		onExit!(0);
-		expect(await waitFor(() => sentMessages.some((m) => m.message.type === "pty_exit"))).toBe(true);
-		const exit = sentMessages.find((m) => m.message.type === "pty_exit");
-		expect(exit).toBeTruthy();
-		expect((exit!.message as any).exitCode).toBe(0);
+		expect(events.at(-1)).toEqual({ type: "exit", ptyId: "n1", exitCode: 0 });
 
 		await runtime.stop();
 	});
 
-	test("native create validates secure cwd and forwards CRUD replies", async () => {
-		const replies: ServerMessage[] = [];
-
-		const manager = {
-			available: true,
-			connectNative: () => null,
-			stop: async () => {},
-			listPty: async () => [makeSession("n1")],
-			createPty: async () => makeSession("n1"),
-			getPty: async () => makeSession("n1"),
-			updatePty: async () => makeSession("n1"),
-			deletePty: async () => true,
-			resize: async () => {},
+	test("a listener that throws is dropped, and the terminal is disconnected once nobody listens", async () => {
+		let onData: ((data: string) => void) | null = null;
+		let disconnects = 0;
+		const connection: NativePtyConnection = {
+			onData: (callback) => {
+				onData = callback;
+			},
+			onExit: () => {},
+			write: () => {},
+			resize: () => {},
+			disconnect: () => {
+				disconnects += 1;
+			},
 		};
+		const runtime = new PtyRuntime({
+			ptyManager: fakeManager({ connectNative: () => connection }),
+			log: () => {},
+			resolveSecurePath: async (path) => path,
+		});
+		const kept: PtyEvent[] = [];
+		const keeper = (event: PtyEvent) => kept.push(event);
+		runtime.connect("n1", () => {
+			throw new Error("gone");
+		});
+		runtime.connect("n1", keeper);
 
+		onData!("hello");
+		expect(await waitFor(() => kept.some((event) => event.type === "output"))).toBe(true);
+		expect(disconnects).toBe(0);
+
+		runtime.forget(keeper);
+		expect(disconnects).toBe(1);
+		expect(runtime.input("n1", "ls\n")).toEqual({ ok: false, error: "PTY is not connected" });
+
+		await runtime.stop();
+	});
+
+	test("create puts the directory through the policy; the rest answer values, and a missing terminal is an error", async () => {
 		let secureCalls = 0;
 		const runtime = new PtyRuntime({
-			ptyManager: manager as any,
-			send: () => {},
+			ptyManager: fakeManager({ getPty: async () => null }),
 			log: () => {},
 			resolveSecurePath: async (path) => {
 				secureCalls += 1;
@@ -136,26 +143,26 @@ describe("PtyRuntime", () => {
 			},
 		});
 
-		const ws = {} as any;
+		expect(await runtime.create({ cwd: "/denied" })).toEqual({ ok: false, error: "Invalid terminal directory" });
+		expect(await runtime.create({ cwd: "/allowed" })).toEqual({ ok: true, value: makeSession("n1") });
+		expect(secureCalls).toBe(2);
+		expect(await runtime.list()).toEqual({ ok: true, value: [makeSession("n1")] });
+		expect(await runtime.get("n1")).toEqual({ ok: false, error: "PTY session not found" });
+		expect(await runtime.update("n1", { title: "renamed" })).toMatchObject({ ok: true, value: { title: "renamed" } });
+		expect(await runtime.delete("n1")).toBe(true);
+		expect(runtime.connect("n1", () => {})).toEqual({ ok: false, error: "PTY session not found" });
 
-		await runtime.handleMessage(ws, { type: "create_pty", cwd: "/denied" } as any, (m) => replies.push(m));
-		expect(replies.at(-1)?.type).toBe("error");
+		await runtime.stop();
+	});
 
-		await runtime.handleMessage(ws, { type: "list_pty" } as any, (m) => replies.push(m));
-		await runtime.handleMessage(ws, { type: "create_pty", cwd: "/allowed" } as any, (m) => replies.push(m));
-		await runtime.handleMessage(ws, { type: "get_pty", ptyId: "n1" } as any, (m) => replies.push(m));
-		await runtime.handleMessage(ws, { type: "update_pty", ptyId: "n1", title: "renamed" } as any, (m) =>
-			replies.push(m),
-		);
-		await runtime.handleMessage(ws, { type: "delete_pty", ptyId: "n1" } as any, (m) => replies.push(m));
-
-		expect(secureCalls).toBeGreaterThan(0);
-		expect(replies.some((m) => m.type === "pty_list")).toBe(true);
-		expect(replies.some((m) => m.type === "pty_created")).toBe(true);
-		expect(replies.some((m) => m.type === "pty")).toBe(true);
-		expect(replies.some((m) => m.type === "pty_updated")).toBe(true);
-		expect(replies.some((m) => m.type === "pty_deleted")).toBe(true);
-
+	test("without the native library every terminal operation says so", async () => {
+		const runtime = new PtyRuntime({
+			ptyManager: fakeManager({ available: false } as Partial<PtyManager>),
+			log: () => {},
+			resolveSecurePath: async (path) => path,
+		});
+		expect(await runtime.list()).toEqual({ ok: false, error: "Terminal not available on this machine" });
+		expect(await runtime.create({})).toEqual({ ok: false, error: "Terminal not available on this machine" });
 		await runtime.stop();
 	});
 });

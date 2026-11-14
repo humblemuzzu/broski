@@ -3,10 +3,10 @@ import { join } from "node:path";
 import type { ServerWebSocket } from "bun";
 import type { ActionResult, BackendFactory, BackendId, InteractionAnswer, JsonValue, SessionRef } from "../contract";
 import { BridgeCore, type CoreConnection } from "../core/core";
-import { CONTRACT_FRAME_TYPE } from "../core/frame";
 import type { CoreClock } from "../core/ports";
 import { getSecurePath } from "../security";
-import type { RuntimeSendQueue } from "../utils/runtime-send-queue";
+import { frameBytes } from "../transport/send-limits";
+import type { SendQueue } from "../transport/send-queue";
 import { openPromptJournal } from "./contract-prompt-journal";
 import { openReplacementJournal } from "./contract-replacement-journal";
 import type { BridgeLimits } from "./limits";
@@ -18,7 +18,7 @@ function defaultJournalDirectory(): string {
 	return join(homedir(), ".broski", "core");
 }
 
-/** How the bridge core is set up. Production passes none and serves no backend until Phase 4 brings the adapters. */
+/** How the bridge core is set up: the backends it serves, and what tests change. */
 export type ContractOptions = {
 	readonly backends?: ReadonlyArray<readonly [BackendId, BackendFactory]>;
 	/**
@@ -30,17 +30,15 @@ export type ContractOptions = {
 	readonly clock?: CoreClock;
 };
 
-/** The contract protocol on the bridge's sockets, beside the old protocol until Phase 4 deletes it. */
+/** The contract protocol on the bridge's client sockets: every frame a client sends goes to the core. */
 export type ContractSeam = {
-	/** True for a `{"type":"contract",…}` frame, which belongs to the core rather than the old routes. */
-	owns(frame: JsonValue): boolean;
-	/** A frame `owns` claimed, `bytes` long in UTF-8. */
-	receive(ws: ServerWebSocket<unknown>, frame: JsonValue, bytes: number): Promise<void>;
 	/**
-	 * A frame the connection layer's rate limit refused. A contract frame is answered `rate_limited`
-	 * here and this returns true; for any other frame it returns false and the old protocol answers.
+	 * One frame from a client socket. The core serves a `{"type":"contract","message":…}` frame and answers
+	 * anything else, unparsable text included, `invalid_message`.
 	 */
-	refuse(ws: ServerWebSocket<unknown>, raw: string | Uint8Array): boolean;
+	receive(ws: ServerWebSocket<unknown>, raw: string | Uint8Array): Promise<void>;
+	/** A frame the connection layer's rate limit refused: answered `rate_limited` and not served. */
+	refuse(ws: ServerWebSocket<unknown>, raw: string | Uint8Array): void;
 	disconnect(ws: ServerWebSocket<unknown>): void;
 	/**
 	 * A person's answer that does not come from a phone attached to the session: the daemon's feed
@@ -67,7 +65,7 @@ const SYSTEM_CLOCK: CoreClock = {
 export function createContractSeam(
 	options: ContractOptions | undefined,
 	version: string,
-	queue: Pick<RuntimeSendQueue, "sendPayload">,
+	queue: Pick<SendQueue, "sendPayload">,
 	limits: Pick<BridgeLimits, "linkMessageLimitBytes">,
 	logger: Pick<LeveledLogger, "logInfo" | "logError">,
 ): ContractSeam {
@@ -99,20 +97,12 @@ export function createContractSeam(
 		connections.set(ws, connection);
 		return connection;
 	};
-	const owns = (frame: JsonValue): boolean =>
-		frame !== null && typeof frame === "object" && !Array.isArray(frame) && frame.type === CONTRACT_FRAME_TYPE;
 	return {
-		owns,
-		receive: (ws, frame, bytes) =>
+		receive: (ws, raw) =>
 			connectionOf(ws)
-				.receive(frame, bytes)
+				.receive(parsedFrame(raw), frameBytes(raw))
 				.catch((error) => logger.logError(`[core] a frame failed in the core: ${String(error)}`)),
-		refuse: (ws, raw) => {
-			const frame = parsedFrame(raw);
-			if (frame === undefined || !owns(frame)) return false;
-			connectionOf(ws).refuse(frame);
-			return true;
-		},
+		refuse: (ws, raw) => connectionOf(ws).refuse(parsedFrame(raw)),
 		disconnect: (ws) => {
 			connections.get(ws)?.close();
 			connections.delete(ws);
@@ -127,10 +117,11 @@ export function createContractSeam(
 	};
 }
 
-function parsedFrame(raw: string | Uint8Array): JsonValue | undefined {
+/** The frame as JSON; text that does not parse is `null`, which the core refuses as no contract frame. */
+function parsedFrame(raw: string | Uint8Array): JsonValue {
 	try {
 		return JSON.parse(typeof raw === "string" ? raw : new TextDecoder().decode(raw));
 	} catch {
-		return undefined;
+		return null;
 	}
 }

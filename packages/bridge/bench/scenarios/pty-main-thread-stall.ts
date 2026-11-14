@@ -17,7 +17,7 @@ import {
 	nativeCreatePty,
 	nativeDeletePty,
 	nativeGetPty,
-} from "../../src/pty/native-pty";
+} from "../../src/workspace/pty/native-pty";
 import { ensureNativePtyLibrary } from "../lib/pty-helper";
 import { runScenario } from "../lib/report";
 

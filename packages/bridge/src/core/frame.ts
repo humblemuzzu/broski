@@ -1,12 +1,12 @@
 import type { JsonValue, ServerMessage } from "../contract";
 import { frameBytes } from "../transport/send-limits";
 
-/** The old protocol shares the socket, and two of its types (`abort`, `error`) are also contract types. */
+/** Every contract message travels in a frame of this type, in both directions. */
 export const CONTRACT_FRAME_TYPE = "contract";
 
 /**
- * How every frame the core sends begins, to the character: the app tells a contract frame from the old
- * protocol's by it before it reads the JSON, so it can read a large one off its UI thread.
+ * How every frame the core sends begins, to the character: a client can tell a contract frame by it before
+ * it reads the JSON, so it can read a large one off its UI thread.
  */
 export const CONTRACT_FRAME_PREFIX = `{"type":"${CONTRACT_FRAME_TYPE}","message":`;
 

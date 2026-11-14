@@ -1,9 +1,6 @@
 import type { ServerWebSocket } from "bun";
 import type { CoreObserver } from "../../core/observer";
-import type { RouteRegistry } from "../../routing/registry";
-import type { ServerDeps } from "../../routing/types";
 import { LINK_OVERFLOW_CLOSE_CODE } from "../../transport/send-limits";
-import type { BroskiRuntimeEvent } from "../../types/runtime";
 import type { ContractAnswerer } from "./contract-decision";
 import { ContractFeedTap } from "./contract-tap";
 import { createLinkDecisionApplier, type LinkDecisionApplier, parseLinkDecision } from "./decision";
@@ -57,16 +54,12 @@ export function resetLinkFeed(): void {
 	contractTap.reset();
 }
 
-/** Routes the daemon's decisions through the registry the phone's own messages are dispatched to. */
-export function attachLinkDecisionPath(
-	registry: RouteRegistry,
-	serverDeps: ServerDeps,
-	contractAnswer: ContractAnswerer,
-): void {
-	applyDecision = createLinkDecisionApplier({ registry, serverDeps, requests, contractAnswer });
+/** Sends the daemon's decisions to the core (`ContractSeam.answer`), as a person's answers. */
+export function attachLinkDecisionPath(answer: ContractAnswerer): void {
+	applyDecision = createLinkDecisionApplier(requests, answer);
 }
 
-/** The daemon's feed, the one connection that sees runtime activity instead of a device's view. */
+/** The daemon's feed, the one connection that sees every open session instead of a device's view. */
 export function attachLinkFeed(ws: ServerWebSocket<unknown>, log?: (message: string) => void): void {
 	if (log) logFeed = log;
 	const previous = activeFeed;
@@ -100,22 +93,13 @@ export function handleLinkFeedMessage(ws: ServerWebSocket<unknown>, raw: string 
 		sendToFeed(LINK_FEED_PONG);
 		return;
 	}
-	if (frame.type === "link_decision" && applyDecision) void applyDecisionFrame(applyDecision, ws, frame);
+	if (frame.type === "link_decision" && applyDecision) void applyDecisionFrame(applyDecision, frame);
 }
 
-/** The one entry point every backend's runtime events reach the feed through. */
-export function tapRuntimeEvent(event: BroskiRuntimeEvent): void {
-	tracker.handle(event);
-}
-
-async function applyDecisionFrame(
-	apply: LinkDecisionApplier,
-	ws: ServerWebSocket<unknown>,
-	frame: Record<string, unknown>,
-): Promise<void> {
+async function applyDecisionFrame(apply: LinkDecisionApplier, frame: Record<string, unknown>): Promise<void> {
 	const decision = parseLinkDecision(frame);
 	if (!decision) return;
-	const outcome = await apply(decision, ws);
+	const outcome = await apply(decision);
 	sendToFeed({
 		type: "link_decision_result",
 		request: decision.request,

@@ -1,6 +1,6 @@
 /**
  * The daemon's feed on the link socket: identity, replacement, the health check, and the isolation
- * that keeps it out of the device world.
+ * that keeps it out of the client world.
  */
 
 import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test";
@@ -74,39 +74,27 @@ describe("link feed connection", () => {
 			feed.send({ type: "link_feed_ping" });
 			expect((await feed.waitFor("link_feed_pong")).type).toBe("link_feed_pong");
 
-			feed.send({ type: "list_devices", requestId: "feed-1" });
-			feed.send({ type: "client_ping", id: "feed-2", sentAt: Date.now() });
-			await expect(
-				feed.waitForWhere((frame) => frame.type === "devices" || frame.type === "client_pong", "a reply", 300),
-			).rejects.toThrow("timeout waiting for a reply");
+			feed.send({ type: "contract", message: { type: "backends.list", requestId: "feed-1" } });
+			feed.send({ type: "link_feed_unknown" });
+			await expect(feed.waitForWhere((frame) => frame.type !== "link_feed_pong", "a reply", 300)).rejects.toThrow(
+				"timeout waiting for a reply",
+			);
 		} finally {
 			feed.close();
 		}
 	});
 
-	test("the feed is no device and receives no device broadcast", async () => {
+	test("the feed is no client: it is not counted, and a client that leaves tells it nothing", async () => {
 		const phone = await connectUnixWs(socketPath, OWNER_HEADERS);
 		try {
-			phone.send({ type: "list_devices", requestId: "before-feed" });
-			const before = await phone.waitForWhere(
-				(frame) => frame.type === "devices" && frame.requestId === "before-feed",
-				"the first device list",
-			);
-
+			const clients = bridge.server.connections();
 			const feed = await connectFeed(socketPath);
 			try {
-				phone.send({ type: "list_devices", requestId: "with-feed" });
-				const after = await phone.waitForWhere(
-					(frame) => frame.type === "devices" && frame.requestId === "with-feed",
-					"the second device list",
-				);
-				expect(after.data).toEqual(before.data);
-				expect((after.data as Array<{ deviceId: string }>).some((device) => device.deviceId === DEVICE_ID)).toBe(true);
-
+				expect(bridge.server.connections()).toBe(clients);
 				phone.close();
 				await expect(
-					feed.waitForWhere((frame) => frame.type === "device_disconnected", "device_disconnected", 400),
-				).rejects.toThrow("timeout waiting for device_disconnected");
+					feed.waitForWhere((frame) => frame.type !== "link_busy", "a frame about the client", 400),
+				).rejects.toThrow("timeout waiting for a frame about the client");
 			} finally {
 				feed.close();
 			}

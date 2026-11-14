@@ -8,17 +8,24 @@ import { homedir } from "node:os";
 import { createNewAuthState } from "../../auth-token";
 import { getDefaultConfig } from "../../config/defaults";
 import { getConfigPath, writeConfig } from "../../config/read-write";
-import { installCcHook, uninstallCcHook } from "../../handlers/cc_hook_installer";
 import { createBridgeLogger } from "../../logging/logger";
 import { isIsolationActive, realHomeDir } from "../../safety/real-home-guard";
+import { setClaudeCodeTerminalHook } from "../../server/claude-code-hooks";
 import { ensureTlsMaterial } from "../../tls";
 import { GUARD_REPORT_PREFIX, type GuardProbeReport } from "./guard-probe-protocol";
 
 type Probe = { name: string; work: () => Promise<unknown> };
 
+/** The hook installer logs a refusal instead of throwing it, so the probe reports what it logged. */
+async function terminalHookOutcome(): Promise<string> {
+	const lines: string[] = [];
+	const log = (line: string) => lines.push(line);
+	await setClaudeCodeTerminalHook(true, { port: 1234, token: "guard-token", certPath: undefined, log });
+	return lines.join("\n");
+}
+
 const probes: Probe[] = [
-	{ name: "installCcHook", work: () => installCcHook({ port: 1234, token: "guard-token", scheme: "https" }) },
-	{ name: "uninstallCcHook", work: () => uninstallCcHook() },
+	{ name: "claudeCodeTerminalHook", work: terminalHookOutcome },
 	{ name: "writeConfig.defaultPath", work: () => writeConfig(getDefaultConfig()) },
 	{ name: "createNewAuthState", work: () => createNewAuthState() },
 	{ name: "ensureTlsMaterial", work: () => ensureTlsMaterial() },

@@ -1,4 +1,4 @@
-/** The `BackendFactory` for `claude-code` (core README §16), registered behind `claudeCode.contract` (D28). */
+/** The `BackendFactory` for `claude-code` (core README §16), registered in every bridge (D28). */
 
 import type { BackendFactory } from "../../contract";
 import { claudeCodeBackendOf, createClaudeCodeParts } from "./backend";

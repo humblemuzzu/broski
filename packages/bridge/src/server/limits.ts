@@ -15,8 +15,6 @@ export type BridgeLimits = {
 	maxClients: number;
 	/** Separate cap for the broski-link unix socket, so link clients never take a network slot. */
 	linkMaxClients: number;
-	allowedDeviceIds: Set<string>;
-	maxBatchSize: number;
 };
 
 const MB = 1024 * 1024;
@@ -38,18 +36,6 @@ function countFromEnv(name: string, fallback: string, min: number, max: number):
 	return Math.max(min, Math.min(Number(process.env[name] ?? fallback), max));
 }
 
-function allowedDevices(): Set<string> {
-	const raw = (process.env.BROSKI_ALLOWED_DEVICE_IDS ?? "").trim();
-	return new Set(
-		raw
-			? raw
-					.split(",")
-					.map((entry) => entry.trim())
-					.filter(Boolean)
-			: [],
-	);
-}
-
 export function createLimits(): BridgeLimits {
 	const rate = {
 		perSecond: countFromEnv("BROSKI_RATE_LIMIT_PER_SEC", "60", 10, 5000),
@@ -66,7 +52,5 @@ export function createLimits(): BridgeLimits {
 		rate,
 		maxClients: countFromEnv("BROSKI_MAX_CLIENTS", "8", 1, 100),
 		linkMaxClients: countFromEnv("BROSKI_LINK_MAX_CLIENTS", "32", 1, 64),
-		allowedDeviceIds: allowedDevices(),
-		maxBatchSize: 50,
 	};
 }

@@ -138,42 +138,42 @@ describe("the layer check", () => {
 			check("state/bounded-map.ts", 'import { z } from "zod";\nimport { frameBytes } from "../transport/send-limits";'),
 		).toEqual([]);
 		const source = [
-			'import { sendPayload } from "../server/streams";',
+			'import { createBridgeState } from "../server/state";',
 			'import type { BridgeLogger } from "../logging/logger";',
 			'import { readFileSync } from "node:fs";',
 		].join("\n");
 		const outside = "is not the core's infrastructure, which the core reaches through this file";
 		expect(check("transport/send-limits.ts", source)).toEqual([
-			`transport/send-limits.ts: ../server/streams ${outside}`,
+			`transport/send-limits.ts: ../server/state ${outside}`,
 			`transport/send-limits.ts: ../logging/logger ${outside}`,
 			"transport/send-limits.ts: node:fs is not zod",
 		]);
-		expect(check("transport/other.ts", 'import { x } from "../server/streams";')).toEqual([]);
+		expect(check("transport/other.ts", 'import { x } from "../server/state";')).toEqual([]);
 	});
 
-	test("stops the core importing connectors, handlers, runtime mappers, adapters, the server or the contract's test kit", () => {
+	test("stops the core importing the workspace, the logger, adapters, the server or the contract's test kit", () => {
 		const source = [
-			'import { x } from "../connectors/pi";',
-			'import { y } from "../handlers/unified";',
-			'import { z } from "../runtime/pi-runtime-event-mapper";',
+			'import { x } from "../workspace/files/file-ops";',
+			'import { y } from "../logging/logger";',
+			'import { z } from "../security";',
 			'import { a } from "../backends/claude-code/index";',
-			'import { b } from "../server/streams";',
-			'import type { ServerMessage } from "../types";',
+			'import { b } from "../server/state";',
+			'import type { BridgeLimits } from "../server/limits";',
 			'import { createFakeBackend } from "../contract/testing/fake-backend";',
-			'import { RuntimeSendQueue } from "../utils/runtime-send-queue";',
+			'import { SendQueue } from "../transport/send-queue";',
 			'import { readFileSync } from "node:fs";',
 			'import { query } from "@anthropic-ai/claude-agent-sdk";',
 		].join("\n");
 		const outside = "is neither the core, the contract nor the core's infrastructure";
 		expect(check("core/hub.ts", source)).toEqual([
-			`core/hub.ts: ../connectors/pi ${outside}`,
-			`core/hub.ts: ../handlers/unified ${outside}`,
-			`core/hub.ts: ../runtime/pi-runtime-event-mapper ${outside}`,
+			`core/hub.ts: ../workspace/files/file-ops ${outside}`,
+			`core/hub.ts: ../logging/logger ${outside}`,
+			`core/hub.ts: ../security ${outside}`,
 			`core/hub.ts: ../backends/claude-code/index ${outside}`,
-			`core/hub.ts: ../server/streams ${outside}`,
-			`core/hub.ts: ../types ${outside}`,
+			`core/hub.ts: ../server/state ${outside}`,
+			`core/hub.ts: ../server/limits ${outside}`,
 			`core/hub.ts: ../contract/testing/fake-backend ${outside}`,
-			`core/hub.ts: ../utils/runtime-send-queue ${outside}`,
+			`core/hub.ts: ../transport/send-queue ${outside}`,
 			"core/hub.ts: node:fs is not zod",
 			"core/hub.ts: @anthropic-ai/claude-agent-sdk is not zod",
 		]);

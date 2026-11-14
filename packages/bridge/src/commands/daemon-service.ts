@@ -22,7 +22,7 @@ import {
 	stopDaemon,
 	uninstallDaemon,
 } from "../platform";
-import { removeClaudeCodeHooks } from "../server/claude-code-hooks";
+import { removeClaudeCodeTerminalHook } from "../server/claude-code-hooks";
 import { defaultTlsPaths } from "../tls";
 import { getConfiguredPort } from "./config-port";
 
@@ -117,7 +117,7 @@ export async function runUninstall(): Promise<void> {
 		console.error(`  Failed to uninstall service: ${err}`);
 		return;
 	}
-	await removeClaudeCodeHooks({ certPath: defaultTlsPaths().certPath, log: (line) => console.log(`  ${line}`) });
+	await removeClaudeCodeTerminalHook({ certPath: defaultTlsPaths().certPath, log: (line) => console.log(`  ${line}`) });
 
 	console.log("\n  Broski background service uninstalled.");
 	console.log("   The bridge will no longer start automatically.");

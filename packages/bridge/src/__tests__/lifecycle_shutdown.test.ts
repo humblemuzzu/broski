@@ -1,9 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import {
-	type BridgeTeardownResources,
-	releaseFailedBindResources,
-	stopBridgeResources,
-} from "../lifecycle/bridge-teardown";
+import { stopBridgeResources } from "../lifecycle/bridge-teardown";
 import { createShutdownController } from "../lifecycle/shutdown-guard";
 import { runTeardown } from "../lifecycle/teardown";
 
@@ -100,119 +96,52 @@ describe("runTeardown", () => {
 	});
 });
 
-function makeResources(overrides?: Partial<BridgeTeardownResources>): {
-	resources: BridgeTeardownResources;
-	calls: string[];
-	tails: Map<string, { stop: () => void }>;
-	buffers: Map<string, unknown>;
-} {
-	const calls: string[] = [];
-	const tails = new Map<string, { stop: () => void }>([["session-1", { stop: () => calls.push("tail") }]]);
-	const buffers = new Map<string, unknown>([["session-1", []]]);
-
-	const resources: BridgeTeardownResources = {
-		externalTails: [tails],
-		eventBuffers: [buffers],
-		closeFsWatchers: () => calls.push("fs-watchers"),
-		stopPtyRuntime: async () => {
-			await sleep(5);
-			calls.push("pty");
-		},
-		uninstallHooks: [async () => calls.push("hook-cc")],
-		disposeBackends: [() => calls.push("pi")],
-		stopServers: () => calls.push("servers"),
-		...overrides,
-	};
-
-	return { resources, calls, tails, buffers };
-}
-
 describe("stopBridgeResources", () => {
-	test("stops servers first and then every async cleanup", async () => {
-		const { resources, calls, tails, buffers } = makeResources();
+	test("stops the servers first, then awaits the backends' disposal", async () => {
+		const calls: string[] = [];
+		const result = await stopBridgeResources(
+			{
+				stopServers: () => calls.push("servers"),
+				disposeBackends: async () => {
+					await sleep(20);
+					calls.push("backends");
+				},
+			},
+			{ timeoutMs: 500, log: () => {} },
+		);
 
-		const result = await stopBridgeResources(resources, { timeoutMs: 500, log: () => {} });
-
-		expect(calls[0]).toBe("servers");
-		expect(tails.size).toBe(0);
-		expect(buffers.size).toBe(0);
-		for (const expected of ["fs-watchers", "pty", "hook-cc", "pi"]) {
-			expect(calls).toContain(expected);
-		}
-		expect(result.pending).toEqual([]);
-		expect(result.failed).toEqual([]);
+		expect(calls).toEqual(["servers", "backends"]);
+		expect(result).toMatchObject({ timedOut: false, completed: ["backends"], pending: [], failed: [] });
 	});
 
-	test("survives a hanging PTY shutdown and still stops the rest", async () => {
-		const { resources, calls } = makeResources({
-			stopPtyRuntime: () => new Promise<void>(() => {}),
-		});
+	test("a disposal that hangs is given up on at the budget and logged", async () => {
 		const logs: string[] = [];
-
-		const result = await stopBridgeResources(resources, { timeoutMs: 40, log: (message) => logs.push(message) });
+		const result = await stopBridgeResources(
+			{ stopServers: () => {}, disposeBackends: () => new Promise<void>(() => {}) },
+			{ timeoutMs: 40, log: (message) => logs.push(message) },
+		);
 
 		expect(result.timedOut).toBe(true);
-		expect(result.pending).toEqual(["pty-runtime"]);
-		expect(calls).toContain("hook-cc");
-		expect(calls).toContain("pi");
-		expect(logs.some((line) => line.includes("pty-runtime"))).toBe(true);
+		expect(result.pending).toEqual(["backends"]);
+		expect(logs.some((line) => line.includes("backends"))).toBe(true);
 	});
 
-	test("a throwing cleanup is logged and does not abort the rest", async () => {
-		const { resources, calls } = makeResources({
-			closeFsWatchers: () => {
-				throw new Error("watchers refused to close");
-			},
-		});
+	test("a server that refuses to stop and a disposal that throws are logged, never thrown", async () => {
 		const logs: string[] = [];
-
-		const result = await stopBridgeResources(resources, { timeoutMs: 200, log: (message) => logs.push(message) });
-
-		expect(result.failed.map((failure) => failure.name)).toEqual(["fs-watchers"]);
-		expect(calls).toContain("pty");
-		expect(logs.some((line) => line.includes("watchers refused to close"))).toBe(true);
-	});
-
-	test("clears every tail map it is given", async () => {
-		const cc = new Map([["a", { stop: () => {} }]]);
-		const cx = new Map([["b", { stop: () => {} }]]);
-		const oc = new Map([["c", { stop: () => {} }]]);
-		const { resources } = makeResources({ externalTails: [cc, cx, oc] });
-
-		await stopBridgeResources(resources, { timeoutMs: 200, log: () => {} });
-
-		expect([cc.size, cx.size, oc.size]).toEqual([0, 0, 0]);
-	});
-
-	test("awaits async backend disposal", async () => {
-		let disposed = false;
-		const { resources } = makeResources({
-			disposeBackends: [
-				() => {},
-				async () => {
-					await sleep(20);
-					disposed = true;
+		const result = await stopBridgeResources(
+			{
+				stopServers: () => {
+					throw new Error("already down");
 				},
-			],
-		});
+				disposeBackends: () => {
+					throw new Error("backend refused to stop");
+				},
+			},
+			{ timeoutMs: 200, log: (message) => logs.push(message) },
+		);
 
-		await stopBridgeResources(resources, { timeoutMs: 500, log: () => {} });
-
-		expect(disposed).toBe(true);
-	});
-});
-
-describe("releaseFailedBindResources", () => {
-	test("stops the timers a failed bind already started", async () => {
-		let ticks = 0;
-		const interval = setInterval(() => ticks++, 5);
-
-		releaseFailedBindResources({
-			intervals: [interval, null],
-		});
-
-		await sleep(30);
-		expect(ticks).toBe(0);
+		expect(result.failed.map((failure) => failure.name)).toEqual(["backends"]);
+		expect(logs.some((line) => line.includes("backend refused to stop"))).toBe(true);
 	});
 });
 

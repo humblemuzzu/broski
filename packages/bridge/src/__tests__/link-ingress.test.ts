@@ -9,6 +9,7 @@ import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { parseCli } from "../cli";
+import { PROTOCOL_VERSION } from "../contract";
 import { createLimits } from "../server/limits";
 import { linkSendLimits } from "../server/link-send-policy";
 import { type BridgeHandle, E2E_TEST_TIMEOUT_MS, setupTestEnv, startBridge } from "./e2e/harness";
@@ -20,7 +21,6 @@ const env = setupTestEnv();
 const DEVICE_ID = "0123456789abcdef0123456789abcdef";
 const SECOND_DEVICE_ID = "fedcba9876543210fedcba9876543210";
 const PIPELINE_DEVICE_ID = "aaaabbbbccccddddaaaabbbbccccdddd";
-const RTT_DEVICE_ID = "11112222333344441111222233334444";
 const VALID_HEADERS = {
 	"x-broski-device-id": DEVICE_ID,
 	"x-broski-device-name": "Link Phone",
@@ -106,41 +106,21 @@ describe("link socket CLI", () => {
 });
 
 describe("link socket message pipeline", () => {
-	test("a link client is registered as the device its headers name", async () => {
-		const client = await connectUnixWs(socketPath, {
-			"x-broski-device-id": PIPELINE_DEVICE_ID,
-			"x-broski-device-name": "Pipeline Phone",
-			"x-broski-role": "owner",
-		});
+	test("a link client's frames reach the core, and it is answered with contract frames only", async () => {
+		const client = await connectUnixWs(socketPath, { ...VALID_HEADERS, "x-broski-device-id": PIPELINE_DEVICE_ID });
 		try {
-			client.send({ type: "list_devices", requestId: "link-1" });
-			const reply = await client.waitFor("devices");
-			expect(reply.requestId).toBe("link-1");
-			const self = (reply.data as Array<Record<string, unknown>>).find(
-				(device) => device.deviceId === PIPELINE_DEVICE_ID,
-			);
-			expect(self?.deviceName).toBe("Pipeline Phone");
-
-			client.send({ type: "client_ping", id: "ping-1", sentAt: Date.now() });
-			expect((await client.waitFor("client_pong")).id).toBe("ping-1");
-		} finally {
-			client.close();
-		}
-	});
-
-	test("a pong a link client sends answers the bridge's own ping, so rtt is measured over the link", async () => {
-		const client = await connectUnixWs(socketPath, { ...VALID_HEADERS, "x-broski-device-id": RTT_DEVICE_ID });
-		try {
-			const sentAt = Date.now() - 40;
-			client.send({ type: "pong", id: "hb-1", sentAt });
-			const metrics = await client.waitFor("connection_metrics");
-			const rttMs = (metrics.data as Record<string, unknown>).rttMs as number;
-			expect(rttMs).toBeGreaterThanOrEqual(40);
-
-			client.send({ type: "list_devices", requestId: "link-rtt" });
-			const reply = await client.waitFor("devices");
-			const self = (reply.data as Array<Record<string, unknown>>).find((device) => device.deviceId === RTT_DEVICE_ID);
-			expect(self?.rttMs).toBe(rttMs);
+			client.send({
+				type: "contract",
+				message: {
+					type: "hello",
+					requestId: "link-1",
+					protocol: PROTOCOL_VERSION,
+					client: { name: "link", version: "0" },
+				},
+			});
+			const reply = await client.waitFor("contract");
+			expect(reply.message).toMatchObject({ type: "hello.result", requestId: "link-1" });
+			expect(client.frames().every((frame) => frame.type === "contract")).toBe(true);
 		} finally {
 			client.close();
 		}
@@ -184,10 +164,7 @@ describe("link socket cap", () => {
 				"x-broski-device-id": SECOND_DEVICE_ID,
 			});
 			try {
-				first.send({ type: "list_devices", requestId: "cap-1" });
-				expect((await first.waitFor("devices")).requestId).toBe("cap-1");
-				second.send({ type: "list_devices", requestId: "cap-2" });
-				expect((await second.waitFor("devices")).requestId).toBe("cap-2");
+				expect(capped.server.connections()).toBe(2);
 				expect(await unixUpgradeStatus(capSocketPath, VALID_HEADERS)).toBe(429);
 			} finally {
 				first.close();

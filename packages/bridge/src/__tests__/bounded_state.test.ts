@@ -4,12 +4,6 @@
  */
 
 import { beforeEach, describe, expect, it } from "bun:test";
-import { getCachedProject, invalidateCache, resetCacheStats, setCachedProject } from "../file-search-cache";
-import {
-	enrichRuntimeEvent,
-	RUNTIME_STREAM_STATE_MAX_KEYS,
-	RUNTIME_STREAM_STATE_TTL_MS,
-} from "../runtime/stream-contract";
 import {
 	type BoundedEvictReason,
 	BoundedMap,
@@ -17,7 +11,12 @@ import {
 	registerSweepable,
 	sweepBoundedState,
 } from "../state/bounded-map";
-import { recordRuntimeEvent, replayRuntimeEventsSince } from "../utils/runtime-replay-buffer";
+import {
+	getCachedProject,
+	invalidateCache,
+	resetCacheStats,
+	setCachedProject,
+} from "../workspace/files/file-search-cache";
 
 type Eviction = { key: string; value: number; reason: BoundedEvictReason };
 
@@ -143,62 +142,6 @@ describe("bounded state registry", () => {
 		}
 
 		expect(boundedStateSizes().some((state) => state.name === "tests-bounded-map")).toBe(false);
-	});
-});
-
-describe("runtime stream state", () => {
-	const event = (sessionId: string) =>
-		enrichRuntimeEvent(
-			{
-				type: "assistant_text_delta",
-				backend: "claude-code",
-				timestampMs: Date.now(),
-				sessionId,
-				delta: "text",
-			},
-			{ backend: "claude-code", sessionId },
-		);
-
-	it("keeps an active session through a sweep and expires an idle one", () => {
-		const states = () => boundedStateSizes().find((state) => state.name === "runtime-stream-states");
-		const before = states()?.size ?? 0;
-		event("active-session");
-		event("idle-session");
-		expect(states()?.size ?? 0).toBeGreaterThanOrEqual(before + 2);
-
-		event("active-session");
-		sweepBoundedState(Date.now() + RUNTIME_STREAM_STATE_TTL_MS / 2);
-		expect(states()?.size).toBeGreaterThanOrEqual(before + 2);
-
-		event("active-session");
-		sweepBoundedState(Date.now() + RUNTIME_STREAM_STATE_TTL_MS + 1);
-		expect(states()?.size).toBe(0);
-		expect(RUNTIME_STREAM_STATE_MAX_KEYS).toBeGreaterThan(0);
-	});
-});
-
-describe("runtime replay buffers", () => {
-	const runtimeEvent = (sessionId: string, seq: number) =>
-		recordRuntimeEvent({
-			type: "runtime_event",
-			backend: "claude-code",
-			data: {
-				type: "assistant_text_delta",
-				backend: "claude-code",
-				timestampMs: Date.now(),
-				sessionId,
-				seq,
-				delta: "text",
-			},
-		});
-
-	it("keeps the most recent streams and drops the rest", () => {
-		for (let index = 0; index < 200; index++) runtimeEvent(`stream-${index}`, index + 1);
-
-		expect(replayRuntimeEventsSince({ backend: "claude-code", sessionId: "stream-0", lastSeq: 0 })).toHaveLength(0);
-		expect(replayRuntimeEventsSince({ backend: "claude-code", sessionId: "stream-199", lastSeq: 0 })).toHaveLength(1);
-		const stats = boundedStateSizes().find((state) => state.name === "runtime-replay-buffers");
-		expect(stats?.size).toBe(stats?.limit);
 	});
 });
 

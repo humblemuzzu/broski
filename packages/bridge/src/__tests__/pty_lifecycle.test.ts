@@ -16,7 +16,7 @@ import {
 	nativeDeletePty,
 	nativeGetPty,
 	nativeListPty,
-} from "../pty/native-pty";
+} from "../workspace/pty/native-pty";
 
 const PTY_TEST_TIMEOUT_MS = 25_000;
 const EXIT_DEADLINE_MS = 10_000;

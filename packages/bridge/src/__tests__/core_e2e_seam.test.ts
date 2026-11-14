@@ -1,7 +1,7 @@
 /**
  * The seam between the core and the running bridge, end to end over the broski-link socket: the
- * hooks in the old connection layer, the rate limit, the old guards beside the contract, and the
- * backends starting after the bridge listens.
+ * connection layer's hooks, the rate limit, the frame bounds, and the backends starting after the
+ * bridge listens.
  */
 
 import { afterAll, describe, expect, setDefaultTimeout, test } from "bun:test";
@@ -58,7 +58,7 @@ describe("the seam into the running bridge", () => {
 		expect(rig.disposals()).toBe(1);
 	});
 
-	test("a contract frame holding keys the old protocol refuses is the core's to judge, and gets its one answer", async () => {
+	test("a contract frame holding keys an object merge would misread is the core's to judge, and gets its one answer", async () => {
 		const rig = await startCoreBridge();
 		roots.push(rig.root);
 		try {
@@ -82,9 +82,6 @@ describe("the seam into the running bridge", () => {
 			]);
 			expect(refused).toMatchObject({ type: "error", error: { code: "invalid_message" } });
 			expect(contractAnswers(phone, "legal")).toMatchObject([{ message: { error: { code: "not_attached" } } }]);
-			phone.socket.send({ type: "abort", requestId: "old", constructor: 1 });
-			const old = await phone.socket.waitFor("error");
-			expect(old).toMatchObject({ message: "Invalid JSON payload" });
 		} finally {
 			await rig.stop();
 		}
@@ -123,9 +120,7 @@ describe("the seam into the running bridge", () => {
 					.filter((message) => message.type === "error")
 					.every((message) => message.error.code === "rate_limited"),
 			).toBe(true);
-			expect(phone.socket.frames().filter((frame) => frame.message === "RATE_LIMITED")).toEqual([]);
-			phone.socket.send({ type: "an_old_request", requestId: "old" });
-			await phone.socket.waitForWhere((frame) => frame.message === "RATE_LIMITED", "the old protocol's refusal");
+			expect(phone.foreignFrames()).toEqual([]);
 		} finally {
 			await rig.stop();
 		}

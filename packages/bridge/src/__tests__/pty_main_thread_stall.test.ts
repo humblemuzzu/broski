@@ -16,7 +16,7 @@ import {
 	nativeCreatePty,
 	nativeDeletePty,
 	nativeGetPty,
-} from "../pty/native-pty";
+} from "../workspace/pty/native-pty";
 
 const STALL_SAMPLES = 50;
 const WRITE_STALL_BYTES = 4 * 1024 * 1024;

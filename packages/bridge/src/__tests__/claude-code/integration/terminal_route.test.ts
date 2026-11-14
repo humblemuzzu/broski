@@ -1,7 +1,8 @@
 /**
- * A real bridge with `claudeCode.contract` on serves the terminal hook's route behind its bearer token and, once it
+ * A real bridge with Claude Code wired serves the terminal hook's route behind its bearer token and, once it
  * listens, puts the hook in the user's Claude settings (`CLAUDE_CONFIG_DIR`, a temp dir here). The adapter itself is
- * left out (its production factory would read the real home); `contract_pi_registration` covers its registration.
+ * not registered with the core (its production factory would read the real home); `contract_pi_registration` covers
+ * its registration.
  */
 
 import { afterEach, describe, expect, test } from "bun:test";
@@ -42,7 +43,7 @@ async function settingsWritten(path: string): Promise<Record<string, unknown>> {
 	return JSON.parse(readFileSync(path, "utf8"));
 }
 
-describe("a bridge with claudeCode.contract on", () => {
+describe("a bridge with Claude Code wired", () => {
 	test(
 		"answers the terminal hook behind its token and installs the hook pointing at itself",
 		async () => {
@@ -50,12 +51,12 @@ describe("a bridge with claudeCode.contract on", () => {
 			claude = createClaudeHome();
 			process.env.CLAUDE_CONFIG_DIR = claude.configDir;
 			const wiring = createClaudeCodeWiring({
-				settings: { contract: true, terminalAsks: true },
+				settings: { terminalAsks: true },
 				cli: () => ({ ok: false, reason: "not needed", notes: [] }),
 				version: "0.0.0-e2e",
 				log: () => undefined,
 			});
-			const bridge = await startBridge({ claudeCode: { ...wiring, backend: undefined } });
+			const bridge = await startBridge({ claudeCode: wiring });
 			try {
 				const url = `http://127.0.0.1:${bridge.port}/cc-terminal-hook`;
 				const post = (headers: Record<string, string>) =>

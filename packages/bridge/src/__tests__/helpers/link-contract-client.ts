@@ -1,7 +1,6 @@
 /**
  * A phone speaking the contract protocol to a real bridge over the broski-link unix socket, the way
- * the daemon carries it: every contract message in a `{"type":"contract","message":…}` frame beside
- * the old protocol's frames, which it ignores.
+ * the daemon carries it: every contract message in a `{"type":"contract","message":…}` frame.
  */
 
 import {
@@ -46,9 +45,9 @@ export class LinkContractClient {
 		});
 	}
 
-	/** Frames the old protocol uses to refuse a frame the link could not carry; the core must never cause one. */
-	refusals(): LinkFrame[] {
-		return this.socket.frames().filter((frame) => frame.type === "error" && frame.code === "response_too_large");
+	/** Frames that are not contract frames; the bridge sends a client none. */
+	foreignFrames(): LinkFrame[] {
+		return this.socket.frames().filter((frame) => frame.type !== "contract");
 	}
 
 	envelopes(session: SessionRef): EventEnvelope[] {

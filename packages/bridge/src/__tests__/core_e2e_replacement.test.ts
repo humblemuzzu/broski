@@ -64,7 +64,7 @@ describe("a phone that comes back to a replaced session", () => {
 			const attached = await back.ok("session.attach", { session: away.next });
 			if (attached.sync.kind !== "snapshot") throw new Error("expected a snapshot");
 			expect(attached.sync.snapshot.run).toBeDefined();
-			expect(back.refusals()).toEqual([]);
+			expect(back.foreignFrames()).toEqual([]);
 		} finally {
 			await rig.stop();
 		}

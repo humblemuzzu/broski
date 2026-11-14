@@ -61,18 +61,16 @@ describe("checkBudget", () => {
 
 	test("a metric over its max fails with the value and the bound", () => {
 		const results = passingResults();
-		const target = results.find((entry) => entry.name === "soak-sessions");
-		if (target) target.metrics.cpuMs = 999_999;
+		withMetric(results, "server-idle", "rssDeltaBytes", 999_999_999);
 		const verdict = checkBudget(runWith(results));
-		expect(verdict.failures.some((line) => line.includes("soak-sessions.cpuMs"))).toBe(true);
+		expect(verdict.failures.some((line) => line.includes("server-idle.rssDeltaBytes"))).toBe(true);
 	});
 
 	test("a metric under its min fails", () => {
 		const results = passingResults();
-		const target = results.find((entry) => entry.name === "soak-sessions");
-		if (target) target.metrics.views = 1;
+		withMetric(results, "pty-main-thread-stall", "idleSessions", 1);
 		const verdict = checkBudget(runWith(results));
-		expect(verdict.failures.some((line) => line.includes("soak-sessions.views"))).toBe(true);
+		expect(verdict.failures.some((line) => line.includes("pty-main-thread-stall.idleSessions"))).toBe(true);
 	});
 
 	test("an equals check fails on any other value", () => {
@@ -85,10 +83,9 @@ describe("checkBudget", () => {
 
 	test("a missing metric fails", () => {
 		const results = passingResults();
-		const target = results.find((entry) => entry.name === "stream-throughput");
-		if (target) delete target.metrics.c1_charsMin;
+		delete scenarioIn(results, "pty-main-thread-stall").metrics.yieldSamples;
 		const verdict = checkBudget(runWith(results));
-		expect(verdict.failures.some((line) => line.includes("stream-throughput.c1_charsMin"))).toBe(true);
+		expect(verdict.failures.some((line) => line.includes("pty-main-thread-stall.yieldSamples"))).toBe(true);
 	});
 
 	test("a skipped scenario is not a failure", () => {
@@ -106,17 +103,20 @@ describe("checkBudget", () => {
 
 	test("a scenario that errored fails even when its metrics look fine", () => {
 		const results = passingResults();
-		const target = results.find((entry) => entry.name === "stream-stalled-client");
-		if (target) target.status = "error";
+		scenarioIn(results, "server-idle").status = "error";
 		const verdict = checkBudget(runWith(results));
-		expect(verdict.failures.some((line) => line.includes("stream-stalled-client"))).toBe(true);
+		expect(verdict.failures.some((line) => line.includes("server-idle"))).toBe(true);
 	});
 });
 
-function withMetric(run: BenchRun, scenario: string, metric: string, value: number | string | boolean): BenchRun {
-	const target = run.results.find((entry) => entry.name === scenario);
-	if (target) target.metrics[metric] = value;
-	return run;
+function scenarioIn(results: ScenarioResult[], scenario: string): ScenarioResult {
+	const target = results.find((entry) => entry.name === scenario);
+	if (!target) throw new Error(`no ${scenario} in the results`);
+	return target;
+}
+
+function withMetric(results: ScenarioResult[], scenario: string, metric: string, value: number | string | boolean) {
+	scenarioIn(results, scenario).metrics[metric] = value;
 }
 
 function passingRuns(count: number): BenchRun[] {
@@ -124,56 +124,54 @@ function passingRuns(count: number): BenchRun[] {
 }
 
 describe("checkBudget across runs", () => {
-	// stream-throughput.c1_p99Ms is a `median` gate; c1_eventsMax is a `worst` gate.
+	// pty-main-thread-stall.idleStallP99Ms is a `median` gate; server-idle.maxChildProcesses is a `worst` gate.
 	const noisyP99 = 5000;
-	const coalescingBroken = 20_000;
+	const leakedChildren = 3;
 
 	test("a median gate ignores one noisy run", () => {
 		const runs = passingRuns(3);
-		withMetric(runs[1]!, "stream-throughput", "c1_p99Ms", noisyP99);
+		withMetric(runs[1]!.results, "pty-main-thread-stall", "idleStallP99Ms", noisyP99);
 		const verdict = checkBudget(runs);
 		expect(verdict.failures).toEqual([]);
-		const line = verdict.lines.find((entry) => entry.includes("c1_p99Ms"));
+		const line = verdict.lines.find((entry) => entry.includes("idleStallP99Ms"));
 		expect(line).toContain("median of 3");
 	});
 
 	test("a median gate fails when the middle sample breaks the bound", () => {
 		const runs = passingRuns(3);
-		withMetric(runs[0]!, "stream-throughput", "c1_p99Ms", noisyP99);
-		withMetric(runs[1]!, "stream-throughput", "c1_p99Ms", noisyP99);
+		withMetric(runs[0]!.results, "pty-main-thread-stall", "idleStallP99Ms", noisyP99);
+		withMetric(runs[1]!.results, "pty-main-thread-stall", "idleStallP99Ms", noisyP99);
 		const verdict = checkBudget(runs);
-		expect(verdict.failures.some((line) => line.includes("stream-throughput.c1_p99Ms"))).toBe(true);
+		expect(verdict.failures.some((line) => line.includes("pty-main-thread-stall.idleStallP99Ms"))).toBe(true);
 	});
 
 	test("a capacity gate fails on a single bad run", () => {
 		const runs = passingRuns(3);
-		withMetric(runs[2]!, "stream-throughput", "c1_eventsMax", coalescingBroken);
+		withMetric(runs[2]!.results, "server-idle", "maxChildProcesses", leakedChildren);
 		const verdict = checkBudget(runs);
-		expect(verdict.failures.some((line) => line.includes("stream-throughput.c1_eventsMax"))).toBe(true);
+		expect(verdict.failures.some((line) => line.includes("server-idle.maxChildProcesses"))).toBe(true);
 	});
 
 	test("an equals gate must hold in every run", () => {
 		const runs = passingRuns(3);
-		withMetric(runs[2]!, "module-load", "loadedSdkPackages", "@anthropic-ai/claude-agent-sdk");
+		withMetric(runs[2]!.results, "module-load", "loadedSdkPackages", "@anthropic-ai/claude-agent-sdk");
 		const verdict = checkBudget(runs);
 		expect(verdict.failures.some((line) => line.includes("module-load.loadedSdkPackages"))).toBe(true);
 	});
 
 	test("a scenario that errored in one run fails", () => {
 		const runs = passingRuns(3);
-		const target = runs[1]!.results.find((entry) => entry.name === "stream-throughput");
-		if (target) target.status = "error";
+		scenarioIn(runs[1]!.results, "server-idle").status = "error";
 		const verdict = checkBudget(runs);
 		expect(verdict.failures.some((line) => line.includes("run 2: scenario error"))).toBe(true);
 	});
 
 	test("a scenario present in only some runs is judged on the samples it has", () => {
 		const runs = passingRuns(3);
-		const absent = runs[2]!.results.find((entry) => entry.name === "stream-throughput");
-		if (absent) runs[2]!.results = runs[2]!.results.filter((entry) => entry !== absent);
-		withMetric(runs[1]!, "stream-throughput", "c1_eventsMax", coalescingBroken);
+		runs[2]!.results = runs[2]!.results.filter((entry) => entry.name !== "server-idle");
+		withMetric(runs[1]!.results, "server-idle", "maxChildProcesses", leakedChildren);
 		const verdict = checkBudget(runs);
-		expect(verdict.failures.some((line) => line.includes("stream-throughput.c1_eventsMax"))).toBe(true);
+		expect(verdict.failures.some((line) => line.includes("server-idle.maxChildProcesses"))).toBe(true);
 	});
 
 	test("the median of an even sample count is the lower-middle value", () => {

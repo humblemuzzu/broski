@@ -267,7 +267,27 @@ describe("approvals", () => {
 			ok: false,
 			error: "unknown request",
 		});
+		expect(await decide(current, request, "allow", current.session.sessionId, "nonsense")).toMatchObject({
+			ok: false,
+			error: "unknown backend",
+		});
 		expect(current.answers).toEqual([]);
+	});
+
+	test("a device socket's link_decision is no contract frame: it is refused and answers nothing", async () => {
+		const current = await startScene(TOOL);
+		await prompt(current);
+		const request = interactionOf((await alertsOf(current.feed, 1))[0] as LinkFrame);
+		const decision = { type: "link_decision", backend: "pi", session: current.session.sessionId, request };
+		current.phone.socket.send({ ...decision, decision: "allow" });
+		const refused = await current.phone.waitForMessage(
+			(message) => message.type === "error" && message.error.code === "invalid_message",
+			"the refusal",
+		);
+		expect(refused.type).toBe("error");
+		expect(current.phone.socket.frames().some((frame) => frame.type === "link_decision_result")).toBe(false);
+		expect(current.answers).toEqual([]);
+		expect(await decide(current, request, "deny")).toMatchObject({ ok: true, error: null });
 	});
 
 	test("a feed that redials is told the approval again, until it is answered or taken back", async () => {

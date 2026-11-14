@@ -1,4 +1,5 @@
 import "../lib/bench-home";
+import { PROTOCOL_VERSION } from "../../src/contract";
 import { startBenchServer } from "../lib/bench-server";
 import { loadedAgentSdkPackages } from "../lib/loaded-sdks";
 import { childProcessesOf } from "../lib/process-table";
@@ -13,7 +14,9 @@ await runScenario(async () => {
 	const handle = await startBenchServer();
 	const sdkAfterServer = loadedAgentSdkPackages();
 	const ws = await connectBenchClient(handle.port, handle.token);
-	await waitForMessage(ws, "status", 10_000);
+	const hello = { type: "hello", requestId: "bench", protocol: PROTOCOL_VERSION, client: { name: "bench", version: "0" } };
+	ws.send(JSON.stringify({ type: "contract", message: hello }));
+	await waitForMessage(ws, "contract", 10_000);
 	const sdkAfterClient = loadedAgentSdkPackages();
 
 	let messagesReceived = 0;

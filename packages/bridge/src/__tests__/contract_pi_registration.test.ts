@@ -1,5 +1,5 @@
 /**
- * The bridge core serves Pi: a real bridge serves it to a phone on its link socket beside the old protocol.
+ * The bridge core serves Pi and Claude Code; a real bridge serves Pi to a phone on its link socket.
  */
 
 import { afterEach, describe, expect, test } from "bun:test";
@@ -18,19 +18,16 @@ afterEach(() => {
 	env = undefined;
 });
 
-describe("which backends the core serves", () => {
-	const wiring = (contract: boolean) =>
-		createClaudeCodeWiring({
-			settings: { contract, terminalAsks: true },
-			cli: () => ({ ok: false, reason: "not needed", notes: [] }),
-			version: "0.0.0-test",
-			log: () => undefined,
-		});
+const wiring = createClaudeCodeWiring({
+	settings: { terminalAsks: true },
+	cli: () => ({ ok: false, reason: "not needed", notes: [] }),
+	version: "0.0.0-test",
+	log: () => undefined,
+});
 
-	test("pi, and Claude Code only with claudeCode.contract on", () => {
-		expect((contractOptions().backends ?? []).map(([id]) => id)).toEqual(["pi"]);
-		expect((contractOptions(wiring(false)).backends ?? []).map(([id]) => id)).toEqual(["pi"]);
-		expect((contractOptions(wiring(true)).backends ?? []).map(([id]) => id)).toEqual(["pi", "claude-code"]);
+describe("which backends the core serves", () => {
+	test("pi and Claude Code", () => {
+		expect((contractOptions(wiring).backends ?? []).map(([id]) => id)).toEqual(["pi", "claude-code"]);
 	});
 });
 
@@ -42,7 +39,11 @@ describe("a bridge", () => {
 			const socketPath = join(env.root, "link.sock");
 			const bridge = await startBridge({
 				linkSocket: socketPath,
-				contract: { ...contractOptions(), journalDirectory: join(env.root, "journals") },
+				contract: {
+					// Claude Code's production factory reads the real home; only Pi runs here, in its throwaway agent dir.
+					backends: (contractOptions(wiring).backends ?? []).filter(([id]) => id === "pi"),
+					journalDirectory: join(env.root, "journals"),
+				},
 			});
 			const phone = await connectPhone(socketPath, "phone");
 			await phone.hello();

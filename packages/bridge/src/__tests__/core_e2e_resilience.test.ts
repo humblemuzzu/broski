@@ -184,7 +184,7 @@ describe("the core over an imperfect link", () => {
 				expect(size).toBeGreaterThan(900 * 1024);
 				rig.fake.fake.release(session);
 				await late.waitForEvent(session, (envelope) => envelope.event.type === "run_finished", "the end of the run");
-				expect([...runner.refusals(), ...late.refusals()]).toEqual([]);
+				expect([...runner.foreignFrames(), ...late.foreignFrames()]).toEqual([]);
 			} finally {
 				await rig.stop();
 			}

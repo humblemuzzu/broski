@@ -1,7 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { enrichRuntimeEvent, RUNTIME_STREAM_STATE_MAX_KEYS, resetRuntimeStreamState } from "../runtime/stream-contract";
 import { BoundedMap } from "../state/bounded-map";
-import type { BroskiRuntimeEvent } from "../types/runtime";
 
 function makeMap(options: { maxEntries: number; ttlMs?: number; touchOnGet?: boolean }) {
 	let clock = 1_000_000;
@@ -42,36 +40,5 @@ describe("BoundedMap.has", () => {
 
 		expect(map.has("a")).toBe(true);
 		expect([...map.keys()]).toEqual(["a", "b"]);
-	});
-});
-
-describe("runtime stream state under capacity pressure", () => {
-	const event = (sessionId: string) => {
-		const input: BroskiRuntimeEvent = {
-			type: "assistant_text_delta",
-			backend: "claude-code",
-			timestampMs: 1,
-			sessionId,
-			delta: "x",
-		};
-		return enrichRuntimeEvent(input, { backend: "claude-code", sessionId });
-	};
-
-	it("never capacity-evicts the state of a live stream", () => {
-		const hot = "evict-check-hot";
-		const idle = Array.from({ length: RUNTIME_STREAM_STATE_MAX_KEYS }, (_, index) => `evict-check-idle-${index}`);
-
-		try {
-			event(hot);
-			for (const sessionId of idle) {
-				event(hot);
-				event(sessionId);
-			}
-
-			expect(event(hot).seq).toBe(RUNTIME_STREAM_STATE_MAX_KEYS + 2);
-		} finally {
-			resetRuntimeStreamState("claude-code", hot);
-			for (const sessionId of idle) resetRuntimeStreamState("claude-code", sessionId);
-		}
 	});
 });

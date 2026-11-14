@@ -71,11 +71,7 @@ export class ContractFeedTap {
 					session.backend,
 					session.sessionId,
 					interaction.id,
-					{
-						kind: "approval",
-						requestKind: request.kind,
-						contract: { ...target, replies: permissionVerdicts(request) },
-					},
+					{ kind: "approval", contract: { ...target, replies: permissionVerdicts(request) } },
 					contractApproval(session, summary, interaction, request, at),
 				);
 				return;
@@ -84,7 +80,7 @@ export class ContractFeedTap {
 				session.backend,
 				session.sessionId,
 				interaction.id,
-				{ kind: "attention", requestKind: request.kind, contract: { ...target, replies: {} } },
+				{ kind: "attention", contract: { ...target, replies: {} } },
 				contractAttention(session, summary, interaction, at),
 			);
 		});
