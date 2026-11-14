@@ -74,12 +74,16 @@ describe("the watch, when a re-scan fails", () => {
 			spyOn(index, "refresh").mockRejectedValueOnce(Object.assign(new Error("EIO: i/o error"), { code: "EIO" }));
 			watch.start(NOBODY);
 			writeSession(env.sessionDir, chat("first", 1));
-			await Bun.sleep(500);
-			writeSession(env.sessionDir, chat("second", 1));
-			const deadline = Date.now() + 5_000;
 			const announced = () =>
 				events.flatMap((event) => (event.type === "session_updated" ? [event.summary.session.sessionId] : []));
-			while (!announced().includes("second") && Date.now() < deadline) await Bun.sleep(20);
+			// `fs.watch` on macOS starts asynchronously and may miss the first writes: the second file is written again
+			// until a re-scan reports it, and the failing one is whichever re-scan ran first.
+			const deadline = Date.now() + 5_000;
+			while (!announced().includes("second") && Date.now() < deadline) {
+				writeSession(env.sessionDir, chat("second", 1));
+				const retry = Date.now() + 300;
+				while (!announced().includes("second") && Date.now() < retry) await Bun.sleep(20);
+			}
 
 			expect(announced()).toEqual(expect.arrayContaining(["first", "second"]));
 			expect(unhandled).toEqual([]);
