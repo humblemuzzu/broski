@@ -15,11 +15,6 @@ export function parseObject(text: string): ParsedObject {
 	return isRecord(parsed) ? { value: parsed } : { problem: "the top level must be a JSON object" };
 }
 
-export function jsonProblem(text: string): string | undefined {
-	const parsed = parseObject(text);
-	return "problem" in parsed ? parsed.problem : undefined;
-}
-
 /** The file's own indentation; a file written on one line stays on one line, and a new file gets two spaces. */
 export function indentOf(text: string): string | undefined {
 	if (text.trim() === "" || text.trim() === "{}") return "  ";

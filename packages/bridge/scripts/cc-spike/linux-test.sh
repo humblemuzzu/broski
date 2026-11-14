@@ -31,7 +31,7 @@ exec docker run $RUN_ARGS $PLATFORM_ARGS -v "${REPO}:/src:ro" -e TEST_ARGS="$*" 
   apt-get update -qq >/dev/null && apt-get install -y -qq build-essential git procps zsh >/dev/null
   useradd -m runner
   mkdir -p /home/runner/work && cd /src
-  tar --exclude=node_modules --exclude=dist --exclude=.dart_tool --exclude=build --exclude=target \
+  tar --exclude=node_modules --exclude=dist --exclude=build --exclude=target \
     --exclude=.git -cf - . | tar -C /home/runner/work -xf -
   chown -R runner:runner /home/runner/work
   exec su runner -s /bin/sh -c "
