@@ -1,6 +1,6 @@
 # The Broski bridge core
 
-Status: Phase 2. The core speaks the [contract](../contract/README.md) (protocol **1.4**) to phones and the `AgentBackend` interface to adapters. Production registers Pi (`server/contract-backends.ts`); Phase 4 adds the other adapters. The old protocol keeps serving Claude Code beside it until Phase 4 moves it.
+Status: Phase 2. The core speaks the [contract](../contract/README.md) (protocol **1.0**) to phones and the `AgentBackend` interface to adapters. Production registers Pi and Claude Code (`server/contract-backends.ts`); the contract is the only protocol.
 
 Code: `packages/bridge/src/core/` (one concept per file), wired into the existing connection layer by `packages/bridge/src/server/contract-seam.ts`.
 
@@ -32,8 +32,6 @@ What it does not do: anything backend-specific. It never mints run, block, tool,
 | `backend-registry.ts` | Backends by id, their start and the wait for it, capability descriptors, status with fault containment, dispose. |
 | `catalog-feed.ts` | Catalog news to every negotiated client; a deleted session's stream ends here. |
 | `session-hub.ts` | Open on first use, at most one `OpenSession` per session, idle close, `session_replaced`, removal, the open and close deadlines, shutdown. |
-| `minor-views.ts` | What a client of an older minor is told instead of what a later minor added: the descriptor without the ops a later minor added (`OP_ADDED_IN`) or that joined that backend's union later (`OP_JOINED_IN`) and without the extension kinds a later minor added (`EXTENSION_ADDED_IN`: `prompt_suggestion` since 1.4), a session's capabilities without `answer` before 1.4 and without `cancelCompaction` and `cancelRetry` before 1.3, an attach's snapshot without the plan approvals' modes, and the refusal of an answer that names a mode. |
-| `older-events.ts`, `older-plans.ts` | The events an older client is sent instead, a chain of stand-ins newest minor first (`input_returned` and a prompt suggestion as a `notice`, a plan approval without its `modeOptions`); a plan approval and a snapshot without the modes. |
 | `keep-open.ts` | `holdsOpen(snapshot)` and the idle-close delay. |
 | `holds.ts` | The holds of §20, counted per session key, moved with a replaced session. |
 | `live-session.ts` | One stream: checks adapter records, applies them, numbers them, logs them, fans them out; `sync` for attach; `reconcile` with the adapter's snapshot. |
@@ -47,7 +45,7 @@ What it does not do: anything backend-specific. It never mints run, block, tool,
 | `deadline.ts` | `within` (work or a fallback at a deadline), `settled` (a call's outcome, throws included). |
 | `request-routes.ts` | Every request type to its handler (exhaustive: a missing one does not compile). |
 | `context.ts`, `controlled.ts` | The handler context, `onBackend` (the backend a request names, waited for while it starts), `viewed` (the session the client views, for a request that acts on it) and `controlled` (that session's control too, for the nine control requests). |
-| `answering.ts` | `interaction.answer`: the viewed session's answerer (its control, or its `answer` without control for a client of 1.4), then the desk (§21). |
+| `answering.ts` | `interaction.answer`: the viewed session's answerer (its control, or its `answer` without control), then the desk (§21). |
 | `requests-catalog.ts`, `requests-sessions.ts`, `requests-live.ts` | The handlers: backend-wide reads; session mutations and reads; attach, detach and session control. |
 | `results.ts`, `directories.ts`, `paged-read.ts`, `session-key.ts`, `same-state.ts` | Result and error builders; the directory policy; re-reading a page that is too large; session keys and log labels; snapshot equality. |
 | `replacements.ts`, `attach-redirect.ts` | Which stream replaced which, bounded and kept across restarts; answering an attach to a replaced session with the session that continues it. |
@@ -148,7 +146,7 @@ Inbound, a socket has one token bucket for both protocols (`BROSKI_RATE_LIMIT_*`
 "Don't trust even our own code":
 
 - **Inbound**, in order, each failure `invalid_message` with the `requestId` when it is readable: the frame must be exactly `{type, message}`; at most `MAX_MESSAGE_BYTES` (8 MiB, the contract's whole-message bound); within the shape walk (`message-shape.ts`: at most `MAX_CLIENT_MESSAGE_VALUES` 50,000 JSON values, no list or object over `MAX_LIST_ITEMS` 1,000 entries, nothing nested 67 deep), whose bounds are exactly what `ClientMessage` allows (a test derives them from the generated JSON Schema); then `ClientMessage` (strict objects, bounded values). The walk exists because the schema's cost grows with every value it checks and every issue it reports: a prompt with two million attachments cost 1 s and 1.8 GB before it, a bounded walk after. Nothing but `hello` is served before a `hello` with the same major. The old prototype-poison guard does not run on contract frames (§4), so free JSON (`editedInput`) reaches an adapter with whatever keys the phone sent, `__proto__` and `constructor` included: an adapter copies such a value (spread, `structuredClone`) and never merges it into another object (`Object.assign`, a deep merge). Records zod parses (form values) drop a `__proto__` key.
-- **Directories**: every `cwd` a request names (`models.list`, `commands.list`, `modes.list`, `sessions.list`, `session.create`, and the `cwd` of a `backend.call` op since 1.4) goes through the bridge's directory policy (`getSecurePath`: allowed bases, realpath, symlinks) and reaches the adapter canonical, or is refused `invalid_input`, as the old protocol refuses it. Paths inside a prompt (`mentions[].path`, `attachments[].uri`) reach the adapter as sent, as in the old protocol: the agent reads files anyway, and each adapter owns how its backend resolves them.
+- **Directories**: every `cwd` a request names (`models.list`, `commands.list`, `modes.list`, `sessions.list`, `session.create`) goes through the bridge's directory policy (`getSecurePath`: allowed bases, realpath, symlinks) and reaches the adapter canonical, or is refused `invalid_input`, as the old protocol refuses it. Paths inside a prompt (`mentions[].path`, `attachments[].uri`) reach the adapter as sent, as in the old protocol: the agent reads files anyway, and each adapter owns how its backend resolves them.
 - **Adapter records**: each is checked as a `SinkRecord`; an invalid one never reaches a phone, and the adapter's own snapshot replaces it (`resynced`) when that snapshot is valid. Records arriving after a close are dropped.
 - **Adapter snapshots**: checked at open (an invalid one fails the open, and the session is closed), and reconciled at every attach.
 - **Adapter answers**: every response is checked as a `ServerMessage` before it leaves; an invalid one is replaced by `error{internal}`.
@@ -195,9 +193,9 @@ Inbound, a socket has one token bucket for both protocols (`BROSKI_RATE_LIMIT_*`
 - `backends.list` gives the backends ready now. A `catalog{backend, status_changed}` for a backend the app has not listed means it has just landed: list again.
 - `error{rate_limited}` means the request was not served: wait a few seconds and send it again.
 - Mirror `applyEvent`; treat `resynced` as a replacement; expect `droppedItems > 0` on a long run; expect `…` in very long text; re-read the transcript's newest page at `run_finished` (README §8).
-- After `session_replaced`, attach to the new id. An attach whose answer is `replaced{session}` (a phone that was away; send `hello` with minor 1) says the same: attach to `session` instead, without `resume`. After `session_removed`, drop the session.
+- After `session_replaced`, attach to the new id. An attach whose answer is `replaced{session}` (a phone that was away) says the same: attach to `session` instead, without `resume`. After `session_removed`, drop the session.
 
-The app does all of this in `lib/agent/`: see [`docs/architecture/app-core/README.md`](../app-core/README.md).
+The client core (Phase 3) does all of this.
 
 ## 16. How Phase 4 plugs in
 
@@ -253,10 +251,9 @@ A session the phone may only watch can still raise an ask a person should answer
 
 1. **What answers a session** is `sessionAnswerer(open)` (contract): its `control`, or the session itself when it has `answer` and no `control`, or nothing. A session with both answers through `control`, as conformance rule 31 requires of every adapter anyway.
 2. **`interaction.answer` from a phone** (`answering.ts`) keeps the rule of every request that acts on a session (`viewed`): the client must view the session, once its earlier attaches and detaches have run, or it is `not_attached`. Then it goes to the session's answerer through `InteractionDesk.answer`, the same `answerProblem` check, first-answer-wins, claim and `stale` memory as an answer to a controllable session. A session with no answerer is `unsupported`, as before.
-3. **A client below 1.4** is not told (`SessionCapabilities.answer` is cut from its capabilities, `minor-views.ts`) and its answer on a session without `control` is `unsupported`, exactly as before 1.4; on a session with `control` nothing changed for it.
-4. **`BridgeCore.answer`** (§19, the lock screen) keeps its own rule: no client and no attach, the session must be open (a pending ask or a hold keeps it so), and it reaches the answerer through the same desk. It has no minor to check.
-5. **Every other control request** on a session without `control` (`prompt`, `abort`, `queue.cancel`, `model.set`, `thinking.set`, `mode.set`, `compact`, `compaction.cancel`, `retry.cancel`) is `unsupported` whether or not it takes answers (`controlled`).
-6. **Nothing new waits or answers.** No timer comes with it, nothing answers on anyone's behalf, and keep-open applies as to any ask: the pending ask keeps the session open with no viewer, and a holder (§20) keeps it open before the ask is raised.
-7. **An answer is the ask's own.** A reply the ask offers that ends its run (`cancel{stopRun: true}`, a permission option that `stopsRun`) passes the desk like any reply and reaches the adapter, which decides what its backend can do with it on a session it does not run (Claude Code: the hook decision's `interrupt`). There is no `abort` here: the phone can stop nothing the ask does not offer.
+3. **`BridgeCore.answer`** (§19, the lock screen) keeps its own rule: no client and no attach, the session must be open (a pending ask or a hold keeps it so), and it reaches the answerer through the same desk.
+4. **Every other control request** on a session without `control` (`prompt`, `abort`, `queue.cancel`, `model.set`, `thinking.set`, `mode.set`, `compact`) is `unsupported` whether or not it takes answers (`controlled`).
+5. **Nothing new waits or answers.** No timer comes with it, nothing answers on anyone's behalf, and keep-open applies as to any ask: the pending ask keeps the session open with no viewer, and a holder (§20) keeps it open before the ask is raised.
+6. **An answer is the ask's own.** A reply the ask offers that ends its run (`cancel{stopRun: true}`, a permission option that `stopsRun`) passes the desk like any reply and reaches the adapter, which decides what its backend can do with it on a session it does not run (Claude Code: the hook decision's `interrupt`). There is no `abort` here: the phone can stop nothing the ask does not offer.
 
 The app shows an ask's Answer by `SessionCapabilities.answer` (falling back to `controllable` for a bridge that does not say) and the composer by `controllable` alone (app-core README).

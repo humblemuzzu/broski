@@ -1,6 +1,6 @@
 # The Claude Code adapter
 
-Status: **Step 7 (app wiring) done** on `cc/app` (D150–D169 below, [`REACHABILITY.md`](REACHABILITY.md)): the new Claude Code is a normal choice in the app while the bridge flag is on. Step 6 (review fixes) on `cc/fixes` (D130–D145, [`reviews/FIXES.md`](reviews/FIXES.md)). Step 5 (integration) on `cc/integrate`: the eight lanes merged into one adapter, all 31 conformance rules pass against the real CLI (`src/__tests__/claude-code/conformance/`), and the bridge registers it **only when the bridge config says `"claudeCode": {"contract": true}`** (D28, D127). With the flag off (the default) nothing changes for a user. The plan is [`PLAN.md`](PLAN.md); the seams are [`STEP-3-INTERFACES.md`](STEP-3-INTERFACES.md); each lane's full notes and evidence are in [`lanes/`](lanes/).
+Status: the only Claude Code. Since the rebuild's Phase 1 the old protocol, its connector and the `claudeCode.contract` flag are gone: the adapter is registered in every bridge (`server/contract-backends.ts`), drives the user's installed `claude` (`server/claude-cli-path.ts`), and its terminal permission prompts arrive through its `PermissionRequest` hook (`claudeCode.terminalAsks`, default true). It serves no ops, custom tools, hook activities or prompt suggestions. All conformance rules pass against the real CLI (`src/__tests__/claude-code/conformance/`). The decisions below (D1–D169) are the record of how it was built, beside the old protocol and the Flutter app; where one names a flag, an op, the old path or the app, that part no longer exists. The plan is [`PLAN.md`](PLAN.md); the seams are [`STEP-3-INTERFACES.md`](STEP-3-INTERFACES.md); each lane's notes are in [`lanes/`](lanes/).
 
 ## What it is
 
@@ -208,7 +208,7 @@ Each answers a review finding; the finding, its test and the mutation that prove
 
 ## Step 7 decisions (D150–D169)
 
-The app wiring and the owner's two "keep" items. Every row of PLAN §10 and where a person finds it: [`REACHABILITY.md`](REACHABILITY.md).
+The app wiring and the owner's two "keep" items, made for the Flutter app.
 
 - **D150 · The contract Claude Code is stored as `contract:claude-code`.** `SelectedBackend.fromWire` reads `contract:<id>` as the contract backend and a bare name as the old agent first, so a stored `claude-code` stays the old Claude Code until the person picks otherwise (Step 9 migrates it). Only an id an old agent shares gets the prefix (`ContractSelection.sharesLegacyName`); Pi stays `pi`. `test/models/selected_backend_test.dart`.
 - **D151 · Both Claude Codes in the picker while the bridge serves the new one.** The picker lists every contract backend the bridge lists (or last listed, and the one selected): the new Claude Code appears only with `claudeCode.contract: true`, as *Claude Code (new)* beside the old card; the Sessions tab and the Settings chip use the same name. `claude_code_selection_test.dart` (both listed, not listed, stored name, restart).

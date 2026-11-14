@@ -1,16 +1,15 @@
 # The Broski backend contract
 
-Status: Phase 1, protocol **1.4** (1.0 plus the `replaced` attach answer, 1.1, the `take_over` op and `input_returned` event, 1.2, in 1.3, the separate cancel of a compaction and of a retry, the Pi ops `session_settings`, `session_tools` and `system_prompt`, the Pi session-file ops, `refresh_models` and the unavailable models of a model list, and Pi's tree and shell ops, and, in 1.4, the configuration, list and custom tool ops, the `prompt_suggestion` extension and a plan approval's next mode; §12.4). Built on commit `9678394`. The bridge core (Phase 2) and the app core (Phase 3) speak it, and Phase 4 adds one adapter per backend: Pi's is registered in every bridge (`server/contract-backends.ts`).
+Status: protocol **1.0** (§12.4). The bridge core speaks it to every attached phone, and each backend has one adapter: Pi and Claude Code, both registered in every bridge (`server/contract-backends.ts`). Sections that still describe the removed parts (ops, minors, the Dart pipeline, Pi Durable) are being rewritten; the code in `packages/bridge/src/contract/` is the definition.
 
 This document is the spec. The code is the definition: `packages/bridge/src/contract/` (zod schemas, interfaces, reducer, answer checker) and `packages/bridge/src/contract/testing/` (fake backend, conformance suite). Every backend fact below cites the research in [`research/`](research/):
 
 - `cc §n`: [`claude-code.md`](research/claude-code.md), Claude Agent SDK 0.3.312.
 - `pi §n`: [`pi.md`](research/pi.md) part 1, Pi 1.4.0.
-- `pd Dn`: [`pi.md`](research/pi.md) part 2, Pi Durable 1.4.0.
 
 Where this document and a research report disagree, the report wins unless the disagreement is listed under [Errata](#19-errata), which records what the SDK source says.
 
-**Contents.** [1 Layout](#1-where-it-lives) · [2 Hard rules](#2-hard-rules) · [3 Single source of truth](#3-single-source-of-truth-and-generation) · [4 Identity](#4-identity) · [5 The adapter interface](#5-the-adapter-interface) · [6 Capabilities](#6-capabilities) · [7 Events](#7-events) · [8 Live state](#8-live-state-snapshot-and-reconnect) · [9 Interactions](#9-interactions) · [10 Input](#10-input) · [11 Read models](#11-read-models) · [12 Wire protocol](#12-wire-protocol) · [13 Extensions and ops](#13-backend-extensions-and-ops) · [14 Conformance](#14-conformance) · [15 Lossy points](#15-lossy-points-and-unsupported-capabilities) · [16 Refinements of the brief](#16-refinements-of-the-brief) · [17 Not in Phase 1](#17-not-in-phase-1) · [18 Open questions](#18-open-questions) · [19 Errata](#19-errata)
+**Contents.** [1 Layout](#1-where-it-lives) · [2 Hard rules](#2-hard-rules) · [3 Single source of truth](#3-single-source-of-truth-and-generation) · [4 Identity](#4-identity) · [5 The adapter interface](#5-the-adapter-interface) · [6 Capabilities](#6-capabilities) · [7 Events](#7-events) · [8 Live state](#8-live-state-snapshot-and-reconnect) · [9 Interactions](#9-interactions) · [10 Input](#10-input) · [11 Read models](#11-read-models) · [12 Wire protocol](#12-wire-protocol) · [13 Extensions](#13-backend-extensions) · [14 Conformance](#14-conformance) · [15 Lossy points](#15-lossy-points-and-unsupported-capabilities) · [16 Refinements of the brief](#16-refinements-of-the-brief) · [17 Not in Phase 1](#17-not-in-phase-1) · [18 Open questions](#18-open-questions) · [19 Errata](#19-errata)
 
 ---
 
@@ -25,30 +24,27 @@ Where this document and a research report disagree, the report wins unless the d
 | `contract/interactions.ts`, `interaction-replies.ts`, `forms.ts`, `option.ts` | Interaction requests, replies, form fields, and the `Option` a human picks. |
 | `contract/answer-check.ts`, `field-check.ts` | The answer validator, and whether one value fits one form field. |
 | `contract/input.ts`, `rejection.ts` | `PromptInput`, `PromptResult`, `ActionResult`; `Rejection` and the `Rejected` member every result union shares. |
-| `contract/sessions.ts`, `transcript.ts`, `models.ts`, `modes.ts`, `commands.ts`, `usage.ts`, `status.ts`, `paging.ts`, `plan.ts`, `queue.ts`, `runs.ts`, `compaction.ts`, `content.ts`, `tools.ts`, `notice.ts` | Read models and the values events carry. |
+| `contract/sessions.ts`, `transcript.ts`, `models.ts`, `modes.ts`, `commands.ts`, `usage.ts`, `status.ts`, `paging.ts`, `queue.ts`, `runs.ts`, `compaction.ts`, `content.ts`, `tools.ts`, `notice.ts` | Read models and the values events carry. |
 | `contract/snapshot.ts`, `session-reducer.ts`, `run-items.ts` | `SessionSnapshot`; `applyEvent`, the executable meaning of every event; how live events become the active run's items. |
 | `contract/protocol.ts`, `read-results.ts` | The wire protocol: requests, responses, version; the results of the read requests. |
-| `contract/extensions.ts`, `backend-ops.ts` | Typed per-backend live events and the `backend.call` escape hatch. |
-| `contract/backend-ops-*.ts`, `session-controls.ts`, `tree-ops.ts`, `shell-ops.ts`, `config-ops.ts`, `custom-tool-ops.ts` | The op families, each with its kinds, ops and results. |
-| `contract/action-list.ts`, `editable-file.ts` | Two result payloads several ops share: a list of rows with actions, and one text file edited at a revision. |
+| `contract/extensions.ts` | Typed per-backend live events. |
 | `contract/backend.ts` | `AgentBackend`, `OpenSession`, `SessionControl`, the sinks, capability derivation. Plain TypeScript over the schema types. |
-| `contract/schema-registry.ts` | Names every schema after its export, for JSON Schema and Dart. |
+| `contract/schema-registry.ts` | Names every schema after its export, for the JSON Schema. |
 | `contract/contract.schema.json` | **Generated.** The contract as one JSON Schema (draft 2020-12). |
 | `contract/testing/` | The fake backend (`fake-*.ts`), the stream checker, the conformance suite (`conformance*.ts`, `rules-*.ts`) and its runner. |
-| `packages/bridge/scripts/gen-contract.ts`, `scripts/contract-gen/` | The generator: JSON Schema, Dart, fixtures; `--check`. |
+| `packages/bridge/scripts/gen-contract.ts`, `scripts/contract-gen/` | The generator: the JSON Schema and the fixtures; `--check`. |
 | `packages/bridge/scripts/check-layers.ts`, `scripts/contract-gen/layers.ts`, `import-scan.ts` | The layer check, and the import reader it runs on. |
-| `lib/contract/generated/` | **Generated.** Dart models: `contract.dart` and one part per contract module. |
-| `test/contract/` | Dart round-trip tests; `generated/` and `fixtures/` are **generated**. |
+| `packages/bridge/contract-fixtures/` | **Generated.** `constants.json` (every bound), `contract_samples.json`, `fake_session_stream.json`, `reducer_trace.json`, `frame_prefix.json`: what a client core (Phase 3) holds itself equal to. |
 
-Commands, from `packages/bridge`: `bun run contract:gen` writes every generated file, `bun run contract:check` fails if any is stale, and `bun run check:layers` checks imports. CI runs the layer check in the bridge job and `contract:check` in the Flutter job, which has Dart.
+Commands, from `packages/bridge`: `bun run contract:gen` writes every generated file, `bun run contract:check` fails if any is stale, and `bun run check:layers` checks imports. CI runs both in the bridge job.
 
 ## 2. Hard rules
 
-1. **The UI never branches on the backend.** It branches on `Capabilities`, `SessionCapabilities`, and the shape of what it receives. A backend's extras reach the app only as typed `extension` events and `backend.call` ops (§13).
+1. **The UI never branches on the backend.** It branches on `Capabilities`, `SessionCapabilities`, and the shape of what it receives. A backend's extras reach the app only as typed `extension` events (§13).
 2. **Adapters are reached only through the contract.** The core holds `AgentBackend` values. It never imports `backends/<id>/`, and an adapter never sees sockets, phones, viewers or the wire.
 3. **The contract is a leaf.** `src/contract/` imports only `zod` and itself. Its `testing/` may also import `bun:test`. `src/backends/<id>/` may import only the contract (not its test kit), itself, `zod` (to check frames that cross a process boundary the adapter owns, such as Pi's terminal link), `node:` built-ins (not `node:module`, whose `createRequire` loads what no check sees) and that backend's own SDK. No adapter imports another adapter's directory. Every specifier must be a plain string. `bun run check:layers` enforces all of it in CI: it reads every import, type-only ones included, from the file's tokens (`import-scan.ts`, so comments and strings never count), joined with Bun's own `Transpiler.scanImports`.
 4. **Generated code is never edited by hand.** Change the zod schema, run `bun run contract:gen`, commit the result. CI fails on a stale file.
-5. **Expected failures are values.** Every adapter method that can fail returns a result union, `{status: "accepted", …} | Rejected`, the same unions the wire carries (`PromptResult`, `ActionResult`, `NewSessionResult`, `BackendCallResult`, the read results of `read-results.ts`, and `OpenResult` for `open`). `status()` cannot fail: whatever stops it from finding out is an `error` issue in `BackendStatus.issues`, with `usable: false`. A thrown error is an adapter bug.
+5. **Expected failures are values.** Every adapter method that can fail returns a result union, `{status: "accepted", …} | Rejected`, the same unions the wire carries (`PromptResult`, `ActionResult`, `NewSessionResult`, the read results of `read-results.ts`, and `OpenResult` for `open`). `status()` cannot fail: whatever stops it from finding out is an `error` issue in `BackendStatus.issues`, with `usable: false`. A thrown error is an adapter bug.
 6. **No invalid answer reaches a backend.** An adapter runs `answerProblem` on every answer and rejects a faulted one with `invalid_input`. A malformed answer can otherwise become a silent denial or an over-grant.
 7. **Sinks never throw, and adapters never throw into the core from a callback.** Pi's `_emit` has no try/catch, so a throwing listener breaks the agent loop (pi §1).
 8. **Every wire value is bounded.** Each string, list and map has a maximum (`limits.ts`): ids 256 characters, names 1,024, paths 4,096, text 1,048,576, the images of one prompt 4 MiB of base64, lists and maps 1,000 entries, catalogs 10,000, free JSON 64 levels deep. One message is capped whole: `MAX_MESSAGE_BYTES` (8 MiB of UTF-8 frame, the link's `LINK_MAX_MESSAGE_BYTES`), and a client message holds at most `MAX_CLIENT_MESSAGE_VALUES` (50,000) JSON values, because checking a message costs the bridge in proportion to its values; a prompt with every list full holds about 8,000. An adapter shortens a native value past its bound; §15 lists where that happens. A test walks the JSON Schema and fails on any unbounded string, list or map.
@@ -62,53 +58,38 @@ Commands, from `packages/bridge`: `bun run contract:gen` writes every generated 
 - TypeBox is present only transitively, pinned by pi at `1.3.27` (`bun.lock`). Using it would tie the contract's schema library to pi's release cycle.
 - One library, no mixing: every wire-visible type is a zod schema, its TypeScript type is `z.infer`, its runtime validator is the schema itself.
 
-**Naming.** A schema's export name is its id everywhere: the `$defs` key in `contract.schema.json`, and the Dart class name (`schema-registry.ts`). Rename the export and every layer renames with it.
+**Naming.** A schema's export name is its id everywhere: the `$defs` key in `contract.schema.json` (`schema-registry.ts`). Rename the export and every layer renames with it.
 
-**Restrictions** that keep the Dart exact. `scripts/contract-gen/type-model.ts` enforces them and fails naming the offending path:
+**Restrictions**, which keep a generated client exact. `scripts/contract-gen/type-model.ts` enforces them and fails naming the offending path:
 
 - Objects are strict (`z.strictObject`): an unknown field is an error, both on the wire and in the JSON Schema (`additionalProperties: false`).
 - Every object and enum is a named export. An anonymous one is refused.
-- Every union is discriminated by a string tag (`type` for messages and events, `kind` or `status` for values). A member may join several unions that share the tag key; Dart models it as a class implementing several sealed interfaces.
+- Every union is discriminated by a string tag (`type` for messages and events, `kind` or `status` for values).
 - No `null`. Optional means absent.
-- `JsonValue` is the only open type, for genuinely free JSON (tool input, edited input). It is checked by one bounded walk (`json.ts`) rather than a recursive zod schema, because zod recurses once per level of the input and overflows the stack near 10,000 levels, which one small message reaches; the generator writes its JSON Schema by hand to the same shape. `NativeIds` (`string → string`) carries backend-native ids for debugging. Nothing in the contract is `unknown` or `any`.
-- Dart names must compile and must not collide with `dart:core`, common Flutter widgets or the members every generated class has (`hashCode`, `toString`, `toJson`, `other`, …). This is why the form field union is `FormFieldSpec`, not `FormField`.
-- Six contract names are also names of the app's current models: `FileContent`, `QuestionOption`, `SessionPage`, `SessionStatus`, `SessionSummary`, `TranscriptPage`. The contract keeps them, because one name holds across TypeScript, JSON Schema and Dart. Until Phase 4 deletes the old models, an app file that needs both imports the contract with a prefix: `import 'package:broski/contract/generated/contract.dart' as contract;`.
+- `JsonValue` is the only open type, for genuinely free JSON (tool input, edited input). It is checked by one bounded walk (`json.ts`) rather than a recursive zod schema, because zod recurses once per level of the input and overflows the stack near 10,000 levels; the generator writes its JSON Schema by hand to the same shape. `NativeIds` (`string → string`) carries backend-native ids for debugging. Nothing in the contract is `unknown` or `any`.
 
 **Pipeline** (`bun run contract:gen`):
 
 ```
-zod schemas ──z.toJSONSchema──▶ contract.schema.json ──type model──▶ lib/contract/generated/*.dart (dart format, pubspec language version)
-      │                               │
-      │                               └──sampler──▶ test/contract/fixtures/contract_samples.json  (every union member, every enum value, every object full and minimal; each sample is parsed by its zod schema)
-      ├──FakeBackend scripted session──▶ test/contract/fixtures/fake_session_stream.json (every AgentEvent member, as wire ServerMessages)
-      │                               └──applyEvent──▶ test/contract/fixtures/reducer_trace.json (the snapshot and status after every event)
-      ├──answerProblem, fieldIsActive──▶ test/contract/fixtures/answer_cases.json (the problem, or null, for every case)
-      └──▶ test/contract/generated/contract_round_trips.dart (a decoder and a decode-then-encode for every type)
+zod schemas ──z.toJSONSchema──▶ src/contract/contract.schema.json ──sampler──▶ contract-fixtures/contract_samples.json (every union member, every enum value, every object full and minimal; each sample is parsed by its zod schema)
+      ├──FakeBackend scripted session──▶ contract-fixtures/fake_session_stream.json (every AgentEvent member, as wire ServerMessages)
+      │                               └──applyEvent──▶ contract-fixtures/reducer_trace.json (the snapshot and status after every event)
+      ├──limits.ts, MAX_PAGE_LIMIT, REQUEST_DEADLINE_MS──▶ contract-fixtures/constants.json
+      └──encodeFrame──▶ contract-fixtures/frame_prefix.json (how the core begins every frame, and one frame it encoded)
 ```
 
-The last two fixtures hold the app's ports of the reducer and the answer check equal to these (app-core README §8). Beside them the generator writes `frame_prefix.json`: how the core begins every frame it sends, and one frame it encoded, so the app's test holds its reading of that prefix to the bridge's (app-core README §3).
+**Determinism.** Every generated file is ordered by UTF-16 code units, never by locale. `contract:check` ignores dotfiles (such as `.DS_Store`) in the directories it owns.
 
-`test/contract/contract_round_trip_test.dart` decodes every sample and every fake-stream message in Dart and re-encodes it, and the result must equal the TypeScript JSON exactly; it also checks that two decodes of one sample are equal values with equal hash codes. The Dart models:
-
-- expose `fromJson`/`toJson`, use sealed classes for unions (exhaustive `switch`), and have no `dynamic` in public API;
-- make a field nullable exactly when the schema makes it optional;
-- are values: `==` and `hashCode` compare fields, lists and maps deeply, and `toString` names every field;
-- refuse anything the schema refuses with a `FormatException` naming the path: a missing or mistyped field, an unknown field (the schema's `additionalProperties: false`), a wrong tag, an unknown union member or enum value;
-- declare on a union the fields every member has with the same type, as getters (`TranscriptItem.id`, `ClientMessage.requestId`);
-- come with the numbers the app shares with the bridge: every bound in `limits.ts`, `MAX_PAGE_LIMIT` and the core's `REQUEST_DEADLINE_MS`, as `contractMaxTextChars` and so on in `contract.dart`.
-
-**Determinism.** Every generated file is ordered by UTF-16 code units, never by locale. `contract:check` ignores dotfiles (such as `.DS_Store`) in the directories it owns. The Dart text is whatever `dart format` prints for the app's language version (read from `pubspec.yaml`); `contract:gen` expects the Dart SDK that CI's Flutter 3.38.5 ships (Dart 3.10), and a different formatter release can format differently.
-
-**Changing the contract.** Edit the schema → `bun run contract:gen` → update this document and, if behaviour changed, the conformance rules → apply the versioning rule (§12.4).
+**Changing the contract.** Edit the schema → `bun run contract:gen` → update this document and, if behaviour changed, the conformance rules.
 
 ## 4. Identity
 
 | Id | Type | Minted by | Rule |
 |---|---|---|---|
-| `BackendId` | `claude-code \| pi \| pi-durable` | contract | |
-| `SessionRef` | `{backend, sessionId}` | adapter | `sessionId` is the backend's own durable session id: CC UUID (cc §3), Pi header UUIDv7 (pi §3), Pi Durable Broski's storage directory UUID (pd D3). Stable for the session's life. |
-| `RunId` | string | adapter | Unique per session for good (a UUID is the safe choice). Pi Durable's submission ids name inputs, several of which can share a run (pd D5); CC and Pi have nothing (cc §5, pi §13). A run that survives a bridge restart (`durableRuns`) keeps its id, so a durable backend derives it from what it persists: Pi Durable the run's first submission id (pd D5). |
-| `MessageId`, `BlockId` | string | adapter | Unique per session. Derive from native identity where it exists, so live ids match transcript ids: CC `message.id` + block index (cc §5). Pi and Pi Durable have no message id mid-stream, so the adapter mints one (pi §5, pd D5). |
+| `BackendId` | `claude-code \| pi` | contract | |
+| `SessionRef` | `{backend, sessionId}` | adapter | `sessionId` is the backend's own durable session id: CC UUID (cc §3), Pi header UUIDv7 (pi §3). Stable for the session's life. |
+| `RunId` | string | adapter | Unique per session for good (a UUID is the safe choice); CC and Pi have no native run id (cc §5, pi §13). A run ends with the bridge. |
+| `MessageId`, `BlockId` | string | adapter | Unique per session. Derive from native identity where it exists, so live ids match transcript ids: CC `message.id` + block index (cc §5). Pi has no message id mid-stream, so the adapter mints one (pi §5). |
 | `ToolCallId` | string | adapter | Unique per session. |
 | `InteractionId`, `QueueItemId`, `AttachmentId` | string | adapter | Unique per session. An `AttachmentId` names image bytes the adapter can read back (§10). |
 | `TranscriptItemId` | string ≤512 | adapter | Unique per session. May combine two ids: a tool result the live stream finished is `<toolCallId>:result` (`run-items.ts`). |
@@ -537,78 +518,13 @@ Pending interactions arrive in the snapshot or the replayed `interaction_request
 
 ### 12.4 Versioning
 
-`PROTOCOL_VERSION = {major: 1, minor: 4}`; `ADDED_IN_MINOR` (`protocol.ts`) names the minor each addition came in, and the core sends it only to a client whose `hello` named that minor. 1.1 is `replaced` (§12.2). 1.2 is the Pi op `take_over` (`ADDED_IN_MINOR.takeOver`: an older client's `BackendDescriptor.ops` does not list it) and the `input_returned` event (`ADDED_IN_MINOR.inputReturned`: an older client gets the same texts as a `notice` with the same `seq`, `core/minor-views.ts`). 1.3 is `ADDED_IN_MINOR.sessionControls`: the `compaction.cancel` and `retry.cancel` requests (a client below 1.3 never sends them), the optional `SessionCapabilities.cancelCompaction` and `cancelRetry` that announce them (removed from the answer an older client gets, since its Dart models refuse an unknown field; absent from an older bridge's answer, which means false), and the Pi ops `session_settings`, `session_tools` and `system_prompt` (an older client's descriptor does not list them). 1.3 also brings the Pi ops `export_session`, `export_part`, `import_session` and `changed_files` (`ADDED_IN_MINOR.sessionFiles`), the Pi op `refresh_models`, `ModelSummary.unavailableReason` and the `includeUnavailable` field of `models.list` (`ADDED_IN_MINOR.modelAvailability`). `OP_ADDED_IN` (`core/minor-views.ts`) lists the minor of every op an older client is not told of; the core passes `includeUnavailable` to an adapter only for a client of minor 3 or later. 1.3 also brings Pi's tree ops `read_tree`, `label_entry` and `abort_branch_summary` (`ADDED_IN_MINOR.treeOps`) and the shell op `run_shell` (`ADDED_IN_MINOR.shellOps`), withheld from an older client in the same table; `NavigateTreeOp.instructions` is a new optional field a client sends.
+`PROTOCOL_VERSION = {major: 1, minor: 0}`. Bridge and app talk only when `major` is equal; `hello` agrees on nothing else. Nothing has shipped, so 1.0 changes in place: there is no per-minor table and no stand-in frame for an older client. Once a client ships, a change the other side cannot ignore bumps `major`.
 
-1.4 is `ADDED_IN_MINOR.configOps`, and every check below is in the core (`core/minor-views.ts`, `core/older-events.ts`, `core/older-plans.ts`):
+## 13. Backend extensions
 
-- The ops `config_files`, `config_file`, `settings_overview`, `mcp_servers`, `plugins`, `tasks`, `context_usage`, `custom_tools` and `custom_tool` (§13): an older client's descriptor does not list them (`OP_ADDED_IN`).
-- Claude Code serving the existing kinds `session_settings`, `changed_files` and `refresh_models`: an older client has no call that carries them to Claude Code (its `ClaudeCodeOp` lacks them), so its Claude Code descriptor does not list them (`OP_JOINED_IN`, by backend), while Pi's still does.
-- The `prompt_suggestion` extension: an older client is sent an info `notice` ("Suggested next prompt: …") with the same `seq`.
-- `PlanApprovalRequest.modeOptions`: taken out of every plan approval an older client is sent, in `interaction_requested`, in a `resynced` snapshot, in an attach's snapshot, and in the live state a frame that does not fit is replaced by. `PlanApprovalReply.modeAfter` from an older client is refused `invalid_input`.
-- Harness activities (`ADDED_IN_MINOR.activities`, §7): the `activity` event becomes a `notice` with the same `seq` for an older client (`core/older-activities.ts`); an `ActivityItem` in `run.items` (an attach's snapshot, a `resynced` one, the live state a frame that does not fit is replaced by) or in a `transcript.read` page becomes a `NoticeItem` with the same id. Added while 1.4 was unreleased, like the next item.
-- Answering a session without control (`ADDED_IN_MINOR.watchedAnswers`, §5 rule 14): `SessionCapabilities.answer` is taken out of the capabilities an older client is sent (its Dart models refuse an unknown field), and that client's `interaction.answer` on such a session is refused `unsupported`, as before 1.4. An answer from outside the phones (`BridgeCore.answer`, the lock screen) has no client minor and reaches it. 1.4 had not shipped when this was added, so it joined 1.4 instead of making a 1.5: no released app or bridge speaks a 1.4 without it.
-
-An event can have a stand-in for more than one older minor; `EncodedFrame.instead` is then a chain, newest minor first, and each client is sent the first stand-in its minor speaks. The rules:
-
-- Bridge and app talk only when `major` is equal.
-- A change the older side can ignore bumps `minor`: a new optional field, a new request type, a new union member or enum value.
-- Anything else bumps `major`.
-- **Bridge to client:** the bridge never sends a field, union member or enum value newer than the `minor` the client said `hello` with. A new event kind is therefore additive for the bridge and invisible to an older app.
-- **Client to bridge:** the client never sends a request, field, union member or enum value newer than the bridge's `minor`, which the `hello` answer carries. The bridge's validators are strict, so a breach is an `invalid_message` error rather than a field silently dropped.
-- The generated Dart refuses an unknown field, tag or enum value with a `FormatException`, so a breach the other way is just as loud.
-- The app is shipped through the store and the bridge from npm, so they will be out of step in both directions; the `hello` handshake is mandatory.
-
-## 13. Backend extensions and ops
-
-Two typed escape hatches. Neither is an untyped blob.
-
-**Extensions** (`extension{extension}` events, declared in `Capabilities.extensions`):
+A backend's extras are typed `extension{extension}` events, declared in `Capabilities.extensions`; never an untyped blob, and never a request (there is no `backend.call`):
 
 - `rate_limit{window, status?, usedPercent?, resetsAt?}` (CC `rate_limit_event`, cc §2; units in Q13).
-- `prompt_suggestion{text}` (since 1.4): the next prompt the backend predicts once a turn ends (CC `prompt_suggestion`, `SDKPromptSuggestionMessage.suggestion`). A newer one replaces it; the phone offers it, never sends it.
-
-**Ops** (`backend.call{call: {backend, op}}` → `BackendCallResult`, declared in `Capabilities.backendOps`, served by `AgentBackend.call`). Each backend's ops form their own union, so an adapter receives only its own. A kind may be in several unions (Claude Code serves Pi's `session_settings`, `changed_files` and `refresh_models` since 1.4): the call's `backend` says which adapter gets it, and a client builds the call from the backend of the session it is about. `BackendOp` is every op of every backend, each kind once, for a client to build the op before it wraps it.
-
-**How an op names what it is about** (1.4): live state, which only a running session has, is named by `sessionId`, and an unknown session is `not_found` (§14 rule 9); files and configuration are named by the project directory, `cwd`, which reaches the adapter canonical through the bridge's directory policy (the core applies it to every op that has a `cwd`, as to `models.list`) or is refused `invalid_input`; what belongs to the bridge itself names neither. An op that has both (`plugins`) reads configuration by `cwd` and adds what only a running session knows when given a `sessionId`.
-
-**Shared result payloads** (1.4). Each op answers under its own `kind`; the payload is shared:
-
-- `ActionList{rows[{id, title, subtitle?, status?{label, tone: neutral|ok|busy|warning|error}, group?, badges[], actions[{id, label, destructive, confirm?}]}], omitted, note?}`. An op whose rows have actions takes an optional `change: ActionListChange{rowId, actionId}`: the action is taken first and the answer is the list after it; an unknown row is `not_found`, an action the row does not offer `invalid_input`. A `destructive` action (it stops or removes something) is asked about on the phone before it is sent, with `confirm`, the backend's words for what taking it does ("The tool's definition goes to the Trash on the Mac, where it can be restored."); without it the phone names the action and claims nothing more. `confirm` joined 1.4 with the list itself, so no older client is sent it.
-- `EditableFile{id, path, scope, format: json|markdown|text, exists, text, revision, editable, truncated, problems[]}`. A change is `write{text, revision}` or `delete{revision}`, compare-and-swap on the revision (opaque, minted by the adapter, also for a file that does not exist): another revision is `stale`, a JSON write that does not parse `invalid_input` (never written), a file the backend may not change `unsupported`. A `delete` moves the file to the machine's trash, never unlinks it, so the app tells the person it can be restored there. `truncated` (the file is longer than `text` holds) is never `editable`. The core keeps it so: a file whose `text` it cuts to fit the link is sent `truncated` and not `editable` (core README §9). An id the backend never named is `not_found`. Conformance rule 30 holds these refusals to every adapter, for a write and a delete alike, and checks that no file it reads is both `truncated` and `editable`.
-
-| Backend | Op | Result | Source |
-|---|---|---|---|
-| claude-code | `config_files{cwd}` (since 1.4) | `{files[{id, label, group, scope, path, exists, editable, format, template}], omitted}`: `group` and `scope` are the backend's own short words; a `template` entry is the place a new named file goes, read and written by `config_file` with a `name` | The CLI's settings, `.mcp.json`, CLAUDE.md, agents, commands, skills, output styles (PLAN D22) |
-| claude-code | `config_file{cwd, fileId, name?, change?}` (since 1.4) | `{file: EditableFile}`. `fileId` is an id the listing gave or a `config_file` answer named (a new file's id addresses it before it is written) | The file itself, written atomically under its expected base (PLAN D22) |
-| claude-code | `settings_overview{cwd}` (since 1.4) | `{list: ActionList}`, read-only: a row per setting with its value and source, problems, the account | `resolveSettings()` provenance (`sdk.d.ts` `ResolvedSettings`) |
-| claude-code | `mcp_servers{sessionId, change?}` (since 1.4) | `{list: ActionList}`: status per server; actions such as enable, disable, reconnect | `mcpServerStatus`, `toggleMcpServer`, `reconnectMcpServer` |
-| claude-code | `plugins{cwd, sessionId?, change?}` (since 1.4) | `{list: ActionList}`: actions such as enable, disable | `enabledPlugins`; with a session, `system/init` `plugins`/`plugin_errors` and `reloadPlugins` |
-| claude-code | `tasks{sessionId, change?}` (since 1.4) | `{list: ActionList}`: a session's background work; action such as stop | `background_tasks_changed`, `task_*`, `stopTask` |
-| claude-code | `context_usage{sessionId}` (since 1.4) | `{list: ActionList}`, read-only: a row per part of the context window with its tokens, the total in `note` | `getContextUsage` `categories` |
-| claude-code | `custom_tools{change?}` (since 1.4) | `{list: ActionList}`: rows are tools (a row's id is the `toolId`), actions such as test and delete; a test's output is `note` | The bridge's own tools (`custom-tools.ts`, PLAN D30) |
-| claude-code | `custom_tool{toolId?, change?}` (since 1.4) | `{file: EditableFile}`: one definition as JSON. No `toolId`: a starting template under a new id, created by a write to that id; a change always names its `toolId` | Same |
-| claude-code | `session_settings`, `changed_files`, `refresh_models` (since 1.4 for Claude Code) | as Pi's below | PLAN D11, D22 |
-| claude-code | `rewind_files{sessionId, userItemId, dryRun}` | `{canRewind, filesChanged?, insertions?, deletions?, skippedLinks?, error?}`: `filesChanged` absent when the CLI does not say; `skippedLinks` counts files a real rewind left alone because a link sat at their path, so a partial rewind shows as one | `Query.rewindFiles` (cc §7; `RewindFilesResult`, `sdk.d.ts:3442-3452`) |
-| pi | `navigate_tree{sessionId, itemId, summarize, instructions?}` | `{}` | `navigateTree` (pi §7) |
-| pi | `session_settings{sessionId, change?}` (since 1.3) | `{settings[]}`: each a toggle (`enabled`) or a choice (`value`, `options`), with a label, a description and a `note` when a value shown may not be the one just chosen. With `change` that setting is set first, and the answer is the settings as the session now has them | Pi's auto-compaction, auto-retry, steering mode and follow-up mode, saved to the global `settings.json` as the terminal saves them (Pi README, decision 21) |
-| pi | `session_tools{sessionId, change?}` (since 1.3) | `{tools[], omitted?}`: name, description (cut with `…` at 2,048 characters), whether it is on, and a group; with `change` one tool is switched first | `getAllTools`, `getActiveToolNames`, `setActiveToolsByName`; the loadout is not a setting, it is recorded in the session file at the next prompt (Pi README, decision 22) |
-| pi | `system_prompt{sessionId, offset?}` (since 1.3) | `{text, offset, totalChars, nextOffset?}`: a page of at most 32,768 UTF-16 units, never cut inside a surrogate pair; `nextOffset` is absent on the last page | `session.systemPrompt`, read-only (Pi README, decision 23) |
-| pi | `read_tree{sessionId, page}` (since 1.3) | `TreeRead{leafId?, total, nodes[], nextCursor?}`: the entries of the session file as the terminal's `/tree` shows them, newest first; a node is `{id, parentId?, itemId, kind, at?, preview, previewCut, label?}` | The store's file read (Pi README decision 30) |
-| pi | `label_entry{sessionId, entryId, label?}` (since 1.3) | `{}`; a blank or absent label clears | `sessionManager.appendLabelChange` |
-| pi | `abort_branch_summary{sessionId}` (since 1.3) | `{}`, also when nothing was summarising | `AgentSession.abortBranchSummary()` |
-| pi | `run_shell{sessionId, clientRequestId, command, excludeFromContext}` (since 1.3) | `{}` once the command started; it runs as a run with one `bash` tool call | `user_bash`, then `AgentSession.executeBash` (Pi README decision 31) |
-| pi | `take_over{sessionId}` (since 1.2) | `{}` (`TakenOver`) | Marks a session another client made as this bridge's own (`broski.origin`), so it becomes controllable. Refused `busy` while a terminal holds it or its file changed in the last 10 s. The question the app asks says no terminal may be using the session; only the human knows |
-| pi | `export_session{sessionId, format: html\|jsonl}` (since 1.3) | `{exportId, name, mimeType, bytes}` | The terminal's `/export` as HTML, or the session file whole up to its last complete line, written aside on the Mac (`AgentSession.exportToHtml`, pi-coding-agent `src/core/agent-session.ts`) |
-| pi | `export_part{sessionId, exportId, offset}` (since 1.3) | `{offset, data (base64), done}` | The next part of an export; a part is at most `MAX_TRANSFER_PART_BYTES` (512 KiB), so its frame fits the smallest link cap (1 MiB) |
-| pi | `import_session{uploadId, offset, data, last}` (since 1.3) | `{received, sessionId?}` | A session file arriving in parts, in order; the last part has the whole file judged as Pi reads session files, puts it in the sessions directory of its project (inside the trusted roots, never over a session) and lists it. A file past `MAX_IMPORT_BYTES` is refused |
-| pi | `changed_files{sessionId}` (since 1.3) | `{files[], omitted, additions, deletions}` | The files `edit` and `write` calls changed on the branch the transcript shows, folded per file |
-| pi | `refresh_models{}` (since 1.3) | `{problems[]}` | `pi update --models`: every signed-in provider's catalogue fetched again from the network, then the model files read again |
-
-Some ops name no session (Pi's `import_session`, `refresh_models`; `config_files`, `config_file`, `settings_overview`, `custom_tools`, `custom_tool`, and `plugins` without one): the ops rule (§14, rule 9) asks for `not_found` on a random session only of an op that names one. Of all the ops only `navigate_tree` rewrites history.
-
-Revert is an op, not a capability: its meaning differs per backend (CC files only; Pi a leaf move; Pi Durable a fork), and one normalized "revert" would lie.
-
-An op that rewrites what the transcript reads is marked by `rewritesHistory(kind)`: `navigate_tree` (`rewind_files` does not: it changes files, not the transcript; `take_over` does not either: it appends one bookkeeping entry that no transcript item shows; nor do `session_settings`, `session_tools` and `system_prompt`, nor any op of 1.4: a configuration file is not the transcript). After one is accepted the adapter emits `transcript_invalidated{session}` (§5).
 
 ## 14. Conformance
 
