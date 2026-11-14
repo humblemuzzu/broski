@@ -193,6 +193,15 @@ describe("rows", () => {
 		appendFileSync(transcriptOf(cwd, renamed), entries.map((entry) => `${JSON.stringify(entry)}\n`).join(""));
 		expect(await titleOf(renamed)).toEqual({ text: "My name", source: "user" });
 
+		const cleared = seed(cwd, "cleared", at);
+		const clearing = [
+			{ type: "custom-title", customTitle: "Old name", sessionId: cleared },
+			{ type: "ai-title", aiTitle: "Cleared", sessionId: cleared },
+			{ type: "custom-title", customTitle: "", sessionId: cleared },
+		];
+		appendFileSync(transcriptOf(cwd, cleared), clearing.map((entry) => `${JSON.stringify(entry)}\n`).join(""));
+		expect(await titleOf(cleared)).toEqual({ text: "Cleared", source: "generated" });
+
 		const sidecar = seed(cwd, "another", at);
 		appendFileSync(
 			transcriptOf(cwd, sidecar),

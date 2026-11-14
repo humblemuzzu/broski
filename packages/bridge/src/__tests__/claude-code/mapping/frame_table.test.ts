@@ -10,9 +10,9 @@ import { SAMPLES } from "./samples";
 const KEYS = Object.keys(FRAME_KINDS) as FrameKey[];
 
 describe("the table of frame kinds", () => {
-	test("covers 42 kinds: the 39 variants of SDKMessage, with a result in five subtypes and the system frames by subtype", () => {
-		expect(KEYS).toHaveLength(42);
-		expect(KEYS.filter((key) => key.startsWith("system/"))).toHaveLength(28);
+	test("covers 43 kinds: the 40 variants of SDKMessage, with a result in five subtypes and the system frames by subtype", () => {
+		expect(KEYS).toHaveLength(43);
+		expect(KEYS.filter((key) => key.startsWith("system/"))).toHaveLength(29);
 		expect(KEYS.filter((key) => key.startsWith("result/"))).toHaveLength(5);
 	});
 

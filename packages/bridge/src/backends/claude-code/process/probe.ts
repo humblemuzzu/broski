@@ -1,14 +1,9 @@
 /** Lane C · a probe `query()` with an empty inbox: `initializationResult()`, then `close()` in `finally` (D6). */
 
-import type {
-	Options,
-	Query,
-	SDKControlInitializeResponse,
-	SDKStartupFailureReason,
-} from "@anthropic-ai/claude-agent-sdk";
+import type { Options, Query, SDKControlInitializeResponse } from "@anthropic-ai/claude-agent-sdk";
 import { MAX_CATALOG_ITEMS } from "../../../contract";
 import { boundList, clip } from "../bounds";
-import type { ProbeFailure } from "../models/startup-failures";
+import { type ProbeFailure, type StartupFailure, startupFailureOf } from "../models/startup-failures";
 import type { Clock } from "../ports/time";
 import type { ClaudeCodeServices } from "../services";
 import { createInbox } from "./inbox";
@@ -47,10 +42,10 @@ function probeOptions(services: ClaudeCodeServices, cliPath: string, cwd: string
 	};
 }
 
-async function drain(query: Query, seen: { refusal?: SDKStartupFailureReason }): Promise<void> {
+async function drain(query: Query, seen: { refusal?: StartupFailure }): Promise<void> {
 	try {
 		for await (const message of query) {
-			if (message.type === "result" && message.subtype !== "success") seen.refusal ??= message.startup_failure_reason;
+			if (message.type === "result") seen.refusal ??= startupFailureOf(message);
 		}
 	} catch {
 		// The same failure rejects initializationResult(), which is where the probe reports it.
@@ -86,7 +81,7 @@ async function answerOf(query: Query, expired: Promise<typeof TIMED_OUT>): Promi
 	return { init, skills };
 }
 
-function failed(error: unknown, startupFailure: SDKStartupFailureReason | undefined): ProbeOutcome {
+function failed(error: unknown, startupFailure: StartupFailure | undefined): ProbeOutcome {
 	const message = error instanceof Error ? error.message : String(error);
 	return {
 		kind: "failed",
@@ -101,7 +96,7 @@ export async function probeInitialize(services: ClaudeCodeServices, cwd: string)
 	const { cli, clock } = services;
 	if (!cli.found) return failed(new Error(`the Claude Code binary was not found: ${cli.reason}`), undefined);
 	const inbox = createInbox();
-	const seen: { refusal?: SDKStartupFailureReason } = {};
+	const seen: { refusal?: StartupFailure } = {};
 	let query: Query | undefined;
 	let drained: Promise<void> = Promise.resolve();
 	let cancelTimeout = () => {};

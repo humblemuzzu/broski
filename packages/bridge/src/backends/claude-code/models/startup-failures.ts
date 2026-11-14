@@ -1,7 +1,12 @@
-/** Why the CLI refused to start, in the phone's words: keyed by `startup_failure_reason` (`d.ts:6213`), never by the CLI's text. */
+/** Why the CLI refused to start, in the phone's words: keyed by `startup_failure_reason`, never by the CLI's text. */
 
-import { ORG_POLICY_LIMIT_PREFIXES, type SDKStartupFailureReason } from "@anthropic-ai/claude-agent-sdk";
-import type { RejectionCode } from "../../../contract";
+import {
+	ORG_POLICY_LIMIT_PREFIXES,
+	type SDKResultMessage,
+	type SDKStartupFailureReason,
+} from "@anthropic-ai/claude-agent-sdk";
+import { MAX_PATH_CHARS, type RejectionCode } from "../../../contract";
+import { phoneText } from "../phone-text";
 
 interface StartupRefusal {
 	readonly text: string;
@@ -9,6 +14,10 @@ interface StartupRefusal {
 	readonly signIn?: true;
 }
 
+/**
+ * A wrapper script is the one way the bridge's own launch meets the two `initialize` refusals: it never passes
+ * `--await-initialize` or `--managed-settings-in-initialize` itself, but the user's `claude` may be a script.
+ */
 const REFUSALS: { readonly [R in SDKStartupFailureReason]: StartupRefusal } = {
 	org_pin_api_key_conflict: {
 		text: "Your organization requires a Claude sign-in, but an Anthropic API key or auth token is configured instead.",
@@ -69,13 +78,35 @@ const REFUSALS: { readonly [R in SDKStartupFailureReason]: StartupRefusal } = {
 	sandbox_required_unavailable: {
 		text: "A sandbox is required but cannot run here, for example because bubblewrap is missing.",
 	},
+	initialize_not_first: {
+		text: "Claude Code did not get the bridge's start request first. If `claude` on this computer is a wrapper script, it must pass its input through unchanged.",
+	},
+	config_file_invalid: {
+		text: "A Claude Code configuration file is not valid JSON, so Claude Code will not start. Run `claude` in a terminal on this computer to see which file and how to repair it.",
+	},
+	managed_settings_not_delivered: {
+		text: "Claude Code was started expecting managed settings it did not get. If `claude` on this computer is a wrapper script, check the options it adds.",
+	},
 };
+
+/** Why the CLI would not start, and the file to repair when a configuration file does not parse. */
+export interface StartupFailure {
+	readonly reason: SDKStartupFailureReason;
+	readonly configFile?: string;
+}
 
 /** What went wrong starting the CLI for a probe. */
 export interface ProbeFailure {
 	/** The SDK's or the CLI's own words; shown only when no known reason explains it. */
 	readonly message: string;
-	readonly startupFailure?: SDKStartupFailureReason;
+	readonly startupFailure?: StartupFailure;
+}
+
+/** The refusal a result frame carries; undefined for every other result. */
+export function startupFailureOf(result: SDKResultMessage): StartupFailure | undefined {
+	if (result.subtype === "success" || result.startup_failure_reason === undefined) return undefined;
+	const path = result.invalid_config_file?.path;
+	return { reason: result.startup_failure_reason, ...(path !== undefined && { configFile: path }) };
 }
 
 /** The CLI's org-policy sentence, from where it starts: the SDK wraps an error result's text in its own words. */
@@ -92,8 +123,12 @@ function refusalOf(reason: SDKStartupFailureReason): StartupRefusal | undefined 
 	return Object.hasOwn(REFUSALS, reason) ? REFUSALS[reason] : undefined;
 }
 
-export function refusalText(reason: SDKStartupFailureReason): string {
-	return refusalOf(reason)?.text ?? `Claude Code could not start (${reason}).`;
+export function refusalText(failure: StartupFailure): string {
+	if (failure.reason === "config_file_invalid" && failure.configFile !== undefined) {
+		const file = phoneText(failure.configFile, MAX_PATH_CHARS);
+		return `Claude Code will not start: its configuration file ${file} is not valid JSON. Fix the JSON in that file, or move it aside to start with default settings.`;
+	}
+	return refusalOf(failure.reason)?.text ?? `Claude Code could not start (${failure.reason}).`;
 }
 
 export function refusalNeedsSignIn(reason: SDKStartupFailureReason): boolean {
@@ -106,5 +141,7 @@ export function failureText(failure: ProbeFailure): string {
 }
 
 export function failureCode(failure: ProbeFailure): RejectionCode {
-	return failure.startupFailure !== undefined && refusalNeedsSignIn(failure.startupFailure) ? "auth" : "backend_error";
+	return failure.startupFailure !== undefined && refusalNeedsSignIn(failure.startupFailure.reason)
+		? "auth"
+		: "backend_error";
 }

@@ -63,6 +63,7 @@ export const FRAME_KINDS: Readonly<Record<FrameKey, Disposition>> = {
 	"system/mirror_error": { shows: "notice(error)" },
 	"system/worker_shutting_down": { shows: "notice(warning)" },
 	"system/plugin_install": { shows: "notice(warning) when an install failed" },
+	"system/session_writes_lost": { shows: "notice(error) naming what was not saved and why" },
 	"system/permission_denied": {
 		shows: "marks the tool call, whose result is then denied",
 	},

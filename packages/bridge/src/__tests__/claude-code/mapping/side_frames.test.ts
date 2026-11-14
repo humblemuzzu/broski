@@ -75,6 +75,31 @@ describe("notices", () => {
 		]);
 	});
 
+	test("writes the CLI lost as it exited are an error notice that says what was lost and why", () => {
+		const lost = (error_code: "ENOSPC" | "EDQUOT", what: ("transcript" | "global_config")[]): SDKMessage => ({
+			type: "system",
+			subtype: "session_writes_lost",
+			error_code,
+			lost: what,
+			...ids(),
+		});
+		const newer = JSON.parse(JSON.stringify(lost("ENOSPC", [])));
+		newer.error_code = "EIO";
+		newer.lost = ["plugins"];
+		const events = map(lost("ENOSPC", ["transcript", "global_config"]), lost("EDQUOT", ["global_config"]), newer);
+		expect(events.map((event) => event.type === "notice" && [event.level, event.text])).toEqual([
+			[
+				"error",
+				"Claude Code could not save part of the conversation, so resuming it may miss what was not saved: the disk is full. Free some space on this computer.",
+			],
+			[
+				"error",
+				"Claude Code could not save its settings changes (~/.claude.json): the disk quota is used up. Free some space on this computer.",
+			],
+			["error", "Claude Code could not save some of its files: the disk refused the write (EIO)."],
+		]);
+	});
+
 	test("a refusal falling back says so; one with no fallback and no words says nothing of its own", () => {
 		const fallback: SDKMessage = {
 			type: "system",

@@ -5,6 +5,7 @@
 
 import { describe, expect, test } from "bun:test";
 import type { ModelInfo, SDKControlInitializeResponse } from "@anthropic-ai/claude-agent-sdk";
+import { EXPECTED_CLAUDE_CLI_VERSION } from "../../../server/claude-code-backend";
 import { expectNoOrphans } from "./rig/orphans";
 import { startSpike } from "./rig/session";
 
@@ -42,9 +43,13 @@ describe("Q11: the model catalogue offline", () => {
 				});
 				expect(model.supportedEffortLevels).toEqual(["low", "medium", "high", "xhigh", "max"]);
 			}
-			expect(base.supported.filter((m) => m.supportsFastMode).map((m) => m.value)).toEqual(["default", "opus"]);
+			expect(base.supported.filter((m) => m.supportsFastMode).map((m) => m.value)).toEqual([
+				"default",
+				"opus",
+				"fable",
+			]);
 			expect(base.init).toMatchObject({
-				claude_code_version: "2.1.316",
+				claude_code_version: EXPECTED_CLAUDE_CLI_VERSION,
 				account: { apiKeySource: "ANTHROPIC_API_KEY", apiProvider: "firstParty" },
 				available_output_styles: ["default", "Proactive", "Concise", "Explanatory", "Learning"],
 				fast_mode_disabled_reason: "sdk_opt_in_required",

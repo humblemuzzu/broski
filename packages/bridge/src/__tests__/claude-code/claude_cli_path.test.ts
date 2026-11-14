@@ -8,6 +8,7 @@ import {
 	defaultClaudeCliEnvironment,
 	resolveClaudeCliPath,
 } from "../../server/claude-cli-path";
+import { EXPECTED_CLAUDE_CLI_VERSION } from "../../server/claude-code-backend";
 import { testClaudeBinary } from "./helpers/test-claude-cli";
 
 function env(overrides: Partial<ClaudeCliEnvironment>): ClaudeCliEnvironment {
@@ -83,7 +84,7 @@ describe("doctor", () => {
 	test("reports the binary, where it came from and its version", () => {
 		const check = claudeCliCheck({ ok: true, path: testClaudeBinary(), source: "path", notes: [] });
 		expect(check).toMatchObject({ id: "claude_code", status: "ok" });
-		expect(check.message).toMatch(/^Claude Code 2\.1\.316 \(PATH: .+\/claude\)$/);
+		expect(check.message).toBe(`Claude Code ${EXPECTED_CLAUDE_CLI_VERSION} (PATH: ${testClaudeBinary()})`);
 	});
 
 	test("warns with the reason when there is no binary or it does not run", () => {

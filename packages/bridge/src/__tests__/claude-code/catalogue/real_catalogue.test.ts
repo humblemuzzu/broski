@@ -4,10 +4,11 @@
  */
 
 import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { SDKControlInitializeResponse, SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import { isRejected } from "../../../backends/claude-code/rejections";
+import { EXPECTED_CLAUDE_CLI_VERSION } from "../../../server/claude-code-backend";
 import { expectNoOrphans } from "../spike/rig/orphans";
 import { isIdle, startSpike } from "../spike/rig/session";
 import {
@@ -180,10 +181,10 @@ describe("status", () => {
 	test(
 		"ok: signed in by an API key, the bundled version, usable, no issues",
 		async () => {
-			const w = world({ expectedCliVersion: "2.1.316" });
+			const w = world({ expectedCliVersion: EXPECTED_CLAUDE_CLI_VERSION });
 			expect(await w.catalogue.status()).toEqual({
 				installed: true,
-				version: "2.1.316",
+				version: EXPECTED_CLAUDE_CLI_VERSION,
 				auth: "signed_in",
 				usable: true,
 				issues: [],
@@ -201,7 +202,7 @@ describe("status", () => {
 			expect(status.usable).toBe(true);
 			expect(status.issues).toHaveLength(1);
 			expect(status.issues[0]?.severity).toBe("warning");
-			expect(status.issues[0]?.message).toContain("2.1.316");
+			expect(status.issues[0]?.message).toContain(EXPECTED_CLAUDE_CLI_VERSION);
 			expect(status.issues[0]?.message).toContain("2.1.400");
 		},
 		CLI_TEST_MS,
@@ -212,7 +213,12 @@ describe("status", () => {
 		async () => {
 			const w = world({ signedOut: true });
 			const status = await w.catalogue.status();
-			expect(status).toMatchObject({ installed: true, version: "2.1.316", auth: "signed_out", usable: false });
+			expect(status).toMatchObject({
+				installed: true,
+				version: EXPECTED_CLAUDE_CLI_VERSION,
+				auth: "signed_out",
+				usable: false,
+			});
 			expect(status.issues[0]).toMatchObject({ severity: "error" });
 			expect(status.issues[0]?.message).toContain("not signed in");
 		},
@@ -233,6 +239,24 @@ describe("status", () => {
 			]);
 			const listed = await w.catalogue.models(w.home.projectDir);
 			expect(listed.status === "rejected" && listed.rejection.code).toBe("backend_error");
+		},
+		CLI_TEST_MS,
+	);
+
+	test(
+		"a global config file that is not JSON is reported with its path and how to repair it, and left as it is",
+		async () => {
+			const w = world({}, (home) => writeFileSync(join(home.configDir, ".claude.json"), "{ broken"));
+			const file = join(w.home.configDir, ".claude.json");
+			const status = await w.catalogue.status();
+			expect(status).toMatchObject({ installed: true, auth: "unknown", usable: false });
+			expect(status.issues).toEqual([
+				{
+					severity: "error",
+					message: `Claude Code will not start: its configuration file ${file} is not valid JSON. Fix the JSON in that file, or move it aside to start with default settings.`,
+				},
+			]);
+			expect(readFileSync(file, "utf8")).toBe("{ broken");
 		},
 		CLI_TEST_MS,
 	);

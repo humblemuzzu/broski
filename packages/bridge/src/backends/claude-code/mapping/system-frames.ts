@@ -12,6 +12,7 @@ import {
 	refusalFallbackNotice,
 	refusalNoFallbackNotice,
 	shuttingDownNotice,
+	writesLostNotice,
 } from "./notices";
 import type { MapperState } from "./state";
 import { taskProgressEvents, taskStartedEvents } from "./tool-calls";
@@ -64,6 +65,8 @@ export function systemEvents(state: MapperState, frame: Extract<SDKMessage, { ty
 			return shuttingDownNotice(frame);
 		case "plugin_install":
 			return pluginInstallNotice(frame);
+		case "session_writes_lost":
+			return writesLostNotice(frame);
 		case "api_retry": // `retryEvents` reads every frame, this one included
 		case "hook_started":
 		case "hook_progress":

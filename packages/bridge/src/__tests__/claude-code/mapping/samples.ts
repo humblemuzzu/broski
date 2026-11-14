@@ -50,6 +50,14 @@ export const SAMPLES: Readonly<Record<FrameKey, SDKMessage>> = {
 	},
 	"system/worker_shutting_down": { type: "system", subtype: "worker_shutting_down", reason: "host_exit", ...ids() },
 	"system/plugin_install": { type: "system", subtype: "plugin_install", status: "failed", ...ids() },
+	"system/session_writes_lost": {
+		type: "system",
+		subtype: "session_writes_lost",
+		error_code: "ENOSPC",
+		lost: ["transcript"],
+		transcript_session_ids: ["s"],
+		...ids(),
+	},
 	"system/permission_denied": {
 		type: "system",
 		subtype: "permission_denied",

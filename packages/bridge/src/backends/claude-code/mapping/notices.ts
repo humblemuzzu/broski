@@ -56,6 +56,24 @@ export function shuttingDownNotice(frame: System<"worker_shutting_down">): Mappe
 	return notice("warning", `Claude Code is shutting down: ${frame.reason}`);
 }
 
+/**
+ * Sent once as the CLI exits: lines it could not write are gone for good, and a resume reads only what was written, so
+ * the person is told why and what to free. Both lists are open sets (`SDKSessionWritesLostMessage`).
+ */
+export function writesLostNotice(frame: System<"session_writes_lost">): MappedEvent[] {
+	const what = frame.lost.includes("transcript")
+		? "part of the conversation, so resuming it may miss what was not saved"
+		: frame.lost.includes("global_config")
+			? "its settings changes (~/.claude.json)"
+			: "some of its files";
+	const full = frame.error_code === "ENOSPC" ? "the disk is full" : "the disk quota is used up";
+	const why =
+		frame.error_code === "ENOSPC" || frame.error_code === "EDQUOT"
+			? `${full}. Free some space on this computer.`
+			: `the disk refused the write (${String(frame.error_code)}).`;
+	return notice("error", `Claude Code could not save ${what}: ${why}`);
+}
+
 export function pluginInstallNotice(frame: System<"plugin_install">): MappedEvent[] {
 	if (frame.status !== "failed") return [];
 	return notice("warning", `Installing the plugin ${frame.name ?? ""} failed${frame.error ? `: ${frame.error}` : ""}`);

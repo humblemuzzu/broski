@@ -8,6 +8,7 @@ import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { type ClaudeCodeFactoryOptions, claudeCodeBackendFactory } from "../../../backends/claude-code/factory";
 import type { AgentBackend, BackendHost } from "../../../contract";
+import { EXPECTED_CLAUDE_CLI_VERSION } from "../../../server/claude-code-backend";
 import { type ClaudeHome, claudeTestEnv, createClaudeHome, README_TEXT } from "../../helpers/claude-home";
 import { type ScriptedAnthropic, serveScriptedAnthropic } from "../../helpers/scripted-anthropic-server";
 import { testClaudeBinary } from "../helpers/test-claude-cli";
@@ -16,8 +17,6 @@ import { ModelEcho } from "./model-echo";
 import { Activity, type Observed, observe } from "./observed-backend";
 import { SessionRouter } from "./session-router";
 import { TerminalAsks } from "./terminal-asks";
-
-export const CLI_VERSION = "2.1.316";
 
 interface WorldParts {
 	readonly home: ClaudeHome;
@@ -70,7 +69,7 @@ export class ClaudeWorld {
 			env: claudeTestEnv({ url: server.url, home, proxy: server.proxyUrl }),
 			stateDir: join(home.root, "broski-state"),
 			clientApp: "broski/conformance",
-			expectedCliVersion: CLI_VERSION,
+			expectedCliVersion: EXPECTED_CLAUDE_CLI_VERSION,
 			terminal: { hookAsks: terminalAsks.hookAsks },
 		};
 		const activity = new Activity();

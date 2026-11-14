@@ -1,8 +1,8 @@
 /**
- * Lane A · whether a session's `customTitle` is the user's. The SDK's lite read folds the AI title into `customTitle`
- * when no custom title exists (`sdk.mjs` `ml`: `customTitle(tail) ‖ custom-title.json ‖ customTitle(head) ‖
- * aiTitle(tail) ‖ aiTitle(head)`), so the store looks where the SDK looked: the last and first 64 KiB of the transcript
- * and the session's `custom-title.json`. Cached by the file's size and mtime.
+ * Whether a session's `customTitle` is the user's. The SDK's lite read folds the AI title into `customTitle` when no
+ * custom title exists (`sdk.mjs`: `custom-title(tail) ‖ custom-title.json ‖ custom-title(head) ‖ ai-title(tail) ‖
+ * ai-title(head)`), so the store looks where the SDK looked: the last and first 64 KiB of the transcript and the
+ * session's `custom-title.json`. Cached by the file's size and mtime.
  */
 
 import { open, readFile } from "node:fs/promises";
@@ -14,7 +14,8 @@ import { stampOf } from "./locator";
 /** The SDK's lite-read window (`sdk.mjs` `En=65536`). */
 const WINDOW_BYTES = 65_536;
 const MAX_CACHED = 4_096;
-const CUSTOM_TITLE_KEYS = ['"customTitle":"', '"customTitle": "'];
+const CUSTOM_TITLE_TYPES = ['"type":"custom-title"', '"type": "custom-title"'];
+const KEY = '"customTitle":';
 
 export class TitleSources {
 	private readonly known = new Map<string, { readonly stamp: string; readonly user: boolean }>();
@@ -58,8 +59,38 @@ async function windowAt(handle: Awaited<ReturnType<typeof open>>, from: number, 
 	return buffer.toString("utf8", 0, bytesRead);
 }
 
+/**
+ * The newest `custom-title` entry in `text` that holds a title string names a non-empty one, read as the SDK reads it
+ * (`sdk.mjs` `Xn`/`mR`): newest line first, a line torn by the window's start read from its own entry.
+ */
 function hasCustomTitle(text: string): boolean {
-	return CUSTOM_TITLE_KEYS.some((key) => text.includes(key));
+	const lines = text.split("\n");
+	for (let at = lines.length - 1; at >= 0; at--) {
+		const line = lines[at] ?? "";
+		if (!line.includes(KEY) || !CUSTOM_TITLE_TYPES.some((type) => line.includes(type))) continue;
+		const title = titleIn(line) ?? titleIn(tornEntry(line));
+		if (title !== undefined) return title !== "";
+	}
+	return false;
+}
+
+function tornEntry(line: string): string {
+	const start = line.lastIndexOf(`{${CUSTOM_TITLE_TYPES[0]}`);
+	return start > 0 && !":,[".includes(line.charAt(start - 1)) ? line.slice(start) : "";
+}
+
+function titleIn(line: string): string | undefined {
+	try {
+		const entry: unknown = JSON.parse(line);
+		return typeof entry === "object" &&
+			entry !== null &&
+			"customTitle" in entry &&
+			typeof entry.customTitle === "string"
+			? entry.customTitle
+			: undefined;
+	} catch {
+		return undefined;
+	}
 }
 
 async function sidecarTitled(path: string): Promise<boolean> {
