@@ -107,6 +107,7 @@ export async function runUninstall(): Promise<void> {
 	const status = await getDaemonStatus();
 	if (!status.installed) {
 		console.log("  Broski is not installed as a background service.");
+		await removeTerminalHook();
 		return;
 	}
 
@@ -117,11 +118,19 @@ export async function runUninstall(): Promise<void> {
 		console.error(`  Failed to uninstall service: ${err}`);
 		return;
 	}
-	await removeClaudeCodeTerminalHook({ certPath: defaultTlsPaths().certPath, log: (line) => console.log(`  ${line}`) });
+	await removeTerminalHook();
 
 	console.log("\n  Broski background service uninstalled.");
 	console.log("   The bridge will no longer start automatically.");
 	console.log("   Run `broski` to start it manually when needed.");
+}
+
+/** A bridge run in the foreground installs the hook too, so it goes whether or not a service was installed. */
+function removeTerminalHook(): Promise<void> {
+	return removeClaudeCodeTerminalHook({
+		certPath: defaultTlsPaths().certPath,
+		log: (line) => console.log(`  ${line}`),
+	});
 }
 
 export async function runStatus(): Promise<void> {
