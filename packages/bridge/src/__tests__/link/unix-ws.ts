@@ -1,9 +1,9 @@
 /**
- * Minimal WebSocket client over a Unix domain socket. Bun's `WebSocket` cannot dial a unix path and
- * its `fetch` cannot carry frames after the 101, so these tests speak the wire protocol directly.
+ * Minimal WebSocket client over a raw socket, a unix path or the loopback port. Bun's `WebSocket` cannot dial a unix
+ * path, and neither it nor `fetch` can stop reading a socket, so these tests speak the wire protocol directly.
  */
 
-import { connect as netConnect, type Socket } from "node:net";
+import { type NetConnectOpts, connect as netConnect, type Socket } from "node:net";
 
 const HANDSHAKE_TIMEOUT_MS = 5000;
 const MESSAGE_TIMEOUT_MS = 10_000;
@@ -68,8 +68,17 @@ export function unixUpgradeStatus(path: string, headers: Record<string, string>)
 	});
 }
 
-export async function connectUnixWs(path: string, headers: Record<string, string>): Promise<UnixWsClient> {
-	const { socket, leftover } = await openSocket(path, headers);
+export function connectUnixWs(path: string, headers: Record<string, string>): Promise<UnixWsClient> {
+	return connectWs({ path }, headers);
+}
+
+/** A client of the bridge's loopback listener, which authenticates with `headers` (`Authorization: Bearer …`). */
+export function connectLoopbackWs(port: number, headers: Record<string, string>): Promise<UnixWsClient> {
+	return connectWs({ host: "127.0.0.1", port }, headers);
+}
+
+async function connectWs(target: NetConnectOpts, headers: Record<string, string>): Promise<UnixWsClient> {
+	const { socket, leftover } = await openSocket(target, headers);
 	const frames: LinkFrame[] = [];
 	const waiters: Array<{
 		predicate: (frame: LinkFrame) => boolean;
@@ -144,9 +153,12 @@ export async function connectUnixWs(path: string, headers: Record<string, string
 	};
 }
 
-function openSocket(path: string, headers: Record<string, string>): Promise<{ socket: Socket; leftover: Buffer }> {
+function openSocket(
+	target: NetConnectOpts,
+	headers: Record<string, string>,
+): Promise<{ socket: Socket; leftover: Buffer }> {
 	return new Promise((resolve, reject) => {
-		const socket = netConnect({ path });
+		const socket = netConnect(target);
 		let text = "";
 		const timer = setTimeout(() => {
 			socket.destroy();

@@ -1,7 +1,7 @@
 /**
  * What the core does for phones whose link is not perfect, end to end over the broski-link socket:
- * a reconnect, a phone that stops reading, a bridge restart, the idle close, and a live state
- * larger than one link message.
+ * a reconnect, a phone that stops reading, a burst of large answers, a client on the loopback listener that
+ * stops reading, the idle close, and a live state larger than one link message.
  */
 
 import { afterAll, describe, expect, setDefaultTimeout, test } from "bun:test";
@@ -11,7 +11,8 @@ import { LINK_OVERFLOW_CLOSE_CODE } from "../transport/send-limits";
 import { E2E_TEST_TIMEOUT_MS, setupTestEnv } from "./e2e/harness";
 import { removeRoot, startCoreBridge } from "./helpers/core-bridge";
 import { promptInput, quiesce } from "./helpers/core-rig";
-import type { LinkContractClient } from "./helpers/link-contract-client";
+import { LinkContractClient } from "./helpers/link-contract-client";
+import { connectLoopbackWs } from "./link/unix-ws";
 
 setDefaultTimeout(E2E_TEST_TIMEOUT_MS);
 
@@ -129,6 +130,63 @@ describe("the core over an imperfect link", () => {
 				await rig.stop();
 			}
 		});
+	});
+
+	test("a burst of large answers arrives whole although the phone is not reading while they are produced", async () => {
+		await withEnv("BROSKI_LINK_BACKPRESSURE_MB", "8", async () => {
+			const rig = await startCoreBridge();
+			roots.push(rig.root);
+			try {
+				const phone = await rig.phone("burst");
+				const session = rig.fake.fake.seed({ cwd: rig.cwd });
+				await phone.ok("session.attach", { session });
+				rig.fake.fake.script(session, [{ kind: "text", text: "r".repeat(1_000_000) }]);
+				await phone.ok("prompt", { session, input: promptInput("Something long") });
+				await runsFinished(phone, session, 1);
+				const requests = 9;
+				phone.socket.pause();
+				const reads = Array.from({ length: requests }, () =>
+					phone.ok("transcript.read", { session, page: { limit: 10 } }),
+				);
+				await quiesce();
+				phone.socket.resume();
+				const answers = await Promise.all(reads);
+				expect(answers).toHaveLength(requests);
+				expect(phone.frameSizes("transcript.read.result").reduce((total, size) => total + size, 0)).toBeGreaterThan(
+					8 * 1024 * 1024,
+				);
+				expect(phone.socket.closed()).toBeNull();
+			} finally {
+				await rig.stop();
+			}
+		});
+	});
+
+	test("a client on the loopback listener that stops reading is shed at its own window, and a link phone is untouched", async () => {
+		const rig = await startCoreBridge();
+		roots.push(rig.root);
+		try {
+			const network = new LinkContractClient(
+				await connectLoopbackWs(rig.bridge.port, { authorization: `Bearer ${rig.bridge.token}` }),
+				"network",
+			);
+			await network.hello();
+			const link = await rig.phone("link");
+			const session = rig.fake.fake.seed({ cwd: rig.cwd });
+			await network.ok("session.attach", { session });
+			await link.ok("session.attach", { session });
+			network.socket.pause();
+			for (let run = 1; run <= 5; run++) {
+				rig.fake.fake.script(session, [{ kind: "text", text: "n".repeat(1_000_000) }]);
+				await link.ok("prompt", { session, input: promptInput(`Run ${run}`) });
+				await runsFinished(link, session, run);
+			}
+			expect(link.socket.closed()).toBeNull();
+			network.socket.resume();
+			expect(await network.socket.waitForClose()).toEqual({ code: 1013, reason: "backpressure" });
+		} finally {
+			await rig.stop();
+		}
 	});
 
 	test("a session keeps running with nobody viewing it, and closes only once idle and the delay has passed", async () => {
