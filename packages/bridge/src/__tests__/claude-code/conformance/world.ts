@@ -96,7 +96,7 @@ export class ClaudeWorld {
 		return this.observed.backend;
 	}
 
-	/** Every request stayed on the scripted endpoint (D32). */
+	/** Every request stayed on the scripted endpoint. */
 	escapes(): string[] {
 		return this.server.escapes();
 	}
@@ -113,11 +113,10 @@ function withSdk(options: ClaudeCodeFactoryOptions): ClaudeCodeFactoryOptions {
 	return { ...options, sdk: isolatedClaudeSdk(options.env) };
 }
 
-/** The elicitation server (form, url, confirm), a project settings file for `config_file`, a command to list. */
+/** The elicitation server (form, url, confirm) and a project command to list. */
 function prepareHome(home: ClaudeHome): void {
 	installElicitServer(home.root, home.configDir);
 	const project = join(home.projectDir, ".claude");
 	mkdirSync(join(project, "commands"), { recursive: true });
-	writeFileSync(join(project, "settings.json"), `${JSON.stringify({ permissions: { allow: [] } }, null, 2)}\n`);
 	writeFileSync(join(project, "commands", "conformance.md"), "Reply with the word CONFORMANCE. $ARGUMENTS\n");
 }
