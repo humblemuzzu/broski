@@ -1,6 +1,8 @@
 /**
  * A scripted `Query` for unit tests of the hosts, the probe and the ops: the test pushes frames and ends the stream;
- * every control call is recorded, answered by `handlers` when given, else rejected as not scripted.
+ * every control call is recorded, answered by `handlers` when given, else rejected as not scripted. An unscripted
+ * `getContextUsage`, which every host sends after a run, waits for the query to close and is then rejected as the SDK
+ * rejects a pending control request.
  */
 
 import type { Query, SDKMessage } from "@anthropic-ai/claude-agent-sdk";
@@ -17,6 +19,7 @@ export class FakeQuery implements Query {
 	readonly calls: ControlCall[] = [];
 	closed = false;
 	private readonly frames: SDKMessage[] = [];
+	private readonly onClose: (() => void)[] = [];
 	private wake: (() => void) | undefined;
 	private ended = false;
 	private readonly stream: AsyncGenerator<SDKMessage, void>;
@@ -80,7 +83,7 @@ export class FakeQuery implements Query {
 	mcpServerStatus: Query["mcpServerStatus"] = (...args) =>
 		this.control("mcpServerStatus", args, this.handlers.mcpServerStatus);
 	getContextUsage: Query["getContextUsage"] = (...args) =>
-		this.control("getContextUsage", args, this.handlers.getContextUsage);
+		this.control("getContextUsage", args, this.handlers.getContextUsage ?? (() => this.closedBeforeAnswer()));
 	usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET: Query["usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET"] =
 		(...args) =>
 			this.control(
@@ -111,7 +114,16 @@ export class FakeQuery implements Query {
 	close(): void {
 		this.calls.push({ method: "close", args: [] });
 		this.closed = true;
+		for (const reject of this.onClose.splice(0)) reject();
 		this.end();
+	}
+
+	private closedBeforeAnswer<R>(): Promise<R> {
+		return new Promise((_, reject) => {
+			const rejectNow = () => reject(new Error("Query closed before response received"));
+			if (this.closed) rejectNow();
+			else this.onClose.push(rejectNow);
+		});
 	}
 
 	private control<A extends unknown[], R>(
