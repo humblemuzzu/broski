@@ -169,8 +169,6 @@ export class FakeRun {
 				return { kind: "error", error: step.error };
 			case "limit":
 				return { kind: "limit", limit: step.limit };
-			case "suspend":
-				return { kind: "suspended" };
 			case "defer":
 				return { kind: "deferred" };
 		}

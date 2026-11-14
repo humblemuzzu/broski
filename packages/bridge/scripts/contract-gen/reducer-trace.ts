@@ -104,7 +104,7 @@ function assertCoverage(cases: readonly { initial: SessionSnapshot; records: Tra
 		...["input", "output_appended", "output_replaced", "progress", "file_changes", "child_session"].filter(
 			(kind) => !updates.has(kind),
 		),
-		...(["idle", "running", "waiting_for_user", "suspended"] as const).filter((status) => !statuses.has(status)),
+		...(["idle", "running", "waiting_for_user"] as const).filter((status) => !statuses.has(status)),
 		...(dropped ? [] : ["droppedItems"]),
 		...(trimmedInsidePair ? [] : ["a trim inside a surrogate pair"]),
 	];

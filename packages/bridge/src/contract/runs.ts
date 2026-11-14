@@ -44,20 +44,9 @@ export type RunErrored = z.infer<typeof RunErrored>;
 export const RunLimited = z.strictObject({ kind: z.literal("limit"), limit: RunLimit });
 export type RunLimited = z.infer<typeof RunLimited>;
 
-/** Interrupted by a backend shutdown; the backend resumes the run when it restarts. */
-export const RunSuspended = z.strictObject({ kind: z.literal("suspended") });
-export type RunSuspended = z.infer<typeof RunSuspended>;
-
 /** Ended waiting on a deferred tool call that a later run answers. */
 export const RunDeferred = z.strictObject({ kind: z.literal("deferred") });
 export type RunDeferred = z.infer<typeof RunDeferred>;
 
-export const RunOutcome = z.discriminatedUnion("kind", [
-	RunCompleted,
-	RunAborted,
-	RunErrored,
-	RunLimited,
-	RunSuspended,
-	RunDeferred,
-]);
+export const RunOutcome = z.discriminatedUnion("kind", [RunCompleted, RunAborted, RunErrored, RunLimited, RunDeferred]);
 export type RunOutcome = z.infer<typeof RunOutcome>;

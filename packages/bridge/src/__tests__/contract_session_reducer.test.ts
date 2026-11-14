@@ -251,7 +251,7 @@ describe("applyEvent", () => {
 });
 
 describe("sessionStatus", () => {
-	test("follows the run, blocking asks and suspension", () => {
+	test("follows the run and blocking asks", () => {
 		expect(sessionStatus(emptySnapshot())).toBe("idle");
 		const running = reduce([{ type: "run_started", runId: "r1", trigger: "prompt" }]);
 		expect(sessionStatus(running)).toBe("running");
@@ -261,7 +261,7 @@ describe("sessionStatus", () => {
 		expect(sessionStatus(reduce([{ type: "interaction_requested", interaction: ask("i1", true) }], running))).toBe(
 			"waiting_for_user",
 		);
-		const suspended = reduce([{ type: "run_finished", runId: "r1", outcome: { kind: "suspended" } }], running);
-		expect(sessionStatus(suspended)).toBe("suspended");
+		const finished = reduce([{ type: "run_finished", runId: "r1", outcome: { kind: "completed" } }], running);
+		expect(sessionStatus(finished)).toBe("idle");
 	});
 });

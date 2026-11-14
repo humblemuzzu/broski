@@ -12,9 +12,7 @@ export function emptySnapshot(): SessionSnapshot {
 /** What a session is doing, as the snapshot says; never `unknown` for a session open in this bridge. */
 export function sessionStatus(snapshot: SessionSnapshot): SessionStatus {
 	if (snapshot.interactions.some((interaction) => interaction.blocksRun)) return "waiting_for_user";
-	if (snapshot.run) return "running";
-	if (snapshot.lastOutcome?.kind === "suspended") return "suspended";
-	return "idle";
+	return snapshot.run ? "running" : "idle";
 }
 
 /** The live state after `record`. This is the meaning of every event; adapters and clients agree with it. */

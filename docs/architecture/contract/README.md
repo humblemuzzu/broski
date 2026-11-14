@@ -139,7 +139,7 @@ Every method that can fail resolves with `{status: "accepted", …} | Rejected` 
 13. The sink, the catalog sink, and every adapter callback into the core never throw.
 14. ✓ **Answering without control.** A session this bridge may watch but not control (`control` absent) may still take answers to its asks through `OpenSession.answer`: a `claude` in a terminal raises a permission prompt through the bridge's hook (Claude Code PLAN D26), and a person answers it from the phone or the lock screen while the terminal keeps the session. `answer` follows `SessionControl.answer` in everything: checked by the core's desk and `answerProblem` first, `stale` once resolved, `closed` after `close`. A session with `control` has no `answer` of its own; its answers go through `control.answer` as ever, so there is one path per session. Prompting, steering, stopping and every setting stay out of reach of a session without `control`.
 
-**Catalog sink.** Backend-wide news: `session_updated{summary}`, `session_removed{session}`, `status_changed{status}`, `catalog_invalidated{scope: models|commands|modes}`, `transcript_invalidated{session}`. An adapter emits `session_updated` after its own create, rename, fork and first persist, whenever a row's status, title or model changes, and when a run ends. It emits `session_removed` after a delete. It relays external changes when the backend reports them. CC and Pi report nothing live, so their adapters watch the session directories (cc §13, pi §11) and the configuration they list from. `transcript_invalidated` says a session's history was rewritten and every page read before is stale; no current adapter rewrites history, so none emits it. A session list is never broadcast whole. The core sends one `status_changed` of its own for each backend as it lands: backends start after the bridge listens, so a phone that listed the backends before may learn of one this way.
+**Catalog sink.** Backend-wide news: `session_updated{summary}`, `session_removed{session}`, `status_changed{status}`, `catalog_invalidated{scope: models|commands|modes}`. An adapter emits `session_updated` after its own create, rename, fork and first persist, whenever a row's status, title or model changes, and when a run ends. It emits `session_removed` after a delete. It relays external changes when the backend reports them. CC and Pi report nothing live, so their adapters watch the session directories (cc §13, pi §11) and the configuration they list from. A session list is never broadcast whole. The core sends one `status_changed` of its own for each backend as it lands: backends start after the bridge listens, so a phone that listed the backends before may learn of one this way.
 
 ## 6. Capabilities
 
@@ -235,7 +235,6 @@ SinkRecord    = EventEnvelope without seq and session      // what an adapter em
 | `aborted` | `aborted_streaming`, `aborted_tools` | `aborted:true` / `stopReason:"aborted"` |
 | `error{ErrorInfo}` | `prompt_too_long`, `model_error`, `api_error`, … (BIN `isError`) | `stopReason:"error"` |
 | `limit{max_turns\|budget\|output_tokens}` | `max_turns`, `budget_exhausted`, `max_output_tokens` | `stopReason:"length"` |
-| `suspended` | — (a backend that interrupts runs at its own shutdown and resumes them; no adapter emits it today) | — |
 | `deferred` | `tool_deferred` | `stopReason:"deferred"` |
 
 `ErrorCode` (`auth`, `rate_limit`, `quota`, `context_overflow`, `model_unavailable`, `content_filter`, `network`, `server`, `tool`, `invalid_request`, `backend_unavailable`, `unknown`) normalizes CC `SDKAssistantMessageError` (cc §2) and Pi's error strings. The full mapping is in §15. The native code may go in `envelope.native`.
@@ -258,7 +257,7 @@ SinkRecord    = EventEnvelope without seq and session      // what an adapter em
 
 `SessionSnapshot` is the live state: the active run with everything it has finished so far (`run.items`), open blocks with the newest `MAX_TEXT_CHARS` characters of their text, running tools with the newest `MAX_TEXT_CHARS` characters of their output, pending interactions, the queue, model, thinking and modes, usage, a compaction or retry in progress, and `lastOutcome`. Finished runs are read from the transcript.
 
-`applyEvent(snapshot, {at, event})` in `session-reducer.ts` is the executable meaning of every event. Adapters, the core, and (in Phase 3) the app all agree with it. `sessionStatus(snapshot)` derives `idle | running | waiting_for_user | suspended`: waiting while a pending interaction blocks the run, suspended after a `suspended` outcome.
+`applyEvent(snapshot, {at, event})` in `session-reducer.ts` is the executable meaning of every event. Adapters, the core, and (in Phase 3) the app all agree with it. `sessionStatus(snapshot)` derives `idle | running | waiting_for_user`: waiting while a pending interaction blocks the run.
 
 **Reconnect is two-sided.**
 
@@ -289,14 +288,14 @@ interaction_resolved { interactionId, reason: answered | withdrawn | expired }
 |---|---|---|
 | `tool_permission` | `input?` (editable when `inputEditable`), `reason?`, `previews[]` (command, file changes, network host, paths), `options[]`, `grants[]`, `defaultOptionId?`, `deliberate` | `{optionId, message?, editedInput?, grantIds[]}` |
 | `questions` | `questions[]`: `{id, header?, text, options[{label, description?, preview?}], multiSelect, allowCustom, secret, required}` | `{answers[{questionId, selected[], custom?}]}` |
-| `form` | `fields[]` (`FormFieldSpec`: string, number, integer, boolean, multiselect, external), `server?` | `{values: {key → FormValue}}` |
+| `form` | `fields[]` (`FormFieldSpec`: string, number, integer, boolean, multiselect), `server?` | `{values: {key → FormValue}}` |
 | `plan_approval` | `plan` (markdown), `editable`, `path?`, `modeOptions?{axis, options[], defaultValue?}` (the values of a mode axis the session may go on in once approved) | `{decision: approve\|reject, plan?, feedback?, modeAfter?}` |
 | `choice` | `options[{value, label, description?}]` | `{value}` |
 | `confirm` | (title and body say it) | `{confirmed}` |
 | `text` | `placeholder?`, `initialText?`, `multiline` | `{text}` |
 | any | | `cancel{stopRun, message?}` |
 
-A form's `external` field (`{key, title?, description?, url}`) asks the person to open `url` and acknowledge; its only valid answer is `BooleanValue` true. No adapter raises one today: Claude Code raises a URL elicitation as a `confirm` the person can decline or dismiss.
+A form has no field that asks the person to open a link: Claude Code raises a URL elicitation as a `confirm` the person can decline or dismiss.
 
 **Permission options.** Each `PermissionOption` is `{id, label, effect: allow|deny, scope: once|turn|session|always, stopsRun, message: none|optional|required, rule?}`. The adapter builds the options from what the backend offers and maps the chosen `id` back to the native payload, so allow-once, allow-for-session, allow-always-with-rule, deny-and-continue-with-message and deny-and-stop all fit one shape. `grants` carry a requested permission profile (`{id, kind: network|read|write|deny, target?}`); allowing grants a non-empty subset.
 
@@ -314,7 +313,6 @@ A form's `external` field (`{key, title?, description?, url}`) asks the person t
 - form values of the wrong type, out of bounds, off-pattern, off-format or not an option;
 - an empty answer to a required string or multiselect field;
 - answers to inactive fields, and missing required active fields (a hidden one counts as answered only when it has a default, which the adapter fills in);
-- an external field not acknowledged with `true`;
 - plan feedback on an approval, an edited plan on a rejection or on a non-editable plan, a `modeAfter` on a rejection, on a plan that offers no modes, or that is not one of the `modeOptions`;
 - a choice that is not an option;
 - newlines in single-line text.
@@ -388,7 +386,7 @@ Rejection { code: busy|not_steerable|no_model|auth|invalid_input|unsupported|not
 
 ### 11.1 Sessions
 
-`SessionSummary { session, title?{text, source: user|generated|first_prompt}, cwd?, createdAt?, updatedAt, parent?{kind: fork|subagent, session}, modelId?, status, origin: broski|external, source? }`, listed newest-updated first by `listSessions(SessionQuery{cwd?, parent?}, PageRequest)`. `status` is `idle | running | waiting_for_user | suspended | unknown`.
+`SessionSummary { session, title?{text, source: user|generated|first_prompt}, cwd?, createdAt?, updatedAt, parent?{kind: fork|subagent, session}, modelId?, status, origin: broski|external, source? }`, listed newest-updated first by `listSessions(SessionQuery{cwd?, parent?}, PageRequest)`. `status` is `idle | running | waiting_for_user | unknown`.
 
 | Field | Claude Code (cc §3) | Pi (pi §3) |
 |---|---|---|
@@ -521,7 +519,7 @@ A backend's extras are typed `extension{extension}` events, declared in `Capabil
 
 `contract/testing/` holds the reference implementation and the suite every adapter must pass.
 
-- **`createFakeBackend(host, options)`**: in-memory and scriptable (`FakeStep`). It simulates streaming text, thinking and plan blocks; tools with streamed input, nested calls, child sessions and file changes; every interaction kind and every answer outcome; steer; queue with ids and cancel; compaction; retry; usage; retractions; notices, errors and extensions; failure, limit, suspend and defer outcomes; external sessions and external runs; `resynced`; backend loss with expiry; modes; images stored and read back by reference; both model-switch timings; a restart of the bridge, after which runs have ended. `traits`, `methods` and `modes` narrow it, which is how a capability is switched off.
+- **`createFakeBackend(host, options)`**: in-memory and scriptable (`FakeStep`). It simulates streaming text, thinking and plan blocks; tools with streamed input, nested calls, child sessions and file changes; every interaction kind and every answer outcome; steer; queue with ids and cancel; compaction; retry; usage; retractions; notices, errors and extensions; failure, limit and defer outcomes; external sessions and external runs; `resynced`; backend loss with expiry; modes; images stored and read back by reference; both model-switch timings; a restart of the bridge, after which runs have ended. `traits`, `methods` and `modes` narrow it, which is how a capability is switched off.
 - **`runConformance(name, factory, timeoutMs?)`** registers one bun test per rule. `checkRule(factory, rule)` runs one rule against a fresh backend and rejects with the reason it failed.
 - **`ConformanceFactory = (host) => Promise<{backend, driver}>`**. Each adapter has a driver: Pi's seam is the scripted faux provider in a throwaway agent dir (`src/__tests__/pi/driver.ts`, pi §16), Claude Code's is the real `claude` against a scripted Anthropic-compatible endpoint (`ANTHROPIC_BASE_URL`, `src/__tests__/claude-code/conformance/`). The driver (`conformance-types.ts`):
   - knows a `cwd` holding a `README.md` and an `otherCwd`;
@@ -617,7 +615,7 @@ The brief names proposals and says to refine them. These are the places the cont
 | `open(ref \| new, sink)` → `OpenSession` | `OpenResult = {status: accepted, session, snapshot} \| Rejected` | Typed rejection instead of a throw, and no race between snapshot and first event (§5). |
 | `status(): BackendStatus`, `listModels()`, `listCommands()` | `status()` never fails; the lists return results | A failure to find out the status is itself status (`issues`, `usable: false`); a list that fails has a reason the app can show, not an empty list. |
 | `SessionSnapshot` — open blocks, running tools | plus the active run's finished items; the transcript holds finished runs only | The merge rule (§8): no backend gives live and transcript ids that always agree. |
-| — | added session modes (§11.5), `attachment.read` (§10), `transcript_invalidated` (§5) | Modes: the research shows one shape across the backends. Attachments: transcript pages must not carry inline images. Invalidation: other phones must learn of a rewritten history. |
+| — | added session modes (§11.5), `attachment.read` (§10) | Modes: the research shows one shape across the backends. Attachments: transcript pages must not carry inline images. |
 | `tool_started{childSession?}` | `ToolChildSession` update | The child is known only after the call starts in every backend that has one. |
 | `Interaction.session` | dropped | The envelope already names the session. |
 | — | added `input_returned{texts}` | A terminal's Esc gives queued input back to the human, and the contract had no way to say so. |

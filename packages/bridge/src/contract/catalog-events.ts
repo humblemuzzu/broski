@@ -20,19 +20,11 @@ export type CatalogScope = z.infer<typeof CatalogScope>;
 export const CatalogInvalidatedEvent = z.strictObject({ type: z.literal("catalog_invalidated"), scope: CatalogScope });
 export type CatalogInvalidatedEvent = z.infer<typeof CatalogInvalidatedEvent>;
 
-/** The session's history was rewritten, as a revert does; every page read before is stale. */
-export const TranscriptInvalidatedEvent = z.strictObject({
-	type: z.literal("transcript_invalidated"),
-	session: SessionRef,
-});
-export type TranscriptInvalidatedEvent = z.infer<typeof TranscriptInvalidatedEvent>;
-
 /** Backend-wide news, not tied to an open session. */
 export const CatalogEvent = z.discriminatedUnion("type", [
 	SessionUpdatedEvent,
 	SessionRemovedEvent,
 	StatusChangedEvent,
 	CatalogInvalidatedEvent,
-	TranscriptInvalidatedEvent,
 ]);
 export type CatalogEvent = z.infer<typeof CatalogEvent>;

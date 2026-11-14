@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { MAX_LIST_ITEMS, MAX_NAME_CHARS, MAX_PATH_CHARS, MAX_TEXT_CHARS } from "./limits";
+import { MAX_LIST_ITEMS, MAX_NAME_CHARS, MAX_TEXT_CHARS } from "./limits";
 import { Option } from "./option";
 
 export const TextValue = z.strictObject({ kind: z.literal("text"), value: z.string().max(MAX_TEXT_CHARS) });
@@ -113,22 +113,11 @@ export const MultiselectField = z.strictObject({
 });
 export type MultiselectField = z.infer<typeof MultiselectField>;
 
-/** Open `url`, then acknowledge; the only valid answer is `BooleanValue` true. */
-export const ExternalField = z.strictObject({
-	kind: z.literal("external"),
-	key: FieldKey,
-	title: z.string().max(MAX_NAME_CHARS).optional(),
-	description: z.string().max(MAX_TEXT_CHARS).optional(),
-	url: z.string().min(1).max(MAX_PATH_CHARS),
-});
-export type ExternalField = z.infer<typeof ExternalField>;
-
 export const FormFieldSpec = z.discriminatedUnion("kind", [
 	StringField,
 	NumberField,
 	IntegerField,
 	BooleanField,
 	MultiselectField,
-	ExternalField,
 ]);
 export type FormFieldSpec = z.infer<typeof FormFieldSpec>;

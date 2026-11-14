@@ -88,7 +88,6 @@ function outcomeWords(outcome: RunOutcome, state: SessionSnapshot): { title: str
 		case "limit":
 			return { title: "stopped at a limit", body: `Run stopped at its ${outcome.limit.replaceAll("_", " ")} limit` };
 		case "aborted":
-		case "suspended":
 		case "deferred":
 			return undefined;
 	}

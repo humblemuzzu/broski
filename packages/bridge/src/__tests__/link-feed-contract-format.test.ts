@@ -215,8 +215,8 @@ describe("the done alert of a contract session", () => {
 		});
 	});
 
-	test("a run the person stopped, or that will resume, is no news", () => {
-		for (const kind of ["aborted", "suspended", "deferred"] as const) {
+	test("a run the person stopped, or that a later run picks up, is no news", () => {
+		for (const kind of ["aborted", "deferred"] as const) {
 			expect([kind, contractDone(SESSION, row(), { kind }, ended(), 9)]).toEqual([kind, undefined]);
 		}
 	});

@@ -6,7 +6,7 @@ import { MAX_PAGE_LIMIT, PageCursor } from "./paging";
 import { Rejected } from "./rejection";
 
 /** `unknown`: the backend cannot tell, as for a terminal session it only reads from disk. */
-export const SessionStatus = z.enum(["idle", "running", "waiting_for_user", "suspended", "unknown"]);
+export const SessionStatus = z.enum(["idle", "running", "waiting_for_user", "unknown"]);
 export type SessionStatus = z.infer<typeof SessionStatus>;
 
 /** `first_prompt`: no title was set or generated, so the first prompt stands in. */

@@ -76,8 +76,6 @@ function fieldValue(field: FormFieldSpec): FormValue | undefined {
 			const values = field.defaultValue ?? field.options.slice(0, count).map((option) => option.value);
 			return { kind: "choices", values };
 		}
-		case "external":
-			return { kind: "boolean", value: true };
 	}
 }
 

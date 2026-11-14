@@ -2,7 +2,6 @@ import type { FieldCondition, FormFieldSpec, FormValue, StringField, StringForma
 
 /** Whether `field` is shown and answerable given the answers so far (its `when` conditions all hold). */
 export function fieldIsActive(field: FormFieldSpec, values: Record<string, FormValue>): boolean {
-	if (field.kind === "external") return true;
 	return field.when.every((condition) => holds(condition, answerFor(values, condition.key)));
 }
 
@@ -50,8 +49,6 @@ export function fieldProblem(field: FormFieldSpec, value: FormValue): string | u
 			const options = new Set(field.options.map((option) => option.value));
 			return field.allowCustom || value.values.every((choice) => options.has(choice)) ? undefined : "not an option";
 		}
-		case "external":
-			return value.kind === "boolean" && value.value ? undefined : "must be acknowledged with true";
 	}
 }
 

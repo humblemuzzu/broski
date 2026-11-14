@@ -1599,13 +1599,6 @@
     {
       "type": "catalog_invalidated",
       "scope": "models"
-    },
-    {
-      "type": "transcript_invalidated",
-      "session": {
-        "backend": "claude-code",
-        "sessionId": "x"
-      }
     }
   ],
   "CatalogInvalidatedEvent": [
@@ -2495,20 +2488,6 @@
   "ExtensionKind": [
     "rate_limit"
   ],
-  "ExternalField": [
-    {
-      "kind": "external",
-      "key": "x",
-      "title": "x",
-      "description": "x",
-      "url": "x"
-    },
-    {
-      "kind": "external",
-      "key": "x",
-      "url": "x"
-    }
-  ],
   "FieldCondition": [
     {
       "key": "x",
@@ -2806,18 +2785,6 @@
         }
       ],
       "allowCustom": false
-    },
-    {
-      "kind": "external",
-      "key": "x",
-      "title": "x",
-      "description": "x",
-      "url": "x"
-    },
-    {
-      "kind": "external",
-      "key": "x",
-      "url": "x"
     }
   ],
   "FormReply": [
@@ -5342,9 +5309,6 @@
       "limit": "max_turns"
     },
     {
-      "kind": "suspended"
-    },
-    {
       "kind": "deferred"
     }
   ],
@@ -5353,11 +5317,6 @@
       "type": "run_started",
       "runId": "x",
       "trigger": "prompt"
-    }
-  ],
-  "RunSuspended": [
-    {
-      "kind": "suspended"
     }
   ],
   "RunTrigger": [
@@ -6749,7 +6708,6 @@
     "idle",
     "running",
     "waiting_for_user",
-    "suspended",
     "unknown"
   ],
   "SessionSummary": [
@@ -7949,15 +7907,6 @@
             "ok": false
           }
         }
-      }
-    }
-  ],
-  "TranscriptInvalidatedEvent": [
-    {
-      "type": "transcript_invalidated",
-      "session": {
-        "backend": "claude-code",
-        "sessionId": "x"
       }
     }
   ],

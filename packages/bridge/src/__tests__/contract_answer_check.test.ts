@@ -283,16 +283,6 @@ describe("answerProblem", () => {
 				problem(required, submit({ name: { kind: "text", value: "x" }, tags: { kind: "choices", values: [] } })),
 			).toMatch(/tags: needs a choice/);
 		});
-
-		test("an external field must be acknowledged with true", () => {
-			const external: InteractionRequest = {
-				kind: "form",
-				fields: [{ kind: "external", key: "url", url: "https://example.com" }],
-			};
-			expect(problem(external, submit({ url: { kind: "boolean", value: true } }))).toBeUndefined();
-			expect(problem(external, submit({ url: { kind: "boolean", value: false } }))).toMatch(/acknowledged/);
-			expect(problem(external, submit({}))).toMatch(/acknowledged/);
-		});
 	});
 
 	describe("string fields", () => {

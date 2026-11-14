@@ -52,7 +52,6 @@ export type FakeSignalStep =
 	| { kind: "replace_session" }
 	| { kind: "fail"; error: ErrorInfo }
 	| { kind: "limit"; limit: RunLimit }
-	| { kind: "suspend" }
 	| { kind: "defer" };
 
 /** One thing a fake run does. A run plays its steps in order, then finishes `completed` unless a step ends it. */

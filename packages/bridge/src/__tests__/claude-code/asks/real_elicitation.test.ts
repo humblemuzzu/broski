@@ -32,11 +32,7 @@ describe("a flat form through the real CLI", () => {
 				const interaction = await run.rig.requestedAt(0);
 				if (interaction.request.kind !== "form") throw new Error(`a ${interaction.request.kind} ask`);
 				expect(interaction.request.server).toBe("rich");
-				expect(
-					interaction.request.fields.map(
-						(field) => `${field.kind}:${field.key}:${field.kind !== "external" && field.required}`,
-					),
-				).toEqual([
+				expect(interaction.request.fields.map((field) => `${field.kind}:${field.key}:${field.required}`)).toEqual([
 					"string:name:true",
 					"integer:age:true",
 					"string:color:false",

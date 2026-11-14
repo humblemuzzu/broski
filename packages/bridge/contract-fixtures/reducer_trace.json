@@ -6858,7 +6858,7 @@
       ]
     },
     {
-      "name": "status follows runs, blocking asks and the last outcome",
+      "name": "status follows runs and blocking asks",
       "initial": {
         "blocks": [],
         "tools": [],
@@ -7132,11 +7132,11 @@
               "type": "run_finished",
               "runId": "r1",
               "outcome": {
-                "kind": "suspended"
+                "kind": "completed"
               }
             }
           },
-          "status": "suspended",
+          "status": "idle",
           "expected": {
             "blocks": [],
             "tools": [],
@@ -7148,7 +7148,7 @@
               "startedAt": 1000
             },
             "lastOutcome": {
-              "kind": "suspended"
+              "kind": "completed"
             }
           }
         },
@@ -7192,7 +7192,7 @@
               "startedAt": 1000
             },
             "lastOutcome": {
-              "kind": "suspended"
+              "kind": "completed"
             }
           }
         },
@@ -7205,7 +7205,7 @@
               "reason": "expired"
             }
           },
-          "status": "suspended",
+          "status": "idle",
           "expected": {
             "blocks": [],
             "tools": [],
@@ -7217,7 +7217,7 @@
               "startedAt": 1000
             },
             "lastOutcome": {
-              "kind": "suspended"
+              "kind": "completed"
             }
           }
         },
@@ -7232,7 +7232,7 @@
               }
             }
           },
-          "status": "suspended",
+          "status": "idle",
           "expected": {
             "blocks": [],
             "tools": [],
@@ -7240,7 +7240,7 @@
             "queue": [],
             "modes": [],
             "lastOutcome": {
-              "kind": "suspended"
+              "kind": "completed"
             }
           }
         },
@@ -7268,7 +7268,7 @@
             "queue": [],
             "modes": [],
             "lastOutcome": {
-              "kind": "suspended"
+              "kind": "completed"
             }
           }
         },

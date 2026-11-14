@@ -114,7 +114,6 @@ function formProblem(request: FormRequest, reply: FormReply): string | undefined
 			continue;
 		}
 		if (value === undefined) {
-			if (field.kind === "external") return `field ${field.key} must be acknowledged`;
 			if (field.required && !(field.hidden && hasDefault(field))) return `field ${field.key} is required`;
 			continue;
 		}
@@ -126,5 +125,5 @@ function formProblem(request: FormRequest, reply: FormReply): string | undefined
 
 /** A hidden field's default answers for it (see `StringField.hidden`). */
 function hasDefault(field: FormFieldSpec): boolean {
-	return field.kind !== "external" && field.defaultValue !== undefined;
+	return field.defaultValue !== undefined;
 }

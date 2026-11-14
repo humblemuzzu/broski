@@ -41,7 +41,7 @@ export function reducerCases(): ReducerCase[] {
 
 function statusCase(): ReducerCase {
 	return {
-		name: "status follows runs, blocking asks and the last outcome",
+		name: "status follows runs and blocking asks",
 		initial: emptySnapshot(),
 		events: [
 			{ type: "compaction_started", trigger: "manual" },
@@ -51,7 +51,7 @@ function statusCase(): ReducerCase {
 			{ type: "interaction_resolved", interactionId: "i2", reason: "answered" },
 			{ type: "interaction_resolved", interactionId: "i1", reason: "withdrawn" },
 			{ type: "retry_scheduled", attempt: 1, message: "overloaded" },
-			{ type: "run_finished", runId: "r1", outcome: { kind: "suspended" } },
+			{ type: "run_finished", runId: "r1", outcome: { kind: "completed" } },
 			{ type: "interaction_requested", interaction: ask("i3", true) },
 			{ type: "interaction_resolved", interactionId: "i3", reason: "expired" },
 			{ type: "compaction_finished", outcome: { kind: "failed", message: "too big" } },

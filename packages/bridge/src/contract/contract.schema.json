@@ -834,9 +834,6 @@
         },
         {
           "$ref": "#/$defs/CatalogInvalidatedEvent"
-        },
-        {
-          "$ref": "#/$defs/TranscriptInvalidatedEvent"
         }
       ]
     },
@@ -1661,39 +1658,6 @@
         "rate_limit"
       ]
     },
-    "ExternalField": {
-      "x-module": "forms",
-      "$id": "#/$defs/ExternalField",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "external"
-        },
-        "key": {
-          "$ref": "#/$defs/FieldKey"
-        },
-        "title": {
-          "type": "string",
-          "maxLength": 1024
-        },
-        "description": {
-          "type": "string",
-          "maxLength": 1048576
-        },
-        "url": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 4096
-        }
-      },
-      "required": [
-        "kind",
-        "key",
-        "url"
-      ],
-      "additionalProperties": false
-    },
     "FieldCondition": {
       "x-module": "forms",
       "$id": "#/$defs/FieldCondition",
@@ -1870,9 +1834,6 @@
         },
         {
           "$ref": "#/$defs/MultiselectField"
-        },
-        {
-          "$ref": "#/$defs/ExternalField"
         }
       ]
     },
@@ -4519,9 +4480,6 @@
           "$ref": "#/$defs/RunLimited"
         },
         {
-          "$ref": "#/$defs/RunSuspended"
-        },
-        {
           "$ref": "#/$defs/RunDeferred"
         }
       ]
@@ -4546,21 +4504,6 @@
         "type",
         "runId",
         "trigger"
-      ],
-      "additionalProperties": false
-    },
-    "RunSuspended": {
-      "x-module": "runs",
-      "$id": "#/$defs/RunSuspended",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "suspended"
-        }
-      },
-      "required": [
-        "kind"
       ],
       "additionalProperties": false
     },
@@ -5315,7 +5258,6 @@
         "idle",
         "running",
         "waiting_for_user",
-        "suspended",
         "unknown"
       ]
     },
@@ -6352,25 +6294,6 @@
         "type",
         "toolCallId",
         "update"
-      ],
-      "additionalProperties": false
-    },
-    "TranscriptInvalidatedEvent": {
-      "x-module": "catalog-events",
-      "$id": "#/$defs/TranscriptInvalidatedEvent",
-      "type": "object",
-      "properties": {
-        "type": {
-          "type": "string",
-          "const": "transcript_invalidated"
-        },
-        "session": {
-          "$ref": "#/$defs/SessionRef"
-        }
-      },
-      "required": [
-        "type",
-        "session"
       ],
       "additionalProperties": false
     },
