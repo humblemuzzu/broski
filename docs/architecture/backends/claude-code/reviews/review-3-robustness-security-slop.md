@@ -1,5 +1,7 @@
 # Code review
 
+> **Historical record.** Written before the rebuild (`docs/rebuild/PLAN.md`). It may describe the old protocol, backend ops, custom tools, Pi Durable, the Flutter app or protocol minors, none of which exist now. The README beside it describes the current code.
+
 ## Summary
 This range adds the Claude Code contract adapter (`backends/claude-code/`), the loopback terminal-ask hook, the CLI path and embedding wiring, the core `hold`/`release` calls, and the phone-side config panels. The adapter is carefully built. Config writes use compare-and-swap, atomic rename and realpath containment. I found no automatic answers and no session-id path traversal. Typecheck, the layer check and the sampled tests pass. One high bug breaks the terminal-ask feature in production: the real server resets requests after 10 s, and the tests mask it with `idleTimeout: 0`. Two medium data-loss paths remain in files that the new surface reaches.
 

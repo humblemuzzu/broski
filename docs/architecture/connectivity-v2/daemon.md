@@ -153,7 +153,7 @@ Test vector, `S = 000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e
 - `pairing_token = ftJ9gRzybv0NVMqryTFwpTALY9GjGlZ6a7MD4guui98`
 - `token_hash = a3c01756f2877fbbbb15b876175a6729bdd60a7d7acba5b428fc3e8ccc24af09`
 
-`daemon/src/pairing.rs` computes these and pins the vector; the Dart side mirrors it.
+`daemon/src/pairing.rs` computes these and pins the vector; the phone side mirrors it.
 
 Creating an offer — and reconnecting to the relay while one is open — sends
 `{"t":"allow","device":<pairing_device_id>,"token_hash":<64 hex>,"req":N}`. Consuming, replacing

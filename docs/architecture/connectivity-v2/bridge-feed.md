@@ -26,7 +26,7 @@ feed closes the old with **4001**.
 
 ```json
 {"type":"link_busy","busy":true}
-{"type":"link_event","kind":"approval","backend":"claude-code","session":"<id>","cwd":"<basename>","title":"<≤80>","body":"<≤200>","at":<unix ms>,"request":"<id>"}
+{"type":"link_event","kind":"approval","backend":"pi","session":"<id>","cwd":"<basename>","title":"<≤80>","body":"<≤200>","at":<unix ms>,"request":"<id>"}
 ```
 
 A frame the feed cannot take is never held: Bun reports a dropped send (`0`) or one over the
@@ -47,18 +47,9 @@ only: it is the id a decision on this alert must echo.
 
 ## Busy
 
-Working means `agent_started`, or a `session_state_changed` whose state satisfies
-`isStreaming || isCompacting || isRetrying || pendingMessageCount > 0`. `agent_finished` clears it; `error` deliberately does
-not, since a mid-turn error would report a false `done`; a session that never finishes is forgotten by the 30 min session TTL.
-
-| backend | approval | attention | busy |
-|---|---|---|---|
-| claude-code | `permission_requested` | — (AskUserQuestion is a permission request) | ✓ |
-| pi (contract) | a pending `tool_permission` interaction | every other pending interaction | ✓ an active run |
-
-Every kind of the first row comes from `BroskiRuntimeEvent`s the bridge already maps; nothing is parsed per backend. A
-backend served through the contract (Pi) never produces one: its sessions reach the feed through the core's observer
-(below).
+A session is working while its run is active (`after.run` of an observed event); the machine is `busy` while any session
+is. A session that never finishes is forgotten by the 30 min session TTL. Both backends reach the feed through the
+core's observer (below), so nothing is parsed per backend.
 
 ## Contract sessions
 
@@ -73,12 +64,12 @@ tap finds the conversation.
 | What the core observed | The feed says |
 |---|---|
 | a run is active (`after.run`) | `link_busy true` (idempotent per event, so a session whose track was forgotten, or whose snapshot was replaced by a `resynced`, is busy again) |
-| `run_finished` with outcome `completed` | busy clears (3 s debounce); after 5 s idle one `done`, body = first line of the newest top-level `text` block of the run (an open block is newer than a finished one; thinking and subagent blocks never); a run with no text, such as a `!` command, is told by its newest top-level call (`bash: npm test`, with `(exit code N)` when that was not 0); `Turn finished` when there is neither. The alert's `at` is the time the core observed the run end |
+| `run_finished` with outcome `completed` | busy clears (3 s debounce); after 5 s idle one `done`, body = first line of the newest top-level `text` block of the run (an open block is newer than a finished one; thinking and subagent blocks never); a run with no text is told by its newest top-level call (`bash: npm test`, with `(exit code N)` when that was not 0); `Turn finished` when there is neither. The alert's `at` is the time the core observed the run end |
 | `run_finished` `error` / `limit` | `done` with `Run failed: <code>` / `Run stopped at its <limit> limit` — the backend's message is never quoted |
 | `run_finished` `aborted` / `suspended` / `deferred`, or a `resynced` that drops the run | busy clears, no `done`: the person stopped it, or it will resume |
 | a new run within the 5 s | no `done` (the timer is cleared by the run) |
 | a pending interaction of kind `tool_permission` | `approval`, `request` = the interaction id; body = `<tool>: <command, paths or host from the preview>`, else the input's quotable keys, else the reason/title. File changes are named by path, never by diff |
-| any other pending interaction (`questions`, `form`, `plan_approval`, `external_url`, `choice`, `confirm`, `text`) | `attention`, `request` = the interaction id; body = its title, else its body |
+| any other pending interaction (`questions`, `form`, `plan_approval`, `choice`, `confirm`, `text`) | `attention`, `request` = the interaction id; body = its title, else its body |
 | the interaction ends for any reason (`answered`, `withdrawn`, `expired`, `cancelled`), seen as `interaction_resolved` or as a `resynced` that no longer holds it | the alert's record is closed: no decision reaches it (`no longer pending`) and a redialing feed is not told of it again |
 
 `title` is `<session title, or the backend's name> — <what happened>` (`finished`, `needs approval`, `needs input`,
@@ -97,8 +88,7 @@ until the core opens it.
 ## Decisions
 
 The feed is the one connection allowed to answer a pending request; a device socket's
-`link_decision` is an unknown message like any other. The answer is applied by synthesizing the
-exact message the phone sends for that backend and pushing it through the same message registry, so
+`link_decision` is an unknown message like any other. The answer goes to the core as a person's answer (`ContractSeam.answer`, core README §19), so
 no per-backend decision logic exists here.
 
 ```json
@@ -108,12 +98,10 @@ no per-backend decision logic exists here.
 
 `allow` is allow-once — the grant a single tap gives on the phone, never an always-allow.
 
-| backend | `request` is | synthesized message | allow | deny |
-|---|---|---|---|---|
-| claude-code | the `toolUseId` | `cc_permission_response` | `once` | `reject` |
-| pi (contract) | the interaction id | `CoreSeam.answer` → the core's interaction desk | the request's plain allow-once option | the request's plain deny-once option |
+`request` is the interaction id; the answer goes to the core's interaction desk, the same check, first-answer-wins and
+`stale` memory as a phone's answer.
 
-A decision on a contract session does not go through the message registry: the record the alert left in
+The record the alert left in
 `LinkFeedRequests` carries the session, the interaction and the two replies the verdicts stand for, built when the alert
 was made (`contract-replies.ts`):
 
@@ -147,19 +135,13 @@ id (10 min, 512 ids) and closes it on the first decision, so a repeated tap can 
 pending` (the backend had already dropped it), or the handler's own message.
 
 **Unsupported.** A backend the feed does not know is refused with `unknown backend`; `unsupported` is
-a request that needs an *answer* rather than a decision — an `attention` alert, and Claude Code's
-`AskUserQuestion`, whose reply is that question's own input.
+a request that needs an *answer* rather than a decision — an `attention` alert, such as a question.
 
 ## Tap points
 
 Contract sessions: `contractFeedObserver` (`server/link-feed/feed.ts`), handed to `BridgeCore` by
 `server/contract-seam.ts` as its `observer`; the core calls it from the hub, after an event has reached every viewer
 (core README §19). The seam's `answer` is passed to `attachLinkDecisionPath` by `server.ts`.
-
-Runtime events: `tapRuntimeEvent(event)` sits where a *complete* event leaves the mapping layer. The mappers build the
-envelope with `enrichRuntimeEvent` and only then spread `request`/`delta` onto it, so the tap is at
-each envelope site instead: `server/streams.ts`'s coalescer callback (Claude Code and
-hand-built broadcasts).
 
 ## Known gaps
 

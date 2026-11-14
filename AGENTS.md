@@ -19,8 +19,10 @@ native apps.
   the backend contract to the daemon over `~/.broski/link/bridge.sock`. Every socket upgrade must quote the key the
   daemon wrote to `~/.broski/link/bridge.key` (`x-broski-link-key`, 32 random bytes hex, `0600`, rewritten at every
   daemon start and re-read per upgrade — `server/link-key.ts`). Its TCP listener is loopback-only (127.0.0.1, TLS
-  and a local bearer token) and serves local things only: the Claude Code permission hook, the dashboard,
-  `/proxy/<port>`.
+  and a local bearer token) and serves local things only: the Claude Code permission hook (`/cc-terminal-hook`),
+  the dev-server preview proxy (`/proxy/<port>`, `/proxy-ws/<port>`) and `GET /`, a status probe that answers
+  `{"status":"ok","version":…}`; a WebSocket upgrade with the bearer token reaches the same connection handler as a
+  link socket.
 - **The bridge's environment** — a service start inherits only `PATH` and `HOME`, so at startup the bridge asks the
   user's login shell once (`platform/shell-env.ts`: one interactive `env -0` between markers, 10 s timeout,
   process-group kill) and runs every agent and PTY with the result. A compiled binary never takes `BROSKI_*`/`BUN_*`

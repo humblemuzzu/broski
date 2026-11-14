@@ -1,5 +1,7 @@
 # Claude Code — Step 3: the interfaces the eight lanes build on
 
+> **Historical record.** Written before the rebuild (`docs/rebuild/PLAN.md`). It may describe the old protocol, backend ops, custom tools, Pi Durable, the Flutter app or protocol minors, none of which exist now. The README beside it describes the current code.
+
 Read [`PLAN.md`](PLAN.md) (all of it) and the adapter [`README.md`](README.md) (D36–D39) first. This file is what each Step 4 lane codes against: the files it owns, the ports it implements and consumes, the stubs it fills, the rules and tests that are its exit, the SDK facts it relies on, and what it must not touch. Built on `cc/foundation` from `main` at `09436c2`. Where this file and the plan or a research file disagree, this file was checked against the SDK (§3, rows marked **correction**).
 
 **Citations.** `d.ts:N` = `packages/bridge/node_modules/@anthropic-ai/claude-agent-sdk/sdk.d.ts` line N; `tools.d.ts:N` = `sdk-tools.d.ts`; `mjs:N` = `sdk.mjs` line N (minified: a line holds many functions, so the function name is given too); `bin` = the strings of the 2.1.316 `claude` binary; `fixture:<name>` = `src/__tests__/claude-code/fixtures/frames/<name>.jsonl`; `CT` = `packages/bridge/src/contract/`; `CC` = `packages/bridge/src/backends/claude-code/`; `T` = `packages/bridge/src/__tests__/claude-code/`.

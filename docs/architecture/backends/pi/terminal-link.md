@@ -10,7 +10,7 @@ terminal `pi` ──(Broski link extension, in the pi process)──► unix soc
 ## What the phone gets
 
 - A session a terminal runs is **live**: `run_started{trigger: "external"}`, text, thinking, tools, compactions, the model and thinking level, `run_finished`, with a correct snapshot for a phone that attaches mid-run (the open blocks and the tools under way are in the snapshot).
-- `externalLive: true` (contract rule 27 runs against a real terminal: `driver.ts` `runExternally`).
+- `externalLive: true` (the conformance rule on runs another client starts runs against a real terminal: `driver.ts` `runExternally`).
 - The phone can **send a message** (start when the terminal is idle, steer or queue during a run) and **stop the run**. Both go through the terminal's own process: the terminal's `pi` stays the only writer of its session file. A message from the phone is echoed with its `clientRequestId`, so the phone's own prompt is not shown twice.
 - A question the terminal asks (a permission dialog, a select) stays in the terminal; the phone shows a notice that the terminal is waiting. Changing the model, the thinking level, a mode or compacting is done in the terminal (`unsupported`, "Change it in the terminal that runs this session.").
 - When the terminal quits, the session goes back to being watch-only and its viewers are told (`session_replaced` naming the same session, so they attach again and get the new capabilities).
@@ -41,7 +41,7 @@ terminal `pi` ──(Broski link extension, in the pi process)──► unix soc
 
 ### Why a unix socket and a key file
 
-The extension runs in a process the bridge does not start, as the same user, with no daemon in between. Candidates: (1) the bridge's loopback TCP listener, which needs a bearer token and TLS and is shared with the permission hook, the dashboard and `/proxy`; (2) the daemon's `bridge.sock`, which is for the daemon and would put terminal processes on the phone protocol; (3) its own socket. (3) was chosen: `~/.broski/pi-link/bridge.sock` (override: `$BROSKI_PI_LINK_DIR`, read by both sides), the directory `0700`, the socket and `bridge.key` `0600`; the key is 32 random bytes, hex, **rewritten at every bridge start**, compared in constant time on the `hello`. Another user cannot connect; another process of the same user can, by reading the key, which is what that process could do to `~/.pi` anyway. A stale socket file is replaced after a connection probe fails; a live one is never taken (`already listens`); at most 64 connections.
+The extension runs in a process the bridge does not start, as the same user, with no daemon in between. Candidates: (1) the bridge's loopback TCP listener, which needs a bearer token and TLS and is shared with the permission hook and `/proxy`; (2) the daemon's `bridge.sock`, which is for the daemon and would put terminal processes on the phone protocol; (3) its own socket. (3) was chosen: `~/.broski/pi-link/bridge.sock` (override: `$BROSKI_PI_LINK_DIR`, read by both sides), the directory `0700`, the socket and `bridge.key` `0600`; the key is 32 random bytes, hex, **rewritten at every bridge start**, compared in constant time on the `hello`. Another user cannot connect; another process of the same user can, by reading the key, which is what that process could do to `~/.pi` anyway. A stale socket file is replaced after a connection probe fails; a live one is never taken (`already listens`); at most 64 connections.
 
 ## The reverse direction: a terminal opens a session the phone runs
 
@@ -49,11 +49,11 @@ Pi's terminal reads a session file once, when it opens (`SessionManager.open`, `
 
 - **The phone's session is idle** when the terminal opens it: the bridge lets its host go (the terminal's file is then the only one that moves) and the session becomes the terminal's, live for the phone; viewers get `session_replaced`.
 - **The phone's session is running** (a run, an ask, a compaction): the terminal's extension gets `welcome{running: true}` and shows one warning, "Broski: the app on your phone is running this session. Don't type here until it is done." The terminal's `/resume` shows the file up to that moment and will not show what the phone adds after. The bridge keeps the session hosted; it cannot stop the terminal from typing, which is why the warning exists.
-- **A terminal without the extension** (not installed, off, started before the install, a Pi run that is not the TUI) cannot be told apart from no terminal at all. The phone's session is controllable, and a human who opens it in both places has the two-writers problem; "Take over" (below) asks that question the other way round.
+- **A terminal without the extension** (not installed, off, started before the install, a Pi run that is not the TUI) cannot be told apart from no terminal at all. The phone's session is controllable, and a human who opens it in both places has the two-writers problem.
 
-## Take over (a session nobody runs here)
+## A session nobody runs here
 
-A session another client made opens watch-only. The phone's panel "Take over" (`backend.call take_over`, contract 1.2) asks: *make sure no terminal is using this session*. The adapter refuses `busy` when a terminal holds the file through the link, or the file changed in the last 10 s (`RECENT_WRITE_MS`); otherwise, inside the session lock, it appends `broski.origin` as `rename` does, hosts the session, and the viewers get `session_replaced` naming the same session. A terminal without the extension that has the session open and idle is the one case it cannot see: the question asks the human. A fork of the session is unchanged.
+A session another client made, with no terminal linked, opens watch-only and stays so: the phone can read it, not drive it. Only a session this bridge created, or one a linked terminal runs, is controllable.
 
 ## What Pi 1.4.0 cannot do here
 

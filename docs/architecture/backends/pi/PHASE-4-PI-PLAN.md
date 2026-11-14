@@ -1,5 +1,7 @@
 # Phase 4 · Pi — the plan
 
+> **Historical record.** Written before the rebuild (`docs/rebuild/PLAN.md`). It may describe the old protocol, backend ops, custom tools, Pi Durable, the Flutter app or protocol minors, none of which exist now. The README beside it describes the current code.
+
 Status: plan, not started. Inputs: the five SDK reports in [`research/`](research/) (01 session runtime, 02 session storage, 03 models/messages/streaming, 04 extensions/UI/tools, 05 Pi Durable), the contract ([`../../contract/README.md`](../../contract/README.md), `packages/bridge/src/contract/`), the bridge core ([`../../core/README.md`](../../core/README.md) §16) and the app core ([`../../app-core/README.md`](../../app-core/README.md) §12).
 
 Goal: Pi runs on the phone **only** through the contract — one adapter in `packages/bridge/src/backends/pi/`, the generic screens in `lib/agent/` — and every line of the old Pi path is deleted.

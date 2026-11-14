@@ -1,5 +1,7 @@
 # Lane D · Live session: decisions D70–D79
 
+> **Historical record.** Written before the rebuild (`docs/rebuild/PLAN.md`). It may describe the old protocol, backend ops, custom tools, Pi Durable, the Flutter app or protocol minors, none of which exist now. The README beside it describes the current code.
+
 > Merged in Step 5 (`cc/integrate`). This file is the lane's record as delivered; where the adapter [README](../README.md)'s integration decisions D120–D129 changed something here, the README wins.
 
 Built on `cc/lane-d-live` from `main` at `a910a57`. The files are `live/*` (except `live-state.ts`) and `process/options.ts`; the tests are `src/__tests__/claude-code/live/` (about 120, most against the real CLI through the scripted endpoint). Citations: `d.ts:N` is `sdk.d.ts`, `mjs` is `sdk.mjs`, `fixture:<name>` is `fixtures/frames/<name>.jsonl`, `T` is `src/__tests__/claude-code/live/`.

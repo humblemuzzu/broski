@@ -1,5 +1,7 @@
 # Phase 1 — The Broski backend contract (brief)
 
+> **Historical record.** Written before the rebuild (`docs/rebuild/PLAN.md`). It may describe the old protocol, backend ops, custom tools, Pi Durable, the Flutter app or protocol minors, none of which exist now. The README beside it describes the current code.
+
 Status: brief for the Phase 1 implementer. Written 2026-10-29 at commit `9678394` (after Phase 0 cleanup).
 Inputs: the four research documents in `research/` — `claude-code.md` (SDK 0.3.312), `codex.md` (app-server v2, CLI 0.164.0), `opencode.md` (2.x server, CLI 2.1.4), `pi.md` (Pi + Pi Durable 1.4.0). They are the source of truth for every backend fact. Where this brief and a research document disagree, the research document wins; record the disagreement in the contract docs.
 

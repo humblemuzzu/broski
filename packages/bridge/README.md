@@ -1,6 +1,6 @@
 # broski
 
-Bridge server connecting [Broski](https://github.com/humblemuzzu/broski) mobile app to AI coding agents (Claude Code, Pi).
+Bridge server connecting your phone, through [Broski](https://github.com/humblemuzzu/broski), to the AI coding agents on your computer (Claude Code, Pi).
 
 **Vibe code from anywhere.** Control your AI coding agents from your phone - even with your Mac lid closed.
 
@@ -23,7 +23,7 @@ bun add -g broski
 # Install the Broski Link service (macOS launchd / Linux systemd)
 broski install
 
-# Show a pairing QR, then scan it with the Broski app
+# Show a pairing QR, then scan it with the Broski app on your phone
 broski-link pair
 ```
 
@@ -75,11 +75,11 @@ broski doctor
 
 ## What it does
 
-1. Serves the Broski app protocol to `broski-link` over a Unix socket (`~/.broski/link/bridge.sock`)
-2. Runs the AI agents through their SDKs (Claude Code, Pi)
-3. Bridges messages between the Broski app and the AI agents
-4. Handles file operations, permissions, and event streaming
-5. Listens on `127.0.0.1` only, for the agent permission hooks, the dashboard and `/proxy/<port>`
+1. Serves the backend contract to `broski-link` over a Unix socket (`~/.broski/link/bridge.sock`)
+2. Hosts the AI agents: Claude Code through its SDK driving your installed `claude`, Pi through its SDK
+3. Streams their sessions to your phone, and relays permission prompts, questions and answers both ways
+4. Watches the sessions you start in a terminal, and relays their permission prompts to your phone
+5. Listens on `127.0.0.1` only, for the Claude Code permission hook, the dev-server preview proxy (`/proxy/<port>`) and a status probe at `/`
 
 ## Architecture
 
@@ -105,7 +105,7 @@ The relay is blind: it forwards encrypted frames and cannot read them. See `docs
 - The phone link is end-to-end encrypted with Noise (hybrid X25519 + ML-KEM-768); a relay only sees ids, timing and sizes
 - Pairing uses a one-time secret in the QR (`broski://pair?v=2`) that expires
 - The bridge's TCP listener is loopback-only, TLS-protected and bearer-token-authenticated; it exists for the agent hooks, not for phones
-- Path validation for file operations
+- Every directory a phone names is validated against the allowed base paths (realpath, symlinks)
 
 ## Bridge config
 
@@ -115,13 +115,12 @@ The bridge reads `~/.broski/config.json`. See `src/config/schema.ts` for the ful
 
 A bridge started by the service inherits almost nothing: launchd and systemd hand it a `PATH` and a `HOME`, and
 nothing from `~/.zshrc`. So at startup the bridge asks your login shell for its environment once (one interactive
-`env -0` through `zsh`/`bash`/`fish`, 10 s timeout) and runs every agent with it — Claude Code, Pi and every
-terminal opened from the phone.
+`env -0` through `zsh`/`bash`/`fish`, 10 s timeout) and runs every agent with it — Claude Code and Pi.
 
 That means provider keys, `~/.local/bin` and version-manager shims exported in your shell profile work from the
-app exactly as they do in your terminal.
+phone exactly as they do in your terminal.
 
-- **Changed `~/.zshrc`?** Restart the bridge: tap restart in the app, or run `broski restart`. The environment is
+- **Changed `~/.zshrc`?** Restart the bridge: run `broski restart`. The environment is
   read once at startup, not per request.
 - **A provider still shows as unavailable?** `broski doctor` resolves the same environment the service resolves and
   lists which known agent variables are present by name ([`agent_credentials`]), never their values.
@@ -142,7 +141,7 @@ manager's shims were not on the service's `PATH`. The login-shell import puts th
 that provider. Export it in your shell profile, then restart the bridge.
 
 ```bash
-broski restart                 # or the restart button in the app
+broski restart
 broski logs                    # bridge.log, including the [shell-env] line
 broski doctor                  # the provider variables the service can see
 ```
@@ -151,17 +150,9 @@ broski doctor                  # the provider variables the service can see
 
 ```bash
 bun run typecheck          # tsc --noEmit
-bunx biome check src/      # lint + format check
+bun run lint               # biome check
 bun test                   # Bun test runner
-
-# Size of every session list reply against this machine's real session stores
-bun scripts/measure-session-lists.ts
 ```
-
-`measure-session-lists.ts` is read-only: it never writes to `~/.broski` or `~/.claude`, stops
-if the process passes 2 GiB RSS, and prints the full-list and first-page size of `cc_sessions` and the
-`runtime_sessions` shape it used to send whole. A backend that is not
-installed is reported and skipped.
 
 ## Links
 

@@ -1,5 +1,7 @@
 # Lane H · App — decisions (D110–D119)
 
+> **Historical record.** Written before the rebuild (`docs/rebuild/PLAN.md`). It may describe the old protocol, backend ops, custom tools, Pi Durable, the Flutter app or protocol minors, none of which exist now. The README beside it describes the current code.
+
 > Merged in Step 5 (`cc/integrate`). This file is the lane's record as delivered; where the adapter [README](../README.md)'s integration decisions D120–D129 changed something here, the README wins.
 
 Everything is under `lib/screens/agent/` and `test/agent/`; the bridge, the generated contract and the old screens are untouched. Contract facts were read from the zod schemas (`action-list.ts`, `editable-file.ts`, `config-ops.ts`, `custom-tool-ops.ts`, `interactions.ts`, `interaction-replies.ts`, `answer-check.ts`, `extensions.ts`) and checked a second time against the generated Dart (`lib/contract/generated/`: field names, nullability, enums, `contractMaxTextChars` = 1,048,576 = `MAX_TEXT_CHARS`).

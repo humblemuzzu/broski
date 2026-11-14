@@ -1,5 +1,7 @@
 # Phase 4 · Pi — Step 0: the interfaces the six lanes build on
 
+> **Historical record.** Written before the rebuild (`docs/rebuild/PLAN.md`). It may describe the old protocol, backend ops, custom tools, Pi Durable, the Flutter app or protocol minors, none of which exist now. The README beside it describes the current code.
+
 > **Historical**: the build plan of Steps 0–1. The adapter as built, and every Step 2 change to this plan, is in [`README.md`](README.md).
 
 Read [`PHASE-4-BRIEF.md`](PHASE-4-BRIEF.md) and [`PHASE-4-PI-PLAN.md`](PHASE-4-PI-PLAN.md) first. This file is what each Step 1 lane codes against: the files it owns, every function it must implement and what it must do, the SDK calls it uses (each checked in the pinned 1.4.0), the contract rules it answers to, the traps, its tests, and what it may assume from the other lanes. Where this file and a research report disagree, this file was checked against the SDK; see §11.

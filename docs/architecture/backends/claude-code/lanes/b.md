@@ -1,5 +1,7 @@
 # Lane B · Mapping (D50–D59)
 
+> **Historical record.** Written before the rebuild (`docs/rebuild/PLAN.md`). It may describe the old protocol, backend ops, custom tools, Pi Durable, the Flutter app or protocol minors, none of which exist now. The README beside it describes the current code.
+
 > Merged in Step 5 (`cc/integrate`). This file is the lane's record as delivered; where the adapter [README](../README.md)'s integration decisions D120–D129 changed something here, the README wins.
 
 `packages/bridge/src/backends/claude-code/mapping/` (pure: no I/O, no SDK at run time, nothing throws). Tests: `packages/bridge/src/__tests__/claude-code/mapping/` (11 files, 272 tests, ~0.4 s, no CLI process). Entry point `CLAUDE_CODE_MAPPING = {createMapper, turnOutcome}` is unchanged; `createFrameMapper(seed, now = Date.now)` takes an optional clock (a compatible extra parameter, not a port change) for `retry_scheduled.retryAt`.

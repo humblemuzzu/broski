@@ -1,5 +1,7 @@
 # Claude Code on the contract: the plan
 
+> **Historical record.** Written before the rebuild (`docs/rebuild/PLAN.md`). It may describe the old protocol, backend ops, custom tools, Pi Durable, the Flutter app or protocol minors, none of which exist now. The README beside it describes the current code.
+
 Status: plan, written 2026-11-01 on `main` at `6ce0895`, after the SDK moved from 0.2.92 to **0.3.316** (bundled CLI 2.1.316). Steps 1–7 done (§6); Step 8 (the owner's on-device checklist) is next.
 Goal: Claude Code becomes a contract backend (`packages/bridge/src/backends/claude-code/`) that rides the generic app (`lib/agent/`) exactly as Pi does, reaches parity with the old `cc_*` path, and then the old path is deleted.
 

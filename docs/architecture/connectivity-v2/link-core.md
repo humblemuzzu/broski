@@ -55,24 +55,21 @@ not answer.
 
 ```
 link status: not connected, app in front
-  -> LanSearch (lib/services/link/discovery/lan_search.dart)
+  -> the phone's LAN search
        one continuous browse, open until the link is up again or the app goes back
        keep only adverts whose TXT id is the machine's, and whose v is 1
        routes = "<host>:<port>" for what is left, newest first
-  -> machine record grows those routes (mergeLan, machine_store), and the isolate
-     gets them through LinkConnection.updateEndpoint as LinkSetEndpoint
+  -> the machine record grows those routes, and the link session is told the new endpoint
 ```
 
 Browsing is the platform's, not a socket: `NWBrowser` on Apple platforms and `NsdManager` on
-Android, through `bonsoir`, on the **main isolate** — a platform channel cannot live in the link
-isolate, so the main isolate browses and the isolate is told about the result. iOS needs
-`_broski-link._tcp` in `NSBonjourServices`; Android needs nothing beyond the plugin's own manifest
-(`CHANGE_WIFI_MULTICAST_STATE`).
+Android. iOS needs `_broski-link._tcp` in `NSBonjourServices`; Android needs the multicast permission
+(`CHANGE_WIFI_MULTICAST_STATE`). The browse lives with the platform code, which tells the link session about the result.
 
 A browse is **not** a one-shot. A machine that is restarted comes back on another LAN port, and the
 phone redialling the address in its record never learns that. So the browse runs for as long as the
 link is down and the app is in front, and every advert that resolves to an address not being dialled
-is handed to the link at once: `LinkSetEndpoint` cancels the pending backoff and races the new
+is handed to the link at once: setting the endpoint cancels the pending backoff and races the new
 candidates immediately, so a moved machine is reached in a second instead of after the app resumes.
 It stops when the link connects, when the app goes to the background, when no machine is selected,
 and when the link is closed (revoked: there is nothing left to look for). `inactive` is a call or
@@ -120,33 +117,16 @@ only way through.
   identity into the `BlClient`. The library never frees caller memory. NULL is valid only with
   `len == 0`.
 - `BlClient` is opaque, owns one `Link` plus the device identity, is not thread-safe, and is freed
-  once with `bl_client_free`. Dart wraps it in a `Finalizer`.
+  once with `bl_client_free`. A host language wraps it so the free runs exactly once.
 - Return codes: 0 ok, -1 invalid argument, -2 protocol/crypto (`bl_last_error` has the message),
   -3 backpressure, -4 not ready (no handshake has completed), -99 panic.
   `bl_client_poll_transmit` and `bl_client_poll_event` use 1/0 for produced/none.
 - `bl_client_handle` eats whole wire messages: msg2 first, then one sealed frame each.
 - `bl_abi_version` is 3; `bl_sha256` is unchanged.
 
-## The phone's Dart API (`packages/link_dart`)
+## What the phone is told when a link closes
 
-`LinkConnection` owns the isolate; these are what the app sees.
-
-| Member | Carries |
-|---|---|
-| `status` | `LinkStatus`: state, route, `lastSeen`, `resumed`, `sessionReset`, `closeCode` |
-| `bridgeStatus` | `BridgeLinkStatus { state, conn, detail }` from control `{"t":"bridge"}` |
-| `sendFailures` | `LinkSendFailure { reason, stream, bytes, count, tag }` for every message the link did not send |
-| `control` | the raw control maps, including `t:"bridge"` and `t:"routes"` |
-| `sendBridge` / `sendControl` | fire and forget; a refusal arrives on `sendFailures` |
-
-`sendFailures.reason` is `queueFull`, `tooLarge`, `rejected` or `sessionReset`, so
-the app can tell a busy phone from a message the protocol cannot carry. `tag` is
-the sender's own name for the message — the app passes the request id — so a
-refused request fails at once instead of waiting out its timeout. A message over
-the queue bound is refused before it reaches the isolate at all.
-`bridgeStatus` parsing is strict: a `t:"bridge"` without a non-negative integer
-`conn` is ignored and logged rather than given a default, so a malformed status
-never moves the resync state machine.
+The phone's API is the client core's (Phase 3 of `docs/rebuild/PLAN.md`); this is the behaviour it must carry.
 
 `LinkStatus.closeCode` is the code the machine closed the session with
 (`LinkCloseCode`, the daemon's own numbers in
@@ -156,20 +136,20 @@ is shutting down (the phone reconnects when it is back), 4002 `bridgeOverflow`,
 on, so the phone starts a new one). A 4002 or a 4005 makes the next connect
 report `sessionReset`, because the bridge forgot this phone's view even when the
 link session itself resumes; a 4003 ends the link as `closed` and the phone stops
-dialling until it pairs again. While it reconnects, the app reads the code as its
+dialling until it pairs again. While it reconnects, the app shows the code as its
 own detail line (`Mac is restarting`, `Session reset`, `Session timed out`).
 
-## The outbound queue (`linkOutboundQueue`)
+## The phone's outbound queue
 
-The isolate never lets the Rust session hold unbounded work. `_outbound` keeps
-messages in order in `linkOutboundQueueMax` = 8 MiB:
+The previous phone client's rules, which the client core keeps: the phone never lets the Rust session hold
+unbounded work. Its outbound queue keeps messages in order in 8 MiB:
 
 - A message the session is not ready for waits at the head and is retried on
 every pump, so a burst survives backpressure — an ACK frees the window and the
 whole queue drains in order. Nothing behind it overtakes it.
 - A message larger than the bound is refused before it is queued (`tooLarge`);
 a message that pushes the queue past the bound is refused (`queueFull`).
-- A `LinkProtocolException` other than "no session"/"not connected" drops that
+- A protocol error other than "no session"/"not connected" drops that
 one message (`rejected`) and the queue keeps draining.
 - A new session clears the queue and reports `sessionReset` with the count it
 dropped, so the app resyncs instead of feeding stale frames to a live session.

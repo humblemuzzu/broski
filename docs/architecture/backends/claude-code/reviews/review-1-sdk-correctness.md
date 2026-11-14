@@ -1,5 +1,7 @@
 # Code review
 
+> **Historical record.** Written before the rebuild (`docs/rebuild/PLAN.md`). It may describe the old protocol, backend ops, custom tools, Pi Durable, the Flutter app or protocol minors, none of which exist now. The README beside it describes the current code.
+
 ## Summary
 
 This range adds a Claude Code adapter on `@anthropic-ai/claude-agent-sdk` 0.3.316 (bundled CLI 2.1.316), with its session store, ask desk, terminal-hook receiver, executable resolution and server wiring. The SDK is used correctly almost everywhere. Options, control calls, callback replies, frame mapping, paging order and the hook settings shape all match `sdk.d.ts`, `sdk.mjs` and the recorded frames. The two findings that matter are a session-title source that is mislabelled because the SDK folds AI titles into `customTitle`, and an unconditional `allowDangerouslySkipPermissions` that probably stops every hosted session when the bridge runs as root. Typecheck passes. The mapping, store, live, asks, foundation and terminal tests pass (370 and 368 passed, 0 failed), including the real-CLI ones.

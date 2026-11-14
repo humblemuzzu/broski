@@ -1,81 +1,29 @@
-# Broski Bridge Test Suite
+# Bridge test suite
 
-This directory contains comprehensive tests for the Broski bridge setup wizard and troubleshooter systems.
+`bun test` from `packages/bridge` runs everything (about five minutes). The rules every test keeps are in
+[`AGENTS.md`](../../../../AGENTS.md) (test hygiene): no test touches `~/.pi`, `~/.broski` or `~/.claude`
+(`setup/test-isolation.ts`, `safety/real-home-guard`), and a real agent is driven with a scripted model, not a mock.
 
-## Test Files
+## Where things are
 
-### Core System Tests
-- **`platform.test.ts`** - Platform abstraction layer (OS detection, binary finding, daemon management)
-- **`config.test.ts`** - Configuration system (schema validation, defaults, read/write operations)
+| Path | What it proves |
+|---|---|
+| `contract_*.test.ts` | The contract: its schemas and generated files (`contract_schema`, `contract_codegen`, `contract_gen_fixtures`), the reducer, the answer checker, the stream rules, the layer check, and the conformance suite against the fake backend (`contract_conformance`). `contract_negative_*` run deliberately broken adapters to show each conformance rule fails when it should. |
+| `core_*.test.ts` | The bridge core over the fake backend (`helpers/core-rig.ts`), and end to end over a real bridge and the link socket (`core_e2e_*`, `helpers/core-bridge.ts`). |
+| `claude-code/` | The Claude Code adapter: one directory per part, `conformance/` (the rules against the real `claude` and a scripted endpoint), `integration/` and `spike/` (the real CLI's behaviour, the regression suite for SDK pin bumps). |
+| `pi/` | The Pi adapter on Pi's faux provider, `conformance.test.ts` and the live matrix. |
+| `link*.test.ts`, `link/`, `send_queue.test.ts`, `e2e_transport.test.ts` | The link socket, its key and handshake, the daemon's feed, the send queue and its windows. |
+| `service_*`, `lifecycle_*`, `cli`, `config`, `platform`, `wizard-steps`, `onboarding-logic`, `integration`, `troubleshooter`, `doctor*`, `logging*`, `shell_env*`, `tls_*` | The CLI and the service around the bridge: install, start and stop, config, the setup wizard, diagnostics, logs, the login-shell environment, loopback TLS. |
+| `workspace_*`, `pty_*`, `native_pty` | The workspace code Phase 3 will serve over the contract: files, git, the PTY. |
+| `bench_budget`, `compiled-binary`, `sdk_lazy_imports`, `bounded_state`, `security_temp_roots` | The perf budget checker, the compiled binary, lazy SDK loading, bounded collections, temp roots. |
+| `helpers/`, `fixtures/`, `setup/`, `safety/` | Shared kits: scripted Anthropic- and OpenAI-compatible endpoints, the core rig, broken adapters, probes, the real-home guard. |
 
-### Setup Wizard Tests
-- **`wizard-steps.test.ts`** - Individual wizard step logic and utility functions
-- **`onboarding-logic.test.ts`** - Non-interactive setup flow and option processing
-- **`integration.test.ts`** - End-to-end integration tests for the complete setup flow
-
-### Troubleshooter Tests
-- **`troubleshooter.test.ts`** - Problem categorization and doctor profile mapping
-
-### Existing System Tests
-- **`logging.test.ts`** - Log formatting and redaction (pre-existing)
-- **`doctor.test.ts`** - Diagnostic system (pre-existing)
-- **`cli.test.ts`** - Command-line interface (pre-existing)
-
-## Test Coverage
-
-### What's Tested ✅
-1. **Platform Detection**: OS detection, binary finding, daemon type mapping
-2. **Configuration System**: Schema validation, defaults, type safety
-3. **Agent Detection**: Binary discovery for Claude Code and Pi
-4. **Network Configuration**: Mode selection, port validation, IP detection
-5. **Security Setup**: TLS configuration, token TTL validation
-6. **Daemon Management**: Service type mapping, config generation
-7. **Troubleshooter Logic**: Problem-to-profile mapping, escalation commands
-8. **Integration Flow**: End-to-end wizard result validation
-
-### What's NOT Tested ⚠️
-- Interactive prompts (requires user input)
-- File system operations (complex setup required)
-- Network calls (external dependencies)
-- TLS certificate generation (platform-specific tools)
-- Process spawning (system dependencies)
-
-## Running Tests
+## Running part of it
 
 ```bash
-# Run all tests
-bun test src/__tests__/
-
-# Run specific test categories
-bun test src/__tests__/platform.test.ts src/__tests__/config.test.ts
-bun test src/__tests__/wizard-steps.test.ts src/__tests__/onboarding-logic.test.ts
-bun test src/__tests__/troubleshooter.test.ts src/__tests__/integration.test.ts
-
-# Run with coverage (if configured)
-bun test --coverage src/__tests__/
+bun test src/__tests__/core_protocol.test.ts      # one file
+bun test src/__tests__/pi/                        # one directory
+bun run check:layers                              # import rules for contract, core and adapters
+bun run contract:check                            # generated contract files are current
+bun run mutate:core --check                       # the core's mutants still match their files
 ```
-
-## Test Results Summary
-
-As of the last run:
-- **86 tests passing** across 6 new test files
-- **458 expect() calls** validating system behavior
-- **0 failures** in the bridge setup and troubleshooter logic
-
-The tests verify that:
-1. Platform detection works correctly on all supported OSes
-2. Configuration schema validates properly with sensible defaults
-3. Agent detection logic handles all supported backends
-4. Troubleshooter maps problems to appropriate doctor profiles
-5. Setup wizard components produce valid configuration structures
-
-## Test Strategy
-
-These tests focus on **pure functions** and **logic validation** rather than integration with external systems. This approach ensures:
-
-- **Fast execution** (no network/file I/O)
-- **Reliable results** (no external dependencies)
-- **Cross-platform compatibility** (works on any dev machine)
-- **Core logic coverage** (validates business rules and data flow)
-
-The tests complement the existing diagnostic and logging tests to provide comprehensive coverage of the bridge's setup and troubleshooting systems.

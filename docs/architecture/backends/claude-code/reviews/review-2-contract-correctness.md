@@ -1,5 +1,7 @@
 # Code review
 
+> **Historical record.** Written before the rebuild (`docs/rebuild/PLAN.md`). It may describe the old protocol, backend ops, custom tools, Pi Durable, the Flutter app or protocol minors, none of which exist now. The README beside it describes the current code.
+
 ## Summary
 
 This range extends the contract to protocol 1.4, adds the Claude Code adapter behind `claudeCode.contract`, and adds the matching app-core UI in `lib/agent/`. The core and adapter are carefully built. `check:layers`, `contract:check` and `typecheck` are clean, all 31 conformance rules pass against the real CLI, and the Dart answer and plan tests pass. I found one real minor-gating leak: Claude Code's `prompt_suggestion` extension reaches pre-1.4 clients through the capabilities list. I also found one gap in the conformance kit, one piece of unwired app code, and one unreachable hold edge case.

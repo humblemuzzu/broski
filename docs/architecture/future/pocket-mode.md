@@ -1,5 +1,7 @@
 # Pocket Mode — working from the phone while the Mac sleeps
 
+> **Note.** It was written before the rebuild: where it names the Flutter app, Pi Durable or `BroskiRuntimeEvent`, those no longer exist**
+
 > **Status: idea only.** Nothing here is planned, scheduled or promised. This document writes down
 > how the idea *could* work if we ever chose to build it, what is known to be possible today, and
 > what is still unknown. Dates and sources are from research done on 2026-10-27/28.

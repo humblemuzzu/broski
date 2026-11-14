@@ -1,30 +1,27 @@
 ---
-description: Debug bridge connection issues between app and server
+description: Debug the connection between a paired phone, the broski-link daemon and the bridge
 allowed-tools: Bash, Read, Grep
 ---
 
 # Debug Connection
 
-Diagnose connection issues between the Broski app and bridge server.
-
-## Diagnostic Steps
-
-1. Check if bridge server is running
-2. Verify port availability (default: 4321)
-3. Check for firewall issues
-4. Verify AI backend availability
-5. Check recent logs for errors
+Diagnose why a phone cannot reach the bridge: the phone talks to the `broski-link` daemon, which talks to the bridge
+over `~/.broski/link/bridge.sock`.
 
 ## Commands to Run
 ```bash
-# Check bridge process
-pgrep -f broski-bridge
+# Is the daemon running, which devices are paired, is the bridge supervised
+broski-link status
 
-# Check port
-lsof -i :4321
+# The bridge's own checks (shell environment, link path, TLS, agents)
+broski-bridge doctor
 
-# Check logs
+# Loopback listener (default port 18274)
+lsof -i :18274
+
+# Recent logs
 tail -20 ~/.broski/logs/bridge.log
+tail -20 ~/.broski/logs/link.log
 ```
 
 $ARGUMENTS

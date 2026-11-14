@@ -1,5 +1,7 @@
 # Step 6: the review findings, fixed or answered
 
+> **Historical record.** Written before the rebuild (`docs/rebuild/PLAN.md`). It may describe the old protocol, backend ops, custom tools, Pi Durable, the Flutter app or protocol minors, none of which exist now. The README beside it describes the current code.
+
 Branch `cc/fixes` on `main` at `ec3afe3`. Every finding of the three reviews, critical to low, verified before it was touched. "Mutation" is the fix's core line reverted once with the new test run against it (then restored); "red first" means the test was written before the fix and failed on the unfixed code. New decisions are D130–D145 in the adapter [README](../README.md#step-6-decisions-d130d145).
 
 Counts over 33 findings and owner items: **25 fixed** (R3-1's claim held for the real CLI but not for every client, see its row), **0 wrong**, **7 decided** (no behaviour change; four of them now pinned by a test), **1 deferred to Step 7**. Compliments (R1 frame table, R2 receiver and minor-view chain, R3 config writer) need nothing.

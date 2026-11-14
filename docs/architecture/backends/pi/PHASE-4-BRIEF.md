@@ -1,5 +1,7 @@
 # Phase 4 · Pi — the brief every agent works to
 
+> **Historical record.** Written before the rebuild (`docs/rebuild/PLAN.md`). It may describe the old protocol, backend ops, custom tools, Pi Durable, the Flutter app or protocol minors, none of which exist now. The README beside it describes the current code.
+
 Read this whole file before anything else. It is the same for every agent in Phase 4 Pi (Step 0 foundation, Step 1 lanes A–F, Step 2 integration, Step 3 review and fix). Your own prompt adds your task.
 
 ## 1. What we are doing

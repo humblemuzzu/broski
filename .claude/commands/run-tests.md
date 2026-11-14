@@ -9,8 +9,8 @@ Execute all tests and provide a summary of results.
 
 ## Steps
 
-1. Run `flutter test` for Flutter tests
-2. Run `cd packages/bridge && bun test` for bridge tests
+1. Run `cd packages/bridge && bun test` for the bridge (about five minutes)
+2. Run `cd packages/link && cargo test --workspace` for the Rust link stack
 3. Summarize:
    - Total tests run
    - Passed/Failed counts
