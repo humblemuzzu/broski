@@ -11,7 +11,7 @@ import { createInbox, type Inbox } from "../../../backends/claude-code/process/i
 import { installTerminalHook } from "../../../backends/claude-code/terminal/hook-install";
 import { TERMINAL_HOOK_TIMEOUT_SECONDS } from "../../../backends/claude-code/terminal/hook-settings";
 import type { SessionRef } from "../../../contract";
-import { createTerminalHookReceiver } from "../../../server/cc-terminal-hook";
+import { createTerminalHookReceiver, type TerminalHookDeps } from "../../../server/cc-terminal-hook";
 import { serveLoopback } from "../../../server/loopback-listener";
 import { makeLoopbackCert, type TestCert } from "../terminal/tls";
 import type { SessionRouter } from "./session-router";
@@ -33,14 +33,20 @@ interface Terminal {
 	readonly close: () => void;
 }
 
+/** `BridgeCore.hold` and `release`, which a world under a real core passes; the conformance world holds nothing. */
+export type HoldSeam = Pick<TerminalHookDeps, "hold" | "release">;
+
+const NO_CORE: HoldSeam = { hold: async () => ({ status: "accepted" }), release: () => undefined };
+
 export class TerminalAsks {
 	/** Every request the hook brought, by session id, with what the adapter decided. */
 	readonly decisions = new Map<string, unknown[]>();
-	private readonly receiver = createTerminalHookReceiver({
-		hold: async () => ({ status: "accepted" }),
-		release: () => undefined,
-		log: () => undefined,
-	});
+	private readonly receiver: ReturnType<typeof createTerminalHookReceiver>;
+
+	constructor(seam: HoldSeam = NO_CORE) {
+		this.receiver = createTerminalHookReceiver({ ...seam, log: () => undefined });
+	}
+
 	private readonly waiting = new Map<string, () => void>();
 	private readonly terminals: Terminal[] = [];
 	private server: ReturnType<typeof serveLoopback> | undefined;

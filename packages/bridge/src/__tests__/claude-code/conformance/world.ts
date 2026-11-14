@@ -17,7 +17,7 @@ import { installElicitServer } from "./elicit-server";
 import { ModelEcho } from "./model-echo";
 import { Activity, type Observed, observe } from "./observed-backend";
 import { SessionRouter } from "./session-router";
-import { TerminalAsks } from "./terminal-asks";
+import { type HoldSeam, TerminalAsks } from "./terminal-asks";
 
 interface WorldParts {
 	readonly home: ClaudeHome;
@@ -57,13 +57,13 @@ export class ClaudeWorld {
 		this.models = new ModelEcho(parts.cliPath, home.projectDir, { ...options.env });
 	}
 
-	static async create(host: BackendHost): Promise<ClaudeWorld> {
+	static async create(host: BackendHost, seam?: HoldSeam): Promise<ClaudeWorld> {
 		const home = createClaudeHome();
 		const router = new SessionRouter();
 		const server = serveScriptedAnthropic([], { routes: router.routes() });
 		const cliPath = testClaudeBinary();
 		prepareHome(home);
-		const terminalAsks = new TerminalAsks();
+		const terminalAsks = new TerminalAsks(seam);
 		const env = claudeTestEnv({ url: server.url, home, proxy: server.proxyUrl });
 		const options: ClaudeCodeFactoryOptions = {
 			cli: { found: true, path: cliPath },
