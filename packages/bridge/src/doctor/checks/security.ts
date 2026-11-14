@@ -14,7 +14,7 @@ export async function runSecurityChecks(ctx: DoctorContext): Promise<CheckResult
 			id: "tls_enabled",
 			category: "security",
 			status: "ok",
-			message: "Loopback TLS enabled (this covers the local hooks and dashboard, not the phone)",
+			message: "Loopback TLS enabled (this covers the local hooks and the dev-server proxy, not the phone)",
 		});
 	} else {
 		results.push({

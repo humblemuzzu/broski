@@ -1,5 +1,4 @@
 import type { AgentEvent } from "../events";
-import type { TranscriptItemId } from "../ids";
 import { completedCall, finishedItems, withoutRetracted } from "../run-items";
 import type { SessionSnapshot } from "../snapshot";
 import type { TranscriptItem } from "../transcript";
@@ -32,14 +31,6 @@ export class FakeHistory {
 
 	clear(): void {
 		this.entries.splice(0, this.entries.length);
-	}
-
-	/** Keeps the history up to and including `itemId`; false when there is no such item. */
-	truncateAfter(itemId: TranscriptItemId): boolean {
-		const index = this.entries.findIndex((entry) => entry.item.id === itemId);
-		if (index < 0) return false;
-		this.entries.splice(index + 1);
-		return true;
 	}
 
 	/** Writes what `event` adds to history; `before` is the live state just before it applies. */

@@ -9,10 +9,9 @@ import { writeFileSync } from "node:fs";
 import http from "node:http";
 import type net from "node:net";
 import { join } from "node:path";
-import { createPiBackend } from "../../backends/pi/backend";
+import { piBackendFactory } from "../../backends/pi/factory";
 import { proxyOutcome } from "../../backends/pi/network/proxy-plan";
 import { proxiedFetch } from "../../backends/pi/network/scoped-runtime";
-import { createPiServices } from "../../backends/pi/services";
 import type { AgentBackend } from "../../contract";
 import { CatalogRecorder, SessionRecorder } from "../../contract/testing/conformance-harness";
 import { type ScriptedProvider, serveScriptedProvider, writeScriptedModels } from "../helpers/scripted-openai-server";
@@ -81,8 +80,7 @@ afterEach(async () => {
 });
 
 async function runAPrompt(): Promise<string> {
-	const services = await createPiServices({ agentDir: env.agentDir });
-	backend = createPiBackend({ catalog: new CatalogRecorder(5_000) }, services);
+	backend = await piBackendFactory({ agentDir: env.agentDir })({ catalog: new CatalogRecorder(5_000) });
 	const recorder = new SessionRecorder(10_000);
 	const opened = await backend.open(
 		{ kind: "new", options: { cwd: env.cwd, modelId: `${scripted.provider}/${scripted.modelId}` } },

@@ -232,7 +232,7 @@ describe("the core's protocol: sessions without a live stream", () => {
 		});
 	});
 
-	test("rename, archive, fork and delete reach the adapter and show in every client's catalog", async () => {
+	test("rename, fork and delete reach the adapter and show in every client's catalog", async () => {
 		const rig = await startCoreRig();
 		const a = await rig.client("a");
 		const b = await rig.client("b");

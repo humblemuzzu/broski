@@ -1,6 +1,7 @@
 /**
  * The bridge's 127.0.0.1 listener. Phones reach the bridge only through broski-link's socket; this one serves the
- * agent permission hooks on this machine, the dashboard and `/proxy/<port>`.
+ * agent permission hooks on this machine, the dev-server proxy (`/proxy/<port>`, `/proxy-ws/<port>`) and a status
+ * probe at `/`; a WebSocket upgrade with the bearer token reaches the same connection handler as a link socket.
  */
 
 import type { Server, WebSocketHandler } from "bun";

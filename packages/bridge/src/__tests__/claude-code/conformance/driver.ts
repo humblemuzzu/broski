@@ -63,12 +63,7 @@ export class ClaudeCodeConformanceDriver implements ConformanceDriver {
 		return deliveredInput(this.world.backend, newest, session);
 	}
 
-	/** Claude Code declares no ops. */
-	async backendCall(): Promise<undefined> {
-		return undefined;
-	}
-
-	/** `externalLive` is false (D21): no other client runs live here. Lane G fills this when it turns true. */
+	/** `externalLive` is false (D21): no other client runs live here. */
 	async runExternally(_session: SessionRef): Promise<boolean> {
 		return false;
 	}

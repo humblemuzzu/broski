@@ -64,8 +64,7 @@ export const TextReply = z.strictObject({ kind: z.literal("text"), text: z.strin
 export type TextReply = z.infer<typeof TextReply>;
 
 /**
- * The human gives no answer: they dismissed it, or the bridge's timeout policy answered for them.
- * Valid for every kind. `stopRun` says whether the run ends or goes on without the answer.
+ * The human gives no answer: they dismissed it. Valid for every kind. `stopRun` says whether the run ends or goes on without the answer.
  */
 export const CancelReply = z.strictObject({
 	kind: z.literal("cancel"),

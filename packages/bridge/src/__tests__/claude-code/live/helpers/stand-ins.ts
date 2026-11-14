@@ -18,7 +18,7 @@ import type {
 	SessionStore,
 	StoredSession,
 } from "../../../../backends/claude-code/ports";
-import { notBuilt, rejected } from "../../../../backends/claude-code/rejections";
+import { rejected } from "../../../../backends/claude-code/rejections";
 import type {
 	ActionResult,
 	ModeAxis,
@@ -30,6 +30,11 @@ import type {
 	SessionGetResult,
 	SessionId,
 } from "../../../../contract";
+
+/** The answer of a stand-in part that the test under way never reaches. */
+function notBuilt(what: string): Rejected {
+	return rejected("unsupported", `not built yet: ${what}`);
+}
 
 export const EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
 

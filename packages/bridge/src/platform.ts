@@ -20,7 +20,6 @@ import { isCompiledBinary } from "./compiled-binary";
 import { COMMAND_TIMEOUT_MS, runCommand } from "./platform/command";
 import { defaultServiceHost } from "./platform/service/host";
 import * as launchd from "./platform/service/launchd";
-import { resolveLinkBinary } from "./platform/service/link-binary";
 import * as systemd from "./platform/service/systemd";
 import type { DaemonConfig, DaemonStatus, DaemonType } from "./platform/service/types";
 
@@ -307,20 +306,6 @@ export function getDaemonConfigPath(): string | null {
 }
 
 /**
- * Generate the daemon config content.
- * macOS: plist XML, Linux: systemd unit, Windows: null.
- */
-export function generateDaemonConfig(config: DaemonConfig): string | null {
-	if (IS_MACOS) return launchd.generatePlist(config, resolveLinkBinaryPath(config), homedir());
-	if (IS_LINUX) return systemd.generateUnit(config, resolveLinkBinaryPath(config));
-	return null;
-}
-
-function resolveLinkBinaryPath(config: DaemonConfig): string {
-	return resolveLinkBinary({ broskiBinaryPath: config.binaryPath, override: config.linkBinaryPath });
-}
-
-/**
  * Install the daemon.
  */
 export async function installDaemon(config: DaemonConfig): Promise<void> {
@@ -367,11 +352,6 @@ export async function restartDaemon(): Promise<void> {
 // ============================================================================
 // 5. TLS Certificate Generation
 // ============================================================================
-
-export interface CertificateResult {
-	keyPem: string;
-	certPem: string;
-}
 
 /**
  * Generate a self-signed TLS certificate.
@@ -502,20 +482,6 @@ async function generateCertPowerShell(cn: string, days: number, keyPath: string,
 // ============================================================================
 // 6. Shell & Path Helpers
 // ============================================================================
-
-/**
- * Get the null device path.
- */
-export function getNullDevice(): string {
-	return IS_WINDOWS ? "NUL" : "/dev/null";
-}
-
-/**
- * Get temp directory.
- */
-export function getTmpDir(): string {
-	return tmpdir();
-}
 
 /**
  * Get safe default allowed base paths for file operations.

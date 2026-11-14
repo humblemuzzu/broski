@@ -30,15 +30,3 @@ export async function walkFiles(root: string, filter: (path: string) => boolean)
 
 	return out;
 }
-
-function pickLargest(files: FileEntry[]): FileEntry | null {
-	let best: FileEntry | null = null;
-	for (const file of files) {
-		if (!best || file.bytes > best.bytes) best = file;
-	}
-	return best;
-}
-
-export async function largestFile(root: string, filter: (path: string) => boolean): Promise<FileEntry | null> {
-	return pickLargest(await walkFiles(root, filter));
-}

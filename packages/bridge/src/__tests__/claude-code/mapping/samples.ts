@@ -1,8 +1,8 @@
 /** One frame of every kind in `FRAME_KINDS`: recorded where a scenario has one, written out where none does. */
 
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
-import { type FrameKey, frameKey } from "../../../backends/claude-code/mapping/frame-kinds";
 import { frameScenarios, readFrameFixture } from "../helpers/frame-fixtures";
+import { type FrameKey, frameKey } from "./frame-kinds";
 import { failure, ids } from "./frames";
 
 function recorded(key: FrameKey): SDKMessage {

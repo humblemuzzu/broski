@@ -44,29 +44,6 @@ export function boundList<T>(items: readonly T[], max: number = MAX_LIST_ITEMS):
 		: { items: items.slice(0, max), omitted: items.length - max };
 }
 
-/**
- * The first `max` entries of `record` in insertion order, keys clipped to `MAX_NAME_CHARS` (a clipped key that repeats
- * an earlier one is dropped and counted). Own keys only, as pairs, so a `__proto__` key is kept like any other.
- */
-export function boundRecord<V>(
-	record: Readonly<Record<string, V>>,
-	max: number = MAX_LIST_ITEMS,
-): Bounded<[string, V]> {
-	const kept: [string, V][] = [];
-	const seen = new Set<string>();
-	let omitted = 0;
-	for (const [key, value] of Object.entries(record)) {
-		const name = clip(key, MAX_NAME_CHARS);
-		if (kept.length >= max || seen.has(name)) {
-			omitted += 1;
-			continue;
-		}
-		seen.add(name);
-		kept.push([name, value]);
-	}
-	return { items: kept, omitted };
-}
-
 function isHighSurrogate(unit: number): boolean {
 	return unit >= 0xd800 && unit <= 0xdbff;
 }

@@ -1,6 +1,6 @@
 /**
  * The capabilities Claude Code declares (D38); each is checked against the conformance rule that tests it (STEP-3 §4).
- * `fork`, `rename` and `delete` follow from the methods `backend.ts` implements; `archive` is absent (D16).
+ * `fork`, `rename` and `delete` follow from the methods `backend.ts` implements.
  */
 
 import type { BackendTraits } from "../../contract";

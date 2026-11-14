@@ -34,10 +34,6 @@ export interface PiParts {
 	readonly terminal: TerminalLink;
 }
 
-export function createPiBackend(host: BackendHost, services: PiServices): AgentBackend {
-	return piBackendOf(createPiParts(host, services));
-}
-
 export function createPiParts(host: BackendHost, services: PiServices, link?: TerminalLinkOptions): PiParts {
 	const { agentDir } = services;
 	const catalog = new CatalogFeed(host.catalog);

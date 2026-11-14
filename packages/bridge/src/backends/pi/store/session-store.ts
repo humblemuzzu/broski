@@ -13,7 +13,7 @@ import { rejected } from "../rejections";
 import { readAttachment } from "./attachments";
 import { childTranscript, getChild } from "./children";
 import { getSession, listSessions } from "./list";
-import { claimStored, forkStored, type MutationDeps, removeStored, renameStored } from "./mutations";
+import { forkStored, type MutationDeps, removeStored, renameStored } from "./mutations";
 import { isFileSystemError } from "./open-file";
 import { piSessionDirs } from "./session-dir";
 import { SessionIndex } from "./session-index";
@@ -76,7 +76,6 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
 			return dirs.forCwd(cwd);
 		},
 		rename: (sessionId, name) => reaching(() => renameStored(mutation, sessionId, name)),
-		claim: (sessionId) => reaching(() => claimStored(mutation, sessionId)),
 		remove: (sessionId, release) => reaching(() => removeStored(mutation, sessionId, release)),
 		fork: (sessionId, at, live) => reaching(() => forkStored(mutation, sessionId, at, live)),
 		watch: (live) => watcher.start(live),

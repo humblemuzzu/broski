@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { boundList, boundRecord, clip, clipEnd, fitsId, nameOr } from "../../../backends/claude-code/bounds";
+import { boundList, clip, clipEnd, fitsId, nameOr } from "../../../backends/claude-code/bounds";
 import { CatalogFeed } from "../../../backends/claude-code/catalog-feed";
 import { cursorScope, decodeCursor, encodeCursor } from "../../../backends/claude-code/cursor";
 import { boundedJson } from "../../../backends/claude-code/json";
-import { CLOSED, isRejected, notBuilt, rejected } from "../../../backends/claude-code/rejections";
+import { CLOSED, isRejected, rejected } from "../../../backends/claude-code/rejections";
 import {
 	type CatalogEvent,
 	JsonValue,
@@ -37,18 +37,9 @@ describe("bounds", () => {
 		expect(fitsId("a".repeat(MAX_ID_CHARS + 1))).toBe(false);
 	});
 
-	test("boundList and boundRecord count what they leave out", () => {
+	test("boundList counts what it leaves out", () => {
 		expect(boundList([1, 2, 3], 2)).toEqual({ items: [1, 2], omitted: 1 });
 		expect(boundList([1], 2)).toEqual({ items: [1], omitted: 0 });
-		const long = "k".repeat(MAX_NAME_CHARS);
-		const record = { [`${long}1`]: 1, [`${long}2`]: 2, b: 3, c: 4 };
-		expect(boundRecord(record, 2)).toEqual({
-			items: [
-				[long, 1],
-				["b", 3],
-			],
-			omitted: 2,
-		});
 	});
 });
 
@@ -107,7 +98,6 @@ describe("rejections and the catalog feed", () => {
 	test("rejections are contract values", () => {
 		expect(Rejected.safeParse(rejected("busy", "m".repeat(MAX_TEXT_CHARS + 1))).success).toBe(true);
 		expect(Rejected.safeParse(CLOSED).success).toBe(true);
-		expect(notBuilt("lane A: list").rejection.code).toBe("unsupported");
 		expect(isRejected(CLOSED)).toBe(true);
 		expect(isRejected({ status: "accepted" })).toBe(false);
 	});

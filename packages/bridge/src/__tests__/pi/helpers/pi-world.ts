@@ -1,7 +1,7 @@
 /**
  * Everything one Pi test lives in: a throwaway home (`createPiTestEnv`), the driver's extension and
  * prompt template written into its agent dir, the faux models on the adapter's own `ModelRuntime`,
- * the scripted router, and the real backend `createPiBackend` builds (its parts and `piBackendOf`) over them. A
+ * the scripted router, and the real backend `createPiParts` and `piBackendOf` build over them. A
  * restart builds a new backend over the same directories, as a restarted bridge would.
  */
 

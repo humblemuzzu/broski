@@ -59,11 +59,6 @@ export class PiConformanceDriver implements ConformanceDriver {
 		return deliveredInput(this.world.backend, this.world.router, session);
 	}
 
-	/** Pi declares no ops. */
-	async backendCall(): Promise<undefined> {
-		return undefined;
-	}
-
 	/**
 	 * The other client is a terminal `pi` resuming the session, whose Broski link extension (installed by the bridge) tells
 	 * the bridge what it runs. The world must have the link on (`PiWorldOptions.link`).

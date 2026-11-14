@@ -66,27 +66,6 @@ describe("Platform Integration", () => {
 		if (IS_LINUX) expect(daemonType).toBe("systemd");
 		if (IS_WINDOWS) expect(daemonType).toBe("none");
 	});
-
-	test("path helpers return valid paths", () => {
-		const { getNullDevice, getTmpDir, getDefaultAllowedPaths } = require("../platform");
-
-		const nullDevice = getNullDevice();
-		const tmpDir = getTmpDir();
-		const allowedPaths = getDefaultAllowedPaths();
-
-		expect(typeof nullDevice).toBe("string");
-		expect(nullDevice.length).toBeGreaterThan(0);
-
-		expect(typeof tmpDir).toBe("string");
-		expect(tmpDir.length).toBeGreaterThan(0);
-
-		expect(Array.isArray(allowedPaths)).toBe(true);
-		expect(allowedPaths.length).toBeGreaterThan(0);
-		allowedPaths.forEach((path: string) => {
-			expect(typeof path).toBe("string");
-			expect(path.length).toBeGreaterThan(0);
-		});
-	});
 });
 
 describe("Troubleshooter Integration", () => {

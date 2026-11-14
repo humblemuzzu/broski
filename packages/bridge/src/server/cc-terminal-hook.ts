@@ -11,7 +11,6 @@ import { z } from "zod";
 import type { TerminalAskHandler, TerminalPermissionDecision } from "../backends/claude-code/ports/terminal";
 import { MAX_MESSAGE_BYTES, MAX_NAME_CHARS, MAX_PATH_CHARS, type SessionRef } from "../contract";
 
-export const CC_TERMINAL_HOOK_PATH = "/cc-terminal-hook";
 const MAX_PENDING_ASKS = 64;
 const SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

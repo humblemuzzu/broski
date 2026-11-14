@@ -14,7 +14,12 @@ await runScenario(async () => {
 	const handle = await startBenchServer();
 	const sdkAfterServer = loadedAgentSdkPackages();
 	const ws = await connectBenchClient(handle.port, handle.token);
-	const hello = { type: "hello", requestId: "bench", protocol: PROTOCOL_VERSION, client: { name: "bench", version: "0" } };
+	const hello = {
+		type: "hello",
+		requestId: "bench",
+		protocol: PROTOCOL_VERSION,
+		client: { name: "bench", version: "0" },
+	};
 	ws.send(JSON.stringify({ type: "contract", message: hello }));
 	await waitForMessage(ws, "contract", 10_000);
 	const sdkAfterClient = loadedAgentSdkPackages();

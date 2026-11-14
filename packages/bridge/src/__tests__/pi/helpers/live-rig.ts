@@ -1,5 +1,5 @@
 /**
- * What a live-matrix test starts from: a Pi world (temp home, faux models, the real `createPiBackend`)
+ * What a live-matrix test starts from: a Pi world (temp home, faux models, the real Pi backend)
  * behind the contract suite's own `Rig`, so a test opens sessions and waits on their events with the
  * same tools the conformance rules use.
  */

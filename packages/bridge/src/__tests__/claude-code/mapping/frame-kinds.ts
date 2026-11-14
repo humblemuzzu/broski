@@ -1,5 +1,5 @@
 /**
- * Lane B · every `SDKMessage` variant (`d.ts:5604`), mapped or ignored, and why. The table is typed over the union, so an
+ * Every `SDKMessage` variant (`d.ts:5604`), mapped or ignored, and why. The table is typed over the union, so an
  * SDK that adds a variant fails the type check here until someone decides what it shows.
  */
 
@@ -18,7 +18,7 @@ export type FrameKey = KeyOf<SDKMessage>;
 
 export type Disposition = { readonly shows: string } | { readonly ignored: string };
 
-const HOST = "the host's (lane D)";
+const HOST = "the host's";
 const NO_HOME = "no contract home";
 
 export const FRAME_KINDS: Readonly<Record<FrameKey, Disposition>> = {
@@ -80,7 +80,7 @@ export const FRAME_KINDS: Readonly<Record<FrameKey, Disposition>> = {
 		ignored: `${HOST}: idle ends the run, requires_action is the desk's`,
 	},
 	"system/commands_changed": {
-		ignored: `${HOST}: the command catalogue (lane C) is invalidated, not the stream`,
+		ignored: `${HOST}: the command catalogue is invalidated, not the stream`,
 	},
 	"system/background_tasks_changed": {
 		ignored: "a task's tool call is shown by its own frames",
@@ -102,7 +102,7 @@ export const FRAME_KINDS: Readonly<Record<FrameKey, Disposition>> = {
 	},
 	"system/files_persisted": { ignored: NO_HOME },
 	"system/elicitation_complete": {
-		ignored: `${HOST}: it withdraws an URL ask, which is the desk's (lane E)`,
+		ignored: `${HOST}: it withdraws an URL ask, which is the desk's`,
 	},
 	"system/control_request_progress": {
 		ignored: "progress of a control request, not of the run",
@@ -122,7 +122,7 @@ export function frameKey(frame: { readonly type: string; readonly subtype?: unkn
 export const UNDECLARED_FRAMES: Readonly<Record<string, string>> = {
 	command_lifecycle: `${HOST}: queue_changed and send tracking (asCommandLifecycle)`,
 	active_goal: `${NO_HOME}; /goal is not offered`,
-	session_title_changed: "the store (lane A) reads the title from the session file",
+	session_title_changed: "the store reads the title from the session file",
 	turn_preempted: NO_HOME,
 	model_fallback: NO_HOME,
 	vcs_state_changed: NO_HOME,

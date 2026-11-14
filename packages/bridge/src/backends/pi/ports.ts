@@ -75,8 +75,6 @@ export interface SessionStore {
 	sessionDirFor(cwd: string): string;
 	/** `name` is `sessionName`'s. */
 	rename(sessionId: SessionId, name: string): Promise<ActionResult>;
-	/** Writes the `broski.origin` entry a session this bridge creates starts with; a session that has one is untouched. */
-	claim(sessionId: SessionId): Promise<ActionResult>;
 	/** `release` runs once the file may be deleted and before it is: the session's host ends there. */
 	remove(sessionId: SessionId, release: () => Promise<void>): Promise<ActionResult>;
 	fork(sessionId: SessionId, at: ForkPoint | undefined, live: LiveOverlay): Promise<NewSessionResult>;

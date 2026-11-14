@@ -89,7 +89,7 @@ describe("the core's observer", () => {
 					...backend,
 					getSession: async (ref) => ({
 						status: "accepted",
-						summary: { session: ref, archived: "no" } as unknown as SessionSummary,
+						summary: { session: ref, updatedAt: "yesterday" } as unknown as SessionSummary,
 					}),
 				}),
 			],

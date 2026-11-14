@@ -31,10 +31,6 @@ export class AskRigDriver implements ConformanceDriver {
 		return undefined;
 	}
 
-	async backendCall(): Promise<undefined> {
-		return undefined;
-	}
-
 	async runExternally(): Promise<boolean> {
 		return false;
 	}

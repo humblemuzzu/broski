@@ -1,14 +1,9 @@
 /** Every `SDKMessage` variant is mapped or ignored on purpose, and the frames the CLI sends beyond them are ignored too. */
 
 import { describe, expect, test } from "bun:test";
-import {
-	FRAME_KINDS,
-	type FrameKey,
-	frameKey,
-	UNDECLARED_FRAMES,
-} from "../../../backends/claude-code/mapping/frame-kinds";
 import { AgentEvent } from "../../../contract";
 import { frameScenarios, readFrameFixture } from "../helpers/frame-fixtures";
+import { FRAME_KINDS, type FrameKey, frameKey, UNDECLARED_FRAMES } from "./frame-kinds";
 import { newMapper } from "./helpers";
 import { SAMPLES } from "./samples";
 

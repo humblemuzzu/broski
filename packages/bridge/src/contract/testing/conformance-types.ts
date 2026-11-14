@@ -25,7 +25,7 @@ export interface DeliveredInput {
 	readonly command?: CommandId;
 }
 
-/** Makes a backend behave the way a rule needs. Phase 4 writes one per adapter. */
+/** Makes a backend behave the way a rule needs. Every adapter has one. */
 export interface ConformanceDriver {
 	/** A directory holding a file named `README.md`, which attachments point at. */
 	readonly cwd: string;
