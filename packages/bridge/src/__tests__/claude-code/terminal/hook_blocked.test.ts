@@ -35,6 +35,11 @@ describe("an allowedHttpHookUrls pattern, read as the CLI reads it", () => {
 		["http://127.0.0.1:18274/cc-terminal-hook", false],
 		["https://127.0.0.1:18274/other", false],
 		["https://hooks.example.com/*", false],
+		["HTTPS://127.0.0.1:18274/cc-terminal-hook", true],
+		["https://127.0.0.1:18274/CC-Terminal-Hook", false],
+		["*//127.0.0.1:18274/*", true],
+		["*//127.0.0.1:*", false],
+		["https://xn--*.example/cc-terminal-hook", false],
 	])("%s lets ours through: %p", (pattern, allowed) => {
 		expect(urlAllowedBy(URL_OF_OURS, pattern)).toBe(allowed);
 	});

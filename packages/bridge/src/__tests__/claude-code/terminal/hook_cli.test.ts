@@ -59,6 +59,8 @@ async function run(
 		namesCertificate?: boolean;
 		pinned?: readonly string[];
 		bridgeCert?: boolean;
+		/** The hook stays installed but nothing listens at its URL, as after the bridge stopped. */
+		bridgeGone?: boolean;
 	} = {},
 ): Promise<Outcome> {
 	const cert = options.bridgeCert ? await makeBridgeCert() : makeLoopbackCert({ san: options.san });
@@ -106,6 +108,7 @@ async function run(
 			settings.allowedHttpHookUrls = options.pinned;
 			writeFileSync(file, JSON.stringify(settings));
 		}
+		if (options.bridgeGone) server.stop(true);
 		const terminal = options.terminal ?? {};
 		const spike = startSpike({
 			home,
@@ -189,6 +192,29 @@ describe("when the CLI will not call the hook, it fails open to the terminal", (
 			expect(urlAllowedBy("https://127.0.0.1:2/cc-terminal-hook", "http://127.0.0.1:*/cc-terminal-hook")).toBe(false);
 			expect(outcome.hookRequests).toBe(0);
 			expect(outcome.promptAnswered).toBe(true);
+		},
+		CLI_TEST_MS,
+	);
+
+	test(
+		"a pattern whose path differs from ours only in case does not let the CLI call the hook, as allowed-urls.ts reads it",
+		async () => {
+			const pattern = "https://127.0.0.1:*/CC-Terminal-Hook";
+			const outcome = await run(async () => ({ behavior: "allow" }), { pinned: [pattern], terminal });
+			expect(urlAllowedBy("https://127.0.0.1:2/cc-terminal-hook", pattern)).toBe(false);
+			expect(outcome.hookRequests).toBe(0);
+			expect(outcome.promptAnswered).toBe(true);
+		},
+		CLI_TEST_MS,
+	);
+
+	test(
+		"a hook whose bridge is gone (nothing listens at its URL) leaves the prompt to the terminal",
+		async () => {
+			const outcome = await run(async () => ({ behavior: "allow" }), { bridgeGone: true, terminal });
+			expect(outcome.hookRequests).toBe(0);
+			expect(outcome.promptAnswered).toBe(true);
+			expect(outcome.wrote).toBe(true);
 		},
 		CLI_TEST_MS,
 	);
