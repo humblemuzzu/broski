@@ -20,7 +20,6 @@ import { type ClaudeCodeServices, createClaudeCodeServices } from "../../../../b
 import { CLAUDE_CODE_TRAITS } from "../../../../backends/claude-code/traits";
 import type { CatalogEvent, OpenTarget, SessionRef } from "../../../../contract";
 import { LiveSession, SessionRecorder } from "../../../../contract/testing/conformance-harness";
-import { defaultClaudeCliEnvironment, resolveClaudeCliPath } from "../../../../server/claude-cli-path";
 import { type ClaudeHome, claudeTestEnv, createClaudeHome } from "../../../helpers/claude-home";
 import {
 	type ScriptedAnthropic,
@@ -30,6 +29,7 @@ import {
 } from "../../../helpers/scripted-anthropic-server";
 import { fakeClaudeSdk } from "../../helpers/fake-claude-sdk";
 import type { FakeQuery } from "../../helpers/fake-query";
+import { testClaudeBinary } from "../../helpers/test-claude-cli";
 import { ManualClock } from "./manual-clock";
 import {
 	type StandInCatalogue,
@@ -134,11 +134,9 @@ export function realRig(
 ): RealRig {
 	const home = createClaudeHome();
 	const server = serveScriptedAnthropic(turns, options.server);
-	const cli = resolveClaudeCliPath(defaultClaudeCliEnvironment());
-	if (!cli.ok) throw new Error(`the live tests need the Claude Code binary: ${cli.reason}`);
 	const clock = new ManualClock();
 	const services = createClaudeCodeServices({
-		cli: { found: true, path: cli.path, source: cli.source },
+		cli: { found: true, path: testClaudeBinary() },
 		configDir: home.configDir,
 		env: claudeTestEnv({ url: server.url, home, proxy: server.proxyUrl }),
 		stateDir: join(home.root, "broski-state"),
@@ -170,10 +168,7 @@ export function fakeRig(
 	const sdk = fakeClaudeSdk({ queries, overrides: options.sdk });
 	const clock = new ManualClock();
 	const services = createClaudeCodeServices({
-		cli:
-			options.cli === false
-				? { found: false, reason: "no binary here" }
-				: { found: true, path: "/fake/claude", source: "test" },
+		cli: options.cli === false ? { found: false, reason: "no binary here" } : { found: true, path: "/fake/claude" },
 		env: { PATH: "/usr/bin" },
 		stateDir: "/nonexistent/state",
 		clientApp: "broski/fake-test",

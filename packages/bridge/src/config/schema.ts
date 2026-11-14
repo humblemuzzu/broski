@@ -33,7 +33,7 @@ export const BroskiConfigSchema = z.object({
 		.default({ claudeCode: true, pi: false }),
 	claudeCode: z
 		.object({
-			/** The `claude` executable to run instead of the one the bridge carries (`server/claude-cli-path.ts`). */
+			/** The `claude` executable to run instead of the one on the login shell's `PATH` (`server/claude-cli-path.ts`). */
 			cliPath: z.string().optional(),
 			/** Serve Claude Code through the backend contract (PLAN D28); the old protocol's terminal hook then stands down. */
 			contract: z.boolean().default(false),

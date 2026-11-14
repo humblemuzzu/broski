@@ -42,11 +42,12 @@ export const IS_WINDOWS: boolean = CURRENT_PLATFORM === "win32";
 // ============================================================================
 
 /**
- * Find a binary on the system. Cross-platform replacement for `which`.
+ * Find a binary on the current `process.env.PATH`. `Bun.which` alone reads the PATH the process started with,
+ * which misses the login-shell PATH a service bridge imports at startup (`platform/shell-env.ts`).
  */
 export function findBinary(name: string): string | null {
 	try {
-		const found = Bun.which(name);
+		const found = Bun.which(name, { PATH: process.env.PATH ?? "" });
 		if (found) return found;
 	} catch {
 		// Bun.which may throw on some platforms

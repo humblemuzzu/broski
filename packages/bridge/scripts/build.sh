@@ -110,9 +110,6 @@ build_pty_helper() {
   esac
 }
 
-# claude_cli_package, claude_cli_binary, write_claude_cli_embed, CLAUDE_EMBED
-. "${SCRIPT_DIR}/claude-cli-embed.sh"
-
 COMPILED_ENTRY="./src/_bootstrap_embedded.ts"
 
 # Define targets: bun-target → output-name
@@ -124,13 +121,8 @@ build_target() {
   # ── Step 1: Build native PTY FIRST (so we can embed it) ──
   build_pty_helper "$PLATFORM"
 
-  # ── Step 2: Generate the compiled entry: bootstrap.ts with the target's
-  # Claude Code binary imported and, when built, the PTY dylib inlined ──
-  # This makes the binary truly self-contained: on first run it extracts the
-  # dylib next to itself, and the claude binary on first use. No extra files needed.
-  write_claude_cli_embed "$PLATFORM"
-  CLAUDE_BIN=$(claude_cli_binary "$PLATFORM")
-  echo "    ✓ Claude Code binary embedded ($(wc -c < "$CLAUDE_BIN" | tr -d ' ') bytes, $(claude_cli_package "$PLATFORM"))"
+  # ── Step 2: Generate the compiled entry: bootstrap.ts with, when built, the PTY dylib inlined ──
+  # On first run the binary extracts the dylib next to itself. No extra files needed.
   PTY_HASH_DEFINE=""
   PTY_B64="%%EMBEDDED_PTY_LIB_BASE64_PLACEHOLDER%%"
   case "$PLATFORM" in
@@ -148,8 +140,7 @@ build_target() {
     echo "    - No PTY library to embed"
   fi
   # Keep the generated files in src/ so relative imports (./index) resolve correctly
-  sed -e "s|%%EMBEDDED_PTY_LIB_BASE64_PLACEHOLDER%%|${PTY_B64}|" \
-    -e 's|^// %%EMBEDDED_CLAUDE_CLI_IMPORT%%$|import "./_claude_cli_embed";|' "$ENTRY" > "$COMPILED_ENTRY"
+  sed -e "s|%%EMBEDDED_PTY_LIB_BASE64_PLACEHOLDER%%|${PTY_B64}|" "$ENTRY" > "$COMPILED_ENTRY"
 
   # ── Step 3: Compile the binary ──
   # --bytecode caches the whole module graph as bytecode (~3x faster startup,
@@ -165,8 +156,8 @@ build_target() {
   fi
   echo "    Done."
 
-  # Clean up the generated files
-  rm -f "$COMPILED_ENTRY" "$CLAUDE_EMBED" 2>/dev/null
+  # Clean up the generated entry
+  rm -f "$COMPILED_ENTRY" 2>/dev/null
 }
 
 TARGETS="
@@ -177,7 +168,6 @@ linux-arm64:broski-linux-arm64
 "
 
 BUILT=0
-SKIPPED=""
 
 for pair in $TARGETS; do
   PLATFORM=$(echo "$pair" | cut -d: -f1)
@@ -189,24 +179,13 @@ for pair in $TARGETS; do
     continue
   fi
 
-  if [ ! -f "$(claude_cli_binary "$PLATFORM")" ]; then
-    echo "  Skipping ${OUTPUT}: $(claude_cli_binary "$PLATFORM") is missing (every build embeds its target's Claude Code binary)"
-    echo "    Install every platform's package with: bun install --os='*' --cpu='*'"
-    SKIPPED="${SKIPPED} ${PLATFORM}"
-    continue
-  fi
-
   build_target "$BUN_TARGET" "$OUTPUT" "$PLATFORM"
   BUILT=$((BUILT + 1))
 done
 
 if [ "$BUILT" -eq 0 ]; then
-  if [ -n "$SKIPPED" ]; then
-    echo "  Error: nothing built; missing the Claude Code binary for:${SKIPPED}"
-  else
-    echo "  Error: No targets matched '${TARGET_FILTER}'"
-    echo "  Valid targets: darwin-arm64, darwin-x64, linux-x64, linux-arm64"
-  fi
+  echo "  Error: No targets matched '${TARGET_FILTER}'"
+  echo "  Valid targets: darwin-arm64, darwin-x64, linux-x64, linux-arm64"
   exit 1
 fi
 
@@ -366,7 +345,4 @@ ls -lh "$DIST"/ | tail -n +2 | while read -r line; do
 done
 echo ""
 echo "  Build complete. ${BUILT} binary(ies) built."
-if [ -n "$SKIPPED" ]; then
-  echo "  Skipped (no Claude Code binary installed):${SKIPPED}"
-fi
 echo ""

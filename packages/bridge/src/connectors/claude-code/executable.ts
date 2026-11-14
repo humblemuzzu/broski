@@ -4,7 +4,7 @@ type ExecutableProvider = () => ClaudeCliPath;
 
 let provider: ExecutableProvider | null = null;
 
-/** Set once by the server (`serve.ts`); without it the SDK resolves its optional package itself (dev, tests). */
+/** Set once by the server (`serve.ts`); without it the SDK resolves its own optional package (tests). */
 export function setClaudeExecutableProvider(next: ExecutableProvider | null): void {
 	provider = next;
 }

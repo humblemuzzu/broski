@@ -44,7 +44,7 @@ export function claudeCodeBackend(deps: ClaudeCodeBackendDeps): BackendFactory {
 }
 
 function cliLocation(found: ClaudeCliPath): CliLocation {
-	return found.ok ? { found: true, path: found.path, source: found.source } : { found: false, reason: found.reason };
+	return found.ok ? { found: true, path: found.path } : { found: false, reason: found.reason };
 }
 
 function processEnv(): Record<string, string> {

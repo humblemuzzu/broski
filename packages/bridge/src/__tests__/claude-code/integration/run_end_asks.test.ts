@@ -6,8 +6,9 @@
 
 import { afterEach, describe, expect, test } from "bun:test";
 import type { Scenario } from "../../../contract/testing/conformance-types";
+import { testClaudeBinary } from "../helpers/test-claude-cli";
 import { expectNoOrphans } from "../spike/rig/orphans";
-import { devClaudeBinary, processesOf } from "../spike/rig/processes";
+import { processesOf } from "../spike/rig/processes";
 import { CLI_TEST_MS, type IntegrationRig, pending, startRig } from "./rig";
 
 expectNoOrphans();
@@ -53,9 +54,9 @@ describe("asks and the run around them", () => {
 	test(
 		"a CLI that dies under a pending ask ends it without an answer, and the run ends unavailable, not hanging",
 		async () => {
-			const before = new Set(processesOf(devClaudeBinary()));
+			const before = new Set(processesOf(testClaudeBinary()));
 			const { live, ask } = await askIn({ kind: "interaction", interaction: "tool_permission" });
-			const started = processesOf(devClaudeBinary()).filter((pid) => !before.has(pid));
+			const started = processesOf(testClaudeBinary()).filter((pid) => !before.has(pid));
 			expect(started.length).toBeGreaterThan(0);
 			for (const pid of started) process.kill(pid, "SIGKILL");
 			const resolved = await live.waitFor("interaction_resolved", (event) => event.interactionId === ask.id);

@@ -4,7 +4,6 @@ import { defaultClaudeCliEnvironment, resolveClaudeCliPath } from "../../server/
 import type { CheckResult } from "../types";
 import { claudeCliCheck } from "./claude-cli";
 
-const CLAUDE_FIX = "Reinstall the bridge, or set claudeCode.cliPath in ~/.broski/config.json";
 const PI_FIX = "Install Pi: npm i -g @earendil-works/pi-coding-agent";
 
 export async function runDependencyChecks(config?: BroskiConfig): Promise<CheckResult[]> {
@@ -34,7 +33,7 @@ export async function runDependencyChecks(config?: BroskiConfig): Promise<CheckR
 			category: "dependencies",
 			status: "error",
 			message: "No supported AI backend found (Claude Code/Pi)",
-			fix: CLAUDE_FIX,
+			fix: "Install Claude Code or Pi",
 		});
 	} else {
 		const names = [claude && "Claude Code", pi && "Pi"].filter(Boolean);

@@ -11,7 +11,7 @@ import { installProcessHandlers } from "./serve/process-handlers";
 import { shutdown } from "./serve/shutdown";
 import { serveState } from "./serve/state";
 import { createBridgeServer, loadOrCreateAuthState } from "./server";
-import { claudeCliPathOnce } from "./server/claude-cli-path";
+import { defaultClaudeCliEnvironment, resolveClaudeCliPath } from "./server/claude-cli-path";
 import { type ClaudeCodeWiring, createClaudeCodeWiring } from "./server/claude-code-wiring";
 import { contractOptions } from "./server/contract-backends";
 import { startPeriodicUpdateCheck, startupUpdateCheck } from "./updater";
@@ -138,7 +138,7 @@ export async function runServe(cli: CliOptions, config: BroskiConfig): Promise<v
 		{ daemon: cli.daemon, linkSocket: cli.linkSocket },
 	);
 
-	const claudeCli = claudeCliPathOnce(config.claudeCode.cliPath);
+	const claudeCli = () => resolveClaudeCliPath(defaultClaudeCliEnvironment(config.claudeCode.cliPath));
 	setClaudeExecutableProvider(claudeCli);
 	const claudeCode = createClaudeCodeWiring({
 		settings: config.claudeCode,

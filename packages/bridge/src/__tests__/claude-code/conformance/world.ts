@@ -8,9 +8,9 @@ import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { type ClaudeCodeFactoryOptions, claudeCodeBackendFactory } from "../../../backends/claude-code/factory";
 import type { AgentBackend, BackendHost } from "../../../contract";
-import { defaultClaudeCliEnvironment, resolveClaudeCliPath } from "../../../server/claude-cli-path";
 import { type ClaudeHome, claudeTestEnv, createClaudeHome, README_TEXT } from "../../helpers/claude-home";
 import { type ScriptedAnthropic, serveScriptedAnthropic } from "../../helpers/scripted-anthropic-server";
+import { testClaudeBinary } from "../helpers/test-claude-cli";
 import { installElicitServer } from "./elicit-server";
 import { ModelEcho } from "./model-echo";
 import { Activity, type Observed, observe } from "./observed-backend";
@@ -62,12 +62,11 @@ export class ClaudeWorld {
 		const home = createClaudeHome();
 		const router = new SessionRouter();
 		const server = serveScriptedAnthropic([], { routes: router.routes() });
-		const cli = resolveClaudeCliPath(defaultClaudeCliEnvironment());
-		if (!cli.ok) throw new Error(`conformance needs the Claude Code binary: ${cli.reason}`);
+		const cliPath = testClaudeBinary();
 		prepareHome(home);
 		const terminalAsks = new TerminalAsks();
 		const options: ClaudeCodeFactoryOptions = {
-			cli: { found: true, path: cli.path, source: cli.source },
+			cli: { found: true, path: cliPath },
 			configDir: home.configDir,
 			env: claudeTestEnv({ url: server.url, home, proxy: server.proxyUrl }),
 			stateDir: join(home.root, "broski-state"),
@@ -78,7 +77,7 @@ export class ClaudeWorld {
 		};
 		const activity = new Activity();
 		const observed = observe(await claudeCodeBackendFactory(options)(host), activity);
-		return new ClaudeWorld({ home, server, router, activity, options, observed, cliPath: cli.path, terminalAsks });
+		return new ClaudeWorld({ home, server, router, activity, options, observed, cliPath, terminalAsks });
 	}
 
 	get backend(): AgentBackend {

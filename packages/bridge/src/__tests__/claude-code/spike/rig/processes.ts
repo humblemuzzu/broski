@@ -1,11 +1,3 @@
-import { createRequire } from "node:module";
-
-/** The `claude` binary the SDK resolves in this checkout (the optional package), as the SDK's own resolver finds it. */
-export function devClaudeBinary(): string {
-	const sdkEntry = createRequire(import.meta.url).resolve("@anthropic-ai/claude-agent-sdk");
-	return createRequire(sdkEntry).resolve(`@anthropic-ai/claude-agent-sdk-${process.platform}-${process.arch}/claude`);
-}
-
 /** Pids of running processes whose executable is `binary`. */
 export function processesOf(binary: string): number[] {
 	const ps = Bun.spawnSync(["ps", "-axo", "pid=,command="], { stdout: "pipe", stderr: "ignore" });

@@ -10,7 +10,7 @@ import { createClaudeSdk } from "./sdk/claude-sdk";
 
 /** `server/claude-cli-path.ts`'s answer (D35), as a value: a missing binary is a `status()` issue, not a throw. */
 export type CliLocation =
-	| { readonly found: true; readonly path: string; readonly source: string }
+	| { readonly found: true; readonly path: string }
 	| { readonly found: false; readonly reason: string };
 
 export interface ClaudeCodeFactoryOptions {

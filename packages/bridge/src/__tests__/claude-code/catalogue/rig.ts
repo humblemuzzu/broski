@@ -146,7 +146,7 @@ export function catalogueRig(options: RigOptions = {}): Rig {
 	const clock = new ManualClock();
 	const events: CatalogEvent[] = [];
 	const services = createClaudeCodeServices({
-		cli: options.cli ?? { found: true, path: "/fake/claude", source: "test" },
+		cli: options.cli ?? { found: true, path: "/fake/claude" },
 		env: { PATH: "/usr/bin" },
 		stateDir,
 		clientApp: "broski/test",

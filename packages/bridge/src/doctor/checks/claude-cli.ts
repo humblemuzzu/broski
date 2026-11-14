@@ -5,11 +5,10 @@ import type { CheckResult } from "../types";
 
 const SOURCE_LABEL: Record<ClaudeCliSource, string> = {
 	config: "claudeCode.cliPath",
-	embedded: "bundled with the bridge",
-	package: "SDK package",
+	path: "PATH",
 };
 const VERSION_TIMEOUT_MS = 5_000;
-const CONFIG_FIX = 'Set "claudeCode": {"cliPath": "/path/to/claude"} in ~/.broski/config.json, or reinstall the bridge';
+const CONFIG_FIX = 'Install Claude Code, or set "claudeCode": {"cliPath": "/path/to/claude"} in ~/.broski/config.json';
 
 function runVersion(path: string) {
 	const scratch = join(tmpdir(), "broski-claude-version");

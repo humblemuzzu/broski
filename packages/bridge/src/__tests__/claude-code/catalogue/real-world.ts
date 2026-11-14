@@ -9,9 +9,9 @@ import type { QueryParams } from "../../../backends/claude-code/ports/sdk";
 import { createClaudeSdk } from "../../../backends/claude-code/sdk/claude-sdk";
 import { type ClaudeCodeServices, createClaudeCodeServices } from "../../../backends/claude-code/services";
 import type { CatalogEvent } from "../../../contract";
-import { defaultClaudeCliEnvironment, resolveClaudeCliPath } from "../../../server/claude-cli-path";
 import { type ClaudeHome, claudeTestEnv, createClaudeHome } from "../../helpers/claude-home";
 import { type ScriptedAnthropic, serveScriptedAnthropic } from "../../helpers/scripted-anthropic-server";
+import { testClaudeBinary } from "../helpers/test-claude-cli";
 
 export const CLI_TEST_MS = 60_000;
 
@@ -19,7 +19,7 @@ export interface RealWorldOptions {
 	readonly signedOut?: boolean;
 	readonly env?: Readonly<Record<string, string>>;
 	readonly expectedCliVersion?: string;
-	/** Another binary than the bundled one, for a spawn failure. */
+	/** Another binary than the tests' own, for a spawn failure. */
 	readonly cliPath?: string;
 }
 
@@ -64,8 +64,7 @@ export function startRealWorld(options: RealWorldOptions = {}, prepare?: (home: 
 	const base: Record<string, string> = { ...claudeTestEnv({ url: server.url, home, proxy: server.proxyUrl }) };
 	if (options.signedOut) delete base.ANTHROPIC_API_KEY;
 	const env = { ...base, ...options.env };
-	const bundled = resolveClaudeCliPath(defaultClaudeCliEnvironment());
-	if (!bundled.ok) throw new Error(`the catalogue tests need the Claude Code binary: ${bundled.reason}`);
+	const cliPath = options.cliPath ?? testClaudeBinary();
 	const sdk = createClaudeSdk({ env });
 	const started: QueryParams[] = [];
 	const counting = {
@@ -76,7 +75,7 @@ export function startRealWorld(options: RealWorldOptions = {}, prepare?: (home: 
 		},
 	};
 	const services = createClaudeCodeServices({
-		cli: { found: true, path: options.cliPath ?? bundled.path, source: bundled.source },
+		cli: { found: true, path: cliPath },
 		env,
 		stateDir: join(home.root, "broski-state"),
 		clientApp: "broski/test",
@@ -88,7 +87,7 @@ export function startRealWorld(options: RealWorldOptions = {}, prepare?: (home: 
 	return {
 		home,
 		server,
-		cliPath: options.cliPath ?? bundled.path,
+		cliPath,
 		env,
 		services,
 		catalogue: make(),
