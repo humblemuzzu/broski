@@ -28,7 +28,7 @@ export function permissionPreviews(
 	return previews;
 }
 
-/** Lane B's reading of the pending call; a helper that fails or builds something the contract refuses costs the preview only. */
+/** The mapping's reading of the pending call; a helper that fails or builds something the contract refuses costs the preview only. */
 function changesPreview(toolName: string, input: Readonly<Record<string, unknown>>): PermissionPreview | undefined {
 	try {
 		const changes = boundList(fileChangesOf(toolName, input, undefined)).items;

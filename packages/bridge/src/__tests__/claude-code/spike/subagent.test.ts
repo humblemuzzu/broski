@@ -1,5 +1,5 @@
 /**
- * Subagents (research/08-spike.md, Q2 and Q3 background parts, Q13 forwardSubagentText): a foreground
+ * Subagents (adapter README D8, D20; `forwardSubagentText`): a foreground
  * Agent call, a background one and `idle`, and an interrupt while a background agent runs.
  */
 

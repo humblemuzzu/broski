@@ -1,7 +1,7 @@
 /**
- * Putting the terminal ask hook into the user's `settings.json` and taking it out (D26). A strict-JSON read-modify-write:
- * a file that does not parse is refused and left as it is, every other key survives, the new file is written beside the
- * old one and renamed over it, and a change made by someone else in between is not overwritten.
+ * Putting the terminal ask hook into the user's `settings.json` and taking it out (D29). A strict-JSON
+ * read-modify-write: a file that does not parse is refused and left as it is, every other key survives, the new file is
+ * written beside the old one and renamed over it, and a change made by someone else in between is not overwritten.
  */
 
 import { open, readFile, realpath } from "node:fs/promises";

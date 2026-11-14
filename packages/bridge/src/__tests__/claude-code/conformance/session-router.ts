@@ -1,6 +1,6 @@
 /**
  * Per-session scripts for the scripted Anthropic endpoint: the CLI names its session in every `/v1/messages`
- * request (`X-Claude-Code-Session-Id`, a string of the 2.1.316 binary), so each conformance session gets its own turns,
+ * request (`X-Claude-Code-Session-Id`, a string of the 2.1.325 binary), so each conformance session gets its own turns,
  * its own holds, and its own record of what reached the model. Side requests (subagent, compact, title) keep the
  * server's own routing, except a compaction a test holds.
  */
@@ -31,7 +31,7 @@ export class SessionRouter {
 
 	/**
 	 * The session's next run is `steps`: what an earlier run left unconsumed goes (a Stop that reached the CLI before its
-	 * message did leaves its whole scenario unread, D74).
+	 * message did leaves its whole scenario unread, adapter README D9).
 	 */
 	replace(sessionId: string, steps: readonly ScriptStep[]): void {
 		this.scripts.set(sessionId, [...steps]);

@@ -1,4 +1,4 @@
-/** The store (lane A, `store/`, `owned.ts`) and what the live sessions (lane D) lay over it. */
+/** The store (`store/`, `owned.ts`) and what the live sessions lay over it. */
 
 import type {
 	ActionResult,
@@ -40,7 +40,7 @@ export interface StoredSession {
 	readonly sessionId: SessionId;
 	/** `SDKSessionInfo.cwd`; undefined when the file names none. */
 	readonly cwd: string | undefined;
-	/** The transcript file, found under `ClaudeSdk.configRoot()/projects/` without encoding a path (D15). */
+	/** The transcript file, found under `ClaudeSdk.configRoot()/projects/` without encoding a path (D23). */
 	readonly path: string;
 	readonly origin: SessionOrigin;
 	readonly lastModified: number;
@@ -63,23 +63,23 @@ export interface SessionStore {
 	rename(sessionId: SessionId, title: string, live: LiveOverlay): Promise<ActionResult>;
 	/** The fork is claimed in the owner journal and announced with `session_updated`. */
 	fork(sessionId: SessionId, at: ForkPoint | undefined, live: LiveOverlay): Promise<NewSessionResult>;
-	/** Moves the transcript and its `<id>/` directory to the OS trash (D19) and emits `session_removed`. */
+	/** Moves the transcript and its `<id>/` directory to the OS trash (D27) and emits `session_removed`. */
 	remove(sessionId: SessionId): Promise<ActionResult>;
 	/** Emits the session's row as `session_updated`; nothing when it cannot be read. Never throws. */
 	announce(sessionId: SessionId, live: LiveOverlay): Promise<void>;
-	/** The session's file changed under this bridge (a run ended, an op wrote it): drop what was cached of it. */
+	/** The session's file changed under this bridge (a hosted run wrote it): drop what was cached of it. */
 	invalidate(sessionId: SessionId): void;
 	dispose(): void;
 }
 
-/** What the owner journal keeps of one prompt this bridge sent, keyed by its send uuid (D37). */
+/** What the owner journal keeps of one prompt this bridge sent, keyed by its send uuid (D10). */
 export interface PromptRecord {
 	/** The `name` of each image attachment, in order: the CLI keeps no names. */
 	readonly imageNames: readonly (string | undefined)[];
 }
 
 /**
- * The owner journal (`owned.ts`, D17), bounded, at `<stateDir>/owned.jsonl`. Reads are synchronous over what `load`
+ * The owner journal (`owned.ts`, D25), bounded, at `<stateDir>/owned.jsonl`. Reads are synchronous over what `load`
  * read; writes append and are visible at once.
  */
 export interface Ownership {
@@ -89,7 +89,10 @@ export interface Ownership {
 	notePrompt(sessionId: SessionId, sendUuid: string, record: PromptRecord): Promise<void>;
 	/** Defined exactly for a prompt this bridge sent: the store then gives its item `clientRequestId = sendUuid`. */
 	prompt(sessionId: SessionId, sendUuid: string): PromptRecord | undefined;
-	/** Writes to the session's file up to `at` (epoch ms) were this bridge's own: a host that ended, a rename, a fork (D122). */
+	/**
+	 * Writes to the session's file up to `at` (epoch ms) were this bridge's own: a host that ended, a rename, a fork
+	 * (D25).
+	 */
 	noteOwnWrite(sessionId: SessionId, at: number): Promise<void>;
 	ownWriteAt(sessionId: SessionId): number | undefined;
 }

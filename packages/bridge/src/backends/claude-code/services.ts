@@ -7,7 +7,7 @@ import { mayBypassPermissions, processUid } from "./process/bypass";
 import { cliEnv } from "./process/env";
 import { createClaudeSdk } from "./sdk/claude-sdk";
 
-/** `server/claude-cli-path.ts`'s answer (D35), as a value: a missing binary is a `status()` issue, not a throw. */
+/** `server/claude-cli-path.ts`'s answer (D3), as a value: a missing binary is a `status()` issue, not a throw. */
 export type CliLocation =
 	| { readonly found: true; readonly path: string }
 	| { readonly found: false; readonly reason: string };
@@ -33,7 +33,7 @@ export interface ClaudeCodeFactoryOptions {
 export interface ClaudeCodeServices {
 	readonly sdk: ClaudeSdk;
 	readonly cli: CliLocation;
-	/** D4's environment for every CLI. */
+	/** The environment of every CLI (D4). */
 	readonly cliEnv: Readonly<Record<string, string>>;
 	/** `bypassPermissions` can be offered and its flag passed (`process/bypass.ts`). */
 	readonly mayBypassPermissions: boolean;

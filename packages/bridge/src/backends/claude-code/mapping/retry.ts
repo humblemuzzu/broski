@@ -1,4 +1,6 @@
-/** Lane B · `system/api_retry` as `retry_scheduled`; `retry_finished` from the next frame of the turn (Q13). */
+/**
+ * `system/api_retry` as `retry_scheduled`; `retry_finished` from the next frame of the turn, since none says so (D22).
+ */
 
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { AgentEvent } from "../../../contract";

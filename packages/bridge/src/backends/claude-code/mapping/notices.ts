@@ -1,4 +1,4 @@
-/** Lane B · system frames that are something to show, not a turn: `notice` events (research 02 §7). */
+/** System frames that are something to show, not a turn: `notice` events. */
 
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { AgentEvent, NoticeLevel } from "../../../contract";

@@ -1,4 +1,4 @@
-/** Lane A · the `toolUseResult` of an entry the SDK returned, read at its recorded byte span and bounded (D41a). */
+/** The `toolUseResult` of an entry the SDK returned, read at its recorded byte span and bounded (D26). */
 
 import { open } from "node:fs/promises";
 import type { JsonValue } from "../../../contract";

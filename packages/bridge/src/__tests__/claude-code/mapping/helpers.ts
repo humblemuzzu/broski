@@ -1,5 +1,5 @@
 /**
- * Lane B's test kit: plays frames through the real mapper the way a host does (a run opens when the CLI says
+ * The mapping's test kit: plays frames through the real mapper the way a host does (a run opens when the CLI says
  * `running` and ends at `idle`, settling what is open), and checks each stream against the contract's rules.
  */
 

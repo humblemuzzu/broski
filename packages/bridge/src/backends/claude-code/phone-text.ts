@@ -20,7 +20,7 @@ export function withoutTerminalEscapes(text: string): string {
 	return text.includes("\u001B") || text.includes("\u009B") ? text.replace(ESCAPE_SEQUENCE, "") : text;
 }
 
-export function shownText(text: string): string {
+function shownText(text: string): string {
 	return withoutTerminalEscapes(text).replace(INVISIBLE, "");
 }
 

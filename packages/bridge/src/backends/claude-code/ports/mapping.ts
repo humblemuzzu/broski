@@ -1,4 +1,4 @@
-/** Live frames to contract events (lane B), as hosts (D) and the terminal tail (G) call it; STEP-3 §B. */
+/** Live frames to contract events, as the hosts and the terminal tail call it. */
 
 import type { SDKMessage, SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { AgentEvent, NativeIds, RunOutcome, SessionId } from "../../../contract";

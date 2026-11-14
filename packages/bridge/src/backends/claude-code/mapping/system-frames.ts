@@ -1,4 +1,4 @@
-/** Lane B · system frames shown as notices and extensions (`rate_limit`). */
+/** System frames: notices, compaction, task progress, a refused call; the rest is the host's or shows nothing. */
 
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { MappedEvent } from "../ports/mapping";

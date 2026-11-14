@@ -1,8 +1,8 @@
 /**
- * Terminal asks in the conformance world, on the real path (D26, rule 31): the server's own hook receiver behind a
- * loopback TLS listener, the installer's `PermissionRequest` hook in the temp home's user settings, and a second real
- * CLI process (a "terminal") whose Write asks. Its own prompt (`canUseTool`) is never answered, so only the phone's
- * answer through the adapter decides, exactly as a terminal whose person is away.
+ * Terminal asks in the conformance world, on the real path (adapter README D29, rule 28): the server's own hook
+ * receiver behind a loopback TLS listener, the installer's `PermissionRequest` hook in the temp home's user settings,
+ * and a second real CLI process (a "terminal") whose Write asks. Its own prompt (`canUseTool`) is never answered, so
+ * only the phone's answer through the adapter decides, exactly as a terminal whose person is away.
  */
 
 import { query, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";

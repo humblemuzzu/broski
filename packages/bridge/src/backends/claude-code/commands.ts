@@ -1,4 +1,4 @@
-/** Lane C · `CommandSummary`s from `initialize.commands`: skills marked, terminal-only commands hidden (D10). */
+/** `CommandSummary`s from `initialize.commands`: skills marked, terminal-only commands hidden (D7). */
 
 import type { SlashCommand } from "@anthropic-ai/claude-agent-sdk";
 import { type CommandSummary, MAX_CATALOG_ITEMS, MAX_NAME_CHARS, MAX_TEXT_CHARS } from "../../contract";
@@ -7,9 +7,9 @@ import { commandId } from "./ids";
 
 /**
  * The built-in commands the CLI tags `terminalOriented`, whose UX is bound to the local terminal (the `init` frame lists
- * them as `terminal_slash_commands`, `d.ts:6264`; "phone/remote UIs should hide these"). `initialize` carries no such
+ * them as `terminal_slash_commands`, "phone/remote UIs should hide these"; `sdk.d.ts`). `initialize` carries no such
  * tag and the frame comes only with a turn, so the names are fixed for the pinned CLI and held to the frame by
- * `T/catalogue/real_catalogue.test.ts`.
+ * `__tests__/claude-code/catalogue/real_catalogue.test.ts`.
  */
 const TERMINAL_BUILTINS: ReadonlySet<string> = new Set([
 	"color",
@@ -22,7 +22,7 @@ const TERMINAL_BUILTINS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * The row `/name` runs when rows share a name: the marked one if any, else the first (`SlashCommand.builtin`, `d.ts:9799`).
+ * The row `/name` runs when rows share a name: the marked one if any, else the first (`SlashCommand.builtin`).
  */
 function runnableRows(commands: readonly SlashCommand[]): Map<string, SlashCommand> {
 	const rows = new Map<string, SlashCommand>();
@@ -49,8 +49,8 @@ function summary(id: string, row: SlashCommand, skills: ReadonlySet<string>): Co
 
 /**
  * What the phone lists: commands a user, project, plugin or MCP server defined first, then the CLI's own, each group in
- * the CLI's order (D61). A project command leading the list is what lets the conformance suite's "first command that
- * starts a run" reach the model as that command (STEP-3 §11); the CLI's built-ins that never reach the model follow.
+ * the CLI's order (D7). A defined command leads because it reaches the model as typed, and conformance rule 12 sends
+ * the first listed command that starts a run; most of the CLI's built-ins never reach the model.
  */
 export function commandsOf(
 	commands: readonly SlashCommand[],

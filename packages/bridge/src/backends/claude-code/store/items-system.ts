@@ -1,4 +1,4 @@
-/** Lane A · the items of a `system` entry (D18, D41a): a run boundary or a notice, from what the raw file says of it. */
+/** The items of a `system` entry (D26): a run boundary or a notice, from what the raw file says of it. */
 
 import type { SessionMessage } from "@anthropic-ai/claude-agent-sdk";
 import { MAX_TEXT_CHARS, type TranscriptItem } from "../../../contract";

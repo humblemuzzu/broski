@@ -1,4 +1,4 @@
-/** The live sessions (lane D, `live/`, `process/`): what the backend and the asks reach them through. */
+/** The live sessions (`live/`, `process/`): what the backend and the asks reach them through. */
 
 import type {
 	AgentEvent,
@@ -21,16 +21,16 @@ export interface SessionEmitter {
 
 /**
  * Every session this bridge hosts (D1). `backend.ts` routes a child ref to `openChild` and a session a terminal is
- * writing to the terminal watch (D21) before it calls `open`.
+ * writing to the terminal watch (D28) before it calls `open`.
  */
 export interface LiveSessions extends LiveOverlay {
 	/** A new session gets its id before it starts (D2) and is claimed in the owner journal; an existing one resumes. */
 	open(target: OpenTarget, sink: SessionSink): Promise<OpenResult>;
 	/** Watch-only; its parent's host forwards the child's live work while it runs it (D20). */
 	openChild(ref: SessionRef, child: ChildPart, sink: SessionSink): Promise<OpenResult>;
-	/** A host runs the session, or one that ended has not yet noted its own last write (D122). */
+	/** A host runs the session, or one that ended has not yet noted its own last write (D25). */
 	isHosted(sessionId: SessionId): boolean;
-	/** Ends the session's host, if any, before its file goes (D19). */
+	/** Ends the session's host, if any, before its file goes (D27). */
 	end(sessionId: SessionId): Promise<void>;
 	/** Ends every host; nothing is emitted afterwards. */
 	dispose(): Promise<void>;

@@ -2,7 +2,7 @@ import type { SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 
 /**
  * The prompt of a long-lived `query()`: an `AsyncIterable` that stays open until `end()`, so stdin stays open between
- * runs (PLAN fact 1). One consumer only: the SDK's. A probe passes one and never pushes.
+ * runs (D1). One consumer only: the SDK's. A probe passes one and never pushes.
  */
 export interface Inbox {
 	readonly iterable: AsyncIterable<SDKUserMessage>;

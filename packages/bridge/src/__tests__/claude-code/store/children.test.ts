@@ -1,4 +1,7 @@
-/** D20: a subagent is a child session `<sessionId>/<agentId>`, listed from the sidecar and read from its own file. */
+/**
+ * Adapter README D20: a subagent is a child session `<sessionId>/<agentId>`, listed from the sidecar and read from its
+ * own file.
+ */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { utimesSync } from "node:fs";

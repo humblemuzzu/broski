@@ -1,4 +1,4 @@
-/** D19, OQ5: the OS trash layouts, in a temp tree, never the real one. */
+/** Adapter README D27: the OS trash layouts, in a temp tree, never the real one. */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {

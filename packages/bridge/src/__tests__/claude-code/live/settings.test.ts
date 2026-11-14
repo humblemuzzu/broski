@@ -1,4 +1,6 @@
-/** Rules 20 and 21 on the real CLI: the model, the thinking and the mode reach the CLI and show as events (D11, D12). */
+/**
+ * Rules 20 and 21 on the real CLI: the model, the thinking and the mode reach the CLI and show as events (D11, D12).
+ */
 
 import { describe, expect, test } from "bun:test";
 import { expectNoOrphans } from "../spike/rig/orphans";

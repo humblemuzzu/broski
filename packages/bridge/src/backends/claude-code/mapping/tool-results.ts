@@ -1,6 +1,6 @@
 /**
- * Lane B · a `tool_result` block and its structured `tool_use_result` as a contract tool result. Shared: lane A maps
- * history with it, lane G the tail, so a result reads the same live and in the transcript.
+ * A `tool_result` block and its structured `tool_use_result` as a contract tool result. The store maps history with it
+ * and the terminal tail its lines, so a result reads the same live, in the transcript and in a terminal's session.
  */
 
 import { MAX_TEXT_CHARS, type ToolContent, type ToolOutcome, type ToolResult } from "../../../contract";

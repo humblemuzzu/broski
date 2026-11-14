@@ -1,8 +1,8 @@
 /**
  * `echo_model` answers with the listed model id a request ran with. A request names the wire model
  * (`claude-opus-5-5`), so the driver maps it back through the CLI's own `ModelInfo.resolvedModel`, read once from a
- * probe of the same CLI and home, over the rows the adapter lists (`listedRows`, D135: no listed row runs the Default
- * row's model). A wire id two listed rows resolve to is ambiguous and echoed as is (STEP-3 §10).
+ * probe of the same CLI and home, over the rows the adapter lists (`listedRows`, adapter README D12: no listed row runs
+ * the Default row's model). A wire id two listed rows resolve to is ambiguous and echoed as is.
  */
 
 import { type ModelInfo, query } from "@anthropic-ai/claude-agent-sdk";

@@ -1,4 +1,4 @@
-/** Lane C · `status()`: binary found, version, auth, policy refusals; never fails (contract `BackendStatus`). */
+/** `status()` (D7): binary found, version, auth, policy refusals; never fails (contract `BackendStatus`). */
 
 import type { SDKControlInitializeResponse } from "@anthropic-ai/claude-agent-sdk";
 import { type BackendStatus, MAX_NAME_CHARS, MAX_TEXT_CHARS, type StatusIssue } from "../../contract";

@@ -1,7 +1,7 @@
 /**
- * Lane D's test rigs: `realRig` runs the real CLI against the scripted endpoint in a throwaway home (D32), `fakeRig`
+ * The hosts' test rigs: `realRig` runs the real CLI against the scripted endpoint in a throwaway home, `fakeRig`
  * runs the host over `FakeQuery`s with a clock the test drives. Both build the registry exactly as `backend.ts` does,
- * with stand-ins for the other lanes' parts.
+ * with stand-ins for the other parts.
  */
 
 import { join } from "node:path";

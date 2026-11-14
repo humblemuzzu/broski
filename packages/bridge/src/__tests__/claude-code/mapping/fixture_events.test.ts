@@ -130,11 +130,11 @@ describe("run outcomes of the recorded results", () => {
 		ofType(playFixture(scenario).streams.get(""), "run_finished").map((event) => event.outcome);
 
 	test("a clean turn completes", () => expect(finished("text")).toEqual([{ kind: "completed" }]));
-	test("an interrupt aborts, whatever its subtype says (D31)", () => {
+	test("an interrupt aborts, whatever its subtype says", () => {
 		expect(finished("interrupt-mid-text")).toEqual([{ kind: "aborted" }]);
 		expect(finished("interrupt-mid-tool")).toEqual([{ kind: "aborted" }]);
 	});
-	test("a refusal is an error, never completed (D31)", () => {
+	test("a refusal is an error, never completed", () => {
 		const [outcome] = finished("refusal");
 		expect(outcome?.kind).toBe("error");
 		expect(outcome?.kind === "error" && outcome.error.code).toBe("content_filter");

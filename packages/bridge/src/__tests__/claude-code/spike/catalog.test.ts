@@ -1,6 +1,6 @@
 /**
- * Q11 (research/08-spike.md): `supportedModels()` and `initializationResult()` offline, and whether the
- * scripted `/v1/models` list changes them.
+ * The model catalogue the adapter lists (adapter README D12): `supportedModels()` and `initializationResult()` offline,
+ * and whether the scripted `/v1/models` list changes them.
  */
 
 import { describe, expect, test } from "bun:test";
@@ -26,7 +26,7 @@ async function catalog(models?: Array<{ id: string; display_name: string }>) {
 	}
 }
 
-describe("Q11: the model catalogue offline", () => {
+describe("the model catalogue offline", () => {
 	test(
 		"initialize answers with no request at all; the list does not come from /v1/models",
 		async () => {

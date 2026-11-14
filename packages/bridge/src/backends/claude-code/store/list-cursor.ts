@@ -1,4 +1,4 @@
-/** Lane A · the session list's keyset cursor (D15), through `cursor.ts`. */
+/** The session list's keyset cursor (D23), through `cursor.ts`. */
 
 import type { JsonValue, PageCursor, SessionQuery } from "../../../contract";
 import { cursorScope, decodeCursor, encodeCursor } from "../cursor";

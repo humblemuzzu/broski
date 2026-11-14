@@ -1,5 +1,5 @@
 /**
- * Q9 (research/08-spike.md): fork points. A session of three turns (text, Read tool, interrupted text);
+ * Fork points (adapter README D27). A session of three turns (text, Read tool, interrupted text);
  * `resume` + `forkSession: true` + `resumeSessionAt` at chosen uuids, and the free `forkSession()`.
  */
 
@@ -88,7 +88,7 @@ beforeAll(async () => {
 
 afterAll(() => home.cleanup());
 
-describe("Q9: fork points", () => {
+describe("fork points", () => {
 	test("the chain getSessionMessages returns for text, tool and interrupted turns", () => {
 		expect(chain.map((m) => m.type)).toEqual([
 			"user",

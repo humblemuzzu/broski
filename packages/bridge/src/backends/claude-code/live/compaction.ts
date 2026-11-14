@@ -1,4 +1,4 @@
-/** `compact` is a `/compact <instructions>` prompt (Q13). */
+/** `compact` is a `/compact <instructions>` prompt: the CLI has no other way to be asked. */
 
 import { type ActionResult, MAX_TEXT_CHARS } from "../../../contract";
 import { clip } from "../bounds";

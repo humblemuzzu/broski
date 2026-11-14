@@ -1,4 +1,4 @@
-/** The product's hardest rule: the bridge never answers for a human (PLAN D14). */
+/** The product's hardest rule: the bridge never answers for a human (adapter README D16). */
 
 import { describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";

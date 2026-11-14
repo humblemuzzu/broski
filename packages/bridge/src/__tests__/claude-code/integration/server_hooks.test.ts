@@ -1,6 +1,6 @@
 /**
- * Claude Code in the server layer (PLAN D28, D26): what is wired, and which hook lands in the user's settings after
- * the listener binds. Every file is in a temp home.
+ * Claude Code in the server layer (adapter README D29): what is wired, and which hook lands in the user's settings
+ * after the listener binds. Every file is in a temp home.
  */
 
 import { afterEach, describe, expect, test } from "bun:test";

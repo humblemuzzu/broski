@@ -1,4 +1,7 @@
-/** D17, D37: the owner journal is bounded, survives a restart, and records exactly the prompts this bridge sent. */
+/**
+ * Adapter README D25, D10: the owner journal is bounded, survives a restart, and records exactly the prompts this
+ * bridge sent.
+ */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {

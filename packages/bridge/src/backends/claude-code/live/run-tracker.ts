@@ -1,5 +1,5 @@
 /**
- * D7: `run_started` on a send or an unprompted turn, `run_finished` on `session_state_changed{idle}` only. The tracker
+ * D8: `run_started` on a send or an unprompted turn, `run_finished` on `session_state_changed{idle}` only. The tracker
  * keeps the run's facts (the transcript cut, the outcomes of its turns, a Stop asked for); the host orders what must
  * close before `finish` (`run-end.ts`).
  */
@@ -14,7 +14,7 @@ export interface ActiveRun {
 	readonly trigger: RunTrigger;
 	/** Undefined when the chain's newest entry was not known at the start. */
 	readonly cut: TranscriptCut | undefined;
-	/** One per `result` frame: a run holds several turns when the CLI chains them (D7). */
+	/** One per `result` frame: a run holds several turns when the CLI chains them (D8). */
 	readonly outcomes: RunOutcome[];
 	/** A Stop was asked for while this run was active. */
 	aborting: boolean;
@@ -41,7 +41,10 @@ export class RunTracker {
 		return this.active?.runId;
 	}
 
-	/** Every `user` and `assistant` frame of the main thread is a chain entry with its own uuid (D70). */
+	/**
+	 * Every `user` and `assistant` frame of the main thread is a chain entry with its own uuid: the cut of the run
+	 * after it (D26).
+	 */
 	noteEntry(uuid: string): void {
 		this.tail = uuid;
 	}

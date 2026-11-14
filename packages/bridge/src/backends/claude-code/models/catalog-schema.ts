@@ -1,4 +1,4 @@
-/** What `<stateDir>/catalog.json` holds, checked on read: an `initialize` answer is only trusted as far as its typed fields (`d.ts:4783`). */
+/** What `<stateDir>/catalog.json` holds, checked on read: an `initialize` answer is only trusted as far as its typed fields (`SDKControlInitializeResponse`). */
 
 import type { SDKControlInitializeResponse } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";

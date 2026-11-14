@@ -1,6 +1,7 @@
 /**
- * D41a: a history tool result reaches lane B's `toolResultOf` with the entry's `toolUseResult` from the raw file,
- * the value the live frame carried. The helper is spied on, not replaced: its answer is whatever lane B built.
+ * Adapter README D26: a history tool result reaches the mapping's `toolResultOf` with the entry's `toolUseResult` from
+ * the raw file, the value the live frame carried. The helper is spied on, not replaced: its answer is whatever the
+ * mapping built.
  */
 
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";

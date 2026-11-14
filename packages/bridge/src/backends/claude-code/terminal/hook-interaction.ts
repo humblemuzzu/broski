@@ -1,4 +1,6 @@
-/** A terminal's `PermissionRequest` hook as a `tool_permission` ask, and a person's reply as the hook's decision (D26). */
+/**
+ * A terminal's `PermissionRequest` hook as a `tool_permission` ask, and a person's reply as the hook's decision (D29).
+ */
 
 import type { PermissionRequestHookInput } from "@anthropic-ai/claude-agent-sdk";
 import {
@@ -21,7 +23,7 @@ import { humanDenial } from "../ui/denial";
 
 export const ALLOW_ONCE = "allow-once";
 export const DENY_ONCE = "deny-once";
-export const DENY_AND_STOP = "deny-and-stop";
+const DENY_AND_STOP = "deny-and-stop";
 
 const OPTIONS: readonly PermissionOption[] = [
 	{
@@ -52,7 +54,7 @@ const OPTIONS: readonly PermissionOption[] = [
 
 const DENIED_ON_PHONE = "Denied from the Broski app.";
 
-/** In the CLI's own words, so the tail and history read the result `denied` (D53, D120). */
+/** In the CLI's own words, so the tail and history read the result `denied` (D18). */
 function denial(message: string | undefined): string {
 	return humanDenial(message ?? DENIED_ON_PHONE);
 }

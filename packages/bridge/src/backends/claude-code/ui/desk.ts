@@ -1,4 +1,4 @@
-/** The `AskDesk` each host creates and wires into its `query()` options (D13, D14): one interaction per CLI ask. */
+/** The `AskDesk` each host creates and wires into its `query()` options (D15, D16): one interaction per CLI ask. */
 
 import type {
 	CanUseTool,

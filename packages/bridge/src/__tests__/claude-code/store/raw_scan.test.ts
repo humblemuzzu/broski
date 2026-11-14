@@ -1,4 +1,7 @@
-/** The streamed pass over a transcript file (D41a): spans and system facts for entries of the chain, nothing else. */
+/**
+ * The streamed pass over a transcript file (adapter README D26): spans and system facts for entries of the chain,
+ * nothing else.
+ */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";

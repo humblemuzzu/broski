@@ -1,4 +1,7 @@
-/** `setModel` (D11), `setThinking` = `applyFlagSettings({effortLevel})`, `setMode` (D12), reconciled with what the CLI reports. */
+/**
+ * `setModel` and `setThinking` = `applyFlagSettings({effortLevel})` (D12), `setMode` (D13), reconciled with what the
+ * CLI reports.
+ */
 
 import type { EffortLevel, Query } from "@anthropic-ai/claude-agent-sdk";
 import type {

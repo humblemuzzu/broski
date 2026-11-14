@@ -1,5 +1,5 @@
 /**
- * Claude Code in the bridge (PLAN D28, D29): the adapter registered with the core, and the terminal hook's receiver
+ * Claude Code in the bridge: the adapter registered with the core, and the terminal hook's receiver
  * served while `claudeCode.terminalAsks` is on, so a terminal `claude`'s permission prompt reaches the phone.
  */
 

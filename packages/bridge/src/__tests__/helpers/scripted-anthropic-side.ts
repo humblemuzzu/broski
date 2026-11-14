@@ -1,6 +1,6 @@
 /**
  * Recognises the `/v1/messages` requests the CLI sends besides the main conversation, so they never consume
- * the main script. Markers come from real CLI 2.1.316 traffic (`scripts/cc-spike/probe-side-requests.ts`):
+ * the main script. Markers come from real CLI traffic (`scripts/cc-spike/probe-side-requests.ts`):
  * - `subagent`: the billing header block of the system prompt carries `cc_is_subagent=true` (Agent tool);
  * - `compact`: the last user message asks for an `<analysis>` and `<summary>` reply (`/compact`, auto-compact);
  * - `title`: the system prompt starts "You are naming a coding session" (only sent with nonessential traffic on).

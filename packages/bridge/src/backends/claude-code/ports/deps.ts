@@ -41,7 +41,7 @@ export interface TerminalDeps {
 	readonly catalog: CatalogFeed;
 	readonly mapping: MappingPort;
 	readonly hosted: (sessionId: SessionId) => boolean;
-	/** Until when the session file's writes were this bridge's own (`Ownership.ownWriteAt`, D122). */
+	/** Until when the session file's writes were this bridge's own (`Ownership.ownWriteAt`, D25). */
 	readonly ownWriteAt: (sessionId: SessionId) => number | undefined;
 	readonly locate: (sessionId: SessionId) => Promise<StoredSession | Rejected>;
 }

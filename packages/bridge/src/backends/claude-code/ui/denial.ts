@@ -1,6 +1,6 @@
 /**
- * The message a person's "no" is sent with: the CLI's own wording for a rejected tool call (2.1.316 `claude` strings),
- * so lane B's mapping reads the result as `denied`, live and in history (D53).
+ * The message a person's "no" is sent with: the CLI's own wording for a rejected tool call (2.1.325 `claude` strings),
+ * so the mapping reads the result as `denied`, live and in history (D18).
  */
 
 import { HUMAN_DENIAL_PREFIX } from "../mapping/tool-outcome";

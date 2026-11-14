@@ -1,6 +1,6 @@
 /**
- * Lane A · the user entries the CLI writes for a slash command it runs itself: the command as typed, wrapped in
- * `<command-name>` tags, and its output, wrapped in `<local-command-stdout>` (real 2.1.316 transcript of `/compact`).
+ * The user entries the CLI writes for a slash command it runs itself: the command as typed, wrapped in
+ * `<command-name>` tags, and its output, wrapped in `<local-command-stdout>` (a real transcript of `/compact`).
  */
 
 import type { NoticeLevel } from "../../../contract";

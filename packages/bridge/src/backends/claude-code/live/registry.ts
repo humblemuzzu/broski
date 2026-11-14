@@ -42,7 +42,7 @@ function isDirectory(path: string): boolean {
 class Registry implements LiveSessions, LiveOverlay {
 	private readonly hosts = new Map<SessionId, SessionHost>();
 	private readonly locks = new KeyedLock();
-	/** Hosts that ended but whose process may still write the file (D122), by session id. */
+	/** Hosts that ended but whose process may still write the file (D25), by session id. */
 	private readonly ending = new Map<SessionId, SessionHost>();
 	private disposing: Promise<void> | undefined;
 

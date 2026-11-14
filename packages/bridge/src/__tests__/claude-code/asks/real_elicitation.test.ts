@@ -1,4 +1,4 @@
-/** MCP elicitation through the desk against the real CLI and a stdio MCP server (08-spike Q13). */
+/** MCP elicitation through the desk against the real CLI and a stdio MCP server (adapter README D15, D16). */
 
 import { describe, expect, test } from "bun:test";
 import { expectNoOrphans } from "../spike/rig/orphans";

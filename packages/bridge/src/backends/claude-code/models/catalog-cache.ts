@@ -1,4 +1,4 @@
-/** Lane C · `initialize` answers by cwd: memory, then `<stateDir>/catalog.json`; 24 h, or until invalidated (D6). */
+/** `initialize` answers by cwd: memory, then `<stateDir>/catalog.json`; 24 h, or until invalidated (D7). */
 
 import { readFile, stat } from "node:fs/promises";
 import type { SDKControlInitializeResponse } from "@anthropic-ai/claude-agent-sdk";

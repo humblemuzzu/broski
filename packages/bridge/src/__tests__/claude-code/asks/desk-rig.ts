@@ -1,4 +1,4 @@
-/** A desk over a real `LiveState`, a recording sink and a controllable host: what lane E's desk tests drive. */
+/** A desk over a real `LiveState`, a recording sink and a controllable host: what the desk tests drive. */
 
 import { spyOn } from "bun:test";
 import type {

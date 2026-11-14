@@ -1,4 +1,7 @@
-/** D41a: `system` entries the SDK's chain holds become run boundaries and notices; a compaction learns its numbers. */
+/**
+ * Adapter README D26: `system` entries the SDK's chain holds become run boundaries and notices; a compaction learns its
+ * numbers.
+ */
 
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { type TranscriptItem, TranscriptItem as TranscriptItemSchema } from "../../../contract";

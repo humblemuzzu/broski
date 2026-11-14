@@ -1,4 +1,4 @@
-/** A real `/compact` (scripted summary): how the CLI's compaction reads back through the store (D18). */
+/** A real `/compact` (scripted summary): how the CLI's compaction reads back through the store (adapter README D26). */
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";

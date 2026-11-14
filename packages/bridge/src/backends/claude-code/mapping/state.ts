@@ -1,4 +1,4 @@
-/** Lane B · what the mapper remembers between frames; its fields are lane B's to choose. */
+/** What the mapper remembers between frames. */
 
 import type { BlockId, ToolCallId } from "../../../contract";
 import type { MappingSeed } from "../ports/mapping";

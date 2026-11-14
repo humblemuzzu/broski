@@ -8,7 +8,7 @@ import { CommandSummary, MAX_ID_CHARS, MAX_NAME_CHARS, MAX_TEXT_CHARS, ModeAxis 
 import { command, FIVE_MODELS } from "./rig";
 
 describe("the permissions axis", () => {
-	test("offers the six modes of D12 in order, with a warning on bypass, and defaults to default", () => {
+	test("offers the six permission modes in order, with a warning on bypass, and defaults to default", () => {
 		const axis = permissionsAxis(FIVE_MODELS, true);
 		expect(ModeAxis.safeParse(axis).success).toBe(true);
 		expect(axis.id).toBe("permissions");

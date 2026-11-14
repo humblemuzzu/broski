@@ -1,7 +1,7 @@
 /**
  * The Claude Code `AgentBackend`: every method delegates to the part that owns it. Reads go to the store with the
  * hosted sessions' live facts laid over them; a session is opened by the live sessions, its child by its parent's
- * host, and one a terminal is writing by the terminal watch (D21).
+ * host, and one a terminal is writing by the terminal watch (D28).
  */
 
 import type { AgentBackend, BackendHost, CommandsListResult, SessionRef } from "../../contract";

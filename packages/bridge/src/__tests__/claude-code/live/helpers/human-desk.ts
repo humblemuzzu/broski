@@ -1,5 +1,5 @@
 /**
- * A desk with lane E's waiting semantics and nothing else: a tool permission becomes an interaction that blocks the
+ * A desk with the real desk's waiting semantics and nothing else: a tool permission becomes an interaction that blocks the
  * run until `answer` allows or denies it, a withdrawal by the CLI or the run's end resolves it `withdrawn`, the
  * process's end `expired`. It never answers for anyone. It exists to test how the host keeps asks alive.
  */

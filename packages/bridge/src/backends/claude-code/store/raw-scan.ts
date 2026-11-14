@@ -1,7 +1,7 @@
 /**
- * Lane A · one streamed pass over a transcript file, run right after the SDK's reader returned the chain (D41a). It is
+ * One streamed pass over a transcript file, run right after the SDK's reader returned the chain (D26). It is
  * enrichment of entries the SDK already returned, keyed by their `uuid`: the reader drops `tool_use_result` and reduces
- * a `system` entry to its uuid (`sdk.mjs` `$R`). Lines of entries outside the chain (before a compaction, other
+ * a `system` entry to its uuid (`getSessionMessages` gives no more of one). Lines of entries outside the chain (before a compaction, other
  * branches) are skipped by uuid; nothing here decides which entries exist, in which order, or what a page holds.
  */
 

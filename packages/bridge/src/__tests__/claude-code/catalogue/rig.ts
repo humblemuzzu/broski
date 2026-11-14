@@ -25,7 +25,7 @@ import type { CatalogEvent } from "../../../contract";
 import { type FakeClaudeSdk, fakeClaudeSdk } from "../helpers/fake-claude-sdk";
 import { FakeQuery } from "../helpers/fake-query";
 
-/** The five rows the bundled CLI 2.1.316 answers offline (08-spike Q11, re-read from the real CLI in `real_catalogue.test.ts`). */
+/** The five rows the CLI answers offline (held to the real CLI by `spike/catalog.test.ts` and `real_catalogue.test.ts`). */
 export const FIVE_MODELS: ModelInfo[] = [
 	row("default", "claude-opus-5-5", "Default (recommended)"),
 	row("opus", "claude-opus-5-5", "Opus"),

@@ -1,4 +1,4 @@
-/** D10: a `PromptInput` as the `SDKUserMessage` it is sent as; images base64, human-stamped (D9). */
+/** A `PromptInput` as the `SDKUserMessage` it is sent as (D11): images base64, human-stamped (D10). */
 
 import type { UUID } from "node:crypto";
 import type { SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
@@ -102,7 +102,7 @@ function refsOf(images: readonly Image[], firstImageBlock: number, uuid: UUID): 
 	}));
 }
 
-/** `send` as it goes to the CLI with `priority`: a steer pushes with `next` (D8). */
+/** `send` as it goes to the CLI with `priority`: a steer pushes with `next` (D9). */
 export function withPriority(send: PreparedSend, priority: SendPriority): PreparedSend {
 	return { ...send, message: { ...send.message, priority } };
 }

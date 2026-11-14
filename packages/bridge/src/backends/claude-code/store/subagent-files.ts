@@ -1,4 +1,4 @@
-/** Lane A · the transcript files of a session's subagents and their `.meta.json` sidecars (research 04 §2.2, §6). */
+/** The transcript files of a session's subagents and their `.meta.json` sidecars (D20). */
 
 import type { Dirent } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";

@@ -1,4 +1,4 @@
-/** Lane B · the files a tool call changed, from `structuredPatch`/`gitDiff` (D18). Shared with lanes A, E, F, G. */
+/** The files a tool call changed, from `structuredPatch`/`gitDiff`: the same live, in history, in an ask and in the tail. */
 
 import { type FileChange, MAX_PATH_CHARS } from "../../../contract";
 import { isRecord } from "../json";

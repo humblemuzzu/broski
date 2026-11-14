@@ -1,5 +1,5 @@
 /**
- * The catalogue against the real bundled CLI 2.1.316 (D32): what its models, commands, modes and status really are
+ * The catalogue against the real CLI (adapter README D7): what its models, commands, modes and status really are
  * offline, that a probe leaves no process and sends no request, and that the facts the code relies on still hold.
  */
 

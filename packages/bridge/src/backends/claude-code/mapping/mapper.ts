@@ -1,4 +1,4 @@
-/** Lane B · one session's `FrameMapper`: dispatches each frame to the file that maps its kind. */
+/** One session's `FrameMapper`: dispatches each frame to the file that maps its kind. */
 
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { FrameMapper, MappedEvent, MappingSeed } from "../ports/mapping";

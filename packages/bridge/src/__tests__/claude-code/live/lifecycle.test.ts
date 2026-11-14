@@ -1,6 +1,6 @@
 /**
- * Rules 10, 15, 16 and 24 against the real CLI: a prompt's run starts when it is dispatched, shows the prompt, and
- * ends on `session_state_changed{idle}` only (D7); the transcript cut and the catalogue row follow the run.
+ * Rules 10, 15, 16 and 24 against the real CLI: a prompt's run starts when it is dispatched, shows the prompt, and ends
+ * on `session_state_changed{idle}` only (adapter README D8); the transcript cut and the catalogue row follow the run.
  */
 
 import { describe, expect, test } from "bun:test";

@@ -1,6 +1,6 @@
 /**
- * Lane A · reads a session's chain through the SDK (`getSessionMessages`, `getSubagentMessages`): one full read builds
- * the index (D15), then a window of it is one `offset`/`limit` read, checked against the index so a file that changed
+ * Reads a session's chain through the SDK (`getSessionMessages`, `getSubagentMessages`): one full read builds
+ * the index (D26), then a window of it is one `offset`/`limit` read, checked against the index so a file that changed
  * in between is read again instead of paged wrongly.
  */
 

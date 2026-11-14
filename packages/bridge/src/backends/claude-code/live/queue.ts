@@ -1,5 +1,5 @@
 /**
- * The input accepted and not yet delivered to the model (D8). `pending` is the adapter's own queue: shown in
+ * The input accepted and not yet delivered to the model (D9). `pending` is the adapter's own queue: shown in
  * `queue_changed`, cancellable one by one, pushed to the CLI when the run settles. `steered` is input already pushed
  * with `priority: "next"`, which the CLI folds into the running turn at its next tool boundary; it leaves the queue when
  * the CLI reports it `started`, and a Stop that cancels it hands its text back.

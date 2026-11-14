@@ -1,6 +1,6 @@
 /**
- * STEP-3 §11 trap: is every `user`/`assistant` frame's `uuid` its transcript entry's uuid? Yes, against the real CLI
- * (D70): the chain is the prompt's own entry (its send uuid, which no frame names) followed by exactly the frames, an
+ * Is every `user`/`assistant` frame's `uuid` its transcript entry's uuid? Yes, against the real CLI (adapter README
+ * D26): the chain is the prompt's own entry (its send uuid, which no frame names) followed by exactly the frames, an
  * interruption's `[Request interrupted by user]` entry included. So `TranscriptCut` is tracked from frames.
  */
 

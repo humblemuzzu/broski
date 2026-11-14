@@ -1,6 +1,6 @@
 /**
- * D12's one mode axis, `permissions`, whose values are the SDK's `PermissionMode`s. The listing (labels, which values
- * a model offers, a project's `defaultMode`) is lane C's `modes.ts`; this is what every lane checks a value against.
+ * The one mode axis, `permissions`, whose values are the SDK's `PermissionMode`s (D13). Its listing (labels, which
+ * values a model offers) is `modes.ts`; this is what a value is checked against.
  */
 
 import type { PermissionMode } from "@anthropic-ai/claude-agent-sdk";
@@ -8,7 +8,7 @@ import type { ModeAxisId } from "../../contract";
 
 export const PERMISSIONS_AXIS: ModeAxisId = "permissions";
 
-/** A new session's mode when the phone names none (D12); never omitted, since omitted is not `default` (fact 5). */
+/** A new session's mode when the phone names none (D13); always passed, since an omitted mode is not `default` (D5). */
 export const DEFAULT_PERMISSION_MODE: PermissionMode = "default";
 
 const MODES: { readonly [M in PermissionMode]: true } = {
@@ -20,7 +20,7 @@ const MODES: { readonly [M in PermissionMode]: true } = {
 	bypassPermissions: true,
 };
 
-/** In D12's order: `auto` only when the model `supportsAutoMode`, which `modes.ts` decides. */
+/** In the order the phone lists them: `auto` only when a model `supportsAutoMode`, which `modes.ts` decides. */
 export const PERMISSION_MODES: readonly PermissionMode[] = [
 	"default",
 	"acceptEdits",

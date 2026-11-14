@@ -1,4 +1,4 @@
-/** Lane A · one session's row: `get`, and the `session_updated` that announces it. */
+/** One session's row: `get`, and the `session_updated` that announces it. */
 
 import type { SessionGetResult, SessionId } from "../../../contract";
 import { parseChildRef } from "../ids";

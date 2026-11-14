@@ -1,5 +1,5 @@
 /**
- * Lane A · every session file of some project directories, newest first, from `readdir` and `stat` alone (no file is
+ * Every session file of some project directories, newest first, from `readdir` and `stat` alone (no file is
  * opened), the way the SDK's own listing finds them (`sdk.mjs` `ig`): `<uuid>.jsonl`, ordered like `$we`.
  */
 
@@ -19,7 +19,7 @@ export interface Position {
 	readonly sessionId: string;
 }
 
-/** Newest first; on a tie the greater `sessionId` first (`sdk.mjs` `$we`, `T/foundation/session_order.test.ts`). */
+/** Newest first; on a tie the greater `sessionId` first (as the SDK's lister orders them, `__tests__/claude-code/foundation/session_order.test.ts`). */
 export function byNewest(a: Position, b: Position): number {
 	if (a.mtime !== b.mtime) return b.mtime - a.mtime;
 	return a.sessionId < b.sessionId ? 1 : a.sessionId > b.sessionId ? -1 : 0;

@@ -1,4 +1,4 @@
-/** Lane A · one `SessionSummary` from an `SDKSessionInfo` (D16). */
+/** One `SessionSummary` from an `SDKSessionInfo` (D24). */
 
 import type { SDKSessionInfo } from "@anthropic-ai/claude-agent-sdk";
 import {

@@ -1,4 +1,4 @@
-/** Lane C · the `permissions` axis as listed (D12): labels, warnings, `auto` only where a model supports it. */
+/** The `permissions` axis as listed (D13): labels, warnings, `auto` only where a model supports it. */
 
 import type { ModelInfo, PermissionMode } from "@anthropic-ai/claude-agent-sdk";
 import type { ModeAxis, Option } from "../../contract";
@@ -37,7 +37,7 @@ const TEXT: {
 	},
 };
 
-/** `auto` is a property of a model (`supportsAutoMode`, `d.ts:1478`), and the axis is the backend's, so one model offering it is enough. */
+/** `auto` is a property of a model (`ModelInfo.supportsAutoMode`), and the axis is the backend's, so one model offering it is enough. */
 export function permissionsAxis(models: readonly ModelInfo[], mayBypass: boolean): ModeAxis {
 	const autoOffered = models.some((model) => model.supportsAutoMode === true);
 	const offered = (mode: PermissionMode) =>

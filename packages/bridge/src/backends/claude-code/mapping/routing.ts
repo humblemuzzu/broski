@@ -1,6 +1,6 @@
 /**
- * Lane B · D50: where a frame's events go. A main-thread frame goes to the session's own stream. A subagent's frame
- * goes to the subagent's child stream (`agentId`, D20) and, while the tool call that runs the subagent is open, to
+ * Where a frame's events go (D20). A main-thread frame goes to the session's own stream. A subagent's frame
+ * goes to the subagent's child stream (`agentId`) and, while the tool call that runs the subagent is open, to
  * every stream that call is shown in, nested under it with `parentToolCallId`.
  */
 

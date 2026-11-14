@@ -41,7 +41,9 @@ export type SpikeSession = {
 
 export type WaitOptions = { timeoutMs?: number; after?: number };
 
-/** The fixed options of D5 that matter to the frames; `canUseTool` allows by default and tests replace it. */
+/**
+ * The host options (adapter README D5) that matter to the frames; `canUseTool` allows by default and tests replace it.
+ */
 export const SPIKE_DEFAULTS: Omit<Options, "permissionMode"> = {
 	includePartialMessages: true,
 	forwardSubagentText: true,

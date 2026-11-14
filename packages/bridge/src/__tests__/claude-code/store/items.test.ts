@@ -1,4 +1,7 @@
-/** The entry → item mapping on its own: what the SDK's reader hands over, bounded and never throwing (D18). */
+/**
+ * The entry → item mapping on its own: what the SDK's reader hands over, bounded and never throwing (adapter README
+ * D26).
+ */
 
 import { describe, expect, test } from "bun:test";
 import type { SessionMessage } from "@anthropic-ai/claude-agent-sdk";

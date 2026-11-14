@@ -1,6 +1,7 @@
 /**
- * Q13 (research/08-spike.md): a 529 then success, a 529 retry cut short by an interrupt, and a refusal.
- * The refusal-fallback dialog is not reachable from a scripted endpoint (`scripts/cc-spike/probe-refusal-fallback.ts`).
+ * Retries and refusals (adapter README D8, D22): a 529 then success, a 529 retry cut short by an interrupt, and a
+ * refusal. The refusal-fallback dialog is not reachable from a scripted endpoint
+ * (`scripts/cc-spike/probe-refusal-fallback.ts`).
  */
 
 import { describe, expect, test } from "bun:test";

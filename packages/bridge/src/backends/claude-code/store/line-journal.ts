@@ -1,4 +1,4 @@
-/** Lane A · a bounded append-only file of JSON lines, which never throws: a write that fails is dropped. */
+/** A bounded append-only file of JSON lines, which never throws: a write that fails is dropped. */
 
 import { appendFile, mkdir, open, stat } from "node:fs/promises";
 import { dirname } from "node:path";

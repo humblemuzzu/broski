@@ -1,5 +1,5 @@
 /**
- * Q13 (research/08-spike.md): MCP elicitation in form mode and URL mode, from a stdio MCP server the CLI
+ * MCP elicitation (adapter README D15) in form mode and URL mode, from a stdio MCP server the CLI
  * starts through `mcpServers`, answered through `onElicitation`.
  */
 

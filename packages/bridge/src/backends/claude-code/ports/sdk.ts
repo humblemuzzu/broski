@@ -1,4 +1,4 @@
-/** `ClaudeSdk`: the only way any part of the adapter reaches the SDK at run time (PLAN §8); facts cited in STEP-3 §3. */
+/** `ClaudeSdk`: the only way any part of the adapter reaches the SDK at run time, so tests can stand one in (D6). */
 
 import type {
 	ForkSessionOptions,
@@ -43,7 +43,7 @@ export interface SessionFunctions {
 	resolveSettings(options?: ResolveSettingsOptions): Promise<ResolvedSettings>;
 }
 
-/** Never a string prompt (D5): a string closes stdin at the end of the first run. */
+/** Never a string prompt (D1): a string closes stdin at the end of the first run. */
 export interface QueryParams {
 	readonly prompt: AsyncIterable<SDKUserMessage>;
 	readonly options: Options;
@@ -68,7 +68,7 @@ export interface InterruptOptions {
 /** A `command_lifecycle` frame, which the `SDKMessage` union lacks; read it with `asCommandLifecycle`. */
 export interface CommandLifecycle {
 	readonly type: "command_lifecycle";
-	/** The send's `uuid`, which D37 makes the prompt's `clientRequestId`. */
+	/** The send's `uuid`, which is the prompt's `clientRequestId` (D10). */
 	readonly commandUuid: string;
 	/** `queued`, `started`, `completed` or `cancelled` so far; a string, since the CLI may add states. */
 	readonly state: string;

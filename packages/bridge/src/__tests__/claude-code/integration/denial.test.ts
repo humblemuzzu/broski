@@ -1,4 +1,4 @@
-/** Lanes B and E meet (D53, D120): a person's denial reads `denied` live and in history, with the real CLI. */
+/** Adapter README D18: a person's denial reads `denied` live and in history, with the real CLI. */
 
 import { afterEach, describe, expect, test } from "bun:test";
 import { expectNoOrphans } from "../spike/rig/orphans";

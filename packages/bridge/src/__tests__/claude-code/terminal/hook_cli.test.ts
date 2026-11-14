@@ -1,7 +1,7 @@
 /**
- * The installed hook, driven by the real CLI: its request, our answer, and what the CLI does with each (D26). The
- * CLI's `canUseTool` stands for the terminal's own prompt: the CLI shows it at once and the hook races it, so a
- * test that wants the hook to win leaves the prompt unanswered, and one that wants the terminal to win answers it.
+ * The installed hook, driven by the real CLI: its request, our answer, and what the CLI does with each (adapter README
+ * D29). The CLI's `canUseTool` stands for the terminal's own prompt: the CLI shows it at once and the hook races it, so
+ * a test that wants the hook to win leaves the prompt unanswered, and one that wants the terminal to win answers it.
  */
 
 import { describe, expect, test } from "bun:test";

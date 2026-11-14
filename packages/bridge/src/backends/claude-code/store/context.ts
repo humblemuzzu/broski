@@ -1,4 +1,4 @@
-/** Lane A · what the store's files share: the injected deps and the caches that live as long as the store. */
+/** What the store's files share: the injected deps and the caches that live as long as the store. */
 
 import type { Rejected } from "../../../contract";
 import type { StoreDeps } from "../ports/deps";

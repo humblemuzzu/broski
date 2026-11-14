@@ -16,7 +16,7 @@ const SLOW_SUMMARY = {
 	delayMs: 200,
 };
 
-/** What lane B maps from the compaction frames, as far as the host's rules need it: a start, and a finish. */
+/** What the mapping makes of the compaction frames, as far as the host's rules need it: a start, and a finish. */
 function showCompaction(mapping: StandInMapping): void {
 	mapping.script((frame) => {
 		if (frame.type !== "system") return [];

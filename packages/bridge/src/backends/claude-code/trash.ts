@@ -1,8 +1,8 @@
 /**
- * The one way this adapter deletes a file (a transcript and its directory): a move to the OS trash (D19,
- * OQ5, D121), macOS `~/.Trash`, Linux the XDG trash with its `info/<name>.trashinfo`. A move never copies and never
- * removes: on a failure the files stay where they are. Where the trash lies comes from the environment the CLI is
- * given, so a test's temp `HOME` keeps it off the real one.
+ * The one way this adapter deletes a file (a transcript and its directory): a move to the OS trash (D27), macOS
+ * `~/.Trash`, Linux the XDG trash with its `info/<name>.trashinfo`. A move never copies and never removes: on a failure
+ * the files stay where they are. Where the trash lies comes from the environment the CLI is given, so a test's temp
+ * `HOME` keeps it off the real one.
  */
 
 import { lstat, mkdir, rename, unlink, writeFile } from "node:fs/promises";

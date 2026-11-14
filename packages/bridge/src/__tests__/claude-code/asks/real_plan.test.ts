@@ -1,4 +1,6 @@
-/** ExitPlanMode through the desk against the real CLI: approve, approve edited with a mode, reject (08-spike Q6, D25). */
+/**
+ * ExitPlanMode through the desk against the real CLI: approve, approve edited with a mode, reject (adapter README D17).
+ */
 
 import { describe, expect, test } from "bun:test";
 import { expectNoOrphans } from "../spike/rig/orphans";

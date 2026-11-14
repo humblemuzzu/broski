@@ -1,6 +1,6 @@
 /**
  * `AgentBackend.open`'s routing: a new or stored session to the live sessions (and its cwd to the config watch), a
- * child ref to its parent's host, and a session a terminal is writing to the terminal watch (D21).
+ * child ref to its parent's host, and a session a terminal is writing to the terminal watch (D28).
  */
 
 import type { OpenResult, OpenTarget, Rejected, SessionId, SessionRef, SessionSink } from "../../contract";
@@ -10,10 +10,10 @@ import type { StoredSession } from "./ports";
 import { isRejected, rejected } from "./rejections";
 
 /**
- * A terminal's hook ask can come before the CLI's first flush of a new session's transcript (about 100 ms late, D103),
+ * A terminal's hook ask can come before the CLI's first flush of a new session's transcript (about 100 ms late, D28),
  * so a session a terminal is writing is looked for this long before it is `not_found`.
  */
-export const FIRST_FLUSH_MS = 3_000;
+const FIRST_FLUSH_MS = 3_000;
 const LOOK_AGAIN_MS = 100;
 
 export async function openSession(parts: ClaudeCodeParts, target: OpenTarget, sink: SessionSink): Promise<OpenResult> {

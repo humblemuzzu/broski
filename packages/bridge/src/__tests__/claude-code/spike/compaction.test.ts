@@ -1,5 +1,5 @@
 /**
- * Q13 (research/08-spike.md): `/compact` sent as a prompt, with a slow summary request, and what the
+ * Compaction (adapter README D22): `/compact` sent as a prompt, with a slow summary request, and what the
  * consumer sees while it runs.
  */
 

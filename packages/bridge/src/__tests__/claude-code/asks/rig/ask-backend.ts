@@ -1,7 +1,7 @@
 /**
  * The smallest `AgentBackend` that holds an ask desk: a prompt starts a run, the CLI behind it (`AskCli`) raises the
  * arranged ask, an answer reaches the desk, a run ends when its CLI's turn does. Enough for conformance rule 23;
- * every other member refuses. The real adapter's host is lane D's.
+ * every other member refuses. The real adapter's host is `live/host.ts`.
  */
 
 import { mintRunId } from "../../../../backends/claude-code/ids";

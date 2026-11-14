@@ -1,4 +1,7 @@
-/** Stop (D8, D31; rules 19 and 18's abort): `interrupt({cancelQueued: true})`, the run ends `aborted`, queued input comes back. */
+/**
+ * Stop (adapter README D8, D9; rule 18): `interrupt({cancelQueued: true})`, the run ends `aborted`, queued input comes
+ * back.
+ */
 
 import { describe, expect, test } from "bun:test";
 import { expectNoOrphans } from "../spike/rig/orphans";

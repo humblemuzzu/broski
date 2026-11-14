@@ -1,4 +1,4 @@
-/** The catalogue over the real bundled CLI, a throwaway Claude home and the scripted endpoint (D27, D32). */
+/** The catalogue over the real bundled CLI, a throwaway Claude home and the scripted endpoint . */
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";

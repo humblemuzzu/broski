@@ -1,6 +1,6 @@
 /**
- * Stand-ins for the parts other lanes build (catalogue C, mapping B, asks E, store A), so lane D's hosts are tested
- * without reaching into their directories. Each does the least the host needs and nothing it does not.
+ * Stand-ins for the catalogue, the mapping, the asks and the store, so the hosts are tested without the other parts.
+ * Each does the least the host needs and nothing it does not.
  */
 
 import type { CanUseTool, OnElicitation, SDKMessage, SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";

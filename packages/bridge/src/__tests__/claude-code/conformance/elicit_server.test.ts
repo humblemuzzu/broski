@@ -1,6 +1,6 @@
 /**
  * The driver's elicitation setup against the real CLI: a user-scope MCP server whose tools user settings allow raises
- * its elicitation with no tool permission first, and `ask_confirm`'s form has the empty schema D13 maps to `confirm`.
+ * its elicitation with no tool permission first, and `ask_confirm`'s form has the empty schema the desk raises as a `confirm`.
  */
 
 import { expect, test } from "bun:test";

@@ -1,4 +1,7 @@
-/** Retraction (idempotent, ids by message), and where a subagent's work goes (D50): its own stream, and nested in the parent's. */
+/**
+ * Retraction (idempotent, ids by message), and where a subagent's work goes (adapter README D20): its own stream, and
+ * nested in the parent's.
+ */
 
 import { describe, expect, test } from "bun:test";
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";

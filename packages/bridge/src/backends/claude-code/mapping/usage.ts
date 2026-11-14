@@ -1,4 +1,4 @@
-/** Lane B · `usage_updated` from `result.modelUsage`/`total_cost_usd`, cumulative per process, never summed (fact 7). */
+/** `usage_updated` from `result.modelUsage`/`total_cost_usd`, cumulative per process, never summed (D14). */
 
 import type { SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { Usage } from "../../../contract";
@@ -44,7 +44,7 @@ function contextTokensOf(usage: SDKResultMessage["usage"]): number | undefined {
 
 /**
  * `modelUsage` and `total_cost_usd` are the running totals of the whole process, subagents and compaction included
- * (`d.ts:5967-5977`); `usage` is the main loop's per turn and is not used for totals. A result with no model usage
+ * (`SDKResultSuccess.modelUsage`); `usage` is the main loop's per turn and is not used for totals. A result with no model usage
  * is a zeroed crash or abort-before-any-request result and says nothing, so it yields nothing.
  */
 export function usageOf(result: SDKResultMessage, mainModel?: string): Usage | undefined {

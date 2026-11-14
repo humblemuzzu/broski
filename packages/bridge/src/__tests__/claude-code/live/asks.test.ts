@@ -1,4 +1,7 @@
-/** D1, D7 and rule 25 with a pending ask: the host keeps it alive past a close and withdraws it with the run (E's desk is not needed). */
+/**
+ * Adapter README D1, D8 and rule 24 with a pending ask: the host keeps it alive past a close and withdraws it with the
+ * run (the real desk is not needed).
+ */
 
 import { describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";

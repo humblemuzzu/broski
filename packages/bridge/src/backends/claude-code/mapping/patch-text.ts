@@ -1,4 +1,4 @@
-/** Lane B · unified diffs from what the file tools report: `structuredPatch` hunks, `gitDiff.patch`, a new file's content. */
+/** Unified diffs from what the file tools report: `structuredPatch` hunks, `gitDiff.patch`, a new file's content. */
 
 import { MAX_LIST_ITEMS, MAX_TEXT_CHARS } from "../../../contract";
 import { clip } from "../bounds";

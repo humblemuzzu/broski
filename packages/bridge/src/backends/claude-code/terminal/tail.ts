@@ -1,4 +1,4 @@
-/** Positional reads of a transcript as it grows, whole lines only; never a whole-file read (research 04 §7 rec. 5). */
+/** Positional reads of a transcript as it grows, whole lines only; never a whole-file read (D28). */
 
 import { type FileHandle, open } from "node:fs/promises";
 import { isMissing } from "../files/missing";

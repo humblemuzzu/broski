@@ -1,4 +1,4 @@
-/** Lane A · which session each fork this bridge made came from: the SDK keeps no link (research 04 §9.5), so we do. */
+/** Which session each fork this bridge made came from: the CLI keeps no link, so the bridge does (D27). */
 
 import { join } from "node:path";
 import { z } from "zod";

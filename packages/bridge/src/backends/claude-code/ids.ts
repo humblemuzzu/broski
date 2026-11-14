@@ -1,6 +1,6 @@
 /**
  * Every id the adapter hands the core (contract README §4), in one place: minted live ids, ids derived from the
- * CLI's own (session, entry, message, tool call, agent), and how a prompt's id travels to the CLI and back (D37).
+ * CLI's own (session, entry, message, tool call, agent), and how a prompt's id travels to the CLI and back (D10, D21).
  */
 
 import type { UUID } from "node:crypto";
@@ -37,7 +37,7 @@ export function isUuid(value: string): value is UUID {
 }
 
 /**
- * D37: the `uuid` of the `SDKUserMessage` that carries a prompt is the prompt's `clientRequestId`. The CLI keeps a
+ * D10: the `uuid` of the `SDKUserMessage` that carries a prompt is the prompt's `clientRequestId`. The CLI keeps a
  * send's uuid as its transcript entry's uuid (`sdk.d.ts` `ForkSessionOptions.upToMessageId`), keys its
  * `command_lifecycle` frames and `result.user_message_uuids` by it, so one id names the prompt everywhere: the live
  * `user_message.messageId`, the transcript item id, and the `clientRequestId` the store reads back for prompts the owner
@@ -55,13 +55,13 @@ export function userItemId(entryUuid: string): TranscriptItemId {
 /**
  * A block of an assistant message: `<message.id>:<index>`, where `index` is the block's position in the API message
  * (the `index` of its `content_block_*` stream events; in history, the order of the entries that share `message.id`).
- * The CLI streams one block per `assistant` frame and gives blocks no id of their own (PLAN fact 7).
+ * The CLI streams one block per `assistant` frame and gives blocks no id of their own.
  */
 export function blockId(messageId: MessageId, index: number): BlockId {
 	return `${messageId}:${index}`;
 }
 
-export interface BlockPart {
+interface BlockPart {
 	readonly messageId: MessageId;
 	readonly index: number;
 }
@@ -136,7 +136,7 @@ export function commandId(name: string): CommandId | undefined {
 	return fitsId(bare) && !/\s/.test(bare) ? bare : undefined;
 }
 
-/** D10: `PromptInput.command` becomes `/<name> <args>` in the prompt's text. */
+/** D11: `PromptInput.command` becomes `/<name> <args>` in the prompt's text. */
 export function commandText(id: CommandId, args: string): string {
 	return args === "" ? `/${id}` : `/${id} ${args}`;
 }

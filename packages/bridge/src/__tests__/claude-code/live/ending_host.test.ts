@@ -1,7 +1,7 @@
 /**
- * D122's window: a host ends (idle grace, `end`) and its own last write is noted only once its process is gone, up to
- * `PROCESS_END_DEADLINE_MS` later. Until then the session still counts as hosted, so an open in that window is not
- * taken for a terminal writing the file.
+ * Adapter README D25's window: a host ends (idle grace, `end`) and its own last write is noted only once its process is
+ * gone, up to `PROCESS_END_DEADLINE_MS` later. Until then the session still counts as hosted, so an open in that window
+ * is not taken for a terminal writing the file.
  */
 
 import { afterEach, expect, test } from "bun:test";

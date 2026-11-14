@@ -1,4 +1,4 @@
-/** D31 (the outcome of a turn) over every `terminal_reason`, and the totals `usage_updated` carries. */
+/** The outcome of a turn (adapter README D8) over every `terminal_reason`, and the totals `usage_updated` carries. */
 
 import { describe, expect, test } from "bun:test";
 import type { SDKResultMessage, TerminalReason } from "@anthropic-ai/claude-agent-sdk";

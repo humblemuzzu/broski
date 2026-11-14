@@ -1,4 +1,7 @@
-/** What a host's `query()` is started with: D5's options over the session's state now, plus what is read at every start. */
+/**
+ * What a host's `query()` is started with: the host options (D5) over the session's state now, plus what is read at
+ * every start.
+ */
 
 import type { EffortLevel, Options, PermissionMode } from "@anthropic-ai/claude-agent-sdk";
 import type { Rejected, SessionId, SessionSnapshot } from "../../../contract";

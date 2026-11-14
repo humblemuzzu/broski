@@ -1,4 +1,4 @@
-/** Lane C · the `CatalogueAccess` `backend.ts` builds: `initialize` answers by cwd, cached (D6), and what they list. */
+/** The `CatalogueAccess` `backend.ts` builds: `initialize` answers by cwd, cached (D7), and what they list. */
 
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";

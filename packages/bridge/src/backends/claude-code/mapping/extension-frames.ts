@@ -1,4 +1,4 @@
-/** Lane B · the backend extension Claude Code declares: `rate_limit` (D24). */
+/** The backend extension Claude Code declares: `rate_limit` (D31). */
 
 import type { SDKRateLimitEvent } from "@anthropic-ai/claude-agent-sdk";
 import { MAX_NAME_CHARS, RateLimitStatus, type RateLimitUpdate } from "../../../contract";
@@ -13,7 +13,7 @@ function nonNegative(value: unknown): number | undefined {
 }
 
 /**
- * `resetsAt` is epoch seconds and `utilization` a fraction (2.1.316 `claude` strings: `Math.floor(Date.now()/1000)+…`,
+ * `resetsAt` is epoch seconds and `utilization` a fraction (2.1.325 `claude` strings: `Math.floor(Date.now()/1000)+…`,
  * `Math.round(e.utilization*100)`); the contract wants milliseconds and a percentage.
  */
 function rateLimitOf(info: SDKRateLimitEvent["rate_limit_info"]): RateLimitUpdate {

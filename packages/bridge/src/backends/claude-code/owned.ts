@@ -1,5 +1,5 @@
 /**
- * Lane A · the owner journal (D17, D37, D122): which sessions and prompts this bridge made, and until when the last
+ * The owner journal (D25, D10): which sessions and prompts this bridge made, and until when the last
  * writes to a session's file were its own, at `<stateDir>/owned.jsonl`.
  */
 

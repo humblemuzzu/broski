@@ -1,4 +1,4 @@
-/** D5: the `Options` of every host, with D4's env (`services.cliEnv`) and the executable from `services.cli`. */
+/** The `Options` of every host (D5), with the CLI's env (D4) and the user's executable (D3). */
 
 import type { CanUseTool, EffortLevel, OnElicitation, Options, PermissionMode } from "@anthropic-ai/claude-agent-sdk";
 import type { Rejected } from "../../../contract";

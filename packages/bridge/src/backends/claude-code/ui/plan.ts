@@ -1,4 +1,4 @@
-/** ExitPlanMode as `plan_approval` (D13, D25): the plan from `input.plan`, `modeAfter` as a `setMode` update. */
+/** ExitPlanMode as `plan_approval` (D17): the plan from `input.plan`, `modeAfter` as a `setMode` update. */
 
 import type { PermissionResult } from "@anthropic-ai/claude-agent-sdk";
 import {
@@ -34,7 +34,7 @@ export function planAsk(input: Record<string, unknown>, modeOptions: PlanModeOpt
 	};
 }
 
-/** The plan's mode choice starts on `default` when the host did not name one (D25). */
+/** The plan's mode choice starts on `default` when the host did not name one (D17). */
 function withDefault(options: PlanModeOptions): PlanModeOptions {
 	if (options.defaultValue !== undefined) return options;
 	return options.options.some((option) => option.value === "default")

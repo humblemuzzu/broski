@@ -1,6 +1,6 @@
 /**
- * D122: a transcript this bridge itself just wrote (a rename appends a title, a fork writes a new file) is not a
- * terminal writing it, so opening it right after gives a session with control, not a watch-only one.
+ * Adapter README D25: a transcript this bridge itself just wrote (a rename appends a title, a fork writes a new file)
+ * is not a terminal writing it, so opening it right after gives a session with control, not a watch-only one.
  */
 
 import { afterEach, describe, expect, test } from "bun:test";

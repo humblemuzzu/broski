@@ -1,4 +1,4 @@
-/** Transcript lines in the shape the real CLI writes them (read from a recorded run, 2.1.316), for the translator's tests. */
+/** Transcript lines in the shape the real CLI writes them (read from a recorded run), for the translator's tests. */
 
 import { randomUUID } from "node:crypto";
 

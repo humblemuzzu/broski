@@ -1,4 +1,4 @@
-/** Lane A · where a session's transcript lies among the project directories, found without encoding a path (D15). */
+/** Where a session's transcript lies among the project directories, found without encoding a path (D23). */
 
 import { readdir, stat } from "node:fs/promises";
 import { join } from "node:path";

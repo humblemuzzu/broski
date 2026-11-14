@@ -1,4 +1,4 @@
-/** Lane B · the three things a text or thinking block does: start, grow, finish; each in every stream it is shown in. */
+/** The three things a text or thinking block does: start, grow, finish; each in every stream it is shown in. */
 
 import { type BlockId, MAX_TEXT_CHARS } from "../../../contract";
 import { clip, fitsId } from "../bounds";

@@ -1,4 +1,4 @@
-/** What a run's end closes, in the order the stream rules need, before `run_finished` (D7). */
+/** What a run's end closes, in the order the stream rules need, before `run_finished` (D8). */
 
 import type { CompactionOutcome, RunOutcome } from "../../../contract";
 import type { AskDesk } from "../ports/asks";

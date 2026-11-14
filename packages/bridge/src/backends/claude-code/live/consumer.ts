@@ -1,4 +1,4 @@
-/** The one loop that reads a `Query` (fact 1) and hands every frame to its host, in order. */
+/** The one loop that reads a `Query` (D1) and hands every frame to its host, in order. */
 
 import type { Query, SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 

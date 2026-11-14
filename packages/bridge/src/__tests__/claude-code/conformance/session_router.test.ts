@@ -1,6 +1,6 @@
 /**
- * What the conformance driver and D37 rest on, against the real CLI: each request names its session, a gated answer
- * holds the run until released, and a send's `uuid` is the uuid of its transcript entry.
+ * What the conformance driver and adapter README D10 rest on, against the real CLI: each request names its session, a
+ * gated answer holds the run until released, and a send's `uuid` is the uuid of its transcript entry.
  */
 
 import { describe, expect, test } from "bun:test";

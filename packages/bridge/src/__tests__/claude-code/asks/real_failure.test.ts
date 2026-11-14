@@ -1,6 +1,6 @@
 /**
- * The desk's own code failing mid-callback with the real CLI waiting on it (08-spike Q7: a throw would be an automatic
- * denial the person never gave). The ask must stay raised, or stay blocked, and nothing may answer it.
+ * The desk's own code failing mid-callback with the real CLI waiting on it (a throw would be an automatic denial the
+ * person never gave: `spike/permissions.test.ts`). The ask must stay raised, or stay blocked, and nothing may answer it.
  */
 
 import { describe, expect, test } from "bun:test";

@@ -1,7 +1,7 @@
 /**
  * The Claude Code conformance driver (contract README §14): the real CLI against the scripted endpoint in a throwaway
  * home, one script per session (`session-router.ts`). Sessions are seeded by real runs through the backend, so every
- * seeded row is `origin: "broski"` and has the history a run writes (fixture transcripts are lane A's own tests).
+ * seeded row is `origin: "broski"` and has the history a run writes (fixture transcripts are the store's own tests).
  */
 
 import type { AgentBackend, BackendHost, SessionRef } from "../../../contract";
@@ -63,7 +63,7 @@ export class ClaudeCodeConformanceDriver implements ConformanceDriver {
 		return deliveredInput(this.world.backend, newest, session);
 	}
 
-	/** `externalLive` is false (D21): no other client runs live here. */
+	/** `externalLive` is false (adapter README D28): no other client runs live here. */
 	async runExternally(_session: SessionRef): Promise<boolean> {
 		return false;
 	}

@@ -1,4 +1,4 @@
-/** One `query()` and what keeps it alive: its open inbox (PLAN fact 1) and the single consumer loop over its frames. */
+/** One `query()` and what keeps it alive: its open inbox (D1) and the single consumer loop over its frames. */
 
 import type { Options, Query, SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { ClaudeSdk } from "../ports/sdk";

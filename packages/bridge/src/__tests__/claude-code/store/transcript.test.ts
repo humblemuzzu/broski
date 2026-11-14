@@ -1,4 +1,7 @@
-/** Rules 6–7 and the transcript mapping (D18) over transcripts in a temp config dir, read by the SDK's own reader. */
+/**
+ * Rules 6–7 and the transcript mapping (adapter README D26) over transcripts in a temp config dir, read by the SDK's
+ * own reader.
+ */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { appendFileSync } from "node:fs";

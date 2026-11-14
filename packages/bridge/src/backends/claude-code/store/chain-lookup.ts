@@ -1,4 +1,4 @@
-/** Lane A · questions about the chain's entries: its newest uuid, and where a transcript item sits in the chain. */
+/** Questions about the chain's entries: its newest uuid, and where a transcript item sits in the chain. */
 
 import type { Rejected, SessionId, TranscriptItemId } from "../../../contract";
 import { parseBlockId } from "../ids";

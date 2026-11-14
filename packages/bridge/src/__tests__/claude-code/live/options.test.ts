@@ -1,4 +1,4 @@
-/** D5 and D30: the options of every host, asserted from what the SDK was handed. */
+/** Adapter README D4, D5: the options of every host, asserted from what the SDK was handed. */
 
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, realpathSync, rmSync } from "node:fs";
@@ -31,7 +31,7 @@ async function started(rig: FakeRig) {
 }
 
 describe("the options of a new host", () => {
-	test("are D5's, with a session id of ours and an open iterable for a prompt", async () => {
+	test("are the host options, with a session id of ours and an open iterable for a prompt", async () => {
 		const rig = fakeRig([new FakeQuery()], { uid: 501 });
 		const { call, options, live } = await started(rig);
 		expect(typeof call.prompt).not.toBe("string");
@@ -80,7 +80,7 @@ describe("the options of a new host", () => {
 		await user.dispose();
 	});
 
-	test("carry D4's environment, which the SDK takes whole", async () => {
+	test("carry the CLI's environment, which the SDK takes whole", async () => {
 		const rig = fakeRig([new FakeQuery()]);
 		const { options } = await started(rig);
 		expect(options.env).toMatchObject({

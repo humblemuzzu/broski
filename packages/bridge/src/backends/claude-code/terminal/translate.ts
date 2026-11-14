@@ -1,5 +1,5 @@
 /**
- * Transcript lines as live events of a watch-only session (research 04 §7, rec. 4). Only these lines mean something:
+ * Transcript lines as live events of a watch-only session (D28). Only these lines mean something:
  * `user` (a prompt, a tool result, an interruption), `assistant` (one block), `system/turn_duration` (the turn is over)
  * and `system/compact_boundary`. Every other line is list metadata or noise. A line's `uuid` is seen once.
  */

@@ -1,4 +1,7 @@
-/** Rules 24 to 26 on the real CLI: a snapshot is the open one plus the events, and `close()` detaches without aborting (D1). */
+/**
+ * Rules 24 to 26 on the real CLI: a snapshot is the open one plus the events, and `close()` detaches without aborting
+ * (adapter README D1).
+ */
 
 import { describe, expect, test } from "bun:test";
 import { expectNoOrphans } from "../spike/rig/orphans";
@@ -77,7 +80,7 @@ describe("closing and reopening a session", () => {
 	);
 });
 
-describe("the idle grace (D1)", () => {
+describe("the idle grace", () => {
 	test(
 		"the grace starts when the last view closes and a view that attaches cancels it",
 		async () => {

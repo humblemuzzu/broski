@@ -1,6 +1,6 @@
 /**
  * The `OpenSession` the core holds: a view of a `SessionHost`. `close()` detaches the sink at once and makes every
- * control method answer `closed`; the host and its run go on (contract README §5, rule 25).
+ * control method answer `closed`; the host and its run go on (contract README §5, rule 3).
  */
 
 import type { OpenSession, SessionControl, SessionRef, SessionSink, SessionSnapshot } from "../../../contract";

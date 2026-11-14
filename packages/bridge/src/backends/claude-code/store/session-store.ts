@@ -1,4 +1,4 @@
-/** Lane A · the `SessionStore` (`ports/store.ts`) `backend.ts` builds; every read goes through the SDK (D15). */
+/** The `SessionStore` (`ports/store.ts`) `backend.ts` builds; every read goes through the SDK (D23, D26). */
 
 import type { SessionId } from "../../../contract";
 import { parseChildRef } from "../ids";

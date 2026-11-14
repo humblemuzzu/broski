@@ -1,4 +1,4 @@
-/** Lane A · the transcript items of one `SessionMessage` (D18), oldest first. */
+/** The transcript items of one `SessionMessage` (D26), oldest first. */
 
 import type { SessionMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { SessionId, TranscriptItem } from "../../../contract";
@@ -9,7 +9,7 @@ import { userItems } from "./items-user";
 import type { SystemFact } from "./system-facts";
 
 export interface ItemContext {
-	/** The owner journal's record of the prompt, when this bridge sent it (D37). */
+	/** The owner journal's record of the prompt, when this bridge sent it (D10). */
 	readonly prompt: (sendUuid: string) => PromptRecord | undefined;
 	/** How many blocks of the entry's API message come before it (`IndexEntry.blockBase`). */
 	readonly blockBase: number;
@@ -17,7 +17,9 @@ export interface ItemContext {
 	readonly toolName: (toolUseId: string) => string | undefined;
 	/** The subagent session a spawning tool call started. */
 	readonly childOf: (toolUseId: string) => SessionId | undefined;
-	/** The entry's `toolUseResult` from the raw file, bounded (D41a); undefined when it has none or could not be read. */
+	/**
+	 * The entry's `toolUseResult` from the raw file, bounded (D26); undefined when it has none or could not be read.
+	 */
 	readonly toolUseResult?: unknown;
 	/** What the raw file says of this entry when it is a `system` entry, and of the chain entry before it. */
 	readonly system?: SystemFact;

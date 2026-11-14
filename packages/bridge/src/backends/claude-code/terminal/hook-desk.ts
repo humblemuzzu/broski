@@ -1,5 +1,5 @@
 /**
- * The terminal asks one watch-only session shows (D26). Each is a hook request that stays open until a person answers
+ * The terminal asks one watch-only session shows (D29). Each is a hook request that stays open until a person answers
  * it, the terminal's own user answers it first (the tool's result reaches the tail, or the run ends), or the CLI drops
  * the request (its hook timeout, or the terminal gone): no timer here decides anything.
  */

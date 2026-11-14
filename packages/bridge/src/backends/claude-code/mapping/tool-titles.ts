@@ -1,4 +1,4 @@
-/** Lane B · a one-line title for a tool call (`Read README.md`, `Bash: ls`). Shared with lanes A, E and G. */
+/** A one-line title for a tool call (`Read README.md`, `Bash: ls`), the same live, in history, in an ask and in the tail. */
 
 import { isRecord } from "../json";
 import { phoneLine } from "../phone-text";

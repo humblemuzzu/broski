@@ -1,4 +1,4 @@
-/** Lane B · `FrameMapper.settle`: nothing is open at rest. */
+/** `FrameMapper.settle`: nothing is open at rest (D22). */
 
 import type { ToolResult } from "../../../contract";
 import type { MappedEvent } from "../ports/mapping";

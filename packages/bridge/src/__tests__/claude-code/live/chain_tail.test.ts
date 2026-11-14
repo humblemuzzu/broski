@@ -1,4 +1,7 @@
-/** D70: the cut of each run is the transcript's newest entry when it began, tracked from frames, through every kind of run. */
+/**
+ * Adapter README D26: the cut of each run is the transcript's newest entry when it began, tracked from frames, through
+ * every kind of run.
+ */
 
 import { expect, test } from "bun:test";
 import { getSessionMessages } from "@anthropic-ai/claude-agent-sdk";

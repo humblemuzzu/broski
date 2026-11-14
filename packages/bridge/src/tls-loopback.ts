@@ -1,7 +1,7 @@
 /**
- * Whether the loopback certificate is one a terminal `claude` will call the permission hook over (Claude Code D124):
- * it names `127.0.0.1` (the CLI refuses a certificate without the name, silently) and it is not a CA, so trusting it
- * through `NODE_EXTRA_CA_CERTS` trusts this one certificate and nothing it could sign.
+ * Whether the loopback certificate is one a terminal `claude` will call the permission hook over (Claude Code adapter
+ * README D29): it names `127.0.0.1` (the CLI refuses a certificate without the name, silently) and it is not a CA, so
+ * trusting it through `NODE_EXTRA_CA_CERTS` trusts this one certificate and nothing it could sign.
  */
 
 import { X509Certificate } from "node:crypto";

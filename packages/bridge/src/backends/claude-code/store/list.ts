@@ -1,5 +1,5 @@
 /**
- * Lane A · a page of sessions (D15, D16, D17): the files are ordered from `readdir`/`stat` the way `listSessions` orders
+ * A page of sessions (D23, D24, D25): the files are ordered from `readdir`/`stat` the way `listSessions` orders
  * them, the keyset `(lastModified, sessionId)` picks where a page starts, and only the rows of that page are read
  * (`getSessionInfo`, one 128 KiB lite read each). The SDK's own paging re-reads every row before its `offset`.
  */

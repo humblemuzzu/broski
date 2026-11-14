@@ -1,4 +1,4 @@
-/** The ask desk (lane E) one host (lane D) creates and wires into its `query()` options; STEP-3 §E. */
+/** The ask desk each host creates and wires into its `query()` options (D15). */
 
 import type { CanUseTool, OnElicitation } from "@anthropic-ai/claude-agent-sdk";
 import type { ActionResult, InteractionAnswer, PlanModeOptions, RunId } from "../../../contract";
@@ -13,7 +13,7 @@ export interface AskHost {
 	now(): number;
 }
 
-/** No timer answers anything (D14); an ask ends on a human, a CLI withdrawal, its run's end or the process's. */
+/** No timer answers anything (D16); an ask ends on a human, a CLI withdrawal, its run's end or the process's. */
 export interface AskDesk {
 	/** Never throws, never resolves `null`, idempotent per `requestId`. */
 	readonly canUseTool: CanUseTool;

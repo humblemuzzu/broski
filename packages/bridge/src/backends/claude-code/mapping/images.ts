@@ -1,4 +1,4 @@
-/** Lane B · images in user content: `ImageRef`s by `imageAttachmentId`, and the bytes behind one. Shared with A. */
+/** Images in user content: `ImageRef`s by `imageAttachmentId`, and the bytes behind one, live and in history. */
 
 import { type ImageContent, type ImageRef, MAX_IMAGE_CHARS, MAX_LIST_ITEMS, MAX_NAME_CHARS } from "../../../contract";
 import { clip } from "../bounds";

@@ -1,5 +1,5 @@
 /**
- * Lane B · the live `user` frame's `tool_result_meta`, which the SDK does not declare: the 2.1.316 binary's schema is
+ * The live `user` frame's `tool_result_meta`, which the SDK does not declare (D18): the 2.1.325 binary's schema is
  * `[{id, non_execution_kind?, permission_decision?: {decision: "accept" | "reject" | "cancelled", source}}]`
  * ("@internal Display metadata", recorded in `fixtures/frames/permission-deny.jsonl`). A transcript has no such
  * field, so history keeps reading a refusal from its wording (`tool-outcome.ts`).

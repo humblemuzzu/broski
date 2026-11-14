@@ -1,4 +1,4 @@
-/** Lane C · a model's `ThinkingSpec`: its `supportedEffortLevels` as given (D11). */
+/** A model's `ThinkingSpec`: its `supportedEffortLevels` as given (D12). */
 
 import type { ModelInfo } from "@anthropic-ai/claude-agent-sdk";
 import type { ThinkingOption, ThinkingSpec } from "../../../contract";

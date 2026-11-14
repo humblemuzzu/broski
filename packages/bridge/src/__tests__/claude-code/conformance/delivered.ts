@@ -1,9 +1,9 @@
 /**
- * The newest user message of a session's newest main request, read back as the suite's `DeliveredInput` (rule 13).
- * CLI 2.1.316 puts a `system`-role "# Environment" message after the first user message, so the last message whose
- * role is `user` is read, not the last message. D10's wire form of a slash command, its `<command-name>` tag, is parsed
- * back. Image names never reach a model, so they come from the
- * transcript's `ImageRef`s, which the store reads from the owner journal (D37).
+ * The newest user message of a session's newest main request, read back as the suite's `DeliveredInput` (rule 13). The
+ * CLI puts a `system`-role "# Environment" message after the first user message, so the last message whose role is
+ * `user` is read, not the last message. The wire form of a slash command (adapter README D11), its `<command-name>`
+ * tag, is parsed back. Image names never reach a model, so they come from the transcript's `ImageRef`s, which the store
+ * reads from the owner journal (adapter README D10).
  */
 
 import type { AgentBackend, Attachment, SessionRef } from "../../../contract";

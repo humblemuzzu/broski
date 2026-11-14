@@ -1,4 +1,7 @@
-/** D20: a subagent's events reach its child session, with a run of its own, and the parent's stream is untouched. */
+/**
+ * Adapter README D20: a subagent's events reach its child session, with a run of its own, and the parent's stream is
+ * untouched.
+ */
 
 import { afterEach, describe, expect, test } from "bun:test";
 import { childRef } from "../../../backends/claude-code/ids";

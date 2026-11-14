@@ -8,7 +8,7 @@ export function planPathIn(body: unknown): string | null {
 }
 
 /**
- * The model side of plan mode, as CLI 2.1.316 expects it: write the plan to the plan file the reminder names,
+ * The model side of plan mode, as the CLI expects it: write the plan to the plan file the reminder names,
  * then call ExitPlanMode with no input (the CLI reads the plan from that file), then whatever `after` says.
  */
 export function planRoute(plan: string, after: ScriptedTurn[]): ScriptedRoute {

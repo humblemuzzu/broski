@@ -1,5 +1,5 @@
 /**
- * What the host does with each frame of its CLI beyond showing it: run boundaries (D7), the queue's lifecycle (D8),
+ * What the host does with each frame of its CLI beyond showing it: run boundaries (D8), the queue's lifecycle (D9),
  * the model, the mode, the asks' withdrawals, the catalogue's news and the subagents' ends. What a frame shows is the
  * mapper's.
  */
@@ -126,7 +126,7 @@ export class FrameHandler {
 		this.began();
 	}
 
-	/** Every main-thread `user` and `assistant` frame is a chain entry under its own uuid (D70). */
+	/** Every main-thread `user` and `assistant` frame is a chain entry under its own uuid (D26). */
 	private entry(frame: EntryFrame): void {
 		if (frame.parent_tool_use_id !== null || frame.uuid === undefined) return;
 		if ("agent_id" in frame && frame.agent_id !== undefined) return;

@@ -1,4 +1,4 @@
-/** Lane B · the `MappingPort` `backend.ts` hands the hosts (D) and the terminal tail (G). */
+/** The `MappingPort` `backend.ts` hands the hosts and the terminal tail. */
 
 import type { MappingPort } from "../ports/mapping";
 import { createFrameMapper } from "./mapper";

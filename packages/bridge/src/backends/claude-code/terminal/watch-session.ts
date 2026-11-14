@@ -1,7 +1,7 @@
 /**
  * One transcript a terminal writes, followed live: the tail reads what was appended, the translator turns lines into
  * events, and the live state hands them to the sink attached now. It writes nothing; the terminal's `claude` is the
- * file's only writer (D21).
+ * file's only writer (D28).
  */
 
 import {
@@ -20,7 +20,7 @@ import { type TailRead, TranscriptTail } from "./tail";
 import { LineTranslator } from "./translate";
 
 /** A run with nothing left to wait for is finished after this long without a new line, when the file never says so. */
-export const QUIET_MS = 2_500;
+const QUIET_MS = 2_500;
 /** Lines older than the tail's start (by their own timestamps) that a reset re-reads are history, not news. */
 const HISTORY_SLACK_MS = 1_000;
 

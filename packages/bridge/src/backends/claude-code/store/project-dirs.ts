@@ -1,6 +1,6 @@
 /**
- * Lane A · which working directories each project directory was seen to hold, so a listing scoped to one `cwd` skips
- * the directories of other projects without encoding a path (D15). Learned from rows already read; bounded.
+ * Which working directories each project directory was seen to hold, so a listing scoped to one `cwd` skips
+ * the directories of other projects without encoding a path (D23). Learned from rows already read; bounded.
  */
 
 import { boundedGrowth } from "./bounded";

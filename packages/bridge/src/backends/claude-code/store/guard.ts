@@ -1,4 +1,4 @@
-/** Lane A · the SDK's session functions throw; the store answers with values (README: expected failures are values). */
+/** The SDK's session functions throw; the store answers with values (contract README §2 rule 5). */
 
 import type { Rejected } from "../../../contract";
 import { rejected } from "../rejections";
@@ -8,7 +8,7 @@ function messageOf(error: unknown): string {
 }
 
 /** The rejection for a throw: the SDK says "not found" in words, and a read can fail like any file system call. */
-export function rejectionOf(error: unknown): Rejected {
+function rejectionOf(error: unknown): Rejected {
 	const message = messageOf(error);
 	return /not found/i.test(message) ? rejected("not_found", message) : rejected("backend_error", message);
 }

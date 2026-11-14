@@ -1,4 +1,7 @@
-/** MCP elicitation (D13): a flat form → `form`, an empty schema → `confirm`; anything else, a link included, is a `confirm` that declines it. */
+/**
+ * MCP elicitation (D15, D16): a flat form → `form`, an empty schema → `confirm`; anything else, a link included, is a
+ * `confirm` that declines it.
+ */
 
 import type { ElicitationRequest, ElicitationResult } from "@anthropic-ai/claude-agent-sdk";
 import { type InteractionReply, type InteractionRequest, MAX_NAME_CHARS, MAX_TEXT_CHARS } from "../../../contract";

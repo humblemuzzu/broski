@@ -1,4 +1,4 @@
-/** Lane B · what a tool result shows: the blocks the model saw, or the tool's own structured output when it says more. */
+/** What a tool result shows: the blocks the model saw, or the tool's own structured output when it says more. */
 
 import { MAX_LIST_ITEMS, type ToolContent } from "../../../contract";
 import { imageAttachmentId } from "../ids";

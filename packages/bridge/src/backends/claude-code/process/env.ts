@@ -1,4 +1,4 @@
-/** D4: the environment of every CLI the adapter starts; `Options.env` replaces the whole environment. */
+/** The environment of every CLI the adapter starts (D4); `Options.env` replaces the whole environment. */
 
 export interface CliEnvInput {
 	/** The bridge's login-shell environment. */

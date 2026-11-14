@@ -1,4 +1,4 @@
-/** Lane B · D31: a turn's outcome by `terminal_reason` first; a refusal is an error, never `completed`. */
+/** A turn's outcome by `terminal_reason` first (D8); a refusal is an error, never `completed`. */
 
 import type { SDKResultMessage, TerminalReason } from "@anthropic-ai/claude-agent-sdk";
 import { type ErrorCode, MAX_TEXT_CHARS, type RunOutcome } from "../../../contract";
@@ -52,7 +52,7 @@ const FAILURES: ReadonlyMap<TerminalReason, Failure> = new Map<TerminalReason, F
 	["turn_setup_failed", { code: "unknown", fallback: "The turn could not be set up" }],
 ]);
 
-/** The HTTP status of a failed API request, where the CLI reports one (`api_error_status`, `d.ts:6093`). */
+/** The HTTP status of a failed API request, where the CLI reports one (`SDKResultSuccess.api_error_status`). */
 function codeOfStatus(status: number | null | undefined, fallback: ErrorCode): ErrorCode {
 	if (status === null) return "network";
 	if (status === 401 || status === 403) return "auth";
@@ -85,7 +85,7 @@ function failure(result: SDKResultMessage, code: ErrorCode, fallback: string): R
 
 /**
  * `terminal_reason` decides first: an interrupt is `aborted` although its subtype is `error_during_execution` and
- * `is_error` is true (Q3). A refusal is a `success` result with `is_error` and `stop_reason: "refusal"`. A `success`
+ * `is_error` is true (`spike/interrupt.test.ts`). A refusal is a `success` result with `is_error` and `stop_reason: "refusal"`. A `success`
  * with `is_error` and nothing more specific is an error carrying its text; the rest is `completed`.
  */
 export function turnOutcome(result: SDKResultMessage): RunOutcome {

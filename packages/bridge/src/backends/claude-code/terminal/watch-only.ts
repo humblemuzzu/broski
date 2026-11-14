@@ -1,4 +1,4 @@
-/** The `TerminalWatch` `backend.ts` builds (D21): a session another process writes opens watch-only, never resumed. */
+/** The `TerminalWatch` `backend.ts` builds (D28): a session another process writes opens watch-only, never resumed. */
 
 import { stat } from "node:fs/promises";
 import type { InteractionAnswer, OpenResult, SessionId, SessionRef, SessionSink } from "../../../contract";
@@ -9,9 +9,11 @@ import { CLOSED, isRejected, rejected } from "../rejections";
 import { createHookAsks } from "./hook-asks";
 import { TerminalSessions } from "./terminal-sessions";
 
-/** A file written this recently, by a process this bridge does not host, belongs to a terminal (research 04 §7 rec. 6). */
-export const WRITING_MS = 10_000;
-/** The CLI flushes its transcript about 100 ms late (D103), so a write this soon after the bridge's own was still its. */
+/** A file written this recently, by a process this bridge does not host, belongs to a terminal (D28). */
+const WRITING_MS = 10_000;
+/**
+ * The CLI flushes its transcript about 100 ms late (D25), so a write this soon after the bridge's own was still its.
+ */
 export const OWN_FLUSH_MS = 1_000;
 const MAX_KNOWN_PATHS = 5_000;
 

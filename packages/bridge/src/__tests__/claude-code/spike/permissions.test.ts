@@ -1,5 +1,5 @@
 /**
- * Permission asks through `canUseTool` (research/08-spike.md, frames for the mapping lane, and Q7):
+ * Permission asks through `canUseTool` (adapter README D15, D16), recorded as frame fixtures for the mapping:
  * a Write allowed and denied, an AskUserQuestion answered, and a callback that throws.
  */
 
@@ -136,7 +136,7 @@ describe("permission asks", () => {
 	);
 
 	test(
-		"Q7: a canUseTool that throws is a denial carrying the error text; the CLI neither hangs nor exits",
+		"a canUseTool that throws is a denial carrying the error text; the CLI neither hangs nor exits",
 		async () => {
 			const run = await runAsk(
 				WRITE_TURNS,

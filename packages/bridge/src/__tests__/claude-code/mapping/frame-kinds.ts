@@ -1,5 +1,5 @@
 /**
- * Every `SDKMessage` variant (`d.ts:5604`), mapped or ignored, and why. The table is typed over the union, so an
+ * Every `SDKMessage` variant, mapped or ignored, and why. The table is typed over the union, so an
  * SDK that adds a variant fails the type check here until someone decides what it shows.
  */
 
@@ -119,7 +119,7 @@ export function frameKey(frame: { readonly type: string; readonly subtype?: unkn
 	return typeof frame.subtype === "string" ? `${frame.type}/${frame.subtype}` : frame.type;
 }
 
-/** Frames `sdk.mjs` passes through that `SDKMessage` does not declare (research 02 §2.2); the mapper ignores them. */
+/** Frames `sdk.mjs` passes through that `SDKMessage` does not declare; the mapper ignores them. */
 export const UNDECLARED_FRAMES: Readonly<Record<string, string>> = {
 	command_lifecycle: `${HOST}: queue_changed and send tracking (asCommandLifecycle)`,
 	active_goal: `${NO_HOME}; /goal is not offered`,

@@ -1,4 +1,4 @@
-/** Lane B · `user` frames: tool results (`tool_finished`), and prompts this host did not send (`user_message`). */
+/** `user` frames: tool results (`tool_finished`), and prompts this host did not send (`user_message`). */
 
 import type { SDKUserMessage, SDKUserMessageReplay } from "@anthropic-ai/claude-agent-sdk";
 import { MAX_TEXT_CHARS } from "../../../contract";

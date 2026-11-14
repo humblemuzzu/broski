@@ -1,6 +1,7 @@
 /**
  * Session transcripts written straight into a temp `CLAUDE_CONFIG_DIR`, in the shape the CLI writes them, so the SDK's
- * session functions can be tested without a CLI run. Only for tests: the adapter never encodes a project path (D15).
+ * session functions can be tested without a CLI run. Only for tests: the adapter never encodes a project path (adapter
+ * README D23).
  */
 
 import { mkdirSync, realpathSync, writeFileSync } from "node:fs";
@@ -15,7 +16,7 @@ export interface FixtureSession {
 	readonly startedAt?: number;
 }
 
-/** The project directory name the CLI uses for `cwd` up to 200 characters (research 04 §2.1). */
+/** The project directory name the CLI uses for a `cwd` of up to 200 characters. */
 export function projectKey(cwd: string): string {
 	const key = realpathSync(cwd).replace(/[^a-zA-Z0-9]/g, "-");
 	if (key.length > 200)

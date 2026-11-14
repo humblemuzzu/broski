@@ -12,7 +12,7 @@ export type HttpWiringDeps = {
 	log: LeveledLogger;
 	limits: BridgeLimits;
 	version: string;
-	/** The Claude Code terminal hook's receiver (D26), served while `claudeCode.terminalAsks` is on. */
+	/** The Claude Code terminal hook's receiver (adapter README D29), served while `claudeCode.terminalAsks` is on. */
 	terminalHook?: TerminalHookReceiver;
 };
 

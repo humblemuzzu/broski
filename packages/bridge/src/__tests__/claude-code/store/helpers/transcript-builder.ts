@@ -1,5 +1,5 @@
 /**
- * Transcripts in the shape the CLI writes them (research 04 §2.2), built entry by entry with the parent chain and the
+ * Transcripts in the shape the CLI writes them, built entry by entry with the parent chain and the
  * timestamps filled in, so the store is tested against the SDK's real reader over real-looking files.
  */
 

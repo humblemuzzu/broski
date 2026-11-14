@@ -1,4 +1,4 @@
-/** Lane A · the transcript items of one user entry: a prompt, a compaction summary, or tool results (D18, D37). */
+/** The transcript items of one user entry: a prompt, a compaction summary, or tool results (D26, D10). */
 
 import type { SessionMessage } from "@anthropic-ai/claude-agent-sdk";
 import { ClientRequestId, type ImageRef, MAX_NAME_CHARS, MAX_TEXT_CHARS, type TranscriptItem } from "../../../contract";
@@ -19,7 +19,7 @@ import {
 	stringField,
 } from "./message-parts";
 
-/** The journal keeps the name of each image the phone sent; the CLI keeps none (D37). */
+/** The journal keeps the name of each image the phone sent; the CLI keeps none (D10). */
 export function nameImages(refs: readonly ImageRef[], record: PromptRecord | undefined): ImageRef[] {
 	return refs.map((ref, position) => {
 		const name = record?.imageNames[position];

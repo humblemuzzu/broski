@@ -1,4 +1,4 @@
-/** Lane A · the transcript items of one assistant entry: its text, thinking and tool-call blocks (D18). */
+/** The transcript items of one assistant entry: its text, thinking and tool-call blocks (D26). */
 
 import type { SessionMessage } from "@anthropic-ai/claude-agent-sdk";
 import { MAX_NAME_CHARS, MAX_TEXT_CHARS, type TranscriptItem } from "../../../contract";
@@ -11,7 +11,7 @@ import { apiMessageId, blocksOf, entryTimestamp, stringField, toolCallOf } from 
 
 const SPAWNING_TOOLS = new Set(["Agent", "Task"]);
 
-/** The name the live stream shows: the CLI called the subagent tool `Task` before 2.1.63 (research 04 §6). */
+/** The name the live stream shows: the CLI called the subagent tool `Task` before 2.1.63. */
 function toolNameOf(name: string): string {
 	return name === "Task" ? "Agent" : name;
 }

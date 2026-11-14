@@ -1,4 +1,6 @@
-/** Stop and the process's end (D8, D31), with receipts and failures the real CLI does not give on demand. */
+/**
+ * Stop and the process's end (adapter README D8, D9), with receipts and failures the real CLI does not give on demand.
+ */
 
 import { afterEach, describe, expect, test } from "bun:test";
 import { INTERRUPT_DEADLINE_MS } from "../../../backends/claude-code/live/shutdown";

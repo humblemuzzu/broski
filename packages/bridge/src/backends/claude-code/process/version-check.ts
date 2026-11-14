@@ -1,4 +1,4 @@
-/** Lane C · D3: the running CLI's `claude_code_version` against the one this bridge was built with. */
+/** The running CLI's `claude_code_version` against the one the pinned SDK was released with (D3); a warning only. */
 
 import type { StatusIssue } from "../../../contract";
 import { clip } from "../bounds";

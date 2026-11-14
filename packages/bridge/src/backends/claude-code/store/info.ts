@@ -1,4 +1,4 @@
-/** Lane A · one session's `SDKSessionInfo`, where its file is (`StoredSession`), and its row. */
+/** One session's `SDKSessionInfo`, where its file is (`StoredSession`), and its row. */
 
 import type { SDKSessionInfo } from "@anthropic-ai/claude-agent-sdk";
 import type { Rejected, SessionId, SessionSummary } from "../../../contract";

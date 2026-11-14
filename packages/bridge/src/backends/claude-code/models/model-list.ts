@@ -1,4 +1,6 @@
-/** `ModelInfo` rows (the CLI's built-in list, 08-spike Q11) as contract models, in the order the phone shows them (D60). */
+/**
+ * `ModelInfo` rows (the CLI's built-in list, not fetched) as contract models, in the order the phone shows them (D12).
+ */
 
 import type { ModelInfo } from "@anthropic-ai/claude-agent-sdk";
 import { MAX_CATALOG_ITEMS, MAX_TEXT_CHARS, type ModelId, type ModelSummary } from "../../../contract";
@@ -15,7 +17,7 @@ function wireOf(row: ModelInfo): string {
 /**
  * Rows the phone may choose, once each, in the CLI's own order ("Default (recommended)" first). A row that runs the
  * Default row's model (`opus` resolves to `claude-opus-5-5` as `default` does) is left out, so the phone never shows
- * one model twice and a request's wire model names its row (D135, conformance rule 20).
+ * one model twice and a request's wire model names its row (D12, conformance rule 19).
  */
 export function listedRows(models: readonly ModelInfo[]): ModelInfo[] {
 	const rows: ModelInfo[] = [];
@@ -30,7 +32,7 @@ export function listedRows(models: readonly ModelInfo[]): ModelInfo[] {
 	return rows.filter((row) => row === defaultRow || wireOf(row) !== wireOf(defaultRow));
 }
 
-export function modelSummary(row: ModelInfo): ModelSummary {
+function modelSummary(row: ModelInfo): ModelSummary {
 	const description = clip(row.description, MAX_TEXT_CHARS);
 	return {
 		id: row.value,

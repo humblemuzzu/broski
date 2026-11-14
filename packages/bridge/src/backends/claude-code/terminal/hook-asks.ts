@@ -1,5 +1,5 @@
 /**
- * The adapter's side of a terminal's permission ask (D26). The server's receiver calls this handler first and holds the
+ * The adapter's side of a terminal's permission ask (D29). The server's receiver calls this handler first and holds the
  * session open (`BridgeCore.hold`) right after, so the handler marks the session as written before anyone opens it: the
  * open then takes the watch-only path, never a resume of a session a terminal is running.
  */

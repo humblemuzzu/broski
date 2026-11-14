@@ -1,7 +1,7 @@
 /**
- * The Claude Code terminal hook in the user's settings (D26), set once the loopback listener is bound: the adapter's
- * `PermissionRequest` hook is installed while `claudeCode.terminalAsks` is on and removed otherwise. A refusal is
- * logged and never stops the bridge.
+ * The Claude Code terminal hook in the user's settings (adapter README D29), set once the loopback listener is bound:
+ * the adapter's `PermissionRequest` hook is installed while `claudeCode.terminalAsks` is on and removed otherwise. A
+ * refusal is logged and never stops the bridge.
  */
 
 import { homedir } from "node:os";

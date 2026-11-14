@@ -1,5 +1,5 @@
 /**
- * Q3 (research/08-spike.md): `interrupt()` mid-text and mid-tool, and the receipt with and without
+ * Stop (adapter README D8, D9): `interrupt()` mid-text and mid-tool, and the receipt with and without
  * `cancelQueued` while two `priority: "later"` sends wait.
  */
 
@@ -27,7 +27,7 @@ async function settle(spike: SpikeSession): Promise<void> {
 	await spike.waitFor(isIdle, { after: indexOf(spike.messages, (m) => m.type === "result") });
 }
 
-describe("Q3: interrupt", () => {
+describe("interrupt", () => {
 	test(
 		"mid-text: error_during_execution / aborted_streaming, the partial block flagged aborted, the send cancelled",
 		async () => {

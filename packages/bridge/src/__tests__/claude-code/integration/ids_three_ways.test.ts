@@ -1,5 +1,5 @@
 /**
- * STEP-3 §8 join point 7 (lanes A, B, D, G): one real session read three ways (the live stream, the transcript, and
+ * Adapter README D21: one real session read three ways (the live stream, the transcript, and
  * the terminal tail's translation of its file) names its prompt, blocks, tool call, tool result and images alike.
  */
 

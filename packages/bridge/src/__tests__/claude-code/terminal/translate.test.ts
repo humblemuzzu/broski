@@ -65,7 +65,7 @@ describe("LineTranslator", () => {
 		legal(events);
 	});
 
-	test("a tool call and its result: the result is whatever lane B's helper makes of it", () => {
+	test("a tool call and its result: the result is whatever the mapping's helper makes of it", () => {
 		const result = toolResult("toolu_1", "file text", {
 			type: "text",
 			file: { filePath: "README.md" },

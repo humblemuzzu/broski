@@ -1,4 +1,4 @@
-/** Stop (D8): `interruptQuery(query, {cancelQueued: true})`; queued input comes back as `input_returned`. */
+/** Stop (D9): `interruptQuery(query, {cancelQueued: true})`; queued input comes back as `input_returned`. */
 
 import type { Query } from "@anthropic-ai/claude-agent-sdk";
 import { type ActionResult, MAX_LIST_ITEMS, MAX_TEXT_CHARS } from "../../../contract";

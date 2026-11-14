@@ -1,5 +1,5 @@
 /**
- * The capabilities Claude Code declares (D38); each is checked against the conformance rule that tests it (STEP-3 §4).
+ * The capabilities Claude Code declares (D31); the conformance suite holds each to the behaviour it names.
  * `fork`, `rename` and `delete` follow from the methods `backend.ts` implements.
  */
 

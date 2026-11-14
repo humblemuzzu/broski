@@ -1,4 +1,4 @@
-/** Terminal sessions (lane G): watched, never written (D21), and the terminal permission hook (D26); STEP-3 §G. */
+/** Terminal sessions: watched, never written (D28), and the terminal permission hook (D29). */
 
 import type { PermissionRequestHookInput, PermissionRequestHookSpecificOutput } from "@anthropic-ai/claude-agent-sdk";
 import type { OpenResult, SessionId, SessionRef, SessionSink } from "../../../contract";
@@ -18,13 +18,13 @@ export interface TerminalWatch extends TerminalPresence {
 
 export type TerminalPermissionDecision = PermissionRequestHookSpecificOutput["decision"];
 
-/** Undefined: no decision, and the terminal asks its own user. Blocked by a core gap (STEP-3 §9). */
+/** Undefined: no decision, and the terminal asks its own user. */
 export type TerminalAskHandler = (
 	ask: PermissionRequestHookInput,
 	signal: AbortSignal,
 ) => Promise<TerminalPermissionDecision | undefined>;
 
 export interface TerminalOptions {
-	/** The server's hook receiver takes the adapter's handler here once, at start (D26). */
+	/** The server's hook receiver takes the adapter's handler here once, at start (D29). */
 	readonly hookAsks?: (handler: TerminalAskHandler) => void;
 }

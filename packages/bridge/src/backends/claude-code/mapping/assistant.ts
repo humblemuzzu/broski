@@ -1,4 +1,4 @@
-/** Lane B · `assistant` frames (one block each, PLAN fact 7): `block_finished`, `tool_started`, an aborted block. */
+/** `assistant` frames (one block each): `block_finished`, `tool_started`, an aborted block. */
 
 import type { SDKAssistantMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { MappedEvent } from "../ports/mapping";

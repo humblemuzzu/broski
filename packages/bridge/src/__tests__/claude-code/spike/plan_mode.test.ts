@@ -1,5 +1,5 @@
 /**
- * Q6 (research/08-spike.md): ExitPlanMode in `plan` mode. CLI 2.1.316 takes the plan from the plan file the
+ * ExitPlanMode in `plan` mode (adapter README D17). The CLI takes the plan from the plan file the
  * model wrote (its path is in the plan-mode reminder), and hands `canUseTool` `{plan, planFilePath}`.
  */
 
@@ -57,7 +57,7 @@ async function runPlan(answer: (input: Record<string, unknown>) => PermissionRes
 	}
 }
 
-describe("Q6: ExitPlanMode answers", () => {
+describe("ExitPlanMode answers", () => {
 	test(
 		"approve as-is: canUseTool sees {plan, planFilePath}, no suggestions; the session returns to default",
 		async () => {

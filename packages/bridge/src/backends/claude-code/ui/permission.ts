@@ -1,4 +1,6 @@
-/** `canUseTool` as `tool_permission` (D13): plain allow/deny once always, one option per suggested grant, deny-and-stop. */
+/**
+ * `canUseTool` as `tool_permission` (D15): plain allow/deny once always, one option per suggested grant, deny-and-stop.
+ */
 
 import type { CanUseTool, PermissionResult } from "@anthropic-ai/claude-agent-sdk";
 import {
@@ -71,7 +73,7 @@ export function requiresUserInteraction(options: PermissionAskOptions): boolean 
 	return "requiresUserInteraction" in options && options.requiresUserInteraction === true;
 }
 
-/** Lane B's one-line title for the call when the CLI worded none; its failure costs the title only. */
+/** The mapping's one-line title for the call when the CLI worded none; its failure costs the title only. */
 function fallbackTitle(ask: PermissionAsk): string {
 	try {
 		const title = toolTitle(ask.toolName, ask.input);

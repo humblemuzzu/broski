@@ -1,4 +1,4 @@
-/** Lane A · the transcript cursor: the entry the next page resumes at and how many of its items remain (D15). */
+/** The transcript cursor: the entry the next page resumes at and how many of its items remain (D26). */
 
 import type { JsonValue, PageCursor, SessionId } from "../../../contract";
 import { cursorScope, decodeCursor, encodeCursor } from "../cursor";

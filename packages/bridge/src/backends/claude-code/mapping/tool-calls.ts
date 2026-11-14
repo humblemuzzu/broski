@@ -1,4 +1,4 @@
-/** Lane B · a `tool_use` block as `tool_started`, with its title, a subagent's `child_session` (D20), progress. */
+/** A `tool_use` block as `tool_started`, with its title, a subagent's `child_session` (D20), progress. */
 
 import type {
 	SDKTaskProgressMessage,

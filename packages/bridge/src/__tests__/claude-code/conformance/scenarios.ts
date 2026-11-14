@@ -1,5 +1,5 @@
 /**
- * Each conformance `Scenario` as the model's side of the run, per 08-spike: Write in `default` mode asks
+ * Each conformance `Scenario` as the model's side of the run, as the spike tests show the real CLI: Write in `default` mode asks
  * `tool_permission`; AskUserQuestion asks `questions`; plan mode's Write-then-ExitPlanMode asks `plan_approval`; the
  * elicitation server's tools ask `form` and `confirm`; an Agent call shows a child session.
  */
@@ -21,7 +21,7 @@ export interface ScenarioContext {
 
 const ANSWER: ScriptedTurn = { text: ["Done."] };
 
-/** The steps of `scenario`, or undefined when this driver cannot produce it (STEP-3 §10). */
+/** The steps of `scenario`, or undefined when this driver cannot produce it. */
 export function scenarioSteps(scenario: Scenario, context: ScenarioContext): ScriptStep[] | undefined {
 	switch (scenario.kind) {
 		case "reply":
@@ -76,7 +76,7 @@ const QUESTION = {
 	],
 };
 
-/** The plan file the plan-mode reminder names (CLI 2.1.316 reads the plan from it, Q6). */
+/** The plan file the plan-mode reminder names (the CLI reads the plan from it, `spike/plan_mode.test.ts`). */
 function writePlan(request: ScriptedRequest): ScriptedTurn {
 	const path = planPathIn(request.body) ?? "plan.md";
 	return { toolCalls: [{ name: "Write", args: { file_path: path, content: "# Plan\n\n1. Do it.\n" } }] };

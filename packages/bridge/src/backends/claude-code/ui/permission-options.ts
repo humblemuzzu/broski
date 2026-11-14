@@ -1,4 +1,4 @@
-/** The options of a tool permission: plain allow/deny once, then one per kind of grant the CLI suggested (D13). */
+/** The options of a tool permission: plain allow/deny once, then one per kind of grant the CLI suggested (D15). */
 
 import type { PermissionUpdate, PermissionUpdateDestination } from "@anthropic-ai/claude-agent-sdk";
 import { MAX_LIST_ITEMS, MAX_NAME_CHARS, MAX_TEXT_CHARS, type PermissionOption } from "../../../contract";
@@ -109,7 +109,7 @@ function sessionLabel(updates: readonly PermissionUpdate[]): string {
 }
 
 /** The suggested updates as the CLI words its rules: `Bash(npm test:*)`, `mode acceptEdits`. */
-export function ruleText(updates: readonly PermissionUpdate[]): string {
+function ruleText(updates: readonly PermissionUpdate[]): string {
 	return clip(updates.map(updateText).join("; "), MAX_TEXT_CHARS);
 }
 

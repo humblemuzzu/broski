@@ -1,4 +1,7 @@
-/** The state a new session opens in: the modes asked for (never omitted, fact 5), the model and the thinking checked against the catalogue. */
+/**
+ * The state a new session opens in: the modes asked for (never omitted, D5), the model and the thinking checked against
+ * the catalogue.
+ */
 
 import type { PermissionMode } from "@anthropic-ai/claude-agent-sdk";
 import {

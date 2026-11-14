@@ -1,4 +1,4 @@
-/** Lane B · `retracted_message_uuids` and `supersedes` as `messages_retracted` (fact 10). */
+/** `retracted_message_uuids` and `supersedes` as `messages_retracted`. */
 
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import { MAX_LIST_ITEMS } from "../../../contract";
@@ -42,8 +42,9 @@ function withdrawnByStream(state: MapperState, frame: SDKMessage): Map<string, S
 
 /**
  * The messages the frame withdraws, by the `message.id` of the assistant frames it names. A uuid the mapper never saw
- * is a no-op (eviction is idempotent, `d.ts:5718`), so is a message already withdrawn; the message the frame itself
- * delivers is never withdrawn by it.
+ * is a no-op (eviction is idempotent, `SDKAssistantMessage.supersedes`), and so is a user frame it names: a refused
+ * attempt's tool results go with the assistant message that called them. A message already withdrawn is not withdrawn
+ * twice, and the message the frame itself delivers is never withdrawn by it.
  */
 export function retractionEvents(state: MapperState, frame: SDKMessage): MappedEvent[] {
 	const byStream = withdrawnByStream(state, frame);

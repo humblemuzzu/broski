@@ -1,6 +1,6 @@
 /**
- * One watcher per project directory under `configRoot()/projects/`, shared by every watch-only session in it (research
- * 04 §7 rec. 3). `fs.watch` says a transcript changed; a slow `stat` sweep over the tracked files catches what it misses.
+ * One watcher per project directory under `configRoot()/projects/`, shared by every watch-only session in it (D28).
+ * `fs.watch` says a transcript changed; a slow `stat` sweep over the tracked files catches what it misses.
  */
 
 import { type FSWatcher, watch } from "node:fs";
@@ -8,7 +8,7 @@ import { stat } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import type { Clock } from "../ports/time";
 
-export const SWEEP_MS = 250;
+const SWEEP_MS = 250;
 
 export class ProjectWatch {
 	private watcher: FSWatcher | undefined;

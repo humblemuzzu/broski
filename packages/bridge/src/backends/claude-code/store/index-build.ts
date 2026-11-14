@@ -1,4 +1,4 @@
-/** Lane A · the skeleton of one chain read: what a page needs to find an entry, a block's index and a tool's name. */
+/** The skeleton of one chain read: what a page needs to find an entry, a block's index and a tool's name. */
 
 import type { SessionMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { FileStamp } from "./locator";

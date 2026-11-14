@@ -1,4 +1,4 @@
-/** Strict JSON for the files Claude Code reads as JSON: a file that fails here is skipped whole by the CLI (research 05 fact 1). */
+/** Strict JSON for the files Claude Code reads as JSON: the CLI skips a settings file that fails here whole. */
 
 import { isRecord } from "../json";
 

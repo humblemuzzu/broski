@@ -1,4 +1,4 @@
-/** Lane B · what a turn's `result` shows: the totals so far and the end of anything still open. Its outcome is the host's. */
+/** What a turn's `result` shows: the totals so far and the end of anything still open. Its outcome is the host's. */
 
 import type { SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { MappedEvent } from "../ports/mapping";

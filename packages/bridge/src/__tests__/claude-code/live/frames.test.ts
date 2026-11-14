@@ -1,4 +1,6 @@
-/** What the host does with each frame of its CLI (D7, D8, D11, D12, D20, D30): driven through a `FakeQuery`. */
+/**
+ * What the host does with each frame of its CLI (adapter README D8, D9, D12, D13, D20): driven through a `FakeQuery`.
+ */
 
 import { afterEach, describe, expect, test } from "bun:test";
 import type { AgentEvent } from "../../../contract";
@@ -40,7 +42,7 @@ async function hosted(
 
 const types = (events: AgentEvent[]) => events.map((event) => event.type);
 
-describe("run boundaries (D7)", () => {
+describe("run boundaries", () => {
 	test("a turn nobody sent starts a system run on `running` and ends it on `idle`, completed", async () => {
 		const { rig, query, live } = await hosted();
 		query.push(running(), init(), assistant(), result(), idle());
@@ -128,7 +130,7 @@ describe("run boundaries (D7)", () => {
 	});
 });
 
-describe("the mode and the model the CLI reports (D11, D12)", () => {
+describe("the mode and the model the CLI reports", () => {
 	test("a mode in init or status is the session's mode, once", async () => {
 		const { rig, query, live } = await hosted();
 		query.push(
@@ -246,7 +248,7 @@ describe("the conversation going on under a new id (/clear)", () => {
 	});
 });
 
-describe("lifecycle frames (D8)", () => {
+describe("lifecycle frames", () => {
 	test("a steered send is queued until the CLI starts it, then shown; a run's own send is not shown twice", async () => {
 		const { rig, query, live } = await hosted();
 		const first = promptOf("work");

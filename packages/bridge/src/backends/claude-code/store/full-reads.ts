@@ -1,5 +1,5 @@
 /**
- * Lane A · whole-chain reads, one at a time. A full read of a 50 MB transcript peaks near 900 MiB (D42), so two
+ * Whole-chain reads, one at a time. A full read of a 50 MB transcript peaks near 900 MiB (`store/scale.test.ts`), so two
  * phones asking for the same session share one read, and reads of different sessions queue instead of adding up.
  */
 

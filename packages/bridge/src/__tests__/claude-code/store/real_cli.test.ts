@@ -1,6 +1,7 @@
 /**
- * What the store reads from the transcripts the real 2.1.316 CLI writes (a scripted endpoint, a temp home, zero
- * escapes): D37's uuids, the block and tool ids, a subagent's files, fork and rename on files the CLI made.
+ * What the store reads from the transcripts the real CLI writes (a scripted endpoint, a temp home, zero escapes): the
+ * prompts' send uuids (adapter README D10), the block and tool ids, a subagent's files, fork and rename on files the
+ * CLI made.
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
@@ -99,7 +100,7 @@ describe("transcripts the real CLI wrote", () => {
 	});
 
 	test(
-		"the session is listed with the real cwd, the SDK's title (the last prompt, not the first), and the prompts' uuids are the sends' (D37)",
+		"the session is listed with the real cwd, the SDK's title (the last prompt, not the first), and the prompts' uuids are the sends'",
 		async () => {
 			const found = await world.store.get(sessionId, world.live);
 			if (found.status !== "accepted") throw new Error(found.rejection.message);

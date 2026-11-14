@@ -1,4 +1,7 @@
-/** Rules 15 to 18 on the real CLI: steering folds into the run (D8), queued input is the adapter's, visible and cancellable. */
+/**
+ * Rules 15 to 18 on the real CLI: steering folds into the run (adapter README D9), queued input is the adapter's,
+ * visible and cancellable.
+ */
 
 import { describe, expect, test } from "bun:test";
 import type { AgentEvent } from "../../../contract";

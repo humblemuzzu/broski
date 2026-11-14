@@ -1,6 +1,6 @@
 /**
- * Q1, Q2, Q4, Q5 (docs/architecture/backends/claude-code/research/08-spike.md): one offline turn through the
- * real bundled CLI against the scripted endpoint, for text, thinking and a Read tool call.
+ * What runs rest on (adapter README D4, D8, D10): one offline turn through the real CLI against the scripted endpoint,
+ * for text, thinking and a Read tool call.
  */
 
 import { describe, expect, test } from "bun:test";
@@ -28,7 +28,7 @@ function expectOffline(spike: SpikeSession): void {
 		expect(["POST /v1/messages", "POST /v1/messages/count_tokens", "GET /v1/models"]).toContain(route);
 }
 
-describe("Q1/Q2/Q4/Q5: one offline turn through the real CLI", () => {
+describe("one offline turn through the real CLI", () => {
 	test(
 		"plain text turn: offline, idle after result, lifecycle queued→started→completed, assistant before block stop",
 		async () => {
@@ -114,7 +114,7 @@ describe("Q1/Q2/Q4/Q5: one offline turn through the real CLI", () => {
 	);
 
 	test(
-		"Q4: a send without a uuid gets no command_lifecycle frames",
+		"a send without a uuid gets no command_lifecycle frames",
 		async () => {
 			const spike = startSpike({ permissionMode: "default", turns: [{ text: ["ok"] }] });
 			try {

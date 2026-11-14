@@ -1,5 +1,5 @@
 /**
- * The frames the spike recorded from the real CLI (`fixtures/frames/<scenario>.jsonl`, D32), read back for table
+ * The frames the spike recorded from the real CLI (`fixtures/frames/<scenario>.jsonl`, re-recorded at every pin bump), read back for table
  * tests. Temp paths read `<TMP>` and UUIDs are stable placeholders; the frames are otherwise what `query()` yielded.
  */
 

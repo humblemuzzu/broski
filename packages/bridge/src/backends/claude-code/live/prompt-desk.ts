@@ -1,4 +1,4 @@
-/** Prompts: `start`, `steer` (`priority: "next"`), `queue` (D8), human-stamped with uuid = clientRequestId (D9, D37). */
+/** Prompts: `start`, `steer` (`priority: "next"`), `queue` (D9), human-stamped with uuid = clientRequestId (D10). */
 
 import { randomUUID } from "node:crypto";
 import type { SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";

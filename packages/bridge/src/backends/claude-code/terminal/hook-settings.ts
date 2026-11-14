@@ -1,14 +1,14 @@
 /**
- * The terminal ask hook inside a Claude settings object (D26): a `PermissionRequest` hook of type `http` to the
+ * The terminal ask hook inside a Claude settings object (D29): a `PermissionRequest` hook of type `http` to the
  * bridge's loopback URL with the bearer token in a header, that URL added to `allowedHttpHookUrls` only when the user
- * keeps such a list (D123: creating one would block every other HTTP hook of theirs), and, when the bridge's
+ * keeps such a list (creating one would block every other HTTP hook of theirs), and, when the bridge's
  * certificate is self-signed, the file that vouches for it in `env.NODE_EXTRA_CA_CERTS`. Pure: it takes a parsed
  * settings object and gives a new one, every other key untouched.
  */
 
 import { isRecord } from "../json";
 
-export const HOOK_EVENT = "PermissionRequest";
+const HOOK_EVENT = "PermissionRequest";
 export const HOOK_PATH = "/cc-terminal-hook";
 /** A day: the hook request stays open while a person decides; the CLI's own timeout is its withdrawal. */
 export const TERMINAL_HOOK_TIMEOUT_SECONDS = 86_400;

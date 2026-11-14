@@ -1,5 +1,5 @@
 /**
- * Lane A · keeping an insertion-ordered `Map` or `Set` to a size. Dropping the oldest one entry per insert is quadratic
+ * Keeping an insertion-ordered `Map` or `Set` to a size. Dropping the oldest one entry per insert is quadratic
  * in JavaScriptCore (each `keys().next()` walks the deleted slots before it: 150,000 inserts into a 20,000 set took 3.6 s),
  * so a collection may overshoot by `slack(max)` and is then cut back to `max` in one pass.
  */

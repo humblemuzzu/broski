@@ -1,8 +1,8 @@
-/** Lane B · why an `is_error` tool result failed: the CLI's own wording says whether a call was cut short or refused. */
+/** Why an `is_error` tool result failed: the CLI's own wording says whether a call was cut short or refused. */
 
 import type { ToolOutcome } from "../../../contract";
 
-/** The CLI cut a running call short (2.1.316 `claude` strings: "this call was stopped while running, not refused before it ran"). */
+/** The CLI cut a running call short (2.1.325 `claude` strings: "this call was stopped while running, not refused before it ran"). */
 const STOPPED_WHILE_RUNNING = "this call was stopped while running";
 const INTERRUPT_NOTICE = "[Request interrupted by user";
 

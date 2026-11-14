@@ -1,4 +1,4 @@
-/** Lane A · the bytes behind an `ImageRef` of the transcript (`ids.ts` `imageAttachmentId`). */
+/** The bytes behind an `ImageRef` of the transcript (`ids.ts` `imageAttachmentId`). */
 
 import {
 	type AttachmentId,

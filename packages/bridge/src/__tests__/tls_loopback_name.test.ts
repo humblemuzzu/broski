@@ -1,4 +1,7 @@
-/** Claude Code D124: the loopback certificate names 127.0.0.1 and is no CA, and an older one without that is replaced. */
+/**
+ * Claude Code adapter README D29: the loopback certificate names 127.0.0.1 and is no CA, and an older one without that
+ * is replaced.
+ */
 
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";

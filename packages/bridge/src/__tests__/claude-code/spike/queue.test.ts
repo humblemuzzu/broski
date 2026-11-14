@@ -1,6 +1,6 @@
 /**
- * D8 evidence (research/08-spike.md, Q3/Q4): steer with `priority: "next"` mid-tool, and two sends with
- * `priority: "later"` while a turn runs, through the real CLI.
+ * Why steer goes to the CLI and queue stays in the adapter (adapter README D9): steer with `priority: "next"` mid-tool,
+ * and two sends with `priority: "later"` while a turn runs, through the real CLI.
  */
 
 import { describe, expect, test } from "bun:test";

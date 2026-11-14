@@ -1,4 +1,4 @@
-/** Lane B · `conversation_reset` (`/clear`, leaving plan mode with a cleared context) as `session_replaced`. */
+/** `conversation_reset` (`/clear`, leaving plan mode with a cleared context) as `session_replaced`. */
 
 import type { SDKConversationResetMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { MappedEvent } from "../ports/mapping";

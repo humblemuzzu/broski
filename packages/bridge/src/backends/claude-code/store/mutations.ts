@@ -1,4 +1,4 @@
-/** Lane A · rename (`renameSession`), fork (`forkSession`, D19) and delete (the OS trash) of a session nobody hosts. */
+/** Rename (`renameSession`), fork (`forkSession`) and delete (the OS trash) of a session nobody hosts (D27). */
 
 import { stat } from "node:fs/promises";
 import { dirname, join } from "node:path";

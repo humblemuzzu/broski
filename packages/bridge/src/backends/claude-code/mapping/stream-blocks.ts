@@ -1,6 +1,6 @@
 /**
- * Lane B · `stream_event` frames: `block_started`/`block_delta` for text and thinking. A tool call is not started
- * here: its `tool_started` waits for the `assistant` frame that holds the whole input (D51), so `input_json_delta`
+ * `stream_event` frames: `block_started`/`block_delta` for text and thinking. A tool call is not started
+ * here: its `tool_started` waits for the `assistant` frame that holds the whole input (D22), so `input_json_delta`
  * says nothing.
  */
 

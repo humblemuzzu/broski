@@ -1,4 +1,4 @@
-/** Lane A · the `ChainSource` of a session and of a subagent child (D20): which SDK reader and which file. */
+/** The `ChainSource` of a session and of a subagent child (D20): which SDK reader and which file. */
 
 import type { Rejected, SessionId } from "../../../contract";
 import { parseChildRef } from "../ids";

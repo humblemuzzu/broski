@@ -1,4 +1,4 @@
-/** Lane A · subagent child sessions (D20): `listSubagents` + the `.meta.json` sidecar, `getSubagentMessages`. */
+/** Subagent child sessions (D20): `listSubagents` + the `.meta.json` sidecar, `getSubagentMessages`. */
 
 import {
 	MAX_NAME_CHARS,

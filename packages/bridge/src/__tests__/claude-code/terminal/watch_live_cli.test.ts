@@ -1,4 +1,7 @@
-/** A second CLI process writes a session; a watch-only open shows it live (D21). Real CLI, scripted endpoint, temp home. */
+/**
+ * A second CLI process writes a session; a watch-only open shows it live (adapter README D28). Real CLI, scripted
+ * endpoint, temp home.
+ */
 
 import { describe, expect, test } from "bun:test";
 import { appendFileSync } from "node:fs";

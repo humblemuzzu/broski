@@ -1,6 +1,6 @@
 /**
- * The order `listSessions` returns, which lane A's keyset cursor must reproduce: newest `lastModified` first, and on a
- * tie the greater `sessionId` first (`sdk.mjs` `zwe` and `$we`), not ascending as research 04 §3 and PLAN fact 15 say.
+ * The order `listSessions` returns, which the store's keyset cursor must reproduce: newest `lastModified` first, and on
+ * a tie the greater `sessionId` first.
  */
 
 import { afterAll, expect, test } from "bun:test";

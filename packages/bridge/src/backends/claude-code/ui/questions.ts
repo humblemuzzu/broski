@@ -1,4 +1,4 @@
-/** AskUserQuestion as `questions` (D13): ids by index, answers rebuilt keyed by question text, multi-select joined. */
+/** AskUserQuestion as `questions` (D15): ids by index, answers rebuilt keyed by question text, multi-select joined. */
 
 import type { PermissionResult } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";

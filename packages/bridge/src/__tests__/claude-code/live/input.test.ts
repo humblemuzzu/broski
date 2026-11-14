@@ -1,4 +1,7 @@
-/** D9, D10, D37, D38 (rules 13 and 14): what a prompt is sent as, on the wire and against the real CLI's transcript. */
+/**
+ * Adapter README D10, D11 (rules 13 and 14): what a prompt is sent as, on the wire and against the real CLI's
+ * transcript.
+ */
 
 import { describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -18,7 +21,7 @@ expectNoOrphans();
 const CLI_TEST_MS = 30_000;
 const PIXEL = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 
-/** 2.1.316 puts an `# Environment` message with role "system" after the first user message; the driver reads the last message. */
+/** The CLI puts an `# Environment` message with role "system" after the first user message; the driver reads the last message. */
 function withoutSystemMessages(request: ScriptedRequest): ScriptedRequest {
 	const body = request.body as { messages: { role: string }[] };
 	return { ...request, body: { ...body, messages: body.messages.filter((message) => message.role === "user") } };

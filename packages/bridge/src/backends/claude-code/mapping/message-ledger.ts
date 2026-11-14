@@ -1,5 +1,5 @@
 /**
- * Lane B · which block of an API message each frame is. A streamed message announces its blocks by `index`
+ * Which block of an API message each frame is. A streamed message announces its blocks by `index`
  * (`content_block_start`); the `assistant` frames that follow carry one block each and no index, so a frame takes the
  * index of the streamed block it completes. A message nobody streamed (a subagent's, a synthetic one, partials off)
  * numbers its frames in arrival order, which is the order history lists the entries of one `message.id` in.

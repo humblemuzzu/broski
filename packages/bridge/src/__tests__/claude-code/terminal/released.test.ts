@@ -1,4 +1,7 @@
-/** D122: a file this bridge's own host wrote last is not a terminal writing it, even within the 10 s window. */
+/**
+ * Adapter README D25: a file this bridge's own host wrote last is not a terminal writing it, even within the 10 s
+ * window.
+ */
 
 import { afterEach, describe, expect, test } from "bun:test";
 import { utimesSync } from "node:fs";

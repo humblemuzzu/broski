@@ -1,7 +1,8 @@
 /**
  * The spike's stdio MCP elicitation server (`spike/rig/elicit-server.ts`) with a third tool, `ask_confirm`, whose form
- * has an empty schema (D13's `confirm`). Configured at user scope in the temp home, its tools allowed in user settings,
- * so calling one raises the elicitation and no tool permission first (Q13: an unallowed MCP tool asks twice).
+ * has an empty schema (a `confirm`, adapter README D15). Configured at user scope in the temp home, its tools allowed
+ * in user settings, so calling one raises the elicitation and no tool permission first (an MCP tool that is not allowed
+ * asks for permission first).
  */
 
 import { mkdirSync, writeFileSync } from "node:fs";

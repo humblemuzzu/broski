@@ -1,6 +1,7 @@
 /**
- * D26 on Broski's own sessions: they load the user's settings, so the installed terminal hook fires for them too. The
- * adapter answers it with no decision, so the CLI's own `canUseTool` raises the ask on the phone as for any session.
+ * The terminal hook (adapter README D29) on Broski's own sessions: they load the user's settings, so the installed
+ * terminal hook fires for them too. The adapter answers it with no decision, so the CLI's own `canUseTool` raises the
+ * ask on the phone as for any session.
  */
 
 import { afterEach, describe, expect, test } from "bun:test";

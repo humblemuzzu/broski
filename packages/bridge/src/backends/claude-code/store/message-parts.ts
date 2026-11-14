@@ -1,4 +1,4 @@
-/** Lane A · reading the parts of a `SessionMessage` the SDK types as `unknown` or leaves out, without a cast. */
+/** Reading the parts of a `SessionMessage` the SDK types as `unknown` or leaves out, without a cast. */
 
 import type { SessionMessage } from "@anthropic-ai/claude-agent-sdk";
 import { isRecord } from "../json";
@@ -35,7 +35,7 @@ export function stringField(block: unknown, key: string): string | undefined {
 	return isRecord(block) && typeof block[key] === "string" ? block[key] : undefined;
 }
 
-/** The runtime fields `getSessionMessages` adds beyond the declared type (`sdk.mjs` `$R`). */
+/** The runtime fields `getSessionMessages` adds beyond the declared `SessionMessage` type. */
 export function entryTimestamp(message: SessionMessage): number | undefined {
 	if (!("timestamp" in message) || typeof message.timestamp !== "string") return undefined;
 	const at = Date.parse(message.timestamp);

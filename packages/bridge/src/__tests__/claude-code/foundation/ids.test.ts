@@ -29,7 +29,7 @@ describe("ids", () => {
 		expect(new Set(minted).size).toBe(3);
 	});
 
-	test("D37: a prompt's send uuid is its clientRequestId, and the entry uuid is its item id", () => {
+	test("a prompt's send uuid is its clientRequestId, and the entry uuid is its item id", () => {
 		const clientRequestId = crypto.randomUUID();
 		expect(sendUuid(clientRequestId)).toBe(clientRequestId);
 		expect(sendUuid("not-a-uuid")).toBeUndefined();

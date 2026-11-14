@@ -16,7 +16,7 @@ export interface ToolAsk {
 export const WITHDRAWN: PermissionResult = { behavior: "deny", message: "The request was withdrawn." };
 
 /** A human dismissed the ask: a plain denial, or one that also interrupts the turn when they chose to stop the run. */
-export function cancelledToolAsk(reply: CancelReply): PermissionResult {
+function cancelledToolAsk(reply: CancelReply): PermissionResult {
 	return {
 		behavior: "deny",
 		message: humanDenial(reply.message),

@@ -1,4 +1,4 @@
-/** `toolTitle` and the image helpers lanes A, E and G share. */
+/** `toolTitle` and the image helpers the store, the asks and the terminal tail share with the mapping. */
 
 import { describe, expect, test } from "bun:test";
 import { imageAt, imageRefsOf } from "../../../backends/claude-code/mapping/images";

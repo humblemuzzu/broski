@@ -1,7 +1,7 @@
 /**
- * D41a against the real CLI: Read, Edit, Write and Bash through the scripted endpoint (zero escapes). What reaches
- * lane B's `toolResultOf` from history is the `tool_use_result` the live frame carried, and each history result equals
- * the live mapper's `tool_finished` for the same call.
+ * Adapter README D26 against the real CLI: Read, Edit, Write and Bash through the scripted endpoint (zero escapes).
+ * What reaches the mapping's `toolResultOf` from history is the `tool_use_result` the live frame carried, and each
+ * history result equals the live mapper's `tool_finished` for the same call.
  */
 
 import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";

@@ -1,6 +1,6 @@
 /**
- * The loopback endpoint a terminal `claude`'s `PermissionRequest` hook posts to (Claude Code PLAN D26). The request
- * stays open while a person decides on the phone; the answer is the hook's JSON body. It never answers by itself: a
+ * The loopback endpoint a terminal `claude`'s `PermissionRequest` hook posts to (Claude Code adapter README D29). The
+ * request stays open while a person decides on the phone; the answer is the hook's JSON body. It never answers by itself: a
  * request the adapter has no answer for, or that the CLI drops (its own hook timeout, or the terminal gone), ends with
  * `{}`, which leaves the decision to the terminal's own prompt. Authentication is the loopback listener's bearer token,
  * checked before a request reaches here (`http-handler.ts`).

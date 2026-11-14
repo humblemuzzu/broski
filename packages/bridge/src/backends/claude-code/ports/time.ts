@@ -1,4 +1,4 @@
-/** Time as the adapter reads it, so tests drive idle graces (D1) and cache ages (D6) without waiting. */
+/** Time as the adapter reads it, so tests drive idle graces (D1) and cache ages (D7) without waiting. */
 export interface Clock {
 	now(): number;
 	/** Runs `run` once after `ms`; the function returned cancels it. Never keeps the process alive. */

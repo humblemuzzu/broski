@@ -1,6 +1,6 @@
 /**
- * Lane A · what a `system` entry says, read from the raw transcript line of an entry the SDK's reader already returned
- * (it hands over only `{type, uuid, timestamp}` for them, `sdk.mjs` `$R`): the subtypes D18 maps to items.
+ * What a `system` entry says, read from the raw transcript line of an entry the SDK's reader already returned
+ * (it hands over only `{type, uuid, timestamp}` for them, `getSessionMessages`): the subtypes that become items (D26).
  */
 
 import type { CompactionTrigger, NoticeLevel } from "../../../contract";

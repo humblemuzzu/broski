@@ -1,4 +1,4 @@
-/** Lane A · a newest-first transcript page (D18), ending before an active run (`LiveRow.cut`). */
+/** A newest-first transcript page (D26), ending before an active run (`LiveRow.cut`). */
 
 import type { SessionMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { PageRequest, Rejected, SessionId, TranscriptItem, TranscriptReadResult } from "../../../contract";

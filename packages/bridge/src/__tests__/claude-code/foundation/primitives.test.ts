@@ -10,7 +10,7 @@ import { emptySnapshot, type SinkRecord } from "../../../contract";
 import { FakeQuery } from "../helpers/fake-query";
 import { frameScenarios, readFrameFixture } from "../helpers/frame-fixtures";
 
-describe("D4 environment", () => {
+describe("the CLI's environment", () => {
 	test("adds the adapter's variables and drops what the SDK must stamp itself", () => {
 		const env = cliEnv({
 			base: { PATH: "/bin", CLAUDE_CODE_ENTRYPOINT: "cli", CLAUDE_AGENT_SDK_VERSION: "0.0.1" },

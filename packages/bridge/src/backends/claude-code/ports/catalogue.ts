@@ -1,4 +1,4 @@
-/** The catalogue (lane C): models, commands, modes and status, from `initialize` answers (D6); STEP-3 §C. */
+/** The catalogue: models, commands, modes and status, from `initialize` answers (D7). */
 
 import type { SDKControlInitializeResponse } from "@anthropic-ai/claude-agent-sdk";
 import type {
@@ -24,7 +24,7 @@ export interface CatalogueAccess {
 	modes(cwd: string | undefined): Promise<ModesListResult>;
 	/** Undefined for a model the list does not offer, which `setModel` refuses `not_found`. */
 	model(cwd: string, modelId: ModelId): Promise<ModelSummary | Rejected | undefined>;
-	/** The listed id a wire model (`init.model`) resolves from, through `ModelInfo.resolvedModel` (D11). */
+	/** The listed id a wire model (`init.model`) resolves from, through `ModelInfo.resolvedModel` (D12). */
 	listedModelId(cwd: string, wireModel: string): Promise<ModelId | undefined>;
 	/** Never fails (contract `status()`). */
 	status(): Promise<BackendStatus>;

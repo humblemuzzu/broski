@@ -1,4 +1,4 @@
-/** Lane B · ids read off frames. The SDK types them as strings, but a frame is data from a process: only a string fits. */
+/** Ids read off frames. The SDK types them as strings, but a frame is data from a process: only a string fits. */
 
 import type { ToolCallId } from "../../../contract";
 import { fitsId } from "../bounds";

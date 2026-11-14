@@ -1,7 +1,7 @@
 /**
  * Our terminal ask hook is installed, but an `allowedHttpHookUrls` list the user did not let us change (project, local,
- * managed) leaves its URL out, so the CLI never calls it and terminal prompts stay on the terminal (D123). The lists
- * merge across sources (`sdk.d.ts:7647`), so the merged list decides; the sources that keep one are named. Nothing
+ * managed) leaves its URL out, so the CLI never calls it and terminal prompts stay on the terminal (D29). The lists
+ * merge across sources (`Settings.allowedHttpHookUrls`), so the merged list decides; the sources that keep one are named. Nothing
  * here edits a file: a project's or an organisation's settings are theirs.
  */
 
@@ -36,7 +36,7 @@ export function blockedHook(resolved: ResolvedSettings): BlockedHook | undefined
 	return { url, sources: [...new Set(sources.map(({ source }) => source))] };
 }
 
-export function blockedHookText(blocked: BlockedHook): string {
+function blockedHookText(blocked: BlockedHook): string {
 	const where = blocked.sources.length > 0 ? `${blocked.sources.join(" and ")} settings` : "the settings";
 	return `Terminal permission prompts cannot reach the phone: allowedHttpHookUrls in ${where} does not list ${blocked.url}, so Claude Code does not call Broski's hook. Add that URL there; Broski does not change project or managed settings.`;
 }

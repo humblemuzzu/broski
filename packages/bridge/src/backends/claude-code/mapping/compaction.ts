@@ -1,4 +1,4 @@
-/** Lane B · `status: compacting` and `compact_boundary` as `compaction_started`/`compaction_finished` (Q13). */
+/** `status: compacting` and `compact_boundary` as `compaction_started`/`compaction_finished` (D22). */
 
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { CompactionOutcome, CompactionTrigger } from "../../../contract";
