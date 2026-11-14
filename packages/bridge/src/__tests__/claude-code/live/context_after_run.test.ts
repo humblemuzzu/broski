@@ -1,6 +1,6 @@
 /** The context figure is asked of the live host once a run has finished, and sent over the usage it had. */
 
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import type { SDKControlGetContextUsageResponse } from "@anthropic-ai/claude-agent-sdk";
 import type { AgentEvent } from "../../../contract";
 import { FakeQuery } from "../helpers/fake-query";
@@ -65,11 +65,38 @@ describe("the context usage after a run", () => {
 		await rig.dispose();
 	});
 
-	test("a CLI that fails to answer sends nothing more, and the run has finished all the same", async () => {
-		const query = new FakeQuery({ getContextUsage: async () => Promise.reject(new Error("no context today")) });
-		const { rig, live } = await oneRun(query);
-		expect(types(live.events()).at(-1)).toBe("run_finished");
-		await rig.dispose();
+	test("a live CLI that fails to answer is logged, sends nothing more, and the run has finished all the same", async () => {
+		const stderr = spyOn(process.stderr, "write").mockImplementation(() => true);
+		try {
+			const query = new FakeQuery({ getContextUsage: async () => Promise.reject(new Error("no context today")) });
+			const { rig, live } = await oneRun(query);
+			expect(types(live.events()).at(-1)).toBe("run_finished");
+			expect(stderr).toHaveBeenCalledWith("[claude-code] context usage after a run: no context today\n");
+			await rig.dispose();
+		} finally {
+			stderr.mockRestore();
+		}
+	});
+
+	test("a host closed while the answer is pending is not a failure: the SDK rejects the request as its query closes", async () => {
+		const stderr = spyOn(process.stderr, "write").mockImplementation(() => true);
+		try {
+			let closeQuery: (error: Error) => void = () => undefined;
+			const query = new FakeQuery({
+				getContextUsage: () =>
+					new Promise((_, reject) => {
+						closeQuery = reject;
+					}),
+			});
+			const { rig, live } = await oneRun(query);
+			await rig.dispose();
+			closeQuery(new Error("Query closed before response received"));
+			await flush();
+			expect(types(live.events()).at(-1)).toBe("run_finished");
+			expect(stderr).not.toHaveBeenCalled();
+		} finally {
+			stderr.mockRestore();
+		}
 	});
 
 	test("the real CLI answers it after a turn, and the figure is a whole number of tokens within the window", async () => {
