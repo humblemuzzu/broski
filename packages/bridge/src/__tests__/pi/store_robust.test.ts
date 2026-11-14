@@ -216,7 +216,7 @@ describe("files and directories that cannot be read or that loop", () => {
 		chmodSync(locked, 0o000);
 		chmodSync(join(root, "--closed--"), 0o000);
 		try {
-			const listed = await store.list({ archived: false }, { limit: 50 }, NOBODY);
+			const listed = await store.list({}, { limit: 50 }, NOBODY);
 			const missing = await store.transcript("locked", { limit: 5 }, NOBODY);
 
 			expect(listed.status === "accepted" && listed.page.items.map((row) => row.session.sessionId)).toEqual(["fine"]);
@@ -239,7 +239,7 @@ describe("files and directories that cannot be read or that loop", () => {
 		symlinkSync(root, join(root, "--ok--", "back-to-root"));
 		store.watch(NOBODY);
 
-		const listed = await store.list({ archived: false }, { limit: 50 }, NOBODY);
+		const listed = await store.list({}, { limit: 50 }, NOBODY);
 
 		expect(listed.status === "accepted" && listed.page.items.map((row) => row.session.sessionId)).toEqual(["fine"]);
 		expect((await store.get("nobody", NOBODY)).status).toBe("rejected");
@@ -280,7 +280,7 @@ describe("writes that cannot happen", () => {
 		fork.user("child", 10);
 		writeSession(env.sessionDir, fork);
 
-		const listed = await store.list({ archived: false }, { limit: 5 }, NOBODY);
+		const listed = await store.list({}, { limit: 5 }, NOBODY);
 
 		expect(listed.status === "accepted" && listed.page.items[0]?.parent).toBeUndefined();
 	});
@@ -294,19 +294,15 @@ describe("sizes", () => {
 			writeSession(env.sessionDir, builder);
 		}
 		const started = performance.now();
-		const first = await store.list({ cwd: env.cwd, archived: false }, { limit: 50 }, NOBODY);
+		const first = await store.list({ cwd: env.cwd }, { limit: 50 }, NOBODY);
 		const coldMs = performance.now() - started;
 		const warmStarted = performance.now();
-		await store.list({ cwd: env.cwd, archived: false }, { limit: 50 }, NOBODY);
+		await store.list({ cwd: env.cwd }, { limit: 50 }, NOBODY);
 		const warmMs = performance.now() - warmStarted;
 		const seen = new Set<string>();
 		let cursor: string | undefined;
 		do {
-			const page = await store.list(
-				{ cwd: env.cwd, archived: false },
-				{ limit: 200, ...(cursor !== undefined && { cursor }) },
-				NOBODY,
-			);
+			const page = await store.list({ cwd: env.cwd }, { limit: 200, ...(cursor !== undefined && { cursor }) }, NOBODY);
 			if (page.status === "rejected") throw new Error(page.rejection.message);
 			for (const row of page.page.items) seen.add(row.session.sessionId);
 			cursor = page.page.nextCursor;
@@ -348,7 +344,7 @@ describe("sizes", () => {
 		const started = performance.now();
 		const first = await store.transcript("huge", { limit: 20 }, NOBODY);
 		const firstMs = performance.now() - started;
-		const listed = await store.list({ archived: false }, { limit: 5 }, NOBODY);
+		const listed = await store.list({}, { limit: 5 }, NOBODY);
 		Bun.gc(true);
 		const heapGrowth = process.memoryUsage().heapUsed - heapBefore;
 
@@ -384,7 +380,7 @@ describe("bytes that are not text", () => {
 		);
 		writeFileSync(join(env.sessionDir, "binary.jsonl"), Buffer.concat([header, user]));
 
-		const listed = await store.list({ archived: false }, { limit: 5 }, NOBODY);
+		const listed = await store.list({}, { limit: 5 }, NOBODY);
 		const items = await ids("binary", 10);
 
 		expect(listed.status === "accepted" && listed.page.items[0]?.title?.text).toBe("b\ufffd\ufffda");

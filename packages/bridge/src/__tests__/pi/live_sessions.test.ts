@@ -197,7 +197,6 @@ describe("delete", () => {
 				mode: "start",
 				text: "Anyone?",
 				attachments: [],
-				mentions: [],
 			}),
 		).toMatchObject({
 			status: "rejected",

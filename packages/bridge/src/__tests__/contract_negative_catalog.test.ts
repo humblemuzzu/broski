@@ -50,20 +50,6 @@ describe("the capability rule fails", () => {
 			/capabilities are not valid.*listed twice/s,
 		));
 
-	test("for backend ops declared without call()", () =>
-		fails(
-			breakBackend(() => ({ call: undefined })),
-			capabilitiesMatchTheBackend,
-			/backendOps must be declared exactly when call\(\) exists/,
-		));
-
-	test("for call() without backend ops", () =>
-		fails(
-			breakBackend((backend) => ({ traits: { ...backend.traits, backendOps: [] } })),
-			capabilitiesMatchTheBackend,
-			/backendOps must be declared exactly when call\(\) exists/,
-		));
-
 	test("for an invalid status", () =>
 		fails(
 			breakBackend((backend) => ({

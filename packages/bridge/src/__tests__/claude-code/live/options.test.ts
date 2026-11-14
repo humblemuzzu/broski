@@ -39,7 +39,6 @@ describe("the options of a new host", () => {
 		expect(options).toMatchObject({
 			permissionMode: "default",
 			includePartialMessages: true,
-			includeHookEvents: true,
 			forwardSubagentText: true,
 			agentProgressSummaries: true,
 			allowDangerouslySkipPermissions: true,
@@ -115,19 +114,6 @@ describe("the options of a new host", () => {
 		await rig.dispose();
 	});
 
-	test("turn prompt suggestions on only for a person who switched them on", async () => {
-		const off = fakeRig([new FakeQuery()]);
-		expect((await started(off)).options.promptSuggestions).toBeUndefined();
-		await off.dispose();
-		const on = fakeRig([new FakeQuery()], {
-			sdk: {
-				resolveSettings: async () => ({ effective: { promptSuggestionEnabled: true }, provenance: {}, sources: [] }),
-			},
-		});
-		expect((await started(on)).options.promptSuggestions).toBe(true);
-		await on.dispose();
-	});
-
 	test("fail as a value when no binary was found, and start nothing", async () => {
 		const rig = fakeRig([new FakeQuery()], { cli: false });
 		const refused = await rig.live.open({ kind: "new", options: { cwd: tempDir() } }, { emit: () => undefined });
@@ -169,7 +155,6 @@ describe("the options of a resumed host", () => {
 			mode: "start",
 			text: "go",
 			attachments: [],
-			mentions: [],
 		});
 		expect(made.store.rows.find((row) => row.status === "running")?.cut).toBe(entry.uuid);
 		await made.dispose();
@@ -185,7 +170,6 @@ describe("the options of a resumed host", () => {
 			mode: "start" as const,
 			text: "go",
 			attachments: [],
-			mentions: [],
 		};
 		const live = await rig.openNew(dir);
 		never.end();
@@ -216,7 +200,6 @@ describe("the options of a resumed host", () => {
 			mode: "start",
 			text: "go",
 			attachments: [],
-			mentions: [],
 		});
 		expect(rig.sdk.started[1]?.options).toMatchObject({ resume: live.ref.sessionId });
 		expect(rig.sdk.started[1]?.options.sessionId).toBeUndefined();

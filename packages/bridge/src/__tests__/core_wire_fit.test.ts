@@ -31,7 +31,7 @@ function attachAnswer(snapshot: SessionSnapshot): ServerMessage {
 	return {
 		type: "session.attach.result",
 		requestId: "q1",
-		capabilities: { controllable: true, compact: true, cancelQueued: true },
+		capabilities: { controllable: true, compact: true, cancelQueued: true, answer: true },
 		sync: { kind: "snapshot", epoch: "e1", lastSeq: 9, snapshot },
 	};
 }

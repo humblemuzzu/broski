@@ -280,7 +280,6 @@ describe("a dialog answered twice, and one outside a run", () => {
 			mode: "start",
 			text: "",
 			attachments: [],
-			mentions: [],
 			command,
 		});
 		expect(result).toEqual({ status: "accepted", disposition: "handled" });

@@ -101,22 +101,13 @@ export async function externalRunsAreLive(rig: Rig): Promise<void> {
 	live.assertSettled();
 }
 
-/** A run survives a restart of the bridge exactly when `durableRuns` says so; the session survives always. */
-export async function runsSurviveARestartWhenDurable(rig: Rig): Promise<void> {
-	const durable = rig.traits.durableRuns;
+/** A session survives a restart of the bridge; a run in progress ends with it. */
+export async function sessionsSurviveARestart(rig: Rig): Promise<void> {
 	const live = await holding(rig);
-	const started = await live.waitFor("run_started");
+	await live.waitFor("run_started");
 	await rig.restart();
 	const found = await rig.backend.getSession(live.ref);
 	expect(found.status === "accepted", "the session did not survive a restart of the bridge");
 	const reopened = await rig.open(live.ref);
-	const survived = reopened.initial.run !== undefined;
-	expect(
-		survived === durable,
-		`durableRuns is ${durable} but the run ${survived ? "survived" : "ended with"} the restart`,
-	);
-	if (survived) {
-		expect(reopened.initial.run?.runId === started.runId, "the run that survived has another id");
-		await abortAndConfirm(reopened);
-	}
+	expect(reopened.initial.run === undefined, "a run survived the restart of the bridge");
 }

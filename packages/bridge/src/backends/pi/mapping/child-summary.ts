@@ -50,7 +50,6 @@ export function childSummary(facts: ChildFacts): SessionSummary | undefined {
 		...(facts.updatedAt !== undefined && { createdAt: facts.updatedAt }),
 		updatedAt: facts.updatedAt ?? facts.parent.updatedAt,
 		parent: { kind: "subagent", session: facts.parent.session },
-		archived: false,
 		status: facts.status,
 		origin: facts.parent.origin,
 	};

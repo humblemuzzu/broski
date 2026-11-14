@@ -15,7 +15,6 @@ const RESULT_MS = 25_000;
 const PLAN = "# Plan\n\n1. Do it.\n";
 const ELICIT_TOOL: Partial<Record<InteractionKind, ElicitTool>> = {
 	form: "ask_form",
-	external_url: "ask_url",
 	confirm: "ask_confirm",
 };
 const QUESTION = {

@@ -1,15 +1,7 @@
-import {
-	ADDED_IN_MINOR,
-	type AgentBackend,
-	type BackendCall,
-	type BackendCallResult,
-	type ResponseFor,
-} from "../contract";
+import type { ResponseFor } from "../contract";
 import { onBackend } from "./context";
-import { allowedCall, allowedDirectory } from "./directories";
-import { transcriptBefore14 } from "./older-activities";
+import { allowedDirectory } from "./directories";
 import { pageWithinFrame } from "./paged-read";
-import type { DirectoryPolicy } from "./ports";
 import { unsupported } from "./results";
 
 export const sessionCreate = onBackend<"session.create">(
@@ -50,20 +42,9 @@ export const sessionDelete = onBackend<"session.delete">(
 	},
 );
 
-export const sessionArchive = onBackend<"session.archive">(
-	(request) => request.session.backend,
-	async ({ request, respond, backend }) => {
-		const result = backend.archive
-			? await backend.archive(request.session, request.archived)
-			: unsupported("archive a session");
-		respond({ type: "session.archive.result", requestId: request.requestId, result });
-	},
-);
-
 export const transcriptRead = onBackend<"transcript.read">(
 	(request) => request.session.backend,
-	async ({ ctx, client, request, respond, backend }) => {
-		const older = !client.speaks(ADDED_IN_MINOR.activities);
+	async ({ ctx, request, respond, backend }) => {
 		const message = await pageWithinFrame(
 			ctx.maxFrameBytes,
 			request.page.limit,
@@ -72,7 +53,7 @@ export const transcriptRead = onBackend<"transcript.read">(
 				return {
 					type: "transcript.read.result",
 					requestId: request.requestId,
-					result: older ? transcriptBefore14(result) : result,
+					result,
 				};
 			},
 		);
@@ -87,25 +68,3 @@ export const attachmentRead = onBackend<"attachment.read">(
 		respond({ type: "attachment.read.result", requestId: request.requestId, result });
 	},
 );
-
-/**
- * A backend's own op; history-rewriting ones are followed by the adapter's `transcript_invalidated`. An op that names a
- * project directory reaches the adapter with it canonical, as every request's `cwd` does.
- */
-export const backendCall = onBackend<"backend.call">(
-	(request) => request.call.backend,
-	async ({ ctx, request, respond, backend }) => {
-		const result = await servedCall(ctx.directories, backend, request.call);
-		respond({ type: "backend.call.result", requestId: request.requestId, result });
-	},
-);
-
-async function servedCall(
-	directories: DirectoryPolicy,
-	backend: AgentBackend,
-	call: BackendCall,
-): Promise<BackendCallResult> {
-	if (!backend.call) return unsupported(`run ${call.op.kind}`);
-	const allowed = await allowedCall(directories, call);
-	return allowed.status === "allowed" ? backend.call(allowed.call) : allowed;
-}

@@ -77,15 +77,15 @@ describe("a tool that runs a subagent", () => {
 		t.router.script(live.ref.sessionId, [subagent("Find the readme."), say("Delegated.")]);
 		await live.run("go");
 		const child = await childOf(live);
-		const children = await t.backend.listSessions({ archived: false, parent: live.ref }, { limit: 50 });
+		const children = await t.backend.listSessions({ parent: live.ref }, { limit: 50 });
 		expect(children.status === "accepted" && children.page.items.map((row) => row.session)).toEqual([child]);
-		const top = await t.backend.listSessions({ archived: false, cwd: t.cwd }, { limit: 50 });
+		const top = await t.backend.listSessions({ cwd: t.cwd }, { limit: 50 });
 		expect(top.status === "accepted" && top.page.items.map((row) => row.session)).toEqual([live.ref]);
 		const announced = t.catalog.items.filter(
 			(event) => event.type === "session_updated" && event.summary.session.sessionId === child.sessionId,
 		);
 		expect(announced.length).toBeGreaterThanOrEqual(2);
-		const grandchildren = await t.backend.listSessions({ archived: false, parent: child }, { limit: 50 });
+		const grandchildren = await t.backend.listSessions({ parent: child }, { limit: 50 });
 		expect(grandchildren).toEqual({ status: "accepted", page: { items: [] } });
 	});
 
@@ -213,11 +213,11 @@ describe("a handoff child", () => {
 			{ id: "handoff-1", cwd: t.cwd, version: 3, parentSession: t.fileOf(live.ref) },
 			conversation(["Continue with the plan.", "On it."]),
 		);
-		const children = await t.backend.listSessions({ archived: false, parent: live.ref }, { limit: 50 });
+		const children = await t.backend.listSessions({ parent: live.ref }, { limit: 50 });
 		expect(children.status === "accepted" && children.page.items.map((row) => row.session.sessionId)).toEqual([
 			"handoff-1",
 		]);
-		const top = await t.backend.listSessions({ archived: false, cwd: t.cwd }, { limit: 50 });
+		const top = await t.backend.listSessions({ cwd: t.cwd }, { limit: 50 });
 		expect(top.status === "accepted" && top.page.items.map((row) => row.session.sessionId)).toContain("handoff-1");
 		const read = await transcriptOf(t, { backend: "pi", sessionId: "handoff-1" });
 		expect(read.map((item) => item.kind)).toEqual(["user_message", "block"]);
@@ -230,7 +230,7 @@ describe("a handoff child", () => {
 		await live.run("start");
 		const forked = await t.backend.fork?.(live.ref, undefined);
 		if (forked?.status !== "accepted") throw new Error("no fork");
-		const children = await t.backend.listSessions({ archived: false, parent: live.ref }, { limit: 50 });
+		const children = await t.backend.listSessions({ parent: live.ref }, { limit: 50 });
 		expect(children.status === "accepted" && children.page.items.map((row) => [row.session, row.parent?.kind])).toEqual(
 			[[forked.session, "fork"]],
 		);

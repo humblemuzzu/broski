@@ -138,7 +138,7 @@ export class TestClient {
 		return answer;
 	}
 
-	/** Says `hello` as an app of `protocol`: the bridge's own by default, or an older minor. */
+	/** Says `hello` as an app of `protocol`, the bridge's own by default. */
 	hello(protocol: ProtocolVersion = PROTOCOL_VERSION): Promise<ResponseFor<"hello">> {
 		return this.ok("hello", { protocol, client: { name: "test", version: "1.0.0" } });
 	}
@@ -219,7 +219,7 @@ export function promptInput(
 	mode: PromptMode = "start",
 	clientRequestId = crypto.randomUUID(),
 ): PromptInput {
-	return { clientRequestId, mode, text, attachments: [], mentions: [] };
+	return { clientRequestId, mode, text, attachments: [] };
 }
 
 /** Every way what `client` received for `session` after `initial` breaks the contract's stream rules. */

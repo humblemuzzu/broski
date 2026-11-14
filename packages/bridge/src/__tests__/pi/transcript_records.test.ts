@@ -107,7 +107,6 @@ describe("a skill command", () => {
 			mode: "start",
 			text: "the docs folder",
 			attachments: [],
-			mentions: [],
 			command: "skill:tidy",
 		});
 		expect(outcome.kind).toBe("completed");
@@ -132,7 +131,6 @@ describe("a skill command", () => {
 			mode: "start",
 			text: "the docs\n\n  folder",
 			attachments: [],
-			mentions: [],
 			command: "skill:tidy",
 		});
 		const title: SessionTitle = { text: "/skill:tidy the docs folder", source: "first_prompt" };
@@ -163,7 +161,6 @@ describe("an extension's message with display on", () => {
 				mode: "start",
 				text: "",
 				attachments: [],
-				mentions: [],
 				command: "ext:note",
 			}),
 		).toMatchObject({ disposition: "handled" });
@@ -184,7 +181,6 @@ describe("an extension command's dialog raised during a run", () => {
 				mode: "start",
 				text: "",
 				attachments: [],
-				mentions: [],
 				command: "ext:drv-ask",
 			}),
 		).toMatchObject({ disposition: "handled" });
@@ -217,7 +213,6 @@ describe("an extension command's dialog raised during a run", () => {
 			mode: "start",
 			text: "",
 			attachments: [],
-			mentions: [],
 			command: "ext:ask-later",
 		});
 		const { interaction } = await live.waitFor("interaction_requested");

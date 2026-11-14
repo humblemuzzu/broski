@@ -35,7 +35,7 @@ function chat(id: string, cwd: string, lastAt: number, prompt = `prompt of ${id}
 }
 
 async function list(query: Partial<SessionQuery>, page: PageRequest = { limit: 200 }, live: LiveOverlay = NOBODY) {
-	const result = await listSessions(index, { archived: false, ...query }, page, live, children);
+	const result = await listSessions(index, { ...query }, page, live, children);
 	expect(SessionsListResult.safeParse(result).success).toBe(true);
 	return result;
 }
@@ -83,31 +83,11 @@ describe("paging a listing", () => {
 			Buffer.from(JSON.stringify({ v: 1, k: "sessions", s: "x", p: [1, "x"] })).toString("base64url"),
 		];
 		for (const cursor of refused) {
-			const result = await listSessions(
-				index,
-				{ archived: false, cwd: env.cwd },
-				{ limit: 1, cursor },
-				NOBODY,
-				children,
-			);
+			const result = await listSessions(index, { cwd: env.cwd }, { limit: 1, cursor }, NOBODY, children);
 			expect(result.status === "rejected" && result.rejection.code).toBe("invalid_input");
 		}
-		const elsewhere = await listSessions(
-			index,
-			{ archived: false, cwd: env.otherCwd },
-			{ limit: 1, cursor: minted },
-			NOBODY,
-			children,
-		);
+		const elsewhere = await listSessions(index, { cwd: env.otherCwd }, { limit: 1, cursor: minted }, NOBODY, children);
 		expect(elsewhere.status === "rejected" && elsewhere.rejection.code).toBe("invalid_input");
-		const archived = await listSessions(
-			index,
-			{ archived: true, cwd: env.cwd },
-			{ limit: 1, cursor: minted },
-			NOBODY,
-			children,
-		);
-		expect(archived.status === "rejected" && archived.rejection.code).toBe("invalid_input");
 	});
 
 	test("a session written by another process appears in the next listing, and a changed one moves", async () => {

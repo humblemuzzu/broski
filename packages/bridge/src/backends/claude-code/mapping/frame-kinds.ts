@@ -73,7 +73,7 @@ export const FRAME_KINDS: Readonly<Record<FrameKey, Disposition>> = {
 		shows: "tool_updated(progress) on the call that started the task",
 	},
 	tool_progress: { shows: "tool_updated(progress) while the call runs" },
-	prompt_suggestion: { shows: "extension(prompt_suggestion)" },
+	prompt_suggestion: { ignored: "the host does not ask for prompt suggestions" },
 	rate_limit_event: { shows: "extension(rate_limit)" },
 	conversation_reset: { shows: "session_replaced" },
 	"system/session_state_changed": {
@@ -94,9 +94,9 @@ export const FRAME_KINDS: Readonly<Record<FrameKey, Disposition>> = {
 	"system/thinking_tokens": {
 		ignored: "a spinner estimate, not billable, and block_delta carries text only",
 	},
-	"system/hook_started": { shows: "activity, running (Step 7: the host sets includeHookEvents)" },
-	"system/hook_progress": { shows: "activity, running, with the output so far" },
-	"system/hook_response": { shows: "activity with its outcome, output and duration" },
+	"system/hook_started": { ignored: "the host does not ask for hook events" },
+	"system/hook_progress": { ignored: "the host does not ask for hook events" },
+	"system/hook_response": { ignored: "the host does not ask for hook events" },
 	"system/memory_recall": {
 		ignored: `${NO_HOME}; a notice every turn would be noise`,
 	},

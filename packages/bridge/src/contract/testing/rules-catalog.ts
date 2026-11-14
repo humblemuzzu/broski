@@ -9,8 +9,6 @@ export async function capabilitiesMatchTheBackend(rig: Rig): Promise<void> {
 	const { backend } = rig;
 	const capabilities = Capabilities.safeParse(backendCapabilities(backend));
 	expect(capabilities.success, `the capabilities are not valid: ${capabilities.error?.message}`);
-	const hasCall = backend.call !== undefined;
-	expect(hasCall === backend.traits.backendOps.length > 0, "backendOps must be declared exactly when call() exists");
 	const status = BackendStatus.safeParse(await backend.status());
 	expect(status.success, `status() is not a valid BackendStatus: ${status.error?.message}`);
 }

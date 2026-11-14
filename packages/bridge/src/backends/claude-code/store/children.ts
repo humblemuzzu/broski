@@ -83,7 +83,6 @@ function childRow(
 			kind: "subagent",
 			session: { backend: "claude-code", sessionId: parent.sessionId },
 		},
-		archived: false,
 		status: live.row(entry.ref)?.status ?? "unknown",
 		origin: ctx.deps.ownership.origin(parent.sessionId),
 		...(meta.agentType !== undefined &&

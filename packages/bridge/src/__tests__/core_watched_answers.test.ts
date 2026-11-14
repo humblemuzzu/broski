@@ -14,7 +14,6 @@ const PERMISSION = [
 	{ kind: "tool" as const, name: "bash", input: { command: "ls" }, output: "ok", permission: true },
 	{ kind: "text" as const, text: "Ran it." },
 ];
-const MINOR_THREE = { major: 1, minor: 3 } as const;
 
 function allow(interaction: Interaction): InteractionAnswer {
 	return { interactionId: interaction.id, reply: { kind: "tool_permission", optionId: "allow_once", grantIds: [] } };
@@ -54,8 +53,6 @@ describe("a session that can only be watched but takes answers", () => {
 			controllable: false,
 			compact: false,
 			cancelQueued: false,
-			cancelCompaction: false,
-			cancelRetry: false,
 			answer: true,
 		});
 		const interaction = await pendingFor(phone, session);
@@ -84,8 +81,6 @@ describe("a session that can only be watched but takes answers", () => {
 			(await phone.ok("thinking.set", { session, thinking: "high" })).result,
 			(await phone.ok("mode.set", { session, axis: "permissions", value: "edits" })).result,
 			(await phone.ok("compact", { session })).result,
-			(await phone.ok("compaction.cancel", { session })).result,
-			(await phone.ok("retry.cancel", { session })).result,
 		];
 		expect(results.map(codeOf)).toEqual(Array(results.length).fill("unsupported"));
 	});
@@ -97,25 +92,6 @@ describe("a session that can only be watched but takes answers", () => {
 		const other = await rig.client("other");
 		const answered = await other.request("interaction.answer", { session, answer: allow(interaction) });
 		expect(answered).toMatchObject({ error: { code: "not_attached" } });
-		expect(seen).toEqual([]);
-	});
-
-	test("tells a client of 1.3 nothing of it and refuses its answer as before", async () => {
-		const { rig, session, seen } = await watchedRig();
-		const older = await rig.client("older", MINOR_THREE);
-		const attached = await older.ok("session.attach", { session });
-		expect(Object.keys(attached.capabilities).sort()).toEqual([
-			"cancelCompaction",
-			"cancelQueued",
-			"cancelRetry",
-			"compact",
-			"controllable",
-		]);
-		if (attached.sync.kind !== "snapshot") throw new Error("a fresh attach gets a snapshot");
-		const [interaction] = attached.sync.snapshot.interactions;
-		if (!interaction) throw new Error("nothing was asked");
-		const answered = await older.ok("interaction.answer", { session, answer: allow(interaction) });
-		expect(codeOf(answered.result)).toBe("unsupported");
 		expect(seen).toEqual([]);
 	});
 

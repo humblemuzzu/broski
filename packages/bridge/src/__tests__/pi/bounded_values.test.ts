@@ -227,8 +227,8 @@ describe("modes and traits", () => {
 		expect(initialPermissions([{ axis: "permissions", value: "ask" }])).toBe("ask");
 	});
 
-	test("the declared traits are valid capabilities beside fork, rename and delete without archive", () => {
-		const capabilities = { ...PI_TRAITS, fork: true, rename: true, delete: true, archive: false };
+	test("the declared traits are valid capabilities beside fork, rename and delete", () => {
+		const capabilities = { ...PI_TRAITS, fork: true, rename: true, delete: true };
 		expect(Capabilities.safeParse(capabilities).success).toBe(true);
 	});
 });

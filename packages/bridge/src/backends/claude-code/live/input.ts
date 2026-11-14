@@ -1,4 +1,4 @@
-/** D10: a `PromptInput` as the `SDKUserMessage` it is sent as; images base64, mentions as `@` text, human-stamped (D9). */
+/** D10: a `PromptInput` as the `SDKUserMessage` it is sent as; images base64, human-stamped (D9). */
 
 import type { UUID } from "node:crypto";
 import type { SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
@@ -6,7 +6,6 @@ import {
 	type Attachment,
 	type ImageRef,
 	MAX_TEXT_CHARS,
-	type Mention,
 	type PromptInput,
 	type Rejected,
 	type UserMessageEvent,
@@ -27,10 +26,8 @@ export type SendPriority = "now" | "next" | "later";
 export interface PreparedSend {
 	readonly uuid: UUID;
 	readonly message: SDKUserMessage;
-	/** What the model is sent: the typed text, the command and the mentions. */
-	readonly sentText: string;
-	/** What goes back to the composer when the person stops the run before this was delivered. */
-	readonly typedText: string;
+	/** What the model is sent, the command with its arguments; it goes back to the composer when the person stops the run before it was delivered. */
+	readonly text: string;
 	readonly imageNames: readonly (string | undefined)[];
 	/** The `user_message` the contract shows when this reaches the model. */
 	readonly event: UserMessageEvent;
@@ -48,31 +45,12 @@ function mediaTypeOf(mimeType: string): MediaType | undefined {
 	}
 }
 
-function mentionText(mention: Mention): string {
-	if (mention.kind === "agent") return `@agent-${mention.name}`;
-	return /\s/.test(mention.path) ? `@"${mention.path}"` : `@${mention.path}`;
-}
-
-interface Texts {
-	/** The text with the mentions, which is what the model is sent. */
-	readonly sent: string;
-	/** What the person typed: the command with its arguments, without the mentions. */
-	readonly typed: string;
-}
-
-function textsOf(input: PromptInput): Texts | Rejected {
-	let typed = input.text;
-	if (input.command !== undefined) {
-		const id = commandId(input.command);
-		if (id === undefined) return rejected("invalid_input", "the command is not one Claude Code lists");
-		typed = commandText(id, input.text.trim());
-	}
-	const mentions = input.mentions.map(mentionText).join(" ");
-	if (mentions === "") return { sent: typed, typed };
-	return {
-		sent: typed.trim() === "" ? mentions : `${typed}\n${mentions}`,
-		typed,
-	};
+function textOf(input: PromptInput): string | Rejected {
+	if (input.command === undefined) return input.text;
+	const id = commandId(input.command);
+	return id === undefined
+		? rejected("invalid_input", "the command is not one Claude Code lists")
+		: commandText(id, input.text.trim());
 }
 
 function imageBlocks(images: readonly Image[]): ImageBlock[] | Rejected {
@@ -135,17 +113,15 @@ export function userMessageOf(input: PromptInput, uuid: UUID): PreparedSend | Re
 	if (isRejected(images)) return images;
 	const blocks = imageBlocks(images);
 	if (isRejected(blocks)) return blocks;
-	const texts = textsOf(input);
-	if (isRejected(texts)) return texts;
-	const text = texts.sent;
+	const text = textOf(input);
+	if (typeof text !== "string") return text;
 	const hasText = text.trim() !== "";
 	if (!hasText && blocks.length === 0) return rejected("invalid_input", "there is nothing to send");
 	const content: Content = blocks.length === 0 ? text : [...(hasText ? [textBlock(text)] : []), ...blocks];
 	return {
 		uuid,
 		message: userMessage(uuid, content),
-		sentText: text,
-		typedText: texts.typed,
+		text,
 		imageNames: images.map((image) => image.name),
 		event: {
 			type: "user_message",

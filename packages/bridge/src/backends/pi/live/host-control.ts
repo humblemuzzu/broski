@@ -4,18 +4,15 @@
  */
 
 import type { AgentSession } from "@earendil-works/pi-coding-agent";
-import type { ActionResult, Rejected, SessionControl, SessionSnapshot } from "../../../contract";
+import type { ActionResult, Rejected, SessionControl } from "../../../contract";
 import { CLOSED } from "../rejections";
 import type { InteractionDesk } from "../ui/interactions";
-import { cancelCompaction, cancelRetry } from "./cancel-requests";
 import { requestCompaction } from "./compaction-request";
 import type { SessionSettings } from "./settings";
 
 /** `SessionControl` with the methods a session this bridge made always has. */
-export type HostControl = Omit<SessionControl, "compact" | "cancelCompaction" | "cancelRetry"> & {
+export type HostControl = Omit<SessionControl, "compact"> & {
 	compact(instructions: string | undefined): Promise<ActionResult>;
-	cancelCompaction(): Promise<ActionResult>;
-	cancelRetry(): Promise<ActionResult>;
 };
 
 type Guarded = <T>(work: () => Promise<T>) => Promise<T | Rejected>;
@@ -34,7 +31,6 @@ export interface HostControlDeps {
 	readonly settings: SessionSettings;
 	readonly running: () => boolean;
 	readonly nextCompactionStart: () => Promise<void>;
-	readonly snapshot: () => SessionSnapshot;
 }
 
 export function hostControl(deps: HostControlDeps): HostControl {
@@ -53,7 +49,5 @@ export function hostControl(deps: HostControlDeps): HostControl {
 					started: deps.nextCompactionStart,
 				}),
 			),
-		cancelCompaction: async () => (ended() ? CLOSED : cancelCompaction(deps.session())),
-		cancelRetry: async () => (ended() ? CLOSED : cancelRetry(deps.session(), deps.snapshot())),
 	};
 }

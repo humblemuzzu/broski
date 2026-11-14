@@ -1,12 +1,12 @@
 /**
  * The newest user message of a session's newest main request, read back as the suite's `DeliveredInput` (rule 13).
  * CLI 2.1.316 puts a `system`-role "# Environment" message after the first user message, so the last message whose
- * role is `user` is read, not the last message. D10's wire forms are parsed back: `@agent-<name>` and `@<path>`
- * mentions, a slash command's `<command-name>` tag. Image names never reach a model, so they come from the
+ * role is `user` is read, not the last message. D10's wire form of a slash command, its `<command-name>` tag, is parsed
+ * back. Image names never reach a model, so they come from the
  * transcript's `ImageRef`s, which the store reads from the owner journal (D37).
  */
 
-import type { AgentBackend, Attachment, Mention, SessionRef } from "../../../contract";
+import type { AgentBackend, Attachment, SessionRef } from "../../../contract";
 import type { DeliveredInput } from "../../../contract/testing/conformance-types";
 import type { ScriptedRequest } from "../../helpers/scripted-anthropic-server";
 
@@ -16,8 +16,6 @@ interface WireBlock {
 	readonly source?: { readonly media_type?: unknown; readonly data?: unknown };
 }
 
-const AGENT_MENTION = /@agent-([A-Za-z0-9_.-]+)/g;
-const FILE_MENTION = /(?:^|\s)@(?!agent-)(\S+)/g;
 const COMMAND = /<command-name>\/?([^<\s]+)<\/command-name>/;
 
 export async function deliveredInput(
@@ -39,12 +37,8 @@ export async function deliveredInput(
 		const name = names[index];
 		return [{ kind: "image", mimeType, data, ...(name !== undefined && { name }) }];
 	});
-	const mentions: Mention[] = [
-		...[...raw.matchAll(AGENT_MENTION)].map((match): Mention => ({ kind: "agent", name: match[1] ?? "" })),
-		...[...raw.matchAll(FILE_MENTION)].map((match): Mention => ({ kind: "file", path: match[1] ?? "" })),
-	];
 	const command = COMMAND.exec(typed.join("\n"))?.[1];
-	return { text: raw.trim(), attachments, mentions, ...(command !== undefined && { command }) };
+	return { text: raw.trim(), attachments, ...(command !== undefined && { command }) };
 }
 
 function lastUserBlocks(body: unknown): WireBlock[] | undefined {

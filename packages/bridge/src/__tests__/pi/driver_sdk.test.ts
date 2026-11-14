@@ -65,7 +65,7 @@ describe("the agent dir the driver writes", () => {
 		await session.prompt("/drv-template now");
 		const noTranscript = { readTranscript: () => Promise.reject(new Error("this prompt has no image")) };
 		const delivered = await deliveredInput(noTranscript, stack.router, ref(session));
-		expect(delivered).toEqual({ text: "now", attachments: [], mentions: [], command: "prompt:drv-template" });
+		expect(delivered).toEqual({ text: "now", attachments: [], command: "prompt:drv-template" });
 		expect(TEMPLATE_MARKER).toBe("[[drv-template]]");
 	});
 });

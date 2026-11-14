@@ -3,7 +3,7 @@
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { FrameMapper, MappedEvent, MappingSeed } from "../ports/mapping";
 import { assistantEvents } from "./assistant";
-import { promptSuggestionEvents, rateLimitEvents } from "./extension-frames";
+import { rateLimitEvents } from "./extension-frames";
 import { noticeEvent } from "./notices";
 import { resetEvents } from "./reset";
 import { resultEvents } from "./result";
@@ -33,14 +33,13 @@ function frameEvents(state: MapperState, frame: SDKMessage): MappedEvent[] {
 			return [...retractionEvents(state, frame), ...systemEvents(state, frame)];
 		case "tool_progress":
 			return toolProgressEvents(state, frame);
-		case "prompt_suggestion":
-			return promptSuggestionEvents(state, frame);
 		case "rate_limit_event":
 			return rateLimitEvents(state, frame);
 		case "conversation_reset":
 			return resetEvents(state, frame);
 		case "tool_use_summary":
 		case "auth_status":
+		case "prompt_suggestion":
 			return [];
 		default:
 			return unreachable(frame);

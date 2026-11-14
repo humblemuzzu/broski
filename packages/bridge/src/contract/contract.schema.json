@@ -4,28 +4,9 @@
   "title": "Broski backend contract",
   "x-protocolVersion": {
     "major": 1,
-    "minor": 4
+    "minor": 0
   },
   "$defs": {
-    "AbortBranchSummaryOp": {
-      "x-module": "tree-ops",
-      "$id": "#/$defs/AbortBranchSummaryOp",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "abort_branch_summary"
-        },
-        "sessionId": {
-          "$ref": "#/$defs/SessionId"
-        }
-      },
-      "required": [
-        "kind",
-        "sessionId"
-      ],
-      "additionalProperties": false
-    },
     "AbortRequest": {
       "x-module": "protocol",
       "$id": "#/$defs/AbortRequest",
@@ -87,171 +68,6 @@
       ],
       "additionalProperties": false
     },
-    "ActionList": {
-      "x-module": "action-list",
-      "$id": "#/$defs/ActionList",
-      "type": "object",
-      "properties": {
-        "rows": {
-          "maxItems": 1000,
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/ActionListRow"
-          }
-        },
-        "omitted": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 9007199254740991
-        },
-        "note": {
-          "type": "string",
-          "maxLength": 1048576
-        }
-      },
-      "required": [
-        "rows",
-        "omitted"
-      ],
-      "additionalProperties": false
-    },
-    "ActionListAction": {
-      "x-module": "action-list",
-      "$id": "#/$defs/ActionListAction",
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 256
-        },
-        "label": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1024
-        },
-        "destructive": {
-          "type": "boolean"
-        },
-        "confirm": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1024
-        }
-      },
-      "required": [
-        "id",
-        "label",
-        "destructive"
-      ],
-      "additionalProperties": false
-    },
-    "ActionListChange": {
-      "x-module": "action-list",
-      "$id": "#/$defs/ActionListChange",
-      "type": "object",
-      "properties": {
-        "rowId": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 256
-        },
-        "actionId": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 256
-        }
-      },
-      "required": [
-        "rowId",
-        "actionId"
-      ],
-      "additionalProperties": false
-    },
-    "ActionListRow": {
-      "x-module": "action-list",
-      "$id": "#/$defs/ActionListRow",
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 256
-        },
-        "title": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1024
-        },
-        "subtitle": {
-          "type": "string",
-          "maxLength": 1048576
-        },
-        "status": {
-          "$ref": "#/$defs/ActionListStatus"
-        },
-        "group": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1024
-        },
-        "badges": {
-          "maxItems": 1000,
-          "type": "array",
-          "items": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 1024
-          }
-        },
-        "actions": {
-          "maxItems": 1000,
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/ActionListAction"
-          }
-        }
-      },
-      "required": [
-        "id",
-        "title",
-        "badges",
-        "actions"
-      ],
-      "additionalProperties": false
-    },
-    "ActionListStatus": {
-      "x-module": "action-list",
-      "$id": "#/$defs/ActionListStatus",
-      "type": "object",
-      "properties": {
-        "label": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1024
-        },
-        "tone": {
-          "$ref": "#/$defs/ActionListTone"
-        }
-      },
-      "required": [
-        "label",
-        "tone"
-      ],
-      "additionalProperties": false
-    },
-    "ActionListTone": {
-      "x-module": "action-list",
-      "$id": "#/$defs/ActionListTone",
-      "type": "string",
-      "enum": [
-        "neutral",
-        "ok",
-        "busy",
-        "warning",
-        "error"
-      ]
-    },
     "ActionResult": {
       "x-module": "input",
       "$id": "#/$defs/ActionResult",
@@ -299,120 +115,6 @@
         "droppedItems"
       ],
       "additionalProperties": false
-    },
-    "Activity": {
-      "x-module": "activity",
-      "$id": "#/$defs/Activity",
-      "type": "object",
-      "properties": {
-        "id": {
-          "$ref": "#/$defs/TranscriptItemId"
-        },
-        "label": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1024
-        },
-        "detail": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1024
-        },
-        "status": {
-          "$ref": "#/$defs/ActivityStatus"
-        },
-        "output": {
-          "type": "string",
-          "maxLength": 1048576
-        },
-        "durationMs": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 9007199254740991
-        }
-      },
-      "required": [
-        "id",
-        "label",
-        "status"
-      ],
-      "additionalProperties": false
-    },
-    "ActivityEvent": {
-      "x-module": "events",
-      "$id": "#/$defs/ActivityEvent",
-      "type": "object",
-      "properties": {
-        "type": {
-          "type": "string",
-          "const": "activity"
-        },
-        "activity": {
-          "$ref": "#/$defs/Activity"
-        }
-      },
-      "required": [
-        "type",
-        "activity"
-      ],
-      "additionalProperties": false
-    },
-    "ActivityItem": {
-      "x-module": "transcript",
-      "$id": "#/$defs/ActivityItem",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "activity"
-        },
-        "at": {
-          "$ref": "#/$defs/Timestamp"
-        },
-        "id": {
-          "$ref": "#/$defs/TranscriptItemId"
-        },
-        "label": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1024
-        },
-        "detail": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1024
-        },
-        "status": {
-          "$ref": "#/$defs/ActivityStatus"
-        },
-        "output": {
-          "type": "string",
-          "maxLength": 1048576
-        },
-        "durationMs": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 9007199254740991
-        }
-      },
-      "required": [
-        "kind",
-        "id",
-        "label",
-        "status"
-      ],
-      "additionalProperties": false
-    },
-    "ActivityStatus": {
-      "x-module": "activity",
-      "$id": "#/$defs/ActivityStatus",
-      "type": "string",
-      "enum": [
-        "running",
-        "succeeded",
-        "failed",
-        "cancelled"
-      ]
     },
     "AgentEvent": {
       "x-module": "events",
@@ -473,9 +175,6 @@
           "$ref": "#/$defs/UsageUpdatedEvent"
         },
         {
-          "$ref": "#/$defs/PlanUpdatedEvent"
-        },
-        {
           "$ref": "#/$defs/MessagesRetractedEvent"
         },
         {
@@ -486,9 +185,6 @@
         },
         {
           "$ref": "#/$defs/NoticeEvent"
-        },
-        {
-          "$ref": "#/$defs/ActivityEvent"
         },
         {
           "$ref": "#/$defs/ErrorEvent"
@@ -503,27 +199,6 @@
           "$ref": "#/$defs/ResyncedEvent"
         }
       ]
-    },
-    "AgentMention": {
-      "x-module": "input",
-      "$id": "#/$defs/AgentMention",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "agent"
-        },
-        "name": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1024
-        }
-      },
-      "required": [
-        "kind",
-        "name"
-      ],
-      "additionalProperties": false
     },
     "AttachSync": {
       "x-module": "protocol",
@@ -671,95 +346,6 @@
         "unknown"
       ]
     },
-    "BackendCall": {
-      "x-module": "backend-ops",
-      "$id": "#/$defs/BackendCall",
-      "oneOf": [
-        {
-          "$ref": "#/$defs/ClaudeCodeCall"
-        },
-        {
-          "$ref": "#/$defs/PiCall"
-        }
-      ]
-    },
-    "BackendCallAccepted": {
-      "x-module": "backend-ops",
-      "$id": "#/$defs/BackendCallAccepted",
-      "type": "object",
-      "properties": {
-        "status": {
-          "type": "string",
-          "const": "accepted"
-        },
-        "result": {
-          "$ref": "#/$defs/BackendOpResult"
-        }
-      },
-      "required": [
-        "status",
-        "result"
-      ],
-      "additionalProperties": false
-    },
-    "BackendCallRequest": {
-      "x-module": "protocol",
-      "$id": "#/$defs/BackendCallRequest",
-      "type": "object",
-      "properties": {
-        "type": {
-          "type": "string",
-          "const": "backend.call"
-        },
-        "requestId": {
-          "$ref": "#/$defs/RequestId"
-        },
-        "call": {
-          "$ref": "#/$defs/BackendCall"
-        }
-      },
-      "required": [
-        "type",
-        "requestId",
-        "call"
-      ],
-      "additionalProperties": false
-    },
-    "BackendCallResponse": {
-      "x-module": "protocol",
-      "$id": "#/$defs/BackendCallResponse",
-      "type": "object",
-      "properties": {
-        "type": {
-          "type": "string",
-          "const": "backend.call.result"
-        },
-        "requestId": {
-          "$ref": "#/$defs/RequestId"
-        },
-        "result": {
-          "$ref": "#/$defs/BackendCallResult"
-        }
-      },
-      "required": [
-        "type",
-        "requestId",
-        "result"
-      ],
-      "additionalProperties": false
-    },
-    "BackendCallResult": {
-      "x-module": "backend-ops",
-      "$id": "#/$defs/BackendCallResult",
-      "oneOf": [
-        {
-          "$ref": "#/$defs/BackendCallAccepted"
-        },
-        {
-          "$ref": "#/$defs/Rejected"
-        }
-      ]
-    },
     "BackendDescriptor": {
       "x-module": "protocol",
       "$id": "#/$defs/BackendDescriptor",
@@ -784,9 +370,6 @@
       "oneOf": [
         {
           "$ref": "#/$defs/RateLimitUpdate"
-        },
-        {
-          "$ref": "#/$defs/PromptSuggestion"
         }
       ]
     },
@@ -796,195 +379,7 @@
       "type": "string",
       "enum": [
         "claude-code",
-        "pi",
-        "pi-durable"
-      ]
-    },
-    "BackendOp": {
-      "x-module": "backend-ops",
-      "$id": "#/$defs/BackendOp",
-      "oneOf": [
-        {
-          "$ref": "#/$defs/RewindFilesOp"
-        },
-        {
-          "$ref": "#/$defs/NavigateTreeOp"
-        },
-        {
-          "$ref": "#/$defs/TakeOverOp"
-        },
-        {
-          "$ref": "#/$defs/SessionSettingsOp"
-        },
-        {
-          "$ref": "#/$defs/SessionToolsOp"
-        },
-        {
-          "$ref": "#/$defs/SystemPromptOp"
-        },
-        {
-          "$ref": "#/$defs/ExportSessionOp"
-        },
-        {
-          "$ref": "#/$defs/ExportPartOp"
-        },
-        {
-          "$ref": "#/$defs/ImportSessionOp"
-        },
-        {
-          "$ref": "#/$defs/ChangedFilesOp"
-        },
-        {
-          "$ref": "#/$defs/RefreshModelsOp"
-        },
-        {
-          "$ref": "#/$defs/ReadTreeOp"
-        },
-        {
-          "$ref": "#/$defs/LabelEntryOp"
-        },
-        {
-          "$ref": "#/$defs/AbortBranchSummaryOp"
-        },
-        {
-          "$ref": "#/$defs/RunShellOp"
-        },
-        {
-          "$ref": "#/$defs/ConfigFilesOp"
-        },
-        {
-          "$ref": "#/$defs/ConfigFileOp"
-        },
-        {
-          "$ref": "#/$defs/SettingsOverviewOp"
-        },
-        {
-          "$ref": "#/$defs/McpServersOp"
-        },
-        {
-          "$ref": "#/$defs/PluginsOp"
-        },
-        {
-          "$ref": "#/$defs/TasksOp"
-        },
-        {
-          "$ref": "#/$defs/ContextUsageOp"
-        },
-        {
-          "$ref": "#/$defs/CustomToolsOp"
-        },
-        {
-          "$ref": "#/$defs/CustomToolOp"
-        }
-      ]
-    },
-    "BackendOpKind": {
-      "x-module": "backend-ops",
-      "$id": "#/$defs/BackendOpKind",
-      "type": "string",
-      "enum": [
-        "rewind_files",
-        "navigate_tree",
-        "take_over",
-        "session_settings",
-        "session_tools",
-        "system_prompt",
-        "export_session",
-        "export_part",
-        "import_session",
-        "changed_files",
-        "refresh_models",
-        "read_tree",
-        "label_entry",
-        "abort_branch_summary",
-        "run_shell",
-        "config_files",
-        "config_file",
-        "settings_overview",
-        "mcp_servers",
-        "plugins",
-        "tasks",
-        "context_usage",
-        "custom_tools",
-        "custom_tool"
-      ]
-    },
-    "BackendOpResult": {
-      "x-module": "backend-ops",
-      "$id": "#/$defs/BackendOpResult",
-      "oneOf": [
-        {
-          "$ref": "#/$defs/RewindFilesResult"
-        },
-        {
-          "$ref": "#/$defs/TreeNavigated"
-        },
-        {
-          "$ref": "#/$defs/TakenOver"
-        },
-        {
-          "$ref": "#/$defs/SessionSettingsResult"
-        },
-        {
-          "$ref": "#/$defs/SessionToolsResult"
-        },
-        {
-          "$ref": "#/$defs/SystemPromptResult"
-        },
-        {
-          "$ref": "#/$defs/SessionExported"
-        },
-        {
-          "$ref": "#/$defs/ExportPartRead"
-        },
-        {
-          "$ref": "#/$defs/SessionImported"
-        },
-        {
-          "$ref": "#/$defs/ChangedFilesListed"
-        },
-        {
-          "$ref": "#/$defs/ModelsRefreshed"
-        },
-        {
-          "$ref": "#/$defs/TreeRead"
-        },
-        {
-          "$ref": "#/$defs/EntryLabelled"
-        },
-        {
-          "$ref": "#/$defs/BranchSummaryAborted"
-        },
-        {
-          "$ref": "#/$defs/ShellStarted"
-        },
-        {
-          "$ref": "#/$defs/ConfigFilesListed"
-        },
-        {
-          "$ref": "#/$defs/ConfigFileRead"
-        },
-        {
-          "$ref": "#/$defs/SettingsOverviewRead"
-        },
-        {
-          "$ref": "#/$defs/McpServersListed"
-        },
-        {
-          "$ref": "#/$defs/PluginsListed"
-        },
-        {
-          "$ref": "#/$defs/TasksListed"
-        },
-        {
-          "$ref": "#/$defs/ContextUsageRead"
-        },
-        {
-          "$ref": "#/$defs/CustomToolsListed"
-        },
-        {
-          "$ref": "#/$defs/CustomToolRead"
-        }
+        "pi"
       ]
     },
     "BackendStatus": {
@@ -1099,7 +494,7 @@
           "$ref": "#/$defs/RequestId"
         },
         "backends": {
-          "maxItems": 3,
+          "maxItems": 2,
           "type": "array",
           "items": {
             "$ref": "#/$defs/BackendDescriptor"
@@ -1311,21 +706,6 @@
       ],
       "additionalProperties": false
     },
-    "BranchSummaryAborted": {
-      "x-module": "tree-ops",
-      "$id": "#/$defs/BranchSummaryAborted",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "abort_branch_summary"
-        }
-      },
-      "required": [
-        "kind"
-      ],
-      "additionalProperties": false
-    },
     "CancelReply": {
       "x-module": "interaction-replies",
       "$id": "#/$defs/CancelReply",
@@ -1374,13 +754,6 @@
             "$ref": "#/$defs/AttachmentKind"
           }
         },
-        "mentions": {
-          "maxItems": 2,
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/MentionKind"
-          }
-        },
         "commands": {
           "type": "boolean"
         },
@@ -1388,14 +761,11 @@
           "type": "boolean"
         },
         "interactions": {
-          "maxItems": 8,
+          "maxItems": 7,
           "type": "array",
           "items": {
             "$ref": "#/$defs/InteractionKind"
           }
-        },
-        "modelSwitch": {
-          "$ref": "#/$defs/ModelSwitchTiming"
         },
         "thinking": {
           "type": "boolean"
@@ -1406,30 +776,17 @@
         "usage": {
           "type": "boolean"
         },
-        "plan": {
-          "type": "boolean"
-        },
         "planProposals": {
           "type": "boolean"
         },
         "externalLive": {
           "type": "boolean"
         },
-        "durableRuns": {
-          "type": "boolean"
-        },
         "extensions": {
-          "maxItems": 2,
+          "maxItems": 1,
           "type": "array",
           "items": {
             "$ref": "#/$defs/ExtensionKind"
-          }
-        },
-        "backendOps": {
-          "maxItems": 24,
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/BackendOpKind"
           }
         },
         "fork": {
@@ -1440,9 +797,6 @@
         },
         "delete": {
           "type": "boolean"
-        },
-        "archive": {
-          "type": "boolean"
         }
       },
       "required": [
@@ -1450,24 +804,18 @@
         "streamThinking",
         "promptModes",
         "attachments",
-        "mentions",
         "commands",
         "queue",
         "interactions",
-        "modelSwitch",
         "thinking",
         "children",
         "usage",
-        "plan",
         "planProposals",
         "externalLive",
-        "durableRuns",
         "extensions",
-        "backendOps",
         "fork",
         "rename",
-        "delete",
-        "archive"
+        "delete"
       ],
       "additionalProperties": false
     },
@@ -1544,90 +892,6 @@
         "modes"
       ]
     },
-    "ChangedFilesListed": {
-      "x-module": "backend-ops-reads",
-      "$id": "#/$defs/ChangedFilesListed",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "changed_files"
-        },
-        "files": {
-          "maxItems": 1000,
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/FileChange"
-          }
-        },
-        "omitted": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 9007199254740991
-        },
-        "additions": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 9007199254740991
-        },
-        "deletions": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 9007199254740991
-        }
-      },
-      "required": [
-        "kind",
-        "files",
-        "omitted",
-        "additions",
-        "deletions"
-      ],
-      "additionalProperties": false
-    },
-    "ChangedFilesOp": {
-      "x-module": "backend-ops-reads",
-      "$id": "#/$defs/ChangedFilesOp",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "changed_files"
-        },
-        "sessionId": {
-          "$ref": "#/$defs/SessionId"
-        }
-      },
-      "required": [
-        "kind",
-        "sessionId"
-      ],
-      "additionalProperties": false
-    },
-    "ChoiceChange": {
-      "x-module": "session-controls",
-      "$id": "#/$defs/ChoiceChange",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "choice"
-        },
-        "key": {
-          "$ref": "#/$defs/SettingKey"
-        },
-        "value": {
-          "type": "string",
-          "maxLength": 1024
-        }
-      },
-      "required": [
-        "kind",
-        "key",
-        "value"
-      ],
-      "additionalProperties": false
-    },
     "ChoiceReply": {
       "x-module": "interaction-replies",
       "$id": "#/$defs/ChoiceReply",
@@ -1672,53 +936,6 @@
       ],
       "additionalProperties": false
     },
-    "ChoiceSetting": {
-      "x-module": "session-controls",
-      "$id": "#/$defs/ChoiceSetting",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "choice"
-        },
-        "key": {
-          "$ref": "#/$defs/SettingKey"
-        },
-        "label": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1024
-        },
-        "description": {
-          "type": "string",
-          "maxLength": 1048576
-        },
-        "value": {
-          "type": "string",
-          "maxLength": 1024
-        },
-        "options": {
-          "minItems": 1,
-          "maxItems": 1000,
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/Option"
-          }
-        },
-        "note": {
-          "type": "string",
-          "maxLength": 1048576
-        }
-      },
-      "required": [
-        "kind",
-        "key",
-        "label",
-        "value",
-        "options"
-      ],
-      "additionalProperties": false
-    },
     "ChoicesValue": {
       "x-module": "forms",
       "$id": "#/$defs/ChoicesValue",
@@ -1742,70 +959,6 @@
         "values"
       ],
       "additionalProperties": false
-    },
-    "ClaudeCodeCall": {
-      "x-module": "backend-ops",
-      "$id": "#/$defs/ClaudeCodeCall",
-      "type": "object",
-      "properties": {
-        "backend": {
-          "type": "string",
-          "const": "claude-code"
-        },
-        "op": {
-          "$ref": "#/$defs/ClaudeCodeOp"
-        }
-      },
-      "required": [
-        "backend",
-        "op"
-      ],
-      "additionalProperties": false
-    },
-    "ClaudeCodeOp": {
-      "x-module": "backend-ops",
-      "$id": "#/$defs/ClaudeCodeOp",
-      "oneOf": [
-        {
-          "$ref": "#/$defs/RewindFilesOp"
-        },
-        {
-          "$ref": "#/$defs/SessionSettingsOp"
-        },
-        {
-          "$ref": "#/$defs/ChangedFilesOp"
-        },
-        {
-          "$ref": "#/$defs/RefreshModelsOp"
-        },
-        {
-          "$ref": "#/$defs/ConfigFilesOp"
-        },
-        {
-          "$ref": "#/$defs/ConfigFileOp"
-        },
-        {
-          "$ref": "#/$defs/SettingsOverviewOp"
-        },
-        {
-          "$ref": "#/$defs/McpServersOp"
-        },
-        {
-          "$ref": "#/$defs/PluginsOp"
-        },
-        {
-          "$ref": "#/$defs/TasksOp"
-        },
-        {
-          "$ref": "#/$defs/ContextUsageOp"
-        },
-        {
-          "$ref": "#/$defs/CustomToolsOp"
-        },
-        {
-          "$ref": "#/$defs/CustomToolOp"
-        }
-      ]
     },
     "ClientInfo": {
       "x-module": "protocol",
@@ -1870,9 +1023,6 @@
           "$ref": "#/$defs/SessionDeleteRequest"
         },
         {
-          "$ref": "#/$defs/SessionArchiveRequest"
-        },
-        {
           "$ref": "#/$defs/SessionAttachRequest"
         },
         {
@@ -1907,15 +1057,6 @@
         },
         {
           "$ref": "#/$defs/CompactRequest"
-        },
-        {
-          "$ref": "#/$defs/CompactionCancelRequest"
-        },
-        {
-          "$ref": "#/$defs/RetryCancelRequest"
-        },
-        {
-          "$ref": "#/$defs/BackendCallRequest"
         }
       ]
     },
@@ -2152,52 +1293,6 @@
       ],
       "additionalProperties": false
     },
-    "CompactionCancelRequest": {
-      "x-module": "protocol",
-      "$id": "#/$defs/CompactionCancelRequest",
-      "type": "object",
-      "properties": {
-        "type": {
-          "type": "string",
-          "const": "compaction.cancel"
-        },
-        "requestId": {
-          "$ref": "#/$defs/RequestId"
-        },
-        "session": {
-          "$ref": "#/$defs/SessionRef"
-        }
-      },
-      "required": [
-        "type",
-        "requestId",
-        "session"
-      ],
-      "additionalProperties": false
-    },
-    "CompactionCancelResponse": {
-      "x-module": "protocol",
-      "$id": "#/$defs/CompactionCancelResponse",
-      "type": "object",
-      "properties": {
-        "type": {
-          "type": "string",
-          "const": "compaction.cancel.result"
-        },
-        "requestId": {
-          "$ref": "#/$defs/RequestId"
-        },
-        "result": {
-          "$ref": "#/$defs/ActionResult"
-        }
-      },
-      "required": [
-        "type",
-        "requestId",
-        "result"
-      ],
-      "additionalProperties": false
-    },
     "CompactionCompleted": {
       "x-module": "compaction",
       "$id": "#/$defs/CompactionCompleted",
@@ -2372,162 +1467,6 @@
         "neq"
       ]
     },
-    "ConfigFileEntry": {
-      "x-module": "config-ops",
-      "$id": "#/$defs/ConfigFileEntry",
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 256
-        },
-        "label": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1024
-        },
-        "group": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1024
-        },
-        "scope": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1024
-        },
-        "path": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 4096
-        },
-        "exists": {
-          "type": "boolean"
-        },
-        "editable": {
-          "type": "boolean"
-        },
-        "format": {
-          "$ref": "#/$defs/EditableFileFormat"
-        },
-        "template": {
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "id",
-        "label",
-        "group",
-        "scope",
-        "path",
-        "exists",
-        "editable",
-        "format",
-        "template"
-      ],
-      "additionalProperties": false
-    },
-    "ConfigFileOp": {
-      "x-module": "config-ops",
-      "$id": "#/$defs/ConfigFileOp",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "config_file"
-        },
-        "cwd": {
-          "$ref": "#/$defs/WorkingDirectory"
-        },
-        "fileId": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 256
-        },
-        "name": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1024
-        },
-        "change": {
-          "$ref": "#/$defs/EditableFileChange"
-        }
-      },
-      "required": [
-        "kind",
-        "cwd",
-        "fileId"
-      ],
-      "additionalProperties": false
-    },
-    "ConfigFileRead": {
-      "x-module": "config-ops",
-      "$id": "#/$defs/ConfigFileRead",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "config_file"
-        },
-        "file": {
-          "$ref": "#/$defs/EditableFile"
-        }
-      },
-      "required": [
-        "kind",
-        "file"
-      ],
-      "additionalProperties": false
-    },
-    "ConfigFilesListed": {
-      "x-module": "config-ops",
-      "$id": "#/$defs/ConfigFilesListed",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "config_files"
-        },
-        "files": {
-          "maxItems": 1000,
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/ConfigFileEntry"
-          }
-        },
-        "omitted": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 9007199254740991
-        }
-      },
-      "required": [
-        "kind",
-        "files",
-        "omitted"
-      ],
-      "additionalProperties": false
-    },
-    "ConfigFilesOp": {
-      "x-module": "config-ops",
-      "$id": "#/$defs/ConfigFilesOp",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "config_files"
-        },
-        "cwd": {
-          "$ref": "#/$defs/WorkingDirectory"
-        }
-      },
-      "required": [
-        "kind",
-        "cwd"
-      ],
-      "additionalProperties": false
-    },
     "ConfirmReply": {
       "x-module": "interaction-replies",
       "$id": "#/$defs/ConfirmReply",
@@ -2555,272 +1494,6 @@
         "kind": {
           "type": "string",
           "const": "confirm"
-        }
-      },
-      "required": [
-        "kind"
-      ],
-      "additionalProperties": false
-    },
-    "ContextUsageOp": {
-      "x-module": "backend-ops-lists",
-      "$id": "#/$defs/ContextUsageOp",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "context_usage"
-        },
-        "sessionId": {
-          "$ref": "#/$defs/SessionId"
-        }
-      },
-      "required": [
-        "kind",
-        "sessionId"
-      ],
-      "additionalProperties": false
-    },
-    "ContextUsageRead": {
-      "x-module": "backend-ops-lists",
-      "$id": "#/$defs/ContextUsageRead",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "context_usage"
-        },
-        "list": {
-          "$ref": "#/$defs/ActionList"
-        }
-      },
-      "required": [
-        "kind",
-        "list"
-      ],
-      "additionalProperties": false
-    },
-    "CustomToolOp": {
-      "x-module": "custom-tool-ops",
-      "$id": "#/$defs/CustomToolOp",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "custom_tool"
-        },
-        "toolId": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 256
-        },
-        "change": {
-          "$ref": "#/$defs/EditableFileChange"
-        }
-      },
-      "required": [
-        "kind"
-      ],
-      "additionalProperties": false
-    },
-    "CustomToolRead": {
-      "x-module": "custom-tool-ops",
-      "$id": "#/$defs/CustomToolRead",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "custom_tool"
-        },
-        "file": {
-          "$ref": "#/$defs/EditableFile"
-        }
-      },
-      "required": [
-        "kind",
-        "file"
-      ],
-      "additionalProperties": false
-    },
-    "CustomToolsListed": {
-      "x-module": "custom-tool-ops",
-      "$id": "#/$defs/CustomToolsListed",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "custom_tools"
-        },
-        "list": {
-          "$ref": "#/$defs/ActionList"
-        }
-      },
-      "required": [
-        "kind",
-        "list"
-      ],
-      "additionalProperties": false
-    },
-    "CustomToolsOp": {
-      "x-module": "custom-tool-ops",
-      "$id": "#/$defs/CustomToolsOp",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "custom_tools"
-        },
-        "change": {
-          "$ref": "#/$defs/ActionListChange"
-        }
-      },
-      "required": [
-        "kind"
-      ],
-      "additionalProperties": false
-    },
-    "EditableFile": {
-      "x-module": "editable-file",
-      "$id": "#/$defs/EditableFile",
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 256
-        },
-        "path": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 4096
-        },
-        "scope": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1024
-        },
-        "format": {
-          "$ref": "#/$defs/EditableFileFormat"
-        },
-        "exists": {
-          "type": "boolean"
-        },
-        "text": {
-          "type": "string",
-          "maxLength": 1048576
-        },
-        "revision": {
-          "$ref": "#/$defs/EditableFileRevision"
-        },
-        "editable": {
-          "type": "boolean"
-        },
-        "truncated": {
-          "type": "boolean"
-        },
-        "problems": {
-          "maxItems": 1000,
-          "type": "array",
-          "items": {
-            "type": "string",
-            "maxLength": 1048576
-          }
-        }
-      },
-      "required": [
-        "id",
-        "path",
-        "scope",
-        "format",
-        "exists",
-        "text",
-        "revision",
-        "editable",
-        "truncated",
-        "problems"
-      ],
-      "additionalProperties": false
-    },
-    "EditableFileChange": {
-      "x-module": "editable-file",
-      "$id": "#/$defs/EditableFileChange",
-      "oneOf": [
-        {
-          "$ref": "#/$defs/EditableFileWrite"
-        },
-        {
-          "$ref": "#/$defs/EditableFileDelete"
-        }
-      ]
-    },
-    "EditableFileDelete": {
-      "x-module": "editable-file",
-      "$id": "#/$defs/EditableFileDelete",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "delete"
-        },
-        "revision": {
-          "$ref": "#/$defs/EditableFileRevision"
-        }
-      },
-      "required": [
-        "kind",
-        "revision"
-      ],
-      "additionalProperties": false
-    },
-    "EditableFileFormat": {
-      "x-module": "editable-file",
-      "$id": "#/$defs/EditableFileFormat",
-      "type": "string",
-      "enum": [
-        "json",
-        "markdown",
-        "text"
-      ]
-    },
-    "EditableFileRevision": {
-      "x-module": "editable-file",
-      "$id": "#/$defs/EditableFileRevision",
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 256
-    },
-    "EditableFileWrite": {
-      "x-module": "editable-file",
-      "$id": "#/$defs/EditableFileWrite",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "write"
-        },
-        "text": {
-          "type": "string",
-          "maxLength": 1048576
-        },
-        "revision": {
-          "$ref": "#/$defs/EditableFileRevision"
-        }
-      },
-      "required": [
-        "kind",
-        "text",
-        "revision"
-      ],
-      "additionalProperties": false
-    },
-    "EntryLabelled": {
-      "x-module": "tree-ops",
-      "$id": "#/$defs/EntryLabelled",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "label_entry"
         }
       },
       "required": [
@@ -2961,95 +1634,6 @@
       ],
       "additionalProperties": false
     },
-    "ExportId": {
-      "x-module": "backend-ops-transfer",
-      "$id": "#/$defs/ExportId",
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 256
-    },
-    "ExportPartOp": {
-      "x-module": "backend-ops-transfer",
-      "$id": "#/$defs/ExportPartOp",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "export_part"
-        },
-        "sessionId": {
-          "$ref": "#/$defs/SessionId"
-        },
-        "exportId": {
-          "$ref": "#/$defs/ExportId"
-        },
-        "offset": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 9007199254740991
-        }
-      },
-      "required": [
-        "kind",
-        "sessionId",
-        "exportId",
-        "offset"
-      ],
-      "additionalProperties": false
-    },
-    "ExportPartRead": {
-      "x-module": "backend-ops-transfer",
-      "$id": "#/$defs/ExportPartRead",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "export_part"
-        },
-        "offset": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 9007199254740991
-        },
-        "data": {
-          "type": "string",
-          "maxLength": 699052
-        },
-        "done": {
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "kind",
-        "offset",
-        "data",
-        "done"
-      ],
-      "additionalProperties": false
-    },
-    "ExportSessionOp": {
-      "x-module": "backend-ops-transfer",
-      "$id": "#/$defs/ExportSessionOp",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "export_session"
-        },
-        "sessionId": {
-          "$ref": "#/$defs/SessionId"
-        },
-        "format": {
-          "$ref": "#/$defs/SessionExportFormat"
-        }
-      },
-      "required": [
-        "kind",
-        "sessionId",
-        "format"
-      ],
-      "additionalProperties": false
-    },
     "ExtensionEvent": {
       "x-module": "events",
       "$id": "#/$defs/ExtensionEvent",
@@ -3074,8 +1658,7 @@
       "$id": "#/$defs/ExtensionKind",
       "type": "string",
       "enum": [
-        "rate_limit",
-        "prompt_suggestion"
+        "rate_limit"
       ]
     },
     "ExternalField": {
@@ -3107,46 +1690,6 @@
       "required": [
         "kind",
         "key",
-        "url"
-      ],
-      "additionalProperties": false
-    },
-    "ExternalUrlReply": {
-      "x-module": "interaction-replies",
-      "$id": "#/$defs/ExternalUrlReply",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "external_url"
-        }
-      },
-      "required": [
-        "kind"
-      ],
-      "additionalProperties": false
-    },
-    "ExternalUrlRequest": {
-      "x-module": "interactions",
-      "$id": "#/$defs/ExternalUrlRequest",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "external_url"
-        },
-        "url": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 4096
-        },
-        "server": {
-          "type": "string",
-          "maxLength": 1024
-        }
-      },
-      "required": [
-        "kind",
         "url"
       ],
       "additionalProperties": false
@@ -3279,27 +1822,6 @@
       "required": [
         "kind",
         "uri"
-      ],
-      "additionalProperties": false
-    },
-    "FileMention": {
-      "x-module": "input",
-      "$id": "#/$defs/FileMention",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "file"
-        },
-        "path": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 4096
-        }
-      },
-      "required": [
-        "kind",
-        "path"
       ],
       "additionalProperties": false
     },
@@ -3576,40 +2098,6 @@
       ],
       "additionalProperties": false
     },
-    "ImportSessionOp": {
-      "x-module": "backend-ops-transfer",
-      "$id": "#/$defs/ImportSessionOp",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "import_session"
-        },
-        "uploadId": {
-          "$ref": "#/$defs/UploadId"
-        },
-        "offset": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 9007199254740991
-        },
-        "data": {
-          "type": "string",
-          "maxLength": 699052
-        },
-        "last": {
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "kind",
-        "uploadId",
-        "offset",
-        "data",
-        "last"
-      ],
-      "additionalProperties": false
-    },
     "InputModality": {
       "x-module": "models",
       "$id": "#/$defs/InputModality",
@@ -3832,7 +2320,6 @@
         "questions",
         "form",
         "plan_approval",
-        "external_url",
         "choice",
         "confirm",
         "text"
@@ -3873,9 +2360,6 @@
           "$ref": "#/$defs/PlanApprovalReply"
         },
         {
-          "$ref": "#/$defs/ExternalUrlReply"
-        },
-        {
           "$ref": "#/$defs/ChoiceReply"
         },
         {
@@ -3904,9 +2388,6 @@
         },
         {
           "$ref": "#/$defs/PlanApprovalRequest"
-        },
-        {
-          "$ref": "#/$defs/ExternalUrlRequest"
         },
         {
           "$ref": "#/$defs/ChoiceRequest"
@@ -4006,97 +2487,6 @@
             "$ref": "#/$defs/JsonValue"
           }
         }
-      ]
-    },
-    "LabelEntryOp": {
-      "x-module": "tree-ops",
-      "$id": "#/$defs/LabelEntryOp",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "label_entry"
-        },
-        "sessionId": {
-          "$ref": "#/$defs/SessionId"
-        },
-        "entryId": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 256
-        },
-        "label": {
-          "type": "string",
-          "maxLength": 1024
-        }
-      },
-      "required": [
-        "kind",
-        "sessionId",
-        "entryId"
-      ],
-      "additionalProperties": false
-    },
-    "McpServersListed": {
-      "x-module": "backend-ops-lists",
-      "$id": "#/$defs/McpServersListed",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "mcp_servers"
-        },
-        "list": {
-          "$ref": "#/$defs/ActionList"
-        }
-      },
-      "required": [
-        "kind",
-        "list"
-      ],
-      "additionalProperties": false
-    },
-    "McpServersOp": {
-      "x-module": "backend-ops-lists",
-      "$id": "#/$defs/McpServersOp",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "mcp_servers"
-        },
-        "sessionId": {
-          "$ref": "#/$defs/SessionId"
-        },
-        "change": {
-          "$ref": "#/$defs/ActionListChange"
-        }
-      },
-      "required": [
-        "kind",
-        "sessionId"
-      ],
-      "additionalProperties": false
-    },
-    "Mention": {
-      "x-module": "input",
-      "$id": "#/$defs/Mention",
-      "oneOf": [
-        {
-          "$ref": "#/$defs/FileMention"
-        },
-        {
-          "$ref": "#/$defs/AgentMention"
-        }
-      ]
-    },
-    "MentionKind": {
-      "x-module": "input",
-      "$id": "#/$defs/MentionKind",
-      "type": "string",
-      "enum": [
-        "file",
-        "agent"
       ]
     },
     "MessageId": {
@@ -4447,15 +2837,6 @@
       ],
       "additionalProperties": false
     },
-    "ModelSwitchTiming": {
-      "x-module": "capabilities",
-      "$id": "#/$defs/ModelSwitchTiming",
-      "type": "string",
-      "enum": [
-        "next_request",
-        "next_run"
-      ]
-    },
     "ModelsListRequest": {
       "x-module": "protocol",
       "$id": "#/$defs/ModelsListRequest",
@@ -4540,30 +2921,6 @@
       "required": [
         "status",
         "models"
-      ],
-      "additionalProperties": false
-    },
-    "ModelsRefreshed": {
-      "x-module": "backend-ops-reads",
-      "$id": "#/$defs/ModelsRefreshed",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "refresh_models"
-        },
-        "problems": {
-          "maxItems": 1000,
-          "type": "array",
-          "items": {
-            "type": "string",
-            "maxLength": 1048576
-          }
-        }
-      },
-      "required": [
-        "kind",
-        "problems"
       ],
       "additionalProperties": false
     },
@@ -4737,38 +3094,6 @@
         "type": "string",
         "maxLength": 256
       }
-    },
-    "NavigateTreeOp": {
-      "x-module": "backend-ops",
-      "$id": "#/$defs/NavigateTreeOp",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "navigate_tree"
-        },
-        "sessionId": {
-          "$ref": "#/$defs/SessionId"
-        },
-        "itemId": {
-          "$ref": "#/$defs/TranscriptItemId"
-        },
-        "summarize": {
-          "type": "boolean"
-        },
-        "instructions": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1048576
-        }
-      },
-      "required": [
-        "kind",
-        "sessionId",
-        "itemId",
-        "summarize"
-      ],
-      "additionalProperties": false
     },
     "NetworkPreview": {
       "x-module": "interactions",
@@ -5209,95 +3534,6 @@
         "always"
       ]
     },
-    "PiCall": {
-      "x-module": "backend-ops",
-      "$id": "#/$defs/PiCall",
-      "type": "object",
-      "properties": {
-        "backend": {
-          "type": "string",
-          "const": "pi"
-        },
-        "op": {
-          "$ref": "#/$defs/PiOp"
-        }
-      },
-      "required": [
-        "backend",
-        "op"
-      ],
-      "additionalProperties": false
-    },
-    "PiOp": {
-      "x-module": "backend-ops",
-      "$id": "#/$defs/PiOp",
-      "oneOf": [
-        {
-          "$ref": "#/$defs/NavigateTreeOp"
-        },
-        {
-          "$ref": "#/$defs/TakeOverOp"
-        },
-        {
-          "$ref": "#/$defs/SessionSettingsOp"
-        },
-        {
-          "$ref": "#/$defs/SessionToolsOp"
-        },
-        {
-          "$ref": "#/$defs/SystemPromptOp"
-        },
-        {
-          "$ref": "#/$defs/ExportSessionOp"
-        },
-        {
-          "$ref": "#/$defs/ExportPartOp"
-        },
-        {
-          "$ref": "#/$defs/ImportSessionOp"
-        },
-        {
-          "$ref": "#/$defs/ChangedFilesOp"
-        },
-        {
-          "$ref": "#/$defs/RefreshModelsOp"
-        },
-        {
-          "$ref": "#/$defs/ReadTreeOp"
-        },
-        {
-          "$ref": "#/$defs/LabelEntryOp"
-        },
-        {
-          "$ref": "#/$defs/AbortBranchSummaryOp"
-        },
-        {
-          "$ref": "#/$defs/RunShellOp"
-        }
-      ]
-    },
-    "Plan": {
-      "x-module": "plan",
-      "$id": "#/$defs/Plan",
-      "type": "object",
-      "properties": {
-        "items": {
-          "maxItems": 1000,
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/PlanItem"
-          }
-        },
-        "explanation": {
-          "type": "string",
-          "maxLength": 1048576
-        }
-      },
-      "required": [
-        "items"
-      ],
-      "additionalProperties": false
-    },
     "PlanApprovalReply": {
       "x-module": "interaction-replies",
       "$id": "#/$defs/PlanApprovalReply",
@@ -5369,36 +3605,6 @@
         "reject"
       ]
     },
-    "PlanItem": {
-      "x-module": "plan",
-      "$id": "#/$defs/PlanItem",
-      "type": "object",
-      "properties": {
-        "text": {
-          "type": "string",
-          "maxLength": 1048576
-        },
-        "status": {
-          "$ref": "#/$defs/PlanItemStatus"
-        }
-      },
-      "required": [
-        "text",
-        "status"
-      ],
-      "additionalProperties": false
-    },
-    "PlanItemStatus": {
-      "x-module": "plan",
-      "$id": "#/$defs/PlanItemStatus",
-      "type": "string",
-      "enum": [
-        "pending",
-        "in_progress",
-        "completed",
-        "cancelled"
-      ]
-    },
     "PlanModeOptions": {
       "x-module": "interactions",
       "$id": "#/$defs/PlanModeOptions",
@@ -5423,69 +3629,6 @@
       "required": [
         "axis",
         "options"
-      ],
-      "additionalProperties": false
-    },
-    "PlanUpdatedEvent": {
-      "x-module": "events",
-      "$id": "#/$defs/PlanUpdatedEvent",
-      "type": "object",
-      "properties": {
-        "type": {
-          "type": "string",
-          "const": "plan_updated"
-        },
-        "plan": {
-          "$ref": "#/$defs/Plan"
-        }
-      },
-      "required": [
-        "type",
-        "plan"
-      ],
-      "additionalProperties": false
-    },
-    "PluginsListed": {
-      "x-module": "backend-ops-lists",
-      "$id": "#/$defs/PluginsListed",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "plugins"
-        },
-        "list": {
-          "$ref": "#/$defs/ActionList"
-        }
-      },
-      "required": [
-        "kind",
-        "list"
-      ],
-      "additionalProperties": false
-    },
-    "PluginsOp": {
-      "x-module": "backend-ops-lists",
-      "$id": "#/$defs/PluginsOp",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "plugins"
-        },
-        "cwd": {
-          "$ref": "#/$defs/WorkingDirectory"
-        },
-        "sessionId": {
-          "$ref": "#/$defs/SessionId"
-        },
-        "change": {
-          "$ref": "#/$defs/ActionListChange"
-        }
-      },
-      "required": [
-        "kind",
-        "cwd"
       ],
       "additionalProperties": false
     },
@@ -5544,13 +3687,6 @@
             "$ref": "#/$defs/Attachment"
           }
         },
-        "mentions": {
-          "maxItems": 1000,
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/Mention"
-          }
-        },
         "command": {
           "$ref": "#/$defs/CommandId"
         }
@@ -5559,8 +3695,7 @@
         "clientRequestId",
         "mode",
         "text",
-        "attachments",
-        "mentions"
+        "attachments"
       ],
       "additionalProperties": false
     },
@@ -5635,27 +3770,6 @@
           "$ref": "#/$defs/Rejected"
         }
       ]
-    },
-    "PromptSuggestion": {
-      "x-module": "extensions",
-      "$id": "#/$defs/PromptSuggestion",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "prompt_suggestion"
-        },
-        "text": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1048576
-        }
-      },
-      "required": [
-        "kind",
-        "text"
-      ],
-      "additionalProperties": false
     },
     "ProtocolError": {
       "x-module": "protocol",
@@ -6018,44 +4132,6 @@
       ],
       "additionalProperties": false
     },
-    "ReadTreeOp": {
-      "x-module": "tree-ops",
-      "$id": "#/$defs/ReadTreeOp",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "read_tree"
-        },
-        "sessionId": {
-          "$ref": "#/$defs/SessionId"
-        },
-        "page": {
-          "$ref": "#/$defs/PageRequest"
-        }
-      },
-      "required": [
-        "kind",
-        "sessionId",
-        "page"
-      ],
-      "additionalProperties": false
-    },
-    "RefreshModelsOp": {
-      "x-module": "backend-ops-reads",
-      "$id": "#/$defs/RefreshModelsOp",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "refresh_models"
-        }
-      },
-      "required": [
-        "kind"
-      ],
-      "additionalProperties": false
-    },
     "Rejected": {
       "x-module": "rejection",
       "$id": "#/$defs/Rejected",
@@ -6195,52 +4271,6 @@
       ],
       "additionalProperties": false
     },
-    "RetryCancelRequest": {
-      "x-module": "protocol",
-      "$id": "#/$defs/RetryCancelRequest",
-      "type": "object",
-      "properties": {
-        "type": {
-          "type": "string",
-          "const": "retry.cancel"
-        },
-        "requestId": {
-          "$ref": "#/$defs/RequestId"
-        },
-        "session": {
-          "$ref": "#/$defs/SessionRef"
-        }
-      },
-      "required": [
-        "type",
-        "requestId",
-        "session"
-      ],
-      "additionalProperties": false
-    },
-    "RetryCancelResponse": {
-      "x-module": "protocol",
-      "$id": "#/$defs/RetryCancelResponse",
-      "type": "object",
-      "properties": {
-        "type": {
-          "type": "string",
-          "const": "retry.cancel.result"
-        },
-        "requestId": {
-          "$ref": "#/$defs/RequestId"
-        },
-        "result": {
-          "$ref": "#/$defs/ActionResult"
-        }
-      },
-      "required": [
-        "type",
-        "requestId",
-        "result"
-      ],
-      "additionalProperties": false
-    },
     "RetryFinishedEvent": {
       "x-module": "events",
       "$id": "#/$defs/RetryFinishedEvent",
@@ -6320,79 +4350,6 @@
       "required": [
         "attempt",
         "message"
-      ],
-      "additionalProperties": false
-    },
-    "RewindFilesOp": {
-      "x-module": "backend-ops",
-      "$id": "#/$defs/RewindFilesOp",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "rewind_files"
-        },
-        "sessionId": {
-          "$ref": "#/$defs/SessionId"
-        },
-        "userItemId": {
-          "$ref": "#/$defs/TranscriptItemId"
-        },
-        "dryRun": {
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "kind",
-        "sessionId",
-        "userItemId",
-        "dryRun"
-      ],
-      "additionalProperties": false
-    },
-    "RewindFilesResult": {
-      "x-module": "backend-ops",
-      "$id": "#/$defs/RewindFilesResult",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "rewind_files"
-        },
-        "canRewind": {
-          "type": "boolean"
-        },
-        "filesChanged": {
-          "maxItems": 1000,
-          "type": "array",
-          "items": {
-            "type": "string",
-            "maxLength": 4096
-          }
-        },
-        "insertions": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 9007199254740991
-        },
-        "deletions": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 9007199254740991
-        },
-        "skippedLinks": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 9007199254740991
-        },
-        "error": {
-          "type": "string",
-          "maxLength": 1048576
-        }
-      },
-      "required": [
-        "kind",
-        "canRewind"
       ],
       "additionalProperties": false
     },
@@ -6569,39 +4526,6 @@
         }
       ]
     },
-    "RunShellOp": {
-      "x-module": "shell-ops",
-      "$id": "#/$defs/RunShellOp",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "run_shell"
-        },
-        "sessionId": {
-          "$ref": "#/$defs/SessionId"
-        },
-        "clientRequestId": {
-          "$ref": "#/$defs/ClientRequestId"
-        },
-        "command": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1048576
-        },
-        "excludeFromContext": {
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "kind",
-        "sessionId",
-        "clientRequestId",
-        "command",
-        "excludeFromContext"
-      ],
-      "additionalProperties": false
-    },
     "RunStartedEvent": {
       "x-module": "events",
       "$id": "#/$defs/RunStartedEvent",
@@ -6745,9 +4669,6 @@
           "$ref": "#/$defs/SessionDeleteResponse"
         },
         {
-          "$ref": "#/$defs/SessionArchiveResponse"
-        },
-        {
           "$ref": "#/$defs/SessionAttachResponse"
         },
         {
@@ -6784,15 +4705,6 @@
           "$ref": "#/$defs/CompactResponse"
         },
         {
-          "$ref": "#/$defs/CompactionCancelResponse"
-        },
-        {
-          "$ref": "#/$defs/RetryCancelResponse"
-        },
-        {
-          "$ref": "#/$defs/BackendCallResponse"
-        },
-        {
           "$ref": "#/$defs/ErrorResponse"
         },
         {
@@ -6802,56 +4714,6 @@
           "$ref": "#/$defs/CatalogMessage"
         }
       ]
-    },
-    "SessionArchiveRequest": {
-      "x-module": "protocol",
-      "$id": "#/$defs/SessionArchiveRequest",
-      "type": "object",
-      "properties": {
-        "type": {
-          "type": "string",
-          "const": "session.archive"
-        },
-        "requestId": {
-          "$ref": "#/$defs/RequestId"
-        },
-        "session": {
-          "$ref": "#/$defs/SessionRef"
-        },
-        "archived": {
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "type",
-        "requestId",
-        "session",
-        "archived"
-      ],
-      "additionalProperties": false
-    },
-    "SessionArchiveResponse": {
-      "x-module": "protocol",
-      "$id": "#/$defs/SessionArchiveResponse",
-      "type": "object",
-      "properties": {
-        "type": {
-          "type": "string",
-          "const": "session.archive.result"
-        },
-        "requestId": {
-          "$ref": "#/$defs/RequestId"
-        },
-        "result": {
-          "$ref": "#/$defs/ActionResult"
-        }
-      },
-      "required": [
-        "type",
-        "requestId",
-        "result"
-      ],
-      "additionalProperties": false
     },
     "SessionAttachRequest": {
       "x-module": "protocol",
@@ -6920,12 +4782,6 @@
         "cancelQueued": {
           "type": "boolean"
         },
-        "cancelCompaction": {
-          "type": "boolean"
-        },
-        "cancelRetry": {
-          "type": "boolean"
-        },
         "answer": {
           "type": "boolean"
         }
@@ -6933,7 +4789,8 @@
       "required": [
         "controllable",
         "compact",
-        "cancelQueued"
+        "cancelQueued",
+        "answer"
       ],
       "additionalProperties": false
     },
@@ -7075,52 +4932,6 @@
       ],
       "additionalProperties": false
     },
-    "SessionExportFormat": {
-      "x-module": "backend-ops-transfer",
-      "$id": "#/$defs/SessionExportFormat",
-      "type": "string",
-      "enum": [
-        "html",
-        "jsonl"
-      ]
-    },
-    "SessionExported": {
-      "x-module": "backend-ops-transfer",
-      "$id": "#/$defs/SessionExported",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "export_session"
-        },
-        "exportId": {
-          "$ref": "#/$defs/ExportId"
-        },
-        "name": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1024
-        },
-        "mimeType": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1024
-        },
-        "bytes": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 9007199254740991
-        }
-      },
-      "required": [
-        "kind",
-        "exportId",
-        "name",
-        "mimeType",
-        "bytes"
-      ],
-      "additionalProperties": false
-    },
     "SessionForkRequest": {
       "x-module": "protocol",
       "$id": "#/$defs/SessionForkRequest",
@@ -7254,30 +5065,6 @@
       "minLength": 1,
       "maxLength": 256
     },
-    "SessionImported": {
-      "x-module": "backend-ops-transfer",
-      "$id": "#/$defs/SessionImported",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "import_session"
-        },
-        "received": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 9007199254740991
-        },
-        "sessionId": {
-          "$ref": "#/$defs/SessionId"
-        }
-      },
-      "required": [
-        "kind",
-        "received"
-      ],
-      "additionalProperties": false
-    },
     "SessionOrigin": {
       "x-module": "sessions",
       "$id": "#/$defs/SessionOrigin",
@@ -7334,16 +5121,10 @@
         "cwd": {
           "$ref": "#/$defs/WorkingDirectory"
         },
-        "archived": {
-          "type": "boolean"
-        },
         "parent": {
           "$ref": "#/$defs/SessionRef"
         }
       },
-      "required": [
-        "archived"
-      ],
       "additionalProperties": false
     },
     "SessionRef": {
@@ -7454,63 +5235,6 @@
       ],
       "additionalProperties": false
     },
-    "SessionSetting": {
-      "x-module": "session-controls",
-      "$id": "#/$defs/SessionSetting",
-      "oneOf": [
-        {
-          "$ref": "#/$defs/ToggleSetting"
-        },
-        {
-          "$ref": "#/$defs/ChoiceSetting"
-        }
-      ]
-    },
-    "SessionSettingsOp": {
-      "x-module": "session-controls",
-      "$id": "#/$defs/SessionSettingsOp",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "session_settings"
-        },
-        "sessionId": {
-          "$ref": "#/$defs/SessionId"
-        },
-        "change": {
-          "$ref": "#/$defs/SettingChange"
-        }
-      },
-      "required": [
-        "kind",
-        "sessionId"
-      ],
-      "additionalProperties": false
-    },
-    "SessionSettingsResult": {
-      "x-module": "session-controls",
-      "$id": "#/$defs/SessionSettingsResult",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "session_settings"
-        },
-        "settings": {
-          "maxItems": 1000,
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/SessionSetting"
-          }
-        }
-      },
-      "required": [
-        "kind",
-        "settings"
-      ],
-      "additionalProperties": false
-    },
     "SessionSnapshot": {
       "x-module": "snapshot",
       "$id": "#/$defs/SessionSnapshot",
@@ -7563,9 +5287,6 @@
         },
         "usage": {
           "$ref": "#/$defs/Usage"
-        },
-        "plan": {
-          "$ref": "#/$defs/Plan"
         },
         "compaction": {
           "$ref": "#/$defs/CompactionState"
@@ -7621,9 +5342,6 @@
         "parent": {
           "$ref": "#/$defs/SessionParent"
         },
-        "archived": {
-          "type": "boolean"
-        },
         "modelId": {
           "$ref": "#/$defs/ModelId"
         },
@@ -7641,7 +5359,6 @@
       "required": [
         "session",
         "updatedAt",
-        "archived",
         "status",
         "origin"
       ],
@@ -7664,85 +5381,6 @@
       "required": [
         "text",
         "source"
-      ],
-      "additionalProperties": false
-    },
-    "SessionTool": {
-      "x-module": "session-controls",
-      "$id": "#/$defs/SessionTool",
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1024
-        },
-        "description": {
-          "type": "string",
-          "maxLength": 1048576
-        },
-        "active": {
-          "type": "boolean"
-        },
-        "group": {
-          "type": "string",
-          "maxLength": 1024
-        }
-      },
-      "required": [
-        "name",
-        "description",
-        "active"
-      ],
-      "additionalProperties": false
-    },
-    "SessionToolsOp": {
-      "x-module": "session-controls",
-      "$id": "#/$defs/SessionToolsOp",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "session_tools"
-        },
-        "sessionId": {
-          "$ref": "#/$defs/SessionId"
-        },
-        "change": {
-          "$ref": "#/$defs/ToolChange"
-        }
-      },
-      "required": [
-        "kind",
-        "sessionId"
-      ],
-      "additionalProperties": false
-    },
-    "SessionToolsResult": {
-      "x-module": "session-controls",
-      "$id": "#/$defs/SessionToolsResult",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "session_tools"
-        },
-        "tools": {
-          "maxItems": 1000,
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/SessionTool"
-          }
-        },
-        "omitted": {
-          "type": "integer",
-          "exclusiveMinimum": 0,
-          "maximum": 9007199254740991
-        }
-      },
-      "required": [
-        "kind",
-        "tools"
       ],
       "additionalProperties": false
     },
@@ -7847,78 +5485,6 @@
       "required": [
         "status",
         "page"
-      ],
-      "additionalProperties": false
-    },
-    "SettingChange": {
-      "x-module": "session-controls",
-      "$id": "#/$defs/SettingChange",
-      "oneOf": [
-        {
-          "$ref": "#/$defs/ToggleChange"
-        },
-        {
-          "$ref": "#/$defs/ChoiceChange"
-        }
-      ]
-    },
-    "SettingKey": {
-      "x-module": "session-controls",
-      "$id": "#/$defs/SettingKey",
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 256
-    },
-    "SettingsOverviewOp": {
-      "x-module": "config-ops",
-      "$id": "#/$defs/SettingsOverviewOp",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "settings_overview"
-        },
-        "cwd": {
-          "$ref": "#/$defs/WorkingDirectory"
-        }
-      },
-      "required": [
-        "kind",
-        "cwd"
-      ],
-      "additionalProperties": false
-    },
-    "SettingsOverviewRead": {
-      "x-module": "config-ops",
-      "$id": "#/$defs/SettingsOverviewRead",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "settings_overview"
-        },
-        "list": {
-          "$ref": "#/$defs/ActionList"
-        }
-      },
-      "required": [
-        "kind",
-        "list"
-      ],
-      "additionalProperties": false
-    },
-    "ShellStarted": {
-      "x-module": "shell-ops",
-      "$id": "#/$defs/ShellStarted",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "run_shell"
-        }
-      },
-      "required": [
-        "kind"
       ],
       "additionalProperties": false
     },
@@ -8107,142 +5673,6 @@
         "date",
         "date-time"
       ]
-    },
-    "SystemPromptOp": {
-      "x-module": "session-controls",
-      "$id": "#/$defs/SystemPromptOp",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "system_prompt"
-        },
-        "sessionId": {
-          "$ref": "#/$defs/SessionId"
-        },
-        "offset": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 9007199254740991
-        }
-      },
-      "required": [
-        "kind",
-        "sessionId"
-      ],
-      "additionalProperties": false
-    },
-    "SystemPromptResult": {
-      "x-module": "session-controls",
-      "$id": "#/$defs/SystemPromptResult",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "system_prompt"
-        },
-        "text": {
-          "type": "string",
-          "maxLength": 1048576
-        },
-        "offset": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 9007199254740991
-        },
-        "totalChars": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 9007199254740991
-        },
-        "nextOffset": {
-          "type": "integer",
-          "exclusiveMinimum": 0,
-          "maximum": 9007199254740991
-        }
-      },
-      "required": [
-        "kind",
-        "text",
-        "offset",
-        "totalChars"
-      ],
-      "additionalProperties": false
-    },
-    "TakeOverOp": {
-      "x-module": "backend-ops",
-      "$id": "#/$defs/TakeOverOp",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "take_over"
-        },
-        "sessionId": {
-          "$ref": "#/$defs/SessionId"
-        }
-      },
-      "required": [
-        "kind",
-        "sessionId"
-      ],
-      "additionalProperties": false
-    },
-    "TakenOver": {
-      "x-module": "backend-ops",
-      "$id": "#/$defs/TakenOver",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "take_over"
-        }
-      },
-      "required": [
-        "kind"
-      ],
-      "additionalProperties": false
-    },
-    "TasksListed": {
-      "x-module": "backend-ops-lists",
-      "$id": "#/$defs/TasksListed",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "tasks"
-        },
-        "list": {
-          "$ref": "#/$defs/ActionList"
-        }
-      },
-      "required": [
-        "kind",
-        "list"
-      ],
-      "additionalProperties": false
-    },
-    "TasksOp": {
-      "x-module": "backend-ops-lists",
-      "$id": "#/$defs/TasksOp",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "tasks"
-        },
-        "sessionId": {
-          "$ref": "#/$defs/SessionId"
-        },
-        "change": {
-          "$ref": "#/$defs/ActionListChange"
-        }
-      },
-      "required": [
-        "kind",
-        "sessionId"
-      ],
-      "additionalProperties": false
     },
     "TextContent": {
       "x-module": "content",
@@ -8446,66 +5876,6 @@
         "first_prompt"
       ]
     },
-    "ToggleChange": {
-      "x-module": "session-controls",
-      "$id": "#/$defs/ToggleChange",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "toggle"
-        },
-        "key": {
-          "$ref": "#/$defs/SettingKey"
-        },
-        "enabled": {
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "kind",
-        "key",
-        "enabled"
-      ],
-      "additionalProperties": false
-    },
-    "ToggleSetting": {
-      "x-module": "session-controls",
-      "$id": "#/$defs/ToggleSetting",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "toggle"
-        },
-        "key": {
-          "$ref": "#/$defs/SettingKey"
-        },
-        "label": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1024
-        },
-        "description": {
-          "type": "string",
-          "maxLength": 1048576
-        },
-        "enabled": {
-          "type": "boolean"
-        },
-        "note": {
-          "type": "string",
-          "maxLength": 1048576
-        }
-      },
-      "required": [
-        "kind",
-        "key",
-        "label",
-        "enabled"
-      ],
-      "additionalProperties": false
-    },
     "ToolCallId": {
       "x-module": "ids",
       "$id": "#/$defs/ToolCallId",
@@ -8558,26 +5928,6 @@
         "id",
         "toolCallId",
         "name"
-      ],
-      "additionalProperties": false
-    },
-    "ToolChange": {
-      "x-module": "session-controls",
-      "$id": "#/$defs/ToolChange",
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1024
-        },
-        "active": {
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "name",
-        "active"
       ],
       "additionalProperties": false
     },
@@ -9051,9 +6401,6 @@
         },
         {
           "$ref": "#/$defs/RunBoundaryItem"
-        },
-        {
-          "$ref": "#/$defs/ActivityItem"
         }
       ]
     },
@@ -9169,131 +6516,6 @@
           "$ref": "#/$defs/Rejected"
         }
       ]
-    },
-    "TreeNavigated": {
-      "x-module": "backend-ops",
-      "$id": "#/$defs/TreeNavigated",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "navigate_tree"
-        }
-      },
-      "required": [
-        "kind"
-      ],
-      "additionalProperties": false
-    },
-    "TreeNode": {
-      "x-module": "tree-ops",
-      "$id": "#/$defs/TreeNode",
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 256
-        },
-        "parentId": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 256
-        },
-        "itemId": {
-          "$ref": "#/$defs/TranscriptItemId"
-        },
-        "kind": {
-          "$ref": "#/$defs/TreeNodeKind"
-        },
-        "at": {
-          "$ref": "#/$defs/Timestamp"
-        },
-        "preview": {
-          "type": "string",
-          "maxLength": 280
-        },
-        "previewCut": {
-          "type": "boolean"
-        },
-        "label": {
-          "type": "string",
-          "maxLength": 1024
-        }
-      },
-      "required": [
-        "id",
-        "itemId",
-        "kind",
-        "preview",
-        "previewCut"
-      ],
-      "additionalProperties": false
-    },
-    "TreeNodeKind": {
-      "x-module": "tree-ops",
-      "$id": "#/$defs/TreeNodeKind",
-      "type": "string",
-      "enum": [
-        "user",
-        "assistant",
-        "assistant_tools",
-        "tool_result",
-        "bash",
-        "custom_message",
-        "compaction",
-        "branch_summary",
-        "model_change",
-        "thinking_change",
-        "session_info",
-        "label",
-        "custom",
-        "context_edit"
-      ]
-    },
-    "TreeRead": {
-      "x-module": "tree-ops",
-      "$id": "#/$defs/TreeRead",
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "read_tree"
-        },
-        "leafId": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 256
-        },
-        "total": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 9007199254740991
-        },
-        "nodes": {
-          "maxItems": 200,
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/TreeNode"
-          }
-        },
-        "nextCursor": {
-          "$ref": "#/$defs/PageCursor"
-        }
-      },
-      "required": [
-        "kind",
-        "total",
-        "nodes"
-      ],
-      "additionalProperties": false
-    },
-    "UploadId": {
-      "x-module": "backend-ops-transfer",
-      "$id": "#/$defs/UploadId",
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 256
     },
     "Usage": {
       "x-module": "usage",

@@ -1,18 +1,9 @@
 import { z } from "zod";
-import * as actionList from "./action-list";
-import * as activity from "./activity";
-import * as backendOps from "./backend-ops";
-import * as backendOpsLists from "./backend-ops-lists";
-import * as backendOpsReads from "./backend-ops-reads";
-import * as backendOpsTransfer from "./backend-ops-transfer";
 import * as capabilities from "./capabilities";
 import * as catalogEvents from "./catalog-events";
 import * as commands from "./commands";
 import * as compaction from "./compaction";
-import * as configOps from "./config-ops";
 import * as content from "./content";
-import * as customToolOps from "./custom-tool-ops";
-import * as editableFile from "./editable-file";
 import * as events from "./events";
 import * as extensions from "./extensions";
 import * as forms from "./forms";
@@ -26,20 +17,16 @@ import * as modes from "./modes";
 import * as notice from "./notice";
 import * as option from "./option";
 import * as paging from "./paging";
-import * as plan from "./plan";
 import * as protocol from "./protocol";
 import * as queue from "./queue";
 import * as readResults from "./read-results";
 import * as rejection from "./rejection";
 import * as runs from "./runs";
-import * as sessionControls from "./session-controls";
 import * as sessions from "./sessions";
-import * as shellOps from "./shell-ops";
 import * as snapshot from "./snapshot";
 import * as status from "./status";
 import * as tools from "./tools";
 import * as transcript from "./transcript";
-import * as treeOps from "./tree-ops";
 import * as usage from "./usage";
 
 /** Every wire-visible schema module. Each exported schema is a named type, its export name the type's id. */
@@ -56,29 +43,16 @@ const SCHEMA_MODULES = {
 	input,
 	runs,
 	queue,
-	plan,
 	usage,
 	compaction,
 	notice,
-	activity,
 	extensions,
-	"backend-ops": backendOps,
-	"backend-ops-reads": backendOpsReads,
-	"backend-ops-transfer": backendOpsTransfer,
-	"tree-ops": treeOps,
-	"shell-ops": shellOps,
-	"action-list": actionList,
-	"editable-file": editableFile,
-	"config-ops": configOps,
-	"backend-ops-lists": backendOpsLists,
-	"custom-tool-ops": customToolOps,
 	models,
 	commands,
 	modes,
 	status,
 	paging,
 	sessions,
-	"session-controls": sessionControls,
 	transcript,
 	snapshot,
 	events,

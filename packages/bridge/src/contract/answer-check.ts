@@ -43,7 +43,6 @@ export function answerProblem(interaction: Interaction, answer: InteractionAnswe
 			if (request.kind !== reply.kind) return mismatch(request, reply);
 			return !request.multiline && /[\r\n]/.test(reply.text) ? "this text is a single line" : undefined;
 		case "confirm":
-		case "external_url":
 			return request.kind === reply.kind ? undefined : mismatch(request, reply);
 	}
 }

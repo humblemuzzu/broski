@@ -4,7 +4,6 @@ import type { ToolResult } from "../../../contract";
 import type { MappedEvent } from "../ports/mapping";
 import { finishAllBlocks } from "./blocks";
 import { endCompaction } from "./compaction";
-import { settleHooks } from "./hooks";
 import type { MapperState } from "./state";
 import { endTool } from "./tool-calls";
 
@@ -22,9 +21,9 @@ function endOpenTools(state: MapperState, outcome: "completed" | "aborted"): Map
 	);
 }
 
-/** Open blocks end with their text so far, then tools, hooks, a retry still scheduled, and a compaction under way. */
+/** Open blocks end with their text so far, then tools, a retry still scheduled, and a compaction under way. */
 export function settleEvents(state: MapperState, outcome: "completed" | "aborted"): MappedEvent[] {
-	const events = [...finishAllBlocks(state), ...endOpenTools(state, outcome), ...settleHooks(state)];
+	const events = [...finishAllBlocks(state), ...endOpenTools(state, outcome)];
 	if (state.retrying) {
 		state.retrying = false;
 		events.push({ event: { type: "retry_finished", succeeded: false } });

@@ -1,9 +1,7 @@
-import { ADDED_IN_MINOR, type SessionRef, sessionCapabilities } from "../contract";
-import type { CoreClient } from "./client";
+import { type SessionRef, sessionCapabilities } from "../contract";
 import { type BackendRequest, type CoreContext, reachBackend } from "./context";
 import { LiveSession } from "./live-session";
-import { capabilitiesFor } from "./minor-views";
-import { openFailure, protocolError } from "./results";
+import { openFailure } from "./results";
 
 /** A stream that ended in `session_replaced`, and the session its conversation went on as. */
 export interface Replaced {
@@ -12,12 +10,10 @@ export interface Replaced {
 }
 
 /**
- * Where the conversation of the stream `epoch` went on, when that stream ended in
- * `session_replaced` and the client may be told (its `hello` named a minor that has the answer).
- * An older client is attached to the session it named, as before.
+ * Where the conversation of the stream `epoch` went on, when that stream ended in `session_replaced`.
  */
-export function movedTo(ctx: CoreContext, client: CoreClient, epoch: string | undefined): Replaced | undefined {
-	if (epoch === undefined || !client.speaks(ADDED_IN_MINOR.replacedSync)) return undefined;
+export function movedTo(ctx: CoreContext, epoch: string | undefined): Replaced | undefined {
+	if (epoch === undefined) return undefined;
 	const session = ctx.replacements.successor(epoch);
 	return session && { epoch, session };
 }
@@ -28,7 +24,7 @@ export function movedTo(ctx: CoreContext, client: CoreClient, epoch: string | un
  * answer's `capabilities` are the successor's own.
  */
 export async function redirectAttach(target: BackendRequest<"session.attach">, moved: Replaced): Promise<void> {
-	const { ctx, client, request, respond } = target;
+	const { ctx, request, respond } = target;
 	const backend = await reachBackend(ctx, moved.session.backend, request.requestId, respond);
 	if (!backend) return;
 	const live = await ctx.hub.acquire(backend, moved.session);
@@ -36,16 +32,10 @@ export async function redirectAttach(target: BackendRequest<"session.attach">, m
 		respond(openFailure(request.requestId, live));
 		return;
 	}
-	if (!client.speaks(ADDED_IN_MINOR.replacedSync)) {
-		respond(
-			protocolError(request.requestId, "invalid_message", "the protocol agreed with hello changed while attaching"),
-		);
-		return;
-	}
 	respond({
 		type: "session.attach.result",
 		requestId: request.requestId,
-		capabilities: capabilitiesFor(client, sessionCapabilities(live.open)),
+		capabilities: sessionCapabilities(live.open),
 		sync: { kind: "replaced", epoch: moved.epoch, session: live.ref },
 	});
 }

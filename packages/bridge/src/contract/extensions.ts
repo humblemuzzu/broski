@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { Timestamp } from "./ids";
-import { MAX_NAME_CHARS, MAX_TEXT_CHARS } from "./limits";
+import { MAX_NAME_CHARS } from "./limits";
 
-export const ExtensionKind = z.enum(["rate_limit", "prompt_suggestion"]);
+export const ExtensionKind = z.enum(["rate_limit"]);
 export type ExtensionKind = z.infer<typeof ExtensionKind>;
 
 export const RateLimitStatus = z.enum(["allowed", "allowed_warning", "rejected"]);
@@ -19,16 +19,6 @@ export const RateLimitUpdate = z.strictObject({
 });
 export type RateLimitUpdate = z.infer<typeof RateLimitUpdate>;
 
-/**
- * What the person might send next, as the backend predicts it once a turn ends (since 1.4). A newer one replaces it;
- * it is only offered, never sent on anyone's behalf.
- */
-export const PromptSuggestion = z.strictObject({
-	kind: z.literal(ExtensionKind.enum.prompt_suggestion),
-	text: z.string().min(1).max(MAX_TEXT_CHARS),
-});
-export type PromptSuggestion = z.infer<typeof PromptSuggestion>;
-
 /** A backend-specific live event, typed per backend. */
-export const BackendExtension = z.discriminatedUnion("kind", [RateLimitUpdate, PromptSuggestion]);
+export const BackendExtension = z.discriminatedUnion("kind", [RateLimitUpdate]);
 export type BackendExtension = z.infer<typeof BackendExtension>;

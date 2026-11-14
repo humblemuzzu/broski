@@ -74,7 +74,6 @@ describe("an image for a model that cannot see", () => {
 		const live = await t.rig.openNew({ modelId: wireIdOf(FAUX_MODEL_IDS.blind) });
 		const input: PromptInput = promptInput("Look.", "start", crypto.randomUUID(), {
 			attachments: [{ kind: "image", mimeType: "image/png", data: PIXEL, name: "pixel.png" }],
-			mentions: [],
 		});
 		const refused = await live.control.prompt(input);
 		expect(refused).toMatchObject({ status: "rejected", rejection: { code: "invalid_input" } });
@@ -115,7 +114,7 @@ describe("commands and text that looks like one", () => {
 		const runId = live.reduced().run?.runId;
 		const mark = live.recorder.items.length;
 		const result = await live.control.prompt(
-			promptInput("args here", "start", crypto.randomUUID(), { attachments: [], mentions: [], command }),
+			promptInput("args here", "start", crypto.randomUUID(), { attachments: [], command }),
 		);
 		expect(result).toEqual({ status: "accepted", disposition: "handled" });
 		await t.bus.commandsRan(1);
@@ -140,7 +139,7 @@ describe("commands and text that looks like one", () => {
 			await t.rig.arrange(live.ref, { kind: "reply" });
 			const { outcome } = await live.run(typed);
 			expect(outcome.kind).toBe("completed");
-			expect(await t.driver.delivered(live.ref)).toEqual({ text: typed, attachments: [], mentions: [] });
+			expect(await t.driver.delivered(live.ref)).toEqual({ text: typed, attachments: [] });
 		}
 		await t.driver.quiesce();
 		expect(t.bus.commandRuns).toEqual([]);
@@ -152,7 +151,7 @@ describe("commands and text that looks like one", () => {
 		const live = await t.rig.openNew();
 		for (const command of ["ext:no-such-command", "prompt:no-such-template"]) {
 			const result = await live.control.prompt(
-				promptInput("now", "start", crypto.randomUUID(), { attachments: [], mentions: [], command }),
+				promptInput("now", "start", crypto.randomUUID(), { attachments: [], command }),
 			);
 			expect(result).toMatchObject({ status: "rejected", rejection: { code: "not_found" } });
 		}

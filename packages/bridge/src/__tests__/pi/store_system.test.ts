@@ -65,7 +65,7 @@ async function until(check: () => boolean, what: string): Promise<void> {
 }
 
 const listedIds = async (cwd?: string) => {
-	const listed = await store.list({ ...(cwd !== undefined && { cwd }), archived: false }, { limit: 50 }, NOBODY);
+	const listed = await store.list({ ...(cwd !== undefined && { cwd }) }, { limit: 50 }, NOBODY);
 	if (listed.status === "rejected") throw new Error(listed.rejection.message);
 	return listed.page.items.map((row) => row.session.sessionId);
 };

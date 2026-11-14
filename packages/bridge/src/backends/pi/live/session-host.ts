@@ -247,7 +247,6 @@ export class SessionHost {
 			settings: this.settings,
 			running: () => this.runs.current() !== undefined,
 			nextCompactionStart: () => this.events.nextCompactionStart(),
-			snapshot: () => this.live.snapshot(),
 		});
 	}
 

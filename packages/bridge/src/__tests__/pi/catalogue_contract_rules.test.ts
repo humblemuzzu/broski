@@ -40,11 +40,10 @@ afterEach(() => {
 
 async function rig(): Promise<Rig> {
 	const catalog = new CatalogRecorder(1_000);
-	const { backend, driver } = await fakeConformanceFactory()({ catalog });
-	const { call: _fakeOps, ...fake } = backend;
+	const { backend: fake, driver } = await fakeConformanceFactory()({ catalog });
 	const models = new ModelCatalogue(world.services.models, world.env.agentDir);
 	const sources = { agentDir: world.env.agentDir, extensions: () => [] };
-	const pi: AgentBackend = {
+	const backend: AgentBackend = {
 		...fake,
 		id: "pi",
 		traits: PI_TRAITS,
@@ -52,7 +51,7 @@ async function rig(): Promise<Rig> {
 		listModels: (cwd) => models.list(cwd),
 		listCommands: (scope) => new PiCommandLister(sources).list({ cwd: scope.cwd }),
 	};
-	return new Rig(pi, { ...driver, cwd: world.env.cwd, otherCwd: world.env.otherCwd }, catalog, 5_000);
+	return new Rig(backend, { ...driver, cwd: world.env.cwd, otherCwd: world.env.otherCwd }, catalog, 5_000);
 }
 
 describe("conformance rules over the catalogue's parts", () => {

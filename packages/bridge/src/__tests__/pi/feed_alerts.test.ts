@@ -80,7 +80,7 @@ describe("the feed with the real Pi adapter", () => {
 		cleanup.push(() => finishFeed(feed, () => {}));
 		await phone.ok("prompt", {
 			session,
-			input: { clientRequestId: crypto.randomUUID(), mode: "start", text: "Read it", attachments: [], mentions: [] },
+			input: { clientRequestId: crypto.randomUUID(), mode: "start", text: "Read it", attachments: [] },
 		});
 
 		const [approval] = await alertsOf(feed, 1);

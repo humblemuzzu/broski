@@ -88,8 +88,6 @@ function applyToLiveState(snapshot: SessionSnapshot, record: Pick<SinkRecord, "a
 			return without(snapshot, "retry");
 		case "usage_updated":
 			return { ...snapshot, usage: event.usage };
-		case "plan_updated":
-			return { ...snapshot, plan: event.plan };
 		case "messages_retracted": {
 			const retracted = new Set(event.messageIds);
 			return {
@@ -118,7 +116,6 @@ function applyToLiveState(snapshot: SessionSnapshot, record: Pick<SinkRecord, "a
 			return event.snapshot;
 		case "user_message":
 		case "input_returned":
-		case "activity":
 		case "notice":
 		case "error":
 		case "extension":

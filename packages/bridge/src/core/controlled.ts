@@ -8,16 +8,7 @@ import { sessionKey } from "./session-key";
 export const WATCH_ONLY = "this session can only be watched";
 
 /** The requests that need the session's control. */
-type ControlType =
-	| "prompt"
-	| "abort"
-	| "queue.cancel"
-	| "model.set"
-	| "thinking.set"
-	| "mode.set"
-	| "compact"
-	| "compaction.cancel"
-	| "retry.cancel";
+type ControlType = "prompt" | "abort" | "queue.cancel" | "model.set" | "thinking.set" | "mode.set" | "compact";
 
 /** The requests that act on a session the client views: the control requests and an answer (`answering.ts`). */
 type ViewedType = ControlType | "interaction.answer";

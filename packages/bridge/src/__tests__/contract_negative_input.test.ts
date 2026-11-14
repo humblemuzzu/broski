@@ -1,6 +1,5 @@
 import { describe, test } from "bun:test";
 import type { AttachmentKind } from "../contract/content";
-import type { MentionKind } from "../contract/input";
 import { imagesComeBackByReference, inputReachesTheModel } from "../contract/testing/rules-input";
 import { breakBackend, breakControl, breakDriver, breakStream, fails, refused } from "./helpers/broken-adapters";
 
@@ -11,7 +10,7 @@ function stripping(kind: AttachmentKind) {
 	}));
 }
 
-function accepting(change: { attachments?: AttachmentKind[]; mentions?: MentionKind[]; commands?: boolean }) {
+function accepting(change: { attachments?: AttachmentKind[]; commands?: boolean }) {
 	return breakBackend((backend) => ({ traits: { ...backend.traits, ...change } }));
 }
 
@@ -21,30 +20,6 @@ describe("the input rule fails", () => {
 
 	test("for a file that never reaches the model", () =>
 		fails(stripping("file"), inputReachesTheModel, /a file attachment did not reach the model/));
-
-	test("for mentions that never reach the model", () =>
-		fails(
-			breakControl((control) => ({ prompt: (input) => control.prompt({ ...input, mentions: [] }) })),
-			inputReachesTheModel,
-			/a file mention did not reach the model/,
-		));
-
-	test("for an agent mention that never reaches the model", () =>
-		fails(
-			breakControl((control) => ({
-				prompt: (input) =>
-					control.prompt({ ...input, mentions: input.mentions.filter((mention) => mention.kind !== "agent") }),
-			})),
-			inputReachesTheModel,
-			/a agent mention did not reach the model/,
-		));
-
-	test("for an agent mention the driver cannot name", () =>
-		fails(
-			breakDriver(() => ({ agentName: undefined })),
-			inputReachesTheModel,
-			/driver names no agent/,
-		));
 
 	test("for a driver that sees no input", () =>
 		fails(
@@ -96,12 +71,6 @@ describe("the input rule fails", () => {
 			inputReachesTheModel,
 			/a file attachment is not declared yet accepted/,
 		));
-
-	test("for an undeclared file mention that is accepted", () =>
-		fails(accepting({ mentions: ["agent"] }), inputReachesTheModel, /a file mention is not declared yet accepted/));
-
-	test("for an undeclared mention kind that is accepted", () =>
-		fails(accepting({ mentions: ["file"] }), inputReachesTheModel, /a agent mention is not declared yet accepted/));
 
 	test("for commands accepted though undeclared", () =>
 		fails(

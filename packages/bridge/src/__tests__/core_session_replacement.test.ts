@@ -1,12 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import type { AgentBackend, ProtocolVersion, SessionRef } from "../contract";
+import type { AgentBackend, SessionRef } from "../contract";
 import { DEFAULT_IDLE_CLOSE_MS } from "../core/keep-open";
 import type { ReplacementRecord } from "../core/ports";
 import { REPLACEMENT_MEMORY, REPLACEMENT_TTL_MS, Replacements } from "../core/replacements";
 import { Gate } from "./helpers/core-adapters";
 import { type CoreRig, ManualClock, promptInput, quiesce, RIG_CWD, startCoreRig, TestClient } from "./helpers/core-rig";
-
-const MINOR_ZERO: ProtocolVersion = { major: 1, minor: 0 };
 
 interface Away {
 	readonly old: SessionRef;
@@ -74,8 +72,6 @@ describe("a session replaced while the phone is away", () => {
 			controllable: true,
 			compact: true,
 			cancelQueued: true,
-			cancelCompaction: true,
-			cancelRetry: true,
 			answer: true,
 		});
 		expect(await back.request("abort", { session: away.old })).toMatchObject({ error: { code: "not_attached" } });
@@ -108,18 +104,6 @@ describe("a session replaced while the phone is away", () => {
 			resume: { epoch: away.epoch, seq: away.seq },
 		});
 		expect(answer.sync).toEqual({ kind: "replaced", epoch: away.epoch, session: away.last });
-	});
-
-	test("an app of minor 0 is attached to the session it named, as before, and is never sent the new shape", async () => {
-		const rig = await startCoreRig();
-		const away = await replacedWhileAway(rig, 1);
-		const back = await rig.client("back", MINOR_ZERO);
-		const answer = await back.ok("session.attach", {
-			session: away.old,
-			resume: { epoch: away.epoch, seq: away.seq },
-		});
-		expect(answer.sync).toMatchObject({ kind: "snapshot" });
-		expect(await back.request("abort", { session: away.old })).toMatchObject({ result: { status: "accepted" } });
 	});
 
 	test("opening the old session on purpose, without resuming its ended stream, shows its history", async () => {
@@ -263,19 +247,6 @@ describe("a successor that is not open yet", () => {
 		gate.pass();
 		await pending;
 		expect(back.messages.filter((message) => message.type === "session.attach.result")).toEqual([]);
-	});
-
-	test("a client that took back its minor while the successor opened is not told", async () => {
-		const { adapt, gate, arm } = holdingOpens();
-		const rig = await startCoreRig({ adapt });
-		const away = await closedSuccessor(rig);
-		const back = await rig.client("back");
-		arm();
-		const pending = back.request("session.attach", { session: away.old, resume: { epoch: away.epoch, seq: away.seq } });
-		await gate.arrived();
-		await back.hello(MINOR_ZERO);
-		gate.pass();
-		expect(await pending).toMatchObject({ error: { code: "invalid_message" } });
 	});
 });
 

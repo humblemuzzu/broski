@@ -30,7 +30,6 @@ export async function listPage(
 	if (page.cursor !== undefined && after === undefined) {
 		return rejected("invalid_input", "this cursor was not minted by this listing");
 	}
-	if (query.archived) return { status: "accepted", page: { items: [] } };
 	const { parent } = query;
 	if (parent !== undefined && parseChildRef(parent.sessionId) !== undefined)
 		return { status: "accepted", page: { items: [] } };

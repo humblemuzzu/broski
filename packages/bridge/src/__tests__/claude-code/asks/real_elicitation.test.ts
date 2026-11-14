@@ -3,7 +3,7 @@
 import { describe, expect, test } from "bun:test";
 import { expectNoOrphans } from "../spike/rig/orphans";
 import { finishTurn, type RealRun, toolResults, withRealCli } from "./rig/real-run";
-import { EARLY_URL, type RichTool, richToolName } from "./rig/rich-elicit-server";
+import { type RichTool, richToolName } from "./rig/rich-elicit-server";
 
 expectNoOrphans();
 
@@ -104,7 +104,7 @@ describe("a url elicitation the server completes before anyone answers", () => {
 			await withRealCli(callTool("ask_url_early"), async (run) => {
 				const turn = finishTurn(run, "ask");
 				const interaction = await run.rig.requestedAt(0);
-				expect(interaction.request).toEqual({ kind: "external_url", url: EARLY_URL, server: "rich" });
+				expect(interaction.request).toEqual({ kind: "confirm" });
 				const complete = await run.spike.waitFor(
 					(message) => message.type === "system" && message.subtype === "elicitation_complete",
 				);
@@ -113,7 +113,9 @@ describe("a url elicitation the server completes before anyone answers", () => {
 				run.rig.desk.elicitationComplete(complete.elicitation_id);
 				await turn;
 				expect(run.rig.resolved()).toEqual([{ interactionId: interaction.id, reason: "withdrawn" }]);
-				expect(run.rig.answer(interaction, { kind: "external_url" })).toMatchObject({ rejection: { code: "stale" } });
+				expect(run.rig.answer(interaction, { kind: "confirm", confirmed: true })).toMatchObject({
+					rejection: { code: "stale" },
+				});
 			});
 		},
 		CLI_MS,

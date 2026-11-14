@@ -74,7 +74,7 @@ describe("a new session nobody has prompted", () => {
 		const path = t.rig.fileOf(live.ref);
 		expect(sessionEntries(path).map((entry) => entry.type === "custom" && entry.customType)).toContain("broski.origin");
 
-		const listed = await t.rig.rig.backend.listSessions({ cwd: t.rig.cwd, archived: false }, { limit: 50 });
+		const listed = await t.rig.rig.backend.listSessions({ cwd: t.rig.cwd }, { limit: 50 });
 		expect(listed.status === "accepted" && listed.page.items.map((item) => item.session.sessionId)).toContain(
 			live.ref.sessionId,
 		);

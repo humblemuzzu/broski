@@ -24,7 +24,7 @@ afterEach(async () => {
 });
 
 async function listed(rig: LiveRig, cwd: string | undefined): Promise<SessionSummary[]> {
-	return allRows(rig.backend, { ...(cwd !== undefined && { cwd }), archived: false }, 50);
+	return allRows(rig.backend, { ...(cwd !== undefined && { cwd }) }, 50);
 }
 
 const idsOf = (rows: readonly SessionSummary[]) => rows.map((row) => row.session.sessionId).sort();
@@ -60,12 +60,6 @@ describe("which sessions a directory lists", () => {
 		expect(idsOf(await listed(t, link))).toEqual(want);
 		const made = (await listed(t, t.cwd)).find((row) => row.session.sessionId === live.ref.sessionId);
 		expect(made?.cwd).toBe(link);
-	});
-
-	test("none when the archive is asked for: Pi has no archive", async () => {
-		t = await LiveRig.create();
-		writeSessionFile(t.world.sessionsRoot, { id: "plain", cwd: t.cwd, version: 3 }, conversation(["a", "b"]));
-		expect(await allRows(t.backend, { cwd: t.cwd, archived: true }, 50)).toEqual([]);
 	});
 });
 
@@ -154,7 +148,7 @@ describe("a session another process writes", () => {
 describe("a session this bridge hosts, as its files change", () => {
 	test("is announced by its host alone, so the time a row shows never goes back", async () => {
 		t = await LiveRig.create();
-		await t.backend.listSessions({ archived: false }, { limit: 10 });
+		await t.backend.listSessions({}, { limit: 10 });
 		const live = await t.rig.openNew();
 		for (const text of ["one", "two"]) {
 			await t.rig.arrange(live.ref, { kind: "reply" });

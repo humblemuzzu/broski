@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { BackendCall, BackendCallResult } from "./backend-ops";
 import { Capabilities, SessionCapabilities } from "./capabilities";
 import { CatalogEvent } from "./catalog-events";
 import { EventEnvelope } from "./events";
@@ -23,42 +22,10 @@ import { SessionSnapshot } from "./snapshot";
 import { BackendStatus } from "./status";
 
 /**
- * Bridge and app talk only when `major` is equal. A change the older side can ignore (a new optional
- * field, a new request, a new union member or enum value) bumps `minor`; anything else bumps `major`.
- * Neither side sends the other anything newer than the other's `minor`, learnt from `hello`.
+ * Bridge and app talk only when `major` is equal. A change the other side cannot ignore bumps `major`; until a
+ * client ships, 1.0 changes in place.
  */
-export const PROTOCOL_VERSION = { major: 1, minor: 4 } as const;
-
-/**
- * The minor that introduced each addition to 1.0. The bridge sends it only to a client whose `hello`
- * named at least that minor (`CoreClient.speaks`). 1.1: the `replaced` attach answer. 1.2: the
- * `input_returned` event (an older client is sent a `notice` with the same texts in its place) and the
- * `take_over` Pi op (an older client is not told it exists). 1.3: `sessionControls`, the `compaction.cancel` and
- * `retry.cancel` requests with the `SessionCapabilities` fields that announce them, and the Pi ops `session_settings`,
- * `session_tools` and `system_prompt`; `sessionFiles` and `modelAvailability`, the Pi session-file ops,
- * `refresh_models` and the unavailable models of a model list; `treeOps` and `shellOps`, the Pi tree ops
- * (`read_tree`, `label_entry`, `abort_branch_summary`) and `run_shell`. 1.4: `configOps`, the ops of a project's
- * configuration, a session's lists and the bridge's own tools (`config_files`, `config_file`, `settings_overview`,
- * `mcp_servers`, `plugins`, `tasks`, `context_usage`, `custom_tools`, `custom_tool`), Claude Code serving the existing
- * `session_settings`, `changed_files` and `refresh_models`, the `prompt_suggestion` extension (an older client is sent a
- * `notice` in its place), and a plan approval's next mode (`modeOptions`, `modeAfter`: an older client is sent the plan
- * without the options, and its answer may not name one); `watchedAnswers`, answering the asks of a session without
- * control (`SessionCapabilities.answer`: an older client is sent the capabilities without it, and its answer on such a
- * session is refused as before). An older client is told of none of them.
- */
-export const ADDED_IN_MINOR = {
-	replacedSync: 1,
-	inputReturned: 2,
-	takeOver: 2,
-	sessionControls: 3,
-	sessionFiles: 3,
-	modelAvailability: 3,
-	treeOps: 3,
-	shellOps: 3,
-	configOps: 4,
-	watchedAnswers: 4,
-	activities: 4,
-} as const;
+export const PROTOCOL_VERSION = { major: 1, minor: 0 } as const;
 
 export const ProtocolVersion = z.strictObject({ major: z.int().nonnegative(), minor: z.int().nonnegative() });
 export type ProtocolVersion = z.infer<typeof ProtocolVersion>;
@@ -103,8 +70,7 @@ export type SnapshotSync = z.infer<typeof SnapshotSync>;
 /**
  * The stream `epoch` ended in `session_replaced`, and its conversation goes on as `session` (after
  * any further replacement). The client is attached to neither session; the answer's `capabilities`
- * are those of `session`, which the client attaches to next. Sent only to a client of minor 1 or
- * later; an older one is attached to the session it named, as before.
+ * are those of `session`, which the client attaches to next.
  */
 export const ReplacedSync = z.strictObject({
 	kind: z.literal("replaced"),
@@ -151,7 +117,6 @@ export const SessionRenameRequest = request("session.rename", {
 	title: z.string().min(1).max(MAX_NAME_CHARS),
 });
 export const SessionDeleteRequest = request("session.delete", { session: SessionRef });
-export const SessionArchiveRequest = request("session.archive", { session: SessionRef, archived: z.boolean() });
 /** Without `resume`, or when the bridge cannot replay from it, the response carries a snapshot. */
 export const SessionAttachRequest = request("session.attach", {
 	session: SessionRef,
@@ -181,9 +146,6 @@ export const CompactRequest = request("compact", {
 	session: SessionRef,
 	instructions: z.string().min(1).max(MAX_TEXT_CHARS).optional(),
 });
-export const CompactionCancelRequest = request("compaction.cancel", { session: SessionRef });
-export const RetryCancelRequest = request("retry.cancel", { session: SessionRef });
-export const BackendCallRequest = request("backend.call", { call: BackendCall });
 
 export const ClientMessage = z.discriminatedUnion("type", [
 	HelloRequest,
@@ -198,7 +160,6 @@ export const ClientMessage = z.discriminatedUnion("type", [
 	SessionForkRequest,
 	SessionRenameRequest,
 	SessionDeleteRequest,
-	SessionArchiveRequest,
 	SessionAttachRequest,
 	SessionDetachRequest,
 	TranscriptReadRequest,
@@ -211,9 +172,6 @@ export const ClientMessage = z.discriminatedUnion("type", [
 	ThinkingSetRequest,
 	ModeSetRequest,
 	CompactRequest,
-	CompactionCancelRequest,
-	RetryCancelRequest,
-	BackendCallRequest,
 ]);
 export type ClientMessage = z.infer<typeof ClientMessage>;
 
@@ -234,7 +192,6 @@ export const SessionCreateResponse = response("session.create", { result: NewSes
 export const SessionForkResponse = response("session.fork", { result: NewSessionResult });
 export const SessionRenameResponse = response("session.rename", { result: ActionResult });
 export const SessionDeleteResponse = response("session.delete", { result: ActionResult });
-export const SessionArchiveResponse = response("session.archive", { result: ActionResult });
 export const SessionAttachResponse = response("session.attach", {
 	capabilities: SessionCapabilities,
 	sync: AttachSync,
@@ -250,9 +207,6 @@ export const ModelSetResponse = response("model.set", { result: ActionResult });
 export const ThinkingSetResponse = response("thinking.set", { result: ActionResult });
 export const ModeSetResponse = response("mode.set", { result: ActionResult });
 export const CompactResponse = response("compact", { result: ActionResult });
-export const CompactionCancelResponse = response("compaction.cancel", { result: ActionResult });
-export const RetryCancelResponse = response("retry.cancel", { result: ActionResult });
-export const BackendCallResponse = response("backend.call", { result: BackendCallResult });
 
 /**
  * A request the bridge could not handle at all. Expected outcomes, including an operation the
@@ -299,7 +253,6 @@ export const ServerMessage = z.discriminatedUnion("type", [
 	SessionForkResponse,
 	SessionRenameResponse,
 	SessionDeleteResponse,
-	SessionArchiveResponse,
 	SessionAttachResponse,
 	SessionDetachResponse,
 	TranscriptReadResponse,
@@ -312,9 +265,6 @@ export const ServerMessage = z.discriminatedUnion("type", [
 	ThinkingSetResponse,
 	ModeSetResponse,
 	CompactResponse,
-	CompactionCancelResponse,
-	RetryCancelResponse,
-	BackendCallResponse,
 	ErrorResponse,
 	EventMessage,
 	CatalogMessage,

@@ -28,7 +28,7 @@ export async function deliveredInput(
 	});
 	const command = raw.startsWith(TEMPLATE_MARKER) ? commandId({ source: "template", name: TEMPLATE_NAME }) : undefined;
 	const text = command === undefined ? raw : raw.slice(TEMPLATE_MARKER.length).replace(/^ /, "");
-	return { text, attachments, mentions: [], ...(command !== undefined && { command }) };
+	return { text, attachments, ...(command !== undefined && { command }) };
 }
 
 async function imageNames(

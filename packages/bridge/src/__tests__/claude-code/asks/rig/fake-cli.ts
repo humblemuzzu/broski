@@ -89,17 +89,6 @@ export class FakeAskCli implements AskCli {
 
 	private async elicit(kind: InteractionKind, desk: AskDesk, signal: AbortSignal, requestId: string): Promise<void> {
 		const base = { serverName: "elicit", signal };
-		if (kind === "external_url") {
-			const request = {
-				serverName: "elicit",
-				message: "Consent in the browser",
-				mode: "url",
-				url: "https://example.invalid/consent",
-				elicitationId: "el-1",
-			} as const;
-			await desk.onElicitation(request, { signal, requestId });
-			return;
-		}
 		const requestedSchema = kind === "form" ? FORM_SCHEMA : { type: "object", properties: {} };
 		await desk.onElicitation(
 			{ serverName: base.serverName, message: "Go ahead?", mode: "form", requestedSchema },

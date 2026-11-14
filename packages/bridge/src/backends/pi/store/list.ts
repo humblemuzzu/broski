@@ -42,7 +42,6 @@ export function summaryOf(row: IndexedSession, parentId: SessionId | undefined, 
 		...(row.createdAt !== undefined && { createdAt: row.createdAt }),
 		updatedAt: row.updatedAt,
 		...(parentId !== undefined && { parent: { kind: "fork", session: { backend: "pi", sessionId: parentId } } }),
-		archived: false,
 		...(modelId !== undefined && { modelId }),
 		status: hosted?.status ?? "unknown",
 		origin: row.origin,
@@ -93,13 +92,13 @@ export async function listSessions(
 	live: LiveOverlay,
 	toolChildren: ToolChildren,
 ): Promise<SessionsListResult> {
-	const scope = cursorScope(["sessions", query.cwd ?? "", String(query.archived), query.parent?.sessionId ?? ""]);
+	const scope = cursorScope(["sessions", query.cwd ?? "", query.parent?.sessionId ?? ""]);
 	const after =
 		page.cursor === undefined ? undefined : decodeCursor(page.cursor, "sessions", scope, isSessionsPosition);
 	if (page.cursor !== undefined && after === undefined) {
 		return rejected("invalid_input", "this cursor was not minted by this listing");
 	}
-	if (query.archived || (query.parent !== undefined && query.parent.backend !== "pi")) {
+	if (query.parent !== undefined && query.parent.backend !== "pi") {
 		return { status: "accepted", page: { items: [] } };
 	}
 	const listed = await rowsOf(index, query, live, toolChildren);

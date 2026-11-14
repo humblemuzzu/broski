@@ -79,7 +79,6 @@ export class FakeInbox {
 		this.lastDelivered = {
 			text: input.text,
 			attachments: input.attachments,
-			mentions: input.mentions,
 			...(input.command !== undefined && { command: input.command }),
 		};
 		return {

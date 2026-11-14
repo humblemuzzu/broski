@@ -24,7 +24,7 @@ export const FIT_MUTANTS: Mutant[] = [
 			find: "\tif (!checked.success) {\n\t\tlog.error(`[core] a shortened",
 			replace: "\tif (false) {\n\t\tlog.error(`[core] a shortened",
 			equivalent:
-				"cutting only shortens strings longer than MAX_PATH_CHARS, turns an edit flag false and a file's `truncated` true; no schema in the contract constrains such a string beyond its maximum, so a cut message always parses",
+				"cutting only shortens strings longer than MAX_PATH_CHARS, turns an edit flag false; no schema in the contract constrains such a string beyond its maximum, so a cut message always parses",
 		},
 		{
 			name: "fit: open text keeps its head",
@@ -42,7 +42,7 @@ export const FIT_MUTANTS: Mutant[] = [
 	...mutantsOf("core/text-elision.ts", [
 		{
 			name: "elide: edits stay editable when cut",
-			find: "lock.holder[lock.flag] = lock.editable && whole;",
+			find: "lock.holder[lock.flag] = whole;",
 			replace: "",
 		},
 		{
@@ -50,28 +50,6 @@ export const FIT_MUTANTS: Mutant[] = [
 			find: "const whole = lock.candidates.every((item) => item.text.length <= limit);",
 			replace:
 				"const whole = lock.holder[lock.flag] === true && lock.candidates.every((item) => item.text.length <= limit);",
-		},
-		{
-			name: "elide: a read-only file becomes editable when whole",
-			find: "lock.holder[lock.flag] = lock.editable && whole;",
-			replace: "lock.holder[lock.flag] = whole;",
-		},
-		{
-			name: "elide: a cut file is not marked truncated",
-			find: "if (lock.cutFlag) lock.holder[lock.cutFlag] = !whole;",
-			replace: "",
-		},
-		{
-			name: "elide: a file's text is never locked",
-			find: "requestLock(tree, candidate.path) ?? fileLock(tree, candidate.path)",
-			replace: "requestLock(tree, candidate.path)",
-		},
-		{
-			name: "elide: any text beside a revision is a file's",
-			find: 'if (path.at(-1) !== "text") return undefined;',
-			replace: "",
-			equivalent:
-				"no input reaches it: only an `EditableFile` has a boolean `truncated` and a string `revision`, and of its strings only `text` and the entries of `problems` can be long enough to cut, a problem's parent being the list",
 		},
 		{ name: "elide: the tail is never kept", find: "scope.keepsTail(candidate.path)", replace: "false" },
 		{ name: "elide: conditions are cut", find: " && !isCondition(path)", replace: "" },

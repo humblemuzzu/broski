@@ -97,13 +97,11 @@ describe("applyEvent", () => {
 		const state = reduce([
 			{ type: "queue_changed", items: [{ id: "q1", delivery: "queue", preview: "later" }] },
 			{ type: "usage_updated", usage: { inputTokens: 5 } },
-			{ type: "plan_updated", plan: { items: [{ text: "Do", status: "pending" }] } },
 			{ type: "model_changed", modelId: "m", thinking: "high" },
 			{ type: "model_changed", modelId: "n" },
 		]);
 		expect(state.queue).toEqual([{ id: "q1", delivery: "queue", preview: "later" }]);
 		expect(state.usage).toEqual({ inputTokens: 5 });
-		expect(state.plan).toEqual({ items: [{ text: "Do", status: "pending" }] });
 		expect(state.modelId).toBe("n");
 		expect(state.thinking).toBeUndefined();
 	});

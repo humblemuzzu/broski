@@ -44,7 +44,7 @@ describe("listing", () => {
 		const there = world.project("there");
 		for (let n = 0; n < 7; n++) seed(here, `prompt ${n}`, new Date(Date.UTC(2026, 0, 1 + n)));
 		for (let n = 0; n < 3; n++) seed(there, `other ${n}`, new Date(Date.UTC(2026, 0, 20 + n)));
-		const query = { cwd: here, archived: false };
+		const query = { cwd: here };
 		const paged = await everyPage(query, 2);
 		const whole = await everyPage(query, 200);
 		const ids = paged.map((row) => row.session.sessionId);
@@ -54,7 +54,7 @@ describe("listing", () => {
 		const times = paged.map((row) => row.updatedAt);
 		expect(times).toEqual([...times].sort((a, b) => b - a));
 		expect(paged.every((row) => row.cwd === here && SessionSummary.safeParse(row).success)).toBe(true);
-		expect((await everyPage({ cwd: there, archived: false }, 2)).length).toBe(3);
+		expect((await everyPage({ cwd: there }, 2)).length).toBe(3);
 	});
 
 	test("breaks a lastModified tie by sessionId descending, as listSessions does, on every page", async () => {
@@ -67,7 +67,7 @@ describe("listing", () => {
 		const sdkRows = await world.sdk.listSessions({ dir: cwd, includeWorktrees: false });
 		const sdkOrder = sdkRows.map((row) => row.sessionId);
 		for (const limit of [1, 2, 3, 200]) {
-			const rows = await everyPage({ cwd, archived: false }, limit);
+			const rows = await everyPage({ cwd }, limit);
 			expect(rows.map((row) => row.session.sessionId)).toEqual(sdkOrder);
 			expect(rows.map((row) => row.updatedAt)).toEqual(sdkRows.map((row) => row.lastModified));
 		}
@@ -77,7 +77,7 @@ describe("listing", () => {
 	test("lists the sessions of every project when no cwd is asked for, ordered like the SDK", async () => {
 		for (const [index, name] of ["a", "b", "c"].entries())
 			seed(world.project(name), name, new Date(Date.UTC(2026, 1, 1 + index)));
-		const ours = (await everyPage({ archived: false }, 2)).map((row) => row.session.sessionId);
+		const ours = (await everyPage({}, 2)).map((row) => row.session.sessionId);
 		const sdk = (await world.sdk.listSessions({})).map((row) => row.sessionId);
 		expect(ours).toEqual(sdk);
 		expect(ours).toHaveLength(3);
@@ -86,23 +86,13 @@ describe("listing", () => {
 	test("refuses a cursor it did not mint and one minted for another listing", async () => {
 		const cwd = world.project("cursors");
 		for (let n = 0; n < 4; n++) seed(cwd, `p${n}`, new Date(Date.UTC(2026, 0, 1 + n)));
-		const first = await world.store.list({ cwd, archived: false }, { limit: 2 }, world.live);
+		const first = await world.store.list({ cwd }, { limit: 2 }, world.live);
 		if (first.status !== "accepted" || first.page.nextCursor === undefined) throw new Error("expected a second page");
 		for (const cursor of ["not-a-cursor", "AAAA", first.page.nextCursor]) {
-			const query =
-				cursor === first.page.nextCursor ? { cwd: world.project("other"), archived: false } : { cwd, archived: false };
+			const query = cursor === first.page.nextCursor ? { cwd: world.project("other") } : { cwd };
 			const result = await world.store.list(query, { limit: 2, cursor }, world.live);
 			expect(result.status === "rejected" && result.rejection.code).toBe("invalid_input");
 		}
-	});
-
-	test("archived is always empty, and a session is never archived", async () => {
-		const cwd = world.project("archive");
-		seed(cwd, "x", new Date());
-		const archived = await world.store.list({ cwd, archived: true }, { limit: 10 }, world.live);
-		expect(archived.status === "accepted" && archived.page.items).toEqual([]);
-		const active = await everyPage({ cwd, archived: false }, 10);
-		expect(active.every((row) => row.archived === false)).toBe(true);
 	});
 
 	test("a page reads at most limit + 32 rows, however deep it is", async () => {
@@ -113,7 +103,7 @@ describe("listing", () => {
 		do {
 			const before = world.calls.getSessionInfo;
 			const result = await world.store.list(
-				{ cwd, archived: false },
+				{ cwd },
 				{ limit: 20, ...(cursor !== undefined && { cursor }) },
 				world.live,
 			);
@@ -131,7 +121,7 @@ describe("listing", () => {
 		for (let n = 0; n < 3; n++) seed(mine, `m${n}`, new Date(Date.UTC(2026, 0, 1 + n)));
 		for (const name of ["x", "y", "z"])
 			for (let n = 0; n < 6; n++) seed(world.project(name), `${name}${n}`, new Date(Date.UTC(2026, 5, 1 + n)));
-		const query = { cwd: mine, archived: false };
+		const query = { cwd: mine };
 		await everyPage(query, 50);
 		const before = world.calls.getSessionInfo;
 		const again = await everyPage(query, 50);
@@ -147,7 +137,7 @@ describe("rows", () => {
 		const owned = seed(cwd, "mine", new Date(Date.UTC(2026, 0, 2)));
 		await world.ownership.claim(owned);
 		world.live.rows.set(owned, { status: "running", modelId: "opus" });
-		const rows = await everyPage({ cwd, archived: false }, 10);
+		const rows = await everyPage({ cwd }, 10);
 		const byId = new Map(rows.map((row) => [row.session.sessionId, row]));
 		expect(byId.get(first)).toMatchObject({
 			title: { text: "the first prompt", source: "first_prompt" },
@@ -176,8 +166,7 @@ describe("rows", () => {
 		expect(git("worktree", "add", "-q", tree).exitCode).toBe(0);
 		const inRepo = seed(repo, "in the repo", new Date(Date.UTC(2026, 0, 1)));
 		const inTree = seed(tree, "in the worktree", new Date(Date.UTC(2026, 0, 2)));
-		const ids = async (cwd: string) =>
-			(await everyPage({ cwd, archived: false }, 10)).map((row) => row.session.sessionId);
+		const ids = async (cwd: string) => (await everyPage({ cwd }, 10)).map((row) => row.session.sessionId);
 		expect(await ids(repo)).toEqual([inRepo]);
 		expect(await ids(tree)).toEqual([inTree]);
 	});

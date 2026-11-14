@@ -36,7 +36,6 @@ function input(extra: Partial<PromptInput> = {}): PromptInput {
 		mode: "start",
 		text: "Look at this.",
 		attachments: [],
-		mentions: [],
 		...extra,
 	};
 }
@@ -65,23 +64,17 @@ describe("a prompt as the message it is sent as", () => {
 		});
 	});
 
-	test("mentions become text, a command becomes a slash command, images become base64 blocks after the text", () => {
+	test("a command becomes a slash command, images become base64 blocks after the text", () => {
 		const request = input({
 			text: "now",
 			command: "review",
-			mentions: [
-				{ kind: "file", path: "/repo/a.ts" },
-				{ kind: "file", path: "/repo/with space.ts" },
-				{ kind: "agent", name: "general-purpose" },
-			],
 			attachments: [{ kind: "image", mimeType: "image/png", data: PIXEL, name: "p.png" }],
 		});
 		const uuid = uuidOf(request);
 		const prepared = userMessageOf(request, uuid);
 		if ("status" in prepared) throw new Error("rejected");
-		const text = '/review now\n@/repo/a.ts @"/repo/with space.ts" @agent-general-purpose';
-		expect(prepared.sentText).toBe(text);
-		expect(prepared.typedText).toBe("/review now");
+		const text = "/review now";
+		expect(prepared.text).toBe(text);
 		expect(prepared.message.message.content).toEqual([
 			{ type: "text", text },
 			{ type: "image", source: { type: "base64", media_type: "image/png", data: PIXEL } },
@@ -143,29 +136,6 @@ describe("input on the real CLI", () => {
 				expect(stored.content[1]?.type).toBe("image");
 				expect(stored.content[1]?.source?.data).toBe(PIXEL);
 				expect(rig.ownership.prompts[0]?.record.imageNames).toEqual(["pixel.png"]);
-			} finally {
-				await rig.dispose();
-			}
-		},
-		CLI_TEST_MS,
-	);
-
-	test(
-		"a file mention attaches the file, quoted when its path has a space; an agent mention asks for the agent",
-		async () => {
-			const rig = realRig([{ text: ["ok"] }, { text: ["ok"] }, { text: ["ok"] }]);
-			try {
-				mkdirSync(join(rig.home.projectDir, "notes dir"), { recursive: true });
-				writeFileSync(join(rig.home.projectDir, "notes dir", "my notes.md"), "The secret word is GLORP.\n");
-				const live = await rig.openNew(rig.home.projectDir);
-				await live.runInput(input({ mentions: [{ kind: "file", path: join(rig.home.projectDir, "README.md") }] }));
-				expect(JSON.stringify(rig.server.mainRequests()[0]?.body)).toContain("PLUMBUS");
-				await live.runInput(
-					input({ mentions: [{ kind: "file", path: join(rig.home.projectDir, "notes dir", "my notes.md") }] }),
-				);
-				expect(JSON.stringify(rig.server.mainRequests()[1]?.body)).toContain("GLORP");
-				await live.runInput(input({ mentions: [{ kind: "agent", name: "general-purpose" }] }));
-				expect(JSON.stringify(rig.server.mainRequests()[2]?.body)).toContain('invoke the agent \\"general-purpose\\"');
 			} finally {
 				await rig.dispose();
 			}
@@ -236,14 +206,6 @@ describe("input on the real CLI", () => {
 				const image = { kind: "image" as const, mimeType: "image/png", data: PIXEL };
 				await live.runInput(input({ attachments: [image] }));
 				expect((await read())?.attachments).toEqual([image]);
-
-				const file = { kind: "file" as const, path: join(rig.home.projectDir, "README.md") };
-				await live.runInput(input({ mentions: [file] }));
-				expect((await read())?.mentions).toEqual([file]);
-
-				const agent = { kind: "agent" as const, name: "general-purpose" };
-				await live.runInput(input({ mentions: [agent] }));
-				expect((await read())?.mentions).toEqual([agent]);
 
 				await live.runInput(input({ text: "the moon", command: "greet" }));
 				expect((await read())?.command).toBe("greet");

@@ -99,7 +99,7 @@ describe("a project of 500 sessions", () => {
 			const reads = world.calls.getSessionInfo;
 			const started = performance.now();
 			const result = await world.store.list(
-				{ cwd, archived: false },
+				{ cwd },
 				{ limit: 50, ...(cursor !== undefined && { cursor }) },
 				world.live,
 			);

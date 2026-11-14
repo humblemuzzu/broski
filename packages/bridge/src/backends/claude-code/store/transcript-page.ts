@@ -110,7 +110,6 @@ async function walk(ctx: StoreContext, job: Walk, start: Start, limit: number): 
 				toolUseResult: await resultOf(job, index, message),
 				system: index.raw.system.get(message.uuid),
 				previousSystem: index.raw.system.get(index.uuids[entry - 1] ?? ""),
-				hooks: index.raw.hooks.get(message.uuid),
 			});
 			for (let item = Math.min(entryItems.length, remaining ?? entryItems.length) - 1; item >= 0; item--) {
 				const shown = entryItems[item];

@@ -212,12 +212,14 @@ describe("a url elicitation", () => {
 		elicitationId: "el-1",
 	};
 
-	test("is an external url that a person accepts", async () => {
+	test("is one the app cannot open: confirming declines it, and nothing is answered for the person", async () => {
 		const rig = new DeskRig();
 		const ask = rig.elicit(url);
-		expect(rig.only().request).toEqual({ kind: "external_url", url: LINK, server: SERVER });
-		rig.answer(rig.only(), { kind: "external_url" });
-		expect(await ask.promise).toEqual({ action: "accept" });
+		const interaction = rig.only();
+		expect(interaction.request).toEqual({ kind: "confirm" });
+		expect(await stillPending(ask.promise, 10)).toBe(true);
+		rig.answer(interaction, { kind: "confirm", confirmed: true });
+		expect(await ask.promise).toEqual({ action: "decline" });
 	});
 
 	test("the server's completion before any answer withdraws it, and a later answer is stale", async () => {
@@ -227,24 +229,11 @@ describe("a url elicitation", () => {
 		rig.desk.elicitationComplete("el-1");
 		expect(await ask.promise).toEqual({ action: "cancel" });
 		expect(rig.resolved()).toEqual([{ interactionId: interaction.id, reason: "withdrawn" }]);
-		expect(rig.answer(interaction, { kind: "external_url" })).toMatchObject({ rejection: { code: "stale" } });
+		expect(rig.answer(interaction, { kind: "confirm", confirmed: true })).toMatchObject({
+			rejection: { code: "stale" },
+		});
 		rig.desk.elicitationComplete("el-1");
 		expect(rig.resolved()).toHaveLength(1);
-	});
-
-	test("the completion after an answer changes nothing", async () => {
-		const rig = new DeskRig();
-		const ask = rig.elicit(url);
-		rig.answer(rig.only(), { kind: "external_url" });
-		await ask.promise;
-		rig.desk.elicitationComplete("el-1");
-		expect(rig.resolved()).toEqual([{ interactionId: rig.only().id, reason: "answered" }]);
-	});
-
-	test("a link that is not http(s) is never offered to open", () => {
-		const rig = new DeskRig();
-		rig.elicit({ ...url, url: "javascript:alert(1)" });
-		expect(rig.only().request.kind).toBe("confirm");
 	});
 });
 

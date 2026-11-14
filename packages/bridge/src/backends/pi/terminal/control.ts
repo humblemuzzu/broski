@@ -22,7 +22,6 @@ function refusal(answer: Extract<CommandAnswer, { ok: false }>) {
 }
 
 function problem(input: PromptInput) {
-	if (input.mentions.length > 0) return rejected("unsupported", "A terminal session takes no mentions.");
 	if (input.attachments.some((attachment) => attachment.kind !== "image")) {
 		return rejected("unsupported", "A terminal session takes images, not files.");
 	}

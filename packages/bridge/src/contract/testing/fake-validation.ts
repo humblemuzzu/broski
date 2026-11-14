@@ -84,8 +84,6 @@ export function inputProblem(traits: BackendTraits, input: PromptInput): Rejecte
 	if (!traits.promptModes.includes(input.mode)) return rejected("unsupported", `mode ${input.mode} is not supported`);
 	const attachment = input.attachments.find((candidate) => !traits.attachments.includes(candidate.kind));
 	if (attachment) return rejected("unsupported", `${attachment.kind} attachments are not supported`);
-	const mention = input.mentions.find((candidate) => !traits.mentions.includes(candidate.kind));
-	if (mention) return rejected("unsupported", `${mention.kind} mentions are not supported`);
 	if (input.command === undefined) return undefined;
 	if (!traits.commands) return rejected("unsupported", "commands are not supported");
 	return FAKE_COMMANDS.some((command) => command.id === input.command)

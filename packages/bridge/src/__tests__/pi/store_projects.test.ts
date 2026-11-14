@@ -71,14 +71,14 @@ describe.each([
 		const unknown = await store.get("own", NOBODY);
 		expect(unknown.status === "rejected" && unknown.rejection.code).toBe("not_found");
 
-		const listed = await store.list({ cwd: env.cwd, archived: false }, { limit: 10 }, NOBODY);
+		const listed = await store.list({ cwd: env.cwd }, { limit: 10 }, NOBODY);
 		expect(listed.status === "accepted" && listed.page.items.map((row) => row.session.sessionId)).toEqual(["own"]);
 		const found = await store.get("own", NOBODY);
 		expect(found.status).toBe("accepted");
 		expect((await store.transcript("own", { limit: 10 }, NOBODY)).status).toBe("accepted");
 		const located = await store.locate("own");
 		expect("path" in located && located.path.startsWith(join(env.cwd, "own-sessions"))).toBe(true);
-		const everything = await store.list({ archived: false }, { limit: 10 }, NOBODY);
+		const everything = await store.list({}, { limit: 10 }, NOBODY);
 		expect(everything.status === "accepted" && everything.page.items.map((row) => row.session.sessionId)).toEqual([
 			"own",
 		]);
@@ -105,7 +105,7 @@ describe.each([
 		store.watch(NOBODY);
 
 		expect((await store.get("own", NOBODY)).status).toBe("accepted");
-		await store.list({ archived: false }, { limit: 10 }, NOBODY);
+		await store.list({}, { limit: 10 }, NOBODY);
 		await Bun.sleep(500);
 
 		expect(events).toEqual([]);
@@ -116,7 +116,7 @@ describe.each([
 		const dir = join(env.cwd, "own-sessions");
 		writeSession(dir, chat("already", env.cwd));
 		store.watch(NOBODY);
-		await store.list({ cwd: env.cwd, archived: false }, { limit: 10 }, NOBODY);
+		await store.list({ cwd: env.cwd }, { limit: 10 }, NOBODY);
 		await Bun.sleep(400);
 		expect(events).toEqual([]);
 
@@ -135,7 +135,7 @@ describe.each([
 	test("a project's own directory is changed only once the project is trusted: Pi uses it either way", async () => {
 		useProjectDir(env.cwd, setting(env.cwd));
 		const path = writeSession(join(env.cwd, "own-sessions"), chat("doomed", env.cwd));
-		await store.list({ cwd: env.cwd, archived: false }, { limit: 10 }, NOBODY);
+		await store.list({ cwd: env.cwd }, { limit: 10 }, NOBODY);
 		const trash = installFakeTrash(env);
 		const before = readFileSync(path, "utf8");
 

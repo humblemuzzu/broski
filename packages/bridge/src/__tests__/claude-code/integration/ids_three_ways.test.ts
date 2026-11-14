@@ -75,7 +75,7 @@ describe("one session read three ways", () => {
 			]);
 			const image = { kind: "image" as const, mimeType: "image/png", data: DOT_PNG, name: "dot.png" };
 			const prompt = { clientRequestId: crypto.randomUUID(), mode: "start" as const, text: "What is this?" };
-			await live.runInput({ ...prompt, attachments: [image], mentions: [] });
+			await live.runInput({ ...prompt, attachments: [image] });
 			const read = await rig.backend.readTranscript(live.ref, { limit: 200 });
 			if (read.status !== "accepted") throw new Error(read.rejection.message);
 			const items = [...read.page.items].reverse();

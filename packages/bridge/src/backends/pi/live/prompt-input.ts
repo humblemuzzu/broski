@@ -9,9 +9,6 @@ import { PI_TRAITS } from "../traits";
 
 export function inputProblem(input: PromptInput, session: AgentSession): Rejected | undefined {
 	if (!PI_TRAITS.promptModes.includes(input.mode)) return rejected("unsupported", `Pi takes no ${input.mode} prompts`);
-	if (input.mentions.some((mention) => !PI_TRAITS.mentions.includes(mention.kind))) {
-		return rejected("unsupported", "Pi takes no mentions");
-	}
 	if (input.attachments.some((attachment) => !PI_TRAITS.attachments.includes(attachment.kind))) {
 		return rejected("unsupported", "Pi takes images, not files");
 	}

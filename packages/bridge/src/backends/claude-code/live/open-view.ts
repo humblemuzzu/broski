@@ -20,7 +20,6 @@ export function openView(host: SessionHost, sink: SessionSink): OpenSession {
 		setMode: (axis, value) => whileOpen(() => shared.setMode(axis, value)),
 		compact: (instructions) => whileOpen(() => shared.compact(instructions)),
 		cancelQueued: (id) => whileOpen(() => shared.cancelQueued(id)),
-		cancelCompaction: () => whileOpen(() => shared.cancelCompaction()),
 	};
 	return {
 		get session(): SessionRef {

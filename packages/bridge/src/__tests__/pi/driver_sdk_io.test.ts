@@ -192,7 +192,6 @@ describe("delivered", () => {
 		expect(delivered).toEqual({
 			text: "Look.",
 			attachments: [{ kind: "image", mimeType: "image/png", data: PIXEL, name: "pixel.png" }],
-			mentions: [],
 		});
 		const unnamed = await deliveredInput(transcriptWith("Look.", [undefined]), stack.router, ref);
 		expect(unnamed?.attachments).toEqual([{ kind: "image", mimeType: "image/png", data: PIXEL }]);

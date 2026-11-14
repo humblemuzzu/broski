@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { MAX_IMAGE_CHARS } from "../contract";
 import { createFakeBackend } from "../contract/testing/fake-backend";
-import { FULL_TRAITS } from "../contract/testing/fake-data";
 import { BridgeCore } from "../core/core";
 import type { JournalEntry, PromptJournal } from "../core/ports";
 import { MAX_SESSIONS_PER_CLIENT } from "../core/requests-live";
@@ -198,8 +197,6 @@ describe("the core's prompt path", () => {
 			controllable: false,
 			compact: false,
 			cancelQueued: false,
-			cancelCompaction: false,
-			cancelRetry: false,
 			answer: false,
 		});
 		const results = [
@@ -282,10 +279,7 @@ describe("prompt idempotency", () => {
 describe("a bridge restart", () => {
 	test("a run that does not survive it is over in the new bridge's snapshot, and its ask has expired", async () => {
 		const clock = new ManualClock();
-		const traits = { ...FULL_TRAITS, durableRuns: false };
-		const first = await coreWithFake(memoryJournal(), clock, (host) =>
-			Promise.resolve(createFakeBackend(host, { traits })),
-		);
+		const first = await coreWithFake(memoryJournal(), clock, (host) => Promise.resolve(createFakeBackend(host)));
 		const a = new TestClient(first.core, "a");
 		await a.hello();
 		const session = first.fake.fake.seed({ cwd: RIG_CWD });

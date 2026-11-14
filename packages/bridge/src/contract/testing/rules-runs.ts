@@ -43,7 +43,6 @@ export async function declaredFeaturesAppear(rig: Rig): Promise<void> {
 	const features: [Feature, boolean, (live: LiveSession) => boolean][] = [
 		["thinking", rig.traits.streamThinking, (live) => thinkingStreamed(live)],
 		["usage", rig.traits.usage, (live) => live.events().some((event) => event.type === "usage_updated")],
-		["plan", rig.traits.plan, (live) => live.events().some((event) => event.type === "plan_updated")],
 		[
 			"plan_proposal",
 			rig.traits.planProposals,

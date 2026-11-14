@@ -154,46 +154,6 @@ describe("rate limit", () => {
 	});
 });
 
-const suggestion = (text: string): SDKMessage => ({ type: "prompt_suggestion", suggestion: text, ...ids() });
-
-describe("prompt suggestion", () => {
-	test("is an extension; an empty one is dropped, a repeat is not repeated, a newer one replaces", () => {
-		const mapper = newMapper();
-		const texts = ["run the tests", "  ", "run the tests", "commit it"].map((text) =>
-			mapper
-				.map(suggestion(text))
-				.map((item) =>
-					item.event.type === "extension" && item.event.extension.kind === "prompt_suggestion"
-						? item.event.extension.text
-						: "",
-				),
-		);
-		expect(texts).toEqual([["run the tests"], [], [], ["commit it"]]);
-	});
-
-	test("a new turn's init lets the same suggestion be offered again", () => {
-		const mapper = newMapper();
-		mapper.map(suggestion("again"));
-		mapper.map({
-			type: "system",
-			subtype: "init",
-			apiKeySource: "none",
-			claude_code_version: "2.1.316",
-			cwd: "/p",
-			tools: [],
-			mcp_servers: [],
-			model: "claude-opus-5-5",
-			permissionMode: "default",
-			slash_commands: [],
-			output_style: "default",
-			skills: [],
-			plugins: [],
-			...ids(),
-		});
-		expect(mapper.map(suggestion("again"))).toHaveLength(1);
-	});
-});
-
 describe("conversation reset", () => {
 	test("the session goes on as the new conversation", () => {
 		const events = map({

@@ -102,7 +102,7 @@ describe("a project whose settings name a sessionDir Pi itself would reject", ()
 		});
 		store.watch(NOBODY);
 		try {
-			const listed = await store.list({ cwd: env.cwd, archived: false }, { limit: 5 }, NOBODY);
+			const listed = await store.list({ cwd: env.cwd }, { limit: 5 }, NOBODY);
 			expect(listed).toEqual({ status: "accepted", page: { items: [] } });
 			expect((await store.get("nobody", NOBODY)).status).toBe("rejected");
 			expect((await store.transcript("nobody", { limit: 5 }, NOBODY)).status).toBe("rejected");

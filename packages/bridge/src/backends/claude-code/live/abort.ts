@@ -24,7 +24,7 @@ export interface AbortDeps {
 export function returnQueued(queue: InputQueue, live: SessionEmitter): void {
 	const texts = queue
 		.takeAll()
-		.map((send) => clip(send.typedText, MAX_TEXT_CHARS))
+		.map((send) => clip(send.text, MAX_TEXT_CHARS))
 		.filter((text) => text !== "")
 		.slice(0, MAX_LIST_ITEMS);
 	if (texts.length > 0) live.emit({ type: "input_returned", texts });

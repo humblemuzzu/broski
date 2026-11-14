@@ -114,7 +114,7 @@ describe("a session Pi wrote, read through the store", () => {
 		builder.assistant([textBlock("one")], 20);
 		const path = writeSession(env.sessionDir, builder);
 
-		const listed = await store.list({ cwd: env.cwd, archived: false }, { limit: 10 }, NOBODY);
+		const listed = await store.list({ cwd: env.cwd }, { limit: 10 }, NOBODY);
 		expect(listed.status === "accepted" && listed.page.items.map((row) => row.session.sessionId)).toEqual(["s1"]);
 		expect(await store.locate("s1")).toEqual({ sessionId: "s1", path, cwd: env.cwd, origin: "external" });
 		expect(await store.locate("nobody")).toMatchObject({ status: "rejected", rejection: { code: "not_found" } });
@@ -133,7 +133,7 @@ describe("a session Pi wrote, read through the store", () => {
 
 	test("watching through the store reports a file another process writes, and goes quiet at dispose", async () => {
 		store.watch(NOBODY);
-		await store.list({ archived: false }, { limit: 10 }, NOBODY);
+		await store.list({}, { limit: 10 }, NOBODY);
 		await Bun.sleep(300);
 
 		writeSession(env.sessionDir, chatOf("outside"));

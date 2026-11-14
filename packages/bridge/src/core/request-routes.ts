@@ -15,20 +15,16 @@ import {
 import {
 	abort,
 	compact,
-	compactionCancel,
 	modelSet,
 	modeSet,
 	prompt,
 	queueCancel,
-	retryCancel,
 	sessionAttach,
 	sessionDetach,
 	thinkingSet,
 } from "./requests-live";
 import {
 	attachmentRead,
-	backendCall,
-	sessionArchive,
 	sessionCreate,
 	sessionDelete,
 	sessionFork,
@@ -68,8 +64,6 @@ export function routeRequest(
 			return sessionRename(ctx, client, request, respond);
 		case "session.delete":
 			return sessionDelete(ctx, client, request, respond);
-		case "session.archive":
-			return sessionArchive(ctx, client, request, respond);
 		case "session.attach":
 			return sessionAttach(ctx, client, request, respond);
 		case "session.detach":
@@ -94,11 +88,5 @@ export function routeRequest(
 			return modeSet(ctx, client, request, respond);
 		case "compact":
 			return compact(ctx, client, request, respond);
-		case "compaction.cancel":
-			return compactionCancel(ctx, client, request, respond);
-		case "retry.cancel":
-			return retryCancel(ctx, client, request, respond);
-		case "backend.call":
-			return backendCall(ctx, client, request, respond);
 	}
 }

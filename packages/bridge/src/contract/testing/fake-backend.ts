@@ -14,25 +14,17 @@ export type { FakeMethods, SeedOptions } from "./fake-world";
 const ALL_METHODS: FakeMethods = {
 	rename: true,
 	delete: true,
-	archive: true,
 	fork: true,
-	call: true,
 	compact: true,
 	cancelQueued: true,
-	cancelCompaction: true,
-	cancelRetry: true,
 };
 
 export const NO_METHODS: FakeMethods = {
 	rename: false,
 	delete: false,
-	archive: false,
 	fork: false,
-	call: false,
 	compact: false,
 	cancelQueued: false,
-	cancelCompaction: false,
-	cancelRetry: false,
 };
 
 export interface FakeBackendOptions {
@@ -50,10 +42,8 @@ export interface FakeControls {
 	seed(options: SeedOptions): SessionRef;
 	/** The next run of `session` plays `steps`; runs without a script reply "Done.". */
 	script(session: SessionRef, steps: FakeStep[]): void;
-	/** Ends a `hold` step of the session's active run, a retry it waits on, or a slow compaction. */
+	/** Ends a `hold` step of the session's active run, or a retry it waits on. */
 	release(session: SessionRef): void;
-	/** The session's next compaction waits until it is cancelled, aborted or released. */
-	slowCompaction(session: SessionRef): void;
 	/** Another client of the backend starts a run. */
 	runExternally(session: SessionRef, text: string, steps: FakeStep[]): void;
 	/** The adapter lost track and replaces the live state with a snapshot. */
@@ -65,8 +55,7 @@ export interface FakeControls {
 	/** The session's latest user input as it reached the model. */
 	delivered(session: SessionRef): DeliveredInput | undefined;
 	/**
-	 * The bridge restarts: this backend is disposed and a new one starts over the same sessions.
-	 * Runs survive exactly when the traits say `durableRuns`.
+	 * The bridge restarts: this backend is disposed and a new one starts over the same sessions; runs end with it.
 	 */
 	restart(host: BackendHost): Promise<FakeBackend>;
 }
@@ -119,9 +108,7 @@ function backendOver(world: FakeWorld): FakeBackend {
 		open: async (target, sink) => world.open(target, sink),
 		...(methods.rename && { rename: async (session, title) => world.rename(session, title) }),
 		...(methods.delete && { delete: async (session) => world.delete(session) }),
-		...(methods.archive && { archive: async (session, archived) => world.archive(session, archived) }),
 		...(methods.fork && { fork: async (session, at) => world.fork(session, at) }),
-		...(methods.call && { call: async (call) => world.call(call) }),
 		dispose: async () => world.dispose(),
 		fake: controls(world),
 	};
@@ -132,7 +119,6 @@ function controls(world: FakeWorld): FakeControls {
 		seed: (options) => world.seed(options),
 		script: (ref, steps) => world.session(ref).script(steps),
 		release: (ref) => world.session(ref).release(),
-		slowCompaction: (ref) => world.session(ref).armSlowCompaction(),
 		runExternally: (ref, text, steps) => world.session(ref).runExternally(text, steps),
 		resync: (ref) => world.session(ref).resync(),
 		loseBackend: (ref) => world.session(ref).loseBackend(),
@@ -145,7 +131,7 @@ function controls(world: FakeWorld): FakeControls {
 async function restart(world: FakeWorld, host: BackendHost): Promise<FakeBackend> {
 	world.dispose();
 	const store: FakeStore = world.sessions;
-	if (!world.traits.durableRuns) await Promise.all([...store.values()].map((session) => session.endWithTheBridge()));
+	await Promise.all([...store.values()].map((session) => session.endWithTheBridge()));
 	const next = new FakeWorld(host, world.settings, store);
 	for (const session of store.values()) session.rebind(next);
 	return backendOver(next);

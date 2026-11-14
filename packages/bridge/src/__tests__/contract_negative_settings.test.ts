@@ -104,13 +104,6 @@ describe("the model rule fails", () => {
 			/the run ended limit/,
 		));
 
-	test("for a model switch slower than declared", () =>
-		fails(
-			breakBackend((backend) => ({ traits: { ...backend.traits, modelSwitch: "next_run" } })),
-			modelAndThinkingCanBeSet,
-			/with modelSwitch next_run the second request ran with fake-small/,
-		));
-
 	test("for a model choice the next run does not use", () =>
 		fails(
 			breakOpen(

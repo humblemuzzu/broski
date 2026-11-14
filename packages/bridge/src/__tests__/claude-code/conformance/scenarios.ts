@@ -1,7 +1,7 @@
 /**
  * Each conformance `Scenario` as the model's side of the run, per 08-spike: Write in `default` mode asks
  * `tool_permission`; AskUserQuestion asks `questions`; plan mode's Write-then-ExitPlanMode asks `plan_approval`; the
- * elicitation server's tools ask `form`, `external_url` and `confirm`; an Agent call shows a child session.
+ * elicitation server's tools ask `form` and `confirm`; an Agent call shows a child session.
  */
 
 import type { InteractionKind } from "../../../contract";
@@ -41,9 +41,6 @@ export function scenarioSteps(scenario: Scenario, context: ScenarioContext): Scr
 				(request) => ({ text: [context.echo(request)], gate: held }),
 			];
 		}
-		case "slow_compaction":
-		case "slow_retry":
-			return undefined;
 	}
 }
 
@@ -61,8 +58,6 @@ function interactionSteps(kind: InteractionKind): ScriptStep[] | undefined {
 			return [writePlan, { toolCalls: [{ name: "ExitPlanMode", args: {} }] }, ANSWER];
 		case "form":
 			return elicit("ask_form");
-		case "external_url":
-			return elicit("ask_url");
 		case "confirm":
 			return elicit("ask_confirm");
 		case "choice":
@@ -99,7 +94,6 @@ function featureSteps(feature: Feature): ScriptStep[] | undefined {
 			return [{ text: ["Counted."] }];
 		case "children":
 			return [{ toolCalls: [{ name: "Agent", args: AGENT_CALL }] }, { text: ["The subagent finished."] }];
-		case "plan":
 		case "plan_proposal":
 			return undefined;
 	}

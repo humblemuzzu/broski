@@ -249,7 +249,7 @@ describe("compaction", () => {
 });
 
 describe("model switch", () => {
-	test("setModel while a tool runs reaches the run's next request (modelSwitch next_request)", async () => {
+	test("setModel while a tool runs reaches the run's next request", async () => {
 		const entered = Promise.withResolvers<void>();
 		const release = Promise.withResolvers<void>();
 		const { session, faux } = await host([holdingTool(entered.resolve, release.promise)]);

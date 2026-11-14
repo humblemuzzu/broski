@@ -12,7 +12,6 @@ import {
 import type { CoreClient } from "./client";
 import { EventLog, type ReplayWindow } from "./event-log";
 import type { EncodedFrame } from "./frame";
-import { withOlderView } from "./older-events";
 import type { CoreClock, CoreLog } from "./ports";
 import { sameState } from "./same-state";
 import { sessionKey, sessionLabel } from "./session-key";
@@ -120,8 +119,7 @@ export class LiveSession {
 			event: record.event,
 			...(record.native !== undefined && { native: record.native }),
 		};
-		const fitted = fitEvent(envelope, this.state, this.deps.maxFrameBytes, this.deps.log);
-		const frame = withOlderView(fitted, envelope, this.state, this.deps.maxFrameBytes, this.deps.log);
+		const frame = fitEvent(envelope, this.state, this.deps.maxFrameBytes, this.deps.log);
 		this.log.push(this.seq, frame);
 		for (const viewer of this.viewers) viewer.send(frame);
 		this.deps.published(this, record, before);

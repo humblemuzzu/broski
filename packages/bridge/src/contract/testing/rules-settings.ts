@@ -1,5 +1,5 @@
 import type { ModelSummary } from "../models";
-import { expect, fail, type LiveSession, type Rig } from "./conformance-harness";
+import { expect, fail, type Rig } from "./conformance-harness";
 
 async function models(rig: Rig): Promise<ModelSummary[]> {
 	const listed = await rig.backend.listModels(rig.driver.cwd);
@@ -29,14 +29,14 @@ export async function modelAndThinkingCanBeSet(rig: Rig): Promise<void> {
 	const unknown = await control.setModel("not-a-model");
 	expect(unknown.status === "rejected" && unknown.rejection.code === "not_found", "an unknown model must be not_found");
 	live.assertValid();
-	await modelSwitchReachesTheModel(rig);
+	await aModelChosenMidRunReachesTheNextRun(rig);
 }
 
 /**
- * The `echo_model` scenario names the model of each request. A model chosen between its two requests
- * reaches the second exactly when `modelSwitch` is `next_request`, and the next run in any case.
+ * The `echo_model` scenario names the model of each request. A model chosen mid-run is accepted, and reaches the next
+ * run; whether the run's own later requests take it is the backend's.
  */
-async function modelSwitchReachesTheModel(rig: Rig): Promise<void> {
+async function aModelChosenMidRunReachesTheNextRun(rig: Rig): Promise<void> {
 	const [first, second] = await models(rig);
 	if (!first || !second) return;
 	const live = await rig.openNew({ modelId: first.id });
@@ -48,9 +48,6 @@ async function modelSwitchReachesTheModel(rig: Rig): Promise<void> {
 	await rig.driver.release(live.ref);
 	const finished = await live.waitFor("run_finished");
 	expect(finished.outcome.kind === "completed", `the run ended ${finished.outcome.kind}`);
-	const after = textsSince(live, before.blockId).at(-1);
-	const expected = rig.traits.modelSwitch === "next_request" ? second.id : first.id;
-	expect(after === expected, `with modelSwitch ${rig.traits.modelSwitch} the second request ran with ${after}`);
 	await rig.arrange(live.ref, { kind: "echo_model" });
 	const mark = live.recorder.items.length;
 	expect((await live.prompt("And now?")).status === "accepted", "the next prompt was rejected");
@@ -59,12 +56,6 @@ async function modelSwitchReachesTheModel(rig: Rig): Promise<void> {
 	await rig.driver.release(live.ref);
 	await live.waitFor("run_finished", () => true, mark);
 	live.assertSettled();
-}
-
-function textsSince(live: LiveSession, blockId: string): string[] {
-	const events = live.events();
-	const from = events.findIndex((event) => event.type === "block_finished" && event.blockId === blockId);
-	return events.slice(from + 1).flatMap((event) => (event.type === "block_finished" ? [event.text] : []));
 }
 
 /** A new session starts in the modes asked for; every listed value can be chosen; anything else is refused. */

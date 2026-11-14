@@ -54,8 +54,6 @@ describe("a session a terminal runs", () => {
 			controllable: true,
 			compact: false,
 			cancelQueued: false,
-			cancelCompaction: false,
-			cancelRetry: false,
 			answer: true,
 		});
 		const mark = live.recorder.items.length;
@@ -164,8 +162,6 @@ describe("a session a terminal runs", () => {
 			controllable: false,
 			compact: false,
 			cancelQueued: false,
-			cancelCompaction: false,
-			cancelRetry: false,
 			answer: false,
 		});
 		expect(live.session.control).toBeUndefined();
@@ -232,8 +228,6 @@ describe("a session a terminal runs", () => {
 			controllable: true,
 			compact: false,
 			cancelQueued: false,
-			cancelCompaction: false,
-			cancelRetry: false,
 			answer: true,
 		});
 		await live.close();
@@ -287,8 +281,6 @@ describe("a session a terminal runs", () => {
 			controllable: true,
 			compact: false,
 			cancelQueued: false,
-			cancelCompaction: false,
-			cancelRetry: false,
 			answer: true,
 		});
 		expect(texts(replaced.events(), "user_message")).toEqual([]);

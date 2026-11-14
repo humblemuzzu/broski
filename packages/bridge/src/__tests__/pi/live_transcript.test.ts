@@ -74,7 +74,7 @@ describe("cursors", () => {
 		const cursor = first.nextCursor ?? "";
 		expect(cursor).not.toBe("");
 
-		const listing = await t.backend.listSessions({ cwd: t.cwd, archived: false }, { limit: 1 });
+		const listing = await t.backend.listSessions({ cwd: t.cwd }, { limit: 1 });
 		const listCursor = listing.status === "accepted" ? (listing.page.nextCursor ?? "") : "";
 		expect(listCursor).not.toBe("");
 		const forged = Buffer.from(
@@ -83,8 +83,8 @@ describe("cursors", () => {
 		const bad = [
 			await t.backend.readTranscript(other.ref, { limit: 2, cursor }),
 			await t.backend.readTranscript(live.ref, { limit: 2, cursor: listCursor }),
-			await t.backend.listSessions({ cwd: t.cwd, archived: false }, { limit: 1, cursor }),
-			await t.backend.listSessions({ cwd: t.world.env.otherCwd, archived: false }, { limit: 1, cursor: listCursor }),
+			await t.backend.listSessions({ cwd: t.cwd }, { limit: 1, cursor }),
+			await t.backend.listSessions({ cwd: t.world.env.otherCwd }, { limit: 1, cursor: listCursor }),
 			await t.backend.readTranscript(live.ref, { limit: 2, cursor: `~${cursor.slice(1)}` }),
 			await t.backend.readTranscript(live.ref, { limit: 2, cursor: forged }),
 		];
@@ -121,7 +121,7 @@ describe("files as Pi and older versions leave them", () => {
 			"answer\u2029more",
 			"before\u2028after",
 		]);
-		const rows = await allRows(t.backend, { cwd: t.cwd, archived: false }, 50);
+		const rows = await allRows(t.backend, { cwd: t.cwd }, 50);
 		expect(rows.some((row) => row.session.sessionId === ref.sessionId)).toBe(true);
 	});
 
@@ -164,7 +164,7 @@ describe("files as Pi and older versions leave them", () => {
 		const read = await page(t, ref, { limit: 50 });
 		expect(read.idStability).toBe(stability);
 		expect(read.items.map((item) => ("text" in item ? item.text : ""))).toEqual(["hi there", "hello"]);
-		await allRows(t.backend, { cwd: t.cwd, archived: false }, 50);
+		await allRows(t.backend, { cwd: t.cwd }, 50);
 		const opened = await t.rig.open(ref);
 		await opened.close();
 

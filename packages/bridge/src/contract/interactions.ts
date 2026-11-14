@@ -12,7 +12,6 @@ export const InteractionKind = z.enum([
 	"questions",
 	"form",
 	"plan_approval",
-	"external_url",
 	"choice",
 	"confirm",
 	"text",
@@ -139,8 +138,8 @@ export const FormRequest = z.strictObject({
 export type FormRequest = z.infer<typeof FormRequest>;
 
 /**
- * The values of one of the session's mode axes it may continue in once the plan is approved (since 1.4). `defaultValue`
- * is the one it takes when the approval names none.
+ * The values of one of the session's mode axes it may continue in once the plan is approved. `defaultValue` is the
+ * one it takes when the approval names none.
  */
 export const PlanModeOptions = z.strictObject({
 	axis: ModeAxisId,
@@ -158,13 +157,6 @@ export const PlanApprovalRequest = z.strictObject({
 	modeOptions: PlanModeOptions.optional(),
 });
 export type PlanApprovalRequest = z.infer<typeof PlanApprovalRequest>;
-
-export const ExternalUrlRequest = z.strictObject({
-	kind: z.literal("external_url"),
-	url: z.string().min(1).max(MAX_PATH_CHARS),
-	server: z.string().max(MAX_NAME_CHARS).optional(),
-});
-export type ExternalUrlRequest = z.infer<typeof ExternalUrlRequest>;
 
 export const ChoiceRequest = z.strictObject({
 	kind: z.literal("choice"),
@@ -188,7 +180,6 @@ export const InteractionRequest = z.discriminatedUnion("kind", [
 	QuestionsRequest,
 	FormRequest,
 	PlanApprovalRequest,
-	ExternalUrlRequest,
 	ChoiceRequest,
 	ConfirmRequest,
 	TextRequest,

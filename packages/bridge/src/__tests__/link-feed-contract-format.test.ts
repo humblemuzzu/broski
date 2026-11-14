@@ -20,7 +20,6 @@ function row(overrides: Partial<SessionSummary> = {}): SessionSummary {
 		title: { text: "Fix the build", source: "user" },
 		cwd: "/Users/dev/project/",
 		updatedAt: 1,
-		archived: false,
 		status: "idle",
 		origin: "broski",
 		...overrides,

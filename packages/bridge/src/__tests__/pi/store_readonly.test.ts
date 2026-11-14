@@ -114,8 +114,8 @@ describe("with nothing writable", () => {
 		const before = snapshot(env.root);
 
 		store.watch(NOBODY);
-		const listed = await store.list({ cwd: env.cwd, archived: false }, { limit: 50 }, NOBODY);
-		const everything = await store.list({ archived: false }, { limit: 50 }, NOBODY);
+		const listed = await store.list({ cwd: env.cwd }, { limit: 50 }, NOBODY);
+		const everything = await store.list({}, { limit: 50 }, NOBODY);
 		const ids = (everything.status === "accepted" ? everything.page.items : [])
 			.map((row) => row.session.sessionId)
 			.sort();

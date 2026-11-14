@@ -222,7 +222,7 @@ export function promptInput(
 	text: string,
 	mode: PromptMode,
 	clientRequestId: string,
-	extra: Pick<PromptInput, "attachments" | "mentions" | "command"> = { attachments: [], mentions: [] },
+	extra: Pick<PromptInput, "attachments" | "command"> = { attachments: [] },
 ): PromptInput {
 	return { clientRequestId, mode, text, ...extra };
 }

@@ -49,14 +49,10 @@ export const PlanApprovalReply = z.strictObject({
 	plan: z.string().max(MAX_TEXT_CHARS).optional(),
 	/** Why, rejecting. */
 	feedback: z.string().max(MAX_TEXT_CHARS).optional(),
-	/** One of the request's `modeOptions`, approving (since 1.4). */
+	/** One of the request's `modeOptions`, approving. */
 	modeAfter: z.string().max(MAX_NAME_CHARS).optional(),
 });
 export type PlanApprovalReply = z.infer<typeof PlanApprovalReply>;
-
-/** The user opened the link and consents to continue. */
-export const ExternalUrlReply = z.strictObject({ kind: z.literal("external_url") });
-export type ExternalUrlReply = z.infer<typeof ExternalUrlReply>;
 
 export const ChoiceReply = z.strictObject({ kind: z.literal("choice"), value: z.string().max(MAX_NAME_CHARS) });
 export type ChoiceReply = z.infer<typeof ChoiceReply>;
@@ -83,7 +79,6 @@ export const InteractionReply = z.discriminatedUnion("kind", [
 	QuestionsReply,
 	FormReply,
 	PlanApprovalReply,
-	ExternalUrlReply,
 	ChoiceReply,
 	ConfirmReply,
 	TextReply,

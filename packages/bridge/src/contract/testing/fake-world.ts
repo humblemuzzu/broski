@@ -1,5 +1,4 @@
 import type { BackendHost, BackendTraits, OpenResult, OpenTarget, SessionControl, SessionSink } from "../backend";
-import { type BackendCall, type BackendCallResult, rewritesHistory } from "../backend-ops";
 import type { CatalogEvent } from "../catalog-events";
 import type { BackendId, SessionRef, ToolCallId } from "../ids";
 import type { ActionResult } from "../input";
@@ -17,8 +16,6 @@ import type {
 } from "../sessions";
 import type { SessionSnapshot } from "../snapshot";
 import type { TranscriptItem } from "../transcript";
-import { fakeOpResult } from "./fake-data";
-import { FakeFiles } from "./fake-files";
 import { type FakeEnvironment, FakeSession } from "./fake-session";
 import { defaultModelId, initialModes, newSessionProblem, rejected } from "./fake-validation";
 
@@ -26,13 +23,9 @@ import { defaultModelId, initialModes, newSessionProblem, rejected } from "./fak
 export interface FakeMethods {
 	readonly rename: boolean;
 	readonly delete: boolean;
-	readonly archive: boolean;
 	readonly fork: boolean;
-	readonly call: boolean;
 	readonly compact: boolean;
 	readonly cancelQueued: boolean;
-	readonly cancelCompaction: boolean;
-	readonly cancelRetry: boolean;
 }
 
 export interface FakeSettings {
@@ -51,7 +44,6 @@ export interface SeedOptions {
 	readonly external?: boolean;
 	/** With `external`: its asks can still be answered here, as a terminal's permission prompt can. */
 	readonly answerable?: boolean;
-	readonly archived?: boolean;
 	readonly parent?: SessionRef;
 }
 
@@ -67,7 +59,6 @@ interface OpenView {
 /** The fake backend between two restarts of the bridge: its open views and catalog over the shared store. */
 export class FakeWorld implements FakeEnvironment {
 	private readonly views = new Set<OpenView>();
-	private readonly files = new FakeFiles();
 	private disposed = false;
 
 	constructor(
@@ -121,10 +112,7 @@ export class FakeWorld implements FakeEnvironment {
 		return [...this.sessions.values()]
 			.map((session) => session.summary)
 			.filter(
-				(row) =>
-					row.archived === query.archived &&
-					(query.cwd === undefined || row.cwd === query.cwd) &&
-					sameRef(row.parent?.session, query.parent),
+				(row) => (query.cwd === undefined || row.cwd === query.cwd) && sameRef(row.parent?.session, query.parent),
 			);
 	}
 
@@ -174,10 +162,6 @@ export class FakeWorld implements FakeEnvironment {
 		return this.update(ref, (summary) => ({ ...summary, title: { text: title, source: "user" } }));
 	}
 
-	archive(ref: SessionRef, archived: boolean): ActionResult {
-		return this.update(ref, (summary) => ({ ...summary, archived }));
-	}
-
 	delete(ref: SessionRef): ActionResult {
 		const found = this.find(ref);
 		if (!(found instanceof FakeSession)) return found;
@@ -201,24 +185,6 @@ export class FakeWorld implements FakeEnvironment {
 		return { status: "accepted", session: fork.summary.session };
 	}
 
-	call(call: BackendCall): BackendCallResult {
-		if (call.backend !== this.id || !this.traits.backendOps.includes(call.op.kind)) {
-			return rejected("unsupported", `${call.backend} ${call.op.kind}`);
-		}
-		if (call.op.kind === "config_file" || call.op.kind === "custom_tool") return this.files.answer(call.op);
-		const sessionId = "sessionId" in call.op ? call.op.sessionId : undefined;
-		if (sessionId === undefined) return { status: "accepted", result: fakeOpResult(call) };
-		const ref: SessionRef = { backend: this.id, sessionId };
-		const found = this.find(ref);
-		if (!(found instanceof FakeSession)) return found;
-		if (found.snapshot.run) return rejected("busy", "a run is active");
-		if (call.op.kind === "navigate_tree" && !found.history.truncateAfter(call.op.itemId)) {
-			return rejected("not_found", `no item ${call.op.itemId}`);
-		}
-		if (rewritesHistory(call.op.kind)) this.catalog({ type: "transcript_invalidated", session: ref });
-		return { status: "accepted", result: fakeOpResult(call) };
-	}
-
 	seed(options: SeedOptions): SessionRef {
 		const session = this.create(options, options.external ?? false);
 		session.answersWatched = options.answerable ?? false;
@@ -232,7 +198,6 @@ export class FakeWorld implements FakeEnvironment {
 		session.summary = {
 			...session.summary,
 			title: { text: options.title ?? "Hello", source: options.title ? "user" : "first_prompt" },
-			archived: options.archived ?? false,
 		};
 		this.catalog({ type: "session_updated", summary: session.summary });
 		return session.summary.session;
@@ -273,7 +238,6 @@ export class FakeWorld implements FakeEnvironment {
 			createdAt: now,
 			updatedAt: now,
 			...(options.parent && { parent: { kind: parentKind, session: options.parent } }),
-			archived: false,
 			...(snapshot.modelId !== undefined && { modelId: snapshot.modelId }),
 			status: "idle",
 			origin: external ? "external" : "broski",
@@ -324,10 +288,6 @@ function control(session: FakeSession, methods: FakeMethods, isClosed: () => boo
 		setMode: async (axis, value) => (isClosed() ? CLOSED : session.setMode({ axis, value })),
 		...(methods.compact && { compact: async () => (isClosed() ? CLOSED : session.compact()) }),
 		...(methods.cancelQueued && { cancelQueued: async (id) => (isClosed() ? CLOSED : session.cancelQueued(id)) }),
-		...(methods.cancelCompaction && {
-			cancelCompaction: async () => (isClosed() ? CLOSED : session.cancelCompaction()),
-		}),
-		...(methods.cancelRetry && { cancelRetry: async () => (isClosed() ? CLOSED : session.cancelRetry()) }),
 	};
 }
 

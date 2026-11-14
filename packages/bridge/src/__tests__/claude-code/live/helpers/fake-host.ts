@@ -30,7 +30,7 @@ export function promptOf(
 	mode: PromptInput["mode"] = "start",
 	clientRequestId = crypto.randomUUID(),
 ): PromptInput {
-	return { clientRequestId, mode, text, attachments: [], mentions: [] };
+	return { clientRequestId, mode, text, attachments: [] };
 }
 
 /** A real, empty directory (the registry checks the cwd exists); `remove` deletes it. */

@@ -65,9 +65,9 @@ describe("the seam into the running bridge", () => {
 			const phone = await rig.phone("phone");
 			const session = rig.fake.fake.seed({ cwd: rig.cwd });
 			phone.sendRaw({
-				type: "backend.call",
+				type: "session.get",
 				requestId: "poison",
-				call: { backend: "pi", op: { kind: "x", constructor: 1 } },
+				session: { backend: "pi", sessionId: "x", constructor: 1 },
 			});
 			const reply = {
 				kind: "tool_permission",
@@ -133,7 +133,7 @@ describe("the seam into the running bridge", () => {
 			const phone = await rig.phone("phone");
 			const session = rig.fake.fake.seed({ cwd: rig.cwd });
 			const text = "x".repeat(9 * 1024 * 1024);
-			const input = { clientRequestId: crypto.randomUUID(), mode: "start", text, attachments: [], mentions: [] };
+			const input = { clientRequestId: crypto.randomUUID(), mode: "start", text, attachments: [] };
 			phone.sendRaw({ type: "prompt", requestId: "huge", session, input });
 			const refused = await phone.waitForMessage(
 				(message) => "requestId" in message && message.requestId === "huge",
@@ -169,7 +169,7 @@ describe("the seam into the running bridge", () => {
 			const phone = await connectPhone(socketPath, "early");
 			await phone.hello();
 			expect((await phone.ok("backends.list", {})).backends).toEqual([]);
-			const listing = phone.request("sessions.list", { backend: "pi", query: { archived: false }, page: { limit: 5 } });
+			const listing = phone.request("sessions.list", { backend: "pi", query: {}, page: { limit: 5 } });
 			gate.resolve();
 			expect(await listing).toMatchObject({ type: "sessions.list.result", result: { status: "accepted" } });
 			const news = await phone.waitForMessage((message) => message.type === "catalog", "the backend's arrival");

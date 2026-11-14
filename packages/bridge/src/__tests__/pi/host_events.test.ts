@@ -52,7 +52,6 @@ describe("a run Pi starts on its own", () => {
 			mode: "start",
 			text: "",
 			attachments: [],
-			mentions: [],
 			...(kick && { command: kick }),
 		});
 		expect(result).toMatchObject({ status: "accepted", disposition: "handled" });
@@ -75,7 +74,6 @@ describe("a run Pi starts on its own", () => {
 			mode: "start",
 			text: "",
 			attachments: [],
-			mentions: [],
 			...(note && { command: note }),
 		});
 		await t.rig.driver.quiesce();
@@ -154,7 +152,6 @@ describe("the prompt record", () => {
 			mode: "start",
 			text: "look",
 			attachments: [{ kind: "image", mimeType: "image/png", data: PIXEL, name: "pixel.png" }],
-			mentions: [],
 		});
 		const entry = sessionEntries(t.rig.fileOf(live.ref)).find(
 			(candidate) => candidate.type === "custom" && candidate.customType === "broski.prompt",
@@ -182,7 +179,6 @@ describe("an image Pi cannot process", () => {
 				{ kind: "image", mimeType: "image/png", data: "bm90IGEgcGljdHVyZQ==", name: "broken.png" },
 				{ kind: "image", mimeType: "image/png", data: PIXEL, name: "pixel.png" },
 			],
-			mentions: [],
 		});
 		const entries = sessionEntries(t.rig.fileOf(live.ref));
 		const user = entries.find((entry) => entry.type === "message" && entry.message.role === "user");

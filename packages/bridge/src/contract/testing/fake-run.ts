@@ -23,8 +23,6 @@ export interface RunHost {
 
 const ABORTED = Symbol("aborted");
 
-const RETRY_WAIT_MS = 60_000;
-
 const PERMISSION_OPTIONS: readonly PermissionOption[] = [
 	{ id: "allow_once", label: "Allow", effect: "allow", scope: "once", stopsRun: false, message: "none" },
 	{
@@ -51,11 +49,9 @@ const PERMISSION_OPTIONS: readonly PermissionOption[] = [
 /** Plays one run's steps against its host, ending when the steps do, a step ends it, or it is aborted. */
 export class FakeRun {
 	private messageId: MessageId;
-	private readonly startModel: ModelId | undefined;
 	private abortedWith: RunOutcome | undefined;
 	private readonly interruption = Promise.withResolvers<typeof ABORTED>();
 	private readonly holdRelease = Promise.withResolvers<void>();
-	private readonly retryEnd = Promise.withResolvers<"cancelled" | "released">();
 
 	constructor(
 		private readonly host: RunHost,
@@ -63,7 +59,6 @@ export class FakeRun {
 		private readonly steps: readonly FakeStep[],
 	) {
 		this.messageId = host.newId();
-		this.startModel = host.selectedModel();
 	}
 
 	/** Stops the run at its next step boundary or wait, ending it with `outcome`. */
@@ -72,15 +67,9 @@ export class FakeRun {
 		this.interruption.resolve(ABORTED);
 	}
 
-	/** Ends a `hold` step, now or when the run reaches one; a retry that waits is retried. */
+	/** Ends a `hold` step, now or when the run reaches one. */
 	release(): void {
 		this.holdRelease.resolve();
-		this.retryEnd.resolve("released");
-	}
-
-	/** Ends the wait of the `retry_wait` step under way; the run then ends in error. */
-	cancelRetry(): void {
-		this.retryEnd.resolve("cancelled");
 	}
 
 	async play(): Promise<RunOutcome> {
@@ -111,7 +100,7 @@ export class FakeRun {
 				await this.block("plan", step.text, this.host.traits.streamText);
 				return undefined;
 			case "echo_model":
-				await this.block("text", this.requestModel() ?? "", this.host.traits.streamText);
+				await this.block("text", this.host.selectedModel() ?? "", this.host.traits.streamText);
 				return undefined;
 			case "new_message":
 				this.messageId = this.host.newId();
@@ -158,32 +147,17 @@ export class FakeRun {
 				}
 				this.host.emit({ type: "retry_finished", succeeded: true });
 				return undefined;
-			case "retry_wait":
-				this.host.emit({
-					type: "retry_scheduled",
-					attempt: 1,
-					maxAttempts: 3,
-					retryAt: this.host.now() + RETRY_WAIT_MS,
-					message: "overloaded",
-				});
-				return this.retryEnded(await this.waitFor(this.retryEnd.promise));
 			case "return_input":
 				this.host.emit({ type: "input_returned", texts: step.texts });
 				return undefined;
 			case "usage":
 				this.host.emit({ type: "usage_updated", usage: step.usage });
 				return undefined;
-			case "plan":
-				this.host.emit({ type: "plan_updated", plan: step.plan });
-				return undefined;
 			case "notice":
 				this.host.emit({ type: "notice", level: step.level, text: step.text });
 				return undefined;
 			case "extension":
 				this.host.emit({ type: "extension", extension: step.extension });
-				return undefined;
-			case "activity":
-				this.host.emit({ type: "activity", activity: step.activity });
 				return undefined;
 			case "backend_error":
 				this.host.emit({ type: "error", error: step.error, retryable: step.retryable });
@@ -200,11 +174,6 @@ export class FakeRun {
 			case "defer":
 				return { kind: "deferred" };
 		}
-	}
-
-	private retryEnded(end: "cancelled" | "released"): RunOutcome | undefined {
-		this.host.emit({ type: "retry_finished", succeeded: end === "released" });
-		return end === "cancelled" ? { kind: "error", error: { code: "server", message: "overloaded" } } : undefined;
 	}
 
 	private async block(kind: "text" | "thinking" | "plan", text: string, streams: boolean): Promise<void> {
@@ -316,11 +285,6 @@ export class FakeRun {
 		const reply = await this.waitFor(this.host.ask(interaction));
 		if (reply.kind === "cancel" && reply.stopRun) throw ABORTED;
 		return reply;
-	}
-
-	/** A model change reaches the next request, or only the next run. */
-	private requestModel(): ModelId | undefined {
-		return this.host.traits.modelSwitch === "next_request" ? this.host.selectedModel() : this.startModel;
 	}
 
 	private async waitFor<T>(promise: Promise<T>): Promise<T> {

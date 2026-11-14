@@ -27,7 +27,6 @@ export const LINK_FEED_PONG = { type: "link_feed_pong" } as const;
 const BACKEND_NAMES: Record<BackendId, string> = {
 	"claude-code": "Claude Code",
 	pi: "Pi",
-	"pi-durable": "Pi Durable",
 };
 
 /** The only tool-input keys a body may quote; anything else in the input stays on the machine. */

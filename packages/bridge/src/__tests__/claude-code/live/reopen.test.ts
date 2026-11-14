@@ -57,7 +57,6 @@ describe("closing and reopening a session", () => {
 						mode: "start",
 						text: "x",
 						attachments: [],
-						mentions: [],
 					}),
 				).toMatchObject(closed);
 				expect(await control.abort()).toMatchObject(closed);

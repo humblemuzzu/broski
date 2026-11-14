@@ -76,7 +76,7 @@ export class PromptDesk {
 				if (this.deps.closed()) return CLOSED;
 				if (this.deps.runs.current) return rejected("busy", "a run is active");
 				const uuid = randomUUID();
-				const send = userMessageOf({ clientRequestId: uuid, mode: "start", text, attachments: [], mentions: [] }, uuid);
+				const send = userMessageOf({ clientRequestId: uuid, mode: "start", text, attachments: [] }, uuid);
 				if (isRejected(send)) return send;
 				this.begin(send, "prompt", { shown: false, compaction: true });
 				return ACCEPTED;

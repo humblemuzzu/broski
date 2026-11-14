@@ -18,7 +18,7 @@ import type { LiveOverlay, LiveRow } from "../ports/store";
 import { CLOSED, isRejected } from "../rejections";
 import { abortRun } from "./abort";
 import { ChildRouter } from "./child-router";
-import { cancelCompaction, startCompaction } from "./compaction";
+import { startCompaction } from "./compaction";
 import { errorText } from "./error-text";
 import type { FrameHandler } from "./frame-handler";
 import { HostEmitter } from "./host-emitter";
@@ -139,7 +139,6 @@ export class SessionHost {
 			setThinking: (value) => this.settings.setThinking(value),
 			setMode: (axis, value) => this.settings.setMode(axis, value),
 			compact: (instructions) => startCompaction(this.prompts, instructions),
-			cancelCompaction: () => cancelCompaction(this.state.snapshot(), this.runs, () => this.abort(), this.finished),
 			cancelQueued: async (id) => (this.finished ? CLOSED : this.queue.cancel(id)),
 		};
 	}

@@ -85,7 +85,7 @@ describe("the inbound guards before the schema", () => {
 		);
 		const fullPrompt = {
 			...promptInput("x"),
-			mentions: Array.from({ length: MAX_LIST_ITEMS }, () => ({ kind: "file", path: "/a" })),
+			attachments: Array.from({ length: MAX_LIST_ITEMS }, () => ({ kind: "file", uri: "/a" })),
 		};
 		for (const message of [deepest, answer({ kind: "form", values: fullForm })]) {
 			expect(shapeProblem(message)).toBeUndefined();

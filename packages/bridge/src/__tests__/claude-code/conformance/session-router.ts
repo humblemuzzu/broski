@@ -21,7 +21,6 @@ export function sessionOf(request: ScriptedRequest): string | undefined {
 
 export class SessionRouter {
 	private readonly scripts = new Map<string, ScriptStep[]>();
-	private readonly heldCompactions = new Map<string, Promise<void>>();
 	private readonly gates = new Map<string, { promise: Promise<void>; open: () => void }>();
 	private readonly seen = new Map<string, ScriptedRequest[]>();
 
@@ -55,11 +54,6 @@ export class SessionRouter {
 		this.gates.delete(sessionId);
 	}
 
-	/** The gate is taken now, so a `release` that comes before the compaction's request still lets it go. */
-	holdNextCompaction(sessionId: string): void {
-		this.heldCompactions.set(sessionId, this.gate(sessionId));
-	}
-
 	/** The session's main-thread requests, oldest first. */
 	requests(sessionId: string): readonly ScriptedRequest[] {
 		return this.seen.get(sessionId) ?? [];
@@ -68,7 +62,6 @@ export class SessionRouter {
 	routes(): ScriptedRoute[] {
 		return [
 			{ name: "session", when: (request) => sideKind(request.body) === null, turns: (request) => this.next(request) },
-			{ name: "held-compaction", when: (request) => this.isHeldCompaction(request), turns: (r) => this.compaction(r) },
 		];
 	}
 
@@ -79,18 +72,5 @@ export class SessionRouter {
 		const step = this.scripts.get(sessionId)?.shift();
 		if (step === undefined) return DEFAULT_TURN;
 		return typeof step === "function" ? step(request) : step;
-	}
-
-	private isHeldCompaction(request: ScriptedRequest): boolean {
-		const sessionId = sessionOf(request);
-		return sideKind(request.body) === "compact" && sessionId !== undefined && this.heldCompactions.has(sessionId);
-	}
-
-	private compaction(request: ScriptedRequest): ScriptedTurn {
-		const sessionId = sessionOf(request) ?? "";
-		const gate = this.heldCompactions.get(sessionId);
-		this.heldCompactions.delete(sessionId);
-		const summary = "<analysis>held</analysis>\n<summary>A held summary.</summary>";
-		return { text: [summary], ...(gate && { gate }) };
 	}
 }

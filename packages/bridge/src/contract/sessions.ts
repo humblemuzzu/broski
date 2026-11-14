@@ -36,7 +36,6 @@ export const SessionSummary = z.strictObject({
 	createdAt: Timestamp.optional(),
 	updatedAt: Timestamp,
 	parent: SessionParent.optional(),
-	archived: z.boolean(),
 	modelId: ModelId.optional(),
 	status: SessionStatus,
 	origin: SessionOrigin,
@@ -48,7 +47,6 @@ export type SessionSummary = z.infer<typeof SessionSummary>;
 /** Newest updated first. `parent` lists that session's children. */
 export const SessionQuery = z.strictObject({
 	cwd: WorkingDirectory.optional(),
-	archived: z.boolean(),
 	parent: SessionRef.optional(),
 });
 export type SessionQuery = z.infer<typeof SessionQuery>;

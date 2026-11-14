@@ -15,9 +15,3 @@ export const MAX_CATALOG_ITEMS = 10_000;
 export const MAX_MESSAGE_BYTES = 8 * 1_048_576;
 /** JSON values in one client message: a refused message costs the bridge in proportion to them. */
 export const MAX_CLIENT_MESSAGE_VALUES = 50_000;
-/** Raw bytes in one part of an export or an upload: its base64 stays under 1 MiB, the smallest frame the link may be set to carry. */
-export const MAX_TRANSFER_PART_BYTES = 512 * 1_024;
-/** Base64 of one such part. */
-export const MAX_TRANSFER_PART_CHARS = 4 * Math.ceil(MAX_TRANSFER_PART_BYTES / 3);
-/** The largest session file an upload may bring; the store reads files up to 512 MiB. */
-export const MAX_IMPORT_BYTES = 256 * 1_048_576;

@@ -8,7 +8,6 @@
 import { open } from "node:fs/promises";
 import { isRecord } from "../json";
 import { boundedGrowth, trimOldest } from "./bounded";
-import { HookCollector, type HookFact } from "./hook-facts";
 import { type SystemFact, systemFactOf } from "./system-facts";
 
 const CHUNK_BYTES = 1_048_576;
@@ -22,10 +21,6 @@ const MAX_FACT_TEXT_TOTAL = 4 * 1_048_576;
 const RESULT_KEY = Buffer.from('"toolUseResult":');
 const SYSTEM_TYPE = Buffer.from('"type":"system"');
 const UUID_KEY = /"uuid":"([0-9a-fA-F-]{36})"/g;
-const PARENT_KEY = /^\{"parentUuid":"([0-9a-fA-F-]{36})"/;
-const LINK_KEY = /"type":"(?:attachment|progress)","uuid":"([0-9a-fA-F-]{36})"/;
-const LINK_TYPES = [Buffer.from('"type":"attachment"'), Buffer.from('"type":"progress"')];
-const HOOK_KEY = Buffer.from('"type":"hook_');
 
 /** Where a line lies in the file, in bytes. */
 export interface Span {
@@ -37,44 +32,25 @@ export interface RawFacts {
 	/** Entries whose line holds a `toolUseResult`. */
 	readonly spans: ReadonlyMap<string, Span>;
 	readonly system: ReadonlyMap<string, SystemFact>;
-	/** The hooks that ran after each returned entry, before the next (`hook-facts.ts`). */
-	readonly hooks: ReadonlyMap<string, readonly HookFact[]>;
 }
 
-export const NO_RAW_FACTS: RawFacts = { spans: new Map(), system: new Map(), hooks: new Map() };
+export const NO_RAW_FACTS: RawFacts = { spans: new Map(), system: new Map() };
 
 /** Never throws: a file that cannot be read gives no facts, and the page is shown without them. */
 export async function scanRaw(path: string, chain: ReadonlySet<string>): Promise<RawFacts> {
 	const spans = new Map<string, Span>();
 	const system = new Map<string, SystemFact>();
-	const hooks = new HookCollector(chain);
 	try {
 		await eachLine(path, (line, offset) => {
 			if (line.includes(RESULT_KEY)) noteResult(line, offset, chain, spans);
 			else if (line.length <= MAX_SYSTEM_LINE_BYTES && line.includes(SYSTEM_TYPE)) noteSystem(line, chain, system);
-			else if (LINK_TYPES.some((type) => line.includes(type))) noteLink(line, hooks);
 		});
 	} catch {
 		return NO_RAW_FACTS;
 	}
 	trimOldest(spans, MAX_SPANS);
 	trimOldest(system, MAX_FACTS);
-	return { spans, system: withinTextBudget(system), hooks: hooks.hooks() };
-}
-
-/** An attachment or progress entry: its place in the chain, and, for a hook's own small line, what it says. */
-function noteLink(line: Buffer, hooks: HookCollector): void {
-	const head = line.toString("latin1", 0, 64);
-	const parent = PARENT_KEY.exec(head)?.[1];
-	const uuid = LINK_KEY.exec(line.toString("latin1"))?.[1];
-	if (parent === undefined || uuid === undefined) return;
-	hooks.link(uuid, parent);
-	if (line.length > MAX_SYSTEM_LINE_BYTES || !line.includes(HOOK_KEY)) return;
-	try {
-		hooks.note(JSON.parse(line.toString("utf8")));
-	} catch {
-		/* a line that does not parse shows no hook */
-	}
+	return { spans, system: withinTextBudget(system) };
 }
 
 function noteResult(line: Buffer, offset: number, chain: ReadonlySet<string>, spans: Map<string, Span>): void {

@@ -1,4 +1,3 @@
-import type { BackendCall, BackendCallResult } from "./backend-ops";
 import type { Capabilities, SessionCapabilities } from "./capabilities";
 import type { CatalogEvent } from "./catalog-events";
 import type { EventEnvelope } from "./events";
@@ -46,7 +45,7 @@ export interface BackendHost {
 export type BackendFactory = (host: BackendHost) => Promise<AgentBackend>;
 
 /** The capabilities an adapter declares; the rest are derived from the methods it implements. */
-export type BackendTraits = Omit<Capabilities, "fork" | "rename" | "delete" | "archive">;
+export type BackendTraits = Omit<Capabilities, "fork" | "rename" | "delete">;
 
 export type OpenTarget = { kind: "existing"; session: SessionRef } | { kind: "new"; options: NewSessionOptions };
 
@@ -77,9 +76,7 @@ export interface AgentBackend {
 	open(target: OpenTarget, sink: SessionSink): Promise<OpenResult>;
 	rename?(session: SessionRef, title: string): Promise<ActionResult>;
 	delete?(session: SessionRef): Promise<ActionResult>;
-	archive?(session: SessionRef, archived: boolean): Promise<ActionResult>;
 	fork?(session: SessionRef, at: ForkPoint | undefined): Promise<NewSessionResult>;
-	call?(call: BackendCall): Promise<BackendCallResult>;
 	/** Closes every open session; nothing is emitted afterwards. */
 	dispose(): Promise<void>;
 }
@@ -121,10 +118,6 @@ export interface SessionControl {
 	setMode(axis: ModeAxisId, value: string): Promise<ActionResult>;
 	compact?(instructions: string | undefined): Promise<ActionResult>;
 	cancelQueued?(id: QueueItemId): Promise<ActionResult>;
-	/** Ends the compaction under way and nothing else; accepted, with no effect, when none is. */
-	cancelCompaction?(): Promise<ActionResult>;
-	/** Ends the wait before a retried attempt; `stale` once the attempt runs, accepted with no effect when none is scheduled. */
-	cancelRetry?(): Promise<ActionResult>;
 }
 
 export function backendCapabilities(backend: AgentBackend): Capabilities {
@@ -133,7 +126,6 @@ export function backendCapabilities(backend: AgentBackend): Capabilities {
 		fork: backend.fork !== undefined,
 		rename: backend.rename !== undefined,
 		delete: backend.delete !== undefined,
-		archive: backend.archive !== undefined,
 	};
 }
 
@@ -157,8 +149,6 @@ export function sessionCapabilities(session: OpenSession): SessionCapabilities {
 		controllable: session.control !== undefined,
 		compact: session.control?.compact !== undefined,
 		cancelQueued: session.control?.cancelQueued !== undefined,
-		cancelCompaction: session.control?.cancelCompaction !== undefined,
-		cancelRetry: session.control?.cancelRetry !== undefined,
 		answer: sessionAnswerer(session) !== undefined,
 	};
 }

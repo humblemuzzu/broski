@@ -1,10 +1,8 @@
-import type { Activity } from "../activity";
 import type { FileChange } from "../content";
 import type { BackendExtension } from "../extensions";
 import type { InteractionRequest } from "../interactions";
 import type { JsonValue } from "../json";
 import type { NoticeLevel } from "../notice";
-import type { Plan } from "../plan";
 import type { ErrorInfo, RunLimit } from "../runs";
 import type { Usage } from "../usage";
 
@@ -29,7 +27,7 @@ type FakeContentStep =
 	| { kind: "text"; text: string }
 	| { kind: "thinking"; text: string }
 	| { kind: "plan_proposal"; text: string }
-	/** One text block naming the model this request runs with, as `modelSwitch` decides it. */
+	/** One text block naming the model this request runs with. */
 	| { kind: "echo_model" }
 	/** Later blocks belong to a new assistant message. */
 	| { kind: "new_message" }
@@ -44,16 +42,11 @@ type FakeContentStep =
 export type FakeSignalStep =
 	| { kind: "compaction" }
 	| { kind: "retry"; attempts: number }
-	/** Schedules a retry and waits until it is cancelled, which ends the run in error, or released, which retries. */
-	| { kind: "retry_wait" }
 	/** The backend hands queued input back, as an abort that clears its queue does. */
 	| { kind: "return_input"; texts: string[] }
 	| { kind: "usage"; usage: Usage }
-	| { kind: "plan"; plan: Plan }
 	| { kind: "notice"; level: NoticeLevel; text: string }
 	| { kind: "extension"; extension: BackendExtension }
-	/** A harness activity starts or changes; one with the same id replaces it. */
-	| { kind: "activity"; activity: Activity }
 	| { kind: "backend_error"; error: ErrorInfo; retryable: boolean }
 	/** The backend starts a new conversation in the live session, under a new id. */
 	| { kind: "replace_session" }

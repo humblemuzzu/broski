@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { Activity } from "./activity";
 import { CompactionOutcome, CompactionTrigger } from "./compaction";
 import { AttachmentRef, BlockKind } from "./content";
 import { BackendExtension } from "./extensions";
@@ -20,7 +19,6 @@ import { JsonValue, NativeIds } from "./json";
 import { MAX_LIST_ITEMS, MAX_NAME_CHARS, MAX_TEXT_CHARS } from "./limits";
 import { ModeSetting } from "./modes";
 import { NoticeLevel } from "./notice";
-import { Plan } from "./plan";
 import { QueueItem } from "./queue";
 import { ErrorInfo, RunOutcome, RunTrigger } from "./runs";
 import { SessionSnapshot } from "./snapshot";
@@ -148,9 +146,6 @@ export type RetryFinishedEvent = z.infer<typeof RetryFinishedEvent>;
 export const UsageUpdatedEvent = z.strictObject({ type: z.literal("usage_updated"), usage: Usage });
 export type UsageUpdatedEvent = z.infer<typeof UsageUpdatedEvent>;
 
-export const PlanUpdatedEvent = z.strictObject({ type: z.literal("plan_updated"), plan: Plan });
-export type PlanUpdatedEvent = z.infer<typeof PlanUpdatedEvent>;
-
 /** These messages, with their blocks and tool calls, were withdrawn by the backend and must disappear from the view. */
 export const MessagesRetractedEvent = z.strictObject({
 	type: z.literal("messages_retracted"),
@@ -161,7 +156,7 @@ export type MessagesRetractedEvent = z.infer<typeof MessagesRetractedEvent>;
 /**
  * Queued input the backend took back out of its queue, to be put into the composer of the session: the person
  * stopped the run, and what they had queued behind it was not sent. In queue order, steering input first. The
- * queue itself is `queue_changed`; this event only says what to give back, and is not state (since minor 2, `ADDED_IN_MINOR`).
+ * queue itself is `queue_changed`; this event only says what to give back, and is not state.
  */
 export const InputReturnedEvent = z.strictObject({
 	type: z.literal("input_returned"),
@@ -187,13 +182,6 @@ export const NoticeEvent = z.strictObject({
 	text: z.string().max(MAX_TEXT_CHARS),
 });
 export type NoticeEvent = z.infer<typeof NoticeEvent>;
-
-/**
- * A harness activity inside the active run started or changed; one with the same `id` is replaced. Not state outside
- * a run. A client below 1.4 is sent a `notice` with the same `seq` instead.
- */
-export const ActivityEvent = z.strictObject({ type: z.literal("activity"), activity: Activity });
-export type ActivityEvent = z.infer<typeof ActivityEvent>;
 
 /** A failure outside any run's outcome, such as the connection to the backend dropping. */
 export const ErrorEvent = z.strictObject({ type: z.literal("error"), error: ErrorInfo, retryable: z.boolean() });
@@ -232,12 +220,10 @@ export const AgentEvent = z.discriminatedUnion("type", [
 	RetryScheduledEvent,
 	RetryFinishedEvent,
 	UsageUpdatedEvent,
-	PlanUpdatedEvent,
 	MessagesRetractedEvent,
 	ModelChangedEvent,
 	ModeChangedEvent,
 	NoticeEvent,
-	ActivityEvent,
 	ErrorEvent,
 	ExtensionEvent,
 	SessionReplacedEvent,

@@ -38,23 +38,8 @@ export const ANSWER_MUTANTS: Mutant[] = [
 		},
 		{
 			name: "phone answer: a watched session that takes answers is refused",
-			find: "client.speaks(ADDED_IN_MINOR.watchedAnswers) ? sessionAnswerer(open) : undefined",
-			replace: "undefined",
-		},
-		{
-			name: "phone answer: a client of 1.3 answers a watched session",
-			find: "client.speaks(ADDED_IN_MINOR.watchedAnswers) ? sessionAnswerer(open) : undefined",
-			replace: "sessionAnswerer(open)",
-		},
-		{
-			name: "phone answer: a client of 1.3 cannot answer a session with control",
-			find: "return open.control ?? (",
-			replace: "return (",
-		},
-		{
-			name: "phone answer: an older client may answer with a mode",
-			find: "return answerTooNew(client, request.answer) ?? ctx.desk",
-			replace: "return ctx.desk",
+			find: "live.open.control ?? sessionAnswerer(live.open)",
+			replace: "live.open.control",
 		},
 		{
 			name: "phone answer: the desk is bypassed",

@@ -3,7 +3,6 @@ import { movedTo, redirectAttach } from "./attach-redirect";
 import { type BackendRequest, type Handler, reachBackend } from "./context";
 import { controlled } from "./controlled";
 import { LiveSession } from "./live-session";
-import { capabilitiesFor, syncFor } from "./minor-views";
 import { HELLO_FIRST, openFailure, protocolError, unsupported } from "./results";
 import { sessionKey } from "./session-key";
 
@@ -13,14 +12,14 @@ export const MAX_SESSIONS_PER_CLIENT = 32;
 /**
  * In order with the client's other attaches and detaches of the session, from the moment it arrives.
  * A client resuming a stream that ended in `session_replaced` is sent to the session that continues
- * it instead (when its `hello` allows), without the replaced session being opened.
+ * it instead, without the replaced session being opened.
  */
 export const sessionAttach: Handler<"session.attach"> = (ctx, client, request, respond) =>
 	client.inOrder(sessionKey(request.session), async () => {
 		const backend = await reachBackend(ctx, request.session.backend, request.requestId, respond);
 		if (!backend) return;
 		const target = { ctx, client, request, respond, backend };
-		const moved = movedTo(ctx, client, request.resume?.epoch);
+		const moved = movedTo(ctx, request.resume?.epoch);
 		if (moved) await redirectAttach(target, moved);
 		else await attach(target);
 	});
@@ -54,7 +53,7 @@ async function join(target: BackendRequest<"session.attach">): Promise<void> {
 		return;
 	}
 	if (live.closed) {
-		const moved = movedTo(ctx, client, live.epoch);
+		const moved = movedTo(ctx, live.epoch);
 		if (moved) await redirectAttach(target, moved);
 		else respond(protocolError(request.requestId, "unknown_session", "the session went away while attaching"));
 		return;
@@ -65,8 +64,8 @@ async function join(target: BackendRequest<"session.attach">): Promise<void> {
 	const sent = respond({
 		type: "session.attach.result",
 		requestId: request.requestId,
-		capabilities: capabilitiesFor(client, sessionCapabilities(live.open)),
-		sync: syncFor(client, sync),
+		capabilities: sessionCapabilities(live.open),
+		sync,
 	});
 	if (!sent) return;
 	for (const frame of replay) client.send(frame);
@@ -118,17 +117,6 @@ export const thinkingSet = controlled<"thinking.set", ActionResult>(
 export const modeSet = controlled<"mode.set", ActionResult>(
 	(request, result) => ({ type: "mode.set.result", requestId: request.requestId, result }),
 	({ request, control }) => control.setMode(request.axis, request.value),
-);
-
-export const compactionCancel = controlled<"compaction.cancel", ActionResult>(
-	(request, result) => ({ type: "compaction.cancel.result", requestId: request.requestId, result }),
-	async ({ control }) =>
-		control.cancelCompaction ? control.cancelCompaction() : unsupported("cancel the compaction on its own"),
-);
-
-export const retryCancel = controlled<"retry.cancel", ActionResult>(
-	(request, result) => ({ type: "retry.cancel.result", requestId: request.requestId, result }),
-	async ({ control }) => (control.cancelRetry ? control.cancelRetry() : unsupported("cancel the retry on its own")),
 );
 
 export const compact = controlled<"compact", ActionResult>(

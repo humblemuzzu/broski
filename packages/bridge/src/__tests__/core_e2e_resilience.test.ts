@@ -5,7 +5,6 @@
  */
 
 import { afterAll, describe, expect, setDefaultTimeout, test } from "bun:test";
-import { readFileSync } from "node:fs";
 import type { EventEnvelope, SessionRef } from "../contract";
 import { DEFAULT_IDLE_CLOSE_MS } from "../core/keep-open";
 import { LINK_OVERFLOW_CLOSE_CODE } from "../transport/send-limits";
@@ -189,43 +188,5 @@ describe("the core over an imperfect link", () => {
 				await rig.stop();
 			}
 		});
-	});
-
-	test("a run that survives a bridge restart is there under the same id, in a new epoch", async () => {
-		const first = await startCoreBridge();
-		roots.push(first.root);
-		const phone = await first.phone("phone");
-		const session = first.fake.fake.seed({ cwd: first.cwd });
-		first.fake.fake.script(session, [
-			{ kind: "text", text: "Working." },
-			{ kind: "hold" },
-			{ kind: "text", text: "Done." },
-		]);
-		const attached = await phone.ok("session.attach", { session });
-		const input = promptInput("Outlive the bridge");
-		const accepted = await phone.ok("prompt", { session, input });
-		const started = (await phone.waitForEvent(session, (envelope) => envelope.event.type === "run_started", "the run"))
-			.event;
-		if (started.type !== "run_started") throw new Error("not a run start");
-		await phone.waitForEvent(session, (envelope) => envelope.event.type === "block_finished", "the first block");
-		const seen = lastSeq(phone, session);
-		await first.stop();
-
-		const second = await startCoreBridge({
-			from: { root: first.root, restart: (host) => first.fake.fake.restart(host) },
-		});
-		try {
-			const back = await second.phone("phone-again");
-			const resumed = await back.ok("session.attach", { session, resume: { epoch: attached.sync.epoch, seq: seen } });
-			if (resumed.sync.kind !== "snapshot") throw new Error("a new bridge has nothing to replay");
-			expect(resumed.sync.epoch).not.toBe(attached.sync.epoch);
-			expect(resumed.sync.snapshot.run?.runId).toBe(started.runId);
-			expect((await back.ok("prompt", { session, input })).result).toEqual(accepted.result);
-			expect(readFileSync(second.journalPath, "utf8")).toContain(input.clientRequestId);
-			second.fake.fake.release(session);
-			await back.waitForEvent(session, (envelope) => envelope.event.type === "run_finished", "the end of the run");
-		} finally {
-			await second.stop();
-		}
 	});
 });

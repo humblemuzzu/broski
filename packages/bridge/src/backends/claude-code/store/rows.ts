@@ -51,7 +51,6 @@ export function sessionRow(info: SDKSessionInfo, context: RowContext): SessionSu
 		...(createdAt !== undefined && { createdAt }),
 		updatedAt: timestamp(info.lastModified) ?? 0,
 		...(context.parent !== undefined && { parent: context.parent }),
-		archived: false,
 		...(context.live?.modelId !== undefined && {
 			modelId: context.live.modelId,
 		}),

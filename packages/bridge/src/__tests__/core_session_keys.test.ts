@@ -17,7 +17,7 @@ describe("the keys the core files sessions under", () => {
 	});
 
 	test("a session is one key, and a log line names it quoted, so an id cannot start a line of its own", () => {
-		expect(sessionKey({ backend: "pi-durable", sessionId: "s:1" })).toBe("pi-durable:s:1");
+		expect(sessionKey({ backend: "claude-code", sessionId: "s:1" })).toBe("claude-code:s:1");
 		expect(sessionLabel({ backend: "pi", sessionId: "x\n[core] forged" })).toBe('"pi:x\\n[core] forged"');
 	});
 });

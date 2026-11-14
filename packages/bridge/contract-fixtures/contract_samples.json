@@ -1,10 +1,4 @@
 {
-  "AbortBranchSummaryOp": [
-    {
-      "kind": "abort_branch_summary",
-      "sessionId": "x"
-    }
-  ],
   "AbortRequest": [
     {
       "type": "abort",
@@ -28,123 +22,6 @@
     {
       "status": "accepted"
     }
-  ],
-  "ActionList": [
-    {
-      "rows": [
-        {
-          "id": "x",
-          "title": "x",
-          "subtitle": "x",
-          "status": {
-            "label": "x",
-            "tone": "neutral"
-          },
-          "group": "x",
-          "badges": [
-            "x"
-          ],
-          "actions": [
-            {
-              "id": "x",
-              "label": "x",
-              "destructive": true,
-              "confirm": "x"
-            }
-          ]
-        }
-      ],
-      "omitted": 1,
-      "note": "x"
-    },
-    {
-      "rows": [
-        {
-          "id": "x",
-          "title": "x",
-          "badges": [
-            "x"
-          ],
-          "actions": [
-            {
-              "id": "x",
-              "label": "x",
-              "destructive": false
-            }
-          ]
-        }
-      ],
-      "omitted": 1
-    }
-  ],
-  "ActionListAction": [
-    {
-      "id": "x",
-      "label": "x",
-      "destructive": true,
-      "confirm": "x"
-    },
-    {
-      "id": "x",
-      "label": "x",
-      "destructive": false
-    }
-  ],
-  "ActionListChange": [
-    {
-      "rowId": "x",
-      "actionId": "x"
-    }
-  ],
-  "ActionListRow": [
-    {
-      "id": "x",
-      "title": "x",
-      "subtitle": "x",
-      "status": {
-        "label": "x",
-        "tone": "neutral"
-      },
-      "group": "x",
-      "badges": [
-        "x"
-      ],
-      "actions": [
-        {
-          "id": "x",
-          "label": "x",
-          "destructive": true,
-          "confirm": "x"
-        }
-      ]
-    },
-    {
-      "id": "x",
-      "title": "x",
-      "badges": [
-        "x"
-      ],
-      "actions": [
-        {
-          "id": "x",
-          "label": "x",
-          "destructive": false
-        }
-      ]
-    }
-  ],
-  "ActionListStatus": [
-    {
-      "label": "x",
-      "tone": "neutral"
-    }
-  ],
-  "ActionListTone": [
-    "neutral",
-    "ok",
-    "busy",
-    "warning",
-    "error"
   ],
   "ActionResult": [
     {
@@ -202,66 +79,6 @@
       ],
       "droppedItems": 1
     }
-  ],
-  "Activity": [
-    {
-      "id": "x",
-      "label": "x",
-      "detail": "x",
-      "status": "running",
-      "output": "x",
-      "durationMs": 1
-    },
-    {
-      "id": "x",
-      "label": "x",
-      "status": "running"
-    }
-  ],
-  "ActivityEvent": [
-    {
-      "type": "activity",
-      "activity": {
-        "id": "x",
-        "label": "x",
-        "detail": "x",
-        "status": "running",
-        "output": "x",
-        "durationMs": 1
-      }
-    },
-    {
-      "type": "activity",
-      "activity": {
-        "id": "x",
-        "label": "x",
-        "status": "running"
-      }
-    }
-  ],
-  "ActivityItem": [
-    {
-      "kind": "activity",
-      "at": 1,
-      "id": "x",
-      "label": "x",
-      "detail": "x",
-      "status": "running",
-      "output": "x",
-      "durationMs": 1
-    },
-    {
-      "kind": "activity",
-      "id": "x",
-      "label": "x",
-      "status": "running"
-    }
-  ],
-  "ActivityStatus": [
-    "running",
-    "succeeded",
-    "failed",
-    "cancelled"
   ],
   "AgentEvent": [
     {
@@ -598,29 +415,6 @@
       "usage": {}
     },
     {
-      "type": "plan_updated",
-      "plan": {
-        "items": [
-          {
-            "text": "x",
-            "status": "pending"
-          }
-        ],
-        "explanation": "x"
-      }
-    },
-    {
-      "type": "plan_updated",
-      "plan": {
-        "items": [
-          {
-            "text": "x",
-            "status": "pending"
-          }
-        ]
-      }
-    },
-    {
       "type": "messages_retracted",
       "messageIds": [
         "x"
@@ -643,25 +437,6 @@
       "type": "notice",
       "level": "info",
       "text": "x"
-    },
-    {
-      "type": "activity",
-      "activity": {
-        "id": "x",
-        "label": "x",
-        "detail": "x",
-        "status": "running",
-        "output": "x",
-        "durationMs": 1
-      }
-    },
-    {
-      "type": "activity",
-      "activity": {
-        "id": "x",
-        "label": "x",
-        "status": "running"
-      }
     },
     {
       "type": "error",
@@ -861,15 +636,6 @@
           "contextTokens": 1,
           "contextWindow": 1
         },
-        "plan": {
-          "items": [
-            {
-              "text": "x",
-              "status": "pending"
-            }
-          ],
-          "explanation": "x"
-        },
         "compaction": {
           "trigger": "manual",
           "startedAt": 1
@@ -958,12 +724,6 @@
           }
         ]
       }
-    }
-  ],
-  "AgentMention": [
-    {
-      "kind": "agent",
-      "name": "x"
     }
   ],
   "AttachSync": [
@@ -1131,15 +891,6 @@
           "costUsd": 1.5,
           "contextTokens": 1,
           "contextWindow": 1
-        },
-        "plan": {
-          "items": [
-            {
-              "text": "x",
-              "status": "pending"
-            }
-          ],
-          "explanation": "x"
         },
         "compaction": {
           "trigger": "manual",
@@ -1382,157 +1133,6 @@
     "signed_out",
     "unknown"
   ],
-  "BackendCall": [
-    {
-      "backend": "claude-code",
-      "op": {
-        "kind": "rewind_files",
-        "sessionId": "x",
-        "userItemId": "x",
-        "dryRun": true
-      }
-    },
-    {
-      "backend": "claude-code",
-      "op": {
-        "kind": "rewind_files",
-        "sessionId": "x",
-        "userItemId": "x",
-        "dryRun": false
-      }
-    },
-    {
-      "backend": "pi",
-      "op": {
-        "kind": "navigate_tree",
-        "sessionId": "x",
-        "itemId": "x",
-        "summarize": true,
-        "instructions": "x"
-      }
-    },
-    {
-      "backend": "pi",
-      "op": {
-        "kind": "navigate_tree",
-        "sessionId": "x",
-        "itemId": "x",
-        "summarize": false
-      }
-    }
-  ],
-  "BackendCallAccepted": [
-    {
-      "status": "accepted",
-      "result": {
-        "kind": "rewind_files",
-        "canRewind": true,
-        "filesChanged": [
-          "x"
-        ],
-        "insertions": 1,
-        "deletions": 1,
-        "skippedLinks": 1,
-        "error": "x"
-      }
-    },
-    {
-      "status": "accepted",
-      "result": {
-        "kind": "rewind_files",
-        "canRewind": false
-      }
-    }
-  ],
-  "BackendCallRequest": [
-    {
-      "type": "backend.call",
-      "requestId": "x",
-      "call": {
-        "backend": "claude-code",
-        "op": {
-          "kind": "rewind_files",
-          "sessionId": "x",
-          "userItemId": "x",
-          "dryRun": true
-        }
-      }
-    },
-    {
-      "type": "backend.call",
-      "requestId": "x",
-      "call": {
-        "backend": "claude-code",
-        "op": {
-          "kind": "rewind_files",
-          "sessionId": "x",
-          "userItemId": "x",
-          "dryRun": false
-        }
-      }
-    }
-  ],
-  "BackendCallResponse": [
-    {
-      "type": "backend.call.result",
-      "requestId": "x",
-      "result": {
-        "status": "accepted",
-        "result": {
-          "kind": "rewind_files",
-          "canRewind": true,
-          "filesChanged": [
-            "x"
-          ],
-          "insertions": 1,
-          "deletions": 1,
-          "skippedLinks": 1,
-          "error": "x"
-        }
-      }
-    },
-    {
-      "type": "backend.call.result",
-      "requestId": "x",
-      "result": {
-        "status": "accepted",
-        "result": {
-          "kind": "rewind_files",
-          "canRewind": false
-        }
-      }
-    }
-  ],
-  "BackendCallResult": [
-    {
-      "status": "accepted",
-      "result": {
-        "kind": "rewind_files",
-        "canRewind": true,
-        "filesChanged": [
-          "x"
-        ],
-        "insertions": 1,
-        "deletions": 1,
-        "skippedLinks": 1,
-        "error": "x"
-      }
-    },
-    {
-      "status": "accepted",
-      "result": {
-        "kind": "rewind_files",
-        "canRewind": false
-      }
-    },
-    {
-      "status": "rejected",
-      "rejection": {
-        "code": "busy",
-        "message": "x"
-      }
-    }
-  ],
   "BackendDescriptor": [
     {
       "id": "claude-code",
@@ -1545,32 +1145,22 @@
         "attachments": [
           "image"
         ],
-        "mentions": [
-          "file"
-        ],
         "commands": true,
         "queue": true,
         "interactions": [
           "tool_permission"
         ],
-        "modelSwitch": "next_request",
         "thinking": true,
         "children": true,
         "usage": true,
-        "plan": true,
         "planProposals": true,
         "externalLive": true,
-        "durableRuns": true,
         "extensions": [
           "rate_limit"
         ],
-        "backendOps": [
-          "rewind_files"
-        ],
         "fork": true,
         "rename": true,
-        "delete": true,
-        "archive": true
+        "delete": true
       }
     },
     {
@@ -1584,32 +1174,22 @@
         "attachments": [
           "image"
         ],
-        "mentions": [
-          "file"
-        ],
         "commands": false,
         "queue": false,
         "interactions": [
           "tool_permission"
         ],
-        "modelSwitch": "next_request",
         "thinking": false,
         "children": false,
         "usage": false,
-        "plan": false,
         "planProposals": false,
         "externalLive": false,
-        "durableRuns": false,
         "extensions": [
           "rate_limit"
         ],
-        "backendOps": [
-          "rewind_files"
-        ],
         "fork": false,
         "rename": false,
-        "delete": false,
-        "archive": false
+        "delete": false
       }
     }
   ],
@@ -1624,868 +1204,11 @@
     {
       "kind": "rate_limit",
       "window": "x"
-    },
-    {
-      "kind": "prompt_suggestion",
-      "text": "x"
     }
   ],
   "BackendId": [
     "claude-code",
-    "pi",
-    "pi-durable"
-  ],
-  "BackendOp": [
-    {
-      "kind": "rewind_files",
-      "sessionId": "x",
-      "userItemId": "x",
-      "dryRun": true
-    },
-    {
-      "kind": "rewind_files",
-      "sessionId": "x",
-      "userItemId": "x",
-      "dryRun": false
-    },
-    {
-      "kind": "navigate_tree",
-      "sessionId": "x",
-      "itemId": "x",
-      "summarize": true,
-      "instructions": "x"
-    },
-    {
-      "kind": "navigate_tree",
-      "sessionId": "x",
-      "itemId": "x",
-      "summarize": false
-    },
-    {
-      "kind": "take_over",
-      "sessionId": "x"
-    },
-    {
-      "kind": "session_settings",
-      "sessionId": "x",
-      "change": {
-        "kind": "toggle",
-        "key": "x",
-        "enabled": true
-      }
-    },
-    {
-      "kind": "session_settings",
-      "sessionId": "x"
-    },
-    {
-      "kind": "session_tools",
-      "sessionId": "x",
-      "change": {
-        "name": "x",
-        "active": true
-      }
-    },
-    {
-      "kind": "session_tools",
-      "sessionId": "x"
-    },
-    {
-      "kind": "system_prompt",
-      "sessionId": "x",
-      "offset": 1
-    },
-    {
-      "kind": "system_prompt",
-      "sessionId": "x"
-    },
-    {
-      "kind": "export_session",
-      "sessionId": "x",
-      "format": "html"
-    },
-    {
-      "kind": "export_part",
-      "sessionId": "x",
-      "exportId": "x",
-      "offset": 1
-    },
-    {
-      "kind": "import_session",
-      "uploadId": "x",
-      "offset": 1,
-      "data": "x",
-      "last": true
-    },
-    {
-      "kind": "import_session",
-      "uploadId": "x",
-      "offset": 1,
-      "data": "x",
-      "last": false
-    },
-    {
-      "kind": "changed_files",
-      "sessionId": "x"
-    },
-    {
-      "kind": "refresh_models"
-    },
-    {
-      "kind": "read_tree",
-      "sessionId": "x",
-      "page": {
-        "cursor": "x",
-        "limit": 1
-      }
-    },
-    {
-      "kind": "read_tree",
-      "sessionId": "x",
-      "page": {
-        "limit": 1
-      }
-    },
-    {
-      "kind": "label_entry",
-      "sessionId": "x",
-      "entryId": "x",
-      "label": "x"
-    },
-    {
-      "kind": "label_entry",
-      "sessionId": "x",
-      "entryId": "x"
-    },
-    {
-      "kind": "abort_branch_summary",
-      "sessionId": "x"
-    },
-    {
-      "kind": "run_shell",
-      "sessionId": "x",
-      "clientRequestId": "00000000-0000-4000-8000-000000000000",
-      "command": "x",
-      "excludeFromContext": true
-    },
-    {
-      "kind": "run_shell",
-      "sessionId": "x",
-      "clientRequestId": "00000000-0000-4000-8000-000000000000",
-      "command": "x",
-      "excludeFromContext": false
-    },
-    {
-      "kind": "config_files",
-      "cwd": "x"
-    },
-    {
-      "kind": "config_file",
-      "cwd": "x",
-      "fileId": "x",
-      "name": "x",
-      "change": {
-        "kind": "write",
-        "text": "x",
-        "revision": "x"
-      }
-    },
-    {
-      "kind": "config_file",
-      "cwd": "x",
-      "fileId": "x"
-    },
-    {
-      "kind": "settings_overview",
-      "cwd": "x"
-    },
-    {
-      "kind": "mcp_servers",
-      "sessionId": "x",
-      "change": {
-        "rowId": "x",
-        "actionId": "x"
-      }
-    },
-    {
-      "kind": "mcp_servers",
-      "sessionId": "x"
-    },
-    {
-      "kind": "plugins",
-      "cwd": "x",
-      "sessionId": "x",
-      "change": {
-        "rowId": "x",
-        "actionId": "x"
-      }
-    },
-    {
-      "kind": "plugins",
-      "cwd": "x"
-    },
-    {
-      "kind": "tasks",
-      "sessionId": "x",
-      "change": {
-        "rowId": "x",
-        "actionId": "x"
-      }
-    },
-    {
-      "kind": "tasks",
-      "sessionId": "x"
-    },
-    {
-      "kind": "context_usage",
-      "sessionId": "x"
-    },
-    {
-      "kind": "custom_tools",
-      "change": {
-        "rowId": "x",
-        "actionId": "x"
-      }
-    },
-    {
-      "kind": "custom_tools"
-    },
-    {
-      "kind": "custom_tool",
-      "toolId": "x",
-      "change": {
-        "kind": "write",
-        "text": "x",
-        "revision": "x"
-      }
-    },
-    {
-      "kind": "custom_tool"
-    }
-  ],
-  "BackendOpKind": [
-    "rewind_files",
-    "navigate_tree",
-    "take_over",
-    "session_settings",
-    "session_tools",
-    "system_prompt",
-    "export_session",
-    "export_part",
-    "import_session",
-    "changed_files",
-    "refresh_models",
-    "read_tree",
-    "label_entry",
-    "abort_branch_summary",
-    "run_shell",
-    "config_files",
-    "config_file",
-    "settings_overview",
-    "mcp_servers",
-    "plugins",
-    "tasks",
-    "context_usage",
-    "custom_tools",
-    "custom_tool"
-  ],
-  "BackendOpResult": [
-    {
-      "kind": "rewind_files",
-      "canRewind": true,
-      "filesChanged": [
-        "x"
-      ],
-      "insertions": 1,
-      "deletions": 1,
-      "skippedLinks": 1,
-      "error": "x"
-    },
-    {
-      "kind": "rewind_files",
-      "canRewind": false
-    },
-    {
-      "kind": "navigate_tree"
-    },
-    {
-      "kind": "take_over"
-    },
-    {
-      "kind": "session_settings",
-      "settings": [
-        {
-          "kind": "toggle",
-          "key": "x",
-          "label": "x",
-          "description": "x",
-          "enabled": true,
-          "note": "x"
-        }
-      ]
-    },
-    {
-      "kind": "session_settings",
-      "settings": [
-        {
-          "kind": "toggle",
-          "key": "x",
-          "label": "x",
-          "enabled": false
-        }
-      ]
-    },
-    {
-      "kind": "session_tools",
-      "tools": [
-        {
-          "name": "x",
-          "description": "x",
-          "active": true,
-          "group": "x"
-        }
-      ],
-      "omitted": 1
-    },
-    {
-      "kind": "session_tools",
-      "tools": [
-        {
-          "name": "x",
-          "description": "x",
-          "active": false
-        }
-      ]
-    },
-    {
-      "kind": "system_prompt",
-      "text": "x",
-      "offset": 1,
-      "totalChars": 1,
-      "nextOffset": 1
-    },
-    {
-      "kind": "system_prompt",
-      "text": "x",
-      "offset": 1,
-      "totalChars": 1
-    },
-    {
-      "kind": "export_session",
-      "exportId": "x",
-      "name": "x",
-      "mimeType": "x",
-      "bytes": 1
-    },
-    {
-      "kind": "export_part",
-      "offset": 1,
-      "data": "x",
-      "done": true
-    },
-    {
-      "kind": "export_part",
-      "offset": 1,
-      "data": "x",
-      "done": false
-    },
-    {
-      "kind": "import_session",
-      "received": 1,
-      "sessionId": "x"
-    },
-    {
-      "kind": "import_session",
-      "received": 1
-    },
-    {
-      "kind": "changed_files",
-      "files": [
-        {
-          "path": "x",
-          "change": "added",
-          "previousPath": "x",
-          "diff": "x",
-          "additions": 1,
-          "deletions": 1
-        }
-      ],
-      "omitted": 1,
-      "additions": 1,
-      "deletions": 1
-    },
-    {
-      "kind": "changed_files",
-      "files": [
-        {
-          "path": "x",
-          "change": "added"
-        }
-      ],
-      "omitted": 1,
-      "additions": 1,
-      "deletions": 1
-    },
-    {
-      "kind": "refresh_models",
-      "problems": [
-        "x"
-      ]
-    },
-    {
-      "kind": "read_tree",
-      "leafId": "x",
-      "total": 1,
-      "nodes": [
-        {
-          "id": "x",
-          "parentId": "x",
-          "itemId": "x",
-          "kind": "user",
-          "at": 1,
-          "preview": "x",
-          "previewCut": true,
-          "label": "x"
-        }
-      ],
-      "nextCursor": "x"
-    },
-    {
-      "kind": "read_tree",
-      "total": 1,
-      "nodes": [
-        {
-          "id": "x",
-          "itemId": "x",
-          "kind": "user",
-          "preview": "x",
-          "previewCut": false
-        }
-      ]
-    },
-    {
-      "kind": "label_entry"
-    },
-    {
-      "kind": "abort_branch_summary"
-    },
-    {
-      "kind": "run_shell"
-    },
-    {
-      "kind": "config_files",
-      "files": [
-        {
-          "id": "x",
-          "label": "x",
-          "group": "x",
-          "scope": "x",
-          "path": "x",
-          "exists": true,
-          "editable": true,
-          "format": "json",
-          "template": true
-        }
-      ],
-      "omitted": 1
-    },
-    {
-      "kind": "config_files",
-      "files": [
-        {
-          "id": "x",
-          "label": "x",
-          "group": "x",
-          "scope": "x",
-          "path": "x",
-          "exists": false,
-          "editable": false,
-          "format": "json",
-          "template": false
-        }
-      ],
-      "omitted": 1
-    },
-    {
-      "kind": "config_file",
-      "file": {
-        "id": "x",
-        "path": "x",
-        "scope": "x",
-        "format": "json",
-        "exists": true,
-        "text": "x",
-        "revision": "x",
-        "editable": true,
-        "truncated": true,
-        "problems": [
-          "x"
-        ]
-      }
-    },
-    {
-      "kind": "config_file",
-      "file": {
-        "id": "x",
-        "path": "x",
-        "scope": "x",
-        "format": "json",
-        "exists": false,
-        "text": "x",
-        "revision": "x",
-        "editable": false,
-        "truncated": false,
-        "problems": [
-          "x"
-        ]
-      }
-    },
-    {
-      "kind": "settings_overview",
-      "list": {
-        "rows": [
-          {
-            "id": "x",
-            "title": "x",
-            "subtitle": "x",
-            "status": {
-              "label": "x",
-              "tone": "neutral"
-            },
-            "group": "x",
-            "badges": [
-              "x"
-            ],
-            "actions": [
-              {
-                "id": "x",
-                "label": "x",
-                "destructive": true,
-                "confirm": "x"
-              }
-            ]
-          }
-        ],
-        "omitted": 1,
-        "note": "x"
-      }
-    },
-    {
-      "kind": "settings_overview",
-      "list": {
-        "rows": [
-          {
-            "id": "x",
-            "title": "x",
-            "badges": [
-              "x"
-            ],
-            "actions": [
-              {
-                "id": "x",
-                "label": "x",
-                "destructive": false
-              }
-            ]
-          }
-        ],
-        "omitted": 1
-      }
-    },
-    {
-      "kind": "mcp_servers",
-      "list": {
-        "rows": [
-          {
-            "id": "x",
-            "title": "x",
-            "subtitle": "x",
-            "status": {
-              "label": "x",
-              "tone": "neutral"
-            },
-            "group": "x",
-            "badges": [
-              "x"
-            ],
-            "actions": [
-              {
-                "id": "x",
-                "label": "x",
-                "destructive": true,
-                "confirm": "x"
-              }
-            ]
-          }
-        ],
-        "omitted": 1,
-        "note": "x"
-      }
-    },
-    {
-      "kind": "mcp_servers",
-      "list": {
-        "rows": [
-          {
-            "id": "x",
-            "title": "x",
-            "badges": [
-              "x"
-            ],
-            "actions": [
-              {
-                "id": "x",
-                "label": "x",
-                "destructive": false
-              }
-            ]
-          }
-        ],
-        "omitted": 1
-      }
-    },
-    {
-      "kind": "plugins",
-      "list": {
-        "rows": [
-          {
-            "id": "x",
-            "title": "x",
-            "subtitle": "x",
-            "status": {
-              "label": "x",
-              "tone": "neutral"
-            },
-            "group": "x",
-            "badges": [
-              "x"
-            ],
-            "actions": [
-              {
-                "id": "x",
-                "label": "x",
-                "destructive": true,
-                "confirm": "x"
-              }
-            ]
-          }
-        ],
-        "omitted": 1,
-        "note": "x"
-      }
-    },
-    {
-      "kind": "plugins",
-      "list": {
-        "rows": [
-          {
-            "id": "x",
-            "title": "x",
-            "badges": [
-              "x"
-            ],
-            "actions": [
-              {
-                "id": "x",
-                "label": "x",
-                "destructive": false
-              }
-            ]
-          }
-        ],
-        "omitted": 1
-      }
-    },
-    {
-      "kind": "tasks",
-      "list": {
-        "rows": [
-          {
-            "id": "x",
-            "title": "x",
-            "subtitle": "x",
-            "status": {
-              "label": "x",
-              "tone": "neutral"
-            },
-            "group": "x",
-            "badges": [
-              "x"
-            ],
-            "actions": [
-              {
-                "id": "x",
-                "label": "x",
-                "destructive": true,
-                "confirm": "x"
-              }
-            ]
-          }
-        ],
-        "omitted": 1,
-        "note": "x"
-      }
-    },
-    {
-      "kind": "tasks",
-      "list": {
-        "rows": [
-          {
-            "id": "x",
-            "title": "x",
-            "badges": [
-              "x"
-            ],
-            "actions": [
-              {
-                "id": "x",
-                "label": "x",
-                "destructive": false
-              }
-            ]
-          }
-        ],
-        "omitted": 1
-      }
-    },
-    {
-      "kind": "context_usage",
-      "list": {
-        "rows": [
-          {
-            "id": "x",
-            "title": "x",
-            "subtitle": "x",
-            "status": {
-              "label": "x",
-              "tone": "neutral"
-            },
-            "group": "x",
-            "badges": [
-              "x"
-            ],
-            "actions": [
-              {
-                "id": "x",
-                "label": "x",
-                "destructive": true,
-                "confirm": "x"
-              }
-            ]
-          }
-        ],
-        "omitted": 1,
-        "note": "x"
-      }
-    },
-    {
-      "kind": "context_usage",
-      "list": {
-        "rows": [
-          {
-            "id": "x",
-            "title": "x",
-            "badges": [
-              "x"
-            ],
-            "actions": [
-              {
-                "id": "x",
-                "label": "x",
-                "destructive": false
-              }
-            ]
-          }
-        ],
-        "omitted": 1
-      }
-    },
-    {
-      "kind": "custom_tools",
-      "list": {
-        "rows": [
-          {
-            "id": "x",
-            "title": "x",
-            "subtitle": "x",
-            "status": {
-              "label": "x",
-              "tone": "neutral"
-            },
-            "group": "x",
-            "badges": [
-              "x"
-            ],
-            "actions": [
-              {
-                "id": "x",
-                "label": "x",
-                "destructive": true,
-                "confirm": "x"
-              }
-            ]
-          }
-        ],
-        "omitted": 1,
-        "note": "x"
-      }
-    },
-    {
-      "kind": "custom_tools",
-      "list": {
-        "rows": [
-          {
-            "id": "x",
-            "title": "x",
-            "badges": [
-              "x"
-            ],
-            "actions": [
-              {
-                "id": "x",
-                "label": "x",
-                "destructive": false
-              }
-            ]
-          }
-        ],
-        "omitted": 1
-      }
-    },
-    {
-      "kind": "custom_tool",
-      "file": {
-        "id": "x",
-        "path": "x",
-        "scope": "x",
-        "format": "json",
-        "exists": true,
-        "text": "x",
-        "revision": "x",
-        "editable": true,
-        "truncated": true,
-        "problems": [
-          "x"
-        ]
-      }
-    },
-    {
-      "kind": "custom_tool",
-      "file": {
-        "id": "x",
-        "path": "x",
-        "scope": "x",
-        "format": "json",
-        "exists": false,
-        "text": "x",
-        "revision": "x",
-        "editable": false,
-        "truncated": false,
-        "problems": [
-          "x"
-        ]
-      }
-    }
+    "pi"
   ],
   "BackendStatus": [
     {
@@ -2574,32 +1297,22 @@
             "attachments": [
               "image"
             ],
-            "mentions": [
-              "file"
-            ],
             "commands": true,
             "queue": true,
             "interactions": [
               "tool_permission"
             ],
-            "modelSwitch": "next_request",
             "thinking": true,
             "children": true,
             "usage": true,
-            "plan": true,
             "planProposals": true,
             "externalLive": true,
-            "durableRuns": true,
             "extensions": [
               "rate_limit"
             ],
-            "backendOps": [
-              "rewind_files"
-            ],
             "fork": true,
             "rename": true,
-            "delete": true,
-            "archive": true
+            "delete": true
           }
         }
       ]
@@ -2619,32 +1332,22 @@
             "attachments": [
               "image"
             ],
-            "mentions": [
-              "file"
-            ],
             "commands": false,
             "queue": false,
             "interactions": [
               "tool_permission"
             ],
-            "modelSwitch": "next_request",
             "thinking": false,
             "children": false,
             "usage": false,
-            "plan": false,
             "planProposals": false,
             "externalLive": false,
-            "durableRuns": false,
             "extensions": [
               "rate_limit"
             ],
-            "backendOps": [
-              "rewind_files"
-            ],
             "fork": false,
             "rename": false,
-            "delete": false,
-            "archive": false
+            "delete": false
           }
         }
       ]
@@ -2752,11 +1455,6 @@
       "value": false
     }
   ],
-  "BranchSummaryAborted": [
-    {
-      "kind": "abort_branch_summary"
-    }
-  ],
   "CancelReply": [
     {
       "kind": "cancel",
@@ -2778,32 +1476,22 @@
       "attachments": [
         "image"
       ],
-      "mentions": [
-        "file"
-      ],
       "commands": true,
       "queue": true,
       "interactions": [
         "tool_permission"
       ],
-      "modelSwitch": "next_request",
       "thinking": true,
       "children": true,
       "usage": true,
-      "plan": true,
       "planProposals": true,
       "externalLive": true,
-      "durableRuns": true,
       "extensions": [
         "rate_limit"
       ],
-      "backendOps": [
-        "rewind_files"
-      ],
       "fork": true,
       "rename": true,
-      "delete": true,
-      "archive": true
+      "delete": true
     },
     {
       "streamText": false,
@@ -2814,32 +1502,22 @@
       "attachments": [
         "image"
       ],
-      "mentions": [
-        "file"
-      ],
       "commands": false,
       "queue": false,
       "interactions": [
         "tool_permission"
       ],
-      "modelSwitch": "next_request",
       "thinking": false,
       "children": false,
       "usage": false,
-      "plan": false,
       "planProposals": false,
       "externalLive": false,
-      "durableRuns": false,
       "extensions": [
         "rate_limit"
       ],
-      "backendOps": [
-        "rewind_files"
-      ],
       "fork": false,
       "rename": false,
-      "delete": false,
-      "archive": false
+      "delete": false
     }
   ],
   "CatalogEvent": [
@@ -2864,7 +1542,6 @@
             "sessionId": "x"
           }
         },
-        "archived": true,
         "modelId": "x",
         "status": "idle",
         "origin": "broski",
@@ -2879,7 +1556,6 @@
           "sessionId": "x"
         },
         "updatedAt": 1,
-        "archived": false,
         "status": "idle",
         "origin": "broski"
       }
@@ -2963,7 +1639,6 @@
               "sessionId": "x"
             }
           },
-          "archived": true,
           "modelId": "x",
           "status": "idle",
           "origin": "broski",
@@ -2982,7 +1657,6 @@
             "sessionId": "x"
           },
           "updatedAt": 1,
-          "archived": false,
           "status": "idle",
           "origin": "broski"
         }
@@ -2993,49 +1667,6 @@
     "models",
     "commands",
     "modes"
-  ],
-  "ChangedFilesListed": [
-    {
-      "kind": "changed_files",
-      "files": [
-        {
-          "path": "x",
-          "change": "added",
-          "previousPath": "x",
-          "diff": "x",
-          "additions": 1,
-          "deletions": 1
-        }
-      ],
-      "omitted": 1,
-      "additions": 1,
-      "deletions": 1
-    },
-    {
-      "kind": "changed_files",
-      "files": [
-        {
-          "path": "x",
-          "change": "added"
-        }
-      ],
-      "omitted": 1,
-      "additions": 1,
-      "deletions": 1
-    }
-  ],
-  "ChangedFilesOp": [
-    {
-      "kind": "changed_files",
-      "sessionId": "x"
-    }
-  ],
-  "ChoiceChange": [
-    {
-      "kind": "choice",
-      "key": "x",
-      "value": "x"
-    }
   ],
   "ChoiceReply": [
     {
@@ -3064,182 +1695,12 @@
       ]
     }
   ],
-  "ChoiceSetting": [
-    {
-      "kind": "choice",
-      "key": "x",
-      "label": "x",
-      "description": "x",
-      "value": "x",
-      "options": [
-        {
-          "value": "x",
-          "label": "x",
-          "description": "x"
-        }
-      ],
-      "note": "x"
-    },
-    {
-      "kind": "choice",
-      "key": "x",
-      "label": "x",
-      "value": "x",
-      "options": [
-        {
-          "value": "x",
-          "label": "x"
-        }
-      ]
-    }
-  ],
   "ChoicesValue": [
     {
       "kind": "choices",
       "values": [
         "x"
       ]
-    }
-  ],
-  "ClaudeCodeCall": [
-    {
-      "backend": "claude-code",
-      "op": {
-        "kind": "rewind_files",
-        "sessionId": "x",
-        "userItemId": "x",
-        "dryRun": true
-      }
-    },
-    {
-      "backend": "claude-code",
-      "op": {
-        "kind": "rewind_files",
-        "sessionId": "x",
-        "userItemId": "x",
-        "dryRun": false
-      }
-    }
-  ],
-  "ClaudeCodeOp": [
-    {
-      "kind": "rewind_files",
-      "sessionId": "x",
-      "userItemId": "x",
-      "dryRun": true
-    },
-    {
-      "kind": "rewind_files",
-      "sessionId": "x",
-      "userItemId": "x",
-      "dryRun": false
-    },
-    {
-      "kind": "session_settings",
-      "sessionId": "x",
-      "change": {
-        "kind": "toggle",
-        "key": "x",
-        "enabled": true
-      }
-    },
-    {
-      "kind": "session_settings",
-      "sessionId": "x"
-    },
-    {
-      "kind": "changed_files",
-      "sessionId": "x"
-    },
-    {
-      "kind": "refresh_models"
-    },
-    {
-      "kind": "config_files",
-      "cwd": "x"
-    },
-    {
-      "kind": "config_file",
-      "cwd": "x",
-      "fileId": "x",
-      "name": "x",
-      "change": {
-        "kind": "write",
-        "text": "x",
-        "revision": "x"
-      }
-    },
-    {
-      "kind": "config_file",
-      "cwd": "x",
-      "fileId": "x"
-    },
-    {
-      "kind": "settings_overview",
-      "cwd": "x"
-    },
-    {
-      "kind": "mcp_servers",
-      "sessionId": "x",
-      "change": {
-        "rowId": "x",
-        "actionId": "x"
-      }
-    },
-    {
-      "kind": "mcp_servers",
-      "sessionId": "x"
-    },
-    {
-      "kind": "plugins",
-      "cwd": "x",
-      "sessionId": "x",
-      "change": {
-        "rowId": "x",
-        "actionId": "x"
-      }
-    },
-    {
-      "kind": "plugins",
-      "cwd": "x"
-    },
-    {
-      "kind": "tasks",
-      "sessionId": "x",
-      "change": {
-        "rowId": "x",
-        "actionId": "x"
-      }
-    },
-    {
-      "kind": "tasks",
-      "sessionId": "x"
-    },
-    {
-      "kind": "context_usage",
-      "sessionId": "x"
-    },
-    {
-      "kind": "custom_tools",
-      "change": {
-        "rowId": "x",
-        "actionId": "x"
-      }
-    },
-    {
-      "kind": "custom_tools"
-    },
-    {
-      "kind": "custom_tool",
-      "toolId": "x",
-      "change": {
-        "kind": "write",
-        "text": "x",
-        "revision": "x"
-      }
-    },
-    {
-      "kind": "custom_tool"
     }
   ],
   "ClientInfo": [
@@ -3314,7 +1775,6 @@
       "backend": "claude-code",
       "query": {
         "cwd": "x",
-        "archived": true,
         "parent": {
           "backend": "claude-code",
           "sessionId": "x"
@@ -3329,9 +1789,7 @@
       "type": "sessions.list",
       "requestId": "x",
       "backend": "claude-code",
-      "query": {
-        "archived": false
-      },
+      "query": {},
       "page": {
         "limit": 1
       }
@@ -3404,24 +1862,6 @@
         "backend": "claude-code",
         "sessionId": "x"
       }
-    },
-    {
-      "type": "session.archive",
-      "requestId": "x",
-      "session": {
-        "backend": "claude-code",
-        "sessionId": "x"
-      },
-      "archived": true
-    },
-    {
-      "type": "session.archive",
-      "requestId": "x",
-      "session": {
-        "backend": "claude-code",
-        "sessionId": "x"
-      },
-      "archived": false
     },
     {
       "type": "session.attach",
@@ -3502,12 +1942,6 @@
             "name": "x"
           }
         ],
-        "mentions": [
-          {
-            "kind": "file",
-            "path": "x"
-          }
-        ],
         "command": "x"
       }
     },
@@ -3527,12 +1961,6 @@
             "kind": "image",
             "mimeType": "x",
             "data": "x"
-          }
-        ],
-        "mentions": [
-          {
-            "kind": "file",
-            "path": "x"
           }
         ]
       }
@@ -3646,48 +2074,6 @@
       "session": {
         "backend": "claude-code",
         "sessionId": "x"
-      }
-    },
-    {
-      "type": "compaction.cancel",
-      "requestId": "x",
-      "session": {
-        "backend": "claude-code",
-        "sessionId": "x"
-      }
-    },
-    {
-      "type": "retry.cancel",
-      "requestId": "x",
-      "session": {
-        "backend": "claude-code",
-        "sessionId": "x"
-      }
-    },
-    {
-      "type": "backend.call",
-      "requestId": "x",
-      "call": {
-        "backend": "claude-code",
-        "op": {
-          "kind": "rewind_files",
-          "sessionId": "x",
-          "userItemId": "x",
-          "dryRun": true
-        }
-      }
-    },
-    {
-      "type": "backend.call",
-      "requestId": "x",
-      "call": {
-        "backend": "claude-code",
-        "op": {
-          "kind": "rewind_files",
-          "sessionId": "x",
-          "userItemId": "x",
-          "dryRun": false
-        }
       }
     }
   ],
@@ -3864,25 +2250,6 @@
       "kind": "aborted"
     }
   ],
-  "CompactionCancelRequest": [
-    {
-      "type": "compaction.cancel",
-      "requestId": "x",
-      "session": {
-        "backend": "claude-code",
-        "sessionId": "x"
-      }
-    }
-  ],
-  "CompactionCancelResponse": [
-    {
-      "type": "compaction.cancel.result",
-      "requestId": "x",
-      "result": {
-        "status": "accepted"
-      }
-    }
-  ],
   "CompactionCompleted": [
     {
       "kind": "completed",
@@ -3968,126 +2335,6 @@
     "eq",
     "neq"
   ],
-  "ConfigFileEntry": [
-    {
-      "id": "x",
-      "label": "x",
-      "group": "x",
-      "scope": "x",
-      "path": "x",
-      "exists": true,
-      "editable": true,
-      "format": "json",
-      "template": true
-    },
-    {
-      "id": "x",
-      "label": "x",
-      "group": "x",
-      "scope": "x",
-      "path": "x",
-      "exists": false,
-      "editable": false,
-      "format": "json",
-      "template": false
-    }
-  ],
-  "ConfigFileOp": [
-    {
-      "kind": "config_file",
-      "cwd": "x",
-      "fileId": "x",
-      "name": "x",
-      "change": {
-        "kind": "write",
-        "text": "x",
-        "revision": "x"
-      }
-    },
-    {
-      "kind": "config_file",
-      "cwd": "x",
-      "fileId": "x"
-    }
-  ],
-  "ConfigFileRead": [
-    {
-      "kind": "config_file",
-      "file": {
-        "id": "x",
-        "path": "x",
-        "scope": "x",
-        "format": "json",
-        "exists": true,
-        "text": "x",
-        "revision": "x",
-        "editable": true,
-        "truncated": true,
-        "problems": [
-          "x"
-        ]
-      }
-    },
-    {
-      "kind": "config_file",
-      "file": {
-        "id": "x",
-        "path": "x",
-        "scope": "x",
-        "format": "json",
-        "exists": false,
-        "text": "x",
-        "revision": "x",
-        "editable": false,
-        "truncated": false,
-        "problems": [
-          "x"
-        ]
-      }
-    }
-  ],
-  "ConfigFilesListed": [
-    {
-      "kind": "config_files",
-      "files": [
-        {
-          "id": "x",
-          "label": "x",
-          "group": "x",
-          "scope": "x",
-          "path": "x",
-          "exists": true,
-          "editable": true,
-          "format": "json",
-          "template": true
-        }
-      ],
-      "omitted": 1
-    },
-    {
-      "kind": "config_files",
-      "files": [
-        {
-          "id": "x",
-          "label": "x",
-          "group": "x",
-          "scope": "x",
-          "path": "x",
-          "exists": false,
-          "editable": false,
-          "format": "json",
-          "template": false
-        }
-      ],
-      "omitted": 1
-    }
-  ],
-  "ConfigFilesOp": [
-    {
-      "kind": "config_files",
-      "cwd": "x"
-    }
-  ],
   "ConfirmReply": [
     {
       "kind": "confirm",
@@ -4101,249 +2348,6 @@
   "ConfirmRequest": [
     {
       "kind": "confirm"
-    }
-  ],
-  "ContextUsageOp": [
-    {
-      "kind": "context_usage",
-      "sessionId": "x"
-    }
-  ],
-  "ContextUsageRead": [
-    {
-      "kind": "context_usage",
-      "list": {
-        "rows": [
-          {
-            "id": "x",
-            "title": "x",
-            "subtitle": "x",
-            "status": {
-              "label": "x",
-              "tone": "neutral"
-            },
-            "group": "x",
-            "badges": [
-              "x"
-            ],
-            "actions": [
-              {
-                "id": "x",
-                "label": "x",
-                "destructive": true,
-                "confirm": "x"
-              }
-            ]
-          }
-        ],
-        "omitted": 1,
-        "note": "x"
-      }
-    },
-    {
-      "kind": "context_usage",
-      "list": {
-        "rows": [
-          {
-            "id": "x",
-            "title": "x",
-            "badges": [
-              "x"
-            ],
-            "actions": [
-              {
-                "id": "x",
-                "label": "x",
-                "destructive": false
-              }
-            ]
-          }
-        ],
-        "omitted": 1
-      }
-    }
-  ],
-  "CustomToolOp": [
-    {
-      "kind": "custom_tool",
-      "toolId": "x",
-      "change": {
-        "kind": "write",
-        "text": "x",
-        "revision": "x"
-      }
-    },
-    {
-      "kind": "custom_tool"
-    }
-  ],
-  "CustomToolRead": [
-    {
-      "kind": "custom_tool",
-      "file": {
-        "id": "x",
-        "path": "x",
-        "scope": "x",
-        "format": "json",
-        "exists": true,
-        "text": "x",
-        "revision": "x",
-        "editable": true,
-        "truncated": true,
-        "problems": [
-          "x"
-        ]
-      }
-    },
-    {
-      "kind": "custom_tool",
-      "file": {
-        "id": "x",
-        "path": "x",
-        "scope": "x",
-        "format": "json",
-        "exists": false,
-        "text": "x",
-        "revision": "x",
-        "editable": false,
-        "truncated": false,
-        "problems": [
-          "x"
-        ]
-      }
-    }
-  ],
-  "CustomToolsListed": [
-    {
-      "kind": "custom_tools",
-      "list": {
-        "rows": [
-          {
-            "id": "x",
-            "title": "x",
-            "subtitle": "x",
-            "status": {
-              "label": "x",
-              "tone": "neutral"
-            },
-            "group": "x",
-            "badges": [
-              "x"
-            ],
-            "actions": [
-              {
-                "id": "x",
-                "label": "x",
-                "destructive": true,
-                "confirm": "x"
-              }
-            ]
-          }
-        ],
-        "omitted": 1,
-        "note": "x"
-      }
-    },
-    {
-      "kind": "custom_tools",
-      "list": {
-        "rows": [
-          {
-            "id": "x",
-            "title": "x",
-            "badges": [
-              "x"
-            ],
-            "actions": [
-              {
-                "id": "x",
-                "label": "x",
-                "destructive": false
-              }
-            ]
-          }
-        ],
-        "omitted": 1
-      }
-    }
-  ],
-  "CustomToolsOp": [
-    {
-      "kind": "custom_tools",
-      "change": {
-        "rowId": "x",
-        "actionId": "x"
-      }
-    },
-    {
-      "kind": "custom_tools"
-    }
-  ],
-  "EditableFile": [
-    {
-      "id": "x",
-      "path": "x",
-      "scope": "x",
-      "format": "json",
-      "exists": true,
-      "text": "x",
-      "revision": "x",
-      "editable": true,
-      "truncated": true,
-      "problems": [
-        "x"
-      ]
-    },
-    {
-      "id": "x",
-      "path": "x",
-      "scope": "x",
-      "format": "json",
-      "exists": false,
-      "text": "x",
-      "revision": "x",
-      "editable": false,
-      "truncated": false,
-      "problems": [
-        "x"
-      ]
-    }
-  ],
-  "EditableFileChange": [
-    {
-      "kind": "write",
-      "text": "x",
-      "revision": "x"
-    },
-    {
-      "kind": "delete",
-      "revision": "x"
-    }
-  ],
-  "EditableFileDelete": [
-    {
-      "kind": "delete",
-      "revision": "x"
-    }
-  ],
-  "EditableFileFormat": [
-    "json",
-    "markdown",
-    "text"
-  ],
-  "EditableFileRevision": [
-    "x"
-  ],
-  "EditableFileWrite": [
-    {
-      "kind": "write",
-      "text": "x",
-      "revision": "x"
-    }
-  ],
-  "EntryLabelled": [
-    {
-      "kind": "label_entry"
     }
   ],
   "ErrorCode": [
@@ -4469,38 +2473,6 @@
       }
     }
   ],
-  "ExportId": [
-    "x"
-  ],
-  "ExportPartOp": [
-    {
-      "kind": "export_part",
-      "sessionId": "x",
-      "exportId": "x",
-      "offset": 1
-    }
-  ],
-  "ExportPartRead": [
-    {
-      "kind": "export_part",
-      "offset": 1,
-      "data": "x",
-      "done": true
-    },
-    {
-      "kind": "export_part",
-      "offset": 1,
-      "data": "x",
-      "done": false
-    }
-  ],
-  "ExportSessionOp": [
-    {
-      "kind": "export_session",
-      "sessionId": "x",
-      "format": "html"
-    }
-  ],
   "ExtensionEvent": [
     {
       "type": "extension",
@@ -4521,8 +2493,7 @@
     }
   ],
   "ExtensionKind": [
-    "rate_limit",
-    "prompt_suggestion"
+    "rate_limit"
   ],
   "ExternalField": [
     {
@@ -4535,22 +2506,6 @@
     {
       "kind": "external",
       "key": "x",
-      "url": "x"
-    }
-  ],
-  "ExternalUrlReply": [
-    {
-      "kind": "external_url"
-    }
-  ],
-  "ExternalUrlRequest": [
-    {
-      "kind": "external_url",
-      "url": "x",
-      "server": "x"
-    },
-    {
-      "kind": "external_url",
       "url": "x"
     }
   ],
@@ -4621,12 +2576,6 @@
     {
       "kind": "file",
       "uri": "x"
-    }
-  ],
-  "FileMention": [
-    {
-      "kind": "file",
-      "path": "x"
     }
   ],
   "ForkPoint": [
@@ -5053,22 +3002,6 @@
       "mimeType": "x"
     }
   ],
-  "ImportSessionOp": [
-    {
-      "kind": "import_session",
-      "uploadId": "x",
-      "offset": 1,
-      "data": "x",
-      "last": true
-    },
-    {
-      "kind": "import_session",
-      "uploadId": "x",
-      "offset": 1,
-      "data": "x",
-      "last": false
-    }
-  ],
   "InputModality": [
     "text",
     "image",
@@ -5317,7 +3250,6 @@
     "questions",
     "form",
     "plan_approval",
-    "external_url",
     "choice",
     "confirm",
     "text"
@@ -5400,9 +3332,6 @@
     {
       "kind": "plan_approval",
       "decision": "approve"
-    },
-    {
-      "kind": "external_url"
     },
     {
       "kind": "choice",
@@ -5630,15 +3559,6 @@
       "editable": false
     },
     {
-      "kind": "external_url",
-      "url": "x",
-      "server": "x"
-    },
-    {
-      "kind": "external_url",
-      "url": "x"
-    },
-    {
       "kind": "choice",
       "options": [
         {
@@ -5796,101 +3716,6 @@
     },
     null,
     "text"
-  ],
-  "LabelEntryOp": [
-    {
-      "kind": "label_entry",
-      "sessionId": "x",
-      "entryId": "x",
-      "label": "x"
-    },
-    {
-      "kind": "label_entry",
-      "sessionId": "x",
-      "entryId": "x"
-    }
-  ],
-  "McpServersListed": [
-    {
-      "kind": "mcp_servers",
-      "list": {
-        "rows": [
-          {
-            "id": "x",
-            "title": "x",
-            "subtitle": "x",
-            "status": {
-              "label": "x",
-              "tone": "neutral"
-            },
-            "group": "x",
-            "badges": [
-              "x"
-            ],
-            "actions": [
-              {
-                "id": "x",
-                "label": "x",
-                "destructive": true,
-                "confirm": "x"
-              }
-            ]
-          }
-        ],
-        "omitted": 1,
-        "note": "x"
-      }
-    },
-    {
-      "kind": "mcp_servers",
-      "list": {
-        "rows": [
-          {
-            "id": "x",
-            "title": "x",
-            "badges": [
-              "x"
-            ],
-            "actions": [
-              {
-                "id": "x",
-                "label": "x",
-                "destructive": false
-              }
-            ]
-          }
-        ],
-        "omitted": 1
-      }
-    }
-  ],
-  "McpServersOp": [
-    {
-      "kind": "mcp_servers",
-      "sessionId": "x",
-      "change": {
-        "rowId": "x",
-        "actionId": "x"
-      }
-    },
-    {
-      "kind": "mcp_servers",
-      "sessionId": "x"
-    }
-  ],
-  "Mention": [
-    {
-      "kind": "file",
-      "path": "x"
-    },
-    {
-      "kind": "agent",
-      "name": "x"
-    }
-  ],
-  "MentionKind": [
-    "file",
-    "agent"
   ],
   "MessageId": [
     "x"
@@ -6052,10 +3877,6 @@
       },
       "isDefault": false
     }
-  ],
-  "ModelSwitchTiming": [
-    "next_request",
-    "next_run"
   ],
   "ModelsListRequest": [
     {
@@ -6224,14 +4045,6 @@
           },
           "isDefault": false
         }
-      ]
-    }
-  ],
-  "ModelsRefreshed": [
-    {
-      "kind": "refresh_models",
-      "problems": [
-        "x"
       ]
     }
   ],
@@ -6427,21 +4240,6 @@
   "NativeIds": [
     {
       "key": "x"
-    }
-  ],
-  "NavigateTreeOp": [
-    {
-      "kind": "navigate_tree",
-      "sessionId": "x",
-      "itemId": "x",
-      "summarize": true,
-      "instructions": "x"
-    },
-    {
-      "kind": "navigate_tree",
-      "sessionId": "x",
-      "itemId": "x",
-      "summarize": false
     }
   ],
   "NetworkPreview": [
@@ -6706,175 +4504,6 @@
     "session",
     "always"
   ],
-  "PiCall": [
-    {
-      "backend": "pi",
-      "op": {
-        "kind": "navigate_tree",
-        "sessionId": "x",
-        "itemId": "x",
-        "summarize": true,
-        "instructions": "x"
-      }
-    },
-    {
-      "backend": "pi",
-      "op": {
-        "kind": "navigate_tree",
-        "sessionId": "x",
-        "itemId": "x",
-        "summarize": false
-      }
-    }
-  ],
-  "PiOp": [
-    {
-      "kind": "navigate_tree",
-      "sessionId": "x",
-      "itemId": "x",
-      "summarize": true,
-      "instructions": "x"
-    },
-    {
-      "kind": "navigate_tree",
-      "sessionId": "x",
-      "itemId": "x",
-      "summarize": false
-    },
-    {
-      "kind": "take_over",
-      "sessionId": "x"
-    },
-    {
-      "kind": "session_settings",
-      "sessionId": "x",
-      "change": {
-        "kind": "toggle",
-        "key": "x",
-        "enabled": true
-      }
-    },
-    {
-      "kind": "session_settings",
-      "sessionId": "x"
-    },
-    {
-      "kind": "session_tools",
-      "sessionId": "x",
-      "change": {
-        "name": "x",
-        "active": true
-      }
-    },
-    {
-      "kind": "session_tools",
-      "sessionId": "x"
-    },
-    {
-      "kind": "system_prompt",
-      "sessionId": "x",
-      "offset": 1
-    },
-    {
-      "kind": "system_prompt",
-      "sessionId": "x"
-    },
-    {
-      "kind": "export_session",
-      "sessionId": "x",
-      "format": "html"
-    },
-    {
-      "kind": "export_part",
-      "sessionId": "x",
-      "exportId": "x",
-      "offset": 1
-    },
-    {
-      "kind": "import_session",
-      "uploadId": "x",
-      "offset": 1,
-      "data": "x",
-      "last": true
-    },
-    {
-      "kind": "import_session",
-      "uploadId": "x",
-      "offset": 1,
-      "data": "x",
-      "last": false
-    },
-    {
-      "kind": "changed_files",
-      "sessionId": "x"
-    },
-    {
-      "kind": "refresh_models"
-    },
-    {
-      "kind": "read_tree",
-      "sessionId": "x",
-      "page": {
-        "cursor": "x",
-        "limit": 1
-      }
-    },
-    {
-      "kind": "read_tree",
-      "sessionId": "x",
-      "page": {
-        "limit": 1
-      }
-    },
-    {
-      "kind": "label_entry",
-      "sessionId": "x",
-      "entryId": "x",
-      "label": "x"
-    },
-    {
-      "kind": "label_entry",
-      "sessionId": "x",
-      "entryId": "x"
-    },
-    {
-      "kind": "abort_branch_summary",
-      "sessionId": "x"
-    },
-    {
-      "kind": "run_shell",
-      "sessionId": "x",
-      "clientRequestId": "00000000-0000-4000-8000-000000000000",
-      "command": "x",
-      "excludeFromContext": true
-    },
-    {
-      "kind": "run_shell",
-      "sessionId": "x",
-      "clientRequestId": "00000000-0000-4000-8000-000000000000",
-      "command": "x",
-      "excludeFromContext": false
-    }
-  ],
-  "Plan": [
-    {
-      "items": [
-        {
-          "text": "x",
-          "status": "pending"
-        }
-      ],
-      "explanation": "x"
-    },
-    {
-      "items": [
-        {
-          "text": "x",
-          "status": "pending"
-        }
-      ]
-    }
-  ],
   "PlanApprovalReply": [
     {
       "kind": "plan_approval",
@@ -6916,18 +4545,6 @@
     "approve",
     "reject"
   ],
-  "PlanItem": [
-    {
-      "text": "x",
-      "status": "pending"
-    }
-  ],
-  "PlanItemStatus": [
-    "pending",
-    "in_progress",
-    "completed",
-    "cancelled"
-  ],
   "PlanModeOptions": [
     {
       "axis": "x",
@@ -6948,100 +4565,6 @@
           "label": "x"
         }
       ]
-    }
-  ],
-  "PlanUpdatedEvent": [
-    {
-      "type": "plan_updated",
-      "plan": {
-        "items": [
-          {
-            "text": "x",
-            "status": "pending"
-          }
-        ],
-        "explanation": "x"
-      }
-    },
-    {
-      "type": "plan_updated",
-      "plan": {
-        "items": [
-          {
-            "text": "x",
-            "status": "pending"
-          }
-        ]
-      }
-    }
-  ],
-  "PluginsListed": [
-    {
-      "kind": "plugins",
-      "list": {
-        "rows": [
-          {
-            "id": "x",
-            "title": "x",
-            "subtitle": "x",
-            "status": {
-              "label": "x",
-              "tone": "neutral"
-            },
-            "group": "x",
-            "badges": [
-              "x"
-            ],
-            "actions": [
-              {
-                "id": "x",
-                "label": "x",
-                "destructive": true,
-                "confirm": "x"
-              }
-            ]
-          }
-        ],
-        "omitted": 1,
-        "note": "x"
-      }
-    },
-    {
-      "kind": "plugins",
-      "list": {
-        "rows": [
-          {
-            "id": "x",
-            "title": "x",
-            "badges": [
-              "x"
-            ],
-            "actions": [
-              {
-                "id": "x",
-                "label": "x",
-                "destructive": false
-              }
-            ]
-          }
-        ],
-        "omitted": 1
-      }
-    }
-  ],
-  "PluginsOp": [
-    {
-      "kind": "plugins",
-      "cwd": "x",
-      "sessionId": "x",
-      "change": {
-        "rowId": "x",
-        "actionId": "x"
-      }
-    },
-    {
-      "kind": "plugins",
-      "cwd": "x"
     }
   ],
   "PromptAccepted": [
@@ -7074,12 +4597,6 @@
           "name": "x"
         }
       ],
-      "mentions": [
-        {
-          "kind": "file",
-          "path": "x"
-        }
-      ],
       "command": "x"
     },
     {
@@ -7091,12 +4608,6 @@
           "kind": "image",
           "mimeType": "x",
           "data": "x"
-        }
-      ],
-      "mentions": [
-        {
-          "kind": "file",
-          "path": "x"
         }
       ]
     }
@@ -7126,12 +4637,6 @@
             "name": "x"
           }
         ],
-        "mentions": [
-          {
-            "kind": "file",
-            "path": "x"
-          }
-        ],
         "command": "x"
       }
     },
@@ -7151,12 +4656,6 @@
             "kind": "image",
             "mimeType": "x",
             "data": "x"
-          }
-        ],
-        "mentions": [
-          {
-            "kind": "file",
-            "path": "x"
           }
         ]
       }
@@ -7197,12 +4696,6 @@
         "code": "busy",
         "message": "x"
       }
-    }
-  ],
-  "PromptSuggestion": [
-    {
-      "kind": "prompt_suggestion",
-      "text": "x"
     }
   ],
   "ProtocolError": [
@@ -7429,28 +4922,6 @@
       "window": "x"
     }
   ],
-  "ReadTreeOp": [
-    {
-      "kind": "read_tree",
-      "sessionId": "x",
-      "page": {
-        "cursor": "x",
-        "limit": 1
-      }
-    },
-    {
-      "kind": "read_tree",
-      "sessionId": "x",
-      "page": {
-        "limit": 1
-      }
-    }
-  ],
-  "RefreshModelsOp": [
-    {
-      "kind": "refresh_models"
-    }
-  ],
   "Rejected": [
     {
       "status": "rejected",
@@ -7662,15 +5133,6 @@
           "contextTokens": 1,
           "contextWindow": 1
         },
-        "plan": {
-          "items": [
-            {
-              "text": "x",
-              "status": "pending"
-            }
-          ],
-          "explanation": "x"
-        },
         "compaction": {
           "trigger": "manual",
           "startedAt": 1
@@ -7761,25 +5223,6 @@
       }
     }
   ],
-  "RetryCancelRequest": [
-    {
-      "type": "retry.cancel",
-      "requestId": "x",
-      "session": {
-        "backend": "claude-code",
-        "sessionId": "x"
-      }
-    }
-  ],
-  "RetryCancelResponse": [
-    {
-      "type": "retry.cancel.result",
-      "requestId": "x",
-      "result": {
-        "status": "accepted"
-      }
-    }
-  ],
   "RetryFinishedEvent": [
     {
       "type": "retry_finished",
@@ -7814,37 +5257,6 @@
     {
       "attempt": 1,
       "message": "x"
-    }
-  ],
-  "RewindFilesOp": [
-    {
-      "kind": "rewind_files",
-      "sessionId": "x",
-      "userItemId": "x",
-      "dryRun": true
-    },
-    {
-      "kind": "rewind_files",
-      "sessionId": "x",
-      "userItemId": "x",
-      "dryRun": false
-    }
-  ],
-  "RewindFilesResult": [
-    {
-      "kind": "rewind_files",
-      "canRewind": true,
-      "filesChanged": [
-        "x"
-      ],
-      "insertions": 1,
-      "deletions": 1,
-      "skippedLinks": 1,
-      "error": "x"
-    },
-    {
-      "kind": "rewind_files",
-      "canRewind": false
     }
   ],
   "RunAborted": [
@@ -7934,22 +5346,6 @@
     },
     {
       "kind": "deferred"
-    }
-  ],
-  "RunShellOp": [
-    {
-      "kind": "run_shell",
-      "sessionId": "x",
-      "clientRequestId": "00000000-0000-4000-8000-000000000000",
-      "command": "x",
-      "excludeFromContext": true
-    },
-    {
-      "kind": "run_shell",
-      "sessionId": "x",
-      "clientRequestId": "00000000-0000-4000-8000-000000000000",
-      "command": "x",
-      "excludeFromContext": false
     }
   ],
   "RunStartedEvent": [
@@ -8043,32 +5439,22 @@
             "attachments": [
               "image"
             ],
-            "mentions": [
-              "file"
-            ],
             "commands": true,
             "queue": true,
             "interactions": [
               "tool_permission"
             ],
-            "modelSwitch": "next_request",
             "thinking": true,
             "children": true,
             "usage": true,
-            "plan": true,
             "planProposals": true,
             "externalLive": true,
-            "durableRuns": true,
             "extensions": [
               "rate_limit"
             ],
-            "backendOps": [
-              "rewind_files"
-            ],
             "fork": true,
             "rename": true,
-            "delete": true,
-            "archive": true
+            "delete": true
           }
         }
       ]
@@ -8088,32 +5474,22 @@
             "attachments": [
               "image"
             ],
-            "mentions": [
-              "file"
-            ],
             "commands": false,
             "queue": false,
             "interactions": [
               "tool_permission"
             ],
-            "modelSwitch": "next_request",
             "thinking": false,
             "children": false,
             "usage": false,
-            "plan": false,
             "planProposals": false,
             "externalLive": false,
-            "durableRuns": false,
             "extensions": [
               "rate_limit"
             ],
-            "backendOps": [
-              "rewind_files"
-            ],
             "fork": false,
             "rename": false,
-            "delete": false,
-            "archive": false
+            "delete": false
           }
         }
       ]
@@ -8299,7 +5675,6 @@
                   "sessionId": "x"
                 }
               },
-              "archived": true,
               "modelId": "x",
               "status": "idle",
               "origin": "broski",
@@ -8323,7 +5698,6 @@
                 "sessionId": "x"
               },
               "updatedAt": 1,
-              "archived": false,
               "status": "idle",
               "origin": "broski"
             }
@@ -8355,7 +5729,6 @@
               "sessionId": "x"
             }
           },
-          "archived": true,
           "modelId": "x",
           "status": "idle",
           "origin": "broski",
@@ -8374,7 +5747,6 @@
             "sessionId": "x"
           },
           "updatedAt": 1,
-          "archived": false,
           "status": "idle",
           "origin": "broski"
         }
@@ -8417,21 +5789,12 @@
       }
     },
     {
-      "type": "session.archive.result",
-      "requestId": "x",
-      "result": {
-        "status": "accepted"
-      }
-    },
-    {
       "type": "session.attach.result",
       "requestId": "x",
       "capabilities": {
         "controllable": true,
         "compact": true,
         "cancelQueued": true,
-        "cancelCompaction": true,
-        "cancelRetry": true,
         "answer": true
       },
       "sync": {
@@ -8446,7 +5809,8 @@
       "capabilities": {
         "controllable": false,
         "compact": false,
-        "cancelQueued": false
+        "cancelQueued": false,
+        "answer": false
       },
       "sync": {
         "kind": "replay",
@@ -8602,49 +5966,6 @@
       }
     },
     {
-      "type": "compaction.cancel.result",
-      "requestId": "x",
-      "result": {
-        "status": "accepted"
-      }
-    },
-    {
-      "type": "retry.cancel.result",
-      "requestId": "x",
-      "result": {
-        "status": "accepted"
-      }
-    },
-    {
-      "type": "backend.call.result",
-      "requestId": "x",
-      "result": {
-        "status": "accepted",
-        "result": {
-          "kind": "rewind_files",
-          "canRewind": true,
-          "filesChanged": [
-            "x"
-          ],
-          "insertions": 1,
-          "deletions": 1,
-          "skippedLinks": 1,
-          "error": "x"
-        }
-      }
-    },
-    {
-      "type": "backend.call.result",
-      "requestId": "x",
-      "result": {
-        "status": "accepted",
-        "result": {
-          "kind": "rewind_files",
-          "canRewind": false
-        }
-      }
-    },
-    {
       "type": "error",
       "requestId": "x",
       "error": {
@@ -8718,7 +6039,6 @@
               "sessionId": "x"
             }
           },
-          "archived": true,
           "modelId": "x",
           "status": "idle",
           "origin": "broski",
@@ -8737,39 +6057,9 @@
             "sessionId": "x"
           },
           "updatedAt": 1,
-          "archived": false,
           "status": "idle",
           "origin": "broski"
         }
-      }
-    }
-  ],
-  "SessionArchiveRequest": [
-    {
-      "type": "session.archive",
-      "requestId": "x",
-      "session": {
-        "backend": "claude-code",
-        "sessionId": "x"
-      },
-      "archived": true
-    },
-    {
-      "type": "session.archive",
-      "requestId": "x",
-      "session": {
-        "backend": "claude-code",
-        "sessionId": "x"
-      },
-      "archived": false
-    }
-  ],
-  "SessionArchiveResponse": [
-    {
-      "type": "session.archive.result",
-      "requestId": "x",
-      "result": {
-        "status": "accepted"
       }
     }
   ],
@@ -8803,8 +6093,6 @@
         "controllable": true,
         "compact": true,
         "cancelQueued": true,
-        "cancelCompaction": true,
-        "cancelRetry": true,
         "answer": true
       },
       "sync": {
@@ -8819,7 +6107,8 @@
       "capabilities": {
         "controllable": false,
         "compact": false,
-        "cancelQueued": false
+        "cancelQueued": false,
+        "answer": false
       },
       "sync": {
         "kind": "replay",
@@ -8833,14 +6122,13 @@
       "controllable": true,
       "compact": true,
       "cancelQueued": true,
-      "cancelCompaction": true,
-      "cancelRetry": true,
       "answer": true
     },
     {
       "controllable": false,
       "compact": false,
-      "cancelQueued": false
+      "cancelQueued": false,
+      "answer": false
     }
   ],
   "SessionCreateRequest": [
@@ -8917,19 +6205,6 @@
       "requestId": "x"
     }
   ],
-  "SessionExportFormat": [
-    "html",
-    "jsonl"
-  ],
-  "SessionExported": [
-    {
-      "kind": "export_session",
-      "exportId": "x",
-      "name": "x",
-      "mimeType": "x",
-      "bytes": 1
-    }
-  ],
   "SessionForkRequest": [
     {
       "type": "session.fork",
@@ -8987,7 +6262,6 @@
             "sessionId": "x"
           }
         },
-        "archived": true,
         "modelId": "x",
         "status": "idle",
         "origin": "broski",
@@ -9002,7 +6276,6 @@
           "sessionId": "x"
         },
         "updatedAt": 1,
-        "archived": false,
         "status": "idle",
         "origin": "broski"
       }
@@ -9043,7 +6316,6 @@
               "sessionId": "x"
             }
           },
-          "archived": true,
           "modelId": "x",
           "status": "idle",
           "origin": "broski",
@@ -9062,7 +6334,6 @@
             "sessionId": "x"
           },
           "updatedAt": 1,
-          "archived": false,
           "status": "idle",
           "origin": "broski"
         }
@@ -9091,7 +6362,6 @@
             "sessionId": "x"
           }
         },
-        "archived": true,
         "modelId": "x",
         "status": "idle",
         "origin": "broski",
@@ -9106,7 +6376,6 @@
           "sessionId": "x"
         },
         "updatedAt": 1,
-        "archived": false,
         "status": "idle",
         "origin": "broski"
       }
@@ -9121,17 +6390,6 @@
   ],
   "SessionId": [
     "x"
-  ],
-  "SessionImported": [
-    {
-      "kind": "import_session",
-      "received": 1,
-      "sessionId": "x"
-    },
-    {
-      "kind": "import_session",
-      "received": 1
-    }
   ],
   "SessionOrigin": [
     "broski",
@@ -9159,7 +6417,6 @@
               "sessionId": "x"
             }
           },
-          "archived": true,
           "modelId": "x",
           "status": "idle",
           "origin": "broski",
@@ -9176,7 +6433,6 @@
             "sessionId": "x"
           },
           "updatedAt": 1,
-          "archived": false,
           "status": "idle",
           "origin": "broski"
         }
@@ -9195,15 +6451,12 @@
   "SessionQuery": [
     {
       "cwd": "x",
-      "archived": true,
       "parent": {
         "backend": "claude-code",
         "sessionId": "x"
       }
     },
-    {
-      "archived": false
-    }
+    {}
   ],
   "SessionRef": [
     {
@@ -9247,90 +6500,6 @@
         "backend": "claude-code",
         "sessionId": "x"
       }
-    }
-  ],
-  "SessionSetting": [
-    {
-      "kind": "toggle",
-      "key": "x",
-      "label": "x",
-      "description": "x",
-      "enabled": true,
-      "note": "x"
-    },
-    {
-      "kind": "toggle",
-      "key": "x",
-      "label": "x",
-      "enabled": false
-    },
-    {
-      "kind": "choice",
-      "key": "x",
-      "label": "x",
-      "description": "x",
-      "value": "x",
-      "options": [
-        {
-          "value": "x",
-          "label": "x",
-          "description": "x"
-        }
-      ],
-      "note": "x"
-    },
-    {
-      "kind": "choice",
-      "key": "x",
-      "label": "x",
-      "value": "x",
-      "options": [
-        {
-          "value": "x",
-          "label": "x"
-        }
-      ]
-    }
-  ],
-  "SessionSettingsOp": [
-    {
-      "kind": "session_settings",
-      "sessionId": "x",
-      "change": {
-        "kind": "toggle",
-        "key": "x",
-        "enabled": true
-      }
-    },
-    {
-      "kind": "session_settings",
-      "sessionId": "x"
-    }
-  ],
-  "SessionSettingsResult": [
-    {
-      "kind": "session_settings",
-      "settings": [
-        {
-          "kind": "toggle",
-          "key": "x",
-          "label": "x",
-          "description": "x",
-          "enabled": true,
-          "note": "x"
-        }
-      ]
-    },
-    {
-      "kind": "session_settings",
-      "settings": [
-        {
-          "kind": "toggle",
-          "key": "x",
-          "label": "x",
-          "enabled": false
-        }
-      ]
     }
   ],
   "SessionSnapshot": [
@@ -9490,15 +6659,6 @@
         "contextTokens": 1,
         "contextWindow": 1
       },
-      "plan": {
-        "items": [
-          {
-            "text": "x",
-            "status": "pending"
-          }
-        ],
-        "explanation": "x"
-      },
       "compaction": {
         "trigger": "manual",
         "startedAt": 1
@@ -9612,7 +6772,6 @@
           "sessionId": "x"
         }
       },
-      "archived": true,
       "modelId": "x",
       "status": "idle",
       "origin": "broski",
@@ -9624,7 +6783,6 @@
         "sessionId": "x"
       },
       "updatedAt": 1,
-      "archived": false,
       "status": "idle",
       "origin": "broski"
     }
@@ -9633,57 +6791,6 @@
     {
       "text": "x",
       "source": "user"
-    }
-  ],
-  "SessionTool": [
-    {
-      "name": "x",
-      "description": "x",
-      "active": true,
-      "group": "x"
-    },
-    {
-      "name": "x",
-      "description": "x",
-      "active": false
-    }
-  ],
-  "SessionToolsOp": [
-    {
-      "kind": "session_tools",
-      "sessionId": "x",
-      "change": {
-        "name": "x",
-        "active": true
-      }
-    },
-    {
-      "kind": "session_tools",
-      "sessionId": "x"
-    }
-  ],
-  "SessionToolsResult": [
-    {
-      "kind": "session_tools",
-      "tools": [
-        {
-          "name": "x",
-          "description": "x",
-          "active": true,
-          "group": "x"
-        }
-      ],
-      "omitted": 1
-    },
-    {
-      "kind": "session_tools",
-      "tools": [
-        {
-          "name": "x",
-          "description": "x",
-          "active": false
-        }
-      ]
     }
   ],
   "SessionUpdatedEvent": [
@@ -9708,7 +6815,6 @@
             "sessionId": "x"
           }
         },
-        "archived": true,
         "modelId": "x",
         "status": "idle",
         "origin": "broski",
@@ -9723,7 +6829,6 @@
           "sessionId": "x"
         },
         "updatedAt": 1,
-        "archived": false,
         "status": "idle",
         "origin": "broski"
       }
@@ -9736,7 +6841,6 @@
       "backend": "claude-code",
       "query": {
         "cwd": "x",
-        "archived": true,
         "parent": {
           "backend": "claude-code",
           "sessionId": "x"
@@ -9751,9 +6855,7 @@
       "type": "sessions.list",
       "requestId": "x",
       "backend": "claude-code",
-      "query": {
-        "archived": false
-      },
+      "query": {},
       "page": {
         "limit": 1
       }
@@ -9786,7 +6888,6 @@
                   "sessionId": "x"
                 }
               },
-              "archived": true,
               "modelId": "x",
               "status": "idle",
               "origin": "broski",
@@ -9810,7 +6911,6 @@
                 "sessionId": "x"
               },
               "updatedAt": 1,
-              "archived": false,
               "status": "idle",
               "origin": "broski"
             }
@@ -9843,7 +6943,6 @@
                 "sessionId": "x"
               }
             },
-            "archived": true,
             "modelId": "x",
             "status": "idle",
             "origin": "broski",
@@ -9863,7 +6962,6 @@
               "sessionId": "x"
             },
             "updatedAt": 1,
-            "archived": false,
             "status": "idle",
             "origin": "broski"
           }
@@ -9902,7 +7000,6 @@
                 "sessionId": "x"
               }
             },
-            "archived": true,
             "modelId": "x",
             "status": "idle",
             "origin": "broski",
@@ -9922,97 +7019,11 @@
               "sessionId": "x"
             },
             "updatedAt": 1,
-            "archived": false,
             "status": "idle",
             "origin": "broski"
           }
         ]
       }
-    }
-  ],
-  "SettingChange": [
-    {
-      "kind": "toggle",
-      "key": "x",
-      "enabled": true
-    },
-    {
-      "kind": "toggle",
-      "key": "x",
-      "enabled": false
-    },
-    {
-      "kind": "choice",
-      "key": "x",
-      "value": "x"
-    }
-  ],
-  "SettingKey": [
-    "x"
-  ],
-  "SettingsOverviewOp": [
-    {
-      "kind": "settings_overview",
-      "cwd": "x"
-    }
-  ],
-  "SettingsOverviewRead": [
-    {
-      "kind": "settings_overview",
-      "list": {
-        "rows": [
-          {
-            "id": "x",
-            "title": "x",
-            "subtitle": "x",
-            "status": {
-              "label": "x",
-              "tone": "neutral"
-            },
-            "group": "x",
-            "badges": [
-              "x"
-            ],
-            "actions": [
-              {
-                "id": "x",
-                "label": "x",
-                "destructive": true,
-                "confirm": "x"
-              }
-            ]
-          }
-        ],
-        "omitted": 1,
-        "note": "x"
-      }
-    },
-    {
-      "kind": "settings_overview",
-      "list": {
-        "rows": [
-          {
-            "id": "x",
-            "title": "x",
-            "badges": [
-              "x"
-            ],
-            "actions": [
-              {
-                "id": "x",
-                "label": "x",
-                "destructive": false
-              }
-            ]
-          }
-        ],
-        "omitted": 1
-      }
-    }
-  ],
-  "ShellStarted": [
-    {
-      "kind": "run_shell"
     }
   ],
   "SnapshotSync": [
@@ -10175,15 +7186,6 @@
           "costUsd": 1.5,
           "contextTokens": 1,
           "contextWindow": 1
-        },
-        "plan": {
-          "items": [
-            {
-              "text": "x",
-              "status": "pending"
-            }
-          ],
-          "explanation": "x"
         },
         "compaction": {
           "trigger": "manual",
@@ -10386,111 +7388,6 @@
     "date",
     "date-time"
   ],
-  "SystemPromptOp": [
-    {
-      "kind": "system_prompt",
-      "sessionId": "x",
-      "offset": 1
-    },
-    {
-      "kind": "system_prompt",
-      "sessionId": "x"
-    }
-  ],
-  "SystemPromptResult": [
-    {
-      "kind": "system_prompt",
-      "text": "x",
-      "offset": 1,
-      "totalChars": 1,
-      "nextOffset": 1
-    },
-    {
-      "kind": "system_prompt",
-      "text": "x",
-      "offset": 1,
-      "totalChars": 1
-    }
-  ],
-  "TakeOverOp": [
-    {
-      "kind": "take_over",
-      "sessionId": "x"
-    }
-  ],
-  "TakenOver": [
-    {
-      "kind": "take_over"
-    }
-  ],
-  "TasksListed": [
-    {
-      "kind": "tasks",
-      "list": {
-        "rows": [
-          {
-            "id": "x",
-            "title": "x",
-            "subtitle": "x",
-            "status": {
-              "label": "x",
-              "tone": "neutral"
-            },
-            "group": "x",
-            "badges": [
-              "x"
-            ],
-            "actions": [
-              {
-                "id": "x",
-                "label": "x",
-                "destructive": true,
-                "confirm": "x"
-              }
-            ]
-          }
-        ],
-        "omitted": 1,
-        "note": "x"
-      }
-    },
-    {
-      "kind": "tasks",
-      "list": {
-        "rows": [
-          {
-            "id": "x",
-            "title": "x",
-            "badges": [
-              "x"
-            ],
-            "actions": [
-              {
-                "id": "x",
-                "label": "x",
-                "destructive": false
-              }
-            ]
-          }
-        ],
-        "omitted": 1
-      }
-    }
-  ],
-  "TasksOp": [
-    {
-      "kind": "tasks",
-      "sessionId": "x",
-      "change": {
-        "rowId": "x",
-        "actionId": "x"
-      }
-    },
-    {
-      "kind": "tasks",
-      "sessionId": "x"
-    }
-  ],
   "TextContent": [
     {
       "kind": "text",
@@ -10578,34 +7475,6 @@
     "generated",
     "first_prompt"
   ],
-  "ToggleChange": [
-    {
-      "kind": "toggle",
-      "key": "x",
-      "enabled": true
-    },
-    {
-      "kind": "toggle",
-      "key": "x",
-      "enabled": false
-    }
-  ],
-  "ToggleSetting": [
-    {
-      "kind": "toggle",
-      "key": "x",
-      "label": "x",
-      "description": "x",
-      "enabled": true,
-      "note": "x"
-    },
-    {
-      "kind": "toggle",
-      "key": "x",
-      "label": "x",
-      "enabled": false
-    }
-  ],
   "ToolCallId": [
     "x"
   ],
@@ -10641,16 +7510,6 @@
       "id": "x",
       "toolCallId": "x",
       "name": "x"
-    }
-  ],
-  "ToolChange": [
-    {
-      "name": "x",
-      "active": true
-    },
-    {
-      "name": "x",
-      "active": false
     }
   ],
   "ToolChildSession": [
@@ -11276,22 +8135,6 @@
       "outcome": {
         "kind": "completed"
       }
-    },
-    {
-      "kind": "activity",
-      "at": 1,
-      "id": "x",
-      "label": "x",
-      "detail": "x",
-      "status": "running",
-      "output": "x",
-      "durationMs": 1
-    },
-    {
-      "kind": "activity",
-      "id": "x",
-      "label": "x",
-      "status": "running"
     }
   ],
   "TranscriptItemId": [
@@ -11514,82 +8357,6 @@
         "message": "x"
       }
     }
-  ],
-  "TreeNavigated": [
-    {
-      "kind": "navigate_tree"
-    }
-  ],
-  "TreeNode": [
-    {
-      "id": "x",
-      "parentId": "x",
-      "itemId": "x",
-      "kind": "user",
-      "at": 1,
-      "preview": "x",
-      "previewCut": true,
-      "label": "x"
-    },
-    {
-      "id": "x",
-      "itemId": "x",
-      "kind": "user",
-      "preview": "x",
-      "previewCut": false
-    }
-  ],
-  "TreeNodeKind": [
-    "user",
-    "assistant",
-    "assistant_tools",
-    "tool_result",
-    "bash",
-    "custom_message",
-    "compaction",
-    "branch_summary",
-    "model_change",
-    "thinking_change",
-    "session_info",
-    "label",
-    "custom",
-    "context_edit"
-  ],
-  "TreeRead": [
-    {
-      "kind": "read_tree",
-      "leafId": "x",
-      "total": 1,
-      "nodes": [
-        {
-          "id": "x",
-          "parentId": "x",
-          "itemId": "x",
-          "kind": "user",
-          "at": 1,
-          "preview": "x",
-          "previewCut": true,
-          "label": "x"
-        }
-      ],
-      "nextCursor": "x"
-    },
-    {
-      "kind": "read_tree",
-      "total": 1,
-      "nodes": [
-        {
-          "id": "x",
-          "itemId": "x",
-          "kind": "user",
-          "preview": "x",
-          "previewCut": false
-        }
-      ]
-    }
-  ],
-  "UploadId": [
-    "x"
   ],
   "Usage": [
     {

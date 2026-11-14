@@ -1,10 +1,8 @@
 import type { BackendTraits } from "../backend";
-import { type BackendCall, type BackendOpKind, type BackendOpResult, ClaudeCodeOp } from "../backend-ops";
 import type { CommandSummary } from "../commands";
 import type { ModelSummary } from "../models";
 import type { ModeAxis } from "../modes";
 import type { BackendStatus } from "../status";
-import { fakeConfigResult } from "./fake-config-results";
 
 export const FAKE_MODELS: readonly ModelSummary[] = [
 	{
@@ -71,24 +69,16 @@ export const FULL_TRAITS: BackendTraits = {
 	streamThinking: true,
 	promptModes: ["start", "steer", "queue"],
 	attachments: ["image", "file"],
-	mentions: ["file", "agent"],
 	commands: true,
 	queue: true,
-	interactions: ["tool_permission", "questions", "form", "plan_approval", "external_url", "choice", "confirm", "text"],
-	modelSwitch: "next_request",
+	interactions: ["tool_permission", "questions", "form", "plan_approval", "choice", "confirm", "text"],
 	thinking: true,
 	children: true,
 	usage: true,
-	plan: true,
 	planProposals: true,
 	externalLive: true,
-	durableRuns: true,
-	extensions: ["rate_limit", "prompt_suggestion"],
-	backendOps: ["navigate_tree"],
+	extensions: ["rate_limit"],
 };
-
-/** Every op of Claude Code's union, for the fake standing in for that backend. */
-export const CLAUDE_CODE_OPS: readonly BackendOpKind[] = ClaudeCodeOp.options.map((option) => option.shape.kind.value);
 
 /** A backend with nothing optional: whole blocks, no queue view, no interactions, start-only prompts. */
 export const MINIMAL_TRAITS: BackendTraits = {
@@ -96,60 +86,13 @@ export const MINIMAL_TRAITS: BackendTraits = {
 	streamThinking: false,
 	promptModes: ["start"],
 	attachments: [],
-	mentions: [],
 	commands: false,
 	queue: false,
 	interactions: [],
-	modelSwitch: "next_run",
 	thinking: false,
 	children: false,
 	usage: false,
-	plan: false,
 	planProposals: false,
 	externalLive: false,
-	durableRuns: false,
 	extensions: [],
-	backendOps: [],
 };
-
-export function fakeOpResult(call: BackendCall): BackendOpResult {
-	const op = call.op;
-	switch (op.kind) {
-		case "rewind_files":
-			return { kind: op.kind, canRewind: true, filesChanged: [], insertions: 0, deletions: 0, skippedLinks: 0 };
-		case "navigate_tree":
-		case "take_over":
-		case "label_entry":
-		case "abort_branch_summary":
-		case "run_shell":
-			return { kind: op.kind };
-		case "session_settings":
-			return { kind: op.kind, settings: [{ kind: "toggle", key: "example", label: "Example", enabled: true }] };
-		case "session_tools":
-			return { kind: op.kind, tools: [{ name: "read", description: "Reads a file", active: true }] };
-		case "system_prompt":
-			return { kind: op.kind, text: "You are a fake agent.", offset: 0, totalChars: 21 };
-		case "export_session":
-			return { kind: op.kind, exportId: "export", name: "session.jsonl", mimeType: "application/x-ndjson", bytes: 0 };
-		case "export_part":
-			return { kind: op.kind, offset: op.offset, data: "", done: true };
-		case "import_session":
-			return { kind: op.kind, received: op.offset };
-		case "changed_files":
-			return { kind: op.kind, files: [], omitted: 0, additions: 0, deletions: 0 };
-		case "refresh_models":
-			return { kind: op.kind, problems: [] };
-		case "read_tree":
-			return { kind: op.kind, total: 0, nodes: [] };
-		case "config_files":
-		case "config_file":
-		case "settings_overview":
-		case "mcp_servers":
-		case "plugins":
-		case "tasks":
-		case "context_usage":
-		case "custom_tools":
-		case "custom_tool":
-			return fakeConfigResult(op);
-	}
-}

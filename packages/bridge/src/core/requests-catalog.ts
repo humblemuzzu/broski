@@ -1,13 +1,11 @@
-import { ADDED_IN_MINOR, PROTOCOL_VERSION, type ResponseFor } from "../contract";
+import { PROTOCOL_VERSION, type ResponseFor } from "../contract";
 import { type Handler, onBackend } from "./context";
 import { allowedOptionalDirectory } from "./directories";
-import { descriptorFor } from "./minor-views";
 import { pageWithinFrame } from "./paged-read";
 import { protocolError } from "./results";
 
 /**
- * Bridge and app talk only when `major` is equal (README §12.4). The client's minor is kept: the
- * bridge sends what a later minor added (`ADDED_IN_MINOR`) only to a client that named it.
+ * Bridge and app talk only when `major` is equal (README §12.4).
  */
 export const hello: Handler<"hello"> = async (ctx, client, request, respond) => {
 	const theirs = request.protocol;
@@ -31,8 +29,8 @@ export const hello: Handler<"hello"> = async (ctx, client, request, respond) => 
 };
 
 /** The backends registered now; one still starting is announced by a `status_changed` once it lands. */
-export const backendsList: Handler<"backends.list"> = async (ctx, client, request, respond) => {
-	const backends = ctx.registry.descriptors().map((descriptor) => descriptorFor(client, descriptor));
+export const backendsList: Handler<"backends.list"> = async (ctx, _client, request, respond) => {
+	const backends = ctx.registry.descriptors();
 	respond({ type: "backends.list.result", requestId: request.requestId, backends });
 };
 
@@ -46,10 +44,8 @@ export const backendStatus = onBackend<"backend.status">(
 
 export const modelsList = onBackend<"models.list">(
 	(request) => request.backend,
-	async ({ ctx, client, request, respond, backend }) => {
-		const options = {
-			includeUnavailable: request.includeUnavailable === true && client.speaks(ADDED_IN_MINOR.modelAvailability),
-		};
+	async ({ ctx, request, respond, backend }) => {
+		const options = { includeUnavailable: request.includeUnavailable === true };
 		const directory = await allowedOptionalDirectory(ctx.directories, request.cwd);
 		const result = directory?.status === "rejected" ? directory : await backend.listModels(directory?.cwd, options);
 		respond({ type: "models.list.result", requestId: request.requestId, result });

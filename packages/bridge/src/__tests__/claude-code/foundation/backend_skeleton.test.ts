@@ -26,10 +26,10 @@ async function skeleton(): Promise<{ backend: AgentBackend; events: CatalogEvent
 }
 
 describe("the Claude Code backend, assembled", () => {
-	test("declares valid capabilities: fork, rename and delete, no archive", async () => {
+	test("declares valid capabilities: fork, rename and delete", async () => {
 		const { backend } = await skeleton();
 		expect(Capabilities.safeParse(backendCapabilities(backend)).success).toBe(true);
-		expect(backendCapabilities(backend)).toMatchObject({ fork: true, rename: true, delete: true, archive: false });
+		expect(backendCapabilities(backend)).toMatchObject({ fork: true, rename: true, delete: true });
 	});
 
 	test("refuses another backend's sessions not_found and reports an honest status", async () => {

@@ -28,8 +28,7 @@ export interface HostHooks {
 }
 
 /** `SessionControl` with the methods a session this bridge hosts always has. */
-export type HostControl = Omit<SessionControl, "compact" | "cancelQueued" | "cancelCompaction" | "cancelRetry"> & {
+export type HostControl = Omit<SessionControl, "compact" | "cancelQueued"> & {
 	compact(instructions: string | undefined): Promise<ActionResult>;
 	cancelQueued(id: QueueItemId): Promise<ActionResult>;
-	cancelCompaction(): Promise<ActionResult>;
 };

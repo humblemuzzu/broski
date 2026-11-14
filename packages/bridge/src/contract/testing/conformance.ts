@@ -1,20 +1,18 @@
 import { CatalogRecorder, Rig } from "./conformance-harness";
 import type { ConformanceFactory } from "./conformance-types";
-import { compactionAndRetryCanBeCancelled } from "./rules-cancel";
 import {
 	capabilitiesMatchTheBackend,
 	commandsAreListed,
 	modelsAreConsistent,
 	modesAreConsistent,
 } from "./rules-catalog";
-import { editableFilesKeepTheirRevision } from "./rules-files";
 import { imagesComeBackByReference, inputReachesTheModel } from "./rules-input";
 import { declaredInteractionsAnswerCorrectly } from "./rules-interactions";
 import {
 	closeDetachesWithoutAborting,
 	disposeSilencesEverything,
 	externalRunsAreLive,
-	runsSurviveARestartWhenDurable,
+	sessionsSurviveARestart,
 	snapshotsMatchTheEvents,
 } from "./rules-lifecycle";
 import {
@@ -29,7 +27,6 @@ import {
 } from "./rules-runs";
 import {
 	aSessionCanBeRead,
-	backendOpsAnswerInKind,
 	sessionMutationsShowInTheCatalog,
 	sessionPagesConcatenate,
 	transcriptPagesConcatenate,
@@ -52,14 +49,13 @@ export const CONFORMANCE_RULES: readonly ConformanceRule[] = [
 	{ name: "a session can be read by its ref", check: aSessionCanBeRead },
 	{ name: "transcript pages concatenate newest first", check: transcriptPagesConcatenate },
 	{
-		name: "renames, archives, forks and deletes work and show in the catalog",
+		name: "renames, forks and deletes work and show in the catalog",
 		check: sessionMutationsShowInTheCatalog,
 	},
-	{ name: "backend ops answer in kind and invalidate rewritten transcripts", check: backendOpsAnswerInKind },
 	{ name: "a run streams its answer and ends exactly once", check: aRunStreamsAndEnds },
 	{ name: "a tool call starts and finishes inside its run", check: aToolCallStartsAndFinishes },
 	{ name: "every declared feature shows up", check: declaredFeaturesAppear },
-	{ name: "input reaches the model with its attachments, mentions and command", check: inputReachesTheModel },
+	{ name: "input reaches the model with its attachments and command", check: inputReachesTheModel },
 	{ name: "images come back by reference", check: imagesComeBackByReference },
 	{ name: "a repeated clientRequestId runs once and a rejection is not remembered", check: aRepeatedPromptRunsOnce },
 	{ name: "start while a run is active is busy", check: startWhileRunningIsBusy },
@@ -69,7 +65,6 @@ export const CONFORMANCE_RULES: readonly ConformanceRule[] = [
 	{ name: "models and thinking can be set and reach the model when declared", check: modelAndThinkingCanBeSet },
 	{ name: "modes can be set", check: modesCanBeSet },
 	{ name: "compaction runs when the session can compact", check: compactionRuns },
-	{ name: "a compaction or a retry can be cancelled on its own", check: compactionAndRetryCanBeCancelled },
 	{
 		name: "every declared interaction kind is answered, checked and cancelled correctly",
 		check: declaredInteractionsAnswerCorrectly,
@@ -81,11 +76,7 @@ export const CONFORMANCE_RULES: readonly ConformanceRule[] = [
 	{ name: "close is idempotent, silent afterwards, and aborts nothing", check: closeDetachesWithoutAborting },
 	{ name: "dispose silences every sink", check: disposeSilencesEverything },
 	{ name: "runs another client starts are live when declared", check: externalRunsAreLive },
-	{ name: "runs survive a restart exactly when durable", check: runsSurviveARestartWhenDurable },
-	{
-		name: "editable files are written only at their revision, and a JSON file only when it parses",
-		check: editableFilesKeepTheirRevision,
-	},
+	{ name: "sessions survive a restart and runs end with it", check: sessionsSurviveARestart },
 	{
 		name: "a watched session that takes answers checks them and resolves its ask once",
 		check: watchedAsksAreAnsweredOnce,

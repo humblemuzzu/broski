@@ -42,7 +42,7 @@ describe("a backend that starts after the bridge listens", () => {
 		const starting = await startingCore();
 		const { client } = starting;
 		expect((await client.ok("backends.list", {})).backends).toEqual([]);
-		const waiting = client.request("sessions.list", { backend: "pi", query: { archived: false }, page: { limit: 5 } });
+		const waiting = client.request("sessions.list", { backend: "pi", query: {}, page: { limit: 5 } });
 		await quiesce();
 		const fake = await starting.land();
 		expect(await waiting).toMatchObject({ type: "sessions.list.result", result: { status: "accepted" } });

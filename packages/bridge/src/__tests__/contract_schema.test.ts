@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { contractSchemaDocument, type Schema } from "../../scripts/contract-gen/json-schema";
 import {
-	ADDED_IN_MINOR,
 	AgentEvent,
 	ClientMessage,
 	JsonValue,
@@ -30,7 +29,7 @@ describe("the contract schemas", () => {
 	});
 
 	test("key prompts by a UUID", () => {
-		const prompt = { mode: "start", text: "hi", attachments: [], mentions: [] };
+		const prompt = { mode: "start", text: "hi", attachments: [] };
 		expect(PromptInput.safeParse({ ...prompt, clientRequestId: crypto.randomUUID() }).success).toBe(true);
 		expect(PromptInput.safeParse({ ...prompt, clientRequestId: "1" }).success).toBe(false);
 	});
@@ -95,7 +94,7 @@ describe("the contract schemas", () => {
 
 	test("refuse a prompt whose images together pass the image bound", () => {
 		const image = { kind: "image", mimeType: "image/png", data: "A".repeat(MAX_IMAGE_CHARS / 2 + 1) } as const;
-		const prompt = { clientRequestId: crypto.randomUUID(), mode: "start", text: "", mentions: [] } as const;
+		const prompt = { clientRequestId: crypto.randomUUID(), mode: "start", text: "" } as const;
 		expect(PromptInput.safeParse({ ...prompt, attachments: [image] }).success).toBe(true);
 		expect(PromptInput.safeParse({ ...prompt, attachments: [image, image] }).success).toBe(false);
 	});
@@ -120,11 +119,7 @@ describe("the contract schemas", () => {
 		expect(anonymous).toEqual([]);
 	});
 
-	test("version the protocol as major 1, minor 4", () => {
-		expect(PROTOCOL_VERSION).toEqual({ major: 1, minor: 4 });
-	});
-
-	test("name no addition for a minor the protocol has not reached", () => {
-		for (const minor of Object.values(ADDED_IN_MINOR)) expect(minor).toBeLessThanOrEqual(PROTOCOL_VERSION.minor);
+	test("version the protocol as 1.0", () => {
+		expect(PROTOCOL_VERSION).toEqual({ major: 1, minor: 0 });
 	});
 });

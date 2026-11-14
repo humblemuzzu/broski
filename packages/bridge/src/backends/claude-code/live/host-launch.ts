@@ -36,18 +36,8 @@ function modeOf(snapshot: SessionSnapshot): PermissionMode {
 	return value !== undefined && isPermissionMode(value) ? value : DEFAULT_PERMISSION_MODE;
 }
 
-/** Prompt suggestions cost a request per turn, so they run only for a person who switched them on in settings. */
-async function suggestionsOn(services: ClaudeCodeServices, cwd: string): Promise<boolean> {
-	try {
-		return (await services.sdk.resolveSettings({ cwd })).effective.promptSuggestionEnabled === true;
-	} catch {
-		return false;
-	}
-}
-
 export async function launchOptions(input: LaunchInput): Promise<Options | Rejected> {
 	const { services, desk } = input;
-	const promptSuggestions = await suggestionsOn(services, input.cwd);
 	const effort = effortOf(input.snapshot.thinking);
 	return hostOptions({
 		services,
@@ -56,7 +46,6 @@ export async function launchOptions(input: LaunchInput): Promise<Options | Rejec
 		permissionMode: modeOf(input.snapshot),
 		canUseTool: desk.canUseTool,
 		onElicitation: desk.onElicitation,
-		promptSuggestions,
 		...(input.explicitModel !== undefined && { model: input.explicitModel }),
 		...(effort !== undefined && { effort }),
 	});

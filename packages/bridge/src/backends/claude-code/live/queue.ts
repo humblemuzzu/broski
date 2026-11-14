@@ -97,7 +97,7 @@ export class InputQueue {
 		const item: QueueItem = {
 			id: mintQueueItemId(),
 			delivery,
-			preview: clip(send.typedText === "" ? send.sentText : send.typedText, MAX_TEXT_CHARS),
+			preview: clip(send.text, MAX_TEXT_CHARS),
 			clientRequestId,
 		};
 		return { item, send };

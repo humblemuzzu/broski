@@ -49,7 +49,7 @@ function parentWithAgents() {
 describe("child sessions", () => {
 	test("a parent's children are listed newest first as subagent rows, and are not top-level rows", async () => {
 		const parent = parentWithAgents();
-		const query = { archived: false, parent: { backend: "claude-code" as const, sessionId: parent.sessionId } };
+		const query = { parent: { backend: "claude-code" as const, sessionId: parent.sessionId } };
 		const first = await world.store.list(query, { limit: 1 }, world.live);
 		if (first.status !== "accepted" || first.page.nextCursor === undefined) throw new Error("expected two pages");
 		const second = await world.store.list(query, { limit: 1, cursor: first.page.nextCursor }, world.live);
@@ -65,11 +65,10 @@ describe("child sessions", () => {
 			parent: { kind: "subagent", session: { backend: "claude-code", sessionId: parent.sessionId } },
 			cwd: parent.cwd,
 			source: "Explore",
-			archived: false,
 			status: "unknown",
 		});
 		expect(rows.every((row) => SessionSummary.safeParse(row).success)).toBe(true);
-		const top = await world.store.list({ cwd: parent.cwd, archived: false }, { limit: 50 }, world.live);
+		const top = await world.store.list({ cwd: parent.cwd }, { limit: 50 }, world.live);
 		expect(top.status === "accepted" && top.page.items.map((row) => row.session.sessionId)).toEqual([parent.sessionId]);
 		const foreign = await world.store.list(query, { limit: 1, cursor: "nope" }, world.live);
 		expect(foreign.status === "rejected" && foreign.rejection.code).toBe("invalid_input");

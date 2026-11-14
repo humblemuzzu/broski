@@ -30,7 +30,6 @@ async function asking(): Promise<Asking> {
 		mode: "start",
 		text: "Ask first.",
 		attachments: [],
-		mentions: [],
 	});
 	const asked = await recorder.waitFor(
 		(records) =>

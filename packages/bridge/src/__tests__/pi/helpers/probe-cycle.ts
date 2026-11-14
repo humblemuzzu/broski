@@ -16,7 +16,7 @@ writeSessionFile(world.sessionsRoot, { id, cwd: world.env.cwd, version: 3 }, [
 const ref = { backend: "pi", sessionId: id } as const;
 const read = await world.backend.readTranscript(ref, { limit: 200 });
 const found = await world.backend.getSession(ref);
-const listed = await world.backend.listSessions({ cwd: world.env.cwd, archived: false }, { limit: 50 });
+const listed = await world.backend.listSessions({ cwd: world.env.cwd }, { limit: 50 });
 const answer = {
 	transcript: read.status === "accepted" ? read.page.items.map((item) => item.id) : read.rejection.code,
 	session: found.status,

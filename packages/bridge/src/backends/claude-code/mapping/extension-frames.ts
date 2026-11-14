@@ -1,7 +1,7 @@
-/** Lane B · the two backend extensions Claude Code declares: `rate_limit` and `prompt_suggestion` (D24). */
+/** Lane B · the backend extension Claude Code declares: `rate_limit` (D24). */
 
-import type { SDKPromptSuggestionMessage, SDKRateLimitEvent } from "@anthropic-ai/claude-agent-sdk";
-import { MAX_NAME_CHARS, MAX_TEXT_CHARS, RateLimitStatus, type RateLimitUpdate } from "../../../contract";
+import type { SDKRateLimitEvent } from "@anthropic-ai/claude-agent-sdk";
+import { MAX_NAME_CHARS, RateLimitStatus, type RateLimitUpdate } from "../../../contract";
 import { clip } from "../bounds";
 import type { MappedEvent } from "../ports/mapping";
 import type { MapperState } from "./state";
@@ -40,19 +40,4 @@ export function rateLimitEvents(state: MapperState, frame: SDKRateLimitEvent): M
 	if (state.rateLimits.get(update.window) === signature) return [];
 	state.rateLimits.set(update.window, signature);
 	return [{ event: { type: "extension", extension: update } }];
-}
-
-/** An empty suggestion says nothing; a newer one replaces the one before it, so only a change is sent. */
-export function promptSuggestionEvents(state: MapperState, frame: SDKPromptSuggestionMessage): MappedEvent[] {
-	const text = typeof frame.suggestion === "string" ? clip(frame.suggestion.trim(), MAX_TEXT_CHARS) : "";
-	if (text === "" || state.lastSuggestion === text) return [];
-	state.lastSuggestion = text;
-	return [
-		{
-			event: {
-				type: "extension",
-				extension: { kind: "prompt_suggestion", text },
-			},
-		},
-	];
 }

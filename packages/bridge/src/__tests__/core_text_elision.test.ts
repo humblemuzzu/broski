@@ -18,7 +18,7 @@ function attachAnswer(snapshot: SessionSnapshot): ServerMessage {
 	return {
 		type: "session.attach.result",
 		requestId: "q",
-		capabilities: { controllable: true, compact: true, cancelQueued: true },
+		capabilities: { controllable: true, compact: true, cancelQueued: true, answer: true },
 		sync: { kind: "snapshot", epoch: "e", lastSeq: 3, snapshot },
 	};
 }
@@ -101,52 +101,6 @@ describe("cutting text to fit the link", () => {
 		const kept = fitted.snapshot.blocks[0]?.text.length ?? 0;
 		const longer = { ...emptySnapshot(), blocks: openBlocks(3, `…${"z".repeat(kept)}`) };
 		expect(encodeFrame(attachAnswer(longer)).bytes).toBeGreaterThan(cap);
-	});
-
-	test("a file cut to fit is sent truncated and cannot be edited; one that fits whole is sent as it is", () => {
-		const answer = (text: string, editable: boolean, problems: string[] = []): ServerMessage => ({
-			type: "backend.call.result",
-			requestId: "q",
-			result: {
-				status: "accepted",
-				result: {
-					kind: "config_file",
-					file: {
-						id: "settings",
-						path: "/p/.claude/settings.json",
-						scope: "project",
-						format: "json",
-						exists: true,
-						text,
-						revision: "r1",
-						editable,
-						truncated: false,
-						problems,
-					},
-				},
-			},
-		});
-		const fileOf = (message: ServerMessage, cap: number) => {
-			const frame = fitMessage(message, cap, new RecordingLog());
-			const sent = frame && ServerMessage.parse(JSON.parse(frame.text).message);
-			if (sent?.type !== "backend.call.result" || sent.result.status !== "accepted") throw new Error("no answer");
-			if (sent.result.result.kind !== "config_file") throw new Error("no file");
-			return sent.result.result.file;
-		};
-		const whole = fileOf(answer("x".repeat(30_000), true), 64 * 1024);
-		expect(whole).toMatchObject({ editable: true, truncated: false });
-		const cut = fileOf(answer("x".repeat(100_000), true), 64 * 1024);
-		expect(cut).toMatchObject({ editable: false, truncated: true });
-		expect(cut.text.endsWith("…")).toBe(true);
-		const readOnly = fileOf(answer("x".repeat(30_000), false), 64 * 1024);
-		expect(readOnly).toMatchObject({ editable: false, truncated: false });
-		const readOnlyCut = fileOf(answer("x".repeat(100_000), false), 64 * 1024);
-		expect(readOnlyCut).toMatchObject({ editable: false, truncated: true });
-		const longProblem = ["p".repeat(200_000)];
-		const wholeText = fileOf(answer("x".repeat(10_000), false, longProblem), 64 * 1024);
-		expect(wholeText).toMatchObject({ editable: false, truncated: false });
-		const wholeEditable = fileOf(answer("x".repeat(10_000), true, longProblem), 64 * 1024);
-		expect(wholeEditable).toMatchObject({ editable: true, truncated: false });
 	});
 
 	test("an edit is locked only when the length found cuts it, whatever lengths were tried on the way", () => {

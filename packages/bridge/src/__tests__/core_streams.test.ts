@@ -22,8 +22,6 @@ describe("the core's session streams", () => {
 			controllable: true,
 			compact: true,
 			cancelQueued: true,
-			cancelCompaction: true,
-			cancelRetry: true,
 			answer: true,
 		});
 		expect(answer.sync).toMatchObject({ kind: "snapshot", lastSeq: 0 });

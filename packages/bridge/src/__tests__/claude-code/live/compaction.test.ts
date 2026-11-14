@@ -90,7 +90,7 @@ describe("compaction on the real CLI", () => {
 
 	for (const kind of ["slow", "held"] as const) {
 		test(
-			`cancelCompaction ends a ${kind} compaction under way as aborted, with its run, and the session goes on`,
+			`Stop ends a ${kind} compaction under way as aborted, with its run, and the session goes on`,
 			async () => {
 				const summary = kind === "slow" ? SLOW_SUMMARY : { ...SUMMARY, gate: new Promise<void>(() => undefined) };
 				const rig = realRig([{ text: ["first answer"] }, { text: ["after"] }], {
@@ -99,16 +99,15 @@ describe("compaction on the real CLI", () => {
 				showCompaction(rig.mapping);
 				try {
 					const live = await rig.openNew(rig.home.projectDir);
-					const cancel = live.control.cancelCompaction;
-					if (!cancel) throw new Error("the session cannot cancel a compaction");
+					const stop = () => live.control.abort();
 					await live.run("hello");
 					const quiet = live.recorder.items.length;
-					expect((await cancel()).status).toBe("accepted");
+					expect((await stop()).status).toBe("accepted");
 					expect(live.recorder.items.length).toBe(quiet);
 					await live.control.compact?.(undefined);
 					const mark = live.recorder.items.length;
 					await live.waitFor("compaction_started", () => true, mark - 1);
-					expect((await cancel()).status).toBe("accepted");
+					expect((await stop()).status).toBe("accepted");
 					const finished = await live.waitFor("compaction_finished", () => true, mark - 1);
 					expect(finished.outcome).toEqual({ kind: "aborted" });
 					const ended = await live.waitFor("run_finished", () => true, mark - 1);
@@ -122,33 +121,4 @@ describe("compaction on the real CLI", () => {
 			CLI_TEST_MS,
 		);
 	}
-
-	test(
-		"a compaction inside a regular run cannot be ended alone",
-		async () => {
-			const rig = realRig([SLOW_TEXT]);
-			rig.mapping.script((frame) =>
-				frame.type === "system" && frame.subtype === "init"
-					? [{ event: { type: "compaction_started", trigger: "auto" } }]
-					: [],
-			);
-			try {
-				const live = await rig.openNew(rig.home.projectDir);
-				await live.prompt("talk slowly");
-				await live.waitFor("compaction_started");
-				expect(await live.control.cancelCompaction?.()).toMatchObject({
-					status: "rejected",
-					rejection: { code: "unsupported" },
-				});
-				await live.control.abort();
-				const finished = await live.waitFor("run_finished");
-				expect(finished.outcome).toEqual({ kind: "aborted" });
-				expect(live.reduced().compaction).toBeUndefined();
-				live.assertSettled();
-			} finally {
-				await rig.dispose();
-			}
-		},
-		CLI_TEST_MS,
-	);
 });

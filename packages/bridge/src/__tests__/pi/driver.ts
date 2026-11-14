@@ -14,7 +14,7 @@ import type {
 } from "../../contract/testing/conformance-types";
 import { deliveredInput } from "./helpers/delivered";
 import { PiWorld, type PiWorldOptions } from "./helpers/pi-world";
-import { heldAnswer, say, scenarioSteps } from "./helpers/scenarios";
+import { say, scenarioSteps } from "./helpers/scenarios";
 import { findSessionFile } from "./helpers/session-files";
 import { TerminalRig } from "./helpers/terminal-rig";
 
@@ -38,10 +38,6 @@ export class PiConformanceDriver implements ConformanceDriver {
 	}
 
 	async arrange(session: SessionRef, scenario: Scenario): Promise<boolean> {
-		if (scenario.kind === "slow_compaction") {
-			this.world.router.scriptUnkeyed([heldAnswer(this.world.bus, session.sessionId, "A summary.")]);
-			return true;
-		}
 		const steps = scenarioSteps(this.world.bus, session.sessionId, scenario);
 		if (!steps) return false;
 		if (scenario.kind === "interaction" && scenario.interaction === "tool_permission") {
@@ -109,7 +105,6 @@ export class PiConformanceDriver implements ConformanceDriver {
 			mode: "start",
 			text: "Seed this session.",
 			attachments: [],
-			mentions: [],
 		});
 		if (sent.status === "rejected") throw new Error(`seeding: the prompt was rejected: ${sent.rejection.message}`);
 		await recorder.waitFor(

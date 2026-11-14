@@ -1,23 +1,7 @@
 import { describe, test } from "bun:test";
-import type { SessionRef } from "../contract/ids";
-import type { SessionsListResult } from "../contract/read-results";
-import type { SessionQuery, SessionSummary } from "../contract/sessions";
-import { backendOpsAnswerInKind, sessionMutationsShowInTheCatalog } from "../contract/testing/rules-sessions";
-import { accepted, breakBackend, breakCatalog, breakDriver, fails, refused } from "./helpers/broken-adapters";
-
-/** Listings of `archived` also hold the rows of the other kind. */
-function mixesArchived(archived: boolean) {
-	return breakBackend((backend) => ({
-		listSessions: async (query: SessionQuery, page): Promise<SessionsListResult> => {
-			const listed = await backend.listSessions(query, page);
-			if (listed.status === "rejected" || query.archived !== archived || page.cursor !== undefined) return listed;
-			const other = await backend.listSessions({ ...query, archived: !archived }, { limit: 200 });
-			return other.status === "accepted"
-				? { ...listed, page: { items: [...listed.page.items, ...other.page.items] } }
-				: listed;
-		},
-	}));
-}
+import type { SessionSummary } from "../contract/sessions";
+import { sessionMutationsShowInTheCatalog } from "../contract/testing/rules-sessions";
+import { accepted, breakBackend, breakCatalog, fails, refused } from "./helpers/broken-adapters";
 
 describe("the mutation rule fails", () => {
 	test("for a rejected rename", () =>
@@ -47,46 +31,6 @@ describe("the mutation rule fails", () => {
 			sessionMutationsShowInTheCatalog,
 			/does not carry its new title/,
 		));
-
-	test("for a rejected archive", () =>
-		fails(
-			breakBackend(() => ({ archive: async () => refused })),
-			sessionMutationsShowInTheCatalog,
-			/archive was rejected/,
-		));
-
-	test("for an archive that changes nothing", () =>
-		fails(
-			breakBackend(() => ({ archive: async () => accepted })),
-			sessionMutationsShowInTheCatalog,
-			/not listed as archived/,
-		));
-
-	test("for active listings that hold archived sessions", () =>
-		fails(mixesArchived(false), sessionMutationsShowInTheCatalog, /still listed as active/));
-
-	test("for a rejected unarchive", () =>
-		fails(
-			breakBackend((backend) => ({
-				archive: async (session: SessionRef, archived: boolean) =>
-					archived && backend.archive ? backend.archive(session, archived) : refused,
-			})),
-			sessionMutationsShowInTheCatalog,
-			/unarchive was rejected/,
-		));
-
-	test("for an unarchive that changes nothing", () =>
-		fails(
-			breakBackend((backend) => ({
-				archive: async (session: SessionRef, archived: boolean) =>
-					archived && backend.archive ? backend.archive(session, archived) : accepted,
-			})),
-			sessionMutationsShowInTheCatalog,
-			/unarchived session is not listed as active/,
-		));
-
-	test("for archived listings that hold active sessions", () =>
-		fails(mixesArchived(true), sessionMutationsShowInTheCatalog, /still listed as archived/));
 
 	test("for a rejected fork", () =>
 		fails(
@@ -221,7 +165,7 @@ describe("the mutation rule fails", () => {
 					},
 					listSessions: async (query, page) => {
 						const listed = await backend.listSessions(query, page);
-						return listed.status === "accepted" && !query.archived
+						return listed.status === "accepted"
 							? { ...listed, page: { ...listed.page, items: [...listed.page.items, ...deleted] } }
 							: listed;
 					},
@@ -229,63 +173,5 @@ describe("the mutation rule fails", () => {
 			}),
 			sessionMutationsShowInTheCatalog,
 			/deleted session is still listed/,
-		));
-});
-
-describe("the backend op rule fails", () => {
-	test("when the driver cannot build a call", () =>
-		fails(
-			breakDriver(() => ({ backendCall: async () => undefined })),
-			backendOpsAnswerInKind,
-			/cannot build a navigate_tree call/,
-		));
-
-	test("for a rejected op", () =>
-		fails(
-			breakBackend(() => ({ call: async () => refused })),
-			backendOpsAnswerInKind,
-			/navigate_tree was rejected/,
-		));
-
-	test("for an op answering with another op's result", () =>
-		fails(
-			breakBackend(() => ({
-				call: async () => ({ status: "accepted", result: { kind: "rewind_files", canRewind: true } }),
-			})),
-			backendOpsAnswerInKind,
-			/answered with a rewind_files result/,
-		));
-
-	test("for a history rewrite the catalog never hears of", () =>
-		fails(
-			breakCatalog((event) => (event.type === "transcript_invalidated" ? [] : [event])),
-			backendOpsAnswerInKind,
-			/transcript_invalidated after navigate_tree/,
-		));
-
-	test("for an op on no session", () =>
-		fails(
-			breakBackend((backend) => ({
-				call: async (call) => {
-					const result = backend.call ? await backend.call(call) : refused;
-					return result.status === "rejected" && result.rejection.code === "not_found"
-						? { status: "accepted", result: { kind: "navigate_tree" } }
-						: result;
-				},
-			})),
-			backendOpsAnswerInKind,
-			/on no session must be not_found/,
-		));
-
-	test("for another backend's op", () =>
-		fails(
-			breakBackend((backend) => ({
-				call: async (call) => {
-					const result = backend.call ? await backend.call(call) : refused;
-					return result.status === "rejected" && result.rejection.code === "unsupported" ? refused : result;
-				},
-			})),
-			backendOpsAnswerInKind,
-			/another backend's op must be rejected unsupported/,
 		));
 });

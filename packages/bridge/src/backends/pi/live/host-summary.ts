@@ -38,7 +38,6 @@ export function hostedSummary(facts: HostedFacts, snapshot: SessionSnapshot): Se
 		createdAt: facts.createdAt,
 		updatedAt: facts.updatedAt,
 		...(facts.parent && { parent: facts.parent }),
-		archived: false,
 		...(snapshot.modelId !== undefined && { modelId: snapshot.modelId }),
 		status: sessionStatus(snapshot),
 		origin: facts.origin,

@@ -19,15 +19,10 @@ interface Candidate {
 	readonly set: (text: string) => void;
 }
 
-/**
- * What a phone may send back edited, holding candidates: an editable interaction request's `input` or `plan`, or a
- * file's `text` (`EditableFile`), which also says it was cut, in `truncated`. `editable` is the flag as it came.
- */
+/** What a phone may send back edited, holding candidates: an editable interaction request's `input` or `plan`. */
 interface EditLock {
 	readonly holder: { [key: string]: JsonValue };
 	readonly flag: "inputEditable" | "editable";
-	readonly editable: boolean;
-	readonly cutFlag?: "truncated";
 	readonly candidates: Candidate[];
 }
 
@@ -41,8 +36,8 @@ const MIN_KEPT_UNITS = MAX_NAME_CHARS;
  *
  * Free text is a string longer than `MAX_PATH_CHARS`, which every id, name, option value, path and
  * URL stays within (`limits.ts`). A form field's `when` values stay whole: they decide what the
- * phone shows. An interaction whose editable input or plan was cut, or an editable file whose text was, is made
- * uneditable (the file `truncated`), so the phone never sends a cut copy back as the edit.
+ * phone shows. An interaction whose editable input or plan was cut is made uneditable, so the phone never sends a cut
+ * copy back as the edit.
  */
 export function elide(tree: JsonValue, scope: ElisionScope, overshoot: Overshoot): boolean {
 	const candidates = scope.roots.flatMap((root) => collect(tree, root));
@@ -57,8 +52,7 @@ export function elide(tree: JsonValue, scope: ElisionScope, overshoot: Overshoot
 		}
 		for (const lock of locks) {
 			const whole = lock.candidates.every((item) => item.text.length <= limit);
-			lock.holder[lock.flag] = lock.editable && whole;
-			if (lock.cutFlag) lock.holder[lock.cutFlag] = !whole;
+			lock.holder[lock.flag] = whole;
 		}
 		return overshoot(tree);
 	};
@@ -171,7 +165,7 @@ export function shorten(text: string, limit: number, keepTail: boolean): string 
 function editLocks(tree: JsonValue, candidates: readonly Candidate[]): EditLock[] {
 	const locks = new Map<object, EditLock>();
 	for (const candidate of candidates) {
-		const found = requestLock(tree, candidate.path) ?? fileLock(tree, candidate.path);
+		const found = requestLock(tree, candidate.path);
 		if (!found) continue;
 		const lock = locks.get(found.holder) ?? { ...found, candidates: [] };
 		lock.candidates.push(candidate);
@@ -189,15 +183,7 @@ function requestLock(tree: JsonValue, path: JsonPath): FoundLock | undefined {
 	if (index < 0 || (field !== "input" && field !== "plan")) return undefined;
 	const holder = objectAt(tree, path.slice(0, index + 1));
 	const flag = field === "input" ? "inputEditable" : "editable";
-	return holder?.[flag] === true ? { holder, flag, editable: true } : undefined;
-}
-
-/** The file (`EditableFile`: a whole text at a revision) whose `text` is at `path`. */
-function fileLock(tree: JsonValue, path: JsonPath): FoundLock | undefined {
-	if (path.at(-1) !== "text") return undefined;
-	const holder = objectAt(tree, path.slice(0, -1));
-	if (holder?.truncated !== false || typeof holder.revision !== "string") return undefined;
-	return { holder, flag: "editable", editable: holder.editable === true, cutFlag: "truncated" };
+	return holder?.[flag] === true ? { holder, flag } : undefined;
 }
 
 function objectAt(tree: JsonValue, path: JsonPath): { [key: string]: JsonValue } | undefined {

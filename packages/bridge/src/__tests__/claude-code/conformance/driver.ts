@@ -35,10 +35,6 @@ export class ClaudeCodeConformanceDriver implements ConformanceDriver {
 
 	async arrange(session: SessionRef, scenario: Scenario): Promise<boolean> {
 		const { router } = this.world;
-		if (scenario.kind === "slow_compaction") {
-			router.holdNextCompaction(session.sessionId);
-			return true;
-		}
 		if (scenario.kind === "echo_model") await this.world.models.load();
 		const steps = scenarioSteps(scenario, {
 			cwd: this.cwd,
@@ -105,7 +101,6 @@ export class ClaudeCodeConformanceDriver implements ConformanceDriver {
 			mode: "start",
 			text: "Seed this session.",
 			attachments: [],
-			mentions: [],
 		});
 		if (sent.status === "rejected") throw new Error(`seeding: the prompt was rejected: ${sent.rejection.message}`);
 		await recorder.waitFor((records) => records.find((record) => record.event.type === "run_finished"), "seeded run");

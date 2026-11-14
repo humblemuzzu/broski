@@ -125,7 +125,6 @@ describe("the core's protocol: backend-wide requests", () => {
 			fork: false,
 			rename: false,
 			delete: false,
-			archive: false,
 		});
 	});
 
@@ -136,15 +135,12 @@ describe("the core's protocol: backend-wide requests", () => {
 		const answers = [
 			await client.request("backend.status", { backend: "claude-code" }),
 			await client.request("models.list", { backend: "claude-code" }),
-			await client.request("sessions.list", { backend: "claude-code", query: { archived: false }, page: { limit: 5 } }),
+			await client.request("sessions.list", { backend: "claude-code", query: {}, page: { limit: 5 } }),
 			await client.request("session.get", { session }),
 			await client.request("session.attach", { session }),
 			await client.request("prompt", {
 				session,
-				input: { clientRequestId: crypto.randomUUID(), mode: "start", text: "x", attachments: [], mentions: [] },
-			}),
-			await client.request("backend.call", {
-				call: { backend: "claude-code", op: { kind: "rewind_files", sessionId: "s", userItemId: "i", dryRun: true } },
+				input: { clientRequestId: crypto.randomUUID(), mode: "start", text: "x", attachments: [] },
 			}),
 		];
 		expect(answers.map((answer) => (answer.type === "error" ? answer.error.code : answer.type))).toEqual(
@@ -202,7 +198,7 @@ describe("the core's protocol: backend-wide requests", () => {
 		rig.fake.fake.seed({ cwd: RIG_CWD });
 		const listed = await client.ok("sessions.list", {
 			backend: "pi",
-			query: { archived: false, cwd: "/alias" },
+			query: { cwd: "/alias" },
 			page: { limit: 10 },
 		});
 		expect(listed.result.status === "accepted" && listed.result.page.items.map((row) => row.cwd)).toEqual([
@@ -216,13 +212,13 @@ describe("the core's protocol: sessions without a live stream", () => {
 		const rig = await startCoreRig();
 		const client = await rig.client("a");
 		const seeded = [0, 1, 2].map((index) => rig.fake.fake.seed({ cwd: RIG_CWD, title: `S${index}` }));
-		const first = await client.ok("sessions.list", { backend: "pi", query: { archived: false }, page: { limit: 2 } });
+		const first = await client.ok("sessions.list", { backend: "pi", query: {}, page: { limit: 2 } });
 		if (first.result.status !== "accepted") throw new Error("listing failed");
 		const cursor = first.result.page.nextCursor;
 		expect(cursor).toBeString();
 		const second = await client.ok("sessions.list", {
 			backend: "pi",
-			query: { archived: false },
+			query: {},
 			page: { limit: 2, ...(cursor !== undefined && { cursor }) },
 		});
 		if (second.result.status !== "accepted") throw new Error("listing failed");
@@ -243,12 +239,10 @@ describe("the core's protocol: sessions without a live stream", () => {
 		const session = rig.fake.fake.seed({ cwd: RIG_CWD });
 		b.clear();
 		expect((await a.ok("session.rename", { session, title: "Renamed" })).result).toEqual({ status: "accepted" });
-		expect((await a.ok("session.archive", { session, archived: true })).result).toEqual({ status: "accepted" });
 		const fork = await a.ok("session.fork", { session });
 		expect(fork.result.status).toBe("accepted");
 		expect((await a.ok("session.delete", { session })).result).toEqual({ status: "accepted" });
 		expect(b.catalog().map((message) => message.event.type)).toEqual([
-			"session_updated",
 			"session_updated",
 			"session_updated",
 			"session_removed",
@@ -262,44 +256,23 @@ describe("the core's protocol: sessions without a live stream", () => {
 		const session = rig.fake.fake.seed({ cwd: RIG_CWD });
 		const results = [
 			(await client.ok("session.rename", { session, title: "x" })).result,
-			(await client.ok("session.archive", { session, archived: true })).result,
 			(await client.ok("session.delete", { session })).result,
 			(await client.ok("session.fork", { session })).result,
-			(
-				await client.ok("backend.call", {
-					call: {
-						backend: "pi",
-						op: { kind: "navigate_tree", sessionId: session.sessionId, itemId: "i", summarize: false },
-					},
-				})
-			).result,
 		];
 		expect(results.map((result) => result.status === "rejected" && result.rejection.code)).toEqual(
 			Array(results.length).fill("unsupported"),
 		);
 	});
 
-	test("transcript pages, attachments and a history-rewriting op", async () => {
+	test("transcript pages and attachments", async () => {
 		const rig = await startCoreRig();
 		const a = await rig.client("a");
-		const b = await rig.client("b");
 		const session = rig.fake.fake.seed({ cwd: RIG_CWD });
 		const page = await a.ok("transcript.read", { session, page: { limit: 10 } });
 		if (page.result.status !== "accepted") throw new Error("no transcript");
 		expect(page.result.page.items.map((item) => item.kind)).toEqual(["run_boundary", "block", "user_message"]);
 		const missing = await a.ok("attachment.read", { session, attachmentId: "nope" });
 		expect(missing.result).toMatchObject({ status: "rejected", rejection: { code: "not_found" } });
-		const [prompt] = page.result.page.items.slice(-1);
-		if (!prompt) throw new Error("no prompt");
-		b.clear();
-		const call = await a.ok("backend.call", {
-			call: {
-				backend: "pi",
-				op: { kind: "navigate_tree", sessionId: session.sessionId, itemId: prompt.id, summarize: false },
-			},
-		});
-		expect(call.result).toEqual({ status: "accepted", result: { kind: "navigate_tree" } });
-		expect(b.catalog().map((message) => message.event)).toEqual([{ type: "transcript_invalidated", session }]);
 	});
 
 	test("a page larger than the link is read again smaller, whole items and all", async () => {

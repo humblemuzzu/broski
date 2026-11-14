@@ -61,18 +61,8 @@ export const PROTOCOL_MUTANTS: Mutant[] = [
 	...mutantsOf("core/client.ts", [
 		{
 			name: "hello: any major agrees",
-			find: "this.spoken = theirs.major === ours.major ? theirs : undefined;",
-			replace: "this.spoken = theirs;",
-		},
-		{
-			name: "hello: a client of a lower minor is sent what a later minor added",
-			find: "return this.spoken !== undefined && this.spoken.minor >= minor;",
-			replace: "return this.spoken !== undefined;",
-		},
-		{
-			name: "hello: a client is sent only what a minor above its own added",
-			find: "this.spoken.minor >= minor",
-			replace: "this.spoken.minor > minor",
+			find: "this.agreed = theirs.major === ours.major;",
+			replace: "this.agreed = true;",
 		},
 	]),
 	...mutantsOf("core/requests-catalog.ts", [
@@ -98,28 +88,6 @@ export const PROTOCOL_MUTANTS: Mutant[] = [
 			name: "directories: create skips the policy",
 			find: "await allowedDirectory(ctx.directories, request.options.cwd)",
 			replace: '({ status: "allowed" as const, cwd: request.options.cwd })',
-		},
-		{
-			name: "directories: a backend call skips the policy",
-			find: "const allowed = await allowedCall(directories, call);",
-			replace: 'const allowed = { status: "allowed" as const, call };',
-		},
-	]),
-	...mutantsOf("core/directories.ts", [
-		{
-			name: "directories: an op's directory reaches the adapter as sent",
-			find: 'if (!("cwd" in call.op)) return { status: "allowed", call };',
-			replace: 'return { status: "allowed", call };',
-		},
-		{
-			name: "directories: a refused op directory is answered as one the contract cannot carry",
-			find: 'if (directory.status === "rejected") return directory;',
-			replace: "",
-		},
-		{
-			name: "directories: a canonical op directory is not checked against the contract",
-			find: "const allowed = BackendCall.safeParse({ ...call, op: { ...call.op, cwd: directory.cwd } });",
-			replace: "const allowed = { success: true, data: { ...call, op: { ...call.op, cwd: directory.cwd } } };",
 		},
 	]),
 	...mutantsOf("core/context.ts", [

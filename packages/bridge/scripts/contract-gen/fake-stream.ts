@@ -52,15 +52,6 @@ export async function fakeSessionStream(): Promise<ServerMessage[]> {
 			nested: [{ kind: "tool", name: "read", input: { path: "a.ts" }, output: "a" }],
 		},
 		{ kind: "ask", title: "Pick a library", request: sampleRequest("questions") },
-		{
-			kind: "plan",
-			plan: {
-				items: [
-					{ text: "Edit a.ts", status: "completed" },
-					{ text: "Test", status: "in_progress" },
-				],
-			},
-		},
 		{ kind: "usage", usage: { inputTokens: 1200, outputTokens: 80, cacheReadTokens: 900, costUsd: 0.0125 } },
 		{ kind: "retry", attempts: 1 },
 		{ kind: "compaction" },
@@ -69,21 +60,6 @@ export async function fakeSessionStream(): Promise<ServerMessage[]> {
 			extension: { kind: "rate_limit", window: "five_hour", status: "allowed_warning", usedPercent: 82 },
 		},
 		{ kind: "notice", level: "warning", text: "Close to the context limit." },
-		{
-			kind: "activity",
-			activity: { id: "hook-1", label: "PostToolUse:Edit", detail: "PostToolUse", status: "running" },
-		},
-		{
-			kind: "activity",
-			activity: {
-				id: "hook-1",
-				label: "PostToolUse:Edit",
-				detail: "PostToolUse",
-				status: "succeeded",
-				output: "formatted a.ts",
-				durationMs: 42,
-			},
-		},
 		{ kind: "backend_error", error: { code: "network", message: "The stream dropped." }, retryable: true },
 		{ kind: "retract" },
 		{ kind: "return_input", texts: ["Also lint", "Then commit"] },
@@ -99,7 +75,6 @@ export async function fakeSessionStream(): Promise<ServerMessage[]> {
 			{ kind: "image", mimeType: "image/png", data: "iVBORw0KGgo=", name: "shot.png" },
 			{ kind: "file", uri: "/fixture/a.ts" },
 		],
-		mentions: [{ kind: "file", path: "/fixture/a.ts" }],
 	});
 	for (const kind of ["tool_permission", "questions"]) {
 		const requested = await recorder.waitFor(
@@ -121,9 +96,9 @@ export async function fakeSessionStream(): Promise<ServerMessage[]> {
 		{ kind: "hold" },
 		{ kind: "text", text: "Done." },
 	]);
-	await control.prompt({ clientRequestId: uuid(2), mode: "start", text: "Keep going", attachments: [], mentions: [] });
-	await control.prompt({ clientRequestId: uuid(3), mode: "steer", text: "Also lint", attachments: [], mentions: [] });
-	await control.prompt({ clientRequestId: uuid(4), mode: "queue", text: "Then commit", attachments: [], mentions: [] });
+	await control.prompt({ clientRequestId: uuid(2), mode: "start", text: "Keep going", attachments: [] });
+	await control.prompt({ clientRequestId: uuid(3), mode: "steer", text: "Also lint", attachments: [] });
+	await control.prompt({ clientRequestId: uuid(4), mode: "queue", text: "Then commit", attachments: [] });
 	backend.fake.release(session.session);
 	await recorder.waitFor(
 		(records) => (records.filter((record) => record.event.type === "run_finished").length === 3 ? true : undefined),

@@ -14,7 +14,6 @@ export interface HostOptionsInput {
 	readonly effort?: EffortLevel;
 	readonly canUseTool: CanUseTool;
 	readonly onElicitation: OnElicitation;
-	readonly promptSuggestions?: boolean;
 }
 
 /** `backend_error` when `services.cli` found no binary. */
@@ -28,7 +27,6 @@ export function hostOptions(input: HostOptionsInput): Options | Rejected {
 		permissionMode: input.permissionMode,
 		...(services.mayBypassPermissions && { allowDangerouslySkipPermissions: true }),
 		includePartialMessages: true,
-		includeHookEvents: true,
 		forwardSubagentText: true,
 		agentProgressSummaries: true,
 		systemPrompt: { type: "preset", preset: "claude_code" },
@@ -37,6 +35,5 @@ export function hostOptions(input: HostOptionsInput): Options | Rejected {
 		...("sessionId" in input.start ? { sessionId: input.start.sessionId } : { resume: input.start.resume }),
 		...(input.model !== undefined && { model: input.model }),
 		...(input.effort !== undefined && { effort: input.effort }),
-		...(input.promptSuggestions === true && { promptSuggestions: true }),
 	};
 }

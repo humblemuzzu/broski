@@ -148,8 +148,8 @@ export class FrameHandler {
 			return;
 		}
 		const dropped = queue.settleSteered(frame.commandUuid);
-		if (dropped && dropped.typedText !== "") {
-			live.emit({ type: "input_returned", texts: [clip(dropped.typedText, MAX_TEXT_CHARS)] });
+		if (dropped && dropped.text !== "") {
+			live.emit({ type: "input_returned", texts: [clip(dropped.text, MAX_TEXT_CHARS)] });
 		}
 	}
 

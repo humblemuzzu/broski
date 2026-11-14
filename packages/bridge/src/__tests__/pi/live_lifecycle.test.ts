@@ -75,7 +75,7 @@ describe("no runtime is leaked", () => {
 		expect(parked.reduced().run).toBeDefined();
 		expect(t.bus.starts(parked.ref.sessionId)).toBe(1);
 		expect(t.bus.starts(other.ref.sessionId)).toBe(1);
-		const rows = await allRows(t.backend, { cwd: t.cwd, archived: false }, 50);
+		const rows = await allRows(t.backend, { cwd: t.cwd }, 50);
 		const status = (id: string) => rows.find((row) => row.session.sessionId === id)?.status;
 		expect([status(parked.ref.sessionId), status(other.ref.sessionId)]).toEqual(["running", "idle"]);
 
@@ -159,7 +159,7 @@ describe("a session another client made", () => {
 		);
 		const before = { bytes: readFileSync(path), modified: statSync(path).mtimeMs };
 
-		const rows = await allRows(t.backend, { cwd: t.cwd, archived: false }, 50);
+		const rows = await allRows(t.backend, { cwd: t.cwd }, 50);
 		expect(rows.find((row) => row.session.sessionId === id)?.origin).toBe("external");
 		const opened = await t.rig.open({ backend: "pi", sessionId: id });
 		expect(opened.session.control).toBeUndefined();
@@ -167,8 +167,6 @@ describe("a session another client made", () => {
 			controllable: false,
 			compact: false,
 			cancelQueued: false,
-			cancelCompaction: false,
-			cancelRetry: false,
 			answer: false,
 		});
 		expect(opened.initial.run).toBeUndefined();

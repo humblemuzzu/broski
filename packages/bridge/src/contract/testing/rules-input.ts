@@ -1,5 +1,5 @@
 import type { Attachment, AttachmentKind, AttachmentRef, ImageContent } from "../content";
-import type { Mention, MentionKind, PromptInput } from "../input";
+import type { PromptInput } from "../input";
 import { canonical, expect, fail, type LiveSession, promptInput, type Rig } from "./conformance-harness";
 import { allTranscript } from "./conformance-reads";
 
@@ -15,40 +15,25 @@ function attachmentOf(rig: Rig, kind: AttachmentKind): Attachment {
 	return kind === "image" ? PIXEL : { kind: "file", uri: `${rig.driver.cwd}/README.md`, name: "README.md" };
 }
 
-function mentionOf(rig: Rig, kind: MentionKind): Mention {
-	if (kind === "file") return { kind, path: `${rig.driver.cwd}/README.md` };
-	const name = rig.driver.agentName;
-	if (name === undefined) fail("agent mentions are declared but the driver names no agent");
-	return { kind, name };
-}
-
 /**
- * Every declared attachment kind, mention kind and command reaches the model as sent; an undeclared
- * one is rejected `unsupported` instead of being dropped.
+ * Every declared attachment kind and command reaches the model as sent; an undeclared one is rejected
+ * `unsupported` instead of being dropped.
  */
 export async function inputReachesTheModel(rig: Rig): Promise<void> {
 	const { traits } = rig;
 	for (const kind of traits.attachments) {
 		const attachment = attachmentOf(rig, kind);
-		const delivered = await deliver(rig, { attachments: [attachment], mentions: [] });
+		const delivered = await deliver(rig, { attachments: [attachment] });
 		expect(
 			delivered.attachments.some((sent) => canonical(sent) === canonical(attachment)),
 			`a ${kind} attachment did not reach the model`,
-		);
-	}
-	for (const kind of traits.mentions) {
-		const mention = mentionOf(rig, kind);
-		const delivered = await deliver(rig, { attachments: [], mentions: [mention] });
-		expect(
-			delivered.mentions.some((sent) => canonical(sent) === canonical(mention)),
-			`a ${kind} mention did not reach the model`,
 		);
 	}
 	if (traits.commands) await aCommandRuns(rig);
 	await undeclaredInputIsRefused(rig);
 }
 
-async function deliver(rig: Rig, extra: Pick<PromptInput, "attachments" | "mentions" | "command">) {
+async function deliver(rig: Rig, extra: Pick<PromptInput, "attachments" | "command">) {
 	const live = await rig.openNew();
 	await rig.arrange(live.ref, { kind: "reply" });
 	await live.runInput(promptInput("Look at this.", "start", crypto.randomUUID(), extra));
@@ -68,7 +53,6 @@ async function aCommandRuns(rig: Rig): Promise<void> {
 		const mark = live.recorder.items.length;
 		const input = promptInput("now", "start", crypto.randomUUID(), {
 			attachments: [],
-			mentions: [],
 			command: command.id,
 		});
 		const result = await live.control.prompt(input);
@@ -84,7 +68,7 @@ async function aCommandRuns(rig: Rig): Promise<void> {
 
 async function undeclaredInputIsRefused(rig: Rig): Promise<void> {
 	const { traits } = rig;
-	const refused = async (what: string, extra: Pick<PromptInput, "attachments" | "mentions" | "command">) => {
+	const refused = async (what: string, extra: Pick<PromptInput, "attachments" | "command">) => {
 		const live = await rig.openNew();
 		const result = await live.control.prompt(promptInput("Unsupported.", "start", crypto.randomUUID(), extra));
 		expect(
@@ -93,13 +77,9 @@ async function undeclaredInputIsRefused(rig: Rig): Promise<void> {
 		);
 	};
 	for (const kind of (["image", "file"] as const).filter((candidate) => !traits.attachments.includes(candidate))) {
-		await refused(`a ${kind} attachment`, { attachments: [attachmentOf(rig, kind)], mentions: [] });
+		await refused(`a ${kind} attachment`, { attachments: [attachmentOf(rig, kind)] });
 	}
-	for (const kind of (["file", "agent"] as const).filter((candidate) => !traits.mentions.includes(candidate))) {
-		const mention: Mention = kind === "file" ? { kind, path: "README.md" } : { kind, name: "helper" };
-		await refused(`a ${kind} mention`, { attachments: [], mentions: [mention] });
-	}
-	if (!traits.commands) await refused("a command", { attachments: [], mentions: [], command: "/review" });
+	if (!traits.commands) await refused("a command", { attachments: [], command: "/review" });
 }
 
 /** A prompt's image comes back by reference, in the live user message and in the transcript, and reads back whole. */
@@ -108,7 +88,7 @@ export async function imagesComeBackByReference(rig: Rig): Promise<void> {
 	const live = await rig.openNew();
 	await rig.arrange(live.ref, { kind: "reply" });
 	const clientRequestId = crypto.randomUUID();
-	await live.runInput(promptInput("Look.", "start", clientRequestId, { attachments: [PIXEL], mentions: [] }));
+	await live.runInput(promptInput("Look.", "start", clientRequestId, { attachments: [PIXEL] }));
 	const message = live
 		.events()
 		.find((event) => event.type === "user_message" && event.clientRequestId === clientRequestId);

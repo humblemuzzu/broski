@@ -317,7 +317,7 @@ describe("approvals", () => {
 });
 
 describe("questions", () => {
-	const KINDS = ["confirm", "choice", "text", "form", "questions", "plan_approval", "external_url"] as const;
+	const KINDS = ["confirm", "choice", "text", "form", "questions", "plan_approval"] as const;
 
 	test("each interaction that needs an answer is an attention alert a verdict cannot answer", async () => {
 		for (const kind of KINDS) {

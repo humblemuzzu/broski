@@ -43,7 +43,7 @@ function chat(id: string, cwd: string, lastAt: number, prompt = `prompt of ${id}
 }
 
 async function list(query: Partial<SessionQuery>, page: PageRequest = { limit: 200 }, live: LiveOverlay = NOBODY) {
-	const result = await listSessions(index, { archived: false, ...query }, page, live, children);
+	const result = await listSessions(index, { ...query }, page, live, children);
 	expect(SessionsListResult.safeParse(result).success).toBe(true);
 	return result;
 }
@@ -68,7 +68,6 @@ describe("listing sessions", () => {
 			cwd: env.cwd,
 			createdAt: T0 + 4_990,
 			updatedAt: T0 + 5_000,
-			archived: false,
 			modelId: "faux/faux-2",
 			status: "unknown",
 			origin: "external",
@@ -291,11 +290,6 @@ describe("listing sessions", () => {
 		expect(all.find((row) => row.session.sessionId === "orphan")?.parent).toBeUndefined();
 		expect((await rows({ parent: parentRef })).map((row) => row.session.sessionId)).toEqual(["fork"]);
 		expect(await rows({ parent: { backend: "claude-code", sessionId: "parent" } })).toEqual([]);
-	});
-
-	test("archived sessions do not exist", async () => {
-		writeSession(env.sessionDir, chat("s", env.cwd, 1_000));
-		expect(await rows({ archived: true })).toEqual([]);
 	});
 
 	test("files that are not sessions are not listed", async () => {

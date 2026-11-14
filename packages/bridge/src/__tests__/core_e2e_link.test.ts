@@ -84,7 +84,7 @@ describe("the core over the link", () => {
 			}
 			const listed = await a.ok("sessions.list", {
 				backend: "pi",
-				query: { archived: false, cwd: rig.cwd },
+				query: { cwd: rig.cwd },
 				page: { limit: 10 },
 			});
 			expect(listed.result.status === "accepted" && listed.result.page.items.map((row) => row.session)).toEqual([

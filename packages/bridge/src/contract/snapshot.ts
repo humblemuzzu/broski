@@ -6,7 +6,6 @@ import { Interaction } from "./interactions";
 import { JsonValue } from "./json";
 import { MAX_LIST_ITEMS, MAX_NAME_CHARS, MAX_TEXT_CHARS } from "./limits";
 import { ModeSetting } from "./modes";
-import { Plan } from "./plan";
 import { QueueItem } from "./queue";
 import { RunOutcome, RunTrigger } from "./runs";
 import { TranscriptItem } from "./transcript";
@@ -76,7 +75,6 @@ export const SessionSnapshot = z.strictObject({
 	thinking: z.string().max(MAX_NAME_CHARS).optional(),
 	modes: z.array(ModeSetting).max(MAX_LIST_ITEMS),
 	usage: Usage.optional(),
-	plan: Plan.optional(),
 	compaction: CompactionState.optional(),
 	retry: RetryState.optional(),
 	lastOutcome: RunOutcome.optional(),

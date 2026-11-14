@@ -49,19 +49,9 @@ export const REPLACEMENT_MUTANTS: Mutant[] = [
 	]),
 	...mutantsOf("core/attach-redirect.ts", [
 		{
-			name: "redirect: a client of a lower minor is told",
-			find: "if (epoch === undefined || !client.speaks(ADDED_IN_MINOR.replacedSync)) return undefined;",
-			replace: "if (epoch === undefined) return undefined;",
-		},
-		{
 			name: "redirect: the stream is not looked up",
 			find: "const session = ctx.replacements.successor(epoch);",
 			replace: "const session = undefined;",
-		},
-		{
-			name: "redirect: a client that took back its minor is told",
-			find: "\tif (!client.speaks(ADDED_IN_MINOR.replacedSync)) {\n",
-			replace: "\tif (false) {\n",
 		},
 		{
 			name: "redirect: the answer names the stream that now holds the session",
@@ -72,12 +62,12 @@ export const REPLACEMENT_MUTANTS: Mutant[] = [
 	...mutantsOf("core/requests-live.ts", [
 		{
 			name: "attach: a resumed stream that was replaced is attached",
-			find: "const moved = movedTo(ctx, client, request.resume?.epoch);",
+			find: "const moved = movedTo(ctx, request.resume?.epoch);",
 			replace: "const moved = undefined;",
 		},
 		{
 			name: "attach: a replacement during the open is not told",
-			find: "const moved = movedTo(ctx, client, live.epoch);",
+			find: "const moved = movedTo(ctx, live.epoch);",
 			replace: "const moved = undefined;",
 		},
 	]),

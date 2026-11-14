@@ -143,7 +143,7 @@ describe("delete", () => {
 		});
 		const gone = await world.store.get(built.sessionId, world.live);
 		expect(gone.status === "rejected" && gone.rejection.code).toBe("not_found");
-		const list = await world.store.list({ cwd: built.cwd, archived: false }, { limit: 10 }, world.live);
+		const list = await world.store.list({ cwd: built.cwd }, { limit: 10 }, world.live);
 		expect(list.status === "accepted" && list.page.items).toEqual([]);
 	});
 

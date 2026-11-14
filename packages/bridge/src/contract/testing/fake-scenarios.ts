@@ -31,10 +31,6 @@ export function scenarioSteps(traits: BackendTraits, scenario: Scenario): FakeSt
 			return featureSteps(traits, scenario.feature);
 		case "echo_model":
 			return [{ kind: "echo_model" }, { kind: "hold" }, { kind: "echo_model" }];
-		case "slow_retry":
-			return [{ kind: "retry_wait" }, { kind: "text", text: "Recovered." }];
-		case "slow_compaction":
-			return undefined;
 	}
 }
 
@@ -49,8 +45,6 @@ function featureSteps(traits: BackendTraits, feature: Feature): FakeStep[] | und
 				: undefined;
 		case "usage":
 			return traits.usage ? [{ kind: "usage", usage: { inputTokens: 10, outputTokens: 5, costUsd: 0.01 } }] : undefined;
-		case "plan":
-			return traits.plan ? [{ kind: "plan", plan: { items: [{ text: "Read", status: "completed" }] } }] : undefined;
 		case "plan_proposal":
 			return traits.planProposals ? [{ kind: "plan_proposal", text: "1. Read\n2. Write" }] : undefined;
 		case "children":
@@ -146,8 +140,6 @@ export function sampleRequest(kind: Exclude<InteractionKind, "tool_permission">)
 					defaultValue: "ask",
 				},
 			};
-		case "external_url":
-			return { kind, url: "https://example.com/authorize", server: "docs" };
 		case "choice":
 			return {
 				kind,

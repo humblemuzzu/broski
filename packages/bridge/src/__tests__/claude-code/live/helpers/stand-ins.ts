@@ -286,7 +286,6 @@ export function standInStore(sdk: ClaudeSdk): StandInStore {
 						summary: {
 							session: { backend: "claude-code", sessionId },
 							updatedAt: 1,
-							archived: false,
 							status: "idle",
 							origin: "broski",
 							...(known.get(sessionId)?.modelId !== undefined && { modelId: known.get(sessionId)?.modelId }),

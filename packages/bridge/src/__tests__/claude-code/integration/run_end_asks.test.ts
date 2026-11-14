@@ -80,7 +80,7 @@ describe("asks and the run around them", () => {
 			]);
 			expect((await live.prompt("Go.")).status).toBe("accepted");
 			const ask = await pending(live);
-			expect(ask.request.kind).toBe("external_url");
+			expect(ask.request.kind).toBe("confirm");
 			const resolved = await live.waitFor("interaction_resolved", (event) => event.interactionId === ask.id);
 			expect(resolved.reason).toBe("withdrawn");
 			expect((await live.waitFor("run_finished")).outcome.kind).toBe("completed");

@@ -25,8 +25,6 @@ export function validReply(interaction: Interaction): InteractionReply {
 			const mode = request.modeOptions?.options[0]?.value;
 			return { kind: "plan_approval", decision: "approve", ...(mode !== undefined && { modeAfter: mode }) };
 		}
-		case "external_url":
-			return { kind: "external_url" };
 		case "choice":
 			return { kind: "choice", value: first(request.options, "choice options").value };
 		case "confirm":
@@ -121,7 +119,6 @@ function brokenReplies(request: InteractionRequest): InteractionReply[] {
 				{ kind: "plan_approval", decision: "approve", feedback: "feedback goes with a rejection" },
 				{ kind: "plan_approval", decision: "approve", modeAfter: "no-such-mode" },
 			];
-		case "external_url":
 		case "confirm":
 		case "text":
 			return [];

@@ -56,7 +56,6 @@ describe("a sub-run", () => {
 const PARENT: SessionSummary = {
 	session: { backend: "pi", sessionId: "parent" },
 	updatedAt: 1,
-	archived: false,
 	status: "running",
 	origin: "broski",
 };

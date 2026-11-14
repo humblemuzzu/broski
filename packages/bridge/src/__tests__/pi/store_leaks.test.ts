@@ -68,7 +68,7 @@ test("100 cycles of watch, list, a write and dispose, over a flat root and a nes
 			now: Date.now,
 		});
 		store.watch(NOBODY);
-		await store.list({ archived: false }, { limit: 5 }, NOBODY);
+		await store.list({}, { limit: 5 }, NOBODY);
 		writeSession(cycle % 2 === 0 ? env.sessionDir : join(nested, "--project--"), session(`cycle-${cycle}`));
 		store.dispose();
 		disposed = true;
@@ -128,7 +128,7 @@ test("a store disposed before its first listing never opens a watcher", async ()
 		});
 		store.watch(NOBODY);
 		store.dispose();
-		await store.list({ archived: false }, { limit: 5 }, NOBODY);
+		await store.list({}, { limit: 5 }, NOBODY);
 	}
 	await Bun.sleep(200);
 

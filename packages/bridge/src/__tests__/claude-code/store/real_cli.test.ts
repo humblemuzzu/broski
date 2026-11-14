@@ -158,7 +158,7 @@ describe("transcripts the real CLI wrote", () => {
 		"the subagent is a child session: listed, readable, and named by the Agent call",
 		async () => {
 			const children = await world.store.list(
-				{ archived: false, parent: { backend: "claude-code", sessionId } },
+				{ parent: { backend: "claude-code", sessionId } },
 				{ limit: 10 },
 				world.live,
 			);
@@ -212,11 +212,7 @@ describe("transcripts the real CLI wrote", () => {
 			if ("status" in stored) throw new Error("fork not found");
 			expect((await world.store.remove(forked.session.sessionId)).status).toBe("accepted");
 			expect(existsSync(stored.path)).toBe(false);
-			const rows = await world.store.list(
-				{ cwd: realpathSync(world.home.projectDir), archived: false },
-				{ limit: 10 },
-				world.live,
-			);
+			const rows = await world.store.list({ cwd: realpathSync(world.home.projectDir) }, { limit: 10 }, world.live);
 			expect(rows.status === "accepted" && rows.page.items.map((row) => row.session.sessionId)).toEqual([sessionId]);
 		},
 		CLI_TEST_MS,

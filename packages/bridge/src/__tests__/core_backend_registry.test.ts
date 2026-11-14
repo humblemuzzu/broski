@@ -47,15 +47,15 @@ describe("the backend registry", () => {
 		let disposed = 0;
 		expect(
 			await backends.add("claude-code", async (host) => ({
-				...createFakeBackend(host, { id: "pi-durable" }),
+				...createFakeBackend(host, { id: "pi" }),
 				dispose: async () => void disposed++,
 			})),
 		).toBe(false);
 		expect(disposed).toBe(1);
 		expect(missingOf(await backends.reach("claude-code"))).toBe(
-			"the claude-code backend did not start: the factory made a pi-durable backend",
+			"the claude-code backend did not start: the factory made a pi backend",
 		);
-		expect(log.errors.some((line) => line.includes("made a pi-durable backend"))).toBe(true);
+		expect(log.errors.some((line) => line.includes("made a pi backend"))).toBe(true);
 	});
 
 	test("goes on without a backend whose factory fails, and says why to whoever asks for it", async () => {
@@ -71,10 +71,10 @@ describe("the backend registry", () => {
 			"the claude-code backend did not start: Error: not installed",
 		);
 		expect(missingOf(await backends.reach("pi"))).toBe("no pi backend is registered");
-		await backends.add("pi-durable", async () => {
+		await backends.add("pi", async () => {
 			throw new Error("y".repeat(10_000));
 		});
-		expect(missingOf(await backends.reach("pi-durable"))?.length).toBeLessThan(4_200);
+		expect(missingOf(await backends.reach("pi"))?.length).toBeLessThan(4_200);
 	});
 
 	test("a request for a backend still starting waits for it, but no longer than the start may take", async () => {
@@ -123,28 +123,28 @@ describe("the backend registry", () => {
 	test("dispose disposes every backend, even when one fails, and one that lands later as it lands", async () => {
 		const { registry: backends, log, arrivals, clock } = registry();
 		let disposed = 0;
-		await backends.add("pi", async (host) => ({ ...createFakeBackend(host), dispose: async () => void disposed++ }));
-		await backends.add("claude-code", async (host) => ({
-			...createFakeBackend(host, { id: "claude-code" }),
+		await backends.add("pi", async (host) => ({
+			...createFakeBackend(host),
 			dispose: async () => {
+				disposed++;
 				throw new Error("stuck");
 			},
 		}));
 		const late = Promise.withResolvers<AgentBackend>();
-		const lateAdding = backends.add("pi-durable", () => late.promise);
-		const waiting = backends.reach("pi-durable");
+		const lateAdding = backends.add("claude-code", () => late.promise);
+		const waiting = backends.reach("claude-code");
 		await backends.dispose();
 		expect(clock.pending()).toBe(0);
 		expect(disposed).toBe(1);
 		expect(backends.descriptors()).toEqual([]);
-		expect(log.errors.some((line) => line.includes("claude-code dispose failed"))).toBe(true);
-		expect(missingOf(await waiting)).toBe("the pi-durable backend is still starting");
+		expect(log.errors.some((line) => line.includes("pi dispose failed"))).toBe(true);
+		expect(missingOf(await waiting)).toBe("the claude-code backend is still starting");
 		late.resolve({
-			...createFakeBackend({ catalog: { emit: () => {} } }, { id: "pi-durable" }),
+			...createFakeBackend({ catalog: { emit: () => {} } }, { id: "claude-code" }),
 			dispose: async () => void disposed++,
 		});
 		expect(await lateAdding).toBe(false);
 		expect(disposed).toBe(2);
-		expect(arrivals).toEqual(["pi", "claude-code"]);
+		expect(arrivals).toEqual(["pi"]);
 	});
 });

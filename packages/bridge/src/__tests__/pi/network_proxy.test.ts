@@ -94,7 +94,6 @@ async function runAPrompt(): Promise<string> {
 		mode: "start",
 		text: "ping",
 		attachments: [],
-		mentions: [],
 	});
 	const finished = await recorder.waitFor(
 		(records) => records.map((record) => record.event).find((event) => event.type === "run_finished"),

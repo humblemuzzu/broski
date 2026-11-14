@@ -84,26 +84,6 @@ describe("what the core does not trust from an adapter", () => {
 		expect(again.sync.epoch).not.toBe(first.sync.epoch);
 	});
 
-	test("a session that goes on under a new id while it is being attached is not attached to, by an app that cannot be told of the replacement", async () => {
-		const rig = await startCoreRig({
-			adapt: (backend) => ({
-				...backend,
-				open: async (target, sink) => {
-					const result = await backend.open(target, sink);
-					const next = { backend: "pi" as const, sessionId: "goes-on" };
-					queueMicrotask(() => sink.emit({ at: 1, event: { type: "session_replaced", session: next } }));
-					return result;
-				},
-			}),
-		});
-		const client = await rig.client("a", { major: 1, minor: 0 });
-		const session = rig.fake.fake.seed({ cwd: RIG_CWD });
-		expect(await client.request("session.attach", { session })).toMatchObject({
-			error: { code: "unknown_session", message: "the session went away while attaching" },
-		});
-		expect(await client.request("abort", { session })).toMatchObject({ error: { code: "not_attached" } });
-	});
-
 	test("an open or a close that throws before it returns a promise is a failure like any other", async () => {
 		let failOpen = true;
 		const rig = await startCoreRig({

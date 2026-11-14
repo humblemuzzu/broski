@@ -121,7 +121,6 @@ describe("a repeated prompt after the session was closed and hosted again", () =
 			mode: "start" as const,
 			text: "once only",
 			attachments: [],
-			mentions: [],
 		};
 		let sent = 0;
 		const first = await ledger.submit(live.ref, input, (i) => {

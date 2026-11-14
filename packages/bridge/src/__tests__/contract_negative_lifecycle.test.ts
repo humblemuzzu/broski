@@ -1,12 +1,11 @@
 import { describe, test } from "bun:test";
 import type { TranscriptReadResult } from "../contract/read-results";
 import { emptySnapshot } from "../contract/session-reducer";
-import { MINIMAL_TRAITS } from "../contract/testing/fake-data";
 import {
 	closeDetachesWithoutAborting,
 	disposeSilencesEverything,
 	externalRunsAreLive,
-	runsSurviveARestartWhenDurable,
+	sessionsSurviveARestart,
 	snapshotsMatchTheEvents,
 } from "../contract/testing/rules-lifecycle";
 import {
@@ -226,7 +225,7 @@ function breakInstanceCatalogAfterDispose() {
 				...backend,
 				dispose: async () => {
 					await backend.dispose();
-					const listed = await backend.listSessions({ archived: false }, { limit: 1 });
+					const listed = await backend.listSessions({}, { limit: 1 });
 					const [row] = listed.status === "accepted" ? listed.page.items : [];
 					if (row) queueMicrotask(() => host.catalog.emit({ type: "session_updated", summary: row }));
 				},
@@ -269,28 +268,11 @@ describe("the restart rule fails", () => {
 					return { ...next, getSession: async () => refused };
 				},
 			})),
-			runsSurviveARestartWhenDurable,
+			sessionsSurviveARestart,
 			/did not survive a restart/,
 		));
 
-	test("for durable runs that end with the bridge", () =>
-		fails(
-			breakBackend(
-				(backend) => ({ traits: { ...backend.traits, durableRuns: true } }),
-				honest({ traits: MINIMAL_TRAITS }),
-			),
-			runsSurviveARestartWhenDurable,
-			/durableRuns is true but the run ended with the restart/,
-		));
-
-	test("for runs that survive though not declared durable", () =>
-		fails(
-			breakBackend((backend) => ({ traits: { ...backend.traits, durableRuns: false } })),
-			runsSurviveARestartWhenDurable,
-			/durableRuns is false but the run survived/,
-		));
-
-	test("for a run that survives under another id", () =>
+	test("for a run that survives a restart", () =>
 		fails(
 			breakDriver((driver) => ({
 				restart: async (host) => {
@@ -299,15 +281,14 @@ describe("the restart rule fails", () => {
 						...next,
 						open: async (target, sink) => {
 							const opened = await next.open(target, sink);
-							return opened.status === "accepted" && opened.snapshot.run
-								? { ...opened, snapshot: { ...opened.snapshot, run: { ...opened.snapshot.run, runId: "renamed" } } }
-								: opened;
+							const run = { runId: "survivor", trigger: "prompt" as const, startedAt: 0, items: [], droppedItems: 0 };
+							return opened.status === "accepted" ? { ...opened, snapshot: { ...opened.snapshot, run } } : opened;
 						},
 					};
 				},
 			})),
-			runsSurviveARestartWhenDurable,
-			/the run that survived has another id/,
+			sessionsSurviveARestart,
+			/a run survived the restart/,
 		));
 });
 
