@@ -32,6 +32,8 @@ jobs:
         run: bunx biome check src/ scripts/ --diagnostic-level=error
       - name: Contract layers
         run: bun run check:layers
+      - name: Generated contract is current
+        run: bun run contract:check
       - name: Test
         run: bun test
       - name: Perf budget (synthetic, 3 runs)

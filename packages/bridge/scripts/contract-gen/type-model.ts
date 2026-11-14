@@ -26,7 +26,7 @@ export type TypeDef =
 const JSON_TYPE = "JsonValue";
 
 /**
- * The contract as types the Dart emitter understands. Anything outside the supported subset — an
+ * The contract as types a typed client can model one to one. Anything outside that subset — an
  * anonymous object or enum, `null`, an untagged union — is an error naming its path.
  */
 export function typeModel(document: ContractSchemaDocument): Map<string, TypeDef> {

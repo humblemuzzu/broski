@@ -1,11 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { canonicalJson } from "../../scripts/contract-gen/canonical-json";
-import { contractConstants, dartConstantName } from "../../scripts/contract-gen/constants";
-import { DartCodec } from "../../scripts/contract-gen/dart-codec";
-import { sharedFields } from "../../scripts/contract-gen/dart-union";
+import { contractConstants } from "../../scripts/contract-gen/constants";
 import { compactLongStrings, expandLongStrings, RUNS_KEY } from "../../scripts/contract-gen/fixture-text";
-import { contractSchemaDocument } from "../../scripts/contract-gen/json-schema";
-import { typeModel } from "../../scripts/contract-gen/type-model";
 
 describe("long strings in fixtures", () => {
 	test("are written as code-point runs and expand back exactly", () => {
@@ -38,34 +34,9 @@ describe("canonical JSON", () => {
 
 describe("generated constants", () => {
 	test("name every bound, the page bound and the core's request deadline", () => {
-		const names = contractConstants().map(([name]) => dartConstantName(name));
-		expect(names).toContain("contractMaxTextChars");
-		expect(names).toContain("contractMaxPageLimit");
-		expect(names).toContain("contractRequestDeadlineMs");
-	});
-
-	test("refuse a name that is not SCREAMING_CASE", () => {
-		expect(() => dartConstantName("maxText")).toThrow();
-	});
-});
-
-describe("union getters", () => {
-	const types = typeModel(contractSchemaDocument());
-	const codec = new DartCodec(types);
-	const shared = (name: string) => {
-		const union = types.get(name);
-		if (union?.kind !== "union") throw new Error(`${name} is not a union`);
-		return sharedFields(union, types, codec).map((field) => `${field.type} ${field.name}`);
-	};
-
-	test("are the fields every member has with one type", () => {
-		expect(shared("TranscriptItem")).toEqual(["TranscriptItemId id", "Timestamp? at"]);
-		expect(shared("ClientMessage")).toEqual(["RequestId requestId"]);
-		expect(shared("FormFieldSpec")).toContain("FieldKey key");
-	});
-
-	test("leave out a field whose type differs between members", () => {
-		expect(shared("BackendCall")).toEqual([]);
-		expect(shared("ServerMessage")).toEqual([]);
+		const names = contractConstants().map(([name]) => name);
+		expect(names).toContain("MAX_TEXT_CHARS");
+		expect(names).toContain("MAX_PAGE_LIMIT");
+		expect(names).toContain("REQUEST_DEADLINE_MS");
 	});
 });

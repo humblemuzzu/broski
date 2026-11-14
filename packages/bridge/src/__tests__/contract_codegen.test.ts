@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { enumMemberName, fieldName, typeName } from "../../scripts/contract-gen/dart-names";
 import {
 	type ContractSchemaDocument,
 	contractSchemaDocument,
@@ -62,19 +61,6 @@ describe("the type model", () => {
 describe("generated order", () => {
 	test("follows code units, not the locale", () => {
 		expect(["b", "B", "a", "_", "é"].sort(byCodeUnits)).toEqual(["B", "_", "a", "b", "é"]);
-	});
-});
-
-describe("Dart names", () => {
-	test("refuse what would not compile or would clash in a Flutter file", () => {
-		expect(() => typeName("FormField")).toThrow();
-		expect(() => typeName("String")).toThrow();
-		expect(() => fieldName("Owner", "default")).toThrow();
-		expect(() => fieldName("Owner", "hashCode")).toThrow();
-		expect(() => fieldName("Owner", "other")).toThrow();
-		expect(() => enumMemberName("Owner", "values")).toThrow();
-		expect(enumMemberName("BackendId", "claude-code")).toBe("claudeCode");
-		expect(enumMemberName("PlanItemStatus", "in_progress")).toBe("inProgress");
 	});
 });
 
