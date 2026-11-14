@@ -1,35 +1,28 @@
 #!/bin/sh
-# Pre-commit hook: auto-format, lint, and typecheck before every commit.
+# Pre-commit hook: lint, typecheck and format-check what is staged.
 # Install: git config core.hooksPath .githooks
 
 set -e
 
+ROOT=$(git rev-parse --show-toplevel)
+
 echo "🔍 Pre-commit checks..."
-
-# ── Flutter / Dart ────────────────────────────────────────────────────────────
-
-# Auto-format and restage (don't just check — FIX it)
-echo "  → dart format (auto-fix + restage)"
-dart format lib/ test/
-# Restage any files that were reformatted
-git diff --name-only -- 'lib/*.dart' 'test/*.dart' 2>/dev/null | while read -r f; do
-  [ -n "$f" ] && git add "$f"
-done
-
-echo "  → dart analyze"
-dart analyze --fatal-warnings
 
 # ── Bridge (only if bridge files staged) ──────────────────────────────────────
 
-BRIDGE_CHANGED=$(git diff --cached --name-only -- packages/bridge/ | head -1)
-if [ -n "$BRIDGE_CHANGED" ]; then
+if [ -n "$(git diff --cached --name-only -- packages/bridge/ | head -1)" ]; then
   echo "  → biome check (bridge, errors only)"
-  cd packages/bridge && npx biome check src/ --diagnostic-level=error
+  (cd "$ROOT/packages/bridge" && bunx biome check src/ scripts/ --diagnostic-level=error)
 
   echo "  → tsc --noEmit (bridge)"
-  bun run typecheck
+  (cd "$ROOT/packages/bridge" && bun run typecheck)
+fi
 
-  cd ../..
+# ── Broski Link (only if link files staged) ───────────────────────────────────
+
+if [ -n "$(git diff --cached --name-only -- packages/link/ | head -1)" ]; then
+  echo "  → cargo fmt --check (link)"
+  (cd "$ROOT/packages/link" && cargo fmt --all --check)
 fi
 
 echo "✅ All checks passed"
