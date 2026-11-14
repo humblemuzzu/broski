@@ -1,5 +1,5 @@
 /**
- * A store over a temp config dir with the real SDK (a worker under that dir, D36), a temp `HOME` (so the trash stays
+ * A store over a temp config dir with the real SDK bound to it (`isolated-sdk.ts`), a temp `HOME` (so the trash stays
  * in the temp tree) and a recording catalog. Nothing here reaches the real `~/.claude` or the real trash.
  */
 
@@ -8,11 +8,11 @@ import { join } from "node:path";
 import { CatalogFeed } from "../../../../backends/claude-code/catalog-feed";
 import { createOwnership } from "../../../../backends/claude-code/owned";
 import type { ClaudeSdk, LiveOverlay, LiveRow, Ownership, SessionStore } from "../../../../backends/claude-code/ports";
-import { createClaudeSdk } from "../../../../backends/claude-code/sdk/claude-sdk";
 import { createClaudeCodeServices } from "../../../../backends/claude-code/services";
 import { createSessionStore } from "../../../../backends/claude-code/store/session-store";
 import type { CatalogEvent, SessionId } from "../../../../contract";
 import { type ClaudeHome, createClaudeHome } from "../../../helpers/claude-home";
+import { isolatedClaudeSdk } from "../../helpers/isolated-sdk";
 
 export interface SdkCalls {
 	getSessionInfo: number;
@@ -78,6 +78,7 @@ export async function createStoreWorld(existing?: ClaudeHome): Promise<StoreWorl
 	const home = existing ?? createClaudeHome({ git: false });
 	const stateDir = join(home.root, "broski-state");
 	const env = {
+		CLAUDE_CONFIG_DIR: home.configDir,
 		HOME: home.homeDir,
 		XDG_DATA_HOME: join(home.homeDir, ".local", "share"),
 	};
@@ -90,14 +91,13 @@ export async function createStoreWorld(existing?: ClaudeHome): Promise<StoreWorl
 		listSubagents: 0,
 		forkSession: 0,
 	};
-	const real = createClaudeSdk({ configDir: home.configDir, env });
+	const real = isolatedClaudeSdk(env);
 	const sdk = counting(real, calls);
 	const events: CatalogEvent[] = [];
 	const live = new FakeLive();
 	const build = async () => {
 		const services = createClaudeCodeServices({
 			cli: { found: false, reason: "the store never starts a CLI" },
-			configDir: home.configDir,
 			env,
 			stateDir,
 			clientApp: "broski/store-test",

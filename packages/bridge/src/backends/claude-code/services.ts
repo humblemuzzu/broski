@@ -14,8 +14,6 @@ export type CliLocation =
 
 export interface ClaudeCodeFactoryOptions {
 	readonly cli: CliLocation;
-	/** Unset in production (D36): the bridge's own `CLAUDE_CONFIG_DIR`, else `~/.claude`. Tests: a temp dir. */
-	readonly configDir?: string;
 	/** The bridge's login-shell environment (`platform/shell-env.ts`). */
 	readonly env: Readonly<Record<string, string>>;
 	/** The owner journal and the catalogue cache: `~/.broski/claude-code/` in production. */
@@ -26,7 +24,7 @@ export interface ClaudeCodeFactoryOptions {
 	readonly expectedCliVersion?: string;
 	readonly terminal?: TerminalOptions;
 	readonly clock?: Clock;
-	/** Unit tests inject a fake; otherwise `createClaudeSdk`. */
+	/** Otherwise `createClaudeSdk()`; tests give one bound to their temp home. */
 	readonly sdk?: ClaudeSdk;
 	/** Tests only: the uid the CLI runs as; otherwise the bridge's own. */
 	readonly uid?: number;
@@ -35,8 +33,7 @@ export interface ClaudeCodeFactoryOptions {
 export interface ClaudeCodeServices {
 	readonly sdk: ClaudeSdk;
 	readonly cli: CliLocation;
-	readonly configDir: string | undefined;
-	/** D4's environment for every CLI, `CLAUDE_CONFIG_DIR` included when `configDir` is set. */
+	/** D4's environment for every CLI. */
 	readonly cliEnv: Readonly<Record<string, string>>;
 	/** `bypassPermissions` can be offered and its flag passed (`process/bypass.ts`). */
 	readonly mayBypassPermissions: boolean;
@@ -47,11 +44,10 @@ export interface ClaudeCodeServices {
 }
 
 export function createClaudeCodeServices(options: ClaudeCodeFactoryOptions): ClaudeCodeServices {
-	const env = cliEnv({ base: options.env, clientApp: options.clientApp, configDir: options.configDir });
+	const env = cliEnv({ base: options.env, clientApp: options.clientApp });
 	return {
-		sdk: options.sdk ?? createClaudeSdk({ configDir: options.configDir, env }),
+		sdk: options.sdk ?? createClaudeSdk(),
 		cli: options.cli,
-		configDir: options.configDir,
 		cliEnv: env,
 		mayBypassPermissions: mayBypassPermissions("uid" in options ? options.uid : processUid(), env),
 		stateDir: options.stateDir,

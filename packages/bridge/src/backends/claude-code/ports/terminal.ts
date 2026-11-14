@@ -25,8 +25,6 @@ export type TerminalAskHandler = (
 ) => Promise<TerminalPermissionDecision | undefined>;
 
 export interface TerminalOptions {
-	/** False: no session opens watch-only. Default true. */
-	readonly watch?: boolean;
 	/** The server's hook receiver takes the adapter's handler here once, at start (D26). */
 	readonly hookAsks?: (handler: TerminalAskHandler) => void;
 }

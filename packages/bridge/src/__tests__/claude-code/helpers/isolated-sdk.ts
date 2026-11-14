@@ -1,17 +1,45 @@
 /**
- * `SessionFunctions` run in a worker thread whose `process.env` is the one given (D36): the SDK reads
- * `CLAUDE_CONFIG_DIR` from its thread's environment, and a Bun worker has its own. The bridge's `process.env` is never
- * written. The worker starts on the first call and is unref'd, so it never keeps the bridge alive.
+ * A `ClaudeSdk` for one test home. The SDK's session and settings functions read `CLAUDE_CONFIG_DIR` from the
+ * environment of the thread they run in, and some read it only after their first `await` (`forkSession`,
+ * `renameSession`, `resolveSettings`), so swapping `process.env` around a call would leak into concurrent tests. They
+ * run instead in a worker thread started with the home's environment: a Bun worker has its own `process.env`, and the
+ * test process's is never written. `query()` needs nothing of the kind, since the CLI gets the home in `Options.env`.
  */
 
 import { Worker } from "node:worker_threads";
-import type { SessionFunctions } from "../ports/sdk";
-import type { SessionFunctionName, WorkerCall, WorkerReply } from "./worker-protocol";
+import type { ClaudeSdk, SessionFunctions } from "../../../backends/claude-code/ports/sdk";
+import { createClaudeSdk } from "../../../backends/claude-code/sdk/claude-sdk";
+import type { SessionFunctionName, WorkerCall, WorkerReply } from "./isolated-sdk-protocol";
 
 type Waiter = (reply: WorkerReply) => void;
 type ArgsOf<K extends SessionFunctionName> = Parameters<SessionFunctions[K]>;
 
-export class WorkerSessionFunctions implements SessionFunctions {
+/** `env` must name the home's `CLAUDE_CONFIG_DIR`; the worker starts on the first call and ends at `dispose()`. */
+export function isolatedClaudeSdk(env: Readonly<Record<string, string>>): ClaudeSdk {
+	const configDir = env.CLAUDE_CONFIG_DIR;
+	if (configDir === undefined) throw new Error("an isolated Claude SDK needs CLAUDE_CONFIG_DIR in its env");
+	const real = createClaudeSdk();
+	const worker = new WorkerSessionFunctions(env);
+	return {
+		query: real.query,
+		filterEscalatingDefaultMode: real.filterEscalatingDefaultMode,
+		listSessions: worker.listSessions,
+		getSessionInfo: worker.getSessionInfo,
+		getSessionMessages: worker.getSessionMessages,
+		getSubagentMessages: worker.getSubagentMessages,
+		listSubagents: worker.listSubagents,
+		forkSession: worker.forkSession,
+		renameSession: worker.renameSession,
+		resolveSettings: worker.resolveSettings,
+		configRoot: () => configDir.normalize("NFC"),
+		dispose: async () => {
+			await worker.dispose();
+			await real.dispose();
+		},
+	};
+}
+
+class WorkerSessionFunctions implements SessionFunctions {
 	private worker: Worker | undefined;
 	private nextId = 1;
 	private readonly waiting = new Map<number, Waiter>();
@@ -86,7 +114,7 @@ export class WorkerSessionFunctions implements SessionFunctions {
 
 	private started(): Worker {
 		if (this.worker) return this.worker;
-		const worker = new Worker(new URL("./sdk-worker.ts", import.meta.url), { env: { ...this.env } });
+		const worker = new Worker(new URL("./isolated-sdk-worker.ts", import.meta.url), { env: { ...this.env } });
 		worker.unref();
 		worker.on("message", (reply: WorkerReply) => this.settle(reply));
 		worker.on("error", (error: Error) => this.lost(worker, error.message));

@@ -5,7 +5,6 @@ export interface CliEnvInput {
 	readonly base: Readonly<Record<string, string>>;
 	/** `broski/<version>`. */
 	readonly clientApp: string;
-	readonly configDir?: string;
 }
 
 /** The SDK stamps these only when absent; inherited from a terminal `claude`, they would mark sessions `cli`. */
@@ -17,6 +16,5 @@ export function cliEnv(input: CliEnvInput): Record<string, string> {
 	env.CLAUDE_AGENT_SDK_CLIENT_APP = input.clientApp;
 	env.CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS = "1";
 	env.CLAUDE_CODE_STARTUP_FAILURE_RESULTS = "1";
-	if (input.configDir !== undefined) env.CLAUDE_CONFIG_DIR = input.configDir;
 	return env;
 }

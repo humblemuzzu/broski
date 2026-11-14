@@ -1,7 +1,6 @@
 /**
- * A terminal's permission ask from the hook request to the adapter's watch-only session and back (D26), up to the
- * point where the core would route a person's answer to a session it only watches (Step 3b): the answer is given to
- * `answerAsk`, which that routing will call.
+ * A terminal's permission ask from the hook request to the adapter's watch-only session and back: the receiver holds
+ * the session open as the core does, and a person's answer goes to that open session's `answer`.
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
@@ -10,7 +9,14 @@ import { join } from "node:path";
 import type { TerminalAskHandler } from "../../../backends/claude-code/ports/terminal";
 import { CLAUDE_CODE_TRAITS } from "../../../backends/claude-code/traits";
 import { humanDenial } from "../../../backends/claude-code/ui/denial";
-import type { Interaction, InteractionAnswer, OpenResult, SessionSnapshot, SinkRecord } from "../../../contract";
+import type {
+	ActionResult,
+	Interaction,
+	InteractionAnswer,
+	OpenResult,
+	SessionSnapshot,
+	SinkRecord,
+} from "../../../contract";
 import { streamViolations, unsettledParts } from "../../../contract/testing/stream-rules";
 import { createTerminalHookReceiver } from "../../../server/cc-terminal-hook";
 import { type ClaudeHome, createClaudeHome } from "../../helpers/claude-home";
@@ -123,6 +129,14 @@ async function pendingInteraction(count = 1): Promise<Interaction> {
 	return found;
 }
 
+/** The open the receiver's hold made, or the one a phone keeps: where the core sends a person's answer. */
+async function answer(given: InteractionAnswer): Promise<ActionResult> {
+	const open = viewed ?? opens.at(-1);
+	if (open?.status !== "accepted" || open.session.answer === undefined)
+		throw new Error("no open session takes answers");
+	return open.session.answer(given);
+}
+
 const reply = (interaction: Interaction, optionId: string, message?: string): InteractionAnswer => ({
 	interactionId: interaction.id,
 	reply: { kind: "tool_permission", optionId, grantIds: [], ...(message !== undefined && { message }) },
@@ -154,7 +168,7 @@ describe("a terminal ask on a session the bridge only watches", () => {
 		]);
 		expect(interaction.blocksRun).toBe(true);
 		expect(interaction.runId).toBeDefined();
-		expect(rig.watch.answerAsk(sessionId, reply(interaction, ids.allow))).toEqual({ status: "accepted" });
+		expect(await answer(reply(interaction, ids.allow))).toEqual({ status: "accepted" });
 		expect(await body(response)).toEqual({
 			hookSpecificOutput: { hookEventName: "PermissionRequest", decision: { behavior: "allow" } },
 		});
@@ -173,7 +187,7 @@ describe("a terminal ask on a session the bridge only watches", () => {
 		const response = hook.handle(ask());
 		const interaction = await pendingInteraction();
 		expect(interaction.origin).toMatchObject({ toolCallId: "toolu_77", toolName: "Bash" });
-		expect(rig.watch.answerAsk(sessionId, reply(interaction, ids.deny, "not that directory"))).toEqual({
+		expect(await answer(reply(interaction, ids.deny, "not that directory"))).toEqual({
 			status: "accepted",
 		});
 		expect(await body(response)).toEqual({
@@ -188,17 +202,17 @@ describe("a terminal ask on a session the bridge only watches", () => {
 		const hook = receiver();
 		const stop = hook.handle(ask());
 		const first = await pendingInteraction(1);
-		rig.watch.answerAsk(sessionId, reply(first, ids.stop));
+		await answer(reply(first, ids.stop));
 		expect(await body(stop)).toMatchObject({ hookSpecificOutput: { decision: { behavior: "deny", interrupt: true } } });
 
 		const dismissed = hook.handle(ask());
 		const second = await pendingInteraction(2);
-		rig.watch.answerAsk(sessionId, { interactionId: second.id, reply: { kind: "cancel", stopRun: false } });
+		await answer({ interactionId: second.id, reply: { kind: "cancel", stopRun: false } });
 		expect(await body(dismissed)).toEqual({});
 
 		const stopped = hook.handle(ask());
 		const third = await pendingInteraction(3);
-		rig.watch.answerAsk(sessionId, { interactionId: third.id, reply: { kind: "cancel", stopRun: true } });
+		await answer({ interactionId: third.id, reply: { kind: "cancel", stopRun: true } });
 		expect(await body(stopped)).toMatchObject({
 			hookSpecificOutput: { decision: { behavior: "deny", interrupt: true } },
 		});
@@ -211,28 +225,25 @@ describe("a terminal ask on a session the bridge only watches", () => {
 		watchedByAPhone = true;
 		const response = hook.handle(ask());
 		const interaction = await pendingInteraction();
-		expect(rig.watch.answerAsk(sessionId, reply(interaction, "make-it-so"))).toMatchObject({
+		expect(await answer(reply(interaction, "make-it-so"))).toMatchObject({
 			status: "rejected",
 			rejection: { code: "invalid_input" },
 		});
-		expect(
-			rig.watch.answerAsk(sessionId, { interactionId: interaction.id, reply: { kind: "confirm", confirmed: true } }),
-		).toMatchObject({ status: "rejected", rejection: { code: "invalid_input" } });
+		expect(await answer({ interactionId: interaction.id, reply: { kind: "confirm", confirmed: true } })).toMatchObject({
+			status: "rejected",
+			rejection: { code: "invalid_input" },
+		});
 		expect(types(rig.records)).not.toContain("interaction_resolved");
-		rig.watch.answerAsk(sessionId, reply(interaction, ids.allow));
+		await answer(reply(interaction, ids.allow));
 		await response;
 		expect(viewer.status).toBe("accepted");
-		expect(rig.watch.answerAsk(sessionId, reply(interaction, ids.deny))).toMatchObject({
+		expect(await answer(reply(interaction, ids.deny))).toMatchObject({
 			status: "rejected",
 			rejection: { code: "stale" },
 		});
-		expect(rig.watch.answerAsk(sessionId, { ...reply(interaction, ids.deny), interactionId: "nope" })).toMatchObject({
+		expect(await answer({ ...reply(interaction, ids.deny), interactionId: "nope" })).toMatchObject({
 			status: "rejected",
 			rejection: { code: "stale" },
-		});
-		expect(rig.watch.answerAsk(crypto.randomUUID(), reply(interaction, ids.deny))).toMatchObject({
-			status: "rejected",
-			rejection: { code: "not_found" },
 		});
 	});
 
@@ -252,7 +263,7 @@ describe("a terminal ask on a session the bridge only watches", () => {
 			interactionId: interaction.id,
 			reason: "withdrawn",
 		});
-		expect(rig.watch.answerAsk(sessionId, reply(interaction, ids.allow))).toMatchObject({ status: "rejected" });
+		expect(await answer(reply(interaction, ids.allow))).toMatchObject({ status: "rejected" });
 	});
 
 	test("the terminal writes its tool call a moment after it asks: the ask is found to belong to it and goes with it", async () => {
@@ -293,7 +304,7 @@ describe("a terminal ask on a session the bridge only watches", () => {
 		expect(runs).toHaveLength(2);
 		expect(interaction.runId).toBe(runs[1]);
 		expect(types(rig.records).filter((kind) => kind === "run_finished")).toHaveLength(1);
-		rig.watch.answerAsk(sessionId, reply(interaction, ids.allow));
+		await answer(reply(interaction, ids.allow));
 		await response;
 		expect(streamViolations(rig.records, CLAUDE_CODE_TRAITS, start)).toEqual([]);
 	});
@@ -308,7 +319,7 @@ describe("a terminal ask on a session the bridge only watches", () => {
 		await rig.waitFor((records) => records.some((r) => r.event.type === "block_finished"));
 		await Bun.sleep(700);
 		expect(types(rig.records)).not.toContain("run_finished");
-		rig.watch.answerAsk(sessionId, reply(interaction, ids.deny));
+		await answer(reply(interaction, ids.deny));
 		await response;
 	});
 
@@ -369,8 +380,8 @@ describe("a terminal ask on a session the bridge only watches", () => {
 		const second = hook.handle(ask({ tool_input: { command: "two" } }));
 		const [a, b] = [await pendingInteraction(1), await pendingInteraction(2)];
 		expect(a.id).not.toBe(b.id);
-		rig.watch.answerAsk(sessionId, reply(b, ids.deny));
-		rig.watch.answerAsk(sessionId, reply(a, ids.allow));
+		await answer(reply(b, ids.deny));
+		await answer(reply(a, ids.allow));
 		expect(await body(first)).toMatchObject({ hookSpecificOutput: { decision: { behavior: "allow" } } });
 		expect(await body(second)).toMatchObject({ hookSpecificOutput: { decision: { behavior: "deny" } } });
 	});
@@ -383,7 +394,7 @@ describe("a terminal ask on a session the bridge only watches", () => {
 		expect(watching.status).toBe("accepted");
 		const response = hook.handle(ask());
 		const interaction = await pendingInteraction();
-		rig.watch.answerAsk(sessionId, reply(interaction, ids.allow));
+		await answer(reply(interaction, ids.allow));
 		await response;
 		if (watching.status !== "accepted") return;
 		append(prompt("more"));
@@ -396,18 +407,5 @@ describe("a terminal ask on a session the bridge only watches", () => {
 		const missing = crypto.randomUUID();
 		expect(await body(hook.handle(ask({ session_id: missing })))).toEqual({});
 		expect(rig.records).toEqual([]);
-	});
-});
-
-describe("watching turned off", () => {
-	test("the adapter gives the server no handler, so no ask is ever raised", async () => {
-		let given = false;
-		const off = terminalRig(home, {
-			terminal: { watch: false, hookAsks: () => (given = true) },
-		});
-		await off.watch.start();
-		expect(given).toBe(false);
-		expect(await off.watch.writing(sessionId)).toBe(false);
-		await off.watch.dispose();
 	});
 });

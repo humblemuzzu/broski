@@ -6,11 +6,11 @@ import { CatalogFeed } from "../../../backends/claude-code/catalog-feed";
 import { createCatalogue } from "../../../backends/claude-code/models/catalog";
 import type { CatalogueAccess } from "../../../backends/claude-code/ports/catalogue";
 import type { QueryParams } from "../../../backends/claude-code/ports/sdk";
-import { createClaudeSdk } from "../../../backends/claude-code/sdk/claude-sdk";
 import { type ClaudeCodeServices, createClaudeCodeServices } from "../../../backends/claude-code/services";
 import type { CatalogEvent } from "../../../contract";
 import { type ClaudeHome, claudeTestEnv, createClaudeHome } from "../../helpers/claude-home";
 import { type ScriptedAnthropic, serveScriptedAnthropic } from "../../helpers/scripted-anthropic-server";
+import { isolatedClaudeSdk } from "../helpers/isolated-sdk";
 import { testClaudeBinary } from "../helpers/test-claude-cli";
 
 export const CLI_TEST_MS = 60_000;
@@ -65,7 +65,7 @@ export function startRealWorld(options: RealWorldOptions = {}, prepare?: (home: 
 	if (options.signedOut) delete base.ANTHROPIC_API_KEY;
 	const env = { ...base, ...options.env };
 	const cliPath = options.cliPath ?? testClaudeBinary();
-	const sdk = createClaudeSdk({ env });
+	const sdk = isolatedClaudeSdk(env);
 	const started: QueryParams[] = [];
 	const counting = {
 		...sdk,

@@ -7,8 +7,8 @@ import { afterAll, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createClaudeSdk } from "../../../backends/claude-code/sdk/claude-sdk";
 import { writeFixtureSession } from "../helpers/fixture-transcripts";
+import { isolatedClaudeSdk } from "../helpers/isolated-sdk";
 
 const root = realpathSync(mkdtempSync(join(tmpdir(), "broski-cc-order-")));
 afterAll(() => rmSync(root, { recursive: true, force: true }));
@@ -28,7 +28,7 @@ test("listSessions: newest first, ties by sessionId descending, paged or not", a
 		const at = index === 3 ? newer : tied;
 		utimesSync(path, at, at);
 	});
-	const sdk = createClaudeSdk({ configDir, env: {} });
+	const sdk = isolatedClaudeSdk({ CLAUDE_CONFIG_DIR: configDir });
 	try {
 		const expected = [3, 1, 2, 0].map((index) => ids[index] ?? "");
 		expect((await sdk.listSessions({ dir: cwd })).map((row) => row.sessionId)).toEqual(expected);

@@ -1,14 +1,7 @@
 /** The `TerminalWatch` `backend.ts` builds (D21): a session another process writes opens watch-only, never resumed. */
 
 import { stat } from "node:fs/promises";
-import type {
-	ActionResult,
-	InteractionAnswer,
-	OpenResult,
-	SessionId,
-	SessionRef,
-	SessionSink,
-} from "../../../contract";
+import type { InteractionAnswer, OpenResult, SessionId, SessionRef, SessionSink } from "../../../contract";
 import type { TerminalDeps } from "../ports/deps";
 import type { StoredSession } from "../ports/store";
 import type { TerminalWatch } from "../ports/terminal";
@@ -22,19 +15,10 @@ export const WRITING_MS = 10_000;
 export const OWN_FLUSH_MS = 1_000;
 const MAX_KNOWN_PATHS = 5_000;
 
-/**
- * `answerAsk` answers by session id what the open session's `answer` (contract README §5 rule 14) answers on its own;
- * `backend.ts` sees a `TerminalWatch`.
- */
-export interface TerminalWatchWithAsks extends TerminalWatch {
-	answerAsk(sessionId: SessionId, answer: InteractionAnswer): ActionResult;
-}
-
-export function createTerminalWatch(deps: TerminalDeps): TerminalWatchWithAsks {
+export function createTerminalWatch(deps: TerminalDeps): TerminalWatch {
 	const { services } = deps;
-	const enabled = services.terminal.watch !== false;
 	/** Only a bridge that installed the ask hook (the server gave `hookAsks`) has asks here to answer. */
-	const takesAsks = enabled && services.terminal.hookAsks !== undefined;
+	const takesAsks = services.terminal.hookAsks !== undefined;
 	const sessions = new TerminalSessions(services.clock);
 	const paths = new Map<SessionId, string>();
 
@@ -53,7 +37,7 @@ export function createTerminalWatch(deps: TerminalDeps): TerminalWatchWithAsks {
 	}
 
 	async function writing(sessionId: SessionId): Promise<boolean> {
-		if (!enabled || deps.hosted(sessionId)) return false;
+		if (deps.hosted(sessionId)) return false;
 		if (sessions.isAsked(sessionId)) return true;
 		const path = await pathOf(sessionId);
 		if (path === undefined) return false;
@@ -94,9 +78,8 @@ export function createTerminalWatch(deps: TerminalDeps): TerminalWatchWithAsks {
 	return {
 		writing,
 		openWatchOnly,
-		answerAsk: (sessionId, answer) => sessions.answer(sessionId, answer),
 		start: async () => {
-			if (enabled) services.terminal.hookAsks?.(createHookAsks({ sessions, hosted: deps.hosted }));
+			services.terminal.hookAsks?.(createHookAsks({ sessions, hosted: deps.hosted }));
 		},
 		dispose: async () => {
 			sessions.dispose();

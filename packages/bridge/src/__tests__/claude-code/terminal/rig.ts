@@ -4,11 +4,11 @@ import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { CatalogFeed } from "../../../backends/claude-code/catalog-feed";
 import { CLAUDE_CODE_MAPPING } from "../../../backends/claude-code/mapping";
-import type { StoredSession, TerminalOptions } from "../../../backends/claude-code/ports";
+import type { StoredSession, TerminalOptions, TerminalWatch } from "../../../backends/claude-code/ports";
 import type { Clock } from "../../../backends/claude-code/ports/time";
 import { SYSTEM_CLOCK } from "../../../backends/claude-code/ports/time";
 import { createClaudeCodeServices } from "../../../backends/claude-code/services";
-import { createTerminalWatch, type TerminalWatchWithAsks } from "../../../backends/claude-code/terminal/watch-only";
+import { createTerminalWatch } from "../../../backends/claude-code/terminal/watch-only";
 import type { OpenResult, Rejected, SessionRef, SessionSink, SinkRecord } from "../../../contract";
 import type { ClaudeHome } from "../../helpers/claude-home";
 import { fakeClaudeSdk } from "../helpers/fake-claude-sdk";
@@ -36,7 +36,7 @@ export interface RigOptions {
 }
 
 export interface TerminalRig {
-	readonly watch: TerminalWatchWithAsks;
+	readonly watch: TerminalWatch;
 	readonly records: SinkRecord[];
 	readonly sink: SessionSink;
 	readonly hosted: Set<string>;
@@ -56,7 +56,6 @@ export function terminalRig(home: ClaudeHome, options: RigOptions = {}): Termina
 		env: {},
 		stateDir: join(home.root, "state"),
 		clientApp: "broski/test",
-		configDir: home.configDir,
 		sdk: fakeClaudeSdk({ configRoot: home.configDir }),
 		clock,
 		terminal: options.terminal,

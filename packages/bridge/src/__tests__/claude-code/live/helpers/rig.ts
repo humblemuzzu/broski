@@ -28,6 +28,7 @@ import {
 } from "../../../helpers/scripted-anthropic-server";
 import { fakeClaudeSdk } from "../../helpers/fake-claude-sdk";
 import type { FakeQuery } from "../../helpers/fake-query";
+import { isolatedClaudeSdk } from "../../helpers/isolated-sdk";
 import { testClaudeBinary } from "../../helpers/test-claude-cli";
 import { ManualClock } from "./manual-clock";
 import {
@@ -130,13 +131,14 @@ export function realRig(
 	const home = createClaudeHome();
 	const server = serveScriptedAnthropic(turns, options.server);
 	const clock = new ManualClock();
+	const env = claudeTestEnv({ url: server.url, home, proxy: server.proxyUrl });
 	const services = createClaudeCodeServices({
 		cli: { found: true, path: testClaudeBinary() },
-		configDir: home.configDir,
-		env: claudeTestEnv({ url: server.url, home, proxy: server.proxyUrl }),
+		env,
 		stateDir: join(home.root, "broski-state"),
 		clientApp: "broski/live-test",
 		clock,
+		sdk: isolatedClaudeSdk(env),
 	});
 	const made = parts(options, services.sdk);
 	const rig = new LiveRig(services, made.store, made.ownership, made.catalogue, made.mapping, made.desk, async () => {

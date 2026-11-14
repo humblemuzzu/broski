@@ -1,8 +1,12 @@
-import type { SessionFunctions } from "../ports/sdk";
-import type { WorkerCall, WorkerReply } from "./worker-protocol";
+/** The worker thread `isolated-sdk.ts` starts: the bridge's own session functions under the environment it was given. */
+
+import { parentPort } from "node:worker_threads";
+import type { SessionFunctions } from "../../../backends/claude-code/ports/sdk";
+import { createClaudeSdk } from "../../../backends/claude-code/sdk/claude-sdk";
+import type { WorkerCall, WorkerReply } from "./isolated-sdk-protocol";
 
 /** Runs one call on `fns` and words the outcome as a reply; never throws. */
-export async function dispatch(fns: SessionFunctions, call: WorkerCall): Promise<WorkerReply> {
+async function dispatch(fns: SessionFunctions, call: WorkerCall): Promise<WorkerReply> {
 	const { id } = call;
 	try {
 		switch (call.fn) {
@@ -26,4 +30,12 @@ export async function dispatch(fns: SessionFunctions, call: WorkerCall): Promise
 	} catch (error) {
 		return { id, fn: call.fn, ok: false, message: error instanceof Error ? error.message : String(error) };
 	}
+}
+
+const port = parentPort;
+if (port) {
+	const sdk = createClaudeSdk();
+	port.on("message", (call: WorkerCall) => {
+		void dispatch(sdk, call).then((reply) => port.postMessage(reply));
+	});
 }

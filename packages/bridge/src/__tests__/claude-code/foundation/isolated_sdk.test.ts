@@ -1,16 +1,16 @@
 /**
- * D36: the SDK's session functions read `CLAUDE_CONFIG_DIR` from their thread's environment, so an explicit config
- * dir runs them in a worker that has it, and the bridge's `process.env` is never written.
+ * The SDK every real-CLI test builds on reads only its own home: its session functions run in a worker under that
+ * home's `CLAUDE_CONFIG_DIR`, and the test process's `process.env` is never written.
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createClaudeSdk, NO_WORKER_IN_A_COMPILED_BRIDGE } from "../../../backends/claude-code/sdk/claude-sdk";
 import { writeFixtureSession } from "../helpers/fixture-transcripts";
+import { isolatedClaudeSdk } from "../helpers/isolated-sdk";
 
-const root = realpathSync(mkdtempSync(join(tmpdir(), "broski-cc-config-dir-")));
+const root = realpathSync(mkdtempSync(join(tmpdir(), "broski-cc-isolated-sdk-")));
 afterAll(() => rmSync(root, { recursive: true, force: true }));
 
 function home(name: string): { configDir: string; cwd: string } {
@@ -28,15 +28,15 @@ function sessionsIn(name: string, count: number) {
 	return { ...place, ids };
 }
 
-describe("D36: an explicit config dir", () => {
-	test("two concurrent reads against two config dirs each see their own sessions", async () => {
+describe("an SDK bound to one test home", () => {
+	test("two concurrent reads against two homes each see their own sessions, never the process's", async () => {
 		const a = sessionsIn("a", 3);
 		const b = sessionsIn("b", 2);
 		const decoy = sessionsIn("decoy", 1);
 		const saved = process.env.CLAUDE_CONFIG_DIR;
 		process.env.CLAUDE_CONFIG_DIR = decoy.configDir;
-		const sdkA = createClaudeSdk({ configDir: a.configDir, env: {} });
-		const sdkB = createClaudeSdk({ configDir: b.configDir, env: {} });
+		const sdkA = isolatedClaudeSdk({ CLAUDE_CONFIG_DIR: a.configDir });
+		const sdkB = isolatedClaudeSdk({ CLAUDE_CONFIG_DIR: b.configDir });
 		try {
 			const reads = await Promise.all([
 				sdkA.listSessions({}),
@@ -60,9 +60,9 @@ describe("D36: an explicit config dir", () => {
 		}
 	});
 
-	test("mutations run there too, and a disposed port refuses", async () => {
+	test("mutations that read the config dir after an await land there too, and a disposed SDK refuses", async () => {
 		const c = sessionsIn("c", 1);
-		const sdk = createClaudeSdk({ configDir: c.configDir, env: {} });
+		const sdk = isolatedClaudeSdk({ CLAUDE_CONFIG_DIR: c.configDir });
 		const [sessionId = ""] = c.ids;
 		try {
 			await sdk.renameSession(sessionId, "Renamed", { dir: c.cwd });
@@ -83,28 +83,5 @@ describe("D36: an explicit config dir", () => {
 			(error: Error) => error.message,
 		);
 		expect(late).toContain("disposed");
-	});
-
-	test("in a compiled bridge, which carries no worker, every session read refuses with why; none starts a worker", async () => {
-		const d = sessionsIn("d", 1);
-		const sdk = createClaudeSdk({ configDir: d.configDir, env: {}, compiled: true });
-		const [sessionId = ""] = d.ids;
-		const said = await Promise.all(
-			[
-				sdk.listSessions({ dir: d.cwd }),
-				sdk.getSessionInfo(sessionId),
-				sdk.getSessionMessages(sessionId),
-				sdk.renameSession(sessionId, "x"),
-				sdk.resolveSettings({ cwd: d.cwd }),
-			].map((call) =>
-				Promise.resolve(call).then(
-					() => "answered",
-					(error: Error) => error.message,
-				),
-			),
-		);
-		expect(new Set(said)).toEqual(new Set([NO_WORKER_IN_A_COMPILED_BRIDGE]));
-		expect(sdk.configRoot()).toBe(d.configDir);
-		await sdk.dispose();
 	});
 });

@@ -1,49 +1,38 @@
-/** The real `ClaudeSdk` (`ports/sdk.ts`), with D36's choice of where the session functions run. */
+/**
+ * The real `ClaudeSdk` (`ports/sdk.ts`). The SDK's session and settings functions read `CLAUDE_CONFIG_DIR` from the
+ * bridge's own environment, which is the login shell's by the time a backend starts (`platform/shell-env.ts`), and
+ * the CLI gets the same variable through `services.cliEnv`, so both read one config dir.
+ */
 
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { filterEscalatingDefaultMode, query } from "@anthropic-ai/claude-agent-sdk";
+import {
+	filterEscalatingDefaultMode,
+	forkSession,
+	getSessionInfo,
+	getSessionMessages,
+	getSubagentMessages,
+	listSessions,
+	listSubagents,
+	query,
+	renameSession,
+	resolveSettings,
+} from "@anthropic-ai/claude-agent-sdk";
 import type { ClaudeSdk, SessionFunctions } from "../ports/sdk";
-import { IN_PROCESS } from "./in-process";
-import { WorkerSessionFunctions } from "./worker-client";
 
-export interface ClaudeSdkOptions {
-	/** Unset: the bridge's own environment decides, in process. Set: a worker whose environment is `env`. */
-	readonly configDir?: string;
-	/** The environment the CLI gets (`process/env.ts`), which then names `configDir`. */
-	readonly env: Readonly<Record<string, string>>;
-	/** Tests only: whether this is a `bun build --compile` binary; otherwise read from this module's own URL. */
-	readonly compiled?: boolean;
-}
+const SESSION_FUNCTIONS: SessionFunctions = {
+	listSessions: (options) => listSessions(options),
+	getSessionInfo: (sessionId, options) => getSessionInfo(sessionId, options),
+	getSessionMessages: (sessionId, options) => getSessionMessages(sessionId, options),
+	getSubagentMessages: (sessionId, agentId, options) => getSubagentMessages(sessionId, agentId, options),
+	listSubagents: (sessionId, options) => listSubagents(sessionId, options),
+	forkSession: (sessionId, options) => forkSession(sessionId, options),
+	renameSession: (sessionId, title, options) => renameSession(sessionId, title, options),
+	resolveSettings: (options) => resolveSettings(options),
+};
 
-export const NO_WORKER_IN_A_COMPILED_BRIDGE =
-	"a Claude Code config dir needs the SDK worker, which a compiled bridge does not carry; leave configDir unset (D36)";
-
-function refusing(): SessionFunctions {
-	const no = () => Promise.reject(new Error(NO_WORKER_IN_A_COMPILED_BRIDGE));
-	return {
-		listSessions: no,
-		getSessionInfo: no,
-		getSessionMessages: no,
-		getSubagentMessages: no,
-		listSubagents: no,
-		forkSession: no,
-		renameSession: no,
-		resolveSettings: no,
-	};
-}
-
-function sessionFunctions(options: ClaudeSdkOptions): { fns: SessionFunctions; worker?: WorkerSessionFunctions } {
-	const { configDir } = options;
-	if (configDir === undefined) return { fns: IN_PROCESS };
-	if (options.compiled ?? import.meta.url.includes("/$bunfs/")) return { fns: refusing() };
-	const worker = new WorkerSessionFunctions({ ...options.env, CLAUDE_CONFIG_DIR: configDir });
-	return { fns: worker, worker };
-}
-
-export function createClaudeSdk(options: ClaudeSdkOptions): ClaudeSdk {
-	const { configDir } = options;
-	const { fns, worker } = sessionFunctions(options);
+export function createClaudeSdk(): ClaudeSdk {
+	const fns = SESSION_FUNCTIONS;
 	let disposed = false;
 	const guarded =
 		<A extends unknown[], R>(fn: (...args: A) => Promise<R>) =>
@@ -58,12 +47,11 @@ export function createClaudeSdk(options: ClaudeSdkOptions): ClaudeSdk {
 		forkSession: guarded(fns.forkSession),
 		renameSession: guarded(fns.renameSession),
 		resolveSettings: guarded(fns.resolveSettings),
-		query: ({ prompt, options: queryOptions }) => query({ prompt, options: queryOptions }),
+		query: ({ prompt, options }) => query({ prompt, options }),
 		filterEscalatingDefaultMode: (resolved) => filterEscalatingDefaultMode(resolved),
-		configRoot: () => (configDir ?? process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), ".claude")).normalize("NFC"),
+		configRoot: () => (process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), ".claude")).normalize("NFC"),
 		dispose: async () => {
 			disposed = true;
-			await worker?.dispose();
 		},
 	};
 }

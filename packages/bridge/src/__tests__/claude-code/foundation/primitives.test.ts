@@ -15,14 +15,12 @@ describe("D4 environment", () => {
 		const env = cliEnv({
 			base: { PATH: "/bin", CLAUDE_CODE_ENTRYPOINT: "cli", CLAUDE_AGENT_SDK_VERSION: "0.0.1" },
 			clientApp: "broski/1.0.0",
-			configDir: "/tmp/claude",
 		});
 		expect(env).toEqual({
 			PATH: "/bin",
 			CLAUDE_AGENT_SDK_CLIENT_APP: "broski/1.0.0",
 			CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS: "1",
 			CLAUDE_CODE_STARTUP_FAILURE_RESULTS: "1",
-			CLAUDE_CONFIG_DIR: "/tmp/claude",
 		});
 		expect(cliEnv({ base: {}, clientApp: "b" })).not.toHaveProperty("CLAUDE_CONFIG_DIR");
 	});

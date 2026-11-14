@@ -4,8 +4,8 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { createClaudeSdk } from "../../../backends/claude-code/sdk/claude-sdk";
 import { claudeTestEnv } from "../../helpers/claude-home";
+import { isolatedClaudeSdk } from "../helpers/isolated-sdk";
 import { expectNoOrphans } from "../spike/rig/orphans";
 import { isIdle, startSpike } from "../spike/rig/session";
 import { SessionRouter } from "./session-router";
@@ -39,7 +39,7 @@ describe("the conformance session router", () => {
 				expect(router.requests(sessionId)).toHaveLength(2);
 				expect(spike.server.escapes()).toEqual([]);
 				const env = claudeTestEnv({ url: spike.server.url, home: spike.home });
-				const sdk = createClaudeSdk({ configDir: spike.home.configDir, env });
+				const sdk = isolatedClaudeSdk(env);
 				try {
 					const chain = await sdk.getSessionMessages(sessionId, { dir: spike.home.projectDir });
 					expect(chain[0]?.uuid).toBe(first);
