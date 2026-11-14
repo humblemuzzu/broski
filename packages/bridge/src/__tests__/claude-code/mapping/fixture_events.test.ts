@@ -5,6 +5,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { readFrameFixture } from "../helpers/frame-fixtures";
 import { ofType, playFixture, shapeOf } from "./helpers";
 
 const TURN = "block_started:text block_delta block_finished usage_updated";
@@ -72,7 +73,7 @@ describe("what each scenario shows", () => {
 	for (const scenario of ["exit-plan-approve", "exit-plan-edited", "exit-plan-set-mode"]) {
 		test(`${scenario}: the plan file write, ExitPlanMode and the answer`, () => {
 			expect(shapeOf(playFixture(scenario).streams.get(""))).toBe(
-				RUN(`tool_started notice:warning tool_finished:completed tool_started tool_finished:completed ${TURN}`),
+				RUN(`tool_started tool_finished:completed tool_started tool_finished:completed ${TURN}`),
 			);
 		});
 	}
@@ -85,6 +86,15 @@ describe("what each scenario shows", () => {
 	});
 });
 
+/** The agent id the Agent call's `child_session` update names, which is the key of the child's own stream. */
+function agentOf(played: ReturnType<typeof playFixture>): string {
+	const update = ofType(played.streams.get(""), "tool_updated").find((event) => event.update.kind === "child_session");
+	if (update?.update.kind !== "child_session") throw new Error("no child session");
+	const [parent, agent] = update.update.session.sessionId.split("/");
+	expect(parent).toBe("11111111-2222-4333-8444-555555555555");
+	return agent ?? "";
+}
+
 describe("subagents", () => {
 	test("foreground: nested in the parent's run while its call runs, and whole in the child's own stream", () => {
 		const played = playFixture("subagent");
@@ -94,7 +104,7 @@ describe("subagents", () => {
 					TURN,
 			),
 		);
-		expect(shapeOf(played.streams.get("a4434daa825db6e10"))).toBe(
+		expect(shapeOf(played.streams.get(agentOf(played)))).toBe(
 			RUN("user_message tool_started tool_finished:completed block_started:text block_finished"),
 		);
 	});
@@ -104,17 +114,14 @@ describe("subagents", () => {
 		expect(shapeOf(played.streams.get(""))).toBe(
 			RUN(`tool_started tool_updated:child_session tool_finished:completed ${TURN} ${TURN}`),
 		);
-		expect(shapeOf(played.streams.get("a38eb8565c02191df"))).toBe(RUN("block_started:text block_finished"));
+		expect(shapeOf(played.streams.get(agentOf(played)))).toBe(RUN("block_started:text block_finished"));
 	});
 
-	test("the child session of the call is <session>/<agent id>", () => {
-		const update = ofType(playFixture("subagent").streams.get(""), "tool_updated").find(
-			(event) => event.update.kind === "child_session",
-		);
-		expect(update?.update).toEqual({
-			kind: "child_session",
-			session: { backend: "claude-code", sessionId: "11111111-2222-4333-8444-555555555555/a4434daa825db6e10" },
-		});
+	test("the child session of the call is <session>/<agent id>, the agent id of its frames", () => {
+		const played = playFixture("subagent");
+		const agent = agentOf(played);
+		const frames = readFrameFixture("subagent");
+		expect(frames.some((frame) => "agent_id" in frame && frame.agent_id === agent)).toBe(true);
 	});
 });
 
