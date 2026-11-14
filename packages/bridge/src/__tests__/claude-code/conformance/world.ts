@@ -16,7 +16,6 @@ import { ModelEcho } from "./model-echo";
 import { Activity, type Observed, observe } from "./observed-backend";
 import { SessionRouter } from "./session-router";
 import { TerminalAsks } from "./terminal-asks";
-import { worldCustomTools } from "./world-custom-tools";
 
 export const CLI_VERSION = "2.1.316";
 
@@ -72,7 +71,6 @@ export class ClaudeWorld {
 			stateDir: join(home.root, "broski-state"),
 			clientApp: "broski/conformance",
 			expectedCliVersion: CLI_VERSION,
-			customTools: worldCustomTools(home.homeDir),
 			terminal: { hookAsks: terminalAsks.hookAsks },
 		};
 		const activity = new Activity();

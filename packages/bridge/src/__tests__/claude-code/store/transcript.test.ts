@@ -249,15 +249,4 @@ describe("the index", () => {
 		await world.store.transcript(built.sessionId, { limit: 1 }, world.live);
 		expect(world.calls.messageReads[before]).toEqual({ offset: 0, limit: undefined });
 	});
-
-	test("entryOf finds the entry of a user message, a block, a tool call and a tool result", async () => {
-		const { built, ids } = rich();
-		const of = async (itemId: string) => world.store.entryOf(built.sessionId, itemId);
-		expect(await of(ids.prompt)).toEqual({ uuid: ids.prompt, type: "user" });
-		expect(await of("msg_1:1")).toEqual({ uuid: ids.lead, type: "assistant" });
-		expect(await of("toolu_1")).toEqual({ uuid: ids.call, type: "assistant" });
-		expect(await of("toolu_1:result")).toEqual({ uuid: ids.result, type: "user" });
-		const missing = await of("msg_9:0");
-		expect("rejection" in missing && missing.rejection.code).toBe("not_found");
-	});
 });

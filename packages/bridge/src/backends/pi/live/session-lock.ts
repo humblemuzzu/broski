@@ -1,6 +1,6 @@
 /**
  * The per-session mutex (D2): work on one session runs one at a time, in arrival order. Pi serializes
- * none of prompt, switch, compact, navigate or dispose itself.
+ * none of prompt, switch, compact or dispose itself.
  */
 
 export class SessionLocks {

@@ -1,9 +1,10 @@
 /**
  * What the host does with each frame of its CLI beyond showing it: run boundaries (D7), the queue's lifecycle (D8),
- * the model, the mode, the asks' withdrawals, the catalogue's news and the tasks. What a frame shows is the mapper's.
+ * the model, the mode, the asks' withdrawals, the catalogue's news and the subagents' ends. What a frame shows is the
+ * mapper's.
  */
 
-import type { SDKMessage, SDKSystemMessage } from "@anthropic-ai/claude-agent-sdk";
+import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import { MAX_TEXT_CHARS } from "../../../contract";
 import { clip } from "../bounds";
 import type { AskDesk } from "../ports/asks";
@@ -16,7 +17,6 @@ import type { ChildRouter } from "./child-router";
 import type { InputQueue } from "./queue";
 import type { RunTracker } from "./run-tracker";
 import type { SessionSettings } from "./settings";
-import type { TaskBoard } from "./task-board";
 
 type SystemFrame = Extract<SDKMessage, { type: "system" }>;
 type EntryFrame = Extract<SDKMessage, { type: "user" | "assistant" }>;
@@ -25,7 +25,6 @@ export interface FrameDeps {
 	readonly live: SessionEmitter;
 	readonly runs: RunTracker;
 	readonly queue: InputQueue;
-	readonly tasks: TaskBoard;
 	readonly children: ChildRouter;
 	readonly desk: AskDesk;
 	readonly settings: SessionSettings;
@@ -36,8 +35,6 @@ export interface FrameDeps {
 	readonly emitMapped: (events: readonly MappedEvent[]) => void;
 	/** The CLI wrote the session's file: a resume finds it. */
 	readonly persisted: () => void;
-	/** The turn's `system/init`, kept for the ops (`HostView.latestInit`). */
-	readonly initSeen: (init: SDKSystemMessage) => void;
 	/** A run begins that no send of ours started (a wake-up turn, a background task). */
 	readonly systemRun: () => void;
 	readonly endRun: () => void;
@@ -88,7 +85,6 @@ export class FrameHandler {
 				return;
 			case "init":
 				deps.persisted();
-				deps.initSeen(frame);
 				deps.settings.modelFromInit(frame.model);
 				deps.settings.modeFromFrame(frame.permissionMode);
 				this.began();
@@ -102,17 +98,7 @@ export class FrameHandler {
 			case "commands_changed":
 				deps.catalogue.invalidate(deps.cwd);
 				break;
-			case "background_tasks_changed":
-				deps.tasks.replace(frame);
-				break;
-			case "task_started":
-				deps.tasks.started(frame);
-				break;
-			case "task_updated":
-				deps.tasks.updated(frame);
-				break;
 			case "task_notification":
-				deps.tasks.finished(frame);
 				deps.children.taskEnded(frame.task_id, frame.status);
 				break;
 			default:

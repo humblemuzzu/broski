@@ -1,7 +1,6 @@
 /**
  * The model picker's whole catalogue: every model Pi knows, the ones nothing can run here marked with what is
- * missing, and `refresh_models` (`pi update --models`) reading the catalogues from the network. All on a throwaway
- * agent dir with no credential, with the catalogue server standing where pi.dev stands.
+ * missing. All on a throwaway agent dir with no credential.
  */
 
 import { afterEach, describe, expect, test } from "bun:test";
@@ -9,9 +8,7 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { MAX_CATALOG_ITEMS, type ModelSummary, ModelsListResult } from "../../contract";
 import { encodeFrame } from "../../core/frame";
-import { catalogModel } from "./helpers/catalog-stub";
 import { LiveRig } from "./helpers/live-rig";
-import { accepted, callPi } from "./helpers/transfer-calls";
 import { useWatchdog } from "./helpers/use-watchdog";
 
 useWatchdog();
@@ -138,50 +135,5 @@ describe("a model that cannot run", () => {
 		if (first === undefined) throw new Error("no usable model");
 		const live = await t.rig.openNew();
 		expect((await live.control.setModel(first.id)).status).toBe("accepted");
-	});
-});
-
-function signInToDeepseek(rig: LiveRig): void {
-	writeFileSync(
-		join(rig.world.env.agentDir, "auth.json"),
-		JSON.stringify({ deepseek: { type: "api_key", key: "sk-not-real" } }),
-	);
-}
-
-describe("refreshing the catalogues from the network", () => {
-	test("reads the catalogue of each provider signed in from the catalogue server, lists the models it adds, and tells the catalog", async () => {
-		t = await LiveRig.create();
-		signInToDeepseek(t);
-		t.world.catalogue.publish("deepseek", [catalogModel("deepseek-brand-new")]);
-		const mark = t.catalog.items.length;
-		expect((await listed(t, true)).some((model) => model.id === "deepseek/deepseek-brand-new")).toBe(false);
-		const result = accepted(await callPi(t.backend, { kind: "refresh_models" }), "refresh_models");
-		expect(result.problems).toEqual([]);
-		expect(t.world.catalogue.asked).toEqual(["deepseek"]);
-
-		const added = modelOf(await listed(t, true), "deepseek/deepseek-brand-new");
-		expect(added.displayName).toBe("Catalogue deepseek-brand-new");
-		expect(added.unavailableReason).toBeUndefined();
-		await t.catalog.waitFor(
-			(events) => events.slice(mark).find((event) => event.type === "catalog_invalidated" && event.scope === "models"),
-			"catalog_invalidated for the models",
-		);
-	});
-
-	test("asks nobody when no provider is signed in, and still answers", async () => {
-		t = await LiveRig.create();
-		const result = accepted(await callPi(t.backend, { kind: "refresh_models" }), "refresh_models");
-		expect(result.problems).toEqual([]);
-		expect(t.world.catalogue.asked).toEqual([]);
-	});
-
-	test("names a provider whose catalogue could not be read, and keeps the models it had", async () => {
-		t = await LiveRig.create();
-		signInToDeepseek(t);
-		const before = await listed(t, true);
-		await t.world.catalogue.stop();
-		const result = accepted(await callPi(t.backend, { kind: "refresh_models" }), "refresh_models");
-		expect(result.problems.some((problem) => problem.startsWith("deepseek:"))).toBe(true);
-		expect((await listed(t, true)).length).toBe(before.length);
 	});
 });

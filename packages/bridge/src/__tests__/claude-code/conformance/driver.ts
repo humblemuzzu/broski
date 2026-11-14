@@ -4,7 +4,7 @@
  * seeded row is `origin: "broski"` and has the history a run writes (fixture transcripts are lane A's own tests).
  */
 
-import type { AgentBackend, BackendCall, BackendHost, BackendOpKind, SessionRef } from "../../../contract";
+import type { AgentBackend, BackendHost, SessionRef } from "../../../contract";
 import { SessionRecorder } from "../../../contract/testing/conformance-harness";
 import type {
 	ConformanceDriver,
@@ -12,7 +12,6 @@ import type {
 	DeliveredInput,
 	Scenario,
 } from "../../../contract/testing/conformance-types";
-import { claudeCodeCall } from "./backend-calls";
 import { deliveredInput } from "./delivered";
 import { scenarioSteps } from "./scenarios";
 import { ClaudeWorld } from "./world";
@@ -68,8 +67,9 @@ export class ClaudeCodeConformanceDriver implements ConformanceDriver {
 		return deliveredInput(this.world.backend, newest, session);
 	}
 
-	backendCall(session: SessionRef, op: BackendOpKind): Promise<BackendCall | undefined> {
-		return claudeCodeCall(this.world.backend, session, op, this.cwd);
+	/** Claude Code declares no ops. */
+	async backendCall(): Promise<undefined> {
+		return undefined;
 	}
 
 	/** `externalLive` is false (D21): no other client runs live here. Lane G fills this when it turns true. */

@@ -6,7 +6,7 @@ import type { StoreDeps } from "../ports/deps";
 import type { SessionStore } from "../ports/store";
 import { isRejected } from "../rejections";
 import { readImage } from "./attachments";
-import { entryOf, lastChainUuid } from "./chain-lookup";
+import { lastChainUuid } from "./chain-lookup";
 import { locateChild } from "./children";
 import { createStoreContext, type StoreContext } from "./context";
 import { announceSession, getSession } from "./get";
@@ -24,7 +24,6 @@ export function createSessionStore(deps: StoreDeps): SessionStore {
 		attachment: (sessionId, attachment) => readImage(ctx, sessionId, attachment),
 		locate: (sessionId) => locate(ctx, sessionId),
 		lastChainUuid: (sessionId) => lastChainUuid(ctx, sessionId),
-		entryOf: (sessionId, itemId) => entryOf(ctx, sessionId, itemId),
 		rename: (sessionId, title, live) => renameStored(ctx, sessionId, title, live),
 		fork: (sessionId, at, live) => forkStored(ctx, sessionId, at, live),
 		remove: (sessionId) => removeStored(ctx, sessionId),

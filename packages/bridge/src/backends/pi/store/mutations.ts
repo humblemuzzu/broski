@@ -164,7 +164,7 @@ async function forkEnd(items: BranchItems, at: ForkPoint | undefined): Promise<n
 }
 
 /** Emits `session_updated` for the file at `path` as it is now; false when it cannot be read. */
-export async function announceUpdate(deps: MutationDeps, path: string): Promise<boolean> {
+async function announceUpdate(deps: MutationDeps, path: string): Promise<boolean> {
 	const head = await deps.index.headAt(path);
 	if (head === undefined) return false;
 	deps.catalog.emit({ type: "session_updated", summary: await summaryFor(deps.index, head, NO_LIVE) });
@@ -195,13 +195,13 @@ async function endsWithNewline(handle: FileHandle): Promise<boolean> {
 	return last[0] === 0x0a;
 }
 
-export const OUTSIDE = rejected(
+const OUTSIDE = rejected(
 	"unsupported",
 	"this session file lies outside the sessions directories this bridge may change; change it in a terminal",
 );
 
 /** Where a write may land: not a directory only an untrusted project names (`SessionRoot.trusted`). */
-export function trustedRoots(dirs: SessionDirs): string[] {
+function trustedRoots(dirs: SessionDirs): string[] {
 	return dirs
 		.roots()
 		.filter((root) => root.trusted)

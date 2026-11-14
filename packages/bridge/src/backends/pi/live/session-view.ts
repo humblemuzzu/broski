@@ -90,12 +90,6 @@ export class SessionView implements OpenSession {
 	}
 
 	/** A session nobody ran here is run by a host now, whose part this is. */
-	becomeHosted(part: HostedPart): void {
-		this.leave();
-		this.mode = { kind: "hosted", ...part };
-		this.replaced();
-	}
-
 	async close(): Promise<void> {
 		if (this.closed) return;
 		this.closed = true;

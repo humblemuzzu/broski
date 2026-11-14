@@ -64,7 +64,9 @@ async function piSession() {
 		backend: "pi",
 		options: { cwd: world.env.cwd, modes: [{ axis: "permissions", value: "ask" }] },
 	});
-	if (created.result.status !== "accepted") throw new Error("the session was not created");
+	if (created.result.status !== "accepted") {
+		throw new Error(`the session was not created: ${JSON.stringify(created.result)}`);
+	}
 	return { world, phone, session: created.result.session, socketPath };
 }
 
@@ -101,23 +103,5 @@ describe("the feed with the real Pi adapter", () => {
 		expect(done).toMatchObject({ kind: "done", backend: "pi", body: "The README says Project." });
 		await busyFrame(feed, false);
 		expect(world.router.requests(session.sessionId)).toHaveLength(2);
-	});
-
-	test("a command typed for the shell ends in a done alert that names it, not a turn", async () => {
-		const { phone, session, socketPath } = await piSession();
-		await phone.ok("session.attach", { session });
-		const feed = await openFeed(socketPath);
-		cleanup.push(() => finishFeed(feed, () => {}));
-		const op = {
-			kind: "run_shell" as const,
-			sessionId: session.sessionId,
-			clientRequestId: crypto.randomUUID(),
-			command: "echo hi; exit 3",
-			excludeFromContext: false,
-		};
-		const call = await phone.ok("backend.call", { call: { backend: "pi", op } });
-		expect(call.result).toEqual({ status: "accepted", result: { kind: "run_shell" } });
-		const [done] = await alertsOf(feed, 1);
-		expect(done).toMatchObject({ kind: "done", backend: "pi", body: "bash: echo hi; exit 3 (exit code 3)" });
 	});
 });

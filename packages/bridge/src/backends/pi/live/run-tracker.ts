@@ -20,7 +20,7 @@ export interface RunTrackerDeps {
 }
 
 /** A run with no agent loop: no `agent_settled` will come, and a prompt cannot join it. */
-export type SoloRun = "compaction" | "shell";
+export type SoloRun = "compaction";
 
 interface ActiveRun {
 	readonly context: RunContext;
@@ -50,11 +50,6 @@ export class RunTracker {
 	/** The active run is an idle compaction, which a prompt cannot join. */
 	get compacting(): boolean {
 		return this.active?.solo === "compaction";
-	}
-
-	/** The active run is a shell command the person typed. */
-	get shelling(): boolean {
-		return this.active?.solo === "shell";
 	}
 
 	cut(): TranscriptCut | undefined {

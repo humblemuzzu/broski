@@ -6,9 +6,11 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { existsSync, realpathSync } from "node:fs";
+import { getSessionMessages } from "@anthropic-ai/claude-agent-sdk";
 import { childRef } from "../../../backends/claude-code/ids";
 import type { TranscriptItem } from "../../../contract";
 import { type ClaudeHome, createClaudeHome } from "../../helpers/claude-home";
+import { withConfigDir } from "../spike/rig/config-env";
 import { expectNoOrphans } from "../spike/rig/orphans";
 import { startSpike } from "../spike/rig/session";
 import { createStoreWorld, type StoreWorld } from "./helpers/store-world";
@@ -182,17 +184,10 @@ describe("transcripts the real CLI wrote", () => {
 	);
 
 	test(
-		"lastChainUuid is the CLI's newest entry; entryOf finds the entry of each item",
+		"lastChainUuid is the CLI's newest entry",
 		async () => {
-			const items = await pages(sessionId, 200);
-			const newest = await world.store.lastChainUuid(sessionId);
-			const lastBlock = items[0];
-			const entry = await world.store.entryOf(sessionId, lastBlock?.id ?? "");
-			if (typeof newest !== "string") throw new Error("the session has no chain");
-			expect("uuid" in entry ? entry.uuid : undefined).toBe(newest);
-			expect("type" in entry && entry.type).toBe("assistant");
-			const prompt = await world.store.entryOf(sessionId, firstSend);
-			expect(prompt).toEqual({ uuid: firstSend, type: "user" });
+			const chain = await withConfigDir(home, () => getSessionMessages(sessionId, { dir: home.projectDir }));
+			expect(await world.store.lastChainUuid(sessionId)).toBe(chain.at(-1)?.uuid ?? null);
 		},
 		CLI_TEST_MS,
 	);

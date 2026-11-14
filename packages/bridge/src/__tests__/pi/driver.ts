@@ -4,7 +4,7 @@
  * extension file in the agent dir that holds a run or raises Pi's dialogs on cue.
  */
 
-import type { AgentBackend, BackendCall, BackendHost, BackendOpKind, SessionRef } from "../../contract";
+import type { AgentBackend, BackendHost, SessionRef } from "../../contract";
 import { SessionRecorder } from "../../contract/testing/conformance-harness";
 import type {
 	ConformanceDriver,
@@ -17,7 +17,6 @@ import { PiWorld, type PiWorldOptions } from "./helpers/pi-world";
 import { heldAnswer, say, scenarioSteps } from "./helpers/scenarios";
 import { findSessionFile } from "./helpers/session-files";
 import { TerminalRig } from "./helpers/terminal-rig";
-import { transferCall } from "./helpers/transfer-calls";
 
 export class PiConformanceDriver implements ConformanceDriver {
 	readonly cwd: string;
@@ -64,35 +63,9 @@ export class PiConformanceDriver implements ConformanceDriver {
 		return deliveredInput(this.world.backend, this.world.router, session);
 	}
 
-	async backendCall(session: SessionRef, op: BackendOpKind): Promise<BackendCall | undefined> {
-		const { sessionId } = session;
-		switch (op) {
-			case "take_over":
-			case "abort_branch_summary":
-			case "session_settings":
-			case "session_tools":
-			case "system_prompt":
-				return { backend: "pi", op: { kind: op, sessionId } };
-			case "read_tree":
-				return { backend: "pi", op: { kind: op, sessionId, page: { limit: 50 } } };
-			case "run_shell":
-				return {
-					backend: "pi",
-					op: { kind: op, sessionId, clientRequestId: crypto.randomUUID(), command: "true", excludeFromContext: false },
-				};
-			case "navigate_tree":
-			case "label_entry": {
-				const read = await this.world.backend.readTranscript(session, { limit: 200 });
-				if (read.status === "rejected") return undefined;
-				const prompt = read.page.items.find((item) => item.kind === "user_message");
-				if (prompt === undefined) return undefined;
-				return op === "navigate_tree"
-					? { backend: "pi", op: { kind: op, sessionId, itemId: prompt.id, summarize: false } }
-					: { backend: "pi", op: { kind: op, sessionId, entryId: prompt.id.replace(/:0$/, ""), label: "marked" } };
-			}
-			default:
-				return transferCall(this.world.backend, session, op);
-		}
+	/** Pi declares no ops. */
+	async backendCall(): Promise<undefined> {
+		return undefined;
 	}
 
 	/**

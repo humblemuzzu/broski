@@ -7,12 +7,10 @@ import { unlink } from "node:fs/promises";
 import { type AgentSession, SessionManager } from "@earendil-works/pi-coding-agent";
 import type {
 	ActionResult,
-	BackendCallResult,
 	NewSessionOptions,
 	OpenResult,
 	OpenTarget,
 	Rejected,
-	RunShellOp,
 	SessionId,
 	SessionSink,
 	SessionSnapshot,
@@ -24,16 +22,8 @@ import { type ChildSessionPart, parseChildSessionId } from "../ids";
 import { isDirectory } from "../is-directory";
 import type { ModelCatalogue } from "../models/catalogue";
 import { initialPermissions } from "../modes";
-import type {
-	HostAccess,
-	LiveOverlay,
-	LiveRow,
-	LiveSessionAccess,
-	OwnershipAccess,
-	SessionStore,
-	StoredSession,
-} from "../ports";
-import { ACCEPTED, CLOSED, rejected } from "../rejections";
+import type { LiveOverlay, LiveRow, SessionStore, StoredSession } from "../ports";
+import { CLOSED, rejected } from "../rejections";
 import { sessionName } from "../session-name";
 import { canonicalCwd } from "../store/session-dir";
 import type { TerminalRegistry } from "../terminal/registry";
@@ -44,7 +34,7 @@ import { chooseModel } from "./new-session-options";
 import { NoticeMemory } from "./notice-memory";
 import { openSessionView } from "./open-session";
 import type { SharedServices } from "./runtime-factory";
-import { BINDING, SessionHost } from "./session-host";
+import { SessionHost } from "./session-host";
 import { SessionLocks } from "./session-lock";
 import { type HostedPart, SessionView, type SessionViewDeps, watchedSnapshot } from "./session-view";
 
@@ -60,13 +50,7 @@ export interface SessionHostsDeps {
 /** A hosted session's write, or the store's when nobody hosts it; both under the session lock. */
 export type StoredWrite = (name: string) => Promise<ActionResult>;
 
-/** A session hosted only for one op cannot show a `session_start` ask to anyone; its end expires the ask. */
-const STARTING_ASKS: Rejected = rejected(
-	"busy",
-	"an extension asks something as the session starts: open it to answer",
-);
-
-export class SessionHosts implements LiveOverlay, HostAccess, OwnershipAccess, LiveSessionAccess {
+export class SessionHosts implements LiveOverlay {
 	private readonly hosts = new Map<SessionId, SessionHost>();
 	/** The views the core holds now, by session. */
 	private readonly views = new Map<SessionId, SessionView>();
@@ -115,79 +99,6 @@ export class SessionHosts implements LiveOverlay, HostAccess, OwnershipAccess, L
 				await host?.finish();
 			});
 		});
-	}
-
-	/**
-	 * Makes a session another client wrote this bridge's (`claim` writes the mark, or refuses), and hosts it: its open
-	 * view, if it has one, becomes the host's. Under the session lock, with the claim, so nothing else opens or writes
-	 * the session between the refusals and the mark. A session this bridge hosts already is its own.
-	 */
-	takeOver(sessionId: SessionId, claim: (stored: StoredSession) => Promise<ActionResult>): Promise<ActionResult> {
-		return this.locks.run(sessionId, async () => {
-			if (this.disposing) return CLOSED;
-			if (this.hosts.has(sessionId)) return ACCEPTED;
-			const before = await this.deps.store.locate(sessionId);
-			if ("status" in before) return before;
-			const claimed = await claim(before);
-			if (claimed.status === "rejected") return claimed;
-			const view = this.views.get(sessionId);
-			if (view === undefined) return ACCEPTED;
-			const claimedSession = await this.deps.store.locate(sessionId);
-			if ("status" in claimedSession) return claimedSession;
-			const host = await this.hostStored(claimedSession);
-			if ("status" in host) return host;
-			const part = this.partOf(host, view.sink);
-			host.markReady();
-			view.becomeHosted(part);
-			return ACCEPTED;
-		});
-	}
-
-	withIdleSession<T>(sessionId: SessionId, work: (session: AgentSession) => Promise<T>): Promise<T | Rejected> {
-		return this.locks.run(sessionId, async () => {
-			if (this.disposing) return CLOSED;
-			const hosted = this.hosts.get(sessionId);
-			if (hosted) return hosted.idle() ? hosted.runIdleWork(work) : rejected("busy", "the session has work under way");
-			const stored = await this.deps.store.locate(sessionId);
-			if ("status" in stored) return stored;
-			if (stored.origin === "external") return rejected("unsupported", "another client made this session");
-			const host = await this.hostStored(stored);
-			if ("status" in host) return host;
-			try {
-				return host.bound ? await host.runIdleWork(work) : STARTING_ASKS;
-			} finally {
-				await host.finish();
-			}
-		});
-	}
-
-	async withLiveSession<T>(
-		sessionId: SessionId,
-		work: (session: AgentSession) => T | Promise<T>,
-	): Promise<T | Rejected> {
-		if (this.disposing) return CLOSED;
-		const host = this.hosts.get(sessionId);
-		if (host === undefined) return this.notOpenHere(sessionId);
-		if (host.ended) return CLOSED;
-		return host.bound ? work(host.session) : BINDING;
-	}
-
-	private async notOpenHere(sessionId: SessionId): Promise<Rejected> {
-		const stored = await this.deps.store.locate(sessionId);
-		if ("status" in stored) return stored;
-		if (this.deps.terminals.holder(stored.path) !== undefined) {
-			return rejected("unsupported", "A terminal runs this session. Change it there.");
-		}
-		if (stored.origin === "external") {
-			return rejected("unsupported", "Another client made this session. Take it over to change it from here.");
-		}
-		return rejected("not_found", "The session is not open on this bridge.");
-	}
-
-	/** `run_shell` runs in a session this bridge hosts; the phone that asks has it open, so it does. Undefined when it is not hosted. */
-	runShell(op: RunShellOp): Promise<BackendCallResult> | undefined {
-		const hosted = this.hosts.get(op.sessionId);
-		return hosted && !hosted.ended ? hosted.runShell(op) : undefined;
 	}
 
 	/** A hosted session's child that its tool call is running, or has run in this host's life: a view that follows it. */

@@ -14,7 +14,7 @@ export interface AtomicWriteOptions {
 }
 
 /** Writes `text` into a new, synced file beside `path` and returns its name; the caller renames or unlinks it. */
-export async function writeTempBeside(path: string, text: string, mode: number | undefined): Promise<string> {
+async function writeTempBeside(path: string, text: string, mode: number | undefined): Promise<string> {
 	const temp = join(dirname(path), `.${basename(path)}.${randomBytes(6).toString("hex")}.tmp`);
 	const handle = await open(temp, "wx", mode ?? 0o644);
 	try {

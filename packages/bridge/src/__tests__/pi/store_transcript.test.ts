@@ -1,5 +1,5 @@
 /**
- * `readTranscript` and `entryOfItem` over session files, with the entry mapping a stub that implements the
+ * `readTranscript` over session files, with the entry mapping a stub that implements the
  * frozen `itemsOfEntry` interface (store_fixtures.ts); the real mapping is exercised in store_facade.test.ts.
  */
 
@@ -10,18 +10,10 @@ import type { LiveOverlay } from "../../backends/pi/ports";
 import type { ItemsOfEntry } from "../../backends/pi/store/branch-items";
 import { piSessionDirs } from "../../backends/pi/store/session-dir";
 import { SessionIndex } from "../../backends/pi/store/session-index";
-import { entryOfItem, readTranscript } from "../../backends/pi/store/transcript";
+import { readTranscript } from "../../backends/pi/store/transcript";
 import { type PageRequest, type TranscriptItem, TranscriptReadResult } from "../../contract";
 import { createPiTestEnv, type PiTestEnv } from "./helpers/pi-test-env";
-import {
-	iso,
-	itemsOfEntryStub,
-	SessionBuilder,
-	textBlock,
-	thinkingBlock,
-	toolCall,
-	writeSession,
-} from "./store_fixtures";
+import { itemsOfEntryStub, SessionBuilder, textBlock, thinkingBlock, toolCall, writeSession } from "./store_fixtures";
 
 let env: PiTestEnv;
 let index: SessionIndex;
@@ -339,41 +331,5 @@ describe("a big session", () => {
 		expect(deep.status).toBe("accepted");
 		expect(firstMs).toBeLessThan(2_000);
 		expect(deepMs).toBeLessThan(2_000);
-	});
-});
-
-describe("naming an entry by an item", () => {
-	test("an item of the branch names its entry; so does the first item of an entry on an abandoned branch; a ghost index and a foreign id do not", async () => {
-		const builder = new SessionBuilder({ id: "named", cwd: env.cwd, version: 3 });
-		const first = builder.user("one", 10);
-		const answer = builder.assistant([textBlock("a"), textBlock("b")], 20);
-		const abandoned = builder.user("abandoned", 30);
-		builder.branchFrom(answer);
-		builder.user("kept", 40);
-		writeSession(env.sessionDir, builder);
-		const of = (itemId: string) => entryOfItem(index, "named", itemId, NOBODY, itemsOfEntryStub);
-
-		expect(await of(`${first}:0`)).toBe(first);
-		expect(await of(`${answer}:1`)).toBe(answer);
-		expect(await of(`${answer}:2`)).toBeUndefined();
-		expect(await of(`${abandoned}:0`)).toBe(abandoned);
-		expect(await of(`${abandoned}:1`)).toBeUndefined();
-		expect(await of("nonsense")).toBeUndefined();
-		expect(await entryOfItem(index, "nobody", `${first}:0`, NOBODY, itemsOfEntryStub)).toBeUndefined();
-	});
-
-	test("the first item of an entry the tree never shows names nothing: Pi's usage records, a type a newer Pi wrote", async () => {
-		const builder = new SessionBuilder({ id: "hidden", cwd: env.cwd, version: 3 });
-		const first = builder.user("one", 10);
-		builder.raw({ type: "usage", id: "u0000001", parentId: first, timestamp: iso(15) });
-		builder.raw({ type: "from_the_future", id: "f0000001", parentId: "u0000001", timestamp: iso(16) });
-		builder.branchFrom("f0000001");
-		builder.user("two", 20);
-		writeSession(env.sessionDir, builder);
-		const of = (itemId: string) => entryOfItem(index, "hidden", itemId, NOBODY, itemsOfEntryStub);
-
-		expect(await of(`${first}:0`)).toBe(first);
-		expect(await of("u0000001:0")).toBeUndefined();
-		expect(await of("f0000001:0")).toBeUndefined();
 	});
 });

@@ -1,6 +1,5 @@
 /** One hosted session: one `query()`, its inbox, its consumer, its desk and mapper, its live state (D1). */
 
-import type { SDKSystemMessage } from "@anthropic-ai/claude-agent-sdk";
 import {
 	type ActionResult,
 	type InteractionAnswer,
@@ -15,7 +14,6 @@ import {
 import { clip } from "../bounds";
 import type { AskDesk } from "../ports/asks";
 import type { LiveDeps } from "../ports/deps";
-import type { BackgroundTask, HostView } from "../ports/live";
 import type { LiveOverlay, LiveRow } from "../ports/store";
 import { CLOSED, isRejected } from "../rejections";
 import { abortRun } from "./abort";
@@ -40,7 +38,6 @@ import { RunTracker } from "./run-tracker";
 import { SerialLock } from "./serial";
 import { startNewConversation } from "./session-reset";
 import { SessionSettings } from "./settings";
-import { TaskBoard } from "./task-board";
 
 export class SessionHost {
 	readonly cwd: string;
@@ -49,7 +46,6 @@ export class SessionHost {
 	readonly live: HostEmitter;
 	readonly runs: RunTracker;
 	readonly queue: InputQueue;
-	readonly tasks = new TaskBoard();
 	readonly children: ChildRouter;
 	readonly desk: AskDesk;
 	readonly settings: SessionSettings;
@@ -60,7 +56,6 @@ export class SessionHost {
 	readonly slot: ProcessSlot;
 	private sink: SessionSink | undefined;
 	private persisted: boolean;
-	private init: SDKSystemMessage | undefined;
 	private launched = 0;
 	private finished = false;
 	private readonly watch: IdleWatch;
@@ -125,10 +120,6 @@ export class SessionHost {
 
 	markPersisted(): void {
 		this.persisted = true;
-	}
-
-	noteInit(init: SDKSystemMessage): void {
-		this.init = init;
 	}
 
 	get ended(): boolean {
@@ -206,20 +197,6 @@ export class SessionHost {
 		return this.children.view(agentId, sink);
 	}
 
-	/** What an op sees of the host, or undefined while no process runs. */
-	view(): HostView | undefined {
-		const process = this.slot.alive;
-		if (!process) return undefined;
-		return {
-			sessionId: this.id,
-			cwd: this.cwd,
-			query: process.query,
-			tasks: (): readonly BackgroundTask[] => this.tasks.list(),
-			busy: () => !this.idle(),
-			latestInit: () => this.init,
-		};
-	}
-
 	/** The process, started again from the session's state when it ended; `Rejected` when it cannot start. */
 	ensureProcess(): Promise<Rejected | undefined> {
 		return this.slot.ensure();
@@ -276,7 +253,6 @@ export class SessionHost {
 
 	/** A process started again resumes a session the CLI wrote, even when no `init` was seen before it ended. */
 	private async launchOptions() {
-		this.init = undefined;
 		const restart = this.launched++ > 0;
 		const resume = this.persisted || (restart && (await this.onDisk()));
 		return launchOptions({

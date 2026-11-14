@@ -28,7 +28,6 @@ export type GateName =
 	| "toolGate"
 	| "loadGate"
 	| "startGate"
-	| "treeGate"
 	| "compactGate";
 
 interface HostRigState {
@@ -87,10 +86,6 @@ export default async function (pi) {
 	});
 	pi.on("message_end", async () => {
 		maybeThrow("message_end");
-	});
-	pi.on("session_before_tree", async (event) => {
-		maybeThrow("session_before_tree");
-		await holdUntilAborted("treeGate", event.signal);
 	});
 	pi.on("session_before_compact", async (event) => {
 		maybeThrow("session_before_compact");

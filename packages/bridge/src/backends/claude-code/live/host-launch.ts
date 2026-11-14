@@ -1,6 +1,6 @@
 /** What a host's `query()` is started with: D5's options over the session's state now, plus what is read at every start. */
 
-import type { EffortLevel, McpServerConfig, Options, PermissionMode } from "@anthropic-ai/claude-agent-sdk";
+import type { EffortLevel, Options, PermissionMode } from "@anthropic-ai/claude-agent-sdk";
 import type { Rejected, SessionId, SessionSnapshot } from "../../../contract";
 import { DEFAULT_PERMISSION_MODE, isPermissionMode, PERMISSIONS_AXIS } from "../permission-modes";
 import type { AskDesk } from "../ports/asks";
@@ -36,15 +36,6 @@ function modeOf(snapshot: SessionSnapshot): PermissionMode {
 	return value !== undefined && isPermissionMode(value) ? value : DEFAULT_PERMISSION_MODE;
 }
 
-/** The custom tools' servers, read at every start (D30); a port that fails leaves them out. */
-async function customServers(services: ClaudeCodeServices): Promise<Record<string, McpServerConfig>> {
-	try {
-		return (await services.customTools?.sessionServers()) ?? {};
-	} catch {
-		return {};
-	}
-}
-
 /** Prompt suggestions cost a request per turn, so they run only for a person who switched them on in settings. */
 async function suggestionsOn(services: ClaudeCodeServices, cwd: string): Promise<boolean> {
 	try {
@@ -56,10 +47,7 @@ async function suggestionsOn(services: ClaudeCodeServices, cwd: string): Promise
 
 export async function launchOptions(input: LaunchInput): Promise<Options | Rejected> {
 	const { services, desk } = input;
-	const [mcpServers, promptSuggestions] = await Promise.all([
-		customServers(services),
-		suggestionsOn(services, input.cwd),
-	]);
+	const promptSuggestions = await suggestionsOn(services, input.cwd);
 	const effort = effortOf(input.snapshot.thinking);
 	return hostOptions({
 		services,
@@ -68,7 +56,6 @@ export async function launchOptions(input: LaunchInput): Promise<Options | Rejec
 		permissionMode: modeOf(input.snapshot),
 		canUseTool: desk.canUseTool,
 		onElicitation: desk.onElicitation,
-		mcpServers,
 		promptSuggestions,
 		...(input.explicitModel !== undefined && { model: input.explicitModel }),
 		...(effort !== undefined && { effort }),

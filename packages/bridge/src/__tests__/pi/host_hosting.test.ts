@@ -240,7 +240,7 @@ describe("a hosted session", () => {
 });
 
 describe("a session another client made", () => {
-	test("opens with the permissions mode off and no control, is never written to, and refuses idle work with unsupported", async () => {
+	test("opens with the permissions mode off and no control, and is never written to", async () => {
 		t = await HostRig.create();
 		const id = "terminal-session-2";
 		writeSessionFile(t.rig.world.sessionsRoot, { id, cwd: t.rig.cwd, version: 3 }, conversation(["hello", "hi"]));
@@ -248,13 +248,6 @@ describe("a session another client made", () => {
 		const opened = await t.rig.rig.open({ backend: "pi", sessionId: id });
 		expect(opened.session.control).toBeUndefined();
 		expect(opened.initial.modes).toEqual([{ axis: "permissions", value: "off" }]);
-
-		let ran = false;
-		const refused = await t.hosts.withIdleSession(id, async () => {
-			ran = true;
-		});
-		expect(refused).toMatchObject({ status: "rejected", rejection: { code: "unsupported" } });
-		expect(ran).toBe(false);
 		expect(t.bus.starts(id)).toBe(0);
 		expect(opened.recorder.items).toEqual([]);
 	});

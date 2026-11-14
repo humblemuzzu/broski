@@ -145,11 +145,6 @@ describe("a restart mid-run", () => {
 		expect(t.bus.liveRuntimes()).toBe(0);
 		const read = await t.backend.readTranscript(live.ref, { limit: 10 });
 		expect(read.status === "accepted" && read.page.items.some((item) => item.kind === "user_message")).toBe(true);
-		const navigated = await t.backend.call?.({
-			backend: "pi",
-			op: { kind: "navigate_tree", sessionId: live.ref.sessionId, itemId: "x:0", summarize: false },
-		});
-		expect(navigated?.status).toBe("rejected");
 	});
 });
 

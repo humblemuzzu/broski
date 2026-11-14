@@ -66,7 +66,7 @@ describe("cursors", () => {
 		expect(first.idStability).toBe("stable");
 	});
 
-	test("from another session, another query, another read, a tampered string or a rewritten history are invalid_input, never the newest page", async () => {
+	test("from another session, another query, another read or a tampered string are invalid_input, never the newest page", async () => {
 		t = await LiveRig.create();
 		const live = await threeRuns(t);
 		const other = await threeRuns(t);
@@ -90,19 +90,6 @@ describe("cursors", () => {
 		];
 		for (const result of bad)
 			expect(result).toMatchObject({ status: "rejected", rejection: { code: "invalid_input" } });
-
-		const firstAnswer = (await allItems(t.backend, live.ref, 200)).findLast(
-			(item) => item.kind === "block" && item.block === "text",
-		);
-		if (!firstAnswer || !t.backend.call) throw new Error("no answer to navigate to");
-		await live.close();
-		const moved = await t.backend.call({
-			backend: "pi",
-			op: { kind: "navigate_tree", sessionId: live.ref.sessionId, itemId: firstAnswer.id, summarize: false },
-		});
-		expect(moved.status).toBe("accepted");
-		const stale = await t.backend.readTranscript(live.ref, { limit: 2, cursor });
-		expect(stale).toMatchObject({ status: "rejected", rejection: { code: "invalid_input" } });
 	});
 });
 

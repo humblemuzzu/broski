@@ -80,20 +80,14 @@ describe("a hook that throws outside a run", () => {
 		await until(() => t?.bus.liveRuntimes() === 0, "the host ends");
 	});
 
-	test("in session_before_tree and session_before_compact: the navigation and the compaction fail, nothing stays locked", async () => {
+	test("in session_before_compact: the compaction fails, nothing stays locked", async () => {
 		t = await HostRig.create();
 		const live = await t.rig.rig.openNew();
 		await t.rig.rig.arrange(live.ref, { kind: "reply" });
 		await live.run("one");
 		await t.rig.rig.arrange(live.ref, { kind: "reply" });
 		await live.run("two");
-		const call = await t.rig.driver.backendCall(live.ref, "navigate_tree");
-		const op = call?.op;
-		if (call === undefined || op?.kind !== "navigate_tree") throw new Error("no navigate_tree call");
 
-		t.state.throwAt = "session_before_tree";
-		const navigated = await t.rig.rig.backend.call?.({ backend: "pi", op: { ...op, summarize: true } });
-		expect(navigated?.status).toBeDefined();
 		t.state.throwAt = "session_before_compact";
 		await live.control.compact?.(undefined);
 		await t.rig.driver.quiesce();

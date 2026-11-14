@@ -15,7 +15,6 @@ import type {
 	SessionQuery,
 	SessionStatus,
 	SessionsListResult,
-	TranscriptItemId,
 	TranscriptReadResult,
 } from "../../../contract";
 
@@ -47,12 +46,6 @@ export interface StoredSession {
 	readonly lastModified: number;
 }
 
-/** The transcript entry an item came from, for a fork point (D19) or a rewind's user message (D23). */
-export interface EntryRef {
-	readonly uuid: string;
-	readonly type: "user" | "assistant" | "system";
-}
-
 /**
  * Every read of session files, and the mutations of sessions nobody hosts. A `sessionId` may be a child ref
  * (`ids.ts` `childRef`, D20); `rename`, `fork` and `remove` refuse one `unsupported`. A cursor this store did not mint
@@ -67,7 +60,6 @@ export interface SessionStore {
 	locate(sessionId: SessionId): Promise<StoredSession | Rejected>;
 	/** The newest entry of the session's chain; null for a session with none. */
 	lastChainUuid(sessionId: SessionId): Promise<string | null | Rejected>;
-	entryOf(sessionId: SessionId, itemId: TranscriptItemId): Promise<EntryRef | Rejected>;
 	rename(sessionId: SessionId, title: string, live: LiveOverlay): Promise<ActionResult>;
 	/** The fork is claimed in the owner journal and announced with `session_updated`. */
 	fork(sessionId: SessionId, at: ForkPoint | undefined, live: LiveOverlay): Promise<NewSessionResult>;

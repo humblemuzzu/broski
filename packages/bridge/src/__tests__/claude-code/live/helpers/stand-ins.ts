@@ -301,7 +301,6 @@ export function standInStore(sdk: ClaudeSdk): StandInStore {
 			const chain = await sdk.getSessionMessages(sessionId, dir === undefined ? undefined : { dir });
 			return chain.at(-1)?.uuid ?? null;
 		},
-		entryOf: async () => no("entryOf"),
 		rename: async (): Promise<ActionResult> => no("rename"),
 		fork: async (): Promise<NewSessionResult> => no("fork"),
 		remove: async (): Promise<ActionResult> => no("remove"),

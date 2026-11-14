@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from "bun:test";
-import { MAX_NAME_CHARS } from "../../contract";
 import { createWorld, modelsJson, type World, writeAgentFile } from "./catalogue_support";
 
 let world: World;
@@ -138,25 +137,5 @@ describe("ModelRuntimeHost.scope", () => {
 		await host.available();
 		await host.scope(["local/two"]);
 		expect(available).toHaveBeenCalledTimes(2);
-	});
-});
-
-describe("ModelRuntimeHost.refreshFromNetwork", () => {
-	test("names each provider that failed on one bounded line, and counts those past a screenful", async () => {
-		const host = world.services.models;
-		const errors = new Map(
-			Array.from({ length: 40 }, (_, n) => [
-				`p${n}`,
-				new Error(n === 0 ? `\u001b[31m${"x".repeat(2_000_000)}` : "down"),
-			]),
-		);
-		await host.available();
-		spyOn(host.runtime, "refresh").mockResolvedValueOnce({ aborted: false, errors });
-		const problems = await host.refreshFromNetwork();
-		expect(problems).toHaveLength(33);
-		expect(problems[0]?.startsWith("p0: xxx")).toBe(true);
-		for (const line of problems) expect(line.length).toBeLessThanOrEqual(MAX_NAME_CHARS);
-		expect(problems[1]).toBe("p1: down");
-		expect(problems.at(-1)).toBe("and 8 more");
 	});
 });

@@ -17,29 +17,18 @@ import { clip } from "../bounds";
 import { type ChildPart, isUuid, parseChildRef } from "../ids";
 import { DEFAULT_PERMISSION_MODE, PERMISSIONS_AXIS } from "../permission-modes";
 import type { LiveDeps } from "../ports/deps";
-import type { HostView, LiveSessions } from "../ports/live";
+import type { LiveSessions } from "../ports/live";
 import type { LiveOverlay, LiveRow, StoredSession } from "../ports/store";
 import { CLOSED, isRejected, rejected } from "../rejections";
 import { errorText } from "./error-text";
 import { SessionHost } from "./host";
-import type { HostProcess } from "./host-process";
 import type { HostHooks, HostStart } from "./host-types";
 import { KeyedLock } from "./keyed-lock";
 import { newSessionState } from "./new-session";
 import { openView } from "./open-view";
-import { withTransientHost } from "./transient-host";
 
 function notASession(sessionId: string): Rejected {
 	return rejected("not_found", `no Claude Code session ${clip(sessionId, 64)}`);
-}
-
-/** An op that throws is a failed op, not a thrown error out of the adapter. */
-async function safely<T, A>(work: (arg: A) => Promise<T>, arg: A): Promise<T | Rejected> {
-	try {
-		return await work(arg);
-	} catch (error) {
-		return rejected("backend_error", `the operation failed: ${errorText(error)}`);
-	}
 }
 
 function isDirectory(path: string): boolean {
@@ -52,7 +41,6 @@ function isDirectory(path: string): boolean {
 
 class Registry implements LiveSessions, LiveOverlay {
 	private readonly hosts = new Map<SessionId, SessionHost>();
-	private readonly transients = new Set<HostProcess>();
 	private readonly locks = new KeyedLock();
 	/** Hosts that ended but whose process may still write the file (D122), by session id. */
 	private readonly ending = new Map<SessionId, SessionHost>();
@@ -111,35 +99,6 @@ class Registry implements LiveSessions, LiveOverlay {
 		return { status: "accepted", session, snapshot: emptySnapshot() };
 	}
 
-	async withLiveHost<T>(sessionId: SessionId, work: (host: HostView | undefined) => Promise<T>): Promise<T | Rejected> {
-		if (!isUuid(sessionId) && !parseChildRef(sessionId)) return notASession(sessionId);
-		const host = this.hosts.get(sessionId);
-		if (host && !host.ended) return safely(work, host.view());
-		const stored = await this.deps.store.locate(sessionId);
-		return isRejected(stored) ? stored : safely(work, undefined);
-	}
-
-	async withHost<T>(sessionId: SessionId, work: (host: HostView) => Promise<T>): Promise<T | Rejected> {
-		if (this.disposing) return CLOSED;
-		if (!isUuid(sessionId)) {
-			return parseChildRef(sessionId)
-				? rejected("unsupported", "a subagent's session has no host of its own")
-				: notASession(sessionId);
-		}
-		const host = this.hosts.get(sessionId);
-		if (host && !host.ended) return this.onHost(host, work);
-		const stored = await this.deps.store.locate(sessionId);
-		if (isRejected(stored)) return stored;
-		if (await this.deps.terminal.writing(sessionId)) {
-			return rejected("unsupported", "A terminal is writing this session. Change it there.");
-		}
-		const cwd = stored.cwd;
-		if (cwd === undefined || !isDirectory(cwd)) return rejected("not_found", "the session's working directory is gone");
-		if (this.disposing) return CLOSED;
-		const pool = { live: this.transients, closing: () => this.disposing !== undefined };
-		return withTransientHost(this.deps, pool, { sessionId, cwd }, (view) => safely(work, view));
-	}
-
 	end(sessionId: SessionId): Promise<void> {
 		return this.locks.run(sessionId, async () => {
 			await this.hosts.get(sessionId)?.finish();
@@ -152,19 +111,7 @@ class Registry implements LiveSessions, LiveOverlay {
 	}
 
 	private async endAll(): Promise<void> {
-		const transients = [...this.transients];
-		for (const process of transients) process.close();
-		await Promise.all([
-			...[...this.hosts.values()].map((host) => host.finish()),
-			...transients.map((process) => process.closed()),
-		]);
-	}
-
-	private async onHost<T>(host: SessionHost, work: (view: HostView) => Promise<T>): Promise<T | Rejected> {
-		const failure = await host.ensureProcess();
-		if (failure) return failure;
-		const view = host.view();
-		return view ? safely(work, view) : rejected("backend_error", "Claude Code is not running");
+		await Promise.all([...this.hosts.values()].map((host) => host.finish()));
 	}
 
 	private async openNew(options: NewSessionOptions, sink: SessionSink): Promise<OpenResult> {

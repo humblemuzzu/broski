@@ -4,15 +4,7 @@
  */
 
 import { stat } from "node:fs/promises";
-import type {
-	AgentBackend,
-	BackendCall,
-	BackendCallResult,
-	BackendHost,
-	CommandsListResult,
-	Rejected,
-	SessionRef,
-} from "../../contract";
+import type { AgentBackend, BackendHost, CommandsListResult, Rejected, SessionRef } from "../../contract";
 import { CatalogFeed } from "./catalog-feed";
 import { PiCommandLister } from "./commands";
 import { ConfigWatch } from "./config-watch";
@@ -21,17 +13,6 @@ import { openChildSession } from "./live/child-open";
 import { SessionHosts } from "./live/session-hosts";
 import { ModelCatalogue } from "./models/catalogue";
 import { listPiModes } from "./modes";
-import { changedFiles } from "./ops/changed-files";
-import { exportPart, exportSession } from "./ops/export-session";
-import { importSession } from "./ops/import-session";
-import { navigateTree } from "./ops/navigate-tree";
-import { refreshModels } from "./ops/refresh-models";
-import { runShellOp } from "./ops/run-shell";
-import { sessionSettings } from "./ops/session-settings";
-import { sessionTools } from "./ops/session-tools";
-import { abortBranchSummaryOp, labelEntryOp, readTreeOp } from "./ops/session-tree";
-import { systemPrompt } from "./ops/system-prompt";
-import { takeOver } from "./ops/take-over";
 import type { SessionStore } from "./ports";
 import { rejected } from "./rejections";
 import type { PiServices } from "./services";
@@ -39,7 +20,6 @@ import { piStatus } from "./status";
 import { createSessionStore } from "./store/session-store";
 import { TerminalLink, type TerminalLinkOptions } from "./terminal/link";
 import { PI_TRAITS } from "./traits";
-import { SessionTransfer } from "./transfer/session-transfer";
 import { builtinExtensions } from "./ui/extensions";
 
 /** The parts one Pi backend is made of, which `piBackendOf` puts behind the contract. */
@@ -52,7 +32,6 @@ export interface PiParts {
 	readonly commands: PiCommandLister;
 	readonly config: ConfigWatch;
 	readonly terminal: TerminalLink;
-	readonly transfer: SessionTransfer;
 }
 
 export function createPiBackend(host: BackendHost, services: PiServices): AgentBackend {
@@ -97,12 +76,11 @@ export function createPiParts(host: BackendHost, services: PiServices, link?: Te
 	);
 	store.watch(hosts);
 	config.attach();
-	const transfer = new SessionTransfer(services, store, Date.now);
-	return { services, catalog, store, models, hosts, commands, config, terminal, transfer };
+	return { services, catalog, store, models, hosts, commands, config, terminal };
 }
 
 export function piBackendOf(parts: PiParts): AgentBackend {
-	const { services, catalog, store, models, hosts, commands, config, terminal, transfer } = parts;
+	const { services, catalog, store, models, hosts, commands, config, terminal } = parts;
 	const listCommands = async (scope: { cwd?: string; session?: SessionRef }): Promise<CommandsListResult> => {
 		if (scope.session === undefined) {
 			const live = scope.cwd === undefined ? undefined : hosts.sessionIn(scope.cwd);
@@ -146,53 +124,14 @@ export function piBackendOf(parts: PiParts): AgentBackend {
 				? hosts.remove(ref.sessionId, (release) => store.remove(ref.sessionId, release))
 				: notFound(ref),
 		fork: async (ref, at) => (ref.backend === "pi" ? store.fork(ref.sessionId, at, hosts) : notFound(ref)),
-		call: async (call) => callOp(parts, call),
 		dispose: async () => {
 			store.dispose();
 			config.stop();
 			await terminal.stop();
 			await hosts.dispose();
-			await transfer.dispose();
 			catalog.silence();
 		},
 	};
-}
-
-function callOp(parts: PiParts, call: BackendCall): Promise<BackendCallResult> {
-	const { services, hosts, store, catalog, terminal, transfer } = parts;
-	if (call.backend !== "pi")
-		return Promise.resolve(rejected("unsupported", `Pi has no ${call.backend} op ${call.op.kind}`));
-	const { op } = call;
-	switch (op.kind) {
-		case "navigate_tree":
-			return navigateTree({ hosts, store, live: hosts, catalog }, op);
-		case "take_over":
-			return takeOver({ hosts, store, terminals: terminal.registry, now: Date.now }, op);
-		case "session_settings":
-			return hosts.withLiveSession(op.sessionId, (session) => sessionSettings(session, op));
-		case "session_tools":
-			return hosts.withLiveSession(op.sessionId, (session) => sessionTools(session, op));
-		case "system_prompt":
-			return hosts.withLiveSession(op.sessionId, (session) => systemPrompt(session, op));
-		case "export_session":
-			return exportSession(transfer.exporting, op);
-		case "export_part":
-			return exportPart(transfer.exporting, op);
-		case "import_session":
-			return importSession(transfer.importing, op);
-		case "changed_files":
-			return changedFiles({ store, live: hosts }, op);
-		case "refresh_models":
-			return refreshModels({ models: services.models, catalog });
-		case "read_tree":
-			return readTreeOp({ hosts, store }, op);
-		case "label_entry":
-			return labelEntryOp({ hosts, store }, op);
-		case "abort_branch_summary":
-			return abortBranchSummaryOp({ hosts, store }, op);
-		case "run_shell":
-			return runShellOp({ hosts, store }, op);
-	}
 }
 
 function notFound(ref: SessionRef): Rejected {

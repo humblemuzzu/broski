@@ -3,18 +3,7 @@
  * `fork`, `rename` and `delete` follow from the methods `backend.ts` implements; `archive` is absent (D16).
  */
 
-import type { BackendOpKind, BackendTraits } from "../../contract";
-
-const CUSTOM_TOOL_OPS: readonly BackendOpKind[] = ["custom_tools", "custom_tool"];
-
-/** The custom tool ops (D30) only when the server layer provides the custom tools port. */
-export function claudeCodeTraits(options: { readonly customTools: boolean }): BackendTraits {
-	if (options.customTools) return CLAUDE_CODE_TRAITS;
-	return {
-		...CLAUDE_CODE_TRAITS,
-		backendOps: CLAUDE_CODE_TRAITS.backendOps.filter((op) => !CUSTOM_TOOL_OPS.includes(op)),
-	};
-}
+import type { BackendTraits } from "../../contract";
 
 export const CLAUDE_CODE_TRAITS: BackendTraits = {
 	streamText: true,
@@ -34,19 +23,5 @@ export const CLAUDE_CODE_TRAITS: BackendTraits = {
 	externalLive: false,
 	durableRuns: false,
 	extensions: ["rate_limit", "prompt_suggestion"],
-	backendOps: [
-		"rewind_files",
-		"session_settings",
-		"changed_files",
-		"refresh_models",
-		"config_files",
-		"config_file",
-		"settings_overview",
-		"mcp_servers",
-		"plugins",
-		"tasks",
-		"context_usage",
-		"custom_tools",
-		"custom_tool",
-	],
+	backendOps: [],
 };

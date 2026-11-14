@@ -62,7 +62,6 @@ describe("the transcript cut follows the chain", () => {
 				const live = await rig.openNew(rig.home.projectDir);
 				await live.run("First.");
 				const mark = live.recorder.items.length;
-				await rig.live.withLiveHost(live.ref.sessionId, async () => undefined);
 				await live.run("Second, with a tool.");
 				const chain = await withConfigDir(rig.home, () =>
 					getSessionMessages(live.ref.sessionId, { dir: rig.home.projectDir }),

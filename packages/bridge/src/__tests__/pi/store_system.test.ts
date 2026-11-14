@@ -233,7 +233,7 @@ describe("a header's version, as Pi's migration reads it", () => {
 });
 
 describe("an assistant message that begins with an empty thinking block", () => {
-	test("its text item is found where its id says, for a fork through it and for the tree", async () => {
+	test("its text item is found where its id says, for a fork through it and before it", async () => {
 		const builder = new SessionBuilder({ id: "signed", cwd: env.cwd, version: 3 });
 		builder.user("question", 10);
 		builder.assistant([thinkingBlock(""), textBlock("the answer")], 20);
@@ -245,7 +245,6 @@ describe("an assistant message that begins with an empty thinking block", () => 
 		const read = await store.transcript("signed", { limit: 50 }, NOBODY);
 		if (read.status === "rejected") throw new Error(read.rejection.message);
 		expect(read.page.items.map((item) => item.id)).toContain("e0000002:1");
-		expect(await store.entryOf("signed", "e0000002:1", NOBODY)).toBe("e0000002");
 		const forked = await store.fork("signed", { itemId: "e0000002:1", position: "through" }, NOBODY);
 		expect(forked.status).toBe("accepted");
 		const before = await store.fork("signed", { itemId: "e0000002:1", position: "before" }, NOBODY);

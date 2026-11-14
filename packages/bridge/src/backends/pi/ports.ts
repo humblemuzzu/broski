@@ -1,14 +1,13 @@
 /**
- * The interfaces one part of the Pi adapter offers another, so the store, the live sessions, the
- * interactions and the op can be built apart and joined in `backend.ts`.
+ * The interfaces one part of the Pi adapter offers another, so the store, the live sessions and the
+ * interactions can be built apart and joined in `backend.ts`.
  */
 
-import type { AgentSession, AgentSessionEvent } from "@earendil-works/pi-coding-agent";
+import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
 import type {
 	ActionResult,
 	AttachmentId,
 	AttachmentReadResult,
-	ChangedFilesListed,
 	ForkPoint,
 	InteractionAnswer,
 	ModelId,
@@ -23,14 +22,11 @@ import type {
 	SessionStatus,
 	SessionSummary,
 	SessionsListResult,
-	TranscriptItemId,
 	TranscriptReadResult,
-	TreeRead,
 } from "../../contract";
 import type { ToolCallIds } from "./ids";
 import type { LiveState } from "./live/live-state";
 import type { PermissionsMode } from "./modes";
-import type { CheckedHeader } from "./transfer/session-check";
 
 /** One member of Pi's session event union (pi-coding-agent `dist/core/agent-session.d.ts:47-109`). */
 export type PiEvent<T extends AgentSessionEvent["type"]> = Extract<AgentSessionEvent, { type: T }>;
@@ -74,13 +70,9 @@ export interface SessionStore {
 	get(sessionId: SessionId, live: LiveOverlay): Promise<SessionGetResult>;
 	transcript(sessionId: SessionId, page: PageRequest, live: LiveOverlay): Promise<TranscriptReadResult>;
 	attachment(sessionId: SessionId, attachment: AttachmentId): Promise<AttachmentReadResult>;
-	/** The entries of the session file as the tree `/tree` shows them, newest first. */
-	tree(sessionId: SessionId, page: PageRequest): Promise<TreeRead | Rejected>;
 	locate(sessionId: SessionId): Promise<StoredSession | Rejected>;
 	/** Where a new session of `cwd` is written, as the `pi` command would write it (D7). */
 	sessionDirFor(cwd: string): string;
-	/** The entry `itemId` came from, when it is on the branch the transcript shows now. */
-	entryOf(sessionId: SessionId, itemId: TranscriptItemId, live: LiveOverlay): Promise<string | undefined | Rejected>;
 	/** `name` is `sessionName`'s. */
 	rename(sessionId: SessionId, name: string): Promise<ActionResult>;
 	/** Writes the `broski.origin` entry a session this bridge creates starts with; a session that has one is untouched. */
@@ -88,10 +80,6 @@ export interface SessionStore {
 	/** `release` runs once the file may be deleted and before it is: the session's host ends there. */
 	remove(sessionId: SessionId, release: () => Promise<void>): Promise<ActionResult>;
 	fork(sessionId: SessionId, at: ForkPoint | undefined, live: LiveOverlay): Promise<NewSessionResult>;
-	/** The files the session's tool calls changed, with the lines added and removed (`store/changed-files.ts`). */
-	changedFiles(sessionId: SessionId, live: LiveOverlay): Promise<ChangedFilesListed | Rejected>;
-	/** Takes the checked session file at `source` into the sessions directory its project uses; see `store/import-file.ts`. */
-	importSession(header: CheckedHeader, source: string): Promise<{ readonly sessionId: SessionId } | Rejected>;
 	/**
 	 * From now on a session file another process adds, changes or removes reaches the catalog as
 	 * `session_updated`/`session_removed`: Pi reports nothing live (README §5, catalog sink).
@@ -150,37 +138,4 @@ export interface TerminalHolder {
 /** Which session files a connected terminal `pi` has open now. */
 export interface TerminalPresence {
 	holder(sessionPath: string): TerminalHolder | undefined;
-}
-
-/** How the op (`ops/take-over.ts`) reaches the registry of hosted sessions (`live/`). */
-export interface OwnershipAccess {
-	/**
-	 * Makes a session another client wrote this bridge's and hosts it, under the session lock. `claim` runs inside the
-	 * lock on the stored session and either refuses or writes the mark that makes the session this bridge's.
-	 */
-	takeOver(sessionId: SessionId, claim: (stored: StoredSession) => Promise<ActionResult>): Promise<ActionResult>;
-}
-
-/** The `AgentSession` of a session this bridge hosts now, without waiting for the session lock. */
-export interface HostedPeek {
-	session(sessionId: SessionId): AgentSession | undefined;
-}
-
-/** How the op (`ops/navigate-tree.ts`) reaches a session's `AgentSession` (`live/`). */
-export interface HostAccess {
-	/**
-	 * Runs `work` under the session lock on the live session, hosting the session for the duration
-	 * when nobody does. `not_found` for an unknown session; `unsupported` for one another client made
-	 * (watch-only); `busy` while a run, a compaction or an ask is under way.
-	 */
-	withIdleSession<T>(sessionId: SessionId, work: (session: AgentSession) => Promise<T>): Promise<T | Rejected>;
-}
-
-/** How the ops of `ops/session-*.ts` and `ops/system-prompt.ts` reach the `AgentSession` of a session that is open here (`live/`). */
-export interface LiveSessionAccess {
-	/**
-	 * Runs `work` on the session this bridge hosts, whatever it is doing. `not_found` for an unknown session or one that is
-	 * not open here; `unsupported` for one a terminal or another client runs; `busy` while its extensions start.
-	 */
-	withLiveSession<T>(sessionId: SessionId, work: (session: AgentSession) => T | Promise<T>): Promise<T | Rejected>;
 }

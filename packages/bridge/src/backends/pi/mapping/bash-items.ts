@@ -1,6 +1,6 @@
 /**
- * A command the person ran with `!` or `!!` as the contract's tool call: the same `bash` card whether it is
- * streaming (`live/shell-run.ts`) or read back from the `bashExecution` message Pi recorded.
+ * A command the person ran in Pi's terminal with `!` or `!!`, read back from the `bashExecution` message Pi recorded,
+ * as the contract's `bash` tool call.
  */
 
 import {
@@ -26,19 +26,19 @@ export interface BashRecord {
 	readonly excludeFromContext?: boolean;
 }
 
-export const BASH_TOOL_NAME = "bash";
+const BASH_TOOL_NAME = "bash";
 
-export function bashInput(command: string, excludeFromContext: boolean | undefined): JsonValue {
+function bashInput(command: string, excludeFromContext: boolean | undefined): JsonValue {
 	return boundedJson({ command, ...(excludeFromContext === true && { excludeFromContext: true }) });
 }
 
 /** Cancelled is `aborted`; an exit code other than 0 is `failed`, with the output kept as output. */
-export function bashOutcome(record: Pick<BashRecord, "cancelled" | "exitCode">): ToolOutcome {
+function bashOutcome(record: Pick<BashRecord, "cancelled" | "exitCode">): ToolOutcome {
 	if (record.cancelled) return "aborted";
 	return typeof record.exitCode === "number" && record.exitCode !== 0 ? "failed" : "completed";
 }
 
-export function bashResult(record: BashRecord): ToolResult {
+function bashResult(record: BashRecord): ToolResult {
 	const lines = [record.output];
 	if (record.truncated && record.fullOutputPath)
 		lines.push(`[Output truncated. Full output: ${record.fullOutputPath}]`);

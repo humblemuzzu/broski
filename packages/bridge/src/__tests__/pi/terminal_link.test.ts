@@ -264,17 +264,6 @@ describe("a session a terminal runs", () => {
 		await live.close();
 	});
 
-	test("a phone that asks to take the session over while a terminal holds it is refused, and the terminal goes on", async () => {
-		const { t, live, id, terminal } = await watched();
-		const refused = await t.backend.call?.({ backend: "pi", op: { kind: "take_over", sessionId: id } });
-		expect(refused).toMatchObject({ status: "rejected", rejection: { code: "busy" } });
-		t.router.script(id, [say("still the terminal's")]);
-		const mark = live.recorder.items.length;
-		await terminal.session.prompt("carry on");
-		await live.waitFor("run_finished", () => true, mark);
-		await live.close();
-	});
-
 	test("a session the phone left idle gives way to a terminal that opens it", async () => {
 		t = await LiveRig.create({ link: true });
 		terminals = new TerminalRig(t);

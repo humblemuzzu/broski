@@ -21,8 +21,6 @@ export interface PiServices {
 export interface PiServicesOptions {
 	/** Defaults to Pi's own: `$PI_CODING_AGENT_DIR`, else `~/.pi/agent` (pi-coding-agent `src/config.ts:605-611`). */
 	readonly agentDir?: string;
-	/** Where a network refresh reads the model catalogues from; Pi's own (`https://pi.dev`) when absent. */
-	readonly catalogBaseUrl?: string;
 }
 
 /**
@@ -34,7 +32,6 @@ export async function createPiServices(options: PiServicesOptions = {}): Promise
 	const runtime = await ModelRuntime.create({
 		authPath: join(agentDir, "auth.json"),
 		modelsPath: join(agentDir, "models.json"),
-		...(options.catalogBaseUrl !== undefined && { catalogBaseUrl: options.catalogBaseUrl }),
 	});
 	const proxy = new ProxySetting(agentDir);
 	const sessionRuntime = withProxy(runtime, () => {

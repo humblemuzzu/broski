@@ -26,7 +26,6 @@ export const mintRunId: () => RunId = mint;
 export const mintMessageId: () => MessageId = mint;
 export const mintInteractionId: () => InteractionId = mint;
 export const mintQueueItemId: () => QueueItemId = mint;
-export const mintToolCallId: () => ToolCallId = mint;
 
 export function blockId(messageId: MessageId, contentIndex: number): BlockId {
 	return `${messageId}:${contentIndex}`;

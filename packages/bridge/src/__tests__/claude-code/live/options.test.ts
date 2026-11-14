@@ -42,7 +42,6 @@ describe("the options of a new host", () => {
 			includeHookEvents: true,
 			forwardSubagentText: true,
 			agentProgressSummaries: true,
-			enableFileCheckpointing: true,
 			allowDangerouslySkipPermissions: true,
 			systemPrompt: { type: "preset", preset: "claude_code" },
 			pathToClaudeCodeExecutable: "/fake/claude",
@@ -134,53 +133,6 @@ describe("the options of a new host", () => {
 		const refused = await rig.live.open({ kind: "new", options: { cwd: tempDir() } }, { emit: () => undefined });
 		expect(refused).toMatchObject({ status: "rejected", rejection: { code: "backend_error" } });
 		expect(rig.sdk.started).toEqual([]);
-		await rig.dispose();
-	});
-});
-
-describe("the custom tools' servers (D30)", () => {
-	const tools = {
-		sessionServers: async () => ({ "broski-custom-tools": { command: "node", args: ["tools.js"] } }),
-		list: async () => [],
-		read: async () => undefined,
-		template: () => ({ toolId: "new", definition: {} }),
-		save: async () => ({ ok: true as const }),
-		remove: async () => false,
-		test: async () => ({ ok: true, output: "" }),
-	};
-
-	test("are merged in at every start, the first and after the CLI ended", async () => {
-		const first = new FakeQuery();
-		const rig = fakeRig([first, new FakeQuery()], { customTools: tools });
-		const live = await rig.openNew(tempDir());
-		first.push(running(), init(), idle());
-		first.end();
-		await Bun.sleep(20);
-		await live.control.prompt({
-			clientRequestId: crypto.randomUUID(),
-			mode: "start",
-			text: "again",
-			attachments: [],
-			mentions: [],
-		});
-		expect(rig.sdk.started).toHaveLength(2);
-		for (const call of rig.sdk.started) {
-			expect(call.options.mcpServers).toEqual({ "broski-custom-tools": { command: "node", args: ["tools.js"] } });
-		}
-		await rig.dispose();
-	});
-
-	test("are left out, not failed on, when the port throws", async () => {
-		const rig = fakeRig([new FakeQuery()], {
-			customTools: {
-				...tools,
-				sessionServers: async () => {
-					throw new Error("the registry is unreadable");
-				},
-			},
-		});
-		const { options } = await started(rig);
-		expect(options.mcpServers).toEqual({});
 		await rig.dispose();
 	});
 });
@@ -302,7 +254,7 @@ describe("the model of a session that exists", () => {
 });
 
 describe("ids that are not sessions", () => {
-	test("are not_found for a session, and a subagent's session has no host of its own", async () => {
+	test("are not_found for a session", async () => {
 		const rig = fakeRig([]);
 		const other = { emit: () => undefined };
 		const notFound = { status: "rejected", rejection: { code: "not_found" } };
@@ -310,14 +262,7 @@ describe("ids that are not sessions", () => {
 			expect(
 				await rig.live.open({ kind: "existing", session: { backend: "claude-code", sessionId: id } }, other),
 			).toMatchObject(notFound);
-			expect(await rig.live.withHost(id, async () => "never")).toMatchObject(notFound);
-			expect(await rig.live.withLiveHost(id, async () => "never")).toMatchObject(notFound);
 		}
-		const child = `${sessionId}/agent-1`;
-		expect(await rig.live.withHost(child, async () => "never")).toMatchObject({
-			status: "rejected",
-			rejection: { code: "unsupported" },
-		});
 		expect(rig.sdk.started).toEqual([]);
 		await rig.dispose();
 	});

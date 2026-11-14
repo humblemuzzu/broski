@@ -7,12 +7,10 @@ import type { AgentSession, AgentSessionRuntime } from "@earendil-works/pi-codin
 import {
 	type ActionResult,
 	type AgentEvent,
-	type BackendCallResult,
 	emptySnapshot,
 	MAX_LIST_ITEMS,
 	type NoticeEvent,
 	type Rejected,
-	type RunShellOp,
 	type SessionSink,
 	type SessionSnapshot,
 	type SessionSummary,
@@ -40,11 +38,10 @@ import { QueueMirror } from "./queue-mirror";
 import { returnQueuedInput } from "./queue-return";
 import { RunTracker } from "./run-tracker";
 import { SessionSettings } from "./settings";
-import { ShellRun } from "./shell-run";
 import { ABORT_DEADLINE_MS, BINDING_WAIT_MS, boundedAbort, shutdownRuntime, within } from "./shutdown";
 import { UsageFeed } from "./usage-feed";
 
-export const BINDING: Rejected = rejected("busy", "the session's extensions are still starting");
+const BINDING: Rejected = rejected("busy", "the session's extensions are still starting");
 
 export class SessionHost {
 	readonly sessionId: string;
@@ -54,7 +51,6 @@ export class SessionHost {
 	private readonly interactions: InteractionDesk;
 	private readonly runs: RunTracker;
 	private readonly queue: QueueMirror;
-	private readonly shell: ShellRun;
 	readonly children: ChildFeeds;
 	private readonly prompts: PromptDesk;
 	private readonly events: EventBridge;
@@ -69,7 +65,6 @@ export class SessionHost {
 	private ready = false;
 	private finished = false;
 	private shuttingDown = false;
-	private idleWork = 0;
 
 	constructor(
 		private readonly env: HostEnvironment,
@@ -103,13 +98,6 @@ export class SessionHost {
 			refreshUsage: () => this.usage.refresh(),
 		});
 		this.queue = new QueueMirror(this.live);
-		this.shell = new ShellRun({
-			session: () => this.session,
-			live: this.live,
-			runs: this.runs,
-			interactions: this.interactions,
-			idle: () => this.idle(),
-		});
 		this.prompts = new PromptDesk({
 			session,
 			runs: this.runs,
@@ -263,19 +251,6 @@ export class SessionHost {
 		});
 	}
 
-	/** `!command` (`run_shell`), under the lock and once the extensions have started. */
-	readonly runShell = (op: RunShellOp): Promise<BackendCallResult> => this.whenBound(() => this.shell.start(op));
-
-	/** Work the registry runs on the idle session under the lock (a tree navigation): a Stop reaches it, as it reaches Pi's own (pi `src/core/agent-session.ts:2498-2508`). */
-	async runIdleWork<T>(work: (session: AgentSession) => Promise<T>): Promise<T> {
-		this.idleWork++;
-		try {
-			return await work(this.session);
-		} finally {
-			this.idleWork--;
-		}
-	}
-
 	/** A new session asked to start at a thinking level before its model was known (`NewSessionOptions.thinking` without a model). */
 	applyThinking(value: string): ActionResult {
 		return this.settings.setThinking(value);
@@ -333,9 +308,8 @@ export class SessionHost {
 	/** Not under the lock: an abort must reach Pi while a prompt waits on it (D2). */
 	private async abort(): Promise<ActionResult> {
 		if (this.ended) return CLOSED;
-		if (this.shell.stop()) return ACCEPTED;
 		const quiet = this.runs.current() === undefined && !this.prompts.isDeciding;
-		if (quiet && this.idleWork === 0 && this.live.snapshot().compaction === undefined) return ACCEPTED;
+		if (quiet && this.live.snapshot().compaction === undefined) return ACCEPTED;
 		return this.abortNow();
 	}
 

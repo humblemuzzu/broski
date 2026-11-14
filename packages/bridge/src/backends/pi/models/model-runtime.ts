@@ -3,7 +3,6 @@ import { join } from "node:path";
 import type { Api, Model } from "@earendil-works/pi-ai";
 import { type ModelRuntime, resolveModelScopeWithDiagnostics } from "@earendil-works/pi-coding-agent";
 import { errorText } from "../error-text";
-import { phoneName } from "../phone-text";
 
 export interface AvailableModels {
 	/** What the process's runtime can run now (`getAvailableSnapshot`), which the hosted sessions use too. */
@@ -20,14 +19,8 @@ type Scope = Awaited<ReturnType<typeof resolveModelScopeWithDiagnostics>>;
 /** The global `enabledModels` and a few projects' own. */
 const REMEMBERED_SCOPES = 16;
 
-/** `pi update --models` gives up after this long. */
-const NETWORK_REFRESH_MS = 15_000;
-
 /** Even with the files unchanged a refresh runs this often, as a credential can expire between two reads. */
 const REFRESH_EVERY_MS = 60_000;
-
-/** A refresh names a few providers that failed; past this many the rest are counted. */
-const SHOWN_PROBLEMS = 32;
 
 /**
  * The process's one `ModelRuntime`, refreshed as `pi --list-models` refreshes it (`refresh({allowNetwork: false})`)
@@ -60,30 +53,6 @@ export class ModelRuntimeHost {
 			started.then(done, done);
 		}
 		return this.inFlight;
-	}
-
-	/**
-	 * What `pi update --models` does (pi-coding-agent `src/package-manager-cli.ts:607-633`): every provider's catalogue
-	 * fetched again whatever its age, within `NETWORK_REFRESH_MS`. A provider that fails keeps the catalogue it had, and
-	 * is named, on one line of at most `MAX_NAME_CHARS`. The next listing reads every file again.
-	 */
-	async refreshFromNetwork(): Promise<string[]> {
-		await this.available();
-		let problems: string[];
-		try {
-			const { aborted, errors } = await this.runtime.refresh({
-				allowNetwork: true,
-				force: true,
-				signal: AbortSignal.timeout(NETWORK_REFRESH_MS),
-			});
-			problems = [...errors].map(([providerId, error]) => `${providerId}: ${error.message}`);
-			if (aborted) problems.push(`the catalogues were not all fetched within ${NETWORK_REFRESH_MS / 1000} s`);
-		} catch (error) {
-			problems = [errorText(error)];
-		}
-		this.lastStamps = undefined;
-		this.scopes.clear();
-		return shownProblems(problems);
 	}
 
 	private async refreshIfStale(): Promise<AvailableModels> {
@@ -164,10 +133,4 @@ function withoutJsonComments(input: string): string {
 	return input
 		.replace(/"(?:\\.|[^"\\])*"|\/\/[^\n]*/g, (m) => (m[0] === '"' ? m : ""))
 		.replace(/"(?:\\.|[^"\\])*"|,(\s*[}\]])/g, (m, tail) => tail ?? (m[0] === '"' ? m : ""));
-}
-
-function shownProblems(problems: readonly string[]): string[] {
-	const shown = problems.slice(0, SHOWN_PROBLEMS).map(phoneName);
-	const rest = problems.length - shown.length;
-	return rest > 0 ? [...shown, `and ${rest} more`] : shown;
 }

@@ -11,7 +11,6 @@ import type {
 	AskDeskFactory,
 	ClaudeSdk,
 	Clock,
-	CustomToolsPort,
 	LiveDeps,
 	LiveSessions,
 	SessionFunctions,
@@ -50,15 +49,12 @@ export interface RigOptions {
 	readonly mapping?: StandInMapping;
 	readonly catalogue?: StandInCatalogue;
 	readonly desk?: StandInDesk;
-	readonly customTools?: CustomToolsPort;
 	readonly createDesk?: AskDeskFactory;
 }
 
 export class LiveRig {
 	readonly live: LiveSessions;
 	readonly catalogEvents: CatalogEvent[] = [];
-	/** Sessions a terminal is writing, as `TerminalPresence` reports them. */
-	readonly writing = new Set<string>();
 	readonly deps: LiveDeps;
 
 	constructor(
@@ -77,7 +73,6 @@ export class LiveRig {
 			store,
 			ownership,
 			catalogue,
-			terminal: { writing: async (sessionId) => this.writing.has(sessionId) },
 			mapping,
 			createDesk: desk.factory,
 		};
@@ -142,7 +137,6 @@ export function realRig(
 		stateDir: join(home.root, "broski-state"),
 		clientApp: "broski/live-test",
 		clock,
-		...(options.customTools !== undefined && { customTools: options.customTools }),
 	});
 	const made = parts(options, services.sdk);
 	const rig = new LiveRig(services, made.store, made.ownership, made.catalogue, made.mapping, made.desk, async () => {
@@ -174,7 +168,6 @@ export function fakeRig(
 		clientApp: "broski/fake-test",
 		clock,
 		sdk,
-		...(options.customTools !== undefined && { customTools: options.customTools }),
 		...(options.uid !== undefined && { uid: options.uid }),
 	});
 	const made = parts(options, sdk);

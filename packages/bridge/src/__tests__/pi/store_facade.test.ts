@@ -129,7 +129,6 @@ describe("a session Pi wrote, read through the store", () => {
 		expect(await transcript(forked.session.sessionId)).toHaveLength(1);
 		const located = await store.locate(forked.session.sessionId);
 		expect("origin" in located && located.origin).toBe("broski");
-		expect(await store.entryOf("s1", "e0000002:0", NOBODY)).toBe("e0000002");
 	});
 
 	test("watching through the store reports a file another process writes, and goes quiet at dispose", async () => {

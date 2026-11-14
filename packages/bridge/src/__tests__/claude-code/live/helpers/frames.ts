@@ -44,8 +44,5 @@ export const streamEvent = () =>
 		event: { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: "x" } },
 	});
 
-export const backgroundTasks = (tasks: object[]) =>
-	frame({ type: "system", subtype: "background_tasks_changed", tasks });
-
 export const conversationReset = (newConversationId: string) =>
 	frame({ type: "conversation_reset", new_conversation_id: newConversationId, trigger: "clear" });

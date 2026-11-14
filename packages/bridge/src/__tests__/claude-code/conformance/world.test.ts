@@ -11,7 +11,6 @@ test("a conformance world builds the adapter over a temp home and the scripted e
 	const { backend, driver } = await kit.factory({ catalog: { emit: () => undefined } });
 	try {
 		expect(backend.id).toBe("claude-code");
-		expect(backend.traits.backendOps).toContain("custom_tool");
 		expect(existsSync(join(driver.cwd, "README.md"))).toBe(true);
 		expect(existsSync(join(driver.otherCwd, "README.md"))).toBe(true);
 		expect(driver.cwd).not.toBe(driver.otherCwd);

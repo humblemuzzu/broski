@@ -36,18 +36,16 @@ describe("lazy agent SDK imports", () => {
 		expect(output).toContain("PROBE_SDK_MODULES=0");
 	});
 
-	const MODULES_THE_SERVER_GRAPH_REACHES = ["src/server.ts", "src/custom-tools.ts"];
-
-	for (const module of MODULES_THE_SERVER_GRAPH_REACHES) {
-		test(`${module} loads without an agent SDK`, async () => {
-			const { output } = await runProbe(resolve(FIXTURES, "connector-import-probe.ts"), { PROBE_MODULE: module });
-			expect(output).toContain("PROBE_SDK_MODULES=0");
+	test("the server graph loads without an agent SDK", async () => {
+		const { output } = await runProbe(resolve(FIXTURES, "module-import-probe.ts"), {
+			PROBE_MODULE: "src/server.ts",
 		});
-	}
+		expect(output).toContain("PROBE_SDK_MODULES=0");
+	});
 
 	test("the probe detects an SDK that is actually loaded", async () => {
-		const { output } = await runProbe(resolve(FIXTURES, "connector-import-probe.ts"), {
-			PROBE_MODULE: "src/__tests__/fixtures/sdk-bundle-probe.ts",
+		const { output } = await runProbe(resolve(FIXTURES, "module-import-probe.ts"), {
+			PROBE_MODULE: "src/__tests__/fixtures/sdk-loading-module.ts",
 		});
 		expect(output).not.toContain("PROBE_SDK_MODULES=0");
 	});

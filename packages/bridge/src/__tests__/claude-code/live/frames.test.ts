@@ -6,7 +6,6 @@ import { FakeQuery } from "../helpers/fake-query";
 import { flush, promptOf, tempProject } from "./helpers/fake-host";
 import {
 	assistant,
-	backgroundTasks,
 	conversationReset,
 	frame,
 	idle,
@@ -205,48 +204,6 @@ describe("news for the parts around the host", () => {
 		expect(rig.catalogue.invalidated).toEqual([project.dir]);
 		expect(rig.catalogue.observed).toEqual([{ cwd: project.dir, version: "2.1.316" }]);
 		expect(live.events().length).toBeGreaterThan(0);
-		await rig.dispose();
-	});
-
-	test("background tasks are the host's tasks, with the statuses the task frames give, and finished ones go", async () => {
-		const { rig, query, live } = await hosted();
-		const task = (id: string, extra: object = {}) => ({
-			task_id: id,
-			task_type: "local_agent",
-			description: `task ${id}`,
-			...extra,
-		});
-		query.push(
-			frame({ type: "system", subtype: "task_started", task_id: "a", tool_use_id: "toolu_a", description: "task a" }),
-			backgroundTasks([task("a"), task("b"), task("c", { ambient: true })]),
-		);
-		await flush();
-		const tasks = async () => {
-			const listed = await rig.live.withLiveHost(live.ref.sessionId, async (host) => host?.tasks());
-			return Array.isArray(listed) ? listed : [];
-		};
-		expect(await tasks()).toEqual([
-			{ taskId: "a", description: "task a", status: "running", taskType: "local_agent", toolUseId: "toolu_a" },
-			{ taskId: "b", description: "task b", status: "running", taskType: "local_agent" },
-		]);
-		query.push(frame({ type: "system", subtype: "task_updated", task_id: "b", patch: { status: "paused" } }));
-		await flush();
-		expect((await tasks()).map((t) => [t.taskId, t.status])).toEqual([
-			["a", "running"],
-			["b", "paused"],
-		]);
-		query.push(
-			frame({
-				type: "system",
-				subtype: "task_notification",
-				task_id: "a",
-				status: "completed",
-				output_file: "",
-				summary: "",
-			}),
-		);
-		await flush();
-		expect((await tasks()).map((t) => t.taskId)).toEqual(["b"]);
 		await rig.dispose();
 	});
 });

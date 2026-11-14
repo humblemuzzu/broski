@@ -4,7 +4,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type ConfigWatch, createConfigWatch } from "../../../backends/claude-code/ops/config-watch";
+import { type ConfigWatch, createConfigWatch } from "../../../backends/claude-code/models/config-watch";
 
 const roots: string[] = [];
 let watch: ConfigWatch | undefined;

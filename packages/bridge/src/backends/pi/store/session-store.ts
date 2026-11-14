@@ -11,9 +11,7 @@ import { itemsOfEntry } from "../mapping/message-items";
 import type { SessionStore, StoredSession } from "../ports";
 import { rejected } from "../rejections";
 import { readAttachment } from "./attachments";
-import { readChangedFiles } from "./changed-files";
 import { childTranscript, getChild } from "./children";
-import { importStored } from "./import-file";
 import { getSession, listSessions } from "./list";
 import { claimStored, forkStored, type MutationDeps, removeStored, renameStored } from "./mutations";
 import { isFileSystemError } from "./open-file";
@@ -21,8 +19,7 @@ import { piSessionDirs } from "./session-dir";
 import { SessionIndex } from "./session-index";
 import { SessionWatch } from "./session-watch";
 import { ToolChildren } from "./tool-children";
-import { entryOfItem, readTranscript } from "./transcript";
-import { readTree } from "./tree";
+import { readTranscript } from "./transcript";
 
 export interface SessionStoreDeps {
 	readonly agentDir: string;
@@ -72,20 +69,16 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
 							page,
 						),
 			),
-		tree: (sessionId, page) => reaching(() => readTree(index, sessionId, page)),
 		attachment: (sessionId, attachment) => reaching(() => readAttachment(index, sessionId, attachment)),
 		locate: (sessionId) => reaching(() => locate(sessionId)),
 		sessionDirFor: (cwd) => {
 			learn(cwd);
 			return dirs.forCwd(cwd);
 		},
-		entryOf: (sessionId, itemId, live) => reaching(() => entryOfItem(index, sessionId, itemId, live, itemsOfEntry)),
 		rename: (sessionId, name) => reaching(() => renameStored(mutation, sessionId, name)),
 		claim: (sessionId) => reaching(() => claimStored(mutation, sessionId)),
 		remove: (sessionId, release) => reaching(() => removeStored(mutation, sessionId, release)),
 		fork: (sessionId, at, live) => reaching(() => forkStored(mutation, sessionId, at, live)),
-		changedFiles: (sessionId, live) => reaching(() => readChangedFiles(index, sessionId, live, itemsOfEntry)),
-		importSession: (header, source) => reaching(() => importStored(mutation, header, source)),
 		watch: (live) => watcher.start(live),
 		dispose: () => watcher.stop(),
 	};

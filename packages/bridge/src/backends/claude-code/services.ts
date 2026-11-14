@@ -1,6 +1,5 @@
 /** The factory's options (what the server layer hands the adapter) and the services every part shares. */
 
-import type { CustomToolsPort } from "./ports/custom-tools";
 import type { ClaudeSdk } from "./ports/sdk";
 import type { TerminalOptions } from "./ports/terminal";
 import { type Clock, SYSTEM_CLOCK } from "./ports/time";
@@ -25,7 +24,6 @@ export interface ClaudeCodeFactoryOptions {
 	readonly clientApp: string;
 	/** The SDK package's `claudeCodeVersion`, baked in at build time (D3). */
 	readonly expectedCliVersion?: string;
-	readonly customTools?: CustomToolsPort;
 	readonly terminal?: TerminalOptions;
 	readonly clock?: Clock;
 	/** Unit tests inject a fake; otherwise `createClaudeSdk`. */
@@ -44,7 +42,6 @@ export interface ClaudeCodeServices {
 	readonly mayBypassPermissions: boolean;
 	readonly stateDir: string;
 	readonly expectedCliVersion: string | undefined;
-	readonly customTools: CustomToolsPort | undefined;
 	readonly terminal: TerminalOptions;
 	readonly clock: Clock;
 }
@@ -59,7 +56,6 @@ export function createClaudeCodeServices(options: ClaudeCodeFactoryOptions): Cla
 		mayBypassPermissions: mayBypassPermissions("uid" in options ? options.uid : processUid(), env),
 		stateDir: options.stateDir,
 		expectedCliVersion: options.expectedCliVersion,
-		customTools: options.customTools,
 		terminal: options.terminal ?? {},
 		clock: options.clock ?? SYSTEM_CLOCK,
 	};

@@ -5,20 +5,19 @@
  */
 
 import type { AgentBackend, BackendHost, CommandsListResult, SessionRef } from "../../contract";
-import { callOp } from "./call-op";
 import { CatalogFeed } from "./catalog-feed";
 import { createLiveSessions } from "./live/registry";
 import { CLAUDE_CODE_MAPPING } from "./mapping";
 import { createCatalogue } from "./models/catalog";
+import { type ConfigWatch, createConfigWatch } from "./models/config-watch";
 import { notFound, openSession } from "./open-session";
-import { type ConfigWatch, createConfigWatch } from "./ops/config-watch";
 import { createOwnership } from "./owned";
 import type { CatalogueAccess, LiveSessions, Ownership, SessionStore, TerminalWatch } from "./ports";
 import { isRejected } from "./rejections";
 import type { ClaudeCodeServices } from "./services";
 import { createSessionStore } from "./store/session-store";
 import { createTerminalWatch } from "./terminal/watch-only";
-import { claudeCodeTraits } from "./traits";
+import { CLAUDE_CODE_TRAITS } from "./traits";
 import { createAskDesk } from "./ui/desk";
 
 /** The parts one Claude Code backend is made of, which `claudeCodeBackendOf` puts behind the contract. */
@@ -52,7 +51,6 @@ export function createClaudeCodeParts(host: BackendHost, services: ClaudeCodeSer
 		store,
 		ownership,
 		catalogue,
-		terminal,
 		mapping: CLAUDE_CODE_MAPPING,
 		createDesk: createAskDesk,
 	});
@@ -64,7 +62,7 @@ export function claudeCodeBackendOf(parts: ClaudeCodeParts): AgentBackend {
 	const { services, catalog, terminal, store, catalogue, live, configWatch } = parts;
 	return {
 		id: "claude-code",
-		traits: claudeCodeTraits({ customTools: services.customTools !== undefined }),
+		traits: CLAUDE_CODE_TRAITS,
 		status: () => catalogue.status(),
 		listSessions: (query, page) => store.list(query, page, live),
 		getSession: async (ref) => (mine(ref) ? store.get(ref.sessionId, live) : notFound(ref)),
@@ -81,7 +79,6 @@ export function claudeCodeBackendOf(parts: ClaudeCodeParts): AgentBackend {
 			return store.remove(ref.sessionId);
 		},
 		fork: async (ref, at) => (mine(ref) ? store.fork(ref.sessionId, at, live) : notFound(ref)),
-		call: (call) => callOp(parts, call),
 		dispose: async () => {
 			try {
 				configWatch.dispose();

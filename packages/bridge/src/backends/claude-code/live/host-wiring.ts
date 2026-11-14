@@ -1,6 +1,5 @@
 /** How a host's parts are joined: what each one is given of the others. The host's parts are public for this file only. */
 
-import type { SDKSystemMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { Rejected, SessionId } from "../../../contract";
 import type { AskDesk } from "../ports/asks";
 import type { LiveDeps } from "../ports/deps";
@@ -16,7 +15,6 @@ import { endRun, type RunEndDeps } from "./run-end";
 import type { RunTracker } from "./run-tracker";
 import type { SerialLock } from "./serial";
 import type { SessionSettings } from "./settings";
-import type { TaskBoard } from "./task-board";
 
 export interface HostParts {
 	readonly deps: LiveDeps;
@@ -24,7 +22,6 @@ export interface HostParts {
 	readonly live: SessionEmitter;
 	readonly runs: RunTracker;
 	readonly queue: InputQueue;
-	readonly tasks: TaskBoard;
 	readonly children: ChildRouter;
 	readonly desk: AskDesk;
 	readonly settings: SessionSettings;
@@ -36,7 +33,6 @@ export interface HostParts {
 	ensureProcess(): Promise<Rejected | undefined>;
 	rowChanged(): void;
 	markPersisted(): void;
-	noteInit(init: SDKSystemMessage): void;
 	cancelledBeforeStart(): void;
 	stopAgain(): void;
 	conversationReset(newId: SessionId): void;
@@ -80,7 +76,6 @@ export function frameHandlerOf(host: HostParts, prompts: PromptDesk): FrameHandl
 		live: host.live,
 		runs: host.runs,
 		queue: host.queue,
-		tasks: host.tasks,
 		children: host.children,
 		desk: host.desk,
 		settings: host.settings,
@@ -90,7 +85,6 @@ export function frameHandlerOf(host: HostParts, prompts: PromptDesk): FrameHandl
 		cwd: host.cwd,
 		emitMapped: (events) => host.routing.emit(events),
 		persisted: () => host.markPersisted(),
-		initSeen: (init) => host.noteInit(init),
 		systemRun: () => {
 			host.runs.start("system");
 			host.rowChanged();

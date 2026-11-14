@@ -83,13 +83,13 @@ export const FRAME_KINDS: Readonly<Record<FrameKey, Disposition>> = {
 		ignored: `${HOST}: the command catalogue (lane C) is invalidated, not the stream`,
 	},
 	"system/background_tasks_changed": {
-		ignored: "the tasks op (lane F) reads the level; a task's tool call is shown by its own frames",
+		ignored: "a task's tool call is shown by its own frames",
 	},
 	"system/task_updated": {
-		ignored: "the tasks op reads task status; the tool call ends with its tool_result",
+		ignored: "the tool call ends with its tool_result",
 	},
 	"system/task_notification": {
-		ignored: "the tasks op reads task status; the tool call ends with its tool_result",
+		ignored: "the host ends the subagent's feed; the tool call ends with its tool_result",
 	},
 	"system/thinking_tokens": {
 		ignored: "a spinner estimate, not billable, and block_delta carries text only",

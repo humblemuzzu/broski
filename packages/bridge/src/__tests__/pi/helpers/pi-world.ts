@@ -13,7 +13,6 @@ import { createPiServices, type PiServices } from "../../../backends/pi/services
 import type { TerminalLinkOptions } from "../../../backends/pi/terminal/link";
 import type { AgentBackend, BackendHost, SessionControl, SessionId } from "../../../contract";
 import { Activity } from "./activity";
-import { CatalogStub } from "./catalog-stub";
 import { type DriverBus, installDriverBus, removeDriverBus } from "./driver-bus";
 import { type FakeTrash, installFakeTrash } from "./fake-trash";
 import { FAUX_MODEL_IDS, FAUX_PROVIDER, registerDriverFaux } from "./faux-models";
@@ -72,8 +71,6 @@ export class PiWorld {
 		private running: Running,
 		private readonly link: TerminalLinkOptions | undefined,
 		private readonly linkDirBefore: string | undefined,
-		/** Where a network refresh of the model catalogues goes: never pi.dev. */
-		readonly catalogue: CatalogStub,
 	) {}
 
 	get backend(): AgentBackend {
@@ -101,15 +98,9 @@ export class PiWorld {
 			const owner: { world?: PiWorld } = {};
 			const linkDirBefore = process.env.BROSKI_PI_LINK_DIR;
 			const link = options.link ? linkIn(env) : undefined;
-			const catalogue = CatalogStub.start();
-			try {
-				const running = await startBackend(host, env, activity, () => owner.world?.halt(), link, catalogue.url);
-				owner.world = new PiWorld(env, sessionsRoot, trash, bus, activity, running, link, linkDirBefore, catalogue);
-				return owner.world;
-			} catch (error) {
-				await catalogue.stop();
-				throw error;
-			}
+			const running = await startBackend(host, env, activity, () => owner.world?.halt(), link);
+			owner.world = new PiWorld(env, sessionsRoot, trash, bus, activity, running, link, linkDirBefore);
+			return owner.world;
 		} catch (error) {
 			removeDriverBus();
 			env.dispose();
@@ -120,7 +111,7 @@ export class PiWorld {
 	/** Disposes the running backend and starts a new one over the same directories. */
 	async restart(host: BackendHost): Promise<AgentBackend> {
 		await this.backend.dispose();
-		this.running = await startBackend(host, this.env, this.activity, () => this.halt(), this.link, this.catalogue.url);
+		this.running = await startBackend(host, this.env, this.activity, () => this.halt(), this.link);
 		return this.backend;
 	}
 
@@ -140,7 +131,6 @@ export class PiWorld {
 			else process.env.BROSKI_PI_LINK_DIR = this.linkDirBefore;
 		}
 		removeDriverBus();
-		void this.catalogue.stop();
 		this.env.dispose();
 	}
 }
@@ -156,12 +146,8 @@ export async function startFauxStack(
 	env: PiTestEnv,
 	activity: Activity,
 	onCap: () => void = () => {},
-	catalogBaseUrl?: string,
 ): Promise<FauxStack> {
-	const services = await createPiServices({
-		agentDir: env.agentDir,
-		...(catalogBaseUrl !== undefined && { catalogBaseUrl }),
-	});
+	const services = await createPiServices({ agentDir: env.agentDir });
 	const faux = await registerDriverFaux(services.models.runtime);
 	return { services, faux, router: new FauxRouter(faux, activity, onCap) };
 }
@@ -178,9 +164,8 @@ async function startBackend(
 	activity: Activity,
 	onCap: () => void,
 	link: TerminalLinkOptions | undefined,
-	catalogBaseUrl: string,
 ): Promise<Running> {
-	const { services, router } = await startFauxStack(env, activity, onCap, catalogBaseUrl);
+	const { services, router } = await startFauxStack(env, activity, onCap);
 	const parts = createPiParts(host, services, link);
 	await parts.terminal.start();
 	return { parts, observed: observeOpens(piBackendOf(parts)), router };

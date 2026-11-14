@@ -109,8 +109,7 @@ function finalAnswerLine(state: SessionSnapshot): string | undefined {
 }
 
 /**
- * A run that wrote no text, such as a command the person typed for the shell: its newest top-level call, what it ran,
- * and the exit code when that was not 0.
+ * A run that wrote no text: its newest top-level call, what it ran, and the exit code when that was not 0.
  */
 function lastCallLine(state: SessionSnapshot): string | undefined {
 	const items = state.run?.items ?? [];

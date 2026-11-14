@@ -108,7 +108,7 @@ function tree(): void {
 }
 
 describe("with nothing writable", () => {
-	test("list, get, transcript, attachment, locate, entryOf and the watch change nothing and fail on nothing", async () => {
+	test("list, get, transcript, attachment, locate and the watch change nothing and fail on nothing", async () => {
 		tree();
 		forbid(env.root);
 		const before = snapshot(env.root);
@@ -131,7 +131,6 @@ describe("with nothing writable", () => {
 			results.push({ status: (await store.locate(id)) === undefined ? "rejected" : "accepted" });
 		}
 		const attachment = await store.attachment("current", "e0000002:1");
-		const entry = await store.entryOf("v1", "l1:0", NOBODY);
 		await Bun.sleep(400);
 		store.dispose();
 
@@ -139,7 +138,6 @@ describe("with nothing writable", () => {
 		expect(ids).toEqual(["current", "no-newline", "own", "v1", "v2"]);
 		expect(results.every((result) => result.status === "accepted")).toBe(true);
 		expect(attachment).toEqual({ status: "accepted", image: { kind: "image", mimeType: "image/png", data: PIXEL } });
-		expect(entry).toBe("l1");
 		expect(snapshot(env.root)).toEqual(before);
 	});
 });

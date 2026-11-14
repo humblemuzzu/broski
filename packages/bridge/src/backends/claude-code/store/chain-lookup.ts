@@ -1,9 +1,8 @@
-/** Lane A · questions about the chain's entries: its newest uuid, and the entry a transcript item came from. */
+/** Lane A · questions about the chain's entries: its newest uuid, and where a transcript item sits in the chain. */
 
 import type { Rejected, SessionId, TranscriptItemId } from "../../../contract";
 import { parseBlockId } from "../ids";
-import type { EntryRef } from "../ports/store";
-import { isRejected, rejected } from "../rejections";
+import { isRejected } from "../rejections";
 import { openChain } from "./chain-reader";
 import { sourceOf } from "./chain-sources";
 import type { StoreContext } from "./context";
@@ -16,22 +15,6 @@ export async function lastChainUuid(ctx: StoreContext, sessionId: SessionId): Pr
 	const snapshot = await openChain(ctx, opened.source);
 	if (isRejected(snapshot)) return snapshot.rejection.code === "not_found" ? null : snapshot;
 	return snapshot.index.uuids[snapshot.index.count - 1] ?? null;
-}
-
-export async function entryOf(
-	ctx: StoreContext,
-	sessionId: SessionId,
-	itemId: TranscriptItemId,
-): Promise<EntryRef | Rejected> {
-	const opened = await sourceOf(ctx, sessionId);
-	if (isRejected(opened)) return opened;
-	const snapshot = await openChain(ctx, opened.source);
-	if (isRejected(snapshot)) return snapshot;
-	const position = positionOfItem(snapshot.index, itemId);
-	const uuid = position === undefined ? undefined : snapshot.index.uuids[position];
-	const type = position === undefined ? undefined : snapshot.index.types[position];
-	if (uuid === undefined || type === undefined) return rejected("not_found", `no transcript item ${itemId}`);
-	return { uuid, type };
 }
 
 /**

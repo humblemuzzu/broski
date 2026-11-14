@@ -8,7 +8,7 @@ import { type JsonValue, PageCursor } from "../../contract";
 
 const VERSION = 1;
 
-export type CursorKind = "sessions" | "transcript" | "tree";
+export type CursorKind = "sessions" | "transcript";
 
 /** Checks that a decoded position has the shape the reader wrote; anything else is a foreign cursor. */
 export type PositionGuard<T> = (position: JsonValue) => position is T & JsonValue;
