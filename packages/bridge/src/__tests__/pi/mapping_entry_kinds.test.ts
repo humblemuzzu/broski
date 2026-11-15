@@ -1,8 +1,7 @@
 /** the entries that are not a turn: shell commands, extension messages, summaries, compactions, model changes, bookkeeping. */
 
 import { describe, expect, test } from "bun:test";
-import type { SessionEntry } from "@earendil-works/pi-coding-agent";
-import { assistant, BASE, ENTRY_MS, mapEntry, messageEntry, REQUEST_ID } from "./mapping_fixtures";
+import { BASE, ENTRY_MS, fileEntry, mapEntry, messageEntry, REQUEST_ID } from "./mapping_fixtures";
 
 const map = mapEntry;
 
@@ -131,8 +130,8 @@ describe("session bookkeeping entries", () => {
 		expect(map(thinking)).toEqual([]);
 	});
 
-	test("system messages, never-stored roles, bookkeeping and unknown entries give nothing", () => {
-		const entries: SessionEntry[] = [
+	test("system messages, never-stored roles and bookkeeping give nothing (an unknown entry never leaves the store)", () => {
+		const entries = [
 			messageEntry("s1", { role: "system", content: "prompt", timestamp: 1 }),
 			messageEntry("s2", { role: "branchSummary", summary: "x", fromId: null, timestamp: 1 }),
 			messageEntry("s3", { role: "compactionSummary", summary: "x", tokensBefore: 1, timestamp: 1 }),
@@ -152,11 +151,10 @@ describe("session bookkeeping entries", () => {
 				kind: "cache_warm",
 				provider: "p",
 				model: "m",
-				usage: assistant([]).usage,
+				usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2, cost: { total: 0 } },
 			},
 			{ ...BASE, type: "context_edit", id: "k5", targetId: "e1", replacement: null },
-			JSON.parse('{"type":"entry_from_a_newer_pi","id":"k6","parentId":null,"timestamp":"2026-01-02T03:04:05.000Z"}'),
 		];
-		for (const entry of entries) expect(map(entry)).toEqual([]);
+		for (const entry of entries) expect(map(fileEntry(entry))).toEqual([]);
 	});
 });

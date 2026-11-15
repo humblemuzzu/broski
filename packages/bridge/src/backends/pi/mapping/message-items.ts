@@ -1,19 +1,5 @@
 /** Session entries as transcript items, and a persisted user message as `user_message`. */
 
-import type {
-	AssistantMessage,
-	ImageContent,
-	JsonObject,
-	TextContent,
-	ToolCall,
-	ToolResultMessage,
-} from "@earendil-works/pi-ai";
-import type {
-	ModelChangeEntry,
-	SessionEntry,
-	SessionMessageEntry,
-	ThinkingLevelChangeEntry,
-} from "@earendil-works/pi-coding-agent";
 import {
 	type AttachmentRef,
 	type ImageRef,
@@ -28,10 +14,12 @@ import {
 } from "../../../contract";
 import { clipStart } from "../bounds";
 import type { PromptRecord, RecordedToolOutcome } from "../broski-entries";
-import { entryAttachmentId, entryItemId, storedToolCallId } from "../ids";
+import { entryAttachmentId, entryItemId, mintMessageId, storedToolCallId } from "../ids";
 import { boundedJson } from "../json";
+import type { AssistantMessage, ImageContent, ToolCall, ToolResultMessage, UserContent } from "../messages";
 import { hasWireId, modelWireId } from "../models/model-ids";
 import { phoneText } from "../phone-text";
+import type { MessageEntry, ModelChangeEntry, SessionEntry, ThinkingLevelChangeEntry } from "../store/entries";
 import { bashItems } from "./bash-items";
 import { typedText } from "./prompt-title";
 import { fileChangesOf, toolNameOf, toolOutcome, toolResultOf } from "./tool-items";
@@ -40,7 +28,7 @@ import { isCount } from "./usage";
 export interface EntryContext {
 	/** For an assistant message: the child session of each call (by the provider's call id) that ran a sub-run. */
 	readonly childSessions?: ReadonlyMap<string, SessionRef>;
-	/** The `broski.prompt` record that follows a user message entry. */
+	/** The `broski.prompt` record of a user message entry. */
 	readonly prompt?: PromptRecord;
 	/**
 	 * For a `toolResult` entry, the id of the call it answers, which only the branch can tell: see
@@ -51,19 +39,20 @@ export interface EntryContext {
 	 * For a `toolResult` entry, the arguments of the call it answers (the branch's assistant entry holds
 	 * them). A result stores none, and `write`'s file change needs its `path`; `edit`'s is read from its patch.
 	 */
-	readonly toolInput?: JsonObject;
-	/** For a `toolResult` entry, the outcome the `broski.tool_outcome` entry after it records. */
+	readonly toolInput?: Readonly<Record<string, unknown>>;
+	/** For a `toolResult` entry, the outcome its `broski.tool_outcome` record holds. */
 	readonly toolOutcome?: RecordedToolOutcome;
 }
 
-type Content = string | readonly (TextContent | ImageContent)[] | null | undefined;
+/** A file can hold a message whose content is missing, which Pi reads as empty. */
+type Content = UserContent | null | undefined;
 /**
  * An entry's items, ids `entryItemId(entry.id, index)`. Left out, with the reason: `system` messages carry
  * the prompt and tool declarations, never a turn; `label`, `session_info`, `usage`, `context_edit` and
  * `custom` entries are bookkeeping (the title and the adapter's own `broski.*` records among them); a
- * `branchSummary`, `compactionSummary` or `custom` message is never stored as a message entry, only as the
- * entry types handled here (pi-coding-agent `src/core/agent-session.ts:1168`); an entry type this
- * does not know is a newer Pi's, never an error.
+ * `branchSummary` or `compactionSummary` message is never stored as a message entry, only as the entry types handled
+ * here (pi-coding-agent 1.5.2 `docs/session-format.md:237-248`); an entry type this does not know is a newer Pi's,
+ * never an error.
  */
 export function itemsOfEntry(entry: SessionEntry, context: EntryContext): TranscriptItem[] {
 	const at = timestampOf(entry.timestamp);
@@ -98,16 +87,20 @@ export function itemsOfEntry(entry: SessionEntry, context: EntryContext): Transc
 	}
 }
 
-/** The live `user_message` of a prompt: its id is the one the stored entry's item will have. */
+/**
+ * The live `user_message` of a prompt: its id is the one the stored entry's item will have, and its images are named
+ * by that entry. Without the entry (Pi did not say where it stored the message) the id is minted and the images
+ * cannot be named.
+ */
 export function userMessageEvent(
 	content: Content,
-	entryId: string,
+	entryId: string | undefined,
 	prompt: PromptRecord | undefined,
 ): UserMessageEvent {
 	const { text, attachments } = userContent(content, entryId, prompt);
 	return {
 		type: "user_message",
-		messageId: entryItemId(entryId, 0),
+		messageId: entryId === undefined ? mintMessageId() : entryItemId(entryId, 0),
 		text,
 		attachments,
 		...(prompt !== undefined && { clientRequestId: prompt.clientRequestId }),
@@ -116,7 +109,7 @@ export function userMessageEvent(
 
 type Stamp = { at?: number };
 
-function messageItems(entry: SessionMessageEntry, context: EntryContext, stamp: Stamp): TranscriptItem[] {
+function messageItems(entry: MessageEntry, context: EntryContext, stamp: Stamp): TranscriptItem[] {
 	const message = entry.message;
 	switch (message.role) {
 		case "user": {
@@ -147,7 +140,7 @@ function messageItems(entry: SessionMessageEntry, context: EntryContext, stamp: 
 
 function userContent(
 	content: Content,
-	entryId: string,
+	entryId: string | undefined,
 	prompt: PromptRecord | undefined,
 ): { text: string; attachments: AttachmentRef[] } {
 	if (typeof content === "string") return { text: typedText(content), attachments: [] };
@@ -159,9 +152,10 @@ function userContent(
 			texts.push(block.text);
 			return;
 		}
+		if (block.type !== "image") return;
 		const name = prompt?.imageNames[imageNumber] ?? undefined;
 		imageNumber += 1;
-		const ref = imageRefOf(entryId, index, block, name);
+		const ref = entryId === undefined ? undefined : imageRefOf(entryId, index, block, name);
 		if (ref && attachments.length < MAX_LIST_ITEMS) attachments.push(ref);
 	});
 	return { text: typedText(texts.join("\n")), attachments };
@@ -180,8 +174,7 @@ function imageRefOf(entryId: string, contentIndex: number, block: ImageContent, 
 /**
  * One block per non-empty text or thinking block and one call per `toolCall`, at their `contentIndex`.
  * A thinking block Pi stores with no text (an encrypted reasoning signature alone) has nothing to show.
- * `content` may be missing in an old or hand-edited file, which Pi reads as empty
- * (pi-coding-agent `src/core/session-manager.ts:442-450`).
+ * `content` may be missing in an old or hand-edited file, which Pi reads as empty.
  */
 function assistantItems(
 	entryId: string,
@@ -196,6 +189,7 @@ function assistantItems(
 			items.push(toolCallItem(entryId, index, block, stamp, context.childSessions?.get(block.id)));
 			return;
 		}
+		if (block.type !== "text" && block.type !== "thinking") return;
 		const text = block.type === "text" ? block.text : block.thinking;
 		if (text === "") return;
 		items.push({
@@ -215,9 +209,9 @@ function assistantItems(
 }
 
 /**
- * What Pi's terminal shows under a message that did not end normally (pi-coding-agent
- * `src/modes/interactive/components/assistant-message.ts:177-199`): a cut-off response, or the error or abort
- * of a message with no tool calls (a call's own result shows its failure).
+ * What Pi's terminal shows under a message that did not end normally (pi-coding-agent 1.5.2
+ * `dist/modes/interactive/components/assistant-message.js:162-177`): a cut-off response, or the error or abort of a message
+ * with no tool calls (a call's own result shows its failure).
  */
 function endingText(message: AssistantMessage, content: AssistantMessage["content"]): string | undefined {
 	if (message.stopReason === "length") return "Response was truncated before completion.";
@@ -299,7 +293,8 @@ function customNoticeText(display: boolean, content: Content): string | undefine
 	if (!display) return undefined;
 	if (typeof content === "string") return content;
 	const texts: string[] = [];
-	for (const block of content ?? []) if (block.type === "text") texts.push(block.text);
+	for (const block of typeof content === "string" ? [] : (content ?? []))
+		if (block.type === "text") texts.push(block.text);
 	return texts.join("\n");
 }
 

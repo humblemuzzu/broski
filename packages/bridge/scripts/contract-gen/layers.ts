@@ -1,5 +1,5 @@
 import { dirname, join, relative, resolve, sep } from "node:path";
-import { importSites } from "./import-scan";
+import { type ImportSite, importSites } from "./import-scan";
 
 export interface SourceFile {
 	readonly path: string;
@@ -9,8 +9,18 @@ export interface SourceFile {
 /** The SDK packages each directory under `src/backends` may import, by directory name. */
 const BACKEND_SDKS = new Map<string, readonly string[]>([
 	["claude-code", ["@anthropic-ai/claude-agent-sdk"]],
-	["pi", ["@earendil-works/pi-coding-agent", "@earendil-works/pi-ai", "@earendil-works/pi-agent-core"]],
+	["pi", []],
 ]);
+
+/**
+ * Code a backend writes out for its agent to load (a directory named `extension` in its tree): it runs inside the
+ * user's agent, so it may import that agent's packages, which the agent provides, `node:` built-ins and its own
+ * directory, and nothing else. The rest of the backend reads it only as text (`with { type: "text" }`).
+ */
+const AGENT_EXTENSION_PACKAGES = new Map<string, readonly string[]>([
+	["pi", ["@earendil-works/pi-coding-agent", "@earendil-works/pi-ai"]],
+]);
+const EXTENSION_DIRECTORY = "extension";
 
 /** `createRequire` hands out a `require` this check cannot follow. */
 const LOADERS = new Set(["module", "node:module"]);
@@ -34,8 +44,9 @@ const transpiler = new Bun.Transpiler({ loader: "ts" });
  *   never a connector, handler, runtime mapper, adapter, `node:` module or the server. It reaches
  *   adapters only through the `AgentBackend` values its registry holds.
  * - A `CORE_INFRASTRUCTURE` module imports only zod and the other such modules.
- * - `src/backends/<id>/` imports only the contract (not its test kit), itself, a shared directory
- *   made for it, `node:` built-ins, zod (to check what a backend reads from a process it talks to) and that backend's own SDK.
+ * - `src/backends/<id>/` imports only the contract (not its test kit), itself, `node:` built-ins, zod (to check what a
+ *   backend reads from a process it talks to) and that backend's own SDK; an `extension/` directory in it only as text.
+ * - An `extension/` directory under `src/backends/<id>/` imports only itself, `node:` built-ins and its agent's packages.
  * - Every specifier is a plain string, so the check sees what is loaded.
  */
 export function layerViolations(src: string, files: readonly SourceFile[]): string[] {
@@ -62,7 +73,12 @@ function problemsOf(file: SourceFile, layout: Layout): string[] {
 	const [id = ""] = relative(layout.backends, file.path).split(sep);
 	const sdks = BACKEND_SDKS.get(id);
 	if (!sdks) return [`${id} is not a backend id directory`];
-	return specifiersOf(file).flatMap(backendJudge(file, id, sdks, layout));
+	const extension = extensionDirectoryOf(file.path, layout.backends);
+	if (extension !== undefined) {
+		return specifiersOf(file).flatMap(extensionJudge(file, extension, AGENT_EXTENSION_PACKAGES.get(id) ?? []));
+	}
+	const sites = importSites(file.source);
+	return specifiersOf(file).flatMap((specifier) => backendJudge(file, id, sdks, layout, sites)(specifier));
 }
 
 /** Every specifier the file loads; undefined for one it computes. */
@@ -70,6 +86,25 @@ function specifiersOf(file: SourceFile): (string | undefined)[] {
 	const ours = importSites(file.source).map((site) => site.specifier);
 	const bun = transpiler.scanImports(file.source).map((entry) => entry.path);
 	return [...new Set([...ours, ...bun])];
+}
+
+/** The `extension/` directory under `backends` that `path` lies in, the innermost; undefined outside one. */
+function extensionDirectoryOf(path: string, backends: string): string | undefined {
+	if (!within(path, backends)) return undefined;
+	const parts = relative(backends, dirname(path)).split(sep);
+	const at = parts.lastIndexOf(EXTENSION_DIRECTORY);
+	return at < 0 ? undefined : join(backends, ...parts.slice(0, at + 1));
+}
+
+function extensionJudge(file: SourceFile, extension: string, packages: readonly string[]): Judge {
+	return (specifier) => {
+		if (specifier === undefined) return ["an import whose specifier is not a plain string"];
+		if (specifier.startsWith(".")) {
+			return within(resolve(dirname(file.path), specifier), extension) ? [] : [`${specifier} leaves the extension`];
+		}
+		if (specifier.startsWith("node:") && !LOADERS.has(specifier)) return [];
+		return packages.some((name) => isPackage(specifier, name)) ? [] : [`${specifier} is not the agent's package`];
+	};
 }
 
 function contractJudge(file: SourceFile, layout: Layout): Judge {
@@ -124,14 +159,25 @@ function withoutExtension(path: string): string {
 	return path.replace(/\.ts$/, "");
 }
 
-function backendJudge(file: SourceFile, id: string, sdks: readonly string[], layout: Layout): Judge {
+function backendJudge(
+	file: SourceFile,
+	id: string,
+	sdks: readonly string[],
+	layout: Layout,
+	sites: readonly ImportSite[],
+): Judge {
 	const own = join(layout.backends, id);
 	return (specifier) => {
 		if (specifier === undefined) return ["an import whose specifier is not a plain string"];
 		if (specifier.startsWith(".")) {
 			const target = resolve(dirname(file.path), specifier);
 			const allowed = within(target, own) || (within(target, layout.contract) && !within(target, layout.testing));
-			return allowed ? [] : [`${specifier} is neither this backend nor the contract`];
+			if (!allowed) return [`${specifier} is neither this backend nor the contract`];
+			const asText =
+				sites.some((site) => site.specifier === specifier) &&
+				sites.every((site) => site.specifier !== specifier || site.asText === true);
+			const agentCode = extensionDirectoryOf(target, layout.backends) !== undefined;
+			return !agentCode || asText ? [] : [`${specifier} is agent code, read only as text`];
 		}
 		if (LOADERS.has(specifier)) return [`${specifier} loads modules this check cannot see`];
 		if (specifier.startsWith("node:") || isPackage(specifier, "zod") || sdks.some((sdk) => isPackage(specifier, sdk))) {

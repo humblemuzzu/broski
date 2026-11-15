@@ -1,12 +1,13 @@
 /**
  * An extension that never finishes loading, or never returns from `session_start`, and asks nobody: the open fails
- * within the start deadline instead of holding the request, the session lock and a half-built host for good.
+ * within the start deadline instead of holding the request, the session lock and a half-built host for good, and the
+ * `pi` it started is stopped.
  */
 
-import { afterEach, expect, spyOn, test } from "bun:test";
+import { afterEach, expect, test } from "bun:test";
 import { readdirSync } from "node:fs";
-import { AgentSession } from "@earendil-works/pi-coding-agent";
-import { START_DEADLINE_MS } from "../../backends/pi/live/host-startup";
+import { START_DEADLINE_MS } from "../../backends/pi/live/pi-child";
+import { STOP_BUDGET_MS } from "../../backends/pi/rpc/child";
 import { useWatchdog } from "./helpers/use-watchdog";
 import { HostRig } from "./host_rig";
 
@@ -25,30 +26,21 @@ async function failsInTime(rig: HostRig): Promise<void> {
 	const took = performance.now() - began;
 	expect(opened).toMatchObject({ status: "rejected", rejection: { code: "backend_error" } });
 	expect(took).toBeGreaterThanOrEqual(START_DEADLINE_MS - 200);
-	expect(took).toBeLessThan(START_DEADLINE_MS + 2_000);
+	expect(took).toBeLessThan(START_DEADLINE_MS + STOP_BUDGET_MS + 1_000);
 	expect(Reflect.get(rig.hosts, "hosts").size).toBe(0);
 	expect(Reflect.get(Reflect.get(rig.hosts, "locks"), "tails").size).toBe(0);
+	expect(rig.rig.world.sessionProcesses()).toBe(0);
 	expect(readdirSync(rig.rig.world.sessionsRoot, { recursive: true })).toEqual([]);
 }
 
 test(
-	"an extension whose load never ends; the runtime that arrives after the open gave up is disposed",
+	"an extension whose load never ends",
 	async () => {
 		t = await HostRig.create();
-		const gate = t.gate("loadGate");
+		t.gate("loadGate");
 		await failsInTime(t);
-		const disposed = spyOn(AgentSession.prototype, "dispose");
-		try {
-			gate.open();
-			const deadline = Date.now() + 5_000;
-			while (disposed.mock.calls.length === 0 && Date.now() < deadline) await Bun.sleep(20);
-			expect(disposed).toHaveBeenCalledTimes(1);
-			expect(t.bus.liveRuntimes()).toBe(0);
-		} finally {
-			disposed.mockRestore();
-		}
 	},
-	START_DEADLINE_MS + 10_000,
+	START_DEADLINE_MS + 15_000,
 );
 
 test(
@@ -58,7 +50,6 @@ test(
 		const gate = t.gate("startGate");
 		await failsInTime(t);
 		await gate.entered.promise;
-		expect(t.bus.liveRuntimes()).toBe(0);
 	},
-	START_DEADLINE_MS + 10_000,
+	START_DEADLINE_MS + 15_000,
 );

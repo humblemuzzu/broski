@@ -32,10 +32,10 @@ describe("close and shutdown during a run", () => {
 		const live = await holdingRun(t, {}, "keep going");
 		const { sessionId } = live.ref;
 		await live.close();
-		expect(t.bus.liveRuntimes(sessionId)).toBe(1);
+		expect(t.router.liveRuntimes(sessionId)).toBe(1);
 
-		t.bus.release(sessionId);
-		await t.bus.shutDown(sessionId);
+		t.router.release(sessionId);
+		await t.router.shutDown(sessionId);
 		const items = await allItems(t.backend, live.ref, 200);
 		expect(answerTexts(items)).toEqual(["Done.", "Working."]);
 		expect(userTexts(t.fileOf(live.ref))).toEqual(["keep going"]);
@@ -54,8 +54,8 @@ describe("close and shutdown during a run", () => {
 		expect(messagesIn(file).map(([role]) => role)).toEqual(["system", "user", "assistant", "toolResult", "assistant"]);
 		expect(userTexts(file)).toEqual(["interrupt me"]);
 		const last = readEntries(file).at(-1);
-		expect(last?.type === "message" && last.message.role === "assistant" && last.message.stopReason).toBe("error");
-		expect(t.bus.liveRuntimes()).toBe(0);
+		expect(last?.type === "message" && last.message.role === "assistant" && last.message.stopReason).toBe("aborted");
+		expect(t.router.liveRuntimes()).toBe(0);
 
 		await t.rig.restart();
 		const items = await allItems(t.backend, live.ref, 200);
@@ -73,13 +73,13 @@ describe("no runtime is leaked", () => {
 		await other.run("two");
 		expect(other.reduced().run).toBeUndefined();
 		expect(parked.reduced().run).toBeDefined();
-		expect(t.bus.starts(parked.ref.sessionId)).toBe(1);
-		expect(t.bus.starts(other.ref.sessionId)).toBe(1);
+		expect(t.router.starts(parked.ref.sessionId)).toBe(1);
+		expect(t.router.starts(other.ref.sessionId)).toBe(1);
 		const rows = await allRows(t.backend, { cwd: t.cwd }, 50);
 		const status = (id: string) => rows.find((row) => row.session.sessionId === id)?.status;
 		expect([status(parked.ref.sessionId), status(other.ref.sessionId)]).toEqual(["running", "idle"]);
 
-		t.bus.release(parked.ref.sessionId);
+		t.router.release(parked.ref.sessionId);
 		await parked.waitFor("run_finished");
 		expect(userTexts(t.fileOf(other.ref))).toEqual(["two"]);
 		expect(userTexts(t.fileOf(parked.ref))).toEqual(["parked"]);
@@ -98,11 +98,11 @@ describe("no runtime is leaked", () => {
 		await t.rig.arrange(first.ref, { kind: "reply" });
 		await view.run("two");
 		expect(userMessages(view).map((message) => message.text)).toEqual(["two"]);
-		expect(t.bus.liveRuntimes(first.ref.sessionId)).toBe(1);
+		expect(t.router.liveRuntimes(first.ref.sessionId)).toBe(1);
 
 		await t.backend.dispose();
-		expect(t.bus.starts(first.ref.sessionId)).toBeGreaterThanOrEqual(1);
-		expect(t.bus.liveRuntimes()).toBe(0);
+		expect(t.router.starts(first.ref.sessionId)).toBeGreaterThanOrEqual(1);
+		expect(t.router.liveRuntimes()).toBe(0);
 		expect(userTexts(t.fileOf(first.ref))).toEqual(["one", "two"]);
 	});
 });
@@ -120,7 +120,7 @@ describe("a restart mid-run", () => {
 		expect(reopened.initial.run).toBeUndefined();
 		const prompts = userItems(await allItems(t.backend, live.ref, 200));
 		expect(prompts.map((item) => [item.text, item.clientRequestId])).toEqual([["survive me", clientRequestId]]);
-		expect(readEntries(t.fileOf(live.ref)).at(-1)).toMatchObject({ message: { stopReason: "error" } });
+		expect(readEntries(t.fileOf(live.ref)).at(-1)).toMatchObject({ message: { stopReason: "aborted" } });
 
 		await t.rig.arrange(live.ref, { kind: "reply" });
 		expect((await reopened.run("after the restart")).outcome.kind).toBe("completed");
@@ -136,13 +136,13 @@ describe("a restart mid-run", () => {
 		await t.rig.arrange(live.ref, { kind: "reply" });
 		await live.run("hello");
 		await live.close();
-		await t.bus.shutDown(live.ref.sessionId);
+		await t.router.shutDown(live.ref.sessionId);
 		renameSync(project, `${project}-moved`);
 
 		const opened = await t.backend.open({ kind: "existing", session: live.ref }, { emit: () => {} });
 		if (opened.status === "rejected") throw new Error(opened.rejection.message);
 		expect(opened.session.control).toBeUndefined();
-		expect(t.bus.liveRuntimes()).toBe(0);
+		expect(t.router.liveRuntimes()).toBe(0);
 		const read = await t.backend.readTranscript(live.ref, { limit: 10 });
 		expect(read.status === "accepted" && read.page.items.some((item) => item.kind === "user_message")).toBe(true);
 	});
@@ -174,7 +174,7 @@ describe("a session another client made", () => {
 		expect(userItems(items).map((item) => item.text)).toEqual(["from the terminal"]);
 		await opened.close();
 
-		expect(t.bus.starts(id)).toBe(0);
+		expect(t.router.starts(id)).toBe(0);
 		expect(readFileSync(path).equals(before.bytes)).toBe(true);
 		expect(statSync(path).mtimeMs).toBe(before.modified);
 	});

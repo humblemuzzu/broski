@@ -1,9 +1,8 @@
 /**
- * One session this bridge hosts: its runtime, live state, run, queue, settings and asks, alive while an
- * `OpenSession` is attached or work is in flight (contract README §5, rule 3), whatever the views do.
+ * One session this bridge hosts: the `pi --mode rpc` that runs it, its live state, run, queue, settings and asks,
+ * alive while an `OpenSession` is attached or work is in flight (contract README §5, rule 3), whatever the views do.
  */
 
-import type { AgentSession, AgentSessionRuntime } from "@earendil-works/pi-coding-agent";
 import {
 	type ActionResult,
 	type AgentEvent,
@@ -15,54 +14,59 @@ import {
 	type SessionSnapshot,
 	type SessionSummary,
 } from "../../../contract";
-import { errorText } from "../error-text";
 import { permissionsSetting } from "../modes";
+import { phoneName } from "../phone-text";
 import type { AskHost, LiveRow } from "../ports";
 import { ACCEPTED, CLOSED, rejected } from "../rejections";
+import type { PiExit } from "../rpc/child";
+import type { RpcAnswer } from "../rpc/client";
+import type { UiRequest } from "../rpc/frames";
+import type { PiCommand, PiState } from "../rpc/replies";
+import { type DialogHost, handleUiRequest } from "../ui/dialogs";
 import { InteractionDesk } from "../ui/interactions";
-import { createRemoteUiContext } from "../ui/ui-context";
 import { ChildFeeds } from "./child-feeds";
-import { CommandScope } from "./command-scope";
+import { requestCompaction } from "./compaction-request";
+import { EntryCursor } from "./entry-cursor";
 import { EventBridge } from "./event-bridge";
-import type { ExtensionBinding } from "./extension-binding";
-import { extensionBindings } from "./host-bindings";
 import { type HostControl, hostControl } from "./host-control";
 import type { HostEnvironment, HostStart } from "./host-environment";
 import { HostLiveState } from "./host-live-state";
 import { HostRow } from "./host-row";
-import { startHostRuntime } from "./host-startup";
 import { type HostedFacts, liveRowOf } from "./host-summary";
-import { faultEvent, noticeEvent } from "./live-notes";
+import { faultEvent } from "./live-notes";
+import { PiChild } from "./pi-child";
 import { PromptDesk } from "./prompt-desk";
 import { QueueMirror } from "./queue-mirror";
 import { returnQueuedInput } from "./queue-return";
 import { RunTracker } from "./run-tracker";
 import { SessionSettings } from "./settings";
-import { ABORT_DEADLINE_MS, BINDING_WAIT_MS, boundedAbort, shutdownRuntime, within } from "./shutdown";
 import { UsageFeed } from "./usage-feed";
+import { within } from "./within";
 
-const BINDING: Rejected = rejected("busy", "the session's extensions are still starting");
+const STARTING: Rejected = rejected("busy", "the session's extensions are still starting");
+
+/** How long an ending host lets its aborted run settle, so Pi persists what the run did, before `pi` is stopped. */
+export const SETTLE_DEADLINE_MS = 1_500;
 
 export class SessionHost {
 	readonly sessionId: string;
 	readonly live: HostLiveState;
+	readonly children: ChildFeeds;
+	private readonly child: PiChild;
 	private readonly listRow: HostRow;
 	private readonly settings: SessionSettings;
 	private readonly interactions: InteractionDesk;
 	private readonly runs: RunTracker;
 	private readonly queue: QueueMirror;
-	readonly children: ChildFeeds;
 	private readonly prompts: PromptDesk;
 	private readonly events: EventBridge;
-	private readonly askHost: AskHost;
 	private readonly usage: UsageFeed;
-	private readonly commands = new CommandScope();
-	private runtime: AgentSessionRuntime | undefined;
-	private binding: ExtensionBinding | undefined;
+	private readonly askedWhileStarting = Promise.withResolvers<string>();
 	private sink: SessionSink | undefined;
 	/** Notices from before the session opened, which no view could see yet; they follow the open. */
 	private held: NoticeEvent[] = [];
 	private ready = false;
+	private started = false;
 	private finished = false;
 	private shuttingDown = false;
 
@@ -72,26 +76,33 @@ export class SessionHost {
 	) {
 		this.sessionId = start.facts.sessionId;
 		const { now } = env;
-		const session = () => this.session;
 		this.live = new HostLiveState(
 			{ ...emptySnapshot(), modes: [permissionsSetting(start.permissions.mode)] },
 			now,
 			(event) => this.emitted(event),
 		);
+		this.child = new PiChild(start.launch, (delivery) => this.events.deliver(delivery));
+		const cursor = new EntryCursor(this.child, start.lastEntryId);
 		this.listRow = new HostRow(start.facts, this.live, env.catalog);
-		this.usage = new UsageFeed(session, this.live);
+		this.usage = new UsageFeed(this.child, this.live);
 		this.settings = new SessionSettings(
-			{ session, live: this.live, models: env.models, modelSwitched: () => this.usage.refresh() },
+			{
+				child: this.child,
+				live: this.live,
+				models: env.models,
+				cwd: start.cwd,
+				modelSwitched: () => this.usage.refresh(),
+			},
 			start.permissions,
 		);
-		this.askHost = {
+		const askHost: AskHost = {
 			live: this.live,
 			activeRun: () => this.runs.current() ?? this.prompts.startEarly(),
-			inCommand: () => this.commands.active,
+			inCommand: () => this.prompts.inCommand,
 			abortRun: () => this.abortInBackground(),
 			now,
 		};
-		this.interactions = new InteractionDesk(this.askHost);
+		this.interactions = new InteractionDesk(askHost);
 		this.runs = new RunTracker({
 			live: this.live,
 			interactions: this.interactions,
@@ -99,12 +110,13 @@ export class SessionHost {
 		});
 		this.queue = new QueueMirror(this.live);
 		this.prompts = new PromptDesk({
-			session,
+			child: this.child,
 			runs: this.runs,
 			queue: this.queue,
 			live: this.live,
+			model: () => this.settings.currentModel,
+			leafId: () => cursor.leafId,
 			abort: () => this.abortInBackground(),
-			commands: this.commands,
 		});
 		this.children = new ChildFeeds({
 			parent: () => this.summary(),
@@ -112,53 +124,37 @@ export class SessionHost {
 			announce: (summary) => env.catalog.emit({ type: "session_updated", summary }),
 		});
 		this.events = new EventBridge({
-			children: this.children,
 			live: this.live,
 			runs: this.runs,
 			queue: this.queue,
 			prompts: this.prompts,
 			usage: this.usage,
+			cursor,
+			children: this.children,
 			now,
+			record: (record) => void this.child.record(record),
 			hooks: {
 				userMessage: (text) => this.listRow.userMessage(text),
 				renamed: (name) => this.listRow.renamed(name),
-				thinkingChanged: () => this.settings.followSession(),
-				settling: () => this.settings.reconcile(),
+				thinkingChanged: (level) => this.settings.thinkingChanged(level),
+				settling: () => this.settle(cursor),
+				dialog: (request) => this.dialog(request),
+				exited: (exit, stderr) => this.exited(exit, stderr),
 			},
 		});
-	}
-
-	get session(): AgentSession {
-		if (!this.runtime) throw new Error("the session host has no runtime yet");
-		return this.runtime.session;
 	}
 
 	/**
-	 * Builds the runtime and binds its extensions (`host-startup.ts`). Resolves once the binding ends, or as soon as a
-	 * `session_start` handler asks a human; rejects when the start failed, took too long, or the host ended meanwhile.
+	 * Resolves once Pi has started the session (it answers its first command when every extension's `session_start`
+	 * has returned); rejects when `pi` failed to start, ended meanwhile, or an extension asked a human while it started:
+	 * Pi reads no answer before its extensions have started (pi-coding-agent 1.5.2 `dist/modes/rpc/rpc-mode.js:305,669`),
+	 * so that ask would hold the session forever.
 	 */
 	async begin(): Promise<void> {
-		await startHostRuntime({
-			shared: this.env.shared,
-			start: this.start,
-			interactions: this.interactions,
-			askHost: this.askHost,
-			gate: this.settings,
-			ended: () => this.finished,
-			started: (runtime, notices) => {
-				this.runtime = runtime;
-				for (const notice of this.env.notices.fresh(this.sessionId, notices)) this.live.emit(notice);
-				this.settings.reconcile();
-				this.usage.refresh();
-				this.events.attach(runtime.session);
-			},
-			binding: (binding) => {
-				this.binding = binding;
-			},
-			bind: (session) => this.bindings(session),
-			bindingFailedLate: (error) => this.fault(error),
-			bindingEnded: () => this.reviewIdle(),
-		});
+		const first = await Promise.race([this.child.started(), this.askedWhileStarting.promise]);
+		if (typeof first === "string") throw new Error(first);
+		if (!first.ok) throw new Error(first.error);
+		await this.handshaken(first);
 	}
 
 	/** The registry has finished opening: events from now on are published, the held notices follow, and an idle host may end. */
@@ -178,11 +174,6 @@ export class SessionHost {
 		return this.ready;
 	}
 
-	/** Every extension's `session_start` handler has returned. */
-	get bound(): boolean {
-		return this.binding !== undefined && !this.binding.pending;
-	}
-
 	get ended(): boolean {
 		return this.shuttingDown;
 	}
@@ -191,11 +182,8 @@ export class SessionHost {
 		return this.start.cwd;
 	}
 
-	/** The session's file: a hosted session is always a persisted one. */
 	get file(): string {
-		const file = this.session.sessionManager.getSessionFile();
-		if (file === undefined) throw new Error("a hosted session has no file");
-		return file;
+		return this.start.file;
 	}
 
 	attach(sink: SessionSink): SessionSnapshot {
@@ -208,18 +196,17 @@ export class SessionHost {
 		if (this.sink === sink) this.sink = undefined;
 	}
 
-	/** No run, ask, compaction, retry, queued input or extension still starting: the host may end once no view is attached. */
+	/** No run, ask, compaction, retry, queued input or start under way: the host may end once no view is attached. */
 	idle(): boolean {
 		const snapshot = this.live.snapshot();
 		return (
+			this.started &&
 			this.runs.current() === undefined &&
 			!this.prompts.isDeciding &&
-			!this.binding?.pending &&
 			snapshot.interactions.length === 0 &&
 			snapshot.queue.length === 0 &&
 			snapshot.compaction === undefined &&
-			snapshot.retry === undefined &&
-			this.session.isIdle
+			snapshot.retry === undefined
 		);
 	}
 
@@ -237,74 +224,111 @@ export class SessionHost {
 
 	get control(): HostControl {
 		return hostControl({
-			session: () => this.session,
 			ended: () => this.ended,
-			locked: (work) => this.locked(work),
-			whenBound: (work) => this.whenBound(work),
+			whenBound: (work) => this.whenStarted(work),
 			abort: () => this.abort(),
 			prompt: (input) => this.prompts.prompt(input),
+			compact: (instructions) => this.compact(instructions),
 			interactions: this.interactions,
 			settings: this.settings,
-			running: () => this.runs.current() !== undefined,
-			nextCompactionStart: () => this.events.nextCompactionStart(),
 		});
 	}
 
-	/** A new session asked to start at a thinking level before its model was known (`NewSessionOptions.thinking` without a model). */
-	applyThinking(value: string): ActionResult {
-		return this.settings.setThinking(value);
+	/** A new session's model and level, which Pi sets once it runs (`new-session-file.ts`). */
+	async applyChoice(choice: { readonly modelId?: string; readonly thinking?: string }): Promise<ActionResult> {
+		const model = choice.modelId === undefined ? ACCEPTED : await this.settings.setModel(choice.modelId);
+		if (model.status === "rejected" || choice.thinking === undefined) return model;
+		return this.settings.setThinking(choice.thinking);
 	}
 
-	/** A hosted rename (D2: under the lock, by the registry) of a name `sessionName` checked; Pi announces it as `session_info_changed`. */
-	rename(name: string): ActionResult {
-		try {
-			this.session.setSessionName(name);
-		} catch (error) {
-			return rejected("backend_error", `the session could not be renamed: ${errorText(error)}`);
-		}
-		return ACCEPTED;
+	/** The commands the session's `pi` runs now. */
+	commands(): Promise<RpcAnswer<readonly PiCommand[]>> {
+		return this.child.commands();
 	}
 
-	/** Breaks what could keep the session lock held: a prompt waiting on Pi, an ask nobody can answer any more. */
-	requestShutdown(): void {
-		this.shuttingDown = true;
-		this.prompts.close();
-		this.interactions.expireAll();
+	/** A hosted rename of a name `sessionName` checked; Pi announces it as `session_info_changed`. */
+	async rename(name: string): Promise<ActionResult> {
+		const answer = await this.child.setName(name);
+		return answer.ok ? ACCEPTED : rejected("backend_error", `the session could not be renamed: ${answer.error}`);
 	}
 
 	/**
-	 * Bridge shutdown (D17), the end of an idle host, or a start that failed: the extensions' start is let finish
-	 * (its asks are expired), the run is aborted and settled, then the runtime is disposed, all within
-	 * `HOST_END_BUDGET_MS` (`shutdown.ts`).
+	 * Bridge shutdown, the end of an idle host, or a start that failed: the asks expire, a run is aborted and let settle
+	 * so Pi persists what it did, then `pi` is stopped (`rpc/child.ts`).
 	 */
 	async finish(): Promise<void> {
 		if (this.finished) return;
 		this.finished = true;
-		this.requestShutdown();
+		this.shuttingDown = true;
+		this.prompts.close();
+		this.interactions.expireAll();
 		this.env.forget(this);
-		if (this.binding?.pending) await within(this.binding.done, BINDING_WAIT_MS, undefined);
-		if (this.runtime) await shutdownRuntime(this.runtime);
+		if (this.runs.current() || this.live.snapshot().compaction) {
+			await within(this.child.abort(), SETTLE_DEADLINE_MS, undefined);
+		}
+		await this.child.stop();
 		if (this.sink) this.detach(this.sink);
 	}
 
-	private bindings(session: AgentSession): Parameters<AgentSession["bindExtensions"]>[0] {
-		return extensionBindings({
-			uiContext: createRemoteUiContext(this.interactions, this.live),
-			session: () => session,
-			abort: () => this.abortInBackground(),
-			report: (error) => this.live.emit(noticeEvent("error", `${error.extensionPath} ${error.event}: ${error.error}`)),
+	private async handshaken(answer: Extract<RpcAnswer<PiState>, { ok: true }>): Promise<void> {
+		if (this.finished) return;
+		this.settings.follow(answer.data);
+		await this.usage.pull();
+		this.started = true;
+		this.reviewIdle();
+	}
+
+	private dialog(request: UiRequest): void {
+		if (this.started || request.method === "notify") {
+			void handleUiRequest(request, this.dialogHost());
+			return;
+		}
+		this.askedWhileStarting.resolve(
+			`an extension asked "${phoneName(request.title)}" while the session started, and Pi takes no answer until it has started`,
+		);
+	}
+
+	private dialogHost(): DialogHost {
+		return {
+			live: this.live,
+			desk: this.interactions,
+			activeRun: () => this.runs.current() ?? this.prompts.startEarly(),
+			allowedForSession: (toolName) => this.settings.allowedForSession(toolName),
+			abortRun: () => this.abortInBackground(),
+			answer: (id, answer) => this.child.answerDialog(id, answer),
+		};
+	}
+
+	/**
+	 * Before a run ends: where the session's entries stand, the totals it ends with, and what model Pi runs, which an
+	 * extension may have changed.
+	 */
+	private async settle(cursor: EntryCursor): Promise<void> {
+		const [, state] = await Promise.all([cursor.refresh(), this.child.state(), this.usage.pull()]);
+		if (state.ok) this.settings.follow(state.data);
+	}
+
+	private whenStarted<T>(work: () => Promise<T>): Promise<T | Rejected> {
+		return this.env.locks.run(this.sessionId, async () => {
+			if (this.shuttingDown) return CLOSED;
+			return this.started ? work() : STARTING;
 		});
 	}
 
-	private locked<T>(work: () => Promise<T>): Promise<T | Rejected> {
-		return this.env.locks.run(this.sessionId, async () => (this.shuttingDown ? CLOSED : work()));
+	private compact(instructions: string | undefined): Promise<ActionResult> {
+		const started = () => this.events.nextCompactionStart();
+		const facts = {
+			running: this.runs.current() !== undefined,
+			hasModel: this.settings.currentModel !== undefined,
+			started,
+		};
+		return requestCompaction(this.child, instructions, facts).then((result) => {
+			if (result.status === "rejected") this.events.compactionRefused();
+			return result;
+		});
 	}
 
-	private whenBound<T>(work: () => Promise<T>): Promise<T | Rejected> {
-		return this.locked(async () => (this.binding?.pending ? BINDING : work()));
-	}
-
-	/** Not under the lock: an abort must reach Pi while a prompt waits on it (D2). */
+	/** Not under the lock: an abort must reach Pi while a prompt waits on it. */
 	private async abort(): Promise<ActionResult> {
 		if (this.ended) return CLOSED;
 		const quiet = this.runs.current() === undefined && !this.prompts.isDeciding;
@@ -313,12 +337,12 @@ export class SessionHost {
 	}
 
 	/**
-	 * Stops what runs, as Esc does in the terminal (pi `src/modes/interactive/interactive-mode.ts:4711-4725`): while a
-	 * run is on, the steering and follow-up input queued behind it leaves Pi's queue before the abort, and goes back to
-	 * the person as `input_returned`, steering first, so nothing queued is sent by a run that was stopped.
+	 * Stops what runs, as Esc does in the terminal: the run's asks are withdrawn (Pi gets its default for each), the
+	 * input queued behind the run goes back to the person, and Pi aborts (pi-coding-agent 1.5.2 `docs/rpc-commands.md:94-128`).
+	 * Pi answers `abort` once the run has stopped, which a tool that ignores its signal can put off: past the deadline
+	 * the abort is still accepted, and the run ends when Pi settles it.
 	 */
 	private async abortNow(): Promise<ActionResult> {
-		returnQueuedInput(this.session, this.live);
 		const run = this.runs.current();
 		if (run) {
 			this.runs.noteAbort();
@@ -326,23 +350,37 @@ export class SessionHost {
 		} else {
 			this.prompts.noteAbort();
 		}
-		try {
-			await boundedAbort(this.session, ABORT_DEADLINE_MS);
-		} catch (error) {
-			return rejected("backend_error", `the abort failed: ${errorText(error)}`);
-		}
-		return ACCEPTED;
+		await returnQueuedInput(this.child, this.live);
+		const answer = await this.child.abort();
+		if (answer.ok || this.child.running) return ACCEPTED;
+		return rejected("backend_error", `the abort failed: ${answer.error}`);
 	}
 
 	private abortInBackground(): void {
 		void this.abortNow().then((result) => {
-			if (result.status === "rejected") this.fault(result.rejection.message);
+			if (result.status === "rejected" && !this.finished) this.live.emit(faultEvent(result.rejection.message));
 		});
+	}
+
+	/** `pi` exited: when nobody asked it to, what it ran ends with it, and so does the host. */
+	private exited(exit: PiExit, stderr: string): void {
+		const asked = this.finished;
+		this.finished = true;
+		this.shuttingDown = true;
+		const how = exit.error ?? (exit.signal ? `was stopped by ${exit.signal}` : `exited with code ${exit.code}`);
+		const message = `Pi ${how}${stderr === "" ? "" : `: ${stderr}`}`;
+		this.events.abandonRun(
+			asked ? { kind: "aborted" } : { kind: "error", error: { code: "backend_unavailable", message } },
+		);
+		this.prompts.close();
+		this.interactions.expireAll();
+		if (asked) return;
+		this.live.emit(faultEvent(message));
+		this.env.forget(this);
 	}
 
 	/** Every event a part of the session emits passes here: the row follows it, and an idle host may end. */
 	private emitted(event: AgentEvent): void {
-		if (this.binding?.pending && this.live.snapshot().interactions.length > 0) this.binding.noteAsk();
 		if (!this.ready) {
 			if (event.type === "notice" && this.held.length < MAX_LIST_ITEMS) this.held.push(event);
 			return;
@@ -353,9 +391,5 @@ export class SessionHost {
 
 	private reviewIdle(): void {
 		if (this.ready && !this.live.attached && !this.finished && this.idle()) this.env.idle(this);
-	}
-
-	private fault(error: unknown): void {
-		this.live.emit(faultEvent(error));
 	}
 }

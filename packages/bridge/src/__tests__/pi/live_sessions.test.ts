@@ -123,7 +123,7 @@ describe("rename", () => {
 		await live.run("Name me.");
 		if (kind === "a session nobody hosts") {
 			await live.close();
-			await t.bus.shutDown(live.ref.sessionId);
+			await t.router.shutDown(live.ref.sessionId);
 		}
 		const title = `Renamed: ${kind}`;
 		expect((await t.backend.rename?.(live.ref, title))?.status).toBe("accepted");
@@ -155,7 +155,7 @@ describe("rename", () => {
 		await live.run("Name me.");
 		if (kind === "a session nobody hosts") {
 			await live.close();
-			await t.bus.shutDown(live.ref.sessionId);
+			await t.router.shutDown(live.ref.sessionId);
 		}
 		for (const blank of ["", "   ", "\r\n\t"]) {
 			expect(await t.backend.rename?.(live.ref, blank)).toMatchObject({ rejection: { code: "invalid_input" } });
@@ -210,7 +210,7 @@ describe("delete", () => {
 		expect(await t.backend.delete?.(live.ref)).toMatchObject({ status: "rejected", rejection: { code: "busy" } });
 		expect(t.world.trash.calls()).toEqual([]);
 		expect(findSessionFile(t.world.sessionsRoot, live.ref.sessionId)).toBeDefined();
-		t.bus.release(live.ref.sessionId);
+		t.router.release(live.ref.sessionId);
 		expect((await live.waitFor("run_finished")).outcome.kind).toBe("completed");
 		expect(findSessionFile(t.world.sessionsRoot, live.ref.sessionId)).toBeDefined();
 	});

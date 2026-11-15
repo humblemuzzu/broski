@@ -3,13 +3,11 @@
  * compaction is taken, and a shutdown that arrives while a session is still being opened.
  */
 
-import { afterEach, describe, expect, spyOn, test } from "bun:test";
-import { AgentSession } from "@earendil-works/pi-coding-agent";
-import type { SinkRecord } from "../../contract";
+import { afterEach, describe, expect, test } from "bun:test";
 import { countOf } from "./helpers/live-steps";
 import { say } from "./helpers/scenarios";
 import { useWatchdog } from "./helpers/use-watchdog";
-import { HostRig, pause, until } from "./host_rig";
+import { HostRig, until } from "./host_rig";
 
 useWatchdog();
 
@@ -38,21 +36,24 @@ describe("Stop", () => {
 		live.assertSettled();
 	});
 
-	test("while Pi settles the run it is answered, and the prompt that waited behind the settle still runs", async () => {
+	// The run lasts until Pi has settled it, extensions' `agent_settled` handlers included, so a prompt is `busy` till then.
+	test("while Pi settles the run it is answered, a prompt meanwhile is busy, and the next one runs", async () => {
 		t = await HostRig.create();
 		const gate = t.gate("settleGate");
 		const live = await t.rig.rig.openNew();
 		t.router.script(live.ref.sessionId, [say("one"), say("two")]);
 		await live.prompt("first");
 		await gate.entered.promise;
-		const second = live.prompt("second");
-		await pause(30);
+		expect(await live.prompt("second")).toMatchObject({ status: "rejected", rejection: { code: "busy" } });
 
 		expect((await live.control.abort()).status).toBe("accepted");
 		gate.open();
+		await live.waitFor("run_finished");
 
-		expect(await second).toMatchObject({ status: "accepted", disposition: "started" });
-		await until(() => countOf(live, "run_finished") === 2, "both runs finish");
+		const mark = live.recorder.items.length;
+		expect(await live.prompt("third")).toMatchObject({ status: "accepted", disposition: "started" });
+		await live.waitFor("run_finished", () => true, mark);
+		expect(countOf(live, "run_finished")).toBe(2);
 		live.assertSettled();
 	});
 
@@ -69,7 +70,7 @@ describe("Stop", () => {
 		await stopping;
 
 		await until(() => again.reduced().run === undefined, "the aborted run ends");
-		expect(t.bus.liveRuntimes(live.ref.sessionId)).toBe(1);
+		expect(t.router.liveRuntimes(live.ref.sessionId)).toBe(1);
 		expect(again.initial.run === undefined || again.reduced().lastOutcome?.kind === "aborted").toBe(true);
 	});
 });
@@ -95,54 +96,24 @@ describe("a compaction by hand", () => {
 
 		await live.control.abort();
 		await live.waitFor("compaction_finished", () => true, mark);
+		await live.waitFor("run_finished", () => true, mark);
 		await t.rig.rig.arrange(live.ref, { kind: "reply" });
 		expect((await live.run("now")).outcome.kind).toBe("completed");
 	});
 });
 
 describe("a shutdown while a session is being opened", () => {
-	test("the open that was parked in an extension answers closed, and no runtime is left", async () => {
+	test("the open that was parked in an extension answers closed, and no pi is left", async () => {
 		t = await HostRig.create();
 		const gate = t.gate("loadGate");
 		const opening = t.rig.rig.backend.open({ kind: "new", options: { cwd: t.rig.cwd } }, { emit: () => {} });
 		await gate.entered.promise;
+		expect(t.rig.world.sessionProcesses()).toBe(1);
 
 		const disposing = t.rig.rig.backend.dispose();
-		const disposed = spyOn(AgentSession.prototype, "dispose");
 		gate.open();
-
-		try {
-			expect(await opening).toMatchObject({ status: "rejected", rejection: { code: "closed" } });
-			await disposing;
-			expect(t.bus.liveRuntimes()).toBe(0);
-			expect(disposed).toHaveBeenCalledTimes(1);
-		} finally {
-			disposed.mockRestore();
-		}
-	});
-
-	test("a session opened on a session_start ask: shutdown expires the ask, Pi's default answers it, and no runtime is left", async () => {
-		t = await HostRig.create();
-		t.state.askOnStart = true;
-		const records: SinkRecord[] = [];
-		const opened = await t.rig.rig.backend.open(
-			{ kind: "new", options: { cwd: t.rig.cwd } },
-			{ emit: (record) => records.push(record) },
-		);
-		if (opened.status !== "accepted") throw new Error("the open was refused");
-		const [ask] = opened.snapshot.interactions;
-		if (!ask) throw new Error("the open's snapshot holds no ask");
-		expect(ask.title).toBe("Start?");
-
-		const started = Date.now();
-		await t.rig.rig.backend.dispose();
-
-		expect(Date.now() - started).toBeLessThan(2_000);
-		expect(records.map((record) => record.event)).toContainEqual({
-			type: "interaction_resolved",
-			interactionId: ask.id,
-			reason: "expired",
-		});
-		expect(t.bus.liveRuntimes()).toBe(0);
+		expect(await opening).toMatchObject({ status: "rejected", rejection: { code: "closed" } });
+		await disposing;
+		expect(t.rig.world.sessionProcesses()).toBe(0);
 	});
 });

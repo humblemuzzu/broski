@@ -1,154 +1,131 @@
 /**
- * A hosted session's model, thinking and mode (D9, D14): validated against the listed models and
- * levels, applied without persisting Pi's global defaults, and shown as `model_changed`/`mode_changed`.
+ * A hosted session's model, thinking and mode: checked against the listed models and levels, applied through Pi's own
+ * `set_model` and `set_thinking_level`, which change the session alone (Pi's defaults stay the user's, pi-coding-agent
+ * 1.5.2 `dist/modes/rpc/rpc-mode.js:387-395, 410-413`), and shown as `model_changed`/`mode_changed`. The permissions
+ * mode is the bridge's extension's (`host/extension/`), which keeps it in the session file.
  */
 
-import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
-import type { AgentSession } from "@earendil-works/pi-coding-agent";
-import { type ActionResult, MAX_LIST_ITEMS, type ModeAxisId, type ModelId } from "../../../contract";
-import { PERMISSIONS_ENTRY, type PermissionsRecord, permissionsEntryData } from "../broski-entries";
-import { errorText } from "../error-text";
+import type { ActionResult, ModeAxisId, ModelId } from "../../../contract";
+import { type PermissionsRecord, permissionsRecord } from "../broski-entries";
 import { modelChanged } from "../mapping/session-events";
 import type { ModelCatalogue } from "../models/catalogue";
 import { hasWireId, modelWireId } from "../models/model-ids";
 import { supportedLevel } from "../models/thinking";
 import { isPermissionsMode, modeProblem, type PermissionsMode } from "../modes";
-import type { GateHost } from "../ports";
 import { ACCEPTED, rejected } from "../rejections";
-import { faultEvent } from "./live-notes";
+import type { PiModel, PiState } from "../rpc/replies";
 import type { LiveState } from "./live-state";
+import type { PiChild } from "./pi-child";
 
 export interface SessionSettingsDeps {
-	readonly session: () => AgentSession;
+	readonly child: PiChild;
 	readonly live: LiveState;
 	readonly models: Pick<ModelCatalogue, "find" | "missing">;
+	readonly cwd: string;
 	/** The model changed, and with it the context window the usage is measured against. */
 	readonly modelSwitched: () => void;
 }
 
-/** `session.setModel` throws this when the model's provider has no credentials (pi `src/core/agent-session.ts:2542-2544`). */
+/** What `set_model` refuses with when the model's provider has no credentials (`dist/core/agent-session.js:2110-2112`). */
 const NO_CREDENTIALS = "No API key for ";
 
-export class SessionSettings implements GateHost {
+export class SessionSettings {
+	private model: PiModel | undefined;
+	private thinking = "off";
 	/** Set while this class changes the model or thinking itself: the one `model_changed` it emits at the end says it all. */
 	private changing = 0;
-	private permissionsMode: PermissionsMode;
+	private mode: PermissionsMode;
 	private readonly allowedTools: Set<string>;
 
 	constructor(
 		private readonly deps: SessionSettingsDeps,
 		permissions: PermissionsRecord,
 	) {
-		this.permissionsMode = permissions.mode;
+		this.mode = permissions.mode;
 		this.allowedTools = new Set(permissions.allowedTools);
 	}
 
-	permissions(): PermissionsMode {
-		return this.permissionsMode;
+	get currentModel(): PiModel | undefined {
+		return this.model;
 	}
 
-	allowed(toolName: string): boolean {
-		return this.allowedTools.has(toolName);
+	/** What Pi says the session runs: at its start, and at a run's end, when an extension may have changed either. */
+	follow(state: Pick<PiState, "model" | "thinkingLevel">): void {
+		const before = `${this.modelId() ?? ""}|${this.shownThinking() ?? ""}`;
+		this.model = state.model;
+		this.thinking = state.thinkingLevel;
+		if (`${this.modelId() ?? ""}|${this.shownThinking() ?? ""}` !== before) this.announce();
 	}
 
-	/** Recorded with the mode, so a reopened session still lets the tool through; a failed write leaves it allowed until the host ends. */
-	allowForSession(toolName: string): void {
-		if (this.allowedTools.has(toolName) || this.allowedTools.size >= MAX_LIST_ITEMS) return;
-		this.allowedTools.add(toolName);
-		const written = this.record(this.permissionsMode);
-		if (written !== undefined) this.deps.live.emit(faultEvent(written));
+	/** Pi tells of a thinking level that changed (`thinking_level_changed`); a change made here is announced once, by it. */
+	thinkingChanged(level: string): void {
+		this.thinking = level;
+		if (this.changing === 0) this.announce();
 	}
 
-	/** `session.setModel` without `persist`, so the global default model stays the user's (pi `src/core/agent-session.ts:2541-2562`). */
 	async setModel(modelId: ModelId): Promise<ActionResult> {
-		const model = await this.deps.models.find(modelId);
+		const model = await this.deps.models.find(modelId, this.deps.cwd);
 		if (!model) return this.deps.models.missing(modelId);
 		this.changing++;
-		try {
-			await this.deps.session().setModel(model);
-		} catch (error) {
-			const message = errorText(error);
-			this.reconcile();
-			return rejected(message.startsWith(NO_CREDENTIALS) ? "auth" : "backend_error", message);
-		} finally {
-			this.changing--;
-		}
+		const answer = await this.deps.child.setModel(model.provider, model.id);
+		this.changing--;
+		if (!answer.ok) return rejected(answer.error.startsWith(NO_CREDENTIALS) ? "auth" : "backend_error", answer.error);
+		this.model = answer.data;
 		this.announce();
 		this.deps.modelSwitched();
 		return ACCEPTED;
 	}
 
-	setThinking(value: string): ActionResult {
-		const session = this.deps.session();
-		if (!session.model) return rejected("no_model", "the session has no model to set thinking on");
-		const level = supportedLevel(session.model, value);
+	async setThinking(value: string): Promise<ActionResult> {
+		const model = this.model;
+		if (!model) return rejected("no_model", "the session has no model to set thinking on");
+		const level = supportedLevel(model, value);
 		if (level === undefined) return rejected("invalid_input", `the model offers no thinking level ${value}`);
 		this.changing++;
-		try {
-			session.setThinkingLevel(level);
-		} finally {
-			this.changing--;
-		}
+		const answer = await this.deps.child.setThinking(level);
+		this.changing--;
+		if (!answer.ok) return rejected("backend_error", answer.error);
+		this.thinking = level;
 		this.announce();
 		return ACCEPTED;
 	}
 
-	/** The mode is recorded in the session file first, so a reopened session is still guarded (D14). */
-	setMode(axis: ModeAxisId, value: string): ActionResult {
+	/** The mode is written to the session file by the extension, which guards the session by it from then on. */
+	async setMode(axis: ModeAxisId, value: string): Promise<ActionResult> {
 		const problem = modeProblem({ axis, value });
 		if (problem !== undefined || !isPermissionsMode(value)) {
 			return problem ?? rejected("invalid_input", `permissions has no value ${value}`);
 		}
-		if (value !== this.permissionsMode) {
-			const failure = this.record(value);
-			if (failure !== undefined) {
-				return rejected("backend_error", `the mode could not be written to the session file: ${failure}`);
-			}
-			this.permissionsMode = value;
+		if (value !== this.mode) {
+			const written = await this.deps.child.record(
+				permissionsRecord({ mode: value, allowedTools: [...this.allowedTools] }),
+			);
+			if (!written.ok)
+				return rejected("backend_error", `the mode could not be written to the session: ${written.error}`);
+			this.mode = value;
 		}
 		this.deps.live.emit({ type: "mode_changed", axis, value });
 		return ACCEPTED;
 	}
 
-	/** Pi tells of a thinking level it changed on its own (an extension's); a change made here is announced once, by it. */
-	followSession(): void {
-		if (this.changing === 0) this.announce();
-	}
-
-	/** Pi emits no event for a model an extension set, so the snapshot is compared with the session at run ends. */
-	reconcile(): void {
-		const session = this.deps.session();
-		const snapshot = this.deps.live.snapshot();
-		if (snapshot.modelId !== currentModelId(session) || snapshot.thinking !== currentThinking(session)) this.announce();
+	/** The human allowed a tool for the session; the extension has recorded it. */
+	allowedForSession(toolName: string): void {
+		this.allowedTools.add(toolName);
 	}
 
 	private announce(): void {
-		const session = this.deps.session();
-		this.deps.live.emit(modelChanged(currentModelId(session), currentThinking(session)));
+		this.deps.live.emit(modelChanged(this.modelId(), this.shownThinking()));
 	}
 
-	/** Undefined when written; else why not. */
-	private record(mode: PermissionsMode): string | undefined {
-		try {
-			const data = permissionsEntryData(mode, [...this.allowedTools]);
-			this.deps.session().sessionManager.appendCustomEntry(PERMISSIONS_ENTRY, data);
-			return undefined;
-		} catch (error) {
-			return errorText(error);
-		}
+	/** The wire id of the session's model; a model whose id does not fit a `ModelId` has none. */
+	private modelId(): ModelId | undefined {
+		return this.model && hasWireId(this.model) ? modelWireId(this.model) : undefined;
 	}
-}
 
-/** The wire id of the session's model; a model whose id does not fit a `ModelId` has none. */
-function currentModelId(session: AgentSession): ModelId | undefined {
-	const model = session.model;
-	return model && hasWireId(model) ? modelWireId(model) : undefined;
-}
-
-/** The session's level, when its model offers a choice of levels (README §11.3: a model with none shows no thinking). */
-function currentThinking(session: AgentSession): ThinkingLevel | undefined {
-	const model = session.model;
-	return model !== undefined && supportedLevel(model, session.thinkingLevel) !== undefined
-		? session.thinkingLevel
-		: undefined;
+	/** The level, when the model offers a choice of levels (README §11.3: a model with none shows no thinking). */
+	private shownThinking(): string | undefined {
+		return this.model !== undefined && supportedLevel(this.model, this.thinking) !== undefined
+			? this.thinking
+			: undefined;
+	}
 }

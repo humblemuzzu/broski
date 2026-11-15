@@ -16,7 +16,7 @@ import { compactionFinished, compactionRunOutcome, compactionStarted } from "../
 import { AssistantStream } from "../mapping/stream-blocks";
 import { modelWireId } from "../models/model-ids";
 import { permissionsSetting } from "../modes";
-import type { LiveRow, PiEvent } from "../ports";
+import type { LiveRow } from "../ports";
 import { assistantOf } from "./assistant-message";
 import type { EndedMessage, TerminalEvent, TerminalState } from "./protocol";
 import { SentPrompts } from "./sent-prompts";
@@ -99,7 +99,6 @@ export class TerminalFeed {
 		}
 		for (const tool of state.tools) {
 			this.tools.executionStarted({
-				type: "tool_execution_start",
 				toolCallId: tool.id,
 				toolName: tool.name,
 				args: tool.args,
@@ -127,18 +126,16 @@ export class TerminalFeed {
 				return;
 			case "tool_start":
 				this.ensureRun();
-				this.tools.executionStarted({ type: "tool_execution_start", ...toolFields(event) });
+				this.tools.executionStarted(toolFields(event));
 				return;
 			case "tool_update":
 				this.tools.executionUpdated({
-					type: "tool_execution_update",
 					...toolFields(event),
 					partialResult: event.partialResult,
 				});
 				return;
 			case "tool_end": {
-				const ended: PiEvent<"tool_execution_end"> = {
-					type: "tool_execution_end",
+				const ended = {
 					toolCallId: event.toolCallId,
 					toolName: event.toolName,
 					result: event.result,

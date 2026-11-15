@@ -1,8 +1,6 @@
 /** how a run ends, errors, usage, compaction and retry events, and where each of Pi's 24 session events goes. */
 
 import { describe, expect, test } from "bun:test";
-import type { AssistantMessage } from "@earendil-works/pi-ai";
-import type { ContextUsage, SessionStats } from "@earendil-works/pi-coding-agent";
 import { errorInfo, runOutcome } from "../../backends/pi/mapping/errors";
 import {
 	compactionFinished,
@@ -13,11 +11,12 @@ import {
 	retryScheduled,
 } from "../../backends/pi/mapping/session-events";
 import { usageOf } from "../../backends/pi/mapping/usage";
-import type { PiEvent } from "../../backends/pi/ports";
+import type { PiEventOf } from "../../backends/pi/rpc/frames";
+import type { SessionStats } from "../../backends/pi/rpc/replies";
 import { ErrorInfo, MAX_TEXT_CHARS, RunOutcome, Usage, UsageUpdatedEvent } from "../../contract";
-import { assistant, deepFreeze, validEvents } from "./mapping_fixtures";
+import { assistant, deepFreeze, piEvent, validEvents } from "./mapping_fixtures";
 
-const failed = (errorMessage: string | undefined, extra: Partial<AssistantMessage> = {}) =>
+const failed = (errorMessage: string | undefined, extra: Record<string, unknown> = {}) =>
 	assistant([], { stopReason: "error", ...(errorMessage !== undefined && { errorMessage }), ...extra });
 
 describe("how a run ended", () => {
@@ -120,17 +119,19 @@ describe("cost on large input", () => {
 });
 
 describe("usage", () => {
-	const stats = (tokens: Partial<SessionStats["tokens"]>, cost = 0.5): SessionStats => ({
-		sessionFile: undefined,
-		sessionId: "s",
-		userMessages: 1,
-		assistantMessages: 1,
-		toolCalls: 0,
-		toolResults: 0,
-		totalMessages: 2,
+	interface ContextUsage {
+		readonly tokens: number | null;
+		readonly contextWindow: number;
+		readonly percent: number | null;
+	}
+	/** Pi's totals, with its own `total` the bridge ignores. */
+	const stats = (tokens: Partial<SessionStats["tokens"]> & { total?: number }, cost = 0.5): SessionStats => ({
 		tokens: { input: 10, output: 20, cacheRead: 30, cacheWrite: 40, total: 100, ...tokens },
 		cost,
 	});
+	/** `get_session_stats` with the context's fill Pi reports beside the totals, when it knows one. */
+	const usageWith = (totals: SessionStats, fill: ContextUsage | undefined) =>
+		usageOf({ ...totals, ...(fill !== undefined && { contextUsage: fill }) });
 	const context = (tokens: number | null): ContextUsage => ({
 		tokens,
 		contextWindow: 200_000,
@@ -138,7 +139,7 @@ describe("usage", () => {
 	});
 
 	test("the totals are copied, the fill added when Pi knows it", () => {
-		expect(Usage.parse(usageOf(deepFreeze(stats({})), deepFreeze(context(1234))))).toEqual({
+		expect(Usage.parse(usageWith(deepFreeze(stats({})), deepFreeze(context(1234))))).toEqual({
 			inputTokens: 10,
 			outputTokens: 20,
 			cacheReadTokens: 30,
@@ -150,7 +151,7 @@ describe("usage", () => {
 	});
 
 	test("a total is Pi's, not recomputed: its `total` and a reasoning count play no part", () => {
-		const usage = usageOf(stats({ total: 7 }), undefined);
+		const usage = usageWith(stats({ total: 7 }), undefined);
 		expect(usage).toEqual({
 			inputTokens: 10,
 			outputTokens: 20,
@@ -162,14 +163,14 @@ describe("usage", () => {
 	});
 
 	test("a fill Pi does not know is left out, never 0", () => {
-		expect(usageOf(stats({}), context(null))).not.toHaveProperty("contextTokens");
-		expect(usageOf(stats({}), context(null))).not.toHaveProperty("contextWindow");
-		expect(usageOf(stats({}), undefined)).not.toHaveProperty("contextTokens");
-		expect(usageOf(stats({}), context(0))).toMatchObject({ contextTokens: 0, contextWindow: 200_000 });
+		expect(usageWith(stats({}), context(null))).not.toHaveProperty("contextTokens");
+		expect(usageWith(stats({}), context(null))).not.toHaveProperty("contextWindow");
+		expect(usageWith(stats({}), undefined)).not.toHaveProperty("contextTokens");
+		expect(usageWith(stats({}), context(0))).toMatchObject({ contextTokens: 0, contextWindow: 200_000 });
 	});
 
 	test("numbers the contract would refuse are left out instead of failing the event", () => {
-		const usage = usageOf(stats({ input: -1, output: 1.5, cacheRead: Number.NaN }, Number.NaN), {
+		const usage = usageWith(stats({ input: -1, output: 1.5, cacheRead: Number.NaN }, Number.NaN), {
 			tokens: 5,
 			contextWindow: 0,
 			percent: null,
@@ -191,18 +192,12 @@ describe("compaction and retry", () => {
 		});
 	});
 
-	const end = (extra: Partial<PiEvent<"compaction_end">>): PiEvent<"compaction_end"> => ({
-		type: "compaction_end",
-		reason: "manual",
-		result: undefined,
-		aborted: false,
-		willRetry: false,
-		...extra,
-	});
+	const end = (extra: Record<string, unknown>): PiEventOf<"compaction_end"> =>
+		piEvent({ type: "compaction_end", reason: "manual", aborted: false, willRetry: false, ...extra });
 	const result = { summary: "s", firstKeptEntryId: "e1", tokensBefore: 9000, estimatedTokensAfter: 1200 };
 
 	test("a compaction ends aborted, failed or completed, in that order of precedence", () => {
-		const outcome = (event: PiEvent<"compaction_end">) => {
+		const outcome = (event: PiEventOf<"compaction_end">) => {
 			const finished = compactionFinished(deepFreeze(event));
 			return validEvents([finished])[0] && finished.outcome;
 		};
@@ -233,13 +228,13 @@ describe("compaction and retry", () => {
 	});
 
 	test("a retry is scheduled at now plus its delay, with Pi's attempt counts and the error", () => {
-		const start: PiEvent<"auto_retry_start"> = {
+		const start = piEvent({
 			type: "auto_retry_start",
 			attempt: 2,
 			maxAttempts: 3,
 			delayMs: 4000,
 			errorMessage: "529 overloaded",
-		};
+		});
 		expect(validEvents([retryScheduled(start, 1_000_000)])[0]).toEqual({
 			type: "retry_scheduled",
 			attempt: 2,
@@ -252,11 +247,11 @@ describe("compaction and retry", () => {
 	});
 
 	test("a retry finishes as it succeeded", () => {
-		expect(retryFinished({ type: "auto_retry_end", success: true, attempt: 1 })).toEqual({
+		expect(retryFinished(piEvent({ type: "auto_retry_end", success: true, attempt: 1 }))).toEqual({
 			type: "retry_finished",
 			succeeded: true,
 		});
-		expect(retryFinished({ type: "auto_retry_end", success: false, attempt: 3, finalError: "x" })).toEqual({
+		expect(retryFinished(piEvent({ type: "auto_retry_end", success: false, attempt: 3, finalError: "x" }))).toEqual({
 			type: "retry_finished",
 			succeeded: false,
 		});

@@ -4,14 +4,14 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { fauxAssistantMessage } from "@earendil-works/pi-ai";
 import { LiveState } from "../../backends/pi/live/live-state";
 import { promptRejection } from "../../backends/pi/live/prompt-errors";
 import { QueueMirror } from "../../backends/pi/live/queue-mirror";
 import { RunTracker } from "../../backends/pi/live/run-tracker";
-import { DISPOSE_DEADLINE_MS } from "../../backends/pi/live/shutdown";
+import type { AssistantMessage } from "../../backends/pi/messages";
 import type { InteractionPort } from "../../backends/pi/ports";
 import { ACCEPTED } from "../../backends/pi/rejections";
+import { EXIT_AFTER_EOF_MS, STOP_BUDGET_MS } from "../../backends/pi/rpc/child";
 import { type AgentEvent, emptySnapshot, type SinkRecord } from "../../contract";
 import { useWatchdog } from "./helpers/use-watchdog";
 import { HostRig, pause } from "./host_rig";
@@ -24,6 +24,13 @@ function recorded(): { live: LiveState; events: AgentEvent[] } {
 	live.attach({ emit: (record: SinkRecord) => events.push(record.event) });
 	return { live, events };
 }
+
+const reply = (text: string): AssistantMessage => ({
+	role: "assistant",
+	content: [{ type: "text", text }],
+	stopReason: "stop",
+	timestamp: 1,
+});
 
 const typed = (events: readonly AgentEvent[]) => events.map((event) => event.type);
 
@@ -112,7 +119,7 @@ describe("RunTracker", () => {
 		expect(runs.cut()).toEqual({ leafEntryId: "entry-1" });
 
 		const closing: AgentEvent[] = [{ type: "notice", level: "info", text: "closing" }];
-		runs.settle(false, fauxAssistantMessage("done"), closing);
+		runs.settle(false, reply("done"), closing);
 
 		expect(typed(events)).toEqual(["run_started", "notice", "usage_updated", "run_finished"]);
 		expect(released).toEqual([run.runId]);
@@ -168,34 +175,29 @@ describe("promptRejection", () => {
 		["Agent is already processing. Specify streamingBehavior ('steer' or 'followUp') to queue the message.", "busy"],
 		["Cannot submit a prompt while compaction is in progress. Wait for compaction to finish and retry.", "busy"],
 		["No model selected.\n\nUse /login to log into a provider", "no_model"],
-		["No API key found for faux.\n\nUse /login to log into a provider via OAuth.", "auth"],
+		["No API key found for scripted.\n\nUse /login to log into a provider via OAuth.", "auth"],
 		['Authentication failed for "x". Credentials may have expired.', "auth"],
 		["something else broke", "backend_error"],
 	] as const)("message %#", (message, code) => {
-		const result = promptRejection(new Error(message));
+		const result = promptRejection(message);
 		expect(result.rejection.code).toBe(code);
 		expect(result.rejection.message).not.toContain("/login");
-	});
-
-	test("a thrown value that is not an Error still has a message", () => {
-		expect(promptRejection("plain").rejection).toEqual({ code: "backend_error", message: "plain" });
 	});
 });
 
 describe("shutdown", () => {
-	test("an extension that never leaves session_shutdown holds the shutdown only to the dispose deadline", async () => {
+	test("an extension that never leaves session_shutdown holds the shutdown only until pi is killed", async () => {
 		const t = await HostRig.create();
 		t.gate("shutdownGate");
-		const live = await t.rig.rig.openNew();
-		const session = t.session(live.ref);
+		await t.rig.rig.openNew();
 		const started = Date.now();
 
 		await t.rig.rig.backend.dispose();
 
 		const took = Date.now() - started;
-		expect(took).toBeGreaterThanOrEqual(DISPOSE_DEADLINE_MS - 200);
-		expect(took).toBeLessThan(DISPOSE_DEADLINE_MS + 3_000);
-		expect(Reflect.get(session, "_unsubscribeAgent")).toBeUndefined();
+		expect(took).toBeGreaterThanOrEqual(EXIT_AFTER_EOF_MS - 200);
+		expect(took).toBeLessThan(STOP_BUDGET_MS + 1_000);
+		expect(t.rig.world.sessionProcesses()).toBe(0);
 		await t.dispose();
 	}, 20_000);
 });

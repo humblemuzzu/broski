@@ -54,6 +54,7 @@ describe("Stop while a compaction by hand is under way", () => {
 
 		const finished = await live.waitFor("compaction_finished", () => true, mark);
 		expect(finished.outcome).toEqual({ kind: "aborted" });
+		await live.waitFor("run_finished", () => true, mark);
 		await t.rig.rig.arrange(live.ref, { kind: "reply" });
 		expect((await live.run("after the stop")).outcome.kind).toBe("completed");
 		live.assertSettled();

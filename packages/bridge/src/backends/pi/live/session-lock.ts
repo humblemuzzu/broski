@@ -1,5 +1,5 @@
 /**
- * The per-session mutex (D2): work on one session runs one at a time, in arrival order. Pi serializes
+ * The per-session mutex: work on one session runs one at a time, in arrival order. Pi serializes
  * none of prompt, switch, compact or dispose itself.
  */
 

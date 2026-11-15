@@ -7,6 +7,8 @@ export interface ImportSite {
 	/** Undefined when the specifier is computed, which no static check can follow. */
 	readonly specifier: string | undefined;
 	readonly line: number;
+	/** `import x from "y" with { type: "text" }`: the file's text, not its code. */
+	readonly asText?: boolean;
 }
 
 interface Token {
@@ -65,7 +67,11 @@ function staticSite(tokens: readonly Token[], index: number, sites: ImportSite[]
 		const token = tokens[at];
 		if (!token || token.text === ";" || token.text === "=" || (at > index + 1 && isStatementStart(token))) return;
 		if (token.kind === "string" && (at === index + 1 || tokens[at - 1]?.text === "from")) {
-			sites.push({ specifier: token.literal, line: token.line });
+			sites.push({
+				specifier: token.literal,
+				line: token.line,
+				...(isTextAttribute(tokens, at + 1) && { asText: true }),
+			});
 			return;
 		}
 	}
@@ -86,6 +92,19 @@ function reexportSite(tokens: readonly Token[], index: number, sites: ImportSite
 		}
 		if (opener === "{" && token.text === "}" && tokens[at + 1]?.text !== "from") return;
 	}
+}
+
+/** `with { type: "text" }` from `at`. */
+function isTextAttribute(tokens: readonly Token[], at: number): boolean {
+	const [keyword, open, key, colon, value, close] = tokens.slice(at, at + 6);
+	return (
+		keyword?.text === "with" &&
+		open?.text === "{" &&
+		key?.text === "type" &&
+		colon?.text === ":" &&
+		value?.literal === "text" &&
+		close?.text === "}"
+	);
 }
 
 function isStatementStart(token: Token): boolean {

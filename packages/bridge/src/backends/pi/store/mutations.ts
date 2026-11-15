@@ -1,14 +1,12 @@
 /**
  * Rename, delete and fork of sessions no live `AgentSession` holds: an appended `session_info` line,
  * a contained delete, and a new file holding the branch to the fork point. The source is never opened
- * with `SessionManager` (D6).
+ * with `SessionManager`.
  */
 
 import { constants } from "node:fs";
 import { type FileHandle, open } from "node:fs/promises";
 import { dirname } from "node:path";
-import { uuidv7 } from "@earendil-works/pi-ai";
-import { CURRENT_SESSION_VERSION, type SessionHeader } from "@earendil-works/pi-coding-agent";
 import type { ActionResult, ForkPoint, NewSessionResult, Rejected, SessionId } from "../../../contract";
 import type { CatalogFeed } from "../catalog-feed";
 import { errorText } from "../error-text";
@@ -17,6 +15,7 @@ import type { LiveOverlay } from "../ports";
 import { ACCEPTED, rejected } from "../rejections";
 import type { BranchItems, ItemsOfEntry } from "./branch-items";
 import { isContainedFile, trashFile } from "./discard-file";
+import { CURRENT_SESSION_VERSION, type SessionHeader } from "./entries";
 import { freshEntryId } from "./fork-entries";
 import { holdsOrigin, writeForkFile } from "./fork-file";
 import { lastEntryId, type SessionFileIndex } from "./jsonl-reader";
@@ -25,6 +24,7 @@ import { isFileSystemError } from "./open-file";
 import type { SessionDirs } from "./session-dir";
 import { isRejection, openFileIndex, type SessionIndex } from "./session-index";
 import { openBranch } from "./transcript";
+import { uuidv7 } from "./uuidv7";
 
 export interface MutationDeps {
 	readonly index: SessionIndex;
@@ -109,7 +109,7 @@ function forkHeader(source: SessionFileIndex, sourcePath: string, now: () => num
 	return {
 		type: "session",
 		version: CURRENT_SESSION_VERSION,
-		id: uuidv7(),
+		id: uuidv7(now()),
 		timestamp: new Date(now()).toISOString(),
 		cwd: source.header.cwd,
 		parentSession: sourcePath,

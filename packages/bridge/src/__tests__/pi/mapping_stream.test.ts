@@ -1,7 +1,6 @@
 /** one assistant message's stream. Pi's event shapes in, contract events out, checked by the contract's own stream rules. */
 
 import { describe, expect, test } from "bun:test";
-import type { ToolCall } from "@earendil-works/pi-ai";
 import { ToolCallIds } from "../../backends/pi/ids";
 import { AssistantStream } from "../../backends/pi/mapping/stream-blocks";
 import { toolFinished } from "../../backends/pi/mapping/tool-items";
@@ -21,12 +20,14 @@ import {
 	callStart,
 	feed,
 	inRun,
+	streamEvent,
 	textDelta,
 	textEnd,
 	textStart,
 	thinkingDelta,
 	thinkingEnd,
 	thinkingStart,
+	updateOf,
 } from "./mapping_stream_events";
 
 function fold(recordList: readonly SinkRecord[]): SessionSnapshot {
@@ -38,7 +39,7 @@ describe("a streamed message", () => {
 	const stream = new AssistantStream("msg-1", tools);
 	const call = toolCall("call_9", "read", { path: "README.md" });
 	const events = feed(stream, [
-		{ type: "start", partial: assistant([]) },
+		streamEvent({ type: "start", partial: assistant([]) }),
 		thinkingStart(0),
 		thinkingDelta(0, "he"),
 		thinkingDelta(0, "llo"),
@@ -51,9 +52,9 @@ describe("a streamed message", () => {
 			2,
 			assistant([{ type: "thinking", thinking: "" }, { type: "text", text: "" }, toolCall("call_9", "read")]),
 		),
-		{ type: "toolcall_delta", contentIndex: 2, delta: '{"path":', partial: assistant([]) },
+		streamEvent({ type: "toolcall_delta", contentIndex: 2, delta: '{"path":', partial: assistant([]) }),
 		callEnd(2, call),
-		{ type: "done", reason: "toolUse", message: assistant([call], { stopReason: "toolUse" }) },
+		streamEvent({ type: "done", reason: "toolUse", message: assistant([call], { stopReason: "toolUse" }) }),
 	]);
 	const closing = validEvents(
 		stream.end(assistant([{ type: "thinking", thinking: "hello" }, { type: "text", text: "Reading" }, call])),
@@ -100,24 +101,6 @@ describe("a streamed message", () => {
 	});
 });
 
-describe("Pi's live objects", () => {
-	test("nothing of `partial` reaches an event, and a partial changed later changes no event", () => {
-		const tools = new ToolCallIds();
-		const stream = new AssistantStream("msg-1", tools);
-		const partial = assistant([toolCall("call_1", "bash", { command: "SECRET-ARGS-SO-FAR" })]);
-		const events = [
-			...stream.update(callStart(0, partial)),
-			...stream.update({ type: "text_delta", contentIndex: 1, delta: "x", partial }),
-		];
-		const before = JSON.stringify(events);
-		expect(before).not.toContain("SECRET-ARGS-SO-FAR");
-		partial.content.push({ type: "text", text: "grown" });
-		const first = partial.content[0];
-		if (first?.type === "toolCall") first.name = "renamed";
-		expect(JSON.stringify(events)).toBe(before);
-	});
-});
-
 describe("tool calls", () => {
 	test("a call whose id and name arrive late starts at toolcall_end, with its input", () => {
 		const tools = new ToolCallIds();
@@ -135,16 +118,16 @@ describe("tool calls", () => {
 		expect(streamViolations(inRun(events, tools, ["call_late"]), PI_TRAITS, emptySnapshot())).toEqual([]);
 	});
 
-	test("a start whose partial holds no call there starts nothing", () => {
+	test("a start that names no call starts nothing", () => {
 		const stream = new AssistantStream("msg-1", new ToolCallIds());
-		expect(stream.update(callStart(3, assistant([])))).toEqual([]);
-		expect(stream.update(callStart(0, assistant([{ type: "text", text: "t" }])))).toEqual([]);
+		expect(updateOf(stream, callStart(3, assistant([])))).toEqual([]);
+		expect(updateOf(stream, callStart(0, assistant([{ type: "text", text: "t" }])))).toEqual([]);
 	});
 
 	test("an invalid-arguments call still reports its (empty) input; the failure comes with its result", () => {
 		const tools = new ToolCallIds();
 		const stream = new AssistantStream("msg-1", tools);
-		const bad: ToolCall = {
+		const bad = {
 			...toolCall("call_bad", "read"),
 			argumentsError: "Unexpected token\n\nReceived arguments:\n{oops",
 		};
@@ -295,43 +278,44 @@ describe("end of a message", () => {
 describe("events Pi should not send, and the ones that carry nothing", () => {
 	test("a repeated start, a delta for a block not open and an empty delta change nothing", () => {
 		const stream = new AssistantStream("msg-1", new ToolCallIds());
-		expect(stream.update(textDelta(0, "orphan"))).toEqual([]);
-		expect(stream.update(textStart(0))).toHaveLength(1);
-		expect(stream.update(textStart(0))).toEqual([]);
-		expect(stream.update(textDelta(0, ""))).toEqual([]);
-		stream.update(textEnd(0, ""));
-		expect(stream.update(textStart(0))).toEqual([]);
-		expect(stream.update(textDelta(0, "late"))).toEqual([]);
+		expect(updateOf(stream, textDelta(0, "orphan"))).toEqual([]);
+		expect(updateOf(stream, textStart(0))).toHaveLength(1);
+		expect(updateOf(stream, textStart(0))).toEqual([]);
+		expect(updateOf(stream, textDelta(0, ""))).toEqual([]);
+		updateOf(stream, textEnd(0, ""));
+		expect(updateOf(stream, textStart(0))).toEqual([]);
+		expect(updateOf(stream, textDelta(0, "late"))).toEqual([]);
 	});
 
 	test("an end for a block never opened starts and finishes it, or does nothing when empty", () => {
 		const stream = new AssistantStream("msg-1", new ToolCallIds());
-		expect(stream.update(textEnd(0, ""))).toEqual([]);
+		expect(updateOf(stream, textEnd(0, ""))).toEqual([]);
 		expect(feed(stream, [textEnd(1, "whole")])).toEqual([
 			{ type: "block_started", blockId: "msg-1:1", messageId: "msg-1", kind: "text" },
 			{ type: "block_finished", blockId: "msg-1:1", text: "whole" },
 		]);
 	});
 
-	test("start, toolcall_delta, done and error add nothing", () => {
-		const stream = new AssistantStream("msg-1", new ToolCallIds());
+	test("start, toolcall_delta, done and error are read as nothing", () => {
 		const done = assistant([{ type: "text", text: "t" }]);
 		const failed = assistant([], { stopReason: "error", errorMessage: "boom" });
-		expect(stream.update({ type: "start", partial: assistant([]) })).toEqual([]);
-		expect(stream.update({ type: "toolcall_delta", contentIndex: 0, delta: "{", partial: assistant([]) })).toEqual([]);
-		expect(stream.update({ type: "done", reason: "stop", message: done })).toEqual([]);
-		expect(stream.update({ type: "error", reason: "error", error: failed })).toEqual([]);
+		expect(streamEvent({ type: "start", partial: assistant([]) })).toEqual({ type: "ignored" });
+		expect(streamEvent({ type: "toolcall_delta", contentIndex: 0, delta: "{", partial: assistant([]) })).toEqual({
+			type: "ignored",
+		});
+		expect(streamEvent({ type: "done", reason: "stop", message: done })).toEqual({ type: "ignored" });
+		expect(streamEvent({ type: "error", reason: "error", error: failed })).toEqual({ type: "ignored" });
 	});
 });
 
 describe("a block that streams past the contract's bound", () => {
 	test("keeps its newest text without copying all of it on every delta", () => {
 		const stream = new AssistantStream("long", new ToolCallIds());
-		stream.update(textStart(0));
-		stream.update(textDelta(0, "x".repeat(MAX_TEXT_CHARS)));
+		updateOf(stream, textStart(0));
+		updateOf(stream, textDelta(0, "x".repeat(MAX_TEXT_CHARS)));
 		const updates = Array.from({ length: 20_000 }, () => textDelta(0, "a few words"));
 		const began = performance.now();
-		for (const update of updates) stream.update(update);
+		for (const update of updates) updateOf(stream, update);
 		const took = performance.now() - began;
 		const [finished] = stream.abandon();
 

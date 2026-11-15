@@ -1,11 +1,10 @@
 /**
  * The tool calls of a run as `tool_*` events. A call starts when its assistant message streams it
  * (`toolcall_start`) or, for one no message streamed, at `tool_execution_start`. A top-level call finishes
- * once its result is persisted, because an image in the result is named by the entry it landed in; a nested
- * call (one tool made through `ctx.executeTool()`) has no entry and finishes at `tool_execution_end`.
+ * at its result message, whose entry names an image in it; a nested call (one tool made through `ctx.executeTool()`)
+ * has no message and finishes at `tool_execution_end`.
  */
 
-import type { AssistantMessage, ImageContent, TextContent, ToolCall, ToolResultMessage } from "@earendil-works/pi-ai";
 import type { AgentEvent, ImageRef, SessionRef, ToolCallId, ToolOutcome, ToolResult } from "../../../contract";
 import type { RecordedToolOutcome } from "../broski-entries";
 import { entryAttachmentId } from "../ids";
@@ -18,9 +17,22 @@ import {
 	toolResultOf,
 	toolStartedOfExecution,
 } from "../mapping/tool-items";
-import type { PiEvent, RunContext } from "../ports";
+import type {
+	AssistantMessage,
+	ImageContent,
+	TextContent,
+	ToolCall,
+	ToolResultMessage,
+	UnsupportedContent,
+} from "../messages";
+import type { RunContext } from "../ports";
+import type { PiEventOf } from "../rpc/frames";
 
-type Content = readonly (TextContent | ImageContent)[];
+type Content = readonly (TextContent | ImageContent | UnsupportedContent)[];
+type ToolEvent<T extends "tool_execution_start" | "tool_execution_update" | "tool_execution_end"> = Omit<
+	PiEventOf<T>,
+	"type"
+>;
 
 export interface ToolFlowDeps {
 	readonly emit: (event: AgentEvent) => void;
@@ -28,8 +40,8 @@ export interface ToolFlowDeps {
 	/** An abort was requested for the run, so a call that fails now failed because of it. */
 	readonly aborting: () => boolean;
 	readonly children: ChildLinks;
-	/** Records, right after the result Pi just stored, an outcome Pi stores as an ordinary failure. */
-	readonly record: (outcome: RecordedToolOutcome) => void;
+	/** Records an outcome Pi stores as an ordinary failure, for the result entry that holds it. */
+	readonly record: (entryId: string, outcome: RecordedToolOutcome) => void;
 }
 
 /** The part of `ChildFeeds` a tool call needs. */
@@ -72,7 +84,7 @@ export class ToolFlow {
 		for (const id of unexecuted) this.abandonCall(id);
 	}
 
-	executionStarted(event: PiEvent<"tool_execution_start">): void {
+	executionStarted(event: ToolEvent<"tool_execution_start">): void {
 		const run = this.deps.run();
 		if (!run) return;
 		this.open.set(event.toolCallId, { name: event.toolName, args: event.args, denied: false, linked: false });
@@ -81,7 +93,7 @@ export class ToolFlow {
 		}
 	}
 
-	executionUpdated(event: PiEvent<"tool_execution_update">): void {
+	executionUpdated(event: ToolEvent<"tool_execution_update">): void {
 		const run = this.deps.run();
 		if (run && run.tools.find(event.toolCallId) !== undefined) this.deps.emit(toolOutputOf(event, run.tools));
 		this.linkChild(event.toolCallId, event.partialResult.details);
@@ -98,26 +110,27 @@ export class ToolFlow {
 		this.deps.emit({ type: "tool_updated", toolCallId, update: { kind: "child_session", session: child } });
 	}
 
-	executionEnded(event: PiEvent<"tool_execution_end">): void {
+	executionEnded(event: ToolEvent<"tool_execution_end">): void {
 		const call = this.open.get(event.toolCallId);
 		const run = this.deps.run();
 		if (call && run) call.denied = run.tools.wasDenied(event.toolCallId);
 		if (event.parentToolCallId === undefined) return;
-		this.finishCall(event.toolCallId, event.result.content, event.isError, event.result.details, () => undefined);
+		this.finishCall(event.toolCallId, event.result.content ?? [], event.isError, event.result.details, () => undefined);
 	}
 
 	/** A call whose result no stored entry will hold (a terminal's): finished at its `tool_execution_end`, an image in it a placeholder. */
-	finishedWithoutEntry(event: PiEvent<"tool_execution_end">): void {
-		this.finishCall(event.toolCallId, event.result.content, event.isError, event.result.details, () => undefined);
+	finishedWithoutEntry(event: ToolEvent<"tool_execution_end">): void {
+		this.finishCall(event.toolCallId, event.result.content ?? [], event.isError, event.result.details, () => undefined);
 	}
 
-	resultPersisted(message: ToolResultMessage, entryId: string): void {
+	/** `entryId` is the entry the result was persisted as; undefined when it could not be found, and an image in it is a placeholder. */
+	resultPersisted(message: ToolResultMessage, entryId: string | undefined): void {
 		this.linkChild(message.toolCallId, message.details);
 		const outcome = this.finishCall(message.toolCallId, message.content, message.isError, message.details, (index) =>
-			imageRefAt(message.content, entryId, index),
+			entryId === undefined ? undefined : imageRefAt(message.content, entryId, index),
 		);
 		this.deps.children.end(message.toolCallId, outcome ?? (message.isError ? "failed" : "completed"));
-		if (outcome === "denied" || outcome === "aborted") this.deps.record(outcome);
+		if (entryId !== undefined && (outcome === "denied" || outcome === "aborted")) this.deps.record(entryId, outcome);
 	}
 
 	/** Every call still running when the run settles ended with it. */

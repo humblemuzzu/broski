@@ -1,11 +1,13 @@
 /**
- * A terminal `pi` for the tests: a real Pi session on the world's faux models, extensions bound the way the interactive
+ * A terminal `pi` for the tests: Pi's own interactive session code (the devDependency, in this process) on the world's
+ * scripted models, extensions bound the way the interactive
  * mode binds them (for the first session and after every switch, `setRebindSession`; `mode: "tui"`; `abortHandler` doing
  * what the Esc key does: the queue back to the editor, then the abort, pi-coding-agent
  * `src/modes/interactive/interactive-mode.ts:1978-1981, 4711-4725`). Its Broski link extension is the one the bridge
  * installed and Pi's own loader found, and it connects to the world's real link socket.
  */
 
+import { join } from "node:path";
 import type { Api, Model } from "@earendil-works/pi-ai";
 import {
 	type AgentSession,
@@ -13,12 +15,14 @@ import {
 	createAgentSessionFromServices,
 	createAgentSessionRuntime,
 	createAgentSessionServices,
+	type ExtensionUIContext,
+	ModelRuntime,
 	SessionManager,
 } from "@earendil-works/pi-coding-agent";
 import type { TerminalSession } from "../../../backends/pi/terminal/registry";
-import { FAUX_MODEL_IDS, FAUX_PROVIDER } from "./faux-models";
-import { silentUi } from "./pi-spike";
-import type { PiWorld } from "./pi-world";
+import { MODELS, type PiWorld } from "./pi-world";
+import { plainTheme } from "./plain-theme";
+import { PROVIDER } from "./scenarios";
 
 export interface Terminal {
 	readonly session: AgentSession;
@@ -38,15 +42,18 @@ export class TerminalRig {
 
 	/** A new terminal session of the project, or the session `file` resumed. */
 	async open(file?: string, options: { readonly mode?: "tui" | "rpc" } = {}): Promise<Terminal> {
-		const { services } = this.t.world.parts;
-		const model = services.models.runtime.getModel(FAUX_PROVIDER, FAUX_MODEL_IDS.reasoner);
-		if (!model) throw new Error("the world has no faux model");
 		const { env } = this.t.world;
+		const models = await ModelRuntime.create({
+			authPath: join(env.agentDir, "auth.json"),
+			modelsPath: join(env.agentDir, "models.json"),
+		});
+		const model = models.getModel(PROVIDER, MODELS.reasoner);
+		if (!model) throw new Error("the world has no scripted model");
 		const sessionManager =
 			file === undefined ? SessionManager.create(env.cwd, env.sessionDir) : SessionManager.open(file, env.sessionDir);
 		const runtime = await createAgentSessionRuntime(
 			async ({ cwd, agentDir, sessionManager: manager }) => {
-				const created = await createServices(services.models.runtime, cwd, agentDir, manager, model);
+				const created = await createServices(models, cwd, agentDir, manager, model);
 				return created;
 			},
 			{ cwd: env.cwd, agentDir: env.agentDir, sessionManager },
@@ -108,8 +115,44 @@ export class TerminalRig {
 	}
 }
 
+/** A UI that answers no dialog and keeps what it was told. */
+function silentUi(notices: string[]): ExtensionUIContext {
+	return {
+		select: async () => undefined,
+		confirm: async () => false,
+		input: async () => undefined,
+		notify: (message) => notices.push(message),
+		onTerminalInput: () => () => {},
+		setStatus: () => {},
+		setWorkingMessage: () => {},
+		setWorkingVisible: () => {},
+		setWorkingIndicator: () => {},
+		setHiddenThinkingLabel: () => {},
+		setWidget: () => {},
+		setFooter: () => {},
+		setHeader: () => {},
+		setTitle: () => {},
+		custom: async () => {
+			throw new Error("the test terminal draws no custom component");
+		},
+		pasteToEditor: () => {},
+		setEditorText: () => {},
+		getEditorText: () => "",
+		editor: async () => undefined,
+		addAutocompleteProvider: () => {},
+		setEditorComponent: () => {},
+		getEditorComponent: () => undefined,
+		theme: plainTheme(),
+		getAllThemes: () => [],
+		getTheme: () => undefined,
+		setTheme: () => ({ success: false, error: "the test terminal keeps its theme" }),
+		getToolsExpanded: () => false,
+		setToolsExpanded: () => {},
+	};
+}
+
 async function createServices(
-	modelRuntime: Parameters<typeof createAgentSessionServices>[0]["modelRuntime"],
+	modelRuntime: ModelRuntime,
 	cwd: string,
 	agentDir: string,
 	sessionManager: SessionManager,

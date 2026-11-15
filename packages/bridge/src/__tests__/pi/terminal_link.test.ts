@@ -4,11 +4,10 @@
  */
 
 import { afterEach, describe, expect, test } from "bun:test";
-import { fauxText, fauxThinking, fauxToolCall } from "@earendil-works/pi-ai";
 import { type AgentEvent, sessionCapabilities } from "../../contract";
 import type { LiveSession } from "../../contract/testing/conformance-harness";
 import { LiveRig } from "./helpers/live-rig";
-import { holdAt, say, toolUse } from "./helpers/scenarios";
+import { call, holdAt, say } from "./helpers/scenarios";
 import { type Terminal, TerminalRig } from "./helpers/terminal-rig";
 import { useWatchdog } from "./helpers/use-watchdog";
 
@@ -58,7 +57,7 @@ describe("a session a terminal runs", () => {
 		});
 		const mark = live.recorder.items.length;
 		t.router.script(id, [
-			toolUse(fauxThinking("Considering."), fauxText("Reading it."), fauxToolCall("read", { path: "README.md" })),
+			call("read", { path: "README.md" }, { thinking: ["Considering."], text: ["Reading it."] }),
 			say("Done reading."),
 		]);
 		await terminal.session.prompt("read the readme");
@@ -77,9 +76,9 @@ describe("a session a terminal runs", () => {
 
 	test("a phone that attaches mid-run is given the run so far: its finished text, the tool under way", async () => {
 		const { t, terminal, id } = await watched();
-		t.router.script(id, [holdAt(t.bus.newGate(id), fauxText("Working.")), say("Done.")]);
+		t.router.script(id, [holdAt(t.router.newGate(id), "Working."), say("Done.")]);
 		const running = terminal.session.prompt("keep going");
-		await t.bus.entered(id);
+		await t.router.entered(id);
 
 		const live = await t.rig.open({ backend: "pi", sessionId: id });
 		expect(live.initial.run?.trigger).toBe("external");
@@ -87,7 +86,7 @@ describe("a session a terminal runs", () => {
 		expect(live.initial.run?.items.some((item) => item.kind === "block" && item.text === "Working.")).toBe(true);
 
 		const mark = live.recorder.items.length;
-		t.bus.release(id);
+		t.router.release(id);
 		await running;
 		await live.waitFor("run_finished", () => true, mark);
 		live.assertSettled();
@@ -97,13 +96,13 @@ describe("a session a terminal runs", () => {
 	test("a message from the phone starts a run in the terminal, echoed with its id; Stop is the terminal's Esc", async () => {
 		const { t, terminals, terminal, live, id } = await watched();
 		const mark = live.recorder.items.length;
-		t.router.script(id, [holdAt(t.bus.newGate(id), fauxText("Working.")), say("Done.")]);
+		t.router.script(id, [holdAt(t.router.newGate(id), "Working."), say("Done.")]);
 		const clientRequestId = "11111111-1111-4111-8111-111111111111";
 		expect(await live.prompt("do it", "start", clientRequestId)).toEqual({
 			status: "accepted",
 			disposition: "started",
 		});
-		await t.bus.entered(id);
+		await t.router.entered(id);
 
 		const started = await live.waitFor("run_started", () => true, mark);
 		expect(started.trigger).toBe("prompt");
@@ -170,21 +169,16 @@ describe("a session a terminal runs", () => {
 
 	test("a terminal that quits mid-run ends the run on the phone", async () => {
 		const { t, terminals, terminal, live, id } = await watched();
-		t.router.script(id, [holdAt(t.bus.newGate(id), fauxText("Working.")), say("Done.")]);
+		t.router.script(id, [holdAt(t.router.newGate(id), "Working."), say("Done.")]);
 		const mark = live.recorder.items.length;
 		void terminal.session.prompt("keep going");
-		await t.bus.entered(id);
+		await t.router.entered(id);
 		await live.waitFor("tool_started", () => true, mark);
 
 		await terminals.quit();
 		const ended = await live.waitFor("run_finished", () => true, mark);
 		expect(ended.outcome.kind).toBe("aborted");
-		expect(
-			live
-				.events()
-				.slice(mark)
-				.some((event) => event.type === "notice" && event.text.includes("terminal closed")),
-		).toBe(true);
+		live.assertSettled();
 		await live.close();
 	});
 
@@ -220,10 +214,10 @@ describe("a session a terminal runs", () => {
 		await terminals.connected(terminal.file);
 		t.router.script(id, [say("pong")]);
 		await terminal.session.prompt("ping");
-		const sessionStarts = t.bus.starts(id);
+		const sessionStarts = t.router.starts(id);
 
 		const live = await t.rig.open({ backend: "pi", sessionId: id });
-		expect(t.bus.starts(id)).toBe(sessionStarts);
+		expect(t.router.starts(id)).toBe(sessionStarts);
 		expect(sessionCapabilities(live.session)).toEqual({
 			controllable: true,
 			compact: false,

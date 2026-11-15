@@ -12,6 +12,7 @@ import {
 	toolStartedOfCall,
 	toolStartedOfExecution,
 } from "../../backends/pi/mapping/tool-items";
+import { parseFrame } from "../../backends/pi/rpc/frames";
 import { PI_TRAITS } from "../../backends/pi/traits";
 import {
 	type AgentEvent,
@@ -23,7 +24,7 @@ import {
 	ToolResult,
 } from "../../contract";
 import { streamViolations } from "../../contract/testing/stream-rules";
-import { deepFreeze, records, toolCall, validEvents } from "./mapping_fixtures";
+import { deepFreeze, piEvent, records, toolCall, validEvents } from "./mapping_fixtures";
 
 describe("outcome", () => {
 	test.each([
@@ -59,13 +60,13 @@ describe("a call no message streamed", () => {
 		const tools = new ToolCallIds();
 		const parent = toolStartedOfCall(toolCall("call_p", "codemode"), "msg-1", tools);
 		const nested = toolStartedOfExecution(
-			{
+			piEvent({
 				type: "tool_execution_start",
 				toolCallId: "call_p/1",
 				toolName: "read",
 				args: { path: "a" },
 				parentToolCallId: "call_p",
-			},
+			}),
 			tools,
 		);
 		expect(nested).toMatchObject({ parentToolCallId: parent.toolCallId, name: "read" });
@@ -85,7 +86,7 @@ describe("a call no message streamed", () => {
 
 	test("a parent no one started leaves the nested call top-level rather than naming an unknown id", () => {
 		const nested = toolStartedOfExecution(
-			{ type: "tool_execution_start", toolCallId: "x/1", toolName: "read", args: {}, parentToolCallId: "x" },
+			piEvent({ type: "tool_execution_start", toolCallId: "x/1", toolName: "read", args: {}, parentToolCallId: "x" }),
 			new ToolCallIds(),
 		);
 		expect(nested).not.toHaveProperty("parentToolCallId");
@@ -93,7 +94,7 @@ describe("a call no message streamed", () => {
 
 	test("a call with no name is shown under a placeholder", () => {
 		const started = toolStartedOfExecution(
-			{ type: "tool_execution_start", toolCallId: "c", toolName: "", args: {} },
+			piEvent({ type: "tool_execution_start", toolCallId: "c", toolName: "", args: {} }),
 			new ToolCallIds(),
 		);
 		expect(validEvents([started])[0]).toMatchObject({ name: "unnamed" });
@@ -101,9 +102,10 @@ describe("a call no message streamed", () => {
 });
 
 describe("live output", () => {
-	function update(partialResult: unknown) {
+	function raw(partialResult: unknown) {
 		return { type: "tool_execution_update" as const, toolCallId: "c1", toolName: "bash", args: {}, partialResult };
 	}
+	const update = (partialResult: unknown) => piEvent(raw(partialResult));
 
 	test("the whole output so far replaces the last, text blocks joined, escapes removed", () => {
 		const tools = new ToolCallIds();
@@ -132,17 +134,22 @@ describe("live output", () => {
 	});
 
 	test.each([
-		[undefined],
-		[null],
-		["text"],
 		[{}],
-		[{ content: "no" }],
 		[{ content: [null, { type: "text", text: 4 }] }],
-	])("a partial result of the wrong shape (%j) is no text, not a throw", (partialResult) => {
+	])("a partial result with no text in it (%j) is empty output", (partialResult) => {
 		expect(toolOutputOf(update(partialResult), new ToolCallIds()).update).toEqual({
 			kind: "output_replaced",
 			text: "",
 		});
+	});
+
+	test.each([
+		[undefined],
+		[null],
+		["text"],
+		[{ content: "no" }],
+	])("an update whose partial result is not one (%j) is refused at the frame and never mapped", (partialResult) => {
+		expect(parseFrame(JSON.stringify(raw(partialResult))).kind).toBe("invalid");
 	});
 });
 

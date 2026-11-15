@@ -2,8 +2,9 @@
 
 import type { BlockItem, NewSessionOptions, ToolCallItem, TranscriptItem, UserMessageItem } from "../../../contract";
 import type { LiveSession } from "../../../contract/testing/conformance-harness";
-import { newestUserMessage, type RecordedRequest } from "./faux-router";
+import type { ScriptedRequest } from "../../helpers/scripted-openai-server";
 import type { LiveRig } from "./live-rig";
+import { textOf } from "./pi-router";
 
 /** A new session whose run is parked at the driver's hold, with the tool's start already seen. */
 export async function holdingRun(
@@ -18,7 +19,7 @@ export async function holdingRun(
 		throw new Error(`the held run did not start: ${JSON.stringify(result)}`);
 	}
 	await live.waitFor("tool_started", (event) => event.name === "driver_hold");
-	await t.bus.entered(live.ref.sessionId);
+	await t.router.entered(live.ref.sessionId);
 	return live;
 }
 
@@ -35,8 +36,9 @@ export function countOf(live: LiveSession, type: "run_started" | "run_finished")
 }
 
 /** The text of the newest user message the model was sent in `request`. */
-export function lastUserText(request: RecordedRequest | undefined): string | undefined {
-	return newestUserMessage(request)?.text;
+export function lastUserText(request: ScriptedRequest | undefined): string | undefined {
+	const user = request?.messages.findLast((message) => message.role === "user");
+	return user === undefined ? undefined : textOf(user.content);
 }
 
 /** The items of one kind, typed. */

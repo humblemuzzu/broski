@@ -1,10 +1,9 @@
 import type { BroskiConfig } from "../../config";
-import { findBinary } from "../../platform";
 import { defaultClaudeCliEnvironment, resolveClaudeCliPath } from "../../server/claude-cli-path";
+import { resolvePiCli } from "../../server/pi-cli-path";
 import type { CheckResult } from "../types";
 import { claudeCliCheck } from "./claude-cli";
-
-const PI_FIX = "Install Pi: npm i -g @earendil-works/pi-coding-agent";
+import { piCliCheck } from "./pi-cli";
 
 export async function runDependencyChecks(config?: BroskiConfig): Promise<CheckResult[]> {
 	const results: CheckResult[] = [];
@@ -13,18 +12,9 @@ export async function runDependencyChecks(config?: BroskiConfig): Promise<CheckR
 	results.push(claudeResult);
 	const claude = claudeResult.status === "ok";
 
-	const pi = findBinary("pi");
-	if (!pi) {
-		results.push({
-			id: "pi",
-			category: "dependencies",
-			status: "warning",
-			message: "Pi not found",
-			fix: PI_FIX,
-		});
-	} else {
-		results.push({ id: "pi", category: "dependencies", status: "ok", message: "Pi found" });
-	}
+	const piResult = piCliCheck(resolvePiCli(config?.pi.cliPath));
+	results.push(piResult);
+	const pi = piResult.status === "ok";
 
 	const any = Boolean(claude || pi);
 	if (!any) {

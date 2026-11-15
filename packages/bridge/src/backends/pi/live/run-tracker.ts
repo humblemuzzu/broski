@@ -1,21 +1,21 @@
 /**
- * The run is the adapter's (D3): it starts when Pi accepts a prompt (`preflightResult("started")`), runs on its own
- * (an agent event with no run, trigger `system`), or compacts while idle (contract README §7: Pi's run starts at
- * the first `agent_start` or `compaction_start` while idle). It ends only on `agent_settled`, or for a compaction
- * that was the whole run, at its `compaction_end`.
+ * The run is the adapter's: it starts when Pi answers a prompt `started`, runs on its own (an agent event with no run,
+ * trigger `system`), or compacts while idle (contract README §7: Pi's run starts at the first `agent_start` or
+ * `compaction_start` while idle). It ends only on `agent_settled` (`agent_end` is not the end, pi-coding-agent 1.5.2
+ * `docs/rpc.md:69`), or for a compaction that was the whole run, at its `compaction_end`.
  */
 
-import type { AssistantMessage } from "@earendil-works/pi-ai";
 import type { AgentEvent, RunOutcome, RunTrigger } from "../../../contract";
 import { mintRunId, ToolCallIds } from "../ids";
 import { runOutcome } from "../mapping/errors";
+import type { AssistantMessage } from "../messages";
 import type { InteractionPort, RunContext, TranscriptCut } from "../ports";
 import type { LiveState } from "./live-state";
 
 export interface RunTrackerDeps {
 	readonly live: LiveState;
 	readonly interactions: Pick<InteractionPort, "releaseRun">;
-	/** Pulls the session's totals (D10), before `run_finished`. */
+	/** Pulls the session's totals, before `run_finished`. */
 	readonly refreshUsage: () => void;
 }
 
@@ -24,7 +24,9 @@ export type SoloRun = "compaction";
 
 interface ActiveRun {
 	readonly context: RunContext;
-	readonly cut: TranscriptCut;
+	cut: TranscriptCut;
+	/** The cut is the parent of the run's first message, once that is known. */
+	cutExact: boolean;
 	readonly solo: SoloRun | undefined;
 	aborting: boolean;
 }
@@ -42,7 +44,7 @@ export class RunTracker {
 	/** Emits `run_started`; `leafEntryId` is the session's leaf now, where the transcript is cut. */
 	start(trigger: RunTrigger, leafEntryId: string | null, solo?: SoloRun): RunContext {
 		const context: RunContext = { runId: mintRunId(), tools: new ToolCallIds() };
-		this.active = { context, cut: { leafEntryId }, solo, aborting: false };
+		this.active = { context, cut: { leafEntryId }, cutExact: false, solo, aborting: false };
 		this.deps.live.emit({ type: "run_started", runId: context.runId, trigger });
 		return context;
 	}
@@ -54,6 +56,16 @@ export class RunTracker {
 
 	cut(): TranscriptCut | undefined {
 		return this.active?.cut;
+	}
+
+	/**
+	 * The run's first message landed under `parentId`: that is where the transcript stops while the run is on. The leaf
+	 * known at the run's start can be behind Pi's (an entry no event announced) or, for a run Pi began itself, ahead.
+	 */
+	firstMessageUnder(parentId: string | null): void {
+		if (!this.active || this.active.cutExact) return;
+		this.active.cut = { leafEntryId: parentId };
+		this.active.cutExact = true;
 	}
 
 	/** An abort was requested for the active run, so a tool that fails now failed because of it. */

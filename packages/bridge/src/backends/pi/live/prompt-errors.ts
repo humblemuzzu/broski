@@ -1,19 +1,17 @@
 import type { Rejected } from "../../../contract";
-import { errorText } from "../error-text";
 import { rejected } from "../rejections";
 
 /**
- * Why `AgentSession.prompt` refused, from the messages it throws: pi `src/core/agent-session.ts:2111`
- * (compaction), `:2139` (already processing), `:2154` and `:2169` with `src/core/auth-guidance.ts:18-25`
- * (no model, no key), `:2163` (expired sign-in). Those messages end in a path to Pi's docs, which a phone cannot open.
+ * Why Pi refused a prompt, from the error its `prompt` answers with (pi-coding-agent 1.5.2
+ * `dist/core/agent-session.js:1712-1776`, `dist/core/auth-guidance.js:14-20`). Those messages end in advice for a
+ * terminal, which a phone cannot follow.
  */
-export function promptRejection(error: unknown): Rejected {
-	const message = errorText(error);
+export function promptRejection(message: string): Rejected {
 	if (
 		message.startsWith("Agent is already processing") ||
 		message.startsWith("Cannot submit a prompt while compaction")
 	) {
-		return rejected("busy", message);
+		return rejected("busy", firstParagraph(message));
 	}
 	if (message.startsWith("No model selected")) return rejected("no_model", "No model is selected for this session.");
 	if (message.startsWith("No API key found") || message.startsWith("Authentication failed")) {

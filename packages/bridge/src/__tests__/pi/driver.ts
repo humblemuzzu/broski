@@ -1,7 +1,7 @@
 /**
- * The Pi conformance driver (contract README §14): a throwaway agent dir, pi-ai's faux provider on the
- * adapter's own `ModelRuntime`, scripts routed per session by the request's `sessionId`, and an
- * extension file in the agent dir that holds a run or raises Pi's dialogs on cue.
+ * The Pi conformance driver (contract README §14): a throwaway agent dir, the real `pi` in RPC mode against the scripted
+ * endpoint, scripts routed per session by the session id Pi sends with every request, and an extension file in the
+ * agent dir that holds a run, raises Pi's dialogs and runs a subagent on cue.
  */
 
 import type { AgentBackend, BackendHost, SessionRef } from "../../contract";
@@ -38,25 +38,26 @@ export class PiConformanceDriver implements ConformanceDriver {
 	}
 
 	async arrange(session: SessionRef, scenario: Scenario): Promise<boolean> {
-		const steps = scenarioSteps(this.world.bus, session.sessionId, scenario);
+		const steps = scenarioSteps(this.world.router, session.sessionId, scenario);
 		if (!steps) return false;
 		if (scenario.kind === "interaction" && scenario.interaction === "tool_permission") {
-			if (!(await this.askBeforeTools(session))) return false;
+			const control = this.world.controlOf(session.sessionId);
+			if ((await control?.setMode("permissions", "ask"))?.status !== "accepted") return false;
 		}
-		this.world.router.script(session.sessionId, steps);
+		this.world.router.replace(session.sessionId, steps);
 		return true;
 	}
 
 	async release(session: SessionRef): Promise<void> {
-		this.world.bus.release(session.sessionId);
+		this.world.router.release(session.sessionId);
 	}
 
 	quiesce(): Promise<void> {
-		return this.world.activity.settle();
+		return this.world.activity.settle(() => this.world.server.busy());
 	}
 
 	delivered(session: SessionRef): Promise<DeliveredInput | undefined> {
-		return deliveredInput(this.world.backend, this.world.router, session);
+		return deliveredInput(this.world.backend, this.world.router.requests(session.sessionId).at(-1), session);
 	}
 
 	/**
@@ -80,12 +81,6 @@ export class PiConformanceDriver implements ConformanceDriver {
 
 	restart(host: BackendHost): Promise<AgentBackend> {
 		return this.world.restart(host);
-	}
-
-	private async askBeforeTools(session: SessionRef): Promise<boolean> {
-		const control = this.world.controlOf(session.sessionId);
-		if (!control) return false;
-		return (await control.setMode("permissions", "ask")).status === "accepted";
 	}
 
 	private async seedOne(cwd: string): Promise<void> {
@@ -117,8 +112,8 @@ export interface PiConformanceKit {
 }
 
 /**
- * A `ConformanceFactory` whose every call makes a new world: its own temp home, faux models, backend
- * and driver. The rule disposes the backend; the kit's `dispose` removes the directories.
+ * A `ConformanceFactory` whose every call makes a new world: its own temp home, endpoint, backend and driver. The rule
+ * disposes the backend; the kit's `dispose` removes the directories, and fails when a request escaped the endpoint.
  */
 export function piConformanceKit(timeoutMs: number, options: PiWorldOptions = {}): PiConformanceKit {
 	const worlds: PiWorld[] = [];
@@ -134,8 +129,9 @@ export function piConformanceKit(timeoutMs: number, options: PiWorldOptions = {}
 		dispose: async () => {
 			for (const driver of drivers.splice(0)) await driver.quitTerminals();
 			const made = worlds.splice(0);
+			const escapes = made.flatMap((world) => world.server.escapes());
 			for (const world of made) world.dispose();
-			for (const world of made) world.assertNotCapped();
+			if (escapes.length > 0) throw new Error(`requests escaped the scripted endpoint: ${escapes.join(", ")}`);
 		},
 	};
 }

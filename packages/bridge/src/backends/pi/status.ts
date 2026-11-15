@@ -1,94 +1,61 @@
-import type { Api, Model } from "@earendil-works/pi-ai";
-import { type SettingsManager, VERSION } from "@earendil-works/pi-coding-agent";
+/**
+ * `status()`: whether the user's `pi` is there, its version, and whether a session would have a model to run, read from
+ * the catalog of the agent dir (`catalog/`). Pi counts a model available only when its provider is signed in, so no
+ * model at all is "signed out". Finding out never fails: whatever stops it is an `error` issue (contract README §11.4).
+ */
+
 import { type BackendStatus, MAX_LIST_ITEMS, MAX_TEXT_CHARS, type StatusIssue } from "../../contract";
 import { clipStart } from "./bounds";
-import { errorText } from "./error-text";
-import { isDirectory } from "./is-directory";
-import type { ModelRuntimeHost } from "./models/model-runtime";
-import type { ProxySetting } from "./network/proxy-setting";
-import { proxyWarnings } from "./network/proxy-status";
-import { settingsOf } from "./project-settings";
+import type { PiCatalogs } from "./catalog/catalogs";
+import { type CliVersion, compareVersions, MIN_PI_VERSION } from "./cli-version";
+import type { PiCli } from "./pi-install";
 
-/** What `status()` reports besides Pi's own state: its `httpProxy` setting, and whether the terminal link works. */
-export interface StatusExtras {
-	readonly proxy: ProxySetting;
-	readonly link?: { problem(): string | undefined };
+export interface StatusSources {
+	readonly cli: PiCli;
+	readonly version: CliVersion | undefined;
+	readonly catalogs: PiCatalogs;
+	/** Why the terminal link does not work, when it does not. */
+	readonly linkProblem: () => string | undefined;
 }
 
 function issue(severity: StatusIssue["severity"], message: string): StatusIssue {
 	return { severity, message: clipStart(message, MAX_TEXT_CHARS) };
 }
 
-/** The default model the settings name when it is not among `available`; Pi then starts another one. */
-function missingDefault(settings: SettingsManager, available: readonly Model<Api>[]): string | undefined {
-	const provider = settings.getDefaultProvider();
-	const id = settings.getDefaultModel();
-	if (provider === undefined || id === undefined) return undefined;
-	const present = available.some((model) => model.provider === provider && model.id === id);
-	return present ? undefined : `${provider}/${id}`;
-}
+const NOT_INSTALLED = (reason: string): BackendStatus => ({
+	installed: false,
+	auth: "unknown",
+	usable: false,
+	issues: [issue("error", reason)],
+});
 
-async function probe(models: ModelRuntimeHost, agentDir: string, extras: StatusExtras): Promise<BackendStatus> {
-	const { models: available, error } = await models.available();
-	const signedIn = models.runtime.getProviders().some((provider) => models.runtime.hasConfiguredAuth(provider.id));
-	const usable = available.length > 0;
+export async function piStatus(sources: StatusSources): Promise<BackendStatus> {
+	const { cli, version } = sources;
+	if (!cli.found || version === undefined) return NOT_INSTALLED(cli.found ? "Pi was not found" : cli.reason);
 	const issues: StatusIssue[] = [];
-	if (!isDirectory(agentDir)) issues.push(issue("warning", `Pi's agent directory ${agentDir} does not exist.`));
-	if (error !== undefined) issues.push(issue(usable ? "warning" : "error", error));
-	if (!usable) {
+	const read = await version.read();
+	if ("problem" in read) issues.push(issue("warning", read.problem));
+	else if (compareVersions(read.version, MIN_PI_VERSION) < 0) {
 		issues.push(
 			issue(
-				"error",
-				signedIn
-					? "No model is available to the signed-in providers."
-					: "No provider is signed in. Run `pi` and use /login, or set a provider's API key.",
+				"warning",
+				`Pi ${read.version} is older than ${MIN_PI_VERSION}, the oldest Pi this bridge runs as intended. Update Pi: npm i -g @earendil-works/pi-coding-agent`,
 			),
 		);
 	}
-	const settings = settingsOf(undefined, agentDir);
-	const missing = usable ? missingDefault(settings, available) : undefined;
-	if (missing !== undefined) issues.push(issue("warning", `The default model ${missing} is not available.`));
-	issues.push(...(await scopeWarnings(settings, models)));
-	for (const warning of proxyWarnings(extras.proxy.outcome(), models.runtime, available))
-		issues.push(issue("warning", warning));
-	const linkProblem = extras.link?.problem();
+	const catalog = await sources.catalogs.read(undefined);
+	const usable = !("failure" in catalog) && catalog.models.length > 0;
+	if ("failure" in catalog) issues.push(issue("error", `Pi could not start: ${catalog.failure}`));
+	else if (!usable) {
+		issues.push(issue("error", "No model is available. Run `pi` and use /login, or set a provider's API key."));
+	}
+	const linkProblem = sources.linkProblem();
 	if (linkProblem !== undefined) issues.push(issue("warning", linkProblem));
 	return {
 		installed: true,
-		version: VERSION,
-		auth: signedIn ? "signed_in" : "signed_out",
+		...("version" in read && { version: read.version }),
+		auth: "failure" in catalog ? "unknown" : usable ? "signed_in" : "signed_out",
 		usable,
 		issues: issues.slice(0, MAX_LIST_ITEMS),
 	};
-}
-
-/**
- * What is wrong with the user's `enabledModels` (a pattern that matches nothing, an ambiguous one, a thinking
- * level a model lacks), which the terminal prints at its start (pi-coding-agent `src/core/model-resolver.ts:412-421`).
- * The global settings only: a project's own `enabledModels` belongs to a cwd, which a status has not.
- */
-async function scopeWarnings(settings: SettingsManager, models: ModelRuntimeHost): Promise<StatusIssue[]> {
-	const patterns = settings.getEnabledModels();
-	if (patterns === undefined || patterns.length === 0) return [];
-	const { diagnostics } = await models.scope(patterns);
-	return diagnostics.map((diagnostic) => issue("warning", `enabledModels: ${diagnostic.message}`));
-}
-
-/** README §11.4: finding out never fails; whatever stops it is an `error` issue and the backend is not usable. */
-export async function piStatus(
-	models: ModelRuntimeHost,
-	agentDir: string,
-	extras: StatusExtras,
-): Promise<BackendStatus> {
-	try {
-		return await probe(models, agentDir, extras);
-	} catch (error) {
-		return {
-			installed: true,
-			version: VERSION,
-			auth: "unknown",
-			usable: false,
-			issues: [issue("error", `Pi's state could not be read: ${errorText(error)}`)],
-		};
-	}
 }

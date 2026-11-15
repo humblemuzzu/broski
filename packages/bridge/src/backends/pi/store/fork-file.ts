@@ -1,14 +1,14 @@
 /**
  * Writes the file of a fork: a v3 header naming the source, the `broski.origin` entry that makes the fork
  * this bridge's own, and the branch up to the fork point as `forkContents` lays it out. The source is read by span, never opened
- * with `SessionManager` (D6), and the new file appears whole or not at all.
+ * with `SessionManager`, and the new file appears whole or not at all.
  */
 
 import { type FileHandle, mkdir, open, rename, unlink } from "node:fs/promises";
 import { join } from "node:path";
-import { CURRENT_SESSION_VERSION, type SessionHeader } from "@earendil-works/pi-coding-agent";
 import { isOriginEntry, ORIGIN_ENTRY } from "../broski-entries";
 import { errorText } from "../error-text";
+import { CURRENT_SESSION_VERSION, type SessionHeader } from "./entries";
 import { readPrefix } from "./entry-line";
 import { type ForkedEntry, forkContents } from "./fork-entries";
 import { type EntrySpan, readEntries, type SessionFileIndex } from "./jsonl-reader";

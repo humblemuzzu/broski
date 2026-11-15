@@ -132,7 +132,7 @@ describe("a tool that runs a subagent", () => {
 	test("is followed live while its tool runs: the open snapshot holds what came before, the events the rest, and the run ends with the tool", async () => {
 		t = await LiveRig.create();
 		const live = await t.rig.openNew();
-		const gate = t.bus.newGate(live.ref.sessionId);
+		const gate = t.router.newGate(live.ref.sessionId);
 		t.router.script(live.ref.sessionId, [subagent("Find the readme.", gate), say("Delegated.")]);
 		await live.prompt("go");
 		const child = await childOf(live);
@@ -147,7 +147,7 @@ describe("a tool that runs a subagent", () => {
 			page: { items: [] },
 		});
 
-		t.bus.release(live.ref.sessionId);
+		t.router.release(live.ref.sessionId);
 		await live.waitFor("run_finished");
 		const events: AgentEvent[] = seen.map((record) => record.event);
 		expect(events.map((event) => event.type)).toEqual([

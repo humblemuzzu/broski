@@ -1,5 +1,5 @@
 /**
- * The adapter's own index of session files (D7): one record per file path, recomputed only when the file's
+ * The adapter's own index of session files: one record per file path, recomputed only when the file's
  * stamp changes, so a listing costs a `readdir` and a `stat` per file plus the head and tail of what changed.
  * It lives in memory and is as large as the session directories; nothing is persisted.
  */

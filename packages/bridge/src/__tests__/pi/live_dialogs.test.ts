@@ -4,11 +4,14 @@
  * shutdown, two clients, and a dialog outside any run.
  */
 
-import { afterEach, describe, expect, jest, test } from "bun:test";
-import type { AssistantMessage } from "@earendil-works/pi-ai";
-import { SETTLE_DEADLINE_MS } from "../../backends/pi/live/shutdown";
+import { afterEach, describe, expect, test } from "bun:test";
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { SETTLE_DEADLINE_MS } from "../../backends/pi/live/session-host";
+import { EXIT_AFTER_EOF_MS } from "../../backends/pi/rpc/child";
 import { type Interaction, type InteractionReply, sessionStatus } from "../../contract";
 import type { LiveSession } from "../../contract/testing/conformance-harness";
+import type { ScriptedTurn } from "../helpers/scripted-openai-server";
 import { LiveRig } from "./helpers/live-rig";
 import { countOf } from "./helpers/live-steps";
 import { askHuman, say } from "./helpers/scenarios";
@@ -19,7 +22,6 @@ useWatchdog();
 let t: LiveRig | undefined;
 
 afterEach(async () => {
-	jest.useRealTimers();
 	await t?.dispose();
 	t = undefined;
 });
@@ -30,7 +32,7 @@ interface Asked {
 }
 
 /** A new session whose one prompt makes the extension open `dialog`, and the dialog it raised. */
-async function asked(rig: LiveRig, dialog: AssistantMessage): Promise<Asked> {
+async function asked(rig: LiveRig, dialog: ScriptedTurn): Promise<Asked> {
 	const live = await rig.rig.openNew();
 	rig.router.script(live.ref.sessionId, [dialog, say("Thanks.")]);
 	await live.prompt("Ask me.");
@@ -68,7 +70,7 @@ describe("each dialog kind reaches the phone and its answer reaches the extensio
 		const reply = { kind: "choice", value: choiceValue(interaction, "edit") } as const;
 		expect((await live.control.answer(answerTo(interaction, reply))).status).toBe("accepted");
 		expect((await live.waitFor("interaction_resolved")).reason).toBe("answered");
-		expect((await t.bus.answered("pick")).answer).toBe("edit");
+		expect((await t.router.answered("pick")).answer).toBe("edit");
 		expect((await live.waitFor("run_finished")).outcome.kind).toBe("completed");
 		live.assertSettled();
 	});
@@ -80,7 +82,7 @@ describe("each dialog kind reaches the phone and its answer reaches the extensio
 		const { live, interaction } = await asked(t, askHuman("confirm", "Sure?", { tag: "sure" }));
 		expect(interaction.request.kind).toBe("confirm");
 		await live.control.answer(answerTo(interaction, { kind: "confirm", confirmed }));
-		expect((await t.bus.answered("sure")).answer).toBe(confirmed);
+		expect((await t.router.answered("sure")).answer).toBe(confirmed);
 		await live.waitFor("run_finished");
 	});
 
@@ -89,13 +91,13 @@ describe("each dialog kind reaches the phone and its answer reaches the extensio
 		const single = await asked(t, askHuman("input", "Name?", { tag: "name" }));
 		expect(single.interaction.request).toMatchObject({ kind: "text", multiline: false });
 		await single.live.control.answer(answerTo(single.interaction, { kind: "text", text: "Ada" }));
-		expect((await t.bus.answered("name")).answer).toBe("Ada");
+		expect((await t.router.answered("name")).answer).toBe("Ada");
 		await single.live.waitFor("run_finished");
 
 		const multi = await asked(t, askHuman("editor", "Edit", { tag: "edit" }));
 		expect(multi.interaction.request).toMatchObject({ kind: "text", multiline: true, initialText: "prefilled" });
 		await multi.live.control.answer(answerTo(multi.interaction, { kind: "text", text: "line one\nline two" }));
-		expect((await t.bus.answered("edit")).answer).toBe("line one\nline two");
+		expect((await t.router.answered("edit")).answer).toBe("line one\nline two");
 		await multi.live.waitFor("run_finished");
 	});
 
@@ -115,7 +117,7 @@ describe("each dialog kind reaches the phone and its answer reaches the extensio
 		const live = await t.rig.openNew();
 		t.router.script(live.ref.sessionId, [askHuman("select", "Nothing", { options: [], tag: "none" }), say("Done.")]);
 		await live.prompt("Ask me.");
-		expect((await t.bus.answered("none")).answer).toBeUndefined();
+		expect((await t.router.answered("none")).answer).toBeNull();
 		expect((await live.waitFor("run_finished")).outcome.kind).toBe("completed");
 		expect(live.events().some((event) => event.type === "interaction_requested")).toBe(false);
 	});
@@ -123,10 +125,10 @@ describe("each dialog kind reaches the phone and its answer reaches the extensio
 
 describe("a cancel", () => {
 	test.each([
-		{ dialog: "select", options: ["a", "b"], fallback: undefined },
+		{ dialog: "select", options: ["a", "b"], fallback: null },
 		{ dialog: "confirm", options: undefined, fallback: false },
-		{ dialog: "input", options: undefined, fallback: undefined },
-		{ dialog: "editor", options: undefined, fallback: undefined },
+		{ dialog: "input", options: undefined, fallback: null },
+		{ dialog: "editor", options: undefined, fallback: null },
 	] as const)("of a $dialog gives the extension Pi's default, and the run goes on unless it was stopped", async ({
 		dialog,
 		options,
@@ -138,7 +140,7 @@ describe("a cancel", () => {
 			askHuman(dialog, "Cancel me", { ...(options && { options: [...options] }), tag: `cancel-${dialog}` }),
 		);
 		await first.live.control.answer(answerTo(first.interaction, { kind: "cancel", stopRun: false }));
-		expect((await t.bus.answered(`cancel-${dialog}`)).answer).toBe(fallback);
+		expect((await t.router.answered(`cancel-${dialog}`)).answer).toBe(fallback);
 		expect((await first.live.waitFor("run_finished")).outcome.kind).toBe("completed");
 
 		const second = await asked(
@@ -152,48 +154,52 @@ describe("a cancel", () => {
 });
 
 describe("what ends a dialog without the human", () => {
-	// Fake timers are the process's: a 7-day advance once fired a 16 ms retry loop an earlier file's congested link
-	// socket left behind tens of millions of times, holding the loop past the watchdog. Ten minutes (the plan's own
-	// on-device wait) passes every deadline the adapter sets; that an ask without a timeout sets none at all is
-	// `interaction_desk.test.ts`'s to prove.
-	test("the extension's own timeout withdraws it at its deadline, and no timer of the adapter's answers another dialog", async () => {
+	test("the extension's own timeout withdraws it at its deadline, and nothing withdraws another dialog", async () => {
 		t = await LiveRig.create();
-		jest.useFakeTimers();
 		const patient = await asked(t, askHuman("select", "Take your time", { options: ["a"], tag: "patient" }));
 		expect(patient.interaction.expiresAt).toBeUndefined();
-		const hurried = await asked(t, askHuman("select", "Hurry", { options: ["a"], timeoutMs: 300, tag: "hurry" }));
-		expect((hurried.interaction.expiresAt ?? 0) - hurried.interaction.createdAt).toBe(300);
+		const hurried = await asked(t, askHuman("select", "Hurry", { options: ["a"], timeoutMs: 1_000, tag: "hurry" }));
+		expect((hurried.interaction.expiresAt ?? 0) - hurried.interaction.createdAt).toBe(1_000);
 
-		jest.advanceTimersByTime(299);
-		await t.driver.quiesce();
-		expect(hurried.live.session.snapshot().interactions).toHaveLength(1);
-		jest.advanceTimersByTime(1);
-		expect((await hurried.live.waitFor("interaction_resolved")).reason).toBe("withdrawn");
-		expect((await t.bus.answered("hurry")).answer).toBeUndefined();
+		const resolved = await hurried.live.waitFor("interaction_resolved");
+		expect(resolved.reason).toBe("withdrawn");
+		expect(Date.now()).toBeGreaterThanOrEqual(hurried.interaction.expiresAt ?? Number.POSITIVE_INFINITY);
+		expect((await t.router.answered("hurry")).answer).toBeNull();
 		expect((await hurried.live.waitFor("run_finished")).outcome.kind).toBe("completed");
 
-		jest.advanceTimersByTime(10 * 60_000);
-		await t.driver.quiesce();
 		expect(patient.live.session.snapshot().interactions.map((interaction) => interaction.id)).toEqual([
 			patient.interaction.id,
 		]);
 		await patient.live.control.answer(
 			answerTo(patient.interaction, { kind: "choice", value: choiceValue(patient.interaction, "a") }),
 		);
-		expect((await t.bus.answered("patient")).answer).toBe("a");
+		expect((await t.router.answered("patient")).answer).toBe("a");
 	});
 
-	test("a signal of the extension's own withdraws it and the run goes on", async () => {
+	// Pi tells its client nothing when a dialog's own signal ends it (pi-coding-agent 1.5.2
+	// `dist/modes/rpc/rpc-mode.js:51-82`), so the bridge cannot tell it from a dialog still waiting: when the run ends,
+	// the ask is raised again on its own, and only a human ends it.
+	test("one a signal of the extension's own ends outlives its run as an ask of its own, which a human ends", async () => {
 		t = await LiveRig.create();
 		const { live, interaction } = await asked(
 			t,
-			askHuman("select", "Mine", { options: ["a"], ownSignal: true, tag: "mine" }),
+			askHuman("select", "Mine", { options: ["a"], abortAfterMs: 300, tag: "mine" }),
 		);
-		t.bus.abortOwn("mine");
-		const resolved = await live.waitFor("interaction_resolved", (event) => event.interactionId === interaction.id);
-		expect(resolved.reason).toBe("withdrawn");
+		expect((await t.router.answered("mine")).answer).toBeNull();
 		expect((await live.waitFor("run_finished")).outcome.kind).toBe("completed");
-		expect((await t.bus.answered("mine")).answer).toBeUndefined();
+		const resolved = live
+			.events()
+			.find((event) => event.type === "interaction_resolved" && event.interactionId === interaction.id);
+		expect(resolved).toMatchObject({ reason: "withdrawn" });
+		const [again] = live.session.snapshot().interactions;
+		expect(again).toMatchObject({ title: "Mine", blocksRun: false });
+		expect(again?.runId).toBeUndefined();
+		if (!again) throw new Error("the ask was not raised again");
+		await live.control.answer(answerTo(again, { kind: "choice", value: choiceValue(again, "a") }));
+		expect((await live.waitFor("interaction_resolved", (event) => event.interactionId === again.id)).reason).toBe(
+			"answered",
+		);
+		live.assertSettled();
 	});
 
 	test.each([
@@ -209,27 +215,32 @@ describe("what ends a dialog without the human", () => {
 		const resolved = await live.waitFor("interaction_resolved", (event) => event.interactionId === interaction.id);
 		expect(resolved.reason).toBe("withdrawn");
 		expect((await live.waitFor("run_finished")).outcome.kind).toBe("aborted");
-		expect((await t.bus.answered("abort")).answer).toBeUndefined();
+		expect((await t.router.answered("abort")).answer).toBeNull();
 		live.assertSettled();
 	});
 
-	test("a shutdown answers it with Pi's default at once, even one asked from the shutdown handler itself", async () => {
+	// On stdin EOF Pi runs `session_shutdown`, and a dialog asked from it can never be answered: Pi exits once its event
+	// loop is empty, with the handler still waiting (pi-coding-agent 1.5.2 `dist/modes/rpc/rpc-mode.js:597-610,666-669`).
+	test("a shutdown answers it with Pi's default at once, and one asked from the shutdown handler holds nothing up", async () => {
 		t = await LiveRig.create();
-		t.bus.askOnShutdown = true;
+		writeFileSync(join(t.world.env.agentDir, "ask-on-shutdown"), "");
 		const { live, interaction } = await asked(
 			t,
 			askHuman("select", "Still here?", { options: ["a"], tag: "shutdown-select" }),
 		);
 		const began = performance.now();
 		await t.backend.dispose();
-		expect(performance.now() - began).toBeLessThan(SETTLE_DEADLINE_MS);
-		expect((await t.bus.answered("shutdown-select")).answer).toBeUndefined();
-		expect((await t.bus.answered("shutdown")).answer).toBe(false);
+		expect(performance.now() - began).toBeLessThan(SETTLE_DEADLINE_MS + EXIT_AFTER_EOF_MS);
+		expect((await t.router.answered("shutdown-select")).answer).toBeNull();
 		const resolved = live
 			.events()
 			.filter((event) => event.type === "interaction_resolved" && event.interactionId === interaction.id);
 		expect(resolved.every((event) => event.type === "interaction_resolved" && event.reason === "expired")).toBe(true);
-		expect(t.bus.liveRuntimes()).toBe(0);
+		const raised = live.events().filter((event) => event.type === "interaction_requested");
+		expect(raised.map((event) => event.type === "interaction_requested" && event.interaction.title)).toEqual([
+			"Still here?",
+		]);
+		expect(t.router.asks.some((ask) => ask.tag === "shutdown")).toBe(false);
 	});
 });
 
@@ -246,7 +257,7 @@ describe("a dialog answered twice, and one outside a run", () => {
 		expect(late).toMatchObject({ status: "rejected", rejection: { code: "stale" } });
 		expect(unknown).toMatchObject({ status: "rejected", rejection: { code: "not_found" } });
 
-		expect((await t.bus.answered("race")).answer).toBe(true);
+		expect((await t.router.answered("race")).answer).toBe(true);
 		await live.waitFor("run_finished");
 		const resolutions = live.events().filter((event) => event.type === "interaction_resolved");
 		expect(resolutions).toEqual([{ type: "interaction_resolved", interactionId: interaction.id, reason: "answered" }]);
@@ -264,7 +275,7 @@ describe("a dialog answered twice, and one outside a run", () => {
 		expect((await reopened.control.answer(answerTo(interaction, { kind: "confirm", confirmed: true }))).status).toBe(
 			"accepted",
 		);
-		expect((await t.bus.answered("kept")).answer).toBe(true);
+		expect((await t.router.answered("kept")).answer).toBe(true);
 		expect((await reopened.waitFor("run_finished")).outcome.kind).toBe("completed");
 	});
 
@@ -289,7 +300,7 @@ describe("a dialog answered twice, and one outside a run", () => {
 		expect(interaction.blocksRun).toBe(false);
 		expect(sessionStatus(live.session.snapshot())).toBe("idle");
 		await live.control.answer(answerTo(interaction, { kind: "confirm", confirmed: true }));
-		expect((await t.bus.answered("drv-ask")).answer).toBe(true);
+		expect((await t.router.answered("drv-ask")).answer).toBe(true);
 		expect((await live.waitFor("interaction_resolved")).reason).toBe("answered");
 		expect(countOf(live, "run_started")).toBe(0);
 	});

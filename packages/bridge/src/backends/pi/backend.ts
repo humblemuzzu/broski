@@ -1,57 +1,65 @@
 /**
- * The Pi `AgentBackend`: every method delegates to the part that owns it. Reads go to the store with
- * the hosted sessions' live facts laid over them; a hosted session is written only through its host.
+ * The Pi `AgentBackend`: every method delegates to the part that owns it. Reads go to the store with the hosted
+ * sessions' live facts laid over them; a hosted session is written only through its `pi`.
  */
 
 import { stat } from "node:fs/promises";
 import type { AgentBackend, BackendHost, CommandsListResult, Rejected, SessionRef } from "../../contract";
+import { PiCatalogs } from "./catalog/catalogs";
 import { CatalogFeed } from "./catalog-feed";
-import { PiCommandLister } from "./commands";
+import { CliVersion } from "./cli-version";
+import { commandSummaries } from "./commands";
 import { ConfigWatch } from "./config-watch";
 import { parseChildSessionId } from "./ids";
 import { openChildSession } from "./live/child-open";
 import { SessionHosts } from "./live/session-hosts";
 import { ModelCatalogue } from "./models/catalogue";
 import { listPiModes } from "./modes";
+import type { PiInstall } from "./pi-install";
 import type { SessionStore } from "./ports";
 import { rejected } from "./rejections";
-import type { PiServices } from "./services";
+import type { PiCommand } from "./rpc/replies";
 import { piStatus } from "./status";
 import { createSessionStore } from "./store/session-store";
 import { TerminalLink, type TerminalLinkOptions } from "./terminal/link";
 import { PI_TRAITS } from "./traits";
-import { builtinExtensions } from "./ui/extensions";
+
+export interface PiBackendOptions {
+	readonly install: PiInstall;
+	/** Where the bridge writes its extension for the `pi` processes it starts (`host/install.ts`). */
+	readonly hostDir: string;
+	/** The link to terminal `pi` processes (`terminal/link.ts`); without it the adapter installs and listens to nothing. */
+	readonly link?: TerminalLinkOptions;
+}
 
 /** The parts one Pi backend is made of, which `piBackendOf` puts behind the contract. */
 export interface PiParts {
-	readonly services: PiServices;
 	readonly catalog: CatalogFeed;
+	readonly catalogs: PiCatalogs;
 	readonly store: SessionStore;
 	readonly models: ModelCatalogue;
 	readonly hosts: SessionHosts;
-	readonly commands: PiCommandLister;
 	readonly config: ConfigWatch;
 	readonly terminal: TerminalLink;
+	readonly status: () => ReturnType<typeof piStatus>;
 }
 
-export function createPiParts(host: BackendHost, services: PiServices, link?: TerminalLinkOptions): PiParts {
-	const { agentDir } = services;
+export function createPiParts(host: BackendHost, options: PiBackendOptions): PiParts {
+	const { install } = options;
+	const { agentDir } = install;
 	const catalog = new CatalogFeed(host.catalog);
+	const catalogs = new PiCatalogs(install);
 	const store = createSessionStore({ agentDir, catalog, now: Date.now });
-	const models = new ModelCatalogue(services.models, agentDir);
-	const shared = {
-		agentDir,
-		modelRuntime: services.sessionRuntime,
-		scope: (patterns: readonly string[]) => services.models.scope(patterns),
-	};
-	const terminal = new TerminalLink(agentDir, link, {
+	const models = new ModelCatalogue(catalogs);
+	const terminal = new TerminalLink(agentDir, options.link, {
 		now: Date.now,
 		busy: (sessionId) => hosts.isBusy(sessionId),
 		changed: (sessionId, path) => announce(sessionId, path),
 	});
 	const hosts: SessionHosts = new SessionHosts({
+		install,
+		hostDir: options.hostDir,
 		terminals: terminal.registry,
-		shared,
 		models,
 		store,
 		catalog,
@@ -66,34 +74,33 @@ export function createPiParts(host: BackendHost, services: PiServices, link?: Te
 			})
 			.catch(() => undefined);
 	};
-	const commands = new PiCommandLister({ agentDir, extensions: builtinExtensions });
-	const config = new ConfigWatch(agentDir, catalog, () =>
-		piStatus(services.models, agentDir, { proxy: services.proxy, link: terminal }),
-	);
+	const version = install.cli.found ? new CliVersion(install.cli.path, install.env) : undefined;
+	const status = () => piStatus({ cli: install.cli, version, catalogs, linkProblem: () => terminal.problem() });
+	const config = new ConfigWatch(agentDir, catalog, status);
 	store.watch(hosts);
 	config.attach();
-	return { services, catalog, store, models, hosts, commands, config, terminal };
+	return { catalog, catalogs, store, models, hosts, config, terminal, status };
 }
 
 export function piBackendOf(parts: PiParts): AgentBackend {
-	const { services, catalog, store, models, hosts, commands, config, terminal } = parts;
+	const { catalog, catalogs, store, models, hosts, config, terminal } = parts;
 	const listCommands = async (scope: { cwd?: string; session?: SessionRef }): Promise<CommandsListResult> => {
-		if (scope.session === undefined) {
-			const live = scope.cwd === undefined ? undefined : hosts.sessionIn(scope.cwd);
-			return commands.list(live ? { session: live } : { cwd: scope.cwd });
-		}
-		if (scope.session.backend !== "pi") return notFound(scope.session);
-		const live = hosts.session(scope.session.sessionId);
-		if (live) return commands.list({ session: live });
-		const stored = await store.locate(scope.session.sessionId);
-		return "status" in stored ? stored : commands.list({ cwd: stored.cwd });
+		if (scope.session !== undefined && scope.session.backend !== "pi") return notFound(scope.session);
+		const hosted = scope.session === undefined ? undefined : hosts.host(scope.session.sessionId);
+		if (hosted !== undefined) return listed(await hosted.commands());
+		const cwd = scope.session === undefined ? scope.cwd : await cwdOf(store, scope.session.sessionId);
+		if (typeof cwd === "object") return cwd;
+		const neighbour = cwd === undefined ? undefined : hosts.inDirectory(cwd);
+		if (neighbour !== undefined) return listed(await neighbour.commands());
+		const read = await catalogs.read(cwd);
+		return listed("failure" in read ? { ok: false, error: read.failure } : { ok: true, data: read.commands });
 	};
 	return {
 		id: "pi",
 		traits: PI_TRAITS,
 		status: () => {
 			config.attach();
-			return piStatus(services.models, services.agentDir, { proxy: services.proxy, link: terminal });
+			return parts.status();
 		},
 		listSessions: (query, page) => store.list(query, page, hosts),
 		getSession: async (ref) => (ref.backend === "pi" ? store.get(ref.sessionId, hosts) : notFound(ref)),
@@ -128,6 +135,22 @@ export function piBackendOf(parts: PiParts): AgentBackend {
 			catalog.silence();
 		},
 	};
+}
+
+type Answer =
+	| { readonly ok: true; readonly data: readonly PiCommand[] }
+	| { readonly ok: false; readonly error: string };
+
+function listed(answer: Answer): CommandsListResult {
+	return answer.ok
+		? { status: "accepted", commands: commandSummaries(answer.data) }
+		: rejected("backend_error", `Pi could not list its commands: ${answer.error}`);
+}
+
+/** The directory a stored session runs in, whose commands a new session there would have. */
+async function cwdOf(store: SessionStore, sessionId: string): Promise<string | undefined | Rejected> {
+	const stored = await store.locate(sessionId);
+	return "status" in stored ? stored : stored.cwd;
 }
 
 function notFound(ref: SessionRef): Rejected {

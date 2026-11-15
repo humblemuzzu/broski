@@ -7,12 +7,11 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { fauxToolCall } from "@earendil-works/pi-ai";
 import { type SessionTitle, sessionStatus, type TranscriptItem } from "../../contract";
 import { LiveRig } from "./helpers/live-rig";
 import { holdingRun } from "./helpers/live-steps";
 import { allItems } from "./helpers/paging";
-import { failWith, say, toolUse } from "./helpers/scenarios";
+import { call, failWith, say } from "./helpers/scenarios";
 import { useWatchdog } from "./helpers/use-watchdog";
 import { HostRig } from "./host_rig";
 
@@ -54,7 +53,7 @@ describe("a tool call's outcome", () => {
 	test("cut short by Stop is aborted live and in the transcript", async () => {
 		t = await LiveRig.create();
 		const live = await t.rig.openNew();
-		t.router.script(live.ref.sessionId, [toolUse(fauxToolCall("bash", { command: "sleep 30" })), say("never")]);
+		t.router.script(live.ref.sessionId, [call("bash", { command: "sleep 30" }), say("never")]);
 		await live.prompt("wait a while");
 		await live.waitFor("tool_started", (event) => event.name === "bash");
 		await live.waitFor("tool_updated", (event) => event.update.kind === "input");
@@ -71,7 +70,7 @@ describe("a tool call's outcome", () => {
 	test("that simply failed stays failed: nothing is recorded for it", async () => {
 		t = await LiveRig.create();
 		const live = await t.rig.openNew();
-		t.router.script(live.ref.sessionId, [toolUse(fauxToolCall("read", { path: "no-such-file" })), say("done")]);
+		t.router.script(live.ref.sessionId, [call("read", { path: "no-such-file" }), say("done")]);
 		await live.run("read a missing file");
 		expect(live.events().find((event) => event.type === "tool_finished")).toMatchObject({ outcome: "failed" });
 		expect(resultOf(await allItems(t.backend, live.ref, 200))).toMatchObject({ outcome: "failed" });
@@ -82,12 +81,13 @@ describe("a response that did not end normally", () => {
 	test("leaves the terminal's own line in the transcript: the error, after what the response said", async () => {
 		t = await LiveRig.create();
 		const live = await t.rig.openNew();
-		t.router.script(live.ref.sessionId, [failWith("The provider fell over")]);
+		t.router.script(live.ref.sessionId, [failWith(400, "The provider fell over")]);
 		const { outcome } = await live.run("try it");
-		expect(outcome).toMatchObject({ kind: "error", error: { message: "The provider fell over" } });
+		const message = outcome.kind === "error" ? outcome.error.message : "";
+		expect(message).toContain("The provider fell over");
 
 		const [newest] = await allItems(t.backend, live.ref, 200);
-		expect(newest).toMatchObject({ kind: "notice", level: "error", text: "Error: The provider fell over" });
+		expect(newest).toMatchObject({ kind: "notice", level: "error", text: `Error: ${message}` });
 	});
 });
 
@@ -142,7 +142,7 @@ describe("a skill command", () => {
 		);
 		expect(announced.filter((shown) => shown !== undefined).at(-1)).toEqual(title);
 		await live.close();
-		await t.bus.shutDown(live.ref.sessionId);
+		await t.router.shutDown(live.ref.sessionId);
 		const listed = await t.backend.getSession(live.ref);
 		expect(listed.status === "accepted" && listed.summary.title).toEqual(title);
 	});
@@ -193,12 +193,12 @@ describe("an extension command's dialog raised during a run", () => {
 		await live.waitFor("run_finished");
 		expect(live.events().some((event) => event.type === "interaction_resolved")).toBe(false);
 		expect(live.reduced().interactions.map((pending) => pending.id)).toEqual([interaction.id]);
-		expect(t.bus.asks).toEqual([]);
+		expect(t.router.asks).toEqual([]);
 
 		expect(
 			await live.control.answer({ interactionId: interaction.id, reply: { kind: "confirm", confirmed: true } }),
 		).toEqual({ status: "accepted" });
-		expect(await t.bus.answered("drv-ask")).toEqual({ tag: "drv-ask", answer: true });
+		expect(await t.router.answered("drv-ask")).toEqual({ tag: "drv-ask", answer: true });
 		live.assertSettled();
 	});
 
@@ -221,6 +221,6 @@ describe("an extension command's dialog raised during a run", () => {
 		await live.control.answer({ interactionId: interaction.id, reply: { kind: "confirm", confirmed: true } });
 		await live.control.abort();
 		await live.waitFor("run_finished");
-		expect(d.state.answers).toEqual([true]);
+		expect(d.answers).toEqual([true]);
 	});
 });

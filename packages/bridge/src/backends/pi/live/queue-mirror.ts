@@ -1,6 +1,6 @@
 /**
- * The adapter's own queue (D4): the steer and queue input it handed Pi, with ids it minted, kept in
- * step with Pi's `queue_update`, which carries text only (pi-coding-agent `src/core/agent-session.ts:1045-1051`).
+ * The adapter's own queue: the steer and queue input it handed Pi, with ids it minted, kept in step with Pi's
+ * `queue_update`, which carries text only (pi-coding-agent 1.5.2 `docs/json.md:117-121`).
  */
 
 import {
@@ -32,6 +32,8 @@ export class QueueMirror {
 	private steering: HeldInput[] = [];
 	private followUp: HeldInput[] = [];
 	private delivering: HeldInput[] = [];
+	/** Pi's two queues as its latest `queue_update` said. */
+	pi: PiQueue = { steering: [], followUp: [] };
 
 	constructor(private readonly live: LiveState) {}
 
@@ -60,9 +62,10 @@ export class QueueMirror {
 
 	/**
 	 * Drops the items Pi no longer holds into the delivery list. Pi removes the first text-equal entry
-	 * (pi `src/core/agent-session.ts:1120-1140`), so of equal texts the newest survive.
+	 * (pi-coding-agent 1.5.2 `dist/core/agent-session.js:786-802`), so of equal texts the newest survive.
 	 */
 	reconcile(pi: PiQueue): void {
+		this.pi = pi;
 		const steering = this.keepHeld(this.steering, pi.steering);
 		const followUp = this.keepHeld(this.followUp, pi.followUp);
 		if (steering.length === this.steering.length && followUp.length === this.followUp.length) return;

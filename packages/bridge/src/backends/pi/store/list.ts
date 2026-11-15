@@ -1,6 +1,6 @@
 /**
  * `listSessions` and `getSession`: index rows filtered by header cwd, live facts laid over them, newest
- * first by `(updatedAt desc, sessionId desc)`, paged with a keyset cursor (D7).
+ * first by `(updatedAt desc, sessionId desc)`, paged with a keyset cursor.
  */
 
 import type {

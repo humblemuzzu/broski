@@ -1,6 +1,5 @@
 /** `readAttachment`: the image block an `<entryId>:<contentIndex>` id names, read from the session file. */
 
-import type { SessionEntry } from "@earendil-works/pi-coding-agent";
 import {
 	type AttachmentId,
 	type AttachmentReadResult,
@@ -10,6 +9,7 @@ import {
 } from "../../../contract";
 import { parseEntryPart } from "../ids";
 import { rejected } from "../rejections";
+import type { SessionEntry } from "./entries";
 import { isStillAppendedTo, readEntries } from "./jsonl-reader";
 import { isRejection, openFileIndex, type SessionIndex } from "./session-index";
 

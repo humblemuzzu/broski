@@ -6,9 +6,9 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import type { PromptInput } from "../../contract";
 import { canonical, promptInput } from "../../contract/testing/conformance-harness";
-import { FAUX_MODEL_IDS, wireIdOf } from "./helpers/faux-models";
 import { LiveRig } from "./helpers/live-rig";
 import { countOf, holdingRun, userMessages } from "./helpers/live-steps";
+import { MODELS, wireIdOf } from "./helpers/pi-world";
 import { useWatchdog } from "./helpers/use-watchdog";
 
 useWatchdog();
@@ -71,7 +71,7 @@ describe("a repeated clientRequestId", () => {
 describe("an image for a model that cannot see", () => {
 	test("is refused before anything reaches the model, not remembered, and fine once the model is switched", async () => {
 		t = await LiveRig.create();
-		const live = await t.rig.openNew({ modelId: wireIdOf(FAUX_MODEL_IDS.blind) });
+		const live = await t.rig.openNew({ modelId: wireIdOf(MODELS.blind) });
 		const input: PromptInput = promptInput("Look.", "start", crypto.randomUUID(), {
 			attachments: [{ kind: "image", mimeType: "image/png", data: PIXEL, name: "pixel.png" }],
 		});
@@ -82,7 +82,7 @@ describe("an image for a model that cannot see", () => {
 		expect(countOf(live, "run_started")).toBe(0);
 		expect(userMessages(live)).toEqual([]);
 
-		expect((await live.control.setModel(wireIdOf(FAUX_MODEL_IDS.reasoner))).status).toBe("accepted");
+		expect((await live.control.setModel(wireIdOf(MODELS.reasoner))).status).toBe("accepted");
 		await t.rig.arrange(live.ref, { kind: "reply" });
 		const accepted = await live.control.prompt(input);
 		expect(accepted).toEqual({ status: "accepted", disposition: "started" });
@@ -92,7 +92,7 @@ describe("an image for a model that cannot see", () => {
 
 	test("text alone runs on the same model", async () => {
 		t = await LiveRig.create();
-		const live = await t.rig.openNew({ modelId: wireIdOf(FAUX_MODEL_IDS.blind) });
+		const live = await t.rig.openNew({ modelId: wireIdOf(MODELS.blind) });
 		await t.rig.arrange(live.ref, { kind: "reply" });
 		expect((await live.run("No picture.")).outcome.kind).toBe("completed");
 	});
@@ -117,8 +117,8 @@ describe("commands and text that looks like one", () => {
 			promptInput("args here", "start", crypto.randomUUID(), { attachments: [], command }),
 		);
 		expect(result).toEqual({ status: "accepted", disposition: "handled" });
-		await t.bus.commandsRan(1);
-		expect(t.bus.commandRuns).toEqual(["args here"]);
+		await t.router.commandsRan(1);
+		expect(t.router.commandRuns).toEqual(["args here"]);
 		expect(live.reduced().run?.runId).toBe(runId);
 		const since = live
 			.events()
@@ -127,23 +127,38 @@ describe("commands and text that looks like one", () => {
 		expect(
 			since.filter((type) => ["run_started", "user_message", "queue_changed", "run_finished"].includes(type)),
 		).toEqual([]);
-		t.bus.release(live.ref.sessionId);
+		t.router.release(live.ref.sessionId);
 		expect((await live.waitFor("run_finished")).outcome.kind).toBe("completed");
 	});
 
-	test("typed text that starts with a slash goes to the model as text; no command and no compaction runs", async () => {
+	// A prompt is sent as the terminal sends what is typed (pi-coding-agent 1.5.2 `docs/rpc-commands.md:31-33`).
+	test("typed text that starts with a slash is what Pi makes of it: a command runs, a template expands, the rest is text", async () => {
 		t = await LiveRig.create();
 		await commandId(t, "ext:drv-ping");
 		const live = await t.rig.openNew();
-		for (const typed of ["/drv-ping typed", "/compact", "/drv-template typed"]) {
-			await t.rig.arrange(live.ref, { kind: "reply" });
-			const { outcome } = await live.run(typed);
-			expect(outcome.kind).toBe("completed");
-			expect(await t.driver.delivered(live.ref)).toEqual({ text: typed, attachments: [] });
-		}
-		await t.driver.quiesce();
-		expect(t.bus.commandRuns).toEqual([]);
+		const ran = await live.control.prompt({
+			clientRequestId: crypto.randomUUID(),
+			mode: "start",
+			text: "/drv-ping typed",
+			attachments: [],
+		});
+		expect(ran).toEqual({ status: "accepted", disposition: "handled" });
+		await t.router.commandsRan(1);
+		expect(t.router.commandRuns).toEqual(["typed"]);
+
+		await t.rig.arrange(live.ref, { kind: "reply" });
+		expect((await live.run("/drv-template typed")).outcome.kind).toBe("completed");
+		expect(await t.driver.delivered(live.ref)).toEqual({
+			text: "typed",
+			attachments: [],
+			command: "prompt:drv-template",
+		});
+
+		await t.rig.arrange(live.ref, { kind: "reply" });
+		expect((await live.run("/compact")).outcome.kind).toBe("completed");
+		expect(await t.driver.delivered(live.ref)).toEqual({ text: "/compact", attachments: [] });
 		expect(live.events().some((event) => event.type === "compaction_started")).toBe(false);
+		expect(countOf(live, "run_started")).toBe(2);
 	});
 
 	test("a command the session does not have is not_found, and nothing starts", async () => {

@@ -1,19 +1,21 @@
 /**
- * How a Pi run ended, as a `RunOutcome` (D3), and Pi's error strings as an
+ * How a Pi run ended, as a `RunOutcome`, and Pi's error strings as an
  * `ErrorInfo` (contract README §15: "error strings carry no class").
  */
 
-import { type AssistantMessage, isContextOverflow } from "@earendil-works/pi-ai";
 import type { ErrorCode, ErrorInfo, RunOutcome } from "../../../contract";
+import type { AssistantMessage } from "../messages";
 import { phoneText } from "../phone-text";
 
-/** Pi's own wording when a failed message has no text (pi-coding-agent `src/core/agent-session.ts:3843`). */
+/** Pi's own wording when a failed message has no text (pi-coding-agent 1.5.2 `dist/core/agent-session.js:3209`). */
 const UNKNOWN_ERROR = "Unknown error";
 
 /**
  * Pi gives a failure no class, only the provider's text, so the class is read from it, the first pattern that matches
  * winning: a quota error sent as an HTTP 429 is a quota, and a throttle of one API key is a throttle, not a bad key.
- * A status code or a bare word counts only on its own, as in pi-ai's own retry patterns (pi-ai `src/utils/retry.ts:43`).
+ * A status code or a bare word counts only on its own, as in pi-ai's own retry patterns. An overflow is read as Pi
+ * reads it, from the provider error patterns of pi-ai 1.5.2 `dist/utils/overflow.js:37-82`, after the throttles those
+ * patterns exclude.
  */
 const CLASSES: readonly (readonly [ErrorCode, RegExp])[] = [
 	[
@@ -21,6 +23,10 @@ const CLASSES: readonly (readonly [ErrorCode, RegExp])[] = [
 		/insufficient[_ ]quota|quota[_ ]exceeded|exceeded your current quota|out of budget|budget[_ -]?(?:limit|exceeded)|\bbilling\b|usage[_ ]limit|credit balance|available balance/i,
 	],
 	["rate_limit", /rate[_ -]?limit|too many requests|resource[_ ]?exhausted|(?<![a-z0-9])429(?![a-z0-9])/i],
+	[
+		"context_overflow",
+		/prompt (?:is )?too long|prompt exceeds max length|request_too_large|input is too long for requested model|exceeds the context window|exceeds (?:the )?(?:model'?s )?maximum context length|context window exceeded|input token count.*exceeds the maximum|maximum prompt length is \d+|reduce the length of the messages|maximum context length is \d+ tokens|exceeds (?:the )?maximum allowed input length|is longer than the model'?s context length|exceeds the limit of \d+|exceeds the available context size|greater than the context length|context window exceeds limit|exceeded model token limit|too large for model with \d+ maximum context length|but the configured context size is|model_context_window_exceeded|exceeded (?:max )?context length|range of input length should be|context[_ ]length[_ ]exceeded|too many tokens|token limit exceeded|^(?:[\w -]+ API error \(413\):|413(?:\s|:|$))/i,
+	],
 	[
 		"auth",
 		/(?<![a-z0-9])(?:401|403)(?![a-z0-9])|unauthori[sz]ed|\bforbidden\b|authenticat|api[_ -]?key|permission[_ ]denied/i,
@@ -36,9 +42,9 @@ const CLASSES: readonly (readonly [ErrorCode, RegExp])[] = [
 ];
 
 /**
- * `aborted` from `agent_settled.aborted` first: an abort during a tool leaves a last assistant message
- * with `stopReason: "error"` and "The operation was aborted." (`sdk_semantics`). Else from the run's
- * last assistant message; README §7's outcome table lists `stopReason: "aborted"` as `aborted` too.
+ * `aborted` from `agent_settled.aborted` first: an abort during a tool can leave a last assistant message that stopped
+ * `error`. Else from the run's last assistant message; contract README §7's outcome table lists
+ * `stopReason: "aborted"` as `aborted` too.
  */
 export function runOutcome(lastAssistant: AssistantMessage | undefined, aborted: boolean): RunOutcome {
 	if (aborted) return { kind: "aborted" };
@@ -61,10 +67,9 @@ export function runOutcome(lastAssistant: AssistantMessage | undefined, aborted:
 
 export function errorInfo(message: AssistantMessage): ErrorInfo {
 	const text = message.errorMessage?.trim() ? message.errorMessage : UNKNOWN_ERROR;
-	return { code: errorCode(message, text), message: phoneText(text) };
+	return { code: errorCode(text), message: phoneText(text) };
 }
 
-function errorCode(message: AssistantMessage, text: string): ErrorCode {
-	if (isContextOverflow(message)) return "context_overflow";
+function errorCode(text: string): ErrorCode {
 	return CLASSES.find(([, pattern]) => pattern.test(text))?.[0] ?? "unknown";
 }

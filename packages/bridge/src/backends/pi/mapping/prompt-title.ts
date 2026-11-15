@@ -1,16 +1,19 @@
-import { parseSkillBlock } from "@earendil-works/pi-coding-agent";
 import { MAX_NAME_CHARS, MAX_TEXT_CHARS } from "../../../contract";
 import { clipStart } from "../bounds";
 
 const TITLE_SCAN_CHARS = 4 * MAX_NAME_CHARS;
 
+/** Pi's `parseSkillBlock` (pi-coding-agent 1.5.2 `dist/core/agent-session.js:63-73`). */
+const SKILL_BLOCK = /^<skill name="([^"]+)" location="([^"]+)">\n([\s\S]*?)\n<\/skill>(?:\n\n([\s\S]+))?$/;
+
 /**
- * Pi stores a skill command expanded into a `<skill>` block (pi-coding-agent `src/core/agent-session.ts:2212-2226`)
- * and its terminal shows it as typed (`src/modes/interactive/interactive-mode.ts:3902-3922`): `/skill:name args`.
+ * Pi stores a skill command expanded into a `<skill>` block (`dist/core/agent-session.js:1811-1835`) and its terminal
+ * shows it as typed: `/skill:name args`.
  */
 export function typedText(text: string): string {
-	const skill = parseSkillBlock(text);
-	const typed = skill === null ? text : `/skill:${skill.name}${skill.userMessage ? ` ${skill.userMessage}` : ""}`;
+	const skill = SKILL_BLOCK.exec(text);
+	const args = skill?.[4]?.trim();
+	const typed = skill === null ? text : `/skill:${skill[1]}${args ? ` ${args}` : ""}`;
 	return clipStart(typed, MAX_TEXT_CHARS);
 }
 

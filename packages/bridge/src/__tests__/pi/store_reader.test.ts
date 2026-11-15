@@ -5,8 +5,7 @@
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { copyFileSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { fauxAssistantMessage, fauxText, fauxToolCall } from "@earendil-works/pi-ai";
+import { dirname, join } from "node:path";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import {
 	branchTo,
@@ -15,8 +14,8 @@ import {
 	readEntries,
 	type SessionFileIndex,
 } from "../../backends/pi/store/jsonl-reader";
-import { hostSpikeSession, spikeRuntimeFactory } from "./helpers/pi-spike";
-import { createPiTestEnv, createTestModelRuntime, type PiTestEnv, registerFaux } from "./helpers/pi-test-env";
+import { runPi } from "./helpers/pi-run";
+import { createPiTestEnv, type PiTestEnv } from "./helpers/pi-test-env";
 import { SessionBuilder, textBlock, toolCall, userEntryText, writeSession } from "./store_fixtures";
 
 let env: PiTestEnv;
@@ -116,7 +115,7 @@ describe("reading a session file", () => {
 		const ours = await readEntries(index, index.entries);
 		const theirs = SessionManager.open(copy, copyDir).getEntries();
 
-		expect(ours).toEqual(theirs);
+		expect<unknown>(ours).toEqual(theirs);
 	});
 
 	test("a v1 file gets positional ids, and reads as Pi's own migration reads it apart from those ids", async () => {
@@ -284,31 +283,26 @@ describe("reading a session file", () => {
 	});
 
 	test("the bytes of a real Pi run index exactly as Pi's own manager sees them", async () => {
-		const modelRuntime = await createTestModelRuntime(env);
-		const faux = await registerFaux(modelRuntime, [{ id: "faux-reasoner", reasoning: true }]);
-		const runtime = await hostSpikeSession(env, spikeRuntimeFactory(modelRuntime, faux.handle.getModel(), []));
-		faux.handle.setResponses([
-			fauxAssistantMessage([fauxText("Looking."), fauxToolCall("read", { path: "README.md" })], {
-				stopReason: "toolUse",
-			}),
-			fauxAssistantMessage(fauxText("It is a project."), { stopReason: "stop" }),
-		]);
-		await runtime.session.prompt("What is in the README?");
-		const file = runtime.session.sessionFile;
-		if (file === undefined) throw new Error("no session file");
-		const manager = runtime.session.sessionManager;
+		const { file } = await runPi(
+			env,
+			[
+				{ thinking: ["Let me look."], text: ["Looking."], toolCalls: [{ name: "read", args: { path: "README.md" } }] },
+				{ text: ["It is a project."] },
+			],
+			"What is in the README?",
+		);
+		const manager = SessionManager.open(file, dirname(file));
 
 		const index = await indexed(file);
 		if (index === undefined) throw new Error("not indexed");
 		const ours = await readEntries(index, index.entries);
 
 		expect(index.version).toBe(3);
-		expect(ours).toEqual(manager.getEntries());
+		expect<unknown>(ours).toEqual(manager.getEntries());
 		expect(index.entries.filter((span) => span.type === "message").every((span) => span.role !== undefined)).toBe(true);
 		expect(branchTo(index, lastEntryId(index)).map((span) => span.entryId)).toEqual(
 			manager.getBranch().map((entry) => entry.id),
 		);
-		await runtime.dispose();
 	});
 
 	test("a 40 MB file is indexed in one pass with its bodies left unread", async () => {

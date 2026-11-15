@@ -6,10 +6,10 @@
 
 import { afterEach, describe, expect, test } from "bun:test";
 import type { AgentEvent, SessionRef } from "../../contract";
-import { FAUX_MODEL_IDS, wireIdOf } from "./helpers/faux-models";
 import { LiveRig } from "./helpers/live-rig";
 import { answerTexts, countOf, holdingRun, userItems } from "./helpers/live-steps";
 import { allItems } from "./helpers/paging";
+import { MODELS, wireIdOf } from "./helpers/pi-world";
 import { say } from "./helpers/scenarios";
 import { sessionEntries } from "./helpers/session-files";
 import { useWatchdog } from "./helpers/use-watchdog";
@@ -42,6 +42,7 @@ describe("compaction by hand", () => {
 		expect(finished.outcome.kind).toBe("completed");
 		expect(finished.outcome.kind === "completed" && typeof finished.outcome.tokensBefore).toBe("number");
 		expect(live.reduced().compaction).toBeUndefined();
+		await live.waitFor("run_finished", () => true, mark);
 		live.assertSettled();
 		expect(sessionEntries(t.fileOf(live.ref)).filter((entry) => entry.type === "compaction")).toHaveLength(1);
 
@@ -88,7 +89,7 @@ describe("compaction by hand", () => {
 		const refused = await live.control.compact?.(undefined);
 		expect(refused).toMatchObject({ status: "rejected", rejection: { code: "busy" } });
 		expect(live.events().some((event) => event.type === "compaction_started")).toBe(false);
-		t.bus.release(live.ref.sessionId);
+		t.router.release(live.ref.sessionId);
 		expect((await live.waitFor("run_finished")).outcome.kind).toBe("completed");
 	});
 });
@@ -96,7 +97,7 @@ describe("compaction by hand", () => {
 describe("compaction by Pi's threshold", () => {
 	test("happens inside the run that passed it: one run, started and finished before it ends", async () => {
 		t = await LiveRig.create();
-		const live = await t.rig.openNew({ modelId: wireIdOf(FAUX_MODEL_IDS.tiny) });
+		const live = await t.rig.openNew({ modelId: wireIdOf(MODELS.tiny) });
 		t.router.script(live.ref.sessionId, [say("x".repeat(16_000))]);
 		const { outcome } = await live.run("fill the window");
 		expect(outcome.kind).toBe("completed");
@@ -113,7 +114,7 @@ describe("compaction by Pi's threshold", () => {
 
 	test("leaves the context fill unknown, and the run's usage says so by leaving it out", async () => {
 		t = await LiveRig.create();
-		const live = await t.rig.openNew({ modelId: wireIdOf(FAUX_MODEL_IDS.tiny) });
+		const live = await t.rig.openNew({ modelId: wireIdOf(MODELS.tiny) });
 		t.router.script(live.ref.sessionId, [say("x".repeat(16_000))]);
 		await live.run("fill the window");
 		const usage = live.events().findLast((event) => event.type === "usage_updated");
@@ -156,7 +157,7 @@ describe("usage after a run", () => {
 		});
 		expect(one.cacheReadTokens ?? 0).toBe(totals.cacheRead);
 		expect(one.inputTokens).toBeGreaterThan(0);
-		expect(one.contextWindow).toBe(128_000);
+		expect(one.contextWindow).toBe(65_536);
 		expect(one.contextTokens).toBeGreaterThan(0);
 		expect(live.session.snapshot().usage).toEqual(one);
 
@@ -177,7 +178,7 @@ describe("usage outside a run's end", () => {
 		await live.run("count me");
 		const counted = live.reduced().usage;
 		await live.close();
-		await t.bus.shutDown(live.ref.sessionId);
+		await t.router.shutDown(live.ref.sessionId);
 
 		const reopened = await t.rig.open(live.ref);
 		expect(reopened.initial.usage).toEqual(counted);

@@ -1,5 +1,5 @@
 /**
- * How a Pi command is named on the wire and sent back to Pi (D12): an extension command, a prompt
+ * How a Pi command is named on the wire and sent back to Pi: an extension command, a prompt
  * template or a skill, each invoked as the text a terminal user would type.
  */
 

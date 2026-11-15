@@ -1,5 +1,5 @@
 /**
- * What a listing needs of one session file and can learn from its first and last bytes (D7): the header,
+ * What a listing needs of one session file and can learn from its first and last bytes: the header,
  * and the last user or assistant message and the last model change in a window at the end. The rest of a
  * row (title, origin) is read only for the rows a page serves (`session-details.ts`).
  */

@@ -1,5 +1,5 @@
 /**
- * Pi's one session mode axis, `permissions` (D14): `off` runs Pi as the terminal does; `ask` routes
+ * Pi's one session mode axis, `permissions`: `off` runs Pi as the terminal does; `ask` routes
  * every tool call through the bridge's gate, which asks the phone first.
  */
 
