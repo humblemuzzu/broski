@@ -26,6 +26,8 @@ data class GitUiState(
     val failure: WorkspaceFailure? = null,
     /** A stage, unstage, commit or checkout is on its way; another waits for it. */
     val busy: Boolean = false,
+    /** Pulled to refresh, and reading. */
+    val refreshing: Boolean = false,
     val message: String = "",
     val branches: List<GitBranch>? = null,
     val branchesFailure: WorkspaceFailure? = null,
@@ -49,11 +51,15 @@ class GitViewModel(private val client: WorkspaceClient, val cwd: String) : ViewM
     val events: Flow<GitEvent> = outcomes.receiveAsFlow()
 
     init {
-        refresh()
+        viewModelScope.launch { read() }
     }
 
     fun refresh() {
-        viewModelScope.launch { read() }
+        mutableState.update { it.copy(refreshing = true) }
+        viewModelScope.launch {
+            read()
+            mutableState.update { it.copy(refreshing = false) }
+        }
     }
 
     fun editMessage(message: String) = mutableState.update { it.copy(message = message) }

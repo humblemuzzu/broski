@@ -71,8 +71,11 @@ class TerminalViewModel(open: () -> TerminalView) : ViewModel() {
         }
     }
 
+    /** New defaults change how every row looks, not only the rows the program touched: a whole new frame. */
     fun setColors(foreground: Int, background: Int, cursor: Int) = onEngine {
         vt.setColors(foreground, background, cursor)
+        vt.update()
+        mutableScreen.value = vt.screen()
     }
 
     fun resize(next: TerminalSize) {

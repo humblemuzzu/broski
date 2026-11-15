@@ -120,7 +120,7 @@ private fun GitBody(state: GitUiState, viewModel: GitViewModel, onOpen: (ChangeR
     when {
         status == null && state.loading -> WorkspaceLoading()
         status == null -> FailureMessage(state.failure ?: return, viewModel::refresh, notFound = R.string.git_not_a_repository)
-        else -> PullToRefreshBox(isRefreshing = state.busy, onRefresh = viewModel::refresh) {
+        else -> PullToRefreshBox(isRefreshing = state.refreshing, onRefresh = viewModel::refresh) {
             LazyColumn(Modifier.fillMaxSize(), contentPadding = contentPadding) {
                 item(key = "branch", contentType = "branch") { BranchHeader(status) }
                 if (state.sections.isEmpty()) item(key = "clean", contentType = "clean") { CleanTree() }

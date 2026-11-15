@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.TextAutoSize
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilterChip
@@ -28,6 +30,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -35,6 +38,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.muzammil.broski.R
 import com.muzammil.broski.app.FeatureContext
@@ -106,6 +110,9 @@ private fun MachinePicker(machines: List<MachineState>, selected: String?, onPic
 private fun TabButtons(selected: WorkspaceTab, onSelect: (WorkspaceTab) -> Unit) {
     val haptics = LocalHapticFeedback.current
     val tabs = WorkspaceTab.entries
+    // At large font scales a third of a phone's width has room for the word alone.
+    val icons = LocalDensity.current.fontScale < LARGE_FONT_SCALE
+    val labelSize = ButtonDefaults.textStyleFor(ButtonDefaults.MinHeight).fontSize
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
@@ -124,9 +131,16 @@ private fun TabButtons(selected: WorkspaceTab, onSelect: (WorkspaceTab) -> Unit)
                 },
                 modifier = Modifier.weight(1f).semantics { role = Role.Tab },
             ) {
-                Icon(painterResource(tab.icon), contentDescription = null, modifier = Modifier.size(18.dp))
-                Text(stringResource(tab.label), modifier = Modifier.padding(start = 8.dp), maxLines = 1)
+                if (icons) Icon(painterResource(tab.icon), contentDescription = null, modifier = Modifier.padding(end = 8.dp).size(18.dp))
+                Text(
+                    stringResource(tab.label),
+                    maxLines = 1,
+                    autoSize = TextAutoSize.StepBased(minFontSize = MIN_LABEL_SIZE, maxFontSize = labelSize),
+                )
             }
         }
     }
 }
+
+private const val LARGE_FONT_SCALE = 1.3f
+private val MIN_LABEL_SIZE = 10.sp

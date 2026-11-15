@@ -5,6 +5,7 @@ import android.graphics.Paint
 import android.graphics.Picture
 import android.graphics.Typeface
 import android.os.Build
+import androidx.core.graphics.withTranslation
 import com.muzammil.broski.terminal.Cell
 import com.muzammil.broski.terminal.CursorStyle
 import com.muzammil.broski.terminal.Screen
@@ -36,7 +37,13 @@ class TerminalFont(base: Typeface, sizePx: Float) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             Typeface.create(base, if (bold) BOLD_WEIGHT else REGULAR_WEIGHT, italic)
         } else {
-            Typeface.create(base, (if (bold) Typeface.BOLD else 0) or (if (italic) Typeface.ITALIC else 0))
+            val style = when {
+                bold && italic -> Typeface.BOLD_ITALIC
+                bold -> Typeface.BOLD
+                italic -> Typeface.ITALIC
+                else -> Typeface.NORMAL
+            }
+            Typeface.create(base, style)
         }
 
     private companion object {
@@ -53,26 +60,28 @@ class TerminalRenderer(private val font: TerminalFont, private val colors: Termi
     private var pictures = arrayOfNulls<Picture>(0)
     private var versions = LongArray(0)
     private var cols = 0
+    private var foreground = 0
+    private var background = 0
     private val fill = Paint()
     private val runText = StringBuilder()
 
     fun draw(canvas: Canvas, screen: Screen) {
-        if (screen.rows != pictures.size || screen.cols != cols) {
+        val repaint = screen.foreground != foreground || screen.background != background
+        if (screen.rows != pictures.size || screen.cols != cols || repaint) {
             pictures = arrayOfNulls(screen.rows)
             versions = LongArray(screen.rows) { -1 }
             cols = screen.cols
+            foreground = screen.foreground
+            background = screen.background
         }
         val height = font.metrics.height
         canvas.drawColor(screen.background)
         for (row in 0 until screen.rows) {
-            if (versions[row] != screen.rowVersions[row] || pictures[row] == null) {
-                pictures[row] = record(screen, row)
+            val picture = pictures[row]?.takeIf { versions[row] == screen.rowVersions[row] } ?: record(screen, row).also {
+                pictures[row] = it
                 versions[row] = screen.rowVersions[row]
             }
-            canvas.save()
-            canvas.translate(0f, row * height)
-            canvas.drawPicture(pictures[row]!!)
-            canvas.restore()
+            canvas.withTranslation(0f, row * height) { drawPicture(picture) }
         }
         drawCursor(canvas, screen)
     }

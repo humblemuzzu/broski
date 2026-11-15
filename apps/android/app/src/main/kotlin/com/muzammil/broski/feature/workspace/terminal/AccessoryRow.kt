@@ -8,8 +8,11 @@ import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -53,7 +56,10 @@ fun AccessoryRow(keyboard: TerminalKeyboard, onPaste: () -> Unit, modifier: Modi
         modifier = modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
     ) {
         Row(
-            modifier = Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 6.dp),
+            modifier = Modifier
+                .horizontalScroll(rememberScrollState())
+                .height(IntrinsicSize.Min)
+                .padding(horizontal = 8.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             TextKey("esc", R.string.terminal_key_escape) { keyboard.key(Key.Escape) }
@@ -97,11 +103,13 @@ private fun AccessoryKey(
     val haptics = LocalHapticFeedback.current
     val press = rememberUpdatedState(onPress)
     val colors = MaterialTheme.colorScheme
+    val firePress = { haptics.perform(Haptic.KeyPress); press.value() }
     Surface(
         shape = MaterialTheme.shapes.medium,
         color = if (checked) colors.primary else colors.surfaceContainerLowest,
         contentColor = if (checked) colors.onPrimary else colors.onSurface,
         modifier = Modifier
+            .fillMaxHeight()
             .heightIn(min = 44.dp)
             .widthIn(min = 48.dp)
             .semantics {
@@ -113,30 +121,31 @@ private fun AccessoryKey(
                     true
                 }
             }
-            .pointerInput(repeats) {
-                coroutineScope {
-                    awaitEachGesture {
-                        awaitFirstDown()
-                        haptics.perform(Haptic.KeyPress)
-                        press.value()
-                        val repeater = if (repeats) {
-                            launch {
-                                delay(REPEAT_DELAY_MS)
-                                while (true) {
-                                    press.value()
-                                    delay(REPEAT_EVERY_MS)
-                                }
-                            }
-                        } else {
-                            null
-                        }
-                        waitForUpOrCancellation()
-                        repeater?.cancel()
-                    }
-                }
-            },
+            .keyPresses(repeats, onDown = firePress, onRepeat = { press.value() }),
     ) {
         Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) { content() }
+    }
+}
+
+private fun Modifier.keyPresses(repeats: Boolean, onDown: () -> Unit, onRepeat: () -> Unit): Modifier = pointerInput(repeats) {
+    coroutineScope {
+        awaitEachGesture {
+            awaitFirstDown()
+            onDown()
+            val repeater = if (repeats) {
+                launch {
+                    delay(REPEAT_DELAY_MS)
+                    while (true) {
+                        onRepeat()
+                        delay(REPEAT_EVERY_MS)
+                    }
+                }
+            } else {
+                null
+            }
+            waitForUpOrCancellation()
+            repeater?.cancel()
+        }
     }
 }
 

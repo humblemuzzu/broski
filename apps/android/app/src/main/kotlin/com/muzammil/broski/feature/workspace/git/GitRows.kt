@@ -17,7 +17,6 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberSwipeToDismissBoxState
@@ -26,6 +25,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
@@ -37,6 +37,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.muzammil.broski.R
 import com.muzammil.broski.design.BroskiTheme
 import com.muzammil.broski.design.GroupedRow
@@ -191,7 +192,7 @@ private fun ChangeMark(row: ChangeRow) {
         null -> colors.onSurfaceVariant
     }
     Box(
-        Modifier.size(28.dp).background(tint.copy(alpha = MARK_ALPHA), CircleShape).clearAndSetSemantics {},
+        Modifier.size(with(LocalDensity.current) { MARK_SIZE.toDp() }).background(tint.copy(alpha = MARK_ALPHA), CircleShape).clearAndSetSemantics {},
         contentAlignment = Alignment.Center,
     ) {
         Text(row.letter, style = MaterialTheme.typography.labelLarge.mono(), fontWeight = FontWeight.Bold, color = tint)
@@ -224,3 +225,6 @@ fun CommitItem(commit: GitCommit, index: Int, count: Int) {
 }
 
 private const val MARK_ALPHA = 0.16f
+
+/** In sp so the circle grows with the letter at large font sizes. */
+private val MARK_SIZE = 28.sp

@@ -105,6 +105,8 @@ private fun CodeRow(line: CodeLine, style: TextStyle, gutterWidth: Dp, wrap: Boo
                 style = style,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = GUTTER_ALPHA),
                 textAlign = TextAlign.End,
+                softWrap = false,
+                maxLines = 1,
                 modifier = Modifier.width(gutterWidth).padding(horizontal = GUTTER_PADDING).clearAndSetSemantics {},
             )
         }

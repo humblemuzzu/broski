@@ -1,6 +1,5 @@
 package com.muzammil.broski.feature.workspace.terminal
 
-import android.content.ClipData
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,10 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.platform.ClipEntry
-import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.unit.dp
 import androidx.core.content.res.ResourcesCompat
@@ -36,13 +32,13 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.muzammil.broski.R
 import com.muzammil.broski.app.FeatureContext
 import com.muzammil.broski.app.TerminalRoute
-import com.muzammil.broski.design.Haptic
-import com.muzammil.broski.design.perform
+import com.muzammil.broski.feature.workspace.Answer
 import com.muzammil.broski.feature.workspace.MachineBanner
 import com.muzammil.broski.feature.workspace.MachineGate
 import com.muzammil.broski.feature.workspace.PathTopBar
 import com.muzammil.broski.feature.workspace.WorkspaceClient
 import com.muzammil.broski.feature.workspace.lastComponent
+import com.muzammil.broski.feature.workspace.sentence
 import kotlinx.coroutines.launch
 
 /** One terminal of a Mac, full size, with the keys a phone lacks docked above the keyboard. */
@@ -57,6 +53,8 @@ fun TerminalScreen(context: FeatureContext, route: TerminalRoute) {
         val keyboard = remember(terminal) { TerminalKeyboard(terminal) }
         val snackbar = remember { SnackbarHostState() }
         val clipboard = rememberTerminalClipboard(terminal, snackbar)
+        val scope = rememberCoroutineScope()
+        val resources = LocalResources.current
         var closing by rememberSaveable { mutableStateOf(false) }
         Scaffold(
             topBar = {
@@ -76,8 +74,12 @@ fun TerminalScreen(context: FeatureContext, route: TerminalRoute) {
             CloseTerminalDialog(
                 onClose = {
                     closing = false
-                    context.back()
-                    clipboard.scope.launch { client.closeTerminal(route.terminalId) }
+                    scope.launch {
+                        when (val answer = client.closeTerminal(route.terminalId)) {
+                            is Answer.Done -> context.back()
+                            is Answer.Failed -> snackbar.showSnackbar(answer.failure.sentence(resources))
+                        }
+                    }
                 },
                 onDismiss = { closing = false },
             )
@@ -114,9 +116,9 @@ private fun TerminalBody(
         SelectionBar(
             visible = selecting,
             onCopy = {
-                    selecting = false
-                    clipboard.copySelection()
-                },
+                selecting = false
+                clipboard.copySelection()
+            },
             onCancel = {
                 selecting = false
                 terminal.clearSelection()
@@ -131,57 +133,6 @@ private fun TerminalBody(
             is TerminalState.Exited -> EndedBanner(state, Modifier.align(Alignment.BottomCenter))
             is TerminalState.Failed -> EndedBanner(state, Modifier.align(Alignment.BottomCenter))
         }
-    }
-}
-
-/** Copy and paste between the phone's clipboard and the terminal, with a word before a paste that would run commands. */
-class TerminalClipboard internal constructor(
-    val scope: kotlinx.coroutines.CoroutineScope,
-    val paste: () -> Unit,
-    val copyAll: () -> Unit,
-    val copySelection: () -> Unit,
-    private val unsafe: androidx.compose.runtime.MutableState<String?>,
-    private val terminal: TerminalViewModel,
-) {
-    @Composable
-    fun UnsafePasteDialog() {
-        val text = unsafe.value ?: return
-        UnsafePasteDialog(text, onPaste = {
-            unsafe.value = null
-            terminal.paste(text)
-        }, onDismiss = { unsafe.value = null })
-    }
-}
-
-@Composable
-private fun rememberTerminalClipboard(terminal: TerminalViewModel, snackbar: SnackbarHostState): TerminalClipboard {
-    val clipboard = LocalClipboard.current
-    val context = LocalContext.current
-    val resources = LocalResources.current
-    val haptics = LocalHapticFeedback.current
-    val scope = rememberCoroutineScope()
-    val unsafe = rememberSaveable { mutableStateOf<String?>(null) }
-    return remember(terminal) {
-        fun copy(text: String?) = scope.launch {
-            if (text.isNullOrEmpty()) return@launch
-            clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(resources.getString(R.string.terminal_title), text)))
-            haptics.perform(Haptic.Success)
-            snackbar.showSnackbar(resources.getString(R.string.terminal_copied))
-        }
-        TerminalClipboard(
-            scope = scope,
-            paste = {
-                scope.launch {
-                    val text = clipboard.getClipEntry()?.clipData?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(context)?.toString()
-                    if (text.isNullOrEmpty()) return@launch
-                    if (terminal.isPasteSafe(text)) terminal.paste(text) else unsafe.value = text
-                }
-            },
-            copyAll = { scope.launch { copy(terminal.text()) } },
-            copySelection = { scope.launch { copy(terminal.takeSelection()) } },
-            unsafe = unsafe,
-            terminal = terminal,
-        )
     }
 }
 

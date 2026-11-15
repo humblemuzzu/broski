@@ -41,7 +41,13 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.text
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextDecoration
+import com.muzammil.broski.R
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.sp
@@ -83,16 +89,17 @@ fun TerminalCanvas(
     }
     val scroll = rememberRowScroll(terminal, font.metrics)
     val haptics = LocalHapticFeedback.current
+    val label = stringResource(R.string.terminal_title)
     Box(
         modifier
             .onSizeChanged { viewSize = it }
+            .semantics {
+                contentDescription = label
+                text = AnnotatedString(screen.value.visibleText())
+            }
             .terminalInput(keyboard, showRequests)
             .focusRequester(focus)
-            .onPreviewKeyEvent { event ->
-                val input = event.nativeKeyEvent.takeIf { it.action == KeyEvent.ACTION_DOWN }?.let(::keyInput)
-                input?.let(keyboard::press)
-                input != null
-            }
+            .hardwareKeys(keyboard)
             .focusable()
             .pointerInput(font) {
                 detectTapGestures(onLongPress = {}) {
@@ -159,6 +166,12 @@ private fun Modifier.selection(
     )
 }
 
+private fun Modifier.hardwareKeys(keyboard: TerminalKeyboard): Modifier = onPreviewKeyEvent { event ->
+    val input = event.nativeKeyEvent.takeIf { it.action == KeyEvent.ACTION_DOWN }?.let(::keyInput)
+    input?.let(keyboard::press)
+    input != null
+}
+
 /** Two fingers apart or together; the scale is reported once they lift. */
 private fun Modifier.pinch(onScale: (Float) -> Unit): Modifier = pointerInput(Unit) {
     awaitEachGesture {
@@ -174,6 +187,9 @@ private fun Modifier.pinch(onScale: (Float) -> Unit): Modifier = pointerInput(Un
         if (scale != 1f) onScale(scale)
     }
 }
+
+/** What the screen shows, line by line, as TalkBack reads it out. */
+private fun Screen.visibleText(): String = (0 until rows).joinToString("\n") { line(it) }.trimEnd()
 
 /** The IME's composing text, drawn at the cursor until it is committed. */
 @Composable
