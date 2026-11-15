@@ -3,6 +3,7 @@
 //! The bridge's generated fixtures hold all of it equal to the TypeScript.
 
 mod codec;
+mod form;
 mod frame;
 // A union holds its members inline, as the schema nests them; boxing the large ones would put a `Box`
 // into every Rust construction and match of those variants.
@@ -13,6 +14,7 @@ mod reducer;
 mod run_items;
 pub mod tagged;
 
+pub use form::{form_field_default, form_field_shown};
 pub use frame::{decode_frame, encode_frame, FrameError};
 pub use generated::*;
 pub use json_value::{JsonMember, JsonValue};

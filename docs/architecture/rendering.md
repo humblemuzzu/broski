@@ -139,9 +139,35 @@ SideBySideRow { left?: DiffLine, right?: DiffLine }
   contract's bounds; past either, `truncated`. Each pair's token diff gets 5 ms before similar settles
   for a coarser diff. **Cost**: 15,000 lines of `git diff` with emphasis parse in 1.4 ms.
 
+## Tool calls in the work fold
+
+`toolLook(facts) → ToolLook` and `foldCounts(tools) → [FoldCount]` (`work/`), so both apps read a call and
+count a stretch of work the same way. They live here, not in the client, because they are how a call is
+*drawn*: pure functions of one call's facts, with no session state.
+
+- `ToolFacts { name, title?, input?, hasChildSession, changedPaths }` in; `ToolLook { kind, label, verb,
+  command?, paths }` out. **Kind** is by the lower-cased name (`bash`, `Bash`, `killshell`, `str_replace`,
+  `write_file`, `toolsearch`, `browse` … the lists are in `work/mod.rs`), except that a call with a child
+  session is an `Agent` and one with changed files an `Edit`; anything else, an MCP tool included, is
+  `Other`.
+- **Label** is the backend's title (first line), else what the call acted on: a command's first line,
+  `Read main.rs`, `Edited a.md` (the file's name), `Searched TODO`, a URL or query, a subagent's
+  description, `<tool> <path or query>`; the tool's name when the input says nothing. **`verb`** is what
+  the row says instead while it is open (`Ran command`, `Read file`), because the detail then shows the
+  command or the arguments the label was made from. **`command`** is a command tool's command whole
+  (`command`, `cmd` or `script`).
+- `FoldTool { id, kind, paths }` for each of the stretch's own calls (not a subagent's) gives at most two
+  verbs of `Edited, Ran, Read, Searched, Fetched, Delegated, Used`, most consequential first, the rest
+  folded into `Used`. Files count once however often they are read or edited, an edited file is not
+  also read, and a call that names no file counts as one. The apps write the sentence ("Ran 2 commands")
+  and the time.
+- The form logic is the contract crate's (`form_field_shown`, `form_field_default`), the phone's reading of
+  `field-check.ts`' `fieldIsActive`.
+
 ## Tests
 
-`cargo test -p broski-render`: a table of agent-style messages and their block shapes, CommonMark spec
+`cargo test -p broski-render`: every tool name either app ever listed, in three spellings, with each
+label, the command and the fold's counts (`work/tests.rs`); a table of agent-style messages and their block shapes, CommonMark spec
 examples, nested lists, task lists loose and tight, quotes, tables, inline styles and links, the bounds,
 and a message streamed one character at a time whose earlier blocks keep their keys and content
 (`markdown/tests.rs`); token kinds in 18 languages, labels and paths, unknown languages and the bounds

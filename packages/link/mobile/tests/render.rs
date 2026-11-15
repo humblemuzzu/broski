@@ -1,13 +1,20 @@
 //! The rendering exports, called as the apps call them: owned values in, records out.
 
+use std::collections::HashMap;
+
 use broski_contract::{
-    FileChange, FileChangeKind, GitChange, GitDiffFile, GitDiffHunk, GitDiffLine, GitDiffLineKind,
+    BooleanField, BooleanValue, ConditionOperator, FieldCondition, FileChange, FileChangeKind,
+    FormFieldSpec, FormScalar, FormValue, GitChange, GitDiffFile, GitDiffHunk, GitDiffLine,
+    GitDiffLineKind, JsonMember, JsonValue, TextValue,
 };
 use broski_core::{
-    file_change_diff, git_diff_file, highlight, language_for_path, markdown_blocks,
-    normalize_language, parse_unified_diff, side_by_side,
+    file_change_diff, fold_counts, form_field_default, form_field_shown, git_diff_file, highlight,
+    language_for_path, markdown_blocks, normalize_language, parse_unified_diff, side_by_side,
+    tool_look,
 };
-use broski_render::{BlockContent, DiffLineKind, TokenKind};
+use broski_render::{
+    BlockContent, DiffLineKind, FoldCount, FoldTool, FoldVerb, TokenKind, ToolFacts, ToolKind,
+};
 
 #[test]
 fn markdown_and_code_come_back_as_blocks_and_spans() {
@@ -71,4 +78,67 @@ fn both_kinds_of_diff_come_back_as_files_and_rows() {
     });
     let kinds: Vec<_> = git.hunks[0].lines.iter().map(|line| line.kind).collect();
     assert_eq!(kinds, [DiffLineKind::Added, DiffLineKind::NoNewline]);
+}
+
+#[test]
+fn a_tool_call_comes_back_as_its_row_and_the_fold_counts_what_it_did() {
+    let look = tool_look(ToolFacts {
+        name: "Bash".to_owned(),
+        title: None,
+        input: Some(JsonValue::Object(vec![JsonMember {
+            key: "command".to_owned(),
+            value: JsonValue::String("npm test".to_owned()),
+        }])),
+        has_child_session: false,
+        changed_paths: Vec::new(),
+    });
+    assert_eq!(
+        (look.kind, look.label.as_str()),
+        (ToolKind::Command, "npm test")
+    );
+    let counts = fold_counts(vec![FoldTool {
+        id: "1".to_owned(),
+        kind: look.kind,
+        paths: look.paths,
+    }]);
+    assert_eq!(
+        counts,
+        [FoldCount {
+            verb: FoldVerb::Ran,
+            count: 1
+        }]
+    );
+}
+
+#[test]
+fn a_form_field_is_shown_by_the_answers_and_starts_from_its_default() {
+    let field = FormFieldSpec::Boolean(BooleanField {
+        key: "deploy".to_owned(),
+        title: None,
+        description: None,
+        required: false,
+        hidden: false,
+        when: vec![FieldCondition {
+            key: "env".to_owned(),
+            op: ConditionOperator::Eq,
+            value: FormScalar::Text(TextValue {
+                value: "prod".to_owned(),
+            }),
+        }],
+        default_value: Some(true),
+    });
+    let answers = |env: &str| {
+        HashMap::from([(
+            "env".to_owned(),
+            FormValue::Text(TextValue {
+                value: env.to_owned(),
+            }),
+        )])
+    };
+    assert!(form_field_shown(field.clone(), answers("prod")));
+    assert!(!form_field_shown(field.clone(), answers("dev")));
+    assert_eq!(
+        form_field_default(field),
+        Some(FormValue::Boolean(BooleanValue { value: true }))
+    );
 }

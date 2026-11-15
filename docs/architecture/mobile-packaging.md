@@ -51,6 +51,8 @@ view is exported as `detach`, of a list as `stop`; a machine is ended through `P
 | `markdownBlocks(text:) → [MarkdownBlock]` | `broski_render::markdown_blocks` |
 | `highlight(code:language:) → [CodeLine]`, `languageForPath(path:) → String?`, `normalizeLanguage(label:) → String?` | `broski_render::highlight`, `language_for_path`, `normalize_language` |
 | `parseUnifiedDiff(text:) → ParsedDiff`, `fileChangeDiff(change:) → DiffFile`, `gitDiffFile(file:) → DiffFile`, `sideBySide(hunk:) → [SideBySideRow]` | `broski_render`'s diff functions |
+| `toolLook(facts:) → ToolLook`, `foldCounts(tools:) → [FoldCount]` | `broski_render::tool_look`, `fold_counts`: a tool call's kind, row label and command, and the verbs of a fold's sentence |
+| `formFieldShown(field:values:) → Bool`, `formFieldDefault(field:) → FormValue?` | `broski_contract::form_field_shown`, `form_field_default`: which fields of a form show, and what they start with |
 
 ### Values
 

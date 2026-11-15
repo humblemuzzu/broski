@@ -1,7 +1,7 @@
 //! BroskiCore, the library the iOS and Android apps link: the phone's client core (`broski-client`)
 //! exported to Swift and Kotlin through UniFFI, with the functions the notification handlers and the
 //! pairing scanner call without a `Phone`, and the rendering both apps draw the same way
-//! (`broski-render`).
+//! (`broski-render`), including how a tool call reads in the work fold and what a form shows.
 //!
 //! Every export is a thin wrapper; the behaviour lives in the client, session, contract and render
 //! crates.
@@ -21,6 +21,7 @@ mod render;
 mod values;
 mod version;
 mod views;
+mod work;
 
 pub use inbox::Inbox;
 pub use link::{LinkRoute, LinkStatus};
@@ -37,5 +38,6 @@ pub use render::{
 };
 pub use version::{core_version, CoreVersion};
 pub use views::{SessionList, SessionView, TerminalView};
+pub use work::{fold_counts, form_field_default, form_field_shown, tool_look};
 
 uniffi::setup_scaffolding!();
