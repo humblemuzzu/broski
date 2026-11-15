@@ -27,6 +27,7 @@ mod probe;
 pub mod push;
 mod race;
 mod record;
+mod record_codec;
 mod refusal;
 mod runtime;
 mod session;

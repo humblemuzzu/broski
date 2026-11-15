@@ -12,17 +12,22 @@ use broski_link_core::Error as LinkError;
 pub const OUTBOUND_QUEUE_MAX: usize = 8 * 1024 * 1024;
 
 /// Why the session did not send a message.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum SendFailure {
     /// The outbound queue is at its byte bound.
+    #[error("the outbound queue is full")]
     QueueFull,
     /// Larger than the queue bound, so it could never be carried.
+    #[error("the message is larger than the outbound queue")]
     TooLarge,
     /// The link refused this message; the ones behind it still go out.
+    #[error("the link refused the message")]
     Rejected,
     /// The machine started a new session, so everything queued for the old one is gone.
+    #[error("the machine started a new session")]
     SessionReset,
     /// The session is over (revoked or closed).
+    #[error("the session is over")]
     Closed,
 }
 
