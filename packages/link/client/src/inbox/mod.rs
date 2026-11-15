@@ -157,6 +157,19 @@ impl Inbox {
         self.compute()
     }
 
+    /// Pull to refresh: every machine whose bridge is ready reloads its sessions from the first
+    /// page, and every machine waiting to dial dials now. Returns once the reloads are answered.
+    pub async fn refresh(&self) {
+        let machines = locked(&self.machines).clone();
+        let reloads: Vec<_> = machines
+            .iter()
+            .flat_map(|machine| machine.shared().reload_inbox())
+            .collect();
+        for reload in reloads {
+            let _ = reload.await;
+        }
+    }
+
     /// The rows each time they change, at most 30 times a second.
     pub async fn next_change(&self) -> InboxUpdate {
         loop {

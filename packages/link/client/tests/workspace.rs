@@ -16,7 +16,7 @@ use broski_contract::{
 };
 use broski_link_testkit::relay::TestRelay;
 use broski_link_testkit::WAIT;
-use common::{answer, paired, phone, ready, status_until, Mac};
+use common::{answer, paired, phone, ready, requests_sent, status_until, Mac};
 use tokio::time::{timeout_at, Instant};
 
 /// git as the test runs it: no global or system configuration of the machine running the tests.
@@ -213,20 +213,6 @@ async fn columns(machine: &Machine) -> i64 {
             }
             TermListResult::Rejected(_) => None,
         },
-        _ => None,
-    })
-    .await
-}
-
-/// The id the machine gave a request it sent just now. It numbers every request the machine sends,
-/// attaches included, and the bridge answers with it, so the difference between two of these is
-/// the number of requests sent between them, counted on the wire.
-async fn requests_sent(machine: &Machine) -> u64 {
-    let list = ClientMessage::TermList(TermListRequest {
-        request_id: String::new(),
-    });
-    answer(machine, list, |answer| match answer {
-        ServerMessage::TermListResult(answer) => answer.request_id.parse().ok(),
         _ => None,
     })
     .await

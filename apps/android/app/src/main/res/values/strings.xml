@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Broski</string>
+
+    <!-- Agents -->
+    <string name="agent_claude_code">Claude Code</string>
+    <string name="agent_pi">Pi</string>
+    <string name="agent_mark_claude_code" translatable="false">CC</string>
+    <string name="agent_mark_pi" translatable="false">Pi</string>
+
+    <string name="time_just_now">just now</string>
+
+    <!-- Navigation -->
+    <string name="nav_inbox">Inbox</string>
+    <string name="nav_settings">Settings</string>
+    <string name="nav_workspace">Workspace</string>
+    <string name="new_session">New session</string>
+    <string name="action_back">Back</string>
+
+    <!-- Startup failures -->
+    <string name="startup_identity_title">This phone\'s pairing key can\'t be read</string>
+    <string name="startup_identity_body">Broski keeps the key that identifies this phone to your Macs in the Android Keystore, and it no longer opens. Your Macs still know this phone. Broski won\'t make a new key on its own: that would end every pairing. To start over, clear Broski\'s storage in system settings and pair each Mac again.</string>
+    <string name="startup_refused_title">Broski couldn\'t start</string>
+    <string name="startup_refused_body">The stored pairing key was refused. To start over, clear Broski\'s storage in system settings and pair each Mac again.</string>
+    <string name="startup_storage_title">Broski can\'t read its storage</string>
+    <string name="startup_storage_body">The phone\'s storage for Broski could not be read. Restart the phone and open Broski again.</string>
+
+    <!-- Welcome -->
+    <string name="welcome_line">Control Claude Code and Pi on your Mac from here.</string>
+    <string name="welcome_on_your_mac">On your Mac, run</string>
+    <string name="welcome_install_command" translatable="false">broski install</string>
+    <string name="welcome_pair_command" translatable="false">broski-link pair</string>
+    <string name="pairing_scan">Scan pairing code</string>
+    <string name="pairing_paste">Paste pairing link</string>
+    <string name="action_copy_command">Copy %1$s</string>
+
+    <!-- Pairing -->
+    <string name="pairing_title">Pair a Mac</string>
+    <string name="pairing_intro">Run broski-link pair on the Mac, then scan the code it shows or copy the link it prints.</string>
+    <string name="pairing_offer_from">Pairing code from</string>
+    <string name="pairing_expires_in">Expires in %1$s</string>
+    <string name="pairing_already_paired">Already paired. Pairing again replaces the old pairing.</string>
+    <string name="pairing_pair_with">Pair with %1$s</string>
+    <string name="pairing_scan_again">Scan another code</string>
+    <string name="pairing_in_progress">Pairing with %1$s…</string>
+    <string name="pairing_try_again">Try again</string>
+    <string name="pairing_failed_title">Pairing didn\'t work</string>
+    <string name="pairing_error_expired">This code expired. Run broski-link pair again.</string>
+    <string name="pairing_error_wrong_code">This isn\'t a Broski pairing code. Scan the code broski-link pair shows.</string>
+    <string name="pairing_error_unreachable">Can\'t reach your Mac. Make sure it\'s awake and online, then try again.</string>
+    <string name="pairing_error_fingerprint">This code isn\'t from the Mac you scanned. Pair again from the Mac itself.</string>
+    <string name="pairing_error_rejected">Your Mac turned this code down. It may have been used already: run broski-link pair again.</string>
+    <string name="pairing_error_timeout">Your Mac didn\'t answer in time. Run broski-link pair again and scan the new code.</string>
+    <string name="pairing_error_phone">Pairing failed on this phone. Run broski-link pair again and scan the new code.</string>
+    <string name="pairing_error_empty_clipboard">The clipboard has no pairing link. Copy the broski://pair link broski-link pair prints, then try again.</string>
+    <string name="pairing_error_scanner">The code scanner isn\'t available on this phone. Paste the pairing link instead.</string>
+    <string name="error_details">Details: %1$s</string>
+
+    <!-- Inbox -->
+    <string name="inbox_section_needs_you">Needs you</string>
+    <string name="inbox_section_working">Working</string>
+    <string name="inbox_section_done">Done</string>
+    <string name="inbox_section_idle">Idle</string>
+    <string name="inbox_untitled">New session</string>
+    <string name="inbox_waiting_for_you">Waiting for you</string>
+    <string name="inbox_empty_title">No sessions yet</string>
+    <string name="inbox_empty_body">Sessions you start in Claude Code or Pi on your Mac show up here.</string>
+    <string name="inbox_waiting_title">Waiting for your Mac</string>
+    <string name="inbox_waiting_body">Its sessions show up here once Broski reaches it.</string>
+    <string name="inbox_show_all">Show all sessions</string>
+    <string name="inbox_machines">Machines</string>
+    <plurals name="inbox_working_count">
+        <item quantity="one">%1$d agent working</item>
+        <item quantity="other">%1$d agents working</item>
+    </plurals>
+    <string name="inbox_row_description">%1$s. %2$s. %3$s.</string>
+
+    <!-- Machine health -->
+    <string name="health_online_lan">Connected over the local network</string>
+    <string name="health_online_relay">Connected through the relay</string>
+    <string name="health_online">Connected</string>
+    <string name="health_connecting">Reconnecting…</string>
+    <string name="health_offline">%1$s offline</string>
+    <string name="health_asleep">%1$s asleep</string>
+    <string name="health_relay_refused">The relay turned this phone away</string>
+    <string name="health_paused">Paused while Broski is in the background</string>
+    <string name="health_bridge_starting">Bridge starting on %1$s</string>
+    <string name="health_bridge_down">Bridge stopped on %1$s</string>
+    <string name="health_incompatible">%1$s needs an update</string>
+    <string name="health_refused">%1$s refused this phone</string>
+    <string name="health_revoked">Revoked — pair again</string>
+    <string name="health_ended">Disconnected</string>
+
+    <!-- Machines -->
+    <string name="machines_title">Machines</string>
+    <string name="machines_pair_another">Pair another</string>
+    <string name="machines_last_seen">Last seen %1$s</string>
+    <string name="machines_paired">Paired %1$s</string>
+    <string name="machines_bridge_version">Bridge %1$s</string>
+    <string name="machines_agent_installed">%1$s %2$s</string>
+    <string name="machines_agent_not_installed">%1$s not installed</string>
+    <string name="machines_restart_bridge">Restart bridge</string>
+    <string name="machines_restart_failed">The restart couldn\'t be sent. Check the connection and try again.</string>
+    <string name="machines_forget">Forget</string>
+    <string name="machines_forget_title">Forget %1$s?</string>
+    <string name="machines_forget_body">This phone will stop controlling %1$s.</string>
+    <string name="machines_unreadable_title">A stored pairing can\'t be read</string>
+    <string name="machines_unreadable_body">Forget it, then pair that Mac again.</string>
+    <string name="machines_unreadable_name">Unreadable pairing</string>
+    <string name="action_cancel">Cancel</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_notifications">Notifications</string>
+    <string name="settings_notify_needs_you">Needs you</string>
+    <string name="settings_notify_needs_you_body">Approvals and questions</string>
+    <string name="settings_notify_done">Done</string>
+    <string name="settings_notify_done_body">A run finished</string>
+    <string name="settings_notify_failures">Failures</string>
+    <string name="settings_notify_failures_body">A run failed or a Mac went offline</string>
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_appearance_system">System</string>
+    <string name="settings_appearance_light">Light</string>
+    <string name="settings_appearance_dark">Dark</string>
+    <string name="settings_about">About</string>
+    <string name="settings_version_app">Broski</string>
+    <string name="settings_version_core">BroskiCore</string>
+    <string name="settings_bridge_unknown">Bridge version not known yet</string>
+    <string name="settings_privacy">Everything is end-to-end encrypted between this phone and your Mac. The relay can\'t read it.</string>
+</resources>

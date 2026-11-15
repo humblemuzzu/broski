@@ -6,13 +6,16 @@ mod common;
 use std::sync::Arc;
 use std::time::Duration;
 
-use broski_client::{new_identity_secret, InboxRow, InboxState, Machine, Phone};
+use broski_client::{
+    new_identity_secret, InboxRow, InboxState, LinkState, Machine, MachineStatus, Phone,
+};
 use broski_contract::{BackendId, PromptMode, SessionQuery, SessionRef};
 use broski_link_testkit::WAIT;
 use common::{
-    choose, create_session, inbox_until, listed, paired, phone, phone_with, prompt, Mac, Watched,
+    choose, create_session, inbox_until, listed, paired, phone, phone_with, prompt, requests_sent,
+    status_until, Mac, Watched,
 };
-use tokio::time::{timeout_at, Instant};
+use tokio::time::{timeout, timeout_at, Instant};
 
 fn state(rows: &[InboxRow], session: &SessionRef) -> Option<InboxState> {
     rows.iter()
@@ -196,4 +199,34 @@ async fn a_machine_with_no_history_at_its_first_read_is_not_marked_again_at_the_
         done,
     )
     .await;
+}
+
+/// Pull to refresh sends one first-page request per inbox list, and a machine whose link waits to
+/// dial, which would only hold the requests, does not keep it waiting.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_refresh_reloads_each_list_once_and_skips_a_machine_that_is_not_ready() {
+    let mut mac = Mac::on_lan().await;
+    let phone = phone();
+    let machine = paired(&phone, &mac).await;
+    let seeded = mac.bridge.seed(&mac.root(), "Seeded").await;
+    inbox_until(&phone, "the seeded session", |rows| {
+        state(rows, &seeded).is_some()
+    })
+    .await;
+
+    let before = requests_sent(&machine).await;
+    phone.inbox().refresh().await;
+    let after = requests_sent(&machine).await;
+    assert_eq!(
+        after - before,
+        2,
+        "Pi's one list reloaded, then the count's own request"
+    );
+
+    mac.stop_daemon().await;
+    let waiting = |status: &MachineStatus| matches!(status.link.state, LinkState::Waiting(_));
+    status_until(&machine, "the link to wait for the machine", waiting).await;
+    timeout(Duration::from_secs(5), phone.inbox().refresh())
+        .await
+        .expect("a refresh that holds no request");
 }

@@ -13,7 +13,7 @@ Phone (native app, Phase 4) ←Broski Link (Noise e2e; LAN or relay)→ broski-l
 The repository is mid-rebuild on branch `rebuild` (plan: [`docs/rebuild/PLAN.md`](docs/rebuild/PLAN.md)). The
 Flutter app is gone; the tree it lived in is preserved on branch `final-flutter` (`git show final-flutter:<path>`).
 Phase 1, the cut, is done: what is here is the bridge, the link stack, the shared phone core packaged for both
-native apps, the iOS app's foundation (Phase 4.1), and the iOS push code carried over for it.
+native apps, the iOS and Android apps' foundations (Phase 4.1), and the iOS push code carried over for them.
 
 - **Bridge** (`packages/bridge/`) — TypeScript on the user's machine. Hosts the agents through their SDKs and speaks
   the backend contract to the daemon over `~/.broski/link/bridge.sock`. Every socket upgrade must quote the key the
@@ -57,6 +57,11 @@ native apps, the iOS app's foundation (Phase 4.1), and the iOS push code carried
   `Sources/Core` (`AppModel` owning the `Phone`, keychain persistence, the inbox and machine pull loops, scene
   phase, `NWPathMonitor`, `NWBrowser` LAN discovery), `Sources/DesignSystem`, `Sources/Features/*`, `Shared/`
   (keychain code its extensions compile). Doc: [`apps/ios/README.md`](apps/ios/README.md).
+- **Android app** (`apps/android/app/`, [`apps/android/README.md`](apps/android/README.md)) — Kotlin, Compose,
+  Material 3 Expressive, Navigation 3: welcome and pairing (Code Scanner or a pasted link), inbox, machines,
+  settings. One `Phone` per process in `core/AppCore.kt`, its loops in `core/PhoneSession.kt`; the identity
+  secret, records and seen state in a Keystore-sealed DataStore (`core/vault/`). Phase 4.2 plugs chat,
+  workspace and New session into `app/Features.kt` and nowhere else.
 - **Carried-over iOS code** (`apps/ios/carryover/`, [`apps/carryover/README.md`](apps/carryover/README.md)) — the
   notification service extension, push crypto, keychain item and push action handling from the Flutter app, with
   the bundle ids, team, entitlements and keychain groups the native apps must keep.
@@ -164,8 +169,10 @@ packages/link/   the Rust link stack: crypto, proto, core, daemon, power, relay;
 apps/ios/BroskiCore/  the Swift package of BroskiCore (generated bindings + XCFramework, both from scripts/build-ios-core.sh)
 apps/ios/Broski/  the iOS app (project.yml, Sources/{App,Core,DesignSystem,Features}, Shared, Tests, UITests)
 apps/ios/carryover/  iOS push code kept for Phase 4
-apps/android/    the Gradle build: :core, BroskiCore's Android library (bindings + .so from scripts/build-android-core.sh)
-scripts/         build-ios-core.sh, build-ios-app.sh, e2e-ios-app.sh, build-android-core.sh, check-android-alignment.sh
+apps/android/    the Gradle build: :core, BroskiCore's Android library (bindings + .so from scripts/build-android-core.sh);
+                 :app, the Android app (app/ shell, design/, core/, feature/<screen>/)
+scripts/         build-ios-core.sh, build-ios-app.sh, e2e-ios-app.sh, build-android-core.sh, test-android-real-machine.sh,
+                 check-android-alignment.sh
 docs/architecture/   contract, core, backends, connectivity-v2, mobile-packaging
 ```
 
@@ -212,6 +219,8 @@ export ANDROID_HOME="$HOME/Library/Android/sdk" JAVA_HOME="$(/usr/libexec/java_h
 scripts/build-android-core.sh              # cargo-ndk 4.1.2, NDK 28.2.13676358 under $ANDROID_HOME/ndk
 (cd apps/android && ./gradlew :core:assembleDebug :core:assembleRelease :core:testDebugUnitTest)
 scripts/check-android-alignment.sh apps/android/core/build/outputs/aar/core-release.aar
+(cd apps/android && ./gradlew :app:assembleDebug :app:assembleRelease :app:testDebugUnitTest :app:lint)
+scripts/test-android-real-machine.sh       # :app's instrumented tests against test-machine; a booted emulator or device
 
 # iOS app (XcodeGen 2.46; builds BroskiCore first when packages/link changed)
 scripts/build-ios-app.sh [simulator|device] [--unsigned]

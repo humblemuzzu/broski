@@ -14,7 +14,7 @@ use broski_client::{
 use broski_contract::{
     BackendId, ChoiceReply, ClientMessage, InteractionAnswer, InteractionAnswerRequest,
     InteractionReply, NewSessionOptions, NewSessionResult, PromptInput, PromptMode, PromptRequest,
-    PromptResult, ServerMessage, SessionCreateRequest, SessionRef, TranscriptItem,
+    PromptResult, ServerMessage, SessionCreateRequest, SessionRef, TermListRequest, TranscriptItem,
 };
 pub use broski_link_testkit::mac::Mac;
 use broski_link_testkit::WAIT;
@@ -135,6 +135,20 @@ pub async fn prompt(
         ServerMessage::PromptResult(answer) => answer.result,
         other => panic!("{other:?}"),
     }
+}
+
+/// The id the machine gave a request it sent just now. It numbers every request the machine sends,
+/// attaches included, and the bridge answers with it, so the difference between two of these is
+/// the number of requests sent between them, counted on the wire.
+pub async fn requests_sent(machine: &Machine) -> u64 {
+    let list = ClientMessage::TermList(TermListRequest {
+        request_id: String::new(),
+    });
+    answer(machine, list, |answer| match answer {
+        ServerMessage::TermListResult(answer) => answer.request_id.parse().ok(),
+        _ => None,
+    })
+    .await
 }
 
 /// The answer to `request` as `read` takes it out; any other answer fails the test, naming it.

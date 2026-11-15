@@ -51,7 +51,7 @@ and a machine ends through `Phone.forget`).
 | `view.next_update() -> SessionUpdate`, `snapshot()`, `session()`, `capabilities()`, `close()` | a chat screen's data |
 | `terminal.next_update() -> TerminalUpdate`, `input(bytes)`, `resize(cols, rows, cell_w?, cell_h?)`, `summary()`, `close()` | a terminal screen's data |
 | `list.rows()`, `next_change()`, `load_more()`, `refresh()`, `close()` | one session list |
-| `inbox.rows()`, `next_change() -> InboxUpdate`, `mark_seen(machine_id, session)`, `seen()`, `restore_seen(state)` | the home screen |
+| `inbox.rows()`, `next_change() -> InboxUpdate`, `refresh()`, `mark_seen(machine_id, session)`, `seen()`, `restore_seen(state)` | the home screen |
 
 Every failure is a `ClientError`: `Refused{code, detail}` (the bridge's `error{…}`), `Rejected{code,
 detail}` (a result's `Rejected`, from the helpers that return nothing on success; every other helper
@@ -192,6 +192,10 @@ them, with or without rows; for one in them, markers of sessions no longer liste
 them bounded by the rows. So a session that appears or finishes after that is `Done` however late the UI
 looks, and a machine that had no session at its first read is not marked again at the next start.
 `next_change()` delivers the rows when they or the seen state changed, at most 30 times a second.
+`refresh()` is pull to refresh: each machine whose link is connected and whose bridge agreed on the
+protocol reloads every inbox list from its first page, and each machine whose link waits to dial dials
+now (a link that is down would only hold the requests until their deadline). It returns once the
+reloads are answered; the rows arrive through `next_change()` as always.
 
 ## Terminals
 
@@ -293,7 +297,9 @@ of the seen state, which is state and not an update.
   needs you → done and another working → done, ordered by state then newest first, and `mark_seen` makes
   one idle with the marker the app persists; a session that appears after the history was in but before
   the UI reads the inbox is still done; a machine with no history at its first read, restarted from the
-  persisted state, shows a session finished meanwhile as done.
+  persisted state, shows a session finished meanwhile as done; a refresh sends one first-page request
+  per inbox list (counted through the ids the machine gives its requests) and does not wait on a machine
+  whose link is down.
 - `workspace.rs` — `workspace.info`, `fs.list`, `fs.read` and `git.status` on a temp repository; a terminal
   echoes input and takes a resize; across a machine restart a terminal's view gets exactly the bytes it
   missed, each line once, equal to the bridge's own replay; a program that writes three times what the
