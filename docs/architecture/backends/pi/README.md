@@ -49,16 +49,16 @@ imports only Pi's packages, `node:` built-ins and itself, and that everything el
 - **A dialog asked in `session_start` fails the open.** Pi binds extensions before it attaches its stdin reader
   (`dist/modes/rpc/rpc-mode.js:305` against `:669`), so that dialog can never be answered; the host refuses the open
   with the dialog's title instead of waiting for the start deadline (20 s).
-- **Stop ladder** (`rpc/child.ts`): stdin EOF, 5 s; SIGTERM to the process group, 2 s; SIGKILL, 0.25 s. Pi runs
+- **Stop ladder** (`rpc/child.ts`): stdin EOF, 1.5 s; SIGTERM to the process group, 0.75 s; SIGKILL, 0.25 s. Pi runs
   `session_shutdown` on EOF; one SIGTERM during that shutdown does not interrupt it (`docs/rpc.md:93-97`). Why these
-  waits: a healthy `pi` is gone in a few hundred ms, so they bound only a stuck one. Pi's shutdown waits for an OAuth
-  refresh in flight to be saved (`dist/core/agent-session-runtime.js:309-318`, changelog 1.5.1, #11692); SIGKILL during it
-  loses the rotated token and signs the user out of that provider, in the terminal's `pi` as well, so the ladder gives a
-  refresh over a slow link time (a refresh normally takes well under a second; its 30 s timeout, `pi-ai`
-  `dist/auth/oauth/anthropic.js:77`, is not waited out). Hosted children run with `PI_OFFLINE=1`, so no refresh starts
-  by itself; one can be in flight only when the user turned that off or a run is aborted inside it. Session files
-  cannot be cut: Pi appends them synchronously (`dist/core/session-manager.js:813`). The bridge's own shutdown gives up
-  after 5 s (`lifecycle/teardown.ts`) and leaves a `pi` whose stdin closed to finish alone, never killing it.
+  waits, from Pi 1.5.2 (`docs/rpc.md` "Shutdown", changelog 1.5.1): a healthy `pi` is gone in a few hundred ms. Session
+  files cannot be cut by any timing, since Pi appends them synchronously (`dist/core/session-manager.js:813`). What a
+  SIGKILL can cut is Pi's wait for an OAuth refresh in flight to be saved (`dist/core/agent-session-runtime.js:309-318`,
+  #11692), which loses the rotated token; a refresh normally takes well under a second, and hosted children run with
+  `PI_OFFLINE=1`, so none starts by itself. The ladder is no longer because a host's settle wait plus the ladder must
+  fit the bridge's 5 s teardown (`host_hooks.test.ts`), after which a `pi` stuck in its shutdown would outlive the bridge
+  with nobody to kill it; waiting out the refresh's 30 s timeout (`pi-ai` `dist/auth/oauth/anthropic.js:77`) is not
+  possible there. A refresh in flight when the ladder runs out can still lose its token: an accepted residual risk.
 - **Measured** (5 starts, no extensions, M-series Mac): `get_state` answered 124–141 ms after spawn; RSS about 110 MB
   per `pi`.
 - **New sessions** are written by the bridge before `pi` starts (header and `broski.origin`), because Pi writes no
