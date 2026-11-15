@@ -6,6 +6,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteItem
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -13,6 +14,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.entryProvider
@@ -25,14 +27,16 @@ import com.muzammil.broski.feature.inbox.InboxScreen
 import com.muzammil.broski.feature.machines.MachinesScreen
 import com.muzammil.broski.feature.pairing.PairScreen
 import com.muzammil.broski.feature.settings.SettingsScreen
+import com.muzammil.broski.feature.workspace.workspaceEntries
 
 /**
  * The app once a Mac is paired: the navigation bar (a wide rail on large windows) around one
  * [NavDisplay], which gives every screen predictive back.
  */
 @Composable
-fun Shell(core: AppCore, phone: PhoneSession, features: Features) {
+fun Shell(core: AppCore, phone: PhoneSession, features: Features, openRequests: OpenRequests) {
     val navigator = rememberNavigator()
+    OpenRequested(openRequests, phone, features, navigator)
     val context = remember(phone, navigator) { FeatureContext(phone, navigator::open, navigator::back) }
     var newSessionOpen by rememberSaveable { mutableStateOf(false) }
     val tabs = TopLevel.entries.filter { it != TopLevel.Workspace || features.workspace != null }
@@ -74,6 +78,21 @@ fun Shell(core: AppCore, phone: PhoneSession, features: Features) {
     }
 }
 
+/**
+ * A session a notification asked for: the chat once it exists and the machine is still paired,
+ * else the inbox it is listed in.
+ */
+@Composable
+private fun OpenRequested(openRequests: OpenRequests, phone: PhoneSession, features: Features, navigator: Navigator) {
+    val requested by openRequests.next.collectAsStateWithLifecycle()
+    LaunchedEffect(requested) {
+        val route = requested ?: return@LaunchedEffect
+        if (navigator.tab != TopLevel.Inbox) navigator.select(TopLevel.Inbox)
+        if (features.session != null && phone.machine(route.machineId) != null) navigator.open(route)
+        openRequests.taken(route)
+    }
+}
+
 private fun EntryProviderScope<Route>.shellEntries(
     core: AppCore,
     context: FeatureContext,
@@ -96,5 +115,8 @@ private fun EntryProviderScope<Route>.shellEntries(
     entry<PairRoute> { PairScreen(phone = phone, onBack = navigator::back, onPaired = navigator::back) }
     entry<SettingsRoute> { SettingsScreen(core = core, phone = phone) }
     features.session?.let { session -> entry<SessionRoute> { route -> context.session(route) } }
-    features.workspace?.let { workspace -> entry<WorkspaceRoute> { context.workspace() } }
+    features.workspace?.let { workspace ->
+        entry<WorkspaceRoute> { context.workspace() }
+        workspaceEntries(context)
+    }
 }

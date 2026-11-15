@@ -14,6 +14,7 @@ enum class Haptic(internal val type: HapticFeedbackType) {
     Stop(HapticFeedbackType.GestureEnd),
     PickerStep(HapticFeedbackType.SegmentTick),
     SnapToLatest(HapticFeedbackType.GestureThresholdActivate),
+    KeyPress(HapticFeedbackType.KeyboardTap),
 }
 
 fun HapticFeedback.perform(haptic: Haptic) = performHapticFeedback(haptic.type)

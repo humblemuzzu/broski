@@ -220,6 +220,7 @@ They live in the repository's `scripts/` because they span `packages/link` (inpu
 | `apps/android/core/src/main/jniLibs/<abi>/libbroski_core.so` | `build-android-core.sh` | no |
 | `apps/android/core/src/generated/kotlin/uniffi/**` | `build-android-core.sh` | no |
 | `apps/android/core/src/test/native/libbroski_core.{dylib,so}` | `build-android-core.sh` | no |
+| `apps/android/terminal/src/main/jniLibs/<abi>/libbroski_terminal.so`, `src/test/native/` | `build-android-terminal.sh` | no |
 | `packages/link/mobile/bindgen.toml`, the scripts, `Package.swift`, the Gradle build, the tests | hand-written | yes |
 
 Bindings and binaries are build outputs: the bindings must match the library byte for byte (UniFFI
@@ -400,6 +401,13 @@ only: both bindings come from the same library metadata, and the JVM tests stay 
 **Checks** (from `apps/android`): `./gradlew :core:assembleDebug :core:assembleRelease
 :core:testDebugUnitTest`, then `scripts/check-android-alignment.sh core/build/outputs/aar/core-release.aar`.
 
+### The terminal module
+
+`:terminal` (`apps/android/terminal`) runs the bridge's PTY bytes through libghostty-vt on the phone.
+It is not part of BroskiCore: no Rust, no UniFFI, one C library and a small JNI shim, built by
+`scripts/build-android-terminal.sh`. Its build, pinned inputs, JNI surface and tests:
+[`android-terminal.md`](android-terminal.md).
+
 ## 5. CI
 
 `.github/workflows/ci.yml`:
@@ -415,8 +423,9 @@ only: both bindings come from the same library metadata, and the JVM tests stay 
   `build-ios-app.sh --test` on it. The end-to-end run needs Bun and a booted simulator and stays local.
 - `android-core` (`ubuntu-latest`) — the catalog's NDK and SDK packages (and `platforms;android-37.0`,
   which the app compiles against) through the runner's `sdkmanager` (the catalog's NDK wins over the
-  runner's preset `ANDROID_NDK_HOME`), `cargo-ndk` 4.1.2, `build-android-core.sh`, both assembles and
-  the JVM tests, the alignment check of the release AAR, then the app: `:app:assembleDebug
+  runner's preset `ANDROID_NDK_HOME`), `cargo-ndk` 4.1.2, `build-android-core.sh`,
+  `build-android-terminal.sh` (its cache restored by `actions/cache`), both assembles and the core's
+  and the terminal's JVM tests, the alignment check of the release AAR, then the app: `:app:assembleDebug
   :app:assembleRelease :app:testDebugUnitTest :app:lint` and the alignment check of the release APK.
 
 ## 6. Adding to the API

@@ -7,3 +7,7 @@ local.properties
 /core/src/main/jniLibs/
 /core/src/generated/
 /core/src/test/native/
+
+# Written by scripts/build-android-terminal.sh on every build.
+/terminal/src/main/jniLibs/
+/terminal/src/test/native/

@@ -1,5 +1,6 @@
 package com.muzammil.broski.app
 
+import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -20,7 +21,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         val splash = installSplashScreen()
         super.onCreate(savedInstanceState)
-        val core = (application as BroskiApplication).core
+        val app = application as BroskiApplication
+        val core = app.core
+        if (savedInstanceState == null) app.openRequests.offer(intent)
         splash.setKeepOnScreenCondition { core.state.value == CoreState.Starting || core.settings.value == null }
         enableEdgeToEdge()
         setContent {
@@ -33,8 +36,13 @@ class MainActivity : ComponentActivity() {
                 onDispose {}
             }
             BroskiTheme(appearance) {
-                ProvideClock { BroskiApp(core, BroskiFeatures) }
+                ProvideClock { BroskiApp(core, BroskiFeatures, app.openRequests) }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        (application as BroskiApplication).openRequests.offer(intent)
     }
 }

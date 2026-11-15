@@ -16,4 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Broski"
 
-include(":app", ":core")
+include(":app", ":core", ":terminal")

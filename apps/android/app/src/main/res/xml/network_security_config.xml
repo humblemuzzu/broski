@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The app's own HTTP is only decision letters to a relay, over TLS. The link to a Mac is the
+     core's Noise sockets, which this config does not govern. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+</network-security-config>

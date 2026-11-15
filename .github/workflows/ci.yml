@@ -167,10 +167,16 @@ jobs:
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$ndk" "platforms;android-36" "platforms;android-37.0" "build-tools;36.0.0"
       - name: Build the core libraries and the Kotlin bindings
         run: scripts/build-android-core.sh
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/broski
+          key: android-terminal-${{ hashFiles('scripts/build-android-terminal.sh') }}
+      - name: Build libghostty-vt and the terminal's JNI shim (the script fetches the pinned Zig)
+        run: scripts/build-android-terminal.sh
       - uses: gradle/actions/setup-gradle@v4
-      - name: Assemble the library and run the JVM tests
+      - name: Assemble the core library and run the core and terminal JVM tests
         working-directory: apps/android
-        run: ./gradlew :core:assembleDebug :core:assembleRelease :core:testDebugUnitTest
+        run: ./gradlew :core:assembleDebug :core:assembleRelease :core:testDebugUnitTest :terminal:testDebugUnitTest
       - name: Native libraries are 16 KB aligned
         run: scripts/check-android-alignment.sh apps/android/core/build/outputs/aar/core-release.aar
       - name: Build, test and lint the app
