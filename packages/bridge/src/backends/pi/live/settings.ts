@@ -13,7 +13,7 @@ import { hasWireId, modelWireId } from "../models/model-ids";
 import { supportedLevel } from "../models/thinking";
 import { isPermissionsMode, modeProblem, type PermissionsMode } from "../modes";
 import { ACCEPTED, rejected } from "../rejections";
-import type { PiModel, PiState } from "../rpc/replies";
+import { type PiModel, type PiState, selectedModel } from "../rpc/replies";
 import type { LiveState } from "./live-state";
 import type { PiChild } from "./pi-child";
 
@@ -52,7 +52,7 @@ export class SessionSettings {
 	/** What Pi says the session runs: at its start, and at a run's end, when an extension may have changed either. */
 	follow(state: Pick<PiState, "model" | "thinkingLevel">): void {
 		const before = `${this.modelId() ?? ""}|${this.shownThinking() ?? ""}`;
-		this.model = state.model;
+		this.model = selectedModel(state);
 		this.thinking = state.thinkingLevel;
 		if (`${this.modelId() ?? ""}|${this.shownThinking() ?? ""}` !== before) this.announce();
 	}

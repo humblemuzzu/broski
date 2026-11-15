@@ -10,6 +10,7 @@ export const PiModel = z.object({
 	id: z.string(),
 	name: z.string().optional(),
 	provider: z.string(),
+	api: z.string(),
 	reasoning: z.boolean().optional(),
 	/** A level mapped to `null` is one the model does not offer (`docs/models-configuration.md:37`). */
 	thinkingLevelMap: z.record(z.string(), z.string().nullable()).optional(),
@@ -28,6 +29,16 @@ export const StateReply = z.object({
 	sessionName: z.string().optional(),
 });
 export type PiState = z.output<typeof StateReply>;
+
+/**
+ * The model a session runs, or undefined when it has none: Pi's agent then holds a placeholder whose id, provider and
+ * api are all "unknown" (pi-agent-core 1.5.2 `dist/agent.js:18-29`), and `get_state` reports it as the model.
+ */
+export function selectedModel(state: Pick<PiState, "model">): PiModel | undefined {
+	const { model } = state;
+	const placeholder = model?.id === "unknown" && model.provider === "unknown" && model.api === "unknown";
+	return placeholder ? undefined : model;
+}
 
 export const ModelsReply = z.object({ models: z.array(PiModel) });
 

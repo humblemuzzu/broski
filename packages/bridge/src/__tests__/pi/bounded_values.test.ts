@@ -145,7 +145,7 @@ describe("command ids", () => {
 });
 
 function model(provider: string, id: string): PiModel {
-	return { id, name: id, provider, reasoning: false, input: ["text"], contextWindow: 1000 };
+	return { id, name: id, provider, api: "openai-completions", reasoning: false, input: ["text"], contextWindow: 1000 };
 }
 
 describe("model ids", () => {

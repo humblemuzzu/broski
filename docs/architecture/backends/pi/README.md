@@ -147,7 +147,10 @@ it refuses is asked again with the problem. Permissions live in the last `broski
 `get_commands`, dialogs cancelled. A listing with a hosted session in that directory asks that `pi` instead. The cache
 holds a read for 30 s while the stamps of Pi's sources (auth, models, settings, trust, extensions, prompts, skills, the
 project's `.pi`) are unchanged, stamped once the probe is done: a first `pi` start writes an empty `auth.json` and
-`models-store.json` (experiment). RPC lists only models Pi can run, so `includeUnavailable` adds nothing.
+`models-store.json` (experiment). RPC lists only models Pi can run, so `includeUnavailable` adds nothing. A `pi` with no model reports a placeholder
+(id, provider and api all `unknown`) as `get_state`'s model; `selectedModel` reads it as none, so a session shows no model
+and `setThinking`, `compact` and a prompt (which Pi refuses as "No API key found for the selected model") answer
+`no_model` (`live_no_model.test.ts`).
 
 ## 10. Reconnect
 
@@ -187,6 +190,7 @@ for `edit` and `write`, compaction and retry events, error classes, usage copied
 | the provider gets the session id when the model asks for affinity | `@earendil-works/pi-ai` `dist/api/openai-completions.js:516-541` |
 | retryable provider errors | `@earendil-works/pi-ai` `dist/utils/retry.js:208-215` |
 | supported thinking levels | `@earendil-works/pi-ai` `dist/models.js:701-713` |
+| a `pi` with no model holds the "unknown" placeholder model | `@earendil-works/pi-agent-core` `dist/agent.js:18-29`; `dist/core/auth-guidance.js:3,17-19`; experiment |
 
 ## 15. Deviations from the SDK adapter
 

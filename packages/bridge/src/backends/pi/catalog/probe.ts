@@ -7,7 +7,7 @@
 
 import { childEnv, type PiInstall } from "../pi-install";
 import { RpcClient } from "../rpc/client";
-import { CommandsReply, ModelsReply, type PiCommand, type PiModel, StateReply } from "../rpc/replies";
+import { CommandsReply, ModelsReply, type PiCommand, type PiModel, StateReply, selectedModel } from "../rpc/replies";
 
 export interface Catalog {
 	readonly models: readonly PiModel[];
@@ -42,9 +42,10 @@ export async function probeCatalog(install: PiInstall, cwd: string): Promise<Cat
 		if (!state.ok) return { failure: state.error };
 		if (!models.ok) return { failure: models.error };
 		if (!commands.ok) return { failure: commands.error };
+		const model = selectedModel(state.data);
 		return {
 			models: models.data.models,
-			...(state.data.model !== undefined && { model: state.data.model }),
+			...(model !== undefined && { model }),
 			thinking: state.data.thinkingLevel,
 			commands: commands.data.commands,
 		};

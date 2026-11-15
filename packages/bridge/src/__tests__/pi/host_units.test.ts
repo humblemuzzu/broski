@@ -174,7 +174,7 @@ describe("promptRejection", () => {
 	test.each([
 		["Agent is already processing. Specify streamingBehavior ('steer' or 'followUp') to queue the message.", "busy"],
 		["Cannot submit a prompt while compaction is in progress. Wait for compaction to finish and retry.", "busy"],
-		["No model selected.\n\nUse /login to log into a provider", "no_model"],
+		["No API key found for the selected model.\n\nUse /login to log into a provider", "no_model"],
 		["No API key found for scripted.\n\nUse /login to log into a provider via OAuth.", "auth"],
 		['Authentication failed for "x". Credentials may have expired.', "auth"],
 		["something else broke", "backend_error"],

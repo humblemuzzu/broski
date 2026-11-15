@@ -48,6 +48,8 @@ export interface PiWorldOptions {
 	 * Pi's own default under the agent dir. Pi's precedence is that order.
 	 */
 	readonly sessionsAt?: "env" | "setting" | "default";
+	/** Leave the agent dir with no model at all: a Pi nobody has signed in to a provider. */
+	readonly noModels?: boolean;
 	/** Start the backend with the link to terminal `pi` processes on, in a directory of the world's own. */
 	readonly link?: boolean;
 }
@@ -225,25 +227,26 @@ function linkIn(env: PiTestEnv): TerminalLinkOptions {
 function writeAgentFiles(env: PiTestEnv, url: string, options: PiWorldOptions): string {
 	const sessionsAt = options.sessionsAt ?? "env";
 	const bySetting = join(env.root, "sessions-by-setting");
-	writeScriptedModels(env.agentDir, url, PROVIDER, [
-		{ id: MODELS.plain, name: "Scripted Plain", reasoning: false, input: ["text", "image"] },
-		{ id: MODELS.reasoner, name: "Scripted Reasoner", reasoning: true, input: ["text", "image"] },
-		{
-			id: MODELS.noOff,
-			name: "Scripted No Off",
-			reasoning: true,
-			input: ["text", "image"],
-			thinkingLevelMap: { off: null },
-		},
-		{ id: MODELS.blind, name: "Scripted Blind", reasoning: false, input: ["text"] },
-		{
-			id: MODELS.tiny,
-			name: "Scripted Tiny",
-			reasoning: false,
-			input: ["text", "image"],
-			contextWindow: TINY_CONTEXT_WINDOW,
-		},
-	]);
+	if (!options.noModels)
+		writeScriptedModels(env.agentDir, url, PROVIDER, [
+			{ id: MODELS.plain, name: "Scripted Plain", reasoning: false, input: ["text", "image"] },
+			{ id: MODELS.reasoner, name: "Scripted Reasoner", reasoning: true, input: ["text", "image"] },
+			{
+				id: MODELS.noOff,
+				name: "Scripted No Off",
+				reasoning: true,
+				input: ["text", "image"],
+				thinkingLevelMap: { off: null },
+			},
+			{ id: MODELS.blind, name: "Scripted Blind", reasoning: false, input: ["text"] },
+			{
+				id: MODELS.tiny,
+				name: "Scripted Tiny",
+				reasoning: false,
+				input: ["text", "image"],
+				contextWindow: TINY_CONTEXT_WINDOW,
+			},
+		]);
 	const settings = {
 		defaultProvider: PROVIDER,
 		defaultModel: MODELS.reasoner,
