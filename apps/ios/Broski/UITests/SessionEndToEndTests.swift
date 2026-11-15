@@ -173,6 +173,9 @@ final class SessionEndToEndTests: XCTestCase {
 
         let large = try openChat(arguments: ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
         try screenshot("chat-largest-text")
+        let mode = large.buttons["Permissions, Ask first"]
+        XCTAssertTrue(mode.waitForExistence(timeout: timeout), "the permission mode stays in the composer")
+        XCTAssertLessThanOrEqual(mode.frame.maxX, large.buttons["Send"].frame.minX, "and beside the send button, not under it")
         try script("permission")
         send("Clean once more", in: large)
         XCTAssertTrue(large.buttons["Allow"].waitForExistence(timeout: timeout))

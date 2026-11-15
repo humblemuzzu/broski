@@ -1,40 +1,42 @@
 import GhosttyTerminal
 import SwiftUI
 
-/// The keys a phone keyboard lacks, in one glass row under the terminal: esc, a sticky ctrl, tab,
-/// arrows that repeat while held, `|`, `~`, `/`, and paste. Every key goes through the emulator,
-/// which encodes it for the program's key mode and applies an armed ctrl to it.
+/// The keys a phone keyboard lacks, in one glass row under the terminal: esc, a sticky ctrl and tab,
+/// which stay where they are, then arrows that repeat while held, `|`, `~`, `/`, and paste, which scroll
+/// under a fading edge when the row is too narrow. Every key goes through the emulator, which encodes
+/// it for the program's key mode and applies an armed ctrl to it.
 struct TerminalKeyBar: View {
     let state: TerminalViewState
     @State private var ctrl: TerminalPublicStickyActivation = .inactive
 
     var body: some View {
-        ScrollView(.horizontal) {
-            GlassEffectContainer(spacing: Spacing.xs) {
-                HStack(spacing: Spacing.xs) {
-                    key("esc", label: "Escape") { $0.sendKey(.escape) }
-                    ctrlKey
-                    key("tab", label: "Tab") { $0.sendKey(.tab) }
-                    arrow("arrow.left", label: "Left Arrow", .arrowLeft)
-                    arrow("arrow.up", label: "Up Arrow", .arrowUp)
-                    arrow("arrow.down", label: "Down Arrow", .arrowDown)
-                    arrow("arrow.right", label: "Right Arrow", .arrowRight)
-                    ForEach(["|", "~", "/"], id: \.self) { symbol in
-                        key(symbol, label: symbol) { view in
-                            if let press = TerminalKeyPress(typing: Character(symbol)) { view.sendKey(press) }
+        GlassEffectContainer(spacing: Spacing.xs) {
+            HStack(spacing: Spacing.xs) {
+                key("esc", label: "Escape") { $0.sendKey(.escape) }
+                ctrlKey
+                key("tab", label: "Tab") { $0.sendKey(.tab) }
+                FadingHorizontalScroll {
+                    HStack(spacing: Spacing.xs) {
+                        arrow("arrow.left", label: "Left Arrow", .arrowLeft)
+                        arrow("arrow.up", label: "Up Arrow", .arrowUp)
+                        arrow("arrow.down", label: "Down Arrow", .arrowDown)
+                        arrow("arrow.right", label: "Right Arrow", .arrowRight)
+                        ForEach(["|", "~", "/"], id: \.self) { symbol in
+                            key(symbol, label: symbol) { view in
+                                if let press = TerminalKeyPress(typing: Character(symbol)) { view.sendKey(press) }
+                            }
                         }
+                        PasteButton(payloadType: String.self) { texts in
+                            state.paste(text: texts.joined())
+                        }
+                        .labelStyle(.iconOnly)
+                        .buttonBorderShape(.capsule)
                     }
-                    PasteButton(payloadType: String.self) { texts in
-                        state.paste(text: texts.joined())
-                    }
-                    .labelStyle(.iconOnly)
-                    .buttonBorderShape(.capsule)
                 }
-                .padding(.horizontal, Spacing.m)
-                .padding(.vertical, Spacing.xs)
             }
+            .padding(.horizontal, Spacing.m)
+            .padding(.vertical, Spacing.xs)
         }
-        .scrollIndicators(.hidden)
         .font(.system(.subheadline, design: .monospaced).weight(.semibold))
     }
 

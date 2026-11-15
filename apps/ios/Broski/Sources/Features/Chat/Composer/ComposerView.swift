@@ -50,11 +50,8 @@ struct ComposerView: View {
                 if acceptsImages {
                     AttachmentMenu(draft: $draft, refuse: refuse)
                 }
-                ScrollView(.horizontal) {
-                    ComposerChips(catalog: catalog, choices: choices, choose: choose)
-                }
-                .scrollIndicators(.hidden)
-                .scrollBounceBehavior(.basedOnSize)
+                FadingHorizontalScroll { ComposerChips(part: .model, catalog: catalog, choices: choices, choose: choose) }
+                ComposerChips(part: .modes, catalog: catalog, choices: choices, choose: choose)
                 SendButton(action: action, alternative: SendAction.alternative(to: action, modes: modes), canSend: draft.hasContent, perform: perform)
             }
         }

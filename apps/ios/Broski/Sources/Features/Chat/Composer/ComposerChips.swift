@@ -1,10 +1,15 @@
 import BroskiCore
 import SwiftUI
 
-/// The chips under the field: the model (a menu, or a searchable sheet past a dozen, nothing when
-/// there is one), the model's thinking levels, and one chip per mode axis. Plain text on the
-/// composer's glass, never glass on glass; every step plays the picker haptic.
+/// The chips under the field, in two parts: the model (a menu, or a searchable sheet past a dozen,
+/// nothing when there is one) with its thinking levels and the mode axes after the first, which scroll
+/// when they do not fit; and the first mode axis (Claude Code's permission mode, Pi's permissions),
+/// which the composer keeps beside the send button so it is always in view. Plain text on the composer's glass, never glass on glass; every step plays the
+/// picker haptic.
 struct ComposerChips: View {
+    enum Part { case model, modes }
+
+    let part: Part
     let catalog: ComposerCatalog
     let choices: ComposerChoices
     let choose: (ComposerChoice) -> Void
@@ -12,17 +17,24 @@ struct ComposerChips: View {
     @State private var steps = 0
 
     static let menuLimit = 12
+    /// The widest the first mode chip's words get before they cut off, at any text size: the chip keeps its place beside the send button.
+    private static let modeLabelWidth: CGFloat = 120
 
     private var model: ModelSummary? { catalog.model(choices.modelId) }
 
     var body: some View {
         HStack(spacing: Spacing.m) {
-            modelChip
-            if let model, !model.thinking.options.isEmpty {
-                thinkingChip(model.thinking)
-            }
-            ForEach(catalog.modes, id: \.id) { axis in
-                modeChip(axis)
+            switch part {
+            case .model:
+                modelChip
+                if let model, !model.thinking.options.isEmpty {
+                    thinkingChip(model.thinking)
+                }
+                ForEach(catalog.modes.dropFirst(), id: \.id) { axis in
+                    modeChip(axis)
+                }
+            case .modes:
+                if let first = catalog.modes.first { modeChip(first, maxTextWidth: Self.modeLabelWidth) }
             }
         }
         .font(.footnote.weight(.medium))
@@ -71,7 +83,7 @@ struct ComposerChips: View {
         .accessibilityLabel("Thinking, \(label)")
     }
 
-    private func modeChip(_ axis: ModeAxis) -> some View {
+    private func modeChip(_ axis: ModeAxis, maxTextWidth: CGFloat? = nil) -> some View {
         let current = choices.modes[axis.id] ?? axis.defaultValue
         let label = axis.options.first { $0.value == current }?.label ?? axis.label
         return Menu {
@@ -85,7 +97,7 @@ struct ComposerChips: View {
                 }
             }
         } label: {
-            ChipLabel(text: label)
+            ChipLabel(text: label, maxTextWidth: maxTextWidth)
         }
         .accessibilityLabel("\(axis.label), \(label)")
     }
@@ -102,15 +114,30 @@ struct ComposerChips: View {
 private struct ChipLabel: View {
     let text: String
     var symbol: String?
+    var maxTextWidth: CGFloat?
 
     var body: some View {
         HStack(spacing: Spacing.xxs + 1) {
             if let symbol { Image(systemName: symbol).imageScale(.small) }
-            Text(text).lineLimit(1)
+            WidthCap(limit: maxTextWidth ?? .infinity) { Text(text).lineLimit(1) }
             Image(systemName: "chevron.up.chevron.down").imageScale(.small).font(.caption2)
         }
         .frame(minHeight: 32)
         .contentShape(.rect)
+    }
+}
+
+/// Takes its content's width up to `limit`, which `frame(maxWidth:)` would not: that grows to the
+/// limit whatever the content needs.
+private struct WidthCap: Layout {
+    let limit: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        subviews[0].sizeThatFits(ProposedViewSize(width: min(proposal.width ?? limit, limit), height: proposal.height))
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        subviews[0].place(at: bounds.origin, proposal: ProposedViewSize(bounds.size))
     }
 }
 
