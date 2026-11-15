@@ -106,7 +106,7 @@ function fieldType(path: string, schema: Schema): FieldType {
 		case "string":
 			return { kind: "string" };
 		case "integer":
-			return { kind: "int" };
+			return safeInteger(path, schema);
 		case "number":
 			return { kind: "double" };
 		case "boolean":
@@ -120,6 +120,15 @@ function fieldType(path: string, schema: Schema): FieldType {
 		default:
 			throw new Error(`${path}: unsupported schema ${JSON.stringify(schema)}`);
 	}
+}
+
+/** An integer bounded within JavaScript's safe range, as `z.int()` writes it, fits a signed 64-bit integer. */
+function safeInteger(path: string, schema: Schema): FieldType {
+	const lowest = schema.minimum ?? schema.exclusiveMinimum;
+	const highest = schema.maximum ?? schema.exclusiveMaximum;
+	const bounded = (bound: unknown) => typeof bound === "number" && Math.abs(bound) <= Number.MAX_SAFE_INTEGER;
+	if (!bounded(lowest) || !bounded(highest)) throw new Error(`${path}: integers must stay within the safe range`);
+	return { kind: "int" };
 }
 
 function asSchema(path: string, value: Schema | boolean | undefined): Schema {
