@@ -9,7 +9,7 @@ This document is the spec. The code is the definition: `packages/bridge/src/cont
 
 Where this document and an adapter README disagree about a backend fact, the adapter README wins unless the disagreement is listed under [Errata](#19-errata), which records what the SDK source says.
 
-**Contents.** [1 Layout](#1-where-it-lives) · [2 Hard rules](#2-hard-rules) · [3 Single source of truth](#3-single-source-of-truth-and-generation) · [4 Identity](#4-identity) · [5 The adapter interface](#5-the-adapter-interface) · [6 Capabilities](#6-capabilities) · [7 Events](#7-events) · [8 Live state](#8-live-state-snapshot-and-reconnect) · [9 Interactions](#9-interactions) · [10 Input](#10-input) · [11 Read models](#11-read-models) · [12 Wire protocol](#12-wire-protocol) · [13 Extensions](#13-backend-extensions) · [14 Conformance](#14-conformance) · [15 Lossy points](#15-lossy-points-and-unsupported-capabilities) · [16 Refinements of the brief](#16-refinements-of-the-brief) · [17 Not in the contract](#17-not-in-the-contract) · [18 Open questions](#18-open-questions) · [19 Errata](#19-errata)
+**Contents.** [1 Layout](#1-where-it-lives) · [2 Hard rules](#2-hard-rules) · [3 Single source of truth](#3-single-source-of-truth-and-generation) · [4 Identity](#4-identity) · [5 The adapter interface](#5-the-adapter-interface) · [6 Capabilities](#6-capabilities) · [7 Events](#7-events) · [8 Live state](#8-live-state-snapshot-and-reconnect) · [9 Interactions](#9-interactions) · [10 Input](#10-input) · [11 Read models](#11-read-models) · [12 Wire protocol](#12-wire-protocol) · [13 Extensions](#13-backend-extensions) · [14 Conformance](#14-conformance) · [15 Lossy points](#15-lossy-points-and-unsupported-capabilities) · [16 Refinements of the brief](#16-refinements-of-the-brief) · [17 Not in the contract](#17-not-in-the-contract) · [18 Open questions](#18-open-questions) · [19 Errata](#19-errata) · [20 The workspace](#20-the-workspace)
 
 ---
 
@@ -27,6 +27,7 @@ Where this document and an adapter README disagree about a backend fact, the ada
 | `contract/sessions.ts`, `transcript.ts`, `models.ts`, `modes.ts`, `commands.ts`, `usage.ts`, `status.ts`, `paging.ts`, `queue.ts`, `runs.ts`, `compaction.ts`, `content.ts`, `tools.ts`, `notice.ts` | Read models and the values events carry. |
 | `contract/snapshot.ts`, `session-reducer.ts`, `run-items.ts` | `SessionSnapshot`; `applyEvent`, the executable meaning of every event; how live events become the active run's items. |
 | `contract/protocol.ts`, `read-results.ts` | The wire protocol: requests, responses, version; the results of the read requests. |
+| `contract/protocol-workspace.ts`, `workspace-files.ts`, `workspace-git.ts`, `workspace-terminal.ts` | The workspace requests and responses, and what they carry: files, git, terminals (§20). `protocol-request.ts` holds `RequestId` and the request and response shapes both protocol files build on. |
 | `contract/extensions.ts` | Typed per-backend live events. |
 | `contract/backend.ts` | `AgentBackend`, `OpenSession`, `SessionControl`, the sinks, capability derivation. Plain TypeScript over the schema types. |
 | `contract/schema-registry.ts` | Names every schema after its export, for the JSON Schema. |
@@ -357,7 +358,7 @@ The core gives first-answer-wins across phones by calling `answer` once and refu
 PromptInput { clientRequestId, mode: start|steer|queue, text, attachments[], command? }
 PromptResult = accepted{disposition: started|steered|queued|handled, queueItemId?} | Rejected
 Rejected { status: rejected, rejection: Rejection }
-Rejection { code: busy|not_steerable|no_model|auth|invalid_input|unsupported|not_found|stale|closed|backend_error, message }
+Rejection { code: busy|not_steerable|no_model|auth|invalid_input|unsupported|not_found|forbidden|stale|closed|backend_error, message }
 ```
 
 `PromptInput` is strict: it has no other field. `disposition: handled` means the backend consumed the input without a run, such as an extension command.
@@ -485,7 +486,9 @@ Every client message is a request `{type, requestId, …}` answered by exactly o
 | `prompt{session, input}` | `{result: PromptResult}` |
 | `abort`, `interaction.answer{answer}`, `queue.cancel{queueItemId}`, `model.set{modelId}`, `thinking.set{thinking}`, `mode.set{axis, value}`, `compact{instructions?}` (each with `session`) | `{result: ActionResult}` |
 
-Server-pushed messages: `event{envelope}` (§7) and `catalog{backend, event}` (§5).
+The workspace requests (`workspace.info`, `fs.*`, `git.*`, `term.*`) are listed in §20.
+
+Server-pushed messages: `event{envelope}` (§7), `catalog{backend, event}` (§5), and a terminal's `term_output` and `term_exited` (§20).
 
 Every `…Listed`/`…Found`/`…Read` member is `{status: "accepted", …}`, and every result union shares the one `Rejected` member. `error{requestId?, error{code: invalid_message|unsupported_version|unknown_backend|unknown_session|not_attached|rate_limited|internal, message}}` is only for a request the bridge could not handle at all; `requestId` is absent when the message carried none the bridge could read. `rate_limited` means the request was not served because its connection sent too much too fast; it may be sent again a few seconds later. Every request gets exactly one answer: the bridge answers `internal` itself when a backend has not finished a request within its deadline. An operation the backend lacks is an `unsupported` rejection inside the normal result, because capabilities already told the app.
 
@@ -624,7 +627,6 @@ The brief names proposals and says to refine them. These are the places the cont
 
 ## 17. Not in the contract
 
-- **Workspace requests** (files, git, terminal) are served by the bridge, not by an agent backend; they join the protocol in Phase 3 (`docs/rebuild/PLAN.md`; the code is `src/workspace/`).
 - **Background-task control**: backgrounding a running tool, a task's stop affordance.
 - **Catalogs** beyond models, commands and modes: Pi's global vs project scope (pi §13), auth and login flows (CC D7).
 - **Taking over a session another client runs** (resuming a terminal-owned CC or Pi session interleaves writers, CC D28, pi §11): such a session stays watch-only.
@@ -666,3 +668,81 @@ Found in the Pi terminal link work:
 
 8. **§7 `session_replaced`, "under a new id"**: the event is also the stream's last event when the same session goes on with different `SessionCapabilities` (Pi: a terminal began or ended running a session the phone is looking at). The core already starts a new epoch for it; a client attached to the old epoch attaches again to the session it named, and the app treats a `session_replaced` or `replaced` that names the session it is viewing as a fresh attach, not as a lost session.
 9. **§2 rule 3, `zod` in adapters**: an adapter that owns a process boundary of its own (Pi's terminal link, a local socket to a `pi` process the adapter does not start) validates what crosses it with `zod`. `scripts/contract-gen/layers.ts` allows `zod` in `src/backends/<id>/` and nothing else beyond the previous list.
+
+## 20. The workspace
+
+The machine's files, git and terminals, for quick work from the phone: browse, read and search files; status, diff, stage, commit, branches and checkout; a real terminal. The bridge serves them itself, not an agent backend (`docs/rebuild/PLAN.md`), behind the core's `WorkspaceHost` port (core README §22). The requests are machine-level: none names a backend or a session.
+
+### 20.1 Requests
+
+Every answer is `{type: "<type>.result", requestId, result}` with `result` an accepted value or the shared `Rejected` (§2 rule 5), except `term.detach`, answered `{}` or `error{not_attached}`.
+
+| Request | Accepted result |
+|---|---|
+| `workspace.info{}` | `WorkspaceInfo{roots[], git, terminal}`: the folders every path must lie in (canonical, home first), whether git is installed, whether the bridge can open terminals (its PTY helper is present) |
+| `fs.list{path, cursor?, limit?, hidden?}` | `FilesListed{path, entries[{name, kind: file\|dir\|symlink\|other, size?, modifiedAt?}], nextCursor?}`: directories first, then by name ignoring case; names starting with a dot only with `hidden`; a link is listed as itself. `limit` 1–200, 200 when absent. The cursor is the last entry's position, so a page goes on after it even when the directory changed |
+| `fs.read{path, offset?, length?}` | `FileRead{path, encoding: utf8\|base64, content, offset, length, size, truncated}`: at most `length` bytes (`MAX_FILE_READ_BYTES`, 3 MiB, when absent) from `offset`. UTF-8 without a NUL is text, ending on a whole character when more follows; anything else is base64. `length` is the bytes `content` covers, `size` the whole file's, and `truncated` says the file goes on at `offset + length` |
+| `fs.search{root, query, limit?}` | `FilesFound{root, matches[{path, kind}]}`: files and directories under `root` whose path relative to it matches `query` (at most 256 characters) by name, best match first. Names only: content search is not offered (§20.5) |
+| `git.status{cwd}` | `GitStatusRead{root, branch?, head?, upstream?{name, ahead, behind}, staged[], unstaged[], untracked[], truncated}`; a change is `{path, previousPath?, change: added\|modified\|deleted\|renamed\|copied\|type_changed\|conflicted, additions?, deletions?}` (no counts for a binary or conflicted file); `branch` is absent on a detached HEAD, `head` before the first commit |
+| `git.diff{cwd, path?, staged?}` | `GitDiffRead{root, files[{path, previousPath?, change, binary, hunks[{oldStart, oldLines, newStart, newLines, header?, lines[{kind: context\|added\|removed, text, oldLine?, newLine?, noNewline?}]}]}], truncated}`: the working tree against the index, or the index against HEAD with `staged`. A conflicted file is listed without hunks |
+| `git.stage{cwd, paths}`, `git.unstage{cwd, paths}` | `ActionResult`; `.` is everything |
+| `git.commit{cwd, message}` | `GitCommitted{commit{hash, subject, author, authoredAt}}`: commits what is staged |
+| `git.branches{cwd}` | `GitBranchesListed{branches[{name, remote, current, upstream?}], truncated}`: local branches first, a remote one named with its remote (`origin/main`) |
+| `git.checkout{cwd, branch}` | `GitCheckedOut{branch}`: a local branch, or a remote branch's name without its remote, which makes the local branch tracking it |
+| `git.log{cwd, limit?}` | `GitLogRead{commits[]}`: the current branch's newest, 1–200, 200 when absent |
+| `term.list{}` | `TerminalsListed{terminals[TerminalSummary]}`, newest first; `TerminalSummary{id, cwd, cols, rows, createdAt, status: running\|exited, exitCode?, signal?}` |
+| `term.open{cwd, cols, rows, cellWidth?, cellHeight?}` | `TerminalOpened{terminal}`: the user's login shell in `cwd`, sized in cells and, when the cell size is given, in pixels (programs read both, image protocols the pixels) |
+| `term.attach{id, since?}` | `TerminalAttached{terminal, seq, data}`, then live `term_output` (§20.2) |
+| `term.detach{id}` | `{}` |
+| `term.input{id, data}` | `ActionResult`: `data` is base64 of the bytes the phone's terminal encoded for the keys |
+| `term.resize{id, cols, rows, cellWidth?, cellHeight?}` | `ActionResult` |
+| `term.close{id}` | `ActionResult`: ends the process if it runs, then forgets the terminal |
+
+Every git request names a directory inside the repository; the bridge runs git in the repository's top directory, which every path in a git request and answer is relative to (`root`).
+
+### 20.2 Terminals
+
+- **The bridge ships bytes; the phone emulates.** `term_output{id, seq, data}` carries raw output as base64: no decoding, no emulation, no replacement of bytes that are not UTF-8. The phone's VT emulator (libghostty) renders it (`docs/rebuild/research/terminal.md`).
+- **`seq` is a byte offset** into the terminal's output since it opened: an output's `seq` is the offset of its first byte, so the next starts at `seq` plus its length.
+- **Replay.** A terminal is read from the moment it opens until its process ends, viewed or not, into a ring of its newest `MAX_TERMINAL_OUTPUT_BYTES` (512 KiB). `term.attach{since}` answers what the ring holds from `since` on when it reaches back that far, else everything it holds; the answer's `seq` says where it starts, so a client that asked for more than it got knows there is a gap (and resets its emulator before applying it). Live output follows from `seq` plus the replay's length, with nothing missed or repeated in between. A full-screen program redraws on a resize, which a phone can send after a gapped replay.
+- **Only to its viewers.** `term_output` and `term_exited{id, exitCode?, signal?}` go only to the clients attached to the terminal. `term_exited` is the last: an exited terminal has no viewers, and attaching to one answers its replay and views nothing.
+- **Input and resizes need an attach** (`error{not_attached}` otherwise) and reach the terminal in the order the client sent them. Closing does not: a terminal can be ended from the list.
+- **Exited terminals are kept**, with their output and how they ended, until closed or until a new terminal needs the place of the oldest: at most `MAX_TERMINALS` (20) at once. Opening a twenty-first while all run is `busy`.
+- Bridge shutdown ends every terminal.
+
+### 20.3 Bounds
+
+| Value | Bound |
+|---|---|
+| One `fs.read` | `MAX_FILE_READ_BYTES` 3 MiB; `content` at most `MAX_IMAGE_CHARS` (base64 of it) |
+| A search query | `MAX_SEARCH_QUERY_CHARS`, 256 |
+| A diff | `MAX_DIFF_LINES` (20,000) lines, `MAX_TEXT_CHARS` characters of line text, `MAX_LIST_ITEMS` files; cut at a whole line, with `truncated` |
+| Status lists, branches | `MAX_LIST_ITEMS` each, with `truncated` |
+| Paths a request names, `git.stage`/`git.unstage` | `MAX_PATH_CHARS` each; 1–1,000 of them |
+| Terminals | `MAX_TERMINALS` 20; columns, rows and cell pixels 1–`MAX_TERMINAL_DIMENSION` (500) |
+| Terminal output | `MAX_TERMINAL_OUTPUT_BYTES` 512 KiB a replay (`MAX_TERMINAL_OUTPUT_CHARS` of base64); a `term_output` carries at most 64 KiB |
+| One `term.input` | `MAX_TERMINAL_INPUT_BYTES` 64 KiB (`MAX_TERMINAL_INPUT_CHARS` of base64) |
+
+An answer the link cannot carry is read again smaller, never cut: a shorter listing page with its cursor, a shorter file read that says `truncated`, a diff cut earlier, fewer matches (core README §9, §22). File content, diff lines and terminal output are never shortened as free text.
+
+### 20.4 Errors
+
+What could not be done is a `Rejected` with a plain message:
+
+| Code | When |
+|---|---|
+| `forbidden` | The path lies outside the served folders, or a link leads out of them; a repository whose top directory does; the system refused the bridge the file |
+| `not_found` | The path does not exist; a directory is in no git work tree; no such terminal |
+| `invalid_input` | A path that is not a directory or not a file where one is needed; a cursor the bridge did not give out; a repository path that is absolute, leaves the repository or reads as an option; a branch name git could take for something else; and everything git itself refuses, in git's own words: nothing to commit, a switch that would overwrite local changes, an unknown branch, unmerged paths |
+| `closed` | Input or a resize for a terminal that has exited |
+| `busy` | Twenty terminals run |
+| `unsupported` | git is not installed; the machine cannot open terminals; a bridge without a workspace |
+| `backend_error` | git did not finish within 45 s or could not run; a terminal could not be started or resized; an unexpected file system error |
+
+`forbidden` is the one code the workspace added: none of the others says "outside what this bridge may touch", and a phone shows that differently from a path that does not exist.
+
+### 20.5 Not offered
+
+- **Content search.** No served code searches file contents, and the one fast way (ripgrep) is not on every machine; a search that works only sometimes would need its own capability for little gain on a phone, where the agent searches contents on request.
+- Push, pull, fetch, stash, branch creation, discarding changes and per-commit diffs: outside the phone's scope (PLAN, Phone scope).
+- A diff of an untracked file: its content is read with `fs.read`.

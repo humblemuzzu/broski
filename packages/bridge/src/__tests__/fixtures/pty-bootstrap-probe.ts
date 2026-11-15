@@ -6,7 +6,7 @@
  */
 
 import { dirname } from "node:path";
-import { isNativePtyAvailable } from "../../workspace/pty/native-pty";
+import { isNativePtyAvailable } from "../../workspace/pty/native-pty-library";
 import { extractPtySidecar } from "../../workspace/pty/sidecar-embed";
 
 declare const BROSKI_PTY_LIB_B64: string;

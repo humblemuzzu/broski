@@ -18,9 +18,10 @@ import type { Mutant } from "./mutate-core/mutant";
 import { PROTOCOL_MUTANTS } from "./mutate-core/protocol-mutants";
 import { REPLACEMENT_MUTANTS } from "./mutate-core/replacement-mutants";
 import { FIT_MUTANTS, SEAM_MUTANTS } from "./mutate-core/seam-mutants";
+import { WORKSPACE_MUTANTS } from "./mutate-core/workspace-mutants";
 
 const BRIDGE = resolve(import.meta.dir, "..");
-const COPIED = ["src", "scripts", "package.json", "tsconfig.json", "bunfig.toml", "biome.json"];
+const COPIED = ["src", "scripts", "native", "package.json", "tsconfig.json", "bunfig.toml", "biome.json"];
 const TESTS = [
 	"src/__tests__/core_",
 	"src/__tests__/contract_layers",
@@ -50,6 +51,7 @@ const mutants = [
 	...REPLACEMENT_MUTANTS,
 	...FIT_MUTANTS,
 	...SEAM_MUTANTS,
+	...WORKSPACE_MUTANTS,
 ].filter((mutant) => mutant.name.includes(filter));
 
 const stale = mutants.flatMap((mutant) => {

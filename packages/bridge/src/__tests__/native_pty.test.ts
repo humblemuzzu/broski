@@ -1,14 +1,9 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-	isNativePtyAvailable,
-	nativeConnectPty,
-	nativeCreatePty,
-	nativeDeletePty,
-	nativeResizePty,
-} from "../workspace/pty/native-pty";
+import { nativeConnectPty, nativeCreatePty, nativeDeletePty, nativeResizePty } from "../workspace/pty/native-pty";
+import { ensureNativePtyLibrary } from "./helpers/native-pty-library";
 
 const CHILD_OUTPUT_DEADLINE_MS = 10_000;
 const PTY_TEST_TIMEOUT_MS = 25_000;
@@ -29,6 +24,12 @@ async function waitForOutput(read: () => string, expected: string): Promise<stri
 	return read();
 }
 
+const encoder = new TextEncoder();
+
+beforeAll(() => {
+	ensureNativePtyLibrary();
+});
+
 afterEach(async () => {
 	for (const dir of tmpDirs) await rm(dir, { recursive: true, force: true }).catch(() => {});
 	tmpDirs = [];
@@ -38,11 +39,6 @@ describe("Native PTY integration", () => {
 	test(
 		"supports shell I/O with a real TTY",
 		async () => {
-			if (!isNativePtyAvailable()) {
-				expect(isNativePtyAvailable()).toBe(false);
-				return;
-			}
-
 			const script = await makeChildScript('while read -r line; do printf "got:%s\\n" "$line"; done\n');
 			const session = await nativeCreatePty({ command: script });
 			expect(session).toBeTruthy();
@@ -54,11 +50,12 @@ describe("Native PTY integration", () => {
 				if (!conn) return;
 
 				let output = "";
+				const decoder = new TextDecoder();
 				conn.onData((data) => {
-					output += data;
+					output += decoder.decode(data, { stream: true });
 				});
 
-				conn.write("native-pty-ok\n");
+				conn.write(encoder.encode("native-pty-ok\n"));
 				expect(await waitForOutput(() => output, "got:native-pty-ok")).toContain("got:native-pty-ok");
 			} finally {
 				conn?.disconnect();
@@ -71,11 +68,6 @@ describe("Native PTY integration", () => {
 	test(
 		"supports resize updates (smooth terminal geometry behavior)",
 		async () => {
-			if (!isNativePtyAvailable()) {
-				expect(isNativePtyAvailable()).toBe(false);
-				return;
-			}
-
 			const script = await makeChildScript("while read -r line; do stty size; done\n");
 			const session = await nativeCreatePty({ rows: 24, cols: 80, command: script });
 			expect(session).toBeTruthy();
@@ -87,17 +79,18 @@ describe("Native PTY integration", () => {
 				if (!conn) return;
 
 				let output = "";
+				const decoder = new TextDecoder();
 				conn.onData((data) => {
-					output += data;
+					output += decoder.decode(data, { stream: true });
 				});
 
-				conn.write("initial\n");
+				conn.write(encoder.encode("initial\n"));
 				const initial = await waitForOutput(() => output, "24 80");
 				expect(initial).toContain("24 80");
 				expect(initial).not.toContain("42 130");
 
-				expect(nativeResizePty(session.id, 42, 130)).toBe(true);
-				conn.write("resized\n");
+				expect(nativeResizePty(session.id, { rows: 42, cols: 130 })).toBe(true);
+				conn.write(encoder.encode("resized\n"));
 				expect(await waitForOutput(() => output, "42 130")).toContain("42 130");
 			} finally {
 				conn?.disconnect();

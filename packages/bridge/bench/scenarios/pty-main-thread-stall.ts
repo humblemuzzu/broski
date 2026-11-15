@@ -10,15 +10,15 @@ import "../lib/bench-home";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { ensureNativePtyLibrary } from "../../src/__tests__/helpers/native-pty-library";
 import {
-	isNativePtyAvailable,
 	type NativePtyConnection,
 	nativeConnectPty,
 	nativeCreatePty,
 	nativeDeletePty,
 	nativeGetPty,
 } from "../../src/workspace/pty/native-pty";
-import { ensureNativePtyLibrary } from "../lib/pty-helper";
+import { isNativePtyAvailable } from "../../src/workspace/pty/native-pty-library";
 import { runScenario } from "../lib/report";
 
 const IDLE_SESSIONS = Math.max(1, Number(process.env.BENCH_PTY_SESSIONS ?? "3") || 3);
@@ -67,8 +67,9 @@ async function measureEchoLatency(): Promise<number[]> {
 
 	const pending = new Map<string, number>();
 	const latencies: number[] = [];
+	const decoder = new TextDecoder();
 	connection.onData((data) => {
-		for (const line of data.split("\n")) {
+		for (const line of decoder.decode(data, { stream: true }).split("\n")) {
 			const match = /^ACK:ping-(\d+)/.exec(line.trim());
 			if (!match?.[1]) continue;
 			const sentAt = pending.get(match[1]);
@@ -83,7 +84,7 @@ async function measureEchoLatency(): Promise<number[]> {
 		for (let i = 0; i < ECHO_SAMPLES; i++) {
 			const key = String(i);
 			pending.set(key, performance.now());
-			connection.write(`ping-${key}\n`);
+			connection.write(new TextEncoder().encode(`ping-${key}\n`));
 			const deadline = Date.now() + 2000;
 			while (pending.has(key) && Date.now() < deadline) await Bun.sleep(1);
 			pending.delete(key);

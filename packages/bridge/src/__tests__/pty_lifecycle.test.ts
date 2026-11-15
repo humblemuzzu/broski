@@ -4,19 +4,20 @@
  * shape of the shutdown rather than only its effect.
  */
 
-import { afterAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { readdirSync } from "node:fs";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-	isNativePtyAvailable,
 	nativeConnectPty,
 	nativeCreatePty,
 	nativeDeletePty,
 	nativeGetPty,
 	nativeListPty,
+	type PtyExit,
 } from "../workspace/pty/native-pty";
+import { ensureNativePtyLibrary } from "./helpers/native-pty-library";
 
 const PTY_TEST_TIMEOUT_MS = 25_000;
 const EXIT_DEADLINE_MS = 10_000;
@@ -24,6 +25,10 @@ const IDLE_COMMAND = { command: "sleep", args: ["30"] };
 
 const createdIds: string[] = [];
 const tempDirs: string[] = [];
+
+beforeAll(() => {
+	ensureNativePtyLibrary();
+});
 
 afterAll(async () => {
 	for (const id of createdIds) await nativeDeletePty(id).catch(() => {});
@@ -48,11 +53,6 @@ describe("native PTY session lifecycle", () => {
 	test(
 		"a child exit is reported once with its exit code, then reading stays quiet",
 		async () => {
-			if (!isNativePtyAvailable()) {
-				expect(isNativePtyAvailable()).toBe(false);
-				return;
-			}
-
 			const script = await makeChildScript('printf "bye-exit\\n"; exit 7\n');
 			const session = await nativeCreatePty({ command: script });
 			expect(session).toBeTruthy();
@@ -64,14 +64,15 @@ describe("native PTY session lifecycle", () => {
 			if (!connection) return;
 
 			let output = "";
-			let exitCode: number | undefined;
+			let exit: PtyExit | undefined;
 			let exits = 0;
+			const decoder = new TextDecoder();
 			connection.onData((data) => {
-				output += data;
+				output += decoder.decode(data, { stream: true });
 			});
-			connection.onExit((code) => {
+			connection.onExit((ended) => {
 				exits += 1;
-				exitCode = code;
+				exit = ended;
 			});
 
 			const deadline = Date.now() + EXIT_DEADLINE_MS;
@@ -79,7 +80,7 @@ describe("native PTY session lifecycle", () => {
 
 			expect(output).toContain("bye-exit");
 			expect(exits).toBe(1);
-			expect(exitCode).toBe(7);
+			expect(exit).toEqual({ code: 7 });
 
 			const lengthAtExit = output.length;
 			await sleep(250);
@@ -97,11 +98,6 @@ describe("native PTY session lifecycle", () => {
 	test(
 		"deleting a session stops its reader and closes its descriptor",
 		async () => {
-			if (!isNativePtyAvailable()) {
-				expect(isNativePtyAvailable()).toBe(false);
-				return;
-			}
-
 			const fdsBefore = openFdCount();
 			const session = await nativeCreatePty(IDLE_COMMAND);
 			expect(session).toBeTruthy();

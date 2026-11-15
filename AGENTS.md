@@ -126,7 +126,7 @@ packages/bridge/src/
   backends/pi/   the Pi adapter (one `pi --mode rpc` per hosted session; no Pi package imported)
   backends/claude-code/  the Claude Code adapter (Claude Agent SDK driving the user's `claude`)
   server/        wiring: listeners, the contract seam, the link feed, the Claude Code hook receiver
-  workspace/     files, git and PTY, protocol-free; Phase 3 serves them over the contract
+  workspace/     files, git and terminals over the contract, behind the core's WorkspaceHost port (workspace-host.ts)
   transport/     send queue and frame limits
   platform/ config/ doctor/ wizard/ commands/ lifecycle/ logging/  the CLI and service around the bridge
 packages/link/   the Rust link stack: crypto, proto, core, ffi, daemon, power, relay
