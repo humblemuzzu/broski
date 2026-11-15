@@ -48,6 +48,17 @@ struct PairingTests {
         #expect(offer.source == .pasted)
     }
 
+    @Test func theCountdownRunsFromTheInstantTheViewChecksAndEndsAtTheExpiry() {
+        let expiresAt = Date(timeIntervalSince1970: 1_000)
+        let offer = PairingModel.Offer(
+            uri: "broski://pair", machineId: "m", name: "Studio Mac", expiresAt: expiresAt, alreadyPaired: false, source: .scanned)
+
+        let justBefore = expiresAt.addingTimeInterval(-0.001)
+        #expect(offer.countdown(at: justBefore) == justBefore...expiresAt)
+        #expect(offer.countdown(at: expiresAt) == nil)
+        #expect(offer.countdown(at: expiresAt.addingTimeInterval(0.4)) == nil)
+    }
+
     @Test func pastingNothingARefusalOrSomethingElseSaysWhichAndExplainsTheLink() {
         let test = TestStorage()
         defer { test.remove() }

@@ -12,6 +12,12 @@ final class PairingModel {
         let expiresAt: Date
         let alreadyPaired: Bool
         let source: PairingProblem.Source
+
+        /// The span a countdown from `date` shows, or `nil` once the code has expired. It is built
+        /// from the instant the view decided on, so its bounds can never cross.
+        func countdown(at date: Date) -> ClosedRange<Date>? {
+            date < expiresAt ? date...expiresAt : nil
+        }
     }
 
     enum Step: Equatable {

@@ -13,15 +13,15 @@ struct OfferPreview: View {
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
-            let expired = context.date >= offer.expiresAt
+            let countdown = offer.countdown(at: context.date)
             VStack(spacing: Spacing.xl) {
                 ScrollView {
-                    details(expired: expired)
+                    details(countdown: countdown)
                         .padding(.horizontal, Spacing.xl)
                         .padding(.top, Spacing.xxxl)
                 }
                 .scrollBounceBehavior(.basedOnSize)
-                actions(expired: expired)
+                actions(expired: countdown == nil)
                     .padding(.horizontal, Spacing.xl)
                     .padding(.bottom, Spacing.l)
             }
@@ -36,7 +36,7 @@ struct OfferPreview: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    private func details(expired: Bool) -> some View {
+    private func details(countdown: ClosedRange<Date>?) -> some View {
         VStack(spacing: Spacing.l) {
             Image(systemName: "laptopcomputer")
                 .font(.system(size: symbolSize, weight: .light))
@@ -45,17 +45,17 @@ struct OfferPreview: View {
             Text(offer.name)
                 .font(.title.bold())
                 .multilineTextAlignment(.center)
-            if expired {
-                Label("This code expired. Run broski-link pair again.", systemImage: "clock.badge.xmark")
-                    .foregroundStyle(Palette.failed)
-            } else {
+            if let countdown {
                 HStack(spacing: Spacing.xs) {
                     Text("Code expires in")
-                    Text(timerInterval: Date.now...offer.expiresAt, countsDown: true)
+                    Text(timerInterval: countdown, countsDown: true)
                         .monospacedDigit()
                 }
                 .foregroundStyle(.secondary)
                 .accessibilityElement(children: .combine)
+            } else {
+                Label("This code expired. Run broski-link pair again.", systemImage: "clock.badge.xmark")
+                    .foregroundStyle(Palette.failed)
             }
             if offer.alreadyPaired {
                 Label("Already paired. Pairing again replaces it.", systemImage: "checkmark.seal")
