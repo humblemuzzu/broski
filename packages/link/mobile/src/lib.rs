@@ -1,8 +1,10 @@
 //! BroskiCore, the library the iOS and Android apps link: the phone's client core (`broski-client`)
 //! exported to Swift and Kotlin through UniFFI, with the functions the notification handlers and the
-//! pairing scanner call without a `Phone`.
+//! pairing scanner call without a `Phone`, and the rendering both apps draw the same way
+//! (`broski-render`).
 //!
-//! Every export is a thin wrapper; the behaviour lives in the client, session and contract crates.
+//! Every export is a thin wrapper; the behaviour lives in the client, session, contract and render
+//! crates.
 //! No export takes a foreign callback: updates are pulled (`next_event`, `next_update`,
 //! `next_change`). Every async export can be polled from a Swift task or a Kotlin coroutine without
 //! blocking its thread, because the client waits on `Notify`s and runs its timers on the link
@@ -15,6 +17,7 @@ mod offer;
 mod phone;
 mod push;
 mod record;
+mod render;
 mod values;
 mod version;
 mod views;
@@ -28,6 +31,10 @@ pub use push::{
     decision_letter, open_notification, HttpHeader, LetterRequest, PushDecision, PushNotification,
 };
 pub use record::MachineRecord;
+pub use render::{
+    file_change_diff, git_diff_file, highlight, language_for_path, markdown_blocks,
+    normalize_language, parse_unified_diff, side_by_side,
+};
 pub use version::{core_version, CoreVersion};
 pub use views::{SessionList, SessionView, TerminalView};
 

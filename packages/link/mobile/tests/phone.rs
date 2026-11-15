@@ -1,7 +1,7 @@
 //! The exported API driven as an app drives it, against the real daemon and the real bridge
 //! (`broski-link-testkit`): pairing from a scanned offer, a chat whose UI copy equals the view's
-//! snapshot, the inbox and its seen markers, a session list, a terminal, and an app that starts
-//! again from what it stored.
+//! snapshot, the inbox with its seen markers and its cache, a session list, a terminal, and an app
+//! that starts again from what it stored and shows its last inbox before the machine answers.
 
 #[path = "../../client/tests/common/replica.rs"]
 mod replica;
@@ -143,15 +143,32 @@ async fn chat(machine: &Machine, mac: &mut Mac, session: &SessionRef) {
     );
 }
 
-/// The home screen's loop, as the app runs it for its whole life: the rows of every update.
-fn home_screen(inbox: Arc<Inbox>) -> (watch::Receiver<Vec<InboxRow>>, JoinHandle<()>) {
+/// The home screen's loop, as the app runs it for its whole life.
+struct HomeScreen {
+    /// The rows of every update.
+    shown: watch::Receiver<Vec<InboxRow>>,
+    /// The newest cache it was handed to persist.
+    persisted: watch::Receiver<Option<Vec<u8>>>,
+    pulling: JoinHandle<()>,
+}
+
+fn home_screen(inbox: Arc<Inbox>) -> HomeScreen {
     let (rows, shown) = watch::channel(inbox.rows());
+    let (cache, persisted) = watch::channel(None);
     let pulling = tokio::spawn(async move {
         loop {
-            let _ = rows.send(inbox.next_change().await.rows);
+            let update = inbox.next_change().await;
+            if update.cache.is_some() {
+                let _ = cache.send(update.cache);
+            }
+            let _ = rows.send(update.rows);
         }
     });
-    (shown, pulling)
+    HomeScreen {
+        shown,
+        persisted,
+        pulling,
+    }
 }
 
 async fn inbox_until(
@@ -263,7 +280,7 @@ async fn an_app_pairs_chats_and_finds_it_all_again_after_a_restart() {
     let offer = mac.offer().await;
     let scanned = parse_pairing_offer(offer.clone()).expect("an offer");
     let phone = Phone::new(secret.clone(), config()).expect("a phone");
-    let (mut shown, home) = home_screen(phone.inbox());
+    let mut home = home_screen(phone.inbox());
     let machine = phone.pair(offer).await.expect("paired");
     assert_eq!(scanned.machine_id, machine.id());
     let stored = machine.record().to_bytes();
@@ -271,7 +288,7 @@ async fn an_app_pairs_chats_and_finds_it_all_again_after_a_restart() {
 
     let session = create_session(&machine, mac.root_text()).await;
     chat(&machine, &mut mac, &session).await;
-    let seen = see(&phone, &mut shown, &machine, &session).await;
+    let seen = see(&phone, &mut home.shown, &machine, &session).await;
     let query = SessionQuery {
         cwd: Some(mac.root_text()),
         parent: None,
@@ -279,18 +296,45 @@ async fn an_app_pairs_chats_and_finds_it_all_again_after_a_restart() {
     let list = machine.session_list(BackendId::Pi, query).expect("a list");
     listed(&list, &session).await;
     terminal(&machine, mac.root_text()).await;
-    home.abort();
+    // The cache is the app's opaque bytes; JSON inside, which is how the test knows it is current.
+    let current = |cache: &Option<Vec<u8>>| {
+        let text = String::from_utf8_lossy(cache.as_deref().unwrap_or_default()).into_owned();
+        text.contains(&session.session_id) && text.contains("\"state\":\"idle\"")
+    };
+    let cached = home.persisted.wait_for(current);
+    let cache = timeout_at(Instant::now() + WAIT, cached)
+        .await
+        .expect("a cache in time")
+        .expect("the loop runs")
+        .clone()
+        .expect("a cache");
+    home.pulling.abort();
     drop((list, machine, phone));
 
     let phone = Phone::new(secret, config()).expect("the phone again");
     phone.inbox().restore_seen(seen);
-    let (mut shown, home) = home_screen(phone.inbox());
+    phone
+        .inbox()
+        .restore_cache(cache)
+        .expect("the cache restores");
     let record = MachineRecord::from_bytes(stored).expect("the stored record");
     let machine = phone.start(record).expect("started");
+    let first = phone.inbox().rows();
+    let last_known = first.iter().find(|row| row.session == session);
+    assert!(
+        last_known.is_some_and(|row| row.cached && row.state == InboxState::Idle),
+        "the last inbox shows before the machine answers: {first:?}"
+    );
+    let mut home = home_screen(phone.inbox());
     events_until(&machine, "the bridge again", ready).await;
-    let seen = in_state(&session, InboxState::Idle);
-    inbox_until(&mut shown, "the seen session after the restart", seen).await;
-    home.abort();
+    let live = in_state(&session, InboxState::Idle);
+    inbox_until(
+        &mut home.shown,
+        "the seen session after the restart",
+        |rows| live(rows) && rows.iter().all(|row| !row.cached),
+    )
+    .await;
+    home.pulling.abort();
 
     phone.forget(machine.id());
     while timeout_at(Instant::now() + WAIT, machine.next_event())
