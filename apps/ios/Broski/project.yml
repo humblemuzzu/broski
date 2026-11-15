@@ -1,0 +1,102 @@
+# The Broski iOS app. `xcodegen generate` (or scripts/build-ios-app.sh) writes Broski.xcodeproj,
+# which is a build output and never committed.
+#
+# Every target globs its folders, so a new folder under Sources/Features needs no edit here.
+# Phase 4.2 adds two targets beside BroskiTests — `NotificationService` (type app-extension, sources
+# Extensions/NotificationService and Shared) and `LiveActivity` (type app-extension, sources
+# Extensions/LiveActivity) — and names both under the Broski target's `dependencies` (`embed: true`).
+name: Broski
+
+options:
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+  xcodeVersion: "27.2"
+
+packages:
+  BroskiCore:
+    path: ../BroskiCore
+
+settings:
+  base:
+    DEVELOPMENT_TEAM: FGYQ983C57
+    CODE_SIGN_STYLE: Automatic
+    SWIFT_VERSION: "6.0"
+    SWIFT_APPROACHABLE_CONCURRENCY: YES
+    SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY: YES
+    SWIFT_TREAT_WARNINGS_AS_ERRORS: YES
+    GCC_TREAT_WARNINGS_AS_ERRORS: YES
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+
+targets:
+  Broski:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+      - path: Shared
+      - path: Resources
+    dependencies:
+      - package: BroskiCore
+        product: BroskiCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.muzammil.broski
+        PRODUCT_NAME: Broski
+        INFOPLIST_FILE: Resources/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Resources/Broski.entitlements
+        SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS: YES
+
+  BroskiTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests
+    dependencies:
+      - target: Broski
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.muzammil.broski.tests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+
+  BroskiUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: UITests
+    dependencies:
+      - target: Broski
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.muzammil.broski.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: Broski
+
+schemes:
+  Broski:
+    build:
+      targets:
+        Broski: all
+    test:
+      config: Debug
+      targets:
+        - BroskiTests
+  # Pairs with a real machine; scripts/e2e-ios-app.sh starts one and passes its offer in.
+  BroskiE2E:
+    build:
+      targets:
+        Broski: all
+        BroskiUITests: [test]
+    test:
+      config: Debug
+      targets:
+        - BroskiUITests
