@@ -7,11 +7,6 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
-val coreVersion: String = rootDir.resolve("../../packages/link/mobile/Cargo.toml").readLines()
-    .first { it.startsWith("version = ") }
-    .substringAfter('"')
-    .substringBefore('"')
-
 android {
     namespace = "com.muzammil.broski"
     compileSdk = libs.versions.android.appCompileSdk.get().toInt()
@@ -22,7 +17,6 @@ android {
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
         versionName = "0.1.0"
-        buildConfigField("String", "CORE_VERSION", "\"$coreVersion\"")
         // The ABIs scripts/build-android-core.sh builds libbroski_core.so for; JNA ships more.
         ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

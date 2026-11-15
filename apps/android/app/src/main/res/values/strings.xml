@@ -130,7 +130,8 @@
     <string name="settings_appearance_dark">Dark</string>
     <string name="settings_about">About</string>
     <string name="settings_version_app">Broski</string>
-    <string name="settings_version_core">BroskiCore</string>
+    <string name="settings_version_core">Core</string>
+    <string name="settings_core_version">%1$s · protocol %2$d.%3$d</string>
     <string name="settings_bridge_unknown">Bridge version not known yet</string>
     <string name="settings_privacy">Everything is end-to-end encrypted between this phone and your Mac. The relay can\'t read it.</string>
 </resources>

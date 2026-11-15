@@ -26,6 +26,7 @@ import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -49,6 +50,7 @@ import com.muzammil.broski.design.Haptic
 import com.muzammil.broski.design.SectionHeader
 import com.muzammil.broski.design.groupedListItemColors
 import com.muzammil.broski.design.perform
+import uniffi.broski_core.coreVersion
 
 private data class NotificationRow(val kind: NotificationKind, @StringRes val title: Int, @StringRes val body: Int)
 
@@ -73,6 +75,8 @@ fun SettingsScreen(core: AppCore, phone: PhoneSession) {
     val viewModel = viewModel { SettingsViewModel(core.settingsStore, core.settings, phone.machines) }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val core = remember { coreVersion() }
+    val coreDescription = stringResource(R.string.settings_core_version, core.library, core.protocol.major, core.protocol.minor)
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -95,7 +99,7 @@ fun SettingsScreen(core: AppCore, phone: PhoneSession) {
                 SectionHeader(stringResource(R.string.settings_appearance))
                 AppearancePicker(state.settings.appearance, viewModel::setAppearance)
             }
-            about(state)
+            about(state, coreDescription)
         }
     }
 }
@@ -168,11 +172,11 @@ private fun AppearancePicker(selected: Appearance, onSelect: (Appearance) -> Uni
 
 private const val STACKED_FONT_SCALE = 1.3f
 
-private fun LazyListScope.about(state: SettingsUiState) {
+private fun LazyListScope.about(state: SettingsUiState, coreDescription: String) {
     item(key = "about") { SectionHeader(stringResource(R.string.settings_about)) }
     val versions = buildList {
         add(R.string.settings_version_app to BuildConfig.VERSION_NAME)
-        add(R.string.settings_version_core to BuildConfig.CORE_VERSION)
+        add(R.string.settings_version_core to coreDescription)
     }
     val count = versions.size + state.machines.size
     versions.forEachIndexed { index, (label, version) ->
