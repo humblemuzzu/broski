@@ -51,6 +51,15 @@ describe("the type model", () => {
 		expect(() => typeModel(documentOf({ Loose: loose }))).toThrow(/strict/);
 	});
 
+	test("refuses an integer beyond JavaScript's safe range, which a 64-bit client integer could not hold", () => {
+		const unbounded = strictObject({ count: { type: "integer", minimum: 0 } }, ["count"]);
+		expect(() => typeModel(documentOf({ Holder: unbounded }))).toThrow(/safe range/);
+		const huge = strictObject({ count: { type: "integer", minimum: 0, maximum: 2 ** 64 } }, ["count"]);
+		expect(() => typeModel(documentOf({ Holder: huge }))).toThrow(/safe range/);
+		const safe = strictObject({ count: { type: "integer", exclusiveMinimum: 0, maximum: 200 } }, ["count"]);
+		expect(typeModel(documentOf({ Holder: safe })).get("Holder")).toMatchObject({ kind: "class" });
+	});
+
 	test("refuses a union whose members no tag tells apart", () => {
 		const member = strictObject({ kind: { type: "string", const: "same" } }, ["kind"]);
 		const union: Schema = { "x-module": "test", oneOf: [{ $ref: "#/$defs/A" }, { $ref: "#/$defs/B" }] };

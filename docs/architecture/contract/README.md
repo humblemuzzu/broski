@@ -33,9 +33,10 @@ Where this document and an adapter README disagree about a backend fact, the ada
 | `contract/schema-registry.ts` | Names every schema after its export, for the JSON Schema. |
 | `contract/contract.schema.json` | **Generated.** The contract as one JSON Schema (draft 2020-12). |
 | `contract/testing/` | The fake backend (`fake-*.ts`), the stream checker, the conformance suite (`conformance*.ts`, `rules-*.ts`) and its runner. |
-| `packages/bridge/scripts/gen-contract.ts`, `scripts/contract-gen/` | The generator: the JSON Schema and the fixtures; `--check`. |
+| `packages/bridge/scripts/gen-contract.ts`, `scripts/contract-gen/` | The generator: the JSON Schema, the fixtures and the Rust models (`rust-*.ts`); `--check`. |
 | `packages/bridge/scripts/check-layers.ts`, `scripts/contract-gen/layers.ts`, `import-scan.ts` | The layer check, and the import reader it runs on. |
-| `packages/bridge/contract-fixtures/` | **Generated.** `constants.json` (every bound), `contract_samples.json`, `fake_session_stream.json`, `reducer_trace.json`, `frame_prefix.json`: what a client core (Phase 3) holds itself equal to. |
+| `packages/bridge/contract-fixtures/` | **Generated.** `constants.json` (every bound), `contract_samples.json`, `fake_session_stream.json`, `reducer_trace.json`, `frame_prefix.json`: what the phone core holds itself equal to. |
+| `packages/link/contract/` | The contract in the phone core's Rust (crate `broski-contract`): `src/generated/` **generated** models and bounds, `json_value.rs`, `tagged.rs`, `frame.rs` and the reducer port (`reducer.rs`, `run_items.rs`) by hand; `tests/fixtures/` replays every fixture, through the **generated** type registry in `tests/fixtures/generated/`. |
 
 Commands, from `packages/bridge`: `bun run contract:gen` writes every generated file, `bun run contract:check` fails if any is stale, and `bun run check:layers` checks imports. CI runs both in the bridge job.
 
@@ -68,6 +69,7 @@ Commands, from `packages/bridge`: `bun run contract:gen` writes every generated 
 - Every union is discriminated by a string tag (`type` for messages and events, `kind` or `status` for values).
 - No `null`. Optional means absent.
 - `JsonValue` is the only open type, for genuinely free JSON (tool input, edited input). It is checked by one bounded walk (`json.ts`) rather than a recursive zod schema, because zod recurses once per level of the input and overflows the stack near 10,000 levels; the generator writes its JSON Schema by hand to the same shape. `NativeIds` (`string → string`) carries backend-native ids for debugging. Nothing in the contract is `unknown` or `any`.
+- Every integer stays within JavaScript's safe range (`z.int()` writes those bounds), so a client holds it in a signed 64-bit integer.
 
 **Pipeline** (`bun run contract:gen`):
 
@@ -76,12 +78,26 @@ zod schemas ──z.toJSONSchema──▶ src/contract/contract.schema.json ─�
       ├──FakeBackend scripted session──▶ contract-fixtures/fake_session_stream.json (every AgentEvent member, as wire ServerMessages)
       │                               └──applyEvent──▶ contract-fixtures/reducer_trace.json (the snapshot and status after every event)
       ├──limits.ts, MAX_PAGE_LIMIT, REQUEST_DEADLINE_MS──▶ contract-fixtures/constants.json
-      └──encodeFrame──▶ contract-fixtures/frame_prefix.json (how the core begins every frame, and one frame it encoded)
+      ├──encodeFrame──▶ contract-fixtures/frame_prefix.json (how the core begins every frame, and one frame it encoded)
+      └──type model + the bounds──▶ packages/link/contract/src/generated/ (one Rust file per contract module, constants.rs, mod.rs)
+                                └──▶ packages/link/contract/tests/fixtures/generated/mod.rs (every type by schema name, for the fixture tests)
 ```
+
+**The Rust models** (`scripts/contract-gen/rust-emit.ts`, `rust-fields.ts`, `rust-names.ts`, `rust-registry.ts`) are what the phone core decodes and encodes, and what its UniFFI crate exports to Swift and Kotlin (each model derives `uniffi::Record` or `uniffi::Enum` behind the crate's `uniffi` feature; a downstream UniFFI crate uses them as external types with no further code). The emitter writes rustfmt's own layout, so neither `contract:check` nor CI needs `rustfmt` to agree with it. What it writes:
+
+- An object is a struct with `deny_unknown_fields` and `rename_all = "camelCase"`: the Rust field name puts `_` before each capital of the wire name (`toolCallId` → `tool_call_id`), which serde's camelCase undoes exactly. A field named by a Rust keyword is a raw identifier.
+- An optional field is `Option<T>`: absent decodes to `None` and `None` is not written; `null` is refused (`codec::present`), except as the value of an optional `JsonValue`, where zod takes it too.
+- A union is an enum internally tagged by its discriminator (`#[serde(tag = "type")]`), one variant per member named after its tag value (`session.attach.result` → `SessionAttachResult`), holding the member's struct. A member of several unions is one struct in each. An unknown tag or enum value is an error.
+- A member struct has no tag field, because its union writes and checks the tag; it implements `Tagged` with its tag, and a field that holds a member directly (`AttachmentRead.image`) goes through `tagged.rs`, which writes and checks the tag the same way.
+- `integer` is `i64`, `number` `f64`, a string `String` whatever its pattern or format (the bridge checks what the phone sends, §9), a map `HashMap<String, T>`, `JsonValue` the hand-written enum in `json_value.rs` (numbers as `f64`, an object's members in wire order). An alias is a Rust `type` alias. The bounds of `constants.json` are `usize` constants.
+
+The emitter fails, naming the type, on a member tagged twice (serde reads one discriminator), on a list, map or alias of a union member (it would lose its tag; hold the union), and on a name Rust, Swift or Kotlin cannot take: a schema name the Rust prelude, Swift's standard library and Foundation, Kotlin's default imports or UniFFI's own declarations already use is renamed `Contract<Name>` (`Option` → `ContractOption`); a field or variant that cannot be an identifier, or a variant named `Companion` or `Self`, is an error.
+
+**The reducer port.** `packages/link/contract/src/reducer.rs` and `run_items.rs` are `session-reducer.ts` and `run-items.ts` in Rust, written by hand and applied in place. `reducer_trace.json` holds them equal: the crate's tests replay every step of every case and compare the snapshot (whole, or the SHA-256 of its canonical JSON) and `sessionStatus`. A change to the TypeScript reducer regenerates the trace, and the Rust test names the case and step where the port now differs.
 
 **Determinism.** Every generated file is ordered by UTF-16 code units, never by locale. `contract:check` ignores dotfiles (such as `.DS_Store`) in the directories it owns.
 
-**Changing the contract.** Edit the schema → `bun run contract:gen` → update this document and, if behaviour changed, the conformance rules.
+**Changing the contract.** Edit the schema → `bun run contract:gen` → `cargo test -p broski-contract` in `packages/link` (and the reducer port, if the reducer changed) → update this document and, if behaviour changed, the conformance rules.
 
 ## 4. Identity
 
@@ -258,7 +274,7 @@ SinkRecord    = EventEnvelope without seq and session      // what an adapter em
 
 `SessionSnapshot` is the live state: the active run with everything it has finished so far (`run.items`), open blocks with the newest `MAX_TEXT_CHARS` characters of their text, running tools with the newest `MAX_TEXT_CHARS` characters of their output, pending interactions, the queue, model, thinking and modes, usage, a compaction or retry in progress, and `lastOutcome`. Finished runs are read from the transcript.
 
-`applyEvent(snapshot, {at, event})` in `session-reducer.ts` is the executable meaning of every event. Adapters, the core, and (in Phase 3) the app all agree with it. `sessionStatus(snapshot)` derives `idle | running | waiting_for_user`: waiting while a pending interaction blocks the run.
+`applyEvent(snapshot, {at, event})` in `session-reducer.ts` is the executable meaning of every event. Adapters, the core, and the phone core's Rust port (`packages/link/contract`, held equal by `reducer_trace.json`, §3) all agree with it. `sessionStatus(snapshot)` derives `idle | running | waiting_for_user`: waiting while a pending interaction blocks the run.
 
 **Reconnect is two-sided.**
 
@@ -631,7 +647,6 @@ The brief names proposals and says to refine them. These are the places the cont
 - **Catalogs** beyond models, commands and modes: Pi's global vs project scope (pi §13), auth and login flows (CC D7).
 - **Taking over a session another client runs** (resuming a terminal-owned CC or Pi session interleaves writers, CC D28, pi §11): such a session stays watch-only.
 - **Title search** in `SessionQuery`: CC and Pi would need the bridge index. An additive field later.
-- **The client reducer that mirrors `applyEvent`** (Phase 3).
 
 ## 18. Open questions
 

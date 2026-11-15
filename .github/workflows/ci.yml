@@ -68,5 +68,7 @@ jobs:
         run: cargo fmt --all --check
       - name: Clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Clippy (contract with its UniFFI derives)
+        run: cargo clippy -p broski-contract --all-targets --features uniffi -- -D warnings
       - name: Test
         run: cargo test --workspace

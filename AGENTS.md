@@ -78,8 +78,14 @@ The wire shape between bridge and phone is the backend contract in `packages/bri
   (`src/contract/limits.ts`).
 - **One protocol, no minors.** Nothing has shipped, so 1.0 changes in place; `hello` agrees on the major alone. Do
   not reintroduce per-minor views or stand-in frames.
-- **Generated files are never edited by hand**: `src/contract/contract.schema.json` and `contract-fixtures/*.json`
+- **Generated files are never edited by hand**: `src/contract/contract.schema.json`, `contract-fixtures/*.json`, and
+  in `packages/link/contract/` the Rust models in `src/generated/` and the type registry in `tests/fixtures/generated/`
   come from the zod schemas via `bun run contract:gen`; CI runs `bun run contract:check`.
+- **The phone core's contract** is the Rust crate `packages/link/contract` (`broski-contract`): the generated models
+  (serde, and `uniffi::Record`/`Enum` behind its `uniffi` feature), the hand-written `JsonValue`, the frame codec, and
+  a hand-written port of `session-reducer.ts` + `run-items.ts`. Its tests replay every fixture, so the fixtures hold it
+  equal to the TypeScript: change the schema or the reducer, run `bun run contract:gen`, then `cargo test -p
+  broski-contract` names the type, case and step the Rust must follow (contract README §3).
 - **Every adapter passes the conformance suite** (`runConformance` in `src/contract/testing/`, each rule proven to
   fail by the broken adapters in `src/__tests__/contract_negative_*.test.ts`), and every answer goes through
   `answerProblem` before it reaches a backend.
@@ -129,7 +135,7 @@ packages/bridge/src/
   workspace/     files, git and terminals over the contract, behind the core's WorkspaceHost port (workspace-host.ts)
   transport/     send queue and frame limits
   platform/ config/ doctor/ wizard/ commands/ lifecycle/ logging/  the CLI and service around the bridge
-packages/link/   the Rust link stack: crypto, proto, core, ffi, daemon, power, relay
+packages/link/   the Rust link stack: crypto, proto, core, ffi, daemon, power, relay; contract (the phone core's models and reducer)
 apps/ios/carryover/  iOS push code kept for Phase 4
 docs/architecture/   contract, core, backends, connectivity-v2
 ```
@@ -169,13 +175,15 @@ bun run mutate:core        # mutation check of the core (long); --check only mat
 
 cd packages/link
 cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace
+cargo clippy -p broski-contract --all-targets --features uniffi -- -D warnings
 ```
 
 `broski install` registers the daemon; `broski-link pair` shows the QR; `broski-link status` and
 `broski-bridge doctor` diagnose.
 
 **CI** (`.github/workflows/ci.yml`): the bridge job (Bun 1.4.2: frozen install, typecheck, biome errors, layers,
-contract check, tests, the perf budget in `bench/`) and the link job (fmt, clippy, tests on Ubuntu and macOS).
+contract check, tests, the perf budget in `bench/`) and the link job (fmt, clippy, clippy of the contract crate with
+its `uniffi` feature, tests on Ubuntu and macOS).
 **Pre-commit** (`.githooks/pre-commit`): biome errors and typecheck when bridge files are staged, `cargo fmt --check`
 when link files are.
 
