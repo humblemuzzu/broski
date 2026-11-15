@@ -11,7 +11,6 @@ import XCTest
 /// The tests run in order: the first pairs from a pasted link and pulls the inbox to refresh, the
 /// next look at the paired app.
 final class PairingEndToEndTests: XCTestCase {
-    private let environment = ProcessInfo.processInfo.environment
     private let timeout: TimeInterval = 30
 
     override func setUp() {
@@ -108,36 +107,13 @@ final class PairingEndToEndTests: XCTestCase {
         try screenshot("settings-largest-text")
     }
 
-    /// A tab of the tab bar, which a wide layout shows as a sidebar of buttons.
-    @MainActor
-    private func tab(_ name: String, in app: XCUIApplication) {
-        let inBar = app.tabBars.buttons[name]
-        (inBar.exists ? inBar : app.buttons[name].firstMatch).tap()
-    }
-
     @MainActor
     private func allowSystemPrompt(_ button: String) {
-        let allow = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons[button]
+        let allow = springboard.buttons[button]
         if allow.waitForExistence(timeout: 5) { allow.tap() }
     }
 
     private func seed(_ title: String) throws {
-        let path = try XCTUnwrap(environment["BROSKI_E2E_COMMANDS"])
-        let handle = try XCTUnwrap(FileHandle(forWritingAtPath: path))
-        defer { try? handle.close() }
-        try handle.seekToEnd()
-        try handle.write(contentsOf: Data("{\"seed\":\"\(title)\"}\n".utf8))
-    }
-
-    @MainActor
-    private func screenshot(_ name: String) throws {
-        let png = XCUIScreen.main.screenshot().pngRepresentation
-        let attachment = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
-        attachment.name = name
-        attachment.lifetime = .keepAlways
-        add(attachment)
-        if let directory = environment["BROSKI_E2E_SCREENSHOTS"] {
-            try png.write(to: URL(fileURLWithPath: directory).appending(path: "\(name).png"))
-        }
+        try command("{\"seed\":\"\(title)\"}")
     }
 }

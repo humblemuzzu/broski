@@ -3,9 +3,14 @@
 # real daemon and the real bridge on its fake backend) with two sessions in its history, a fresh
 # install of the app in the simulator with the machine's pairing link on its pasteboard, and the
 # BroskiE2E scheme's UI tests, which pair from the pasted link, add a session through the machine,
-# pull the inbox to refresh, and save a screenshot of every screen. The test daemon never advertises
-# itself, so this script advertises its LAN port as the daemon does (`_broski-link._tcp`, TXT `id`
-# and `v=1`), and checks that the app's browse found it and that the core answered the pull.
+# pull the inbox to refresh, follow a held run in the Live Activity and stop it from there, browse,
+# diff, stage and commit in a git repository made in the served root, type into a terminal, and save
+# a screenshot of every screen. Then it puts the push fixture's machine record in the app's keychain,
+# sends the fixture push with `simctl push` (which runs no notification service extension) and has
+# the notification test deny it from Notification Center.
+# The test daemon never advertises itself, so this script advertises its LAN port as the daemon does
+# (`_broski-link._tcp`, TXT `id` and `v=1`), and checks the app's log for the LAN browse, the
+# answered pull, the stop and the decision.
 #
 # Usage: scripts/e2e-ios-app.sh [output directory]   (default apps/ios/Broski/build/e2e)
 # BROSKI_SIMULATOR names the simulator (default "iPhone Duo"); it is erased of the app, its
@@ -26,8 +31,12 @@ mkfifo "$WORK/input"
 tail_pid=""
 machine_pid=""
 advert_pid=""
+pusher_pid=""
+log_pid=""
 
 cleanup() {
+  [[ -n $log_pid ]] && kill "$log_pid" 2>/dev/null || true
+  [[ -n $pusher_pid ]] && kill "$pusher_pid" 2>/dev/null || true
   [[ -n $advert_pid ]] && kill "$advert_pid" 2>/dev/null || true
   # Closing the machine's stdin stops it, and with it the daemon and the bridge.
   [[ -n $tail_pid ]] && kill "$tail_pid" 2>/dev/null || true
@@ -58,10 +67,29 @@ tail_pid=$!
 machine_pid=$!
 wait_for_lines '"offer"' 1 600
 offer="$(grep '"offer"' "$MACHINE_OUT" | head -1 | sed -E 's/.*"offer":"([^"]*)".*/\1/')"
+served="$(grep '"offer"' "$MACHINE_OUT" | head -1 | /usr/bin/python3 -c 'import json, sys; print(json.load(sys.stdin)["root"])')"
 
 echo '{"seed":"Fix the flaky login test"}' >>"$COMMANDS"
 echo '{"seed":"Rename the settings screen"}' >>"$COMMANDS"
-wait_for_lines '"seeded"' 2 60
+echo '{"seed":"Hold for the live activity"}' >>"$COMMANDS"
+wait_for_lines '"seeded"' 3 60
+# The third session's next run streams, then holds until released: the Live Activity's run.
+held="$(grep '"seeded"' "$MACHINE_OUT" | sed -n 3p | /usr/bin/python3 -c 'import json, sys; print(json.dumps(json.load(sys.stdin)["seeded"]))')"
+echo "{\"script\":$held,\"scenario\":\"hold\"}" >>"$COMMANDS"
+wait_for_lines '"scripted"' 1 60
+
+echo "==> Making $served/project a git repository"
+project="$served/project"
+mkdir -p "$project"
+git -C "$project" init --quiet --initial-branch=main
+git -C "$project" config user.name "Broski E2E"
+git -C "$project" config user.email "e2e@broski.invalid"
+printf 'one\n' >"$project/notes.md"
+git -C "$project" add notes.md
+git -C "$project" commit --quiet -m "First notes"
+git -C "$project" branch feature
+printf 'two\n' >>"$project/notes.md"
+printf 'buy milk\n' >"$project/todo.txt"
 
 # The machine id is the hex of the fingerprint's first 16 bytes (session/src/pairing.rs).
 read -r machine_id lan_port < <(/usr/bin/python3 -c '
@@ -70,6 +98,11 @@ query = urllib.parse.parse_qs(urllib.parse.urlsplit(sys.argv[1]).query)
 fingerprint = base64.urlsafe_b64decode(query["h"][0] + "=" * (-len(query["h"][0]) % 4))
 print(fingerprint[:16].hex(), query["l"][0].rsplit(":", 1)[1])
 ' "$offer")
+hold_session="$(/usr/bin/python3 -c '
+import json, sys
+session = json.loads(sys.argv[2])
+print(json.dumps({"machine": sys.argv[1], "backend": session["backend"], "sessionId": session["sessionId"]}))
+' "$machine_id" "$held")"
 dns-sd -P "Broski E2E" _broski-link._tcp local. "$lan_port" broski-e2e.local. 127.0.0.1 "id=$machine_id" v=1 \
   >/dev/null &
 advert_pid=$!
@@ -102,19 +135,63 @@ xcodegen generate --spec "$APP/project.yml" --project "$APP" --quiet
 rm -rf "$OUT"
 mkdir -p "$OUT/screenshots"
 echo "==> Running the end-to-end tests"
-started="$(date '+%Y-%m-%d %H:%M:%S')"
-TEST_RUNNER_BROSKI_E2E_COMMANDS="$COMMANDS" \
-  TEST_RUNNER_BROSKI_E2E_SCREENSHOTS="$OUT/screenshots" \
-  xcodebuild test \
+# The app's log is streamed while the tests run: `log show` afterwards misses info messages the
+# simulator kept only in memory.
+xcrun simctl spawn "$SIMULATOR" log stream --level info --style compact \
+  --predicate 'subsystem == "com.muzammil.broski"' >"$WORK/app.log" 2>/dev/null &
+log_pid=$!
+e2e_tests() {
+  TEST_RUNNER_BROSKI_E2E_COMMANDS="$COMMANDS" \
+    TEST_RUNNER_BROSKI_E2E_SCREENSHOTS="$OUT/screenshots" \
+    TEST_RUNNER_BROSKI_E2E_ROOT="$served" \
+    TEST_RUNNER_BROSKI_E2E_HOLD_SESSION="$hold_session" \
+    xcodebuild test \
+    -project "$APP/Broski.xcodeproj" \
+    -scheme BroskiE2E \
+    -destination "platform=iOS Simulator,name=$SIMULATOR" \
+    -derivedDataPath "$APP/build/DerivedData-e2e" \
+    "$@"
+}
+e2e_tests -skip-testing:BroskiUITests/NotificationEndToEndTests -resultBundlePath "$OUT/E2E.xcresult"
+
+echo "==> Putting the push fixture's machine record in the app's keychain"
+TEST_RUNNER_BROSKI_E2E_INSTALL_PUSH_RECORD=1 xcodebuild test \
   -project "$APP/Broski.xcodeproj" \
-  -scheme BroskiE2E \
+  -scheme Broski \
   -destination "platform=iOS Simulator,name=$SIMULATOR" \
   -derivedDataPath "$APP/build/DerivedData-e2e" \
-  -resultBundlePath "$OUT/E2E.xcresult"
+  -only-testing:BroskiTests/PushFixtureInstall \
+  -resultBundlePath "$OUT/PushRecord.xcresult"
+
+# The relay's APNs body (relay/src/push/apns.rs) around the core's pinned push vector, sent once
+# the notification test has the app in the background and asks for it. `simctl push` runs no
+# notification service extension, so the body also carries what the extension adds for the push
+# vector's plaintext (machine, backend, session, request; Tests/PushTests prove the extension's
+# content from the same vector).
+fixtures="$ROOT/packages/link/mobile/tests/fixtures"
+printf '{"aps":{"alert":{"title":"Broski","body":"New activity"},"mutable-content":1,"category":"approval","sound":"default"},"m":"%s","k":"approval","e":"%s","machine":"%s","backend":"claude-code","session":"s-1","request":"req-1"}' \
+  "$(/usr/bin/python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["id"])' "$fixtures/push-record.json")" \
+  "$(tr -d '\n' <"$fixtures/push.txt")" \
+  "$(/usr/bin/python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["id"])' "$fixtures/push-record.json")" \
+  >"$WORK/push.apns"
+(
+  for _ in $(seq 300); do
+    if [[ -f $OUT/screenshots/push-now ]]; then
+      xcrun simctl push "$SIMULATOR" com.muzammil.broski "$WORK/push.apns"
+      exit 0
+    fi
+    sleep 1
+  done
+) &
+pusher_pid=$!
+echo "==> Running the notification test"
+e2e_tests -only-testing:BroskiUITests/NotificationEndToEndTests -resultBundlePath "$OUT/Notification.xcresult"
+wait "$pusher_pid"
+rm -f "$OUT/screenshots/push-now"
 echo "==> Screenshots in $OUT/screenshots"
 
-app_log="$(xcrun simctl spawn "$SIMULATOR" log show --info --start "$started" --style compact \
-  --predicate 'subsystem == "com.muzammil.broski"')"
+kill "$log_pid"
+app_log="$(cat "$WORK/app.log")"
 found="$(grep "machine $machine_id found on the LAN" <<<"$app_log" || true)"
 if [[ -z $found ]]; then
   echo "error: the app's LAN browse never reported $machine_id" >&2
@@ -128,3 +205,17 @@ if [[ -z $refreshed ]]; then
   exit 1
 fi
 echo "==> Pull to refresh: ${refreshed##*] }"
+
+stopped="$(grep "a run was stopped from the Live Activity" <<<"$app_log" || true)"
+if [[ -z $stopped ]]; then
+  echo "error: Stop on the Live Activity never reached the core" >&2
+  exit 1
+fi
+echo "==> Live Activity stop: ${stopped##*] }"
+
+decided="$(grep "a decision was not sent\|a decision reached the relay" <<<"$app_log" || true)"
+if [[ -z $decided ]]; then
+  echo "error: Deny on the notification never ran the decision" >&2
+  exit 1
+fi
+echo "==> Notification decision: ${decided##*] }"
