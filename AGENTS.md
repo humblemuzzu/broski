@@ -59,9 +59,10 @@ native apps, the iOS and Android apps' foundations (Phase 4.1), and the iOS push
   (keychain code its extensions compile). Doc: [`apps/ios/README.md`](apps/ios/README.md).
 - **Android app** (`apps/android/app/`, [`apps/android/README.md`](apps/android/README.md)) — Kotlin, Compose,
   Material 3 Expressive, Navigation 3: welcome and pairing (Code Scanner or a pasted link), inbox, machines,
-  settings. One `Phone` per process in `core/AppCore.kt`, its loops in `core/PhoneSession.kt`; the identity
-  secret, records and seen state in a Keystore-sealed DataStore (`core/vault/`). Phase 4.2 plugs chat,
-  workspace and New session into `app/Features.kt` and nowhere else.
+  settings, the Workspace (files, git, a terminal on libghostty-vt through the `:terminal` module's JNI shim),
+  FCM pushes with Allow/Deny and a Live Update while agents work (`feature/notifications/`). One `Phone` per
+  process in `core/AppCore.kt`, its loops in `core/PhoneSession.kt`; the identity secret, records and seen
+  state in a Keystore-sealed DataStore (`core/vault/`). Chat and New session plug into `app/Features.kt`.
 - **Carried-over iOS code** (`apps/ios/carryover/`, [`apps/carryover/README.md`](apps/carryover/README.md)) — the
   notification service extension, push crypto, keychain item and push action handling from the Flutter app, with
   the bundle ids, team, entitlements and keychain groups the native apps must keep.
@@ -170,9 +171,10 @@ apps/ios/BroskiCore/  the Swift package of BroskiCore (generated bindings + XCFr
 apps/ios/Broski/  the iOS app (project.yml, Sources/{App,Core,DesignSystem,Features}, Shared, Tests, UITests)
 apps/ios/carryover/  iOS push code kept for Phase 4
 apps/android/    the Gradle build: :core, BroskiCore's Android library (bindings + .so from scripts/build-android-core.sh);
+                 :terminal, libghostty-vt and its JNI shim (.so from scripts/build-android-terminal.sh);
                  :app, the Android app (app/ shell, design/, core/, feature/<screen>/)
-scripts/         build-ios-core.sh, build-ios-app.sh, e2e-ios-app.sh, build-android-core.sh, test-android-real-machine.sh,
-                 check-android-alignment.sh
+scripts/         build-ios-core.sh, build-ios-app.sh, e2e-ios-app.sh, build-android-core.sh, build-android-terminal.sh,
+                 test-android-real-machine.sh, check-android-alignment.sh
 docs/architecture/   contract, core, backends, connectivity-v2, mobile-packaging
 ```
 
@@ -217,7 +219,8 @@ cargo clippy -p broski-contract --all-targets -- -D warnings   # the workspace l
 scripts/build-ios-core.sh                  # macOS + Xcode; then in apps/ios/BroskiCore: swift test
 export ANDROID_HOME="$HOME/Library/Android/sdk" JAVA_HOME="$(/usr/libexec/java_home -v 17)"
 scripts/build-android-core.sh              # cargo-ndk 4.1.2, NDK 28.2.13676358 under $ANDROID_HOME/ndk
-(cd apps/android && ./gradlew :core:assembleDebug :core:assembleRelease :core:testDebugUnitTest)
+scripts/build-android-terminal.sh          # Zig 0.17.1 + libghostty-vt 1.0.1 (pinned, cached in ~/.cache/broski)
+(cd apps/android && ./gradlew :core:assembleDebug :core:assembleRelease :core:testDebugUnitTest :terminal:testDebugUnitTest)
 scripts/check-android-alignment.sh apps/android/core/build/outputs/aar/core-release.aar
 (cd apps/android && ./gradlew :app:assembleDebug :app:assembleRelease :app:testDebugUnitTest :app:lint)
 scripts/test-android-real-machine.sh       # :app's instrumented tests against test-machine; a booted emulator or device
@@ -241,7 +244,7 @@ shell profile sets the variables, so export `ANDROID_HOME` and `JAVA_HOME` (JDK 
 contract check, tests, the perf budget in `bench/`), the link job (fmt, clippy, clippy of the contract crate without
 its `uniffi` feature, the bridge's dependencies for the client's tests, tests on Ubuntu and macOS), `ios-core` (macOS 26: the iOS script, `swift test`, simulator and
 device links), `ios-app` (macOS 26: an unsigned device build and the unit tests on a simulator the job creates) and
-`android-core` (the Android script, both assembles, the JVM tests, the 16 KB alignment check, then the app's assembles, unit tests and lint).
+`android-core` (both Android scripts, both assembles, the core's and the terminal's JVM tests, the 16 KB alignment check, then the app's assembles, unit tests and lint).
 **Pre-commit** (`.githooks/pre-commit`): biome errors and typecheck when bridge files are staged, `cargo fmt --check`
 when link files are.
 
