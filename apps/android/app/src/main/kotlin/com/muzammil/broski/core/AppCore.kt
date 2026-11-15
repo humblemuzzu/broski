@@ -27,6 +27,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -85,6 +87,17 @@ class AppCore(private val context: Context) {
 
     private val mutableState = MutableStateFlow<CoreState>(CoreState.Starting)
     val state: StateFlow<CoreState> = mutableState.asStateFlow()
+
+    private val foreground = MutableStateFlow(false)
+    private val held = MutableStateFlow(false)
+
+    /**
+     * Keeps every link up while the app is in the background, as the Live Update does while agents
+     * work; without a hold the phone pauses its links when the app leaves the screen.
+     */
+    fun holdConnected(hold: Boolean) {
+        held.value = hold
+    }
 
     init {
         scope.launch(Dispatchers.IO) { mutableState.value = start() }
@@ -175,18 +188,23 @@ class AppCore(private val context: Context) {
         val discovery = LanDiscovery(context, session::lanDiscovered)
         NetworkWatcher(context, session::networkChanged).start()
         val lifecycle = ProcessLifecycleOwner.get().lifecycle
-        if (!lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) session.pause()
+        foreground.value = lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
         lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onStart(owner: LifecycleOwner) {
-                session.resume()
+                foreground.value = true
                 discovery.start()
             }
 
             override fun onStop(owner: LifecycleOwner) {
-                session.pause()
+                foreground.value = false
                 discovery.stop()
             }
         })
+        scope.launch {
+            combine(foreground, held) { shown, hold -> shown || hold }.distinctUntilChanged().collect { connected ->
+                if (connected) session.resume() else session.pause()
+            }
+        }
     }
 
     private companion object {

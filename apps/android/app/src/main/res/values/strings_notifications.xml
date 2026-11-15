@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Channels, as Android's notification settings list them -->
+    <string name="channel_needs_you">Needs you</string>
+    <string name="channel_done">Done</string>
+    <string name="channel_offline">Mac offline</string>
+    <string name="channel_live">Agents working</string>
+
+    <!-- Push -->
+    <string name="notify_allow">Allow</string>
+    <string name="notify_deny">Deny</string>
+    <string name="notify_allowing">Allowing…</string>
+    <string name="notify_denying">Denying…</string>
+    <string name="notify_allowed">Allowed</string>
+    <string name="notify_denied">Denied</string>
+    <string name="notify_decision_failed">Couldn\'t reach your Mac. Open Broski to answer.</string>
+    <string name="notify_sending_decision">Sending your answer to your Mac</string>
+    <string name="notify_machine_offline">%1$s is offline</string>
+    <string name="notify_machine_asleep">%1$s is asleep</string>
+    <string name="notify_machine_away_body">Its agents wait until it\'s back.</string>
+
+    <!-- The ask after a pairing -->
+    <string name="notify_ask_title">Turn on notifications?</string>
+    <string name="notify_ask_body">So you can approve from the lock screen, and know when an agent is done.</string>
+    <string name="notify_ask_allow">Turn on</string>
+    <string name="notify_ask_later">Not now</string>
+
+    <!-- Live Update -->
+    <plurals name="live_working">
+        <item quantity="one">%1$d agent working</item>
+        <item quantity="other">%1$d agents working</item>
+    </plurals>
+    <plurals name="live_needs_you">
+        <item quantity="one">%1$d needs you</item>
+        <item quantity="other">%1$d need you</item>
+    </plurals>
+    <string name="live_focused">%1$s · %2$s · %3$s</string>
+    <string name="live_chip">Working</string>
+    <string name="live_stop">Stop</string>
+</resources>

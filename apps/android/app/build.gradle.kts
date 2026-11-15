@@ -20,6 +20,11 @@ android {
         // The ABIs scripts/build-android-core.sh and build-android-terminal.sh build for; JNA ships more.
         ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // The Firebase project push needs, from the gradle properties broski.firebase.* (apps/android/README.md,
+        // "Push"); empty without them, and the app then runs without push.
+        listOf("APP_ID" to "appId", "API_KEY" to "apiKey", "PROJECT_ID" to "projectId", "SENDER_ID" to "senderId").forEach { (field, property) ->
+            buildConfigField("String", "FIREBASE_$field", "\"${providers.gradleProperty("broski.firebase.$property").getOrElse("")}\"")
+        }
     }
 
     buildTypes {
@@ -38,6 +43,11 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    // The facade's push fixtures, read by the notification tests on the device.
+    sourceSets.named("androidTest") {
+        assets.directories += rootDir.resolve("../../packages/link/mobile/tests/fixtures").path
     }
 
     testOptions {
@@ -68,6 +78,8 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.navigation3)
     implementation(libs.androidx.navigation3.runtime)
     implementation(libs.androidx.navigation3.ui)
+    implementation(libs.androidx.work.runtime)
+    implementation(libs.firebase.messaging)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.play.services.code.scanner)
@@ -79,7 +91,10 @@ dependencies {
 
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.rules)
     androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.work.testing)
+    androidTestImplementation(libs.mockwebserver)
     androidTestImplementation(libs.compose.ui.test.junit4)
     debugImplementation(libs.compose.ui.test.manifest)
 }

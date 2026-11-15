@@ -40,6 +40,7 @@ import com.muzammil.broski.design.PrimaryButton
 import com.muzammil.broski.design.QuietButton
 import com.muzammil.broski.design.SecondaryButton
 import com.muzammil.broski.design.perform
+import com.muzammil.broski.feature.notifications.LocalNotificationAsk
 import kotlinx.coroutines.launch
 
 /**
@@ -90,12 +91,14 @@ fun PairingFlow(
 @Composable
 private fun PairingEffects(state: PairingState, viewModel: PairingViewModel, onPaired: (String) -> Unit) {
     val haptics = LocalHapticFeedback.current
+    val notificationAsk = LocalNotificationAsk.current
     BackHandler(enabled = state is PairingState.Preview || state is PairingState.Failed, onBack = viewModel::reset)
     BackHandler(enabled = state is PairingState.Pairing) {}
     LaunchedEffect(state) {
         when (state) {
             is PairingState.Paired -> {
                 haptics.perform(Haptic.Success)
+                notificationAsk.ask()
                 viewModel.reset()
                 onPaired(state.machineId)
             }
