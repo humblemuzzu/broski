@@ -8,7 +8,6 @@ import type { BroskiConfig } from "../config/schema";
 import {
 	type DaemonConfig,
 	type DaemonType,
-	findBinary,
 	getBroskiBinaryPath,
 	getDaemonType,
 	IS_LINUX,
@@ -18,7 +17,7 @@ import {
 import { WizardCancelledError } from "./errors";
 import { brand, muted, warning } from "./palette";
 import type { WizardPrompter } from "./prompter";
-import { runAgentsStep } from "./steps/agents";
+import { detectAgents, runAgentsStep } from "./steps/agents";
 import { runDaemonStep } from "./steps/daemon";
 import { runFinalizeStep } from "./steps/finalize";
 import { runSecurityStep } from "./steps/security";
@@ -39,13 +38,6 @@ export interface OnboardingOptions {
 // Non-interactive setup (for CI / automated environments)
 // ---------------------------------------------------------------------------
 
-function detectAgentsNonInteractive(): { claudeCode: boolean; pi: boolean } {
-	return {
-		claudeCode: !!findBinary("claude"),
-		pi: !!findBinary("pi"),
-	};
-}
-
 function agentNameFromFlag(flag: string): "claude" | "pi" | null {
 	const lower = flag.toLowerCase().trim();
 	if (lower === "claude" || lower === "claude-code" || lower === "claudecode") return "claude";
@@ -61,6 +53,7 @@ function daemonTypeLabel(): string {
 
 async function runNonInteractiveSetup(options: OnboardingOptions): Promise<void> {
 	const log = (msg: string) => console.log(`[broski] ${msg}`);
+	const existing = await readConfig();
 
 	log("Non-interactive setup");
 
@@ -75,7 +68,8 @@ async function runNonInteractiveSetup(options: OnboardingOptions): Promise<void>
 			else log(`Warning: unknown agent "${a}", skipping`);
 		}
 	} else {
-		agents = detectAgentsNonInteractive();
+		const detected = detectAgents(existing);
+		agents = { claudeCode: detected.claudeCode.found, pi: detected.pi.found };
 	}
 
 	const agentNames: string[] = [];
@@ -157,6 +151,8 @@ async function runNonInteractiveSetup(options: OnboardingOptions): Promise<void>
 			installed: daemonInstalled,
 			type: daemonType,
 		},
+		claudeCode: existing.claudeCode,
+		pi: existing.pi,
 	};
 
 	await writeConfig(finalConfig);
@@ -211,7 +207,7 @@ export async function runOnboardingWizard(prompter: WizardPrompter | null, optio
 		}
 
 		// 4. Agents step
-		const agents = await runAgentsStep(prompter, { isQuick });
+		const agents = await runAgentsStep(prompter, { isQuick, config });
 
 		// 5. Security step
 		const security = await runSecurityStep(prompter, { isQuick });
@@ -244,6 +240,8 @@ export async function runOnboardingWizard(prompter: WizardPrompter | null, optio
 				installed: daemon.installed,
 				type: daemon.type,
 			},
+			claudeCode: config.claudeCode,
+			pi: config.pi,
 		};
 
 		// 8. Write config

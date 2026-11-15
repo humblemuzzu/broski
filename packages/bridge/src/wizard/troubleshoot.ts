@@ -1,3 +1,4 @@
+import { PI_INSTALL_COMMAND } from "../backends/pi/pi-install";
 import { type DoctorProfile, runDoctor } from "../doctor";
 import { WizardCancelledError } from "./errors";
 import { bold, brand, header, muted, warning } from "./palette";
@@ -138,7 +139,7 @@ async function showDiagnosis(prompter: WizardPrompter, problem: Problem): Promis
 			await prompter.note(
 				`${bold("Install commands (official):")}\n\n` +
 					`  ${muted("Claude Code:")} ${brand("curl -fsSL https://claude.ai/install.sh | bash")}\n` +
-					`  ${muted("Pi:")}          ${brand("npm i -g @earendil-works/pi-coding-agent")}\n\n` +
+					`  ${muted("Pi:")}          ${brand(PI_INSTALL_COMMAND)}\n\n` +
 					`${muted("Then run:")} ${brand("broski doctor --profile agents")}`,
 				"Agent Issues",
 			);

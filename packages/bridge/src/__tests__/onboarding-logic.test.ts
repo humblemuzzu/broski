@@ -3,28 +3,6 @@ import { describe, expect, test } from "bun:test";
 // Test the non-interactive setup logic from onboarding.ts
 // We focus on pure functions that don't require user interaction
 
-describe("Non-Interactive Agent Detection", () => {
-	// Simulate the detectAgentsNonInteractive function
-	function detectAgentsNonInteractive(): { pi: boolean; claudeCode: boolean } {
-		// This is a simplified version - the real function uses findBinary
-		return {
-			pi: false, // Would be !!findBinary('pi') in real implementation
-			claudeCode: false, // Would be !!findBinary('claude') in real implementation
-		};
-	}
-
-	test("detectAgentsNonInteractive returns proper structure", () => {
-		const result = detectAgentsNonInteractive();
-
-		expect(typeof result).toBe("object");
-		expect("pi" in result).toBe(true);
-		expect("claudeCode" in result).toBe(true);
-
-		expect(typeof result.pi).toBe("boolean");
-		expect(typeof result.claudeCode).toBe("boolean");
-	});
-});
-
 describe("Agent Flag Parsing", () => {
 	function agentNameFromFlag(flag: string): "pi" | "claude" | null {
 		const lower = flag.toLowerCase().trim();

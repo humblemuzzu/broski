@@ -30,7 +30,7 @@ export async function runAllChecks(
 		...(await runNetworkChecks(ctx)),
 		...(await runSecurityChecks(ctx)),
 		...(await runDaemonChecks(ctx, { deep: opts.deep })),
-		...(await runAgentChecks()),
+		...(await runAgentChecks(ctx.config)),
 		...(await runShellEnvChecks()),
 		...(await runConnectivityChecks(ctx, { deep: opts.deep })),
 		...(await runLinkServiceChecks(ctx)),

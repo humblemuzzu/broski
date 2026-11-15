@@ -1,10 +1,11 @@
 import { homedir } from "node:os";
 import { resolve } from "node:path";
-import { findBinary } from "../../platform";
+import type { BroskiConfig } from "../../config";
+import { resolvePiCli } from "../../server/pi-cli-path";
 import type { CheckResult } from "../types";
 import { dirExists } from "../utils";
 
-export async function runAgentChecks(): Promise<CheckResult[]> {
+export async function runAgentChecks(config?: BroskiConfig): Promise<CheckResult[]> {
 	const results: CheckResult[] = [];
 
 	const ccProjects = resolve(homedir(), ".claude", "projects");
@@ -17,32 +18,13 @@ export async function runAgentChecks(): Promise<CheckResult[]> {
 			: "No Claude Code projects directory found yet",
 	});
 
-	// Pi config check
-	try {
-		const piPath = findBinary("pi");
-		if (piPath) {
-			results.push({
-				id: "pi_config",
-				category: "agents",
-				status: "ok",
-				message: "Pi agent available",
-			});
-		} else {
-			results.push({
-				id: "pi_config",
-				category: "agents",
-				status: "info",
-				message: "Pi agent not installed (optional)",
-			});
-		}
-	} catch {
-		results.push({
-			id: "pi_config",
-			category: "agents",
-			status: "info",
-			message: "Pi agent not installed (optional)",
-		});
-	}
+	const pi = resolvePiCli(config?.pi.cliPath);
+	results.push({
+		id: "pi_config",
+		category: "agents",
+		status: pi.found ? "ok" : "info",
+		message: pi.found ? "Pi agent available" : "Pi agent not installed (optional)",
+	});
 
 	return results;
 }

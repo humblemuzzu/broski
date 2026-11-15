@@ -1,4 +1,7 @@
-import { findBinary } from "../../platform";
+import { PI_INSTALL_COMMAND } from "../../backends/pi/pi-install";
+import type { BroskiConfig } from "../../config/schema";
+import { defaultClaudeCliEnvironment, resolveClaudeCliPath } from "../../server/claude-cli-path";
+import { resolvePiCli } from "../../server/pi-cli-path";
 import { bold, muted, success, warning } from "../palette";
 import type { WizardPrompter } from "../prompter";
 
@@ -7,22 +10,32 @@ export type AgentsResult = {
 	pi: boolean;
 };
 
-interface DetectedAgents {
+export interface DetectedAgents {
 	claudeCode: { found: boolean; path: string | null };
 	pi: { found: boolean; path: string | null };
 }
 
-function detectAgents(): DetectedAgents {
-	const cc = findBinary("claude");
-	const pi = findBinary("pi");
+/** The `claude` and `pi` the bridge would run: the ones it resolves, from the config's `cliPath` keys, else `PATH`. */
+export function detectAgents(
+	config: Pick<BroskiConfig, "claudeCode" | "pi">,
+	which?: (name: string) => string | null,
+): DetectedAgents {
+	const claude = resolveClaudeCliPath({
+		...defaultClaudeCliEnvironment(config.claudeCode.cliPath),
+		...(which !== undefined && { which }),
+	});
+	const pi = resolvePiCli(config.pi.cliPath, which);
 	return {
-		claudeCode: { found: !!cc, path: cc },
-		pi: { found: !!pi, path: pi },
+		claudeCode: { found: claude.ok, path: claude.ok ? claude.path : null },
+		pi: { found: pi.found, path: pi.found ? pi.path : null },
 	};
 }
 
-export async function runAgentsStep(prompter: WizardPrompter, options: { isQuick: boolean }): Promise<AgentsResult> {
-	const detected = detectAgents();
+export async function runAgentsStep(
+	prompter: WizardPrompter,
+	options: { isQuick: boolean; config: Pick<BroskiConfig, "claudeCode" | "pi"> },
+): Promise<AgentsResult> {
+	const detected = detectAgents(options.config);
 	const foundCount = [detected.claudeCode, detected.pi].filter((a) => a.found).length;
 
 	if (options.isQuick) {
@@ -65,7 +78,7 @@ export async function runAgentsStep(prompter: WizardPrompter, options: { isQuick
 			{
 				value: "pi",
 				label: `Pi ${detected.pi.found ? success("(detected)") : warning("(not found)")}`,
-				hint: detected.pi.found ? (detected.pi.path ?? undefined) : "npm i -g @earendil-works/pi-coding-agent",
+				hint: detected.pi.found ? (detected.pi.path ?? undefined) : PI_INSTALL_COMMAND,
 			},
 		],
 	});
@@ -77,7 +90,7 @@ export async function runAgentsStep(prompter: WizardPrompter, options: { isQuick
 		);
 	}
 	if (selected.includes("pi") && !detected.pi.found) {
-		warnings.push(`  ${warning("⚠")} Pi not found. Install: ${bold("npm i -g @earendil-works/pi-coding-agent")}`);
+		warnings.push(`  ${warning("⚠")} Pi not found. Install: ${bold(PI_INSTALL_COMMAND)}`);
 	}
 	if (warnings.length > 0) {
 		await prompter.note(warnings.join("\n"), "Missing Agents");

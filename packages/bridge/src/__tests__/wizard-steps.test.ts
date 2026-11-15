@@ -1,42 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { findBinary } from "../platform";
 
 // Test the exported utility functions from wizard steps
 // We avoid testing the interactive prompter functions since they require user input
-
-describe("Agent Detection (from agents step)", () => {
-	// Test the same logic used in the agents step
-	function detectAgents() {
-		const piPath = findBinary("pi");
-		const cc = findBinary("claude");
-		return {
-			pi: { found: !!piPath, path: piPath },
-			claudeCode: { found: !!cc, path: cc },
-		};
-	}
-
-	test("detectAgents returns proper structure", () => {
-		const result = detectAgents();
-
-		expect(typeof result).toBe("object");
-		expect("pi" in result).toBe(true);
-		expect("claudeCode" in result).toBe(true);
-
-		// Each agent should have found boolean and path
-		expect(typeof result.pi.found).toBe("boolean");
-		expect(result.pi.path === null || typeof result.pi.path === "string").toBe(true);
-
-		expect(typeof result.claudeCode.found).toBe("boolean");
-		expect(result.claudeCode.path === null || typeof result.claudeCode.path === "string").toBe(true);
-	});
-
-	test("found flag matches path existence", () => {
-		const result = detectAgents();
-
-		expect(result.pi.found).toBe(!!result.pi.path);
-		expect(result.claudeCode.found).toBe(!!result.claudeCode.path);
-	});
-});
 
 describe("Agent Name Parsing (from onboarding)", () => {
 	// Test the agentNameFromFlag function logic from onboarding.ts

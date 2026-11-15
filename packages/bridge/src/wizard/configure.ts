@@ -42,7 +42,7 @@ export async function runConfigure(prompter: WizardPrompter): Promise<void> {
 			}
 
 			case "agents": {
-				const result = await runAgentsStep(prompter, { isQuick: false });
+				const result = await runAgentsStep(prompter, { isQuick: false, config });
 				updatedConfig = {
 					...updatedConfig,
 					agents: {
