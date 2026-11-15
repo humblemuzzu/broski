@@ -124,7 +124,12 @@ final class SessionEndToEndTests: XCTestCase {
         send("Hold on", in: app)
         XCTAssertTrue(app.staticTexts["Working"].waitForExistence(timeout: timeout))
         XCTAssertTrue(app.buttons["Stop"].exists, "running with nothing typed, the button stops")
+        let words = app.staticTexts["Working."]
+        XCTAssertTrue(words.waitForExistence(timeout: timeout), "the held run's own words")
         try screenshot("chat-running")
+        XCTAssertEqual(
+            words.frame.minX, 20, accuracy: 2,
+            "while the run follows its end the agent's words keep the transcript's side margin (transcript \(app.scrollViews.firstMatch.frame), words \(words.frame))")
 
         let field = composer(in: app)
         field.tap()
