@@ -6,6 +6,8 @@ import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -63,15 +65,21 @@ class PhoneSession internal constructor(
     suspend fun pair(offer: String): String {
         val machine = phone.pair(offer)
         val id = machine.id()
+        watchers.remove(id)?.cancelAndJoin()
         vault.saveRecord(id, machine.record().use { it.toBytes() })
         watch(machine)
         return id
     }
 
-    /** Ends the pairing here and on the machine, and deletes its record. */
+    /**
+     * Ends the pairing here and on the machine, and deletes its record. The watcher and every read
+     * it started are over before the record goes, so none can store it again. The handle is not
+     * closed: a screen may still hold it, `Phone.forget` already ended the machine, and the
+     * binding releases the handle when it is collected.
+     */
     suspend fun forget(id: String) {
-        watchers.remove(id)?.cancel()
-        handles.remove(id)?.close()
+        watchers.remove(id)?.cancelAndJoin()
+        handles.remove(id)
         phone.forget(id)
         machineStates.update { list -> list.filterNot { it.id == id } }
         unreadable.update { it - id }
@@ -102,8 +110,7 @@ class PhoneSession internal constructor(
 
     private fun watch(machine: Machine) {
         val id = machine.id()
-        watchers.remove(id)?.cancel()
-        handles.put(id, machine)?.close()
+        handles[id] = machine
         lanRoutes[id]?.let(machine::lanDiscovered)
         val initial = machine.record().use { record ->
             MachineState(
@@ -122,13 +129,13 @@ class PhoneSession internal constructor(
         watchers[id] = scope.launch { readEvents(machine) }
     }
 
-    private suspend fun readEvents(machine: Machine) {
+    private suspend fun readEvents(machine: Machine) = coroutineScope {
         val id = machine.id()
         while (true) {
             when (val event = machine.nextEvent() ?: break) {
                 is MachineEvent.StatusChanged -> updateMachine(id) { it.with(event.status) }
                 MachineEvent.RecordChanged -> persistRecord(machine)
-                is MachineEvent.BackendsChanged -> scope.launch { readAgents(machine, event.backends) }
+                is MachineEvent.BackendsChanged -> launch { readAgents(machine, event.backends) }
                 is MachineEvent.BackendStatusChanged -> setAgent(id, event.backend, event.status)
                 is MachineEvent.CatalogInvalidated -> Unit
             }

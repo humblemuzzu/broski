@@ -85,7 +85,9 @@ Phase 4.2 adds `feature/chat`, `feature/composer`, `feature/workspace` and `feat
   `InboxUpdate.seen`). Backups and device transfer exclude the app's data: the key never leaves the device.
 - **Loops**: one per subscription in `AppCore`'s `SupervisorJob` scope for the life of the process: the
   inbox (`rows()` first, then `nextChange()`), and per machine its events (`status()` and `record()` first,
-  then `nextEvent()` until it ends). Screens observe `StateFlow`s.
+  then `nextEvent()` until it ends), whose reads (each backend's status) are its children. Forgetting a
+  machine cancels and joins that loop, then calls `Phone.forget`; the `Machine` handle is never closed by
+  the session, since a screen may hold it and the binding's cleaner releases it. Screens observe `StateFlow`s.
 - **Lifecycle**: `ProcessLifecycleOwner` start/stop → `phone.resume()`/`pause()` and NSD discovery on/off; a
   process started in the background starts paused. `ConnectivityManager` default-network changes →
   `networkChanged()` (not the first network at registration).
