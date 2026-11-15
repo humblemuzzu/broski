@@ -20,7 +20,7 @@ class StoredRecords(val readable: Map<String, ByteArray>, val unreadable: Set<St
 /**
  * What the app keeps between launches, each value sealed by [cipher] under its own name: the
  * phone's identity secret, each machine's record (`MachineRecord.toBytes()`, which holds the relay
- * token and push key) and the inbox's seen state.
+ * token and push key), the inbox's seen state and its last known rows.
  */
 class Vault(private val store: DataStore<Preferences>, private val cipher: SecretCipher) {
 
@@ -50,7 +50,7 @@ class Vault(private val store: DataStore<Preferences>, private val cipher: Secre
         store.edit { it.remove(recordKey(machineId)) }
     }
 
-    /** The identity, every record and the seen state: only when the person starts over. */
+    /** The identity, every record, the seen state and the cache: only when the person starts over. */
     suspend fun clear() {
         store.edit { it.clear() }
     }
@@ -65,6 +65,11 @@ class Vault(private val store: DataStore<Preferences>, private val cipher: Secre
     }
 
     suspend fun saveSeen(state: SeenState) = write(SEEN, SeenStateCodec.encode(state))
+
+    /** The bytes of the core's last `InboxUpdate.cache`, which only the core reads. */
+    suspend fun inboxCache(): ByteArray? = read(CACHE)
+
+    suspend fun saveInboxCache(cache: ByteArray) = write(CACHE, cache)
 
     private suspend fun read(key: Preferences.Key<ByteArray>): ByteArray? {
         val sealed = store.data.first()[key] ?: return null
@@ -84,6 +89,7 @@ class Vault(private val store: DataStore<Preferences>, private val cipher: Secre
         const val RECORD_PREFIX = "machine:"
         val IDENTITY = byteArrayPreferencesKey("identity")
         val SEEN = byteArrayPreferencesKey("seen")
+        val CACHE = byteArrayPreferencesKey("cache")
 
         fun recordKey(machineId: String) = byteArrayPreferencesKey(RECORD_PREFIX + machineId)
     }

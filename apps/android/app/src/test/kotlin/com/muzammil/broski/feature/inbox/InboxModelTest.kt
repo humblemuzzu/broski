@@ -22,7 +22,10 @@ class InboxModelTest {
         cwd = "/Users/me/src/broski",
         state = state,
         updatedAt = updatedAt,
-        ask = if (state == InboxState.NEEDS_YOU) "Claude Code wants to run npm test" else null,
+        ask = if (state == InboxState.NEEDS_YOU) "Allow Bash command?" else null,
+        command = if (state == InboxState.NEEDS_YOU) "npm test" else null,
+        pending = null,
+        cached = false,
     )
 
     private fun machine(id: String, health: MachineHealth) =

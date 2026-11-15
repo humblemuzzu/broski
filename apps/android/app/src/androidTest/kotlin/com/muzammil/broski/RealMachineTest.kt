@@ -3,17 +3,21 @@ package com.muzammil.broski
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.graphics.Bitmap
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
 import androidx.test.platform.app.InstrumentationRegistry
 import com.muzammil.broski.app.BroskiApplication
 import com.muzammil.broski.app.MainActivity
 import com.muzammil.broski.core.CoreState
 import com.muzammil.broski.core.PhoneSession
+import java.io.File
 import java.util.UUID
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertTrue
@@ -39,7 +43,10 @@ import uniffi.broski_core.parsePairingOffer
  * real bridge on its fake backend) on the host, its LAN port reversed into the emulator with
  * `adb reverse`, and its offer and served directory passed as the `offer` and `root` arguments
  * (apps/android/README.md). On a phone with nothing paired, it pastes the link, pairs through the
- * UI, starts a session on the bridge, and finds it in the inbox.
+ * UI, starts a session on the bridge, and finds it in the inbox. The script has the machine run
+ * its session "Clean the build folder" as a terminal would, waiting on a permission before it runs
+ * a command: no phone prompted it, so the row learns the ask by itself, and the test approves it
+ * from the row's long-press menu.
  */
 @OptIn(ExperimentalTestApi::class)
 class RealMachineTest {
@@ -77,6 +84,30 @@ class RealMachineTest {
             view.detach()
             view.close()
         }
+        approveFromTheRow(context)
+    }
+
+    private fun approveFromTheRow(context: Context) {
+        val ask = hasContentDescription(context.getString(R.string.inbox_wants_to_run, context.getString(R.string.agent_pi), "bash"), substring = true)
+        compose.waitUntilExactlyOneExists(ask, PAIRING_TIMEOUT)
+        screenshot(context, "inbox-needs-you")
+        compose.onNode(ask).performTouchInput { longClick() }
+        val approve = context.getString(R.string.inbox_approve)
+        compose.waitUntilExactlyOneExists(hasText(approve), TIMEOUT)
+        compose.onNodeWithText(context.getString(R.string.inbox_deny)).assertExists()
+        screenshot(context, "inbox-row-actions")
+        compose.onNodeWithText(approve).performClick()
+        compose.waitUntilDoesNotExist(ask, PAIRING_TIMEOUT)
+        compose.onNodeWithText(context.getString(R.string.inbox_answered_elsewhere)).assertDoesNotExist()
+        screenshot(context, "inbox-approved")
+    }
+
+    /** The screen as a PNG in the app's external files, which the script pulls. */
+    private fun screenshot(context: Context, name: String) {
+        compose.waitForIdle()
+        val directory = File(requireNotNull(context.getExternalFilesDir(null)), "screenshots").apply { mkdirs() }
+        val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+        File(directory, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 
     private fun phone(context: Context): PhoneSession {

@@ -125,13 +125,7 @@ class AppCore(private val context: Context) {
             Log.e(TAG, "the core refused the identity", error)
             return CoreState.Failed(StartupFailure.IdentityRefused)
         }
-        val seen = try {
-            vault.seen()
-        } catch (error: IOException) {
-            Log.w(TAG, "the inbox starts without its seen state", error)
-            null
-        }
-        seen?.let { state -> phone.inbox().use { it.restoreSeen(state) } }
+        phone.inbox().use { vault.restoreInbox(it) }
         val stored = try {
             vault.records()
         } catch (error: IOException) {

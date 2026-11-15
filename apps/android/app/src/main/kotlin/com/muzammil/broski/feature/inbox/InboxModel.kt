@@ -24,6 +24,8 @@ data class InboxUiState(
     val workingOnly: Boolean = false,
     val refreshing: Boolean = false,
     val anyOnline: Boolean = false,
+    /** Rows whose answer is on its way ([key]); their actions wait for it. */
+    val answering: Set<String> = emptySet(),
 ) {
     val isEmpty: Boolean get() = sections.isEmpty()
 }
@@ -37,6 +39,7 @@ fun inboxUiState(
     machines: List<MachineState>,
     workingOnly: Boolean,
     refreshing: Boolean,
+    answering: Set<String> = emptySet(),
 ): InboxUiState {
     val byState = rows.groupBy { it.state }
     val working = byState[InboxState.WORKING].orEmpty().size
@@ -52,5 +55,6 @@ fun inboxUiState(
         workingOnly = filtered,
         refreshing = refreshing,
         anyOnline = machines.any { it.health.isOnline },
+        answering = answering,
     )
 }

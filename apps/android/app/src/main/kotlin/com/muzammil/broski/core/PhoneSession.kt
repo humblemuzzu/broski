@@ -16,7 +16,9 @@ import kotlinx.coroutines.launch
 import uniffi.broski_contract.BackendDescriptor
 import uniffi.broski_contract.BackendId
 import uniffi.broski_contract.BackendStatus
+import uniffi.broski_contract.PermissionOption
 import uniffi.broski_contract.SessionRef
+import uniffi.broski_core.AnswerOutcome
 import uniffi.broski_core.ClientException
 import uniffi.broski_core.InboxRow
 import uniffi.broski_core.Machine
@@ -96,6 +98,17 @@ class PhoneSession internal constructor(
 
     suspend fun refresh() = inbox.refresh()
 
+    /**
+     * The person tapped Approve or Deny on a row: answers its pending ask with [option], which must
+     * be that ask's own `allow` or `deny`.
+     *
+     * @throws ClientException when the answer could not be sent.
+     */
+    suspend fun answer(row: InboxRow, option: PermissionOption): AnswerOutcome {
+        val pending = requireNotNull(row.pending) { "a row with nothing to answer" }
+        return inbox.answer(row.machineId, row.session, pending.interactionId, option.id)
+    }
+
     /** `host:port` routes NSD found for `machineId`, newest first. */
     fun lanDiscovered(machineId: String, routes: List<String>) {
         lanRoutes[machineId] = routes
@@ -147,12 +160,11 @@ class PhoneSession internal constructor(
         while (true) {
             val update = inbox.nextChange()
             rows.value = update.rows
-            update.seen?.let { seen ->
-                try {
-                    vault.saveSeen(seen)
-                } catch (error: IOException) {
-                    Log.e(TAG, "the inbox's seen state could not be stored", error)
-                }
+            try {
+                update.seen?.let { vault.saveSeen(it) }
+                update.cache?.let { vault.saveInboxCache(it) }
+            } catch (error: IOException) {
+                Log.e(TAG, "the inbox's state could not be stored", error)
             }
         }
     }

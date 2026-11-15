@@ -64,11 +64,14 @@ class VaultTest {
         val first = vault()
         assertNull("a first run has no identity", first.identity())
         assertNull(first.seen())
+        assertNull(first.inboxCache())
         val secret = ByteArray(32) { it.toByte() }
+        val cache = "{\"version\":1,\"rows\":[]}".encodeToByteArray()
         first.saveIdentity(secret)
         first.saveRecord("m-1", "record one".encodeToByteArray())
         first.saveRecord("m-2", "record two".encodeToByteArray())
         first.saveSeen(seen)
+        first.saveInboxCache(cache)
 
         val second = vault()
         assertArrayEquals(secret, second.identity())
@@ -77,6 +80,7 @@ class VaultTest {
         assertArrayEquals("record two".encodeToByteArray(), records.readable["m-2"])
         assertTrue(records.unreadable.isEmpty())
         assertEquals(seen, second.seen())
+        assertArrayEquals(cache, second.inboxCache())
 
         second.deleteRecord("m-1")
         assertEquals(setOf("m-2"), vault().records().readable.keys)

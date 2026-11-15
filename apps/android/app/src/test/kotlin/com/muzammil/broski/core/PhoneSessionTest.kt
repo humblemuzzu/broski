@@ -33,17 +33,37 @@ class PhoneSessionTest {
     @After
     fun tearDown() = scope.cancel()
 
-    @Test
-    fun aHandleOnAForgottenMachineStaysUsable() = runBlocking {
-        val key = KeyGenerator.getInstance("AES").apply { init(256) }.generateKey()
-        val vault = Vault(
+    private val key = KeyGenerator.getInstance("AES").apply { init(256) }.generateKey()
+    private val vault by lazy {
+        Vault(
             PreferenceDataStoreFactory.create(scope = scope, produceFile = { File(folder.root, "vault.preferences_pb") }),
             AesGcmCipher { key },
         )
-        val phone = Phone(
-            File(fixtures, "device-secret.bin").readBytes(),
-            PhoneConfig("Test Pixel", Platform.ANDROID, "Broski tests", "0.0.0"),
-        )
+    }
+
+    private fun phone() = Phone(
+        File(fixtures, "device-secret.bin").readBytes(),
+        PhoneConfig("Test Pixel", Platform.ANDROID, "Broski tests", "0.0.0"),
+    )
+
+    /** A cold start with the machine unreachable shows the inbox the core last handed over, with nothing to answer. */
+    @Test
+    fun aColdStartShowsTheCachedRowsOfAnUnreachableMachine() = runBlocking {
+        vault.saveInboxCache(File(fixtures, "inbox-cache.json").readBytes())
+        val phone = phone()
+        phone.inbox().use { vault.restoreInbox(it) }
+        val machine = MachineRecord.fromBytes(File(fixtures, "record.json").readBytes()).use(phone::start)
+        val session = PhoneSession(phone, vault, scope, listOf(machine), emptySet())
+
+        val rows = session.inboxRows.value
+        assertEquals(listOf("s-ask", "s-old"), rows.map { it.session.sessionId })
+        assertTrue(rows.all { it.cached && it.pending == null })
+        assertEquals("npm test", rows.first().command)
+    }
+
+    @Test
+    fun aHandleOnAForgottenMachineStaysUsable() = runBlocking {
+        val phone = phone()
         val record = File(fixtures, "record.json").readBytes()
         val machine = MachineRecord.fromBytes(record).use(phone::start)
         val id = machine.id()

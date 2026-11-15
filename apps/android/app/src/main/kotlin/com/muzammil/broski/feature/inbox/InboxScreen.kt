@@ -16,6 +16,8 @@ import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.TopAppBarDefaults
@@ -23,10 +25,14 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -40,6 +46,8 @@ import com.muzammil.broski.design.EmptyState
 import com.muzammil.broski.design.MachineStatusChip
 import com.muzammil.broski.design.PrimaryButton
 import com.muzammil.broski.design.SectionHeader
+import com.muzammil.broski.design.perform
+import uniffi.broski_core.InboxRow
 
 /**
  * Every session on every paired Mac, what needs the person first. `onOpenSession` and
@@ -57,9 +65,12 @@ fun InboxScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val pullState = rememberPullToRefreshState()
+    val snackbar = remember { SnackbarHostState() }
+    AnswerFeedback(viewModel, snackbar)
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             LargeFlexibleTopAppBar(
                 title = { Text(stringResource(R.string.nav_inbox)) },
@@ -85,7 +96,25 @@ fun InboxScreen(
                 )
             },
         ) {
-            InboxList(state, viewModel::showWorkingOnly, onOpenSession, onNewSession)
+            InboxList(state, viewModel::showWorkingOnly, viewModel::answer, onOpenSession, onNewSession)
+        }
+    }
+}
+
+/** Each answer from a row: its haptic, and a word when it did not go through. */
+@Composable
+private fun AnswerFeedback(viewModel: InboxViewModel, snackbar: SnackbarHostState) {
+    val haptics = LocalHapticFeedback.current
+    val resources = LocalResources.current
+    LaunchedEffect(viewModel) {
+        viewModel.answers.collect { answer ->
+            haptics.perform(answer.haptic)
+            val notice = when (val result = answer.result) {
+                RowAnswer.Result.Sent -> null
+                RowAnswer.Result.Stale -> resources.getString(R.string.inbox_answered_elsewhere)
+                is RowAnswer.Result.Failed -> resources.getString(R.string.inbox_answer_failed, result.detail)
+            }
+            notice?.let { snackbar.showSnackbar(it) }
         }
     }
 }
@@ -94,6 +123,7 @@ fun InboxScreen(
 private fun InboxList(
     state: InboxUiState,
     onWorkingOnly: (Boolean) -> Unit,
+    onAnswer: (InboxRow, Decision) -> Unit,
     onOpenSession: ((SessionRoute) -> Unit)?,
     onNewSession: (() -> Unit)?,
 ) {
@@ -115,13 +145,14 @@ private fun InboxList(
                 )
             }
         }
-        state.sections.forEach { section -> section(section, state, onOpenSession) }
+        state.sections.forEach { section -> section(section, state, onAnswer, onOpenSession) }
     }
 }
 
 private fun LazyListScope.section(
     section: InboxSection,
     state: InboxUiState,
+    onAnswer: (InboxRow, Decision) -> Unit,
     onOpenSession: ((SessionRoute) -> Unit)?,
 ) {
     item(key = "section:${section.state}", contentType = "header") {
@@ -129,7 +160,7 @@ private fun LazyListScope.section(
     }
     itemsIndexed(
         items = section.rows,
-        key = { _, row -> "${row.machineId}/${row.session.backend}/${row.session.sessionId}" },
+        key = { _, row -> row.key },
         contentType = { _, _ -> "row" },
     ) { index, row ->
         val motion = MaterialTheme.motionScheme
@@ -138,6 +169,8 @@ private fun LazyListScope.section(
             health = state.health[row.machineId],
             shapes = ListItemDefaults.segmentedShapes(index, section.rows.size),
             onOpen = onOpenSession?.let { open -> { open(SessionRoute.of(row.machineId, row.session)) } },
+            busy = row.key in state.answering,
+            onAnswer = { decision -> onAnswer(row, decision) },
             modifier = Modifier
                 .animateItem(
                     fadeInSpec = motion.defaultEffectsSpec(),
