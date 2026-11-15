@@ -157,12 +157,8 @@ class ChatViewModel(
     }
 
     private fun moment(change: SessionChange) {
-        when (change) {
-            is SessionChange.NoticeShown -> notice(change.notice.level, change.notice.text)
-            is SessionChange.ErrorShown -> notice(NoticeLevel.ERROR, change.error.error.message)
-            is SessionChange.InputReturned -> composer.prepend(change.texts)
-            else -> Unit
-        }
+        noticeOf(change)?.let { notice(it.level, it.text) }
+        if (change is SessionChange.InputReturned) composer.prepend(change.texts)
     }
 
     private fun notice(level: NoticeLevel, text: String) {
