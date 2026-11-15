@@ -11,6 +11,7 @@ members = [
     "session",
     "testkit",
     "client",
+    "render",
     "mobile",
     "uniffi-bindgen",
 ]
