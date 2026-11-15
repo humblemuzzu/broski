@@ -4,7 +4,8 @@ Crate `packages/link/session` (`broski-link-session`). The async client the nati
 core uses for every paired machine: it owns the sockets and drives the sans-IO `Link`
 ([link-core.md](link-core.md)). It replaces the deleted Dart `link_dart` package (branch
 `final-flutter`), whose behaviour is the spec; where this crate differs, the section says so and why.
-It does no storage I/O and exposes plain Rust; the later `mobile` crate wraps it in UniFFI.
+It does no storage I/O and exposes plain Rust; the `mobile` crate (`broski-mobile`) wraps it in UniFFI
+([mobile-packaging.md](../mobile-packaging.md)).
 
 ## Runtime
 

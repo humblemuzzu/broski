@@ -68,8 +68,10 @@ jobs:
         run: cargo fmt --all --check
       - name: Clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
-      - name: Clippy (contract with its UniFFI derives)
-        run: cargo clippy -p broski-contract --all-targets --features uniffi -- -D warnings
+      # The workspace builds the contract with its UniFFI derives (broski-mobile turns them on);
+      # this lints it as the crates that leave them off build it.
+      - name: Clippy (contract without its UniFFI derives)
+        run: cargo clippy -p broski-contract --all-targets -- -D warnings
       # The client's tests run the real bridge (Bun, the dev fake bridge) on the daemon's socket.
       - uses: oven-sh/setup-bun@v2
         with:
@@ -79,3 +81,56 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Test
         run: cargo test --workspace
+
+  ios-core:
+    name: BroskiCore for iOS
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios, aarch64-apple-ios-sim, x86_64-apple-ios
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: packages/link
+      - name: Build the XCFramework and the Swift bindings
+        run: scripts/build-ios-core.sh
+      - name: Swift tests on the host
+        working-directory: apps/ios/BroskiCore
+        run: swift test
+      - name: Build and link for the iOS simulator
+        working-directory: apps/ios/BroskiCore
+        run: xcodebuild build-for-testing -scheme BroskiCore -destination 'generic/platform=iOS Simulator'
+      - name: Build and link for iOS devices
+        working-directory: apps/ios/BroskiCore
+        run: xcodebuild build-for-testing -scheme BroskiCore -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO
+
+  android-core:
+    name: BroskiCore for Android
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android, x86_64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: packages/link
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --version 4.1.2 --locked
+      - name: Install the SDK packages
+        run: |
+          ndk="$(sed -n 's/^android-ndk = "\(.*\)"$/\1/p' apps/android/gradle/libs.versions.toml)"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$ndk" "platforms;android-36" "build-tools;36.0.0"
+      - name: Build the core libraries and the Kotlin bindings
+        run: scripts/build-android-core.sh
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Assemble the library and run the JVM tests
+        working-directory: apps/android
+        run: ./gradlew :core:assembleDebug :core:assembleRelease :core:testDebugUnitTest
+      - name: Native libraries are 16 KB aligned
+        run: scripts/check-android-alignment.sh apps/android/core/build/outputs/aar/core-release.aar
