@@ -12,8 +12,8 @@ pub fn tool_look(facts: ToolFacts) -> ToolLook {
     broski_render::tool_look(&facts)
 }
 
-/// The verbs and counts of a fold's sentence, from the stretch's own calls (not a subagent's):
-/// at most two verbs, the rest as `used`.
+/// The phrases of a fold's sentence ("Edited 1 file"), from the stretch's own calls (not a
+/// subagent's): at most two verbs, the rest as `used`.
 #[uniffi::export]
 pub fn fold_counts(tools: Vec<FoldTool>) -> Vec<FoldCount> {
     broski_render::fold_counts(&tools)
@@ -75,6 +75,7 @@ pub enum FoldVerb {
 pub struct FoldCount {
     pub verb: FoldVerb,
     pub count: u32,
+    pub phrase: String,
 }
 
 #[uniffi::remote(Record)]

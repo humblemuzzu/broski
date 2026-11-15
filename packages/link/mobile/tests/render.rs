@@ -105,7 +105,8 @@ fn a_tool_call_comes_back_as_its_row_and_the_fold_counts_what_it_did() {
         counts,
         [FoldCount {
             verb: FoldVerb::Ran,
-            count: 1
+            count: 1,
+            phrase: "Ran 1 command".to_owned()
         }]
     );
 }

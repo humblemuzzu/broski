@@ -220,7 +220,49 @@ fn tool(id: &str, kind: ToolKind, paths: &[&str]) -> FoldTool {
 }
 
 fn count(verb: FoldVerb, count: u32) -> FoldCount {
-    FoldCount { verb, count }
+    FoldCount::new(verb, count)
+}
+
+#[test]
+fn every_verb_says_its_count_in_the_singular_and_the_plural() {
+    let said: Vec<String> = [
+        (FoldVerb::Edited, 1),
+        (FoldVerb::Edited, 2),
+        (FoldVerb::Ran, 1),
+        (FoldVerb::Ran, 2),
+        (FoldVerb::Read, 1),
+        (FoldVerb::Read, 3),
+        (FoldVerb::Searched, 1),
+        (FoldVerb::Searched, 2),
+        (FoldVerb::Fetched, 1),
+        (FoldVerb::Fetched, 2),
+        (FoldVerb::Delegated, 1),
+        (FoldVerb::Delegated, 2),
+        (FoldVerb::Used, 1),
+        (FoldVerb::Used, 4),
+    ]
+    .into_iter()
+    .map(|(verb, n)| FoldCount::new(verb, n).phrase)
+    .collect();
+    assert_eq!(
+        said,
+        [
+            "Edited 1 file",
+            "Edited 2 files",
+            "Ran 1 command",
+            "Ran 2 commands",
+            "Read 1 file",
+            "Read 3 files",
+            "Searched 1 time",
+            "Searched 2 times",
+            "Fetched 1 page",
+            "Fetched 2 pages",
+            "Ran 1 subagent",
+            "Ran 2 subagents",
+            "Used 1 tool",
+            "Used 4 tools",
+        ]
+    );
 }
 
 #[test]

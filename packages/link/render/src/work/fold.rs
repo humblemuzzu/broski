@@ -1,4 +1,4 @@
-//! What a fold's sentence counts: "Edited 1 file · Ran 2 commands".
+//! What a fold's sentence counts and says: "Edited 1 file" · "Ran 2 commands".
 
 use std::collections::HashSet;
 
@@ -17,10 +17,33 @@ pub enum FoldVerb {
     Used,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// One phrase of the sentence.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FoldCount {
     pub verb: FoldVerb,
     pub count: u32,
+    /// "Edited 1 file", "Ran 2 commands".
+    pub phrase: String,
+}
+
+impl FoldCount {
+    pub(super) fn new(verb: FoldVerb, count: u32) -> FoldCount {
+        let (words, one, many) = match verb {
+            FoldVerb::Edited => ("Edited", "file", "files"),
+            FoldVerb::Ran => ("Ran", "command", "commands"),
+            FoldVerb::Read => ("Read", "file", "files"),
+            FoldVerb::Searched => ("Searched", "time", "times"),
+            FoldVerb::Fetched => ("Fetched", "page", "pages"),
+            FoldVerb::Delegated => ("Ran", "subagent", "subagents"),
+            FoldVerb::Used => ("Used", "tool", "tools"),
+        };
+        let noun = if count == 1 { one } else { many };
+        FoldCount {
+            verb,
+            count,
+            phrase: format!("{words} {count} {noun}"),
+        }
+    }
 }
 
 /// A call of the stretch, its own and not a subagent's.
@@ -63,17 +86,11 @@ pub fn fold_counts(tools: &[FoldTool]) -> Vec<FoldCount> {
     let mut counts: Vec<FoldCount> = counted
         .into_iter()
         .filter(|(_, count)| *count > 0)
-        .map(|(verb, count)| FoldCount {
-            verb,
-            count: count as u32,
-        })
+        .map(|(verb, count)| FoldCount::new(verb, count as u32))
         .collect();
     if counts.len() > SHOWN_VERBS {
         let rest: u32 = counts.drain(SHOWN_VERBS..).map(|count| count.count).sum();
-        counts.push(FoldCount {
-            verb: FoldVerb::Used,
-            count: rest,
-        });
+        counts.push(FoldCount::new(FoldVerb::Used, rest));
     }
     counts
 }
