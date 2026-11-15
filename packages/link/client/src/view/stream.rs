@@ -241,7 +241,7 @@ impl Streams {
             Some(stream) => stream,
             None if self.streams.len() >= MAX_VIEWED_SESSIONS => {
                 return Err(ClientError::InvalidRequest {
-                    message: format!("a phone views at most {MAX_VIEWED_SESSIONS} sessions"),
+                    detail: format!("a phone views at most {MAX_VIEWED_SESSIONS} sessions"),
                 })
             }
             None => {

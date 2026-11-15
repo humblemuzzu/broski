@@ -211,7 +211,7 @@ impl Terminals {
         }
         if self.views.len() >= MAX_TERMINALS {
             return Err(ClientError::InvalidRequest {
-                message: format!("a phone views at most {MAX_TERMINALS} terminals"),
+                detail: format!("a phone views at most {MAX_TERMINALS} terminals"),
             });
         }
         self.next += 1;

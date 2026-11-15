@@ -32,9 +32,9 @@ pub use broski_link_session::{
 };
 
 pub use crate::catalog::{SessionList, SessionListUpdate};
-pub use crate::error::ClientError;
+pub use crate::error::{ClientError, LinkFailure};
 pub use crate::inbox::{Inbox, InboxRow, InboxState, InboxUpdate, SeenMarker};
 pub use crate::machine::{ContractState, Machine, MachineEvent, MachineStatus};
-pub use crate::phone::{new_identity_secret, PairedMachine, Phone, PhoneConfig};
+pub use crate::phone::{new_identity_secret, Phone, PhoneConfig};
 pub use crate::terminal::{TerminalUpdate, TerminalView};
 pub use crate::view::{SessionChange, SessionUpdate, SessionView, ViewEnd};

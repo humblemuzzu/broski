@@ -163,7 +163,7 @@ impl Shared {
     fn incompatible(&self, state: &mut State, conn: u64, message: String) {
         for waiter in state.requests.drain_held() {
             let error = ClientError::Incompatible {
-                message: message.clone(),
+                detail: message.clone(),
             };
             self.fail(state, waiter, error);
         }

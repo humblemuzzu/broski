@@ -222,7 +222,7 @@ impl Shared {
     ) -> Result<ServerMessage, ClientError> {
         if wire::managed(&message) {
             return Err(ClientError::InvalidRequest {
-                message: "hello, attaches and detaches are the client's own: use a view".to_owned(),
+                detail: "hello, attaches and detaches are the client's own: use a view".to_owned(),
             });
         }
         let deadline = requests::deadline();
@@ -251,7 +251,7 @@ impl Shared {
         }
         if let Contract::Incompatible { message, .. } = &state.contract {
             return Err(ClientError::Incompatible {
-                message: message.clone(),
+                detail: message.clone(),
             });
         }
         if state.requests.callers() >= MAX_PENDING_REQUESTS {
@@ -321,11 +321,11 @@ impl Call<'_> {
             Some(Err(_)) => Err(ClientError::Closed),
             Some(Ok(Ok(ServerMessage::Error(error)))) => Err(match error.error.code {
                 ProtocolErrorCode::UnsupportedVersion => ClientError::Incompatible {
-                    message: error.error.message,
+                    detail: error.error.message,
                 },
                 code => ClientError::Refused {
                     code,
-                    message: error.error.message,
+                    detail: error.error.message,
                 },
             }),
             Some(Ok(answer)) => answer,

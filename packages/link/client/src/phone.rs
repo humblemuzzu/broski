@@ -8,7 +8,9 @@ use broski_link_session::{
     Timings,
 };
 
-use crate::error::ClientError;
+use zeroize::Zeroizing;
+
+use crate::error::{ClientError, LinkFailure};
 use crate::inbox::Inbox;
 use crate::machine::Machine;
 
@@ -20,13 +22,6 @@ pub struct PhoneConfig {
     pub platform: Platform,
     pub client_name: String,
     pub client_version: String,
-}
-
-/// A finished pairing. Persist `record` before anything else; the machine's
-/// `MachineEvent::RecordChanged` replaces it later.
-pub struct PairedMachine {
-    pub machine: Arc<Machine>,
-    pub record: MachineRecord,
 }
 
 /// A new identity secret for the app's first run: persist it before pairing with it. A stored
@@ -56,9 +51,10 @@ impl Phone {
         config: PhoneConfig,
         timings: Timings,
     ) -> Result<Phone, ClientError> {
-        let identity = DeviceIdentity::from_secret(&identity_secret)?;
+        let identity = DeviceIdentity::from_secret(&Zeroizing::new(identity_secret))?;
         let runtime = LinkRuntime::new().map_err(|error| ClientError::Link {
-            message: format!("the link runtime did not start: {error}"),
+            failure: LinkFailure::Runtime,
+            detail: format!("the link runtime did not start: {error}"),
         })?;
         let inbox = Arc::new(Inbox::new(runtime.clone()));
         Ok(Phone {
@@ -98,16 +94,18 @@ impl Phone {
         Ok(machine)
     }
 
-    /// Pairs with the machine a scanned `broski://pair?v=2&…` names. A machine paired again takes
-    /// the place of the one started before, and keeps its seen markers.
-    pub async fn pair(&self, offer: String) -> Result<PairedMachine, ClientError> {
-        let offer = Offer::parse(&offer)?;
+    /// Pairs with the machine a scanned `broski://pair?v=2&…` names; persist its `record()` before
+    /// anything else. A machine paired again takes the place of the one started before, and keeps
+    /// its seen markers.
+    pub async fn pair(&self, offer: String) -> Result<Arc<Machine>, ClientError> {
+        let offer = Offer::parse(&Zeroizing::new(offer))?;
         let paired = pair(&self.runtime, &self.identity, offer, self.options.clone()).await?;
-        let machine = self.spawn(paired.session, paired.record.clone());
+        let id = paired.record.id.clone();
+        let machine = self.spawn(paired.session, paired.record);
         let mut machines = self.machines();
         let previous = machines
             .iter()
-            .position(|known| known.id() == paired.record.id)
+            .position(|known| known.id() == id)
             .map(|index| machines.remove(index));
         machines.push(Arc::clone(&machine));
         drop(machines);
@@ -115,10 +113,7 @@ impl Phone {
             previous.retire();
         }
         self.inbox.add(Arc::clone(&machine));
-        Ok(PairedMachine {
-            machine,
-            record: paired.record,
-        })
+        Ok(machine)
     }
 
     fn spawn(&self, session: Session, record: MachineRecord) -> Arc<Machine> {

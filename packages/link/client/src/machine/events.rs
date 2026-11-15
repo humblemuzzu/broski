@@ -5,7 +5,7 @@
 use std::sync::Arc;
 
 use broski_contract::{BackendDescriptor, BackendId, BackendStatus, CatalogScope};
-use broski_link_session::{BridgeStatus, MachineRecord, Status};
+use broski_link_session::{BridgeStatus, Status};
 use tokio::sync::Notify;
 
 use super::state::State;
@@ -15,10 +15,10 @@ pub enum MachineEvent {
     StatusChanged {
         status: MachineStatus,
     },
-    /// The record to persist in place of the stored one.
-    RecordChanged {
-        record: MachineRecord,
-    },
+    /// The machine's routes changed: persist `Machine::record()` in place of the stored record. The
+    /// event does not carry it: the record holds secrets, which reach the apps only as the opaque
+    /// object `record()` returns.
+    RecordChanged,
     BackendsChanged {
         backends: Vec<BackendDescriptor>,
     },
@@ -123,9 +123,7 @@ pub(crate) fn take(state: &mut State) -> Taken {
         });
     }
     if std::mem::take(&mut state.events.record) {
-        return Taken::Event(MachineEvent::RecordChanged {
-            record: state.record.clone(),
-        });
+        return Taken::Event(MachineEvent::RecordChanged);
     }
     if std::mem::take(&mut state.events.backends) {
         if let Some(backends) = state.catalog.backends() {

@@ -61,14 +61,9 @@ pub async fn paired(phone: &Phone, mac: &Mac) -> Arc<Machine> {
 }
 
 pub async fn pair_with(phone: &Phone, offer: String) -> Arc<Machine> {
-    let paired = phone.pair(offer).await.expect("the phone pairs");
-    status_until(
-        &paired.machine,
-        "the bridge to agree on the protocol",
-        ready,
-    )
-    .await;
-    paired.machine
+    let machine = phone.pair(offer).await.expect("the phone pairs");
+    status_until(&machine, "the bridge to agree on the protocol", ready).await;
+    machine
 }
 
 pub fn ready(status: &MachineStatus) -> bool {

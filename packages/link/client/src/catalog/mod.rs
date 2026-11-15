@@ -274,7 +274,7 @@ impl Shared {
                 SessionsListResult::Accepted(listed) => Ok(listed.page),
                 SessionsListResult::Rejected(rejected) => Err(ClientError::Rejected {
                     code: rejected.rejection.code,
-                    message: rejected.rejection.message,
+                    detail: rejected.rejection.message,
                 }),
             },
             Ok(other) => Err(unexpected(&other)),
