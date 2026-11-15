@@ -116,7 +116,7 @@ export const SEAM_MUTANTS: Mutant[] = [
 		},
 		{
 			name: "seam: a rate-limited frame is not answered",
-			find: "refuse: (ws, raw) => connectionOf(ws).refuse(parsedFrame(raw)),",
+			find: "refuse: (ws, raw) => sockets.of(ws).refuse(parsedFrame(raw)),",
 			replace: "refuse: () => {},",
 		},
 		{

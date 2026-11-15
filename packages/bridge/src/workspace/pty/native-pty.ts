@@ -287,6 +287,39 @@ async function untilQuiet(lastOutputAt: () => number): Promise<void> {
 	}
 }
 
+/** The terminal closed, which may come a moment before the child can be reaped: its status is waited for briefly. */
+async function outputEnded(session: NativePtySession, lib: NativeLib): Promise<void> {
+	await refreshExitState(session, lib, REAP_AFTER_EOF_MS);
+	if (session.status === "exited") closeMasterFd(session, lib);
+}
+
+/**
+ * Looks for the child's end every `CHILD_POLL_MS`; once it is reaped and the output has been quiet, calls `ended`.
+ * Returns what stops the looking.
+ */
+function watchChild(
+	session: NativePtySession,
+	lib: NativeLib,
+	lastOutputAt: () => number,
+	ended: () => void,
+): () => void {
+	const timer = setInterval(() => void look(), CHILD_POLL_MS);
+	timer.unref();
+	const look = async (): Promise<void> => {
+		if (session.status === "exited" || session.closed) {
+			clearInterval(timer);
+			return;
+		}
+		const result = lib.symbols.pty_waitpid(session.pid);
+		if (result === -1) return;
+		clearInterval(timer);
+		recordExit(session, result);
+		await untilQuiet(lastOutputAt);
+		ended();
+	};
+	return () => clearInterval(timer);
+}
+
 /**
  * Reads the session's output and writes its input. Its end is reported once, with how the child ended: when the
  * terminal closes, which may come a moment before the child can be reaped so the status is waited for briefly, or
@@ -295,38 +328,19 @@ async function untilQuiet(lastOutputAt: () => number): Promise<void> {
 export function nativeConnectPty(id: string): NativePtyConnection | null {
 	const session = sessions.get(id);
 	if (!session || session.status !== "running" || session.closed) return null;
-
 	const lib = nativeLib();
 	let onData: ((data: Uint8Array) => void) | null = null;
 	let onExit: ((exit: PtyExit) => void) | null = null;
 	let connected = true;
 	let lastOutputAt = Date.now();
 	let exitReported = false;
-
 	const reportExit = (): void => {
 		if (exitReported) return;
 		exitReported = true;
-		clearInterval(watch);
+		stopWatching();
 		onExit?.(session.exit ?? {});
 	};
-
-	const watchChild = async (): Promise<void> => {
-		if (session.status === "exited" || session.closed) {
-			clearInterval(watch);
-			return;
-		}
-		const result = lib.symbols.pty_waitpid(session.pid);
-		if (result === -1) return;
-		clearInterval(watch);
-		recordExit(session, result);
-		await untilQuiet(() => lastOutputAt);
-		reportExit();
-	};
-	const watch = setInterval(() => void watchChild(), CHILD_POLL_MS);
-	watch.unref();
-
-	const isActive = () => connected && session.status === "running" && !session.closed;
-
+	const stopWatching = watchChild(session, lib, () => lastOutputAt, reportExit);
 	const reader = createPtyReader({
 		fd: session.masterFd,
 		onData: (bytes) => {
@@ -335,15 +349,12 @@ export function nativeConnectPty(id: string): NativePtyConnection | null {
 		},
 		onEnd: () => {
 			sessionReaders.delete(id);
-			void (async () => {
-				await refreshExitState(session, lib, REAP_AFTER_EOF_MS);
-				if (session.status === "exited") closeMasterFd(session, lib);
-				reportExit();
-			})();
+			void outputEnded(session, lib).then(reportExit);
 		},
 	});
 	sessionReaders.set(id, reader.stop);
 
+	const isActive = () => connected && session.status === "running" && !session.closed;
 	const writer = createPtyWriter({ fd: session.masterFd, symbols: lib.symbols, isActive });
 
 	return {
@@ -358,7 +369,7 @@ export function nativeConnectPty(id: string): NativePtyConnection | null {
 		},
 		disconnect: () => {
 			connected = false;
-			clearInterval(watch);
+			stopWatching();
 			void reader.stop();
 		},
 	};
