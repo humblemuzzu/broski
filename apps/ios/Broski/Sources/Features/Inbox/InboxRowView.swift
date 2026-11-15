@@ -28,18 +28,19 @@ struct InboxRowView: View {
         .accessibilityLabel(spokenLabel)
     }
 
-    /// One line each for title, ask and place, the time beside the title.
+    /// The title on up to two lines, then the ask, then the place with the time at its end, which
+    /// the place's own length never cuts off.
     private var compact: some View {
         HStack(alignment: .top, spacing: Spacing.m) {
             AgentMark(backend: row.session.backend)
             VStack(alignment: .leading, spacing: Spacing.xxs) {
-                HStack(alignment: .firstTextBaseline, spacing: Spacing.s) {
-                    Text(title).font(.rowTitle).lineLimit(1)
-                    Spacer(minLength: Spacing.s)
-                    timeText
-                }
+                Text(title).font(.rowTitle).lineLimit(2)
                 askText?.lineLimit(1)
-                placeText.lineLimit(1)
+                HStack(spacing: 0) {
+                    placeText.lineLimit(1)
+                    Text(" · ").font(.footnote).foregroundStyle(.secondary).layoutPriority(1)
+                    timeText.layoutPriority(1)
+                }
             }
             StateIndicator(state: row.state)
                 .frame(minHeight: 22)
