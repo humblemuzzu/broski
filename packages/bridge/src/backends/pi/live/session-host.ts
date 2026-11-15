@@ -61,6 +61,7 @@ export class SessionHost {
 	private readonly prompts: PromptDesk;
 	private readonly events: EventBridge;
 	private readonly usage: UsageFeed;
+	private readonly cursor: EntryCursor;
 	private readonly askedWhileStarting = Promise.withResolvers<string>();
 	private sink: SessionSink | undefined;
 	/** Notices from before the session opened, which no view could see yet; they follow the open. */
@@ -82,7 +83,7 @@ export class SessionHost {
 			(event) => this.emitted(event),
 		);
 		this.child = new PiChild(start.launch, (delivery) => this.events.deliver(delivery));
-		const cursor = new EntryCursor(this.child, start.lastEntryId);
+		this.cursor = new EntryCursor(this.child, start.lastEntryId);
 		this.listRow = new HostRow(start.facts, this.live, env.catalog);
 		this.usage = new UsageFeed(this.child, this.live);
 		this.settings = new SessionSettings(
@@ -116,7 +117,7 @@ export class SessionHost {
 			queue: this.queue,
 			live: this.live,
 			model: () => this.settings.currentModel,
-			leafId: () => cursor.leafId,
+			leafId: () => this.cursor.leafId,
 			abort: () => this.abortInBackground(),
 		});
 		this.children = new ChildFeeds({
@@ -130,7 +131,7 @@ export class SessionHost {
 			queue: this.queue,
 			prompts: this.prompts,
 			usage: this.usage,
-			cursor,
+			cursor: this.cursor,
 			children: this.children,
 			now,
 			record: (record) => void this.child.record(record),
@@ -138,7 +139,7 @@ export class SessionHost {
 				userMessage: (text) => this.listRow.userMessage(text),
 				renamed: (name) => this.listRow.renamed(name),
 				thinkingChanged: (level) => this.settings.thinkingChanged(level),
-				settling: () => this.settle(cursor),
+				settling: () => this.settle(),
 				dialog: (request) => this.dialog(request),
 				exited: (exit, stderr) => this.exited(exit, stderr),
 			},
@@ -274,6 +275,8 @@ export class SessionHost {
 	private async handshaken(answer: Extract<RpcAnswer<PiState>, { ok: true }>): Promise<void> {
 		if (this.finished) return;
 		this.settings.follow(answer.data);
+		// No last entry to open at (a v1 file's ids are Pi's to mint): the leaf a run's transcript is cut at is Pi's.
+		if (this.start.lastEntryId === null) await this.cursor.refresh();
 		await this.usage.pull();
 		this.started = true;
 		this.reviewIdle();
@@ -304,8 +307,8 @@ export class SessionHost {
 	 * Before a run ends: where the session's entries stand, the totals it ends with, and what model Pi runs, which an
 	 * extension may have changed.
 	 */
-	private async settle(cursor: EntryCursor): Promise<void> {
-		const [, state] = await Promise.all([cursor.refresh(), this.child.state(), this.usage.pull()]);
+	private async settle(): Promise<void> {
+		const [, state] = await Promise.all([this.cursor.refresh(), this.child.state(), this.usage.pull()]);
 		if (state.ok) this.settings.follow(state.data);
 	}
 

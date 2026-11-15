@@ -59,7 +59,10 @@ export interface StoredSession {
 
 /** What a session file says that its host starts from. */
 export interface StoredFacts {
-	/** The file's last entry: where Pi opens the session. */
+	/**
+	 * The file's last entry, where Pi opens the session. Null when the file holds none, and for a v1 file, whose entries
+	 * have no ids until Pi migrates it with random ones: the host learns them from Pi.
+	 */
 	readonly lastEntryId: string | null;
 	readonly permissions: PermissionsRecord;
 	readonly summary: SessionSummary | undefined;

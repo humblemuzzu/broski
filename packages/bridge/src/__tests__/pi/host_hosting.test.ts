@@ -9,8 +9,9 @@ import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileS
 import { dirname, join } from "node:path";
 import { ProjectTrustStore, SessionManager } from "@earendil-works/pi-coding-agent";
 import type { CatalogEvent, NewSessionOptions, SessionRef, SessionSummary } from "../../contract";
+import { userItems } from "./helpers/live-steps";
 import { MODELS, wireIdOf } from "./helpers/pi-world";
-import { conversation, sessionEntries, userTexts, writeSessionFile } from "./helpers/session-files";
+import { conversation, messageEntry, sessionEntries, userTexts, writeSessionFile } from "./helpers/session-files";
 import { useWatchdog } from "./helpers/use-watchdog";
 import { HostRig, until } from "./host_rig";
 
@@ -229,6 +230,51 @@ describe("a hosted session", () => {
 		expect(deleted?.status).toBe("accepted");
 		expect(await live.prompt("too late")).toMatchObject({ status: "rejected", rejection: { code: "closed" } });
 		await until(() => t?.router.liveRuntimes() === 0, "the host ends");
+	});
+});
+
+describe("a session file of Pi's first version, hosted", () => {
+	test("is followed by the entry ids Pi gives it when it migrates the file, not by ids the bridge made up", async () => {
+		t = await HostRig.create();
+		const id = "first-version";
+		const path = writeSessionFile(t.rig.world.sessionsRoot, { id, cwd: t.rig.cwd }, [
+			{ type: "custom", customType: "broski.origin", timestamp: "2026-01-01T00:00:00.000Z" },
+			messageEntry(undefined, undefined, "user", "hello"),
+			messageEntry(undefined, undefined, "assistant", "hi there"),
+		]);
+		const ref: SessionRef = { backend: "pi", sessionId: id };
+		const live = await t.rig.rig.open(ref);
+		expect(live.session.control).toBeDefined();
+		await t.rig.rig.arrange(ref, { kind: "reply" });
+
+		expect((await live.run("again")).outcome).toEqual({ kind: "completed" });
+
+		const stored = new Set(sessionEntries(path).map((entry) => entry.id));
+		const sent = live.events().find((event) => event.type === "user_message");
+		expect(sent && stored.has(sent.messageId.slice(0, sent.messageId.lastIndexOf(":")))).toBe(true);
+		expect(live.events().filter((event) => event.type === "notice")).toEqual([]);
+		live.assertSettled();
+	});
+
+	test("keeps its conversation readable while a run that began before any message is on", async () => {
+		t = await HostRig.create();
+		t.set({ askOn: "input" });
+		const id = "first-version-cut";
+		writeSessionFile(t.rig.world.sessionsRoot, { id, cwd: t.rig.cwd }, [
+			{ type: "custom", customType: "broski.origin", timestamp: "2026-01-01T00:00:00.000Z" },
+			messageEntry(undefined, undefined, "user", "hello"),
+			messageEntry(undefined, undefined, "assistant", "hi there"),
+		]);
+		const ref: SessionRef = { backend: "pi", sessionId: id };
+		const live = await t.rig.rig.open(ref);
+		await live.prompt("again");
+		const { interaction } = await live.waitFor("interaction_requested");
+
+		const read = await t.rig.backend.readTranscript(ref, { limit: 50 });
+		expect(read.status === "accepted" && userItems(read.page.items).map((item) => item.text)).toEqual(["hello"]);
+
+		await live.control.answer({ interactionId: interaction.id, reply: { kind: "confirm", confirmed: false } });
+		await live.waitFor("run_finished");
 	});
 });
 

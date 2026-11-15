@@ -43,7 +43,9 @@ imports only Pi's packages, `node:` built-ins and itself, and that everything el
   the bridge's login-shell environment and `PI_OFFLINE=1` unless the user set it (`pi-install.ts`, `childEnv`).
   Without it Pi runs `npm install` for a configured package that is missing, under a phone's request (proven by
   `host_hosting.test.ts`).
-- **Handshake**: `get_state`. Pi answers its first command only after every extension's `session_start` returned.
+- **Handshake**: `get_state`. Pi answers its first command only after every extension's `session_start` returned. A v1
+  file has no entry ids and Pi mints random ones when it migrates the file, so the host starts with no last entry and
+  asks `get_entries` once for Pi's (`host_hosting.test.ts`); the store's positional ids (§3) serve reads only.
 - **A dialog asked in `session_start` fails the open.** Pi binds extensions before it attaches its stdin reader
   (`dist/modes/rpc/rpc-mode.js:305` against `:669`), so that dialog can never be answered; the host refuses the open
   with the dialog's title instead of waiting for the start deadline (20 s).

@@ -15,6 +15,7 @@ import { readAttachment } from "./attachments";
 import { childTranscript, getChild } from "./children";
 import { type EntrySpan, lastEntryId, readEntries, type SessionFileIndex } from "./jsonl-reader";
 import { getSession, listSessions, NO_LIVE } from "./list";
+import { hasStableIds } from "./migration";
 import { forkStored, type MutationDeps, removeStored, renameStored } from "./mutations";
 import { isFileSystemError } from "./open-file";
 import { piSessionDirs } from "./session-dir";
@@ -52,7 +53,7 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
 		if (isRejection(file)) return file;
 		const found = await getSession(index, session.sessionId, NO_LIVE);
 		return {
-			lastEntryId: lastEntryId(file),
+			lastEntryId: hasStableIds(file.version) ? lastEntryId(file) : null,
 			permissions: await lastPermissions(file),
 			summary: found.status === "accepted" ? found.summary : undefined,
 		};
