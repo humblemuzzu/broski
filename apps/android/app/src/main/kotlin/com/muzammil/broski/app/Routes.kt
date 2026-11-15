@@ -41,6 +41,22 @@ data class SessionRoute(val machineId: String, val backend: String, val sessionI
 @Serializable
 data class FilesRoute(val machineId: String, val path: String) : Route
 
+/** One file on one machine, read in the viewer. */
+@Serializable
+data class FileRoute(val machineId: String, val path: String) : Route
+
+/** The git repository that `cwd` lies in. */
+@Serializable
+data class GitRoute(val machineId: String, val cwd: String) : Route
+
+/** One file's diff in a repository: the index against HEAD when `staged`, else the work tree against the index. */
+@Serializable
+data class DiffRoute(val machineId: String, val cwd: String, val path: String, val staged: Boolean) : Route
+
+/** One of a machine's terminals; `cwd` names it until the bridge's summary arrives. */
+@Serializable
+data class TerminalRoute(val machineId: String, val terminalId: String, val cwd: String) : Route
+
 /** The navigation bar's destinations, in its order. */
 enum class TopLevel(
     val root: Route,

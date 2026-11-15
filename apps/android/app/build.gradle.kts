@@ -17,7 +17,7 @@ android {
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
         versionName = "0.1.0"
-        // The ABIs scripts/build-android-core.sh builds libbroski_core.so for; JNA ships more.
+        // The ABIs scripts/build-android-core.sh and build-android-terminal.sh build for; JNA ships more.
         ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -52,6 +52,7 @@ android {
 
 dependencies {
     implementation(project(":core"))
+    implementation(project(":terminal"))
 
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)

@@ -25,6 +25,7 @@ import com.muzammil.broski.feature.inbox.InboxScreen
 import com.muzammil.broski.feature.machines.MachinesScreen
 import com.muzammil.broski.feature.pairing.PairScreen
 import com.muzammil.broski.feature.settings.SettingsScreen
+import com.muzammil.broski.feature.workspace.workspaceEntries
 
 /**
  * The app once a Mac is paired: the navigation bar (a wide rail on large windows) around one
@@ -96,5 +97,8 @@ private fun EntryProviderScope<Route>.shellEntries(
     entry<PairRoute> { PairScreen(phone = phone, onBack = navigator::back, onPaired = navigator::back) }
     entry<SettingsRoute> { SettingsScreen(core = core, phone = phone) }
     features.session?.let { session -> entry<SessionRoute> { route -> context.session(route) } }
-    features.workspace?.let { workspace -> entry<WorkspaceRoute> { context.workspace() } }
+    features.workspace?.let { workspace ->
+        entry<WorkspaceRoute> { context.workspace() }
+        workspaceEntries(context)
+    }
 }

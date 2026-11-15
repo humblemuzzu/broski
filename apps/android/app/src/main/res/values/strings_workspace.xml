@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Workspace -->
+    <string name="workspace_tab_files">Files</string>
+    <string name="workspace_tab_git">Git</string>
+    <string name="workspace_tab_terminal">Terminal</string>
+    <string name="workspace_loading">Loading</string>
+    <string name="workspace_try_again">Try again</string>
+    <string name="workspace_folders">Folders</string>
+    <string name="workspace_recent_folders">Where your sessions ran</string>
+    <string name="workspace_repositories">Repositories</string>
+    <string name="workspace_terminals">Terminals</string>
+    <string name="workspace_clean">Clean</string>
+    <plurals name="workspace_changes">
+        <item quantity="one">%1$d change</item>
+        <item quantity="other">%1$d changes</item>
+    </plurals>
+    <string name="workspace_no_machine_title">No Mac paired</string>
+    <string name="workspace_no_machine_body">Pair a Mac to browse its files, git and terminals.</string>
+    <string name="workspace_not_paired_title">This Mac isn\'t paired anymore</string>
+    <string name="workspace_not_paired_body">Pair it again from Machines to open its workspace.</string>
+    <string name="workspace_waiting_body">The workspace opens once %1$s is connected.</string>
+    <string name="workspace_no_git_title">Git isn\'t installed</string>
+    <string name="workspace_no_git_body">Install git on your Mac to see its repositories here.</string>
+    <string name="workspace_no_repositories_title">No repositories yet</string>
+    <string name="workspace_no_repositories_body">None of your folders is a git repository. Open a folder in Files and choose Git to look at another one.</string>
+    <string name="workspace_no_terminal_title">Terminals aren\'t available</string>
+    <string name="workspace_no_terminal_body">The bridge on your Mac can\'t open terminals. Reinstall Broski on the Mac with broski install.</string>
+
+    <!-- What a workspace request could not do (contract README §20.4) -->
+    <string name="workspace_failure_forbidden">This is outside the folders your Mac shares with Broski.</string>
+    <string name="workspace_failure_not_found">It isn\'t there anymore.</string>
+    <string name="workspace_failure_refused">Your Mac refused this.</string>
+    <string name="workspace_failure_closed">This terminal has ended.</string>
+    <string name="workspace_failure_busy">Twenty terminals are open on your Mac. Close one to open another.</string>
+    <string name="workspace_failure_too_many">Too much at once. Try again in a moment.</string>
+    <string name="workspace_failure_unsupported">Your Mac can\'t do this.</string>
+    <string name="workspace_failure_machine">Something went wrong on your Mac. Try again.</string>
+    <string name="workspace_failure_timeout">Your Mac didn\'t answer in time. Try again.</string>
+    <string name="workspace_failure_offline">The connection to your Mac dropped. Try again once it\'s back.</string>
+    <string name="workspace_failure_incompatible">Your Mac\'s bridge answered something this app doesn\'t understand. Update Broski on both.</string>
+
+    <!-- Files -->
+    <string name="files_search">Search names</string>
+    <string name="files_search_placeholder">Search names in this folder</string>
+    <string name="files_search_close">Close search</string>
+    <string name="files_search_none_title">Nothing matches</string>
+    <string name="files_search_none_body">No file or folder here has “%1$s” in its name.</string>
+    <string name="files_more">More</string>
+    <string name="files_show_hidden">Show hidden files</string>
+    <string name="files_copy_path">Copy path</string>
+    <string name="files_path_copied">Path copied</string>
+    <string name="files_open_git">Git</string>
+    <string name="files_open_terminal">New terminal here</string>
+    <string name="files_empty_title">Empty folder</string>
+    <string name="files_empty_body">There\'s nothing in this folder.</string>
+    <string name="files_not_found">This folder isn\'t there anymore.</string>
+    <string name="file_not_found">This file isn\'t there anymore.</string>
+    <string name="file_wrap_lines">Wrap lines</string>
+    <string name="file_binary">Binary file · %1$s</string>
+    <string name="file_truncated">Showing the first %1$s of %2$s.</string>
+
+    <!-- Git -->
+    <string name="git_branches">Branches</string>
+    <string name="git_detached">Detached at %1$s</string>
+    <string name="git_no_upstream">No upstream branch</string>
+    <string name="git_up_to_date">up to date</string>
+    <plurals name="git_ahead">
+        <item quantity="one">%1$d ahead</item>
+        <item quantity="other">%1$d ahead</item>
+    </plurals>
+    <plurals name="git_behind">
+        <item quantity="one">%1$d behind</item>
+        <item quantity="other">%1$d behind</item>
+    </plurals>
+    <string name="git_clean">Nothing to commit, working tree clean.</string>
+    <string name="git_section_staged">Staged · %1$d</string>
+    <string name="git_section_unstaged">Changes · %1$d</string>
+    <string name="git_section_untracked">Untracked · %1$d</string>
+    <string name="git_stage">Stage</string>
+    <string name="git_unstage">Unstage</string>
+    <string name="git_stage_all">Stage all</string>
+    <string name="git_unstage_all">Unstage all</string>
+    <string name="git_commit_message">Commit message</string>
+    <plurals name="git_commit">
+        <item quantity="one">Commit %1$d file</item>
+        <item quantity="other">Commit %1$d files</item>
+    </plurals>
+    <string name="git_committed">Committed %1$s · %2$s</string>
+    <string name="git_recent_commits">Recent commits</string>
+    <string name="git_checkout">Switch</string>
+    <string name="git_checkout_title">Switch to %1$s?</string>
+    <string name="git_checkout_body">If the switch would overwrite your changes, git refuses and says why.</string>
+    <string name="git_checked_out">On %1$s now</string>
+    <string name="git_current_branch">Current branch</string>
+    <string name="git_remote_branch">Remote branch</string>
+    <string name="git_not_a_repository">This folder isn\'t in a git repository.</string>
+    <string name="diff_staged">Staged</string>
+    <string name="diff_unstaged">Changes</string>
+    <string name="diff_none_title">No changes</string>
+    <string name="diff_none_body">This file is the same as before. Pull down on Git to read the status again.</string>
+    <string name="diff_binary_title">Binary file changed</string>
+    <string name="diff_binary_body">Its contents can\'t be shown as lines.</string>
+    <string name="diff_conflicted_title">This file has conflicts</string>
+    <string name="diff_conflicted_body">Resolve them on your Mac, then stage the file.</string>
+    <string name="diff_renamed">Renamed from %1$s</string>
+    <string name="diff_truncated">This diff is long; it stops early.</string>
+
+    <!-- Terminal -->
+    <string name="terminal_title">Terminal</string>
+    <string name="terminal_new">New terminal</string>
+    <string name="terminal_new_in">New terminal in</string>
+    <string name="terminal_running">Running</string>
+    <string name="terminal_exited">Exited</string>
+    <string name="terminal_exited_code">Exited with code %1$d</string>
+    <string name="terminal_exited_signal">Ended by %1$s</string>
+    <string name="terminal_failed">The terminal stopped: %1$s</string>
+    <string name="terminal_close">Close terminal</string>
+    <string name="terminal_close_title">Close this terminal?</string>
+    <string name="terminal_close_body">Whatever runs in it on your Mac stops.</string>
+    <string name="terminal_copy">Copy</string>
+    <string name="terminal_copy_all">Copy everything</string>
+    <string name="terminal_copied">Copied</string>
+    <string name="terminal_paste">Paste</string>
+    <string name="terminal_unsafe_paste_title">Paste and run these lines?</string>
+    <string name="terminal_jump_to_bottom">Back to the bottom</string>
+    <string name="terminal_key_escape">Escape</string>
+    <string name="terminal_key_ctrl">Control, for the next key</string>
+    <string name="terminal_key_tab">Tab</string>
+    <string name="terminal_key_left">Left arrow</string>
+    <string name="terminal_key_up">Up arrow</string>
+    <string name="terminal_key_down">Down arrow</string>
+    <string name="terminal_key_right">Right arrow</string>
+    <string name="terminal_key_pipe">Vertical bar</string>
+    <string name="terminal_key_tilde">Tilde</string>
+    <string name="terminal_key_slash">Slash</string>
+</resources>

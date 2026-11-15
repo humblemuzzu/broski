@@ -3,6 +3,7 @@ package com.muzammil.broski.app
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import com.muzammil.broski.core.PhoneSession
+import com.muzammil.broski.feature.workspace.WorkspaceScreen
 
 @Immutable
 class FeatureContext(
@@ -22,4 +23,4 @@ class Features(
     val newSession: (@Composable FeatureContext.(dismiss: () -> Unit) -> Unit)? = null,
 )
 
-val BroskiFeatures = Features()
+val BroskiFeatures = Features(workspace = { WorkspaceScreen(this) })
