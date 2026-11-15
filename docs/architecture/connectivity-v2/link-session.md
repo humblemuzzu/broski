@@ -15,7 +15,8 @@ timer is due, and no work stealing wakes a second core for a frame. UniFFI never
 polls futures on the foreign caller's thread (`docs/rebuild/research/uniffi.md`), so every async entry
 point (`pair`) spawns its work onto this thread and awaits the `JoinHandle`, which any executor can
 poll. `Session::next_event` needs no runtime at all: it waits on a `tokio::sync::Notify`. Dropping the
-last `LinkRuntime` clone stops the thread, which drops every task and socket on it.
+last `LinkRuntime` clone stops the thread, which drops every task and socket on it. `handle()` lets the
+client core (`broski-client`) run its own tasks and timers on the same thread.
 
 ## API
 
