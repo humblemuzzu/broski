@@ -36,7 +36,6 @@ import uniffi.broski_core.MachineRecord
 import uniffi.broski_core.Phone
 import uniffi.broski_core.PhoneConfig
 import uniffi.broski_core.Platform
-import uniffi.broski_core.newIdentitySecret
 
 sealed interface CoreState {
     data object Starting : CoreState
@@ -47,6 +46,9 @@ sealed interface CoreState {
 }
 
 enum class StartupFailure {
+    /** Pairings are stored, but the identity they belong to is not. */
+    IdentityMissing,
+
     /** The identity secret is stored but does not open (the Keystore key is gone or the value damaged). */
     IdentityUnreadable,
 
@@ -54,13 +56,16 @@ enum class StartupFailure {
     IdentityRefused,
 
     /** The app's own storage could not be read. */
-    StorageUnreadable,
+    StorageUnreadable;
+
+    /** Whether the identity itself is what is lost or damaged, which only starting over can end. */
+    val canStartOver: Boolean get() = this != StorageUnreadable
 }
 
 /**
  * Everything the app keeps for the life of the process, created once by the Application: the
  * vault, the settings, and the one [Phone], started off the main thread from the stored identity
- * (made on the first run only, never in place of one that fails to open).
+ * (made on the first run only, never in place of one that is missing or fails to open).
  */
 class AppCore(private val context: Context) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -85,9 +90,31 @@ class AppCore(private val context: Context) {
         scope.launch(Dispatchers.IO) { mutableState.value = start() }
     }
 
+    /**
+     * Forgets this phone's identity and every pairing, then starts over with a new identity. Offered
+     * only when the identity cannot be used, and only on the person's word.
+     */
+    fun startOver() {
+        val failed = mutableState.value as? CoreState.Failed ?: return
+        if (!mutableState.compareAndSet(failed, CoreState.Starting)) return
+        scope.launch(Dispatchers.IO) {
+            try {
+                vault.clear()
+            } catch (error: IOException) {
+                Log.e(TAG, "the vault could not be cleared", error)
+                mutableState.value = CoreState.Failed(StartupFailure.StorageUnreadable)
+                return@launch
+            }
+            mutableState.value = start()
+        }
+    }
+
     private suspend fun start(): CoreState {
         val phone = try {
             openPhone()
+        } catch (error: MissingIdentityException) {
+            Log.e(TAG, "the identity is gone but pairings are stored", error)
+            return CoreState.Failed(StartupFailure.IdentityMissing)
         } catch (error: UnreadableSecretException) {
             Log.e(TAG, "the identity secret does not open", error)
             return CoreState.Failed(StartupFailure.IdentityUnreadable)
@@ -127,7 +154,7 @@ class AppCore(private val context: Context) {
     }
 
     private suspend fun openPhone(): Phone {
-        val identity = vault.identity() ?: newIdentitySecret().also { vault.saveIdentity(it) }
+        val identity = launchIdentity(vault)
         return try {
             Phone(identity, phoneConfig())
         } finally {

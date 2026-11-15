@@ -50,6 +50,11 @@ class Vault(private val store: DataStore<Preferences>, private val cipher: Secre
         store.edit { it.remove(recordKey(machineId)) }
     }
 
+    /** The identity, every record and the seen state: only when the person starts over. */
+    suspend fun clear() {
+        store.edit { it.clear() }
+    }
+
     /** `null` until the inbox first reports one; a stored state that does not open throws. */
     suspend fun seen(): SeenState? = read(SEEN)?.let { bytes ->
         try {

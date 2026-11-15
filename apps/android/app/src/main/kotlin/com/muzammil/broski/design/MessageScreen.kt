@@ -3,6 +3,7 @@ package com.muzammil.broski.design
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
@@ -20,9 +21,14 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 
-/** A whole screen that explains one thing that stops the app, and what the person can do. */
+/** A whole screen that explains one thing that stops the app, and what the person can do about it in [actions]. */
 @Composable
-fun MessageScreen(@DrawableRes icon: Int, title: String, body: String) {
+fun MessageScreen(
+    @DrawableRes icon: Int,
+    title: String,
+    body: String,
+    actions: @Composable ColumnScope.() -> Unit = {},
+) {
     Surface(Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -39,6 +45,7 @@ fun MessageScreen(@DrawableRes icon: Int, title: String, body: String) {
             )
             Text(title, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.semantics { heading() })
             Text(body, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            actions()
         }
     }
 }

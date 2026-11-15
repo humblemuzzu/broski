@@ -18,12 +18,18 @@
     <string name="action_back">Back</string>
 
     <!-- Startup failures -->
-    <string name="startup_identity_title">This phone\'s pairing key can\'t be read</string>
-    <string name="startup_identity_body">Broski keeps the key that identifies this phone to your Macs in the Android Keystore, and it no longer opens. Your Macs still know this phone. Broski won\'t make a new key on its own: that would end every pairing. To start over, clear Broski\'s storage in system settings and pair each Mac again.</string>
+    <string name="startup_missing_title">This phone\'s Broski identity is gone</string>
+    <string name="startup_missing_body">This phone still has pairings, but not the identity they belong to, so none of them can connect. Start over to make a new identity, then pair your Macs again.</string>
+    <string name="startup_identity_title">This phone\'s Broski identity is damaged</string>
+    <string name="startup_identity_body">The identity stored on this phone can\'t be read, so its pairings can\'t connect. Start over to make a new identity, then pair your Macs again.</string>
     <string name="startup_refused_title">Broski couldn\'t start</string>
-    <string name="startup_refused_body">The stored pairing key was refused. To start over, clear Broski\'s storage in system settings and pair each Mac again.</string>
+    <string name="startup_refused_body">The identity stored on this phone was refused, so its pairings can\'t connect. Start over to make a new identity, then pair your Macs again.</string>
     <string name="startup_storage_title">Broski can\'t read its storage</string>
     <string name="startup_storage_body">The phone\'s storage for Broski could not be read. Restart the phone and open Broski again.</string>
+    <string name="startup_start_over">Start Over…</string>
+    <string name="startup_start_over_title">Start over?</string>
+    <string name="startup_start_over_body">This phone forgets every Mac it was paired with and gets a new identity. You\'ll pair each Mac again.</string>
+    <string name="startup_start_over_confirm">Start Over</string>
 
     <!-- Welcome -->
     <string name="welcome_line">Control Claude Code and Pi on your Mac from here.</string>

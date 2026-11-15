@@ -40,12 +40,14 @@ It is unsigned: sign it with your own key to install it.
 
 - **JVM** (`app/src/test`): the vault over a real DataStore file and real AES-GCM with a software key
   (round trip across a restart, nothing in the clear, a value that does not open is an error and never a
-  first run, a value moved under another name does not open); the pairing flow over the host build of the
+  first run, a value moved under another name does not open); which identity the phone opens with
+  (made on a first run only, never over stored pairings; Start Over clears the vault); a handle on a
+  forgotten machine stays usable (`PhoneSessionTest`); the pairing flow over the host build of the
   real core with the facade's fixture offer (preview, expiry, wrong code, empty clipboard, an unreachable
   machine that stores nothing and can be tried again, a sentence for every `LinkFailure`); inbox sections
   from real `InboxRow` values; `MachineHealth` from `MachineStatus`; NSD routes.
-- **Instrumented** (`app/src/androidTest`): the vault under the real Keystore key; `RealMachineTest`, the
-  whole first run against a real machine.
+- **Instrumented** (`app/src/androidTest`): the vault under the real Keystore key; `StartupFailedTest`, the
+  confirmation in front of Start Over; `RealMachineTest`, the whole first run against a real machine.
 
 `scripts/test-android-real-machine.sh` starts `packages/link/testkit`'s `test-machine` (the real daemon and
 the real bridge on its fake backend; needs cargo, Bun and `bun install` in `packages/bridge`), reverses its
@@ -75,9 +77,10 @@ Phase 4.2 adds `feature/chat`, `feature/composer`, `feature/workspace` and `feat
 ## Core wiring
 
 - **One `Phone`**, owned by `AppCore` (created in `BroskiApplication.onCreate`), started on `Dispatchers.IO`:
-  the identity secret from the vault, or `newIdentitySecret()` stored first on a first run; a secret that
-  is stored but does not open, or that the core refuses, stops the app with a plain screen and is never
-  replaced. Then `inbox().restoreSeen(...)` with the stored seen state, then `phone.start(...)` for each
+  the identity secret from the vault, or `newIdentitySecret()` stored first on a first run with nothing
+  paired (`launchIdentity`); a secret that is stored but does not open, that the core refuses, or that is
+  missing while records are stored stops the app with a plain screen and is never replaced. Its **Start
+  Over…** (confirmed, `AppCore.startOver`) is the only thing that clears the vault and makes a new identity. Then `inbox().restoreSeen(...)` with the stored seen state, then `phone.start(...)` for each
   stored record. The splash screen stays until this and the settings are read.
 - **Vault** (`core/vault`): one Preferences DataStore file, each value sealed with AES-256-GCM under the
   Keystore key `broski.vault.v1`, the value's name as associated data: `identity`, `machine:<id>` (the
