@@ -84,6 +84,41 @@ class RealMachineTest {
     @Test
     fun g_theLiveUpdateFollowsARunAndItsStopEndsIt() = LiveUpdateFlow(ui, machine).run()
 
+    @Test
+    fun h_theChatsCopyOfASessionEqualsTheCoresThroughEveryScenario() = ReplicaFlow(machine).run()
+
+    private val chat = ChatFlows(ui, machine)
+
+    @Test
+    fun i_aSessionOpensFromTheInboxAndItsWorkStreamsIntoTheChat() = chat.openSendAndWatchWork()
+
+    @Test
+    fun j_aDenyTellsTheAgentWhatToDoInstead() = chat.denyWithInstructions()
+
+    @Test
+    fun k_anAllowedCommandRunsAndItsRowOpensToItsOutput() = chat.allowAndReadTheWork()
+
+    @Test
+    fun l_anAskIsAnsweredFromItsCard() = chat.answerAnAsk()
+
+    @Test
+    fun m_aMessageQueuesWhileTheRunHoldsAndStopEndsTheRun() = chat.queueWhileRunningThenStop()
+
+    @Test
+    fun n_theTitleIsRenamedFromTheHeader() = chat.renameFromTheHeader()
+
+    @Test
+    fun o_theNewSessionSheetStartsASessionAndOpensItsChat() = chat.newSessionFromTheSheet()
+
+    @Test
+    fun p_readingUpDetachesAndJumpToLatestComesBack() = chat.jumpToLatest()
+
+    @Test
+    fun q_theChatInDarkAndAtTwiceTheFontSize() = chat.appearances()
+
+    @Test
+    fun r_aThousandItemsScrollFromTheEndToTheFirstMessageAndBack() = ScrollFlow(ui, machine).run()
+
     private companion object {
         const val TIMEOUT = 10_000L
         const val PAIRING_TIMEOUT = 30_000L
