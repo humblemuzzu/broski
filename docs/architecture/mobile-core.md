@@ -226,7 +226,10 @@ lists load, and `forget` drops them. Restored rows show only for machines starte
 version, or not a cache, are refused `InvalidRequest` and change nothing (the next cache replaces
 them). **What the person has seen** is `SeenState{markers, read_machines}`. A marker is
 `{machine_id, session, seen_at}`, `seen_at` being the row's `updatedAt` when the person looked: `mark_seen`
-sets one. `read_machines` are the machines whose history is already marked. `InboxUpdate.seen` carries the
+sets one, and never moves one back. A session not listed yet, or whose row still shows a run or an ask the
+phone's own view has already seen end, is not marked at that stale row: its mark waits until its row
+settles, so the update that follows does not make a session the person just watched `Done` again.
+`read_machines` are the machines whose history is already marked. `InboxUpdate.seen` carries the
 whole state whenever it changed, for the app to persist and hand back to `restore_seen` at its next start,
 before it starts any machine. The inbox settles a machine by itself, on a task of the link runtime, the
 first time its rows are all in during a run, whether or not the UI reads the inbox: a machine not in

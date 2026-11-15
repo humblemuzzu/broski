@@ -140,6 +140,22 @@ async fn sessions_move_through_needs_you_working_done_and_idle_across_machines()
     assert_eq!(state(&rows, &asking), Some(InboxState::Done));
 }
 
+/// A session the person opens the moment it exists (New session opens its chat at once) is not in
+/// the machine's lists yet: the mark waits for its row, and the row comes in seen.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_session_seen_before_its_row_arrives_comes_in_idle() {
+    let mut mac = Mac::on_lan().await;
+    let history = mac.bridge.seed(&mac.root(), "Last week").await;
+    let phone = phone();
+    let machine = paired(&phone, &mac).await;
+    inbox_until(&phone, "the history", in_state(&history, InboxState::Idle)).await;
+
+    let opened = mac.bridge.seed(&mac.root(), "Just created").await;
+    phone.inbox().mark_seen(machine.id(), opened.clone());
+    let rows = inbox_until(&phone, "the new row", |rows| state(rows, &opened).is_some()).await;
+    assert_eq!(state(&rows, &opened), Some(InboxState::Idle));
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn a_session_that_appears_before_the_ui_reads_the_inbox_is_still_done() {
     let mut mac = Mac::on_lan().await;

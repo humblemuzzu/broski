@@ -4,7 +4,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use broski_contract::{BackendId, SessionRef};
+use broski_contract::{BackendId, SessionRef, SessionStatus};
 
 use crate::machine::InboxSource;
 
@@ -35,6 +35,22 @@ fn key(machine_id: &str, session: &SessionRef) -> Key {
     )
 }
 
+fn active(status: SessionStatus) -> bool {
+    matches!(
+        status,
+        SessionStatus::Running | SessionStatus::WaitingForUser
+    )
+}
+
+/// The row shows activity that the view the phone holds has already seen end.
+fn lags(source: &InboxSource) -> bool {
+    let settled_live = source
+        .live
+        .as_ref()
+        .is_some_and(|live| !live.working && !live.needs_you);
+    settled_live && active(source.row.status)
+}
+
 #[derive(Default)]
 pub(crate) struct Seen {
     markers: HashMap<Key, i64>,
@@ -42,6 +58,10 @@ pub(crate) struct Seen {
     read: HashSet<String>,
     /// Machines whose rows were all in during this run.
     settled: HashSet<String>,
+    /// Sessions seen while their row could not say what the person saw: the row is not in yet, or
+    /// still shows a run or an ask the person's own view has seen end. Marking its `updatedAt` then
+    /// would leave the session done again when the row catches up. Each is marked when its row settles.
+    deferred: HashSet<Key>,
     /// The state changed since the app last took it.
     pub(crate) changed: bool,
 }
@@ -51,8 +71,40 @@ impl Seen {
         self.markers.get(&key(machine_id, session)).copied()
     }
 
-    pub(crate) fn mark(&mut self, machine_id: &str, session: &SessionRef, seen_at: i64) {
-        self.markers.insert(key(machine_id, session), seen_at);
+    /// The person has seen `session`, whose inbox row is `source` when it is listed.
+    pub(crate) fn see(
+        &mut self,
+        machine_id: &str,
+        session: &SessionRef,
+        source: Option<&InboxSource>,
+    ) {
+        match source {
+            Some(source) if !lags(source) => self.mark(machine_id, session, source.row.updated_at),
+            _ => {
+                self.deferred.insert(key(machine_id, session));
+            }
+        }
+    }
+
+    /// Marks the deferred sessions of `machine_id` whose row has settled.
+    pub(crate) fn resolve(&mut self, machine_id: &str, rows: &[InboxSource]) {
+        if self.deferred.is_empty() {
+            return;
+        }
+        for source in rows.iter().filter(|source| !active(source.row.status)) {
+            let session = &source.row.session;
+            if self.deferred.remove(&key(machine_id, session)) {
+                self.mark(machine_id, session, source.row.updated_at);
+            }
+        }
+    }
+
+    fn mark(&mut self, machine_id: &str, session: &SessionRef, seen_at: i64) {
+        let marker = self
+            .markers
+            .entry(key(machine_id, session))
+            .or_insert(seen_at);
+        *marker = (*marker).max(seen_at);
         self.changed = true;
     }
 
@@ -70,6 +122,8 @@ impl Seen {
         self.markers
             .retain(|(machine, _, _), _| machine != machine_id);
         self.settled.remove(machine_id);
+        self.deferred
+            .retain(|(machine, _, _)| machine != machine_id);
         let was_read = self.read.remove(machine_id);
         self.changed |= was_read || self.markers.len() != before;
     }
@@ -122,5 +176,113 @@ impl Seen {
             markers,
             read_machines,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use broski_contract::{SessionOrigin, SessionSummary};
+
+    use super::*;
+    use crate::view::stream::LiveInfo;
+
+    const MACHINE: &str = "m";
+
+    fn session() -> SessionRef {
+        SessionRef {
+            backend: BackendId::Pi,
+            session_id: "s".to_owned(),
+        }
+    }
+
+    fn source(status: SessionStatus, updated_at: i64, live: Option<LiveInfo>) -> InboxSource {
+        let row = SessionSummary {
+            session: session(),
+            title: None,
+            cwd: None,
+            created_at: None,
+            updated_at,
+            parent: None,
+            model_id: None,
+            status,
+            origin: SessionOrigin::Broski,
+            source: None,
+        };
+        InboxSource { row, live }
+    }
+
+    fn live(working: bool, needs_you: bool) -> LiveInfo {
+        LiveInfo {
+            ask: None,
+            command: None,
+            pending: None,
+            needs_you,
+            working,
+        }
+    }
+
+    fn marker(seen: &Seen) -> Option<i64> {
+        seen.get(MACHINE, &session())
+    }
+
+    #[test]
+    fn a_session_whose_row_is_current_is_marked_at_its_updated_at() {
+        let mut seen = Seen::default();
+        let idle = source(SessionStatus::Idle, 10, Some(live(false, false)));
+        seen.see(MACHINE, &session(), Some(&idle));
+        assert_eq!(marker(&seen), Some(10));
+        let running = source(SessionStatus::Running, 20, Some(live(true, false)));
+        seen.see(MACHINE, &session(), Some(&running));
+        assert_eq!(marker(&seen), Some(20), "a run the person watches");
+    }
+
+    #[test]
+    fn a_marker_never_moves_back() {
+        let mut seen = Seen::default();
+        seen.see(
+            MACHINE,
+            &session(),
+            Some(&source(SessionStatus::Idle, 20, None)),
+        );
+        seen.see(
+            MACHINE,
+            &session(),
+            Some(&source(SessionStatus::Idle, 10, None)),
+        );
+        assert_eq!(marker(&seen), Some(20));
+    }
+
+    #[test]
+    fn a_session_not_listed_yet_is_marked_when_its_row_comes_in() {
+        let mut seen = Seen::default();
+        seen.see(MACHINE, &session(), None);
+        assert_eq!(marker(&seen), None);
+        seen.resolve(MACHINE, &[source(SessionStatus::Idle, 10, None)]);
+        assert_eq!(marker(&seen), Some(10));
+        seen.resolve(MACHINE, &[source(SessionStatus::Idle, 30, None)]);
+        assert_eq!(marker(&seen), Some(10), "marked once");
+    }
+
+    #[test]
+    fn a_row_still_running_after_the_view_saw_the_run_end_waits_for_its_update() {
+        for status in [SessionStatus::Running, SessionStatus::WaitingForUser] {
+            let mut seen = Seen::default();
+            let stale = source(status, 10, Some(live(false, false)));
+            seen.see(MACHINE, &session(), Some(&stale));
+            assert_eq!(marker(&seen), None, "{status:?}");
+            seen.resolve(MACHINE, &[source(status, 10, None)]);
+            assert_eq!(marker(&seen), None, "still {status:?}");
+            seen.resolve(MACHINE, &[source(SessionStatus::Idle, 25, None)]);
+            assert_eq!(marker(&seen), Some(25), "the run's own update is seen");
+        }
+    }
+
+    #[test]
+    fn forgetting_a_machine_drops_its_waiting_marks() {
+        let mut seen = Seen::default();
+        seen.see(MACHINE, &session(), None);
+        seen.forget_machine(MACHINE);
+        seen.resolve(MACHINE, &[source(SessionStatus::Idle, 10, None)]);
+        assert_eq!(marker(&seen), None);
     }
 }

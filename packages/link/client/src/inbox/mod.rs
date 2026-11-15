@@ -187,20 +187,20 @@ impl Inbox {
     }
 
     /// The person has seen the session as it is now: it is done no more until something happens.
+    ///
+    /// A session not listed yet, or whose row has not caught up with what the person's own view
+    /// saw, is marked when its row settles.
     pub fn mark_seen(&self, machine_id: String, session: SessionRef) {
-        let updated_at = self
+        let source = self
             .sources()
             .into_iter()
             .filter(|(machine, _)| machine.id == machine_id)
             .flat_map(|(_, sources)| sources)
-            .find(|source| source.row.session == session)
-            .map(|source| source.row.updated_at);
-        if let Some(updated_at) = updated_at {
-            locked(&self.tracker)
-                .seen
-                .mark(&machine_id, &session, updated_at);
-            self.wake.notify_one();
-        }
+            .find(|source| source.row.session == session);
+        locked(&self.tracker)
+            .seen
+            .see(&machine_id, &session, source.as_ref());
+        self.wake.notify_one();
     }
 
     pub fn rows(&self) -> Vec<InboxRow> {
@@ -272,6 +272,7 @@ impl Inbox {
         for (machine, rows) in &sources {
             if machine.loaded {
                 tracker.seen.first_read(&machine.id, rows);
+                tracker.seen.resolve(&machine.id, rows);
                 tracker.cache.drop_machine(&machine.id);
             }
         }
