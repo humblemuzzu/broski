@@ -7,6 +7,7 @@ struct InboxEmptyState: View {
     let filter: InboxState?
     let machines: [MachineModel]
     let showAll: () -> Void
+    let startSession: () -> Void
 
     var body: some View {
         if filter != nil {
@@ -35,6 +36,9 @@ struct InboxEmptyState: View {
                 Label("No sessions yet", systemImage: "tray")
             } description: {
                 Text("Sessions you start with Claude Code or Pi on your Mac show up here.")
+            } actions: {
+                Button("New Session", systemImage: "square.and.pencil", action: startSession)
+                    .primaryActionStyle()
             }
         }
     }

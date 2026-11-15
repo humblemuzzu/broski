@@ -14,6 +14,9 @@ final class MachineModel: Identifiable {
     private(set) var status: MachineStatus
     private(set) var backends: [BackendDescriptor] = []
     private(set) var backendStatuses: [BackendId: BackendStatus] = [:]
+    /// Counts the catalog's invalidations: a screen that shows models, commands or modes reads
+    /// them again when it changes.
+    private(set) var catalogChanges = 0
 
     @ObservationIgnored private let records: MachineRecordStore
     @ObservationIgnored private var events: Task<Void, Never>?
@@ -89,7 +92,7 @@ final class MachineModel: Identifiable {
         case .backendStatusChanged(let backend, let status):
             backendStatuses[backend] = status
         case .catalogInvalidated:
-            break
+            catalogChanges += 1
         }
     }
 

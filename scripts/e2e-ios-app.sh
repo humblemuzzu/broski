@@ -3,9 +3,13 @@
 # real daemon and the real bridge on its fake backend) with four sessions in its history, a fresh
 # install of the app in the simulator with the machine's pairing link on its pasteboard, and the
 # BroskiE2E scheme's UI tests, which pair from the pasted link, add a session through the machine,
-# pull the inbox to refresh, approve a permission the machine asks for from its inbox row, follow a held run in the Live Activity and stop it from there, browse,
+# pull the inbox to refresh, approve a permission the machine asks for from its inbox row, start a held
+# run from the chat's composer, follow it in the Live Activity and stop it from there, drive the chat
+# (streamed work, permissions, a choice, a queue, Stop, jump to latest, rename, a new session), browse,
 # diff, stage and commit in a git repository made in the served root, type into a terminal, and save
-# a screenshot of every screen. Then it puts the push fixture's machine record in the app's keychain,
+# a screenshot of every screen. A second test machine serves `SessionMachineTests`, whose own phone
+# follows real runs and holds the chat's session state equal to the core's view after every update.
+# Then it puts the push fixture's machine record in the app's keychain,
 # sends the fixture push with `simctl push` (which runs no notification service extension) and has
 # the notification test deny it from Notification Center.
 # The test daemon never advertises itself, so this script advertises its LAN port as the daemon does
@@ -26,10 +30,15 @@ SIMULATOR="${BROSKI_SIMULATOR:-iPhone Duo}"
 WORK="$(mktemp -d)"
 COMMANDS="$WORK/commands"
 MACHINE_OUT="$WORK/machine.out"
+REPLICA_COMMANDS="$WORK/replica-commands"
+REPLICA_OUT="$WORK/replica.out"
 : >"$COMMANDS"
-mkfifo "$WORK/input"
+: >"$REPLICA_COMMANDS"
+mkfifo "$WORK/input" "$WORK/replica-input"
 tail_pid=""
 machine_pid=""
+replica_tail_pid=""
+replica_pid=""
 advert_pid=""
 pusher_pid=""
 log_pid=""
@@ -40,16 +49,18 @@ cleanup() {
   [[ -n $advert_pid ]] && kill "$advert_pid" 2>/dev/null || true
   # Closing the machine's stdin stops it, and with it the daemon and the bridge.
   [[ -n $tail_pid ]] && kill "$tail_pid" 2>/dev/null || true
+  [[ -n $replica_tail_pid ]] && kill "$replica_tail_pid" 2>/dev/null || true
   [[ -n $machine_pid ]] && wait "$machine_pid" 2>/dev/null || true
+  [[ -n $replica_pid ]] && wait "$replica_pid" 2>/dev/null || true
   rm -rf "$WORK"
 }
 trap cleanup EXIT
 
 wait_for_lines() {
-  local pattern=$1 count=$2 seconds=$3
+  local pattern=$1 count=$2 seconds=$3 output=${4:-$MACHINE_OUT} pid=${5:-$machine_pid}
   for _ in $(seq "$seconds"); do
-    if (($(grep -c "$pattern" "$MACHINE_OUT" || true) >= count)); then return 0; fi
-    if ! kill -0 "$machine_pid" 2>/dev/null; then
+    if (($(grep -c "$pattern" "$output" || true) >= count)); then return 0; fi
+    if ! kill -0 "$pid" 2>/dev/null; then
       echo "error: the test machine exited" >&2
       return 1
     fi
@@ -73,7 +84,9 @@ echo '{"seed":"Fix the flaky login test"}' >>"$COMMANDS"
 echo '{"seed":"Rename the settings screen"}' >>"$COMMANDS"
 echo '{"seed":"Hold for the live activity"}' >>"$COMMANDS"
 echo '{"seed":"Clean the build folder"}' >>"$COMMANDS"
-wait_for_lines '"seeded"' 4 60
+echo '{"seed":"Tidy the release notes"}' >>"$COMMANDS"
+echo '{"seed":"Read the whole history"}' >>"$COMMANDS"
+wait_for_lines '"seeded"' 6 60
 # The third session's next run streams, then holds until released: the Live Activity's run.
 held="$(grep '"seeded"' "$MACHINE_OUT" | sed -n 3p | /usr/bin/python3 -c 'import json, sys; print(json.dumps(json.load(sys.stdin)["seeded"]))')"
 echo "{\"script\":$held,\"scenario\":\"hold\"}" >>"$COMMANDS"
@@ -91,11 +104,33 @@ git -C "$project" commit --quiet -m "First notes"
 git -C "$project" branch feature
 printf 'two\n' >>"$project/notes.md"
 printf 'buy milk\n' >"$project/todo.txt"
-# The fourth session is the one a UI test makes ask for a permission, as a terminal would.
-ask_session="$(grep '"seeded"' "$MACHINE_OUT" | sed -n 4p | /usr/bin/python3 -c '
+seeded() {
+  grep '"seeded"' "$MACHINE_OUT" | sed -n "$1p" | /usr/bin/python3 -c '
 import json, sys
 print(json.dumps(json.load(sys.stdin)["seeded"], separators=(",", ":")))
-')"
+'
+}
+# The fourth session is the one a UI test makes ask for a permission, as a terminal would; the fifth
+# is the chat's, whose tests script each of its runs.
+ask_session="$(seeded 4)"
+chat_session="$(seeded 5)"
+# The sixth gets a long history for the scrolling test: 40 runs of `work`, one after another, as a
+# terminal starts them.
+long_session="$(seeded 6)"
+for run in $(seq 40); do
+  echo "{\"run\":$long_session,\"scenario\":\"work\"}" >>"$COMMANDS"
+  wait_for_lines '"running"' "$run" 60
+done
+
+echo "==> Starting the replica test's machine"
+tail -f "$REPLICA_COMMANDS" >"$WORK/replica-input" &
+replica_tail_pid=$!
+(cd "$ROOT/packages/link" && exec cargo run --quiet --locked -p broski-link-testkit --bin test-machine) \
+  <"$WORK/replica-input" >"$REPLICA_OUT" &
+replica_pid=$!
+wait_for_lines '"offer"' 1 600 "$REPLICA_OUT" "$replica_pid"
+replica_offer="$(grep '"offer"' "$REPLICA_OUT" | head -1 | sed -E 's/.*"offer":"([^"]*)".*/\1/')"
+replica_root="$(grep '"offer"' "$REPLICA_OUT" | head -1 | /usr/bin/python3 -c 'import json, sys; print(json.load(sys.stdin)["root"])')"
 
 # The machine id is the hex of the fingerprint's first 16 bytes (session/src/pairing.rs).
 read -r machine_id lan_port < <(/usr/bin/python3 -c '
@@ -104,11 +139,6 @@ query = urllib.parse.parse_qs(urllib.parse.urlsplit(sys.argv[1]).query)
 fingerprint = base64.urlsafe_b64decode(query["h"][0] + "=" * (-len(query["h"][0]) % 4))
 print(fingerprint[:16].hex(), query["l"][0].rsplit(":", 1)[1])
 ' "$offer")
-hold_session="$(/usr/bin/python3 -c '
-import json, sys
-session = json.loads(sys.argv[2])
-print(json.dumps({"machine": sys.argv[1], "backend": session["backend"], "sessionId": session["sessionId"]}))
-' "$machine_id" "$held")"
 dns-sd -P "Broski E2E" _broski-link._tcp local. "$lan_port" broski-e2e.local. 127.0.0.1 "id=$machine_id" v=1 \
   >/dev/null &
 advert_pid=$!
@@ -150,8 +180,9 @@ e2e_tests() {
   TEST_RUNNER_BROSKI_E2E_COMMANDS="$COMMANDS" \
     TEST_RUNNER_BROSKI_E2E_SCREENSHOTS="$OUT/screenshots" \
     TEST_RUNNER_BROSKI_E2E_ROOT="$served" \
-    TEST_RUNNER_BROSKI_E2E_HOLD_SESSION="$hold_session" \
     TEST_RUNNER_BROSKI_E2E_ASK_SESSION="$ask_session" \
+    TEST_RUNNER_BROSKI_E2E_CHAT_SESSION="$chat_session" \
+    TEST_RUNNER_BROSKI_E2E_LONG_SESSION="$long_session" \
     xcodebuild test \
     -project "$APP/Broski.xcodeproj" \
     -scheme BroskiE2E \
@@ -160,6 +191,19 @@ e2e_tests() {
     "$@"
 }
 e2e_tests -skip-testing:BroskiUITests/NotificationEndToEndTests -resultBundlePath "$OUT/E2E.xcresult"
+
+echo "==> Following real runs into the chat's session state"
+TEST_RUNNER_BROSKI_REPLICA_OFFER="$replica_offer" \
+  TEST_RUNNER_BROSKI_REPLICA_ROOT="$replica_root" \
+  TEST_RUNNER_BROSKI_REPLICA_COMMANDS="$REPLICA_COMMANDS" \
+  TEST_RUNNER_BROSKI_REPLICA_OUTPUT="$REPLICA_OUT" \
+  xcodebuild test \
+  -project "$APP/Broski.xcodeproj" \
+  -scheme Broski \
+  -destination "platform=iOS Simulator,name=$SIMULATOR" \
+  -derivedDataPath "$APP/build/DerivedData-e2e" \
+  -only-testing:BroskiTests/SessionMachineTests \
+  -resultBundlePath "$OUT/Replica.xcresult"
 
 echo "==> Putting the push fixture's machine record in the app's keychain"
 TEST_RUNNER_BROSKI_E2E_INSTALL_PUSH_RECORD=1 xcodebuild test \

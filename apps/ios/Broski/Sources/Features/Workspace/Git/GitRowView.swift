@@ -62,25 +62,6 @@ struct GitRowView: View {
     }
 }
 
-/// Lines added and removed, signed so the numbers read without their colour.
-struct LineCounts: View {
-    let additions: Int64?
-    let deletions: Int64?
-
-    var body: some View {
-        HStack(spacing: Spacing.xs) {
-            if let additions, additions > 0 {
-                Text("+\(additions)").foregroundStyle(Palette.added)
-            }
-            if let deletions, deletions > 0 {
-                Text("−\(deletions)").foregroundStyle(Palette.removed)
-            }
-        }
-        .font(.codeSmall.weight(.medium))
-        .monospacedDigit()
-    }
-}
-
 private struct ChangeBadge: View {
     let change: GitChange?
     @ScaledMetric(relativeTo: .footnote) private var side: CGFloat = 20

@@ -10,9 +10,6 @@ struct BroskiApp: App {
     init() {
         let model = AppModel()
         model.start()
-        #if DEBUG
-        E2EPrompt.sendIfAsked(model)
-        #endif
         _model = State(initialValue: model)
     }
 

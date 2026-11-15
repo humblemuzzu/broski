@@ -56,10 +56,9 @@ enum FileContent {
     }
 }
 
-/// A text file split into lines once, for the viewer's numbered rows.
+/// A text file as read, and how much of it the read carried.
 struct TextFile {
     let text: String
-    let lines: [Substring]
     /// The whole file's bytes, and how many of them the read carried.
     let size: Int64
     let shown: Int64
@@ -67,9 +66,6 @@ struct TextFile {
 
     init(_ text: String, size: Int64, shown: Int64, truncated: Bool) {
         self.text = text
-        var lines = text.split(separator: "\n", omittingEmptySubsequences: false)
-        if lines.count > 1, lines.last?.isEmpty == true { lines.removeLast() }
-        self.lines = lines
         self.size = size
         self.shown = shown
         self.truncated = truncated

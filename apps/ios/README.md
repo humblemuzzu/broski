@@ -54,7 +54,22 @@ The target builds with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, `SWIFT_APPRO
   push that does not open keeping the relay's text and no actions, and a decision posted to a real
   HTTP listener on 127.0.0.1 with exactly the core's URL path, headers and body (and a 507 as a
   failure). The Live Activity (`LiveRunTests`): who is focused, the summary, at most four rows, the
-  elapsed time across states. `PushFixtureInstall` runs only for the end-to-end script.
+  elapsed time across states. The chat: its rules (`ChatRulesTests`: the send button's face from
+  running, content and the backend's prompt modes, follow-or-detach, the status lane, a photo fitted
+  within what the prompt's 4 MiB has left or refused, returned input and a refused draft, slash
+  commands), its rows (`ChatTimelineTests`: one fold per stretch of work with its line, a
+  continuation, a result finding its earlier call, one row per markdown block, the live stretch and
+  the open block streaming, the seam with the history), every interaction's reply
+  (`InteractionAnswerTests`), and its model over `ScriptedSessionView` (UniFFI's mock constructor)
+  and scripted answers (`ChatModelTests`: a prompt dimmed until its `user_message`, a queued one, a
+  refused one back in the field, an ended run kept until the newest page holds it, a stale answer, a
+  detached reader counting new messages, the view detached when the chat goes). Each of these fails
+  when the rule it names is broken (checked by breaking each once). `ChatPerformanceTests` times 30
+  batches over a 1,000-item run. `PushFixtureInstall` and `SessionMachineTests` run only for the
+  end-to-end script: the latter pairs a phone of its own with a second test machine and plays
+  `work`, `permission`, `ask`, `hold` and `replace`, holding `SessionState` equal to
+  `SessionView.snapshot()` (the fake plays a run within one batch interval, so the records of text
+  still streaming are proven by `ChatModelTests`).
 - **`UITests/`** (scheme `BroskiE2E`): `scripts/e2e-ios-app.sh` starts `packages/link/testkit`'s
   `test-machine` (the real daemon and the real bridge on its fake backend; needs Bun and
   `bun install` in `packages/bridge`), seeds four sessions, reinstalls the app with a clean keychain,
@@ -65,9 +80,18 @@ The target builds with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, `SWIFT_APPRO
   size; then the machine runs the fourth session as a terminal would (`{"run":<session>,
   "scenario":"permission"}`, the session from `BROSKI_E2E_ASK_SESSION`): its row shows "Pi wants to
   run bash" under Needs you with no chat opened, a swipe offers Deny and Approve, and Approve sends
-  the row leaving Needs you. `RunEndToEndTests`: a third session scripted to `hold` is started through the app's core
-  (`E2EPrompt`), shows as working, the Live Activity shows it in Notification Center, Stop ends the
-  run on the machine (the row leaves Working; the script fails unless the app logged the stop).
+  the row leaving Needs you. `RunEndToEndTests`: a third session scripted to `hold` is started from
+  its chat's composer, streams, the Live Activity shows it in Notification Center, Stop ends the
+  run on the machine (the chat's lane and the row leave Working; the script fails unless the app
+  logged the stop). `SessionEndToEndTests` (the fifth session, each test scripting its next run): a
+  `work` run sent from the composer streams, its withdrawn draft gone and its notice and compaction
+  kept; jump to latest after scrolling up; a permission denied with "Keep the build folder" and
+  another allowed, its fold opened to the command and its output; a choice answered; a message queued
+  behind a held run, cancelled, then Stop; dark and the largest text size; rename; a new session from
+  the sheet. `SessionScrollPerformanceTests` (a sixth session the machine runs 40 times as a
+  terminal, past 1,000 items): the scroll signpost over flings through it, older pages loading back
+  to the first answer, and the app's CPU while a `work` run streams into it (`XCTHitchMetric` runs
+  too, but reports nothing on the simulator).
   `WorkspaceEndToEndTests` (the script makes `project/` in the served root a repository with a
   commit, `notes.md` modified, `todo.txt` untracked and a branch `feature`): the root, the folder,
   the file, the diff, stage by swipe, commit, the log, a checkout; a new terminal where `echo
@@ -98,10 +122,13 @@ Broski/
                    IdentityProblemView
     Core/          AppModel, MachineModel, InboxModel, PhoneStorage, MachineSummary, LanDiscovery,
                    PathWatcher, NotificationAccess, PushNotifications, LiveRuns, WorkspaceRequests,
-                   WorkspaceProblem, Preferences, Logging, E2EPrompt (Debug only)
+                   WorkspaceProblem, SessionState, ChatRequests, ChatProblem, Preferences, Logging
     DesignSystem/  Palette, Typography, Metrics, Motion, Haptics, GlassControls, AgentMark,
-                   BroskiMark, Indicators, StatusChip, Banner
+                   BroskiMark, Indicators, StatusChip, Banner, CodeColors, CodeBlockView, DiffView,
+                   Shimmer
     Features/      Welcome, Pairing, Inbox, Machines, Settings,
+                   Chat/ (ChatScreen, ChatModel, PinnedPanel, ChatBottomBar; Transcript/, Work/,
+                          Interactions/, Composer/, Header/, NewSession/),
                    Workspace/ (WorkspaceScreen, routes, home; Files/, Git/, Terminal/)
   Tests/  UITests/
 ```
@@ -198,6 +225,24 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
   pixels, bounded to 1–500) go through `TerminalOutbox`, one request at a time in order, keystrokes
   joined and sizes replaced while one is out. The view is attached only while the screen shows, the
   app is active and the machine is ready; returning attaches again from what the bridge holds.
+- **Chat** (`ChatModel`, one per open chat): `machine.attach(session:)` when the chat first
+  appears, pulled for the chat's life (a diff or a subagent's session pushed over it keeps it);
+  the model's end cancels the pull, whose cancellation handler detaches the view.
+  `SessionState` assigns every update as mobile-core.md's table says and reports what is not
+  state (notices, errors, rate limits, returned input) and a run's end with the items it had,
+  including those the ending batch added. Requests go through `ChatRequests`, each an accepted
+  value or a `ChatProblem`; prompt and abort go while the view is attached, as the bridge
+  requires. History is `transcript.read` a page of 100 at a time, newest first; a run's end reads
+  the newest page again (an earlier read answering late is dropped) and keeps the ended run on
+  screen until it lands; with stable ids the page replaces what it overlaps, otherwise the history
+  starts over. `ChatTimeline` makes rows from items; `MarkdownCache` parses a text block once per
+  text, so while a block streams only it is parsed again, and `Highlighter` colours a code block
+  once per text, off the main actor. A prompt carries a fresh `clientRequestId` and shows dimmed
+  until its `user_message` arrives (a `queued` or `handled` disposition retires it at once; a
+  refusal puts the draft back in front of anything typed since). Drafts are kept per session in
+  `AppModel.drafts` while the app runs; a new session's first prompt goes there too, and its chat
+  sends it once the view is attached. Models, commands and modes come from the catalog for the
+  session's backend and folder, read again when `MachineModel.catalogChanges` moves.
 
 ## Screens
 
@@ -208,7 +253,10 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
   (`Clipboard.read`: empty, refused or text); offer preview with name, live expiry countdown,
   "Already paired"; progress in a glass card; every `LinkFailure` worded (`PairingProblem`) with its
   next step; success haptic; the notification permission ask with its one-line why.
-- **Inbox**: sections Needs you / Working / Done / Idle from the core's order, machine status chips,
+- **Inbox**: a row opens its chat with the zoom transition; **New Session** (`.glassProminent`,
+  and the empty state's action) opens the new-session sheet, and the session it makes opens
+  zooming out of the button; a tapped notification's `sessionToOpen` opens its chat.
+  Sections Needs you / Working / Done / Idle from the core's order, machine status chips,
   rows (agent mark, title, what the agent wants ("Claude Code wants to run npm test" from the row's
   `command`, else its `ask`), machine · folder or the machine's status, relative time, state mark),
   rows of an unreachable machine or from the cached inbox dimmed; Approve and Deny
@@ -219,6 +267,39 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
   empty states (connecting, unreachable, no sessions, nothing
   working), the "n agents working" bottom accessory (iOS 26.1+) that filters to working, a failure
   haptic when a machine is lost, a needs-you badge on the tab.
+- **Chat**: the header's title (tap to rename) over `agent · folder · machine`, the live mark and
+  the run's elapsed time, or the machine's state in words; Files and the overflow (Fork, Rename,
+  Compact, Copy Conversation, Delete with a confirm) with the context ring around it. The
+  transcript, full bleed under the bar (`scrollEdgeEffectStyle(.soft)`) and the composer
+  (`safeAreaBar`), dimmed while the machine is unreachable: the person's bubble with its time and
+  copy, the agent's text one markdown block per row (headings, lists, quotes, tables scrolling
+  sideways, code with its language, copy and colours, links), one fold per stretch of work
+  (`Worked for 2m · Ran 2 commands · 1 failed`, opening in place to 28 pt rows capped at 256 pt with
+  faded edges, each opening to the command, its output and exit, its files and their diffs, a
+  subagent's session), notices, compaction and how a run ended as quiet lines, and one status lane
+  (`Working`, `Waiting for your approval`, `Agent is working` / `New output will appear here`,
+  `Compacting context…`, `Retrying in 8 s`) shimmering only on screen, in an active scene and
+  without Reduce Motion. It follows its end by anchoring growth to the bottom while following and
+  to the top while the person reads above (`FollowState`); scrolling up shows a glass Jump to
+  latest that counts new messages and snaps back with the alignment haptic. Pinned above the
+  composer: notices and failures as quiet cards, the queue (cancellable where the backend allows),
+  and the first pending ask, foldable to a pill: tool permission (the exact command, files, host or
+  paths and the arguments, the backend's options with allow-once prominent, Deny beside "Tell
+  <agent> what to do instead" sent as the reply's `message`, a deliberate request confirmed),
+  questions (tabs, pick one or any, own words, secret masked), forms (native controls, fields
+  shown as their conditions hold), plan approval (markdown, the mode to go on in, Reject with a
+  note), Pi's choice, confirm and text; "Already answered elsewhere." for a stale answer; a
+  watch-only session's asks shown without buttons. The composer: one glass surface with the field
+  (one line growing to six), the slash commands while the text starts with `/`, attached images
+  with remove, `+` (photo library, camera, paste), the model chip (a menu, a searchable sheet past a
+  dozen, nothing with one), thinking and one chip per mode axis, and one send button: Send, Queue
+  (with Steer on a long press), or a red Stop; "Message to queue…" while a run is live; the
+  keyboard goes down after a send and when the transcript is tapped.
+- **New session** (a sheet): "What should we build in <folder>?", the folder a menu of the inbox's
+  recent folders and a browser of the Mac's shared folders (`fs.list`), the Mac when several are
+  paired, the agent as an inline picker (one that cannot run is disabled with why and what fixes
+  it), and the composer with its chips; Send creates the session (`session.create` with the
+  chips' model, thinking and modes) and opens its chat.
 - **Machines**: per Mac its link (LAN / relay / waiting and why / revoked), last seen, bridge and
   agent versions, Restart Bridge when the bridge is down or crashed, Forget with the confirm
   sentence; Pair Another (scan or paste); unreadable pairings; the Local Network hint.
@@ -229,20 +310,21 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
   paired (an unreachable one shows its status, dimmed, actions off); its folders (`workspace.info`)
   and terminals. **Files**: `fs.list` a page at a time (the next page loads as the list ends),
   hidden files on request, search by name under the folder (`fs.search`), a repository row when the
-  folder is in one; the viewer (`FileTextView`: numbered monospaced lines; images inline; "Binary
-  file · size"; how much a truncated read shows), Copy Path, Copy Text, Share. **Git**: branch and
-  ahead/behind, Staged / Changes / Untracked with letters and +/− counts, swipe or menu to stage and
-  unstage, Stage All / Unstage All, tap for the diff (`DiffTextView`: a file header with counts, hunk
-  headers, old and new numbers, signed and tinted lines) or the untracked file, the newest ten
+  folder is in one; the viewer (`FileTextView`: numbered monospaced lines coloured by the language
+  the name says; images inline; "Binary file · size"; how much a truncated read shows), Copy Path,
+  Copy Text, Share. **Git**: branch and ahead/behind, Staged / Changes / Untracked with letters and
+  +/− counts, swipe or menu to stage and unstage, Stage All / Unstage All, tap for the diff
+  (`DiffTextView` over the shared `DiffView`: a file header with counts, hunk headers, old and new
+  numbers, signed and tinted lines with changed words tinted harder, side by side on a regular
+  width) or the untracked file, the newest ten
   commits, a commit field with **Commit** (`.glassProminent`) in a glass capsule; Branches with a
   confirmed checkout whose refusal shows git's words. **Terminal**: the list (newest first, swipe to
   close with a confirm), New Terminal in a folder, the emulator with a glass key row (esc, sticky
   ctrl, tab, arrows that repeat while held, `|`, `~`, `/`, the system Paste button); pinch zoom is
   Ghostty's and the size is kept for the next terminal. `AppModel.folderToOpen` switches to this tab
-  and opens the folder (`WorkspaceNavigation.open`). `FileTextView` and `DiffTextView` are the one
-  place each renders, so the core's highlighter and diff renderer replace their insides alone.
+  and opens the folder (`WorkspaceNavigation.open`); the chat's Files button sets it.
 
-## Design system (for Phase 4.2)
+## Design system
 
 | File | What |
 |---|---|
@@ -255,23 +337,20 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
 | `AgentMark`, `BroskiMark` | agent monograms; the app's mark |
 | `Indicators` | `StateIndicator`, `LiveIndicator`, `RelativeTime`, `Date(unixMilliseconds:)` |
 | `StatusChip`, `Banner` | status capsules with tone and symbol; inline notices with one action; `.dimmed(_:)` |
+| `CodeColors` | `TokenKind.color` (GitHub's light and dark syntax palettes), `CodeLine.attributed`, `Highlighter` (the core's `highlight` off the main actor, kept by text and language) |
+| `CodeBlockView` | `CodeBlockView` (a fenced block: language, copy, sideways scroll, plain while streaming); `CodeFileView` (numbered, wrapping, lazy lines of a file) |
+| `DiffView` | a `DiffFile`: unified on a compact width, `sideBySide` rows on a regular one, emphasised segments; `LineCounts` |
+| `Shimmer` | `.shimmer(_:)`: the one live signal, a 72 pt band sweeping 1.35 s then resting 1.45 s, only on screen, in an active scene, never under Reduce Motion |
 
-## Where Phase 4.2 plugs in
+## The chat's seams
 
-- **Opening a session**: add `case session(machineId: String, session: SessionRef)` (and the
-  workspace's cases) to `Route` in `Sources/App/Route.swift` and its view to `RouteDestination`;
-  then make the row in `InboxScreen`'s `ForEach` a `NavigationLink(value:)` with
-  `.matchedTransitionSource` for the zoom transition. Until then an inbox row is not a link: tapping
-  it does nothing, and no placeholder screen exists.
-- **Seen**: the chat calls `AppModel.markSeen(machineId:session:)` when it opens and when it leaves.
-- **New session**: the Inbox toolbar's `.glassProminent` button and the empty state's action go in
-  `InboxScreen.toolbar` and `InboxEmptyState`.
-- **A tapped notification** sets `AppModel.sessionToOpen` and selects the Inbox tab; the chat opens
-  it from there and sets it back to `nil`.
-- **The session on screen**: the chat sets `AppModel.visibleSession` while it shows one and clears it
-  when it leaves, so its pushes do not banner.
-- **Starting a run** for the end-to-end run: `E2EPrompt` (Debug only) sends one prompt at launch; the
-  composer replaces it, and the file goes.
+- **Opening a session**: `Route.session(machineId:session:)`, shown by `ChatScreen`, zooming out of
+  the source whose id is its `SessionTarget` in the stack's `zoomNamespace`; `openSession` (from
+  the inbox) pushes another session onto the same stack (a fork).
+- **Seen**: the chat calls `AppModel.markSeen(machineId:session:)` when it appears and when it
+  disappears, and sets `AppModel.visibleSession` while it is on screen.
+- **The tab bar** is hidden in the chat (`toolbarVisibility(.hidden, for: .tabBar)`), and the
+  working accessory is left out while a chat is on screen.
 
 ## Not verified here
 
