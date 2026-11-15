@@ -29,7 +29,7 @@ struct FileScreen: View {
         case .failed(let problem):
             ProblemView(problem: problem) { await model.load() }
         case .loaded(.text(let file)):
-            FileTextView(file: file)
+            FileTextView(file: file, path: model.path)
                 .safeAreaInset(edge: .top, spacing: 0) {
                     if file.truncated { TruncationNote(file: file) }
                 }

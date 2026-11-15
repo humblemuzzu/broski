@@ -146,7 +146,7 @@ struct WorkspaceTests {
     @Test func aReadIsTextAnImageOrBinaryAndATruncatedTextSaysHowMuchItShows() throws {
         let text = FileContent(FileRead(path: "/w/a", encoding: .utf8, content: "one\ntwo\n", offset: 0, length: 8, size: 20, truncated: true))
         guard case .text(let file) = text else { throw Expectation.failed }
-        #expect(file.lines == ["one", "two"])
+        #expect(file.text == "one\ntwo\n")
         #expect(file.truncated && file.shown == 8 && file.size == 20)
 
         let png = Fixture.png.base64EncodedString()
