@@ -2,10 +2,10 @@
 
 Status: protocol **1.0** (§12.4). The bridge core speaks it to every attached phone, and each backend has one adapter: Pi and Claude Code, both registered in every bridge (`server/contract-backends.ts`).
 
-This document is the spec. The code is the definition: `packages/bridge/src/contract/` (zod schemas, interfaces, reducer, answer checker) and `packages/bridge/src/contract/testing/` (fake backend, conformance suite). Every backend fact below cites the research in [`research/`](research/), written before the rebuild and kept as history:
+This document is the spec. The code is the definition: `packages/bridge/src/contract/` (zod schemas, interfaces, reducer, answer checker) and `packages/bridge/src/contract/testing/` (fake backend, conformance suite). Every backend fact below cites its source:
 
-- `cc §n`: [`claude-code.md`](research/claude-code.md), Claude Agent SDK 0.3.312.
-- `pi §n`: [`pi.md`](research/pi.md) part 1, Pi 1.4.0.
+- `cc §n`: [`claude-code.md`](research/claude-code.md), research written before the rebuild and kept as history, Claude Agent SDK 0.3.312.
+- `pi §n`: the Pi adapter's notes, [`backends/pi/README.md`](../backends/pi/README.md), Pi 1.5.2 over `pi --mode rpc`.
 
 Where this document and a research report disagree, the report wins unless the disagreement is listed under [Errata](#19-errata), which records what the SDK source says.
 
@@ -441,7 +441,7 @@ Rejection { code: busy|not_steerable|no_model|auth|invalid_input|unsupported|not
 
 - `CommandSummary{id, name, kind: command|skill|prompt, description?, argumentHint?}`. A prompt invokes one with `PromptInput.command = id` and its arguments as `text`. Sources: CC `SlashCommand` and skills, with `terminal_slash_commands` filtered out (cc §9); Pi extension commands, prompt templates and skills (pi §9).
 - `Usage{inputTokens?, outputTokens?, cacheReadTokens?, cacheWriteTokens?, reasoningTokens?, costUsd?, contextTokens?, contextWindow?}` holds session totals as reported and the context window's fill; an unreported field is absent. CC `modelUsage` is cumulative per CLI process (cc §5), and the context figure comes from `getContextUsage` after each run. Pi's is `getContextUsage()` and may be null after compaction (pi §18 #23).
-- `BackendStatus{installed, version?, auth: signed_in|signed_out|unknown, usable, issues[]}`, from cc §2, pi §2. Finding it out never fails: a Pi `ModelRuntime` error (`getError()`, pi §2) becomes an `error` issue with `usable: false`. The catalog lists that can fail return a result: `listModels`, `listCommands`, `listModes`.
+- `BackendStatus{installed, version?, auth: signed_in|signed_out|unknown, usable, issues[]}`, from cc §2, pi §2. Finding it out never fails: a Pi catalog that cannot be read (pi §2) becomes an `error` issue with `usable: false`. The catalog lists that can fail return a result: `listModels`, `listCommands`, `listModes`.
 
 ### 11.5 Session modes
 
@@ -449,7 +449,7 @@ The settings a session runs under that change what the agent may do or how it wo
 
 | | Claude Code | Pi |
 |---|---|---|
-| what | `PermissionMode` (cc §7) | `permissions`: `off` or `ask` (Pi README D14) |
+| what | `PermissionMode` (cc §7) | `permissions`: `off` or `ask` (pi §8.6) |
 | finite list | fixed enum: `default`, `acceptEdits`, `bypassPermissions`, `plan`, `dontAsk`, `auto` (`sdk.d.ts:2562`) | `off`, `ask` |
 | at start | `Options.permissionMode`, always passed (cc §14 #2) | written to the session file |
 | set later | `Query.setPermissionMode`, mid-run | `broski.permissions` entry |
@@ -523,7 +523,7 @@ A backend's extras are typed `extension{extension}` events, declared in `Capabil
 
 - **`createFakeBackend(host, options)`**: in-memory and scriptable (`FakeStep`). It simulates streaming text, thinking and plan blocks; tools with streamed input, nested calls, child sessions and file changes; every interaction kind and every answer outcome; steer; queue with ids and cancel; compaction; retry; usage; retractions; notices, errors and extensions; failure, limit, suspend and defer outcomes; external sessions and external runs; `resynced`; backend loss with expiry; modes; images stored and read back by reference; both model-switch timings; a restart of the bridge, after which runs have ended. `traits`, `methods` and `modes` narrow it, which is how a capability is switched off.
 - **`runConformance(name, factory, timeoutMs?)`** registers one bun test per rule. `checkRule(factory, rule)` runs one rule against a fresh backend and rejects with the reason it failed.
-- **`ConformanceFactory = (host) => Promise<{backend, driver}>`**. Each adapter has a driver: Pi's seam is the scripted faux provider in a throwaway agent dir (`src/__tests__/pi/driver.ts`, pi §16), Claude Code's is the real `claude` against a scripted Anthropic-compatible endpoint (`ANTHROPIC_BASE_URL`, `src/__tests__/claude-code/conformance/`). The driver (`conformance-types.ts`):
+- **`ConformanceFactory = (host) => Promise<{backend, driver}>`**. Each adapter has a driver: Pi's seam is the real `pi` against a scripted OpenAI-compatible endpoint in a throwaway agent dir (`src/__tests__/pi/driver.ts`, pi §16), Claude Code's is the real `claude` against a scripted Anthropic-compatible endpoint (`ANTHROPIC_BASE_URL`, `src/__tests__/claude-code/conformance/`). The driver (`conformance-types.ts`):
   - knows a `cwd` holding a `README.md` and an `otherCwd`;
   - `seedSessions(cwd, n)`;
   - `arrange(session, scenario)` for `reply`, `tool` (a tool call, then a text answer), `hold` (until aborted or `release`d), `interaction{kind}`, `feature{thinking|usage|plan_proposal|children}` and `echo_model` (two requests, each answering with the id of the model it ran with, a hold between). It returns false when the backend cannot, and that is a failure whenever the capability is declared;

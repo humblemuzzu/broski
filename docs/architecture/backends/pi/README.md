@@ -1,230 +1,211 @@
 # The Pi adapter
 
-`packages/bridge/src/backends/pi/` serves Pi (`@earendil-works/pi-coding-agent` 1.4.0, exact pin) through the backend contract ([`../../contract/README.md`](../../contract/README.md)). It implements `AgentBackend` on Pi's classic engine (`AgentSession` + session JSONL files), the engine the terminal `pi` runs, and passes every conformance rule, the rule on runs another client starts (`externalLive`) against a real terminal `pi` that runs the Broski link extension ([`terminal-link.md`](terminal-link.md)).
+`packages/bridge/src/backends/pi/` speaks the backend contract ([contract README](../../contract/README.md)) for Pi. It
+runs the user's own installed `pi`: one `pi --mode rpc` child per hosted session, plus short-lived
+`pi --mode rpc --no-session` probes for the catalogs. It bundles no Pi and imports no Pi package; the contract README
+cites this file as `pi §n`, and the sections below keep that numbering.
 
-Status: the only Pi the bridge serves, registered in every bridge. It serves no ops: the phone does not navigate the session tree, run shell commands, edit session settings, tools or the system prompt, export or import sessions, or take over a session another client made (`docs/rebuild/PLAN.md`). A session another client made, with no terminal linked, opens watch-only and stays so. Phase 2 moves the adapter out of process onto `pi --mode rpc`.
-
-**`research/` is superseded.** The research notes (and `STEP-0-INTERFACES.md`, `PHASE-4-*`, `reviews/`) were written before the build or before the rebuild and are partly wrong or describe removed code. Where they differ from this file or the code (and the SDK `path:line` the code cites), this file and the code are right. They are kept as history only.
-
-**Also:** [`terminal-link.md`](terminal-link.md) (the extension in the terminal, the channel, the reverse direction, what Pi 1.4.0 cannot do).
-
-**Contents.** [Run it](#run-it) · [Layout](#layout) · [Decisions](#decisions) · [Capabilities](#capabilities) · [How each method maps to Pi](#how-each-method-maps-to-pi) · [Traps it handles](#traps-it-handles) · [Tests](#tests) · [Owner decisions](#owner-decisions) · [Contract gaps](#contract-gaps) · [Risks](#risks)
+Every Pi fact here was checked against Pi 1.5.2 (`@earendil-works/pi-coding-agent`, the devDependency the tests run),
+by its docs and `dist/`, or by an experiment with `PI_CODING_AGENT_DIR` on a temp dir. Paths are relative to that
+package.
 
 ## Run it
 
 ```bash
 cd packages/bridge
-bun dev        # the core serves Pi and Claude Code
+bun test src/__tests__/pi        # every Pi test, against the real `pi` and a scripted model endpoint
+bun test src/__tests__/pi/conformance.test.ts
 ```
 
-`server/contract-backends.ts` builds the core's backends: `["pi", piWithLink]` (`piBackendFactory` with the terminal link, on unless the bridge's config has `"pi": {"terminalLink": false}`; installing the extension and the socket are in [`terminal-link.md`](terminal-link.md)) and Claude Code, always. With backends registered the core's journals default to `~/.broski/core`. The adapter reads the real `~/.pi/agent` (or `$PI_CODING_AGENT_DIR`) and the sessions directory the `pi` command uses.
+The bridge finds `pi` from the config key `pi.cliPath`, else `pi` on the login shell's `PATH`
+(`server/pi-cli-path.ts`). `broski-bridge doctor` reports it and its version.
 
 ## Layout
 
-One concept per file; none passes 400 lines. Imports: the contract, the adapter itself, `zod` (the terminal link's frames), `node:` built-ins and the three Pi packages from their roots (`bun run check:layers`).
-
-| File | What it is |
+| Directory | What lives there |
 |---|---|
-| `backend.ts` | `createPiParts` and `piBackendOf`: every `AgentBackend` method, delegating to the parts below; a foreign `SessionRef` is `not_found`. |
-| `factory.ts` | `piBackendFactory`: the `BackendFactory` the bridge registers. |
-| `services.ts` | The process's one `ModelRuntime` (D1) over `<agentDir>/auth.json`, `models.json`, `models-store.json`. |
-| `ports.ts` | The interfaces the parts offer each other (`SessionStore`, `LiveOverlay`, `AskHost`, `InteractionPort`, `HostAccess`, …). |
-| `traits.ts` | `PI_TRAITS`, the declared capabilities. |
-| `status.ts` | `status()`: version, sign-in, usable models, the default model, the user's `enabledModels` problems. |
-| `commands.ts`, `command-cache.ts` | `listCommands`: prompt templates, skills and extension commands. They come from a session hosted in the cwd, or else from a resource loader kept while the settings signature holds (30 s). |
-| `config-watch.ts` | Watches the agent dir: a changed `auth.json`, `models.json`, `models-store.json` or `settings.json` is `catalog_invalidated` and a fresh `status_changed`. |
-| `session-name.ts` | A rename's title as Pi stores it, checked once for hosted and stored sessions. |
-| `command-ids.ts` | A command's wire id (`ext:`, `prompt:`, `skill:`) and the `/name args` text Pi dispatches. |
-| `modes.ts` | The one mode axis, `permissions` (`off`/`ask`). |
-| `project-settings.ts`, `trust-file.ts` | The terminal's dialog-free project trust, read from `trust.json` without Pi's lock; a read-only `SettingsManager` for reads, Pi's own for a hosted session. |
-| `no-package-installs.ts` | Loads that install nothing: missing packages are found with Pi's own resolution, skipped and named. |
-| `broski-entries.ts` | The adapter's `custom` entries: `broski.origin`, `broski.prompt`, `broski.permissions`, `broski.tool_outcome`. |
-| `ids.ts`, `cursor.ts` | Every id the adapter mints or derives; the page cursor envelope. |
-| `bounds.ts`, `json.ts`, `terminal-text.ts`, `phone-text.ts` | Bounding strings and free JSON to the contract's limits; removing terminal escapes. |
-| `rejections.ts`, `error-text.ts`, `catalog-feed.ts`, `is-directory.ts` | `ACCEPTED`/`rejected`/`CLOSED`; one line of error text; the catalog sink silenced at dispose; one stat. |
-| **`store/`** | Reads session files itself, never through `SessionManager` (D6). |
-| `store/session-store.ts` | `createSessionStore`: the `SessionStore` facade over one index and one watch. |
-| `store/session-dir.ts` | Where Pi keeps a cwd's sessions (`PI_CODING_AGENT_SESSION_DIR` > `sessionDir` > default), creating nothing. |
-| `store/session-index.ts`, `store/dir-listing.ts`, `store/span-cache.ts` | In-memory index of session files by stamp, with a short memory of ids no file holds; directory stamps; entry spans per path and stamp. |
-| `store/session-head.ts`, `store/session-details.ts` | A row's facts from a file's first and last bytes; its title and origin from one pass. |
-| `store/session-watch.ts` | `fs.watch` per sessions root: another process's sessions reach the catalog. |
-| `store/list.ts` | `listSessions`/`getSession`: header-cwd filter, live overlay, keyset cursor. |
-| `store/transcript.ts`, `store/branch-items.ts` | `readTranscript`: the branch to the leaf (or the live cut), paged by item; each entry with the records beside it. |
-| `store/attachments.ts` | `readAttachment`: an image block read back by `<entryId>:<contentIndex>`. |
-| `store/jsonl-reader.ts`, `store/line-scanner.ts`, `store/entry-line.ts`, `store/migration.ts` | LF-only span reading, the header and its version as Pi reads it, cycle-safe branch walk, in-memory migration. |
-| `store/open-file.ts` | Opens only regular files, without ever blocking (`O_NONBLOCK`); tells an absent file from a file system that failed. |
-| `store/mutations.ts`, `store/fork-entries.ts`, `store/fork-file.ts`, `store/discard-file.ts` | Rename and fork of sessions nobody hosts, only inside trusted sessions roots; a fork laid out as Pi's `createBranchedSession`; delete only through the Trash. |
-| `store/pool.ts` | A bounded-concurrency map. |
-| `store/tool-children.ts`, `store/children.ts`, `store/listed-row.ts`, `mapping/sub-runs.ts`, `mapping/sub-run-items.ts`, `mapping/child-summary.ts` | Children (decision 32): the tool results of a file that carry a sub-run, read incrementally; their rows, summaries and transcripts; a row before its summary is made. |
-| **`mapping/`** | Pure: Pi's messages, entries and events as contract values. |
-| `mapping/message-items.ts` | Entries as transcript items; the live `user_message`; an extension message's notice. |
-| `mapping/bash-items.ts` | A `bashExecution` entry (a terminal's `!` command) as a `bash` tool call and its result. |
-| `mapping/stream-blocks.ts`, `mapping/stream-event.ts`, `mapping/open-block.ts` | `message_update`/`message_end` as `block_*` and streamed `tool_started`/`tool_updated`; an open block's text kept in pieces. |
-| `mapping/prompt-title.ts` | A first prompt as a title: as typed, one line, the same live and listed. |
-| `mapping/tool-items.ts` | Tool results, outcomes, live output, file changes from `edit`/`write`. |
-| `mapping/errors.ts`, `mapping/session-events.ts`, `mapping/usage.ts` | Run outcomes and error classes; compaction, retry and model events; `Usage`. |
-| **`models/`** | `model-runtime.ts` (refresh only on a changed file, a half-written `models.json` never loaded, last good list), `catalogue.ts` (`listModels` with the unavailable models, `find`, `missing`), `unavailable.ts` (why a model cannot run), `model-ids.ts` (wire ids), `thinking.ts` (`ThinkingSpec`). |
-| **`live/`** | One `AgentSessionRuntime` per hosted session. |
-| `live/session-hosts.ts` | The registry: open new/existing/watch-only, the live overlay, hosted rename/delete, shutdown of every host at once. |
-| `live/new-session-file.ts`, `live/new-session-options.ts`, `live/scoped-start.ts` | A new session's file, written at creation as Pi's first flush writes it; the session's model (the `enabledModels` scope, as the terminal applies it). |
-| `live/host-startup.ts` | A host's start: runtime, then binding, within `START_DEADLINE_MS`. |
-| `live/session-host.ts`, `live/host-control.ts` | One hosted session: runtime, binding, live state, controls, abort, finish. |
-| `live/runtime-factory.ts` | `createAgentSessionServices` + `createAgentSessionFromServices` + `createAgentSessionRuntime` around the shared `ModelRuntime`. |
-| `live/extension-binding.ts`, `live/command-scope.ts` | `bindExtensions`, which the open waits for unless a `session_start` handler asks a human; whether an ask comes from inside an extension command. |
-| `live/host-bindings.ts` | What the extensions are bound to: the remote UI, `mode: "rpc"`, the adapter's abort, command actions a phone cannot do. |
-| `live/startup-notices.ts`, `live/notice-memory.ts` | What the terminal reports at a session's start, as notices after the open; only what the session's previous start did not report. |
-| `live/event-bridge.ts`, `live/tool-flow.ts` | Pi's session events into the live state; tool calls through a run. |
-| `live/run-tracker.ts`, `live/usage-feed.ts`, `live/persisted-entry.ts` | The adapter's run (D3): `run_started`, the transcript cut, and `run_finished` at `agent_settled` or at an idle compaction's end; usage pulls; a message's stored entry. |
-| `live/prompt-desk.ts`, `live/pi-prompt.ts`, `live/prompt-input.ts`, `live/prompt-errors.ts` | Prompts: routing, idempotency, one call into Pi and its disposition, what Pi cannot take, Pi's refusals as rejections. |
-| `live/queue-mirror.ts`, `live/queue-return.ts` | The queue with the adapter's ids, kept in step with `queue_update`; the queue handed back on Stop. |
-| `live/settings.ts` | `setModel`/`setThinking`/`setMode`, and the tools allowed for the session, kept in `broski.permissions`. |
-| `live/compaction-request.ts` | `compact`. |
-| `live/shutdown.ts` | Bounded abort, abort-then-dispose within `HOST_END_BUDGET_MS` (D17). |
-| `live/session-lock.ts`, `live/live-state.ts`, `live/host-live-state.ts`, `live/open-session.ts`, `live/host-summary.ts`, `live/host-row.ts`, `live/host-environment.ts`, `live/hosted-session.ts`, `live/live-notes.ts` | The per-session lock; the live state through `applyEvent`; the view the core holds; a hosted session's list row; notice and fault events. |
-| `live/child-feeds.ts`, `live/child-open.ts` | The children of a hosted session while their tools run, and opening one (decision 32). |
-| `live/session-view.ts` | The `OpenSession` the core holds for a session: hosted, watching, or a terminal's, changing between them with `session_replaced` (decision 19). |
-| **`ui/`** | `interactions.ts` (pending asks, exactly-once resolution), `ui-context.ts` (the remote `ExtensionUIContext`), `permission-gate.ts` + `permission-request.ts` + `visible-text.ts` + `edited-input.ts` (D14; no default answer, and a cut input is shown cut and cannot be edited), `extensions.ts` (built-ins + the gate), `plain-theme.ts`. |
-| **`terminal/`** | The terminal link ([`terminal-link.md`](terminal-link.md)): `protocol.ts` (strict frames), `link-server.ts` (the socket and key), `connection.ts`, `registry.ts`, `feed.ts` (a terminal's events as live state), `control.ts` (prompt and abort through the terminal), `install.ts` + `extension-sources.ts` (the extension in the agent dir), `link.ts` (start, stop, problem), and `extension/` (the files that run inside the terminal's `pi`). |
-| **`network/`** | Pi's `httpProxy` for Pi's requests only (decision 18): `proxy-setting.ts`, `proxy-plan.ts`, `no-proxy.ts`, `scoped-runtime.ts`, `proxy-status.ts`. |
+| `rpc/` | The wire: `JsonlSplitter` (LF-only records, CR stripped, 32 MiB cap), zod frames for responses, events and UI requests, `RpcClient` (request ids, deadlines, ordered delivery, backpressure), `PiProcess` (spawn in its own process group, stderr tail, the stop ladder). |
+| `live/` | A hosted session: `SessionHost` around a `PiChild`, the run tracker, prompt desk, queue mirror, settings, usage feed, the event bridge, the entry cursor, and `SessionHosts` (the registry with its locks, revive and idle end). |
+| `host/` | The bridge's own extension, written into `~/.broski/pi/broski-host.ts` and loaded with `-e`: the permission gate and the `broski.*` records. `extension/` is agent code, read by the rest of the adapter only as text. |
+| `ui/` | Extension dialogs as interactions (`dialogs.ts`, `interactions.ts`) and permission asks (`permission-asks.ts`, `permission-request.ts`). |
+| `mapping/` | Pi's messages and events as contract events and transcript items. |
+| `models/`, `catalog/` | The catalogs a probe reads (`get_state`, `get_available_models`, `get_commands`), cached per directory. |
+| `store/` | Session files read and written by the bridge itself: listing, transcripts, rename, fork, delete, the watch. |
+| `terminal/` | The terminal link: an extension Pi loads in the user's terminal `pi`, and the socket it reports to. |
 
-## Decisions
+`scripts/contract-gen/layers.ts` enforces that no file but `host/extension/` imports a Pi package, that the extension
+imports only Pi's packages, `node:` built-ins and itself, and that everything else reads it with
+`with { type: "text" }`.
 
-### D1–D20 as built
+## 1. Hosting
 
-| # | As built |
+- **One process per hosted session**: `pi --mode rpc --session <file> -e <host extension>` in the session's cwd, with
+  the bridge's login-shell environment and `PI_OFFLINE=1` unless the user set it (`pi-install.ts`, `childEnv`).
+  Without it Pi runs `npm install` for a configured package that is missing, under a phone's request (proven by
+  `host_hosting.test.ts`).
+- **Handshake**: `get_state`. Pi answers its first command only after every extension's `session_start` returned.
+- **A dialog asked in `session_start` fails the open.** Pi binds extensions before it attaches its stdin reader
+  (`dist/modes/rpc/rpc-mode.js:305` against `:669`), so that dialog can never be answered; the host refuses the open
+  with the dialog's title instead of waiting for the start deadline (20 s).
+- **Stop ladder** (`rpc/child.ts`): stdin EOF, 1.5 s; SIGTERM to the process group, 0.75 s; SIGKILL, 0.25 s. Pi runs
+  `session_shutdown` on EOF; one SIGTERM during that shutdown does not interrupt it (`docs/rpc.md:93-97`).
+- **Measured** (5 starts, no extensions, M-series Mac): `get_state` answered 124–141 ms after spawn; RSS about 110 MB
+  per `pi`.
+- **New sessions** are written by the bridge before `pi` starts (header and `broski.origin`), because Pi writes no
+  file until the first message. The model and thinking level a phone chose are set after the handshake with
+  `set_model` / `set_thinking_level`, which do not change Pi's saved defaults (`rpc-mode.js:387-413`).
+- **Idle and keep-open**: a host with no view, run, ask, compaction, retry or queued input ends; one that exits on its
+  own is revived when a phone acts in its view again (`session-view.ts`); a view of a deleted session answers
+  `closed`.
+
+## 2. Status
+
+`status.ts`: `pi` found or not (with the fix), `pi --version` (cached by the file's stamp; a warning below 1.5.1, the
+release with the RPC shutdown fix and `agent_settled.aborted`), and whether the agent dir's catalog has a model.
+`pi --version` loads no extension (experiment).
+
+## 3. Sessions and listing
+
+Session files are Pi's JSONL (`docs/session-format.md`), read by `store/` without Pi: listing by header cwd, titles,
+paging by keyset cursor, the watch, and v1/v2 files migrated in memory as `session-manager.js:30-85` does (a v1
+compaction's `firstKeptEntryIndex` becomes `firstKeptEntryId` and is dropped). Rename appends a `session_info` line;
+fork writes a new v3 file; delete goes through `trash`.
+
+## 4. Transcript
+
+Read from the file, newest first; a hosted run cuts the transcript at the entry it started after. A user message's
+`clientRequestId` and image names come from the `broski.prompt` record that names its entry id; a denied or aborted
+tool result from `broski.tool_outcome`.
+
+## 5. Live events
+
+`message_update` carries no `partial` over RPC; `toolcall_start` names its call (`docs/json.md:72-93`). Message ids
+are minted by the adapter. A run starts on `agent_start` or a `started` prompt, and ends only on `agent_settled`
+(`aborted` decides aborted). Usage is pulled with `get_session_stats` after each assistant message, before a run's and
+a compaction run's end, and as a session opens. An extension's `sendMessage` with no turn starts no run.
+
+## 6. Input
+
+Every mode is a `prompt` with `streamingBehavior` (`steer` / `followUp`) when a run is active (`docs/rpc-commands.md:7-42`).
+Pi answers once it has decided: `started`, `queued` or `handled`. Text is sent as typed, so text that names an extension
+command runs it and a template expands (`docs/rpc-commands.md:31-33`). A prompt sent while Pi runs a run's
+`agent_settled` handlers is answered after the settle and starts its own run; the bridge reports `busy` for a `start`
+until `run_finished`.
+
+## 7. Control
+
+Stop: the run's asks are withdrawn, `clear_queue` hands queued input back (`input_returned`), then `abort`. Pi answers
+`abort` only once the run stopped; an `input` dialog with no signal holds it until cancelled (experiment), which the
+withdrawal does. Past the 10 s deadline the abort is still accepted and the run ends when Pi settles it. Compaction:
+`compact`, refused while a run is active; its run ends after its usage is shown.
+
+## 8. Interactions
+
+### 8.1 What asks
+
+Extension dialogs (`select`, `confirm`, `input`, `editor`; `notify` is a notice) and the bridge's permission gate.
+`setStatus`, `setWidget`, `setTitle` and `set_editor_text` are ignored.
+
+### 8.2 Requests
+
+`extension_ui_request` frames (`docs/rpc-extension-ui.md`), validated in `rpc/frames.ts`.
+
+### 8.3 Answers
+
+`extension_ui_response` with `value`, `confirmed` or `cancelled`. A cancel gives the extension Pi's default.
+
+### 8.4 Timeouts and cancellation
+
+A dialog's own `timeout` is resolved by Pi; the interaction carries `expiresAt` and is withdrawn at it. A dialog whose
+own signal ends it is resolved by Pi with no message to the client (`rpc-mode.js:51-82`): the ask stays, is raised again
+on its own when its run ends, and only a human ends it. Shutdown expires every ask; a dialog asked from a
+`session_shutdown` handler after stdin closed can never be answered, and Pi exits once its event loop is empty
+(`rpc-mode.js:597-610, 666-669`, experiment).
+
+### 8.5 Re-delivery
+
+Asks are the bridge's own: one pending when a view closes is in the next open's snapshot.
+
+### 8.6 The permission gate
+
+`host/extension/index.ts` handles `tool_call` when the session's mode is `ask`: it asks with `ctx.ui.input` whose title
+is `broski-permission:` + the call as JSON, passing `ctx.signal`, and the bridge answers with a verdict as JSON
+(`allow`, `allow_session`, `deny` with a message). An edited input is checked with pi-ai's `validateToolArguments`; one
+it refuses is asked again with the problem. Permissions live in the last `broski.permissions` entry, read at
+`session_start` and appended by the bridge through the extension's `broski-host` command. The extension also cancels
+`session_before_switch` and `session_before_fork`, so the `pi` stays on the session the bridge opened.
+
+## 9. Catalogs
+
+`probeCatalog` runs `pi --mode rpc --no-session` in the directory: `get_state`, `get_available_models`,
+`get_commands`, dialogs cancelled. A listing with a hosted session in that directory asks that `pi` instead. The cache
+holds a read for 30 s while the stamps of Pi's sources (auth, models, settings, trust, extensions, prompts, skills, the
+project's `.pi`) are unchanged, stamped once the probe is done: a first `pi` start writes an empty `auth.json` and
+`models-store.json` (experiment). RPC lists only models Pi can run, so `includeUnavailable` adds nothing.
+
+## 10. Reconnect
+
+A view reopens on the host's snapshot; a host whose `pi` exited is revived on the next action.
+
+## 11. External sessions
+
+A session another client wrote opens watch-only. A terminal `pi` runs the Broski link extension, installed in the
+agent dir, which reports over a unix socket with a key file ([terminal-link.md](terminal-link.md)); it does nothing
+outside the interactive terminal (`ctx.mode`), so the bridge's own `pi` links nothing.
+
+## 12. Capabilities
+
+`traits.ts`: text and thinking streams, start/steer/queue, images, commands, the queue, `tool_permission`, `choice`,
+`confirm`, `text`, thinking, children, usage, `externalLive`; no plan proposals, no `cancelQueued` (RPC has only
+`clear_queue`). Every one passes `runConformance` against the real `pi`.
+
+## 13. Mapping
+
+`mapping/`: stream blocks keyed by content index, tool calls by provider id per response, results with file changes
+for `edit` and `write`, compaction and retry events, error classes, usage copied from Pi's totals.
+
+## 14. Facts relied on, and where they come from
+
+| Fact | Source |
 |---|---|
-| D1 | In-process SDK. `services.ts` creates the one `ModelRuntime`; `runtime-factory.ts` passes it to `createAgentSessionServices`, so Pi never builds a second. One `AgentSessionRuntime` per hosted session. |
-| D2 | `SessionLocks` per session id, held for an open, a prompt until Pi decides it, `setModel`/`setThinking`/`setMode`, `compact` until Pi has taken it, a hosted rename, a delete and a host's end; never for `abort`, `answer`, `snapshot`, `close` or reads. In-process only. |
-| D3 | The run is the adapter's: `run_started` when Pi reports `preflightResult("started")`, when a prompt Pi is still deciding starts its run early (below), or on an agent event with no run (trigger `system`); `run_finished` only at `agent_settled`, or when a run started early ends because Pi did not run the prompt. Outcome from `agent_settled.aborted`, else the last assistant message's `stopReason`. |
-| D4 | `start`/`steer`/`queue`, routed on the adapter's run, each one `session.prompt(text, {streamingBehavior})`. No `cancelQueued`: Pi's `clearQueue()` empties the queue whole, and input queued again meets every `input` handler anew (`queue_leftovers.test.ts`). Stop clears the queue and hands the texts back (decision 20). A run that settles with input still queued says so in a warning notice. A blank prompt is `invalid_input`; while a compaction runs, prompts are refused `busy`. |
-| D5 | An in-memory map of accepted results (1,000) plus `broski.prompt {clientRequestId, imageNames}` right after the user message. |
-| D6 | The store reads files itself. `SessionManager.open` only hosts a session this bridge made (a write path). |
-| D7 | In-memory index, stamped `(size, mtimeMs, ino, ctimeMs)`; header-cwd filter after realpath; keyset list cursor; transcript cursor `{entry position, item position, item id}`. |
-| D9 | Wire id `provider/id`, looked up in a table, never split. A provider's `%` and `/` are escaped (`%25`, `%2F`), so `a` + `b/c` and `a/b` + `c` are two models; every provider Pi ships keeps Pi's own id. `refresh({allowNetwork:false})` before each list, serialized, last good list kept. `setModel` never persists. |
-| D10 | `usage_updated` from `getSessionStats()` (its `contextUsage`): at open, after each assistant message, after a compaction, after a model switch and at each run end; repeats dropped. |
-| D11 | Images only, and only for a model whose input takes images (`invalid_input` otherwise). |
-| D12 | Commands are templates, skills and extension commands. An extension command is answered `handled` at once and runs even mid-run, whatever the prompt's mode: Pi runs commands outside its queue, and no contract rule is broken. Text without `command` is sent with `expandPromptTemplates: false`. |
-| D13 | The remote UI context, modelled on Pi's RPC mode. Only the extension's own `timeout` or `signal` ends an ask besides the human (reported `withdrawn`); an abort withdraws the run's asks; shutdown expires them (Pi's default answers). No timer of the adapter's own. An ask raised inside an extension command (before or after it awaits) has no run and never blocks one. |
-| D14 | `permissions` axis; the hidden `broski-permissions` extension asks `tool_permission` per call with `ask`; persisted as `broski.permissions`. |
-| D15 | `codemode`, `tool-search`, `mcp` load as the CLI loads them (`llama.cpp` has no root export). |
-| D16 | `externalLive: true`, for a terminal that runs the link extension (decision 19). Sessions another client made, with no terminal link, open watch-only, and so does a session of this bridge whose cwd is gone. The sessions directories are watched for the catalog; a hosted session's row is announced by its host alone. |
-| D17 | Shutdown ends every host at once. For each: asks expired, the extensions' start let finish (500 ms), abort and wait for `agent_settled` (2.5 s), then `dispose()` (1 s). That is `HOST_END_BUDGET_MS`, 4 s, inside the bridge's 5 s teardown (`lifecycle/teardown.ts`). An abort that rejects still disposes. `abort()` from Stop is bounded (5 s). A start is bounded too (`START_DEADLINE_MS`, 20 s, inside the core's 30 s), and a runtime that arrives later is disposed. |
-| D18 | No `reload()`: an extension's `ctx.reload()` throws "The phone cannot reload extensions". Settings never through `applyOverrides`. |
-| D19, D20 | One `pi` backend on the classic engine. |
+| LF-delimited JSON records; responses carry the request id | `docs/rpc.md` |
+| `prompt` answers after its preflight with a disposition; extension commands run at once | `docs/rpc-commands.md:7-42` |
+| `streamingBehavior` is required while streaming | `docs/rpc-commands.md:20-27` |
+| `get_entries` with `since` | `docs/rpc-commands.md:689-717` |
+| stdin EOF is an orderly shutdown; a second signal exits | `docs/rpc.md:93-97` |
+| extensions bound before stdin is read | `dist/modes/rpc/rpc-mode.js:305, 669`; experiment |
+| dialog timeout and signal resolved by Pi, client not told | `dist/modes/rpc/rpc-mode.js:51-82` |
+| `set_model` / `set_thinking_level` do not persist | `dist/modes/rpc/rpc-mode.js:387-413` |
+| `PI_OFFLINE` stops package installs and catalog refreshes | `docs/environment-variables.md:84`; `host_hosting.test.ts` |
+| an extension that fails to load ends `pi` with the reason on stderr | `start_reports.test.ts` |
+| the provider gets the session id when the model asks for affinity | `@earendil-works/pi-ai` `dist/api/openai-completions.js:516-541` |
+| retryable provider errors | `@earendil-works/pi-ai` `dist/utils/retry.js:208-215` |
+| supported thinking levels | `@earendil-works/pi-ai` `dist/models.js:701-713` |
 
-### Adapter decisions
+## 15. Deviations from the SDK adapter
 
-1. **Packages are never installed by an open or a listing.** The terminal installs missing configured packages at start (the loader resolves with no `onMissing`, `src/core/package-manager.ts:1308-1313`); a phone's open must not run `npm install`/`git clone` under a request deadline. Pi's own `DefaultPackageManager.resolve` runs first with an `onMissing` that answers `"skip"` and names the source. Nothing missing (the usual case): the load runs untouched, `PI_OFFLINE` is never set. Something missing: `PI_OFFLINE` (1.4.0's only switch) is on during that load only, and the session gets a warning notice naming each package ("Run pi in a terminal to install it").
-2. **A session file a listing finds first is still news.** The index's starting point is taken once, when the watch starts; a root watched later (created after start, or re-attached after a lost watcher) is re-scanned, and never re-baselined.
-3. **Nothing an extension asks holds a request to the core's deadlines.** The open waits for `bindExtensions` or for the first ask a `session_start` handler raises, whichever comes first: the session opens with the ask in its snapshot (no run, not blocking), and Pi-touching controls (`prompt`, `setModel`, `setThinking`, `compact`) answer `busy` until the extensions have started, as a terminal takes no input before then. A prompt Pi is still deciding while idle is answered `started` the moment one of its `input` or `before_agent_start` handlers asks a human, or a pre-prompt compaction begins: its run starts then and the ask names it. If Pi then handles the prompt itself or refuses it, that run ends `completed` (or `aborted`) or `error`, never having reached the model.
-4. **Start problems and settings problems are reported where the terminal reports them.** A session's start (runtime diagnostics, unreadable settings files, extensions that failed to load, a model that could not be restored, missing packages) becomes notices delivered right after the open. The user's global `enabledModels` problems are `status()` warnings. `isDefault` marks the settings default only (below, owner decisions).
-5. **The transcript says what the live stream said.** A call the gate denied, or one cut short by an abort, gets a `broski.tool_outcome` entry after its result, so the transcript reads `denied`/`aborted` where Pi stores an ordinary error. An assistant message that ended in an error, an abort or a length cut gets the terminal's own line as an error `notice` item. A skill command reads `/skill:name args`, as typed, live and stored (`parseSkillBlock`). An extension's displayed message is a live `notice` too.
-6. **An ask that outlives its run still waits for its human.** At a natural `agent_settled` the run's pending asks are withdrawn from the run and raised again on their own, under a new id, their extension still waiting on the same answer. These are asks raised by a timer or a background handler during the run; an extension command's ask never belongs to the run. The id cannot be kept: the contract has no event that changes an interaction in place, and its stream rules refuse a reused id (`contract/testing/stream-rules.ts`). An answer sent in that instant is told `stale`, and the phone shows the ask again. An abort still withdraws the run's asks (Pi's default answers them), as Esc closes a dialog in the terminal.
-7. **Forks and header versions as Pi.** A fork drops the branch's `label` entries, re-chains each kept entry under the one before, re-points a compaction's `firstKeptEntryId` that named a dropped label, and appends one fresh `label` per label the whole file resolves for a kept entry. A header `version` is read as Pi's migration compares it: `"3"` is 3, a value that is no number migrates nothing.
-8. **Reads write nothing and stall nothing.** Reads use a `SettingsManager` over a read-only storage: Pi's file storage locks each settings file it reads (a `settings.json.lock` directory) and spins synchronously up to about 200 ms on a held lock, after which it reads nothing. A hosted session keeps Pi's own storage. Every session file is opened `O_RDONLY|O_NONBLOCK` and only read when it is a regular file: a named pipe opened plainly blocks a file-system thread until a writer comes.
-9. **An item is found by its id, not its position.** An assistant message whose first block Pi stores empty (an encrypted reasoning signature) yields fewer items than blocks; a fork point looks items up by id.
-10. **A new session is on disk from its creation.** Pi writes a session's file only with its first message (`_persist`, `src/core/session-manager.ts:1172-1190`), creating it with `"wx"`. The adapter writes the header and its own entries exactly as that first flush would, then opens the file with `SessionManager.open`, which loads it as already flushed (`:1029-1050`). So the id answers from the first moment, through idle closes and restarts. A new chat abandoned before its first prompt stays listed, empty, as Pi's own `/resume` lists such files ("(no messages)"); delete removes it.
-11. **Delete goes through the Trash or not at all.** A missing or failing `trash` is `backend_error` ("the session was not deleted: … Delete it in a terminal."); the file is never removed any other way. Containment is checked on real paths before a host is ended. Rename, fork and delete touch only the sessions roots the user's own settings name. A directory that only an untrusted project's `.pi/settings.json` names is listed (Pi uses it) but never written (`unsupported`).
-12. **An approval shows what runs.** A permission request has no default answer. A command or input too long for the contract is shown cut, says so, cannot be edited and is `deliberate`. Control and bidi characters are written out where the human reads them.
-13. **A fork is written at once**, even with no message on its branch, unlike Pi's `createBranchedSession` (`session-manager.ts:1719-1724`): its id must open at once and survive a restart, as a new session's does.
-14. **The transcript shows what happened, as the terminal does.** `context_edit` entries change only what the model is sent. The terminal's rebuilt chat renders entries without them (`src/modes/interactive/interactive-mode.ts:4060-4076`), and so does the adapter.
-15. **Start notices are not repeated.** A session hosted again reports only the start problems its previous start did not (per session, 256 remembered, for the bridge's life).
-16. **Pi's agent dir is watched.** A `/login`, a `models.json` edit or a settings change in a terminal invalidates the phone's model list (and its commands, for a settings change) and sends a fresh status. A `models.json` caught half-written is never loaded into the runtime the sessions share. `fs.watch` on macOS starts asynchronously and misses what is written in the first moments after it was created; a file edited right after the backend started is not announced, and the status and model list re-read the files when asked all the same.
-18. **`httpProxy` is applied to Pi's requests only.** The shared `ModelRuntime` handed to Pi's sessions is wrapped (`network/scoped-runtime.ts`): `stream`, `complete`, `streamSimple` and `completeSimple` get a per-request `fetch` that routes through the proxy, and the `env` option (`HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`) that Bedrock and the Codex WebSocket read (pi-ai `ProviderRequestOptions`). No global changes: `process.env`, the global `fetch` and every other backend's and the bridge's own requests behave as before. The setting is read from the global `settings.json` (`??=` as Pi: a proxy variable already in the bridge's environment wins, per scheme) and re-read when the file changes. Loopback, `localhost`, `::1` and unix sockets are never proxied, and `NO_PROXY` always lists `localhost,127.0.0.1,::1`. Not covered, and named by `status()`: the Google providers (their adapter throws on a custom `fetch`), OAuth token refresh, extensions' own requests, and `bash` tool children. Tested against a local `node:http` proxy and the scripted model endpoint (`network_proxy.test.ts`).
-19. **Terminal sessions are live through the Broski link.** A bridge-owned extension inside the terminal's `pi` sends the session's events over a local authenticated socket; the bridge turns them into live state (`terminal/feed.ts`), `run_started{trigger: "external"}` included. The phone's message and Stop go through the terminal's own process, so Pi's terminal stays the file's only writer. Terminal asks stay in the terminal. The session is a `SessionView` that is hosted, watching or a terminal's and changes between them as circumstances do; every change is a `session_replaced` naming the same session. A hosted session that is idle gives way to a terminal that opens it; one that is running is not given up, and the terminal's user is warned. Everything about the extension, the channel and its limits is in [`terminal-link.md`](terminal-link.md).
-20. **Stop is the terminal's Esc.** Where this bridge hosts the session, `abort` first takes both queues out of Pi (`clearQueue()`, steering then follow-up, as `interactive-mode.ts:4711-4725` restores them), emits `queue_changed` empty and then `input_returned{texts}`, then aborts. The app puts the texts into the composer in front of what is typed, joined with a blank line, as the terminal's editor does. Nothing is queued again by the adapter, and the next prompt carries no leftovers (`live_runs.test.ts`).
-32. **A tool that runs a subagent is a child session.** Pi extensions' Task/oracle/finder-style tools run another agent and return its conversation in the result's `details` (pi-coding-agent `examples/extensions/subagent`: `details.results[i].messages`). `mapping/sub-runs.ts` finds sub-runs by what they hold, not by tool name, in a small, bounded tree of objects (depth 4, 32 runs, 2,000 messages each): a `messages` list every item of which is an agent message as a Pi agent emits it at `message_end` (an object with a string `role` and a numeric `timestamp`: pi-ai `dist/types.d.ts:346-436`, pi-coding-agent `dist/core/messages.d.ts:16-51`), and at least one of which is a user message (`content` a string or a list), an assistant message (`content` a list, `stopReason` a string) or a tool result (`toolCallId`, `toolName`, `content` a list, `isError` a boolean). Another tool's `messages` (chat history without timestamps, anything else beside the messages) is not a sub-run; messages of other roles (system, custom, bash, summaries) are not shown. Such a call is the session `<parent id>:<provider tool call id>` (Pi session ids never hold `:`; a longer id or a parent with one has no child), `parent: {kind: "subagent"}`, title `Tool: what it was asked`, not a file: its summary, listing (`SessionQuery.parent` lists it with the parent's forks) and transcript are read from the parent's file (`store/tool-children.ts`, scanned once and then only what the file grew by, a batch's children kept with its position so a read that fails half way adds none twice), its items named `s<run>.m<message>:<block>`, several sub-runs separated by a notice; a sub-run's images are left out. The parent's stream says where the child is: `tool_updated{child_session}` at the first update (or the stored result) that carries a sub-run, once; the stored tool call item has `childSession` too (the results after the assistant message are looked ahead, `store/branch-items.ts`). While the tool runs in a session this bridge hosts, `live/child-feeds.ts` turns each new message of each update into events of a live state of the child's own: `run_started` (trigger `system`), then the messages as they arrive, `run_finished` when the parent's result is stored (so the transcript the phone re-reads then holds it), ending as the call did (`completed`, `aborted`, and `error` for a call that failed or was denied); at most 256 finished feeds are remembered, never a running one; a phone that opens the child gets that state's snapshot and then its events, while `readTranscript` of a running child is empty (the merge rule) and `getSession`/the list know it from the feed (`LiveOverlay.unwritten`). A child is opened with no `control`; for a parent nobody hosts, or a finished call, it opens quiet over the file. A child cannot be renamed, deleted, forked or have attachments. A terminal's run (the link) does not follow sub-runs.
-33. **Handoff children are forks in the contract's words.** An extension's `ctx.newSession({parentSession})` (the `handoff` example) writes a session whose header names the parent by path and whose entries are not copies. The store already lists any session whose header names a parent as `parent: {kind: "fork"}` under `SessionQuery.parent`; they stay in the top-level list, as real sessions the person continues, and are also a parent's children. `ParentKind` has no third value; `subagent` would have hidden the session from the top-level list.
+- A `session_start` dialog fails the open (§1).
+- A dialog ended by its own signal is withdrawn only when its run ends, then waits for a human (§8.4).
+- Typed text that names a command runs it (§6).
+- A prompt during Pi's settle is `busy` (§6).
+- Start problems are reported only when they end `pi` (an extension that fails to load); a missing package or an
+  untrusted project's skipped resources are not reported.
+- No unavailable models are listed (§9).
+- An extension command's dialog is taken to be the command's while the command runs, even with a run active; RPC
+  gives a dialog no origin.
 
-## Capabilities
+## 16. Tests
 
-`streamText` ✓, `streamThinking` ✓, `promptModes` start/steer/queue, `attachments` image, `commands` ✓, `queue` ✓, `interactions` tool_permission/choice/confirm/text, `thinking` ✓, `children` ✓ (tool calls that ran a subagent, forks and handoffs), `usage` ✓, `planProposals` ✗, `externalLive` ✓ (terminals with the link extension), `extensions` none. Derived: `fork`, `rename`, `delete` ✓. Session: a session this bridge runs (`broski.origin`) is controllable with `compact` and without `cancelQueued`; one a terminal runs through the link is controllable (message and Stop only, no `compact`, no model/thinking/mode change); one nobody runs here, or one whose cwd is gone, has no `control`.
+A world (`__tests__/pi/helpers/pi-world.ts`) is a temp home and agent dir, a scripted OpenAI-compatible endpoint
+(`__tests__/helpers/scripted-openai-server.ts`) registered in `models.json` with session affinity, so each session's
+requests are routed to its own script (`pi-router.ts`), a driver extension that waits on the endpoint's gates and
+reports in notes, and the real backend running the devDependency's `pi` behind a shim that logs each start (for the
+process-leak checks). `conformance.test.ts` runs `runConformance`; the `live_*`, `host_*`, `gate`, `catalog` and
+`terminal_*` files cover the rest at the same seam; `mapping_*` and `store_*` feed Pi-shaped values through the
+adapter's own frame schemas.
 
-## How each method maps to Pi
+## 17. Risks and open questions
 
-| Method | Pi |
-|---|---|
-| `status` | `ModelRuntimeHost.available()` (a refresh when a file changed, then `getAvailableSnapshot()`), `hasConfiguredAuth`, settings `defaultProvider/defaultModel`, `resolveModelScopeWithDiagnostics` (once per refresh), the `httpProxy` and terminal-link warnings (decisions 18, 19), `VERSION`. Never throws. |
-| `listSessions`, `getSession` | The store's index over the sessions directories; live status and model from `SessionHosts`. |
-| `readTranscript`, `readAttachment` | The store's span reader over the branch to the file's last entry, or to the leaf at the run's start while a run is active. |
-| `listModels` | `refresh({allowNetwork:false})` when a file changed, then `getAvailableSnapshot()`, scope order from `enabledModels`, `getSupportedThinkingLevels`/`clampThinkingLevel`. With `includeUnavailable`, `getModels()` minus the available ones, each with its provider's reason (`getProviderAuthStatus`, `ApiKeyAuth.resolve` asked what it reads). |
-| `listCommands` | For a session hosted in the cwd: `extensionRunner.getRegisteredCommands()`, `promptTemplates`, `resourceLoader.getSkills()`. Otherwise a `DefaultResourceLoader.reload()` for the cwd (trust as the terminal), kept while the settings signature holds (30 s). An extension command hides the template and the skill it shadows. |
-| `listModes` | `permissions`. |
-| `open` (new) | `SessionManager.create(cwd, dir)` + `broski.origin` (+ `broski.permissions`), written with `"wx"` and reopened with `SessionManager.open` (decision 10); the model from the `enabledModels` scope; then `createAgentSessionRuntime` and `bindExtensions({uiContext, mode: "rpc", abortHandler, commandContextActions, onError})`, within 20 s. |
-| `open` (existing) | The hosted session's view; a terminal's view when a terminal holds the file through the link; else `SessionManager.open` for a session this bridge made whose cwd exists; a watch-only view otherwise. |
-| `rename` | One title check (`session-name.ts`), then `session.setSessionName` when hosted; else one appended `session_info` line, inside a trusted root. |
-| `delete` | `busy` unless idle; containment on real paths; the host ends; then the Trash, or `backend_error` with the file kept. |
-| `fork` | A new v3 file written by the store, laid out as `createBranchedSession`. |
-| `listSessions({parent})`, `getSession`, `readTranscript`, `open` of a child | The parent's forks and its tool calls' sub-runs (decision 32); a child is opened over `live/child-feeds.ts` or quiet. |
-| `dispose` | Watch stopped, every host shut down (D17), catalog silenced. |
-| `prompt` | `session.prompt(text, {expandPromptTemplates, source: "rpc", images, streamingBehavior, preflightResult})`. |
-| `abort` | The run's asks withdrawn, the queues cleared and returned (`input_returned`, decision 20), then `session.abort()` bounded. For a terminal's session, `ctx.abort()` in the terminal. |
-| `answer` | `answerProblem`, then the pending ask's promise. |
-| `setModel`, `setThinking` | `session.setModel(model)` (no persist), `session.setThinkingLevel(level)`, then `model_changed`. |
-| `setMode` | `broski.permissions`, then `mode_changed`. |
-| `compact` | `session.compact(instructions)`, answered at `compaction_start`. While idle it is a run (trigger `prompt`), ended with usage and `run_finished`. |
-
-## Traps it handles
-
-`agent_end` is not a run's end (only `agent_settled`); `prompt()` resolves at the run's end, so the disposition comes from `preflightResult`; idle `steer`/`followUp` start nothing (all three modes go through `prompt()`); a prompt made in Pi's settle window is deferred (the adapter waits for its own settle, then routes as idle); `abort()` has no bound; `dispose()` mid-run drops persistence; `reload()` mid-run breaks tools; a throwing listener breaks the agent loop (every listener is a `try/catch`); `message_update.message` is the provider's live partial (read synchronously, never kept); a provider's tool call id is unique at best within one response (ids per response, live ids minted); `SessionManager.open` rewrites files and loops on a parent cycle (never used to read; the branch walk keeps a visited set); `readline` splits on U+2028 (LF only); `getDefaultSessionDir` creates directories (computed without); an `append*` moves the leaf before it writes (writes are caught and reported); `setModel` with `persist` changes the global default (never passed); an extension's dialog `editor` has no timeout or signal; `plainTheme().fg()` emits escapes (every extension and tool string is escape-free); `ExtensionUIContext` is copied with `{...ui}` (a plain object); a `tool_call` hook ignores `abort()` (the gate listens to `ctx.signal`, and abort withdraws the ask); a pre-prompt compaction or an `input` handler can hold a prompt's disposition (early start); `session_start` handlers hold `bindExtensions` (early open); settings and trust reads lock and spin (read-only settings storage); a named pipe blocks an `open()` (non-blocking opens).
-
-## Tests
-
-`packages/bridge/src/__tests__/pi/`: 91 test files on Pi's faux provider in a throwaway home (`createPiTestEnv` scrubs every provider key; `registerFaux` refuses to run beside a real model). None runs concurrently with another (`test_hygiene.test.ts`): they share `process.env` and `PATH`. The memory and event-loop watchdog is armed only by the files that run live sessions (`helpers/use-watchdog.ts`), and terminated after them.
-
-| Files | What they hold |
-|---|---|
-| `conformance.test.ts`, `driver.ts`, `driver_sdk*`, `helpers/` | `runConformance("pi")`: all 28 rules over the real backend (`piBackendFactory`'s parts) with the conformance driver (scripted faux responses per session, and a driver extension that holds runs and raises dialogs), and the driver's own tests. |
-| `sdk_boot`, `sdk_semantics` | The SDK facts the adapter relies on, executed against the pin. |
-| `cursor`, `ids`, `bounded_values`, `session_lock`, `probe`, `test_hygiene` | The shared primitives and the test infrastructure. |
-| `store_*` | The store: reading, listing and paging, transcripts, sessions directories and projects, rename, delete, fork, the watch, freshness and robustness (files changing under a read, descriptor exhaustion, sizes), leaks, parity with Pi's own reading. |
-| `mapping_*` | Pi's entries, events and stream as contract values; run outcomes and error classes. |
-| `models_*`, `status`, `commands*`, `config_watch`, `project_trust`, `no_package_installs`, `reads_write_nothing`, `catalogue_contract_rules` | Models and the catalogue, status, commands, the agent-dir watch, trust, package loads. |
-| `host_*`, `start_*`, `ask_deadlines`, `queue_leftovers` | A hosted session's life: hosting, starts and their deadlines, ends and shutdown, interleavings, races, leaks over 100 cycles, asks that come before anything awaits. |
-| `live_*`, `transcript_records` | The live matrix over the backend: prompts, runs, compaction, settings, permissions, sessions, listing, lifecycle, dialogs, transcript records. |
-| `terminal_link`, `terminal_channel`, `terminal_extension`, `terminal_install` | The terminal link end to end with a real Pi session in `tui` mode behind the real extension (live run, mid-run attach, a message and Stop through the terminal, quitting, a new session, compaction, thinking, a name); the socket's key, modes, strict frames and size limit; the extension alone (no bridge, backoff under fake timers, a full buffer and the resync, the warning); install, update, foreign folder, uninstall, the off switch, and no extension in hosted sessions. |
-| `network_proxy*` | `httpProxy` for Pi's requests only, against a local `node:http` proxy and the scripted endpoint: a hosted session's request goes through it, no setting goes direct, the global `fetch` and `process.env` are untouched, `CONNECT` for https, loopback/`NO_PROXY`/unix never proxied. |
-| `interaction_desk`, `dialogs`, `ui_context`, `gate*`, `builtin_extensions` | Interactions, the remote UI, the permission gate, the built-in extensions. |
-| `children_tool`, `children_edges` | A faux model calling the driver's subagent tool: the child linked once in the live stream and in the transcript, listed under its parent and not at the top, its transcript paged, followed live (snapshot plus events, `run_finished` with the tool), opened quiet when the parent is not hosted, refusals; a handoff session listed as a child and as a session. |
-| `feed_alerts` | The daemon's feed with the real Pi adapter behind the real core and link socket: an ask-mode tool call is an approval, a lock-screen allow lets it run once, the run ends in a done alert. |
-
-Plus `src/__tests__/contract_pi_registration.test.ts`: the core serves Pi and Claude Code, and a real bridge serves Pi to a phone on its link socket.
-
-## Owner decisions
-
-1. **A session another client made stays watch-only.** There is no take-over: the phone drives only sessions this bridge made or a linked terminal runs (decision 19). What cannot be seen: a terminal without the extension that is idle on a session this bridge made.
-2. **The queue after Stop.** Stop clears both queues and `input_returned` hands the texts to the phone's composer, as the terminal's Esc does (decision 20). Only for a session this bridge hosts; for a terminal's session the texts go to the terminal's editor (`terminal-link.md`).
-3. **Missing packages are never installed from the phone** (adapter decision 1). Installing as the terminal does would need a progress channel and a deadline the contract does not give an open.
-4. **`httpProxy` is applied to Pi's requests only** (decision 18), with a warning for the uncovered cases (Google models, OAuth token refresh). The bridge's environment and other backends are unchanged.
-5. **`isDefault` marks the settings default only** (contract README §11.3). With no default set, a new session takes the `enabledModels` scope's first model, or else Pi's pick (`findInitialModel`, not exported); the snapshot's `modelId` shows it.
-6. **Text prompts do not dispatch commands** (`expandPromptTemplates: false`): `/name` typed as text reaches the model; commands go through `PromptInput.command`.
-7. **`notify` is not throttled**: Pi's own RPC mode forwards every one; each notice is one bounded event, and the core's replay window and send windows bound what a flood costs.
-8. **An ask from a timer or a background handler belongs to the run it was raised in.** Pi gives a dialog no origin. An extension command's dialogs are told apart (`live/command-scope.ts`); a timer's are not, so an abort withdraws them, and a natural end re-raises them under a new id (adapter decision 6).
-
-## Contract gaps
-
-1. **No "accepted, waiting" prompt answer.** Early start covers a prompt sent while idle. A `steer` or `queue` sent mid-run, whose `input` handler asks a human, still waits for the answer before Pi decides its disposition. A human slower than 120 s gets the core's `error{internal}`, while the input is still queued later.
-2. **No in-place interaction update.** An ask that outlives its run is re-raised under a new id (adapter decision 6); an `interaction_updated` event would let it keep its id.
-3. **Project `enabledModels` problems have no carrier**: `ModelsListed` holds models only; the global ones are status warnings.
-4. **Notices are not state**: a session's start notices reach the views attached when it starts, not a phone that attaches later (and, by decision 15, not at the next start either).
-5. **Extensions' `project_trust` handlers are not run.** Trust is read as the terminal reads it without a dialog: saved decision, then `defaultProjectTrust`. A project that needs trust gets a warning notice. The phone cannot grant trust.
-6. `DeliveredInput` compares an image's name, which no model receives; a fork point inside an assistant message is `invalid_input` (Pi forks at whole messages).
-7. `setStatus`/`setWidget`/`setTitle` are lost.
-8. **A terminal's queue is invisible.** Pi gives extensions no queue or retry event (1.4.0), so a terminal session never sends `queue_changed` and cannot `cancelQueued`; the phone's steer and queue are delivered but not listed.
-9. **A terminal's questions cannot be answered from the phone.** There is no extension API to answer another surface's dialog; the phone shows a notice that the terminal waits.
-10. **No "this session changed what it allows" event.** `session_replaced` naming the same session carries it; a dedicated `capabilities_changed` would not end the stream.
-11. **Handoff and fork are one `ParentKind`** (decision 33), and a tool call's sub-run shows no model, usage or timing of its own.
-
-## Risks
-
-- An extension's `pi.registerProvider` lands on the process's one `ModelRuntime` and stays until the bridge restarts.
-- Two calls with one provider tool call id inside one response cannot be told apart (Pi pairs them the same way).
-- An extension or provider that ignores the abort signal keeps the run open past `abort()`'s deadline (reported honestly: no `run_finished` until Pi settles). At shutdown such a runtime is disposed when the 4 s budget is spent, mid-run.
-- With a configured package missing, `PI_OFFLINE` is on process-wide while that session loads, so a `find`/`grep` in another session cannot download a missing `fd`/`rg` meanwhile (Pi reads the variable at each call, `src/utils/tools-manager.ts:15-19, 362-365`).
-- The lock orders this bridge's calls only; a terminal `pi` writing the same file is not excluded.
-- A new chat abandoned before its first prompt stays as an empty session file (decision 10), in the phone's list and in the terminal's `/resume`.
-- The extension is code in the user's `pi` process. It is small, bounded and tested against a stalled bridge, but a Pi release that changes the extension API (`ctx.mode`, `session_start`, `pi.sendUserMessage`, `ui_prompt_*`) can break it; the bridge then sees no terminal (watch-only) and the terminal is not harmed. The extension is versioned (`// broski-link-extension v1`) and rewritten by the bridge when it differs.
-- A terminal started before the extension was installed has not loaded it; it needs a restart or `/reload`.
-- A terminal that opens a session the phone is running can still type in it (decision 19): the warning is all the bridge can do.
-- Any process of the same user that reads `~/.broski/pi-link/bridge.key` can speak to the link: it can claim to be a terminal and feed a session's live state, and receive the phone's messages for the session it names. It is the trust of `~/.pi` itself.
-- `httpProxy` does not cover Google models, OAuth refresh, extensions' own requests or a `bash` tool's children (decision 18).
+- About 110 MB per hosted session; many open sessions cost memory the SDK host shared.
+- A Pi release that changes an RPC shape fails the frame schemas, which reports a fault instead of guessing.
+- The permission gate rides on `ctx.ui.input`; a Pi that changes how `input` titles reach RPC breaks it.
