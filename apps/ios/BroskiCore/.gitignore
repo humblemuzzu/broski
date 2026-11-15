@@ -1,0 +1,3 @@
+# Written by scripts/build-ios-core.sh from packages/link on every build.
+/BroskiCoreFFI.xcframework/
+/Sources/BroskiCore/Generated/
