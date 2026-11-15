@@ -66,6 +66,9 @@ pub struct RunOptions {
     pub bridge_cmd: Option<Vec<String>>,
     /// Announce the machine over mDNS. Off for daemons that must not show up on a real network.
     pub advertise: bool,
+    /// Advertise the machine's interface addresses as LAN routes. Off for daemons that must not
+    /// hand a phone the addresses of the network they happen to run on.
+    pub scan_interfaces: bool,
     pub durations: Durations,
 }
 
@@ -157,7 +160,7 @@ async fn parts(
         monitor: bridge_status::BridgeMonitor::new(),
         registry: registry::Registry::new(),
         relay: relay::handle(),
-        routes: routes::Routes::new(options.relay.clone()),
+        routes: routes::Routes::new(options.relay.clone(), options.scan_interfaces),
         busy,
         commands,
         seen,

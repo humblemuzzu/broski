@@ -17,6 +17,9 @@ pub struct Options {
     /// Off by default: a test daemon announcing itself on the developer's real network shows up in
     /// real phones' browsers under the developer's machine name.
     pub advertise: bool,
+    /// Off by default: the interface addresses of the developer's machine are not routes a test
+    /// phone should be told about.
+    pub scan_interfaces: bool,
     pub durations: broski_link_daemon::durations::Durations,
 }
 
@@ -29,6 +32,7 @@ impl Default for Options {
             bridge_cmd: None,
             seed: None,
             advertise: false,
+            scan_interfaces: false,
             durations: broski_link_daemon::durations::Durations::default(),
         }
     }
@@ -59,6 +63,7 @@ impl TestDaemon {
             bridge_socket: bridge_socket.clone(),
             bridge_cmd: options.bridge_cmd,
             advertise: options.advertise,
+            scan_interfaces: options.scan_interfaces,
             durations: options.durations,
         })
         .await

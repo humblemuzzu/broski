@@ -27,7 +27,8 @@ impl Home {
     }
 }
 
-/// The real daemon, in-process, on a private home, never advertised on the network.
+/// The real daemon, in-process, on a private home, never advertised on the network and never
+/// handing the phone the addresses of the network it runs on.
 pub struct TestDaemon {
     pub lan: Option<SocketAddr>,
     handle: Handle,
@@ -43,6 +44,7 @@ impl TestDaemon {
             bridge_socket: home.bridge_socket(),
             bridge_cmd: None,
             advertise: false,
+            scan_interfaces: false,
             durations: Durations::default(),
         })
         .await

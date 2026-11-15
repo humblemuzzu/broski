@@ -12,7 +12,11 @@ const WAIT: Duration = Duration::from_secs(10);
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn lan_pairing_then_stream_one_echo() {
-    let daemon = TestDaemon::start(Options::default()).await;
+    let daemon = TestDaemon::start(Options {
+        scan_interfaces: true,
+        ..Options::default()
+    })
+    .await;
     let bridge = FakeBridge::start(daemon.bridge_socket.clone()).await;
     let addr = daemon.lan();
 
@@ -44,6 +48,11 @@ async fn lan_pairing_then_stream_one_echo() {
 
     let routes = phone.await_control("routes", WAIT).await;
     assert_eq!(routes["relay"], json!(null));
+    assert_eq!(
+        routes["lan"],
+        json!(offer.lan),
+        "the offer and the routes frame advertise the same addresses"
+    );
     phone.await_control("bridge", WAIT).await;
 
     let echoed = phone.echo("hello bridge", WAIT).await;

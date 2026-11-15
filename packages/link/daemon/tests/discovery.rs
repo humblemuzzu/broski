@@ -92,6 +92,7 @@ async fn start(home: &Path) -> Handle {
         bridge_socket: home.join("bridge.sock"),
         bridge_cmd: None,
         advertise: true,
+        scan_interfaces: false,
         durations: broski_link_daemon::durations::Durations::default(),
     })
     .await

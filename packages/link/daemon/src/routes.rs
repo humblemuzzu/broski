@@ -22,15 +22,20 @@ pub struct Adverts {
 pub struct Routes {
     tx: watch::Sender<Adverts>,
     rx: watch::Receiver<Adverts>,
+    scan_interfaces: bool,
 }
 
 impl Routes {
-    pub fn new(relay: Option<String>) -> Routes {
+    pub fn new(relay: Option<String>, scan_interfaces: bool) -> Routes {
         let (tx, rx) = watch::channel(Adverts {
             relay,
             lan: Vec::new(),
         });
-        Routes { tx, rx }
+        Routes {
+            tx,
+            rx,
+            scan_interfaces,
+        }
     }
 
     pub fn current(&self) -> Adverts {
@@ -44,6 +49,9 @@ impl Routes {
     /// Scans the interfaces now, so a pairing offer never races the first rescan. True when the
     /// advertised addresses changed.
     pub fn refresh(&self, port: u16) -> bool {
+        if !self.scan_interfaces {
+            return false;
+        }
         let (lan, dropped) = scan(port);
         let mut next = self.rx.borrow().clone();
         if next.lan == lan {
@@ -121,7 +129,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_refresh_that_changes_nothing_is_not_a_change() {
-        let routes = Routes::new(None);
+        let routes = Routes::new(None, true);
         routes.refresh(0);
         assert!(!routes.refresh(0));
         assert!(routes.current().lan.is_empty());
