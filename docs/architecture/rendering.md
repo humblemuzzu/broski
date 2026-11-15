@@ -38,6 +38,10 @@ InlineRun { text, strong, emphasis, strikethrough, code, link? }
 - Inline runs are already merged: neighbours always differ in style. A soft line break is a space (as
   CommonMark renders it), a hard one `\n`; an image is its alt text linking to its URL; inline HTML is
   literal text, and so is an HTML block (`Html`).
+- A `link` is kept only for `http://`, `https://` and `mailto:` (the scheme in any case). The text comes
+  from a model, so a destination that would start an app (`tel:`, `intent://`, `file:`, `broski://pair`,
+  `javascript:`) or is relative leaves its label as plain text. Both apps open `link` as given and
+  linkify nothing themselves.
 - `Code.language` is the fence's first word as written (`ts`), the label to show and the argument to
   `highlight`. The block's text has no trailing newline. An unclosed fence (a message still streaming)
   is a code block to the end of the text.

@@ -103,7 +103,8 @@ pub enum ColumnAlignment {
 }
 
 /// Text in one style. Neighbouring runs always differ in style. A soft line break is a space, a
-/// hard one `\n`; an image is its alt text linking to the image; inline HTML is literal text.
+/// hard one `\n`; an image is its alt text linking to the image; inline HTML is literal text. A
+/// `link` is only ever an `http`, `https` or `mailto` URL; any other destination leaves plain text.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InlineRun {
     pub text: String,

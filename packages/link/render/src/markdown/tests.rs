@@ -244,7 +244,7 @@ fn a_table_keeps_alignment_header_and_rows_of_runs() {
 #[test]
 fn inline_styles_nest_and_links_carry_their_destination() {
     let runs = match &contents(
-        "***both*** ~~gone~~ [docs](https://x.dev) <https://a.b> ![logo](l.png)",
+        "***both*** ~~gone~~ [docs](https://x.dev) <https://a.b> ![logo](https://x.dev/l.png)",
     )[0]
     {
         BlockContent::Paragraph { runs } => runs.clone(),
@@ -265,9 +265,56 @@ fn inline_styles_nest_and_links_carry_their_destination() {
             styled("https://a.b", |run| run.link =
                 Some("https://a.b".to_owned())),
             run(" "),
-            styled("logo", |run| run.link = Some("l.png".to_owned())),
+            styled("logo", |run| run.link =
+                Some("https://x.dev/l.png".to_owned())),
         ]
     );
+}
+
+fn only_run(text: &str) -> InlineRun {
+    match contents(text).as_slice() {
+        [BlockContent::Paragraph { runs }] => match runs.as_slice() {
+            [only] => only.clone(),
+            other => panic!("{text}: {other:?}"),
+        },
+        other => panic!("{text}: {other:?}"),
+    }
+}
+
+#[test]
+fn a_link_is_kept_only_for_web_and_mail_schemes() {
+    for url in [
+        "http://x.dev/a?b=1",
+        "https://x.dev",
+        "HTTPS://X.DEV",
+        "mailto:me@x.dev",
+    ] {
+        assert_eq!(
+            only_run(&format!("[go]({url})")),
+            styled("go", |run| run.link = Some(url.to_owned())),
+            "{url}"
+        );
+    }
+}
+
+#[test]
+fn a_link_to_any_other_scheme_renders_as_plain_text() {
+    for url in [
+        "tel:+15551234567",
+        "intent://scan/#Intent;scheme=zxing;end",
+        "file:///etc/passwd",
+        "broski://pair?v=2&h=ab&s=cd&e=1&n=Mac",
+        "javascript:alert(1)",
+        "JavaScript:alert(1)",
+        "<  javascript:alert(1)>",
+        "/etc/hosts",
+        "l.png",
+        "#top",
+    ] {
+        assert_eq!(only_run(&format!("[go]({url})")), run("go"), "{url}");
+    }
+    assert_eq!(only_run("![logo](intent://x)"), run("logo"));
+    assert_eq!(only_run("<tel:+15551234567>"), run("tel:+15551234567"));
 }
 
 #[test]

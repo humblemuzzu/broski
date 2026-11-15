@@ -53,7 +53,19 @@ struct Style {
     strong: u32,
     emphasis: u32,
     strikethrough: u32,
-    links: Vec<String>,
+    /// One entry per open link or image; `None` where the destination is not openable.
+    links: Vec<Option<String>>,
+}
+
+/// What a tap may open: the model's text must not start an app by a URL scheme (`tel:`,
+/// `intent:`, `file:`, `broski://pair`, `javascript:`). Anything else, a relative path included, is
+/// plain text.
+fn openable(url: &str) -> bool {
+    const PREFIXES: [&str; 3] = ["http://", "https://", "mailto:"];
+    PREFIXES.iter().any(|prefix| {
+        url.get(..prefix.len())
+            .is_some_and(|start| start.eq_ignore_ascii_case(prefix))
+    })
 }
 
 #[derive(Default)]
@@ -129,7 +141,9 @@ impl Walker {
             Tag::Strong => self.style.strong += 1,
             Tag::Strikethrough => self.style.strikethrough += 1,
             Tag::Link { dest_url, .. } | Tag::Image { dest_url, .. } => {
-                self.style.links.push(dest_url.into_string());
+                self.style
+                    .links
+                    .push(openable(&dest_url).then(|| dest_url.into_string()));
             }
             _ => {}
         }
@@ -208,7 +222,7 @@ impl Walker {
             emphasis: style.emphasis > 0,
             strikethrough: style.strikethrough > 0,
             code,
-            link: style.links.last().cloned(),
+            link: style.links.last().cloned().flatten(),
         };
         let runs = match &mut self.leaf {
             Some((_, Leaf::Inline { runs, .. })) => runs,
