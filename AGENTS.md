@@ -12,8 +12,8 @@ Phone (native app, Phase 4) ←Broski Link (Noise e2e; LAN or relay)→ broski-l
 
 The repository is mid-rebuild on branch `rebuild` (plan: [`docs/rebuild/PLAN.md`](docs/rebuild/PLAN.md)). The
 Flutter app is gone; the tree it lived in is preserved on branch `final-flutter` (`git show final-flutter:<path>`).
-Phase 1, the cut, is done: what is here is the bridge, the link stack, and the iOS push code carried over for the
-native apps.
+Phase 1, the cut, is done: what is here is the bridge, the link stack, the shared phone core packaged for both
+native apps, and the iOS push code carried over for them.
 
 - **Bridge** (`packages/bridge/`) — TypeScript on the user's machine. Hosts the agents through their SDKs and speaks
   the backend contract to the daemon over `~/.broski/link/bridge.sock`. Every socket upgrade must quote the key the
@@ -37,6 +37,12 @@ native apps.
   make-before-break LAN migration, the outbound queue, pause/resume, and the push-key and letter crypto the
   notification handlers use. No storage I/O: secrets and `MachineRecord`s go in and come out as values. Doc:
   [`docs/architecture/connectivity-v2/link-session.md`](docs/architecture/connectivity-v2/link-session.md).
+- **BroskiCore** (`packages/link/mobile/`, crate `broski-mobile`, library `libbroski_core`) — the UniFFI 0.32.2
+  facade both apps call: thin wrappers over the link session and the contract crate, events pulled with
+  `LinkSession.nextEvent()` (no foreign callbacks), `MachineRecord` opaque and stored as bytes.
+  `scripts/build-ios-core.sh` makes `apps/ios/BroskiCore` (XCFramework + Swift package) and
+  `scripts/build-android-core.sh` the `apps/android` `:core` module; bindings and binaries are build outputs,
+  never committed. Doc: [`docs/architecture/mobile-packaging.md`](docs/architecture/mobile-packaging.md).
 - **Carried-over iOS code** (`apps/ios/carryover/`, [`apps/carryover/README.md`](apps/carryover/README.md)) — the
   notification service extension, push crypto, keychain item and push action handling from the Flutter app, with
   the bundle ids, team, entitlements and keychain groups the native apps must keep.
@@ -140,9 +146,12 @@ packages/bridge/src/
   workspace/     files, git and terminals over the contract, behind the core's WorkspaceHost port (workspace-host.ts)
   transport/     send queue and frame limits
   platform/ config/ doctor/ wizard/ commands/ lifecycle/ logging/  the CLI and service around the bridge
-packages/link/   the Rust link stack: crypto, proto, core, ffi, daemon, power, relay; contract (the phone core's models and reducer); session (the phone side of the link)
+packages/link/   the Rust link stack: crypto, proto, core, daemon, power, relay; contract (the phone core's models and reducer); session (the phone side of the link); mobile (BroskiCore, the UniFFI facade); uniffi-bindgen
+apps/ios/BroskiCore/  the Swift package of BroskiCore (generated bindings + XCFramework, both from scripts/build-ios-core.sh)
 apps/ios/carryover/  iOS push code kept for Phase 4
-docs/architecture/   contract, core, backends, connectivity-v2
+apps/android/    the Gradle build: :core, BroskiCore's Android library (bindings + .so from scripts/build-android-core.sh)
+scripts/         build-ios-core.sh, build-android-core.sh, check-android-alignment.sh
+docs/architecture/   contract, core, backends, connectivity-v2, mobile-packaging
 ```
 
 Keep files under 400 lines and functions under 50; a new concern gets a new file, not a branch in an old one.
@@ -180,15 +189,26 @@ bun run mutate:core        # mutation check of the core (long); --check only mat
 
 cd packages/link
 cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace
-cargo clippy -p broski-contract --all-targets --features uniffi -- -D warnings
+cargo clippy -p broski-contract --all-targets -- -D warnings   # the workspace lints it with its uniffi feature
+
+# BroskiCore (rerun both scripts after any change under packages/link)
+scripts/build-ios-core.sh                  # macOS + Xcode; then in apps/ios/BroskiCore: swift test
+export ANDROID_HOME="$HOME/Library/Android/sdk" JAVA_HOME="$(/usr/libexec/java_home -v 17)"
+scripts/build-android-core.sh              # cargo-ndk 4.1.2, NDK 28.2.13676358 under $ANDROID_HOME/ndk
+(cd apps/android && ./gradlew :core:assembleDebug :core:assembleRelease :core:testDebugUnitTest)
+scripts/check-android-alignment.sh apps/android/core/build/outputs/aar/core-release.aar
 ```
+
+The Android SDK, NDK and command-line tools live in `~/Library/Android/sdk`; nothing is installed system-wide and no
+shell profile sets the variables, so export `ANDROID_HOME` and `JAVA_HOME` (JDK 17) per command.
 
 `broski install` registers the daemon; `broski-link pair` shows the QR; `broski-link status` and
 `broski-bridge doctor` diagnose.
 
 **CI** (`.github/workflows/ci.yml`): the bridge job (Bun 1.4.2: frozen install, typecheck, biome errors, layers,
-contract check, tests, the perf budget in `bench/`) and the link job (fmt, clippy, clippy of the contract crate with
-its `uniffi` feature, tests on Ubuntu and macOS).
+contract check, tests, the perf budget in `bench/`), the link job (fmt, clippy, clippy of the contract crate without
+its `uniffi` feature, tests on Ubuntu and macOS), `ios-core` (macOS 26: the iOS script, `swift test`, simulator and
+device links) and `android-core` (the Android script, both assembles, the JVM test, the 16 KB alignment check).
 **Pre-commit** (`.githooks/pre-commit`): biome errors and typecheck when bridge files are staged, `cargo fmt --check`
 when link files are.
 
@@ -205,6 +225,7 @@ when link files are.
 
 ## Coding conventions
 
-- 2-space indentation in docs, tabs in TypeScript (biome), `UpperCamelCase` types, `lowerCamelCase` values.
+- 2-space indentation in docs and shell scripts, tabs in TypeScript (biome), 4 spaces in Swift and Kotlin,
+  `UpperCamelCase` types, `lowerCamelCase` values.
 - Error handling at real I/O boundaries, not defensive checks for impossible states.
 - No filler comments: a comment says what a careful reader would otherwise get wrong.

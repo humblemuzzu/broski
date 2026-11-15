@@ -135,20 +135,8 @@ only way through.
   problem. Only the client migrates (above); the daemon simply accepts the resume on the new
   connection.
 
-## FFI ownership (`packages/link/ffi`, `include/broski_link.h`)
-
-- `BlBuf` is Rust-owned. `bl_buf_free` takes the struct back by value; the pointer is invalid
-  afterwards. An empty result has `ptr == NULL, len == 0`, which `bl_buf_free` accepts.
-- Input pointers are borrowed for the call only: secrets are copied into `Zeroizing` buffers and the
-  identity into the `BlClient`. The library never frees caller memory. NULL is valid only with
-  `len == 0`.
-- `BlClient` is opaque, owns one `Link` plus the device identity, is not thread-safe, and is freed
-  once with `bl_client_free`. A host language wraps it so the free runs exactly once.
-- Return codes: 0 ok, -1 invalid argument, -2 protocol/crypto (`bl_last_error` has the message),
-  -3 backpressure, -4 not ready (no handshake has completed), -99 panic.
-  `bl_client_poll_transmit` and `bl_client_poll_event` use 1/0 for produced/none.
-- `bl_client_handle` eats whole wire messages: msg2 first, then one sealed frame each.
-- `bl_abi_version` is 3; `bl_sha256` is unchanged.
+The phone never calls this crate directly: `broski-link-session` drives it, and the apps reach the
+session through the UniFFI facade `broski-mobile` ([mobile-packaging.md](../mobile-packaging.md)).
 
 ## What the phone is told when a link closes
 
