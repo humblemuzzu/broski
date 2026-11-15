@@ -2068,6 +2068,172 @@
         "backend": "claude-code",
         "sessionId": "x"
       }
+    },
+    {
+      "type": "workspace.info",
+      "requestId": "x"
+    },
+    {
+      "type": "fs.list",
+      "requestId": "x",
+      "path": "x",
+      "cursor": "x",
+      "limit": 1,
+      "hidden": true
+    },
+    {
+      "type": "fs.list",
+      "requestId": "x",
+      "path": "x"
+    },
+    {
+      "type": "fs.read",
+      "requestId": "x",
+      "path": "x",
+      "offset": 1,
+      "length": 1
+    },
+    {
+      "type": "fs.read",
+      "requestId": "x",
+      "path": "x"
+    },
+    {
+      "type": "fs.search",
+      "requestId": "x",
+      "root": "x",
+      "query": "x",
+      "limit": 1
+    },
+    {
+      "type": "fs.search",
+      "requestId": "x",
+      "root": "x",
+      "query": "x"
+    },
+    {
+      "type": "git.status",
+      "requestId": "x",
+      "cwd": "x"
+    },
+    {
+      "type": "git.diff",
+      "requestId": "x",
+      "cwd": "x",
+      "path": "x",
+      "staged": true
+    },
+    {
+      "type": "git.diff",
+      "requestId": "x",
+      "cwd": "x"
+    },
+    {
+      "type": "git.stage",
+      "requestId": "x",
+      "cwd": "x",
+      "paths": [
+        "x"
+      ]
+    },
+    {
+      "type": "git.unstage",
+      "requestId": "x",
+      "cwd": "x",
+      "paths": [
+        "x"
+      ]
+    },
+    {
+      "type": "git.commit",
+      "requestId": "x",
+      "cwd": "x",
+      "message": "x"
+    },
+    {
+      "type": "git.branches",
+      "requestId": "x",
+      "cwd": "x"
+    },
+    {
+      "type": "git.checkout",
+      "requestId": "x",
+      "cwd": "x",
+      "branch": "x"
+    },
+    {
+      "type": "git.log",
+      "requestId": "x",
+      "cwd": "x",
+      "limit": 1
+    },
+    {
+      "type": "git.log",
+      "requestId": "x",
+      "cwd": "x"
+    },
+    {
+      "type": "term.list",
+      "requestId": "x"
+    },
+    {
+      "type": "term.open",
+      "requestId": "x",
+      "cwd": "x",
+      "cols": 1,
+      "rows": 1,
+      "cellWidth": 1,
+      "cellHeight": 1
+    },
+    {
+      "type": "term.open",
+      "requestId": "x",
+      "cwd": "x",
+      "cols": 1,
+      "rows": 1
+    },
+    {
+      "type": "term.attach",
+      "requestId": "x",
+      "id": "x",
+      "since": 1
+    },
+    {
+      "type": "term.attach",
+      "requestId": "x",
+      "id": "x"
+    },
+    {
+      "type": "term.detach",
+      "requestId": "x",
+      "id": "x"
+    },
+    {
+      "type": "term.input",
+      "requestId": "x",
+      "id": "x",
+      "data": "eA=="
+    },
+    {
+      "type": "term.resize",
+      "requestId": "x",
+      "id": "x",
+      "cols": 1,
+      "rows": 1,
+      "cellWidth": 1,
+      "cellHeight": 1
+    },
+    {
+      "type": "term.resize",
+      "requestId": "x",
+      "id": "x",
+      "cols": 1,
+      "rows": 1
+    },
+    {
+      "type": "term.close",
+      "requestId": "x",
+      "id": "x"
     }
   ],
   "ClientRequestId": [
@@ -2557,6 +2723,96 @@
       "uri": "x"
     }
   ],
+  "FileEncoding": [
+    "utf8",
+    "base64"
+  ],
+  "FileEntry": [
+    {
+      "name": "x",
+      "kind": "file",
+      "size": 1,
+      "modifiedAt": 1
+    },
+    {
+      "name": "x",
+      "kind": "file"
+    }
+  ],
+  "FileKind": [
+    "file",
+    "dir",
+    "symlink",
+    "other"
+  ],
+  "FileMatch": [
+    {
+      "path": "x",
+      "kind": "file"
+    }
+  ],
+  "FilePath": [
+    "x"
+  ],
+  "FileRead": [
+    {
+      "status": "accepted",
+      "path": "x",
+      "encoding": "utf8",
+      "content": "x",
+      "offset": 1,
+      "length": 1,
+      "size": 1,
+      "truncated": true
+    },
+    {
+      "status": "accepted",
+      "path": "x",
+      "encoding": "utf8",
+      "content": "x",
+      "offset": 1,
+      "length": 1,
+      "size": 1,
+      "truncated": false
+    }
+  ],
+  "FilesFound": [
+    {
+      "status": "accepted",
+      "root": "x",
+      "matches": [
+        {
+          "path": "x",
+          "kind": "file"
+        }
+      ]
+    }
+  ],
+  "FilesListed": [
+    {
+      "status": "accepted",
+      "path": "x",
+      "entries": [
+        {
+          "name": "x",
+          "kind": "file",
+          "size": 1,
+          "modifiedAt": 1
+        }
+      ],
+      "nextCursor": "x"
+    },
+    {
+      "status": "accepted",
+      "path": "x",
+      "entries": [
+        {
+          "name": "x",
+          "kind": "file"
+        }
+      ]
+    }
+  ],
   "ForkPoint": [
     {
       "itemId": "x",
@@ -2906,6 +3162,1048 @@
       "values": [
         "x"
       ]
+    }
+  ],
+  "FsListRequest": [
+    {
+      "type": "fs.list",
+      "requestId": "x",
+      "path": "x",
+      "cursor": "x",
+      "limit": 1,
+      "hidden": true
+    },
+    {
+      "type": "fs.list",
+      "requestId": "x",
+      "path": "x"
+    }
+  ],
+  "FsListResponse": [
+    {
+      "type": "fs.list.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "path": "x",
+        "entries": [
+          {
+            "name": "x",
+            "kind": "file",
+            "size": 1,
+            "modifiedAt": 1
+          }
+        ],
+        "nextCursor": "x"
+      }
+    },
+    {
+      "type": "fs.list.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "path": "x",
+        "entries": [
+          {
+            "name": "x",
+            "kind": "file"
+          }
+        ]
+      }
+    }
+  ],
+  "FsListResult": [
+    {
+      "status": "accepted",
+      "path": "x",
+      "entries": [
+        {
+          "name": "x",
+          "kind": "file",
+          "size": 1,
+          "modifiedAt": 1
+        }
+      ],
+      "nextCursor": "x"
+    },
+    {
+      "status": "accepted",
+      "path": "x",
+      "entries": [
+        {
+          "name": "x",
+          "kind": "file"
+        }
+      ]
+    },
+    {
+      "status": "rejected",
+      "rejection": {
+        "code": "busy",
+        "message": "x"
+      }
+    }
+  ],
+  "FsReadRequest": [
+    {
+      "type": "fs.read",
+      "requestId": "x",
+      "path": "x",
+      "offset": 1,
+      "length": 1
+    },
+    {
+      "type": "fs.read",
+      "requestId": "x",
+      "path": "x"
+    }
+  ],
+  "FsReadResponse": [
+    {
+      "type": "fs.read.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "path": "x",
+        "encoding": "utf8",
+        "content": "x",
+        "offset": 1,
+        "length": 1,
+        "size": 1,
+        "truncated": true
+      }
+    },
+    {
+      "type": "fs.read.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "path": "x",
+        "encoding": "utf8",
+        "content": "x",
+        "offset": 1,
+        "length": 1,
+        "size": 1,
+        "truncated": false
+      }
+    }
+  ],
+  "FsReadResult": [
+    {
+      "status": "accepted",
+      "path": "x",
+      "encoding": "utf8",
+      "content": "x",
+      "offset": 1,
+      "length": 1,
+      "size": 1,
+      "truncated": true
+    },
+    {
+      "status": "accepted",
+      "path": "x",
+      "encoding": "utf8",
+      "content": "x",
+      "offset": 1,
+      "length": 1,
+      "size": 1,
+      "truncated": false
+    },
+    {
+      "status": "rejected",
+      "rejection": {
+        "code": "busy",
+        "message": "x"
+      }
+    }
+  ],
+  "FsSearchRequest": [
+    {
+      "type": "fs.search",
+      "requestId": "x",
+      "root": "x",
+      "query": "x",
+      "limit": 1
+    },
+    {
+      "type": "fs.search",
+      "requestId": "x",
+      "root": "x",
+      "query": "x"
+    }
+  ],
+  "FsSearchResponse": [
+    {
+      "type": "fs.search.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "root": "x",
+        "matches": [
+          {
+            "path": "x",
+            "kind": "file"
+          }
+        ]
+      }
+    }
+  ],
+  "FsSearchResult": [
+    {
+      "status": "accepted",
+      "root": "x",
+      "matches": [
+        {
+          "path": "x",
+          "kind": "file"
+        }
+      ]
+    },
+    {
+      "status": "rejected",
+      "rejection": {
+        "code": "busy",
+        "message": "x"
+      }
+    }
+  ],
+  "GitBranch": [
+    {
+      "name": "x",
+      "remote": true,
+      "current": true,
+      "upstream": {
+        "name": "x",
+        "ahead": 1,
+        "behind": 1
+      }
+    },
+    {
+      "name": "x",
+      "remote": false,
+      "current": false
+    }
+  ],
+  "GitBranchesListed": [
+    {
+      "status": "accepted",
+      "branches": [
+        {
+          "name": "x",
+          "remote": true,
+          "current": true,
+          "upstream": {
+            "name": "x",
+            "ahead": 1,
+            "behind": 1
+          }
+        }
+      ],
+      "truncated": true
+    },
+    {
+      "status": "accepted",
+      "branches": [
+        {
+          "name": "x",
+          "remote": false,
+          "current": false
+        }
+      ],
+      "truncated": false
+    }
+  ],
+  "GitBranchesRequest": [
+    {
+      "type": "git.branches",
+      "requestId": "x",
+      "cwd": "x"
+    }
+  ],
+  "GitBranchesResponse": [
+    {
+      "type": "git.branches.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "branches": [
+          {
+            "name": "x",
+            "remote": true,
+            "current": true,
+            "upstream": {
+              "name": "x",
+              "ahead": 1,
+              "behind": 1
+            }
+          }
+        ],
+        "truncated": true
+      }
+    },
+    {
+      "type": "git.branches.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "branches": [
+          {
+            "name": "x",
+            "remote": false,
+            "current": false
+          }
+        ],
+        "truncated": false
+      }
+    }
+  ],
+  "GitBranchesResult": [
+    {
+      "status": "accepted",
+      "branches": [
+        {
+          "name": "x",
+          "remote": true,
+          "current": true,
+          "upstream": {
+            "name": "x",
+            "ahead": 1,
+            "behind": 1
+          }
+        }
+      ],
+      "truncated": true
+    },
+    {
+      "status": "accepted",
+      "branches": [
+        {
+          "name": "x",
+          "remote": false,
+          "current": false
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "status": "rejected",
+      "rejection": {
+        "code": "busy",
+        "message": "x"
+      }
+    }
+  ],
+  "GitChange": [
+    "added",
+    "modified",
+    "deleted",
+    "renamed",
+    "copied",
+    "type_changed",
+    "conflicted"
+  ],
+  "GitCheckedOut": [
+    {
+      "status": "accepted",
+      "branch": "x"
+    }
+  ],
+  "GitCheckoutRequest": [
+    {
+      "type": "git.checkout",
+      "requestId": "x",
+      "cwd": "x",
+      "branch": "x"
+    }
+  ],
+  "GitCheckoutResponse": [
+    {
+      "type": "git.checkout.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "branch": "x"
+      }
+    }
+  ],
+  "GitCheckoutResult": [
+    {
+      "status": "accepted",
+      "branch": "x"
+    },
+    {
+      "status": "rejected",
+      "rejection": {
+        "code": "busy",
+        "message": "x"
+      }
+    }
+  ],
+  "GitCommit": [
+    {
+      "hash": "x",
+      "subject": "x",
+      "author": "x",
+      "authoredAt": 1
+    }
+  ],
+  "GitCommitRequest": [
+    {
+      "type": "git.commit",
+      "requestId": "x",
+      "cwd": "x",
+      "message": "x"
+    }
+  ],
+  "GitCommitResponse": [
+    {
+      "type": "git.commit.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "commit": {
+          "hash": "x",
+          "subject": "x",
+          "author": "x",
+          "authoredAt": 1
+        }
+      }
+    }
+  ],
+  "GitCommitResult": [
+    {
+      "status": "accepted",
+      "commit": {
+        "hash": "x",
+        "subject": "x",
+        "author": "x",
+        "authoredAt": 1
+      }
+    },
+    {
+      "status": "rejected",
+      "rejection": {
+        "code": "busy",
+        "message": "x"
+      }
+    }
+  ],
+  "GitCommitted": [
+    {
+      "status": "accepted",
+      "commit": {
+        "hash": "x",
+        "subject": "x",
+        "author": "x",
+        "authoredAt": 1
+      }
+    }
+  ],
+  "GitDiffFile": [
+    {
+      "path": "x",
+      "previousPath": "x",
+      "change": "added",
+      "binary": true,
+      "hunks": [
+        {
+          "oldStart": 1,
+          "oldLines": 1,
+          "newStart": 1,
+          "newLines": 1,
+          "header": "x",
+          "lines": [
+            {
+              "kind": "context",
+              "text": "x",
+              "oldLine": 1,
+              "newLine": 1,
+              "noNewline": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "x",
+      "change": "added",
+      "binary": false,
+      "hunks": [
+        {
+          "oldStart": 1,
+          "oldLines": 1,
+          "newStart": 1,
+          "newLines": 1,
+          "lines": [
+            {
+              "kind": "context",
+              "text": "x"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "GitDiffHunk": [
+    {
+      "oldStart": 1,
+      "oldLines": 1,
+      "newStart": 1,
+      "newLines": 1,
+      "header": "x",
+      "lines": [
+        {
+          "kind": "context",
+          "text": "x",
+          "oldLine": 1,
+          "newLine": 1,
+          "noNewline": true
+        }
+      ]
+    },
+    {
+      "oldStart": 1,
+      "oldLines": 1,
+      "newStart": 1,
+      "newLines": 1,
+      "lines": [
+        {
+          "kind": "context",
+          "text": "x"
+        }
+      ]
+    }
+  ],
+  "GitDiffLine": [
+    {
+      "kind": "context",
+      "text": "x",
+      "oldLine": 1,
+      "newLine": 1,
+      "noNewline": true
+    },
+    {
+      "kind": "context",
+      "text": "x"
+    }
+  ],
+  "GitDiffLineKind": [
+    "context",
+    "added",
+    "removed"
+  ],
+  "GitDiffRead": [
+    {
+      "status": "accepted",
+      "root": "x",
+      "files": [
+        {
+          "path": "x",
+          "previousPath": "x",
+          "change": "added",
+          "binary": true,
+          "hunks": [
+            {
+              "oldStart": 1,
+              "oldLines": 1,
+              "newStart": 1,
+              "newLines": 1,
+              "header": "x",
+              "lines": [
+                {
+                  "kind": "context",
+                  "text": "x",
+                  "oldLine": 1,
+                  "newLine": 1,
+                  "noNewline": true
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "truncated": true
+    },
+    {
+      "status": "accepted",
+      "root": "x",
+      "files": [
+        {
+          "path": "x",
+          "change": "added",
+          "binary": false,
+          "hunks": [
+            {
+              "oldStart": 1,
+              "oldLines": 1,
+              "newStart": 1,
+              "newLines": 1,
+              "lines": [
+                {
+                  "kind": "context",
+                  "text": "x"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "truncated": false
+    }
+  ],
+  "GitDiffRequest": [
+    {
+      "type": "git.diff",
+      "requestId": "x",
+      "cwd": "x",
+      "path": "x",
+      "staged": true
+    },
+    {
+      "type": "git.diff",
+      "requestId": "x",
+      "cwd": "x"
+    }
+  ],
+  "GitDiffResponse": [
+    {
+      "type": "git.diff.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "root": "x",
+        "files": [
+          {
+            "path": "x",
+            "previousPath": "x",
+            "change": "added",
+            "binary": true,
+            "hunks": [
+              {
+                "oldStart": 1,
+                "oldLines": 1,
+                "newStart": 1,
+                "newLines": 1,
+                "header": "x",
+                "lines": [
+                  {
+                    "kind": "context",
+                    "text": "x",
+                    "oldLine": 1,
+                    "newLine": 1,
+                    "noNewline": true
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "truncated": true
+      }
+    },
+    {
+      "type": "git.diff.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "root": "x",
+        "files": [
+          {
+            "path": "x",
+            "change": "added",
+            "binary": false,
+            "hunks": [
+              {
+                "oldStart": 1,
+                "oldLines": 1,
+                "newStart": 1,
+                "newLines": 1,
+                "lines": [
+                  {
+                    "kind": "context",
+                    "text": "x"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "truncated": false
+      }
+    }
+  ],
+  "GitDiffResult": [
+    {
+      "status": "accepted",
+      "root": "x",
+      "files": [
+        {
+          "path": "x",
+          "previousPath": "x",
+          "change": "added",
+          "binary": true,
+          "hunks": [
+            {
+              "oldStart": 1,
+              "oldLines": 1,
+              "newStart": 1,
+              "newLines": 1,
+              "header": "x",
+              "lines": [
+                {
+                  "kind": "context",
+                  "text": "x",
+                  "oldLine": 1,
+                  "newLine": 1,
+                  "noNewline": true
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "truncated": true
+    },
+    {
+      "status": "accepted",
+      "root": "x",
+      "files": [
+        {
+          "path": "x",
+          "change": "added",
+          "binary": false,
+          "hunks": [
+            {
+              "oldStart": 1,
+              "oldLines": 1,
+              "newStart": 1,
+              "newLines": 1,
+              "lines": [
+                {
+                  "kind": "context",
+                  "text": "x"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "status": "rejected",
+      "rejection": {
+        "code": "busy",
+        "message": "x"
+      }
+    }
+  ],
+  "GitFileChange": [
+    {
+      "path": "x",
+      "previousPath": "x",
+      "change": "added",
+      "additions": 1,
+      "deletions": 1
+    },
+    {
+      "path": "x",
+      "change": "added"
+    }
+  ],
+  "GitLogRead": [
+    {
+      "status": "accepted",
+      "commits": [
+        {
+          "hash": "x",
+          "subject": "x",
+          "author": "x",
+          "authoredAt": 1
+        }
+      ]
+    }
+  ],
+  "GitLogRequest": [
+    {
+      "type": "git.log",
+      "requestId": "x",
+      "cwd": "x",
+      "limit": 1
+    },
+    {
+      "type": "git.log",
+      "requestId": "x",
+      "cwd": "x"
+    }
+  ],
+  "GitLogResponse": [
+    {
+      "type": "git.log.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "commits": [
+          {
+            "hash": "x",
+            "subject": "x",
+            "author": "x",
+            "authoredAt": 1
+          }
+        ]
+      }
+    }
+  ],
+  "GitLogResult": [
+    {
+      "status": "accepted",
+      "commits": [
+        {
+          "hash": "x",
+          "subject": "x",
+          "author": "x",
+          "authoredAt": 1
+        }
+      ]
+    },
+    {
+      "status": "rejected",
+      "rejection": {
+        "code": "busy",
+        "message": "x"
+      }
+    }
+  ],
+  "GitStageRequest": [
+    {
+      "type": "git.stage",
+      "requestId": "x",
+      "cwd": "x",
+      "paths": [
+        "x"
+      ]
+    }
+  ],
+  "GitStageResponse": [
+    {
+      "type": "git.stage.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted"
+      }
+    }
+  ],
+  "GitStatusRead": [
+    {
+      "status": "accepted",
+      "root": "x",
+      "branch": "x",
+      "head": "x",
+      "upstream": {
+        "name": "x",
+        "ahead": 1,
+        "behind": 1
+      },
+      "staged": [
+        {
+          "path": "x",
+          "previousPath": "x",
+          "change": "added",
+          "additions": 1,
+          "deletions": 1
+        }
+      ],
+      "unstaged": [
+        {
+          "path": "x",
+          "previousPath": "x",
+          "change": "added",
+          "additions": 1,
+          "deletions": 1
+        }
+      ],
+      "untracked": [
+        "x"
+      ],
+      "truncated": true
+    },
+    {
+      "status": "accepted",
+      "root": "x",
+      "staged": [
+        {
+          "path": "x",
+          "change": "added"
+        }
+      ],
+      "unstaged": [
+        {
+          "path": "x",
+          "change": "added"
+        }
+      ],
+      "untracked": [
+        "x"
+      ],
+      "truncated": false
+    }
+  ],
+  "GitStatusRequest": [
+    {
+      "type": "git.status",
+      "requestId": "x",
+      "cwd": "x"
+    }
+  ],
+  "GitStatusResponse": [
+    {
+      "type": "git.status.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "root": "x",
+        "branch": "x",
+        "head": "x",
+        "upstream": {
+          "name": "x",
+          "ahead": 1,
+          "behind": 1
+        },
+        "staged": [
+          {
+            "path": "x",
+            "previousPath": "x",
+            "change": "added",
+            "additions": 1,
+            "deletions": 1
+          }
+        ],
+        "unstaged": [
+          {
+            "path": "x",
+            "previousPath": "x",
+            "change": "added",
+            "additions": 1,
+            "deletions": 1
+          }
+        ],
+        "untracked": [
+          "x"
+        ],
+        "truncated": true
+      }
+    },
+    {
+      "type": "git.status.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "root": "x",
+        "staged": [
+          {
+            "path": "x",
+            "change": "added"
+          }
+        ],
+        "unstaged": [
+          {
+            "path": "x",
+            "change": "added"
+          }
+        ],
+        "untracked": [
+          "x"
+        ],
+        "truncated": false
+      }
+    }
+  ],
+  "GitStatusResult": [
+    {
+      "status": "accepted",
+      "root": "x",
+      "branch": "x",
+      "head": "x",
+      "upstream": {
+        "name": "x",
+        "ahead": 1,
+        "behind": 1
+      },
+      "staged": [
+        {
+          "path": "x",
+          "previousPath": "x",
+          "change": "added",
+          "additions": 1,
+          "deletions": 1
+        }
+      ],
+      "unstaged": [
+        {
+          "path": "x",
+          "previousPath": "x",
+          "change": "added",
+          "additions": 1,
+          "deletions": 1
+        }
+      ],
+      "untracked": [
+        "x"
+      ],
+      "truncated": true
+    },
+    {
+      "status": "accepted",
+      "root": "x",
+      "staged": [
+        {
+          "path": "x",
+          "change": "added"
+        }
+      ],
+      "unstaged": [
+        {
+          "path": "x",
+          "change": "added"
+        }
+      ],
+      "untracked": [
+        "x"
+      ],
+      "truncated": false
+    },
+    {
+      "status": "rejected",
+      "rejection": {
+        "code": "busy",
+        "message": "x"
+      }
+    }
+  ],
+  "GitUnstageRequest": [
+    {
+      "type": "git.unstage",
+      "requestId": "x",
+      "cwd": "x",
+      "paths": [
+        "x"
+      ]
+    }
+  ],
+  "GitUnstageResponse": [
+    {
+      "type": "git.unstage.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted"
+      }
+    }
+  ],
+  "GitUpstream": [
+    {
+      "name": "x",
+      "ahead": 1,
+      "behind": 1
     }
   ],
   "GrantKind": [
@@ -4912,6 +6210,7 @@
     "invalid_input",
     "unsupported",
     "not_found",
+    "forbidden",
     "stale",
     "closed",
     "backend_error"
@@ -5925,6 +7224,443 @@
       }
     },
     {
+      "type": "workspace.info.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "roots": [
+          "x"
+        ],
+        "git": true,
+        "terminal": true
+      }
+    },
+    {
+      "type": "workspace.info.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "roots": [
+          "x"
+        ],
+        "git": false,
+        "terminal": false
+      }
+    },
+    {
+      "type": "fs.list.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "path": "x",
+        "entries": [
+          {
+            "name": "x",
+            "kind": "file",
+            "size": 1,
+            "modifiedAt": 1
+          }
+        ],
+        "nextCursor": "x"
+      }
+    },
+    {
+      "type": "fs.list.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "path": "x",
+        "entries": [
+          {
+            "name": "x",
+            "kind": "file"
+          }
+        ]
+      }
+    },
+    {
+      "type": "fs.read.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "path": "x",
+        "encoding": "utf8",
+        "content": "x",
+        "offset": 1,
+        "length": 1,
+        "size": 1,
+        "truncated": true
+      }
+    },
+    {
+      "type": "fs.read.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "path": "x",
+        "encoding": "utf8",
+        "content": "x",
+        "offset": 1,
+        "length": 1,
+        "size": 1,
+        "truncated": false
+      }
+    },
+    {
+      "type": "fs.search.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "root": "x",
+        "matches": [
+          {
+            "path": "x",
+            "kind": "file"
+          }
+        ]
+      }
+    },
+    {
+      "type": "git.status.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "root": "x",
+        "branch": "x",
+        "head": "x",
+        "upstream": {
+          "name": "x",
+          "ahead": 1,
+          "behind": 1
+        },
+        "staged": [
+          {
+            "path": "x",
+            "previousPath": "x",
+            "change": "added",
+            "additions": 1,
+            "deletions": 1
+          }
+        ],
+        "unstaged": [
+          {
+            "path": "x",
+            "previousPath": "x",
+            "change": "added",
+            "additions": 1,
+            "deletions": 1
+          }
+        ],
+        "untracked": [
+          "x"
+        ],
+        "truncated": true
+      }
+    },
+    {
+      "type": "git.status.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "root": "x",
+        "staged": [
+          {
+            "path": "x",
+            "change": "added"
+          }
+        ],
+        "unstaged": [
+          {
+            "path": "x",
+            "change": "added"
+          }
+        ],
+        "untracked": [
+          "x"
+        ],
+        "truncated": false
+      }
+    },
+    {
+      "type": "git.diff.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "root": "x",
+        "files": [
+          {
+            "path": "x",
+            "previousPath": "x",
+            "change": "added",
+            "binary": true,
+            "hunks": [
+              {
+                "oldStart": 1,
+                "oldLines": 1,
+                "newStart": 1,
+                "newLines": 1,
+                "header": "x",
+                "lines": [
+                  {
+                    "kind": "context",
+                    "text": "x",
+                    "oldLine": 1,
+                    "newLine": 1,
+                    "noNewline": true
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "truncated": true
+      }
+    },
+    {
+      "type": "git.diff.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "root": "x",
+        "files": [
+          {
+            "path": "x",
+            "change": "added",
+            "binary": false,
+            "hunks": [
+              {
+                "oldStart": 1,
+                "oldLines": 1,
+                "newStart": 1,
+                "newLines": 1,
+                "lines": [
+                  {
+                    "kind": "context",
+                    "text": "x"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "truncated": false
+      }
+    },
+    {
+      "type": "git.stage.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted"
+      }
+    },
+    {
+      "type": "git.unstage.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted"
+      }
+    },
+    {
+      "type": "git.commit.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "commit": {
+          "hash": "x",
+          "subject": "x",
+          "author": "x",
+          "authoredAt": 1
+        }
+      }
+    },
+    {
+      "type": "git.branches.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "branches": [
+          {
+            "name": "x",
+            "remote": true,
+            "current": true,
+            "upstream": {
+              "name": "x",
+              "ahead": 1,
+              "behind": 1
+            }
+          }
+        ],
+        "truncated": true
+      }
+    },
+    {
+      "type": "git.branches.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "branches": [
+          {
+            "name": "x",
+            "remote": false,
+            "current": false
+          }
+        ],
+        "truncated": false
+      }
+    },
+    {
+      "type": "git.checkout.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "branch": "x"
+      }
+    },
+    {
+      "type": "git.log.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "commits": [
+          {
+            "hash": "x",
+            "subject": "x",
+            "author": "x",
+            "authoredAt": 1
+          }
+        ]
+      }
+    },
+    {
+      "type": "term.list.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "terminals": [
+          {
+            "id": "x",
+            "cwd": "x",
+            "cols": 1,
+            "rows": 1,
+            "createdAt": 1,
+            "status": "running",
+            "exitCode": 1,
+            "signal": "x"
+          }
+        ]
+      }
+    },
+    {
+      "type": "term.list.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "terminals": [
+          {
+            "id": "x",
+            "cwd": "x",
+            "cols": 1,
+            "rows": 1,
+            "createdAt": 1,
+            "status": "running"
+          }
+        ]
+      }
+    },
+    {
+      "type": "term.open.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "terminal": {
+          "id": "x",
+          "cwd": "x",
+          "cols": 1,
+          "rows": 1,
+          "createdAt": 1,
+          "status": "running",
+          "exitCode": 1,
+          "signal": "x"
+        }
+      }
+    },
+    {
+      "type": "term.open.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "terminal": {
+          "id": "x",
+          "cwd": "x",
+          "cols": 1,
+          "rows": 1,
+          "createdAt": 1,
+          "status": "running"
+        }
+      }
+    },
+    {
+      "type": "term.attach.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "terminal": {
+          "id": "x",
+          "cwd": "x",
+          "cols": 1,
+          "rows": 1,
+          "createdAt": 1,
+          "status": "running",
+          "exitCode": 1,
+          "signal": "x"
+        },
+        "seq": 1,
+        "data": "eA=="
+      }
+    },
+    {
+      "type": "term.attach.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "terminal": {
+          "id": "x",
+          "cwd": "x",
+          "cols": 1,
+          "rows": 1,
+          "createdAt": 1,
+          "status": "running"
+        },
+        "seq": 1,
+        "data": "eA=="
+      }
+    },
+    {
+      "type": "term.detach.result",
+      "requestId": "x"
+    },
+    {
+      "type": "term.input.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted"
+      }
+    },
+    {
+      "type": "term.resize.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted"
+      }
+    },
+    {
+      "type": "term.close.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted"
+      }
+    },
+    {
       "type": "error",
       "requestId": "x",
       "error": {
@@ -6020,6 +7756,22 @@
           "origin": "broski"
         }
       }
+    },
+    {
+      "type": "term_output",
+      "id": "x",
+      "seq": 1,
+      "data": "eA=="
+    },
+    {
+      "type": "term_exited",
+      "id": "x",
+      "exitCode": 1,
+      "signal": "x"
+    },
+    {
+      "type": "term_exited",
+      "id": "x"
     }
   ],
   "SessionAttachRequest": [
@@ -7346,6 +9098,493 @@
     "date",
     "date-time"
   ],
+  "TermAttachRequest": [
+    {
+      "type": "term.attach",
+      "requestId": "x",
+      "id": "x",
+      "since": 1
+    },
+    {
+      "type": "term.attach",
+      "requestId": "x",
+      "id": "x"
+    }
+  ],
+  "TermAttachResponse": [
+    {
+      "type": "term.attach.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "terminal": {
+          "id": "x",
+          "cwd": "x",
+          "cols": 1,
+          "rows": 1,
+          "createdAt": 1,
+          "status": "running",
+          "exitCode": 1,
+          "signal": "x"
+        },
+        "seq": 1,
+        "data": "eA=="
+      }
+    },
+    {
+      "type": "term.attach.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "terminal": {
+          "id": "x",
+          "cwd": "x",
+          "cols": 1,
+          "rows": 1,
+          "createdAt": 1,
+          "status": "running"
+        },
+        "seq": 1,
+        "data": "eA=="
+      }
+    }
+  ],
+  "TermAttachResult": [
+    {
+      "status": "accepted",
+      "terminal": {
+        "id": "x",
+        "cwd": "x",
+        "cols": 1,
+        "rows": 1,
+        "createdAt": 1,
+        "status": "running",
+        "exitCode": 1,
+        "signal": "x"
+      },
+      "seq": 1,
+      "data": "eA=="
+    },
+    {
+      "status": "accepted",
+      "terminal": {
+        "id": "x",
+        "cwd": "x",
+        "cols": 1,
+        "rows": 1,
+        "createdAt": 1,
+        "status": "running"
+      },
+      "seq": 1,
+      "data": "eA=="
+    },
+    {
+      "status": "rejected",
+      "rejection": {
+        "code": "busy",
+        "message": "x"
+      }
+    }
+  ],
+  "TermCloseRequest": [
+    {
+      "type": "term.close",
+      "requestId": "x",
+      "id": "x"
+    }
+  ],
+  "TermCloseResponse": [
+    {
+      "type": "term.close.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted"
+      }
+    }
+  ],
+  "TermDetachRequest": [
+    {
+      "type": "term.detach",
+      "requestId": "x",
+      "id": "x"
+    }
+  ],
+  "TermDetachResponse": [
+    {
+      "type": "term.detach.result",
+      "requestId": "x"
+    }
+  ],
+  "TermExitedMessage": [
+    {
+      "type": "term_exited",
+      "id": "x",
+      "exitCode": 1,
+      "signal": "x"
+    },
+    {
+      "type": "term_exited",
+      "id": "x"
+    }
+  ],
+  "TermInputRequest": [
+    {
+      "type": "term.input",
+      "requestId": "x",
+      "id": "x",
+      "data": "eA=="
+    }
+  ],
+  "TermInputResponse": [
+    {
+      "type": "term.input.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted"
+      }
+    }
+  ],
+  "TermListRequest": [
+    {
+      "type": "term.list",
+      "requestId": "x"
+    }
+  ],
+  "TermListResponse": [
+    {
+      "type": "term.list.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "terminals": [
+          {
+            "id": "x",
+            "cwd": "x",
+            "cols": 1,
+            "rows": 1,
+            "createdAt": 1,
+            "status": "running",
+            "exitCode": 1,
+            "signal": "x"
+          }
+        ]
+      }
+    },
+    {
+      "type": "term.list.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "terminals": [
+          {
+            "id": "x",
+            "cwd": "x",
+            "cols": 1,
+            "rows": 1,
+            "createdAt": 1,
+            "status": "running"
+          }
+        ]
+      }
+    }
+  ],
+  "TermListResult": [
+    {
+      "status": "accepted",
+      "terminals": [
+        {
+          "id": "x",
+          "cwd": "x",
+          "cols": 1,
+          "rows": 1,
+          "createdAt": 1,
+          "status": "running",
+          "exitCode": 1,
+          "signal": "x"
+        }
+      ]
+    },
+    {
+      "status": "accepted",
+      "terminals": [
+        {
+          "id": "x",
+          "cwd": "x",
+          "cols": 1,
+          "rows": 1,
+          "createdAt": 1,
+          "status": "running"
+        }
+      ]
+    },
+    {
+      "status": "rejected",
+      "rejection": {
+        "code": "busy",
+        "message": "x"
+      }
+    }
+  ],
+  "TermOpenRequest": [
+    {
+      "type": "term.open",
+      "requestId": "x",
+      "cwd": "x",
+      "cols": 1,
+      "rows": 1,
+      "cellWidth": 1,
+      "cellHeight": 1
+    },
+    {
+      "type": "term.open",
+      "requestId": "x",
+      "cwd": "x",
+      "cols": 1,
+      "rows": 1
+    }
+  ],
+  "TermOpenResponse": [
+    {
+      "type": "term.open.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "terminal": {
+          "id": "x",
+          "cwd": "x",
+          "cols": 1,
+          "rows": 1,
+          "createdAt": 1,
+          "status": "running",
+          "exitCode": 1,
+          "signal": "x"
+        }
+      }
+    },
+    {
+      "type": "term.open.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "terminal": {
+          "id": "x",
+          "cwd": "x",
+          "cols": 1,
+          "rows": 1,
+          "createdAt": 1,
+          "status": "running"
+        }
+      }
+    }
+  ],
+  "TermOpenResult": [
+    {
+      "status": "accepted",
+      "terminal": {
+        "id": "x",
+        "cwd": "x",
+        "cols": 1,
+        "rows": 1,
+        "createdAt": 1,
+        "status": "running",
+        "exitCode": 1,
+        "signal": "x"
+      }
+    },
+    {
+      "status": "accepted",
+      "terminal": {
+        "id": "x",
+        "cwd": "x",
+        "cols": 1,
+        "rows": 1,
+        "createdAt": 1,
+        "status": "running"
+      }
+    },
+    {
+      "status": "rejected",
+      "rejection": {
+        "code": "busy",
+        "message": "x"
+      }
+    }
+  ],
+  "TermOutputMessage": [
+    {
+      "type": "term_output",
+      "id": "x",
+      "seq": 1,
+      "data": "eA=="
+    }
+  ],
+  "TermResizeRequest": [
+    {
+      "type": "term.resize",
+      "requestId": "x",
+      "id": "x",
+      "cols": 1,
+      "rows": 1,
+      "cellWidth": 1,
+      "cellHeight": 1
+    },
+    {
+      "type": "term.resize",
+      "requestId": "x",
+      "id": "x",
+      "cols": 1,
+      "rows": 1
+    }
+  ],
+  "TermResizeResponse": [
+    {
+      "type": "term.resize.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted"
+      }
+    }
+  ],
+  "TerminalAttached": [
+    {
+      "status": "accepted",
+      "terminal": {
+        "id": "x",
+        "cwd": "x",
+        "cols": 1,
+        "rows": 1,
+        "createdAt": 1,
+        "status": "running",
+        "exitCode": 1,
+        "signal": "x"
+      },
+      "seq": 1,
+      "data": "eA=="
+    },
+    {
+      "status": "accepted",
+      "terminal": {
+        "id": "x",
+        "cwd": "x",
+        "cols": 1,
+        "rows": 1,
+        "createdAt": 1,
+        "status": "running"
+      },
+      "seq": 1,
+      "data": "eA=="
+    }
+  ],
+  "TerminalDimension": [
+    1
+  ],
+  "TerminalEvent": [
+    {
+      "type": "term_output",
+      "id": "x",
+      "seq": 1,
+      "data": "eA=="
+    },
+    {
+      "type": "term_exited",
+      "id": "x",
+      "exitCode": 1,
+      "signal": "x"
+    },
+    {
+      "type": "term_exited",
+      "id": "x"
+    }
+  ],
+  "TerminalId": [
+    "x"
+  ],
+  "TerminalOpened": [
+    {
+      "status": "accepted",
+      "terminal": {
+        "id": "x",
+        "cwd": "x",
+        "cols": 1,
+        "rows": 1,
+        "createdAt": 1,
+        "status": "running",
+        "exitCode": 1,
+        "signal": "x"
+      }
+    },
+    {
+      "status": "accepted",
+      "terminal": {
+        "id": "x",
+        "cwd": "x",
+        "cols": 1,
+        "rows": 1,
+        "createdAt": 1,
+        "status": "running"
+      }
+    }
+  ],
+  "TerminalOutput": [
+    "eA=="
+  ],
+  "TerminalSeq": [
+    1
+  ],
+  "TerminalStatus": [
+    "running",
+    "exited"
+  ],
+  "TerminalSummary": [
+    {
+      "id": "x",
+      "cwd": "x",
+      "cols": 1,
+      "rows": 1,
+      "createdAt": 1,
+      "status": "running",
+      "exitCode": 1,
+      "signal": "x"
+    },
+    {
+      "id": "x",
+      "cwd": "x",
+      "cols": 1,
+      "rows": 1,
+      "createdAt": 1,
+      "status": "running"
+    }
+  ],
+  "TerminalsListed": [
+    {
+      "status": "accepted",
+      "terminals": [
+        {
+          "id": "x",
+          "cwd": "x",
+          "cols": 1,
+          "rows": 1,
+          "createdAt": 1,
+          "status": "running",
+          "exitCode": 1,
+          "signal": "x"
+        }
+      ]
+    },
+    {
+      "status": "accepted",
+      "terminals": [
+        {
+          "id": "x",
+          "cwd": "x",
+          "cols": 1,
+          "rows": 1,
+          "createdAt": 1,
+          "status": "running"
+        }
+      ]
+    }
+  ],
   "TextContent": [
     {
       "kind": "text",
@@ -8398,5 +10637,80 @@
   ],
   "WorkingDirectory": [
     "x"
+  ],
+  "WorkspaceInfo": [
+    {
+      "status": "accepted",
+      "roots": [
+        "x"
+      ],
+      "git": true,
+      "terminal": true
+    },
+    {
+      "status": "accepted",
+      "roots": [
+        "x"
+      ],
+      "git": false,
+      "terminal": false
+    }
+  ],
+  "WorkspaceInfoRequest": [
+    {
+      "type": "workspace.info",
+      "requestId": "x"
+    }
+  ],
+  "WorkspaceInfoResponse": [
+    {
+      "type": "workspace.info.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "roots": [
+          "x"
+        ],
+        "git": true,
+        "terminal": true
+      }
+    },
+    {
+      "type": "workspace.info.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "roots": [
+          "x"
+        ],
+        "git": false,
+        "terminal": false
+      }
+    }
+  ],
+  "WorkspaceInfoResult": [
+    {
+      "status": "accepted",
+      "roots": [
+        "x"
+      ],
+      "git": true,
+      "terminal": true
+    },
+    {
+      "status": "accepted",
+      "roots": [
+        "x"
+      ],
+      "git": false,
+      "terminal": false
+    },
+    {
+      "status": "rejected",
+      "rejection": {
+        "code": "busy",
+        "message": "x"
+      }
+    }
   ]
 }

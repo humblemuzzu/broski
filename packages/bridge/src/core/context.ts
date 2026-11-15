@@ -2,11 +2,12 @@ import type { AgentBackend, BackendId, ClientMessage, ErrorResponse, ResponseFor
 import type { BackendRegistry } from "./backend-registry";
 import type { CoreClient } from "./client";
 import type { InteractionDesk } from "./interaction-desk";
-import type { CoreClock, CoreLog, DirectoryPolicy } from "./ports";
+import type { CoreClock, CoreLog, DirectoryPolicy, WorkspaceHost } from "./ports";
 import type { PromptLedger } from "./prompt-ledger";
 import type { Replacements } from "./replacements";
 import { protocolError } from "./results";
 import type { SessionHub } from "./session-hub";
+import type { TerminalViewers } from "./terminal-viewers";
 
 /** Everything a request handler reaches. */
 export interface CoreContext {
@@ -16,6 +17,9 @@ export interface CoreContext {
 	readonly ledger: PromptLedger;
 	readonly replacements: Replacements;
 	readonly directories: DirectoryPolicy;
+	/** Absent when the bridge serves no workspace: every workspace request is then `unsupported`. */
+	readonly workspace: WorkspaceHost | undefined;
+	readonly terminals: TerminalViewers;
 	readonly bridgeVersion: string;
 	readonly maxFrameBytes: number;
 	readonly clock: CoreClock;

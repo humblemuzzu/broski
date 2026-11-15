@@ -5,6 +5,7 @@ import { type ContractSchemaDocument, refName, type Schema } from "./json-schema
 type Shape = "full" | "minimal";
 
 const SAMPLE_UUID = "00000000-0000-4000-8000-000000000000";
+const SAMPLE_BASE64 = "eA==";
 const SAMPLE_JSON: JsonValue = { text: "x", list: [1, 2.5, true, null], nested: { ok: false } };
 
 /**
@@ -92,6 +93,7 @@ class Sampler {
 
 	private text(schema: Schema): string {
 		if (schema.format === "uuid") return SAMPLE_UUID;
+		if (schema.format === "base64") return SAMPLE_BASE64;
 		const text = "x".repeat(Math.max(schema.minLength ?? 0, 1));
 		if (schema.pattern !== undefined && !new RegExp(schema.pattern).test(text))
 			throw new Error(`cannot sample the pattern ${schema.pattern}`);

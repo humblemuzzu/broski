@@ -11,7 +11,7 @@ export const WATCH_ONLY = "this session can only be watched";
 type ControlType = "prompt" | "abort" | "queue.cancel" | "model.set" | "thinking.set" | "mode.set" | "compact";
 
 /** The requests that act on a session the client views: the control requests and an answer (`answering.ts`). */
-type ViewedType = ControlType | "interaction.answer";
+export type ViewedType = ControlType | "interaction.answer";
 
 /** `RequestOf<T>`, written so that the fields every such request has stay reachable for a generic `T`. */
 type ViewedRequest<T extends ViewedType> = Extract<ClientMessage, { type: ViewedType }> & { type: T };

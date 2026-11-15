@@ -11,6 +11,7 @@ export const hello: Handler<"hello"> = async (ctx, client, request, respond) => 
 	const theirs = request.protocol;
 	if (!client.hello(theirs, PROTOCOL_VERSION)) {
 		for (const live of client.detachAll()) ctx.hub.leave(live, client);
+		ctx.terminals.leave(client);
 		respond(
 			protocolError(
 				request.requestId,

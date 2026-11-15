@@ -12,6 +12,8 @@ export class CoreClient {
 	/** Attaches under way to sessions not viewed yet, each holding a place under the viewing cap. */
 	private reserved = 0;
 	private readonly steps = new Map<string, Promise<void>>();
+	/** The terminals this client is attached to, kept by `TerminalViewers`. */
+	readonly terminals = new Set<string>();
 
 	constructor(
 		private readonly link: ClientLink,
