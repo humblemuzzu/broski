@@ -123,11 +123,13 @@ describe("an id no file holds", () => {
 		const real = piSessionDirs(env.agentDir);
 		let scans = 0;
 		const dirs: SessionDirs = {
-			...real,
+			forCwd: (cwd) => real.forCwd(cwd),
 			toScan: (cwd) => {
 				scans += 1;
 				return real.toScan(cwd);
 			},
+			roots: () => real.roots(),
+			know: (cwd) => real.know(cwd),
 		};
 		const index = new SessionIndex(dirs);
 		writeSession(env.sessionDir, chat("known", 1));

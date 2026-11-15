@@ -47,65 +47,85 @@ export interface SessionDirs {
 }
 
 export function piSessionDirs(agentDir: string): SessionDirs {
-	const defaultRoot = join(resolve(agentDir), "sessions");
-	const settings = new SettingsDirs(agentDir);
-	const projects = new Map<string, string>();
+	return new ResolvedSessionDirs(agentDir);
+}
 
-	const trustedFor = (cwd: string): boolean =>
-		Boolean(process.env[SESSION_DIR_ENV]) || !settings.namedByProject(cwd) || settings.projectTrusted(cwd);
-	const configured = (cwd: string | undefined): string | undefined => {
+class ResolvedSessionDirs implements SessionDirs {
+	private readonly defaultRoot: string;
+	private readonly settings: SettingsDirs;
+	private readonly projects = new Map<string, string>();
+
+	constructor(agentDir: string) {
+		this.defaultRoot = join(resolve(agentDir), "sessions");
+		this.settings = new SettingsDirs(agentDir);
+	}
+
+	forCwd(cwd: string): string {
+		return this.explicitFor(cwd) ?? defaultDirOf(this.defaultRoot, canonicalCwd(cwd));
+	}
+
+	toScan(cwd: string | undefined): string[] {
+		if (cwd !== undefined) {
+			const explicit = this.explicitFor(cwd);
+			if (explicit !== undefined) return directoriesOf([explicit]);
+			const resolved = defaultDirOf(this.defaultRoot, resolve(cwd));
+			return directoriesOf([resolved, defaultDirOf(this.defaultRoot, canonicalCwd(cwd))]);
+		}
+		const global = this.globalRoot();
+		const base = global === undefined ? [] : global.nested ? subdirectories(global.dir) : [global.dir];
+		return directoriesOf([...base, ...this.projectRoots().map((root) => root.dir)]);
+	}
+
+	roots(): SessionRoot[] {
+		const global = this.globalRoot();
+		return [...(global === undefined ? [] : [global]), ...this.projectRoots()];
+	}
+
+	know(cwd: string): string | undefined {
+		const dir = this.explicitFor(cwd);
+		if (dir === undefined || dir === this.globalRoot()?.dir) return undefined;
+		const fresh = !this.projectRoots().some((root) => root.dir === dir);
+		this.projects.delete(cwd);
+		this.projects.set(cwd, dir);
+		for (const oldest of this.projects.keys()) {
+			if (this.projects.size <= REMEMBERED_CWDS) break;
+			this.projects.delete(oldest);
+		}
+		return fresh ? dir : undefined;
+	}
+
+	private trustedFor(cwd: string): boolean {
+		return (
+			Boolean(process.env[SESSION_DIR_ENV]) || !this.settings.namedByProject(cwd) || this.settings.projectTrusted(cwd)
+		);
+	}
+
+	private configured(cwd: string | undefined): string | undefined {
 		const fromEnv = process.env[SESSION_DIR_ENV];
-		return fromEnv ? expandPath(fromEnv) : settings.sessionDirFor(cwd);
-	};
-	const explicitFor = (cwd: string): string | undefined => {
-		const raw = configured(cwd);
+		return fromEnv ? expandPath(fromEnv) : this.settings.sessionDirFor(cwd);
+	}
+
+	private explicitFor(cwd: string): string | undefined {
+		const raw = this.configured(cwd);
 		return raw === undefined ? undefined : resolve(cwd, raw);
-	};
-	const globalRoot = (): SessionRoot | undefined => {
-		const raw = configured(undefined);
-		if (raw === undefined) return { dir: defaultRoot, nested: true, trusted: true };
+	}
+
+	private globalRoot(): SessionRoot | undefined {
+		const raw = this.configured(undefined);
+		if (raw === undefined) return { dir: this.defaultRoot, nested: true, trusted: true };
 		return isAbsolute(raw) ? { dir: resolve(raw), nested: false, trusted: true } : undefined;
-	};
-	const projectRoots = (): SessionRoot[] => {
-		const global = globalRoot()?.dir;
+	}
+
+	private projectRoots(): SessionRoot[] {
+		const global = this.globalRoot()?.dir;
 		const found = new Map<string, boolean>();
-		for (const cwd of [...projects.keys()]) {
-			const dir = explicitFor(cwd);
-			if (dir === undefined || dir === global) projects.delete(cwd);
-			else found.set(dir, (found.get(dir) ?? false) || trustedFor(cwd));
+		for (const cwd of [...this.projects.keys()]) {
+			const dir = this.explicitFor(cwd);
+			if (dir === undefined || dir === global) this.projects.delete(cwd);
+			else found.set(dir, (found.get(dir) ?? false) || this.trustedFor(cwd));
 		}
 		return [...found].map(([dir, trusted]) => ({ dir, nested: false, trusted }));
-	};
-
-	return {
-		forCwd: (cwd) => explicitFor(cwd) ?? defaultDirOf(defaultRoot, canonicalCwd(cwd)),
-		toScan: (cwd) => {
-			if (cwd !== undefined) {
-				const explicit = explicitFor(cwd);
-				if (explicit !== undefined) return directoriesOf([explicit]);
-				return directoriesOf([defaultDirOf(defaultRoot, resolve(cwd)), defaultDirOf(defaultRoot, canonicalCwd(cwd))]);
-			}
-			const global = globalRoot();
-			const base = global === undefined ? [] : global.nested ? subdirectories(global.dir) : [global.dir];
-			return directoriesOf([...base, ...projectRoots().map((root) => root.dir)]);
-		},
-		roots: () => {
-			const global = globalRoot();
-			return [...(global === undefined ? [] : [global]), ...projectRoots()];
-		},
-		know: (cwd) => {
-			const dir = explicitFor(cwd);
-			if (dir === undefined || dir === globalRoot()?.dir) return undefined;
-			const fresh = !projectRoots().some((root) => root.dir === dir);
-			projects.delete(cwd);
-			projects.set(cwd, dir);
-			for (const oldest of projects.keys()) {
-				if (projects.size <= REMEMBERED_CWDS) break;
-				projects.delete(oldest);
-			}
-			return fresh ? dir : undefined;
-		},
-	};
+	}
 }
 
 /** `cwd` through `realpath`, or resolved as given when it does not exist; compared on both sides. */

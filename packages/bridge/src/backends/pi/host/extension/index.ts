@@ -85,15 +85,31 @@ function replaceInput(event: ToolCallEvent, input: Record<string, unknown>): voi
 	Object.assign(event.input, input);
 }
 
-export default function broskiHost(pi: ExtensionAPI): void {
-	let permissions: Permissions = { mode: "off", allowed: new Set() };
+/** The session's permissions: what the phone is asked before a tool runs, and the records that change it. */
+class PermissionGate {
+	private permissions: Permissions = { mode: "off", allowed: new Set() };
 
-	const record = (customType: string, data: unknown): void => {
-		if (customType === PERMISSIONS) permissions = permissionsOf(data) ?? permissions;
-		pi.appendEntry(customType, data);
-	};
+	constructor(private readonly pi: ExtensionAPI) {}
 
-	async function ask(
+	load(entries: readonly SessionEntry[]): void {
+		this.permissions = lastPermissions(entries);
+	}
+
+	record(customType: string, data: unknown): void {
+		if (customType === PERMISSIONS) this.permissions = permissionsOf(data) ?? this.permissions;
+		this.pi.appendEntry(customType, data);
+	}
+
+	async check(event: ToolCallEvent, ctx: ExtensionContext): Promise<ToolCallEventResult | undefined> {
+		if (this.permissions.mode === "off" || this.permissions.allowed.has(event.toolName)) return undefined;
+		try {
+			return await this.ask(event, ctx);
+		} catch {
+			return { block: true, reason: FAULT };
+		}
+	}
+
+	private async ask(
 		event: ToolCallEvent,
 		ctx: ExtensionContext,
 		problem?: string,
@@ -113,29 +129,24 @@ export default function broskiHost(pi: ExtensionAPI): void {
 		if (verdict.decision === "deny") return { block: true, reason: verdict.message?.trim() || DENIED };
 		if (verdict.input !== undefined) {
 			try {
-				replaceInput(event, checkedInput(pi, event, verdict.input));
+				replaceInput(event, checkedInput(this.pi, event, verdict.input));
 			} catch (error) {
-				return ask(event, ctx, error instanceof Error ? error.message : String(error));
+				return this.ask(event, ctx, error instanceof Error ? error.message : String(error));
 			}
 		}
-		if (verdict.decision === "allow_session" && !permissions.allowed.has(event.toolName)) {
-			record(PERMISSIONS, { mode: permissions.mode, allowedTools: [...permissions.allowed, event.toolName] });
+		if (verdict.decision === "allow_session" && !this.permissions.allowed.has(event.toolName)) {
+			const allowedTools = [...this.permissions.allowed, event.toolName];
+			this.record(PERMISSIONS, { mode: this.permissions.mode, allowedTools });
 		}
 		return undefined;
 	}
+}
 
-	pi.on("session_start", (_event, ctx) => {
-		permissions = lastPermissions(ctx.sessionManager.getEntries());
-	});
+export default function broskiHost(pi: ExtensionAPI): void {
+	const gate = new PermissionGate(pi);
 
-	pi.on("tool_call", async (event, ctx) => {
-		if (permissions.mode === "off" || permissions.allowed.has(event.toolName)) return undefined;
-		try {
-			return await ask(event, ctx);
-		} catch {
-			return { block: true, reason: FAULT };
-		}
-	});
+	pi.on("session_start", (_event, ctx) => gate.load(ctx.sessionManager.getEntries()));
+	pi.on("tool_call", (event, ctx) => gate.check(event, ctx));
 
 	pi.registerCommand(COMMAND, {
 		description: "Used by the Broski bridge.",
@@ -145,7 +156,7 @@ export default function broskiHost(pi: ExtensionAPI): void {
 			if (!isObject(value) || typeof customType !== "string" || !customType.startsWith(RECORD_PREFIX)) {
 				throw new Error("not a Broski record");
 			}
-			record(customType, value.data);
+			gate.record(customType, value.data);
 		},
 	});
 

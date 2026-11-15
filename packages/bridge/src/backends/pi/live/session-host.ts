@@ -6,7 +6,6 @@
 import {
 	type ActionResult,
 	type AgentEvent,
-	emptySnapshot,
 	MAX_LIST_ITEMS,
 	type NoticeEvent,
 	type Rejected,
@@ -14,33 +13,33 @@ import {
 	type SessionSnapshot,
 	type SessionSummary,
 } from "../../../contract";
-import { permissionsSetting } from "../modes";
 import { phoneName } from "../phone-text";
-import type { AskHost, LiveRow } from "../ports";
+import type { LiveRow } from "../ports";
 import { ACCEPTED, CLOSED, rejected } from "../rejections";
 import type { PiExit } from "../rpc/child";
 import type { RpcAnswer } from "../rpc/client";
 import type { UiRequest } from "../rpc/frames";
 import type { PiCommand, PiState } from "../rpc/replies";
 import { type DialogHost, handleUiRequest } from "../ui/dialogs";
-import { InteractionDesk } from "../ui/interactions";
-import { ChildFeeds } from "./child-feeds";
+import type { InteractionDesk } from "../ui/interactions";
+import type { ChildFeeds } from "./child-feeds";
 import { requestCompaction } from "./compaction-request";
-import { EntryCursor } from "./entry-cursor";
-import { EventBridge } from "./event-bridge";
+import type { EntryCursor } from "./entry-cursor";
+import type { EventBridge } from "./event-bridge";
 import { type HostControl, hostControl } from "./host-control";
 import type { HostEnvironment, HostStart } from "./host-environment";
-import { HostLiveState } from "./host-live-state";
-import { HostRow } from "./host-row";
+import type { HostLiveState } from "./host-live-state";
+import { assembleHostParts } from "./host-parts";
+import type { HostRow } from "./host-row";
 import { type HostedFacts, liveRowOf } from "./host-summary";
 import { faultEvent } from "./live-notes";
-import { PiChild } from "./pi-child";
-import { PromptDesk } from "./prompt-desk";
-import { QueueMirror } from "./queue-mirror";
+import type { PiChild } from "./pi-child";
+import type { PromptDesk } from "./prompt-desk";
+import type { QueueMirror } from "./queue-mirror";
 import { returnQueuedInput } from "./queue-return";
-import { RunTracker } from "./run-tracker";
-import { SessionSettings } from "./settings";
-import { UsageFeed } from "./usage-feed";
+import type { RunTracker } from "./run-tracker";
+import type { SessionSettings } from "./settings";
+import type { UsageFeed } from "./usage-feed";
 import { within } from "./within";
 
 const STARTING: Rejected = rejected("busy", "the session's extensions are still starting");
@@ -77,75 +76,28 @@ export class SessionHost {
 		private readonly start: HostStart,
 	) {
 		this.sessionId = start.facts.sessionId;
-		const { now } = env;
-		this.usedAt = now();
-		this.live = new HostLiveState(
-			{ ...emptySnapshot(), modes: [permissionsSetting(start.permissions.mode)] },
-			now,
-			(event) => this.emitted(event),
-		);
-		this.child = new PiChild(start.launch, (delivery) => this.events.deliver(delivery));
-		this.cursor = new EntryCursor(this.child, start.lastEntryId);
-		this.listRow = new HostRow(start.facts, this.live, env.catalog);
-		this.usage = new UsageFeed(this.child, this.live);
-		this.settings = new SessionSettings(
-			{
-				child: this.child,
-				live: this.live,
-				models: env.models,
-				cwd: start.cwd,
-				modelSwitched: () => this.usage.refresh(),
-			},
-			start.permissions,
-		);
-		const askHost: AskHost = {
+		this.usedAt = env.now();
+		({
 			live: this.live,
-			activeRun: () => this.runs.current() ?? this.prompts.startEarly(),
-			inCommand: () => this.prompts.inCommand,
-			abortRun: () => this.abortInBackground(),
-			aborting: () => this.runs.aborting,
-			now,
-		};
-		this.interactions = new InteractionDesk(askHost);
-		this.runs = new RunTracker({
-			live: this.live,
-			interactions: this.interactions,
-			refreshUsage: () => this.usage.refresh(),
-		});
-		this.queue = new QueueMirror(this.live);
-		this.prompts = new PromptDesk({
 			child: this.child,
-			runs: this.runs,
-			queue: this.queue,
-			live: this.live,
-			model: () => this.settings.currentModel,
-			leafId: () => this.cursor.leafId,
-			abort: () => this.abortInBackground(),
-		});
-		this.children = new ChildFeeds({
-			parent: () => this.summary(),
-			now,
-			announce: (summary) => env.catalog.emit({ type: "session_updated", summary }),
-		});
-		this.events = new EventBridge({
-			live: this.live,
+			cursor: this.cursor,
+			listRow: this.listRow,
+			usage: this.usage,
+			settings: this.settings,
+			interactions: this.interactions,
 			runs: this.runs,
 			queue: this.queue,
 			prompts: this.prompts,
-			usage: this.usage,
-			cursor: this.cursor,
 			children: this.children,
-			now,
-			record: (record) => void this.child.record(record),
-			hooks: {
-				userMessage: (text) => this.listRow.userMessage(text),
-				renamed: (name) => this.listRow.renamed(name),
-				thinkingChanged: (level) => this.settings.thinkingChanged(level),
-				settling: () => this.settle(),
-				dialog: (request) => this.dialog(request),
-				exited: (exit, stderr) => this.exited(exit, stderr),
-			},
-		});
+			events: this.events,
+		} = assembleHostParts(env, start, {
+			emitted: (event) => this.emitted(event),
+			abortInBackground: () => this.abortInBackground(),
+			summary: () => this.summary(),
+			settle: () => this.settle(),
+			dialog: (request) => this.dialog(request),
+			exited: (exit, stderr) => this.exited(exit, stderr),
+		}));
 	}
 
 	/**

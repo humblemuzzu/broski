@@ -86,18 +86,7 @@ export function createPiParts(host: BackendHost, options: PiBackendOptions): PiP
 }
 
 export function piBackendOf(parts: PiParts): AgentBackend {
-	const { catalog, catalogs, store, models, hosts, config, terminal } = parts;
-	const listCommands = async (scope: { cwd?: string; session?: SessionRef }): Promise<CommandsListResult> => {
-		if (scope.session !== undefined && scope.session.backend !== "pi") return notFound(scope.session);
-		const hosted = scope.session === undefined ? undefined : hosts.host(scope.session.sessionId);
-		if (hosted !== undefined) return listed(await hosted.commands());
-		const cwd = scope.session === undefined ? scope.cwd : await cwdOf(store, scope.session.sessionId);
-		if (typeof cwd === "object") return cwd;
-		const neighbour = cwd === undefined ? undefined : hosts.inDirectory(cwd);
-		if (neighbour !== undefined) return listed(await neighbour.commands());
-		const read = await catalogs.read(cwd);
-		return listed("failure" in read ? { ok: false, error: read.failure } : { ok: true, data: read.commands });
-	};
+	const { catalog, store, models, hosts, config, terminal } = parts;
 	return {
 		id: "pi",
 		traits: PI_TRAITS,
@@ -111,7 +100,7 @@ export function piBackendOf(parts: PiParts): AgentBackend {
 			ref.backend === "pi" ? store.transcript(ref.sessionId, page, hosts) : notFound(ref),
 		readAttachment: async (ref, id) => (ref.backend === "pi" ? store.attachment(ref.sessionId, id) : notFound(ref)),
 		listModels: (cwd, options) => models.list(cwd, options),
-		listCommands,
+		listCommands: (scope) => commandsOf(parts, scope),
 		listModes: async () => listPiModes(),
 		open: async (target, sink) => {
 			if (target.kind === "existing" && target.session.backend !== "pi") return notFound(target.session);
@@ -138,6 +127,22 @@ export function piBackendOf(parts: PiParts): AgentBackend {
 			catalog.silence();
 		},
 	};
+}
+
+/** A hosted session's own `pi` knows the commands it loaded; else a `pi` already hosting that directory, else a probe. */
+async function commandsOf(
+	{ catalogs, store, hosts }: PiParts,
+	scope: { cwd?: string; session?: SessionRef },
+): Promise<CommandsListResult> {
+	if (scope.session !== undefined && scope.session.backend !== "pi") return notFound(scope.session);
+	const hosted = scope.session === undefined ? undefined : hosts.host(scope.session.sessionId);
+	if (hosted !== undefined) return listed(await hosted.commands());
+	const cwd = scope.session === undefined ? scope.cwd : await cwdOf(store, scope.session.sessionId);
+	if (typeof cwd === "object") return cwd;
+	const neighbour = cwd === undefined ? undefined : hosts.inDirectory(cwd);
+	if (neighbour !== undefined) return listed(await neighbour.commands());
+	const read = await catalogs.read(cwd);
+	return listed("failure" in read ? { ok: false, error: read.failure } : { ok: true, data: read.commands });
 }
 
 type Answer =
