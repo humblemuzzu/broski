@@ -71,6 +71,25 @@ export const PROTOCOL_MUTANTS: Mutant[] = [
 		},
 		{ name: "frame: a literal escape is rewritten", find: "/\\\\\\\\|(", replace: "/(" },
 	]),
+	...mutantsOf("core/directories.ts", [
+		{
+			name: "directories: a refusal is called invalid_input whatever its reason",
+			find: "pathRefusal(cwd, secure.refused)",
+			replace: '({ status: "rejected" as const, rejection: { code: "invalid_input" as const, message: "no" } })',
+		},
+	]),
+	...mutantsOf("core/secure-path.ts", [
+		{
+			name: "directories: a path outside the bases is not forbidden",
+			find: 'case "outside":\n\t\t\treturn rejected("forbidden"',
+			replace: 'case "outside":\n\t\t\treturn rejected("invalid_input"',
+		},
+		{
+			name: "directories: a missing path is not not_found",
+			find: 'case "missing":\n\t\t\treturn rejected("not_found"',
+			replace: 'case "missing":\n\t\t\treturn rejected("invalid_input"',
+		},
+	]),
 	...mutantsOf("core/client.ts", [
 		{
 			name: "hello: any major agrees",

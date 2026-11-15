@@ -314,7 +314,7 @@ async function coreWithFake(
 		maxFrameBytes: 8 * 1024 * 1024,
 		log: new RecordingLog(),
 		clock,
-		directories: async (path) => path,
+		directories: async (path) => ({ path }),
 		journal,
 	});
 	let fake: Awaited<ReturnType<typeof make>> | undefined;

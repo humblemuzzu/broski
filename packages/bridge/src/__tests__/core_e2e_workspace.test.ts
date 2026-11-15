@@ -38,6 +38,25 @@ function outputText(messages: readonly ServerMessage[], id: string): string {
 }
 
 describe("the workspace over the link", () => {
+	test("a folder outside the bases or missing is refused alike as an agent's working directory and as a workspace path", async () => {
+		const rig = await startCoreBridge();
+		roots.push(rig.root);
+		try {
+			const phone = await rig.phone("phone");
+			for (const [path, code] of [
+				["/etc", "forbidden"],
+				[join(rig.cwd, "nowhere"), "not_found"],
+			] as const) {
+				const asWorkingDirectory = (await phone.ok("session.create", { backend: "pi", options: { cwd: path } })).result;
+				const asWorkspacePath = (await phone.ok("fs.read", { path })).result;
+				expect(asWorkingDirectory).toMatchObject({ status: "rejected", rejection: { code } });
+				expect(asWorkspacePath).toMatchObject(asWorkingDirectory);
+			}
+		} finally {
+			await rig.stop();
+		}
+	});
+
 	test("files, git and a terminal reach the phone through the bridge's own seam, terminal output only where attached", async () => {
 		const rig = await startCoreBridge();
 		roots.push(rig.root);

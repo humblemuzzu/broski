@@ -13,7 +13,7 @@ async function startingCore() {
 		maxFrameBytes: 8 * 1024 * 1024,
 		log: new RecordingLog(),
 		clock,
-		directories: async (path) => path,
+		directories: async (path) => ({ path }),
 	});
 	const factory = Promise.withResolvers<void>();
 	let fake: FakeBackend | undefined;

@@ -252,7 +252,7 @@ export async function startCoreRig(options: CoreRigOptions = {}): Promise<CoreRi
 		maxFrameBytes: 8 * 1024 * 1024,
 		log,
 		clock,
-		directories: async (path) => path,
+		directories: async (path) => ({ path }),
 		...options.core,
 	});
 	let fake: FakeBackend | undefined;

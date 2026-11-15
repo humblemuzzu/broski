@@ -4,7 +4,7 @@ import type { ServerWebSocket } from "bun";
 import type { ActionResult, BackendFactory, BackendId, InteractionAnswer, JsonValue, SessionRef } from "../contract";
 import { BridgeCore, type CoreConnection } from "../core/core";
 import type { CoreClock } from "../core/ports";
-import { allowedBasePaths, getSecurePath, resolveSecurePath } from "../security";
+import { allowedBasePaths, resolveSecurePath } from "../security";
 import { frameBytes } from "../transport/send-limits";
 import type { SendQueue } from "../transport/send-queue";
 import { workspaceFactory } from "../workspace/workspace-host";
@@ -81,7 +81,7 @@ export function createContractSeam(
 		log,
 		clock: options?.clock ?? SYSTEM_CLOCK,
 		observer: contractFeedObserver,
-		directories: async (path) => (await getSecurePath(path)) ?? undefined,
+		directories: resolveSecurePath,
 		workspace: workspaceFactory({ policy: resolveSecurePath, bases: allowedBasePaths() }),
 		...(journals !== undefined && {
 			journal: openPromptJournal(join(journals, "prompts.jsonl"), log),

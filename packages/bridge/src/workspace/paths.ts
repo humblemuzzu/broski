@@ -1,6 +1,6 @@
 import { stat } from "node:fs/promises";
 import type { Rejected } from "../contract";
-import type { SecurePath } from "../security";
+import { pathRefusal, type SecurePath } from "../core/secure-path";
 import { fileSystemRejection } from "./files/errors";
 import { rejected } from "./results";
 
@@ -12,15 +12,7 @@ export type AllowedPath = { readonly status: "allowed"; readonly path: string } 
 /** `path` as the policy allows it, canonical, or the refusal a phone can show. */
 export async function allowedPath(policy: PathPolicy, path: string): Promise<AllowedPath> {
 	const secure = await policy(path);
-	if ("path" in secure) return { status: "allowed", path: secure.path };
-	switch (secure.refused) {
-		case "invalid":
-			return rejected("invalid_input", `${JSON.stringify(path)} is not a path the bridge can use`);
-		case "outside":
-			return rejected("forbidden", `${path} is outside the folders this bridge serves`);
-		case "missing":
-			return rejected("not_found", `${path} does not exist`);
-	}
+	return "path" in secure ? { status: "allowed", path: secure.path } : pathRefusal(path, secure.refused);
 }
 
 /** `allowedPath`, for a path that must be a directory. */

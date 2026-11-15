@@ -3,6 +3,7 @@ import { realpathSync } from "node:fs";
 import { realpath } from "node:fs/promises";
 import { homedir } from "node:os";
 import { resolve, sep } from "node:path";
+import type { SecurePath, SecureRefusal } from "./core/secure-path";
 import { getDefaultAllowedPaths, isCompiledBinary } from "./platform";
 
 // ── Network address classification ──────────────────────────────────
@@ -56,9 +57,6 @@ export function allowedBasePaths(): readonly string[] {
 	return SECURITY_ALLOWED_BASE_PATHS;
 }
 
-/** A path the policy allows, canonical, or why it refuses it: `outside` the bases (or a link leading out of them). */
-export type SecurePath = { readonly path: string } | { readonly refused: "invalid" | "outside" | "missing" };
-
 export async function resolveSecurePath(requestedPath: string): Promise<SecurePath> {
 	if (!requestedPath || requestedPath.length > 4096) return { refused: "invalid" };
 	// NUL would cut the path short where the OS reads it; the other control characters confuse what shows it.
@@ -68,12 +66,27 @@ export async function resolveSecurePath(requestedPath: string): Promise<SecurePa
 	const abs = resolve(expandedPath);
 	if (!isSecureBasePath(abs)) return { refused: "outside" };
 
-	const rp = await realpath(abs).catch(() => null);
-	if (!rp) return { refused: "missing" };
-	return isSecureBasePath(rp) ? { path: rp } : { refused: "outside" };
+	try {
+		const rp = await realpath(abs);
+		return isSecureBasePath(rp) ? { path: rp } : { refused: "outside" };
+	} catch (error) {
+		return { refused: realpathRefusal(error) };
+	}
 }
 
-export async function getSecurePath(requestedPath: string): Promise<string | null> {
-	const secure = await resolveSecurePath(requestedPath);
-	return "path" in secure ? secure.path : null;
+function realpathRefusal(error: unknown): SecureRefusal {
+	switch (error instanceof Error && "code" in error ? error.code : undefined) {
+		case "ENOENT":
+		case "ENOTDIR":
+			return "missing";
+		case "EACCES":
+		case "EPERM":
+			return "denied";
+		case "ELOOP":
+			return "loop";
+		case "ENAMETOOLONG":
+			return "invalid";
+		default:
+			return "failed";
+	}
 }

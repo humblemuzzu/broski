@@ -36,7 +36,7 @@ beforeAll(async () => {
 		maxFrameBytes: 8 * 1024 * 1024,
 		log: new RecordingLog(),
 		clock: new ManualClock(),
-		directories: async (path) => path,
+		directories: async (path) => ({ path }),
 	});
 	const seam = { hold: (ref: SessionRef) => core.hold(ref), release: (ref: SessionRef) => core.release(ref) };
 	const added = await core.addBackend("claude-code", async (host) => {

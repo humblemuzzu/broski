@@ -4,7 +4,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MAX_FILE_READ_BYTES } from "../contract";
@@ -139,6 +139,20 @@ describe("the path policy", () => {
 		expect(rejectionCode(await read(join(root, "escape", "hosts")))).toBe("forbidden");
 		expect(rejectionCode(await read(join(root, "src", "..", "..", "..", "etc", "hosts")))).toBe("forbidden");
 		expect(rejectionCode(await read(`${root}/a.txt\u0001`))).toBe("invalid_input");
+	});
+
+	test("says why it cannot resolve a path instead of calling it missing: a link loop, a folder the system keeps shut", async () => {
+		symlinkSync(join(root, "loop-b"), join(root, "loop-a"));
+		symlinkSync(join(root, "loop-a"), join(root, "loop-b"));
+		expect(await read(join(root, "loop-a"))).toMatchObject({ rejection: { code: "invalid_input" } });
+		if (process.getuid?.() === 0) return;
+		mkdirSync(join(root, "shut", "inside"), { recursive: true });
+		chmodSync(join(root, "shut"), 0o000);
+		try {
+			expect(await read(join(root, "shut", "inside", "x"))).toMatchObject({ rejection: { code: "forbidden" } });
+		} finally {
+			chmodSync(join(root, "shut"), 0o700);
+		}
 	});
 });
 

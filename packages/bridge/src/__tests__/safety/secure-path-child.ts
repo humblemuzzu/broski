@@ -1,9 +1,10 @@
-/** Probe for `security_temp_roots.test.ts`: the allowlisted path for each argv path, as JSON. */
+/** Probe for `security_temp_roots.test.ts`: the path policy's verdict for each argv path, as JSON. */
 
-import { getSecurePath } from "../../security";
+import type { SecurePath } from "../../core/secure-path";
+import { resolveSecurePath } from "../../security";
 
-const results: Record<string, string | null> = {};
+const results: Record<string, SecurePath> = {};
 for (const path of process.argv.slice(2)) {
-	results[path] = await getSecurePath(path);
+	results[path] = await resolveSecurePath(path);
 }
 console.log(JSON.stringify(results));

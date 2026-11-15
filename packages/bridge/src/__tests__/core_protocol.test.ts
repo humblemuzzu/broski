@@ -190,7 +190,8 @@ describe("the core's protocol: backend-wide requests", () => {
 			core: {
 				directories: async (path) => {
 					asked.push(path);
-					return path.startsWith("/fake") ? `${path}/real` : undefined;
+					if (path.startsWith("/fake")) return { path: `${path}/real` };
+					return { refused: path === "/etc" ? "outside" : "missing" };
 				},
 			},
 		});
@@ -202,15 +203,18 @@ describe("the core's protocol: backend-wide requests", () => {
 		const modes = await client.ok("modes.list", { backend: "pi", cwd: "/etc" });
 		expect(modes.result).toEqual({
 			status: "rejected",
-			rejection: { code: "invalid_input", message: "/etc is not a directory this bridge serves" },
+			rejection: { code: "forbidden", message: "/etc is outside the folders this bridge serves" },
 		});
 		const created = await client.ok("session.create", { backend: "pi", options: { cwd: "/elsewhere" } });
-		expect(created.result.status).toBe("rejected");
+		expect(created.result).toEqual({
+			status: "rejected",
+			rejection: { code: "not_found", message: "/elsewhere does not exist" },
+		});
 		expect(asked).toEqual([RIG_CWD, "/etc", "/elsewhere"]);
 	});
 
 	test("the directory the policy gives back is the one the adapter sees", async () => {
-		const rig = await startCoreRig({ core: { directories: async () => "/canonical" } });
+		const rig = await startCoreRig({ core: { directories: async () => ({ path: "/canonical" }) } });
 		const client = await rig.client("a");
 		rig.fake.fake.seed({ cwd: "/canonical" });
 		rig.fake.fake.seed({ cwd: RIG_CWD });

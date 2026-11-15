@@ -1,18 +1,16 @@
 import type { Rejected } from "../contract";
 import type { DirectoryPolicy } from "./ports";
-import { rejected } from "./results";
+import { pathRefusal } from "./secure-path";
 
 export type AllowedDirectory = { status: "allowed"; cwd: string } | Rejected;
 
 /**
- * A request's working directory as the bridge's directory policy (`getSecurePath` in production)
- * allows it: canonical, or refused `invalid_input`.
+ * A request's working directory as the bridge's directory policy (`resolveSecurePath` in production)
+ * allows it: canonical, or refused as the policy refused it.
  */
 export async function allowedDirectory(policy: DirectoryPolicy, cwd: string): Promise<AllowedDirectory> {
-	const canonical = await policy(cwd);
-	return canonical === undefined
-		? rejected("invalid_input", `${cwd} is not a directory this bridge serves`)
-		: { status: "allowed", cwd: canonical };
+	const secure = await policy(cwd);
+	return "path" in secure ? { status: "allowed", cwd: secure.path } : pathRefusal(cwd, secure.refused);
 }
 
 /** The same for a directory a request may leave out. */

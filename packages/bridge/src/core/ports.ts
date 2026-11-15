@@ -20,6 +20,7 @@ import type {
 	TermOpenResult,
 	WorkspaceInfoResult,
 } from "../contract";
+import type { SecurePath } from "./secure-path";
 
 /** Where the frames for one client go. `send` never throws: a frame for a client that has gone is dropped. */
 export interface ClientLink {
@@ -37,8 +38,8 @@ export interface CoreClock {
 	after(ms: number, run: () => void): () => void;
 }
 
-/** The canonical form of a directory a request names, or undefined when the bridge refuses to serve it. */
-export type DirectoryPolicy = (path: string) => Promise<string | undefined>;
+/** The canonical form of a directory a request names, or why the bridge refuses to serve it. */
+export type DirectoryPolicy = (path: string) => Promise<SecurePath>;
 
 /** One accepted prompt, as the prompt journal keeps it across bridge restarts. */
 export interface JournalEntry {
