@@ -4,7 +4,7 @@ import XCTest
 /// history" 40 times as a terminal would, each run the fake's `work` (its notice, compaction and 24
 /// paragraphs stay in the transcript), past 1,000 items in all. XCTest measures flinging through it
 /// (the scroll signpost, and hitches where the runtime records them: a simulator records none), older
-/// pages loading as the top comes into view, and the app's CPU while a `work` run streams into it.
+/// pages loading ahead of the top, and the app's CPU while a `work` run streams into it.
 final class SessionScrollPerformanceTests: XCTestCase {
     private let timeout: TimeInterval = 30
     private let title = "Read the whole history"
@@ -20,14 +20,11 @@ final class SessionScrollPerformanceTests: XCTestCase {
         }
         try screenshot("chat-long-scrolled")
 
-        // Each page lands, moving the loading row off screen, before the next fling: a drag down at
-        // the top of a chat opened with the zoom transition dismisses it, as the system's zoom does.
+        // Flings back to back: older pages load while the top is still screens away, so a fling never
+        // reaches the top of a chat opened with the zoom transition (a drag down there dismisses it)
+        // before the next page is in.
         let first = app.staticTexts["Hi."]
-        let loading = app.activityIndicators.firstMatch
-        let offScreen = NSPredicate(format: "exists == false OR hittable == false")
         for _ in 0..<80 where !first.exists {
-            let landed = XCTNSPredicateExpectation(predicate: offScreen, object: loading)
-            XCTAssertEqual(XCTWaiter.wait(for: [landed], timeout: timeout), .completed, "the older page lands")
             transcript.swipeDown(velocity: .fast)
         }
         XCTAssertTrue(first.exists, "every older page loads as the top comes into view, back to the first answer")

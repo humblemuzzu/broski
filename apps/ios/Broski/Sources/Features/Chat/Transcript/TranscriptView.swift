@@ -4,7 +4,7 @@ import SwiftUI
 /// The transcript, full bleed under the header and the composer: finished runs, then the live run,
 /// then the status lane. It follows its end by anchoring growth to the bottom while following and to
 /// the top while the person reads above (never a scroll per update); a short conversation sits at
-/// the bottom; older pages load as the top comes into view and keep the reader's place.
+/// the bottom; older pages load before the top comes into view and keep the reader's place.
 struct TranscriptView: View {
     let chat: ChatModel
     let dimmed: Bool
@@ -12,11 +12,12 @@ struct TranscriptView: View {
     @Binding var position: ScrollPosition
     @State private var personScrolling = false
     @State private var olderAnchor: String?
+    @State private var screensFromTop = CGFloat.infinity
 
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
-                OlderPages(chat: chat) { olderAnchor = chat.historyRows.first?.id }
+                OlderPages(chat: chat)
                 ForEach(chat.historyRows) { row in
                     ChatRowView(row: row, isFresh: false).equatable()
                 }
@@ -44,8 +45,16 @@ struct TranscriptView: View {
             chat.follow.scrolled(distanceFromEnd: distance, byPerson: personScrolling)
         }
         .onScrollGeometryChange(for: CGFloat.self, of: Self.visibleHeight) { _, _ in
-            if chat.follow.isFollowing { position.scrollTo(edge: .bottom) }
+            // The end row, not `scrollTo(edge: .bottom)`: that one resets the horizontal offset to 0, and the
+            // whole transcript lands the width of its side margin to the left.
+            if chat.follow.isFollowing { position.scrollTo(id: Self.endId, anchor: .bottom) }
         }
+        .onScrollGeometryChange(for: CGFloat.self, of: Self.screensFromTop) { _, screens in
+            screensFromTop = screens
+            prefetchOlder()
+        }
+        .onChange(of: chat.history.olderCursor) { prefetchOlder() }
+        .onChange(of: chat.isRevealed) { prefetchOlder() }
         .onChange(of: chat.historyRows.first?.id) {
             guard let olderAnchor else { return }
             self.olderAnchor = nil
@@ -57,6 +66,21 @@ struct TranscriptView: View {
     }
 
     static let endId = "transcript-end"
+
+    /// Older pages load while the top is still this many screens away, so a drag at the top of a chat
+    /// opened with the zoom transition (which dismisses it) never meets a page still on its way.
+    private static let prefetchScreens: CGFloat = 2
+
+    private func prefetchOlder() {
+        guard chat.isRevealed, chat.history.hasOlder, chat.historyProblem == nil, screensFromTop < Self.prefetchScreens else { return }
+        olderAnchor = chat.historyRows.first?.id
+        Task { await chat.loadOlder() }
+    }
+
+    /// How far the visible top is below the content's top, in screens.
+    nonisolated static func screensFromTop(_ geometry: ScrollGeometry) -> CGFloat {
+        (geometry.contentOffset.y + geometry.contentInsets.top) / max(geometry.containerSize.height, 1)
+    }
 
     /// The height content shows in, which the keyboard and the composer's growth change: the
     /// anchor keeps the end in place as content grows, and this keeps it as the window shrinks.
@@ -71,10 +95,10 @@ struct TranscriptView: View {
     }
 }
 
-/// The top of what is loaded: older pages load as it comes into view, or what stopped them says so.
+/// The top of what is loaded: a spinner while older pages load (they load well before the top is in
+/// view, so it is feedback only), or what stopped them.
 private struct OlderPages: View {
     let chat: ChatModel
-    let willLoad: () -> Void
 
     var body: some View {
         if let problem = chat.historyProblem {
@@ -86,13 +110,6 @@ private struct OlderPages: View {
             ProgressView()
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, Spacing.l)
-                // Keyed by the cursor too: a row still on screen when a page lands (or that came back
-                // while a page was out) loads the next one.
-                .task(id: chat.isRevealed ? chat.history.olderCursor : nil) {
-                    guard chat.isRevealed else { return }
-                    willLoad()
-                    await chat.loadOlder()
-                }
         }
     }
 }
