@@ -138,6 +138,18 @@ describe("a terminal", () => {
 		accepted((await phone.ok("term.close", { id: terminal.id })).result);
 	});
 
+	test("whose shell exits while a background job still holds the terminal reports the exit at once, not when the job ends", async () => {
+		const phone = await rig.client("job");
+		const terminal = await openTerminal(phone);
+		await attach(phone, terminal.id);
+		await type(phone, terminal.id, "sleep 30 &\n");
+		await type(phone, terminal.id, "exit 5\n");
+		const started = Date.now();
+		expect(await exitOf(phone, terminal.id)).toEqual({ type: "term_exited", id: terminal.id, exitCode: 5 });
+		expect(Date.now() - started).toBeLessThan(1500);
+		accepted((await phone.ok("term.close", { id: terminal.id })).result);
+	});
+
 	test("that ends on its own reports its exit code, and keeps its output readable until it is closed", async () => {
 		const phone = await rig.client("exit");
 		const later = await rig.client("later");

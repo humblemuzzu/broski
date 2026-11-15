@@ -11,6 +11,14 @@ const SIGTERM = 15;
 const SIGKILL = 9;
 /** How long a child whose terminal closed may take to be reaped, so its exit status is not lost. */
 const REAP_AFTER_EOF_MS = 300;
+/**
+ * How often a connected terminal's child is looked for having ended. A kernel need not end the terminal with the
+ * session leader: Linux keeps a pty open for a background job that still holds it, so no EOF follows the exit.
+ */
+const CHILD_POLL_MS = 100;
+/** The output of a child that has just ended is waited for until it has been quiet this long, but never past the cap. */
+const OUTPUT_QUIET_MS = 100;
+const OUTPUT_QUIET_CAP_MS = 1000;
 
 /** How a terminal's process ended: its exit status, or the signal that ended it, such as `SIGKILL`. */
 export type PtyExit = { readonly code?: number; readonly signal?: string };
@@ -121,13 +129,18 @@ function closeMasterFd(session: NativePtySession, lib: NativeLib): void {
 	session.closed = true;
 }
 
+/** The child's end as `pty_waitpid` reported it; an unreported one (`-2`) leaves how it ended unknown. */
+function recordExit(session: NativePtySession, result: number): void {
+	session.status = "exited";
+	if (result >= 0) session.exit = decodeWait(result);
+}
+
 /** Reaps the child if it has exited, waiting up to `waitMs` for it to. */
 async function refreshExitState(session: NativePtySession, lib: NativeLib, waitMs = 0): Promise<void> {
 	if (session.status === "exited") return;
 	const result = await waitForProcessExit(lib, session.pid, waitMs);
 	if (result === null) return;
-	session.status = "exited";
-	if (result >= 0) session.exit = decodeWait(result);
+	recordExit(session, result);
 	await stopReader(session.id);
 	closeMasterFd(session, lib);
 }
@@ -226,7 +239,7 @@ async function endProcess(session: NativePtySession, lib: NativeLib): Promise<vo
 		}
 		const result = await waitForProcessExit(lib, session.pid, 300);
 		if (result !== null) {
-			if (result >= 0) session.exit = decodeWait(result);
+			recordExit(session, result);
 			break;
 		}
 	}
@@ -266,9 +279,18 @@ export function nativeResizePty(id: string, size: PtySize): boolean {
 	return true;
 }
 
+/** Resolves once nothing has arrived for `OUTPUT_QUIET_MS` (or `OUTPUT_QUIET_CAP_MS` have passed), counting from now. */
+async function untilQuiet(lastOutputAt: () => number): Promise<void> {
+	const began = Date.now();
+	while (Date.now() - began < OUTPUT_QUIET_CAP_MS && Date.now() - Math.max(began, lastOutputAt()) < OUTPUT_QUIET_MS) {
+		await Bun.sleep(10);
+	}
+}
+
 /**
- * Reads the session's output and writes its input. Its end is reported once, with how the child ended: the
- * child may close its terminal a moment before it can be reaped, so the status is waited for briefly.
+ * Reads the session's output and writes its input. Its end is reported once, with how the child ended: when the
+ * terminal closes, which may come a moment before the child can be reaped so the status is waited for briefly, or
+ * when the child ends and the terminal stays open. The terminal is read until it is deleted either way.
  */
 export function nativeConnectPty(id: string): NativePtyConnection | null {
 	const session = sessions.get(id);
@@ -278,19 +300,45 @@ export function nativeConnectPty(id: string): NativePtyConnection | null {
 	let onData: ((data: Uint8Array) => void) | null = null;
 	let onExit: ((exit: PtyExit) => void) | null = null;
 	let connected = true;
+	let lastOutputAt = Date.now();
+	let exitReported = false;
+
+	const reportExit = (): void => {
+		if (exitReported) return;
+		exitReported = true;
+		clearInterval(watch);
+		onExit?.(session.exit ?? {});
+	};
+
+	const watchChild = async (): Promise<void> => {
+		if (session.status === "exited" || session.closed) {
+			clearInterval(watch);
+			return;
+		}
+		const result = lib.symbols.pty_waitpid(session.pid);
+		if (result === -1) return;
+		clearInterval(watch);
+		recordExit(session, result);
+		await untilQuiet(() => lastOutputAt);
+		reportExit();
+	};
+	const watch = setInterval(() => void watchChild(), CHILD_POLL_MS);
+	watch.unref();
 
 	const isActive = () => connected && session.status === "running" && !session.closed;
 
 	const reader = createPtyReader({
 		fd: session.masterFd,
 		onData: (bytes) => {
+			lastOutputAt = Date.now();
 			onData?.(bytes);
 		},
 		onEnd: () => {
 			sessionReaders.delete(id);
 			void (async () => {
 				await refreshExitState(session, lib, REAP_AFTER_EOF_MS);
-				onExit?.(session.exit ?? {});
+				if (session.status === "exited") closeMasterFd(session, lib);
+				reportExit();
 			})();
 		},
 	});
@@ -310,6 +358,7 @@ export function nativeConnectPty(id: string): NativePtyConnection | null {
 		},
 		disconnect: () => {
 			connected = false;
+			clearInterval(watch);
 			void reader.stop();
 		},
 	};

@@ -47,10 +47,11 @@ interface Terminal {
 }
 
 /**
- * The machine's terminals. Each is read from the moment it opens until its process ends, whether or not a
- * client is attached, into a ring of its newest output: a client that comes back is sent what it missed, and
- * the shell never blocks on a full PTY while the phone is away. An exited terminal is kept, with its output
- * and how it ended, until it is closed or a new terminal needs its place.
+ * The machine's terminals. Each is read from the moment it opens until it is closed, whether or not a client
+ * is attached, into a ring of its newest output: a client that comes back is sent what it missed, and the shell
+ * never blocks on a full PTY while the phone is away. An exited terminal is kept, with its output and how it
+ * ended, until it is closed or a new terminal needs its place; a background job that still holds it may write
+ * on.
  */
 export class Terminals {
 	private readonly terminals = new Map<string, Terminal>();
@@ -72,9 +73,10 @@ export class Terminals {
 	/** `cwd` has passed the path policy. */
 	async open(cwd: string, geometry: TerminalGeometry): Promise<TermOpenResult> {
 		if (!this.available) return rejected("unsupported", UNAVAILABLE);
-		if (!this.makeRoom()) return rejected("busy", `${MAX_TERMINALS} terminals are running; close one first`);
-		this.opening += 1;
+		const place = this.takePlace();
+		if (!place) return rejected("busy", `${MAX_TERMINALS} terminals are running; close one first`);
 		try {
+			await place;
 			return await this.start(cwd, geometry);
 		} finally {
 			this.opening -= 1;
@@ -137,14 +139,15 @@ export class Terminals {
 		return ACCEPTED;
 	}
 
-	/** Ends the terminal's process if it still runs (its clients are told `term_exited`), then forgets it. */
+	/**
+	 * Ends the terminal's process if it still runs (its clients are told `term_exited`), stops reading the
+	 * terminal, then forgets it.
+	 */
 	async close(id: string): Promise<ActionResult> {
 		const terminal = this.terminals.get(id);
 		if (!terminal) return notFound(id);
-		if (terminal.exit === undefined) {
-			await nativeDeletePty(id);
-			await terminal.exited;
-		}
+		await nativeDeletePty(id);
+		await terminal.exited;
 		this.terminals.delete(id);
 		return ACCEPTED;
 	}
@@ -159,15 +162,22 @@ export class Terminals {
 		return terminal.exit === undefined ? terminal : rejected("closed", `terminal ${JSON.stringify(id)} has exited`);
 	}
 
-	/** Frees the place of the oldest exited terminal when every place is taken; false when all of them run. */
-	private makeRoom(): boolean {
-		if (this.terminals.size + this.opening < MAX_TERMINALS) return true;
+	/**
+	 * Holds a place for an open under way. When every place is taken, the oldest exited terminal gives up its own,
+	 * and the promise resolves once its process and descriptor are gone. Undefined when all of them run.
+	 */
+	private takePlace(): Promise<unknown> | undefined {
+		if (this.terminals.size + this.opening < MAX_TERMINALS) {
+			this.opening += 1;
+			return Promise.resolve();
+		}
 		const oldest = [...this.terminals.values()]
 			.filter((terminal) => terminal.exit !== undefined)
 			.sort((a, b) => a.createdAt - b.createdAt)[0];
-		if (!oldest) return false;
+		if (!oldest) return undefined;
 		this.terminals.delete(oldest.id);
-		return true;
+		this.opening += 1;
+		return nativeDeletePty(oldest.id);
 	}
 
 	private gather(terminal: Terminal, bytes: Uint8Array): void {
@@ -200,7 +210,7 @@ export class Terminals {
 			...(exit.code !== undefined && { exitCode: exit.code }),
 			...(exit.signal !== undefined && { signal: exit.signal }),
 		});
-		void nativeDeletePty(terminal.id).finally(terminal.markExited);
+		terminal.markExited();
 	}
 }
 
