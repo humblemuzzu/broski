@@ -86,8 +86,12 @@ link status: not connected, app in front
 ```
 
 Browsing is the platform's, not a socket: `NWBrowser` on Apple platforms and `NsdManager` on
-Android. iOS needs `_broski-link._tcp` in `NSBonjourServices`; Android needs the multicast permission
-(`CHANGE_WIFI_MULTICAST_STATE`). The browse lives with the platform code, which tells the link session about the result.
+Android. iOS needs `_broski-link._tcp` in `NSBonjourServices`. Android needs no manifest permission for it
+below targetSdk 37 (the `NsdManager` reference, read 2026-11-15, lists none for `discoverServices`,
+`resolveService` or `registerServiceInfoCallback`; `ACCESS_LOCAL_NETWORK` applies from targetSdk 37). On a
+device without T extensions 7 the same reference says the app must hold a `WifiManager.MulticastLock`
+for mDNS, which would need `CHANGE_WIFI_MULTICAST_STATE`; the app holds none, so there the relay may be
+the only route. The browse lives with the platform code, which tells the link session about the result.
 
 A browse is **not** a one-shot. A machine that is restarted comes back on another LAN port, and the
 phone redialling the address in its record never learns that. So the browse runs for as long as the
