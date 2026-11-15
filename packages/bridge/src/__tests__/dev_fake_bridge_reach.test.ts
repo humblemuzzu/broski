@@ -89,7 +89,9 @@ describe("the dev fake bridge's commands", () => {
 			command: { id: 1, cmd: "seed", cwd: "/w" },
 		});
 		expect(readCommand(JSON.stringify({ id: 2, cmd: "script", session, scenario: "ask" }))).toHaveProperty("command");
+		expect(readCommand(JSON.stringify({ id: 4, cmd: "restart" }))).toEqual({ command: { id: 4, cmd: "restart" } });
 		for (const bad of [
+			{ id: 3, cmd: "restart", session },
 			{ id: 3, cmd: "script", session, scenario: "nope" },
 			{ id: 3, cmd: "seed" },
 			{ id: 3, cmd: "release", session: { backend: "pi" } },
