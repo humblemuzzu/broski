@@ -71,6 +71,21 @@ class Vault(private val store: DataStore<Preferences>, private val cipher: Secre
 
     suspend fun saveInboxCache(cache: ByteArray) = write(CACHE, cache)
 
+    /** What the person had typed in a session's composer, under the session's [name]; `null` when nothing. */
+    suspend fun draft(name: String): String? = read(draftKey(name))?.decodeToString()
+
+    /** Stores [text] as the draft, or forgets it when blank. */
+    suspend fun saveDraft(name: String, text: String) {
+        if (text.isBlank()) store.edit { it.remove(draftKey(name)) } else write(draftKey(name), text.encodeToByteArray())
+    }
+
+    /** Every draft of a machine's sessions, once the machine is forgotten. */
+    suspend fun deleteDrafts(machineId: String) {
+        store.edit { preferences ->
+            preferences.asMap().keys.filter { it.name.startsWith("$DRAFT_PREFIX$machineId/") }.forEach { preferences.remove(it) }
+        }
+    }
+
     private suspend fun read(key: Preferences.Key<ByteArray>): ByteArray? {
         val sealed = store.data.first()[key] ?: return null
         return try {
@@ -87,10 +102,13 @@ class Vault(private val store: DataStore<Preferences>, private val cipher: Secre
 
     private companion object {
         const val RECORD_PREFIX = "machine:"
+        const val DRAFT_PREFIX = "draft:"
         val IDENTITY = byteArrayPreferencesKey("identity")
         val SEEN = byteArrayPreferencesKey("seen")
         val CACHE = byteArrayPreferencesKey("cache")
 
         fun recordKey(machineId: String) = byteArrayPreferencesKey(RECORD_PREFIX + machineId)
+
+        fun draftKey(name: String) = byteArrayPreferencesKey(DRAFT_PREFIX + name)
     }
 }

@@ -1,0 +1,68 @@
+package com.muzammil.broski.feature.chat.transcript
+
+import androidx.compose.runtime.Immutable
+import com.muzammil.broski.feature.chat.work.WorkFold
+import uniffi.broski_contract.ImageRef
+import uniffi.broski_contract.NoticeLevel
+import uniffi.broski_contract.RunLimit
+import uniffi.broski_core.MarkdownBlock
+
+/**
+ * One item of the transcript's list. Keys are unique and stable: a block of the agent's text keeps
+ * its key while the text streams, and the person's message keeps its key from the moment it is
+ * sent to the moment the agent's `user_message` stands for it.
+ */
+@Immutable
+sealed interface ChatRow {
+    val key: String
+
+    /** When it happened by the machine's clock, if known; only a row this new animates in. */
+    val at: Long?
+
+    @Immutable
+    data class User(
+        override val key: String,
+        override val at: Long?,
+        val text: String,
+        val images: List<ImageRef>,
+        /** Sent, and not yet the agent's: dimmed until its `user_message` arrives. */
+        val pending: Boolean,
+    ) : ChatRow
+
+    /** One markdown block of the agent's words; [first] blocks of a message get the message's top space. */
+    @Immutable
+    data class Text(
+        override val key: String,
+        override val at: Long?,
+        val block: MarkdownBlock,
+        val first: Boolean,
+        val plan: Boolean,
+    ) : ChatRow
+
+    /** The quiet copy button under a finished answer. */
+    @Immutable
+    data class CopyAnswer(override val key: String, override val at: Long?, val text: String) : ChatRow
+
+    @Immutable
+    data class Work(override val key: String, override val at: Long?, val fold: WorkFold) : ChatRow
+
+    @Immutable
+    data class Note(override val key: String, override val at: Long?, val note: TranscriptNote) : ChatRow
+
+    /** More of the conversation is being read, above everything shown. */
+    @Immutable
+    data class Older(override val key: String = "older", override val at: Long? = null) : ChatRow
+}
+
+/** What the transcript says between turns, in a line. */
+@Immutable
+sealed interface TranscriptNote {
+    data class Notice(val level: NoticeLevel, val text: String) : TranscriptNote
+
+    data class Compacted(val tokensBefore: Long?, val tokensAfter: Long?) : TranscriptNote
+
+    data class ModelChanged(val modelId: String?, val thinking: String?) : TranscriptNote
+
+    /** A run that did not complete: stopped, failed with the agent's words, or cut at a limit. */
+    data class Stopped(val failure: String?, val limit: RunLimit?) : TranscriptNote
+}

@@ -8,7 +8,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -45,6 +49,7 @@ class PhoneSession internal constructor(
     private val rows = MutableStateFlow(inbox.rows())
     private val machineStates = MutableStateFlow<List<MachineState>>(emptyList())
     private val unreadable = MutableStateFlow(unreadableRecords)
+    private val catalog = MutableSharedFlow<CatalogChange>(extraBufferCapacity = 16, onBufferOverflow = BufferOverflow.DROP_OLDEST)
 
     /** Needs you, working, done, idle; newest first within each, as the core orders them. */
     val inboxRows: StateFlow<List<InboxRow>> = rows.asStateFlow()
@@ -54,6 +59,9 @@ class PhoneSession internal constructor(
 
     /** Stored pairings that no longer open; the person can only forget them. */
     val unreadableMachines: StateFlow<Set<String>> = unreadable.asStateFlow()
+
+    /** A machine's catalog changed (models, commands, modes, or its backends): what a screen read of it is out of date. */
+    val catalogChanges: SharedFlow<CatalogChange> = catalog.asSharedFlow()
 
     init {
         started.forEach(::watch)
@@ -86,6 +94,26 @@ class PhoneSession internal constructor(
         machineStates.update { list -> list.filterNot { it.id == id } }
         unreadable.update { it - id }
         vault.deleteRecord(id)
+        vault.deleteDrafts(id)
+    }
+
+    /** What the person had typed in a session's composer and not sent, if anything. */
+    suspend fun draft(machineId: String, session: SessionRef): String? = try {
+        vault.draft(draftName(machineId, session))
+    } catch (error: IOException) {
+        Log.e(TAG, "a draft could not be read", error)
+        null
+    }
+
+    /** Keeps [text] as the session's draft, past the chat and the process; blank forgets it. */
+    fun saveDraft(machineId: String, session: SessionRef, text: String) {
+        scope.launch {
+            try {
+                vault.saveDraft(draftName(machineId, session), text)
+            } catch (error: IOException) {
+                Log.e(TAG, "a draft could not be stored", error)
+            }
+        }
     }
 
     /** @throws ClientException.NotSent when the link would not take the request. */
@@ -148,9 +176,12 @@ class PhoneSession internal constructor(
             when (val event = machine.nextEvent() ?: break) {
                 is MachineEvent.StatusChanged -> updateMachine(id) { it.with(event.status) }
                 MachineEvent.RecordChanged -> persistRecord(machine)
-                is MachineEvent.BackendsChanged -> launch { readAgents(machine, event.backends) }
+                is MachineEvent.BackendsChanged -> {
+                    catalog.tryEmit(CatalogChange(id, null))
+                    launch { readAgents(machine, event.backends) }
+                }
                 is MachineEvent.BackendStatusChanged -> setAgent(id, event.backend, event.status)
-                is MachineEvent.CatalogInvalidated -> Unit
+                is MachineEvent.CatalogInvalidated -> catalog.tryEmit(CatalogChange(id, event.backend))
             }
         }
         updateMachine(id) { it.with(machine.status()) }
@@ -205,5 +236,10 @@ class PhoneSession internal constructor(
 
     private companion object {
         const val TAG = "PhoneSession"
+
+        fun draftName(machineId: String, session: SessionRef) = "$machineId/${session.backend}/${session.sessionId}"
     }
 }
+
+/** [backend]'s catalog on a machine changed; `null` when the machine's list of backends did. */
+data class CatalogChange(val machineId: String, val backend: BackendId?)

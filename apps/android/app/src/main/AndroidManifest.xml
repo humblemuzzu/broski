@@ -56,5 +56,16 @@
             android:name=".feature.notifications.LiveUpdateService"
             android:exported="false"
             android:foregroundServiceType="connectedDevice" />
+
+        <!-- Hands the camera app a file in the cache to write the chat's photo into. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 </manifest>

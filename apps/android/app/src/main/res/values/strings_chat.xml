@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Chat -->
+    <string name="chat_not_paired_title">This Mac isn\'t paired any more</string>
+    <string name="chat_not_paired_body">Pair it again to open its sessions.</string>
+    <string name="chat_more">More</string>
+    <string name="chat_open_files">Open folder in Files</string>
+    <string name="chat_fork">Fork</string>
+    <string name="chat_rename">Rename</string>
+    <string name="chat_rename_title">Rename session</string>
+    <string name="chat_rename_confirm">Rename</string>
+    <string name="chat_compact">Compact context</string>
+    <string name="chat_copy_conversation">Copy conversation</string>
+    <string name="chat_delete">Delete</string>
+    <string name="chat_delete_title">Delete “%1$s”?</string>
+    <string name="chat_delete_body">The session and its history are deleted on your Mac.</string>
+    <string name="chat_delete_confirm">Delete</string>
+    <string name="chat_sending">Sending…</string>
+    <string name="chat_copy_message">Copy message</string>
+    <string name="chat_copy_answer">Copy answer</string>
+    <string name="chat_agent_working">Agent is working</string>
+    <string name="chat_output_soon">New output will appear here</string>
+    <string name="chat_lane_working">Working</string>
+    <string name="chat_lane_thinking">Thinking</string>
+    <string name="chat_lane_waiting_approval">Waiting for your approval</string>
+    <string name="chat_lane_waiting_answer">Waiting for your answer</string>
+    <string name="chat_lane_compacting">Compacting context…</string>
+    <string name="chat_lane_retrying">Retrying…</string>
+    <string name="chat_lane_retrying_in">Retrying in %1$d s</string>
+    <string name="chat_note_compacted">Context compacted</string>
+    <string name="chat_note_model">Switched to %1$s</string>
+    <string name="chat_note_thinking">Thinking set to %1$s</string>
+    <string name="chat_note_stopped">Stopped</string>
+    <string name="chat_note_failed">Failed: %1$s</string>
+    <string name="chat_note_limit_turns">Stopped at the turn limit</string>
+    <string name="chat_note_limit_budget">Stopped at the budget limit</string>
+    <string name="chat_note_limit_output">Stopped at the output limit</string>
+    <string name="chat_jump_to_latest">Jump to latest</string>
+    <plurals name="chat_new_messages">
+        <item quantity="one">%1$d new message</item>
+        <item quantity="other">%1$d new messages</item>
+    </plurals>
+    <string name="chat_queued">Queued</string>
+    <string name="chat_queued_steer">Waiting to steer</string>
+    <string name="chat_cancel_queued">Cancel queued message</string>
+    <string name="chat_dismiss_notice">Dismiss</string>
+    <string name="chat_watch_only">This session runs in your Mac\'s terminal. You can watch it and answer its questions here.</string>
+    <string name="chat_refused">Your Mac refused that: %1$s</string>
+    <string name="chat_failed_offline">Couldn\'t reach your Mac. Try again once it\'s connected.</string>
+    <string name="chat_failed_timeout">Your Mac didn\'t answer in time. Try again.</string>
+    <string name="chat_failed_busy">Too much is waiting to go to your Mac. Try again in a moment.</string>
+    <string name="chat_diff_none">This change has no diff to show.</string>
+
+    <!-- Work -->
+    <string name="chat_work_working">Working</string>
+    <string name="chat_work_worked">Worked</string>
+    <string name="chat_work_worked_for">Worked for %1$s</string>
+    <string name="chat_work_continued">Continued</string>
+    <string name="chat_work_continued_for">Continued for %1$s</string>
+    <string name="chat_work_thinking">Thinking</string>
+    <string name="chat_work_thought">Thought</string>
+    <string name="chat_work_thought_for">Thought for %1$s</string>
+    <string name="chat_work_expanded">Expanded</string>
+    <string name="chat_work_collapsed">Collapsed</string>
+    <string name="chat_work_no_output">No output.</string>
+    <string name="chat_work_exit">Exit %1$d</string>
+    <string name="chat_work_outcome_failed">Failed</string>
+    <string name="chat_work_outcome_denied">Denied</string>
+    <string name="chat_work_outcome_stopped">Stopped</string>
+    <string name="chat_work_open_subagent">Open subagent</string>
+    <plurals name="chat_work_edited">
+        <item quantity="one">Edited %1$d file</item>
+        <item quantity="other">Edited %1$d files</item>
+    </plurals>
+    <plurals name="chat_work_ran">
+        <item quantity="one">Ran %1$d command</item>
+        <item quantity="other">Ran %1$d commands</item>
+    </plurals>
+    <plurals name="chat_work_read">
+        <item quantity="one">Read %1$d file</item>
+        <item quantity="other">Read %1$d files</item>
+    </plurals>
+    <plurals name="chat_work_searched">
+        <item quantity="one">Searched %1$d time</item>
+        <item quantity="other">Searched %1$d times</item>
+    </plurals>
+    <plurals name="chat_work_fetched">
+        <item quantity="one">Fetched %1$d page</item>
+        <item quantity="other">Fetched %1$d pages</item>
+    </plurals>
+    <plurals name="chat_work_delegated">
+        <item quantity="one">Ran %1$d subagent</item>
+        <item quantity="other">Ran %1$d subagents</item>
+    </plurals>
+    <plurals name="chat_work_used">
+        <item quantity="one">Used %1$d tool</item>
+        <item quantity="other">Used %1$d tools</item>
+    </plurals>
+    <plurals name="chat_work_failed">
+        <item quantity="one">%1$d failed</item>
+        <item quantity="other">%1$d failed</item>
+    </plurals>
+    <string name="duration_seconds">%1$ds</string>
+    <string name="duration_minutes">%1$dm</string>
+    <string name="duration_hours_minutes">%1$dh %2$dm</string>
+
+    <!-- Interactions -->
+    <string name="card_needs_approval">Needs your approval</string>
+    <string name="card_needs_answer">Needs your answer</string>
+    <string name="card_needs_plan">Plan to approve</string>
+    <plurals name="card_more_waiting">
+        <item quantity="one">%1$d more waiting</item>
+        <item quantity="other">%1$d more waiting</item>
+    </plurals>
+    <plurals name="card_questions">
+        <item quantity="one">%1$d question</item>
+        <item quantity="other">%1$d questions</item>
+    </plurals>
+    <string name="card_collapse">Fold away</string>
+    <string name="card_expand">Show</string>
+    <string name="card_answer_on_mac">Answer this in the terminal on your Mac.</string>
+    <string name="card_answered_elsewhere">Already answered elsewhere.</string>
+    <string name="card_wants_to_run">%1$s wants to run</string>
+    <string name="card_wants_to_change">%1$s wants to change</string>
+    <string name="card_wants_to_reach">%1$s wants to reach</string>
+    <string name="card_wants_to_use">%1$s wants to use</string>
+    <string name="card_wants_to_use_tool">%1$s wants to use %2$s</string>
+    <string name="card_tell_instead">Tell %1$s what to do instead</string>
+    <string name="card_confirm_title">%1$s?</string>
+    <string name="card_confirm_body">This one needs your confirmation before it goes.</string>
+    <string name="card_submit">Send</string>
+    <string name="card_dismiss">Dismiss</string>
+    <string name="card_pick_one">Pick one</string>
+    <string name="card_pick_any">Pick any</string>
+    <string name="card_own_answer">Type your own answer…</string>
+    <string name="card_secret_answer">Your answer (hidden)</string>
+    <string name="card_question_number">Question %1$d</string>
+    <string name="card_plan_feedback">What to change, if you reject it</string>
+    <string name="card_plan_approve">Approve</string>
+    <string name="card_plan_reject">Reject</string>
+    <string name="card_yes">Yes</string>
+    <string name="card_no">No</string>
+    <string name="card_date_set">Set</string>
+
+    <!-- Composer -->
+    <string name="composer_placeholder">Message %1$s · / for commands</string>
+    <string name="composer_placeholder_queue">Message to queue…</string>
+    <string name="composer_send">Send</string>
+    <string name="composer_queue">Queue</string>
+    <string name="composer_steer">Steer</string>
+    <string name="composer_stop">Stop</string>
+    <string name="composer_queue_explained">Run after the current turn</string>
+    <string name="composer_steer_explained">Interrupt what the agent is doing</string>
+    <string name="composer_attach">Add images</string>
+    <string name="composer_attach_photos">Photos</string>
+    <string name="composer_attach_camera">Camera</string>
+    <string name="composer_attach_paste">Paste image</string>
+    <string name="composer_no_image_to_paste">There\'s no image on the clipboard.</string>
+    <string name="composer_image_too_large">That image doesn\'t fit in one message, even made smaller.</string>
+    <string name="composer_remove_image">Remove image</string>
+    <string name="composer_remove_command">Remove command</string>
+    <string name="composer_model">Model</string>
+    <string name="composer_thinking">Thinking</string>
+    <string name="composer_search_models">Search models</string>
+
+    <!-- New session -->
+    <string name="new_session_question_start">What should we build</string>
+    <string name="new_session_question_in">in</string>
+    <string name="new_session_a_folder">a folder</string>
+    <string name="new_session_pick_folder">Choose a folder</string>
+    <string name="new_session_recent_folders">Recent</string>
+    <string name="new_session_use_folder">Use %1$s</string>
+    <string name="new_session_on_machine">on %1$s</string>
+    <string name="new_session_placeholder">Describe the task</string>
+    <string name="new_session_refused">Your Mac couldn\'t start it: %1$s</string>
+    <string name="new_session_agent_checking">Checking %1$s…</string>
+    <string name="new_session_agent_issue">%1$s can\'t run: %2$s</string>
+    <string name="new_session_agent_missing">%1$s isn\'t installed on %2$s. Install it there to use it.</string>
+    <string name="new_session_agent_signed_out">%1$s is signed out on %2$s. Sign in there to use it.</string>
+    <string name="new_session_agent_cannot_run">%1$s can\'t run right now.</string>
+</resources>
