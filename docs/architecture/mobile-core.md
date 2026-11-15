@@ -261,7 +261,8 @@ The integration tests run the real daemon and relay in-process and the real brid
 `packages/bridge/scripts/dev-fake-bridge.ts`, its core serving the contract's fake backend) on the
 daemon's unix socket, as a child with a temp `HOME` that is also the only directory it serves, all from
 `broski-link-testkit` (`Mac`, `FakeBridge`), which the session and facade crates' tests share; the bridge's dependencies must be installed (`bun install` in
-`packages/bridge`). Every wait pulls updates or events; the one poll is of a file the terminal writes.
+`packages/bridge`). Every wait pulls updates or events; the polls are of a file the terminal writes and, in one inbox test,
+of the seen state, which is state and not an update.
 
 - `chat.rs` — a run streams into a view as records and the UI's copy equals the snapshot; the finished run
   is in the transcript; a permission ask is answered once (a second answer is `stale`) and the run

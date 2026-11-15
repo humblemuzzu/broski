@@ -4,6 +4,7 @@
 mod common;
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use broski_client::{new_identity_secret, InboxRow, InboxState, Machine, Phone};
 use broski_contract::{BackendId, PromptMode, SessionQuery, SessionRef};
@@ -142,8 +143,16 @@ async fn a_session_that_appears_before_the_ui_reads_the_inbox_is_still_done() {
     let history = mac.bridge.seed(&mac.root(), "Last week").await;
     let phone = phone();
     let machine = paired(&phone, &mac).await;
-    // Answers come in the order the requests went: once this list holds the history, so has the
-    // inbox's own, which asked for its first page before.
+    // Nothing reads the inbox, so the history is marked only if the inbox settles by itself. The
+    // marker is state, not an update, so it is polled for.
+    let deadline = Instant::now() + WAIT;
+    while !(phone.inbox().seen().markers)
+        .iter()
+        .any(|marker| marker.session == history)
+    {
+        assert!(Instant::now() < deadline, "the history was never marked");
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
     let query = SessionQuery {
         cwd: None,
         parent: None,
@@ -151,7 +160,6 @@ async fn a_session_that_appears_before_the_ui_reads_the_inbox_is_still_done() {
     let list = Arc::clone(&machine)
         .session_list(BackendId::Pi, query)
         .expect("a list");
-    listed(&list, &history).await;
 
     let news = mac.bridge.seed(&mac.root(), "Finished meanwhile").await;
     listed(&list, &news).await;
