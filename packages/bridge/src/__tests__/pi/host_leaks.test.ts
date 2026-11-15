@@ -4,6 +4,7 @@
  */
 
 import { afterEach, expect, test } from "bun:test";
+import { MAX_HOSTED_SESSIONS } from "../../backends/pi/live/host-capacity";
 import { useWatchdog } from "./helpers/use-watchdog";
 import { HostRig, pause, trackLongTimers, until } from "./host_rig";
 
@@ -80,7 +81,7 @@ test("cycles that abort a held run, and cycles that shut down mid-run, leave no 
 		await live.close();
 	}
 	await until(() => t?.rig.world.sessionProcesses() === 0, "every pi ends", 10_000);
-	for (let i = 0; i < 10; i++) {
+	for (let i = 0; i < MAX_HOSTED_SESSIONS - 1; i++) {
 		const live = await t.rig.rig.openNew();
 		await t.rig.rig.arrange(live.ref, { kind: "hold" });
 		hosts.push(new WeakRef(t.host(live.ref)));
