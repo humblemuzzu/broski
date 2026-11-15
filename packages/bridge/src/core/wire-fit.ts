@@ -96,7 +96,10 @@ function elided(message: ServerMessage, maxBytes: number, log: CoreLog): Encoded
 	return encodeFrame(tree);
 }
 
-/** What may be shortened in each message: free text, never cursors or image bytes. */
+/**
+ * What may be shortened in each message: free text, never cursors, image bytes, a file's content, a diff's
+ * lines or terminal output, whose answers are read smaller instead (`pageWithinFrame`) or bounded to fit.
+ */
 function elisionScope(message: ServerMessage): ElisionScope | undefined {
 	switch (message.type) {
 		case "event":
@@ -111,6 +114,9 @@ function elisionScope(message: ServerMessage): ElisionScope | undefined {
 		case "backend.status.result":
 			return headScope(["status"]);
 		case "attachment.read.result":
+		case "fs.read.result":
+		case "git.diff.result":
+		case "term.attach.result":
 			return undefined;
 		default:
 			return "result" in message ? headScope(["result"]) : undefined;

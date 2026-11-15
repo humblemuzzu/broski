@@ -4,7 +4,8 @@ import { encodeFrame } from "./frame";
 /**
  * The answer to a paged read, read again with a smaller page while it is larger than the link
  * carries. A shorter page is still a page: only an absent `nextCursor` ends a list (README §11.1),
- * and the adapter mints the cursor for the page it actually returned.
+ * and the adapter mints the cursor for the page it actually returned. A workspace read bounded by
+ * another size (a file read's length, a diff's text) shrinks the same way and says it was cut.
  */
 export async function pageWithinFrame<M extends ServerMessage>(
 	maxFrameBytes: number,

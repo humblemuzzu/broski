@@ -1,5 +1,6 @@
 /**
- * Project file search on a real directory tree in the temp directory, one of the bases the search allows.
+ * Project file search on a real directory tree in the temp directory. The path policy in front of it is proven
+ * through the workspace host (`workspace_files.test.ts`).
  */
 
 import { afterAll, beforeEach, describe, expect, test } from "bun:test";
@@ -44,9 +45,5 @@ describe("searchFilesAndDirs", () => {
 		expect(getCacheStats()).toMatchObject({ misses: 1 });
 		await searchFilesAndDirs({ query: "core", cwd: project });
 		expect(getCacheStats()).toMatchObject({ misses: 1, hits: 1 });
-	});
-
-	test("refuses a directory outside the home and the temp directory", async () => {
-		expect(await searchFilesAndDirs({ query: "passwd", cwd: "/etc" })).toEqual([]);
 	});
 });

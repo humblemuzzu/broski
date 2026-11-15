@@ -18,6 +18,7 @@ import * as notice from "./notice";
 import * as option from "./option";
 import * as paging from "./paging";
 import * as protocol from "./protocol";
+import * as protocolWorkspace from "./protocol-workspace";
 import * as queue from "./queue";
 import * as readResults from "./read-results";
 import * as rejection from "./rejection";
@@ -28,6 +29,9 @@ import * as status from "./status";
 import * as tools from "./tools";
 import * as transcript from "./transcript";
 import * as usage from "./usage";
+import * as workspaceFiles from "./workspace-files";
+import * as workspaceGit from "./workspace-git";
+import * as workspaceTerminal from "./workspace-terminal";
 
 /** Every wire-visible schema module. Each exported schema is a named type, its export name the type's id. */
 const SCHEMA_MODULES = {
@@ -59,6 +63,10 @@ const SCHEMA_MODULES = {
 	"catalog-events": catalogEvents,
 	capabilities,
 	"read-results": readResults,
+	"workspace-files": workspaceFiles,
+	"workspace-git": workspaceGit,
+	"workspace-terminal": workspaceTerminal,
+	"protocol-workspace": protocolWorkspace,
 	protocol,
 };
 

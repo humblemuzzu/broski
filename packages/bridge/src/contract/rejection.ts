@@ -9,6 +9,7 @@ export const RejectionCode = z.enum([
 	"invalid_input",
 	"unsupported",
 	"not_found",
+	"forbidden",
 	"stale",
 	"closed",
 	"backend_error",

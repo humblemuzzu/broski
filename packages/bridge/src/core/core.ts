@@ -16,12 +16,22 @@ import { DEFAULT_REPLAY_WINDOW, type ReplayWindow } from "./event-log";
 import { InteractionDesk } from "./interaction-desk";
 import { DEFAULT_IDLE_CLOSE_MS } from "./keep-open";
 import { type CoreObserver, Observation } from "./observer";
-import type { ClientLink, CoreClock, CoreLog, DirectoryPolicy, PromptJournal, ReplacementJournal } from "./ports";
+import type {
+	ClientLink,
+	CoreClock,
+	CoreLog,
+	DirectoryPolicy,
+	PromptJournal,
+	ReplacementJournal,
+	WorkspaceFactory,
+	WorkspaceHost,
+} from "./ports";
 import { PromptLedger } from "./prompt-ledger";
 import { ProtocolServer } from "./protocol-server";
 import { Replacements } from "./replacements";
 import { rejected } from "./results";
 import { SessionHub } from "./session-hub";
+import { TerminalViewers } from "./terminal-viewers";
 
 export interface CoreOptions {
 	readonly bridgeVersion: string;
@@ -38,6 +48,8 @@ export interface CoreOptions {
 	readonly replay?: ReplayWindow;
 	/** Told of every event of every open session, viewed or not. */
 	readonly observer?: CoreObserver;
+	/** The machine's files, git and terminals; without it every workspace request is `unsupported`. */
+	readonly workspace?: WorkspaceFactory;
 }
 
 /** One client's view of the core, for the connection that carries it. */
@@ -61,6 +73,8 @@ export class BridgeCore {
 	private readonly server: ProtocolServer;
 	private readonly desk = new InteractionDesk();
 	private readonly clients = new Set<CoreClient>();
+	private readonly terminals: TerminalViewers;
+	private readonly workspace: WorkspaceHost | undefined;
 
 	constructor(private readonly options: CoreOptions) {
 		const { desk } = this;
@@ -84,6 +98,8 @@ export class BridgeCore {
 			replacements,
 		});
 		this.feed = new CatalogFeed(this.clients, this.hub, options.maxFrameBytes, options.log);
+		this.terminals = new TerminalViewers(options.maxFrameBytes, options.log);
+		this.workspace = options.workspace?.(this.terminals.publish);
 		this.registry = new BackendRegistry({
 			onCatalog: (backend, event) => this.feed.publish(backend, event),
 			onArrival: (backend) => void this.announce(backend),
@@ -97,6 +113,8 @@ export class BridgeCore {
 			ledger: new PromptLedger(options.journal),
 			replacements,
 			directories: options.directories,
+			workspace: this.workspace,
+			terminals: this.terminals,
 			bridgeVersion: options.bridgeVersion,
 			maxFrameBytes: options.maxFrameBytes,
 			clock: options.clock,
@@ -122,6 +140,7 @@ export class BridgeCore {
 			close: () => {
 				this.clients.delete(client);
 				for (const live of client.disconnect()) this.hub.leave(live, client);
+				this.terminals.leave(client);
 			},
 		};
 	}
@@ -152,10 +171,21 @@ export class BridgeCore {
 		this.hub.release(ref);
 	}
 
-	/** Bridge shutdown: every backend is disposed, which closes their sessions; pending asks expire with them. */
+	/**
+	 * Bridge shutdown: every backend is disposed, which closes their sessions; pending asks expire with them.
+	 * Every terminal ends.
+	 */
 	async dispose(): Promise<void> {
 		this.hub.dispose();
-		await this.registry.dispose();
+		await Promise.all([this.registry.dispose(), this.disposeWorkspace()]);
+	}
+
+	private async disposeWorkspace(): Promise<void> {
+		try {
+			await this.workspace?.dispose();
+		} catch (error) {
+			this.options.log.error(`[core] the workspace failed to dispose: ${String(error)}`);
+		}
 	}
 
 	/** A backend that landed is news to every client that listed the backends before it did. */

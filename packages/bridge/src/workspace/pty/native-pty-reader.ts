@@ -9,7 +9,8 @@
 
 export type PtyReaderOptions = {
 	fd: number;
-	onData: (text: string) => void;
+	/** Raw bytes as the child wrote them: a chunk may end inside a UTF-8 character or an escape sequence. */
+	onData: (bytes: Uint8Array) => void;
 	onEnd: () => void;
 };
 
@@ -23,7 +24,6 @@ export type PtyReader = {
 
 export function createPtyReader(options: PtyReaderOptions): PtyReader {
 	const reader = Bun.file(options.fd).stream().getReader();
-	const decoder = new TextDecoder();
 
 	let ended = false;
 	let resolveEnded: () => void = () => {};
@@ -42,11 +42,7 @@ export function createPtyReader(options: PtyReaderOptions): PtyReader {
 			for (;;) {
 				const { done, value } = await reader.read();
 				if (done) break;
-				if (value?.length) {
-					// A chunk can split a UTF-8 sequence, so the decoder carries the remainder over.
-					const text = decoder.decode(value, { stream: true });
-					if (text) options.onData(text);
-				}
+				if (value?.length) options.onData(value);
 			}
 		} catch {
 			// The child exiting closes the master: EIO on Linux, a clean EOF on macOS.

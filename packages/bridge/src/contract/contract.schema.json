@@ -1054,6 +1054,63 @@
         },
         {
           "$ref": "#/$defs/CompactRequest"
+        },
+        {
+          "$ref": "#/$defs/WorkspaceInfoRequest"
+        },
+        {
+          "$ref": "#/$defs/FsListRequest"
+        },
+        {
+          "$ref": "#/$defs/FsReadRequest"
+        },
+        {
+          "$ref": "#/$defs/FsSearchRequest"
+        },
+        {
+          "$ref": "#/$defs/GitStatusRequest"
+        },
+        {
+          "$ref": "#/$defs/GitDiffRequest"
+        },
+        {
+          "$ref": "#/$defs/GitStageRequest"
+        },
+        {
+          "$ref": "#/$defs/GitUnstageRequest"
+        },
+        {
+          "$ref": "#/$defs/GitCommitRequest"
+        },
+        {
+          "$ref": "#/$defs/GitBranchesRequest"
+        },
+        {
+          "$ref": "#/$defs/GitCheckoutRequest"
+        },
+        {
+          "$ref": "#/$defs/GitLogRequest"
+        },
+        {
+          "$ref": "#/$defs/TermListRequest"
+        },
+        {
+          "$ref": "#/$defs/TermOpenRequest"
+        },
+        {
+          "$ref": "#/$defs/TermAttachRequest"
+        },
+        {
+          "$ref": "#/$defs/TermDetachRequest"
+        },
+        {
+          "$ref": "#/$defs/TermInputRequest"
+        },
+        {
+          "$ref": "#/$defs/TermResizeRequest"
+        },
+        {
+          "$ref": "#/$defs/TermCloseRequest"
         }
       ]
     },
@@ -1789,6 +1846,186 @@
       ],
       "additionalProperties": false
     },
+    "FileEncoding": {
+      "x-module": "workspace-files",
+      "$id": "#/$defs/FileEncoding",
+      "type": "string",
+      "enum": [
+        "utf8",
+        "base64"
+      ]
+    },
+    "FileEntry": {
+      "x-module": "workspace-files",
+      "$id": "#/$defs/FileEntry",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "kind": {
+          "$ref": "#/$defs/FileKind"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "modifiedAt": {
+          "$ref": "#/$defs/Timestamp"
+        }
+      },
+      "required": [
+        "name",
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "FileKind": {
+      "x-module": "workspace-files",
+      "$id": "#/$defs/FileKind",
+      "type": "string",
+      "enum": [
+        "file",
+        "dir",
+        "symlink",
+        "other"
+      ]
+    },
+    "FileMatch": {
+      "x-module": "workspace-files",
+      "$id": "#/$defs/FileMatch",
+      "type": "object",
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/FilePath"
+        },
+        "kind": {
+          "$ref": "#/$defs/FileKind"
+        }
+      },
+      "required": [
+        "path",
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "FilePath": {
+      "x-module": "workspace-files",
+      "$id": "#/$defs/FilePath",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "FileRead": {
+      "x-module": "workspace-files",
+      "$id": "#/$defs/FileRead",
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "accepted"
+        },
+        "path": {
+          "$ref": "#/$defs/FilePath"
+        },
+        "encoding": {
+          "$ref": "#/$defs/FileEncoding"
+        },
+        "content": {
+          "type": "string",
+          "maxLength": 4194304
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "status",
+        "path",
+        "encoding",
+        "content",
+        "offset",
+        "length",
+        "size",
+        "truncated"
+      ],
+      "additionalProperties": false
+    },
+    "FilesFound": {
+      "x-module": "workspace-files",
+      "$id": "#/$defs/FilesFound",
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "accepted"
+        },
+        "root": {
+          "$ref": "#/$defs/WorkingDirectory"
+        },
+        "matches": {
+          "maxItems": 200,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FileMatch"
+          }
+        }
+      },
+      "required": [
+        "status",
+        "root",
+        "matches"
+      ],
+      "additionalProperties": false
+    },
+    "FilesListed": {
+      "x-module": "workspace-files",
+      "$id": "#/$defs/FilesListed",
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "accepted"
+        },
+        "path": {
+          "$ref": "#/$defs/FilePath"
+        },
+        "entries": {
+          "maxItems": 200,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FileEntry"
+          }
+        },
+        "nextCursor": {
+          "$ref": "#/$defs/PageCursor"
+        }
+      },
+      "required": [
+        "status",
+        "path",
+        "entries"
+      ],
+      "additionalProperties": false
+    },
     "ForkPoint": {
       "x-module": "sessions",
       "$id": "#/$defs/ForkPoint",
@@ -1922,6 +2159,1125 @@
           "$ref": "#/$defs/ChoicesValue"
         }
       ]
+    },
+    "FsListRequest": {
+      "x-module": "protocol-workspace",
+      "$id": "#/$defs/FsListRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "fs.list"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "path": {
+          "$ref": "#/$defs/FilePath"
+        },
+        "cursor": {
+          "$ref": "#/$defs/PageCursor"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200
+        },
+        "hidden": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "path"
+      ],
+      "additionalProperties": false
+    },
+    "FsListResponse": {
+      "x-module": "protocol-workspace",
+      "$id": "#/$defs/FsListResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "fs.list.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/FsListResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "FsListResult": {
+      "x-module": "workspace-files",
+      "$id": "#/$defs/FsListResult",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/FilesListed"
+        },
+        {
+          "$ref": "#/$defs/Rejected"
+        }
+      ]
+    },
+    "FsReadRequest": {
+      "x-module": "protocol-workspace",
+      "$id": "#/$defs/FsReadRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "fs.read"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "path": {
+          "$ref": "#/$defs/FilePath"
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3145728
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "path"
+      ],
+      "additionalProperties": false
+    },
+    "FsReadResponse": {
+      "x-module": "protocol-workspace",
+      "$id": "#/$defs/FsReadResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "fs.read.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/FsReadResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "FsReadResult": {
+      "x-module": "workspace-files",
+      "$id": "#/$defs/FsReadResult",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/FileRead"
+        },
+        {
+          "$ref": "#/$defs/Rejected"
+        }
+      ]
+    },
+    "FsSearchRequest": {
+      "x-module": "protocol-workspace",
+      "$id": "#/$defs/FsSearchRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "fs.search"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "root": {
+          "$ref": "#/$defs/WorkingDirectory"
+        },
+        "query": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "root",
+        "query"
+      ],
+      "additionalProperties": false
+    },
+    "FsSearchResponse": {
+      "x-module": "protocol-workspace",
+      "$id": "#/$defs/FsSearchResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "fs.search.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/FsSearchResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "FsSearchResult": {
+      "x-module": "workspace-files",
+      "$id": "#/$defs/FsSearchResult",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/FilesFound"
+        },
+        {
+          "$ref": "#/$defs/Rejected"
+        }
+      ]
+    },
+    "GitBranch": {
+      "x-module": "workspace-git",
+      "$id": "#/$defs/GitBranch",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "remote": {
+          "type": "boolean"
+        },
+        "current": {
+          "type": "boolean"
+        },
+        "upstream": {
+          "$ref": "#/$defs/GitUpstream"
+        }
+      },
+      "required": [
+        "name",
+        "remote",
+        "current"
+      ],
+      "additionalProperties": false
+    },
+    "GitBranchesListed": {
+      "x-module": "workspace-git",
+      "$id": "#/$defs/GitBranchesListed",
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "accepted"
+        },
+        "branches": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GitBranch"
+          }
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "status",
+        "branches",
+        "truncated"
+      ],
+      "additionalProperties": false
+    },
+    "GitBranchesRequest": {
+      "x-module": "protocol-workspace",
+      "$id": "#/$defs/GitBranchesRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "git.branches"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "cwd": {
+          "$ref": "#/$defs/WorkingDirectory"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "cwd"
+      ],
+      "additionalProperties": false
+    },
+    "GitBranchesResponse": {
+      "x-module": "protocol-workspace",
+      "$id": "#/$defs/GitBranchesResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "git.branches.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/GitBranchesResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "GitBranchesResult": {
+      "x-module": "workspace-git",
+      "$id": "#/$defs/GitBranchesResult",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/GitBranchesListed"
+        },
+        {
+          "$ref": "#/$defs/Rejected"
+        }
+      ]
+    },
+    "GitChange": {
+      "x-module": "workspace-git",
+      "$id": "#/$defs/GitChange",
+      "type": "string",
+      "enum": [
+        "added",
+        "modified",
+        "deleted",
+        "renamed",
+        "copied",
+        "type_changed",
+        "conflicted"
+      ]
+    },
+    "GitCheckedOut": {
+      "x-module": "workspace-git",
+      "$id": "#/$defs/GitCheckedOut",
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "accepted"
+        },
+        "branch": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        }
+      },
+      "required": [
+        "status",
+        "branch"
+      ],
+      "additionalProperties": false
+    },
+    "GitCheckoutRequest": {
+      "x-module": "protocol-workspace",
+      "$id": "#/$defs/GitCheckoutRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "git.checkout"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "cwd": {
+          "$ref": "#/$defs/WorkingDirectory"
+        },
+        "branch": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "cwd",
+        "branch"
+      ],
+      "additionalProperties": false
+    },
+    "GitCheckoutResponse": {
+      "x-module": "protocol-workspace",
+      "$id": "#/$defs/GitCheckoutResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "git.checkout.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/GitCheckoutResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "GitCheckoutResult": {
+      "x-module": "workspace-git",
+      "$id": "#/$defs/GitCheckoutResult",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/GitCheckedOut"
+        },
+        {
+          "$ref": "#/$defs/Rejected"
+        }
+      ]
+    },
+    "GitCommit": {
+      "x-module": "workspace-git",
+      "$id": "#/$defs/GitCommit",
+      "type": "object",
+      "properties": {
+        "hash": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "subject": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "author": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "authoredAt": {
+          "$ref": "#/$defs/Timestamp"
+        }
+      },
+      "required": [
+        "hash",
+        "subject",
+        "author",
+        "authoredAt"
+      ],
+      "additionalProperties": false
+    },
+    "GitCommitRequest": {
+      "x-module": "protocol-workspace",
+      "$id": "#/$defs/GitCommitRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "git.commit"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "cwd": {
+          "$ref": "#/$defs/WorkingDirectory"
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1048576
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "cwd",
+        "message"
+      ],
+      "additionalProperties": false
+    },
+    "GitCommitResponse": {
+      "x-module": "protocol-workspace",
+      "$id": "#/$defs/GitCommitResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "git.commit.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/GitCommitResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "GitCommitResult": {
+      "x-module": "workspace-git",
+      "$id": "#/$defs/GitCommitResult",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/GitCommitted"
+        },
+        {
+          "$ref": "#/$defs/Rejected"
+        }
+      ]
+    },
+    "GitCommitted": {
+      "x-module": "workspace-git",
+      "$id": "#/$defs/GitCommitted",
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "accepted"
+        },
+        "commit": {
+          "$ref": "#/$defs/GitCommit"
+        }
+      },
+      "required": [
+        "status",
+        "commit"
+      ],
+      "additionalProperties": false
+    },
+    "GitDiffFile": {
+      "x-module": "workspace-git",
+      "$id": "#/$defs/GitDiffFile",
+      "type": "object",
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/FilePath"
+        },
+        "previousPath": {
+          "$ref": "#/$defs/FilePath"
+        },
+        "change": {
+          "$ref": "#/$defs/GitChange"
+        },
+        "binary": {
+          "type": "boolean"
+        },
+        "hunks": {
+          "maxItems": 20000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GitDiffHunk"
+          }
+        }
+      },
+      "required": [
+        "path",
+        "change",
+        "binary",
+        "hunks"
+      ],
+      "additionalProperties": false
+    },
+    "GitDiffHunk": {
+      "x-module": "workspace-git",
+      "$id": "#/$defs/GitDiffHunk",
+      "type": "object",
+      "properties": {
+        "oldStart": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "oldLines": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "newStart": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "newLines": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "header": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "lines": {
+          "maxItems": 20000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GitDiffLine"
+          }
+        }
+      },
+      "required": [
+        "oldStart",
+        "oldLines",
+        "newStart",
+        "newLines",
+        "lines"
+      ],
+      "additionalProperties": false
+    },
+    "GitDiffLine": {
+      "x-module": "workspace-git",
+      "$id": "#/$defs/GitDiffLine",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/GitDiffLineKind"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "oldLine": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "newLine": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "noNewline": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "GitDiffLineKind": {
+      "x-module": "workspace-git",
+      "$id": "#/$defs/GitDiffLineKind",
+      "type": "string",
+      "enum": [
+        "context",
+        "added",
+        "removed"
+      ]
+    },
+    "GitDiffRead": {
+      "x-module": "workspace-git",
+      "$id": "#/$defs/GitDiffRead",
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "accepted"
+        },
+        "root": {
+          "$ref": "#/$defs/WorkingDirectory"
+        },
+        "files": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GitDiffFile"
+          }
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "status",
+        "root",
+        "files",
+        "truncated"
+      ],
+      "additionalProperties": false
+    },
+    "GitDiffRequest": {
+      "x-module": "protocol-workspace",
+      "$id": "#/$defs/GitDiffRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "git.diff"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "cwd": {
+          "$ref": "#/$defs/WorkingDirectory"
+        },
+        "path": {
+          "$ref": "#/$defs/FilePath"
+        },
+        "staged": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "cwd"
+      ],
+      "additionalProperties": false
+    },
+    "GitDiffResponse": {
+      "x-module": "protocol-workspace",
+      "$id": "#/$defs/GitDiffResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "git.diff.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/GitDiffResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "GitDiffResult": {
+      "x-module": "workspace-git",
+      "$id": "#/$defs/GitDiffResult",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/GitDiffRead"
+        },
+        {
+          "$ref": "#/$defs/Rejected"
+        }
+      ]
+    },
+    "GitFileChange": {
+      "x-module": "workspace-git",
+      "$id": "#/$defs/GitFileChange",
+      "type": "object",
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/FilePath"
+        },
+        "previousPath": {
+          "$ref": "#/$defs/FilePath"
+        },
+        "change": {
+          "$ref": "#/$defs/GitChange"
+        },
+        "additions": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "deletions": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "path",
+        "change"
+      ],
+      "additionalProperties": false
+    },
+    "GitLogRead": {
+      "x-module": "workspace-git",
+      "$id": "#/$defs/GitLogRead",
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "accepted"
+        },
+        "commits": {
+          "maxItems": 200,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GitCommit"
+          }
+        }
+      },
+      "required": [
+        "status",
+        "commits"
+      ],
+      "additionalProperties": false
+    },
+    "GitLogRequest": {
+      "x-module": "protocol-workspace",
+      "$id": "#/$defs/GitLogRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "git.log"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "cwd": {
+          "$ref": "#/$defs/WorkingDirectory"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "cwd"
+      ],
+      "additionalProperties": false
+    },
+    "GitLogResponse": {
+      "x-module": "protocol-workspace",
+      "$id": "#/$defs/GitLogResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "git.log.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/GitLogResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "GitLogResult": {
+      "x-module": "workspace-git",
+      "$id": "#/$defs/GitLogResult",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/GitLogRead"
+        },
+        {
+          "$ref": "#/$defs/Rejected"
+        }
+      ]
+    },
+    "GitStageRequest": {
+      "x-module": "protocol-workspace",
+      "$id": "#/$defs/GitStageRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "git.stage"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "cwd": {
+          "$ref": "#/$defs/WorkingDirectory"
+        },
+        "paths": {
+          "minItems": 1,
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FilePath"
+          }
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "cwd",
+        "paths"
+      ],
+      "additionalProperties": false
+    },
+    "GitStageResponse": {
+      "x-module": "protocol-workspace",
+      "$id": "#/$defs/GitStageResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "git.stage.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/ActionResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "GitStatusRead": {
+      "x-module": "workspace-git",
+      "$id": "#/$defs/GitStatusRead",
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "accepted"
+        },
+        "root": {
+          "$ref": "#/$defs/WorkingDirectory"
+        },
+        "branch": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "head": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "upstream": {
+          "$ref": "#/$defs/GitUpstream"
+        },
+        "staged": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GitFileChange"
+          }
+        },
+        "unstaged": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GitFileChange"
+          }
+        },
+        "untracked": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FilePath"
+          }
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "status",
+        "root",
+        "staged",
+        "unstaged",
+        "untracked",
+        "truncated"
+      ],
+      "additionalProperties": false
+    },
+    "GitStatusRequest": {
+      "x-module": "protocol-workspace",
+      "$id": "#/$defs/GitStatusRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "git.status"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "cwd": {
+          "$ref": "#/$defs/WorkingDirectory"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "cwd"
+      ],
+      "additionalProperties": false
+    },
+    "GitStatusResponse": {
+      "x-module": "protocol-workspace",
+      "$id": "#/$defs/GitStatusResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "git.status.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/GitStatusResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "GitStatusResult": {
+      "x-module": "workspace-git",
+      "$id": "#/$defs/GitStatusResult",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/GitStatusRead"
+        },
+        {
+          "$ref": "#/$defs/Rejected"
+        }
+      ]
+    },
+    "GitUnstageRequest": {
+      "x-module": "protocol-workspace",
+      "$id": "#/$defs/GitUnstageRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "git.unstage"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "cwd": {
+          "$ref": "#/$defs/WorkingDirectory"
+        },
+        "paths": {
+          "minItems": 1,
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FilePath"
+          }
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "cwd",
+        "paths"
+      ],
+      "additionalProperties": false
+    },
+    "GitUnstageResponse": {
+      "x-module": "protocol-workspace",
+      "$id": "#/$defs/GitUnstageResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "git.unstage.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/ActionResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "GitUpstream": {
+      "x-module": "workspace-git",
+      "$id": "#/$defs/GitUpstream",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "ahead": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "behind": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "name",
+        "ahead",
+        "behind"
+      ],
+      "additionalProperties": false
     },
     "GrantKind": {
       "x-module": "interactions",
@@ -4143,6 +5499,7 @@
         "invalid_input",
         "unsupported",
         "not_found",
+        "forbidden",
         "stale",
         "closed",
         "backend_error"
@@ -4648,6 +6005,63 @@
           "$ref": "#/$defs/CompactResponse"
         },
         {
+          "$ref": "#/$defs/WorkspaceInfoResponse"
+        },
+        {
+          "$ref": "#/$defs/FsListResponse"
+        },
+        {
+          "$ref": "#/$defs/FsReadResponse"
+        },
+        {
+          "$ref": "#/$defs/FsSearchResponse"
+        },
+        {
+          "$ref": "#/$defs/GitStatusResponse"
+        },
+        {
+          "$ref": "#/$defs/GitDiffResponse"
+        },
+        {
+          "$ref": "#/$defs/GitStageResponse"
+        },
+        {
+          "$ref": "#/$defs/GitUnstageResponse"
+        },
+        {
+          "$ref": "#/$defs/GitCommitResponse"
+        },
+        {
+          "$ref": "#/$defs/GitBranchesResponse"
+        },
+        {
+          "$ref": "#/$defs/GitCheckoutResponse"
+        },
+        {
+          "$ref": "#/$defs/GitLogResponse"
+        },
+        {
+          "$ref": "#/$defs/TermListResponse"
+        },
+        {
+          "$ref": "#/$defs/TermOpenResponse"
+        },
+        {
+          "$ref": "#/$defs/TermAttachResponse"
+        },
+        {
+          "$ref": "#/$defs/TermDetachResponse"
+        },
+        {
+          "$ref": "#/$defs/TermInputResponse"
+        },
+        {
+          "$ref": "#/$defs/TermResizeResponse"
+        },
+        {
+          "$ref": "#/$defs/TermCloseResponse"
+        },
+        {
           "$ref": "#/$defs/ErrorResponse"
         },
         {
@@ -4655,6 +6069,12 @@
         },
         {
           "$ref": "#/$defs/CatalogMessage"
+        },
+        {
+          "$ref": "#/$defs/TermOutputMessage"
+        },
+        {
+          "$ref": "#/$defs/TermExitedMessage"
         }
       ]
     },
@@ -5615,6 +7035,616 @@
         "date",
         "date-time"
       ]
+    },
+    "TermAttachRequest": {
+      "x-module": "protocol-workspace",
+      "$id": "#/$defs/TermAttachRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "term.attach"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "id": {
+          "$ref": "#/$defs/TerminalId"
+        },
+        "since": {
+          "$ref": "#/$defs/TerminalSeq"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "TermAttachResponse": {
+      "x-module": "protocol-workspace",
+      "$id": "#/$defs/TermAttachResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "term.attach.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/TermAttachResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "TermAttachResult": {
+      "x-module": "workspace-terminal",
+      "$id": "#/$defs/TermAttachResult",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/TerminalAttached"
+        },
+        {
+          "$ref": "#/$defs/Rejected"
+        }
+      ]
+    },
+    "TermCloseRequest": {
+      "x-module": "protocol-workspace",
+      "$id": "#/$defs/TermCloseRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "term.close"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "id": {
+          "$ref": "#/$defs/TerminalId"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "TermCloseResponse": {
+      "x-module": "protocol-workspace",
+      "$id": "#/$defs/TermCloseResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "term.close.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/ActionResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "TermDetachRequest": {
+      "x-module": "protocol-workspace",
+      "$id": "#/$defs/TermDetachRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "term.detach"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "id": {
+          "$ref": "#/$defs/TerminalId"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "TermDetachResponse": {
+      "x-module": "protocol-workspace",
+      "$id": "#/$defs/TermDetachResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "term.detach.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        }
+      },
+      "required": [
+        "type",
+        "requestId"
+      ],
+      "additionalProperties": false
+    },
+    "TermExitedMessage": {
+      "x-module": "workspace-terminal",
+      "$id": "#/$defs/TermExitedMessage",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "term_exited"
+        },
+        "id": {
+          "$ref": "#/$defs/TerminalId"
+        },
+        "exitCode": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "signal": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        }
+      },
+      "required": [
+        "type",
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "TermInputRequest": {
+      "x-module": "protocol-workspace",
+      "$id": "#/$defs/TermInputRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "term.input"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "id": {
+          "$ref": "#/$defs/TerminalId"
+        },
+        "data": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 87384,
+          "format": "base64",
+          "contentEncoding": "base64",
+          "pattern": "^$|^(?:[0-9a-zA-Z+/]{4})*(?:(?:[0-9a-zA-Z+/]{2}==)|(?:[0-9a-zA-Z+/]{3}=))?$"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "id",
+        "data"
+      ],
+      "additionalProperties": false
+    },
+    "TermInputResponse": {
+      "x-module": "protocol-workspace",
+      "$id": "#/$defs/TermInputResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "term.input.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/ActionResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "TermListRequest": {
+      "x-module": "protocol-workspace",
+      "$id": "#/$defs/TermListRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "term.list"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        }
+      },
+      "required": [
+        "type",
+        "requestId"
+      ],
+      "additionalProperties": false
+    },
+    "TermListResponse": {
+      "x-module": "protocol-workspace",
+      "$id": "#/$defs/TermListResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "term.list.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/TermListResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "TermListResult": {
+      "x-module": "workspace-terminal",
+      "$id": "#/$defs/TermListResult",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/TerminalsListed"
+        },
+        {
+          "$ref": "#/$defs/Rejected"
+        }
+      ]
+    },
+    "TermOpenRequest": {
+      "x-module": "protocol-workspace",
+      "$id": "#/$defs/TermOpenRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "term.open"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "cwd": {
+          "$ref": "#/$defs/WorkingDirectory"
+        },
+        "cols": {
+          "$ref": "#/$defs/TerminalDimension"
+        },
+        "rows": {
+          "$ref": "#/$defs/TerminalDimension"
+        },
+        "cellWidth": {
+          "$ref": "#/$defs/TerminalDimension"
+        },
+        "cellHeight": {
+          "$ref": "#/$defs/TerminalDimension"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "cwd",
+        "cols",
+        "rows"
+      ],
+      "additionalProperties": false
+    },
+    "TermOpenResponse": {
+      "x-module": "protocol-workspace",
+      "$id": "#/$defs/TermOpenResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "term.open.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/TermOpenResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "TermOpenResult": {
+      "x-module": "workspace-terminal",
+      "$id": "#/$defs/TermOpenResult",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/TerminalOpened"
+        },
+        {
+          "$ref": "#/$defs/Rejected"
+        }
+      ]
+    },
+    "TermOutputMessage": {
+      "x-module": "workspace-terminal",
+      "$id": "#/$defs/TermOutputMessage",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "term_output"
+        },
+        "id": {
+          "$ref": "#/$defs/TerminalId"
+        },
+        "seq": {
+          "$ref": "#/$defs/TerminalSeq"
+        },
+        "data": {
+          "$ref": "#/$defs/TerminalOutput"
+        }
+      },
+      "required": [
+        "type",
+        "id",
+        "seq",
+        "data"
+      ],
+      "additionalProperties": false
+    },
+    "TermResizeRequest": {
+      "x-module": "protocol-workspace",
+      "$id": "#/$defs/TermResizeRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "term.resize"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "id": {
+          "$ref": "#/$defs/TerminalId"
+        },
+        "cols": {
+          "$ref": "#/$defs/TerminalDimension"
+        },
+        "rows": {
+          "$ref": "#/$defs/TerminalDimension"
+        },
+        "cellWidth": {
+          "$ref": "#/$defs/TerminalDimension"
+        },
+        "cellHeight": {
+          "$ref": "#/$defs/TerminalDimension"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "id",
+        "cols",
+        "rows"
+      ],
+      "additionalProperties": false
+    },
+    "TermResizeResponse": {
+      "x-module": "protocol-workspace",
+      "$id": "#/$defs/TermResizeResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "term.resize.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/ActionResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "TerminalAttached": {
+      "x-module": "workspace-terminal",
+      "$id": "#/$defs/TerminalAttached",
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "accepted"
+        },
+        "terminal": {
+          "$ref": "#/$defs/TerminalSummary"
+        },
+        "seq": {
+          "$ref": "#/$defs/TerminalSeq"
+        },
+        "data": {
+          "$ref": "#/$defs/TerminalOutput"
+        }
+      },
+      "required": [
+        "status",
+        "terminal",
+        "seq",
+        "data"
+      ],
+      "additionalProperties": false
+    },
+    "TerminalDimension": {
+      "x-module": "workspace-terminal",
+      "$id": "#/$defs/TerminalDimension",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 500
+    },
+    "TerminalEvent": {
+      "x-module": "workspace-terminal",
+      "$id": "#/$defs/TerminalEvent",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/TermOutputMessage"
+        },
+        {
+          "$ref": "#/$defs/TermExitedMessage"
+        }
+      ]
+    },
+    "TerminalId": {
+      "x-module": "workspace-terminal",
+      "$id": "#/$defs/TerminalId",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "TerminalOpened": {
+      "x-module": "workspace-terminal",
+      "$id": "#/$defs/TerminalOpened",
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "accepted"
+        },
+        "terminal": {
+          "$ref": "#/$defs/TerminalSummary"
+        }
+      },
+      "required": [
+        "status",
+        "terminal"
+      ],
+      "additionalProperties": false
+    },
+    "TerminalOutput": {
+      "x-module": "workspace-terminal",
+      "$id": "#/$defs/TerminalOutput",
+      "type": "string",
+      "maxLength": 699052,
+      "format": "base64",
+      "contentEncoding": "base64",
+      "pattern": "^$|^(?:[0-9a-zA-Z+/]{4})*(?:(?:[0-9a-zA-Z+/]{2}==)|(?:[0-9a-zA-Z+/]{3}=))?$"
+    },
+    "TerminalSeq": {
+      "x-module": "workspace-terminal",
+      "$id": "#/$defs/TerminalSeq",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "TerminalStatus": {
+      "x-module": "workspace-terminal",
+      "$id": "#/$defs/TerminalStatus",
+      "type": "string",
+      "enum": [
+        "running",
+        "exited"
+      ]
+    },
+    "TerminalSummary": {
+      "x-module": "workspace-terminal",
+      "$id": "#/$defs/TerminalSummary",
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/TerminalId"
+        },
+        "cwd": {
+          "$ref": "#/$defs/WorkingDirectory"
+        },
+        "cols": {
+          "$ref": "#/$defs/TerminalDimension"
+        },
+        "rows": {
+          "$ref": "#/$defs/TerminalDimension"
+        },
+        "createdAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "status": {
+          "$ref": "#/$defs/TerminalStatus"
+        },
+        "exitCode": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "signal": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        }
+      },
+      "required": [
+        "id",
+        "cwd",
+        "cols",
+        "rows",
+        "createdAt",
+        "status"
+      ],
+      "additionalProperties": false
+    },
+    "TerminalsListed": {
+      "x-module": "workspace-terminal",
+      "$id": "#/$defs/TerminalsListed",
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "accepted"
+        },
+        "terminals": {
+          "maxItems": 20,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TerminalSummary"
+          }
+        }
+      },
+      "required": [
+        "status",
+        "terminals"
+      ],
+      "additionalProperties": false
     },
     "TextContent": {
       "x-module": "content",
@@ -6585,6 +8615,91 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 4096
+    },
+    "WorkspaceInfo": {
+      "x-module": "workspace-files",
+      "$id": "#/$defs/WorkspaceInfo",
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "accepted"
+        },
+        "roots": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/WorkingDirectory"
+          }
+        },
+        "git": {
+          "type": "boolean"
+        },
+        "terminal": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "status",
+        "roots",
+        "git",
+        "terminal"
+      ],
+      "additionalProperties": false
+    },
+    "WorkspaceInfoRequest": {
+      "x-module": "protocol-workspace",
+      "$id": "#/$defs/WorkspaceInfoRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "workspace.info"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        }
+      },
+      "required": [
+        "type",
+        "requestId"
+      ],
+      "additionalProperties": false
+    },
+    "WorkspaceInfoResponse": {
+      "x-module": "protocol-workspace",
+      "$id": "#/$defs/WorkspaceInfoResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "workspace.info.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/WorkspaceInfoResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "WorkspaceInfoResult": {
+      "x-module": "workspace-files",
+      "$id": "#/$defs/WorkspaceInfoResult",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/WorkspaceInfo"
+        },
+        {
+          "$ref": "#/$defs/Rejected"
+        }
+      ]
     }
   }
 }

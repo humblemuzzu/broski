@@ -1,13 +1,10 @@
 /**
- * Project-scoped file and directory search, for `@` autocomplete.
- * Uses Bun's native filesystem APIs
- * with ripgrep for performance (falls back to Bun glob if rg not available).
+ * File and directory search by name within a project, for `fs.search`. The tree is listed with ripgrep when
+ * it is installed (it honours ignore files), else by walking it, and the listing is cached briefly.
  */
 
-import { realpathSync } from "node:fs";
-import { readdir, realpath, stat } from "node:fs/promises";
-import { homedir, tmpdir } from "node:os";
-import { dirname, join, parse as parsePath, sep } from "node:path";
+import { readdir } from "node:fs/promises";
+import { dirname, join, parse as parsePath } from "node:path";
 import ignore from "ignore";
 import { findBinary } from "../../platform";
 import { getCachedProject, setCachedProject } from "./file-search-cache";
@@ -31,6 +28,8 @@ export type FileSearchOptions = {
 
 const DEFAULT_LIMIT = 50;
 const MAX_SCAN_TIME_MS = 5000; // 5 seconds max for initial scan
+/** A home directory holds millions of files; a listing past this many is a partial one, like a slow scan's. */
+const MAX_SCANNED_FILES = 200_000;
 
 // Files/directories to always exclude
 const EXCLUDE_PATTERNS = [
@@ -54,37 +53,6 @@ const EXCLUDE_PATTERNS = [
 	".vscode",
 	"*.log",
 ];
-
-/** Searching is allowed within the home and the OS temp directory, compared as real paths (macOS's temp is a link). */
-const ALLOWED_BASE_PATHS = [homedir(), tmpdir()].map((base) => {
-	try {
-		return realpathSync(base);
-	} catch {
-		return base;
-	}
-});
-
-// =============================================================================
-// Security
-// =============================================================================
-
-async function isPathAllowed(requestedPath: string): Promise<boolean> {
-	try {
-		if (!requestedPath || typeof requestedPath !== "string") return false;
-		if (requestedPath.length > 4096) return false;
-		if (requestedPath.includes("\0")) return false;
-		if (/[\u0000-\u001F]/.test(requestedPath)) return false;
-
-		const expandedPath = requestedPath.startsWith("~") ? requestedPath.replace(/^~/, homedir()) : requestedPath;
-
-		const realPath = await realpath(expandedPath).catch(() => null);
-		if (!realPath) return false;
-
-		return ALLOWED_BASE_PATHS.some((base) => realPath === base || realPath.startsWith(base + sep));
-	} catch {
-		return false;
-	}
-}
 
 // =============================================================================
 // File Scanning
@@ -121,6 +89,8 @@ async function* scanWithRipgrep(rg: string, cwd: string): AsyncGenerator<string>
 
 		if (buffer) yield buffer;
 	} finally {
+		// A scan stopped early leaves ripgrep blocked on a full pipe; it is stopped rather than waited for.
+		proc.kill();
 		reader.releaseLock();
 		await proc.exited;
 	}
@@ -212,11 +182,7 @@ async function scanProject(cwd: string): Promise<{ files: string[]; dirs: string
 			dirsSet.add(dir);
 		}
 
-		// Prevent scanning for too long
-		if (Date.now() - startTime > MAX_SCAN_TIME_MS) {
-			console.log(`[file-search] Scan timeout after ${MAX_SCAN_TIME_MS}ms, returning partial results`);
-			break;
-		}
+		if (Date.now() - startTime > MAX_SCAN_TIME_MS || files.length >= MAX_SCANNED_FILES) break;
 	}
 
 	const dirs = Array.from(dirsSet).map((d) => `${d}/`);
@@ -300,71 +266,18 @@ function sortByFuzzyScore(items: string[], query: string): string[] {
 // =============================================================================
 
 /**
- * Search for files and directories in a project
- *
- * @param options Search options
- * @returns Array of matching file/directory paths (relative to cwd)
+ * Files and directories under `cwd` whose path relative to it matches `query`, best match first; a directory
+ * ends with `/`. `cwd` is a directory that has passed the path policy.
  */
 export async function searchFilesAndDirs(options: FileSearchOptions): Promise<FileSearchResult> {
-	const rawQuery = typeof options.query === "string" ? options.query : "";
-	const query = rawQuery.length > 256 ? rawQuery.slice(0, 256) : rawQuery;
-	const cwd = options.cwd;
-	const limit = Math.max(1, Math.min(Number(options.limit ?? DEFAULT_LIMIT), 200));
-	const includeDirs = options.includeDirs !== false;
-
-	// Security check
-	if (!cwd || !(await isPathAllowed(cwd))) {
-		console.error(`[file-search] Access denied or invalid path: ${cwd}`);
-		return [];
-	}
-
-	// Expand ~ if present
-	const expandedCwd = cwd.startsWith("~") ? cwd.replace(/^~/, homedir()) : cwd;
-
-	// Check if directory exists
-	try {
-		const stats = await stat(expandedCwd);
-		if (!stats.isDirectory()) {
-			console.error(`[file-search] Not a directory: ${expandedCwd}`);
-			return [];
-		}
-	} catch {
-		console.error(`[file-search] Directory not found: ${expandedCwd}`);
-		return [];
-	}
-
-	// Try cache first
-	let cached = getCachedProject(expandedCwd);
-
+	const { query, cwd } = options;
+	const limit = options.limit ?? DEFAULT_LIMIT;
+	let cached = getCachedProject(cwd);
 	if (!cached) {
-		// Scan project (this happens in background after first request)
-		const { files, dirs } = await scanProject(expandedCwd);
-		setCachedProject(expandedCwd, files, dirs);
+		const { files, dirs } = await scanProject(cwd);
+		setCachedProject(cwd, files, dirs);
 		cached = { files, dirs, fetchedAt: Date.now() };
-
-		// Trigger background refresh for next time
-		setTimeout(() => {
-			scanProject(expandedCwd)
-				.then(({ files, dirs }) => {
-					setCachedProject(expandedCwd, files, dirs);
-				})
-				.catch(() => {});
-		}, 100);
 	}
-
-	// Combine files and dirs based on option
-	const allItems = includeDirs ? [...cached.files, ...cached.dirs] : cached.files;
-
-	// If no query, return sorted dirs first then files
-	if (!query) {
-		const sorted = includeDirs
-			? [...cached.dirs.sort(), ...cached.files.slice(0, limit - cached.dirs.length)]
-			: cached.files.slice(0, limit);
-		return sorted.slice(0, limit);
-	}
-
-	// Fuzzy search
-	const results = sortByFuzzyScore(allItems, query);
-
-	return results.slice(0, limit);
+	const allItems = options.includeDirs === false ? cached.files : [...cached.files, ...cached.dirs];
+	return sortByFuzzyScore(allItems, query).slice(0, limit);
 }

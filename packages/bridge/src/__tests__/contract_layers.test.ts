@@ -183,7 +183,7 @@ describe("the layer check", () => {
 
 	test("stops the core importing the workspace, the logger, adapters, the server or the contract's test kit", () => {
 		const source = [
-			'import { x } from "../workspace/files/file-ops";',
+			'import { x } from "../workspace/workspace-host";',
 			'import { y } from "../logging/logger";',
 			'import { z } from "../security";',
 			'import { a } from "../backends/claude-code/index";',
@@ -196,7 +196,7 @@ describe("the layer check", () => {
 		].join("\n");
 		const outside = "is neither the core, the contract nor the core's infrastructure";
 		expect(check("core/hub.ts", source)).toEqual([
-			`core/hub.ts: ../workspace/files/file-ops ${outside}`,
+			`core/hub.ts: ../workspace/workspace-host ${outside}`,
 			`core/hub.ts: ../logging/logger ${outside}`,
 			`core/hub.ts: ../security ${outside}`,
 			`core/hub.ts: ../backends/claude-code/index ${outside}`,

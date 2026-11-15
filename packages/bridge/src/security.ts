@@ -51,26 +51,29 @@ function isSecureBasePath(realPath: string): boolean {
 	return SECURITY_ALLOWED_BASE_PATHS.some((base) => realPath === base || realPath.startsWith(base + sep));
 }
 
+/** The bases every served path must lie in, each in both spellings (`expandAllowedBasePaths`), home first. */
+export function allowedBasePaths(): readonly string[] {
+	return SECURITY_ALLOWED_BASE_PATHS;
+}
+
+/** A path the policy allows, canonical, or why it refuses it: `outside` the bases (or a link leading out of them). */
+export type SecurePath = { readonly path: string } | { readonly refused: "invalid" | "outside" | "missing" };
+
+export async function resolveSecurePath(requestedPath: string): Promise<SecurePath> {
+	if (!requestedPath || requestedPath.length > 4096) return { refused: "invalid" };
+	// NUL would cut the path short where the OS reads it; the other control characters confuse what shows it.
+	if (/[\u0000-\u001F]/.test(requestedPath)) return { refused: "invalid" };
+
+	const expandedPath = requestedPath.startsWith("~") ? requestedPath.replace(/^~/, homedir()) : requestedPath;
+	const abs = resolve(expandedPath);
+	if (!isSecureBasePath(abs)) return { refused: "outside" };
+
+	const rp = await realpath(abs).catch(() => null);
+	if (!rp) return { refused: "missing" };
+	return isSecureBasePath(rp) ? { path: rp } : { refused: "outside" };
+}
+
 export async function getSecurePath(requestedPath: string): Promise<string | null> {
-	try {
-		if (!requestedPath || typeof requestedPath !== "string") return null;
-		if (requestedPath.length > 4096) return null;
-		if (requestedPath.includes("\0")) return null;
-		// Reject ASCII control chars (helps avoid odd filesystem edge cases).
-		if (/[\u0000-\u001F]/.test(requestedPath)) return null;
-
-		const expandedPath = requestedPath.startsWith("~") ? requestedPath.replace(/^~/, homedir()) : requestedPath;
-
-		const abs = resolve(expandedPath);
-		// Check the logical path (pre-symlink resolution) is within allowed bases.
-		if (!isSecureBasePath(abs)) return null;
-
-		const rp = await realpath(abs).catch(() => null);
-		if (!rp) return null;
-
-		// Check the real path (post-symlink resolution) is still within allowed bases.
-		return isSecureBasePath(rp) ? rp : null;
-	} catch {
-		return null;
-	}
+	const secure = await resolveSecurePath(requestedPath);
+	return "path" in secure ? secure.path : null;
 }

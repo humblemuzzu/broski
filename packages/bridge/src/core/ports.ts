@@ -1,4 +1,25 @@
-import type { ClientRequestId, PromptAccepted, SessionRef, StreamEpoch } from "../contract";
+import type {
+	ActionResult,
+	ClientMessage,
+	ClientRequestId,
+	FsListResult,
+	FsReadResult,
+	FsSearchResult,
+	GitBranchesResult,
+	GitCheckoutResult,
+	GitCommitResult,
+	GitDiffResult,
+	GitLogResult,
+	GitStatusResult,
+	PromptAccepted,
+	SessionRef,
+	StreamEpoch,
+	TermAttachResult,
+	TerminalEvent,
+	TermListResult,
+	TermOpenResult,
+	WorkspaceInfoResult,
+} from "../contract";
 
 /** Where the frames for one client go. `send` never throws: a frame for a client that has gone is dropped. */
 export interface ClientLink {
@@ -41,6 +62,54 @@ export interface ReplacementRecord {
 	/** When the stream ended, in the core clock's milliseconds. */
 	readonly at: number;
 }
+
+/** A workspace request's fields, as the client sent them. */
+export type WorkspaceQuery<T extends ClientMessage["type"]> = Omit<
+	Extract<ClientMessage, { type: T }>,
+	"type" | "requestId"
+>;
+
+/**
+ * The machine's files, git and terminals, which the bridge serves itself, not an agent backend. Every method
+ * answers a value (`Rejected` for what it could not do) and checks every path against the bridge's path policy.
+ * A `limit` or `budget` argument is the size the answer may take, which the core lowers from the request's own
+ * when an answer does not fit the link.
+ */
+export interface WorkspaceHost {
+	info(): Promise<WorkspaceInfoResult>;
+	readonly files: {
+		list(query: WorkspaceQuery<"fs.list">, limit: number): Promise<FsListResult>;
+		read(query: WorkspaceQuery<"fs.read">, length: number): Promise<FsReadResult>;
+		search(query: WorkspaceQuery<"fs.search">, limit: number): Promise<FsSearchResult>;
+	};
+	readonly git: {
+		status(query: WorkspaceQuery<"git.status">, limit: number): Promise<GitStatusResult>;
+		/** `budget`: characters of line text. */
+		diff(query: WorkspaceQuery<"git.diff">, budget: number): Promise<GitDiffResult>;
+		stage(query: WorkspaceQuery<"git.stage">): Promise<ActionResult>;
+		unstage(query: WorkspaceQuery<"git.unstage">): Promise<ActionResult>;
+		commit(query: WorkspaceQuery<"git.commit">): Promise<GitCommitResult>;
+		branches(query: WorkspaceQuery<"git.branches">, limit: number): Promise<GitBranchesResult>;
+		checkout(query: WorkspaceQuery<"git.checkout">): Promise<GitCheckoutResult>;
+		log(query: WorkspaceQuery<"git.log">, limit: number): Promise<GitLogResult>;
+	};
+	readonly terminals: {
+		list(): Promise<TermListResult>;
+		open(query: WorkspaceQuery<"term.open">): Promise<TermOpenResult>;
+		/** Synchronous, like `input` and `resize`: nothing the terminal prints falls between the replay and the core's next output. */
+		attach(query: WorkspaceQuery<"term.attach">): TermAttachResult;
+		input(query: WorkspaceQuery<"term.input">): ActionResult;
+		resize(query: WorkspaceQuery<"term.resize">): ActionResult;
+		close(query: WorkspaceQuery<"term.close">): Promise<ActionResult>;
+	};
+	/** Bridge shutdown: every terminal ends. */
+	dispose(): Promise<void>;
+}
+
+/** Where the workspace's terminals send their output and exits; it never throws. */
+export type TerminalSink = (event: TerminalEvent) => void;
+
+export type WorkspaceFactory = (sink: TerminalSink) => WorkspaceHost;
 
 /** Durable memory of replaced streams, like the prompt journal: both methods handle their own I/O failures. */
 export interface ReplacementJournal {

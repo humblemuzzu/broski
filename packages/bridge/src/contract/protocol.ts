@@ -8,6 +8,47 @@ import { InteractionAnswer } from "./interaction-replies";
 import { MAX_ID_CHARS, MAX_NAME_CHARS, MAX_TEXT_CHARS } from "./limits";
 import { ModeAxisId } from "./modes";
 import { PageRequest } from "./paging";
+import { RequestId, request, response } from "./protocol-request";
+import {
+	FsListRequest,
+	FsListResponse,
+	FsReadRequest,
+	FsReadResponse,
+	FsSearchRequest,
+	FsSearchResponse,
+	GitBranchesRequest,
+	GitBranchesResponse,
+	GitCheckoutRequest,
+	GitCheckoutResponse,
+	GitCommitRequest,
+	GitCommitResponse,
+	GitDiffRequest,
+	GitDiffResponse,
+	GitLogRequest,
+	GitLogResponse,
+	GitStageRequest,
+	GitStageResponse,
+	GitStatusRequest,
+	GitStatusResponse,
+	GitUnstageRequest,
+	GitUnstageResponse,
+	TermAttachRequest,
+	TermAttachResponse,
+	TermCloseRequest,
+	TermCloseResponse,
+	TermDetachRequest,
+	TermDetachResponse,
+	TermInputRequest,
+	TermInputResponse,
+	TermListRequest,
+	TermListResponse,
+	TermOpenRequest,
+	TermOpenResponse,
+	TermResizeRequest,
+	TermResizeResponse,
+	WorkspaceInfoRequest,
+	WorkspaceInfoResponse,
+} from "./protocol-workspace";
 import {
 	AttachmentReadResult,
 	CommandsListResult,
@@ -20,6 +61,9 @@ import {
 import { ForkPoint, NewSessionOptions, NewSessionResult, SessionQuery, WorkingDirectory } from "./sessions";
 import { SessionSnapshot } from "./snapshot";
 import { BackendStatus } from "./status";
+import { TermExitedMessage, TermOutputMessage } from "./workspace-terminal";
+
+export { RequestId };
 
 /**
  * Bridge and app talk only when `major` is equal. A change the other side cannot ignore bumps `major`; until a
@@ -29,10 +73,6 @@ export const PROTOCOL_VERSION = { major: 1, minor: 0 } as const;
 
 export const ProtocolVersion = z.strictObject({ major: z.int().nonnegative(), minor: z.int().nonnegative() });
 export type ProtocolVersion = z.infer<typeof ProtocolVersion>;
-
-/** Chosen by the client; the response carries it back. */
-export const RequestId = z.string().min(1).max(128);
-export type RequestId = z.infer<typeof RequestId>;
 
 export const ClientInfo = z.strictObject({
 	name: z.string().min(1).max(MAX_NAME_CHARS),
@@ -81,14 +121,6 @@ export type ReplacedSync = z.infer<typeof ReplacedSync>;
 
 export const AttachSync = z.discriminatedUnion("kind", [ReplaySync, SnapshotSync, ReplacedSync]);
 export type AttachSync = z.infer<typeof AttachSync>;
-
-function request<T extends string, S extends z.ZodRawShape>(type: T, shape: S) {
-	return z.strictObject({ type: z.literal(type), requestId: RequestId, ...shape });
-}
-
-function response<T extends string, S extends z.ZodRawShape>(type: T, shape: S) {
-	return z.strictObject({ type: z.literal(`${type}.result`), requestId: RequestId, ...shape });
-}
 
 export const HelloRequest = request("hello", { protocol: ProtocolVersion, client: ClientInfo });
 export const BackendsListRequest = request("backends.list", {});
@@ -172,6 +204,25 @@ export const ClientMessage = z.discriminatedUnion("type", [
 	ThinkingSetRequest,
 	ModeSetRequest,
 	CompactRequest,
+	WorkspaceInfoRequest,
+	FsListRequest,
+	FsReadRequest,
+	FsSearchRequest,
+	GitStatusRequest,
+	GitDiffRequest,
+	GitStageRequest,
+	GitUnstageRequest,
+	GitCommitRequest,
+	GitBranchesRequest,
+	GitCheckoutRequest,
+	GitLogRequest,
+	TermListRequest,
+	TermOpenRequest,
+	TermAttachRequest,
+	TermDetachRequest,
+	TermInputRequest,
+	TermResizeRequest,
+	TermCloseRequest,
 ]);
 export type ClientMessage = z.infer<typeof ClientMessage>;
 
@@ -265,9 +316,30 @@ export const ServerMessage = z.discriminatedUnion("type", [
 	ThinkingSetResponse,
 	ModeSetResponse,
 	CompactResponse,
+	WorkspaceInfoResponse,
+	FsListResponse,
+	FsReadResponse,
+	FsSearchResponse,
+	GitStatusResponse,
+	GitDiffResponse,
+	GitStageResponse,
+	GitUnstageResponse,
+	GitCommitResponse,
+	GitBranchesResponse,
+	GitCheckoutResponse,
+	GitLogResponse,
+	TermListResponse,
+	TermOpenResponse,
+	TermAttachResponse,
+	TermDetachResponse,
+	TermInputResponse,
+	TermResizeResponse,
+	TermCloseResponse,
 	ErrorResponse,
 	EventMessage,
 	CatalogMessage,
+	TermOutputMessage,
+	TermExitedMessage,
 ]);
 export type ServerMessage = z.infer<typeof ServerMessage>;
 

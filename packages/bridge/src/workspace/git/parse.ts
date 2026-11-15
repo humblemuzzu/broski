@@ -1,149 +1,146 @@
-import type { GitBranch, GitChangeStatus, GitFileChange, GitLogEntry, GitStatusResult } from "./types";
+import type { GitBranch, GitChange, GitCommit, GitFileChange, GitUpstream } from "../../contract";
 
-export const LOG_FORMAT = "--format=%H%x1f%h%x1f%an%x1f%ae%x1f%at%x1f%s%x1e";
-export const BRANCH_FORMAT = "--format=%(refname)|%(refname:short)|%(upstream:short)|%(upstream:track)|%(HEAD)";
+export const LOG_FORMAT = "--format=%H%x1f%an%x1f%at%x1f%s%x1e";
+export const REF_FORMAT =
+	"--format=%(refname)%00%(refname:short)%00%(upstream:short)%00%(upstream:track,nobracket)%00%(HEAD)%00%(symref)";
 
-function normalizeStatusChar(char: string): GitChangeStatus {
-	switch (char.toUpperCase()) {
+/** `git status --porcelain=v2 --branch -z`, before the line counts are added. */
+export interface ParsedStatus {
+	branch?: string;
+	head?: string;
+	upstream?: GitUpstream;
+	readonly staged: GitFileChange[];
+	readonly unstaged: GitFileChange[];
+	readonly untracked: string[];
+}
+
+/** A change letter of porcelain v2's `XY` field; `.` is no change. */
+function changeOf(letter: string): GitChange | undefined {
+	switch (letter) {
 		case "A":
 			return "added";
+		case "M":
+			return "modified";
 		case "D":
 			return "deleted";
 		case "R":
 			return "renamed";
 		case "C":
 			return "copied";
+		case "T":
+			return "type_changed";
 		default:
-			return "modified";
+			return undefined;
 	}
 }
 
-/** `git status --porcelain=v2 --branch` output. */
-export function parseGitStatus(stdout: string): GitStatusResult {
-	const staged: GitFileChange[] = [];
-	const unstaged: GitFileChange[] = [];
-	const untracked: string[] = [];
-
-	let branch = "";
-	let upstream: string | null = null;
-	let ahead = 0;
-	let behind = 0;
-
-	for (const rawLine of stdout.split(/\r?\n/)) {
-		const line = rawLine.trimEnd();
-		if (!line) continue;
-
-		if (line.startsWith("# branch.head ")) {
-			const head = line.slice("# branch.head ".length).trim();
-			branch = head === "(detached)" ? "detached" : head;
-			continue;
+/**
+ * Fields are split on single spaces up to the path, which is the rest of the record: paths keep their spaces.
+ * A rename or copy (`2`) is followed by a record holding the path it came from.
+ */
+export function parseStatus(stdout: string): ParsedStatus {
+	const parsed: ParsedStatus = { staged: [], unstaged: [], untracked: [] };
+	const records = stdout.split("\0");
+	for (let index = 0; index < records.length; index += 1) {
+		const record = records[index] ?? "";
+		if (record.startsWith("# ")) readHeader(parsed, record.slice(2));
+		else if (record.startsWith("? ")) parsed.untracked.push(record.slice(2));
+		else if (record.startsWith("u "))
+			parsed.unstaged.push({ path: fieldsAndPath(record, 10).path, change: "conflicted" });
+		else if (record.startsWith("1 ")) addChange(parsed, fieldsAndPath(record, 8));
+		else if (record.startsWith("2 ")) {
+			index += 1;
+			addChange(parsed, fieldsAndPath(record, 9), records[index]);
 		}
-
-		if (line.startsWith("# branch.upstream ")) {
-			const up = line.slice("# branch.upstream ".length).trim();
-			upstream = up || null;
-			continue;
-		}
-
-		if (line.startsWith("# branch.ab ")) {
-			const match = line.match(/\+(\d+)\s+-(\d+)/);
-			if (match) {
-				ahead = Number(match[1] || "0") || 0;
-				behind = Number(match[2] || "0") || 0;
-			}
-			continue;
-		}
-
-		if (line.startsWith("? ")) {
-			const path = line.slice(2).trim();
-			if (path) untracked.push(path);
-			continue;
-		}
-
-		if (!line.startsWith("1 ") && !line.startsWith("2 ")) continue;
-
-		const kind = line[0];
-		const xy = line.slice(2, 4);
-		const x = xy[0] ?? " ";
-		const y = xy[1] ?? " ";
-
-		let path = "";
-		let oldPath: string | undefined;
-
-		if (kind === "2") {
-			const [left, right] = line.split("\t");
-			const leftParts = (left ?? "").trim().split(/\s+/);
-			path = leftParts[leftParts.length - 1] || "";
-			oldPath = right?.trim() || undefined;
-		} else {
-			const parts = line.trim().split(/\s+/);
-			path = parts[parts.length - 1] || "";
-		}
-
-		if (!path) continue;
-		const status = normalizeStatusChar(x !== "." && x !== " " ? x : y);
-		const change = { path, status, ...(oldPath ? { oldPath } : {}) };
-
-		if (x !== "." && x !== " ") staged.push(change);
-		if (y !== "." && y !== " ") unstaged.push(change);
 	}
+	return parsed;
+}
 
-	return {
-		branch,
-		upstream,
-		ahead,
-		behind,
-		staged,
-		unstaged,
-		untracked,
-	};
+function readHeader(parsed: ParsedStatus, header: string): void {
+	const [key = "", value = ""] = splitOnce(header, " ");
+	if (key === "branch.oid" && value !== "(initial)") parsed.head = value;
+	else if (key === "branch.head" && value !== "(detached)") parsed.branch = value;
+	else if (key === "branch.upstream") parsed.upstream = { name: value, ahead: 0, behind: 0 };
+	else if (key === "branch.ab" && parsed.upstream) {
+		const match = /^\+(\d+) -(\d+)$/.exec(value);
+		if (match) parsed.upstream = { ...parsed.upstream, ahead: Number(match[1]), behind: Number(match[2]) };
+	}
+}
+
+function addChange(parsed: ParsedStatus, record: { fields: string[]; path: string }, previousPath?: string): void {
+	const xy = record.fields[1] ?? "..";
+	const from = previousPath ? { previousPath } : {};
+	const staged = changeOf(xy.charAt(0));
+	const unstaged = changeOf(xy.charAt(1));
+	if (staged) parsed.staged.push({ path: record.path, ...from, change: staged });
+	if (unstaged) parsed.unstaged.push({ path: record.path, ...(unstaged === "renamed" ? from : {}), change: unstaged });
+}
+
+/** The first `count` space-separated fields of a record, and the path after them. */
+function fieldsAndPath(record: string, count: number): { fields: string[]; path: string } {
+	const fields: string[] = [];
+	let rest = record;
+	for (let field = 0; field < count; field += 1) {
+		const [head = "", tail = ""] = splitOnce(rest, " ");
+		fields.push(head);
+		rest = tail;
+	}
+	return { fields, path: rest };
+}
+
+function splitOnce(text: string, separator: string): [string, string] {
+	const at = text.indexOf(separator);
+	return at < 0 ? [text, ""] : [text.slice(0, at), text.slice(at + separator.length)];
+}
+
+export type LineCounts = { additions: number; deletions: number };
+
+/** Line counts by path from `git diff --numstat -z`; a binary file (`-`) has none. A rename is keyed by its new path. */
+export function parseNumstat(stdout: string): Map<string, LineCounts | undefined> {
+	const counts = new Map<string, LineCounts | undefined>();
+	const records = stdout.split("\0");
+	for (let index = 0; index < records.length; index += 1) {
+		const [additions = "", deletions = "", named = ""] = (records[index] ?? "").split("\t");
+		if (!additions) continue;
+		let path = named;
+		if (!path) {
+			index += 2;
+			path = records[index] ?? "";
+		}
+		counts.set(path, additions === "-" ? undefined : { additions: Number(additions), deletions: Number(deletions) });
+	}
+	return counts;
 }
 
 /** `git log` with `LOG_FORMAT`: fields split by U+001F, entries by U+001E. */
-export function parseGitLog(stdout: string): GitLogEntry[] {
-	const entries: GitLogEntry[] = [];
-
-	for (const chunk of stdout.split("\x1e")) {
-		const row = chunk.trim();
-		if (!row) continue;
-		const cols = row.split("\x1f");
-		if (cols.length < 6) continue;
-		entries.push({
-			hash: cols[0] || "",
-			shortHash: cols[1] || "",
-			author: cols[2] || "",
-			email: cols[3] || "",
-			timestamp: Number(cols[4] || "0") || 0,
-			subject: cols.slice(5).join("\x1f"),
-		});
-	}
-
-	return entries;
+export function parseLog(stdout: string): GitCommit[] {
+	return stdout.split("\x1e").flatMap((chunk) => {
+		const [hash = "", author = "", at = "", ...subject] = chunk.replace(/^\n/, "").split("\x1f");
+		return hash ? [{ hash, author, authoredAt: Number(at) * 1000, subject: subject.join("\x1f") }] : [];
+	});
 }
 
-/** `git branch -a` with `BRANCH_FORMAT`. */
-export function parseGitBranches(stdout: string): GitBranch[] {
-	const out: GitBranch[] = [];
+/**
+ * `git for-each-ref` with `REF_FORMAT`, one ref a line, fields split by NUL. The plumbing command's tracking
+ * words are never translated, unlike `git branch`'s. Symbolic refs such as `origin/HEAD` are left out.
+ */
+export function parseRefs(stdout: string): GitBranch[] {
+	return stdout.split("\n").flatMap((line): GitBranch[] => {
+		const [ref = "", name = "", upstream = "", track = "", head = "", symref = ""] = line.split("\0");
+		if (!name || symref) return [];
+		return [
+			{
+				name,
+				remote: ref.startsWith("refs/remotes/"),
+				current: head === "*",
+				...(upstream && { upstream: { name: upstream, ...tracking(track) } }),
+			},
+		];
+	});
+}
 
-	for (const rawLine of stdout.split(/\r?\n/)) {
-		const line = rawLine.trim();
-		if (!line) continue;
-		const [fullRef, shortRef, upstream, tracking, head] = line.split("|");
-		const full = (fullRef || "").trim();
-		const short = (shortRef || "").trim();
-		if (!short) continue;
-
-		const isRemote = full.startsWith("refs/remotes/");
-		const cleanedName = isRemote && short.startsWith("remotes/") ? short.slice("remotes/".length) : short;
-
-		out.push({
-			name: cleanedName,
-			upstream: (upstream || "").trim() || null,
-			tracking: (tracking || "").trim() || null,
-			isCurrent: (head || "").trim() === "*",
-			isRemote,
-		});
-	}
-
-	return out;
+function tracking(track: string): { ahead: number; behind: number } {
+	const ahead = /ahead (\d+)/.exec(track);
+	const behind = /behind (\d+)/.exec(track);
+	return { ahead: ahead ? Number(ahead[1]) : 0, behind: behind ? Number(behind[1]) : 0 };
 }

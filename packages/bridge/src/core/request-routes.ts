@@ -2,6 +2,7 @@ import type { ClientMessage, ServerMessage } from "../contract";
 import { interactionAnswer } from "./answering";
 import type { CoreClient } from "./client";
 import type { CoreContext } from "./context";
+import type { ViewedType } from "./controlled";
 import {
 	backendStatus,
 	backendsList,
@@ -31,6 +32,7 @@ import {
 	sessionRename,
 	transcriptRead,
 } from "./requests-sessions";
+import { routeWorkspaceRequest, type WorkspaceMessage } from "./workspace-routes";
 
 /** Every request of `protocol.ts` to its handler; a request type without one does not compile. */
 export function routeRequest(
@@ -72,6 +74,19 @@ export function routeRequest(
 			return transcriptRead(ctx, client, request, respond);
 		case "attachment.read":
 			return attachmentRead(ctx, client, request, respond);
+		default:
+			return routeSessionRequest(ctx, client, request, respond);
+	}
+}
+
+/** The requests that act on a session a client views (`controlled.ts`, `answering.ts`); then the workspace's. */
+function routeSessionRequest(
+	ctx: CoreContext,
+	client: CoreClient,
+	request: Extract<ClientMessage, { type: ViewedType }> | WorkspaceMessage,
+	respond: (message: ServerMessage) => boolean,
+): Promise<void> {
+	switch (request.type) {
 		case "prompt":
 			return prompt(ctx, client, request, respond);
 		case "abort":
@@ -88,5 +103,7 @@ export function routeRequest(
 			return modeSet(ctx, client, request, respond);
 		case "compact":
 			return compact(ctx, client, request, respond);
+		default:
+			return routeWorkspaceRequest(ctx, client, request, respond);
 	}
 }

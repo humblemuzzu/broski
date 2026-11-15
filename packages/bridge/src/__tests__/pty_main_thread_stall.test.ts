@@ -5,18 +5,18 @@
  * pass on any reader that leaves the waiting to the runtime.
  */
 
-import { afterAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-	isNativePtyAvailable,
 	type NativePtyConnection,
 	nativeConnectPty,
 	nativeCreatePty,
 	nativeDeletePty,
 	nativeGetPty,
 } from "../workspace/pty/native-pty";
+import { ensureNativePtyLibrary } from "./helpers/native-pty-library";
 
 const STALL_SAMPLES = 50;
 const WRITE_STALL_BYTES = 4 * 1024 * 1024;
@@ -29,6 +29,12 @@ const IDLE_COMMAND = { command: "sleep", args: ["30"] };
 
 const createdIds: string[] = [];
 const tempDirs: string[] = [];
+
+const encoder = new TextEncoder();
+
+beforeAll(() => {
+	ensureNativePtyLibrary();
+});
 
 afterAll(async () => {
 	for (const id of createdIds) await nativeDeletePty(id).catch(() => {});
@@ -89,11 +95,6 @@ describe("native PTY reader does not block the JS thread", () => {
 	test(
 		"an idle session leaves the event loop alone",
 		async () => {
-			if (!isNativePtyAvailable()) {
-				expect(isNativePtyAvailable()).toBe(false);
-				return;
-			}
-
 			const connections = await openIdleSessions(1);
 			try {
 				expect(connections.length).toBe(1);
@@ -112,11 +113,6 @@ describe("native PTY reader does not block the JS thread", () => {
 	test(
 		"three idle sessions leave the event loop alone",
 		async () => {
-			if (!isNativePtyAvailable()) {
-				expect(isNativePtyAvailable()).toBe(false);
-				return;
-			}
-
 			const connections = await openIdleSessions(3);
 			try {
 				expect(connections.length).toBe(3);
@@ -135,11 +131,6 @@ describe("native PTY reader does not block the JS thread", () => {
 	test(
 		"a large write does not hold the JS thread",
 		async () => {
-			if (!isNativePtyAvailable()) {
-				expect(isNativePtyAvailable()).toBe(false);
-				return;
-			}
-
 			const script = await makeChildScript("cat > /dev/null\n");
 			const session = await nativeCreatePty({ command: script });
 			expect(session).toBeTruthy();
@@ -152,7 +143,7 @@ describe("native PTY reader does not block the JS thread", () => {
 
 			try {
 				await Bun.sleep(200);
-				connection.write("a".repeat(WRITE_STALL_BYTES));
+				connection.write(encoder.encode("a".repeat(WRITE_STALL_BYTES)));
 				const latencies = await measureYieldLatency(STALL_SAMPLES);
 				const p99 = percentile(latencies, 0.99);
 				console.log(`[pty] yield during a 4 MiB write p99 ${round(p99)} ms (max ${round(Math.max(...latencies))})`);
@@ -168,11 +159,6 @@ describe("native PTY reader does not block the JS thread", () => {
 	test(
 		"child output reaches the callback quickly",
 		async () => {
-			if (!isNativePtyAvailable()) {
-				expect(isNativePtyAvailable()).toBe(false);
-				return;
-			}
-
 			const script = await makeChildScript('while IFS= read -r line; do printf "ACK:%s\\n" "$line"; done\n');
 			const session = await nativeCreatePty({ command: script });
 			expect(session).toBeTruthy();
@@ -185,8 +171,9 @@ describe("native PTY reader does not block the JS thread", () => {
 
 			const pending = new Map<string, number>();
 			const latencies: number[] = [];
+			const decoder = new TextDecoder();
 			connection.onData((data) => {
-				for (const line of data.split("\n")) {
+				for (const line of decoder.decode(data, { stream: true }).split("\n")) {
 					const match = /^ACK:ping-(\d+)/.exec(line.trim());
 					if (!match?.[1]) continue;
 					const sentAt = pending.get(match[1]);
@@ -201,7 +188,7 @@ describe("native PTY reader does not block the JS thread", () => {
 				for (let i = 0; i < ECHO_SAMPLES; i++) {
 					const key = String(i);
 					pending.set(key, performance.now());
-					connection.write(`ping-${key}\n`);
+					connection.write(encoder.encode(`ping-${key}\n`));
 					const deadline = Date.now() + 2000;
 					while (pending.has(key) && Date.now() < deadline) await Bun.sleep(1);
 					expect(pending.has(key)).toBe(false);

@@ -1,13 +1,13 @@
 /** The `TerminalWatch` `backend.ts` builds (D28): a session another process writes opens watch-only, never resumed. */
 
 import { stat } from "node:fs/promises";
-import type { InteractionAnswer, OpenResult, SessionId, SessionRef, SessionSink } from "../../../contract";
+import type { InteractionAnswer, OpenSession, SessionId, SessionRef } from "../../../contract";
 import type { TerminalDeps } from "../ports/deps";
-import type { StoredSession } from "../ports/store";
 import type { TerminalWatch } from "../ports/terminal";
 import { CLOSED, isRejected, rejected } from "../rejections";
 import { createHookAsks } from "./hook-asks";
 import { TerminalSessions } from "./terminal-sessions";
+import type { WatchedSession } from "./watch-session";
 
 /** A file written this recently, by a process this bridge does not host, belongs to a terminal (D28). */
 const WRITING_MS = 10_000;
@@ -22,70 +22,95 @@ export function createTerminalWatch(deps: TerminalDeps): TerminalWatch {
 	/** Only a bridge that installed the ask hook (the server gave `hookAsks`) has asks here to answer. */
 	const takesAsks = services.terminal.hookAsks !== undefined;
 	const sessions = new TerminalSessions(services.clock);
-	const paths = new Map<SessionId, string>();
-
-	async function pathOf(sessionId: SessionId): Promise<string | undefined> {
-		const known = paths.get(sessionId);
-		if (known !== undefined) return known;
-		const stored = await deps.locate(sessionId).catch(() => undefined);
-		if (stored === undefined || isRejected(stored)) return undefined;
-		remember(sessionId, stored.path);
-		return stored.path;
-	}
-
-	function remember(sessionId: SessionId, path: string): void {
-		if (paths.size >= MAX_KNOWN_PATHS) paths.clear();
-		paths.set(sessionId, path);
-	}
-
-	async function writing(sessionId: SessionId): Promise<boolean> {
-		if (deps.hosted(sessionId)) return false;
-		if (sessions.isAsked(sessionId)) return true;
-		const path = await pathOf(sessionId);
-		if (path === undefined) return false;
-		try {
-			const written = (await stat(path)).mtimeMs;
-			const own = deps.ownWriteAt(sessionId);
-			if (own !== undefined && written <= own + OWN_FLUSH_MS) return false;
-			return services.clock.now() - written <= WRITING_MS;
-		} catch {
-			paths.delete(sessionId);
-			return false;
-		}
-	}
-
-	async function openWatchOnly(ref: SessionRef, stored: StoredSession, sink: SessionSink): Promise<OpenResult> {
-		remember(stored.sessionId, stored.path);
-		const session = await sessions.acquire(ref.sessionId, stored.path, sink).catch(() => undefined);
-		if (session === undefined) return rejected("backend_error", "the terminal session could not be followed");
-		let closed = false;
-		return {
-			status: "accepted",
-			snapshot: session.live.snapshot(),
-			session: {
-				session: ref,
-				snapshot: () => session.live.snapshot(),
-				...(takesAsks && {
-					answer: async (answer: InteractionAnswer) => (closed ? CLOSED : session.desk.answer(answer)),
-				}),
-				close: async () => {
-					if (closed) return;
-					closed = true;
-					sessions.release(ref.sessionId, sink);
-				},
-			},
-		};
-	}
-
+	const paths = new TranscriptPaths(deps.locate);
 	return {
-		writing,
-		openWatchOnly,
+		writing: (sessionId) => writing(deps, sessions, paths, sessionId),
+		openWatchOnly: async (ref, stored, sink) => {
+			paths.remember(stored.sessionId, stored.path);
+			const session = await sessions.acquire(ref.sessionId, stored.path, sink).catch(() => undefined);
+			if (session === undefined) return rejected("backend_error", "the terminal session could not be followed");
+			const open = watchOnlySession(ref, session, takesAsks, () => sessions.release(ref.sessionId, sink));
+			return { status: "accepted", snapshot: session.live.snapshot(), session: open };
+		},
 		start: async () => {
 			services.terminal.hookAsks?.(createHookAsks({ sessions, hosted: deps.hosted }));
 		},
 		dispose: async () => {
 			sessions.dispose();
 			paths.clear();
+		},
+	};
+}
+
+/** Where each session's transcript lies, looked up once and remembered, a bounded number of them. */
+class TranscriptPaths {
+	private readonly paths = new Map<SessionId, string>();
+
+	constructor(private readonly locate: TerminalDeps["locate"]) {}
+
+	async of(sessionId: SessionId): Promise<string | undefined> {
+		const known = this.paths.get(sessionId);
+		if (known !== undefined) return known;
+		const stored = await this.locate(sessionId).catch(() => undefined);
+		if (stored === undefined || isRejected(stored)) return undefined;
+		this.remember(sessionId, stored.path);
+		return stored.path;
+	}
+
+	remember(sessionId: SessionId, path: string): void {
+		if (this.paths.size >= MAX_KNOWN_PATHS) this.paths.clear();
+		this.paths.set(sessionId, path);
+	}
+
+	forget(sessionId: SessionId): void {
+		this.paths.delete(sessionId);
+	}
+
+	clear(): void {
+		this.paths.clear();
+	}
+}
+
+/** Whether a terminal is writing the session now: it has an ask raised, or its file was written lately and not by us. */
+async function writing(
+	deps: TerminalDeps,
+	sessions: TerminalSessions,
+	paths: TranscriptPaths,
+	sessionId: SessionId,
+): Promise<boolean> {
+	if (deps.hosted(sessionId)) return false;
+	if (sessions.isAsked(sessionId)) return true;
+	const path = await paths.of(sessionId);
+	if (path === undefined) return false;
+	try {
+		const written = (await stat(path)).mtimeMs;
+		const own = deps.ownWriteAt(sessionId);
+		if (own !== undefined && written <= own + OWN_FLUSH_MS) return false;
+		return deps.services.clock.now() - written <= WRITING_MS;
+	} catch {
+		paths.forget(sessionId);
+		return false;
+	}
+}
+
+/** The `OpenSession` of a followed terminal session: no control, and `answer` only where the hook raises asks. */
+function watchOnlySession(
+	ref: SessionRef,
+	session: WatchedSession,
+	takesAsks: boolean,
+	release: () => void,
+): OpenSession {
+	let closed = false;
+	return {
+		session: ref,
+		snapshot: () => session.live.snapshot(),
+		...(takesAsks && {
+			answer: async (answer: InteractionAnswer) => (closed ? CLOSED : session.desk.answer(answer)),
+		}),
+		close: async () => {
+			if (closed) return;
+			closed = true;
+			release();
 		},
 	};
 }

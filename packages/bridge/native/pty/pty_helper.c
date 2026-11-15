@@ -23,21 +23,28 @@
 #include <poll.h>
 #include <unistd.h>
 
+extern char** environ;
+
 int pty_create(
     int* pid_out,
     char* slave_path_out,
     int slave_path_len,
     unsigned short initial_rows,
     unsigned short initial_cols,
+    unsigned short width_px,
+    unsigned short height_px,
     const char* shell,
     const char* cwd,
     const char* term_env,
-    const char* command
+    const char* command,
+    char* const* envp
 ) {
     struct winsize ws;
     memset(&ws, 0, sizeof(ws));
     ws.ws_row = initial_rows > 0 ? initial_rows : 24;
     ws.ws_col = initial_cols > 0 ? initial_cols : 80;
+    ws.ws_xpixel = width_px;
+    ws.ws_ypixel = height_px;
 
     char slave_name[256];
     int master_fd = -1;
@@ -47,6 +54,11 @@ int pty_create(
     }
 
     if (pid == 0) {
+        /* The caller's environment as its runtime holds it, which a runtime need not keep in the C one. */
+        if (envp) {
+            environ = (char**)envp;
+        }
+
         if (cwd && cwd[0] != '\0') {
             if (chdir(cwd) != 0) {
                 const char* home = getenv("HOME");
@@ -101,11 +113,13 @@ int pty_create(
     return master_fd;
 }
 
-int pty_resize(int master_fd, unsigned short rows, unsigned short cols) {
+int pty_resize(int master_fd, unsigned short rows, unsigned short cols, unsigned short width_px, unsigned short height_px) {
     struct winsize ws;
     memset(&ws, 0, sizeof(ws));
     ws.ws_row = rows;
     ws.ws_col = cols;
+    ws.ws_xpixel = width_px;
+    ws.ws_ypixel = height_px;
     return ioctl(master_fd, TIOCSWINSZ, &ws);
 }
 
@@ -138,8 +152,9 @@ int pty_waitpid(int pid) {
     pid_t result = waitpid((pid_t)pid, &status, WNOHANG);
     if (result == 0) return -1;
     if (result < 0) return -2;
+    /* An exit status is 0-255; a signal is told apart from it as 256 + its number. */
     if (WIFEXITED(status)) return WEXITSTATUS(status);
-    if (WIFSIGNALED(status)) return 128 + WTERMSIG(status);
+    if (WIFSIGNALED(status)) return 256 + WTERMSIG(status);
     return -2;
 }
 

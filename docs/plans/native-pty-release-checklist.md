@@ -42,14 +42,12 @@ For each platform output in `dist/`:
 Run from `packages/bridge/`:
 
 ```bash
-bun test src/__tests__/pty_runtime.test.ts
-bun test src/__tests__/native_pty.test.ts
-bun test src/__tests__/
+bun test src/__tests__/native_pty.test.ts src/__tests__/workspace_terminal.test.ts
+bun test
 ```
 
-Expected:
-- PTY tests pass (currently 7/7)
-- Full bridge suite passes (currently 198/198)
+Expected: the PTY and terminal tests pass (they build the helper from `native/pty/` when `dist/` has none), and so
+does the full bridge suite.
 
 ## 5) Runtime Smoke (on clean machine)
 

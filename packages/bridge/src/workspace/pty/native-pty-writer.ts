@@ -29,14 +29,13 @@ export type PtyWriterOptions = {
 };
 
 export type PtyWriter = {
-	write: (data: string) => void;
+	write: (data: Uint8Array) => void;
 };
 
 export function createPtyWriter(options: PtyWriterOptions): PtyWriter {
 	let queue: Promise<void> = Promise.resolve();
 
-	const writeAll = async (data: string): Promise<void> => {
-		const buffer = Buffer.from(data, "utf8");
+	const writeAll = async (buffer: Uint8Array): Promise<void> => {
 		let offset = 0;
 
 		while (offset < buffer.length) {
@@ -67,7 +66,7 @@ export function createPtyWriter(options: PtyWriterOptions): PtyWriter {
 
 	return {
 		write: (data) => {
-			if (!data) return;
+			if (data.length === 0) return;
 			queue = queue.then(() => writeAll(data));
 		},
 	};
