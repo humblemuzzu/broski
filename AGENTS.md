@@ -13,7 +13,7 @@ Phone (native app, Phase 4) ←Broski Link (Noise e2e; LAN or relay)→ broski-l
 The repository is mid-rebuild on branch `rebuild` (plan: [`docs/rebuild/PLAN.md`](docs/rebuild/PLAN.md)). The
 Flutter app is gone; the tree it lived in is preserved on branch `final-flutter` (`git show final-flutter:<path>`).
 Phase 1, the cut, is done: what is here is the bridge, the link stack, the shared phone core packaged for both
-native apps, and the iOS push code carried over for them.
+native apps, the iOS app's foundation (Phase 4.1), and the iOS push code carried over for it.
 
 - **Bridge** (`packages/bridge/`) — TypeScript on the user's machine. Hosts the agents through their SDKs and speaks
   the backend contract to the daemon over `~/.broski/link/bridge.sock`. Every socket upgrade must quote the key the
@@ -52,6 +52,11 @@ native apps, and the iOS push code carried over for them.
   `scripts/build-ios-core.sh` makes `apps/ios/BroskiCore` (XCFramework + Swift package) and
   `scripts/build-android-core.sh` the `apps/android` `:core` module; bindings and binaries are build outputs,
   never committed. Doc: [`docs/architecture/mobile-packaging.md`](docs/architecture/mobile-packaging.md).
+- **iOS app** (`apps/ios/Broski/`, XcodeGen `project.yml`; the `.xcodeproj` is a build output) — SwiftUI for
+  iOS 26, Swift 6 with main-actor default isolation, Liquid Glass. `Sources/App` (entry, tabs, `Route`),
+  `Sources/Core` (`AppModel` owning the `Phone`, keychain persistence, the inbox and machine pull loops, scene
+  phase, `NWPathMonitor`, `NWBrowser` LAN discovery), `Sources/DesignSystem`, `Sources/Features/*`, `Shared/`
+  (keychain code its extensions compile). Doc: [`apps/ios/README.md`](apps/ios/README.md).
 - **Carried-over iOS code** (`apps/ios/carryover/`, [`apps/carryover/README.md`](apps/carryover/README.md)) — the
   notification service extension, push crypto, keychain item and push action handling from the Flutter app, with
   the bundle ids, team, entitlements and keychain groups the native apps must keep.
@@ -157,9 +162,10 @@ packages/bridge/src/
   platform/ config/ doctor/ wizard/ commands/ lifecycle/ logging/  the CLI and service around the bridge
 packages/link/   the Rust link stack: crypto, proto, core, daemon, power, relay; contract (the phone core's models and reducer); session (the phone side of the link); client (the mobile core over it); testkit (the daemon, relay, LAN and bridge harness the phone crates' tests share); mobile (BroskiCore, the UniFFI facade); uniffi-bindgen
 apps/ios/BroskiCore/  the Swift package of BroskiCore (generated bindings + XCFramework, both from scripts/build-ios-core.sh)
+apps/ios/Broski/  the iOS app (project.yml, Sources/{App,Core,DesignSystem,Features}, Shared, Tests, UITests)
 apps/ios/carryover/  iOS push code kept for Phase 4
 apps/android/    the Gradle build: :core, BroskiCore's Android library (bindings + .so from scripts/build-android-core.sh)
-scripts/         build-ios-core.sh, build-android-core.sh, check-android-alignment.sh
+scripts/         build-ios-core.sh, build-ios-app.sh, e2e-ios-app.sh, build-android-core.sh, check-android-alignment.sh
 docs/architecture/   contract, core, backends, connectivity-v2, mobile-packaging
 ```
 
@@ -206,6 +212,11 @@ export ANDROID_HOME="$HOME/Library/Android/sdk" JAVA_HOME="$(/usr/libexec/java_h
 scripts/build-android-core.sh              # cargo-ndk 4.1.2, NDK 28.2.13676358 under $ANDROID_HOME/ndk
 (cd apps/android && ./gradlew :core:assembleDebug :core:assembleRelease :core:testDebugUnitTest)
 scripts/check-android-alignment.sh apps/android/core/build/outputs/aar/core-release.aar
+
+# iOS app (XcodeGen 2.46; builds BroskiCore first when packages/link changed)
+scripts/build-ios-app.sh [simulator|device] [--unsigned]
+BROSKI_SIMULATOR="iPhone Duo" scripts/build-ios-app.sh --test   # unit tests in the simulator
+BROSKI_SIMULATOR="iPhone Duo" scripts/e2e-ios-app.sh            # pairs with test-machine, screenshots every screen
 ```
 
 `cargo test -p broski-client` runs the real bridge (`bun scripts/dev-fake-bridge.ts`, the contract's fake backend in
