@@ -3,12 +3,13 @@ mod common;
 use std::time::Duration;
 
 use broski_link_session::{LinkState, Paired, Timings, WaitReason};
+use broski_link_testkit::await_identity;
+use broski_link_testkit::daemon::{Home, TestDaemon};
+use broski_link_testkit::relay::TestRelay;
 use broski_relay::auth::sha256;
 use common::bridge::BridgeStandIn;
-use common::daemon::{Home, TestDaemon};
-use common::relay::TestRelay;
 use common::watch::{resumed, Watch};
-use common::{await_identity, quick, Phone};
+use common::{quick, Phone};
 use serde_json::json;
 use tokio::time::{sleep, Instant};
 

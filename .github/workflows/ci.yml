@@ -70,5 +70,12 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Clippy (contract with its UniFFI derives)
         run: cargo clippy -p broski-contract --all-targets --features uniffi -- -D warnings
+      # The client's tests run the real bridge (Bun, the dev fake bridge) on the daemon's socket.
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - name: Bridge dependencies
+        working-directory: packages/bridge
+        run: bun install --frozen-lockfile
       - name: Test
         run: cargo test --workspace

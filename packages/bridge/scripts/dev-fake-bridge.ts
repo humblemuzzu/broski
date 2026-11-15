@@ -8,20 +8,27 @@
  * directory unless BROSKI_DEV_REAL_HOME=1.
  *
  * stdin takes one JSON command per line: `seed{cwd, title?}`, `script{session, scenario}`,
- * `release{session}`. stdout answers each with one `FAKE-BRIDGE {...}` line, and says `{ready}`
- * and `{closed: session}` unprompted.
+ * `release{session}`, `restart{}`. stdout answers each with one `FAKE-BRIDGE {...}` line, and says
+ * `{ready}` and `{closed: session}` unprompted.
  */
 import { randomUUID } from "node:crypto";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { isCompiledBinary } from "../src/compiled-binary";
-import type { BackendFactory, JsonValue } from "../src/contract";
+import type { BackendFactory, BackendHost, JsonValue } from "../src/contract";
 import { createFakeBackend, type FakeBackend } from "../src/contract/testing/fake-backend";
+import type { createBridgeServer } from "../src/server";
 import { type FakeCommand, readCommand } from "./dev-fake-bridge/commands";
 import { homeOutsideTemp } from "./dev-fake-bridge/home-guard";
 import { fakeScenario } from "./dev-fake-bridge/scenarios";
 
 const MARK = "FAKE-BRIDGE";
+
+/** A running bridge and the fake its core serves. */
+interface Bridge {
+	server: Awaited<ReturnType<typeof createBridgeServer>>;
+	backend: FakeBackend;
+}
 
 function say(message: Record<string, JsonValue>): void {
 	process.stdout.write(`${MARK} ${JSON.stringify(message)}\n`);
@@ -38,10 +45,13 @@ function refuseUnsafeStart(): void {
 	if (outside !== null) throw new Error(outside);
 }
 
-/** The fake, reporting each session close so a test can wait for an idle close. */
-function factory(started: (fake: FakeBackend) => void): BackendFactory {
+/** The fake `make` builds, reporting each session close so a test can wait for an idle close. */
+function factory(
+	make: (host: BackendHost) => Promise<FakeBackend>,
+	started: (fake: FakeBackend) => void,
+): BackendFactory {
 	return async (host) => {
-		const fake = createFakeBackend(host, { id: "pi" });
+		const fake = await make(host);
 		started(fake);
 		return {
 			...fake,
@@ -60,11 +70,7 @@ function factory(started: (fake: FakeBackend) => void): BackendFactory {
 	};
 }
 
-async function serve(): Promise<void> {
-	refuseUnsafeStart();
-	const linkSocket = flag("--link-socket");
-	if (!linkSocket) throw new Error("--link-socket PATH is required");
-	process.env.BROSKI_TLS = "0";
+async function start(linkSocket: string, make: (host: BackendHost) => Promise<FakeBackend>): Promise<Bridge> {
 	const { createBridgeServer } = await import("../src/server");
 	const fake = Promise.withResolvers<FakeBackend>();
 	const server = await createBridgeServer({
@@ -74,36 +80,60 @@ async function serve(): Promise<void> {
 		linkSocket,
 		linkKeyFile: flag("--link-key-file"),
 		contract: {
-			backends: [["pi", factory(fake.resolve)]],
+			backends: [["pi", factory(make, fake.resolve)]],
 			journalDirectory: join(homedir(), ".broski", "core"),
 			idleCloseMs: Number(flag("--idle-close-ms") ?? 60_000),
 		},
 	});
-	const backend = await fake.promise;
-	process.on("SIGTERM", () => void server.stop(true).then(() => process.exit(0)));
+	return { server, backend: await fake.promise };
+}
+
+/**
+ * The bridge restarts over the same sessions: its sockets close, its runs end with it, and a new core
+ * serves the sessions under new stream epochs (contract README §5 rule 11).
+ */
+async function restart(linkSocket: string, bridge: Bridge): Promise<Bridge> {
+	await bridge.server.stop(true);
+	return start(linkSocket, (host) => bridge.backend.fake.restart(host));
+}
+
+async function serve(): Promise<void> {
+	refuseUnsafeStart();
+	const linkSocket = flag("--link-socket");
+	if (!linkSocket) throw new Error("--link-socket PATH is required");
+	process.env.BROSKI_TLS = "0";
+	let bridge = await start(linkSocket, async (host) => createFakeBackend(host, { id: "pi" }));
+	process.on("SIGTERM", () => void bridge.server.stop(true).then(() => process.exit(0)));
 	say({ ready: true });
 	for await (const line of console) {
-		if (line.trim() !== "") answer(backend, line);
+		if (line.trim() !== "") bridge = await answer(linkSocket, bridge, line);
 	}
 	// stdin closed: whoever drives the fake is gone, so no bridge is left behind.
-	await server.stop(true);
+	await bridge.server.stop(true);
 	process.exit(0);
 }
 
-function answer(backend: FakeBackend, line: string): void {
+async function answer(linkSocket: string, bridge: Bridge, line: string): Promise<Bridge> {
 	const read = readCommand(line);
 	if (!("command" in read)) {
 		say(read);
-		return;
+		return bridge;
 	}
+	const { command } = read;
 	try {
-		say({ id: read.command.id, ...run(backend, read.command) });
+		if (command.cmd === "restart") {
+			const restarted = await restart(linkSocket, bridge);
+			say({ id: command.id });
+			return restarted;
+		}
+		say({ id: command.id, ...run(bridge.backend, command) });
 	} catch (error) {
-		say({ id: read.command.id, error: String(error) });
+		say({ id: command.id, error: String(error) });
 	}
+	return bridge;
 }
 
-function run(backend: FakeBackend, command: FakeCommand): Record<string, JsonValue> {
+function run(backend: FakeBackend, command: Exclude<FakeCommand, { cmd: "restart" }>): Record<string, JsonValue> {
 	switch (command.cmd) {
 		case "seed":
 			return { session: backend.fake.seed({ cwd: command.cwd, title: command.title ?? "Seeded" }) };

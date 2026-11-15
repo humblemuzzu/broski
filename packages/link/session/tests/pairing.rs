@@ -5,11 +5,12 @@ use std::time::Duration;
 use broski_link_session::{
     pair, DeviceIdentity, Error, MachineRecord, Offer, Paired, PairingCredentials, Route, Session,
 };
+use broski_link_testkit::await_identity;
+use broski_link_testkit::daemon::{Home, TestDaemon};
+use broski_link_testkit::relay::TestRelay;
 use common::bridge::{header, BridgeStandIn};
-use common::daemon::{Home, TestDaemon};
-use common::relay::TestRelay;
 use common::watch::{resumed, Watch, WAIT};
-use common::{await_identity, options, quick, Phone};
+use common::{options, quick, Phone};
 use serde_json::{json, Value};
 use tokio::time::Instant;
 

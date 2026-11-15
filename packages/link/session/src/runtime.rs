@@ -60,7 +60,9 @@ impl LinkRuntime {
             .map_err(|_| Error::RuntimeStopped)
     }
 
-    pub(crate) fn handle(&self) -> &Handle {
+    /// The runtime thread, for a crate that runs its own tasks beside the sessions'. Anything it
+    /// spawns must not block: one thread carries every session of the app.
+    pub fn handle(&self) -> &Handle {
         &self.inner.handle
     }
 }
