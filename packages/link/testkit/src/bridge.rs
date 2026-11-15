@@ -126,6 +126,13 @@ impl FakeBridge {
             .await;
     }
 
+    /// Another client of the backend (a terminal) starts a run of the session that plays
+    /// `scenario`; no phone prompts it.
+    pub async fn run(&mut self, session: &SessionRef, scenario: &str) {
+        self.command(json!({"cmd": "run", "session": session, "scenario": scenario}))
+            .await;
+    }
+
     /// Ends the hold the session's run waits in.
     pub async fn release(&mut self, session: &SessionRef) {
         self.command(json!({"cmd": "release", "session": session}))

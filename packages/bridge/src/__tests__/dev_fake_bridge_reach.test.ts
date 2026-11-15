@@ -82,7 +82,7 @@ describe("the dev fake bridge's start", () => {
 });
 
 describe("the dev fake bridge's commands", () => {
-	const session = { backend: "pi", sessionId: "s1" };
+	const session = { backend: "pi" as const, sessionId: "s1" };
 
 	test("are read whole, and nothing else is", () => {
 		expect(readCommand(JSON.stringify({ id: 1, cmd: "seed", cwd: "/w" }))).toEqual({
@@ -90,7 +90,11 @@ describe("the dev fake bridge's commands", () => {
 		});
 		expect(readCommand(JSON.stringify({ id: 2, cmd: "script", session, scenario: "ask" }))).toHaveProperty("command");
 		expect(readCommand(JSON.stringify({ id: 4, cmd: "restart" }))).toEqual({ command: { id: 4, cmd: "restart" } });
+		expect(readCommand(JSON.stringify({ id: 5, cmd: "run", session, scenario: "permission" }))).toEqual({
+			command: { id: 5, cmd: "run", session, scenario: "permission" },
+		});
 		for (const bad of [
+			{ id: 3, cmd: "run", session },
 			{ id: 3, cmd: "restart", session },
 			{ id: 3, cmd: "script", session, scenario: "nope" },
 			{ id: 3, cmd: "seed" },

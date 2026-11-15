@@ -8,7 +8,8 @@
  * directory unless BROSKI_DEV_REAL_HOME=1.
  *
  * stdin takes one JSON command per line: `seed{cwd, title?}`, `script{session, scenario}`,
- * `release{session}`, `restart{}`. stdout answers each with one `FAKE-BRIDGE {...}` line, and says
+ * `release{session}`, `run{session, scenario}` (another client, such as a terminal, starts a run that
+ * plays the scenario), `restart{}`. stdout answers each with one `FAKE-BRIDGE {...}` line, and says
  * `{ready}` and `{closed: session}` unprompted.
  */
 import { randomUUID } from "node:crypto";
@@ -142,6 +143,9 @@ function run(backend: FakeBackend, command: Exclude<FakeCommand, { cmd: "restart
 			return {};
 		case "release":
 			backend.fake.release(command.session);
+			return {};
+		case "run":
+			backend.fake.runExternally(command.session, "Run it", fakeScenario(command.scenario));
 			return {};
 	}
 }

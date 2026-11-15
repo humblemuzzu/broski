@@ -9,6 +9,7 @@ export const FakeCommand = z.discriminatedUnion("cmd", [
 	z.strictObject({ id, cmd: z.literal("seed"), cwd: z.string().min(1), title: z.string().optional() }),
 	z.strictObject({ id, cmd: z.literal("script"), session: SessionRef, scenario: z.enum(FAKE_SCENARIOS) }),
 	z.strictObject({ id, cmd: z.literal("release"), session: SessionRef }),
+	z.strictObject({ id, cmd: z.literal("run"), session: SessionRef, scenario: z.enum(FAKE_SCENARIOS) }),
 	z.strictObject({ id, cmd: z.literal("restart") }),
 ]);
 export type FakeCommand = z.infer<typeof FakeCommand>;
