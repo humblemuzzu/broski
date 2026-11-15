@@ -7,12 +7,14 @@ nonisolated struct ToolWork: Equatable, Identifiable {
     let id: String
     let name: String
     let title: String?
-    var input: JsonValue?
+    var input: JsonValue? { didSet { look = readLook() } }
     let parentToolCallId: String?
-    var childSession: SessionRef?
+    var childSession: SessionRef? { didSet { look = readLook() } }
     var output: String
     var progress: String?
-    var fileChanges: [FileChange]
+    var fileChanges: [FileChange] { didSet { look = readLook() } }
+    /// How the core reads the call: its kind, row label and command.
+    private(set) var look: ToolLook
     var outcome: ToolOutcome?
     var error: String?
     var exitCode: Int64?
@@ -30,6 +32,7 @@ nonisolated struct ToolWork: Equatable, Identifiable {
         fileChanges = []
         images = []
         isRunning = false
+        look = Self.read(name: call.name, title: call.title, input: call.input, childSession: call.childSession, fileChanges: [])
     }
 
     init(running tool: RunningTool) {
@@ -44,6 +47,7 @@ nonisolated struct ToolWork: Equatable, Identifiable {
         fileChanges = tool.fileChanges
         images = []
         isRunning = true
+        look = Self.read(name: tool.name, title: tool.title, input: tool.input, childSession: tool.childSession, fileChanges: tool.fileChanges)
     }
 
     mutating func finish(with result: ToolResultItem) {
@@ -61,31 +65,19 @@ nonisolated struct ToolWork: Equatable, Identifiable {
         }
     }
 
-    var kind: ToolKind { ToolKind(name: name, childSession: childSession, fileChanges: fileChanges) }
+    private func readLook() -> ToolLook {
+        Self.read(name: name, title: title, input: input, childSession: childSession, fileChanges: fileChanges)
+    }
+
+    private static func read(name: String, title: String?, input: JsonValue?, childSession: SessionRef?, fileChanges: [FileChange]) -> ToolLook {
+        toolLook(facts: ToolFacts(name: name, title: title, input: input, hasChildSession: childSession != nil, changedPaths: fileChanges.map(\.path)))
+    }
+
+    var kind: ToolKind { look.kind }
+
+    var label: String { look.label }
 
     var failed: Bool { outcome == .failed || (exitCode ?? 0) != 0 }
-
-    /// The command a command tool ran, exactly as the agent wrote it.
-    var command: String? { input?.text(["command", "cmd", "script"]) }
-
-    /// The row's one line: the tool's own title, else what it acted on.
-    var label: String {
-        if let title, !title.isEmpty { return title }
-        switch kind {
-        case .command: return command ?? name
-        case .read: return "Read \(target ?? name)"
-        case .edit: return "Edited \(target ?? name)"
-        case .search: return "Searched \(input?.text(["pattern", "query", "glob", "path"]) ?? name)"
-        case .web: return input?.text(["url", "query"]) ?? name
-        case .agent: return input?.text(["description", "prompt"]) ?? "Subagent"
-        case .other: return [name, input?.text(["path", "file_path", "query", "description"])].compactMap(\.self).joined(separator: " ")
-        }
-    }
-
-    private var target: String? {
-        let path = input?.text(["file_path", "path", "filePath", "notebook_path"]) ?? fileChanges.first?.path
-        return path.map { ($0 as NSString).lastPathComponent }
-    }
 }
 
 /// A reasoning block, shown as a row: "Thinking" while it streams, "Thought" once done.
@@ -107,36 +99,7 @@ nonisolated enum WorkEntry: Equatable, Identifiable {
     }
 }
 
-/// What a tool did, for the fold's verbs and the row's icon. Read from the call's name and what it
-/// produced, which both agents name plainly (`bash`/`Bash`, `read`/`Read`, …).
-nonisolated enum ToolKind: CaseIterable {
-    case edit
-    case command
-    case agent
-    case read
-    case search
-    case web
-    case other
-
-    init(name: String, childSession: SessionRef?, fileChanges: [FileChange]) {
-        let name = name.lowercased()
-        if childSession != nil || ["task", "agent", "subagent"].contains(name) {
-            self = .agent
-        } else if !fileChanges.isEmpty || ["edit", "write", "multiedit", "notebookedit", "patch", "apply_patch"].contains(name) {
-            self = .edit
-        } else if ["bash", "shell", "exec", "bashoutput", "killshell", "terminal"].contains(name) {
-            self = .command
-        } else if ["read", "view", "cat", "notebookread"].contains(name) {
-            self = .read
-        } else if ["grep", "glob", "find", "ls", "search", "list"].contains(name) {
-            self = .search
-        } else if ["webfetch", "websearch", "fetch"].contains(name) {
-            self = .web
-        } else {
-            self = .other
-        }
-    }
-
+extension ToolKind {
     var symbol: String {
         switch self {
         case .edit: "pencil"
@@ -146,20 +109,6 @@ nonisolated enum ToolKind: CaseIterable {
         case .search: "magnifyingglass"
         case .web: "globe"
         case .other: "wrench.and.screwdriver"
-        }
-    }
-
-    /// "Read 3 files", "Ran 1 command".
-    func phrase(_ count: Int) -> String {
-        let many = count != 1
-        return switch self {
-        case .edit: "Edited \(count) \(many ? "files" : "file")"
-        case .command: "Ran \(count) \(many ? "commands" : "command")"
-        case .agent: "Ran \(count) \(many ? "subagents" : "subagent")"
-        case .read: "Read \(count) \(many ? "files" : "file")"
-        case .search: "\(count) \(many ? "searches" : "search")"
-        case .web: "Fetched \(count) \(many ? "pages" : "page")"
-        case .other: "Used \(count) \(many ? "tools" : "tool")"
         }
     }
 }

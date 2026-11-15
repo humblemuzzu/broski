@@ -41,7 +41,7 @@ struct ChatTimelineTests {
             Item.result("c2"),
             Item.text("b2", "Done."),
         ])
-        #expect(built.map(\.shape) == ["user:Go", "work:Edited 1 file", "text:p-0", "work:1 search", "text:p-0", "end"])
+        #expect(built.map(\.shape) == ["user:Go", "work:Edited 1 file", "text:p-0", "work:Searched 1 time", "text:p-0", "end"])
         guard case .work(let first) = built[1].content, case .work(let second) = built[3].content else {
             Issue.record("expected two folds")
             return
@@ -99,16 +99,29 @@ struct ChatTimelineTests {
         #expect(ToolWork(call: call("Bash", ["command": "ls -la"])).label == "ls -la")
         #expect(ToolWork(call: call("Read", ["file_path": "/w/src/app.ts"])).label == "Read app.ts")
         #expect(ToolWork(call: call("Grep", ["pattern": "TODO"])).label == "Searched TODO")
-        #expect(ToolKind(name: "Task", childSession: nil, fileChanges: []) == .agent)
-        #expect(ToolKind(name: "custom", childSession: nil, fileChanges: [.modified("a")]) == .edit)
-        #expect(ToolKind(name: "mcp__thing", childSession: nil, fileChanges: []) == .other)
+        #expect(ToolWork(call: call("Task", [:])).kind == .agent)
+        #expect(ToolWork(call: call("KillShell", [:])).kind == .command)
+        #expect(ToolWork(call: call("mcp__thing", [:])).kind == .other)
+    }
+
+    @Test func aCallThatChangedFilesBecomesAnEditOnceItsResultIsIn() {
+        var tool = ToolWork(call: call("custom", [:]))
+        #expect(tool.kind == .other)
+        guard case .toolResult(let result) = Item.result("c", changes: [.modified("/w/a.ts")]) else { fatalError("a result item") }
+        tool.finish(with: result)
+        #expect(tool.kind == .edit)
+        #expect(tool.label == "Edited a.ts")
     }
 
     @Test func theFoldsLineCountsVerbsMostConsequentialFirstAndFoldsTheRestIntoTools() {
-        let summary = WorkSummary(
-            verbs: [(.edit, 2), (.command, 3), (.read, 1), (.web, 4)], failed: 0, thoughts: 0, duration: 42, isContinuation: true)
-        #expect(summary.text == "Continued for 42s · Edited 2 files · Ran 3 commands · Used 5 tools")
-        #expect(WorkSummary(verbs: [], failed: 0, thoughts: 1, duration: 0.4, isContinuation: false).text == "Thought")
+        let tools = [
+            FoldTool(id: "1", kind: .edit, paths: ["/a", "/b"]), FoldTool(id: "2", kind: .command, paths: []),
+            FoldTool(id: "3", kind: .command, paths: []), FoldTool(id: "4", kind: .command, paths: []),
+            FoldTool(id: "5", kind: .read, paths: ["/c"]), FoldTool(id: "6", kind: .web, paths: []),
+        ]
+        let summary = WorkSummary(counts: foldCounts(tools: tools), failed: 0, thoughts: 0, duration: 42, isContinuation: true)
+        #expect(summary.text == "Continued for 42s · Edited 2 files · Ran 3 commands · Used 2 tools")
+        #expect(WorkSummary(counts: [], failed: 0, thoughts: 1, duration: 0.4, isContinuation: false).text == "Thought")
         #expect(WorkSummary.format(59) == "59s" && WorkSummary.format(61) == "1m" && WorkSummary.format(3_900) == "1h 5m")
     }
 

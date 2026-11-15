@@ -39,7 +39,7 @@ struct ToolDetailView: View {
 
     /// The command as the agent wrote it, else one `key: value` line per argument.
     private var given: String? {
-        if tool.kind == .command, let command = tool.command { return "$ " + command }
+        if let command = tool.look.command { return "$ " + command }
         return tool.input.map { $0.argumentLines.joined(separator: "\n") }
     }
 

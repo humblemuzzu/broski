@@ -1,3 +1,4 @@
+import BroskiCore
 import Foundation
 
 /// One stretch of an agent's work between the person's message, the agent's words and the next:
@@ -19,10 +20,10 @@ nonisolated struct WorkFold: Equatable, Identifiable {
 
     var summary: WorkSummary {
         let tools = tools.filter { $0.parentToolCallId == nil }
-        let counts = Dictionary(grouping: tools, by: \.kind).mapValues(\.count)
+        let counts = foldCounts(tools: tools.map { FoldTool(id: $0.id, kind: $0.kind, paths: $0.look.paths) })
         let duration = isLive ? nil : startedAt.flatMap { start in endedAt.map { Double($0 - start) / 1000 } }
         return WorkSummary(
-            verbs: ToolKind.allCases.compactMap { kind in counts[kind].map { (kind, $0) } },
+            counts: counts,
             failed: tools.count(where: \.failed),
             thoughts: entries.count { if case .thinking = $0 { true } else { false } },
             duration: duration,
@@ -32,15 +33,12 @@ nonisolated struct WorkFold: Equatable, Identifiable {
 
 /// The fold's one line: `Worked for 2m · Edited 1 file · Ran 2 commands · 1 failed`.
 nonisolated struct WorkSummary: Equatable {
-    /// What the tools did, most consequential first.
-    let verbs: [(kind: ToolKind, count: Int)]
+    /// What the tools did, most consequential first, as the core words it: at most two verbs, the rest as "Used n tools".
+    let counts: [FoldCount]
     let failed: Int
     let thoughts: Int
     let duration: TimeInterval?
     let isContinuation: Bool
-
-    /// At most this many verbs; the rest fold into "Used n tools".
-    static let shownVerbs = 2
 
     var lead: String? {
         guard let duration, duration >= 1 else { return nil }
@@ -48,11 +46,8 @@ nonisolated struct WorkSummary: Equatable {
     }
 
     var phrases: [String] {
-        let shown = verbs.prefix(Self.shownVerbs).map { $0.kind.phrase($0.count) }
-        let rest = verbs.dropFirst(Self.shownVerbs).reduce(0) { $0 + $1.count }
-        var phrases = shown + (rest > 0 ? [ToolKind.other.phrase(rest)] : [])
-        if phrases.isEmpty && thoughts > 0 { phrases = ["Thought"] }
-        return phrases
+        let phrases = counts.map(\.phrase)
+        return phrases.isEmpty && thoughts > 0 ? ["Thought"] : phrases
     }
 
     /// The line without the failures, which the row shows in red.

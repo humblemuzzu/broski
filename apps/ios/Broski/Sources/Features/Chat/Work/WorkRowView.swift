@@ -53,6 +53,8 @@ struct WorkRowView: View {
     @ViewBuilder
     private var label: some View {
         switch entry {
+        case .tool(let tool) where isOpen:
+            Text(tool.look.verb).foregroundStyle(.primary)
         case .tool(let tool) where tool.kind == .command && tool.title == nil:
             Text(tool.label).font(.codeSmall).foregroundStyle(.primary)
         case .tool(let tool):

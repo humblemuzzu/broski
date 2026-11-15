@@ -66,9 +66,9 @@ final class SessionEndToEndTests: XCTestCase {
         send("Clean the build", in: app)
         let instead = app.textFields["Tell Pi what to do instead"].firstMatch
         XCTAssertTrue(instead.waitForExistence(timeout: timeout), "the ask is pinned above the composer")
-        XCTAssertTrue(app.staticTexts["Pi wants to run"].exists)
-        XCTAssertTrue(app.staticTexts["Waiting for your approval"].exists)
         try screenshot("chat-permission")
+        XCTAssertTrue(app.staticTexts["Pi wants to run"].exists)
+        XCTAssertTrue(app.staticTexts["Waiting for your approval"].waitForExistence(timeout: timeout))
         instead.tap()
         instead.typeText("Keep the build folder")
         app.buttons["Deny"].tap()
@@ -96,6 +96,8 @@ final class SessionEndToEndTests: XCTestCase {
         command.tap()
         XCTAssertTrue(app.staticTexts["removed"].waitForExistence(timeout: timeout), "the call opens to its output")
         XCTAssertTrue(app.staticTexts["$ rm -rf build"].exists, "and to the command exactly")
+        XCTAssertTrue(app.buttons["Ran command"].exists, "the opened row says what it did")
+        XCTAssertFalse(app.buttons["rm -rf build"].exists, "and the command is shown once")
         XCTAssertEqual(ran.frame.minX, edge, accuracy: 1, "the transcript keeps its side margins")
         try screenshot("chat-tool-detail")
     }
