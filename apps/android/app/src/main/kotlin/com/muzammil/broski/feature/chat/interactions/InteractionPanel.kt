@@ -1,6 +1,9 @@
 package com.muzammil.broski.feature.chat.interactions
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -25,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -39,6 +43,7 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
+import com.muzammil.broski.design.BroskiMotion
 import com.muzammil.broski.feature.chat.AnswerState
 import uniffi.broski_contract.FileChange
 import uniffi.broski_contract.Interaction
@@ -67,19 +72,32 @@ private const val MAX_SHARE = 0.45f
  */
 @Composable
 fun InteractionPanel(interactions: List<Interaction>, context: (Interaction) -> CardContext, modifier: Modifier = Modifier) {
-    val first = interactions.firstOrNull() ?: return
+    var last by remember { mutableStateOf(interactions) }
+    if (interactions.isNotEmpty()) last = interactions
+    AnimatedVisibility(
+        visible = interactions.isNotEmpty(),
+        enter = slideInVertically(BroskiMotion.spring()) { it / 3 } + fadeIn(BroskiMotion.spring()),
+        exit = shrinkVertically(BroskiMotion.spring()) + fadeOut(BroskiMotion.spring()),
+        modifier = modifier,
+    ) {
+        last.firstOrNull()?.let { FirstAsk(it, last.size, context) }
+    }
+}
+
+@Composable
+private fun FirstAsk(first: Interaction, waiting: Int, context: (Interaction) -> CardContext) {
     var collapsed by rememberSaveable(first.id) { mutableStateOf(false) }
     AnimatedContent(
         targetState = collapsed,
         transitionSpec = { fadeIn() togetherWith fadeOut() using SizeTransform(clip = false) },
         label = "card",
-        modifier = modifier.semantics { liveRegion = LiveRegionMode.Polite },
+        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
     ) { folded ->
         if (folded) {
-            Pill(first, interactions.size) { collapsed = false }
+            Pill(first, waiting) { collapsed = false }
         } else {
             val window = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.height.toDp() }
-            Card(first, interactions.size, context(first), Modifier.heightIn(max = window * MAX_SHARE)) { collapsed = true }
+            Card(first, waiting, context(first), Modifier.heightIn(max = window * MAX_SHARE)) { collapsed = true }
         }
     }
 }

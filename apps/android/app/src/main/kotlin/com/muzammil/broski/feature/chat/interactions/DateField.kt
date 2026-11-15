@@ -18,6 +18,7 @@ import com.muzammil.broski.R
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
+import java.time.format.DateTimeParseException
 
 /** A `date` field: the day the Material date picker gives, as the `YYYY-MM-DD` the form takes. */
 @Composable
@@ -27,7 +28,11 @@ internal fun DateField(label: String, value: String, enabled: Boolean, onChange:
         Text(value.ifEmpty { label })
     }
     if (!open) return
-    val initial = runCatching { LocalDate.parse(value).atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli() }.getOrNull()
+    val initial = try {
+        LocalDate.parse(value).atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli()
+    } catch (_: DateTimeParseException) {
+        null
+    }
     val picker = rememberDatePickerState(initialSelectedDateMillis = initial)
     DatePickerDialog(
         onDismissRequest = { open = false },

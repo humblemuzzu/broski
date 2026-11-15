@@ -36,6 +36,7 @@ import uniffi.broski_contract.SessionGetResult
 import uniffi.broski_contract.SessionRef
 import uniffi.broski_contract.SessionSummary
 import uniffi.broski_contract.TranscriptItem
+import uniffi.broski_core.ClientException
 import uniffi.broski_core.Machine
 import uniffi.broski_core.SessionChange
 import uniffi.broski_core.markdownBlocks
@@ -127,8 +128,13 @@ class ChatViewModel(
         }
     }
 
+    /** The session's row (title, folder); the inbox's stands in until it comes, and a machine back online reads it again. */
     suspend fun readSummary() {
-        val result = runCatching { feed.client.summary() }.getOrNull()
+        val result = try {
+            feed.client.summary()
+        } catch (_: ClientException) {
+            return
+        }
         (result as? SessionGetResult.Accepted)?.let { mutableSummary.value = it.v1.summary }
     }
 

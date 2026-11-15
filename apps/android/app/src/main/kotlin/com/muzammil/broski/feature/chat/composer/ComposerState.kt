@@ -36,8 +36,6 @@ class ComposerState(initialText: String, scope: CoroutineScope, private val save
     /** The base64 the waiting images leave for one more. */
     val imageBudget: Int get() = MAX_IMAGE_CHARS - mutableImages.value.sumOf { it.base64.length }
 
-    val hasInput: Boolean get() = input.text.isNotBlank() || mutableCommand.value != null || mutableImages.value.isNotEmpty()
-
     init {
         @OptIn(FlowPreview::class)
         scope.launch {
