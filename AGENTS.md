@@ -13,7 +13,8 @@ Phone (native app, Phase 4) ←Broski Link (Noise e2e; LAN or relay)→ broski-l
 The repository is mid-rebuild on branch `rebuild` (plan: [`docs/rebuild/PLAN.md`](docs/rebuild/PLAN.md)). The
 Flutter app is gone; the tree it lived in is preserved on branch `final-flutter` (`git show final-flutter:<path>`).
 Phase 1, the cut, is done: what is here is the bridge, the link stack, the shared phone core packaged for both
-native apps, the iOS and Android apps' foundations (Phase 4.1), and the iOS push code carried over for them.
+native apps, and the iOS and Android apps: their foundations (Phase 4.1), and the workspace, push
+notifications and live status (Phase 4.2); the chat is being built.
 
 - **Bridge** (`packages/bridge/`) — TypeScript on the user's machine. Hosts the agents through their SDKs and speaks
   the backend contract to the daemon over `~/.broski/link/bridge.sock`. Every socket upgrade must quote the key the
