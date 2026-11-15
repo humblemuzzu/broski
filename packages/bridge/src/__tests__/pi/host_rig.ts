@@ -207,17 +207,17 @@ export function eventTypes(live: LiveSession): string[] {
 }
 
 /** Counts the timers of a second or more (the adapter's deadlines) that were set and neither fired nor were cleared. */
-export function trackLongTimers(minMs = 1_000): { outstanding(): number; stop(): void } {
+export function trackLongTimers(minMs = 1_000): { outstanding(): number; setBy(): string[]; stop(): void } {
 	const realSet = globalThis.setTimeout;
 	const realClear = globalThis.clearTimeout;
-	const pending = new Set<unknown>();
+	const pending = new Map<unknown, string>();
 	Reflect.set(globalThis, "setTimeout", (handler: () => void, ms?: number) => {
 		if ((ms ?? 0) < minMs) return realSet(handler, ms);
 		const handle = realSet(() => {
 			pending.delete(handle);
 			handler();
 		}, ms);
-		pending.add(handle);
+		pending.set(handle, new Error(`a ${ms} ms timer`).stack ?? "");
 		return handle;
 	});
 	Reflect.set(globalThis, "clearTimeout", (handle: Parameters<typeof clearTimeout>[0]) => {
@@ -226,6 +226,8 @@ export function trackLongTimers(minMs = 1_000): { outstanding(): number; stop():
 	});
 	return {
 		outstanding: () => pending.size,
+		/** Where each outstanding timer was set, for the failure that names them. */
+		setBy: () => [...pending.values()],
 		stop: () => {
 			Reflect.set(globalThis, "setTimeout", realSet);
 			Reflect.set(globalThis, "clearTimeout", realClear);

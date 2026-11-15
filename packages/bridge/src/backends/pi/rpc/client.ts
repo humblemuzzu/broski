@@ -39,6 +39,8 @@ type Queued = (Delivery | { readonly kind: "answer"; readonly settle: () => void
 interface Pending {
 	readonly command: string;
 	readonly ordered: boolean;
+	/** The deadline stops once Pi has answered, though an `ordered` answer is settled later, in its turn. */
+	readonly answeredInTime: () => void;
 	readonly settle: (response: ResponseFrame | string) => void;
 }
 
@@ -81,6 +83,7 @@ export class RpcClient {
 			this.pending.set(id, {
 				command: command.type,
 				ordered: options.ordered ?? true,
+				answeredInTime: () => clearTimeout(timer),
 				settle: (response) => {
 					clearTimeout(timer);
 					resolve(answerOf(response, reply));
@@ -125,6 +128,7 @@ export class RpcClient {
 		const pending = response.id === undefined ? undefined : this.pending.get(response.id);
 		if (pending === undefined || response.id === undefined) return;
 		this.pending.delete(response.id);
+		pending.answeredInTime();
 		if (pending.ordered) this.enqueue({ kind: "answer", settle: () => pending.settle(response) });
 		else pending.settle(response);
 	}

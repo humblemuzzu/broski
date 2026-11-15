@@ -94,5 +94,5 @@ test("cycles that abort a held run, and cycles that shut down mid-run, leave no 
 	await collected();
 	expect(hosts.filter((host) => host.deref() !== undefined).length).toBeLessThanOrEqual(2);
 	timers.stop();
-	expect(timers.outstanding()).toBe(0);
+	expect(timers.setBy()).toEqual([]);
 }, 120_000);
