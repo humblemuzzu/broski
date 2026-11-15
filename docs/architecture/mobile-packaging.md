@@ -30,7 +30,7 @@ behaviour lives in the client, session and contract crates; each export is a one
 | `SessionView` | `nextUpdate() async → SessionUpdate?`, `snapshot() → SessionSnapshot?`, `session() → SessionRef?`, `capabilities() → SessionCapabilities?`, `detach()` | `broski_client::SessionView` (`detach` is its `close`) |
 | `TerminalView` | `id()`, `nextUpdate() async → TerminalUpdate?`, `summary() → TerminalSummary?`, `input(data:) async throws → ActionResult`, `resize(cols:rows:cellWidth:cellHeight:) async throws → ActionResult`, `detach()` | `broski_client::TerminalView` |
 | `SessionList` | `rows() → SessionListUpdate`, `nextChange() async → SessionListUpdate?`, `loadMore() async throws`, `refresh() async throws`, `stop()` | `broski_client::SessionList` |
-| `Inbox` | `rows() → [InboxRow]`, `nextChange() async → InboxUpdate`, `markSeen(machineId:session:)`, `seen() → SeenState`, `restoreSeen(state:)` | `broski_client::Inbox` |
+| `Inbox` | `rows() → [InboxRow]`, `nextChange() async → InboxUpdate`, `refresh() async`, `markSeen(machineId:session:)`, `seen() → SeenState`, `restoreSeen(state:)` | `broski_client::Inbox` |
 | `MachineRecord` | `MachineRecord.fromBytes(bytes:) throws`, `toBytes()`, `id()`, `name()`, `os()`, `pairedAtMs()` | the session's `MachineRecord` and its stored form (`session/src/record_codec.rs`), opaque |
 
 No object has a method named `close` or `destroy`: Kotlin objects already have both, from

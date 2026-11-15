@@ -21,6 +21,12 @@ impl Inbox {
         self.0.next_change().await
     }
 
+    /// Pull to refresh: machines whose bridge is ready reload their sessions, machines waiting to
+    /// dial dial now; returns once the reloads are answered.
+    pub async fn refresh(&self) {
+        self.0.refresh().await;
+    }
+
     /// The person opened or left the session: it is not `Done` again until something happens.
     pub fn mark_seen(&self, machine_id: String, session: SessionRef) {
         self.0.mark_seen(machine_id, session);

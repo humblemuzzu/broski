@@ -14,6 +14,8 @@ use broski_contract::{
     ModelsListResult, ModesListRequest, ModesListResult, ServerMessage, SessionQuery, SessionRef,
     SessionsListResult, MAX_PAGE_LIMIT,
 };
+use broski_link_session::LinkState;
+use tokio::task::JoinHandle;
 
 pub use self::session_list::{SessionList, SessionListUpdate};
 use self::state::{Cache, Catalog, ListKey};
@@ -247,6 +249,36 @@ impl Shared {
                 Err(error) => tracing::debug!(%error, "listing the backends failed"),
             }
         });
+    }
+
+    /// The inbox's lists from their first page again, each fetched on the link runtime; the handles
+    /// finish once the pages are answered. A link that is down, or a bridge that has not agreed on
+    /// the protocol, would only hold the requests, so then a link waiting to dial dials now instead.
+    pub(crate) fn reload_inbox(self: &Arc<Self>) -> Vec<JoinHandle<()>> {
+        let (ready, waiting, lists) = {
+            let state = self.lock();
+            let lists: Vec<u64> = state.catalog.inbox.iter().map(|(_, id)| *id).collect();
+            let connected = matches!(state.link.state, LinkState::Connected { .. });
+            let waiting = matches!(state.link.state, LinkState::Waiting(_));
+            (connected && state.contract.ready(), waiting, lists)
+        };
+        if !ready {
+            if waiting {
+                self.session().network_changed();
+            }
+            return Vec::new();
+        }
+        lists
+            .into_iter()
+            .map(|list| {
+                let shared = Arc::clone(self);
+                self.runtime().handle().spawn(async move {
+                    if let Err(error) = shared.fetch_page(list, true).await {
+                        tracing::debug!(%error, "reloading an inbox list failed");
+                    }
+                })
+            })
+            .collect()
     }
 
     pub(crate) fn spawn_load(self: &Arc<Self>, list: u64, reload: bool) {
