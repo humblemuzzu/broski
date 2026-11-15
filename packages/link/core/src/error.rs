@@ -23,4 +23,6 @@ pub enum Error {
     HandshakeConsumed,
     #[error("session id mismatch: refusing to resume into another session")]
     SessionMismatch,
+    #[error("no migration is in flight")]
+    NoMigration,
 }
