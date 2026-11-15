@@ -1,6 +1,7 @@
-//! The models decode as strictly as the zod schemas parse: what zod refuses, they refuse.
+//! The models decode as strictly as the zod schemas parse: what zod refuses, they refuse, except an array where an
+//! object belongs (the last test).
 
-use broski_contract::{AgentEvent, JsonValue, ToolStartedEvent};
+use broski_contract::{decode_frame, AgentEvent, JsonValue, SessionRef, ToolStartedEvent};
 
 fn error_of(text: &str) -> String {
     match serde_json::from_str::<AgentEvent>(text) {
@@ -71,4 +72,19 @@ fn an_optional_json_value_takes_null_as_a_value() {
     };
     assert_eq!(input, &Some(JsonValue::Null));
     assert_eq!(serde_json::to_string(&event).unwrap(), text);
+}
+
+/// The one place the models are looser than zod: serde reads a struct from a JSON array too, field by field in
+/// declaration order, and a union from one whose first element is the tag. The bridge never writes either and the
+/// models do not wrap serde to refuse them (contract README §3); this pins the gap, so closing it shows.
+#[test]
+fn a_struct_is_also_read_from_a_json_array_in_field_order() {
+    let session: SessionRef = serde_json::from_str(r#"["claude-code","s1"]"#).unwrap();
+    assert_eq!(session.session_id, "s1");
+
+    let frame = r#"["contract",{"type":"session.detach.result","requestId":"r"}]"#;
+    assert!(decode_frame(frame).is_ok());
+
+    let event: AgentEvent = serde_json::from_str(r#"["run_started","r","prompt"]"#).unwrap();
+    assert!(matches!(event, AgentEvent::RunStarted(_)));
 }
