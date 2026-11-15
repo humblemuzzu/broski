@@ -1,12 +1,11 @@
 import SwiftUI
 
-/// Local preferences, kept in `UserDefaults` (`@AppStorage`) under these keys.
+/// Local preferences, kept in `UserDefaults` (`@AppStorage`) under these keys. Which notifications
+/// the person wants are `NotificationPreferences`, in the app group the extension reads.
 enum Preference {
     static let appearance = "appearance"
-    /// Which notifications the person wants; the notifications feature reads them before showing one.
-    static let notifyNeedsYou = "notifications.needsYou"
-    static let notifyDone = "notifications.done"
-    static let notifyFailures = "notifications.failures"
+    /// The terminal's font size in points as last pinched; 0 until then (Ghostty's own default).
+    static let terminalFontSize = "terminal.fontSize"
 }
 
 enum Appearance: String, CaseIterable, Identifiable {

@@ -11,10 +11,27 @@ enum Palette {
     static let failed = Color.red
     static let caution = Color.orange
 
+    /// Added and removed lines and counts in diffs and git lists, as text: darker in light mode and
+    /// lighter in dark than the system green and red, which fall short of AA for small text.
+    static let added = Color(light: 0x1A7F37, dark: 0x3FB950)
+    static let removed = Color(light: 0xCF222E, dark: 0xF85149)
+
     static let markFill = Color(uiColor: .tertiarySystemFill)
     static let markInk = Color.primary.opacity(0.72)
     static let card = Color(uiColor: .secondarySystemGroupedBackground)
     static let screen = Color(uiColor: .systemGroupedBackground)
+}
+
+extension Color {
+    /// A color for each appearance, from `0xRRGGBB`.
+    init(light: UInt32, dark: UInt32) {
+        self.init(uiColor: UIColor { traits in
+            let rgb = traits.userInterfaceStyle == .dark ? dark : light
+            return UIColor(
+                red: CGFloat(rgb >> 16 & 0xFF) / 255, green: CGFloat(rgb >> 8 & 0xFF) / 255,
+                blue: CGFloat(rgb & 0xFF) / 255, alpha: 1)
+        })
+    }
 }
 
 extension InboxState {

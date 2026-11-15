@@ -2,6 +2,7 @@ import SwiftUI
 
 @main
 struct BroskiApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var model: AppModel
     @AppStorage(Preference.appearance) private var appearance: Appearance = .system
     @Environment(\.scenePhase) private var scenePhase
@@ -9,6 +10,9 @@ struct BroskiApp: App {
     init() {
         let model = AppModel()
         model.start()
+        #if DEBUG
+        E2EPrompt.sendIfAsked(model)
+        #endif
         _model = State(initialValue: model)
     }
 
@@ -17,6 +21,7 @@ struct BroskiApp: App {
             RootView()
                 .environment(model)
                 .preferredColorScheme(appearance.colorScheme)
+                .onAppear { appDelegate.push = model.push }
         }
         .onChange(of: scenePhase, initial: true) { _, phase in
             model.scenePhaseChanged(phase)

@@ -1,10 +1,9 @@
 # The Broski iOS app. `xcodegen generate` (or scripts/build-ios-app.sh) writes Broski.xcodeproj,
 # which is a build output and never committed.
 #
-# Every target globs its folders, so a new folder under Sources/Features needs no edit here.
-# Phase 4.2 adds two targets beside BroskiTests — `NotificationService` (type app-extension, sources
-# Extensions/NotificationService and Shared) and `LiveActivity` (type app-extension, sources
-# Extensions/LiveActivity) — and names both under the Broski target's `dependencies` (`embed: true`).
+# Every target globs its folders, so a new folder under Sources/Features needs no edit here. The
+# app embeds two extensions: NotificationService (opens pushes with the core; Shared without the
+# Live Activity) and BroskiWidgets (the Live Activity; Shared/LiveActivity only, no core).
 name: Broski
 
 options:
@@ -17,6 +16,11 @@ options:
 packages:
   BroskiCore:
     path: ../BroskiCore
+  # The terminal emulator (Ghostty, host-managed IO). Exact: it wraps Ghostty's embedder API, which
+  # promises no ABI, and releases weekly (docs/rebuild/research/terminal.md).
+  GhosttyKit:
+    url: https://github.com/Lakr233/libghostty-spm
+    exactVersion: 2.2.2026111302
 
 settings:
   base:
@@ -43,6 +47,12 @@ targets:
     dependencies:
       - package: BroskiCore
         product: BroskiCore
+      - package: GhosttyKit
+        product: GhosttyTerminal
+      - target: NotificationService
+        embed: true
+      - target: BroskiWidgets
+        embed: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.muzammil.broski
@@ -54,6 +64,41 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS: YES
+
+  NotificationService:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Extensions/NotificationService
+      - path: Shared
+        excludes:
+          - LiveActivity/**
+    dependencies:
+      - package: BroskiCore
+        product: BroskiCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.muzammil.broski.NotificationService
+        INFOPLIST_FILE: Extensions/NotificationService/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Extensions/NotificationService/NotificationService.entitlements
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SKIP_INSTALL: YES
+
+  BroskiWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Extensions/Widgets
+      - path: Shared/LiveActivity
+      - path: Resources/Assets.xcassets
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.muzammil.broski.Widgets
+        INFOPLIST_FILE: Extensions/Widgets/Info.plist
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SKIP_INSTALL: YES
 
   BroskiTests:
     type: bundle.unit-test

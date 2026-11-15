@@ -3,6 +3,7 @@ import SwiftUI
 
 enum AppTab: Hashable {
     case inbox
+    case workspace
     case settings
 }
 
@@ -19,11 +20,21 @@ struct AppTabs: View {
             }
             .badge(model.inbox.rows.count { $0.state == .needsYou })
 
+            Tab("Workspace", systemImage: "folder", value: .workspace) {
+                WorkspaceScreen()
+            }
+
             Tab("Settings", systemImage: "gearshape", value: .settings) {
                 SettingsScreen()
             }
         }
         .tabBarMinimizeBehavior(.onScrollDown)
+        .onChange(of: model.folderToOpen) { _, target in
+            if target != nil { tab = .workspace }
+        }
+        .onChange(of: model.sessionToOpen) { _, target in
+            if target != nil { tab = .inbox }
+        }
         .modifier(WorkingAccessory(count: model.inbox.workingCount) {
             tab = .inbox
             model.inbox.filter = .working

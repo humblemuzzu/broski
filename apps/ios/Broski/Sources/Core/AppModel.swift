@@ -21,22 +21,33 @@ final class AppModel {
     private(set) var unreadablePairings: [String] = []
     let inbox = InboxModel()
     let notifications = NotificationAccess()
+    let push: PushNotifications
     let discovery = LanDiscovery()
     /// Set to show a session; the Inbox tab opens it and sets this back to `nil`.
     var sessionToOpen: SessionTarget?
     /// Set to show a folder; the Workspace tab opens it and sets this back to `nil`.
     var folderToOpen: FolderTarget?
+    /// The session on screen, set by the chat while it shows one and cleared when it leaves: its
+    /// pushes do not banner while the app is in front.
+    var visibleSession: SessionTarget?
 
     @ObservationIgnored private let storage: PhoneStorage
     @ObservationIgnored private var phone: Phone?
     @ObservationIgnored private var pathWatcher: PathWatcher?
     @ObservationIgnored private var isActive = false
+    @ObservationIgnored private var liveRuns: LiveRuns?
 
     init(storage: PhoneStorage = PhoneStorage()) {
         self.storage = storage
+        push = PushNotifications(records: storage.records)
         discovery.found = { [weak self] machineId, route in
             self?.machine(id: machineId)?.machine.lanDiscovered(routes: [route])
         }
+        push.tokenChanged = { [weak self] _ in
+            self?.machines.forEach { $0.registerPush(self?.push.token) }
+        }
+        push.opened = { [weak self] in self?.sessionToOpen = $0 }
+        push.visibleSession = { [weak self] in self?.visibleSession }
     }
 
     var isPaired: Bool { !machines.isEmpty || !unreadablePairings.isEmpty }
@@ -49,6 +60,11 @@ final class AppModel {
     /// again after a failure; a running phone is left alone.
     func start() {
         guard phone == nil else { return }
+        push.start()
+        RunStopper.stop = { [weak self] machineId, backend, sessionId in
+            guard let backend = BackendId(wireName: backend) else { return }
+            await self?.stopRun(machineId: machineId, session: SessionRef(backend: backend, sessionId: sessionId))
+        }
         launch = .starting
         do throws(IdentityProblem) {
             let phone = try Self.makePhone(secret: try identitySecret())
@@ -96,11 +112,31 @@ final class AppModel {
         inbox.markSeen(machineId: machineId, session: session)
     }
 
+    /// Stop from the Live Activity, which may run the app in the background just for it: the link
+    /// is resumed for the request and paused again after. The bridge takes `abort` only for a session
+    /// the phone views, so the session is viewed while it is sent.
+    func stopRun(machineId: String, session: SessionRef) async {
+        guard let machine = machine(id: machineId) else { return }
+        if !isActive { phone?.resume() }
+        do {
+            let view = try machine.machine.attach(session: session)
+            defer { view.detach() }
+            let answer = try await machine.machine.request(message: .abort(AbortRequest(requestId: "", session: session)))
+            Logger.core.info("a run was stopped from the Live Activity: \(String(describing: answer), privacy: .public)")
+        } catch {
+            Logger.core.error("the stop was not sent: \(String(describing: error), privacy: .public)")
+        }
+        if !isActive { phone?.pause() }
+    }
+
     func scenePhaseChanged(_ phase: ScenePhase) {
         switch phase {
         case .active:
             isActive = true
             phone?.resume()
+            // An activity can only start in front; one that a background change could not start
+            // starts now.
+            liveRuns?.follow(inbox.rows)
             Task { await notifications.refresh() }
         case .background:
             isActive = false
@@ -146,6 +182,7 @@ final class AppModel {
             Logger.core.error("the seen state was not read: \(error.status)")
         }
         inbox.start(core, storage: storage)
+        followLiveRuns()
 
         let records: [(id: String, bytes: Data)]
         do throws(Keychain.Failure) {
@@ -170,6 +207,17 @@ final class AppModel {
         updateDiscovery()
     }
 
+    /// The Live Activity follows the inbox for the life of the phone.
+    private func followLiveRuns() {
+        let liveRuns = LiveRuns()
+        self.liveRuns = liveRuns
+        Task { [inbox] in
+            for await rows in Observations({ inbox.rows }) {
+                liveRuns.follow(rows)
+            }
+        }
+    }
+
     private func adopt(_ machine: Machine) -> MachineModel {
         let model = MachineModel(machine: machine, records: storage.records)
         self.machine(id: model.id)?.retire()
@@ -177,6 +225,7 @@ final class AppModel {
         machines.removeAll { $0.id == model.id }
         unreadablePairings.removeAll { $0 == model.id }
         add(model)
+        model.registerPush(push.token)
         updateDiscovery()
         return model
     }

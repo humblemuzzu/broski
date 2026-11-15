@@ -7,9 +7,12 @@ struct SettingsScreen: View {
     @Environment(AppModel.self) private var model
     @Environment(\.openURL) private var openURL
     @AppStorage(Preference.appearance) private var appearance: Appearance = .system
-    @AppStorage(Preference.notifyNeedsYou) private var notifyNeedsYou = true
-    @AppStorage(Preference.notifyDone) private var notifyDone = true
-    @AppStorage(Preference.notifyFailures) private var notifyFailures = true
+    @AppStorage(NotificationPreferences.needsYou, store: NotificationPreferences.store)
+    private var notifyNeedsYou = true
+    @AppStorage(NotificationPreferences.done, store: NotificationPreferences.store)
+    private var notifyDone = true
+    @AppStorage(NotificationPreferences.failures, store: NotificationPreferences.store)
+    private var notifyFailures = true
 
     var body: some View {
         NavigationStack {

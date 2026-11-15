@@ -66,6 +66,13 @@ final class MachineModel: Identifiable {
         }
     }
 
+    /// Hands the machine this phone's APNs token; the link session sends it at every connect, so a
+    /// machine that is away gets it when it is back.
+    func registerPush(_ token: String?) {
+        guard let token else { return }
+        machine.registerPush(platform: .apns, token: token)
+    }
+
     func restartBridge() throws {
         try machine.restartBridge()
     }
