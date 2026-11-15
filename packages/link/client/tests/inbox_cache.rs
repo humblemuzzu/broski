@@ -71,7 +71,7 @@ async fn a_restarted_phone_shows_the_last_inbox_until_the_machine_is_back() {
     assert!(waiting.cached);
     assert_eq!(waiting.state, InboxState::NeedsYou, "as last known");
     assert_eq!(waiting.ask.as_deref(), Some("Run bash?"));
-    assert_eq!(waiting.command.as_deref(), Some("bash"));
+    assert_eq!(waiting.command.as_deref(), Some("rm -rf build"));
     assert!(waiting.pending.is_none(), "no answer from a cache");
     let quiet = row(&rows, &idle).expect("the idle row, cached");
     assert_eq!((quiet.cached, quiet.state), (true, InboxState::Idle));

@@ -52,8 +52,8 @@ async fn a_permission_is_answered_from_its_row_once() {
     assert_eq!(waiting.ask.as_deref(), Some("Run bash?"));
     assert_eq!(
         waiting.command.as_deref(),
-        Some("bash"),
-        "the fake previews its tool's name"
+        Some("rm -rf build"),
+        "the fake previews the command it was given"
     );
     assert!(!waiting.cached);
     let pending = waiting.pending.as_ref().expect("pending");

@@ -91,7 +91,7 @@ export class FakeRun {
 	private async playStep(step: FakeStep): Promise<RunOutcome | undefined> {
 		switch (step.kind) {
 			case "text":
-				await this.block("text", step.text, this.host.traits.streamText);
+				await this.block("text", step.text, this.host.traits.streamText, step.paceMs);
 				return undefined;
 			case "thinking":
 				await this.block("thinking", step.text, this.host.traits.streamThinking);
@@ -174,11 +174,17 @@ export class FakeRun {
 		}
 	}
 
-	private async block(kind: "text" | "thinking" | "plan", text: string, streams: boolean): Promise<void> {
+	private async block(
+		kind: "text" | "thinking" | "plan",
+		text: string,
+		streams: boolean,
+		paceMs?: number,
+	): Promise<void> {
 		const blockId = this.host.newId();
 		this.host.emit({ type: "block_started", blockId, messageId: this.messageId, kind });
 		if (streams) {
 			for (const chunk of chunks(text)) {
+				if (paceMs) await this.pause(paceMs);
 				await this.tick();
 				this.host.emit({ type: "block_delta", blockId, text: chunk });
 			}
@@ -247,7 +253,7 @@ export class FakeRun {
 			kind: "tool_permission",
 			input: step.input,
 			inputEditable: true,
-			previews: [{ kind: "command", command: step.name }],
+			previews: [{ kind: "command", command: previewCommand(step) }],
 			options: [...PERMISSION_OPTIONS],
 			grants: [],
 			defaultOptionId: "allow_once",
@@ -291,10 +297,21 @@ export class FakeRun {
 		return result;
 	}
 
+	private async pause(ms: number): Promise<void> {
+		await Promise.race([new Promise((resolve) => setTimeout(resolve, ms)), this.interruption.promise]);
+	}
+
 	private async tick(): Promise<void> {
 		await Promise.resolve();
 		if (this.abortedWith) throw ABORTED;
 	}
+}
+
+/** What a real backend previews for a command tool: the command it was given, else the tool's name. */
+function previewCommand(step: FakeToolStep): string {
+	const input = step.input;
+	const command = typeof input === "object" && input !== null && !Array.isArray(input) ? input.command : undefined;
+	return typeof command === "string" ? command : step.name;
 }
 
 function chunks(text: string): string[] {

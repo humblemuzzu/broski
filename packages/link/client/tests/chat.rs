@@ -144,7 +144,7 @@ async fn a_permission_ask_is_answered_once_and_the_run_finishes() {
     };
     assert!(request.previews.iter().any(|preview| matches!(
         preview,
-        PermissionPreview::Command(command) if command.command == "bash"
+        PermissionPreview::Command(command) if command.command == "rm -rf build"
     )));
     chat.assert_equal("while the ask waits");
 

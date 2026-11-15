@@ -24,7 +24,8 @@ export interface FakeToolStep {
 
 /** Steps that produce content or wait on someone. */
 type FakeContentStep =
-	| { kind: "text"; text: string }
+	/** `paceMs` waits that long between the streamed parts, so the open block changes while a phone looks. */
+	| { kind: "text"; text: string; paceMs?: number }
 	| { kind: "thinking"; text: string }
 	| { kind: "plan_proposal"; text: string }
 	/** One text block naming the model this request runs with. */

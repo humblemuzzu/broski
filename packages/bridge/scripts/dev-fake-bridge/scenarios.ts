@@ -1,7 +1,7 @@
 import { sampleRequest } from "../../src/contract/testing/fake-scenarios";
 import type { FakeStep } from "../../src/contract/testing/fake-script";
 
-export const FAKE_SCENARIOS = ["ask", "hold", "replace", "permission", "work", "hold_and_ask"] as const;
+export const FAKE_SCENARIOS = ["ask", "hold", "replace", "permission", "work", "hold_and_ask", "stream"] as const;
 export type FakeScenarioName = (typeof FAKE_SCENARIOS)[number];
 
 const EDIT = {
@@ -12,12 +12,16 @@ const EDIT = {
 	deletions: 1,
 } as const;
 
+const STREAM_PACE_MS = 120;
+
 /**
  * What the fake's next run of a session does, by name: `ask` stops on a choice until a phone answers
  * it; `hold` streams, waits for `release`, and streams again; `replace` streams, waits for `release`,
  * then goes on as a new session (a `/clear`), and streams once more; `permission` asks before running
  * a command; `work` streams most of what a run can hold, many blocks of it; `hold_and_ask` holds, then
- * does the work and stops on a choice, so a run stays mid-way with everything it streamed.
+ * does the work and stops on a choice, so a run stays mid-way with everything it streamed; `stream`
+ * writes its text slowly, a part every 120 ms, so a block is open and growing for a while, and makes a
+ * file edit that stays in the transcript.
  */
 export function fakeScenario(name: FakeScenarioName): FakeStep[] {
 	switch (name) {
@@ -42,6 +46,16 @@ export function fakeScenario(name: FakeScenarioName): FakeStep[] {
 			];
 		case "work":
 			return workSteps();
+		case "stream":
+			return [
+				{
+					kind: "text",
+					text: "Streaming this answer a few words at a time, so its block changes while it is read.",
+					paceMs: STREAM_PACE_MS,
+				},
+				{ kind: "tool", name: "edit", input: { path: "notes.md" }, output: "line one", fileChanges: [EDIT] },
+				{ kind: "text", text: "Edited notes.md, and the edit stays in the transcript.", paceMs: STREAM_PACE_MS },
+			];
 		case "hold_and_ask":
 			return [
 				{ kind: "text", text: "Working." },
