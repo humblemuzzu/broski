@@ -10,7 +10,9 @@ import Testing
 /// update the state either equals `SessionView.snapshot()` or the stream already holds what makes it
 /// equal (the view's snapshot is the stream's newest, a batch may be behind it), so the pull goes on;
 /// each scenario only moves on, and only ends, at an update after which the two are equal. A state
-/// that drifts never becomes equal again, and the time limit fails the test.
+/// that drifts never becomes equal again, and the follower's watchdog fails the test. The fake plays
+/// a run within one batch interval, so its runs arrive as a few batches whose records open and close
+/// blocks and tools within each; records of text still streaming are proven by `ChatModelTests`.
 @Suite
 struct SessionMachineTests {
     @Test(.enabled(if: ReplicaMachine.fromEnvironment != nil, "run by scripts/e2e-ios-app.sh"), .timeLimit(.minutes(5)))
@@ -55,8 +57,18 @@ nonisolated struct ReplicaMachine: Sendable {
 
 private enum ReplicaFailure: Error {
     case machineEnded
-    case viewEnded
-    case unexpected(ServerMessage)
+    case stuck(trail: String, session: SessionRef?, state: SessionSnapshot, view: SessionSnapshot?)
+}
+
+private extension SessionUpdate {
+    /// The update in a word, for a failure's account of the last ones.
+    var trail: String {
+        switch self {
+        case .reset(let session, _, _, _): "reset(\(session.sessionId.prefix(8)))"
+        case .changes(let changes, _): "changes(\(changes.count))"
+        case .ended(let reason): "ended(\(reason))"
+        }
+    }
 }
 
 private extension MachineStatus {
@@ -132,20 +144,37 @@ private struct Follower {
     private(set) var state = SessionState()
     private(set) var updates = 0
     private(set) var equal = 0
+    private var isEqual = false
 
     init(view: SessionView) {
         self.view = view
     }
 
-    /// Pulls until `done` holds of a state equal to the view's snapshot.
+    /// Pulls until `done` holds of a state equal to the view's snapshot. A view that goes quiet
+    /// short of that is detached after 30 s, which ends the pull, and the failure says how far the
+    /// state got.
     mutating func follow(until done: (SessionState) -> Bool) async throws {
+        if isEqual && done(state) { return }
+        let view = view
+        let watchdog = Task {
+            try await Task.sleep(for: .seconds(30))
+            view.detach()
+        }
+        defer { watchdog.cancel() }
+        var seen: SessionSnapshot?
+        var trail: [String] = []
         while true {
-            guard let update = await view.nextUpdate() else { throw ReplicaFailure.viewEnded }
+            guard let update = await view.nextUpdate() else {
+                throw ReplicaFailure.stuck(
+                    trail: trail.suffix(8).joined(separator: " "), session: state.session, state: state.snapshot, view: seen)
+            }
             _ = state.apply(update)
             updates += 1
-            let matches = state.snapshot == view.snapshot()
-            if matches { equal += 1 }
-            if matches && done(state) { return }
+            seen = view.snapshot()
+            trail.append(update.trail + (seen == nil ? "/no-snapshot" : ""))
+            isEqual = state.snapshot == seen
+            if isEqual { equal += 1 }
+            if isEqual && done(state) { return }
         }
     }
 }
