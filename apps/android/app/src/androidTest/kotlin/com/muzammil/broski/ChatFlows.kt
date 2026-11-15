@@ -130,6 +130,24 @@ class ChatFlows(private val ui: WorkspaceUiDriver, private val machine: RealMach
         ui.back()
     }
 
+    /** The header's Files opens the Workspace's browser in the session's folder; `/` lists the agent's commands and picks one. */
+    fun filesAndCommands() {
+        open("Where am I")
+        touch(hasContentDescription(ui.string(R.string.chat_open_files)) and hasClickAction())
+        ui.waitFor(hasText("README.md"))
+        ui.waitFor(hasText("src"))
+        shot("chat-files-light")
+        ui.back()
+        compose.onAllNodes(hasSetTextAction())[0].performTextInput("/rev")
+        ui.waitFor(hasText("/review [path]"))
+        shot("chat-commands-light")
+        touchText("/review [path]")
+        ui.waitFor(hasText("/review"))
+        send("src")
+        ui.waitFor(hasText("Done."))
+        ui.back()
+    }
+
     fun renameFromTheHeader() {
         open("Name me")
         touch(hasContentDescription(ui.string(R.string.chat_more)) and hasClickAction())

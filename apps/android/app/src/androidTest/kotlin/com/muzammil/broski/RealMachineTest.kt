@@ -119,6 +119,9 @@ class RealMachineTest {
     @Test
     fun r_aThousandItemsScrollFromTheEndToTheFirstMessageAndBack() = ScrollFlow(ui, machine).run()
 
+    @Test
+    fun s_theHeadersFilesOpensTheFolderAndSlashPicksACommand() = chat.filesAndCommands()
+
     private companion object {
         const val TIMEOUT = 10_000L
         const val PAIRING_TIMEOUT = 30_000L

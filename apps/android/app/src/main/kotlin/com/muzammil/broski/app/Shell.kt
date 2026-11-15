@@ -60,7 +60,7 @@ fun Shell(core: AppCore, phone: PhoneSession, features: Features, openRequests: 
             }
         },
         primaryActionContent = {
-            if (features.newSession != null && navigator.tab == TopLevel.Inbox && !inChat) {
+            if (features.newSession != null && navigator.entries.lastOrNull() == InboxRoute) {
                 LargeFloatingActionButton(onClick = { newSessionOpen = true }) {
                     Icon(painterResource(R.drawable.ic_add), contentDescription = stringResource(R.string.new_session))
                 }
