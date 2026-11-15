@@ -58,8 +58,9 @@ fun Modifier.shimmer(highlight: Color): Modifier {
     return graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen).drawWithContent {
         drawContent()
         val x = -band + (size.width + 2 * band) * progress
+        val clear = highlight.copy(alpha = 0f)
         val brush = Brush.linearGradient(
-            colors = listOf(Color.Transparent, highlight, Color.Transparent),
+            colors = listOf(clear, highlight, clear),
             start = Offset(x - band, 0f),
             end = Offset(x + band, 0f),
         )
