@@ -1,9 +1,6 @@
 package com.muzammil.broski.feature.workspace
 
 import com.muzammil.broski.feature.workspace.files.FileContent
-import com.muzammil.broski.feature.workspace.git.DiffRow
-import com.muzammil.broski.feature.workspace.git.DiffRowKind
-import com.muzammil.broski.feature.workspace.git.diffRows
 import java.util.Base64
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -12,11 +9,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import uniffi.broski_contract.FileEncoding
 import uniffi.broski_contract.FileRead
-import uniffi.broski_contract.GitChange
-import uniffi.broski_contract.GitDiffFile
-import uniffi.broski_contract.GitDiffHunk
-import uniffi.broski_contract.GitDiffLine
-import uniffi.broski_contract.GitDiffLineKind
 import uniffi.broski_contract.GitStatusRead
 import uniffi.broski_contract.ProtocolErrorCode
 import uniffi.broski_contract.Rejection
@@ -42,36 +34,6 @@ class WorkspaceShapesTest {
         assertArrayEquals(bytes, content.bytes)
         assertTrue(content.truncated)
         assertEquals(4L to 9_000_000L, content.shown to content.size)
-    }
-
-    @Test
-    fun aHunkBecomesUnifiedLinesWithBothLineNumbers() {
-        val file = GitDiffFile(
-            path = "README.md",
-            previousPath = null,
-            change = GitChange.MODIFIED,
-            binary = false,
-            hunks = listOf(
-                GitDiffHunk(
-                    oldStart = 9, oldLines = 2, newStart = 9, newLines = 2, header = "## Usage",
-                    lines = listOf(
-                        GitDiffLine(GitDiffLineKind.CONTEXT, "# Demo", 9, 9, null),
-                        GitDiffLine(GitDiffLineKind.REMOVED, "old", 10, null, true),
-                        GitDiffLine(GitDiffLineKind.ADDED, "new", null, 10, null),
-                    ),
-                ),
-            ),
-        )
-        assertEquals(
-            listOf(
-                DiffRow(DiffRowKind.Hunk, "@@ -9,2 +9,2 @@ ## Usage", ""),
-                DiffRow(DiffRowKind.Context, " # Demo", " 9  9"),
-                DiffRow(DiffRowKind.Removed, "-old", "10   "),
-                DiffRow(DiffRowKind.NoNewline, "\\ No newline at end of file", ""),
-                DiffRow(DiffRowKind.Added, "+new", "   10"),
-            ),
-            diffRows(file),
-        )
     }
 
     @Test

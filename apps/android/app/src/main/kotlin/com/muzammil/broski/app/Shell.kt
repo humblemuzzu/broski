@@ -5,6 +5,7 @@ import androidx.compose.material3.LargeFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteItem
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
+import androidx.compose.material3.adaptive.navigationsuite.rememberNavigationSuiteScaffoldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -40,8 +41,13 @@ fun Shell(core: AppCore, phone: PhoneSession, features: Features, openRequests: 
     val context = remember(phone, navigator) { FeatureContext(phone, navigator::open, navigator::back) }
     var newSessionOpen by rememberSaveable { mutableStateOf(false) }
     val tabs = TopLevel.entries.filter { it != TopLevel.Workspace || features.workspace != null }
+    // The chat's composer is its bottom edge: no navigation bar under it.
+    val suite = rememberNavigationSuiteScaffoldState()
+    val inChat = navigator.entries.lastOrNull() is SessionRoute
+    LaunchedEffect(inChat) { if (inChat) suite.hide() else suite.show() }
 
     NavigationSuiteScaffold(
+        state = suite,
         navigationItems = {
             tabs.forEach { top ->
                 val selected = navigator.tab == top
@@ -54,7 +60,7 @@ fun Shell(core: AppCore, phone: PhoneSession, features: Features, openRequests: 
             }
         },
         primaryActionContent = {
-            if (features.newSession != null && navigator.tab == TopLevel.Inbox) {
+            if (features.newSession != null && navigator.entries.lastOrNull() == InboxRoute) {
                 LargeFloatingActionButton(onClick = { newSessionOpen = true }) {
                     Icon(painterResource(R.drawable.ic_add), contentDescription = stringResource(R.string.new_session))
                 }

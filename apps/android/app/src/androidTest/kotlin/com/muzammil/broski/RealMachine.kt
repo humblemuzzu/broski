@@ -50,11 +50,21 @@ class RealMachine private constructor(val offer: String, val root: String, priva
     }
 
     /** The session's next run streams, then holds until released or stopped (test-machine's `script`). */
-    fun scriptHold(session: SessionRef) {
-        command(buildJsonObject {
+    fun scriptHold(session: SessionRef) = script(session, "hold")
+
+    /** The session's next run plays [scenario] (`packages/bridge/scripts/dev-fake-bridge/scenarios.ts`). */
+    fun script(session: SessionRef, scenario: String) {
+        val answer = command(buildJsonObject {
             put("script", wire(session))
-            put("scenario", "hold")
+            put("scenario", scenario)
         })
+        check(answer["scripted"] != null) { "scripted: $answer" }
+    }
+
+    /** Ends the hold the session's run waits in (test-machine's `release`). */
+    fun release(session: SessionRef) {
+        val answer = command(buildJsonObject { put("release", wire(session)) })
+        check(answer["released"] != null) { "released: $answer" }
     }
 
     /** A terminal runs the session through the scenario "permission": it waits on a permission to run bash, which no phone prompted (test-machine's `run`). */
