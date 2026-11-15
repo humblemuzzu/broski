@@ -90,7 +90,9 @@ Every mode is a `prompt` with `streamingBehavior` (`steer` / `followUp`) when a 
 Pi answers once it has decided: `started`, `queued` or `handled`. Text is sent as typed, so text that names an extension
 command runs it and a template expands (`docs/rpc-commands.md:31-33`). A prompt sent while Pi runs a run's
 `agent_settled` handlers is answered after the settle and starts its own run; the bridge reports `busy` for a `start`
-until `run_finished`.
+until `run_finished`. No deadline ends a `prompt`: an extension's `input` handler or command may wait on a human
+for as long as the human takes, so only Pi's answer or its exit does. The phone is answered at the run's start (§8) or
+by the core's own 120 s deadline, which leaves the prompt with Pi (`ask_deadlines.test.ts`).
 
 ## 7. Control
 

@@ -206,6 +206,15 @@ export function eventTypes(live: LiveSession): string[] {
 	return live.events().map((event) => event.type);
 }
 
+/** From now on a timer set for `ms` fires after `sooner` instead, so a test can reach a long deadline without waiting for it. */
+export function shortenTimer(ms: number, sooner: number): () => void {
+	const realSet = globalThis.setTimeout;
+	Reflect.set(globalThis, "setTimeout", (handler: () => void, delay?: number) =>
+		realSet(handler, delay === ms ? sooner : delay),
+	);
+	return () => Reflect.set(globalThis, "setTimeout", realSet);
+}
+
 /** Counts the timers of a second or more (the adapter's deadlines) that were set and neither fired nor were cleared. */
 export function trackLongTimers(minMs = 1_000): { outstanding(): number; setBy(): string[]; stop(): void } {
 	const realSet = globalThis.setTimeout;

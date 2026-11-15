@@ -13,7 +13,7 @@ import { countOf } from "./helpers/live-steps";
 import { MODELS, wireIdOf } from "./helpers/pi-world";
 import { say } from "./helpers/scenarios";
 import { useWatchdog } from "./helpers/use-watchdog";
-import { HostRig } from "./host_rig";
+import { HostRig, pause, shortenTimer, until } from "./host_rig";
 
 useWatchdog();
 
@@ -118,6 +118,60 @@ describe("a prompt Pi is still deciding when a human is asked about it", () => {
 		expect((await live.waitFor("run_finished")).outcome).toEqual({ kind: "completed" });
 		expect(countOf(live, "run_started")).toBe(1);
 		expect(t.answers).toEqual([true]);
+		live.assertSettled();
+	});
+});
+
+// The 110 s that `prompt` once waited stands in for any deadline: Pi decides a prompt only after a human has answered.
+describe("a human who takes longer than any deadline", () => {
+	const LONG_WAIT_MS = 110_000;
+	let restoreTimers: (() => void) | undefined;
+
+	afterEach(() => restoreTimers?.());
+
+	test("does not end the run a prompt started early, or give a second run to what Pi does afterwards", async () => {
+		t = await HostRig.create();
+		t.set({ askOn: "input" });
+		restoreTimers = shortenTimer(LONG_WAIT_MS, 300);
+		const live = await t.rig.rig.openNew();
+		await t.rig.rig.arrange(live.ref, { kind: "reply" });
+		const clientRequestId = crypto.randomUUID();
+		expect(await live.prompt("send this", "start", clientRequestId)).toMatchObject({ disposition: "started" });
+		const { interaction } = await live.waitFor("interaction_requested");
+
+		await pause(900);
+		expect(count(live, "run_finished")).toBe(0);
+		expect(live.reduced().interactions.map((open) => open.id)).toEqual([interaction.id]);
+
+		await live.control.answer(confirm(interaction.id, true));
+		expect((await live.waitFor("run_finished")).outcome).toEqual({ kind: "completed" });
+		expect(live.events()).toContainEqual(expect.objectContaining({ type: "user_message", clientRequestId }));
+		expect(countOf(live, "run_started")).toBe(1);
+		live.assertSettled();
+	});
+
+	test("does not fail the extension command that asks them, or fold its dialog into a run", async () => {
+		t = await HostRig.create();
+		restoreTimers = shortenTimer(LONG_WAIT_MS, 300);
+		const live = await t.rig.rig.openNew();
+		expect(
+			await live.control.prompt({
+				clientRequestId: crypto.randomUUID(),
+				mode: "start",
+				text: "",
+				attachments: [],
+				command: "ext:ask-later",
+			}),
+		).toMatchObject({ status: "accepted", disposition: "handled" });
+		const { interaction } = await live.waitFor("interaction_requested");
+
+		await pause(900);
+		expect(live.events().filter((event) => event.type === "notice")).toEqual([]);
+
+		await live.control.answer(confirm(interaction.id, true));
+		await until(() => t?.answers.length === 1, "the command to take the answer");
+		expect(interaction).toMatchObject({ title: "Later?", blocksRun: false });
+		expect(countOf(live, "run_started")).toBe(0);
 		live.assertSettled();
 	});
 });

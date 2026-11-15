@@ -29,8 +29,6 @@ import {
 export const START_DEADLINE_MS = 20_000;
 const LOOKUP_DEADLINE_MS = 10_000;
 const COMMAND_DEADLINE_MS = 30_000;
-/** A prompt's disposition can wait on a human an extension's `input` handler asks; the core answers the phone at 120 s. */
-const PROMPT_DEADLINE_MS = 110_000;
 /** `abort` answers once the session is idle (`docs/rpc-commands.md:94-105`). */
 export const ABORT_DEADLINE_MS = 10_000;
 /** `compact` answers when the compaction has ended; the phone is answered at its start. */
@@ -78,6 +76,11 @@ export class PiChild {
 			.then((answer) => (answer.ok ? { ok: true, data: answer.data.commands } : answer));
 	}
 
+	/**
+	 * Pi answers once it has decided, and an extension's handler or command may wait on a human for as long as the human
+	 * takes: no deadline ends it, only Pi's answer or its exit. The phone is answered earlier, at the run's start
+	 * (`pi-prompt.ts`) or by the core's own deadline.
+	 */
 	prompt(
 		message: string,
 		images: readonly ImageContent[],
@@ -90,7 +93,7 @@ export class PiChild {
 			...(streamingBehavior !== undefined && { streamingBehavior }),
 		};
 		return this.client
-			.request(command, PromptReply, { deadlineMs: PROMPT_DEADLINE_MS })
+			.request(command, PromptReply)
 			.then((answer) => (answer.ok ? { ok: true, data: answer.data.disposition } : answer));
 	}
 

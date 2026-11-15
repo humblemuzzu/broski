@@ -1,7 +1,7 @@
 /**
  * Commands to one `pi --mode rpc` and what it answers, as values (pi-coding-agent 1.5.2 `docs/rpc.md:35-48, 73-89`).
  * Every command carries an id, its response is matched by that id, and every request ends: with Pi's answer, its
- * refusal, a deadline, or the process's exit. Events and extension UI requests reach `deliver` one at a time, in the
+ * refusal, its deadline if it has one, or the process's exit. Events and extension UI requests reach `deliver` one at a time, in the
  * order Pi wrote them. An `ordered` request's answer takes its place in that order too, so a prompt's disposition is
  * read after the events Pi sent before it; the lookups that delivery itself awaits are answered as they arrive.
  */
@@ -29,7 +29,8 @@ export interface RpcCommand {
 }
 
 export interface RequestOptions {
-	readonly deadlineMs: number;
+	/** Without one, only Pi's answer or its exit ends the request: a human may be what Pi is waiting on. */
+	readonly deadlineMs?: number;
 	/** The answer is read in its place among the events (module comment). Default true. */
 	readonly ordered?: boolean;
 }
@@ -72,14 +73,18 @@ export class RpcClient {
 		return this.process.running;
 	}
 
-	request<T>(command: RpcCommand, reply: z.ZodType<T>, options: RequestOptions): Promise<RpcAnswer<T>> {
+	request<T>(command: RpcCommand, reply: z.ZodType<T>, options: RequestOptions = {}): Promise<RpcAnswer<T>> {
 		if (!this.process.running) return Promise.resolve({ ok: false, error: "Pi is not running" });
 		const id = `b${++this.nextId}`;
 		return new Promise((resolve) => {
-			const timer = setTimeout(() => {
-				this.pending.delete(id);
-				resolve({ ok: false, error: `Pi did not answer ${command.type} within ${options.deadlineMs / 1000} s` });
-			}, options.deadlineMs);
+			const { deadlineMs } = options;
+			const timer =
+				deadlineMs === undefined
+					? undefined
+					: setTimeout(() => {
+							this.pending.delete(id);
+							resolve({ ok: false, error: `Pi did not answer ${command.type} within ${deadlineMs / 1000} s` });
+						}, deadlineMs);
 			this.pending.set(id, {
 				command: command.type,
 				ordered: options.ordered ?? true,
