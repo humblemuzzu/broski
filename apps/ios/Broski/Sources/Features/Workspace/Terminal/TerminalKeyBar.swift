@@ -10,12 +10,17 @@ struct TerminalKeyBar: View {
     @State private var ctrl: TerminalPublicStickyActivation = .inactive
 
     var body: some View {
-        GlassEffectContainer(spacing: Spacing.xs) {
-            HStack(spacing: Spacing.xs) {
-                key("esc", label: "Escape") { $0.sendKey(.escape) }
-                ctrlKey
-                key("tab", label: "Tab") { $0.sendKey(.tab) }
-                FadingHorizontalScroll {
+        HStack(spacing: Spacing.xs) {
+            GlassEffectContainer(spacing: Spacing.xs) {
+                HStack(spacing: Spacing.xs) {
+                    key("esc", label: "Escape") { $0.sendKey(.escape) }
+                    ctrlKey
+                    key("tab", label: "Tab") { $0.sendKey(.tab) }
+                }
+            }
+            // The glass is drawn by its container, so the container is inside the scroll view for the fade to reach it.
+            FadingHorizontalScroll {
+                GlassEffectContainer(spacing: Spacing.xs) {
                     HStack(spacing: Spacing.xs) {
                         arrow("arrow.left", label: "Left Arrow", .arrowLeft)
                         arrow("arrow.up", label: "Up Arrow", .arrowUp)
@@ -33,10 +38,11 @@ struct TerminalKeyBar: View {
                         .buttonBorderShape(.capsule)
                     }
                 }
+                .padding(.trailing, Spacing.m)
             }
-            .padding(.horizontal, Spacing.m)
-            .padding(.vertical, Spacing.xs)
         }
+        .padding(.leading, Spacing.m)
+        .padding(.vertical, Spacing.xs)
         .font(.system(.subheadline, design: .monospaced).weight(.semibold))
     }
 
