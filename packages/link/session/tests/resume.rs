@@ -1,0 +1,152 @@
+mod common;
+
+use broski_link_session::{LinkState, Paired, Route, SendFailure, WaitReason};
+use common::bridge::BridgeStandIn;
+use common::daemon::{Home, TestDaemon};
+use common::forwarder::Forwarder;
+use common::relay::TestRelay;
+use common::watch::{resumed, session_reset, Watch};
+use common::{await_identity, quick, Phone};
+
+const TOTAL: usize = 200;
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_socket_dropped_mid_stream_resumes_without_loss_or_duplication() {
+    let home = Home::new();
+    let daemon = TestDaemon::start(&home, None, true).await;
+    let bridge = BridgeStandIn::start(&home.bridge_socket());
+    let lan = Forwarder::start(daemon.lan()).await;
+    let phone = Phone::new();
+    let Paired { session, .. } = phone.pair(&daemon, vec![lan.route()], quick()).await;
+    let mut watch = Watch::new(session);
+    watch.connected_on(0, Route::Lan).await;
+    watch.round_trip("first").await;
+    let bridge_sockets = bridge.sessions().len();
+
+    let mut drops = 0;
+    for index in 0..TOTAL {
+        watch.send(&format!("m{index:03}"));
+        if index % 40 == 20 {
+            // The socket dies with frames in flight in both directions.
+            let mark = watch.mark();
+            lan.drop_connections();
+            let back = watch.connected_on(mark, Route::Lan).await;
+            assert_eq!(resumed(&back), Some(true), "drop {drops} resumed");
+            drops += 1;
+        }
+    }
+    watch.echoes(TOTAL + 1).await;
+
+    let sent: Vec<String> = (0..TOTAL).map(|index| format!("m{index:03}")).collect();
+    let echoed: Vec<String> = sent.iter().map(|text| format!("echo:{text}")).collect();
+    assert_eq!(
+        watch.bridge[1..],
+        echoed,
+        "every echo exactly once, in order"
+    );
+    assert_eq!(
+        bridge.received()[1..],
+        sent,
+        "the bridge got every message exactly once"
+    );
+    assert_eq!(drops, 5);
+    assert_eq!(
+        bridge.sessions().len(),
+        bridge_sockets,
+        "resumed sessions keep their bridge socket"
+    );
+    assert!(watch.failures.is_empty(), "{:?}", watch.failures);
+    lan.stop();
+    bridge.stop();
+    daemon.stop().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_network_change_races_the_routes_again_and_resumes() {
+    let home = Home::new();
+    let daemon = TestDaemon::start(&home, None, true).await;
+    let bridge = BridgeStandIn::start(&home.bridge_socket());
+    let lan = Forwarder::start(daemon.lan()).await;
+    let phone = Phone::new();
+    let Paired { session, .. } = phone.pair(&daemon, vec![lan.route()], quick()).await;
+    let mut watch = Watch::new(session);
+    watch.connected_on(0, Route::Lan).await;
+    let dialled = lan.accepted();
+
+    let mark = watch.mark();
+    watch.send("in flight");
+    watch.session.network_changed();
+    let back = watch.connected_on(mark, Route::Lan).await;
+    assert_eq!(resumed(&back), Some(true));
+    assert_eq!(
+        lan.accepted(),
+        dialled + 1,
+        "one new socket for the new network"
+    );
+    watch
+        .until("the echo", |watch| watch.bridge == ["echo:in flight"])
+        .await;
+    lan.stop();
+    bridge.stop();
+    daemon.stop().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_restarted_machine_is_reported_offline_then_resets_the_session() {
+    let relay = TestRelay::start().await;
+    let home = Home::new();
+    let daemon = TestDaemon::start(&home, Some(&relay.url), false).await;
+    let bridge = BridgeStandIn::start(&home.bridge_socket());
+    await_identity(&relay, &daemon).await;
+    let phone = Phone::new();
+    let Paired { session, .. } = phone.pair(&daemon, Vec::new(), quick()).await;
+    let mut watch = Watch::new(session);
+    watch
+        .until("the device's own relay session", |watch| {
+            watch
+                .statuses
+                .iter()
+                .any(|status| resumed(status) == Some(true))
+        })
+        .await;
+    watch.round_trip("before").await;
+
+    let mark = watch.mark();
+    daemon.stop().await;
+    let offline = watch
+        .status_after(mark, "the machine offline", |status| {
+            status.state == LinkState::Waiting(WaitReason::MachineOffline)
+        })
+        .await;
+    assert_eq!(
+        offline.route,
+        Some(Route::Relay),
+        "the relay socket stays open"
+    );
+
+    // What the app sends while the machine is away waits in the queue, and the machine that comes
+    // back has no session to resume, so all of it is dropped and reported.
+    for index in 0..3 {
+        watch.send(&format!("queued {index}"));
+    }
+    let daemon = TestDaemon::start(&home, Some(&relay.url), false).await;
+    let reset = watch
+        .status_after(mark, "a reset session", session_reset)
+        .await;
+    assert_eq!(resumed(&reset), Some(false));
+    watch
+        .until("three reported messages", |watch| watch.failures.len() == 3)
+        .await;
+    let expected: Vec<_> = (0..3)
+        .map(|index| (Some(format!("queued {index}")), SendFailure::SessionReset))
+        .collect();
+    assert_eq!(watch.failures, expected);
+    watch.round_trip("after").await;
+    assert!(!bridge
+        .received()
+        .iter()
+        .any(|text| text.starts_with("queued")));
+    bridge.stop();
+    daemon.stop().await;
+    relay.stop().await;
+}
