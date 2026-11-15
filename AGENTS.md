@@ -153,7 +153,7 @@ packages/bridge/src/
   workspace/     files, git and terminals over the contract, behind the core's WorkspaceHost port (workspace-host.ts)
   transport/     send queue and frame limits
   platform/ config/ doctor/ wizard/ commands/ lifecycle/ logging/  the CLI and service around the bridge
-packages/link/   the Rust link stack: crypto, proto, core, daemon, power, relay; contract (the phone core's models and reducer); session (the phone side of the link); client (the mobile core over it); testkit (the daemon, relay and LAN harness the phone crates' tests share); mobile (BroskiCore, the UniFFI facade); uniffi-bindgen
+packages/link/   the Rust link stack: crypto, proto, core, daemon, power, relay; contract (the phone core's models and reducer); session (the phone side of the link); client (the mobile core over it); testkit (the daemon, relay, LAN and bridge harness the phone crates' tests share); mobile (BroskiCore, the UniFFI facade); uniffi-bindgen
 apps/ios/BroskiCore/  the Swift package of BroskiCore (generated bindings + XCFramework, both from scripts/build-ios-core.sh)
 apps/ios/carryover/  iOS push code kept for Phase 4
 apps/android/    the Gradle build: :core, BroskiCore's Android library (bindings + .so from scripts/build-android-core.sh)

@@ -528,7 +528,6 @@ dependencies = [
  "broski-link-session",
  "broski-link-testkit",
  "serde_json",
- "tempfile",
  "thiserror",
  "tokio",
  "tracing",
@@ -653,6 +652,7 @@ dependencies = [
 name = "broski-link-testkit"
 version = "0.1.0"
 dependencies = [
+ "broski-contract",
  "broski-link-core",
  "broski-link-daemon",
  "broski-relay",

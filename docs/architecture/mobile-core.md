@@ -238,10 +238,10 @@ up); list paging, row matching and bounds
 (`catalog/lists.rs`); invalidation (`catalog/state.rs`); waiting from a thread with no runtime
 (`wait.rs`); `Send`/`Sync` (`exported.rs`).
 
-The integration tests run the real daemon and relay in-process (`broski-link-testkit`, which the session
-crate's tests share) and the real bridge (Bun, `packages/bridge/scripts/dev-fake-bridge.ts`, its core
-serving the contract's fake backend) on the daemon's unix socket, as a child with a temp `HOME` that is
-also the only directory it serves; the bridge's dependencies must be installed (`bun install` in
+The integration tests run the real daemon and relay in-process and the real bridge (Bun,
+`packages/bridge/scripts/dev-fake-bridge.ts`, its core serving the contract's fake backend) on the
+daemon's unix socket, as a child with a temp `HOME` that is also the only directory it serves, all from
+`broski-link-testkit` (`Mac`, `FakeBridge`), which the session crate's tests share; the bridge's dependencies must be installed (`bun install` in
 `packages/bridge`). Every wait pulls updates or events; the one poll is of a file the terminal writes.
 
 - `chat.rs` — a run streams into a view as records and the UI's copy equals the snapshot; the finished run

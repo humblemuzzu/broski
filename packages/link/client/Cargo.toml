@@ -24,11 +24,9 @@ thiserror = "2.0.21"
 tracing = "0.1.44"
 
 [dev-dependencies]
-# broski-link-testkit — the real daemon and relay in-process, and a LAN path the tests cut.
+# broski-link-testkit — the real daemon, relay and bridge, and a LAN path the tests cut.
 broski-link-testkit = { path = "../testkit" }
-# tokio 1.53.2 — the tests' own runtime, and the Bun bridge as a child process.
-tokio = { version = "1.53.2", features = ["rt-multi-thread", "macros", "process", "io-util"] }
-# tempfile 3.27.0 — a temp home for the bridge and a temp git repository.
-tempfile = "3.27.0"
+# tokio 1.53.2 — the tests' own runtime.
+tokio = { version = "1.53.2", features = ["rt-multi-thread", "macros"] }
 # tracing-subscriber 0.3.23 — RUST_LOG for a failing test; the pin the daemon uses.
 tracing-subscriber = { version = "0.3.23", features = ["env-filter", "fmt"] }

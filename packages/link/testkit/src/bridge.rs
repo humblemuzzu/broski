@@ -6,13 +6,14 @@ use std::process::Stdio;
 use std::sync::OnceLock;
 
 use broski_contract::SessionRef;
-use broski_link_testkit::daemon::Home;
-use broski_link_testkit::WAIT;
 use serde_json::{json, Value};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStdin, Command};
 use tokio::sync::mpsc;
 use tokio::time::timeout;
+
+use crate::daemon::Home;
+use crate::WAIT;
 
 const MARK: &str = "FAKE-BRIDGE ";
 

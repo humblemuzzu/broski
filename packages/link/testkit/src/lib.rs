@@ -1,9 +1,12 @@
 //! What the phone-side crates' integration tests run against: the real daemon and the real relay
-//! in-process on loopback, and a LAN path in front of the daemon that delays, holds, cuts and drops
-//! connections. Nothing here is a stand-in for the machine.
+//! in-process on loopback, a LAN path in front of the daemon that delays, holds, cuts and drops
+//! connections, and the real bridge (Bun) on the daemon's socket with the contract's fake backend.
+//! Nothing here is a stand-in for the machine.
 
+pub mod bridge;
 pub mod daemon;
 pub mod forwarder;
+pub mod mac;
 pub mod relay;
 
 use std::time::Duration;
