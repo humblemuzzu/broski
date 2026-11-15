@@ -37,6 +37,13 @@ native apps.
   make-before-break LAN migration, the outbound queue, pause/resume, and the push-key and letter crypto the
   notification handlers use. No storage I/O: secrets and `MachineRecord`s go in and come out as values. Doc:
   [`docs/architecture/connectivity-v2/link-session.md`](docs/architecture/connectivity-v2/link-session.md).
+- **Mobile core** (`packages/link/client/`, crate `broski-client`) — the phone apps' client over a link session:
+  `hello` per bridge socket, requests matched to answers with the bridge's deadline, session views kept by the
+  contract's Rust reducer and handed to the UI as a snapshot then bounded change records (at most 30 batches a
+  second), each machine's catalog and session lists, the inbox across machines with seen markers as plain data,
+  and terminal views that reattach from their last byte. UniFFI-shaped (owned values, `Arc` objects, pulled
+  subscriptions) but with no UniFFI dependency: the facade `packages/link/mobile` exports it. Doc:
+  [`docs/architecture/mobile-core.md`](docs/architecture/mobile-core.md).
 - **Carried-over iOS code** (`apps/ios/carryover/`, [`apps/carryover/README.md`](apps/carryover/README.md)) — the
   notification service extension, push crypto, keychain item and push action handling from the Flutter app, with
   the bundle ids, team, entitlements and keychain groups the native apps must keep.
@@ -140,7 +147,7 @@ packages/bridge/src/
   workspace/     files, git and terminals over the contract, behind the core's WorkspaceHost port (workspace-host.ts)
   transport/     send queue and frame limits
   platform/ config/ doctor/ wizard/ commands/ lifecycle/ logging/  the CLI and service around the bridge
-packages/link/   the Rust link stack: crypto, proto, core, ffi, daemon, power, relay; contract (the phone core's models and reducer); session (the phone side of the link)
+packages/link/   the Rust link stack: crypto, proto, core, ffi, daemon, power, relay; contract (the phone core's models and reducer); session (the phone side of the link); client (the mobile core over it); testkit (the daemon, relay and LAN harness the phone crates' tests share)
 apps/ios/carryover/  iOS push code kept for Phase 4
 docs/architecture/   contract, core, backends, connectivity-v2
 ```
@@ -183,12 +190,15 @@ cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings
 cargo clippy -p broski-contract --all-targets --features uniffi -- -D warnings
 ```
 
+`cargo test -p broski-client` runs the real bridge (`bun scripts/dev-fake-bridge.ts`, the contract's fake backend in
+its core) on an in-process daemon's socket, so it needs Bun and `bun install` in `packages/bridge`.
+
 `broski install` registers the daemon; `broski-link pair` shows the QR; `broski-link status` and
 `broski-bridge doctor` diagnose.
 
 **CI** (`.github/workflows/ci.yml`): the bridge job (Bun 1.4.2: frozen install, typecheck, biome errors, layers,
 contract check, tests, the perf budget in `bench/`) and the link job (fmt, clippy, clippy of the contract crate with
-its `uniffi` feature, tests on Ubuntu and macOS).
+its `uniffi` feature, the bridge's dependencies for the client's tests, tests on Ubuntu and macOS).
 **Pre-commit** (`.githooks/pre-commit`): biome errors and typecheck when bridge files are staged, `cargo fmt --check`
 when link files are.
 
