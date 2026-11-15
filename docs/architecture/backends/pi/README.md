@@ -117,8 +117,12 @@ Extension dialogs (`select`, `confirm`, `input`, `editor`; `notify` is a notice)
 ### 8.4 Timeouts and cancellation
 
 A dialog's own `timeout` is resolved by Pi; the interaction carries `expiresAt` and is withdrawn at it. A dialog whose
-own signal ends it is resolved by Pi with no message to the client (`rpc-mode.js:51-82`): the ask stays, is raised again
-on its own when its run ends, and only a human ends it. Shutdown expires every ask; a dialog asked from a
+own signal ends it is resolved by Pi with no message to the client (`rpc-mode.js:51-82`), so the bridge cannot tell
+which of an extension's dialogs that befell. The permission ask is bound to its tool call's signal (`ctx.signal`): it is
+withdrawn when its run ends, and one the gate raises once the run's abort has begun (a second parallel call, preflighted
+while `clear_queue` is in flight) ends at once with Pi's default, which blocks the call; left alone it would outlive
+`run_finished` as an ask nothing can answer (`live_permissions.test.ts`). Any other dialog still pending when its run
+ends is raised again on its own and only a human ends it. Shutdown expires every ask; a dialog asked from a
 `session_shutdown` handler after stdin closed can never be answered, and Pi exits once its event loop is empty
 (`rpc-mode.js:597-610, 666-669`, experiment).
 
@@ -185,7 +189,7 @@ for `edit` and `write`, compaction and retry events, error classes, usage copied
 ## 15. Deviations from the SDK adapter
 
 - A `session_start` dialog fails the open (§1).
-- A dialog ended by its own signal is withdrawn only when its run ends, then waits for a human (§8.4).
+- A permission ask is withdrawn when its run ends; any other dialog Pi ended by its own signal waits for a human, raised again on its own (§8.4).
 - Typed text that names a command runs it (§6).
 - A prompt during Pi's settle is `busy` (§6).
 - Start problems are reported only when they end `pi` (an extension that fails to load); a missing package or an

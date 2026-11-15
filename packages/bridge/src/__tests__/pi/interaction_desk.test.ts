@@ -5,7 +5,7 @@
 
 import { describe, expect, spyOn, test } from "bun:test";
 import { Interaction, MAX_LIST_ITEMS, sessionStatus } from "../../contract";
-import { CHOICE, CONFIRM, type DeskRig, deskRig, pause, TEXT } from "./desk_rig";
+import { CHOICE, CONFIRM, type DeskRig, deskRig, PERMISSION, pause, TEXT } from "./desk_rig";
 
 describe("what an ask puts in the live state", () => {
 	test("inside a run it names the run and blocks it", async () => {
@@ -239,6 +239,37 @@ describe("nothing but a human, the extension or the host ends an ask", () => {
 		expect(log.of("interaction_resolved")).toHaveLength(1);
 		desk.expireAll();
 		expect(await Promise.all([other, outside])).toEqual([{ kind: "ended" }, { kind: "ended" }]);
+	});
+
+	test("an ask for a run being aborted ends at once and shows nobody; one outside any run is asked", async () => {
+		const rig = deskRig();
+		rig.setRun("run-1");
+		rig.aborting = true;
+		expect(await rig.desk.ask({ title: "too late", request: CONFIRM })).toEqual({ kind: "ended" });
+		expect(rig.log.events).toEqual([]);
+		rig.setRun(undefined);
+		void rig.desk.ask({ title: "from a command", request: CONFIRM });
+		await rig.log.next("interaction_requested");
+		rig.desk.expireAll();
+	});
+
+	test("the end of a run withdraws its permission asks and raises any other of its asks again on its own", async () => {
+		const { desk, live, log, setRun } = deskRig();
+		setRun("run-1");
+		const permission = desk.ask({ title: "Allow read?", request: PERMISSION });
+		const dialog = desk.ask({ title: "From a timer", request: CONFIRM });
+		await Promise.all([log.next("interaction_requested"), log.next("interaction_requested")]);
+
+		desk.endRun("run-1");
+		expect(await permission).toEqual({ kind: "ended" });
+		const [kept] = live.snapshot().interactions;
+		expect(live.snapshot().interactions).toHaveLength(1);
+		expect(kept).toMatchObject({ title: "From a timer", blocksRun: false });
+		expect(kept).not.toHaveProperty("runId");
+		expect(log.of("interaction_resolved").map((event) => event.reason)).toEqual(["withdrawn", "withdrawn"]);
+
+		desk.expireAll();
+		expect(await dialog).toEqual({ kind: "ended" });
 	});
 
 	test("expireAll resolves every ask expired, ends it, and closes the desk", async () => {

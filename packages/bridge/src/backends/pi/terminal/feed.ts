@@ -54,7 +54,7 @@ export class TerminalFeed {
 		this.live = new LiveState({ ...emptySnapshot(), modes: [permissionsSetting("off")] }, now);
 		this.runs = new RunTracker({
 			live: this.live,
-			interactions: { releaseRun: () => {} },
+			interactions: { endRun: () => {} },
 			refreshUsage: () => {},
 		});
 		this.tools = new ToolFlow({

@@ -42,7 +42,7 @@ const ENDED: AskOutcome = { kind: "ended" };
 const MAX_TIMER_MS = 2 ** 31 - 1;
 
 interface Pending {
-	/** Replaced when the ask outlives the run it was raised in (`releaseRun`). */
+	/** Replaced when the ask outlives the run it was raised in (`endRun`). */
 	interaction: Interaction;
 	readonly replyProblem: AskSpec["replyProblem"];
 	readonly settle: (outcome: AskOutcome) => void;
@@ -59,12 +59,15 @@ export class InteractionDesk implements InteractionPort {
 	/**
 	 * Inside a run the ask names it and blocks it; an extension command's ask does neither (`AskHost.inCommand`).
 	 * Otherwise the host decides which run that is (`AskHost.activeRun`), and may start one for a prompt Pi is still
-	 * deciding. It ends at once, asking nobody, after `expireAll` and when `MAX_LIST_ITEMS` asks are open.
+	 * deciding. It ends at once, asking nobody, after `expireAll`, when `MAX_LIST_ITEMS` asks are open and when the
+	 * run it would join is being aborted: the abort has withdrawn the run's asks, and one raised after that is either
+	 * dropped by Pi when the abort reaches its signal or holds the abort until it is answered (`AskHost.aborting`).
 	 * `piTimeoutMs` is the dialog's own `timeout`, after which Pi has answered it.
 	 */
 	ask(spec: AskSpec, piTimeoutMs?: number): Promise<AskOutcome> {
 		if (this.closed || this.pending.size >= MAX_LIST_ITEMS) return Promise.resolve(ENDED);
 		const run = spec.run ?? (this.host.inCommand() ? undefined : this.host.activeRun());
+		if (run !== undefined && this.host.aborting()) return Promise.resolve(ENDED);
 		const createdAt = this.host.now();
 		const timeoutMs = usableTimeout(piTimeoutMs);
 		const interaction: Interaction = {
@@ -115,13 +118,18 @@ export class InteractionDesk implements InteractionPort {
 	}
 
 	/**
-	 * The run ended on its own while these asks still wait, so none was holding it up: each came from outside it (an
-	 * extension command, a timer) and still waits for a human. Each is withdrawn from the run and raised again on its
-	 * own, its extension still waiting on the same answer: nothing answers it but the human.
+	 * The run ended. A permission ask is withdrawn: it gates one of the run's tool calls and is bound to the run's
+	 * signal, which Pi has aborted, dropping the dialog without a word (`rpc-mode.js:51-82`), so no answer could reach
+	 * it. Any other ask came from outside the run (an extension command, a timer) and still waits for a human: it is
+	 * withdrawn from the run and raised again on its own, its extension waiting on the same answer.
 	 */
-	releaseRun(runId: RunId): void {
+	endRun(runId: RunId): void {
 		for (const [id, entry] of [...this.pending]) {
 			if (entry.interaction.runId !== runId) continue;
+			if (entry.interaction.request.kind === "tool_permission") {
+				this.finish(id, ENDED, "withdrawn");
+				continue;
+			}
 			const { runId: _run, ...rest } = entry.interaction;
 			entry.interaction = { ...rest, id: mintInteractionId(), createdAt: this.host.now(), blocksRun: false };
 			this.pending.delete(id);

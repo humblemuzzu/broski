@@ -14,6 +14,8 @@ export interface DeskRig {
 	readonly aborts: { count: number };
 	/** Makes the host report this run as active, or none. */
 	setRun(runId: string | undefined): void;
+	/** What the host reports as the active run's abort. */
+	aborting: boolean;
 	now: number;
 }
 
@@ -30,6 +32,7 @@ export function deskRig(): DeskRig {
 		abortRun: () => {
 			aborts.count += 1;
 		},
+		aborting: () => rig.aborting,
 		now: () => rig.now,
 	};
 	const rig: DeskRig = {
@@ -37,6 +40,7 @@ export function deskRig(): DeskRig {
 		live,
 		log,
 		aborts,
+		aborting: false,
 		now: 1_000_000,
 		setRun: (runId) => {
 			run = runId === undefined ? undefined : { runId, tools: new ToolCallIds() };
@@ -47,6 +51,14 @@ export function deskRig(): DeskRig {
 
 export const CONFIRM: InteractionRequest = { kind: "confirm" };
 export const TEXT: InteractionRequest = { kind: "text", multiline: false };
+export const PERMISSION: InteractionRequest = {
+	kind: "tool_permission",
+	inputEditable: false,
+	previews: [],
+	options: [{ id: "allow", label: "Allow", effect: "allow", scope: "once", stopsRun: false, message: "none" }],
+	grants: [],
+	deliberate: false,
+};
 export const CHOICE: InteractionRequest = { kind: "choice", options: [{ value: "a", label: "A" }] };
 
 export function pause(ms: number): Promise<void> {

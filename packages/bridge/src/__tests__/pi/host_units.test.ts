@@ -98,9 +98,9 @@ describe("RunTracker", () => {
 		const interactions: InteractionPort = {
 			answer: () => ACCEPTED,
 			withdrawRun: () => {
-				throw new Error("a run that ends lets its asks go; only an abort withdraws them");
+				throw new Error("a run that ends leaves its asks to the desk; only an abort withdraws them here");
 			},
-			releaseRun: (runId) => released.push(runId),
+			endRun: (runId) => released.push(runId),
 			expireAll: () => {},
 		};
 		const runs = new RunTracker({

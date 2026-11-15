@@ -14,7 +14,7 @@ import type { LiveState } from "./live-state";
 
 export interface RunTrackerDeps {
 	readonly live: LiveState;
-	readonly interactions: Pick<InteractionPort, "releaseRun">;
+	readonly interactions: Pick<InteractionPort, "endRun">;
 	/** Pulls the session's totals, before `run_finished`. */
 	readonly refreshUsage: () => void;
 }
@@ -85,7 +85,7 @@ export class RunTracker {
 
 	/**
 	 * At `agent_settled`: closes what the run left open (`closing` events from the stream mappers),
-	 * lets go of the asks still naming it, pulls the usage, then `run_finished` with the outcome.
+	 * ends the asks still naming it, pulls the usage, then `run_finished` with the outcome.
 	 */
 	settle(aborted: boolean, lastAssistant: AssistantMessage | undefined, closing: readonly AgentEvent[]): void {
 		this.close(runOutcome(lastAssistant, aborted), closing);
@@ -101,7 +101,7 @@ export class RunTracker {
 		if (!run) return;
 		const { live, interactions } = this.deps;
 		for (const event of closing) live.emit(event);
-		interactions.releaseRun(run.context.runId);
+		interactions.endRun(run.context.runId);
 		const open = live.snapshot();
 		if (open.retry) live.emit({ type: "retry_finished", succeeded: false });
 		if (open.compaction) live.emit({ type: "compaction_finished", outcome: { kind: "aborted" } });

@@ -129,6 +129,22 @@ describe("the gate in ask mode", () => {
 		live.assertSettled();
 	});
 
+	test("an abort with two calls in one turn leaves no ask behind: the second call's ask is refused, not parked", async () => {
+		t = await LiveRig.create();
+		const read = { name: "read", args: { path: "README.md" } };
+		const live = await askingSession(t, [{ toolCalls: [read, read] }, say("Never said.")]);
+		const { interaction } = await live.waitFor("interaction_requested");
+		expect(await live.control.abort()).toEqual({ status: "accepted" });
+		await live.waitFor("interaction_resolved", (event) => event.interactionId === interaction.id);
+		expect((await live.waitFor("run_finished")).outcome.kind).toBe("aborted");
+
+		expect(live.events().filter((event) => event.type === "interaction_requested")).toHaveLength(1);
+		expect(live.reduced().interactions).toEqual([]);
+		expect(finishedTools(live).some(ranTool)).toBe(false);
+		expect(t.world.parts.hosts.host(live.ref.sessionId)?.idle()).toBe(true);
+		live.assertSettled();
+	});
+
 	test("allow for the session is remembered for that tool only", async () => {
 		t = await LiveRig.create();
 		const write = call("write", { path: "out.txt", content: "x" });

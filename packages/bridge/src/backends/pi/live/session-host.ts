@@ -100,6 +100,7 @@ export class SessionHost {
 			activeRun: () => this.runs.current() ?? this.prompts.startEarly(),
 			inCommand: () => this.prompts.inCommand,
 			abortRun: () => this.abortInBackground(),
+			aborting: () => this.runs.aborting,
 			now,
 		};
 		this.interactions = new InteractionDesk(askHost);

@@ -111,6 +111,8 @@ export interface AskHost {
 	inCommand(): boolean;
 	/** Ends the active run, as a `cancel{stopRun}` answer or a gate's deny-and-stop asks. */
 	abortRun(): void;
+	/** An abort of the active run is under way: nothing it asks from now on can be answered. */
+	aborting(): boolean;
 	now(): number;
 }
 
@@ -120,8 +122,8 @@ export interface InteractionPort {
 	answer(answer: InteractionAnswer): ActionResult;
 	/** Every ask of `runId` resolves `withdrawn`, with Pi's default: the run is being aborted. */
 	withdrawRun(runId: RunId): void;
-	/** The run `runId` ended: an ask of it still pending is no longer the run's and goes on waiting on its own. */
-	releaseRun(runId: RunId): void;
+	/** The run `runId` ended: its permission asks are withdrawn; any other ask of it goes on waiting on its own. */
+	endRun(runId: RunId): void;
 	/**
 	 * The session's `pi` is ending: every ask resolves with Pi's default and is reported `expired`, and every later ask
 	 * ends at once, since Pi still runs extensions' `session_shutdown` as it goes.
