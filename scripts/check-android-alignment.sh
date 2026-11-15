@@ -16,7 +16,12 @@ PAGE=0x4000
 
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
-unzip -q "$ARCHIVE" -d "$WORK"
+# Only the libraries: R8 shortens resource names so far that two differ by case alone, and unzip
+# prompts on the collision on a case-insensitive disk. An APK keeps them in lib/, an AAR in jni/;
+# unzip exits 11 when nothing matches, which the check below reports.
+native=lib
+[[ $ARCHIVE == *.aar ]] && native=jni
+unzip -q "$ARCHIVE" "$native/*/*.so" -d "$WORK" || [[ $? == 11 ]]
 
 libraries=()
 while IFS= read -r library; do
