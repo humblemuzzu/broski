@@ -46,6 +46,9 @@ pub struct Timings {
     pub pairing_confirm: Duration,
     /// How long one address gets to serve the machine's identity during a pairing.
     pub identity_fetch_timeout: Duration,
+    /// How long the relay must keep refusing this device's token, with no connection in between,
+    /// before the machine is taken to have revoked the device.
+    pub relay_refusal_window: Duration,
 }
 
 impl Default for Timings {
@@ -64,6 +67,7 @@ impl Default for Timings {
             lan_redial_interval: Duration::from_secs(2),
             pairing_confirm: Duration::from_secs(20),
             identity_fetch_timeout: Duration::from_millis(1500),
+            relay_refusal_window: Duration::from_secs(300),
         }
     }
 }

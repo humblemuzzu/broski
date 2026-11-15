@@ -33,6 +33,21 @@ impl Engine {
 
     /// The socket in use failed; the next attempt follows the retry policy.
     pub(super) fn on_failure(&mut self) {
+        self.retry_later(WaitReason::Retry);
+    }
+
+    /// The relay refused this device's token and no route connected. The retry policy applies as
+    /// to any failure; refusals that keep coming for `Timings::relay_refusal_window` end the
+    /// session as revoked.
+    pub(super) fn on_relay_refused(&mut self) {
+        if !self.finished && !self.pause.paused() && self.refusals.refused(Instant::now()) {
+            self.finish(LinkState::Revoked);
+        } else {
+            self.retry_later(WaitReason::RelayRefused);
+        }
+    }
+
+    fn retry_later(&mut self, reason: WaitReason) {
         if self.finished {
             return;
         }
@@ -52,7 +67,7 @@ impl Engine {
         };
         let retry = self.retry.next(failed, has_route, jitter());
         self.retry_at = Some((Instant::now() + retry.delay, retry.only));
-        self.set_state(LinkState::Waiting(WaitReason::Retry));
+        self.set_state(LinkState::Waiting(reason));
     }
 
     pub(super) fn on_peer_closed(&mut self, code: u16) {

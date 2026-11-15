@@ -37,7 +37,7 @@ last `LinkRuntime` clone stops the thread, which drops every task and socket on 
 `Event` is `Status(Status)`, `Bridge(Vec<u8>)`, `BridgeStatus(BridgeStatus)`, `RecordChanged(MachineRecord)`
 and `SendFailed { tag, reason }`. A `Status` with `LinkState::Connected { resumed, session_reset }` is the
 connect event. `LinkState` is `Connecting`, `Connected`, `Waiting(Retry | Paused | MachineOffline |
-MachineAsleep)`, `Revoked` and `Closed`; `Status` also carries the route, its `host:port` or relay host,
+MachineAsleep | RelayRefused)`, `Revoked` and `Closed`; `Status` also carries the route, its `host:port` or relay host,
 the relay's `last_seen` and the machine's last close code. Statuses repeat nothing except a session
 reset, which always reaches the app (`link_status_reporter.dart`).
 
@@ -121,7 +121,15 @@ of any bridge backlog, so a machine that restarted is told again.
   that closed meanwhile, dials afresh (`app_pause.dart`).
 - **close codes**: 4003 on the link, or a 4003 websocket close from the relay on a device-token socket,
   is `Revoked`: terminal, nothing dials again, the events end. 1000, 4001, 4004 and a lost socket
-  reconnect. `close()` sends the machine a CLOSE 1000, so it ends its side instead of keeping it for a
+  reconnect.
+- **a refused token**: the relay answers the upgrade of a device it does not hold with 401, which the
+  dial reports as a typed refusal, not a string. A device revoked while it had no socket open is such a
+  device, and so is one the machine has not published to the relay yet (it does that after a pairing,
+  asynchronously, and not while it is offline), so one 401 is not revocation. A race that ends with
+  the relay's 401 and no connected route reports `Waiting(RelayRefused)` and retries on the usual
+  backoff; once `Timings::relay_refusal_window` (5 min) has passed since the first refusal and at least
+  5 refusals were seen, with no connection or accepted relay token in between, the session ends as
+  `Revoked` (without a close code). A pairing's own one-time relay device is never judged this way. `close()` sends the machine a CLOSE 1000, so it ends its side instead of keeping it for a
   resume; dropping the `Session` stops quietly and the machine keeps the session for 600 s.
 - **ended sessions** report every message still queued as `SendFailed { reason: Closed }`, and
   `send_bridge` answers `Closed`.
@@ -194,6 +202,9 @@ window is the probe-loop test's absence check.
 - `push.rs` — the registered key reaches `devices.json` and opens what the daemon's own push code seals;
   a decision letter opens with the daemon's letter code, is accepted by the relay, reaches the bridge as
   `link_decision` and is acknowledged.
+- `refusal.rs` — a device revoked at the daemon while the phone is paused sees the relay's 401s as
+  `Waiting(RelayRefused)` and then `Revoked`; a token the relay has not been told of yet is refused six
+  times, never judged revoked, and connects as soon as the relay knows it.
 - `multi.rs` — two machines on one runtime are independent.
 - unit tests — the Dart tests ported (route race, backoff, route retry, outbound queue, LAN probe
   policy, bridge status, machine endpoint), pinned push and letter vectors, strict control parsing, and
@@ -202,9 +213,10 @@ window is the probe-loop test's absence check.
 
 ## Known gaps
 
-- A device revoked while it had no socket open learns nothing: the relay answers its upgrade with 401
-  and the LAN listener drops an unknown device without a reply, which looks like an unreachable machine,
-  so it keeps retrying with backoff until the app forgets the machine.
+- A device revoked while it had no socket open learns it from the relay's 401s (above), but only over a
+  record that has a relay: the LAN listener drops an unknown device without a reply, which looks like an
+  unreachable machine, so a LAN-only record keeps retrying with backoff until the app forgets the
+  machine.
 - Mozilla's roots are compiled in; a relay behind a private CA would need the platform verifier
   (`rustls-platform-verifier`, which on Android needs JNI initialisation from the app).
 - The `wss://` path is proven at the transport (a dial to the relay's TLS listener); the end-to-end

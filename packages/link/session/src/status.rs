@@ -17,6 +17,9 @@ pub enum WaitReason {
     MachineOffline,
     /// The machine told the relay it was going to sleep.
     MachineAsleep,
+    /// The relay does not accept this device's token. The machine may not have published the
+    /// device yet; when the refusals go on, the session ends as `Revoked`.
+    RelayRefused,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -31,7 +34,8 @@ pub enum LinkState {
         session_reset: bool,
     },
     Waiting(WaitReason),
-    /// The machine revoked this device (close code 4003). Terminal: only a new pairing helps.
+    /// The machine revoked this device: close code 4003, or the relay refusing its token for
+    /// `Timings::relay_refusal_window`. Terminal: only a new pairing helps.
     Revoked,
     /// The app closed the session. Terminal.
     Closed,

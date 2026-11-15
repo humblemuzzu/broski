@@ -111,8 +111,8 @@ impl Phone {
         }
     }
 
-    /// Pairs with the offer `daemon` produced, its LAN candidates replaced with `lan`: the
-    /// daemon's own candidates are the host's interface addresses, which a CI host may not have.
+    /// Pairs with the offer `daemon` produced, its LAN candidates set to `lan`: a test daemon
+    /// advertises none of its own, and a test's route is usually a forwarder in front of it.
     pub async fn pair(&self, daemon: &TestDaemon, lan: Vec<String>, timings: Timings) -> Paired {
         let mut offer = daemon.offer().await;
         offer.lan = lan;

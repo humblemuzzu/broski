@@ -31,9 +31,10 @@ use crate::pause::AppPause;
 use crate::probe::LanProbePolicy;
 use crate::race::RouteRace;
 use crate::record::MachineRecord;
+use crate::refusal::RelayRefusals;
 use crate::status::StatusReporter;
 use crate::tls;
-use crate::transport::{Socket, SocketEvent, WsStream};
+use crate::transport::{DialError, Socket, SocketEvent, WsStream};
 
 pub(crate) use pairing::Pairing;
 
@@ -83,7 +84,7 @@ struct Dialed {
     generation: u64,
     purpose: Purpose,
     target: Target,
-    result: Result<WsStream, String>,
+    result: Result<WsStream, DialError>,
 }
 
 /// One attempt to open a route: every LAN candidate and the relay at once.
@@ -94,6 +95,8 @@ struct Race {
     relay: Option<Socket>,
     pending: usize,
     grace_at: Option<Instant>,
+    /// The relay answered the upgrade 401.
+    relay_refused: bool,
 }
 
 /// LAN candidates dialled one at a time while the relay carries the link.
@@ -138,6 +141,7 @@ pub(crate) struct Engine {
     probe: Probe,
     handshake: Handshake,
     retry: RouteRetry,
+    refusals: RelayRefusals,
     retry_at: Option<(Instant, Option<crate::status::Route>)>,
     pause: AppPause,
     close: PeerClosePolicy,
@@ -179,6 +183,7 @@ impl Engine {
             },
             handshake: Handshake::default(),
             retry: RouteRetry::new(Backoff::new(timings.backoff_min, timings.backoff_max)),
+            refusals: RelayRefusals::new(timings.relay_refusal_window),
             retry_at: None,
             pause: AppPause::new(timings.stale_socket),
             close: PeerClosePolicy::default(),

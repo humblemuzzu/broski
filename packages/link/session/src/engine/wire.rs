@@ -55,6 +55,7 @@ impl Engine {
             ..Handshake::default()
         };
         self.retry.reset();
+        self.refusals.reset();
         let session_reset = self.close.take_resync(reset);
         self.set_state(LinkState::Connected {
             resumed,

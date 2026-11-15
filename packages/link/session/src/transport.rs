@@ -1,3 +1,4 @@
+use std::fmt;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -10,9 +11,9 @@ use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use tokio::time::timeout;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
-use tokio_tungstenite::tungstenite::http::{HeaderName, HeaderValue};
+use tokio_tungstenite::tungstenite::http::{HeaderName, HeaderValue, StatusCode};
 use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
-use tokio_tungstenite::tungstenite::{Bytes, Message};
+use tokio_tungstenite::tungstenite::{Bytes, Error as WsError, Message};
 use tokio_tungstenite::{
     connect_async_tls_with_config, Connector, MaybeTlsStream, WebSocketStream,
 };
@@ -28,19 +29,42 @@ const MAX_WIRE_MESSAGE: usize = 128 * 1024;
 /// Sealed frames waiting for the writer; past it the engine holds the next one itself.
 const OUT_FRAMES: usize = 64;
 
+/// Why a dial opened no websocket.
+#[derive(Debug)]
+pub(crate) enum DialError {
+    /// The server answered the upgrade with this HTTP status.
+    Refused(StatusCode),
+    Failed(String),
+}
+
+impl DialError {
+    fn failed(error: impl ToString) -> DialError {
+        DialError::Failed(error.to_string())
+    }
+}
+
+impl fmt::Display for DialError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            DialError::Refused(status) => write!(formatter, "refused with {status}"),
+            DialError::Failed(reason) => formatter.write_str(reason),
+        }
+    }
+}
+
 /// Opens one websocket: DNS, TCP, TLS for `wss`, and the upgrade, all inside `within`.
 pub(crate) async fn dial(
     target: &Target,
     tls: Arc<ClientConfig>,
     within: Duration,
-) -> Result<WsStream, String> {
+) -> Result<WsStream, DialError> {
     let mut request = target
         .url
         .as_str()
         .into_client_request()
-        .map_err(|error| error.to_string())?;
+        .map_err(DialError::failed)?;
     for (name, value) in &target.headers {
-        let value = HeaderValue::from_str(value).map_err(|error| error.to_string())?;
+        let value = HeaderValue::from_str(value).map_err(DialError::failed)?;
         request
             .headers_mut()
             .insert(HeaderName::from_static(name), value);
@@ -52,8 +76,9 @@ pub(crate) async fn dial(
         connect_async_tls_with_config(request, Some(config), true, Some(Connector::Rustls(tls)));
     match timeout(within, connect).await {
         Ok(Ok((stream, _))) => Ok(stream),
-        Ok(Err(error)) => Err(error.to_string()),
-        Err(_) => Err("timed out".to_owned()),
+        Ok(Err(WsError::Http(response))) => Err(DialError::Refused(response.status())),
+        Ok(Err(error)) => Err(DialError::failed(error)),
+        Err(_) => Err(DialError::failed("timed out")),
     }
 }
 
@@ -297,7 +322,47 @@ mod tests {
         let refused = dial(&target, tls::client_config(), Duration::from_secs(5)).await;
         let error =
             refused.expect_err("Mozilla's roots do not vouch for a self-signed certificate");
-        assert!(error.to_lowercase().contains("certificate"), "{error}");
+        assert!(
+            error.to_string().to_lowercase().contains("certificate"),
+            "{error}"
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn the_relay_refusing_a_device_token_is_a_401_not_a_string() {
+        let dir = tempfile::tempdir().expect("dir");
+        let (addr, roots) = tls_relay(dir.path()).await;
+        let device = Target {
+            route: Route::Relay,
+            url: format!("wss://{addr}/v1/device"),
+            headers: vec![
+                (
+                    "x-broski-machine",
+                    "00112233445566778899aabbccddeeff".to_owned(),
+                ),
+                (
+                    "x-broski-device",
+                    "ffeeddccbbaa99887766554433221100".to_owned(),
+                ),
+                ("authorization", "Bearer unknown".to_owned()),
+            ],
+            detail: addr.ip().to_string(),
+        };
+        let trusted = tls::with_roots(roots);
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            match dial(&device, trusted.clone(), Duration::from_secs(5)).await {
+                Err(DialError::Refused(status)) => {
+                    assert_eq!(status, StatusCode::UNAUTHORIZED);
+                    return;
+                }
+                other => assert!(
+                    Instant::now() < deadline,
+                    "the relay never refused the device: {other:?}"
+                ),
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
     }
 
     #[test]

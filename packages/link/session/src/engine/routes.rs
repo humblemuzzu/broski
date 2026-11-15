@@ -90,7 +90,9 @@ impl Engine {
     fn routes_changed(&mut self, changed: bool) {
         match self.reporter.state() {
             LinkState::Connected { .. } => self.sync_probe(),
-            LinkState::Waiting(WaitReason::Retry | WaitReason::Paused) => self.reconnect_now(),
+            LinkState::Waiting(
+                WaitReason::Retry | WaitReason::Paused | WaitReason::RelayRefused,
+            ) => self.reconnect_now(),
             _ if changed => self.reconnect_now(),
             _ => self.sync_probe(),
         }

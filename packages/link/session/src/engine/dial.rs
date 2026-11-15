@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use broski_link_core::crypto::HandshakeMode;
 use tokio::time::Instant;
+use tokio_tungstenite::tungstenite::http::StatusCode;
 use tracing::debug;
 
 use super::{Dialed, Engine, Handshake, Purpose, Race};
@@ -12,7 +13,7 @@ use crate::close;
 use crate::endpoint::Target;
 use crate::race::{Choice, RouteRace};
 use crate::status::{LinkState, Route, WaitReason};
-use crate::transport::{self, MachinePresence, Presence, Socket, SocketEvent, WsStream};
+use crate::transport::{self, DialError, MachinePresence, Presence, Socket, SocketEvent, WsStream};
 
 impl Engine {
     /// Drops whatever the link was doing and races every route again; `only` limits the race to
@@ -46,6 +47,7 @@ impl Engine {
             relay: None,
             pending: lan.len() + usize::from(relay.is_some()),
             grace_at: None,
+            relay_refused: false,
         });
         let timings = self.options.timings;
         for (index, target) in lan.into_iter().enumerate() {
@@ -102,14 +104,24 @@ impl Engine {
     }
 
     fn race_dialed(&mut self, dialed: Dialed) {
+        let refused = dialed.purpose == Purpose::Relay
+            && self.pairing.is_none()
+            && matches!(
+                dialed.result,
+                Err(DialError::Refused(StatusCode::UNAUTHORIZED))
+            );
         let socket = match dialed.result {
             Ok(stream) => Some(self.open_socket(&dialed.target, stream)),
             Err(_) => None,
         };
+        if dialed.purpose == Purpose::Relay && socket.is_some() {
+            self.refusals.reset();
+        }
         let Some(race) = self.race.as_mut() else {
             return;
         };
         race.pending -= 1;
+        race.relay_refused |= refused;
         match (dialed.purpose, socket) {
             (Purpose::Lan(index), Some(socket)) => {
                 race.lan[index] = Some(socket);
@@ -145,8 +157,13 @@ impl Engine {
             race.grace_at = Some(Instant::now() + self.options.timings.lan_grace);
         }
         if race.pending == 0 {
+            let refused = race.relay_refused;
             self.race = None;
-            self.on_failure();
+            if refused {
+                self.on_relay_refused();
+            } else {
+                self.on_failure();
+            }
         }
     }
 
