@@ -100,12 +100,6 @@ impl State {
     /// `loaded` once every backend's first page arrived.
     pub(crate) fn inbox_rows(&self) -> (bool, Vec<super::InboxSource>) {
         let lists = &self.catalog.lists;
-        let loaded = self.catalog.backends().is_some()
-            && self
-                .catalog
-                .inbox
-                .iter()
-                .all(|(_, id)| lists.get(*id).is_some_and(|list| list.loaded()));
         let rows = self
             .catalog
             .inbox
@@ -118,7 +112,7 @@ impl State {
                 row: row.clone(),
             })
             .collect();
-        (loaded, rows)
+        (self.inbox_loaded(), rows)
     }
 }
 
@@ -282,6 +276,14 @@ impl Shared {
         }
         self.send_unchecked(state, message, waiter)?;
         Ok(true)
+    }
+
+    /// Nothing waits for a detach: if the bridge never had the view attached it says so, and that
+    /// changes nothing here.
+    pub(crate) fn detach(&self, state: &mut State, detach: ClientMessage) {
+        if let Err(failure) = self.send_ready(state, detach, None::<Waiter>) {
+            tracing::debug!(?failure, "a detach was not sent");
+        }
     }
 
     pub(crate) fn send_unchecked(

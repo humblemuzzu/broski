@@ -1,25 +1,36 @@
 //! The home screen: every session of every paired machine, by what it asks of the person.
 
+mod answer;
+mod cache;
+mod pending;
+mod rows;
 mod seen;
 
 use std::cmp::Reverse;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError, Weak};
 
-use broski_contract::{SessionRef, SessionStatus, SessionSummary, WorkingDirectory};
+use broski_contract::{SessionRef, WorkingDirectory};
 use broski_link_session::LinkRuntime;
+use serde::{Deserialize, Serialize};
 use tokio::sync::Notify;
 use tokio::task::JoinHandle;
 use tokio::time::Instant;
 
+pub use self::answer::AnswerOutcome;
+use self::cache::{Cache, CacheDue};
+pub use self::pending::PendingAsk;
+pub(crate) use self::pending::{ask_command, pending_ask};
+use self::rows::{cached_row, live_row, MachineName};
 use self::seen::Seen;
 pub use self::seen::{SeenMarker, SeenState};
+use crate::error::ClientError;
 use crate::machine::{InboxSource, Machine};
 use crate::view::queue::BATCH_INTERVAL;
-use crate::view::stream::LiveInfo;
 use crate::wait;
 
 /// What a session asks of the person; the inbox lists them in this order.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum InboxState {
     /// An interaction waits for an answer.
     NeedsYou,
@@ -40,8 +51,17 @@ pub struct InboxRow {
     pub cwd: Option<WorkingDirectory>,
     pub state: InboxState,
     pub updated_at: i64,
-    /// The title of the first pending interaction, known for a session a view is open on.
+    /// The title of the first pending interaction: live for a session the inbox views, as last
+    /// known for a row from the cache.
     pub ask: Option<String>,
+    /// The command that ask would run, exactly as the agent wrote it, when it is a tool permission
+    /// for one: "Claude Code wants to run `npm test`".
+    pub command: Option<String>,
+    /// What can be answered from the row, while the inbox views the session live.
+    pub pending: Option<PendingAsk>,
+    /// The row is the last known one, from the restored cache: the machine's lists have not loaded
+    /// since the app started. It never has `pending`.
+    pub cached: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -51,10 +71,17 @@ pub struct InboxUpdate {
     /// What the person has seen, when it changed since the last update: the app persists it and hands
     /// it back to `restore_seen` at its next start.
     pub seen: Option<SeenState>,
+    /// The inbox as it stands, when it changed, at most every 2 s: the app persists it and hands it
+    /// back to `restore_cache` at its next start. An update may carry only this.
+    pub cache: Option<Vec<u8>>,
 }
 
 struct Tracker {
     seen: Seen,
+    cache: Cache,
+    /// A machine has joined since the phone opened: before that the rows are empty only because
+    /// nothing started yet, and a cache of them would overwrite the app's stored one.
+    joined: bool,
     delivered: Option<Vec<InboxRow>>,
     last_batch: Option<Instant>,
 }
@@ -102,6 +129,8 @@ impl Inbox {
             machines: Mutex::new(Vec::new()),
             tracker: Mutex::new(Tracker {
                 seen: Seen::default(),
+                cache: Cache::default(),
+                joined: false,
                 delivered: None,
                 last_batch: None,
             }),
@@ -117,19 +146,40 @@ impl Inbox {
         let mut machines = locked(&self.machines);
         machines.retain(|known| known.id() != machine.id());
         machines.push(machine);
+        drop(machines);
+        locked(&self.tracker).joined = true;
         self.wake.notify_one();
     }
 
     pub(crate) fn remove(&self, machine_id: &str) {
         locked(&self.machines).retain(|known| known.id() != machine_id);
-        locked(&self.tracker).seen.forget_machine(machine_id);
+        let mut tracker = locked(&self.tracker);
+        tracker.seen.forget_machine(machine_id);
+        tracker.cache.drop_machine(machine_id);
+        drop(tracker);
         self.wake.notify_one();
+    }
+
+    fn machine(&self, machine_id: &str) -> Option<Arc<Machine>> {
+        locked(&self.machines)
+            .iter()
+            .find(|machine| machine.id() == machine_id)
+            .cloned()
     }
 
     /// What the app persisted, at its start and before it starts any machine.
     pub fn restore_seen(&self, state: SeenState) {
         locked(&self.tracker).seen.restore(state);
         self.wake.notify_one();
+    }
+
+    /// The last `InboxUpdate.cache` the app persisted, at its start and before it starts any
+    /// machine. Each machine's cached rows show until its lists load; they are dropped when it is
+    /// forgotten. Bytes that are not a cache of this version are refused, and change nothing.
+    pub fn restore_cache(&self, cache: Vec<u8>) -> Result<(), ClientError> {
+        locked(&self.tracker).cache.restore(&cache)?;
+        self.wake.notify_one();
+        Ok(())
     }
 
     pub fn seen(&self) -> SeenState {
@@ -170,24 +220,28 @@ impl Inbox {
         }
     }
 
-    /// The rows each time they change, at most 30 times a second.
+    /// The rows each time they change, at most 30 times a second, with the seen state and the
+    /// cache when they changed.
     pub async fn next_change(&self) -> InboxUpdate {
         loop {
             let rows = self.compute();
             let now = Instant::now();
             let wait = {
                 let mut tracker = locked(&self.tracker);
-                let changed = tracker.seen.changed || tracker.delivered.as_ref() != Some(&rows);
+                let due = match tracker.joined {
+                    true => tracker.cache.check(&rows, now),
+                    false => CacheDue::Unchanged,
+                };
+                let changed = tracker.seen.changed
+                    || tracker.delivered.as_ref() != Some(&rows)
+                    || matches!(due, CacheDue::Now(_));
                 match tracker.last_batch.map(|last| last + BATCH_INTERVAL) {
-                    _ if !changed => None,
+                    _ if !changed => match due {
+                        CacheDue::At(at) => Some(at),
+                        _ => None,
+                    },
                     Some(next) if now < next => Some(next),
-                    _ => {
-                        tracker.last_batch = Some(now);
-                        tracker.delivered = Some(rows.clone());
-                        let seen =
-                            std::mem::take(&mut tracker.seen.changed).then(|| tracker.seen.state());
-                        return InboxUpdate { rows, seen };
-                    }
+                    _ => return tracker.deliver(rows, due, now),
                 }
             };
             wait::notified(&self.runtime, &self.changed, wait).await;
@@ -211,27 +265,37 @@ impl Inbox {
     }
 
     /// The sources, after the history of every machine whose rows are all in for the first time
-    /// has been marked seen.
+    /// has been marked seen, and its cached rows let go.
     fn settle(&self) -> Vec<(MachineName, Vec<InboxSource>)> {
         let sources = self.sources();
         let mut tracker = locked(&self.tracker);
         for (machine, rows) in &sources {
             if machine.loaded {
                 tracker.seen.first_read(&machine.id, rows);
+                tracker.cache.drop_machine(&machine.id);
             }
         }
         drop(tracker);
         sources
     }
 
+    /// A machine whose lists have not loaded shows its cached rows, when the app restored any.
     fn compute(&self) -> Vec<InboxRow> {
         let sources = self.settle();
         let tracker = locked(&self.tracker);
         let mut rows: Vec<InboxRow> = Vec::new();
         for (machine, sources) in sources {
+            let cached = tracker.cache.rows_of(&machine.id);
+            if !machine.loaded && !cached.is_empty() {
+                for row in cached {
+                    let seen = tracker.seen.get(&machine.id, &row.session);
+                    rows.push(cached_row(row, seen));
+                }
+                continue;
+            }
             for source in sources {
                 let seen = tracker.seen.get(&machine.id, &source.row.session);
-                rows.push(row(&machine, source, seen));
+                rows.push(live_row(&machine, source, seen));
             }
         }
         rows.sort_by(|a, b| {
@@ -245,46 +309,37 @@ impl Inbox {
     }
 }
 
+impl Tracker {
+    fn deliver(&mut self, rows: Vec<InboxRow>, due: CacheDue, now: Instant) -> InboxUpdate {
+        self.last_batch = Some(now);
+        self.delivered = Some(rows.clone());
+        let seen = std::mem::take(&mut self.seen.changed).then(|| self.seen.state());
+        let cache = match due {
+            CacheDue::Now(kept) => Some(self.cache.emit(kept, now)),
+            _ => None,
+        };
+        InboxUpdate { rows, seen, cache }
+    }
+}
+
 impl Drop for Inbox {
     fn drop(&mut self) {
         self.settling.abort();
     }
 }
 
-struct MachineName {
-    id: String,
-    name: String,
-    loaded: bool,
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-fn row(machine: &MachineName, source: InboxSource, seen: Option<i64>) -> InboxRow {
-    let InboxSource { row, live } = source;
-    InboxRow {
-        state: state_of(&row, live.as_ref(), seen),
-        ask: live.and_then(|live| live.ask),
-        machine_id: machine.id.clone(),
-        machine_name: machine.name.clone(),
-        title: row.title.map(|title| title.text),
-        session: row.session,
-        cwd: row.cwd,
-        updated_at: row.updated_at,
-    }
-}
-
-/// A session a view is open on is read from its live state, which knows every pending
-/// interaction; any other from its row, whose status says whether a blocking one waits.
-fn state_of(row: &SessionSummary, live: Option<&LiveInfo>, seen: Option<i64>) -> InboxState {
-    let needs_you = live.map_or(row.status == SessionStatus::WaitingForUser, |live| {
-        live.needs_you
-    });
-    let working = live.map_or(row.status == SessionStatus::Running, |live| live.working);
-    if needs_you {
-        InboxState::NeedsYou
-    } else if working {
-        InboxState::Working
-    } else if seen.is_none_or(|seen_at| row.updated_at > seen_at) {
-        InboxState::Done
-    } else {
-        InboxState::Idle
+    #[tokio::test]
+    async fn no_cache_is_handed_out_before_a_machine_joins() {
+        let inbox = Inbox::new(LinkRuntime::new().expect("a runtime"));
+        let first = inbox.next_change().await;
+        assert!(first.rows.is_empty());
+        assert_eq!(
+            first.cache, None,
+            "an empty inbox would overwrite the stored one"
+        );
     }
 }

@@ -26,10 +26,7 @@ fn every_future_is_send(
     views: (&SessionView, &TerminalView, &SessionList, &Inbox),
 ) {
     let (view, terminal, list, inbox) = views;
-    let session = SessionRef {
-        backend: BackendId::Pi,
-        session_id: String::new(),
-    };
+    let session = session_ref();
     let info = ClientMessage::WorkspaceInfo(WorkspaceInfoRequest {
         request_id: String::new(),
     });
@@ -49,4 +46,13 @@ fn every_future_is_send(
     sent(list.refresh());
     sent(list.next_change());
     sent(inbox.next_change());
+    let (interaction, option) = (String::new(), String::new());
+    sent(inbox.answer(String::new(), session_ref(), interaction, option));
+}
+
+fn session_ref() -> SessionRef {
+    SessionRef {
+        backend: BackendId::Pi,
+        session_id: String::new(),
+    }
 }

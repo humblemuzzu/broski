@@ -2,6 +2,9 @@
 //! terminals the app opens on it.
 
 mod events;
+mod holds;
+#[cfg(test)]
+mod holds_tests;
 mod link;
 mod pump;
 pub(crate) mod state;
@@ -21,7 +24,6 @@ use self::events::Taken;
 pub use self::events::{ContractState, MachineEvent, MachineStatus};
 pub(crate) use self::state::Shared;
 use crate::error::ClientError;
-use crate::requests::Waiter;
 use crate::terminal::TerminalView;
 use crate::view::stream::LiveInfo;
 use crate::view::SessionView;
@@ -129,7 +131,7 @@ impl Machine {
     pub(crate) fn leave_view(&self, subscriber: u64) {
         let mut state = self.shared.lock();
         if let Some(detach) = state.streams.unsubscribe(subscriber) {
-            self.send_detach(&mut state, detach);
+            self.shared.detach(&mut state, detach);
         }
         drop(state);
         self.shared.poke_inbox();
@@ -138,15 +140,7 @@ impl Machine {
     pub(crate) fn leave_terminal(&self, key: u64) {
         let mut state = self.shared.lock();
         if let Some(detach) = state.terminals.close(key) {
-            self.send_detach(&mut state, detach);
-        }
-    }
-
-    /// Nothing waits for a detach: if the bridge never had the view attached it says so, and that
-    /// changes nothing here.
-    fn send_detach(&self, state: &mut state::State, detach: ClientMessage) {
-        if let Err(failure) = self.shared.send_ready(state, detach, None::<Waiter>) {
-            tracing::debug!(?failure, "a detach was not sent");
+            self.shared.detach(&mut state, detach);
         }
     }
 

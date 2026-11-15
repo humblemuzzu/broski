@@ -28,6 +28,7 @@ pub(crate) async fn run(shared: Arc<Shared>, mut stop: oneshot::Receiver<()>) {
             break;
         };
         shared.handle(event).await;
+        shared.hold_waiting(&mut shared.lock());
         shared.poke_inbox();
     }
     let mut state = shared.lock();

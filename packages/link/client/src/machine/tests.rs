@@ -20,7 +20,7 @@ use crate::error::ClientError;
 use crate::requests::MAX_PENDING_REQUESTS;
 
 /// A machine whose one LAN route is a closed port.
-fn unreachable() -> Arc<Machine> {
+pub(super) fn unreachable() -> Arc<Machine> {
     let runtime = LinkRuntime::new().expect("runtime");
     let identity = DeviceIdentity::generate().expect("identity");
     let machine = DeviceIdentity::generate().expect("a machine identity");

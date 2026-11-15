@@ -18,6 +18,9 @@ use super::queue::{Live, Take, UpdateQueue};
 use super::ViewEnd;
 use crate::attach::Next;
 use crate::error::ClientError;
+use crate::inbox::{ask_command, pending_ask, PendingAsk};
+
+mod holds;
 
 /// Sessions one phone views at once: the bridge serves a client at most 32 (core README §14).
 pub(crate) const MAX_VIEWED_SESSIONS: usize = 32;
@@ -38,11 +41,17 @@ pub(crate) struct StreamState {
     capabilities: Option<SessionCapabilities>,
     phase: Phase,
     subscribers: Vec<(u64, UpdateQueue)>,
+    /// Kept viewed for the inbox, subscribers or not.
+    held: bool,
 }
 
 /// What the inbox reads from a session this phone views.
 pub(crate) struct LiveInfo {
     pub(crate) ask: Option<String>,
+    pub(crate) command: Option<String>,
+    /// The first pending interaction, while the stream is attached: a detached one's snapshot may
+    /// hold an ask that was answered meanwhile.
+    pub(crate) pending: Option<PendingAsk>,
     pub(crate) needs_you: bool,
     pub(crate) working: bool,
 }
@@ -56,6 +65,7 @@ impl StreamState {
             capabilities: None,
             phase: Phase::Detached,
             subscribers: Vec::new(),
+            held: false,
         }
     }
 
@@ -216,10 +226,16 @@ impl StreamState {
     }
 
     pub(crate) fn live_info(&self) -> Option<LiveInfo> {
-        self.capabilities.as_ref()?;
+        let answerable = self.capabilities.as_ref()?.answer;
         let snapshot = &self.snapshot;
+        let first = snapshot.interactions.first();
+        let attached = self.phase == Phase::Attached;
         Some(LiveInfo {
-            ask: snapshot.interactions.first().map(|ask| ask.title.clone()),
+            ask: first.map(|ask| ask.title.clone()),
+            command: first.and_then(ask_command),
+            pending: first
+                .filter(|_| attached)
+                .map(|ask| pending_ask(ask, answerable)),
             needs_you: !snapshot.interactions.is_empty(),
             working: snapshot.run.is_some()
                 || snapshot.compaction.is_some()
@@ -240,20 +256,9 @@ impl Streams {
     /// A new subscriber of `session`: of the stream already viewing it, or of a new one, which the
     /// caller then attaches.
     pub(crate) fn subscribe(&mut self, session: &SessionRef) -> Result<(u64, u64), ClientError> {
-        let existing = self.viewing(session);
-        let stream = match existing {
+        let stream = match self.viewing(session) {
             Some(stream) => stream,
-            None if self.streams.len() >= MAX_VIEWED_SESSIONS => {
-                return Err(ClientError::InvalidRequest {
-                    detail: format!("a phone views at most {MAX_VIEWED_SESSIONS} sessions"),
-                })
-            }
-            None => {
-                self.next += 1;
-                self.streams
-                    .insert(self.next, StreamState::new(session.clone()));
-                self.next
-            }
+            None => self.open(session)?,
         };
         self.next += 1;
         let subscriber = self.next;
@@ -261,6 +266,19 @@ impl Streams {
             state.subscribers.push((subscriber, UpdateQueue::new()));
         }
         Ok((stream, subscriber))
+    }
+
+    /// A new stream of `session`, within the bound on viewed sessions.
+    fn open(&mut self, session: &SessionRef) -> Result<u64, ClientError> {
+        if self.streams.len() >= MAX_VIEWED_SESSIONS {
+            return Err(ClientError::InvalidRequest {
+                detail: format!("a phone views at most {MAX_VIEWED_SESSIONS} sessions"),
+            });
+        }
+        self.next += 1;
+        self.streams
+            .insert(self.next, StreamState::new(session.clone()));
+        Ok(self.next)
     }
 
     /// The subscriber leaves; the detach to send when it was the stream's last.
@@ -274,9 +292,14 @@ impl Streams {
             }
             !leaving
         });
-        if !state.subscribers.is_empty() {
+        if !state.subscribers.is_empty() || state.held {
             return None;
         }
+        self.remove(stream)
+    }
+
+    /// Drops a stream nothing reads any more; the detach to send when it was attached.
+    fn remove(&mut self, stream: u64) -> Option<ClientMessage> {
         let state = self.streams.remove(&stream)?;
         matches!(state.phase, Phase::Attaching | Phase::Attached).then(|| {
             ClientMessage::SessionDetach(SessionDetachRequest {
@@ -324,9 +347,10 @@ impl Streams {
         let Some(other) = other.map(|(id, _)| *id) else {
             return false;
         };
-        let moved = self.streams.remove(&stream).map(|state| state.subscribers);
-        if let Some(target) = self.streams.get_mut(&other) {
-            for (subscriber, mut queue) in moved.into_iter().flatten() {
+        let moved = self.streams.remove(&stream);
+        if let (Some(target), Some(moved)) = (self.streams.get_mut(&other), moved) {
+            target.held |= moved.held;
+            for (subscriber, mut queue) in moved.subscribers {
                 queue.reset();
                 target.subscribers.push((subscriber, queue));
             }
