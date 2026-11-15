@@ -1,4 +1,4 @@
-package com.muzammil.broski.design
+package com.muzammil.broski.design.code
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
@@ -39,7 +40,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /** What [CodeLines] needs to know of one line to place it; [accent] marks its leading edge. */
-class CodeLine(val text: String, val gutter: String, val background: Color? = null, val accent: Color? = null)
+class ViewerLine(val text: AnnotatedString, val gutter: String, val background: Color? = null, val accent: Color? = null)
 
 /**
  * Monospaced lines with a gutter that stays put: unwrapped, every line scrolls sideways together,
@@ -48,7 +49,7 @@ class CodeLine(val text: String, val gutter: String, val background: Color? = nu
  */
 @Composable
 fun CodeLines(
-    lines: List<CodeLine>,
+    lines: List<ViewerLine>,
     style: TextStyle,
     wrap: Boolean,
     modifier: Modifier = Modifier,
@@ -86,7 +87,7 @@ fun CodeLines(
 }
 
 @Composable
-private fun CodeRow(line: CodeLine, style: TextStyle, gutterWidth: Dp, wrap: Boolean, offset: () -> Float) {
+private fun CodeRow(line: ViewerLine, style: TextStyle, gutterWidth: Dp, wrap: Boolean, offset: () -> Float) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -103,7 +104,7 @@ private fun CodeRow(line: CodeLine, style: TextStyle, gutterWidth: Dp, wrap: Boo
             Text(
                 line.gutter,
                 style = style,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = GUTTER_ALPHA),
+                color = CodeColors.current.gutter,
                 textAlign = TextAlign.End,
                 softWrap = false,
                 maxLines = 1,
@@ -130,4 +131,3 @@ private fun CodeRow(line: CodeLine, style: TextStyle, gutterWidth: Dp, wrap: Boo
 private val ACCENT_WIDTH = 3.dp
 private val GUTTER_PADDING = 8.dp
 private val TEXT_PADDING = 8.dp
-private const val GUTTER_ALPHA = 0.7f

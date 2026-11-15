@@ -14,6 +14,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -27,6 +28,7 @@ import com.muzammil.broski.R
 import com.muzammil.broski.app.DiffRoute
 import com.muzammil.broski.app.FeatureContext
 import com.muzammil.broski.design.EmptyState
+import com.muzammil.broski.design.code.DiffView
 import com.muzammil.broski.feature.workspace.FailureMessage
 import com.muzammil.broski.feature.workspace.MachineBanner
 import com.muzammil.broski.feature.workspace.MachineGate
@@ -36,6 +38,7 @@ import com.muzammil.broski.feature.workspace.WorkspaceLoading
 import com.muzammil.broski.feature.workspace.lastComponent
 import uniffi.broski_contract.GitChange
 import uniffi.broski_contract.GitDiffRead
+import uniffi.broski_core.gitDiffFile
 
 /** One file's diff: staged against HEAD, or the work tree against what is staged. */
 @Composable
@@ -76,8 +79,8 @@ private fun DiffBody(diff: GitDiffRead, wrap: Boolean, bottom: Dp) {
         file.binary -> EmptyState(stringResource(R.string.diff_binary_title), stringResource(R.string.diff_binary_body))
         file.change == GitChange.CONFLICTED && file.hunks.isEmpty() ->
             EmptyState(stringResource(R.string.diff_conflicted_title), stringResource(R.string.diff_conflicted_body))
-        else -> DiffText(
-            file = file,
+        else -> DiffView(
+            file = remember(file) { gitDiffFile(file) },
             wrap = wrap,
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(top = 8.dp, bottom = bottom + 24.dp),
