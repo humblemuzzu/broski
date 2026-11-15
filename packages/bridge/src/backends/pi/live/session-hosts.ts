@@ -28,6 +28,7 @@ import type { LiveOverlay, LiveRow, SessionStore, StoredSession } from "../ports
 import { CLOSED, rejected } from "../rejections";
 import { sessionName } from "../session-name";
 import type { TerminalRegistry } from "../terminal/registry";
+import { leastRecentlyUsedIdle, MAX_HOSTED_SESSIONS } from "./host-capacity";
 import type { HostEnvironment, HostStart } from "./host-environment";
 import { factsOf } from "./hosted-session";
 import { createSessionFile } from "./new-session-file";
@@ -46,6 +47,8 @@ export interface SessionHostsDeps {
 	readonly store: SessionStore;
 	readonly catalog: CatalogFeed;
 	readonly now: () => number;
+	/** How many `pi` processes may be hosted at once; `MAX_HOSTED_SESSIONS` when not given. */
+	readonly maxHosted?: number;
 }
 
 /** A hosted session's write, or the store's when nobody hosts it; both under the session lock. */
@@ -132,7 +135,6 @@ export class SessionHosts implements LiveOverlay {
 		return host !== undefined && !host.ended && !host.idle();
 	}
 
-	/** The host of a session this bridge runs now, for `listCommands({session})`. */
 	/** A running host of a session in `cwd`, whose `pi` loaded what a new session there would load. */
 	inDirectory(cwd: string): SessionHost | undefined {
 		for (const host of this.hosts.values()) if (host.isReady && !host.ended && host.cwd === cwd) return host;
@@ -285,6 +287,9 @@ export class SessionHosts implements LiveOverlay {
 		if (this.disposing) return CLOSED;
 		const { cli } = this.deps.install;
 		if (!cli.found) return rejected("backend_error", cli.reason);
+		const crowded = await this.makeRoom();
+		if (crowded !== undefined) return crowded;
+		if (this.disposing) return CLOSED;
 		const extension = ensureHostExtension(this.deps.hostDir);
 		if ("problem" in extension) return rejected("backend_error", extension.problem);
 		const launch = {
@@ -304,6 +309,28 @@ export class SessionHosts implements LiveOverlay {
 				: rejected("backend_error", `the session could not be started: ${errorText(error)}`);
 		}
 		return this.disposing || host.ended ? CLOSED : host;
+	}
+
+	/**
+	 * Ends idle hosts, least recently used first, until a new `pi` fits. A view of an ended host starts a new one with
+	 * its next action (`SessionView`), showing what it showed meanwhile, which an idle host had nothing to add to; a
+	 * host with work in flight is never ended, so when all are busy the open is refused.
+	 */
+	private async makeRoom(): Promise<Rejected | undefined> {
+		const limit = this.deps.maxHosted ?? MAX_HOSTED_SESSIONS;
+		while (this.hosts.size >= limit) {
+			const victim = leastRecentlyUsedIdle(this.hosts.values(), this.locks);
+			if (victim === undefined) {
+				return rejected(
+					"busy",
+					`${limit} Pi sessions are running, each with work under way; let one finish or stop it`,
+				);
+			}
+			await this.locks.run(victim.sessionId, async () => {
+				if (!victim.ended && victim.idle()) await victim.finish();
+			});
+		}
+		return undefined;
 	}
 
 	private attachNew(host: SessionHost, sink: SessionSink): OpenResult {

@@ -25,7 +25,7 @@ The bridge finds `pi` from the config key `pi.cliPath`, else `pi` on the login s
 | Directory | What lives there |
 |---|---|
 | `rpc/` | The wire: `JsonlSplitter` (LF-only records, CR stripped, 32 MiB cap), zod frames for responses, events and UI requests, `RpcClient` (request ids, deadlines, ordered delivery, backpressure), `PiProcess` (spawn in its own process group, stderr tail, the stop ladder). |
-| `live/` | A hosted session: `SessionHost` around a `PiChild`, the run tracker, prompt desk, queue mirror, settings, usage feed, the event bridge, the entry cursor, and `SessionHosts` (the registry with its locks, revive and idle end). |
+| `live/` | A hosted session: `SessionHost` around a `PiChild`, the run tracker, prompt desk, queue mirror, settings, usage feed, the event bridge, the entry cursor, and `SessionHosts` (the registry with its locks, revive, idle end and the bound on hosts). |
 | `host/` | The bridge's own extension, written into `~/.broski/pi/broski-host.ts` and loaded with `-e`: the permission gate and the `broski.*` records. `extension/` is agent code, read by the rest of the adapter only as text. |
 | `ui/` | Extension dialogs as interactions (`dialogs.ts`, `interactions.ts`) and permission asks (`permission-asks.ts`, `permission-request.ts`). |
 | `mapping/` | Pi's messages and events as contract events and transcript items. |
@@ -59,6 +59,12 @@ imports only Pi's packages, `node:` built-ins and itself, and that everything el
 - **Idle and keep-open**: a host with no view, run, ask, compaction, retry or queued input ends; one that exits on its
   own is revived when a phone acts in its view again (`session-view.ts`); a view of a deleted session answers
   `closed`.
+- **At most 8 hosts** (`MAX_HOSTED_SESSIONS`, `live/host-capacity.ts`): before a `pi` starts, the least recently used
+  host with nothing in flight ends, even with a view attached. That view keeps showing what it showed, which an idle
+  host had nothing to add to, and its next action starts a new host through the revive path and sends `resynced`
+  with the new host's snapshot. A host with work in flight is never ended; when all are, the open or the revive is
+  refused `busy`. A host whose session has work queued on its lock is skipped, so ending a host never waits on a lock
+  while holding another (`host_capacity.test.ts`). Catalog probes are short-lived and not counted.
 
 ## 2. Status
 
@@ -218,6 +224,7 @@ adapter's own frame schemas.
 
 ## 17. Risks and open questions
 
-- About 110 MB per hosted session; many open sessions cost memory the SDK host shared.
+- About 110 MB per hosted session, so 8 hosts are about 0.9 GB; with every host busy a ninth session cannot be opened
+  until one finishes (§1). The bound is a constant: a machine that wants more hosts needs a change here.
 - A Pi release that changes an RPC shape fails the frame schemas, which reports a fault instead of guessing.
 - The permission gate rides on `ctx.ui.input`; a Pi that changes how `input` titles reach RPC breaks it.

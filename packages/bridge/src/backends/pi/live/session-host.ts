@@ -70,6 +70,7 @@ export class SessionHost {
 	private started = false;
 	private finished = false;
 	private shuttingDown = false;
+	private usedAt: number;
 
 	constructor(
 		private readonly env: HostEnvironment,
@@ -77,6 +78,7 @@ export class SessionHost {
 	) {
 		this.sessionId = start.facts.sessionId;
 		const { now } = env;
+		this.usedAt = now();
 		this.live = new HostLiveState(
 			{ ...emptySnapshot(), modes: [permissionsSetting(start.permissions.mode)] },
 			now,
@@ -188,12 +190,19 @@ export class SessionHost {
 		return this.start.file;
 	}
 
+	/** When a view last attached or detached, or the session last did anything: the order idle hosts are ended in. */
+	get lastUsedAt(): number {
+		return this.usedAt;
+	}
+
 	attach(sink: SessionSink): SessionSnapshot {
+		this.usedAt = this.env.now();
 		this.sink = sink;
 		return this.live.attach(sink);
 	}
 
 	detach(sink: SessionSink): void {
+		this.usedAt = this.env.now();
 		this.live.detach(sink);
 		if (this.sink === sink) this.sink = undefined;
 	}
@@ -385,6 +394,7 @@ export class SessionHost {
 
 	/** Every event a part of the session emits passes here: the row follows it, and an idle host may end. */
 	private emitted(event: AgentEvent): void {
+		this.usedAt = this.env.now();
 		if (!this.ready) {
 			if (event.type === "notice" && this.held.length < MAX_LIST_ITEMS) this.held.push(event);
 			return;

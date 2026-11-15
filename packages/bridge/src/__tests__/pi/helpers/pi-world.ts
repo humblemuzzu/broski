@@ -48,6 +48,8 @@ export interface PiWorldOptions {
 	 * Pi's own default under the agent dir. Pi's precedence is that order.
 	 */
 	readonly sessionsAt?: "env" | "setting" | "default";
+	/** How many `pi` processes the backend may host at once. */
+	readonly maxHosted?: number;
 	/** Leave the agent dir with no model at all: a Pi nobody has signed in to a provider. */
 	readonly noModels?: boolean;
 	/** Start the backend with the link to terminal `pi` processes on, in a directory of the world's own. */
@@ -91,6 +93,7 @@ export class PiWorld {
 		/** The `pi` the backend runs: the devDependency's, behind a shim that logs each start (`sessionProcesses`). */
 		private readonly cli: string,
 		private readonly link: TerminalLinkOptions | undefined,
+		private readonly maxHosted: number | undefined,
 		private running: Running | undefined,
 	) {}
 
@@ -104,7 +107,18 @@ export class PiWorld {
 			const trash = installFakeTrash(env);
 			const link = options.link ? linkIn(env) : undefined;
 			const cli = writeLaunchLog(env);
-			const world = new PiWorld(env, router, server, trash, join(env.root, "host"), sessionsRoot, cli, link, undefined);
+			const world = new PiWorld(
+				env,
+				router,
+				server,
+				trash,
+				join(env.root, "host"),
+				sessionsRoot,
+				cli,
+				link,
+				options.maxHosted,
+				undefined,
+			);
 			await world.start(host);
 			return world;
 		} catch (error) {
@@ -168,6 +182,7 @@ export class PiWorld {
 			install: { cli: { found: true, path: this.cli }, env: this.env.env(), agentDir: this.env.agentDir },
 			hostDir: this.hostDir,
 			...(this.link !== undefined && { link: this.link }),
+			...(this.maxHosted !== undefined && { maxHosted: this.maxHosted }),
 		});
 		await parts.terminal.start();
 		this.running = { parts, backend: this.observed(piBackendOf(parts)) };

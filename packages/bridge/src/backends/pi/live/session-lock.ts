@@ -7,6 +7,11 @@ export class SessionLocks {
 	/** The settle of the last work queued per session; an entry leaves once its work is the last and done. */
 	private readonly tails = new Map<string, Promise<void>>();
 
+	/** Nothing is running or queued on `sessionId`. */
+	isFree(sessionId: string): boolean {
+		return !this.tails.has(sessionId);
+	}
+
 	/** Runs `work` once every earlier work on `sessionId` has settled; resolves or rejects with it. */
 	run<T>(sessionId: string, work: () => Promise<T>): Promise<T> {
 		const before = this.tails.get(sessionId) ?? Promise.resolve();

@@ -30,6 +30,8 @@ export interface PiBackendOptions {
 	readonly hostDir: string;
 	/** The link to terminal `pi` processes (`terminal/link.ts`); without it the adapter installs and listens to nothing. */
 	readonly link?: TerminalLinkOptions;
+	/** How many `pi` processes may be hosted at once (`live/host-capacity.ts`). */
+	readonly maxHosted?: number;
 }
 
 /** The parts one Pi backend is made of, which `piBackendOf` puts behind the contract. */
@@ -64,6 +66,7 @@ export function createPiParts(host: BackendHost, options: PiBackendOptions): PiP
 		store,
 		catalog,
 		now: Date.now,
+		...(options.maxHosted !== undefined && { maxHosted: options.maxHosted }),
 	});
 	/** A session a terminal runs shows its run in the list. Not before it has a file: a store asked for an id no file holds keeps saying so for a while. */
 	const announce = (sessionId: string, path: string): void => {
