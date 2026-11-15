@@ -19,8 +19,8 @@ pub enum PushPlatform {
 /// The link to one paired machine; an app holds one per machine, all on one `LinkRuntime`.
 ///
 /// Every method but `next_event` returns at once and the work happens on the runtime. Releasing
-/// the session stops it quietly, and the machine keeps its side for a later resume; `close` ends
-/// it on the machine too.
+/// the session stops it quietly, and the machine keeps its side for a later resume; `end` ends it
+/// on the machine too.
 #[derive(uniffi::Object)]
 pub struct LinkSession(pub(crate) link::Session);
 
@@ -96,8 +96,9 @@ impl LinkSession {
         self.0.lan_discovered(routes);
     }
 
-    /// Ends the session here and on the machine.
-    pub fn close(&self) {
+    /// Ends the session here and on the machine. Not `close`: Kotlin objects already have one, from
+    /// `AutoCloseable`, which releases the object.
+    pub fn end(&self) {
         self.0.close();
     }
 }

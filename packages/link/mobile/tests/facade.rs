@@ -78,7 +78,7 @@ async fn a_stored_session_reports_its_failed_dial_then_its_close() {
         .await
         .expect("the dial fails and a retry is scheduled");
 
-    session.close();
+    session.end();
     let mut last = None;
     while let Some(event) = session.next_event().await {
         if let LinkEvent::Status { status } = event {

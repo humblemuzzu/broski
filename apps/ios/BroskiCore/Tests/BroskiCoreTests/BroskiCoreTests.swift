@@ -81,7 +81,7 @@ func aStoredSessionReportsItsFailedDialThenItsClose() async throws {
     }
     #expect(retrying)
 
-    session.close()
+    session.end()
     var last: LinkState?
     while let event = await session.nextEvent() {
         if case .status(let status) = event {
