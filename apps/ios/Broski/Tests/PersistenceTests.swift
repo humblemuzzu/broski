@@ -105,6 +105,24 @@ struct PersistenceTests {
         #expect(try test.storage.identitySecret() == nil)
     }
 
+    @Test func aRecordChangeTheCoreHandsOverAfterAForgetDoesNotStoreThePairingAgain() throws {
+        let test = TestStorage()
+        defer { test.remove() }
+        try test.storage.saveIdentitySecret(try Fixture.data("device-secret.bin"))
+        let record = try Fixture.data("record.json")
+        let id = try MachineRecord.fromBytes(bytes: record).id()
+        try test.storage.records.save(record, id: id)
+        let app = AppModel(storage: test.storage)
+        app.start()
+        let machine = try #require(app.machine(id: id))
+
+        app.forget(machine)
+        machine.persistRecord()
+
+        #expect(try test.storage.records.all().isEmpty)
+        #expect(app.machines.isEmpty)
+    }
+
     @Test func aStoredIdentityTheCoreRefusesIsReportedAndKept() throws {
         let test = TestStorage()
         defer { test.remove() }

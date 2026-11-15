@@ -17,6 +17,9 @@ final class MachineModel: Identifiable {
 
     @ObservationIgnored private let records: MachineRecordStore
     @ObservationIgnored private var events: Task<Void, Never>?
+    /// The core hands over events queued before a forget or a new pairing; a retired model must
+    /// not store the old record from them.
+    @ObservationIgnored private var isRetired = false
 
     init(machine: Machine, records: MachineRecordStore) {
         let record = machine.record()
@@ -49,7 +52,13 @@ final class MachineModel: Identifiable {
         }
     }
 
+    /// Called when the machine is forgotten or replaced by a new pairing of the same id.
+    func retire() {
+        isRetired = true
+    }
+
     func persistRecord() {
+        guard !isRetired else { return }
         do throws(Keychain.Failure) {
             try records.save(machine.record().toBytes(), id: id)
         } catch {

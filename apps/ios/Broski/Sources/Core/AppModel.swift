@@ -76,6 +76,7 @@ final class AppModel {
     }
 
     func forget(_ model: MachineModel) {
+        model.retire()
         phone?.forget(id: model.id)
         removeRecord(id: model.id)
         machines.removeAll { $0.id == model.id }
@@ -167,6 +168,7 @@ final class AppModel {
 
     private func adopt(_ machine: Machine) -> MachineModel {
         let model = MachineModel(machine: machine, records: storage.records)
+        self.machine(id: model.id)?.retire()
         model.persistRecord()
         machines.removeAll { $0.id == model.id }
         unreadablePairings.removeAll { $0 == model.id }
