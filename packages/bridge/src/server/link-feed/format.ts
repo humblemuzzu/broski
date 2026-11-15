@@ -1,4 +1,4 @@
-import type { BackendId } from "../../contract";
+import { type BackendId, clip } from "../../contract";
 
 const TITLE_MAX = 80;
 const BODY_MAX = 200;
@@ -80,7 +80,7 @@ function cwdBase(cwd: string | undefined): string {
 /** Shown verbatim on a lock screen, so a cut is marked rather than silent. */
 function clamp(text: string, max: number): string {
 	const single = text.replace(/\s+/g, " ").trim();
-	return single.length <= max ? single : `${single.slice(0, max - 1)}…`;
+	return single.length <= max ? single : `${clip(single, max - 1)}…`;
 }
 
 export function stringOf(value: unknown): string | undefined {

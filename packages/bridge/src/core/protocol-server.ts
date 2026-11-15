@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ClientMessage, type JsonValue, MAX_MESSAGE_BYTES, RequestId, ServerMessage } from "../contract";
+import { ClientMessage, clip, type JsonValue, MAX_MESSAGE_BYTES, RequestId, ServerMessage } from "../contract";
 import type { CoreClient } from "./client";
 import type { CoreContext } from "./context";
 import { encodeFrame, framedMessage } from "./frame";
@@ -115,7 +115,7 @@ export class ProtocolServer {
 }
 
 function report(error: z.ZodError): string {
-	return z.prettifyError(new z.ZodError(error.issues.slice(0, MAX_REPORTED_ISSUES))).slice(0, MAX_REPORT_CHARS);
+	return clip(z.prettifyError(new z.ZodError(error.issues.slice(0, MAX_REPORTED_ISSUES))), MAX_REPORT_CHARS);
 }
 
 /** The `requestId` of a message that failed validation, when it carried one the bridge can read. */

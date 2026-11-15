@@ -70,6 +70,13 @@ describe("the approval alert of a contract session", () => {
 		});
 	});
 
+	test("a cut never splits a character in two", () => {
+		const request = permission({ previews: [{ kind: "command", command: `${"a".repeat(192)}😀 more` }] });
+		const alert = contractApproval(SESSION, row(), asked(request, { origin: { toolName: "bash" } }), request, 1);
+		expect(alert.body).toBe(`bash: ${"a".repeat(192)}…`);
+		expect(alert.body.isWellFormed()).toBe(true);
+	});
+
 	test("paths, hosts and changed files are quoted by name, never by content", () => {
 		const bodies = [
 			permission({ previews: [{ kind: "paths", paths: ["a.txt", "b.txt"] }] }),

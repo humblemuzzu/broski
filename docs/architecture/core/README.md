@@ -50,7 +50,7 @@ What it does not do: anything backend-specific. It never mints run, block, tool,
 | `requests-catalog.ts`, `requests-sessions.ts`, `requests-live.ts` | The handlers: backend-wide reads; session mutations and reads; attach, detach and session control. |
 | `results.ts`, `directories.ts`, `paged-read.ts`, `session-key.ts`, `same-state.ts` | Result and error builders; the directory policy; re-reading a page that is too large; session keys and log labels; snapshot equality. |
 | `replacements.ts`, `attach-redirect.ts` | Which stream replaced which, bounded and kept across restarts; answering an attach to a replaced session with the session that continues it. |
-| `frame.ts` | The `{"type":"contract","message":…}` frame, and the prefix every frame begins with. |
+| `frame.ts`, `well-formed-json.ts` | The `{"type":"contract","message":…}` frame, and the prefix every frame begins with; `wellFormedJson` writes it (and the daemon feed's frames) with every lone UTF-16 surrogate as U+FFFD, which serde_json would otherwise refuse, losing the whole frame. |
 | `observer.ts` | `CoreObserver`, `ObservedEvent` (an event with the state before and after it, and `describe()`), and the `Observation` that hands every published event to the observer (§19). |
 | `bridge-answer.ts` | `answerFromBridge`: a person's answer from outside the attached phones, through the interaction desk (§19). |
 | `wire-fit.ts`, `snapshot-fit.ts`, `text-elision.ts` | Fitting a message to the link: run items, free text, the event fallbacks. |

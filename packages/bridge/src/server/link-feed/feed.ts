@@ -1,5 +1,6 @@
 import type { ServerWebSocket } from "bun";
 import type { CoreObserver } from "../../core/observer";
+import { wellFormedJson } from "../../core/well-formed-json";
 import { LINK_OVERFLOW_CLOSE_CODE } from "../../transport/send-limits";
 import type { ContractAnswerer } from "./contract-decision";
 import { ContractFeedTap } from "./contract-tap";
@@ -27,7 +28,7 @@ function sendToFeed(payload: unknown): void {
 	if (!feed) return;
 	let status = 0;
 	try {
-		status = feed.send(JSON.stringify(payload));
+		status = feed.send(wellFormedJson(payload));
 	} catch {
 		status = 0;
 	}

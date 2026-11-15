@@ -101,7 +101,7 @@ function lineCount(text: string): number {
 export function diffOfNewFile(path: string, content: string): DiffText | undefined {
 	if (content === "") return undefined;
 	const total = lineCount(content);
-	const head = content.length > MAX_TEXT_CHARS ? content.slice(0, MAX_TEXT_CHARS) : content;
+	const head = clip(content, MAX_TEXT_CHARS);
 	const lines = head.endsWith("\n") ? head.slice(0, -1).split("\n") : head.split("\n");
 	const body = lines.map((line) => `+${line}`);
 	return {

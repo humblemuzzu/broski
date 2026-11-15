@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { clipEnd, clipStart } from "../../backends/pi/bounds";
 import {
 	PERMISSIONS_ENTRY,
 	PROMPT_ENTRY,
@@ -33,17 +32,6 @@ import {
 	Rejected,
 } from "../../contract";
 import { plainTheme } from "./helpers/plain-theme";
-
-describe("bounded text", () => {
-	test("never splits a surrogate pair", () => {
-		const text = "ab😀cd";
-		expect(clipStart(text, 3)).toBe("ab");
-		expect(clipStart(text, 4)).toBe("ab😀");
-		expect(clipEnd(text, 3)).toBe("cd");
-		expect(clipEnd(text, 4)).toBe("😀cd");
-		expect(clipStart("short", 10)).toBe("short");
-	});
-});
 
 describe("bounded JSON", () => {
 	test("keeps what fits and shortens what does not, always within the contract's bounds", () => {

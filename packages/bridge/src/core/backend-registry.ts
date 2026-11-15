@@ -6,6 +6,7 @@ import {
 	BackendStatus,
 	backendCapabilities,
 	type CatalogEvent,
+	clip,
 } from "../contract";
 import { settled } from "./deadline";
 import type { CoreClock, CoreLog } from "./ports";
@@ -134,7 +135,7 @@ export class BackendRegistry {
 	}
 
 	private failed(id: BackendId, reason: string): false {
-		this.failures.set(id, reason.slice(0, MAX_ISSUE_CHARS));
+		this.failures.set(id, clip(reason, MAX_ISSUE_CHARS));
 		this.deps.log.error(`[core] backend ${id} did not start: ${reason}`);
 		return false;
 	}
@@ -156,6 +157,6 @@ function failedStatus(message: string): BackendStatus {
 		installed: true,
 		auth: "unknown",
 		usable: false,
-		issues: [{ severity: "error", message: message.slice(0, MAX_ISSUE_CHARS) }],
+		issues: [{ severity: "error", message: clip(message, MAX_ISSUE_CHARS) }],
 	};
 }

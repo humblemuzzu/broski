@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { boundList, clip, clipEnd, fitsId, nameOr } from "../../../backends/claude-code/bounds";
+import { boundList, fitsId, nameOr } from "../../../backends/claude-code/bounds";
 import { CatalogFeed } from "../../../backends/claude-code/catalog-feed";
 import { cursorScope, decodeCursor, encodeCursor } from "../../../backends/claude-code/cursor";
 import { boundedJson } from "../../../backends/claude-code/json";
@@ -15,16 +15,7 @@ import {
 	Rejected,
 } from "../../../contract";
 
-const PAIR = "😀";
-
 describe("bounds", () => {
-	test("clip and clipEnd never split a surrogate pair", () => {
-		expect(clip(`ab${PAIR}`, 3)).toBe("ab");
-		expect(clip(`ab${PAIR}`, 4)).toBe(`ab${PAIR}`);
-		expect(clipEnd(`${PAIR}ab`, 3)).toBe("ab");
-		expect(clip("short", 10)).toBe("short");
-	});
-
 	test("nameOr is never empty and fits a name", () => {
 		expect(nameOr("  ", "Untitled")).toBe("Untitled");
 		expect(nameOr(undefined, "x")).toBe("x");

@@ -39,10 +39,10 @@ export const SESSION_MUTANTS: Mutant[] = [
 		{ name: "registry: an arrival is not announced", find: "this.deps.onArrival(backend);", replace: "" },
 		{
 			name: "registry: a failure reason is not kept",
-			find: "this.failures.set(id, reason.slice(0, MAX_ISSUE_CHARS));",
+			find: "this.failures.set(id, clip(reason, MAX_ISSUE_CHARS));",
 			replace: "",
 		},
-		{ name: "registry: a failure reason is not bounded", find: "reason.slice(0, MAX_ISSUE_CHARS)", replace: "reason" },
+		{ name: "registry: a failure reason is not bounded", find: "clip(reason, MAX_ISSUE_CHARS)", replace: "reason" },
 		{
 			name: "registry: a start still running is called missing",
 			find: "if (this.starts.has(id)) return",
@@ -55,7 +55,7 @@ export const SESSION_MUTANTS: Mutant[] = [
 		},
 		{
 			name: "registry: a status message is not bounded",
-			find: "message.slice(0, MAX_ISSUE_CHARS)",
+			find: "clip(message, MAX_ISSUE_CHARS)",
 			replace: "message",
 		},
 		{

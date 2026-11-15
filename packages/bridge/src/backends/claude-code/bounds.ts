@@ -4,21 +4,9 @@
  * not this adapter's to use (`fitsId`), since a cut id would name something else.
  */
 
-import { MAX_ID_CHARS, MAX_LIST_ITEMS, MAX_NAME_CHARS } from "../../contract";
+import { clip, MAX_ID_CHARS, MAX_LIST_ITEMS, MAX_NAME_CHARS } from "../../contract";
 
-/** The first `max` UTF-16 units of `text`, one fewer when the cut would split a surrogate pair. */
-export function clip(text: string, max: number): string {
-	if (text.length <= max) return text;
-	const last = text.charCodeAt(max - 1);
-	return isHighSurrogate(last) ? text.slice(0, max - 1) : text.slice(0, max);
-}
-
-/** The last `max` UTF-16 units of `text`, one fewer when the cut would split a surrogate pair. */
-export function clipEnd(text: string, max: number): string {
-	if (text.length <= max) return text;
-	const first = text.charCodeAt(text.length - max);
-	return isLowSurrogate(first) ? text.slice(text.length - max + 1) : text.slice(text.length - max);
-}
+export { clip } from "../../contract";
 
 /** `text` clipped to `MAX_NAME_CHARS`, or `fallback` when it is empty: contract names are never empty. */
 export function nameOr(text: string | undefined, fallback: string): string {
@@ -42,12 +30,4 @@ export function boundList<T>(items: readonly T[], max: number = MAX_LIST_ITEMS):
 	return items.length <= max
 		? { items: [...items], omitted: 0 }
 		: { items: items.slice(0, max), omitted: items.length - max };
-}
-
-function isHighSurrogate(unit: number): boolean {
-	return unit >= 0xd800 && unit <= 0xdbff;
-}
-
-function isLowSurrogate(unit: number): boolean {
-	return unit >= 0xdc00 && unit <= 0xdfff;
 }

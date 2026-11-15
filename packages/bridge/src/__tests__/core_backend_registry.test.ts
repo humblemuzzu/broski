@@ -117,6 +117,13 @@ describe("the backend registry", () => {
 			},
 		});
 		expect(thrown.issues[0]?.message.length).toBe(4_096);
+		const cut = await backends.status({
+			...fake,
+			status: () => {
+				throw new Error(`${"x".repeat(4_047)}😀`);
+			},
+		});
+		expect(cut.issues[0]?.message.isWellFormed()).toBe(true);
 		expect(log.errors.some((line) => line.includes("status() threw"))).toBe(true);
 	});
 

@@ -97,6 +97,8 @@ export class TestClient {
 	readonly messages: ServerMessage[] = [];
 	readonly violations: string[] = [];
 	readonly frameSizes: number[] = [];
+	/** Every frame as the link carried it. */
+	readonly frames: string[] = [];
 	private readonly connection: CoreConnection;
 	private counter = 0;
 
@@ -172,6 +174,7 @@ export class TestClient {
 
 	private take(text: string): void {
 		this.frameSizes.push(Buffer.byteLength(text, "utf8"));
+		this.frames.push(text);
 		const frame = JSON.parse(text);
 		if (frame.type !== "contract") {
 			this.violations.push(`a frame of type ${frame.type}`);

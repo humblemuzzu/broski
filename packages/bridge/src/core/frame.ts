@@ -1,5 +1,6 @@
 import type { JsonValue, ServerMessage } from "../contract";
 import { frameBytes } from "../transport/send-limits";
+import { wellFormedJson } from "./well-formed-json";
 
 /** Every contract message travels in a frame of this type, in both directions. */
 export const CONTRACT_FRAME_TYPE = "contract";
@@ -25,6 +26,6 @@ export interface EncodedFrame {
 }
 
 export function encodeFrame(message: ServerMessage | JsonValue): EncodedFrame {
-	const text = `${CONTRACT_FRAME_PREFIX}${JSON.stringify(message)}}`;
+	const text = `${CONTRACT_FRAME_PREFIX}${wellFormedJson(message)}}`;
 	return { text, bytes: frameBytes(text) };
 }

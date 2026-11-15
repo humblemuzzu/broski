@@ -84,6 +84,17 @@ describe("link feed connection", () => {
 		}
 	});
 
+	test("a lone surrogate in a frame to the daemon becomes U+FFFD, so the daemon's strict parser keeps the frame", async () => {
+		const feed = await openFeed(socketPath);
+		try {
+			feed.send({ type: "link_decision", backend: "pi", session: "s", request: "r\ud83d", decision: "allow" });
+			const result = await feed.waitFor("link_decision_result");
+			expect(result).toMatchObject({ request: "r\ufffd", ok: false, error: "unknown request" });
+		} finally {
+			feed.close();
+		}
+	});
+
 	test("the feed is no client: it is not counted, and a client that leaves tells it nothing", async () => {
 		const phone = await connectUnixWs(socketPath, OWNER_HEADERS);
 		try {

@@ -2,6 +2,7 @@ export * from "./answer-check";
 export * from "./backend";
 export * from "./capabilities";
 export * from "./catalog-events";
+export * from "./clip";
 export * from "./commands";
 export * from "./compaction";
 export * from "./content";

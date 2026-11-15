@@ -5,6 +5,7 @@ import { DEFAULT_IDLE_CLOSE_MS } from "../core/keep-open";
 import { HELLO_FIRST } from "../core/results";
 import { Gate } from "./helpers/core-adapters";
 import { promptInput, quiesce, RIG_CWD, startCoreRig, TestClient } from "./helpers/core-rig";
+import { loneSurrogates } from "./helpers/lone-surrogates";
 
 describe("the core's protocol: handshake and validation", () => {
 	test("hello agrees on the major version and names the bridge", async () => {
@@ -164,6 +165,23 @@ describe("the core's protocol: backend-wide requests", () => {
 		const broken = await (await brokenRig.client("a")).ok("backend.status", { backend: "pi" });
 		expect(broken.status).toMatchObject({ usable: false, issues: [{ severity: "error" }] });
 		expect(brokenRig.log.errors.some((line) => line.includes("status() threw"))).toBe(true);
+	});
+
+	test("text an adapter let a lone surrogate into reaches the phone as a frame a strict parser reads", async () => {
+		const rig = await startCoreRig({
+			adapt: (backend) => ({
+				...backend,
+				status: async () => {
+					throw new Error(`broken \ud83d and \ude00`);
+				},
+			}),
+		});
+		const client = await rig.client("a");
+		const broken = await client.ok("backend.status", { backend: "pi" });
+		expect(broken.status.issues[0]?.message).toBe(
+			"the adapter failed to report its status: Error: broken \ufffd and \ufffd",
+		);
+		expect(client.frames.flatMap(loneSurrogates)).toEqual([]);
 	});
 
 	test("models, commands and modes come from the adapter for an allowed directory, and a refused one never reaches it", async () => {

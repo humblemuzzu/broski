@@ -30,6 +30,25 @@ fn a_frame_the_core_encoded_decodes() {
     assert_eq!(decoded, expected);
 }
 
+/// `JSON.stringify` writes a lone surrogate as `\ud83d`, which serde_json refuses; the core replaces it with
+/// U+FFFD, so the phone keeps the whole frame.
+#[test]
+fn a_frame_the_core_encoded_around_lone_surrogates_decodes_with_them_replaced() {
+    let example = fixture("frame_prefix.json");
+    let frame = string(field(&example, "loneSurrogateExample"));
+    assert!(
+        !frame.contains("\\ud8") && !frame.contains("\\ude"),
+        "{frame}"
+    );
+    let ServerMessage::Error(error) = decode_frame(frame).unwrap() else {
+        panic!("not an error: {frame}");
+    };
+    assert_eq!(error.error.message, "a\u{FFFD}b😀\u{FFFD}c");
+
+    let refused = frame.replace("\\ufffdb", "\\ud83db");
+    assert!(decode_frame(&refused).is_err(), "{refused}");
+}
+
 /// The core reads a frame whose object holds `type` and `message` and nothing else (`framedMessage`).
 #[test]
 fn every_client_message_goes_out_in_a_frame_that_begins_as_the_core_s_frames_do() {

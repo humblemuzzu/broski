@@ -1,4 +1,5 @@
 import type { SinkRecord } from "./backend";
+import { clipEnd } from "./clip";
 import type { ToolUpdatedEvent } from "./events";
 import { MAX_TEXT_CHARS } from "./limits";
 import { nextRun } from "./run-items";
@@ -142,10 +143,7 @@ function updateTool(tool: RunningTool, event: ToolUpdatedEvent): RunningTool {
 
 /** The last `MAX_TEXT_CHARS` of `text`, never starting inside a surrogate pair. */
 function newestText(text: string): string {
-	if (text.length <= MAX_TEXT_CHARS) return text;
-	const tail = text.slice(-MAX_TEXT_CHARS);
-	const first = tail.charCodeAt(0);
-	return first >= 0xdc00 && first <= 0xdfff ? tail.slice(1) : tail;
+	return clipEnd(text, MAX_TEXT_CHARS);
 }
 
 function without<K extends keyof SessionSnapshot>(snapshot: SessionSnapshot, ...keys: K[]): SessionSnapshot {

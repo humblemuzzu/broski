@@ -78,7 +78,7 @@ zod schemas ──z.toJSONSchema──▶ src/contract/contract.schema.json ─�
       ├──FakeBackend scripted session──▶ contract-fixtures/fake_session_stream.json (every AgentEvent member, as wire ServerMessages)
       │                               └──applyEvent──▶ contract-fixtures/reducer_trace.json (the snapshot and status after every event)
       ├──limits.ts, MAX_PAGE_LIMIT, REQUEST_DEADLINE_MS──▶ contract-fixtures/constants.json
-      ├──encodeFrame──▶ contract-fixtures/frame_prefix.json (how the core begins every frame, and one frame it encoded)
+      ├──encodeFrame──▶ contract-fixtures/frame_prefix.json (how the core begins every frame, one frame it encoded, and one it encoded around lone surrogates)
       └──type model + the bounds──▶ packages/link/contract/src/generated/ (one Rust file per contract module, constants.rs, mod.rs)
                                 └──▶ packages/link/contract/tests/fixtures/generated/mod.rs (every type by schema name, for the fixture tests)
 ```

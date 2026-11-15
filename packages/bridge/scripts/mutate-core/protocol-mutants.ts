@@ -57,6 +57,19 @@ export const PROTOCOL_MUTANTS: Mutant[] = [
 	]),
 	...mutantsOf("core/frame.ts", [
 		{ name: "frame: extra keys pass", find: "keys.length === 2", replace: "keys.length >= 2" },
+		{
+			name: "frame: a lone surrogate is written as it is",
+			find: "wellFormedJson(message)",
+			replace: "JSON.stringify(message)",
+		},
+	]),
+	...mutantsOf("core/well-formed-json.ts", [
+		{
+			name: "frame: a lone surrogate keeps its escape",
+			find: "lone === undefined ? match : REPLACEMENT_ESCAPE",
+			replace: "match",
+		},
+		{ name: "frame: a literal escape is rewritten", find: "/\\\\\\\\|(", replace: "/(" },
 	]),
 	...mutantsOf("core/client.ts", [
 		{
