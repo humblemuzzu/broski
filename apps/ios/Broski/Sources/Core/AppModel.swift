@@ -22,6 +22,10 @@ final class AppModel {
     let inbox = InboxModel()
     let notifications = NotificationAccess()
     let discovery = LanDiscovery()
+    /// Set to show a session; the Inbox tab opens it and sets this back to `nil`.
+    var sessionToOpen: SessionTarget?
+    /// Set to show a folder; the Workspace tab opens it and sets this back to `nil`.
+    var folderToOpen: FolderTarget?
 
     @ObservationIgnored private let storage: PhoneStorage
     @ObservationIgnored private var phone: Phone?
