@@ -123,16 +123,6 @@ for run in $(seq 40); do
   wait_for_lines '"running"' "$run" 60
 done
 
-echo "==> Starting the replica test's machine"
-tail -f "$REPLICA_COMMANDS" >"$WORK/replica-input" &
-replica_tail_pid=$!
-(cd "$ROOT/packages/link" && exec cargo run --quiet --locked -p broski-link-testkit --bin test-machine) \
-  <"$WORK/replica-input" >"$REPLICA_OUT" &
-replica_pid=$!
-wait_for_lines '"offer"' 1 600 "$REPLICA_OUT" "$replica_pid"
-replica_offer="$(grep '"offer"' "$REPLICA_OUT" | head -1 | sed -E 's/.*"offer":"([^"]*)".*/\1/')"
-replica_root="$(grep '"offer"' "$REPLICA_OUT" | head -1 | /usr/bin/python3 -c 'import json, sys; print(json.load(sys.stdin)["root"])')"
-
 # The machine id is the hex of the fingerprint's first 16 bytes (session/src/pairing.rs).
 read -r machine_id lan_port < <(/usr/bin/python3 -c '
 import base64, sys, urllib.parse
@@ -194,6 +184,17 @@ e2e_tests() {
 only_testing=()
 for test in ${BROSKI_E2E_ONLY:-}; do only_testing+=("-only-testing:BroskiUITests/$test"); done
 e2e_tests -skip-testing:BroskiUITests/NotificationEndToEndTests ${only_testing[@]+"${only_testing[@]}"} -resultBundlePath "$OUT/E2E.xcresult"
+
+# Started only now: its pairing offer expires while the UI tests run.
+echo "==> Starting the replica test's machine"
+tail -f "$REPLICA_COMMANDS" >"$WORK/replica-input" &
+replica_tail_pid=$!
+(cd "$ROOT/packages/link" && exec cargo run --quiet --locked -p broski-link-testkit --bin test-machine) \
+  <"$WORK/replica-input" >"$REPLICA_OUT" &
+replica_pid=$!
+wait_for_lines '"offer"' 1 600 "$REPLICA_OUT" "$replica_pid"
+replica_offer="$(grep '"offer"' "$REPLICA_OUT" | head -1 | sed -E 's/.*"offer":"([^"]*)".*/\1/')"
+replica_root="$(grep '"offer"' "$REPLICA_OUT" | head -1 | /usr/bin/python3 -c 'import json, sys; print(json.load(sys.stdin)["root"])')"
 
 echo "==> Following real runs into the chat's session state"
 TEST_RUNNER_BROSKI_REPLICA_OFFER="$replica_offer" \
