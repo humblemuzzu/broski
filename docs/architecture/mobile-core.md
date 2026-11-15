@@ -288,8 +288,20 @@ daemon's unix socket, as a child with a temp `HOME` that is also the only direct
 ## Limits
 
 - The inbox shows each backend's newest `MAX_PAGE_LIMIT` top-level sessions. A session never marked is
-  `Done` once idle (unless the first read marked it), and anything that moves a row's `updatedAt`, a
-  rename included, makes a seen session `Done` again.
+  `Done` once idle (unless its machine's first read marked it).
+- `Done` means a row's `updatedAt` moved past the marker, and `updatedAt` is the backend's last-modified
+  time, not the end of a run. Pi's is the newest user or assistant message
+  (`backends/pi/store/session-head.ts`), which a rename does not move (`live/host-row.ts`). Claude Code's
+  is the session file's mtime (`store/enumerate.ts`: the listing orders and pages by it from `stat` alone),
+  and `renameSession` appends a `custom-title` entry to that file (the SDK's `sdk.d.ts`), so renaming a
+  seen Claude Code session makes it `Done` again; so would a tag. A probe of the pinned SDK (0.3.325) in a
+  throwaway config directory moved `lastModified` across a rename. The contract carries no field for the
+  end of a run and none was added: the adapter would have to open and scan each session file to fill it,
+  which its listing avoids (it reads only the rows of the page asked for), and only Claude Code records a
+  run's end at all (a `turn_duration` entry in the file; Pi has none, contract README §11.2). The real
+  fix, if the extra `Done` after a rename proves to matter, is a `lastRunEndedAt` on `SessionSummary`
+  that both adapters fill (Pi from its newest assistant message), with the marker holding it in place of
+  `updatedAt`.
 - Live inbox detail (`ask`, a non-blocking interaction) exists only for sessions a view is open on: the
   bridge's catalog rows carry a status, not the interactions.
 - Built in release for `aarch64-apple-ios`, `aarch64-apple-ios-sim` and, with cargo-ndk 4 and NDK
