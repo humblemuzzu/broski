@@ -3,13 +3,17 @@ import Foundation
 import Observation
 import os
 
-/// The home screen's rows, as the core orders them, and what the person has seen, persisted
-/// whenever the core says it changed.
+/// The home screen's rows, as the core orders them, and what the person has seen and the last known
+/// rows, persisted whenever the core hands them over.
 @Observable
 final class InboxModel {
     private(set) var rows: [InboxRow] = []
     /// Set by the "n agents working" accessory; the inbox then shows only that section.
     var filter: InboxState?
+    /// The newest answer given from a row.
+    private(set) var lastAnswer: RowAnswer?
+    /// Rows whose answer is on its way; their actions wait for it.
+    private(set) var answering: Set<InboxRow.Key> = []
 
     @ObservationIgnored private var inbox: Inbox?
     @ObservationIgnored private var changes: Task<Void, Never>?
@@ -27,15 +31,39 @@ final class InboxModel {
             while true {
                 let update = await inbox.nextChange()
                 rows = update.rows
-                if let seen = update.seen {
-                    do throws(Keychain.Failure) {
-                        try storage.saveSeenState(seen)
-                    } catch {
-                        Logger.core.error("the seen state was not saved: \(error.status)")
-                    }
-                }
+                persist(update, in: storage)
             }
         }
+    }
+
+    private func persist(_ update: InboxUpdate, in storage: PhoneStorage) {
+        do throws(Keychain.Failure) {
+            if let seen = update.seen { try storage.saveSeenState(seen) }
+            if let cache = update.cache { try storage.saveInboxCache(cache) }
+        } catch {
+            Logger.core.error("the inbox's state was not saved: \(error.status)")
+        }
+    }
+
+    /// The person tapped Approve or Deny: sends the row's own option for it. The row leaves Needs
+    /// you through the pull loop once the agent goes on.
+    func answer(_ row: InboxRow, _ decision: RowAnswer.Decision) async {
+        guard let inbox, let pending = row.pending, let option = row.quickOption(decision),
+            answering.insert(row.key).inserted
+        else { return }
+        defer { answering.remove(row.key) }
+        do {
+            let outcome = try await inbox.answer(
+                machineId: row.machineId, session: row.session,
+                interactionId: pending.interactionId, optionId: option.id)
+            lastAnswer = RowAnswer(decision: decision, outcome: outcome)
+        } catch {
+            lastAnswer = RowAnswer(decision: decision, failure: error)
+        }
+    }
+
+    func dismissAnswerNotice() {
+        lastAnswer = nil
     }
 
     /// What a pull on the inbox does: every machine whose bridge is ready reloads its sessions from

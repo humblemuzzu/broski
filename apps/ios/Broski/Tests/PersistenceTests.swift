@@ -67,15 +67,50 @@ struct PersistenceTests {
         #expect(inbox.seen().readMachines == seen.readMachines)
     }
 
+    /// A cold start with the machine unreachable (the fixture's one route refuses) shows the inbox
+    /// the core last handed over, dimmed and with nothing to answer.
+    @Test func aLaunchShowsTheCachedInboxBeforeItsMachineAnswers() throws {
+        let test = TestStorage()
+        defer { test.remove() }
+        try test.storage.saveIdentitySecret(try Fixture.data("device-secret.bin"))
+        let record = try Fixture.data("record.json")
+        try test.storage.records.save(record, id: try MachineRecord.fromBytes(bytes: record).id())
+        let cache = try Fixture.data("inbox-cache.json")
+        try test.storage.saveInboxCache(cache)
+        #expect(try test.storage.inboxCache() == cache)
+
+        let app = AppModel(storage: test.storage)
+        app.start()
+        let rows = app.inbox.rows
+        #expect(rows.map(\.session.sessionId) == ["s-ask", "s-old"])
+        #expect(rows.allSatisfy { $0.cached && $0.pending == nil })
+        #expect(rows.first?.askLine == "Claude Code wants to run npm test")
+        #expect(app.machine(id: rows[0].machineId)?.summary.isReady == false)
+    }
+
+    @Test func aCacheTheCoreRefusesDoesNotStopTheLaunch() throws {
+        let test = TestStorage()
+        defer { test.remove() }
+        try test.storage.saveIdentitySecret(try newIdentitySecret())
+        try test.storage.saveInboxCache(Data("not a cache".utf8))
+
+        let app = AppModel(storage: test.storage)
+        app.start()
+        #expect(app.launch == .ready)
+        #expect(app.inbox.rows.isEmpty)
+    }
+
     @Test func startingOverRemovesTheIdentityTheSeenStateAndEveryPairing() throws {
         let test = TestStorage()
         defer { test.remove() }
         try test.storage.saveIdentitySecret(try newIdentitySecret())
+        try test.storage.saveInboxCache(try Fixture.data("inbox-cache.json"))
         try test.storage.saveSeenState(SeenState(markers: [], readMachines: ["00112233445566778899aabbccddeeff"]))
         try test.storage.records.save(try Fixture.data("record.json"), id: "00112233445566778899aabbccddeeff")
 
         try test.storage.removeEverything()
         #expect(try test.storage.identitySecret() == nil)
+        #expect(try test.storage.inboxCache() == nil)
         #expect(try test.storage.seenState() == nil)
         #expect(try test.storage.records.all().isEmpty)
     }

@@ -137,16 +137,11 @@ final class AppModel {
         }
     }
 
-    /// The seen state goes back before any machine starts, as the core requires.
+    /// The seen state and the last inbox go back before any machine starts, as the core requires;
+    /// the inbox's loop starts once the machines have, so its first rows are the cached ones.
     private func restore(into phone: Phone) {
         let core = phone.inbox()
-        do throws(Keychain.Failure) {
-            if let seen = try storage.seenState() { core.restoreSeen(state: seen) }
-        } catch {
-            Logger.core.error("the seen state was not read: \(error.status)")
-        }
-        inbox.start(core, storage: storage)
-
+        restoreInbox(core)
         let records: [(id: String, bytes: Data)]
         do throws(Keychain.Failure) {
             records = try storage.records.all()
@@ -163,11 +158,30 @@ final class AppModel {
                 unreadablePairings.append(id)
             }
         }
+        inbox.start(core, storage: storage)
         pathWatcher = PathWatcher { [weak self] in
             self?.phone?.networkChanged()
             self?.discovery.networkChanged()
         }
         updateDiscovery()
+    }
+
+    private func restoreInbox(_ core: Inbox) {
+        do throws(Keychain.Failure) {
+            if let seen = try storage.seenState() { core.restoreSeen(state: seen) }
+            if let cache = try storage.inboxCache() { restoreCache(cache, into: core) }
+        } catch {
+            Logger.core.error("the inbox's stored state was not read: \(error.status)")
+        }
+    }
+
+    /// A cache the core refuses (another version's) is left for the core's next one to replace.
+    private func restoreCache(_ cache: Data, into core: Inbox) {
+        do {
+            try core.restoreCache(cache: cache)
+        } catch {
+            Logger.core.error("the inbox cache was refused: \(String(describing: error), privacy: .public)")
+        }
     }
 
     private func adopt(_ machine: Machine) -> MachineModel {

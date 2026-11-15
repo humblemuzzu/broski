@@ -6,10 +6,13 @@ import XCTest
 /// (`simctl pbcopy`) and lets the app paste it without asking, and passes in:
 /// - `BROSKI_E2E_COMMANDS`: a file the machine reads commands from (`{"seed":"<title>"}` adds a
 ///   session), which the simulator, sharing the host's file system, can append to;
-/// - `BROSKI_E2E_SCREENSHOTS`: a directory for the screenshots of each screen.
+/// - `BROSKI_E2E_SCREENSHOTS`: a directory for the screenshots of each screen;
+/// - `BROSKI_E2E_ASK_SESSION`: the session (`{"backend":…,"sessionId":…}`) whose run the machine
+///   starts on `{"run":<session>,"scenario":"permission"}`, as a terminal would, asking before it
+///   runs a command.
 ///
 /// The tests run in order: the first pairs from a pasted link and pulls the inbox to refresh, the
-/// next look at the paired app.
+/// next look at the paired app, the last approves a permission from its inbox row.
 final class PairingEndToEndTests: XCTestCase {
     private let environment = ProcessInfo.processInfo.environment
     private let timeout: TimeInterval = 30
@@ -108,6 +111,34 @@ final class PairingEndToEndTests: XCTestCase {
         try screenshot("settings-largest-text")
     }
 
+    /// No phone prompts the run: the row learns the ask by itself, offers the backend's allow and
+    /// deny, and the person's Approve lets the run finish.
+    @MainActor
+    func test4ApprovesAToolPermissionFromItsRow() throws {
+        let app = XCUIApplication()
+        app.launch()
+        XCTAssertTrue(app.staticTexts["Clean the build folder"].waitForExistence(timeout: timeout))
+        let session = try XCTUnwrap(environment["BROSKI_E2E_ASK_SESSION"])
+        try command("{\"run\":\(session),\"scenario\":\"permission\"}")
+
+        let row = app.cells.containing(.staticText, identifier: "Clean the build folder").firstMatch
+        let ask = app.staticTexts["Pi wants to run bash"]
+        XCTAssertTrue(ask.waitForExistence(timeout: timeout), "the row says what the agent wants")
+        XCTAssertTrue(app.staticTexts["Needs you"].exists)
+        try screenshot("inbox-needs-you")
+
+        row.swipeLeft()
+        let approve = app.buttons["Approve"]
+        XCTAssertTrue(approve.waitForExistence(timeout: timeout))
+        XCTAssertTrue(app.buttons["Deny"].exists)
+        try screenshot("inbox-row-actions")
+        approve.tap()
+
+        XCTAssertTrue(ask.waitForNonExistence(timeout: timeout), "the row leaves Needs you")
+        XCTAssertFalse(app.staticTexts["Already answered elsewhere."].exists)
+        try screenshot("inbox-approved")
+    }
+
     /// A tab of the tab bar, which a wide layout shows as a sidebar of buttons.
     @MainActor
     private func tab(_ name: String, in app: XCUIApplication) {
@@ -122,11 +153,16 @@ final class PairingEndToEndTests: XCTestCase {
     }
 
     private func seed(_ title: String) throws {
+        try command("{\"seed\":\"\(title)\"}")
+    }
+
+    /// One line for the machine's stdin.
+    private func command(_ line: String) throws {
         let path = try XCTUnwrap(environment["BROSKI_E2E_COMMANDS"])
         let handle = try XCTUnwrap(FileHandle(forWritingAtPath: path))
         defer { try? handle.close() }
         try handle.seekToEnd()
-        try handle.write(contentsOf: Data("{\"seed\":\"\(title)\"}\n".utf8))
+        try handle.write(contentsOf: Data("\(line)\n".utf8))
     }
 
     @MainActor

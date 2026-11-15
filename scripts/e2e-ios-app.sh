@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Runs the iOS app against a real machine on this Mac: packages/link/testkit's test-machine (the
-# real daemon and the real bridge on its fake backend) with two sessions in its history, a fresh
+# real daemon and the real bridge on its fake backend) with three sessions in its history, a fresh
 # install of the app in the simulator with the machine's pairing link on its pasteboard, and the
 # BroskiE2E scheme's UI tests, which pair from the pasted link, add a session through the machine,
-# pull the inbox to refresh, and save a screenshot of every screen. The test daemon never advertises
+# pull the inbox to refresh, approve a permission the machine asks for from its inbox row, and
+# save a screenshot of every screen. The test daemon never advertises
 # itself, so this script advertises its LAN port as the daemon does (`_broski-link._tcp`, TXT `id`
 # and `v=1`), and checks that the app's browse found it and that the core answered the pull.
 #
@@ -61,7 +62,13 @@ offer="$(grep '"offer"' "$MACHINE_OUT" | head -1 | sed -E 's/.*"offer":"([^"]*)"
 
 echo '{"seed":"Fix the flaky login test"}' >>"$COMMANDS"
 echo '{"seed":"Rename the settings screen"}' >>"$COMMANDS"
-wait_for_lines '"seeded"' 2 60
+echo '{"seed":"Clean the build folder"}' >>"$COMMANDS"
+wait_for_lines '"seeded"' 3 60
+# The third session is the one a UI test makes ask for a permission, as a terminal would.
+ask_session="$(grep '"seeded"' "$MACHINE_OUT" | sed -n 3p | /usr/bin/python3 -c '
+import json, sys
+print(json.dumps(json.load(sys.stdin)["seeded"], separators=(",", ":")))
+')"
 
 # The machine id is the hex of the fingerprint's first 16 bytes (session/src/pairing.rs).
 read -r machine_id lan_port < <(/usr/bin/python3 -c '
@@ -105,6 +112,7 @@ echo "==> Running the end-to-end tests"
 started="$(date '+%Y-%m-%d %H:%M:%S')"
 TEST_RUNNER_BROSKI_E2E_COMMANDS="$COMMANDS" \
   TEST_RUNNER_BROSKI_E2E_SCREENSHOTS="$OUT/screenshots" \
+  TEST_RUNNER_BROSKI_E2E_ASK_SESSION="$ask_session" \
   xcodebuild test \
   -project "$APP/Broski.xcodeproj" \
   -scheme BroskiE2E \

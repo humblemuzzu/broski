@@ -24,10 +24,18 @@ struct InboxScreen: View {
             if !chips.isEmpty {
                 MachineChips(chips: chips)
             }
+            if let answer = model.inbox.lastAnswer, let notice = answer.notice {
+                Banner(style: .warning, message: notice) {
+                    Button("OK") { model.inbox.dismissAnswerNotice() }
+                }
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+            }
             ForEach(sections) { section in
                 Section {
                     ForEach(section.rows, id: \.key) { row in
                         InboxRowView(row: row, machine: model.machine(id: row.machineId)?.summary)
+                            .inboxRowActions(row, inbox: model.inbox)
                     }
                 } header: {
                     InboxSectionHeader(state: section.state, count: section.rows.count)
@@ -46,6 +54,7 @@ struct InboxScreen: View {
         .animation(Motion.snappy(reduceMotion: reduceMotion), value: sections)
         .animation(Motion.snappy(reduceMotion: reduceMotion), value: chips)
         .haptic(.failed, trigger: lostMachines, when: { $1 > $0 })
+        .sensoryFeedback(trigger: model.inbox.lastAnswer) { _, answer in answer?.haptic.feedback }
     }
 
     @ToolbarContentBuilder
