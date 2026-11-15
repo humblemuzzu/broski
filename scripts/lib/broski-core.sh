@@ -34,9 +34,20 @@ catalog_version() {
   sed -n "s/^$1 = \"\(.*\)\"\$/\1/p" "$ROOT/apps/android/gradle/libs.versions.toml"
 }
 
-# ANDROID_NDK_HOME, or the catalog's NDK under ANDROID_HOME.
+# The catalog's NDK under ANDROID_HOME when it is installed, else ANDROID_NDK_HOME (with a warning).
+# ANDROID_NDK_HOME comes second because a CI runner presets it to the image's own, older NDK, which
+# would otherwise win over the one the 16 KB alignment depends on.
 android_ndk_home() {
-  echo "${ANDROID_NDK_HOME:-${ANDROID_HOME:?set ANDROID_HOME or ANDROID_NDK_HOME}/ndk/$(catalog_version android-ndk)}"
+  local pinned="${ANDROID_HOME:+$ANDROID_HOME/ndk/$(catalog_version android-ndk)}"
+  if [[ -n $pinned && -d $pinned ]]; then
+    echo "$pinned"
+  elif [[ -n ${ANDROID_NDK_HOME:-} ]]; then
+    echo "warning: NDK $(catalog_version android-ndk) is not installed under \$ANDROID_HOME/ndk; using ANDROID_NDK_HOME" >&2
+    echo "$ANDROID_NDK_HOME"
+  else
+    echo "error: install NDK $(catalog_version android-ndk) under \$ANDROID_HOME/ndk, or set ANDROID_NDK_HOME" >&2
+    return 1
+  fi
 }
 
 # Replaces $3 with the $2 (swift|kotlin) bindings of every UniFFI crate in the library $1. The

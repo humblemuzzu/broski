@@ -300,6 +300,11 @@ apps/android/core/src/main/jniLibs build -p broski-mobile --profile mobile` with
 builds the host library, generates the Kotlin bindings into `core/src/generated/kotlin`, and copies the
 host library to `core/src/test/native` for the JVM tests.
 
+The NDK is the catalog's, `$ANDROID_HOME/ndk/<version>`; `ANDROID_NDK_HOME` serves only when that one is
+not installed (the script says so), because a CI runner presets it to its image's own, older NDK. The
+script exports the chosen path as `ANDROID_NDK_HOME` and `ANDROID_NDK_ROOT`, the variables `cargo ndk`
+reads first, so no preset reaches it; `check-android-alignment.sh` picks its `llvm-readelf` the same way.
+
 ```
 apps/android/
   settings.gradle.kts         repositories; include(":core") — the Phase 4 app joins as include(":app")
@@ -372,7 +377,7 @@ only: both bindings come from the same library metadata, and the JVM tests stay 
   real-machine test), `swift test -Xswiftc -warnings-as-errors`, and `build-for-testing` for the
   simulator and for devices.
 - `android-core` (`ubuntu-latest`) — the catalog's NDK and SDK packages through the runner's
-  `sdkmanager`, `cargo-ndk` 4.1.2, `build-android-core.sh`, both assembles and the JVM tests, and the
+  `sdkmanager` (the catalog's NDK wins over the runner's preset `ANDROID_NDK_HOME`), `cargo-ndk` 4.1.2, `build-android-core.sh`, both assembles and the JVM tests, and the
   alignment check of the release AAR.
 
 ## 6. Adding to the API

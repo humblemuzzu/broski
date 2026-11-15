@@ -3,7 +3,8 @@
 # devices with 16 KB pages need and Google Play requires.
 #
 # Usage: scripts/check-android-alignment.sh <file.aar|file.apk>
-# Needs the NDK of apps/android/gradle/libs.versions.toml (ANDROID_NDK_HOME, or ANDROID_HOME).
+# Needs the NDK of apps/android/gradle/libs.versions.toml, installed under ANDROID_HOME (ANDROID_NDK_HOME is
+# used only when it is not).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

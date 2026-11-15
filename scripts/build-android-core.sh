@@ -5,7 +5,8 @@
 #
 # Usage: scripts/build-android-core.sh
 # Needs cargo-ndk 4, the Rust targets aarch64-linux-android and x86_64-linux-android, and the NDK of
-# apps/android/gradle/libs.versions.toml: ANDROID_NDK_HOME, or ANDROID_HOME with that NDK installed.
+# apps/android/gradle/libs.versions.toml, installed under ANDROID_HOME (ANDROID_NDK_HOME is used only when
+# it is not).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -14,7 +15,8 @@ source "$ROOT/scripts/lib/broski-core.sh"
 MODULE="$ROOT/apps/android/core"
 MIN_SDK="$(catalog_version android-minSdk)"
 ANDROID_NDK_HOME="$(android_ndk_home)"
-export ANDROID_NDK_HOME
+# cargo-ndk takes the first of these it finds and warns when another differs, as a runner's presets do.
+export ANDROID_NDK_HOME ANDROID_NDK_ROOT="$ANDROID_NDK_HOME"
 
 echo "==> Building the core for arm64-v8a and x86_64 (API $MIN_SDK) with $ANDROID_NDK_HOME"
 rm -rf "$MODULE/src/main/jniLibs"
