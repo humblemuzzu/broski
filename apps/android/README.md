@@ -76,14 +76,22 @@ A device needs Google Play services for FCM (the `_playstore` emulator images ha
   words; file text by line and cut reads, diff rows, every rejection's reason; cell metrics and the grid,
   key events to the encoder's keys. Notifications: the facade's pinned push opened into an approval with
   its decision target, done and question pushes, the relay's offline alert, a decision crossing from the
-  receiver to the worker, which run the Live Update follows.
+  receiver to the worker, which run the Live Update follows. The chat, over real contract values and the
+  host core's markdown and diffs: a batch that starts and ends a run is still seen to end (`LiveSessionTest`);
+  the transcript's rows (one fold per stretch of work with its lead, duration, verbs and failures, keys that
+  hold while a block streams and closes, a sent message one row from send to `user_message`, the copy
+  under the answer, no key twice; `RowBuilderTest`); history pages and the newest page read again
+  (`HistoryTest`); follow or detach and what the jump counts (`FollowTest`); the send button's one rule
+  (`SendButtonTest`); each kind's reply, words only on an option that takes them and grants only on an allow
+  (`RepliesTest`); images fitted to the prompt's 4 MiB (`ImageFitTest`); diff rows from `gitDiffFile` and
+  `fileChangeDiff` with their word emphasis (`DiffRowsTest`).
 - **Instrumented** (`app/src/androidTest`): the vault under the real Keystore key; `StartupFailedTest`, the
   confirmation in front of Start Over; `NotificationsTest`, push without Firebase: the pinned push fed to
   `PushHandler` with its record in a Keystore-sealed vault posts an approval with Deny and Allow (Allow
   needing an unlocked phone), a kind turned off and an unknown machine post nothing, a letter reaches a
   `MockWebServer` relay on the device byte for byte as the core sealed it, and `DecisionWorker` sends a
-  decision and says Denied, or says plainly that it could not; `RealMachineTest`, against a real machine
-  (below).
+  decision and says Denied, or says plainly that it could not; `DiffSheetTest`, a file change's diff as
+  the chat opens it; `RealMachineTest`, against a real machine (below).
 
 `scripts/test-android-real-machine.sh` starts `packages/link/testkit`'s `test-machine` (the real daemon and
 the real bridge on its fake backend; needs cargo, Bun and `bun install` in `packages/bridge`), reverses its
@@ -104,8 +112,17 @@ the served folder, opens README.md and searches names; (d) every Workspace scree
 2.0; (e) Git opens README.md's diff, stages it by swipe and commits it, and the machine's own status and log
 confirm; (f) a new terminal takes typed `echo broski $((6*7))` and the emulator's screen (read back through
 the canvas's semantics) shows `broski 42`; (g) a held run on a seeded session raises the Live Update, and
-its Stop aborts the run on the Mac and takes the Live Update away. Screenshots of each screen (the inbox's
-row actions, light, dark, font scale 2.0, the shade) land in `app/build/outputs/real-machine-shots`.
+its Stop aborts the run on the Mac and takes the Live Update away; (h) the chat's `LiveSession` against a
+real view through the `work`, `permission`, `ask`, `hold` and `replace` scenarios, compared with
+`view.snapshot()` after every update (a copy behind the view must be caught up by the next) and equal once
+the stream is quiet; (i–p) a session opened from its row with `work` streamed in, a deny with "Tell Pi what
+to do instead", an allow and its work row opened to the command and its output, an ask answered, a
+message queued while a run holds and Stop, a rename and a draft kept across leaving, a session from the
+New session sheet, Jump to latest after reading up; (q) the chat in dark and at font scale 2.0; (r) about
+a thousand transcript items scrolled to the first message and back with every frame's FrameMetrics
+logged (`ScrollFlow`); (s) the header's Files opening the session's folder and `/review` picked from the
+commands list. Screenshots of each screen (the inbox's row actions, light, dark, font scale 2.0, the
+shade) land in `app/build/outputs/real-machine-shots`.
 Without the arguments these tests are skipped.
 
 After the tests the script stops the machine, force-stops the app and starts it cold, and fails unless
@@ -125,15 +142,41 @@ app/src/main/kotlin/com/muzammil/broski/
               MachineState / MachineHealth, vault/ (Keystore key, AES-GCM, DataStore), settings/,
               platform/ (foreground, network, NSD discovery)
   feature/welcome, feature/pairing, feature/inbox, feature/machines, feature/settings
+  design/code code coloured by the core's highlight, the inline code block, the line viewer, and the
+              diff view (unified, side by side from 840 dp) the chat and the Workspace share
+  feature/chat   the chat: LiveSession (the view's records applied), SessionFeed (the view's loop and
+              the transcript's pages), ChatActions (each request), transcript/ (rows, markdown, the
+              bubble, the status lane, follow or detach), work/ (folds, rows, the diff sheet),
+              interactions/ (the pinned cards and their replies), composer/ (field, chips, commands,
+              images, the send rule), header/ (title, subtitle, Files, overflow and its dialogs)
+  feature/newsession   the New session sheet: machine, folder (recent and browsed), agent, composer
   feature/workspace   the Workspace tab and its routes: files/ (browser, viewer, FileText), git/ (status,
-              staging, commit, branches, log, DiffText), terminal/ (the byte pump, the renderer, IME,
+              staging, commit, branches, log, diff), terminal/ (the byte pump, the renderer, IME,
               key row), WorkspaceClient (the §20 requests), WorkspaceFailure (their plain sentences)
   feature/notifications   FCM (PushService, FirebasePush, PushRegistration), PushHandler and Notifier,
               Allow/Deny (DecisionReceiver → DecisionWorker → postLetter), the Live Update and its Stop
 terminal/     the :terminal module: libghostty-vt's JNI shim (src/main/c) and VtTerminal
 ```
 
-Chat, the composer and New session come next (`feature/chat`, `feature/composer`).
+## The chat
+
+- **One view per chat**, attached in `ChatViewModel`'s scope and detached in its `finally`; every update is
+  applied record by record to `LiveSession` (no reduction of the app's own) and the screen renders that.
+  The transcript's newest page is read at open and again whenever a run ends (seen per record, so a run
+  that starts and ends in one batch counts); the ended run's items stay on screen until that page holds
+  them. Older pages load as the person nears the top.
+- **Rows** (`RowBuilder`, on `Dispatchers.Default`): one per markdown block of the agent's words, keyed by
+  item id and the core's block key, parsed again only when an item's text changed; a fold per stretch of
+  work; notes between turns; newest first in a `LazyColumn` laid out from the bottom whose first item is
+  the status lane, so new rows follow the end with no scroll call while a reader further up stays put.
+- **Requests**: `prompt` and `abort` go only while the chat's view is attached (the bridge refuses them
+  otherwise); New session creates the session and hands its first prompt to the chat it opens
+  (`FirstPrompts`), which sends it once its view's first update arrived.
+- **Drafts** live in the vault (`draft:<machine>/<backend>/<session>`), sealed like the rest, written a
+  moment after typing stops and when the chat goes; forgetting a machine deletes its drafts.
+- **Catalog**: models, modes and commands from the machine's cached catalog, read again on
+  `PhoneSession.catalogChanges` (the machine loop's `CatalogInvalidated` and `BackendsChanged`) and when
+  the machine comes back online.
 
 ## Core wiring
 
@@ -148,7 +191,7 @@ Chat, the composer and New session come next (`feature/chat`, `feature/composer`
   Keystore key `broski.vault.v1`, the value's name as associated data: `identity`, `machine:<id>` (the
   record's `toBytes()`, stored at pairing and at every `RecordChanged`), `seen` (each non-null
   `InboxUpdate.seen`), `cache` (each non-null `InboxUpdate.cache`, at most every 2 s; bytes only the core
-  reads). Backups and device transfer exclude the app's data: the key never leaves the device.
+  reads), `draft:<machine>/<backend>/<session>` (a chat's unsent text). Backups and device transfer exclude the app's data: the key never leaves the device.
 - **Loops**: one per subscription in `AppCore`'s `SupervisorJob` scope for the life of the process: the
   inbox (`rows()` first, then `nextChange()`), and per machine its events (`status()` and `record()` first,
   then `nextEvent()` until it ends), whose reads (each backend's status) are its children. Forgetting a
@@ -188,8 +231,9 @@ Chat, the composer and New session come next (`feature/chat`, `feature/composer`
   filled and the machine is paired, and the Inbox until then.
 - **Design system**: `design/` (`BroskiTheme.semantic`, `Haptic`, `AgentMark`, `MachineStatusChip`,
   `groupedListItemColors`, `GroupedRow`, `PrimaryButton`/`SecondaryButton`/`QuietButton`, `SectionHeader`,
-  `EmptyState`, `Notice`, `MessageScreen`, `CommandBlock`, `CodeLines`, `BroskiMotion.spring()`,
-  `MonoFamily`/`TextStyle.mono()`, `relativeTime`).
+  `EmptyState`, `Notice`, `MessageScreen`, `CommandBlock`, `BroskiMotion.spring()`, `shimmer`,
+  `MonoFamily`/`TextStyle.mono()`, `relativeTime`; `design/code`: `CodeBlock`, `CodeLines`, `DiffView`,
+  `highlightedLines`).
 
 ## Notifications and the Live Update
 

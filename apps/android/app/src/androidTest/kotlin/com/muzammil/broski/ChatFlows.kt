@@ -6,6 +6,8 @@ import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasScrollToNodeAction
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isDialog
@@ -156,6 +158,13 @@ class ChatFlows(private val ui: WorkspaceUiDriver, private val machine: RealMach
         shot("chat-rename-light")
         touchText(ui.string(R.string.chat_rename_confirm))
         ui.waitFor(hasText("Renamed from the phone"))
+        compose.onAllNodes(hasSetTextAction())[0].performTextInput("A draft to come back to")
+        ui.back()
+        // Seen now, the row went to Idle, at the inbox's end.
+        val row = hasContentDescription("Renamed from the phone", substring = true) and hasClickAction()
+        compose.onAllNodes(hasScrollToNodeAction())[0].performScrollToNode(row)
+        touch(row)
+        ui.waitFor(hasSetTextAction() and hasText("A draft to come back to"))
         ui.back()
     }
 
