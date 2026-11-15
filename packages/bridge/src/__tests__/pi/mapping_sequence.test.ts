@@ -26,11 +26,12 @@ import { usageOf } from "../../backends/pi/mapping/usage";
 import { PI_TRAITS } from "../../backends/pi/traits";
 import { type AgentEvent, applyEvent, emptySnapshot, type SessionSnapshot, type SinkRecord } from "../../contract";
 import { streamViolations, unsettledParts } from "../../contract/testing/stream-rules";
-import { assistant, deepFreeze, REQUEST_ID, records, toolCall, validEvents } from "./mapping_fixtures";
+import { assistant, deepFreeze, piEvent, REQUEST_ID, records, toolCall, validEvents } from "./mapping_fixtures";
 import {
 	callEnd,
 	callStart,
 	feed,
+	streamEvent,
 	textDelta,
 	textEnd,
 	textStart,
@@ -58,7 +59,7 @@ function run(): { events: AgentEvent[]; midway: AgentEvent[] } {
 	const bash = toolCall("call_bash", "bash", { command: "ls missing" });
 	emit(
 		feed(first, [
-			{ type: "start", partial: assistant([]) },
+			streamEvent({ type: "start", partial: assistant([]) }),
 			thinkingStart(0),
 			thinkingDelta(0, "plan"),
 			thinkingEnd(0, "plan"),
@@ -80,17 +81,19 @@ function run(): { events: AgentEvent[]; midway: AgentEvent[] } {
 		const args = id === "call_read" ? read.arguments : bash.arguments;
 		const name = id === "call_read" ? "read" : "bash";
 		if (!tools.find(id))
-			emit([toolStartedOfExecution({ type: "tool_execution_start", toolCallId: id, toolName: name, args }, tools)]);
+			emit([
+				toolStartedOfExecution(piEvent({ type: "tool_execution_start", toolCallId: id, toolName: name, args }), tools),
+			]);
 	}
 	emit([
 		toolOutputOf(
-			{
+			piEvent({
 				type: "tool_execution_update",
 				toolCallId: "call_bash",
 				toolName: "bash",
 				args: bash.arguments,
 				partialResult: { content: [{ type: "text", text: "\u001b[31mls: missing\u001b[0m" }] },
-			},
+			}),
 			tools,
 		),
 		toolFinished(
@@ -153,17 +156,19 @@ function run(): { events: AgentEvent[]; midway: AgentEvent[] } {
 		]),
 	);
 	emit(third.end(assistant([{ type: "text", text: "Done: the README is short." }])));
-	emit([retryFinished({ type: "auto_retry_end", success: true, attempt: 1 })]);
+	emit([retryFinished(piEvent({ type: "auto_retry_end", success: true, attempt: 1 }))]);
 	emit([compactionStarted({ type: "compaction_start", reason: "threshold" })]);
 	const midway = [...out];
 	emit([
-		compactionFinished({
-			type: "compaction_end",
-			reason: "threshold",
-			result: { summary: "s", firstKeptEntryId: "e1", tokensBefore: 9000, estimatedTokensAfter: 1000 },
-			aborted: false,
-			willRetry: false,
-		}),
+		compactionFinished(
+			piEvent({
+				type: "compaction_end",
+				reason: "threshold",
+				result: { summary: "s", firstKeptEntryId: "e1", tokensBefore: 9000, estimatedTokensAfter: 1000 },
+				aborted: false,
+				willRetry: false,
+			}),
+		),
 	]);
 
 	// Response 4 is cut off by the user's abort while a call is starting.
@@ -196,20 +201,11 @@ function run(): { events: AgentEvent[]; midway: AgentEvent[] } {
 	emit([
 		{
 			type: "usage_updated",
-			usage: usageOf(
-				{
-					sessionFile: undefined,
-					sessionId: "s",
-					userMessages: 1,
-					assistantMessages: 4,
-					toolCalls: 3,
-					toolResults: 2,
-					totalMessages: 7,
-					tokens: { input: 100, output: 50, cacheRead: 10, cacheWrite: 5, total: 165 },
-					cost: 0.01,
-				},
-				{ tokens: 1200, contextWindow: 200_000, percent: 0.6 },
-			),
+			usage: usageOf({
+				tokens: { input: 100, output: 50, cacheRead: 10, cacheWrite: 5 },
+				cost: 0.01,
+				contextUsage: { tokens: 1200, contextWindow: 200_000 },
+			}),
 		},
 		{ type: "run_finished", runId: "run-1", outcome: runOutcome(aborted, true) },
 	]);

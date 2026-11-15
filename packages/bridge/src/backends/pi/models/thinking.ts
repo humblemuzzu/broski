@@ -1,31 +1,41 @@
-import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
-import { type Api, clampThinkingLevel, getSupportedThinkingLevels, type Model } from "@earendil-works/pi-ai";
 import type { ThinkingSpec } from "../../../contract";
+import type { PiModel } from "../rpc/replies";
 
-/** pi-coding-agent `src/core/defaults.ts:3`, which the package does not export. */
-const DEFAULT_LEVEL: ThinkingLevel = "medium";
+/** Pi's levels, lowest first (`EXTENDED_THINKING_LEVELS`, pi-ai 1.5.2 `dist/models.js:701`). */
+const LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
 
 /**
- * A model with one level has nothing to choose, and an empty `ThinkingSpec` is how the contract says so
- * (README §11.3). That is every model that cannot reason, and the terminal has no thinking control for it either
- * (`AgentSession.cycleThinkingLevel`, pi-coding-agent `src/core/agent-session.ts:2705-2707`).
+ * The levels a model offers, as Pi's `getSupportedThinkingLevels` reads them from the model (pi-ai 1.5.2
+ * `dist/models.js:702-713`): only `off` without `reasoning`; a level its `thinkingLevelMap` maps to `null` is not
+ * offered, and `xhigh` and `max` only when the map names them.
  */
-function offeredLevels(model: Model<Api>): ThinkingLevel[] {
-	const levels = getSupportedThinkingLevels(model);
-	return levels.length <= 1 ? [] : levels;
+export function supportedLevels(model: Pick<PiModel, "reasoning" | "thinkingLevelMap">): string[] {
+	if (model.reasoning !== true) return ["off"];
+	return LEVELS.filter((level) => {
+		const mapped = model.thinkingLevelMap?.[level];
+		if (mapped === null) return false;
+		return level === "xhigh" || level === "max" ? mapped !== undefined : true;
+	});
 }
 
-/** `defaultLevel` is the level a session would start this model at, clamped to the model as Pi clamps it. */
-export function thinkingSpec(model: Model<Api>, defaultLevel: ThinkingLevel | undefined): ThinkingSpec {
-	const levels = offeredLevels(model);
-	if (levels.length === 0) return { options: [] };
+/**
+ * A model with one level has nothing to choose, and an empty `ThinkingSpec` is how the contract says so (README
+ * §11.3). `current` is the default when it is one of the model's levels: the level a session of this model runs at.
+ */
+export function thinkingSpec(model: Pick<PiModel, "reasoning" | "thinkingLevelMap">, current?: string): ThinkingSpec {
+	const levels = supportedLevels(model);
+	if (levels.length <= 1) return { options: [] };
 	return {
 		options: levels.map((value) => ({ value })),
-		defaultValue: clampThinkingLevel(model, defaultLevel ?? DEFAULT_LEVEL),
+		...(current !== undefined && levels.includes(current) && { defaultValue: current }),
 	};
 }
 
-/** `value` as a level `model` offers, or undefined: `setThinking` refuses it `invalid_input`. */
-export function supportedLevel(model: Model<Api>, value: string): ThinkingLevel | undefined {
-	return offeredLevels(model).find((level) => level === value);
+/** `value` when the model offers it as a choice, else undefined: `setThinking` refuses it `invalid_input`. */
+export function supportedLevel(
+	model: Pick<PiModel, "reasoning" | "thinkingLevelMap">,
+	value: string,
+): string | undefined {
+	const levels = supportedLevels(model);
+	return levels.length > 1 && levels.includes(value) ? value : undefined;
 }

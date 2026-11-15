@@ -1,7 +1,11 @@
-/** where each of Pi's 24 session events and 8 message roles goes. A member a later Pi adds stops this file compiling. */
+/**
+ * Where each of Pi's 24 session events and 8 message roles goes once `pi --mode rpc` writes it: read off the wire and
+ * mapped or delegated, or ignored by the frame reader. A member a later Pi adds stops this file compiling.
+ */
 
 import { describe, expect, test } from "bun:test";
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
+import type { AssistantMessage as PiAssistantMessage } from "@earendil-works/pi-ai";
 import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
 import { ToolCallIds } from "../../backends/pi/ids";
 import {
@@ -19,25 +23,50 @@ import {
 	toolResultOf,
 	toolStartedOfExecution,
 } from "../../backends/pi/mapping/tool-items";
-import type { PiEvent } from "../../backends/pi/ports";
+import { type PiEvent, parseFrame } from "../../backends/pi/rpc/frames";
 import type { AgentEvent } from "../../contract";
-import { assistant, deepFreeze, messageEntry, validEvents } from "./mapping_fixtures";
+import { BASE, deepFreeze, validEvents } from "./mapping_fixtures";
 
-type Disposition = { readonly events: AgentEvent[] } | { readonly delegated: string } | { readonly ignored: string };
+type Disposition = { readonly events: AgentEvent[] } | { readonly delegated: string };
 
-/**
- * Where each of Pi's `AgentSessionEvent`s goes. The `switch` is exhaustive, so a member a later Pi adds
- * stops this file compiling until someone decides.
- */
-function dispatch(event: AgentSessionEvent, tools: ToolCallIds): Disposition {
+/** Whether the bridge reads each of Pi's session event types off the RPC wire, and why not when it does not. */
+const ON_THE_WIRE: { readonly [T in AgentSessionEvent["type"]]: "read" | { readonly ignored: string } } = {
+	agent_start: "read",
+	agent_settled: "read",
+	message_start: "read",
+	message_update: "read",
+	message_end: "read",
+	tool_execution_start: "read",
+	tool_execution_update: "read",
+	tool_execution_end: "read",
+	queue_update: "read",
+	compaction_start: "read",
+	compaction_end: "read",
+	auto_retry_start: "read",
+	auto_retry_end: "read",
+	thinking_level_changed: "read",
+	session_info_changed: "read",
+	entry_appended: "read",
+	agent_end: { ignored: "never a run boundary: only agent_settled ends a run" },
+	turn_start: { ignored: "brackets every model call inside a run, not the run" },
+	turn_end: { ignored: "brackets every model call inside a run, not the run" },
+	summarization_retry_scheduled: { ignored: "compaction-internal retries are lost by design (contract README §15)" },
+	summarization_retry_attempt_start: {
+		ignored: "compaction-internal retries are lost by design (contract README §15)",
+	},
+	summarization_retry_finished: { ignored: "compaction-internal retries are lost by design (contract README §15)" },
+	bash_execution_update: { ignored: "a user !bash command has no event in the contract" },
+};
+
+/** Where an event the bridge reads goes: mapped here, or handed to the part of the live session that owns it. */
+function dispatch(event: PiEvent, tools: ToolCallIds): Disposition {
 	switch (event.type) {
 		case "message_start":
-			return {
-				delegated:
-					"an assistant message starts an AssistantStream after tools.nextResponse(); a system message is the run's loadout record and maps to nothing",
-			};
-		case "message_update":
-			return { events: new AssistantStream("msg-1", tools).update(event.assistantMessageEvent) };
+			return { delegated: "an assistant message starts an AssistantStream after tools.nextResponse()" };
+		case "message_update": {
+			const update = event.assistantMessageEvent;
+			return { events: update.type === "ignored" ? [] : new AssistantStream("msg-1", tools).update(update) };
+		}
 		case "message_end":
 			return event.message.role === "assistant"
 				? { events: new AssistantStream("msg-1", tools).end(event.message) }
@@ -48,14 +77,16 @@ function dispatch(event: AgentSessionEvent, tools: ToolCallIds): Disposition {
 		case "tool_execution_start":
 			return { events: [toolStartedOfExecution(event, tools)] };
 		case "tool_execution_update":
+			toolStartedOfExecution({ ...event, args: {} }, tools);
 			return { events: [toolOutputOf(event, tools)] };
 		case "tool_execution_end":
+			toolStartedOfExecution({ ...event, args: {} }, tools);
 			return {
 				events: [
 					toolFinished(
 						event.toolCallId,
 						toolOutcome({ isError: event.isError, denied: false, aborted: false }),
-						toolResultOf([], event.isError, [], () => undefined),
+						toolResultOf(event.result.content ?? [], event.isError, [], () => undefined),
 						tools,
 					),
 				],
@@ -78,25 +109,33 @@ function dispatch(event: AgentSessionEvent, tools: ToolCallIds): Disposition {
 			return { delegated: "QueueMirror reconciles the queue" };
 		case "session_info_changed":
 			return { delegated: "session_updated for the catalog" };
-		case "agent_end":
-			return { ignored: "never a run boundary: only agent_settled ends a run (D3)" };
-		case "turn_start":
-		case "turn_end":
-			return { ignored: "brackets every model call inside a run, not the run (notifications.md)" };
 		case "entry_appended":
-			return { ignored: "custom entries are lost by design (contract README §15)" };
-		case "summarization_retry_scheduled":
-		case "summarization_retry_attempt_start":
-		case "summarization_retry_finished":
-			return { ignored: "compaction-internal retries are lost by design (contract README §15)" };
-		case "bash_execution_update":
-			return { ignored: "a user !bash command has no event in the contract (plan: contract gaps)" };
+			return { delegated: "EntryCursor learns where the session's entries stand" };
+		case "extension_error":
+			return { delegated: "a notice" };
 	}
 }
 
-const ASSISTANT = assistant([{ type: "text", text: "hi" }]);
+/** As Pi's own types have it, so the samples below are checked against Pi's union. */
+const ASSISTANT: PiAssistantMessage = {
+	role: "assistant",
+	content: [{ type: "text", text: "hi" }],
+	api: "openai-completions",
+	provider: "scripted",
+	model: "m1",
+	usage: {
+		input: 0,
+		output: 0,
+		cacheRead: 0,
+		cacheWrite: 0,
+		totalTokens: 0,
+		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+	},
+	stopReason: "stop",
+	timestamp: 1,
+};
 
-const SAMPLES: { [T in AgentSessionEvent["type"]]: PiEvent<T> } = {
+const SAMPLES: { [T in AgentSessionEvent["type"]]: Extract<AgentSessionEvent, { type: T }> } = {
 	agent_start: { type: "agent_start" },
 	agent_end: { type: "agent_end", messages: [], willRetry: false },
 	agent_settled: { type: "agent_settled", aborted: false },
@@ -126,7 +165,10 @@ const SAMPLES: { [T in AgentSessionEvent["type"]]: PiEvent<T> } = {
 	},
 	queue_update: { type: "queue_update", steering: [], followUp: [] },
 	compaction_start: { type: "compaction_start", reason: "threshold" },
-	entry_appended: { type: "entry_appended", entry: messageEntry("e1", { role: "user", content: "x", timestamp: 1 }) },
+	entry_appended: {
+		type: "entry_appended",
+		entry: { ...BASE, type: "message", id: "e1", message: { role: "user", content: "x", timestamp: 1 } },
+	},
 	session_info_changed: { type: "session_info_changed", name: "n" },
 	thinking_level_changed: { type: "thinking_level_changed", level: "high" },
 	compaction_end: { type: "compaction_end", reason: "threshold", result: undefined, aborted: true, willRetry: false },
@@ -149,13 +191,20 @@ describe("every AgentSessionEvent", () => {
 		expect(Object.keys(SAMPLES)).toHaveLength(23);
 	});
 
-	test.each(Object.entries(SAMPLES))("%s maps, is delegated or is ignored, with its reason", (_type, sample) => {
-		const disposition = dispatch(deepFreeze(sample), new ToolCallIds());
+	test.each(
+		Object.entries(SAMPLES),
+	)("%s is read off the wire and mapped or delegated, or ignored with its reason", (type, sample) => {
+		const frame = parseFrame(JSON.stringify(sample));
+		const wanted = Object.entries(ON_THE_WIRE).find(([name]) => name === type)?.[1];
+		if (wanted !== "read") {
+			expect(frame.kind).toBe("ignored");
+			expect(wanted?.ignored).toBeTruthy();
+			return;
+		}
+		if (frame.kind !== "event") throw new Error(`${type} was not read: ${JSON.stringify(frame)}`);
+		const disposition = dispatch(deepFreeze(frame.event), new ToolCallIds());
 		if ("events" in disposition) validEvents(disposition.events);
-		else expect(Object.values(disposition)[0]).toBeTruthy();
-		const mapped = "events" in disposition;
-		const delegated = "delegated" in disposition;
-		expect([mapped, delegated, "ignored" in disposition].filter(Boolean)).toHaveLength(1);
+		else expect(disposition.delegated).toBeTruthy();
 	});
 
 	test("the second summarization_retry_attempt_start shape is ignored the same way", () => {
@@ -164,7 +213,7 @@ describe("every AgentSessionEvent", () => {
 			source: "compaction",
 			reason: "manual",
 		};
-		expect(dispatch(event, new ToolCallIds())).toHaveProperty("ignored");
+		expect(parseFrame(JSON.stringify(event)).kind).toBe("ignored");
 	});
 });
 

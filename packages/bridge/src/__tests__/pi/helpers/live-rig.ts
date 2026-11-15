@@ -1,5 +1,5 @@
 /**
- * What a live-matrix test starts from: a Pi world (temp home, faux models, the real Pi backend)
+ * What a live-matrix test starts from: a Pi world (temp home, scripted models, the real Pi backend on the real `pi`)
  * behind the contract suite's own `Rig`, so a test opens sessions and waits on their events with the
  * same tools the conformance rules use.
  */
@@ -10,8 +10,8 @@ import { PiConformanceDriver } from "../driver";
 import { PiWorld, type PiWorldOptions } from "./pi-world";
 import { findSessionFile } from "./session-files";
 
-/** Bounds a wait that never ends; every wait ends on an event. A faux session hosts, runs and settles in about 40 ms. */
-export const WAIT_MS = 5_000;
+/** Bounds a wait that never ends; every wait ends on an event. A `pi` starts in about 300 ms. */
+export const WAIT_MS = 15_000;
 
 export class LiveRig {
 	private constructor(
@@ -37,10 +37,6 @@ export class LiveRig {
 		return this.world.router;
 	}
 
-	get bus() {
-		return this.world.bus;
-	}
-
 	get cwd(): string {
 		return this.world.env.cwd;
 	}
@@ -56,7 +52,8 @@ export class LiveRig {
 	async dispose(): Promise<void> {
 		await this.driver.quitTerminals();
 		await this.rig.backend.dispose();
+		const escapes = this.world.server.escapes();
 		this.world.dispose();
-		this.world.assertNotCapped();
+		if (escapes.length > 0) throw new Error(`requests escaped the scripted endpoint: ${escapes.join(", ")}`);
 	}
 }

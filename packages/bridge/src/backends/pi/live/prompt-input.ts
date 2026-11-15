@@ -1,13 +1,15 @@
-/** What a `PromptInput` asks of Pi that this backend cannot give, and its parts as Pi takes them (D4, D11, D12). */
+/** What a `PromptInput` asks of Pi that this backend cannot give, and its parts as Pi takes them. */
 
-import type { ImageContent } from "@earendil-works/pi-ai";
-import type { AgentSession } from "@earendil-works/pi-coding-agent";
 import type { PromptInput, Rejected } from "../../../contract";
 import { type PiCommandRef, parseCommandId } from "../command-ids";
+import { HOST_COMMAND } from "../host/protocol";
+import type { ImageContent } from "../messages";
 import { rejected } from "../rejections";
+import type { PiModel } from "../rpc/replies";
 import { PI_TRAITS } from "../traits";
 
-export function inputProblem(input: PromptInput, session: AgentSession): Rejected | undefined {
+/** `model` is the session's now; Pi refuses an image a model cannot read, so it is refused here first. */
+export function inputProblem(input: PromptInput, model: PiModel | undefined): Rejected | undefined {
 	if (!PI_TRAITS.promptModes.includes(input.mode)) return rejected("unsupported", `Pi takes no ${input.mode} prompts`);
 	if (input.attachments.some((attachment) => !PI_TRAITS.attachments.includes(attachment.kind))) {
 		return rejected("unsupported", "Pi takes images, not files");
@@ -16,10 +18,17 @@ export function inputProblem(input: PromptInput, session: AgentSession): Rejecte
 	if (!hasImages && input.command === undefined && input.text.trim() === "") {
 		return rejected("invalid_input", "the prompt is empty");
 	}
-	if (hasImages && session.model !== undefined && !session.model.input.includes("image")) {
-		return rejected("invalid_input", `${session.model.name} does not take images`);
+	if (hasImages && model?.input !== undefined && !model.input.includes("image")) {
+		return rejected("invalid_input", `${model.name ?? model.id} does not take images`);
 	}
-	return input.command === undefined ? undefined : commandProblem(input, session, hasImages);
+	if (input.command === undefined && isHostCommand(input.text)) {
+		return rejected("invalid_input", `/${HOST_COMMAND} is the bridge's own command`);
+	}
+	const ref = commandOf(input);
+	if (input.command !== undefined && ref === undefined) return rejected("not_found", `no command ${input.command}`);
+	if (ref?.source === "extension" && hasImages)
+		return rejected("invalid_input", "an extension command takes text only");
+	return undefined;
 }
 
 /** The command a validated input names. */
@@ -35,35 +44,13 @@ export function piImages(input: PromptInput): ImageContent[] {
 	);
 }
 
-/** By image, in order: Pi stores no names, so the transcript learns them from the `broski.prompt` entry. */
+/** By image, in order: Pi stores no names, so the transcript learns them from the `broski.prompt` record. */
 export function imageNames(input: PromptInput): (string | null)[] {
 	return input.attachments.flatMap((attachment) => (attachment.kind === "image" ? [attachment.name ?? null] : []));
 }
 
-function commandProblem(input: PromptInput, session: AgentSession, hasImages: boolean): Rejected | undefined {
-	const ref = commandOf(input);
-	if (ref === undefined || !hasCommand(session, ref)) return rejected("not_found", `no command ${input.command}`);
-	if (ref.source === "extension" && hasImages) {
-		return rejected("invalid_input", "an extension command takes text only");
-	}
-	return undefined;
-}
-
-/**
- * A template or skill an extension command of the same name hides is not one: `prompt()` runs the extension command
- * first (pi-coding-agent `src/core/agent-session.ts:2101-2108`), and `listCommands` does not list it (`commands.ts`).
- */
-function hasCommand(session: AgentSession, ref: PiCommandRef): boolean {
-	const runner = session.extensionRunner;
-	switch (ref.source) {
-		case "extension":
-			return runner.getCommand(ref.name) !== undefined;
-		case "template":
-			return !runner.getCommand(ref.name) && session.promptTemplates.some((template) => template.name === ref.name);
-		case "skill":
-			return (
-				!runner.getCommand(`skill:${ref.name}`) &&
-				session.resourceLoader.getSkills().skills.some((skill) => skill.name === ref.name)
-			);
-	}
+/** Pi runs a prompt that begins with an extension command's name as that command (`docs/rpc-commands.md:31`). */
+function isHostCommand(text: string): boolean {
+	const name = /^\/(\S+)/.exec(text)?.[1];
+	return name === HOST_COMMAND;
 }

@@ -1,14 +1,8 @@
 /**
  * One live assistant message's stream (`message_update`, `message_end`) as contract events: text and
- * thinking blocks keyed by `contentIndex`, and the tool calls it streams (D3).
- *
- * `message_update.message` and every event's `partial` are the provider's live response-so-far, shared
- * and mutated in place (pi-agent-core `src/agent-loop.ts:442-449`): nothing here keeps one, and the
- * only read of `partial` is `toolcall_start`'s call, as Pi's own JSON mode does
- * (pi-coding-agent `src/modes/json-event.ts:23-30`).
+ * thinking blocks keyed by `contentIndex`, and the tool calls it streams.
  */
 
-import type { AssistantMessage, AssistantMessageEvent, ToolCall } from "@earendil-works/pi-ai";
 import {
 	type AgentEvent,
 	MAX_TEXT_CHARS,
@@ -18,8 +12,9 @@ import {
 } from "../../../contract";
 import { clipStart } from "../bounds";
 import { blockId, type ToolCallIds } from "../ids";
+import type { AssistantMessage, ToolCall } from "../messages";
 import { type BlockType, OpenBlock } from "./open-block";
-import { type StreamEvent, streamEventOf } from "./stream-event";
+import type { StreamEvent } from "./stream-event";
 import { toolInputOf, toolStartedOfCall } from "./tool-items";
 
 /** A call this stream reported as started: Pi's id for it and the live id it got. */
@@ -38,13 +33,8 @@ export class AssistantStream {
 		private readonly tools: ToolCallIds,
 	) {}
 
-	/** The events one `message_update.assistantMessageEvent` adds, as Pi sent it or as a `StreamEvent`. */
-	update(event: AssistantMessageEvent | StreamEvent): AgentEvent[] {
-		const stream = "partial" in event || event.type === "done" || event.type === "error" ? streamEventOf(event) : event;
-		return stream === undefined ? [] : this.apply(stream);
-	}
-
-	private apply(event: StreamEvent): AgentEvent[] {
+	/** The events one `message_update.assistantMessageEvent` adds. */
+	update(event: StreamEvent): AgentEvent[] {
 		switch (event.type) {
 			case "text_start":
 				return this.begin(event.contentIndex, "text");
@@ -58,15 +48,15 @@ export class AssistantStream {
 			case "thinking_end":
 				return this.finish(event.contentIndex, "thinking", event.content);
 			case "toolcall_start":
-				return [this.started({ id: event.id, name: event.toolName })];
+				return this.startCall({ id: event.id, name: event.toolName });
 			case "toolcall_end":
 				return this.endCall(event.toolCall);
 		}
 	}
 
 	/**
-	 * Closes every block still open with the final message's text (`message_end` is truth, the `*_end`
-	 * snapshots are not: pi-agent-core `src/agent-loop.ts:453-478`). A non-empty block the stream never
+	 * Closes every block still open with the final message's text (`message_end` is the authoritative message,
+	 * pi-coding-agent 1.5.2 `docs/json.md:68, 93`). A non-empty block the stream never
 	 * opened, which a provider that sent the message whole never does, is started and finished here.
 	 * Tool calls are not touched: a call no stream started starts at its `tool_execution_start`.
 	 */
@@ -74,15 +64,15 @@ export class AssistantStream {
 		const events: AgentEvent[] = [];
 		message.content.forEach((block, index) => {
 			if (block.type === "text") events.push(...this.finish(index, "text", block.text));
-			else if (block.type === "thinking") events.push(...this.finish(index, "thinking", block.thinking));
+			if (block.type === "thinking") events.push(...this.finish(index, "thinking", block.thinking));
 		});
 		return [...events, ...this.abandon()];
 	}
 
 	/**
 	 * The live ids of calls this stream started that Pi will never run, so no `tool_execution_*` event will
-	 * finish them: every call of a message that stopped `error` or `aborted` (the agent loop returns
-	 * before executing any, pi-agent-core `src/agent-loop.ts:254-265`), and a started call the final
+	 * finish them: every call of a message that stopped `error` or `aborted` (the agent loop executes none of
+	 * them, pi-agent-core 1.5.2 `dist/agent-loop.js:146-156`), and a started call the final
 	 * message does not hold. Call it with the message `end` was given; whoever owns the run finishes
 	 * exactly these, `aborted`.
 	 */
@@ -120,6 +110,14 @@ export class AssistantStream {
 		return [...events, ...finishedEvents(blockId(this.messageId, index), block, authoritative)];
 	}
 
+	/**
+	 * openai-completions announces a call before its id and name arrive (pi-ai 1.5.2 `dist/api/openai-completions.js:296-321`),
+	 * and `toolcall_start` then carries empty ones: such a call starts at its `toolcall_end`.
+	 */
+	private startCall(call: Pick<ToolCall, "id" | "name">): AgentEvent[] {
+		return call.id === "" || call.name === "" ? [] : [this.started(call)];
+	}
+
 	private endCall(toolCall: Pick<ToolCall, "id" | "name" | "arguments">): AgentEvent[] {
 		const known = this.calls.some((call) => call.piId === toolCall.id);
 		const input = toolInputOf(toolCall, this.tools);
@@ -136,7 +134,7 @@ export class AssistantStream {
 /**
  * Stream rule 3: a block that streamed deltas finishes with exactly their text. The authoritative text
  * can differ (OpenAI Responses joins a reasoning summary's parts without the `\n\n` its deltas added,
- * pi-ai `src/api/openai-responses-shared.ts:696, 769`); text the deltas fell short of is sent as a last
+ * pi-ai 1.5.2 `dist/api/openai-responses-shared.js:550-561, 631`); text the deltas fell short of is sent as a last
  * delta, and any other difference leaves the streamed text, which the transcript read at `run_finished`
  * replaces with the stored one.
  */

@@ -4,7 +4,6 @@
  */
 
 import { afterEach, beforeEach, describe, expect, setDefaultTimeout, test } from "bun:test";
-import { fauxAssistantMessage, fauxText, fauxToolCall } from "@earendil-works/pi-ai";
 import { CatalogFeed } from "../../backends/pi/catalog-feed";
 import type { LiveOverlay, SessionStore } from "../../backends/pi/ports";
 import { createSessionStore } from "../../backends/pi/store/session-store";
@@ -15,11 +14,11 @@ import {
 	type TranscriptItem,
 	TranscriptReadResult,
 } from "../../contract";
-import { hostSpikeSession, spikeRuntimeFactory } from "./helpers/pi-spike";
-import { createPiTestEnv, createTestModelRuntime, type PiTestEnv, registerFaux } from "./helpers/pi-test-env";
+import { runPi } from "./helpers/pi-run";
+import { createPiTestEnv, type PiTestEnv } from "./helpers/pi-test-env";
 import { imageBlock, SessionBuilder, textBlock, toolCall, writeSession } from "./store_fixtures";
 
-setDefaultTimeout(15_000);
+setDefaultTimeout(30_000);
 
 let env: PiTestEnv;
 let events: CatalogEvent[];
@@ -52,18 +51,14 @@ async function transcript(id: string, limit = 200): Promise<TranscriptItem[]> {
 
 describe("a session Pi wrote, read through the store", () => {
 	test("a real run with a write tool reads back with its file change, however the pages are cut", async () => {
-		const modelRuntime = await createTestModelRuntime(env);
-		const faux = await registerFaux(modelRuntime, [{ id: "faux-1" }]);
-		const runtime = await hostSpikeSession(env, spikeRuntimeFactory(modelRuntime, faux.handle.getModel(), []));
-		faux.handle.setResponses([
-			fauxAssistantMessage([fauxText("Writing."), fauxToolCall("write", { path: "notes.txt", content: "hello" })], {
-				stopReason: "toolUse",
-			}),
-			fauxAssistantMessage(fauxText("Done."), { stopReason: "stop" }),
-		]);
-		await runtime.session.prompt("write the notes");
-		const sessionId = runtime.session.sessionId;
-		await runtime.dispose();
+		const { sessionId } = await runPi(
+			env,
+			[
+				{ text: ["Writing."], toolCalls: [{ name: "write", args: { path: "notes.txt", content: "hello" } }] },
+				{ text: ["Done."] },
+			],
+			"write the notes",
+		);
 
 		for (const limit of [200, 1]) {
 			const items: TranscriptItem[] = [];

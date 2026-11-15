@@ -2,9 +2,11 @@
  * The `OpenSession` the core holds for a session. It is one of three things, and changes between them as the session's
  * circumstances do:
  *
- * - hosted: this bridge runs the session (`SessionHost`), and the view is the host's;
+ * - hosted: this bridge runs the session (`SessionHost`), and the view is the host's. When the host's `pi` exits
+ *   unasked, the view keeps what it last showed, and the phone's next control call starts a new host, whose state
+ *   replaces it (`resynced`, the contract's event for a restarted backend);
  * - watching: nobody runs it here (another client wrote it, or its working directory is gone): the session as it was
- *   read, nothing emitted (D16);
+ *   read, nothing emitted;
  * - terminal: a terminal `pi` that runs the Broski link extension has it open. Its events are the session's live events
  *   and the phone may send it a message and stop it, through that terminal. A hosted session that is idle when a terminal
  *   opens it gives way to the terminal, whose file the host's in-memory copy would otherwise diverge from.
@@ -14,8 +16,10 @@
  */
 
 import {
+	type ActionResult,
 	emptySnapshot,
 	type OpenSession,
+	type Rejected,
 	type SessionControl,
 	type SessionRef,
 	type SessionSink,
@@ -34,6 +38,8 @@ export interface SessionViewDeps {
 	readonly terminals: Pick<TerminalRegistry, "session" | "watch">;
 	/** The session as it reads now, for when its terminal goes. */
 	readonly reread: () => Promise<SessionSnapshot>;
+	/** A new host for the session, its events going to `sink`, once the last one's `pi` exited. */
+	readonly revive: (sink: SessionSink) => Promise<HostedPart | Rejected>;
 	readonly now: () => number;
 	/** The view is closed: the registry forgets it. */
 	readonly release: () => void;
@@ -43,6 +49,7 @@ export interface SessionViewDeps {
 export interface HostedPart {
 	readonly view: OpenSession;
 	readonly idle: () => boolean;
+	readonly ended: () => boolean;
 }
 
 type Mode =
@@ -54,6 +61,16 @@ export class SessionView implements OpenSession {
 	private mode: Mode;
 	private closed = false;
 	private readonly stopWatching: () => void;
+	private reviving: Promise<Rejected | undefined> | undefined;
+	private readonly hostedControl: SessionControl = {
+		prompt: (input) => this.onHost((control) => control.prompt(input)),
+		abort: () => this.onLiveHost((control) => control.abort()),
+		answer: (answer) => this.onLiveHost((control) => control.answer(answer)),
+		setModel: (modelId) => this.onHost((control) => control.setModel(modelId)),
+		setThinking: (value) => this.onHost((control) => control.setThinking(value)),
+		setMode: (axis, value) => this.onHost((control) => control.setMode(axis, value)),
+		compact: (instructions) => this.onHost((control) => control.compact?.(instructions) ?? Promise.resolve(CLOSED)),
+	};
 
 	/** `start` is the host's part, or the session as it was read when no host runs it. */
 	constructor(
@@ -85,8 +102,41 @@ export class SessionView implements OpenSession {
 	}
 
 	get control(): SessionControl | undefined {
-		if (this.mode.kind === "hosted") return this.mode.view.control;
+		if (this.mode.kind === "hosted") return this.hostedControl;
 		return this.mode.kind === "terminal" ? this.mode.control : undefined;
+	}
+
+	/** A call that needs the session running: a host whose `pi` exited is replaced first. */
+	private async onHost<T extends ActionResult>(call: (control: SessionControl) => Promise<T>): Promise<T | Rejected> {
+		const revived = await this.revivedIfEnded();
+		return revived ?? this.onLiveHost(call);
+	}
+
+	/** Stop and an answer need no new host: an exited one runs nothing and asks nothing. */
+	private async onLiveHost<T extends ActionResult>(
+		call: (control: SessionControl) => Promise<T>,
+	): Promise<T | Rejected> {
+		const control = this.mode.kind === "hosted" && !this.closed ? this.mode.view.control : undefined;
+		return control === undefined ? CLOSED : call(control);
+	}
+
+	/** Undefined once the session has a running host; why not otherwise. */
+	private revivedIfEnded(): Promise<Rejected | undefined> {
+		const mode = this.mode;
+		if (this.closed || mode.kind !== "hosted" || !mode.ended()) return Promise.resolve(undefined);
+		this.reviving ??= this.deps.revive(this.sink).then((part) => {
+			this.reviving = undefined;
+			if ("status" in part) return part;
+			if (this.closed || this.mode !== mode) {
+				void part.view.close();
+				return undefined;
+			}
+			this.mode = { kind: "hosted", ...part };
+			void mode.view.close();
+			this.sink.emit({ at: this.deps.now(), event: { type: "resynced", snapshot: part.view.snapshot() } });
+			return undefined;
+		});
+		return this.reviving;
 	}
 
 	/** A session nobody ran here is run by a host now, whose part this is. */

@@ -1,71 +1,74 @@
 /**
- * The faux model's script for each conformance `Scenario`, as Pi can play it. A scenario Pi lacks
- * (plan, plan proposals, structured forms) has no script: the driver answers `false`.
+ * The scripted model's turns for each conformance `Scenario`, as Pi can play them. A scenario Pi lacks (plan
+ * proposals, questions, forms, plans) has no script: the driver answers `false`.
  */
 
-import {
-	type AssistantMessage,
-	type FauxContentBlock,
-	type FauxResponseFactory,
-	type FauxResponseStep,
-	fauxAssistantMessage,
-	fauxText,
-	fauxThinking,
-	fauxToolCall,
-} from "@earendil-works/pi-ai";
 import type { Scenario } from "../../../contract/testing/conformance-types";
-import type { DriverBus } from "./driver-bus";
+import type { ScriptedRequest, ScriptedTurn } from "../../helpers/scripted-openai-server";
+import type { PiRouter, ScriptStep } from "./pi-router";
 
 export const REPLY_TEXT = "Here is the answer.";
+export const PROVIDER = "scripted";
 
-/** One response that asks for tools and so continues the run. */
-export function toolUse(...content: FauxContentBlock[]): AssistantMessage {
-	return fauxAssistantMessage(content, { stopReason: "toolUse" });
+export function say(text: string): ScriptedTurn {
+	return { text: [text] };
 }
 
-export function say(text: string): AssistantMessage {
-	return fauxAssistantMessage(text);
+/** One response that calls a tool and so continues the run. */
+export function call(
+	name: string,
+	args: Record<string, unknown>,
+	before: Omit<ScriptedTurn, "toolCalls"> = {},
+): ScriptedTurn {
+	return { ...before, toolCalls: [{ name, args }] };
 }
 
-export function readReadme(): AssistantMessage {
-	return toolUse(fauxToolCall("read", { path: "README.md" }));
+export function readReadme(): ScriptedTurn {
+	return call("read", { path: "README.md" });
 }
 
+/** A call of the driver's dialog tool; its answer is noted under `tag`, the title when none is given. */
 export function askHuman(
 	dialog: "select" | "confirm" | "input" | "editor",
 	title: string,
-	extra: { options?: string[]; timeoutMs?: number; withSignal?: boolean; ownSignal?: boolean; tag?: string } = {},
-): AssistantMessage {
-	return toolUse(fauxToolCall("ask_human", { tag: extra.tag ?? dialog, dialog, title, ...extra }));
+	extra: { tag?: string; options?: string[]; timeoutMs?: number; withSignal?: boolean; abortAfterMs?: number } = {},
+): ScriptedTurn {
+	return { toolCalls: [{ name: "ask_human", args: { tag: title, dialog, title, ...extra } }] };
 }
 
 /** A call of the driver's subagent tool; with a gate, the tool parks after its first update. */
-export function subagent(task: string, gate?: string): AssistantMessage {
-	return toolUse(fauxToolCall("driver_subagent", { task, ...(gate !== undefined && { gate }) }));
+export function subagent(task: string, gate?: string): ScriptedTurn {
+	return { toolCalls: [{ name: "driver_subagent", args: { task, ...(gate !== undefined && { gate }) } }] };
 }
 
-export function holdAt(gate: string, ...before: FauxContentBlock[]): AssistantMessage {
-	return toolUse(...before, fauxToolCall("driver_hold", { gate }));
+/** A tool call that parks the run inside its tool until the gate opens. */
+export function holdAt(gate: string, text?: string): ScriptedTurn {
+	return { ...(text !== undefined && { text: [text] }), toolCalls: [{ name: "driver_hold", args: { gate } }] };
 }
 
-/** A response whose only text is the model it was asked of (`provider/id`), optionally ending at a hold. */
-export function echoModel(gate?: string): FauxResponseFactory {
-	return (_context, _options, _state, model) => {
-		const echo = fauxText(`${model.provider}/${model.id}`);
-		return gate === undefined ? fauxAssistantMessage([echo]) : holdAt(gate, echo);
-	};
+/** The model a request ran with, as the wire id the adapter lists it by; with a gate, a hold follows it. */
+export function echoModel(gate?: string): ScriptStep {
+	return (request: ScriptedRequest) => ({
+		text: [`${PROVIDER}/${request.model}`],
+		...(gate !== undefined && { toolCalls: [{ name: "driver_hold", args: { gate } }] }),
+	});
 }
 
-export function scenarioSteps(bus: DriverBus, sessionId: string, scenario: Scenario): FauxResponseStep[] | undefined {
+/** A provider failure: `529 overloaded` is one Pi retries, a `400` one it does not. */
+export function failWith(status: number, error?: string): ScriptedTurn {
+	return { status, ...(error !== undefined && { error }) };
+}
+
+export function scenarioSteps(router: PiRouter, sessionId: string, scenario: Scenario): ScriptStep[] | undefined {
 	switch (scenario.kind) {
 		case "reply":
-			return [fauxAssistantMessage([fauxThinking("Thinking it over."), fauxText(REPLY_TEXT)])];
+			return [{ thinking: ["Thinking it over."], text: [REPLY_TEXT] }];
 		case "tool":
 			return [readReadme(), say("Read it.")];
 		case "hold":
-			return [holdAt(bus.newGate(sessionId), fauxText("Working.")), say("Done.")];
+			return [holdAt(router.newGate(sessionId), "Working."), say("Done.")];
 		case "echo_model":
-			return [echoModel(bus.newGate(sessionId)), echoModel()];
+			return [echoModel(router.newGate(sessionId)), echoModel()];
 		case "feature":
 			return featureSteps(scenario.feature);
 		case "interaction":
@@ -73,10 +76,10 @@ export function scenarioSteps(bus: DriverBus, sessionId: string, scenario: Scena
 	}
 }
 
-function featureSteps(feature: Extract<Scenario, { kind: "feature" }>["feature"]): FauxResponseStep[] | undefined {
+function featureSteps(feature: Extract<Scenario, { kind: "feature" }>["feature"]): ScriptStep[] | undefined {
 	switch (feature) {
 		case "thinking":
-			return [fauxAssistantMessage([fauxThinking("Let me think."), fauxText("Done.")])];
+			return [{ thinking: ["Let me think."], text: ["Done."] }];
 		case "usage":
 			return [say(REPLY_TEXT)];
 		case "children":
@@ -86,9 +89,7 @@ function featureSteps(feature: Extract<Scenario, { kind: "feature" }>["feature"]
 	}
 }
 
-function interactionSteps(
-	kind: Extract<Scenario, { kind: "interaction" }>["interaction"],
-): FauxResponseStep[] | undefined {
+function interactionSteps(kind: Extract<Scenario, { kind: "interaction" }>["interaction"]): ScriptStep[] | undefined {
 	switch (kind) {
 		case "tool_permission":
 			return [readReadme(), say("Read it.")];
@@ -103,12 +104,4 @@ function interactionSteps(
 		case "plan_approval":
 			return undefined;
 	}
-}
-
-/** The message of a transient provider failure Pi retries (pi-ai `retry.ts`: "overloaded"). */
-export const OVERLOADED = "529 overloaded_error: Overloaded";
-
-/** A response that fails with `errorMessage`. */
-export function failWith(errorMessage: string): AssistantMessage {
-	return fauxAssistantMessage([], { stopReason: "error", errorMessage });
 }

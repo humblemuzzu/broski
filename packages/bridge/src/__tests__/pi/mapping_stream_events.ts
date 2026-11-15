@@ -1,41 +1,59 @@
-/** Pi's `AssistantMessageEvent`s as the stream tests feed them, and the record a stream becomes inside a run. */
+/**
+ * The `assistantMessageEvent`s of `message_update` lines as `pi --mode rpc` writes them (no `partial`; a
+ * `toolcall_start` names its call), read through the adapter's own schema, and the record a stream becomes in a run.
+ */
 
-import type { AssistantMessage, AssistantMessageEvent, ToolCall } from "@earendil-works/pi-ai";
 import type { ToolCallIds } from "../../backends/pi/ids";
 import type { AssistantStream } from "../../backends/pi/mapping/stream-blocks";
+import type { StreamEvent } from "../../backends/pi/mapping/stream-event";
 import { toolFinished } from "../../backends/pi/mapping/tool-items";
+import type { AssistantMessage, ToolCall } from "../../backends/pi/messages";
 import type { AgentEvent, SinkRecord } from "../../contract";
-import { assistant, records, validEvents } from "./mapping_fixtures";
+import { piEvent, records, validEvents } from "./mapping_fixtures";
 
-export type Update = AssistantMessageEvent;
+export type Update = StreamEvent | { readonly type: "ignored" };
 
-export function textStart(contentIndex: number, partial: AssistantMessage = assistant([])): Update {
-	return { type: "text_start", contentIndex, partial };
+/** One `assistantMessageEvent`, written as Pi writes it. */
+export function streamEvent(raw: Record<string, unknown>): Update {
+	return piEvent({ type: "message_update", assistantMessageEvent: raw }).assistantMessageEvent;
+}
+
+export function textStart(contentIndex: number): Update {
+	return streamEvent({ type: "text_start", contentIndex });
 }
 export function textDelta(contentIndex: number, delta: string): Update {
-	return { type: "text_delta", contentIndex, delta, partial: assistant([]) };
+	return streamEvent({ type: "text_delta", contentIndex, delta });
 }
 export function textEnd(contentIndex: number, content: string): Update {
-	return { type: "text_end", contentIndex, content, partial: assistant([]) };
+	return streamEvent({ type: "text_end", contentIndex, content });
 }
 export function thinkingStart(contentIndex: number): Update {
-	return { type: "thinking_start", contentIndex, partial: assistant([]) };
+	return streamEvent({ type: "thinking_start", contentIndex });
 }
 export function thinkingDelta(contentIndex: number, delta: string): Update {
-	return { type: "thinking_delta", contentIndex, delta, partial: assistant([]) };
+	return streamEvent({ type: "thinking_delta", contentIndex, delta });
 }
 export function thinkingEnd(contentIndex: number, content: string): Update {
-	return { type: "thinking_end", contentIndex, content, partial: assistant([]) };
+	return streamEvent({ type: "thinking_end", contentIndex, content });
 }
-export function callStart(contentIndex: number, partial: AssistantMessage): Update {
-	return { type: "toolcall_start", contentIndex, partial };
+/** Pi names the call at `contentIndex` of the message so far, empty when the provider has not sent it yet. */
+export function callStart(contentIndex: number, sofar: AssistantMessage): Update {
+	const block = sofar.content[contentIndex];
+	const call = block?.type === "toolCall" ? block : { id: "", name: "" };
+	return streamEvent({ type: "toolcall_start", contentIndex, id: call.id, toolName: call.name });
 }
-export function callEnd(contentIndex: number, call: ToolCall): Update {
-	return { type: "toolcall_end", contentIndex, toolCall: call, partial: assistant([call]) };
+/** `call` as Pi writes it, with whatever else it carries (an `argumentsError`). */
+export function callEnd(contentIndex: number, call: ToolCall | Record<string, unknown>): Update {
+	return streamEvent({ type: "toolcall_end", contentIndex, toolCall: call });
+}
+
+/** What the stream makes of updates, as the event bridge hands them over: an ignored one never reaches it. */
+export function updateOf(stream: AssistantStream, update: Update): AgentEvent[] {
+	return update.type === "ignored" ? [] : stream.update(update);
 }
 
 export function feed(stream: AssistantStream, updates: readonly Update[]): AgentEvent[] {
-	return validEvents(updates.flatMap((update) => stream.update(update)));
+	return validEvents(updates.flatMap((update) => updateOf(stream, update)));
 }
 
 /** The stream as the bridge would record it: inside a run, every call finished, then the run's end. */

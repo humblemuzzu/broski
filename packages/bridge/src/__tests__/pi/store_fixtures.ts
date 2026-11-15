@@ -5,10 +5,10 @@
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { SessionEntry } from "@earendil-works/pi-coding-agent";
 import { entryAttachmentId, entryItemId, storedToolCallId } from "../../backends/pi/ids";
 import type { EntryContext } from "../../backends/pi/mapping/message-items";
 import { modelWireId } from "../../backends/pi/models/model-ids";
+import type { SessionEntry } from "../../backends/pi/store/entries";
 import type { TranscriptItem } from "../../contract";
 
 export const T0 = Date.parse("2026-03-01T10:00:00.000Z");
@@ -225,6 +225,7 @@ export function itemsOfEntryStub(entry: SessionEntry, context: EntryContext): Tr
 					},
 				];
 			}
+			if (block.type === "unsupported") return [];
 			const text = block.type === "text" ? block.text : block.thinking;
 			return [{ kind: "block", id, messageId: entry.id, block: block.type === "text" ? "text" : "thinking", text }];
 		});

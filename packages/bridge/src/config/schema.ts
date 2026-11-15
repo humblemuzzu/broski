@@ -41,6 +41,8 @@ export const BroskiConfigSchema = z.object({
 		.default({ terminalAsks: true }),
 	pi: z
 		.object({
+			/** The `pi` executable to run instead of the one on the login shell's `PATH` (`server/pi-cli-path.ts`). */
+			cliPath: z.string().optional(),
 			/** `false`: the contract's Pi installs no extension in the agent dir and takes the Broski link's out. */
 			terminalLink: z.boolean().optional(),
 		})

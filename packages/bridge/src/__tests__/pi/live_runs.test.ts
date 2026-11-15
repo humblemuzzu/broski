@@ -1,18 +1,19 @@
 /**
- * On the real adapter: what an abort leaves, a retry and an error inside a run,
- * steer and queue idle and mid-run, and an abort against a provider that ignores its signal.
+ * On the real adapter: what an abort leaves, a retry and an error inside a run, and steer and queue idle and mid-run.
  */
 
 import { afterEach, describe, expect, test } from "bun:test";
-import { fauxAssistantMessage, fauxText } from "@earendil-works/pi-ai";
-import { ABORT_DEADLINE_MS } from "../../backends/pi/live/shutdown";
 import { LiveRig } from "./helpers/live-rig";
 import { countOf, holdingRun, lastUserText, userMessages } from "./helpers/live-steps";
-import { failWith, holdAt, OVERLOADED, say } from "./helpers/scenarios";
+import { textOf } from "./helpers/pi-router";
+import { failWith, holdAt, say } from "./helpers/scenarios";
 import { userTexts } from "./helpers/session-files";
 import { useWatchdog } from "./helpers/use-watchdog";
 
 useWatchdog();
+
+/** A failure Pi retries: its message names an overloaded provider (pi-ai 1.5.2 `dist/utils/retry.js:208-215`). */
+const OVERLOADED = failWith(503, "the provider is overloaded");
 
 let t: LiveRig | undefined;
 
@@ -49,8 +50,6 @@ describe("prompt, abort, prompt", () => {
 		const handedBack = afterStop.findIndex((event) => event.type === "input_returned");
 		expect([emptied >= 0, emptied < handedBack]).toEqual([true, true]);
 		expect(live.reduced().queue).toEqual([]);
-		const pi = t.world.parts.hosts.session(live.ref.sessionId);
-		expect([pi?.getSteeringMessages(), pi?.getFollowUpMessages(), pi?.pendingMessageCount]).toEqual([[], [], 0]);
 		expect(live.events().some((event) => event.type === "notice" && event.text.includes("not sent"))).toBe(false);
 
 		const mark = live.recorder.items.length;
@@ -59,6 +58,11 @@ describe("prompt, abort, prompt", () => {
 		expect((await live.runAfter(mark)).outcome.kind).toBe("completed");
 		expect(userMessages(live).map((message) => message.text)).toEqual(["first", "next"]);
 		expect(userTexts(t.fileOf(live.ref))).toEqual(["first", "next"]);
+		const sent = t.router
+			.requests(live.ref.sessionId)
+			.at(-1)
+			?.messages.map((message) => textOf(message.content));
+		expect(sent?.filter((text) => /steer|later/.test(text))).toEqual([]);
 		live.assertSettled();
 	});
 
@@ -83,7 +87,7 @@ describe("a retry inside a run", () => {
 	test("a transient failure is one run: one start, retry scheduled then finished, one end", async () => {
 		t = await LiveRig.create();
 		const live = await t.rig.openNew();
-		t.router.script(live.ref.sessionId, [failWith(OVERLOADED), say("recovered")]);
+		t.router.script(live.ref.sessionId, [OVERLOADED, say("recovered")]);
 		const { outcome } = await live.run("go");
 		expect(outcome.kind).toBe("completed");
 		const kinds = live
@@ -109,7 +113,7 @@ describe("a retry inside a run", () => {
 		const live = await t.rig.openNew();
 		t.router.script(
 			live.ref.sessionId,
-			Array.from({ length: 4 }, () => failWith(OVERLOADED)),
+			Array.from({ length: 4 }, () => OVERLOADED),
 		);
 		const { outcome } = await live.run("go");
 		expect(outcome.kind === "error" && outcome.error.message).toContain("overloaded");
@@ -127,7 +131,7 @@ describe("an error run", () => {
 	test("ends failed with the provider's message, is not retried, and leaves the session usable", async () => {
 		t = await LiveRig.create();
 		const live = await t.rig.openNew();
-		t.router.script(live.ref.sessionId, [failWith("the account is closed")]);
+		t.router.script(live.ref.sessionId, [failWith(400, "the account is closed")]);
 		const { outcome } = await live.run("go");
 		expect(outcome.kind).toBe("error");
 		expect(outcome.kind === "error" && outcome.error.message).toContain("the account is closed");
@@ -156,12 +160,8 @@ describe("steer and queue", () => {
 	test("mid-run, a steer reaches the next request and a queued prompt the one after, in the same run", async () => {
 		t = await LiveRig.create();
 		const live = await t.rig.openNew();
-		const gate = t.bus.newGate(live.ref.sessionId);
-		t.router.script(live.ref.sessionId, [
-			holdAt(gate, fauxText("Working.")),
-			say("steered reply"),
-			say("queued reply"),
-		]);
+		const gate = t.router.newGate(live.ref.sessionId);
+		t.router.script(live.ref.sessionId, [holdAt(gate, "Working."), say("steered reply"), say("queued reply")]);
 		const steerId = crypto.randomUUID();
 		const queueId = crypto.randomUUID();
 		await live.prompt("begin");
@@ -176,7 +176,7 @@ describe("steer and queue", () => {
 			["queue", queueId],
 		]);
 
-		t.bus.release(live.ref.sessionId);
+		t.router.release(live.ref.sessionId);
 		await live.waitFor("run_finished");
 		const requests = t.router.requests(live.ref.sessionId);
 		expect(requests).toHaveLength(3);
@@ -191,37 +191,4 @@ describe("steer and queue", () => {
 		expect(live.reduced().queue).toEqual([]);
 		live.assertSettled();
 	});
-});
-
-describe("abort against a provider that ignores its signal", () => {
-	test(
-		"is answered within the deadline, the run stays open until the provider returns, then ends aborted",
-		async () => {
-			t = await LiveRig.create({ waitMs: ABORT_DEADLINE_MS * 3 });
-			const live = await t.rig.openNew();
-			const entered = Promise.withResolvers<void>();
-			const unblock = Promise.withResolvers<void>();
-			t.router.script(live.ref.sessionId, [
-				async () => {
-					entered.resolve();
-					await unblock.promise;
-					return fauxAssistantMessage("too late");
-				},
-			]);
-			await live.prompt("go");
-			await entered.promise;
-			const began = performance.now();
-			const aborted = await live.control.abort();
-			const waited = performance.now() - began;
-			expect(aborted.status).toBe("accepted");
-			expect(waited).toBeLessThan(ABORT_DEADLINE_MS + 3_000);
-			expect(live.reduced().run).toBeDefined();
-
-			unblock.resolve();
-			const ended = await live.waitFor("run_finished");
-			expect(ended.outcome.kind).toBe("aborted");
-			live.assertSettled();
-		},
-		ABORT_DEADLINE_MS * 6,
-	);
 });

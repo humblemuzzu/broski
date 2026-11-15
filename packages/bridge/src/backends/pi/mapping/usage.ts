@@ -1,14 +1,15 @@
-/** A session's totals and context fill as the contract's `Usage` (D10). */
+/** A session's totals and context fill as the contract's `Usage`. */
 
-import type { ContextUsage, SessionStats } from "@earendil-works/pi-coding-agent";
 import type { Usage } from "../../../contract";
+import type { SessionStats } from "../rpc/replies";
 
 /**
- * Pi's totals are copied as they stand. `SessionStats.tokens` has no reasoning count, so
- * `reasoningTokens` is never set. A context fill Pi does not know (`tokens: null` right after a
- * compaction) is left out, never 0, so the previous fill does not outlive the compaction.
+ * Pi's totals (`get_session_stats`, pi-coding-agent 1.5.2 `docs/rpc-commands.md:526-567`) copied as they stand. Its
+ * `tokens` has no reasoning count, so `reasoningTokens` is never set. A context fill Pi does not know (`tokens: null`
+ * right after a compaction) is left out, never 0, so the previous fill does not outlive the compaction.
  */
-export function usageOf(stats: SessionStats, context: ContextUsage | undefined): Usage {
+export function usageOf(stats: SessionStats): Usage {
+	const context = stats.contextUsage;
 	const usage: Usage = {};
 	const { input, output, cacheRead, cacheWrite } = stats.tokens;
 	if (isCount(input)) usage.inputTokens = input;

@@ -1,25 +1,25 @@
 /**
- * One prompt handed to Pi's `prompt()`, from the call until Pi decides what it did with it, and the answer
- * the phone gets. Pi decides through `preflightResult` (pi-coding-agent `src/core/agent-session.ts:2093-2172`),
- * after the extensions' `input` handlers and, for a run, after a pre-prompt compaction and the
- * `before_agent_start` handlers (`:1873-1883`, `_prepareRun` `:1926-1932`): any of them can take as long as a
- * human or a model request does. A prompt sent while idle is therefore answered `started` early when one of
+ * One prompt sent to Pi, from the command until Pi decides what it did with it, and the answer the phone gets. Pi
+ * answers a `prompt` once it has decided (`started`, `queued` or `handled`, pi-coding-agent 1.5.2
+ * `docs/rpc-commands.md:7-42`): after the extensions' `input` handlers and, for a run, after a pre-prompt compaction
+ * and the `before_agent_start` handlers (`dist/core/agent-session.js:1695-1778, 1544-1550`). Any of them can take as
+ * long as a human or a model request does. A prompt sent while idle is therefore answered `started` early when one of
  * them asks a human or a compaction begins, and the run it started ends on its own if Pi then does not run it.
  */
 
-import type { AgentSession } from "@earendil-works/pi-coding-agent";
 import type { PromptInput, PromptResult, RunOutcome } from "../../../contract";
+import type { ImageContent } from "../messages";
 import type { RunContext } from "../ports";
-import { rejected } from "../rejections";
-import { faultEvent } from "./live-notes";
+import type { PromptDisposition } from "../rpc/replies";
 import type { LiveState } from "./live-state";
+import type { PiChild } from "./pi-child";
 import { promptRejection } from "./prompt-errors";
-import { imageNames, piImages } from "./prompt-input";
+import { imageNames } from "./prompt-input";
 import type { QueueMirror } from "./queue-mirror";
 import type { RunTracker } from "./run-tracker";
 
 export interface PiPromptHost {
-	readonly session: AgentSession;
+	readonly child: PiChild;
 	readonly runs: RunTracker;
 	readonly queue: QueueMirror;
 	readonly live: LiveState;
@@ -37,11 +37,10 @@ export interface PiPromptCall {
 	readonly input: PromptInput;
 	/** As Pi is given it: a command's `/name args`, otherwise the human's text. */
 	readonly text: string;
-	/** No run was active when Pi was called, so `started` starts a new one. */
+	readonly images: readonly ImageContent[];
+	/** No run was active when Pi was sent the prompt, so `started` starts a new one. */
 	readonly idle: boolean;
 }
-
-type Disposition = "started" | "queued" | "handled";
 
 const STARTED: PromptResult = { status: "accepted", disposition: "started" };
 const HANDLED: PromptResult = { status: "accepted", disposition: "handled" };
@@ -74,31 +73,17 @@ export class PiPrompt {
 		return run;
 	}
 
-	/**
-	 * Hands the prompt to Pi. Not called by the constructor: Pi runs the first `input` handler inside this call
-	 * (`agent-session.ts:2117`, `extensions/runner.ts:1535-1545`), and a handler that asks a human at once reaches
-	 * `startEarly`, which finds this call only once whoever made it has stored it.
-	 */
+	/** Sends the prompt; Pi's answer is read in its place among the session's events (`rpc/client.ts`). */
 	send(): void {
-		const { session } = this.host;
-		const { input, text } = this.call;
-		const images = piImages(input);
+		const { input, text, images } = this.call;
 		const streamingBehavior = input.mode === "steer" ? "steer" : input.mode === "queue" ? "followUp" : undefined;
-		session
-			.prompt(text, {
-				expandPromptTemplates: input.command !== undefined,
-				source: "rpc",
-				...(images.length > 0 && { images }),
-				...(streamingBehavior && { streamingBehavior }),
-				preflightResult: (disposition) => this.onDisposition(disposition),
-			})
-			.then(
-				() => this.onReturned(),
-				(error: unknown) => this.onFailed(error),
-			);
+		void this.host.child.prompt(text, images, streamingBehavior).then((answer) => {
+			if (answer.ok) this.onDisposition(answer.data);
+			else this.onFailed(answer.error);
+		});
 	}
 
-	private onDisposition(disposition: Disposition): void {
+	private onDisposition(disposition: PromptDisposition): void {
 		if (!this.markDecided() || this.host.closed()) return;
 		switch (disposition) {
 			case "handled":
@@ -113,55 +98,38 @@ export class PiPrompt {
 				if (!this.early) this.host.begin();
 				this.host.abortIfAsked();
 				this.answerWith(STARTED);
-				return;
 		}
 	}
 
-	/**
-	 * A prompt made while Pi settles resolves at once and runs later with this same callback (pi `:2093-2096`);
-	 * when Pi is idle again and the callback never came, the deferred prompt failed.
-	 */
-	private onReturned(): void {
-		if (this.piDecided) return;
-		void this.host.session.waitForIdle().then(() => {
-			if (!this.markDecided()) return;
-			const failure = rejected("backend_error", "Pi did not run the prompt");
-			if (this.early)
-				this.endEarlyRun({ kind: "error", error: { code: "unknown", message: failure.rejection.message } });
-			else this.answerWith(failure);
-		});
-	}
-
-	private onFailed(error: unknown): void {
-		if (!this.markDecided()) {
-			this.host.live.emit(faultEvent(error));
-			return;
-		}
+	private onFailed(error: string): void {
+		if (!this.markDecided() || this.host.closed()) return;
 		const refusal = promptRejection(error);
 		if (!this.early) {
 			this.answerWith(refusal);
 			return;
 		}
-		const code =
-			refusal.rejection.code === "auth"
-				? "auth"
-				: refusal.rejection.code === "no_model"
-					? "model_unavailable"
-					: "unknown";
-		this.endEarlyRun({ kind: "error", error: { code, message: refusal.rejection.message } });
+		const { code } = refusal.rejection;
+		this.endEarlyRun({
+			kind: "error",
+			error: {
+				code: code === "auth" ? "auth" : code === "no_model" ? "model_unavailable" : "unknown",
+				message: refusal.rejection.message,
+			},
+		});
 	}
 
+	/** Pi announced the queue as it took the input (`queue_update` comes before the answer), with the text it queued. */
 	private queued(): PromptResult {
-		const { session, queue } = this.host;
+		const { queue } = this.host;
 		const { input, text } = this.call;
 		const steering = input.mode === "steer";
-		const pending = steering ? session.getSteeringMessages() : session.getFollowUpMessages();
+		const pending = steering ? queue.pi.steering : queue.pi.followUp;
 		const item = queue.enqueue(
 			steering ? "steer" : "queue",
 			{ text: pending.at(-1) ?? text, preview: text, imageNames: imageNames(input) },
 			input.clientRequestId,
 		);
-		queue.reconcile({ steering: session.getSteeringMessages(), followUp: session.getFollowUpMessages() });
+		queue.reconcile(queue.pi);
 		return { status: "accepted", disposition: steering ? "steered" : "queued", queueItemId: item.id };
 	}
 
@@ -171,7 +139,7 @@ export class PiPrompt {
 		this.host.runs.end(outcome);
 	}
 
-	/** True the first time; Pi decides once, and a decision after a failure is not Pi's. */
+	/** True the first time; Pi decides once. */
 	private markDecided(): boolean {
 		if (this.piDecided) return false;
 		this.piDecided = true;

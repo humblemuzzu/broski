@@ -1,17 +1,17 @@
 /**
- * A hook that throws at each stage of a session's life, and a provider that never ends a stream. Whatever
- * Pi's extension runner does with the throw, the adapter must still end the run it started, take the next
- * prompt, and shut down inside its deadlines.
+ * A hook that throws at each stage of a session's life, and a tool that ignores Stop. Whatever Pi's extension
+ * runner does with the throw, the adapter must still end the run it started, take the next prompt, and shut down
+ * inside its deadlines.
  */
 
-import { afterEach, describe, expect, spyOn, test } from "bun:test";
-import { fauxToolCall } from "@earendil-works/pi-ai";
-import { SessionSettings } from "../../backends/pi/live/settings";
-import { ABORT_DEADLINE_MS, HOST_END_BUDGET_MS, SETTLE_DEADLINE_MS } from "../../backends/pi/live/shutdown";
+import { afterEach, describe, expect, test } from "bun:test";
+import { ABORT_DEADLINE_MS } from "../../backends/pi/live/pi-child";
+import { SETTLE_DEADLINE_MS } from "../../backends/pi/live/session-host";
+import { STOP_BUDGET_MS } from "../../backends/pi/rpc/child";
 import type { AgentEvent } from "../../contract";
 import { DEFAULT_TEARDOWN_TIMEOUT_MS } from "../../lifecycle/teardown";
 import { countOf } from "./helpers/live-steps";
-import { say, toolUse } from "./helpers/scenarios";
+import { call, say } from "./helpers/scenarios";
 import { useWatchdog } from "./helpers/use-watchdog";
 import { HostRig, pause, until } from "./host_rig";
 
@@ -40,8 +40,8 @@ describe("a hook that throws while a run goes", () => {
 	)("in %s: the run ends once, the session takes the next prompt, and it shuts down", async (stage) => {
 		t = await HostRig.create();
 		const live = await t.rig.rig.openNew();
-		t.router.script(live.ref.sessionId, [toolUse(fauxToolCall("ignore_abort", {})), say("done")]);
-		t.state.throwAt = stage;
+		t.router.script(live.ref.sessionId, [call("ignore_abort", {}), say("done")]);
+		t.set({ throwAt: stage });
 
 		const first = await live.prompt("go");
 		if (first.status === "accepted") {
@@ -53,31 +53,32 @@ describe("a hook that throws while a run goes", () => {
 		expect(live.reduced().run).toBeUndefined();
 		live.assertSettled();
 
-		t.state.throwAt = undefined;
+		t.set({ throwAt: undefined });
 		t.router.script(live.ref.sessionId, [say("fine")]);
 		expect((await live.run("again")).outcome.kind).toBe("completed");
 
 		await t.rig.rig.backend.dispose();
-		expect(t.bus.liveRuntimes()).toBe(0);
+		expect(t.rig.world.sessionProcesses()).toBe(0);
 	});
 });
 
 describe("a hook that throws outside a run", () => {
 	test("in session_start: the session still opens", async () => {
 		t = await HostRig.create();
-		t.state.throwAt = "session_start";
+		t.set({ throwAt: "session_start" });
 		const live = await t.rig.rig.openNew();
-		t.state.throwAt = undefined;
+		t.set({ throwAt: undefined });
 		t.router.script(live.ref.sessionId, [say("fine")]);
 		expect((await live.run("hello")).outcome.kind).toBe("completed");
 	});
 
-	test("in session_shutdown: the idle host still ends and the runtime is disposed", async () => {
+	test("in session_shutdown: the idle host still ends and its pi exits", async () => {
 		t = await HostRig.create();
 		const live = await t.rig.rig.openNew();
-		t.state.throwAt = "session_shutdown";
+		expect(t.rig.world.sessionProcesses()).toBe(1);
+		t.set({ throwAt: "session_shutdown" });
 		await live.close();
-		await until(() => t?.bus.liveRuntimes() === 0, "the host ends");
+		await until(() => t?.rig.world.sessionProcesses() === 0, "the host ends");
 	});
 
 	test("in session_before_compact: the compaction fails, nothing stays locked", async () => {
@@ -88,10 +89,10 @@ describe("a hook that throws outside a run", () => {
 		await t.rig.rig.arrange(live.ref, { kind: "reply" });
 		await live.run("two");
 
-		t.state.throwAt = "session_before_compact";
+		t.set({ throwAt: "session_before_compact" });
 		await live.control.compact?.(undefined);
 		await t.rig.driver.quiesce();
-		t.state.throwAt = undefined;
+		t.set({ throwAt: undefined });
 
 		await t.rig.rig.arrange(live.ref, { kind: "reply" });
 		expect((await live.run("after")).outcome.kind).toBe("completed");
@@ -99,37 +100,14 @@ describe("a hook that throws outside a run", () => {
 	});
 });
 
-describe("a part of the adapter that throws while a run is being closed", () => {
-	test("the run still ends: the fault is reported and run_finished follows", async () => {
-		t = await HostRig.create();
-		const live = await t.rig.rig.openNew();
-		await t.rig.rig.arrange(live.ref, { kind: "reply" });
-		const broken = spyOn(SessionSettings.prototype, "reconcile").mockImplementation(() => {
-			throw new Error("reconcile broke");
-		});
-		try {
-			const { outcome } = await live.run("go");
-			expect(outcome.kind).toBe("completed");
-			const faults = live.events().filter((event) => event.type === "error");
-			expect(faults.map((event) => event.error.message)).toEqual(["reconcile broke"]);
-			expect(live.reduced().run).toBeUndefined();
-		} finally {
-			broken.mockRestore();
-		}
-	});
-});
-
-describe("a provider that never ends a stream", () => {
+describe("a tool that ignores Stop", () => {
 	test("Stop is answered at its deadline with the run still open, and shutdown ends inside the bridge's teardown", async () => {
 		t = await HostRig.create();
+		const gate = t.gate("toolGate");
 		const live = await t.rig.rig.openNew();
-		const other = await t.rig.rig.openNew();
-		for (const session of [live, other]) {
-			t.router.script(session.ref.sessionId, [() => new Promise<never>(() => {})]);
-			await session.prompt("go");
-			await session.waitFor("run_started");
-		}
-		await pause(50);
+		t.router.script(live.ref.sessionId, [call("ignore_abort", {}), say("never")]);
+		await live.prompt("go");
+		await gate.entered.promise;
 
 		const stopStarted = Date.now();
 		expect((await live.control.abort()).status).toBe("accepted");
@@ -142,9 +120,9 @@ describe("a provider that never ends a stream", () => {
 		await t.rig.rig.backend.dispose();
 		const downTook = Date.now() - downStarted;
 		expect(downTook).toBeGreaterThanOrEqual(SETTLE_DEADLINE_MS - 200);
-		expect(downTook).toBeLessThan(HOST_END_BUDGET_MS + 300);
+		expect(downTook).toBeLessThan(SETTLE_DEADLINE_MS + STOP_BUDGET_MS + 300);
 		expect(downTook).toBeLessThan(DEFAULT_TEARDOWN_TIMEOUT_MS);
-		expect(t.bus.liveRuntimes()).toBe(0);
+		expect(t.rig.world.sessionProcesses()).toBe(0);
 		const after = live.recorder.items.length;
 		await pause(100);
 		expect(live.recorder.items.length).toBe(after);

@@ -3,18 +3,16 @@
  * and each is handed to the mapping with what lies beside it in the file that the mapping cannot see.
  */
 
-import type { JsonObject } from "@earendil-works/pi-ai";
-import type { SessionEntry } from "@earendil-works/pi-coding-agent";
 import type { SessionRef, ToolCallId, TranscriptItem } from "../../../contract";
-import { readPromptRecord, readToolOutcomeRecord } from "../broski-entries";
 import { childSessionId, storedToolCallId } from "../ids";
 import type { EntryContext } from "../mapping/message-items";
 import { subRunsOf } from "../mapping/sub-runs";
+import type { SessionEntry } from "./entries";
 import { type EntrySpan, readEntries, type SessionFileIndex } from "./jsonl-reader";
 
 interface AnsweredCall {
 	readonly toolCallId: ToolCallId;
-	readonly input: JsonObject;
+	readonly input: Readonly<Record<string, unknown>>;
 }
 
 export type ItemsOfEntry = (entry: SessionEntry, context: EntryContext) => TranscriptItem[];
@@ -22,7 +20,7 @@ export type ItemsOfEntry = (entry: SessionEntry, context: EntryContext) => Trans
 const PREFETCH_ENTRIES = 16;
 const PREFETCH_BYTES = 4 * 1024 * 1024;
 const CACHE_BYTES = 2 * PREFETCH_BYTES;
-const RECORD_LOOK_AHEAD = 8;
+const RESULTS_LOOK_AHEAD = 8;
 
 export class BranchItems {
 	/** Entries read so far, oldest use first, at most `CACHE_BYTES` of their lines: a page reads each entry once. */
@@ -87,15 +85,13 @@ export class BranchItems {
 	private async contextOf(position: number, entry: SessionEntry): Promise<EntryContext> {
 		if (entry.type !== "message") return {};
 		const message = entry.message;
-		if (message.role === "user") {
-			const prompt = await this.recordAfter(position, readPromptRecord);
-			return prompt === undefined ? {} : { prompt };
-		}
+		const records = this.file.records.get(entry.id);
+		if (message.role === "user") return records?.prompt === undefined ? {} : { prompt: records.prompt };
 		if (message.role === "assistant") return this.childLinks(position, message.content);
 		if (message.role !== "toolResult") return {};
 		const call =
 			typeof message.toolCallId === "string" ? await this.callAnswered(position, message.toolCallId) : undefined;
-		const toolOutcome = await this.recordAfter(position, readToolOutcomeRecord);
+		const toolOutcome = records?.toolOutcome;
 		return {
 			...(call === undefined
 				? { toolCallId: storedToolCallId(entry.id, 0) }
@@ -116,7 +112,7 @@ export class BranchItems {
 			(content ?? []).flatMap((block) => (block.type === "toolCall" && "id" in block ? [String(block.id)] : [])),
 		);
 		const childSessions = new Map<string, SessionRef>();
-		for (let at = position + 1; at <= position + calls.size + RECORD_LOOK_AHEAD && calls.size > 0; at += 1) {
+		for (let at = position + 1; at <= position + calls.size + RESULTS_LOOK_AHEAD && calls.size > 0; at += 1) {
 			const span = this.branch[at];
 			if (span === undefined || (span.type === "message" && span.role !== undefined && span.role !== "toolResult"))
 				break;
@@ -129,23 +125,6 @@ export class BranchItems {
 			}
 		}
 		return childSessions.size === 0 ? {} : { childSessions };
-	}
-
-	/**
-	 * The adapter's record of the message at `position` (`broski.prompt`, `broski.tool_outcome`), appended in the
-	 * microtask after Pi persisted the message: next on the branch, after at most a few entries that are no message
-	 * (`live/persisted-entry.ts`).
-	 */
-	private async recordAfter<T>(position: number, read: (entry: SessionEntry) => T | undefined): Promise<T | undefined> {
-		for (let at = position + 1; at <= position + RECORD_LOOK_AHEAD; at += 1) {
-			const span = this.branch[at];
-			if (span === undefined || span.type === "message") return undefined;
-			if (span.type !== "custom") continue;
-			const entry = await this.entryAt(at, false);
-			const record = entry === undefined ? undefined : read(entry);
-			if (record !== undefined) return record;
-		}
-		return undefined;
 	}
 
 	/**

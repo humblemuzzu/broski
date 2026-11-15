@@ -1,14 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import type { Api, Model } from "@earendil-works/pi-ai";
-import type { CustomEntry } from "@earendil-works/pi-coding-agent";
 import { clipEnd, clipStart } from "../../backends/pi/bounds";
 import {
 	PERMISSIONS_ENTRY,
 	PROMPT_ENTRY,
-	permissionsEntryData,
-	promptEntryData,
+	type PromptRecord,
+	permissionsRecord,
+	promptRecord,
+	readEntryRecord,
 	readPermissionsRecord,
-	readPromptRecord,
 } from "../../backends/pi/broski-entries";
 import { CatalogFeed } from "../../backends/pi/catalog-feed";
 import { commandId, commandKind, commandText, parseCommandId } from "../../backends/pi/command-ids";
@@ -16,9 +15,10 @@ import { boundedJson } from "../../backends/pi/json";
 import { hasWireId, ModelTable, modelWireId } from "../../backends/pi/models/model-ids";
 import { initialPermissions, listPiModes, modeProblem } from "../../backends/pi/modes";
 import { rejected } from "../../backends/pi/rejections";
+import type { PiModel } from "../../backends/pi/rpc/replies";
+import type { CustomEntry } from "../../backends/pi/store/entries";
 import { withoutTerminalEscapes } from "../../backends/pi/terminal-text";
 import { PI_TRAITS } from "../../backends/pi/traits";
-import { plainTheme } from "../../backends/pi/ui/plain-theme";
 import {
 	Capabilities,
 	type CatalogEvent,
@@ -32,6 +32,7 @@ import {
 	ModesListed,
 	Rejected,
 } from "../../contract";
+import { plainTheme } from "./helpers/plain-theme";
 
 describe("bounded text", () => {
 	test("never splits a surrogate pair", () => {
@@ -143,19 +144,8 @@ describe("command ids", () => {
 	});
 });
 
-function model(provider: string, id: string): Model<Api> {
-	return {
-		id,
-		name: id,
-		api: "faux",
-		provider,
-		baseUrl: "http://localhost:0",
-		reasoning: false,
-		input: ["text"],
-		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-		contextWindow: 1000,
-		maxTokens: 100,
-	};
+function model(provider: string, id: string): PiModel {
+	return { id, name: id, provider, reasoning: false, input: ["text"], contextWindow: 1000 };
 }
 
 describe("model ids", () => {
@@ -188,13 +178,24 @@ describe("the broski.prompt entry", () => {
 		return { type: "custom", id: "a1b2c3d4", parentId: null, timestamp: "2026-01-01T00:00:00.000Z", customType, data };
 	}
 
-	test("reads back what was written", () => {
+	/** The prompt record of an entry whose data is `data`, naming entry `e1`. */
+	function readPromptRecord(candidate: CustomEntry): PromptRecord | undefined {
+		return readEntryRecord(candidate)?.records.prompt;
+	}
+
+	test("reads back what was written, for the entry it names", () => {
 		const record = { clientRequestId, imageNames: ["pixel.png", null] };
-		expect(readPromptRecord(entry(promptEntryData(record)))).toEqual(record);
+		const written = promptRecord("e1", record);
+		expect(readEntryRecord(entry(written.data, written.customType))).toEqual({
+			entryId: "e1",
+			records: { prompt: record },
+		});
 	});
 
 	test("the permissions entry reads back its mode and the tools allowed for the session, and nothing else", () => {
-		expect(readPermissionsRecord(entry(permissionsEntryData("ask", ["bash"]), PERMISSIONS_ENTRY))).toEqual({
+		expect(
+			readPermissionsRecord(entry(permissionsRecord({ mode: "ask", allowedTools: ["bash"] }).data, PERMISSIONS_ENTRY)),
+		).toEqual({
 			mode: "ask",
 			allowedTools: ["bash"],
 		});
@@ -206,13 +207,16 @@ describe("the broski.prompt entry", () => {
 	});
 
 	test("anything else is no record", () => {
-		expect(readPromptRecord(entry({ clientRequestId, imageNames: [] }, "other"))).toBeUndefined();
-		expect(readPromptRecord(entry({ clientRequestId: "not-a-uuid", imageNames: [] }))).toBeUndefined();
-		expect(readPromptRecord(entry({ clientRequestId }))).toBeUndefined();
-		expect(readPromptRecord(entry({ clientRequestId, imageNames: [3] }))).toBeUndefined();
-		expect(readPromptRecord(entry({ clientRequestId, imageNames: ["n".repeat(MAX_NAME_CHARS + 1)] }))).toBeUndefined();
+		const entryId = "e1";
+		expect(readPromptRecord(entry({ entryId, clientRequestId, imageNames: [] }, "other"))).toBeUndefined();
+		expect(readPromptRecord(entry({ clientRequestId, imageNames: [] }))).toBeUndefined();
+		expect(readPromptRecord(entry({ entryId, clientRequestId: "not-a-uuid", imageNames: [] }))).toBeUndefined();
+		expect(readPromptRecord(entry({ entryId, clientRequestId }))).toBeUndefined();
+		expect(readPromptRecord(entry({ entryId, clientRequestId, imageNames: [3] }))).toBeUndefined();
+		const longName = "n".repeat(MAX_NAME_CHARS + 1);
+		expect(readPromptRecord(entry({ entryId, clientRequestId, imageNames: [longName] }))).toBeUndefined();
 		const tooMany = Array.from({ length: MAX_LIST_ITEMS + 1 }, () => null);
-		expect(readPromptRecord(entry({ clientRequestId, imageNames: tooMany }))).toBeUndefined();
+		expect(readPromptRecord(entry({ entryId, clientRequestId, imageNames: tooMany }))).toBeUndefined();
 		expect(readPromptRecord(entry(null))).toBeUndefined();
 	});
 });

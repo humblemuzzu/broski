@@ -1,36 +1,73 @@
 /**
- * A new session's file, written when the session is created. Pi writes a new session's file only with its first user
- * or assistant message (`_persist`, pi-coding-agent `src/core/session-manager.ts:1172-1190`), so a session nobody
- * prompted would leave no trace once its host ended, and its id would answer `not_found` (contract README §4: the id
- * is stable for the session's life). Pi creates that file with `openSync(path, "wx")`: had anyone else created it
- * first, its first append would throw `EEXIST`. So the file is written here exactly as that first flush writes it
- * (the header and the entries so far, one line each, `"wx"`), and the session is opened from it with
- * `SessionManager.open`, which loads an existing file as already flushed (`_setSessionFile`, `:1029-1050`): Pi appends
- * to it from then on, as to any session resumed in the terminal.
+ * A new session's file, written by the bridge before its `pi` starts on it (`pi --session <file>`). Pi writes a new
+ * session's file only with its first message, so a session nobody prompted would leave no trace and its id would answer
+ * `not_found` (contract README §4: the id is stable for the session's life). The file holds the header and the entries
+ * so far, as Pi writes them (pi-coding-agent 1.5.2 `docs/session-format.md:62-207`): the bridge's `broski.origin`
+ * record and the session's permissions mode. Pi chooses the model of a session that holds no message itself as it opens
+ * it, so a model the phone asked for is set once the session runs (`session-hosts.ts`).
  */
 
-import { open } from "node:fs/promises";
-import { SessionManager } from "@earendil-works/pi-coding-agent";
-import { ORIGIN_ENTRY, PERMISSIONS_ENTRY, permissionsEntryData } from "../broski-entries";
+import { mkdir, open } from "node:fs/promises";
+import { join } from "node:path";
+import { ORIGIN_ENTRY, PERMISSIONS_ENTRY } from "../broski-entries";
 import type { PermissionsMode } from "../modes";
+import { CURRENT_SESSION_VERSION, type SessionHeader } from "../store/entries";
+import { freshEntryId } from "../store/fork-entries";
+import { uuidv7 } from "../store/uuidv7";
 
-export async function createSessionFile(
-	cwd: string,
-	sessionDir: string,
-	permissions: PermissionsMode,
-): Promise<SessionManager> {
-	const draft = SessionManager.create(cwd, sessionDir);
-	draft.appendCustomEntry(ORIGIN_ENTRY);
-	if (permissions !== "off") draft.appendCustomEntry(PERMISSIONS_ENTRY, permissionsEntryData(permissions, []));
-	const path = draft.getSessionFile();
-	const header = draft.getHeader();
-	if (path === undefined || header === null) throw new Error("Pi gave the new session no file");
-	const lines = [header, ...draft.getEntries()].map((entry) => `${JSON.stringify(entry)}\n`).join("");
+export interface NewSessionPlan {
+	readonly cwd: string;
+	readonly directory: string;
+	readonly permissions: PermissionsMode;
+	readonly now: number;
+}
+
+export interface NewSessionFile {
+	readonly sessionId: string;
+	readonly path: string;
+	readonly lastEntryId: string;
+}
+
+export async function createSessionFile(plan: NewSessionPlan): Promise<NewSessionFile> {
+	const timestamp = new Date(plan.now).toISOString();
+	const header: SessionHeader = {
+		type: "session",
+		version: CURRENT_SESSION_VERSION,
+		id: uuidv7(plan.now),
+		timestamp,
+		cwd: plan.cwd,
+	};
+	const entries = chained(plan, timestamp);
+	const path = join(plan.directory, `${timestamp.replace(/[:.]/g, "-")}_${header.id}.jsonl`);
+	await mkdir(plan.directory, { recursive: true });
 	const file = await open(path, "wx");
 	try {
-		await file.writeFile(lines);
+		await file.writeFile([header, ...entries].map((line) => `${JSON.stringify(line)}\n`).join(""));
 	} finally {
 		await file.close();
 	}
-	return SessionManager.open(path, sessionDir);
+	return { sessionId: header.id, path, lastEntryId: entries.at(-1)?.id ?? "" };
+}
+
+type Line = {
+	readonly type: string;
+	readonly id: string;
+	readonly parentId: string | null;
+	readonly timestamp: string;
+};
+
+function chained(plan: NewSessionPlan, timestamp: string): Line[] {
+	const bodies: Record<string, unknown>[] = [{ type: "custom", customType: ORIGIN_ENTRY }];
+	if (plan.permissions !== "off") {
+		bodies.push({ type: "custom", customType: PERMISSIONS_ENTRY, data: { mode: plan.permissions, allowedTools: [] } });
+	}
+	const taken = new Set<string>();
+	let parentId: string | null = null;
+	return bodies.map((body) => {
+		const id = freshEntryId(taken);
+		taken.add(id);
+		const line: Line = { ...body, type: String(body.type), id, parentId, timestamp };
+		parentId = id;
+		return line;
+	});
 }

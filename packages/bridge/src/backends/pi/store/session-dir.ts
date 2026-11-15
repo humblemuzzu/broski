@@ -1,5 +1,5 @@
 /**
- * Where Pi keeps a cwd's sessions, resolved as the `pi` command resolves it (D7), without creating
+ * Where Pi keeps a cwd's sessions, resolved as the `pi` command resolves it, without creating
  * anything: `PI_CODING_AGENT_SESSION_DIR` > the `sessionDir` setting > `<agentDir>/sessions/--<cwd>--`
  * (pi-coding-agent `src/main.ts:691-695`). An explicit directory holds every cwd's files, flat.
  *
@@ -10,11 +10,10 @@
  */
 
 import { readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
-import { homedir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { isDirectory } from "../is-directory";
-import { isProjectTrusted } from "../project-settings";
+import { expandPath } from "../pi-paths";
+import { savedTrust } from "./trust-file";
 
 const SESSION_DIR_ENV = "PI_CODING_AGENT_SESSION_DIR";
 
@@ -53,7 +52,7 @@ export function piSessionDirs(agentDir: string): SessionDirs {
 	const projects = new Map<string, string>();
 
 	const trustedFor = (cwd: string): boolean =>
-		Boolean(process.env[SESSION_DIR_ENV]) || !settings.namedByProject(cwd) || isProjectTrusted(cwd, agentDir);
+		Boolean(process.env[SESSION_DIR_ENV]) || !settings.namedByProject(cwd) || settings.projectTrusted(cwd);
 	const configured = (cwd: string | undefined): string | undefined => {
 		const fromEnv = process.env[SESSION_DIR_ENV];
 		return fromEnv ? expandPath(fromEnv) : settings.sessionDirFor(cwd);
@@ -109,7 +108,7 @@ export function piSessionDirs(agentDir: string): SessionDirs {
 	};
 }
 
-/** `cwd` through `realpath`, or resolved as given when it does not exist; compared on both sides (D7). */
+/** `cwd` through `realpath`, or resolved as given when it does not exist; compared on both sides. */
 export function canonicalCwd(cwd: string): string {
 	const resolved = resolve(cwd);
 	try {
@@ -124,49 +123,64 @@ function defaultDirOf(sessionsRoot: string, cwd: string): string {
 	return join(sessionsRoot, `--${cwd.replace(/^[/\\]/, "").replace(/[/\\:]/g, "-")}--`);
 }
 
-interface CachedSetting {
+interface CachedSettings {
 	readonly signature: string;
-	/** The file's `sessionDir` as written: undefined when the file or the key is missing or unreadable. */
-	readonly value: unknown;
+	/** The file's settings as written: undefined when the file is missing or unreadable. */
+	readonly settings: Readonly<Record<string, unknown>> | undefined;
 }
 
 /**
- * The `sessionDir` setting as the CLI's startup `SettingsManager` merges it: the project file's key replaces the
- * global one's whenever it is present (`deepMergeObjects`, pi-coding-agent `src/core/settings-manager.ts:65-82`),
- * and the project file counts whether or not the project is trusted. The files are parsed here, not through
- * `SettingsManager`, because that locks each file it reads by creating a `.lock` directory beside it,
- * and a read must not write into the user's agent directory or project.
+ * The settings the store reads, as the CLI's startup settings merge them: the project file's `sessionDir` replaces the
+ * global one's whenever it is present, and the project file counts whether or not the project is trusted
+ * (pi-coding-agent 1.5.2 `docs/security.md:31`); `defaultProjectTrust` is read from the global file only
+ * (`docs/settings.md:36`). The files are parsed here: a read must not write into the user's agent directory or project,
+ * and Pi's own settings storage locks each file it reads by creating a `.lock` directory beside it.
  */
 class SettingsDirs {
-	private readonly files = new Map<string, CachedSetting>();
+	private readonly files = new Map<string, CachedSettings>();
 
 	constructor(private readonly agentDir: string) {}
 
 	/** For the project at `cwd`, or for the global file alone when `cwd` is undefined. */
 	sessionDirFor(cwd: string | undefined): string | undefined {
-		const global = this.valueIn(join(this.agentDir, "settings.json"));
-		const project = cwd === undefined ? undefined : this.projectValue(cwd);
+		const global = this.globalSettings()?.sessionDir;
+		const project = cwd === undefined ? undefined : this.projectSessionDir(cwd);
 		const merged = project === undefined ? global : project;
 		return typeof merged === "string" && merged.length > 0 ? expandPath(merged) : undefined;
 	}
 
 	/** Whether the project file at `cwd` holds the `sessionDir` key, which then replaces the global one. */
 	namedByProject(cwd: string): boolean {
-		return this.projectValue(cwd) !== undefined;
+		return this.projectSessionDir(cwd) !== undefined;
 	}
 
-	private projectValue(cwd: string): unknown {
-		return this.valueIn(join(cwd, ".pi", "settings.json"));
+	/**
+	 * A project that names its own sessions directory has a `.pi/settings.json`, so it needs a trust decision: the saved
+	 * one for it or its nearest parent, else `defaultProjectTrust: "always"`; `"ask"` and `"never"` distrust it when
+	 * nobody can be asked (`docs/security.md:59-80`). Extensions' `project_trust` handlers are not run.
+	 */
+	projectTrusted(cwd: string): boolean {
+		const saved = savedTrust(cwd, this.agentDir);
+		if (saved !== null) return saved === true;
+		return this.globalSettings()?.defaultProjectTrust === "always";
 	}
 
-	private valueIn(path: string): unknown {
+	private globalSettings(): Readonly<Record<string, unknown>> | undefined {
+		return this.settingsIn(join(this.agentDir, "settings.json"));
+	}
+
+	private projectSessionDir(cwd: string): unknown {
+		return this.settingsIn(join(cwd, ".pi", "settings.json"))?.sessionDir;
+	}
+
+	private settingsIn(path: string): Readonly<Record<string, unknown>> | undefined {
 		const signature = fileSignature(path);
 		const known = this.files.get(path);
-		if (known?.signature === signature) return this.remember(path, known).value;
-		return this.remember(path, { signature, value: signature === "-" ? undefined : readSessionDirKey(path) }).value;
+		if (known?.signature === signature) return this.remember(path, known).settings;
+		return this.remember(path, { signature, settings: signature === "-" ? undefined : readSettings(path) }).settings;
 	}
 
-	private remember(path: string, setting: CachedSetting): CachedSetting {
+	private remember(path: string, setting: CachedSettings): CachedSettings {
 		this.files.delete(path);
 		this.files.set(path, setting);
 		for (const oldest of this.files.keys()) {
@@ -177,12 +191,10 @@ class SettingsDirs {
 	}
 }
 
-function readSessionDirKey(path: string): unknown {
+function readSettings(path: string): Readonly<Record<string, unknown>> | undefined {
 	try {
 		const parsed: unknown = JSON.parse(readFileSync(path, "utf8").replace(/^\uFEFF/, ""));
-		return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed) && "sessionDir" in parsed
-			? parsed.sessionDir
-			: undefined;
+		return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed) ? { ...parsed } : undefined;
 	} catch {
 		return undefined;
 	}
@@ -194,21 +206,6 @@ function fileSignature(path: string): string {
 		return `${stats.mtimeMs}:${stats.size}:${stats.ino}`;
 	} catch {
 		return "-";
-	}
-}
-
-/**
- * `~`, `~/…` and `file://` as `normalizePath` expands them (pi-coding-agent `src/utils/paths.ts:59-80`). A `file:` URL
- * that names no local path (`file://host/x`) throws in Pi; here it names no directory, as if the setting were absent.
- */
-function expandPath(path: string): string | undefined {
-	if (path === "~") return homedir();
-	if (path.startsWith("~/")) return join(homedir(), path.slice(2));
-	if (!path.startsWith("file://")) return path;
-	try {
-		return fileURLToPath(path);
-	} catch {
-		return undefined;
 	}
 }
 

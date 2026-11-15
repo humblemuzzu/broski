@@ -16,23 +16,26 @@ const values = (spec: ThinkingSpec) => spec.options.map((option) => option.value
 
 describe("thinkingSpec", () => {
 	test("offers exactly the levels Pi supports for a reasoning model", () => {
-		const spec = thinkingSpec(model(true), undefined);
+		const spec = thinkingSpec(model(true), "medium");
 		expect(values(spec)).toEqual(["off", "minimal", "low", "medium", "high"]);
 		expect(spec.defaultValue).toBe("medium");
 	});
 
 	test("offers a model without `off` its own levels and never `off`", () => {
-		const spec = thinkingSpec(model(true, { off: null }), undefined);
+		const spec = thinkingSpec(model(true, { off: null }), "medium");
 		expect(values(spec)).toEqual(["minimal", "low", "medium", "high"]);
 		expect(spec.defaultValue).toBe("medium");
 	});
 
-	test("clamps the user's default to the model, upward first as Pi does", () => {
+	// The level comes from Pi (`get_state`), which has clamped it to the model already; the bridge names it only when the
+	// model offers it, and guesses none.
+	test("names the level Pi runs at as the default only when the model offers it", () => {
 		const noOff = model(true, { off: null });
-		expect(thinkingSpec(noOff, "off").defaultValue).toBe("minimal");
-		expect(thinkingSpec(model(true), "xhigh").defaultValue).toBe("high");
+		expect(thinkingSpec(noOff, "off")).not.toHaveProperty("defaultValue");
+		expect(thinkingSpec(model(true), "xhigh")).not.toHaveProperty("defaultValue");
 		expect(thinkingSpec(model(true, { xhigh: "x-high" }), "xhigh").defaultValue).toBe("xhigh");
 		expect(thinkingSpec(model(true), "high").defaultValue).toBe("high");
+		expect(thinkingSpec(model(true), undefined)).not.toHaveProperty("defaultValue");
 	});
 
 	test("a model that can only think `off` has no thinking to set", () => {

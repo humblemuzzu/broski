@@ -7,7 +7,7 @@ your Mac, answer their permission prompts and questions, and watch sessions star
 your phone.
 
 ```
-Phone (native app, Phase 4) ←Broski Link (Noise e2e; LAN or relay)→ broski-link daemon (Rust, your Mac) ←unix socket→ Bridge (Bun/TS) ←SDK→ {Claude Code, Pi}
+Phone (native app, Phase 4) ←Broski Link (Noise e2e; LAN or relay)→ broski-link daemon (Rust, your Mac) ←unix socket→ Bridge (Bun/TS) ←SDK / RPC→ {Claude Code, Pi}
 ```
 
 The repository is mid-rebuild on branch `rebuild` (plan: [`docs/rebuild/PLAN.md`](docs/rebuild/PLAN.md)). The
@@ -41,7 +41,7 @@ native apps.
   Noise end-to-end encryption (hybrid X25519 + ML-KEM-768) with the machine fingerprint pinned from the QR,
   per-device revocable authorisation on the daemon, and the bridge link key. Design docs:
   `docs/architecture/connectivity-v2/`.
-- **Agents:** Claude Code and Pi, nothing else. The bridge drives the user's own installed `claude`; it never
+- **Agents:** Claude Code and Pi, nothing else. The bridge drives the user's own installed `claude` and `pi`; it never
   bundles an agent binary.
 
 ### Security context for audits
@@ -123,7 +123,7 @@ The wire shape between bridge and phone is the backend contract in `packages/bri
 packages/bridge/src/
   contract/      the backend contract: zod schemas, reducer, answer check, conformance kit (testing/)
   core/          the bridge core on the contract
-  backends/pi/   the Pi adapter (Pi SDK in process; Phase 2 moves it to `pi --mode rpc`)
+  backends/pi/   the Pi adapter (one `pi --mode rpc` per hosted session; no Pi package imported)
   backends/claude-code/  the Claude Code adapter (Claude Agent SDK driving the user's `claude`)
   server/        wiring: listeners, the contract seam, the link feed, the Claude Code hook receiver
   workspace/     files, git and PTY, protocol-free; Phase 3 serves them over the contract
@@ -145,11 +145,14 @@ Keep files under 400 lines and functions under 50; a new concern gets a new file
   another, such as the user's) against a scripted endpoint in a temp home, with an SDK bound to that home
   (`isolatedClaudeSdk`), and never touch the real `~/.claude`. After a pin bump, re-record the frame fixtures
   (`CC_SPIKE_RECORD=1`). The installed `.d.ts` wins over any doc.
-- **Pi** (`@earendil-works/pi-coding-agent` 1.4.0, with `pi-ai` / `pi-agent-core` 1.4.0, exact pins). Models and auth
-  come from `~/.pi/agent` through `ModelRuntime`; a listing calls `refresh({ allowNetwork: false })` and reads
-  `getAvailable()`, as `pi --list-models` does (`backends/pi/models/model-runtime.ts`). `enabledModels` is resolved by
-  `resolveModelScopeWithDiagnostics()` — never parse `settings.json` by hand.
-- Use the SDK's exported types; never `as any`. Do not keep fallbacks for an SDK's old response shapes.
+- **Pi** runs as the user's own `pi` (config `pi.cliPath`, else `PATH`; `server/pi-cli-path.ts`), driven over
+  `pi --mode rpc`; production code imports no `@earendil-works` package (`check:layers`), except the extension the
+  adapter writes for `pi` (`backends/pi/host/extension/`), read by the rest only as text. Models, commands and settings
+  come from Pi itself (`get_available_models`, `get_commands`, `get_state`). `@earendil-works/pi-coding-agent` 1.5.2 is
+  an exact devDependency: the tests run its `pi`, and the docs and `dist/` of that version are where Pi facts are checked
+  ([`docs/architecture/backends/pi/README.md`](docs/architecture/backends/pi/README.md)).
+- Use the SDK's exported types (Pi's RPC frames: the zod schemas in `backends/pi/rpc/`); never `as any`. Do not keep
+  fallbacks for an agent's old response shapes.
 
 ## Build and test
 
@@ -182,7 +185,8 @@ when link files are.
   (config paths, the Pi adapter's `agentDir` / `$PI_CODING_AGENT_DIR`). `safety/real-home-guard` fails a test that
   reaches the real home.
 - **Drive a real agent with a scripted model, not a mock of it**: the scripted OpenAI- and Anthropic-compatible
-  endpoints in `__tests__/helpers/`, Pi's faux provider in a throwaway agent dir.
+  endpoints in `__tests__/helpers/`; for Pi, the devDependency's real `pi` against the OpenAI-compatible one, registered in
+  a throwaway agent dir's `models.json`.
 - **Bound long scripts over real data** with a memory watchdog.
 - Delete tests whose subject was deleted; write tests that prove behaviour at a real seam, not to raise a count.
 

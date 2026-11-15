@@ -3,7 +3,6 @@
  * interactions can be built apart and joined in `backend.ts`.
  */
 
-import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
 import type {
 	ActionResult,
 	AttachmentId,
@@ -24,12 +23,9 @@ import type {
 	SessionsListResult,
 	TranscriptReadResult,
 } from "../../contract";
+import type { PermissionsRecord } from "./broski-entries";
 import type { ToolCallIds } from "./ids";
 import type { LiveState } from "./live/live-state";
-import type { PermissionsMode } from "./modes";
-
-/** One member of Pi's session event union (pi-coding-agent `dist/core/agent-session.d.ts:47-109`). */
-export type PiEvent<T extends AgentSessionEvent["type"]> = Extract<AgentSessionEvent, { type: T }>;
 
 /** While a run is active the transcript ends at the entry that was the leaf when it started (README §8). */
 export interface TranscriptCut {
@@ -61,6 +57,14 @@ export interface StoredSession {
 	readonly origin: SessionOrigin;
 }
 
+/** What a session file says that its host starts from. */
+export interface StoredFacts {
+	/** The file's last entry: where Pi opens the session. */
+	readonly lastEntryId: string | null;
+	readonly permissions: PermissionsRecord;
+	readonly summary: SessionSummary | undefined;
+}
+
 /**
  * Everything read from or written to session files without a live `AgentSession` (`store/`). Its
  * mutations are for sessions nobody hosts; a hosted session is written only through its host.
@@ -71,7 +75,9 @@ export interface SessionStore {
 	transcript(sessionId: SessionId, page: PageRequest, live: LiveOverlay): Promise<TranscriptReadResult>;
 	attachment(sessionId: SessionId, attachment: AttachmentId): Promise<AttachmentReadResult>;
 	locate(sessionId: SessionId): Promise<StoredSession | Rejected>;
-	/** Where a new session of `cwd` is written, as the `pi` command would write it (D7). */
+	/** Read once, as a host starts from the file. */
+	facts(session: StoredSession): Promise<StoredFacts | Rejected>;
+	/** Where a new session of `cwd` is written, as the `pi` command would write it. */
 	sessionDirFor(cwd: string): string;
 	/** `name` is `sessionName`'s. */
 	rename(sessionId: SessionId, name: string): Promise<ActionResult>;
@@ -98,7 +104,10 @@ export interface AskHost {
 	readonly live: LiveState;
 	/** The run an ask raised now belongs to: the active one, or the one a prompt Pi is still deciding starts now. */
 	activeRun(): RunContext | undefined;
-	/** The ask comes from an extension command the phone started (`live/command-scope.ts`), which no run owns. */
+	/**
+	 * Pi gives a dialog no origin: one raised while an extension command the phone sent is still running is taken to be
+	 * that command's, which no run owns, even while a run is active. A permission ask is always its tool call's.
+	 */
 	inCommand(): boolean;
 	/** Ends the active run, as a `cancel{stopRun}` answer or a gate's deny-and-stop asks. */
 	abortRun(): void;
@@ -114,18 +123,10 @@ export interface InteractionPort {
 	/** The run `runId` ended: an ask of it still pending is no longer the run's and goes on waiting on its own. */
 	releaseRun(runId: RunId): void;
 	/**
-	 * The bridge is shutting down: every ask resolves with Pi's default and is reported `expired`, and
-	 * every later ask ends at once, since `runtime.dispose()` still runs extensions' `session_shutdown`.
+	 * The session's `pi` is ending: every ask resolves with Pi's default and is reported `expired`, and every later ask
+	 * ends at once, since Pi still runs extensions' `session_shutdown` as it goes.
 	 */
 	expireAll(): void;
-}
-
-/** What the permission gate (`ui/permission-gate.ts`) reads from its session and tells it. */
-export interface GateHost {
-	permissions(): PermissionsMode;
-	/** The human allowed `toolName` for the whole session. */
-	allowed(toolName: string): boolean;
-	allowForSession(toolName: string): void;
 }
 
 /** A terminal `pi` that has a session open and is connected through the Broski link extension (`terminal/`). */

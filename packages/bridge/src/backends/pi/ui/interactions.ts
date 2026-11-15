@@ -1,7 +1,8 @@
 /**
- * One hosted session's pending asks (D13, D14): each becomes an `Interaction` in the live state, waits
- * for a human, the extension's own `timeout` or `signal`, the run's end, or the bridge's shutdown, and
- * resolves exactly once. No timer of the adapter's own ever answers one.
+ * One hosted session's pending asks: each becomes an `Interaction` in the live state, waits for a human, the end Pi
+ * gives the dialog itself, the run's abort or the bridge's shutdown, and resolves exactly once. Nothing here answers
+ * for the human: a dialog's `timeout` is Pi's own, which ends the dialog in Pi with its default
+ * (pi-coding-agent 1.5.2 `docs/rpc-extension-ui.md:10`), and the ask is withdrawn when it does.
  */
 
 import {
@@ -32,12 +33,6 @@ export interface AskSpec {
 	readonly replyProblem?: (reply: InteractionReply) => string | undefined;
 }
 
-/** Pi's `ExtensionUIDialogOptions` (pi-coding-agent `dist/core/extensions/types.d.ts:40-45`). */
-export interface AskOptions {
-	readonly signal?: AbortSignal;
-	readonly timeoutMs?: number;
-}
-
 /** `ended`: withdrawn, expired or timed out, so the asker answers Pi with its default. */
 export type AskOutcome = { readonly kind: "answered"; readonly reply: InteractionReply } | { readonly kind: "ended" };
 
@@ -64,14 +59,14 @@ export class InteractionDesk implements InteractionPort {
 	/**
 	 * Inside a run the ask names it and blocks it; an extension command's ask does neither (`AskHost.inCommand`).
 	 * Otherwise the host decides which run that is (`AskHost.activeRun`), and may start one for a prompt Pi is still
-	 * deciding. It ends at once, asking nobody, when the signal is already aborted (as Pi's RPC mode does,
-	 * pi-coding-agent `dist/modes/rpc/rpc-mode.js:48-49`), after `expireAll`, and when `MAX_LIST_ITEMS` asks are open.
+	 * deciding. It ends at once, asking nobody, after `expireAll` and when `MAX_LIST_ITEMS` asks are open.
+	 * `piTimeoutMs` is the dialog's own `timeout`, after which Pi has answered it.
 	 */
-	ask(spec: AskSpec, options: AskOptions): Promise<AskOutcome> {
-		if (this.closed || options.signal?.aborted || this.pending.size >= MAX_LIST_ITEMS) return Promise.resolve(ENDED);
+	ask(spec: AskSpec, piTimeoutMs?: number): Promise<AskOutcome> {
+		if (this.closed || this.pending.size >= MAX_LIST_ITEMS) return Promise.resolve(ENDED);
 		const run = spec.run ?? (this.host.inCommand() ? undefined : this.host.activeRun());
 		const createdAt = this.host.now();
-		const timeoutMs = usableTimeout(options.timeoutMs);
+		const timeoutMs = usableTimeout(piTimeoutMs);
 		const interaction: Interaction = {
 			id: mintInteractionId(),
 			...(run !== undefined && { runId: run.runId }),
@@ -89,13 +84,9 @@ export class InteractionDesk implements InteractionPort {
 				interaction,
 				replyProblem: spec.replyProblem,
 				settle,
-				release: () => {
-					clearTimeout(timer);
-					options.signal?.removeEventListener("abort", end);
-				},
+				release: () => clearTimeout(timer),
 			};
 			const end = () => this.finish(entry.interaction.id, ENDED, "withdrawn");
-			options.signal?.addEventListener("abort", end, { once: true });
 			this.pending.set(interaction.id, entry);
 			this.host.live.emit({ type: "interaction_requested", interaction });
 		});
@@ -167,7 +158,7 @@ export class InteractionDesk implements InteractionPort {
 }
 
 /**
- * Pi starts a timer only for a positive `timeout` (pi-coding-agent `dist/modes/rpc/rpc-mode.js:64`);
+ * Pi starts a timer only for a positive `timeout` (pi-coding-agent 1.5.2 `dist/modes/rpc/rpc-mode.js:68-73`);
  * the contract's `expiresAt` is a whole number.
  */
 function usableTimeout(timeoutMs: number | undefined): number | undefined {

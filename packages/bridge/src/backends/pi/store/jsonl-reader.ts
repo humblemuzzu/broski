@@ -1,18 +1,19 @@
 /**
- * Reads a Pi session file without writing it (D6): LF-split line spans, the header, each entry by its
+ * Reads a Pi session file without writing it: LF-split line spans, the header, each entry by its
  * byte span, migration in memory, and the branch to a leaf walked with a visited set.
  */
 
 import type { FileHandle } from "node:fs/promises";
-import { CURRENT_SESSION_VERSION, type SessionEntry, type SessionHeader } from "@earendil-works/pi-coding-agent";
 import { MAX_ID_CHARS } from "../../../contract";
+import { type EntryRecords, readEntryRecord } from "../broski-entries";
 import { isUsableEntryId } from "../ids";
+import { CURRENT_SESSION_VERSION, type SessionEntry, type SessionHeader } from "./entries";
 import { asRecord, type LineKind, lineKind, parseJson, stringOf } from "./entry-line";
 import { type LineVisitor, readText, type ScannedLine, type ScanSignal, scanLines } from "./line-scanner";
 import { isSessionEntry, positionalId, toCurrentVersion } from "./migration";
 import { openRegularFile } from "./open-file";
 
-/** A file's identity at one moment; an index read at another stamp is stale (D7). */
+/** A file's identity at one moment; an index read at another stamp is stale. */
 export interface FileStamp {
 	readonly size: number;
 	readonly mtimeMs: number;
@@ -52,6 +53,8 @@ export interface SessionFileIndex {
 	readonly headerEnd: number;
 	readonly entries: readonly EntrySpan[];
 	readonly byId: ReadonlyMap<string, number>;
+	/** What the bridge's records in the file say about an entry, by the entry's id (`broski-entries.ts`). */
+	readonly records: ReadonlyMap<string, EntryRecords>;
 }
 
 /**
@@ -116,6 +119,7 @@ class SpanIndexer {
 	version = 3;
 	headerEnd = 0;
 	readonly entries: EntrySpan[] = [];
+	readonly records = new Map<string, EntryRecords>();
 	tooMany = false;
 	private ordinal = 0;
 
@@ -128,6 +132,7 @@ class SpanIndexer {
 		this.ordinal += 1;
 		const span = this.spanOf(kind, line);
 		if (span !== undefined) this.entries.push(span);
+		if (kind.type === "custom") await this.noteRecord(kind, line);
 		if (this.entries.length <= MAX_INDEXED_ENTRIES) return undefined;
 		this.tooMany = true;
 		return "stop";
@@ -142,6 +147,13 @@ class SpanIndexer {
 		this.headerEnd = line.offset + line.length;
 		this.version = parsed.version ?? 1;
 		return undefined;
+	}
+
+	private async noteRecord(kind: LineKind, line: ScannedLine): Promise<void> {
+		const record = kind.record ?? asRecord(parseJson((await readText(this.handle, line.offset, line.length)) ?? ""));
+		const found = record === undefined ? undefined : readEntryRecord({ ...record, type: kind.type });
+		if (found === undefined) return;
+		this.records.set(found.entryId, { ...this.records.get(found.entryId), ...found.records });
 	}
 
 	private spanOf(kind: LineKind, line: ScannedLine): EntrySpan | undefined {
@@ -195,6 +207,7 @@ function fileIndex(path: string, stats: FileStamp, indexer: SpanIndexer, header:
 		headerEnd: indexer.headerEnd,
 		entries: indexer.entries,
 		byId,
+		records: indexer.records,
 	};
 }
 
@@ -230,7 +243,7 @@ async function entryAt(
 	return toCurrentVersion(index.version, span.ordinal, value);
 }
 
-/** The entries from the root to `leafEntryId`, oldest first; a parent cycle or a missing parent ends the walk (D6). */
+/** The entries from the root to `leafEntryId`, oldest first; a parent cycle or a missing parent ends the walk. */
 export function branchTo(index: SessionFileIndex, leafEntryId: string | null): EntrySpan[] {
 	const branch: EntrySpan[] = [];
 	const seen = new Set<number>();

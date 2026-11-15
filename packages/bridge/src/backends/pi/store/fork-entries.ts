@@ -5,10 +5,8 @@
  */
 
 import { randomUUID } from "node:crypto";
-import type { SessionEntry } from "@earendil-works/pi-coding-agent";
+import type { LabelEntry } from "./entries";
 import { type EntrySpan, readEntries, type SessionFileIndex } from "./jsonl-reader";
-
-type LabelEntry = Extract<SessionEntry, { type: "label" }>;
 
 /** One entry of the branch as the fork writes it. */
 export interface ForkedEntry {

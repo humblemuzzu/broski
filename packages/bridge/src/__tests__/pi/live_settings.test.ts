@@ -7,8 +7,8 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ModelSummary } from "../../contract";
-import { FAUX_MODEL_IDS, wireIdOf } from "./helpers/faux-models";
 import { LiveRig } from "./helpers/live-rig";
+import { MODELS, wireIdOf } from "./helpers/pi-world";
 import { sessionEntries } from "./helpers/session-files";
 import { useWatchdog } from "./helpers/use-watchdog";
 
@@ -36,7 +36,7 @@ describe("a model switched mid-run", () => {
 		t = await LiveRig.create();
 		const settings = join(t.world.env.agentDir, "settings.json");
 		const before = readFileSync(settings, "utf8");
-		const reasoner = await modelNamed(t, FAUX_MODEL_IDS.reasoner);
+		const reasoner = await modelNamed(t, MODELS.reasoner);
 		const live = await t.rig.openNew({ modelId: reasoner.id });
 		await t.rig.arrange(live.ref, { kind: "echo_model" });
 		await live.prompt("Which model?");
@@ -44,19 +44,19 @@ describe("a model switched mid-run", () => {
 		expect(first.text).toBe(reasoner.id);
 
 		const mark = live.recorder.items.length;
-		const noOff = await modelNamed(t, FAUX_MODEL_IDS.noOff);
+		const noOff = await modelNamed(t, MODELS.noOff);
 		expect((await live.control.setModel(noOff.id)).status).toBe("accepted");
 		const changed = await live.waitFor("model_changed", (event) => event.modelId === noOff.id, mark);
 		expect(values(noOff)).toContain(changed.thinking ?? "");
 		expect(live.reduced().run).toBeDefined();
 
-		t.bus.release(live.ref.sessionId);
+		t.router.release(live.ref.sessionId);
 		await live.waitFor("run_finished");
 		const echoed = live.events().flatMap((event) => (event.type === "block_finished" ? [event.text] : []));
 		expect(echoed).toEqual([reasoner.id, noOff.id]);
 		expect(
 			sessionEntries(t.fileOf(live.ref)).some(
-				(entry) => entry.type === "model_change" && entry.modelId === FAUX_MODEL_IDS.noOff,
+				(entry) => entry.type === "model_change" && entry.modelId === MODELS.noOff,
 			),
 		).toBe(true);
 		await t.backend.dispose();
@@ -67,7 +67,7 @@ describe("a model switched mid-run", () => {
 		t = await LiveRig.create();
 		const settings = join(t.world.env.agentDir, "settings.json");
 		const before = readFileSync(settings, "utf8");
-		const reasoner = await modelNamed(t, FAUX_MODEL_IDS.reasoner);
+		const reasoner = await modelNamed(t, MODELS.reasoner);
 		const live = await t.rig.openNew({ modelId: reasoner.id });
 		const level = values(reasoner).find((value) => value !== live.initial.thinking);
 		if (level === undefined) throw new Error("the reasoner offers one thinking value");
@@ -81,7 +81,7 @@ describe("a model switched mid-run", () => {
 describe("thinking on a model without off", () => {
 	test("its levels leave out off, off is refused, and switching models keeps the level valid", async () => {
 		t = await LiveRig.create();
-		const noOff = await modelNamed(t, FAUX_MODEL_IDS.noOff);
+		const noOff = await modelNamed(t, MODELS.noOff);
 		expect(values(noOff)).not.toContain("off");
 		expect(values(noOff).length).toBeGreaterThan(0);
 
@@ -95,7 +95,7 @@ describe("thinking on a model without off", () => {
 			await live.waitFor("model_changed", (event) => event.thinking === value, mark);
 		}
 
-		const plain = wireIdOf(FAUX_MODEL_IDS.plain);
+		const plain = wireIdOf(MODELS.plain);
 		expect((await live.control.setModel(plain)).status).toBe("accepted");
 		const toPlain = await live.waitFor("model_changed", (event) => event.modelId === plain);
 		expect(toPlain).not.toHaveProperty("thinking");
@@ -110,14 +110,14 @@ describe("thinking on a model without off", () => {
 
 	test("a session opened with a thinking value the model lacks is refused", async () => {
 		t = await LiveRig.create();
-		const noOff = await modelNamed(t, FAUX_MODEL_IDS.noOff);
+		const noOff = await modelNamed(t, MODELS.noOff);
 		const opened = await t.backend.open(
 			{ kind: "new", options: { cwd: t.cwd, modelId: noOff.id, thinking: "off" } },
 			{ emit: () => {} },
 		);
 		expect(opened).toMatchObject({ status: "rejected", rejection: { code: "invalid_input" } });
 		const unknown = await t.backend.open(
-			{ kind: "new", options: { cwd: t.cwd, modelId: "faux/no-such-model" } },
+			{ kind: "new", options: { cwd: t.cwd, modelId: "scripted/no-such-model" } },
 			{ emit: () => {} },
 		);
 		expect(unknown).toMatchObject({ status: "rejected", rejection: { code: "not_found" } });
@@ -126,21 +126,21 @@ describe("thinking on a model without off", () => {
 
 describe("the model a new session starts on, with the user's enabledModels", () => {
 	test("is the scope's first when the saved default is outside it, at the level its pattern names", async () => {
-		t = await LiveRig.create({ settings: { enabledModels: [`${wireIdOf(FAUX_MODEL_IDS.noOff)}:low`] } });
+		t = await LiveRig.create({ settings: { enabledModels: [`${wireIdOf(MODELS.noOff)}:low`] } });
 		const live = await t.rig.openNew();
-		expect(live.initial).toMatchObject({ modelId: wireIdOf(FAUX_MODEL_IDS.noOff), thinking: "low" });
+		expect(live.initial).toMatchObject({ modelId: wireIdOf(MODELS.noOff), thinking: "low" });
 	});
 
 	test("is the saved default when the scope holds it", async () => {
-		const scope = [wireIdOf(FAUX_MODEL_IDS.plain), wireIdOf(FAUX_MODEL_IDS.reasoner)];
+		const scope = [wireIdOf(MODELS.plain), wireIdOf(MODELS.reasoner)];
 		t = await LiveRig.create({ settings: { enabledModels: scope } });
 		const live = await t.rig.openNew();
-		expect(live.initial.modelId).toBe(wireIdOf(FAUX_MODEL_IDS.reasoner));
+		expect(live.initial.modelId).toBe(wireIdOf(MODELS.reasoner));
 	});
 
 	test("is the one the phone named, scope or not", async () => {
-		t = await LiveRig.create({ settings: { enabledModels: [wireIdOf(FAUX_MODEL_IDS.plain)] } });
-		const live = await t.rig.openNew({ modelId: wireIdOf(FAUX_MODEL_IDS.tiny) });
-		expect(live.initial.modelId).toBe(wireIdOf(FAUX_MODEL_IDS.tiny));
+		t = await LiveRig.create({ settings: { enabledModels: [wireIdOf(MODELS.plain)] } });
+		const live = await t.rig.openNew({ modelId: wireIdOf(MODELS.tiny) });
+		expect(live.initial.modelId).toBe(wireIdOf(MODELS.tiny));
 	});
 });

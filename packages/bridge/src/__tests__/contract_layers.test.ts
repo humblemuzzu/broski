@@ -75,6 +75,36 @@ describe("the layer check", () => {
 		]);
 	});
 
+	test("the Pi adapter has no SDK: it drives the user's `pi`, so no Pi package is imported", () => {
+		expect(check("backends/pi/live/a.ts", 'import { x } from "@earendil-works/pi-coding-agent";')).toEqual([
+			"backends/pi/live/a.ts: @earendil-works/pi-coding-agent is not this backend's SDK",
+		]);
+	});
+
+	test("the extension the adapter writes for `pi` imports only Pi's packages, node and itself", () => {
+		const agentSide = [
+			'import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";',
+			'import { validateToolArguments } from "@earendil-works/pi-ai";',
+			'import { readFileSync } from "node:fs";',
+			'import { x } from "./b";',
+		].join("\n");
+		expect(check("backends/pi/host/extension/index.ts", agentSide)).toEqual([]);
+		const leaving = ['import { z } from "zod";', 'import type { A } from "../../../../contract";'].join("\n");
+		expect(check("backends/pi/host/extension/index.ts", leaving)).toEqual([
+			"backends/pi/host/extension/index.ts: zod is not the agent's package",
+			"backends/pi/host/extension/index.ts: ../../../../contract leaves the extension",
+		]);
+	});
+
+	test("the rest of the adapter reads the extension only as text, never runs it", () => {
+		expect(
+			check("backends/pi/host/install.ts", 'import source from "./extension/index.ts" with { type: "text" };'),
+		).toEqual([]);
+		expect(check("backends/pi/host/install.ts", 'import { x } from "./extension/index";')).toEqual([
+			"backends/pi/host/install.ts: ./extension/index is agent code, read only as text",
+		]);
+	});
+
 	test("refuses createRequire, which loads what it cannot see", () => {
 		expect(check("backends/pi/a.ts", 'import { createRequire } from "node:module";')).toEqual([
 			"backends/pi/a.ts: node:module loads modules this check cannot see",

@@ -1,22 +1,23 @@
 /**
- * Prompts into Pi (D4, D5, D11, D12): mode routing on the adapter's own run, the disposition from
- * `preflightResult`, idempotency per `clientRequestId`, and the `broski.prompt` record the transcript
- * names the prompt by.
+ * Prompts into Pi: mode routing on the adapter's own run, the disposition Pi answers with, idempotency per
+ * `clientRequestId`, and the record the transcript names a prompt's user message by. A prompt is sent as the terminal
+ * sends what is typed: every mode is a `prompt` (an idle `steer` or `follow_up` would start nothing), and text that
+ * begins with a command's name runs that command, as it does in Pi (`docs/rpc-commands.md:20-33`).
  */
 
-import { contentText, type ImageContent, type TextContent } from "@earendil-works/pi-ai";
-import type { AgentSession } from "@earendil-works/pi-coding-agent";
 import { type ClientRequestId, MAX_LIST_ITEMS, type PromptInput, type PromptResult } from "../../../contract";
 import type { PromptRecord } from "../broski-entries";
 import { commandText, type PiCommandRef } from "../command-ids";
-import { errorText } from "../error-text";
+import { offersCommand } from "../commands";
+import { contentText, type UserContent } from "../messages";
 import type { RunContext } from "../ports";
 import { CLOSED, rejected } from "../rejections";
-import type { CommandScope } from "./command-scope";
+import type { PiModel } from "../rpc/replies";
 import { noticeEvent } from "./live-notes";
 import type { LiveState } from "./live-state";
+import type { PiChild } from "./pi-child";
 import { PiPrompt, type PiPromptHost } from "./pi-prompt";
-import { commandOf, imageNames, inputProblem } from "./prompt-input";
+import { commandOf, imageNames, inputProblem, piImages } from "./prompt-input";
 import type { QueueMirror } from "./queue-mirror";
 import type { RunTracker } from "./run-tracker";
 
@@ -24,13 +25,16 @@ import type { RunTracker } from "./run-tracker";
 const REMEMBERED_PROMPTS = 1_000;
 
 export interface PromptDeskDeps {
-	readonly session: () => AgentSession;
+	readonly child: PiChild;
 	readonly runs: RunTracker;
 	readonly queue: QueueMirror;
 	readonly live: LiveState;
+	/** The session's model now. */
+	readonly model: () => PiModel | undefined;
+	/** Where the transcript stops while a run this desk starts is on. */
+	readonly leafId: () => string | null;
 	/** The host's abort path, for an abort that arrived before the run it was meant for existed. */
 	readonly abort: () => void;
-	readonly commands: CommandScope;
 }
 
 const HANDLED: PromptResult = { status: "accepted", disposition: "handled" };
@@ -41,14 +45,20 @@ export class PromptDesk {
 	private deciding = false;
 	private abortedWhileDeciding = false;
 	private closed = false;
+	private commandsRunning = 0;
 	private readonly closing = Promise.withResolvers<PromptResult>();
-	/** The call Pi has not decided yet. */
+	/** The prompt Pi has not decided yet. */
 	private pending: PiPrompt | undefined;
 
 	constructor(private readonly deps: PromptDeskDeps) {}
 
 	get isDeciding(): boolean {
 		return this.deciding;
+	}
+
+	/** An extension command the phone sent is still running. */
+	get inCommand(): boolean {
+		return this.commandsRunning > 0;
 	}
 
 	/** Called under the session lock; resolves once Pi has decided the disposition, never at the run's end. */
@@ -81,14 +91,14 @@ export class PromptDesk {
 		return this.pending?.startEarly();
 	}
 
-	/** The host is ending: a prompt still being decided answers `closed` and calls Pi no more. */
+	/** The host is ending: a prompt still being decided answers `closed`. */
 	close(): void {
 		this.closed = true;
 		this.closing.resolve(CLOSED);
 	}
 
 	/** The record of the user message Pi just ended, by the prompt that started the run or the queue it came out of. */
-	claim(content: string | readonly (TextContent | ImageContent)[]): PromptRecord | undefined {
+	claim(content: UserContent): PromptRecord | undefined {
 		const stored = typeof content === "string" ? 0 : content.filter((block) => block.type === "image").length;
 		const own = this.awaitingStart;
 		if (own) {
@@ -106,46 +116,39 @@ export class PromptDesk {
 	}
 
 	private async decide(input: PromptInput): Promise<PromptResult> {
-		const session = this.deps.session();
-		const problem = inputProblem(input, session);
+		const problem = inputProblem(input, this.deps.model());
 		if (problem) return problem;
 		const ref = commandOf(input);
-		if (ref?.source === "extension") return this.runExtensionCommand(session, ref, input);
-		return this.route(session, input, ref ? commandText(ref, input.text) : input.text);
+		if (ref !== undefined) {
+			const commands = await this.deps.child.commands();
+			if (!commands.ok) return rejected("backend_error", `Pi could not list its commands: ${commands.error}`);
+			if (!offersCommand(commands.data, ref)) return rejected("not_found", `no command ${input.command}`);
+			if (ref.source === "extension") return this.runExtensionCommand(ref, input);
+		}
+		return this.route(input, ref === undefined ? input.text : commandText(ref, input.text));
 	}
 
-	/** Extension commands run at once, even mid-run; Pi reports `handled` only after the handler ends, which may wait for a human (D12). */
-	private runExtensionCommand(session: AgentSession, ref: PiCommandRef, input: PromptInput): PromptResult {
-		const text = commandText(ref, input.text);
-		this.deps.commands
-			.run(() => session.prompt(text, { expandPromptTemplates: true, source: "rpc" }))
-			.catch((error: unknown) => {
-				this.deps.live.emit(noticeEvent("error", `/${ref.name} failed: ${errorText(error)}`));
-			});
+	/**
+	 * Pi runs an extension command at once, even mid-run, and answers `handled` only once it returns, which may wait for
+	 * a human (`docs/rpc-commands.md:31`); the phone is answered at once, and a failure is a notice.
+	 */
+	private runExtensionCommand(ref: PiCommandRef, input: PromptInput): PromptResult {
+		this.commandsRunning += 1;
+		void this.deps.child.prompt(commandText(ref, input.text), []).then((answer) => {
+			this.commandsRunning -= 1;
+			if (!answer.ok) this.deps.live.emit(noticeEvent("error", `/${ref.name} failed: ${answer.error}`));
+		});
 		return HANDLED;
 	}
 
-	private async route(session: AgentSession, input: PromptInput, text: string): Promise<PromptResult> {
-		for (;;) {
-			const run = this.deps.runs.current();
-			if (run && this.pending) return rejected("busy", "the prompt before this one is waiting to start");
-			if (this.deps.runs.compacting) return rejected("busy", "a compaction is under way");
-			if (run && !session.isStreaming) {
-				// Pi clears `isStreaming` before `agent_settled` reaches listeners, and defers a prompt made while
-				// it settles (pi `src/core/agent-session.ts:1078-1100`, `:2093-2096`): wait, then route as idle.
-				await this.deps.runs.afterSettle();
-				if (this.closed) return CLOSED;
-				continue;
-			}
-			if (run && input.mode === "start") return rejected("busy", "a run is active");
-			if (input.mode !== "start" && this.deps.queue.size >= MAX_LIST_ITEMS)
-				return rejected("busy", "the queue is full");
-			return this.callPi(session, input, text, run === undefined);
-		}
-	}
-
-	private callPi(session: AgentSession, input: PromptInput, text: string, idle: boolean): Promise<PromptResult> {
-		const call = new PiPrompt(this.callHost(session, input), { input, text, idle });
+	private route(input: PromptInput, text: string): Promise<PromptResult> | PromptResult {
+		const { runs, queue } = this.deps;
+		const run = runs.current();
+		if (run && this.pending) return rejected("busy", "the prompt before this one is waiting to start");
+		if (runs.compacting) return rejected("busy", "a compaction is under way");
+		if (run && input.mode === "start") return rejected("busy", "a run is active");
+		if (input.mode !== "start" && queue.size >= MAX_LIST_ITEMS) return rejected("busy", "the queue is full");
+		const call = new PiPrompt(this.callHost(input), { input, text, images: piImages(input), idle: run === undefined });
 		this.pending = call;
 		void call.decided.then(() => {
 			if (this.pending === call) this.pending = undefined;
@@ -154,16 +157,16 @@ export class PromptDesk {
 		return call.answer;
 	}
 
-	private callHost(session: AgentSession, input: PromptInput): PiPromptHost {
-		const { runs, queue, live } = this.deps;
+	private callHost(input: PromptInput): PiPromptHost {
+		const { child, runs, queue, live } = this.deps;
 		return {
-			session,
+			child,
 			runs,
 			queue,
 			live,
 			closed: () => this.closed,
 			begin: () => {
-				const run = runs.start("prompt", session.sessionManager.getLeafId());
+				const run = runs.start("prompt", this.deps.leafId());
 				this.awaitingStart = { clientRequestId: input.clientRequestId, imageNames: imageNames(input) };
 				return run;
 			},
@@ -187,7 +190,7 @@ export class PromptDesk {
 	}
 }
 
-/** Pi drops an image it cannot process (pi `src/core/agent-session.ts:2061-2081`), so names that no longer line up with the stored images are all unknown. */
+/** Pi drops an image it cannot process, so names that no longer line up with the stored images are all unknown. */
 function namesFor(
 	clientRequestId: ClientRequestId,
 	imageNames: readonly (string | null)[],

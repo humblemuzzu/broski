@@ -1,27 +1,44 @@
 /**
- * The extension the conformance driver gives every test session, loaded the way a user's own would be
- * (named in the agent dir's `settings.json`). The faux model calls its tools on cue:
- *   `driver_hold`  parks inside the run until the test releases it or the run is aborted;
- *   `ask_human`    opens one of Pi's dialogs and returns what the extension got back.
- * It also records session lifecycles and command runs on the shared bus (`driver-bus.ts`).
+ * The extension every test `pi` loads, named in the world's `settings.json` the way a user's own would be. It runs in
+ * that `pi`, another process, so it waits on gates of the scripted endpoint the test opens and tells the test what
+ * happened in JSON notes to it (`$BROSKI_TEST_ENDPOINT`, `PiRouter.note`). The scripted model calls its tools on cue:
+ *   `driver_hold`      parks inside the run until the test opens its gate or the run is aborted;
+ *   `ask_human`        opens one of Pi's dialogs and returns the answer;
+ *   `driver_subagent`  runs a subagent whose conversation it returns in its details, as a user's Task tool does.
+ * `/drv-ping` notes that it ran, `/drv-ask` asks a confirmation outside any run. With `ask-on-shutdown` in the agent
+ * dir, `session_shutdown` asks a confirmation too.
  */
 
-import { Type } from "@earendil-works/pi-ai";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import type { ExtensionAPI, ExtensionUIContext, ExtensionUIDialogOptions } from "@earendil-works/pi-coding-agent";
-import { driverBus } from "./driver-bus";
+import { Type } from "typebox";
+
+async function gate(name: string, signal: AbortSignal | undefined): Promise<string> {
+	const response = await fetch(`${process.env.BROSKI_TEST_ENDPOINT}/gate/${encodeURIComponent(name)}`, { signal });
+	return response.text();
+}
+
+type Note =
+	| { readonly kind: "start" | "shutdown"; readonly sessionId: string }
+	| { readonly kind: "ask"; readonly tag: string; readonly answer: string | boolean | null }
+	| { readonly kind: "command"; readonly args: string };
+
+async function note(body: Note): Promise<void> {
+	await fetch(`${process.env.BROSKI_TEST_ENDPOINT}/note`, { method: "POST", body: JSON.stringify(body) });
+}
 
 export default function driverExtension(pi: ExtensionAPI): void {
-	pi.on("session_start", (_event, ctx) => {
-		driverBus().recordLifecycle({ event: "start", sessionId: ctx.sessionManager.getSessionId() });
+	pi.on("session_start", async (_event, ctx) => {
+		await note({ kind: "start", sessionId: ctx.sessionManager.getSessionId() });
 	});
 
 	pi.on("session_shutdown", async (_event, ctx) => {
-		const bus = driverBus();
-		if (bus.askOnShutdown) {
+		if (existsSync(join(process.env.PI_CODING_AGENT_DIR ?? "", "ask-on-shutdown"))) {
 			const answer = await ctx.ui.confirm("Leaving?", "The session is shutting down.");
-			bus.recordAsk("shutdown", answer);
+			await note({ kind: "ask", tag: "shutdown", answer });
 		}
-		bus.recordLifecycle({ event: "shutdown", sessionId: ctx.sessionManager.getSessionId() });
+		await note({ kind: "shutdown", sessionId: ctx.sessionManager.getSessionId() });
 	});
 
 	pi.registerTool({
@@ -30,7 +47,7 @@ export default function driverExtension(pi: ExtensionAPI): void {
 		description: "Waits until the test releases it.",
 		parameters: Type.Object({ gate: Type.String() }),
 		execute: async (_toolCallId, params, signal) => {
-			const end = await driverBus().hold(params.gate, signal);
+			const end = await gate(params.gate, signal).catch(() => "aborted");
 			return { content: [{ type: "text", text: end }], details: {} };
 		},
 	});
@@ -42,22 +59,10 @@ export default function driverExtension(pi: ExtensionAPI): void {
 			"Runs a subagent whose conversation it returns in its details, as the Task and oracle tools of a user's extensions do.",
 		parameters: Type.Object({ task: Type.String(), gate: Type.Optional(Type.String()) }),
 		execute: async (_toolCallId, params, signal, onUpdate) => {
-			const started = subRun(params.task, "reading", 1);
-			onUpdate?.({ content: [{ type: "text", text: "working" }], details: started });
-			if (params.gate !== undefined) await driverBus().hold(params.gate, signal);
-			const done = subRun(params.task, "found it", 3);
-			return { content: [{ type: "text", text: "found it" }], details: done };
+			onUpdate?.({ content: [{ type: "text", text: "working" }], details: subRun(params.task, "reading", 1) });
+			if (params.gate !== undefined) await gate(params.gate, signal);
+			return { content: [{ type: "text", text: "found it" }], details: subRun(params.task, "found it", 3) };
 		},
-	});
-
-	pi.on("user_bash", async (event, ctx) => {
-		if (event.command === "drv-result") {
-			return { result: { output: "from the extension", exitCode: 0, cancelled: false, truncated: false } };
-		}
-		if (event.command.endsWith("# confirm"))
-			driverBus().recordAsk("user_bash", await ctx.ui.confirm("Run it?", event.command));
-		if (event.command.endsWith("# refuse")) throw new Error("commands like this are not run here");
-		return undefined;
 	});
 
 	pi.registerTool({
@@ -71,17 +76,21 @@ export default function driverExtension(pi: ExtensionAPI): void {
 			options: Type.Optional(Type.Array(Type.String())),
 			timeoutMs: Type.Optional(Type.Number()),
 			withSignal: Type.Optional(Type.Boolean()),
-			ownSignal: Type.Optional(Type.Boolean()),
+			abortAfterMs: Type.Optional(Type.Number({ description: "ends the dialog with a signal of the tool's own" })),
 		}),
 		execute: async (_toolCallId, params, signal, _onUpdate, ctx) => {
 			const dialogSignal =
-				params.ownSignal === true ? driverBus().ownSignal(params.tag) : params.withSignal === true ? signal : undefined;
+				params.abortAfterMs !== undefined
+					? AbortSignal.timeout(params.abortAfterMs)
+					: params.withSignal === true
+						? signal
+						: undefined;
 			const options: ExtensionUIDialogOptions = {
 				...(params.timeoutMs !== undefined && { timeout: params.timeoutMs }),
 				...(dialogSignal !== undefined && { signal: dialogSignal }),
 			};
 			const answer = await askOnce(ctx.ui, params.dialog, params.title, params.options ?? [], options);
-			driverBus().recordAsk(params.tag, answer);
+			await note({ kind: "ask", tag: params.tag, answer: answer ?? null });
 			return { content: [{ type: "text", text: `answer: ${JSON.stringify(answer ?? null)}` }], details: {} };
 		},
 	});
@@ -89,7 +98,7 @@ export default function driverExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("drv-ping", {
 		description: "Records that it ran.",
 		handler: async (args) => {
-			driverBus().recordCommand(args);
+			await note({ kind: "command", args });
 		},
 	});
 
@@ -97,25 +106,12 @@ export default function driverExtension(pi: ExtensionAPI): void {
 		description: "Asks a confirmation outside any run.",
 		handler: async (_args, ctx) => {
 			const answer = await ctx.ui.confirm("Proceed?", "A command asks.");
-			driverBus().recordAsk("drv-ask", answer);
+			await note({ kind: "ask", tag: "drv-ask", answer: answer ?? null });
 		},
 	});
 }
 
-const ASSISTANT_STATS = {
-	api: "faux",
-	provider: "faux",
-	model: "faux-reasoner",
-	usage: {
-		input: 1,
-		output: 1,
-		cacheRead: 0,
-		cacheWrite: 0,
-		totalTokens: 2,
-		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
-	},
-	timestamp: 1,
-};
+const ASSISTANT = { api: "openai-completions", provider: "scripted", model: "scripted-1", timestamp: 1 };
 
 /** The details of a subagent tool: its conversation so far (`messages` messages of three) in one sub-run. */
 function subRun(task: string, answer: string, messages: number) {
@@ -128,7 +124,7 @@ function subRun(task: string, answer: string, messages: number) {
 				{ type: "toolCall", id: "sub-call-1", name: "read", arguments: { path: "README.md" } },
 			],
 			stopReason: "toolUse",
-			...ASSISTANT_STATS,
+			...ASSISTANT,
 		},
 		{
 			role: "toolResult",
@@ -138,7 +134,7 @@ function subRun(task: string, answer: string, messages: number) {
 			isError: false,
 			timestamp: 1,
 		},
-		{ role: "assistant", content: [{ type: "text", text: answer }], stopReason: "stop", ...ASSISTANT_STATS },
+		{ role: "assistant", content: [{ type: "text", text: answer }], stopReason: "stop", ...ASSISTANT },
 	];
 	return {
 		mode: "single",

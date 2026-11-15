@@ -1,35 +1,30 @@
-import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
-import type { Api, Model } from "@earendil-works/pi-ai";
-import type { SessionManager } from "@earendil-works/pi-coding-agent";
 import type { PermissionsRecord } from "../broski-entries";
 import type { CatalogFeed } from "../catalog-feed";
 import type { ModelCatalogue } from "../models/catalogue";
+import type { PiLaunch } from "../rpc/child";
 import type { HostedFacts } from "./host-summary";
-import type { NoticeMemory } from "./notice-memory";
-import type { SharedServices } from "./runtime-factory";
 import type { SessionHost } from "./session-host";
 import type { SessionLocks } from "./session-lock";
 
-/** What every host shares: the process's services, and how the registry hears of a host's needs. */
+/** What every host shares, and how the registry hears of a host's needs. */
 export interface HostEnvironment {
-	readonly shared: SharedServices;
 	readonly models: Pick<ModelCatalogue, "find" | "missing">;
 	readonly catalog: CatalogFeed;
 	readonly locks: SessionLocks;
-	readonly notices: NoticeMemory;
 	readonly now: () => number;
 	/** The host is unattached and idle: it may end, under the session lock. */
 	readonly idle: (host: SessionHost) => void;
-	/** The host has ended. */
+	/** The host has ended, asked to or not. */
 	readonly forget: (host: SessionHost) => void;
 }
 
-/** The session a host runs: a new one, or an existing one opened by the registry. */
+/** The session a host runs, as its `pi` is started on it. */
 export interface HostStart {
 	readonly cwd: string;
-	readonly sessionManager: SessionManager;
-	readonly model?: Model<Api>;
-	readonly thinkingLevel?: ThinkingLevel;
+	readonly file: string;
+	/** The file's last entry when `pi` opens it. */
+	readonly lastEntryId: string | null;
+	readonly launch: PiLaunch;
 	readonly permissions: PermissionsRecord;
 	readonly facts: HostedFacts;
 }

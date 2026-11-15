@@ -4,19 +4,21 @@
  */
 
 import type { Rejected, SessionId } from "../../../contract";
+import { type PermissionsRecord, readPermissionsRecord } from "../broski-entries";
 import type { CatalogFeed } from "../catalog-feed";
 import { errorText } from "../error-text";
 import { parseChildSessionId } from "../ids";
 import { itemsOfEntry } from "../mapping/message-items";
-import type { SessionStore, StoredSession } from "../ports";
+import type { SessionStore, StoredFacts, StoredSession } from "../ports";
 import { rejected } from "../rejections";
 import { readAttachment } from "./attachments";
 import { childTranscript, getChild } from "./children";
-import { getSession, listSessions } from "./list";
+import { type EntrySpan, lastEntryId, readEntries, type SessionFileIndex } from "./jsonl-reader";
+import { getSession, listSessions, NO_LIVE } from "./list";
 import { forkStored, type MutationDeps, removeStored, renameStored } from "./mutations";
 import { isFileSystemError } from "./open-file";
 import { piSessionDirs } from "./session-dir";
-import { SessionIndex } from "./session-index";
+import { isRejection, openFileIndex, SessionIndex } from "./session-index";
 import { SessionWatch } from "./session-watch";
 import { ToolChildren } from "./tool-children";
 import { readTranscript } from "./transcript";
@@ -45,6 +47,16 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
 		const { origin } = await index.complete(head);
 		return { sessionId, path: head.path, cwd: head.cwd, origin };
 	};
+	const facts = async (session: StoredSession): Promise<StoredFacts | Rejected> => {
+		const file = await openFileIndex(index, session.path);
+		if (isRejection(file)) return file;
+		const found = await getSession(index, session.sessionId, NO_LIVE);
+		return {
+			lastEntryId: lastEntryId(file),
+			permissions: await lastPermissions(file),
+			summary: found.status === "accepted" ? found.summary : undefined,
+		};
+	};
 	return {
 		list: async (query, page, live) => {
 			learn(query.cwd);
@@ -71,6 +83,7 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
 			),
 		attachment: (sessionId, attachment) => reaching(() => readAttachment(index, sessionId, attachment)),
 		locate: (sessionId) => reaching(() => locate(sessionId)),
+		facts: (session) => reaching(() => facts(session)),
 		sessionDirFor: (cwd) => {
 			learn(cwd);
 			return dirs.forCwd(cwd);
@@ -90,4 +103,15 @@ async function answered<T>(work: () => Promise<T>): Promise<T | Rejected> {
 		if (!isFileSystemError(error)) throw error;
 		return rejected("backend_error", `Pi's session files could not be read: ${errorText(error)}`);
 	}
+}
+
+/** The newest `broski.permissions` entry anywhere in the file: a guard that was on stays on across a branch change. */
+async function lastPermissions(file: SessionFileIndex): Promise<PermissionsRecord> {
+	const customs: EntrySpan[] = file.entries.filter((span) => span.type === "custom").reverse();
+	for (const span of customs) {
+		const [entry] = await readEntries(file, [span]);
+		const record = entry === undefined ? undefined : readPermissionsRecord(entry);
+		if (record !== undefined) return record;
+	}
+	return { mode: "off", allowedTools: [] };
 }

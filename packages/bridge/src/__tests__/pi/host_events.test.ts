@@ -5,7 +5,6 @@
  */
 
 import { afterEach, describe, expect, test } from "bun:test";
-import { fauxAssistantMessage, fauxText, fauxThinking, fauxToolCall } from "@earendil-works/pi-ai";
 import { commandId } from "../../backends/pi/command-ids";
 import { type AgentEvent, applyEvent } from "../../contract";
 import { countOf, userMessages } from "./helpers/live-steps";
@@ -198,10 +197,11 @@ describe("a tool the model never got to run", () => {
 		t = await HostRig.create();
 		const live = await t.rig.rig.openNew();
 		t.router.script(live.ref.sessionId, [
-			fauxAssistantMessage([fauxText("starting"), fauxToolCall("read", { path: "README.md" })], {
-				stopReason: "error",
-				errorMessage: "the account is closed",
-			}),
+			{
+				text: ["starting"],
+				toolCalls: [{ name: "read", args: { path: "README.md" } }],
+				breaksWith: "the account is closed",
+			},
 		]);
 		const { outcome } = await live.run("go");
 
@@ -219,10 +219,11 @@ describe("a message that fails after a started tool call", () => {
 	test("leaves no running tool while the run retries, nor after it", async () => {
 		t = await HostRig.create();
 		const live = await t.rig.rig.openNew();
-		const overloaded = fauxAssistantMessage([fauxText("trying"), fauxToolCall("read", { path: "README.md" })], {
-			stopReason: "error",
-			errorMessage: "529 overloaded",
-		});
+		const overloaded = {
+			text: ["trying"],
+			toolCalls: [{ name: "read", args: { path: "README.md" } }],
+			breaksWith: "the provider is overloaded",
+		};
 		t.router.script(live.ref.sessionId, [overloaded, say("recovered")]);
 		const { outcome } = await live.run("go");
 		expect(outcome.kind).toBe("completed");
@@ -263,7 +264,7 @@ describe("what a settle leaves open", () => {
 	test("order at the end of a run: finished parts, then usage, then run_finished", async () => {
 		t = await HostRig.create();
 		const live = await t.rig.rig.openNew();
-		t.router.script(live.ref.sessionId, [fauxAssistantMessage([fauxThinking("hmm"), fauxText("answer")])]);
+		t.router.script(live.ref.sessionId, [{ thinking: ["hmm"], text: ["answer"] }]);
 		await live.run("go");
 		const types = live.events().map((event) => event.type);
 		expect(types.at(-1)).toBe("run_finished");

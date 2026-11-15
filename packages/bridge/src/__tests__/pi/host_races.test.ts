@@ -1,14 +1,13 @@
 /**
  * The races of a live session: an abort while a prompt is still being
  * decided, a prompt while Pi settles a run, two prompts at once, open/close/open, and shutdown while a
- * prompt waits. Faux provider, real adapter, an extension that parks Pi's handlers on command.
+ * prompt waits. Scripted provider, the real adapter on the real `pi`, an extension that parks Pi's handlers on command.
  */
 
 import { afterEach, describe, expect, test } from "bun:test";
-import { fauxToolCall } from "@earendil-works/pi-ai";
 import { MAX_LIST_ITEMS } from "../../contract";
 import { countOf, userMessages } from "./helpers/live-steps";
-import { askHuman, say, toolUse } from "./helpers/scenarios";
+import { askHuman, call, say } from "./helpers/scenarios";
 import { useWatchdog } from "./helpers/use-watchdog";
 import { HostRig, pause, until } from "./host_rig";
 
@@ -22,12 +21,9 @@ afterEach(async () => {
 });
 
 describe("an abort while a prompt is being decided", () => {
-	test.each([
-		"inputGate",
-		"beforeStartGate",
-	] as const)("%s: the run the prompt then starts ends aborted, before its model is asked", async (gateName) => {
+	test("in an input handler: the run the prompt then starts ends aborted, before its model is asked", async () => {
 		t = await HostRig.create();
-		const gate = t.gate(gateName);
+		const gate = t.gate("inputGate");
 		const live = await t.rig.rig.openNew();
 		await t.rig.rig.arrange(live.ref, { kind: "hold" });
 		const prompting = live.prompt("go");
@@ -41,6 +37,28 @@ describe("an abort while a prompt is being decided", () => {
 		expect(finished.outcome.kind).toBe("aborted");
 		expect((await aborting).status).toBe("accepted");
 		expect(t.router.requests(live.ref.sessionId)).toHaveLength(0);
+		live.assertSettled();
+	});
+
+	// Pi answers `started` before its `before_agent_start` handlers run, and an abort while they run finds no agent
+	// to stop yet (pi-coding-agent 1.5.2 `dist/core/agent-session.js:1544-1552, 1726`): its first request may go out.
+	test("in a before_agent_start handler: the run the prompt then starts ends aborted, and none of its tools run", async () => {
+		t = await HostRig.create();
+		const gate = t.gate("beforeStartGate");
+		const live = await t.rig.rig.openNew();
+		await t.rig.rig.arrange(live.ref, { kind: "hold" });
+		const prompting = live.prompt("go");
+		await gate.entered.promise;
+
+		const aborting = live.control.abort();
+		gate.open();
+
+		expect(await prompting).toMatchObject({ status: "accepted", disposition: "started" });
+		const finished = await live.waitFor("run_finished");
+		expect(finished.outcome.kind).toBe("aborted");
+		expect((await aborting).status).toBe("accepted");
+		expect(t.router.requests(live.ref.sessionId).length).toBeLessThanOrEqual(1);
+		expect(live.events().some((event) => event.type === "tool_finished" && event.outcome === "completed")).toBe(false);
 		live.assertSettled();
 	});
 
@@ -64,27 +82,22 @@ describe("an abort while a prompt is being decided", () => {
 	});
 });
 
+// The run lasts until Pi has settled it, its extensions' `agent_settled` handlers included.
 describe("a prompt while Pi settles a run", () => {
-	test("waits for the run to finish, then starts its own: never deferred inside Pi's settle", async () => {
+	test("is busy, and the one after the run finished starts its own run", async () => {
 		t = await HostRig.create();
 		const gate = t.gate("settleGate");
 		const live = await t.rig.rig.openNew();
 		t.router.script(live.ref.sessionId, [say("one"), say("two")]);
 		expect(await live.prompt("first")).toMatchObject({ disposition: "started" });
 		await gate.entered.promise;
-		expect(t.session(live.ref).isStreaming).toBe(false);
 
-		const second = live.prompt("second");
-		let answered = false;
-		void second.then(() => {
-			answered = true;
-		});
-		await pause(60);
-		expect(answered).toBe(false);
+		expect(await live.prompt("too soon")).toMatchObject({ status: "rejected", rejection: { code: "busy" } });
 		expect(countOf(live, "run_finished")).toBe(0);
 
 		gate.open();
-		expect(await second).toMatchObject({ status: "accepted", disposition: "started" });
+		await live.waitFor("run_finished");
+		expect(await live.prompt("second")).toMatchObject({ status: "accepted", disposition: "started" });
 		await until(() => countOf(live, "run_finished") === 2, "both runs finish");
 		const types = live.events().map((event) => event.type);
 		expect(types.filter((type) => type === "run_started" || type === "run_finished")).toEqual([
@@ -97,19 +110,17 @@ describe("a prompt while Pi settles a run", () => {
 		live.assertSettled();
 	});
 
-	test("a shutdown that finds the prompt waiting answers it closed and does not hang", async () => {
+	test("a shutdown that finds a prompt Pi is still deciding answers it closed and does not hang", async () => {
 		t = await HostRig.create();
-		const gate = t.gate("settleGate");
+		const gate = t.gate("inputGate");
 		const live = await t.rig.rig.openNew();
-		t.router.script(live.ref.sessionId, [say("one")]);
-		await live.prompt("first");
+		const pending = live.prompt("first");
 		await gate.entered.promise;
-		const second = live.prompt("second");
-		await pause(20);
 
 		await t.rig.rig.backend.dispose();
 
-		expect(await second).toMatchObject({ status: "rejected", rejection: { code: "closed" } });
+		expect(await pending).toMatchObject({ status: "rejected", rejection: { code: "closed" } });
+		expect(t.rig.world.sessionProcesses()).toBe(0);
 	});
 });
 
@@ -153,13 +164,13 @@ describe("open, close, open", () => {
 		await first.close();
 
 		for (let round = 2; round <= 4; round++) {
-			await until(() => t?.bus.liveRuntimes(sessionId) === 0, "the idle runtime ends");
+			await until(() => t?.router.liveRuntimes(sessionId) === 0, "the idle runtime ends");
 			const again = await t.rig.rig.open(first.ref);
-			expect(t.bus.starts(sessionId)).toBe(round);
-			expect(t.bus.liveRuntimes(sessionId)).toBe(1);
+			expect(t.router.starts(sessionId)).toBe(round);
+			expect(t.router.liveRuntimes(sessionId)).toBe(1);
 			await again.close();
 		}
-		await until(() => t?.bus.liveRuntimes() === 0, "the last runtime ends");
+		await until(() => t?.router.liveRuntimes() === 0, "the last runtime ends");
 	});
 
 	test("a close and an open at the same moment never leave two runtimes", async () => {
@@ -171,9 +182,9 @@ describe("open, close, open", () => {
 
 		const [, second] = await Promise.all([first.close(), t.rig.rig.open(first.ref)]);
 
-		expect(t.bus.liveRuntimes(sessionId)).toBe(1);
+		expect(t.router.liveRuntimes(sessionId)).toBe(1);
 		await second.close();
-		await until(() => t?.bus.liveRuntimes() === 0, "the last runtime ends");
+		await until(() => t?.router.liveRuntimes() === 0, "the last runtime ends");
 	});
 
 	test("two opens of a session nobody hosts share one runtime", async () => {
@@ -183,13 +194,13 @@ describe("open, close, open", () => {
 		await first.run("one");
 		const { sessionId } = first.ref;
 		await first.close();
-		await until(() => t?.bus.liveRuntimes(sessionId) === 0, "the idle runtime ends");
-		const starts = t.bus.starts(sessionId);
+		await until(() => t?.router.liveRuntimes(sessionId) === 0, "the idle runtime ends");
+		const starts = t.router.starts(sessionId);
 
 		await Promise.all([t.rig.rig.open(first.ref), t.rig.rig.open(first.ref)]);
 
-		expect(t.bus.starts(sessionId)).toBe(starts + 1);
-		expect(t.bus.liveRuntimes(sessionId)).toBe(1);
+		expect(t.router.starts(sessionId)).toBe(starts + 1);
+		expect(t.router.liveRuntimes(sessionId)).toBe(1);
 	});
 
 	test("a close during a run keeps the runtime until the run has ended", async () => {
@@ -200,10 +211,10 @@ describe("open, close, open", () => {
 		await live.waitFor("tool_started", (event) => event.name === "driver_hold");
 		await live.close();
 		await pause(30);
-		expect(t.bus.liveRuntimes(live.ref.sessionId)).toBe(1);
+		expect(t.router.liveRuntimes(live.ref.sessionId)).toBe(1);
 
 		await t.rig.driver.release(live.ref);
-		await until(() => t?.bus.liveRuntimes() === 0, "the runtime ends once the run has");
+		await until(() => t?.router.liveRuntimes() === 0, "the runtime ends once the run has");
 	});
 });
 
@@ -232,15 +243,16 @@ describe("a tool that ignores the abort", () => {
 		t = await HostRig.create();
 		const gate = t.gate("toolGate");
 		const live = await t.rig.rig.openNew();
-		t.router.script(live.ref.sessionId, [toolUse(fauxToolCall("ignore_abort", {})), say("after")]);
+		t.router.script(live.ref.sessionId, [call("ignore_abort", {}), say("after")]);
 		await live.prompt("go");
 		await gate.entered.promise;
 
-		const { boundedAbort } = await import("../../backends/pi/live/shutdown");
-		expect(await boundedAbort(t.session(live.ref), 80)).toBe("timed_out");
+		const aborting = live.control.abort();
+		await pause(300);
 		expect(countOf(live, "run_finished")).toBe(0);
 
 		gate.open();
+		expect(await aborting).toEqual({ status: "accepted" });
 		const finished = await live.waitFor("run_finished");
 		expect(finished.outcome.kind).toBe("aborted");
 		live.assertSettled();

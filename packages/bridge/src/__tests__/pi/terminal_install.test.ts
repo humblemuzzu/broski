@@ -151,7 +151,8 @@ describe("the entry point Pi names", () => {
 });
 
 describe("in a session the bridge hosts", () => {
-	test("Pi finds the installed extension for a terminal and the bridge's own sessions load without it", async () => {
+	// The bridge's own `pi` loads it too, from the same agent dir; it does nothing outside the terminal (`ctx.mode`).
+	test("Pi finds the installed extension for a terminal, and in the bridge's own sessions it links nothing", async () => {
 		t = await LiveRig.create({ link: true });
 		const entry = extensionEntry(t.world.env.agentDir);
 		expect(existsSync(entry)).toBe(true);
@@ -163,12 +164,8 @@ describe("in a session the bridge hosts", () => {
 		await terminals.quit();
 
 		const live = await holdingRun(t);
-		const hosted = t.world.parts.hosts.session(live.ref.sessionId);
-		const paths = hosted?.extensionRunner.getExtensionPaths() ?? [];
-		expect(paths.length).toBeGreaterThan(0);
-		expect(paths.some((path) => isBroskiLink(t?.world.env.agentDir ?? "", path))).toBe(false);
 		expect(t.world.parts.terminal.registry.session(t.fileOf(live.ref))).toBeUndefined();
-		t.bus.release(live.ref.sessionId);
+		t.router.release(live.ref.sessionId);
 		await live.waitFor("run_finished", () => true);
 		await live.close();
 	});
@@ -183,7 +180,7 @@ describe("in a session the bridge hosts", () => {
 		await terminals.noticed();
 		expect(terminals.notices.some((text) => text.includes("phone"))).toBe(true);
 		t.router.script(live.ref.sessionId, [say("never used")]);
-		t.bus.release(live.ref.sessionId);
+		t.router.release(live.ref.sessionId);
 		await live.waitFor("run_finished", () => true);
 		await live.close();
 	});

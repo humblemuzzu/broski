@@ -134,10 +134,11 @@ describe("reading a transcript", () => {
 		expect(items[0]?.kind === "tool_result" && items[0].toolCallId).toBe("e0000003:0");
 	});
 
-	test("the prompt record that follows a user message names its clientRequestId", async () => {
+	test("the prompt record that names a user message gives it its clientRequestId", async () => {
 		const builder = new SessionBuilder({ id: "prompted", cwd: env.cwd, version: 3 });
-		builder.user("hello", 10);
-		builder.custom("broski.prompt", { clientRequestId: "6f1b2f6e-7f3a-4c52-9c11-0a1b2c3d4e5f", imageNames: [] }, 11);
+		const entryId = builder.user("hello", 10);
+		const clientRequestId = "6f1b2f6e-7f3a-4c52-9c11-0a1b2c3d4e5f";
+		builder.custom("broski.prompt", { entryId, clientRequestId, imageNames: [] }, 11);
 		builder.assistant([textBlock("hi")], 20);
 		writeSession(env.sessionDir, builder);
 

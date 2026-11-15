@@ -1,13 +1,13 @@
 /**
  * What a terminal `pi` and the bridge say to each other over the link socket, one JSON object per line. The terminal's
  * side is the extension (`extension/`), which sends only what Pi's extension events carry
- * (pi-coding-agent `src/core/extensions/types.ts`): the run, its text, thinking and tools, compactions, the model and
+ * (pi-coding-agent 1.5.2 `docs/extensions.md:305-1160`): the run, its text, thinking and tools, compactions, the model and
  * the thinking level, the session's name. Pi hands extensions no event for its queue or its automatic retries, so the
  * link carries neither. Every frame is checked here, strictly and within bounds, before anything reads it.
  */
 
-import type { JsonObject, JsonValue } from "@earendil-works/pi-ai";
 import { z } from "zod";
+import type { JsonValue } from "../../../contract";
 
 export const LINK_VERSION = 1;
 
@@ -23,7 +23,7 @@ const Count = z.int().nonnegative();
 const Json: z.ZodType<JsonValue> = z.lazy(() =>
 	z.union([z.string(), z.number(), z.boolean(), z.null(), z.array(Json), z.record(z.string(), Json)]),
 );
-const JsonObjectShape: z.ZodType<JsonObject> = z.record(z.string(), Json);
+const JsonObjectShape: z.ZodType<{ [key: string]: JsonValue }> = z.record(z.string(), Json);
 
 export const TextBlock = z.strictObject({ type: z.literal("text"), text: Text });
 export const ImageBlock = z.strictObject({ type: z.literal("image"), mimeType: Name, data: z.string().max(0) });

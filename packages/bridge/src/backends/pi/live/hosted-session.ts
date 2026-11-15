@@ -1,54 +1,26 @@
-/** What the registry reads from an existing session's `SessionManager` before it hosts it. */
+/** What a host knows of an existing session before it starts: the store's row of it. */
 
-import { contentText } from "@earendil-works/pi-ai";
-import type { SessionManager } from "@earendil-works/pi-coding-agent";
-import { type PermissionsRecord, readPermissionsRecord } from "../broski-entries";
-import { promptTitle } from "../mapping/prompt-title";
-import type { SessionStore, StoredSession } from "../ports";
-import { NO_LIVE } from "../store/list";
+import type { SessionOrigin } from "../../../contract";
+import type { StoredFacts } from "../ports";
 import type { HostedFacts } from "./host-summary";
 
-export async function factsOf(
-	stored: StoredSession,
+export function factsOf(
+	stored: { readonly sessionId: string; readonly origin: SessionOrigin },
 	cwd: string,
-	manager: SessionManager,
-	store: SessionStore,
-	now: () => number,
-): Promise<HostedFacts> {
-	const found = await store.get(stored.sessionId, NO_LIVE);
-	const summary = found.status === "accepted" ? found.summary : undefined;
-	const at = now();
-	const name = manager.getSessionName();
-	const firstText = firstPromptText(manager);
-	const firstPrompt = firstText === undefined ? undefined : promptTitle(firstText);
+	facts: StoredFacts,
+	now: number,
+): HostedFacts {
+	const { summary } = facts;
+	const title = summary?.title;
 	return {
 		sessionId: stored.sessionId,
 		cwd,
 		origin: stored.origin,
-		createdAt: summary?.createdAt ?? at,
-		updatedAt: summary?.updatedAt ?? at,
+		createdAt: summary?.createdAt ?? now,
+		updatedAt: summary?.updatedAt ?? now,
 		...(summary?.parent && { parent: summary.parent }),
-		...(name !== undefined && { name }),
-		...(firstPrompt !== undefined && { firstPrompt }),
-		prompted: firstText !== undefined,
+		...(title?.source === "user" && { name: title.text }),
+		...(title?.source === "first_prompt" && { firstPrompt: title.text }),
+		prompted: title?.source === "first_prompt",
 	};
-}
-
-/** The newest `broski.permissions` entry anywhere in the file: a guard that was on stays on across a branch change. */
-export function lastPermissions(manager: SessionManager): PermissionsRecord {
-	for (const entry of manager.getEntries().reverse()) {
-		const record = readPermissionsRecord(entry);
-		if (record !== undefined) return record;
-	}
-	return { mode: "off", allowedTools: [] };
-}
-
-/** The first user message with text, which titles the session as the store's rows do (`store/session-details.ts`). */
-function firstPromptText(manager: SessionManager): string | undefined {
-	for (const entry of manager.getEntries()) {
-		if (entry.type !== "message" || entry.message.role !== "user") continue;
-		const text = contentText(entry.message.content);
-		if (text !== "") return text;
-	}
-	return undefined;
 }

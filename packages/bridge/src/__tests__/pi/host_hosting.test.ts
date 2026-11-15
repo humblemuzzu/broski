@@ -4,12 +4,12 @@
  * mode survives the host, and a hosted session is renamed and deleted through its host.
  */
 
-import { afterEach, describe, expect, spyOn, test } from "bun:test";
-import { chmodSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { afterEach, describe, expect, test } from "bun:test";
+import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { DefaultResourceLoader, ProjectTrustStore, SessionManager } from "@earendil-works/pi-coding-agent";
-import type { CatalogEvent, NewSessionOptions, SessionSummary } from "../../contract";
-import { FAUX_MODEL_IDS, wireIdOf } from "./helpers/faux-models";
+import { ProjectTrustStore, SessionManager } from "@earendil-works/pi-coding-agent";
+import type { CatalogEvent, NewSessionOptions, SessionRef, SessionSummary } from "../../contract";
+import { MODELS, wireIdOf } from "./helpers/pi-world";
 import { conversation, sessionEntries, userTexts, writeSessionFile } from "./helpers/session-files";
 import { useWatchdog } from "./helpers/use-watchdog";
 import { HostRig, until } from "./host_rig";
@@ -29,12 +29,8 @@ function updatesOf(catalog: readonly CatalogEvent[]): SessionSummary[] {
 
 describe("a new session is checked before a runtime is built", () => {
 	const refused: [string, Partial<NewSessionOptions>, string][] = [
-		["a model nobody lists", { modelId: "faux/nope" }, "not_found"],
-		[
-			"a thinking level the model lacks",
-			{ modelId: wireIdOf(FAUX_MODEL_IDS.plain), thinking: "high" },
-			"invalid_input",
-		],
+		["a model nobody lists", { modelId: "scripted/nope" }, "not_found"],
+		["a thinking level the model lacks", { modelId: wireIdOf(MODELS.plain), thinking: "high" }, "invalid_input"],
 		["a thinking level the default model lacks", { thinking: "no-such-level" }, "invalid_input"],
 		["a mode nobody offers", { modes: [{ axis: "permissions", value: "sometimes" }] }, "invalid_input"],
 		["a directory that does not exist", { cwd: "/definitely/not/here" }, "invalid_input"],
@@ -49,7 +45,7 @@ describe("a new session is checked before a runtime is built", () => {
 
 		expect(opened).toMatchObject({ status: "rejected", rejection: { code } });
 		await t.rig.driver.quiesce();
-		expect(t.bus.liveRuntimes()).toBe(0);
+		expect(t.router.liveRuntimes()).toBe(0);
 		expect(readdirSync(t.rig.world.sessionsRoot, { recursive: true })).toEqual([]);
 	});
 
@@ -57,13 +53,13 @@ describe("a new session is checked before a runtime is built", () => {
 		t = await HostRig.create();
 		const live = await t.rig.rig.openNew({ thinking: "high" });
 		expect(live.initial.thinking).toBe("high");
-		expect(live.initial.modelId).toBe(wireIdOf(FAUX_MODEL_IDS.reasoner));
+		expect(live.initial.modelId).toBe(wireIdOf(MODELS.reasoner));
 	});
 
 	test("a model and a thinking level that fit start the session on them", async () => {
 		t = await HostRig.create();
-		const live = await t.rig.rig.openNew({ modelId: wireIdOf(FAUX_MODEL_IDS.noOff), thinking: "low" });
-		expect(live.initial).toMatchObject({ modelId: wireIdOf(FAUX_MODEL_IDS.noOff), thinking: "low" });
+		const live = await t.rig.rig.openNew({ modelId: wireIdOf(MODELS.noOff), thinking: "low" });
+		expect(live.initial).toMatchObject({ modelId: wireIdOf(MODELS.noOff), thinking: "low" });
 	});
 });
 
@@ -86,7 +82,7 @@ describe("a new session nobody has prompted", () => {
 		expect(deleted?.status).toBe("accepted");
 		expect(t.rig.catalog.items).toContainEqual({ type: "session_removed", session: live.ref });
 		expect(t.rig.world.trash.calls()).toEqual([path]);
-		await until(() => t?.bus.liveRuntimes() === 0, "the host ends");
+		await until(() => t?.router.liveRuntimes() === 0, "the host ends");
 	});
 
 	test("outlives its host and a restart: found, opened again, prompted, and Pi appends to the file it began", async () => {
@@ -94,7 +90,7 @@ describe("a new session nobody has prompted", () => {
 		const live = await t.rig.rig.openNew();
 		const path = t.rig.fileOf(live.ref);
 		await live.close();
-		await until(() => t?.bus.liveRuntimes() === 0, "the host ends");
+		await until(() => t?.router.liveRuntimes() === 0, "the host ends");
 		expect(t.rig.catalog.items.some((event) => event.type === "session_removed")).toBe(false);
 		expect((await t.rig.rig.backend.getSession(live.ref)).status).toBe("accepted");
 
@@ -125,16 +121,23 @@ describe("project trust", () => {
 		);
 	}
 
+	/** The commands the session's own `pi` runs. */
+	async function commandNames(rig: HostRig, ref: SessionRef): Promise<string[]> {
+		const answer = await rig.host(ref).commands();
+		if (!answer.ok) throw new Error(answer.error);
+		return answer.data.map((command) => command.name);
+	}
+
 	test("a project's own extensions are not loaded until the user trusted it", async () => {
 		t = await HostRig.create();
 		writeProjectExtension(t.rig.cwd);
 		const untrusted = await t.rig.rig.openNew();
-		expect(t.session(untrusted.ref).extensionRunner.getCommand("evil")).toBeUndefined();
+		expect(await commandNames(t, untrusted.ref)).not.toContain("evil");
 		await untrusted.close();
 
 		new ProjectTrustStore(t.rig.world.env.agentDir).set(t.rig.cwd, true);
 		const trusted = await t.rig.rig.openNew();
-		expect(t.session(trusted.ref).extensionRunner.getCommand("evil")).toBeDefined();
+		expect(await commandNames(t, trusted.ref)).toContain("evil");
 	});
 
 	test("a project the user distrusted stays closed to its extensions", async () => {
@@ -142,12 +145,13 @@ describe("project trust", () => {
 		writeProjectExtension(t.rig.cwd);
 		new ProjectTrustStore(t.rig.world.env.agentDir).set(t.rig.cwd, false);
 		const live = await t.rig.rig.openNew();
-		expect(t.session(live.ref).extensionRunner.getCommand("evil")).toBeUndefined();
+		expect(await commandNames(t, live.ref)).not.toContain("evil");
 	});
 });
 
 describe("package installs", () => {
-	test("a configured package that is missing is left out and named, never installed by the open", async () => {
+	// In RPC mode Pi reports no missing package (pi-coding-agent 1.5.2 prints nothing for one), so it cannot be named.
+	test("a configured package that is missing is never installed by the open", async () => {
 		t = await HostRig.create({ settings: { packages: ["npm:not-on-this-machine"] } });
 		const bin = join(t.rig.world.env.root, "npm-bin");
 		const calls = join(t.rig.world.env.root, "npm-calls.log");
@@ -155,24 +159,13 @@ describe("package installs", () => {
 		writeFileSync(join(bin, "npm"), `#!/bin/sh\necho "$@" >> '${calls}'\necho ${t.rig.world.env.root}/npm-root\n`);
 		chmodSync(join(bin, "npm"), 0o755);
 		process.env.PATH = `${bin}:${process.env.PATH ?? ""}`;
+		await t.rig.rig.restart();
 
 		const live = await t.rig.rig.openNew();
-		const notice = await live.waitFor("notice", (event) => event.text.includes("not-on-this-machine"));
-		expect(notice).toMatchObject({ level: "warning" });
-		expect(notice.text).toContain("missing or not at the configured version, so it was not loaded");
-		expect(
-			readFileSync(calls, "utf8")
-				.split("\n")
-				.filter((line) => /install/.test(line)),
-		).toEqual([]);
-	});
-
-	test("with every configured package on disk, Pi loads the session's extensions with the process's own setting", async () => {
-		const before = process.env.PI_OFFLINE;
-		t = await HostRig.create();
-		await t.rig.rig.openNew();
-		expect(t.state.offlineSeen.at(-1)).toBe(before);
-		expect(process.env.PI_OFFLINE).toBe(before);
+		await t.rig.rig.arrange(live.ref, { kind: "reply" });
+		expect((await live.run("go")).outcome.kind).toBe("completed");
+		const npmCalls = existsSync(calls) ? readFileSync(calls, "utf8").split("\n") : [];
+		expect(npmCalls.filter((line) => /install/.test(line))).toEqual([]);
 	});
 });
 
@@ -184,7 +177,7 @@ describe("the permissions mode", () => {
 		await live.run("first");
 		expect((await live.control.setMode("permissions", "ask")).status).toBe("accepted");
 		await live.close();
-		await until(() => t?.bus.liveRuntimes() === 0, "the idle host ends");
+		await until(() => t?.router.liveRuntimes() === 0, "the idle host ends");
 
 		const again = await t.rig.rig.open(live.ref);
 		expect(again.initial.modes).toEqual([{ axis: "permissions", value: "ask" }]);
@@ -235,7 +228,7 @@ describe("a hosted session", () => {
 		const deleted = await t.rig.rig.backend.delete?.(live.ref);
 		expect(deleted?.status).toBe("accepted");
 		expect(await live.prompt("too late")).toMatchObject({ status: "rejected", rejection: { code: "closed" } });
-		await until(() => t?.bus.liveRuntimes() === 0, "the host ends");
+		await until(() => t?.router.liveRuntimes() === 0, "the host ends");
 	});
 });
 
@@ -248,22 +241,18 @@ describe("a session another client made", () => {
 		const opened = await t.rig.rig.open({ backend: "pi", sessionId: id });
 		expect(opened.session.control).toBeUndefined();
 		expect(opened.initial.modes).toEqual([{ axis: "permissions", value: "off" }]);
-		expect(t.bus.starts(id)).toBe(0);
+		expect(t.router.starts(id)).toBe(0);
 		expect(opened.recorder.items).toEqual([]);
 	});
 });
 
 describe("the commands of a directory a session is open in", () => {
-	test("are that session's: nothing is loaded again to list them", async () => {
+	test("are that session's: no other pi is started to list them", async () => {
 		t = await HostRig.create();
 		await t.rig.rig.openNew();
-		const reload = spyOn(DefaultResourceLoader.prototype, "reload");
-		try {
-			const listed = await t.rig.rig.backend.listCommands({ cwd: t.rig.cwd });
-			expect(listed.status === "accepted" && listed.commands.map((command) => command.id)).toContain("ext:kick");
-			expect(reload).not.toHaveBeenCalled();
-		} finally {
-			reload.mockRestore();
-		}
+		const probes = t.rig.world.probes();
+		const listed = await t.rig.rig.backend.listCommands({ cwd: t.rig.cwd });
+		expect(listed.status === "accepted" && listed.commands.map((command) => command.id)).toContain("ext:kick");
+		expect(t.rig.world.probes()).toBe(probes);
 	});
 });

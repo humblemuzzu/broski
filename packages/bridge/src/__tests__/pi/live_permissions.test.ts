@@ -5,11 +5,11 @@
  */
 
 import { afterEach, describe, expect, test } from "bun:test";
-import { type FauxResponseStep, fauxToolCall } from "@earendil-works/pi-ai";
 import type { Interaction, PermissionOption, ToolFinishedEvent } from "../../contract";
 import type { LiveSession } from "../../contract/testing/conformance-harness";
 import { LiveRig } from "./helpers/live-rig";
-import { readReadme, say, toolUse } from "./helpers/scenarios";
+import type { ScriptStep } from "./helpers/pi-router";
+import { call, readReadme, say } from "./helpers/scenarios";
 import { useWatchdog } from "./helpers/use-watchdog";
 
 useWatchdog();
@@ -44,7 +44,7 @@ async function decide(live: LiveSession, interaction: Interaction, pick: Pick, m
 	});
 }
 
-async function askingSession(rig: LiveRig, steps: readonly FauxResponseStep[]): Promise<LiveSession> {
+async function askingSession(rig: LiveRig, steps: readonly ScriptStep[]): Promise<LiveSession> {
 	const live = await rig.rig.openNew({ modes: ASK });
 	rig.router.script(live.ref.sessionId, steps);
 	await live.prompt("Use your tools.");
@@ -98,7 +98,7 @@ describe("the gate in ask mode", () => {
 		expect(tool?.outcome).toBe("denied");
 		expect(tool && ranTool(tool)).toBe(false);
 		const second = t.router.requests(live.ref.sessionId)[1]?.messages.at(-1);
-		expect(second).toMatchObject({ role: "toolResult", isError: true });
+		expect(second).toMatchObject({ role: "tool" });
 		expect(JSON.stringify(second)).toContain("Not that file.");
 		live.assertSettled();
 	});
@@ -131,7 +131,7 @@ describe("the gate in ask mode", () => {
 
 	test("allow for the session is remembered for that tool only", async () => {
 		t = await LiveRig.create();
-		const write = toolUse(fauxToolCall("write", { path: "out.txt", content: "x" }));
+		const write = call("write", { path: "out.txt", content: "x" });
 		const live = await askingSession(t, [readReadme(), readReadme(), write, say("Done.")]);
 		const first = await live.waitFor("interaction_requested");
 		await decide(live, first.interaction, allowSession);
@@ -152,7 +152,7 @@ describe("the gate in ask mode", () => {
 		await decide(live, interaction, allowSession);
 		await live.waitFor("run_finished");
 		await live.close();
-		await t.bus.shutDown(live.ref.sessionId);
+		await t.router.shutDown(live.ref.sessionId);
 		await t.rig.restart();
 
 		const reopened = await t.rig.open(live.ref);
@@ -193,7 +193,7 @@ describe("the mode itself", () => {
 		await t.rig.arrange(live.ref, { kind: "reply" });
 		await live.run("Remember the mode.");
 		await live.close();
-		await t.bus.shutDown(live.ref.sessionId);
+		await t.router.shutDown(live.ref.sessionId);
 		const reopened = await t.rig.open(live.ref);
 		expect(reopened.initial.modes).toEqual(ASK);
 	});
@@ -204,7 +204,7 @@ describe("a codemode script's nested call", () => {
 
 	test("is asked after the codemode call itself, as a child of it", async () => {
 		t = await LiveRig.create({ settings: { defaultTools: ["+codemode"] } });
-		const live = await askingSession(t, [toolUse(fauxToolCall("codemode", { code: SCRIPT })), say("Done.")]);
+		const live = await askingSession(t, [call("codemode", { code: SCRIPT }), say("Done.")]);
 		const outer = await live.waitFor("interaction_requested");
 		expect(outer.interaction.origin?.toolName).toBe("codemode");
 		await decide(live, outer.interaction, allowOnce);
@@ -227,7 +227,7 @@ describe("a codemode script's nested call", () => {
 
 	test("denying the nested call fails the script, not the run", async () => {
 		t = await LiveRig.create({ settings: { defaultTools: ["+codemode"] } });
-		const live = await askingSession(t, [toolUse(fauxToolCall("codemode", { code: SCRIPT })), say("Done.")]);
+		const live = await askingSession(t, [call("codemode", { code: SCRIPT }), say("Done.")]);
 		const outer = await live.waitFor("interaction_requested");
 		await decide(live, outer.interaction, allowOnce);
 		const inner = await live.waitFor("interaction_requested", (event) => event.interaction.origin?.toolName === "read");

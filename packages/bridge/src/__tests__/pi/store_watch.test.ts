@@ -52,6 +52,29 @@ async function until(check: () => boolean, what: string): Promise<void> {
 
 const quiet = () => Bun.sleep(600);
 
+/**
+ * `fs.watch` on macOS starts asynchronously and misses what is written in its first moments. A session file is written
+ * again until the watch reports it, so a test's own writes come once the watch is known to see them.
+ */
+async function writeUntilReported(dir: string, builder: SessionBuilder, reported: () => boolean): Promise<string> {
+	const deadline = Date.now() + 5_000;
+	for (;;) {
+		const path = writeSession(dir, builder);
+		const retry = Date.now() + 300;
+		while (Date.now() < retry) {
+			if (reported()) return path;
+			await Bun.sleep(20);
+		}
+		if (Date.now() > deadline) throw new Error(`the watch never reported ${path}`);
+	}
+}
+
+/** The watch sees writes from now on; what it reported to show so is forgotten. */
+async function watching(dir = env.sessionDir): Promise<void> {
+	await writeUntilReported(dir, chat("ready", 500), () => updates("ready").length > 0);
+	events.length = 0;
+}
+
 function chat(id: string, lastAt: number, prompt = `prompt of ${id}`): SessionBuilder {
 	const builder = new SessionBuilder({ id, cwd: env.cwd, version: 3, createdAt: lastAt - 10 });
 	builder.user(prompt, lastAt - 5);
@@ -92,7 +115,7 @@ describe("watching the session directory", () => {
 	test("a file another process writes, changes and deletes is session_updated, session_updated, session_removed", async () => {
 		writeSession(env.sessionDir, chat("old", 1_000));
 		startWatching();
-		await Bun.sleep(300);
+		await watching();
 
 		const builder = chat("fresh", 5_000, "a brand new prompt");
 		const path = writeSession(env.sessionDir, builder);
@@ -128,7 +151,7 @@ describe("watching the session directory", () => {
 	test("a file that was already there and is then changed is news", async () => {
 		const path = writeSession(env.sessionDir, chat("old", 1_000));
 		startWatching();
-		await Bun.sleep(300);
+		await watching();
 
 		const builder = chat("old", 1_000);
 		builder.user("later", 7_000);
@@ -142,7 +165,7 @@ describe("watching the session directory", () => {
 		const path = writeSession(env.sessionDir, chat("moving", 1_000));
 		startWatching();
 		await index.scan(undefined);
-		await Bun.sleep(300);
+		await watching();
 
 		renameSync(path, join(env.sessionDir, "renamed-by-hand.jsonl"));
 
@@ -153,7 +176,7 @@ describe("watching the session directory", () => {
 
 	test("a file a listing found first is still announced, and so is its removal after a listing pruned it", async () => {
 		startWatching();
-		await Bun.sleep(300);
+		await watching();
 
 		const path = writeSession(env.sessionDir, chat("listed-first", 1_000));
 		await index.scan(undefined);
@@ -172,7 +195,7 @@ describe("watching the session directory", () => {
 		const builder = chat("burst", 1_000);
 		const path = writeSession(env.sessionDir, builder);
 		startWatching();
-		await Bun.sleep(300);
+		await watching();
 
 		for (let n = 0; n < 30; n += 1) {
 			builder.user(`more ${n}`, 2_000 + n);
@@ -189,11 +212,13 @@ describe("watching the session directory", () => {
 		mkdirSync(root, { recursive: true });
 		delete process.env.PI_CODING_AGENT_SESSION_DIR;
 		startWatching(() => [{ dir: root, nested: true, trusted: true }]);
-		await Bun.sleep(300);
+		await watching(join(root, "--ready--"));
 
-		writeSession(join(root, "--new-project--"), chat("in-new-dir", 3_000));
-
-		await until(() => updates("in-new-dir").length >= 1, "the session in the new directory");
+		await writeUntilReported(
+			join(root, "--new-project--"),
+			chat("in-new-dir", 3_000),
+			() => updates("in-new-dir").length >= 1,
+		);
 	});
 
 	test("a root that does not exist yet is watched once a later call finds it", async () => {
@@ -203,16 +228,13 @@ describe("watching the session directory", () => {
 		await quiet();
 		mkdirSync(root);
 		watch.attach();
-		await Bun.sleep(300);
 
-		writeSession(root, chat("late", 1_000));
-
-		await until(() => updates("late").length >= 1, "a session in the late root");
+		await writeUntilReported(root, chat("late", 1_000), () => updates("late").length >= 1);
 	});
 
 	test("a file that is not a session is not news", async () => {
 		startWatching();
-		await Bun.sleep(300);
+		await watching();
 
 		writeFileSync(join(env.sessionDir, "notes.jsonl"), "just notes\n");
 		writeFileSync(join(env.sessionDir, "other.txt"), "x");
@@ -223,7 +245,7 @@ describe("watching the session directory", () => {
 
 	test("nothing is emitted after stop, stopping twice is fine, and a stopped watch does not start again", async () => {
 		startWatching();
-		await Bun.sleep(300);
+		await watching();
 
 		watch.stop();
 		watch.stop();
@@ -240,7 +262,7 @@ describe("watching the session directory", () => {
 		const root = join(env.agentDir, "sessions");
 		mkdirSync(root, { recursive: true });
 		startWatching(() => [{ dir: root, nested: true, trusted: true }]);
-		await Bun.sleep(300);
+		await watching(join(root, "--ready--"));
 		let release: () => void = () => undefined;
 		const gate = new Promise<void>((resolve) => {
 			release = resolve;
@@ -266,7 +288,7 @@ describe("watching the session directory", () => {
 
 	test("a summary being read when stop comes is not emitted", async () => {
 		startWatching();
-		await Bun.sleep(300);
+		await watching();
 		let release: () => void = () => undefined;
 		const gate = new Promise<void>((resolve) => {
 			release = resolve;
@@ -290,7 +312,7 @@ describe("watching the session directory", () => {
 
 	test("an event already scheduled when stop comes is dropped", async () => {
 		startWatching();
-		await Bun.sleep(300);
+		await watching();
 
 		writeSession(env.sessionDir, chat("racing", 1_000));
 		await Bun.sleep(30);

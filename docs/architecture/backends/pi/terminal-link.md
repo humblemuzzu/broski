@@ -1,6 +1,6 @@
 # The terminal link
 
-A phone sees a terminal's Pi session live, and can send it a message and stop it, through a small extension the bridge installs into Pi's agent directory. This file says what runs where, why it is built the way it is, what it cannot do with Pi 1.4.0, and how to turn it off. The code is `packages/bridge/src/backends/pi/terminal/`; the tests are `terminal_link`, `terminal_channel`, `terminal_extension`, `terminal_install` in `src/__tests__/pi/`.
+A phone sees a terminal's Pi session live, and can send it a message and stop it, through a small extension the bridge installs into Pi's agent directory. This file says what runs where, why it is built the way it is, what it cannot do, and how to turn it off. The code is `packages/bridge/src/backends/pi/terminal/`; the tests are `terminal_link`, `terminal_channel`, `terminal_extension`, `terminal_install` in `src/__tests__/pi/`.
 
 ```
 terminal `pi` ──(Broski link extension, in the pi process)──► unix socket ──► bridge (TerminalLinkServer) ──► the Pi adapter ──► the core ──► phone
@@ -55,7 +55,7 @@ Pi's terminal reads a session file once, when it opens (`SessionManager.open`, `
 
 A session another client made, with no terminal linked, opens watch-only and stays so: the phone can read it, not drive it. Only a session this bridge created, or one a linked terminal runs, is controllable.
 
-## What Pi 1.4.0 cannot do here
+## What it cannot do (found on Pi 1.4.0; the `terminal_*` tests pass on 1.5.2, the citations below were not re-read)
 
 - **No queue or retry events for extensions.** The terminal's steering and follow-up queues, and its automatic retries, are invisible: `queue_changed` is never sent for a terminal session; the phone's steer/queue is delivered (`pi.sendUserMessage(…, {deliverAs})`, `agent-session.ts` `sendUserMessage`) but not listed, and `cancelQueued` does not exist.
 - **Stop is the terminal's Esc, and the terminal's queue goes to the terminal.** `ctx.abort()` is bound by the interactive mode to `restoreQueuedMessagesToEditor({abort: true})` (`interactive-mode.ts:1978-1981`): queued text lands in the terminal's editor, not the phone's composer, and no `input_returned` is sent for a terminal session. A session the bridge hosts does hand the texts to the phone.

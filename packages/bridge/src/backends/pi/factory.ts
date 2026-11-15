@@ -1,18 +1,13 @@
-/** The `BackendFactory` the bridge registers for `pi` (core README §16): shared services, then the backend. */
+/** The `BackendFactory` the bridge registers for `pi` (core README §16). */
 
 import type { BackendFactory } from "../../contract";
-import { createPiParts, piBackendOf } from "./backend";
-import { createPiServices, type PiServicesOptions } from "./services";
-import type { TerminalLinkOptions } from "./terminal/link";
+import { createPiParts, type PiBackendOptions, piBackendOf } from "./backend";
 
-export interface PiFactoryOptions extends PiServicesOptions {
-	/** The link to terminal `pi` processes (`terminal/link.ts`); without it the adapter installs and listens to nothing. */
-	readonly link?: TerminalLinkOptions;
-}
+export type { PiBackendOptions } from "./backend";
 
-export function piBackendFactory(options: PiFactoryOptions = {}): BackendFactory {
+export function piBackendFactory(options: PiBackendOptions): BackendFactory {
 	return async (host) => {
-		const parts = createPiParts(host, await createPiServices(options), options.link);
+		const parts = createPiParts(host, options);
 		await parts.terminal.start();
 		return piBackendOf(parts);
 	};
