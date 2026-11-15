@@ -17,7 +17,10 @@ import uniffi.broski_contract.ClientMessage
 import uniffi.broski_contract.SessionRef
 import uniffi.broski_core.ClientException
 
-/** Stop on the Live Update: `abort` for that run, through the app's own link to its machine. */
+/**
+ * Stop on the Live Update: `abort` for that run, through the app's own link to its machine. The bridge
+ * takes `abort` only for a session the phone views, so the session is viewed while it is sent.
+ */
 class StopReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val target = OpenSession.from(intent) ?: return
@@ -25,11 +28,16 @@ class StopReceiver : BroadcastReceiver() {
         val phone = ((context.applicationContext as BroskiApplication).core.state.value as? CoreState.Ready)?.session ?: return
         val machine = phone.machine(target.machineId) ?: return
         val pending = goAsync()
+        val session = SessionRef(backend, target.sessionId)
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
-                // A receiver that holds on past its few seconds is an ANR; the abort is sent by then.
-                withTimeoutOrNull(STOP_WAIT_MS) {
-                    machine.request(ClientMessage.Abort(AbortRequest("", SessionRef(backend, target.sessionId))))
+                val view = machine.attach(session)
+                try {
+                    // A receiver that holds on past its few seconds is an ANR; the abort is sent by then.
+                    withTimeoutOrNull(STOP_WAIT_MS) { machine.request(ClientMessage.Abort(AbortRequest("", session))) }
+                } finally {
+                    view.detach()
+                    view.close()
                 }
             } catch (error: ClientException) {
                 Log.w(LiveUpdate.TAG, "Stop did not reach the machine", error)

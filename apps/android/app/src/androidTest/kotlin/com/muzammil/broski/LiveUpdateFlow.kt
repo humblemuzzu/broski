@@ -8,12 +8,13 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import uniffi.broski_core.SessionUpdate
-import uniffi.broski_core.SessionView
 
 /**
  * A run on the real machine that holds, so it stays working: the Live Update appears with the run
- * it follows, and pressing its Stop ends the run on the Mac and the Live Update with it.
+ * it follows, and pressing its Stop ends the run on the Mac and the Live Update with it. No view of
+ * the session is open when Stop is pressed, as when the app is in the background: Stop views it itself.
  */
 class LiveUpdateFlow(private val ui: WorkspaceUiDriver, private val machine: RealMachine) {
     private val manager = machine.context.getSystemService(NotificationManager::class.java)
@@ -21,16 +22,21 @@ class LiveUpdateFlow(private val ui: WorkspaceUiDriver, private val machine: Rea
     fun run() = runBlocking {
         val session = machine.seed("Live update")
         machine.scriptHold(session)
-        val view = machine.prompt(session, "Hold on")
+        machine.prompt(session, "Hold on").let { view ->
+            view.detach()
+            view.close()
+        }
+        val live = waitFor { live() }
+        assertEquals("1 agent working", live.notification.extras.getString(Notification.EXTRA_TITLE))
+        assertEquals("Pi · Live update · ${machine.phone.machines.value.single().name}", live.notification.extras.getCharSequence(Notification.EXTRA_TEXT).toString())
+        Shots.shade("live-update")
+        val stop = live.notification.actions.single { it.title.toString() == ui.string(R.string.live_stop) }
+        stop.actionIntent.send()
+        waitFor { if (live() == null) Unit else null }
+        val view = requireNotNull(machine.phone.machine(machine.machineId)).attach(session)
         try {
-            val live = waitFor { live() }
-            assertEquals("1 agent working", live.notification.extras.getString(Notification.EXTRA_TITLE))
-            assertEquals("Pi · Live update · ${machine.phone.machines.value.single().name}", live.notification.extras.getCharSequence(Notification.EXTRA_TEXT).toString())
-            Shots.shade("live-update")
-            val stop = live.notification.actions.single { it.title.toString() == ui.string(R.string.live_stop) }
-            stop.actionIntent.send()
-            waitForRunToEnd(view)
-            waitFor { if (live() == null) Unit else null }
+            check(view.nextUpdate() is SessionUpdate.Reset) { "the view starts from a snapshot" }
+            assertNull("the run Stop aborted", view.snapshot()?.run)
         } finally {
             view.detach()
             view.close()
@@ -38,13 +44,6 @@ class LiveUpdateFlow(private val ui: WorkspaceUiDriver, private val machine: Rea
     }
 
     private fun live(): StatusBarNotification? = manager.activeNotifications.firstOrNull { it.id == LiveUpdate.ID }
-
-    /** The held run is live while the Live Update shows; it ends only by the abort Stop sent. */
-    private suspend fun waitForRunToEnd(view: SessionView) = withTimeout(TIMEOUT_MS) {
-        while (view.snapshot()?.run != null) {
-            if (view.nextUpdate() is SessionUpdate.Ended) error("the view ended before the run")
-        }
-    }
 
     private suspend fun <T : Any> waitFor(read: () -> T?): T = withTimeout(TIMEOUT_MS) {
         var value = read()
