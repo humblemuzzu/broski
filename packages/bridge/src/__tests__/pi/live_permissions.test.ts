@@ -5,6 +5,8 @@
  */
 
 import { afterEach, describe, expect, test } from "bun:test";
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
 import type { Interaction, PermissionOption, ToolFinishedEvent } from "../../contract";
 import type { LiveSession } from "../../contract/testing/conformance-harness";
 import { LiveRig } from "./helpers/live-rig";
@@ -251,6 +253,49 @@ describe("a codemode script's nested call", () => {
 		expect((await live.waitFor("run_finished")).outcome.kind).toBe("completed");
 		const nested = finishedTools(live).find((tool) => tool.toolCallId !== outer.interaction.origin?.toolCallId);
 		expect(nested?.outcome).toBe("denied");
+		live.assertSettled();
+	});
+});
+
+describe("a tool of an MCP server Pi connects", () => {
+	function withEchoServer(rig: LiveRig): void {
+		const server = { command: process.execPath, args: [join(import.meta.dir, "helpers", "mcp-echo-server.ts")] };
+		const config = { mcpServers: { probe: { ...server, exposure: "direct" } } };
+		writeFileSync(join(rig.world.env.agentDir, "mcp.json"), JSON.stringify(config));
+	}
+
+	const echo = (text: string) => call("mcp__probe__echo", { text });
+	const echoed = (tool: ToolFinishedEvent | undefined) => JSON.stringify(tool?.result).includes("echo: ");
+
+	test("is asked about by its own name, and runs once allowed", async () => {
+		t = await LiveRig.create();
+		withEchoServer(t);
+		const live = await askingSession(t, [echo("hello"), say("Done.")]);
+		const { interaction } = await live.waitFor("interaction_requested");
+		expect(interaction).toMatchObject({ title: "Allow mcp__probe__echo?", origin: { toolName: "mcp__probe__echo" } });
+		expect(interaction.request).toMatchObject({ kind: "tool_permission", input: { text: "hello" } });
+		expect(finishedTools(live)).toEqual([]);
+
+		await decide(live, interaction, allowOnce);
+		expect((await live.waitFor("run_finished")).outcome.kind).toBe("completed");
+		const [tool] = finishedTools(live);
+		expect(tool?.outcome).toBe("completed");
+		expect(JSON.stringify(tool?.result)).toContain("echo: hello");
+		live.assertSettled();
+	});
+
+	test("denied, never reaches its server, and the model is told why", async () => {
+		t = await LiveRig.create();
+		withEchoServer(t);
+		const live = await askingSession(t, [echo("hello"), say("Understood.")]);
+		const { interaction } = await live.waitFor("interaction_requested");
+
+		await decide(live, interaction, deny, "Not that server.");
+		expect((await live.waitFor("run_finished")).outcome.kind).toBe("completed");
+		const [tool] = finishedTools(live);
+		expect(tool?.outcome).toBe("denied");
+		expect(echoed(tool)).toBe(false);
+		expect(JSON.stringify(t.router.requests(live.ref.sessionId)[1]?.messages.at(-1))).toContain("Not that server.");
 		live.assertSettled();
 	});
 });

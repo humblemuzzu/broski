@@ -7,8 +7,10 @@ import { join } from "node:path";
 import { KEY_FILE, SOCKET_FILE, TerminalLinkServer } from "../../backends/pi/terminal/link-server";
 import { LINK_VERSION } from "../../backends/pi/terminal/protocol";
 import { TerminalRegistry } from "../../backends/pi/terminal/registry";
+import type { AgentEvent } from "../../contract";
 import { LiveRig } from "./helpers/live-rig";
 import { useWatchdog } from "./helpers/use-watchdog";
+import { until } from "./host_rig";
 
 useWatchdog();
 
@@ -195,6 +197,34 @@ describe("what the bridge accepts from a terminal", () => {
 		await client.closed;
 		expect(t.world.parts.terminal.registry.session(file)).toBeUndefined();
 		expect(await session.command({ kind: "abort" })).toMatchObject({ ok: false, code: "backend_error" });
+	});
+});
+
+describe("a terminal that disappears", () => {
+	test("mid-run, without a word, ends its run aborted with a notice, for the viewers that were watching", async () => {
+		t = await LiveRig.create({ link: true });
+		const file = join(t.world.env.sessionDir, "x.jsonl");
+		writeFileSync(file, "");
+		const client = await dial(directoryOf(t));
+		client.send(hello(t, {}, file));
+		await client.next();
+		client.send({ t: "snapshot", reason: "connect", state: STATE });
+		const registry = t.world.parts.terminal.registry;
+		await until(() => registry.session(file) !== undefined, "the terminal to be held");
+		const events: AgentEvent[] = [];
+		registry.session(file)?.feed.live.attach({ emit: (record) => events.push(record.event) });
+		client.send({ t: "event", event: { e: "agent_start", leafId: null } });
+		await until(() => events.some((event) => event.type === "run_started"), "the run to start");
+
+		client.socket.destroy();
+		await until(() => events.some((event) => event.type === "run_finished"), "the run to end");
+
+		expect(events.at(-2)).toEqual({
+			type: "notice",
+			level: "warning",
+			text: "The terminal closed while this was running.",
+		});
+		expect(events.at(-1)).toMatchObject({ type: "run_finished", outcome: { kind: "aborted" } });
 	});
 });
 
