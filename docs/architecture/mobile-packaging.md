@@ -45,6 +45,7 @@ view is exported as `detach`, of a list as `stop`; a machine is ended through `P
 | `parsePairingOffer(uri:) throws → PairingOffer { machineId, name, expiresAt }` | `Offer::parse`: what the scanner shows and checks before `Phone.pair` |
 | `openNotification(record:data:) throws → PushNotification` | `push::open_notification` |
 | `decisionLetter(record:decision:backend:session:request:) throws → LetterRequest { url, headers, body }` | `push::decision_letter` |
+| `coreVersion() → CoreVersion { library, protocol }` | this crate's version and the contract's `PROTOCOL_VERSION`, for the apps' About screens |
 
 ### Values
 
@@ -56,7 +57,7 @@ view is exported as `detach`, of a list as `stop`; a machine is ended through `P
 - **The session's**, restated the same way in `mobile/src/link.rs` and `push.rs`: `LinkStatus` (its
   `Status`), `LinkState`, `WaitReason`, `LinkRoute` (`Route`), `BridgeStatus`, `BridgeState`,
   `SendFailure`, `Platform`, `PushPlatform`, `PushNotification`, `PushDecision`.
-- **The facade's own**: `PairingOffer`, `HttpHeader`, `LetterRequest`.
+- **The facade's own**: `PairingOffer`, `HttpHeader`, `LetterRequest`, `CoreVersion`.
 - **The contract's** models are external types: `broski-contract` derives `uniffi::Record`/`Enum` behind
   its `uniffi` feature and sets up its own scaffolding, and the bindgen emits its bindings next to the
   facade's (`ClientMessage`, `ServerMessage`, `SessionRef`, `SessionSnapshot`, …).

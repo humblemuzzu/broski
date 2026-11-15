@@ -16,6 +16,7 @@ mod phone;
 mod push;
 mod record;
 mod values;
+mod version;
 mod views;
 
 pub use inbox::Inbox;
@@ -27,6 +28,7 @@ pub use push::{
     decision_letter, open_notification, HttpHeader, LetterRequest, PushDecision, PushNotification,
 };
 pub use record::MachineRecord;
+pub use version::{core_version, CoreVersion};
 pub use views::{SessionList, SessionView, TerminalView};
 
 uniffi::setup_scaffolding!();
