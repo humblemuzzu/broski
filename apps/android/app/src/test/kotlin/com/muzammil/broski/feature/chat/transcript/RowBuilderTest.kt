@@ -3,9 +3,7 @@ package com.muzammil.broski.feature.chat.transcript
 import com.muzammil.broski.feature.chat.EmptySnapshot
 import com.muzammil.broski.feature.chat.Items
 import com.muzammil.broski.feature.chat.work.FoldLead
-import com.muzammil.broski.feature.chat.work.WorkCount
 import com.muzammil.broski.feature.chat.work.WorkEntry
-import com.muzammil.broski.feature.chat.work.WorkVerb
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -19,6 +17,8 @@ import uniffi.broski_contract.RunOutcome
 import uniffi.broski_contract.SessionSnapshot
 import uniffi.broski_contract.ToolOutcome
 import uniffi.broski_contract.TranscriptItem
+import uniffi.broski_core.FoldCount
+import uniffi.broski_core.FoldVerb
 import uniffi.broski_core.markdownBlocks
 
 /** The transcript's rows from real contract items, parsed by the real core's markdown. */
@@ -51,10 +51,17 @@ class RowBuilderTest {
         val fold = (rows[1] as ChatRow.Work).fold
         assertEquals(FoldLead.Worked, fold.lead)
         assertEquals(6_500L, fold.durationMs)
-        assertEquals(listOf(WorkCount(WorkVerb.Edited, 1), WorkCount(WorkVerb.Ran, 1)), fold.counts)
+        assertEquals(
+            listOf(
+                FoldCount(FoldVerb.EDITED, 1u, "Edited 1 file"),
+                FoldCount(FoldVerb.RAN, 1u, "Ran 1 command"),
+                FoldCount(FoldVerb.USED, 1u, "Used 1 tool"),
+            ),
+            fold.counts,
+        )
         assertEquals(1, fold.failed)
         assertFalse(fold.live)
-        assertEquals(listOf("Thought", "a.md", "npm test", "b.md"), fold.entries.map { (it as? WorkEntry.Tool)?.label ?: "Thought" })
+        assertEquals(listOf("Thought", "Read a.md", "npm test", "Edited b.md"), fold.entries.map { (it as? WorkEntry.Tool)?.label ?: "Thought" })
         assertEquals("Done, **both** files.", (rows[3] as ChatRow.CopyAnswer).text)
     }
 

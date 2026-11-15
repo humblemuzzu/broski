@@ -3,14 +3,14 @@ package com.muzammil.broski.feature.chat.transcript
 import com.muzammil.broski.feature.chat.work.FoldLead
 import com.muzammil.broski.feature.chat.work.WorkEntry
 import com.muzammil.broski.feature.chat.work.WorkFold
-import com.muzammil.broski.feature.chat.work.toolKind
-import com.muzammil.broski.feature.chat.work.toolLabel
 import com.muzammil.broski.feature.chat.work.workCounts
 import uniffi.broski_contract.ImageRef
 import uniffi.broski_contract.RunningTool
 import uniffi.broski_contract.ToolCallItem
 import uniffi.broski_contract.ToolContent
 import uniffi.broski_contract.ToolResultItem
+import uniffi.broski_core.ToolFacts
+import uniffi.broski_core.toolLook
 
 /** A tool call while the transcript is read: its result may come later in the same pass. */
 internal class ToolDraft(val call: ToolCallItem, val live: Boolean) {
@@ -22,20 +22,23 @@ internal class ToolDraft(val call: ToolCallItem, val live: Boolean) {
     fun entry(): WorkEntry.Tool {
         val result = result?.result
         val running = running
+        val input = running?.input ?: call.input
+        val fileChanges = result?.fileChanges?.takeIf { it.isNotEmpty() } ?: running?.fileChanges.orEmpty()
+        val childSession = call.childSession ?: running?.childSession
+        val facts = ToolFacts(call.name, call.title ?: running?.title, input, childSession != null, fileChanges.map { it.path })
         return WorkEntry.Tool(
             id = call.toolCallId,
             name = call.name,
-            kind = toolKind(call.name),
-            label = toolLabel(call.name, call.title ?: running?.title, running?.input ?: call.input),
-            input = running?.input ?: call.input,
+            look = toolLook(facts),
+            input = input,
             outcome = this.result?.outcome,
             output = result?.content?.filterIsInstance<ToolContent.Text>()?.joinToString("\n") { it.v1.text }
                 ?: running?.output.orEmpty(),
             error = result?.error,
             exitCode = result?.exitCode,
-            fileChanges = result?.fileChanges?.takeIf { it.isNotEmpty() } ?: running?.fileChanges.orEmpty(),
+            fileChanges = fileChanges,
             images = result?.content?.filterIsInstance<ToolContent.ImageRef>()?.map(ToolContent.ImageRef::v1).orEmpty<ImageRef>(),
-            childSession = call.childSession ?: running?.childSession,
+            childSession = childSession,
             nested = call.parentToolCallId != null,
         )
     }

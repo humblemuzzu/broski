@@ -68,34 +68,6 @@
     <string name="chat_work_outcome_denied">Denied</string>
     <string name="chat_work_outcome_stopped">Stopped</string>
     <string name="chat_work_open_subagent">Open subagent</string>
-    <plurals name="chat_work_edited">
-        <item quantity="one">Edited %1$d file</item>
-        <item quantity="other">Edited %1$d files</item>
-    </plurals>
-    <plurals name="chat_work_ran">
-        <item quantity="one">Ran %1$d command</item>
-        <item quantity="other">Ran %1$d commands</item>
-    </plurals>
-    <plurals name="chat_work_read">
-        <item quantity="one">Read %1$d file</item>
-        <item quantity="other">Read %1$d files</item>
-    </plurals>
-    <plurals name="chat_work_searched">
-        <item quantity="one">Searched %1$d time</item>
-        <item quantity="other">Searched %1$d times</item>
-    </plurals>
-    <plurals name="chat_work_fetched">
-        <item quantity="one">Fetched %1$d page</item>
-        <item quantity="other">Fetched %1$d pages</item>
-    </plurals>
-    <plurals name="chat_work_delegated">
-        <item quantity="one">Ran %1$d subagent</item>
-        <item quantity="other">Ran %1$d subagents</item>
-    </plurals>
-    <plurals name="chat_work_used">
-        <item quantity="one">Used %1$d tool</item>
-        <item quantity="other">Used %1$d tools</item>
-    </plurals>
     <plurals name="chat_work_failed">
         <item quantity="one">%1$d failed</item>
         <item quantity="other">%1$d failed</item>

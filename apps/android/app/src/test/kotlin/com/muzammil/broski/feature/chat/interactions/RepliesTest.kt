@@ -31,6 +31,8 @@ import uniffi.broski_contract.StringField
 import uniffi.broski_contract.TextValue
 import uniffi.broski_contract.ToolPermissionReply
 import uniffi.broski_contract.ToolPermissionRequest
+import uniffi.broski_core.formFieldDefault
+import uniffi.broski_core.formFieldShown
 
 /** The reply each kind of card builds from the person's choices. */
 class RepliesTest {
@@ -123,7 +125,7 @@ class RepliesTest {
     @Test
     fun aFormAnswersTheFieldsShownDefaultsIncludedAndAHiddenConditionDropsAField() {
         val fields = listOf(email, notify, channels)
-        val values = fields.mapNotNull { field -> field.initial()?.let { field.key to it } }.toMap().toMutableMap()
+        val values = fields.mapNotNull { field -> formFieldDefault(field)?.let { field.key to it } }.toMap().toMutableMap()
         assertFalse("email and channels are required", formComplete(fields, values))
         values["email"] = FormValue.Text(TextValue("me@example.com"))
         values["channels"] = FormValue.Choices(ChoicesValue(listOf("mail")))
@@ -131,7 +133,7 @@ class RepliesTest {
         assertEquals(setOf("email", "notify", "channels"), ((formReply(fields, values) as InteractionReply.Form).v1 as FormReply).values.keys)
 
         values["notify"] = FormValue.Boolean(BooleanValue(false))
-        assertFalse(channels.active(values))
+        assertFalse(formFieldShown(channels, values))
         assertEquals(setOf("email", "notify"), (formReply(fields, values) as InteractionReply.Form).v1.values.keys)
     }
 

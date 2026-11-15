@@ -20,7 +20,7 @@ class InboxApproveFlow(private val ui: WorkspaceUiDriver, private val machine: R
         machine.runAsTerminalWithPermission(session)
 
         val compose = ui.compose
-        val ask = hasContentDescription(ui.string(R.string.inbox_wants_to_run, ui.string(R.string.agent_pi), "bash"), substring = true)
+        val ask = hasContentDescription(ui.string(R.string.inbox_wants_to_run, ui.string(R.string.agent_pi), "rm -rf build"), substring = true)
         ui.waitFor(ask, TIMEOUT_MS)
         Shots.save("inbox-needs-you")
         compose.onNode(ask).performTouchInput { longClick() }

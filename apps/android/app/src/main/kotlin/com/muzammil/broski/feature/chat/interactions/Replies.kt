@@ -19,6 +19,7 @@ import uniffi.broski_contract.QuestionsReply
 import uniffi.broski_contract.TextReply
 import uniffi.broski_contract.ToolPermissionReply
 import uniffi.broski_contract.ToolPermissionRequest
+import uniffi.broski_core.formFieldShown
 
 /*
  * The replies the person's taps make, one builder per kind. Each sends only what the person chose:
@@ -82,10 +83,10 @@ fun questionsReply(questions: List<Question>, drafts: Map<String, QuestionDraft>
 
 /** The values of the fields shown, and of those the person left at their defaults. */
 fun formReply(fields: List<FormFieldSpec>, values: Map<String, FormValue>): InteractionReply =
-    InteractionReply.Form(FormReply(fields.filter { it.active(values) }.mapNotNull { field -> values[field.key]?.let { field.key to it } }.toMap()))
+    InteractionReply.Form(FormReply(fields.filter { formFieldShown(it, values) }.mapNotNull { field -> values[field.key]?.let { field.key to it } }.toMap()))
 
 fun formComplete(fields: List<FormFieldSpec>, values: Map<String, FormValue>): Boolean =
-    fields.filter { it.active(values) && it.required }.all { field ->
+    fields.filter { formFieldShown(it, values) && it.required }.all { field ->
         when (val value = values[field.key]) {
             null -> false
             is FormValue.Text -> value.v1.value.isNotBlank()

@@ -132,7 +132,7 @@ private fun FoldText(text: String, color: Color) {
 @Composable
 private fun foldParts(fold: WorkFold): List<FoldPart> {
     val lead = leadWords(fold)?.let { FoldPart("lead", it, 0) }
-    val counts = fold.counts.map { FoldPart(it.verb.name, verbWords(it), it.count) }
+    val counts = fold.counts.map { FoldPart(it.verb.name, it.phrase, it.count.toInt()) }
     val failed = if (fold.failed > 0) FoldPart("failed", pluralStringResource(R.plurals.chat_work_failed, fold.failed, fold.failed), fold.failed, error = true) else null
     val thought = if (fold.thoughtOnly && lead == null) {
         FoldPart("thought", stringResource(if (fold.live) R.string.chat_work_thinking else R.string.chat_work_thought), 0)
@@ -155,20 +155,6 @@ private fun leadWords(fold: WorkFold): String? {
         }
         FoldLead.Continued -> duration?.let { stringResource(R.string.chat_work_continued_for, it) } ?: stringResource(R.string.chat_work_continued)
     }
-}
-
-@Composable
-private fun verbWords(count: WorkCount): String {
-    val id = when (count.verb) {
-        WorkVerb.Edited -> R.plurals.chat_work_edited
-        WorkVerb.Ran -> R.plurals.chat_work_ran
-        WorkVerb.Read -> R.plurals.chat_work_read
-        WorkVerb.Searched -> R.plurals.chat_work_searched
-        WorkVerb.Fetched -> R.plurals.chat_work_fetched
-        WorkVerb.Delegated -> R.plurals.chat_work_delegated
-        WorkVerb.Used -> R.plurals.chat_work_used
-    }
-    return pluralStringResource(id, count.count, count.count)
 }
 
 /** `12s`, `2m`, `1h 5m`: how long work took, the way the header's timer counts. */

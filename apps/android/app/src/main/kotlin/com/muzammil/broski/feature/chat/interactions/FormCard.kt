@@ -39,17 +39,19 @@ import uniffi.broski_contract.Interaction
 import uniffi.broski_contract.NumberValue
 import uniffi.broski_contract.StringFormat
 import uniffi.broski_contract.TextValue
+import uniffi.broski_core.formFieldDefault
+import uniffi.broski_core.formFieldShown
 
 /** A form from its field specs: text with the keyboard its format wants, numbers, switches, choice chips. */
 @Composable
 fun FormCard(interaction: Interaction, request: FormRequest, context: CardContext) {
     val haptics = LocalHapticFeedback.current
     val values = remember(interaction.id) {
-        mutableStateMapOf<String, FormValue>().apply { request.fields.forEach { field -> field.initial()?.let { put(field.key, it) } } }
+        mutableStateMapOf<String, FormValue>().apply { request.fields.forEach { field -> formFieldDefault(field)?.let { put(field.key, it) } } }
     }
     Text(listOfNotNull(request.server, interaction.title).joinToString(" · "), style = MaterialTheme.typography.titleMedium)
     interaction.body?.let { Quiet(it) }
-    request.fields.filter { it.active(values) }.forEach { field ->
+    request.fields.filter { formFieldShown(it, values) }.forEach { field ->
         FieldView(field, values[field.key], context.enabled) { value -> if (value == null) values.remove(field.key) else values[field.key] = value }
     }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {

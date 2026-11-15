@@ -40,6 +40,7 @@ import com.muzammil.broski.design.perform
 import uniffi.broski_contract.FileChange
 import uniffi.broski_contract.SessionRef
 import uniffi.broski_contract.ToolOutcome
+import uniffi.broski_core.ToolKind
 
 /** Where a row of work leads: a file change's diff, a subagent's own session. */
 @Immutable
@@ -97,8 +98,8 @@ private fun EntryRow(entry: WorkEntry, expanded: Boolean, onToggle: () -> Unit, 
         ) {
             Icon(painterResource(entry.icon), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
             Text(
-                entryLabel(entry),
-                style = MaterialTheme.typography.bodySmall.let { if (entry is WorkEntry.Tool && entry.kind == ToolKind.Command) it.mono() else it },
+                entryLabel(entry, expanded),
+                style = MaterialTheme.typography.bodySmall.let { if (!expanded && entry is WorkEntry.Tool && entry.kind == ToolKind.COMMAND) it.mono() else it },
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
@@ -110,8 +111,8 @@ private fun EntryRow(entry: WorkEntry, expanded: Boolean, onToggle: () -> Unit, 
 }
 
 @Composable
-private fun entryLabel(entry: WorkEntry): String = when (entry) {
-    is WorkEntry.Tool -> entry.label
+private fun entryLabel(entry: WorkEntry, expanded: Boolean): String = when (entry) {
+    is WorkEntry.Tool -> if (expanded) entry.look.verb else entry.label
     is WorkEntry.Thought -> stringResource(if (entry.live) R.string.chat_work_thinking else R.string.chat_work_thought)
     is WorkEntry.Aside -> entry.text.lineSequence().firstOrNull { it.isNotBlank() }.orEmpty()
 }
@@ -141,13 +142,13 @@ private val WorkEntry.icon: Int
         is WorkEntry.Thought -> R.drawable.ic_psychology
         is WorkEntry.Aside -> R.drawable.ic_account_tree
         is WorkEntry.Tool -> when (kind) {
-            ToolKind.Read -> R.drawable.ic_description
-            ToolKind.Edit -> R.drawable.ic_edit_note
-            ToolKind.Command -> R.drawable.ic_terminal
-            ToolKind.Search -> R.drawable.ic_search
-            ToolKind.Fetch -> R.drawable.ic_language
-            ToolKind.Agent -> R.drawable.ic_account_tree
-            ToolKind.Other -> R.drawable.ic_build
+            ToolKind.READ -> R.drawable.ic_description
+            ToolKind.EDIT -> R.drawable.ic_edit_note
+            ToolKind.COMMAND -> R.drawable.ic_terminal
+            ToolKind.SEARCH -> R.drawable.ic_search
+            ToolKind.WEB -> R.drawable.ic_language
+            ToolKind.AGENT -> R.drawable.ic_account_tree
+            ToolKind.OTHER -> R.drawable.ic_build
         }
     }
 

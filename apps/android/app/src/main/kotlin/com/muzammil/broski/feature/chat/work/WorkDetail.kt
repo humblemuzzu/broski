@@ -69,7 +69,7 @@ private fun ToolDetail(tool: WorkEntry.Tool, actions: WorkActions) {
 
 /** A command as typed; any other input as its members, one `key: value` a line. */
 private fun inputText(tool: WorkEntry.Tool, input: JsonValue): String {
-    if (tool.kind == ToolKind.Command) tool.input.string("command")?.let { return it }
+    tool.look.command?.let { return it }
     val members = (input as? JsonValue.Object)?.v1 ?: return render(input)
     return members.joinToString("\n") { "${it.key}: ${render(it.value)}" }
 }

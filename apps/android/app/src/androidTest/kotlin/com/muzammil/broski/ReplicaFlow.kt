@@ -18,6 +18,7 @@ import uniffi.broski_contract.InteractionRequest
 import uniffi.broski_contract.PromptInput
 import uniffi.broski_contract.PromptMode
 import uniffi.broski_contract.SessionRef
+import uniffi.broski_contract.TranscriptItem
 import uniffi.broski_contract.ToolPermissionReply
 import uniffi.broski_core.SessionUpdate
 import uniffi.broski_core.SessionView
@@ -25,7 +26,8 @@ import uniffi.broski_core.SessionView
 /**
  * The chat's copy of a session ([LiveSession], what the chat renders) against the core's own: a
  * real view of a real session on test-machine's bridge, driven through each scenario, its copy
- * compared with `view.snapshot()` after every update. A batch is the snapshot as it was when the
+ * compared with `view.snapshot()` after every update; `stream` writes its text a part every 120 ms,
+ * so an open block's text changes across batches, and keeps its file edit. A batch is the snapshot as it was when the
  * batch was taken, so a copy behind the view must be caught up by the very next update; once the
  * stream is quiet the two must be equal.
  */
@@ -35,6 +37,10 @@ class ReplicaFlow(private val machine: RealMachine) {
 
     fun run() = runBlocking {
         follow("work") { _, _ -> }
+        follow("stream") { replica, _ ->
+            replica.until { live -> live.snapshot.blocks.any { it.text.isNotEmpty() } }
+            replica.until { live -> live.snapshot.run?.items.orEmpty().any { it is TranscriptItem.ToolResult && it.v1.result.fileChanges.isNotEmpty() } }
+        }
         follow("permission") { view, client -> answerFirst(view, client) { allowOnce(it) } }
         follow("ask") { view, client -> answerFirst(view, client) { InteractionReply.Choice(ChoiceReply("retry")) } }
         follow("hold") { _, _ -> }
