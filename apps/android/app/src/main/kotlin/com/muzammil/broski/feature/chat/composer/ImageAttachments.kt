@@ -10,6 +10,7 @@ import android.util.Base64
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.core.graphics.scale
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.util.UUID
@@ -37,14 +38,14 @@ class ImageAttachments(private val resolver: ContentResolver) {
             null
         } ?: return@withContext null
         val bytes = fitImage(source.width, source.height, budget) { width, height, quality ->
-            val scaled = Bitmap.createScaledBitmap(source, width, height, true)
+            val scaled = source.scale(width, height)
             ByteArrayOutputStream().also { scaled.compress(Bitmap.CompressFormat.JPEG, quality, it) }.toByteArray()
         } ?: return@withContext null
         val (thumbWidth, thumbHeight) = thumbnailSize(source.width, source.height)
         ComposerImage(
             id = UUID.randomUUID().toString(),
             base64 = Base64.encodeToString(bytes, Base64.NO_WRAP),
-            thumbnail = Bitmap.createScaledBitmap(source, thumbWidth, thumbHeight, true).asImageBitmap(),
+            thumbnail = source.scale(thumbWidth, thumbHeight).asImageBitmap(),
         )
     }
 
