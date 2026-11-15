@@ -19,7 +19,7 @@ terminal `pi` ──(Broski link extension, in the pi process)──► unix soc
 
 `extensions/broski-link/{index,link,projection}.ts` in the agent directory (`~/.pi/agent`, or `$PI_CODING_AGENT_DIR`), copied from `terminal/extension/` by `installExtension` at the bridge's start. The files are embedded in the bridge (text imports, `extension-sources.ts`), so a compiled bridge installs them too.
 
-**Discovery.** Pi loads `*.ts`/`*.js` files and `<dir>/index.ts|js` under `<agentDir>/extensions/`; if that folder is itself an extension (an `index.ts`/`index.js` or a `package.json` with `pi.extensions` at its top) Pi loads only that (`src/core/package-manager.ts:599-651`, `addAutoDiscoveredResources` `:2419-2540`). The installer refuses in that case and says so in `status()`.
+**Discovery.** Pi loads `*.ts`/`*.js` files and `<dir>/index.ts|js` under `<agentDir>/extensions/`; if that folder is itself an extension (an `index.ts`/`index.js` or a `package.json` with `pi.extensions` at its top) Pi loads only that (`dist/core/package-manager.js:382-470`, `addAutoDiscoveredResources` `:2145-2214`). The installer refuses in that case and says so in `status()`.
 
 **Versioned, bridge-owned, idempotent.** `index.ts` opens with `// broski-link-extension v<N>`. The installer writes a file only when its content differs (the entry point last, so Pi never loads a new entry beside old parts), reports `installed | updated | current`, and **never touches** a folder named `broski-link` whose `index.ts` does not carry the marker. A running `pi` loads extensions at its start: a terminal started before the install needs a restart (or `/reload`).
 
@@ -35,7 +35,7 @@ terminal `pi` ──(Broski link extension, in the pi process)──► unix soc
 | No output | The only text it ever shows is one `ctx.ui.notify` warning (below). |
 | Contained | Every handler is wrapped: a throw never reaches Pi. |
 | Only the interactive terminal | It does nothing unless `ctx.mode === "tui"` and the session has a file. `rpc`, `json` and `print` runs are ignored. |
-| Inert in the bridge's own sessions | The bridge's hosted `AgentSessionRuntime` loads extensions with an `extensionsOverride` that drops this one (`live/runtime-factory.ts`, `isBroskiLink`). Tested by listing the loaded extension paths. |
+| Inert in the bridge's own sessions | The bridge's hosted `pi --mode rpc` loads it from the same agent dir, and by the `ctx.mode` check above links nothing: a terminal's extension runner lists it, a hosted session registers no terminal (`terminal_install.test.ts`). |
 
 **Frames are bounded and strict.** One JSON object per line, 8 MiB at most (`MAX_LINE_BYTES`); every frame goes through a strict `zod` schema (`protocol.ts`: unknown keys, wrong types, oversized strings and lists are refused) before anything reads it, and a refused frame closes the connection. `hello` first (version, key, pid, session file, id, cwd), a `snapshot` before any `event`, a `result` only for a command that was sent. Pending commands are capped. Tool-result images cross as placeholders (no bytes).
 
@@ -45,7 +45,7 @@ The extension runs in a process the bridge does not start, as the same user, wit
 
 ## The reverse direction: a terminal opens a session the phone runs
 
-Pi's terminal reads a session file once, when it opens (`SessionManager.open`, `src/core/session-manager.ts:1029-1050`) and appends to it afterwards; it does not watch the file. Two writers on one file diverge. So:
+Pi's terminal reads a session file once, when it opens (`SessionManager.open`, `dist/core/session-manager.js:1338-1360`) and appends to it afterwards; it does not watch the file. Two writers on one file diverge. So:
 
 - **The phone's session is idle** when the terminal opens it: the bridge lets its host go (the terminal's file is then the only one that moves) and the session becomes the terminal's, live for the phone; viewers get `session_replaced`.
 - **The phone's session is running** (a run, an ask, a compaction): the terminal's extension gets `welcome{running: true}` and shows one warning, "Broski: the app on your phone is running this session. Don't type here until it is done." The terminal's `/resume` shows the file up to that moment and will not show what the phone adds after. The bridge keeps the session hosted; it cannot stop the terminal from typing, which is why the warning exists.
@@ -55,11 +55,11 @@ Pi's terminal reads a session file once, when it opens (`SessionManager.open`, `
 
 A session another client made, with no terminal linked, opens watch-only and stays so: the phone can read it, not drive it. Only a session this bridge created, or one a linked terminal runs, is controllable.
 
-## What it cannot do (found on Pi 1.4.0; the `terminal_*` tests pass on 1.5.2, the citations below were not re-read)
+## What it cannot do (Pi 1.5.2, `dist/` paths under `@earendil-works/pi-coding-agent`)
 
-- **No queue or retry events for extensions.** The terminal's steering and follow-up queues, and its automatic retries, are invisible: `queue_changed` is never sent for a terminal session; the phone's steer/queue is delivered (`pi.sendUserMessage(…, {deliverAs})`, `agent-session.ts` `sendUserMessage`) but not listed, and `cancelQueued` does not exist.
-- **Stop is the terminal's Esc, and the terminal's queue goes to the terminal.** `ctx.abort()` is bound by the interactive mode to `restoreQueuedMessagesToEditor({abort: true})` (`interactive-mode.ts:1978-1981`): queued text lands in the terminal's editor, not the phone's composer, and no `input_returned` is sent for a terminal session. A session the bridge hosts does hand the texts to the phone.
+- **No queue or retry events for extensions.** Pi's extension events (`core/extensions/types.d.ts`) have no `queue_update` or `auto_retry_*`; those are the agent session's own. The terminal's steering and follow-up queues, and its automatic retries, are invisible: `queue_changed` is never sent for a terminal session; the phone's steer/queue is delivered (`pi.sendUserMessage(…, {deliverAs})`, `core/agent-session.js:2012`) but not listed, and `cancelQueued` does not exist.
+- **Stop is the terminal's Esc, and the terminal's queue goes to the terminal.** `ctx.abort()` is bound by the interactive mode to `restoreQueuedMessagesToEditor({abort: true})` (`modes/interactive/interactive-mode.js:1586-1591`): queued text lands in the terminal's editor, not the phone's composer, and no `input_returned` is sent for a terminal session. A session the bridge hosts does hand the texts to the phone.
 - **Questions stay in the terminal.** There is no extension API to answer another surface's dialog.
-- **`ui_prompt_start`/`end`** tell the phone that the terminal waits, not what it asks beyond a title.
+- **`ui_prompt_start`/`end`** (`UIPromptStartEvent`, `UIPromptEndEvent`) tell the phone that the terminal waits, not what it asks beyond a title.
 - **Tool-result images** are not carried.
 - **Compaction mid-run** is reported by `session_before_compact`/`session_compact`/`session_compact_failed`; a `prompt` while it runs is refused `busy`.

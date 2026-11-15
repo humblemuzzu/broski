@@ -46,7 +46,7 @@ Commands, from `packages/bridge`: `bun run contract:gen` writes every generated 
 4. **Generated code is never edited by hand.** Change the zod schema, run `bun run contract:gen`, commit the result. CI fails on a stale file.
 5. **Expected failures are values.** Every adapter method that can fail returns a result union, `{status: "accepted", …} | Rejected`, the same unions the wire carries (`PromptResult`, `ActionResult`, `NewSessionResult`, the read results of `read-results.ts`, and `OpenResult` for `open`). `status()` cannot fail: whatever stops it from finding out is an `error` issue in `BackendStatus.issues`, with `usable: false`. A thrown error is an adapter bug.
 6. **No invalid answer reaches a backend.** The core runs `answerProblem` on every answer before an adapter sees it, and an adapter rejects a faulted one with `invalid_input` all the same. A malformed answer can otherwise become a silent denial or an over-grant.
-7. **Sinks never throw, and adapters never throw into the core from a callback.** Pi's `_emit` has no try/catch, so a throwing listener breaks the agent loop (pi §1).
+7. **Sinks never throw, and adapters never throw into the core from a callback.** A sink that threw would break the stream of every session it serves.
 8. **Every wire value is bounded.** Each string, list and map has a maximum (`limits.ts`): ids 256 characters, names 1,024, paths 4,096, text 1,048,576, the images of one prompt 4 MiB of base64, lists and maps 1,000 entries, catalogs 10,000, free JSON 64 levels deep. One message is capped whole: `MAX_MESSAGE_BYTES` (8 MiB of UTF-8 frame, the link's `LINK_MAX_MESSAGE_BYTES`), and a client message holds at most `MAX_CLIENT_MESSAGE_VALUES` (50,000) JSON values, because checking a message costs the bridge in proportion to its values; a prompt with every list full holds about 8,000. An adapter shortens a native value past its bound; §15 lists where that happens. A test walks the JSON Schema and fails on any unbounded string, list or map.
 
 ## 3. Single source of truth and generation
@@ -162,10 +162,10 @@ Declared traits are checked against behaviour, both ways where the contract can 
 | `queue` (visible) | ✓ the adapter's own queue, one item per run | ✓ `queue_update`, texts only (pi §5) |
 | `interactions` | tool_permission, questions, form, plan_approval (CC D15), confirm (empty MCP forms) | tool_permission (bridge-owned gate), choice, confirm, text (pi §8) |
 | `thinking` | ✓ effort levels (CC D12) | ✓ levels, clamped (pi §7) |
-| `children` | ✓ subagents (CC D20) | ✓ a tool call's sub-run in its result's `details`, forks and handoffs (Pi README decision 32) |
+| `children` | ✓ subagents (CC D20) | ✓ a tool call's sub-run in its result's `details`, forks and handoffs (pi §13) |
 | `usage` | ✓ (CC §5) | ✓ pulled after messages (pi §5) |
 | `planProposals` | ✗ (the plan reaches the app as a `plan_approval`) | ✗ |
-| `externalLive` | ✗ file tail only, on a watch-only open (CC D28) | ✓ a terminal `pi` through the terminal link (Pi README decision 19) |
+| `externalLive` | ✗ file tail only, on a watch-only open (CC D28) | ✓ a terminal `pi` through the terminal link (pi §11) |
 | `extensions` | rate_limit | — |
 | `fork` (derived) | ✓ `forkSession` (CC D27) | ✓ a file written by the store |
 | `rename` | ✓ | ✓ `setSessionName` |
@@ -187,7 +187,7 @@ SinkRecord    = EventEnvelope without seq and session      // what an adapter em
 **Sequence and order.**
 
 - `seq` is assigned by the core: 1, 2, 3… per session and stream epoch, without gaps (§12.2). The adapter emits in causal order.
-- Every backend delivers a session's events in order: CC is one pipe (CC D1); Pi is synchronous (pi §5).
+- Every backend delivers a session's events in order: CC is one pipe (CC D1); Pi writes its events to one pipe, which the adapter delivers one at a time in that order (pi §5).
 - Content between `run_started` and `run_finished` belongs to that run by position, so events carry no `runId` except the run events themselves and `Interaction.runId`.
 
 **Stream rules**, checked by `contract/testing/stream-rules.ts` in every conformance scenario:
@@ -205,7 +205,7 @@ SinkRecord    = EventEnvelope without seq and session      // what an adapter em
 
 | Event | Meaning | Claude Code | Pi |
 |---|---|---|---|
-| `run_started{runId, trigger}` | The agent began a run | synth.: first frame after a send to an idle session, or `session_state_changed running` (CC D8) | synth.: first `agent_start`/`compaction_start` while idle, or `preflightResult("started")` (pi §5) |
+| `run_started{runId, trigger}` | The agent began a run | synth.: first frame after a send to an idle session, or `session_state_changed running` (CC D8) | synth.: first `agent_start`/`compaction_start` while idle, or a `prompt` Pi answers `started` (pi §5) |
 | `run_finished{runId, outcome}` | It will not continue on its own | `session_state_changed idle`, which waits for background agents (CC D8) | `agent_settled` (pi §5) |
 | `user_message{messageId, text, attachments[], clientRequestId?}` | Input reaching the model, including delivered steer and queue input | the adapter's own send; a prompt typed in a terminal from its transcript tail (CC §5) | `message_start` role user (pi §5) |
 | `block_started/delta/finished` | One text, thinking or plan block | `stream_event` `content_block_*`; whole `assistant` frames (CC §5) | `text_*`/`thinking_*` in `message_update` (pi §5) |
@@ -251,7 +251,7 @@ SinkRecord    = EventEnvelope without seq and session      // what an adapter em
 
 **Children.** A subagent's session is a session of its own: its events go to its own `OpenSession` when one is open, and its row reaches lists through the catalog. CC forwards a subagent's tool calls (and its text with `forwardSubagentText`) inside the parent's run (CC D20); those stay in the parent's stream, nested by `parentToolCallId`.
 
-**Tool results** (`ToolResult`) carry `content` (text, images by `ImageRef`, file references), `fileChanges` (CC `structuredPatch`/`gitDiff`, CC D26; Pi edit `details.diff`, pi §4), `error`, and `exitCode` where the backend has one: CC's `BashOutput` has none (Errata 5). `ToolOutcome` is `completed | failed | denied | aborted`.
+**Tool results** (`ToolResult`) carry `content` (text, images by `ImageRef`, file references), `fileChanges` (CC `structuredPatch`/`gitDiff`, CC D26; Pi edit `details.diff`, pi §4), `error`, and `exitCode` where the backend has one: CC's `BashOutput` has none (Errata 2). `ToolOutcome` is `completed | failed | denied | aborted`.
 
 ## 8. Live state, snapshot and reconnect
 
@@ -264,7 +264,7 @@ SinkRecord    = EventEnvelope without seq and session      // what an adapter em
 - *Phone ↔ bridge* is the core's job: a per-session event log with `seq`, plus the snapshot it maintains with `applyEvent`. A phone reattaching with `{epoch, seq}` gets the missed events, or, if the log no longer reaches back or the epoch changed, a `SnapshotSync` (§12.2). No backend offers replay, so the bridge must: CC (CC D1), Pi (pi §10).
 - *Bridge ↔ backend* is the adapter's job. After a gap it re-reads and either emits corrective events or one `resynced{snapshot}`. Partial text lost in the gap reappears at the block's authoritative `block_finished`.
 
-**Transcript vs live: the merge rule.** A phone attaching mid-run must render the run's finished part, its open part and the history before it, with no duplicate and no gap. Transcript ids cannot be the key: Pi has no ids until an entry is persisted (pi §5, Q28). So the contract splits the two by run instead of by id:
+**Transcript vs live: the merge rule.** A phone attaching mid-run must render the run's finished part, its open part and the history before it, with no duplicate and no gap. Transcript ids cannot be the key: Pi names no entry in its events, only once it has persisted one (pi §5). So the contract splits the two by run instead of by id:
 
 1. **The snapshot carries the active run whole.** `run.items` holds every item the run has finished, oldest first, in the live stream's ids, exactly as `applyEvent` builds them from the events (`run-items.ts`): its user messages, finished blocks, tool calls as they start (completed with their final input and child session when they finish) and tool results (`<toolCallId>:result`). Notices, compaction markers and model changes stay out; the live state already shows them. A retraction removes the retracted messages' items; `session_replaced` empties the list, because what came before belongs to the old session. Past 1,000 items the oldest leave and `run.droppedItems` counts them.
 2. **The transcript holds finished runs only.** While a session open in this bridge has an active run, `readTranscript` ends just before that run's first item. Each backend knows where its run starts: CC the first chain entry after the send (CC D26), Pi the leaf at run start (pi §4).
@@ -321,7 +321,7 @@ A form has no field that asks the person to open a link: Claude Code raises a UR
 
 `fieldIsActive` evaluates `when` (all conditions must hold; `eq` against a multiselect means "includes"; a condition on an unanswered field is false).
 
-Where backends validate differently, `field-check.ts` is the strictest of them, so no backend refuses an answer it passes (Errata 8):
+Where backends validate differently, `field-check.ts` is the strictest of them, so no backend refuses an answer it passes (Errata 3):
 
 - `minLength` counts code points and `maxLength` UTF-16 units, so the value passes both readings.
 - A `pattern` must match both compiled without flags and as JSON Schema means it (the `u` flag); a pattern neither compiles makes every answer fail.
@@ -366,11 +366,11 @@ Rejection { code: busy|not_steerable|no_model|auth|invalid_input|unsupported|not
 
 | | Claude Code | Pi |
 |---|---|---|
-| start | open-stream send (CC D9) | `prompt()` when idle (pi §6) |
+| start | open-stream send (CC D9) | `prompt` (every mode is one) (pi §6) |
 | steer | `priority:'next'` | `prompt{streamingBehavior:"steer"}` |
 | queue | the adapter's queue, one send per run | `followUp` |
 | idempotency | `uuid` = `clientRequestId` (CC D10); the adapter dedupes | none; the adapter dedupes (pi §6) |
-| accepted signal | none synchronous; the adapter accepts on write (CC D9) | `preflightResult` (pi §6) |
+| accepted signal | none synchronous; the adapter accepts on write (CC D9) | the `prompt` answer's disposition: `started`, `queued` or `handled` (pi §6) |
 | typed rejections | — | `no_model`, `auth`, `busy` (compacting) (pi §6) |
 | command | text `/name args` (CC D11) | text `/name` or `/skill:name` (pi §6) |
 
@@ -428,9 +428,9 @@ Rejection { code: busy|not_steerable|no_model|auth|invalid_input|unsupported|not
 
 | | Claude Code | Pi |
 |---|---|---|
-| list | the `initialize` answer's models (CC D7), the Default row first, no model twice (CC D12) | `refresh({allowNetwork:false})` + `getAvailable()` (pi §9) |
+| list | the `initialize` answer's models (CC D7), the Default row first, no model twice (CC D12) | `get_available_models` (pi §9) |
 | `id` | `value` (alias or id) | `provider/id` |
-| thinking options | `supportedEffortLevels` (CC D12) | `getSupportedThinkingLevels(model)` (Errata 1) |
+| thinking options | `supportedEffortLevels` (CC D12) | the model's `reasoning` and `thinkingLevelMap` (pi §14) |
 | default | — | per-model or global default, clamped |
 | context window | ✗ in the list; the context figure comes after each run (CC D14) | `contextWindow` |
 | `isDefault` | — | settings default |
@@ -438,7 +438,7 @@ Rejection { code: busy|not_steerable|no_model|auth|invalid_input|unsupported|not
 ### 11.4 Commands, usage, status
 
 - `CommandSummary{id, name, kind: command|skill|prompt, description?, argumentHint?}`. A prompt invokes one with `PromptInput.command = id` and its arguments as `text`. Sources: CC `SlashCommand` and skills, with `terminal_slash_commands` filtered out (CC D7); Pi extension commands, prompt templates and skills (pi §9).
-- `Usage{inputTokens?, outputTokens?, cacheReadTokens?, cacheWriteTokens?, reasoningTokens?, costUsd?, contextTokens?, contextWindow?}` holds session totals as reported and the context window's fill; an unreported field is absent. CC `modelUsage` is cumulative per CLI process (CC D14), and the context figure comes from `getContextUsage` after each run. Pi's is `getContextUsage()` and may be null after compaction (pi §18 #23).
+- `Usage{inputTokens?, outputTokens?, cacheReadTokens?, cacheWriteTokens?, reasoningTokens?, costUsd?, contextTokens?, contextWindow?}` holds session totals as reported and the context window's fill; an unreported field is absent. CC `modelUsage` is cumulative per CLI process (CC D14), and the context figure comes from `getContextUsage` after each run. Pi's is `get_session_stats`' `contextUsage`, whose `tokens` may be null after compaction (pi §5).
 - `BackendStatus{installed, version?, auth: signed_in|signed_out|unknown, usable, issues[]}`, from CC D7, pi §2. Finding it out never fails: a Pi catalog that cannot be read (pi §2) becomes an `error` issue with `usable: false`. The catalog lists that can fail return a result: `listModels`, `listCommands`, `listModes`.
 
 ### 11.5 Session modes
@@ -592,7 +592,7 @@ What each backend cannot carry through the contract, and what is lost on the way
 **Pi**
 
 - Unsupported: `planProposals`; `questions`, `form`, `plan_approval`; per-item queue cancel (only `clearQueue`, pi §6); file attachments; a session another client made cannot be driven (watch-only).
-- Lost: `custom()` TUI dialogs cannot be answered remotely and become a notice (pi §8.1); fire-and-forget extension UI (`setStatus`, `setWidget`, `setTitle`); confirm's cancel-vs-false distinction (pi §8.3); `summarization_retry_*` (compaction-internal retries); `entry_appended` custom entries; error strings carry no class, so most errors are `unknown` (Q31).
+- Lost: `custom()` TUI dialogs cannot be answered remotely and become a notice (pi §8.1); fire-and-forget extension UI (`setStatus`, `setWidget`, `setTitle`); confirm's cancel-vs-false distinction (pi §8.3); `summarization_retry_*` (compaction-internal retries); `entry_appended` custom entries; error strings carry no class, so most errors are `unknown` (pi §13).
 
 ## 16. Refinements of the brief
 
@@ -633,41 +633,36 @@ The brief names proposals and says to refine them. These are the places the cont
 
 ## 18. Open questions
 
-Every UNVERIFIED research item that affects the contract, with the experiment that settles it.
+Every open item that affects the contract, with the experiment that settles it.
 
 | # | Question | Affects | Experiment |
 |---|---|---|---|
-| Q3 | Does a repeated CC `uuid` execute twice? | Nothing while the adapter de-duplicates (CC D10) | Same `uuid` twice while queued |
-| Q7 | Does a PreToolUse `defer` work in streaming mode? | `deferred` outcome reachability for CC | Hook returning `defer` on AskUserQuestion; watch for `tool_deferred` |
-| Q12 | How CC extended AskUserQuestion kinds (`text`, `number`) reach SDK sessions | `questions` vs `form` for CC | Enable `CLAUDE_CODE_QUESTION_EXTENDED`; log `canUseTool` input (CC D15) |
-| Q14 | Purpose of `~/.claude/sessions/` | CC external session status | Run a terminal `claude`; list the directory; close it |
-| Q28 | Does a Pi listener microtask after `message_end` see the new entry as `getLeafId()`? | Transcript id alignment for Pi | (pi §17) |
-| Q29 | Pi `tool_call` handler that never resolves, then abort: does `agent_settled` fire? | `withdrawn` + `run_finished` guarantee for the Pi gate | (pi §17) |
-| Q30 | Stability of Pi `preflightResult` across versions | Pi's accepted signal | Pin and add a contract test (pi §17) |
-| Q31 | Which Pi errors are `isRetryableAssistantError`? | `ErrorCode` and retry for Pi | Read `packages/ai/src/utils/retry*.ts` (pi §17) |
+| Q1 | Does a repeated CC `uuid` execute twice? | Nothing while the adapter de-duplicates (CC D10) | Same `uuid` twice while queued |
+| Q2 | Does a PreToolUse `defer` work in streaming mode? | `deferred` outcome reachability for CC | Hook returning `defer` on AskUserQuestion; watch for `tool_deferred` |
+| Q3 | How CC extended AskUserQuestion kinds (`text`, `number`) reach SDK sessions | `questions` vs `form` for CC | Enable `CLAUDE_CODE_QUESTION_EXTENDED`; log `canUseTool` input (CC D15) |
+| Q4 | Purpose of `~/.claude/sessions/` | CC external session status | Run a terminal `claude`; list the directory; close it |
 
 The other Claude Code questions are settled against the real CLI, each in its decision: an interrupted turn's outcome (CC D8), `command_lifecycle` for uuid-stamped sends and `interrupt({cancelQueued})` (CC D9), thinking by `applyFlagSettings({effortLevel})` (CC D12), the plan's next mode (CC D17), history before a compaction (CC D26), `idle` and background agents (CC D8), fork lineage (CC D27), effort levels (CC D12), and the rate limit's units (CC §5).
 
 ## 19. Errata
 
-Found in Pass 2 (SDK source against the research):
+Found reading the Claude Code SDK's source against the contract:
 
-1. **pi.md §7, §11.3 path**: `getSupportedThinkingLevels` and `clampThinkingLevel` live in `packages/ai/src/models.ts:1260-1290` (pi-ai, exported from `@earendil-works/pi-ai` `dist/models.d.ts:271`). The citation `PM models.ts:1260-1269` reads, by the report's citation key, as `packages/coding-agent/src/core/models.ts`, which does not exist at `v1.4.0`. The behaviour described is correct.
-4. **Claude Code fork**: `forkSession`'s `upToMessageId` is **inclusive** (`sdk.d.ts` `ForkSessionOptions`). The contract's `ForkPoint{position: before|through}` relies on it (CC D27).
-5. **Claude Code diffs**: `BashOutput` has no exit code, only `returnCodeInterpretation` (`sdk-tools.d.ts`), so `ToolResult.exitCode` is absent for CC.
+1. **Claude Code fork**: `forkSession`'s `upToMessageId` is **inclusive** (`sdk.d.ts` `ForkSessionOptions`). The contract's `ForkPoint{position: before|through}` relies on it (CC D27).
+2. **Claude Code diffs**: `BashOutput` has no exit code, only `returnCodeInterpretation` (`sdk-tools.d.ts`), so `ToolResult.exitCode` is absent for CC.
 
-Found in round 2 (SDK source against the research and the contract):
+Found reading the Claude Code SDK's source against the contract, second round:
 
-8. **Form validation strictness**: the strictest validator among the researched backends counts lengths in UTF-16 units, compiles `pattern` without flags and refuses every answer to a field whose pattern does not compile, requires a dotted email domain (`/^[^\s@]+@[^\s@]+\.[^\s@]+$/`), refuses an empty string or empty selection for a required field, and does not excuse a hidden required field. `field-check.ts` adopts each of these (§9).
-10. **Claude Code `cancelQueued`**: `interrupt_cancel_queued_v1` gates only `interrupt{cancel_queued: true}`, which aborts the turn and cancels every queued command (`sdk.d.ts` `SDKControlInterruptRequest`). Per-item cancel is the adapter's own queue (CC D9).
-11. **Claude Code elicitation**: `ElicitResult.content` is typed `Record<string, unknown>` (`sdk.d.ts` `ElicitResult`); the values MCP accepts are the primitives `FormValue` carries.
+3. **Form validation strictness**: the strictest validator among the backends counts lengths in UTF-16 units, compiles `pattern` without flags and refuses every answer to a field whose pattern does not compile, requires a dotted email domain (`/^[^\s@]+@[^\s@]+\.[^\s@]+$/`), refuses an empty string or empty selection for a required field, and does not excuse a hidden required field. `field-check.ts` adopts each of these (§9).
+4. **Claude Code `cancelQueued`**: `interrupt_cancel_queued_v1` gates only `interrupt{cancel_queued: true}`, which aborts the turn and cancels every queued command (`sdk.d.ts` `SDKControlInterruptRequest`). Per-item cancel is the adapter's own queue (CC D9).
+5. **Claude Code elicitation**: `ElicitResult.content` is typed `Record<string, unknown>` (`sdk.d.ts` `ElicitResult`); the values MCP accepts are the primitives `FormValue` carries.
 
 Found in the client port against the contract:
 
-12. **`answer-check.ts`, `field-check.ts` (inherited keys)**: a form answer was read as `values[key]`, so a field whose key every JavaScript object inherits (`constructor`, `toString`, `hasOwnProperty`, …) read a function as its answer: an optional such field left unanswered was refused (`expects text`), and a `neq` condition on it held with no answer. Answers are now read by own key only (`answerFor`); `contract_form_keys.test.ts` holds it. A field keyed `__proto__` was unanswerable over the wire (zod's record parse drops that key); it is now refused in the schema (erratum 13).
-13. **`forms.ts`, `interaction-replies.ts` (`FieldKey`)**: `__proto__` is no longer a legal field key, and a reply carrying it is refused instead of arriving without it. The one key that cannot survive JSON parse plus zod's record, found by trying every name an object, a function and an array inherit (§9, *Field keys*). The adapter maps such a backend key to another; the answer check holds the same verdict on a reply beyond the wire (`no field __proto__`).
+6. **`answer-check.ts`, `field-check.ts` (inherited keys)**: a form answer was read as `values[key]`, so a field whose key every JavaScript object inherits (`constructor`, `toString`, `hasOwnProperty`, …) read a function as its answer: an optional such field left unanswered was refused (`expects text`), and a `neq` condition on it held with no answer. Answers are now read by own key only (`answerFor`); `contract_form_keys.test.ts` holds it. A field keyed `__proto__` was unanswerable over the wire (zod's record parse drops that key); it is now refused in the schema (erratum 7).
+7. **`forms.ts`, `interaction-replies.ts` (`FieldKey`)**: `__proto__` is no longer a legal field key, and a reply carrying it is refused instead of arriving without it. The one key that cannot survive JSON parse plus zod's record, found by trying every name an object, a function and an array inherit (§9, *Field keys*). The adapter maps such a backend key to another; the answer check holds the same verdict on a reply beyond the wire (`no field __proto__`).
 
 Found in the Pi terminal link work:
 
-14. **§7 `session_replaced`, "under a new id"**: the event is also the stream's last event when the same session goes on with different `SessionCapabilities` (Pi: a terminal began or ended running a session the phone is looking at). The core already starts a new epoch for it; a client attached to the old epoch attaches again to the session it named, and the app treats a `session_replaced` or `replaced` that names the session it is viewing as a fresh attach, not as a lost session.
-15. **§2 rule 3, `zod` in adapters**: an adapter that owns a process boundary of its own (Pi's terminal link, a local socket to a `pi` process the adapter does not start) validates what crosses it with `zod`. `scripts/contract-gen/layers.ts` allows `zod` in `src/backends/<id>/` and nothing else beyond the previous list.
+8. **§7 `session_replaced`, "under a new id"**: the event is also the stream's last event when the same session goes on with different `SessionCapabilities` (Pi: a terminal began or ended running a session the phone is looking at). The core already starts a new epoch for it; a client attached to the old epoch attaches again to the session it named, and the app treats a `session_replaced` or `replaced` that names the session it is viewing as a fresh attach, not as a lost session.
+9. **§2 rule 3, `zod` in adapters**: an adapter that owns a process boundary of its own (Pi's terminal link, a local socket to a `pi` process the adapter does not start) validates what crosses it with `zod`. `scripts/contract-gen/layers.ts` allows `zod` in `src/backends/<id>/` and nothing else beyond the previous list.

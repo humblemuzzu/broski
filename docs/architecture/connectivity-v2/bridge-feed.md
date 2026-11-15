@@ -66,7 +66,7 @@ tap finds the conversation.
 | a run is active (`after.run`) | `link_busy true` (idempotent per event, so a session whose track was forgotten, or whose snapshot was replaced by a `resynced`, is busy again) |
 | `run_finished` with outcome `completed` | busy clears (3 s debounce); after 5 s idle one `done`, body = first line of the newest top-level `text` block of the run (an open block is newer than a finished one; thinking and subagent blocks never); a run with no text is told by its newest top-level call (`bash: npm test`, with `(exit code N)` when that was not 0); `Turn finished` when there is neither. The alert's `at` is the time the core observed the run end |
 | `run_finished` `error` / `limit` | `done` with `Run failed: <code>` / `Run stopped at its <limit> limit` — the backend's message is never quoted |
-| `run_finished` `aborted` / `suspended` / `deferred`, or a `resynced` that drops the run | busy clears, no `done`: the person stopped it, or it will resume |
+| `run_finished` `aborted` / `deferred`, or a `resynced` that drops the run | busy clears, no `done`: the person stopped it, or it will resume |
 | a new run within the 5 s | no `done` (the timer is cleared by the run) |
 | a pending interaction of kind `tool_permission` | `approval`, `request` = the interaction id; body = `<tool>: <command, paths or host from the preview>`, else the input's quotable keys, else the reason/title. File changes are named by path, never by diff |
 | any other pending interaction (`questions`, `form`, `plan_approval`, `choice`, `confirm`, `text`) | `attention`, `request` = the interaction id; body = its title, else its body |
