@@ -22,10 +22,12 @@ use crate::wait;
 /// What a terminal view hands the UI, in order.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TerminalUpdate {
-    /// Bytes the terminal wrote, following the previous update's with nothing missing or repeated.
-    /// `reset`: clear the emulator first. The first output of a view has it, and so does a reattach
-    /// after the bridge no longer held everything this phone missed (its replay keeps the newest
-    /// `MAX_TERMINAL_OUTPUT_BYTES`); a resize then has a full-screen program redraw.
+    /// Bytes the terminal wrote, following the previous update's with nothing missing or repeated,
+    /// unless `reset`: clear the emulator first, then write `data`, which is the newest output and
+    /// starts at an arbitrary byte (possibly inside an escape sequence or a UTF-8 character). The
+    /// first output of a view has it; so has one that follows more than `MAX_TERMINAL_OUTPUT_BYTES`
+    /// the UI did not take (only the newest are kept), and a reattach after the bridge no longer held
+    /// everything this phone missed. A resize then has a full-screen program redraw.
     Output { data: Vec<u8>, reset: bool },
     /// The terminal's process ended; nothing follows.
     Exited {

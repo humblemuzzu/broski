@@ -218,6 +218,20 @@ async fn columns(machine: &Machine) -> i64 {
     .await
 }
 
+/// The id the machine gave a request it sent just now. It numbers every request the machine sends,
+/// attaches included, and the bridge answers with it, so the difference between two of these is
+/// the number of requests sent between them, counted on the wire.
+async fn requests_sent(machine: &Machine) -> u64 {
+    let list = ClientMessage::TermList(TermListRequest {
+        request_id: String::new(),
+    });
+    answer(machine, list, |answer| match answer {
+        ServerMessage::TermListResult(answer) => answer.request_id.parse().ok(),
+        _ => None,
+    })
+    .await
+}
+
 /// Waits until the shell, writing as it goes, has put `lines` lines into `file`.
 async fn written(file: &Path, lines: usize) {
     let deadline = Instant::now() + WAIT;
@@ -306,7 +320,8 @@ fn numbered_lines(screen: &Screen) -> Vec<u64> {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn a_terminal_that_outruns_an_idle_ui_starts_over_from_what_the_bridge_holds() {
+async fn a_terminal_that_outruns_an_idle_ui_keeps_the_newest_output_without_asking_the_bridge_again(
+) {
     const LAST: u64 = 200_000;
     let mac = Mac::on_lan().await;
     let phone = phone();
@@ -314,6 +329,7 @@ async fn a_terminal_that_outruns_an_idle_ui_starts_over_from_what_the_bridge_hol
     let id = open_terminal(&machine, &mac.root()).await;
     let view = Arc::clone(&machine).terminal(id).expect("a view");
     let mut screen = Screen::of(view);
+    let first = requests_sent(&machine).await;
 
     // About three times what the bridge replays, written while the UI pulls nothing.
     let spew = format!("seq 1 {LAST}; echo ok > spewed; echo after$((20+22))\n");
@@ -321,7 +337,7 @@ async fn a_terminal_that_outruns_an_idle_ui_starts_over_from_what_the_bridge_hol
     written(&mac.root().join("spewed"), 1).await;
     // An answer follows every frame the bridge sent before it on the socket: the spew has reached
     // the phone, and the UI pulled none of it.
-    columns(&machine).await;
+    requests_sent(&machine).await;
 
     screen
         .until("the output after the spew", "after42\r\n")
@@ -334,7 +350,13 @@ async fn a_terminal_that_outruns_an_idle_ui_starts_over_from_what_the_bridge_hol
     );
     assert!(
         shown.len() < LAST as usize / 2,
-        "the UI starts over from what the bridge holds, not from the first line"
+        "the UI starts over from the newest output, not from the first line"
+    );
+    let last = requests_sent(&machine).await;
+    assert_eq!(
+        last - first,
+        3,
+        "the input and the two probes are all the machine sent: no attach again"
     );
 
     assert!(accepted(

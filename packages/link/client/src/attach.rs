@@ -4,7 +4,7 @@ use std::time::Duration;
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum Next {
     Nothing,
-    /// Attach (again): after a gap, an overflow, a replacement, or a replay of a position this
+    /// Attach (again): after a gap, bad data, a replacement, or a replay of a position this
     /// phone does not hold. The view is detached by then, which is all the machine attaches.
     Attach,
     /// The bridge refused the attach for its rate limit: send it again after `RATE_LIMIT_PAUSE`.

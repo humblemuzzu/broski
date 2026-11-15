@@ -197,13 +197,27 @@ looks, and a machine that had no session at its first read is not marked again a
 
 `terminal(id)` attaches from the first byte the bridge still holds; one view per terminal per phone (a
 second ends the first). `next_update()` returns `Output{data, reset}`: raw bytes that follow the
-previous update's with nothing missing or repeated; `reset` clears the emulator first, which the first
-output has, and so does a reattach after the bridge no longer held everything missed (its replay keeps
-the newest `MAX_TERMINAL_OUTPUT_BYTES`). After a link that started over the view attaches again from the
-offset just past the last byte received, so it gets exactly what it missed. More than
-`MAX_TERMINAL_OUTPUT_BYTES` waiting untaken asks the bridge again from what the UI has. Then
-`Exited{exit_code, signal}` or `Failed{message}`, and nothing. `input(bytes)` sends the emulator's bytes
-in order, `MAX_TERMINAL_INPUT_BYTES` per request; `resize` carries cells and, when known, cell pixels.
+previous update's with nothing missing or repeated, unless `reset`: the UI clears its emulator, then
+writes `data`. The first output has `reset`, and so does a reattach after the bridge no longer held
+everything missed (its replay keeps the newest `MAX_TERMINAL_OUTPUT_BYTES`). After a link that started
+over the view attaches again from the offset just past the last byte received, so it gets exactly what
+it missed. A seq that does not match what was received, or data that is not base64, is a gap: the view
+attaches again from the offset received.
+
+A UI that takes nothing (a backgrounded app) never makes the view wait on the bridge: when more than
+`MAX_TERMINAL_OUTPUT_BYTES` is waiting, the oldest bytes go, the newest `MAX_TERMINAL_OUTPUT_BYTES` stay,
+and the next `Output` has `reset`. The offset received still counts every byte, so live output goes on in
+step and nothing is asked of the bridge (a full replay is about as large as the limit, so asking again
+would overflow again almost at once, over the relay too). That update's `data` begins at an arbitrary
+byte, as a bridge replay after a gap does: inside an escape sequence, or in the middle of a UTF-8
+character. The UI writes it as it is and needs no repair:
+libghostty's parser is the vt100.net DEC ANSI state machine, which starts in the ground state and has a
+transition for every byte, so the tail of a cut sequence prints as the text it is (`31m`), and its UTF-8
+decoder replaces an ill-formed sequence with U+FFFD, as Ghostty's `UTF8Decoder.zig` documents (read on
+Ghostty `main` on 2026-11-15, not on a pinned libghostty release, and not run). At worst a few stray
+characters show at the start of the first line, until a full-screen program redraws on a resize.
+The updates end with `Exited{exit_code, signal}` or `Failed{message}`. `input(bytes)` sends the emulator's
+bytes in order, `MAX_TERMINAL_INPUT_BYTES` per request; `resize` carries cells and, when known, cell pixels.
 
 ## Machines
 
@@ -247,7 +261,7 @@ however long it goes unread.
 
 `cargo test -p broski-client`. The unit tests: the update protocol against the reducer trace, coalescing,
 pacing and the fall-behind snapshot (`view/tests.rs`); attach, resume, gaps, repeats, replacements and
-merges (`view/stream_tests.rs`); terminal offsets, reattach, gaps, overflow, exit (`terminal/state_tests.rs`);
+merges (`view/stream_tests.rs`); terminal offsets, reattach, gaps, the newest kept past the bound, exit (`terminal/state_tests.rs`);
 request ids, held order, lost sockets and the bound (`requests.rs`); a request's deadline, the bound on
 waiting requests, the client's own requests refused, a closed machine refusing everything, a refused
 hello said again after a pause that grows (`machine/tests.rs`, on a machine whose link never comes
@@ -284,7 +298,8 @@ of the seen state, which is state and not an update.
   echoes input and takes a resize; across a machine restart a terminal's view gets exactly the bytes it
   missed, each line once, equal to the bridge's own replay; a program that writes three times what the
   bridge replays while the UI pulls nothing leaves a view that starts over from the newest lines, none
-  missing or repeated, and goes on.
+  missing or repeated, and goes on, with the machine sending no request but the test's own (counted
+  through the ids the machine gives its requests, which the bridge echoes).
 
 ## Limits
 

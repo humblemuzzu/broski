@@ -37,10 +37,9 @@ pub(crate) struct TerminalState {
     phase: Phase,
     summary: Option<TerminalSummary>,
     attached_once: bool,
-    /// The output offset just past the last byte received.
+    /// The output offset just past the last byte received, kept or not: the bridge's own count.
     received: i64,
-    /// The output offset just past the last byte handed to the UI.
-    delivered: i64,
+    /// The newest bytes not handed to the UI yet, at most `MAX_TERMINAL_OUTPUT_BYTES`.
     pending: Vec<u8>,
     /// The UI clears its emulator before the pending bytes.
     reset: bool,
@@ -57,7 +56,6 @@ impl TerminalState {
             summary: None,
             attached_once: false,
             received: 0,
-            delivered: 0,
             pending: Vec::new(),
             reset: false,
             exit: None,
@@ -125,8 +123,8 @@ impl TerminalState {
             self.reset = true;
         }
         self.attached_once = true;
-        self.received = attached.seq + bytes.len() as i64;
-        self.pending.extend(bytes);
+        self.received = attached.seq;
+        self.receive(bytes);
         let terminal = attached.terminal;
         self.phase = match terminal.status {
             TerminalStatus::Running => Phase::Attached,
@@ -147,17 +145,23 @@ impl TerminalState {
             Ok(bytes) if output.seq == self.received => bytes,
             _ => return self.attach_again(),
         };
+        self.receive(bytes);
+        self.notify.notify_one();
+        Next::Nothing
+    }
+
+    /// Output that follows what was received. An idle UI cannot hold more than the bridge's own
+    /// replay would hand it, so the oldest bytes past that go, and the UI starts over from what is
+    /// left. Nothing is asked of the bridge: `received` still counts every byte, so live output
+    /// goes on in step.
+    fn receive(&mut self, bytes: Vec<u8>) {
         self.received += bytes.len() as i64;
         self.pending.extend(bytes);
-        self.notify.notify_one();
-        if self.pending.len() > MAX_TERMINAL_OUTPUT_BYTES {
-            // More than the bridge's own replay holds is waiting: ask the bridge again from what
-            // the UI has, which hands back the rest or tells it to start over.
-            self.pending.clear();
-            self.received = self.delivered;
-            return self.attach_again();
+        let excess = self.pending.len().saturating_sub(MAX_TERMINAL_OUTPUT_BYTES);
+        if excess > 0 {
+            self.pending.drain(..excess);
+            self.reset = true;
         }
-        Next::Nothing
     }
 
     /// The machine sends an attach only for a detached view.
@@ -180,7 +184,6 @@ impl TerminalState {
         }
         if self.reset || !self.pending.is_empty() {
             let reset = std::mem::take(&mut self.reset);
-            self.delivered = self.received;
             let data = std::mem::take(&mut self.pending);
             return TakeOutput::Update(TerminalUpdate::Output { data, reset });
         }

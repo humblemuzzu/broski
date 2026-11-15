@@ -128,19 +128,64 @@ fn output_while_attaching_is_left_to_the_replay_and_out_of_order_output_attaches
     assert_eq!(since(&mut terminals, key), Some(6));
 }
 
+/// The terminal's output from offset `from` on, one distinct byte per offset (modulo a prime), so
+/// what a view keeps shows where it started.
+fn stream(from: usize, len: usize) -> Vec<u8> {
+    (from..from + len)
+        .map(|offset| (offset % 251) as u8)
+        .collect()
+}
+
+/// The update is a reset with exactly the newest `MAX_TERMINAL_OUTPUT_BYTES` of the stream up to
+/// `end` (compared without printing half a megabyte).
+fn assert_newest_after_reset(update: TerminalUpdate, end: usize) {
+    let TerminalUpdate::Output { data, reset } = update else {
+        panic!("output is due: {update:?}");
+    };
+    assert!(reset, "the UI clears its emulator first");
+    assert_eq!(data.len(), MAX_TERMINAL_OUTPUT_BYTES);
+    assert!(data == stream(end - MAX_TERMINAL_OUTPUT_BYTES, MAX_TERMINAL_OUTPUT_BYTES));
+}
+
 #[test]
-fn more_waiting_output_than_the_bridge_replays_asks_again_from_what_the_ui_has() {
+fn more_waiting_output_than_the_bridge_replays_keeps_the_newest_with_a_reset_and_asks_for_nothing()
+{
     let (mut terminals, key) = running();
-    let chunk = vec![b'a'; 64 * 1024];
-    let mut seq = 5;
+    let written = 3 * MAX_TERMINAL_OUTPUT_BYTES + 1000;
     let view = terminals.get_mut(key).expect("view");
-    while seq - 5 <= MAX_TERMINAL_OUTPUT_BYTES as i64 {
-        if view.on_output(output(seq, &chunk)) == Next::Attach {
-            break;
-        }
-        seq += chunk.len() as i64;
+    let mut offset = 5;
+    while offset < written {
+        let len = (64 * 1024).min(written - offset);
+        let frame = output(offset as i64, &stream(offset, len));
+        assert_eq!(view.on_output(frame), Next::Nothing);
+        assert!(!view.needs_attach(), "the bridge is not asked again");
+        offset += len;
     }
-    assert_eq!(since(&mut terminals, key), Some(5));
+    assert_newest_after_reset(update(&mut terminals, key), written);
+
+    let view = terminals.get_mut(key).expect("view");
+    let next = output(written as i64, b"more");
+    assert_eq!(view.on_output(next), Next::Nothing, "still in step");
+    assert_eq!(update(&mut terminals, key), bytes(b"more", false));
+}
+
+#[test]
+fn a_replay_that_joins_a_nearly_full_queue_keeps_the_newest_too() {
+    let (mut terminals, key) = running();
+    let held = MAX_TERMINAL_OUTPUT_BYTES - 100;
+    let view = terminals.get_mut(key).expect("view");
+    view.on_output(output(5, &stream(5, held)));
+    let received = 5 + held;
+    view.detached();
+    assert_eq!(since(&mut terminals, key), Some(received as i64));
+    let view = terminals.get_mut(key).expect("view");
+    let replay = attached(
+        received as i64,
+        &stream(received, 300),
+        TerminalStatus::Running,
+    );
+    view.on_attach_answer(replay);
+    assert_newest_after_reset(update(&mut terminals, key), received + 300);
 }
 
 #[test]
