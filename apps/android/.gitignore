@@ -1,0 +1,9 @@
+.gradle/
+.kotlin/
+build/
+local.properties
+
+# Written by scripts/build-android-core.sh from packages/link on every build.
+/core/src/main/jniLibs/
+/core/src/generated/
+/core/src/test/native/

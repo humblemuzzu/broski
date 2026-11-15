@@ -17,9 +17,8 @@ DEVICE_TARGET=aarch64-apple-ios
 # A build for "any iOS Simulator" compiles arm64 and x86_64 alike, so the simulator library holds both.
 SIMULATOR_TARGETS=(aarch64-apple-ios-sim x86_64-apple-ios)
 
-echo "==> Building the core for the host, $DEVICE_TARGET and ${SIMULATOR_TARGETS[*]}"
-build_core
-for target in "$DEVICE_TARGET" "${SIMULATOR_TARGETS[@]}"; do
+echo "==> Building the core for $HOST_TARGET, $DEVICE_TARGET and ${SIMULATOR_TARGETS[*]}"
+for target in "$HOST_TARGET" "$DEVICE_TARGET" "${SIMULATOR_TARGETS[@]}"; do
   build_core "$target"
 done
 
@@ -29,7 +28,7 @@ trap 'rm -rf "$WORK"' EXIT
 mkdir -p "$WORK/simulator"
 simulator_slices=()
 for target in "${SIMULATOR_TARGETS[@]}"; do
-  simulator_slices+=("$CORE_TARGET_DIR/$target/$CORE_PROFILE/libbroski_core.a")
+  simulator_slices+=("$(core_output "$target")/libbroski_core.a")
 done
 lipo -create "${simulator_slices[@]}" -output "$WORK/simulator/libbroski_core.a"
 
@@ -56,8 +55,8 @@ cp "$WORK"/bindings/*.h "$HEADERS/"
 echo "==> Creating $(basename "$XCFRAMEWORK")"
 arguments=()
 for library in \
-  "$CORE_TARGET_DIR/$CORE_PROFILE/libbroski_core.a" \
-  "$CORE_TARGET_DIR/$DEVICE_TARGET/$CORE_PROFILE/libbroski_core.a" \
+  "$(core_output "$HOST_TARGET")/libbroski_core.a" \
+  "$(core_output "$DEVICE_TARGET")/libbroski_core.a" \
   "$WORK/simulator/libbroski_core.a"; do
   arguments+=(-library "$library" -headers "$HEADERS")
 done
