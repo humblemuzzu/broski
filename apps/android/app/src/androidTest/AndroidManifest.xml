@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- MockWebServer's OkHttp brings an androidx.startup provider into the test APK, whose own dex lacks
+         androidx.startup (the app has it), so any start of the test package's process crashed it and a
+         "keeps stopping" dialog covered the app under test. The tests run in the app's process and need
+         no initializer of their own. -->
+    <application>
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            tools:node="remove" />
+    </application>
+</manifest>
