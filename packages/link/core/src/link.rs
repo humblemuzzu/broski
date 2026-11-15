@@ -27,6 +27,8 @@ pub struct Link {
     session: Option<Session>,
     transport: Option<Transport>,
     initiator: Option<Initiator>,
+    /// A handshake on a second connection while `transport` keeps carrying the session.
+    migration: Option<Initiator>,
     events: VecDeque<LinkEvent>,
     closed: bool,
 }
@@ -38,6 +40,7 @@ impl Link {
             session: None,
             transport: None,
             initiator: None,
+            migration: None,
             events: VecDeque::new(),
             closed: false,
         }
@@ -78,6 +81,52 @@ impl Link {
         let (initiator, msg1) = Initiator::start(identity, server, mode, &hello.encode())?;
         self.initiator = Some(initiator);
         Ok(msg1)
+    }
+
+    /// Client: starts a handshake on a second connection and returns its msg1, while the current
+    /// connection keeps carrying the session until `complete_migration`. The peer accepts a
+    /// resume from a new connection the way it accepts one after a drop, so a migration that
+    /// fails costs the current connection nothing. Only a connected link migrates.
+    pub fn migrate(&mut self, identity: &StaticIdentity, server: &PublicBundle) -> Result<Vec<u8>> {
+        if self.closed {
+            return Err(Error::Closed);
+        }
+        if self.transport.is_none() {
+            return Err(Error::NotConnected);
+        }
+        let session = self.session.as_ref().ok_or(Error::NoSession)?;
+        let hello = Hello {
+            resume: Some(Resume {
+                session_id: session.session_id(),
+                next_expected: session.next_expected(),
+            }),
+            caps: 0,
+        };
+        let (initiator, msg1) =
+            Initiator::start(identity, server, HandshakeMode::Connect, &hello.encode())?;
+        self.migration = Some(initiator);
+        Ok(msg1)
+    }
+
+    /// msg2 from the migration's connection: the session moves onto it, and `Connected` reports
+    /// whether the peer resumed. Frames that crossed the old connection after msg1 are sorted out
+    /// by the resume itself: the peer re-sends what this side had not received, and drops what it
+    /// already had. An error ends the migration and leaves the current connection carrying the
+    /// session.
+    pub fn complete_migration(&mut self, msg2: &[u8], now_ms: u64) -> Result<()> {
+        let initiator = self.migration.take().ok_or(Error::NoMigration)?;
+        let (transport, payload) = initiator.finish(msg2)?;
+        let welcome = Welcome::decode(&payload)?;
+        self.finish_client_handshake(welcome, transport, now_ms)
+    }
+
+    /// The migration's connection failed; the current one is untouched.
+    pub fn abandon_migration(&mut self) {
+        self.migration = None;
+    }
+
+    pub fn is_migrating(&self) -> bool {
+        self.migration.is_some()
     }
 
     /// Client: msg2 first, then sealed frames. Server: sealed frames only.
@@ -138,6 +187,7 @@ impl Link {
     pub fn disconnect(&mut self) {
         self.transport = None;
         self.initiator = None;
+        self.migration = None;
         if let Some(session) = self.session.as_mut() {
             session.detach();
         }
@@ -271,6 +321,7 @@ impl Accepted {
             session: Some(session),
             transport: None,
             initiator: None,
+            migration: None,
             events: VecDeque::new(),
             closed: false,
         };

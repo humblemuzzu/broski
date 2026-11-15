@@ -1,0 +1,66 @@
+[package]
+name = "broski-link-session"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "Broski Link phone session: sockets, route race, resume and pairing around the sans-IO link core"
+
+[lib]
+doctest = false
+
+[dependencies]
+broski-link-core = { path = "../core" }
+# tokio 1.53.2 — the session's own current-thread runtime, sockets, timers and channels.
+tokio = { version = "1.53.2", features = ["rt", "net", "time", "sync", "macros"] }
+# tokio-tungstenite 0.29.0 — the LAN and relay websockets, the daemon's pin; the rustls feature only
+# for its `Connector::Rustls`, which always gets the session's own config.
+tokio-tungstenite = { version = "0.29.0", features = ["rustls-tls-webpki-roots"] }
+# futures-util 0.3.34 — splitting a websocket into its sink and stream halves.
+futures-util = "0.3.34"
+# rustls 0.23.45 — TLS to the relay on the ring provider, which builds for iOS and Android alike.
+rustls = { version = "0.23.45", default-features = false, features = ["ring", "std", "tls12"] }
+# tokio-rustls 0.26.6 — the same TLS config for the https identity fetch.
+tokio-rustls = { version = "0.26.6", default-features = false }
+# webpki-roots 1.0.9 — Mozilla's roots, compiled in, so no platform trust store is needed.
+webpki-roots = "1.0.9"
+# hyper 1.12.0 — the HTTP/1.1 GET of a machine's /v1/identity.
+hyper = { version = "1.12.0", features = ["client", "http1"] }
+# hyper-util 0.1.21 — adapts tokio streams to hyper's io traits.
+hyper-util = { version = "0.1.21", features = ["tokio"] }
+# http-body-util 0.1.5 — the empty request body and the bounded response read.
+http-body-util = "0.1.5"
+# url 2.5.8 — relay addresses, with typed hosts for the private-address rule.
+url = "2.5.8"
+# serde_json 1.0.151 — the link control stream and the push and letter plaintexts.
+serde_json = "1.0.151"
+# base64 0.22.1 — b64url without padding for bundles, tokens, keys and push payloads.
+base64 = "0.22.1"
+# sha2 0.10.9 — the pairing device credentials and the bundle fingerprint.
+sha2 = "0.10.9"
+# hmac 0.12.1 — the notify and letter keys derived from the push key.
+hmac = "0.12.1"
+# chacha20poly1305 0.10.1 — opening pushes and sealing letters, as the daemon does.
+chacha20poly1305 = "0.10.1"
+# getrandom 0.3.4 — push keys, letter ids and nonces, and backoff jitter.
+getrandom = "0.3.4"
+# zeroize 1.8.2 — secrets handed in or out are wiped on drop.
+zeroize = "1.8.2"
+# thiserror 2.0.21 — the one public error enum.
+thiserror = "2.0.21"
+# tracing 0.1.44 — debug logs that never carry a secret or a payload byte.
+tracing = "0.1.44"
+
+[dev-dependencies]
+# broski-link-daemon — the real machine side every session test talks to.
+broski-link-daemon = { path = "../daemon" }
+# broski-relay — the real relay, in-process on a loopback port.
+broski-relay = { path = "../relay" }
+# tokio 1.53.2 — the tests' own multi-thread runtime for the daemon and relay.
+tokio = { version = "1.53.2", features = ["rt-multi-thread", "macros", "io-util"] }
+# tempfile 3.27.0 — a private home per daemon and a database per relay.
+tempfile = "3.27.0"
+# tracing-subscriber 0.3.23 — RUST_LOG for a failing test; the pin the daemon uses.
+tracing-subscriber = { version = "0.3.23", features = ["env-filter", "fmt"] }
+# rcgen 0.14.10 — a throwaway certificate for the relay's TLS listener.
+rcgen = { version = "0.14.10", default-features = false, features = ["crypto", "ring", "pem"] }

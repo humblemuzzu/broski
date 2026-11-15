@@ -32,6 +32,11 @@ native apps.
   Windows is not supported.
 - **Relay** (`packages/link/relay/`) — blind rendezvous both sides dial out to. It forwards encrypted frames and
   never sees plaintext.
+- **Link session** (`packages/link/session/`, crate `broski-link-session`) — the phone side of the link for the
+  shared native-app core: its own tokio runtime, pairing from a QR offer, the LAN/relay route race, resume,
+  make-before-break LAN migration, the outbound queue, pause/resume, and the push-key and letter crypto the
+  notification handlers use. No storage I/O: secrets and `MachineRecord`s go in and come out as values. Doc:
+  [`docs/architecture/connectivity-v2/link-session.md`](docs/architecture/connectivity-v2/link-session.md).
 - **Carried-over iOS code** (`apps/ios/carryover/`, [`apps/carryover/README.md`](apps/carryover/README.md)) — the
   notification service extension, push crypto, keychain item and push action handling from the Flutter app, with
   the bundle ids, team, entitlements and keychain groups the native apps must keep.
@@ -135,7 +140,7 @@ packages/bridge/src/
   workspace/     files, git and terminals over the contract, behind the core's WorkspaceHost port (workspace-host.ts)
   transport/     send queue and frame limits
   platform/ config/ doctor/ wizard/ commands/ lifecycle/ logging/  the CLI and service around the bridge
-packages/link/   the Rust link stack: crypto, proto, core, ffi, daemon, power, relay; contract (the phone core's models and reducer)
+packages/link/   the Rust link stack: crypto, proto, core, ffi, daemon, power, relay; contract (the phone core's models and reducer); session (the phone side of the link)
 apps/ios/carryover/  iOS push code kept for Phase 4
 docs/architecture/   contract, core, backends, connectivity-v2
 ```

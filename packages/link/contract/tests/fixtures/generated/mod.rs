@@ -8,6 +8,8 @@ use serde::Serialize;
 pub const CONSTANTS: &[(&str, usize)] = &[
     ("MAX_CATALOG_ITEMS", MAX_CATALOG_ITEMS),
     ("MAX_CLIENT_MESSAGE_VALUES", MAX_CLIENT_MESSAGE_VALUES),
+    ("MAX_DIFF_LINES", MAX_DIFF_LINES),
+    ("MAX_FILE_READ_BYTES", MAX_FILE_READ_BYTES),
     ("MAX_ID_CHARS", MAX_ID_CHARS),
     ("MAX_IMAGE_CHARS", MAX_IMAGE_CHARS),
     ("MAX_JSON_DEPTH", MAX_JSON_DEPTH),
@@ -16,6 +18,13 @@ pub const CONSTANTS: &[(&str, usize)] = &[
     ("MAX_NAME_CHARS", MAX_NAME_CHARS),
     ("MAX_PAGE_LIMIT", MAX_PAGE_LIMIT),
     ("MAX_PATH_CHARS", MAX_PATH_CHARS),
+    ("MAX_SEARCH_QUERY_CHARS", MAX_SEARCH_QUERY_CHARS),
+    ("MAX_TERMINALS", MAX_TERMINALS),
+    ("MAX_TERMINAL_DIMENSION", MAX_TERMINAL_DIMENSION),
+    ("MAX_TERMINAL_INPUT_BYTES", MAX_TERMINAL_INPUT_BYTES),
+    ("MAX_TERMINAL_INPUT_CHARS", MAX_TERMINAL_INPUT_CHARS),
+    ("MAX_TERMINAL_OUTPUT_BYTES", MAX_TERMINAL_OUTPUT_BYTES),
+    ("MAX_TERMINAL_OUTPUT_CHARS", MAX_TERMINAL_OUTPUT_CHARS),
     ("MAX_TEXT_CHARS", MAX_TEXT_CHARS),
     ("REQUEST_DEADLINE_MS", REQUEST_DEADLINE_MS),
 ];
@@ -106,6 +115,14 @@ pub fn visit_types(visitor: &mut impl TypeVisitor) {
     visitor.plain::<FileChangeKind>("FileChangeKind");
     visitor.tagged::<FileChangesPreview>("FileChangesPreview");
     visitor.tagged::<FileContent>("FileContent");
+    visitor.plain::<FileEncoding>("FileEncoding");
+    visitor.plain::<FileEntry>("FileEntry");
+    visitor.plain::<FileKind>("FileKind");
+    visitor.plain::<FileMatch>("FileMatch");
+    visitor.plain::<FilePath>("FilePath");
+    visitor.tagged::<FileRead>("FileRead");
+    visitor.tagged::<FilesFound>("FilesFound");
+    visitor.tagged::<FilesListed>("FilesListed");
     visitor.plain::<ForkPoint>("ForkPoint");
     visitor.plain::<ForkPosition>("ForkPosition");
     visitor.plain::<FormFieldSpec>("FormFieldSpec");
@@ -113,6 +130,52 @@ pub fn visit_types(visitor: &mut impl TypeVisitor) {
     visitor.tagged::<FormRequest>("FormRequest");
     visitor.plain::<FormScalar>("FormScalar");
     visitor.plain::<FormValue>("FormValue");
+    visitor.tagged::<FsListRequest>("FsListRequest");
+    visitor.tagged::<FsListResponse>("FsListResponse");
+    visitor.plain::<FsListResult>("FsListResult");
+    visitor.tagged::<FsReadRequest>("FsReadRequest");
+    visitor.tagged::<FsReadResponse>("FsReadResponse");
+    visitor.plain::<FsReadResult>("FsReadResult");
+    visitor.tagged::<FsSearchRequest>("FsSearchRequest");
+    visitor.tagged::<FsSearchResponse>("FsSearchResponse");
+    visitor.plain::<FsSearchResult>("FsSearchResult");
+    visitor.plain::<GitBranch>("GitBranch");
+    visitor.tagged::<GitBranchesListed>("GitBranchesListed");
+    visitor.tagged::<GitBranchesRequest>("GitBranchesRequest");
+    visitor.tagged::<GitBranchesResponse>("GitBranchesResponse");
+    visitor.plain::<GitBranchesResult>("GitBranchesResult");
+    visitor.plain::<GitChange>("GitChange");
+    visitor.tagged::<GitCheckedOut>("GitCheckedOut");
+    visitor.tagged::<GitCheckoutRequest>("GitCheckoutRequest");
+    visitor.tagged::<GitCheckoutResponse>("GitCheckoutResponse");
+    visitor.plain::<GitCheckoutResult>("GitCheckoutResult");
+    visitor.plain::<GitCommit>("GitCommit");
+    visitor.tagged::<GitCommitRequest>("GitCommitRequest");
+    visitor.tagged::<GitCommitResponse>("GitCommitResponse");
+    visitor.plain::<GitCommitResult>("GitCommitResult");
+    visitor.tagged::<GitCommitted>("GitCommitted");
+    visitor.plain::<GitDiffFile>("GitDiffFile");
+    visitor.plain::<GitDiffHunk>("GitDiffHunk");
+    visitor.plain::<GitDiffLine>("GitDiffLine");
+    visitor.plain::<GitDiffLineKind>("GitDiffLineKind");
+    visitor.tagged::<GitDiffRead>("GitDiffRead");
+    visitor.tagged::<GitDiffRequest>("GitDiffRequest");
+    visitor.tagged::<GitDiffResponse>("GitDiffResponse");
+    visitor.plain::<GitDiffResult>("GitDiffResult");
+    visitor.plain::<GitFileChange>("GitFileChange");
+    visitor.tagged::<GitLogRead>("GitLogRead");
+    visitor.tagged::<GitLogRequest>("GitLogRequest");
+    visitor.tagged::<GitLogResponse>("GitLogResponse");
+    visitor.plain::<GitLogResult>("GitLogResult");
+    visitor.tagged::<GitStageRequest>("GitStageRequest");
+    visitor.tagged::<GitStageResponse>("GitStageResponse");
+    visitor.tagged::<GitStatusRead>("GitStatusRead");
+    visitor.tagged::<GitStatusRequest>("GitStatusRequest");
+    visitor.tagged::<GitStatusResponse>("GitStatusResponse");
+    visitor.plain::<GitStatusResult>("GitStatusResult");
+    visitor.tagged::<GitUnstageRequest>("GitUnstageRequest");
+    visitor.tagged::<GitUnstageResponse>("GitUnstageResponse");
+    visitor.plain::<GitUpstream>("GitUpstream");
     visitor.plain::<GrantKind>("GrantKind");
     visitor.tagged::<HelloRequest>("HelloRequest");
     visitor.tagged::<HelloResponse>("HelloResponse");
@@ -273,6 +336,35 @@ pub fn visit_types(visitor: &mut impl TypeVisitor) {
     visitor.plain::<StreamPosition>("StreamPosition");
     visitor.tagged::<StringField>("StringField");
     visitor.plain::<StringFormat>("StringFormat");
+    visitor.tagged::<TermAttachRequest>("TermAttachRequest");
+    visitor.tagged::<TermAttachResponse>("TermAttachResponse");
+    visitor.plain::<TermAttachResult>("TermAttachResult");
+    visitor.tagged::<TermCloseRequest>("TermCloseRequest");
+    visitor.tagged::<TermCloseResponse>("TermCloseResponse");
+    visitor.tagged::<TermDetachRequest>("TermDetachRequest");
+    visitor.tagged::<TermDetachResponse>("TermDetachResponse");
+    visitor.tagged::<TermExitedMessage>("TermExitedMessage");
+    visitor.tagged::<TermInputRequest>("TermInputRequest");
+    visitor.tagged::<TermInputResponse>("TermInputResponse");
+    visitor.tagged::<TermListRequest>("TermListRequest");
+    visitor.tagged::<TermListResponse>("TermListResponse");
+    visitor.plain::<TermListResult>("TermListResult");
+    visitor.tagged::<TermOpenRequest>("TermOpenRequest");
+    visitor.tagged::<TermOpenResponse>("TermOpenResponse");
+    visitor.plain::<TermOpenResult>("TermOpenResult");
+    visitor.tagged::<TermOutputMessage>("TermOutputMessage");
+    visitor.tagged::<TermResizeRequest>("TermResizeRequest");
+    visitor.tagged::<TermResizeResponse>("TermResizeResponse");
+    visitor.tagged::<TerminalAttached>("TerminalAttached");
+    visitor.plain::<TerminalDimension>("TerminalDimension");
+    visitor.plain::<TerminalEvent>("TerminalEvent");
+    visitor.plain::<TerminalId>("TerminalId");
+    visitor.tagged::<TerminalOpened>("TerminalOpened");
+    visitor.plain::<TerminalOutput>("TerminalOutput");
+    visitor.plain::<TerminalSeq>("TerminalSeq");
+    visitor.plain::<TerminalStatus>("TerminalStatus");
+    visitor.plain::<TerminalSummary>("TerminalSummary");
+    visitor.tagged::<TerminalsListed>("TerminalsListed");
     visitor.tagged::<TextContent>("TextContent");
     visitor.tagged::<TextReply>("TextReply");
     visitor.tagged::<TextRequest>("TextRequest");
@@ -313,4 +405,8 @@ pub fn visit_types(visitor: &mut impl TypeVisitor) {
     visitor.tagged::<UserMessageEvent>("UserMessageEvent");
     visitor.tagged::<UserMessageItem>("UserMessageItem");
     visitor.plain::<WorkingDirectory>("WorkingDirectory");
+    visitor.tagged::<WorkspaceInfo>("WorkspaceInfo");
+    visitor.tagged::<WorkspaceInfoRequest>("WorkspaceInfoRequest");
+    visitor.tagged::<WorkspaceInfoResponse>("WorkspaceInfoResponse");
+    visitor.plain::<WorkspaceInfoResult>("WorkspaceInfoResult");
 }

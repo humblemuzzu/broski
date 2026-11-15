@@ -40,6 +40,8 @@ pub enum RejectionCode {
     Unsupported,
     #[serde(rename = "not_found")]
     NotFound,
+    #[serde(rename = "forbidden")]
+    Forbidden,
     #[serde(rename = "stale")]
     Stale,
     #[serde(rename = "closed")]

@@ -201,6 +201,44 @@ pub enum ClientMessage {
     ModeSet(ModeSetRequest),
     #[serde(rename = "compact")]
     Compact(CompactRequest),
+    #[serde(rename = "workspace.info")]
+    WorkspaceInfo(WorkspaceInfoRequest),
+    #[serde(rename = "fs.list")]
+    FsList(FsListRequest),
+    #[serde(rename = "fs.read")]
+    FsRead(FsReadRequest),
+    #[serde(rename = "fs.search")]
+    FsSearch(FsSearchRequest),
+    #[serde(rename = "git.status")]
+    GitStatus(GitStatusRequest),
+    #[serde(rename = "git.diff")]
+    GitDiff(GitDiffRequest),
+    #[serde(rename = "git.stage")]
+    GitStage(GitStageRequest),
+    #[serde(rename = "git.unstage")]
+    GitUnstage(GitUnstageRequest),
+    #[serde(rename = "git.commit")]
+    GitCommit(GitCommitRequest),
+    #[serde(rename = "git.branches")]
+    GitBranches(GitBranchesRequest),
+    #[serde(rename = "git.checkout")]
+    GitCheckout(GitCheckoutRequest),
+    #[serde(rename = "git.log")]
+    GitLog(GitLogRequest),
+    #[serde(rename = "term.list")]
+    TermList(TermListRequest),
+    #[serde(rename = "term.open")]
+    TermOpen(TermOpenRequest),
+    #[serde(rename = "term.attach")]
+    TermAttach(TermAttachRequest),
+    #[serde(rename = "term.detach")]
+    TermDetach(TermDetachRequest),
+    #[serde(rename = "term.input")]
+    TermInput(TermInputRequest),
+    #[serde(rename = "term.resize")]
+    TermResize(TermResizeRequest),
+    #[serde(rename = "term.close")]
+    TermClose(TermCloseRequest),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -631,12 +669,54 @@ pub enum ServerMessage {
     ModeSetResult(ModeSetResponse),
     #[serde(rename = "compact.result")]
     CompactResult(CompactResponse),
+    #[serde(rename = "workspace.info.result")]
+    WorkspaceInfoResult(WorkspaceInfoResponse),
+    #[serde(rename = "fs.list.result")]
+    FsListResult(FsListResponse),
+    #[serde(rename = "fs.read.result")]
+    FsReadResult(FsReadResponse),
+    #[serde(rename = "fs.search.result")]
+    FsSearchResult(FsSearchResponse),
+    #[serde(rename = "git.status.result")]
+    GitStatusResult(GitStatusResponse),
+    #[serde(rename = "git.diff.result")]
+    GitDiffResult(GitDiffResponse),
+    #[serde(rename = "git.stage.result")]
+    GitStageResult(GitStageResponse),
+    #[serde(rename = "git.unstage.result")]
+    GitUnstageResult(GitUnstageResponse),
+    #[serde(rename = "git.commit.result")]
+    GitCommitResult(GitCommitResponse),
+    #[serde(rename = "git.branches.result")]
+    GitBranchesResult(GitBranchesResponse),
+    #[serde(rename = "git.checkout.result")]
+    GitCheckoutResult(GitCheckoutResponse),
+    #[serde(rename = "git.log.result")]
+    GitLogResult(GitLogResponse),
+    #[serde(rename = "term.list.result")]
+    TermListResult(TermListResponse),
+    #[serde(rename = "term.open.result")]
+    TermOpenResult(TermOpenResponse),
+    #[serde(rename = "term.attach.result")]
+    TermAttachResult(TermAttachResponse),
+    #[serde(rename = "term.detach.result")]
+    TermDetachResult(TermDetachResponse),
+    #[serde(rename = "term.input.result")]
+    TermInputResult(TermInputResponse),
+    #[serde(rename = "term.resize.result")]
+    TermResizeResult(TermResizeResponse),
+    #[serde(rename = "term.close.result")]
+    TermCloseResult(TermCloseResponse),
     #[serde(rename = "error")]
     Error(ErrorResponse),
     #[serde(rename = "event")]
     Event(EventMessage),
     #[serde(rename = "catalog")]
     Catalog(CatalogMessage),
+    #[serde(rename = "term_output")]
+    TermOutput(TermOutputMessage),
+    #[serde(rename = "term_exited")]
+    TermExited(TermExitedMessage),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

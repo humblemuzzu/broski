@@ -3,6 +3,8 @@
 
 pub const MAX_CATALOG_ITEMS: usize = 10000;
 pub const MAX_CLIENT_MESSAGE_VALUES: usize = 50000;
+pub const MAX_DIFF_LINES: usize = 20000;
+pub const MAX_FILE_READ_BYTES: usize = 3145728;
 pub const MAX_ID_CHARS: usize = 256;
 pub const MAX_IMAGE_CHARS: usize = 4194304;
 pub const MAX_JSON_DEPTH: usize = 64;
@@ -11,5 +13,12 @@ pub const MAX_MESSAGE_BYTES: usize = 8388608;
 pub const MAX_NAME_CHARS: usize = 1024;
 pub const MAX_PAGE_LIMIT: usize = 200;
 pub const MAX_PATH_CHARS: usize = 4096;
+pub const MAX_SEARCH_QUERY_CHARS: usize = 256;
+pub const MAX_TERMINALS: usize = 20;
+pub const MAX_TERMINAL_DIMENSION: usize = 500;
+pub const MAX_TERMINAL_INPUT_BYTES: usize = 65536;
+pub const MAX_TERMINAL_INPUT_CHARS: usize = 87384;
+pub const MAX_TERMINAL_OUTPUT_BYTES: usize = 524288;
+pub const MAX_TERMINAL_OUTPUT_CHARS: usize = 699052;
 pub const MAX_TEXT_CHARS: usize = 1048576;
 pub const REQUEST_DEADLINE_MS: usize = 120000;

@@ -101,4 +101,4 @@ Auth, TLS, the daemon feed's own messages (`4001` on replace) and the network li
 | network unsent budget | 4 MiB (1013) | `NETWORK_MAX_PENDING_BYTES`, `transport/send-limits.ts` | — |
 
 Only the row with a mirror has to agree: the bridge never builds a frame the daemon would have to drop. The phone
-side's own limits belong to the client core (`docs/rebuild/PLAN.md`, Phase 3). Everything else is a budget of its own.
+side's own limits belong to `broski-link-session` ([link-session.md](link-session.md)). Everything else is a budget of its own.
