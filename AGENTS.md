@@ -55,16 +55,17 @@ native apps, the iOS and Android apps' foundations (Phase 4.1), and the iOS push
 - **iOS app** (`apps/ios/Broski/`, XcodeGen `project.yml`; the `.xcodeproj` is a build output) — SwiftUI for
   iOS 26, Swift 6 with main-actor default isolation, Liquid Glass. `Sources/App` (entry, tabs, `Route`),
   `Sources/Core` (`AppModel` owning the `Phone`, keychain persistence, the inbox and machine pull loops, scene
-  phase, `NWPathMonitor`, `NWBrowser` LAN discovery), `Sources/DesignSystem`, `Sources/Features/*`, `Shared/`
-  (keychain code its extensions compile). Doc: [`apps/ios/README.md`](apps/ios/README.md).
+  phase, `NWPathMonitor`, `NWBrowser` LAN discovery, push registration and decisions, the Live Activity),
+  `Sources/DesignSystem`, `Sources/Features/*` (Workspace: files, git, a libghostty terminal), `Shared/` (what
+  its extensions compile), `Extensions/` (the notification service extension, the Live Activity widget). Doc:
+  [`apps/ios/README.md`](apps/ios/README.md).
 - **Android app** (`apps/android/app/`, [`apps/android/README.md`](apps/android/README.md)) — Kotlin, Compose,
   Material 3 Expressive, Navigation 3: welcome and pairing (Code Scanner or a pasted link), inbox, machines,
   settings. One `Phone` per process in `core/AppCore.kt`, its loops in `core/PhoneSession.kt`; the identity
   secret, records and seen state in a Keystore-sealed DataStore (`core/vault/`). Phase 4.2 plugs chat,
   workspace and New session into `app/Features.kt` and nowhere else.
-- **Carried-over iOS code** (`apps/ios/carryover/`, [`apps/carryover/README.md`](apps/carryover/README.md)) — the
-  notification service extension, push crypto, keychain item and push action handling from the Flutter app, with
-  the bundle ids, team, entitlements and keychain groups the native apps must keep.
+- **Identifiers kept from the Flutter app** ([`apps/carryover/README.md`](apps/carryover/README.md)) — the bundle
+  ids, team, keychain groups and Android application id the native apps keep.
 - **Connection:** direct over the LAN when reachable, otherwise through the relay. No VPN, tunnel, port forwarding
   or public exposure of the bridge.
 - **Auth layers:** QR v2 pairing (`broski://pair?v=2&h=<fingerprint>&s=<one-time secret>&e=<expiry>&n=<name>[&r=<relay>][&l=<lan>]`),
@@ -167,8 +168,7 @@ packages/bridge/src/
   platform/ config/ doctor/ wizard/ commands/ lifecycle/ logging/  the CLI and service around the bridge
 packages/link/   the Rust link stack: crypto, proto, core, daemon, power, relay; contract (the phone core's models and reducer); session (the phone side of the link); client (the mobile core over it); testkit (the daemon, relay, LAN and bridge harness the phone crates' tests share); mobile (BroskiCore, the UniFFI facade); uniffi-bindgen
 apps/ios/BroskiCore/  the Swift package of BroskiCore (generated bindings + XCFramework, both from scripts/build-ios-core.sh)
-apps/ios/Broski/  the iOS app (project.yml, Sources/{App,Core,DesignSystem,Features}, Shared, Tests, UITests)
-apps/ios/carryover/  iOS push code kept for Phase 4
+apps/ios/Broski/  the iOS app (project.yml, Sources/{App,Core,DesignSystem,Features}, Shared, Extensions, Tests, UITests)
 apps/android/    the Gradle build: :core, BroskiCore's Android library (bindings + .so from scripts/build-android-core.sh);
                  :app, the Android app (app/ shell, design/, core/, feature/<screen>/)
 scripts/         build-ios-core.sh, build-ios-app.sh, e2e-ios-app.sh, build-android-core.sh, test-android-real-machine.sh,

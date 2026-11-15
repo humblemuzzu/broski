@@ -36,12 +36,13 @@ finished. A draft chat that has not adopted a session id yet is not "the session
 A tap on a push or on a local notification whose payload names a backend and a session opens that session's
 conversation:
 
-- **Push (iOS).** The notification service extension keeps `backend`, `session` and `request` on the delivered content
-  and hands a tap on the notification itself (the default action) to the app, at once when the app is listening and
-  otherwise when it first asks, which is how a tap that launched the app arrives. The push's machine id (`m`) travels
-  with the tap as `machine`. Approve/Deny keep their lock-screen path. A response that is not one of our pushes (`m`
-  absent) is passed on. The code carried over for this is in `apps/ios/carryover/`
-  ([`apps/carryover/README.md`](../../apps/carryover/README.md)).
+- **Push (iOS).** The notification service extension (`apps/ios/Broski/Extensions/NotificationService`,
+  `Shared/PushContent.swift`) opens the push with the core's `openNotification` and keeps `machine` (the relay's `m`),
+  `backend`, `session` and `request` on the delivered content. The app's notification delegate
+  (`Sources/Core/PushNotifications.swift`, set before launch finishes, so a tap that launched the app arrives) turns a
+  tap on the notification itself into `AppModel.sessionToOpen`; Allow and Deny post the core's `decisionLetter`. A
+  push for the session `AppModel.visibleSession` names does not banner while the app is in front
+  ([`apps/ios/README.md`](../../apps/ios/README.md)).
 - **Routing.** A tap waits for the paired machines to be read; one for another paired machine moves the app there first,
   one for a machine no longer paired is dropped. It then waits until the backends are known, from the bridge or from the
   list saved for that machine, so a tap made offline opens what was saved. A tap the app cannot act on within 30 s is
