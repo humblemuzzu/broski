@@ -108,6 +108,8 @@ int pty_create(
     if (flags >= 0) {
         fcntl(master_fd, F_SETFL, flags | O_NONBLOCK);
     }
+    /* Another terminal's shell must not inherit this master: it would keep the pair open after the bridge closes it. */
+    fcntl(master_fd, F_SETFD, FD_CLOEXEC);
 
     return master_fd;
 }

@@ -96,6 +96,43 @@ describe("native PTY session lifecycle", () => {
 	);
 
 	test(
+		"a terminal's master descriptor does not reach the process of another terminal",
+		async () => {
+			const listing = async (): Promise<string> => {
+				const session = await nativeCreatePty({
+					command: "/bin/sh",
+					args: ["-c", "echo \"fds: $(ls /dev/fd | tr '\\n' ' ')end\""],
+				});
+				expect(session).toBeTruthy();
+				if (!session) return "";
+				createdIds.push(session.id);
+				const connection = nativeConnectPty(session.id);
+				let output = "";
+				connection?.onData((bytes) => {
+					output += Buffer.from(bytes).toString("utf8");
+				});
+				const deadline = Date.now() + EXIT_DEADLINE_MS;
+				while (!output.includes("end") && Date.now() < deadline) await sleep(10);
+				await nativeDeletePty(session.id);
+				return output.trim();
+			};
+			const alone = await listing();
+
+			const other = await nativeCreatePty(IDLE_COMMAND);
+			expect(other).toBeTruthy();
+			if (!other) return;
+			createdIds.push(other.id);
+			try {
+				expect(alone).toMatch(/^fds: 0 1 2 /);
+				expect(await listing()).toBe(alone);
+			} finally {
+				await nativeDeletePty(other.id);
+			}
+		},
+		PTY_TEST_TIMEOUT_MS,
+	);
+
+	test(
 		"deleting a session stops its reader and closes its descriptor",
 		async () => {
 			const fdsBefore = openFdCount();
