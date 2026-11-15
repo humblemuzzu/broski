@@ -252,14 +252,25 @@ impl Shared {
     pub(crate) fn spawn_load(self: &Arc<Self>, list: u64, reload: bool) {
         let shared = Arc::clone(self);
         self.runtime().handle().spawn(async move {
-            if let Err(error) = shared.load(list, reload).await {
+            if let Err(error) = shared.fetch_page(list, reload).await {
                 tracing::debug!(%error, "a session list page failed");
             }
         });
     }
 
-    /// The list's next page, or its first again with `reload`.
-    pub(crate) async fn load(&self, list: u64, reload: bool) -> Result<(), ClientError> {
+    /// The list's next page, or its first again with `reload`. The page is fetched on the link
+    /// runtime, so a caller that stops waiting (Kotlin frees the future of a cancelled coroutine)
+    /// still leaves the list settled: `ask` marks it loading, and only the answer clears that.
+    pub(crate) async fn load(self: &Arc<Self>, list: u64, reload: bool) -> Result<(), ClientError> {
+        let shared = Arc::clone(self);
+        let fetching = self
+            .runtime()
+            .handle()
+            .spawn(async move { shared.fetch_page(list, reload).await });
+        fetching.await.map_err(|_| ClientError::Closed)?
+    }
+
+    async fn fetch_page(&self, list: u64, reload: bool) -> Result<(), ClientError> {
         let asked = self
             .lock()
             .catalog

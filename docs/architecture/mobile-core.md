@@ -161,7 +161,9 @@ the first is records, not a snapshot. The integration tests hold the same equali
   (backend, the directory when the query names one, and the parent: none for a query without one) and
   out of every other; `session_removed` takes it out. `query.cwd` must be spelled as the bridge spells
   directories (a row's `cwd`, `workspace.info`, `fs.list`), since rows are matched by it. A list holds at
-  most `MAX_CATALOG_ITEMS` rows.
+  most `MAX_CATALOG_ITEMS` rows. `load_more` and `refresh` fetch their page on the link runtime, so a caller
+  that stops waiting (Kotlin frees the future of a cancelled coroutine) does not strand the list: the page
+  still merges and the next `load_more` works.
 - **A new bridge socket** forgets everything above (its catalog spoke while this phone was not listening),
   lists the backends again and reloads every list from its first page.
 
@@ -266,7 +268,8 @@ daemon's unix socket, as a child with a temp `HOME` that is also the only direct
   brings the view back from a snapshot of the new epoch and a run on the new bridge works; a machine that
   starts over resets the link, a request caught by it fails `LinkReset`, and the view resumes its stream.
 - `catalog.rs` — rows follow a create, a rename and a delete, and stay out of another directory's list;
-  status, models, modes and commands are read and kept.
+  status, models, modes and commands are read and kept; a `load_more` whose future is dropped after one poll
+  still lands its page, and the next `load_more` reads the one after.
 - `inbox.rs` — a first pairing shows the machine's history as seen; across two machines a session moves
   needs you → done and another working → done, ordered by state then newest first, and `mark_seen` makes
   one idle with the marker the app persists.

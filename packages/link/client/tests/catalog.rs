@@ -3,7 +3,10 @@
 
 mod common;
 
+use std::future::{poll_fn, Future};
+use std::pin::pin;
 use std::sync::Arc;
+use std::task::Poll;
 
 use broski_client::{SessionList, SessionListUpdate};
 use broski_contract::{
@@ -13,6 +16,20 @@ use broski_contract::{
 use broski_link_testkit::WAIT;
 use common::{create_session, paired, phone, Mac};
 use tokio::time::{timeout_at, Instant};
+
+/// Polls `future` once, so its request is out, and drops it, as Kotlin frees the future of a
+/// cancelled coroutine.
+async fn poll_once_and_drop<F: Future>(future: F) {
+    let mut future = pin!(future);
+    poll_fn(|cx| {
+        assert!(
+            future.as_mut().poll(cx).is_pending(),
+            "no answer can be in yet"
+        );
+        Poll::Ready(())
+    })
+    .await;
+}
 
 async fn rows_until(
     list: &SessionList,
@@ -24,7 +41,13 @@ async fn rows_until(
     while !done(&rows) {
         rows = timeout_at(deadline, list.next_change())
             .await
-            .unwrap_or_else(|_| panic!("timed out waiting for {what}: {rows:?}"))
+            .unwrap_or_else(|_| {
+                panic!(
+                    "timed out waiting for {what}: {} rows, more: {}",
+                    rows.rows.len(),
+                    rows.has_more
+                )
+            })
             .expect("the list goes on");
     }
     rows
@@ -142,4 +165,26 @@ async fn backends_and_their_catalogs_are_read_and_kept() {
             .await,
         Ok(commands)
     );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_page_the_caller_stopped_waiting_for_still_settles_the_list() {
+    let mut mac = Mac::on_lan().await;
+    for index in 0..120 {
+        mac.bridge
+            .seed(&mac.root(), &format!("Session {index}"))
+            .await;
+    }
+    let phone = phone();
+    let machine = paired(&phone, &mac).await;
+    machine.backends().await.expect("the backends");
+    let list = list_in(&machine, &mac.root());
+    rows_until(&list, "the first page", |rows| rows.rows.len() == 50).await;
+
+    poll_once_and_drop(list.load_more()).await;
+    rows_until(&list, "the second page", |rows| rows.rows.len() == 100).await;
+
+    list.load_more().await.expect("the last page");
+    let rows = rows_until(&list, "the last page", |rows| rows.rows.len() == 120).await;
+    assert!(!rows.has_more);
 }
