@@ -72,8 +72,20 @@ class RepliesTest {
     @Test
     fun anOptionThatRequiresWordsWaitsForThem() {
         val required = option("why", PermissionEffect.DENY, message = MessagePolicy.REQUIRED)
-        assertFalse(canChoose(required, " "))
-        assertTrue(canChoose(required, "because"))
+        val asked = request.grants.map { it.id }.toSet()
+        assertFalse(canChoose(request, required, " ", asked))
+        assertTrue(canChoose(request, required, "because", asked))
+    }
+
+    @Test
+    fun anAllowThatAskedForGrantsWaitsForOneToBeKeptAndADenyDoesNot() {
+        val allow = options[0]
+        val deny = options[2]
+        assertFalse("nothing kept", canChoose(request, allow, "", emptySet()))
+        assertTrue(canChoose(request, allow, "", setOf("net")))
+        assertTrue(canChoose(request, deny, "", emptySet()))
+        val noGrants = request.copy(grants = emptyList())
+        assertTrue("none were asked for", canChoose(noGrants, allow, "", emptySet()))
     }
 
     private val library = Question("q0", "Library", "Which?", listOf(QuestionOption("date-fns", null, null), QuestionOption("luxon", null, null)), false, true, false, true)

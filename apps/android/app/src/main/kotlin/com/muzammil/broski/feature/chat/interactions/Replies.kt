@@ -36,8 +36,10 @@ fun denyWithWords(options: List<PermissionOption>): PermissionOption? = options.
     it.effect == PermissionEffect.DENY && !it.stopsRun && it.message != MessagePolicy.NONE
 }
 
-fun canChoose(option: PermissionOption, message: String): Boolean =
-    option.message != MessagePolicy.REQUIRED || message.isNotBlank()
+/** Whether [option] can go now: the words it requires are typed, and an allow keeps a grant when grants were asked for. */
+fun canChoose(request: ToolPermissionRequest, option: PermissionOption, message: String, grants: Set<String>): Boolean =
+    (option.message != MessagePolicy.REQUIRED || message.isNotBlank()) &&
+        !(option.effect == PermissionEffect.ALLOW && request.grants.isNotEmpty() && grants.isEmpty())
 
 /**
  * [option], with [message] when the option takes words, and on an allow the [grants] the person

@@ -74,7 +74,7 @@ fun PermissionCard(interaction: Interaction, request: ToolPermissionRequest, con
             Text(listOfNotNull(grant.kind.name.lowercase(), grant.target).joinToString(" "), style = MaterialTheme.typography.bodyMedium.mono())
         }
     }
-    if (context.canAnswer) Options(request, message, context, pick)
+    if (context.canAnswer) Options(request, message, grants.toSet(), context, pick)
     confirming?.let { option ->
         ConfirmOption(option, onConfirm = { confirming = null; choose(option) }, onDismiss = { confirming = null })
     }
@@ -124,6 +124,7 @@ fun Exact(text: String) {
 private fun Options(
     request: ToolPermissionRequest,
     message: TextFieldState,
+    grants: Set<String>,
     context: CardContext,
     pick: (PermissionOption) -> Unit,
 ) {
@@ -132,7 +133,7 @@ private fun Options(
     val typed = message.text.toString()
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         request.options.filter { it != withWords }.forEach { option ->
-            val enabled = context.enabled && canChoose(option, typed)
+            val enabled = context.enabled && canChoose(request, option, typed, grants)
             when {
                 option == primary -> Button(onClick = { pick(option) }, enabled = enabled, shapes = ButtonDefaults.shapes()) { Text(option.label) }
                 option.effect == PermissionEffect.ALLOW -> FilledTonalButton(onClick = { pick(option) }, enabled = enabled, shapes = ButtonDefaults.shapes()) { Text(option.label) }
@@ -142,11 +143,11 @@ private fun Options(
             }
         }
     }
-    withWords?.let { deny -> DenyRow(deny, message, context, pick) }
+    withWords?.let { deny -> DenyRow(request, deny, message, context, pick) }
 }
 
 @Composable
-private fun DenyRow(deny: PermissionOption, message: TextFieldState, context: CardContext, pick: (PermissionOption) -> Unit) {
+private fun DenyRow(request: ToolPermissionRequest, deny: PermissionOption, message: TextFieldState, context: CardContext, pick: (PermissionOption) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedTextField(
             state = message,
@@ -156,7 +157,7 @@ private fun DenyRow(deny: PermissionOption, message: TextFieldState, context: Ca
             enabled = context.enabled,
             modifier = Modifier.weight(1f),
         )
-        TextButton(onClick = { pick(deny) }, enabled = context.enabled && canChoose(deny, message.text.toString())) {
+        TextButton(onClick = { pick(deny) }, enabled = context.enabled && canChoose(request, deny, message.text.toString(), emptySet())) {
             Text(deny.label, color = MaterialTheme.colorScheme.error)
         }
     }
