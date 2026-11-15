@@ -86,7 +86,9 @@ private struct OlderPages: View {
             ProgressView()
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, Spacing.l)
-                .task(id: chat.isRevealed) {
+                // Keyed by the cursor too: a row still on screen when a page lands (or that came back
+                // while a page was out) loads the next one.
+                .task(id: chat.isRevealed ? chat.history.olderCursor : nil) {
                     guard chat.isRevealed else { return }
                     willLoad()
                     await chat.loadOlder()
