@@ -37,6 +37,10 @@ data class SessionRoute(val machineId: String, val backend: String, val sessionI
     }
 }
 
+/** A folder on one machine in the Workspace's file browser, as the chat's "Open folder in Files" asks for it. */
+@Serializable
+data class FilesRoute(val machineId: String, val path: String) : Route
+
 /** The navigation bar's destinations, in its order. */
 enum class TopLevel(
     val root: Route,
