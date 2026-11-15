@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use broski_contract::{
-    BackendsListRequest, ClientInfo, ClientMessage, HelloRequest, ProtocolVersion,
+    BackendsListRequest, ClientInfo, ClientMessage, HelloRequest, PROTOCOL_VERSION,
 };
 use broski_link_session::{
     DeviceIdentity, LinkRuntime, MachineRecord, Platform, Session, SessionOptions,
@@ -87,7 +87,7 @@ async fn the_clients_own_requests_are_refused_and_a_closed_machine_refuses_all()
     let machine = unreachable();
     let hello = ClientMessage::Hello(HelloRequest {
         request_id: String::new(),
-        protocol: ProtocolVersion { major: 1, minor: 0 },
+        protocol: PROTOCOL_VERSION,
         client: ClientInfo {
             name: "x".into(),
             version: "0".into(),

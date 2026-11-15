@@ -9,6 +9,7 @@
  */
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
+import { PROTOCOL_VERSION } from "../src/contract/protocol";
 import { contractConstants } from "./contract-gen/constants";
 import { fakeSessionStream } from "./contract-gen/fake-stream";
 import { framePrefix } from "./contract-gen/frame-prefix";
@@ -41,7 +42,9 @@ async function expectedOutputs(): Promise<Map<string, string>> {
 	outputs.set(join(FIXTURES_DIR, "fake_session_stream.json"), json(stream));
 	outputs.set(join(FIXTURES_DIR, "reducer_trace.json"), json(reducerTrace(stream)));
 	outputs.set(join(FIXTURES_DIR, "frame_prefix.json"), json(framePrefix()));
-	for (const [file, source] of rustModels(types, constants)) outputs.set(join(RUST_MODELS_DIR, file), source);
+	for (const [file, source] of rustModels(types, constants, PROTOCOL_VERSION)) {
+		outputs.set(join(RUST_MODELS_DIR, file), source);
+	}
 	outputs.set(join(RUST_REGISTRY_DIR, "mod.rs"), rustTypeRegistry(types, constants));
 	return outputs;
 }

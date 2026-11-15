@@ -8,7 +8,7 @@
 use std::sync::Arc;
 
 use broski_contract::{
-    ClientMessage, HelloRequest, ProtocolErrorCode, ProtocolVersion, ServerMessage,
+    ClientMessage, HelloRequest, ProtocolErrorCode, ServerMessage, PROTOCOL_VERSION,
 };
 use broski_link_session::{BridgeState, BridgeStatus, LinkState, SendFailure, Status};
 
@@ -16,9 +16,6 @@ use super::state::{Contract, Shared, State};
 use crate::error::ClientError;
 use crate::requests::Waiter;
 use crate::view::ViewEnd;
-
-/// The protocol this client speaks (`PROTOCOL_VERSION`, `packages/bridge/src/contract/protocol.ts`).
-const PROTOCOL: ProtocolVersion = ProtocolVersion { major: 1, minor: 0 };
 
 impl Shared {
     pub(crate) fn on_status(&self, state: &mut State, status: Status) {
@@ -65,7 +62,7 @@ impl Shared {
     fn hello(&self, state: &mut State, conn: u64) {
         let hello = ClientMessage::Hello(HelloRequest {
             request_id: String::new(),
-            protocol: PROTOCOL,
+            protocol: PROTOCOL_VERSION,
             client: self.client().clone(),
         });
         match self.send_unchecked(state, hello, Some(Waiter::Hello)) {
@@ -79,7 +76,7 @@ impl Shared {
             return;
         };
         match answer {
-            ServerMessage::HelloResult(hello) if hello.protocol.major == PROTOCOL.major => {
+            ServerMessage::HelloResult(hello) if hello.protocol.major == PROTOCOL_VERSION.major => {
                 state.contract = Contract::Ready {
                     conn,
                     bridge_version: hello.bridge_version,
@@ -89,7 +86,10 @@ impl Shared {
             ServerMessage::HelloResult(hello) => {
                 let message = format!(
                     "the bridge speaks protocol {}.{}; this phone speaks {}.{}",
-                    hello.protocol.major, hello.protocol.minor, PROTOCOL.major, PROTOCOL.minor
+                    hello.protocol.major,
+                    hello.protocol.minor,
+                    PROTOCOL_VERSION.major,
+                    PROTOCOL_VERSION.minor
                 );
                 self.incompatible(state, conn, message);
             }

@@ -1,3 +1,4 @@
+import type { ProtocolVersion } from "../../src/contract/protocol";
 import { byCodeUnits } from "./order";
 import { type ClassDef, RustFields } from "./rust-fields";
 import { rustModuleName, rustString, rustVariantName } from "./rust-names";
@@ -28,11 +29,16 @@ const ENUM_DERIVES = [
 const CONSTANTS_MODULE = "constants";
 
 /**
- * The contract as Rust: one file per contract module, the shared numbers, and a `mod.rs` re-exporting
- * them all, keyed by file name. Written in rustfmt's own layout, so `cargo fmt --check` passes on it as
- * generated. `JsonValue` is written by hand in the crate (`json_value.rs`) and only referred to.
+ * The contract as Rust: one file per contract module, the shared numbers with the protocol version, and
+ * a `mod.rs` re-exporting them all, keyed by file name. Written in rustfmt's own layout, so
+ * `cargo fmt --check` passes on it as generated. `JsonValue` is written by hand in the crate
+ * (`json_value.rs`) and only referred to.
  */
-export function rustModels(types: Map<string, TypeDef>, constants: [string, number][]): Map<string, string> {
+export function rustModels(
+	types: Map<string, TypeDef>,
+	constants: [string, number][],
+	protocol: ProtocolVersion,
+): Map<string, string> {
 	const fields = new RustFields(types);
 	const byModule = new Map<string, TypeDef[]>();
 	for (const type of types.values()) {
@@ -44,7 +50,7 @@ export function rustModels(types: Map<string, TypeDef>, constants: [string, numb
 	const modules = [...byModule.keys()].sort(byCodeUnits);
 	const files = new Map<string, string>();
 	files.set("mod.rs", modFile([...modules, CONSTANTS_MODULE].sort(byCodeUnits)));
-	files.set(`${CONSTANTS_MODULE}.rs`, constantsFile(constants));
+	files.set(`${CONSTANTS_MODULE}.rs`, constantsFile(constants, protocol));
 	for (const module of modules) {
 		const moduleTypes = (byModule.get(module) ?? []).sort((a, b) => byCodeUnits(a.name, b.name));
 		files.set(`${module}.rs`, moduleFile(moduleTypes, fields));
@@ -53,13 +59,15 @@ export function rustModels(types: Map<string, TypeDef>, constants: [string, numb
 }
 
 /** Every bound is a count of characters, items, bytes or values, or milliseconds, none of them negative. */
-function constantsFile(constants: [string, number][]): string {
+function constantsFile(constants: [string, number][], protocol: ProtocolVersion): string {
 	const declarations = constants.map(([name, value]) => {
 		if (!/^[A-Z][A-Z0-9_]*$/.test(name)) throw new Error(`${name} cannot be a Rust constant`);
 		if (!Number.isSafeInteger(value) || value < 0) throw new Error(`${name} is not a count`);
 		return `pub const ${name}: usize = ${value};\n`;
 	});
-	return `${RUST_GENERATED_HEADER}\n${declarations.join("")}`;
+	const { major, minor } = protocol;
+	const version = `pub const PROTOCOL_VERSION: ProtocolVersion = ProtocolVersion { major: ${major}, minor: ${minor} };\n`;
+	return `${RUST_GENERATED_HEADER}\nuse super::ProtocolVersion;\n\n${declarations.join("")}\n${version}`;
 }
 
 function modFile(modules: readonly string[]): string {

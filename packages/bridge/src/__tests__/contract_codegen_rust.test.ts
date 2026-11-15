@@ -4,6 +4,7 @@ import { contractSchemaDocument, type Schema } from "../../scripts/contract-gen/
 import { rustModels } from "../../scripts/contract-gen/rust-emit";
 import { rustTypeRegistry } from "../../scripts/contract-gen/rust-registry";
 import { typeModel } from "../../scripts/contract-gen/type-model";
+import { PROTOCOL_VERSION } from "../contract/protocol";
 
 const ref = (name: string): Schema => ({ $ref: `#/$defs/${name}` });
 const tag = (value: string): Schema => ({ type: "string", const: value });
@@ -25,13 +26,13 @@ const enumOf = (...values: string[]): Schema => ({ "x-module": "test", type: "st
 /** The Rust a set of named schemas becomes, all files joined. */
 function rustOf(defs: Record<string, Schema>): string {
 	const types = typeModel({ ...contractSchemaDocument(), $defs: defs });
-	return [...rustModels(types, []).values()].join("\n");
+	return [...rustModels(types, [], PROTOCOL_VERSION).values()].join("\n");
 }
 
 describe("the Rust models", () => {
 	test("declare every type of the contract once, under its Rust name, and refer to the hand-written JsonValue", () => {
 		const types = typeModel(contractSchemaDocument());
-		const files = rustModels(types, contractConstants());
+		const files = rustModels(types, contractConstants(), { major: 3, minor: 7 });
 		const source = [...files.values()].join("\n");
 		for (const type of types.values()) {
 			const name = type.name === "Option" ? "ContractOption" : type.name;
@@ -39,6 +40,10 @@ describe("the Rust models", () => {
 			expect(declared.length).toBe(type.kind === "json" ? 0 : 1);
 		}
 		expect(files.get("constants.rs")).toContain("pub const MAX_TEXT_CHARS: usize = 1048576;\n");
+		expect(files.get("constants.rs")).toContain("use super::ProtocolVersion;\n\npub const MAX_CATALOG_ITEMS");
+		expect(files.get("constants.rs")).toEndWith(
+			"\npub const PROTOCOL_VERSION: ProtocolVersion = ProtocolVersion { major: 3, minor: 7 };\n",
+		);
 		expect(source).toContain("pub input: Option<crate::JsonValue>,");
 		const registry = rustTypeRegistry(types, contractConstants());
 		expect(registry).toContain('    ("MAX_TEXT_CHARS", MAX_TEXT_CHARS),\n');

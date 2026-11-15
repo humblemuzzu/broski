@@ -59,8 +59,8 @@ models are `broski-contract`'s generated types; the session crate's `MachineReco
 - **One hello per bridge socket.** The daemon keeps one bridge socket per link session and counts them
   (`conn` in its bridge status). A link session that resumes keeps its socket and everything this phone
   set up on it. A new link session (`Connected{resumed: false}` or `session_reset`) or a new `conn` is a
-  socket that knows nothing of this phone: the client sends `hello` (protocol 1.0, the app's name and
-  version), and once it is answered attaches every view again, then sends the requests it held. A bridge
+  socket that knows nothing of this phone: the client sends `hello` (the contract crate's generated
+  `PROTOCOL_VERSION`, the app's name and version), and once it is answered attaches every view again, then sends the requests it held. A bridge
   socket that goes down (`state != up`) is gone too. `ContractState` says `Waiting`, `Ready{bridge_version}`
   or `Incompatible{message}` (another major: every request fails `Incompatible` until a bridge that
   matches takes the link).
@@ -256,8 +256,6 @@ also the only directory it serves; the bridge's dependencies must be installed (
 
 ## Limits
 
-- `PROTOCOL` 1.0 is written in the client (`machine/link.rs`): the generator does not emit
-  `PROTOCOL_VERSION` into `constants.rs`; the integration tests fail on a mismatch.
 - A hello the bridge refuses for any reason but the version leaves the machine waiting until its next
   bridge socket.
 - The inbox shows each backend's newest `MAX_PAGE_LIMIT` top-level sessions. A session never marked is
