@@ -4,6 +4,11 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { expandPath } from "./pi-paths";
 
+/** How a user installs Pi: every message that sends them to it says this. */
+export const PI_INSTALL_COMMAND = "npm i -g @earendil-works/pi-coding-agent";
+export const PI_INSTALL_FIX = `Install Pi (${PI_INSTALL_COMMAND}), or set "pi": {"cliPath": "/path/to/pi"} in ~/.broski/config.json`;
+export const PI_UPDATE_FIX = `Update Pi: ${PI_INSTALL_COMMAND}`;
+
 export type PiCli =
 	| { readonly found: true; readonly path: string }
 	| { readonly found: false; readonly reason: string };

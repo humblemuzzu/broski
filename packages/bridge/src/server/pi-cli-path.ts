@@ -6,11 +6,10 @@
  */
 
 import { statSync } from "node:fs";
-import type { PiCli } from "../backends/pi/pi-install";
+import { PI_INSTALL_FIX, type PiCli } from "../backends/pi/pi-install";
 import { findBinary } from "../platform";
 
-const NOT_FOUND =
-	'Pi is not installed, or `pi` is not on your login shell\'s PATH. Install Pi (npm i -g @earendil-works/pi-coding-agent), or set "pi": {"cliPath": "/path/to/pi"} in ~/.broski/config.json';
+const NOT_FOUND = `Pi is not installed, or \`pi\` is not on your login shell's PATH. ${PI_INSTALL_FIX}`;
 
 export function resolvePiCli(
 	configured: string | undefined,

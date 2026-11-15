@@ -12,7 +12,7 @@ export async function runDependencyChecks(config?: BroskiConfig): Promise<CheckR
 	results.push(claudeResult);
 	const claude = claudeResult.status === "ok";
 
-	const piResult = piCliCheck(resolvePiCli(config?.pi.cliPath));
+	const piResult = await piCliCheck(resolvePiCli(config?.pi.cliPath));
 	results.push(piResult);
 	const pi = piResult.status === "ok";
 

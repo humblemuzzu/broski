@@ -28,7 +28,7 @@ export class CliVersion {
 
 	async read(): Promise<PiVersion> {
 		const stamp = await stampOf(this.path);
-		if (this.known?.stamp !== stamp) this.known = { stamp, version: run(this.path, this.env) };
+		if (this.known?.stamp !== stamp) this.known = { stamp, version: readPiVersion(this.path, this.env) };
 		return this.known.version;
 	}
 }
@@ -44,9 +44,11 @@ export function compareVersions(a: string, b: string): number {
 	return 0;
 }
 
-function run(path: string, env: Readonly<Record<string, string>>): Promise<PiVersion> {
+/** `pi --version` of that file, which prints and exits before it reads any configuration; `env` is the process's own when not given. */
+export function readPiVersion(path: string, env?: Readonly<Record<string, string>>): Promise<PiVersion> {
 	return new Promise((resolve) => {
-		execFile(path, ["--version"], { env: { ...env }, timeout: VERSION_TIMEOUT_MS }, (error, stdout) => {
+		const options = { timeout: VERSION_TIMEOUT_MS, ...(env !== undefined && { env: { ...env } }) };
+		execFile(path, ["--version"], options, (error, stdout) => {
 			const version = /\d+\.\d+\.\d+/.exec(stdout)?.[0];
 			if (version !== undefined) resolve({ version });
 			else resolve({ problem: `\`${path} --version\` did not print a version${error ? `: ${errorText(error)}` : ""}` });

@@ -8,7 +8,7 @@ import { type BackendStatus, MAX_LIST_ITEMS, MAX_TEXT_CHARS, type StatusIssue } 
 import { clipStart } from "./bounds";
 import type { PiCatalogs } from "./catalog/catalogs";
 import { type CliVersion, compareVersions, MIN_PI_VERSION } from "./cli-version";
-import type { PiCli } from "./pi-install";
+import { PI_UPDATE_FIX, type PiCli } from "./pi-install";
 
 export interface StatusSources {
 	readonly cli: PiCli;
@@ -39,7 +39,7 @@ export async function piStatus(sources: StatusSources): Promise<BackendStatus> {
 		issues.push(
 			issue(
 				"warning",
-				`Pi ${read.version} is older than ${MIN_PI_VERSION}, the oldest Pi this bridge runs as intended. Update Pi: npm i -g @earendil-works/pi-coding-agent`,
+				`Pi ${read.version} is older than ${MIN_PI_VERSION}, the oldest Pi this bridge runs as intended. ${PI_UPDATE_FIX}`,
 			),
 		);
 	}
