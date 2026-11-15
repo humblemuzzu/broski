@@ -6,7 +6,8 @@ import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.job
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
@@ -22,12 +23,18 @@ class KeystoreVaultTest {
 
     @After
     fun tearDown() {
-        scopes.forEach { it.cancel() }
+        runBlocking { closeStores() }
         file.delete()
     }
 
-    private fun vault(): Vault {
-        scopes.forEach { it.cancel() }
+    /** DataStore lets the file go only once its scope has completed, not when it is cancelled. */
+    private suspend fun closeStores() {
+        scopes.forEach { it.coroutineContext.job.cancelAndJoin() }
+        scopes.clear()
+    }
+
+    private suspend fun vault(): Vault {
+        closeStores()
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO).also(scopes::add)
         val store = PreferenceDataStoreFactory.create(scope = scope, produceFile = { file })
         return Vault(store, AesGcmCipher { KeystoreKey.obtain() })
