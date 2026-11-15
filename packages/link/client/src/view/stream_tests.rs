@@ -54,9 +54,15 @@ fn notice(seq: i64, of: &SessionRef) -> EventEnvelope {
     }
 }
 
-/// The resume an attach sent now carries.
+/// The resume of the attach the machine sends next: it sends one only for a stream that
+/// `needs_attach`.
 fn resume_of(streams: &mut Streams, stream: u64) -> Option<StreamPosition> {
-    match streams.get_mut(stream).expect("stream").attach_request() {
+    let view = streams.get_mut(stream).expect("stream");
+    assert!(
+        view.needs_attach(),
+        "the machine would send no attach for this stream"
+    );
+    match view.attach_request() {
         ClientMessage::SessionAttach(request) => request.resume,
         other => panic!("not an attach: {other:?}"),
     }
@@ -117,10 +123,9 @@ fn a_replay_of_a_position_this_phone_does_not_hold_starts_over() {
     let mut streams = Streams::default();
     let of = session("s");
     let (stream, _) = attached(&mut streams, &of);
-    streams
-        .get_mut(stream)
-        .expect("stream")
-        .on_event(notice(1, &of));
+    let view = streams.get_mut(stream).expect("stream");
+    view.on_event(notice(1, &of));
+    assert_eq!(view.on_event(notice(3, &of)), Next::Attach, "a gap");
     resume_of(&mut streams, stream);
     let other = AttachSync::Replay(ReplaySync {
         epoch: "e1".to_owned(),

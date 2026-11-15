@@ -45,8 +45,15 @@ fn output(seq: i64, data: &[u8]) -> TermOutputMessage {
     }
 }
 
+/// The `since` of the attach the machine sends next: it sends one only for a view that
+/// `needs_attach`.
 fn since(terminals: &mut Terminals, key: u64) -> Option<i64> {
-    match terminals.get_mut(key).expect("view").attach_request() {
+    let view = terminals.get_mut(key).expect("view");
+    assert!(
+        view.needs_attach(),
+        "the machine would send no attach for this view"
+    );
+    match view.attach_request() {
         ClientMessage::TermAttach(request) => request.since,
         other => panic!("not a terminal attach: {other:?}"),
     }
@@ -118,6 +125,7 @@ fn output_while_attaching_is_left_to_the_replay_and_out_of_order_output_attaches
     assert_eq!(update(&mut terminals, key), bytes(b"x", false));
     let view = terminals.get_mut(key).expect("view");
     assert_eq!(view.on_output(output(9, b"skipped ahead")), Next::Attach);
+    assert_eq!(since(&mut terminals, key), Some(6));
 }
 
 #[test]

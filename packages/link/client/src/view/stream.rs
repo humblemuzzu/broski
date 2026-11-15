@@ -136,7 +136,7 @@ impl StreamState {
                     return Next::Nothing;
                 }
                 self.position = None;
-                Next::Attach
+                self.attach_again()
             }
             AttachSync::Snapshot(sync) => {
                 self.position = Some(StreamPosition {
@@ -156,6 +156,11 @@ impl StreamState {
     fn follow(&mut self, session: SessionRef) -> Next {
         self.session = session;
         self.position = None;
+        self.attach_again()
+    }
+
+    /// The machine sends an attach only for a detached stream.
+    fn attach_again(&mut self) -> Next {
         self.phase = Phase::Detached;
         Next::Attach
     }
@@ -168,8 +173,7 @@ impl StreamState {
             return Next::Nothing;
         }
         if envelope.seq != position.seq + 1 {
-            self.phase = Phase::Detached;
-            return Next::Attach;
+            return self.attach_again();
         }
         position.seq = envelope.seq;
         let replacement = match &envelope.event {

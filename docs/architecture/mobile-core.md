@@ -247,7 +247,9 @@ waiting requests, the client's own requests refused, a closed machine refusing e
 hello said again after a pause that grows (`machine/tests.rs`, on a machine whose link never comes
 up); list paging, row matching and bounds
 (`catalog/lists.rs`); invalidation (`catalog/state.rs`); waiting from a thread with no runtime
-(`wait.rs`); `Send`/`Sync` (`exported.rs`).
+(`wait.rs`); `Send`/`Sync` (`exported.rs`). The stream and terminal tests ask for an attach as the machine
+does, which sends one only for a view that `needs_attach()`, so every `Next::Attach` must leave its view
+detached.
 
 The integration tests run the real daemon and relay in-process and the real bridge (Bun,
 `packages/bridge/scripts/dev-fake-bridge.ts`, its core serving the contract's fake backend) on the
@@ -270,7 +272,9 @@ daemon's unix socket, as a child with a temp `HOME` that is also the only direct
   one idle with the marker the app persists.
 - `workspace.rs` — `workspace.info`, `fs.list`, `fs.read` and `git.status` on a temp repository; a terminal
   echoes input and takes a resize; across a machine restart a terminal's view gets exactly the bytes it
-  missed, each line once, equal to the bridge's own replay.
+  missed, each line once, equal to the bridge's own replay; a program that writes three times what the
+  bridge replays while the UI pulls nothing leaves a view that starts over from the newest lines, none
+  missing or repeated, and goes on.
 
 ## Limits
 

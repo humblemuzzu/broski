@@ -141,7 +141,8 @@ async fn git_status_reports_the_changed_file() {
     assert!(status.staged.is_empty() && status.untracked.is_empty());
 }
 
-/// The output a view has handed over so far, and how many of its updates said reset.
+/// What the emulator behind a view shows: the output handed over since the last reset, and how
+/// many of its updates said reset.
 struct Screen {
     view: Arc<TerminalView>,
     bytes: Vec<u8>,
@@ -149,6 +150,14 @@ struct Screen {
 }
 
 impl Screen {
+    fn of(view: Arc<TerminalView>) -> Screen {
+        Screen {
+            view,
+            bytes: Vec::new(),
+            resets: 0,
+        }
+    }
+
     async fn until(&mut self, what: &str, text: &str) {
         let deadline = Instant::now() + WAIT;
         while !String::from_utf8_lossy(&self.bytes).contains(text) {
@@ -158,7 +167,10 @@ impl Screen {
                 .expect("the terminal goes on");
             match update {
                 TerminalUpdate::Output { data, reset } => {
-                    self.resets += usize::from(reset);
+                    if reset {
+                        self.resets += 1;
+                        self.bytes.clear();
+                    }
                     self.bytes.extend(data);
                 }
                 other => panic!("waiting for {what}: {other:?}"),
@@ -229,11 +241,7 @@ async fn a_terminal_echoes_input_and_takes_a_resize() {
     let machine = paired(&phone, &mac).await;
     let id = open_terminal(&machine, &mac.root()).await;
     let view = Arc::clone(&machine).terminal(id).expect("a view");
-    let mut screen = Screen {
-        view,
-        bytes: Vec::new(),
-        resets: 0,
-    };
+    let mut screen = Screen::of(view);
     assert!(accepted(
         screen.view.input(b"echo hi-there\n".to_vec()).await
     ));
@@ -256,11 +264,7 @@ async fn a_terminal_reattached_after_a_machine_restart_gets_only_what_it_missed(
     let machine = paired(&phone, &mac).await;
     let id = open_terminal(&machine, &mac.root()).await;
     let view = Arc::clone(&machine).terminal(id.clone()).expect("a view");
-    let mut screen = Screen {
-        view,
-        bytes: Vec::new(),
-        resets: 0,
-    };
+    let mut screen = Screen::of(view);
     let looping = b"for i in $(seq 1 60); do echo line$i; echo $i >> progress; sleep 0.02; done; echo fin$((1+1))\n";
     assert!(accepted(screen.view.input(looping.to_vec()).await));
     screen.until("the loop to start", "line1\r\n").await;
@@ -290,4 +294,53 @@ async fn a_terminal_reattached_after_a_machine_restart_gets_only_what_it_missed(
         "the first view's bytes are the terminal's, none missing or repeated"
     );
     relay.stop().await;
+}
+
+/// The numbers a screen shows, one per line, after its first line (a reset may cut it short).
+fn numbered_lines(screen: &Screen) -> Vec<u64> {
+    String::from_utf8_lossy(&screen.bytes)
+        .split("\r\n")
+        .skip(1)
+        .filter_map(|line| line.parse().ok())
+        .collect()
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_terminal_that_outruns_an_idle_ui_starts_over_from_what_the_bridge_holds() {
+    const LAST: u64 = 200_000;
+    let mac = Mac::on_lan().await;
+    let phone = phone();
+    let machine = paired(&phone, &mac).await;
+    let id = open_terminal(&machine, &mac.root()).await;
+    let view = Arc::clone(&machine).terminal(id).expect("a view");
+    let mut screen = Screen::of(view);
+
+    // About three times what the bridge replays, written while the UI pulls nothing.
+    let spew = format!("seq 1 {LAST}; echo ok > spewed; echo after$((20+22))\n");
+    assert!(accepted(screen.view.input(spew.into_bytes()).await));
+    written(&mac.root().join("spewed"), 1).await;
+    // An answer follows every frame the bridge sent before it on the socket: the spew has reached
+    // the phone, and the UI pulled none of it.
+    columns(&machine).await;
+
+    screen
+        .until("the output after the spew", "after42\r\n")
+        .await;
+    let shown = numbered_lines(&screen);
+    assert_eq!(shown.last(), Some(&LAST));
+    assert!(
+        shown.windows(2).all(|pair| pair[1] == pair[0] + 1),
+        "the newest output, none missing or repeated"
+    );
+    assert!(
+        shown.len() < LAST as usize / 2,
+        "the UI starts over from what the bridge holds, not from the first line"
+    );
+
+    assert!(accepted(
+        screen.view.input(b"echo later$((2+2))\n".to_vec()).await
+    ));
+    screen
+        .until("the output after the recovery", "later4\r\n")
+        .await;
 }

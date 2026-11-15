@@ -145,7 +145,7 @@ impl TerminalState {
         }
         let bytes = match STANDARD.decode(&output.data) {
             Ok(bytes) if output.seq == self.received => bytes,
-            _ => return Next::Attach,
+            _ => return self.attach_again(),
         };
         self.received += bytes.len() as i64;
         self.pending.extend(bytes);
@@ -155,9 +155,15 @@ impl TerminalState {
             // the UI has, which hands back the rest or tells it to start over.
             self.pending.clear();
             self.received = self.delivered;
-            return Next::Attach;
+            return self.attach_again();
         }
         Next::Nothing
+    }
+
+    /// The machine sends an attach only for a detached view.
+    fn attach_again(&mut self) -> Next {
+        self.phase = Phase::Detached;
+        Next::Attach
     }
 
     pub(crate) fn on_exited(&mut self, exited_message: TermExitedMessage) {
