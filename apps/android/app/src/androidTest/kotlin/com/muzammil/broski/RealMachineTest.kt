@@ -114,13 +114,16 @@ class RealMachineTest {
     fun p_readingUpDetachesAndJumpToLatestComesBack() = chat.jumpToLatest()
 
     @Test
-    fun q_theChatInDarkAndAtTwiceTheFontSize() = chat.appearances()
+    fun q_theChatInDark() = chat.inDark()
 
     @Test
     fun r_aThousandItemsScrollFromTheEndToTheFirstMessageAndBack() = ScrollFlow(ui, machine).run()
 
     @Test
     fun s_theHeadersFilesOpensTheFolderAndSlashPicksACommand() = chat.filesAndCommands()
+
+    @Test
+    fun t_theChatAtTwiceTheFontSize() = chat.atTwiceTheFontSize()
 
     private companion object {
         const val TIMEOUT = 10_000L

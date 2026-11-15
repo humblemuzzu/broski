@@ -63,6 +63,8 @@ class ReplicaFlow(private val machine: RealMachine) {
             replica.until { it.snapshot.run == null && it.snapshot.interactions.isEmpty() }
             replica.quiet()
             if (scenario == "replace") assertNotEquals("the view followed the replacement", session, replica.session)
+            // Seen, as a chat would leave them, so they stay out of the Done rows the script's cold start reads.
+            listOf(session, replica.session).forEach { machine.phone.markSeen(machine.machineId, it) }
         } finally {
             view.detach()
             view.close()

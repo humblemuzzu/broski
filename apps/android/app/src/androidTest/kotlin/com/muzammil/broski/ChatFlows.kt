@@ -15,9 +15,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
-import androidx.test.core.app.ActivityScenario
 import com.muzammil.broski.app.BroskiApplication
-import com.muzammil.broski.app.MainActivity
 import com.muzammil.broski.core.settings.Appearance
 import kotlinx.coroutines.runBlocking
 import uniffi.broski_contract.SessionRef
@@ -90,8 +88,9 @@ class ChatFlows(private val ui: WorkspaceUiDriver, private val machine: RealMach
 
     /** Allow once: the command runs, and its row in the fold opens to what it ran and printed. */
     fun allowAndReadTheWork() {
-        open("Clean the build", "permission")
-        send("Clean the build")
+        // Not "Clean the build…": the inbox step's session is "Clean the build folder".
+        open("Empty the dist folder", "permission")
+        send("Empty the dist folder")
         touchText("Allow")
         ui.waitFor(hasText("Cleaned."))
         openFold()
@@ -195,21 +194,29 @@ class ChatFlows(private val ui: WorkspaceUiDriver, private val machine: RealMach
         ui.back()
     }
 
-    /** The chat's states again in dark, then at twice the font size. */
-    fun appearances() {
+    /** The chat's states again in dark. */
+    fun inDark() {
         val core = (machine.context.applicationContext as BroskiApplication).core
         try {
             runBlocking { core.settingsStore.setAppearance(Appearance.Dark) }
             visitStates("dark")
-            runBlocking { core.settingsStore.setAppearance(Appearance.Light) }
-            // The new scale recreates the activity behind the rule's back; a launch after it gives
-            // the test an activity it follows again.
+        } finally {
+            runBlocking { core.settingsStore.setAppearance(Appearance.System) }
+        }
+    }
+
+    /**
+     * The chat's states at twice the font size. The scale is set first thing, while the activity is
+     * idle, so the scenario's recreate wins the race with the system's own relaunch, which the test
+     * rule would not follow.
+     */
+    fun atTwiceTheFontSize() {
+        try {
             Shots.shell("settings put system font_scale 2.0")
-            Thread.sleep(SETTLE_MS)
-            ActivityScenario.launch(MainActivity::class.java).use { visitStates("font2") }
+            compose.activityRule.scenario.recreate()
+            visitStates("font2")
         } finally {
             Shots.shell("settings put system font_scale 1.0")
-            runBlocking { core.settingsStore.setAppearance(Appearance.System) }
         }
     }
 
@@ -244,6 +251,5 @@ class ChatFlows(private val ui: WorkspaceUiDriver, private val machine: RealMach
 
     private companion object {
         const val TIMEOUT_MS = 20_000L
-        const val SETTLE_MS = 2_000L
     }
 }
