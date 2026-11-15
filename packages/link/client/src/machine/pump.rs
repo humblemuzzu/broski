@@ -63,7 +63,7 @@ impl Shared {
         }
     }
 
-    fn on_message(self: &Arc<Self>, state: &mut State, message: ServerMessage) {
+    pub(super) fn on_message(self: &Arc<Self>, state: &mut State, message: ServerMessage) {
         match wire::classify(message) {
             Incoming::Answer(id, answer) => {
                 if let Some(waiter) = state.requests.answered(&id) {

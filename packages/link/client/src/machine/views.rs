@@ -13,7 +13,7 @@ impl Shared {
             Next::Nothing => {}
             Next::Attach if state.streams.merge(stream) => {}
             Next::Attach => self.attach_stream(state, stream),
-            Next::AttachLater => self.later(move |shared, state| {
+            Next::AttachLater => self.later(RATE_LIMIT_PAUSE, move |shared, state| {
                 shared.attach_stream(state, stream);
             }),
         }
@@ -23,7 +23,7 @@ impl Shared {
         match next {
             Next::Nothing => {}
             Next::Attach => self.attach_terminal(state, terminal),
-            Next::AttachLater => self.later(move |shared, state| {
+            Next::AttachLater => self.later(RATE_LIMIT_PAUSE, move |shared, state| {
                 shared.attach_terminal(state, terminal);
             }),
         }
@@ -70,16 +70,5 @@ impl Shared {
                 view.fail(format!("the link would not send the attach: {failure:?}"));
             }
         }
-    }
-
-    /// `act` after the bridge's rate-limit pause, unless the machine has gone by then.
-    fn later(self: &Arc<Self>, act: impl FnOnce(&Shared, &mut State) + Send + 'static) {
-        let shared = Arc::downgrade(self);
-        self.runtime().handle().spawn(async move {
-            tokio::time::sleep(RATE_LIMIT_PAUSE).await;
-            if let Some(shared) = shared.upgrade() {
-                act(&shared, &mut shared.lock());
-            }
-        });
     }
 }

@@ -2,6 +2,7 @@
 //! bridge: sent at once on a bridge that agreed on the protocol, held in order until one has.
 
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::time::Duration;
 
 use broski_contract::{
     ClientInfo, ClientMessage, ProtocolErrorCode, ServerMessage, MAX_PAGE_LIMIT,
@@ -24,16 +25,33 @@ use crate::{wait, wire};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum Contract {
     Waiting,
-    Hello { conn: u64 },
-    Ready { conn: u64, bridge_version: String },
-    Incompatible { conn: u64, message: String },
+    /// `refused`: the hellos this socket refused before this one.
+    Hello {
+        conn: u64,
+        refused: u32,
+    },
+    /// The socket refused the hello for a reason other than the version; it is said again later.
+    Refused {
+        conn: u64,
+        refused: u32,
+        message: String,
+    },
+    Ready {
+        conn: u64,
+        bridge_version: String,
+    },
+    Incompatible {
+        conn: u64,
+        message: String,
+    },
 }
 
 impl Contract {
     pub(crate) fn conn(&self) -> Option<u64> {
         match self {
             Contract::Waiting => None,
-            Contract::Hello { conn }
+            Contract::Hello { conn, .. }
+            | Contract::Refused { conn, .. }
             | Contract::Ready { conn, .. }
             | Contract::Incompatible { conn, .. } => Some(*conn),
         }
@@ -65,6 +83,9 @@ impl State {
             bridge: self.bridge.clone(),
             contract: match &self.contract {
                 Contract::Waiting | Contract::Hello { .. } => ContractState::Waiting,
+                Contract::Refused { message, .. } => ContractState::Refused {
+                    message: message.clone(),
+                },
                 Contract::Ready { bridge_version, .. } => ContractState::Ready {
                     bridge_version: bridge_version.clone(),
                 },
@@ -156,6 +177,21 @@ impl Shared {
 
     pub(crate) fn poke_inbox(&self) {
         self.inbox.notify_one();
+    }
+
+    /// `act` on the machine's state after `pause`, unless the machine has gone by then.
+    pub(crate) fn later(
+        self: &Arc<Self>,
+        pause: Duration,
+        act: impl FnOnce(&Arc<Shared>, &mut State) + Send + 'static,
+    ) {
+        let shared = Arc::downgrade(self);
+        self.runtime.handle().spawn(async move {
+            tokio::time::sleep(pause).await;
+            if let Some(shared) = shared.upgrade() {
+                act(&shared, &mut shared.lock());
+            }
+        });
     }
 
     /// A caller's request, its answer still to be awaited.

@@ -50,6 +50,12 @@ pub enum ContractState {
     Ready {
         bridge_version: String,
     },
+    /// The bridge would not take this phone's `hello`, for the reason it gives here. The client says
+    /// it again after a pause that doubles from 1 s to 30 s while the bridge socket lasts; requests
+    /// wait as they do while `Waiting`.
+    Refused {
+        message: String,
+    },
     /// The bridge speaks another major; requests fail until a bridge that matches takes the link.
     Incompatible {
         message: String,

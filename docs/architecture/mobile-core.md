@@ -60,10 +60,16 @@ models are `broski-contract`'s generated types; the session crate's `MachineReco
   (`conn` in its bridge status). A link session that resumes keeps its socket and everything this phone
   set up on it. A new link session (`Connected{resumed: false}` or `session_reset`) or a new `conn` is a
   socket that knows nothing of this phone: the client sends `hello` (the contract crate's generated
-  `PROTOCOL_VERSION`, the app's name and version), and once it is answered attaches every view again, then sends the requests it held. A bridge
-  socket that goes down (`state != up`) is gone too. `ContractState` says `Waiting`, `Ready{bridge_version}`
-  or `Incompatible{message}` (another major: every request fails `Incompatible` until a bridge that
+  `PROTOCOL_VERSION`, the app's name and version), and once it is answered attaches every view again,
+  then sends the requests it held. A bridge socket that goes down (`state != up`) is gone too.
+  `ContractState` says `Waiting`, `Ready{bridge_version}`, `Refused{message}` or
+  `Incompatible{message}` (another major: every request fails `Incompatible` until a bridge that
   matches takes the link).
+- **A refused hello is said again.** A hello the socket refuses for any reason but the version (the
+  bridge's `error{…}`, an answer of another type, or the link not taking it) is `Refused{message}`,
+  and the client says hello again on the same socket after 1 s, doubling with each refusal up to 30 s
+  (at least the bridge's 10 s for `rate_limited`), until the socket goes or a hello is answered.
+  Requests stay held meanwhile.
 - **Requests** get ids the client mints (any `requestId` in the message is replaced) and are matched to
   answers by them. While no bridge socket has agreed on the protocol, requests are held and go out in
   the order they were made, after the views' attaches, so a held prompt finds its session viewed. Hello,
@@ -226,8 +232,9 @@ however long it goes unread.
 pacing and the fall-behind snapshot (`view/tests.rs`); attach, resume, gaps, repeats, replacements and
 merges (`view/stream_tests.rs`); terminal offsets, reattach, gaps, overflow, exit (`terminal/state_tests.rs`);
 request ids, held order, lost sockets and the bound (`requests.rs`); a request's deadline, the bound on
-waiting requests, the client's own requests refused, a closed machine refusing everything
-(`machine/tests.rs`, on a machine whose link never comes up); list paging, row matching and bounds
+waiting requests, the client's own requests refused, a closed machine refusing everything, a refused
+hello said again after a pause that grows (`machine/tests.rs`, on a machine whose link never comes
+up); list paging, row matching and bounds
 (`catalog/lists.rs`); invalidation (`catalog/state.rs`); waiting from a thread with no runtime
 (`wait.rs`); `Send`/`Sync` (`exported.rs`).
 
@@ -256,8 +263,6 @@ also the only directory it serves; the bridge's dependencies must be installed (
 
 ## Limits
 
-- A hello the bridge refuses for any reason but the version leaves the machine waiting until its next
-  bridge socket.
 - The inbox shows each backend's newest `MAX_PAGE_LIMIT` top-level sessions. A session never marked is
   `Done` once idle (unless the first read marked it), and anything that moves a row's `updatedAt`, a
   rename included, makes a seen session `Done` again.
