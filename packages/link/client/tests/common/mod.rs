@@ -9,7 +9,7 @@ use std::time::Duration;
 
 use broski_client::{
     new_identity_secret, ContractState, InboxRow, InboxUpdate, Machine, MachineStatus, Phone,
-    PhoneConfig, Platform, SessionUpdate, SessionView, Timings,
+    PhoneConfig, Platform, SessionList, SessionUpdate, SessionView, Timings,
 };
 use broski_contract::{
     BackendId, ChoiceReply, ClientMessage, InteractionAnswer, InteractionAnswerRequest,
@@ -45,6 +45,11 @@ fn quick() -> Timings {
 }
 
 pub fn phone() -> Phone {
+    phone_with(new_identity_secret().expect("secret"))
+}
+
+/// The phone an app starts again from its stored identity secret.
+pub fn phone_with(identity_secret: Vec<u8>) -> Phone {
     init_logs();
     let config = PhoneConfig {
         device_name: "test phone".to_owned(),
@@ -52,7 +57,7 @@ pub fn phone() -> Phone {
         client_name: "broski-client tests".to_owned(),
         client_version: "0.0.0".to_owned(),
     };
-    Phone::with_timings(new_identity_secret().expect("secret"), config, quick()).expect("phone")
+    Phone::with_timings(identity_secret, config, quick()).expect("phone")
 }
 
 /// Pairs and waits until the bridge has agreed on the protocol.
@@ -234,4 +239,16 @@ pub async fn inbox_until(
         rows = update.rows;
     }
     rows
+}
+
+/// Pulls a session list's changes until it holds `session`.
+pub async fn listed(list: &SessionList, session: &SessionRef) {
+    let deadline = Instant::now() + WAIT;
+    let mut rows = list.rows();
+    while !rows.rows.iter().any(|row| &row.session == session) {
+        rows = timeout_at(deadline, list.next_change())
+            .await
+            .unwrap_or_else(|_| panic!("timed out waiting for {session:?} to be listed"))
+            .expect("the list goes on");
+    }
 }

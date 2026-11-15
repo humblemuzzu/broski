@@ -121,14 +121,20 @@ func cancellingAViewsLoopDetachesTheViewAndEndsItsPull() async throws {
     #expect(view.session() == nil, "the view is gone")
 }
 
-@Test func seenMarkersGoBackInAsTheAppStoredThem() throws {
+@Test func whatWasSeenGoesBackInAsTheAppStoredIt() throws {
     let inbox = try Phone(identitySecret: try newIdentitySecret(), config: config).inbox()
     #expect(inbox.rows().isEmpty)
-    let marker = SeenMarker(
-        machineId: "00112233445566778899aabbccddeeff",
-        session: SessionRef(backend: .claudeCode, sessionId: "s-9"), seenAt: 1_725_000_000_000)
-    inbox.restoreSeen(markers: [marker])
-    #expect(inbox.seen() == [marker])
+    let machineId = "00112233445566778899aabbccddeeff"
+    let stored = SeenState(
+        markers: [
+            SeenMarker(
+                machineId: machineId,
+                session: SessionRef(backend: .claudeCode, sessionId: "s-9"),
+                seenAt: 1_725_000_000_000)
+        ],
+        readMachines: [machineId, "ffeeddccbbaa99887766554433221100"])
+    inbox.restoreSeen(state: stored)
+    #expect(inbox.seen() == stored)
 }
 
 @Test func thePinnedPushOpensAndADecisionSealsForTheRelay() throws {

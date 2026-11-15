@@ -29,6 +29,7 @@ import uniffi.broski_core.PhoneConfig
 import uniffi.broski_core.Platform
 import uniffi.broski_core.PushDecision
 import uniffi.broski_core.SeenMarker
+import uniffi.broski_core.SeenState
 import uniffi.broski_core.SessionUpdate
 import uniffi.broski_core.ViewEnd
 import uniffi.broski_core.WaitReason
@@ -164,16 +165,22 @@ class BroskiCoreTest {
     }
 
     @Test
-    fun seenMarkersGoBackInAsTheAppStoredThem() {
+    fun whatWasSeenGoesBackInAsTheAppStoredIt() {
         val inbox = Phone(newIdentitySecret(), config).inbox()
         assertTrue(inbox.rows().isEmpty())
-        val marker = SeenMarker(
-            machineId = "00112233445566778899aabbccddeeff",
-            session = SessionRef(backend = BackendId.CLAUDE_CODE, sessionId = "s-9"),
-            seenAt = 1_725_000_000_000,
+        val machineId = "00112233445566778899aabbccddeeff"
+        val stored = SeenState(
+            markers = listOf(
+                SeenMarker(
+                    machineId = machineId,
+                    session = SessionRef(backend = BackendId.CLAUDE_CODE, sessionId = "s-9"),
+                    seenAt = 1_725_000_000_000,
+                ),
+            ),
+            readMachines = listOf(machineId, "ffeeddccbbaa99887766554433221100"),
         )
-        inbox.restoreSeen(listOf(marker))
-        assertEquals(listOf(marker), inbox.seen())
+        inbox.restoreSeen(stored)
+        assertEquals(stored, inbox.seen())
     }
 
     @Test

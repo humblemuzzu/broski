@@ -5,9 +5,13 @@ mod common;
 
 use std::sync::Arc;
 
-use broski_client::{InboxRow, InboxState, Machine, Phone};
-use broski_contract::{PromptMode, SessionRef};
-use common::{choose, create_session, inbox_until, paired, phone, prompt, Mac, Watched};
+use broski_client::{new_identity_secret, InboxRow, InboxState, Machine, Phone};
+use broski_contract::{BackendId, PromptMode, SessionQuery, SessionRef};
+use broski_link_testkit::WAIT;
+use common::{
+    choose, create_session, inbox_until, listed, paired, phone, phone_with, prompt, Mac, Watched,
+};
+use tokio::time::{timeout_at, Instant};
 
 fn state(rows: &[InboxRow], session: &SessionRef) -> Option<InboxState> {
     rows.iter()
@@ -68,6 +72,7 @@ fn see(desk: &Desk, machine: &Machine, session: &SessionRef) -> Option<i64> {
     inbox.mark_seen(machine.id(), session.clone());
     let marker = inbox
         .seen()
+        .markers
         .into_iter()
         .find(|marker| &marker.session == session);
     marker.map(|marker| marker.seen_at)
@@ -80,6 +85,7 @@ async fn a_machine_paired_for_the_first_time_shows_its_history_as_seen() {
     inbox_until(&desk.phone, "the first machine's history", history).await;
     let seen = desk.phone.inbox().seen();
     let marked = seen
+        .markers
         .iter()
         .any(|marker| marker.session == desk.history && marker.machine_id == desk.machine_a.id());
     assert!(marked, "a marker the app persists");
@@ -128,4 +134,58 @@ async fn sessions_move_through_needs_you_working_done_and_idle_across_machines()
     let rows = inbox_until(&desk.phone, "the seen session idle", seen).await;
     assert_eq!(seen_at, Some(rows[position(&rows, &working)].updated_at));
     assert_eq!(state(&rows, &asking), Some(InboxState::Done));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_session_that_appears_before_the_ui_reads_the_inbox_is_still_done() {
+    let mut mac = Mac::on_lan().await;
+    let history = mac.bridge.seed(&mac.root(), "Last week").await;
+    let phone = phone();
+    let machine = paired(&phone, &mac).await;
+    // Answers come in the order the requests went: once this list holds the history, so has the
+    // inbox's own, which asked for its first page before.
+    let query = SessionQuery {
+        cwd: None,
+        parent: None,
+    };
+    let list = Arc::clone(&machine)
+        .session_list(BackendId::Pi, query)
+        .expect("a list");
+    listed(&list, &history).await;
+
+    let news = mac.bridge.seed(&mac.root(), "Finished meanwhile").await;
+    listed(&list, &news).await;
+    let rows = inbox_until(&phone, "the first read", in_state(&news, InboxState::Done)).await;
+    assert_eq!(state(&rows, &history), Some(InboxState::Idle));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_machine_with_no_history_at_its_first_read_is_not_marked_again_at_the_next_start() {
+    let mut mac = Mac::on_lan().await;
+    let secret = new_identity_secret().expect("a secret");
+    let first = phone_with(secret.clone());
+    let machine = paired(&first, &mac).await;
+    let record = machine.record();
+    let deadline = Instant::now() + WAIT;
+    let persisted = loop {
+        let update = timeout_at(deadline, first.inbox().next_change())
+            .await
+            .expect("the first read to be persisted");
+        if let Some(seen) = update.seen {
+            break seen;
+        }
+    };
+    drop((machine, first));
+
+    let finished = mac.bridge.seed(&mac.root(), "Finished while closed").await;
+    let second = phone_with(secret);
+    second.inbox().restore_seen(persisted);
+    second.start(record).expect("started");
+    let done = in_state(&finished, InboxState::Done);
+    inbox_until(
+        &second,
+        "the session finished while the app was closed",
+        done,
+    )
+    .await;
 }

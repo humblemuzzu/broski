@@ -30,7 +30,7 @@ behaviour lives in the client, session and contract crates; each export is a one
 | `SessionView` | `nextUpdate() async → SessionUpdate?`, `snapshot() → SessionSnapshot?`, `session() → SessionRef?`, `capabilities() → SessionCapabilities?`, `detach()` | `broski_client::SessionView` (`detach` is its `close`) |
 | `TerminalView` | `id()`, `nextUpdate() async → TerminalUpdate?`, `summary() → TerminalSummary?`, `input(data:) async throws → ActionResult`, `resize(cols:rows:cellWidth:cellHeight:) async throws → ActionResult`, `detach()` | `broski_client::TerminalView` |
 | `SessionList` | `rows() → SessionListUpdate`, `nextChange() async → SessionListUpdate?`, `loadMore() async throws`, `refresh() async throws`, `stop()` | `broski_client::SessionList` |
-| `Inbox` | `rows() → [InboxRow]`, `nextChange() async → InboxUpdate`, `markSeen(machineId:session:)`, `seen() → [SeenMarker]`, `restoreSeen(markers:)` | `broski_client::Inbox` |
+| `Inbox` | `rows() → [InboxRow]`, `nextChange() async → InboxUpdate`, `markSeen(machineId:session:)`, `seen() → SeenState`, `restoreSeen(state:)` | `broski_client::Inbox` |
 | `MachineRecord` | `MachineRecord.fromBytes(bytes:) throws`, `toBytes()`, `id()`, `name()`, `os()`, `pairedAtMs()` | the session's `MachineRecord` and its stored form (`session/src/record_codec.rs`), opaque |
 
 No object has a method named `close` or `destroy`: Kotlin objects already have both, from
@@ -51,8 +51,8 @@ view is exported as `detach`, of a list as `stop`; a machine is ended through `P
 - **The client's**, restated under `#[uniffi::remote]` in `mobile/src/values.rs` (the compiler checks
   each restatement against `broski-client`, so they cannot drift): `PhoneConfig`, `MachineStatus`,
   `ContractState`, `MachineEvent`, `SessionUpdate`, `SessionChange`, `ViewEnd`, `TerminalUpdate`,
-  `SessionListUpdate`, `InboxRow`, `InboxState`, `InboxUpdate`, `SeenMarker`, `LinkFailure`, and the
-  error `ClientError`.
+  `SessionListUpdate`, `InboxRow`, `InboxState`, `InboxUpdate`, `SeenState`, `SeenMarker`, `LinkFailure`,
+  and the error `ClientError`.
 - **The session's**, restated the same way in `mobile/src/link.rs` and `push.rs`: `LinkStatus` (its
   `Status`), `LinkState`, `WaitReason`, `LinkRoute` (`Route`), `BridgeStatus`, `BridgeState`,
   `SendFailure`, `Platform`, `PushPlatform`, `PushNotification`, `PushDecision`.
@@ -150,8 +150,9 @@ briefly and may be called from the main thread. Every object is `Send + Sync` (S
   `machine.record().toBytes()` at once, and again at every `MachineEvent.recordChanged` (the event
   carries no record: the record holds the relay token and push key, and reaches the app only as the
   opaque object).
-- **Launch:** `inbox().restoreSeen(markers:)` with the stored markers, then `phone.start(record:)` for
-  each stored record. Persist `InboxUpdate.seen` whenever it is not `nil`.
+- **Launch:** `inbox().restoreSeen(state:)` with the stored `SeenState` (markers and the machines whose
+  history is marked), before any machine starts, then `phone.start(record:)` for each stored record.
+  Persist `InboxUpdate.seen` whenever it is not `nil`.
 - **While running:** `phone.pause()`/`resume()` with the app's foreground, `networkChanged()` on a path
   change, `machine.lanDiscovered(routes:)` from `NWBrowser`/`NsdManager`, `machine.registerPush` on every
   machine when the token changes and on each new pairing.
@@ -168,7 +169,7 @@ and device secret of that pairing, the push vectors of [push.md](connectivity-v2
 `tests/phone.rs` drives the exported API as an app does against the real daemon and the real bridge
 (`broski-link-testkit`): pair from a scanned offer, a run streaming into a view whose UI copy (the
 client's `tests/common/replica.rs`) equals the snapshot, the inbox with a home-screen loop and its seen
-markers, a session list, a terminal, then a new `Phone` from the stored identity, record and markers
+state, a session list, a terminal, then a new `Phone` from the stored identity, record and seen state
 that finds the session seen, and `forget`.
 
 ## 2. Building
@@ -256,7 +257,7 @@ enums `Sendable`, and no export is a foreign trait, so the async-trait warning o
 phone from a new and from a broken secret, the offer and the stored record, a pairing that says why it
 failed, a stored machine that retries its dial and ends when forgotten (a contract request and a
 `SessionRef` crossing both ways), a pull that outlives its cancelled task and still delivers the next
-update, the `withTaskCancellationHandler` loop that detaches its view, seen markers, and the push
+update, the `withTaskCancellationHandler` loop that detaches its view, the seen state, and the push
 vectors; `Support.swift` holds the Swift `Replica`, the model code an app's chat screen mirrors. On the
 host only (`#if os(macOS)`), `RealMachineTests.swift` runs `packages/link/testkit`'s `test-machine`
 (`cargo run`: the real daemon, and the real bridge on Bun, as `cargo test -p broski-client` needs them),

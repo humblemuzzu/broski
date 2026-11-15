@@ -11,7 +11,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use broski_client::{
-    ClientError, ContractState, LinkFailure, MachineStatus, PhoneConfig, SeenMarker, SessionUpdate,
+    ClientError, ContractState, LinkFailure, MachineStatus, PhoneConfig, SeenMarker, SeenState,
+    SessionUpdate,
 };
 use broski_contract::{BackendId, ClientMessage, HelloRequest, SessionRef, PROTOCOL_VERSION};
 use broski_core::{
@@ -158,19 +159,23 @@ async fn a_stored_machine_retries_its_dial_holds_its_views_and_ends_when_forgott
 }
 
 #[test]
-fn seen_markers_go_back_in_as_the_app_stored_them() {
+fn what_was_seen_goes_back_in_as_the_app_stored_it() {
     let inbox = phone().inbox();
     assert!(inbox.rows().is_empty());
-    let marker = SeenMarker {
-        machine_id: "00112233445566778899aabbccddeeff".into(),
-        session: SessionRef {
-            backend: BackendId::ClaudeCode,
-            session_id: "s-9".into(),
-        },
-        seen_at: 1_725_000_000_000,
+    let machine_id = "00112233445566778899aabbccddeeff";
+    let stored = SeenState {
+        markers: vec![SeenMarker {
+            machine_id: machine_id.into(),
+            session: SessionRef {
+                backend: BackendId::ClaudeCode,
+                session_id: "s-9".into(),
+            },
+            seen_at: 1_725_000_000_000,
+        }],
+        read_machines: vec![machine_id.into(), "ffeeddccbbaa99887766554433221100".into()],
     };
-    inbox.restore_seen(vec![marker.clone()]);
-    assert_eq!(inbox.seen(), vec![marker]);
+    inbox.restore_seen(stored.clone());
+    assert_eq!(inbox.seen(), stored);
 }
 
 #[test]

@@ -56,7 +56,7 @@ impl Phone {
             failure: LinkFailure::Runtime,
             detail: format!("the link runtime did not start: {error}"),
         })?;
-        let inbox = Arc::new(Inbox::new(runtime.clone()));
+        let inbox = Inbox::new(runtime.clone());
         Ok(Phone {
             options: SessionOptions {
                 device_name: config.device_name,

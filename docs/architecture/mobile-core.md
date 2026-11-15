@@ -5,7 +5,7 @@ Crate `packages/link/client` (`broski-client`). The phone apps' client core in R
 kept by the contract's reducer, each machine's catalog, the inbox across machines, and terminals. The
 iOS and Android apps reach it through the UniFFI facade crate `packages/link/mobile` (`broski-mobile`);
 this crate has no UniFFI dependency. It does no storage I/O: records, the identity secret and the
-inbox's seen markers go in and come out as values.
+inbox's seen state goes in and comes out as values.
 
 ```
 SwiftUI / Compose ── broski-mobile (UniFFI) ── broski-client ── broski-link-session ── daemon ── bridge
@@ -51,7 +51,7 @@ and a machine ends through `Phone.forget`).
 | `view.next_update() -> SessionUpdate`, `snapshot()`, `session()`, `capabilities()`, `close()` | a chat screen's data |
 | `terminal.next_update() -> TerminalUpdate`, `input(bytes)`, `resize(cols, rows, cell_w?, cell_h?)`, `summary()`, `close()` | a terminal screen's data |
 | `list.rows()`, `next_change()`, `load_more()`, `refresh()`, `close()` | one session list |
-| `inbox.rows()`, `next_change() -> InboxUpdate`, `mark_seen(machine_id, session)`, `seen()`, `restore_seen(markers)` | the home screen |
+| `inbox.rows()`, `next_change() -> InboxUpdate`, `mark_seen(machine_id, session)`, `seen()`, `restore_seen(state)` | the home screen |
 
 Every failure is a `ClientError`: `Refused{code, detail}` (the bridge's `error{…}`), `Rejected{code,
 detail}` (a result's `Rejected`, from the helpers that return nothing on success; every other helper
@@ -181,13 +181,17 @@ ask}`, the backend being the session's.
 | `Idle` | otherwise |
 
 `ask` is the first pending interaction's title, known for a viewed session. Rows sort by state in that
-order, then newest first. **Seen markers** are `{machine_id, session, seen_at}`, `seen_at` being the row's
-`updatedAt` when the person looked: `mark_seen` sets one; `InboxUpdate.seen` carries all of them whenever
-they changed, for the app to persist and hand back to `restore_seen` at its next start. The first time a
-machine's rows are all in during a run: a machine with no marker yet gets one for every row (a first
-pairing does not show its history as done); for one with markers, those of sessions no longer listed are
-dropped, which keeps them bounded by the rows. `next_change()` delivers the rows when they or the
-markers changed, at most 30 times a second.
+order, then newest first. **What the person has seen** is `SeenState{markers, read_machines}`. A marker is
+`{machine_id, session, seen_at}`, `seen_at` being the row's `updatedAt` when the person looked: `mark_seen`
+sets one. `read_machines` are the machines whose history is already marked. `InboxUpdate.seen` carries the
+whole state whenever it changed, for the app to persist and hand back to `restore_seen` at its next start,
+before it starts any machine. The inbox settles a machine by itself, on a task of the link runtime, the
+first time its rows are all in during a run, whether or not the UI reads the inbox: a machine not in
+`read_machines` gets a marker for every row (a first pairing does not show its history as done) and joins
+them, with or without rows; for one in them, markers of sessions no longer listed are dropped, which keeps
+them bounded by the rows. So a session that appears or finishes after that is `Done` however late the UI
+looks, and a machine that had no session at its first read is not marked again at the next start.
+`next_change()` delivers the rows when they or the seen state changed, at most 30 times a second.
 
 ## Terminals
 
@@ -272,7 +276,9 @@ daemon's unix socket, as a child with a temp `HOME` that is also the only direct
   still lands its page, and the next `load_more` reads the one after.
 - `inbox.rs` — a first pairing shows the machine's history as seen; across two machines a session moves
   needs you → done and another working → done, ordered by state then newest first, and `mark_seen` makes
-  one idle with the marker the app persists.
+  one idle with the marker the app persists; a session that appears after the history was in but before
+  the UI reads the inbox is still done; a machine with no history at its first read, restarted from the
+  persisted state, shows a session finished meanwhile as done.
 - `workspace.rs` — `workspace.info`, `fs.list`, `fs.read` and `git.status` on a temp repository; a terminal
   echoes input and takes a resize; across a machine restart a terminal's view gets exactly the bytes it
   missed, each line once, equal to the bridge's own replay; a program that writes three times what the

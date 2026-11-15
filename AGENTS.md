@@ -40,9 +40,9 @@ native apps, and the iOS push code carried over for them.
 - **Mobile core** (`packages/link/client/`, crate `broski-client`) — the phone apps' client over a link session:
   `hello` per bridge socket, requests matched to answers with the bridge's deadline, session views kept by the
   contract's Rust reducer and handed to the UI as a snapshot then bounded change records (at most 30 batches a
-  second), each machine's catalog and session lists, the inbox across machines with seen markers as plain data,
-  and terminal views that reattach from their last byte. UniFFI-shaped (owned values, `Arc` objects, pulled
-  subscriptions) but with no UniFFI dependency: the facade `packages/link/mobile` exports it. Doc:
+  second), each machine's catalog and session lists, the inbox across machines with what the person has seen
+  as plain data, and terminal views that reattach from their last byte. UniFFI-shaped (owned values, `Arc`
+  objects, pulled subscriptions) but with no UniFFI dependency: the facade `packages/link/mobile` exports it. Doc:
   [`docs/architecture/mobile-core.md`](docs/architecture/mobile-core.md).
 - **BroskiCore** (`packages/link/mobile/`, crate `broski-mobile`, library `libbroski_core`) — the UniFFI 0.32.2
   facade both apps call: thin wrappers over the client core (`Phone`, `Machine`, `SessionView`, `TerminalView`,

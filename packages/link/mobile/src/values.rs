@@ -3,8 +3,8 @@
 
 use broski_client::{
     ClientError, ContractState, InboxRow, InboxState, InboxUpdate, LinkFailure, MachineEvent,
-    MachineStatus, PhoneConfig, SeenMarker, SessionChange, SessionListUpdate, SessionUpdate,
-    TerminalUpdate, ViewEnd,
+    MachineStatus, PhoneConfig, SeenMarker, SeenState, SessionChange, SessionListUpdate,
+    SessionUpdate, TerminalUpdate, ViewEnd,
 };
 use broski_contract::{
     ActiveRun, BackendDescriptor, BackendExtension, BackendId, BackendStatus, BlockId,
@@ -205,7 +205,13 @@ pub struct InboxRow {
 #[uniffi::remote(Record)]
 pub struct InboxUpdate {
     pub rows: Vec<InboxRow>,
-    pub seen: Option<Vec<SeenMarker>>,
+    pub seen: Option<SeenState>,
+}
+
+#[uniffi::remote(Record)]
+pub struct SeenState {
+    pub markers: Vec<SeenMarker>,
+    pub read_machines: Vec<String>,
 }
 
 #[uniffi::remote(Record)]

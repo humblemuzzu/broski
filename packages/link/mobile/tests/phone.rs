@@ -9,7 +9,7 @@ mod replica;
 use std::sync::Arc;
 
 use broski_client::{
-    ClientError, ContractState, InboxRow, InboxState, MachineStatus, PhoneConfig, SeenMarker,
+    ClientError, ContractState, InboxRow, InboxState, MachineStatus, PhoneConfig, SeenState,
     TerminalUpdate,
 };
 use broski_contract::{
@@ -179,20 +179,21 @@ fn in_state(session: &SessionRef, state: InboxState) -> impl Fn(&[InboxRow]) -> 
     }
 }
 
-/// The finished run is news on the home screen until the person looks; returns the markers the
-/// app persists.
+/// The finished run is news on the home screen until the person looks; returns what the app
+/// persists.
 async fn see(
     phone: &Phone,
     shown: &mut watch::Receiver<Vec<InboxRow>>,
     machine: &Machine,
     session: &SessionRef,
-) -> Vec<SeenMarker> {
+) -> SeenState {
     inbox_until(shown, "the run done", in_state(session, InboxState::Done)).await;
     phone.inbox().mark_seen(machine.id(), session.clone());
     inbox_until(shown, "the run seen", in_state(session, InboxState::Idle)).await;
-    let markers = phone.inbox().seen();
-    assert!(markers.iter().any(|marker| &marker.session == session));
-    markers
+    let seen = phone.inbox().seen();
+    assert!(seen.markers.iter().any(|marker| &marker.session == session));
+    assert_eq!(seen.read_machines, [machine.id()]);
+    seen
 }
 
 async fn listed(list: &SessionList, session: &SessionRef) {
@@ -270,7 +271,7 @@ async fn an_app_pairs_chats_and_finds_it_all_again_after_a_restart() {
 
     let session = create_session(&machine, mac.root_text()).await;
     chat(&machine, &mut mac, &session).await;
-    let markers = see(&phone, &mut shown, &machine, &session).await;
+    let seen = see(&phone, &mut shown, &machine, &session).await;
     let query = SessionQuery {
         cwd: Some(mac.root_text()),
         parent: None,
@@ -282,7 +283,7 @@ async fn an_app_pairs_chats_and_finds_it_all_again_after_a_restart() {
     drop((list, machine, phone));
 
     let phone = Phone::new(secret, config()).expect("the phone again");
-    phone.inbox().restore_seen(markers);
+    phone.inbox().restore_seen(seen);
     let (mut shown, home) = home_screen(phone.inbox());
     let record = MachineRecord::from_bytes(stored).expect("the stored record");
     let machine = phone.start(record).expect("started");

@@ -3,15 +3,16 @@
 mod seen;
 
 use std::cmp::Reverse;
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError, Weak};
 
 use broski_contract::{SessionRef, SessionStatus, SessionSummary, WorkingDirectory};
 use broski_link_session::LinkRuntime;
 use tokio::sync::Notify;
+use tokio::task::JoinHandle;
 use tokio::time::Instant;
 
 use self::seen::Seen;
-pub use self::seen::SeenMarker;
+pub use self::seen::{SeenMarker, SeenState};
 use crate::machine::{InboxSource, Machine};
 use crate::view::queue::BATCH_INTERVAL;
 use crate::view::stream::LiveInfo;
@@ -47,9 +48,9 @@ pub struct InboxRow {
 pub struct InboxUpdate {
     /// Needs you, then working, then done, then idle; newest first within each.
     pub rows: Vec<InboxRow>,
-    /// Every marker, when they changed since the last update: the app persists them and hands them
-    /// back to `restore_seen` at its next start.
-    pub seen: Option<Vec<SeenMarker>>,
+    /// What the person has seen, when it changed since the last update: the app persists it and hands
+    /// it back to `restore_seen` at its next start.
+    pub seen: Option<SeenState>,
 }
 
 struct Tracker {
@@ -61,55 +62,78 @@ struct Tracker {
 /// Every paired machine's sessions in one list. Machines join it as the phone starts or pairs them.
 pub struct Inbox {
     runtime: LinkRuntime,
-    notify: Arc<Notify>,
+    /// What the machines and the inbox itself poke when rows or seen state may have changed; the
+    /// settling task is its one reader.
+    wake: Arc<Notify>,
+    /// What the settling task pokes once it has looked; `next_change` is its one reader.
+    changed: Notify,
     machines: Mutex<Vec<Arc<Machine>>>,
     tracker: Mutex<Tracker>,
+    settling: JoinHandle<()>,
 }
 
 fn locked<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
+/// Marks a machine's history seen as soon as its rows are in, whether or not the UI is reading the
+/// inbox: a session that finishes before the first read must still show as done.
+async fn settle_on_wake(inbox: Weak<Inbox>, wake: Arc<Notify>) {
+    loop {
+        wake.notified().await;
+        let Some(inbox) = inbox.upgrade() else {
+            return;
+        };
+        inbox.settle();
+        inbox.changed.notify_one();
+    }
+}
+
 impl Inbox {
-    pub(crate) fn new(runtime: LinkRuntime) -> Inbox {
-        Inbox {
+    pub(crate) fn new(runtime: LinkRuntime) -> Arc<Inbox> {
+        let wake = Arc::new(Notify::new());
+        Arc::new_cyclic(|inbox| Inbox {
+            settling: runtime
+                .handle()
+                .spawn(settle_on_wake(inbox.clone(), Arc::clone(&wake))),
             runtime,
-            notify: Arc::new(Notify::new()),
+            wake,
+            changed: Notify::new(),
             machines: Mutex::new(Vec::new()),
             tracker: Mutex::new(Tracker {
                 seen: Seen::default(),
                 delivered: None,
                 last_batch: None,
             }),
-        }
+        })
     }
 
     /// What a machine pokes when its rows or live state change.
     pub(crate) fn notify(&self) -> Arc<Notify> {
-        Arc::clone(&self.notify)
+        Arc::clone(&self.wake)
     }
 
     pub(crate) fn add(&self, machine: Arc<Machine>) {
         let mut machines = locked(&self.machines);
         machines.retain(|known| known.id() != machine.id());
         machines.push(machine);
-        self.notify.notify_one();
+        self.wake.notify_one();
     }
 
     pub(crate) fn remove(&self, machine_id: &str) {
         locked(&self.machines).retain(|known| known.id() != machine_id);
         locked(&self.tracker).seen.forget_machine(machine_id);
-        self.notify.notify_one();
+        self.wake.notify_one();
     }
 
-    /// The markers the app persisted, at its start.
-    pub fn restore_seen(&self, markers: Vec<SeenMarker>) {
-        locked(&self.tracker).seen.restore(markers);
-        self.notify.notify_one();
+    /// What the app persisted, at its start and before it starts any machine.
+    pub fn restore_seen(&self, state: SeenState) {
+        locked(&self.tracker).seen.restore(state);
+        self.wake.notify_one();
     }
 
-    pub fn seen(&self) -> Vec<SeenMarker> {
-        locked(&self.tracker).seen.markers()
+    pub fn seen(&self) -> SeenState {
+        locked(&self.tracker).seen.state()
     }
 
     /// The person has seen the session as it is now: it is done no more until something happens.
@@ -125,7 +149,7 @@ impl Inbox {
             locked(&self.tracker)
                 .seen
                 .mark(&machine_id, &session, updated_at);
-            self.notify.notify_one();
+            self.wake.notify_one();
         }
     }
 
@@ -147,13 +171,13 @@ impl Inbox {
                     _ => {
                         tracker.last_batch = Some(now);
                         tracker.delivered = Some(rows.clone());
-                        let seen = std::mem::take(&mut tracker.seen.changed)
-                            .then(|| tracker.seen.markers());
+                        let seen =
+                            std::mem::take(&mut tracker.seen.changed).then(|| tracker.seen.state());
                         return InboxUpdate { rows, seen };
                     }
                 }
             };
-            wait::notified(&self.runtime, &self.notify, wait).await;
+            wait::notified(&self.runtime, &self.changed, wait).await;
         }
     }
 
@@ -173,14 +197,25 @@ impl Inbox {
             .collect()
     }
 
-    fn compute(&self) -> Vec<InboxRow> {
+    /// The sources, after the history of every machine whose rows are all in for the first time
+    /// has been marked seen.
+    fn settle(&self) -> Vec<(MachineName, Vec<InboxSource>)> {
         let sources = self.sources();
         let mut tracker = locked(&self.tracker);
+        for (machine, rows) in &sources {
+            if machine.loaded {
+                tracker.seen.first_read(&machine.id, rows);
+            }
+        }
+        drop(tracker);
+        sources
+    }
+
+    fn compute(&self) -> Vec<InboxRow> {
+        let sources = self.settle();
+        let tracker = locked(&self.tracker);
         let mut rows: Vec<InboxRow> = Vec::new();
         for (machine, sources) in sources {
-            if machine.loaded {
-                tracker.seen.first_read(&machine.id, &sources);
-            }
             for source in sources {
                 let seen = tracker.seen.get(&machine.id, &source.row.session);
                 rows.push(row(&machine, source, seen));
@@ -194,6 +229,12 @@ impl Inbox {
             order(a).cmp(&order(b))
         });
         rows
+    }
+}
+
+impl Drop for Inbox {
+    fn drop(&mut self) {
+        self.settling.abort();
     }
 }
 

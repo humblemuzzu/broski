@@ -1,5 +1,6 @@
 //! What the person has seen, as plain data the app persists: per session, the `updatedAt` its row had
-//! when they last looked. The core does no storage I/O.
+//! when they last looked, and the machines whose history was already marked. The core does no storage
+//! I/O.
 
 use std::collections::{HashMap, HashSet};
 
@@ -15,6 +16,15 @@ pub struct SeenMarker {
     pub seen_at: i64,
 }
 
+/// Everything the app persists of what the person has seen.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct SeenState {
+    pub markers: Vec<SeenMarker>,
+    /// The machines whose history was marked seen when its rows first came in. A machine that had no
+    /// session then has no marker to say so, and would have its next sessions marked at the next start.
+    pub read_machines: Vec<String>,
+}
+
 type Key = (String, BackendId, String);
 
 fn key(machine_id: &str, session: &SessionRef) -> Key {
@@ -28,9 +38,11 @@ fn key(machine_id: &str, session: &SessionRef) -> Key {
 #[derive(Default)]
 pub(crate) struct Seen {
     markers: HashMap<Key, i64>,
-    /// Machines whose rows were first read in full during this run.
+    /// Machines whose history is marked; persisted.
     read: HashSet<String>,
-    /// The markers changed since the app last took them.
+    /// Machines whose rows were all in during this run.
+    settled: HashSet<String>,
+    /// The state changed since the app last took it.
     pub(crate) changed: bool,
 }
 
@@ -44,34 +56,39 @@ impl Seen {
         self.changed = true;
     }
 
-    pub(crate) fn restore(&mut self, markers: Vec<SeenMarker>) {
-        self.markers = markers
+    pub(crate) fn restore(&mut self, state: SeenState) {
+        self.markers = state
+            .markers
             .into_iter()
             .map(|marker| (key(&marker.machine_id, &marker.session), marker.seen_at))
             .collect();
+        self.read = state.read_machines.into_iter().collect();
     }
 
     pub(crate) fn forget_machine(&mut self, machine_id: &str) {
         let before = self.markers.len();
         self.markers
             .retain(|(machine, _, _), _| machine != machine_id);
-        self.read.remove(machine_id);
-        self.changed |= self.markers.len() != before;
+        self.settled.remove(machine_id);
+        let was_read = self.read.remove(machine_id);
+        self.changed |= was_read || self.markers.len() != before;
     }
 
-    /// The first time a machine's rows are all in: a machine this phone never marked a session of
-    /// starts with every session seen, so a first pairing does not show its whole history as done;
-    /// for one it has, markers of sessions no longer listed are dropped, which keeps them bounded by
-    /// the rows.
+    /// The first time a machine's rows are all in during a run. One whose history was never marked
+    /// starts with every session seen, so a first pairing does not show its history as done; for one
+    /// that was, markers of sessions no longer listed are dropped, which keeps them bounded by the
+    /// rows.
     pub(crate) fn first_read(&mut self, machine_id: &str, rows: &[InboxSource]) {
-        if !self.read.insert(machine_id.to_owned()) {
+        if !self.settled.insert(machine_id.to_owned()) {
             return;
         }
-        let known = self
-            .markers
-            .keys()
-            .any(|(machine, _, _)| machine == machine_id);
-        if known {
+        if self.read.insert(machine_id.to_owned()) {
+            for source in rows {
+                self.markers
+                    .insert(key(machine_id, &source.row.session), source.row.updated_at);
+            }
+            self.changed = true;
+        } else {
             let listed: HashSet<Key> = rows
                 .iter()
                 .map(|source| key(machine_id, &source.row.session))
@@ -80,16 +97,10 @@ impl Seen {
             self.markers
                 .retain(|marker, _| marker.0 != machine_id || listed.contains(marker));
             self.changed |= self.markers.len() != before;
-        } else {
-            for source in rows {
-                self.markers
-                    .insert(key(machine_id, &source.row.session), source.row.updated_at);
-                self.changed = true;
-            }
         }
     }
 
-    pub(crate) fn markers(&self) -> Vec<SeenMarker> {
+    pub(crate) fn state(&self) -> SeenState {
         let mut markers: Vec<SeenMarker> = self
             .markers
             .iter()
@@ -105,6 +116,11 @@ impl Seen {
         markers.sort_by(|a, b| {
             (&a.machine_id, &a.session.session_id).cmp(&(&b.machine_id, &b.session.session_id))
         });
-        markers
+        let mut read_machines: Vec<String> = self.read.iter().cloned().collect();
+        read_machines.sort();
+        SeenState {
+            markers,
+            read_machines,
+        }
     }
 }
