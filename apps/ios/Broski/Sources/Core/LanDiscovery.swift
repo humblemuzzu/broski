@@ -99,26 +99,26 @@ final class LanDiscovery {
         let connection = NWConnection(to: endpoint, using: parameters)
         resolving[endpoint] = connection
         connection.stateUpdateHandler = { [weak self] state in
-            MainActor.assumeIsolated { self?.resolution(of: endpoint, machineId: machineId, changed: state) }
+            MainActor.assumeIsolated { self?.resolution(by: connection, machineId: machineId, changed: state) }
         }
         connection.start(queue: .main)
         Task { [weak self] in
             try? await Task.sleep(for: Self.resolveTimeout)
-            self?.finishResolving(endpoint)
+            self?.finishResolving(connection, of: endpoint)
         }
     }
 
-    private func resolution(of endpoint: NWEndpoint, machineId: String, changed state: NWConnection.State) {
+    private func resolution(by connection: NWConnection, machineId: String, changed state: NWConnection.State) {
         switch state {
         case .ready:
-            if case .hostPort(.ipv4(let address), let port) = resolving[endpoint]?.currentPath?.remoteEndpoint {
+            if case .hostPort(.ipv4(let address), let port) = connection.currentPath?.remoteEndpoint {
                 let route = "\(address.rawValue.map(String.init).joined(separator: ".")):\(port.rawValue)"
                 Logger.core.info("machine \(machineId, privacy: .public) found on the LAN at \(route, privacy: .public)")
                 found(machineId, route)
             }
-            finishResolving(endpoint)
+            finishResolving(connection, of: connection.endpoint)
         case .failed, .waiting:
-            finishResolving(endpoint)
+            finishResolving(connection, of: connection.endpoint)
         case .setup, .preparing, .cancelled:
             break
         @unknown default:
@@ -126,7 +126,10 @@ final class LanDiscovery {
         }
     }
 
-    private func finishResolving(_ endpoint: NWEndpoint) {
-        resolving.removeValue(forKey: endpoint)?.cancel()
+    /// Ends this connection only: a later resolve of the same endpoint has its own, which the
+    /// timer of an earlier one must not cancel.
+    private func finishResolving(_ connection: NWConnection, of endpoint: NWEndpoint) {
+        if resolving[endpoint] === connection { resolving[endpoint] = nil }
+        connection.cancel()
     }
 }
