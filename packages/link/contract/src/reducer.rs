@@ -5,10 +5,11 @@ use std::collections::HashSet;
 
 use crate::run_items::RunChange;
 use crate::{
-    ActiveRun, AgentEvent, BlockDeltaEvent, BlockStartedEvent, CompactionState, MessageId,
-    ModeChangedEvent, ModeSetting, OpenBlock, RetryScheduledEvent, RetryState, RunStartedEvent,
-    RunningTool, SessionSnapshot, SessionStatus, Timestamp, ToolStartedEvent, ToolUpdate,
-    ToolUpdatedEvent, MAX_TEXT_CHARS,
+    ActiveRun, AgentEvent, BlockDeltaEvent, BlockFinishedEvent, BlockStartedEvent,
+    CompactionStartedEvent, CompactionState, Interaction, InteractionResolvedEvent, MessageId,
+    ModeChangedEvent, ModeSetting, ModelChangedEvent, OpenBlock, RetryScheduledEvent, RetryState,
+    RunFinishedEvent, RunStartedEvent, RunningTool, SessionSnapshot, SessionStatus, Timestamp,
+    ToolFinishedEvent, ToolStartedEvent, ToolUpdate, ToolUpdatedEvent, MAX_TEXT_CHARS,
 };
 
 pub fn empty_snapshot() -> SessionSnapshot {
@@ -58,50 +59,29 @@ pub fn apply_event(snapshot: &mut SessionSnapshot, at: Timestamp, event: AgentEv
 fn apply_to_live_state(snapshot: &mut SessionSnapshot, at: Timestamp, event: AgentEvent) {
     match event {
         AgentEvent::RunStarted(started) => snapshot.run = Some(new_run(started, at)),
-        AgentEvent::RunFinished(finished) => {
-            snapshot.run = None;
-            snapshot.retry = None;
-            snapshot.last_outcome = Some(finished.outcome);
-        }
+        AgentEvent::RunFinished(finished) => finish_run(snapshot, finished),
         AgentEvent::BlockStarted(started) => snapshot.blocks.push(open_block(started)),
         AgentEvent::BlockDelta(delta) => append_text(&mut snapshot.blocks, &delta),
-        AgentEvent::BlockFinished(finished) => {
-            snapshot
-                .blocks
-                .retain(|open| open.block_id != finished.block_id);
-        }
+        AgentEvent::BlockFinished(finished) => finish_block(&mut snapshot.blocks, &finished),
         AgentEvent::ToolStarted(started) => snapshot.tools.push(running_tool(started)),
         AgentEvent::ToolUpdated(updated) => update_tools(&mut snapshot.tools, &updated),
-        AgentEvent::ToolFinished(finished) => {
-            snapshot
-                .tools
-                .retain(|tool| tool.tool_call_id != finished.tool_call_id);
-        }
+        AgentEvent::ToolFinished(finished) => finish_tool(&mut snapshot.tools, &finished),
         AgentEvent::InteractionRequested(requested) => {
             snapshot.interactions.push(requested.interaction);
         }
         AgentEvent::InteractionResolved(resolved) => {
-            snapshot
-                .interactions
-                .retain(|ask| ask.id != resolved.interaction_id);
+            resolve_interaction(&mut snapshot.interactions, &resolved);
         }
         AgentEvent::QueueChanged(changed) => snapshot.queue = changed.items,
         AgentEvent::CompactionStarted(started) => {
-            let trigger = started.trigger;
-            snapshot.compaction = Some(CompactionState {
-                trigger,
-                started_at: at,
-            });
+            snapshot.compaction = Some(compaction_state(started, at));
         }
         AgentEvent::CompactionFinished(_) => snapshot.compaction = None,
         AgentEvent::RetryScheduled(scheduled) => snapshot.retry = Some(retry_state(scheduled)),
         AgentEvent::RetryFinished(_) => snapshot.retry = None,
         AgentEvent::UsageUpdated(updated) => snapshot.usage = Some(updated.usage),
         AgentEvent::MessagesRetracted(retracted) => retract(snapshot, retracted.message_ids),
-        AgentEvent::ModelChanged(changed) => {
-            snapshot.model_id = changed.model_id;
-            snapshot.thinking = changed.thinking;
-        }
+        AgentEvent::ModelChanged(changed) => change_model(snapshot, changed),
         AgentEvent::ModeChanged(changed) => set_mode(&mut snapshot.modes, changed),
         AgentEvent::Resynced(resynced) => *snapshot = resynced.snapshot,
         AgentEvent::UserMessage(_)
@@ -121,6 +101,12 @@ fn new_run(started: RunStartedEvent, at: Timestamp) -> ActiveRun {
         items: Vec::new(),
         dropped_items: 0,
     }
+}
+
+fn finish_run(snapshot: &mut SessionSnapshot, finished: RunFinishedEvent) {
+    snapshot.run = None;
+    snapshot.retry = None;
+    snapshot.last_outcome = Some(finished.outcome);
 }
 
 fn open_block(started: BlockStartedEvent) -> OpenBlock {
@@ -143,6 +129,10 @@ fn append_text(blocks: &mut [OpenBlock], delta: &BlockDeltaEvent) {
     }
 }
 
+fn finish_block(blocks: &mut Vec<OpenBlock>, finished: &BlockFinishedEvent) {
+    blocks.retain(|open| open.block_id != finished.block_id);
+}
+
 fn running_tool(started: ToolStartedEvent) -> RunningTool {
     RunningTool {
         tool_call_id: started.tool_call_id,
@@ -156,6 +146,26 @@ fn running_tool(started: ToolStartedEvent) -> RunningTool {
         progress: None,
         file_changes: Vec::new(),
     }
+}
+
+fn finish_tool(tools: &mut Vec<RunningTool>, finished: &ToolFinishedEvent) {
+    tools.retain(|tool| tool.tool_call_id != finished.tool_call_id);
+}
+
+fn resolve_interaction(interactions: &mut Vec<Interaction>, resolved: &InteractionResolvedEvent) {
+    interactions.retain(|ask| ask.id != resolved.interaction_id);
+}
+
+fn compaction_state(started: CompactionStartedEvent, at: Timestamp) -> CompactionState {
+    CompactionState {
+        trigger: started.trigger,
+        started_at: at,
+    }
+}
+
+fn change_model(snapshot: &mut SessionSnapshot, changed: ModelChangedEvent) {
+    snapshot.model_id = changed.model_id;
+    snapshot.thinking = changed.thinking;
 }
 
 fn retry_state(scheduled: RetryScheduledEvent) -> RetryState {

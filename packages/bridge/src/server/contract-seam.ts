@@ -2,7 +2,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import type { ServerWebSocket } from "bun";
 import type { ActionResult, BackendFactory, BackendId, InteractionAnswer, JsonValue, SessionRef } from "../contract";
-import { BridgeCore, type CoreConnection } from "../core/core";
+import { BridgeCore, type CoreConnection, type CoreOptions } from "../core/core";
 import type { CoreClock } from "../core/ports";
 import { allowedBasePaths, resolveSecurePath } from "../security";
 import { frameBytes } from "../transport/send-limits";
@@ -73,9 +73,36 @@ export function createContractSeam(
 	const backends = options?.backends ?? [];
 	const ids = backends.map(([id]) => id);
 	if (new Set(ids).size !== ids.length) throw new Error(`a backend is configured twice: ${ids.join(", ")}`);
+	const core = new BridgeCore(coreOptions(options, backends.length > 0, version, limits, logger));
+	const sockets = socketConnections(core, queue);
+	return {
+		receive: (ws, raw) =>
+			sockets
+				.of(ws)
+				.receive(parsedFrame(raw), frameBytes(raw))
+				.catch((error) => logger.logError(`[core] a frame failed in the core: ${String(error)}`)),
+		refuse: (ws, raw) => sockets.of(ws).refuse(parsedFrame(raw)),
+		disconnect: (ws) => sockets.drop(ws),
+		answer: (session, answer) => core.answer(session, answer),
+		hold: (session) => core.hold(session),
+		release: (session) => core.release(session),
+		start: () => {
+			for (const [id, factory] of backends) void core.addBackend(id, factory);
+		},
+		stop: () => core.dispose(),
+	};
+}
+
+function coreOptions(
+	options: ContractOptions | undefined,
+	servesBackends: boolean,
+	version: string,
+	limits: Pick<BridgeLimits, "linkMessageLimitBytes">,
+	logger: Pick<LeveledLogger, "logInfo" | "logError">,
+): CoreOptions {
 	const log = { info: logger.logInfo, error: logger.logError };
-	const journals = options?.journalDirectory ?? (backends.length > 0 ? defaultJournalDirectory() : undefined);
-	const core = new BridgeCore({
+	const journals = options?.journalDirectory ?? (servesBackends ? defaultJournalDirectory() : undefined);
+	return {
 		bridgeVersion: version,
 		maxFrameBytes: limits.linkMessageLimitBytes,
 		log,
@@ -88,34 +115,25 @@ export function createContractSeam(
 			replacementJournal: openReplacementJournal(join(journals, "replacements.jsonl"), log),
 		}),
 		...(options?.idleCloseMs !== undefined && { idleCloseMs: options.idleCloseMs }),
-	});
-
-	const connections = new WeakMap<ServerWebSocket<unknown>, CoreConnection>();
-	const connectionOf = (ws: ServerWebSocket<unknown>): CoreConnection => {
-		const known = connections.get(ws);
-		if (known) return known;
-		// The send queue holds what a congested socket cannot take and closes one that falls a window behind.
-		const connection = core.connect({ send: (frame) => queue.sendPayload(ws, frame) });
-		connections.set(ws, connection);
-		return connection;
 	};
+}
+
+/** The core's connection of each client socket, made with the socket's first frame. */
+function socketConnections(core: BridgeCore, queue: Pick<SendQueue, "sendPayload">) {
+	const connections = new WeakMap<ServerWebSocket<unknown>, CoreConnection>();
 	return {
-		receive: (ws, raw) =>
-			connectionOf(ws)
-				.receive(parsedFrame(raw), frameBytes(raw))
-				.catch((error) => logger.logError(`[core] a frame failed in the core: ${String(error)}`)),
-		refuse: (ws, raw) => connectionOf(ws).refuse(parsedFrame(raw)),
-		disconnect: (ws) => {
+		of(ws: ServerWebSocket<unknown>): CoreConnection {
+			const known = connections.get(ws);
+			if (known) return known;
+			// The send queue holds what a congested socket cannot take and closes one that falls a window behind.
+			const connection = core.connect({ send: (frame) => queue.sendPayload(ws, frame) });
+			connections.set(ws, connection);
+			return connection;
+		},
+		drop(ws: ServerWebSocket<unknown>): void {
 			connections.get(ws)?.close();
 			connections.delete(ws);
 		},
-		answer: (session, answer) => core.answer(session, answer),
-		hold: (session) => core.hold(session),
-		release: (session) => core.release(session),
-		start: () => {
-			for (const [id, factory] of backends) void core.addBackend(id, factory);
-		},
-		stop: () => core.dispose(),
 	};
 }
 
