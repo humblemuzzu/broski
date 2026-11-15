@@ -5,14 +5,16 @@
 //! machine whose stored record is `record.json`, paired with the device whose secret is
 //! `device-secret.bin`. Its one LAN route, 127.0.0.1:9, refuses every connection and neither names
 //! a relay, so nothing leaves the host. `push-record.json` and `push.txt` are the machine and the
-//! sealed push of the vectors `docs/architecture/connectivity-v2/push.md` pins.
+//! sealed push of the vectors `docs/architecture/connectivity-v2/push.md` pins. `inbox-cache.json`
+//! is an `InboxUpdate.cache` of that machine's inbox: a session waiting on `npm test` and an idle
+//! one.
 
 use std::sync::Arc;
 use std::time::Duration;
 
 use broski_client::{
-    ClientError, ContractState, LinkFailure, MachineStatus, PhoneConfig, SeenMarker, SeenState,
-    SessionUpdate,
+    ClientError, ContractState, InboxState, LinkFailure, MachineStatus, PhoneConfig, SeenMarker,
+    SeenState, SessionUpdate,
 };
 use broski_contract::{BackendId, ClientMessage, HelloRequest, SessionRef, PROTOCOL_VERSION};
 use broski_core::{
@@ -176,6 +178,40 @@ fn what_was_seen_goes_back_in_as_the_app_stored_it() {
     };
     inbox.restore_seen(stored.clone());
     assert_eq!(inbox.seen(), stored);
+}
+
+#[tokio::test]
+async fn the_cached_inbox_shows_its_machines_rows_until_it_answers_and_never_offers_an_answer() {
+    let phone = phone();
+    let inbox = phone.inbox();
+    let refused = inbox.restore_cache(b"{\"version\":0,\"rows\":[]}".to_vec());
+    assert!(matches!(refused, Err(ClientError::InvalidRequest { .. })));
+    inbox
+        .restore_cache(fixture("inbox-cache.json"))
+        .expect("the cache restores");
+    assert!(inbox.rows().is_empty(), "no row before its machine starts");
+
+    let record = MachineRecord::from_bytes(fixture("record.json")).expect("record");
+    let machine = phone.start(record).expect("started");
+    let rows = inbox.rows();
+    let shown: Vec<_> = rows
+        .iter()
+        .map(|row| (row.session.session_id.as_str(), row.state, row.cached))
+        .collect();
+    assert_eq!(
+        shown,
+        [
+            ("s-ask", InboxState::NeedsYou, true),
+            ("s-old", InboxState::Done, true),
+        ]
+    );
+    assert_eq!(rows[0].command.as_deref(), Some("npm test"));
+    assert!(rows.iter().all(|row| row.pending.is_none()));
+    phone.forget(machine.id());
+    assert!(
+        inbox.rows().is_empty(),
+        "a forgotten machine takes its cached rows"
+    );
 }
 
 #[test]
