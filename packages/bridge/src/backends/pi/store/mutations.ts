@@ -1,5 +1,5 @@
 /**
- * Rename, delete and fork of sessions no live `AgentSession` holds: an appended `session_info` line,
+ * Rename, delete and fork of sessions no hosted `pi` runs: an appended `session_info` line,
  * a contained delete, and a new file holding the branch to the fork point. The source is never opened
  * with `SessionManager`.
  */

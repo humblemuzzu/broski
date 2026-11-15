@@ -69,7 +69,7 @@ export interface StoredFacts {
 }
 
 /**
- * Everything read from or written to session files without a live `AgentSession` (`store/`). Its
+ * Everything read from or written to session files without a hosted `pi` (`store/`). Its
  * mutations are for sessions nobody hosts; a hosted session is written only through its host.
  */
 export interface SessionStore {

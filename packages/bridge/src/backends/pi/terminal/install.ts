@@ -115,8 +115,3 @@ export function uninstallExtension(agentDir: string): InstallResult {
 		return { kind: "problem", reason: `The Broski link could not be removed from ${directory}: ${errorText(error)}` };
 	}
 }
-
-/** Whether `entry`, the path Pi names a loaded extension by, is the Broski link's entry point under `agentDir`. */
-export function isBroskiLink(agentDir: string, entry: string): boolean {
-	return resolve(entry) === resolve(extensionEntry(agentDir));
-}

@@ -1,7 +1,7 @@
 /**
  * A terminal session's events as the live state of a contract session: the run, its text, thinking and tools, the
  * compaction, the model. It maps with the parts a hosted session maps with (`mapping/`, `RunTracker`, `ToolFlow`),
- * fed from the link's `TerminalEvent`s instead of an `AgentSession`'s. It writes nothing: the terminal's `pi` is the
+ * fed from the link's `TerminalEvent`s instead of a hosted `pi`'s RPC events. It writes nothing: the terminal's `pi` is the
  * session file's only writer. Pi gives extensions no queue or retry event (`protocol.ts`), so there is none here.
  */
 

@@ -3,13 +3,12 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { EXTENSION_FILES } from "../../backends/pi/terminal/extension-sources";
 import {
 	extensionDirectory,
 	extensionEntry,
 	installExtension,
-	isBroskiLink,
 	MARKER,
 	uninstallExtension,
 } from "../../backends/pi/terminal/install";
@@ -141,15 +140,6 @@ describe("the switch in the bridge's config", () => {
 	});
 });
 
-describe("the entry point Pi names", () => {
-	test("is recognised by path, however it is spelled", () => {
-		const dir = agentDir();
-		expect(isBroskiLink(dir, extensionEntry(dir))).toBe(true);
-		expect(isBroskiLink(dir, join(dir, "extensions", "broski-link", ".", "index.ts"))).toBe(true);
-		expect(isBroskiLink(dir, join(dir, "extensions", "other", "index.ts"))).toBe(false);
-	});
-});
-
 describe("in a session the bridge hosts", () => {
 	// The bridge's own `pi` loads it too, from the same agent dir; it does nothing outside the terminal (`ctx.mode`).
 	test("Pi finds the installed extension for a terminal, and in the bridge's own sessions it links nothing", async () => {
@@ -160,7 +150,7 @@ describe("in a session the bridge hosts", () => {
 		const terminals = new TerminalRig(t);
 		const terminal = await terminals.open();
 		const loaded = terminal.session.extensionRunner.getExtensionPaths();
-		expect(loaded.some((path) => isBroskiLink(t?.world.env.agentDir ?? "", path))).toBe(true);
+		expect(loaded.some((path) => resolve(path) === resolve(entry))).toBe(true);
 		await terminals.quit();
 
 		const live = await holdingRun(t);

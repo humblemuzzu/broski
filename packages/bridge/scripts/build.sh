@@ -270,24 +270,6 @@ for lib in "$DIST"/libbroski_pty.*; do
 done
 
 # ──────────────────────────────────────────────
-# Emit package.json for Pi SDK compatibility
-# ──────────────────────────────────────────────
-# The Pi SDK (@earendil-works/pi-coding-agent) resolves its package dir from
-# dirname(process.execPath) in a compiled Bun binary, so it reads package.json
-# from the dist/ folder next to the binary at import time
-# (readFileSync(join(dirname(process.execPath), "package.json"))). Missing, it
-# falls back to the SDK defaults; src/bootstrap.ts recreates the file on first run.
-# pi-ai reads no package-relative assets from the executable dir (its OAuth
-# flows are registered from code).
-
-echo ""
-echo "  Emitting package.json for Pi SDK..."
-cat > "${DIST}/package.json" <<EOF
-{"name":"broski-bridge","version":"${VERSION}"}
-EOF
-echo "    ✓ ${DIST}/package.json (v${VERSION})"
-
-# ──────────────────────────────────────────────
 # macOS ad-hoc codesign
 # ──────────────────────────────────────────────
 # Ad-hoc signing (codesign -s -) doesn't require an Apple Developer
