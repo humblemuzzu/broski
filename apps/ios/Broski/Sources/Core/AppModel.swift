@@ -106,30 +106,6 @@ final class AppModel {
         updateDiscovery()
     }
 
-    /// What a pull on the inbox does. The core keeps every list current by itself (it applies the
-    /// bridge's catalog events and reloads every list on a new bridge socket), so only a machine
-    /// that is not connected has anything to gain: every route is dialled again now rather than
-    /// at its next retry, and the pull ends once no machine is still settling, or after 8 s.
-    func reconnect() async {
-        guard machines.contains(where: { !$0.summary.isReady && $0.summary.health != .revoked }) else { return }
-        phone?.networkChanged()
-        let settled = Task {
-            for await settled in Observations({ @MainActor in self.noneSettling }) where settled {
-                return
-            }
-        }
-        let deadline = Task {
-            try? await Task.sleep(for: .seconds(8))
-            settled.cancel()
-        }
-        await settled.value
-        deadline.cancel()
-    }
-
-    private var noneSettling: Bool {
-        machines.allSatisfy { $0.summary.health != .settling }
-    }
-
     private func identitySecret() throws(IdentityProblem) -> Data {
         let stored: Data?
         do throws(Keychain.Failure) { stored = try storage.identitySecret() } catch { throw .keychain(error.status) }

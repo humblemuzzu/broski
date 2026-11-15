@@ -38,6 +38,14 @@ final class InboxModel {
         }
     }
 
+    /// What a pull on the inbox does: every machine whose bridge is ready reloads its sessions from
+    /// the first page, every machine waiting to dial dials now, and this returns once the reloads
+    /// are answered. The rows arrive through the pull loop like any other change.
+    func refresh() async {
+        await inbox?.refresh()
+        Logger.core.info("the inbox refresh was answered")
+    }
+
     /// The chat calls this when the person opens a session and again when they leave it.
     func markSeen(machineId: String, session: SessionRef) {
         inbox?.markSeen(machineId: machineId, session: session)

@@ -46,7 +46,8 @@ The target builds with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, `SWIFT_APPRO
   `bun install` in `packages/bridge`), seeds two sessions, reinstalls the app with a clean keychain,
   puts the pairing link on the simulator's pasteboard, and runs the tests: pair from the pasted link,
   see the history as idle, add a session through the machine (`{"seed":…}` appended to the file the
-  machine reads) and see it as done, then Machines, Settings, dark appearance and the largest text
+  machine reads) and see it as done, pull the inbox to refresh (the list stays whole, and the script
+  fails unless the app logged that the core answered the refresh), then Machines, Settings, dark appearance and the largest text
   size. Screenshots land in `apps/ios/Broski/build/e2e/screenshots`. The test daemon never
   advertises itself, so the script advertises its LAN port the way `discovery.rs` does (`dns-sd -P`,
   TXT `id`, `v=1`) and fails unless the app logged that its browse found the machine.
@@ -110,9 +111,10 @@ Every target globs its folders: a new folder under `Sources/Features` needs no p
   (IPv4, the core's routes carry no IPv6 zone) and reported as `host:port` to
   `machine.lanDiscovered(routes:)`. A browse refused with `kDNSServiceErr_PolicyDenied` sets
   `denied`, which Machines explains with a link to Settings.
-- **Pull to refresh** (`reconnect()`): the core keeps every list current by itself, so a pull only
-  redials (`networkChanged`) when some machine is not connected, and ends when none is still
-  settling (8 s at most).
+- **Pull to refresh** (`InboxModel.refresh()`, awaited by the inbox's `.refreshable`): the core's
+  `Inbox.refresh()`, which reloads every ready machine's sessions from the first page, dials a link
+  that is waiting to dial, and returns once the reloads are answered. The rows arrive through the
+  inbox loop like any change.
 
 ## Screens
 

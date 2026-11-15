@@ -3,9 +3,9 @@
 # real daemon and the real bridge on its fake backend) with two sessions in its history, a fresh
 # install of the app in the simulator with the machine's pairing link on its pasteboard, and the
 # BroskiE2E scheme's UI tests, which pair from the pasted link, add a session through the machine,
-# and save a screenshot of every screen. The test daemon never advertises itself, so this script
-# advertises its LAN port as the daemon does (`_broski-link._tcp`, TXT `id` and `v=1`), and checks
-# that the app's browse found it.
+# pull the inbox to refresh, and save a screenshot of every screen. The test daemon never advertises
+# itself, so this script advertises its LAN port as the daemon does (`_broski-link._tcp`, TXT `id`
+# and `v=1`), and checks that the app's browse found it and that the core answered the pull.
 #
 # Usage: scripts/e2e-ios-app.sh [output directory]   (default apps/ios/Broski/build/e2e)
 # BROSKI_SIMULATOR names the simulator (default "iPhone Duo"); it is erased of the app, its
@@ -113,10 +113,18 @@ TEST_RUNNER_BROSKI_E2E_COMMANDS="$COMMANDS" \
   -resultBundlePath "$OUT/E2E.xcresult"
 echo "==> Screenshots in $OUT/screenshots"
 
-found="$(xcrun simctl spawn "$SIMULATOR" log show --info --start "$started" --style compact \
-  --predicate 'subsystem == "com.muzammil.broski"' | grep "machine $machine_id found on the LAN" || true)"
+app_log="$(xcrun simctl spawn "$SIMULATOR" log show --info --start "$started" --style compact \
+  --predicate 'subsystem == "com.muzammil.broski"')"
+found="$(grep "machine $machine_id found on the LAN" <<<"$app_log" || true)"
 if [[ -z $found ]]; then
   echo "error: the app's LAN browse never reported $machine_id" >&2
   exit 1
 fi
 echo "==> LAN discovery: ${found##*] }"
+
+refreshed="$(grep "the inbox refresh was answered" <<<"$app_log" || true)"
+if [[ -z $refreshed ]]; then
+  echo "error: the core never answered the inbox's pull to refresh" >&2
+  exit 1
+fi
+echo "==> Pull to refresh: ${refreshed##*] }"

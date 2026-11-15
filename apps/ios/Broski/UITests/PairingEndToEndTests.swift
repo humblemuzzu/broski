@@ -8,7 +8,8 @@ import XCTest
 ///   session), which the simulator, sharing the host's file system, can append to;
 /// - `BROSKI_E2E_SCREENSHOTS`: a directory for the screenshots of each screen.
 ///
-/// The tests run in order: the first pairs from a pasted link, the next look at the paired app.
+/// The tests run in order: the first pairs from a pasted link and pulls the inbox to refresh, the
+/// next look at the paired app.
 final class PairingEndToEndTests: XCTestCase {
     private let environment = ProcessInfo.processInfo.environment
     private let timeout: TimeInterval = 30
@@ -51,6 +52,15 @@ final class PairingEndToEndTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Done"].exists, "a session after the history read is done")
         XCTAssertTrue(app.staticTexts["Idle"].exists, "the history read at pairing is seen")
         try screenshot("inbox-light")
+
+        let list = app.collectionViews.firstMatch
+        list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.15)).press(
+            forDuration: 0, thenDragTo: list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)),
+            withVelocity: .slow, thenHoldForDuration: 0)
+        XCTAssertTrue(app.activityIndicators.firstMatch.waitForNonExistence(timeout: timeout), "the pull ends")
+        XCTAssertTrue(app.staticTexts["Add dark mode to the dashboard"].exists, "the list is whole after the pull")
+        XCTAssertTrue(app.staticTexts["Rename the settings screen"].exists)
+        try screenshot("inbox-refreshed")
     }
 
     @MainActor

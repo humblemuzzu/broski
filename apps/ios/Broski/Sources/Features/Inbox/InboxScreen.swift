@@ -42,7 +42,7 @@ struct InboxScreen: View {
                 }
             }
         }
-        .refreshable { await model.reconnect() }
+        .refreshable { await model.inbox.refresh() }
         .animation(Motion.snappy(reduceMotion: reduceMotion), value: sections)
         .animation(Motion.snappy(reduceMotion: reduceMotion), value: chips)
         .haptic(.failed, trigger: lostMachines, when: { $1 > $0 })
