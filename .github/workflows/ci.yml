@@ -112,8 +112,40 @@ jobs:
         working-directory: apps/ios/BroskiCore
         run: xcodebuild build-for-testing -scheme BroskiCore -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO
 
+  ios-app:
+    name: Broski for iOS
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios, aarch64-apple-ios-sim, x86_64-apple-ios
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: packages/link
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      # BroskiCore is built by the script first; warnings are errors in the project.
+      - name: Build for an iOS device
+        run: scripts/build-ios-app.sh device --unsigned
+      # A simulator of the newest iOS runtime on the image, whatever its devices are called.
+      - name: Create a simulator
+        run: |
+          read -r runtime device < <(xcrun simctl list runtimes -j | /usr/bin/python3 -c '
+          import json, sys
+          runtimes = [r for r in json.load(sys.stdin)["runtimes"] if r["platform"] == "iOS" and r["isAvailable"]]
+          runtime = max(runtimes, key=lambda r: [int(part) for part in r["version"].split(".")])
+          iphone = next(t for t in runtime["supportedDeviceTypes"] if t["productFamily"] == "iPhone")
+          print(runtime["identifier"], iphone["identifier"])
+          ')
+          xcrun simctl create "Broski CI" "$device" "$runtime"
+      - name: Unit tests in the simulator
+        env:
+          BROSKI_SIMULATOR: Broski CI
+        run: scripts/build-ios-app.sh --test
+
   android-core:
-    name: BroskiCore for Android
+    name: Android (BroskiCore and the app)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -132,7 +164,7 @@ jobs:
       - name: Install the SDK packages
         run: |
           ndk="$(sed -n 's/^android-ndk = "\(.*\)"$/\1/p' apps/android/gradle/libs.versions.toml)"
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$ndk" "platforms;android-36" "build-tools;36.0.0"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$ndk" "platforms;android-36" "platforms;android-37.0" "build-tools;36.0.0"
       - name: Build the core libraries and the Kotlin bindings
         run: scripts/build-android-core.sh
       - uses: gradle/actions/setup-gradle@v4
@@ -141,3 +173,8 @@ jobs:
         run: ./gradlew :core:assembleDebug :core:assembleRelease :core:testDebugUnitTest
       - name: Native libraries are 16 KB aligned
         run: scripts/check-android-alignment.sh apps/android/core/build/outputs/aar/core-release.aar
+      - name: Build, test and lint the app
+        working-directory: apps/android
+        run: ./gradlew :app:assembleDebug :app:assembleRelease :app:testDebugUnitTest :app:lint
+      - name: The app's native libraries are 16 KB aligned
+        run: scripts/check-android-alignment.sh apps/android/app/build/outputs/apk/release/app-release-unsigned.apk

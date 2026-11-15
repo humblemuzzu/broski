@@ -240,7 +240,8 @@ shell profile sets the variables, so export `ANDROID_HOME` and `JAVA_HOME` (JDK 
 **CI** (`.github/workflows/ci.yml`): the bridge job (Bun 1.4.2: frozen install, typecheck, biome errors, layers,
 contract check, tests, the perf budget in `bench/`), the link job (fmt, clippy, clippy of the contract crate without
 its `uniffi` feature, the bridge's dependencies for the client's tests, tests on Ubuntu and macOS), `ios-core` (macOS 26: the iOS script, `swift test`, simulator and
-device links) and `android-core` (the Android script, both assembles, the JVM test, the 16 KB alignment check).
+device links), `ios-app` (macOS 26: an unsigned device build and the unit tests on a simulator the job creates) and
+`android-core` (the Android script, both assembles, the JVM tests, the 16 KB alignment check, then the app's assembles, unit tests and lint).
 **Pre-commit** (`.githooks/pre-commit`): biome errors and typecheck when bridge files are staged, `cargo fmt --check`
 when link files are.
 

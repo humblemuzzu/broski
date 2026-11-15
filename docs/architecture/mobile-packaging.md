@@ -379,9 +379,15 @@ only: both bindings come from the same library metadata, and the JVM tests stay 
 - `ios-core` (`macos-26`) — `build-ios-core.sh`, Bun and the bridge's dependencies (for the
   real-machine test), `swift test -Xswiftc -warnings-as-errors`, and `build-for-testing` for the
   simulator and for devices.
-- `android-core` (`ubuntu-latest`) — the catalog's NDK and SDK packages through the runner's
-  `sdkmanager` (the catalog's NDK wins over the runner's preset `ANDROID_NDK_HOME`), `cargo-ndk` 4.1.2, `build-android-core.sh`, both assembles and the JVM tests, and the
-  alignment check of the release AAR.
+- `ios-app` (`macos-26`) — XcodeGen from Homebrew, `build-ios-app.sh device --unsigned` (BroskiCore
+  first, warnings are errors), then a simulator made with `simctl create` from the newest iOS runtime
+  on the image and its first iPhone device type (no preinstalled device name is relied on), and
+  `build-ios-app.sh --test` on it. The end-to-end run needs Bun and a booted simulator and stays local.
+- `android-core` (`ubuntu-latest`) — the catalog's NDK and SDK packages (and `platforms;android-37.0`,
+  which the app compiles against) through the runner's `sdkmanager` (the catalog's NDK wins over the
+  runner's preset `ANDROID_NDK_HOME`), `cargo-ndk` 4.1.2, `build-android-core.sh`, both assembles and
+  the JVM tests, the alignment check of the release AAR, then the app: `:app:assembleDebug
+  :app:assembleRelease :app:testDebugUnitTest :app:lint` and the alignment check of the release APK.
 
 ## 6. Adding to the API
 
