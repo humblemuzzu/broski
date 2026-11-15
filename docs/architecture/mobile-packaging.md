@@ -307,7 +307,7 @@ reads first, so no preset reaches it; `check-android-alignment.sh` picks its `ll
 
 ```
 apps/android/
-  settings.gradle.kts         repositories; include(":core") — the Phase 4 app joins as include(":app")
+  settings.gradle.kts         repositories; include(":app", ":core")
   build.gradle.kts            the Kotlin Gradle plugin 2.4.21 on the build classpath (AGP 9's built-in
                               Kotlin otherwise uses its own 2.2.10); AGP declared, not applied
   gradle/libs.versions.toml   AGP 9.5.1, Kotlin 2.4.21, compileSdk 36, minSdk 26, NDK, JNA, coroutines
@@ -318,6 +318,7 @@ apps/android/
     src/main/jniLibs/         libbroski_core.so per ABI (generated)
     src/generated/kotlin/     uniffi.broski_contract, uniffi.broski_core (generated)
     src/test/kotlin/          the JVM tests
+  app/                        the Android app (apps/android/README.md)
 ```
 
 AGP 9 compiles Kotlin itself (built-in Kotlin), so no `org.jetbrains.kotlin.android` plugin is
@@ -336,8 +337,8 @@ which fails 16 KB-page devices; 5.17.0 is the first release aligned to `0x4000` 
 every component's `cdylib_name` (`uniffi_bindgen/src/bindings/kotlin/mod.rs`), and the APK carries
 `libbroski_core.so`, so JNA resolves it by that name with no `uniffi.component.<name>.libraryOverride`
 property and no `System.loadLibrary` call. The JVM tests load the host build the same way, by name,
-with `jna.library.path` pointing at it; loading on a device or emulator is first exercised by the
-Phase 4 app.
+with `jna.library.path` pointing at it. On the emulator (API 36, arm64-v8a) the app loads it the same
+way, in debug and in a minified release build.
 
 **R8** (`core/consumer-rules.pro`, applied by every app that minifies): JNA's own rules from its FAQ
 ("JNA on Android"), because its AAR ships none —
@@ -352,8 +353,9 @@ Phase 4 app.
 — and the bindings kept whole, because JNA registers their native functions by name and reads their
 structures' field order from annotations: `-keepattributes RuntimeVisibleAnnotations,AnnotationDefault`,
 `-keep class uniffi.broski_contract.** { *; }`, `-keep class uniffi.broski_core.** { *; }` (scoped to
-this library's packages rather than every `uniffi.**`). The AAR carries them as `proguard.txt`; no
-minified app has run them yet, so the Phase 4 app's release build on a device is their first real test.
+this library's packages rather than every `uniffi.**`). The AAR carries them as `proguard.txt`. The
+app's release build, minified with them, starts its `Phone` from the vault, decodes stored records,
+reconnects and fills the inbox from a real machine on the emulator (apps/android/README.md).
 
 **16 KB pages.** NDK r28 links with 16 KB max page size by default, and `cargo ndk` uses its linker.
 `scripts/check-android-alignment.sh <aar|apk>` fails unless every `.so` inside has LOAD segments
