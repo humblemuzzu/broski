@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,9 +26,16 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -98,15 +106,34 @@ fun Composer(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 if (look.images) AttachMenu(actions.onImage, actions.onNoImage)
+                val scroll = rememberScrollState()
                 Row(
-                    Modifier.weight(1f).horizontalScroll(rememberScrollState()),
+                    Modifier.weight(1f).trailingFade(scroll).horizontalScroll(scroll),
                     verticalAlignment = Alignment.CenterVertically,
-                ) { ComposerChips(look.settings, actions.settings) }
+                ) { ModelChips(look.settings, actions.settings) }
+                PrimaryModeChip(look.settings, actions.settings)
                 SendButtonView(look.button, actions.onPress)
             }
         }
     }
 }
+
+/** The end of a row that goes on under the edge fades out, so the cut reads as scrolling and not as the end. */
+private fun Modifier.trailingFade(scroll: ScrollState): Modifier = graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+    .drawWithContent {
+        drawContent()
+        if (scroll.value < scroll.maxValue) {
+            val fade = FADE.toPx()
+            drawRect(
+                Brush.horizontalGradient(listOf(Color.Black, Color.Transparent), size.width - fade, size.width),
+                topLeft = Offset(size.width - fade, 0f),
+                size = size.copy(width = fade),
+                blendMode = BlendMode.DstIn,
+            )
+        }
+    }
+
+private val FADE = 28.dp
 
 @Composable
 private fun CommandChip(command: CommandSummary, onClear: () -> Unit) {

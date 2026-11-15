@@ -1,8 +1,10 @@
 package com.muzammil.broski
 
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.click
+import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
@@ -18,6 +20,7 @@ import androidx.compose.ui.test.swipeDown
 import com.muzammil.broski.app.BroskiApplication
 import com.muzammil.broski.core.settings.Appearance
 import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertTrue
 import uniffi.broski_contract.SessionRef
 
 /**
@@ -52,8 +55,23 @@ class ChatFlows(private val ui: WorkspaceUiDriver, private val machine: RealMach
 
     private fun touchText(text: String) = touch(hasText(text) and hasClickAction())
 
+    /** The permission chip's caret is the chip's end: it sits left of the send button, not under it. */
+    private fun checkTheModeChipIsClearOfTheSendButton() {
+        val chip = compose.onNode(hasContentDescription("Permissions")).getBoundsInRoot()
+        val button = compose.onNode(hasContentDescription(ui.string(R.string.composer_send)) and hasClickAction()).getBoundsInRoot()
+        assertTrue("the mode chip ends at ${chip.right}, under the send button that starts at ${button.left}", chip.right <= button.left)
+    }
+
+    /** An opened row says what it did, and its detail holds the command: the command is on screen once. */
+    private fun checkTheCommandIsShownOnce() {
+        ui.waitFor(hasText("Ran command"))
+        compose.onAllNodes(hasText("rm -rf build")).assertCountEquals(1)
+    }
+
+    /** A tap's ripple on Android 12+ is a speckled sparkle that Compose's idleness does not wait for: a shot taken at once shows it as grain over the tapped rows. */
     private fun shot(name: String) {
         compose.waitForIdle()
+        Thread.sleep(RIPPLE_SETTLE_MS)
         Shots.save(name)
     }
 
@@ -96,6 +114,7 @@ class ChatFlows(private val ui: WorkspaceUiDriver, private val machine: RealMach
         openFold()
         touchText("rm -rf build")
         ui.waitFor(hasText("removed"))
+        checkTheCommandIsShownOnce()
         shot("chat-fold-detail-light")
         ui.back()
     }
@@ -222,6 +241,7 @@ class ChatFlows(private val ui: WorkspaceUiDriver, private val machine: RealMach
 
     private fun visitStates(suffix: String) {
         val session = open("Looks $suffix", "permission")
+        checkTheModeChipIsClearOfTheSendButton()
         send("Clean the build in $suffix")
         ui.waitFor(hasText(ui.string(R.string.card_wants_to_run, pi)))
         shot("chat-permission-$suffix")
@@ -230,6 +250,7 @@ class ChatFlows(private val ui: WorkspaceUiDriver, private val machine: RealMach
         openFold()
         touchText("rm -rf build")
         ui.waitFor(hasText("removed"))
+        checkTheCommandIsShownOnce()
         shot("chat-fold-detail-$suffix")
         machine.script(session, "ask")
         send("Ask me")
@@ -251,5 +272,6 @@ class ChatFlows(private val ui: WorkspaceUiDriver, private val machine: RealMach
 
     private companion object {
         const val TIMEOUT_MS = 20_000L
+        const val RIPPLE_SETTLE_MS = 600L
     }
 }

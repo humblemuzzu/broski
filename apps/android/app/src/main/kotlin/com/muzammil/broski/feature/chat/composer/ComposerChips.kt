@@ -26,12 +26,15 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
 import com.muzammil.broski.design.Haptic
 import com.muzammil.broski.design.perform
 import uniffi.broski_contract.ModeAxis
 import uniffi.broski_contract.ModelSummary
+
+private val CHIP_LABEL_MAX = 160.dp
 
 /** From this many models the chip opens a searchable sheet; fewer fit a menu. */
 private const val SHEET_FROM = 13
@@ -51,9 +54,9 @@ data class ComposerSettings(
 @Immutable
 class SettingActions(val model: (String) -> Unit, val thinking: (String) -> Unit, val mode: (axis: String, value: String) -> Unit)
 
-/** The model chip (none with one model), the thinking chip when the model takes a level, and a chip per mode axis. */
+/** The model chip (none with one model), the thinking chip when the model takes a level, and the mode axes after the first. */
 @Composable
-fun ComposerChips(settings: ComposerSettings, actions: SettingActions) {
+fun ModelChips(settings: ComposerSettings, actions: SettingActions) {
     val model = settings.model
     if (settings.models.size > 1 && model != null) ModelChip(settings, model, actions.model)
     val levels = model?.thinking?.options.orEmpty()
@@ -69,17 +72,30 @@ fun ComposerChips(settings: ComposerSettings, actions: SettingActions) {
             onPick = actions.thinking,
         )
     }
-    settings.axes.forEach { axis ->
-        val current = settings.modes[axis.id] ?: axis.defaultValue
-        Picker(
-            label = axis.options.firstOrNull { it.value == current }?.label ?: axis.label,
-            icon = null,
-            description = axis.label,
-            options = axis.options.map { PickerOption(it.value, it.label, it.description) },
-            selected = current,
-            onPick = { actions.mode(axis.id, it) },
-        )
-    }
+    settings.axes.drop(1).forEach { ModeChip(it, settings, actions, CHIP_LABEL_MAX) }
+}
+
+/** The widest the first mode chip's words get before they cut off: the chip holds its place beside the send button. */
+private val MODE_LABEL_MAX = 112.dp
+
+/** The first mode axis (Claude Code's permission mode, Pi's permissions) kept beside the send button, where it is always seen. */
+@Composable
+fun PrimaryModeChip(settings: ComposerSettings, actions: SettingActions) {
+    settings.axes.firstOrNull()?.let { ModeChip(it, settings, actions, MODE_LABEL_MAX) }
+}
+
+@Composable
+private fun ModeChip(axis: ModeAxis, settings: ComposerSettings, actions: SettingActions, maxLabel: Dp) {
+    val current = settings.modes[axis.id] ?: axis.defaultValue
+    Picker(
+        label = axis.options.firstOrNull { it.value == current }?.label ?: axis.label,
+        icon = null,
+        description = axis.label,
+        options = axis.options.map { PickerOption(it.value, it.label, it.description) },
+        selected = current,
+        onPick = { actions.mode(axis.id, it) },
+        maxLabel = maxLabel,
+    )
 }
 
 @Composable
@@ -111,11 +127,12 @@ private fun Picker(
     options: List<PickerOption>,
     selected: String?,
     onPick: (String) -> Unit,
+    maxLabel: Dp = CHIP_LABEL_MAX,
 ) {
     val haptics = LocalHapticFeedback.current
     var open by rememberSaveable { mutableStateOf(false) }
     Box {
-        Chip(label, icon, description) { open = true }
+        Chip(label, icon, description, maxLabel) { open = true }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             options.forEach { option ->
                 DropdownMenuItem(
@@ -148,7 +165,7 @@ fun OptionText(label: String, detail: String?) {
 
 /** A quiet chip: the setting's value and a caret, no outline, as OpenCode's composer shows the model. */
 @Composable
-fun Chip(label: String, icon: Int?, description: String, onClick: () -> Unit) {
+fun Chip(label: String, icon: Int?, description: String, maxLabel: Dp = CHIP_LABEL_MAX, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
         shape = CircleShape,
@@ -163,7 +180,7 @@ fun Chip(label: String, icon: Int?, description: String, onClick: () -> Unit) {
                 style = MaterialTheme.typography.labelLarge,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.widthIn(max = 160.dp),
+                modifier = Modifier.widthIn(max = maxLabel),
             )
             Icon(painterResource(R.drawable.ic_keyboard_arrow_down), contentDescription = description, modifier = Modifier.size(18.dp))
         }
