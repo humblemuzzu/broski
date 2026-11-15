@@ -40,14 +40,19 @@ native apps, the iOS and Android apps' foundations (Phase 4.1), and the iOS push
 - **Mobile core** (`packages/link/client/`, crate `broski-client`) — the phone apps' client over a link session:
   `hello` per bridge socket, requests matched to answers with the bridge's deadline, session views kept by the
   contract's Rust reducer and handed to the UI as a snapshot then bounded change records (at most 30 batches a
-  second), each machine's catalog and session lists, the inbox across machines with what the person has seen
-  as plain data, and terminal views that reattach from their last byte. UniFFI-shaped (owned values, `Arc`
-  objects, pulled subscriptions) but with no UniFFI dependency: the facade `packages/link/mobile` exports it. Doc:
-  [`docs/architecture/mobile-core.md`](docs/architecture/mobile-core.md).
+  second), each machine's catalog and session lists, the inbox across machines (with views it holds on waiting
+  sessions so a row can offer the backend's own Approve/Deny, and its last known rows and what the person has
+  seen as plain data for the app to persist), and terminal views that reattach from their last byte.
+  UniFFI-shaped (owned values, `Arc` objects, pulled subscriptions) but with no UniFFI dependency: the facade
+  `packages/link/mobile` exports it. Doc: [`docs/architecture/mobile-core.md`](docs/architecture/mobile-core.md).
+- **Rendering** (`packages/link/render/`, crate `broski-render`) — what both apps draw identically: markdown as
+  flat keyed blocks of styled runs (pulldown-cmark), code as spans by token kind (syntect with the grammars
+  vendored in `render/syntaxes/`, compiled by its `build.rs`), and diffs with word emphasis and side-by-side rows.
+  Pure, bounded, no UniFFI dependency. Doc: [`docs/architecture/rendering.md`](docs/architecture/rendering.md).
 - **BroskiCore** (`packages/link/mobile/`, crate `broski-mobile`, library `libbroski_core`) — the UniFFI 0.32.2
   facade both apps call: thin wrappers over the client core (`Phone`, `Machine`, `SessionView`, `TerminalView`,
-  `SessionList`, `Inbox`), its values restated with `#[uniffi::remote]`, and the pure push and offer functions
-  the notification handlers and the scanner call; updates pulled (`nextEvent`/`nextUpdate`/`nextChange`, no
+  `SessionList`, `Inbox`), its values restated with `#[uniffi::remote]`, the rendering functions, and the pure
+  push and offer functions the notification handlers and the scanner call; updates pulled (`nextEvent`/`nextUpdate`/`nextChange`, no
   foreign callbacks), `MachineRecord` opaque and stored as bytes.
   `scripts/build-ios-core.sh` makes `apps/ios/BroskiCore` (XCFramework + Swift package) and
   `scripts/build-android-core.sh` the `apps/android` `:core` module; bindings and binaries are build outputs,
@@ -166,7 +171,7 @@ packages/bridge/src/
   workspace/     files, git and terminals over the contract, behind the core's WorkspaceHost port (workspace-host.ts)
   transport/     send queue and frame limits
   platform/ config/ doctor/ wizard/ commands/ lifecycle/ logging/  the CLI and service around the bridge
-packages/link/   the Rust link stack: crypto, proto, core, daemon, power, relay; contract (the phone core's models and reducer); session (the phone side of the link); client (the mobile core over it); testkit (the daemon, relay, LAN and bridge harness the phone crates' tests share); mobile (BroskiCore, the UniFFI facade); uniffi-bindgen
+packages/link/   the Rust link stack: crypto, proto, core, daemon, power, relay; contract (the phone core's models and reducer); session (the phone side of the link); client (the mobile core over it); render (markdown, highlighting and diffs for both apps); testkit (the daemon, relay, LAN and bridge harness the phone crates' tests share); mobile (BroskiCore, the UniFFI facade); uniffi-bindgen
 apps/ios/BroskiCore/  the Swift package of BroskiCore (generated bindings + XCFramework, both from scripts/build-ios-core.sh)
 apps/ios/Broski/  the iOS app (project.yml, Sources/{App,Core,DesignSystem,Features}, Shared, Extensions, Tests, UITests)
 apps/android/    the Gradle build: :core, BroskiCore's Android library (bindings + .so from scripts/build-android-core.sh);

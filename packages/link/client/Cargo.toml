@@ -16,7 +16,10 @@ broski-link-session = { path = "../session" }
 tokio = { version = "1.53.2", features = ["rt", "time", "sync", "macros"] }
 # base64 0.22.1 — the session crate's pin; terminal input and output travel as base64.
 base64 = "0.22.1"
-# serde_json 1.0.151 — the contract crate's pin; names an unexpected answer by its wire type.
+# serde 1.0.229 — the contract crate's pin; derives the inbox cache's stored form.
+serde = { version = "1.0.229", features = ["derive"] }
+# serde_json 1.0.151 — the contract crate's pin; names an unexpected answer by its wire type and
+# writes the inbox cache.
 serde_json = "1.0.151"
 # thiserror 2.0.21 — the session crate's pin; derives the one public error enum.
 thiserror = "2.0.21"

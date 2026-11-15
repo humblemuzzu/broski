@@ -51,7 +51,7 @@ and a machine ends through `Phone.forget`).
 | `view.next_update() -> SessionUpdate`, `snapshot()`, `session()`, `capabilities()`, `close()` | a chat screen's data |
 | `terminal.next_update() -> TerminalUpdate`, `input(bytes)`, `resize(cols, rows, cell_w?, cell_h?)`, `summary()`, `close()` | a terminal screen's data |
 | `list.rows()`, `next_change()`, `load_more()`, `refresh()`, `close()` | one session list |
-| `inbox.rows()`, `next_change() -> InboxUpdate`, `refresh()`, `mark_seen(machine_id, session)`, `seen()`, `restore_seen(state)` | the home screen |
+| `inbox.rows()`, `next_change() -> InboxUpdate`, `refresh()`, `mark_seen(machine_id, session)`, `seen()`, `restore_seen(state)`, `restore_cache(bytes)`, `answer(machine_id, session, interaction_id, option_id) -> AnswerOutcome` | the home screen |
 
 Every failure is a `ClientError`: `Refused{code, detail}` (the bridge's `error{…}`), `Rejected{code,
 detail}` (a result's `Rejected`, from the helpers that return nothing on success; every other helper
@@ -171,7 +171,7 @@ the first is records, not a snapshot. The integration tests hold the same equali
 
 Each machine keeps, per backend, a list of its newest `MAX_PAGE_LIMIT` top-level sessions; the inbox
 joins every machine's. A row is `{machine_id, machine_name, session, title, cwd, state, updated_at,
-ask}`, the backend being the session's.
+ask, command, pending, cached}`, the backend being the session's.
 
 | State | When |
 |---|---|
@@ -180,8 +180,51 @@ ask}`, the backend being the session's.
 | `Done` | otherwise, when the row's `updatedAt` is past the person's marker, or there is no marker |
 | `Idle` | otherwise |
 
-`ask` is the first pending interaction's title, known for a viewed session. Rows sort by state in that
-order, then newest first. **What the person has seen** is `SeenState{markers, read_machines}`. A marker is
+Rows sort by state in that order, then newest first.
+
+**Views the inbox holds.** The bridge's rows carry a status, not the interactions, so each machine keeps
+a view open, for the inbox, on its newest sessions whose row is `waiting_for_user`: at most 8
+(`MAX_HELD_SESSIONS`, newest `updatedAt` first), which leaves the app at least 24 of the bridge's 32.
+A held view is a stream like a screen's (one attachment per session; a screen and the inbox share
+it) with no subscriber queue: it costs the snapshot and nothing per event. It goes when its row stops
+waiting, when a newer waiting session takes its place, or when the machine ends; a stream a screen
+still reads stays for the screen. Nothing changes while the inbox's lists are not all loaded (a new
+bridge socket lists everything again, and dropping views it is about to want back would only churn).
+A held session the bridge refused stays ended, and is not attached again on every event, until its row
+stops waiting. The policy runs after every event and every page (`machine/holds.rs`).
+
+**What a row says of its ask.** `ask` is the first pending interaction's title and `command` the
+command of its tool permission's command preview, exactly as the agent wrote it, for any viewed
+session ("Claude Code wants to run `npm test`" is the app's wording of them). `pending` is what can be
+answered from the row: `{interaction_id, kind, allow?, deny?}`, present while the session's stream is
+attached (a detached stream's snapshot may hold an ask that was answered meanwhile). For a tool
+permission, `allow` is the backend's first option with `effect: allow`, `scope: once` and a message
+that is not `required`, offered only when the request asks for no grants (an allow must choose some);
+`deny` is its first `effect: deny` option that does not stop the run and needs no message. Both are
+the backend's own `PermissionOption`s, never made up, and both are absent when the session takes no
+answers here (`SessionCapabilities.answer`) or the request is `deliberate`. Any other kind has neither:
+the app opens the chat for it.
+
+**Answering from the row.** `answer(machine_id, session, interaction_id, option_id)` sends
+`interaction.answer` with a `tool_permission` reply of that option, no message, no edited input and no
+grants, only when `option_id` is the row's `allow` or `deny` (`InvalidRequest` otherwise). It returns
+`Accepted`, `Stale` ("Already answered elsewhere": the bridge refused it `stale`, or the ask is no
+longer the session's first pending one, or the inbox stopped viewing the session because its row
+stopped waiting, in which case the bridge is not asked), or `Rejected{code, detail}`; a link failure is
+a `ClientError`. It only ever sends what the person tapped.
+
+**The last known inbox.** `InboxUpdate.cache` carries the inbox as bytes for the app to persist and
+hand back to `restore_cache` at its next start, before any machine starts (with `restore_seen`): JSON
+`{version: 1, rows}` of each row's text and state (never `pending`), the top `MAX_CACHED_ROWS` (100)
+rows within `MAX_CACHE_BYTES` (64 KiB), a title, ask or command cut at 300 characters. A new cache goes
+out when that content changed, at most every `CACHE_INTERVAL` (2 s; a change inside the interval goes
+out when it ends, in an update that may carry nothing else), and never before a machine has joined
+the phone, so the empty inbox of a launch does not overwrite the stored one. A machine whose lists
+have not loaded since the start shows its restored rows (`cached: true`, no `pending`; `NeedsYou` and
+`Working` as last known, `Done` and `Idle` by the seen markers); its own rows replace them once its
+lists load, and `forget` drops them. Restored rows show only for machines started; bytes of another
+version, or not a cache, are refused `InvalidRequest` and change nothing (the next cache replaces
+them). **What the person has seen** is `SeenState{markers, read_machines}`. A marker is
 `{machine_id, session, seen_at}`, `seen_at` being the row's `updatedAt` when the person looked: `mark_seen`
 sets one. `read_machines` are the machines whose history is already marked. `InboxUpdate.seen` carries the
 whole state whenever it changed, for the app to persist and hand back to `restore_seen` at its next start,
@@ -247,6 +290,8 @@ however long it goes unread.
 | Catalog caches | 64 entries each |
 | Terminal views | `MAX_TERMINALS`; untaken output `MAX_TERMINAL_OUTPUT_BYTES` |
 | Seen markers | the inbox's rows |
+| Views the inbox holds | 8 per machine |
+| The inbox cache | 100 rows, 64 KiB, one every 2 s |
 
 ## What the UI does, and does not
 
@@ -258,7 +303,9 @@ however long it goes unread.
   (the bridge runs `answerProblem`), never answers for the person, and shows `expiresAt` without acting on it.
 - When `run` goes from a value to none it reads the transcript's newest page (contract README §8).
 - It persists the identity secret, a new machine's `record()` and its `record()` at every `RecordChanged`,
-  and `InboxUpdate.seen`.
+  `InboxUpdate.seen` and `InboxUpdate.cache`.
+- It offers Approve and Deny on a row only for `pending.allow` and `pending.deny`, and answers with
+  `Inbox.answer` on the person's tap.
 - It calls `mark_seen` when the person opens a session and when they leave it.
 
 ## Tests
@@ -300,6 +347,22 @@ of the seen state, which is state and not an update.
   persisted state, shows a session finished meanwhile as done; a refresh sends one first-page request
   per inbox list (counted through the ids the machine gives its requests) and does not wait on a machine
   whose link is down.
+- `inbox_asks.rs` — a permission a terminal-started run asks (the fake bridge's `run`, no phone
+  prompting) makes its row need you with the ask, the command and the backend's allow-once and deny,
+  with no view the test opened; an option the row does not offer is refused; two answers at once are
+  one `Accepted` and one `Stale`; the run finishes and a late answer is `Stale`. Ten waiting sessions:
+  the eight newest have their ask, the inbox holds 8 of the 32 views (the app's 25th attach fails), each
+  answered from its row lets the next one in, and once none waits the app attaches 32.
+- `inbox_cache.rs` — over the relay, a phone restarted with its machine offline shows the cached rows
+  (the waiting one `NeedsYou` with its ask and command and no `pending`), the machine's own rows
+  replace them once it is back, and `forget` drops them; a forgotten machine takes its cached rows,
+  bytes of another version are refused and leave the restored rows in place.
+
+Unit tests: which sessions are held (newest 8, the next one in when one stops waiting, a refused one
+not attached again, all let go; a screen's view outliving the hold; `machine/holds_tests.rs`), what a
+row offers (`inbox/pending.rs`), an ask offered only while attached (`view/stream_tests.rs`), the cache's
+round trip, bounds, interval and version (`inbox/cache.rs`), and no cache before a machine joins
+(`inbox/mod.rs`).
 - `workspace.rs` — `workspace.info`, `fs.list`, `fs.read` and `git.status` on a temp repository; a terminal
   echoes input and takes a resize; across a machine restart a terminal's view gets exactly the bytes it
   missed, each line once, equal to the bridge's own replay; a program that writes three times what the
@@ -324,7 +387,9 @@ of the seen state, which is state and not an update.
   fix, if the extra `Done` after a rename proves to matter, is a `lastRunEndedAt` on `SessionSummary`
   that both adapters fill (Pi from its newest assistant message), with the marker holding it in place of
   `updatedAt`.
-- Live inbox detail (`ask`, a non-blocking interaction) exists only for sessions a view is open on: the
-  bridge's catalog rows carry a status, not the interactions.
+- Live inbox detail (`ask`, `command`, `pending`, a non-blocking interaction) exists only for sessions
+  a view is open on: the bridge's catalog rows carry a status, not the interactions. The inbox holds
+  views on the 8 newest waiting sessions per machine; an older waiting row shows `NeedsYou` with no ask
+  until one of them stops waiting.
 - Built in release for `aarch64-apple-ios`, `aarch64-apple-ios-sim` and, with cargo-ndk 4 and NDK
   r28, `aarch64-linux-android`; nothing runs the crate on a device yet.

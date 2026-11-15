@@ -2,9 +2,10 @@
 //! contract README §12.2).
 
 use broski_contract::{
-    AgentEvent, AttachSync, BackendId, ClientMessage, EventEnvelope, NoticeEvent, NoticeLevel,
-    ReplacedSync, ReplaySync, ServerMessage, SessionAttachResponse, SessionCapabilities,
-    SessionRef, SessionReplacedEvent, SnapshotSync, StreamPosition,
+    AgentEvent, AttachSync, BackendId, ClientMessage, ConfirmRequest, EventEnvelope, Interaction,
+    InteractionRequest, NoticeEvent, NoticeLevel, ReplacedSync, ReplaySync, ServerMessage,
+    SessionAttachResponse, SessionCapabilities, SessionRef, SessionReplacedEvent, SnapshotSync,
+    StreamPosition,
 };
 use tokio::time::Instant;
 
@@ -225,5 +226,48 @@ fn views_of_one_session_share_its_stream_within_the_bridges_bound() {
     assert!(
         streams.unsubscribe(subscribers[1]).is_none(),
         "a stream never attached has nothing to detach"
+    );
+}
+
+#[test]
+fn an_ask_is_offered_to_the_inbox_only_while_its_stream_is_attached() {
+    let mut streams = Streams::default();
+    let of = session("s");
+    let (stream, _) = streams.subscribe(&of).expect("subscribed");
+    resume_of(&mut streams, stream);
+    let mut snapshot = broski_contract::empty_snapshot();
+    snapshot.interactions.push(Interaction {
+        id: "i1".to_owned(),
+        run_id: None,
+        created_at: 0,
+        expires_at: None,
+        title: "Go on?".to_owned(),
+        body: None,
+        blocks_run: false,
+        origin: None,
+        request: InteractionRequest::Confirm(ConfirmRequest {}),
+    });
+    let sync = AttachSync::Snapshot(SnapshotSync {
+        epoch: "e1".to_owned(),
+        last_seq: 0,
+        snapshot,
+    });
+    let view = streams.get_mut(stream).expect("stream");
+    view.on_attach_answer(answer(sync));
+    let live = streams.live_info(&of).expect("live");
+    assert_eq!(
+        live.pending
+            .map(|pending| pending.interaction_id)
+            .as_deref(),
+        Some("i1")
+    );
+
+    streams.get_mut(stream).expect("stream").detached();
+    let live = streams.live_info(&of).expect("live");
+    assert!(live.needs_you, "the row still needs the person");
+    assert_eq!(live.ask.as_deref(), Some("Go on?"));
+    assert!(
+        live.pending.is_none(),
+        "but nothing is answered from a snapshot the link left"
     );
 }

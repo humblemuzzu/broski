@@ -330,6 +330,7 @@ impl Shared {
         match page {
             Ok(page) => {
                 list.page(&ask, page);
+                self.hold_waiting(&mut state);
                 self.poke_inbox();
                 Ok(())
             }

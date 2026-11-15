@@ -9,6 +9,7 @@ committed, and how to regenerate everything.
 packages/link/session   (broski-link-session: sockets, route race, resume, pairing, push crypto)
 packages/link/contract  (broski-contract: contract models with UniFFI derives, frame codec, reducer)
 packages/link/client    (broski-client: the phone's client core over both; no UniFFI dependency)
+packages/link/render    (broski-render: markdown, highlighting and diffs both apps draw; no UniFFI dependency)
           └── packages/link/mobile  (broski-mobile → libbroski_core: the UniFFI facade)
                 ├── scripts/build-ios-core.sh      → apps/ios/BroskiCore (XCFramework + Swift package)
                 └── scripts/build-android-core.sh  → apps/android/core   (Android library module)
@@ -16,9 +17,10 @@ packages/link/client    (broski-client: the phone's client core over both; no Un
 
 ## 1. The facade
 
-`broski-mobile` exports the client core ([mobile-core.md](mobile-core.md)) and nothing beside it but
-the pure functions a notification handler or the pairing scanner calls without a `Phone`. Every
-behaviour lives in the client, session and contract crates; each export is a one-line forward. It calls
+`broski-mobile` exports the client core ([mobile-core.md](mobile-core.md)), the rendering both apps
+draw the same way ([rendering.md](rendering.md)), and the pure functions a notification handler or the
+pairing scanner calls without a `Phone`. Every behaviour lives in the client, session, contract and
+render crates; each export is a one-line forward. It calls
 `uniffi::setup_scaffolding!()`. Names below are Swift's, then Kotlin's where they differ.
 
 ### Objects
@@ -30,7 +32,7 @@ behaviour lives in the client, session and contract crates; each export is a one
 | `SessionView` | `nextUpdate() async → SessionUpdate?`, `snapshot() → SessionSnapshot?`, `session() → SessionRef?`, `capabilities() → SessionCapabilities?`, `detach()` | `broski_client::SessionView` (`detach` is its `close`) |
 | `TerminalView` | `id()`, `nextUpdate() async → TerminalUpdate?`, `summary() → TerminalSummary?`, `input(data:) async throws → ActionResult`, `resize(cols:rows:cellWidth:cellHeight:) async throws → ActionResult`, `detach()` | `broski_client::TerminalView` |
 | `SessionList` | `rows() → SessionListUpdate`, `nextChange() async → SessionListUpdate?`, `loadMore() async throws`, `refresh() async throws`, `stop()` | `broski_client::SessionList` |
-| `Inbox` | `rows() → [InboxRow]`, `nextChange() async → InboxUpdate`, `refresh() async`, `markSeen(machineId:session:)`, `seen() → SeenState`, `restoreSeen(state:)` | `broski_client::Inbox` |
+| `Inbox` | `rows() → [InboxRow]`, `nextChange() async → InboxUpdate`, `refresh() async`, `markSeen(machineId:session:)`, `seen() → SeenState`, `restoreSeen(state:)`, `restoreCache(cache:) throws`, `answer(machineId:session:interactionId:optionId:) async throws → AnswerOutcome` | `broski_client::Inbox` |
 | `MachineRecord` | `MachineRecord.fromBytes(bytes:) throws`, `toBytes()`, `id()`, `name()`, `os()`, `pairedAtMs()` | the session's `MachineRecord` and its stored form (`session/src/record_codec.rs`), opaque |
 
 No object has a method named `close` or `destroy`: Kotlin objects already have both, from
@@ -46,14 +48,21 @@ view is exported as `detach`, of a list as `stop`; a machine is ended through `P
 | `openNotification(record:data:) throws → PushNotification` | `push::open_notification` |
 | `decisionLetter(record:decision:backend:session:request:) throws → LetterRequest { url, headers, body }` | `push::decision_letter` |
 | `coreVersion() → CoreVersion { library, protocol }` | this crate's version and the contract's `PROTOCOL_VERSION`, for the apps' About screens |
+| `markdownBlocks(text:) → [MarkdownBlock]` | `broski_render::markdown_blocks` |
+| `highlight(code:language:) → [CodeLine]`, `languageForPath(path:) → String?`, `normalizeLanguage(label:) → String?` | `broski_render::highlight`, `language_for_path`, `normalize_language` |
+| `parseUnifiedDiff(text:) → ParsedDiff`, `fileChangeDiff(change:) → DiffFile`, `gitDiffFile(file:) → DiffFile`, `sideBySide(hunk:) → [SideBySideRow]` | `broski_render`'s diff functions |
 
 ### Values
 
 - **The client's**, restated under `#[uniffi::remote]` in `mobile/src/values.rs` (the compiler checks
   each restatement against `broski-client`, so they cannot drift): `PhoneConfig`, `MachineStatus`,
   `ContractState`, `MachineEvent`, `SessionUpdate`, `SessionChange`, `ViewEnd`, `TerminalUpdate`,
-  `SessionListUpdate`, `InboxRow`, `InboxState`, `InboxUpdate`, `SeenState`, `SeenMarker`, `LinkFailure`,
-  and the error `ClientError`.
+  `SessionListUpdate`, `InboxRow`, `InboxState`, `InboxUpdate`, `PendingAsk`, `AnswerOutcome`,
+  `SeenState`, `SeenMarker`, `LinkFailure`, and the error `ClientError`.
+- **The renderer's**, restated the same way in `mobile/src/render.rs`: `MarkdownBlock`,
+  `BlockContainer`, `ListMarker`, `BlockContent`, `TableRow`, `TableCell`, `ColumnAlignment`,
+  `InlineRun`, `TokenKind`, `CodeLine`, `CodeSpan`, `ParsedDiff`, `DiffFile` (its `change` is the
+  contract's `GitChange`), `DiffHunk`, `DiffLine`, `DiffLineKind`, `DiffSegment`, `SideBySideRow`.
 - **The session's**, restated the same way in `mobile/src/link.rs` and `push.rs`: `LinkStatus` (its
   `Status`), `LinkState`, `WaitReason`, `LinkRoute` (`Route`), `BridgeStatus`, `BridgeState`,
   `SendFailure`, `Platform`, `PushPlatform`, `PushNotification`, `PushDecision`.
@@ -152,8 +161,10 @@ briefly and may be called from the main thread. Every object is `Send + Sync` (S
   carries no record: the record holds the relay token and push key, and reaches the app only as the
   opaque object).
 - **Launch:** `inbox().restoreSeen(state:)` with the stored `SeenState` (markers and the machines whose
-  history is marked), before any machine starts, then `phone.start(record:)` for each stored record.
-  Persist `InboxUpdate.seen` whenever it is not `nil`.
+  history is marked) and `inbox().restoreCache(cache:)` with the stored cache bytes, before any machine
+  starts, then `phone.start(record:)` for each stored record: `inbox().rows()` then already holds the
+  last known rows. Persist `InboxUpdate.seen` and `InboxUpdate.cache` whenever they are not `nil`. A
+  cache `restoreCache` refuses (another version's) needs no handling: the next one overwrites it.
 - **While running:** `phone.pause()`/`resume()` with the app's foreground, `networkChanged()` on a path
   change, `machine.lanDiscovered(routes:)` from `NWBrowser`/`NsdManager`, `machine.registerPush` on every
   machine when the token changes and on each new pairing.
@@ -169,9 +180,28 @@ and Kotlin tests share (`tests/fixtures`: a QR offer written by the daemon's enc
 and device secret of that pairing, the push vectors of [push.md](connectivity-v2/push.md)).
 `tests/phone.rs` drives the exported API as an app does against the real daemon and the real bridge
 (`broski-link-testkit`): pair from a scanned offer, a run streaming into a view whose UI copy (the
-client's `tests/common/replica.rs`) equals the snapshot, the inbox with a home-screen loop and its seen
-state, a session list, a terminal, then a new `Phone` from the stored identity, record and seen state
-that finds the session seen, and `forget`.
+client's `tests/common/replica.rs`) equals the snapshot, the inbox with a home-screen loop, its seen
+state and its cache, a session list, a terminal, then a new `Phone` from the stored identity, record,
+seen state and cache that shows the cached row at once and finds the session seen, and `forget`.
+`tests/render.rs` calls every rendering export. `tests/fixtures/inbox-cache.json` is an
+`InboxUpdate.cache` of the fixture machine's inbox (a session waiting on `npm test` and an idle one),
+which `facade.rs`, the iOS app's and the Android app's tests restore.
+
+### What it weighs
+
+The Android arm64 library as the APK carries it, stripped (`llvm-strip`, NDK r28c), before and after
+Phase 4.2's core work (`broski-render` and the inbox's asks and cache):
+
+| `libbroski_core.so`, arm64-v8a | Bytes |
+|---|---|
+| before (`rebuild` at `0c637cef`) | 5,664,168 |
+| with `broski-render`, two-face's whole grammar set | 8,792,864 (+3.13 MB, over the 3 MB budget) |
+| with `broski-render`, the vendored grammar subset, and the inbox changes | 8,167,384 (+2.50 MB) |
+
+On iOS the same change took the app's `Broski.debug.dylib` (a Debug build of the app, so the Swift
+bindings unoptimised, with the Rust library's release build linked in and dead-stripped; `strip -x`)
+from 14,182,848 to 17,455,152 bytes (+3.27 MB; its `__TEXT` from 10.96 to 13.57 MB). A Release build of
+the app was not measured.
 
 ## 2. Building
 

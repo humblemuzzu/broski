@@ -1,13 +1,14 @@
 import BroskiCore
 import Foundation
 
-/// What the app keeps between launches: the phone's identity secret and the inbox's seen state in
-/// the app's own keychain group, and the machine records in the group the notification service
-/// extension shares. Nothing here is ever regenerated on an error.
+/// What the app keeps between launches: the phone's identity secret, the inbox's seen state and its
+/// last known rows in the app's own keychain group, and the machine records in the group the
+/// notification service extension shares. Nothing here is ever regenerated on an error.
 struct PhoneStorage {
     static let service = "com.muzammil.broski"
     private static let identityAccount = "identity-secret"
     private static let seenAccount = "inbox-seen"
+    private static let cacheAccount = "inbox-cache"
 
     let app: Keychain
     let records: MachineRecordStore
@@ -40,11 +41,22 @@ struct PhoneStorage {
         try app.set(data, for: Self.seenAccount)
     }
 
-    /// Forgets the identity, the seen state and every pairing: only ever on the person's word.
+    /// The bytes of the core's last `InboxUpdate.cache`, which only the core reads.
+    func inboxCache() throws(Keychain.Failure) -> Data? {
+        try app.data(for: Self.cacheAccount)
+    }
+
+    func saveInboxCache(_ cache: Data) throws(Keychain.Failure) {
+        try app.set(cache, for: Self.cacheAccount)
+    }
+
+    /// Forgets the identity, the seen state, the cached inbox and every pairing: only ever on the
+    /// person's word.
     func removeEverything() throws(Keychain.Failure) {
         for (id, _) in try records.all() {
             try records.remove(id: id)
         }
+        try app.remove(Self.cacheAccount)
         try app.remove(Self.seenAccount)
         try app.remove(Self.identityAccount)
     }

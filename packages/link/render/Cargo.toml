@@ -1,0 +1,27 @@
+[package]
+name = "broski-render"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "What both phone apps draw the same way: markdown as blocks, code as coloured spans, diffs as lines"
+
+[lib]
+doctest = false
+
+[dependencies]
+# broski-contract — the tool file changes and git diffs the diff views are built from.
+broski-contract = { path = "../contract" }
+# pulldown-cmark 0.13.6 — CommonMark with GitHub's tables, strikethrough and task lists, read as
+# events with source offsets (the stable block keys); no HTML writer, no CLI.
+pulldown-cmark = { version = "=0.13.6", default-features = false }
+# syntect 5.3.0 — Sublime Text grammars, parsing only (no themes: the apps colour by token kind);
+# fancy-regex keeps it pure Rust, with no Oniguruma C library to cross-compile.
+syntect = { version = "=5.3.0", default-features = false, features = ["parsing", "regex-fancy"] }
+# similar 3.2.1 — the token diff (Myers, with a deadline) behind a changed line's emphasis.
+similar = { version = "=3.2.1", default-features = false, features = ["std"] }
+
+[build-dependencies]
+# syntect 5.3.0 — the same version, with the YAML loader the build script compiles syntaxes/ with;
+# the library itself only reads the dump.
+syntect = { version = "=5.3.0", default-features = false, features = ["parsing", "regex-fancy", "yaml-load"] }

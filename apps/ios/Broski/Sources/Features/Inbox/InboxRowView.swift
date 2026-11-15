@@ -2,7 +2,8 @@ import BroskiCore
 import SwiftUI
 
 /// One session: agent mark, title, what it asks (needs you), machine and folder, time, state.
-/// A session on a machine that is not reachable stays listed, dimmed, with the machine's status.
+/// A session on a machine that is not reachable, or known only from the cached inbox, stays
+/// listed, dimmed, with the machine's status.
 struct InboxRowView: View {
     let row: InboxRow
     let machine: MachineSummary?
@@ -11,7 +12,7 @@ struct InboxRowView: View {
     private var title: String { row.title ?? "Untitled session" }
     private var folder: String? { row.cwd.map { URL(fileURLWithPath: $0).lastPathComponent } }
     private var updated: Date { Date(unixMilliseconds: row.updatedAt) }
-    private var reachable: Bool { machine?.isReady ?? false }
+    private var reachable: Bool { (machine?.isReady ?? false) && !row.cached }
 
     var body: some View {
         Group {
@@ -62,7 +63,7 @@ struct InboxRowView: View {
     }
 
     private var askText: Text? {
-        guard row.state == .needsYou, let ask = row.ask else { return nil }
+        guard let ask = row.askLine else { return nil }
         return Text(ask).font(.subheadline).foregroundStyle(Palette.needsYou)
     }
 
@@ -89,7 +90,7 @@ struct InboxRowView: View {
 
     /// "Needs you. Claude Code wants to run npm test. MacBook, broski."
     private var spokenLabel: String {
-        let what = row.state == .needsYou ? row.ask : nil
+        let what = row.askLine
         var sentences = [row.state.title, what ?? "\(row.session.backend.displayName), \(title)"]
         sentences.append([row.machineName, folder].compactMap(\.self).joined(separator: ", "))
         if !reachable, let machine { sentences.append(machine.line) }

@@ -35,10 +35,12 @@ The target builds with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, `SWIFT_APPRO
 
 - **`Tests/`** (scheme `Broski`, Swift Testing, hosted by the app in the simulator): the keychain in
   both groups (`PersistenceTests`: the identity secret opens the same phone, records in the shared
-  group, the seen state back into a new phone's inbox, start over, a launch that never replaces an
-  identity), pairing (`PairingTests`: every `LinkFailure`'s words and next step, a pasted offer's
+  group, the seen state back into a new phone's inbox, a launch with the machine unreachable that
+  shows the cached inbox (`inbox-cache.json`) with nothing to answer, a cache the core refuses that
+  does not stop the launch, start over, a launch that never replaces an identity), pairing (`PairingTests`: every `LinkFailure`'s words and next step, a pasted offer's
   preview, a pairing with the fixture machine that cannot be reached), the inbox's sections from
-  `InboxRow` values, and `MachineSummary`'s words. They read `packages/link/mobile/tests/fixtures`
+  `InboxRow` values, Approve and Deny offered only for the options a row's `pending` carries, the
+  row's "<agent> wants to run <command>", and `MachineSummary`'s words. They read `packages/link/mobile/tests/fixtures`
   from the checkout and use keychain services of their own. The workspace (`WorkspaceTests`, over
   `ScriptedMachine`, a stand-in for `Machine.request` answering with the generated contract types):
   paging that asks for each page once, every rejection's words with the Mac's own beneath (git's
@@ -55,12 +57,15 @@ The target builds with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, `SWIFT_APPRO
   elapsed time across states. `PushFixtureInstall` runs only for the end-to-end script.
 - **`UITests/`** (scheme `BroskiE2E`): `scripts/e2e-ios-app.sh` starts `packages/link/testkit`'s
   `test-machine` (the real daemon and the real bridge on its fake backend; needs Bun and
-  `bun install` in `packages/bridge`), seeds two sessions, reinstalls the app with a clean keychain,
+  `bun install` in `packages/bridge`), seeds four sessions, reinstalls the app with a clean keychain,
   puts the pairing link on the simulator's pasteboard, and runs the tests: pair from the pasted link,
   see the history as idle, add a session through the machine (`{"seed":…}` appended to the file the
   machine reads) and see it as done, pull the inbox to refresh (the list stays whole, and the script
   fails unless the app logged that the core answered the refresh), then Machines, Settings, dark appearance and the largest text
-  size. `RunEndToEndTests`: a third session scripted to `hold` is started through the app's core
+  size; then the machine runs the fourth session as a terminal would (`{"run":<session>,
+  "scenario":"permission"}`, the session from `BROSKI_E2E_ASK_SESSION`): its row shows "Pi wants to
+  run bash" under Needs you with no chat opened, a swipe offers Deny and Approve, and Approve sends
+  the row leaving Needs you. `RunEndToEndTests`: a third session scripted to `hold` is started through the app's core
   (`E2EPrompt`), shows as working, the Live Activity shows it in Notification Center, Stop ends the
   run on the machine (the row leaves Working; the script fails unless the app logged the stop).
   `WorkspaceEndToEndTests` (the script makes `project/` in the served root a repository with a
@@ -112,20 +117,22 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
 - **Launch** (`BroskiApp.init` → `start()`): the identity secret from the keychain, or on the very
   first run `newIdentitySecret()` saved before anything else. Never replaced on an error: a keychain
   failure, a refused identity, or pairings without an identity show `IdentityProblemView`, whose
-  Start Over (confirmed) is the only path that removes the identity. Then `inbox().restoreSeen` with
-  the stored seen state, the inbox loop, `phone.start(record:)` for each stored record (one that
-  does not start is listed under Machines as unreadable, to forget), the path monitor and LAN
-  discovery.
+  Start Over (confirmed) is the only path that removes the identity. Then `inbox().restoreSeen` and
+  `restoreCache` with the stored seen state and cached inbox, `phone.start(record:)` for each stored
+  record (one that does not start is listed under Machines as unreadable, to forget), the inbox loop
+  (whose first rows are then the cached ones), the path monitor and LAN discovery.
 - **Persistence** (generic passwords, readable after first unlock, this device only):
 
   | What | Service / account | Access group |
   |---|---|---|
   | identity secret | `com.muzammil.broski` / `identity-secret` | the app's own (first entitlement) |
   | inbox `SeenState` (JSON, backends as wire names) | `com.muzammil.broski` / `inbox-seen` | the app's own |
+  | inbox cache (`InboxUpdate.cache`, bytes only the core reads) | `com.muzammil.broski` / `inbox-cache` | the app's own |
   | each `MachineRecord.toBytes()` | `com.muzammil.broski.machine` / machine id | `BroskiKeychainGroup` = `<team>.com.muzammil.broski.push`, shared with the notification extension |
 
   A record is written right after pairing and at every `MachineEvent.recordChanged`, removed on
-  forget; the seen state whenever `InboxUpdate.seen` is not `nil`.
+  forget; the seen state and the cache whenever `InboxUpdate.seen` or `.cache` is not `nil` (the core
+  hands a cache out at most every 2 s).
 - **Loops**: one per subscription, as `Task`s on the main actor. `InboxModel` pulls
   `Inbox.nextChange()` for the life of the phone (it never ends). Each `MachineModel` pulls
   `Machine.nextEvent()` until the core ends it (forgotten, replaced by a new pairing, revoked):
@@ -202,8 +209,14 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
   "Already paired"; progress in a glass card; every `LinkFailure` worded (`PairingProblem`) with its
   next step; success haptic; the notification permission ask with its one-line why.
 - **Inbox**: sections Needs you / Working / Done / Idle from the core's order, machine status chips,
-  rows (agent mark, title, ask, machine · folder or the machine's status, relative time, state mark),
-  rows of an unreachable machine dimmed, empty states (connecting, unreachable, no sessions, nothing
+  rows (agent mark, title, what the agent wants ("Claude Code wants to run npm test" from the row's
+  `command`, else its `ask`), machine · folder or the machine's status, relative time, state mark),
+  rows of an unreachable machine or from the cached inbox dimmed; Approve and Deny
+  (`InboxRowActions`: trailing swipe without full swipe, context menu, VoiceOver actions) only for a
+  row whose `pending` carries the backend's allow or deny, sent with `Inbox.answer` on the tap and
+  disabled while it is on its way, `.success` for an approval sent, `.warning` for a denial or an ask
+  answered elsewhere ("Already answered elsewhere." above the rows), `.error` for one that failed;
+  empty states (connecting, unreachable, no sessions, nothing
   working), the "n agents working" bottom accessory (iOS 26.1+) that filters to working, a failure
   haptic when a machine is lost, a needs-you badge on the tab.
 - **Machines**: per Mac its link (LAN / relay / waiting and why / revoked), last seen, bridge and

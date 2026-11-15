@@ -5,6 +5,8 @@
 //! - `{"seed":"<title>"}` → `{"seeded":<session>}`: a session with one finished exchange in the root
 //! - `{"script":<session>,"scenario":"<name>"}` → `{"scripted":<session>}`: the session's next run
 //!   (names in `packages/bridge/scripts/dev-fake-bridge/scenarios.ts`)
+//! - `{"run":<session>,"scenario":"<name>"}` → `{"running":<session>}`: another client (a
+//!   terminal) starts a run of the session that plays the scenario, with no phone prompting it
 //! - `{"release":<session>}` → `{"released":<session>}`: ends the hold the run waits in
 //! - `{"restart":true}` → `{"restarted":true}`: the bridge restarts in place, every run ended
 //!
@@ -45,6 +47,12 @@ async fn run(mac: &mut Mac, command: &Value) -> Option<Value> {
     {
         mac.bridge.script(&session, scenario).await;
         return Some(json!({ "scripted": session }));
+    }
+    if let (Some(session), Some(scenario)) =
+        (session(&command["run"]), command["scenario"].as_str())
+    {
+        mac.bridge.run(&session, scenario).await;
+        return Some(json!({ "running": session }));
     }
     if let Some(session) = session(&command["release"]) {
         mac.bridge.release(&session).await;

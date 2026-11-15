@@ -52,6 +52,6 @@ struct LiveRunTests {
         InboxRow(
             machineId: "00112233445566778899aabbccddeeff", machineName: "Studio Mac",
             session: SessionRef(backend: .claudeCode, sessionId: id), title: "Session \(id)", cwd: "/w", state: state,
-            updatedAt: updatedAt, ask: nil)
+            updatedAt: updatedAt, ask: nil, command: nil, pending: nil, cached: false)
     }
 }

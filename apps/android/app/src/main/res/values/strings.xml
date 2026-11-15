@@ -80,6 +80,11 @@
         <item quantity="other">%1$d agents working</item>
     </plurals>
     <string name="inbox_row_description">%1$s. %2$s. %3$s.</string>
+    <string name="inbox_wants_to_run">%1$s wants to run %2$s</string>
+    <string name="inbox_approve">Approve</string>
+    <string name="inbox_deny">Deny</string>
+    <string name="inbox_answered_elsewhere">Already answered elsewhere.</string>
+    <string name="inbox_answer_failed">Couldn\'t send the answer. %1$s</string>
 
     <!-- Machine health -->
     <string name="health_online_lan">Connected over the local network</string>

@@ -42,20 +42,28 @@ It is unsigned: sign it with your own key to install it.
   (round trip across a restart, nothing in the clear, a value that does not open is an error and never a
   first run, a value moved under another name does not open); which identity the phone opens with
   (made on a first run only, never over stored pairings; Start Over clears the vault); a handle on a
-  forgotten machine stays usable (`PhoneSessionTest`); the pairing flow over the host build of the
+  forgotten machine stays usable and a cold start with the machine unreachable shows the cached inbox
+  (`inbox-cache.json`) with nothing to answer (`PhoneSessionTest`); the pairing flow over the host build of the
   real core with the facade's fixture offer (preview, expiry, wrong code, empty clipboard, an unreachable
   machine that stores nothing and can be tried again, a sentence for every `LinkFailure`); inbox sections
-  from real `InboxRow` values; `MachineHealth` from `MachineStatus`; NSD routes.
+  from real `InboxRow` values; Approve and Deny only for the options a row's `pending` carries, and each
+  answer's haptic (`RowAnswerTest`); `MachineHealth` from `MachineStatus`; NSD routes.
 - **Instrumented** (`app/src/androidTest`): the vault under the real Keystore key; `StartupFailedTest`, the
   confirmation in front of Start Over; `RealMachineTest`, the whole first run against a real machine.
 
 `scripts/test-android-real-machine.sh` starts `packages/link/testkit`'s `test-machine` (the real daemon and
 the real bridge on its fake backend; needs cargo, Bun and `bun install` in `packages/bridge`), reverses its
 LAN port into the device with `adb reverse` so the app dials exactly the `127.0.0.1:<port>` route the offer
-names, clears the app's data, and runs `connectedDebugAndroidTest` with the offer and the served directory
-as instrumentation arguments. `RealMachineTest` puts the link on the clipboard, taps **Paste pairing link**,
+names, clears the app's data, has the machine run a session "Clean the build folder" as a terminal would
+(`{"run":<session>,"scenario":"permission"}`: it waits on a permission no phone prompted), and runs
+`connectedDebugAndroidTest` with the offer and the served directory as instrumentation arguments, leaving
+the app installed. `RealMachineTest` puts the link on the clipboard, taps **Paste pairing link**,
 **Pair with …**, waits for the inbox, starts a Pi session on the bridge through the app's own `Machine`,
-and finds its row in the inbox. Without those arguments it is skipped.
+finds its row in the inbox, then finds "Pi wants to run bash" on the waiting row, long-presses it, sees
+Approve and Deny, approves, and sees the row leave Needs you; it saves screenshots on the way. Without
+those arguments it is skipped. The script then stops the machine, starts the app cold, and fails unless
+the inbox shows that session's cached row (`uiautomator dump`); the screenshots and the cold start's go to
+`apps/android/build/real-machine` (or the directory given).
 
 ## Layout
 
@@ -80,17 +88,25 @@ Phase 4.2 adds `feature/chat`, `feature/composer`, `feature/workspace` and `feat
   the identity secret from the vault, or `newIdentitySecret()` stored first on a first run with nothing
   paired (`launchIdentity`); a secret that is stored but does not open, that the core refuses, or that is
   missing while records are stored stops the app with a plain screen and is never replaced. Its **Start
-  Over…** (confirmed, `AppCore.startOver`) is the only thing that clears the vault and makes a new identity. Then `inbox().restoreSeen(...)` with the stored seen state, then `phone.start(...)` for each
-  stored record. The splash screen stays until this and the settings are read.
+  Over…** (confirmed, `AppCore.startOver`) is the only thing that clears the vault and makes a new identity. Then `inbox().restoreSeen(...)` and `restoreCache(...)` with the stored seen state and cached
+  inbox (`Vault.restoreInbox`), then `phone.start(...)` for each stored record, so the first rows are the
+  cached ones. The splash screen stays until this and the settings are read.
 - **Vault** (`core/vault`): one Preferences DataStore file, each value sealed with AES-256-GCM under the
   Keystore key `broski.vault.v1`, the value's name as associated data: `identity`, `machine:<id>` (the
   record's `toBytes()`, stored at pairing and at every `RecordChanged`), `seen` (each non-null
-  `InboxUpdate.seen`). Backups and device transfer exclude the app's data: the key never leaves the device.
+  `InboxUpdate.seen`), `cache` (each non-null `InboxUpdate.cache`, at most every 2 s; bytes only the core
+  reads). Backups and device transfer exclude the app's data: the key never leaves the device.
 - **Loops**: one per subscription in `AppCore`'s `SupervisorJob` scope for the life of the process: the
   inbox (`rows()` first, then `nextChange()`), and per machine its events (`status()` and `record()` first,
   then `nextEvent()` until it ends), whose reads (each backend's status) are its children. Forgetting a
   machine cancels and joins that loop, then calls `Phone.forget`; the `Machine` handle is never closed by
   the session, since a screen may hold it and the binding's cleaner releases it. Screens observe `StateFlow`s.
+- **Answers from the inbox** (`feature/inbox/RowAnswer.kt`, `RowAnswerMenu.kt`): a row reads "<agent> wants to
+  run <command>" from its `command`, else its `ask`; a cached row is dimmed like one of an offline machine.
+  Approve and Deny exist only for the backend's own `pending.allow` / `pending.deny`: a long press (or a tap
+  while no chat opens) shows them in a menu, and TalkBack gets them as custom actions. The tap goes through
+  `PhoneSession.answer` (`Inbox.answer`); `Confirm` for an approval sent, `Reject` for a denial, an ask
+  answered elsewhere (snackbar "Already answered elsewhere.") or a failure.
 - **Lifecycle**: `ProcessLifecycleOwner` start/stop → `phone.resume()`/`pause()` and NSD discovery on/off; a
   process started in the background starts paused. `ConnectivityManager` default-network changes →
   `networkChanged()` (not the first network at registration).
