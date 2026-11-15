@@ -520,6 +520,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "broski-client"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "broski-contract",
+ "broski-link-session",
+ "broski-link-testkit",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "broski-contract"
 version = "0.1.0"
 dependencies = [
