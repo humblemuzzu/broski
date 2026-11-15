@@ -57,7 +57,7 @@ class ChatViewModel(
     private val mutableEvents = MutableSharedFlow<ChatEvent>(extraBufferCapacity = 8)
     private var noticeIds = 0L
 
-    val feed = SessionFeed(machine, route, viewModelScope, ::moment, ::followed)
+    val feed = SessionFeed(machine, route, viewModelScope, ::moment, ::followed, ::runEnded)
     val composer = ComposerState("", viewModelScope) { phone.saveDraft(machineId, route, it) }
     val catalog = CatalogReader(machine, viewModelScope)
     val actions = ChatActions(this, attachments, mutableEvents)
@@ -162,6 +162,9 @@ class ChatViewModel(
     private fun notice(level: NoticeLevel, text: String) {
         mutableNotices.update { (it + ChatNotice(++noticeIds, level, text)).takeLast(MAX_NOTICES) }
     }
+
+    /** A run's info notices are part of its turn in the transcript once it ends; warnings and errors wait to be read. */
+    private fun runEnded() = mutableNotices.update { list -> list.filterNot { it.level == NoticeLevel.INFO } }
 
     private fun followed(session: SessionRef) {
         phone.markSeen(machineId, session)

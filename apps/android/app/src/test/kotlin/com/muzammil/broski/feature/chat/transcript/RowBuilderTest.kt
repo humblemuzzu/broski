@@ -13,6 +13,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import uniffi.broski_contract.BlockKind
 import uniffi.broski_contract.OpenBlock
+import uniffi.broski_contract.RunAborted
+import uniffi.broski_contract.RunBoundaryItem
+import uniffi.broski_contract.RunOutcome
 import uniffi.broski_contract.SessionSnapshot
 import uniffi.broski_contract.ToolOutcome
 import uniffi.broski_contract.TranscriptItem
@@ -98,6 +101,13 @@ class RowBuilderTest {
         )
         val leads = build(snapshot = EmptySnapshot.copy(run = run)).filterIsInstance<ChatRow.Work>().map { it.fold.lead }
         assertEquals(listOf(FoldLead.Worked, FoldLead.None, FoldLead.Continued), leads)
+    }
+
+    @Test
+    fun theCopyButtonSitsUnderTheAnswerAboveTheNoteOfHowTheRunEnded() {
+        val stopped = TranscriptItem.RunBoundary(RunBoundaryItem("end", 3_000, RunOutcome.Aborted(RunAborted())))
+        val rows = build(history = listOf(Items.user("u1", "Go"), Items.text("t1", "Working."), stopped))
+        assertEquals(listOf("u:u1", "t:t1/p-0", "copy:t1", "n:end"), rows.map { it.key })
     }
 
     @Test

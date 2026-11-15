@@ -32,6 +32,7 @@ class SessionFeed(
     private val scope: CoroutineScope,
     private val onMoment: (SessionChange) -> Unit,
     private val onSessionChanged: (SessionRef) -> Unit,
+    private val onRunEnded: () -> Unit,
 ) {
     private val mutableLive = MutableStateFlow(LiveSession())
     private val mutableHistory = MutableStateFlow(History())
@@ -82,6 +83,7 @@ class SessionFeed(
         } else if (applied.endedRuns.isNotEmpty()) {
             mutableSettled.update { settled -> settled + applied.endedRuns.flatMap { it.items } }
             readNewest()
+            onRunEnded()
         }
         prunePending()
     }

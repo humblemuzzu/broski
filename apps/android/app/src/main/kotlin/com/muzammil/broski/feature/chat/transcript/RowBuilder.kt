@@ -108,6 +108,7 @@ class RowBuilder(private val markdown: (String) -> List<MarkdownBlock>) {
                     }
                     turn.answer += text
                     turn.lastTextId = id
+                    turn.copyAt = rows.size
                 }
             }
         }
@@ -126,7 +127,7 @@ class RowBuilder(private val markdown: (String) -> List<MarkdownBlock>) {
         private fun closeTurn() {
             fold = null
             val last = turn.lastTextId ?: return
-            if (!turn.live) rows += ChatRow.CopyAnswer("copy:$last", null, turn.answer.joinToString("\n\n"))
+            if (!turn.live) rows.add(turn.copyAt, ChatRow.CopyAnswer("copy:$last", null, turn.answer.joinToString("\n\n")))
         }
 
         fun finish(): List<ChatRow> {
@@ -142,6 +143,9 @@ class RowBuilder(private val markdown: (String) -> List<MarkdownBlock>) {
     private class Turn(val start: Long?, val continued: Boolean, var live: Boolean) {
         val answer = mutableListOf<String>()
         var lastTextId: String? = null
+
+        /** Right under the answer's last block, above any note that came after it. */
+        var copyAt = 0
         private var folds = 0
 
         fun nextLead(): FoldLead = when {
