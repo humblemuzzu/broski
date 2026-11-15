@@ -72,36 +72,38 @@ struct WorkFoldView: View {
             .animation(reduceMotion ? nil : .spring(duration: 0.24, bounce: 0.14), value: summary.text)
     }
 
+    /// A plain stack until it passes the cap, then a scroll view of the cap's height: a nested scroll
+    /// view whose height changes (a row opening) moves the transcript's horizontal offset, and the
+    /// transcript loses its side margins.
     private var list: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 1) {
-                ForEach(fold.entries) { entry in
-                    WorkRowView(entry: entry)
-                }
+        let rows = VStack(alignment: .leading, spacing: 1) {
+            ForEach(fold.entries) { entry in
+                WorkRowView(entry: entry)
             }
-            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { listHeight = $0 }
         }
-        .scrollBounceBehavior(.basedOnSize)
-        .scrollIndicators(.hidden)
-        .frame(height: min(listHeight, Self.cap))
-        .mask { EdgeFade(active: listHeight > Self.cap) }
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { listHeight = $0 }
+        return Group {
+            if listHeight > Self.cap {
+                ScrollView { rows }
+                    .scrollBounceBehavior(.basedOnSize)
+                    .scrollIndicators(.hidden)
+                    .frame(height: Self.cap)
+                    .mask { EdgeFade() }
+            } else {
+                rows
+            }
+        }
         .padding(.leading, Spacing.xs)
     }
 }
 
 /// Fades a capped list's top and bottom 12 pt, so rows read as going on beyond the edge.
 private struct EdgeFade: View {
-    let active: Bool
-
     var body: some View {
-        if active {
-            VStack(spacing: 0) {
-                LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom).frame(height: 12)
-                Color.black
-                LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom).frame(height: 12)
-            }
-        } else {
+        VStack(spacing: 0) {
+            LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom).frame(height: 12)
             Color.black
+            LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom).frame(height: 12)
         }
     }
 }
