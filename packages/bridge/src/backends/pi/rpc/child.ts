@@ -28,9 +28,17 @@ const STDERR_KEPT_CHARS = 8 * 1024;
 /**
  * The shutdown ladder of `docs/rpc.md:91-97`: stdin closed, then SIGTERM, then SIGKILL. Pi disposes its session and
  * finishes pending work on EOF; a second signal during that shutdown exits at once, so SIGTERM is sent once.
+ *
+ * A healthy `pi` is gone within a few hundred ms, so the waits only bound one that is stuck. They are long enough for
+ * what Pi's shutdown legitimately waits on: an OAuth refresh in flight, whose rotated token Pi saves before it exits
+ * (pi-coding-agent 1.5.2 `CHANGELOG.md:75`, `dist/core/agent-session-runtime.js:309-318`); SIGKILL there loses the
+ * token and signs the user out of the provider, in the terminal's `pi` too. Session files are appended synchronously
+ * (`dist/core/session-manager.js:813`), so no timing cuts one. A refresh round trip takes well under a second, its
+ * 30 s timeout (`pi-ai` `dist/auth/oauth/anthropic.js:77`) is not worth waiting out, and the bridge's own shutdown
+ * stops waiting after 5 s (`lifecycle/teardown.ts`), leaving a `pi` that had its stdin closed to finish by itself.
  */
-export const EXIT_AFTER_EOF_MS = 1_500;
-export const EXIT_AFTER_TERM_MS = 750;
+export const EXIT_AFTER_EOF_MS = 5_000;
+export const EXIT_AFTER_TERM_MS = 2_000;
 const EXIT_AFTER_KILL_MS = 250;
 /** The longest `stop()` takes. */
 export const STOP_BUDGET_MS = EXIT_AFTER_EOF_MS + EXIT_AFTER_TERM_MS + EXIT_AFTER_KILL_MS;

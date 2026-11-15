@@ -25,7 +25,7 @@ The bridge finds `pi` from the config key `pi.cliPath`, else `pi` on the login s
 | Directory | What lives there |
 |---|---|
 | `rpc/` | The wire: `JsonlSplitter` (LF-only records, CR stripped, 32 MiB cap), zod frames for responses, events and UI requests, `RpcClient` (request ids, deadlines, ordered delivery, backpressure), `PiProcess` (spawn in its own process group, stderr tail, the stop ladder). |
-| `live/` | A hosted session: `SessionHost` around a `PiChild`, the run tracker, prompt desk, queue mirror, settings, usage feed, the event bridge, the entry cursor, and `SessionHosts` (the registry with its locks, revive, idle end and the bound on hosts). |
+| `live/` | A hosted session: `SessionHost` driving the parts `host-parts.ts` wires (a `PiChild`, the run tracker, prompt desk, queue mirror, settings, usage feed, the event bridge, the entry cursor), and `SessionHosts` (the registry with its locks, revive, idle end and the bound on hosts). |
 | `host/` | The bridge's own extension, written into `~/.broski/pi/broski-host.ts` and loaded with `-e`: the permission gate and the `broski.*` records. `extension/` is agent code, read by the rest of the adapter only as text. |
 | `ui/` | Extension dialogs as interactions (`dialogs.ts`, `interactions.ts`) and permission asks (`permission-asks.ts`, `permission-request.ts`). |
 | `mapping/` | Pi's messages and events as contract events and transcript items. |
@@ -49,8 +49,16 @@ imports only Pi's packages, `node:` built-ins and itself, and that everything el
 - **A dialog asked in `session_start` fails the open.** Pi binds extensions before it attaches its stdin reader
   (`dist/modes/rpc/rpc-mode.js:305` against `:669`), so that dialog can never be answered; the host refuses the open
   with the dialog's title instead of waiting for the start deadline (20 s).
-- **Stop ladder** (`rpc/child.ts`): stdin EOF, 1.5 s; SIGTERM to the process group, 0.75 s; SIGKILL, 0.25 s. Pi runs
-  `session_shutdown` on EOF; one SIGTERM during that shutdown does not interrupt it (`docs/rpc.md:93-97`).
+- **Stop ladder** (`rpc/child.ts`): stdin EOF, 5 s; SIGTERM to the process group, 2 s; SIGKILL, 0.25 s. Pi runs
+  `session_shutdown` on EOF; one SIGTERM during that shutdown does not interrupt it (`docs/rpc.md:93-97`). Why these
+  waits: a healthy `pi` is gone in a few hundred ms, so they bound only a stuck one. Pi's shutdown waits for an OAuth
+  refresh in flight to be saved (`dist/core/agent-session-runtime.js:309-318`, changelog 1.5.1, #11692); SIGKILL during it
+  loses the rotated token and signs the user out of that provider, in the terminal's `pi` as well, so the ladder gives a
+  refresh over a slow link time (a refresh normally takes well under a second; its 30 s timeout, `pi-ai`
+  `dist/auth/oauth/anthropic.js:77`, is not waited out). Hosted children run with `PI_OFFLINE=1`, so no refresh starts
+  by itself; one can be in flight only when the user turned that off or a run is aborted inside it. Session files
+  cannot be cut: Pi appends them synchronously (`dist/core/session-manager.js:813`). The bridge's own shutdown gives up
+  after 5 s (`lifecycle/teardown.ts`) and leaves a `pi` whose stdin closed to finish alone, never killing it.
 - **Measured** (5 starts, no extensions, M-series Mac): `get_state` answered 124–141 ms after spawn; RSS about 110 MB
   per `pi`.
 - **New sessions** are written by the bridge before `pi` starts (header and `broski.origin`), because Pi writes no
