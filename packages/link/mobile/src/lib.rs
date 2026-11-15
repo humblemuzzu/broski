@@ -1,31 +1,32 @@
-//! BroskiCore, the library the iOS and Android apps link: the link session (`broski-link-session`)
-//! and the contract (`broski-contract`) exported to Swift and Kotlin through UniFFI.
+//! BroskiCore, the library the iOS and Android apps link: the phone's client core (`broski-client`)
+//! exported to Swift and Kotlin through UniFFI, with the functions the notification handlers and the
+//! pairing scanner call without a `Phone`.
 //!
-//! Everything here is a thin wrapper; the behaviour lives in those crates. No export takes a
-//! foreign callback: events are pulled with `LinkSession::next_event`. Every async export awaits
-//! work the session crate runs on its own `LinkRuntime` thread, or a `Notify`, so UniFFI can poll it
-//! from a Swift task or a Kotlin coroutine without blocking the caller's thread.
+//! Every export is a thin wrapper; the behaviour lives in the client, session and contract crates.
+//! No export takes a foreign callback: updates are pulled (`next_event`, `next_update`,
+//! `next_change`). Every async export can be polled from a Swift task or a Kotlin coroutine without
+//! blocking its thread, because the client waits on `Notify`s and runs its timers on the link
+//! runtime's own thread.
 
-mod error;
-mod events;
-mod frame;
-mod identity;
-mod pairing;
+mod inbox;
+mod link;
+mod machine;
+mod offer;
+mod phone;
 mod push;
 mod record;
-mod runtime;
-mod session;
+mod values;
+mod views;
 
-pub use error::CoreError;
-pub use events::{LinkEvent, LinkRoute, LinkStatus};
-pub use frame::{decode_frame, encode_frame};
-pub use identity::DeviceIdentity;
-pub use pairing::{pair, PairedMachine, PairingOffer, SessionOptions};
+pub use inbox::Inbox;
+pub use link::{LinkRoute, LinkStatus};
+pub use machine::Machine;
+pub use offer::{parse_pairing_offer, PairingOffer};
+pub use phone::{new_identity_secret, Phone};
 pub use push::{
     decision_letter, open_notification, HttpHeader, LetterRequest, PushDecision, PushNotification,
 };
 pub use record::MachineRecord;
-pub use runtime::LinkRuntime;
-pub use session::LinkSession;
+pub use views::{SessionList, SessionView, TerminalView};
 
 uniffi::setup_scaffolding!();

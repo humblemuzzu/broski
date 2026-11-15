@@ -45,8 +45,10 @@ native apps, and the iOS push code carried over for them.
   subscriptions) but with no UniFFI dependency: the facade `packages/link/mobile` exports it. Doc:
   [`docs/architecture/mobile-core.md`](docs/architecture/mobile-core.md).
 - **BroskiCore** (`packages/link/mobile/`, crate `broski-mobile`, library `libbroski_core`) — the UniFFI 0.32.2
-  facade both apps call: thin wrappers over the link session and the contract crate, events pulled with
-  `LinkSession.nextEvent()` (no foreign callbacks), `MachineRecord` opaque and stored as bytes.
+  facade both apps call: thin wrappers over the client core (`Phone`, `Machine`, `SessionView`, `TerminalView`,
+  `SessionList`, `Inbox`), its values restated with `#[uniffi::remote]`, and the pure push and offer functions
+  the notification handlers and the scanner call; updates pulled (`nextEvent`/`nextUpdate`/`nextChange`, no
+  foreign callbacks), `MachineRecord` opaque and stored as bytes.
   `scripts/build-ios-core.sh` makes `apps/ios/BroskiCore` (XCFramework + Swift package) and
   `scripts/build-android-core.sh` the `apps/android` `:core` module; bindings and binaries are build outputs,
   never committed. Doc: [`docs/architecture/mobile-packaging.md`](docs/architecture/mobile-packaging.md).

@@ -8,6 +8,7 @@ committed, and how to regenerate everything.
 ```
 packages/link/session   (broski-link-session: sockets, route race, resume, pairing, push crypto)
 packages/link/contract  (broski-contract: contract models with UniFFI derives, frame codec, reducer)
+packages/link/client    (broski-client: the phone's client core over both; no UniFFI dependency)
           └── packages/link/mobile  (broski-mobile → libbroski_core: the UniFFI facade)
                 ├── scripts/build-ios-core.sh      → apps/ios/BroskiCore (XCFramework + Swift package)
                 └── scripts/build-android-core.sh  → apps/android/core   (Android library module)
@@ -15,48 +16,160 @@ packages/link/contract  (broski-contract: contract models with UniFFI derives, f
 
 ## 1. The facade
 
-`broski-mobile` is a thin wrapper: every behaviour lives in the session and contract crates
-([link-session.md](connectivity-v2/link-session.md), [contract §3](contract/README.md)). It calls
-`uniffi::setup_scaffolding!()` and exports:
+`broski-mobile` exports the client core ([mobile-core.md](mobile-core.md)) and nothing beside it but
+the pure functions a notification handler or the pairing scanner calls without a `Phone`. Every
+behaviour lives in the client, session and contract crates; each export is a one-line forward. It calls
+`uniffi::setup_scaffolding!()`. Names below are Swift's, then Kotlin's where they differ.
 
-| Export | Kind | Wraps |
+### Objects
+
+| Object | Members | Wraps |
 |---|---|---|
-| `LinkRuntime()` | object | `LinkRuntime`: the one thread every session runs on; one per process |
-| `DeviceIdentity.generate()`, `.fromSecret(secret)`, `.secret()`, `.id()` | object | `DeviceIdentity` |
-| `PairingOffer.parse(uri)`, `.machineId()`, `.name()`, `.expiresAt()` | object | `Offer`; `pair` takes its one-time secret, a second `pair` throws `OfferUsed` |
-| `pair(runtime, identity, offer, options) async → PairedMachine { session, record }` | function | `pair` |
-| `LinkSession.start(runtime, identity, record, options)` | object | `Session::start` |
-| `LinkSession.nextEvent() async → LinkEvent?`, `.status()`, `.sendBridge(frame, tag)`, `.restartBridge()`, `.registerPush(platform, token)`, `.unregisterPush()`, `.pause()`, `.resume()`, `.networkChanged()`, `.lanDiscovered(routes)`, `.end()`, `.machineId()` | methods | `Session` (`end` is `close`, renamed because Kotlin objects already have `close()` from `AutoCloseable`) |
-| `MachineRecord.fromBytes(bytes)`, `.toBytes()`, `.id()`, `.name()`, `.os()`, `.pairedAtMs()` | object | `MachineRecord` and its stored form (`session/src/record_codec.rs`) |
-| `openNotification(record, data) → PushNotification` | function | `push::open_notification` |
-| `decisionLetter(record, decision, backend, session, request) → LetterRequest { url, headers, body }` | function | `push::decision_letter` |
-| `encodeFrame(message: ClientMessage) → bytes`, `decodeFrame(bytes) → ServerMessage` | functions | `broski_contract::{encode_frame, decode_frame}` |
-| `CoreError` (flat: every case carries the Rust message), `SendFailure` | errors | `broski_link_session::Error`, `SendFailure` |
+| `Phone` | `Phone(identitySecret:config:) throws` (Kotlin `Phone(identitySecret, config)`), `deviceId()`, `start(record:) throws → Machine`, `pair(offer:) async throws → Machine`, `machine(id:) → Machine?`, `allMachines()`, `forget(id:)`, `inbox() → Inbox`, `pause()`, `resume()`, `networkChanged()` | `broski_client::Phone`; one per process, it owns the link runtime's thread |
+| `Machine` | `id()`, `record() → MachineRecord`, `status() → MachineStatus`, `nextEvent() async → MachineEvent?`, `request(message:) async throws → ServerMessage`, `attach(session:) throws → SessionView`, `terminal(id:) throws → TerminalView`, `sessionList(backend:query:) throws → SessionList`, `backends() async throws`, `backendStatus(backend:) async throws`, `models(backend:cwd:includeUnavailable:) async throws`, `commands(backend:cwd:session:) async throws`, `modes(backend:cwd:) async throws`, `registerPush(platform:token:)`, `unregisterPush()`, `lanDiscovered(routes:)`, `restartBridge() throws` | `broski_client::Machine` |
+| `SessionView` | `nextUpdate() async → SessionUpdate?`, `snapshot() → SessionSnapshot?`, `session() → SessionRef?`, `capabilities() → SessionCapabilities?`, `detach()` | `broski_client::SessionView` (`detach` is its `close`) |
+| `TerminalView` | `id()`, `nextUpdate() async → TerminalUpdate?`, `summary() → TerminalSummary?`, `input(data:) async throws → ActionResult`, `resize(cols:rows:cellWidth:cellHeight:) async throws → ActionResult`, `detach()` | `broski_client::TerminalView` |
+| `SessionList` | `rows() → SessionListUpdate`, `nextChange() async → SessionListUpdate?`, `loadMore() async throws`, `refresh() async throws`, `stop()` | `broski_client::SessionList` |
+| `Inbox` | `rows() → [InboxRow]`, `nextChange() async → InboxUpdate`, `markSeen(machineId:session:)`, `seen() → [SeenMarker]`, `restoreSeen(markers:)` | `broski_client::Inbox` |
+| `MachineRecord` | `MachineRecord.fromBytes(bytes:) throws`, `toBytes()`, `id()`, `name()`, `os()`, `pairedAtMs()` | the session's `MachineRecord` and its stored form (`session/src/record_codec.rs`), opaque |
 
-Rules the facade keeps:
+No object has a method named `close` or `destroy`: Kotlin objects already have both, from
+`AutoCloseable` and UniFFI's `Disposable`, and they release the handle. The client's `close` of a
+view is exported as `detach`, of a list as `stop`; a machine is ended through `Phone.forget`.
 
-- **No foreign callbacks.** Events are pulled: the app runs `while let event = await session.nextEvent()`
-  in one task (a `Task` in Swift, a coroutine in Kotlin) and cancels the task to stop. Cancelling loses
-  no event: the wait is a `tokio::sync::Notify` polled on the caller's executor, and an event leaves the
-  queue only in the poll that returns it. Foreign traits are avoided altogether (they warn under Swift 6,
-  mozilla/uniffi-rs#2929).
-- **Async never blocks the caller's thread.** UniFFI polls an exported future on the foreign thread
-  and starts no runtime. `pair` hands its work to the session crate's `LinkRuntime` thread and awaits
-  the join; `nextEvent` touches no tokio I/O or timer, only the `Notify`.
-- **Secrets stay behind objects.** `MachineRecord` is opaque because it carries the relay token and
-  the push key; the app stores `toBytes()` whole in the Keychain or the Keystore. `DeviceIdentity`
-  hands its secret out only through `secret()`.
-- **Session values are UniFFI remote types** (`LinkStatus`, `LinkState`, `WaitReason`, `LinkRoute`,
-  `BridgeStatus`, `BridgeState`, `SendFailure`, `Platform`, `PushPlatform`, `PushNotification`,
-  `PushDecision`): the facade restates each definition under `#[uniffi::remote]`, and the compiler
-  checks the restatement against the session crate, so they cannot drift.
-- **Contract types are external types.** `broski-contract` derives `uniffi::Record`/`Enum` behind its
-  `uniffi` feature and sets up its own scaffolding; the facade uses `ClientMessage` and
-  `ServerMessage` directly and the bindgen emits the contract's bindings next to the facade's.
+### Functions
 
-`packages/link/mobile/tests/facade.rs` runs every export over fixtures the Swift and Kotlin smoke
-tests share (`tests/fixtures`: a QR offer written by the daemon's encoder, the stored record and
-device secret of that pairing, the push vectors of [push.md](connectivity-v2/push.md)).
+| Function | Wraps |
+|---|---|
+| `newIdentitySecret() throws → Data` (`ByteArray`) | `broski_client::new_identity_secret` |
+| `parsePairingOffer(uri:) throws → PairingOffer { machineId, name, expiresAt }` | `Offer::parse`: what the scanner shows and checks before `Phone.pair` |
+| `openNotification(record:data:) throws → PushNotification` | `push::open_notification` |
+| `decisionLetter(record:decision:backend:session:request:) throws → LetterRequest { url, headers, body }` | `push::decision_letter` |
+
+### Values
+
+- **The client's**, restated under `#[uniffi::remote]` in `mobile/src/values.rs` (the compiler checks
+  each restatement against `broski-client`, so they cannot drift): `PhoneConfig`, `MachineStatus`,
+  `ContractState`, `MachineEvent`, `SessionUpdate`, `SessionChange`, `ViewEnd`, `TerminalUpdate`,
+  `SessionListUpdate`, `InboxRow`, `InboxState`, `InboxUpdate`, `SeenMarker`, `LinkFailure`, and the
+  error `ClientError`.
+- **The session's**, restated the same way in `mobile/src/link.rs` and `push.rs`: `LinkStatus` (its
+  `Status`), `LinkState`, `WaitReason`, `LinkRoute` (`Route`), `BridgeStatus`, `BridgeState`,
+  `SendFailure`, `Platform`, `PushPlatform`, `PushNotification`, `PushDecision`.
+- **The facade's own**: `PairingOffer`, `HttpHeader`, `LetterRequest`.
+- **The contract's** models are external types: `broski-contract` derives `uniffi::Record`/`Enum` behind
+  its `uniffi` feature and sets up its own scaffolding, and the bindgen emits its bindings next to the
+  facade's (`ClientMessage`, `ServerMessage`, `SessionRef`, `SessionSnapshot`, …).
+
+In Kotlin an enum without data is an `enum class` (`WaitReason.RETRY`, `LinkFailure.MACHINE_UNREACHABLE`,
+`InboxState.NEEDS_YOU`) and one with data a sealed class (`ContractState.Ready(bridgeVersion)`, an
+`object` for each case without data, `ContractState.Waiting`). Every failure is `ClientError`: in Swift an
+enum whose cases keep their Rust names (`ClientError.Link(failure: .identity, detail:)`), in Kotlin the
+sealed `ClientException` (`ClientException.Link`, with `failure` and `detail`). A case's text is `detail`,
+never `message`, because UniFFI's Kotlin exception class already overrides `Throwable.message` and a
+field of that name would not compile (`uniffi_bindgen-0.32.2/src/bindings/kotlin/templates/ErrorTemplate.kt`).
+
+### What the facade no longer exports
+
+The first facade exported the session crate directly: `LinkRuntime`, `DeviceIdentity`, a single-use
+`PairingOffer` object with `pair(runtime, identity, offer, options)`, `LinkSession` with `LinkEvent` and
+`SessionOptions`, `encodeFrame`/`decodeFrame`, and a flat `CoreError`. The client owns all of that now
+(its `Phone` holds the runtime and the identity and starts every session, and its machines encode and
+decode every frame), so an app that used them would run a second, unmanaged path beside the client's.
+They are gone; `ClientError.Link` keeps the distinctions `CoreError` drew (`LinkFailure`).
+
+### Subscriptions, cancellation and threads
+
+Updates are pulled: one loop per subscription, one reader at a time, no foreign callbacks (foreign
+traits also warn under Swift 6, mozilla/uniffi-rs#2929). A pull ends with `nil`/`null` once its
+subscription has: `SessionView` and `TerminalView` after their last update or `detach()`, `SessionList`
+after `stop()`, `Machine.nextEvent` once the machine is forgotten, replaced by a new pairing or revoked.
+`Inbox.nextChange` never ends; it lives as long as the phone.
+
+**Swift: a cancelled task does not cancel its pull.** UniFFI 0.32.2 awaits a Rust future in
+`withUnsafeContinuation` with no cancellation handler (`templates/Async.swift`; `Helpers.swift` even
+`fatalError`s on a cancelled call), so `await view.nextUpdate()` goes on after its `Task` is cancelled,
+and what it takes still reaches the task: nothing is lost, but nothing stops either. A loop ends by
+ending its subscription, which a SwiftUI `.task` does from its cancellation:
+
+```swift
+.task {
+    await withTaskCancellationHandler {
+        while let update = await view.nextUpdate() { model.apply(update) }
+    } onCancel: {
+        view.detach()
+    }
+}
+```
+
+The inbox's and each machine's event loops belong to the app's model, for the life of the phone and of
+each machine.
+
+**Kotlin: a cancelled coroutine cancels its pull.** The bindings suspend in
+`suspendCancellableCoroutine` and free the Rust future when the coroutine is cancelled
+(`templates/Async.kt`), which drops the client's wait; an update leaves its queue only in the poll that
+returns it, so the next pull gets everything that came after. One window remains: a cancellation that
+lands after Rust finished the poll and before the coroutine resumed discards that one result with the
+future (`uniffi_core-0.32.2/src/ffi/rustfuture/future.rs` keeps it until `complete`, and `free` drops
+it). Hence:
+
+- a `SessionView` or `TerminalView`, whose updates are deltas, lives exactly as long as its loop: open it
+  in the coroutine and detach it in `finally` (in a ViewModel: open in `init`, loop in `viewModelScope`,
+  detach in `onCleared`);
+- a loop over state (`Inbox`, `SessionList`, `Machine` events) starts from the getters (`rows()`,
+  `status()`, `record()`, `seen()`) and then applies each update.
+
+```kotlin
+viewModelScope.launch {
+    val view = machine.attach(session)
+    try {
+        while (true) apply(view.nextUpdate() ?: break)
+    } finally {
+        view.detach()
+        view.close()
+    }
+}
+```
+
+Kotlin's `close()` releases the handle, but a pull in progress holds its own (an async call clones the
+handle into its future), so `close()` alone does not end a loop; `detach()`/`stop()` does.
+
+**Threads.** UniFFI polls an exported future on the caller's executor and starts no runtime; the client
+waits only on `Notify`s and `oneshot`s and runs its timers on the link runtime, its one thread
+(`broski-link`), so no async export blocks the caller's thread. The synchronous methods take a lock
+briefly and may be called from the main thread. Every object is `Send + Sync` (Swift
+`@unchecked Sendable`).
+
+### Lifecycle and what the app persists
+
+- **First run:** `newIdentitySecret()`, stored in the Keychain or the Keystore before anything else.
+  Every launch: `Phone(identitySecret:config:)`. A stored secret that fails (`ClientError.Link` with
+  `.identity`) is surfaced, never replaced: a new identity orphans every pairing.
+- **Pairing:** `parsePairingOffer` for the scanner (the machine's name, `expiresAt`, and whether
+  `machineId` is already paired, which a new pairing replaces), then `phone.pair(offer:)`; persist
+  `machine.record().toBytes()` at once, and again at every `MachineEvent.recordChanged` (the event
+  carries no record: the record holds the relay token and push key, and reaches the app only as the
+  opaque object).
+- **Launch:** `inbox().restoreSeen(markers:)` with the stored markers, then `phone.start(record:)` for
+  each stored record. Persist `InboxUpdate.seen` whenever it is not `nil`.
+- **While running:** `phone.pause()`/`resume()` with the app's foreground, `networkChanged()` on a path
+  change, `machine.lanDiscovered(routes:)` from `NWBrowser`/`NsdManager`, `machine.registerPush` on every
+  machine when the token changes and on each new pairing.
+- **Notification handlers** read the record from the shared Keychain or Keystore:
+  `MachineRecord.fromBytes`, `openNotification`, and `decisionLetter` for a lock-screen decision, which
+  they `POST` themselves. They create no `Phone`.
+- **Unpairing:** `phone.forget(id:)`, then delete the stored record.
+
+### Tests
+
+`packages/link/mobile/tests/facade.rs` runs the exports with no machine to reach, over fixtures the Swift
+and Kotlin tests share (`tests/fixtures`: a QR offer written by the daemon's encoder, the stored record
+and device secret of that pairing, the push vectors of [push.md](connectivity-v2/push.md)).
+`tests/phone.rs` drives the exported API as an app does against the real daemon and the real bridge
+(`broski-link-testkit`): pair from a scanned offer, a run streaming into a view whose UI copy (the
+client's `tests/common/replica.rs`) equals the snapshot, the inbox with a home-screen loop and its seen
+markers, a session list, a terminal, then a new `Phone` from the stored identity, record and markers
+that finds the session seen, and `forget`.
 
 ## 2. Building
 
@@ -135,12 +248,23 @@ lines added still built with `swift build` and with `xcodebuild` for the simulat
 lines are left out anyway because nothing needs them: the headers include only `<stdbool.h>`,
 `<stddef.h>` and `<stdint.h>`, and the package builds without the lines on every platform.
 
-**Swift 6.** The package builds in Swift 6 language mode with `-warnings-as-errors`: UniFFI 0.32.2
+**Swift 6.** The package builds in Swift 6 language mode, and its checks pass `-warnings-as-errors`: UniFFI 0.32.2
 marks objects `@unchecked Sendable` (they are `Arc`s of `Send + Sync` Rust types) and records and
 enums `Sendable`, and no export is a foreign trait, so the async-trait warning of #2929 never arises.
 
-**Checks:** `swift test` in `apps/ios/BroskiCore` (host); `xcodebuild test -scheme BroskiCore
--destination 'platform=iOS Simulator,…'` runs the same suite in the simulator;
+**Tests** (`Tests/BroskiCoreTests`, Swift Testing over the real library): with no machine to reach, a
+phone from a new and from a broken secret, the offer and the stored record, a pairing that says why it
+failed, a stored machine that retries its dial and ends when forgotten (a contract request and a
+`SessionRef` crossing both ways), a pull that outlives its cancelled task and still delivers the next
+update, the `withTaskCancellationHandler` loop that detaches its view, seen markers, and the push
+vectors; `Support.swift` holds the Swift `Replica`, the model code an app's chat screen mirrors. On the
+host only (`#if os(macOS)`), `RealMachineTests.swift` runs `packages/link/testkit`'s `test-machine`
+(`cargo run`: the real daemon, and the real bridge on Bun, as `cargo test -p broski-client` needs them),
+pairs with it, and holds the Swift replica of a streamed run equal to the view's snapshot.
+
+**Checks:** `swift test -Xswiftc -warnings-as-errors` in `apps/ios/BroskiCore` (host; needs cargo, Bun
+and `bun install` in `packages/bridge`); `xcodebuild test -scheme BroskiCore
+-destination 'platform=iOS Simulator,…'` runs the suite but the real-machine test in the simulator;
 `xcodebuild build-for-testing -scheme BroskiCore -destination 'generic/platform=iOS Simulator'` and
 `… 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO` link the test bundle against each slice.
 
@@ -187,7 +311,7 @@ apps/android/
     consumer-rules.pro        R8 rules every consuming app applies
     src/main/jniLibs/         libbroski_core.so per ABI (generated)
     src/generated/kotlin/     uniffi.broski_contract, uniffi.broski_core (generated)
-    src/test/kotlin/          the JVM smoke test
+    src/test/kotlin/          the JVM tests
 ```
 
 AGP 9 compiles Kotlin itself (built-in Kotlin), so no `org.jetbrains.kotlin.android` plugin is
@@ -229,6 +353,11 @@ minified app has run them yet, so the Phase 4 app's release build on a device is
 `scripts/check-android-alignment.sh <aar|apk>` fails unless every `.so` inside has LOAD segments
 aligned to at least `0x4000` (read with the NDK's `llvm-readelf`).
 
+**Tests** (`core/src/test/kotlin`, JUnit over the host library): the Swift suite's cases with no machine
+to reach, where cancelling a coroutine ends its pull at once and the next pull still gets the update
+that came after, and `detach()` ends a pull in progress. The real-machine pairing is the Swift suite's
+only: both bindings come from the same library metadata, and the JVM tests stay free of cargo and Bun.
+
 **Checks** (from `apps/android`): `./gradlew :core:assembleDebug :core:assembleRelease
 :core:testDebugUnitTest`, then `scripts/check-android-alignment.sh core/build/outputs/aar/core-release.aar`.
 
@@ -238,7 +367,8 @@ aligned to at least `0x4000` (read with the NDK's `llvm-readelf`).
 
 - `link` — fmt, clippy and tests of the whole workspace, which includes `broski-mobile` and therefore
   the contract with its UniFFI derives, plus clippy of the contract without them.
-- `ios-core` (`macos-26`) — `build-ios-core.sh`, `swift test`, and `build-for-testing` for the
+- `ios-core` (`macos-26`) — `build-ios-core.sh`, Bun and the bridge's dependencies (for the
+  real-machine test), `swift test -Xswiftc -warnings-as-errors`, and `build-for-testing` for the
   simulator and for devices.
 - `android-core` (`ubuntu-latest`) — the catalog's NDK and SDK packages through the runner's
   `sdkmanager`, `cargo-ndk` 4.1.2, `build-android-core.sh`, both assembles and the JVM tests, and the
@@ -246,10 +376,13 @@ aligned to at least `0x4000` (read with the NDK's `llvm-readelf`).
 
 ## 6. Adding to the API
 
-A new export is a `#[uniffi::export]` item in `packages/link/mobile/src/`, wrapping a crate that owns
-the behaviour. Objects are `#[derive(uniffi::Object)]` newtypes returned as `Arc<Self>`; async methods
-await work on the `LinkRuntime` thread or a runtime-free primitive, never block; streams are objects
-with an `async fn next_…() -> Option<…>` the app pulls. A type another UniFFI crate already derives
-needs no code; a plain Rust type from the session crate is restated with `#[uniffi::remote]`. Then
+A new capability belongs in `broski-client` first; the facade then forwards it with a
+`#[uniffi::export]` item in `packages/link/mobile/src/`. Objects are `#[derive(uniffi::Object)]`
+newtypes over the client's `Arc`s, returned as `Arc<Self>`; async methods await only what the client
+awaits (a `Notify`, a `oneshot`, a timer on the link runtime), never block; streams are objects with an
+`async fn next_…() -> Option<…>` the app pulls and a `detach`/`stop` that ends a pull in progress. A
+type another UniFFI crate already derives needs no code; a plain Rust type of the client or the session
+crate is restated with `#[uniffi::remote]`, which the compiler checks against it. No method may be
+named `close` or `destroy`, and no error field `message` (§1). Then
 rerun both scripts: Swift and Kotlin pick the new API up from the regenerated bindings with no change
 to the packaging.

@@ -1,4 +1,5 @@
-//! The exports over the fixtures the Swift and Kotlin smoke tests share (`tests/fixtures`).
+//! The exports with no machine to talk to, over the fixtures the Swift and Kotlin tests share
+//! (`tests/fixtures`).
 //!
 //! `offer.txt` is a QR offer written by the daemon's encoder (`PairingOffer::to_uri`) for the
 //! machine whose stored record is `record.json`, paired with the device whose secret is
@@ -9,13 +10,16 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use broski_contract::{ClientInfo, ClientMessage, HelloRequest, ProtocolVersion, ServerMessage};
+use broski_client::{
+    ClientError, ContractState, LinkFailure, MachineStatus, PhoneConfig, SeenMarker, SessionUpdate,
+};
+use broski_contract::{BackendId, ClientMessage, HelloRequest, SessionRef, PROTOCOL_VERSION};
 use broski_core::{
-    decision_letter, decode_frame, encode_frame, open_notification, pair, CoreError,
-    DeviceIdentity, LinkEvent, LinkRuntime, LinkSession, MachineRecord, PairingOffer, PushDecision,
-    SessionOptions,
+    decision_letter, new_identity_secret, open_notification, parse_pairing_offer, Machine,
+    MachineRecord, Phone, PushDecision,
 };
 use broski_link_session::{LinkState, Platform, WaitReason};
+use tokio::time::timeout;
 
 fn fixture(name: &str) -> Vec<u8> {
     let path = format!("{}/tests/fixtures/{name}", env!("CARGO_MANIFEST_DIR"));
@@ -26,92 +30,147 @@ fn text(name: &str) -> String {
     String::from_utf8(fixture(name)).expect("utf-8")
 }
 
-fn options() -> SessionOptions {
-    SessionOptions {
+fn config() -> PhoneConfig {
+    PhoneConfig {
         device_name: "Test Phone".into(),
         platform: Platform::Ios,
+        client_name: "broski-mobile tests".into(),
+        client_version: "0.0.0".into(),
     }
 }
 
-fn identity() -> Arc<DeviceIdentity> {
-    DeviceIdentity::from_secret(fixture("device-secret.bin")).expect("identity")
+/// The phone of the fixtures' pairing.
+fn phone() -> Arc<Phone> {
+    Phone::new(fixture("device-secret.bin"), config()).expect("a phone")
+}
+
+/// Pulls the machine's events until its status satisfies `done`.
+async fn status_until(machine: &Machine, done: impl Fn(&MachineStatus) -> bool) {
+    while !done(&machine.status()) {
+        timeout(Duration::from_secs(10), machine.next_event())
+            .await
+            .unwrap_or_else(|_| panic!("timed out at {:?}", machine.status()))
+            .expect("the machine goes on");
+    }
 }
 
 #[test]
-fn the_offer_pins_the_machine_the_record_was_paired_with() {
-    let offer = PairingOffer::parse(text("offer.txt")).expect("offer");
+fn the_offer_names_the_machine_the_record_was_paired_with() {
+    let offer = parse_pairing_offer(text("offer.txt")).expect("offer");
     let record = MachineRecord::from_bytes(fixture("record.json")).expect("record");
-    assert_eq!(offer.machine_id(), record.id());
-    assert_eq!(offer.name(), "Studio Mac");
-    assert_eq!(offer.expires_at(), 4_102_444_800);
+    assert_eq!(offer.machine_id, record.id());
+    assert_eq!(offer.name, "Studio Mac");
+    assert_eq!(offer.expires_at, 4_102_444_800);
     assert_eq!(record.to_bytes(), fixture("record.json"));
-}
-
-#[tokio::test]
-async fn a_pairing_with_an_unreachable_machine_fails_and_spends_the_offer() {
-    let runtime = LinkRuntime::new().expect("runtime");
-    let offer = PairingOffer::parse(text("offer.txt")).expect("offer");
-    let first = pair(runtime.clone(), identity(), offer.clone(), options()).await;
-    assert!(matches!(first, Err(CoreError::MachineUnreachable(_))));
-    let again = pair(runtime, identity(), offer, options()).await;
-    assert!(matches!(again, Err(CoreError::OfferUsed)));
-}
-
-#[tokio::test]
-async fn a_stored_session_reports_its_failed_dial_then_its_close() {
-    let runtime = LinkRuntime::new().expect("runtime");
-    let record = MachineRecord::from_bytes(fixture("record.json")).expect("record");
-    let session =
-        LinkSession::start(runtime, identity(), record.clone(), options()).expect("start");
-    assert_eq!(session.machine_id(), record.id());
-
-    let mut states = Vec::new();
-    let retrying = tokio::time::timeout(Duration::from_secs(10), async {
-        while let Some(LinkEvent::Status { status }) = session.next_event().await {
-            states.push(status.state);
-            if status.state == LinkState::Waiting(WaitReason::Retry) {
-                return;
-            }
-        }
-    });
-    retrying
-        .await
-        .expect("the dial fails and a retry is scheduled");
-
-    session.end();
-    let mut last = None;
-    while let Some(event) = session.next_event().await {
-        if let LinkEvent::Status { status } = event {
-            last = Some(status.state);
-        }
-    }
-    assert_eq!(last, Some(LinkState::Closed), "after {states:?}");
+    assert!(matches!(
+        parse_pairing_offer("broski://pair?v=1".into()),
+        Err(ClientError::Link {
+            failure: LinkFailure::Offer,
+            ..
+        })
+    ));
 }
 
 #[test]
-fn a_contract_message_crosses_the_frame_both_ways() {
+fn a_phone_starts_from_a_new_secret_and_refuses_a_broken_one() {
+    let secret = new_identity_secret().expect("a secret");
+    let phone = Phone::new(secret.clone(), config()).expect("a phone");
+    assert_eq!(phone.device_id().len(), 32);
+    assert_eq!(
+        Phone::new(secret, config()).expect("again").device_id(),
+        phone.device_id()
+    );
+    assert!(matches!(
+        Phone::new(vec![1, 2, 3], config()),
+        Err(ClientError::Link {
+            failure: LinkFailure::Identity,
+            ..
+        })
+    ));
+}
+
+#[tokio::test]
+async fn a_pairing_with_an_unreachable_machine_says_why() {
+    let paired = phone().pair(text("offer.txt")).await;
+    assert!(
+        matches!(
+            paired,
+            Err(ClientError::Link {
+                failure: LinkFailure::MachineUnreachable,
+                ..
+            })
+        ),
+        "{:?}",
+        paired.err()
+    );
+}
+
+#[tokio::test]
+async fn a_stored_machine_retries_its_dial_holds_its_views_and_ends_when_forgotten() {
+    let phone = phone();
+    let record = MachineRecord::from_bytes(fixture("record.json")).expect("record");
+    let machine = phone.start(record.clone()).expect("started");
+    assert_eq!(machine.id(), record.id());
+    assert_eq!(machine.record().to_bytes(), record.to_bytes());
+    assert_eq!(phone.all_machines().len(), 1);
+    status_until(&machine, |status| {
+        status.link.state == LinkState::Waiting(WaitReason::Retry)
+    })
+    .await;
+    assert_eq!(machine.status().contract, ContractState::Waiting);
+
+    let session = SessionRef {
+        backend: BackendId::Pi,
+        session_id: "s-1".into(),
+    };
+    let view = machine.attach(session.clone()).expect("a view");
+    assert_eq!(view.session(), Some(session));
+    assert_eq!(
+        view.snapshot(),
+        None,
+        "not attached until a bridge is ready"
+    );
     let hello = ClientMessage::Hello(HelloRequest {
-        request_id: "r-1".into(),
-        protocol: ProtocolVersion { major: 1, minor: 0 },
-        client: ClientInfo {
-            name: "broski-ios".into(),
-            version: "1.0.0".into(),
+        request_id: String::new(),
+        protocol: PROTOCOL_VERSION,
+        client: broski_contract::ClientInfo {
+            name: "app".into(),
+            version: "1".into(),
         },
     });
-    let sent: serde_json::Value = serde_json::from_slice(&encode_frame(hello)).expect("json");
-    assert_eq!(sent["type"], "contract");
-    assert_eq!(sent["message"]["type"], "hello");
-    assert_eq!(sent["message"]["client"]["name"], "broski-ios");
-
-    let reply = br#"{"type":"contract","message":{"type":"hello.result","requestId":"r-1","protocol":{"major":1,"minor":0},"bridgeVersion":"2.0.0"}}"#;
-    let ServerMessage::HelloResult(result) = decode_frame(reply.to_vec()).expect("frame") else {
-        panic!("a hello result");
-    };
-    assert_eq!(result.bridge_version, "2.0.0");
     assert!(matches!(
-        decode_frame(b"{\"type\":\"contract\"}".to_vec()),
-        Err(CoreError::Frame(_))
+        machine.request(hello).await,
+        Err(ClientError::InvalidRequest { .. })
     ));
+
+    phone.forget(machine.id());
+    assert!(phone.machine(machine.id()).is_none());
+    let ended = async { while machine.next_event().await.is_some() {} };
+    timeout(Duration::from_secs(10), ended)
+        .await
+        .expect("the machine's events end");
+    assert_eq!(machine.status().link.state, LinkState::Closed);
+    let pending = timeout(Duration::from_secs(10), view.next_update()).await;
+    assert!(
+        matches!(pending, Ok(Some(SessionUpdate::Ended { .. }))),
+        "{pending:?}"
+    );
+}
+
+#[test]
+fn seen_markers_go_back_in_as_the_app_stored_them() {
+    let inbox = phone().inbox();
+    assert!(inbox.rows().is_empty());
+    let marker = SeenMarker {
+        machine_id: "00112233445566778899aabbccddeeff".into(),
+        session: SessionRef {
+            backend: BackendId::ClaudeCode,
+            session_id: "s-9".into(),
+        },
+        seen_at: 1_725_000_000_000,
+    };
+    inbox.restore_seen(vec![marker.clone()]);
+    assert_eq!(inbox.seen(), vec![marker]);
 }
 
 #[test]
@@ -123,6 +182,13 @@ fn the_pinned_push_opens_and_a_decision_seals_for_the_relay() {
         ("approval", "Approve Bash")
     );
     assert_eq!(push.request.as_deref(), Some("req-1"));
+    assert!(matches!(
+        open_notification(record.clone(), "AAAA".into()),
+        Err(ClientError::Link {
+            failure: LinkFailure::Push,
+            ..
+        })
+    ));
 
     let letter = decision_letter(record, PushDecision::Deny, "pi".into(), "s-2".into(), None)
         .expect("letter");

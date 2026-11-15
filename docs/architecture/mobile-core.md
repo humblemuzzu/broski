@@ -27,30 +27,40 @@ SwiftUI / Compose ── broski-mobile (UniFFI) ── broski-client ── bros
   waits for news are `tokio::sync::Notify`, which needs no runtime (`wait.rs`, tested by polling from a
   thread with no runtime).
 - Subscriptions are **pulled**, as litter does it (`docs/rebuild/research/uniffi.md`): `next_update`,
-  `next_change`, `next_event`. The app runs a loop per subscription and cancels the task to stop; a
-  cancelled pull loses nothing, since an update is only taken in the poll that returns it.
+  `next_change`, `next_event`. The app runs a loop per subscription. A pull dropped before it returns
+  loses nothing, since an update is only taken in the poll that returns it, and closing a view or list
+  wakes a pull in progress to return `None`. How Swift and Kotlin cancel a pull differs:
+  [mobile-packaging.md §1](mobile-packaging.md#subscriptions-cancellation-and-threads).
 
 ## API
 
+The Rust names; the apps call them through the facade, whose names and lifecycle
+[mobile-packaging.md §1](mobile-packaging.md#1-the-facade) lists (`close` is `detach` or `stop` there,
+and a machine ends through `Phone.forget`).
+
 | Object | What it is |
 |---|---|
-| `Phone::new(identity_secret, PhoneConfig)`, `with_timings(…, Timings)` | the app's one client; `new_identity_secret()` makes a secret on first run |
-| `phone.start(MachineRecord)`, `pair(offer_uri) -> PairedMachine{machine, record}` | a stored machine, or a new pairing; the app persists `record` |
+| `Phone::new(identity_secret, PhoneConfig)` | the app's one client; `new_identity_secret()` makes a secret on first run; `with_timings(…, Timings)` is for tests |
+| `phone.start(MachineRecord)`, `pair(offer_uri) -> Machine` | a stored machine, or a new pairing, whose `record()` the app persists at once |
 | `phone.machine(id)`, `all_machines()`, `forget(id)`, `inbox()`, `pause()`, `resume()`, `network_changed()` | machines and the app's lifecycle, passed to every machine |
 | `machine.request(ClientMessage) -> ServerMessage` | any contract request; the answer is the `….result` message |
 | `machine.attach(SessionRef) -> SessionView`, `terminal(TerminalId) -> TerminalView` | views; `session_list(backend, SessionQuery) -> SessionList` |
 | `machine.backends()`, `backend_status(b)`, `models(b, cwd, include_unavailable)`, `commands(b, cwd, session)`, `modes(b, cwd)` | the catalog, cached |
-| `machine.status() -> MachineStatus`, `next_event() -> MachineEvent`, `record()` | status for the UI; `RecordChanged` to persist |
+| `machine.status() -> MachineStatus`, `next_event() -> MachineEvent`, `record()` | status for the UI; at `RecordChanged` the app persists `record()` (the event carries no record, which holds secrets) |
 | `machine.register_push(platform, token)`, `unregister_push()`, `pause()`, `resume()`, `network_changed()`, `lan_discovered(routes)`, `restart_bridge()`, `close()` | the link session's own calls |
 | `view.next_update() -> SessionUpdate`, `snapshot()`, `session()`, `capabilities()`, `close()` | a chat screen's data |
 | `terminal.next_update() -> TerminalUpdate`, `input(bytes)`, `resize(cols, rows, cell_w?, cell_h?)`, `summary()`, `close()` | a terminal screen's data |
 | `list.rows()`, `next_change()`, `load_more()`, `refresh()`, `close()` | one session list |
 | `inbox.rows()`, `next_change() -> InboxUpdate`, `mark_seen(machine_id, session)`, `seen()`, `restore_seen(markers)` | the home screen |
 
-Every failure is a `ClientError`: `Refused{code, message}` (the bridge's `error{…}`), `Rejected{code,
-message}` (a result's `Rejected`, from the helpers that return nothing on success; every other helper
+Every failure is a `ClientError`: `Refused{code, detail}` (the bridge's `error{…}`), `Rejected{code,
+detail}` (a result's `Rejected`, from the helpers that return nothing on success; every other helper
 returns the result union itself), `Incompatible`, `LinkReset`, `Timeout`, `NotSent{failure}`,
-`Overloaded`, `InvalidRequest`, `UnexpectedAnswer`, `Revoked`, `Closed`, `Link{message}`. The contract's
+`Overloaded`, `InvalidRequest`, `UnexpectedAnswer`, `Revoked`, `Closed`, `Link{failure, detail}` (the link
+session refused; `LinkFailure` says what: `Identity`, `Offer`, `OfferExpired`, `Record`,
+`MachineUnreachable`, `FingerprintMismatch`, `PairingRejected`, `PairingTimeout`, `Push`, `Randomness`,
+`Runtime`). A case's text is `detail`, never `message`, which Kotlin's exceptions already have. The
+identity secret and the offer the app hands in are wiped once read. The contract's
 models are `broski-contract`'s generated types; the session crate's `MachineRecord`, `Status`,
 `BridgeStatus`, `Platform`, `PushPlatform` and `Timings` are re-exported as they are.
 
@@ -223,7 +233,8 @@ however long it goes unread.
 - It builds requests from the generated types and the view's `session()`; it never re-validates an answer
   (the bridge runs `answerProblem`), never answers for the person, and shows `expiresAt` without acting on it.
 - When `run` goes from a value to none it reads the transcript's newest page (contract README §8).
-- It persists `PairedMachine.record`, every `RecordChanged`, the identity secret, and `InboxUpdate.seen`.
+- It persists the identity secret, a new machine's `record()` and its `record()` at every `RecordChanged`,
+  and `InboxUpdate.seen`.
 - It calls `mark_seen` when the person opens a session and when they leave it.
 
 ## Tests
@@ -241,7 +252,7 @@ up); list paging, row matching and bounds
 The integration tests run the real daemon and relay in-process and the real bridge (Bun,
 `packages/bridge/scripts/dev-fake-bridge.ts`, its core serving the contract's fake backend) on the
 daemon's unix socket, as a child with a temp `HOME` that is also the only directory it serves, all from
-`broski-link-testkit` (`Mac`, `FakeBridge`), which the session crate's tests share; the bridge's dependencies must be installed (`bun install` in
+`broski-link-testkit` (`Mac`, `FakeBridge`), which the session and facade crates' tests share; the bridge's dependencies must be installed (`bun install` in
 `packages/bridge`). Every wait pulls updates or events; the one poll is of a file the terminal writes.
 
 - `chat.rs` — a run streams into a view as records and the UI's copy equals the snapshot; the finished run

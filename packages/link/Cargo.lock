@@ -666,10 +666,10 @@ dependencies = [
 name = "broski-mobile"
 version = "0.1.0"
 dependencies = [
+ "broski-client",
  "broski-contract",
  "broski-link-session",
- "serde_json",
- "thiserror",
+ "broski-link-testkit",
  "tokio",
  "uniffi",
  "zeroize",

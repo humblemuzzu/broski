@@ -135,8 +135,9 @@ only way through.
   problem. Only the client migrates (above); the daemon simply accepts the resume on the new
   connection.
 
-The phone never calls this crate directly: `broski-link-session` drives it, and the apps reach the
-session through the UniFFI facade `broski-mobile` ([mobile-packaging.md](../mobile-packaging.md)).
+The phone never calls this crate directly: `broski-link-session` drives it, the client core
+`broski-client` runs the sessions, and the apps reach the client through the UniFFI facade
+`broski-mobile` ([mobile-packaging.md](../mobile-packaging.md)).
 
 ## What the phone is told when a link closes
 

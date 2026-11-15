@@ -1,11 +1,11 @@
 //! What the iOS notification service extension and the Android message handler call. Both are
-//! pure: neither needs a runtime or a session, only the machine's stored record.
+//! pure: neither needs a `Phone`, only the machine's stored record.
 
 use std::sync::Arc;
 
+use broski_client::ClientError;
 use broski_link_session::push;
 
-use crate::error::CoreError;
 use crate::record::MachineRecord;
 
 pub type PushNotification = push::Notification;
@@ -48,7 +48,7 @@ pub struct LetterRequest {
 pub fn open_notification(
     record: Arc<MachineRecord>,
     data: String,
-) -> Result<PushNotification, CoreError> {
+) -> Result<PushNotification, ClientError> {
     Ok(push::open_notification(&record.0, &data)?)
 }
 
@@ -60,7 +60,7 @@ pub fn decision_letter(
     backend: String,
     session: String,
     request: Option<String>,
-) -> Result<LetterRequest, CoreError> {
+) -> Result<LetterRequest, ClientError> {
     let letter =
         push::decision_letter(&record.0, decision, &backend, &session, request.as_deref())?;
     Ok(LetterRequest {

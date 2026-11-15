@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
+use broski_client::ClientError;
 use broski_link_session as link;
-
-use crate::error::CoreError;
 
 /// One paired machine. Opaque because it carries the relay token and the push key: the app stores
 /// `to_bytes()` whole in the Keychain or the Keystore, reads it back with `from_bytes`, and sees
@@ -13,7 +12,7 @@ pub struct MachineRecord(pub(crate) link::MachineRecord);
 #[uniffi::export]
 impl MachineRecord {
     #[uniffi::constructor]
-    pub fn from_bytes(bytes: Vec<u8>) -> Result<Arc<MachineRecord>, CoreError> {
+    pub fn from_bytes(bytes: Vec<u8>) -> Result<Arc<MachineRecord>, ClientError> {
         Ok(Arc::new(MachineRecord(link::MachineRecord::from_bytes(
             &bytes,
         )?)))

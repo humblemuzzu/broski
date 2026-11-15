@@ -2,18 +2,11 @@ import BroskiCore
 import Foundation
 import Testing
 
-/// Swift calling the real Rust core through the generated bindings and the XCFramework, over the
-/// fixtures `packages/link/mobile/tests/facade.rs` describes: a daemon-written QR offer, the stored
-/// record and device secret of that pairing (whose one route, 127.0.0.1:9, refuses connections),
-/// and the push vectors `push.md` pins.
-private let fixtures = URL(fileURLWithPath: #filePath)
-    .deletingLastPathComponent()
-    .deletingLastPathComponent()
-    .deletingLastPathComponent()
-    .deletingLastPathComponent()
-    .deletingLastPathComponent()
-    .deletingLastPathComponent()
-    .appending(path: "packages/link/mobile/tests/fixtures")
+/// Swift calling the real Rust core through the generated bindings and the XCFramework, with no
+/// machine to talk to, over the fixtures `packages/link/mobile/tests/facade.rs` describes: a
+/// daemon-written QR offer, the stored record and device secret of that pairing (whose one route,
+/// 127.0.0.1:9, refuses connections), and the push vectors `push.md` pins.
+private let fixtures = repository.appending(path: "packages/link/mobile/tests/fixtures")
 
 private func fixture(_ name: String) throws -> Data {
     try Data(contentsOf: fixtures.appending(path: name))
@@ -23,99 +16,119 @@ private func text(_ name: String) throws -> String {
     String(decoding: try fixture(name), as: UTF8.self)
 }
 
-private let options = SessionOptions(deviceName: "Test iPhone", platform: .ios)
+/// The phone of the fixtures' pairing, and its machine started from the stored record.
+private func storedMachine() throws -> (Phone, Machine) {
+    let phone = try Phone(identitySecret: try fixture("device-secret.bin"), config: config)
+    let machine = try phone.start(record: try MachineRecord.fromBytes(bytes: try fixture("record.json")))
+    return (phone, machine)
+}
 
-@Test func anIdentityRestoresFromItsSecretAndABrokenSecretIsRefused() throws {
-    let identity = try DeviceIdentity.generate()
-    let secret = identity.secret()
-    #expect(secret.count == 3617)
-    #expect(identity.id().count == 32)
-    #expect(try DeviceIdentity.fromSecret(secret: secret).id() == identity.id())
+private let session = SessionRef(backend: .pi, sessionId: "s-1")
+
+@Test func aNewSecretMakesAPhoneAndABrokenOneIsRefused() throws {
+    let secret = try newIdentitySecret()
+    let phone = try Phone(identitySecret: secret, config: config)
+    #expect(phone.deviceId().count == 32)
+    #expect(try Phone(identitySecret: secret, config: config).deviceId() == phone.deviceId())
     #expect {
-        try DeviceIdentity.fromSecret(secret: secret.dropFirst())
+        try Phone(identitySecret: secret.dropFirst(), config: config)
     } throws: { error in
-        if case CoreError.Identity = error { true } else { false }
+        if case ClientError.Link(failure: .identity, _) = error { true } else { false }
     }
 }
 
-@Test func theOfferPinsTheMachineTheStoredRecordWasPairedWith() throws {
-    let offer = try PairingOffer.parse(uri: try text("offer.txt"))
+@Test func theOfferNamesTheMachineTheStoredRecordWasPairedWith() throws {
+    let offer = try parsePairingOffer(uri: try text("offer.txt"))
     let record = try MachineRecord.fromBytes(bytes: try fixture("record.json"))
-    #expect(offer.machineId() == record.id())
-    #expect(offer.name() == "Studio Mac")
-    #expect(offer.expiresAt() == 4_102_444_800)
+    #expect(offer.machineId == record.id())
+    #expect(offer.name == "Studio Mac")
+    #expect(offer.expiresAt == 4_102_444_800)
     #expect(record.os() == "macos")
     #expect(record.toBytes() == (try fixture("record.json")))
 }
 
-@Test func aPairingWithAnUnreachableMachineFailsAndSpendsTheOffer() async throws {
-    let runtime = try LinkRuntime()
-    let identity = try DeviceIdentity.fromSecret(secret: try fixture("device-secret.bin"))
-    let offer = try PairingOffer.parse(uri: try text("offer.txt"))
+@Test func aPairingWithAnUnreachableMachineSaysWhy() async throws {
+    let phone = try Phone(identitySecret: try fixture("device-secret.bin"), config: config)
     await #expect {
-        try await pair(runtime: runtime, identity: identity, offer: offer, options: options)
+        try await phone.pair(offer: try text("offer.txt"))
     } throws: { error in
-        if case CoreError.MachineUnreachable = error { true } else { false }
-    }
-    await #expect {
-        try await pair(runtime: runtime, identity: identity, offer: offer, options: options)
-    } throws: { error in
-        if case CoreError.OfferUsed = error { true } else { false }
+        if case ClientError.Link(failure: .machineUnreachable, _) = error { true } else { false }
     }
 }
 
 @Test(.timeLimit(.minutes(1)))
-func aStoredSessionReportsItsFailedDialThenItsClose() async throws {
-    let runtime = try LinkRuntime()
-    let identity = try DeviceIdentity.fromSecret(secret: try fixture("device-secret.bin"))
-    let record = try MachineRecord.fromBytes(bytes: try fixture("record.json"))
-    let session = try LinkSession.start(
-        runtime: runtime, identity: identity, record: record, options: options)
-    #expect(session.machineId() == record.id())
+func aStoredMachineRetriesItsDialHoldsItsViewAndEndsWhenForgotten() async throws {
+    let (phone, machine) = try storedMachine()
+    #expect(phone.allMachines().map { $0.id() } == [machine.id()])
+    try await events(of: machine) { $0.link.state == .waiting(.retry) }
+    #expect(machine.status().contract == .waiting)
 
-    var retrying = false
-    while !retrying, let event = await session.nextEvent() {
-        if case .status(let status) = event, status.state == .waiting(.retry) {
-            retrying = true
-        }
-    }
-    #expect(retrying)
-
-    session.end()
-    var last: LinkState?
-    while let event = await session.nextEvent() {
-        if case .status(let status) = event {
-            last = status.state
-        }
-    }
-    #expect(last == .closed)
-    #expect(session.status().state == .closed)
-}
-
-@Test func aContractMessageCrossesTheFrameBothWays() throws {
+    let view = try machine.attach(session: session)
+    #expect(view.session() == session)
+    #expect(view.snapshot() == nil)
     let hello = ClientMessage.hello(
         HelloRequest(
-            requestId: "r-1",
-            protocol: ProtocolVersion(major: 1, minor: 0),
+            requestId: "", protocol: ProtocolVersion(major: 1, minor: 0),
             client: ClientInfo(name: "broski-ios", version: "1.0.0")))
-    let sent = try JSONSerialization.jsonObject(with: encodeFrame(message: hello)) as? [String: Any]
-    let message = sent?["message"] as? [String: Any]
-    #expect(sent?["type"] as? String == "contract")
-    #expect(message?["type"] as? String == "hello")
-    #expect(message?["requestId"] as? String == "r-1")
-
-    let reply = #"{"type":"contract","message":{"type":"hello.result","requestId":"r-1","protocol":{"major":1,"minor":0},"bridgeVersion":"2.0.0"}}"#
-    guard case .helloResult(let result) = try decodeFrame(frame: Data(reply.utf8)) else {
-        Issue.record("not a hello result")
-        return
-    }
-    #expect(result.bridgeVersion == "2.0.0")
-    #expect(result.protocol == ProtocolVersion(major: 1, minor: 0))
-    #expect {
-        try decodeFrame(frame: Data(#"{"type":"contract"}"#.utf8))
+    await #expect {
+        try await machine.request(message: hello)
     } throws: { error in
-        if case CoreError.Frame = error { true } else { false }
+        if case ClientError.InvalidRequest = error { true } else { false }
     }
+
+    phone.forget(id: machine.id())
+    #expect(phone.machine(id: machine.id()) == nil)
+    while await machine.nextEvent() != nil {}
+    #expect(machine.status().link.state == .closed)
+    #expect(await view.nextUpdate() == .ended(reason: .closed))
+    #expect(await view.nextUpdate() == nil)
+}
+
+/// UniFFI 0.32.2's Swift bindings do not cancel a Rust call when its task is cancelled
+/// (`withUnsafeContinuation`, no cancellation handler): the pull goes on, and what it takes reaches
+/// the task, so cancelling loses nothing.
+@Test(.timeLimit(.minutes(1)))
+func aPullOutlivesItsCancelledTaskAndDeliversWhatComesNext() async throws {
+    let (phone, machine) = try storedMachine()
+    let view = try machine.attach(session: session)
+    let pull = Task { await view.nextUpdate() }
+    pull.cancel()
+    try await Task.sleep(for: .milliseconds(200))
+    phone.forget(id: machine.id())
+    #expect(await pull.value == .ended(reason: .closed))
+    #expect(await view.nextUpdate() == nil)
+}
+
+/// The loop a SwiftUI `.task` runs: cancelling it detaches the view, which ends the pull in progress.
+@Test(.timeLimit(.minutes(1)))
+func cancellingAViewsLoopDetachesTheViewAndEndsItsPull() async throws {
+    let (_, machine) = try storedMachine()
+    let view = try machine.attach(session: session)
+    let loop = Task {
+        await withTaskCancellationHandler {
+            var updates: [SessionUpdate] = []
+            while let update = await view.nextUpdate() {
+                updates.append(update)
+            }
+            return updates
+        } onCancel: {
+            view.detach()
+        }
+    }
+    try await Task.sleep(for: .milliseconds(200))
+    loop.cancel()
+    #expect(await loop.value.isEmpty, "never attached, so nothing to apply")
+    #expect(view.session() == nil, "the view is gone")
+}
+
+@Test func seenMarkersGoBackInAsTheAppStoredThem() throws {
+    let inbox = try Phone(identitySecret: try newIdentitySecret(), config: config).inbox()
+    #expect(inbox.rows().isEmpty)
+    let marker = SeenMarker(
+        machineId: "00112233445566778899aabbccddeeff",
+        session: SessionRef(backend: .claudeCode, sessionId: "s-9"), seenAt: 1_725_000_000_000)
+    inbox.restoreSeen(markers: [marker])
+    #expect(inbox.seen() == [marker])
 }
 
 @Test func thePinnedPushOpensAndADecisionSealsForTheRelay() throws {
@@ -124,6 +137,11 @@ func aStoredSessionReportsItsFailedDialThenItsClose() async throws {
     #expect(push.kind == "approval")
     #expect(push.title == "Approve Bash")
     #expect(push.request == "req-1")
+    #expect {
+        try openNotification(record: record, data: "AAAA")
+    } throws: { error in
+        if case ClientError.Link(failure: .push, _) = error { true } else { false }
+    }
 
     let letter = try decisionLetter(
         record: record, decision: .deny, backend: "pi", session: "s-2", request: nil)

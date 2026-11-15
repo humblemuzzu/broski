@@ -95,9 +95,16 @@ jobs:
           workspaces: packages/link
       - name: Build the XCFramework and the Swift bindings
         run: scripts/build-ios-core.sh
+      # One host test pairs with a real daemon and bridge (testkit's test-machine, Bun's fake bridge).
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - name: Bridge dependencies
+        working-directory: packages/bridge
+        run: bun install --frozen-lockfile
       - name: Swift tests on the host
         working-directory: apps/ios/BroskiCore
-        run: swift test
+        run: swift test -Xswiftc -warnings-as-errors
       - name: Build and link for the iOS simulator
         working-directory: apps/ios/BroskiCore
         run: xcodebuild build-for-testing -scheme BroskiCore -destination 'generic/platform=iOS Simulator'
