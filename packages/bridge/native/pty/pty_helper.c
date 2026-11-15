@@ -20,7 +20,6 @@
 #include <sys/ioctl.h>
 #include <sys/wait.h>
 #include <termios.h>
-#include <poll.h>
 #include <unistd.h>
 
 extern char** environ;
@@ -37,7 +36,7 @@ int pty_create(
     const char* cwd,
     const char* term_env,
     const char* command,
-    char* const* envp
+    char** envp
 ) {
     struct winsize ws;
     memset(&ws, 0, sizeof(ws));
@@ -56,7 +55,7 @@ int pty_create(
     if (pid == 0) {
         /* The caller's environment as its runtime holds it, which a runtime need not keep in the C one. */
         if (envp) {
-            environ = (char**)envp;
+            environ = envp;
         }
 
         if (cwd && cwd[0] != '\0') {
@@ -121,18 +120,6 @@ int pty_resize(int master_fd, unsigned short rows, unsigned short cols, unsigned
     ws.ws_xpixel = width_px;
     ws.ws_ypixel = height_px;
     return ioctl(master_fd, TIOCSWINSZ, &ws);
-}
-
-int pty_wait_readable(int fd, int timeout_ms) {
-    struct pollfd pfd;
-    memset(&pfd, 0, sizeof(pfd));
-    pfd.fd = fd;
-    pfd.events = POLLIN | POLLERR | POLLHUP;
-    return poll(&pfd, 1, timeout_ms);
-}
-
-int pty_read(int fd, void* buf, int len) {
-    return (int)read(fd, buf, (size_t)len);
 }
 
 int pty_write(int fd, const void* data, int len) {
