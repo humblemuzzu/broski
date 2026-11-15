@@ -1,0 +1,21 @@
+# The global config for `uniffi-bindgen generate --config`: it applies to every UniFFI crate in
+# libbroski_core (broski_contract and broski_core).
+
+[defaults.bindings.swift]
+# Swift compiles every generated file into one module (BroskiCore), so all of them import one C
+# module, whose modulemap the iOS build script writes itself (mozilla/uniffi-rs#2917).
+ffi_module_name = "BroskiCoreFFI"
+generate_module_map = false
+
+# One header per crate inside that module; the default names them after the module, so the second
+# would overwrite the first.
+[crates.broski_contract.bindings.swift]
+ffi_module_filename = "broski_contractFFI"
+
+[crates.broski_core.bindings.swift]
+ffi_module_filename = "broski_coreFFI"
+
+[defaults.bindings.kotlin]
+# Objects are cleaned by android.system.SystemCleaner on API 34+ and by JNA's cleaner below; the
+# JVM's java.lang.ref.Cleaner does not exist on Android before API 33.
+android = true

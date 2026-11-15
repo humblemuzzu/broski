@@ -582,16 +582,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "broski-link-ffi"
-version = "0.1.0"
-dependencies = [
- "base64 0.22.1",
- "broski-link-core",
- "sha2",
- "zeroize",
-]
-
-[[package]]
 name = "broski-link-power"
 version = "0.1.0"
 dependencies = [
@@ -639,6 +629,19 @@ dependencies = [
  "tracing-subscriber",
  "url",
  "webpki-roots 1.0.9",
+ "zeroize",
+]
+
+[[package]]
+name = "broski-mobile"
+version = "0.1.0"
+dependencies = [
+ "broski-contract",
+ "broski-link-session",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "uniffi",
  "zeroize",
 ]
 
@@ -3176,11 +3179,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "76407f5f396a2c949a069eff4a9fca9ce462410eb872bffef4c2b7b89804a77a"
 dependencies = [
  "anyhow",
+ "camino",
  "cargo_metadata",
+ "clap",
  "uniffi_bindgen",
  "uniffi_core",
  "uniffi_macros",
  "uniffi_pipeline",
+]
+
+[[package]]
+name = "uniffi-bindgen"
+version = "0.1.0"
+dependencies = [
+ "uniffi",
 ]
 
 [[package]]

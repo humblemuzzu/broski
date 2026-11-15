@@ -1,0 +1,11 @@
+[package]
+name = "uniffi-bindgen"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "UniFFI's bindgen at the exact version broski-mobile is built with"
+
+[dependencies]
+# uniffi =0.32.2 — exact: bindings from another version fail the library's API checksums.
+uniffi = { version = "=0.32.2", features = ["cli"] }

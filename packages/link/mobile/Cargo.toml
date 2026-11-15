@@ -1,0 +1,30 @@
+[package]
+name = "broski-mobile"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "BroskiCore: the phone core the iOS and Android apps call through UniFFI"
+
+[lib]
+name = "broski_core"
+# staticlib for the iOS XCFramework, cdylib for Android and for library-mode bindgen on the host,
+# lib for this crate's own tests.
+crate-type = ["lib", "staticlib", "cdylib"]
+doctest = false
+
+[dependencies]
+broski-contract = { path = "../contract", features = ["uniffi"] }
+broski-link-session = { path = "../session" }
+# thiserror 2.0.21 — the same pin the session uses; derives the exported error.
+thiserror = "2.0.21"
+# uniffi =0.32.2 — exact: the bindgen in ../uniffi-bindgen must be the same version.
+uniffi = "=0.32.2"
+# zeroize 1.8.2 — the same pin the session uses; wipes the secrets the apps hand in.
+zeroize = "1.8.2"
+
+[dev-dependencies]
+# serde_json 1.0.151 — the session's pin; reads the frames the tests encode.
+serde_json = "1.0.151"
+# tokio 1.53.2 — the session's pin; runs the async exports in this crate's tests.
+tokio = { version = "1.53.2", features = ["macros", "rt"] }

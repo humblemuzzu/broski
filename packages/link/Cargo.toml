@@ -1,6 +1,17 @@
 [workspace]
 resolver = "2"
-members = ["crypto", "proto", "core", "ffi", "relay", "power", "daemon", "contract", "session"]
+members = [
+    "crypto",
+    "proto",
+    "core",
+    "relay",
+    "power",
+    "daemon",
+    "contract",
+    "session",
+    "mobile",
+    "uniffi-bindgen",
+]
 
 [workspace.package]
 edition = "2021"
@@ -10,3 +21,11 @@ license = "MIT"
 # one profile table, so it lives at the root.
 [profile.release]
 debug = true
+
+# The libraries the apps ship (scripts/build-{ios,android}-core.sh): no debug info, and one
+# optimisation unit across every crate.
+[profile.mobile]
+inherits = "release"
+debug = false
+lto = true
+codegen-units = 1
