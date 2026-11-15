@@ -30,6 +30,8 @@ final class AppModel {
     /// The session on screen, set by the chat while it shows one and cleared when it leaves: its
     /// pushes do not banner while the app is in front.
     var visibleSession: SessionTarget?
+    /// What the person was writing in each chat, kept when they leave it.
+    let drafts = DraftStore()
 
     @ObservationIgnored private let storage: PhoneStorage
     @ObservationIgnored private var phone: Phone?

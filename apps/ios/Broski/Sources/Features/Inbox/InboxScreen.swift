@@ -2,11 +2,16 @@ import BroskiCore
 import SwiftUI
 
 /// Home: every session on every paired Mac, needs you → working → done → idle, under the status of
-/// any machine that is not fine.
+/// any machine that is not fine. A row opens its chat, zooming out of the row; New Session opens the
+/// prompt sheet, and the session it makes opens zooming out of the button.
 struct InboxScreen: View {
     @Environment(AppModel.self) private var model
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var path: [Route] = []
+    @State private var startingSession = false
+    /// The session New Session made, the zoom source id of its button until the next one.
+    @State private var created: SessionTarget?
+    @Namespace private var zoom
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -15,6 +20,23 @@ struct InboxScreen: View {
                 .toolbar { toolbar }
                 .routeDestinations()
         }
+        .environment(\.zoomNamespace, zoom)
+        .environment(\.openSession, OpenSessionAction { open($0) })
+        .sheet(isPresented: $startingSession) {
+            NewSessionSheet { target in
+                created = target
+                open(target)
+            }
+        }
+        .onChange(of: model.sessionToOpen, initial: true) { _, target in
+            guard let target else { return }
+            path = [.session(machineId: target.machineId, session: target.session)]
+            model.sessionToOpen = nil
+        }
+    }
+
+    private func open(_ target: SessionTarget) {
+        path.append(.session(machineId: target.machineId, session: target.session))
     }
 
     private var sections: [InboxSection] { model.inbox.sections }
@@ -34,8 +56,11 @@ struct InboxScreen: View {
             ForEach(sections) { section in
                 Section {
                     ForEach(section.rows, id: \.key) { row in
-                        InboxRowView(row: row, machine: model.machine(id: row.machineId)?.summary)
-                            .inboxRowActions(row, inbox: model.inbox)
+                        NavigationLink(value: Route.session(machineId: row.machineId, session: row.session)) {
+                            InboxRowView(row: row, machine: model.machine(id: row.machineId)?.summary)
+                        }
+                        .matchedTransitionSource(id: SessionTarget(machineId: row.machineId, session: row.session), in: zoom)
+                        .inboxRowActions(row, inbox: model.inbox)
                     }
                 } header: {
                     InboxSectionHeader(state: section.state, count: section.rows.count)
@@ -45,9 +70,9 @@ struct InboxScreen: View {
         .listStyle(.insetGrouped)
         .overlay {
             if sections.isEmpty {
-                InboxEmptyState(filter: model.inbox.filter, machines: model.machines) {
+                InboxEmptyState(filter: model.inbox.filter, machines: model.machines, showAll: {
                     model.inbox.filter = nil
-                }
+                }, startSession: { startingSession = true })
             }
         }
         .refreshable { await model.inbox.refresh() }
@@ -69,6 +94,21 @@ struct InboxScreen: View {
                 Button("Show All") { model.inbox.filter = nil }
             }
         }
+        ToolbarItem(placement: .topBarTrailing) {
+            Button {
+                startingSession = true
+            } label: {
+                Label("New Session", systemImage: "square.and.pencil")
+            }
+            .buttonStyle(.glassProminent)
+            .disabled(!model.machines.contains { $0.summary.isReady })
+        }
+        .matchedTransitionSource(id: created ?? newSessionSource, in: zoom)
+    }
+
+    /// The button's zoom id before it has made any session.
+    private var newSessionSource: SessionTarget {
+        SessionTarget(machineId: "", session: SessionRef(backend: .pi, sessionId: "new-session"))
     }
 
     private var chips: [MachineChips.Chip] {

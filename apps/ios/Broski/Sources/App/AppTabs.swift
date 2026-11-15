@@ -35,14 +35,15 @@ struct AppTabs: View {
         .onChange(of: model.sessionToOpen) { _, target in
             if target != nil { tab = .inbox }
         }
-        .modifier(WorkingAccessory(count: model.inbox.workingCount) {
+        .modifier(WorkingAccessory(count: model.visibleSession == nil ? model.inbox.workingCount : 0) {
             tab = .inbox
             model.inbox.filter = .working
         })
     }
 }
 
-/// "n agents working" in the tab view's bottom accessory. Showing and hiding it in place needs
+/// "n agents working" in the tab view's bottom accessory, left out while a chat (which hides the
+/// tab bar for its composer) is on screen. Showing and hiding it in place needs
 /// `tabViewBottomAccessory(isEnabled:)` (iOS 26.1); on 26.0 the accessory is left out.
 private struct WorkingAccessory: ViewModifier {
     let count: Int
