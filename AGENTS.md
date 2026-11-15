@@ -14,7 +14,7 @@ The repository is mid-rebuild on branch `rebuild` (plan: [`docs/rebuild/PLAN.md`
 Flutter app is gone; the tree it lived in is preserved on branch `final-flutter` (`git show final-flutter:<path>`).
 Phase 1, the cut, is done: what is here is the bridge, the link stack, the shared phone core packaged for both
 native apps, and the iOS and Android apps: their foundations (Phase 4.1), and the workspace, push
-notifications and live status (Phase 4.2); the chat is being built.
+notifications and live status, the chat with its composer and pinned asks, and New session (Phase 4.2).
 
 - **Bridge** (`packages/bridge/`) — TypeScript on the user's machine. Hosts the agents through their SDKs and speaks
   the backend contract to the daemon over `~/.broski/link/bridge.sock`. Every socket upgrade must quote the key the
@@ -71,7 +71,8 @@ notifications and live status (Phase 4.2); the chat is being built.
   FCM pushes with Allow/Deny and a Live Update while agents work (`feature/notifications/`), and Approve/Deny
   from an inbox row, with the inbox's last known rows restored at launch. One `Phone` per process in
   `core/AppCore.kt`, its loops in `core/PhoneSession.kt`; the identity secret, records and seen state in a
-  Keystore-sealed DataStore (`core/vault/`). Chat and New session plug into `app/Features.kt`.
+  Keystore-sealed DataStore (`core/vault/`). The chat (`feature/chat/`) and New session
+  (`feature/newsession/`) are wired in `app/Features.kt`.
 - **Identifiers kept from the Flutter app** ([`apps/carryover/README.md`](apps/carryover/README.md)) — the bundle
   ids, team, keychain groups and Android application id the native apps keep.
 - **Connection:** direct over the LAN when reachable, otherwise through the relay. No VPN, tunnel, port forwarding

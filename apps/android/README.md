@@ -211,12 +211,13 @@ terminal/     the :terminal module: libghostty-vt's JNI shim (src/main/c) and Vt
   (IPv4 first, link-local IPv6 left out) to `machine.lanDiscovered` for TXT `id`. At targetSdk 36 it needs
   no permission beyond `INTERNET`.
 
-## Integration points for Phase 4.2
+## How the screens plug into the shell
 
-- **`app/Features.kt`** is the one place 4.2 plugs its screens in: `BroskiFeatures = Features(session = …,
-  workspace = …, newSession = …)`. Each slot gets a `FeatureContext` (`phone: PhoneSession`, `navigate`,
-  `back`). The shell offers a destination only once its slot is filled: the Workspace tab, opening an inbox
-  row (`SessionRoute`), the Inbox's large New session FAB and the empty inbox's New session button.
+- **`app/Features.kt`** is the one place the feature screens plug in: `BroskiFeatures = Features(session =
+  ChatScreen, workspace = WorkspaceScreen, newSession = NewSessionSheet)`. Each slot gets a `FeatureContext`
+  (`phone: PhoneSession`, `navigate`, `back`). The shell offers a destination only once its slot is filled:
+  the Workspace tab, opening an inbox row (`SessionRoute`), the Inbox's large New session FAB and the empty
+  inbox's New session button.
 - **`SessionRoute(machineId, backend, sessionId)`** (`app/Routes.kt`; `.session` is the `SessionRef`) opens
   the chat. The chat calls `phone.markSeen(route.machineId, route.session)` when it opens and when it is
   left, and `phone.machine(id)` for views (`attach` in the coroutine, `detach()` in `finally`, as

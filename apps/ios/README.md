@@ -67,9 +67,9 @@ The target builds with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, `SWIFT_APPRO
   when the rule it names is broken (checked by breaking each once). `ChatPerformanceTests` times 30
   batches over a 1,000-item run. `PushFixtureInstall` and `SessionMachineTests` run only for the
   end-to-end script: the latter pairs a phone of its own with a second test machine and plays
-  `work`, `permission`, `ask`, `hold` and `replace`, holding `SessionState` equal to
-  `SessionView.snapshot()` (the fake plays a run within one batch interval, so the records of text
-  still streaming are proven by `ChatModelTests`).
+  `work`, `stream`, `permission`, `ask`, `hold` and `replace`, holding `SessionState` equal to
+  `SessionView.snapshot()` (`stream` writes its text a part every 120 ms, so the open block's text
+  changes across batches, and keeps its file edit; the other scenarios play within one batch interval).
 - **`UITests/`** (scheme `BroskiE2E`): `scripts/e2e-ios-app.sh` starts `packages/link/testkit`'s
   `test-machine` (the real daemon and the real bridge on its fake backend; needs Bun and
   `bun install` in `packages/bridge`), seeds four sessions, reinstalls the app with a clean keychain,
@@ -125,7 +125,7 @@ Broski/
                    WorkspaceProblem, SessionState, ChatRequests, ChatProblem, Preferences, Logging
     DesignSystem/  Palette, Typography, Metrics, Motion, Haptics, GlassControls, AgentMark,
                    BroskiMark, Indicators, StatusChip, Banner, CodeColors, CodeBlockView, DiffView,
-                   Shimmer
+                   Shimmer, FadingScroll
     Features/      Welcome, Pairing, Inbox, Machines, Settings,
                    Chat/ (ChatScreen, ChatModel, PinnedPanel, ChatBottomBar; Transcript/, Work/,
                           Interactions/, Composer/, Header/, NewSession/),
@@ -292,7 +292,8 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
   watch-only session's asks shown without buttons. The composer: one glass surface with the field
   (one line growing to six), the slash commands while the text starts with `/`, attached images
   with remove, `+` (photo library, camera, paste), the model chip (a menu, a searchable sheet past a
-  dozen, nothing with one), thinking and one chip per mode axis, and one send button: Send, Queue
+  dozen, nothing with one), thinking and one chip per mode axis (the first axis, the permission mode,
+  stays beside the send button; the rest scroll under a fading edge), and one send button: Send, Queue
   (with Steer on a long press), or a red Stop; "Message to queue…" while a run is live; the
   keyboard goes down after a send and when the transcript is tapped.
 - **New session** (a sheet): "What should we build in <folder>?", the folder a menu of the inbox's
@@ -320,7 +321,8 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
   commits, a commit field with **Commit** (`.glassProminent`) in a glass capsule; Branches with a
   confirmed checkout whose refusal shows git's words. **Terminal**: the list (newest first, swipe to
   close with a confirm), New Terminal in a folder, the emulator with a glass key row (esc, sticky
-  ctrl, tab, arrows that repeat while held, `|`, `~`, `/`, the system Paste button); pinch zoom is
+  ctrl and tab fixed, then arrows that repeat while held, `|`, `~`, `/`, the system Paste button,
+  scrolling under a fading edge when the row is narrow); pinch zoom is
   Ghostty's and the size is kept for the next terminal. `AppModel.folderToOpen` switches to this tab
   and opens the folder (`WorkspaceNavigation.open`); the chat's Files button sets it.
 
