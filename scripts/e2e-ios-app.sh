@@ -18,7 +18,8 @@
 #
 # Usage: scripts/e2e-ios-app.sh [output directory]   (default apps/ios/Broski/build/e2e)
 # BROSKI_SIMULATOR names the simulator (default "iPhone Duo"); it is erased of the app, its
-# keychain and its privacy grants first. Needs what scripts/build-ios-app.sh needs, plus Bun and
+# keychain and its privacy grants first. BROSKI_E2E_ONLY names UI tests to run alone
+# ("Class/testName", space separated; the first, PairingEndToEndTests/test1…, pairs the phone). Needs what scripts/build-ios-app.sh needs, plus Bun and
 # `bun install` in packages/bridge.
 set -euo pipefail
 
@@ -190,7 +191,9 @@ e2e_tests() {
     -derivedDataPath "$APP/build/DerivedData-e2e" \
     "$@"
 }
-e2e_tests -skip-testing:BroskiUITests/NotificationEndToEndTests -resultBundlePath "$OUT/E2E.xcresult"
+only_testing=()
+for test in ${BROSKI_E2E_ONLY:-}; do only_testing+=("-only-testing:BroskiUITests/$test"); done
+e2e_tests -skip-testing:BroskiUITests/NotificationEndToEndTests ${only_testing[@]+"${only_testing[@]}"} -resultBundlePath "$OUT/E2E.xcresult"
 
 echo "==> Following real runs into the chat's session state"
 TEST_RUNNER_BROSKI_REPLICA_OFFER="$replica_offer" \

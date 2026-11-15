@@ -10,9 +10,10 @@ import Testing
 /// update the state either equals `SessionView.snapshot()` or the stream already holds what makes it
 /// equal (the view's snapshot is the stream's newest, a batch may be behind it), so the pull goes on;
 /// each scenario only moves on, and only ends, at an update after which the two are equal. A state
-/// that drifts never becomes equal again, and the follower's watchdog fails the test. The fake plays
-/// a run within one batch interval, so its runs arrive as a few batches whose records open and close
-/// blocks and tools within each; records of text still streaming are proven by `ChatModelTests`.
+/// that drifts never becomes equal again, and the follower's watchdog fails the test. Most scenarios
+/// play within one batch interval, so their runs arrive as a few batches whose records open and close
+/// blocks and tools within each; `stream` writes its text a part every 120 ms, so the open block's
+/// text changes across batches, and keeps its file edit.
 @Suite
 struct SessionMachineTests {
     @Test(.enabled(if: ReplicaMachine.fromEnvironment != nil, "run by scripts/e2e-ios-app.sh"), .timeLimit(.minutes(5)))
@@ -27,7 +28,7 @@ struct SessionMachineTests {
         }
         let player = ScenarioPlayer(machine: machine, setup: setup)
         var totals: [String: (updates: Int, equal: Int)] = [:]
-        for scenario in ["work", "permission", "ask", "hold", "replace"] {
+        for scenario in ["work", "stream", "permission", "ask", "hold", "replace"] {
             totals[scenario] = try await player.play(scenario)
         }
         for (scenario, total) in totals.sorted(by: { $0.key < $1.key }) {
@@ -106,6 +107,11 @@ private struct ScenarioPlayer {
             try await follower.follow { !$0.snapshot.interactions.isEmpty }
             let ask = follower.state.snapshot.interactions[0]
             try await requests.answer(session, InteractionAnswer(interactionId: ask.id, reply: .choice(ChoiceReply(value: "retry"))))
+        case "stream":
+            try await follower.follow { $0.snapshot.blocks.contains { !$0.text.isEmpty } }
+            try await follower.follow { state in
+                state.snapshot.run?.items.contains { if case .toolResult(let result) = $0 { !result.result.fileChanges.isEmpty } else { false } } == true
+            }
         case "hold", "replace":
             try await follower.follow { $0.snapshot.run?.items.contains { if case .block = $0 { true } else { false } } == true }
             try await command(["release": wire(session)], answered: "released")
