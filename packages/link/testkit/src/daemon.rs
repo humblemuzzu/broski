@@ -27,6 +27,12 @@ impl Home {
     }
 }
 
+impl Default for Home {
+    fn default() -> Home {
+        Home::new()
+    }
+}
+
 /// The real daemon, in-process, on a private home, never advertised on the network and never
 /// handing the phone the addresses of the network it runs on.
 pub struct TestDaemon {

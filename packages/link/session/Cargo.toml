@@ -52,6 +52,8 @@ thiserror = "2.0.21"
 tracing = "0.1.44"
 
 [dev-dependencies]
+# broski-link-testkit — the daemon, relay and LAN forwarder harness the tests share with the client's.
+broski-link-testkit = { path = "../testkit" }
 # broski-link-daemon — the real machine side every session test talks to.
 broski-link-daemon = { path = "../daemon" }
 # broski-relay — the real relay, in-process on a loopback port.

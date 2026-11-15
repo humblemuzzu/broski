@@ -1,9 +1,6 @@
 #![allow(dead_code)]
 
 pub mod bridge;
-pub mod daemon;
-pub mod forwarder;
-pub mod relay;
 pub mod watch;
 
 use std::sync::Once;
@@ -13,38 +10,7 @@ use broski_link_session::{
     pair, DeviceIdentity, LinkRuntime, MachineRecord, Offer, Paired, Platform, SessionOptions,
     Timings,
 };
-use serde_json::json;
-use tokio::time::Instant;
-
-use self::daemon::TestDaemon;
-use self::relay::TestRelay;
-use self::watch::WAIT;
-
-/// A phone that only has the offer fetches the machine's identity from the relay, which has it
-/// once the daemon's relay socket published it.
-pub async fn await_identity(relay: &TestRelay, daemon: &TestDaemon) {
-    let status = daemon.ask(json!({"cmd": "status"})).await;
-    let machine = status["machine"]["id"]
-        .as_str()
-        .expect("machine id")
-        .to_owned();
-    let deadline = Instant::now() + WAIT;
-    while relay
-        .hub
-        .db()
-        .identity(&machine)
-        .await
-        .ok()
-        .flatten()
-        .is_none()
-    {
-        assert!(
-            Instant::now() < deadline,
-            "the machine never published its identity"
-        );
-        tokio::time::sleep(Duration::from_millis(20)).await;
-    }
-}
+use broski_link_testkit::daemon::TestDaemon;
 
 pub fn init_logs() {
     static ONCE: Once = Once::new();

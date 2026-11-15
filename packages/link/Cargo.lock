@@ -618,6 +618,7 @@ dependencies = [
  "base64 0.22.1",
  "broski-link-core",
  "broski-link-daemon",
+ "broski-link-testkit",
  "broski-relay",
  "chacha20poly1305",
  "futures-util",
@@ -640,6 +641,18 @@ dependencies = [
  "url",
  "webpki-roots 1.0.9",
  "zeroize",
+]
+
+[[package]]
+name = "broski-link-testkit"
+version = "0.1.0"
+dependencies = [
+ "broski-link-core",
+ "broski-link-daemon",
+ "broski-relay",
+ "serde_json",
+ "tempfile",
+ "tokio",
 ]
 
 [[package]]

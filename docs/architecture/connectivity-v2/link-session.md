@@ -176,7 +176,8 @@ TLS provider in the graph (no aws-lc). Every integration test runs
 the real daemon (`broski_link_daemon::run`) and, where a relay is involved, the real relay
 (`broski_relay::serve`) on loopback, with a bridge stand-in on the daemon's unix socket that echoes
 device frames and answers the daemon's feed; a TCP forwarder in front of the LAN listener delays,
-holds, cuts and drops connections. Waits pull events until the expected one arrives; the one fixed
+holds, cuts and drops connections. The daemon, relay and forwarder harness is the crate
+`broski-link-testkit`, which the client's tests (`mobile-core.md`) share. Waits pull events until the expected one arrives; the one fixed
 window is the probe-loop test's absence check.
 
 - `pairing.rs` — pairs over the LAN with the daemon's own offer (record contents, fresh session, the

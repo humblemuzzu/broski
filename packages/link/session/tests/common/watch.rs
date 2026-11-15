@@ -1,11 +1,9 @@
-use std::time::Duration;
+pub use broski_link_testkit::WAIT;
 
 use broski_link_session::{
     BridgeStatus, Event, LinkState, MachineRecord, Route, SendFailure, Session, Status,
 };
 use tokio::time::{timeout_at, Instant};
-
-pub const WAIT: Duration = Duration::from_secs(20);
 
 /// A session and everything it has said so far. Every wait pulls events until what it waits for
 /// has been seen or `WAIT` runs out: the events are the synchronisation, never the clock.

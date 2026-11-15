@@ -1,8 +1,8 @@
 mod common;
 
 use broski_link_session::{BridgeState, LinkState, Paired, Route};
+use broski_link_testkit::daemon::{Home, TestDaemon};
 use common::bridge::{header, BridgeStandIn};
-use common::daemon::{Home, TestDaemon};
 use common::watch::Watch;
 use common::{quick, Phone};
 
