@@ -41,6 +41,7 @@ class SessionFeed(
     private val mutablePending = MutableStateFlow<List<PendingSend>>(emptyList())
     private val mutableLoadingOlder = MutableStateFlow(false)
     private var newest: Job? = null
+    private var following: Job? = null
 
     /** The session the view shows now: the route's, or the one a replacement handed it to. */
     @Volatile
@@ -55,8 +56,18 @@ class SessionFeed(
     val loadingOlder: StateFlow<Boolean> = mutableLoadingOlder.asStateFlow()
 
     fun start() {
-        scope.launch { follow() }
+        following = scope.launch { follow() }
         readNewest()
+    }
+
+    /**
+     * A new view in place of one the bridge refused: the refusal may have been passing (an agent that
+     * failed to start, a Mac that was busy), and the old view never attaches again.
+     */
+    fun reattach() {
+        following?.cancel()
+        mutableLive.value = LiveSession()
+        following = scope.launch { follow() }
     }
 
     private suspend fun follow() {
@@ -87,6 +98,10 @@ class SessionFeed(
             mutableSettled.update { settled -> settled + applied.endedRuns.flatMap { it.items } }
             readNewest()
             onRunEnded()
+        } else if (update is SessionUpdate.Reset && before.started) {
+            // The view started over after a gap the bridge could not replay: runs may have begun and
+            // ended meanwhile, and only the transcript has them.
+            readNewest()
         }
         prunePending()
     }
@@ -102,8 +117,9 @@ class SessionFeed(
         newest = scope.launch {
             val settledAtStart = mutableSettled.value.size
             var pause = RETRY_START_MS
+            val limit = if (mutableHistory.value.loaded) SessionClient.PAGE_LIMIT else SessionClient.FIRST_PAGE_LIMIT
             while (true) {
-                when (val result = read(null)) {
+                when (val result = read(null, limit)) {
                     is TranscriptReadResult.Accepted -> {
                         mutableHistory.update { it.withNewest(result.v1.page) }
                         mutableSettled.update { it.drop(settledAtStart) }
@@ -128,7 +144,9 @@ class SessionFeed(
         if (!mutableLoadingOlder.compareAndSet(expect = false, update = true)) return
         scope.launch {
             try {
-                (read(cursor) as? TranscriptReadResult.Accepted)?.let { page -> mutableHistory.update { it.withOlder(page.v1.page) } }
+                (read(cursor, SessionClient.PAGE_LIMIT) as? TranscriptReadResult.Accepted)?.let { page ->
+                    mutableHistory.update { it.withOlder(page.v1.page) }
+                }
             } finally {
                 mutableLoadingOlder.value = false
             }
@@ -136,8 +154,8 @@ class SessionFeed(
     }
 
     /** The page, or `null` when the request did not reach the bridge or got no answer. */
-    private suspend fun read(cursor: String?): TranscriptReadResult? = try {
-        client.transcript(cursor)
+    private suspend fun read(cursor: String?, limit: Long): TranscriptReadResult? = try {
+        client.transcript(cursor, limit)
     } catch (error: ClientException) {
         Log.i(TAG, "the transcript could not be read: ${error.message}")
         null

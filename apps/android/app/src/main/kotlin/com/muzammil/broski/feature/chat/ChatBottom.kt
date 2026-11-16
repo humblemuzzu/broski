@@ -60,6 +60,7 @@ fun ChatBottom(model: ChatViewModel, openDiff: (FileChange) -> Unit, modifier: M
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         if (snapshot.backgroundTasks.isNotEmpty()) BackgroundTasksBar(snapshot.backgroundTasks)
+        live.ended?.let { end -> ViewEndCard(end, onRetry = model.feed::reattach) }
         notices.forEach { notice -> NoticeCard(notice, onDismiss = { model.dismiss(notice) }) }
         snapshot.queue.forEach { item ->
             QueuedRow(item, onCancel = if (capabilities?.cancelQueued == true) ({ model.actions.cancelQueued(item.id) }) else null)

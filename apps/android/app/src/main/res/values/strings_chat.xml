@@ -44,6 +44,11 @@
     <string name="chat_queued_steer">Waiting to steer</string>
     <string name="chat_cancel_queued">Cancel queued message</string>
     <string name="chat_dismiss_notice">Dismiss</string>
+    <string name="chat_view_removed">This session was deleted on your Mac.</string>
+    <string name="chat_view_refused">Your Mac couldn\'t open this session live.</string>
+    <string name="chat_view_closed">This Mac isn\'t paired anymore.</string>
+    <string name="chat_view_revoked">This phone was removed from your Mac. Pair again to follow this session.</string>
+    <string name="chat_view_retry">Try again</string>
     <string name="chat_watch_only">This session runs in your Mac\'s terminal. You can watch it and answer its questions here.</string>
     <string name="chat_refused">Your Mac refused that: %1$s</string>
     <string name="chat_failed_offline">Couldn\'t reach your Mac. Try again once it\'s connected.</string>

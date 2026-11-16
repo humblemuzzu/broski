@@ -10,6 +10,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -21,6 +22,7 @@ import com.muzammil.broski.R
 import uniffi.broski_contract.NoticeLevel
 import uniffi.broski_contract.QueueItem
 import uniffi.broski_contract.QueuedDelivery
+import uniffi.broski_core.ViewEnd
 
 /** A notice or error the agent showed: one plain sentence with its icon, put away with a tap. */
 @Composable
@@ -43,6 +45,24 @@ fun NoticeCard(notice: ChatNotice, onDismiss: () -> Unit, modifier: Modifier = M
             IconButton(onClick = onDismiss) {
                 Icon(painterResource(R.drawable.ic_close), contentDescription = stringResource(R.string.chat_dismiss_notice))
             }
+        }
+    }
+}
+
+/** Why nothing live reaches the chat any more, with a way back when the Mac only refused. */
+@Composable
+fun ViewEndCard(end: ViewEnd, onRetry: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = modifier.fillMaxWidth()) {
+        Row(Modifier.padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Icon(painterResource(R.drawable.ic_link_off), contentDescription = null, modifier = Modifier.size(20.dp))
+            val words = when (end) {
+                ViewEnd.Removed -> stringResource(R.string.chat_view_removed)
+                is ViewEnd.Refused -> stringResource(R.string.chat_view_refused)
+                ViewEnd.Closed -> stringResource(R.string.chat_view_closed)
+                ViewEnd.Revoked -> stringResource(R.string.chat_view_revoked)
+            }
+            Text(words, style = MaterialTheme.typography.bodyMedium, maxLines = 4, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(vertical = 12.dp))
+            if (end is ViewEnd.Refused) TextButton(onClick = onRetry) { Text(stringResource(R.string.chat_view_retry)) }
         }
     }
 }

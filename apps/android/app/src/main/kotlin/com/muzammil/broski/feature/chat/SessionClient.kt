@@ -62,8 +62,8 @@ class SessionClient(private val machine: Machine, private val current: () -> Ses
     suspend fun compact(): ActionResult =
         send<ServerMessage.CompactResult>(ClientMessage.Compact(CompactRequest("", session, null))).v1.result
 
-    suspend fun transcript(cursor: String?): TranscriptReadResult = send<ServerMessage.TranscriptReadResult>(
-        ClientMessage.TranscriptRead(TranscriptReadRequest("", session, PageRequest(cursor, PAGE_LIMIT))),
+    suspend fun transcript(cursor: String?, limit: Long): TranscriptReadResult = send<ServerMessage.TranscriptReadResult>(
+        ClientMessage.TranscriptRead(TranscriptReadRequest("", session, PageRequest(cursor, limit))),
     ).v1.result
 
     suspend fun attachment(attachmentId: String): AttachmentReadResult = send<ServerMessage.AttachmentReadResult>(
@@ -88,5 +88,8 @@ class SessionClient(private val machine: Machine, private val current: () -> Ses
     companion object {
         /** A transcript page: enough for a screen and a half of a busy session, well under the bridge's 200. */
         const val PAGE_LIMIT = 100L
+
+        /** The first read stands between a tap and the conversation on screen, so it carries one screen's worth. */
+        const val FIRST_PAGE_LIMIT = 30L
     }
 }

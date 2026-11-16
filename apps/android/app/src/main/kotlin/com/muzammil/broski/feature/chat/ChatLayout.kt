@@ -8,7 +8,9 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -19,6 +21,7 @@ import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -34,6 +37,7 @@ import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.muzammil.broski.app.FeatureContext
@@ -43,6 +47,7 @@ import com.muzammil.broski.app.SessionRoute
 import com.muzammil.broski.core.isOnline
 import com.muzammil.broski.design.Haptic
 import com.muzammil.broski.design.animationsEnabled
+import com.muzammil.broski.design.label
 import com.muzammil.broski.design.perform
 import com.muzammil.broski.feature.chat.header.ChatTopBar
 import com.muzammil.broski.feature.chat.header.SessionMenu
@@ -99,7 +104,10 @@ fun ChatLayout(model: ChatViewModel, context: FeatureContext, snackbar: Snackbar
             contentPadding = with(density) { PaddingValues(top = topHeight.toDp() + 8.dp, bottom = bottomHeight.toDp() + 8.dp) },
             modifier = Modifier.alpha(shown * if (online) 1f else OFFLINE_ALPHA),
         )
-        if (!revealed || !history.loaded) LoadingIndicator(Modifier.align(Alignment.Center).size(48.dp))
+        if (!revealed || !history.loaded) {
+            val connection = header.health?.takeUnless { online }?.label(header.machineName)
+            Loading(connection, Modifier.align(Alignment.Center).padding(horizontal = 32.dp))
+        }
         Header(model, context, dialogs, transcript.scrolledUnderTop, Modifier.align(Alignment.TopCenter).onSizeChanged { topHeight = it.height })
         ChatBottom(model, dialogs.openDiff, Modifier.align(Alignment.BottomCenter).onSizeChanged { bottomHeight = it.height })
         val bottom = with(density) { bottomHeight.toDp() }
@@ -143,6 +151,23 @@ private fun Header(model: ChatViewModel, context: FeatureContext, dialogs: ChatD
         onMenu = { menuOpen = it },
         modifier = modifier,
     )
+}
+
+/** What a chat shows while its first page is on its way, and why it is late when the Mac is out of reach. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun Loading(connection: String?, modifier: Modifier) {
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        LoadingIndicator(Modifier.size(48.dp))
+        if (connection != null) {
+            Text(
+                connection,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+        }
+    }
 }
 
 /** "Jump to latest" while the person reads further up, with how many messages came since. */
