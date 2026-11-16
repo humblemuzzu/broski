@@ -21,6 +21,8 @@ struct SessionState: Equatable {
     private(set) var snapshot = SessionSnapshot.empty
     private(set) var status: SessionStatus?
     private(set) var ended: ViewEnd?
+    /// False while the view attaches again: the state is the last one known, not the session's now.
+    private(set) var isLive = true
 
     var isRunning: Bool { snapshot.run != nil }
 
@@ -42,6 +44,8 @@ struct SessionState: Equatable {
                 if let moment = snapshot.apply(change) { moments.append(moment) }
             }
             self.status = status
+        case .live(let live):
+            isLive = live
         case .ended(let reason):
             ended = reason
         }

@@ -12,8 +12,8 @@ use broski_contract::{
 use broski_link_testkit::WAIT;
 use common::replica::Replica;
 use common::{
-    client_request_id, create_session, pair_with, paired, phone, run_texts, status_until, Mac,
-    Watched,
+    client_request_id, create_session, pair_with, paired, phone, prompt, run_texts, status_until,
+    Mac, Watched,
 };
 use tokio::time::{timeout, Instant};
 
@@ -97,4 +97,43 @@ async fn paused_resolves_once_the_link_has_paused_and_at_once_after_a_resume() {
         matches!(status.link.state, LinkState::Connected { .. })
     })
     .await;
+}
+
+fn finished(replica: &Replica) -> bool {
+    replica.snapshot.run.is_none() && replica.snapshot.last_outcome.is_some()
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_run_that_goes_on_while_the_app_is_away_reaches_the_view_on_resume_without_a_reattach() {
+    let mut mac = Mac::on_lan().await;
+    let phone = phone();
+    let machine = paired(&phone, &mac).await;
+    let session = create_session(&machine, &mac.root()).await;
+    let mut chat = Watched::attach(&machine, &session);
+    mac.bridge.script(&session, "hold").await;
+    prompt(&machine, &session, PromptMode::Start, "Work on it").await;
+    chat.until("the run to hold", holding).await;
+
+    phone.pause();
+    timeout(WAIT, phone.paused())
+        .await
+        .expect("the pause settled");
+    mac.bridge.release(&session).await;
+    phone.resume();
+
+    chat.until("the run to finish", finished).await;
+    assert!(
+        matches!(
+            machine.status().link.state,
+            LinkState::Connected { resumed: true, .. }
+        ),
+        "{:?}",
+        machine.status()
+    );
+    assert_eq!(
+        chat.replica.resets, 1,
+        "the events came once, with no reattach"
+    );
+    assert!(chat.replica.live, "the view never stopped being live");
+    chat.assert_equal("after the resume");
 }

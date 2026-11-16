@@ -3,6 +3,7 @@
     <!-- Chat -->
     <string name="chat_not_paired_title">This Mac isn\'t paired any more</string>
     <string name="chat_not_paired_body">Pair it again to open its sessions.</string>
+    <string name="chat_reconnecting">Reconnecting to this session…</string>
     <string name="chat_more">More</string>
     <string name="chat_open_files">Open folder in Files</string>
     <string name="chat_fork">Fork</string>

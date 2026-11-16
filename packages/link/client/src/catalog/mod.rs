@@ -2,6 +2,7 @@
 //! (kept until `catalog_invalidated`), and session lists kept current by the catalog's rows.
 
 pub(crate) mod lists;
+mod refresh;
 mod session_list;
 pub(crate) mod state;
 
@@ -174,7 +175,7 @@ impl Machine {
             }
             state.catalog.lists.create(backend, query, PAGE_LIMIT)
         };
-        self.shared().spawn_load(id, false);
+        self.shared().spawn_page(id, false);
         Ok(Arc::new(SessionList::new(self, id)))
     }
 }
@@ -224,33 +225,6 @@ impl Shared {
         Ok((backends, created))
     }
 
-    /// After a new bridge socket: the backends again, and every list from its first page.
-    pub(crate) fn refresh_catalog(self: &Arc<Self>) {
-        let shared = Arc::clone(self);
-        self.runtime().handle().spawn(async move {
-            if let Err(error) = shared.fetch_backends().await {
-                tracing::debug!(%error, "listing the backends failed");
-            }
-            let lists = shared.lock().catalog.lists.ids();
-            for list in lists {
-                shared.spawn_load(list, true);
-            }
-        });
-    }
-
-    /// A backend landed that the list did not have.
-    pub(crate) fn relist_backends(self: &Arc<Self>) {
-        let shared = Arc::clone(self);
-        self.runtime().handle().spawn(async move {
-            match shared.fetch_backends().await {
-                Ok((_, created)) => created
-                    .into_iter()
-                    .for_each(|list| shared.spawn_load(list, false)),
-                Err(error) => tracing::debug!(%error, "listing the backends failed"),
-            }
-        });
-    }
-
     /// The inbox's lists from their first page again, each fetched on the link runtime; the handles
     /// finish once the pages are answered. A link that is down, or a bridge that has not agreed on
     /// the protocol, would only hold the requests, so then a link waiting to dial dials now instead.
@@ -281,15 +255,6 @@ impl Shared {
             .collect()
     }
 
-    pub(crate) fn spawn_load(self: &Arc<Self>, list: u64, reload: bool) {
-        let shared = Arc::clone(self);
-        self.runtime().handle().spawn(async move {
-            if let Err(error) = shared.fetch_page(list, reload).await {
-                tracing::debug!(%error, "a session list page failed");
-            }
-        });
-    }
-
     /// The list's next page, or its first again with `reload`. The page is fetched on the link
     /// runtime, so a caller that stops waiting (Kotlin frees the future of a cancelled coroutine)
     /// still leaves the list settled: `ask` marks it loading, and only the answer clears that.
@@ -302,7 +267,11 @@ impl Shared {
         fetching.await.map_err(|_| ClientError::Closed)?
     }
 
-    async fn fetch_page(&self, list: u64, reload: bool) -> Result<(), ClientError> {
+    pub(crate) async fn fetch_page(
+        self: &Arc<Self>,
+        list: u64,
+        reload: bool,
+    ) -> Result<(), ClientError> {
         let asked = self
             .lock()
             .catalog

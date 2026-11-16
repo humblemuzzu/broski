@@ -90,6 +90,10 @@ describe("the dev fake bridge's commands", () => {
 		});
 		expect(readCommand(JSON.stringify({ id: 2, cmd: "script", session, scenario: "ask" }))).toHaveProperty("command");
 		expect(readCommand(JSON.stringify({ id: 4, cmd: "restart" }))).toEqual({ command: { id: 4, cmd: "restart" } });
+		expect(readCommand(JSON.stringify({ id: 6, cmd: "restart", backendDown: true }))).toHaveProperty("command");
+		expect(readCommand(JSON.stringify({ id: 7, cmd: "fail", method: "open", times: 2 }))).toEqual({
+			command: { id: 7, cmd: "fail", method: "open", times: 2 },
+		});
 		expect(readCommand(JSON.stringify({ id: 5, cmd: "run", session, scenario: "permission" }))).toEqual({
 			command: { id: 5, cmd: "run", session, scenario: "permission" },
 		});
@@ -101,6 +105,9 @@ describe("the dev fake bridge's commands", () => {
 			{ id: 3, cmd: "release", session: { backend: "pi" } },
 			{ id: 3, cmd: "release", session, extra: true },
 			{ id: 3, cmd: "drop" },
+			{ id: 3, cmd: "restart", backendDown: false },
+			{ id: 3, cmd: "fail", method: "prompt", times: 1 },
+			{ id: 3, cmd: "fail", method: "open", times: 0 },
 		]) {
 			expect(readCommand(JSON.stringify(bad))).toMatchObject({ id: 3, error: expect.any(String) });
 		}

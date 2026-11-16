@@ -170,6 +170,38 @@ struct ChatModelTests {
         try await until { view.isDetached }
     }
 
+    @Test func aNewestPageThatGotNoAnswerIsReadAgainUntilItLandsAlsoAfterAReset() async throws {
+        let machine = ScriptedChat()
+        let view = ScriptedSessionView()
+        let chat = chat(machine, view: view)
+        chat.newestRetryPause = { _ in .milliseconds(20) }
+        machine.transcriptFailures = 2
+        chat.start()
+        view.push(reset())
+        try await until { chat.history.isLoaded }
+        #expect(chat.historyProblem == nil)
+        #expect(machine.transcriptReads == 3)
+
+        machine.transcriptFailures = 3
+        view.push(reset())
+        try await until { chat.historyProblem != nil }
+        try await until { machine.transcriptReads == 7 && chat.historyProblem == nil }
+        #expect(machine.transcriptFailures == 0)
+    }
+
+    @Test func aViewAttachingAgainIsNotLiveUntilItSaysSo() async throws {
+        let view = ScriptedSessionView()
+        let chat = chat(ScriptedChat(), view: view)
+        chat.start()
+        view.push(reset())
+        try await until { chat.state.session != nil }
+        #expect(chat.isLive)
+        view.push(.live(live: false))
+        try await until { !chat.isLive }
+        view.push(.live(live: true))
+        try await until { chat.isLive }
+    }
+
     private func until(_ condition: () -> Bool) async throws {
         for _ in 0..<400 {
             if condition() { return }

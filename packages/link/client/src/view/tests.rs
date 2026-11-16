@@ -126,6 +126,7 @@ impl Harness {
             session: &session,
             capabilities: &capabilities,
             snapshot: &self.snapshot,
+            attached: true,
         };
         self.queue.take(self.now, Some(live))
     }

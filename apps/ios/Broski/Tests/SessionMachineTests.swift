@@ -67,6 +67,7 @@ private extension SessionUpdate {
         switch self {
         case .reset(let session, _, _, _): "reset(\(session.sessionId.prefix(8)))"
         case .changes(let changes, _): "changes(\(changes.count))"
+        case .live(let live): "live(\(live))"
         case .ended(let reason): "ended(\(reason))"
         }
     }

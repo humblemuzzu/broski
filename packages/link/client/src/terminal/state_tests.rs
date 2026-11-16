@@ -4,14 +4,16 @@
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
 use broski_contract::{
-    ClientMessage, Rejected, Rejection, RejectionCode, ServerMessage, TermAttachResponse,
-    TermAttachResult, TermExitedMessage, TermOutputMessage, TerminalAttached, TerminalStatus,
-    TerminalSummary, MAX_TERMINAL_OUTPUT_BYTES,
+    ClientMessage, ErrorResponse, ProtocolError, ProtocolErrorCode, Rejected, Rejection,
+    RejectionCode, ServerMessage, TermAttachResponse, TermAttachResult, TermExitedMessage,
+    TermOutputMessage, TerminalAttached, TerminalStatus, TerminalSummary,
+    MAX_TERMINAL_OUTPUT_BYTES,
 };
+use tokio::time::Instant;
 
 use super::state::{TakeOutput, Terminals};
 use super::TerminalUpdate;
-use crate::attach::Next;
+use crate::attach::{Next, RETRY_WINDOW};
 
 fn summary(status: TerminalStatus) -> TerminalSummary {
     TerminalSummary {
@@ -83,7 +85,10 @@ fn running() -> (Terminals, u64) {
         "the first attach asks for everything"
     );
     let view = terminals.get_mut(key).expect("view");
-    view.on_attach_answer(attached(0, b"hello", TerminalStatus::Running));
+    view.on_attach_answer(
+        attached(0, b"hello", TerminalStatus::Running),
+        Instant::now(),
+    );
     assert_eq!(update(&mut terminals, key), bytes(b"hello", true));
     (terminals, key)
 }
@@ -104,13 +109,19 @@ fn a_reattach_gets_only_what_was_missed_or_starts_over_past_a_gap() {
     terminals.get_mut(key).expect("view").detached();
     assert_eq!(since(&mut terminals, key), Some(5));
     let view = terminals.get_mut(key).expect("view");
-    view.on_attach_answer(attached(5, b" again", TerminalStatus::Running));
+    view.on_attach_answer(
+        attached(5, b" again", TerminalStatus::Running),
+        Instant::now(),
+    );
     assert_eq!(update(&mut terminals, key), bytes(b" again", false));
 
     terminals.get_mut(key).expect("view").detached();
     assert_eq!(since(&mut terminals, key), Some(11));
     let view = terminals.get_mut(key).expect("view");
-    view.on_attach_answer(attached(40, b"newest", TerminalStatus::Running));
+    view.on_attach_answer(
+        attached(40, b"newest", TerminalStatus::Running),
+        Instant::now(),
+    );
     assert_eq!(update(&mut terminals, key), bytes(b"newest", true));
 }
 
@@ -121,7 +132,7 @@ fn output_while_attaching_is_left_to_the_replay_and_out_of_order_output_attaches
     since(&mut terminals, key);
     let view = terminals.get_mut(key).expect("view");
     assert_eq!(view.on_output(output(5, b"x")), Next::Nothing);
-    view.on_attach_answer(attached(5, b"x", TerminalStatus::Running));
+    view.on_attach_answer(attached(5, b"x", TerminalStatus::Running), Instant::now());
     assert_eq!(update(&mut terminals, key), bytes(b"x", false));
     let view = terminals.get_mut(key).expect("view");
     assert_eq!(view.on_output(output(9, b"skipped ahead")), Next::Attach);
@@ -184,7 +195,7 @@ fn a_replay_that_joins_a_nearly_full_queue_keeps_the_newest_too() {
         &stream(received, 300),
         TerminalStatus::Running,
     );
-    view.on_attach_answer(replay);
+    view.on_attach_answer(replay, Instant::now());
     assert_newest_after_reset(update(&mut terminals, key), received + 300);
 }
 
@@ -227,7 +238,7 @@ fn a_refused_attach_fails_the_view() {
     terminals
         .get_mut(key)
         .expect("view")
-        .on_attach_answer(refused);
+        .on_attach_answer(refused, Instant::now());
     assert_eq!(
         update(&mut terminals, key),
         TerminalUpdate::Failed {
@@ -244,4 +255,42 @@ fn opening_a_terminal_again_ends_the_view_before() {
     assert!(matches!(terminals.take(first), TakeOutput::Finished));
     assert!(terminals.close(first).is_none());
     assert!(terminals.get_mut(second).is_some());
+}
+
+#[test]
+fn a_passing_refusal_attaches_again_from_the_last_byte_and_a_lasting_one_fails_the_view() {
+    let (mut terminals, key) = running();
+    let view = terminals.get_mut(key).expect("view");
+    view.detached();
+    let refused = |code| {
+        ServerMessage::Error(ErrorResponse {
+            request_id: Some("1".to_owned()),
+            error: ProtocolError {
+                code,
+                message: "not now".to_owned(),
+            },
+        })
+    };
+    let start = Instant::now();
+    assert_eq!(since(&mut terminals, key), Some(5));
+    let view = terminals.get_mut(key).expect("view");
+    assert!(matches!(
+        view.on_attach_answer(refused(ProtocolErrorCode::UnknownBackend), start),
+        Next::AttachAfter(_)
+    ));
+    assert!(
+        matches!(terminals.take(key), TakeOutput::Wait(_)),
+        "not failed"
+    );
+    assert_eq!(since(&mut terminals, key), Some(5), "from the last byte");
+    let view = terminals.get_mut(key).expect("view");
+    let late = start + RETRY_WINDOW;
+    let answer = view.on_attach_answer(refused(ProtocolErrorCode::Internal), late);
+    assert_eq!(answer, Next::Nothing);
+    assert_eq!(
+        update(&mut terminals, key),
+        TerminalUpdate::Failed {
+            message: "not now".to_owned()
+        }
+    );
 }

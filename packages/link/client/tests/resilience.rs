@@ -163,6 +163,10 @@ async fn a_machine_that_starts_over_resets_the_link_and_views_resume_from_the_br
         "a read the reset caught is sent again on the new link session and answered"
     );
 
+    chat.until("the view, live again with the run on", |replica| {
+        replica.live && holding(replica)
+    })
+    .await;
     mac.bridge.release(&session).await;
     chat.until("the run to finish", finished).await;
     assert_eq!(

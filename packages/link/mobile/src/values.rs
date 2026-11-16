@@ -71,6 +71,9 @@ pub enum SessionUpdate {
         changes: Vec<SessionChange>,
         status: SessionStatus,
     },
+    Live {
+        live: bool,
+    },
     Ended {
         reason: ViewEnd,
     },

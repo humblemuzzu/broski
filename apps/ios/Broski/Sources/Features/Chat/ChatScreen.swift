@@ -51,12 +51,12 @@ private struct ChatContent: View {
 
     var body: some View {
         TranscriptView(
-            chat: chat, dimmed: !machine.summary.isReady, connection: machine.summary.isReady ? nil : machine.summary.line,
+            chat: chat, dimmed: chat.connectionProblem(machine.summary) != nil, connection: chat.connectionProblem(machine.summary),
             dismissKeyboard: { composing = false }, position: $position)
             .safeAreaBar(edge: .bottom) {
                 ChatBottomBar(
                     chat: chat, catalog: catalog, agent: agent, capabilities: capabilities,
-                    isReady: machine.summary.isReady, position: $position, composing: $composing)
+                    isReady: chat.connectionProblem(machine.summary) == nil, position: $position, composing: $composing)
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -91,5 +91,14 @@ private struct ChatContent: View {
         let session: SessionRef
         let cwd: String?
         let changes: Int
+    }
+}
+
+extension ChatModel {
+    /// Why what the chat shows may not be the session as it is now: the Mac out of reach, or the
+    /// view attaching again once it is. A view that ended says so in its own card.
+    func connectionProblem(_ machine: MachineSummary) -> String? {
+        if !machine.isReady { return machine.line }
+        return isLive || viewEnd != nil ? nil : "Reconnecting to this session…"
     }
 }

@@ -3,6 +3,8 @@
 
 pub(crate) mod changes;
 pub(crate) mod queue;
+#[cfg(test)]
+mod retry_tests;
 pub(crate) mod stream;
 #[cfg(test)]
 mod stream_tests;
@@ -36,6 +38,11 @@ pub enum SessionUpdate {
         changes: Vec<SessionChange>,
         status: SessionStatus,
     },
+    /// Whether the view follows the session live. A view starts out live with its first `Reset`;
+    /// it is not while it attaches again (the link or the bridge came back, or the bridge refused
+    /// the attach for a reason that passes and it tries again), and its state stays the last one
+    /// known until it is live again. Only a change is said.
+    Live { live: bool },
     /// Nothing follows.
     Ended { reason: ViewEnd },
 }
@@ -45,7 +52,8 @@ pub enum SessionUpdate {
 pub enum ViewEnd {
     /// The session was deleted.
     Removed,
-    /// The bridge would not attach the session.
+    /// The bridge would not attach the session: it said it never will, or it kept refusing for
+    /// minutes.
     Refused { message: String },
     /// The machine was closed or forgotten.
     Closed,

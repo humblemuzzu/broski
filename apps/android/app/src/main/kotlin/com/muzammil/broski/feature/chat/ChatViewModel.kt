@@ -75,7 +75,8 @@ class ChatViewModel(
     }
 
     val header: StateFlow<ChatHeader> =
-        combine(mutableSummary, phone.inboxRows, phone.machines) { summary, inbox, machines ->
+        combine(mutableSummary, phone.inboxRows, phone.machines, feed.live.map { it.reconnecting }.distinctUntilChanged()) {
+                summary, inbox, machines, reconnecting ->
             val session = feed.session
             val row = inbox.firstOrNull { it.machineId == machineId && it.session == session }
             val state = machines.firstOrNull { it.id == machineId }
@@ -85,6 +86,7 @@ class ChatViewModel(
                 cwd = summary?.cwd ?: row?.cwd,
                 machineName = state?.name ?: row?.machineName.orEmpty(),
                 health = state?.health,
+                reconnecting = reconnecting,
             )
         }.stateIn(viewModelScope, SharingStarted.Eagerly, ChatHeader(null, route.backend, null, "", null))
 

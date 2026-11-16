@@ -12,6 +12,8 @@ pub struct Replica {
     /// Notices, activities outside a run, errors, extensions and returned input, in order.
     pub moments: Vec<SessionChange>,
     pub ended: Option<ViewEnd>,
+    /// What the last `Live` said; a view starts out live.
+    pub live: bool,
     pub resets: usize,
     pub batches: usize,
 }
@@ -24,6 +26,7 @@ impl Default for Replica {
             status: None,
             moments: Vec::new(),
             ended: None,
+            live: true,
             resets: 0,
             batches: 0,
         }
@@ -51,6 +54,7 @@ impl Replica {
                 self.status = Some(status);
                 self.batches += 1;
             }
+            SessionUpdate::Live { live } => self.live = live,
             SessionUpdate::Ended { reason } => self.ended = Some(reason),
         }
     }

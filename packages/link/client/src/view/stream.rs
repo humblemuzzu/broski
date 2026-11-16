@@ -2,13 +2,12 @@
 //! from the stream's events, and the subscribers it hands changes to (core README §6, contract
 //! README §12.2).
 
-use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Duration;
 
 use broski_contract::{
-    AgentEvent, AttachSync, ClientMessage, EventEnvelope, ProtocolErrorCode, ServerMessage,
-    SessionAttachRequest, SessionCapabilities, SessionDetachRequest, SessionRef, SessionSnapshot,
-    StreamPosition,
+    AgentEvent, AttachSync, ClientMessage, EventEnvelope, ServerMessage, SessionAttachRequest,
+    SessionCapabilities, SessionRef, SessionSnapshot, StreamPosition,
 };
 use tokio::sync::Notify;
 use tokio::time::Instant;
@@ -16,18 +15,21 @@ use tokio::time::Instant;
 use super::changes::{self, Delta};
 use super::queue::{Live, Take, UpdateQueue};
 use super::ViewEnd;
-use crate::attach::Next;
-use crate::error::ClientError;
+use crate::attach::{AttachRetry, Next};
 use crate::inbox::{ask_command, pending_ask, PendingAsk};
 
 mod holds;
+mod streams;
+
+pub(crate) use self::streams::Streams;
 
 /// Sessions one phone views at once: the bridge serves a client at most 32 (core README §14).
 pub(crate) const MAX_VIEWED_SESSIONS: usize = 32;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Phase {
-    /// Not attached on the bridge socket in use; attaches once the bridge is ready.
+    /// Not attached on the bridge socket in use; attaches once the bridge is ready, or after the
+    /// pause a failed attach set.
     Detached,
     Attaching,
     Attached,
@@ -43,6 +45,7 @@ pub(crate) struct StreamState {
     subscribers: Vec<(u64, UpdateQueue)>,
     /// Kept viewed for the inbox, subscribers or not.
     held: bool,
+    retry: AttachRetry,
 }
 
 /// What the inbox reads from a session this phone views.
@@ -66,6 +69,18 @@ impl StreamState {
             phase: Phase::Detached,
             subscribers: Vec::new(),
             held: false,
+            retry: AttachRetry::default(),
+        }
+    }
+
+    /// Subscribers look again whenever the stream starts or stops following the session live.
+    fn set_phase(&mut self, phase: Phase) {
+        let was_live = self.phase == Phase::Attached;
+        self.phase = phase;
+        if was_live != (phase == Phase::Attached) {
+            for (_, queue) in &self.subscribers {
+                queue.notify.notify_one();
+            }
         }
     }
 
@@ -87,7 +102,7 @@ impl StreamState {
 
     /// The attach to send now: a resume of the position held, so the bridge replays what was missed.
     pub(crate) fn attach_request(&mut self) -> ClientMessage {
-        self.phase = Phase::Attaching;
+        self.set_phase(Phase::Attaching);
         ClientMessage::SessionAttach(SessionAttachRequest {
             request_id: String::new(),
             session: self.session.clone(),
@@ -95,11 +110,13 @@ impl StreamState {
         })
     }
 
-    /// The bridge socket in use is gone, and this phone's attachment with it.
+    /// The bridge socket in use is gone, and this phone's attachment with it; the next socket gets
+    /// the whole retry window again.
     pub(crate) fn detached(&mut self) {
         if matches!(self.phase, Phase::Attaching | Phase::Attached) {
-            self.phase = Phase::Detached;
+            self.set_phase(Phase::Detached);
         }
+        self.retry.succeeded();
     }
 
     pub(crate) fn end(&mut self, reason: ViewEnd) {
@@ -109,22 +126,46 @@ impl StreamState {
         }
     }
 
-    pub(crate) fn on_attach_answer(&mut self, answer: ServerMessage) -> Next {
+    /// The link did not send the attach: it goes again after a pause, until the retry window ends.
+    pub(crate) fn not_sent(&mut self, why: String, now: Instant) -> Next {
+        if self.phase == Phase::Ended {
+            return Next::Nothing;
+        }
+        match self.retry.failed(now) {
+            Some(pause) => self.attach_after(pause),
+            None => {
+                self.end(ViewEnd::Refused { message: why });
+                Next::Nothing
+            }
+        }
+    }
+
+    fn attach_after(&mut self, pause: Duration) -> Next {
+        self.set_phase(Phase::Detached);
+        Next::AttachAfter(pause)
+    }
+
+    /// A refusal that may pass is tried again after a pause that grows, the view keeping its last
+    /// snapshot meanwhile; one that will not, or one that goes on past the window, ends the view.
+    pub(crate) fn on_attach_answer(&mut self, answer: ServerMessage, now: Instant) -> Next {
+        if self.phase == Phase::Ended {
+            return Next::Nothing;
+        }
         match answer {
             ServerMessage::SessionAttachResult(answer) => {
+                self.retry.succeeded();
                 self.capabilities = Some(answer.capabilities);
                 self.synced(answer.sync)
             }
-            ServerMessage::Error(error) if error.error.code == ProtocolErrorCode::RateLimited => {
-                self.phase = Phase::Detached;
-                Next::AttachLater
-            }
-            ServerMessage::Error(error) => {
-                self.end(ViewEnd::Refused {
-                    message: error.error.message,
-                });
-                Next::Nothing
-            }
+            ServerMessage::Error(error) => match self.retry.refused(error.error.code, now) {
+                Some(pause) => self.attach_after(pause),
+                None => {
+                    self.end(ViewEnd::Refused {
+                        message: error.error.message,
+                    });
+                    Next::Nothing
+                }
+            },
             other => {
                 self.end(ViewEnd::Refused {
                     message: format!("the bridge answered the attach with {other:?}"),
@@ -142,7 +183,7 @@ impl StreamState {
                     seq: replay.after_seq,
                 };
                 if self.position.as_ref() == Some(&resumed) {
-                    self.phase = Phase::Attached;
+                    self.set_phase(Phase::Attached);
                     return Next::Nothing;
                 }
                 self.position = None;
@@ -154,7 +195,7 @@ impl StreamState {
                     seq: sync.last_seq,
                 });
                 self.snapshot = sync.snapshot;
-                self.phase = Phase::Attached;
+                self.set_phase(Phase::Attached);
                 self.fan_out(Delta::Reset);
                 Next::Nothing
             }
@@ -171,7 +212,7 @@ impl StreamState {
 
     /// The machine sends an attach only for a detached stream.
     fn attach_again(&mut self) -> Next {
-        self.phase = Phase::Detached;
+        self.set_phase(Phase::Detached);
         Next::Attach
     }
 
@@ -217,6 +258,7 @@ impl StreamState {
             session: &self.session,
             capabilities,
             snapshot: &self.snapshot,
+            attached: self.phase == Phase::Attached,
         });
         let (_, queue) = self
             .subscribers
@@ -241,147 +283,5 @@ impl StreamState {
                 || snapshot.compaction.is_some()
                 || snapshot.retry.is_some(),
         })
-    }
-}
-
-/// Every session this phone views. A view knows its subscriber id only, so a stream that goes on as
-/// a session another stream already views can hand its subscribers over.
-#[derive(Default)]
-pub(crate) struct Streams {
-    next: u64,
-    streams: HashMap<u64, StreamState>,
-}
-
-impl Streams {
-    /// A new subscriber of `session`: of the stream already viewing it, or of a new one, which the
-    /// caller then attaches.
-    pub(crate) fn subscribe(&mut self, session: &SessionRef) -> Result<(u64, u64), ClientError> {
-        let stream = match self.viewing(session) {
-            Some(stream) => stream,
-            None => self.open(session)?,
-        };
-        self.next += 1;
-        let subscriber = self.next;
-        if let Some(state) = self.streams.get_mut(&stream) {
-            state.subscribers.push((subscriber, UpdateQueue::new()));
-        }
-        Ok((stream, subscriber))
-    }
-
-    /// A new stream of `session`, within the bound on viewed sessions.
-    fn open(&mut self, session: &SessionRef) -> Result<u64, ClientError> {
-        if self.streams.len() >= MAX_VIEWED_SESSIONS {
-            return Err(ClientError::InvalidRequest {
-                detail: format!("a phone views at most {MAX_VIEWED_SESSIONS} sessions"),
-            });
-        }
-        self.next += 1;
-        self.streams
-            .insert(self.next, StreamState::new(session.clone()));
-        Ok(self.next)
-    }
-
-    /// The subscriber leaves; the detach to send when it was the stream's last.
-    pub(crate) fn unsubscribe(&mut self, subscriber: u64) -> Option<ClientMessage> {
-        let stream = self.of_subscriber(subscriber)?;
-        let state = self.streams.get_mut(&stream)?;
-        state.subscribers.retain(|(id, queue)| {
-            let leaving = *id == subscriber;
-            if leaving {
-                queue.notify.notify_one();
-            }
-            !leaving
-        });
-        if !state.subscribers.is_empty() || state.held {
-            return None;
-        }
-        self.remove(stream)
-    }
-
-    /// Drops a stream nothing reads any more; the detach to send when it was attached.
-    fn remove(&mut self, stream: u64) -> Option<ClientMessage> {
-        let state = self.streams.remove(&stream)?;
-        matches!(state.phase, Phase::Attaching | Phase::Attached).then(|| {
-            ClientMessage::SessionDetach(SessionDetachRequest {
-                request_id: String::new(),
-                session: state.session,
-            })
-        })
-    }
-
-    pub(crate) fn get_mut(&mut self, stream: u64) -> Option<&mut StreamState> {
-        self.streams.get_mut(&stream)
-    }
-
-    fn of_subscriber(&self, subscriber: u64) -> Option<u64> {
-        self.streams
-            .iter()
-            .find(|(_, state)| state.has(subscriber))
-            .map(|(id, _)| *id)
-    }
-
-    /// The stream `subscriber` reads.
-    pub(crate) fn read(&self, subscriber: u64) -> Option<&StreamState> {
-        self.streams.get(&self.of_subscriber(subscriber)?)
-    }
-
-    /// The subscriber's next update, and what to wait on when there is none yet.
-    pub(crate) fn take(&mut self, subscriber: u64, now: Instant) -> (Take, Arc<Notify>) {
-        let stream = self.of_subscriber(subscriber);
-        stream
-            .and_then(|stream| self.streams.get_mut(&stream))
-            .and_then(|state| state.take(subscriber, now))
-            .unwrap_or_else(|| (Take::Finished, Arc::new(Notify::new())))
-    }
-
-    /// After `stream` went on as another session: when another stream already views that session,
-    /// it takes `stream`'s subscribers, each starting again from its snapshot, and `stream` goes.
-    /// True when it did, so `stream` needs no attach of its own.
-    pub(crate) fn merge(&mut self, stream: u64) -> bool {
-        let Some(session) = self.streams.get(&stream).map(|state| state.session.clone()) else {
-            return false;
-        };
-        let other = self.streams.iter().find(|(id, state)| {
-            **id != stream && state.phase != Phase::Ended && state.session == session
-        });
-        let Some(other) = other.map(|(id, _)| *id) else {
-            return false;
-        };
-        let moved = self.streams.remove(&stream);
-        if let (Some(target), Some(moved)) = (self.streams.get_mut(&other), moved) {
-            target.held |= moved.held;
-            for (subscriber, mut queue) in moved.subscribers {
-                queue.reset();
-                target.subscribers.push((subscriber, queue));
-            }
-        }
-        true
-    }
-
-    fn viewing(&self, session: &SessionRef) -> Option<u64> {
-        self.streams
-            .iter()
-            .find(|(_, state)| state.phase != Phase::Ended && &state.session == session)
-            .map(|(id, _)| *id)
-    }
-
-    /// The stream an event of `session` belongs to.
-    pub(crate) fn of_session(&mut self, session: &SessionRef) -> Option<(u64, &mut StreamState)> {
-        let id = self.viewing(session)?;
-        self.streams.get_mut(&id).map(|state| (id, state))
-    }
-
-    pub(crate) fn ids(&self) -> Vec<u64> {
-        self.streams.keys().copied().collect()
-    }
-
-    pub(crate) fn live_info(&self, session: &SessionRef) -> Option<LiveInfo> {
-        self.viewing(session)
-            .and_then(|id| self.streams.get(&id))
-            .and_then(StreamState::live_info)
-    }
-
-    pub(crate) fn each(&mut self, mut act: impl FnMut(&mut StreamState)) {
-        self.streams.values_mut().for_each(&mut act);
     }
 }

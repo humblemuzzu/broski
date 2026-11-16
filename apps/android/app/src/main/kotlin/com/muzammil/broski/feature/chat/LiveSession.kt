@@ -21,9 +21,14 @@ data class LiveSession(
     val snapshot: SessionSnapshot = EmptySnapshot,
     val status: SessionStatus? = null,
     val ended: ViewEnd? = null,
+    /** False while the view attaches again: the snapshot is the last one known, not the session's now. */
+    val live: Boolean = true,
 ) {
     /** Whether the first `Reset` has arrived. */
     val started: Boolean get() = session != null
+
+    /** Attaching again after the link or the bridge came back; a view that ended says so itself. */
+    val reconnecting: Boolean get() = !live && ended == null
 
     /**
      * The state after an update, the moments it carried, and every run that ended in it: a batch
@@ -46,6 +51,7 @@ data class LiveSession(
             }
             Applied(copy(snapshot = snapshot, status = update.status), moments, ended)
         }
+        is SessionUpdate.Live -> Applied(copy(live = update.live), emptyList(), emptyList())
         is SessionUpdate.Ended -> Applied(copy(ended = update.reason), emptyList(), emptyList())
     }
 }

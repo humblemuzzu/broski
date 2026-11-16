@@ -16,21 +16,10 @@ use broski_link_session::{BridgeState, BridgeStatus, LinkState, SendFailure, Sta
 
 use super::state::{Contract, Shared, State};
 use super::unexpected;
-use crate::attach::RATE_LIMIT_PAUSE;
+use crate::attach::{backoff, RATE_LIMIT_PAUSE};
 use crate::error::ClientError;
 use crate::requests::Waiter;
 use crate::view::ViewEnd;
-
-/// The pause before the first hello again on a socket that refused one; it doubles with each
-/// refusal on the same socket, up to `HELLO_RETRY_MAX`.
-const HELLO_RETRY_FIRST: Duration = Duration::from_secs(1);
-const HELLO_RETRY_MAX: Duration = Duration::from_secs(30);
-
-fn hello_pause(refused: u32) -> Duration {
-    HELLO_RETRY_FIRST
-        .saturating_mul(2u32.saturating_pow(refused))
-        .min(HELLO_RETRY_MAX)
-}
 
 impl Shared {
     pub(crate) fn on_status(&self, state: &mut State, status: Status) {
@@ -105,7 +94,7 @@ impl Shared {
             message,
         };
         state.events.status();
-        let pause = hello_pause(refused).max(at_least);
+        let pause = backoff(refused).max(at_least);
         self.later(pause, move |shared, state| {
             let current = matches!(
                 state.contract,
@@ -187,7 +176,9 @@ impl Shared {
             }
         }
         state.catalog.forget();
-        self.refresh_catalog();
+        if let Some(conn) = state.contract.conn() {
+            self.refresh_catalog(conn);
+        }
     }
 
     /// The bridge socket in use is gone, with every answer still owed on it and every attachment.
@@ -226,6 +217,10 @@ impl Shared {
                 if matches!(error, ClientError::NotSent { .. }) =>
             {
                 self.hello_refused(state, conn, refused, error.to_string(), Duration::ZERO);
+            }
+            (Waiter::Attach(stream), _) => self.stream_not_sent(state, stream, error.to_string()),
+            (Waiter::TermAttach(terminal), _) => {
+                self.terminal_not_sent(state, terminal, error.to_string());
             }
             (waiter, _) => self.fail(state, waiter, error),
         }

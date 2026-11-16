@@ -55,8 +55,10 @@ nonisolated final class ScriptedSessionView: SessionView, @unchecked Sendable {
     }
 }
 
+struct Unanswered: Error {}
+
 /// Answers the chat's requests as a test says, keeping every request it was sent. A transcript
-/// read can be held until the test lets it through.
+/// read can be held until the test lets it through, or fail.
 final class ScriptedChat {
     private(set) var sent: [ClientMessage] = []
     var page = TranscriptPage(items: [], nextCursor: nil, idStability: .stable)
@@ -64,10 +66,16 @@ final class ScriptedChat {
     var answerResult: ActionResult = .accepted(ActionAccepted())
     private var held: CheckedContinuation<Void, Never>?
     var holdsTranscript = false
+    /// Transcript reads still to fail with no answer, as a link that dropped them would.
+    var transcriptFailures = 0
 
     var requests: ChatRequests {
         ChatRequests { [self] message in
             sent.append(message)
+            if case .transcriptRead = message, transcriptFailures > 0 {
+                transcriptFailures -= 1
+                throw Unanswered()
+            }
             return await answer(message)
         }
     }

@@ -40,7 +40,7 @@ struct Replica {
                 snapshot?.apply(change)
             }
             batches += 1
-        case .ended:
+        case .live, .ended:
             break
         }
     }
@@ -70,6 +70,7 @@ extension SessionSnapshot {
         case .interactionAdded(let interaction): interactions.append(interaction)
         case .interactionRemoved(let interactionId): interactions.removeAll { $0.id == interactionId }
         case .queueChanged(let items): queue = items
+        case .backgroundTasksChanged(let tasks): backgroundTasks = tasks
         case .modelChanged(let modelId, let thinking):
             self.modelId = modelId
             self.thinking = thinking
@@ -78,7 +79,7 @@ extension SessionSnapshot {
         case .compactionChanged(let compaction): self.compaction = compaction
         case .retryChanged(let retry): self.retry = retry
         case .outcomeChanged(let outcome): lastOutcome = outcome
-        case .noticeShown, .errorShown, .extensionReceived, .inputReturned: break
+        case .noticeShown, .activityShown, .errorShown, .extensionReceived, .inputReturned: break
         }
     }
 }

@@ -32,6 +32,8 @@ pub(crate) struct Live<'a> {
     pub(crate) session: &'a SessionRef,
     pub(crate) capabilities: &'a SessionCapabilities,
     pub(crate) snapshot: &'a SessionSnapshot,
+    /// Attached on the bridge socket in use, so the snapshot follows the session live.
+    pub(crate) attached: bool,
 }
 
 pub(crate) enum Take {
@@ -50,6 +52,8 @@ pub(crate) struct UpdateQueue {
     ended: Option<ViewEnd>,
     finished: bool,
     last_batch: Option<Instant>,
+    /// What the subscriber was last told of `Live::attached`; a subscriber starts out live.
+    told_live: bool,
 }
 
 impl UpdateQueue {
@@ -63,6 +67,7 @@ impl UpdateQueue {
             ended: None,
             finished: false,
             last_batch: None,
+            told_live: true,
         }
     }
 
@@ -116,6 +121,12 @@ impl UpdateQueue {
         };
         if self.reset {
             return Take::Update(self.whole(now, &live));
+        }
+        if self.told_live != live.attached {
+            self.told_live = live.attached;
+            return Take::Update(SessionUpdate::Live {
+                live: live.attached,
+            });
         }
         if self.changes.is_empty() && self.marks.is_empty() {
             return Take::Wait(None);
