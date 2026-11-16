@@ -239,6 +239,18 @@ export class FakeSession implements RunHost {
 		return this.endEverything({ kind: "aborted" });
 	}
 
+	/** The bridge went away and the run goes on: the next bridge reports it, and its asks, under a new `RunId`. */
+	async carryOver(): Promise<void> {
+		const active = this.snapshot.run;
+		if (!this.run || !active) return;
+		const runId = this.newId();
+		this.run.runId = runId;
+		const interactions = this.snapshot.interactions.map((interaction) =>
+			interaction.runId === active.runId ? { ...interaction, runId } : interaction,
+		);
+		this.snapshot = { ...this.snapshot, run: { ...active, runId }, interactions };
+	}
+
 	/** Another client of the backend answered; the run goes on without this bridge's answer. */
 	answerElsewhere(id: InteractionId): void {
 		const waiter = this.takeWaiter(id);

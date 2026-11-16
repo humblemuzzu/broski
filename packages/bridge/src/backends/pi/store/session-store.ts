@@ -18,7 +18,7 @@ import { isFileSystemError } from "./open-file";
 import { piSessionDirs } from "./session-dir";
 import { SessionIndex } from "./session-index";
 import { SessionWatch } from "./session-watch";
-import { locateStored, storedFacts } from "./stored-session";
+import { locateStored, recentEntries, storedFacts } from "./stored-session";
 import { ToolChildren } from "./tool-children";
 import { readTranscript } from "./transcript";
 
@@ -53,6 +53,7 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
 		attachment: (sessionId, attachment) => reaching(() => readAttachment(index, sessionId, attachment)),
 		locate: (sessionId) => reaching(() => locateStored(index, sessionId)),
 		facts: (session) => reaching(() => storedFacts(index, session)),
+		recent: (session) => reaching(() => recentEntries(index, session)),
 		sessionDirFor: (cwd) => {
 			learn(cwd);
 			return dirs.forCwd(cwd);

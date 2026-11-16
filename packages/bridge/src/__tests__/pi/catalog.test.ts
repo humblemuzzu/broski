@@ -11,7 +11,7 @@ import { createPiParts, piBackendOf } from "../../backends/pi/backend";
 import { MIN_PI_VERSION } from "../../backends/pi/cli-version";
 import { BackendStatus, type CommandSummary, type ModelSummary } from "../../contract";
 import { LiveRig } from "./helpers/live-rig";
-import { MODELS, wireIdOf } from "./helpers/pi-world";
+import { HOLDER_COMMAND, MODELS, wireIdOf } from "./helpers/pi-world";
 import { useWatchdog } from "./helpers/use-watchdog";
 
 useWatchdog();
@@ -150,6 +150,7 @@ describe("the status", () => {
 			{
 				install: { cli: { found: true, path: old }, env: t.world.env.env(), agentDir: t.world.env.agentDir },
 				hostDir: join(t.world.env.root, "old-host"),
+				holders: { root: t.world.holdersRoot, command: HOLDER_COMMAND },
 			},
 		);
 		const backend = piBackendOf(parts);
@@ -174,6 +175,7 @@ describe("the status", () => {
 					agentDir: t.world.env.agentDir,
 				},
 				hostDir: join(t.world.env.root, "missing-host"),
+				holders: { root: t.world.holdersRoot, command: HOLDER_COMMAND },
 			},
 		);
 		const backend = piBackendOf(parts);

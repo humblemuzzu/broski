@@ -21,12 +21,20 @@ export class EntryCursor {
 	private recent: PiEntry[] = [];
 	private failure: string | undefined;
 
-	/** `newest` is the file's last entry when the session was opened; Pi's leaf is that entry then. */
+	/**
+	 * `newest` is the file's last entry when the session was opened; Pi's leaf is that entry then. `seeded` are entries
+	 * already in the file whose messages a holder replays (`holder/replay-log.ts`), matched until `endSeed`.
+	 */
 	constructor(
 		private readonly lookup: EntryLookup,
 		private newest: string | null,
+		private seeded: readonly PiEntry[] = [],
 		private leaf: string | null = newest,
 	) {}
+
+	endSeed(): void {
+		this.seeded = [];
+	}
 
 	/** The newest entry known: the session's leaf as far as the host knows. */
 	get leafId(): string | null {
@@ -57,9 +65,11 @@ export class EntryCursor {
 
 	/** The entry `message` was persisted as, among the newest. */
 	entryOf(message: PiMessage & { readonly timestamp: number }): PiEntry | undefined {
-		for (let at = this.recent.length - 1; at >= 0; at--) {
-			const entry = this.recent[at];
-			if (entry !== undefined && holds(entry, message)) return entry;
+		for (const entries of [this.recent, this.seeded]) {
+			for (let at = entries.length - 1; at >= 0; at--) {
+				const entry = entries[at];
+				if (entry !== undefined && holds(entry, message)) return entry;
+			}
 		}
 		return undefined;
 	}

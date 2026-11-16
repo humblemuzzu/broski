@@ -1,4 +1,5 @@
 import packageMeta from "../package.json";
+import { HOLDER_SUBCOMMAND } from "./backends/pi/holder/protocol";
 import { parseCli, printHelp } from "./cli";
 import { isCompiledBinary } from "./compiled-binary";
 
@@ -11,6 +12,10 @@ async function runVersion(): Promise<void> {
 }
 
 async function main(): Promise<void> {
+	if (process.argv[2] === HOLDER_SUBCOMMAND) {
+		const { runHolder } = await import("./backends/pi/holder/main");
+		await runHolder();
+	}
 	const cli = parseCli(process.argv, process.env);
 
 	// Load persisted config early so ALL subcommands behave consistently.

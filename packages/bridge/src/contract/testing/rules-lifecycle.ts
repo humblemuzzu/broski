@@ -101,13 +101,63 @@ export async function externalRunsAreLive(rig: Rig): Promise<void> {
 	live.assertSettled();
 }
 
-/** A session survives a restart of the bridge; a run in progress ends with it. */
+/**
+ * A session survives a restart of the bridge. A run in progress ends with the bridge, or, where the backend's runs
+ * outlive it (`runsSurviveRestart`), goes on under a new `RunId` with its prompt, abortable, and an ask pending before
+ * the restart can still be answered.
+ */
 export async function sessionsSurviveARestart(rig: Rig): Promise<void> {
 	const live = await holding(rig);
-	await live.waitFor("run_started");
+	const started = await live.waitFor("run_started");
+	const prompt = (await live.waitFor("user_message")).clientRequestId;
+	const surviving = rig.driver.runsSurviveRestart;
+	const asked = surviving ? await askPending(rig) : undefined;
 	await rig.restart();
 	const found = await rig.backend.getSession(live.ref);
 	expect(found.status === "accepted", "the session did not survive a restart of the bridge");
 	const reopened = await rig.open(live.ref);
-	expect(reopened.initial.run === undefined, "a run survived the restart of the bridge");
+	if (!surviving) {
+		expect(reopened.initial.run === undefined, "a run survived the restart of the bridge");
+		return;
+	}
+	const run = reopened.initial.run;
+	if (!run) fail("a run did not survive the restart of the bridge, which runsSurviveRestart declares");
+	expect(run.runId !== started.runId, "the run kept its RunId across the restart of the bridge");
+	const carried = userMessageOf(run);
+	expect(carried !== undefined && carried === prompt, "the run that survived the restart lost its prompt");
+	await abortAndConfirm(reopened);
+	if (asked) await answerAfterRestart(rig, asked);
+}
+
+type RunOf = LiveSession["initial"]["run"];
+
+function userMessageOf(run: RunOf): string | undefined {
+	for (const item of run?.items ?? []) if (item.kind === "user_message") return item.clientRequestId;
+	return undefined;
+}
+
+async function askPending(rig: Rig): Promise<{ live: LiveSession; interaction: Interaction } | undefined> {
+	const [kind] = rig.traits.interactions;
+	if (!kind) return undefined;
+	const live = await rig.openNew();
+	await rig.arrange(live.ref, { kind: "interaction", interaction: kind });
+	await live.prompt("Ask me, then wait.");
+	const requested = await live.waitFor("interaction_requested");
+	return { live, interaction: requested.interaction };
+}
+
+/** The ask is raised again by the bridge that took over, as the same question, and the run goes on with the answer. */
+async function answerAfterRestart(rig: Rig, asked: { live: LiveSession; interaction: Interaction }): Promise<void> {
+	const reopened = await rig.open(asked.live.ref);
+	const { request, title } = asked.interaction;
+	const pending = reopened.initial.interactions.find(
+		(interaction) => interaction.request.kind === request.kind && interaction.title === title,
+	);
+	if (!pending) fail("an ask pending before the restart is not in the reopened snapshot");
+	const result = await reopened.control.answer({ interactionId: pending.id, reply: validReply(pending) });
+	expect(result.status === "accepted", "an ask pending before the restart cannot be answered after it");
+	const resolved = await reopened.waitFor("interaction_resolved", (event) => event.interactionId === pending.id);
+	expect(resolved.reason === "answered", `the ask answered after the restart resolved ${resolved.reason}`);
+	await reopened.waitFor("run_finished");
+	reopened.assertSettled();
 }

@@ -1,7 +1,7 @@
 /**
  * On the real adapter: a run goes on and persists without a viewer, shutdown loses nothing, no runtime is leaked,
- * a restart mid-run neither repeats the prompt nor loses the aborted turn, and a session another client made opens
- * watch-only.
+ * a restart mid-run leaves the run going for the next bridge, repeating nothing, and a session another client made
+ * opens watch-only.
  */
 
 import { afterEach, describe, expect, test } from "bun:test";
@@ -45,19 +45,25 @@ describe("close and shutdown during a run", () => {
 		expect(found.status === "accepted" && found.summary.status).toBe("idle");
 	});
 
-	test("shutdown mid-run aborts, waits for the run to settle and persists the aborted turn", async () => {
+	test("shutdown mid-run lets go of the run, whose holder keeps it; the next bridge stops it, and the aborted turn is kept", async () => {
 		t = await LiveRig.create();
 		const live = await holdingRun(t, {}, "interrupt me");
 		await t.backend.dispose();
 
 		const file = t.fileOf(live.ref);
-		expect(messagesIn(file).map(([role]) => role)).toEqual(["system", "user", "assistant", "toolResult", "assistant"]);
-		expect(userTexts(file)).toEqual(["interrupt me"]);
-		const last = readEntries(file).at(-1);
-		expect(last?.type === "message" && last.message.role === "assistant" && last.message.stopReason).toBe("aborted");
-		expect(t.router.liveRuntimes()).toBe(0);
+		expect(messagesIn(file).map(([role]) => role)).toEqual(["system", "user", "assistant"]);
+		expect(t.router.liveRuntimes(live.ref.sessionId)).toBe(1);
 
 		await t.rig.restart();
+		const reopened = await t.rig.open(live.ref);
+		const runId = reopened.initial.run?.runId;
+		expect(runId).toBeDefined();
+		expect((await reopened.control.abort()).status).toBe("accepted");
+		const finished = await reopened.waitFor("run_finished", (event) => event.runId === runId);
+		expect(finished.outcome.kind).toBe("aborted");
+		expect(messagesIn(file).map(([role]) => role)).toEqual(["system", "user", "assistant", "toolResult", "assistant"]);
+		const last = readEntries(file).at(-1);
+		expect(last?.type === "message" && last.message.role === "assistant" && last.message.stopReason).toBe("aborted");
 		const items = await allItems(t.backend, live.ref, 200);
 		expect(toolCallItems(items).map((item) => item.name)).toEqual(["driver_hold"]);
 		expect(userItems(items).map((item) => item.text)).toEqual(["interrupt me"]);
@@ -108,24 +114,35 @@ describe("no runtime is leaked", () => {
 });
 
 describe("a restart mid-run", () => {
-	test("keeps the session and the aborted turn, repeats nothing, and the session takes the next prompt", async () => {
+	test("keeps the session and its run, which finishes in the new bridge, repeating nothing", async () => {
 		t = await LiveRig.create();
 		const live = await holdingRun(t, {}, "survive me");
 		const clientRequestId = userMessages(live)[0]?.clientRequestId;
+		const before = live.reduced().run?.runId;
 		await t.rig.restart();
 
 		const found = await t.backend.getSession(live.ref);
-		expect(found.status === "accepted" && found.summary.status).toBe("unknown");
+		expect(found.status === "accepted" && found.summary.status).toBe("running");
 		const reopened = await t.rig.open(live.ref);
-		expect(reopened.initial.run).toBeUndefined();
-		const prompts = userItems(await allItems(t.backend, live.ref, 200));
-		expect(prompts.map((item) => [item.text, item.clientRequestId])).toEqual([["survive me", clientRequestId]]);
-		expect(readEntries(t.fileOf(live.ref)).at(-1)).toMatchObject({ message: { stopReason: "aborted" } });
+		const run = reopened.initial.run;
+		expect(run?.runId).toBeDefined();
+		expect(run?.runId).not.toBe(before);
+		const prompt = run?.items.find((item) => item.kind === "user_message");
+		expect(prompt?.kind === "user_message" && [prompt.text, prompt.clientRequestId]).toEqual([
+			"survive me",
+			clientRequestId,
+		]);
+		expect(run?.items.some((item) => item.kind === "tool_call" && item.name === "driver_hold")).toBe(true);
 
+		t.router.release(live.ref.sessionId);
+		const finished = await reopened.waitFor("run_finished", (event) => event.runId === run?.runId);
+		expect(finished.outcome.kind).toBe("completed");
+		expect(answerTexts(await allItems(t.backend, live.ref, 200))).toEqual(["Done.", "Working."]);
 		await t.rig.arrange(live.ref, { kind: "reply" });
 		expect((await reopened.run("after the restart")).outcome.kind).toBe("completed");
 		expect(userTexts(t.fileOf(live.ref))).toEqual(["survive me", "after the restart"]);
 		expect(countOf(reopened, "run_started")).toBe(1);
+		expect(t.router.starts(live.ref.sessionId)).toBe(1);
 	});
 
 	test("a session whose directory is gone opens watch-only: it can be read, and nothing can run there", async () => {

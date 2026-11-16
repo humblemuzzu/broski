@@ -9,3 +9,5 @@ runConformance(
 	"the fake backend with nothing optional",
 	fakeConformanceFactory({ id: "claude-code", traits: MINIMAL_TRAITS, methods: NO_METHODS, modes: [] }),
 );
+
+runConformance("the fake backend whose runs outlive the bridge", fakeConformanceFactory({ runsSurviveRestart: true }));

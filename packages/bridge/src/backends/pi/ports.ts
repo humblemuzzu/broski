@@ -23,9 +23,10 @@ import type {
 	SessionsListResult,
 	TranscriptReadResult,
 } from "../../contract";
-import type { PermissionsRecord } from "./broski-entries";
+import type { PermissionsRecord, PromptRecord } from "./broski-entries";
 import type { ToolCallIds } from "./ids";
 import type { LiveState } from "./live/live-state";
+import type { PiEntry } from "./rpc/replies";
 
 /** While a run is active the transcript ends at the entry that was the leaf when it started (README §8). */
 export interface TranscriptCut {
@@ -68,6 +69,12 @@ export interface StoredFacts {
 	readonly summary: SessionSummary | undefined;
 }
 
+/** The newest of a file's entries, for a host that takes over a `pi` whose messages are already in it. */
+export interface RecentEntries {
+	readonly entries: readonly PiEntry[];
+	readonly prompts: (entryId: string) => PromptRecord | undefined;
+}
+
 /**
  * Everything read from or written to session files without a hosted `pi` (`store/`). Its
  * mutations are for sessions nobody hosts; a hosted session is written only through its host.
@@ -80,6 +87,8 @@ export interface SessionStore {
 	locate(sessionId: SessionId): Promise<StoredSession | Rejected>;
 	/** Read once, as a host starts from the file. */
 	facts(session: StoredSession): Promise<StoredFacts | Rejected>;
+	/** Read once, as a host takes over a `pi` that kept running (`live/adoption.ts`). */
+	recent(session: StoredSession): Promise<RecentEntries | Rejected>;
 	/** Where a new session of `cwd` is written, as the `pi` command would write it. */
 	sessionDirFor(cwd: string): string;
 	/** `name` is `sessionName`'s. */

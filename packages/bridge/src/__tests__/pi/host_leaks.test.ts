@@ -4,6 +4,7 @@
  */
 
 import { afterEach, expect, test } from "bun:test";
+import { stopHolders } from "../../backends/pi/holder/holders";
 import { MAX_HOSTED_SESSIONS } from "../../backends/pi/live/host-capacity";
 import { useWatchdog } from "./helpers/use-watchdog";
 import { HostRig, pause, trackLongTimers, until } from "./host_rig";
@@ -66,7 +67,7 @@ test("open/prompt/close cycles leave no pi, lock, host or timer, and the hosts a
 	expect(heapAfter - heapBefore).toBeLessThan(10);
 }, 120_000);
 
-test("cycles that abort a held run, and cycles that shut down mid-run, leave no timer, pi or host behind", async () => {
+test("cycles that abort a held run, and cycles that shut down mid-run, leave no timer or host behind, and no pi once the holders stop", async () => {
 	t = await HostRig.create();
 	const timers = trackLongTimers();
 	const hosts: WeakRef<object>[] = [];
@@ -90,6 +91,8 @@ test("cycles that abort a held run, and cycles that shut down mid-run, leave no 
 	}
 	await t.rig.rig.backend.dispose();
 
+	expect(t.rig.world.sessionProcesses()).toBe(MAX_HOSTED_SESSIONS - 1);
+	await stopHolders(t.rig.world.holdersRoot);
 	expect(t.rig.world.sessionProcesses()).toBe(0);
 	expect(sizeOf(Reflect.get(t.hosts, "hosts"))).toBe(0);
 	await collected();

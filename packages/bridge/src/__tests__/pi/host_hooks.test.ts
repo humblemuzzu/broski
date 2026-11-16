@@ -5,8 +5,8 @@
  */
 
 import { afterEach, describe, expect, test } from "bun:test";
+import { stopHolders } from "../../backends/pi/holder/holders";
 import { ABORT_DEADLINE_MS } from "../../backends/pi/live/pi-child";
-import { SETTLE_DEADLINE_MS } from "../../backends/pi/live/session-host";
 import { STOP_BUDGET_MS } from "../../backends/pi/rpc/child";
 import type { AgentEvent } from "../../contract";
 import { DEFAULT_TEARDOWN_TIMEOUT_MS } from "../../lifecycle/teardown";
@@ -101,7 +101,7 @@ describe("a hook that throws outside a run", () => {
 });
 
 describe("a tool that ignores Stop", () => {
-	test("Stop is answered at its deadline with the run still open, and shutdown ends inside the bridge's teardown", async () => {
+	test("Stop is answered at its deadline with the run still open; shutdown lets go at once, and its holder's ladder ends it", async () => {
 		t = await HostRig.create();
 		const gate = t.gate("toolGate");
 		const live = await t.rig.rig.openNew();
@@ -118,13 +118,15 @@ describe("a tool that ignores Stop", () => {
 
 		const downStarted = Date.now();
 		await t.rig.rig.backend.dispose();
-		const downTook = Date.now() - downStarted;
-		expect(downTook).toBeGreaterThanOrEqual(SETTLE_DEADLINE_MS - 200);
-		expect(downTook).toBeLessThan(SETTLE_DEADLINE_MS + STOP_BUDGET_MS + 300);
-		expect(downTook).toBeLessThan(DEFAULT_TEARDOWN_TIMEOUT_MS);
-		expect(t.rig.world.sessionProcesses()).toBe(0);
+		expect(Date.now() - downStarted).toBeLessThan(DEFAULT_TEARDOWN_TIMEOUT_MS);
+		expect(t.rig.world.sessionProcesses()).toBe(1);
 		const after = live.recorder.items.length;
 		await pause(100);
 		expect(live.recorder.items.length).toBe(after);
+
+		const stopStarted2 = Date.now();
+		await stopHolders(t.rig.world.holdersRoot);
+		expect(Date.now() - stopStarted2).toBeLessThan(STOP_BUDGET_MS + 500);
+		expect(t.rig.world.sessionProcesses()).toBe(0);
 	}, 40_000);
 });

@@ -55,7 +55,8 @@ export class FakeRun {
 
 	constructor(
 		private readonly host: RunHost,
-		readonly runId: RunId,
+		/** Renamed when the run outlives a restart of the bridge (`FakeSession.carryOver`). */
+		public runId: RunId,
 		private readonly steps: readonly FakeStep[],
 	) {
 		this.messageId = host.newId();

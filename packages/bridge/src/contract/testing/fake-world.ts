@@ -35,6 +35,7 @@ export interface FakeSettings {
 	readonly modes: readonly ModeAxis[];
 	readonly now: () => number;
 	readonly newId: () => string;
+	readonly runsSurviveRestart: boolean;
 }
 
 export interface SeedOptions {

@@ -10,6 +10,7 @@ import { CatalogFeed } from "./catalog-feed";
 import { CliVersion } from "./cli-version";
 import { commandSummaries } from "./commands";
 import { ConfigWatch } from "./config-watch";
+import type { HolderSetup } from "./holder/link";
 import { parseChildSessionId } from "./ids";
 import { openChildSession } from "./live/child-open";
 import { SessionHosts } from "./live/session-hosts";
@@ -28,6 +29,8 @@ export interface PiBackendOptions {
 	readonly install: PiInstall;
 	/** Where the bridge writes its extension for the `pi` processes it starts (`host/install.ts`). */
 	readonly hostDir: string;
+	/** Where the holders of hosted sessions live, and how to start one (`holder/`). */
+	readonly holders: HolderSetup;
 	/** The link to terminal `pi` processes (`terminal/link.ts`); without it the adapter installs and listens to nothing. */
 	readonly link?: TerminalLinkOptions;
 	/** How many `pi` processes may be hosted at once (`live/host-capacity.ts`). */
@@ -61,6 +64,7 @@ export function createPiParts(host: BackendHost, options: PiBackendOptions): PiP
 	const hosts: SessionHosts = new SessionHosts({
 		install,
 		hostDir: options.hostDir,
+		holders: options.holders,
 		terminals: terminal.registry,
 		models,
 		store,
@@ -94,10 +98,18 @@ export function piBackendOf(parts: PiParts): AgentBackend {
 			config.attach();
 			return parts.status();
 		},
-		listSessions: (query, page) => store.list(query, page, hosts),
-		getSession: async (ref) => (ref.backend === "pi" ? store.get(ref.sessionId, hosts) : notFound(ref)),
-		readTranscript: async (ref, page) =>
-			ref.backend === "pi" ? store.transcript(ref.sessionId, page, hosts) : notFound(ref),
+		listSessions: async (query, page) => {
+			await hosts.adopted();
+			return store.list(query, page, hosts);
+		},
+		getSession: async (ref) => {
+			await hosts.adopted();
+			return ref.backend === "pi" ? store.get(ref.sessionId, hosts) : notFound(ref);
+		},
+		readTranscript: async (ref, page) => {
+			await hosts.adopted();
+			return ref.backend === "pi" ? store.transcript(ref.sessionId, page, hosts) : notFound(ref);
+		},
 		readAttachment: async (ref, id) => (ref.backend === "pi" ? store.attachment(ref.sessionId, id) : notFound(ref)),
 		listModels: (cwd, options) => models.list(cwd, options),
 		listCommands: (scope) => commandsOf(parts, scope),

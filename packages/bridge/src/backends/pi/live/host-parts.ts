@@ -35,6 +35,8 @@ export interface HostLinks {
 	settle(): Promise<void>;
 	dialog(request: UiRequest): void;
 	exited(exit: PiExit, stderr: string): void;
+	detached(replaced: boolean): void;
+	replaying(replaying: boolean): void;
 }
 
 interface PiParts {
@@ -65,7 +67,7 @@ export function assembleHostParts(env: HostEnvironment, start: HostStart, links:
 	const deliver: Deliver = (delivery) => events.deliver(delivery);
 	const pi = piParts(env, start, links, deliver);
 	const run = runParts(env, pi, links);
-	const { children, events } = intakeParts(env, pi, run, links);
+	const { children, events } = intakeParts(env, start, pi, run, links);
 	return { ...pi, ...run, children, events };
 }
 
@@ -75,7 +77,7 @@ function piParts(env: HostEnvironment, start: HostStart, links: HostLinks, deliv
 		env.now,
 		(event) => links.emitted(event),
 	);
-	const child = new PiChild(start.launch, deliver);
+	const child = new PiChild(start.transport, deliver);
 	const usage = new UsageFeed(child, live);
 	const settings = new SessionSettings(
 		{ child, live, models: env.models, cwd: start.cwd, modelSwitched: () => usage.refresh() },
@@ -86,7 +88,7 @@ function piParts(env: HostEnvironment, start: HostStart, links: HostLinks, deliv
 		child,
 		usage,
 		settings,
-		cursor: new EntryCursor(child, start.lastEntryId),
+		cursor: new EntryCursor(child, start.lastEntryId, start.adoption?.seed),
 		listRow: new HostRow(start.facts, live, env.catalog),
 	};
 }
@@ -116,7 +118,13 @@ function runParts(env: HostEnvironment, pi: PiParts, links: HostLinks): RunParts
 	return { interactions, runs, queue, prompts };
 }
 
-function intakeParts(env: HostEnvironment, pi: PiParts, run: RunParts, links: HostLinks): IntakeParts {
+function intakeParts(
+	env: HostEnvironment,
+	start: HostStart,
+	pi: PiParts,
+	run: RunParts,
+	links: HostLinks,
+): IntakeParts {
 	const children = new ChildFeeds({
 		parent: () => links.summary(),
 		now: env.now,
@@ -132,6 +140,8 @@ function intakeParts(env: HostEnvironment, pi: PiParts, run: RunParts, links: Ho
 		children,
 		now: env.now,
 		record: (record) => void pi.child.record(record),
+		persistedPrompt: (entryId) => start.adoption?.prompts(entryId),
+		adopted: start.adoption !== undefined,
 		hooks: {
 			userMessage: (text) => pi.listRow.userMessage(text),
 			renamed: (name) => pi.listRow.renamed(name),
@@ -139,6 +149,8 @@ function intakeParts(env: HostEnvironment, pi: PiParts, run: RunParts, links: Ho
 			settling: () => links.settle(),
 			dialog: (request) => links.dialog(request),
 			exited: (exit, stderr) => links.exited(exit, stderr),
+			detached: (replaced) => links.detached(replaced),
+			replaying: (replaying) => links.replaying(replaying),
 		},
 	});
 	return { children, events };
