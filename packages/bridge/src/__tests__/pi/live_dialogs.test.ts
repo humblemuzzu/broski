@@ -75,6 +75,35 @@ describe("each dialog kind reaches the phone and its answer reaches the extensio
 		live.assertSettled();
 	});
 
+	test("questions on broski:questions are one questions card, and the pick comes back as the answers", async () => {
+		t = await LiveRig.create();
+		const { live, interaction } = await asked(
+			t,
+			askHuman("questions", "Which store?", { options: ["SQLite", "Redis"], tag: "store" }),
+		);
+		expect(interaction).toMatchObject({
+			title: "Which store?",
+			blocksRun: true,
+			request: {
+				kind: "questions",
+				questions: [
+					{
+						id: "0",
+						text: "Which store?",
+						options: [{ label: "SQLite" }, { label: "Redis" }],
+						multiSelect: false,
+						allowCustom: true,
+					},
+				],
+			},
+		});
+		const reply: InteractionReply = { kind: "questions", answers: [{ questionId: "0", selected: ["Redis"] }] };
+		expect((await live.control.answer(answerTo(interaction, reply))).status).toBe("accepted");
+		expect(JSON.parse(String((await t.router.answered("store")).answer))).toEqual([{ selected: ["Redis"] }]);
+		expect((await live.waitFor("run_finished")).outcome.kind).toBe("completed");
+		live.assertSettled();
+	});
+
 	test.each([{ confirmed: true }, { confirmed: false }])("confirm is a confirm: %p comes back as that boolean", async ({
 		confirmed,
 	}) => {

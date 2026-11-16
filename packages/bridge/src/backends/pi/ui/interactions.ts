@@ -62,10 +62,11 @@ export class InteractionDesk implements InteractionPort {
 	 * deciding. It ends at once, asking nobody, after `expireAll`, when `MAX_LIST_ITEMS` asks are open and when the
 	 * run it would join is being aborted: the abort has withdrawn the run's asks, and one raised after that is either
 	 * dropped by Pi when the abort reaches its signal or holds the abort until it is answered (`AskHost.aborting`).
-	 * `piTimeoutMs` is the dialog's own `timeout`, after which Pi has answered it.
+	 * `piTimeoutMs` is the dialog's own `timeout`, after which Pi has answered it. `withdrawn` ends the ask when it is
+	 * answered somewhere else: a terminal's own dialog that its user answered first.
 	 */
-	ask(spec: AskSpec, piTimeoutMs?: number): Promise<AskOutcome> {
-		if (this.closed || this.pending.size >= MAX_LIST_ITEMS) return Promise.resolve(ENDED);
+	ask(spec: AskSpec, piTimeoutMs?: number, withdrawn?: AbortSignal): Promise<AskOutcome> {
+		if (this.closed || this.pending.size >= MAX_LIST_ITEMS || withdrawn?.aborted) return Promise.resolve(ENDED);
 		const run = spec.run ?? (this.host.inCommand() ? undefined : this.host.activeRun());
 		if (run !== undefined && this.host.aborting()) return Promise.resolve(ENDED);
 		const createdAt = this.host.now();
@@ -87,9 +88,13 @@ export class InteractionDesk implements InteractionPort {
 				interaction,
 				replyProblem: spec.replyProblem,
 				settle,
-				release: () => clearTimeout(timer),
+				release: () => {
+					clearTimeout(timer);
+					withdrawn?.removeEventListener("abort", end);
+				},
 			};
 			const end = () => this.finish(entry.interaction.id, ENDED, "withdrawn");
+			withdrawn?.addEventListener("abort", end, { once: true });
 			this.pending.set(interaction.id, entry);
 			this.host.live.emit({ type: "interaction_requested", interaction });
 		});

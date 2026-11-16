@@ -1,6 +1,7 @@
 /**
  * What the phone may do to a session a terminal runs, through the terminal's own `pi` and no other writer: send a
- * message (start, steer or queue, as the terminal's session takes it) and stop the run. Stop is the terminal's Esc:
+ * message (start, steer or queue, as the terminal's session takes it), answer what the terminal asks (`dialogs.ts`),
+ * and stop the run. Stop is the terminal's Esc:
  * Pi's extension `ctx.abort()` is bound by the interactive mode to `restoreQueuedMessagesToEditor({ abort: true })`
  * (pi-coding-agent `src/modes/interactive/interactive-mode.ts:1978-1981`), so what was queued goes back into the
  * terminal's editor, not to the phone. Everything else is changed in the terminal.
@@ -67,7 +68,8 @@ export function terminalControl(session: TerminalSession): SessionControl {
 			}
 			const result: PromptResult = {
 				status: "accepted",
-				disposition: answer.disposition === "stopped" ? "handled" : answer.disposition,
+				disposition:
+					answer.disposition === "stopped" || answer.disposition === "answered" ? "handled" : answer.disposition,
 			};
 			remember(input.clientRequestId, result);
 			return result;
@@ -76,7 +78,7 @@ export function terminalControl(session: TerminalSession): SessionControl {
 			const answer = await session.command({ kind: "abort" });
 			return answer.ok ? ACCEPTED : refusal(answer);
 		},
-		answer: async () => rejected("not_found", "A question the terminal asks is answered in the terminal."),
+		answer: async (answer) => session.feed.dialogs.answer(answer),
 		setModel: async () => rejected("unsupported", IN_THE_TERMINAL),
 		setThinking: async () => rejected("unsupported", IN_THE_TERMINAL),
 		setMode: async () => rejected("unsupported", IN_THE_TERMINAL),

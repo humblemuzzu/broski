@@ -5,6 +5,7 @@
 
 import type { PermissionRequestHookInput } from "@anthropic-ai/claude-agent-sdk";
 import {
+	type CancelReply,
 	type Interaction,
 	type InteractionId,
 	type InteractionReply,
@@ -63,7 +64,7 @@ function denial(message: string | undefined): string {
 	return humanDenial(message ?? DENIED_ON_PHONE);
 }
 
-/** The tools whose terminal dialog is a question to the person, not a permission: a hook's allow would answer none. */
+/** The tools whose terminal dialog is a question to the person, not a permission (`hook-person-asks.ts`). */
 export function isPersonOnlyTool(toolName: string): boolean {
 	return toolName === "AskUserQuestion" || toolName === "ExitPlanMode";
 }
@@ -151,18 +152,17 @@ function decisionOf(reply: InteractionReply, grants: ReadonlyMap<string, OptionE
 			return toolPermissionDecision(reply.optionId, reply.message);
 		}
 		case "cancel":
-			return {
-				decision: reply.stopRun
-					? {
-							behavior: "deny",
-							message: denial(reply.message),
-							interrupt: true,
-						}
-					: undefined,
-			};
+			return cancelDecision(reply);
 		default:
 			return undefined;
 	}
+}
+
+/** A cancel that stops the run is a deny that interrupts; any other leaves the decision to the terminal. */
+export function cancelDecision(reply: CancelReply): HookDecision {
+	return {
+		decision: reply.stopRun ? { behavior: "deny", message: denial(reply.message), interrupt: true } : undefined,
+	};
 }
 
 function toolPermissionDecision(optionId: string, message: string | undefined): HookDecision | undefined {

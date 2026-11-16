@@ -350,16 +350,37 @@ describe("a terminal ask on a session the bridge only watches", () => {
 		expect(holds.at(-1)).toBe(`release ${sessionId}`);
 	});
 
-	test("a session the bridge hosts, and the tools that are questions to the person, are not raised", async () => {
+	test("a session the bridge hosts, and questions the phone cannot show, are not raised", async () => {
 		const hook = receiver();
 		rig.hosted.add(sessionId);
 		expect(await body(hook.handle(ask()))).toEqual({});
 		rig.hosted.delete(sessionId);
-		for (const tool_name of ["AskUserQuestion", "ExitPlanMode"]) {
-			expect(await body(hook.handle(ask({ tool_name, tool_input: {} })))).toEqual({});
-		}
+		const unshowable = ask({ tool_name: "AskUserQuestion", tool_input: { questions: "which?" } });
+		expect(await body(hook.handle(unshowable))).toEqual({});
 		expect(holds).toEqual([]);
 		expect(rig.records).toEqual([]);
+	});
+
+	test("AskUserQuestion is a questions card, and the phone's answer is an allow carrying the answers", async () => {
+		const hook = receiver();
+		const questions = [{ question: "Which store?", options: [{ label: "SQLite" }, { label: "Redis" }] }];
+		const response = hook.handle(ask({ tool_name: "AskUserQuestion", tool_input: { questions } }));
+		const interaction = await pendingInteraction();
+		expect(interaction.request).toMatchObject({
+			kind: "questions",
+			questions: [{ text: "Which store?", options: [{ label: "SQLite" }, { label: "Redis" }] }],
+		});
+		const answered = await answer({
+			interactionId: interaction.id,
+			reply: { kind: "questions", answers: [{ questionId: "0", selected: ["SQLite"] }] },
+		});
+		expect(answered.status).toBe("accepted");
+		expect(await body(response)).toEqual({
+			hookSpecificOutput: {
+				hookEventName: "PermissionRequest",
+				decision: { behavior: "allow", updatedInput: { questions, answers: { "Which store?": "SQLite" } } },
+			},
+		});
 	});
 
 	test("while an ask is pending the session reads as written, and when it ends it reads by its file again", async () => {

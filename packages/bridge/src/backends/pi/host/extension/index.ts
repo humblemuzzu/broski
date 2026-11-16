@@ -2,8 +2,8 @@
 //
 // It never loads in a `pi` you start yourself. In the bridge's own `pi` it asks the phone before a tool runs when the
 // session's permissions mode says so, writes the session records the bridge hands it (`broski.*` custom entries),
-// passes on the background tasks other extensions announce (`broski:tasks` on Pi's event bus), and keeps the process
-// on the one session the bridge opened it for.
+// passes on the background tasks other extensions announce (`broski:tasks` on Pi's event bus) and the questions they
+// ask (`broski:questions`), and keeps the process on the one session the bridge opened it for.
 import { type JsonObject, validateToolArguments } from "@earendil-works/pi-ai";
 import type {
 	ExtensionAPI,
@@ -15,6 +15,9 @@ import type {
 
 const COMMAND = "broski-host";
 const ASK_PREFIX = "broski-permission:";
+const QUESTIONS_PREFIX = "broski-questions:";
+/** The event bus channel an extension asks questions on (`docs/architecture/backends/pi/extension-hints.md`). */
+const QUESTIONS = "broski:questions";
 const RECORD_PREFIX = "broski.";
 const PERMISSIONS = "broski.permissions";
 /** The event bus channel an extension announces its background tasks on, and the status key that carries them out. */
@@ -54,6 +57,35 @@ function parsed(text: string): unknown {
 	} catch {
 		return undefined;
 	}
+}
+
+function field(value: unknown, key: string): unknown {
+	return typeof value === "object" && value !== null ? Reflect.get(value, key) : undefined;
+}
+
+/**
+ * Another extension's questions, as one `input` dialog whose title carries them; the answer is the answers as JSON, and
+ * no answer (a dismissal) is `undefined`. Claimed at once: in a session the bridge hosts, only the phone can answer.
+ */
+function askOnPhone(ui: ExtensionContext["ui"], request: unknown): void {
+	const answer = field(request, "answer");
+	const questions = field(request, "questions");
+	if (typeof answer !== "function" || !Array.isArray(questions)) return;
+	const claim = field(request, "claim");
+	const title = field(request, "title");
+	const signal = field(request, "signal");
+	if (typeof claim === "function") claim();
+	let text: string;
+	try {
+		text = `${QUESTIONS_PREFIX}${JSON.stringify({ ...(typeof title === "string" && { title }), questions })}`;
+	} catch {
+		answer(undefined);
+		return;
+	}
+	void ui.input(text, undefined, signal instanceof AbortSignal ? { signal } : undefined).then(
+		(reply) => answer(reply === undefined ? undefined : parsed(reply)),
+		() => answer(undefined),
+	);
 }
 
 /** For a value `JSON.parse` made, which holds nothing but JSON. */
@@ -159,6 +191,9 @@ export default function broskiHost(pi: ExtensionAPI): void {
 		} catch {
 			// A list JSON cannot hold (a cycle) has nothing to pass on, and the extension that sent it must not see a throw.
 		}
+	});
+	pi.events.on(QUESTIONS, (request) => {
+		if (ui !== undefined) askOnPhone(ui, request);
 	});
 	pi.on("tool_call", (event, ctx) => gate.check(event, ctx));
 

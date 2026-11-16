@@ -179,12 +179,15 @@ A view reopens on the host's snapshot; a host whose `pi` exited is revived on th
 
 A session another client wrote opens watch-only. A terminal `pi` runs the Broski link extension, installed in the
 agent dir, which reports over a unix socket with a key file ([terminal-link.md](terminal-link.md)); it does nothing
-outside the interactive terminal (`ctx.mode`), so the bridge's own `pi` links nothing.
+outside the interactive terminal (`ctx.mode`), so the bridge's own `pi` links nothing. What the terminal asks reaches
+the phone too: the extension wraps Pi's shared `ctx.ui` (`select`, `confirm`, `input`) and listens on
+`broski:questions` ([extension-hints.md](extension-hints.md)), the bridge raises each as an ask (`terminal/dialogs.ts`),
+and the first answer, the terminal's or the phone's, closes the other.
 
 ## 12. Capabilities
 
-`traits.ts`: text and thinking streams, start/steer/queue, images, commands, the queue, `tool_permission`, `choice`,
-`confirm`, `text`, thinking, children, usage, `externalLive`; no plan proposals, no `cancelQueued` (RPC has only
+`traits.ts`: text and thinking streams, start/steer/queue, images, commands, the queue, `tool_permission`,
+`questions` (`broski:questions`), `choice`, `confirm`, `text`, thinking, children, usage, `externalLive`; no plan proposals, no `cancelQueued` (RPC has only
 `clear_queue`). Every one passes `runConformance` against the real `pi`.
 
 ## 13. Mapping

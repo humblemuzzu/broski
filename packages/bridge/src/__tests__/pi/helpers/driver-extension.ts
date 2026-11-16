@@ -3,7 +3,7 @@
  * that `pi`, another process, so it waits on gates of the scripted endpoint the test opens and tells the test what
  * happened in JSON notes to it (`$BROSKI_TEST_ENDPOINT`, `PiRouter.note`). The scripted model calls its tools on cue:
  *   `driver_hold`      parks inside the run until the test opens its gate or the run is aborted;
- *   `ask_human`        opens one of Pi's dialogs and returns the answer;
+ *   `ask_human`        opens one of Pi's dialogs, or asks on `broski:questions`, and returns the answer;
  *   `driver_subagent`  runs a subagent whose conversation it returns in its details, as a user's Task tool does.
  * `/drv-ping` notes that it ran, `/drv-ask` asks a confirmation outside any run. With `ask-on-shutdown` in the agent
  * dir, `session_shutdown` asks a confirmation too.
@@ -71,7 +71,7 @@ export default function driverExtension(pi: ExtensionAPI): void {
 		description: "Asks the human a question through one of Pi's dialogs.",
 		parameters: Type.Object({
 			tag: Type.String(),
-			dialog: Type.String({ description: "select, confirm, input or editor" }),
+			dialog: Type.String({ description: "select, confirm, input, editor, or questions on broski:questions" }),
 			title: Type.String(),
 			options: Type.Optional(Type.Array(Type.String())),
 			timeoutMs: Type.Optional(Type.Number()),
@@ -89,7 +89,10 @@ export default function driverExtension(pi: ExtensionAPI): void {
 				...(params.timeoutMs !== undefined && { timeout: params.timeoutMs }),
 				...(dialogSignal !== undefined && { signal: dialogSignal }),
 			};
-			const answer = await askOnce(ctx.ui, params.dialog, params.title, params.options ?? [], options);
+			const answer =
+				params.dialog === "questions"
+					? await askQuestions(pi, params.title, params.options ?? [], dialogSignal)
+					: await askOnce(ctx.ui, params.dialog, params.title, params.options ?? [], options);
 			await note({ kind: "ask", tag: params.tag, answer: answer ?? null });
 			return { content: [{ type: "text", text: `answer: ${JSON.stringify(answer ?? null)}` }], details: {} };
 		},
@@ -147,6 +150,28 @@ function subRun(task: string, answer: string, messages: number) {
 			},
 		],
 	};
+}
+
+/** One question on `broski:questions`; the answers as JSON text, `undefined` when nothing claimed it or it was dismissed. */
+function askQuestions(
+	pi: ExtensionAPI,
+	title: string,
+	options: string[],
+	signal: AbortSignal | undefined,
+): Promise<string | undefined> {
+	return new Promise((resolve) => {
+		let claimed = false;
+		pi.events.emit("broski:questions", {
+			title,
+			questions: [{ question: title, options: options.map((label) => ({ label })) }],
+			signal,
+			claim: () => {
+				claimed = true;
+			},
+			answer: (answers: unknown) => resolve(answers === undefined ? undefined : JSON.stringify(answers)),
+		});
+		if (!claimed) resolve(undefined);
+	});
 }
 
 function askOnce(

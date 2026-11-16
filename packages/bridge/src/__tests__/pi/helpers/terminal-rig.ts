@@ -31,17 +31,34 @@ export interface Terminal {
 	readonly file: string;
 }
 
+/** A dialog the terminal shows while a terminal opened with `dialogs: "waiting"` waits for its person. */
+export interface ShownDialog {
+	readonly title: string;
+	/** The person at the terminal answers it. */
+	readonly answer: (value: unknown) => void;
+	/** Its signal closed it before anyone at the terminal answered. */
+	closed: boolean;
+}
+
 export class TerminalRig {
 	/** What the terminal's UI was told (`ctx.ui.notify`). */
 	readonly notices: string[] = [];
+	/** The dialogs the terminal showed, oldest first. */
+	readonly shown: ShownDialog[] = [];
 	/** What Esc put back into the terminal's editor, one entry per queued message. */
 	readonly restored: string[] = [];
 	private readonly runtimes: AgentSessionRuntime[] = [];
 
 	constructor(private readonly t: { readonly world: PiWorld }) {}
 
-	/** A new terminal session of the project, or the session `file` resumed. */
-	async open(file?: string, options: { readonly mode?: "tui" | "rpc" } = {}): Promise<Terminal> {
+	/**
+	 * A new terminal session of the project, or the session `file` resumed. Its dialogs answer nothing at once, unless
+	 * `dialogs` is `waiting`: then each waits, as Pi's does, for the person (`shown`) or for its signal.
+	 */
+	async open(
+		file?: string,
+		options: { readonly mode?: "tui" | "rpc"; readonly dialogs?: "silent" | "waiting" } = {},
+	): Promise<Terminal> {
 		const { env } = this.t.world;
 		const models = await ModelRuntime.create({
 			authPath: join(env.agentDir, "auth.json"),
@@ -61,7 +78,7 @@ export class TerminalRig {
 		this.runtimes.push(runtime);
 		const bind = (bound: AgentSession) =>
 			bound.bindExtensions({
-				uiContext: silentUi(this.notices),
+				uiContext: silentUi(this.notices, options.dialogs === "waiting" ? this.shown : undefined),
 				mode: options.mode ?? "tui",
 				abortHandler: () => {
 					const queued = bound.clearQueue();
@@ -115,12 +132,31 @@ export class TerminalRig {
 	}
 }
 
-/** A UI that answers no dialog and keeps what it was told. */
-function silentUi(notices: string[]): ExtensionUIContext {
+/** A dialog that waits for the person or for `signal`, which resolves it with Pi's default. */
+function waiting<T>(shown: ShownDialog[], title: string, fallback: T, signal: AbortSignal | undefined): Promise<T> {
+	return new Promise((resolve) => {
+		const dialog: ShownDialog = { title, answer: (value) => resolve(value as T), closed: false };
+		shown.push(dialog);
+		signal?.addEventListener(
+			"abort",
+			() => {
+				dialog.closed = true;
+				resolve(fallback);
+			},
+			{ once: true },
+		);
+	});
+}
+
+/** A UI that keeps what it was told, and whose dialogs answer nothing at once, or wait when `shown` is given. */
+function silentUi(notices: string[], shown: ShownDialog[] | undefined): ExtensionUIContext {
 	return {
-		select: async () => undefined,
-		confirm: async () => false,
-		input: async () => undefined,
+		select: async (title, _options, opts) =>
+			shown === undefined ? undefined : waiting<string | undefined>(shown, title, undefined, opts?.signal),
+		confirm: async (title, _message, opts) =>
+			shown === undefined ? false : waiting(shown, title, false, opts?.signal),
+		input: async (title, _placeholder, opts) =>
+			shown === undefined ? undefined : waiting<string | undefined>(shown, title, undefined, opts?.signal),
 		notify: (message) => notices.push(message),
 		onTerminalInput: () => () => {},
 		setStatus: () => {},

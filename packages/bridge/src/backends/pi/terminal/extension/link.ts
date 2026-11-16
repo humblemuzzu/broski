@@ -3,6 +3,7 @@ import { createConnection, type Socket } from "node:net";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { RemoteDialogs } from "./dialogs";
 import { type Frame, type Json, MAX_TEXT, read } from "./projection";
 
 const VERSION = "2";
@@ -41,12 +42,14 @@ export class Link {
 	private readonly tools = new Map<string, { name: string; args: Json }>();
 	/** The background tasks extensions announced last (`broski:tasks`), which a snapshot carries. */
 	private tasks: Json = [];
+	readonly dialogs = new RemoteDialogs((event) => this.post(event));
 
 	constructor(private readonly pi: ExtensionAPI) {}
 
 	begin(ctx: ExtensionContext): void {
 		if (ctx.mode !== "tui" || ctx.sessionManager.getSessionFile() === undefined) return;
 		this.ctx = ctx;
+		this.dialogs.watch(ctx.ui);
 		this.stopped = false;
 		this.connect();
 	}
@@ -73,7 +76,12 @@ export class Link {
 	/** An extension announced its background tasks on Pi's event bus. */
 	tasksChanged(tasks: Json): void {
 		this.tasks = tasks;
-		if (this.socket) this.send({ t: "event", event: { e: "tasks", tasks } });
+		this.post({ e: "tasks", tasks });
+	}
+
+	/** An event that is no run's: nothing to track, and dropped while no bridge listens (a snapshot carries it). */
+	private post(event: Frame): void {
+		if (this.socket) this.send({ t: "event", event });
 	}
 
 	private track(event: Frame): void {
@@ -166,6 +174,7 @@ export class Link {
 			blocks: [...this.blocks].map(([index, block]) => ({ index, kind: block.kind, text: block.text })),
 			tools: [...this.tools].map(([id, tool]) => ({ id, name: tool.name, args: tool.args })),
 			tasks: this.tasks,
+			dialogs: this.dialogs.list(),
 		};
 	}
 
@@ -264,15 +273,24 @@ export class Link {
 		}
 	}
 
-	/** Prompt and abort, through the terminal's own session, which is the only writer of its file. */
+	/** Prompt, abort and an answer, through the terminal's own session, which is the only writer of its file. */
 	private run(command: unknown): Frame {
 		const ctx = this.ctx;
 		if (!ctx) return { ok: false, code: "backend_error", message: "The terminal's session has ended." };
 		try {
-			return read(command, "kind") === "abort" ? this.abort(ctx) : this.prompt(ctx, command);
+			const kind = read(command, "kind");
+			if (kind === "answer") return this.answer(command);
+			return kind === "abort" ? this.abort(ctx) : this.prompt(ctx, command);
 		} catch (error) {
 			return { ok: false, code: "backend_error", message: `The terminal refused it: ${String(error)}` };
 		}
+	}
+
+	private answer(command: unknown): Frame {
+		const answered = this.dialogs.answer(String(read(command, "id")), read(command, "reply"));
+		return answered
+			? { ok: true, disposition: "answered" }
+			: { ok: false, code: "invalid_input", message: "That question was answered in the terminal." };
 	}
 
 	private abort(ctx: ExtensionContext): Frame {

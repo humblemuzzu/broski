@@ -435,8 +435,11 @@ host and whichever decides first applies.
   It never answers for the person: the ask ends only when someone answers, the terminal's user answers first (the
   tool's result reaches the tail, or the run ends), or the CLI drops the request. The listener never idles a request
   out (`idleTimeout: 0`; Bun's 10 s default reset the real CLI's held request, `terminal/hook_cli.test.ts`).
-- **Not raised:** a session this bridge hosts (its own `canUseTool` asks; `integration/hosted_hook.test.ts`), and
-  AskUserQuestion and ExitPlanMode, whose terminal dialogs are questions a hook's allow cannot answer.
+- **AskUserQuestion and ExitPlanMode** are the hosted desk's questions and plan cards (`terminal/hook-person-asks.ts`).
+  A bare allow answers neither; an allow with `updatedInput` (the questions echoed with an `answers` map, or the plan)
+  does, and the CLI takes it in place of its own card (`terminal/hook_cli.test.ts`). Questions the phone cannot show
+  are left to the terminal before anything is held.
+- **Not raised:** a session this bridge hosts (its own `canUseTool` asks; `integration/hosted_hook.test.ts`).
 - **TLS.** The loopback certificate names `IP:127.0.0.1,DNS:localhost` and is no CA (`platform.ts`,
   `tls-loopback.ts` regenerates one that is not); the CLI trusts it through `env.NODE_EXTRA_CA_CERTS`, which the
   installer refuses to overwrite when it names another file. Every `claude` the user runs then trusts this one

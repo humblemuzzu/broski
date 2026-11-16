@@ -1,30 +1,26 @@
 /**
- * An extension's UI requests in a hosted session (pi-coding-agent 1.5.2 `docs/rpc-extension-ui.md`): `select` is a
- * `choice`, `confirm` a `confirm`, `input` and `editor` a `text`, the bridge's own `input` a `tool_permission`
- * (`permission-asks.ts`), and `notify` a notice. A dialog nobody answered gets Pi's default, `cancelled`. Of the
- * fire-and-forget calls, `setStatus` under the bridge's own key carries the background tasks extensions announce
- * (`mapping/background-tasks.ts`).
+ * An extension's UI requests in a hosted session (pi-coding-agent 1.5.2 `docs/rpc-extension-ui.md`): a dialog is the
+ * ask `dialog-asks.ts` makes of it, the bridge's own `input` a `tool_permission` (`permission-asks.ts`), and `notify` a
+ * notice. A dialog nobody answered gets Pi's default, `cancelled`. Of the fire-and-forget calls, `setStatus` under the
+ * bridge's own key carries the background tasks extensions announce (`mapping/background-tasks.ts`).
  */
 
-import { MAX_LIST_ITEMS } from "../../../contract";
 import { type PermissionVerdict, permissionAskOf, verdictText } from "../host/protocol";
 import { noticeEvent } from "../live/live-notes";
 import type { LiveState } from "../live/live-state";
 import { TASKS_KEY, tasksOfStatus } from "../mapping/background-tasks";
-import { phoneName, phoneText } from "../phone-text";
 import type { DialogRequest, UiRequest } from "../rpc/frames";
-import type { AskOutcome, AskSpec, InteractionDesk } from "./interactions";
+import { CANCELLED, type DialogAnswer, raisedAs } from "./dialog-asks";
+import type { InteractionDesk } from "./interactions";
 import { askPermission, type PermissionHost } from "./permission-asks";
 
-export type DialogAnswer = { readonly value: string } | { readonly confirmed: boolean } | { readonly cancelled: true };
+export type { DialogAnswer } from "./dialog-asks";
 
 export interface DialogHost extends Omit<PermissionHost, "reply"> {
 	readonly live: LiveState;
 	readonly desk: InteractionDesk;
 	answer(id: string, answer: DialogAnswer): void;
 }
-
-const CANCELLED: DialogAnswer = { cancelled: true };
 
 /**
  * Raises the request now and answers Pi once the ask ends; the returned promise settles then, so nothing that must go
@@ -67,52 +63,4 @@ async function dialog(request: DialogRequest, host: DialogHost): Promise<void> {
 	const timeout = "timeout" in request ? request.timeout : undefined;
 	const outcome = await host.desk.ask(raised.spec, timeout);
 	host.answer(request.id, outcome.kind === "answered" ? raised.answerOf(outcome) : CANCELLED);
-}
-
-interface Raised {
-	readonly spec: AskSpec;
-	readonly answerOf: (outcome: Extract<AskOutcome, { kind: "answered" }>) => DialogAnswer;
-}
-
-/** Undefined for a `select` with no options, which nobody could answer. */
-function raisedAs(request: DialogRequest): Raised | undefined {
-	switch (request.method) {
-		case "select": {
-			const offered = request.options.slice(0, MAX_LIST_ITEMS);
-			if (offered.length === 0) return undefined;
-			const options = offered.map((label, index) => ({ value: String(index), label: phoneName(label) }));
-			return {
-				spec: { title: phoneName(request.title), request: { kind: "choice", options } },
-				answerOf: ({ reply }) => {
-					const chosen = reply.kind === "choice" ? offered[Number(reply.value)] : undefined;
-					return chosen === undefined ? CANCELLED : { value: chosen };
-				},
-			};
-		}
-		case "confirm": {
-			const body = phoneText(request.message);
-			return {
-				spec: { title: phoneName(request.title), ...(body !== "" && { body }), request: { kind: "confirm" } },
-				answerOf: ({ reply }) => (reply.kind === "confirm" ? { confirmed: reply.confirmed } : CANCELLED),
-			};
-		}
-		case "input":
-		case "editor": {
-			const multiline = request.method === "editor";
-			const hint = request.method === "input" ? request.placeholder : undefined;
-			const prefill = request.method === "editor" ? request.prefill : undefined;
-			return {
-				spec: {
-					title: phoneName(request.title),
-					request: {
-						kind: "text",
-						multiline,
-						...(hint !== undefined && { placeholder: phoneName(hint) }),
-						...(prefill !== undefined && { initialText: phoneText(prefill) }),
-					},
-				},
-				answerOf: ({ reply }) => (reply.kind === "text" ? { value: reply.text } : CANCELLED),
-			};
-		}
-	}
 }

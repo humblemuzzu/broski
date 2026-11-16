@@ -11,6 +11,7 @@ import { failureOutcome } from "../../../backends/claude-code/mapping/tool-outco
 import type { TerminalAskHandler } from "../../../backends/claude-code/ports/terminal";
 import { urlAllowedBy } from "../../../backends/claude-code/terminal/allowed-urls";
 import { installTerminalHook } from "../../../backends/claude-code/terminal/hook-install";
+import { personAsk } from "../../../backends/claude-code/terminal/hook-person-asks";
 import { TERMINAL_HOOK_TIMEOUT_SECONDS } from "../../../backends/claude-code/terminal/hook-settings";
 import { humanDenial } from "../../../backends/claude-code/ui/denial";
 import { createTerminalHookReceiver } from "../../../server/cc-terminal-hook";
@@ -26,6 +27,30 @@ const CLI_TEST_MS = 60_000;
 const TOKEN = "test-token-9f8e7d";
 const WRITE = [
 	{ toolCalls: [{ name: "Write", args: { file_path: "notes.txt", content: "hi\n" } }] },
+	{ text: ["Done."] },
+];
+
+const QUESTION = [
+	{
+		toolCalls: [
+			{
+				name: "AskUserQuestion",
+				args: {
+					questions: [
+						{
+							question: "Which store?",
+							header: "Store",
+							options: [
+								{ label: "SQLite", description: "one file" },
+								{ label: "Redis", description: "a server" },
+							],
+							multiSelect: false,
+						},
+					],
+				},
+			},
+		],
+	},
 	{ text: ["Done."] },
 ];
 
@@ -61,6 +86,7 @@ async function run(
 		bridgeCert?: boolean;
 		/** The hook stays installed but nothing listens at its URL, as after the bridge stopped. */
 		bridgeGone?: boolean;
+		turns?: typeof WRITE | typeof QUESTION;
 	} = {},
 ): Promise<Outcome> {
 	const cert = options.bridgeCert ? await makeBridgeCert() : makeLoopbackCert({ san: options.san });
@@ -114,7 +140,7 @@ async function run(
 			home,
 			permissionMode: "default",
 			server: { sideRequests: false },
-			turns: WRITE,
+			turns: options.turns ?? WRITE,
 			options: {
 				canUseTool: (_name, input, { signal }) =>
 					new Promise((resolve) => {
@@ -247,6 +273,27 @@ describe("the PermissionRequest hook the installer writes, in the real CLI", () 
 					session_id: expect.stringMatching(/^[0-9a-f-]{36}$/),
 				}),
 			]);
+		},
+		CLI_TEST_MS,
+	);
+
+	test(
+		"AskUserQuestion answered from the phone: the CLI takes the answers in place of its own card",
+		async () => {
+			const context = { id: "i-1", runId: undefined, createdAt: 0, toolCallId: undefined };
+			const outcome = await run(
+				async (ask) =>
+					personAsk(ask, context)?.decide({
+						kind: "questions",
+						answers: [{ questionId: "0", selected: ["Redis"] }],
+					})?.decision,
+				{ turns: QUESTION },
+			);
+			expect(outcome.asks).toEqual([expect.objectContaining({ tool_name: "AskUserQuestion" })]);
+			expect(outcome.promptWithdrawn).toBe(true);
+			expect(outcome.promptAnswered).toBe(false);
+			expect(outcome.toolResult).toContain("Which store?");
+			expect(outcome.toolResult).toContain("Redis");
 		},
 		CLI_TEST_MS,
 	);

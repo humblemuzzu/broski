@@ -29,7 +29,7 @@ export function readReadme(): ScriptedTurn {
 
 /** A call of the driver's dialog tool; its answer is noted under `tag`, the title when none is given. */
 export function askHuman(
-	dialog: "select" | "confirm" | "input" | "editor",
+	dialog: "select" | "confirm" | "input" | "editor" | "questions",
 	title: string,
 	extra: { tag?: string; options?: string[]; timeoutMs?: number; withSignal?: boolean; abortAfterMs?: number } = {},
 ): ScriptedTurn {
@@ -100,6 +100,7 @@ function interactionSteps(kind: Extract<Scenario, { kind: "interaction" }>["inte
 		case "text":
 			return [askHuman("input", "A text question"), say("Thanks.")];
 		case "questions":
+			return [askHuman("questions", "Which store?", { options: ["SQLite", "Redis"] }), say("Thanks.")];
 		case "form":
 		case "plan_approval":
 			return undefined;

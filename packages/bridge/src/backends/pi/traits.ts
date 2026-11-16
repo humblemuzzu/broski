@@ -14,7 +14,7 @@ export const PI_TRAITS: BackendTraits = {
 	attachments: ["image"],
 	commands: true,
 	queue: true,
-	interactions: ["tool_permission", "choice", "confirm", "text"],
+	interactions: ["tool_permission", "questions", "choice", "confirm", "text"],
 	thinking: true,
 	children: true,
 	usage: true,

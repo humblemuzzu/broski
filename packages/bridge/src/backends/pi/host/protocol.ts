@@ -1,13 +1,15 @@
 /**
  * What the bridge and its extension in a hosted `pi` (`./extension/index.ts`) say to each other, over Pi's own RPC:
  * the extension's permission request is an `input` dialog whose title holds the call as JSON, answered with the
- * human's verdict as JSON text (pi-coding-agent 1.5.2 `docs/rpc-extension-ui.md:65-79, 176-180`); a record reaches
+ * human's verdict as JSON text (pi-coding-agent 1.5.2 `docs/rpc-extension-ui.md:65-79, 176-180`); the questions another
+ * extension asks on `broski:questions` travel the same way, answered with the answers as JSON text; a record reaches
  * the extension as its command, sent as a prompt, which Pi runs at once even mid-run (`docs/rpc-commands.md:31`).
  */
 
 import { z } from "zod";
 import type { JsonValue } from "../../../contract";
 import type { BroskiRecord } from "../broski-entries";
+import { AskedQuestions } from "../ui/questions-dialog";
 
 /** The extension's command; a prompt that names it is the bridge's, never the phone's. */
 export const HOST_COMMAND = "broski-host";
@@ -31,6 +33,22 @@ export function permissionAskOf(title: string): PermissionAsk | undefined {
 	if (!title.startsWith(ASK_PREFIX)) return undefined;
 	try {
 		const parsed = PermissionAsk.safeParse(JSON.parse(title.slice(ASK_PREFIX.length)));
+		return parsed.success ? parsed.data : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+const QUESTIONS_PREFIX = "broski-questions:";
+
+const QuestionsAsk = z.object({ title: z.string().optional(), questions: AskedQuestions });
+export type QuestionsAsk = z.output<typeof QuestionsAsk>;
+
+/** The questions an `input` dialog's title carries; undefined for any other dialog. */
+export function questionsAskOf(title: string): QuestionsAsk | undefined {
+	if (!title.startsWith(QUESTIONS_PREFIX)) return undefined;
+	try {
+		const parsed = QuestionsAsk.safeParse(JSON.parse(title.slice(QUESTIONS_PREFIX.length)));
 		return parsed.success ? parsed.data : undefined;
 	} catch {
 		return undefined;

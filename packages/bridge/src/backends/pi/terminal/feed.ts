@@ -25,7 +25,8 @@ import { modelWireId } from "../models/model-ids";
 import { permissionsSetting } from "../modes";
 import type { LiveRow } from "../ports";
 import { assistantOf } from "./assistant-message";
-import type { EndedMessage, TerminalEvent, TerminalState } from "./protocol";
+import { TerminalDialogs } from "./dialogs";
+import type { Command, EndedMessage, TerminalEvent, TerminalState } from "./protocol";
 import { SentPrompts } from "./sent-prompts";
 
 function toolFields(event: Extract<TerminalEvent, { e: "tool_start" | "tool_update" }>) {
@@ -39,12 +40,24 @@ function toolFields(event: Extract<TerminalEvent, { e: "tool_start" | "tool_upda
 
 type SessionEvent = Extract<
 	TerminalEvent,
-	{ e: "model" | "thinking" | "name" | "compaction_start" | "compaction_end" | "ui_prompt" | "tasks" }
+	{
+		e:
+			| "model"
+			| "thinking"
+			| "name"
+			| "compaction_start"
+			| "compaction_end"
+			| "ui_prompt"
+			| "tasks"
+			| "dialog_open"
+			| "dialog_close";
+	}
 >;
 
 export class TerminalFeed {
 	readonly live: LiveState;
 	readonly sent = new SentPrompts();
+	readonly dialogs: TerminalDialogs;
 	private readonly runs: RunTracker;
 	private readonly tools: ToolFlow;
 	private stream: AssistantStream | undefined;
@@ -53,15 +66,26 @@ export class TerminalFeed {
 	private modelId: string | undefined;
 	private thinking: string | undefined;
 
-	/** `changed` is told when a run starts or ends or the session is renamed, which a session list shows. */
+	/**
+	 * `changed` is told when a run starts or ends or the session is renamed, which a session list shows; `command` sends
+	 * the terminal what the phone answered its dialogs, and a cancel's stop.
+	 */
 	constructor(
 		now: () => number,
 		private readonly changed: () => void,
+		command: (command: Command) => void = () => {},
 	) {
 		this.live = new LiveState({ ...emptySnapshot(), modes: [permissionsSetting("off")] }, now);
+		this.dialogs = new TerminalDialogs({
+			live: this.live,
+			runs: () => this.runs,
+			now,
+			reply: (id, reply) => command({ kind: "answer", id, reply }),
+			abort: () => command({ kind: "abort" }),
+		});
 		this.runs = new RunTracker({
 			live: this.live,
-			interactions: { endRun: () => {} },
+			interactions: { endRun: (runId) => this.dialogs.endRun(runId) },
 			refreshUsage: () => {},
 		});
 		this.tools = new ToolFlow({
@@ -95,6 +119,7 @@ export class TerminalFeed {
 		this.thinking = state.thinking;
 		this.announceModel();
 		this.tasksAnnounced(state.tasks);
+		this.dialogs.reconcile(state.dialogs ?? []);
 		for (const event of this.closing()) this.live.emit(event);
 		const open = this.runs.current();
 		if (open && !state.running) this.finishRun(false);
@@ -179,12 +204,18 @@ export class TerminalFeed {
 				this.compactionEnded(event);
 				return;
 			case "ui_prompt":
-				if (event.phase === "start") {
+				if (event.phase === "start" && !this.dialogs.anyOpen()) {
 					this.live.emit(noticeEvent("info", `The terminal is waiting for an answer: ${event.title ?? "a question"}`));
 				}
 				return;
 			case "tasks":
 				this.tasksAnnounced(event.tasks);
+				return;
+			case "dialog_open":
+				this.dialogs.opened(event.id, event.dialog);
+				return;
+			case "dialog_close":
+				this.dialogs.closed(event.id);
 				return;
 		}
 	}
@@ -199,6 +230,7 @@ export class TerminalFeed {
 	/** The terminal went away: what it was running ends, and its viewers are left with what was read. */
 	close(): void {
 		this.tasksAnnounced([]);
+		this.dialogs.end();
 		for (const event of this.closing()) this.live.emit(event);
 		this.stream = undefined;
 		if (this.runs.current()) {

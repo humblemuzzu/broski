@@ -1,6 +1,7 @@
 // broski-link-extension v2: written by the Broski bridge; delete it, or set "pi.terminalLink": false in the bridge's config.
 //
-// Lets the Broski app on your phone follow this terminal's session live, and stop it or send it a message. It runs in
+// Lets the Broski app on your phone follow this terminal's session live, stop it or send it a message, and answer what
+// it asks (`dialogs.ts`): a question shows in the terminal and on the phone, and the first answer wins. It runs in
 // the terminal's own `pi` process and does nothing unless the Broski bridge is running on this machine: no output, no
 // work on Pi's event paths beyond copying a few fields, a bounded buffer, and a timer that never keeps `pi` alive.
 import type { AssistantMessageEvent } from "@earendil-works/pi-ai";
@@ -49,6 +50,7 @@ export default function brokskiLink(pi: ExtensionAPI): void {
 	forwardTools(pi, link);
 	forwardSession(pi, link);
 	pi.events.on("broski:tasks", (tasks) => guarded(() => link.tasksChanged(compact(tasks ?? []))));
+	pi.events.on("broski:questions", (request) => guarded(() => link.dialogs.questions(request)));
 }
 
 function forwardRun(pi: ExtensionAPI, link: Link): void {

@@ -18,7 +18,8 @@ import {
 import { mintInteractionId } from "../ids";
 import { ACCEPTED, rejected } from "../rejections";
 import { canonicalInput } from "./canonical";
-import { type HookAsk, type HookDecision, permissionAsk } from "./hook-interaction";
+import { type HookAsk, type HookDecision, isPersonOnlyTool, permissionAsk } from "./hook-interaction";
+import { personAsk } from "./hook-person-asks";
 
 /** What the desk needs of the session it sits on. */
 export interface DeskSession {
@@ -91,12 +92,8 @@ export class HookDesk {
 		toolCallId: ToolCallId | undefined,
 	): HookAsk | undefined {
 		try {
-			return permissionAsk(ask, {
-				id: mintInteractionId(),
-				runId,
-				createdAt: this.session.now(),
-				toolCallId,
-			});
+			const context = { id: mintInteractionId(), runId, createdAt: this.session.now(), toolCallId };
+			return isPersonOnlyTool(ask.tool_name) ? personAsk(ask, context) : permissionAsk(ask, context);
 		} catch {
 			return undefined;
 		}

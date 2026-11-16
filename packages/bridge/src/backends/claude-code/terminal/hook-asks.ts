@@ -7,6 +7,7 @@
 import type { SessionId } from "../../../contract";
 import type { TerminalAskHandler } from "../ports/terminal";
 import { isPersonOnlyTool } from "./hook-interaction";
+import { personAskShowable } from "./hook-person-asks";
 import type { TerminalSessions } from "./terminal-sessions";
 
 export interface HookAskDeps {
@@ -17,7 +18,7 @@ export interface HookAskDeps {
 export function createHookAsks(deps: HookAskDeps): TerminalAskHandler {
 	return async (ask, signal) => {
 		const sessionId = ask.session_id;
-		if (isPersonOnlyTool(ask.tool_name) || deps.hosted(sessionId)) return undefined;
+		if (deps.hosted(sessionId) || (isPersonOnlyTool(ask.tool_name) && !personAskShowable(ask))) return undefined;
 		const unmark = deps.sessions.markAsked(sessionId);
 		try {
 			const session = await deps.sessions.watched(sessionId, signal);

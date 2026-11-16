@@ -55,6 +55,36 @@ return {
 
 A failed result shows its error, never a display; a hint that does not parse is ignored and the text shows.
 
+## Questions: `broski:questions`
+
+An extension that asks the person something in a picker of its own (`ctx.ui.custom`, which no other extension can
+read) announces the questions on Pi's event bus, and the Broski app answers them as one questions card:
+
+```ts
+const ended = new AbortController(); // abort once answered in the terminal, or no longer wanted
+let claimed = false;
+const fromPhone = new Promise((resolve) => {
+  pi.events.emit("broski:questions", {
+    title: "Store", // optional
+    questions: [{ question: "Which store?", header: "Store", options: [{ label: "Redis", description: "deployed" }], multiple: false }],
+    signal: ended.signal,
+    claim: () => { claimed = true; }, // called at once by whatever will answer
+    answer: resolve, // [{ selected: string[], custom?: string }] per question, or undefined
+  });
+});
+```
+
+- `claim()` runs synchronously inside `emit` when the bridge's extension is there: the link extension in a terminal's
+  `pi`, the host extension in a `pi` the bridge runs. Nothing claims it otherwise.
+- In a terminal, show your own picker as well and take whichever answers first; abort `signal` when the terminal
+  answered, and the phone's card is withdrawn. In a session the bridge hosts (`ctx.mode` is `rpc`), a claimed question
+  is answered by the phone alone.
+- Every question takes the person's own words besides its options; a single-choice question gets one pick or the
+  words, not both. A dismissal is `undefined`.
+
+Pi's own `select`, `confirm` and `input` need nothing: in a terminal the link extension shows them on the phone too,
+and the first answer wins (`terminal/extension/dialogs.ts`). `editor` takes no signal, so it stays the terminal's.
+
 ## Work in the background: `broski:tasks`
 
 ```ts

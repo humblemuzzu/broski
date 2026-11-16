@@ -124,7 +124,11 @@ export class TerminalConnection {
 			this.feed.reconcile(frame.state);
 			return true;
 		}
-		const feed = new TerminalFeed(this.deps.now, () => this.deps.changed(identity.id, identity.file));
+		const feed = new TerminalFeed(
+			this.deps.now,
+			() => this.deps.changed(identity.id, identity.file),
+			(command) => void this.send(command),
+		);
 		feed.reconcile(frame.state);
 		this.feed = feed;
 		const session: TerminalSession = {

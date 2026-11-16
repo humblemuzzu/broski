@@ -4,11 +4,14 @@
  * (pi-coding-agent 1.5.2 `docs/extensions.md:305-1160`): the run, its text, thinking and tools, compactions, the model and
  * the thinking level, the session's name, and the background tasks other extensions announce on Pi's event bus
  * (`broski:tasks`). Pi hands extensions no event for its queue or its automatic retries, so the link carries neither.
- * Every frame is checked here, strictly and within bounds, before anything reads it.
+ * The dialogs the terminal shows (Pi's select, confirm and input, and the questions on `broski:questions`) are
+ * mirrored, and the phone's answer goes back as a command. Every frame is checked here, strictly and within bounds,
+ * before anything reads it.
  */
 
 import { z } from "zod";
 import type { JsonValue } from "../../../contract";
+import { AskedQuestions, QuestionAnswers } from "../ui/questions-dialog";
 
 /**
  * Fields are only ever added, and optional, so a `pi` that loaded an older copy of the extension before the bridge
@@ -80,6 +83,26 @@ export type EndedMessage = z.infer<typeof EndedMessage>;
 
 const Parent = { parentToolCallId: Id.optional() };
 
+const Timeout = { timeout: z.number().positive().optional() };
+
+/** A dialog in the terminal, as Pi's own call described it. */
+export const Dialog = z.discriminatedUnion("method", [
+	z.strictObject({ method: z.literal("select"), title: Text, options: z.array(Text).max(1_000), ...Timeout }),
+	z.strictObject({ method: z.literal("confirm"), title: Text, message: Text, ...Timeout }),
+	z.strictObject({ method: z.literal("input"), title: Text, placeholder: Text.optional(), ...Timeout }),
+	z.strictObject({ method: z.literal("questions"), title: Text.optional(), questions: AskedQuestions }),
+]);
+export type Dialog = z.infer<typeof Dialog>;
+
+/** The phone's answer to a dialog: Pi's own answer shapes, and the answers to questions. */
+export const DialogReply = z.union([
+	z.strictObject({ value: Text }),
+	z.strictObject({ confirmed: z.boolean() }),
+	z.strictObject({ cancelled: z.literal(true) }),
+	z.strictObject({ answers: QuestionAnswers }),
+]);
+export type DialogReply = z.infer<typeof DialogReply>;
+
 export const TerminalEvent = z.discriminatedUnion("e", [
 	z.strictObject({ e: z.literal("agent_start"), leafId: Id.nullable() }),
 	z.strictObject({ e: z.literal("agent_settled"), aborted: z.boolean() }),
@@ -127,6 +150,9 @@ export const TerminalEvent = z.discriminatedUnion("e", [
 	}),
 	/** The list as the extension that announced it gave it; the bridge reads it as `mapping/background-tasks.ts` says. */
 	z.strictObject({ e: z.literal("tasks"), tasks: Json }),
+	z.strictObject({ e: z.literal("dialog_open"), id: Id, dialog: Dialog }),
+	/** Answered in the terminal, or ended by the extension that asked. */
+	z.strictObject({ e: z.literal("dialog_close"), id: Id }),
 ]);
 export type TerminalEvent = z.infer<typeof TerminalEvent>;
 
@@ -139,6 +165,10 @@ export const TerminalState = z.strictObject({
 	blocks: z.array(z.strictObject({ index: Count, kind: z.enum(["text", "thinking"]), text: Text })).max(1_000),
 	tools: z.array(z.strictObject({ id: Id, name: z.string().max(1_024), args: Json })).max(1_000),
 	tasks: Json.optional(),
+	dialogs: z
+		.array(z.strictObject({ id: Id, dialog: Dialog }))
+		.max(100)
+		.optional(),
 });
 export type TerminalState = z.infer<typeof TerminalState>;
 
@@ -147,7 +177,7 @@ const ShutdownReason = z.enum(["quit", "reload", "new", "resume", "fork"]);
 const FailureCode = z.enum(["busy", "no_model", "invalid_input", "backend_error"]);
 
 export const CommandAnswer = z.discriminatedUnion("ok", [
-	z.strictObject({ ok: z.literal(true), disposition: z.enum(["started", "steered", "queued", "stopped"]) }),
+	z.strictObject({ ok: z.literal(true), disposition: z.enum(["started", "steered", "queued", "stopped", "answered"]) }),
 	z.strictObject({ ok: z.literal(false), code: FailureCode, message: Text }),
 ]);
 export type CommandAnswer = z.infer<typeof CommandAnswer>;
@@ -178,6 +208,7 @@ export const Command = z.discriminatedUnion("kind", [
 		images: z.array(z.strictObject({ mimeType: Name, data: z.string().max(6_000_000) })).max(100),
 	}),
 	z.strictObject({ kind: z.literal("abort") }),
+	z.strictObject({ kind: z.literal("answer"), id: Id, reply: DialogReply }),
 ]);
 export type Command = z.infer<typeof Command>;
 

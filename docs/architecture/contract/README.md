@@ -178,7 +178,7 @@ Declared traits are checked against behaviour, both ways where the contract can 
 | `attachments` | image (base64 blocks) (CC D11); a file reaches the CLI as `@path` in the text | image (pi §6) |
 | `commands` | ✓ slash commands, skills (CC D7) | ✓ extension commands, templates, skills (pi §9) |
 | `queue` (visible) | ✓ the adapter's own queue, one item per run | ✓ `queue_update`, texts only (pi §5) |
-| `interactions` | tool_permission, questions, form, plan_approval (CC D15), confirm (empty MCP forms) | tool_permission (bridge-owned gate), choice, confirm, text (pi §8) |
+| `interactions` | tool_permission, questions, form, plan_approval (CC D15), confirm (empty MCP forms) | tool_permission (bridge-owned gate), questions (`broski:questions`), choice, confirm, text (pi §8) |
 | `thinking` | ✓ effort levels (CC D12) | ✓ levels, clamped (pi §7) |
 | `children` | ✓ subagents (CC D20) | ✓ a tool call's sub-run in its result's `details`, forks and handoffs (pi §13) |
 | `usage` | ✓ (CC §5) | ✓ pulled after messages (pi §5) |
