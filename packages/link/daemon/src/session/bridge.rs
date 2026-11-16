@@ -162,6 +162,28 @@ impl BridgePump {
         }
     }
 
+    /// A new link session in place of one this session held is a phone that started over (the app
+    /// launched again): the socket the old one used still holds its hello and every session it
+    /// viewed, which would stream to the new one unasked. That socket closes and a new one is
+    /// dialled, whose `conn` tells the phone to say hello again. A socket that still owes the bridge
+    /// something the phone sent is kept: those messages were acknowledged to the phone, and only that
+    /// socket, which said the old phone's hello, can deliver them.
+    pub(super) fn start_over(&mut self) {
+        let writing = self
+            .link
+            .as_ref()
+            .is_some_and(|link| link.tx.capacity() < link.tx.max_capacity());
+        if !self.pending.is_empty() || writing {
+            return;
+        }
+        self.link = None;
+        self.since = None;
+        self.retry_at = None;
+        self.handing_back = false;
+        self.backoff.reset();
+        self.dial();
+    }
+
     pub(super) fn deadline(&self) -> Option<Instant> {
         self.retry_at
     }

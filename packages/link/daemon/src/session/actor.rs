@@ -348,7 +348,11 @@ impl Actor {
         match sender.try_wire(msg2) {
             Ok(()) => {
                 if let Some(link) = fresh {
+                    let replaced = self.link.session_id().is_some();
                     self.link = link;
+                    if replaced {
+                        self.bridge.start_over();
+                    }
                     // A new session has seen none of this phone's session: nothing queued for the
                     // old one may reach it, and the new one owes the phone a fresh bridge status.
                     self.pending_device = None;

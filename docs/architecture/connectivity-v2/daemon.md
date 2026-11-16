@@ -179,6 +179,11 @@ reply, so the relay closes the pairing channel only once the phone holds its rea
   dropped, so a phone that just reset is never handed data for the session it lost. What the phone
   sent for the bridge is *not* dropped — those messages were acked to it, and the bridge still owes
   them (the queue is the session's, not the link's).
+- A fresh session in place of one the daemon held is a phone that started over (the app was
+  relaunched). Its bridge socket still holds the old process's hello and every session it viewed,
+  which would keep streaming to the new one, so it is closed and a new one dialled (`conn` moves and
+  the phone says hello again) — unless it still owes the bridge something the phone sent, in which
+  case it is kept, as above.
 
 ## Bridge supervision
 
