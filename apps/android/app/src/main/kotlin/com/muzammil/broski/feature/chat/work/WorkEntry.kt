@@ -5,6 +5,7 @@ import uniffi.broski_contract.FileChange
 import uniffi.broski_contract.ImageRef
 import uniffi.broski_contract.JsonValue
 import uniffi.broski_contract.SessionRef
+import uniffi.broski_contract.ToolDisplay
 import uniffi.broski_contract.ToolOutcome
 import uniffi.broski_core.ToolKind
 import uniffi.broski_core.ToolLook
@@ -27,6 +28,8 @@ sealed interface WorkEntry {
         val error: String?,
         val exitCode: Long?,
         val fileChanges: List<FileChange>,
+        /** What the result shows in place of its text, when its tool has a view of its own. */
+        val display: ToolDisplay?,
         val images: List<ImageRef>,
         val childSession: SessionRef?,
         val nested: Boolean,

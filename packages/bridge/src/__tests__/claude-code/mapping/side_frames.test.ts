@@ -53,7 +53,7 @@ describe("notices", () => {
 		]);
 	});
 
-	test("local command output, a mirror error, a shutdown and a failed plugin install are notices", () => {
+	test("local command output is a command activity; a mirror error, a shutdown and a failed plugin install are notices", () => {
 		const events = map(
 			{ type: "system", subtype: "local_command_output", content: "ran", ...ids() },
 			{
@@ -67,8 +67,11 @@ describe("notices", () => {
 			{ type: "system", subtype: "plugin_install", status: "failed", name: "docs", error: "404", ...ids() },
 			{ type: "system", subtype: "plugin_install", status: "installed", name: "docs", ...ids() },
 		);
-		expect(events.map((event) => event.type === "notice" && [event.level, event.text])).toEqual([
-			["info", "ran"],
+		expect(events[0]).toMatchObject({
+			type: "activity",
+			activity: { kind: "command", title: "Command output", body: { format: "text", text: "ran" } },
+		});
+		expect(events.slice(1).map((event) => event.type === "notice" && [event.level, event.text])).toEqual([
 			["error", "The session could not be mirrored: disk full"],
 			["warning", "Claude Code is shutting down: host_exit"],
 			["warning", "Installing the plugin docs failed: 404"],

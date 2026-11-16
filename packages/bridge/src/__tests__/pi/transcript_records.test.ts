@@ -149,7 +149,7 @@ describe("a skill command", () => {
 });
 
 describe("an extension's message with display on", () => {
-	test("is a notice live and the same notice in the transcript", async () => {
+	test("is an activity live and the same activity in the transcript: its type over its text", async () => {
 		d = await HostRig.create();
 		const live = await d.rig.rig.openNew();
 		await d.rig.rig.arrange(live.ref, { kind: "reply" });
@@ -164,10 +164,48 @@ describe("an extension's message with display on", () => {
 				command: "ext:note",
 			}),
 		).toMatchObject({ disposition: "handled" });
-		const notice = await live.waitFor("notice", (event) => event.text === "a note");
-		expect(notice.level).toBe("info");
+		const shown = await live.waitFor("activity");
+		expect(shown.activity).toEqual({
+			kind: "message",
+			title: "Host rig",
+			body: { format: "markdown", text: "a note" },
+		});
 		const [newest] = await allItems(d.rig.backend, live.ref, 200);
-		expect(newest).toMatchObject({ kind: "notice", level: "info", text: "a note" });
+		expect(newest).toMatchObject({ kind: "activity", activity: shown.activity });
+	});
+
+	test("with a hint is the activity it describes, and the tasks it announces run in the background list until it ends them", async () => {
+		d = await HostRig.create();
+		const live = await d.rig.rig.openNew();
+		await d.rig.rig.arrange(live.ref, { kind: "reply" });
+		await live.run("first, so the session is on disk");
+
+		expect(
+			await live.control.prompt({
+				clientRequestId: crypto.randomUUID(),
+				mode: "start",
+				text: "",
+				attachments: [],
+				command: "ext:job",
+			}),
+		).toMatchObject({ disposition: "handled" });
+		const shown = await live.waitFor("activity");
+		const lists = live.events().flatMap((event) => (event.type === "background_tasks_changed" ? [event.tasks] : []));
+		expect(lists).toEqual([
+			[{ id: "job-1", kind: "task", title: "tail the log", command: "tail -F log", startedAt: 1 }],
+			[],
+		]);
+		expect(shown.activity).toEqual({
+			kind: "task",
+			title: "job-1 failed after 1s",
+			status: "failed",
+			command: "tail -F log",
+			durationMs: 1000,
+			exitCode: 1,
+			body: { format: "log", text: "line 1\nline 2" },
+		});
+		const [newest] = await allItems(d.rig.backend, live.ref, 200);
+		expect(newest).toMatchObject({ kind: "activity", activity: shown.activity });
 	});
 });
 

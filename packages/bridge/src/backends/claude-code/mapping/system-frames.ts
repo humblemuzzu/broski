@@ -1,11 +1,15 @@
-/** System frames: notices, compaction, task progress, a refused call; the rest is the host's or shows nothing. */
+/**
+ * System frames: notices, compaction, background tasks, a slash command's output, task progress, a refused call; the
+ * rest is the host's or shows nothing.
+ */
 
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
+import { mintActivityId } from "../ids";
 import type { MappedEvent } from "../ports/mapping";
+import { commandOutputActivity } from "./activities";
 import { compactionEvents } from "./compaction";
 import {
 	informationalNotice,
-	localCommandNotice,
 	mirrorErrorNotice,
 	notificationNotice,
 	pluginInstallNotice,
@@ -15,6 +19,7 @@ import {
 	writesLostNotice,
 } from "./notices";
 import type { MapperState } from "./state";
+import { backgroundTasksEvents, noteTaskUpdate, rememberTask, taskEndEvents } from "./tasks";
 import { taskProgressEvents, taskStartedEvents } from "./tool-calls";
 import { wireToolCallId } from "./wire-id";
 
@@ -23,6 +28,11 @@ function noteDenial(state: MapperState, toolUseId: unknown): MappedEvent[] {
 	const id = wireToolCallId(toolUseId);
 	if (id !== undefined && state.openTools.has(id)) state.denied.add(id);
 	return [];
+}
+
+function commandOutputEvents(frame: Extract<SDKMessage, { subtype: "local_command_output" }>): MappedEvent[] {
+	const activity = typeof frame.content === "string" ? commandOutputActivity(frame.content, false) : undefined;
+	return activity === undefined ? [] : [{ event: { type: "activity", activityId: mintActivityId(), activity } }];
 }
 
 /** `init` opens a turn; the model it names is what a context window is read for. */
@@ -46,15 +56,23 @@ export function systemEvents(state: MapperState, frame: Extract<SDKMessage, { ty
 		case "permission_denied":
 			return noteDenial(state, frame.tool_use_id);
 		case "task_started":
+			rememberTask(state, frame);
 			return taskStartedEvents(state, frame);
+		case "task_updated":
+			noteTaskUpdate(state, frame);
+			return [];
 		case "task_progress":
 			return taskProgressEvents(state, frame);
+		case "task_notification":
+			return taskEndEvents(state, frame);
+		case "background_tasks_changed":
+			return backgroundTasksEvents(state, frame);
 		case "informational":
 			return informationalNotice(frame);
 		case "notification":
 			return notificationNotice(frame);
 		case "local_command_output":
-			return localCommandNotice(frame);
+			return commandOutputEvents(frame);
 		case "model_refusal_fallback":
 			return refusalFallbackNotice(frame);
 		case "model_refusal_no_fallback":
@@ -72,10 +90,7 @@ export function systemEvents(state: MapperState, frame: Extract<SDKMessage, { ty
 		case "hook_progress":
 		case "hook_response":
 		case "session_state_changed":
-		case "background_tasks_changed":
 		case "commands_changed":
-		case "task_updated":
-		case "task_notification":
 		case "thinking_tokens":
 		case "memory_recall":
 		case "files_persisted":

@@ -7,11 +7,11 @@ use broski_client::{
     SessionListUpdate, SessionUpdate, TerminalUpdate, ViewEnd,
 };
 use broski_contract::{
-    ActiveRun, BackendDescriptor, BackendExtension, BackendId, BackendStatus, BlockId,
-    CatalogScope, CompactionState, ErrorEvent, Interaction, InteractionId, ModeSetting, ModelId,
-    NoticeEvent, OpenBlock, ProtocolErrorCode, QueueItem, RejectionCode, RetryState, RunOutcome,
-    RunningTool, SessionCapabilities, SessionRef, SessionSnapshot, SessionStatus, SessionSummary,
-    ToolCallId, TranscriptItem, Usage, WorkingDirectory,
+    ActiveRun, ActivityItem, BackendDescriptor, BackendExtension, BackendId, BackendStatus,
+    BackgroundTask, BlockId, CatalogScope, CompactionState, ErrorEvent, Interaction, InteractionId,
+    ModeSetting, ModelId, NoticeEvent, OpenBlock, ProtocolErrorCode, QueueItem, RejectionCode,
+    RetryState, RunOutcome, RunningTool, SessionCapabilities, SessionRef, SessionSnapshot,
+    SessionStatus, SessionSummary, ToolCallId, TranscriptItem, Usage, WorkingDirectory,
 };
 use broski_link_session::{BridgeStatus, Platform, SendFailure};
 
@@ -120,6 +120,9 @@ pub enum SessionChange {
     QueueChanged {
         items: Vec<QueueItem>,
     },
+    BackgroundTasksChanged {
+        tasks: Vec<BackgroundTask>,
+    },
     ModelChanged {
         model_id: Option<ModelId>,
         thinking: Option<String>,
@@ -141,6 +144,9 @@ pub enum SessionChange {
     },
     NoticeShown {
         notice: NoticeEvent,
+    },
+    ActivityShown {
+        item: ActivityItem,
     },
     ErrorShown {
         error: ErrorEvent,

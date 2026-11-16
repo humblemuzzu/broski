@@ -8,6 +8,8 @@ enum Route: Hashable {
     case session(machineId: String, session: SessionRef)
     /// A file a tool call changed, as its diff.
     case toolDiff(FileChange)
+    /// A long text a row shows only a clip of.
+    case text(TextPage)
 }
 
 struct RouteDestination: View {
@@ -29,6 +31,8 @@ struct RouteDestination: View {
             }
         case .toolDiff(let change):
             ToolDiffScreen(change: change)
+        case .text(let page):
+            TextPageScreen(page: page)
         }
     }
 }

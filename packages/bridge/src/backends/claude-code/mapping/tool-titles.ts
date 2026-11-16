@@ -2,6 +2,7 @@
 
 import { isRecord } from "../json";
 import { phoneLine } from "../phone-text";
+import { todoTitle } from "./tool-displays";
 
 const TITLE_CHARS = 160;
 const MCP_PREFIX = "mcp__";
@@ -28,7 +29,6 @@ const FIELD_TITLES: ReadonlyMap<string, FieldTitle> = new Map<string, FieldTitle
 ]);
 
 const FIXED_TITLES: ReadonlyMap<string, string> = new Map<string, string>([
-	["TodoWrite", "Update todo list"],
 	["TaskUpdate", "Update task"],
 	["TaskList", "List tasks"],
 	["TaskGet", "Get task"],
@@ -67,6 +67,7 @@ function titled(title: string | undefined): string | undefined {
 export function toolTitle(toolName: string, input: unknown): string | undefined {
 	const mcp = mcpTitle(toolName);
 	if (mcp !== undefined) return titled(mcp);
+	if (toolName === "TodoWrite") return todoTitle(input);
 	const fixed = FIXED_TITLES.get(toolName);
 	if (fixed !== undefined) return fixed;
 	if (!isRecord(input)) return undefined;

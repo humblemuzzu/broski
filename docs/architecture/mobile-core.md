@@ -130,8 +130,9 @@ Each `SessionChange` assigns what the reducer produced; the UI never computes:
 | `BlockOpened{block}`, `BlockTextChanged{block_id, text}`, `BlockClosed{block_id}` | push; set that block's text; remove it |
 | `ToolOpened{tool}`, `ToolChanged{tool}`, `ToolClosed{tool_call_id}` | push; replace the tool with that id; remove it |
 | `InteractionAdded{interaction}`, `InteractionRemoved{interaction_id}` | push; remove |
-| `QueueChanged`, `ModelChanged`, `ModesChanged`, `UsageChanged`, `CompactionChanged`, `RetryChanged`, `OutcomeChanged` | assign the field(s) |
+| `QueueChanged`, `BackgroundTasksChanged`, `ModelChanged`, `ModesChanged`, `UsageChanged`, `CompactionChanged`, `RetryChanged`, `OutcomeChanged` | assign the field(s) |
 | `NoticeShown`, `ErrorShown`, `ExtensionReceived`, `InputReturned{texts}` | show; the state holds none of them (`InputReturned`: put the texts, joined by blank lines, in front of the composer's text) |
+| `ActivityShown{item}` | an activity outside any run, which no run item holds: show it after the transcript until a read of the newest page holds it |
 
 Streaming text and tool progress are not queued per delta. A `block_delta` or `tool_updated` marks its
 entry; when the UI takes a batch, each marked entry still open becomes one `BlockTextChanged` or

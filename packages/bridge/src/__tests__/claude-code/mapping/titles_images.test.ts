@@ -34,6 +34,20 @@ describe("toolTitle", () => {
 		expect(toolTitle(name, undefined)).toBe(title);
 	});
 
+	test("a todo list's title says how far it is and what is under way, as the CLI's spinner does", () => {
+		const todo = (content: string, status: string, activeForm = content) => ({ content, status, activeForm });
+		const todos = [
+			todo("Read the code", "completed"),
+			todo("Write the tests", "in_progress", "Writing the tests"),
+			todo("Ship", "pending"),
+		];
+		expect(toolTitle("TodoWrite", { todos })).toBe("Tasks 1/3 · Writing the tests");
+		expect(toolTitle("TodoWrite", { todos: todos.map((item) => ({ ...item, status: "completed" })) })).toBe(
+			"Tasks 3/3",
+		);
+		expect(toolTitle("TodoWrite", { todos: [] })).toBe("Update todo list");
+	});
+
 	test("a tool or an input it knows nothing about has no title, so the app shows the name", () => {
 		expect(toolTitle("Whatever", { a: 1 })).toBeUndefined();
 		expect(toolTitle("Read", {})).toBeUndefined();

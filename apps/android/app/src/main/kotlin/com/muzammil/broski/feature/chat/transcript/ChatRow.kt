@@ -5,6 +5,7 @@ import com.muzammil.broski.feature.chat.work.WorkFold
 import uniffi.broski_contract.ImageRef
 import uniffi.broski_contract.NoticeLevel
 import uniffi.broski_contract.RunLimit
+import uniffi.broski_core.ActivityLook
 import uniffi.broski_core.MarkdownBlock
 
 /**
@@ -48,6 +49,10 @@ sealed interface ChatRow {
 
     @Immutable
     data class Note(override val key: String, override val at: Long?, val note: TranscriptNote) : ChatRow
+
+    /** Something that happened that is not a turn, and how the core reads it. */
+    @Immutable
+    data class Activity(override val key: String, override val at: Long?, val activity: uniffi.broski_contract.Activity, val look: ActivityLook) : ChatRow
 
     /** More of the conversation is being read, above everything shown. */
     @Immutable

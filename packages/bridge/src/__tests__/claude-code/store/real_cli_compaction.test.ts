@@ -52,7 +52,7 @@ afterAll(async () => {
 });
 
 test(
-	"the compaction is one item holding the CLI's summary, the command's own entries read as the command and a notice, and pages agree",
+	"the compaction is one item holding the CLI's summary, the command's own entries read as the command and its output, and pages agree",
 	async () => {
 		expect(escapes).toEqual([]);
 		const read = async (limit: number): Promise<TranscriptItem[]> => {
@@ -71,8 +71,8 @@ test(
 			return items;
 		};
 		const whole = await read(200);
-		expect(whole.map((item) => item.kind)).toEqual(["block", "user_message", "notice", "user_message", "compaction"]);
-		expect(whole[2]).toMatchObject({ kind: "notice", level: "info", text: "Compacted" });
+		expect(whole.map((item) => item.kind)).toEqual(["block", "user_message", "activity", "user_message", "compaction"]);
+		expect(whole[2]).toMatchObject({ kind: "activity", activity: { kind: "command", body: { text: "Compacted" } } });
 		expect(whole[3]).toMatchObject({ kind: "user_message", text: "/compact" });
 		const compaction = whole.find((item) => item.kind === "compaction");
 		expect(compaction?.kind === "compaction" && compaction.summary).toContain("Scripted summary.");

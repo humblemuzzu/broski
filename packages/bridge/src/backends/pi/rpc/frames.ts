@@ -54,7 +54,14 @@ const MESSAGES = [
 		isError: z.boolean(),
 		timestamp: z.number(),
 	}),
-	z.object({ role: z.literal("custom"), content: UserContent, display: z.boolean(), timestamp: z.number() }),
+	z.object({
+		role: z.literal("custom"),
+		customType: z.string(),
+		content: UserContent,
+		display: z.boolean(),
+		details: z.unknown().optional(),
+		timestamp: z.number(),
+	}),
 	z.object({ role: z.literal("other") }),
 ] as const;
 
@@ -183,10 +190,17 @@ const UI_REQUESTS = {
 		message: z.string(),
 		notifyType: z.enum(["info", "warning", "error"]).optional(),
 	}),
+	setStatus: z.object({
+		method: z.literal("setStatus"),
+		id: z.string(),
+		statusKey: z.string(),
+		/** Absent: the status is cleared. */
+		statusText: z.string().optional(),
+	}),
 };
 
 export type UiRequest = z.output<(typeof UI_REQUESTS)[keyof typeof UI_REQUESTS]>;
-export type DialogRequest = Exclude<UiRequest, { method: "notify" }>;
+export type DialogRequest = Exclude<UiRequest, { method: "notify" | "setStatus" }>;
 
 const Response = z.object({
 	type: z.literal("response"),

@@ -1,21 +1,18 @@
-/** A `user` transcript line: a person's prompt, a tool's result, or the marker of an interruption. */
+/**
+ * A `user` transcript line: a person's prompt, a tool's result, or what the CLI wrote there itself: an interruption, a
+ * command's output, a background task's end (`harnessText`).
+ */
 
-import { MAX_TEXT_CHARS } from "../../../contract";
+import { type Activity, MAX_TEXT_CHARS } from "../../../contract";
 import { clip, fitsId } from "../bounds";
 import { toolCallId, userItemId } from "../ids";
 import { isRecord } from "../json";
+import { commandOutputActivity, savedTaskActivity, shellOutputActivity } from "../mapping/activities";
+import { harnessText } from "../mapping/harness-text";
 import { imageRefsOf } from "../mapping/images";
 import { toolResultOf } from "../mapping/tool-results";
 import type { MappedEvent } from "../ports/mapping";
 import type { TranslatorState } from "./translate-state";
-
-const INTERRUPT_MARKER = "[Request interrupted by user";
-/** The CLI's own tags are short and come first; a person's long text is never scanned past this for one. */
-const SCAN_CHARS = 4_096;
-const LOCAL_OUTPUT = "<local-command-stdout>";
-const TAG_START = /^\s*<[a-z][\w-]*[\s>]/;
-const COMMAND_NAME = /<command-name>(.*?)<\/command-name>/s;
-const COMMAND_ARGS = /<command-args>(.*?)<\/command-args>/s;
 
 export function userEvents(state: TranslatorState, entry: Record<string, unknown>, uuid: string): MappedEvent[] {
 	if (entry.isSidechain === true || entry.isMeta === true || entry.isCompactSummary === true) return [];
@@ -26,7 +23,8 @@ export function userEvents(state: TranslatorState, entry: Record<string, unknown
 	const out: MappedEvent[] = [];
 	resultEvents(state, out, blocks, entry.toolUseResult, uuid);
 	const text = typeof content === "string" ? content : textOf(blocks);
-	if (text !== undefined) promptEvents(state, out, text, content, uuid);
+	const sessionId = typeof entry.sessionId === "string" ? entry.sessionId : undefined;
+	if (text !== undefined) saidEvents(state, out, { text, content, uuid, sessionId });
 	return out;
 }
 
@@ -68,40 +66,56 @@ function resultEvents(
 	});
 }
 
-function promptEvents(state: TranslatorState, out: MappedEvent[], raw: string, content: unknown, uuid: string): void {
-	const prompt = classify(raw);
-	if (prompt === undefined || !fitsId(uuid)) return;
-	if (prompt.kind !== "prompt") {
-		state.finishRun(out, prompt.kind === "interrupt" ? "aborted" : "completed");
-		return;
+interface UserLine {
+	readonly text: string;
+	readonly content: unknown;
+	readonly uuid: string;
+	readonly sessionId: string | undefined;
+}
+
+/**
+ * A prompt starts a run; an interrupt ends it. A command the CLI ran itself (a slash command, a `!` escape) has printed
+ * its result, which is all the turn there is. A background task's end is reported in whatever run is under way.
+ */
+function saidEvents(state: TranslatorState, out: MappedEvent[], line: UserLine): void {
+	if (!fitsId(line.uuid)) return;
+	const said = harnessText(line.text);
+	switch (said.kind) {
+		case "context":
+			return;
+		case "interrupt":
+			state.finishRun(out, "aborted");
+			return;
+		case "task":
+			pushActivity(out, line.uuid, savedTaskActivity(said.notification, line.sessionId));
+			return;
+		case "command_output":
+			pushActivity(out, line.uuid, commandOutputActivity(said.text, said.failed));
+			state.finishRun(out, "completed");
+			return;
+		case "shell_output":
+			pushActivity(out, line.uuid, shellOutputActivity(said.stdout, said.stderr));
+			state.finishRun(out, "completed");
+			return;
+		case "prompt":
+			promptEvents(state, out, said.text, line);
 	}
+}
+
+function pushActivity(out: MappedEvent[], uuid: string, activity: Activity | undefined): void {
+	if (activity !== undefined) out.push({ event: { type: "activity", activityId: userItemId(uuid), activity } });
+}
+
+function promptEvents(state: TranslatorState, out: MappedEvent[], text: string, line: UserLine): void {
 	if (state.settled) state.finishRun(out, "completed");
 	state.startRun(out);
 	state.lastStop = undefined;
 	out.push({
 		event: {
 			type: "user_message",
-			messageId: userItemId(uuid),
-			text: clip(prompt.text, MAX_TEXT_CHARS),
-			attachments: imageRefsOf(content, uuid),
+			messageId: userItemId(line.uuid),
+			text: clip(text, MAX_TEXT_CHARS),
+			attachments: imageRefsOf(line.content, line.uuid),
 		},
 	});
-}
-
-/** `local_output`: a slash command the CLI ran itself has printed its result, which is all the turn there is. */
-type UserText = { readonly kind: "interrupt" | "local_output" } | { readonly kind: "prompt"; readonly text: string };
-
-/** What a user line says; undefined for the CLI's own notes (system reminders, command output) that are no prompt. */
-function classify(raw: string): UserText | undefined {
-	const trimmed = raw.slice(0, SCAN_CHARS).trim();
-	if (trimmed.startsWith(INTERRUPT_MARKER)) return { kind: "interrupt" };
-	if (trimmed.startsWith(LOCAL_OUTPUT)) return { kind: "local_output" };
-	if (!TAG_START.test(trimmed)) return trimmed === "" ? undefined : { kind: "prompt", text: raw };
-	const name = COMMAND_NAME.exec(trimmed)?.[1]?.trim();
-	if (name === undefined || name === "") return undefined;
-	const args = COMMAND_ARGS.exec(trimmed)?.[1]?.trim();
-	return {
-		kind: "prompt",
-		text: args === undefined || args === "" ? name : `${name} ${args}`,
-	};
 }

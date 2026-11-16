@@ -164,6 +164,22 @@ count a stretch of work the same way. They live here, not in the client, because
 - The form logic is the contract crate's (`form_field_shown`, `form_field_default`), the phone's reading of
   `field-check.ts`' `fieldIsActive`.
 
+## Activities and long text
+
+`activityLook(activity) → ActivityLook` (`activity.rs`) and `clipText(text, maxLines, keep) → TextClip`,
+`formatDuration(ms)` (`text.rs`), so both apps draw what is not a turn, and every long text, the same way.
+
+- `ActivityLook { tone, facts, preview?, log?, opens }`: **tone** is `Failed` for a failed status or a
+  non-zero exit, `Working` for one that reported in and goes on, else `Plain`; **facts** are the duration
+  (from a second up) and a failed exit (`1h 5m`, `Exit 1`); **preview** is a markdown or text body's opening
+  words on one line (`plainPreview`, at most 240 characters); **log** is a log body's last 12 lines; **opens**
+  says there is a command, a body or a session to open.
+- `clipText` keeps at most `maxLines` lines from the head or the tail, within 16 KiB whatever the lines (a
+  minified line can be a megabyte), cut at a line break where there is one, and says how many lines it left
+  out. Nothing in the chat draws a tool's output, a log or a notice whole: it draws a clip and opens the
+  rest on a screen or sheet of its own.
+- `formatDuration` words a duration as the work fold does: `12s`, `2m`, `1h 5m`.
+
 ## Tests
 
 `cargo test -p broski-render`: every tool name either app ever listed, in three spellings, with each

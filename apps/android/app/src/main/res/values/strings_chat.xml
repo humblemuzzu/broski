@@ -75,6 +75,28 @@
     <string name="duration_seconds">%1$ds</string>
     <string name="duration_minutes">%1$dm</string>
     <string name="duration_hours_minutes">%1$dh %2$dm</string>
+    <string name="chat_work_show_output">Show all output</string>
+    <plurals name="chat_more_lines">
+        <item quantity="one">%1$d more line</item>
+        <item quantity="other">%1$d more lines</item>
+    </plurals>
+    <string name="chat_copy_text">Copy</string>
+    <plurals name="chat_more_files">
+        <item quantity="one">%1$d more file</item>
+        <item quantity="other">%1$d more files</item>
+    </plurals>
+
+    <!-- Activities and background tasks -->
+    <string name="chat_activity_show_log">Show the whole log</string>
+    <string name="chat_activity_read_all">Read all of it</string>
+    <string name="chat_activity_show_all">Show all of it</string>
+    <plurals name="chat_background_tasks">
+        <item quantity="one">%1$d task in the background</item>
+        <item quantity="other">%1$d tasks in the background</item>
+    </plurals>
+    <string name="chat_background_title">In the background</string>
+    <string name="chat_background_show">Show what runs in the background</string>
+    <string name="chat_background_hide">Hide</string>
 
     <!-- Interactions -->
     <string name="card_needs_approval">Needs your approval</string>
@@ -112,6 +134,9 @@
     <string name="card_plan_reject">Reject</string>
     <string name="card_yes">Yes</string>
     <string name="card_no">No</string>
+    <string name="card_done">Done</string>
+    <string name="card_decline">Decline</string>
+    <string name="card_open_link">Open %1$s</string>
     <string name="card_date_set">Set</string>
 
     <!-- Composer -->

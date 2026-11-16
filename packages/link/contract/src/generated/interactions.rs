@@ -34,7 +34,11 @@ impl crate::Tagged for CommandPreview {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct ConfirmRequest {}
+pub struct ConfirmRequest {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "crate::codec::present")]
+    pub url: Option<WebUrl>,
+}
 
 impl crate::Tagged for ConfirmRequest {
     const KEY: &'static str = "kind";

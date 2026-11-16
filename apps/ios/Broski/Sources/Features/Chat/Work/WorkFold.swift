@@ -57,13 +57,9 @@ nonisolated struct WorkSummary: Equatable {
 
     var failedText: String? { failed > 0 ? "\(failed) failed" : nil }
 
-    /// "12s", "2m", "1h 5m".
+    /// "12s", "2m", "1h 5m", as the core words a duration for both apps.
     static func format(_ seconds: TimeInterval) -> String {
-        let seconds = Int(seconds.rounded())
-        if seconds < 60 { return "\(seconds)s" }
-        if seconds < 3600 { return "\(seconds / 60)m" }
-        let minutes = seconds / 60 % 60
-        return minutes == 0 ? "\(seconds / 3600)h" : "\(seconds / 3600)h \(minutes)m"
+        formatDuration(milliseconds: Int64((seconds * 1000).rounded()))
     }
 
     static func == (lhs: WorkSummary, rhs: WorkSummary) -> Bool {

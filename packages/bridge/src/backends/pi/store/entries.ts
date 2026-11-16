@@ -60,8 +60,10 @@ export interface CustomEntry extends EntryBase {
 
 export interface CustomMessageEntry extends EntryBase {
 	readonly type: "custom_message";
+	readonly customType: string;
 	readonly content: string | Extract<PiMessage, { role: "user" }>["content"];
 	readonly display: boolean;
+	readonly details?: unknown;
 }
 
 export interface LabelEntry extends EntryBase {

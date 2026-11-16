@@ -245,7 +245,7 @@ fn an_ask_is_offered_to_the_inbox_only_while_its_stream_is_attached() {
         body: None,
         blocks_run: false,
         origin: None,
-        request: InteractionRequest::Confirm(ConfirmRequest {}),
+        request: InteractionRequest::Confirm(ConfirmRequest { url: None }),
     });
     let sync = AttachSync::Snapshot(SnapshotSync {
         epoch: "e1".to_owned(),

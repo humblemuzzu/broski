@@ -129,18 +129,22 @@ struct AnswerEndView: View {
     }
 }
 
-/// Something the agent said that is not a turn, kept in the transcript as a quiet line.
+/// Something the agent said that is not a turn, kept in the transcript as a quiet line: three lines
+/// at most until it is tapped open.
 struct NoticeLine: View {
     let notice: NoticeItem
+    @State private var open = false
 
     var body: some View {
         Label {
-            Text(notice.text).textSelection(.enabled)
+            Text(notice.text).lineLimit(open ? nil : 3).textSelection(.enabled)
         } icon: {
             Image(systemName: notice.level.symbol).foregroundStyle(notice.level.tint)
         }
         .font(.footnote)
         .foregroundStyle(.secondary)
+        .contentShape(.rect)
+        .onTapGesture { open.toggle() }
     }
 }
 

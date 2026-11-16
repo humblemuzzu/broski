@@ -43,6 +43,8 @@ struct ChatRowView: View, Equatable {
             AnswerEndView(end: end)
         case .notice(let notice):
             NoticeLine(notice: notice)
+        case .activity(let entry):
+            ActivityRowView(entry: entry)
         case .marker(let marker):
             MarkerLine(marker: marker)
         }

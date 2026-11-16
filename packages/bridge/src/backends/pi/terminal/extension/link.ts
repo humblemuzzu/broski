@@ -5,7 +5,7 @@ import { join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { type Frame, type Json, MAX_TEXT, read } from "./projection";
 
-const VERSION = "1";
+const VERSION = "2";
 const LINK_VERSION = 1;
 const MAX_QUEUED_BYTES = 2 * 1024 * 1024;
 const MAX_LINE_BYTES = 1024 * 1024;
@@ -39,6 +39,8 @@ export class Link {
 	private running = false;
 	private readonly blocks = new Map<number, OpenBlock>();
 	private readonly tools = new Map<string, { name: string; args: Json }>();
+	/** The background tasks extensions announced last (`broski:tasks`), which a snapshot carries. */
+	private tasks: Json = [];
 
 	constructor(private readonly pi: ExtensionAPI) {}
 
@@ -66,6 +68,12 @@ export class Link {
 		this.ctx = ctx;
 		this.track(event);
 		this.send({ t: "event", event });
+	}
+
+	/** An extension announced its background tasks on Pi's event bus. */
+	tasksChanged(tasks: Json): void {
+		this.tasks = tasks;
+		if (this.socket) this.send({ t: "event", event: { e: "tasks", tasks } });
 	}
 
 	private track(event: Frame): void {
@@ -157,6 +165,7 @@ export class Link {
 			thinking: this.pi.getThinkingLevel(),
 			blocks: [...this.blocks].map(([index, block]) => ({ index, kind: block.kind, text: block.text })),
 			tools: [...this.tools].map(([id, tool]) => ({ id, name: tool.name, args: tool.args })),
+			tasks: this.tasks,
 		};
 	}
 

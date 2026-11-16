@@ -117,13 +117,23 @@ export function diffOfCell(
 	oldSource: string | undefined,
 	newSource: string | undefined,
 ): DiffText | undefined {
-	const removed = oldSource === undefined || oldSource === "" ? [] : oldSource.split("\n");
-	const added = newSource === undefined || newSource === "" ? [] : newSource.split("\n");
+	return diffOfReplacement(path, oldSource, newSource, 1);
+}
+
+/** Whole lines `oldText` replaced by `newText` from line `start` of `path`, as one hunk. */
+export function diffOfReplacement(
+	path: string,
+	oldText: string | undefined,
+	newText: string | undefined,
+	start: number,
+): DiffText | undefined {
+	const removed = oldText === undefined || oldText === "" ? [] : oldText.split("\n");
+	const added = newText === undefined || newText === "" ? [] : newText.split("\n");
 	if (removed.length === 0 && added.length === 0) return undefined;
 	const body = [...removed.map((line) => `-${line}`), ...added.map((line) => `+${line}`)];
 	return {
 		diff: clip(
-			[header(path, path), `@@ -1,${removed.length} +1,${added.length} @@`, ...body].join("\n"),
+			[header(path, path), `@@ -${start},${removed.length} +${start},${added.length} @@`, ...body].join("\n"),
 			MAX_TEXT_CHARS,
 		),
 		additions: added.length,

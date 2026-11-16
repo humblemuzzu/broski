@@ -1,4 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { PermissionUpdate } from "@anthropic-ai/claude-agent-sdk";
 import { failureOutcome } from "../../../backends/claude-code/mapping/tool-outcome";
 import { humanDenial } from "../../../backends/claude-code/ui/denial";
@@ -227,5 +230,42 @@ describe("a tool permission", () => {
 		expect(bare?.title).toBe("Allow Frobnicate?");
 		expect(fetch?.request).toMatchObject({ previews: [{ kind: "network", host: "example.com", protocol: "https" }] });
 		expect(read?.request).toMatchObject({ previews: [{ kind: "paths", paths: ["/etc/hosts"] }] });
+	});
+
+	test("an edit previews the whole lines it changes at the file's own line numbers; a new file previews as added", () => {
+		const dir = realpathSync(mkdtempSync(join(tmpdir(), "broski-edit-preview-")));
+		try {
+			const file = join(dir, "a.ts");
+			writeFileSync(file, "one\ntwo\nconst port = 80;\nfour\n");
+			const rig = new DeskRig();
+			rig.tool("Edit", { file_path: file, old_string: "80", new_string: "8080" }, {});
+			rig.tool("Edit", { file_path: file, old_string: "gone", new_string: "x" }, {});
+			rig.tool("Edit", { file_path: file, old_string: "o", new_string: "0", replace_all: true }, {});
+			rig.tool("Write", { file_path: join(dir, "new.md"), content: "# Notes\nfirst\n" }, {});
+			rig.tool("Write", { file_path: file, content: "all new" }, {});
+			const [edit, stale, everywhere, created, overwrite] = rig.requested().map(request);
+			expect(edit?.previews).toEqual([
+				{
+					kind: "file_changes",
+					changes: [
+						{
+							path: file,
+							change: "modified",
+							diff: `--- ${file}\n+++ ${file}\n@@ -3,1 +3,1 @@\n-const port = 80;\n+const port = 8080;`,
+							additions: 1,
+							deletions: 1,
+						},
+					],
+				},
+			]);
+			for (const plain of [stale, everywhere, overwrite]) {
+				expect(plain?.previews).toEqual([{ kind: "paths", paths: [file] }]);
+			}
+			expect(created?.previews).toMatchObject([
+				{ kind: "file_changes", changes: [{ path: join(dir, "new.md"), change: "added", additions: 2, deletions: 0 }] },
+			]);
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
 	});
 });

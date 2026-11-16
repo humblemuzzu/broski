@@ -93,6 +93,23 @@ describe("the terminal hook receiver", () => {
 		expect(rig.seen.ask).toMatchObject({ session_id: SESSION, tool_name: "Bash", tool_input: { command: "ls" } });
 	});
 
+	test("the grants the terminal would offer reach the adapter, each checked on its own", async () => {
+		const session = {
+			type: "addRules",
+			rules: [{ toolName: "Bash", ruleContent: "ls:*" }],
+			behavior: "allow",
+			destination: "session",
+		};
+		const local = { type: "setMode", mode: "acceptEdits", destination: "localSettings" };
+		const broken = { type: "addRules", rules: "Bash", behavior: "allow", destination: "session" };
+		const nowhere = { ...session, destination: "elsewhere" };
+		const rig = serve({ handler: async () => undefined });
+		await rig.post({ ...INPUT, permission_suggestions: [session, broken, local, nowhere] });
+		expect(rig.seen.ask).toMatchObject({ permission_suggestions: [session, local] });
+		await rig.post({ ...INPUT, permission_suggestions: "all" });
+		expect(rig.seen.ask).not.toHaveProperty("permission_suggestions");
+	});
+
 	test("an adapter that declines at once (a session the bridge hosts) is not given a held session", async () => {
 		const rig = serve({ handler: async () => undefined });
 		expect(await (await rig.post(INPUT)).json()).toEqual({});

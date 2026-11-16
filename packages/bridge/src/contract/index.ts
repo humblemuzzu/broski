@@ -1,3 +1,4 @@
+export * from "./activity";
 export * from "./answer-check";
 export * from "./backend";
 export * from "./capabilities";

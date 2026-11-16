@@ -212,12 +212,28 @@ describe("a url elicitation", () => {
 		elicitationId: "el-1",
 	};
 
-	test("is one the app cannot open: confirming declines it, and nothing is answered for the person", async () => {
+	test("is a yes or no with the link to open first; nothing is answered for the person", async () => {
 		const rig = new DeskRig();
 		const ask = rig.elicit(url);
 		const interaction = rig.only();
-		expect(interaction.request).toEqual({ kind: "confirm" });
+		expect(interaction.request).toEqual({ kind: "confirm", url: LINK });
+		expect(interaction.body).toBe("Consent in the browser");
 		expect(await stillPending(ask.promise, 10)).toBe(true);
+		rig.answer(interaction, { kind: "confirm", confirmed: true });
+		expect(await ask.promise).toEqual({ action: "accept" });
+		const no = rig.elicit({ ...url, elicitationId: "el-2" });
+		const asked = rig.requested()[1];
+		if (!asked) throw new Error("no second ask");
+		rig.answer(asked, { kind: "confirm", confirmed: false });
+		expect(await no.promise).toEqual({ action: "decline" });
+	});
+
+	test("a link that is not a web page is never handed to the phone to open", async () => {
+		const rig = new DeskRig();
+		const ask = rig.elicit({ ...url, url: "intent://scan/#Intent;scheme=zxing;end" });
+		const interaction = rig.only();
+		expect(interaction.request).toEqual({ kind: "confirm" });
+		expect(interaction.title).toStartWith("Cannot show a request");
 		rig.answer(interaction, { kind: "confirm", confirmed: true });
 		expect(await ask.promise).toEqual({ action: "decline" });
 	});

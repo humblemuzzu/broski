@@ -3,7 +3,7 @@
 import { describe, expect, test } from "bun:test";
 import { expectNoOrphans } from "../spike/rig/orphans";
 import { finishTurn, type RealRun, toolResults, withRealCli } from "./rig/real-run";
-import { type RichTool, richToolName } from "./rig/rich-elicit-server";
+import { EARLY_URL, type RichTool, richToolName } from "./rig/rich-elicit-server";
 
 expectNoOrphans();
 
@@ -100,7 +100,7 @@ describe("a url elicitation the server completes before anyone answers", () => {
 			await withRealCli(callTool("ask_url_early"), async (run) => {
 				const turn = finishTurn(run, "ask");
 				const interaction = await run.rig.requestedAt(0);
-				expect(interaction.request).toEqual({ kind: "confirm" });
+				expect(interaction.request).toEqual({ kind: "confirm", url: EARLY_URL });
 				const complete = await run.spike.waitFor(
 					(message) => message.type === "system" && message.subtype === "elicitation_complete",
 				);

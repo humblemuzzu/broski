@@ -2,8 +2,8 @@
 
 import { MAX_LIST_ITEMS, MAX_NAME_CHARS, MAX_PATH_CHARS, PermissionPreview } from "../../../contract";
 import { boundList } from "../bounds";
-import { fileChangesOf } from "../mapping/file-changes";
 import { phoneText } from "../phone-text";
+import { pendingChanges } from "./pending-changes";
 import { reportAskProblem } from "./problems";
 
 const SHELLS = new Set(["Bash", "PowerShell"]);
@@ -28,10 +28,10 @@ export function permissionPreviews(
 	return previews;
 }
 
-/** The mapping's reading of the pending call; a helper that fails or builds something the contract refuses costs the preview only. */
+/** The change the pending call would make; a helper that fails or builds something the contract refuses costs the preview only. */
 function changesPreview(toolName: string, input: Readonly<Record<string, unknown>>): PermissionPreview | undefined {
 	try {
-		const changes = boundList(fileChangesOf(toolName, input, undefined)).items;
+		const changes = boundList(pendingChanges(toolName, input)).items;
 		const preview = PermissionPreview.safeParse({ kind: "file_changes", changes });
 		return changes.length > 0 && preview.success ? preview.data : undefined;
 	} catch (error) {

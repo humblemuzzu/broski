@@ -122,7 +122,10 @@ withdrawal does. Past the 10 s deadline the abort is still accepted and the run 
 ### 8.1 What asks
 
 Extension dialogs (`select`, `confirm`, `input`, `editor`; `notify` is a notice) and the bridge's permission gate.
-`setStatus`, `setWidget`, `setTitle` and `set_editor_text` are ignored.
+`setStatus` under the bridge's own `broski:tasks` key carries the background tasks extensions announce; other
+statuses, `setWidget`, `setTitle` and `set_editor_text` draw on a terminal's screen and are ignored. A displayed
+extension message (`sendMessage`) is an `activity`, live and from the session file: as its `details.broski` hint
+says, else its `customType` over its text (`mapping/custom-activity.ts`, [extension-hints.md](extension-hints.md)).
 
 ### 8.2 Requests
 

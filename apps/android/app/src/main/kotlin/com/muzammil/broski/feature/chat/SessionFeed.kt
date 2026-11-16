@@ -23,7 +23,8 @@ import uniffi.broski_core.SessionUpdate
  * runs read from the transcript, newest page first and older pages as the person scrolls up.
  *
  * When a run ends its items stay on screen ([settled]) until the newest page, read again, holds
- * them (contract README §8), so the turn never blinks out. The view lives exactly as long as its
+ * them (contract README §8), so the turn never blinks out; an activity outside any run stays the
+ * same way, since no run item holds it. The view lives exactly as long as its
  * loop (mobile-packaging.md §1): attached in the coroutine, detached in `finally`.
  */
 class SessionFeed(
@@ -73,6 +74,8 @@ class SessionFeed(
         val applied = before.apply(update)
         mutableLive.value = applied.session
         applied.moments.forEach(onMoment)
+        val loose = applied.moments.filterIsInstance<SessionChange.ActivityShown>().map { TranscriptItem.Activity(it.item) }
+        if (loose.isNotEmpty()) mutableSettled.update { it + loose }
         val now = applied.session.session
         if (now != null && now != session) {
             session = now

@@ -10,6 +10,7 @@ import type { PermissionRequestHookInput } from "@anthropic-ai/claude-agent-sdk"
 import { z } from "zod";
 import type { TerminalAskHandler, TerminalPermissionDecision } from "../backends/claude-code/ports/terminal";
 import { MAX_MESSAGE_BYTES, MAX_NAME_CHARS, MAX_PATH_CHARS, type SessionRef } from "../contract";
+import { permissionUpdates } from "./cc-permission-updates";
 
 const MAX_PENDING_ASKS = 64;
 const SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -21,6 +22,7 @@ const HookAsk = z.looseObject({
 	cwd: z.string().max(MAX_PATH_CHARS),
 	tool_name: z.string().min(1).max(MAX_NAME_CHARS),
 	tool_input: z.unknown(),
+	permission_suggestions: z.unknown().optional(),
 });
 
 export interface TerminalHookDeps {
@@ -105,6 +107,7 @@ export function createTerminalHookReceiver(deps: TerminalHookDeps): TerminalHook
 }
 
 function askOf(input: z.infer<typeof HookAsk>): PermissionRequestHookInput {
+	const suggestions = permissionUpdates(input.permission_suggestions);
 	return {
 		hook_event_name: "PermissionRequest",
 		session_id: input.session_id,
@@ -112,6 +115,7 @@ function askOf(input: z.infer<typeof HookAsk>): PermissionRequestHookInput {
 		cwd: input.cwd,
 		tool_name: input.tool_name,
 		tool_input: input.tool_input,
+		...(suggestions.length > 0 && { permission_suggestions: suggestions }),
 	};
 }
 

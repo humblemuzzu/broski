@@ -125,6 +125,25 @@ export default async function (pi) {
 			pi.sendMessage({ customType: "host-rig", content: "a note", display: true });
 		},
 	});
+	pi.registerCommand("job", {
+		description: "Runs a job in the background and reports its end as a background-job extension does",
+		handler: async () => {
+			const job = { id: "job-1", kind: "task", title: "tail the log", command: "tail -F log", startedAt: 1 };
+			pi.events.emit("broski:tasks", [job, { id: "bad", kind: "wizard", title: "not a task" }]);
+			await new Promise((resolve) => setTimeout(resolve, 20));
+			pi.events.emit("broski:tasks", []);
+			const broski = {
+				kind: "task",
+				title: "job-1 failed after 1s",
+				status: "failed",
+				command: "tail -F log",
+				durationMs: 1000,
+				exitCode: 1,
+				body: { format: "log", text: "line 1\\nline 2" },
+			};
+			pi.sendMessage({ customType: "bash-job", content: "[Automated bash-job event.] job-1 failed", display: true, details: { jobs: [job], broski } });
+		},
+	});
 }
 `;
 

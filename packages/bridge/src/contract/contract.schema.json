@@ -116,6 +116,150 @@
       ],
       "additionalProperties": false
     },
+    "Activity": {
+      "x-module": "activity",
+      "$id": "#/$defs/Activity",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/ActivityKind"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "status": {
+          "$ref": "#/$defs/ActivityStatus"
+        },
+        "command": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "exitCode": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "body": {
+          "$ref": "#/$defs/ActivityBody"
+        },
+        "childSession": {
+          "$ref": "#/$defs/SessionRef"
+        }
+      },
+      "required": [
+        "kind",
+        "title"
+      ],
+      "additionalProperties": false
+    },
+    "ActivityBody": {
+      "x-module": "activity",
+      "$id": "#/$defs/ActivityBody",
+      "type": "object",
+      "properties": {
+        "format": {
+          "$ref": "#/$defs/ActivityFormat"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1048576
+        }
+      },
+      "required": [
+        "format",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "ActivityEvent": {
+      "x-module": "events",
+      "$id": "#/$defs/ActivityEvent",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "activity"
+        },
+        "activityId": {
+          "$ref": "#/$defs/TranscriptItemId"
+        },
+        "activity": {
+          "$ref": "#/$defs/Activity"
+        }
+      },
+      "required": [
+        "type",
+        "activityId",
+        "activity"
+      ],
+      "additionalProperties": false
+    },
+    "ActivityFormat": {
+      "x-module": "activity",
+      "$id": "#/$defs/ActivityFormat",
+      "type": "string",
+      "enum": [
+        "markdown",
+        "text",
+        "log"
+      ]
+    },
+    "ActivityItem": {
+      "x-module": "transcript",
+      "$id": "#/$defs/ActivityItem",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "activity"
+        },
+        "id": {
+          "$ref": "#/$defs/TranscriptItemId"
+        },
+        "at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "activity": {
+          "$ref": "#/$defs/Activity"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "activity"
+      ],
+      "additionalProperties": false
+    },
+    "ActivityKind": {
+      "x-module": "activity",
+      "$id": "#/$defs/ActivityKind",
+      "type": "string",
+      "enum": [
+        "task",
+        "agent",
+        "command",
+        "message"
+      ]
+    },
+    "ActivityStatus": {
+      "x-module": "activity",
+      "$id": "#/$defs/ActivityStatus",
+      "type": "string",
+      "enum": [
+        "running",
+        "completed",
+        "failed",
+        "stopped"
+      ]
+    },
     "AgentEvent": {
       "x-module": "events",
       "$id": "#/$defs/AgentEvent",
@@ -157,6 +301,9 @@
           "$ref": "#/$defs/QueueChangedEvent"
         },
         {
+          "$ref": "#/$defs/BackgroundTasksChangedEvent"
+        },
+        {
           "$ref": "#/$defs/InputReturnedEvent"
         },
         {
@@ -185,6 +332,9 @@
         },
         {
           "$ref": "#/$defs/NoticeEvent"
+        },
+        {
+          "$ref": "#/$defs/ActivityEvent"
         },
         {
           "$ref": "#/$defs/ErrorEvent"
@@ -505,6 +655,74 @@
         "type",
         "requestId",
         "backends"
+      ],
+      "additionalProperties": false
+    },
+    "BackgroundTask": {
+      "x-module": "activity",
+      "$id": "#/$defs/BackgroundTask",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "kind": {
+          "$ref": "#/$defs/BackgroundTaskKind"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "command": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "startedAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "childSession": {
+          "$ref": "#/$defs/SessionRef"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "title"
+      ],
+      "additionalProperties": false
+    },
+    "BackgroundTaskKind": {
+      "x-module": "activity",
+      "$id": "#/$defs/BackgroundTaskKind",
+      "type": "string",
+      "enum": [
+        "task",
+        "agent"
+      ]
+    },
+    "BackgroundTasksChangedEvent": {
+      "x-module": "events",
+      "$id": "#/$defs/BackgroundTasksChangedEvent",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "background_tasks_changed"
+        },
+        "tasks": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BackgroundTask"
+          }
+        }
+      },
+      "required": [
+        "type",
+        "tasks"
       ],
       "additionalProperties": false
     },
@@ -1548,6 +1766,9 @@
         "kind": {
           "type": "string",
           "const": "confirm"
+        },
+        "url": {
+          "$ref": "#/$defs/WebUrl"
         }
       },
       "required": [
@@ -1966,6 +2187,37 @@
         "length",
         "size",
         "truncated"
+      ],
+      "additionalProperties": false
+    },
+    "FilesDisplay": {
+      "x-module": "tools",
+      "$id": "#/$defs/FilesDisplay",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "files"
+        },
+        "paths": {
+          "minItems": 1,
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "kind",
+        "paths"
       ],
       "additionalProperties": false
     },
@@ -3805,6 +4057,53 @@
           }
         }
       ]
+    },
+    "LinkItem": {
+      "x-module": "tools",
+      "$id": "#/$defs/LinkItem",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "url": {
+          "$ref": "#/$defs/WebUrl"
+        },
+        "snippet": {
+          "type": "string",
+          "maxLength": 1048576
+        }
+      },
+      "required": [
+        "title",
+        "url"
+      ],
+      "additionalProperties": false
+    },
+    "LinksDisplay": {
+      "x-module": "tools",
+      "$id": "#/$defs/LinksDisplay",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "links"
+        },
+        "items": {
+          "minItems": 1,
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LinkItem"
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "items"
+      ],
+      "additionalProperties": false
     },
     "MessageId": {
       "x-module": "ids",
@@ -6634,6 +6933,13 @@
             "$ref": "#/$defs/QueueItem"
           }
         },
+        "backgroundTasks": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BackgroundTask"
+          }
+        },
         "modelId": {
           "$ref": "#/$defs/ModelId"
         },
@@ -6666,6 +6972,7 @@
         "tools",
         "interactions",
         "queue",
+        "backgroundTasks",
         "modes"
       ],
       "additionalProperties": false
@@ -7848,6 +8155,60 @@
         "first_prompt"
       ]
     },
+    "TodoItem": {
+      "x-module": "tools",
+      "$id": "#/$defs/TodoItem",
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1048576
+        },
+        "status": {
+          "$ref": "#/$defs/TodoStatus"
+        }
+      },
+      "required": [
+        "text",
+        "status"
+      ],
+      "additionalProperties": false
+    },
+    "TodoStatus": {
+      "x-module": "tools",
+      "$id": "#/$defs/TodoStatus",
+      "type": "string",
+      "enum": [
+        "pending",
+        "in_progress",
+        "completed"
+      ]
+    },
+    "TodosDisplay": {
+      "x-module": "tools",
+      "$id": "#/$defs/TodosDisplay",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "todos"
+        },
+        "items": {
+          "minItems": 1,
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TodoItem"
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "items"
+      ],
+      "additionalProperties": false
+    },
     "ToolCallId": {
       "x-module": "ids",
       "$id": "#/$defs/ToolCallId",
@@ -7934,6 +8295,21 @@
         },
         {
           "$ref": "#/$defs/FileContent"
+        }
+      ]
+    },
+    "ToolDisplay": {
+      "x-module": "tools",
+      "$id": "#/$defs/ToolDisplay",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/TodosDisplay"
+        },
+        {
+          "$ref": "#/$defs/LinksDisplay"
+        },
+        {
+          "$ref": "#/$defs/FilesDisplay"
         }
       ]
     },
@@ -8200,6 +8576,9 @@
           "type": "integer",
           "minimum": -9007199254740991,
           "maximum": 9007199254740991
+        },
+        "display": {
+          "$ref": "#/$defs/ToolDisplay"
         }
       },
       "required": [
@@ -8345,6 +8724,9 @@
         },
         {
           "$ref": "#/$defs/NoticeItem"
+        },
+        {
+          "$ref": "#/$defs/ActivityItem"
         },
         {
           "$ref": "#/$defs/CompactionItem"
@@ -8608,6 +8990,13 @@
         "attachments"
       ],
       "additionalProperties": false
+    },
+    "WebUrl": {
+      "x-module": "content",
+      "$id": "#/$defs/WebUrl",
+      "type": "string",
+      "maxLength": 4096,
+      "format": "uri"
     },
     "WorkingDirectory": {
       "x-module": "sessions",

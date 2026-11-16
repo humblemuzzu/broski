@@ -11,7 +11,7 @@ function resultItemId(toolCallId: ToolCallId): string {
 
 /**
  * The items `record` finishes, in the live stream's ids: a user message, a finished block, a started
- * tool call, a tool result. `before` is the live state the record applies to.
+ * tool call, a tool result, an activity. `before` is the live state the record applies to.
  */
 export function finishedItems(before: SessionSnapshot, record: Pick<SinkRecord, "at" | "event">): TranscriptItem[] {
 	const { at, event } = record;
@@ -34,6 +34,8 @@ export function finishedItems(before: SessionSnapshot, record: Pick<SinkRecord, 
 			const { type: _type, ...result } = event;
 			return [{ kind: "tool_result", id: resultItemId(event.toolCallId), at, ...result }];
 		}
+		case "activity":
+			return [{ kind: "activity", id: event.activityId, at, activity: event.activity }];
 		default:
 			return [];
 	}

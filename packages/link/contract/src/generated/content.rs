@@ -138,3 +138,5 @@ impl crate::Tagged for TextContent {
     const KEY: &'static str = "kind";
     const TAG: &'static str = "text";
 }
+
+pub type WebUrl = String;

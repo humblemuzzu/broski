@@ -53,7 +53,7 @@ export const FRAME_KINDS: Readonly<Record<FrameKey, Disposition>> = {
 	},
 	"system/informational": { shows: "notice" },
 	"system/notification": { shows: "notice" },
-	"system/local_command_output": { shows: "notice" },
+	"system/local_command_output": { shows: "activity(command) with the output as text" },
 	"system/model_refusal_fallback": {
 		shows: "notice(warning) and messages_retracted for retracted_message_uuids",
 	},
@@ -68,7 +68,7 @@ export const FRAME_KINDS: Readonly<Record<FrameKey, Disposition>> = {
 		shows: "marks the tool call, whose result is then denied",
 	},
 	"system/task_started": {
-		shows: "tool_updated(child_session) on the Agent call that started a subagent",
+		shows: "tool_updated(child_session) on the Agent call that started a subagent; the task is kept for its end",
 	},
 	"system/task_progress": {
 		shows: "tool_updated(progress) on the call that started the task",
@@ -84,13 +84,13 @@ export const FRAME_KINDS: Readonly<Record<FrameKey, Disposition>> = {
 		ignored: `${HOST}: the command catalogue is invalidated, not the stream`,
 	},
 	"system/background_tasks_changed": {
-		ignored: "a task's tool call is shown by its own frames",
+		shows: "background_tasks_changed, ambient tasks left out",
 	},
 	"system/task_updated": {
-		ignored: "the tool call ends with its tool_result",
+		ignored: "no event of its own; a task it moves to the background later ends as an activity",
 	},
 	"system/task_notification": {
-		ignored: "the host ends the subagent's feed; the tool call ends with its tool_result",
+		shows: "activity for a task in the background; a foreground task ends with its tool call's result",
 	},
 	"system/thinking_tokens": {
 		ignored: "a spinner estimate, not billable, and block_delta carries text only",

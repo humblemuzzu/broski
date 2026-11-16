@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { Activity, BackgroundTask } from "./activity";
 import { CompactionOutcome, CompactionTrigger } from "./compaction";
 import { AttachmentRef, BlockKind } from "./content";
 import { BackendExtension } from "./extensions";
@@ -12,6 +13,7 @@ import {
 	SessionRef,
 	Timestamp,
 	ToolCallId,
+	TranscriptItemId,
 } from "./ids";
 import { ResolutionReason } from "./interaction-replies";
 import { Interaction } from "./interactions";
@@ -119,6 +121,13 @@ export const QueueChangedEvent = z.strictObject({
 });
 export type QueueChangedEvent = z.infer<typeof QueueChangedEvent>;
 
+/** Every task now running in the background, replacing the previous list. */
+export const BackgroundTasksChangedEvent = z.strictObject({
+	type: z.literal("background_tasks_changed"),
+	tasks: z.array(BackgroundTask).max(MAX_LIST_ITEMS),
+});
+export type BackgroundTasksChangedEvent = z.infer<typeof BackgroundTasksChangedEvent>;
+
 export const CompactionStartedEvent = z.strictObject({
 	type: z.literal("compaction_started"),
 	trigger: CompactionTrigger,
@@ -183,6 +192,14 @@ export const NoticeEvent = z.strictObject({
 });
 export type NoticeEvent = z.infer<typeof NoticeEvent>;
 
+/** An activity, in or outside a run; `activityId` is its transcript item's id. */
+export const ActivityEvent = z.strictObject({
+	type: z.literal("activity"),
+	activityId: TranscriptItemId,
+	activity: Activity,
+});
+export type ActivityEvent = z.infer<typeof ActivityEvent>;
+
 /** A failure outside any run's outcome, such as the connection to the backend dropping. */
 export const ErrorEvent = z.strictObject({ type: z.literal("error"), error: ErrorInfo, retryable: z.boolean() });
 export type ErrorEvent = z.infer<typeof ErrorEvent>;
@@ -214,6 +231,7 @@ export const AgentEvent = z.discriminatedUnion("type", [
 	InteractionRequestedEvent,
 	InteractionResolvedEvent,
 	QueueChangedEvent,
+	BackgroundTasksChangedEvent,
 	InputReturnedEvent,
 	CompactionStartedEvent,
 	CompactionFinishedEvent,
@@ -224,6 +242,7 @@ export const AgentEvent = z.discriminatedUnion("type", [
 	ModelChangedEvent,
 	ModeChangedEvent,
 	NoticeEvent,
+	ActivityEvent,
 	ErrorEvent,
 	ExtensionEvent,
 	SessionReplacedEvent,

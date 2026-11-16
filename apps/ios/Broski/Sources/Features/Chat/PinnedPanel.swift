@@ -1,8 +1,8 @@
 import BroskiCore
 import SwiftUI
 
-/// What sits pinned above the composer, never in the scroll: the first ask, the queued messages,
-/// and the notices, each as one quiet card that springs in.
+/// What sits pinned above the composer, never in the scroll: what runs in the background, the
+/// notices, the queued messages and the first ask, each as one quiet card that springs in.
 struct PinnedPanel: View {
     let chat: ChatModel
     let agent: String
@@ -10,6 +10,10 @@ struct PinnedPanel: View {
 
     var body: some View {
         VStack(spacing: Spacing.s) {
+            if !chat.snapshot.backgroundTasks.isEmpty {
+                BackgroundTasksCard(tasks: chat.snapshot.backgroundTasks)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
             ForEach(chat.notices) { notice in
                 NoticeCard(notice: notice) { chat.dismiss(notice) }
                     .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -28,6 +32,7 @@ struct PinnedPanel: View {
         }
         .animation(reduceMotion ? .easeOut(duration: 0.14) : .spring(duration: 0.22, bounce: 0.1), value: chat.interactions.first?.id)
         .animation(.easeOut(duration: 0.2), value: chat.snapshot.queue)
+        .animation(.easeOut(duration: 0.2), value: chat.snapshot.backgroundTasks.isEmpty)
         .animation(.easeOut(duration: 0.2), value: chat.notices)
     }
 }
@@ -41,7 +46,7 @@ private struct NoticeCard: View {
         HStack(alignment: .firstTextBaseline, spacing: Spacing.s) {
             Image(systemName: symbol).foregroundStyle(tint).accessibilityHidden(true)
             VStack(alignment: .leading, spacing: Spacing.xxs) {
-                Text(notice.message).font(.footnote)
+                Text(notice.message).font(.footnote).lineLimit(4)
                 if let detail = notice.detail {
                     Text(detail).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(3).textSelection(.enabled)
                 }

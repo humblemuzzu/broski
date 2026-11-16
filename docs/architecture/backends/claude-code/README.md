@@ -237,9 +237,10 @@ with a minted id; a redelivered request keeps its interaction, and an answered o
 No timer answers an ask. The CLI's withdrawal (`control_cancel_request`, the signal) is `withdrawn`, the process
 ending `expired`. A callback never throws: a throw is an automatic denial in the CLI, so a failure inside one leaves
 the ask raised for a person, and an ask that cannot even be raised waits until the CLI withdraws it. A request the
-contract cannot hold (a URL elicitation, fields the app cannot show, a malformed AskUserQuestion) is raised as a
-`confirm` whose body says so: confirm declines it, dismiss cancels it; it is never answered for the person
-(`ui/elicitation.ts`, `questions.ts`).
+contract cannot hold (a link that is not http(s), fields the app cannot show, a malformed AskUserQuestion) is raised as
+a `confirm` whose body says so: confirm declines it, dismiss cancels it; it is never answered for the person
+(`ui/elicitation.ts`, `questions.ts`). A URL elicitation is a `confirm` with its `url`: yes accepts, no declines, and
+`elicitation_complete` withdraws it.
 
 ### D17. Plan approval chooses the next mode
 
@@ -283,7 +284,8 @@ mapper's `system` switch is exhaustive the same way (`mapping/system-frames.ts`)
 | `system/status` | `compacting` as `compaction_started`; `null` with `compact_result` as `compaction_finished`; the permission mode is the host's |
 | `system/compact_boundary` | `compaction_finished` with the token counts |
 | `system/api_retry` | `retry_scheduled`; `retry_finished` from the next frame of the main loop |
-| `system/informational`, `system/notification`, `system/local_command_output` | `notice` |
+| `system/informational`, `system/notification` | `notice` |
+| `system/local_command_output` | `activity(command)` with the output as text |
 | `system/model_refusal_fallback` | `notice(warning)` and `messages_retracted` for `retracted_message_uuids` |
 | `system/model_refusal_no_fallback` | `notice(warning)`; the error outcome comes from the result |
 | `system/mirror_error` | `notice(error)` |
@@ -291,16 +293,24 @@ mapper's `system` switch is exhaustive the same way (`mapping/system-frames.ts`)
 | `system/plugin_install` | `notice(warning)` when an install failed |
 | `system/session_writes_lost` | `notice(error)` saying what was not saved (transcript lines, `~/.claude.json`) and why (disk full, quota) |
 | `system/permission_denied` | marks the tool call, whose result is then `denied` |
-| `system/task_started` | `tool_updated(child_session)` on the Agent call that started a subagent |
+| `system/task_started` | `tool_updated(child_session)` on the Agent call that started a subagent; the task's type, command and start are kept for the background list and its end |
+| `system/task_updated` | a task moved to the background (`patch.is_backgrounded`) ends as an activity |
+| `system/background_tasks_changed` | `background_tasks_changed`, ambient tasks left out |
 | `system/task_progress` | `tool_updated(progress)` on the call that started the task |
 | `tool_progress` | `tool_updated(progress)` while the call runs |
 | `rate_limit_event` | `extension(rate_limit)`: `resetsAt` epoch seconds → milliseconds, `utilization` fraction → percent |
 | `conversation_reset` | `session_replaced` (`/clear`, a plan-exit context clear): the host goes on under the new id |
 | `system/session_state_changed` | the host's: `idle` ends the run, `running` may start one (D8) |
 | `system/commands_changed` | the host's: the command catalogue is invalidated |
-| `system/task_notification` | the host ends the subagent's feed; the call ends with its `tool_result` |
+| `system/task_notification` | the host ends the subagent's feed; a task in the background (not `skip_transcript`, not ambient) is an `activity` led by the CLI's `summary`, with its status, command, duration and child session; a foreground task ends with its call's `tool_result` |
 | `system/elicitation_complete` | the host's: it withdraws a URL ask |
-| `prompt_suggestion`, `auth_status`, `tool_use_summary`, `system/hook_started`, `system/hook_progress`, `system/hook_response`, `system/background_tasks_changed`, `system/task_updated`, `system/thinking_tokens`, `system/memory_recall`, `system/files_persisted`, `system/control_request_progress` | nothing: not asked for, or no contract home |
+| `prompt_suggestion`, `auth_status`, `tool_use_summary`, `system/hook_started`, `system/hook_progress`, `system/hook_response`, `system/thinking_tokens`, `system/memory_recall`, `system/files_persisted`, `system/control_request_progress` | nothing: not asked for, or no contract home |
+
+The text the CLI writes into user entries itself is read by one classifier for the live mapper, the transcript and
+the terminal tail alike (`mapping/harness-text.ts`): context it attaches (`<system-reminder>`, `<ide_selection>`, a
+hook's note) is left out of the person's words; a slash command's echo is `/name args`; its output, and a `!` escape's
+(`<bash-stdout>`), is an `activity(command)`; a saved `<task-notification>` is the task's `activity` (live, the
+`system/task_notification` frame shows it instead); an interrupt marker is where the run stopped.
 
 `system/session_writes_lost` comes once, as the CLI exits after a full disk or quota cost it writes; a resume reads
 only what was written, so a person is told, at `error` level, in plain words and with the fix (`mapping/notices.ts`).
@@ -417,8 +427,10 @@ host and whichever decides first applies.
 
 - **The receiver** (`server/cc-terminal-hook.ts`, behind the loopback listener's bearer token) checks the body,
   hands the ask to the adapter, and holds the session open in the core (`BridgeCore.hold`, core README §20) while a
-  person decides. The ask is raised on the watch-only session as a `tool_permission` with Allow once, Deny and Deny
-  and stop (`terminal/hook-interaction.ts`), answerable through `OpenSession.answer` (contract §5 rule 14), the lock
+  person decides. The ask is raised on the watch-only session as a `tool_permission` with Allow once, the grants the
+  terminal's own dialog would offer (its `permission_suggestions`, each checked on its own by
+  `server/cc-permission-updates.ts`, worded as the hosted ask words them: `ui/permission-options.ts` `grantChoices`;
+  picking one is an allow with those `updatedPermissions`), Deny and Deny and stop (`terminal/hook-interaction.ts`), answerable through `OpenSession.answer` (contract §5 rule 14), the lock
   screen included. A decision is the response; no decision is `{}`, which leaves it to the terminal's own prompt.
   It never answers for the person: the ask ends only when someone answers, the terminal's user answers first (the
   tool's result reaches the tail, or the run ends), or the CLI drops the request. The listener never idles a request

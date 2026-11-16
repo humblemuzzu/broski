@@ -54,8 +54,16 @@ export function toolResult(result: unknown): Frame {
 export function endedMessage(message: unknown): Frame {
 	const role = read(message, "role");
 	if (role === "user") return { role, text: textOf(read(message, "content")) };
-	if (role === "custom")
-		return { role, display: read(message, "display") === true, text: textOf(read(message, "content")) };
+	if (role === "custom") {
+		const details = read(message, "details");
+		return {
+			role,
+			customType: clip(String(read(message, "customType") ?? ""), 1_024),
+			display: read(message, "display") === true,
+			text: textOf(read(message, "content")),
+			...(details !== undefined && { details: compact(details) }),
+		};
+	}
 	if (role !== "assistant") return { role: "other" };
 	const content = read(message, "content");
 	const blocks = (Array.isArray(content) ? content : []).flatMap((block): Json[] => {

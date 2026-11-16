@@ -7,6 +7,75 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FilesDisplay {
+    pub paths: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "crate::codec::present")]
+    pub total: Option<i64>,
+}
+
+impl crate::Tagged for FilesDisplay {
+    const KEY: &'static str = "kind";
+    const TAG: &'static str = "files";
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct LinkItem {
+    pub title: String,
+    pub url: WebUrl,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "crate::codec::present")]
+    pub snippet: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct LinksDisplay {
+    pub items: Vec<LinkItem>,
+}
+
+impl crate::Tagged for LinksDisplay {
+    const KEY: &'static str = "kind";
+    const TAG: &'static str = "links";
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct TodoItem {
+    pub text: String,
+    pub status: TodoStatus,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+pub enum TodoStatus {
+    #[serde(rename = "pending")]
+    Pending,
+    #[serde(rename = "in_progress")]
+    InProgress,
+    #[serde(rename = "completed")]
+    Completed,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct TodosDisplay {
+    pub items: Vec<TodoItem>,
+}
+
+impl crate::Tagged for TodosDisplay {
+    const KEY: &'static str = "kind";
+    const TAG: &'static str = "todos";
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ToolChildSession {
     pub session: SessionRef,
 }
@@ -26,6 +95,18 @@ pub enum ToolContent {
     ImageRef(ImageRef),
     #[serde(rename = "file")]
     File(FileContent),
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[serde(tag = "kind")]
+pub enum ToolDisplay {
+    #[serde(rename = "todos")]
+    Todos(TodosDisplay),
+    #[serde(rename = "links")]
+    Links(LinksDisplay),
+    #[serde(rename = "files")]
+    Files(FilesDisplay),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -113,6 +194,9 @@ pub struct ToolResult {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "crate::codec::present")]
     pub exit_code: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "crate::codec::present")]
+    pub display: Option<ToolDisplay>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

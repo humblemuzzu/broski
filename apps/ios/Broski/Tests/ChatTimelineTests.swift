@@ -95,6 +95,23 @@ struct ChatTimelineTests {
         #expect(added[0].startsMessage)
     }
 
+    @Test func anActivityIsARowOfItsOwnThatEndsTheStretchBeforeItAndKeepsTheAnswersCopyLine() {
+        let built = rows([
+            Item.user("u1", "Run the daemon"),
+            Item.call("c1", "bash", ["command": "tail -F log"]),
+            Item.text("b1", "It runs in the background."),
+            Item.activity("a1", "bash-6bfa failed after 1h00m"),
+            Item.activity("a2", "Review finished", kind: .agent),
+            Item.call("c2", "read", ["path": "/w/log"]),
+            Item.result("c2"),
+        ])
+        #expect(built.map(\.shape) == [
+            "user:Run the daemon", "work:Ran 1 command", "text:p-0", "end", "activity:bash-6bfa failed after 1h00m",
+            "activity:Review finished", "work:Read 1 file",
+        ])
+        #expect(built[5].gap == 6, "activities in a row sit close, like rows of work")
+    }
+
     @Test func toolsAreNamedByWhatTheyDidAndTheirLabelIsWhatTheyActedOn() {
         #expect(ToolWork(call: call("Bash", ["command": "ls -la"])).label == "ls -la")
         #expect(ToolWork(call: call("Read", ["file_path": "/w/src/app.ts"])).label == "Read app.ts")

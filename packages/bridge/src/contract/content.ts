@@ -2,6 +2,10 @@ import { z } from "zod";
 import { AttachmentId } from "./ids";
 import { MAX_IMAGE_CHARS, MAX_NAME_CHARS, MAX_PATH_CHARS, MAX_TEXT_CHARS } from "./limits";
 
+/** A page a phone may open in its browser: http(s) only, since an app hands any other scheme to whatever claims it. */
+export const WebUrl = z.url({ protocol: /^https?$/, error: "a link is an http(s) URL" }).max(MAX_PATH_CHARS);
+export type WebUrl = z.infer<typeof WebUrl>;
+
 /** `plan`: a plan the agent proposes for approval, as opposed to its todo list. */
 export const BlockKind = z.enum(["text", "thinking", "plan"]);
 export type BlockKind = z.infer<typeof BlockKind>;

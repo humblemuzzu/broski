@@ -6,7 +6,6 @@ import {
 	MAX_LIST_ITEMS,
 	MAX_NAME_CHARS,
 	MAX_TEXT_CHARS,
-	type NoticeEvent,
 	type SessionRef,
 	type ToolCallId,
 	type TranscriptItem,
@@ -21,6 +20,7 @@ import { hasWireId, modelWireId } from "../models/model-ids";
 import { phoneText } from "../phone-text";
 import type { MessageEntry, ModelChangeEntry, SessionEntry, ThinkingLevelChangeEntry } from "../store/entries";
 import { bashItems } from "./bash-items";
+import { customActivity } from "./custom-activity";
 import { typedText } from "./prompt-title";
 import { fileChangesOf, toolNameOf, toolOutcome, toolResultOf } from "./tool-items";
 import { isCount } from "./usage";
@@ -61,7 +61,7 @@ export function itemsOfEntry(entry: SessionEntry, context: EntryContext): Transc
 		case "message":
 			return messageItems(entry, context, stamp);
 		case "custom_message":
-			return noticeOf(entry.id, stamp, customNoticeText(entry.display, entry.content));
+			return activityOf(entry.id, stamp, entry);
 		case "branch_summary":
 			return noticeOf(
 				entry.id,
@@ -132,7 +132,7 @@ function messageItems(entry: MessageEntry, context: EntryContext, stamp: Stamp):
 		case "bashExecution":
 			return bashItems(entry.id, message, stamp);
 		case "custom":
-			return noticeOf(entry.id, stamp, customNoticeText(message.display, message.content));
+			return activityOf(entry.id, stamp, message);
 		default:
 			return [];
 	}
@@ -270,7 +270,7 @@ function toolResultItem(
 			denied: context.toolOutcome === "denied",
 			aborted: context.toolOutcome === "aborted",
 		}),
-		result: toolResultOf(content, isError, changes, imageRef),
+		result: toolResultOf(content, isError, changes, imageRef, message.details),
 	};
 }
 
@@ -279,23 +279,20 @@ function noticeOf(entryId: string, stamp: Stamp, text: string | undefined): Tran
 	return shown === "" ? [] : [{ kind: "notice", id: entryItemId(entryId, 0), ...stamp, level: "info", text: shown }];
 }
 
-/** The live notice of an extension's message (`sendMessage`), the same as its transcript item. */
-export function customNotice(display: boolean, content: Content): NoticeEvent | undefined {
-	const text = phoneText(customNoticeText(display, content) ?? "");
-	return text === "" ? undefined : { type: "notice", level: "info", text };
-}
-
-/**
- * What an extension's message shows (`display`): a string, or the text blocks of a list (its images have no
- * place in a notice). Undefined when it is not shown.
- */
-function customNoticeText(display: boolean, content: Content): string | undefined {
-	if (!display) return undefined;
-	if (typeof content === "string") return content;
-	const texts: string[] = [];
-	for (const block of typeof content === "string" ? [] : (content ?? []))
-		if (block.type === "text") texts.push(block.text);
-	return texts.join("\n");
+/** An extension's message, when it is shown (`display`); its images have no place in an activity. */
+function activityOf(
+	entryId: string,
+	stamp: Stamp,
+	message: {
+		readonly customType: unknown;
+		readonly content: Content;
+		readonly display: boolean;
+		readonly details?: unknown;
+	},
+): TranscriptItem[] {
+	if (message.display !== true) return [];
+	const activity = customActivity(message.customType, message.content ?? [], message.details);
+	return activity === undefined ? [] : [{ kind: "activity", id: entryItemId(entryId, 0), ...stamp, activity }];
 }
 
 function modelChangeItems(entry: ModelChangeEntry, stamp: Stamp): TranscriptItem[] {

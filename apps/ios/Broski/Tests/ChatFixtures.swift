@@ -29,11 +29,19 @@ enum Item {
     ) -> TranscriptItem {
         .toolResult(ToolResultItem(
             id: "\(id):result", at: at, toolCallId: id, outcome: outcome,
-            result: ToolResult(content: output.isEmpty ? [] : [.text(TextContent(text: output))], fileChanges: changes, error: nil, exitCode: exitCode)))
+            result: ToolResult(content: output.isEmpty ? [] : [.text(TextContent(text: output))], fileChanges: changes, error: nil, exitCode: exitCode, display: nil)))
     }
 
     static func notice(_ id: String, _ text: String) -> TranscriptItem {
         .notice(NoticeItem(id: id, at: nil, level: .info, text: text))
+    }
+
+    static func activity(_ id: String, _ title: String, kind: ActivityKind = .task) -> TranscriptItem {
+        .activity(ActivityItem(
+            id: id, at: nil,
+            activity: Activity(
+                kind: kind, title: title, status: nil, command: nil, durationMs: nil, exitCode: nil, body: nil,
+                childSession: nil)))
     }
 }
 
@@ -67,6 +75,7 @@ extension ChatRow {
         case .text(let piece): "text:\(piece.block.key)"
         case .answerEnd: "end"
         case .notice(let notice): "notice:\(notice.text)"
+        case .activity(let entry): "activity:\(entry.item.activity.title)"
         case .marker: "marker"
         }
     }

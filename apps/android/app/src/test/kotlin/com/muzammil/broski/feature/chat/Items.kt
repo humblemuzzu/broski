@@ -36,7 +36,7 @@ object Items {
         exitCode: Long? = null,
         changes: List<FileChange> = emptyList(),
     ): TranscriptItem = TranscriptItem.ToolResult(
-        ToolResultItem("$id:result", at, id, outcome, ToolResult(listOf(ToolContent.Text(TextContent(output))), changes, null, exitCode)),
+        ToolResultItem("$id:result", at, id, outcome, ToolResult(listOf(ToolContent.Text(TextContent(output))), changes, null, exitCode, null)),
     )
 
     fun change(path: String) = FileChange(path, FileChangeKind.MODIFIED, null, "@@ -1 +1 @@\n-a\n+b\n", 1, 1)

@@ -9,6 +9,8 @@ import { userItems } from "./items-user";
 import type { SystemFact } from "./system-facts";
 
 export interface ItemContext {
+	/** The session whose transcript this is, which a subagent task's child session is named under. */
+	readonly sessionId: SessionId;
 	/** The owner journal's record of the prompt, when this bridge sent it (D10). */
 	readonly prompt: (sendUuid: string) => PromptRecord | undefined;
 	/** How many blocks of the entry's API message come before it (`IndexEntry.blockBase`). */

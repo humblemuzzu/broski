@@ -6,7 +6,7 @@
 import type { CompactionTrigger, NoticeLevel } from "../../../contract";
 import { clip } from "../bounds";
 import { isRecord } from "../json";
-import { localCommandText } from "./local-commands";
+import { harnessText } from "../mapping/harness-text";
 
 const MAX_FACT_CHARS = 16_384;
 
@@ -58,9 +58,13 @@ export function systemFactOf(entry: unknown): SystemFact | undefined {
 		case "away_summary":
 			return { subtype: entry.subtype, level, text: clip(content.trim(), MAX_FACT_CHARS) };
 		case "local_command": {
-			const printed = localCommandText(content);
-			if (printed?.kind !== "output") return { subtype: "local_command", level };
-			return { subtype: "local_command", level: printed.level, text: clip(printed.text, MAX_FACT_CHARS) };
+			const printed = harnessText(content);
+			if (printed.kind !== "command_output") return { subtype: "local_command", level };
+			return {
+				subtype: "local_command",
+				level: printed.failed ? "error" : "info",
+				text: clip(printed.text, MAX_FACT_CHARS),
+			};
 		}
 		default:
 			return undefined;

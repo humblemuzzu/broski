@@ -39,12 +39,18 @@ import com.muzammil.broski.design.mono
 import com.muzammil.broski.design.perform
 import uniffi.broski_contract.FileChange
 import uniffi.broski_contract.SessionRef
+import uniffi.broski_contract.ToolDisplay
 import uniffi.broski_contract.ToolOutcome
 import uniffi.broski_core.ToolKind
 
-/** Where a row of work leads: a file change's diff, a subagent's own session. */
+/** Where a row of work leads: a file change's diff, a subagent's own session, the whole of a long text, a file. */
 @Immutable
-class WorkActions(val openDiff: (FileChange) -> Unit, val openSession: (SessionRef) -> Unit)
+class WorkActions(
+    val openDiff: (FileChange) -> Unit,
+    val openSession: (SessionRef) -> Unit,
+    val openText: (TextPage) -> Unit,
+    val openFile: (String) -> Unit,
+)
 
 /** other clients's numbers: an open fold stops at 256 dp and scrolls inside, under 12 dp edge fades. */
 private val MAX_HEIGHT = 256.dp
@@ -141,7 +147,7 @@ private val WorkEntry.icon: Int
     get() = when (this) {
         is WorkEntry.Thought -> R.drawable.ic_psychology
         is WorkEntry.Aside -> R.drawable.ic_account_tree
-        is WorkEntry.Tool -> when (kind) {
+        is WorkEntry.Tool -> if (display is ToolDisplay.Todos) R.drawable.ic_check_circle else when (kind) {
             ToolKind.READ -> R.drawable.ic_description
             ToolKind.EDIT -> R.drawable.ic_edit_note
             ToolKind.COMMAND -> R.drawable.ic_terminal

@@ -10,6 +10,8 @@ import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -23,14 +25,20 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.core.net.toUri
 import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
 import com.muzammil.broski.design.Haptic
 import com.muzammil.broski.design.perform
 import com.muzammil.broski.feature.chat.transcript.MarkdownBlockView
 import uniffi.broski_contract.ChoiceRequest
+import uniffi.broski_contract.ConfirmRequest
 import uniffi.broski_contract.Interaction
 import uniffi.broski_contract.PlanApprovalRequest
 import uniffi.broski_contract.TextRequest
@@ -103,17 +111,29 @@ fun ChoiceCard(interaction: Interaction, request: ChoiceRequest, context: CardCo
 }
 
 @Composable
-fun ConfirmCard(interaction: Interaction, context: CardContext) {
+fun ConfirmCard(interaction: Interaction, request: ConfirmRequest, context: CardContext) {
     val haptics = LocalHapticFeedback.current
+    val url = request.url
     Text(interaction.title, style = MaterialTheme.typography.titleMedium)
     interaction.body?.let { Quiet(it) }
+    if (url != null) LinkButton(url)
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Button(onClick = { haptics.perform(Haptic.Success); context.answer(confirmReply(true)) }, enabled = context.enabled, shapes = ButtonDefaults.shapes()) {
-            Text(stringResource(R.string.card_yes))
+            Text(stringResource(if (url != null) R.string.card_done else R.string.card_yes))
         }
         FilledTonalButton(onClick = { haptics.perform(Haptic.Warning); context.answer(confirmReply(false)) }, enabled = context.enabled, shapes = ButtonDefaults.shapes()) {
-            Text(stringResource(R.string.card_no))
+            Text(stringResource(if (url != null) R.string.card_decline else R.string.card_no))
         }
+    }
+}
+
+/** The page to visit before answering, by its host, so the person sees where it goes before it opens. */
+@Composable
+private fun LinkButton(url: String) {
+    val uris = LocalUriHandler.current
+    OutlinedButton(onClick = { uris.openUri(url) }, shapes = ButtonDefaults.shapes(), modifier = Modifier.fillMaxWidth()) {
+        Icon(painterResource(R.drawable.ic_open_in_new), contentDescription = null, modifier = Modifier.size(16.dp))
+        Text(stringResource(R.string.card_open_link, url.toUri().host ?: url), modifier = Modifier.padding(start = 8.dp))
     }
 }
 

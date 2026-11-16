@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { Activity } from "./activity";
 import { CompactionTrigger } from "./compaction";
 import { AttachmentRef, BlockKind } from "./content";
 import { ClientRequestId, MessageId, ModelId, SessionRef, Timestamp, ToolCallId, TranscriptItemId } from "./ids";
@@ -64,6 +65,14 @@ export const NoticeItem = z.strictObject({
 });
 export type NoticeItem = z.infer<typeof NoticeItem>;
 
+export const ActivityItem = z.strictObject({
+	kind: z.literal("activity"),
+	id: TranscriptItemId,
+	at: Timestamp.optional(),
+	activity: Activity,
+});
+export type ActivityItem = z.infer<typeof ActivityItem>;
+
 export const CompactionItem = z.strictObject({
 	kind: z.literal("compaction"),
 	id: TranscriptItemId,
@@ -99,6 +108,7 @@ export const TranscriptItem = z.discriminatedUnion("kind", [
 	ToolCallItem,
 	ToolResultItem,
 	NoticeItem,
+	ActivityItem,
 	CompactionItem,
 	ModelChangeItem,
 	RunBoundaryItem,

@@ -173,7 +173,7 @@ export class ToolFlow {
 			denied: call.denied,
 			aborted: isError && this.deps.aborting(),
 		});
-		const event = this.finishEvent(piId, outcome, toolResultOf(content, isError, changes, imageRef));
+		const event = this.finishEvent(piId, outcome, toolResultOf(content, isError, changes, imageRef, details));
 		if (!event) return undefined;
 		this.deps.emit(event);
 		return outcome;

@@ -28,6 +28,8 @@ export const mintRunId: () => RunId = mint;
 /** The CLI's `request_id` of a `can_use_tool` or elicitation is per process; the desk maps it to one of these. */
 export const mintInteractionId: () => InteractionId = mint;
 export const mintQueueItemId: () => QueueItemId = mint;
+/** A live activity's item id; the transcript names the same activity by its entry's uuid. */
+export const mintActivityId: () => TranscriptItemId = mint;
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

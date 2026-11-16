@@ -1,4 +1,5 @@
 import { z } from "zod";
+import * as activity from "./activity";
 import * as capabilities from "./capabilities";
 import * as catalogEvents from "./catalog-events";
 import * as commands from "./commands";
@@ -50,6 +51,7 @@ const SCHEMA_MODULES = {
 	usage,
 	compaction,
 	notice,
+	activity,
 	extensions,
 	models,
 	commands,

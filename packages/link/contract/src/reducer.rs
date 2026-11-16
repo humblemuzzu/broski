@@ -19,6 +19,7 @@ pub fn empty_snapshot() -> SessionSnapshot {
         tools: Vec::new(),
         interactions: Vec::new(),
         queue: Vec::new(),
+        background_tasks: Vec::new(),
         model_id: None,
         thinking: None,
         modes: Vec::new(),
@@ -73,6 +74,7 @@ fn apply_to_live_state(snapshot: &mut SessionSnapshot, at: Timestamp, event: Age
             resolve_interaction(&mut snapshot.interactions, &resolved);
         }
         AgentEvent::QueueChanged(changed) => snapshot.queue = changed.items,
+        AgentEvent::BackgroundTasksChanged(changed) => snapshot.background_tasks = changed.tasks,
         AgentEvent::CompactionStarted(started) => {
             snapshot.compaction = Some(compaction_state(started, at));
         }
@@ -87,6 +89,7 @@ fn apply_to_live_state(snapshot: &mut SessionSnapshot, at: Timestamp, event: Age
         AgentEvent::UserMessage(_)
         | AgentEvent::InputReturned(_)
         | AgentEvent::Notice(_)
+        | AgentEvent::Activity(_)
         | AgentEvent::Error(_)
         | AgentEvent::Extension(_)
         | AgentEvent::SessionReplaced(_) => {}

@@ -26,6 +26,8 @@ export const mintRunId: () => RunId = mint;
 export const mintMessageId: () => MessageId = mint;
 export const mintInteractionId: () => InteractionId = mint;
 export const mintQueueItemId: () => QueueItemId = mint;
+/** A live activity's item id; the transcript names the same activity by its entry (`entryItemId`). */
+export const mintActivityId: () => TranscriptItemId = mint;
 
 export function blockId(messageId: MessageId, contentIndex: number): BlockId {
 	return `${messageId}:${contentIndex}`;

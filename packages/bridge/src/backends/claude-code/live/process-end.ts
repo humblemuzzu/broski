@@ -1,4 +1,7 @@
-/** The CLI process ended while the host lives: what it leaves open closes, and what it was owed goes back to the person. */
+/**
+ * The CLI process ended while the host lives: what it leaves open closes, its background tasks are gone with it, and
+ * what it was owed goes back to the person.
+ */
 
 import { MAX_TEXT_CHARS, type RunOutcome } from "../../../contract";
 import { clip } from "../bounds";
@@ -31,5 +34,6 @@ export function processEnded(deps: ProcessEndDeps, stopped: boolean, error: unkn
 				: { kind: "error", error: { code: "backend_unavailable", message: clip(message, MAX_TEXT_CHARS) } },
 		);
 	}
+	if (deps.live.snapshot().backgroundTasks.length > 0) deps.live.emit({ type: "background_tasks_changed", tasks: [] });
 	returnQueued(deps.queue, deps.live);
 }

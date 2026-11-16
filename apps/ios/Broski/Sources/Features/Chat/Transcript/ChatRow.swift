@@ -3,8 +3,8 @@ import CoreGraphics
 
 /// One row of the transcript's lazy stack, keyed so a row keeps its identity while text streams:
 /// the person's message, a work fold, one markdown block of the agent's text, the quiet line under
-/// a finished answer, a notice, a marker (compaction, model change, how a run ended), or a prompt
-/// still on its way.
+/// a finished answer, a notice, an activity, a marker (compaction, model change, how a run ended),
+/// or a prompt still on its way.
 nonisolated struct ChatRow: Identifiable, Equatable {
     enum Content: Equatable {
         case user(UserTurn)
@@ -13,6 +13,7 @@ nonisolated struct ChatRow: Identifiable, Equatable {
         case text(TextPiece)
         case answerEnd(AnswerEnd)
         case notice(NoticeItem)
+        case activity(ActivityEntry)
         case marker(Marker)
     }
 
@@ -24,7 +25,7 @@ nonisolated struct ChatRow: Identifiable, Equatable {
     /// A row that rises in when a live run adds it; the agent's text just appears, block by block.
     var risesIn: Bool {
         switch content {
-        case .user, .pending, .work, .notice, .marker: true
+        case .user, .pending, .work, .notice, .activity, .marker: true
         case .text, .answerEnd: false
         }
     }

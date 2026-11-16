@@ -139,7 +139,7 @@ private fun CardBody(interaction: Interaction, context: CardContext) {
         is InteractionRequest.Form -> FormCard(interaction, request.v1, context)
         is InteractionRequest.PlanApproval -> PlanCard(interaction, request.v1, context)
         is InteractionRequest.Choice -> ChoiceCard(interaction, request.v1, context)
-        is InteractionRequest.Confirm -> ConfirmCard(interaction, context)
+        is InteractionRequest.Confirm -> ConfirmCard(interaction, request.v1, context)
         is InteractionRequest.Text -> TextCard(interaction, request.v1, context)
     }
 }

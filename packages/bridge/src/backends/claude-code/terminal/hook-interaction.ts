@@ -1,5 +1,6 @@
 /**
- * A terminal's `PermissionRequest` hook as a `tool_permission` ask, and a person's reply as the hook's decision (D29).
+ * A terminal's `PermissionRequest` hook as a `tool_permission` ask, and a person's reply as the hook's decision (D29):
+ * allow once, the grants the terminal's own dialog would offer (its `permission_suggestions`), deny, deny and stop.
  */
 
 import type { PermissionRequestHookInput } from "@anthropic-ai/claude-agent-sdk";
@@ -7,6 +8,7 @@ import {
 	type Interaction,
 	type InteractionId,
 	type InteractionReply,
+	MAX_LIST_ITEMS,
 	MAX_PATH_CHARS,
 	type PermissionOption,
 	type PermissionPreview,
@@ -20,20 +22,22 @@ import { toolTitle } from "../mapping/tool-titles";
 import { phoneText } from "../phone-text";
 import type { TerminalPermissionDecision } from "../ports/terminal";
 import { humanDenial } from "../ui/denial";
+import { grantChoices, type OptionEffect } from "../ui/permission-options";
 
 export const ALLOW_ONCE = "allow-once";
 export const DENY_ONCE = "deny-once";
 const DENY_AND_STOP = "deny-and-stop";
 
-const OPTIONS: readonly PermissionOption[] = [
-	{
-		id: ALLOW_ONCE,
-		label: "Allow once",
-		effect: "allow",
-		scope: "once",
-		stopsRun: false,
-		message: "none",
-	},
+const ALLOW: PermissionOption = {
+	id: ALLOW_ONCE,
+	label: "Allow once",
+	effect: "allow",
+	scope: "once",
+	stopsRun: false,
+	message: "none",
+};
+
+const DENIALS: readonly PermissionOption[] = [
 	{
 		id: DENY_ONCE,
 		label: "Deny",
@@ -71,7 +75,26 @@ export interface AskContext {
 	readonly toolCallId: ToolCallId | undefined;
 }
 
-export function permissionInteraction(ask: PermissionRequestHookInput, context: AskContext): Interaction {
+export interface HookAsk {
+	readonly interaction: Interaction;
+	/** What a reply decides; undefined for a reply that does not answer this ask. */
+	readonly decide: (reply: InteractionReply) => HookDecision | undefined;
+}
+
+export function permissionAsk(ask: PermissionRequestHookInput, context: AskContext): HookAsk {
+	const grants = grantChoices(ask.permission_suggestions ?? [], false);
+	const options = [ALLOW, ...grants.options, ...DENIALS].slice(0, MAX_LIST_ITEMS);
+	return {
+		interaction: permissionInteraction(ask, context, options),
+		decide: (reply) => decisionOf(reply, grants.effects),
+	};
+}
+
+function permissionInteraction(
+	ask: PermissionRequestHookInput,
+	context: AskContext,
+	options: PermissionOption[],
+): Interaction {
 	const title = toolTitle(ask.tool_name, ask.tool_input);
 	return {
 		id: context.id,
@@ -90,7 +113,7 @@ export function permissionInteraction(ask: PermissionRequestHookInput, context: 
 			input: boundedJson(ask.tool_input),
 			inputEditable: false,
 			previews: previewsOf(ask),
-			options: [...OPTIONS],
+			options,
 			grants: [],
 			deliberate: false,
 		},
@@ -120,10 +143,13 @@ export type HookDecision = {
  * What a person's reply decides. A cancel that does not stop the run gives no decision: the terminal then asks its own
  * user, as it does when the phone never answers.
  */
-export function decisionOf(reply: InteractionReply): HookDecision | undefined {
+function decisionOf(reply: InteractionReply, grants: ReadonlyMap<string, OptionEffect>): HookDecision | undefined {
 	switch (reply.kind) {
-		case "tool_permission":
+		case "tool_permission": {
+			const grant = grants.get(reply.optionId);
+			if (grant !== undefined) return { decision: { behavior: "allow", updatedPermissions: [...grant.updates] } };
 			return toolPermissionDecision(reply.optionId, reply.message);
+		}
 		case "cancel":
 			return {
 				decision: reply.stopRun

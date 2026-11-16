@@ -1,14 +1,25 @@
-/** The transcript items of one user entry: a prompt, a compaction summary, or tool results (D26, D10). */
+/**
+ * The transcript items of one user entry (D26, D10): a prompt, a compaction summary, tool results, or what the CLI
+ * wrote there itself: a background task's end, a command's output, an interrupt (`harnessText`).
+ */
 
 import type { SessionMessage } from "@anthropic-ai/claude-agent-sdk";
-import { ClientRequestId, type ImageRef, MAX_NAME_CHARS, MAX_TEXT_CHARS, type TranscriptItem } from "../../../contract";
+import {
+	type Activity,
+	ClientRequestId,
+	type ImageRef,
+	MAX_NAME_CHARS,
+	MAX_TEXT_CHARS,
+	type TranscriptItem,
+} from "../../../contract";
 import { clip } from "../bounds";
 import { toolCallId, toolResultItemId } from "../ids";
+import { commandOutputActivity, savedTaskActivity, shellOutputActivity } from "../mapping/activities";
+import { type HarnessText, harnessText } from "../mapping/harness-text";
 import { imageRefsOf } from "../mapping/images";
 import { toolResultOf } from "../mapping/tool-results";
 import type { PromptRecord } from "../ports/store";
 import type { ItemContext } from "./items";
-import { localCommandText } from "./local-commands";
 import {
 	contentList,
 	contentText,
@@ -54,20 +65,28 @@ export function userItems(message: SessionMessage, context: ItemContext): Transc
 		const result = resultItem(block, { message, blockIndex, at, context });
 		if (result !== undefined) items.push(result);
 	});
-	const local = localCommandText(textOf(message));
-	if (local?.kind === "output") {
-		if (local.text !== "")
-			items.push({
-				kind: "notice",
-				id: message.uuid,
-				...(at !== undefined && { at }),
-				level: local.level,
-				text: clip(local.text, MAX_TEXT_CHARS),
-			});
-		return items;
+	const said = harnessText(textOf(message));
+	const base = { id: message.uuid, ...(at !== undefined && { at }) };
+	if (said.kind === "interrupt") return [...items, { kind: "run_boundary", ...base, outcome: { kind: "aborted" } }];
+	if (said.kind === "prompt" || said.kind === "context") {
+		const prompt = promptItem(message, context, at, said.kind === "prompt" ? said.text : "");
+		return prompt === undefined ? items : [...items, prompt];
 	}
-	const prompt = promptItem(message, context, at, local?.text ?? textOf(message));
-	return prompt === undefined ? items : [...items, prompt];
+	const activity = reported(said, context);
+	return activity === undefined ? items : [...items, { kind: "activity", ...base, activity }];
+}
+
+function reported(said: HarnessText, context: ItemContext): Activity | undefined {
+	switch (said.kind) {
+		case "task":
+			return savedTaskActivity(said.notification, context.sessionId);
+		case "command_output":
+			return commandOutputActivity(said.text, said.failed);
+		case "shell_output":
+			return shellOutputActivity(said.stdout, said.stderr);
+		default:
+			return undefined;
+	}
 }
 
 function promptItem(

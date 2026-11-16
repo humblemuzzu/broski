@@ -45,6 +45,7 @@ val TranscriptItem.id: String
         is TranscriptItem.ToolCall -> v1.id
         is TranscriptItem.ToolResult -> v1.id
         is TranscriptItem.Notice -> v1.id
+        is TranscriptItem.Activity -> v1.id
         is TranscriptItem.Compaction -> v1.id
         is TranscriptItem.ModelChange -> v1.id
         is TranscriptItem.RunBoundary -> v1.id
@@ -57,6 +58,7 @@ val TranscriptItem.at: Long?
         is TranscriptItem.ToolCall -> v1.at
         is TranscriptItem.ToolResult -> v1.at
         is TranscriptItem.Notice -> v1.at
+        is TranscriptItem.Activity -> v1.at
         is TranscriptItem.Compaction -> v1.at
         is TranscriptItem.ModelChange -> v1.at
         is TranscriptItem.RunBoundary -> v1.at

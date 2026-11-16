@@ -58,7 +58,7 @@ final class LiveRuns {
 
     /// Adopts the activity a previous run of the app left, and ends any beyond it.
     init() {
-        let running = Activity<RunActivityAttributes>.activities
+        let running = ActivityKit.Activity<RunActivityAttributes>.activities
         activityId = running.first?.id
         shown = running.first?.content.state
         for stale in running.dropFirst().map(\.id) {
@@ -85,7 +85,7 @@ final class LiveRuns {
         switch (activityId, state) {
         case (nil, let state?):
             do {
-                activityId = try Activity.request(
+                activityId = try ActivityKit.Activity.request(
                     attributes: RunActivityAttributes(), content: ActivityContent(state: state, staleDate: nil)
                 ).id
             } catch {
@@ -117,7 +117,7 @@ final class LiveRuns {
         await activity(id)?.end(state.map { ActivityContent(state: $0, staleDate: nil) }, dismissalPolicy: dismissal)
     }
 
-    private nonisolated static func activity(_ id: String) -> Activity<RunActivityAttributes>? {
-        Activity<RunActivityAttributes>.activities.first { $0.id == id }
+    private nonisolated static func activity(_ id: String) -> ActivityKit.Activity<RunActivityAttributes>? {
+        ActivityKit.Activity<RunActivityAttributes>.activities.first { $0.id == id }
     }
 }

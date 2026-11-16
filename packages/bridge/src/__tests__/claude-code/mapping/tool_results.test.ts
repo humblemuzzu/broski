@@ -22,6 +22,56 @@ const block = (content: unknown, isError = false) => ({
 	...(isError && { is_error: true }),
 });
 
+describe("what a result shows in place of its text", () => {
+	test("a todo list is its items, a search its pages, a file search its files with how many there were", () => {
+		const todos = {
+			oldTodos: [],
+			newTodos: [
+				{ content: "Write the tests", status: "in_progress", activeForm: "Writing the tests" },
+				{ content: "Ship", status: "pending", activeForm: "Shipping" },
+				{ content: "", status: "pending", activeForm: "" },
+			],
+		};
+		expect(resultOf(block("Todos have been modified successfully."), todos, "TodoWrite").result.display).toEqual({
+			kind: "todos",
+			items: [
+				{ text: "Write the tests", status: "in_progress" },
+				{ text: "Ship", status: "pending" },
+			],
+		});
+		const search = {
+			query: "bun test",
+			results: [
+				{
+					tool_use_id: "srvtoolu_1",
+					content: [
+						{ title: "Bun test runner", url: "https://bun.com/docs/test" },
+						{ title: "Not a page", url: "javascript:alert(1)" },
+					],
+				},
+				"The model's own summary.",
+			],
+			durationSeconds: 1,
+		};
+		expect(resultOf(block("Found it."), search, "WebSearch").result.display).toEqual({
+			kind: "links",
+			items: [{ title: "Bun test runner", url: "https://bun.com/docs/test" }],
+		});
+		const found = { durationMs: 3, numFiles: 140, filenames: ["/p/a.ts", "/p/b.ts"], truncated: true };
+		expect(resultOf(block("/p/a.ts\n/p/b.ts"), found, "Glob").result.display).toEqual({
+			kind: "files",
+			paths: ["/p/a.ts", "/p/b.ts"],
+			total: 140,
+		});
+		const lines = { mode: "content", numFiles: 1, filenames: ["/p/a.ts"], content: "a.ts:1:TODO" };
+		expect(resultOf(block("a.ts:1:TODO"), lines, "Grep").result.display).toBeUndefined();
+		expect(resultOf(block("no", true), todos, "TodoWrite").result.display).toBeUndefined();
+		const none = { durationMs: 1, numFiles: 0, filenames: [], truncated: false };
+		expect(resultOf(block("No files found"), none, "Glob").result.display).toBeUndefined();
+		expect(resultOf(block("ok"), { oldTodos: [], newTodos: [] }, "TodoWrite").result.display).toBeUndefined();
+	});
+});
+
 describe("a completed result", () => {
 	test("a string is one text part", () => {
 		expect(resultOf(block("done"))).toEqual({

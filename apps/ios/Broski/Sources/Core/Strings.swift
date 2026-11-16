@@ -7,5 +7,8 @@ nonisolated extension String {
         return name.isEmpty ? self : name
     }
 
+    /// The folder a path is in.
+    var parentPath: String { (self as NSString).deletingLastPathComponent }
+
     var trimmed: String { trimmingCharacters(in: .whitespacesAndNewlines) }
 }

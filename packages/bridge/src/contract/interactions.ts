@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { FileChange } from "./content";
+import { FileChange, WebUrl } from "./content";
 import { FormFieldSpec } from "./forms";
 import { InteractionId, RunId, Timestamp, ToolCallId } from "./ids";
 import { JsonValue } from "./json";
@@ -164,7 +164,8 @@ export const ChoiceRequest = z.strictObject({
 });
 export type ChoiceRequest = z.infer<typeof ChoiceRequest>;
 
-export const ConfirmRequest = z.strictObject({ kind: z.literal("confirm") });
+/** `url`: a page the person opens before saying yes, such as a sign-in an MCP server asks for. */
+export const ConfirmRequest = z.strictObject({ kind: z.literal("confirm"), url: WebUrl.optional() });
 export type ConfirmRequest = z.infer<typeof ConfirmRequest>;
 
 export const TextRequest = z.strictObject({

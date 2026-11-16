@@ -12,7 +12,8 @@ import uniffi.broski_core.ViewEnd
 /**
  * The chat's copy of a session view: what the core's updates assign, never a reduction of its own
  * (docs/architecture/mobile-core.md, "The update protocol"). After every update it equals
- * `view.snapshot()`. Notices, errors, extensions and returned input are moments: shown, not kept.
+ * `view.snapshot()`. Notices, activities outside a run, errors, extensions and returned input are
+ * moments: shown, not kept.
  */
 data class LiveSession(
     val session: SessionRef? = null,
@@ -55,6 +56,7 @@ val EmptySnapshot = SessionSnapshot(
     tools = emptyList(),
     interactions = emptyList(),
     queue = emptyList(),
+    backgroundTasks = emptyList(),
     modelId = null,
     thinking = null,
     modes = emptyList(),
@@ -87,13 +89,14 @@ private fun SessionSnapshot.assign(change: SessionChange): SessionSnapshot? = wh
     is SessionChange.InteractionAdded -> copy(interactions = interactions + change.interaction)
     is SessionChange.InteractionRemoved -> copy(interactions = interactions.filterNot { it.id == change.interactionId })
     is SessionChange.QueueChanged -> copy(queue = change.items)
+    is SessionChange.BackgroundTasksChanged -> copy(backgroundTasks = change.tasks)
     is SessionChange.ModelChanged -> copy(modelId = change.modelId, thinking = change.thinking)
     is SessionChange.ModesChanged -> copy(modes = change.modes)
     is SessionChange.UsageChanged -> copy(usage = change.usage)
     is SessionChange.CompactionChanged -> copy(compaction = change.compaction)
     is SessionChange.RetryChanged -> copy(retry = change.retry)
     is SessionChange.OutcomeChanged -> copy(lastOutcome = change.outcome)
-    is SessionChange.NoticeShown, is SessionChange.ErrorShown,
+    is SessionChange.NoticeShown, is SessionChange.ActivityShown, is SessionChange.ErrorShown,
     is SessionChange.ExtensionReceived, is SessionChange.InputReturned -> null
 }
 

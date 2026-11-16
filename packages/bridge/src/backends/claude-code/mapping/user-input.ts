@@ -6,6 +6,7 @@ import { clip } from "../bounds";
 import { userItemId } from "../ids";
 import type { MappedEvent } from "../ports/mapping";
 import { fileChangesOf } from "./file-changes";
+import { harnessText } from "./harness-text";
 import { imageRefsOf } from "./images";
 import { refusedToolUseIds } from "./result-meta";
 import { fanOut, placementOf } from "./routing";
@@ -17,14 +18,6 @@ import { wireId, wireToolCallId } from "./wire-id";
 type UserFrame = SDKUserMessage;
 type Blocks = Exclude<UserFrame["message"]["content"], string>;
 type ToolResultBlock = Extract<Blocks[number], { type: "tool_result" }>;
-
-/** Text the CLI writes into the conversation itself: an interrupt marker, a slash command's echo or output. */
-const CLI_TEXT_PREFIXES: readonly string[] = [
-	"[Request interrupted by user",
-	"<command-name>",
-	"<local-command-",
-	"<command-",
-];
 
 function toolResults(content: UserFrame["message"]["content"]): { block: ToolResultBlock; index: number }[] {
 	if (typeof content === "string") return [];
@@ -61,7 +54,10 @@ function toolResultEvents(
 	});
 }
 
-/** A prompt the host did not send: someone else's turn in this session. The CLI's own text is not a prompt. */
+/**
+ * A prompt the host did not send: someone else's turn in this session. The CLI's own text is not a prompt; what it
+ * reports there live (a task's end, a slash command's output) its system frames carry too, and those are what show.
+ */
 function promptEvents(state: MapperState, frame: UserFrame): MappedEvent[] {
 	const placement = placementOf(state, {
 		agentId: frame.agent_id,
@@ -70,8 +66,9 @@ function promptEvents(state: MapperState, frame: UserFrame): MappedEvent[] {
 	const uuid = wireId(frame.uuid);
 	if (uuid === undefined || placement.streams.length === 0 || state.ownSends.has(uuid)) return [];
 	if (frame.isSynthetic === true || (frame.origin !== undefined && frame.origin.kind !== "human")) return [];
-	const text = textOf(frame.message.content);
-	if (CLI_TEXT_PREFIXES.some((prefix) => text.startsWith(prefix))) return [];
+	const said = harnessText(textOf(frame.message.content));
+	if (said.kind !== "prompt") return [];
+	const text = said.text;
 	const attachments = imageRefsOf(frame.message.content, uuid);
 	if (text.trim() === "" && attachments.length === 0) return [];
 	const streams =

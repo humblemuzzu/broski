@@ -2,13 +2,18 @@
  * What a terminal `pi` and the bridge say to each other over the link socket, one JSON object per line. The terminal's
  * side is the extension (`extension/`), which sends only what Pi's extension events carry
  * (pi-coding-agent 1.5.2 `docs/extensions.md:305-1160`): the run, its text, thinking and tools, compactions, the model and
- * the thinking level, the session's name. Pi hands extensions no event for its queue or its automatic retries, so the
- * link carries neither. Every frame is checked here, strictly and within bounds, before anything reads it.
+ * the thinking level, the session's name, and the background tasks other extensions announce on Pi's event bus
+ * (`broski:tasks`). Pi hands extensions no event for its queue or its automatic retries, so the link carries neither.
+ * Every frame is checked here, strictly and within bounds, before anything reads it.
  */
 
 import { z } from "zod";
 import type { JsonValue } from "../../../contract";
 
+/**
+ * Fields are only ever added, and optional, so a `pi` that loaded an older copy of the extension before the bridge
+ * rewrote it still links; the version changes only for what an older side would misread.
+ */
 export const LINK_VERSION = 1;
 
 /** The largest line either side reads: a prompt with its images fits. */
@@ -62,7 +67,13 @@ export const EndedMessage = z.discriminatedUnion("role", [
 		errorMessage: Text.optional(),
 		provider: Name,
 	}),
-	z.strictObject({ role: z.literal("custom"), display: z.boolean(), text: Text }),
+	z.strictObject({
+		role: z.literal("custom"),
+		customType: z.string().max(1_024).optional(),
+		display: z.boolean(),
+		text: Text,
+		details: Json.optional(),
+	}),
 	z.strictObject({ role: z.literal("other") }),
 ]);
 export type EndedMessage = z.infer<typeof EndedMessage>;
@@ -114,6 +125,8 @@ export const TerminalEvent = z.discriminatedUnion("e", [
 		phase: z.enum(["start", "end"]),
 		title: Name.optional(),
 	}),
+	/** The list as the extension that announced it gave it; the bridge reads it as `mapping/background-tasks.ts` says. */
+	z.strictObject({ e: z.literal("tasks"), tasks: Json }),
 ]);
 export type TerminalEvent = z.infer<typeof TerminalEvent>;
 
@@ -125,6 +138,7 @@ export const TerminalState = z.strictObject({
 	thinking: Name.optional(),
 	blocks: z.array(z.strictObject({ index: Count, kind: z.enum(["text", "thinking"]), text: Text })).max(1_000),
 	tools: z.array(z.strictObject({ id: Id, name: z.string().max(1_024), args: Json })).max(1_000),
+	tasks: Json.optional(),
 });
 export type TerminalState = z.infer<typeof TerminalState>;
 

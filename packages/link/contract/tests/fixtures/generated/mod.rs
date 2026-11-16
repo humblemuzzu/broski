@@ -40,6 +40,13 @@ pub fn visit_types(visitor: &mut impl TypeVisitor) {
     visitor.tagged::<ActionAccepted>("ActionAccepted");
     visitor.plain::<ActionResult>("ActionResult");
     visitor.plain::<ActiveRun>("ActiveRun");
+    visitor.plain::<Activity>("Activity");
+    visitor.plain::<ActivityBody>("ActivityBody");
+    visitor.tagged::<ActivityEvent>("ActivityEvent");
+    visitor.plain::<ActivityFormat>("ActivityFormat");
+    visitor.tagged::<ActivityItem>("ActivityItem");
+    visitor.plain::<ActivityKind>("ActivityKind");
+    visitor.plain::<ActivityStatus>("ActivityStatus");
     visitor.plain::<AgentEvent>("AgentEvent");
     visitor.plain::<AttachSync>("AttachSync");
     visitor.plain::<Attachment>("Attachment");
@@ -59,6 +66,9 @@ pub fn visit_types(visitor: &mut impl TypeVisitor) {
     visitor.tagged::<BackendStatusResponse>("BackendStatusResponse");
     visitor.tagged::<BackendsListRequest>("BackendsListRequest");
     visitor.tagged::<BackendsListResponse>("BackendsListResponse");
+    visitor.plain::<BackgroundTask>("BackgroundTask");
+    visitor.plain::<BackgroundTaskKind>("BackgroundTaskKind");
+    visitor.tagged::<BackgroundTasksChangedEvent>("BackgroundTasksChangedEvent");
     visitor.tagged::<BlockDeltaEvent>("BlockDeltaEvent");
     visitor.tagged::<BlockFinishedEvent>("BlockFinishedEvent");
     visitor.plain::<BlockId>("BlockId");
@@ -121,6 +131,7 @@ pub fn visit_types(visitor: &mut impl TypeVisitor) {
     visitor.plain::<FileMatch>("FileMatch");
     visitor.plain::<FilePath>("FilePath");
     visitor.tagged::<FileRead>("FileRead");
+    visitor.tagged::<FilesDisplay>("FilesDisplay");
     visitor.tagged::<FilesFound>("FilesFound");
     visitor.tagged::<FilesListed>("FilesListed");
     visitor.plain::<ForkPoint>("ForkPoint");
@@ -198,6 +209,8 @@ pub fn visit_types(visitor: &mut impl TypeVisitor) {
     visitor.tagged::<InteractionResolvedEvent>("InteractionResolvedEvent");
     visitor.plain::<IssueSeverity>("IssueSeverity");
     visitor.plain::<JsonValue>("JsonValue");
+    visitor.plain::<LinkItem>("LinkItem");
+    visitor.tagged::<LinksDisplay>("LinksDisplay");
     visitor.plain::<MessageId>("MessageId");
     visitor.plain::<MessagePolicy>("MessagePolicy");
     visitor.tagged::<MessagesRetractedEvent>("MessagesRetractedEvent");
@@ -375,10 +388,14 @@ pub fn visit_types(visitor: &mut impl TypeVisitor) {
     visitor.plain::<ThinkingSpec>("ThinkingSpec");
     visitor.plain::<Timestamp>("Timestamp");
     visitor.plain::<TitleSource>("TitleSource");
+    visitor.plain::<TodoItem>("TodoItem");
+    visitor.plain::<TodoStatus>("TodoStatus");
+    visitor.tagged::<TodosDisplay>("TodosDisplay");
     visitor.plain::<ToolCallId>("ToolCallId");
     visitor.tagged::<ToolCallItem>("ToolCallItem");
     visitor.tagged::<ToolChildSession>("ToolChildSession");
     visitor.plain::<ToolContent>("ToolContent");
+    visitor.plain::<ToolDisplay>("ToolDisplay");
     visitor.tagged::<ToolFileChanges>("ToolFileChanges");
     visitor.tagged::<ToolFinishedEvent>("ToolFinishedEvent");
     visitor.tagged::<ToolInputSet>("ToolInputSet");
@@ -404,6 +421,7 @@ pub fn visit_types(visitor: &mut impl TypeVisitor) {
     visitor.tagged::<UsageUpdatedEvent>("UsageUpdatedEvent");
     visitor.tagged::<UserMessageEvent>("UserMessageEvent");
     visitor.tagged::<UserMessageItem>("UserMessageItem");
+    visitor.plain::<WebUrl>("WebUrl");
     visitor.plain::<WorkingDirectory>("WorkingDirectory");
     visitor.tagged::<WorkspaceInfo>("WorkspaceInfo");
     visitor.tagged::<WorkspaceInfoRequest>("WorkspaceInfoRequest");

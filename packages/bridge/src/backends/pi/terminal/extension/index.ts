@@ -1,4 +1,4 @@
-// broski-link-extension v1: written by the Broski bridge; delete it, or set "pi.terminalLink": false in the bridge's config.
+// broski-link-extension v2: written by the Broski bridge; delete it, or set "pi.terminalLink": false in the bridge's config.
 //
 // Lets the Broski app on your phone follow this terminal's session live, and stop it or send it a message. It runs in
 // the terminal's own `pi` process and does nothing unless the Broski bridge is running on this machine: no output, no
@@ -48,6 +48,7 @@ export default function brokskiLink(pi: ExtensionAPI): void {
 	forwardRun(pi, link);
 	forwardTools(pi, link);
 	forwardSession(pi, link);
+	pi.events.on("broski:tasks", (tasks) => guarded(() => link.tasksChanged(compact(tasks ?? []))));
 }
 
 function forwardRun(pi: ExtensionAPI, link: Link): void {

@@ -6,6 +6,11 @@
 import { type JsonValue, MAX_JSON_DEPTH, MAX_LIST_ITEMS, MAX_NAME_CHARS, MAX_TEXT_CHARS } from "../../contract";
 import { clipStart } from "./bounds";
 
+/** A plain object an extension or Pi handed over, read field by field. */
+export function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 /**
  * Strings are cut to `MAX_TEXT_CHARS`, lists and objects to `MAX_LIST_ITEMS` entries, keys to
  * `MAX_NAME_CHARS`; what JSON cannot hold (undefined, functions, non-finite numbers) and anything

@@ -1,10 +1,16 @@
 /**
- * MCP elicitation (D15, D16): a flat form → `form`, an empty schema → `confirm`; anything else, a link included, is a
- * `confirm` that declines it.
+ * MCP elicitation (D15, D16): a flat form → `form`, an empty schema → `confirm`, a web link → `confirm` with its `url`
+ * (yes once the person has been there); anything else is a `confirm` that declines it.
  */
 
 import type { ElicitationRequest, ElicitationResult } from "@anthropic-ai/claude-agent-sdk";
-import { type InteractionReply, type InteractionRequest, MAX_NAME_CHARS, MAX_TEXT_CHARS } from "../../../contract";
+import {
+	type InteractionReply,
+	type InteractionRequest,
+	MAX_NAME_CHARS,
+	MAX_TEXT_CHARS,
+	WebUrl,
+} from "../../../contract";
 import { clip, nameOr } from "../bounds";
 import { phoneText } from "../phone-text";
 import { formContent, formPlan } from "./elicitation-form";
@@ -38,7 +44,7 @@ function shownAsk(
 	body: string,
 ): ElicitationAsk | undefined {
 	try {
-		const asked = request.mode === "url" ? undefined : formAsk(request, server);
+		const asked = request.mode === "url" ? linkAsk(request) : formAsk(request, server);
 		return asked && { title, ...(body !== "" && { body }), ...asked };
 	} catch (error) {
 		reportAskProblem("elicitation request", error);
@@ -47,6 +53,15 @@ function shownAsk(
 }
 
 type Asked = Pick<ElicitationAsk, "request" | "resultFor">;
+
+function linkAsk(request: ElicitationRequest): Asked | undefined {
+	const url = WebUrl.safeParse(request.url);
+	if (!url.success) return undefined;
+	return {
+		request: { kind: "confirm", url: url.data },
+		resultFor: (reply) => (reply.kind === "confirm" ? { action: reply.confirmed ? "accept" : "decline" } : undefined),
+	};
+}
 
 function formAsk(request: ElicitationRequest, server: string): Asked | undefined {
 	const plan = formPlan(request.requestedSchema);

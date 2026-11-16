@@ -196,7 +196,10 @@ mod tests {
             option.message = MessagePolicy::Required;
         }
         assert_eq!(quick(words, true), (None, None), "every option needs words");
-        let confirm = pending_ask(&ask(InteractionRequest::Confirm(ConfirmRequest {})), true);
+        let confirm = pending_ask(
+            &ask(InteractionRequest::Confirm(ConfirmRequest { url: None })),
+            true,
+        );
         assert_eq!(
             (confirm.kind, confirm.allow, confirm.deny),
             (InteractionKind::Confirm, None, None)

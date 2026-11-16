@@ -12,6 +12,7 @@ describe("what keeps a session open", () => {
 			["a compaction outside a run", { compaction: { trigger: "manual", startedAt: 1 } }],
 			["a retry outside a run", { retry: { attempt: 1, message: "overloaded" } }],
 			["queued input", { queue: [{ id: "q", delivery: "queue", preview: "later" }] }],
+			["a task in the background", { backgroundTasks: [{ id: "job-1", kind: "task", title: "tail the log" }] }],
 		];
 		for (const [name, work] of cases) {
 			expect([name, holdsOpen({ ...emptySnapshot(), ...work })]).toEqual([name, true]);

@@ -45,17 +45,23 @@ describe("notices", () => {
 		});
 	});
 
-	test("an extension's message is shown only when it asks to, as its text", () => {
-		const custom = (display: boolean, content: unknown) => ({
+	test("an extension's message is an activity only when it asks to be shown: its type over its text", () => {
+		const custom = (display: boolean, content: unknown, details?: unknown) => ({
 			...BASE,
 			type: "custom_message" as const,
 			id: "m1",
-			customType: "x",
+			customType: "bash-job",
 			display,
 			content: content as string,
+			...(details !== undefined && { details }),
 		});
 		expect(map(custom(true, "\u001b[32mhello\u001b[0m"))).toEqual([
-			{ kind: "notice", id: "m1:0", at: ENTRY_MS, level: "info", text: "hello" },
+			{
+				kind: "activity",
+				id: "m1:0",
+				at: ENTRY_MS,
+				activity: { kind: "message", title: "Bash job", body: { format: "markdown", text: "hello" } },
+			},
 		]);
 		expect(
 			map(
@@ -65,12 +71,60 @@ describe("notices", () => {
 					{ type: "text", text: "b" },
 				]),
 			),
-		).toMatchObject([{ text: "a\nb" }]);
+		).toMatchObject([{ activity: { body: { text: "a\nb" } } }]);
 		expect(map(custom(false, "hidden"))).toEqual([]);
 		expect(map(custom(true, [{ type: "image", data: "A", mimeType: "image/png" }]))).toEqual([]);
 		expect(
 			map(messageEntry("m2", { role: "custom", customType: "x", content: "shown", display: true, timestamp: 1 })),
-		).toMatchObject([{ kind: "notice", text: "shown" }]);
+		).toMatchObject([{ kind: "activity", activity: { title: "X", body: { text: "shown" } } }]);
+	});
+
+	test("an extension's hint in its details is the activity it shows; a hint that is not one is no hint", () => {
+		const custom = (details: unknown) => ({
+			...BASE,
+			type: "custom_message" as const,
+			id: "m1",
+			customType: "bash-job",
+			display: true,
+			content: "[Automated bash-job event.]\n\nBackground job bash-6bfa failed after 1h00m.",
+			details,
+		});
+		const log = Array.from({ length: 3000 }, (_, line) => `line ${line} ${"x".repeat(40)}`).join("\n");
+		const [item] = map(
+			custom({
+				jobs: [{ id: "bash-6bfa" }],
+				broski: {
+					kind: "task",
+					title: "bash-6bfa failed\nafter 1h00m",
+					status: "failed",
+					command: "tail -F /tmp/daemon.log",
+					durationMs: 3_600_000.4,
+					exitCode: 1,
+					body: { format: "log", text: log },
+					later: "a field a newer extension adds",
+				},
+			}),
+		);
+		expect(item).toMatchObject({
+			kind: "activity",
+			activity: {
+				kind: "task",
+				title: "bash-6bfa failed after 1h00m",
+				status: "failed",
+				command: "tail -F /tmp/daemon.log",
+				durationMs: 3_600_000,
+				exitCode: 1,
+			},
+		});
+		const body = item?.kind === "activity" ? item.activity.body : undefined;
+		expect(body?.text.length).toBeLessThanOrEqual(64 * 1024);
+		expect(body?.text.endsWith(`line 2999 ${"x".repeat(40)}`)).toBe(true);
+		expect(map(custom({ broski: { kind: "wizard", title: "x" } }))).toMatchObject([
+			{ activity: { kind: "message", title: "Bash job" } },
+		]);
+		expect(
+			map(custom({ broski: { kind: "agent", title: "Review", body: { format: "markdown", text: " " } } })),
+		).toEqual([{ kind: "activity", id: "m1:0", at: ENTRY_MS, activity: { kind: "agent", title: "Review" } }]);
 	});
 
 	test("a branch summary is a labelled notice", () => {

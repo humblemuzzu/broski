@@ -1,7 +1,8 @@
 //! BroskiCore, the library the iOS and Android apps link: the phone's client core (`broski-client`)
 //! exported to Swift and Kotlin through UniFFI, with the functions the notification handlers and the
 //! pairing scanner call without a `Phone`, and the rendering both apps draw the same way
-//! (`broski-render`), including how a tool call reads in the work fold and what a form shows.
+//! (`broski-render`), including how a tool call reads in the work fold, how an activity reads in
+//! the transcript, how long text is cut to a row, and what a form shows.
 //!
 //! Every export is a thin wrapper; the behaviour lives in the client, session, contract and render
 //! crates.
@@ -10,6 +11,7 @@
 //! blocking its thread, because the client waits on `Notify`s and runs its timers on the link
 //! runtime's own thread.
 
+mod activity;
 mod inbox;
 mod link;
 mod machine;
@@ -23,6 +25,7 @@ mod version;
 mod views;
 mod work;
 
+pub use activity::{activity_look, clip_text, format_duration};
 pub use inbox::Inbox;
 pub use link::{LinkRoute, LinkStatus};
 pub use machine::Machine;

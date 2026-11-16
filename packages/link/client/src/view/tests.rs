@@ -184,7 +184,7 @@ fn play(case: &Case, mut batch_after: impl FnMut(usize) -> bool) -> Replica {
 #[test]
 fn every_reducer_trace_case_reaches_the_ui_whatever_the_batching() {
     let cases = reducer_cases();
-    assert_eq!(cases.len(), 11, "the trace's cases");
+    assert_eq!(cases.len(), 12, "the trace's cases");
     for case in &cases {
         let each = play(case, |_| true);
         let resyncs = case
@@ -204,6 +204,25 @@ fn every_reducer_trace_case_reaches_the_ui_whatever_the_batching() {
             play(case, |_| dice.roll(7) == 0);
         }
     }
+}
+
+/// The snapshot holds no activity outside a run, so only the moment can carry it to the UI.
+#[test]
+fn an_activity_outside_a_run_reaches_the_ui_once_as_a_moment() {
+    let cases = reducer_cases();
+    let case = cases
+        .iter()
+        .find(|case| case.name.starts_with("an activity"))
+        .expect("the trace's activity case");
+    let shown: Vec<String> = play(case, |_| true)
+        .moments
+        .into_iter()
+        .filter_map(|moment| match moment {
+            SessionChange::ActivityShown { item } => Some(item.id),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(shown, ["a0"]);
 }
 
 fn open_block(harness: &mut Harness) {

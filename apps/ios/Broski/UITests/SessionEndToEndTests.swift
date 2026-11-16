@@ -6,7 +6,7 @@ import XCTest
 /// the composer: the `work` run streams and folds, a permission is denied with instructions and then
 /// allowed, a choice is answered, a message is queued behind a held run and the run stopped. Then
 /// jump to latest after scrolling up, rename, a new session from the sheet, dark and the largest
-/// text size. Every state is a screenshot.
+/// text size, and work left running in the background and how it ended. Every state is a screenshot.
 final class SessionEndToEndTests: XCTestCase {
     private let timeout: TimeInterval = 30
     private let title = "Tidy the release notes"
@@ -215,6 +215,57 @@ final class SessionEndToEndTests: XCTestCase {
         try screenshot("new-session-chat")
     }
 
+    /// The fake's `background` run leaves a job and a subagent running and holds: the pill says so
+    /// and opens to both. Released, each end is an activity row: the failed job opens to its log's
+    /// last lines and the whole log on its own screen.
+    @MainActor
+    func test9ShowsWhatRunsInTheBackgroundAndHowItEnded() throws {
+        let app = try openChat()
+        try script("background")
+        send("Tail the daemon log and review the pairing code", in: app)
+        let pill = app.buttons["2 tasks in the background"]
+        XCTAssertTrue(pill.waitForExistence(timeout: timeout), "what runs in the background is one pill above the composer")
+        try screenshot("chat-background-pill")
+
+        let fold = try XCTUnwrap(
+            app.buttons.matching(identifier: "work.fold").allElementsBoundByIndex.last { $0.isHittable },
+            "the task list and the searches fold above the answer")
+        fold.tap()
+        let todos = app.buttons["TodoWrite"].firstMatch
+        XCTAssertTrue(todos.waitForExistence(timeout: timeout))
+        todos.tap()
+        XCTAssertTrue(app.staticTexts["Tail the daemon log"].waitForExistence(timeout: timeout), "a task list shows as one")
+        XCTAssertFalse(app.staticTexts["Todos have been modified successfully."].exists, "in place of its text")
+        app.buttons["Searched **/responder*.rs"].firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["responder_window.rs"].waitForExistence(timeout: timeout), "found files by name")
+        try screenshot("chat-tool-displays")
+        fold.tap()
+
+        pill.tap()
+        XCTAssertTrue(app.staticTexts["IN THE BACKGROUND"].waitForExistence(timeout: timeout), "the pill opens in place")
+        XCTAssertTrue(app.staticTexts["tail -F /tmp/broski-daemon.log"].exists, "with each task's command")
+        try screenshot("chat-background-open")
+
+        try release()
+        XCTAssertTrue(app.staticTexts["IN THE BACKGROUND"].waitForNonExistence(timeout: timeout), "an empty list leaves")
+        let failed = app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "bash-6bfa failed after 1h00m")).firstMatch
+        XCTAssertTrue(failed.waitForExistence(timeout: timeout), "a task's end is a row of its own")
+        XCTAssertTrue(failed.label.contains("Exit 1"), failed.label)
+        let review = app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "No blockers.")).firstMatch
+        XCTAssertTrue(review.exists, "a subagent's report previews its words under its title")
+        try screenshot("chat-activities")
+
+        failed.tap()
+        let whole = app.buttons.containing(NSPredicate(format: "label BEGINSWITH %@", "Show the whole log")).firstMatch
+        XCTAssertTrue(whole.waitForExistence(timeout: timeout), "the log opens to its last lines, the rest a tap away")
+        XCTAssertTrue(app.staticTexts["$ tail -F /tmp/broski-daemon.log | grep --line-buffered responder"].exists)
+        try screenshot("chat-activity-open")
+        whole.tap()
+        XCTAssertTrue(app.navigationBars["bash-6bfa failed after 1h00m"].waitForExistence(timeout: timeout), "the whole log on a screen of its own")
+        try screenshot("activity-whole-log")
+        app.buttons["BackButton"].firstMatch.tap()
+    }
+
     @MainActor
     private func openChat(arguments: [String] = []) throws -> XCUIApplication {
         let app = XCUIApplication()
@@ -252,6 +303,11 @@ final class SessionEndToEndTests: XCTestCase {
     private func script(_ scenario: String) throws {
         let session = try XCTUnwrap(environment["BROSKI_E2E_CHAT_SESSION"])
         try command("{\"script\":\(session),\"scenario\":\"\(scenario)\"}")
+    }
+
+    private func release() throws {
+        let session = try XCTUnwrap(environment["BROSKI_E2E_CHAT_SESSION"])
+        try command("{\"release\":\(session)}")
     }
 }
 

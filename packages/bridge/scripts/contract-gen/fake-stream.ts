@@ -51,6 +51,19 @@ export async function fakeSessionStream(): Promise<ServerMessage[]> {
 			fileChanges: [{ path: "a.ts", change: "modified", diff: "@@ -1 +1 @@\n-a\n+b", additions: 1, deletions: 1 }],
 			nested: [{ kind: "tool", name: "read", input: { path: "a.ts" }, output: "a" }],
 		},
+		{
+			kind: "tool",
+			name: "TodoWrite",
+			input: { todos: [{ content: "Fix a.ts", status: "in_progress", activeForm: "Fixing a.ts" }] },
+			output: "Todos have been modified successfully.",
+			display: {
+				kind: "todos",
+				items: [
+					{ text: "Fix a.ts", status: "in_progress" },
+					{ text: "Run the tests", status: "pending" },
+				],
+			},
+		},
 		{ kind: "ask", title: "Pick a library", request: sampleRequest("questions") },
 		{ kind: "usage", usage: { inputTokens: 1200, outputTokens: 80, cacheReadTokens: 900, costUsd: 0.0125 } },
 		{ kind: "retry", attempts: 1 },
@@ -60,6 +73,23 @@ export async function fakeSessionStream(): Promise<ServerMessage[]> {
 			extension: { kind: "rate_limit", window: "five_hour", status: "allowed_warning", usedPercent: 82 },
 		},
 		{ kind: "notice", level: "warning", text: "Close to the context limit." },
+		{
+			kind: "background_tasks",
+			tasks: [{ id: "job-1", kind: "task", title: "Run the tests", command: "bun test", startedAt: 1_800_000_000_000 }],
+		},
+		{
+			kind: "activity",
+			activity: {
+				kind: "task",
+				title: "Run the tests failed",
+				status: "failed",
+				command: "bun test",
+				durationMs: 61_000,
+				exitCode: 1,
+				body: { format: "log", text: "1 pass\n1 fail" },
+			},
+		},
+		{ kind: "background_tasks", tasks: [] },
 		{ kind: "backend_error", error: { code: "network", message: "The stream dropped." }, retryable: true },
 		{ kind: "retract" },
 		{ kind: "return_input", texts: ["Also lint", "Then commit"] },

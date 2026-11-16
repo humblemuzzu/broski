@@ -2,7 +2,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { phoneLine, phoneText } from "../../../backends/claude-code/phone-text";
-import { permissionInteraction } from "../../../backends/claude-code/terminal/hook-interaction";
+import { permissionAsk } from "../../../backends/claude-code/terminal/hook-interaction";
 import type { Interaction } from "../../../contract";
 import { DeskRig } from "./desk-rig";
 
@@ -16,7 +16,7 @@ function commandOf(interaction: Interaction): string | undefined {
 }
 
 function terminalAsk(): Interaction {
-	return permissionInteraction(
+	return permissionAsk(
 		{
 			hook_event_name: "PermissionRequest",
 			session_id: "5f0c2c55-6a3c-4a4e-9d0e-3c8d3c2b9a10",
@@ -26,7 +26,7 @@ function terminalAsk(): Interaction {
 			tool_input: { command: TRICK },
 		},
 		{ id: "i-1", runId: undefined, createdAt: 0, toolCallId: undefined },
-	);
+	).interaction;
 }
 
 describe("the one sanitiser for what the phone shows", () => {

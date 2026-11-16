@@ -41,7 +41,8 @@ final class ChatModel {
     @ObservationIgnored private let attach: (SessionRef) throws -> SessionView
     @ObservationIgnored private let drafts: DraftStore
     @ObservationIgnored private let markdown = MarkdownCache()
-    /// The items of a run that ended, shown until the transcript's newest page holds them.
+    /// The items of a run that ended, and activities outside any run, shown until the transcript's
+    /// newest page holds them.
     @ObservationIgnored private var settling: [TranscriptItem] = []
     @ObservationIgnored private var firstPrompt: ComposerDraft?
     /// When each live row that rises in was first built.
@@ -132,12 +133,13 @@ final class ChatModel {
     private func handle(_ moment: SessionMoment) {
         switch moment {
         case .notice(let notice): notices.append(ChatNotice(notice, transcribed: true))
+        case .activity(let item): settling.append(.activity(item))
         case .error(let error): notices.append(ChatNotice(error))
         case .rateLimit(let update): if let notice = ChatNotice(rateLimit: update) { notices.append(notice) }
         case .inputReturned(let texts): draft.prepend(returned: texts)
         case .runEnded(let items):
             notices.removeAll { $0.tone == .info && $0.isTranscribed }
-            settling = items
+            settling += items
             Task { await loadNewest() }
         }
     }

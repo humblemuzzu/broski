@@ -7,6 +7,22 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ActivityItem {
+    pub id: TranscriptItemId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "crate::codec::present")]
+    pub at: Option<Timestamp>,
+    pub activity: Activity,
+}
+
+impl crate::Tagged for ActivityItem {
+    const KEY: &'static str = "kind";
+    const TAG: &'static str = "activity";
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BlockItem {
     pub id: TranscriptItemId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -179,6 +195,8 @@ pub enum TranscriptItem {
     ToolResult(ToolResultItem),
     #[serde(rename = "notice")]
     Notice(NoticeItem),
+    #[serde(rename = "activity")]
+    Activity(ActivityItem),
     #[serde(rename = "compaction")]
     Compaction(CompactionItem),
     #[serde(rename = "model_change")]

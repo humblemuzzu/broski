@@ -24,6 +24,8 @@ import com.muzammil.broski.feature.chat.composer.ImageAttachments
 import com.muzammil.broski.feature.chat.header.DeleteDialog
 import com.muzammil.broski.feature.chat.header.RenameDialog
 import com.muzammil.broski.feature.chat.work.DiffSheet
+import com.muzammil.broski.feature.chat.work.TextPage
+import com.muzammil.broski.feature.chat.work.TextSheet
 import uniffi.broski_contract.FileChange
 import uniffi.broski_core.ClientException
 import uniffi.broski_core.ViewEnd
@@ -42,6 +44,7 @@ fun ChatScreen(context: FeatureContext, route: SessionRoute) {
     }
     val snackbar = remember { SnackbarHostState() }
     var diff by remember { mutableStateOf<FileChange?>(null) }
+    var page by remember { mutableStateOf<TextPage?>(null) }
     var renaming by rememberSaveable { mutableStateOf(false) }
     var deleting by rememberSaveable { mutableStateOf(false) }
     Events(model, context, snackbar)
@@ -50,16 +53,17 @@ fun ChatScreen(context: FeatureContext, route: SessionRoute) {
         model = model,
         context = context,
         snackbar = snackbar,
-        dialogs = ChatDialogs(openDiff = { diff = it }, rename = { renaming = true }, delete = { deleting = true }),
+        dialogs = ChatDialogs(openDiff = { diff = it }, openText = { page = it }, rename = { renaming = true }, delete = { deleting = true }),
     )
     val title = header.title ?: stringResource(R.string.inbox_untitled)
     if (renaming) RenameDialog(title, onRename = { renaming = false; model.actions.rename(it) }, onDismiss = { renaming = false })
     if (deleting) DeleteDialog(title, onDelete = { deleting = false; model.actions.delete() }, onDismiss = { deleting = false })
     diff?.let { change -> DiffSheet(change) { diff = null } }
+    page?.let { shown -> TextSheet(shown) { page = null } }
 }
 
 /** What the layout opens over itself. */
-class ChatDialogs(val openDiff: (FileChange) -> Unit, val rename: () -> Unit, val delete: () -> Unit)
+class ChatDialogs(val openDiff: (FileChange) -> Unit, val openText: (TextPage) -> Unit, val rename: () -> Unit, val delete: () -> Unit)
 
 /** The view model's one-off events: their haptic, their words in the snackbar, and where they lead. */
 @Composable

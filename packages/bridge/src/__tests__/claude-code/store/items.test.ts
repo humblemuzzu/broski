@@ -7,10 +7,10 @@ import { describe, expect, test } from "bun:test";
 import type { SessionMessage } from "@anthropic-ai/claude-agent-sdk";
 import { itemsOf } from "../../../backends/claude-code/store/items";
 import { nameImages } from "../../../backends/claude-code/store/items-user";
-import { localCommandText } from "../../../backends/claude-code/store/local-commands";
 import { MAX_ID_CHARS, MAX_TEXT_CHARS, TranscriptItem } from "../../../contract";
 
 const CONTEXT = {
+	sessionId: "00000000-0000-4000-8000-0000000000aa",
 	prompt: () => undefined,
 	blockBase: 0,
 	toolName: () => undefined,
@@ -140,29 +140,73 @@ describe("user entries", () => {
 	});
 });
 
-describe("local commands", () => {
-	test("the CLI's own command entries read as the command and its output", () => {
+describe("the CLI's own text in user entries", () => {
+	const said = (content: string) => itemsOf(entry("user", { content }), CONTEXT);
+
+	test("a slash command reads as typed, and its output as a command activity", () => {
 		expect(
-			localCommandText(
-				"<command-name>/compact</command-name>\n<command-message>compact</command-message>\n<command-args></command-args>",
+			said(
+				"<command-name>/compact</command-name>\n            <command-message>compact</command-message>\n            <command-args></command-args>",
 			),
-		).toEqual({ kind: "typed", text: "/compact" });
-		expect(localCommandText("<command-name>/model</command-name><command-args>opus</command-args>")).toEqual({
-			kind: "typed",
-			text: "/model opus",
-		});
-		expect(localCommandText("<local-command-stdout>Compacted </local-command-stdout>")).toEqual({
-			kind: "output",
-			level: "info",
-			text: "Compacted",
-		});
-		expect(localCommandText("<local-command-stderr>no</local-command-stderr>")).toEqual({
-			kind: "output",
-			level: "error",
-			text: "no",
-		});
-		expect(localCommandText("please run <command-name>x</command-name> for me")).toBeUndefined();
-		expect(localCommandText("an ordinary prompt")).toBeUndefined();
+		).toMatchObject([{ kind: "user_message", text: "/compact" }]);
+		expect(said("<command-name>/model</command-name><command-args>opus</command-args>")).toMatchObject([
+			{ kind: "user_message", text: "/model opus" },
+		]);
+		expect(said("<local-command-stdout>Total cost: $0.01\nTotal duration: 2s</local-command-stdout>")).toMatchObject([
+			{
+				kind: "activity",
+				activity: { kind: "command", body: { format: "text", text: "Total cost: $0.01\nTotal duration: 2s" } },
+			},
+		]);
+		expect(said("<local-command-stderr>no</local-command-stderr>")).toMatchObject([
+			{ kind: "activity", activity: { kind: "command", status: "failed" } },
+		]);
+		expect(said("please run <command-name>x</command-name> for me")).toMatchObject([
+			{ kind: "user_message", text: "please run <command-name>x</command-name> for me" },
+		]);
+	});
+
+	test("a background task's end is an activity led by the CLI's sentence, never the person's message", () => {
+		const shell = said(
+			'<task-notification>\n<task-id>b7x</task-id>\n<tool-use-id>toolu_01</tool-use-id>\n<task-type>local_bash</task-type>\n<output-file>/tmp/b7x.output</output-file>\n<status>failed</status>\n<summary>Background command "npm test" failed with exit code 1</summary>\n</task-notification>',
+		);
+		expect(shell).toEqual([
+			{
+				kind: "activity",
+				id: expect.any(String),
+				activity: { kind: "task", title: 'Background command "npm test" failed with exit code 1', status: "failed" },
+			},
+		]);
+		const agent = said(
+			'<task-notification>\n<task-id>a1</task-id>\n<task-type>local_agent</task-type>\n<status>completed</status>\n<summary>Agent "Review" finished</summary>\n<result>All **good**.</result>\n</task-notification>',
+		);
+		expect(agent).toMatchObject([
+			{
+				kind: "activity",
+				activity: {
+					kind: "agent",
+					body: { format: "markdown", text: "All **good**." },
+					childSession: { backend: "claude-code", sessionId: `${CONTEXT.sessionId}/a1` },
+				},
+			},
+		]);
+	});
+
+	test("context the CLI attaches is left out, and the person's words stay", () => {
+		expect(said("<system-reminder>The date is today.</system-reminder>")).toEqual([]);
+		expect(
+			said('<ide_selection path="a.ts">x</ide_selection>\nfix this\n<system-reminder>r</system-reminder>'),
+		).toMatchObject([{ kind: "user_message", text: "fix this" }]);
+	});
+
+	test("an interrupt is where the run stopped; a shell escape is the person's command and its output", () => {
+		expect(said("[Request interrupted by user]")).toMatchObject([
+			{ kind: "run_boundary", outcome: { kind: "aborted" } },
+		]);
+		expect(said("<bash-input>ls</bash-input>")).toMatchObject([{ kind: "user_message", text: "!ls" }]);
+		expect(said("<bash-stdout>a.ts</bash-stdout><bash-stderr></bash-stderr>")).toMatchObject([
+			{ kind: "activity", activity: { kind: "command", title: "Shell output", body: { format: "log", text: "a.ts" } } },
+		]);
 	});
 });
 

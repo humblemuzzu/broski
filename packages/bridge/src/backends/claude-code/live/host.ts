@@ -174,7 +174,8 @@ export class SessionHost {
 			this.queue.size === 0 &&
 			snapshot.interactions.length === 0 &&
 			snapshot.compaction === undefined &&
-			snapshot.retry === undefined
+			snapshot.retry === undefined &&
+			snapshot.backgroundTasks.length === 0
 		);
 	}
 

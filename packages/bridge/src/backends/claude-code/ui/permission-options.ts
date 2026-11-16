@@ -36,13 +36,12 @@ export function permissionChoices(
 	suggestions: readonly PermissionUpdate[],
 	hidePersistent: boolean,
 ): PermissionChoices {
+	const grants = grantChoices(suggestions, hidePersistent);
 	const options: PermissionOption[] = [
 		{ id: ALLOW_ONCE, label: "Allow", effect: "allow", scope: "once", stopsRun: false, message: "none" },
+		...grants.options,
 	];
-	const effects = new Map<string, OptionEffect>([[ALLOW_ONCE, effectOf("allow", false, [])]]);
-	const kept = suggestions.slice(0, SUGGESTIONS_KEPT);
-	addSession(kept, options, effects);
-	if (!hidePersistent) addPersistent(kept, options, effects);
+	const effects = new Map<string, OptionEffect>([[ALLOW_ONCE, effectOf("allow", false, [])], ...grants.effects]);
 	options.push(
 		{ id: DENY_ONCE, label: "Deny", effect: "deny", scope: "once", stopsRun: false, message: "optional" },
 		{ id: DENY_STOP, label: "Deny and stop", effect: "deny", scope: "once", stopsRun: true, message: "none" },
@@ -50,6 +49,16 @@ export function permissionChoices(
 	effects.set(DENY_ONCE, effectOf("deny", false, []));
 	effects.set(DENY_STOP, effectOf("deny", true, []));
 	return { options: options.slice(0, MAX_LIST_ITEMS), effects };
+}
+
+/** One option per kind of grant the CLI suggested: this session, then each settings file it would write. */
+export function grantChoices(suggestions: readonly PermissionUpdate[], hidePersistent: boolean): PermissionChoices {
+	const options: PermissionOption[] = [];
+	const effects = new Map<string, OptionEffect>();
+	const kept = suggestions.slice(0, SUGGESTIONS_KEPT);
+	addSession(kept, options, effects);
+	if (!hidePersistent) addPersistent(kept, options, effects);
+	return { options, effects };
 }
 
 function effectOf(

@@ -5,13 +5,20 @@
  * session file's only writer. Pi gives extensions no queue or retry event (`protocol.ts`), so there is none here.
  */
 
-import { type ClientRequestId, emptySnapshot, type SessionSnapshot, sessionStatus } from "../../../contract";
-import { mintMessageId } from "../ids";
+import {
+	type ClientRequestId,
+	emptySnapshot,
+	type JsonValue,
+	type SessionSnapshot,
+	sessionStatus,
+} from "../../../contract";
+import { mintActivityId, mintMessageId } from "../ids";
 import { noticeEvent } from "../live/live-notes";
 import { LiveState } from "../live/live-state";
 import { RunTracker } from "../live/run-tracker";
 import { NO_CHILDREN, ToolFlow } from "../live/tool-flow";
-import { customNotice } from "../mapping/message-items";
+import { announcedTasks } from "../mapping/background-tasks";
+import { customActivity } from "../mapping/custom-activity";
 import { compactionFinished, compactionRunOutcome, compactionStarted } from "../mapping/session-events";
 import { AssistantStream } from "../mapping/stream-blocks";
 import { modelWireId } from "../models/model-ids";
@@ -32,7 +39,7 @@ function toolFields(event: Extract<TerminalEvent, { e: "tool_start" | "tool_upda
 
 type SessionEvent = Extract<
 	TerminalEvent,
-	{ e: "model" | "thinking" | "name" | "compaction_start" | "compaction_end" | "ui_prompt" }
+	{ e: "model" | "thinking" | "name" | "compaction_start" | "compaction_end" | "ui_prompt" | "tasks" }
 >;
 
 export class TerminalFeed {
@@ -87,6 +94,7 @@ export class TerminalFeed {
 		if (state.model) this.modelId = modelWireId(state.model);
 		this.thinking = state.thinking;
 		this.announceModel();
+		this.tasksAnnounced(state.tasks);
 		for (const event of this.closing()) this.live.emit(event);
 		const open = this.runs.current();
 		if (open && !state.running) this.finishRun(false);
@@ -175,11 +183,22 @@ export class TerminalFeed {
 					this.live.emit(noticeEvent("info", `The terminal is waiting for an answer: ${event.title ?? "a question"}`));
 				}
 				return;
+			case "tasks":
+				this.tasksAnnounced(event.tasks);
+				return;
 		}
+	}
+
+	/** An extension older than the tasks list announces none: what the session shows stays as it was. */
+	private tasksAnnounced(announced: JsonValue | undefined): void {
+		const tasks = announcedTasks(announced);
+		if (tasks === undefined || JSON.stringify(tasks) === JSON.stringify(this.live.snapshot().backgroundTasks)) return;
+		this.live.emit({ type: "background_tasks_changed", tasks });
 	}
 
 	/** The terminal went away: what it was running ends, and its viewers are left with what was read. */
 	close(): void {
+		this.tasksAnnounced([]);
 		for (const event of this.closing()) this.live.emit(event);
 		this.stream = undefined;
 		if (this.runs.current()) {
@@ -276,8 +295,10 @@ export class TerminalFeed {
 				return;
 			}
 			case "custom": {
-				const notice = customNotice(message.display, message.text);
-				if (notice) this.live.emit(notice);
+				const activity = message.display
+					? customActivity(message.customType, message.text, message.details)
+					: undefined;
+				if (activity) this.live.emit({ type: "activity", activityId: mintActivityId(), activity });
 				return;
 			}
 			case "other":

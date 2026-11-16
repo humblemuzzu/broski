@@ -64,8 +64,10 @@ export interface ToolResultMessage {
 /** What an extension sends with `pi.sendMessage()`. */
 export interface CustomMessage {
 	readonly role: "custom";
+	readonly customType: string;
 	readonly content: UserContent;
 	readonly display: boolean;
+	readonly details?: unknown;
 	readonly timestamp: number;
 }
 

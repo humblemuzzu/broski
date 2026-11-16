@@ -89,6 +89,7 @@ pub struct SessionSnapshot {
     pub tools: Vec<RunningTool>,
     pub interactions: Vec<Interaction>,
     pub queue: Vec<QueueItem>,
+    pub background_tasks: Vec<BackgroundTask>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "crate::codec::present")]
     pub model_id: Option<ModelId>,

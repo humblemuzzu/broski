@@ -18,6 +18,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -28,13 +29,20 @@ import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
 import com.muzammil.broski.design.BroskiTheme
 import com.muzammil.broski.design.mono
+import com.muzammil.broski.feature.chat.activity.ShowAll
 import uniffi.broski_contract.FileChange
+import uniffi.broski_core.ClipEnd
+import uniffi.broski_core.clipText
 import uniffi.broski_contract.JsonValue
+import uniffi.broski_contract.ToolDisplay
 import kotlin.math.abs
 
 private val OUTPUT_MAX = 180.dp
 
-/** A row opened in place: the call as sent, what it printed (or that it printed nothing), its files and its subagent. */
+/** Lines of output drawn in place; a tool can print megabytes, and the sheet has the rest. */
+private const val OUTPUT_LINES = 200u
+
+/** A row opened in place: the call as sent, the last lines it printed (or that it printed nothing), its files and its subagent. */
 @Composable
 internal fun EntryDetail(entry: WorkEntry, actions: WorkActions) {
     Column(
@@ -51,12 +59,21 @@ internal fun EntryDetail(entry: WorkEntry, actions: WorkActions) {
 
 @Composable
 private fun ToolDetail(tool: WorkEntry.Tool, actions: WorkActions) {
-    tool.input?.let { input -> Mono(inputText(tool, input), MaterialTheme.colorScheme.onSurface) }
+    if (tool.display !is ToolDisplay.Todos) tool.input?.let { input -> Mono(inputText(tool, input), MaterialTheme.colorScheme.onSurface) }
     val printed = listOfNotNull(tool.output.takeIf { it.isNotEmpty() }, tool.error).joinToString("\n")
-    if (printed.isEmpty()) {
+    val display = tool.display
+    if (display != null) {
+        ToolDisplayView(display, actions)
+    } else if (printed.isEmpty()) {
         if (!tool.running && tool.fileChanges.isEmpty()) Prose(stringResource(R.string.chat_work_no_output))
     } else {
-        Mono(printed, if (tool.error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+        val clip = remember(printed) { clipText(printed, OUTPUT_LINES, ClipEnd.TAIL) }
+        Mono(clip.text, if (tool.error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+        if (clip.hiddenLines > 0u) {
+            ShowAll(R.string.chat_work_show_output, clip.hiddenLines.toInt()) {
+                actions.openText(TextPage(tool.label, printed, TextPage.Format.LOG))
+            }
+        }
     }
     tool.fileChanges.forEach { change -> FileChangeRow(change) { actions.openDiff(change) } }
     tool.childSession?.let { child ->

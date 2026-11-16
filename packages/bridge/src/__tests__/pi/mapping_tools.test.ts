@@ -169,6 +169,21 @@ describe("input", () => {
 describe("results", () => {
 	const noImages = () => undefined;
 
+	test("an extension's hint in the details is what the result shows in place of its text; a hint that is not one is no hint", () => {
+		const text = [{ type: "text" as const, text: "3 files" }];
+		const files = { kind: "files" as const, paths: ["/w/a.ts", "/w/b.ts"], total: 3 };
+		expect(toolResultOf(text, false, [], noImages, { fileGroups: [], broski: files }).display).toEqual(files);
+		expect(toolResultOf(text, false, [], noImages, { broski: { kind: "chart" } }).display).toBeUndefined();
+		expect(toolResultOf(text, true, [], noImages, { broski: files }).display).toBeUndefined();
+		const todos = { kind: "todos", items: [{ text: "Ship \u001b[1mit\u001b[0m", status: "pending" }] };
+		expect(toolResultOf(text, false, [], noImages, { broski: todos }).display).toEqual({
+			kind: "todos",
+			items: [{ text: "Ship it", status: "pending" }],
+		});
+		const blank = { kind: "todos", items: [{ text: "\u001b[0m ", status: "pending" }] };
+		expect(toolResultOf(text, false, [], noImages, { broski: blank }).display).toBeUndefined();
+	});
+
 	test("text blocks keep their order, escapes removed, empty ones dropped", () => {
 		const result = toolResultOf(
 			[

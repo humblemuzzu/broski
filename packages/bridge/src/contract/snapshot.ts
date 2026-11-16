@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { BackgroundTask } from "./activity";
 import { CompactionTrigger } from "./compaction";
 import { BlockKind, FileChange } from "./content";
 import { BlockId, MessageId, ModelId, RunId, SessionRef, Timestamp, ToolCallId } from "./ids";
@@ -71,6 +72,7 @@ export const SessionSnapshot = z.strictObject({
 	tools: z.array(RunningTool).max(MAX_LIST_ITEMS),
 	interactions: z.array(Interaction).max(MAX_LIST_ITEMS),
 	queue: z.array(QueueItem).max(MAX_LIST_ITEMS),
+	backgroundTasks: z.array(BackgroundTask).max(MAX_LIST_ITEMS),
 	modelId: ModelId.optional(),
 	thinking: z.string().max(MAX_NAME_CHARS).optional(),
 	modes: z.array(ModeSetting).max(MAX_LIST_ITEMS),

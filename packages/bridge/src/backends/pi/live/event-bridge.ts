@@ -7,8 +7,9 @@
 
 import type { AgentEvent, RunOutcome } from "../../../contract";
 import { type BroskiRecord, promptRecord, toolOutcomeRecord } from "../broski-entries";
-import { mintMessageId } from "../ids";
-import { customNotice, userMessageEvent } from "../mapping/message-items";
+import { mintActivityId, mintMessageId } from "../ids";
+import { customActivity } from "../mapping/custom-activity";
+import { userMessageEvent } from "../mapping/message-items";
 import {
 	compactionFinished,
 	compactionRunOutcome,
@@ -223,8 +224,10 @@ export class EventBridge {
 			case "toolResult":
 				return this.toolResultEnded(message);
 			case "custom": {
-				const notice = customNotice(message.display, message.content);
-				if (notice) this.deps.live.emit(notice);
+				const activity = message.display
+					? customActivity(message.customType, message.content, message.details)
+					: undefined;
+				if (activity) this.deps.live.emit({ type: "activity", activityId: mintActivityId(), activity });
 				return;
 			}
 			default:

@@ -24,7 +24,7 @@ Where this document and an adapter README disagree about a backend fact, the ada
 | `contract/interactions.ts`, `interaction-replies.ts`, `forms.ts`, `option.ts` | Interaction requests, replies, form fields, and the `Option` a human picks. |
 | `contract/answer-check.ts`, `field-check.ts` | The answer validator, and whether one value fits one form field. |
 | `contract/input.ts`, `rejection.ts` | `PromptInput`, `PromptResult`, `ActionResult`; `Rejection` and the `Rejected` member every result union shares. |
-| `contract/sessions.ts`, `transcript.ts`, `models.ts`, `modes.ts`, `commands.ts`, `usage.ts`, `status.ts`, `paging.ts`, `queue.ts`, `runs.ts`, `compaction.ts`, `content.ts`, `tools.ts`, `notice.ts` | Read models and the values events carry. |
+| `contract/sessions.ts`, `transcript.ts`, `models.ts`, `modes.ts`, `commands.ts`, `usage.ts`, `status.ts`, `paging.ts`, `queue.ts`, `runs.ts`, `compaction.ts`, `content.ts`, `tools.ts`, `notice.ts`, `activity.ts` | Read models and the values events carry. |
 | `contract/snapshot.ts`, `session-reducer.ts`, `run-items.ts` | `SessionSnapshot`; `applyEvent`, the executable meaning of every event; how live events become the active run's items. |
 | `contract/protocol.ts`, `read-results.ts` | The wire protocol: requests, responses, version; the results of the read requests. |
 | `contract/protocol-workspace.ts`, `workspace-files.ts`, `workspace-git.ts`, `workspace-terminal.ts` | The workspace requests and responses, and what they carry: files, git, terminals (§20). `protocol-request.ts` holds `RequestId` and the request and response shapes both protocol files build on. |
@@ -144,7 +144,7 @@ Every method that can fail resolves with `{status: "accepted", …} | Rejected` 
 1. ✓ `open` resolves with the live state `snapshot` at that moment. Nothing is emitted into the sink before that moment, and everything emitted afterwards applies on top of `snapshot`. Putting the snapshot in the result closes the race between "read the snapshot" and "the first event".
 2. ✓ `snapshot()` always equals the open snapshot with every emitted event applied by `applyEvent`.
 3. ✓ `close()` detaches the sink: **from the call on**, nothing is emitted and `control` methods and `answer` reject `closed`. It aborts nothing; a run in progress goes on in the backend. An in-process backend (CC's CLI child, Pi) keeps whatever it needs alive until the run settles. An ask pending at `close`, or raised after it, is held by the adapter and appears in the next `open`'s snapshot, where it can be answered: every backend can re-deliver (CC keeps its own registry of pending callbacks, CC D15; Pi's asks are the bridge's own, pi §8.5).
-   **The core's side of it:** while a session's snapshot has an active run, a pending interaction, a compaction or retry under way, or queued input, the core keeps its `OpenSession` open, phones attached or not, so no ask is raised to nobody and no event is lost from the log. It closes a session only once it is idle, and never aborts a run to do so; bridge shutdown is the one exception, and then the asks expire (§9).
+   **The core's side of it:** while a session's snapshot has an active run, a pending interaction, a compaction or retry under way, queued input, or a task running in the background, the core keeps its `OpenSession` open, phones attached or not, so no ask is raised to nobody and no event is lost from the log. It closes a session only once it is idle, and never aborts a run to do so; bridge shutdown is the one exception, and then the asks expire (§9).
 4. ✓ `dispose()` closes every open session and silences the catalog sink.
 5. ✓ Optional methods carry capabilities. An absent `rename`, `delete`, `fork`, `compact` or `cancelQueued` *is* the capability being false; nothing declares it separately (§6). So is `SessionCapabilities.answer`: true exactly when `control` or `OpenSession.answer` exists (`sessionAnswerer`).
 6. ✓ `abort()` ends the active run with outcome `aborted`; with no run it is accepted and emits nothing. It resolves once the backend has taken the abort (Pi's `abort()` awaits idle, pi §7). `run_finished` may follow the resolution.
@@ -230,13 +230,15 @@ SinkRecord    = EventEnvelope without seq and session      // what an adapter em
 | `tool_started/updated/finished` | One tool call | `tool_use`; `tool_progress`; `tool_result` + `tool_use_result` (CC §5) | `tool_execution_*`; `partialResult` is a snapshot (pi §5) |
 | `interaction_requested/resolved` | A human is asked; the ask ended | `canUseTool`, `onElicitation`; resolved synth. (CC D15) | bridge dialogs and `tool_call` gate; resolved synth. (pi §8) |
 | `queue_changed{items}` | The whole pending queue | the adapter's queue (CC D9) | `queue_update` (pi §5) |
+| `background_tasks_changed{tasks}` | Every task running in the background, replacing the list; while it is not empty the session stays open | `system/background_tasks_changed` without ambient tasks, with each task's command and start from `task_started` | an extension's `pi.events.emit("broski:tasks", …)`, relayed by the bridge's extension (`backends/pi/extension-hints.md`) |
 | `compaction_started/finished` | Context compaction | `status:'compacting'` … `compact_boundary` + `compact_result` (CC §5) | `compaction_start/end` (pi §5) |
 | `retry_scheduled/finished` | A transient failure will be retried | `system/api_retry`; finish synth. (CC §5) | `auto_retry_start/end` (pi §5) |
 | `usage_updated{usage}` | Session totals changed | `result` `modelUsage`, `total_cost_usd`; `getContextUsage` after a run (CC §5) | pull after `message_end` (pi §5) |
 | `messages_retracted{messageIds}` | Withdrawn messages disappear, with their blocks and tool calls (and those calls' results), open or finished | `retracted_message_uuids`, `supersedes` (CC §5) | — |
 | `model_changed{modelId?, thinking?}` | Model and thinking, both replaced | the adapter's `setModel`; per-turn `system/init` (CC §5) | the adapter's own calls; `thinking_level_changed` (pi §5) |
 | `mode_changed{axis, value}` | One session mode now has `value` (§11.5) | `system/status.permissionMode`, the adapter's own `setPermissionMode` (CC D13) | the adapter's own `setMode` |
-| `notice{level, text}` | Something to show, not a turn | `system/informational`, `system/notification` (CC §5) | extension `notify` (pi §8), a session's start problems |
+| `notice{level, text}` | One sentence to show, not a turn | `system/informational`, `system/notification` (CC §5) | extension `notify` (pi §8), a session's start problems |
+| `activity{activityId, activity}` | Something that happened that is not a turn: a background task's end, a subagent's report, a command's output, an extension's message. Inside a run it is a run item; outside one the client shows it until a read of the transcript holds it | `task_notification` of a task in the background; `local_command_output` | a displayed custom message (`sendMessage`), as its `details.broski` hint says or as Pi's terminal shows it plainly |
 | `error{error, retryable}` | A failure outside a run's outcome | process exit, transport error (CC D1) | a fault in the adapter's own part |
 | `extension{extension}` | Typed per-backend extra (§13) | `rate_limit_event` | — |
 | `session_replaced{session}` | The live session goes on under a new id; this event is the last under the old one. A phone away when it happened is told at its next attach (§12.2). `session` may also name the same session: what it allows changed (Pi: a terminal began or ended running it), and the only way to hand viewers the new `SessionCapabilities` is a new stream | `conversation_reset` (`/clear`, plan-exit context clear) (CC §5) | a terminal began or ended running the session |
@@ -269,7 +271,7 @@ SinkRecord    = EventEnvelope without seq and session      // what an adapter em
 
 **Children.** A subagent's session is a session of its own: its events go to its own `OpenSession` when one is open, and its row reaches lists through the catalog. CC forwards a subagent's tool calls (and its text with `forwardSubagentText`) inside the parent's run (CC D20); those stay in the parent's stream, nested by `parentToolCallId`.
 
-**Tool results** (`ToolResult`) carry `content` (text, images by `ImageRef`, file references), `fileChanges` (CC `structuredPatch`/`gitDiff`, CC D26; Pi edit `details.diff`, pi §4), `error`, and `exitCode` where the backend has one: CC's `BashOutput` has none (Errata 2). `ToolOutcome` is `completed | failed | denied | aborted`.
+**Tool results** (`ToolResult`) carry `content` (text, images by `ImageRef`, file references), `fileChanges` (CC `structuredPatch`/`gitDiff`, CC D26; Pi edit `details.diff`, pi §4), `error`, and `exitCode` where the backend has one: CC's `BashOutput` has none (Errata 2). A result may also carry a `display` (`ToolDisplay`): what the phone shows in place of its text when the tool has a view of its own: `todos{items[{text, status: pending|in_progress|completed}]}`, `links{items[{title, url, snippet?}]}` (http(s) only) or `files{paths, total?}`, each list holding at least one entry: an empty one is no display, and the result's text ("No files found") shows. CC derives it from `TodoWrite`, `WebSearch`, `Glob` and `Grep` in files mode (`mapping/tool-displays.ts`); Pi from an extension's `details.broski` (`mapping/display-hint.ts`). A failed result has none. `ToolOutcome` is `completed | failed | denied | aborted`.
 
 ## 8. Live state, snapshot and reconnect
 
@@ -309,11 +311,11 @@ interaction_resolved { interactionId, reason: answered | withdrawn | expired }
 | `form` | `fields[]` (`FormFieldSpec`: string, number, integer, boolean, multiselect), `server?` | `{values: {key → FormValue}}` |
 | `plan_approval` | `plan` (markdown), `editable`, `path?`, `modeOptions?{axis, options[], defaultValue?}` (the values of a mode axis the session may go on in once approved) | `{decision: approve\|reject, plan?, feedback?, modeAfter?}` |
 | `choice` | `options[{value, label, description?}]` | `{value}` |
-| `confirm` | (title and body say it) | `{confirmed}` |
+| `confirm` | `url?` (an http(s) page to open before answering; the title and body say the rest) | `{confirmed}` |
 | `text` | `placeholder?`, `initialText?`, `multiline` | `{text}` |
 | any | | `cancel{stopRun, message?}` |
 
-A form has no field that asks the person to open a link: Claude Code raises a URL elicitation as a `confirm` the person can decline or dismiss.
+A form has no field that asks the person to open a link: Claude Code raises a URL elicitation as a `confirm` with its `url`; the phone offers the link by its host, Done accepts and Decline declines, and the server's own completion withdraws the ask. A link that is not http(s) is raised as a request the app cannot show.
 
 **Permission options.** Each `PermissionOption` is `{id, label, effect: allow|deny, scope: once|turn|session|always, stopsRun, message: none|optional|required, rule?}`. The adapter builds the options from what the backend offers and maps the chosen `id` back to the native payload, so allow-once, allow-for-session, allow-always-with-rule, deny-and-continue-with-message and deny-and-stop all fit one shape. `grants` carry a requested permission profile (`{id, kind: network|read|write|deny, target?}`); allowing grants a non-empty subset.
 
@@ -363,7 +365,7 @@ The core gives first-answer-wins across phones by calling `answer` once and refu
 | `form` | `onElicitation` form mode: `requestedSchema` → fields in the schema's key order (CC D15). Submit → `accept` + `content`. | ✗ |
 | `plan_approval` | `ExitPlanMode` via `canUseTool` (CC D15): approve → `updatedInput.plan` = edited plan; reject → deny with feedback. | ✗ |
 | `choice` | ✗ | `ctx.ui.select` (pi §8). |
-| `confirm` | an elicitation with an empty schema; a request the app cannot show (a URL, fields it cannot render), which a person may decline or dismiss | `ctx.ui.confirm`. |
+| `confirm` | an elicitation with an empty schema; a URL elicitation (with `url`); a request the app cannot show (a link that is not http(s), fields it cannot render), which a person may decline or dismiss | `ctx.ui.confirm`. |
 | `text` | ✗ | `ctx.ui.input` (single line), `ctx.ui.editor` (multiline, `prefill` → `initialText`). |
 | cancel → native | deny `{message, interrupt: stopRun}`; elicitation `decline` (+ `interrupt()` when `stopRun`) | `{cancelled:true}`; gate `block` (+ abort) |
 | resolved: withdrawn | `control_cancel_request` (CC D16) | extension timeout or abort signal (pi §8.4) |
@@ -426,17 +428,18 @@ Rejection { code: busy|not_steerable|no_model|auth|invalid_input|unsupported|not
 
 ### 11.2 Transcript
 
-`readTranscript(session, page)` returns `TranscriptPage{items, nextCursor?, idStability: stable|positional}`, newest first. Items are flat, one per block, so a page boundary can never split a message. Items of one assistant message share `messageId`. A page holds finished runs only (§8) and names images by reference (§10). The item kinds are `user_message`, `block`, `tool_call`, `tool_result`, `notice`, `compaction`, `model_change` and `run_boundary`.
+`readTranscript(session, page)` returns `TranscriptPage{items, nextCursor?, idStability: stable|positional}`, newest first. Items are flat, one per block, so a page boundary can never split a message. Items of one assistant message share `messageId`. A page holds finished runs only (§8) and names images by reference (§10). The item kinds are `user_message`, `block`, `tool_call`, `tool_result`, `notice`, `activity`, `compaction`, `model_change` and `run_boundary`.
 
 | Item | Claude Code (CC D26) | Pi (pi §4) |
 |---|---|---|
 | `user_message` | `user` text + image blocks | role `user` |
 | `block` (text/thinking/plan) | one `assistant` line per block | `text`/`thinking` blocks |
 | `tool_call` + `tool_result` | `tool_use` + `tool_result`/`toolUseResult` | `toolCall` block + `toolResult`; a `bashExecution` entry as a `bash` call |
-| `notice` | `system` informational | `custom` display, `branchSummary`, an error line for a failed message |
+| `notice` | `system` informational | `branchSummary`, an error line for a failed message |
+| `activity` | a saved `<task-notification>`, a slash command's output (`<local-command-stdout>`, `system/local_command`), a `!` escape's output | a displayed `custom_message` |
 | `compaction` | `compact_boundary` (+ tokens) | `compaction` (summary, tokens) |
 | `model_change` | `attachment.type:"model"` (disk only) | `model_change`, `thinking_level_change` |
-| `run_boundary` | `turn_duration` / `result` (disk) | — |
+| `run_boundary` | `turn_duration` / `result` (disk); an interrupt marker is `aborted` | — |
 | ids | entry `uuid`, stable | entry ids stable |
 | paging | chain offset from the start; whole file parsed (CC D26) | none: whole file (bridge pages) |
 
@@ -612,7 +615,7 @@ What each backend cannot carry through the contract, and what is lost on the way
 **Pi**
 
 - Unsupported: `planProposals`; `questions`, `form`, `plan_approval`; per-item queue cancel (only `clearQueue`, pi §6); file attachments; a session another client made cannot be driven (watch-only).
-- Lost: `custom()` TUI dialogs cannot be answered remotely and become a notice (pi §8.1); fire-and-forget extension UI (`setStatus`, `setWidget`, `setTitle`); confirm's cancel-vs-false distinction (pi §8.3); `summarization_retry_*` (compaction-internal retries); `entry_appended` custom entries; error strings carry no class, so most errors are `unknown` (pi §13).
+- Lost: `custom()` TUI dialogs, which RPC mode never sends (`ui.custom` returns undefined, pi-coding-agent 1.5.2 `rpc-mode.js:156-159`); fire-and-forget extension UI (`setStatus` but the bridge's own `broski:tasks` key, `setWidget`, `setTitle`); confirm's cancel-vs-false distinction (pi §8.3); `summarization_retry_*` (compaction-internal retries); `entry_appended` custom entries; error strings carry no class, so most errors are `unknown` (pi §13).
 
 ## 16. Refinements of the brief
 

@@ -2,7 +2,8 @@
 //
 // It never loads in a `pi` you start yourself. In the bridge's own `pi` it asks the phone before a tool runs when the
 // session's permissions mode says so, writes the session records the bridge hands it (`broski.*` custom entries),
-// and keeps the process on the one session the bridge opened it for.
+// passes on the background tasks other extensions announce (`broski:tasks` on Pi's event bus), and keeps the process
+// on the one session the bridge opened it for.
 import { type JsonObject, validateToolArguments } from "@earendil-works/pi-ai";
 import type {
 	ExtensionAPI,
@@ -16,6 +17,8 @@ const COMMAND = "broski-host";
 const ASK_PREFIX = "broski-permission:";
 const RECORD_PREFIX = "broski.";
 const PERMISSIONS = "broski.permissions";
+/** The event bus channel an extension announces its background tasks on, and the status key that carries them out. */
+const TASKS = "broski:tasks";
 
 const UNANSWERED = "The permission request ended before it was answered.";
 const DENIED = "The user denied this tool call.";
@@ -144,8 +147,19 @@ class PermissionGate {
 
 export default function broskiHost(pi: ExtensionAPI): void {
 	const gate = new PermissionGate(pi);
+	let ui: ExtensionContext["ui"] | undefined;
 
-	pi.on("session_start", (_event, ctx) => gate.load(ctx.sessionManager.getEntries()));
+	pi.on("session_start", (_event, ctx) => {
+		ui = ctx.ui;
+		gate.load(ctx.sessionManager.getEntries());
+	});
+	pi.events.on(TASKS, (tasks) => {
+		try {
+			ui?.setStatus(TASKS, JSON.stringify(tasks ?? []));
+		} catch {
+			// A list JSON cannot hold (a cycle) has nothing to pass on, and the extension that sent it must not see a throw.
+		}
+	});
 	pi.on("tool_call", (event, ctx) => gate.check(event, ctx));
 
 	pi.registerCommand(COMMAND, {

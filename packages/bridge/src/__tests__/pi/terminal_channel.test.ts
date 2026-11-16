@@ -83,7 +83,7 @@ function hello(rig: LiveRig, overrides: object = {}, file = join(rig.world.env.s
 	};
 }
 
-const STATE = { running: false, leafId: null, blocks: [], tools: [] };
+const STATE = { running: false, leafId: null, blocks: [], tools: [], tasks: [] };
 
 describe("who may use the socket", () => {
 	test("only the user: the directory, the socket and the key are private", async () => {
@@ -197,6 +197,29 @@ describe("what the bridge accepts from a terminal", () => {
 		await client.closed;
 		expect(t.world.parts.terminal.registry.session(file)).toBeUndefined();
 		expect(await session.command({ kind: "abort" })).toMatchObject({ ok: false, code: "backend_error" });
+	});
+});
+
+describe("a terminal that loaded an older copy of the extension", () => {
+	test("is held and followed: a snapshot with no tasks and a message with no type are what that copy sends", async () => {
+		t = await LiveRig.create({ link: true });
+		const file = join(t.world.env.sessionDir, "x.jsonl");
+		writeFileSync(file, "");
+		const client = await dial(directoryOf(t));
+		client.send(hello(t, {}, file));
+		expect(await client.next()).toMatchObject({ t: "welcome" });
+		const { tasks: _tasks, ...before } = STATE;
+		client.send({ t: "snapshot", reason: "connect", state: before });
+		const registry = t.world.parts.terminal.registry;
+		await until(() => registry.session(file) !== undefined, "the terminal to be held");
+		const events: AgentEvent[] = [];
+		registry.session(file)?.feed.live.attach({ emit: (record) => events.push(record.event) });
+		client.send({ t: "event", event: { e: "message_end", message: { role: "custom", display: true, text: "Done." } } });
+		await until(() => events.some((event) => event.type === "activity"), "the message to show");
+		expect(events.find((event) => event.type === "activity")).toMatchObject({
+			activity: { kind: "message", title: "Extension message", body: { format: "markdown", text: "Done." } },
+		});
+		expect(client.socket.destroyed).toBe(false);
 	});
 });
 

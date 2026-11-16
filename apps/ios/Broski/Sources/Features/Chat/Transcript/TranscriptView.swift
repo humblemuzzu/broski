@@ -63,6 +63,11 @@ struct TranscriptView: View {
         .simultaneousGesture(TapGesture().onEnded(dismissKeyboard))
         .opacity(chat.isRevealed ? (dimmed ? 0.5 : 1) : 0)
         .animation(.easeOut(duration: 0.2), value: chat.isRevealed)
+        .overlay {
+            if chat.isRevealed, !chat.history.isLoaded, chat.historyProblem == nil {
+                LoadingConversation()
+            }
+        }
     }
 
     static let endId = "transcript-end"
@@ -92,6 +97,20 @@ struct TranscriptView: View {
     nonisolated static func distanceFromEnd(_ geometry: ScrollGeometry) -> CGFloat {
         let maxOffset = geometry.contentSize.height + geometry.contentInsets.bottom - geometry.containerSize.height
         return max(0, maxOffset - geometry.contentOffset.y)
+    }
+}
+
+/// What a chat shows while its newest page is still on its way: a slow link must not read as an
+/// empty conversation.
+private struct LoadingConversation: View {
+    var body: some View {
+        VStack(spacing: Spacing.s) {
+            ProgressView()
+            Text("Loading the conversation").font(.footnote).foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .allowsHitTesting(false)
+        .transition(.opacity)
     }
 }
 

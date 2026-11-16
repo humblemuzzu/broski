@@ -10,6 +10,7 @@ import uniffi.broski_contract.SessionSnapshot
 import uniffi.broski_contract.TranscriptItem
 import uniffi.broski_contract.UserMessageItem
 import uniffi.broski_core.MarkdownBlock
+import uniffi.broski_core.activityLook
 
 /** A message the person sent that the agent has not yet shown as its own. */
 data class PendingSend(val clientRequestId: String, val text: String, val at: Long)
@@ -72,6 +73,10 @@ class RowBuilder(private val markdown: (String) -> List<MarkdownBlock>) {
                 )
                 is TranscriptItem.ToolResult -> tools[item.v1.toolCallId]?.result = item.v1
                 is TranscriptItem.Notice -> note(item.v1.id, item.v1.at, TranscriptNote.Notice(item.v1.level, item.v1.text))
+                is TranscriptItem.Activity -> {
+                    fold = null
+                    rows += ChatRow.Activity("a:${item.v1.id}", item.v1.at, item.v1.activity, activityLook(item.v1.activity))
+                }
                 is TranscriptItem.Compaction -> note(item.v1.id, item.v1.at, TranscriptNote.Compacted(item.v1.tokensBefore, item.v1.tokensAfter))
                 is TranscriptItem.ModelChange -> note(item.v1.id, item.v1.at, TranscriptNote.ModelChanged(item.v1.modelId, item.v1.thinking))
                 is TranscriptItem.RunBoundary -> item.v1.outcome.stopped()?.let { note(item.v1.id, item.v1.at, it) }

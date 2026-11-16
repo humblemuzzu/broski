@@ -66,7 +66,8 @@ struct WorkRowView: View {
 
     private var symbol: String {
         switch entry {
-        case .tool(let tool): tool.kind.symbol
+        case .tool(let tool):
+            if case .todos = tool.display { "checklist" } else { tool.kind.symbol }
         case .thinking: "brain"
         }
     }

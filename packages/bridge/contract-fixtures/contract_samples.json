@@ -80,6 +80,112 @@
       "droppedItems": 1
     }
   ],
+  "Activity": [
+    {
+      "kind": "task",
+      "title": "x",
+      "status": "running",
+      "command": "x",
+      "durationMs": 1,
+      "exitCode": 1,
+      "body": {
+        "format": "markdown",
+        "text": "x"
+      },
+      "childSession": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      }
+    },
+    {
+      "kind": "task",
+      "title": "x"
+    }
+  ],
+  "ActivityBody": [
+    {
+      "format": "markdown",
+      "text": "x"
+    }
+  ],
+  "ActivityEvent": [
+    {
+      "type": "activity",
+      "activityId": "x",
+      "activity": {
+        "kind": "task",
+        "title": "x",
+        "status": "running",
+        "command": "x",
+        "durationMs": 1,
+        "exitCode": 1,
+        "body": {
+          "format": "markdown",
+          "text": "x"
+        },
+        "childSession": {
+          "backend": "claude-code",
+          "sessionId": "x"
+        }
+      }
+    },
+    {
+      "type": "activity",
+      "activityId": "x",
+      "activity": {
+        "kind": "task",
+        "title": "x"
+      }
+    }
+  ],
+  "ActivityFormat": [
+    "markdown",
+    "text",
+    "log"
+  ],
+  "ActivityItem": [
+    {
+      "kind": "activity",
+      "id": "x",
+      "at": 1,
+      "activity": {
+        "kind": "task",
+        "title": "x",
+        "status": "running",
+        "command": "x",
+        "durationMs": 1,
+        "exitCode": 1,
+        "body": {
+          "format": "markdown",
+          "text": "x"
+        },
+        "childSession": {
+          "backend": "claude-code",
+          "sessionId": "x"
+        }
+      }
+    },
+    {
+      "kind": "activity",
+      "id": "x",
+      "activity": {
+        "kind": "task",
+        "title": "x"
+      }
+    }
+  ],
+  "ActivityKind": [
+    "task",
+    "agent",
+    "command",
+    "message"
+  ],
+  "ActivityStatus": [
+    "running",
+    "completed",
+    "failed",
+    "stopped"
+  ],
   "AgentEvent": [
     {
       "type": "run_started",
@@ -208,7 +314,16 @@
           }
         ],
         "error": "x",
-        "exitCode": 1
+        "exitCode": 1,
+        "display": {
+          "kind": "todos",
+          "items": [
+            {
+              "text": "x",
+              "status": "pending"
+            }
+          ]
+        }
       }
     },
     {
@@ -354,6 +469,32 @@
       ]
     },
     {
+      "type": "background_tasks_changed",
+      "tasks": [
+        {
+          "id": "x",
+          "kind": "task",
+          "title": "x",
+          "command": "x",
+          "startedAt": 1,
+          "childSession": {
+            "backend": "claude-code",
+            "sessionId": "x"
+          }
+        }
+      ]
+    },
+    {
+      "type": "background_tasks_changed",
+      "tasks": [
+        {
+          "id": "x",
+          "kind": "task",
+          "title": "x"
+        }
+      ]
+    },
+    {
       "type": "input_returned",
       "texts": [
         "x"
@@ -437,6 +578,34 @@
       "type": "notice",
       "level": "info",
       "text": "x"
+    },
+    {
+      "type": "activity",
+      "activityId": "x",
+      "activity": {
+        "kind": "task",
+        "title": "x",
+        "status": "running",
+        "command": "x",
+        "durationMs": 1,
+        "exitCode": 1,
+        "body": {
+          "format": "markdown",
+          "text": "x"
+        },
+        "childSession": {
+          "backend": "claude-code",
+          "sessionId": "x"
+        }
+      }
+    },
+    {
+      "type": "activity",
+      "activityId": "x",
+      "activity": {
+        "kind": "task",
+        "title": "x"
+      }
     },
     {
       "type": "error",
@@ -618,6 +787,19 @@
             "clientRequestId": "00000000-0000-4000-8000-000000000000"
           }
         ],
+        "backgroundTasks": [
+          {
+            "id": "x",
+            "kind": "task",
+            "title": "x",
+            "command": "x",
+            "startedAt": 1,
+            "childSession": {
+              "backend": "claude-code",
+              "sessionId": "x"
+            }
+          }
+        ],
         "modelId": "x",
         "thinking": "x",
         "modes": [
@@ -715,6 +897,13 @@
             "id": "x",
             "delivery": "steer",
             "preview": "x"
+          }
+        ],
+        "backgroundTasks": [
+          {
+            "id": "x",
+            "kind": "task",
+            "title": "x"
           }
         ],
         "modes": [
@@ -874,6 +1063,19 @@
             "clientRequestId": "00000000-0000-4000-8000-000000000000"
           }
         ],
+        "backgroundTasks": [
+          {
+            "id": "x",
+            "kind": "task",
+            "title": "x",
+            "command": "x",
+            "startedAt": 1,
+            "childSession": {
+              "backend": "claude-code",
+              "sessionId": "x"
+            }
+          }
+        ],
         "modelId": "x",
         "thinking": "x",
         "modes": [
@@ -973,6 +1175,13 @@
             "id": "x",
             "delivery": "steer",
             "preview": "x"
+          }
+        ],
+        "backgroundTasks": [
+          {
+            "id": "x",
+            "kind": "task",
+            "title": "x"
           }
         ],
         "modes": [
@@ -1349,6 +1558,56 @@
             "rename": false,
             "delete": false
           }
+        }
+      ]
+    }
+  ],
+  "BackgroundTask": [
+    {
+      "id": "x",
+      "kind": "task",
+      "title": "x",
+      "command": "x",
+      "startedAt": 1,
+      "childSession": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      }
+    },
+    {
+      "id": "x",
+      "kind": "task",
+      "title": "x"
+    }
+  ],
+  "BackgroundTaskKind": [
+    "task",
+    "agent"
+  ],
+  "BackgroundTasksChangedEvent": [
+    {
+      "type": "background_tasks_changed",
+      "tasks": [
+        {
+          "id": "x",
+          "kind": "task",
+          "title": "x",
+          "command": "x",
+          "startedAt": 1,
+          "childSession": {
+            "backend": "claude-code",
+            "sessionId": "x"
+          }
+        }
+      ]
+    },
+    {
+      "type": "background_tasks_changed",
+      "tasks": [
+        {
+          "id": "x",
+          "kind": "task",
+          "title": "x"
         }
       ]
     }
@@ -2506,6 +2765,10 @@
   ],
   "ConfirmRequest": [
     {
+      "kind": "confirm",
+      "url": "https://example.com/x"
+    },
+    {
       "kind": "confirm"
     }
   ],
@@ -2774,6 +3037,21 @@
       "length": 1,
       "size": 1,
       "truncated": false
+    }
+  ],
+  "FilesDisplay": [
+    {
+      "kind": "files",
+      "paths": [
+        "x"
+      ],
+      "total": 1
+    },
+    {
+      "kind": "files",
+      "paths": [
+        "x"
+      ]
     }
   ],
   "FilesFound": [
@@ -4843,6 +5121,10 @@
       ]
     },
     {
+      "kind": "confirm",
+      "url": "https://example.com/x"
+    },
+    {
       "kind": "confirm"
     },
     {
@@ -4981,6 +5263,38 @@
     },
     null,
     "text"
+  ],
+  "LinkItem": [
+    {
+      "title": "x",
+      "url": "https://example.com/x",
+      "snippet": "x"
+    },
+    {
+      "title": "x",
+      "url": "https://example.com/x"
+    }
+  ],
+  "LinksDisplay": [
+    {
+      "kind": "links",
+      "items": [
+        {
+          "title": "x",
+          "url": "https://example.com/x",
+          "snippet": "x"
+        }
+      ]
+    },
+    {
+      "kind": "links",
+      "items": [
+        {
+          "title": "x",
+          "url": "https://example.com/x"
+        }
+      ]
+    }
   ],
   "MessageId": [
     "x"
@@ -6381,6 +6695,19 @@
             "clientRequestId": "00000000-0000-4000-8000-000000000000"
           }
         ],
+        "backgroundTasks": [
+          {
+            "id": "x",
+            "kind": "task",
+            "title": "x",
+            "command": "x",
+            "startedAt": 1,
+            "childSession": {
+              "backend": "claude-code",
+              "sessionId": "x"
+            }
+          }
+        ],
         "modelId": "x",
         "thinking": "x",
         "modes": [
@@ -6478,6 +6805,13 @@
             "id": "x",
             "delivery": "steer",
             "preview": "x"
+          }
+        ],
+        "backgroundTasks": [
+          {
+            "id": "x",
+            "kind": "task",
+            "title": "x"
           }
         ],
         "modes": [
@@ -8352,6 +8686,19 @@
           "clientRequestId": "00000000-0000-4000-8000-000000000000"
         }
       ],
+      "backgroundTasks": [
+        {
+          "id": "x",
+          "kind": "task",
+          "title": "x",
+          "command": "x",
+          "startedAt": 1,
+          "childSession": {
+            "backend": "claude-code",
+            "sessionId": "x"
+          }
+        }
+      ],
       "modelId": "x",
       "thinking": "x",
       "modes": [
@@ -8446,6 +8793,13 @@
           "id": "x",
           "delivery": "steer",
           "preview": "x"
+        }
+      ],
+      "backgroundTasks": [
+        {
+          "id": "x",
+          "kind": "task",
+          "title": "x"
         }
       ],
       "modes": [
@@ -8879,6 +9233,19 @@
             "clientRequestId": "00000000-0000-4000-8000-000000000000"
           }
         ],
+        "backgroundTasks": [
+          {
+            "id": "x",
+            "kind": "task",
+            "title": "x",
+            "command": "x",
+            "startedAt": 1,
+            "childSession": {
+              "backend": "claude-code",
+              "sessionId": "x"
+            }
+          }
+        ],
         "modelId": "x",
         "thinking": "x",
         "modes": [
@@ -8978,6 +9345,13 @@
             "id": "x",
             "delivery": "steer",
             "preview": "x"
+          }
+        ],
+        "backgroundTasks": [
+          {
+            "id": "x",
+            "kind": "task",
+            "title": "x"
           }
         ],
         "modes": [
@@ -9672,6 +10046,28 @@
     "generated",
     "first_prompt"
   ],
+  "TodoItem": [
+    {
+      "text": "x",
+      "status": "pending"
+    }
+  ],
+  "TodoStatus": [
+    "pending",
+    "in_progress",
+    "completed"
+  ],
+  "TodosDisplay": [
+    {
+      "kind": "todos",
+      "items": [
+        {
+          "text": "x",
+          "status": "pending"
+        }
+      ]
+    }
+  ],
   "ToolCallId": [
     "x"
   ],
@@ -9745,6 +10141,49 @@
       "uri": "x"
     }
   ],
+  "ToolDisplay": [
+    {
+      "kind": "todos",
+      "items": [
+        {
+          "text": "x",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "kind": "links",
+      "items": [
+        {
+          "title": "x",
+          "url": "https://example.com/x",
+          "snippet": "x"
+        }
+      ]
+    },
+    {
+      "kind": "links",
+      "items": [
+        {
+          "title": "x",
+          "url": "https://example.com/x"
+        }
+      ]
+    },
+    {
+      "kind": "files",
+      "paths": [
+        "x"
+      ],
+      "total": 1
+    },
+    {
+      "kind": "files",
+      "paths": [
+        "x"
+      ]
+    }
+  ],
   "ToolFileChanges": [
     {
       "kind": "file_changes",
@@ -9792,7 +10231,16 @@
           }
         ],
         "error": "x",
-        "exitCode": 1
+        "exitCode": 1,
+        "display": {
+          "kind": "todos",
+          "items": [
+            {
+              "text": "x",
+              "status": "pending"
+            }
+          ]
+        }
       }
     },
     {
@@ -9977,7 +10425,16 @@
         }
       ],
       "error": "x",
-      "exitCode": 1
+      "exitCode": 1,
+      "display": {
+        "kind": "todos",
+        "items": [
+          {
+            "text": "x",
+            "status": "pending"
+          }
+        ]
+      }
     },
     {
       "content": [
@@ -10019,7 +10476,16 @@
           }
         ],
         "error": "x",
-        "exitCode": 1
+        "exitCode": 1,
+        "display": {
+          "kind": "todos",
+          "items": [
+            {
+              "text": "x",
+              "status": "pending"
+            }
+          ]
+        }
       }
     },
     {
@@ -10249,7 +10715,16 @@
           }
         ],
         "error": "x",
-        "exitCode": 1
+        "exitCode": 1,
+        "display": {
+          "kind": "todos",
+          "items": [
+            {
+              "text": "x",
+              "status": "pending"
+            }
+          ]
+        }
       }
     },
     {
@@ -10284,6 +10759,35 @@
       "id": "x",
       "level": "info",
       "text": "x"
+    },
+    {
+      "kind": "activity",
+      "id": "x",
+      "at": 1,
+      "activity": {
+        "kind": "task",
+        "title": "x",
+        "status": "running",
+        "command": "x",
+        "durationMs": 1,
+        "exitCode": 1,
+        "body": {
+          "format": "markdown",
+          "text": "x"
+        },
+        "childSession": {
+          "backend": "claude-code",
+          "sessionId": "x"
+        }
+      }
+    },
+    {
+      "kind": "activity",
+      "id": "x",
+      "activity": {
+        "kind": "task",
+        "title": "x"
+      }
     },
     {
       "kind": "compaction",
@@ -10634,6 +11138,9 @@
         }
       ]
     }
+  ],
+  "WebUrl": [
+    "https://example.com/x"
   ],
   "WorkingDirectory": [
     "x"

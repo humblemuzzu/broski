@@ -5,7 +5,7 @@
 
 import { afterEach, describe, expect, test } from "bun:test";
 import { childRef } from "../../../backends/claude-code/ids";
-import type { AgentEvent } from "../../../contract";
+import { type AgentEvent, emptySnapshot } from "../../../contract";
 import { SessionRecorder } from "../../../contract/testing/conformance-harness";
 import { FakeQuery } from "../helpers/fake-query";
 import { flush, tempProject } from "./helpers/fake-host";
@@ -53,7 +53,7 @@ describe("a subagent's child session", () => {
 		const recorder = new SessionRecorder(2_000);
 		const opened = await rig.live.openChild(ref(child), { parentId: live.ref.sessionId, agentId: agent }, recorder);
 		if (opened.status === "rejected") throw new Error("rejected");
-		expect(opened.snapshot).toEqual({ blocks: [], tools: [], interactions: [], queue: [], modes: [] });
+		expect(opened.snapshot).toEqual(emptySnapshot());
 		expect(opened.session.control).toBeUndefined();
 
 		query.push(running(), assistant(crypto.randomUUID(), { agent_id: agent }));

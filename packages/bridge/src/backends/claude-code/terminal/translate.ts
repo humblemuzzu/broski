@@ -1,11 +1,16 @@
 /**
  * Transcript lines as live events of a watch-only session (D28). Only these lines mean something:
- * `user` (a prompt, a tool result, an interruption), `assistant` (one block), `system/turn_duration` (the turn is over)
- * and `system/compact_boundary`. Every other line is list metadata or noise. A line's `uuid` is seen once.
+ * `user` (a prompt, a tool result, an interruption), `assistant` (one block), `system/turn_duration` (the turn is over),
+ * `system/compact_boundary` and `system/local_command` (a slash command's output). Every other line is list metadata or
+ * noise. A line's `uuid` is seen once.
  */
 
 import type { RunId, ToolCallId } from "../../../contract";
+import { fitsId } from "../bounds";
+import { userItemId } from "../ids";
 import { isRecord } from "../json";
+import { commandOutputActivity } from "../mapping/activities";
+import { harnessText } from "../mapping/harness-text";
 import type { MappedEvent } from "../ports/mapping";
 import { canonicalInput } from "./canonical";
 import { assistantEvents } from "./translate-assistant";
@@ -26,7 +31,7 @@ export class LineTranslator {
 			case "user":
 				return userEvents(this.state, entry, uuid);
 			case "system":
-				return systemEvents(this.state, entry);
+				return systemEvents(this.state, entry, uuid);
 			default:
 				return [];
 		}
@@ -83,12 +88,17 @@ function fresh(state: TranslatorState, entry: Record<string, unknown>): string |
 	return uuid;
 }
 
-function systemEvents(state: TranslatorState, entry: Record<string, unknown>): MappedEvent[] {
+function systemEvents(state: TranslatorState, entry: Record<string, unknown>, uuid: string): MappedEvent[] {
 	const out: MappedEvent[] = [];
 	if (entry.subtype === "turn_duration") {
 		state.finishRun(out, "completed");
 	} else if (entry.subtype === "compact_boundary") {
 		compactionEvents(out, entry.compactMetadata);
+	} else if (entry.subtype === "local_command" && typeof entry.content === "string" && fitsId(uuid)) {
+		const printed = harnessText(entry.content);
+		const activity =
+			printed.kind === "command_output" ? commandOutputActivity(printed.text, printed.failed) : undefined;
+		if (activity !== undefined) out.push({ event: { type: "activity", activityId: userItemId(uuid), activity } });
 	}
 	return out;
 }

@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { FileChange, FileContent, ImageRef, TextContent } from "./content";
+import { FileChange, FileContent, ImageRef, TextContent, WebUrl } from "./content";
 import { SessionRef } from "./ids";
 import { JsonValue } from "./json";
-import { MAX_LIST_ITEMS, MAX_TEXT_CHARS } from "./limits";
+import { MAX_LIST_ITEMS, MAX_NAME_CHARS, MAX_PATH_CHARS, MAX_TEXT_CHARS } from "./limits";
 
 export const ToolContent = z.discriminatedUnion("kind", [TextContent, ImageRef, FileContent]);
 export type ToolContent = z.infer<typeof ToolContent>;
@@ -10,11 +10,54 @@ export type ToolContent = z.infer<typeof ToolContent>;
 export const ToolOutcome = z.enum(["completed", "failed", "denied", "aborted"]);
 export type ToolOutcome = z.infer<typeof ToolOutcome>;
 
+export const TodoStatus = z.enum(["pending", "in_progress", "completed"]);
+export type TodoStatus = z.infer<typeof TodoStatus>;
+
+export const TodoItem = z.strictObject({ text: z.string().min(1).max(MAX_TEXT_CHARS), status: TodoStatus });
+export type TodoItem = z.infer<typeof TodoItem>;
+
+/** The agent's task list, whole, as the call left it. */
+export const TodosDisplay = z.strictObject({
+	kind: z.literal("todos"),
+	items: z.array(TodoItem).min(1).max(MAX_LIST_ITEMS),
+});
+export type TodosDisplay = z.infer<typeof TodosDisplay>;
+
+export const LinkItem = z.strictObject({
+	title: z.string().max(MAX_NAME_CHARS),
+	url: WebUrl,
+	snippet: z.string().max(MAX_TEXT_CHARS).optional(),
+});
+export type LinkItem = z.infer<typeof LinkItem>;
+
+/** Pages a search found. */
+export const LinksDisplay = z.strictObject({
+	kind: z.literal("links"),
+	items: z.array(LinkItem).min(1).max(MAX_LIST_ITEMS),
+});
+export type LinksDisplay = z.infer<typeof LinksDisplay>;
+
+/** Files a search found; `total` when there were more than `paths` holds. */
+export const FilesDisplay = z.strictObject({
+	kind: z.literal("files"),
+	paths: z.array(z.string().min(1).max(MAX_PATH_CHARS)).min(1).max(MAX_LIST_ITEMS),
+	total: z.int().nonnegative().optional(),
+});
+export type FilesDisplay = z.infer<typeof FilesDisplay>;
+
+/**
+ * What a result shows in place of its text, when its tool has a view of its own; any other result, and one whose list is
+ * empty, shows its text.
+ */
+export const ToolDisplay = z.discriminatedUnion("kind", [TodosDisplay, LinksDisplay, FilesDisplay]);
+export type ToolDisplay = z.infer<typeof ToolDisplay>;
+
 export const ToolResult = z.strictObject({
 	content: z.array(ToolContent).max(MAX_LIST_ITEMS),
 	fileChanges: z.array(FileChange).max(MAX_LIST_ITEMS),
 	error: z.string().max(MAX_TEXT_CHARS).optional(),
 	exitCode: z.int().optional(),
+	display: ToolDisplay.optional(),
 });
 export type ToolResult = z.infer<typeof ToolResult>;
 

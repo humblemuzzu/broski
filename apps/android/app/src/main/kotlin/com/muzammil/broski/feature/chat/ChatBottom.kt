@@ -29,6 +29,7 @@ import com.muzammil.broski.R
 import com.muzammil.broski.design.Haptic
 import com.muzammil.broski.design.displayName
 import com.muzammil.broski.design.perform
+import com.muzammil.broski.feature.chat.activity.BackgroundTasksBar
 import com.muzammil.broski.feature.chat.composer.CommandList
 import com.muzammil.broski.feature.chat.composer.Composer
 import com.muzammil.broski.feature.chat.composer.ComposerActions
@@ -44,7 +45,7 @@ import uniffi.broski_contract.AttachmentKind
 import uniffi.broski_contract.FileChange
 import uniffi.broski_contract.PromptMode
 
-/** Everything pinned at the bottom: notices, the queue, the first ask, the commands list and the composer. */
+/** Everything pinned at the bottom: what runs in the background, notices, the queue, the first ask, the commands list and the composer. */
 @Composable
 fun ChatBottom(model: ChatViewModel, openDiff: (FileChange) -> Unit, modifier: Modifier) {
     val live by model.live.collectAsStateWithLifecycle()
@@ -58,6 +59,7 @@ fun ChatBottom(model: ChatViewModel, openDiff: (FileChange) -> Unit, modifier: M
         modifier.imePadding().navigationBarsPadding().padding(start = 12.dp, end = 12.dp, bottom = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        if (snapshot.backgroundTasks.isNotEmpty()) BackgroundTasksBar(snapshot.backgroundTasks)
         notices.forEach { notice -> NoticeCard(notice, onDismiss = { model.dismiss(notice) }) }
         snapshot.queue.forEach { item ->
             QueuedRow(item, onCancel = if (capabilities?.cancelQueued == true) ({ model.actions.cancelQueued(item.id) }) else null)

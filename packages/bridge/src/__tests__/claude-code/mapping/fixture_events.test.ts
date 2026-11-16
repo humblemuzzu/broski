@@ -109,12 +109,22 @@ describe("subagents", () => {
 		);
 	});
 
-	test("background: the parent's call is over before the agent works, so its work goes to the child only", () => {
+	test("background: the parent's call is over before the agent works, so its work goes to the child only; it runs in the background list and its end is an activity", () => {
 		const played = playFixture("subagent-background");
-		expect(shapeOf(played.streams.get(""))).toBe(
-			RUN(`tool_started tool_updated:child_session tool_finished:completed ${TURN} ${TURN}`),
+		const main = played.streams.get("");
+		expect(shapeOf(main)).toBe(
+			RUN(
+				`tool_started background_tasks_changed tool_updated:child_session tool_finished:completed ${TURN} activity background_tasks_changed ${TURN}`,
+			),
 		);
 		expect(shapeOf(played.streams.get(agentOf(played)))).toBe(RUN("block_started:text block_finished"));
+		const linked = ofType(main, "tool_updated").find((event) => event.update.kind === "child_session")?.update;
+		const child = linked?.kind === "child_session" ? linked.session : undefined;
+		expect(child?.sessionId.endsWith(`/${agentOf(played)}`)).toBe(true);
+		const lists = (main ?? []).flatMap((event) => (event.type === "background_tasks_changed" ? [event.tasks] : []));
+		expect(lists).toEqual([[expect.objectContaining({ kind: "agent", childSession: child })], []]);
+		const ended = (main ?? []).find((event) => event.type === "activity");
+		expect(ended).toMatchObject({ activity: { kind: "agent", status: "completed", childSession: child } });
 	});
 
 	test("the child session of the call is <session>/<agent id>, the agent id of its frames", () => {

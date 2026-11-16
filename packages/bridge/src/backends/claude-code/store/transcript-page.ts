@@ -103,6 +103,7 @@ async function walk(ctx: StoreContext, job: Walk, start: Start, limit: number): 
 			const entry = from + at;
 			if (message === undefined) continue;
 			const entryItems = itemsOf(message, {
+				sessionId: job.sessionId,
 				prompt: (sendUuid) => ctx.deps.ownership.prompt(job.sessionId, sendUuid),
 				blockBase: index.blockBase[entry] ?? 0,
 				toolName: (toolUseId) => index.toolNames.get(toolUseId),

@@ -1,15 +1,16 @@
 /**
  * An extension's UI requests in a hosted session (pi-coding-agent 1.5.2 `docs/rpc-extension-ui.md`): `select` is a
  * `choice`, `confirm` a `confirm`, `input` and `editor` a `text`, the bridge's own `input` a `tool_permission`
- * (`permission-asks.ts`), and `notify` a notice. A dialog nobody answered gets Pi's default, `cancelled`. The
- * fire-and-forget calls `setStatus`, `setWidget`, `setTitle` and `set_editor_text` draw on a terminal's screen, which a
- * phone has no part of: the contract has no place for them, so they are not read (`rpc/frames.ts`).
+ * (`permission-asks.ts`), and `notify` a notice. A dialog nobody answered gets Pi's default, `cancelled`. Of the
+ * fire-and-forget calls, `setStatus` under the bridge's own key carries the background tasks extensions announce
+ * (`mapping/background-tasks.ts`).
  */
 
 import { MAX_LIST_ITEMS } from "../../../contract";
 import { type PermissionVerdict, permissionAskOf, verdictText } from "../host/protocol";
 import { noticeEvent } from "../live/live-notes";
 import type { LiveState } from "../live/live-state";
+import { TASKS_KEY, tasksOfStatus } from "../mapping/background-tasks";
 import { phoneName, phoneText } from "../phone-text";
 import type { DialogRequest, UiRequest } from "../rpc/frames";
 import type { AskOutcome, AskSpec, InteractionDesk } from "./interactions";
@@ -34,6 +35,10 @@ export function handleUiRequest(request: UiRequest, host: DialogHost): Promise<v
 		host.live.emit(noticeEvent(request.notifyType ?? "info", request.message));
 		return undefined;
 	}
+	if (request.method === "setStatus") {
+		statusChanged(request, host.live);
+		return undefined;
+	}
 	const permission = request.method === "input" ? permissionAskOf(request.title) : undefined;
 	if (permission !== undefined) {
 		return askPermission(permission, {
@@ -43,6 +48,14 @@ export function handleUiRequest(request: UiRequest, host: DialogHost): Promise<v
 		});
 	}
 	return dialog(request, host);
+}
+
+/** Another extension's status line draws on a terminal's screen, which a phone has no part of. */
+function statusChanged(request: Extract<UiRequest, { method: "setStatus" }>, live: LiveState): void {
+	if (request.statusKey !== TASKS_KEY) return;
+	const tasks = tasksOfStatus(request.statusText);
+	if (tasks === undefined || JSON.stringify(tasks) === JSON.stringify(live.snapshot().backgroundTasks)) return;
+	live.emit({ type: "background_tasks_changed", tasks });
 }
 
 async function dialog(request: DialogRequest, host: DialogHost): Promise<void> {

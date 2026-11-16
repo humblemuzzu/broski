@@ -2,9 +2,11 @@ import BroskiCore
 
 /// What a session view says that is not state: shown once, then gone (mobile-core.md, "The update
 /// protocol"). `runEnded` carries the items a run had when it ended (its last items may come in the
-/// same batch), which stay on screen until the transcript's newest page holds them.
+/// same batch), which stay on screen until the transcript's newest page holds them; `activity` is one
+/// outside any run, which stays the same way.
 enum SessionMoment: Equatable {
     case notice(NoticeEvent)
+    case activity(ActivityItem)
     case error(ErrorEvent)
     case inputReturned([String])
     case rateLimit(RateLimitUpdate)
@@ -58,8 +60,8 @@ extension ActiveRun? {
 
 extension SessionSnapshot {
     static let empty = SessionSnapshot(
-        run: nil, blocks: [], tools: [], interactions: [], queue: [], modelId: nil, thinking: nil, modes: [],
-        usage: nil, compaction: nil, retry: nil, lastOutcome: nil)
+        run: nil, blocks: [], tools: [], interactions: [], queue: [], backgroundTasks: [], modelId: nil, thinking: nil,
+        modes: [], usage: nil, compaction: nil, retry: nil, lastOutcome: nil)
 
     /// Assigns one record as mobile-core.md's table says; the records that are not state come back.
     fileprivate mutating func apply(_ change: SessionChange) -> SessionMoment? {
@@ -81,6 +83,7 @@ extension SessionSnapshot {
         case .interactionAdded(let interaction): interactions.append(interaction)
         case .interactionRemoved(let interactionId): interactions.removeAll { $0.id == interactionId }
         case .queueChanged(let items): queue = items
+        case .backgroundTasksChanged(let tasks): backgroundTasks = tasks
         case .modelChanged(let modelId, let thinking):
             self.modelId = modelId
             self.thinking = thinking
@@ -90,6 +93,7 @@ extension SessionSnapshot {
         case .retryChanged(let retry): self.retry = retry
         case .outcomeChanged(let outcome): lastOutcome = outcome
         case .noticeShown(let notice): return .notice(notice)
+        case .activityShown(let item): return .activity(item)
         case .errorShown(let error): return .error(error)
         case .inputReturned(let texts): return .inputReturned(texts)
         case .extensionReceived(.rateLimit(let update)): return .rateLimit(update)

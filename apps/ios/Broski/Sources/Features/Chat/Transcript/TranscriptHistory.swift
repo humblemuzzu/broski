@@ -49,6 +49,7 @@ extension TranscriptItem {
         case .toolCall(let item): item.id
         case .toolResult(let item): item.id
         case .notice(let item): item.id
+        case .activity(let item): item.id
         case .compaction(let item): item.id
         case .modelChange(let item): item.id
         case .runBoundary(let item): item.id

@@ -32,6 +32,15 @@ export interface OpenTool {
 	childLinked: boolean;
 }
 
+/** A task the CLI started (`task_started`), for the background list and its end. */
+export interface KnownTask {
+	readonly taskType: string | undefined;
+	readonly command: string | undefined;
+	readonly startedAt: number;
+	/** Registered or moved to the background, so no tool call's result reports its end. */
+	background: boolean;
+}
+
 /** The compaction the CLI reported: `status: compacting` seen, and whether its `compact_boundary` is still to come. */
 export type CompactionPhase = "none" | "running" | "awaiting_boundary";
 
@@ -73,6 +82,7 @@ export class MapperState {
 	model: string | undefined;
 	/** The last rate limit sent per window, so a repeated one is not sent again. */
 	readonly rateLimits = new Map<string, string>();
+	readonly tasks = new Map<string, KnownTask>();
 	faultReported = false;
 
 	constructor(
@@ -87,6 +97,12 @@ export class MapperState {
 		this.ledgers.set(messageId, created);
 		if (this.ledgers.size > MAX_LEDGERS) this.ledgers.delete(this.ledgers.keys().next().value ?? messageId);
 		return created;
+	}
+
+	rememberTask(taskId: string, task: KnownTask): void {
+		this.tasks.delete(taskId);
+		this.tasks.set(taskId, task);
+		if (this.tasks.size > MAX_REMEMBERED) this.tasks.delete(this.tasks.keys().next().value ?? taskId);
 	}
 
 	rememberFrame(uuid: string, messageId: string, streams: readonly string[]): void {

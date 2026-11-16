@@ -5,6 +5,19 @@ use super::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ActivityEvent {
+    pub activity_id: TranscriptItemId,
+    pub activity: Activity,
+}
+
+impl crate::Tagged for ActivityEvent {
+    const KEY: &'static str = "type";
+    const TAG: &'static str = "activity";
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[serde(tag = "type")]
 pub enum AgentEvent {
@@ -32,6 +45,8 @@ pub enum AgentEvent {
     InteractionResolved(InteractionResolvedEvent),
     #[serde(rename = "queue_changed")]
     QueueChanged(QueueChangedEvent),
+    #[serde(rename = "background_tasks_changed")]
+    BackgroundTasksChanged(BackgroundTasksChangedEvent),
     #[serde(rename = "input_returned")]
     InputReturned(InputReturnedEvent),
     #[serde(rename = "compaction_started")]
@@ -52,6 +67,8 @@ pub enum AgentEvent {
     ModeChanged(ModeChangedEvent),
     #[serde(rename = "notice")]
     Notice(NoticeEvent),
+    #[serde(rename = "activity")]
+    Activity(ActivityEvent),
     #[serde(rename = "error")]
     Error(ErrorEvent),
     #[serde(rename = "extension")]
@@ -60,6 +77,18 @@ pub enum AgentEvent {
     SessionReplaced(SessionReplacedEvent),
     #[serde(rename = "resynced")]
     Resynced(ResyncedEvent),
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BackgroundTasksChangedEvent {
+    pub tasks: Vec<BackgroundTask>,
+}
+
+impl crate::Tagged for BackgroundTasksChangedEvent {
+    const KEY: &'static str = "type";
+    const TAG: &'static str = "background_tasks_changed";
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

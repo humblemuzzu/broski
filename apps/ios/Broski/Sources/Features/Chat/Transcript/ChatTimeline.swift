@@ -52,6 +52,10 @@ struct ChatTimeline {
         case .notice(let notice):
             closeFold()
             append(.notice(notice), id: notice.id)
+        case .activity(let activity):
+            closeFold()
+            closeAnswer()
+            append(.activity(ActivityEntry(activity)), id: activity.id)
         case .compaction(let compaction):
             closeFold()
             append(.marker(.compaction(compaction)), id: compaction.id)
@@ -181,6 +185,7 @@ nonisolated extension ChatRow {
             return before.block.isListItem && after.block.isListItem ? 6 : 12
         case (_, .answerEnd): return 6
         case (.work, .work): return 2
+        case (.activity, .activity): return 6
         case (.user, _), (.pending, _): return 18
         case (.work, .text): return 10
         default: return 14

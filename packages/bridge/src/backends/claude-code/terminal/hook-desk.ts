@@ -18,7 +18,7 @@ import {
 import { mintInteractionId } from "../ids";
 import { ACCEPTED, rejected } from "../rejections";
 import { canonicalInput } from "./canonical";
-import { decisionOf, type HookDecision, permissionInteraction } from "./hook-interaction";
+import { type HookAsk, type HookDecision, permissionAsk } from "./hook-interaction";
 
 /** What the desk needs of the session it sits on. */
 export interface DeskSession {
@@ -35,6 +35,7 @@ export interface DeskSession {
 
 interface Pending {
 	readonly interaction: Interaction;
+	readonly decide: HookAsk["decide"];
 	readonly runId: RunId | undefined;
 	/** The terminal writes a tool call to its file a moment after it asks, so this may be found later. */
 	toolCallId: ToolCallId | undefined;
@@ -60,8 +61,9 @@ export class HookDesk {
 		if (signal.aborted || this.shut) return { decision: undefined };
 		const runId = this.session.ensureRun();
 		const toolCallId = this.session.toolMatching(ask.tool_name, ask.tool_input);
-		const interaction = this.interactionFor(ask, runId, toolCallId);
-		if (interaction === undefined) return { decision: undefined };
+		const shown = this.askFor(ask, runId, toolCallId);
+		if (shown === undefined) return { decision: undefined };
+		const { interaction, decide } = shown;
 		return new Promise<HookDecision>((resolve) => {
 			const settle = (decision: HookDecision) => {
 				signal.removeEventListener("abort", onAbort);
@@ -70,6 +72,7 @@ export class HookDesk {
 			const onAbort = () => this.withdraw(interaction.id);
 			this.pending.set(interaction.id, {
 				interaction,
+				decide,
 				runId,
 				toolCallId,
 				toolName: ask.tool_name,
@@ -82,13 +85,13 @@ export class HookDesk {
 	}
 
 	/** The ask as the contract shows it; undefined if it cannot be built, which leaves the terminal to ask. */
-	private interactionFor(
+	private askFor(
 		ask: PermissionRequestHookInput,
 		runId: RunId,
 		toolCallId: ToolCallId | undefined,
-	): Interaction | undefined {
+	): HookAsk | undefined {
 		try {
-			return permissionInteraction(ask, {
+			return permissionAsk(ask, {
 				id: mintInteractionId(),
 				runId,
 				createdAt: this.session.now(),
@@ -104,7 +107,7 @@ export class HookDesk {
 		if (entry === undefined) return rejected("stale", "that ask is no longer open");
 		const problem = answerProblem(entry.interaction, answer);
 		if (problem !== undefined) return rejected("invalid_input", problem);
-		const decision = decisionOf(answer.reply);
+		const decision = entry.decide(answer.reply);
 		if (decision === undefined) return rejected("invalid_input", "that reply does not answer a permission ask");
 		this.pending.delete(answer.interactionId);
 		this.session.emit({

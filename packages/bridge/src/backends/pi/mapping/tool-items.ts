@@ -26,6 +26,7 @@ import type { ImageContent, TextContent, ToolCall, UnsupportedContent } from "..
 import { phoneText } from "../phone-text";
 import type { PiEventOf } from "../rpc/frames";
 import { withoutTerminalEscapes } from "../terminal-text";
+import { hintedDisplay } from "./display-hint";
 
 /** A model can send a call with no name; `ToolStartedEvent.name` and `ToolCallItem.name` need one. */
 const UNNAMED_TOOL = "unnamed";
@@ -111,7 +112,9 @@ export function toolResultOf(
 	isError: boolean,
 	fileChanges: readonly FileChange[],
 	imageRef: (contentIndex: number) => ImageRef | undefined,
+	details?: unknown,
 ): ToolResult {
+	const display = isError ? undefined : hintedDisplay(details);
 	const parts: ToolContent[] = [];
 	const errors: string[] = [];
 	(content ?? []).slice(0, MAX_LIST_ITEMS).forEach((block, index) => {
@@ -129,6 +132,7 @@ export function toolResultOf(
 		content: parts,
 		fileChanges: isError ? [] : fileChanges.slice(0, MAX_LIST_ITEMS),
 		...(errors.length > 0 && { error: clipStart(errors.join("\n"), MAX_TEXT_CHARS) }),
+		...(display !== undefined && { display }),
 	};
 }
 

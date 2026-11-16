@@ -156,6 +156,12 @@ export class FakeRun {
 			case "notice":
 				this.host.emit({ type: "notice", level: step.level, text: step.text });
 				return undefined;
+			case "activity":
+				this.host.emit({ type: "activity", activityId: this.host.newId(), activity: step.activity });
+				return undefined;
+			case "background_tasks":
+				this.host.emit({ type: "background_tasks_changed", tasks: step.tasks });
+				return undefined;
 			case "extension":
 				this.host.emit({ type: "extension", extension: step.extension });
 				return undefined;
@@ -244,6 +250,7 @@ export class FakeRun {
 				content: [{ kind: "text", text: step.output }],
 				fileChanges: step.fileChanges ?? [],
 				...(step.fails && { error: "the tool failed" }),
+				...(step.display !== undefined && { display: step.display }),
 			},
 		});
 	}

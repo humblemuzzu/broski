@@ -18,6 +18,8 @@ nonisolated struct ToolWork: Equatable, Identifiable {
     var outcome: ToolOutcome?
     var error: String?
     var exitCode: Int64?
+    /// What the result shows in place of its text, when its tool has a view of its own.
+    var display: ToolDisplay?
     var images: [ImageRef]
     var isRunning: Bool
 
@@ -54,6 +56,7 @@ nonisolated struct ToolWork: Equatable, Identifiable {
         outcome = result.outcome
         error = result.result.error
         exitCode = result.result.exitCode
+        display = result.result.display
         fileChanges = result.result.fileChanges
         isRunning = false
         for content in result.result.content {

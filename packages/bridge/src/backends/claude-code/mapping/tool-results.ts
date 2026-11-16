@@ -7,6 +7,7 @@ import { MAX_TEXT_CHARS, type ToolContent, type ToolOutcome, type ToolResult } f
 import { clip } from "../bounds";
 import { isRecord } from "../json";
 import { fileChangesOf } from "./file-changes";
+import { toolDisplay } from "./tool-displays";
 import { failureOutcome } from "./tool-outcome";
 import { contentParts, structuredText } from "./tool-text";
 
@@ -47,11 +48,13 @@ export function toolResultOf(
 		structured !== undefined && structured !== "" && !hasImage
 			? contentParts(structured, place.entryUuid, place.blockIndex)
 			: parts;
+	const display = toolName === undefined ? undefined : toolDisplay(toolName, toolUseResult);
 	return {
 		outcome: "completed",
 		result: {
 			content,
 			fileChanges: toolName === undefined ? [] : fileChangesOf(toolName, undefined, toolUseResult),
+			...(display !== undefined && { display }),
 		},
 	};
 }

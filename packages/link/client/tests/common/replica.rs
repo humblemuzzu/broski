@@ -9,7 +9,7 @@ pub struct Replica {
     pub session: Option<SessionRef>,
     pub snapshot: SessionSnapshot,
     pub status: Option<SessionStatus>,
-    /// Notices, errors, extensions and returned input, in order.
+    /// Notices, activities outside a run, errors, extensions and returned input, in order.
     pub moments: Vec<SessionChange>,
     pub ended: Option<ViewEnd>,
     pub resets: usize,
@@ -101,6 +101,7 @@ impl Replica {
                 state.interactions.retain(|ask| ask.id != interaction_id);
             }
             SessionChange::QueueChanged { items } => state.queue = items,
+            SessionChange::BackgroundTasksChanged { tasks } => state.background_tasks = tasks,
             SessionChange::ModelChanged { model_id, thinking } => {
                 state.model_id = model_id;
                 state.thinking = thinking;
@@ -111,6 +112,7 @@ impl Replica {
             SessionChange::RetryChanged { retry } => state.retry = retry,
             SessionChange::OutcomeChanged { outcome } => state.last_outcome = outcome,
             moment @ (SessionChange::NoticeShown { .. }
+            | SessionChange::ActivityShown { .. }
             | SessionChange::ErrorShown { .. }
             | SessionChange::ExtensionReceived { .. }
             | SessionChange::InputReturned { .. }) => self.moments.push(moment),

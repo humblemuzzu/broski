@@ -37,6 +37,7 @@ internal class ToolDraft(val call: ToolCallItem, val live: Boolean) {
             error = result?.error,
             exitCode = result?.exitCode,
             fileChanges = fileChanges,
+            display = result?.display,
             images = result?.content?.filterIsInstance<ToolContent.ImageRef>()?.map(ToolContent.ImageRef::v1).orEmpty<ImageRef>(),
             childSession = childSession,
             nested = call.parentToolCallId != null,

@@ -7,7 +7,7 @@ import type { SessionStatus } from "./sessions";
 import type { RunningTool, SessionSnapshot } from "./snapshot";
 
 export function emptySnapshot(): SessionSnapshot {
-	return { blocks: [], tools: [], interactions: [], queue: [], modes: [] };
+	return { blocks: [], tools: [], interactions: [], queue: [], backgroundTasks: [], modes: [] };
 }
 
 /** What a session is doing, as the snapshot says; never `unknown` for a session open in this bridge. */
@@ -75,6 +75,8 @@ function applyToLiveState(snapshot: SessionSnapshot, record: Pick<SinkRecord, "a
 			};
 		case "queue_changed":
 			return { ...snapshot, queue: event.items };
+		case "background_tasks_changed":
+			return { ...snapshot, backgroundTasks: event.tasks };
 		case "compaction_started":
 			return { ...snapshot, compaction: { trigger: event.trigger, startedAt: at } };
 		case "compaction_finished":
@@ -116,6 +118,7 @@ function applyToLiveState(snapshot: SessionSnapshot, record: Pick<SinkRecord, "a
 		case "user_message":
 		case "input_returned":
 		case "notice":
+		case "activity":
 		case "error":
 		case "extension":
 		case "session_replaced":

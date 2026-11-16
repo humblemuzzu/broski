@@ -32,7 +32,7 @@ async function pages(sessionId: string, limit: number): Promise<TranscriptItem[]
 	return items;
 }
 
-test("turn_duration is a completed run boundary; informational, local_command and away_summary are notices", async () => {
+test("turn_duration is a completed run boundary; local_command is a command activity; informational and away_summary are notices", async () => {
 	const sessionId = crypto.randomUUID();
 	const b = new TranscriptBuilder(sessionId, world.project("system"));
 	b.user("go");
@@ -52,14 +52,17 @@ test("turn_duration is a completed run boundary; informational, local_command an
 		"block",
 		"user_message",
 		"notice",
-		"notice",
+		"activity",
 		"notice",
 		"run_boundary",
 		"block",
 		"user_message",
 	]);
 	expect(items[2]).toMatchObject({ kind: "notice", level: "info", text: "You were building the store." });
-	expect(items[3]).toMatchObject({ kind: "notice", level: "info", text: "## Context\n3k / 1m" });
+	expect(items[3]).toMatchObject({
+		kind: "activity",
+		activity: { kind: "command", body: { format: "text", text: "## Context\n3k / 1m" } },
+	});
 	expect(items[4]).toMatchObject({ kind: "notice", level: "warning", text: "Heads up" });
 	expect(items[5]).toMatchObject({ kind: "run_boundary", id: turn, outcome: { kind: "completed" } });
 	expect((await pages(sessionId, 1)).map((item) => item.id)).toEqual(items.map((item) => item.id));

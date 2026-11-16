@@ -8,10 +8,10 @@
 use std::collections::HashSet;
 
 use broski_contract::{
-    apply_event, ActiveRun, AgentEvent, BackendExtension, BlockId, CompactionState, ErrorEvent,
-    Interaction, InteractionId, ModeSetting, ModelId, NoticeEvent, OpenBlock, QueueItem,
-    RetryState, RunOutcome, RunningTool, SessionSnapshot, Timestamp, ToolCallId, TranscriptItem,
-    Usage,
+    apply_event, ActiveRun, ActivityItem, AgentEvent, BackendExtension, BackgroundTask, BlockId,
+    CompactionState, ErrorEvent, Interaction, InteractionId, ModeSetting, ModelId, NoticeEvent,
+    OpenBlock, QueueItem, RetryState, RunOutcome, RunningTool, SessionSnapshot, Timestamp,
+    ToolCallId, TranscriptItem, Usage,
 };
 
 /// One change to the live state, or one moment the UI shows and the state does not hold. Applied
@@ -73,6 +73,9 @@ pub enum SessionChange {
     QueueChanged {
         items: Vec<QueueItem>,
     },
+    BackgroundTasksChanged {
+        tasks: Vec<BackgroundTask>,
+    },
     ModelChanged {
         model_id: Option<ModelId>,
         thinking: Option<String>,
@@ -94,6 +97,11 @@ pub enum SessionChange {
     },
     NoticeShown {
         notice: NoticeEvent,
+    },
+    /// An activity outside any run, which no run item holds: the UI shows it after the transcript
+    /// until a read of the transcript's newest page brings it in.
+    ActivityShown {
+        item: ActivityItem,
     },
     ErrorShown {
         error: ErrorEvent,
@@ -126,7 +134,7 @@ pub(crate) fn apply(
     at: Timestamp,
     event: AgentEvent,
 ) -> Vec<Delta> {
-    let kind = Kind::of(&event);
+    let kind = Kind::of(&event, at);
     let before = Before::of(snapshot, &kind);
     apply_event(snapshot, at, event);
     kind.deltas(&before, snapshot)
@@ -137,6 +145,7 @@ enum Kind {
     RunStarted,
     RunFinished,
     Item,
+    Activity(ActivityItem),
     BlockStarted,
     BlockDelta(BlockId),
     BlockFinished(BlockId),
@@ -153,7 +162,7 @@ enum Kind {
 }
 
 impl Kind {
-    fn of(event: &AgentEvent) -> Kind {
+    fn of(event: &AgentEvent, at: Timestamp) -> Kind {
         match event {
             AgentEvent::RunStarted(_) => Kind::RunStarted,
             AgentEvent::RunFinished(_) => Kind::RunFinished,
@@ -169,6 +178,12 @@ impl Kind {
                 Kind::InteractionResolved(resolved.interaction_id.clone())
             }
             AgentEvent::QueueChanged(_) => Kind::Field(queue),
+            AgentEvent::BackgroundTasksChanged(_) => Kind::Field(background_tasks),
+            AgentEvent::Activity(activity) => Kind::Activity(ActivityItem {
+                id: activity.activity_id.clone(),
+                at: Some(at),
+                activity: activity.activity.clone(),
+            }),
             AgentEvent::CompactionStarted(_) | AgentEvent::CompactionFinished(_) => {
                 Kind::Field(compaction)
             }
@@ -200,6 +215,10 @@ impl Kind {
             Kind::RunStarted => changes([run(after)]),
             Kind::RunFinished => changes([run(after), retry(after), outcome(after)]),
             Kind::Item => changes(items(None)),
+            Kind::Activity(item) => match after.run {
+                Some(_) => changes(items(None)),
+                None => changes([SessionChange::ActivityShown { item }]),
+            },
             Kind::BlockStarted => {
                 changes(after.blocks.last().map(|block| SessionChange::BlockOpened {
                     block: block.clone(),
@@ -306,6 +325,12 @@ fn outcome(after: &SessionSnapshot) -> SessionChange {
 fn queue(after: &SessionSnapshot) -> SessionChange {
     SessionChange::QueueChanged {
         items: after.queue.clone(),
+    }
+}
+
+fn background_tasks(after: &SessionSnapshot) -> SessionChange {
+    SessionChange::BackgroundTasksChanged {
+        tasks: after.background_tasks.clone(),
     }
 }
 

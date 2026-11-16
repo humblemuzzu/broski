@@ -3,8 +3,9 @@
 use std::collections::HashSet;
 
 use crate::{
-    ActiveRun, AgentEvent, BlockItem, JsonValue, MessageId, SessionRef, SessionSnapshot, Timestamp,
-    ToolCallId, ToolCallItem, ToolResultItem, TranscriptItem, UserMessageItem, MAX_LIST_ITEMS,
+    ActiveRun, ActivityItem, AgentEvent, BlockItem, JsonValue, MessageId, SessionRef,
+    SessionSnapshot, Timestamp, ToolCallId, ToolCallItem, ToolResultItem, TranscriptItem,
+    UserMessageItem, MAX_LIST_ITEMS,
 };
 
 /// What an event does to the active run's items, read from the live state before the event: the
@@ -74,7 +75,7 @@ impl RunChange {
 }
 
 /// The item `event` finishes, in the live stream's ids: a user message, a finished block, a started
-/// tool call, a tool result.
+/// tool call, a tool result, an activity.
 fn finished_item(
     before: &SessionSnapshot,
     at: Timestamp,
@@ -119,6 +120,11 @@ fn finished_item(
             tool_call_id: finished.tool_call_id.clone(),
             outcome: finished.outcome,
             result: finished.result.clone(),
+        })),
+        AgentEvent::Activity(activity) => Some(TranscriptItem::Activity(ActivityItem {
+            id: activity.activity_id.clone(),
+            at: Some(at),
+            activity: activity.activity.clone(),
         })),
         _ => None,
     }

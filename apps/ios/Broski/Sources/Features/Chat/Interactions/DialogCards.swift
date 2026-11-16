@@ -116,16 +116,19 @@ struct DialogCard: View {
                     .buttonStyle(.glass)
                 }
             }
-        case .confirm:
-            HStack(spacing: Spacing.s) {
-                Button { send(.confirm(ConfirmReply(confirmed: false))) } label: {
-                    Text("No").font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity)
+        case .confirm(let ask):
+            VStack(spacing: Spacing.s) {
+                if let url = ask.url.flatMap(URL.init(string:)) { LinkButton(url: url) }
+                HStack(spacing: Spacing.s) {
+                    Button { send(.confirm(ConfirmReply(confirmed: false))) } label: {
+                        Text(ask.url == nil ? "No" : "Decline").font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.glass)
+                    Button { send(.confirm(ConfirmReply(confirmed: true))) } label: {
+                        Text(ask.url == nil ? "Yes" : "Done").font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.glassProminent)
                 }
-                .buttonStyle(.glass)
-                Button { send(.confirm(ConfirmReply(confirmed: true))) } label: {
-                    Text("Yes").font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.glassProminent)
             }
         case .text(let ask):
             VStack(spacing: Spacing.s) {
@@ -140,5 +143,21 @@ struct DialogCard: View {
         default:
             EmptyView()
         }
+    }
+}
+
+/// The page to visit before answering, by its host, so the person sees where it goes before it opens.
+private struct LinkButton: View {
+    let url: URL
+    @Environment(\.openURL) private var openURL
+
+    var body: some View {
+        Button { openURL(url) } label: {
+            Label("Open \(url.host() ?? url.absoluteString)", systemImage: "arrow.up.right.square")
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(1)
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.glass)
     }
 }

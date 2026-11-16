@@ -50,7 +50,9 @@ describe("a Write permission through the real CLI", () => {
 				expect(interaction.request).toMatchObject({
 					kind: "tool_permission",
 					deliberate: false,
-					previews: [{ kind: "paths", paths: [expect.stringContaining("notes.txt")] }],
+					previews: [
+						{ kind: "file_changes", changes: [{ path: expect.stringContaining("notes.txt"), change: "added" }] },
+					],
 				});
 				if (interaction.request.kind !== "tool_permission") throw new Error("not a permission");
 				expect(interaction.request.options.map((option) => option.id)).toEqual([

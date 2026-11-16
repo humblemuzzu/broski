@@ -33,10 +33,6 @@ export function notificationNotice(frame: System<"notification">): MappedEvent[]
 	return notice(notificationLevel(frame.priority), frame.text);
 }
 
-export function localCommandNotice(frame: System<"local_command_output">): MappedEvent[] {
-	return notice("info", frame.content);
-}
-
 /** A refusal retried on another model; the CLI's own sentence says which. The retraction is `retraction.ts`'s. */
 export function refusalFallbackNotice(frame: System<"model_refusal_fallback">): MappedEvent[] {
 	const fallback = `${frame.original_model} refused the request; continuing with ${frame.fallback_model}`;

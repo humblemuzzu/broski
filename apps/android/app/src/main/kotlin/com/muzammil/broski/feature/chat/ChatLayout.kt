@@ -37,6 +37,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.muzammil.broski.app.FeatureContext
+import com.muzammil.broski.app.FileRoute
 import com.muzammil.broski.app.FilesRoute
 import com.muzammil.broski.app.SessionRoute
 import com.muzammil.broski.core.isOnline
@@ -69,6 +70,7 @@ fun ChatLayout(model: ChatViewModel, context: FeatureContext, snackbar: Snackbar
     val live by model.live.collectAsStateWithLifecycle()
     val header by model.header.collectAsStateWithLifecycle()
     val revealed by model.revealed.collectAsStateWithLifecycle()
+    val history by model.feed.history.collectAsStateWithLifecycle()
     val images by model.images.images.collectAsStateWithLifecycle()
     val transcript = rememberTranscriptState(rememberLazyListState())
     var topHeight by remember { mutableIntStateOf(0) }
@@ -79,7 +81,12 @@ fun ChatLayout(model: ChatViewModel, context: FeatureContext, snackbar: Snackbar
         TranscriptCallbacks(
             requestImage = model.images::request,
             loadOlder = model.feed::loadOlder,
-            work = WorkActions(dialogs.openDiff) { session -> context.navigate(SessionRoute.of(model.machineId, session)) },
+            work = WorkActions(
+                openDiff = dialogs.openDiff,
+                openSession = { session -> context.navigate(SessionRoute.of(model.machineId, session)) },
+                openText = dialogs.openText,
+                openFile = { path -> context.navigate(FileRoute(model.machineId, path)) },
+            ),
         )
     }
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
@@ -92,7 +99,7 @@ fun ChatLayout(model: ChatViewModel, context: FeatureContext, snackbar: Snackbar
             contentPadding = with(density) { PaddingValues(top = topHeight.toDp() + 8.dp, bottom = bottomHeight.toDp() + 8.dp) },
             modifier = Modifier.alpha(shown * if (online) 1f else OFFLINE_ALPHA),
         )
-        if (!revealed) LoadingIndicator(Modifier.align(Alignment.Center).size(48.dp))
+        if (!revealed || !history.loaded) LoadingIndicator(Modifier.align(Alignment.Center).size(48.dp))
         Header(model, context, dialogs, transcript.scrolledUnderTop, Modifier.align(Alignment.TopCenter).onSizeChanged { topHeight = it.height })
         ChatBottom(model, dialogs.openDiff, Modifier.align(Alignment.BottomCenter).onSizeChanged { bottomHeight = it.height })
         val bottom = with(density) { bottomHeight.toDp() }

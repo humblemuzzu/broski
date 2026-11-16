@@ -169,7 +169,8 @@ export class SessionHost {
 			snapshot.interactions.length === 0 &&
 			snapshot.queue.length === 0 &&
 			snapshot.compaction === undefined &&
-			snapshot.retry === undefined
+			snapshot.retry === undefined &&
+			snapshot.backgroundTasks.length === 0
 		);
 	}
 
@@ -244,7 +245,7 @@ export class SessionHost {
 	}
 
 	private dialog(request: UiRequest): void {
-		if (this.started || request.method === "notify") {
+		if (this.started || request.method === "notify" || request.method === "setStatus") {
 			void handleUiRequest(request, this.dialogHost());
 			return;
 		}
@@ -327,7 +328,7 @@ export class SessionHost {
 		});
 	}
 
-	/** `pi` exited: when nobody asked it to, what it ran ends with it, and so does the host. */
+	/** `pi` exited: when nobody asked it to, what it ran ends with it, and so does the host. Its tasks went with it. */
 	private exited(exit: PiExit, stderr: string): void {
 		const asked = this.finished;
 		this.finished = true;
@@ -337,6 +338,8 @@ export class SessionHost {
 		this.events.abandonRun(
 			asked ? { kind: "aborted" } : { kind: "error", error: { code: "backend_unavailable", message } },
 		);
+		if (this.live.snapshot().backgroundTasks.length > 0)
+			this.live.emit({ type: "background_tasks_changed", tasks: [] });
 		this.prompts.close();
 		this.interactions.expireAll();
 		if (asked) return;

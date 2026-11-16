@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
+import com.muzammil.broski.feature.chat.activity.ActivityRow
 import com.muzammil.broski.feature.chat.work.WorkActions
 import com.muzammil.broski.feature.chat.work.WorkFoldRow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -79,6 +80,14 @@ private fun Row(row: ChatRow, images: Map<String, ImageBitmap>, state: Transcrip
             modifier = padded.padding(top = 8.dp),
         )
         is ChatRow.Note -> NoteRow(row.note, padded.padding(vertical = 12.dp))
+        is ChatRow.Activity -> ActivityRow(
+            activity = row.activity,
+            look = row.look,
+            expanded = row.key in state.openEntries,
+            onToggle = { state.openEntries.toggle(row.key) },
+            actions = callbacks.work,
+            modifier = padded.padding(top = 6.dp),
+        )
         is ChatRow.Older -> OlderRow()
     }
 }

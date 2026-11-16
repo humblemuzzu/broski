@@ -1,9 +1,11 @@
+import type { Activity, BackgroundTask } from "../activity";
 import type { FileChange } from "../content";
 import type { BackendExtension } from "../extensions";
 import type { InteractionRequest } from "../interactions";
 import type { JsonValue } from "../json";
 import type { NoticeLevel } from "../notice";
 import type { ErrorInfo, RunLimit } from "../runs";
+import type { ToolDisplay } from "../tools";
 import type { Usage } from "../usage";
 
 export interface FakeToolStep {
@@ -17,6 +19,8 @@ export interface FakeToolStep {
 	permission?: boolean;
 	fails?: boolean;
 	fileChanges?: FileChange[];
+	/** What the result shows in place of its text. */
+	display?: ToolDisplay;
 	nested?: FakeToolStep[];
 	/** The tool runs a subagent in a child session. */
 	child?: boolean;
@@ -47,6 +51,9 @@ export type FakeSignalStep =
 	| { kind: "return_input"; texts: string[] }
 	| { kind: "usage"; usage: Usage }
 	| { kind: "notice"; level: NoticeLevel; text: string }
+	| { kind: "activity"; activity: Activity }
+	/** The tasks running in the background from now on. */
+	| { kind: "background_tasks"; tasks: BackgroundTask[] }
 	| { kind: "extension"; extension: BackendExtension }
 	| { kind: "backend_error"; error: ErrorInfo; retryable: boolean }
 	/** The backend starts a new conversation in the live session, under a new id. */

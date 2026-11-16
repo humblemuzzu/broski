@@ -270,7 +270,7 @@ describe("LineTranslator", () => {
 		legal(events);
 	});
 
-	test("a slash command the CLI runs itself is a turn its output ends, in the order the file has it; a mid-turn compaction is no turn", () => {
+	test("a slash command the CLI runs itself is a turn its output reports and ends, in the order the file has it; a mid-turn compaction is no turn", () => {
 		const manual = run([
 			system("compact_boundary", { compactMetadata: { trigger: "manual", preTokens: 5 } }),
 			prompt("This session is being continued from a previous conversation", undefined, { isCompactSummary: true }),
@@ -283,10 +283,13 @@ describe("LineTranslator", () => {
 			"compaction_finished",
 			"run_started",
 			"user_message",
+			"activity",
 			"run_finished",
 		]);
 		legal(manual.events);
-		expect(run([prompt("<local-command-stdout>nothing running</local-command-stdout>")]).events).toEqual([]);
+		expect(run([prompt("<local-command-stdout>nothing running</local-command-stdout>")]).events).toMatchObject([
+			{ type: "activity", activity: { kind: "command", body: { text: "nothing running" } } },
+		]);
 		const auto = run([
 			prompt("go"),
 			system("compact_boundary", { compactMetadata: { trigger: "auto", preTokens: 5 } }),

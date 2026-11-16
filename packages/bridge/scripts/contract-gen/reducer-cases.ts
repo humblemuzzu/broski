@@ -35,6 +35,7 @@ export function reducerCases(): ReducerCase[] {
 		textCapCase(),
 		surrogateEdgeCase(),
 		settingsCase(),
+		activityCase(),
 		resyncCase(),
 	];
 }
@@ -248,6 +249,39 @@ function settingsCase(): ReducerCase {
 			{ type: "usage_updated", usage: {} },
 			{ type: "retry_scheduled", attempt: 2, maxAttempts: 3, retryAt: 500, message: "busy" },
 			{ type: "retry_finished", succeeded: false },
+		],
+	};
+}
+
+function activityCase(): ReducerCase {
+	const child = { backend: "pi" as const, sessionId: "child" };
+	return {
+		name: "an activity is a run item only inside a run; background tasks are replaced whole",
+		initial: emptySnapshot(),
+		events: [
+			{ type: "activity", activityId: "a0", activity: { kind: "message", title: "Idle note" } },
+			{
+				type: "background_tasks_changed",
+				tasks: [
+					{ id: "job-1", kind: "task", title: "bun test", command: "bun test", startedAt: 3 },
+					{ id: "agent-1", kind: "agent", title: "Review", childSession: child },
+				],
+			},
+			run("r1"),
+			{
+				type: "activity",
+				activityId: "a1",
+				activity: {
+					kind: "agent",
+					title: "Review finished",
+					status: "completed",
+					durationMs: 0,
+					body: { format: "markdown", text: "**Done.**" },
+					childSession: child,
+				},
+			},
+			{ type: "background_tasks_changed", tasks: [] },
+			{ type: "run_finished", runId: "r1", outcome: { kind: "completed" } },
 		],
 	};
 }
