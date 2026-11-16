@@ -5,12 +5,14 @@
  */
 
 import { afterEach, describe, expect, test } from "bun:test";
-import { chmodSync, existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createServer } from "node:net";
 import { join } from "node:path";
 import { Holder } from "../../backends/pi/holder/holder";
 import { HolderLink } from "../../backends/pi/holder/link";
 import { ORPHAN_LIMITS } from "../../backends/pi/holder/orphan-policy";
-import { HOLDER_SUBCOMMAND, metaOf } from "../../backends/pi/holder/protocol";
+import { HOLDER_SUBCOMMAND, metaOf, socketOf } from "../../backends/pi/holder/protocol";
+import { attachHolder } from "../../backends/pi/live/host-starts";
 import type { TransportItem } from "../../backends/pi/rpc/transport";
 import { eventually, FakeClock, type HolderWorld, holderWorld, isAlive, RawClient } from "./helpers/holder-rig";
 import { HOLDER_COMMAND } from "./helpers/pi-world";
@@ -77,7 +79,7 @@ describe("a bridge that attaches", () => {
 	test("replaces the one before it, which is told so and is detached, not ended", async () => {
 		const { world } = await started();
 		const attached = await HolderLink.connect(world.dir);
-		if (attached === undefined) throw new Error("no holder answered");
+		if (typeof attached === "string") throw new Error(`no holder answered: ${attached}`);
 		const items: TransportItem[] = [];
 		attached.link.start((item) => items.push(item));
 		const second = await attach(world.dir);
@@ -256,5 +258,29 @@ describe("unattached, the holder keeps pi", () => {
 		const { clock, world } = await orphaned([]);
 		await attach(world.dir);
 		expect(await stoppedAfter(clock, world, ORPHAN_LIMITS.askingMs * 2)).toBe(false);
+	});
+});
+
+describe("a holder that does not greet", () => {
+	test("keeps its directory and refuses the session, so no second pi is started on its file", async () => {
+		world = holderWorld();
+		mkdirSync(world.dir, { recursive: true });
+		const mute = createServer(() => undefined);
+		await new Promise<void>((resolve) => mute.listen(socketOf(world?.dir ?? ""), resolve));
+		try {
+			const attached = await attachHolder({ root: world.holders, command: HOLDER_COMMAND }, world.sessionId);
+			expect(attached !== undefined && "status" in attached && attached.rejection.code).toBe("busy");
+			expect(existsSync(world.dir)).toBe(true);
+		} finally {
+			mute.close();
+		}
+	});
+
+	test("a directory nothing listens in is left over and goes", async () => {
+		world = holderWorld();
+		mkdirSync(world.dir, { recursive: true });
+		writeFileSync(socketOf(world.dir), "");
+		expect(await attachHolder({ root: world.holders, command: HOLDER_COMMAND }, world.sessionId)).toBeUndefined();
+		expect(existsSync(world.dir)).toBe(false);
 	});
 });

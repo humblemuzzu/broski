@@ -28,6 +28,12 @@ const HOLDER_ENV = ["PATH", "HOME", "TMPDIR", "LANG"];
 
 type Held = TransportItem | { readonly kind: "end" };
 
+/**
+ * What a connect found: a holder that greeted, `absent` when nothing listens on the socket (a holder that is gone), or
+ * `silent` when something accepted the connection but sent no hello in time, which may be a live holder under load.
+ */
+export type Reached = { readonly link: HolderLink; readonly hello: HelloFrame } | "absent" | "silent";
+
 export class HolderLink implements PiTransport {
 	readonly ended: Promise<PiEnd>;
 	private readonly end = Promise.withResolvers<PiEnd>();
@@ -38,6 +44,7 @@ export class HolderLink implements PiTransport {
 	private finished: PiEnd | undefined;
 	private starting = false;
 	private stopping = false;
+	private connected = false;
 
 	private constructor(private readonly socket: Socket) {
 		this.ended = this.end.promise;
@@ -45,19 +52,22 @@ export class HolderLink implements PiTransport {
 			for (const item of this.splitter.push(chunk)) this.item(item);
 		});
 		socket.on("error", () => undefined);
+		socket.once("connect", () => {
+			this.connected = true;
+		});
 		socket.on("close", () => {
 			this.hello.resolve(undefined);
 			this.finish({ kind: "detached", replaced: false });
 		});
 	}
 
-	/** The holder in `dir`, attached; undefined when nothing answers there. */
-	static async connect(dir: string): Promise<{ link: HolderLink; hello: HelloFrame } | undefined> {
+	static async connect(dir: string): Promise<Reached> {
 		const link = new HolderLink(createConnection(socketOf(dir)));
 		const timer = setTimeout(() => link.socket.destroy(), HELLO_DEADLINE_MS);
 		const hello = await link.hello.promise;
 		clearTimeout(timer);
-		return hello === undefined ? undefined : { link, hello };
+		if (hello !== undefined) return { link, hello };
+		return link.connected ? "silent" : "absent";
 	}
 
 	/** Starts a holder for `spec` and attaches to it; a string says why it could not. */
@@ -85,8 +95,8 @@ export class HolderLink implements PiTransport {
 		child.unref();
 		const until = Date.now() + LAUNCH_DEADLINE_MS;
 		while (failed === undefined && Date.now() < until) {
-			const attached = existsSync(socketOf(dir)) ? await HolderLink.connect(dir) : undefined;
-			if (attached !== undefined) return attached;
+			const attached = existsSync(socketOf(dir)) ? await HolderLink.connect(dir) : "absent";
+			if (typeof attached !== "string") return attached;
 			await new Promise((resolve) => setTimeout(resolve, 20));
 		}
 		if (failed === undefined) child.kill("SIGTERM");

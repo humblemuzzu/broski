@@ -22,7 +22,9 @@ afterEach(async () => {
 });
 
 describe("an abort while a prompt is being decided", () => {
-	test("in an input handler: the run the prompt then starts ends aborted, before its model is asked", async () => {
+	// The abort can only reach Pi once it answers `started`, and through the session's holder its model request may
+	// already be out by then, as in the before_agent_start case below: at most that one request, and no tool runs.
+	test("in an input handler: the run the prompt then starts ends aborted, and none of its tools run", async () => {
 		t = await HostRig.create();
 		const gate = t.gate("inputGate");
 		const live = await t.rig.rig.openNew();
@@ -37,7 +39,8 @@ describe("an abort while a prompt is being decided", () => {
 		const finished = await live.waitFor("run_finished");
 		expect(finished.outcome.kind).toBe("aborted");
 		expect((await aborting).status).toBe("accepted");
-		expect(t.router.requests(live.ref.sessionId)).toHaveLength(0);
+		expect(t.router.requests(live.ref.sessionId).length).toBeLessThanOrEqual(1);
+		expect(live.events().some((event) => event.type === "tool_finished" && event.outcome === "completed")).toBe(false);
 		live.assertSettled();
 	});
 

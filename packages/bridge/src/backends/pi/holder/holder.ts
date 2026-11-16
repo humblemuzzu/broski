@@ -90,10 +90,6 @@ export class Holder {
 		return this.finished.promise;
 	}
 
-	get piPid(): number | undefined {
-		return this.pi?.pid;
-	}
-
 	/** Listens first, so a bridge can reach the holder whatever `pi` does; then writes `holder.json`, then starts `pi`. */
 	async start(): Promise<void> {
 		const { dir, spec } = this.options;

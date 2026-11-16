@@ -206,8 +206,8 @@ async function printUpdateState(): Promise<void> {
 
 /** The hosted Pi sessions outlive the bridge in their holders (`backends/pi/holder/`): stopping Broski stops them too. */
 async function stopPiSessions(): Promise<void> {
-	await stopHolders(defaultHoldersRoot());
-	console.log("  Stopped the Pi sessions the bridge was running");
+	const stopped = await stopHolders(defaultHoldersRoot());
+	if (stopped > 0) console.log(`  Stopped ${stopped} Pi session${stopped === 1 ? "" : "s"} the bridge was running`);
 }
 
 export async function runStop(): Promise<void> {

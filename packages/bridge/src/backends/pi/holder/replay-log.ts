@@ -95,10 +95,6 @@ export class ReplayLog {
 		return { running: this.agentActive || this.compacting || this.retrying, asking };
 	}
 
-	get size(): number {
-		return this.bytes;
-	}
-
 	private follow(type: unknown): void {
 		if (type === "agent_start") this.agentActive = true;
 		else if (type === "agent_settled") this.agentActive = false;

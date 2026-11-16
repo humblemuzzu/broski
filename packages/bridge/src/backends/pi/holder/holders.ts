@@ -64,12 +64,16 @@ export function removeStale(dir: string): void {
 }
 
 /** Asks every holder under `root` to stop its `pi`, whatever version it is, and waits until each has. */
-export async function stopHolders(root: string): Promise<void> {
-	await Promise.all(
+/** How many holders were running and were stopped. */
+export async function stopHolders(root: string): Promise<number> {
+	const stopped = await Promise.all(
 		holderDirs(root).map(async (dir) => {
 			const attached = await HolderLink.connect(dir);
-			if (attached === undefined) removeStale(dir);
-			else await attached.link.stop();
+			if (attached === "absent") removeStale(dir);
+			if (typeof attached === "string") return false;
+			await attached.link.stop();
+			return true;
 		}),
 	);
+	return stopped.filter(Boolean).length;
 }

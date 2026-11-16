@@ -61,17 +61,22 @@ export async function launchedStart(
 }
 
 /**
- * The holder of `sessionId`, attached; undefined when none runs. A directory nothing answers in is left over and goes;
- * a holder of another version or session is asked to stop, since this bridge cannot take it over.
+ * The holder of `sessionId`, attached; undefined when none runs. A directory nothing listens in is left over and goes;
+ * a holder that accepts but does not greet may still run `pi` on the file, so the session is refused rather than
+ * started a second time; a holder of another version or session is asked to stop, since this bridge cannot take it over.
  */
-export async function attachHolder(holders: HolderSetup, sessionId: SessionId): Promise<Attached | undefined> {
+export async function attachHolder(
+	holders: HolderSetup,
+	sessionId: SessionId,
+): Promise<Attached | Rejected | undefined> {
 	const dir = holderDirOf(holders.root, sessionId);
 	if (!existsSync(dir)) return undefined;
 	const attached = await HolderLink.connect(dir);
-	if (attached === undefined) {
+	if (attached === "absent") {
 		removeStale(dir);
 		return undefined;
 	}
+	if (attached === "silent") return rejected("busy", "the session's Pi is running but not answering yet; try again");
 	if (attached.hello.version === HOLDER_VERSION && attached.hello.sessionId === sessionId) return attached;
 	await attached.link.stop();
 	return undefined;

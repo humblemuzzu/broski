@@ -304,8 +304,8 @@ export class SessionHosts implements LiveOverlay {
 				return this.adoptAgain(meta.sessionId);
 			}
 			const attached = await HolderLink.connect(dir);
-			if (attached === undefined) removeStale(dir);
-			else await attached.link.stop();
+			if (attached === "absent") removeStale(dir);
+			else if (typeof attached !== "string") await attached.link.stop();
 		});
 		await Promise.all(adoptions.map((adoption) => adoption.catch(() => undefined)));
 	}
@@ -327,7 +327,7 @@ export class SessionHosts implements LiveOverlay {
 		const existing = this.hosts.get(sessionId);
 		if (existing !== undefined && !existing.ended) return existing;
 		const attached = await attachHolder(this.deps.holders, sessionId);
-		if (attached === undefined) return undefined;
+		if (attached === undefined || "status" in attached) return attached;
 		const start = this.disposing ? CLOSED : await adoptedStart(this.deps, sessionId, attached);
 		if ("status" in start) {
 			attached.link.detach();
