@@ -2,8 +2,9 @@ import PhotosUI
 import SwiftUI
 import UIKit
 
-/// The composer's `+`: photo library, camera (on a device that has one) and paste. Each image is
-/// fitted into what is left of the prompt's 4 MiB off the main actor; one that cannot fit is said so.
+/// The composer's `+`: photo library, camera (on a device that has one) and paste. Paste is always
+/// offered and reads the clipboard when tapped: a menu built earlier cannot know what was copied
+/// since.
 struct AttachmentMenu: View {
     @Binding var draft: ComposerDraft
     let refuse: (String) -> Void
@@ -17,9 +18,11 @@ struct AttachmentMenu: View {
             if UIImagePickerController.isSourceTypeAvailable(.camera) {
                 Button("Camera", systemImage: "camera") { shooting = true }
             }
-            if UIPasteboard.general.hasImages {
-                Button("Paste Image", systemImage: "doc.on.clipboard") {
-                    add(UIPasteboard.general.images ?? [])
+            Button("Paste Image", systemImage: "doc.on.clipboard") {
+                if let images = UIPasteboard.general.images, !images.isEmpty {
+                    add(images)
+                } else {
+                    refuse("There's no image on the clipboard. Copy one, then paste it.")
                 }
             }
         } label: {
@@ -52,15 +55,21 @@ struct AttachmentMenu: View {
     }
 
     private func add(_ images: [UIImage]) {
-        Task {
-            for image in images {
-                let left = ImageFitter.promptBudget - draft.imageCost
-                let fitted = await Task.detached(priority: .userInitiated) { ImageFitter.fit(image, within: left) }.value
-                if let fitted {
-                    draft.images.append(fitted)
-                } else {
-                    refuse("That image doesn't fit in one message. Send it on its own, or send fewer images.")
-                }
+        attach(images, to: $draft, refuse: refuse)
+    }
+}
+
+/// Adds `images` to the draft, each fitted into what is left of the prompt's 4 MiB off the main
+/// actor; one that cannot fit is said so.
+func attach(_ images: [UIImage], to draft: Binding<ComposerDraft>, refuse: @escaping (String) -> Void) {
+    Task {
+        for image in images {
+            let left = ImageFitter.promptBudget - draft.wrappedValue.imageCost
+            let fitted = await Task.detached(priority: .userInitiated) { ImageFitter.fit(image, within: left) }.value
+            if let fitted {
+                draft.wrappedValue.images.append(fitted)
+            } else {
+                refuse("That image doesn't fit in one message. Send it on its own, or send fewer images.")
             }
         }
     }

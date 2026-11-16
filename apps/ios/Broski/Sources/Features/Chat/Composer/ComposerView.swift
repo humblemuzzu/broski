@@ -1,9 +1,9 @@
 import BroskiCore
 import SwiftUI
 
-/// The composer: one Liquid Glass surface holding the field (one line, growing to six), the slash
-/// commands above it while the text starts with `/`, the attached images, and under the field `+`,
-/// the chips and the one send button.
+/// The composer: one Liquid Glass surface holding the field (one line, growing to six; Paste takes
+/// images), the slash commands above it while the text starts with `/`, the attached images, and
+/// under the field `+`, the chips and the one send button.
 struct ComposerView: View {
     @Binding var draft: ComposerDraft
     let agent: String
@@ -16,7 +16,7 @@ struct ComposerView: View {
     let choose: (ComposerChoice) -> Void
     let perform: (SendAction) -> Void
     let refuse: (String) -> Void
-    var focus: FocusState<Bool>.Binding
+    @Binding var focus: Bool
 
     private var placeholder: String {
         if action != .send { return "Message to queue…" }
@@ -39,13 +39,11 @@ struct ComposerView: View {
             if let command = draft.command {
                 CommandToken(command: command) { draft.command = nil }
             }
-            TextField(placeholder, text: $draft.text, axis: .vertical)
-                .lineLimit(1...6)
-                .focused(focus)
-                .font(.body)
-                .padding(.horizontal, Spacing.xs)
-                .accessibilityLabel("Message")
-                .accessibilityIdentifier("composer")
+            ComposerTextView(
+                placeholder: placeholder, text: $draft.text, isFocused: $focus, maxLines: 6,
+                pasteImages: acceptsImages ? { attach($0, to: $draft, refuse: refuse) } : nil
+            )
+            .padding(.horizontal, Spacing.xs)
             HStack(spacing: Spacing.s) {
                 if acceptsImages {
                     AttachmentMenu(draft: $draft, refuse: refuse)

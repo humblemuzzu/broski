@@ -10,7 +10,7 @@ struct ChatBottomBar: View {
     let capabilities: Capabilities?
     let isReady: Bool
     @Binding var position: ScrollPosition
-    var composing: FocusState<Bool>.Binding
+    @Binding var composing: Bool
     @State private var jumps = 0
     @Namespace private var glass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -49,7 +49,7 @@ struct ChatBottomBar: View {
             acceptsImages: capabilities?.attachments.contains(.image) ?? false,
             isEnabled: isReady, catalog: catalog,
             choices: ComposerChoices(chat.snapshot), choose: choose, perform: perform,
-            refuse: { chat.report(ChatProblem(message: $0)) }, focus: composing)
+            refuse: { chat.report(ChatProblem(message: $0)) }, focus: $composing)
     }
 
     private func perform(_ action: SendAction) {
@@ -57,7 +57,7 @@ struct ChatBottomBar: View {
             Task { await chat.stop() }
             return
         }
-        composing.wrappedValue = false
+        composing = false
         Task { await chat.send(action) }
     }
 

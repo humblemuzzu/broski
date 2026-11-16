@@ -25,7 +25,7 @@ private struct ChatContent: View {
     @State private var disclosure = Disclosure()
     @State private var position = ScrollPosition(idType: String.self, edge: .bottom)
     @State private var dialog: ChatDialog?
-    @FocusState private var composing: Bool
+    @State private var composing = false
     @Environment(AppModel.self) private var app
 
     /// SwiftUI keeps the model of the first init for the screen's life, which is the one handed the

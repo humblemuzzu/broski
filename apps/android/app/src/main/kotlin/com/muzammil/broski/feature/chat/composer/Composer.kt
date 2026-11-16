@@ -10,7 +10,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.content.MediaType
+import androidx.compose.foundation.content.consume
+import androidx.compose.foundation.content.contentReceiver
+import androidx.compose.foundation.content.hasMediaType
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -90,7 +95,10 @@ fun Composer(
                 lineLimits = TextFieldLineLimits.MultiLine(minHeightInLines = 1, maxHeightInLines = 6),
                 textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp).then(focus?.let { Modifier.focusRequester(it) } ?: Modifier),
+                modifier = Modifier.fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 8.dp)
+                    .then(focus?.let { Modifier.focusRequester(it) } ?: Modifier)
+                    .then(if (look.images) Modifier.pastedImages(actions.onImage) else Modifier),
                 decorator = { field ->
                     Box {
                         if (state.input.text.isEmpty()) {
@@ -115,6 +123,16 @@ fun Composer(
                 SendButtonView(look.button, actions.onPress)
             }
         }
+    }
+}
+
+/** An image pasted into the field, or sent from the keyboard, joins the waiting images; text is left to the field. */
+@OptIn(ExperimentalFoundationApi::class)
+private fun Modifier.pastedImages(onImage: (Uri) -> Unit): Modifier = contentReceiver { content ->
+    if (!content.hasMediaType(MediaType.Image)) {
+        content
+    } else {
+        content.consume { item -> item.uri?.let(onImage) != null }
     }
 }
 

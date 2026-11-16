@@ -10,7 +10,7 @@ struct NewSessionSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var model = NewSessionModel()
     @State private var browsing = false
-    @FocusState private var composing: Bool
+    @State private var composing = false
 
     private var machine: MachineModel? { model.machineId.flatMap(app.machine(id:)) ?? app.machines.first }
 
