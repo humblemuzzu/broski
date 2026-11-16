@@ -99,6 +99,10 @@ private fun Subtitle(header: ChatHeader, runStartedAt: Long?) {
         Text(health.label(header.machineName), style = style, color = MaterialTheme.colorScheme.error, maxLines = 1, overflow = TextOverflow.Ellipsis)
         return
     }
+    if (header.reconnecting) {
+        Text(stringResource(R.string.chat_reconnecting), style = style, color = MaterialTheme.colorScheme.error, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        return
+    }
     val parts = listOfNotNull(stringResource(header.backend.displayName), header.folder, header.machineName.takeIf { it.isNotEmpty() })
     val elapsed = runStartedAt?.let { elapsedSince(it) }
     val working = BroskiTheme.semantic.working

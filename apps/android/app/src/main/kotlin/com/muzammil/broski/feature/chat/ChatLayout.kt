@@ -80,7 +80,7 @@ fun ChatLayout(model: ChatViewModel, context: FeatureContext, snackbar: Snackbar
     val transcript = rememberTranscriptState(rememberLazyListState())
     var topHeight by remember { mutableIntStateOf(0) }
     var bottomHeight by remember { mutableIntStateOf(0) }
-    val online = header.health?.isOnline != false
+    val online = header.online
     val shown by animateFloatAsState(if (revealed) 1f else 0f, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "reveal")
     val callbacks = remember(model) {
         TranscriptCallbacks(
@@ -105,7 +105,7 @@ fun ChatLayout(model: ChatViewModel, context: FeatureContext, snackbar: Snackbar
             modifier = Modifier.alpha(shown * if (online) 1f else OFFLINE_ALPHA),
         )
         if (!revealed || !history.loaded) {
-            val connection = header.health?.takeUnless { online }?.label(header.machineName)
+            val connection = header.health?.takeUnless { it.isOnline }?.label(header.machineName)
             Loading(connection, Modifier.align(Alignment.Center).padding(horizontal = 32.dp))
         }
         Header(model, context, dialogs, transcript.scrolledUnderTop, Modifier.align(Alignment.TopCenter).onSizeChanged { topHeight = it.height })

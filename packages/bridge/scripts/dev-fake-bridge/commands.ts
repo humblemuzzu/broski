@@ -2,6 +2,10 @@ import { z } from "zod";
 import { SessionRef } from "../../src/contract";
 import { FAKE_SCENARIOS } from "./scenarios";
 
+/** The backend methods a test can make fail: `open` (an attach answered `internal`) and `list` (a session list page). */
+export const FAKE_FAULTS = ["open", "list"] as const;
+export type FakeFault = (typeof FAKE_FAULTS)[number];
+
 const id = z.int().nonnegative();
 
 /** One line of the fake bridge's stdin; anything else is answered with an error. */
@@ -10,7 +14,8 @@ export const FakeCommand = z.discriminatedUnion("cmd", [
 	z.strictObject({ id, cmd: z.literal("script"), session: SessionRef, scenario: z.enum(FAKE_SCENARIOS) }),
 	z.strictObject({ id, cmd: z.literal("release"), session: SessionRef }),
 	z.strictObject({ id, cmd: z.literal("run"), session: SessionRef, scenario: z.enum(FAKE_SCENARIOS) }),
-	z.strictObject({ id, cmd: z.literal("restart") }),
+	z.strictObject({ id, cmd: z.literal("restart"), backendDown: z.literal(true).optional() }),
+	z.strictObject({ id, cmd: z.literal("fail"), method: z.enum(FAKE_FAULTS), times: z.int().positive() }),
 ]);
 export type FakeCommand = z.infer<typeof FakeCommand>;
 

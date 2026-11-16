@@ -143,4 +143,24 @@ impl FakeBridge {
     pub async fn restart(&mut self) {
         self.command(json!({"cmd": "restart"})).await;
     }
+
+    /// The bridge restarts with its backend failing to start: every request that names it is
+    /// answered `unknown_backend` until the next `restart`.
+    pub async fn restart_with_backend_down(&mut self) {
+        self.command(json!({"cmd": "restart", "backendDown": true}))
+            .await;
+    }
+
+    /// The backend refuses its next `times` session opens, which the bridge answers an attach
+    /// with as `internal`.
+    pub async fn fail_opens(&mut self, times: u32) {
+        self.command(json!({"cmd": "fail", "method": "open", "times": times}))
+            .await;
+    }
+
+    /// The backend refuses its next `times` session list pages.
+    pub async fn fail_lists(&mut self, times: u32) {
+        self.command(json!({"cmd": "fail", "method": "list", "times": times}))
+            .await;
+    }
 }

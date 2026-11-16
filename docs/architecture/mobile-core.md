@@ -109,8 +109,21 @@ session share one stream (one attachment on the bridge); the last view to close 
   `replaced{session}` says the same of a phone that was away): the stream follows, attaching to `session`
   without a resume, also when it names the same session (erratum 8). A stream that goes on as a session
   another stream views hands its subscribers to that stream.
-- **Ending.** A catalog `session_removed` ends the view (`ViewEnd::Removed`); an attach the bridge
-  refuses ends it `Refused{message}`; a machine closed or revoked ends every view.
+- **A refused attach is tried again** (`attach.rs`). The bridge answers `internal` for an adapter that
+  could not open the session, `unknown_backend` while a backend starts after a bridge restart,
+  `not_attached` and `rate_limited` for its own passing states, and `unknown_session` both for a session
+  that is gone and for one that closed while the attach waited for it. Each of those is sent again after
+  a pause of 1 s doubling to 30 s (at least the 10 s rate-limit refusal), the view keeping its last state
+  meanwhile; `unknown_session` only until its third refusal. An attach the link did not send goes again
+  the same way, and so does one whose send failed later (`SendFailed`). An attach that succeeds, or a new
+  bridge socket, starts the pauses over.
+- **Ending.** A catalog `session_removed` ends the view (`ViewEnd::Removed`); an attach refused
+  `invalid_message` or `unsupported_version`, a third `unknown_session`, or any failure 5 minutes after the
+  first of an unbroken run of them ends it `Refused{message}`; a machine closed or revoked ends every view.
+- **A link session that resumes** (`Connected{resumed: true}`) keeps the views attached and sends no
+  attach: the link loses and repeats nothing across a resume, a loss it cannot repair is a
+  `session_reset` or a new `conn`, both of which attach every view again, and a gap in `seq` attaches
+  the stream again. An attach on every resume would cost a round trip per view and say nothing new.
 
 ### The update protocol
 
@@ -121,6 +134,10 @@ session share one stream (one attachment on the bridge); the last view to close 
   fell behind.
 - `Changes{changes, status}` — apply the records in order; the UI's state then equals `view.snapshot()`
   at the moment the batch was taken.
+- `Live{live}` — whether the state follows the session now. A view is live from its first `Reset`; it is
+  not while it attaches again (a new bridge socket, a gap, a refusal it tries again), and its state is
+  the last one known until a `Live{live: true}`. Only a change is said, after any `Reset` due. The apps
+  dim the chat and say it reconnects meanwhile, as they do while the Mac is out of reach.
 - `Ended{reason}` — nothing follows.
 
 Each `SessionChange` assigns what the reducer produced; the UI never computes:
@@ -168,7 +185,10 @@ the first is records, not a snapshot. The integration tests hold the same equali
   that stops waiting (Kotlin frees the future of a cancelled coroutine) does not strand the list: the page
   still merges and the next `load_more` works.
 - **A new bridge socket** forgets everything above (its catalog spoke while this phone was not listening),
-  lists the backends again and reloads every list from its first page.
+  lists the backends again and reloads every list from its first page (`catalog/refresh.rs`). A listing
+  or a page that fails is asked again after a pause of 1 s doubling to 30 s for as long as that socket is
+  the one in use and ready, so the inbox's last known rows do not stand in for the machine's until a pull
+  to refresh.
 
 ## Inbox
 
@@ -318,7 +338,8 @@ however long it goes unread.
 
 `cargo test -p broski-client`. The unit tests: the update protocol against the reducer trace, coalescing,
 pacing and the fall-behind snapshot (`view/tests.rs`); attach, resume, gaps, repeats, replacements and
-merges (`view/stream_tests.rs`); terminal offsets, reattach, gaps, the newest kept past the bound, exit (`terminal/state_tests.rs`);
+merges (`view/stream_tests.rs`); refusals tried again, the pauses, the window, `Live` (`view/retry_tests.rs`,
+`attach.rs`); terminal offsets, reattach, gaps, the newest kept past the bound, exit, refusals tried again (`terminal/state_tests.rs`);
 request ids, held order, lost sockets and the bound (`requests.rs`); a request's deadline, the bound on
 waiting requests, the client's own requests refused, a closed machine refusing everything, a refused
 hello said again after a pause that grows (`machine/tests.rs`, on a machine whose link never comes
@@ -343,9 +364,15 @@ of the seen state, which is state and not an update.
   link session resumes, the view never reattaches, and its state equals another phone's; a bridge restart
   brings the view back from a snapshot of the new epoch and a run on the new bridge works; a machine that
   starts over resets the link, a read and a prompt caught by it are sent again (the prompt runs once), and
-  the view resumes its stream.
+  the view resumes its stream, live again with its run.
+- `reattach.rs` — an attach the backend refused twice (`internal`) is tried again until it is served; a
+  view outlives a bridge restarted without its backend (`unknown_backend`), keeping its state and saying
+  it is not live, and is live again from a fresh snapshot once the backend is back; the inbox loads by
+  itself after its first pages failed; a session the bridge does not know ends the view `Refused`. The
+  fake bridge's `fail{method, times}` and `restart{backendDown: true}` make the refusals.
 - `pause.rs` — a prompt sent as the app leaves reaches the Mac before the link pauses and is answered on
-  resume; `Phone::paused` resolves once the link paused, and at once after a resume.
+  resume; `Phone::paused` resolves once the link paused, and at once after a resume; a run that goes on
+  while the app is away reaches the view on resume, once, with no reattach.
 - `catalog.rs` — rows follow a create, a rename and a delete, and stay out of another directory's list;
   status, models, modes and commands are read and kept; a `load_more` whose future is dropped after one poll
   still lands its page, and the next `load_more` reads the one after.

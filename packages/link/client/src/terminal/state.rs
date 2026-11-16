@@ -7,14 +7,15 @@ use std::sync::Arc;
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
 use broski_contract::{
-    ClientMessage, ProtocolErrorCode, ServerMessage, TermAttachRequest, TermAttachResult,
-    TermDetachRequest, TermExitedMessage, TermOutputMessage, TerminalAttached, TerminalId,
-    TerminalStatus, TerminalSummary, MAX_TERMINALS, MAX_TERMINAL_OUTPUT_BYTES,
+    ClientMessage, ServerMessage, TermAttachRequest, TermAttachResult, TermDetachRequest,
+    TermExitedMessage, TermOutputMessage, TerminalAttached, TerminalId, TerminalStatus,
+    TerminalSummary, MAX_TERMINALS, MAX_TERMINAL_OUTPUT_BYTES,
 };
 use tokio::sync::Notify;
+use tokio::time::Instant;
 
 use super::TerminalUpdate;
-use crate::attach::Next;
+use crate::attach::{AttachRetry, Next};
 use crate::error::ClientError;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -46,6 +47,7 @@ pub(crate) struct TerminalState {
     exit: Option<TerminalUpdate>,
     finished: bool,
     notify: Arc<Notify>,
+    retry: AttachRetry,
 }
 
 impl TerminalState {
@@ -61,6 +63,7 @@ impl TerminalState {
             exit: None,
             finished: false,
             notify: Arc::new(Notify::new()),
+            retry: AttachRetry::default(),
         }
     }
 
@@ -82,9 +85,28 @@ impl TerminalState {
         })
     }
 
+    /// The bridge socket in use is gone; the next one gets the whole retry window again.
     pub(crate) fn detached(&mut self) {
         if matches!(self.phase, Phase::Attaching | Phase::Attached) {
             self.phase = Phase::Detached;
+        }
+        self.retry.succeeded();
+    }
+
+    /// The link did not send the attach: it goes again after a pause, until the retry window ends.
+    pub(crate) fn not_sent(&mut self, why: String, now: Instant) -> Next {
+        if self.phase == Phase::Done {
+            return Next::Nothing;
+        }
+        match self.retry.failed(now) {
+            Some(pause) => {
+                self.phase = Phase::Detached;
+                Next::AttachAfter(pause)
+            }
+            None => {
+                self.fail(why);
+                Next::Nothing
+            }
         }
     }
 
@@ -96,17 +118,27 @@ impl TerminalState {
         self.notify.notify_one();
     }
 
-    pub(crate) fn on_attach_answer(&mut self, answer: ServerMessage) -> Next {
+    /// As a session view's: a refusal that may pass is tried again after a pause that grows, the
+    /// output already handed over staying; the terminal's own rejection ends the view.
+    pub(crate) fn on_attach_answer(&mut self, answer: ServerMessage, now: Instant) -> Next {
+        if self.phase == Phase::Done {
+            return Next::Nothing;
+        }
         match answer {
             ServerMessage::TermAttachResult(answer) => match answer.result {
-                TermAttachResult::Accepted(attached) => self.attached(attached),
+                TermAttachResult::Accepted(attached) => {
+                    self.retry.succeeded();
+                    self.attached(attached);
+                }
                 TermAttachResult::Rejected(rejected) => self.fail(rejected.rejection.message),
             },
-            ServerMessage::Error(error) if error.error.code == ProtocolErrorCode::RateLimited => {
-                self.phase = Phase::Detached;
-                return Next::AttachLater;
-            }
-            ServerMessage::Error(error) => self.fail(error.error.message),
+            ServerMessage::Error(error) => match self.retry.refused(error.error.code, now) {
+                Some(pause) => {
+                    self.phase = Phase::Detached;
+                    return Next::AttachAfter(pause);
+                }
+                None => self.fail(error.error.message),
+            },
             other => self.fail(format!("the bridge answered the attach with {other:?}")),
         }
         Next::Nothing

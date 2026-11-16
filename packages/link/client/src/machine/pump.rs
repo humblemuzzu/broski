@@ -6,6 +6,7 @@ use std::sync::Arc;
 use broski_contract::{CatalogEvent, CatalogMessage, ServerMessage};
 use broski_link_session::Event;
 use tokio::sync::oneshot;
+use tokio::time::Instant;
 
 use super::state::{Shared, State};
 use crate::error::ClientError;
@@ -86,7 +87,7 @@ impl Shared {
                 if let Some(next) = state
                     .streams
                     .get_mut(stream)
-                    .map(|view| view.on_attach_answer(answer))
+                    .map(|view| view.on_attach_answer(answer, Instant::now()))
                 {
                     self.after_stream(state, stream, next);
                 }
@@ -95,7 +96,7 @@ impl Shared {
                 if let Some(next) = state
                     .terminals
                     .get_mut(terminal)
-                    .map(|view| view.on_attach_answer(answer))
+                    .map(|view| view.on_attach_answer(answer, Instant::now()))
                 {
                     self.after_terminal(state, terminal, next);
                 }

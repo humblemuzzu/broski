@@ -2,6 +2,8 @@
 //! their rows know the pending interaction and its options without the app opening a chat. The
 //! views go when the row stops waiting, when the machine ends, and past the bound.
 
+use std::sync::Arc;
+
 use broski_contract::{SessionRef, SessionStatus};
 
 use super::state::{Shared, State};
@@ -47,7 +49,7 @@ impl Shared {
     /// Brings the inbox's views in line with the rows: a view for each waiting session, none for
     /// any other. Nothing changes until the rows are all in, so a new bridge socket, which lists
     /// everything again, does not drop views it is about to want back.
-    pub(crate) fn hold_waiting(&self, state: &mut State) {
+    pub(crate) fn hold_waiting(self: &Arc<Self>, state: &mut State) {
         if state.ended.is_some() || !state.inbox_loaded() {
             return;
         }

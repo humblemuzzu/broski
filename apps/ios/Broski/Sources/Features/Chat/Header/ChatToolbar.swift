@@ -26,7 +26,7 @@ struct ChatToolbar: ToolbarContent {
     var body: some ToolbarContent {
         ToolbarItem(placement: .principal) {
             ChatTitle(
-                title: title, subtitle: subtitle, machineProblem: machine.summary.isReady ? nil : machine.summary.line,
+                title: title, subtitle: subtitle, machineProblem: chat.connectionProblem(machine.summary),
                 runStartedAt: chat.snapshot.run?.startedAt, canRename: capabilities?.rename ?? false
             ) {
                 dialog = .rename

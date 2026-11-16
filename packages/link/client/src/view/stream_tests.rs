@@ -14,14 +14,14 @@ use super::stream::{Streams, MAX_VIEWED_SESSIONS};
 use super::SessionUpdate;
 use crate::attach::Next;
 
-fn session(id: &str) -> SessionRef {
+pub(super) fn session(id: &str) -> SessionRef {
     SessionRef {
         backend: BackendId::Pi,
         session_id: id.to_owned(),
     }
 }
 
-fn answer(sync: AttachSync) -> ServerMessage {
+pub(super) fn answer(sync: AttachSync) -> ServerMessage {
     ServerMessage::SessionAttachResult(SessionAttachResponse {
         request_id: "1".to_owned(),
         capabilities: SessionCapabilities {
@@ -42,7 +42,7 @@ fn snapshot_sync(epoch: &str, last_seq: i64) -> AttachSync {
     })
 }
 
-fn notice(seq: i64, of: &SessionRef) -> EventEnvelope {
+pub(super) fn notice(seq: i64, of: &SessionRef) -> EventEnvelope {
     EventEnvelope {
         session: of.clone(),
         seq,
@@ -57,7 +57,7 @@ fn notice(seq: i64, of: &SessionRef) -> EventEnvelope {
 
 /// The resume of the attach the machine sends next: it sends one only for a stream that
 /// `needs_attach`.
-fn resume_of(streams: &mut Streams, stream: u64) -> Option<StreamPosition> {
+pub(super) fn resume_of(streams: &mut Streams, stream: u64) -> Option<StreamPosition> {
     let view = streams.get_mut(stream).expect("stream");
     assert!(
         view.needs_attach(),
@@ -70,7 +70,7 @@ fn resume_of(streams: &mut Streams, stream: u64) -> Option<StreamPosition> {
 }
 
 /// A stream attached at `epoch`, seq 0, with one subscriber that took its first snapshot.
-fn attached(streams: &mut Streams, of: &SessionRef) -> (u64, u64) {
+pub(super) fn attached(streams: &mut Streams, of: &SessionRef) -> (u64, u64) {
     let (stream, subscriber) = streams.subscribe(of).expect("subscribed");
     assert_eq!(
         resume_of(streams, stream),
@@ -80,7 +80,7 @@ fn attached(streams: &mut Streams, of: &SessionRef) -> (u64, u64) {
     let next = streams
         .get_mut(stream)
         .expect("stream")
-        .on_attach_answer(answer(snapshot_sync("e1", 0)));
+        .on_attach_answer(answer(snapshot_sync("e1", 0)), Instant::now());
     assert_eq!(next, Next::Nothing);
     assert!(matches!(
         streams.take(subscriber, Instant::now()).0,
@@ -110,7 +110,10 @@ fn a_gap_attaches_again_from_the_last_event_held_and_repeats_are_dropped() {
         epoch: "e1".to_owned(),
         after_seq: 1,
     });
-    assert_eq!(view.on_attach_answer(answer(resumed)), Next::Nothing);
+    assert_eq!(
+        view.on_attach_answer(answer(resumed), Instant::now()),
+        Next::Nothing
+    );
     assert_eq!(view.on_event(notice(2, &of)), Next::Nothing);
     assert_eq!(
         view.on_event(notice(3, &of)),
@@ -133,7 +136,10 @@ fn a_replay_of_a_position_this_phone_does_not_hold_starts_over() {
         after_seq: 5,
     });
     let view = streams.get_mut(stream).expect("stream");
-    assert_eq!(view.on_attach_answer(answer(other)), Next::Attach);
+    assert_eq!(
+        view.on_attach_answer(answer(other), Instant::now()),
+        Next::Attach
+    );
     assert_eq!(resume_of(&mut streams, stream), None);
 }
 
@@ -158,10 +164,13 @@ fn a_replacement_is_followed_without_a_resume_live_or_at_attach() {
         session: session("last"),
     });
     let view = streams.get_mut(stream).expect("stream");
-    assert_eq!(view.on_attach_answer(answer(moved)), Next::Attach);
+    assert_eq!(
+        view.on_attach_answer(answer(moved), Instant::now()),
+        Next::Attach
+    );
     assert_eq!(resume_of(&mut streams, stream), None);
     let view = streams.get_mut(stream).expect("stream");
-    view.on_attach_answer(answer(snapshot_sync("e3", 4)));
+    view.on_attach_answer(answer(snapshot_sync("e3", 4)), Instant::now());
     let Take::Update(SessionUpdate::Reset { session, .. }) =
         streams.take(subscriber, Instant::now()).0
     else {
@@ -253,7 +262,7 @@ fn an_ask_is_offered_to_the_inbox_only_while_its_stream_is_attached() {
         snapshot,
     });
     let view = streams.get_mut(stream).expect("stream");
-    view.on_attach_answer(answer(sync));
+    view.on_attach_answer(answer(sync), Instant::now());
     let live = streams.live_info(&of).expect("live");
     assert_eq!(
         live.pending

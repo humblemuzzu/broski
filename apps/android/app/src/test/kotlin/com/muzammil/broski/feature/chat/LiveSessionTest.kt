@@ -1,7 +1,9 @@
 package com.muzammil.broski.feature.chat
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import uniffi.broski_contract.BackendId
 import uniffi.broski_contract.BlockKind
@@ -13,6 +15,7 @@ import uniffi.broski_contract.SessionRef
 import uniffi.broski_contract.SessionStatus
 import uniffi.broski_core.SessionChange
 import uniffi.broski_core.SessionUpdate
+import uniffi.broski_core.ViewEnd
 
 /**
  * The chat's copy of a view applies the core's records as they come. The equality with
@@ -65,5 +68,15 @@ class LiveSessionTest {
         assertEquals(emptyList<Any>(), first.endedRuns)
         val again = first.session.apply(SessionUpdate.Reset(session, SessionCapabilities(true, false, false, true), EmptySnapshot, SessionStatus.IDLE))
         assertEquals(1, again.endedRuns.size)
+    }
+
+    @Test
+    fun aViewAttachingAgainKeepsItsStateAndSaysItIsNotLiveUntilItIs() {
+        val running = started.apply(SessionUpdate.Changes(listOf(SessionChange.RunChanged(Items.run())), SessionStatus.RUNNING)).session
+        val away = running.apply(SessionUpdate.Live(false)).session
+        assertTrue(away.reconnecting)
+        assertEquals(running.snapshot, away.snapshot)
+        assertFalse(away.apply(SessionUpdate.Live(true)).session.reconnecting)
+        assertFalse("an ended view says why itself", away.apply(SessionUpdate.Ended(ViewEnd.Refused("no"))).session.reconnecting)
     }
 }

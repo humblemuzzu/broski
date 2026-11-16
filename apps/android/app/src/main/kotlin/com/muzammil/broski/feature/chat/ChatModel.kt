@@ -2,6 +2,7 @@ package com.muzammil.broski.feature.chat
 
 import androidx.compose.runtime.Immutable
 import com.muzammil.broski.core.MachineHealth
+import com.muzammil.broski.core.isOnline
 import com.muzammil.broski.feature.chat.composer.Outgoing
 import uniffi.broski_contract.BackendId
 import uniffi.broski_contract.NoticeLevel
@@ -17,7 +18,12 @@ data class ChatHeader(
     val cwd: String?,
     val machineName: String,
     val health: MachineHealth?,
+    /** The Mac is reachable and the view attaches again: what shows is not live yet. */
+    val reconnecting: Boolean = false,
 ) {
+    /** Whether what the chat shows follows the session now. */
+    val online: Boolean get() = health?.isOnline != false && !reconnecting
+
     val folder: String? get() = cwd?.trimEnd('/')?.substringAfterLast('/')?.takeIf { it.isNotEmpty() }
 }
 

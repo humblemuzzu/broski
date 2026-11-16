@@ -50,6 +50,10 @@ final class ChatModel {
     @ObservationIgnored private var pull: Task<Void, Never>?
     @ObservationIgnored private var images: [String: UIImage] = [:]
     @ObservationIgnored private var newestReads = 0
+    @ObservationIgnored private var newestRetry: Task<Void, Never>?
+    @ObservationIgnored private var newestFailures = 0
+    /// The pause before reading the newest page again after this many failed reads in a row.
+    @ObservationIgnored var newestRetryPause: (Int) -> Duration = { .seconds(min(30, 1 << min($0, 5))) }
 
     static let revealWait: Duration = .milliseconds(1200)
 
@@ -74,6 +78,8 @@ final class ChatModel {
     var canAnswer: Bool { state.capabilities?.answer ?? false }
     /// Why the live view stopped; until `reattach`, nothing live reaches this chat.
     var viewEnd: ViewEnd? { state.ended }
+    /// False while the view attaches again after the link or the bridge came back.
+    var isLive: Bool { state.isLive }
 
     /// Attaches the view and pulls it for as long as the chat lives. The stack keeps a chat alive
     /// while a diff or another session is pushed over it; its end cancels the pull, and the
@@ -107,6 +113,7 @@ final class ChatModel {
 
     deinit {
         pull?.cancel()
+        newestRetry?.cancel()
     }
 
     /// A new view in place of one the bridge refused: the refusal may have been passing (an agent
@@ -215,14 +222,29 @@ final class ChatModel {
             history.setNewest(page)
             settling = []
             historyProblem = nil
+            newestFailures = 0
         } catch {
             Logger.core.error("the transcript was not read: \(error.message, privacy: .public)")
             guard read == newestReads else { return }
             historyProblem = error
+            if error.code == nil { readNewestLater() }
         }
         retireDelivered(history.deliveredRequests)
         rebuildHistory()
         revealIfReady()
+    }
+
+    /// A read that got no answer goes again by itself while the chat is open, after a pause that
+    /// grows; the problem stays shown until a read lands.
+    private func readNewestLater() {
+        let pause = newestRetryPause(newestFailures)
+        newestFailures += 1
+        newestRetry?.cancel()
+        newestRetry = Task { [weak self] in
+            try? await Task.sleep(for: pause)
+            guard !Task.isCancelled, let self, pull != nil else { return }
+            await loadNewest()
+        }
     }
 
     func loadOlder() async {
