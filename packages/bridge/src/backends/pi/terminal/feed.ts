@@ -112,30 +112,48 @@ export class TerminalFeed {
 		};
 	}
 
-	/** The terminal's state as it told it: the first at connection, another after events were lost. */
+	/**
+	 * The terminal's state as it told it: at connection, again when it reconnects, and after events were lost. The run
+	 * comes first, so a dialog the state lists is raised in it.
+	 */
 	reconcile(state: TerminalState): void {
 		this.leafId = state.leafId;
 		if (state.model) this.modelId = modelWireId(state.model);
 		this.thinking = state.thinking;
 		this.announceModel();
 		this.tasksAnnounced(state.tasks);
+		if (state.running) this.resumeRun(state);
+		else if (this.runs.current()) this.finishRun(false);
+		else for (const event of this.closing()) this.live.emit(event);
 		this.dialogs.reconcile(state.dialogs ?? []);
-		for (const event of this.closing()) this.live.emit(event);
+	}
+
+	/**
+	 * The run under way goes on from what the state says: the tools it lists, and the message still streaming with the
+	 * calls it announced, stay open; the rest end.
+	 */
+	private resumeRun(state: TerminalState): void {
 		const open = this.runs.current();
-		if (open && !state.running) this.finishRun(false);
-		if (!state.running) return;
 		const run = open ?? this.runs.start(this.trigger(), state.leafId);
-		run.tools.nextResponse();
-		if (state.blocks.length > 0) {
-			this.stream = new AssistantStream(mintMessageId(), run.tools);
-			for (const block of state.blocks) this.openBlock(block);
+		if (!open) this.changed();
+		const caughtUp = this.stream?.catchUp(state.blocks);
+		const going = new Set([
+			...state.tools.map((tool) => tool.id),
+			...(caughtUp ? (this.stream?.streamedCalls() ?? []) : []),
+		]);
+		for (const event of this.tools.closing(going)) this.live.emit(event);
+		if (caughtUp) for (const event of caughtUp) this.live.emit(event);
+		else {
+			for (const event of this.stream?.abandon() ?? []) this.live.emit(event);
+			this.stream = undefined;
+			if (state.blocks.length > 0) {
+				this.stream = new AssistantStream(mintMessageId(), run.tools);
+				for (const block of state.blocks) this.openBlock(block);
+			}
 		}
 		for (const tool of state.tools) {
-			this.tools.executionStarted({
-				toolCallId: tool.id,
-				toolName: tool.name,
-				args: tool.args,
-			});
+			if (run.tools.find(tool.id) !== undefined) continue;
+			this.tools.executionStarted({ toolCallId: tool.id, toolName: tool.name, args: tool.args });
 		}
 	}
 

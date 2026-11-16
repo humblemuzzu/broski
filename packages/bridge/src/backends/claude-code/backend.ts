@@ -12,7 +12,7 @@ import { createCatalogue } from "./models/catalog";
 import { type ConfigWatch, createConfigWatch } from "./models/config-watch";
 import { notFound, openSession } from "./open-session";
 import { createOwnership } from "./owned";
-import type { CatalogueAccess, LiveSessions, Ownership, SessionStore, TerminalWatch } from "./ports";
+import type { CatalogueAccess, LiveOverlay, LiveSessions, Ownership, SessionStore, TerminalWatch } from "./ports";
 import { isRejected } from "./rejections";
 import type { ClaudeCodeServices } from "./services";
 import { createSessionStore } from "./store/session-store";
@@ -30,6 +30,8 @@ export interface ClaudeCodeParts {
 	readonly catalogue: CatalogueAccess;
 	readonly live: LiveSessions;
 	readonly configWatch: ConfigWatch;
+	/** What the store lays over a session's row: the hosted session's facts, else a terminal process's status. */
+	readonly overlay: LiveOverlay;
 }
 
 export function createClaudeCodeParts(host: BackendHost, services: ClaudeCodeServices): ClaudeCodeParts {
@@ -42,6 +44,7 @@ export function createClaudeCodeParts(host: BackendHost, services: ClaudeCodeSer
 		hosted: (sessionId) => live.isHosted(sessionId),
 		ownWriteAt: (sessionId) => ownership.ownWriteAt(sessionId),
 		locate: (sessionId) => store.locate(sessionId),
+		announce: (sessionId) => void store.announce(sessionId, overlay),
 	});
 	const store = createSessionStore({ services, catalog, ownership, terminal });
 	const catalogue = createCatalogue({ services, catalog });
@@ -55,30 +58,31 @@ export function createClaudeCodeParts(host: BackendHost, services: ClaudeCodeSer
 		createDesk: createAskDesk,
 	});
 	const configWatch = createConfigWatch({ configRoot: services.sdk.configRoot(), catalogue });
-	return { services, catalog, ownership, terminal, store, catalogue, live, configWatch };
+	const overlay: LiveOverlay = { row: (sessionId) => live.row(sessionId) ?? terminal.row(sessionId) };
+	return { services, catalog, ownership, terminal, store, catalogue, live, configWatch, overlay };
 }
 
 export function claudeCodeBackendOf(parts: ClaudeCodeParts): AgentBackend {
-	const { services, catalog, terminal, store, catalogue, live, configWatch } = parts;
+	const { services, catalog, terminal, store, catalogue, live, configWatch, overlay } = parts;
 	return {
 		id: "claude-code",
 		traits: CLAUDE_CODE_TRAITS,
 		status: () => catalogue.status(),
-		listSessions: (query, page) => store.list(query, page, live),
-		getSession: async (ref) => (mine(ref) ? store.get(ref.sessionId, live) : notFound(ref)),
-		readTranscript: async (ref, page) => (mine(ref) ? store.transcript(ref.sessionId, page, live) : notFound(ref)),
+		listSessions: (query, page) => store.list(query, page, overlay),
+		getSession: async (ref) => (mine(ref) ? store.get(ref.sessionId, overlay) : notFound(ref)),
+		readTranscript: async (ref, page) => (mine(ref) ? store.transcript(ref.sessionId, page, overlay) : notFound(ref)),
 		readAttachment: async (ref, id) => (mine(ref) ? store.attachment(ref.sessionId, id) : notFound(ref)),
 		listModels: (cwd, options) => catalogue.models(cwd, options),
 		listCommands: (scope) => listCommands(parts, scope),
 		listModes: (cwd) => catalogue.modes(cwd),
 		open: (target, sink) => openSession(parts, target, sink),
-		rename: async (ref, title) => (mine(ref) ? store.rename(ref.sessionId, title, live) : notFound(ref)),
+		rename: async (ref, title) => (mine(ref) ? store.rename(ref.sessionId, title, overlay) : notFound(ref)),
 		delete: async (ref) => {
 			if (!mine(ref)) return notFound(ref);
 			await live.end(ref.sessionId);
 			return store.remove(ref.sessionId);
 		},
-		fork: async (ref, at) => (mine(ref) ? store.fork(ref.sessionId, at, live) : notFound(ref)),
+		fork: async (ref, at) => (mine(ref) ? store.fork(ref.sessionId, at, overlay) : notFound(ref)),
 		dispose: async () => {
 			try {
 				configWatch.dispose();

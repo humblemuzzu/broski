@@ -82,6 +82,31 @@ export class AssistantStream {
 		return this.calls.filter((call) => noneRun || !final.has(call.piId)).map((call) => call.id);
 	}
 
+	/**
+	 * Brings the open blocks up to `blocks`, what the message holds now after events were lost: their text grown, or
+	 * new ones. Undefined when `blocks` cannot be this message's: a block gone, changed, or reopened.
+	 */
+	catchUp(
+		blocks: readonly { readonly index: number; readonly kind: BlockType; readonly text: string }[],
+	): AgentEvent[] | undefined {
+		const listed = new Map(blocks.map((block) => [block.index, block]));
+		for (const [index, block] of this.open) {
+			const now = listed.get(index);
+			if (now === undefined || now.kind !== block.kind || !now.text.startsWith(block.text())) return undefined;
+		}
+		if (blocks.some((block) => this.closed.has(block.index))) return undefined;
+		return blocks.flatMap((block) => {
+			const open = this.open.get(block.index);
+			if (open) return this.append(block.index, block.text.slice(open.text().length));
+			return [...this.begin(block.index, block.kind), ...this.append(block.index, block.text)];
+		});
+	}
+
+	/** Pi's ids of the calls this message has streamed so far. */
+	streamedCalls(): string[] {
+		return this.calls.map((call) => call.piId);
+	}
+
 	/** Closes every block still open as it stands: the run ended without this message's `message_end`. */
 	abandon(): AgentEvent[] {
 		return [...this.open].flatMap(([index, block]) => this.finish(index, block.kind, block.text()));

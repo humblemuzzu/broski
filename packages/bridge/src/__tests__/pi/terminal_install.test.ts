@@ -22,9 +22,12 @@ import { useWatchdog } from "./helpers/use-watchdog";
 useWatchdog();
 
 let t: LiveRig | undefined;
+let terminals: TerminalRig | undefined;
 
 afterEach(async () => {
+	await terminals?.quit();
 	await t?.dispose();
+	terminals = undefined;
 	t = undefined;
 });
 
@@ -147,7 +150,7 @@ describe("in a session the bridge hosts", () => {
 		const entry = extensionEntry(t.world.env.agentDir);
 		expect(existsSync(entry)).toBe(true);
 
-		const terminals = new TerminalRig(t);
+		terminals = new TerminalRig(t);
 		const terminal = await terminals.open();
 		const loaded = terminal.session.extensionRunner.getExtensionPaths();
 		expect(loaded.some((path) => resolve(path) === resolve(entry))).toBe(true);
@@ -163,7 +166,7 @@ describe("in a session the bridge hosts", () => {
 	test("a session the bridge hosts, opened in a terminal while it runs, warns the terminal's user", async () => {
 		t = await LiveRig.create({ link: true });
 		const live = await holdingRun(t);
-		const terminals = new TerminalRig(t);
+		terminals = new TerminalRig(t);
 		const file = t.fileOf(live.ref);
 		await terminals.open(file);
 		await terminals.connected(file);

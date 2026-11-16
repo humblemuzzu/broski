@@ -44,4 +44,6 @@ export interface TerminalDeps {
 	/** Until when the session file's writes were this bridge's own (`Ownership.ownWriteAt`, D25). */
 	readonly ownWriteAt: (sessionId: SessionId) => number | undefined;
 	readonly locate: (sessionId: SessionId) => Promise<StoredSession | Rejected>;
+	/** A terminal session's row changed (its process came, went, or changed status): the list is told. */
+	readonly announce: (sessionId: SessionId) => void;
 }

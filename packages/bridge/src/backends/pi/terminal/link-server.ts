@@ -11,13 +11,14 @@ import { chmodSync, mkdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { createConnection, createServer, type Server, type Socket } from "node:net";
 import { join } from "node:path";
 import { type ConnectionDeps, TerminalConnection } from "./connection";
+import { LinkedTerminals, type LinkedTerminalsDeps } from "./linked-terminal";
 
 const MAX_CONNECTIONS = 64;
 
 export const SOCKET_FILE = "bridge.sock";
 export const KEY_FILE = "bridge.key";
 
-export interface LinkServerOptions extends Omit<ConnectionDeps, "key"> {
+export interface LinkServerOptions extends Pick<ConnectionDeps, "busy">, LinkedTerminalsDeps {
 	readonly directory: string;
 }
 
@@ -46,8 +47,11 @@ export class TerminalLinkServer {
 	private server: Server | undefined;
 	private key = "";
 	private readonly connections = new Set<TerminalConnection>();
+	private readonly terminals: LinkedTerminals;
 
-	constructor(private readonly options: LinkServerOptions) {}
+	constructor(private readonly options: LinkServerOptions) {
+		this.terminals = new LinkedTerminals(options);
+	}
 
 	async start(): Promise<void> {
 		const { directory } = this.options;
@@ -75,6 +79,7 @@ export class TerminalLinkServer {
 		const server = this.server;
 		this.server = undefined;
 		for (const connection of [...this.connections]) connection.close();
+		this.terminals.endAll();
 		if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
 		for (const file of [SOCKET_FILE, KEY_FILE]) {
 			try {
@@ -91,7 +96,8 @@ export class TerminalLinkServer {
 			return;
 		}
 		const connection: TerminalConnection = new TerminalConnection(socket, {
-			...this.options,
+			terminals: this.terminals,
+			busy: this.options.busy,
 			key: () => this.key,
 		});
 		this.connections.add(connection);

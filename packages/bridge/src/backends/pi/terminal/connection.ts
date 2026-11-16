@@ -1,13 +1,21 @@
 /**
- * One terminal's connection: lines in, checked frames out. It owns the terminal's `TerminalFeed` and, once the
- * terminal has said who it is and what it is doing, puts it in the registry. A connection that breaks a rule is closed.
+ * One terminal's connection: lines in, checked frames out. Once the terminal has said who it is and what it is doing,
+ * the connection speaks for its session (`linked-terminal.ts`), which the registry holds. A connection that breaks a
+ * rule is closed, and so is the session; one that merely drops leaves the session to the next connection of its `pi`.
  */
 
 import { timingSafeEqual } from "node:crypto";
 import type { Socket } from "node:net";
 import { isAbsolute } from "node:path";
 import { MAX_LIST_ITEMS } from "../../../contract";
-import { TerminalFeed } from "./feed";
+import {
+	type CommandLink,
+	DROPPED,
+	GONE,
+	type LinkedTerminal,
+	type LinkedTerminals,
+	type TerminalIdentity,
+} from "./linked-terminal";
 import {
 	type BridgeFrame,
 	type Command,
@@ -16,20 +24,14 @@ import {
 	LINK_VERSION,
 	MAX_LINE_BYTES,
 } from "./protocol";
-import type { TerminalRegistry, TerminalSession } from "./registry";
 
 export interface ConnectionDeps {
-	readonly registry: TerminalRegistry;
-	readonly now: () => number;
+	readonly terminals: LinkedTerminals;
 	/** The key the bridge wrote at its start. */
 	readonly key: () => string;
 	/** Whether the bridge is running the session now, so the terminal can warn its user. */
 	readonly busy: (sessionId: string) => boolean;
-	/** A terminal session's run started or ended, or the session appeared or went; `path` is its file. */
-	readonly changed: (sessionId: string, path: string) => void;
 }
-
-const GONE: CommandAnswer = { ok: false, code: "backend_error", message: "The terminal closed." };
 
 function keysMatch(offered: string, expected: string): boolean {
 	const a = Buffer.from(offered);
@@ -39,11 +41,11 @@ function keysMatch(offered: string, expected: string): boolean {
 
 export class TerminalConnection {
 	private buffered = "";
-	private identity: { pid: number; file: string; id: string } | undefined;
-	private feed: TerminalFeed | undefined;
-	private unregister: (() => void) | undefined;
+	private identity: TerminalIdentity | undefined;
+	private terminal: LinkedTerminal | undefined;
 	private nextCommand = 0;
 	private readonly pending = new Map<string, (answer: CommandAnswer) => void>();
+	private readonly link: CommandLink = (command) => this.send(command);
 	private closed = false;
 
 	constructor(
@@ -52,19 +54,30 @@ export class TerminalConnection {
 	) {
 		socket.setEncoding("utf8");
 		socket.on("data", (chunk: string) => this.read(chunk));
-		socket.on("error", () => this.close());
-		socket.on("close", () => this.close());
+		socket.on("error", () => this.drop());
+		socket.on("close", () => this.drop());
 	}
 
+	/** The terminal said `bye`, broke a rule, or the bridge stops: its session ends now. */
 	close(): void {
-		if (this.closed) return;
+		if (!this.shut(GONE)) return;
+		this.terminal?.end(this.link);
+	}
+
+	/** The socket broke without a `bye`: the session waits for its `pi` to dial again. */
+	private drop(): void {
+		if (!this.shut(DROPPED)) return;
+		this.terminal?.dropped(this.link);
+	}
+
+	/** False when the connection was already shut. */
+	private shut(answer: CommandAnswer): boolean {
+		if (this.closed) return false;
 		this.closed = true;
 		this.socket.destroy();
-		this.feed?.close();
-		this.unregister?.();
-		for (const answer of this.pending.values()) answer(GONE);
+		for (const reply of this.pending.values()) reply(answer);
 		this.pending.clear();
-		if (this.identity) this.deps.changed(this.identity.id, this.identity.file);
+		return true;
 	}
 
 	private read(chunk: string): void {
@@ -99,8 +112,8 @@ export class TerminalConnection {
 			case "snapshot":
 				return this.snapshot(frame);
 			case "event":
-				this.feed?.event(frame.event);
-				return this.feed !== undefined;
+				this.terminal?.feed.event(frame.event);
+				return this.terminal !== undefined;
 			case "result":
 				return this.answered(frame);
 			case "bye":
@@ -120,26 +133,8 @@ export class TerminalConnection {
 	private snapshot(frame: Extract<ExtensionFrame, { t: "snapshot" }>): boolean {
 		const identity = this.identity;
 		if (!identity) return false;
-		if (this.feed) {
-			this.feed.reconcile(frame.state);
-			return true;
-		}
-		const feed = new TerminalFeed(
-			this.deps.now,
-			() => this.deps.changed(identity.id, identity.file),
-			(command) => void this.send(command),
-		);
-		feed.reconcile(frame.state);
-		this.feed = feed;
-		const session: TerminalSession = {
-			pid: identity.pid,
-			sessionPath: identity.file,
-			sessionId: identity.id,
-			feed,
-			command: (command) => this.send(command),
-		};
-		this.unregister = this.deps.registry.add(session);
-		this.deps.changed(identity.id, identity.file);
+		this.terminal ??= this.deps.terminals.take(identity);
+		this.terminal.attach(this.link, frame.state);
 		return true;
 	}
 
