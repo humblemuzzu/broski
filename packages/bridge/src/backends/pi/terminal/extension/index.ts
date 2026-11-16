@@ -1,4 +1,4 @@
-// broski-link-extension v2: written by the Broski bridge; delete it, or set "pi.terminalLink": false in the bridge's config.
+// broski-link-extension v3: written by the Broski bridge; delete it, or set "pi.terminalLink": false in the bridge's config.
 //
 // Lets the Broski app on your phone follow this terminal's session live, stop it or send it a message, and answer what
 // it asks (`dialogs.ts`): a question shows in the terminal and on the phone, and the first answer wins. It runs in

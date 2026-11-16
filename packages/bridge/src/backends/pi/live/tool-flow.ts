@@ -133,15 +133,15 @@ export class ToolFlow {
 		if (entryId !== undefined && (outcome === "denied" || outcome === "aborted")) this.deps.record(entryId, outcome);
 	}
 
-	/** Every call still running when the run settles ended with it. */
-	closing(): AgentEvent[] {
+	/** Every call still running when the run settles ended with it, but those in `running`, which go on. */
+	closing(running: ReadonlySet<string> = new Set()): AgentEvent[] {
 		const events: AgentEvent[] = [];
 		for (const piId of [...this.open.keys()]) {
+			if (running.has(piId)) continue;
 			this.deps.children.end(piId, "aborted");
 			const event = this.finishEvent(piId, "aborted", resultText("The run ended before the tool finished."));
 			if (event) events.push(event);
 		}
-		this.open.clear();
 		return events;
 	}
 

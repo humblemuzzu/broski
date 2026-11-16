@@ -5,14 +5,15 @@
  */
 
 import { afterEach, beforeEach, describe, expect, jest, spyOn, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
-import { createServer, type Server, type Socket } from "node:net";
+import { copyFileSync, mkdtempSync } from "node:fs";
+import { createConnection, createServer, type Server, type Socket } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Link } from "../../backends/pi/terminal/extension/link";
 import { KEY_FILE, SOCKET_FILE, TerminalLinkServer } from "../../backends/pi/terminal/link-server";
 import { TerminalRegistry, type TerminalSession } from "../../backends/pi/terminal/registry";
+import type { AgentEvent } from "../../contract";
 
 const STREAM = (type: string, contentIndex: number, extra: object = {}) => ({
 	e: "stream" as const,
@@ -23,16 +24,19 @@ interface Terminal {
 	readonly link: Link;
 	readonly notices: string[];
 	ctx(mode?: string): ExtensionContext;
+	/** Emits `event`, with Pi's idle flag as Pi keeps it: busy from a run's start until it settles. */
+	emit(event: Parameters<Link["emit"]>[1]): void;
 }
 
 function terminal(): Terminal {
 	const notices: string[] = [];
+	let idle = true;
 	const pi = { getThinkingLevel: () => "off", sendUserMessage: () => {} } as unknown as ExtensionAPI;
 	const ctx = (mode = "tui"): ExtensionContext =>
 		({
 			mode,
 			cwd: "/work",
-			isIdle: () => true,
+			isIdle: () => idle,
 			abort: () => {},
 			model: undefined,
 			ui: { notify: (text: string) => notices.push(text) },
@@ -43,7 +47,17 @@ function terminal(): Terminal {
 				getLeafId: () => null,
 			},
 		}) as unknown as ExtensionContext;
-	return { link: new Link(pi), notices, ctx };
+	const link = new Link(pi);
+	return {
+		link,
+		notices,
+		ctx,
+		emit: (event) => {
+			if (event.e === "agent_start") idle = false;
+			if (event.e === "agent_settled") idle = true;
+			link.emit(ctx(), event);
+		},
+	};
 }
 
 let directory: string;
@@ -64,12 +78,59 @@ afterEach(async () => {
 });
 
 async function bridge(busy = false): Promise<TerminalRegistry> {
+	return (await bridgeIn(directory, busy)).registry;
+}
+
+async function bridgeIn(
+	where: string,
+	busy = false,
+): Promise<{ registry: TerminalRegistry; stop: () => Promise<void> }> {
 	const registry = new TerminalRegistry();
-	const server = new TerminalLinkServer({ directory, registry, now: Date.now, busy: () => busy, changed: () => {} });
+	const server = new TerminalLinkServer({
+		directory: where,
+		registry,
+		now: Date.now,
+		busy: () => busy,
+		changed: () => {},
+	});
 	await server.start();
 	stops.push(() => server.stop());
-	return registry;
+	return { registry, stop: () => server.stop() };
 }
+
+/**
+ * The extension's socket and key in `directory`, its connections passed on to a bridge in another directory, so a test
+ * can break them while both ends live: `cut()` destroys every connection made so far.
+ */
+async function relayTo(bridgeDirectory: string): Promise<{ cut: () => void }> {
+	copyFileSync(join(bridgeDirectory, KEY_FILE), join(directory, KEY_FILE));
+	const pairs: Socket[][] = [];
+	const relay = createServer((near) => {
+		const far = createConnection(join(bridgeDirectory, SOCKET_FILE));
+		near.on("error", () => far.destroy());
+		far.on("error", () => near.destroy());
+		near.pipe(far).pipe(near);
+		pairs.push([near, far]);
+	});
+	const cut = () => {
+		for (const pair of pairs.splice(0)) for (const socket of pair) socket.destroy();
+	};
+	await new Promise<void>((resolve) => relay.listen(join(directory, SOCKET_FILE), resolve));
+	stops.push(() => {
+		cut();
+		return new Promise<void>((resolve) => relay.close(() => resolve()));
+	});
+	return { cut };
+}
+
+function viewed(session: TerminalSession): AgentEvent[] {
+	const events: AgentEvent[] = [];
+	session.feed.live.attach({ emit: (record) => events.push(record.event) });
+	return events;
+}
+
+const blockTexts = (session: TerminalSession) => session.feed.snapshot().blocks.map((block) => block.text);
+const toolNames = (session: TerminalSession) => session.feed.snapshot().tools.map((tool) => tool.name);
 
 function held(registry: TerminalRegistry): Promise<TerminalSession> {
 	const path = "/work/session.jsonl";
@@ -87,7 +148,11 @@ function held(registry: TerminalRegistry): Promise<TerminalSession> {
 const letGo = () => new Promise<void>((resolve) => setImmediate(resolve));
 
 async function until(done: () => boolean): Promise<void> {
-	while (!done()) await letGo();
+	const deadline = Date.now() + 4_000;
+	while (!done()) {
+		if (Date.now() > deadline) throw new Error("timed out waiting");
+		await letGo();
+	}
 }
 
 describe("without a bridge", () => {
@@ -96,7 +161,7 @@ describe("without a bridge", () => {
 		const err = spyOn(process.stderr, "write");
 		const t = terminal();
 		t.link.begin(t.ctx());
-		t.link.emit(t.ctx(), { e: "agent_start", leafId: null });
+		t.emit({ e: "agent_start", leafId: null });
 		t.link.end("quit");
 		await letGo();
 		expect(out).not.toHaveBeenCalled();
@@ -116,15 +181,14 @@ describe("without a bridge", () => {
 		t.link.end("quit");
 	});
 
-	test("tries again after 1 s, then 2 s, then 5 s, and connects when the bridge appears", async () => {
+	test("tries again after 0.5, 1, 2 and 3 s, then every 5 s: a bridge back after a long outage is found within 5 s", async () => {
 		jest.useFakeTimers({ doNotFake: ["setImmediate", "nextTick", "queueMicrotask"] } as never);
 		const t = terminal();
 		t.link.begin(t.ctx());
-		jest.advanceTimersByTime(1_000);
-		jest.advanceTimersByTime(2_000);
+		jest.advanceTimersByTime(60_000);
 		const registry = await bridge();
 		await letGo();
-		jest.advanceTimersByTime(4_999);
+		jest.advanceTimersByTime(1_499);
 		await letGo();
 		await letGo();
 		expect(registry.session("/work/session.jsonl")).toBeUndefined();
@@ -163,18 +227,91 @@ describe("with a bridge", () => {
 		t.link.begin(ctx);
 		const session = await held(registry);
 
-		t.link.emit(ctx, { e: "agent_start", leafId: null });
-		t.link.emit(ctx, STREAM("text_start", 0));
-		t.link.emit(ctx, { e: "tool_start", toolCallId: "call-1", toolName: "bash", args: { command: "ls" } });
+		t.emit({ e: "agent_start", leafId: null });
+		t.emit(STREAM("text_start", 0));
+		t.emit({ e: "tool_start", toolCallId: "call-1", toolName: "bash", args: { command: "ls" } });
 		const chunk = "x".repeat(60_000);
-		for (let i = 0; i < 80; i++) t.link.emit(ctx, STREAM("text_delta", 0, { delta: chunk }));
+		for (let i = 0; i < 80; i++) t.emit(STREAM("text_delta", 0, { delta: chunk }));
 		await until(() => session.feed.snapshot().tools.length > 0);
 
 		expect(session.feed.snapshot().run).toBeDefined();
 		expect(session.feed.snapshot().tools.map((tool) => tool.name)).toEqual(["bash"]);
 
-		t.link.emit(ctx, { e: "agent_settled", aborted: false });
+		t.emit({ e: "agent_settled", aborted: false });
 		await until(() => session.feed.snapshot().run === undefined);
+		t.link.end("quit");
+	});
+});
+
+describe("a bridge that goes away and comes back", () => {
+	test("a run that started while it was away is running when it is back, with its text and its tool", async () => {
+		const t = terminal();
+		t.link.begin(t.ctx());
+		t.emit({ e: "agent_start", leafId: null });
+		t.emit(STREAM("text_start", 0));
+		t.emit(STREAM("text_delta", 0, { delta: "Hel" }));
+		t.emit(STREAM("text_delta", 0, { delta: "lo" }));
+		t.emit({ e: "tool_start", toolCallId: "call-1", toolName: "bash", args: { command: "ls" } });
+
+		const session = await held(await bridge());
+		expect(session.feed.snapshot().run).toBeDefined();
+		expect(blockTexts(session)).toEqual(["Hello"]);
+		expect(toolNames(session)).toEqual(["bash"]);
+
+		t.emit({ e: "agent_settled", aborted: false });
+		await until(() => session.feed.snapshot().run === undefined);
+		t.link.end("quit");
+	});
+
+	test("a run that ended while it was away is not running when it is back", async () => {
+		const first = await bridgeIn(directory);
+		const t = terminal();
+		t.link.begin(t.ctx());
+		const before = await held(first.registry);
+		t.emit({ e: "agent_start", leafId: null });
+		t.emit({ e: "tool_start", toolCallId: "call-1", toolName: "bash", args: { command: "ls" } });
+		await until(() => toolNames(before).length === 1);
+		await first.stop();
+
+		t.emit({ e: "tool_end", toolCallId: "call-1", toolName: "bash", result: {}, isError: false });
+		t.emit({ e: "agent_settled", aborted: false });
+		const after = await held(await bridge());
+		expect(after.feed.snapshot().run).toBeUndefined();
+		expect(after.feed.row().status).toBe("idle");
+		t.link.end("quit");
+	});
+});
+
+describe("a link that breaks while both ends live", () => {
+	test("the phone sees no abort, and the run goes on from what happened meanwhile", async () => {
+		const bridgeDirectory = mkdtempSync(join(tmpdir(), "broski-link-far-"));
+		const { registry } = await bridgeIn(bridgeDirectory);
+		const relay = await relayTo(bridgeDirectory);
+		const t = terminal();
+		t.link.begin(t.ctx());
+		const session = await held(registry);
+		const events = viewed(session);
+		t.emit({ e: "agent_start", leafId: null });
+		t.emit(STREAM("text_start", 0));
+		t.emit(STREAM("text_delta", 0, { delta: "Hel" }));
+		t.emit({ e: "tool_start", toolCallId: "call-1", toolName: "bash", args: { command: "ls" } });
+		await until(() => toolNames(session).length === 1 && blockTexts(session).join("") === "Hel");
+		const runId = session.feed.snapshot().run?.runId;
+
+		relay.cut();
+		t.emit(STREAM("text_delta", 0, { delta: "lo" }));
+		t.emit({ e: "tool_start", toolCallId: "call-2", toolName: "read", args: { path: "README.md" } });
+		await until(() => toolNames(session).includes("read"));
+
+		expect(registry.session("/work/session.jsonl")).toBe(session);
+		expect(session.feed.snapshot().run?.runId).toBe(runId);
+		expect(blockTexts(session)).toEqual(["Hello"]);
+		expect(toolNames(session)).toEqual(["bash", "read"]);
+		expect(events.some((event) => event.type === "run_finished" || event.type === "notice")).toBe(false);
+
+		t.emit({ e: "agent_settled", aborted: false });
+		await until(() => events.some((event) => event.type === "run_finished"));
+		expect(events.at(-1)).toMatchObject({ type: "run_finished", runId, outcome: { kind: "completed" } });
 		t.link.end("quit");
 	});
 });
@@ -225,17 +362,17 @@ describe("a bridge that stops reading", () => {
 		const ctx = t.ctx();
 		t.link.begin(ctx);
 		await until(() => peer !== undefined);
-		t.link.emit(ctx, { e: "agent_start", leafId: null });
+		t.emit({ e: "agent_start", leafId: null });
 		await letGo();
 		await letGo();
 
 		const rounds = 40;
 		const size = 400_000;
 		for (let round = 0; round < rounds; round++) {
-			t.link.emit(ctx, STREAM("text_delta", 0, { delta: String(round).padStart(3, "0").padEnd(size, "y") }));
+			t.emit(STREAM("text_delta", 0, { delta: String(round).padStart(3, "0").padEnd(size, "y") }));
 			if (round % 4 === 3) await letGo();
 		}
-		t.link.emit(ctx, STREAM("text_delta", 0, { delta: String(rounds).padStart(3, "0") }));
+		t.emit(STREAM("text_delta", 0, { delta: String(rounds).padStart(3, "0") }));
 		await letGo();
 		peer?.resume();
 		await until(() => order.includes("resync"));

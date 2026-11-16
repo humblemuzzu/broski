@@ -1,6 +1,6 @@
 # The terminal link
 
-A phone sees a terminal's Pi session live, and can send it a message and stop it, through a small extension the bridge installs into Pi's agent directory. This file says what runs where, why it is built the way it is, what it cannot do, and how to turn it off. The code is `packages/bridge/src/backends/pi/terminal/`; the tests are `terminal_link`, `terminal_channel`, `terminal_extension`, `terminal_install` in `src/__tests__/pi/`.
+A phone sees a terminal's Pi session live, and can send it a message and stop it, through a small extension the bridge installs into Pi's agent directory. This file says what runs where, why it is built the way it is, what it cannot do, and how to turn it off. The code is `packages/bridge/src/backends/pi/terminal/`; the tests are `terminal_link`, `terminal_channel`, `terminal_reconnect`, `terminal_extension`, `terminal_install` in `src/__tests__/pi/`.
 
 ```
 terminal `pi` ──(Broski link extension, in the pi process)──► unix socket ──► bridge (TerminalLinkServer) ──► the Pi adapter ──► the core ──► phone
@@ -14,6 +14,7 @@ terminal `pi` ──(Broski link extension, in the pi process)──► unix soc
 - The phone can **send a message** (start when the terminal is idle, steer or queue during a run) and **stop the run**. Both go through the terminal's own process: the terminal's `pi` stays the only writer of its session file. A message from the phone is echoed with its `clientRequestId`, so the phone's own prompt is not shown twice.
 - A question the terminal asks (a permission dialog, a select) stays in the terminal; the phone shows a notice that the terminal is waiting. Changing the model, the thinking level, a mode or compacting is done in the terminal (`unsupported`, "Change it in the terminal that runs this session.").
 - When the terminal quits, the session goes back to being watch-only and its viewers are told (`session_replaced` naming the same session, so they attach again and get the new capabilities).
+- **A link that drops is not a terminal that quit.** The extension tracks the run whether or not a bridge listens, so the snapshot it reconnects with says what is under way: the run, the text being streamed, the tools running, the open dialogs (`extension/link.ts`; `running` is also checked against `ctx.isIdle()`, so a missed `agent_settled` cannot leave a phantom run). The bridge tells a drop from an exit: a `bye` (quit, `/new`, `/resume`, `/fork`, `/reload`) or a dropped connection whose pid is gone (`kill(pid, 0)`) ends the session at once, its run `aborted` with "The terminal closed while this was running."; a dropped connection whose `pi` still lives leaves the session held, in the registry and to its viewers, for up to 5 s (`linked-terminal.ts`, checked every 250 ms), and the next connection of the same pid, file and session id picks it up from its snapshot: the run goes on with its id, the tools the snapshot lists stay open, the streamed text is caught up in place, and only what ended meanwhile is closed. A command sent while it is held is refused `busy`. The snapshot reconciles the run before the dialogs, so a dialog open at connection blocks the run and the session shows `waiting_for_user`.
 
 ## The extension
 
@@ -21,7 +22,7 @@ terminal `pi` ──(Broski link extension, in the pi process)──► unix soc
 
 **Discovery.** Pi loads `*.ts`/`*.js` files and `<dir>/index.ts|js` under `<agentDir>/extensions/`; if that folder is itself an extension (an `index.ts`/`index.js` or a `package.json` with `pi.extensions` at its top) Pi loads only that (`dist/core/package-manager.js:382-470`, `addAutoDiscoveredResources` `:2145-2214`). The installer refuses in that case and says so in `status()`.
 
-**Versioned, bridge-owned, idempotent.** `index.ts` opens with `// broski-link-extension v<N>`. The installer writes a file only when its content differs (the entry point last, so Pi never loads a new entry beside old parts), reports `installed | updated | current`, and **never touches** a folder named `broski-link` whose `index.ts` does not carry the marker. A running `pi` loads extensions at its start: a terminal started before the install needs a restart (or `/reload`).
+**Versioned, bridge-owned, idempotent.** `index.ts` opens with `// broski-link-extension v<N>`. The installer writes a file only when its content differs (the entry point last, so Pi never loads a new entry beside old parts), reports `installed | updated | current`, and **never touches** a folder named `broski-link` whose `index.ts` does not carry the marker. A running `pi` loads extensions at its start: a terminal started before the install, or before an update, runs the copy it loaded until a restart (or `/reload`). That is why `LINK_VERSION` stays 1 and fields are only added, optional: an older copy still links, with the older copy's behaviour (a v2 copy, for one, forgets a run that starts or ends while no bridge listens).
 
 **Uninstall.** Delete `~/.pi/agent/extensions/broski-link/`, or set `"pi": { "terminalLink": false }` in the bridge's config: at the next bridge start nothing listens and the installer removes its files (only the files it wrote; a folder holding anything else stays). `uninstallExtension` is the same code.
 
@@ -31,7 +32,7 @@ terminal `pi` ──(Broski link extension, in the pi process)──► unix soc
 |---|---|
 | No blocking | Event handlers copy a few fields and return; a socket write happens on a `setImmediate`; there is no `await` on any Pi path. |
 | Bounded memory | One queue of at most 2 MiB (a line over 1 MiB is dropped). Past the bound the queue is dropped whole and the next flush sends a `snapshot reason: "resync"` instead: the bridge reconciles to the terminal's state and the viewers are caught up. The socket's own buffer is respected (`write()` returning false pauses flushing until `drain`). Tested against a peer that stops reading. |
-| Silent with no bridge | No socket, no key file, a refused connection: nothing is printed, nothing throws; retries at 1, 2, 5, 15, then 30 s. Timers and the socket are `unref`'d, so `pi` can exit. |
+| Silent with no bridge | No socket, no key file, a refused connection: nothing is printed, nothing throws; retries at 0.5, 1, 2, 3, then every 5 s (a failed try on a local socket is a file read and a refused connect, so a bridge that comes back after a long outage is found within 5 s). Timers and the socket are `unref`'d, so `pi` can exit. |
 | No output | The only text it ever shows is one `ctx.ui.notify` warning (below). |
 | Contained | Every handler is wrapped: a throw never reaches Pi. |
 | Only the interactive terminal | It does nothing unless `ctx.mode === "tui"` and the session has a file. `rpc`, `json` and `print` runs are ignored. |

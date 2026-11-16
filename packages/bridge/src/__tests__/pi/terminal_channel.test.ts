@@ -2,12 +2,13 @@
 
 import { afterEach, describe, expect, test } from "bun:test";
 import { readFileSync, statSync, writeFileSync } from "node:fs";
-import { createConnection, type Socket } from "node:net";
+import type { Socket } from "node:net";
 import { join } from "node:path";
 import { KEY_FILE, SOCKET_FILE, TerminalLinkServer } from "../../backends/pi/terminal/link-server";
 import { LINK_VERSION } from "../../backends/pi/terminal/protocol";
 import { TerminalRegistry } from "../../backends/pi/terminal/registry";
 import type { AgentEvent } from "../../contract";
+import { type Client, dial as dialWith, directoryOf, hello, STATE } from "./helpers/link-client";
 import { LiveRig } from "./helpers/live-rig";
 import { useWatchdog } from "./helpers/use-watchdog";
 import { until } from "./host_rig";
@@ -23,67 +24,7 @@ afterEach(async () => {
 	t = undefined;
 });
 
-interface Client {
-	readonly socket: Socket;
-	readonly lines: string[];
-	closed: Promise<void>;
-	send(frame: object | string): void;
-	/** Resolves with the next line the bridge sends. */
-	next(): Promise<unknown>;
-}
-
-async function dial(directory: string): Promise<Client> {
-	const socket = createConnection(join(directory, SOCKET_FILE));
-	sockets.push(socket);
-	socket.setEncoding("utf8");
-	const lines: string[] = [];
-	const waiting: ((line: string) => void)[] = [];
-	let pending = "";
-	socket.on("data", (chunk: string) => {
-		pending += chunk;
-		for (let end = pending.indexOf("\n"); end !== -1; end = pending.indexOf("\n")) {
-			const line = pending.slice(0, end);
-			pending = pending.slice(end + 1);
-			const wait = waiting.shift();
-			if (wait) wait(line);
-			else lines.push(line);
-		}
-	});
-	const closed = new Promise<void>((resolve) => socket.on("close", () => resolve()));
-	await new Promise<void>((resolve, reject) => {
-		socket.once("connect", resolve);
-		socket.once("error", reject);
-	});
-	return {
-		socket,
-		lines,
-		closed,
-		send: (frame) => socket.write(`${typeof frame === "string" ? frame : JSON.stringify(frame)}\n`),
-		next: () => {
-			const line = lines.shift();
-			return line !== undefined
-				? Promise.resolve(JSON.parse(line))
-				: new Promise((resolve) => waiting.push((late) => resolve(JSON.parse(late))));
-		},
-	};
-}
-
-const directoryOf = (rig: LiveRig) => join(rig.world.env.root, "link");
-
-function hello(rig: LiveRig, overrides: object = {}, file = join(rig.world.env.sessionDir, "x.jsonl")) {
-	const key = readFileSync(join(directoryOf(rig), KEY_FILE), "utf8");
-	return {
-		t: "hello",
-		v: LINK_VERSION,
-		key,
-		pid: 4321,
-		extension: "test",
-		session: { file, id: "s-raw", cwd: rig.cwd },
-		...overrides,
-	};
-}
-
-const STATE = { running: false, leafId: null, blocks: [], tools: [], tasks: [] };
+const dial = (directory: string): Promise<Client> => dialWith(directory, sockets);
 
 describe("who may use the socket", () => {
 	test("only the user: the directory, the socket and the key are private", async () => {
@@ -220,34 +161,6 @@ describe("a terminal that loaded an older copy of the extension", () => {
 			activity: { kind: "message", title: "Extension message", body: { format: "markdown", text: "Done." } },
 		});
 		expect(client.socket.destroyed).toBe(false);
-	});
-});
-
-describe("a terminal that disappears", () => {
-	test("mid-run, without a word, ends its run aborted with a notice, for the viewers that were watching", async () => {
-		t = await LiveRig.create({ link: true });
-		const file = join(t.world.env.sessionDir, "x.jsonl");
-		writeFileSync(file, "");
-		const client = await dial(directoryOf(t));
-		client.send(hello(t, {}, file));
-		await client.next();
-		client.send({ t: "snapshot", reason: "connect", state: STATE });
-		const registry = t.world.parts.terminal.registry;
-		await until(() => registry.session(file) !== undefined, "the terminal to be held");
-		const events: AgentEvent[] = [];
-		registry.session(file)?.feed.live.attach({ emit: (record) => events.push(record.event) });
-		client.send({ t: "event", event: { e: "agent_start", leafId: null } });
-		await until(() => events.some((event) => event.type === "run_started"), "the run to start");
-
-		client.socket.destroy();
-		await until(() => events.some((event) => event.type === "run_finished"), "the run to end");
-
-		expect(events.at(-2)).toEqual({
-			type: "notice",
-			level: "warning",
-			text: "The terminal closed while this was running.",
-		});
-		expect(events.at(-1)).toMatchObject({ type: "run_finished", outcome: { kind: "aborted" } });
 	});
 });
 

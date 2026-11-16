@@ -6,12 +6,13 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { RemoteDialogs } from "./dialogs";
 import { type Frame, type Json, MAX_TEXT, read } from "./projection";
 
-const VERSION = "2";
+const VERSION = "3";
 const LINK_VERSION = 1;
 const MAX_QUEUED_BYTES = 2 * 1024 * 1024;
 const MAX_LINE_BYTES = 1024 * 1024;
 const MAX_INBOUND_BYTES = 8 * 1024 * 1024;
-const RETRY_MS = [1_000, 2_000, 5_000, 15_000, 30_000];
+/** A local socket: a failed try costs a file read and a refused connect, so the wait never grows past 5 s. */
+const RETRY_MS = [500, 1_000, 2_000, 3_000, 5_000];
 const RUNNING_NOTICE = "Broski: the app on your phone is running this session. Don't type here until it is done.";
 
 interface OpenBlock {
@@ -50,6 +51,9 @@ export class Link {
 		if (ctx.mode !== "tui" || ctx.sessionManager.getSessionFile() === undefined) return;
 		this.ctx = ctx;
 		this.dialogs.watch(ctx.ui);
+		this.running = false;
+		this.blocks.clear();
+		this.tools.clear();
 		this.stopped = false;
 		this.connect();
 	}
@@ -65,12 +69,14 @@ export class Link {
 		this.queue = [];
 	}
 
-	/** Copies one event's fields into the buffer; never throws, never waits. */
+	/**
+	 * Copies one event's fields into the buffer; never throws, never waits. The run is tracked with no bridge listening
+	 * too, so the snapshot a reconnection sends says what is under way.
+	 */
 	emit(ctx: ExtensionContext, event: Frame): void {
-		if (!this.socket) return;
 		this.ctx = ctx;
 		this.track(event);
-		this.send({ t: "event", event });
+		if (this.socket) this.send({ t: "event", event });
 	}
 
 	/** An extension announced its background tasks on Pi's event bus. */
@@ -167,7 +173,7 @@ export class Link {
 		const ctx = this.ctx;
 		const model = ctx?.model;
 		return {
-			running: this.running,
+			running: this.running && ctx?.isIdle() === false,
 			leafId: ctx?.sessionManager.getLeafId() ?? null,
 			...(model && { model: { provider: model.provider, id: model.id, images: model.input.includes("image") } }),
 			thinking: this.pi.getThinkingLevel(),
@@ -227,14 +233,12 @@ export class Link {
 		this.welcomed = false;
 		this.queue = [];
 		this.queuedBytes = 0;
-		this.blocks.clear();
-		this.tools.clear();
 		this.retryLater();
 	}
 
 	private retryLater(): void {
 		if (this.stopped) return;
-		const wait = RETRY_MS[Math.min(this.attempt++, RETRY_MS.length - 1)] ?? 30_000;
+		const wait = RETRY_MS[Math.min(this.attempt++, RETRY_MS.length - 1)] ?? 5_000;
 		this.timer = setTimeout(() => this.connect(), wait);
 		this.timer.unref();
 	}
