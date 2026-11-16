@@ -208,8 +208,9 @@ impl Shared {
         })
     }
 
-    /// One request and its answer. A request the bridge's rate limit refused was not served, so it
-    /// goes again after the pause, within the same deadline.
+    /// One request and its answer, within one deadline. A request the bridge's rate limit refused
+    /// was not served, so it goes again after the pause; a repeatable one whose bridge socket was
+    /// lost before the answer goes again on the next socket, after the views are attached again.
     pub(crate) async fn request(
         &self,
         message: ClientMessage,
@@ -220,6 +221,7 @@ impl Shared {
             });
         }
         let deadline = requests::deadline();
+        let repeatable = wire::repeatable(&message);
         loop {
             let answer = self.call_until(message.clone(), deadline)?.answer().await;
             let again = Instant::now() + RATE_LIMIT_PAUSE;
@@ -228,6 +230,9 @@ impl Shared {
                     code: ProtocolErrorCode::RateLimited,
                     ..
                 }) if again < deadline => wait::until(&self.runtime, again).await,
+                Err(ClientError::LinkReset) if repeatable && Instant::now() < deadline => {
+                    tracing::debug!("a request lost with its bridge socket goes again");
+                }
                 answer => return answer,
             }
         }

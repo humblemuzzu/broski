@@ -1,18 +1,26 @@
 //! The app's one client: its link runtime, its identity, and every machine it is paired with.
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::time::Duration;
 
 use broski_contract::ClientInfo;
 use broski_link_session::{
-    pair, DeviceIdentity, LinkRuntime, MachineRecord, Offer, Platform, Session, SessionOptions,
-    Timings,
+    pair, DeviceIdentity, LinkRuntime, LinkState, MachineRecord, Offer, Platform, Session,
+    SessionOptions, Timings, WaitReason,
 };
-
+use tokio::time::Instant;
 use zeroize::Zeroizing;
 
 use crate::error::{ClientError, LinkFailure};
 use crate::inbox::Inbox;
 use crate::machine::Machine;
+use crate::wait;
+
+/// How often `paused` looks at the machines while one is still delivering.
+const PAUSE_POLL: Duration = Duration::from_millis(50);
+/// Beyond the pause grace, for the last status to reach the client.
+const PAUSE_SLACK: Duration = Duration::from_secs(1);
 
 /// What this phone says about itself: to the daemon (`device_name`, `platform`) and in the
 /// contract's `hello` (`client_name`, `client_version`).
@@ -38,6 +46,7 @@ pub struct Phone {
     client: ClientInfo,
     machines: Mutex<Vec<Arc<Machine>>>,
     inbox: Arc<Inbox>,
+    paused: AtomicBool,
 }
 
 impl Phone {
@@ -71,6 +80,7 @@ impl Phone {
             identity,
             machines: Mutex::new(Vec::new()),
             inbox,
+            paused: AtomicBool::new(false),
         })
     }
 
@@ -158,13 +168,29 @@ impl Phone {
         Arc::clone(&self.inbox)
     }
 
-    /// The app went to the background: every machine closes its socket and waits.
+    /// The app went to the background: every machine delivers what it already sent, then closes
+    /// its socket and waits. `paused` says when that has happened.
     pub fn pause(&self) {
+        self.paused.store(true, Ordering::SeqCst);
         self.machines().iter().for_each(|machine| machine.pause());
     }
 
     pub fn resume(&self) {
+        self.paused.store(false, Ordering::SeqCst);
         self.machines().iter().for_each(|machine| machine.resume());
+    }
+
+    /// Resolves once every machine has closed its socket after `pause`: at once when nothing was
+    /// in flight, otherwise once its machine acknowledged everything or `Timings::pause_grace` ran
+    /// out; at once too after a `resume`. The app keeps its background time until then.
+    pub async fn paused(&self) {
+        let deadline = Instant::now() + self.options.timings.pause_grace + PAUSE_SLACK;
+        while self.paused.load(Ordering::SeqCst) && Instant::now() < deadline {
+            if self.machines().iter().all(|machine| settled(machine)) {
+                return;
+            }
+            wait::until(&self.runtime, Instant::now() + PAUSE_POLL).await;
+        }
     }
 
     /// The phone's network changed: every machine races its routes again.
@@ -177,4 +203,11 @@ impl Phone {
     fn machines(&self) -> MutexGuard<'_, Vec<Arc<Machine>>> {
         self.machines.lock().unwrap_or_else(PoisonError::into_inner)
     }
+}
+
+fn settled(machine: &Machine) -> bool {
+    matches!(
+        machine.status().link.state,
+        LinkState::Waiting(WaitReason::Paused) | LinkState::Revoked | LinkState::Closed
+    )
 }

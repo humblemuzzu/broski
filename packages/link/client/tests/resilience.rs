@@ -3,8 +3,11 @@
 
 mod common;
 
-use broski_client::{ClientError, LinkState, Machine, MachineStatus};
-use broski_contract::{BackendsListRequest, ClientMessage, PromptMode, SessionRef};
+use broski_client::{LinkState, Machine, MachineStatus};
+use broski_contract::{
+    BackendsListRequest, ClientMessage, PageRequest, PromptMode, PromptResult, ServerMessage,
+    SessionRef, TranscriptItem, TranscriptReadRequest, TranscriptReadResult,
+};
 use broski_link_testkit::relay::TestRelay;
 use common::replica::Replica;
 use common::{
@@ -152,10 +155,12 @@ async fn a_machine_that_starts_over_resets_the_link_and_views_resume_from_the_br
         connected(status) && ready(status)
     })
     .await;
-    assert_eq!(
-        in_flight.await.expect("the request's task"),
-        Err(ClientError::LinkReset),
-        "a request the reset caught is answered as one"
+    assert!(
+        matches!(
+            in_flight.await.expect("the request's task"),
+            Ok(ServerMessage::BackendsListResult(_))
+        ),
+        "a read the reset caught is sent again on the new link session and answered"
     );
 
     mac.bridge.release(&session).await;
@@ -165,5 +170,57 @@ async fn a_machine_that_starts_over_resets_the_link_and_views_resume_from_the_br
         "the reattach resumed the same stream"
     );
     chat.assert_equal("after the run");
+    relay.stop().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_prompt_the_reset_caught_is_sent_again_and_runs_once() {
+    let relay = TestRelay::start().await;
+    let mut mac = Mac::on_relay(&relay).await;
+    let phone = phone();
+    let machine = paired(&phone, &mac).await;
+    let session = create_session(&machine, &mac.root()).await;
+    let mut chat = Watched::attach(&machine, &session);
+    chat.until("the view", |replica| replica.resets == 1).await;
+
+    mac.stop_daemon().await;
+    status_until(&machine, "the link to drop", |status| !connected(status)).await;
+    let (asking, target) = (std::sync::Arc::clone(&machine), session.clone());
+    let in_flight = tokio::spawn(async move {
+        prompt(
+            &asking,
+            &target,
+            PromptMode::Start,
+            "Sent as the Mac restarted",
+        )
+        .await
+    });
+    mac.start_daemon().await;
+
+    let result = in_flight.await.expect("the prompt's task");
+    assert!(matches!(result, PromptResult::Accepted(_)), "{result:?}");
+    chat.until("the run to finish", finished).await;
+    let request = ClientMessage::TranscriptRead(TranscriptReadRequest {
+        request_id: String::new(),
+        session: session.clone(),
+        page: PageRequest {
+            cursor: None,
+            limit: 200,
+        },
+    });
+    let items = match machine.request(request).await.expect("the transcript") {
+        ServerMessage::TranscriptReadResult(answer) => match answer.result {
+            TranscriptReadResult::Accepted(read) => read.page.items,
+            TranscriptReadResult::Rejected(rejected) => panic!("{rejected:?}"),
+        },
+        other => panic!("{other:?}"),
+    };
+    let sent = items
+        .iter()
+        .filter(|item| {
+            matches!(item, TranscriptItem::UserMessage(message) if message.text == "Sent as the Mac restarted")
+        })
+        .count();
+    assert_eq!(sent, 1, "the prompt ran exactly once");
     relay.stop().await;
 }

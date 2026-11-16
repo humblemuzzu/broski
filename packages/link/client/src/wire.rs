@@ -67,6 +67,58 @@ pub(crate) fn managed(message: &ClientMessage) -> bool {
     )
 }
 
+/// The requests the client sends again after the bridge socket they went out on was lost before
+/// their answer came: reads, values set outright, and prompts, which the bridge takes once per
+/// `clientRequestId` (contract README §10). One that acts each time it arrives is never repeated:
+/// the first may have been served.
+pub(crate) fn repeatable(message: &ClientMessage) -> bool {
+    match message {
+        ClientMessage::BackendsList(_)
+        | ClientMessage::BackendStatus(_)
+        | ClientMessage::ModelsList(_)
+        | ClientMessage::CommandsList(_)
+        | ClientMessage::ModesList(_)
+        | ClientMessage::SessionsList(_)
+        | ClientMessage::SessionGet(_)
+        | ClientMessage::TranscriptRead(_)
+        | ClientMessage::AttachmentRead(_)
+        | ClientMessage::WorkspaceInfo(_)
+        | ClientMessage::FsList(_)
+        | ClientMessage::FsRead(_)
+        | ClientMessage::FsSearch(_)
+        | ClientMessage::GitStatus(_)
+        | ClientMessage::GitDiff(_)
+        | ClientMessage::GitBranches(_)
+        | ClientMessage::GitLog(_)
+        | ClientMessage::TermList(_)
+        | ClientMessage::Prompt(_)
+        | ClientMessage::SessionRename(_)
+        | ClientMessage::ModelSet(_)
+        | ClientMessage::ThinkingSet(_)
+        | ClientMessage::ModeSet(_)
+        | ClientMessage::GitStage(_)
+        | ClientMessage::GitUnstage(_)
+        | ClientMessage::TermResize(_) => true,
+        ClientMessage::Hello(_)
+        | ClientMessage::SessionAttach(_)
+        | ClientMessage::SessionDetach(_)
+        | ClientMessage::SessionCreate(_)
+        | ClientMessage::SessionFork(_)
+        | ClientMessage::SessionDelete(_)
+        | ClientMessage::Abort(_)
+        | ClientMessage::InteractionAnswer(_)
+        | ClientMessage::QueueCancel(_)
+        | ClientMessage::Compact(_)
+        | ClientMessage::GitCommit(_)
+        | ClientMessage::GitCheckout(_)
+        | ClientMessage::TermOpen(_)
+        | ClientMessage::TermAttach(_)
+        | ClientMessage::TermDetach(_)
+        | ClientMessage::TermInput(_)
+        | ClientMessage::TermClose(_) => false,
+    }
+}
+
 /// What a message from the bridge is: the answer to one request, or news nobody asked for.
 pub(crate) enum Incoming {
     Answer(String, ServerMessage),

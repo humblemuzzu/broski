@@ -60,9 +60,16 @@ impl Phone {
         Arc::new(Inbox(self.0.inbox()))
     }
 
-    /// The app went to the background: every machine closes its socket and waits.
+    /// The app went to the background: every machine delivers what it already sent, then closes
+    /// its socket and waits.
     pub fn pause(&self) {
         self.0.pause();
+    }
+
+    /// Resolves once every machine's socket is closed after `pause` (the Mac acknowledged what was
+    /// sent, or 20 s passed), or at once after `resume`. Hold the background time until then.
+    pub async fn paused(&self) {
+        self.0.paused().await;
     }
 
     pub fn resume(&self) {

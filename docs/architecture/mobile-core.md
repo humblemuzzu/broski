@@ -42,7 +42,7 @@ and a machine ends through `Phone.forget`).
 |---|---|
 | `Phone::new(identity_secret, PhoneConfig)` | the app's one client; `new_identity_secret()` makes a secret on first run; `with_timings(…, Timings)` is for tests |
 | `phone.start(MachineRecord)`, `pair(offer_uri) -> Machine` | a stored machine, or a new pairing, whose `record()` the app persists at once |
-| `phone.machine(id)`, `all_machines()`, `forget(id)`, `inbox()`, `pause()`, `resume()`, `network_changed()` | machines and the app's lifecycle, passed to every machine |
+| `phone.machine(id)`, `all_machines()`, `forget(id)`, `inbox()`, `pause()`, `paused()`, `resume()`, `network_changed()` | machines and the app's lifecycle, passed to every machine |
 | `machine.request(ClientMessage) -> ServerMessage` | any contract request; the answer is the `….result` message |
 | `machine.attach(SessionRef) -> SessionView`, `terminal(TerminalId) -> TerminalView` | views; `session_list(backend, SessionQuery) -> SessionList` |
 | `machine.backends()`, `backend_status(b)`, `models(b, cwd, include_unavailable)`, `commands(b, cwd, session)`, `modes(b, cwd)` | the catalog, cached |
@@ -86,7 +86,9 @@ models are `broski-contract`'s generated types; the session crate's `MachineReco
   attaches and detaches are the client's own: `request` refuses them (`InvalidRequest`).
 - **Deadlines.** The bridge answers every request within `REQUEST_DEADLINE_MS`; the client stops waiting
   15 s after that (`Timeout`), which frees a waiter whose link is gone. A request sent on a socket that
-  is lost, or caught by a link session reset, fails `LinkReset`, never silently; one the link session
+  is lost, or caught by a link session reset, is sent again on the next socket, within the same deadline,
+  when repeating it cannot act twice (`wire::repeatable`: reads, values set outright, and prompts, which
+  the bridge takes once per `clientRequestId`); any other fails `LinkReset`, never silently; one the link session
   refuses fails `NotSent`. An answer `rate_limited` was not served and is sent again after the bridge's
   10 s refusal, within the same deadline.
 - **Bounds.** At most 256 callers' requests wait at once (`Overloaded` past it).
@@ -340,7 +342,10 @@ of the seen state, which is state and not an update.
 - `resilience.rs` — a phone's link dropped mid-run while the run streams and asks, then restored: the
   link session resumes, the view never reattaches, and its state equals another phone's; a bridge restart
   brings the view back from a snapshot of the new epoch and a run on the new bridge works; a machine that
-  starts over resets the link, a request caught by it fails `LinkReset`, and the view resumes its stream.
+  starts over resets the link, a read and a prompt caught by it are sent again (the prompt runs once), and
+  the view resumes its stream.
+- `pause.rs` — a prompt sent as the app leaves reaches the Mac before the link pauses and is answered on
+  resume; `Phone::paused` resolves once the link paused, and at once after a resume.
 - `catalog.rs` — rows follow a create, a rename and a delete, and stay out of another directory's list;
   status, models, modes and commands are read and kept; a `load_more` whose future is dropped after one poll
   still lands its page, and the next `load_more` reads the one after.

@@ -27,7 +27,7 @@ render crates; each export is a one-line forward. It calls
 
 | Object | Members | Wraps |
 |---|---|---|
-| `Phone` | `Phone(identitySecret:config:) throws` (Kotlin `Phone(identitySecret, config)`), `deviceId()`, `start(record:) throws → Machine`, `pair(offer:) async throws → Machine`, `machine(id:) → Machine?`, `allMachines()`, `forget(id:)`, `inbox() → Inbox`, `pause()`, `resume()`, `networkChanged()` | `broski_client::Phone`; one per process, it owns the link runtime's thread |
+| `Phone` | `Phone(identitySecret:config:) throws` (Kotlin `Phone(identitySecret, config)`), `deviceId()`, `start(record:) throws → Machine`, `pair(offer:) async throws → Machine`, `machine(id:) → Machine?`, `allMachines()`, `forget(id:)`, `inbox() → Inbox`, `pause()`, `paused() async`, `resume()`, `networkChanged()` | `broski_client::Phone`; one per process, it owns the link runtime's thread |
 | `Machine` | `id()`, `record() → MachineRecord`, `status() → MachineStatus`, `nextEvent() async → MachineEvent?`, `request(message:) async throws → ServerMessage`, `attach(session:) throws → SessionView`, `terminal(id:) throws → TerminalView`, `sessionList(backend:query:) throws → SessionList`, `backends() async throws`, `backendStatus(backend:) async throws`, `models(backend:cwd:includeUnavailable:) async throws`, `commands(backend:cwd:session:) async throws`, `modes(backend:cwd:) async throws`, `registerPush(platform:token:)`, `unregisterPush()`, `lanDiscovered(routes:)`, `restartBridge() throws` | `broski_client::Machine` |
 | `SessionView` | `nextUpdate() async → SessionUpdate?`, `snapshot() → SessionSnapshot?`, `session() → SessionRef?`, `capabilities() → SessionCapabilities?`, `detach()` | `broski_client::SessionView` (`detach` is its `close`) |
 | `TerminalView` | `id()`, `nextUpdate() async → TerminalUpdate?`, `summary() → TerminalSummary?`, `input(data:) async throws → ActionResult`, `resize(cols:rows:cellWidth:cellHeight:) async throws → ActionResult`, `detach()` | `broski_client::TerminalView` |
@@ -167,8 +167,9 @@ briefly and may be called from the main thread. Every object is `Send + Sync` (S
   starts, then `phone.start(record:)` for each stored record: `inbox().rows()` then already holds the
   last known rows. Persist `InboxUpdate.seen` and `InboxUpdate.cache` whenever they are not `nil`. A
   cache `restoreCache` refuses (another version's) needs no handling: the next one overwrites it.
-- **While running:** `phone.pause()`/`resume()` with the app's foreground, `networkChanged()` on a path
-  change, `machine.lanDiscovered(routes:)` from `NWBrowser`/`NsdManager`, `machine.registerPush` on every
+- **While running:** `phone.pause()`/`resume()` with the app's foreground, holding background time
+  (iOS `beginBackgroundTask`) until `phone.paused()` resolves, so what was sent just before leaving
+  reaches the Mac; `networkChanged()` on a path change, `machine.lanDiscovered(routes:)` from `NWBrowser`/`NsdManager`, `machine.registerPush` on every
   machine when the token changes and on each new pairing.
 - **Notification handlers** read the record from the shared Keychain or Keystore:
   `MachineRecord.fromBytes`, `openNotification`, and `decisionLetter` for a lock-screen decision, which
