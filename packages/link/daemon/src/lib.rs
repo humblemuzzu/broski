@@ -40,6 +40,7 @@ mod registry;
 mod relay;
 mod responder;
 mod routes;
+mod segments;
 mod session;
 mod stop;
 mod store;

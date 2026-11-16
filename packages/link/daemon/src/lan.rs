@@ -9,6 +9,7 @@ use axum::extract::{ConnectInfo, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
+use axum::serve::ListenerExt;
 use axum::{Json, Router};
 use broski_link_core::crypto::StaticIdentity;
 use futures_util::{SinkExt, StreamExt};
@@ -21,6 +22,7 @@ use tracing::debug;
 use crate::codec;
 use crate::conn::{self, ConnOut, Route};
 use crate::responder::Responder;
+use crate::segments;
 
 pub const MAX_MESSAGE_BYTES: usize = 128 * 1024;
 
@@ -172,7 +174,7 @@ pub async fn serve(
         .route("/v1/link", get(link))
         .with_state(lan);
     axum::serve(
-        listener,
+        listener.tap_io(segments::clamp),
         router.into_make_service_with_connect_info::<SocketAddr>(),
     )
     .with_graceful_shutdown(async move {
