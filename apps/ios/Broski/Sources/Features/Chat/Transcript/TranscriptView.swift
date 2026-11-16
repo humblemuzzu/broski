@@ -8,6 +8,8 @@ import SwiftUI
 struct TranscriptView: View {
     let chat: ChatModel
     let dimmed: Bool
+    /// What the link is doing while it cannot reach the Mac, which is why the conversation is late.
+    let connection: String?
     let dismissKeyboard: () -> Void
     @Binding var position: ScrollPosition
     @State private var personScrolling = false
@@ -42,7 +44,7 @@ struct TranscriptView: View {
             personScrolling = phase == .tracking || phase == .interacting || phase == .decelerating
         }
         .onScrollGeometryChange(for: CGFloat.self, of: Self.distanceFromEnd) { _, distance in
-            chat.follow.scrolled(distanceFromEnd: distance, byPerson: personScrolling)
+            chat.updateFollow { $0.scrolled(distanceFromEnd: distance, byPerson: personScrolling) }
         }
         .onScrollGeometryChange(for: CGFloat.self, of: Self.visibleHeight) { _, _ in
             // The end row, not `scrollTo(edge: .bottom)`: that one resets the horizontal offset to 0, and the
@@ -65,7 +67,7 @@ struct TranscriptView: View {
         .animation(.easeOut(duration: 0.2), value: chat.isRevealed)
         .overlay {
             if chat.isRevealed, !chat.history.isLoaded, chat.historyProblem == nil {
-                LoadingConversation()
+                LoadingConversation(connection: connection)
             }
         }
     }
@@ -103,11 +105,16 @@ struct TranscriptView: View {
 /// What a chat shows while its newest page is still on its way: a slow link must not read as an
 /// empty conversation.
 private struct LoadingConversation: View {
+    let connection: String?
+
     var body: some View {
         VStack(spacing: Spacing.s) {
             ProgressView()
-            Text("Loading the conversation").font(.footnote).foregroundStyle(.secondary)
+            Text(connection ?? "Loading the conversation").font(.footnote).foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .contentTransition(.opacity)
         }
+        .padding(.horizontal, Spacing.xl)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .allowsHitTesting(false)
         .transition(.opacity)

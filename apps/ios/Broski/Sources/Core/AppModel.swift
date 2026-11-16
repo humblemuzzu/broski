@@ -38,6 +38,7 @@ final class AppModel {
     @ObservationIgnored private var pathWatcher: PathWatcher?
     @ObservationIgnored private var isActive = false
     @ObservationIgnored private var liveRuns: LiveRuns?
+    @ObservationIgnored private var delivery = UIBackgroundTaskIdentifier.invalid
 
     init(storage: PhoneStorage = PhoneStorage()) {
         self.storage = storage
@@ -136,6 +137,7 @@ final class AppModel {
         case .active:
             isActive = true
             phone?.resume()
+            endDelivery()
             // An activity can only start in front; one that a background change could not start
             // starts now.
             liveRuns?.follow(inbox.rows)
@@ -143,10 +145,34 @@ final class AppModel {
         case .background:
             isActive = false
             phone?.pause()
+            holdForDelivery()
         default:
             break
         }
         updateDiscovery()
+    }
+
+    /// iOS suspends the app moments after it leaves the screen; the background time held here lets
+    /// a prompt sent just before reach the Mac (`Phone.paused` resolves once every link delivered
+    /// what it had, or gave up after 20 s).
+    private func holdForDelivery() {
+        guard let phone else { return }
+        endDelivery()
+        delivery = UIApplication.shared.beginBackgroundTask(withName: "Broski delivery") { [weak self] in
+            self?.endDelivery()
+        }
+        let held = delivery
+        Task { [weak self] in
+            await phone.paused()
+            guard let self, self.delivery == held else { return }
+            self.endDelivery()
+        }
+    }
+
+    private func endDelivery() {
+        guard delivery != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(delivery)
+        delivery = .invalid
     }
 
     private func identitySecret() throws(IdentityProblem) -> Data {

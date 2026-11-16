@@ -73,7 +73,7 @@ struct ChatBottomBar: View {
 
     private func jump() {
         jumps += 1
-        chat.follow.jumped()
+        chat.updateFollow { $0.jumped() }
         withAnimation(reduceMotion ? nil : .spring(duration: 0.3, bounce: 0.1)) {
             position.scrollTo(id: TranscriptView.endId, anchor: .bottom)
         }

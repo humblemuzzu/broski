@@ -27,7 +27,7 @@ final class ChatModel {
     /// False until the newest page and the live state are both in (or a short wait passed), so the
     /// transcript never builds itself in front of the person.
     private(set) var isRevealed = false
-    var follow = FollowState()
+    private(set) var follow = FollowState()
     var draft: ComposerDraft {
         didSet { drafts[target] = draft }
     }
@@ -72,6 +72,8 @@ final class ChatModel {
     var interactions: [Interaction] { snapshot.interactions }
     var canControl: Bool { state.capabilities?.controllable ?? false }
     var canAnswer: Bool { state.capabilities?.answer ?? false }
+    /// Why the live view stopped; until `reattach`, nothing live reaches this chat.
+    var viewEnd: ViewEnd? { state.ended }
 
     /// Attaches the view and pulls it for as long as the chat lives. The stack keeps a chat alive
     /// while a diff or another session is pushed over it; its end cancels the pull, and the
@@ -107,9 +109,19 @@ final class ChatModel {
         pull?.cancel()
     }
 
+    /// A new view in place of one the bridge refused: the refusal may have been passing (an agent
+    /// that failed to start, a Mac that was busy), and the old view never attaches again.
+    func reattach() {
+        pull?.cancel()
+        pull = nil
+        state = SessionState()
+        start()
+    }
+
     func apply(_ update: SessionUpdate) {
         let before = state.snapshot.lastOutcome
         let previous = session
+        let wasAttached = state.session != nil
         for moment in state.apply(update) {
             handle(moment)
         }
@@ -123,9 +135,14 @@ final class ChatModel {
             history = TranscriptHistory()
             historyRows = []
             Task { await loadNewest() }
+        } else if case .reset = update, wasAttached {
+            // The view started over after a gap the bridge could not replay: runs may have begun and
+            // ended meanwhile, and only the transcript has them.
+            Task { await loadNewest() }
         }
         retireDelivered(state.snapshot.run?.items.deliveredRequests ?? [])
         if case .changes = update { rebuildLive() } else { rebuildLive(arriving: false) }
+        if case .ended = update { isRevealed = true }
         revealIfReady()
         sendFirstPromptIfReady()
     }
@@ -191,8 +208,9 @@ final class ChatModel {
         let session = session
         newestReads += 1
         let read = newestReads
+        let limit = history.isLoaded ? TranscriptHistory.pageSize : TranscriptHistory.firstPageSize
         do throws(ChatProblem) {
-            let page = try await requests.transcript(session, cursor: nil, limit: TranscriptHistory.pageSize)
+            let page = try await requests.transcript(session, cursor: nil, limit: limit)
             guard session == self.session, read == newestReads else { return }
             history.setNewest(page)
             settling = []
@@ -239,12 +257,23 @@ final class ChatModel {
         timeline.close(live: isRunning)
         for prompt in pending { timeline.append(pending: prompt) }
         let rows = timeline.finished(continuing: previous)
-        follow.appended(messages: rows.count(where: \.startsMessage) - liveRows.count(where: \.startsMessage))
+        updateFollow { $0.appended(messages: rows.count(where: \.startsMessage) - liveRows.count(where: \.startsMessage)) }
         let now = Date.now
         let ids = Set(rows.map(\.id))
         births = births.filter { ids.contains($0.key) }
         for row in rows where row.risesIn && births[row.id] == nil { births[row.id] = arriving ? now : .distantPast }
         liveRows = rows
+    }
+
+    /// The transcript reports its scrolling from inside layout, and that layout reads `follow`. A
+    /// mutation in place (`follow.scrolled(…)`) announces a change even when nothing changed, and
+    /// UIKit lays the whole app out again for each one: that spun the layout every frame, freezing
+    /// the app with the chat half pushed and its transcript never shown. So the new value is worked
+    /// out on a copy and assigned only when it differs.
+    func updateFollow(_ change: (inout FollowState) -> Void) {
+        var next = follow
+        change(&next)
+        if next != follow { follow = next }
     }
 
     /// A live row built within the last three seconds, which rises in when it appears.
@@ -340,37 +369,3 @@ final class ChatModel {
     }
 }
 
-/// A moment the chat plays a haptic for; a new value each time, so the same moment twice plays twice.
-struct ChatFeedback: Equatable {
-    let id = UUID()
-    let moment: HapticMoment
-
-    init(_ moment: HapticMoment) {
-        self.moment = moment
-    }
-}
-
-extension Interaction {
-    /// A denial or a dismissal, which plays the warning haptic rather than the success one.
-    func isRefusal(_ reply: InteractionReply) -> Bool {
-        switch (reply, request) {
-        case (.cancel, _): true
-        case (.confirm(let reply), _): !reply.confirmed
-        case (.planApproval(let reply), _): reply.decision == .reject
-        case (.toolPermission(let reply), .toolPermission(let request)):
-            request.options.first { $0.id == reply.optionId }?.effect == .deny
-        default: false
-        }
-    }
-}
-
-extension ComposerDraft {
-    /// A refused draft back in the field, in front of anything typed since.
-    func merged(before typed: ComposerDraft) -> ComposerDraft {
-        var merged = self
-        if !typed.text.isEmpty { merged.text = text.isEmpty ? typed.text : text + "\n\n" + typed.text }
-        merged.images += typed.images
-        merged.command = command ?? typed.command
-        return merged
-    }
-}

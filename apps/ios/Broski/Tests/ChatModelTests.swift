@@ -22,6 +22,25 @@ struct ChatModelTests {
         .reset(session: session, capabilities: capabilities, snapshot: snapshot, status: .idle)
     }
 
+    /// The transcript reports scrolling from inside layout, which reads `follow`; UIKit lays the app
+    /// out again for every change it is told of, so scrolling that changes nothing must tell nobody.
+    @Test func scrollingThatChangesNothingAnnouncesNothingSoLayoutCannotSpinOnIt() {
+        let chat = chat(ScriptedChat(), view: ScriptedSessionView())
+        let announced = Announcements()
+        withObservationTracking { _ = chat.follow } onChange: { announced.count += 1 }
+
+        for distance in [0, 0.5, 1] as [CGFloat] {
+            chat.updateFollow { $0.scrolled(distanceFromEnd: distance, byPerson: false) }
+        }
+        chat.updateFollow { $0.scrolled(distanceFromEnd: 300, byPerson: false) }
+        chat.updateFollow { $0.appended(messages: 3) }
+        #expect(announced.count == 0, "following stays following, and nothing was unseen")
+
+        chat.updateFollow { $0.scrolled(distanceFromEnd: 300, byPerson: true) }
+        #expect(announced.count == 1)
+        #expect(!chat.follow.isFollowing)
+    }
+
     @Test func aPromptShowsDimmedUntilTheAgentHasItThenItsMessageTakesItsPlace() async throws {
         let machine = ScriptedChat()
         let view = ScriptedSessionView()
@@ -129,7 +148,7 @@ struct ChatModelTests {
         chat.start()
         view.push(reset())
         try await until { chat.isRevealed }
-        chat.follow.scrolled(distanceFromEnd: 500, byPerson: true)
+        chat.updateFollow { $0.scrolled(distanceFromEnd: 500, byPerson: true) }
 
         let run = ActiveRun(runId: "r", trigger: .external, startedAt: 0, items: [Item.user("u1", "From the terminal")], droppedItems: 0)
         view.push(.changes(changes: [.runChanged(run: run), .blockOpened(block: OpenBlock(
@@ -159,4 +178,9 @@ struct ChatModelTests {
         Issue.record("the condition never held")
         throw CancellationError()
     }
+}
+
+/// How many changes observation announced; its `onChange` runs synchronously on the writer's thread.
+private nonisolated final class Announcements: @unchecked Sendable {
+    var count = 0
 }

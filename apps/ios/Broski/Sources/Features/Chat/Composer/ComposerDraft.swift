@@ -20,6 +20,15 @@ nonisolated struct ComposerDraft: Equatable {
         text = text.isEmpty ? returned : returned + "\n\n" + text
     }
 
+    /// A refused draft back in the field, in front of anything typed since.
+    func merged(before typed: ComposerDraft) -> ComposerDraft {
+        var merged = self
+        if !typed.text.isEmpty { merged.text = text.isEmpty ? typed.text : text + "\n\n" + typed.text }
+        merged.images += typed.images
+        merged.command = command ?? typed.command
+        return merged
+    }
+
     /// A prompt from the draft, with a fresh client request id.
     func input(mode: PromptMode) -> PromptInput {
         PromptInput(

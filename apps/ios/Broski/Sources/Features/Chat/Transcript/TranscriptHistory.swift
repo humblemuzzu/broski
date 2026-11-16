@@ -5,6 +5,9 @@ import BroskiCore
 /// what it overlaps and keeps the older pages before it, otherwise it starts the history over.
 struct TranscriptHistory: Equatable {
     static let pageSize: Int64 = 100
+    /// The first read is what stands between a tap and the conversation on screen, so it carries one
+    /// screen's worth; older pages follow before the person scrolls to them.
+    static let firstPageSize: Int64 = 30
 
     private(set) var items: [TranscriptItem] = []
     private(set) var olderCursor: String?

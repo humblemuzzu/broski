@@ -14,6 +14,10 @@ struct PinnedPanel: View {
                 BackgroundTasksCard(tasks: chat.snapshot.backgroundTasks)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
+            if let end = chat.viewEnd {
+                ViewEndCard(end: end) { chat.reattach() }
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
             ForEach(chat.notices) { notice in
                 NoticeCard(notice: notice) { chat.dismiss(notice) }
                     .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -34,6 +38,42 @@ struct PinnedPanel: View {
         .animation(.easeOut(duration: 0.2), value: chat.snapshot.queue)
         .animation(.easeOut(duration: 0.2), value: chat.snapshot.backgroundTasks.isEmpty)
         .animation(.easeOut(duration: 0.2), value: chat.notices)
+        .animation(.easeOut(duration: 0.2), value: chat.viewEnd)
+    }
+}
+
+/// Why nothing live reaches the chat any more, and a way back when the Mac only refused.
+private struct ViewEndCard: View {
+    let end: ViewEnd
+    let retry: () -> Void
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: Spacing.s) {
+            Image(systemName: "bolt.horizontal.circle").foregroundStyle(Palette.caution).accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: Spacing.xxs) {
+                Text(message).font(.footnote).lineLimit(4)
+                if case .refused(let detail) = end, !detail.isEmpty {
+                    Text(detail).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(3).textSelection(.enabled)
+                }
+            }
+            Spacer(minLength: 0)
+            if case .refused = end {
+                Button("Try Again", action: retry).font(.footnote.weight(.semibold)).buttonStyle(.borderless)
+            }
+        }
+        .padding(.horizontal, Spacing.m)
+        .padding(.vertical, Spacing.s + 2)
+        .background(.regularMaterial, in: .rect(cornerRadius: 16, style: .continuous))
+        .accessibilityElement(children: .combine)
+    }
+
+    private var message: String {
+        switch end {
+        case .removed: "This session was deleted on your Mac."
+        case .refused: "Your Mac couldn't open this session live."
+        case .closed: "This Mac isn't paired anymore."
+        case .revoked: "This phone was removed from your Mac. Pair again to follow this session."
+        }
     }
 }
 

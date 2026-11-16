@@ -50,7 +50,9 @@ private struct ChatContent: View {
     private var capabilities: Capabilities? { machine.backends.first { $0.id == chat.session.backend }?.capabilities }
 
     var body: some View {
-        TranscriptView(chat: chat, dimmed: !machine.summary.isReady, dismissKeyboard: { composing = false }, position: $position)
+        TranscriptView(
+            chat: chat, dimmed: !machine.summary.isReady, connection: machine.summary.isReady ? nil : machine.summary.line,
+            dismissKeyboard: { composing = false }, position: $position)
             .safeAreaBar(edge: .bottom) {
                 ChatBottomBar(
                     chat: chat, catalog: catalog, agent: agent, capabilities: capabilities,
