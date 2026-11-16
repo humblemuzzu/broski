@@ -43,6 +43,9 @@ final class PairingModel {
         case .paste(let clipboard):
             step = .scanning
             pasted(clipboard)
+        case .link(let uri):
+            step = .scanning
+            read(uri, source: .pasted)
         }
     }
 
@@ -93,7 +96,9 @@ final class PairingModel {
     }
 
     private func read(_ text: String, source: PairingProblem.Source) {
-        let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        // An offer never holds whitespace (its name and relay are percent-encoded), but a link
+        // copied from a narrow terminal or chat arrives broken across lines.
+        let text = text.filter { !$0.isWhitespace }
         guard !text.isEmpty else {
             step = .problem(.clipboardEmpty(), nil)
             return

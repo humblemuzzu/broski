@@ -1,11 +1,12 @@
 import SwiftUI
 import UIKit
 
-/// How a pairing begins: with the scanner, or with what the clipboard held when the person tapped
-/// Paste pairing link.
+/// How a pairing begins: with the scanner, with what the clipboard held when the person tapped
+/// Paste pairing link, or with a `broski://pair` link iOS opened the app with.
 enum PairingStart: Identifiable, Hashable {
     case scan
     case paste(Clipboard)
+    case link(String)
 
     var id: Self { self }
 

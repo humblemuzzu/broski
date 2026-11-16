@@ -27,5 +27,9 @@ struct RootView: View {
         .sheet(item: $pairing) { start in
             PairingSheet(start: start)
         }
+        .onOpenURL { url in
+            guard url.scheme == "broski", url.host() == "pair" else { return }
+            pairing = .link(url.absoluteString)
+        }
     }
 }

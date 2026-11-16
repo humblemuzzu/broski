@@ -48,6 +48,25 @@ struct PairingTests {
         #expect(offer.source == .pasted)
     }
 
+    @Test func aLinkBrokenAcrossLinesOrOpenedByIOSIsStillPreviewed() throws {
+        let test = TestStorage()
+        defer { test.remove() }
+        let app = AppModel(storage: test.storage)
+        app.start()
+        let offer = try Fixture.text("offer.txt").trimmed
+        let middle = offer.index(offer.startIndex, offsetBy: offer.count / 2)
+        let wrapped = "\(offer[..<middle])\n  \(offer[middle...])"
+
+        for start in [PairingStart.paste(.text(wrapped)), .link(offer)] {
+            guard case .preview(let previewed) = PairingModel(start: start, app: app).step else {
+                Issue.record("expected a preview for \(start)")
+                continue
+            }
+            #expect(previewed.uri == offer)
+            #expect(previewed.name == "Studio Mac")
+        }
+    }
+
     @Test func theCountdownRunsFromTheInstantTheViewChecksAndEndsAtTheExpiry() {
         let expiresAt = Date(timeIntervalSince1970: 1_000)
         let offer = PairingModel.Offer(
