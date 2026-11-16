@@ -1,10 +1,12 @@
 /** The `TerminalWatch` `backend.ts` builds (D28): a session another process writes opens watch-only, never resumed. */
 
 import { stat } from "node:fs/promises";
+import { join } from "node:path";
 import type { InteractionAnswer, OpenSession, SessionId, SessionRef } from "../../../contract";
 import type { TerminalDeps } from "../ports/deps";
 import type { TerminalWatch } from "../ports/terminal";
 import { CLOSED, isRejected, rejected } from "../rejections";
+import { CliProcesses } from "./cli-processes";
 import { createHookAsks } from "./hook-asks";
 import { TerminalSessions } from "./terminal-sessions";
 import type { WatchedSession } from "./watch-session";
@@ -23,8 +25,10 @@ export function createTerminalWatch(deps: TerminalDeps): TerminalWatch {
 	const takesAsks = services.terminal.hookAsks !== undefined;
 	const sessions = new TerminalSessions(services.clock);
 	const paths = new TranscriptPaths(deps.locate);
+	const processes = new CliProcesses(join(services.sdk.configRoot(), "sessions"), services.clock, deps.announce);
 	return {
-		writing: (sessionId) => writing(deps, sessions, paths, sessionId),
+		writing: (sessionId) => writing(deps, sessions, paths, processes, sessionId),
+		row: (sessionId) => (deps.hosted(sessionId) ? undefined : processes.row(sessionId)),
 		openWatchOnly: async (ref, stored, sink) => {
 			paths.remember(stored.sessionId, stored.path);
 			const session = await sessions.acquire(ref.sessionId, stored.path, sink).catch(() => undefined);
@@ -34,8 +38,10 @@ export function createTerminalWatch(deps: TerminalDeps): TerminalWatch {
 		},
 		start: async () => {
 			services.terminal.hookAsks?.(createHookAsks({ sessions, hosted: deps.hosted }));
+			processes.start();
 		},
 		dispose: async () => {
+			processes.dispose();
 			sessions.dispose();
 			paths.clear();
 		},
@@ -71,15 +77,20 @@ class TranscriptPaths {
 	}
 }
 
-/** Whether a terminal is writing the session now: it has an ask raised, or its file was written lately and not by us. */
+/**
+ * Whether a terminal has the session now: it has an ask raised, a terminal `claude` holds it, however quiet, or its
+ * file was written lately and not by us.
+ */
 async function writing(
 	deps: TerminalDeps,
 	sessions: TerminalSessions,
 	paths: TranscriptPaths,
+	processes: CliProcesses,
 	sessionId: SessionId,
 ): Promise<boolean> {
 	if (deps.hosted(sessionId)) return false;
 	if (sessions.isAsked(sessionId)) return true;
+	if ((await processes.holder(sessionId)) !== undefined) return true;
 	const path = await paths.of(sessionId);
 	if (path === undefined) return false;
 	try {

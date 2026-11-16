@@ -2,16 +2,21 @@
 
 import type { PermissionRequestHookInput, PermissionRequestHookSpecificOutput } from "@anthropic-ai/claude-agent-sdk";
 import type { OpenResult, SessionId, SessionRef, SessionSink } from "../../../contract";
-import type { StoredSession } from "./store";
+import type { LiveRow, StoredSession } from "./store";
 
 export interface TerminalPresence {
-	/** Another process wrote the session's file in the last 10 s and this bridge does not host it. */
+	/**
+	 * This bridge does not host the session, and a terminal has it: a live terminal `claude` holds it in the CLI's
+	 * register of processes, or another process wrote its file in the last 10 s.
+	 */
 	writing(sessionId: SessionId): Promise<boolean>;
 }
 
 export interface TerminalWatch extends TerminalPresence {
 	/** An `OpenSession` without `control`, fed by the live tail. */
 	openWatchOnly(ref: SessionRef, stored: StoredSession, sink: SessionSink): Promise<OpenResult>;
+	/** The status the CLI's register gives a session a terminal `claude` holds and this bridge does not host. */
+	row(sessionId: SessionId): LiveRow | undefined;
 	start(): Promise<void>;
 	dispose(): Promise<void>;
 }

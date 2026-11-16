@@ -40,6 +40,8 @@ export interface TerminalRig {
 	readonly records: SinkRecord[];
 	readonly sink: SessionSink;
 	readonly hosted: Set<string>;
+	/** The sessions whose row the watch said changed, in order. */
+	readonly announced: string[];
 	locate(sessionId: string): Promise<StoredSession | Rejected>;
 	open(sessionId: string): Promise<OpenResult>;
 	refOf(sessionId: string): SessionRef;
@@ -48,6 +50,7 @@ export interface TerminalRig {
 
 export function terminalRig(home: ClaudeHome, options: RigOptions = {}): TerminalRig {
 	const records: SinkRecord[] = [];
+	const announced: string[] = [];
 	const hosted = options.hosted ?? new Set<string>();
 	const released = options.released ?? new Map<string, number>();
 	const clock = options.clock ?? FAST_CLOCK;
@@ -72,6 +75,7 @@ export function terminalRig(home: ClaudeHome, options: RigOptions = {}): Termina
 		hosted: (sessionId) => hosted.has(sessionId),
 		ownWriteAt: (sessionId) => released.get(sessionId),
 		locate,
+		announce: (sessionId) => announced.push(sessionId),
 	});
 	const sink: SessionSink = { emit: (record) => records.push(record) };
 	const refOf = (sessionId: string): SessionRef => ({ backend: "claude-code", sessionId });
@@ -80,6 +84,7 @@ export function terminalRig(home: ClaudeHome, options: RigOptions = {}): Termina
 		records,
 		sink,
 		hosted,
+		announced,
 		locate,
 		refOf,
 		open: async (sessionId) => {

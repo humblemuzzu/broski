@@ -406,8 +406,19 @@ Each emits its catalog event; a child session refuses all three.
 
 ### D28. A session a terminal writes is watched, never written
 
-A session whose file changed in the last 10 s and that this bridge does not host opens watch-only (no `control`)
-with a live tail (`terminal/`): one watcher per project directory plus a 250 ms `stat` sweep, positional reads from
+A session this bridge does not host is a terminal's, and opens watch-only (no `control`), when a live terminal
+`claude` holds it or its file changed in the last 10 s. Every running CLI keeps an entry in its register,
+`<configRoot>/sessions/<pid>.json` (CLI 2.1.325: `pid`, `sessionId`, `procStart`, `kind`, `entrypoint`, `status`
+of `busy | shell | idle | waiting`), rewritten as its status changes and removed at exit (`terminal/cli-processes.ts`).
+An entry counts when its `entrypoint` is not `sdk-*` (the SDK's processes, this bridge's hosts among them, write
+`kind: "interactive"` too, with `entrypoint: "sdk-ts"`), its pid lives (`kill(pid, 0)`) and, when it names a
+`procStart`, `ps -o lstart=` in UTC still gives that start, so a killed CLI's entry on a reused pid does not count
+(checked once per process). So a terminal run that thinks, or runs a tool, for longer than 10 s without writing is
+never resumed in a second `claude`. The register is read afresh at each open; an `fs.watch` on its directory
+(changes read once after 200 ms) and a 5 s sweep (a killed process leaves its entry; the directory may appear later)
+keep the rows: such a session lists with its terminal's status (`busy` running, `waiting` waiting for the user,
+`idle` and `shell` idle; the hosted row wins), and a change of it is a `session_updated`. A CLI that keeps no
+register leaves only the 10 s rule, as before. A watched session has a live tail (`terminal/`): one watcher per project directory plus a 250 ms `stat` sweep, positional reads from
 a 512 KiB baseline, bounded lines, translation of the terminal's entries into the same events and ids as live
 (D21). A run without a closing entry ends after 2.5 s of quiet unless an ask is on it. A hook ask can come before the
 CLI's first flush of a new session, so `open-session.ts` looks for it for up to 3 s before `not_found`.
