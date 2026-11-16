@@ -183,6 +183,17 @@ impl Link {
         self.drain_events();
     }
 
+    /// Pings over the current connection; `LinkEvent::Dead` follows unless the peer answers
+    /// within `within_ms`. False when there is no connection to probe.
+    pub fn probe(&mut self, now_ms: u64, within_ms: u64) -> bool {
+        if self.transport.is_none() || self.closed {
+            return false;
+        }
+        self.session
+            .as_mut()
+            .is_some_and(|session| session.probe(now_ms, within_ms))
+    }
+
     /// The connection is gone; the session survives for the next resume.
     pub fn disconnect(&mut self) {
         self.transport = None;

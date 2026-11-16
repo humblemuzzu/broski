@@ -199,6 +199,18 @@ impl Session {
         }
     }
 
+    /// Pings the peer now and reports `Event::Dead` unless a frame arrives within `within_ms`: the
+    /// connection may have died without a word, after the network under it changed. False while
+    /// detached.
+    pub fn probe(&mut self, now_ms: u64, within_ms: u64) -> bool {
+        self.now_ms = now_ms;
+        if !self.attached || !self.keepalive.probe(now_ms, within_ms) {
+            return false;
+        }
+        self.queue_control(Kind::Ping, &[]);
+        true
+    }
+
     /// Binds the session to a fresh connection. `peer_next_expected` is the
     /// peer's receive frontier from its handshake payload: everything below it
     /// was received and is dropped, everything else is retransmitted. Outside

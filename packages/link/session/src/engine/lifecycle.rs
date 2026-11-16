@@ -5,7 +5,9 @@ use std::time::Duration;
 use broski_link_core::STREAM_CONTROL;
 use tokio::time::Instant;
 
-use super::{Command, Engine, Handshake, PushIntent};
+use tracing::debug;
+
+use super::{millis, Command, Engine, Handshake, PushIntent};
 use crate::backoff::jitter;
 use crate::close;
 use crate::error::Error;
@@ -21,7 +23,7 @@ impl Engine {
         match command {
             Some(Command::Pause) => self.pause(),
             Some(Command::Resume) => self.resume(),
-            Some(Command::NetworkChanged) => self.reconnect_now(),
+            Some(Command::NetworkChanged) => self.network_changed(),
             Some(Command::LanDiscovered(routes)) => self.lan_discovered(&routes),
             Some(Command::Push(intent)) => self.set_push(intent),
             Some(Command::Close) => self.close_session().await,
@@ -87,9 +89,59 @@ impl Engine {
         self.connect(None);
     }
 
-    /// The app went to the background. The socket in use is closed so the machine sees the phone
-    /// leave and pushes its alerts again; a dial still in flight may finish and wait for a resume.
+    /// A connected link is asked to prove it still works rather than dropped: the phone reports
+    /// interface churn (a VPN reconfiguring, a second cellular interface) far more often than its
+    /// connections actually die, and dropping one mid-transfer stalls whatever was loading. A link
+    /// that is not connected races its routes again at once.
+    fn network_changed(&mut self) {
+        if self.finished || self.pause.paused() || self.close.revoked() {
+            return;
+        }
+        let within = millis(self.options.timings.network_probe);
+        if self.current.is_some() && self.link.probe(self.now_ms(), within) {
+            debug!("the network changed: probing the link in use");
+            return;
+        }
+        self.reconnect_now();
+    }
+
+    /// The app went to the background. What the machine has not acknowledged yet is delivered
+    /// first, within `Timings::pause_grace`: a prompt sent just before the app left must not wait
+    /// for the app to come back.
     fn pause(&mut self) {
+        if self.finished || self.pause.paused() {
+            return;
+        }
+        if self.undelivered() {
+            self.pause_by
+                .get_or_insert(Instant::now() + self.options.timings.pause_grace);
+            return;
+        }
+        self.pause_now();
+    }
+
+    /// A pause waiting on delivery happens once the machine has everything, or the grace ran out.
+    pub(super) fn settle_pause(&mut self) {
+        let Some(by) = self.pause_by else {
+            return;
+        };
+        if self.finished || !self.undelivered() || Instant::now() >= by {
+            self.pause_by = None;
+            self.pause_now();
+        }
+    }
+
+    /// Messages queued, a sealed frame waiting for the writer, or frames the machine has not
+    /// acknowledged.
+    fn undelivered(&self) -> bool {
+        self.pending_wire.is_some()
+            || self.link.unacked_bytes() > 0
+            || !locked(&self.shared.outbound).is_empty()
+    }
+
+    /// The socket in use is closed so the machine sees the phone leave and pushes its alerts
+    /// again; a dial still in flight may finish and wait for a resume.
+    fn pause_now(&mut self) {
         if self.finished || self.pause.paused() {
             return;
         }
@@ -103,7 +155,7 @@ impl Engine {
     }
 
     fn resume(&mut self) {
-        if self.finished {
+        if self.finished || self.pause_by.take().is_some() {
             return;
         }
         let Some(fresh) = self.pause.resume(Instant::now()) else {

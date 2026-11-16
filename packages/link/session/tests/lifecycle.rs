@@ -56,6 +56,19 @@ impl Lan {
         }
     }
 
+    /// Drops the socket in use with new connections held, and returns once the redial is waiting
+    /// at the forwarder.
+    async fn hold_a_redial(&self) {
+        let dialled = self.lan.accepted();
+        self.lan.hold();
+        self.lan.drop_connections();
+        let deadline = Instant::now() + WAIT;
+        while self.lan.accepted() == dialled {
+            assert!(Instant::now() < deadline, "the phone never dialled again");
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    }
+
     async fn stop(self) {
         self.lan.stop();
         self.bridge.stop();
@@ -158,9 +171,9 @@ async fn pausing_detaches_the_phone_and_resuming_resumes_the_session() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn a_dial_in_flight_when_the_app_pauses_serves_a_quick_resume() {
     let (rig, mut watch) = Lan::start(quick()).await;
+    watch.round_trip("everything acknowledged").await;
     let dialled = rig.lan.accepted();
-    rig.lan.hold();
-    watch.session.network_changed();
+    rig.hold_a_redial().await;
     let mark = watch.mark();
     watch.session.pause();
     watch
@@ -189,9 +202,9 @@ async fn a_socket_older_than_the_stale_window_is_not_reused() {
         ..quick()
     };
     let (rig, mut watch) = Lan::start(timings).await;
+    watch.round_trip("everything acknowledged").await;
     let dialled = rig.lan.accepted();
-    rig.lan.hold();
-    watch.session.network_changed();
+    rig.hold_a_redial().await;
     let mark = watch.mark();
     watch.session.pause();
     watch

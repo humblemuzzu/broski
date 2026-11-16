@@ -96,7 +96,9 @@ whose push key is not 32 bytes, whose relay is not `ws`/`wss`, or whose device i
 | grace / LAN dial / relay dial | 300 ms / 4 s / 12 s | `route_dialer.dart` |
 | handshake | msg2 within 8 s of msg1 | `link_handshake.dart` |
 | retry | the first failure after a connect switches to the other configured route at once; later ones back off 0.5 s doubling to 10 s, ±20 %, racing both | `route_retry.dart`, `backoff.dart` |
-| network change | every socket is dropped and both routes raced again; the link session resumes | `link_engine.dart` `_reconnectNow` |
+| network change | a connected link is probed: a ping that nothing answers within 4 s makes it dead and both routes are raced again; a link not connected races at once | phones report interface churn far more often than their connections die |
+| liveness | the phone pings after 5 s without sending and takes a link that heard nothing for 15 s as dead (the daemon keeps 15 s / 45 s) | a cellular connection often dies without a word |
+| segments | every socket the phone dials sends TCP segments of at most 1100 bytes, set after connect | Apple's kernel ignores a cap set before connect, and the daemon's cap binds only what it sends |
 | LAN probe | while the relay carries the link, one LAN candidate at a time (1.5 s each) every 15 s | `lan_probe.dart`, `lan_probe_policy.dart` |
 | discovered routes | merged into the record; a route seen again inside 2 s is ignored | `lan_search.dart` |
 
@@ -117,8 +119,10 @@ of any bridge backlog, so a machine that restarted is told again.
 
 ## Lifecycle
 
-- **pause** closes the socket in use, so the daemon sees the phone leave and pushes its alerts again,
-  and reports `Waiting(Paused)`. Nothing dials while paused. A race already in flight may finish: its
+- **pause** first lets the machine acknowledge what the phone already sent (queued messages, a sealed
+  frame, unacked frames), redialling if it must, for up to `Timings::pause_grace` (20 s); a `resume`
+  meanwhile cancels the pause. Then it closes the socket in use, so the daemon sees the phone leave and
+  pushes its alerts again, and reports `Waiting(Paused)`. Nothing dials while paused. A race already in flight may finish: its
   socket waits, and a `resume` within 15 s uses it instead of dialling again; a later resume, or a socket
   that closed meanwhile, dials afresh (`app_pause.dart`).
 - **close codes**: 4003 on the link, or a 4003 websocket close from the relay on a device-token socket,
@@ -194,13 +198,21 @@ window is the probe-loop test's absence check.
   bridge socket; a relay link takes a route `lan_discovered` reports and records it; a LAN address
   answering for another machine leaves the relay link untouched and is not probed again.
 - `resume.rs` — five drops mid-stream lose and repeat nothing in either direction and keep the bridge
-  socket; a network change re-races with exactly one new socket and resumes; a restarted machine is
+  socket; a restarted machine is
   reported offline by the relay, then the session resets and the messages queued meanwhile are
   reported with their tags.
 - `lifecycle.rs` — revocation on the link (4003) and by the relay alone (websocket 4003) end the session
   as `Revoked`, after which nothing dials; pause detaches the phone at the daemon and resume resumes; a
   dial in flight at pause serves a quick resume with no new socket, and a stale one is replaced; the
   outbound queue's bounds and its reports on close; `close` ends the session on the machine.
+- `liveness.rs` — a network change keeps a link that still answers (no new socket, never leaves
+  `Connected`); over a link that went silent it dials again within the probe window and resends what was
+  in flight once; a silent link with no network change is dialled again after `dead_after`; an idle link
+  that works is never taken for dead.
+- `delivery.rs` — a message sent as the app leaves reaches the bridge before `Waiting(Paused)`; a link
+  that died as the app left is dialled again to deliver it before the pause; a machine out of reach holds
+  the pause only for the grace and gets the message on resume; a resume while the pause waits keeps the
+  link.
 - `bridge.rs` — a 1 MiB frame and 50 small ones round-trip in order; the daemon's bridge status arrives.
 - `push.rs` — the registered key reaches `devices.json` and opens what the daemon's own push code seals;
   a decision letter opens with the daemon's letter code, is accepted by the relay, reaches the bridge as

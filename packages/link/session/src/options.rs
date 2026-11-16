@@ -49,6 +49,13 @@ pub struct Timings {
     /// How long the relay must keep refusing this device's token, with no connection in between,
     /// before the machine is taken to have revoked the device.
     pub relay_refusal_window: Duration,
+    pub ping_idle: Duration,
+    /// A phone's connection often dies without a word (a cell handoff, Tailscale changing paths).
+    pub dead_after: Duration,
+    /// How long the link in use gets to answer a ping after the network changed.
+    pub network_probe: Duration,
+    /// How long a pause waits for the machine to acknowledge what was already sent.
+    pub pause_grace: Duration,
 }
 
 impl Default for Timings {
@@ -68,6 +75,10 @@ impl Default for Timings {
             pairing_confirm: Duration::from_secs(20),
             identity_fetch_timeout: Duration::from_millis(1500),
             relay_refusal_window: Duration::from_secs(300),
+            ping_idle: Duration::from_secs(5),
+            dead_after: Duration::from_secs(15),
+            network_probe: Duration::from_secs(4),
+            pause_grace: Duration::from_secs(20),
         }
     }
 }

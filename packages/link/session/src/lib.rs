@@ -30,6 +30,7 @@ mod record;
 mod record_codec;
 mod refusal;
 mod runtime;
+mod segments;
 mod session;
 mod status;
 mod tls;

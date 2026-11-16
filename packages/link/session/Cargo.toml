@@ -50,6 +50,8 @@ zeroize = "1.8.2"
 thiserror = "2.0.21"
 # tracing 0.1.44 — debug logs that never carry a secret or a payload byte.
 tracing = "0.1.44"
+# libc 0.2.190 — TCP_MAXSEG on the phone's sockets, the daemon's pin.
+libc = "0.2.190"
 
 [dev-dependencies]
 # broski-link-testkit — the daemon, relay and LAN forwarder harness the tests share with the client's.

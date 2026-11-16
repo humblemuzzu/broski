@@ -131,6 +131,44 @@ fn silence_ends_in_one_dead_event_per_silence() {
 }
 
 #[test]
+fn a_probe_pings_at_once_and_a_silent_peer_is_dead_at_its_deadline() {
+    let mut session = attached(Config::default());
+    assert!(session.probe(T0 + 1_000, 4_000));
+    assert_eq!(decode_frame(&poll_frame(&mut session)).kind, Kind::Ping);
+    assert_eq!(session.poll_timeout(), Some(T0 + 5_000));
+    session.handle_timeout(T0 + 4_999);
+    assert_eq!(session.poll_event(), None);
+    session.handle_timeout(T0 + 5_000);
+    assert_eq!(session.poll_event(), Some(Event::Dead));
+    session.handle_timeout(T0 + 50_000);
+    assert_eq!(session.poll_event(), None, "reported once");
+}
+
+#[test]
+fn any_frame_from_the_peer_answers_a_probe() {
+    let mut session = attached(Config::default());
+    assert!(session.probe(T0, 4_000));
+    let pong = Frame::control(Kind::Pong, 0, &[]).encode();
+    session.handle_frame(&pong, T0 + 300).expect("pong");
+    session.handle_timeout(T0 + 4_000);
+    assert_eq!(session.poll_event(), None, "the peer answered");
+    assert_eq!(
+        session.poll_timeout(),
+        Some(T0 + 15_000),
+        "back to the idle ping"
+    );
+}
+
+#[test]
+fn a_detached_session_is_not_probed() {
+    let mut session = attached(Config::default());
+    session.detach();
+    assert!(!session.probe(T0, 4_000));
+    assert!(session.poll_transmit().is_none());
+    assert_eq!(session.poll_timeout(), None);
+}
+
+#[test]
 fn a_detached_session_has_no_deadlines() {
     let mut session = attached(Config::default());
     assert!(session.poll_timeout().is_some());

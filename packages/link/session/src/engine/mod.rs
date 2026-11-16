@@ -14,6 +14,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use broski_link_core::crypto::PublicBundle;
+use broski_link_core::proto::Config;
 use broski_link_core::{Link, CONFIG};
 use rustls::ClientConfig;
 use tokio::sync::mpsc::{self, OwnedPermit};
@@ -26,7 +27,7 @@ use crate::control::PushPlatform;
 use crate::endpoint::Target;
 use crate::events::Shared;
 use crate::identity::DeviceIdentity;
-use crate::options::SessionOptions;
+use crate::options::{SessionOptions, Timings};
 use crate::pause::AppPause;
 use crate::probe::LanProbePolicy;
 use crate::race::RouteRace;
@@ -144,6 +145,9 @@ pub(crate) struct Engine {
     refusals: RelayRefusals,
     retry_at: Option<(Instant, Option<crate::status::Route>)>,
     pause: AppPause,
+    /// The app paused while the machine still lacked some of what was sent: the pause happens
+    /// once it has all of it, or at this instant.
+    pause_by: Option<Instant>,
     close: PeerClosePolicy,
     reporter: StatusReporter,
     pending_wire: Option<Vec<u8>>,
@@ -167,7 +171,7 @@ impl Engine {
             dials: JoinSet::new(),
             tls: tls::client_config(),
             clock: now,
-            link: Link::client(CONFIG),
+            link: Link::client(link_config(&timings)),
             identity: parts.identity,
             server: parts.server,
             record: parts.record,
@@ -186,6 +190,7 @@ impl Engine {
             refusals: RelayRefusals::new(timings.relay_refusal_window),
             retry_at: None,
             pause: AppPause::new(timings.stale_socket),
+            pause_by: None,
             close: PeerClosePolicy::default(),
             reporter: StatusReporter::new(),
             pending_wire: None,
@@ -202,6 +207,7 @@ impl Engine {
         self.connect(None);
         while !self.finished {
             self.flush();
+            self.settle_pause();
             self.gate_reading();
             self.step().await;
         }
@@ -253,6 +259,7 @@ impl Engine {
             self.race.as_ref().and_then(|race| race.grace_at),
             self.migration.as_ref().map(|migration| migration.reply_by),
             probe,
+            self.pause_by,
         ]
         .into_iter()
         .flatten()
@@ -319,6 +326,19 @@ impl Engine {
             permit.send(frame);
         }
     }
+}
+
+/// The machine's link config with the phone's own liveness windows.
+fn link_config(timings: &Timings) -> Config {
+    Config {
+        ping_idle_ms: millis(timings.ping_idle),
+        dead_after_ms: millis(timings.dead_after),
+        ..CONFIG
+    }
+}
+
+fn millis(duration: Duration) -> u64 {
+    u64::try_from(duration.as_millis()).unwrap_or(u64::MAX)
 }
 
 fn take_due(slot: &mut Option<Instant>, now: Instant) -> bool {

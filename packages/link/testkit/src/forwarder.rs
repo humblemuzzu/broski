@@ -22,6 +22,8 @@ enum Mode {
 pub struct Forwarder {
     pub addr: SocketAddr,
     mode: watch::Sender<Mode>,
+    /// Bumped by `stall`: a connection made before the bump stops moving bytes.
+    stalls: watch::Sender<u64>,
     accepted: Arc<AtomicUsize>,
     pipes: Arc<Mutex<Vec<AbortHandle>>>,
     task: JoinHandle<()>,
@@ -36,18 +38,20 @@ impl Forwarder {
         let (mode, modes) = watch::channel(Mode::Open {
             delay: Duration::ZERO,
         });
+        let (stalls, stalled) = watch::channel(0);
         let accepted = Arc::new(AtomicUsize::new(0));
         let pipes = Arc::new(Mutex::new(Vec::new()));
         let task = tokio::spawn(accept(
             listener,
             upstream,
-            modes,
+            (modes, stalled),
             Arc::clone(&accepted),
             Arc::clone(&pipes),
         ));
         Forwarder {
             addr,
             mode,
+            stalls,
             accepted,
             pipes,
             task,
@@ -81,6 +85,12 @@ impl Forwarder {
         self.drop_connections();
     }
 
+    /// Every live connection goes silent without closing, as one does when a cell handoff or a
+    /// NAT drops it; new connections still pass.
+    pub fn stall(&self) {
+        self.stalls.send_modify(|stalls| *stalls += 1);
+    }
+
     /// Kills every live connection, as a Wi-Fi drop does, and keeps accepting new ones.
     pub fn drop_connections(&self) {
         for pipe in self
@@ -102,13 +112,15 @@ impl Forwarder {
 async fn accept(
     listener: TcpListener,
     upstream: SocketAddr,
-    modes: watch::Receiver<Mode>,
+    (modes, stalls): (watch::Receiver<Mode>, watch::Receiver<u64>),
     accepted: Arc<AtomicUsize>,
     pipes: Arc<Mutex<Vec<AbortHandle>>>,
 ) {
     while let Ok((client, _)) = listener.accept().await {
         accepted.fetch_add(1, Ordering::SeqCst);
-        let pipe = tokio::spawn(pipe(client, upstream, modes.clone()));
+        let mut stalls = stalls.clone();
+        stalls.mark_unchanged();
+        let pipe = tokio::spawn(pipe(client, upstream, modes.clone(), stalls));
         pipes
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
@@ -116,7 +128,12 @@ async fn accept(
     }
 }
 
-async fn pipe(mut client: TcpStream, upstream: SocketAddr, mut modes: watch::Receiver<Mode>) {
+async fn pipe(
+    mut client: TcpStream,
+    upstream: SocketAddr,
+    mut modes: watch::Receiver<Mode>,
+    mut stalls: watch::Receiver<u64>,
+) {
     let Ok(mode) = modes
         .wait_for(|mode| *mode != Mode::Held)
         .await
@@ -132,5 +149,11 @@ async fn pipe(mut client: TcpStream, upstream: SocketAddr, mut modes: watch::Rec
     let Ok(mut server) = TcpStream::connect(upstream).await else {
         return;
     };
-    let _ = tokio::io::copy_bidirectional(&mut client, &mut server).await;
+    tokio::select! {
+        _ = tokio::io::copy_bidirectional(&mut client, &mut server) => {}
+        _ = stalls.changed() => {
+            // Both sockets stay open and nothing crosses: no FIN, no RST, just silence.
+            std::future::pending::<()>().await;
+        }
+    }
 }

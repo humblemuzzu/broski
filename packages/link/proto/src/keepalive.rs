@@ -12,6 +12,8 @@ pub(crate) struct Keepalive {
     last_send_ms: u64,
     last_recv_ms: u64,
     dead_reported: bool,
+    /// Set by `probe`: nothing received by then makes the connection dead, whatever `dead_ms` says.
+    probe_by_ms: Option<u64>,
 }
 
 impl Keepalive {
@@ -23,6 +25,7 @@ impl Keepalive {
             last_send_ms: 0,
             last_recv_ms: 0,
             dead_reported: true,
+            probe_by_ms: None,
         }
     }
 
@@ -31,11 +34,25 @@ impl Keepalive {
         self.dead_reported = false;
         self.last_send_ms = now_ms;
         self.last_recv_ms = now_ms;
+        self.probe_by_ms = None;
     }
 
     pub(crate) fn stop(&mut self) {
         self.started = false;
         self.dead_reported = true;
+        self.probe_by_ms = None;
+    }
+
+    /// The caller sends a ping now; unless a frame arrives within `within_ms`, the connection is
+    /// reported dead. False when no connection is being watched.
+    pub(crate) fn probe(&mut self, now_ms: u64, within_ms: u64) -> bool {
+        if !self.started || self.dead_reported {
+            return false;
+        }
+        let by = now_ms.saturating_add(within_ms);
+        self.probe_by_ms = Some(self.probe_by_ms.map_or(by, |earlier| earlier.min(by)));
+        self.last_send_ms = now_ms;
+        true
     }
 
     pub(crate) fn on_send(&mut self, now_ms: u64) {
@@ -48,6 +65,7 @@ impl Keepalive {
         if self.started {
             self.last_recv_ms = now_ms;
             self.dead_reported = false;
+            self.probe_by_ms = None;
         }
     }
 
@@ -55,10 +73,12 @@ impl Keepalive {
         if self.dead_reported {
             return None;
         }
+        let dead_at = self.last_recv_ms.saturating_add(self.dead_ms);
+        let ping_at = self.last_send_ms.saturating_add(self.idle_ms);
         Some(
-            self.last_recv_ms
-                .saturating_add(self.dead_ms)
-                .min(self.last_send_ms.saturating_add(self.idle_ms)),
+            dead_at
+                .min(ping_at)
+                .min(self.probe_by_ms.unwrap_or(u64::MAX)),
         )
     }
 
@@ -66,8 +86,10 @@ impl Keepalive {
         if self.dead_reported {
             return None;
         }
-        if now_ms >= self.last_recv_ms.saturating_add(self.dead_ms) {
+        let probe_failed = self.probe_by_ms.is_some_and(|by| now_ms >= by);
+        if probe_failed || now_ms >= self.last_recv_ms.saturating_add(self.dead_ms) {
             self.dead_reported = true;
+            self.probe_by_ms = None;
             return Some(Action::Dead);
         }
         if now_ms >= self.last_send_ms.saturating_add(self.idle_ms) {

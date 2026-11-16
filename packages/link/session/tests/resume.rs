@@ -1,13 +1,15 @@
 mod common;
 
-use broski_link_session::{LinkState, Paired, Route, SendFailure, WaitReason};
+use broski_link_session::{
+    BridgeState, LinkState, Paired, Route, SendFailure, Session, WaitReason,
+};
 use broski_link_testkit::await_identity;
 use broski_link_testkit::daemon::{Home, TestDaemon};
 use broski_link_testkit::forwarder::Forwarder;
 use broski_link_testkit::relay::TestRelay;
 use common::bridge::BridgeStandIn;
 use common::watch::{resumed, session_reset, Watch};
-use common::{quick, Phone};
+use common::{options, quick, Phone};
 
 const TOTAL: usize = 200;
 
@@ -63,30 +65,44 @@ async fn a_socket_dropped_mid_stream_resumes_without_loss_or_duplication() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn a_network_change_races_the_routes_again_and_resumes() {
+async fn a_phone_that_starts_over_gets_a_bridge_socket_of_its_own() {
     let home = Home::new();
     let daemon = TestDaemon::start(&home, None, true).await;
     let bridge = BridgeStandIn::start(&home.bridge_socket());
     let lan = Forwarder::start(daemon.lan()).await;
     let phone = Phone::new();
-    let Paired { session, .. } = phone.pair(&daemon, vec![lan.route()], quick()).await;
-    let mut watch = Watch::new(session);
-    watch.connected_on(0, Route::Lan).await;
-    let dialled = lan.accepted();
+    let Paired { session, record } = phone.pair(&daemon, vec![lan.route()], quick()).await;
+    let mut first = Watch::new(session);
+    first.connected_on(0, Route::Lan).await;
+    first.round_trip("from the first launch").await;
+    let sockets = bridge.sessions().len();
+    let first_conn = first.bridge_statuses.last().expect("a bridge status").conn;
+    // The app process is gone without a word, as a force-quit leaves it.
+    drop(first);
 
-    let mark = watch.mark();
-    watch.send("in flight");
-    watch.session.network_changed();
-    let back = watch.connected_on(mark, Route::Lan).await;
-    assert_eq!(resumed(&back), Some(true));
+    let session = Session::start(&phone.runtime, &phone.identity, record, options(quick()))
+        .expect("the stored record starts");
+    let mut second = Watch::new(session);
+    let back = second.connected_on(0, Route::Lan).await;
     assert_eq!(
-        lan.accepted(),
-        dialled + 1,
-        "one new socket for the new network"
+        resumed(&back),
+        Some(false),
+        "a new process has nothing to resume"
     );
-    watch
-        .until("the echo", |watch| watch.bridge == ["echo:in flight"])
+    second
+        .until("a new bridge socket, up", |watch| {
+            watch
+                .bridge_statuses
+                .iter()
+                .any(|status| status.state == BridgeState::Up && status.conn > first_conn)
+        })
         .await;
+    second.round_trip("from the second launch").await;
+    assert_eq!(
+        bridge.sessions().len(),
+        sockets + 1,
+        "the old process's socket, with its hello and views, is not the new one's"
+    );
     lan.stop();
     bridge.stop();
     daemon.stop().await;

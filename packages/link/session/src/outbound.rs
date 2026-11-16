@@ -92,6 +92,10 @@ impl OutboundQueue {
         self.queued.len()
     }
 
+    pub(crate) fn is_empty(&self) -> bool {
+        self.queued.is_empty()
+    }
+
     /// Sends what it can from the front and stops at the first message the link will not take
     /// yet. Returns the tags of the messages the link refused outright.
     pub(crate) fn pump(

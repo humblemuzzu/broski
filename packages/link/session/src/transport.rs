@@ -6,7 +6,7 @@ use futures_util::stream::{SplitSink, SplitStream};
 use futures_util::{SinkExt, StreamExt};
 use rustls::ClientConfig;
 use serde_json::Value;
-use tokio::net::TcpStream;
+use tokio::net::{TcpSocket, TcpStream};
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use tokio::time::timeout;
@@ -14,11 +14,10 @@ use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::tungstenite::http::{HeaderName, HeaderValue, StatusCode};
 use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
 use tokio_tungstenite::tungstenite::{Bytes, Error as WsError, Message};
-use tokio_tungstenite::{
-    connect_async_tls_with_config, Connector, MaybeTlsStream, WebSocketStream,
-};
+use tokio_tungstenite::{client_async_tls_with_config, Connector, MaybeTlsStream, WebSocketStream};
 
 use crate::endpoint::Target;
+use crate::segments;
 use crate::status::Route;
 
 pub(crate) type WsStream = WebSocketStream<MaybeTlsStream<TcpStream>>;
@@ -72,14 +71,65 @@ pub(crate) async fn dial(
     let config = WebSocketConfig::default()
         .max_message_size(Some(MAX_WIRE_MESSAGE))
         .max_frame_size(Some(MAX_WIRE_MESSAGE));
-    let connect =
-        connect_async_tls_with_config(request, Some(config), true, Some(Connector::Rustls(tls)));
+    let connect = async {
+        let socket = open_tcp(&request).await?;
+        client_async_tls_with_config(request, socket, Some(config), Some(Connector::Rustls(tls)))
+            .await
+            .map_err(|error| match error {
+                WsError::Http(response) => DialError::Refused(response.status()),
+                error => DialError::failed(error),
+            })
+    };
     match timeout(within, connect).await {
         Ok(Ok((stream, _))) => Ok(stream),
-        Ok(Err(WsError::Http(response))) => Err(DialError::Refused(response.status())),
-        Ok(Err(error)) => Err(DialError::failed(error)),
+        Ok(Err(error)) => Err(error),
         Err(_) => Err(DialError::failed("timed out")),
     }
+}
+
+/// The TCP socket a websocket runs over, with Nagle off (a frame is a message, not a stream to
+/// batch) and its segments capped (`segments.rs`) before the first byte goes out.
+async fn open_tcp(
+    request: &tokio_tungstenite::tungstenite::handshake::client::Request,
+) -> Result<TcpStream, DialError> {
+    let uri = request.uri();
+    let host = uri
+        .host()
+        .ok_or_else(|| DialError::failed("the address has no host"))?;
+    let host = host
+        .strip_prefix('[')
+        .and_then(|host| host.strip_suffix(']'))
+        .unwrap_or(host);
+    let port = match (uri.port_u16(), uri.scheme_str()) {
+        (Some(port), _) => port,
+        (None, Some("wss")) => 443,
+        (None, Some("ws")) => 80,
+        _ => return Err(DialError::failed("the address is not ws or wss")),
+    };
+    let addresses = tokio::net::lookup_host((host, port))
+        .await
+        .map_err(DialError::failed)?;
+    let mut failure = DialError::failed("the address did not resolve");
+    for address in addresses {
+        match connect_capped(address).await {
+            Ok(stream) => return Ok(stream),
+            Err(error) => failure = DialError::failed(error),
+        }
+    }
+    Err(failure)
+}
+
+async fn connect_capped(address: std::net::SocketAddr) -> std::io::Result<TcpStream> {
+    let socket = if address.is_ipv4() {
+        TcpSocket::new_v4()?
+    } else {
+        TcpSocket::new_v6()?
+    };
+    segments::clamp(&socket);
+    socket.set_nodelay(true)?;
+    let stream = socket.connect(address).await?;
+    segments::clamp(&stream);
+    Ok(stream)
 }
 
 /// What the relay last said about the machine.
@@ -363,6 +413,19 @@ mod tests {
             }
             tokio::time::sleep(Duration::from_millis(20)).await;
         }
+    }
+
+    #[tokio::test]
+    async fn a_dialled_socket_sends_segments_no_larger_than_the_cap() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind");
+        let url = format!("ws://{}/", listener.local_addr().expect("addr"));
+        let request = url.as_str().into_client_request().expect("request");
+        let (socket, accepted) = tokio::join!(open_tcp(&request), listener.accept());
+        let (socket, _) = (socket.expect("connected"), accepted.expect("accepted"));
+        assert!(socket.nodelay().expect("nodelay"));
+        assert!(segments::max_segment(&socket) <= segments::MAX_SEGMENT);
     }
 
     #[test]
