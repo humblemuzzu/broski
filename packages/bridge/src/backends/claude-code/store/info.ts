@@ -32,18 +32,20 @@ export async function locateSession(ctx: StoreContext, sessionId: SessionId): Pr
 
 /**
  * The row of a session the SDK described: its origin from the journal, its fork link, the hosted facts laid over.
- * `path`, when the caller knows the transcript's, spares the title source a search of the project directories.
+ * `known`, when the caller knows the transcript's path, spares a search of the project directories.
  */
 export async function rowOfInfo(
 	ctx: StoreContext,
 	info: SDKSessionInfo,
 	live: LiveRow | undefined,
-	path?: string,
+	known?: string,
 ): Promise<SessionSummary | undefined> {
 	const forkOf = await ctx.forks.parentOf(info.sessionId);
 	const titled = info.customTitle !== undefined && info.customTitle !== "";
+	const path = known ?? (await ctx.locator.find(info.sessionId));
 	return sessionRow(info, {
 		origin: ctx.deps.ownership.origin(info.sessionId),
+		updatedAt: path === undefined ? undefined : await ctx.activity.updatedAt(path),
 		userTitled: titled && (await ctx.titles.userTitled(info.sessionId, path)),
 		...(live !== undefined && { live }),
 		...(forkOf !== undefined && {

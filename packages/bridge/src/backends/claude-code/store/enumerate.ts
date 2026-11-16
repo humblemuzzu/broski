@@ -14,15 +14,19 @@ export interface Candidate {
 	readonly mtime: number;
 }
 
+/** Where a row stands in a listing: its `updatedAt`, then its id. */
 export interface Position {
-	readonly mtime: number;
+	readonly at: number;
 	readonly sessionId: string;
 }
 
 /** Newest first; on a tie the greater `sessionId` first (as the SDK's lister orders them, `__tests__/claude-code/foundation/session_order.test.ts`). */
 export function byNewest(a: Position, b: Position): number {
-	if (a.mtime !== b.mtime) return b.mtime - a.mtime;
-	return a.sessionId < b.sessionId ? 1 : a.sessionId > b.sessionId ? -1 : 0;
+	return b.at - a.at || greaterIdFirst(a.sessionId, b.sessionId);
+}
+
+function greaterIdFirst(a: string, b: string): number {
+	return a < b ? 1 : a > b ? -1 : 0;
 }
 
 export function isAfter(candidate: Position, position: Position): boolean {
@@ -51,10 +55,10 @@ async function dirCandidates(root: string, dir: string): Promise<Candidate[]> {
 	return found.filter((candidate) => candidate !== undefined);
 }
 
-/** All files of `dirs`, newest first, one per session id (the newest copy wins, as in the SDK). */
+/** All files of `dirs`, newest mtime first, one per session id (the newest copy wins, as in the SDK). */
 export async function enumerateSessions(root: string, dirs: readonly string[]): Promise<Candidate[]> {
 	const all = (await Promise.all(dirs.map((dir) => dirCandidates(root, dir)))).flat();
-	all.sort(byNewest);
+	all.sort((a, b) => b.mtime - a.mtime || greaterIdFirst(a.sessionId, b.sessionId));
 	const seen = new Set<string>();
 	return all.filter((candidate) => {
 		const duplicate = seen.has(candidate.sessionId);

@@ -2,6 +2,7 @@
 
 import type { Rejected } from "../../../contract";
 import type { StoreDeps } from "../ports/deps";
+import { ActivityTimes } from "./activity";
 import type { BuiltChain } from "./chain-reader";
 import { ForkLinks } from "./fork-links";
 import { FullReads } from "./full-reads";
@@ -18,6 +19,7 @@ export interface StoreContext {
 	readonly forks: ForkLinks;
 	readonly reads: FullReads<BuiltChain | Rejected>;
 	readonly titles: TitleSources;
+	readonly activity: ActivityTimes;
 }
 
 export function createStoreContext(deps: StoreDeps): StoreContext {
@@ -31,5 +33,6 @@ export function createStoreContext(deps: StoreDeps): StoreContext {
 		forks: new ForkLinks(stateDir),
 		reads: new FullReads(),
 		titles: new TitleSources(locator),
+		activity: new ActivityTimes(),
 	};
 }

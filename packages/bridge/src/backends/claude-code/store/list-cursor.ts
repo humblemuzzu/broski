@@ -18,7 +18,7 @@ export function listScope(query: SessionQuery): string {
 
 export function listCursor(scope: string, after: ListPosition): PageCursor {
 	return encodeCursor("sessions", scope, {
-		t: after.mtime,
+		t: after.at,
 		i: after.sessionId,
 	});
 }
@@ -26,7 +26,7 @@ export function listCursor(scope: string, after: ListPosition): PageCursor {
 /** Undefined for a cursor this store did not mint: `invalid_input`. */
 export function listPosition(cursor: string, scope: string): ListPosition | undefined {
 	const wire = decodeCursor<Wire>(cursor, "sessions", scope, isWire);
-	return wire === undefined ? undefined : { mtime: wire.t, sessionId: wire.i };
+	return wire === undefined ? undefined : { at: wire.t, sessionId: wire.i };
 }
 
 function isWire(position: JsonValue): position is Wire & JsonValue {

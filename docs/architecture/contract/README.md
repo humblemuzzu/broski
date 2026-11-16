@@ -412,7 +412,7 @@ Rejection { code: busy|not_steerable|no_model|auth|invalid_input|unsupported|not
 |---|---|---|
 | title | `customTitle` user / `aiTitle` generated / prompts first_prompt | `name` user / `firstMessage` |
 | cwd | `cwd` | header `cwd` (`""` for old sessions → absent) |
-| createdAt / updatedAt | `createdAt?` / `lastModified` | `created` / `modified` |
+| createdAt / updatedAt | `createdAt?` / the last message's `timestamp` (never past the file's mtime) | `created` / `modified` |
 | parent | subagents via `listSubagents`; fork lineage in the adapter's own journal | `parentSessionPath` fork (path → id by the bridge index) |
 | status | live for hosted sessions, else `unknown` | live for hosted sessions, else `unknown` |
 | origin | the adapter's owner journal; `entrypoint` `cli` → external | the bridge's index |

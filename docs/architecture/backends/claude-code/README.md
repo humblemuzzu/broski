@@ -347,15 +347,24 @@ mapper never throws.
 
 ### D23. Listing reads only its own rows
 
-`store/list.ts` orders a page from `readdir`/`stat` exactly as the SDK's lister does (mtime newest first, then the
-greater `sessionId` first: `foundation/session_order.test.ts`) and reads only that page's rows with
-`getSessionInfo`: at most `limit + 32` lite reads however deep the page. Cursors are versioned and bound to the read
-they page (`cursor.ts`); a foreign one is `invalid_input`. A row's `cwd` is the asked cwd, so a session started in a
-git worktree lists under the worktree, not under its repository as `listSessions({dir})` would include it
+`store/list.ts` finds the files from `readdir`/`stat` as the SDK's lister does and orders them by `updatedAt` (D24),
+newest first, then the greater `sessionId` first (`foundation/session_order.test.ts`). A row's `updatedAt` is never
+later than its file's mtime, so walking the files newest mtime first, a row is final once it is newer than the next
+file's mtime: a page reads the tails of the files down to there (cached by size and mtime) and only that page's rows
+with `getSessionInfo`: at most `limit + 32` lite reads however deep the page. Cursors are versioned and bound to the
+read they page (`cursor.ts`); a foreign one is `invalid_input`. A row's `cwd` is the asked cwd, so a session started
+in a git worktree lists under the worktree, not under its repository as `listSessions({dir})` would include it
 (`store/list.test.ts`). Archived sessions (`SDKSessionInfo.archived`, set by Claude's apps) are listed like any
 other: the contract has no archive, and hiding them would lose sessions the phone cannot get back.
 
 ### D24. Rows and titles
+
+`updatedAt` is when the conversation last moved: the newest `user` or `assistant` entry's `timestamp` in a window at
+the end of the transcript (`store/activity.ts`; 64 KiB, grown to past the longest line), never later than the file's
+mtime, which it falls back to when no message is within reach. It is not the mtime: a CLI that resumed a session
+appends unstamped bookkeeping (`cost-state`, `session-owner`, `tools-used`, `file-history-snapshot`, `last-prompt`,
+`ai-title`, …) when it ends, so every session the phone merely opened would read as new and come back as done in the
+inbox (`store/activity.test.ts`). A rename does not move it either.
 
 `status` is live for a hosted session, `unknown` otherwise; `origin` comes from the owner journal (D25). The title is
 the SDK's `summary`, which prefers a custom title, then the AI title, then the last prompt. The SDK folds the AI

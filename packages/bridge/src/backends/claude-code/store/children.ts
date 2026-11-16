@@ -118,7 +118,7 @@ export async function childrenPage(
 	const ordered = entries
 		.map((entry) => ({
 			entry,
-			position: { mtime: entry.file.mtimeMs, sessionId: entry.ref },
+			position: { at: entry.file.mtimeMs, sessionId: entry.ref },
 		}))
 		.sort((a, b) => byNewest(a.position, b.position))
 		.filter(({ position }) => after === undefined || isAfter(position, after));

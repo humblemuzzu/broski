@@ -15,6 +15,8 @@ import type { LiveRow } from "../ports/store";
 
 export interface RowContext {
 	readonly origin: SessionOrigin;
+	/** When the conversation last moved (`activity.ts`); the SDK's `lastModified` only when the file is gone. */
+	readonly updatedAt: number | undefined;
 	/** `customTitle` is a person's (`title-source.ts`), not the AI title the SDK folds into it. */
 	readonly userTitled?: boolean;
 	readonly live?: LiveRow;
@@ -49,7 +51,7 @@ export function sessionRow(info: SDKSessionInfo, context: RowContext): SessionSu
 		title: titleOf(info, context.userTitled === true),
 		...(cwd !== undefined && { cwd }),
 		...(createdAt !== undefined && { createdAt }),
-		updatedAt: timestamp(info.lastModified) ?? 0,
+		updatedAt: context.updatedAt ?? timestamp(info.lastModified) ?? 0,
 		...(context.parent !== undefined && { parent: context.parent }),
 		...(context.live?.modelId !== undefined && {
 			modelId: context.live.modelId,
