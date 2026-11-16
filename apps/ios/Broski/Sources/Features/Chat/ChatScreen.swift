@@ -66,8 +66,12 @@ private struct ChatContent: View {
             .environment(\.chatMachineId, machine.id)
             .environment(\.loadAttachment, AttachmentLoader { await chat.image($0) })
             .sensoryFeedback(trigger: chat.feedback) { _, feedback in feedback?.moment.feedback }
-            .onAppear {
-                chat.start()
+            .onAppear { chat.start() }
+            .task {
+                // After the push settles: these change the tab bar's accessory and the inbox
+                // behind the chat, which must not move while the push runs.
+                try? await Task.sleep(for: .milliseconds(450))
+                guard !Task.isCancelled else { return }
                 app.visibleSession = chat.target
                 app.markSeen(machineId: machine.id, session: chat.session)
             }

@@ -14,7 +14,6 @@ enum Route: Hashable {
 
 struct RouteDestination: View {
     let route: Route
-    @Environment(\.zoomNamespace) private var zoom
 
     var body: some View {
         switch route {
@@ -22,13 +21,10 @@ struct RouteDestination: View {
             MachinesScreen()
         case .workspace(let machineId, let place):
             WorkspaceDestination(machineId: machineId, place: place)
+        // A plain push: a zoom out of an inbox row froze mid-transition on a device when the row
+        // changed under it, leaving the chat blank and Back dead.
         case .session(let machineId, let session):
-            let target = SessionTarget(machineId: machineId, session: session)
-            if let zoom {
-                ChatScreen(target: target).navigationTransition(.zoom(sourceID: target, in: zoom))
-            } else {
-                ChatScreen(target: target)
-            }
+            ChatScreen(target: SessionTarget(machineId: machineId, session: session))
         case .toolDiff(let change):
             ToolDiffScreen(change: change)
         case .text(let page):
@@ -42,10 +38,4 @@ extension View {
     func routeDestinations() -> some View {
         navigationDestination(for: Route.self) { RouteDestination(route: $0) }
     }
-}
-
-extension EnvironmentValues {
-    /// The namespace a stack's session rows are zoom sources in; a chat opened on that stack zooms
-    /// out of the row (or the button) that opened it.
-    @Entry var zoomNamespace: Namespace.ID?
 }

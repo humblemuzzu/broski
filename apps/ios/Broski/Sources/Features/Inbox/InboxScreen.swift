@@ -2,16 +2,13 @@ import BroskiCore
 import SwiftUI
 
 /// Home: every session on every paired Mac, needs you → working → done → idle, under the status of
-/// any machine that is not fine. A row opens its chat, zooming out of the row; New Session opens the
-/// prompt sheet, and the session it makes opens zooming out of the button.
+/// any machine that is not fine. A row opens its chat; New Session opens the prompt sheet, and the
+/// session it makes opens in its place.
 struct InboxScreen: View {
     @Environment(AppModel.self) private var model
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var path: [Route] = []
     @State private var startingSession = false
-    /// The session New Session made, the zoom source id of its button until the next one.
-    @State private var created: SessionTarget?
-    @Namespace private var zoom
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -20,13 +17,9 @@ struct InboxScreen: View {
                 .toolbar { toolbar }
                 .routeDestinations()
         }
-        .environment(\.zoomNamespace, zoom)
         .environment(\.openSession, OpenSessionAction { open($0) })
         .sheet(isPresented: $startingSession) {
-            NewSessionSheet { target in
-                created = target
-                open(target)
-            }
+            NewSessionSheet { target in open(target) }
         }
         .onChange(of: model.sessionToOpen, initial: true) { _, target in
             guard let target else { return }
@@ -40,6 +33,8 @@ struct InboxScreen: View {
     }
 
     private var sections: [InboxSection] { model.inbox.sections }
+
+    private var rowKeys: [InboxRow.Key] { sections.flatMap { $0.rows.map(\.key) } }
 
     private var list: some View {
         List {
@@ -59,7 +54,6 @@ struct InboxScreen: View {
                         NavigationLink(value: Route.session(machineId: row.machineId, session: row.session)) {
                             InboxRowView(row: row, machine: model.machine(id: row.machineId)?.summary)
                         }
-                        .matchedTransitionSource(id: SessionTarget(machineId: row.machineId, session: row.session), in: zoom)
                         .inboxRowActions(row, inbox: model.inbox)
                     }
                 } header: {
@@ -76,8 +70,10 @@ struct InboxScreen: View {
             }
         }
         .refreshable { await model.inbox.refresh() }
-        .animation(Motion.snappy(reduceMotion: reduceMotion), value: sections)
-        .animation(Motion.snappy(reduceMotion: reduceMotion), value: chips)
+        // Rows move, appear and leave with an animation, but a row's own text changing does not
+        // animate the list, and nothing animates under a pushed chat.
+        .animation(path.isEmpty ? Motion.snappy(reduceMotion: reduceMotion) : nil, value: rowKeys)
+        .animation(path.isEmpty ? Motion.snappy(reduceMotion: reduceMotion) : nil, value: chips)
         .haptic(.failed, trigger: lostMachines, when: { $1 > $0 })
         .sensoryFeedback(trigger: model.inbox.lastAnswer) { _, answer in answer?.haptic.feedback }
     }
@@ -103,12 +99,6 @@ struct InboxScreen: View {
             .buttonStyle(.glassProminent)
             .disabled(!model.machines.contains { $0.summary.isReady })
         }
-        .matchedTransitionSource(id: created ?? newSessionSource, in: zoom)
-    }
-
-    /// The button's zoom id before it has made any session.
-    private var newSessionSource: SessionTarget {
-        SessionTarget(machineId: "", session: SessionRef(backend: .pi, sessionId: "new-session"))
     }
 
     private var chips: [MachineChips.Chip] {
