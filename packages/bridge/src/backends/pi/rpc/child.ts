@@ -5,8 +5,9 @@
  */
 
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
-import { clipEnd } from "../bounds";
+import { clipEnd } from "../../../contract/clip";
 import { type JsonlItem, JsonlSplitter } from "./jsonl";
+import type { PiEnd, PiTransport } from "./transport";
 
 export interface PiLaunch {
 	readonly cliPath: string;
@@ -29,23 +30,25 @@ const STDERR_KEPT_CHARS = 8 * 1024;
  * The shutdown ladder of `docs/rpc.md:91-97`: stdin closed, then SIGTERM, then SIGKILL. Pi disposes its session and
  * finishes pending work on EOF; a second signal during that shutdown exits at once, so SIGTERM is sent once.
  *
- * The total is bounded by the bridge's own shutdown: a host lets its run settle for `SETTLE_DEADLINE_MS`, then `stop()`
- * runs, and all of it must end inside the teardown's 5 s (`lifecycle/teardown.ts`), since a `pi` that outlives the bridge
- * and is stuck is never killed by anyone. Inside that bound a healthy `pi` is gone in a few hundred ms. What a longer wait
+ * A hosted session's ladder runs in its holder (`holder/`), a probe's in the bridge. The total is bounded by the bridge's
+ * own shutdown: an idle host is stopped there, and its stop must end inside the teardown's 5 s (`lifecycle/teardown.ts`);
+ * a host with work under way is let go to its holder instead. Inside that bound a healthy `pi` is gone in a few hundred
+ * ms. What a longer wait
  * could save is an OAuth refresh in flight, whose rotated token Pi saves before it exits (pi-coding-agent 1.5.2
  * `CHANGELOG.md:75`); a refresh round trip takes well under a second. Session files are appended synchronously
  * (`dist/core/session-manager.js:813`), so no timing cuts one.
  */
 export const EXIT_AFTER_EOF_MS = 1_500;
 export const EXIT_AFTER_TERM_MS = 750;
-const EXIT_AFTER_KILL_MS = 250;
+export const EXIT_AFTER_KILL_MS = 250;
 /** The longest `stop()` takes. */
 export const STOP_BUDGET_MS = EXIT_AFTER_EOF_MS + EXIT_AFTER_TERM_MS + EXIT_AFTER_KILL_MS;
 
 export type RecordSink = (item: JsonlItem) => void;
 
-export class PiProcess {
+export class PiProcess implements PiTransport {
 	readonly exited: Promise<PiExit>;
+	readonly ended: Promise<PiEnd>;
 	private readonly child: ChildProcessWithoutNullStreams;
 	private readonly splitter = new JsonlSplitter();
 	private stderr = "";
@@ -71,6 +74,7 @@ export class PiProcess {
 			this.child.on("error", (error) => finish({ code: null, signal: null, error: error.message }));
 			this.child.on("close", (code, signal) => finish({ code, signal }));
 		});
+		this.ended = this.exited.then((exit) => ({ kind: "exit", exit, stderr: this.stderrTail() }));
 		this.child.stdout.on("data", (chunk: Buffer) => {
 			for (const item of this.splitter.push(chunk)) records(item);
 		});
@@ -107,6 +111,10 @@ export class PiProcess {
 
 	resume(): void {
 		this.child.stdout.resume();
+	}
+
+	detach(): void {
+		void this.stop();
 	}
 
 	/** Ends the process however long it takes to go, within the ladder's budget. */

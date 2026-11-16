@@ -169,7 +169,8 @@ The wire shape between bridge and phone is the backend contract in `packages/bri
 packages/bridge/src/
   contract/      the backend contract: zod schemas, reducer, answer check, conformance kit (testing/)
   core/          the bridge core on the contract
-  backends/pi/   the Pi adapter (one `pi --mode rpc` per hosted session; no Pi package imported)
+  backends/pi/   the Pi adapter (one `pi --mode rpc` per hosted session, kept by a holder process that outlives the
+                 bridge, so a run goes on through a restart; no Pi package imported)
   backends/claude-code/  the Claude Code adapter (Claude Agent SDK driving the user's `claude`)
   server/        wiring: listeners, the contract seam, the link feed, the Claude Code hook receiver
   workspace/     files, git and terminals over the contract, behind the core's WorkspaceHost port (workspace-host.ts)

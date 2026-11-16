@@ -76,7 +76,10 @@ export const CONFORMANCE_RULES: readonly ConformanceRule[] = [
 	{ name: "close is idempotent, silent afterwards, and aborts nothing", check: closeDetachesWithoutAborting },
 	{ name: "dispose silences every sink", check: disposeSilencesEverything },
 	{ name: "runs another client starts are live when declared", check: externalRunsAreLive },
-	{ name: "sessions survive a restart and runs end with it", check: sessionsSurviveARestart },
+	{
+		name: "sessions survive a restart, and runs end with it or go on under a new RunId",
+		check: sessionsSurviveARestart,
+	},
 	{
 		name: "a watched session that takes answers checks them and resolves its ask once",
 		check: watchedAsksAreAnsweredOnce,

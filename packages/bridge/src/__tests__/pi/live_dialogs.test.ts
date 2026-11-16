@@ -7,6 +7,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { stopHolders } from "../../backends/pi/holder/holders";
 import { SETTLE_DEADLINE_MS } from "../../backends/pi/live/session-host";
 import { EXIT_AFTER_EOF_MS } from "../../backends/pi/rpc/child";
 import { type Interaction, type InteractionReply, sessionStatus } from "../../contract";
@@ -250,7 +251,7 @@ describe("what ends a dialog without the human", () => {
 
 	// On stdin EOF Pi runs `session_shutdown`, and a dialog asked from it can never be answered: Pi exits once its event
 	// loop is empty, with the handler still waiting (pi-coding-agent 1.5.2 `dist/modes/rpc/rpc-mode.js:597-610,666-669`).
-	test("a shutdown answers it with Pi's default at once, and one asked from the shutdown handler holds nothing up", async () => {
+	test("a shutdown leaves it open in its holder; stopping that pi answers it with Pi's default at once, and one asked from the shutdown handler holds nothing up", async () => {
 		t = await LiveRig.create();
 		writeFileSync(join(t.world.env.agentDir, "ask-on-shutdown"), "");
 		const { live, interaction } = await asked(
@@ -259,12 +260,15 @@ describe("what ends a dialog without the human", () => {
 		);
 		const began = performance.now();
 		await t.backend.dispose();
-		expect(performance.now() - began).toBeLessThan(SETTLE_DEADLINE_MS + EXIT_AFTER_EOF_MS);
-		expect((await t.router.answered("shutdown-select")).answer).toBeNull();
+		expect(performance.now() - began).toBeLessThan(SETTLE_DEADLINE_MS);
 		const resolved = live
 			.events()
 			.filter((event) => event.type === "interaction_resolved" && event.interactionId === interaction.id);
-		expect(resolved.every((event) => event.type === "interaction_resolved" && event.reason === "expired")).toBe(true);
+		expect(resolved).toEqual([]);
+		const stopping = performance.now();
+		await stopHolders(t.world.holdersRoot);
+		expect(performance.now() - stopping).toBeLessThan(EXIT_AFTER_EOF_MS + 500);
+		expect((await t.router.answered("shutdown-select")).answer).toBeNull();
 		const raised = live.events().filter((event) => event.type === "interaction_requested");
 		expect(raised.map((event) => event.type === "interaction_requested" && event.interaction.title)).toEqual([
 			"Still here?",

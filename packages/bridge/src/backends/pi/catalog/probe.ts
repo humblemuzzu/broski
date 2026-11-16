@@ -6,6 +6,7 @@
  */
 
 import { childEnv, type PiInstall } from "../pi-install";
+import { PiProcess } from "../rpc/child";
 import { RpcClient } from "../rpc/client";
 import { CommandsReply, ModelsReply, type PiCommand, type PiModel, StateReply, selectedModel } from "../rpc/replies";
 
@@ -24,8 +25,9 @@ const PROBE_DEADLINE_MS = 20_000;
 
 export async function probeCatalog(install: PiInstall, cwd: string): Promise<CatalogRead> {
 	if (!install.cli.found) return { failure: install.cli.reason };
+	const launch = { cliPath: install.cli.path, args: ["--no-session"], cwd, env: childEnv(install) };
 	const client: RpcClient = new RpcClient(
-		{ cliPath: install.cli.path, args: ["--no-session"], cwd, env: childEnv(install) },
+		(sink) => new PiProcess(launch, sink),
 		(delivery) => {
 			if (delivery.kind === "ui" && delivery.request.method !== "notify") {
 				client.send({ type: "extension_ui_response", id: delivery.request.id, cancelled: true });

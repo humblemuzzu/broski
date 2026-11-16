@@ -1,6 +1,9 @@
 import type { ActionResult } from "../../../contract";
 import { ACCEPTED, rejected } from "../rejections";
+import type { EventBridge } from "./event-bridge";
 import type { PiChild } from "./pi-child";
+import type { RunTracker } from "./run-tracker";
+import type { SessionSettings } from "./settings";
 
 export interface CompactionFacts {
 	/** The adapter has a run under way. */
@@ -28,4 +31,25 @@ export async function requestCompaction(
 		.compact(instructions)
 		.then((answer) => (answer.ok ? ACCEPTED : rejected("backend_error", answer.error)));
 	return Promise.race([started, finished]);
+}
+
+/** A hosted session's own compaction: the run it makes is the phone's (`EventBridge.nextCompactionStart`). */
+export async function compactHosted(
+	parts: {
+		readonly child: PiChild;
+		readonly events: EventBridge;
+		readonly runs: RunTracker;
+		readonly settings: SessionSettings;
+	},
+	instructions: string | undefined,
+): Promise<ActionResult> {
+	const { child, events, runs, settings } = parts;
+	const facts = {
+		running: runs.current() !== undefined,
+		hasModel: settings.currentModel !== undefined,
+		started: () => events.nextCompactionStart(),
+	};
+	const result = await requestCompaction(child, instructions, facts);
+	if (result.status === "rejected") events.compactionRefused();
+	return result;
 }

@@ -19,6 +19,8 @@ import { findSessionFile } from "./helpers/session-files";
 import { TerminalRig } from "./helpers/terminal-rig";
 
 export class PiConformanceDriver implements ConformanceDriver {
+	/** A hosted session's `pi` is kept by its holder, which the next bridge takes over (`backends/pi/holder/`). */
+	readonly runsSurviveRestart = true;
 	readonly cwd: string;
 	readonly otherCwd: string;
 	private readonly terminals: TerminalRig;
@@ -130,7 +132,7 @@ export function piConformanceKit(timeoutMs: number, options: PiWorldOptions = {}
 			for (const driver of drivers.splice(0)) await driver.quitTerminals();
 			const made = worlds.splice(0);
 			const escapes = made.flatMap((world) => world.server.escapes());
-			for (const world of made) world.dispose();
+			for (const world of made) await world.dispose();
 			if (escapes.length > 0) throw new Error(`requests escaped the scripted endpoint: ${escapes.join(", ")}`);
 		},
 	};

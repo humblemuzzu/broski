@@ -23,6 +23,6 @@ const answer = {
 	listed: listed.status === "accepted" ? listed.page.items.map((row) => row.session.sessionId) : listed.rejection.code,
 };
 await world.backend.dispose();
-world.dispose();
+await world.dispose();
 console.log(JSON.stringify(answer));
 process.exit(0);

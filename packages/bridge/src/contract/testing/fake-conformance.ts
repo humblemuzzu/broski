@@ -8,16 +8,17 @@ import { scenarioSteps } from "./fake-scenarios";
 export function fakeConformanceFactory(options: FakeBackendOptions = {}): ConformanceFactory {
 	return async (host) => {
 		const backend = createFakeBackend(host, options);
-		return { backend, driver: fakeDriver(backend) };
+		return { backend, driver: fakeDriver(backend, options.runsSurviveRestart === true) };
 	};
 }
 
 const FAKE_CWD = "/fake/project";
 
 /** Drives the fake through its controls. A restart moves it to the backend that took over. */
-function fakeDriver(first: FakeBackend): ConformanceDriver {
+function fakeDriver(first: FakeBackend, runsSurviveRestart: boolean): ConformanceDriver {
 	let backend = first;
 	return {
+		runsSurviveRestart,
 		cwd: FAKE_CWD,
 		otherCwd: "/fake/elsewhere",
 		seedSessions: async (cwd: string, count: number) => {

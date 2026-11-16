@@ -2,9 +2,10 @@
 
 import type { Rejected, SessionId } from "../../../contract";
 import { type PermissionsRecord, readPermissionsRecord } from "../broski-entries";
-import type { StoredFacts, StoredSession } from "../ports";
+import type { RecentEntries, StoredFacts, StoredSession } from "../ports";
 import { rejected } from "../rejections";
-import { type EntrySpan, lastEntryId, readEntries, type SessionFileIndex } from "./jsonl-reader";
+import type { PiEntry } from "../rpc/replies";
+import { branchTo, type EntrySpan, lastEntryId, readEntries, type SessionFileIndex } from "./jsonl-reader";
 import { getSession, NO_LIVE } from "./list";
 import { hasStableIds } from "./migration";
 import { isRejection, openFileIndex, type SessionIndex } from "./session-index";
@@ -36,4 +37,35 @@ async function lastPermissions(file: SessionFileIndex): Promise<PermissionsRecor
 		if (record !== undefined) return record;
 	}
 	return { mode: "off", allowedTools: [] };
+}
+
+/** Enough to cover a long run's messages, which come after its user message; a longer one loses the oldest ids. */
+const MAX_RECENT_ENTRIES = 2_000;
+
+/** The branch's entries from its last user message on, as `get_entries` would give them, and the prompts' records. */
+export async function recentEntries(index: SessionIndex, session: StoredSession): Promise<RecentEntries | Rejected> {
+	const file = await openFileIndex(index, session.path);
+	if (isRejection(file)) return file;
+	const prompts = (entryId: string) => file.records.get(entryId)?.prompt;
+	if (!hasStableIds(file.version)) return { entries: [], prompts };
+	const branch = branchTo(file, lastEntryId(file));
+	let from = branch.length - 1;
+	while (from > 0 && branch.length - from < MAX_RECENT_ENTRIES && branch[from]?.role !== "user") from -= 1;
+	const spans = branch.slice(Math.max(0, from));
+	const entries: PiEntry[] = [];
+	for (const entry of await readEntries(file, spans)) {
+		if (entry === undefined) continue;
+		const { id, parentId, type } = entry;
+		const message = entry.type === "message" && entry.message.role !== "other" ? entry.message : undefined;
+		const toolCallId = message?.role === "toolResult" ? message.toolCallId : undefined;
+		entries.push({
+			id,
+			parentId,
+			type,
+			...(message !== undefined && {
+				message: { role: message.role, timestamp: message.timestamp, ...(toolCallId !== undefined && { toolCallId }) },
+			}),
+		});
+	}
+	return { entries, prompts };
 }

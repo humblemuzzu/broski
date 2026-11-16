@@ -19,7 +19,9 @@ export function legacyUnitPath(home: string): string {
 }
 
 /**
- * ExecStart runs broski-link, which spawns and restarts the bridge itself.
+ * ExecStart runs broski-link, which spawns and restarts the bridge itself. `KillMode=process`: a stop or restart
+ * signals broski-link alone, which ends its bridge; the default `control-group` would also kill the holders of hosted
+ * Pi sessions (`backends/pi/holder/`), which exist to outlive both, and which `broski stop` and `uninstall` end.
  */
 export function generateUnit(config: DaemonConfig, linkBinaryPath: string): string {
 	const execStart = [linkBinaryPath, "run", "--bridge-cmd", config.binaryPath, ...config.args]
@@ -37,6 +39,7 @@ Type=simple
 ExecStart=${execStart}
 Restart=on-failure
 RestartSec=5
+KillMode=process
 Environment=HOME=%h
 Environment=PATH=/usr/local/bin:/usr/bin:/bin:%h/.local/bin:%h/.bun/bin
 

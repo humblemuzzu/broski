@@ -152,7 +152,7 @@ Every method that can fail resolves with `{status: "accepted", …} | Rejected` 
 8. ✓ A malformed answer is rejected `invalid_input` and changes nothing. An answer to a resolved interaction is rejected `stale`.
 9. ✓ `setModel` takes a listed model and nothing else (`not_found`); `setThinking` takes one of the current model's thinking values (`invalid_input`); `setMode` takes a listed mode and one of its values (`invalid_input`). Each shows as the event that changes the snapshot (`model_changed`, `mode_changed`).
 10. ✓ `readAttachment` reads back the bytes an `ImageRef` names; an unknown id is `not_found`.
-11. ✓ With `externalLive`, a run another client starts is reported live, with trigger `external`. When the bridge restarts every session survives and every run ends with it: a `RunId` does not outlive the bridge.
+11. ✓ With `externalLive`, a run another client starts is reported live, with trigger `external`. When the bridge restarts every session survives. A run in progress either ends with the bridge or goes on, and the reopened session's snapshot shows it under a new `RunId` (a `RunId` never outlives the bridge that minted it), with its prompt and the asks still open; the adapter's conformance driver declares which (`runsSurviveRestart`, §14). Claude Code's runs end with the bridge; Pi's go on (pi §1).
 12. The core opens at most one `OpenSession` per `SessionRef` at a time and fans its events out to phones. Adapters may assume this.
 13. The sink, the catalog sink, and every adapter callback into the core never throw.
 14. ✓ **Answering without control.** A session this bridge may watch but not control (`control` absent) may still take answers to its asks through `OpenSession.answer`: a `claude` in a terminal raises a permission prompt through the bridge's hook (CC D29), and a person answers it from the phone or the lock screen while the terminal keeps the session. `answer` follows `SessionControl.answer` in everything: checked by the core's desk and `answerProblem` first, `stale` once resolved, `closed` after `close`. A session with `control` has no `answer` of its own; its answers go through `control.answer` as ever, so there is one path per session. Prompting, steering, stopping and every setting stay out of reach of a session without `control`.
@@ -354,7 +354,7 @@ Where backends validate differently, `field-check.ts` is the strictest of them, 
 - `withdrawn` when the backend ended the ask without that answer: run interrupted, tool call ended, another client answered, or a batch reject.
 - `expired` when nothing can answer it any more: the backend process or the bridge restarted.
 
-The core gives first-answer-wins across phones by calling `answer` once and refusing later answers `stale`. It re-delivers pending interactions on reattach from the snapshot, and never answers one on its own: a phone may come back hours later and the ask is still pending. When a backend loses pending asks on restart (CC, Pi) and re-asks after recovery, the re-ask is a new interaction.
+The core gives first-answer-wins across phones by calling `answer` once and refusing later answers `stale`. It re-delivers pending interactions on reattach from the snapshot, and never answers one on its own: a phone may come back hours later and the ask is still pending. When a backend loses pending asks on restart (CC) and re-asks after recovery, the re-ask is a new interaction. A backend whose runs survive a restart (Pi) raises each ask still open again in the next bridge, as a new interaction of the same kind and title that answers the same question (pi §8.5).
 
 **Per backend.** "✗" means the backend has no such ask; the capability omits the kind.
 
@@ -369,7 +369,7 @@ The core gives first-answer-wins across phones by calling `answer` once and refu
 | `text` | ✗ | `ctx.ui.input` (single line), `ctx.ui.editor` (multiline, `prefill` → `initialText`). |
 | cancel → native | deny `{message, interrupt: stopRun}`; elicitation `decline` (+ `interrupt()` when `stopRun`) | `{cancelled:true}`; gate `block` (+ abort) |
 | resolved: withdrawn | `control_cancel_request` (CC D16) | extension timeout or abort signal (pi §8.4) |
-| resolved: expired | CLI child died (CC D16) | bridge restart (pi §8.5) |
+| resolved: expired | CLI child died (CC D16) | `pi` exited (pi §8.5); after a bridge restart the ask is raised again |
 
 ## 10. Input
 
@@ -542,7 +542,7 @@ A backend's extras are typed `extension{extension}` events, declared in `Capabil
 
 `contract/testing/` holds the reference implementation and the suite every adapter must pass.
 
-- **`createFakeBackend(host, options)`**: in-memory and scriptable (`FakeStep`). It simulates streaming text, thinking and plan blocks; tools with streamed input, nested calls, child sessions and file changes; every interaction kind and every answer outcome; steer; queue with ids and cancel; compaction; retry; usage; retractions; notices, errors and extensions; failure, limit and defer outcomes; external sessions and external runs; `resynced`; backend loss with expiry; modes; images stored and read back by reference; both model-switch timings; a restart of the bridge, after which runs have ended. `traits`, `methods` and `modes` narrow it, which is how a capability is switched off.
+- **`createFakeBackend(host, options)`**: in-memory and scriptable (`FakeStep`). It simulates streaming text, thinking and plan blocks; tools with streamed input, nested calls, child sessions and file changes; every interaction kind and every answer outcome; steer; queue with ids and cancel; compaction; retry; usage; retractions; notices, errors and extensions; failure, limit and defer outcomes; external sessions and external runs; `resynced`; backend loss with expiry; modes; images stored and read back by reference; both model-switch timings; a restart of the bridge, after which runs have ended or, with `runsSurviveRestart`, go on under a new `RunId`. `traits`, `methods` and `modes` narrow it, which is how a capability is switched off.
 - **`runConformance(name, factory, timeoutMs?)`** registers one bun test per rule. `checkRule(factory, rule)` runs one rule against a fresh backend and rejects with the reason it failed.
 - **`ConformanceFactory = (host) => Promise<{backend, driver}>`**. Each adapter has a driver: Pi's seam is the real `pi` against a scripted OpenAI-compatible endpoint in a throwaway agent dir (`src/__tests__/pi/driver.ts`, pi §16), Claude Code's is the real `claude` against a scripted Anthropic-compatible endpoint (`ANTHROPIC_BASE_URL`, `src/__tests__/claude-code/conformance/`). The driver (`conformance-types.ts`):
   - knows a `cwd` holding a `README.md` and an `otherCwd`;
@@ -552,7 +552,8 @@ A backend's extras are typed `extension{extension}` events, declared in `Capabil
   - `delivered(session)`: the latest user input as it reached the model;
   - `runExternally(session)`: another client runs one reply;
   - `watchedAsk?()`: another client raises an ask in a session it owns that this bridge opens without `control` but with `answer` (§5 rule 14); absent or undefined when the backend has none, and a backend that has them must offer it;
-  - `restart(host)`: the bridge restarts over the same backend state.
+  - `restart(host)`: the bridge restarts over the same backend state;
+  - `runsSurviveRestart`: whether a run in progress goes on through that restart (§5 rule 11). The phone needs no capability for it: the reopened snapshot says which happened.
 
 **The rules** (`CONFORMANCE_RULES` in `conformance.ts`, each on a fresh backend):
 
@@ -582,10 +583,10 @@ A backend's extras are typed `extension{extension}` events, declared in `Capabil
 24. `close` is idempotent, silent afterwards, and aborts nothing: nothing arrives from the call on, control rejects `closed`, the run survives the close, and an ask pending at close is in the next open's snapshot and can be answered there.
 25. `dispose` silences every sink.
 26. Runs another client starts are live when declared: with `externalLive`, a run another client starts is reported, with trigger `external`.
-27. Sessions survive a restart and runs end with it: after a restart of the bridge the session is still there and its run is not.
+27. Sessions survive a restart, and runs end with it or go on under a new `RunId`: after a restart of the bridge the session is still there. Without `runsSurviveRestart` its run is not. With it, the reopened snapshot has a run under another `RunId` that carries the original prompt's `clientRequestId` and can be aborted, and an ask pending before the restart is in its session's reopened snapshot (same kind and title) and can be answered there, after which its run finishes.
 28. A watched session that takes answers checks them and resolves its ask once: a session with `control` has no `answer` of its own; with `watchedAsk`, the watched session opens without `control` and with `answer`, its ask is pending (in the open snapshot or raised after), invalid answers are `invalid_input` and leave it pending, a valid one resolves it `answered`, a repeat is `stale`, and an answer after `close` is `closed`.
 
-Every scenario's stream also passes the stream rules (§7), and every catalog event is validated as it arrives. `src/__tests__/contract_conformance.test.ts` runs the suite against the fake with every capability and with none optional; the Pi and Claude Code adapters run it in their own test directories.
+Every scenario's stream also passes the stream rules (§7), and every catalog event is validated as it arrives. `src/__tests__/contract_conformance.test.ts` runs the suite against the fake with every capability, with none optional, and with runs that survive a restart; the Pi and Claude Code adapters run it in their own test directories.
 
 **The suite can fail.** The `contract_negative_*.test.ts` files run deliberately broken adapters (one change each to the honest fake or its driver): every assertion of every rule, and every stream rule a rule relies on, fails at least one of them, for the reason it names. `fails()` (`src/__tests__/helpers/broken-adapters.ts`) requires the rule to reject with that reason, so a rule that lets its broken adapter through, or catches it only by accident, fails its negative test.
 

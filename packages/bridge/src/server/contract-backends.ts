@@ -1,12 +1,14 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { piBackendFactory } from "../backends/pi/factory";
+import { defaultHoldersRoot } from "../backends/pi/holder/holders";
 import { agentDirOf } from "../backends/pi/pi-install";
 import { defaultLinkDirectory } from "../backends/pi/terminal/link";
 import { readConfig } from "../config";
 import type { ClaudeCodeWiring } from "./claude-code-wiring";
 import type { ContractOptions } from "./contract-seam";
 import { resolvePiCli } from "./pi-cli-path";
+import { holderCommand } from "./pi-holder-command";
 
 /**
  * Pi as the user installed it, with the bridge's environment (the login shell's by the time backends start,
@@ -19,6 +21,7 @@ const piBackend: ReturnType<typeof piBackendFactory> = async (host) => {
 	return piBackendFactory({
 		install: { cli: resolvePiCli(config.pi.cliPath), env, agentDir: agentDirOf(env) },
 		hostDir: join(homedir(), ".broski", "pi"),
+		holders: { root: defaultHoldersRoot(), command: holderCommand() },
 		link: { enabled: config.pi.terminalLink !== false, directory: defaultLinkDirectory() },
 	})(host);
 };

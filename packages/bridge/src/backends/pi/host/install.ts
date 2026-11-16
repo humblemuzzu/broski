@@ -5,6 +5,7 @@
  * renamed over it) and written again whenever it differs from what this bridge carries.
  */
 
+import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { errorText } from "../error-text";
@@ -19,18 +20,20 @@ function source(): string {
 	return text;
 }
 
-export type HostExtension = { readonly path: string } | { readonly problem: string };
+/** `hash` names the extension's version, which a `pi` a holder kept from an earlier bridge may not run. */
+export type HostExtension = { readonly path: string; readonly hash: string } | { readonly problem: string };
 
 export function ensureHostExtension(directory: string): HostExtension {
 	const path = join(directory, HOST_EXTENSION_FILE);
 	try {
 		const content = source();
-		if (readOrNothing(path) === content) return { path };
+		const hash = createHash("sha256").update(content).digest("hex").slice(0, 16);
+		if (readOrNothing(path) === content) return { path, hash };
 		mkdirSync(directory, { recursive: true, mode: 0o700 });
 		const temporary = `${path}.${process.pid}.tmp`;
 		writeFileSync(temporary, content, { mode: 0o600 });
 		renameSync(temporary, path);
-		return { path };
+		return { path, hash };
 	} catch (error) {
 		return { problem: `The bridge's Pi extension could not be written to ${path}: ${errorText(error)}` };
 	}

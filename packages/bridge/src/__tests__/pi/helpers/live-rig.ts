@@ -53,7 +53,7 @@ export class LiveRig {
 		await this.driver.quitTerminals();
 		await this.rig.backend.dispose();
 		const escapes = this.world.server.escapes();
-		this.world.dispose();
+		await this.world.dispose();
 		if (escapes.length > 0) throw new Error(`requests escaped the scripted endpoint: ${escapes.join(", ")}`);
 	}
 }

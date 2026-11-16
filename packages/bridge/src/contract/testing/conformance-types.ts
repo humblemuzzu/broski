@@ -51,6 +51,11 @@ export interface ConformanceDriver {
 	watchedAsk?(): Promise<SessionRef | undefined>;
 	/** The bridge restarts: the current backend is disposed and a new one starts over the same backend state. */
 	restart(host: BackendHost): Promise<AgentBackend>;
+	/**
+	 * Runs go on through a restart of the bridge, and the new backend reports each under a new `RunId`; false when a run
+	 * ends with the bridge. The phone needs no capability for it: the reopened snapshot says which happened.
+	 */
+	readonly runsSurviveRestart: boolean;
 }
 
 export interface ConformanceInstance {

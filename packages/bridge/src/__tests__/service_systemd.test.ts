@@ -37,6 +37,10 @@ describe("systemd unit generation", () => {
 		expect(unit).toContain("RestartSec=5");
 	});
 
+	test("a stop signals broski-link alone, so the holders of hosted Pi sessions outlive it", () => {
+		expect(unit).toContain("KillMode=process");
+	});
+
 	test("output goes to link.log instead of null", () => {
 		expect(unit).toContain("StandardOutput=append:/home/tester/.broski/logs/link.log");
 		expect(unit).toContain("StandardError=append:/home/tester/.broski/logs/link.log");

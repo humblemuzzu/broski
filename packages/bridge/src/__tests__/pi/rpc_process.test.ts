@@ -7,7 +7,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { EXIT_AFTER_EOF_MS, STOP_BUDGET_MS } from "../../backends/pi/rpc/child";
+import { EXIT_AFTER_EOF_MS, PiProcess, STOP_BUDGET_MS } from "../../backends/pi/rpc/child";
 import { type Delivery, RpcClient } from "../../backends/pi/rpc/client";
 import { Ignored, StateReply } from "../../backends/pi/rpc/replies";
 import { createPiTestEnv, type PiTestEnv } from "./helpers/pi-test-env";
@@ -27,7 +27,7 @@ afterEach(async () => {
 });
 
 /** A `pi` on a throwaway agent dir, loading `extension` (source text) when given. */
-function start(extension?: string): { client: RpcClient; deliveries: Delivery[]; env: PiTestEnv } {
+function start(extension?: string): { client: RpcClient; pi: PiProcess; deliveries: Delivery[]; env: PiTestEnv } {
 	env = createPiTestEnv();
 	const args = ["--no-session"];
 	if (extension !== undefined) {
@@ -37,10 +37,19 @@ function start(extension?: string): { client: RpcClient; deliveries: Delivery[];
 		args.push("-e", join(dir, "index.ts"));
 	}
 	const deliveries: Delivery[] = [];
-	client = new RpcClient({ cliPath: PI_BIN, args, cwd: env.cwd, env: env.env() }, (delivery) => {
-		deliveries.push(delivery);
-	});
-	return { client, deliveries, env };
+	const launch = { cliPath: PI_BIN, args, cwd: env.cwd, env: env.env() };
+	const opened: { pi?: PiProcess } = {};
+	client = new RpcClient(
+		(sink) => {
+			opened.pi = new PiProcess(launch, sink);
+			return opened.pi;
+		},
+		(delivery) => {
+			deliveries.push(delivery);
+		},
+	);
+	if (opened.pi === undefined) throw new Error("the client opened no process");
+	return { client, pi: opened.pi, deliveries, env };
 }
 
 function isAlive(pid: number): boolean {
@@ -87,16 +96,16 @@ export default function (pi) {
 
 describe("the stop ladder", () => {
 	test("stdin's end is enough for a pi that shuts down by itself", async () => {
-		const { client } = start();
+		const { client, pi } = start();
 		await client.request({ type: "get_state" }, StateReply, { deadlineMs: 10_000, ordered: false });
 		const began = performance.now();
-		const exit = await client.stop();
+		const exit = await pi.stop();
 		expect(performance.now() - began).toBeLessThan(EXIT_AFTER_EOF_MS);
 		expect(exit).toEqual({ code: 0, signal: null });
 	});
 
 	test("a pi whose shutdown never ends is killed with its process group, children included", async () => {
-		const { client, env } = start(`
+		const { client, pi, env } = start(`
 import { spawn } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -115,7 +124,7 @@ export default function (pi) {
 		expect(isAlive(childPid)).toBe(true);
 
 		const began = performance.now();
-		const exit = await client.stop();
+		const exit = await pi.stop();
 		const took = performance.now() - began;
 		expect(took).toBeGreaterThanOrEqual(EXIT_AFTER_EOF_MS - 100);
 		expect(took).toBeLessThan(STOP_BUDGET_MS + 500);

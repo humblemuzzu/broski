@@ -120,6 +120,11 @@ export class SessionView implements OpenSession {
 		return control === undefined ? CLOSED : call(control);
 	}
 
+	/** The session's host ended and another took over: the view follows it now, not at the phone's next action. */
+	resume(): void {
+		void this.revivedIfEnded();
+	}
+
 	/** Undefined once the session has a running host; why not otherwise. */
 	private revivedIfEnded(): Promise<Rejected | undefined> {
 		const mode = this.mode;

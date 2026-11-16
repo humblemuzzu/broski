@@ -6,20 +6,23 @@
  * read after the events Pi sent before it; the lookups that delivery itself awaits are answered as they arrive.
  */
 
+import { randomUUID } from "node:crypto";
 import type { z } from "zod";
 import { errorText } from "../error-text";
-import { type PiExit, type PiLaunch, PiProcess } from "./child";
+import type { PiExit } from "./child";
 import { type InboundFrame, type PiEvent, parseFrame, type ResponseFrame, type UiRequest } from "./frames";
 import type { JsonlItem } from "./jsonl";
+import type { OpenTransport, PiEnd, PiTransport, TransportItem } from "./transport";
 
 export type RpcAnswer<T> = { readonly ok: true; readonly data: T } | { readonly ok: false; readonly error: string };
 
-/** What reaches the session, in Pi's order; `exit` comes last, after every record the process wrote. */
+/** What reaches the session, in Pi's order; `exit` or `detached` comes last, after every record the process wrote. */
 export type Delivery =
 	| { readonly kind: "event"; readonly event: PiEvent }
 	| { readonly kind: "ui"; readonly request: UiRequest }
 	| { readonly kind: "fault"; readonly message: string }
-	| { readonly kind: "exit"; readonly exit: PiExit; readonly stderr: string };
+	| { readonly kind: "replay"; readonly replaying: boolean }
+	| PiEnd;
 
 export type Deliver = (delivery: Delivery) => void | Promise<void>;
 
@@ -50,23 +53,26 @@ const PAUSE_AT_CHARS = 16 * 1024 * 1024;
 const RESUME_AT_CHARS = 4 * 1024 * 1024;
 
 export class RpcClient {
-	private readonly process: PiProcess;
+	private readonly process: PiTransport;
 	private readonly pending = new Map<string, Pending>();
 	private readonly queue: Queued[] = [];
 	private queuedChars = 0;
 	private delivering = false;
+	private detached = false;
+	/** A command id of another bridge's client answered after this one took over the same `pi` must never match. */
+	private readonly idPrefix = randomUUID().slice(0, 8);
 	private nextId = 0;
 
 	constructor(
-		launch: PiLaunch,
+		open: OpenTransport,
 		private readonly deliver: Deliver,
 	) {
-		this.process = new PiProcess(launch, (item) => this.received(item));
-		void this.process.exited.then((exit) => this.ended(exit));
+		this.process = open((item) => this.received(item));
+		void this.process.ended.then((end) => this.finished(end));
 	}
 
-	get exited(): Promise<PiExit> {
-		return this.process.exited;
+	get ended(): Promise<PiEnd> {
+		return this.process.ended;
 	}
 
 	get running(): boolean {
@@ -75,7 +81,7 @@ export class RpcClient {
 
 	request<T>(command: RpcCommand, reply: z.ZodType<T>, options: RequestOptions = {}): Promise<RpcAnswer<T>> {
 		if (!this.process.running) return Promise.resolve({ ok: false, error: "Pi is not running" });
-		const id = `b${++this.nextId}`;
+		const id = `${this.idPrefix}-${++this.nextId}`;
 		return new Promise((resolve) => {
 			const { deadlineMs } = options;
 			const timer =
@@ -103,11 +109,23 @@ export class RpcClient {
 		this.process.write(`${JSON.stringify(record)}\n`);
 	}
 
-	stop(): Promise<PiExit> {
+	stop(): Promise<unknown> {
 		return this.process.stop();
 	}
 
-	private received(item: JsonlItem): void {
+	/** Nothing more is delivered, and `pi` is left running where the transport can leave it. */
+	detach(): void {
+		this.detached = true;
+		this.queue.length = 0;
+		this.queuedChars = 0;
+		this.process.detach();
+	}
+
+	private received(item: TransportItem): void {
+		if (item.kind === "replay") {
+			this.enqueue(item);
+			return;
+		}
 		const frame: InboundFrame =
 			item.kind === "line" ? parseFrame(item.text) : { kind: "invalid", reason: `a record of ${item.bytes} bytes` };
 		switch (frame.kind) {
@@ -138,15 +156,17 @@ export class RpcClient {
 		else pending.settle(response);
 	}
 
-	private ended(exit: PiExit): void {
+	private finished(end: PiEnd): void {
+		const why = end.kind === "exit" ? exitText(end.exit, end.stderr) : "the bridge lost the Pi session";
 		for (const [id, pending] of this.pending) {
 			this.pending.delete(id);
-			pending.settle(exitText(exit, this.process.stderrTail()));
+			pending.settle(why);
 		}
-		this.enqueue({ kind: "exit", exit, stderr: this.process.stderrTail() });
+		this.enqueue(end);
 	}
 
 	private enqueue(entry: Queued, item?: JsonlItem): void {
+		if (this.detached) return;
 		const chars = item?.kind === "line" ? item.text.length : 0;
 		this.queue.push({ ...entry, chars });
 		this.queuedChars += chars;
@@ -156,7 +176,7 @@ export class RpcClient {
 
 	private async drain(): Promise<void> {
 		this.delivering = true;
-		for (let entry = this.queue.shift(); entry !== undefined; entry = this.queue.shift()) {
+		for (let entry = this.queue.shift(); entry !== undefined && !this.detached; entry = this.queue.shift()) {
 			this.queuedChars -= entry.chars ?? 0;
 			if (this.queuedChars < RESUME_AT_CHARS) this.process.resume();
 			if (entry.kind === "answer") await settleInTurn(entry.settle);

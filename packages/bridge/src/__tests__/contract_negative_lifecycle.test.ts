@@ -1,4 +1,5 @@
 import { describe, test } from "bun:test";
+import type { AgentBackend, OpenResult, OpenSession } from "../contract/backend";
 import type { TranscriptReadResult } from "../contract/read-results";
 import { emptySnapshot } from "../contract/session-reducer";
 import {
@@ -289,6 +290,107 @@ describe("the restart rule fails", () => {
 			})),
 			sessionsSurviveARestart,
 			/a run survived the restart/,
+		));
+});
+
+describe("the restart rule fails, where runs outlive the bridge,", () => {
+	const surviving = honest({ runsSurviveRestart: true });
+
+	/** Breaks the backend the restart starts, which `breakBackend` never reaches. */
+	const afterRestart = (change: (backend: AgentBackend) => Partial<AgentBackend>) =>
+		breakDriver(
+			(driver) => ({
+				restart: async (host) => {
+					const next = await driver.restart(host);
+					return { ...next, ...change(next) };
+				},
+			}),
+			surviving,
+		);
+	const reopenedAs = (change: (opened: Extract<OpenResult, { status: "accepted" }>) => OpenResult) =>
+		afterRestart((next) => ({
+			open: async (target, sink) => {
+				const opened = await next.open(target, sink);
+				return opened.status === "accepted" ? change(opened) : opened;
+			},
+		}));
+	const reopenedSession = (change: (session: OpenSession) => OpenSession) =>
+		reopenedAs((opened) => ({ ...opened, session: change(opened.session) }));
+
+	test("for a run that ends with the bridge", () =>
+		fails(
+			reopenedAs((opened) => {
+				const { run: _run, ...snapshot } = opened.snapshot;
+				return { ...opened, snapshot };
+			}),
+			sessionsSurviveARestart,
+			/a run did not survive the restart/,
+		));
+
+	test("for a run that keeps its RunId", () => {
+		const first: string[] = [];
+		const remembering = breakStream((record) => {
+			if (record.event.type === "run_started") first.push(record.event.runId);
+			return [record];
+		}, surviving);
+		return fails(
+			breakDriver(
+				(driver) => ({
+					restart: async (host) => {
+						const next = await driver.restart(host);
+						return {
+							...next,
+							open: async (target, sink) => {
+								const opened = await next.open(target, sink);
+								const [runId] = first;
+								if (opened.status === "rejected" || !opened.snapshot.run || runId === undefined) return opened;
+								return { ...opened, snapshot: { ...opened.snapshot, run: { ...opened.snapshot.run, runId } } };
+							},
+						};
+					},
+				}),
+				remembering,
+			),
+			sessionsSurviveARestart,
+			/kept its RunId/,
+		);
+	});
+
+	test("for a run that lost its prompt", () =>
+		fails(
+			reopenedAs((opened) => {
+				const run = opened.snapshot.run;
+				if (!run) return opened;
+				const items = run.items.filter((item) => item.kind !== "user_message");
+				return { ...opened, snapshot: { ...opened.snapshot, run: { ...run, items } } };
+			}),
+			sessionsSurviveARestart,
+			/lost its prompt/,
+		));
+
+	test("for a run that cannot be stopped", () =>
+		fails(
+			reopenedSession((session) =>
+				session.control ? { ...session, control: { ...session.control, abort: async () => refused } } : session,
+			),
+			sessionsSurviveARestart,
+			/abort was rejected/,
+		));
+
+	test("for an ask lost in the restart", () =>
+		fails(
+			reopenedAs((opened) => ({ ...opened, snapshot: { ...opened.snapshot, interactions: [] } })),
+			sessionsSurviveARestart,
+			/not in the reopened snapshot/,
+		));
+
+	test("for an ask that cannot be answered after it", () =>
+		fails(
+			reopenedSession((session) =>
+				session.control ? { ...session, control: { ...session.control, answer: async () => refused } } : session,
+			),
+			sessionsSurviveARestart,
+			/cannot be answered after it/,
 		));
 });
 

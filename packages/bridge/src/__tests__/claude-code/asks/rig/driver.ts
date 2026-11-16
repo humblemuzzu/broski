@@ -7,6 +7,7 @@ import type { AskRigBackend } from "./ask-backend";
 export class AskRigDriver implements ConformanceDriver {
 	readonly cwd: string;
 	readonly otherCwd = "/nowhere";
+	readonly runsSurviveRestart = false;
 
 	constructor(
 		private readonly backend: AskRigBackend,

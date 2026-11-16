@@ -34,6 +34,8 @@ export interface FakeBackendOptions {
 	readonly modes?: readonly ModeAxis[];
 	readonly now?: () => number;
 	readonly newId?: () => string;
+	/** A run in progress goes on through a restart, under a new `RunId`, instead of ending with the bridge. */
+	readonly runsSurviveRestart?: boolean;
 }
 
 /** What a test can make the fake do that a real backend does on its own. */
@@ -73,6 +75,7 @@ export function createFakeBackend(host: BackendHost, options: FakeBackendOptions
 		modes: options.modes ?? FAKE_MODES,
 		now: options.now ?? steadyClock(),
 		newId: options.newId ?? (() => crypto.randomUUID()),
+		runsSurviveRestart: options.runsSurviveRestart === true,
 	};
 	return backendOver(new FakeWorld(host, settings, new Map()));
 }
@@ -131,7 +134,10 @@ function controls(world: FakeWorld): FakeControls {
 async function restart(world: FakeWorld, host: BackendHost): Promise<FakeBackend> {
 	world.dispose();
 	const store: FakeStore = world.sessions;
-	await Promise.all([...store.values()].map((session) => session.endWithTheBridge()));
+	const surviving = world.settings.runsSurviveRestart;
+	await Promise.all(
+		[...store.values()].map((session) => (surviving ? session.carryOver() : session.endWithTheBridge())),
+	);
 	const next = new FakeWorld(host, world.settings, store);
 	for (const session of store.values()) session.rebind(next);
 	return backendOver(next);

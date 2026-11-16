@@ -8,6 +8,8 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { createPiParts, type PiParts, piBackendOf } from "../../../backends/pi/backend";
+import { stopHolders } from "../../../backends/pi/holder/holders";
+import { HOLDER_SUBCOMMAND } from "../../../backends/pi/holder/protocol";
 import type { TerminalLinkOptions } from "../../../backends/pi/terminal/link";
 import type { AgentBackend, BackendHost, SessionControl, SessionId, SessionSink } from "../../../contract";
 import { type ScriptedOpenAI, serveScriptedOpenAI, writeScriptedModels } from "../../helpers/scripted-openai-server";
@@ -18,6 +20,13 @@ import { PROVIDER } from "./scenarios";
 
 /** The `pi` of the devDependency, run as the user's own would be: the executable `bin` npm and bun install. */
 export const PI_BIN = resolve(import.meta.dir, "../../../../node_modules/.bin/pi");
+
+/** A holder as the bridge starts one from source (`server/pi-holder-command.ts`). */
+export const HOLDER_COMMAND: readonly string[] = [
+	process.execPath,
+	resolve(import.meta.dir, "../../../backends/pi/holder/main.ts"),
+	HOLDER_SUBCOMMAND,
+];
 
 /** In listing order. The default model is the second, so a rule that opens the first must really choose it. */
 export const MODELS = {
@@ -139,6 +148,16 @@ export class PiWorld {
 		return this.running.parts;
 	}
 
+	/** What a backend of this world runs as the user's `pi`, for one built elsewhere over the same directories. */
+	get cliPath(): string {
+		return this.cli;
+	}
+
+	/** Where the backend's holders live: every restart of the world finds the same ones. */
+	get holdersRoot(): string {
+		return join(this.env.root, "pi-hosts");
+	}
+
 	/** The control of the view the backend last opened on `sessionId`. */
 	controlOf(sessionId: SessionId): SessionControl | undefined {
 		return this.controls.get(sessionId)?.deref();
@@ -171,16 +190,24 @@ export class PiWorld {
 		return this.backend;
 	}
 
-	/** Stops the endpoint, removes the directories and puts the environment back; the backend is disposed by whoever made it. */
-	dispose(): void {
-		this.server.stop();
-		this.env.dispose();
+	/**
+	 * Stops every holder the backends left running, then the endpoint; removes the directories and puts the environment
+	 * back. The backend is disposed by whoever made it.
+	 */
+	async dispose(): Promise<void> {
+		try {
+			await stopHolders(this.holdersRoot);
+		} finally {
+			this.server.stop();
+			this.env.dispose();
+		}
 	}
 
 	private async start(host: BackendHost): Promise<void> {
 		const parts = createPiParts(host, {
 			install: { cli: { found: true, path: this.cli }, env: this.env.env(), agentDir: this.env.agentDir },
 			hostDir: this.hostDir,
+			holders: { root: this.holdersRoot, command: HOLDER_COMMAND },
 			...(this.link !== undefined && { link: this.link }),
 			...(this.maxHosted !== undefined && { maxHosted: this.maxHosted }),
 		});

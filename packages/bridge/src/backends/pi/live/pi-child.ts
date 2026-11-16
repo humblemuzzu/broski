@@ -7,7 +7,6 @@
 import type { BroskiRecord } from "../broski-entries";
 import { recordCommand } from "../host/protocol";
 import type { ImageContent } from "../messages";
-import type { PiExit, PiLaunch } from "../rpc/child";
 import { type Deliver, type RpcAnswer, RpcClient } from "../rpc/client";
 import {
 	CommandsReply,
@@ -24,6 +23,7 @@ import {
 	StateReply,
 	StatsReply,
 } from "../rpc/replies";
+import type { OpenTransport, PiEnd } from "../rpc/transport";
 
 /** Inside the core's 30 s for an open (`core/deadline.ts`), with the host's end after it. */
 export const START_DEADLINE_MS = 20_000;
@@ -44,12 +44,12 @@ export interface EntriesSince {
 export class PiChild {
 	private readonly client: RpcClient;
 
-	constructor(launch: PiLaunch, deliver: Deliver) {
-		this.client = new RpcClient(launch, deliver);
+	constructor(open: OpenTransport, deliver: Deliver) {
+		this.client = new RpcClient(open, deliver);
 	}
 
-	get exited(): Promise<PiExit> {
-		return this.client.exited;
+	get ended(): Promise<PiEnd> {
+		return this.client.ended;
 	}
 
 	get running(): boolean {
@@ -142,7 +142,12 @@ export class PiChild {
 		this.client.send({ type: "extension_ui_response", id, ...answer });
 	}
 
-	stop(): Promise<PiExit> {
+	stop(): Promise<unknown> {
 		return this.client.stop();
+	}
+
+	/** This bridge lets go of `pi`, which its holder keeps running (`holder/`). */
+	detach(): void {
+		this.client.detach();
 	}
 }

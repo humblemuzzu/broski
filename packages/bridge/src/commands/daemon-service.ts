@@ -2,6 +2,7 @@ import { mkdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { resolve } from "node:path";
 import packageMeta from "../../package.json";
+import { defaultHoldersRoot, holderPids, stopHolders } from "../backends/pi/holder/holders";
 import {
 	checkPortInUse,
 	type DaemonConfig,
@@ -118,6 +119,7 @@ export async function runUninstall(): Promise<void> {
 		console.error(`  Failed to uninstall service: ${err}`);
 		return;
 	}
+	await stopPiSessions();
 	await removeTerminalHook();
 
 	console.log("\n  Broski background service uninstalled.");
@@ -202,8 +204,15 @@ async function printUpdateState(): Promise<void> {
 	}
 }
 
+/** The hosted Pi sessions outlive the bridge in their holders (`backends/pi/holder/`): stopping Broski stops them too. */
+async function stopPiSessions(): Promise<void> {
+	await stopHolders(defaultHoldersRoot());
+	console.log("  Stopped the Pi sessions the bridge was running");
+}
+
 export async function runStop(): Promise<void> {
 	console.log("Stopping Broski bridge...\n");
+	await stopPiSessions();
 
 	const status = await getDaemonStatus();
 	if (status.installed) {
@@ -253,7 +262,8 @@ export async function runRestart(): Promise<void> {
 		await Bun.sleep(300);
 	}
 
-	const orphans = findProcessByPattern("broski");
+	const held = holderPids(defaultHoldersRoot());
+	const orphans = findProcessByPattern("broski").filter((pid) => !held.has(pid));
 	for (const pid of orphans) {
 		killProcess(pid);
 	}

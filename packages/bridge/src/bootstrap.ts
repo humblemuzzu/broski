@@ -11,6 +11,7 @@
  */
 
 import { dirname } from "node:path";
+import { HOLDER_SUBCOMMAND } from "./backends/pi/holder/protocol";
 import { extractPtySidecar } from "./workspace/pty/sidecar-embed";
 
 const binDir = dirname(process.execPath);
@@ -20,7 +21,8 @@ const binDir = dirname(process.execPath);
 // If the placeholder is still present (dev mode), skip extraction.
 const EMBEDDED_PTY_LIB_B64 = "%%EMBEDDED_PTY_LIB_BASE64_PLACEHOLDER%%";
 
-if (!EMBEDDED_PTY_LIB_B64.includes("PLACEHOLDER")) {
+// A holder (`backends/pi/holder/`) opens no terminal, and may run long after an upgrade replaced the library.
+if (!EMBEDDED_PTY_LIB_B64.includes("PLACEHOLDER") && process.argv[2] !== HOLDER_SUBCOMMAND) {
 	extractPtySidecar({ binDir, embeddedBase64: EMBEDDED_PTY_LIB_B64 });
 }
 

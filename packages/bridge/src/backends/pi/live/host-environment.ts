@@ -1,7 +1,8 @@
-import type { PermissionsRecord } from "../broski-entries";
+import type { PermissionsRecord, PromptRecord } from "../broski-entries";
 import type { CatalogFeed } from "../catalog-feed";
 import type { ModelCatalogue } from "../models/catalogue";
-import type { PiLaunch } from "../rpc/child";
+import type { PiEntry } from "../rpc/replies";
+import type { OpenTransport } from "../rpc/transport";
 import type { HostedFacts } from "./host-summary";
 import type { SessionHost } from "./session-host";
 import type { SessionLocks } from "./session-lock";
@@ -16,6 +17,19 @@ export interface HostEnvironment {
 	readonly idle: (host: SessionHost) => void;
 	/** The host has ended, asked to or not. */
 	readonly forget: (host: SessionHost) => void;
+	/** The host lost its `pi` to nobody: its holder may still be there to take over again. */
+	readonly lost: (host: SessionHost) => void;
+}
+
+/** A `pi` this bridge takes over from its holder, which replays what it said since the session was last at rest. */
+export interface Adoption {
+	/** The file's entries since its last user message, which the replayed messages are stored as. */
+	readonly seed: readonly PiEntry[];
+	readonly prompts: (entryId: string) => PromptRecord | undefined;
+	/** The replay lost the start of the run under way. */
+	readonly truncated: boolean;
+	/** The `pi` runs another version of the bridge's extension, so the host ends once it is idle. */
+	readonly retiring: boolean;
 }
 
 /** The session a host runs, as its `pi` is started on it. */
@@ -24,7 +38,8 @@ export interface HostStart {
 	readonly file: string;
 	/** The file's last entry when `pi` opens it. */
 	readonly lastEntryId: string | null;
-	readonly launch: PiLaunch;
+	readonly transport: OpenTransport;
 	readonly permissions: PermissionsRecord;
 	readonly facts: HostedFacts;
+	readonly adoption?: Adoption;
 }

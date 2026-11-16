@@ -1,8 +1,8 @@
 # The Pi adapter
 
 `packages/bridge/src/backends/pi/` speaks the backend contract ([contract README](../../contract/README.md)) for Pi. It
-runs the user's own installed `pi`: one `pi --mode rpc` child per hosted session, plus short-lived
-`pi --mode rpc --no-session` probes for the catalogs. It bundles no Pi and imports no Pi package; the contract README
+runs the user's own installed `pi`: one `pi --mode rpc` per hosted session, kept by a holder process that outlives the
+bridge (§1.1), plus short-lived `pi --mode rpc --no-session` probes for the catalogs. It bundles no Pi and imports no Pi package; the contract README
 cites this file as `pi §n`, and the sections below keep that numbering.
 
 Every Pi fact here was checked against Pi 1.5.2 (`@earendil-works/pi-coding-agent`, the devDependency the tests run),
@@ -25,6 +25,7 @@ The bridge finds `pi` from the config key `pi.cliPath`, else `pi` on the login s
 | Directory | What lives there |
 |---|---|
 | `rpc/` | The wire: `JsonlSplitter` (LF-only records, CR stripped, 32 MiB cap), zod frames for responses, events and UI requests, `RpcClient` (request ids, deadlines, ordered delivery, backpressure), `PiProcess` (spawn in its own process group, stderr tail, the stop ladder). |
+| `holder/` | The holder of a hosted session's `pi` (§1.1): the process itself (`holder.ts`, `main.ts`), what it keeps for the next bridge (`replay-log.ts`), how long it keeps an unattached `pi` (`orphan-policy.ts`), the socket protocol (`protocol.ts`) and the bridge's end of it (`link.ts`, `holders.ts`). The holder process loads only `node:` built-ins, `rpc/child.ts`, `rpc/jsonl.ts` and `contract/clip.ts`. |
 | `live/` | A hosted session: `SessionHost` driving the parts `host-parts.ts` wires (a `PiChild`, the run tracker, prompt desk, queue mirror, settings, usage feed, the event bridge, the entry cursor), and `SessionHosts` (the registry with its locks, revive, idle end and the bound on hosts). |
 | `host/` | The bridge's own extension, written into `~/.broski/pi/broski-host.ts` and loaded with `-e`: the permission gate and the `broski.*` records. `extension/` is agent code, read by the rest of the adapter only as text. |
 | `ui/` | Extension dialogs as interactions (`dialogs.ts`, `interactions.ts`) and permission asks (`permission-asks.ts`, `permission-request.ts`). |
@@ -72,7 +73,61 @@ imports only Pi's packages, `node:` built-ins and itself, and that everything el
   host had nothing to add to, and its next action starts a new host through the revive path and sends `resynced`
   with the new host's snapshot. A host with work in flight is never ended; when all are, the open or the revive is
   refused `busy`. A host whose session has work queued on its lock is skipped, so ending a host never waits on a lock
-  while holding another (`host_capacity.test.ts`). Catalog probes are short-lived and not counted.
+  while holding another (`host_capacity.test.ts`). Catalog probes are short-lived and not counted. Hosts taken over
+  from holders at start (§1.1) make no room: they run already, and count against the bound from then on.
+
+### 1.1 Holders: a run outlives the bridge
+
+`pi --mode rpc` ends its run when its stdin closes, and a bridge's death closes it: the daemon restarts a bridge with
+SIGKILL (`packages/link/daemon/src/supervisor.rs`), so no graceful shutdown runs. So a hosted `pi` is never the
+bridge's child. `startHost` starts a holder, the bridge binary again with `__pi-holder <dir>` (`src/index.ts`,
+`src/bootstrap.ts`; from source `bun <entry> __pi-holder`, `server/pi-holder-command.ts`), detached into a session of
+its own, stdio ignored but for stdin, over which the bridge writes the launch spec once (the `pi` path, args, cwd and
+environment, which holds secrets: never argv, never a file) and closes it. The holder runs with `PATH`, `HOME`,
+`TMPDIR` and `LANG` alone.
+
+- **Its directory** is `~/.broski/pi-hosts/<12 hex of sha256(session id)>/` (`0700`): `sock` (`0600`, short because
+  a unix socket path is at most 103 bytes on macOS) and `holder.json` (`holderVersion`, `pid`, `piPid`, `sessionId`,
+  `file`, `cwd`, `startedAt`, `extension`, the bridge extension's hash). The holder listens, writes `holder.json`,
+  then starts `pi` as `PiProcess` does (its own process group), and removes the directory when it ends. The bridge
+  never signals a pid it reads there: a directory nothing answers in is removed, nothing more.
+- **The protocol** is JSON lines. Pi's records pass through as Pi wrote them; the holder's start with `{"holder":`:
+  `hello` (`version`, `sessionId`, `extension`, `replayed`, `truncated`), then the replay, then `live`, then Pi's
+  records as they come; `exit` (`code`, `signal`, `error`, `stderr`) when `pi` ends; `replaced` to a bridge another
+  one displaced (one bridge at a time, the newest wins); `oversized` for a record past the 32 MiB cap. From the bridge,
+  complete lines go to `pi`'s stdin through one writer queue; a half line from a bridge that went is dropped, so the
+  next bridge's first command is not glued to it; `{"holder":"stop"}` answers every dialog still open with Pi's
+  default (`cancelled`, as a bridge's own stop does) and runs the stop ladder (§1) in the holder. A socket
+  that closes without `exit`, or `replaced`, is this bridge losing the session, not `pi` ending: the host ends quietly
+  (no `backend_unavailable`), and unless it was replaced the bridge takes the holder over again at once.
+- **`pi` is never made to wait.** The holder reads its stdout without pause; a bridge more than 16 MiB behind (beyond
+  its replay) is dropped and takes the session over again with a replay.
+- **The replay** (`replay-log.ts`) is every record since the session was last at rest, without `response`s (they answer
+  the dead bridge's commands). At `agent_settled`, with no compaction or retry open, it starts over keeping only the
+  dialogs nobody answered whose own `timeout` has not run out (a permission ask goes, Pi dropped it with its run's
+  signal, §8.4) and the last `setStatus` per key. A replayed dialog's `timeout` is what is left of it. Past 64 MiB the
+  deltas of messages and outputs of tools that have ended, and outputs a later one replaces, go first; if the rest is
+  still too much the replay is `truncated` to its asks and statuses until the next rest.
+- **Unattached** (`orphan-policy.ts`), a holder keeps an idle `pi` 10 minutes (from when it went idle), a running one
+  4 hours, one asking a human 24 hours, then stops it, which persists the run in the session file as any stop does. It
+  also stops `pi` when its directory is gone, and on SIGTERM, SIGINT or SIGHUP. A holder killed outright closes `pi`'s
+  stdin, which ends it.
+- **Taking over** (`SessionHosts`): at start the bridge scans `pi-hosts` (`adopting`); every open, revive, list and read
+  waits for it, and an open first asks for a holder of its session under the session lock, so no second `pi` ever
+  starts on a file a holder runs. Each holder is taken over under its session's lock, the host built as for a stored
+  session (`store.locate`, `facts`) plus the file's entries since its last user message, which the replayed messages
+  are matched to (`EntryCursor`'s seed), and the `broski.prompt` records, so the replayed user message carries its
+  `clientRequestId`. The replay runs through the ordinary `RpcClient`/`EventBridge` path with nothing written twice (no
+  record, usage pull, title or notice), the run under way becomes a new run (trigger `system`) with its tool calls and
+  asks (re-raised with Pi's own dialog id), then the usual handshake, then the host is ready and announced. A truncated
+  replay starts no run and says so in a notice; the next event starts one. A holder of another protocol version, or
+  whose `holder.json` cannot be read, is stopped; one whose `pi` runs another version of the bridge's extension is
+  taken over and ends once idle (`retiring`). A run that ended with no bridge is taken over idle, and its `pi` ends.
+- **Shutdown**: an idle host stops its `pi` as before; a host with work under way is let go, its holder keeping it.
+  `broski stop` and `broski uninstall` stop every holder (`holders.ts`, `stopHolders`); `broski restart` spares them.
+- **Supervisors**: launchd kills a job's process group, which a holder has left. systemd's default `KillMode` kills the
+  whole control group, holders included, so the unit says `KillMode=process` (`platform/service/systemd.ts`); a unit
+  installed before this needs `broski install` again.
 
 ## 2. Status
 
@@ -149,7 +204,10 @@ ends is raised again on its own and only a human ends it. Shutdown expires every
 
 ### 8.5 Re-delivery
 
-Asks are the bridge's own: one pending when a view closes is in the next open's snapshot.
+Asks are the bridge's own: one pending when a view closes is in the next open's snapshot. One pending when the bridge
+dies is kept by the holder (§1.1) and raised again by the next bridge, a new interaction with the same request and the
+time its dialog has left, answered to Pi under Pi's own id; one answered before is not raised again. Asks expire when
+`pi` exits.
 
 ### 8.6 The permission gate
 
@@ -173,7 +231,9 @@ and `setThinking`, `compact` and a prompt (which Pi refuses as "No API key found
 
 ## 10. Reconnect
 
-A view reopens on the host's snapshot; a host whose `pi` exited is revived on the next action.
+A view reopens on the host's snapshot; a host whose `pi` exited is revived on the next action. After a bridge restart
+the session's holder is taken over (§1.1): the run under way is in the reopened snapshot under a new `RunId`
+(conformance `runsSurviveRestart`, contract README §5 rule 11).
 
 ## 11. External sessions
 
@@ -234,10 +294,18 @@ requests are routed to its own script (`pi-router.ts`), a driver extension that 
 reports in notes, and the real backend running the devDependency's `pi` behind a shim that logs each start (for the
 process-leak checks). `conformance.test.ts` runs `runConformance`; the `live_*`, `host_*`, `gate`, `catalog` and
 `terminal_*` files cover the rest at the same seam; `mapping_*` and `store_*` feed Pi-shaped values through the
-adapter's own frame schemas.
+adapter's own frame schemas. `holder_*` run the holder over a real socket against a stand-in `pi`
+(`helpers/fake-pi.ts`); `host_restart` kills a bridge running in a process of its own (`helpers/bridge-process.ts`)
+with SIGKILL and has the next one take its sessions over.
 
 ## 17. Risks and open questions
 
+- A holder is a second Bun process per hosted session: about 30 MB resident beside `pi`'s 160 MB (measured on the
+  compiled binary, macOS arm64). It runs the code of the bridge that started it, so after an upgrade old holders speak
+  the old protocol: one of another `HOLDER_VERSION` is stopped, one whose `pi` runs an older bridge extension retires
+  when idle.
+- launchd is relied on to kill only the job's process group, which a holder leaves with `setsid`; this was reasoned
+  from launchd's documented `AbandonProcessGroup` behaviour, not tried against a live LaunchAgent.
 - About 110 MB per hosted session, so 8 hosts are about 0.9 GB; with every host busy a ninth session cannot be opened
   until one finishes (§1). The bound is a constant: a machine that wants more hosts needs a change here.
 - A Pi release that changes an RPC shape fails the frame schemas, which reports a fault instead of guessing.

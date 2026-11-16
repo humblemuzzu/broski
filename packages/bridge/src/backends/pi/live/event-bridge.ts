@@ -6,7 +6,7 @@
  */
 
 import type { AgentEvent, RunOutcome } from "../../../contract";
-import { type BroskiRecord, promptRecord, toolOutcomeRecord } from "../broski-entries";
+import { type BroskiRecord, type PromptRecord, promptRecord, toolOutcomeRecord } from "../broski-entries";
 import { mintActivityId, mintMessageId } from "../ids";
 import { customActivity } from "../mapping/custom-activity";
 import { userMessageEvent } from "../mapping/message-items";
@@ -49,6 +49,10 @@ export interface BridgeHooks {
 	/** An extension's UI request; it must not hold the records after it. */
 	dialog(request: UiRequest): void;
 	exited(exit: PiExit, stderr: string): void;
+	/** This bridge lost the `pi`, which goes on under its holder. */
+	detached(replaced: boolean): void;
+	/** A replay of what an earlier bridge already read begins or ends (`holder/replay-log.ts`). */
+	replaying(replaying: boolean): void;
 }
 
 export interface EventBridgeDeps {
@@ -63,6 +67,10 @@ export interface EventBridgeDeps {
 	readonly hooks: BridgeHooks;
 	/** Has the bridge's extension write a record into the session (`host/protocol.ts`). */
 	readonly record: (record: BroskiRecord) => void;
+	/** The record an earlier bridge wrote for a user message stored as `entryId`. */
+	readonly persistedPrompt: (entryId: string) => PromptRecord | undefined;
+	/** The host took over a `pi` an earlier bridge ran: its holder's replay was read once already. */
+	readonly adopted: boolean;
 }
 
 /** Pi takes a follow-up that comes as its run ends after the run's last look at its queue: it goes with the next prompt. */
@@ -73,6 +81,11 @@ export class EventBridge {
 	private lastAssistant: AssistantMessage | undefined;
 	private compactionStart: (() => void) | undefined;
 	private compactionRequested = false;
+	/**
+	 * Records an earlier bridge already read are being replayed: they rebuild the live state, and whatever the first
+	 * reading wrote into the session or announced is not done twice.
+	 */
+	private replaying = false;
 	private readonly tools: ToolFlow;
 
 	constructor(private readonly deps: EventBridgeDeps) {
@@ -81,7 +94,9 @@ export class EventBridge {
 			run: () => deps.runs.current(),
 			aborting: () => deps.runs.aborting,
 			children: deps.children,
-			record: (entryId, outcome) => deps.record(toolOutcomeRecord(entryId, outcome)),
+			record: (entryId, outcome) => {
+				if (!this.replaying) deps.record(toolOutcomeRecord(entryId, outcome));
+			},
 		});
 	}
 
@@ -97,6 +112,13 @@ export class EventBridge {
 				return undefined;
 			case "exit":
 				this.deps.hooks.exited(delivery.exit, delivery.stderr);
+				return undefined;
+			case "detached":
+				this.deps.hooks.detached(delivery.replaced);
+				return undefined;
+			case "replay":
+				this.replaying = delivery.replaying && this.deps.adopted;
+				this.deps.hooks.replaying(delivery.replaying);
 				return undefined;
 		}
 	}
@@ -241,18 +263,19 @@ export class EventBridge {
 		for (const event of stream?.end(message) ?? []) this.deps.live.emit(event);
 		this.stream = undefined;
 		this.tools.responseEnded(message, stream?.unexecutedCalls(message) ?? []);
-		this.deps.usage.refresh();
+		if (!this.replaying) this.deps.usage.refresh();
 	}
 
 	private async userEnded(message: UserMessage): Promise<void> {
 		const entry = await this.entryOf(message);
-		const record = this.deps.prompts.claim(message.content);
+		const claimed = this.deps.prompts.claim(message.content);
+		const record = claimed ?? (this.replaying && entry ? this.deps.persistedPrompt(entry.id) : undefined);
 		if (entry !== undefined) {
 			this.deps.runs.firstMessageUnder(entry.parentId);
-			if (record) this.deps.record(promptRecord(entry.id, record));
+			if (claimed && !this.replaying) this.deps.record(promptRecord(entry.id, claimed));
 		}
 		this.deps.live.emit(userMessageEvent(message.content, entry?.id, record));
-		this.deps.hooks.userMessage(contentText(message.content));
+		if (!this.replaying) this.deps.hooks.userMessage(contentText(message.content));
 	}
 
 	private async toolResultEnded(message: ToolResultMessage): Promise<void> {

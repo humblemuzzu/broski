@@ -1,13 +1,12 @@
 /**
  * The sessions this bridge hosts, by id: open (existing or new), the session lock, the live facts the store lays over
- * its rows, the writes a hosted session must take, and shutdown. A hosted session is one `pi --mode rpc` opened on its
- * file (`pi --session <file>`, pi-coding-agent 1.5.2 `docs/cli.md`) with the bridge's extension (`-e`).
+ * its rows, the writes a hosted session must take, and shutdown. A hosted session is one `pi --mode rpc` kept by a
+ * holder process (`holder/`), which outlives the bridge: at start the bridge takes over every holder an earlier bridge
+ * left (`adopting`), and a shutdown with work under way lets go of the holder instead of ending it.
  */
 
-import { readFile, unlink } from "node:fs/promises";
 import type {
 	ActionResult,
-	NewSessionOptions,
 	OpenResult,
 	OpenTarget,
 	Rejected,
@@ -18,21 +17,21 @@ import type {
 } from "../../../contract";
 import type { CatalogFeed } from "../catalog-feed";
 import { errorText } from "../error-text";
-import { ensureHostExtension } from "../host/install";
+import { holderDirs, readMeta, removeStale } from "../holder/holders";
+import { HolderLink, type HolderSetup } from "../holder/link";
 import { type ChildSessionPart, parseChildSessionId } from "../ids";
 import { isDirectory } from "../is-directory";
 import type { ModelCatalogue } from "../models/catalogue";
-import { initialPermissions } from "../modes";
-import { childEnv, type PiInstall } from "../pi-install";
+import type { PiInstall } from "../pi-install";
 import type { LiveOverlay, LiveRow, SessionStore, StoredSession } from "../ports";
 import { CLOSED, rejected } from "../rejections";
 import { sessionName } from "../session-name";
 import type { TerminalRegistry } from "../terminal/registry";
 import { leastRecentlyUsedIdle, MAX_HOSTED_SESSIONS } from "./host-capacity";
 import type { HostEnvironment, HostStart } from "./host-environment";
+import { adoptedStart, attachHolder, launchedStart, type Target } from "./host-starts";
 import { factsOf } from "./hosted-session";
-import { createSessionFile } from "./new-session-file";
-import { chooseModel } from "./new-session-options";
+import { type NewSessionRegistry, openNewSession } from "./open-new";
 import { openSessionView } from "./open-session";
 import { SessionHost } from "./session-host";
 import { SessionLocks } from "./session-lock";
@@ -42,6 +41,7 @@ export interface SessionHostsDeps {
 	readonly install: PiInstall;
 	/** Where the bridge's extension is written for the `pi` processes it starts (`host/install.ts`). */
 	readonly hostDir: string;
+	readonly holders: HolderSetup;
 	readonly terminals: TerminalRegistry;
 	readonly models: Pick<ModelCatalogue, "find" | "missing" | "starting">;
 	readonly store: SessionStore;
@@ -54,14 +54,6 @@ export interface SessionHostsDeps {
 /** A hosted session's write, or the store's when nobody hosts it; both under the session lock. */
 export type StoredWrite = (name: string) => Promise<ActionResult>;
 
-/** A session file's own parts: what `pi` is started on. */
-interface Target {
-	readonly sessionId: SessionId;
-	readonly cwd: string;
-	readonly file: string;
-	readonly lastEntryId: string | null;
-}
-
 export class SessionHosts implements LiveOverlay {
 	private readonly hosts = new Map<SessionId, SessionHost>();
 	/** The views the core holds now, by session. */
@@ -69,6 +61,11 @@ export class SessionHosts implements LiveOverlay {
 	private readonly locks = new SessionLocks();
 	private readonly env: HostEnvironment;
 	private disposing: Promise<void> | undefined;
+	/**
+	 * The holders an earlier bridge left, being taken over. Every open waits for it before it takes a session's lock, so
+	 * it never starts a second `pi` on a session a holder runs (and never holds a lock the adoption waits on).
+	 */
+	private readonly adopting: Promise<void>;
 
 	constructor(private readonly deps: SessionHostsDeps) {
 		this.env = {
@@ -80,12 +77,20 @@ export class SessionHosts implements LiveOverlay {
 			forget: (host) => {
 				if (this.hosts.get(host.sessionId) === host) this.hosts.delete(host.sessionId);
 			},
+			lost: (host) => void this.adoptAgain(host.sessionId),
 		};
+		this.adopting = this.adoptAll();
 	}
 
-	open(target: OpenTarget, sink: SessionSink): Promise<OpenResult> {
+	/** Once the holders an earlier bridge left are taken over: a read before then would show their runs as unknown. */
+	adopted(): Promise<void> {
+		return this.adopting;
+	}
+
+	async open(target: OpenTarget, sink: SessionSink): Promise<OpenResult> {
+		await this.adopting;
 		return target.kind === "new"
-			? this.openNew(target.options, sink)
+			? openNewSession(this.newSessions(), target.options, sink)
 			: this.locks.run(target.session.sessionId, () => this.openExisting(target.session.sessionId, sink));
 	}
 
@@ -146,56 +151,32 @@ export class SessionHosts implements LiveOverlay {
 		return host?.isReady && !host.ended ? host : undefined;
 	}
 
-	/** Every host ends at once, without waiting for the session lock: a lock holder may be waiting on Pi. */
+	/**
+	 * Every host ends at once, without waiting for the session lock: a lock holder may be waiting on Pi. A host with work
+	 * under way is let go instead, its holder keeping it for the next bridge.
+	 */
 	dispose(): Promise<void> {
-		this.disposing ??= Promise.all([...this.hosts.values()].map((host) => host.finish())).then(() =>
+		const hosts = [...this.hosts.values()];
+		this.disposing ??= Promise.all(hosts.map((host) => (host.worthKeeping ? host.release() : host.finish()))).then(() =>
 			Promise.all([...this.views.values()].map((view) => view.close())).then(() => undefined),
 		);
 		return this.disposing;
 	}
 
-	private async openNew(options: NewSessionOptions, sink: SessionSink): Promise<OpenResult> {
-		const choice = await chooseModel(options, this.deps.models);
-		if ("status" in choice) return choice;
-		const permissions = initialPermissions(options.modes);
-		const now = this.deps.now();
-		let created: Awaited<ReturnType<typeof createSessionFile>>;
-		try {
-			const directory = this.deps.store.sessionDirFor(options.cwd);
-			created = await createSessionFile({ cwd: options.cwd, directory, permissions, now });
-		} catch (error) {
-			return rejected("backend_error", `the session could not be created: ${errorText(error)}`);
-		}
-		const facts = {
-			sessionId: created.sessionId,
-			cwd: options.cwd,
-			createdAt: now,
-			updatedAt: now,
-			origin: "broski" as const,
-			prompted: false,
+	private newSessions(): NewSessionRegistry {
+		const { models, store, now, catalog } = this.deps;
+		return {
+			models,
+			store,
+			now,
+			locks: this.locks,
+			start: (target, permissions, facts) => this.startHost(target, permissions, facts),
+			attach: (host, sink) => {
+				const opened = this.attachNew(host, sink);
+				catalog.emit({ type: "session_updated", summary: host.summary() });
+				return opened;
+			},
 		};
-		const target: Target = {
-			sessionId: created.sessionId,
-			cwd: options.cwd,
-			file: created.path,
-			lastEntryId: created.lastEntryId,
-		};
-		return this.locks.run(created.sessionId, async () => {
-			const host = await this.startHost(target, { mode: permissions, allowedTools: [] }, facts);
-			if ("status" in host) {
-				await discardUnused(created.path);
-				return host;
-			}
-			const applied = await host.applyChoice({ modelId: options.modelId, thinking: choice.thinking });
-			if (applied.status === "rejected") {
-				await host.finish();
-				await discardUnused(created.path);
-				return applied;
-			}
-			const opened = this.attachNew(host, sink);
-			this.deps.catalog.emit({ type: "session_updated", summary: host.summary() });
-			return opened;
-		});
 	}
 
 	private async openExisting(sessionId: SessionId, sink: SessionSink): Promise<OpenResult> {
@@ -233,7 +214,10 @@ export class SessionHosts implements LiveOverlay {
 			path,
 			terminals: this.deps.terminals,
 			reread: () => watchedSnapshot(sessionId, this.deps.store),
-			revive: (viewSink) => this.locks.run(sessionId, () => this.revive(sessionId, viewSink)),
+			revive: async (viewSink) => {
+				await this.adopting;
+				return this.locks.run(sessionId, () => this.revive(sessionId, viewSink));
+			},
 			now: this.deps.now,
 			release: () => {
 				if (this.views.get(sessionId) === view) this.views.delete(sessionId);
@@ -278,37 +262,78 @@ export class SessionHosts implements LiveOverlay {
 		return this.startHost(target, facts.permissions, factsOf(stored, cwd, facts, this.deps.now()));
 	}
 
-	/** Registers the host before its `pi` has started, so a shutdown meanwhile reaches it. */
+	/**
+	 * Under the session lock: a holder already running the session is taken over, never doubled. Otherwise a new one
+	 * starts, after room is made for it. The host is registered before its `pi` has started, so a shutdown reaches it.
+	 */
 	private async startHost(
 		target: Target,
 		permissions: HostStart["permissions"],
 		facts: HostStart["facts"],
 	): Promise<SessionHost | Rejected> {
 		if (this.disposing) return CLOSED;
-		const { cli } = this.deps.install;
-		if (!cli.found) return rejected("backend_error", cli.reason);
+		const adopted = await this.adoptHolder(target.sessionId);
+		if (adopted !== undefined) return adopted;
+		if (!this.deps.install.cli.found) return rejected("backend_error", this.deps.install.cli.reason);
 		const crowded = await this.makeRoom();
 		if (crowded !== undefined) return crowded;
 		if (this.disposing) return CLOSED;
-		const extension = ensureHostExtension(this.deps.hostDir);
-		if ("problem" in extension) return rejected("backend_error", extension.problem);
-		const launch = {
-			cliPath: cli.path,
-			args: ["--session", target.file, "-e", extension.path],
-			cwd: target.cwd,
-			env: childEnv(this.deps.install),
-		};
-		const host = new SessionHost(this.env, { ...target, launch, permissions, facts });
+		const start = await launchedStart(this.deps, target, { permissions, facts });
+		if ("status" in start) return start;
+		return this.begun(new SessionHost(this.env, start), (host) => host.begin());
+	}
+
+	private async begun(host: SessionHost, begin: (host: SessionHost) => Promise<void>): Promise<SessionHost | Rejected> {
 		this.hosts.set(host.sessionId, host);
 		try {
-			await host.begin();
+			await begin(host);
 		} catch (error) {
+			if (this.disposing) return CLOSED;
 			await host.finish();
-			return this.disposing
-				? CLOSED
-				: rejected("backend_error", `the session could not be started: ${errorText(error)}`);
+			return rejected("backend_error", `the session could not be started: ${errorText(error)}`);
 		}
 		return this.disposing || host.ended ? CLOSED : host;
+	}
+
+	/** Every holder an earlier bridge left: taken over, or, when this bridge cannot read it, stopped. */
+	private async adoptAll(): Promise<void> {
+		const adoptions = holderDirs(this.deps.holders.root).map(async (dir) => {
+			const meta = readMeta(dir);
+			if (meta !== undefined) {
+				this.deps.store.sessionDirFor(meta.cwd);
+				return this.adoptAgain(meta.sessionId);
+			}
+			const attached = await HolderLink.connect(dir);
+			if (attached === undefined) removeStale(dir);
+			else await attached.link.stop();
+		});
+		await Promise.all(adoptions.map((adoption) => adoption.catch(() => undefined)));
+	}
+
+	/** A holder's session, taken over and shown in the list; its view, if it has one, follows the new host. */
+	private adoptAgain(sessionId: SessionId): Promise<void> {
+		return this.locks.run(sessionId, async () => {
+			const host = await this.adoptHolder(sessionId);
+			if (host === undefined || "status" in host || host.isReady) return;
+			host.markReady();
+			this.deps.catalog.emit({ type: "session_updated", summary: host.summary() });
+			this.views.get(sessionId)?.resume();
+		});
+	}
+
+	/** Under the session lock: the host this bridge has, else the session's holder taken over, else undefined. */
+	private async adoptHolder(sessionId: SessionId): Promise<SessionHost | Rejected | undefined> {
+		if (this.disposing) return CLOSED;
+		const existing = this.hosts.get(sessionId);
+		if (existing !== undefined && !existing.ended) return existing;
+		const attached = await attachHolder(this.deps.holders, sessionId);
+		if (attached === undefined) return undefined;
+		const start = this.disposing ? CLOSED : await adoptedStart(this.deps, sessionId, attached);
+		if ("status" in start) {
+			attached.link.detach();
+			return start;
+		}
+		return this.begun(new SessionHost(this.env, start), (host) => host.adopt());
 	}
 
 	/**
@@ -347,14 +372,7 @@ export class SessionHosts implements LiveOverlay {
 	/** The host is unattached and idle: it ends, after anything queued on its lock has had its turn (open, prompt). */
 	private endWhenIdle(host: SessionHost): void {
 		void this.locks.run(host.sessionId, async () => {
-			if (!host.ended && !host.live.attached && host.idle()) await host.finish();
+			if (!host.ended && (!host.live.attached || host.retiring) && host.idle()) await host.finish();
 		});
 	}
-}
-
-/** A new session whose host did not start, and that holds no conversation, is left as Pi leaves such a session: with no file. */
-async function discardUnused(path: string): Promise<void> {
-	const text = await readFile(path, "utf8").catch(() => undefined);
-	if (text === undefined || text.split("\n").some((line) => line.startsWith('{"type":"message"'))) return;
-	await unlink(path).catch(() => undefined);
 }

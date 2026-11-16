@@ -5,6 +5,7 @@
  */
 
 import { afterEach, describe, expect, test } from "bun:test";
+import { stopHolders } from "../../backends/pi/holder/holders";
 import { MAX_LIST_ITEMS } from "../../contract";
 import { countOf, userMessages } from "./helpers/live-steps";
 import { askHuman, call, say } from "./helpers/scenarios";
@@ -110,7 +111,7 @@ describe("a prompt while Pi settles a run", () => {
 		live.assertSettled();
 	});
 
-	test("a shutdown that finds a prompt Pi is still deciding answers it closed and does not hang", async () => {
+	test("a shutdown that finds a prompt Pi is still deciding answers it closed, does not hang, and leaves pi to its holder", async () => {
 		t = await HostRig.create();
 		const gate = t.gate("inputGate");
 		const live = await t.rig.rig.openNew();
@@ -120,6 +121,8 @@ describe("a prompt while Pi settles a run", () => {
 		await t.rig.rig.backend.dispose();
 
 		expect(await pending).toMatchObject({ status: "rejected", rejection: { code: "closed" } });
+		expect(t.rig.world.sessionProcesses()).toBe(1);
+		await stopHolders(t.rig.world.holdersRoot);
 		expect(t.rig.world.sessionProcesses()).toBe(0);
 	});
 });

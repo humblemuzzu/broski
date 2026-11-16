@@ -9,6 +9,7 @@ import {
 	MAX_LIST_ITEMS,
 	type NoticeEvent,
 	type Rejected,
+	type RunOutcome,
 	type SessionSink,
 	type SessionSnapshot,
 	type SessionSummary,
@@ -23,7 +24,7 @@ import type { PiCommand, PiState } from "../rpc/replies";
 import { type DialogHost, handleUiRequest } from "../ui/dialogs";
 import type { InteractionDesk } from "../ui/interactions";
 import type { ChildFeeds } from "./child-feeds";
-import { requestCompaction } from "./compaction-request";
+import { compactHosted } from "./compaction-request";
 import type { EntryCursor } from "./entry-cursor";
 import type { EventBridge } from "./event-bridge";
 import { type HostControl, hostControl } from "./host-control";
@@ -32,17 +33,21 @@ import type { HostLiveState } from "./host-live-state";
 import { assembleHostParts } from "./host-parts";
 import type { HostRow } from "./host-row";
 import { type HostedFacts, liveRowOf } from "./host-summary";
-import { faultEvent } from "./live-notes";
+import { faultEvent, noticeEvent } from "./live-notes";
 import type { PiChild } from "./pi-child";
 import type { PromptDesk } from "./prompt-desk";
 import type { QueueMirror } from "./queue-mirror";
-import { returnQueuedInput } from "./queue-return";
+import { ReplayGate } from "./replay-gate";
+import { abortRun } from "./run-abort";
 import type { RunTracker } from "./run-tracker";
 import type { SessionSettings } from "./settings";
 import type { UsageFeed } from "./usage-feed";
 import { within } from "./within";
 
 const STARTING: Rejected = rejected("busy", "the session's extensions are still starting");
+
+const TRUNCATED =
+	"This bridge restarted during a run too long to replay: the run goes on, and what it did before shows once it has ended.";
 
 /** How long an ending host lets its aborted run settle, so Pi persists what the run did, before `pi` is stopped. */
 export const SETTLE_DEADLINE_MS = 1_500;
@@ -62,6 +67,7 @@ export class SessionHost {
 	private readonly usage: UsageFeed;
 	private readonly cursor: EntryCursor;
 	private readonly askedWhileStarting = Promise.withResolvers<string>();
+	private readonly replay: ReplayGate;
 	private sink: SessionSink | undefined;
 	/** Notices from before the session opened, which no view could see yet; they follow the open. */
 	private held: NoticeEvent[] = [];
@@ -97,7 +103,21 @@ export class SessionHost {
 			settle: () => this.settle(),
 			dialog: (request) => this.dialog(request),
 			exited: (exit, stderr) => this.exited(exit, stderr),
+			detached: (replaced) => this.detached(replaced),
+			replaying: (replaying) => this.replay.changed(replaying),
 		}));
+		this.replay = new ReplayGate(this.cursor);
+	}
+
+	/**
+	 * Takes over a `pi` its holder kept running: what it said since the session was last at rest is replayed first, so
+	 * the run under way and its asks are this host's, and then the session is started as any other (`begin`).
+	 */
+	async adopt(): Promise<void> {
+		const replayed = await this.replay.done(this.child.ended);
+		if (!replayed) throw new Error("the session's holder went away while this bridge took it over");
+		if (this.start.adoption?.truncated) this.live.emit(noticeEvent("warning", TRUNCATED));
+		await this.begin();
 	}
 
 	/**
@@ -124,6 +144,17 @@ export class SessionHost {
 				if (!this.finished) for (const notice of held) this.live.emit(notice);
 			});
 		}
+		this.reviewIdle();
+	}
+
+	/** At bridge shutdown: `pi` has something under way its holder keeps for the next bridge. */
+	get worthKeeping(): boolean {
+		return this.started ? !this.idle() : this.start.adoption !== undefined;
+	}
+
+	/** Its `pi` runs another version of the bridge's extension: it ends once idle, viewed or not. */
+	get retiring(): boolean {
+		return this.start.adoption?.retiring === true;
 	}
 
 	get isReady(): boolean {
@@ -192,7 +223,7 @@ export class SessionHost {
 			whenBound: (work) => this.whenStarted(work),
 			abort: () => this.abort(),
 			prompt: (input) => this.prompts.prompt(input),
-			compact: (instructions) => this.compact(instructions),
+			compact: (instructions) => compactHosted(this.parts(), instructions),
 			interactions: this.interactions,
 			settings: this.settings,
 		});
@@ -245,7 +276,9 @@ export class SessionHost {
 	}
 
 	private dialog(request: UiRequest): void {
-		if (this.started || request.method === "notify" || request.method === "setStatus") {
+		const adopted = this.start.adoption !== undefined;
+		if (adopted && this.replay.active && request.method === "notify") return;
+		if (this.started || adopted || request.method === "notify" || request.method === "setStatus") {
 			void handleUiRequest(request, this.dialogHost());
 			return;
 		}
@@ -281,19 +314,6 @@ export class SessionHost {
 		});
 	}
 
-	private compact(instructions: string | undefined): Promise<ActionResult> {
-		const started = () => this.events.nextCompactionStart();
-		const facts = {
-			running: this.runs.current() !== undefined,
-			hasModel: this.settings.currentModel !== undefined,
-			started,
-		};
-		return requestCompaction(this.child, instructions, facts).then((result) => {
-			if (result.status === "rejected") this.events.compactionRefused();
-			return result;
-		});
-	}
-
 	/** Not under the lock: an abort must reach Pi while a prompt waits on it. */
 	private async abort(): Promise<ActionResult> {
 		if (this.ended) return CLOSED;
@@ -302,24 +322,13 @@ export class SessionHost {
 		return this.abortNow();
 	}
 
-	/**
-	 * Stops what runs, as Esc does in the terminal: the run's asks are withdrawn (Pi gets its default for each), the
-	 * input queued behind the run goes back to the person, and Pi aborts (pi-coding-agent 1.5.2 `docs/rpc-commands.md:94-128`).
-	 * Pi answers `abort` once the run has stopped, which a tool that ignores its signal can put off: past the deadline
-	 * the abort is still accepted, and the run ends when Pi settles it.
-	 */
-	private async abortNow(): Promise<ActionResult> {
-		const run = this.runs.current();
-		if (run) {
-			this.runs.noteAbort();
-			this.interactions.withdrawRun(run.runId);
-		} else {
-			this.prompts.noteAbort();
-		}
-		await returnQueuedInput(this.child, this.live);
-		const answer = await this.child.abort();
-		if (answer.ok || this.child.running) return ACCEPTED;
-		return rejected("backend_error", `the abort failed: ${answer.error}`);
+	private abortNow(): Promise<ActionResult> {
+		return abortRun(this.parts());
+	}
+
+	private parts() {
+		const { child, events, runs, settings, interactions, prompts, live } = this;
+		return { child, events, runs, settings, interactions, prompts, live };
 	}
 
 	private abortInBackground(): void {
@@ -328,23 +337,49 @@ export class SessionHost {
 		});
 	}
 
+	/**
+	 * Bridge shutdown with work in flight: this bridge lets go, and the holder keeps `pi` running for the next bridge to
+	 * take over (`holder/`). Nothing more is emitted.
+	 */
+	release(): void {
+		if (this.finished) return;
+		this.finished = true;
+		this.shuttingDown = true;
+		this.prompts.close();
+		this.env.forget(this);
+		this.child.detach();
+	}
+
 	/** `pi` exited: when nobody asked it to, what it ran ends with it, and so does the host. Its tasks went with it. */
 	private exited(exit: PiExit, stderr: string): void {
 		const asked = this.finished;
-		this.finished = true;
-		this.shuttingDown = true;
 		const how = exit.error ?? (exit.signal ? `was stopped by ${exit.signal}` : `exited with code ${exit.code}`);
 		const message = `Pi ${how}${stderr === "" ? "" : `: ${stderr}`}`;
-		this.events.abandonRun(
-			asked ? { kind: "aborted" } : { kind: "error", error: { code: "backend_unavailable", message } },
-		);
+		this.lose(asked ? { kind: "aborted" } : { kind: "error", error: { code: "backend_unavailable", message } });
+		if (asked) return;
+		this.live.emit(faultEvent(message));
+		this.env.forget(this);
+	}
+
+	/**
+	 * This bridge lost the `pi` without it ending: another bridge took it over, or the holder's socket went. What the host
+	 * showed ends here; it is no failure of the session's, which may well go on.
+	 */
+	private detached(replaced: boolean): void {
+		if (this.finished) return;
+		this.lose({ kind: "aborted" });
+		this.env.forget(this);
+		if (!replaced) this.env.lost(this);
+	}
+
+	private lose(outcome: RunOutcome): void {
+		this.finished = true;
+		this.shuttingDown = true;
+		this.events.abandonRun(outcome);
 		if (this.live.snapshot().backgroundTasks.length > 0)
 			this.live.emit({ type: "background_tasks_changed", tasks: [] });
 		this.prompts.close();
 		this.interactions.expireAll();
-		if (asked) return;
-		this.live.emit(faultEvent(message));
-		this.env.forget(this);
 	}
 
 	/** Every event a part of the session emits passes here: the row follows it, and an idle host may end. */
@@ -359,6 +394,6 @@ export class SessionHost {
 	}
 
 	private reviewIdle(): void {
-		if (this.ready && !this.live.attached && !this.finished && this.idle()) this.env.idle(this);
+		if (this.ready && (!this.live.attached || this.retiring) && !this.finished && this.idle()) this.env.idle(this);
 	}
 }

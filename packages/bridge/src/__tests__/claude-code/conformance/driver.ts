@@ -20,6 +20,8 @@ export class ClaudeCodeConformanceDriver implements ConformanceDriver {
 	readonly cwd: string;
 	readonly otherCwd: string;
 	readonly agentName = "general-purpose";
+	/** A run is the SDK's query in the bridge's process, and ends with it (adapter README). */
+	readonly runsSurviveRestart = false;
 
 	constructor(
 		readonly world: ClaudeWorld,
