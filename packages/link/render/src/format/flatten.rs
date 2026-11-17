@@ -9,11 +9,17 @@ use super::model::{
 use super::{direction, leaves};
 
 pub(crate) fn blocks(tree: &Tree, streaming: bool) -> Vec<FormatBlock> {
+    let (last_leaf, held) = if streaming {
+        streaming_end(&tree.nodes)
+    } else {
+        (None, Vec::new())
+    };
     let mut walk = Walk {
         tree,
         out: Vec::new(),
         stack: Vec::new(),
-        last_leaf: streaming.then(|| last_leaf(&tree.nodes)).flatten(),
+        held,
+        last_leaf,
         task_paragraph: None,
     };
     walk.children(0, FormatSpacing::None);
@@ -25,18 +31,34 @@ struct Walk<'a> {
     out: Vec<FormatBlock>,
     /// The containers around the current node, each with whether a block has been drawn in it.
     stack: Vec<(FormatContainer, bool)>,
+    /// The leaves at the end held back whole while streaming.
+    held: Vec<usize>,
     /// The leaf still being written while streaming: only it is repaired.
     last_leaf: Option<usize>,
     /// The paragraph whose leading `[ ]` became its task item's marker.
     task_paragraph: Option<usize>,
 }
 
-fn last_leaf(nodes: &[Node]) -> Option<usize> {
-    let mut node = 0;
-    while let Some(&last) = nodes[node].children.last() {
-        node = last;
+/// The leaf still being written, and the leaves after it held back whole (table rows before their
+/// delimiter row): the reader sees the leaf before those as the one being written.
+fn streaming_end(nodes: &[Node]) -> (Option<usize>, Vec<usize>) {
+    let mut order = Vec::new();
+    leaves_in_order(nodes, 0, &mut order);
+    let shown = order
+        .iter()
+        .rposition(|&node| !leaves::held_back(&nodes[node]))
+        .map_or(0, |at| at + 1);
+    let held = order.split_off(shown);
+    (order.last().copied(), held)
+}
+
+fn leaves_in_order(nodes: &[Node], node: usize, order: &mut Vec<usize>) {
+    if node != 0 && nodes[node].children.is_empty() {
+        order.push(node);
     }
-    (node != 0).then_some(node)
+    for &child in &nodes[node].children {
+        leaves_in_order(nodes, child, order);
+    }
 }
 
 impl Walk<'_> {
@@ -148,7 +170,7 @@ impl Walk<'_> {
     }
 
     fn leaf(&mut self, node: usize, spacing: FormatSpacing) {
-        let streaming = self.last_leaf == Some(node);
+        let streaming = self.last_leaf == Some(node) || self.held.contains(&node);
         let task = self.task_paragraph == Some(node);
         let Some((kind, content)) =
             leaves::content(self.node(node), &self.tree.refs, streaming, task)

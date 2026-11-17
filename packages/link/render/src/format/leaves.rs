@@ -70,6 +70,12 @@ pub(crate) fn content(
     })
 }
 
+/// A paragraph that shows nothing while streaming: only rows of a table still waiting for its
+/// delimiter row.
+pub(crate) fn held_back(node: &Node) -> bool {
+    matches!(node.kind, Kind::Paragraph) && paragraph_text(&node.text, true, false).is_none()
+}
+
 /// A paragraph's text to parse: without its task marker, and while streaming without trailing
 /// rows of a table whose delimiter row has not arrived (a table is not a table until it does).
 fn paragraph_text(text: &str, streaming: bool, task: bool) -> Option<&str> {

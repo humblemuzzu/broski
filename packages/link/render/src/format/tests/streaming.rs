@@ -62,6 +62,12 @@ fn open_emphasis_code_and_strike_show_styled_before_they_close() {
     assert!(spans[1].strike && spans[1].text == "struck through");
     let spans = last_spans("snake_case_and_more");
     assert_eq!(spans.len(), 1, "an underscore inside a word opens nothing");
+
+    let spans = last_spans("**Half bold and `half code\n\n| A | B |\n|---|");
+    assert!(
+        spans[1].strong && spans[1].code && spans[1].text == "half code",
+        "the paragraph shown last is repaired while the table rows after it are held back"
+    );
 }
 
 #[test]
