@@ -5,10 +5,11 @@ import Testing
 @Test func markdownComesBackAsKeyedBlocksAndTheGalleryHasItsSamples() {
     let blocks = formatMarkdown(text: "Run `x`.\n\n```swift\nlet x = 1", streaming: true)
     #expect(blocks.map(\.key) == ["p-0", "code-10"])
-    #expect(blocks[0].content == .paragraph(spans: [
-        FormatSpan(text: "Run ", code: false), FormatSpan(text: "x", code: true), FormatSpan(text: ".", code: false),
-    ]))
-    #expect(blocks[1].content == .code(language: "swift", text: "let x = 1", closed: false))
+    let span = { (text: String, code: Bool) in
+        FormatSpan(text: text, strong: false, emphasis: false, strike: false, code: code, math: false, html: false, link: nil)
+    }
+    #expect(blocks[0].content == .paragraph(spans: [span("Run ", false), span("x", true), span(".", false)]))
+    #expect(blocks[1].content == .code(code: FormatCode(language: "swift", file: nil, text: "let x = 1", closed: false, prose: false)))
     #expect(!formatSamples().isEmpty)
 }
 

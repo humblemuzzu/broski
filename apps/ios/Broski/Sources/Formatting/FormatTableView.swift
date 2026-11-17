@@ -35,7 +35,7 @@ struct FormatTableView: View {
     private func card(_ layout: TableLayout) -> some View {
         VStack(alignment: .leading, spacing: Spacing.xs) {
             TableGrid(table: table, layout: layout, rows: shownRows, style: spanStyle)
-                .frame(width: width, alignment: .leading)
+                .frame(minWidth: 0, maxWidth: width ?? .infinity, alignment: .leading)
                 .clipShape(.rect(cornerRadius: FormatTokens.tableRadius, style: .continuous))
                 .overlay {
                     RoundedRectangle(cornerRadius: FormatTokens.tableRadius, style: .continuous)
