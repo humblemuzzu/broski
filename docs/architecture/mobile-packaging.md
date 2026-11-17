@@ -52,6 +52,9 @@ view is exported as `detach`, of a list as `stop`; a machine is ended through `P
 | `parseUnifiedDiff(text:) → ParsedDiff`, `fileChangeDiff(change:) → DiffFile`, `gitDiffFile(file:) → DiffFile`, `sideBySide(hunk:) → [SideBySideRow]` | `broski_render`'s diff functions |
 | `toolLook(facts:) → ToolLook`, `foldCounts(tools:) → [FoldCount]` | `broski_render::tool_look`, `fold_counts`: a tool call's kind, row label and command, and the verbs of a fold's sentence |
 | `formFieldShown(field:values:) → Bool`, `formFieldDefault(field:) → FormValue?` | `broski_contract::form_field_shown`, `form_field_default`: which fields of a form show, and what they start with |
+| `formatMarkdown(text:streaming:) → [FormatBlock]`, `formatMessage(text:) → [FormatBlock]`, `formatPlainText(text:) → String`, `formatSamples() → [FormatSample]` | `broski_render`'s formatter: agent text as keyed blocks, the person's message, plain words, the gallery's corpus ([formatting.md](formatting.md)) |
+| `tableMarkdown(table:)`, `tableCsv(table:)`, `tableTsv(table:)`, `tableHtml(table:)` → `String`, `formatJson(text:) → [CodeLine]?`, `languageLabel(label:) → String` | a table's exports, JSON pretty-printed and coloured, a fence's language named |
+| `toolBody(facts:output:) → ToolBody`, `toolArguments(facts:) → [ToolArgument]`, `formatLog(text:maxLines:keep:) → LogText` | `broski_render::tool_body`, `tool_arguments`, `format_log`: how an opened call's result, arguments and logs read |
 
 ### Values
 

@@ -113,6 +113,13 @@ count a stretch of work the same way. They live here, not in the client, because
   and the time.
 - The form logic is the contract crate's (`form_field_shown`, `form_field_default`), the phone's reading of
   `field-check.ts`' `fieldIsActive`.
+- **A call opened** reads through three more (`work/arguments.rs`, `work/body.rs`):
+  `toolArguments(facts)` is the input as a property list (short values inline, long ones as a block,
+  a markdown value such as a subagent's prompt to format and fold, nested objects as a tree);
+  `toolBody(facts, output)` is how a result with no display of its own reads (`Markdown`, `FileText` from
+  Claude's `cat -n` lines, `Matches` as `path:line` rows, `Json` pretty-printed and coloured, else
+  `Log`, its last `TOOL_LOG_LINES` 200 lines); `formatLog(text, maxLines, keep)` is a log's lines with
+  their URLs and paths as links and how many were left out.
 
 ## Activities and long text
 

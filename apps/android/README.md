@@ -142,7 +142,9 @@ app/src/main/kotlin/com/muzammil/broski/
               MachineState / MachineHealth, vault/ (Keystore key, AES-GCM, DataStore), settings/,
               platform/ (foreground, network, NSD discovery)
   feature/welcome, feature/pairing, feature/inbox, feature/machines, feature/settings
-  design/format  the formatter's views: FormattedText, FormatBlockView, FormatCache (formatting.md)
+  design/format  the formatter's views: FormattedText, FormattedMessage, FormatBlockView, FormatCache,
+              tables (TableLayout, the viewer), code blocks, the answer menu, tools/ (a call's body,
+              logs, arguments); Settings › Reading is LocalReading (formatting.md)
   design/code code coloured by the core's highlight, the line viewer, and the
               diff view (unified, side by side from 840 dp) the chat and the Workspace share
   feature/chat   the chat: LiveSession (the view's records applied), SessionFeed (the view's loop and

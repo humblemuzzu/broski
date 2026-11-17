@@ -143,6 +143,8 @@ The wire shape between bridge and phone is the backend contract in `packages/bri
   `FormatBlockView` in `apps/ios/Broski/Sources/Formatting/` and `apps/android/.../design/format/`, over the
   core's `formatMarkdown`. A screen that shows agent text (answers, thinking, plans, reports, tool results)
   uses them; a change to how text looks is made there, so it lands on every screen of both apps.
+  `scripts/check-agent-text.sh` (CI and pre-commit) fails on a `Text(` reading an agent-written field outside
+  those directories; a deliberate exception is a line of `scripts/agent-text-allowlist.txt` with why.
 - **The parser is ours** (`render/src/format/`); do not add a markdown, highlighting-theme or rendering library to
   the core or either app. The target design is [`docs/rebuild/formatting-plan.md`](docs/rebuild/formatting-plan.md);
   judge changes on the phone in Settings › Formatting, whose samples are `render/tests/fixtures/format/`.

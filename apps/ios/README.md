@@ -304,6 +304,11 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
 - **Machines**: per Mac its link (LAN / relay / waiting and why / revoked), last seen, bridge and
   agent versions, Restart Bridge when the bridge is down or crashed, Forget with the confirm
   sentence; Pair Another (scan or paste); unreadable pairings; the Local Network hint.
+- **Formatting** (`Sources/Formatting`, [formatting.md](../../docs/architecture/formatting.md)): every
+  string an agent wrote through `FormattedText`, `FormattedMessage` or the tool views in `Tools/`; tables
+  fitted by `TableLayout` with a viewer, code blocks with wrap, copy and a viewer, the long-press answer
+  menu with Select Text; Settings › Reading (`reading.*` in `@AppStorage`) and Settings › Formatting, the
+  core's samples in every appearance.
 - **Settings**: notification kinds (`NotificationPreferences`, in the app group), appearance (system /
   light / dark), About (app version and build, core version and protocol, each Mac's bridge), the
   privacy line.
