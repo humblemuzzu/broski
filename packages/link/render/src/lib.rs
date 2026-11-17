@@ -1,7 +1,7 @@
-//! What the iOS and Android apps draw identically, computed once in Rust: assistant markdown as
-//! flat blocks of styled runs, code as lines of spans tagged by token kind, diffs as files, hunks
-//! and lines with the changed words marked, how a tool call reads in the work fold and an activity
-//! in the transcript, and long text cut to what a row shows. The apps only map these to
+//! What the iOS and Android apps draw identically, computed once in Rust: code as lines of spans
+//! tagged by token kind, diffs as files, hunks and lines with the changed words marked, how a tool
+//! call reads in the work fold and an activity in the transcript, and long text cut to what a row
+//! shows. The apps only map these to
 //! `AttributedString` or `AnnotatedString` and colour them by their own light and dark palettes.
 //!
 //! Every function is pure and bounded: input past a stated size is passed through plainly, never
@@ -11,7 +11,6 @@
 pub mod activity;
 pub mod diff;
 pub mod highlight;
-pub mod markdown;
 pub mod text;
 pub mod work;
 
@@ -24,12 +23,7 @@ pub use diff::{
 pub use highlight::{
     highlight, language_for_path, normalize_language, CodeLine, CodeSpan, TokenKind,
 };
-pub use markdown::{
-    markdown_blocks, BlockContainer, BlockContent, ColumnAlignment, InlineRun, ListMarker,
-    MarkdownBlock, TableCell, TableRow,
-};
-
-pub use text::{clip_text, format_duration, plain_preview, ClipEnd, TextClip, MAX_CLIP_BYTES};
+pub use text::{clip_text, format_duration, opening_words, ClipEnd, TextClip, MAX_CLIP_BYTES};
 
 pub use work::{
     fold_counts, tool_kind, tool_look, FoldCount, FoldTool, FoldVerb, ToolFacts, ToolKind, ToolLook,

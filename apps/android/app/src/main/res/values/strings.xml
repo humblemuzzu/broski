@@ -39,7 +39,6 @@
     <string name="pairing_scan">Scan pairing code</string>
     <string name="pairing_paste">Paste pairing link</string>
     <string name="action_copy_command">Copy %1$s</string>
-    <string name="code_copy">Copy code</string>
 
     <!-- Pairing -->
     <string name="pairing_title">Pair a Mac</string>

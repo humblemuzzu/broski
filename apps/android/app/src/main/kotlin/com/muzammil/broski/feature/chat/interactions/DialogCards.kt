@@ -20,7 +20,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -36,23 +35,20 @@ import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
 import com.muzammil.broski.design.Haptic
 import com.muzammil.broski.design.perform
-import com.muzammil.broski.feature.chat.transcript.MarkdownBlockView
 import uniffi.broski_contract.ChoiceRequest
 import uniffi.broski_contract.ConfirmRequest
 import uniffi.broski_contract.Interaction
 import uniffi.broski_contract.PlanApprovalRequest
 import uniffi.broski_contract.TextRequest
-import uniffi.broski_core.markdownBlocks
 
-/** The plan as the page shows markdown, the mode to go on in when it offers one, then Approve or Reject with why. */
+/** The plan, the mode to go on in when it offers one, then Approve or Reject with why. */
 @Composable
 fun PlanCard(interaction: Interaction, request: PlanApprovalRequest, context: CardContext) {
     val haptics = LocalHapticFeedback.current
-    val blocks = remember(request.plan) { markdownBlocks(request.plan) }
     var modeAfter by rememberSaveable(interaction.id) { mutableStateOf(request.modeOptions?.defaultValue) }
     val feedback = rememberTextFieldState()
     Text(interaction.title, style = MaterialTheme.typography.titleMedium)
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { blocks.forEach { MarkdownBlockView(it) } }
+    Text(request.plan, style = MaterialTheme.typography.bodyMedium)
     request.modeOptions?.let { modes ->
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             modes.options.forEach { option ->

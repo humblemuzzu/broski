@@ -6,11 +6,10 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import uniffi.broski_core.markdownBlocks
 
 /** Follow or detach, and what the jump button counts while detached. */
 class FollowTest {
-    private val builder = RowBuilder(::markdownBlocks)
+    private val builder = RowBuilder()
 
     private fun rows(vararg items: uniffi.broski_contract.TranscriptItem, pending: List<PendingSend> = emptyList()) =
         builder.build(RowInput(items.toList(), EmptySnapshot, pending, hasOlder = false, now = 0))
@@ -27,7 +26,7 @@ class FollowTest {
     }
 
     @Test
-    fun newMessagesCountsTheSentMessageAndEachAnswerOnceNotWorkOrMoreBlocks() {
+    fun newMessagesCountsTheSentMessageAndEachAnswerOnceNotWork() {
         val before = rows(Items.user("u1", "Hi"), Items.text("t1", "Hello."))
         val after = rows(
             Items.user("u1", "Hi"),

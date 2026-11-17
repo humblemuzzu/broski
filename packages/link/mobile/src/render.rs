@@ -1,20 +1,11 @@
-//! What both apps draw the same way (`broski-render`): markdown as blocks, code as coloured spans,
-//! diffs as lines. Pure functions of their input, callable without a `Phone` from any thread; for a
+//! What both apps draw the same way (`broski-render`): code as coloured spans, diffs as lines. Pure functions of their input, callable without a `Phone` from any thread; for a
 //! large file or diff, call them off the main thread.
 
 use broski_contract::{FileChange, GitChange, GitDiffFile};
 use broski_render::{
-    BlockContainer, BlockContent, CodeLine, CodeSpan, ColumnAlignment, DiffFile, DiffHunk,
-    DiffLine, DiffLineKind, DiffSegment, InlineRun, ListMarker, MarkdownBlock, ParsedDiff,
-    SideBySideRow, TableCell, TableRow, TokenKind,
+    CodeLine, CodeSpan, DiffFile, DiffHunk, DiffLine, DiffLineKind, DiffSegment, ParsedDiff,
+    SideBySideRow, TokenKind,
 };
-
-/// `text` as blocks to lay out in order; each block's `key` stays the same while text is
-/// appended, so a streaming message redraws only its last block.
-#[uniffi::export]
-pub fn markdown_blocks(text: String) -> Vec<MarkdownBlock> {
-    broski_render::markdown_blocks(&text)
-}
 
 /// `code` as lines of spans by token kind; an unknown or absent `language` is plain text.
 /// `language` is a fence label (`ts`, `bash`) or what `languageForPath` returned.
@@ -57,77 +48,6 @@ pub fn git_diff_file(file: GitDiffFile) -> DiffFile {
 #[uniffi::export]
 pub fn side_by_side(hunk: DiffHunk) -> Vec<SideBySideRow> {
     broski_render::side_by_side(&hunk)
-}
-
-#[uniffi::remote(Record)]
-pub struct MarkdownBlock {
-    pub key: String,
-    pub containers: Vec<BlockContainer>,
-    pub content: BlockContent,
-}
-
-#[uniffi::remote(Enum)]
-pub enum BlockContainer {
-    Quote,
-    ListItem { marker: ListMarker, first: bool },
-}
-
-#[uniffi::remote(Enum)]
-pub enum ListMarker {
-    Bullet,
-    Number { value: u64 },
-    Task { checked: bool },
-}
-
-#[uniffi::remote(Enum)]
-pub enum BlockContent {
-    Paragraph {
-        runs: Vec<InlineRun>,
-    },
-    Heading {
-        level: u8,
-        runs: Vec<InlineRun>,
-    },
-    Code {
-        language: Option<String>,
-        text: String,
-    },
-    Table {
-        alignments: Vec<ColumnAlignment>,
-        header: TableRow,
-        rows: Vec<TableRow>,
-    },
-    Rule,
-    Html {
-        text: String,
-    },
-}
-
-#[uniffi::remote(Record)]
-pub struct TableRow {
-    pub cells: Vec<TableCell>,
-}
-
-#[uniffi::remote(Record)]
-pub struct TableCell {
-    pub runs: Vec<InlineRun>,
-}
-
-#[uniffi::remote(Enum)]
-pub enum ColumnAlignment {
-    Leading,
-    Center,
-    Trailing,
-}
-
-#[uniffi::remote(Record)]
-pub struct InlineRun {
-    pub text: String,
-    pub strong: bool,
-    pub emphasis: bool,
-    pub strikethrough: bool,
-    pub code: bool,
-    pub link: Option<String>,
 }
 
 #[uniffi::remote(Enum)]

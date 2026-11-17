@@ -2,7 +2,7 @@ import BroskiCore
 import CoreGraphics
 
 /// One row of the transcript's lazy stack, keyed so a row keeps its identity while text streams:
-/// the person's message, a work fold, one markdown block of the agent's text, the quiet line under
+/// the person's message, a work fold, one text block of the agent's, the quiet line under
 /// a finished answer, a notice, an activity, a marker (compaction, model change, how a run ended),
 /// or a prompt still on its way.
 nonisolated struct ChatRow: Identifiable, Equatable {
@@ -34,7 +34,7 @@ nonisolated struct ChatRow: Identifiable, Equatable {
     var startsMessage: Bool {
         switch content {
         case .user, .pending: true
-        case .text(let piece): piece.isFirst
+        case .text: true
         default: false
         }
     }
@@ -47,14 +47,12 @@ nonisolated struct UserTurn: Equatable {
     let at: Int64?
 }
 
-/// One block of the agent's markdown; `isStreaming` while it is the open block's last.
+/// One text block of the agent's; `isStreaming` while it is still open.
 nonisolated struct TextPiece: Equatable {
     let blockId: String
-    let block: MarkdownBlock
+    let text: String
     let kind: BlockKind
     let isStreaming: Bool
-    /// The first block of its text block, where a plan shows its label.
-    let isFirst: Bool
 }
 
 /// Under a finished answer: its time, and the answer's text to copy.

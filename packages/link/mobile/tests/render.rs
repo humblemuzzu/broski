@@ -9,22 +9,13 @@ use broski_contract::{
 };
 use broski_core::{
     file_change_diff, fold_counts, form_field_default, form_field_shown, git_diff_file, highlight,
-    language_for_path, markdown_blocks, normalize_language, parse_unified_diff, side_by_side,
-    tool_look,
+    language_for_path, normalize_language, parse_unified_diff, side_by_side, tool_look,
 };
-use broski_render::{
-    BlockContent, DiffLineKind, FoldCount, FoldTool, FoldVerb, TokenKind, ToolFacts, ToolKind,
-};
+use broski_render::{DiffLineKind, FoldCount, FoldTool, FoldVerb, TokenKind, ToolFacts, ToolKind};
 
 #[test]
-fn markdown_and_code_come_back_as_blocks_and_spans() {
-    let blocks = markdown_blocks("# Done\n\n```swift\nlet x = 1\n```".to_owned());
-    assert_eq!(blocks.len(), 2);
-    let BlockContent::Code { language, text } = &blocks[1].content else {
-        panic!("a code block: {:?}", blocks[1]);
-    };
-    assert_eq!(language.as_deref(), Some("swift"));
-    let lines = highlight(text.clone(), language.clone());
+fn code_comes_back_as_lines_of_spans() {
+    let lines = highlight("let x = 1".to_owned(), Some("swift".to_owned()));
     assert_eq!(lines[0].spans[0].kind, TokenKind::Keyword);
     assert_eq!(
         normalize_language("kt".to_owned()).as_deref(),

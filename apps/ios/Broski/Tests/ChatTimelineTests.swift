@@ -19,7 +19,7 @@ struct ChatTimelineTests {
             Item.text("b1", "Fixed it.", at: 126_000),
         ])
         #expect(built.map(\.shape) == [
-            "user:Fix the test", "work:Worked for 2m · Ran 1 command · Read 1 file · 1 failed", "text:p-0", "end",
+            "user:Fix the test", "work:Worked for 2m · Ran 1 command · Read 1 file · 1 failed", "text", "end",
         ])
         guard case .work(let fold) = built[1].content, case .answerEnd(let end) = built[3].content else {
             Issue.record("expected a fold and an answer's end")
@@ -41,7 +41,7 @@ struct ChatTimelineTests {
             Item.result("c2"),
             Item.text("b2", "Done."),
         ])
-        #expect(built.map(\.shape) == ["user:Go", "work:Edited 1 file", "text:p-0", "work:Searched 1 time", "text:p-0", "end"])
+        #expect(built.map(\.shape) == ["user:Go", "work:Edited 1 file", "text", "work:Searched 1 time", "text", "end"])
         guard case .work(let first) = built[1].content, case .work(let second) = built[3].content else {
             Issue.record("expected two folds")
             return
@@ -51,18 +51,15 @@ struct ChatTimelineTests {
         #expect(second.tools.count == 2, "a nested call is listed, not counted")
     }
 
-    @Test func theAgentsTextIsOneRowPerMarkdownBlockKeyedByWhereItStarts() {
-        let built = rows([Item.user("u1", "List them"), Item.text("b1", "# Steps\n\nFirst this:\n\n- one\n- two")])
+    @Test func theAgentsTextIsOneRowPerTextBlockKeyedByItsId() {
+        let built = rows([Item.user("u1", "List them"), Item.text("b1", "Steps\n\nFirst this"), Item.text("b2", "  \n")])
         let pieces = built.compactMap { if case .text(let piece) = $0.content { piece } else { nil } }
-        #expect(pieces.map(\.block.key) == markdownBlocks(text: "# Steps\n\nFirst this:\n\n- one\n- two").map(\.key))
-        #expect(built.map(\.id).filter { $0.hasPrefix("b1/") }.count == pieces.count)
-        #expect(pieces.first?.isFirst == true && pieces.dropFirst().allSatisfy { !$0.isFirst })
-        let listGap = built.last { if case .text = $0.content { true } else { false } }?.gap
-        #expect(listGap == 6, "a list's items sit closer than paragraphs")
+        #expect(pieces.map(\.text) == ["Steps\n\nFirst this"], "a blank block draws nothing")
+        #expect(built.contains { $0.id == "b1" })
     }
 
     @Test func aLiveRunsStretchStaysLiveItsAnswerHasNoEndYetAndItsOpenBlockStreams() {
-        var timeline = ChatTimeline { _, text in markdownBlocks(text: text) }
+        var timeline = ChatTimeline()
         let tool = RunningTool(
             toolCallId: "c1", name: "bash", title: nil, input: .arguments(["command": "make"]), messageId: "m",
             parentToolCallId: nil, childSession: nil, output: "building…", progress: nil, fileChanges: [])
@@ -75,18 +72,18 @@ struct ChatTimelineTests {
         #expect(fold.isLive && fold.tools[0].isRunning && fold.tools[0].output == "building…")
         #expect(fold.summary.lead == nil, "a live stretch has no duration yet")
 
-        var streaming = ChatTimeline { _, text in markdownBlocks(text: text) }
-        let open = OpenBlock(blockId: "b1", messageId: "m", kind: .text, parentToolCallId: nil, text: "One.\n\nTwo is still com")
-        streaming.addLive(items: [Item.user("u1", "Write")], blocks: [open], tools: [])
+        var streaming = ChatTimeline()
+        let open = OpenBlock(blockId: "b2", messageId: "m", kind: .text, parentToolCallId: nil, text: "Two is still com")
+        streaming.addLive(items: [Item.user("u1", "Write"), Item.text("b1", "One.")], blocks: [open], tools: [])
         streaming.close(live: true)
         let pieces = streaming.rows.compactMap { if case .text(let piece) = $0.content { piece } else { nil } }
-        #expect(pieces.map(\.isStreaming) == [false, true], "only the open block's last piece streams")
+        #expect(pieces.map(\.isStreaming) == [false, true], "only the open block streams")
         #expect(!streaming.rows.contains { if case .answerEnd = $0.content { true } else { false } })
     }
 
     @Test func aPendingPromptFollowsTheRunAndTheLivePartContinuesFromTheHistory() {
         let history = rows([Item.user("u1", "Hi"), Item.text("b1", "Hello.")])
-        var live = ChatTimeline(after: history.last) { _, text in markdownBlocks(text: text) }
+        var live = ChatTimeline(after: history.last)
         live.close(live: false)
         live.append(pending: PendingPrompt(id: "r1", draft: ComposerDraft(text: "Next")))
         let added = live.finished(continuing: history.last)
@@ -106,7 +103,7 @@ struct ChatTimelineTests {
             Item.result("c2"),
         ])
         #expect(built.map(\.shape) == [
-            "user:Run the daemon", "work:Ran 1 command", "text:p-0", "end", "activity:bash-6bfa failed after 1h00m",
+            "user:Run the daemon", "work:Ran 1 command", "text", "end", "activity:bash-6bfa failed after 1h00m",
             "activity:Review finished", "work:Read 1 file",
         ])
         #expect(built[5].gap == 6, "activities in a row sit close, like rows of work")

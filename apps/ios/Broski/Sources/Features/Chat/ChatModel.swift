@@ -40,7 +40,6 @@ final class ChatModel {
     @ObservationIgnored let requests: ChatRequests
     @ObservationIgnored private let attach: (SessionRef) throws -> SessionView
     @ObservationIgnored private let drafts: DraftStore
-    @ObservationIgnored private let markdown = MarkdownCache()
     /// The items of a run that ended, and activities outside any run, shown until the transcript's
     /// newest page holds them.
     @ObservationIgnored private var settling: [TranscriptItem] = []
@@ -260,7 +259,7 @@ final class ChatModel {
     }
 
     private func rebuildHistory() {
-        var timeline = ChatTimeline(parse: markdown.blocks)
+        var timeline = ChatTimeline()
         timeline.add(history.items)
         timeline.close(live: false)
         historyRows = timeline.rows
@@ -271,7 +270,7 @@ final class ChatModel {
     ///   there already when the view started over.
     private func rebuildLive(arriving: Bool = true) {
         let previous = historyRows.last
-        var timeline = ChatTimeline(after: previous, parse: markdown.blocks)
+        var timeline = ChatTimeline(after: previous)
         timeline.add(settling)
         if let run = snapshot.run {
             timeline.addLive(items: run.items, blocks: snapshot.blocks, tools: snapshot.tools)

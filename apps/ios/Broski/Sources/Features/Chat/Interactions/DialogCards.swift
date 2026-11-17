@@ -1,7 +1,7 @@
 import BroskiCore
 import SwiftUI
 
-/// A plan to approve: the plan as markdown, the mode to go on in when the request offers a choice,
+/// A plan to approve: the plan, the mode to go on in when the request offers a choice,
 /// Approve, and Reject with a note for the agent.
 struct PlanCard: View {
     let request: PlanApprovalRequest
@@ -20,11 +20,10 @@ struct PlanCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.m) {
             ScrollView {
-                VStack(alignment: .leading, spacing: Spacing.s) {
-                    ForEach(markdownBlocks(text: request.plan), id: \.key) { block in
-                        MarkdownBlockView(piece: TextPiece(blockId: "plan", block: block, kind: .plan, isStreaming: false, isFirst: false))
-                    }
-                }
+                Text(request.plan)
+                    .font(.body)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(maxHeight: 260)
             .fixedSize(horizontal: false, vertical: true)

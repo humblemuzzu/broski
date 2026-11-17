@@ -9,7 +9,7 @@ committed, and how to regenerate everything.
 packages/link/session   (broski-link-session: sockets, route race, resume, pairing, push crypto)
 packages/link/contract  (broski-contract: contract models with UniFFI derives, frame codec, reducer)
 packages/link/client    (broski-client: the phone's client core over both; no UniFFI dependency)
-packages/link/render    (broski-render: markdown, highlighting and diffs both apps draw; no UniFFI dependency)
+packages/link/render    (broski-render: highlighting, diffs and tool rows both apps draw; no UniFFI dependency)
           └── packages/link/mobile  (broski-mobile → libbroski_core: the UniFFI facade)
                 ├── scripts/build-ios-core.sh      → apps/ios/BroskiCore (XCFramework + Swift package)
                 └── scripts/build-android-core.sh  → apps/android/core   (Android library module)
@@ -48,7 +48,6 @@ view is exported as `detach`, of a list as `stop`; a machine is ended through `P
 | `openNotification(record:data:) throws → PushNotification` | `push::open_notification` |
 | `decisionLetter(record:decision:backend:session:request:) throws → LetterRequest { url, headers, body }` | `push::decision_letter` |
 | `coreVersion() → CoreVersion { library, protocol }` | this crate's version and the contract's `PROTOCOL_VERSION`, for the apps' About screens |
-| `markdownBlocks(text:) → [MarkdownBlock]` | `broski_render::markdown_blocks` |
 | `highlight(code:language:) → [CodeLine]`, `languageForPath(path:) → String?`, `normalizeLanguage(label:) → String?` | `broski_render::highlight`, `language_for_path`, `normalize_language` |
 | `parseUnifiedDiff(text:) → ParsedDiff`, `fileChangeDiff(change:) → DiffFile`, `gitDiffFile(file:) → DiffFile`, `sideBySide(hunk:) → [SideBySideRow]` | `broski_render`'s diff functions |
 | `toolLook(facts:) → ToolLook`, `foldCounts(tools:) → [FoldCount]` | `broski_render::tool_look`, `fold_counts`: a tool call's kind, row label and command, and the verbs of a fold's sentence |
@@ -61,9 +60,7 @@ view is exported as `detach`, of a list as `stop`; a machine is ended through `P
   `ContractState`, `MachineEvent`, `SessionUpdate`, `SessionChange`, `ViewEnd`, `TerminalUpdate`,
   `SessionListUpdate`, `InboxRow`, `InboxState`, `InboxUpdate`, `PendingAsk`, `AnswerOutcome`,
   `SeenState`, `SeenMarker`, `LinkFailure`, and the error `ClientError`.
-- **The renderer's**, restated the same way in `mobile/src/render.rs`: `MarkdownBlock`,
-  `BlockContainer`, `ListMarker`, `BlockContent`, `TableRow`, `TableCell`, `ColumnAlignment`,
-  `InlineRun`, `TokenKind`, `CodeLine`, `CodeSpan`, `ParsedDiff`, `DiffFile` (its `change` is the
+- **The renderer's**, restated the same way in `mobile/src/render.rs`: `TokenKind`, `CodeLine`, `CodeSpan`, `ParsedDiff`, `DiffFile` (its `change` is the
   contract's `GitChange`), `DiffHunk`, `DiffLine`, `DiffLineKind`, `DiffSegment`, `SideBySideRow`.
 - **The session's**, restated the same way in `mobile/src/link.rs` and `push.rs`: `LinkStatus` (its
   `Status`), `LinkState`, `WaitReason`, `LinkRoute` (`Route`), `BridgeStatus`, `BridgeState`,

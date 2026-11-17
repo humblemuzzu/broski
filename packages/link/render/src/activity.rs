@@ -3,7 +3,7 @@
 
 use broski_contract::{Activity, ActivityFormat, ActivityStatus};
 
-use crate::text::{clip_text, format_duration, plain_preview, ClipEnd, TextClip};
+use crate::text::{clip_text, format_duration, opening_words, ClipEnd, TextClip};
 
 /// Lines of a log an activity shows while open; the rest opens on a tap.
 pub const LOG_LINES: u32 = 12;
@@ -50,7 +50,7 @@ pub fn activity_look(activity: &Activity) -> ActivityLook {
     let body = activity.body.as_ref();
     let preview = body
         .filter(|body| body.format != ActivityFormat::Log)
-        .map(|body| plain_preview(&body.text, PREVIEW_CHARS))
+        .map(|body| opening_words(&body.text, PREVIEW_CHARS))
         .filter(|preview| !preview.is_empty());
     let log = body
         .filter(|body| body.format == ActivityFormat::Log)
@@ -116,7 +116,7 @@ mod tests {
         let message = Activity {
             body: Some(ActivityBody {
                 format: ActivityFormat::Markdown,
-                text: "**All good.** Nothing to fix.".to_owned(),
+                text: "All good.\nNothing to fix.".to_owned(),
             }),
             ..activity("Review finished")
         };

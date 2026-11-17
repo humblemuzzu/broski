@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -35,10 +34,8 @@ import com.muzammil.broski.R
 import com.muzammil.broski.design.Haptic
 import com.muzammil.broski.design.mono
 import com.muzammil.broski.design.perform
-import com.muzammil.broski.feature.chat.transcript.MarkdownBlockView
 import kotlinx.coroutines.launch
 import uniffi.broski_contract.ActivityFormat
-import uniffi.broski_core.markdownBlocks
 
 /** A long text a row only shows a clip of (a log, a tool's output, a report), to open whole. */
 @Immutable
@@ -64,23 +61,18 @@ data class TextPage(val title: String, val text: String, val format: Format) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TextSheet(page: TextPage, onDismiss: () -> Unit) {
-    val lines = remember(page) { if (page.format == TextPage.Format.MARKDOWN) emptyList() else page.text.split('\n') }
-    val blocks = remember(page) { if (page.format == TextPage.Format.MARKDOWN) markdownBlocks(page.text) else emptyList() }
+    val lines = remember(page) { page.text.split('\n') }
     val list = rememberLazyListState(initialFirstVisibleItemIndex = if (page.format == TextPage.Format.LOG) lines.lastIndex.coerceAtLeast(0) else 0)
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         SheetHeader(page)
         LazyColumn(state = list, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
-            if (page.format == TextPage.Format.MARKDOWN) {
-                items(blocks, key = { it.key }) { block -> MarkdownBlockView(block, Modifier.padding(top = 10.dp)) }
-            } else {
-                items(lines.size) { index ->
-                    SelectionContainer {
-                        Text(
-                            lines[index],
-                            style = if (page.format == TextPage.Format.LOG) MaterialTheme.typography.bodySmall.mono() else MaterialTheme.typography.bodyMedium,
-                            color = if (page.format == TextPage.Format.LOG) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
+            items(lines.size) { index ->
+                SelectionContainer {
+                    Text(
+                        lines[index],
+                        style = if (page.format == TextPage.Format.LOG) MaterialTheme.typography.bodySmall.mono() else MaterialTheme.typography.bodyMedium,
+                        color = if (page.format == TextPage.Format.LOG) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                    )
                 }
             }
         }

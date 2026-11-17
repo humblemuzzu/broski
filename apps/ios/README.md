@@ -58,7 +58,7 @@ The target builds with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, `SWIFT_APPRO
   running, content and the backend's prompt modes, follow-or-detach, the status lane, a photo fitted
   within what the prompt's 4 MiB has left or refused, returned input and a refused draft, slash
   commands), its rows (`ChatTimelineTests`: one fold per stretch of work with its line, a
-  continuation, a result finding its earlier call, one row per markdown block, the live stretch and
+  continuation, a result finding its earlier call, one row per text block, the live stretch and
   the open block streaming, the seam with the history), every interaction's reply
   (`InteractionAnswerTests`), and its model over `ScriptedSessionView` (UniFFI's mock constructor)
   and scripted answers (`ChatModelTests`: a prompt dimmed until its `user_message`, a queued one, a
@@ -124,7 +124,7 @@ Broski/
                    PathWatcher, NotificationAccess, PushNotifications, LiveRuns, WorkspaceRequests,
                    WorkspaceProblem, SessionState, ChatRequests, ChatProblem, Preferences, Logging
     DesignSystem/  Palette, Typography, Metrics, Motion, Haptics, GlassControls, AgentMark,
-                   BroskiMark, Indicators, StatusChip, Banner, CodeColors, CodeBlockView, DiffView,
+                   BroskiMark, Indicators, StatusChip, Banner, CodeColors, CodeFileView, DiffView,
                    Shimmer, FadingScroll
     Features/      Welcome, Pairing, Inbox, Machines, Settings,
                    Chat/ (ChatScreen, ChatModel, PinnedPanel, ChatBottomBar; Transcript/, Work/,
@@ -235,9 +235,8 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
   requires. History is `transcript.read` a page of 100 at a time, newest first; a run's end reads
   the newest page again (an earlier read answering late is dropped) and keeps the ended run on
   screen until it lands; with stable ids the page replaces what it overlaps, otherwise the history
-  starts over. `ChatTimeline` makes rows from items; `MarkdownCache` parses a text block once per
-  text, so while a block streams only it is parsed again, and `Highlighter` colours a code block
-  once per text, off the main actor. A prompt carries a fresh `clientRequestId` and shows dimmed
+  starts over. `ChatTimeline` makes rows from items, one per text block of the agent's, and
+  `Highlighter` colours code once per text, off the main actor. A prompt carries a fresh `clientRequestId` and shows dimmed
   until its `user_message` arrives (a `queued` or `handled` disposition retires it at once; a
   refusal puts the draft back in front of anything typed since). Drafts are kept per session in
   `AppModel.drafts` while the app runs; a new session's first prompt goes there too, and its chat
@@ -272,8 +271,7 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
   Compact, Copy Conversation, Delete with a confirm) with the context ring around it. The
   transcript, full bleed under the bar (`scrollEdgeEffectStyle(.soft)`) and the composer
   (`safeAreaBar`), dimmed while the machine is unreachable: the person's bubble with its time and
-  copy, the agent's text one markdown block per row (headings, lists, quotes, tables scrolling
-  sideways, code with its language, copy and colours, links), one fold per stretch of work
+  copy, the agent's text one text block per row, as plain text until the new formatter lands, one fold per stretch of work
   (`Worked for 2m · Ran 2 commands · 1 failed`, opening in place to 28 pt rows capped at 256 pt with
   faded edges, each opening to the command, its output and exit, its files and their diffs, a
   subagent's session), notices, compaction and how a run ended as quiet lines, and one status lane
@@ -287,7 +285,7 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
   paths and the arguments, the backend's options with allow-once prominent, Deny beside "Tell
   <agent> what to do instead" sent as the reply's `message`, a deliberate request confirmed),
   questions (tabs, pick one or any, own words, secret masked), forms (native controls, fields
-  shown as their conditions hold), plan approval (markdown, the mode to go on in, Reject with a
+  shown as their conditions hold), plan approval (the plan, the mode to go on in, Reject with a
   note), Pi's choice, confirm and text; "Already answered elsewhere." for a stale answer; a
   watch-only session's asks shown without buttons. The composer: one glass surface with the field
   (one line growing to six), the slash commands while the text starts with `/`, attached images
@@ -340,7 +338,7 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
 | `Indicators` | `StateIndicator`, `LiveIndicator`, `RelativeTime`, `Date(unixMilliseconds:)` |
 | `StatusChip`, `Banner` | status capsules with tone and symbol; inline notices with one action; `.dimmed(_:)` |
 | `CodeColors` | `TokenKind.color` (GitHub's light and dark syntax palettes), `CodeLine.attributed`, `Highlighter` (the core's `highlight` off the main actor, kept by text and language) |
-| `CodeBlockView` | `CodeBlockView` (a fenced block: language, copy, sideways scroll, plain while streaming); `CodeFileView` (numbered, wrapping, lazy lines of a file) |
+| `CodeFileView` | `CodeFileView` (numbered, wrapping, lazy lines of a file) |
 | `DiffView` | a `DiffFile`: unified on a compact width, `sideBySide` rows on a regular one, emphasised segments; `LineCounts` |
 | `Shimmer` | `.shimmer(_:)`: the one live signal, a 72 pt band sweeping 1.35 s then resting 1.45 s, only on screen, in an active scene, never under Reduce Motion |
 

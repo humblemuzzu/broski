@@ -2,13 +2,12 @@
 //! Nothing in the chat draws a tool's output, a log or a notice whole; it draws a clip and opens the
 //! rest on a tap.
 
-use crate::markdown::{markdown_blocks, BlockContent, InlineRun};
 use crate::prefix;
 
 /// The most a clip holds, whatever its lines: one line of minified JSON can be a megabyte.
 pub const MAX_CLIP_BYTES: usize = 16_384;
 
-/// The markdown a preview reads: its opening words are all it shows.
+/// The text a preview reads: its opening words are all it shows.
 const PREVIEW_SOURCE_BYTES: usize = 16_384;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -67,42 +66,17 @@ fn within_bytes(text: &str, keep: ClipEnd) -> (String, bool) {
     (kept.to_owned(), true)
 }
 
-/// The opening words of a markdown text as plain text on one line, for a preview under a title;
-/// at most `max_chars` characters, with `…` where it was cut. Empty when the text says nothing.
-pub fn plain_preview(markdown: &str, max_chars: u32) -> String {
-    let source = prefix(markdown, PREVIEW_SOURCE_BYTES);
-    let mut words = String::new();
-    for block in markdown_blocks(source) {
-        let text = match &block.content {
-            BlockContent::Paragraph { runs } | BlockContent::Heading { runs, .. } => {
-                runs_text(runs)
-            }
-            BlockContent::Code { text, .. } | BlockContent::Html { text } => text.clone(),
-            BlockContent::Table { header, .. } => header
-                .cells
-                .iter()
-                .map(|cell| runs_text(&cell.runs))
-                .collect::<Vec<_>>()
-                .join(" · "),
-            BlockContent::Rule => continue,
-        };
-        words.push(' ');
-        words.push_str(&text);
-        if words.chars().count() > max_chars as usize {
-            break;
-        }
-    }
-    let flat = words.split_whitespace().collect::<Vec<_>>().join(" ");
+/// The opening words of a text on one line, for a preview under a title; at most `max_chars`
+/// characters, with `…` where it was cut. Empty when the text says nothing.
+pub fn opening_words(text: &str, max_chars: u32) -> String {
+    let source = prefix(text, PREVIEW_SOURCE_BYTES);
+    let flat = source.split_whitespace().collect::<Vec<_>>().join(" ");
     let max = max_chars as usize;
     if flat.chars().count() <= max {
         return flat;
     }
     let cut: String = flat.chars().take(max.saturating_sub(1)).collect();
     format!("{}…", cut.trim_end())
-}
-
-fn runs_text(runs: &[InlineRun]) -> String {
-    runs.iter().map(|run| run.text.as_str()).collect()
 }
 
 /// A duration as the chat words it: `12s`, `2m`, `1h 5m`.
@@ -159,14 +133,11 @@ mod tests {
     }
 
     #[test]
-    fn a_preview_is_the_plain_opening_words_on_one_line() {
-        let markdown = "# Done\n\nAll **tests** pass in `a.ts`.\n\n- one\n- two";
-        assert_eq!(
-            plain_preview(markdown, 240),
-            "Done All tests pass in a.ts. one two"
-        );
-        assert_eq!(plain_preview(markdown, 10), "Done All…");
-        assert_eq!(plain_preview("\n\n---\n", 240), "");
+    fn a_preview_is_the_opening_words_on_one_line() {
+        let text = "Done.\n\nAll tests pass\nin a.ts.";
+        assert_eq!(opening_words(text, 240), "Done. All tests pass in a.ts.");
+        assert_eq!(opening_words(text, 10), "Done. All…");
+        assert_eq!(opening_words("\n\n  \n", 240), "");
     }
 
     #[test]

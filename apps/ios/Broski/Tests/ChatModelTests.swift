@@ -108,13 +108,13 @@ struct ChatModelTests {
             .runItemAppended(item: items[1]), .runChanged(run: nil), .outcomeChanged(outcome: .completed(RunCompleted())),
         ], status: .idle))
         try await until { !chat.isRunning }
-        #expect(chat.liveRows.map(\.shape) == ["user:Go", "text:p-0", "end"],
+        #expect(chat.liveRows.map(\.shape) == ["user:Go", "text", "end"],
             "the ended run is still shown, finished, with what the batch that ended it added")
         #expect(chat.historyRows.isEmpty)
 
         machine.release()
         try await until { !chat.historyRows.isEmpty }
-        #expect(chat.historyRows.map(\.shape) == ["user:Go", "text:p-0", "end"])
+        #expect(chat.historyRows.map(\.shape) == ["user:Go", "text", "end"])
         #expect(chat.liveRows.isEmpty, "nothing shows twice")
         #expect(machine.transcriptReads == reads + 1)
     }

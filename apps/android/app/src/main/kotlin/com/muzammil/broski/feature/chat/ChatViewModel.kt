@@ -39,7 +39,6 @@ import uniffi.broski_contract.TranscriptItem
 import uniffi.broski_core.ClientException
 import uniffi.broski_core.Machine
 import uniffi.broski_core.SessionChange
-import uniffi.broski_core.markdownBlocks
 
 /**
  * One chat: the session's live view and transcript, its catalog for the composer, and the
@@ -68,7 +67,7 @@ class ChatViewModel(
     val notices: StateFlow<List<ChatNotice>> = mutableNotices
     val live = feed.live
 
-    val rows: StateFlow<List<ChatRow>> = RowBuilder(::markdownBlocks).let { builder ->
+    val rows: StateFlow<List<ChatRow>> = RowBuilder().let { builder ->
         combine(feed.history, feed.settled, feed.live, feed.pending, feed.loadingOlder) { history, settled, live, pending, _ ->
             RowInput(history.items + settled, live.snapshot, pending, history.hasOlder, System.currentTimeMillis())
         }.mapLatest(builder::build).flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())

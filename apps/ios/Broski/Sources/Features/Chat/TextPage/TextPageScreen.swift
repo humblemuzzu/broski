@@ -31,18 +31,11 @@ extension TextPage.Format {
 struct TextPageScreen: View {
     let page: TextPage
     private let lines: [String]
-    private let blocks: [MarkdownBlock]
     @State private var copied = 0
 
     init(page: TextPage) {
         self.page = page
-        if page.format == .markdown {
-            lines = []
-            blocks = markdownBlocks(text: page.text)
-        } else {
-            lines = page.text.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
-            blocks = []
-        }
+        lines = page.text.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
     }
 
     var body: some View {
@@ -69,24 +62,14 @@ struct TextPageScreen: View {
         .haptic(.confirmed, trigger: copied)
     }
 
-    @ViewBuilder
     private var content: some View {
-        if page.format == .markdown {
-            LazyVStack(alignment: .leading, spacing: Spacing.m) {
-                ForEach(blocks, id: \.key) { block in
-                    MarkdownBlockView(
-                        piece: TextPiece(blockId: "page", block: block, kind: .text, isStreaming: false, isFirst: false))
-                }
-            }
-        } else {
-            LazyVStack(alignment: .leading, spacing: 0) {
-                ForEach(lines.indices, id: \.self) { index in
-                    Text(lines[index].isEmpty ? " " : lines[index])
-                        .font(page.format == .log ? .codeSmall : .body)
-                        .foregroundStyle(page.format == .log ? .secondary : .primary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .textSelection(.enabled)
-                }
+        LazyVStack(alignment: .leading, spacing: 0) {
+            ForEach(lines.indices, id: \.self) { index in
+                Text(lines[index].isEmpty ? " " : lines[index])
+                    .font(page.format == .log ? .codeSmall : .body)
+                    .foregroundStyle(page.format == .log ? .secondary : .primary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
             }
         }
     }

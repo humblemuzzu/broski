@@ -57,9 +57,9 @@ extension FileChange {
     }
 }
 
-/// A timeline over items with the core's own markdown, as the chat builds one.
+/// A timeline over items, as the chat builds one.
 func rows(_ items: [TranscriptItem], live: Bool = false) -> [ChatRow] {
-    var timeline = ChatTimeline { _, text in markdownBlocks(text: text) }
+    var timeline = ChatTimeline()
     timeline.add(items)
     timeline.close(live: live)
     return timeline.rows
@@ -72,7 +72,7 @@ extension ChatRow {
         case .user(let turn): "user:\(turn.text)"
         case .pending(let prompt): "pending:\(prompt.draft.text)"
         case .work(let fold): "work:\(fold.summary.text)\(fold.summary.failedText.map { " · \($0)" } ?? "")"
-        case .text(let piece): "text:\(piece.block.key)"
+        case .text: "text"
         case .answerEnd: "end"
         case .notice(let notice): "notice:\(notice.text)"
         case .activity(let entry): "activity:\(entry.item.activity.title)"

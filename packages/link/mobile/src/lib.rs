@@ -36,8 +36,8 @@ pub use push::{
 };
 pub use record::MachineRecord;
 pub use render::{
-    file_change_diff, git_diff_file, highlight, language_for_path, markdown_blocks,
-    normalize_language, parse_unified_diff, side_by_side,
+    file_change_diff, git_diff_file, highlight, language_for_path, normalize_language,
+    parse_unified_diff, side_by_side,
 };
 pub use version::{core_version, CoreVersion};
 pub use views::{SessionList, SessionView, TerminalView};

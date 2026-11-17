@@ -9,7 +9,6 @@ import uniffi.broski_contract.RunOutcome
 import uniffi.broski_contract.SessionSnapshot
 import uniffi.broski_contract.TranscriptItem
 import uniffi.broski_contract.UserMessageItem
-import uniffi.broski_core.MarkdownBlock
 import uniffi.broski_core.activityLook
 
 /** A message the person sent that the agent has not yet shown as its own. */
@@ -29,29 +28,15 @@ class RowInput(
  * one message of the person's to the next; the agent's words are the page, block by block, and the
  * work between them folds into one row a stretch. It derives nothing about the session: what is
  * running or pending is the snapshot's.
- *
- * [markdown] parses a text; each item's blocks are kept by its id and parsed again only when its
- * text changed, so a streaming message costs one parse of its open block a batch.
  */
-class RowBuilder(private val markdown: (String) -> List<MarkdownBlock>) {
-    private var parsed = HashMap<String, Pair<String, List<MarkdownBlock>>>()
-    private var used = HashMap<String, Pair<String, List<MarkdownBlock>>>()
-
+class RowBuilder {
     fun build(input: RowInput): List<ChatRow> {
-        used = HashMap()
         val pass = Pass(input)
         input.history.forEach { pass.item(it, live = false) }
         input.snapshot.run?.items?.forEachIndexed { index, item -> pass.item(item, live = true, continued = index > 0) }
         input.snapshot.blocks.forEach(pass::openBlock)
         pass.pending()
-        parsed = used
         return pass.finish()
-    }
-
-    private fun blocks(id: String, text: String): List<MarkdownBlock> {
-        val known = parsed[id]?.takeIf { it.first == text } ?: (text to markdown(text))
-        used[id] = known
-        return known.second
     }
 
     private inner class Pass(private val input: RowInput) {
@@ -108,9 +93,7 @@ class RowBuilder(private val markdown: (String) -> List<MarkdownBlock>) {
                 text.isBlank() -> Unit
                 else -> {
                     fold = null
-                    blocks(id, text).forEachIndexed { index, block ->
-                        rows += ChatRow.Text("t:$id/${block.key}", at, block, first = index == 0, plan = kind == BlockKind.PLAN)
-                    }
+                    rows += ChatRow.Text("t:$id", at, text, plan = kind == BlockKind.PLAN)
                     turn.answer += text
                     turn.lastTextId = id
                     turn.copyAt = rows.size

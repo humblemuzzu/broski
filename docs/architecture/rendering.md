@@ -2,65 +2,13 @@
 
 Crate `packages/link/render` (`broski-render`). What the iOS and Android apps must draw identically,
 computed once in Rust and exported through BroskiCore ([mobile-packaging.md](mobile-packaging.md)):
-assistant markdown as blocks, code as lines of coloured spans, and diffs as files, hunks and lines with
-the changed words marked. Swift and Kotlin only map the records to `AttributedString` /
+code as lines of coloured spans, and diffs as files, hunks and lines with the changed words marked. Swift and Kotlin only map the records to `AttributedString` /
 `AnnotatedString` and pick colours from their own light and dark palettes. Like `broski-client`, the
 crate has no UniFFI dependency; the facade restates its types with `#[uniffi::remote]`
 (`mobile/src/render.rs`).
 
 Every function is pure, synchronous and bounded. None needs a `Phone`. For a large file or diff, call
 it off the main thread (a Swift `Task.detached`, Kotlin `Dispatchers.Default`).
-
-## Markdown
-
-`markdownBlocks(text) → [MarkdownBlock]`, on pulldown-cmark 0.13.6: CommonMark with GitHub's
-tables, strikethrough (`~a~`, `~~a~~`) and task lists. Autolinks are CommonMark's (`<https://…>`); a bare
-URL stays text (pulldown-cmark has no GFM extended autolinks). Not enabled: footnotes, math, heading
-attributes, metadata blocks, GitHub's `[!NOTE]` quote kinds (their marker shows as written).
-
-The result is **flat**, so a `ForEach` / `LazyColumn` lays it out with no recursion (UniFFI 0.32 has
-recursive enums, but a tree would make both apps walk it):
-
-```
-MarkdownBlock { key, containers: [BlockContainer], content: BlockContent }
-BlockContainer = Quote | ListItem { marker: Bullet | Number{value} | Task{checked}, first }
-BlockContent   = Paragraph{runs} | Heading{level 1–6, runs} | Code{language?, text}
-               | Table{alignments: [Leading|Center|Trailing], header: TableRow, rows: [TableRow]}
-               | Rule | Html{text}
-TableRow { cells: [TableCell{runs}] }
-InlineRun { text, strong, emphasis, strikethrough, code, link? }
-```
-
-- `containers` are the quotes and list items around the block, outermost first: indent one step per
-  container, draw a quote bar per `Quote`, and a list marker for a `ListItem` whose `first` is true (the
-  item's later blocks hang under it). `- - x` gives one block with two first items: both markers on one
-  line. Ordered lists count from their start; a task item's marker replaces its bullet or number.
-- Inline runs are already merged: neighbours always differ in style. A soft line break is a space (as
-  CommonMark renders it), a hard one `\n`; an image is its alt text linking to its URL; inline HTML is
-  literal text, and so is an HTML block (`Html`).
-- A `link` is kept only for `http://`, `https://` and `mailto:` (the scheme in any case). The text comes
-  from a model, so a destination that would start an app (`tel:`, `intent://`, `file:`, `broski://pair`,
-  `javascript:`) or is relative leaves its label as plain text. Both apps open `link` as given and
-  linkify nothing themselves.
-- `Code.language` is the fence's first word as written (`ts`), the label to show and the argument to
-  `highlight`. The block's text has no trailing newline. An unclosed fence (a message still streaming)
-  is a code block to the end of the text.
-- **Keys.** A block's `key` is its kind and the byte offset its source starts at (`p-48`, `code-59`).
-  Text appended later cannot move an earlier block's start, so while the chat parses the open text
-  block again on every batch (≤ 30 a second), every block but the last keeps its key. Only the last
-  block's content changes, and the one before it when the new text joins it (a table's next row, a
-  paragraph's lazy continuation line), which briefly read as a block of their own. Use the key as the
-  SwiftUI / Compose identity: only the last block redraws. A setext underline or a table's delimiter
-  row changes the kind, and so the key, of the block it completes: it is a different block.
-- **Code blocks are not highlighted here**: the app calls `highlight(code, language)` once per block key
-  and text (an `Equatable` view, `remember(text, language)`), so a streaming message does not colour its
-  earlier code again on every batch.
-- **Bounds.** The first `MAX_MARKDOWN_BYTES` (1 MiB, the contract's `MAX_TEXT_CHARS`) are parsed; the
-  rest is one plain paragraph keyed `rest-<offset>`. At most `MAX_CONTAINER_DEPTH` (16) containers are
-  listed per block; deeper ones are left out of its path, its text is kept.
-- **Cost** (`cargo run --release -p broski-render --example bench`, Apple M-series): a 20,000-character
-  agent message of headings, lists, tables, code and links (400 blocks) parses in **0.24 ms**, so 30
-  batches a second of a message that long cost about 7 ms a second.
 
 ## Highlighting
 
@@ -171,8 +119,8 @@ count a stretch of work the same way. They live here, not in the client, because
 
 - `ActivityLook { tone, facts, preview?, log?, opens }`: **tone** is `Failed` for a failed status or a
   non-zero exit, `Working` for one that reported in and goes on, else `Plain`; **facts** are the duration
-  (from a second up) and a failed exit (`1h 5m`, `Exit 1`); **preview** is a markdown or text body's opening
-  words on one line (`plainPreview`, at most 240 characters); **log** is a log body's last 12 lines; **opens**
+  (from a second up) and a failed exit (`1h 5m`, `Exit 1`); **preview** is a text body's opening words on
+  one line (`openingWords`, at most 240 characters); **log** is a log body's last 12 lines; **opens**
   says there is a command, a body or a session to open.
 - `clipText` keeps at most `maxLines` lines from the head or the tail, within 16 KiB whatever the lines (a
   minified line can be a megabyte), cut at a line break where there is one, and says how many lines it left
@@ -183,10 +131,7 @@ count a stretch of work the same way. They live here, not in the client, because
 ## Tests
 
 `cargo test -p broski-render`: every tool name either app ever listed, in three spellings, with each
-label, the command and the fold's counts (`work/tests.rs`); a table of agent-style messages and their block shapes, CommonMark spec
-examples, nested lists, task lists loose and tight, quotes, tables, inline styles and links, the bounds,
-and a message streamed one character at a time whose earlier blocks keep their keys and content
-(`markdown/tests.rs`); token kinds in 18 languages, labels and paths, unknown languages and the bounds
+label, the command and the fold's counts (`work/tests.rs`); token kinds in 18 languages, labels and paths, unknown languages and the bounds
 (`highlight/tests.rs`); real `git diff` output (multi-file, rename, binary, new, deleted, no newline at
 the end), a `GIT binary patch`, `diff -u` output, the fake backend's `EDIT`, header-like body lines, a
 contract `FileChange` and `GitDiffFile`, emphasis, side-by-side rows and the line bound

@@ -60,7 +60,7 @@ fun UserBubble(row: ChatRow.User, images: Map<String, ImageBitmap>, requestImage
             if (row.text.isNotEmpty()) {
                 Surface(shape = BubbleShape, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
                     SelectionContainer {
-                        Text(row.text, style = PageStyle.body(), modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp))
+                        Text(row.text, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp))
                     }
                 }
             }

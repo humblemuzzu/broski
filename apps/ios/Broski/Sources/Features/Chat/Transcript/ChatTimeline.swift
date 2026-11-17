@@ -5,10 +5,6 @@ import CoreGraphics
 /// bubbles, each stretch of tool calls and reasoning as one fold, the agent's text block by block,
 /// and a quiet line under each finished answer. Pure: the same items give the same rows.
 struct ChatTimeline {
-    /// The markdown of a text block, by its id and text (cached by the caller, since a finished
-    /// block never changes and only the open one is parsed again).
-    let parse: (_ blockId: String, _ text: String) -> [MarkdownBlock]
-
     private(set) var rows: [ChatRow] = []
     private var fold: WorkFold?
     private var toolsInFold: [String: Int] = [:]
@@ -18,8 +14,7 @@ struct ChatTimeline {
     private var answerAt: Int64?
     private var running: [String: RunningTool] = [:]
 
-    init(after previous: ChatRow? = nil, parse: @escaping (String, String) -> [MarkdownBlock]) {
-        self.parse = parse
+    init(after previous: ChatRow? = nil) {
         if let previous {
             rows = [previous]
             turnHasText = previous.isAgentText
@@ -99,13 +94,9 @@ struct ChatTimeline {
             addWork(.thinking(ThinkingWork(id: id, text: text, isOpen: open)), at: at)
             return
         }
+        guard !text.trimmed.isEmpty else { return }
         closeFold()
-        let blocks = parse(id, text)
-        for (index, block) in blocks.enumerated() {
-            let piece = TextPiece(
-                blockId: id, block: block, kind: kind, isStreaming: open && index == blocks.count - 1, isFirst: index == 0)
-            append(.text(piece), id: "\(id)/\(block.key)")
-        }
+        append(.text(TextPiece(blockId: id, text: text, kind: kind, isStreaming: open)), id: id)
         turnHasText = true
         answer.append(text)
         answerAt = at ?? answerAt
@@ -180,9 +171,6 @@ nonisolated extension ChatRow {
         guard let previous else { return 0 }
         switch (previous, next) {
         case (_, .user), (_, .pending): return 28
-        case (.text(let before), .text(let after)) where before.blockId == after.blockId:
-            if case .heading = after.block.content { return 20 }
-            return before.block.isListItem && after.block.isListItem ? 6 : 12
         case (_, .answerEnd): return 6
         case (.work, .work): return 2
         case (.activity, .activity): return 6
@@ -190,11 +178,5 @@ nonisolated extension ChatRow {
         case (.work, .text): return 10
         default: return 14
         }
-    }
-}
-
-nonisolated extension MarkdownBlock {
-    var isListItem: Bool {
-        containers.contains { if case .listItem = $0 { true } else { false } }
     }
 }

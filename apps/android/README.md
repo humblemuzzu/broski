@@ -77,7 +77,7 @@ A device needs Google Play services for FCM (the `_playstore` emulator images ha
   key events to the encoder's keys. Notifications: the facade's pinned push opened into an approval with
   its decision target, done and question pushes, the relay's offline alert, a decision crossing from the
   receiver to the worker, which run the Live Update follows. The chat, over real contract values and the
-  host core's markdown and diffs: a batch that starts and ends a run is still seen to end (`LiveSessionTest`);
+  host core's diffs: a batch that starts and ends a run is still seen to end (`LiveSessionTest`);
   the transcript's rows (one fold per stretch of work with its lead, duration, verbs and failures, keys that
   hold while a block streams and closes, a sent message one row from send to `user_message`, the copy
   under the answer, no key twice; `RowBuilderTest`); history pages and the newest page read again
@@ -142,10 +142,10 @@ app/src/main/kotlin/com/muzammil/broski/
               MachineState / MachineHealth, vault/ (Keystore key, AES-GCM, DataStore), settings/,
               platform/ (foreground, network, NSD discovery)
   feature/welcome, feature/pairing, feature/inbox, feature/machines, feature/settings
-  design/code code coloured by the core's highlight, the inline code block, the line viewer, and the
+  design/code code coloured by the core's highlight, the line viewer, and the
               diff view (unified, side by side from 840 dp) the chat and the Workspace share
   feature/chat   the chat: LiveSession (the view's records applied), SessionFeed (the view's loop and
-              the transcript's pages), ChatActions (each request), transcript/ (rows, markdown, the
+              the transcript's pages), ChatActions (each request), transcript/ (rows, the
               bubble, the status lane, follow or detach), work/ (folds, rows, the diff sheet),
               interactions/ (the pinned cards and their replies), composer/ (field, chips, commands,
               images, the send rule), header/ (title, subtitle, Files, overflow and its dialogs)
@@ -165,8 +165,8 @@ terminal/     the :terminal module: libghostty-vt's JNI shim (src/main/c) and Vt
   The transcript's newest page is read at open and again whenever a run ends (seen per record, so a run
   that starts and ends in one batch counts); the ended run's items stay on screen until that page holds
   them. Older pages load as the person nears the top.
-- **Rows** (`RowBuilder`, on `Dispatchers.Default`): one per markdown block of the agent's words, keyed by
-  item id and the core's block key, parsed again only when an item's text changed; a fold per stretch of
+- **Rows** (`RowBuilder`, on `Dispatchers.Default`): one per text block of the agent's words, keyed by
+  item id and drawn as plain text until the new formatter lands; a fold per stretch of
   work; notes between turns; newest first in a `LazyColumn` laid out from the bottom whose first item is
   the status lane, so new rows follow the end with no scroll call while a reader further up stays put.
 - **Requests**: `prompt` and `abort` go only while the chat's view is attached (the bridge refuses them

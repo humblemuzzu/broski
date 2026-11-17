@@ -32,12 +32,15 @@ struct ChatRowView: View, Equatable {
             WorkFoldView(fold: fold)
         case .text(let piece):
             VStack(alignment: .leading, spacing: Spacing.xs) {
-                if piece.kind == .plan && piece.isFirst {
+                if piece.kind == .plan {
                     Label("Plan", systemImage: "list.bullet.clipboard")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
                 }
-                MarkdownBlockView(piece: piece).equatable()
+                Text(piece.text)
+                    .font(.body)
+                    .lineSpacing(5)
+                    .textSelection(.enabled)
             }
         case .answerEnd(let end):
             AnswerEndView(end: end)
