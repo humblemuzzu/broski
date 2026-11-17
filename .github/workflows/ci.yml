@@ -82,6 +82,14 @@ jobs:
       - name: Test
         run: cargo test --workspace
 
+  agent-text:
+    name: Agent text through the formatter
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check every direct read of agent text is drawn by the formatter
+        run: scripts/check-agent-text.sh
+
   ios-core:
     name: BroskiCore for iOS
     runs-on: macos-26

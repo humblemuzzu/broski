@@ -25,4 +25,11 @@ if [ -n "$(git diff --cached --name-only -- packages/link/ | head -1)" ]; then
   (cd "$ROOT/packages/link" && cargo fmt --all --check)
 fi
 
+# ── The apps (only if app files staged) ───────────────────────────────────────
+
+if [ -n "$(git diff --cached --name-only -- apps/ios/ apps/android/ scripts/agent-text-allowlist.txt | head -1)" ]; then
+  echo "  → agent text through the formatter (apps)"
+  "$ROOT/scripts/check-agent-text.sh"
+fi
+
 echo "✅ All checks passed"

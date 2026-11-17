@@ -1,0 +1,10 @@
+# Text( reads that scripts/check-agent-text.sh lets pass: path | the code it allows | why
+apps/ios/Broski/Sources/Features/Pairing/PairingProblemView.swift | Text(problem.message) | the app's own sentence about a pairing link (PairingProblem)
+apps/ios/Broski/Sources/Features/Chat/Composer/Dictation/RecordingBar.swift | Text(problem.message) | the app's own sentence about a recording (DictationProblem)
+apps/ios/Broski/Sources/Features/Chat/Composer/ComposerView.swift | Text(notice.text) | the app's own dictation notice (DictationNotice)
+apps/ios/Broski/Sources/Features/Chat/PinnedPanel.swift | Text(item.preview) | the person's queued words, two lines as typed
+apps/ios/Broski/Sources/Features/Workspace/Git/GitScreen.swift | Text(upstream.summary) | "2 ahead, 1 behind origin/main", made by GitUpstream.summary
+apps/ios/Broski/Sources/Features/Workspace/Git/BranchesScreen.swift | Text(upstream.summary) | "2 ahead, 1 behind origin/main", made by GitUpstream.summary
+apps/ios/Broski/Extensions/Widgets/BroskiWidgets.swift | Text(state.summary) | "3 live agents · 1 needs you", made by RunActivityAttributes
+apps/ios/Broski/Extensions/Widgets/RunActivityViews.swift | Text(state.summary) | "3 live agents · 1 needs you", made by RunActivityAttributes
+apps/android/app/src/main/kotlin/com/muzammil/broski/feature/settings/FormattingGallery.kt | Text(sample.text, | the gallery's Source view: a sample's markdown as written, beside how it is drawn
