@@ -49,9 +49,11 @@ impl Inline<'_> {
             return;
         }
         let brackets = std::mem::take(&mut self.brackets);
+        let last_close = self.text.rfind(']');
         for bracket in brackets {
             let on_last_line = bracket.inside >= self.last_line;
-            if on_last_line && !self.text[bracket.inside..].contains(']') {
+            let closed_later = last_close.is_some_and(|at| at >= bracket.inside);
+            if on_last_line && !closed_later {
                 self.items[bracket.item].text.clear();
             }
         }

@@ -2,7 +2,7 @@
 //! start and end around it, its link the innermost one over it, an image's pieces folded into
 //! its alt text, then addresses and paths in the plain text linked.
 
-use super::autolink::bare_links;
+use super::autolink::{bare_links, host_link};
 use super::{Inline, Piece, Style};
 use crate::format::links::{is_path, path_link};
 use crate::format::model::{FormatLink, FormatSpan};
@@ -168,9 +168,8 @@ fn link_bare(spans: Vec<FormatSpan>) -> Vec<FormatSpan> {
         }
         if span.code {
             let mut span = span;
-            if is_path(&span.text) {
-                span.link = Some(path_link(&span.text, true));
-            }
+            span.link = host_link(&span.text)
+                .or_else(|| is_path(&span.text).then(|| path_link(&span.text, true)));
             out.push(span);
             continue;
         }
@@ -181,18 +180,24 @@ fn link_bare(spans: Vec<FormatSpan>) -> Vec<FormatSpan> {
         }
         let mut at = 0;
         for bare in found {
-            let mut before = span.clone();
-            before.text = span.text[at..bare.start].to_owned();
-            push(&mut out, before);
-            let mut linked = span.clone();
-            linked.text = span.text[bare.start..bare.end].to_owned();
+            push(&mut out, piece_of(&span, &span.text[at..bare.start]));
+            let mut linked = piece_of(&span, &span.text[bare.start..bare.end]);
             linked.link = Some(bare.link);
             out.push(linked);
             at = bare.end;
         }
-        let mut after = span.clone();
-        after.text = span.text[at..].to_owned();
-        push(&mut out, after);
+        push(&mut out, piece_of(&span, &span.text[at..]));
     }
     out
+}
+
+/// Part of a plain span in its style, without copying the whole span's text.
+fn piece_of(span: &FormatSpan, text: &str) -> FormatSpan {
+    FormatSpan {
+        text: text.to_owned(),
+        strong: span.strong,
+        emphasis: span.emphasis,
+        strike: span.strike,
+        ..FormatSpan::default()
+    }
 }

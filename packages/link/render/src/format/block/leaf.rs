@@ -76,22 +76,24 @@ fn trim_blank_lines(text: &mut String, keep_break: bool) {
 
 /// Takes the link reference definitions off the start of a paragraph into the parser's map.
 pub(super) fn strip_references(parser: &mut Parser, node: usize) {
-    loop {
-        let text = &parser.nodes[node].text;
-        if !text.starts_with('[') {
-            return;
-        }
-        let Some(used) = reference(text, &mut parser.refs) else {
-            return;
+    let text = &parser.nodes[node].text;
+    let mut at = 0;
+    while text[at..].starts_with('[') {
+        let Some(used) = reference(&text[at..], &mut parser.refs) else {
+            break;
         };
-        let removed_lines = text[..used].matches('\n').count();
-        let block = &mut parser.nodes[node];
-        block.text.drain(..used);
-        let dropped = removed_lines.min(block.line_starts.len());
-        block.line_starts.drain(..dropped);
-        if let Some(first) = block.line_starts.first() {
-            block.start = *first;
-        }
+        at += used;
+    }
+    if at == 0 {
+        return;
+    }
+    let removed_lines = text[..at].matches('\n').count();
+    let block = &mut parser.nodes[node];
+    block.text.drain(..at);
+    let dropped = removed_lines.min(block.line_starts.len());
+    block.line_starts.drain(..dropped);
+    if let Some(first) = block.line_starts.first() {
+        block.start = *first;
     }
 }
 

@@ -6,6 +6,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { readDisplay } from "../../backends/pi/mapping/read-display";
 import type { SessionRef, ToolDisplay, TranscriptItem } from "../../contract";
 import { LiveRig } from "./helpers/live-rig";
 import { call, say } from "./helpers/scenarios";
@@ -65,5 +66,12 @@ describe("pi's read", () => {
 		);
 		expect(stored.reverse()).toEqual(expected);
 		live.assertSettled();
+	});
+
+	test("an image it could not process is its message, never a file of one line", () => {
+		const text =
+			"Read image file [image/png]\n[Image omitted: could not be resized below the inline image size limit.]";
+		const call = { name: "read", input: { path: "/p/pic.png" } };
+		expect(readDisplay(call, [{ kind: "text", text }])).toBeUndefined();
 	});
 });

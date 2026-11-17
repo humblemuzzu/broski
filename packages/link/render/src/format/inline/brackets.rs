@@ -46,11 +46,11 @@ impl Inline<'_> {
         let Some(inner) = rest.strip_prefix("[^") else {
             return false;
         };
-        let Some(end) = inner.find(']') else {
+        let Some(end) = inner.find(|c: char| c == ']' || c == '[' || c.is_whitespace()) else {
             return false;
         };
         let label = &inner[..end];
-        if label.is_empty() || label.len() > 999 || label.contains(char::is_whitespace) {
+        if inner.as_bytes()[end] != b']' || label.is_empty() || label.len() > 999 {
             return false;
         }
         let label = label.to_owned();

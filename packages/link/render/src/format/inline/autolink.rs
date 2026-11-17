@@ -6,7 +6,10 @@ use crate::format::model::{FormatLink, FormatSpan, LinkKind};
 
 /// `<scheme:…>` or `<address@host>`: the bytes it takes and its link.
 pub(super) fn angle(text: &str) -> Option<(usize, FormatLink)> {
-    let end = text.find('>')?;
+    let end = text[1..].find(|c: char| c == '>' || c == '<' || c.is_whitespace())? + 1;
+    if text.as_bytes()[end] != b'>' {
+        return None;
+    }
     let inner = &text[1..end];
     if uri(inner) {
         return Some((end + 1, written_link(inner)));
@@ -191,6 +194,14 @@ pub(crate) fn bare_links(text: &str) -> Vec<BareLink> {
             });
             continue;
         }
+        if let Some(link) = host_link(core) {
+            found.push(BareLink {
+                start,
+                end: start + core.len(),
+                link,
+            });
+            continue;
+        }
         if is_path(core) {
             let link = path_link(core, true);
             found.push(BareLink {
@@ -201,6 +212,30 @@ pub(crate) fn bare_links(text: &str) -> Vec<BareLink> {
         }
     }
     found
+}
+
+/// Top-level domains a host written without a scheme is recognised by, so `github.com/a/b.ts` opens
+/// the page rather than looking for a file of that name.
+const KNOWN_TLDS: [&str; 30] = [
+    "com", "org", "net", "io", "dev", "app", "ai", "co", "gg", "rs", "sh", "me", "so", "ly", "to",
+    "tv", "us", "uk", "de", "in", "edu", "gov", "info", "page", "site", "tech", "cloud", "run",
+    "xyz", "pk",
+];
+
+/// `host.tld/path`: a web page named without its scheme, linked as `https://`.
+pub(crate) fn host_link(word: &str) -> Option<FormatLink> {
+    let (host, rest) = word.split_once('/')?;
+    let tld = host.rsplit_once('.')?.1;
+    let known = KNOWN_TLDS.contains(&tld.to_ascii_lowercase().as_str());
+    let whole_host = domain_length(host, true) == Some(host.len());
+    let path_ok = !rest.contains(['\\', '"', '\'', '<', '>']);
+    (known && whole_host && path_ok).then(|| FormatLink {
+        kind: LinkKind::Web,
+        target: format!("https://{word}"),
+        title: None,
+        image: false,
+        bare: true,
+    })
 }
 
 /// GitHub's address autolink: letters, digits, `.`, `-`, `_`, `+` before the `@`, a dotted host

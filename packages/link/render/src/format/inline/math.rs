@@ -18,7 +18,8 @@ impl Inline<'_> {
     }
 
     /// `$…$` by pandoc's rules, so prices are never math: the opening `$` has a non-space after
-    /// it, the closing one a non-space before it and no digit after it. `$$…$$` inline is math too.
+    /// it, the closing one a non-space before it and no digit after it; nor a letter or `_`, so a
+    /// shell's `$PATH:$HOME` stays text. `$$…$$` inline is math too.
     pub(super) fn math(&mut self) -> bool {
         let start = self.pos;
         if self.text[start..].starts_with("$$") {
@@ -55,12 +56,16 @@ impl Inline<'_> {
 }
 
 /// Every `$` that can close inline math: a non-space before it, no backslash escaping it, no
-/// digit after it.
+/// digit, letter or `_` after it.
 fn dollar_closers(text: &str) -> Vec<usize> {
     let bytes = text.as_bytes();
     (1..bytes.len())
         .filter(|at| bytes[*at] == b'$')
         .filter(|at| !matches!(bytes[at - 1], b' ' | b'\t' | b'\n' | b'\\' | b'$'))
-        .filter(|at| !bytes.get(at + 1).is_some_and(u8::is_ascii_digit))
+        .filter(|at| {
+            !bytes
+                .get(at + 1)
+                .is_some_and(|after| after.is_ascii_alphanumeric() || *after == b'_')
+        })
         .collect()
 }

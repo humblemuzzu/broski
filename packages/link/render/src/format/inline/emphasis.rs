@@ -6,7 +6,7 @@ use super::{Inline, Style, Styled};
 
 impl Inline<'_> {
     pub(super) fn process_emphasis(&mut self, bottom: Option<usize>) {
-        let mut openers_bottom = [bottom; 14];
+        let mut openers_bottom = [bottom; BUCKETS];
         let mut closer = self.first_above(bottom);
         while let Some(current) = closer {
             let delim = &self.delims[current];
@@ -146,8 +146,11 @@ impl Inline<'_> {
     }
 }
 
+/// Openers-bottom kept: `_` and `*` six each (can open × length mod 3), `~` two.
+const BUCKETS: usize = 14;
+
 /// Which openers-bottom a closer uses: by character, whether it can also open, and its length
-/// mod 3 (tildes have one length).
+/// mod 3 (tildes have one length). Always below [`BUCKETS`].
 fn bucket(ch: u8, can_open: bool, original: usize) -> usize {
     match ch {
         b'_' => usize::from(can_open) * 3 + original % 3,
