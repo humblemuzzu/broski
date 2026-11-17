@@ -4,12 +4,28 @@
 use std::collections::HashMap;
 
 use broski_contract::{FormFieldSpec, FormValue};
-use broski_render::{FoldCount, FoldTool, FoldVerb, ToolFacts, ToolKind, ToolLook};
+use broski_render::{
+    ArgumentValue, FoldCount, FoldTool, FoldVerb, FormatSpan, LogLine, MatchRow, MatchSegment,
+    TokenKind, ToolArgument, ToolBody, ToolFacts, ToolKind, ToolLook,
+};
 
 /// The kind, one line, command and files of a tool call, for its row in the work fold.
 #[uniffi::export]
 pub fn tool_look(facts: ToolFacts) -> ToolLook {
     broski_render::tool_look(&facts)
+}
+
+/// How a call's result reads when its tool gave no display of its own: markdown, a file's numbered
+/// lines, search rows, JSON or a log (`output` is the result's text).
+#[uniffi::export]
+pub fn tool_body(facts: ToolFacts, output: String) -> ToolBody {
+    broski_render::tool_body(&facts, &output)
+}
+
+/// A call's arguments as a property list, for the work fold and the permission card.
+#[uniffi::export]
+pub fn tool_arguments(facts: ToolFacts) -> Vec<ToolArgument> {
+    broski_render::tool_arguments(&facts)
 }
 
 /// The phrases of a fold's sentence ("Edited 1 file"), from the stretch's own calls (not a
@@ -83,4 +99,81 @@ pub struct FoldTool {
     pub id: String,
     pub kind: ToolKind,
     pub paths: Vec<String>,
+}
+
+#[uniffi::remote(Enum)]
+pub enum ToolBody {
+    Empty,
+    Markdown {
+        text: String,
+    },
+    FileText {
+        path: String,
+        language: Option<String>,
+        first_line: u32,
+        text: String,
+    },
+    Matches {
+        rows: Vec<MatchRow>,
+        hidden_rows: u32,
+    },
+    Json {
+        lines: Vec<broski_render::CodeLine>,
+    },
+    Log {
+        lines: Vec<LogLine>,
+        hidden_lines: u32,
+    },
+}
+
+#[uniffi::remote(Record)]
+pub struct MatchRow {
+    pub path: String,
+    pub line: Option<u32>,
+    pub segments: Vec<MatchSegment>,
+}
+
+#[uniffi::remote(Record)]
+pub struct MatchSegment {
+    pub text: String,
+    pub matched: bool,
+}
+
+#[uniffi::remote(Record)]
+pub struct LogLine {
+    pub spans: Vec<FormatSpan>,
+}
+
+#[uniffi::remote(Record)]
+pub struct ToolArgument {
+    pub key: String,
+    pub depth: u32,
+    pub value: ArgumentValue,
+}
+
+#[uniffi::remote(Enum)]
+pub enum ArgumentValue {
+    Inline {
+        text: String,
+        kind: TokenKind,
+    },
+    Text {
+        text: String,
+        hidden_lines: u32,
+    },
+    Code {
+        text: String,
+        language: Option<String>,
+        hidden_lines: u32,
+    },
+    Markdown {
+        text: String,
+    },
+    Nested {
+        count: u32,
+        list: bool,
+    },
+    More {
+        count: u32,
+    },
 }

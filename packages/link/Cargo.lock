@@ -732,6 +732,7 @@ name = "broski-render"
 version = "0.1.0"
 dependencies = [
  "broski-contract",
+ "serde_json",
  "similar",
  "syntect",
 ]

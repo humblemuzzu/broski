@@ -2,10 +2,16 @@
 //! the one line its row shows, the command it ran, and what the fold's sentence counts. The apps
 //! add the icon, the plural words of the sentence and the time.
 
+mod arguments;
+mod body;
+#[cfg(test)]
+mod body_tests;
 mod fold;
 #[cfg(test)]
 mod tests;
 
+pub use arguments::{tool_arguments, ArgumentValue, ToolArgument};
+pub use body::{tool_body, LogLine, MatchRow, MatchSegment, ToolBody, TOOL_LOG_LINES};
 pub use fold::{fold_counts, FoldCount, FoldTool, FoldVerb};
 
 use broski_contract::JsonValue;

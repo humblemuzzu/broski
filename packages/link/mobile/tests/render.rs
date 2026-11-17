@@ -8,16 +8,18 @@ use broski_contract::{
     GitDiffLineKind, JsonMember, JsonValue, TextValue,
 };
 use broski_core::{
-    file_change_diff, fold_counts, form_field_default, form_field_shown, format_markdown,
-    format_samples, git_diff_file, highlight, language_for_path, normalize_language,
-    parse_unified_diff, side_by_side, tool_look,
+    file_change_diff, fold_counts, form_field_default, form_field_shown, format_json,
+    format_markdown, format_plain_text, format_samples, git_diff_file, highlight,
+    language_for_path, language_label, normalize_language, parse_unified_diff, side_by_side,
+    table_tsv, tool_arguments, tool_body, tool_look,
 };
 use broski_render::{
-    DiffLineKind, FoldCount, FoldTool, FoldVerb, FormatContent, TokenKind, ToolFacts, ToolKind,
+    DiffLineKind, FoldCount, FoldTool, FoldVerb, FormatContent, TokenKind, ToolBody, ToolFacts,
+    ToolKind,
 };
 
 #[test]
-fn markdown_comes_back_as_keyed_blocks_and_the_gallery_has_its_samples() {
+fn markdown_comes_back_as_keyed_blocks_with_its_exports_and_the_gallery_has_its_samples() {
     let blocks = format_markdown("Run `x`.\n\n```swift\nlet x = 1".to_owned(), true);
     assert_eq!(
         blocks
@@ -28,9 +30,45 @@ fn markdown_comes_back_as_keyed_blocks_and_the_gallery_has_its_samples() {
     );
     assert!(matches!(
         &blocks[1].content,
-        FormatContent::Code { language: Some(language), closed: false, .. } if language == "swift"
+        FormatContent::Code { code } if code.language.as_deref() == Some("swift") && !code.closed
     ));
+    assert_eq!(
+        format_plain_text("**Done** in `a.ts`".to_owned()),
+        "Done in a.ts"
+    );
+    let table = match format_markdown("| a | b |\n|---|---|\n| 1 | 2 |".to_owned(), false)
+        .remove(0)
+        .content
+    {
+        FormatContent::Table { table } => table,
+        other => panic!("a table, not {other:?}"),
+    };
+    assert_eq!(table_tsv(table), "a\tb\n1\t2");
+    assert!(format_json("[1]".to_owned()).is_some());
+    assert_eq!(language_label("ts".to_owned()), "TypeScript");
     assert!(!format_samples().is_empty());
+}
+
+#[test]
+fn a_tool_result_and_its_arguments_come_back_as_the_fold_draws_them() {
+    let facts = ToolFacts {
+        name: "Bash".to_owned(),
+        title: None,
+        input: Some(JsonValue::Object(vec![JsonMember {
+            key: "command".to_owned(),
+            value: JsonValue::String("ls".to_owned()),
+        }])),
+        has_child_session: false,
+        changed_paths: Vec::new(),
+    };
+    assert!(matches!(
+        tool_body(facts.clone(), "a.txt".to_owned()),
+        ToolBody::Log { .. }
+    ));
+    assert!(
+        tool_arguments(facts).is_empty(),
+        "the command shows on the row"
+    );
 }
 
 #[test]

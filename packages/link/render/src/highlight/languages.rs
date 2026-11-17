@@ -60,3 +60,75 @@ pub fn language_for_path(path: &str) -> Option<String> {
     let plain = syntaxes.find_syntax_plain_text();
     (found.name != plain.name).then(|| found.name.clone())
 }
+
+/// What a code block's header calls its language: the name people write (`TypeScript`, `Shell`,
+/// `C++`) for the labels agents put on fences, else the grammar's name without its aside, else the
+/// label as written.
+pub fn language_label(label: &str) -> String {
+    let lower = label.trim().to_ascii_lowercase();
+    if let Some((_, name)) = LABELS
+        .iter()
+        .find(|(labels, _)| labels.split(' ').any(|known| known == lower))
+    {
+        return (*name).to_owned();
+    }
+    match normalize_language(label) {
+        Some(name) => name.split(" (").next().unwrap_or(&name).to_owned(),
+        None => label.trim().to_owned(),
+    }
+}
+
+/// Fence labels, space-separated, and the name each is shown as.
+const LABELS: &[(&str, &str)] = &[
+    ("ts typescript mts cts", "TypeScript"),
+    ("tsx", "TSX"),
+    ("js javascript mjs cjs node", "JavaScript"),
+    ("jsx", "JSX"),
+    ("rs rust", "Rust"),
+    ("swift", "Swift"),
+    ("kt kts kotlin", "Kotlin"),
+    ("py python python3 py3", "Python"),
+    ("sh bash zsh shell console shellsession terminal", "Shell"),
+    ("fish", "Fish"),
+    ("ps1 powershell pwsh", "PowerShell"),
+    ("json jsonc json5 jsonl", "JSON"),
+    ("yml yaml", "YAML"),
+    ("toml", "TOML"),
+    ("md markdown mdx", "Markdown"),
+    ("go golang", "Go"),
+    ("java", "Java"),
+    ("c h", "C"),
+    ("cpp c++ cc cxx hpp hh", "C++"),
+    ("cs csharp", "C#"),
+    ("m objc objective-c", "Objective-C"),
+    ("rb ruby", "Ruby"),
+    ("php", "PHP"),
+    ("html htm", "HTML"),
+    ("xml plist svg", "XML"),
+    ("css", "CSS"),
+    ("scss sass", "SCSS"),
+    ("sql", "SQL"),
+    ("diff patch", "Diff"),
+    ("dockerfile docker containerfile", "Dockerfile"),
+    ("makefile make mk", "Makefile"),
+    ("txt text plain plaintext", "Text"),
+    ("log", "Log"),
+    ("output", "Output"),
+    ("mermaid", "Mermaid"),
+    ("graphql gql", "GraphQL"),
+    ("proto protobuf", "Protobuf"),
+    ("lua", "Lua"),
+    ("dart", "Dart"),
+    ("zig", "Zig"),
+    ("ex exs elixir", "Elixir"),
+    ("hs haskell", "Haskell"),
+    ("r", "R"),
+    ("ini cfg conf", "INI"),
+    ("env dotenv", ".env"),
+    ("nix", "Nix"),
+    ("vue", "Vue"),
+    ("svelte", "Svelte"),
+    ("tf hcl terraform", "HCL"),
+    ("tex latex", "LaTeX"),
+    ("csv", "CSV"),
+];

@@ -66,11 +66,14 @@ fn within_bytes(text: &str, keep: ClipEnd) -> (String, bool) {
     (kept.to_owned(), true)
 }
 
-/// The opening words of a text on one line, for a preview under a title; at most `max_chars`
-/// characters, with `…` where it was cut. Empty when the text says nothing.
+/// The opening words of a text on one line, for a preview under a title, its markdown read rather
+/// than shown; at most `max_chars` characters, with `…` where it was cut. Empty when the text says
+/// nothing.
 pub fn opening_words(text: &str, max_chars: u32) -> String {
     let source = prefix(text, PREVIEW_SOURCE_BYTES);
-    let flat = source.split_whitespace().collect::<Vec<_>>().join(" ");
+    let blocks = crate::format::format_markdown(source, source.len() < text.len());
+    let words = crate::format::plain_text(&blocks, false);
+    let flat = words.split_whitespace().collect::<Vec<_>>().join(" ");
     let max = max_chars as usize;
     if flat.chars().count() <= max {
         return flat;
@@ -138,6 +141,13 @@ mod tests {
         assert_eq!(opening_words(text, 240), "Done. All tests pass in a.ts.");
         assert_eq!(opening_words(text, 10), "Done. All…");
         assert_eq!(opening_words("\n\n  \n", 240), "");
+        assert_eq!(
+            opening_words(
+                "## Done\n\n**All** tests pass in `a.ts`, see [the log](https://x.io/l).",
+                240
+            ),
+            "Done All tests pass in a.ts, see the log."
+        );
     }
 
     #[test]

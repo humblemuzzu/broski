@@ -1,10 +1,11 @@
-//! What each render call costs, for the numbers in docs/architecture/rendering.md:
+//! What each render call costs, for the numbers in docs/architecture/rendering.md and
+//! formatting.md:
 //! `cargo run --release -p broski-render --example bench`.
 
 use std::hint::black_box;
 use std::time::{Duration, Instant};
 
-use broski_render::{highlight, parse_unified_diff};
+use broski_render::{format_markdown, format_samples, highlight, parse_unified_diff};
 
 /// The median of `runs` timings of `work`.
 fn median(runs: usize, mut work: impl FnMut()) -> Duration {
@@ -45,4 +46,24 @@ fn main() {
         black_box(parse_unified_diff(black_box(&diff)));
     });
     println!("diff: {diff_lines} lines of git diff with word emphasis: {parsed:?}");
+
+    let corpus: String = format_samples()
+        .into_iter()
+        .map(|sample| sample.text)
+        .collect::<Vec<_>>()
+        .join("\n\n");
+    let message: String = corpus.chars().cycle().take(20_000).collect();
+    let formatted = median(101, || {
+        black_box(format_markdown(black_box(&message), false));
+    });
+    println!("format: a 20,000-character agent message: {formatted:?}");
+    let streaming = median(101, || {
+        black_box(format_markdown(black_box(&message), true));
+    });
+    println!("format: the same message while it streams: {streaming:?}");
+    let mebibyte: String = corpus.chars().cycle().take(1_000_000).collect();
+    let large = median(5, || {
+        black_box(format_markdown(black_box(&mebibyte), false));
+    });
+    println!("format: a 1,000,000-character text: {large:?}");
 }

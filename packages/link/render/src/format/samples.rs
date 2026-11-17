@@ -8,7 +8,7 @@ pub struct FormatSample {
     pub text: String,
 }
 
-const SAMPLES: [(&str, &str); 12] = [
+const SAMPLES: [(&str, &str); 14] = [
     (
         "An agent's answer",
         include_str!("../../tests/fixtures/format/01-agent-answer.md"),
@@ -56,6 +56,14 @@ const SAMPLES: [(&str, &str); 12] = [
     (
         "Cut mid-stream",
         include_str!("../../tests/fixtures/format/12-streaming-cut.md"),
+    ),
+    (
+        "Big tables",
+        include_str!("../../tests/fixtures/format/13-big-tables.md"),
+    ),
+    (
+        "Agent quirks",
+        include_str!("../../tests/fixtures/format/14-agent-quirks.md"),
     ),
 ];
 

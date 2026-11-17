@@ -19,7 +19,7 @@ use std::sync::OnceLock;
 
 use syntect::parsing::{ParseState, ScopeStack, SyntaxReference, SyntaxSet};
 
-pub use self::languages::{language_for_path, normalize_language};
+pub use self::languages::{language_for_path, language_label, normalize_language};
 
 pub const MAX_HIGHLIGHT_LINES: usize = 5_000;
 pub const MAX_HIGHLIGHT_BYTES: usize = 512 * 1024;
