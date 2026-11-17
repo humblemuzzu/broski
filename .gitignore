@@ -1,162 +1,90 @@
-# Miscellaneous
-*.class
-*.log
-*.pyc
-*.swp
+# macOS and editors
 .DS_Store
-.atom/
-.build/
-.buildlog/
-.history
-.svn/
-.swiftpm/
-migrate_working_dir/
-
-# IntelliJ related
-*.iml
-*.ipr
-*.iws
+*.swp
 .idea/
-
-# VS Code
+*.iml
 .vscode/
-
-# Flutter/Dart/Pub related
-**/doc/api/
-.dart_tool/
-.flutter-plugins
-.flutter-plugins-dependencies
-.pub-cache/
-.pub/
-/build/
-/coverage/
-# pubspec.lock — committed for apps (Flutter docs recommend this)
-
-# Symbolication related
-app.*.symbols
-
-# Obfuscation related
-app.*.map.json
-
-# Android build artifacts
-/android/app/debug
-/android/app/profile
-/android/app/release
-/android/.gradle/
-/android/app/build/
-/android/build/
-*.apk
-*.aab
-
-# iOS/macOS build artifacts and dependencies
-**/ios/Pods/
-**/ios/Podfile.lock
-**/ios/.symlinks/
-**/ios/Flutter/Flutter.framework
-**/ios/Flutter/Flutter.podspec
-**/ios/Flutter/.last_build_id
-**/ios/Flutter/Generated.xcconfig
-**/ios/Flutter/app.flx
-**/ios/Flutter/app.zip
-**/ios/Flutter/flutter_assets/
-**/ios/Flutter/flutter_export_environment.sh
-**/ios/ServiceDefinitions.json
-**/ios/Runner/GeneratedPluginRegistrant.*
-
-**/macos/Pods/
-**/macos/Podfile.lock
-**/macos/.symlinks/
-**/macos/Flutter/Flutter.framework
-**/macos/Flutter/Flutter.podspec
-**/macos/Flutter/.last_build_id
-**/macos/Flutter/Generated.xcconfig
-**/macos/Flutter/flutter_export_environment.sh
-**/macos/Flutter/GeneratedPluginRegistrant.swift
-
-# Generated plugin registrants (recreated by flutter pub get)
-**/ios/Flutter/Debug.xcconfig
-**/ios/Flutter/Release.xcconfig
-**/macos/Flutter/Flutter-Debug.xcconfig
-**/macos/Flutter/Flutter-Release.xcconfig
-**/linux/flutter/generated_plugin_registrant.cc
-**/linux/flutter/generated_plugin_registrant.h
-**/linux/flutter/generated_plugins.cmake
-**/windows/flutter/generated_plugin_registrant.cc
-**/windows/flutter/generated_plugin_registrant.h
-**/windows/flutter/generated_plugins.cmake
-
-# Xcode
-**/ios/Runner.xcodeproj/project.xcworkspace/
-**/ios/Runner.xcodeproj/xcuserdata/
-**/ios/Runner.xcworkspace/xcuserdata/
-**/macos/Runner.xcodeproj/project.xcworkspace/
-**/macos/Runner.xcodeproj/xcuserdata/
-**/macos/Runner.xcworkspace/xcuserdata/
+xcuserdata/
 *.xcuserstate
 
-# Node.js / Bun
-**/node_modules/
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Bun and TypeScript (packages/bridge)
+node_modules/
+dist/
+packages/bridge/src/_bootstrap_embedded.ts
+packages/bridge/src/_claude_cli_embed.ts
+packages/bridge/bench/results/
+# Only the bridge's lockfile is committed: CI installs from it.
 bun.lock
 bun.lockb
-# Committed so CI installs reproducibly (see .github/workflows/ci.yml)
 !packages/bridge/bun.lock
 package-lock.json
 yarn.lock
 pnpm-lock.yaml
 
-# Reference codebases (not part of the app)
-# Keep reference/ scripts & config tracked, but ignore cloned repos (managed by sync-refs.sh)
-reference/
-reference/
-reference/
-reference/
-# critical-g-*.md
-# optimization.md
+# Rust (packages/link)
+target/
 
-# Logs and temp files
+# Swift and Xcode (apps/ios/*/.gitignore name each app's generated files)
+.build/
+.swiftpm/
+DerivedData/
+*.xcarchive
+*.ipa
+
+# Android and Gradle (apps/android/.gitignore names the generated modules' files)
+.gradle/
+.kotlin/
+local.properties
+*.apk
+*.aab
+
+# Python (scripts/lib)
+__pycache__/
+*.pyc
+
+# Logs and caches
 *.log
-.env
-.env.*
-!.env.example
-config.json
-*.xcscheme
+.ruff_cache/
 
-# Build artifacts and temp files that shouldn't be tracked
-chart.png
-geist-1.7.0.tgz
-analysis.log
-
-# Continuous Claude
-.claude/cache/
-.claude/skills/
-.claude/hooks/
-.claude/agents/
-.claude/rules/
-.claude/scripts/
-.claude/settings.json
-
-# thoughts/
-
-# Node.js build artifacts
-**/dist/
-packages/bridge/dist/
-packages/bridge/src/_bootstrap_embedded.ts
-packages/bridge/src/_claude_cli_embed.ts
-packages/bridge/bench/results/
-
-# Rust build artifacts
-**/target/
-*.dylib
-*.d
-
+# Local state of agents and tools
+.worktrees/
+.pi/
 .asc/
+.broski/
+.claude/*
+!.claude/commands/
 
-# docs/
+# What the Flutter app (branch final-flutter) leaves in an old checkout
+/android/
+/ios/
+/linux/
+/macos/
+/windows/
+/lib/
+/test/
+/tool/
+/fonts/
+/build/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# Reference repositories reference/sync-refs.sh clones
+reference/
+reference/
+reference/
+reference/
+
+# Large or private files kept out of the repository
 docs/assets/
 docs/tla/
-
-# Pi agent local state
-.pi/
-dataset-export/
-broski_pi_20260406_215352_37871691.md
-customized-claude.md
+/dataset-export/
+/chart.png
+/geist-*.tgz
+/customized-claude.md
+/broski_pi_*.md
