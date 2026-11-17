@@ -1,6 +1,17 @@
 import BroskiCore
 import Testing
 
+/// The formatter from Swift: keyed blocks of spans, and the gallery's samples.
+@Test func markdownComesBackAsKeyedBlocksAndTheGalleryHasItsSamples() {
+    let blocks = formatMarkdown(text: "Run `x`.\n\n```swift\nlet x = 1", streaming: true)
+    #expect(blocks.map(\.key) == ["p-0", "code-10"])
+    #expect(blocks[0].content == .paragraph(spans: [
+        FormatSpan(text: "Run ", code: false), FormatSpan(text: "x", code: true), FormatSpan(text: ".", code: false),
+    ]))
+    #expect(blocks[1].content == .code(language: "swift", text: "let x = 1", closed: false))
+    #expect(!formatSamples().isEmpty)
+}
+
 /// The rendering exports from Swift: what a code view and a diff view draw.
 @Test func codeAndDiffsComeBackReadyToDraw() throws {
     let lines = highlight(code: "let x = 1", language: "swift")

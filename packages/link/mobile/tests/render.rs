@@ -8,10 +8,30 @@ use broski_contract::{
     GitDiffLineKind, JsonMember, JsonValue, TextValue,
 };
 use broski_core::{
-    file_change_diff, fold_counts, form_field_default, form_field_shown, git_diff_file, highlight,
-    language_for_path, normalize_language, parse_unified_diff, side_by_side, tool_look,
+    file_change_diff, fold_counts, form_field_default, form_field_shown, format_markdown,
+    format_samples, git_diff_file, highlight, language_for_path, normalize_language,
+    parse_unified_diff, side_by_side, tool_look,
 };
-use broski_render::{DiffLineKind, FoldCount, FoldTool, FoldVerb, TokenKind, ToolFacts, ToolKind};
+use broski_render::{
+    DiffLineKind, FoldCount, FoldTool, FoldVerb, FormatContent, TokenKind, ToolFacts, ToolKind,
+};
+
+#[test]
+fn markdown_comes_back_as_keyed_blocks_and_the_gallery_has_its_samples() {
+    let blocks = format_markdown("Run `x`.\n\n```swift\nlet x = 1".to_owned(), true);
+    assert_eq!(
+        blocks
+            .iter()
+            .map(|block| block.key.as_str())
+            .collect::<Vec<_>>(),
+        ["p-0", "code-10"]
+    );
+    assert!(matches!(
+        &blocks[1].content,
+        FormatContent::Code { language: Some(language), closed: false, .. } if language == "swift"
+    ));
+    assert!(!format_samples().is_empty());
+}
 
 #[test]
 fn code_comes_back_as_lines_of_spans() {

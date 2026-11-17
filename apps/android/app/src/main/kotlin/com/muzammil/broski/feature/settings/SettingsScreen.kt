@@ -26,7 +26,10 @@ import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -77,6 +80,8 @@ fun SettingsScreen(core: AppCore, phone: PhoneSession) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val core = remember { coreVersion() }
     val coreDescription = stringResource(R.string.settings_core_version, core.library, core.protocol.major, core.protocol.minor)
+    var gallery by rememberSaveable { mutableStateOf(false) }
+    if (gallery) FormattingGallery(onDismiss = { gallery = false })
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -99,9 +104,25 @@ fun SettingsScreen(core: AppCore, phone: PhoneSession) {
                 SectionHeader(stringResource(R.string.settings_appearance))
                 AppearancePicker(state.settings.appearance, viewModel::setAppearance)
             }
+            item(key = "formatting") { FormattingRow { gallery = true } }
             about(state, coreDescription)
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun FormattingRow(onOpen: () -> Unit) {
+    SectionHeader(stringResource(R.string.format_gallery))
+    SegmentedListItem(
+        onClick = onOpen,
+        shapes = ListItemDefaults.segmentedShapes(0, 1),
+        modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = ListItemDefaults.SegmentedGap),
+        leadingContent = { Icon(painterResource(R.drawable.ic_wrap_text), contentDescription = null) },
+        supportingContent = { Text(stringResource(R.string.format_gallery_body)) },
+        trailingContent = { Icon(painterResource(R.drawable.ic_chevron_right), contentDescription = null) },
+        colors = groupedListItemColors(),
+    ) { Text(stringResource(R.string.format_gallery)) }
 }
 
 private fun LazyListScope.notifications(enabled: Set<NotificationKind>, onChange: (NotificationKind, Boolean) -> Unit) {

@@ -76,7 +76,7 @@ struct ActivityRowView: View {
 }
 
 /// What an opened activity shows: the command, the body (a log's last lines, a message's first
-/// lines) and the subagent's session.
+/// blocks, a text's first lines) and the subagent's session.
 private struct ActivityDetail: View {
     let activity: Activity
     let look: ActivityLook
@@ -109,6 +109,8 @@ private struct ActivityBodyView: View {
     let content: ActivityBody
     let log: TextClip?
 
+    /// Blocks of a message an opened row draws; the rest is on the full page.
+    private static let shownBlocks = 8
     private static let textLines: UInt32 = 20
 
     var body: some View {
@@ -126,7 +128,12 @@ private struct ActivityBodyView: View {
                     if log.hiddenLines > 0 { showAll("Show the whole log", hidden: log.hiddenLines) }
                 }
             }
-        case .markdown, .text:
+        case .markdown:
+            VStack(alignment: .leading, spacing: Spacing.s) {
+                FormattedText(text: content.text, role: .quiet, limit: Self.shownBlocks)
+                if FormattedText.exceeds(content.text, limit: Self.shownBlocks) { showAll("Read all of it", hidden: nil) }
+            }
+        case .text:
             let clip = clipText(text: content.text, maxLines: Self.textLines, keep: .head)
             VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text(clip.text)

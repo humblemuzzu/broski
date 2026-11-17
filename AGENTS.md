@@ -46,10 +46,12 @@ notifications and live status, the chat with its composer and pinned asks, and N
   seen as plain data for the app to persist), and terminal views that reattach from their last byte.
   UniFFI-shaped (owned values, `Arc` objects, pulled subscriptions) but with no UniFFI dependency: the facade
   `packages/link/mobile` exports it. Doc: [`docs/architecture/mobile-core.md`](docs/architecture/mobile-core.md).
-- **Rendering** (`packages/link/render/`, crate `broski-render`) — what both apps draw identically: code as
-  spans by token kind (syntect with the grammars
-  vendored in `render/syntaxes/`, compiled by its `build.rs`), and diffs with word emphasis and side-by-side rows.
-  Pure, bounded, no UniFFI dependency. Doc: [`docs/architecture/rendering.md`](docs/architecture/rendering.md).
+- **Rendering** (`packages/link/render/`, crate `broski-render`) — what both apps draw identically: the agent's
+  markdown through Broski's own formatter (`format/`, no markdown library), code as spans by token kind (syntect
+  with the grammars vendored in `render/syntaxes/`, compiled by its `build.rs`), and diffs with word emphasis and
+  side-by-side rows. Pure, bounded, no UniFFI dependency. Docs:
+  [`docs/architecture/rendering.md`](docs/architecture/rendering.md),
+  [`docs/architecture/formatting.md`](docs/architecture/formatting.md).
 - **BroskiCore** (`packages/link/mobile/`, crate `broski-mobile`, library `libbroski_core`) — the UniFFI 0.32.2
   facade both apps call: thin wrappers over the client core (`Phone`, `Machine`, `SessionView`, `TerminalView`,
   `SessionList`, `Inbox`), its values restated with `#[uniffi::remote]`, the rendering functions, and the pure
@@ -134,6 +136,16 @@ The wire shape between bridge and phone is the backend contract in `packages/bri
   `PermissionRequest` hook (`claudeCode.terminalAsks`, default true; `server/claude-code-*.ts`). Notes:
   [`docs/architecture/backends/pi/README.md`](docs/architecture/backends/pi/README.md),
   [`docs/architecture/backends/claude-code/README.md`](docs/architecture/backends/claude-code/README.md).
+
+## Formatting agent text
+
+- **Every string an agent wrote is drawn through the formatter, never a bare `Text`**: `FormattedText` /
+  `FormatBlockView` in `apps/ios/Broski/Sources/Formatting/` and `apps/android/.../design/format/`, over the
+  core's `formatMarkdown`. A screen that shows agent text (answers, thinking, plans, reports, tool results)
+  uses them; a change to how text looks is made there, so it lands on every screen of both apps.
+- **The parser is ours** (`render/src/format/`); do not add a markdown, highlighting-theme or rendering library to
+  the core or either app. The target design is [`docs/rebuild/formatting-plan.md`](docs/rebuild/formatting-plan.md);
+  judge changes on the phone in Settings › Formatting, whose samples are `render/tests/fixtures/format/`.
 
 ## The bridge core
 

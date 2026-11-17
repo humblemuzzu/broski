@@ -41,6 +41,9 @@ import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
 import com.muzammil.broski.design.BroskiTheme
 import com.muzammil.broski.design.Haptic
+import com.muzammil.broski.design.format.FormatCache
+import com.muzammil.broski.design.format.FormatRole
+import com.muzammil.broski.design.format.FormattedText
 import com.muzammil.broski.design.mono
 import com.muzammil.broski.design.perform
 import com.muzammil.broski.feature.chat.work.TextPage
@@ -56,7 +59,8 @@ import uniffi.broski_core.clipText
 
 private const val DISCLOSURE_MS = 180
 
-/** Lines of a message or a command's output an opened row draws; the rest is in the sheet. */
+/** Blocks of a message an opened row draws, and lines of a text; the rest is in the sheet. */
+private const val SHOWN_BLOCKS = 8
 private const val TEXT_LINES = 20u
 
 /**
@@ -130,7 +134,7 @@ private fun Disclosure(expanded: Boolean) {
     )
 }
 
-/** An opened activity: the command, the body (a log's last lines, a message's first lines), the subagent. */
+/** An opened activity: the command, the body (a log's last lines, a message's first blocks, a text's first lines), the subagent. */
 @Composable
 private fun ActivityDetail(activity: Activity, look: ActivityLook, actions: WorkActions) {
     Column(Modifier.fillMaxWidth().padding(start = 28.dp, bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -161,7 +165,11 @@ private fun ActivityBodyView(title: String, body: ActivityBody, look: ActivityLo
             }
             if (log.hiddenLines > 0u) ShowAll(R.string.chat_activity_show_log, log.hiddenLines.toInt()) { actions.openText(page) }
         }
-        ActivityFormat.MARKDOWN, ActivityFormat.TEXT -> {
+        ActivityFormat.MARKDOWN -> {
+            FormattedText(body.text, role = FormatRole.Quiet, limit = SHOWN_BLOCKS)
+            if (FormatCache.blocks(body.text, false).size > SHOWN_BLOCKS) ShowAll(R.string.chat_activity_read_all, null) { actions.openText(page) }
+        }
+        ActivityFormat.TEXT -> {
             val clip = remember(body.text) { clipText(body.text, TEXT_LINES, ClipEnd.HEAD) }
             SelectionContainer { Text(clip.text, style = MaterialTheme.typography.bodySmall) }
             if (clip.hiddenLines > 0u) ShowAll(R.string.chat_activity_show_all, clip.hiddenLines.toInt()) { actions.openText(page) }

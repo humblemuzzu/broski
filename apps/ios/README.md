@@ -58,7 +58,7 @@ The target builds with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, `SWIFT_APPRO
   running, content and the backend's prompt modes, follow-or-detach, the status lane, a photo fitted
   within what the prompt's 4 MiB has left or refused, returned input and a refused draft, slash
   commands), its rows (`ChatTimelineTests`: one fold per stretch of work with its line, a
-  continuation, a result finding its earlier call, one row per text block, the live stretch and
+  continuation, a result finding its earlier call, one row per formatted block, the live stretch and
   the open block streaming, the seam with the history), every interaction's reply
   (`InteractionAnswerTests`), and its model over `ScriptedSessionView` (UniFFI's mock constructor)
   and scripted answers (`ChatModelTests`: a prompt dimmed until its `user_message`, a queued one, a
@@ -235,8 +235,9 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
   requires. History is `transcript.read` a page of 100 at a time, newest first; a run's end reads
   the newest page again (an earlier read answering late is dropped) and keeps the ended run on
   screen until it lands; with stable ids the page replaces what it overlaps, otherwise the history
-  starts over. `ChatTimeline` makes rows from items, one per text block of the agent's, and
-  `Highlighter` colours code once per text, off the main actor. A prompt carries a fresh `clientRequestId` and shows dimmed
+  starts over. `ChatTimeline` makes rows from items, one per formatted block of the agent's text
+  (`FormatCache` formats a text once per text and streaming state, so while a text streams only it
+  is formatted again), and `Highlighter` colours code once per text, off the main actor. A prompt carries a fresh `clientRequestId` and shows dimmed
   until its `user_message` arrives (a `queued` or `handled` disposition retires it at once; a
   refusal puts the draft back in front of anything typed since). Drafts are kept per session in
   `AppModel.drafts` while the app runs; a new session's first prompt goes there too, and its chat
@@ -271,7 +272,8 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
   Compact, Copy Conversation, Delete with a confirm) with the context ring around it. The
   transcript, full bleed under the bar (`scrollEdgeEffectStyle(.soft)`) and the composer
   (`safeAreaBar`), dimmed while the machine is unreachable: the person's bubble with its time and
-  copy, the agent's text one text block per row, as plain text until the new formatter lands, one fold per stretch of work
+  copy, the agent's text one formatted block per row through `Sources/Formatting`
+  ([formatting.md](../../docs/architecture/formatting.md)), one fold per stretch of work
   (`Worked for 2m · Ran 2 commands · 1 failed`, opening in place to 28 pt rows capped at 256 pt with
   faded edges, each opening to the command, its output and exit, its files and their diffs, a
   subagent's session), notices, compaction and how a run ended as quiet lines, and one status lane

@@ -20,7 +20,7 @@ import uniffi.broski_contract.TranscriptItem
 import uniffi.broski_core.FoldCount
 import uniffi.broski_core.FoldVerb
 
-/** The transcript's rows from real contract items. */
+/** The transcript's rows from real contract items, formatted by the real core. */
 class RowBuilderTest {
     private val builder = RowBuilder()
 
@@ -46,7 +46,7 @@ class RowBuilderTest {
     @Test
     fun aFinishedTurnIsTheMessageOneFoldOfItsWorkTheAnswerAndItsCopy() {
         val rows = build(history = finishedTurn)
-        assertEquals(listOf("u:u1", "w:th", "t:t1", "copy:t1"), rows.map { it.key })
+        assertEquals(listOf("u:u1", "w:th", "t:t1/p-0", "copy:t1"), rows.map { it.key })
         val fold = (rows[1] as ChatRow.Work).fold
         assertEquals(FoldLead.Worked, fold.lead)
         assertEquals(6_500L, fold.durationMs)
@@ -113,7 +113,7 @@ class RowBuilderTest {
     fun theCopyButtonSitsUnderTheAnswerAboveTheNoteOfHowTheRunEnded() {
         val stopped = TranscriptItem.RunBoundary(RunBoundaryItem("end", 3_000, RunOutcome.Aborted(RunAborted())))
         val rows = build(history = listOf(Items.user("u1", "Go"), Items.text("t1", "Working."), stopped))
-        assertEquals(listOf("u:u1", "t:t1", "copy:t1", "n:end"), rows.map { it.key })
+        assertEquals(listOf("u:u1", "t:t1/p-0", "copy:t1", "n:end"), rows.map { it.key })
     }
 
     @Test

@@ -51,11 +51,13 @@ struct ChatTimelineTests {
         #expect(second.tools.count == 2, "a nested call is listed, not counted")
     }
 
-    @Test func theAgentsTextIsOneRowPerTextBlockKeyedByItsId() {
-        let built = rows([Item.user("u1", "List them"), Item.text("b1", "Steps\n\nFirst this"), Item.text("b2", "  \n")])
+    @Test func theAgentsTextIsOneRowPerFormattedBlockKeyedByWhereItStarts() {
+        let built = rows([Item.user("u1", "List them"), Item.text("b1", "Steps\n\n```sh\nls\n```"), Item.text("b2", "  \n")])
         let pieces = built.compactMap { if case .text(let piece) = $0.content { piece } else { nil } }
-        #expect(pieces.map(\.text) == ["Steps\n\nFirst this"], "a blank block draws nothing")
-        #expect(built.contains { $0.id == "b1" })
+        #expect(pieces.map(\.block.key) == ["p-0", "code-7"], "a blank text draws nothing")
+        #expect(built.map(\.id).filter { $0.hasPrefix("b1/") } == ["b1/p-0", "b1/code-7"])
+        #expect(pieces.map(\.isFirst) == [true, false])
+        #expect(built.filter(\.startsMessage).count == 2, "the message and its answer, once")
     }
 
     @Test func aLiveRunsStretchStaysLiveItsAnswerHasNoEndYetAndItsOpenBlockStreams() {

@@ -20,10 +20,7 @@ struct PlanCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.m) {
             ScrollView {
-                Text(request.plan)
-                    .font(.body)
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                FormattedText(text: request.plan)
             }
             .frame(maxHeight: 260)
             .fixedSize(horizontal: false, vertical: true)

@@ -26,7 +26,7 @@ class FollowTest {
     }
 
     @Test
-    fun newMessagesCountsTheSentMessageAndEachAnswerOnceNotWork() {
+    fun newMessagesCountsTheSentMessageAndEachAnswerOnceNotWorkOrMoreBlocks() {
         val before = rows(Items.user("u1", "Hi"), Items.text("t1", "Hello."))
         val after = rows(
             Items.user("u1", "Hi"),

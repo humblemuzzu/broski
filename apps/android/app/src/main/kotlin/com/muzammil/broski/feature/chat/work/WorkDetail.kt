@@ -28,6 +28,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
 import com.muzammil.broski.design.BroskiTheme
+import com.muzammil.broski.design.format.FormatRole
+import com.muzammil.broski.design.format.FormattedText
 import com.muzammil.broski.design.mono
 import com.muzammil.broski.feature.chat.activity.ShowAll
 import uniffi.broski_contract.FileChange
@@ -51,8 +53,8 @@ internal fun EntryDetail(entry: WorkEntry, actions: WorkActions) {
     ) {
         when (entry) {
             is WorkEntry.Tool -> ToolDetail(entry, actions)
-            is WorkEntry.Thought -> Prose(entry.text)
-            is WorkEntry.Aside -> Prose(entry.text)
+            is WorkEntry.Thought -> FormattedText(entry.text, role = FormatRole.Quiet, streaming = entry.live)
+            is WorkEntry.Aside -> FormattedText(entry.text, role = FormatRole.Quiet)
         }
     }
 }

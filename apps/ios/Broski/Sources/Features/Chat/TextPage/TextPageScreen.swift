@@ -31,11 +31,18 @@ extension TextPage.Format {
 struct TextPageScreen: View {
     let page: TextPage
     private let lines: [String]
+    private let blocks: [FormatBlock]
     @State private var copied = 0
 
     init(page: TextPage) {
         self.page = page
-        lines = page.text.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+        if page.format == .markdown {
+            lines = []
+            blocks = FormatCache.shared.blocks(page.text, streaming: false)
+        } else {
+            lines = page.text.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+            blocks = []
+        }
     }
 
     var body: some View {
@@ -62,14 +69,21 @@ struct TextPageScreen: View {
         .haptic(.confirmed, trigger: copied)
     }
 
+    @ViewBuilder
     private var content: some View {
-        LazyVStack(alignment: .leading, spacing: 0) {
-            ForEach(lines.indices, id: \.self) { index in
-                Text(lines[index].isEmpty ? " " : lines[index])
-                    .font(page.format == .log ? .codeSmall : .body)
-                    .foregroundStyle(page.format == .log ? .secondary : .primary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .textSelection(.enabled)
+        if page.format == .markdown {
+            LazyVStack(alignment: .leading, spacing: FormatRole.page.blockSpacing) {
+                ForEach(blocks, id: \.key) { FormatBlockView(block: $0).equatable() }
+            }
+        } else {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                ForEach(lines.indices, id: \.self) { index in
+                    Text(lines[index].isEmpty ? " " : lines[index])
+                        .font(page.format == .log ? .codeSmall : .body)
+                        .foregroundStyle(page.format == .log ? .secondary : .primary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .textSelection(.enabled)
+                }
             }
         }
     }

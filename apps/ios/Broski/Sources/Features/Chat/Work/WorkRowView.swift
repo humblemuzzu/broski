@@ -78,10 +78,7 @@ struct WorkRowView: View {
         case .tool(let tool):
             ToolDetailView(tool: tool)
         case .thinking(let thinking):
-            Text(thinking.text)
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .textSelection(.enabled)
+            FormattedText(text: thinking.text, role: .quiet, streaming: thinking.isOpen)
         }
     }
 }

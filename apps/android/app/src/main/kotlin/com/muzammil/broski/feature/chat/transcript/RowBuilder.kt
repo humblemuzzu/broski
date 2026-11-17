@@ -8,7 +8,9 @@ import uniffi.broski_contract.OpenBlock
 import uniffi.broski_contract.RunOutcome
 import uniffi.broski_contract.SessionSnapshot
 import uniffi.broski_contract.TranscriptItem
+import com.muzammil.broski.design.format.FormatCache
 import uniffi.broski_contract.UserMessageItem
+import uniffi.broski_core.FormatBlock
 import uniffi.broski_core.activityLook
 
 /** A message the person sent that the agent has not yet shown as its own. */
@@ -28,8 +30,11 @@ class RowInput(
  * one message of the person's to the next; the agent's words are the page, block by block, and the
  * work between them folds into one row a stretch. It derives nothing about the session: what is
  * running or pending is the snapshot's.
+ *
+ * [format] gives a text's formatted blocks, by its text and whether it is still streaming; the
+ * cache behind it formats a finished text once, so a streaming message costs one parse a batch.
  */
-class RowBuilder {
+class RowBuilder(private val format: (String, Boolean) -> List<FormatBlock> = FormatCache::blocks) {
     fun build(input: RowInput): List<ChatRow> {
         val pass = Pass(input)
         input.history.forEach { pass.item(it, live = false) }
@@ -93,7 +98,9 @@ class RowBuilder {
                 text.isBlank() -> Unit
                 else -> {
                     fold = null
-                    rows += ChatRow.Text("t:$id", at, text, plan = kind == BlockKind.PLAN)
+                    format(text, open).forEachIndexed { index, block ->
+                        rows += ChatRow.Text("t:$id/${block.key}", at, block, first = index == 0, plan = kind == BlockKind.PLAN)
+                    }
                     turn.answer += text
                     turn.lastTextId = id
                     turn.copyAt = rows.size

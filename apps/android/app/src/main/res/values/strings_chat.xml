@@ -94,6 +94,7 @@
 
     <!-- Activities and background tasks -->
     <string name="chat_activity_show_log">Show the whole log</string>
+    <string name="chat_activity_read_all">Read all of it</string>
     <string name="chat_activity_show_all">Show all of it</string>
     <plurals name="chat_background_tasks">
         <item quantity="one">%1$d task in the background</item>

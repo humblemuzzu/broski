@@ -6,10 +6,11 @@ import uniffi.broski_contract.ImageRef
 import uniffi.broski_contract.NoticeLevel
 import uniffi.broski_contract.RunLimit
 import uniffi.broski_core.ActivityLook
+import uniffi.broski_core.FormatBlock
 
 /**
- * One item of the transcript's list. Keys are unique and stable: a text block of the agent's keeps
- * its key while the text streams, and the person's message keeps its key from the moment it is
+ * One item of the transcript's list. Keys are unique and stable: a formatted block of the agent's text
+ * keeps its key while the text streams, and the person's message keeps its key from the moment it is
  * sent to the moment the agent's `user_message` stands for it.
  */
 @Immutable
@@ -29,12 +30,13 @@ sealed interface ChatRow {
         val pending: Boolean,
     ) : ChatRow
 
-    /** One text block of the agent's words. */
+    /** One formatted block of the agent's words; [first] blocks of a message get the message's top space. */
     @Immutable
     data class Text(
         override val key: String,
         override val at: Long?,
-        val text: String,
+        val block: FormatBlock,
+        val first: Boolean,
         val plan: Boolean,
     ) : ChatRow
 

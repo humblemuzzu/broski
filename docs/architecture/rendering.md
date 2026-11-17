@@ -2,7 +2,9 @@
 
 Crate `packages/link/render` (`broski-render`). What the iOS and Android apps must draw identically,
 computed once in Rust and exported through BroskiCore ([mobile-packaging.md](mobile-packaging.md)):
-code as lines of coloured spans, and diffs as files, hunks and lines with the changed words marked. Swift and Kotlin only map the records to `AttributedString` /
+code as lines of coloured spans, and diffs as files, hunks and lines with the changed words marked.
+The agent's markdown goes through the crate's formatter, documented on its own in
+[formatting.md](formatting.md). Swift and Kotlin only map the records to `AttributedString` /
 `AnnotatedString` and pick colours from their own light and dark palettes. Like `broski-client`, the
 crate has no UniFFI dependency; the facade restates its types with `#[uniffi::remote]`
 (`mobile/src/render.rs`).

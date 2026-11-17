@@ -12,10 +12,10 @@ data class Follow(val following: Boolean = true, val unseen: Int = 0) {
     fun jumped(): Follow = Follow()
 }
 
-/** Messages in [after] that [before] lacked: the person's, and each text block of an answer. */
+/** Messages in [after] that [before] lacked: the person's, and each answer once (by its first block). */
 fun newMessages(before: List<ChatRow>, after: List<ChatRow>): Int {
     val known = before.mapTo(HashSet()) { it.key }
     return after.count { row ->
-        row.key !in known && (row is ChatRow.User || row is ChatRow.Text)
+        row.key !in known && (row is ChatRow.User || (row is ChatRow.Text && row.first))
     }
 }

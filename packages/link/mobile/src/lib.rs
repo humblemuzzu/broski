@@ -12,6 +12,7 @@
 //! runtime's own thread.
 
 mod activity;
+mod format;
 mod inbox;
 mod link;
 mod machine;
@@ -26,6 +27,7 @@ mod views;
 mod work;
 
 pub use activity::{activity_look, clip_text, format_duration};
+pub use format::{format_markdown, format_samples};
 pub use inbox::Inbox;
 pub use link::{LinkRoute, LinkStatus};
 pub use machine::Machine;

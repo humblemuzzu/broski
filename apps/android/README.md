@@ -142,6 +142,7 @@ app/src/main/kotlin/com/muzammil/broski/
               MachineState / MachineHealth, vault/ (Keystore key, AES-GCM, DataStore), settings/,
               platform/ (foreground, network, NSD discovery)
   feature/welcome, feature/pairing, feature/inbox, feature/machines, feature/settings
+  design/format  the formatter's views: FormattedText, FormatBlockView, FormatCache (formatting.md)
   design/code code coloured by the core's highlight, the line viewer, and the
               diff view (unified, side by side from 840 dp) the chat and the Workspace share
   feature/chat   the chat: LiveSession (the view's records applied), SessionFeed (the view's loop and
@@ -165,8 +166,9 @@ terminal/     the :terminal module: libghostty-vt's JNI shim (src/main/c) and Vt
   The transcript's newest page is read at open and again whenever a run ends (seen per record, so a run
   that starts and ends in one batch counts); the ended run's items stay on screen until that page holds
   them. Older pages load as the person nears the top.
-- **Rows** (`RowBuilder`, on `Dispatchers.Default`): one per text block of the agent's words, keyed by
-  item id and drawn as plain text until the new formatter lands; a fold per stretch of
+- **Rows** (`RowBuilder`, on `Dispatchers.Default`): one per formatted block of the agent's words
+  (`design/format`, [formatting.md](../../docs/architecture/formatting.md)), keyed by item id and the
+  block's key, formatted again only when an item's text changed; a fold per stretch of
   work; notes between turns; newest first in a `LazyColumn` laid out from the bottom whose first item is
   the status lane, so new rows follow the end with no scroll call while a reader further up stays put.
 - **Requests**: `prompt` and `abort` go only while the chat's view is attached (the bridge refuses them

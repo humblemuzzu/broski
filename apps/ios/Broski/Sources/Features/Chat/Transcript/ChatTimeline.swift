@@ -5,6 +5,10 @@ import CoreGraphics
 /// bubbles, each stretch of tool calls and reasoning as one fold, the agent's text block by block,
 /// and a quiet line under each finished answer. Pure: the same items give the same rows.
 struct ChatTimeline {
+    /// A text's formatted blocks, by its text and whether it is still streaming (cached, since a
+    /// finished text never changes and only the open one is formatted again).
+    let format: @MainActor (_ text: String, _ streaming: Bool) -> [FormatBlock]
+
     private(set) var rows: [ChatRow] = []
     private var fold: WorkFold?
     private var toolsInFold: [String: Int] = [:]
@@ -14,7 +18,8 @@ struct ChatTimeline {
     private var answerAt: Int64?
     private var running: [String: RunningTool] = [:]
 
-    init(after previous: ChatRow? = nil) {
+    init(after previous: ChatRow? = nil, format: @escaping @MainActor (String, Bool) -> [FormatBlock] = FormatCache.shared.blocks) {
+        self.format = format
         if let previous {
             rows = [previous]
             turnHasText = previous.isAgentText
@@ -94,9 +99,14 @@ struct ChatTimeline {
             addWork(.thinking(ThinkingWork(id: id, text: text, isOpen: open)), at: at)
             return
         }
-        guard !text.trimmed.isEmpty else { return }
+        let blocks = format(text, open)
+        guard !blocks.isEmpty else { return }
         closeFold()
-        append(.text(TextPiece(blockId: id, text: text, kind: kind, isStreaming: open)), id: id)
+        for (index, block) in blocks.enumerated() {
+            let piece = TextPiece(
+                blockId: id, block: block, kind: kind, isStreaming: open && index == blocks.count - 1, isFirst: index == 0)
+            append(.text(piece), id: "\(id)/\(block.key)")
+        }
         turnHasText = true
         answer.append(text)
         answerAt = at ?? answerAt
@@ -171,6 +181,7 @@ nonisolated extension ChatRow {
         guard let previous else { return 0 }
         switch (previous, next) {
         case (_, .user), (_, .pending): return 28
+        case (.text(let before), .text(let after)) where before.blockId == after.blockId: return 12
         case (_, .answerEnd): return 6
         case (.work, .work): return 2
         case (.activity, .activity): return 6

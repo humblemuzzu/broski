@@ -1,5 +1,6 @@
-//! What the iOS and Android apps draw identically, computed once in Rust: code as lines of spans
-//! tagged by token kind, diffs as files, hunks and lines with the changed words marked, how a tool
+//! What the iOS and Android apps draw identically, computed once in Rust: the agent's markdown as
+//! keyed blocks of styled spans (Broski's own formatter, `format`), code as lines of spans tagged
+//! by token kind, diffs as files, hunks and lines with the changed words marked, how a tool
 //! call reads in the work fold and an activity in the transcript, and long text cut to what a row
 //! shows. The apps only map these to
 //! `AttributedString` or `AnnotatedString` and colour them by their own light and dark palettes.
@@ -10,6 +11,7 @@
 
 pub mod activity;
 pub mod diff;
+pub mod format;
 pub mod highlight;
 pub mod text;
 pub mod work;
@@ -19,6 +21,10 @@ pub use activity::{activity_look, ActivityLook, ActivityTone, LOG_LINES};
 pub use diff::{
     file_change_diff, git_diff_file, parse_unified_diff, side_by_side, DiffFile, DiffHunk,
     DiffLine, DiffLineKind, DiffSegment, ParsedDiff, SideBySideRow,
+};
+pub use format::{
+    format_markdown, format_samples, FormatBlock, FormatContent, FormatSample, FormatSpan,
+    MAX_FORMAT_BYTES,
 };
 pub use highlight::{
     highlight, language_for_path, normalize_language, CodeLine, CodeSpan, TokenKind,

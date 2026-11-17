@@ -6,9 +6,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
@@ -18,6 +15,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
+import com.muzammil.broski.design.format.FormatBlockView
 import com.muzammil.broski.feature.chat.activity.ActivityRow
 import com.muzammil.broski.feature.chat.work.WorkActions
 import com.muzammil.broski.feature.chat.work.WorkFoldRow
@@ -71,9 +69,7 @@ private fun Row(row: ChatRow, images: Map<String, ImageBitmap>, state: Transcrip
     val padded = Modifier.padding(horizontal = 20.dp).entrance(row.at)
     when (row) {
         is ChatRow.User -> UserBubble(row, images, callbacks.requestImage, padded.padding(top = 20.dp, bottom = 4.dp))
-        is ChatRow.Text -> SelectionContainer(padded.padding(top = 12.dp)) {
-            Text(row.text, style = MaterialTheme.typography.bodyLarge)
-        }
+        is ChatRow.Text -> FormatBlockView(row.block, padded.padding(top = if (row.first) 12.dp else 10.dp))
         is ChatRow.CopyAnswer -> CopyAnswerRow(row.text, Modifier.padding(horizontal = 8.dp))
         is ChatRow.Work -> WorkFoldRow(
             fold = row.fold,

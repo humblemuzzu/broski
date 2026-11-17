@@ -28,6 +28,15 @@ struct SettingsScreen: View {
                     .labelsHidden()
                     .haptic(.pickerStep, trigger: appearance)
                 }
+                Section {
+                    NavigationLink {
+                        FormattingGalleryScreen()
+                    } label: {
+                        Label("Formatting", systemImage: "textformat")
+                    }
+                } footer: {
+                    Text("Every kind of text an agent writes, as the chat draws it.")
+                }
                 about
             }
             .navigationTitle("Settings")

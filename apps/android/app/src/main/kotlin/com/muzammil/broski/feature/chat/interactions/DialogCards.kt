@@ -34,6 +34,7 @@ import androidx.core.net.toUri
 import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
 import com.muzammil.broski.design.Haptic
+import com.muzammil.broski.design.format.FormattedText
 import com.muzammil.broski.design.perform
 import uniffi.broski_contract.ChoiceRequest
 import uniffi.broski_contract.ConfirmRequest
@@ -48,7 +49,7 @@ fun PlanCard(interaction: Interaction, request: PlanApprovalRequest, context: Ca
     var modeAfter by rememberSaveable(interaction.id) { mutableStateOf(request.modeOptions?.defaultValue) }
     val feedback = rememberTextFieldState()
     Text(interaction.title, style = MaterialTheme.typography.titleMedium)
-    Text(request.plan, style = MaterialTheme.typography.bodyMedium)
+    FormattedText(request.plan)
     request.modeOptions?.let { modes ->
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             modes.options.forEach { option ->

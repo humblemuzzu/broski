@@ -17,12 +17,16 @@ import uniffi.broski_core.CodeSpan
 import uniffi.broski_core.DiffLineKind
 import uniffi.broski_core.DiffSegment
 import uniffi.broski_core.FoldTool
+import uniffi.broski_core.FormatContent
+import uniffi.broski_core.FormatSpan
 import uniffi.broski_core.TokenKind
 import uniffi.broski_core.ToolFacts
 import uniffi.broski_core.ToolKind
 import uniffi.broski_core.foldCounts
 import uniffi.broski_core.formFieldDefault
 import uniffi.broski_core.formFieldShown
+import uniffi.broski_core.formatMarkdown
+import uniffi.broski_core.formatSamples
 import uniffi.broski_core.highlight
 import uniffi.broski_core.languageForPath
 import uniffi.broski_core.parseUnifiedDiff
@@ -31,6 +35,15 @@ import uniffi.broski_core.toolLook
 
 /** The rendering exports from Kotlin: what a code view and a diff view draw. */
 class RenderTest {
+    @Test
+    fun markdownComesBackAsKeyedBlocksAndTheGalleryHasItsSamples() {
+        val blocks = formatMarkdown("Run `x`.\n\n```kotlin\nval x = 1", true)
+        assertEquals(listOf("p-0", "code-10"), blocks.map { it.key })
+        assertEquals(FormatContent.Paragraph(listOf(FormatSpan("Run ", false), FormatSpan("x", true), FormatSpan(".", false))), blocks[0].content)
+        assertEquals(FormatContent.Code("kotlin", "val x = 1", false), blocks[1].content)
+        assertTrue(formatSamples().isNotEmpty())
+    }
+
     @Test
     fun codeAndDiffsComeBackReadyToDraw() {
         assertEquals(CodeSpan("val", TokenKind.KEYWORD), highlight("val x = 1", "kotlin").first().spans.first())
