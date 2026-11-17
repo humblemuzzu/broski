@@ -6,9 +6,11 @@ import UIKit
 struct FileScreen: View {
     @State private var model: FileModel
     @State private var copied = 0
+    private let line: Int?
 
-    init(path: String, requests: WorkspaceRequests) {
+    init(path: String, line: Int? = nil, requests: WorkspaceRequests) {
         _model = State(initialValue: FileModel(path: path, requests: requests))
+        self.line = line
     }
 
     var body: some View {
@@ -29,7 +31,7 @@ struct FileScreen: View {
         case .failed(let problem):
             ProblemView(problem: problem) { await model.load() }
         case .loaded(.text(let file)):
-            FileTextView(file: file, path: model.path)
+            FileTextView(file: file, path: model.path, line: line)
                 .safeAreaInset(edge: .top, spacing: 0) {
                     if file.truncated { TruncationNote(file: file) }
                 }

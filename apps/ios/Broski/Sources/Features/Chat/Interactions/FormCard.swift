@@ -48,7 +48,7 @@ private struct FormFieldView: View {
             }
             control
             if let detail = field.detail {
-                Text(detail).font(.footnote).foregroundStyle(.secondary)
+                FormattedMessage(text: detail, role: .quiet)
             }
         }
     }

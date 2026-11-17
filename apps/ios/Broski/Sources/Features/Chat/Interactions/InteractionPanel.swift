@@ -103,7 +103,7 @@ struct InteractionPanel: View {
         VStack(alignment: .leading, spacing: Spacing.m) {
             if !isPermission {
                 Text(interaction.title).font(.headline)
-                if let body = interaction.body { Text(body).font(.subheadline).foregroundStyle(.secondary) }
+                if let body = interaction.body { FormattedMessage(text: body, role: .quiet) }
             }
             if chat.canAnswer {
                 answers

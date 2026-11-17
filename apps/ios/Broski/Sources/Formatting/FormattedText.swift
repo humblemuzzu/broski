@@ -1,44 +1,9 @@
 import BroskiCore
 import SwiftUI
 
-/// Where agent-authored text is drawn, which sets its size and emphasis: `page` for the answer the
-/// person reads (the transcript, a plan, a report opened whole), `quiet` for what sits under a row
-/// (thinking, a subagent's or an activity's text).
-nonisolated enum FormatRole: Equatable {
-    case page
-    case quiet
-
-    var font: Font {
-        switch self {
-        case .page: .body
-        case .quiet: .subheadline
-        }
-    }
-
-    var style: HierarchicalShapeStyle {
-        switch self {
-        case .page: .primary
-        case .quiet: .secondary
-        }
-    }
-
-    var lineSpacing: CGFloat {
-        switch self {
-        case .page: 5
-        case .quiet: 3
-        }
-    }
-
-    @MainActor var blockSpacing: CGFloat {
-        switch self {
-        case .page: Spacing.m
-        case .quiet: Spacing.s
-        }
-    }
-}
-
 /// Agent-authored markdown, formatted by the core (`formatMarkdown`) and drawn block by block. Every
-/// string an agent wrote is drawn through this view or `FormatBlockView`, never a bare `Text`.
+/// string an agent wrote is drawn through this view, `FormatBlockView`, `FormattedMessage` or a
+/// tool view built on the core's output, never a bare `Text`.
 struct FormattedText: View {
     let text: String
     var role: FormatRole = .page
@@ -46,20 +11,50 @@ struct FormattedText: View {
     var streaming = false
     /// Blocks drawn; the rest is for a screen of its own (`exceeds`).
     var limit: Int?
+    /// Long-pressing offers Copy, Copy as plain text, Select Text and Share.
+    var menu = true
 
     var body: some View {
         let blocks = FormatCache.shared.blocks(text, streaming: streaming)
-        VStack(alignment: .leading, spacing: role.blockSpacing) {
-            ForEach(limit.map { Array(blocks.prefix($0)) } ?? blocks, id: \.key) { block in
-                FormatBlockView(block: block, role: role).equatable()
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        let shown = limit.map { Array(blocks.prefix($0)) } ?? blocks
+        FormatBlockList(blocks: shown, role: role, streaming: streaming)
+            .answerMenu(menu ? text : nil)
     }
 
     /// Whether `text` has more blocks than `limit` draws.
     static func exceeds(_ text: String, limit: Int) -> Bool {
         FormatCache.shared.blocks(text, streaming: false).count > limit
+    }
+}
+
+/// The person's own message or a notice: inline styles and fenced code, every other line exactly as
+/// typed (`formatMessage`).
+struct FormattedMessage: View {
+    let text: String
+    var role: FormatRole = .page
+
+    var body: some View {
+        FormatBlockList(blocks: FormatCache.shared.message(text), role: role, streaming: false)
+    }
+}
+
+/// Blocks in order, each told the containers of the one after it.
+struct FormatBlockList: View {
+    let blocks: [FormatBlock]
+    let role: FormatRole
+    let streaming: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(blocks.indices, id: \.self) { index in
+                let block = blocks[index]
+                let next = index + 1 < blocks.count ? blocks[index + 1].containers.map(\.id) : []
+                FormatBlockView(block: block, role: role, next: next, streaming: streaming && index == blocks.count - 1)
+                    .equatable()
+                    .id(block.key)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -72,16 +67,24 @@ final class FormatCache {
     private struct Key: Hashable {
         let text: String
         let streaming: Bool
+        let message: Bool
     }
 
     private var parsed: [Key: [FormatBlock]] = [:]
     private let capacity = 2_000
 
     func blocks(_ text: String, streaming: Bool) -> [FormatBlock] {
-        let key = Key(text: text, streaming: streaming)
+        cached(Key(text: text, streaming: streaming, message: false)) { formatMarkdown(text: text, streaming: streaming) }
+    }
+
+    func message(_ text: String) -> [FormatBlock] {
+        cached(Key(text: text, streaming: false, message: true)) { formatMessage(text: text) }
+    }
+
+    private func cached(_ key: Key, parse: () -> [FormatBlock]) -> [FormatBlock] {
         if let known = parsed[key] { return known }
         if parsed.count >= capacity { parsed.removeAll(keepingCapacity: true) }
-        let blocks = formatMarkdown(text: text, streaming: streaming)
+        let blocks = parse()
         parsed[key] = blocks
         return blocks
     }

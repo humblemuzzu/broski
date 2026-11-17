@@ -28,9 +28,8 @@ struct UserBubble: View {
                 .defaultScrollAnchor(.trailing)
             }
             if !text.isEmpty {
-                Text(text)
-                    .font(.body)
-                    .textSelection(.enabled)
+                FormattedMessage(text: text)
+                    .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, Spacing.l - 2)
                     .padding(.vertical, Spacing.m - 2)
                     .background(Color(uiColor: .secondarySystemFill), in: .rect(cornerRadius: Radius.card, style: .continuous))
@@ -43,6 +42,9 @@ struct UserBubble: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(isPending ? "You, sending: \(text)" : "You: \(text)")
         .haptic(.confirmed, trigger: copied)
+        .contextMenu {
+            if !text.isEmpty { AnswerMenuItems { text } }
+        }
     }
 
     private var footer: some View {
@@ -129,15 +131,18 @@ struct AnswerEndView: View {
     }
 }
 
-/// Something the agent said that is not a turn, kept in the transcript as a quiet line: three lines
-/// at most until it is tapped open.
+/// Something the agent said that is not a turn, kept in the transcript as a quiet line, its inline
+/// markdown read: about three lines until it is tapped open.
 struct NoticeLine: View {
     let notice: NoticeItem
     @State private var open = false
+    @ScaledMetric(relativeTo: .footnote) private var threeLines: CGFloat = 3 * 18
 
     var body: some View {
         Label {
-            Text(notice.text).lineLimit(open ? nil : 3).textSelection(.enabled)
+            FormattedMessage(text: notice.text, role: .quiet)
+                .frame(maxHeight: open ? nil : threeLines, alignment: .top)
+                .clipped()
         } icon: {
             Image(systemName: notice.level.symbol).foregroundStyle(notice.level.tint)
         }

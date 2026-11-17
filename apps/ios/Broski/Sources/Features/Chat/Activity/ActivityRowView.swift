@@ -85,11 +85,7 @@ private struct ActivityDetail: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.s) {
             if let command = activity.command, !command.isEmpty {
-                Text("$ " + command)
-                    .font(.codeSmall)
-                    .lineLimit(6)
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                CommandLineView(command: command)
             }
             if let content = activity.body {
                 ActivityBodyView(title: activity.title, content: content, log: look.log)
@@ -108,6 +104,7 @@ private struct ActivityBodyView: View {
     let title: String
     let content: ActivityBody
     let log: TextClip?
+    @Environment(\.formatContext) private var context
 
     /// Blocks of a message an opened row draws; the rest is on the full page.
     private static let shownBlocks = 8
@@ -117,16 +114,8 @@ private struct ActivityBodyView: View {
         switch content.format {
         case .log:
             if let log {
-                VStack(alignment: .leading, spacing: Spacing.xs) {
-                    Text(log.text)
-                        .font(.codeSmall)
-                        .foregroundStyle(.secondary)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(Spacing.s)
-                        .background(Palette.codeBackground, in: .rect(cornerRadius: Radius.small, style: .continuous))
-                    if log.hiddenLines > 0 { showAll("Show the whole log", hidden: log.hiddenLines) }
-                }
+                let lines = formatLog(text: log.text, maxLines: UInt32.max, keep: .tail).lines
+                LogBox(log: LogText(lines: lines, hiddenLines: log.hiddenLines), title: title, source: content.text, showAll: "Show the whole log")
             }
         case .markdown:
             VStack(alignment: .leading, spacing: Spacing.s) {
@@ -136,17 +125,15 @@ private struct ActivityBodyView: View {
         case .text:
             let clip = clipText(text: content.text, maxLines: Self.textLines, keep: .head)
             VStack(alignment: .leading, spacing: Spacing.xs) {
-                Text(clip.text)
-                    .font(.footnote)
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                FormattedMessage(text: clip.text, role: .quiet)
                 if clip.hiddenLines > 0 { showAll("Show all of it", hidden: clip.hiddenLines) }
             }
         }
     }
 
     private func showAll(_ words: String, hidden: UInt32?) -> some View {
-        NavigationLink(value: Route.text(TextPage(title: title, text: content.text, format: TextPage.Format(content.format)))) {
+        let page = TextPage(title: title, text: content.text, format: TextPage.Format(content.format), context: context)
+        return NavigationLink(value: Route.text(page)) {
             HStack(spacing: Spacing.xs) {
                 Text(words)
                 if let hidden { Text("· ^[\(hidden) more line](inflect: true)").foregroundStyle(.secondary) }

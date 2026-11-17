@@ -7,40 +7,52 @@ import SwiftUI
 struct DiffView: View {
     let file: DiffFile
     var truncated = false
-    @Environment(\.horizontalSizeClass) private var sizeClass
 
     var body: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
-                DiffFileHeader(file: file)
-                if let note {
-                    Text(note)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .padding(Spacing.l)
-                }
-                ForEach(file.hunks.indices, id: \.self) { index in
-                    let hunk = file.hunks[index]
-                    HunkHeader(hunk: hunk)
-                    if sizeClass == .regular {
-                        ForEach(Array(sideBySide(hunk: hunk).enumerated()), id: \.offset) { _, row in
-                            SideBySideLine(row: row)
-                        }
-                    } else {
-                        ForEach(hunk.lines.indices, id: \.self) { line in
-                            UnifiedLine(line: hunk.lines[line])
-                        }
-                    }
-                }
-                if truncated {
-                    Text("The diff goes on past what Broski shows.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .padding(Spacing.l)
-                }
-            }
+            DiffBody(file: file, truncated: truncated)
         }
         .background(Color(uiColor: .systemBackground))
+    }
+}
+
+/// A diff's header, note and hunks, laid out as they scroll into view, in any scrolling container:
+/// a screen of its own, or a `diff` fence in an answer.
+struct DiffBody: View {
+    let file: DiffFile
+    var truncated = false
+    var showsHeader = true
+    @Environment(\.horizontalSizeClass) private var sizeClass
+
+    var body: some View {
+        LazyVStack(alignment: .leading, spacing: 0) {
+            if showsHeader { DiffFileHeader(file: file) }
+            if let note {
+                Text(note)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .padding(Spacing.l)
+            }
+            ForEach(file.hunks.indices, id: \.self) { index in
+                let hunk = file.hunks[index]
+                HunkHeader(hunk: hunk)
+                if sizeClass == .regular {
+                    ForEach(Array(sideBySide(hunk: hunk).enumerated()), id: \.offset) { _, row in
+                        SideBySideLine(row: row)
+                    }
+                } else {
+                    ForEach(hunk.lines.indices, id: \.self) { line in
+                        UnifiedLine(line: hunk.lines[line])
+                    }
+                }
+            }
+            if truncated {
+                Text("The diff goes on past what Broski shows.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .padding(Spacing.l)
+            }
+        }
     }
 
     private var note: String? {

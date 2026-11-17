@@ -2,15 +2,17 @@ import BroskiCore
 import SwiftUI
 
 /// A file's text as numbered lines that wrap, coloured by the language its name says, drawn only
-/// as they scroll into view.
+/// as they scroll into view; opened at `line`, which is marked, when one is given.
 struct CodeFileView: View {
     let text: String
     let language: String?
+    var line: Int?
     @State private var lines: [CodeLine]
 
-    init(text: String, language: String?) {
+    init(text: String, language: String?, line: Int? = nil) {
         self.text = text
         self.language = language
+        self.line = line
         var plain = Highlighter.plainLines(text)
         if plain.count > 1, plain.last?.spans.isEmpty == true { plain.removeLast() }
         _lines = State(initialValue: Highlighter.shared.cached(text, language: language) ?? plain)
@@ -23,10 +25,14 @@ struct CodeFileView: View {
             LazyVStack(alignment: .leading, spacing: 0) {
                 ForEach(lines.indices, id: \.self) { index in
                     NumberedLine(number: index + 1, line: lines[index], widestNumber: widestNumber)
+                        .background(index + 1 == line ? Palette.working.opacity(0.14) : .clear)
+                        .id(index + 1)
                 }
             }
+            .scrollTargetLayout()
             .padding(.vertical, Spacing.s)
         }
+        .scrollPosition(id: .constant(line), anchor: .center)
         .background(Color(uiColor: .systemBackground))
         .task(id: text) {
             guard language != nil else { return }

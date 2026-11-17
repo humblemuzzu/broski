@@ -53,12 +53,14 @@ private struct FormattingSampleScreen: View {
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
-                    FormattedText(text: streamed ?? sample.text, role: role.format, streaming: streamed != nil)
+                    FormattedText(text: streamed ?? sample.text, role: role.format, streaming: streamed != nil || sample.arriving)
+                        .accessibilityIdentifier("formatted-sample")
                 }
             }
             .padding(.horizontal, Spacing.l + Spacing.xs)
             .padding(.vertical, Spacing.m)
         }
+        .accessibilityIdentifier("gallery-sample-scroll")
         .navigationTitle(sample.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

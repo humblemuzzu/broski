@@ -5,8 +5,9 @@ import SwiftUI
 struct FileTextView: View {
     let file: TextFile
     let path: String
+    var line: Int?
 
     var body: some View {
-        CodeFileView(text: file.text, language: languageForPath(path: path))
+        CodeFileView(text: file.text, language: languageForPath(path: path), line: line)
     }
 }

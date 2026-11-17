@@ -72,6 +72,11 @@ nonisolated struct ToolWork: Equatable, Identifiable {
         Self.read(name: name, title: title, input: input, childSession: childSession, fileChanges: fileChanges)
     }
 
+    /// The call as the core reads it, for its row, its arguments and its result.
+    var facts: ToolFacts {
+        ToolFacts(name: name, title: title, input: input, hasChildSession: childSession != nil, changedPaths: fileChanges.map(\.path))
+    }
+
     private static func read(name: String, title: String?, input: JsonValue?, childSession: SessionRef?, fileChanges: [FileChange]) -> ToolLook {
         toolLook(facts: ToolFacts(name: name, title: title, input: input, hasChildSession: childSession != nil, changedPaths: fileChanges.map(\.path)))
     }

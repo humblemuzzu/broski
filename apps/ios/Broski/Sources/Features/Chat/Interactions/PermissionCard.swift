@@ -29,9 +29,9 @@ struct PermissionCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.m) {
             Text(headline).font(.headline)
-            PermissionPreviews(request: request)
+            PermissionPreviews(request: request, toolName: interaction.origin?.toolName)
             if let reason = request.reason ?? interaction.body {
-                Text(reason).font(.subheadline).foregroundStyle(.secondary)
+                FormattedMessage(text: reason, role: .quiet)
             }
             if !request.grants.isEmpty { grantToggles }
             actions
@@ -122,17 +122,23 @@ struct PermissionCard: View {
     }
 }
 
-/// The exact thing being approved: never truncated, scrolling when long.
+/// The exact thing being approved: never truncated, scrolling when long; the call's arguments as
+/// the work fold shows them.
 private struct PermissionPreviews: View {
     let request: ToolPermissionRequest
+    let toolName: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.s) {
             ForEach(request.previews.indices, id: \.self) { index in
                 preview(request.previews[index])
             }
-            if let input = request.input {
-                CodeLines(text: input.argumentLines.joined(separator: "\n"))
+            let facts = ToolFacts(name: toolName ?? "", title: nil, input: request.input, hasChildSession: false, changedPaths: [])
+            let arguments = toolArguments(facts: facts)
+            if !arguments.isEmpty {
+                ToolArgumentsView(rows: arguments)
+                    .padding(Spacing.m)
+                    .background(Palette.codeBackground, in: .rect(cornerRadius: Radius.small + 4, style: .continuous))
             }
         }
     }
@@ -141,7 +147,7 @@ private struct PermissionPreviews: View {
     private func preview(_ preview: PermissionPreview) -> some View {
         switch preview {
         case .command(let command):
-            CodeLines(text: command.command, caption: command.cwd)
+            CodeLines(text: command.command, caption: command.cwd, isCommand: true)
         case .fileChanges(let files):
             ForEach(files.changes, id: \.path) { change in
                 NavigationLink(value: Route.toolDiff(change)) { FileChangeRow(change: change) }
@@ -155,18 +161,24 @@ private struct PermissionPreviews: View {
     }
 }
 
-/// Monospaced text exactly as written, wrapping, scrolling past a few lines.
+/// Monospaced text exactly as written, wrapping, scrolling past a few lines: a command coloured as
+/// shell, or paths and hosts with their links found.
 struct CodeLines: View {
     let text: String
     var caption: String?
+    var isCommand = false
+
+    /// Lines of a preview kept; what is approved is shown whole up to this.
+    private static let maxLines: UInt32 = 2_000
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xs) {
             ScrollView {
-                Text(text)
-                    .font(.codeSmall)
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                if isCommand {
+                    CommandLineView(command: text)
+                } else {
+                    LogLinesView(log: formatLog(text: text, maxLines: Self.maxLines, keep: .head), tint: .primary)
+                }
             }
             .frame(maxHeight: 160)
             .fixedSize(horizontal: false, vertical: true)

@@ -17,6 +17,7 @@ struct BroskiApp: App {
         WindowGroup {
             RootView()
                 .environment(model)
+                .readingSettings()
                 .preferredColorScheme(appearance.colorScheme)
                 .onAppear { appDelegate.push = model.push }
         }

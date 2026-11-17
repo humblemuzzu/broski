@@ -14,6 +14,8 @@ struct TextPage: Hashable {
     let title: String
     let text: String
     let format: Format
+    /// The machine and folder the text belongs to, so its paths open.
+    var context: FormatContext?
 }
 
 extension TextPage.Format {
@@ -26,11 +28,11 @@ extension TextPage.Format {
     }
 }
 
-/// The whole text on a screen of its own, drawn line by line as it scrolls into view, with a copy
-/// button in the bar.
+/// The whole text on a screen of its own: markdown formatted block by block, a log or plain text
+/// line by line with its links found, each drawn as it scrolls into view; a copy button in the bar.
 struct TextPageScreen: View {
     let page: TextPage
-    private let lines: [String]
+    private let lines: [Substring]
     private let blocks: [FormatBlock]
     @State private var copied = 0
 
@@ -40,7 +42,7 @@ struct TextPageScreen: View {
             lines = []
             blocks = FormatCache.shared.blocks(page.text, streaming: false)
         } else {
-            lines = page.text.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+            lines = page.text.split(separator: "\n", omittingEmptySubsequences: false)
             blocks = []
         }
     }
@@ -52,6 +54,7 @@ struct TextPageScreen: View {
                 .padding(.vertical, Spacing.m)
         }
         .defaultScrollAnchor(page.format == .log ? .bottom : .top, for: .initialOffset)
+        .environment(\.formatContext, page.context)
         .navigationTitle(page.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -72,17 +75,19 @@ struct TextPageScreen: View {
     @ViewBuilder
     private var content: some View {
         if page.format == .markdown {
-            LazyVStack(alignment: .leading, spacing: FormatRole.page.blockSpacing) {
-                ForEach(blocks, id: \.key) { FormatBlockView(block: $0).equatable() }
+            LazyVStack(alignment: .leading, spacing: 0) {
+                ForEach(blocks.indices, id: \.self) { index in
+                    let next = index + 1 < blocks.count ? blocks[index + 1].containers.map(\.id) : []
+                    FormatBlockView(block: blocks[index], next: next).equatable()
+                }
             }
+            .answerMenu(page.text)
         } else {
             LazyVStack(alignment: .leading, spacing: 0) {
                 ForEach(lines.indices, id: \.self) { index in
-                    Text(lines[index].isEmpty ? " " : lines[index])
-                        .font(page.format == .log ? .codeSmall : .body)
-                        .foregroundStyle(page.format == .log ? .secondary : .primary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .textSelection(.enabled)
+                    LogLinesView(
+                        log: formatLog(text: String(lines[index]), maxLines: 1, keep: .head),
+                        tint: page.format == .log ? .secondary : .primary, font: page.format == .log ? .codeSmall : .body)
                 }
             }
         }

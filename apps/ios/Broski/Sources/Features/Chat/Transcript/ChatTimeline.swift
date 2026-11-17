@@ -103,8 +103,9 @@ struct ChatTimeline {
         guard !blocks.isEmpty else { return }
         closeFold()
         for (index, block) in blocks.enumerated() {
+            let next = index + 1 < blocks.count ? blocks[index + 1].containers.map(\.id) : []
             let piece = TextPiece(
-                blockId: id, block: block, kind: kind, isStreaming: open && index == blocks.count - 1, isFirst: index == 0)
+                blockId: id, block: block, kind: kind, isStreaming: open && index == blocks.count - 1, isFirst: index == 0, next: next)
             append(.text(piece), id: "\(id)/\(block.key)")
         }
         turnHasText = true
@@ -176,12 +177,12 @@ nonisolated extension ChatRow {
         if case .text = content { true } else { false }
     }
 
-    /// The rhythm of the page: messages apart, an answer's paragraphs close, a list's items closer.
+    /// The rhythm of the page: messages apart, an answer's blocks spaced by the formatter itself.
     static func gap(between previous: Content?, and next: Content) -> CGFloat {
         guard let previous else { return 0 }
         switch (previous, next) {
         case (_, .user), (_, .pending): return 28
-        case (.text(let before), .text(let after)) where before.blockId == after.blockId: return 12
+        case (.text(let before), .text(let after)) where before.blockId == after.blockId: return 0
         case (_, .answerEnd): return 6
         case (.work, .work): return 2
         case (.activity, .activity): return 6

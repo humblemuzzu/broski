@@ -14,7 +14,7 @@ struct ChatRowView: View, Equatable {
     var body: some View {
         content
             .frame(maxWidth: .infinity, alignment: .leading)
-            .modifier(Arrival(isFresh: isFresh))
+            .modifier(Arrival(isFresh: isFresh, fadesOnly: row.isText))
             .padding(.top, row.gap)
     }
 
@@ -37,8 +37,9 @@ struct ChatRowView: View, Equatable {
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
                 }
-                FormatBlockView(block: piece.block).equatable()
+                FormatBlockView(block: piece.block, next: piece.next, streaming: piece.isStreaming).equatable()
             }
+            .answerMenu(rowId: row.id)
         case .answerEnd(let end):
             AnswerEndView(end: end)
         case .notice(let notice):
@@ -51,19 +52,29 @@ struct ChatRowView: View, Equatable {
     }
 }
 
+/// A new row rises in; a new block of the agent's text only fades in, briefly; with Reduce Motion
+/// text just appears.
 private struct Arrival: ViewModifier {
     let isFresh: Bool
+    let fadesOnly: Bool
     @State private var arrived = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func body(content: Content) -> some View {
+        let hidden = isFresh && !arrived && !(fadesOnly && reduceMotion)
         content
-            .opacity(isFresh && !arrived ? 0 : 1)
-            .offset(y: isFresh && !arrived && !reduceMotion ? 8 : 0)
+            .opacity(hidden ? 0 : 1)
+            .offset(y: hidden && !fadesOnly && !reduceMotion ? 8 : 0)
             .onAppear {
                 guard isFresh, !arrived else { return }
-                withAnimation(.easeOut(duration: 0.22)) { arrived = true }
+                withAnimation(.easeOut(duration: fadesOnly ? FormatTokens.arrival : 0.22)) { arrived = true }
             }
+    }
+}
+
+nonisolated extension ChatRow {
+    var isText: Bool {
+        if case .text = content { true } else { false }
     }
 }
 

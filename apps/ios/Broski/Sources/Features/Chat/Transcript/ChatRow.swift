@@ -22,11 +22,12 @@ nonisolated struct ChatRow: Identifiable, Equatable {
     /// Space above the row, from what comes before it.
     var gap: CGFloat = 0
 
-    /// A row that rises in when a live run adds it; the agent's text just appears, block by block.
+    /// A row that arrives in view when a live run adds it: most rise in, a block of the agent's
+    /// text fades in (`ChatRowView`), the line under an answer just appears.
     var risesIn: Bool {
         switch content {
-        case .user, .pending, .work, .notice, .activity, .marker: true
-        case .text, .answerEnd: false
+        case .user, .pending, .work, .notice, .activity, .marker, .text: true
+        case .answerEnd: false
         }
     }
 
@@ -55,6 +56,8 @@ nonisolated struct TextPiece: Equatable {
     let isStreaming: Bool
     /// The first block of its text, where a plan shows its label.
     let isFirst: Bool
+    /// The containers of the block after it, where a quote's bar or a callout's card ends.
+    var next: [UInt32] = []
 }
 
 /// Under a finished answer: its time, and the answer's text to copy.

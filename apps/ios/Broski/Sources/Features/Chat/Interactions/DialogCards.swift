@@ -105,7 +105,7 @@ struct DialogCard: View {
                     Button { send(.choice(ChoiceReply(value: option.value))) } label: {
                         VStack(spacing: Spacing.xxs) {
                             Text(option.label).font(.subheadline.weight(.semibold))
-                            if let description = option.description { Text(description).font(.caption) }
+                            if let description = option.description { FormattedMessage(text: description, role: .quiet) }
                         }
                         .frame(maxWidth: .infinity)
                     }

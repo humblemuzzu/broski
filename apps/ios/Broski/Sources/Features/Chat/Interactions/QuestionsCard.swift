@@ -45,7 +45,7 @@ private struct QuestionView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.s) {
-            Text(question.text).font(.headline)
+            FormattedMessage(text: question.text)
             if !question.options.isEmpty {
                 Text(question.multiSelect ? "Pick any" : "Pick one")
                     .font(.caption)
@@ -71,7 +71,7 @@ private struct QuestionView: View {
                 VStack(alignment: .leading, spacing: Spacing.xxs) {
                     Text(option.label).font(.subheadline.weight(.medium))
                     if let description = option.description {
-                        Text(description).font(.footnote).foregroundStyle(.secondary)
+                        FormattedMessage(text: description, role: .quiet)
                     }
                 }
                 Spacer(minLength: 0)

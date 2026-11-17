@@ -3,9 +3,11 @@ import SwiftUI
 
 /// What a call's result shows in place of its text when its tool has a view of its own: the
 /// agent's task list as a checklist, the pages a search found as links, the files a search found,
-/// each opening in Files.
+/// each opening in Files, a report formatted, a read file's numbered lines.
 struct ToolDisplayView: View {
     let display: ToolDisplay
+    /// The call's one line, for the page a long report opens on.
+    var title = "Report"
 
     /// Files listed in place; the rest are counted.
     static let shownFiles = 20
@@ -15,6 +17,9 @@ struct ToolDisplayView: View {
         case .todos(let todos): TodoList(items: todos.items)
         case .links(let links): LinkList(items: links.items)
         case .files(let files): FileList(paths: files.paths, total: files.total)
+        case .markdown(let report): ReportBody(text: report.text, title: title)
+        case .fileText(let file):
+            FileTextBody(path: file.path, language: nil, firstLine: Int(file.firstLine), text: file.text, note: file.note)
         }
     }
 }
@@ -27,10 +32,8 @@ private struct TodoList: View {
             ForEach(items.indices, id: \.self) { index in
                 let item = items[index]
                 Label {
-                    Text(item.text)
-                        .strikethrough(item.status == .completed)
-                        .foregroundStyle(item.status == .completed ? .secondary : .primary)
-                        .fontWeight(item.status == .inProgress ? .semibold : .regular)
+                    FormattedMessage(text: item.text, role: .quiet)
+                        .opacity(item.status == .completed ? 0.6 : 1)
                 } icon: {
                     Image(systemName: item.status.symbol)
                         .foregroundStyle(item.status == .inProgress ? Palette.working : .secondary)

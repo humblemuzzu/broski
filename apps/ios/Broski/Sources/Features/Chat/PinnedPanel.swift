@@ -81,12 +81,15 @@ private struct ViewEndCard: View {
 private struct NoticeCard: View {
     let notice: ChatNotice
     let dismiss: () -> Void
+    static let messageHeight: CGFloat = 84
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: Spacing.s) {
             Image(systemName: symbol).foregroundStyle(tint).accessibilityHidden(true)
             VStack(alignment: .leading, spacing: Spacing.xxs) {
-                Text(notice.message).font(.footnote).lineLimit(4)
+                FormattedMessage(text: notice.message, role: .quiet)
+                    .frame(maxHeight: Self.messageHeight, alignment: .top)
+                    .clipped()
                 if let detail = notice.detail {
                     Text(detail).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(3).textSelection(.enabled)
                 }

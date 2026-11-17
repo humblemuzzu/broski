@@ -32,6 +32,7 @@ struct TranscriptView: View {
             }
             .scrollTargetLayout()
         }
+        .environment(\.answerSource, AnswerSource { [chat] rowId in Self.answer(containing: rowId, in: chat) })
         .contentMargins(.horizontal, Spacing.l + Spacing.xs, for: .scrollContent)
         .contentMargins(.vertical, Spacing.m, for: .scrollContent)
         .scrollPosition($position)
@@ -104,6 +105,19 @@ struct TranscriptView: View {
 
 /// What a chat shows while its newest page is still on its way: a slow link must not read as an
 /// empty conversation.
+extension TranscriptView {
+    /// The whole answer the row with `rowId` is part of: the text of the line under it.
+    static func answer(containing rowId: String, in chat: ChatModel) -> String? {
+        let rows = chat.historyRows + chat.liveRows
+        guard let start = rows.firstIndex(where: { $0.id == rowId }) else { return nil }
+        for row in rows[start...] {
+            if case .answerEnd(let end) = row.content { return end.text }
+            if case .user = row.content { return nil }
+        }
+        return nil
+    }
+}
+
 private struct LoadingConversation: View {
     let connection: String?
 

@@ -4,7 +4,8 @@ import SwiftUI
 /// A screen of one machine's workspace, pushed as `Route.workspace(machineId:place:)`.
 enum WorkspacePlace: Hashable {
     case folder(String)
-    case file(String)
+    /// A file, scrolled to `line` when one is given.
+    case file(String, line: Int? = nil)
     case git(cwd: String)
     case diff(cwd: String, path: String, staged: Bool)
     case branches(cwd: String)
@@ -48,8 +49,8 @@ struct WorkspaceDestination: View {
         switch place {
         case .folder(let path):
             FolderScreen(machineId: machineId, path: path, requests: requests)
-        case .file(let path):
-            FileScreen(path: path, requests: requests)
+        case .file(let path, let line):
+            FileScreen(path: path, line: line, requests: requests)
         case .git(let cwd):
             GitScreen(machineId: machineId, cwd: cwd, requests: requests)
         case .diff(let cwd, let path, let staged):

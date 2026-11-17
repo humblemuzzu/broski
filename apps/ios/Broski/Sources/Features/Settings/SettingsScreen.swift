@@ -30,12 +30,17 @@ struct SettingsScreen: View {
                 }
                 Section {
                     NavigationLink {
+                        ReadingSettingsScreen()
+                    } label: {
+                        Label("Reading", systemImage: "textformat.size")
+                    }
+                    NavigationLink {
                         FormattingGalleryScreen()
                     } label: {
                         Label("Formatting", systemImage: "textformat")
                     }
                 } footer: {
-                    Text("Every kind of text an agent writes, as the chat draws it.")
+                    Text("How agents' text reads, and every kind of text an agent writes as the chat draws it.")
                 }
                 about
             }

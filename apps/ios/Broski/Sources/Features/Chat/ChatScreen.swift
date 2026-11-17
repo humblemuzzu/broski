@@ -66,6 +66,7 @@ private struct ChatContent: View {
             .toolbarVisibility(.hidden, for: .tabBar)
             .environment(disclosure)
             .environment(\.chatMachineId, machine.id)
+            .environment(\.formatContext, FormatContext(machineId: machine.id, cwd: cwd))
             .environment(\.loadAttachment, AttachmentLoader { await chat.image($0) })
             .sensoryFeedback(trigger: chat.feedback) { _, feedback in feedback?.moment.feedback }
             .onAppear { chat.start() }
