@@ -40,7 +40,7 @@ async function started(start: readonly unknown[] = [], options: { clock?: FakeCl
 		dir: world.dir,
 		spec: world.spec(start, options.cliPath),
 		...(options.clock && { clock: options.clock }),
-		maxBacklogBytes: 1024 * 1024,
+		backlog: { soft: 1024 * 1024, hard: 64 * 1024 * 1024, graceMs: 1_000 },
 		watchMs: 50,
 	});
 	holders.push(holder);
@@ -120,12 +120,13 @@ describe("a bridge that attaches", () => {
 });
 
 describe("pi", () => {
-	test("is read without pause while its bridge reads nothing, and a bridge too far behind is dropped", async () => {
+	test("is read without pause while its bridge reads nothing, and a bridge that stays behind is dropped", async () => {
 		const { world } = await started();
 		const stalled = await attach(world.dir);
 		stalled.socket.pause();
 		stalled.send(`${JSON.stringify({ type: "flood", count: 2_000, bytes: 4_096 })}\n`);
 		await eventually(() => existsSync(join(world.piDir, "flooded")), "pi to write 8 MB nobody reads");
+		await Bun.sleep(1_500);
 		stalled.socket.resume();
 		await stalled.until((client) => client.closed, "the stalled bridge to be dropped");
 		const after = stalled.records().filter((record) => record.type === "flooded" || record.holder === "replaced");
@@ -133,6 +134,15 @@ describe("pi", () => {
 		const next = await attach(world.dir);
 		expect(next.replay().filter((record) => record.type === "message_update")).toHaveLength(2_000);
 		expect(next.replay().at(-1)).toEqual({ type: "flooded" });
+	});
+
+	test("records each larger than the backlog bound all reach a bridge that keeps up, which stays attached", async () => {
+		const { world } = await started();
+		const reader = await attach(world.dir);
+		reader.send(`${JSON.stringify({ type: "flood", count: 4, bytes: 3 * 1024 * 1024 })}\n`);
+		await eventually(() => reader.closed || reader.lines.some((line) => line === '{"type":"flooded"}'), "the flood");
+		expect(reader.closed).toBe(false);
+		expect(reader.lines.filter((line) => line.startsWith('{"type":"message_update"'))).toHaveLength(4);
 	});
 
 	test("asked to stop gets stdin's end and exits; the holder tells its bridge and removes its directory", async () => {

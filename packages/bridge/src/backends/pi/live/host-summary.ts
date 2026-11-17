@@ -51,6 +51,17 @@ function titleOf(facts: HostedFacts): SessionSummary["title"] {
 	return prompt ? { text: clipStart(prompt, MAX_NAME_CHARS), source: "first_prompt" } : undefined;
 }
 
+/** Nothing the snapshot holds keeps the session busy: no ask, queued input, compaction, retry or background task. */
+export function quietSnapshot(snapshot: SessionSnapshot): boolean {
+	return (
+		snapshot.interactions.length === 0 &&
+		snapshot.queue.length === 0 &&
+		snapshot.compaction === undefined &&
+		snapshot.retry === undefined &&
+		snapshot.backgroundTasks.length === 0
+	);
+}
+
 /** What the store lays over a hosted session's row: its status and model, and the cut while a run is active. */
 export function liveRowOf(snapshot: SessionSnapshot, cut: TranscriptCut | undefined): LiveRow {
 	return {

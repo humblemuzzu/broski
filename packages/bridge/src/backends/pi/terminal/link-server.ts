@@ -90,6 +90,11 @@ export class TerminalLinkServer {
 		}
 	}
 
+	/** The bridge's own `pi` started or stopped running `sessionId`. */
+	hosted(sessionId: string, running: boolean): void {
+		for (const connection of this.connections) connection.hosted(sessionId, running);
+	}
+
 	private accept(socket: Socket): void {
 		if (this.connections.size >= MAX_CONNECTIONS) {
 			socket.destroy();

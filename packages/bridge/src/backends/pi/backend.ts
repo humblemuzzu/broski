@@ -71,6 +71,7 @@ export function createPiParts(host: BackendHost, options: PiBackendOptions): PiP
 		catalog,
 		now: Date.now,
 		...(options.maxHosted !== undefined && { maxHosted: options.maxHosted }),
+		busyChanged: (sessionId, busy) => terminal.hosted(sessionId, busy),
 	});
 	/** A session a terminal runs shows its run in the list. Not before it has a file: a store asked for an id no file holds keeps saying so for a while. */
 	const announce = (sessionId: string, path: string): void => {

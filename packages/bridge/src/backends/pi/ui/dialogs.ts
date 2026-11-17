@@ -9,6 +9,7 @@ import { type PermissionVerdict, permissionAskOf, verdictText } from "../host/pr
 import { noticeEvent } from "../live/live-notes";
 import type { LiveState } from "../live/live-state";
 import { TASKS_KEY, tasksOfStatus } from "../mapping/background-tasks";
+import { phoneName } from "../phone-text";
 import type { DialogRequest, UiRequest } from "../rpc/frames";
 import { CANCELLED, type DialogAnswer, raisedAs } from "./dialog-asks";
 import type { InteractionDesk } from "./interactions";
@@ -20,6 +21,35 @@ export interface DialogHost extends Omit<PermissionHost, "reply"> {
 	readonly live: LiveState;
 	readonly desk: InteractionDesk;
 	answer(id: string, answer: DialogAnswer): void;
+}
+
+/** Where a hosted session is in its start, which decides what becomes of a UI request. */
+export interface DialogMoment {
+	readonly started: boolean;
+	/** The host took a running `pi` over from its holder, whose extensions started long ago. */
+	readonly adopted: boolean;
+	/** The holder replays what an earlier bridge read: its notices were shown then. */
+	readonly replaying: boolean;
+}
+
+/**
+ * A request in its moment: handled, dropped, or, for a dialog asked while the session starts, refused with why, since Pi
+ * takes no answer before its extensions have started (pi-coding-agent 1.5.2 `dist/modes/rpc/rpc-mode.js:305,669`).
+ */
+export function routeUiRequest(
+	request: UiRequest,
+	moment: DialogMoment,
+	host: DialogHost,
+	refuse: (why: string) => void,
+): void {
+	if (moment.adopted && moment.replaying && request.method === "notify") return;
+	if (moment.started || moment.adopted || request.method === "notify" || request.method === "setStatus") {
+		void handleUiRequest(request, host);
+		return;
+	}
+	refuse(
+		`an extension asked "${phoneName(request.title)}" while the session started, and Pi takes no answer until it has started`,
+	);
 }
 
 /**

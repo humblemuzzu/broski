@@ -10,6 +10,7 @@ import { chmodSync, existsSync, mkdirSync, renameSync, rmSync, unlinkSync, write
 import { createServer, type Server, type Socket } from "node:net";
 import { PiProcess } from "../rpc/child";
 import type { JsonlItem } from "../rpc/jsonl";
+import { BACKLOG_LIMITS, type BacklogLimits, BacklogWatch } from "./backlog";
 import { ORPHAN_LIMITS, type OrphanLimits, orphanDeadline } from "./orphan-policy";
 import {
 	controlLine,
@@ -37,12 +38,6 @@ const REAL_CLOCK: HolderClock = {
 	},
 };
 
-/**
- * Past this much unsent to a bridge beyond its replay, the bridge is dropped and must attach again: `pi` is never made
- * to wait.
- */
-const MAX_BACKLOG_BYTES = 16 * 1024 * 1024;
-
 export interface HolderOptions {
 	readonly dir: string;
 	readonly spec: HolderSpec;
@@ -52,7 +47,8 @@ export interface HolderOptions {
 	readonly lingerMs?: number;
 	/** How often the holder looks for its own directory. */
 	readonly watchMs?: number;
-	readonly maxBacklogBytes?: number;
+	/** When a bridge that has fallen behind is dropped (`backlog.ts`). */
+	readonly backlog?: BacklogLimits;
 }
 
 export class Holder {
@@ -63,8 +59,7 @@ export class Holder {
 	private readonly finished = Promise.withResolvers<void>();
 	private pi: PiProcess | undefined;
 	private client: Socket | undefined;
-	/** What was unsent to the client once its replay was written. */
-	private replayBacklog = 0;
+	private backlog: BacklogWatch | undefined;
 	private everAttached = false;
 	private exit: ExitFrame | undefined;
 	private orphanedAt: number;
@@ -155,7 +150,8 @@ export class Holder {
 		socket.write(controlLine({ ...hello, replayed: lines.length, truncated }));
 		for (const line of lines) socket.write(`${line}\n`);
 		socket.write(controlLine({ holder: "live" }));
-		this.replayBacklog = socket.writableLength;
+		this.backlog?.stop();
+		this.backlog = new BacklogWatch(socket, this.clock, this.options.backlog ?? BACKLOG_LIMITS, () => socket.destroy());
 		socket.setEncoding("utf8");
 		let partial = "";
 		socket.on("data", (chunk: string) => {
@@ -165,6 +161,8 @@ export class Holder {
 		socket.on("close", () => {
 			if (this.client !== socket) return;
 			this.client = undefined;
+			this.backlog?.stop();
+			this.backlog = undefined;
 			this.orphanedAt = this.clock.now();
 			this.review();
 		});
@@ -211,9 +209,7 @@ export class Holder {
 	private send(socket: Socket, data: string): void {
 		if (socket.destroyed) return;
 		socket.write(data);
-		const allowed =
-			(this.options.maxBacklogBytes ?? MAX_BACKLOG_BYTES) + (socket === this.client ? this.replayBacklog : 0);
-		if (socket.writableLength > allowed) socket.destroy();
+		if (socket === this.client) this.backlog?.wrote();
 	}
 
 	private piEnded(exit: ExitFrame): void {
@@ -269,6 +265,7 @@ export class Holder {
 		this.ending = true;
 		this.cancelOrphan?.();
 		clearInterval(this.watch);
+		this.backlog?.stop();
 		this.client?.destroy();
 		this.server.close();
 		rmSync(this.options.dir, { recursive: true, force: true });

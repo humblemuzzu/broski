@@ -214,6 +214,8 @@ export type Command = z.infer<typeof Command>;
 
 export const BridgeFrame = z.discriminatedUnion("t", [
 	z.strictObject({ t: z.literal("welcome"), running: z.boolean() }),
+	/** The bridge's own `pi` started or stopped running the session the terminal has open; an older extension ignores it. */
+	z.strictObject({ t: z.literal("hosted"), running: z.boolean() }),
 	z.strictObject({ t: z.literal("command"), id: Id, command: Command }),
 ]);
 export type BridgeFrame = z.infer<typeof BridgeFrame>;

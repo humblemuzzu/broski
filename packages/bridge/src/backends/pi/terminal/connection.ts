@@ -58,6 +58,11 @@ export class TerminalConnection {
 		socket.on("close", () => this.drop());
 	}
 
+	/** The bridge's own `pi` started or stopped running `sessionId`: a terminal that has it open is told. */
+	hosted(sessionId: string, running: boolean): void {
+		if (!this.closed && this.identity?.id === sessionId) this.write({ t: "hosted", running });
+	}
+
 	/** The terminal said `bye`, broke a rule, or the bridge stops: its session ends now. */
 	close(): void {
 		if (!this.shut(GONE)) return;

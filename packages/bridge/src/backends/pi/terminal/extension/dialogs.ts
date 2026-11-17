@@ -18,16 +18,17 @@ interface Open {
 
 export class RemoteDialogs {
 	private readonly open = new Map<string, Open>();
-	private readonly watched = new WeakSet<object>();
+	/** Pi's own `select` of each `ui` this mirrors, which asks in the terminal alone. */
+	private readonly local = new WeakMap<object, ExtensionUIContext["select"]>();
 	private next = 0;
 
 	constructor(private readonly post: (event: Frame) => void) {}
 
 	/** Mirrors the dialogs of `ui`; a second call for the same object changes nothing. */
 	watch(ui: ExtensionUIContext): void {
-		if (this.watched.has(ui)) return;
-		this.watched.add(ui);
+		if (this.local.has(ui)) return;
 		const { select, confirm, input } = ui;
+		this.local.set(ui, select);
 		ui.select = (title, options, opts) =>
 			this.race(
 				{
@@ -68,6 +69,11 @@ export class RemoteDialogs {
 				},
 				undefined,
 			);
+	}
+
+	/** Asks in the terminal only: a question about the terminal itself, which the phone has no part in. */
+	askHere(ui: ExtensionUIContext, title: string, options: string[]): Promise<string | undefined> {
+		return (this.local.get(ui) ?? ui.select)(title, options);
 	}
 
 	/**

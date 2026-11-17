@@ -62,6 +62,7 @@ export class SessionView implements OpenSession {
 	private closed = false;
 	private readonly stopWatching: () => void;
 	private reviving: Promise<Rejected | undefined> | undefined;
+	private givingWay = false;
 	private readonly hostedControl: SessionControl = {
 		prompt: (input) => this.onHost((control) => control.prompt(input)),
 		abort: () => this.onLiveHost((control) => control.abort()),
@@ -118,6 +119,17 @@ export class SessionView implements OpenSession {
 	): Promise<T | Rejected> {
 		const control = this.mode.kind === "hosted" && !this.closed ? this.mode.view.control : undefined;
 		return control === undefined ? CLOSED : call(control);
+	}
+
+	/**
+	 * The host's session changed. A terminal that opened it while the host was busy was told not to type in it; once the
+	 * host is idle the terminal takes the session, as it would have had the host been idle when it opened it.
+	 */
+	hostChanged(): void {
+		const mode = this.mode;
+		if (this.closed || mode.kind !== "hosted") return;
+		const session = this.deps.terminals.session(this.deps.path);
+		if (session && mode.idle()) void this.giveWayTo(session, mode);
 	}
 
 	/** The session's host ended and another took over: the view follows it now, not at the phone's next action. */
@@ -179,7 +191,13 @@ export class SessionView implements OpenSession {
 
 	/** Closing the host's view lets the idle host end; the terminal's file is then the only one that moves. */
 	private async giveWayTo(session: TerminalSession, hosted: Extract<Mode, { kind: "hosted" }>): Promise<void> {
-		await hosted.view.close();
+		if (this.givingWay) return;
+		this.givingWay = true;
+		try {
+			await hosted.view.close();
+		} finally {
+			this.givingWay = false;
+		}
 		if (this.closed || this.mode !== hosted) return;
 		this.mode = this.terminalMode(session);
 		this.replaced();

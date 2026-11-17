@@ -19,6 +19,8 @@ export interface HostEnvironment {
 	readonly forget: (host: SessionHost) => void;
 	/** The host lost its `pi` to nobody: its holder may still be there to take over again. */
 	readonly lost: (host: SessionHost) => void;
+	/** An event changed the ready host's session: whether it is busy, and whether a terminal waiting for it may take it. */
+	readonly changed: (host: SessionHost) => void;
 }
 
 /** A `pi` this bridge takes over from its holder, which replays what it said since the session was last at rest. */

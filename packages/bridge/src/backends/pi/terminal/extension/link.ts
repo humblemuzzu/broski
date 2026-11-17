@@ -2,11 +2,11 @@ import { readFileSync } from "node:fs";
 import { createConnection, type Socket } from "node:net";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext, InputEventResult } from "@earendil-works/pi-coding-agent";
 import { RemoteDialogs } from "./dialogs";
 import { type Frame, type Json, MAX_TEXT, read } from "./projection";
 
-const VERSION = "3";
+const VERSION = "4";
 const LINK_VERSION = 1;
 const MAX_QUEUED_BYTES = 2 * 1024 * 1024;
 const MAX_LINE_BYTES = 1024 * 1024;
@@ -14,6 +14,10 @@ const MAX_INBOUND_BYTES = 8 * 1024 * 1024;
 /** A local socket: a failed try costs a file read and a refused connect, so the wait never grows past 5 s. */
 const RETRY_MS = [500, 1_000, 2_000, 3_000, 5_000];
 const RUNNING_NOTICE = "Broski: the app on your phone is running this session. Don't type here until it is done.";
+const TYPED_WHILE_RUNNING =
+	"Broski: the app on your phone is running this session. A message sent here now would split it in two.";
+const KEEP_TYPED = "Don't send it (it stays in the editor)";
+const SEND_TYPED = "Send it anyway";
 
 interface OpenBlock {
 	kind: "text" | "thinking";
@@ -39,6 +43,11 @@ export class Link {
 	private blocked = false;
 	private dirty = false;
 	private running = false;
+	/**
+	 * The bridge's own `pi` runs this session, as the bridge last said (`welcome`, `hosted`). Kept when the bridge goes:
+	 * the bridge's `pi` outlives it.
+	 */
+	private phoneRunning = false;
 	private readonly blocks = new Map<number, OpenBlock>();
 	private readonly tools = new Map<string, { name: string; args: Json }>();
 	/** The background tasks extensions announced last (`broski:tasks`), which a snapshot carries. */
@@ -77,6 +86,18 @@ export class Link {
 		this.ctx = ctx;
 		this.track(event);
 		if (this.socket) this.send({ t: "event", event });
+	}
+
+	/**
+	 * What the user typed here, while the bridge's own `pi` runs the session: it would be a second writer of the file,
+	 * whose lines Pi here never reads. The user decides; kept, the text goes back into the editor.
+	 */
+	async typed(ctx: ExtensionContext, text: string): Promise<InputEventResult> {
+		if (!this.phoneRunning || ctx.mode !== "tui") return { action: "continue" };
+		const choice = await this.dialogs.askHere(ctx.ui, TYPED_WHILE_RUNNING, [KEEP_TYPED, SEND_TYPED]);
+		if (choice === SEND_TYPED) return { action: "continue" };
+		ctx.ui.setEditorText(text);
+		return { action: "handled" };
 	}
 
 	/** An extension announced its background tasks on Pi's event bus. */
@@ -270,7 +291,10 @@ export class Link {
 			this.queuedBytes = 0;
 			this.dirty = false;
 			this.flush();
-			if (read(frame, "running") === true) this.ctx?.ui.notify(RUNNING_NOTICE, "warning");
+			this.phoneRunning = read(frame, "running") === true;
+			if (this.phoneRunning) this.ctx?.ui.notify(RUNNING_NOTICE, "warning");
+		} else if (type === "hosted" && this.welcomed && this.socket === socket) {
+			this.phoneRunning = read(frame, "running") === true;
 		} else if (type === "command" && this.welcomed && this.socket === socket) {
 			const id = String(read(frame, "id"));
 			this.send({ t: "result", id, answer: this.run(read(frame, "command")) });

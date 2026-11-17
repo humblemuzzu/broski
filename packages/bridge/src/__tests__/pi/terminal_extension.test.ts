@@ -23,6 +23,11 @@ const STREAM = (type: string, contentIndex: number, extra: object = {}) => ({
 interface Terminal {
 	readonly link: Link;
 	readonly notices: string[];
+	/** The titles the terminal's own `select` was asked, and what each answers. */
+	readonly asked: string[];
+	choose: (options: readonly string[]) => string | undefined;
+	/** What was put back into the terminal's editor. */
+	readonly editor: string[];
 	ctx(mode?: string): ExtensionContext;
 	/** Emits `event`, with Pi's idle flag as Pi keeps it: busy from a run's start until it settles. */
 	emit(event: Parameters<Link["emit"]>[1]): void;
@@ -30,6 +35,8 @@ interface Terminal {
 
 function terminal(): Terminal {
 	const notices: string[] = [];
+	const asked: string[] = [];
+	const editor: string[] = [];
 	let idle = true;
 	const pi = { getThinkingLevel: () => "off", sendUserMessage: () => {} } as unknown as ExtensionAPI;
 	const ctx = (mode = "tui"): ExtensionContext =>
@@ -39,7 +46,16 @@ function terminal(): Terminal {
 			isIdle: () => idle,
 			abort: () => {},
 			model: undefined,
-			ui: { notify: (text: string) => notices.push(text) },
+			ui: {
+				notify: (text: string) => notices.push(text),
+				select: async (title: string, options: string[]) => {
+					asked.push(title);
+					return shown.choose(options);
+				},
+				confirm: async () => false,
+				input: async () => undefined,
+				setEditorText: (text: string) => editor.push(text),
+			},
 			sessionManager: {
 				getSessionFile: () => "/work/session.jsonl",
 				getSessionId: () => "terminal-session",
@@ -48,9 +64,12 @@ function terminal(): Terminal {
 			},
 		}) as unknown as ExtensionContext;
 	const link = new Link(pi);
-	return {
+	const shown: Terminal = {
 		link,
 		notices,
+		asked,
+		choose: () => undefined,
+		editor,
 		ctx,
 		emit: (event) => {
 			if (event.e === "agent_start") idle = false;
@@ -58,6 +77,7 @@ function terminal(): Terminal {
 			link.emit(ctx(), event);
 		},
 	};
+	return shown;
 }
 
 let directory: string;
@@ -84,7 +104,7 @@ async function bridge(busy = false): Promise<TerminalRegistry> {
 async function bridgeIn(
 	where: string,
 	busy = false,
-): Promise<{ registry: TerminalRegistry; stop: () => Promise<void> }> {
+): Promise<{ registry: TerminalRegistry; server: TerminalLinkServer; stop: () => Promise<void> }> {
 	const registry = new TerminalRegistry();
 	const server = new TerminalLinkServer({
 		directory: where,
@@ -95,7 +115,7 @@ async function bridgeIn(
 	});
 	await server.start();
 	stops.push(() => server.stop());
-	return { registry, stop: () => server.stop() };
+	return { registry, server, stop: () => server.stop() };
 }
 
 /**
@@ -208,6 +228,32 @@ describe("with a bridge", () => {
 		expect(running.notices).toHaveLength(1);
 		expect(running.notices[0]).toContain("phone");
 		running.link.end("quit");
+	});
+
+	test("typing in a session the bridge runs asks in the terminal alone; kept, the text goes back; once the run ends, nothing is asked", async () => {
+		const t = terminal();
+		const { registry, server } = await bridgeIn(directory, true);
+		const ctx = t.ctx();
+		t.link.begin(ctx);
+		const session = await held(registry);
+		const phone = viewed(session);
+		await until(() => t.notices.length > 0);
+
+		t.choose = (options) => options[0];
+		expect(await t.link.typed(ctx, "what happened?")).toEqual({ action: "handled" });
+		expect(t.asked).toHaveLength(1);
+		expect(t.asked[0]).toContain("split it in two");
+		expect(t.editor).toEqual(["what happened?"]);
+
+		t.choose = (options) => options[1];
+		expect(await t.link.typed(ctx, "send it")).toEqual({ action: "continue" });
+		expect(phone.some((event) => event.type === "interaction_requested")).toBe(false);
+
+		server.hosted("terminal-session", false);
+		await until(() => Reflect.get(t.link, "phoneRunning") === false);
+		expect(await t.link.typed(ctx, "now it is mine")).toEqual({ action: "continue" });
+		expect(t.asked).toHaveLength(2);
+		t.link.end("quit");
 	});
 
 	test("a session nobody runs here gets no warning", async () => {

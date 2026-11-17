@@ -5,9 +5,9 @@
 
 import { existsSync } from "node:fs";
 import type { Rejected, SessionId } from "../../../contract";
-import { removeStale } from "../holder/holders";
+import { holderDirs, readMeta, removeStale } from "../holder/holders";
 import { HolderLink, type HolderSetup } from "../holder/link";
-import { type HelloFrame, HOLDER_VERSION, holderDirOf } from "../holder/protocol";
+import { type HelloFrame, HOLDER_VERSION, type HolderMeta, holderDirOf } from "../holder/protocol";
 import { ensureHostExtension } from "../host/install";
 import { childEnv, type PiInstall } from "../pi-install";
 import type { SessionStore } from "../ports";
@@ -58,6 +58,18 @@ export async function launchedStart(
 	});
 	if (typeof launched === "string") return rejected("backend_error", `the session could not be started: ${launched}`);
 	return { ...target, ...rest, transport: (sink) => launched.link.start(sink) };
+}
+
+/** Every holder an earlier bridge left: its session `adopt`ed, or, when this bridge cannot read it, stopped. */
+export async function adoptLeftHolders(root: string, adopt: (meta: HolderMeta) => Promise<void>): Promise<void> {
+	const adoptions = holderDirs(root).map(async (dir) => {
+		const meta = readMeta(dir);
+		if (meta !== undefined) return adopt(meta);
+		const attached = await HolderLink.connect(dir);
+		if (attached === "absent") removeStale(dir);
+		else if (typeof attached !== "string") await attached.link.stop();
+	});
+	await Promise.all(adoptions.map((adoption) => adoption.catch(() => undefined)));
 }
 
 /**

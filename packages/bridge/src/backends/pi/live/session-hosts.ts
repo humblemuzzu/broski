@@ -17,8 +17,7 @@ import type {
 } from "../../../contract";
 import type { CatalogFeed } from "../catalog-feed";
 import { errorText } from "../error-text";
-import { holderDirs, readMeta, removeStale } from "../holder/holders";
-import { HolderLink, type HolderSetup } from "../holder/link";
+import type { HolderSetup } from "../holder/link";
 import { type ChildSessionPart, parseChildSessionId } from "../ids";
 import { isDirectory } from "../is-directory";
 import type { ModelCatalogue } from "../models/catalogue";
@@ -27,12 +26,14 @@ import type { LiveOverlay, LiveRow, SessionStore, StoredSession } from "../ports
 import { CLOSED, rejected } from "../rejections";
 import { sessionName } from "../session-name";
 import type { TerminalRegistry } from "../terminal/registry";
-import { leastRecentlyUsedIdle, MAX_HOSTED_SESSIONS } from "./host-capacity";
+import { BusyReport } from "./busy-report";
+import { MAX_HOSTED_SESSIONS, makeRoom } from "./host-capacity";
 import type { HostEnvironment, HostStart } from "./host-environment";
-import { adoptedStart, attachHolder, launchedStart, type Target } from "./host-starts";
+import { adoptedStart, adoptLeftHolders, attachHolder, launchedStart, type Target } from "./host-starts";
 import { factsOf } from "./hosted-session";
 import { type NewSessionRegistry, openNewSession } from "./open-new";
 import { openSessionView } from "./open-session";
+import { RECONNECTING, reattachLost } from "./reattach";
 import { SessionHost } from "./session-host";
 import { SessionLocks } from "./session-lock";
 import { type HostedPart, SessionView, type SessionViewDeps, watchedSnapshot } from "./session-view";
@@ -49,6 +50,8 @@ export interface SessionHostsDeps {
 	readonly now: () => number;
 	/** How many `pi` processes may be hosted at once; `MAX_HOSTED_SESSIONS` when not given. */
 	readonly maxHosted?: number;
+	/** `isBusy(sessionId)` changed, for a terminal that has the session open (`terminal/`). */
+	readonly busyChanged?: (sessionId: SessionId, busy: boolean) => void;
 }
 
 /** A hosted session's write, or the store's when nobody hosts it; both under the session lock. */
@@ -56,8 +59,15 @@ export type StoredWrite = (name: string) => Promise<ActionResult>;
 
 export class SessionHosts implements LiveOverlay {
 	private readonly hosts = new Map<SessionId, SessionHost>();
+	/**
+	 * Hosts that lost their holder's socket while `pi` ran on, by session, until the holder is taken over again or that
+	 * fails (`reattach.ts`). They are out of `hosts`, so nothing reaches them as a running host, but they still show the
+	 * session as busy and keep its file from other writers.
+	 */
+	private readonly reattaching = new Map<SessionId, SessionHost>();
 	/** The views the core holds now, by session. */
 	private readonly views = new Map<SessionId, SessionView>();
+	private readonly busy: BusyReport;
 	private readonly locks = new SessionLocks();
 	private readonly env: HostEnvironment;
 	private disposing: Promise<void> | undefined;
@@ -68,6 +78,7 @@ export class SessionHosts implements LiveOverlay {
 	private readonly adopting: Promise<void>;
 
 	constructor(private readonly deps: SessionHostsDeps) {
+		this.busy = new BusyReport((sessionId) => this.isBusy(sessionId), deps.busyChanged);
 		this.env = {
 			models: deps.models,
 			catalog: deps.catalog,
@@ -76,10 +87,18 @@ export class SessionHosts implements LiveOverlay {
 			idle: (host) => this.endWhenIdle(host),
 			forget: (host) => {
 				if (this.hosts.get(host.sessionId) === host) this.hosts.delete(host.sessionId);
+				this.busy.review(host.sessionId);
 			},
-			lost: (host) => void this.adoptAgain(host.sessionId),
+			lost: (host) => this.reattach(host),
+			changed: (host) => {
+				this.busy.review(host.sessionId);
+				this.views.get(host.sessionId)?.hostChanged();
+			},
 		};
-		this.adopting = this.adoptAll();
+		this.adopting = adoptLeftHolders(deps.holders.root, (meta) => {
+			deps.store.sessionDirFor(meta.cwd);
+			return this.adoptAgain(meta.sessionId);
+		});
 	}
 
 	/** Once the holders an earlier bridge left are taken over: a read before then would show their runs as unknown. */
@@ -99,6 +118,7 @@ export class SessionHosts implements LiveOverlay {
 		const name = sessionName(title);
 		if (typeof name !== "string") return Promise.resolve(name);
 		return this.locks.run(sessionId, async () => {
+			if (this.reattaching.has(sessionId)) return RECONNECTING;
 			const host = this.hosts.get(sessionId);
 			return host && !host.ended ? host.rename(name) : stored(name);
 		});
@@ -107,6 +127,7 @@ export class SessionHosts implements LiveOverlay {
 	/** `busy` while the session has work in flight; the store ends an idle host once the file may be deleted. */
 	remove(sessionId: SessionId, stored: (release: () => Promise<void>) => Promise<ActionResult>): Promise<ActionResult> {
 		return this.locks.run(sessionId, async () => {
+			if (this.reattaching.has(sessionId)) return RECONNECTING;
 			const host = this.hosts.get(sessionId);
 			if (host?.ended) return CLOSED;
 			if (host && !host.idle()) return rejected("busy", "the session has work under way");
@@ -118,17 +139,22 @@ export class SessionHosts implements LiveOverlay {
 
 	/** A hosted session's child that its tool call is running, or has run in this host's life: a view that follows it. */
 	openChild(part: ChildSessionPart, sink: SessionSink): OpenResult | undefined {
-		return this.hosts.get(part.parentId)?.children.open(part.piToolCallId, sink);
+		return this.shown(part.parentId)?.children.open(part.piToolCallId, sink);
 	}
 
 	unwritten(parentId: SessionId): readonly SessionSummary[] {
-		return this.hosts.get(parentId)?.children.unwritten() ?? [];
+		return this.shown(parentId)?.children.unwritten() ?? [];
 	}
 
 	row(sessionId: SessionId): LiveRow | undefined {
 		const child = parseChildSessionId(sessionId);
-		if (child !== undefined) return this.hosts.get(child.parentId)?.children.row(sessionId);
-		return this.hosts.get(sessionId)?.row() ?? this.deps.terminals.row(sessionId);
+		if (child !== undefined) return this.shown(child.parentId)?.children.row(sessionId);
+		return this.shown(sessionId)?.row() ?? this.deps.terminals.row(sessionId);
+	}
+
+	/** The host whose state is the session's as far as this bridge knows: the running one, or the one reconnecting. */
+	private shown(sessionId: SessionId): SessionHost | undefined {
+		return this.hosts.get(sessionId) ?? this.reattaching.get(sessionId);
 	}
 
 	/**
@@ -136,6 +162,7 @@ export class SessionHosts implements LiveOverlay {
 	 * it. An idle host gives way to the terminal instead (`SessionView`).
 	 */
 	isBusy(sessionId: SessionId): boolean {
+		if (this.reattaching.has(sessionId)) return true;
 		const host = this.hosts.get(sessionId);
 		return host !== undefined && !host.ended && !host.idle();
 	}
@@ -275,50 +302,64 @@ export class SessionHosts implements LiveOverlay {
 		const adopted = await this.adoptHolder(target.sessionId);
 		if (adopted !== undefined) return adopted;
 		if (!this.deps.install.cli.found) return rejected("backend_error", this.deps.install.cli.reason);
-		const crowded = await this.makeRoom();
+		const crowded = await makeRoom(this.hosts, this.locks, this.deps.maxHosted ?? MAX_HOSTED_SESSIONS);
 		if (crowded !== undefined) return crowded;
 		if (this.disposing) return CLOSED;
 		const start = await launchedStart(this.deps, target, { permissions, facts });
 		if ("status" in start) return start;
-		return this.begun(new SessionHost(this.env, start), (host) => host.begin());
+		return this.begun(new SessionHost(this.env, start), "launched");
 	}
 
-	private async begun(host: SessionHost, begin: (host: SessionHost) => Promise<void>): Promise<SessionHost | Rejected> {
+	/**
+	 * A `pi` this bridge launched that fails to start is stopped. One it was taking over from its holder is let go, never
+	 * stopped: its run goes on, and the holder is there to be taken over again (`busy`, worth another try).
+	 */
+	private async begun(host: SessionHost, how: "launched" | "adopted"): Promise<SessionHost | Rejected> {
 		this.hosts.set(host.sessionId, host);
 		try {
-			await begin(host);
+			await (how === "launched" ? host.begin() : host.adopt());
 		} catch (error) {
 			if (this.disposing) return CLOSED;
-			await host.finish();
-			return rejected("backend_error", `the session could not be started: ${errorText(error)}`);
-		}
-		return this.disposing || host.ended ? CLOSED : host;
-	}
-
-	/** Every holder an earlier bridge left: taken over, or, when this bridge cannot read it, stopped. */
-	private async adoptAll(): Promise<void> {
-		const adoptions = holderDirs(this.deps.holders.root).map(async (dir) => {
-			const meta = readMeta(dir);
-			if (meta !== undefined) {
-				this.deps.store.sessionDirFor(meta.cwd);
-				return this.adoptAgain(meta.sessionId);
+			if (how === "launched") {
+				await host.finish();
+				return rejected("backend_error", `the session could not be started: ${errorText(error)}`);
 			}
-			const attached = await HolderLink.connect(dir);
-			if (attached === "absent") removeStale(dir);
-			else if (typeof attached !== "string") await attached.link.stop();
-		});
-		await Promise.all(adoptions.map((adoption) => adoption.catch(() => undefined)));
+			host.release();
+			return rejected("busy", `the bridge could not take over the session's Pi: ${errorText(error)}`);
+		}
+		if (this.disposing || host.ended) return CLOSED;
+		this.reattaching.delete(host.sessionId);
+		return host;
 	}
 
 	/** A holder's session, taken over and shown in the list; its view, if it has one, follows the new host. */
-	private adoptAgain(sessionId: SessionId): Promise<void> {
-		return this.locks.run(sessionId, async () => {
-			const host = await this.adoptHolder(sessionId);
-			if (host === undefined || "status" in host || host.isReady) return;
-			host.markReady();
-			this.deps.catalog.emit({ type: "session_updated", summary: host.summary() });
-			this.views.get(sessionId)?.resume();
+	private async adoptAgain(sessionId: SessionId): Promise<void> {
+		const host = await this.locks.run(sessionId, () => this.adoptAnnounced(sessionId));
+		if (host !== undefined && !("status" in host)) this.views.get(sessionId)?.resume();
+	}
+
+	/** The host lost its holder's socket while `pi` ran on; until `reattachLost` settles, it stands for the session. */
+	private reattach(lost: SessionHost): void {
+		const { sessionId } = lost;
+		this.reattaching.set(sessionId, lost);
+		this.busy.review(sessionId);
+		void reattachLost(lost, {
+			attempt: () => this.locks.run(sessionId, () => this.adoptAnnounced(sessionId)),
+			settled: () => {
+				if (this.reattaching.get(sessionId) === lost) this.reattaching.delete(sessionId);
+				this.busy.review(sessionId);
+			},
+			adopted: () => this.views.get(sessionId)?.resume(),
 		});
+	}
+
+	/** Under the session lock: `adoptHolder`, and a host newly taken over is ready and shown in the list. */
+	private async adoptAnnounced(sessionId: SessionId): Promise<SessionHost | Rejected | undefined> {
+		const host = await this.adoptHolder(sessionId);
+		if (host === undefined || "status" in host || host.isReady) return host;
+		host.markReady();
+		this.deps.catalog.emit({ type: "session_updated", summary: host.summary() });
+		return host;
 	}
 
 	/** Under the session lock: the host this bridge has, else the session's holder taken over, else undefined. */
@@ -333,29 +374,7 @@ export class SessionHosts implements LiveOverlay {
 			attached.link.detach();
 			return start;
 		}
-		return this.begun(new SessionHost(this.env, start), (host) => host.adopt());
-	}
-
-	/**
-	 * Ends idle hosts, least recently used first, until a new `pi` fits. A view of an ended host starts a new one with
-	 * its next action (`SessionView`), showing what it showed meanwhile, which an idle host had nothing to add to; a
-	 * host with work in flight is never ended, so when all are busy the open is refused.
-	 */
-	private async makeRoom(): Promise<Rejected | undefined> {
-		const limit = this.deps.maxHosted ?? MAX_HOSTED_SESSIONS;
-		while (this.hosts.size >= limit) {
-			const victim = leastRecentlyUsedIdle(this.hosts.values(), this.locks);
-			if (victim === undefined) {
-				return rejected(
-					"busy",
-					`${limit} Pi sessions are running, each with work under way; let one finish or stop it`,
-				);
-			}
-			await this.locks.run(victim.sessionId, async () => {
-				if (!victim.ended && victim.idle()) await victim.finish();
-			});
-		}
-		return undefined;
+		return this.begun(new SessionHost(this.env, start), "adopted");
 	}
 
 	private attachNew(host: SessionHost, sink: SessionSink): OpenResult {

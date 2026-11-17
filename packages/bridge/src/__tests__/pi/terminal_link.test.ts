@@ -282,6 +282,32 @@ describe("a session a terminal runs", () => {
 		await hosted.close();
 	});
 
+	test("a session the phone runs keeps its run while a terminal opens it, and gives way to the terminal once the run ends", async () => {
+		t = await LiveRig.create({ link: true });
+		terminals = new TerminalRig(t);
+		const hosted = await t.rig.openNew({});
+		const gate = t.router.newGate(hosted.ref.sessionId);
+		t.router.script(hosted.ref.sessionId, [holdAt(gate, "Working."), say("Done.")]);
+		const mark = hosted.recorder.items.length;
+		await hosted.prompt("from the phone");
+		await hosted.waitFor("tool_started", () => true, mark);
+
+		const file = t.fileOf(hosted.ref);
+		const sinceTerminal = hosted.recorder.items.length;
+		await terminals.open(file);
+		await terminals.connected(file);
+		expect(t.world.parts.hosts.isBusy(hosted.ref.sessionId)).toBe(true);
+		const meanwhile = hosted.events().slice(sinceTerminal);
+		expect(meanwhile.some((event) => event.type === "session_replaced")).toBe(false);
+
+		t.router.release(hosted.ref.sessionId);
+		await hosted.waitFor("run_finished", () => true, sinceTerminal);
+		await hosted.waitFor("session_replaced", () => true, sinceTerminal);
+		await t.driver.quiesce();
+		expect(t.world.sessionProcesses()).toBe(0);
+		await hosted.close();
+	});
+
 	test("a compaction in the terminal shows on the phone as one, and ends", async () => {
 		const { t, terminal, live, id } = await watched();
 		const mark = live.recorder.items.length;

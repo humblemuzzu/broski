@@ -4,6 +4,12 @@
  * refusal, its deadline if it has one, or the process's exit. Events and extension UI requests reach `deliver` one at a time, in the
  * order Pi wrote them. An `ordered` request's answer takes its place in that order too, so a prompt's disposition is
  * read after the events Pi sent before it; the lookups that delivery itself awaits are answered as they arrive.
+ *
+ * Records waiting for delivery are bounded two ways. A tool's progress that a later one of the same call supersedes
+ * before it is delivered is dropped: the adapter reads each as the whole output so far (`mapping/tool-items.ts`,
+ * `output_replaced`), as the holder's replay does. Past `PAUSE_AT_CHARS` the transport is paused, but never while a
+ * lookup is pending: its answer comes behind the records already sent, and the delivery awaiting it would wait out
+ * its deadline.
  */
 
 import { randomUUID } from "node:crypto";
@@ -38,7 +44,11 @@ export interface RequestOptions {
 	readonly ordered?: boolean;
 }
 
-type Queued = (Delivery | { readonly kind: "answer"; readonly settle: () => void }) & { readonly chars?: number };
+type Queued = (Delivery | { readonly kind: "answer"; readonly settle: () => void }) & {
+	chars: number;
+	/** A later progress record of the same tool call came before this one was delivered. */
+	superseded?: boolean;
+};
 
 interface Pending {
 	readonly command: string;
@@ -57,6 +67,9 @@ export class RpcClient {
 	private readonly pending = new Map<string, Pending>();
 	private readonly queue: Queued[] = [];
 	private queuedChars = 0;
+	/** By Pi's tool call id: the newest progress record of the call still waiting for delivery. */
+	private readonly queuedUpdates = new Map<string, Queued>();
+	private paused = false;
 	private delivering = false;
 	private detached = false;
 	/** A command id of another bridge's client answered after this one took over the same `pi` must never match. */
@@ -89,6 +102,7 @@ export class RpcClient {
 					? undefined
 					: setTimeout(() => {
 							this.pending.delete(id);
+							this.reviewPause();
 							resolve({ ok: false, error: `Pi did not answer ${command.type} within ${deadlineMs / 1000} s` });
 						}, deadlineMs);
 			this.pending.set(id, {
@@ -100,6 +114,7 @@ export class RpcClient {
 					resolve(answerOf(response, reply));
 				},
 			});
+			this.reviewPause();
 			this.process.write(`${JSON.stringify({ ...command, id })}\n`);
 		});
 	}
@@ -117,13 +132,14 @@ export class RpcClient {
 	detach(): void {
 		this.detached = true;
 		this.queue.length = 0;
+		this.queuedUpdates.clear();
 		this.queuedChars = 0;
 		this.process.detach();
 	}
 
 	private received(item: TransportItem): void {
 		if (item.kind === "replay") {
-			this.enqueue(item);
+			this.enqueue({ ...item, chars: 0 });
 			return;
 		}
 		const frame: InboundFrame =
@@ -133,13 +149,17 @@ export class RpcClient {
 				this.answered(frame.response);
 				return;
 			case "event":
-				this.enqueue({ kind: "event", event: frame.event }, item);
+				this.enqueueEvent(frame.event, charsOf(item));
 				return;
 			case "ui":
-				this.enqueue({ kind: "ui", request: frame.request }, item);
+				this.enqueue({ kind: "ui", request: frame.request, chars: charsOf(item) });
 				return;
 			case "invalid":
-				this.enqueue({ kind: "fault", message: `Pi sent ${frame.reason}, which the bridge cannot read` }, item);
+				this.enqueue({
+					kind: "fault",
+					message: `Pi sent ${frame.reason}, which the bridge cannot read`,
+					chars: charsOf(item),
+				});
 				return;
 			case "ignored":
 				return;
@@ -152,8 +172,11 @@ export class RpcClient {
 		if (pending === undefined || response.id === undefined) return;
 		this.pending.delete(response.id);
 		pending.answeredInTime();
-		if (pending.ordered) this.enqueue({ kind: "answer", settle: () => pending.settle(response) });
-		else pending.settle(response);
+		if (pending.ordered) this.enqueue({ kind: "answer", settle: () => pending.settle(response), chars: 0 });
+		else {
+			this.reviewPause();
+			pending.settle(response);
+		}
 	}
 
 	private finished(end: PiEnd): void {
@@ -162,27 +185,60 @@ export class RpcClient {
 			this.pending.delete(id);
 			pending.settle(why);
 		}
-		this.enqueue(end);
+		this.enqueue({ ...end, chars: 0 });
 	}
 
-	private enqueue(entry: Queued, item?: JsonlItem): void {
+	/** A call's progress drops the one of the same call still waiting; the call's end makes the next one its own. */
+	private enqueueEvent(event: PiEvent, chars: number): void {
+		const entry: Queued = { kind: "event", event, chars };
+		if (event.type === "tool_execution_update") {
+			const earlier = this.queuedUpdates.get(event.toolCallId);
+			if (earlier !== undefined) {
+				earlier.superseded = true;
+				this.queuedChars -= earlier.chars;
+				earlier.chars = 0;
+			}
+			this.queuedUpdates.set(event.toolCallId, entry);
+		} else if (event.type === "tool_execution_end") {
+			this.queuedUpdates.delete(event.toolCallId);
+		}
+		this.enqueue(entry);
+	}
+
+	private enqueue(entry: Queued): void {
 		if (this.detached) return;
-		const chars = item?.kind === "line" ? item.text.length : 0;
-		this.queue.push({ ...entry, chars });
-		this.queuedChars += chars;
-		if (this.queuedChars > PAUSE_AT_CHARS) this.process.pause();
+		this.queue.push(entry);
+		this.queuedChars += entry.chars;
+		this.reviewPause();
 		if (!this.delivering) void this.drain();
 	}
 
 	private async drain(): Promise<void> {
 		this.delivering = true;
 		for (let entry = this.queue.shift(); entry !== undefined && !this.detached; entry = this.queue.shift()) {
-			this.queuedChars -= entry.chars ?? 0;
-			if (this.queuedChars < RESUME_AT_CHARS) this.process.resume();
+			this.queuedChars -= entry.chars;
+			this.reviewPause();
+			if (entry.superseded) continue;
+			if (entry.kind === "event" && entry.event.type === "tool_execution_update") {
+				const { toolCallId } = entry.event;
+				if (this.queuedUpdates.get(toolCallId) === entry) this.queuedUpdates.delete(toolCallId);
+			}
 			if (entry.kind === "answer") await settleInTurn(entry.settle);
 			else await this.deliverSafely(entry);
 		}
 		this.delivering = false;
+	}
+
+	/** Paused past the bound and resumed below the lower one, but read while a lookup is pending (module comment). */
+	private reviewPause(): void {
+		const lookup = [...this.pending.values()].some((pending) => !pending.ordered);
+		if (!this.paused && !lookup && this.queuedChars > PAUSE_AT_CHARS) {
+			this.paused = true;
+			this.process.pause();
+		} else if (this.paused && (lookup || this.queuedChars < RESUME_AT_CHARS)) {
+			this.paused = false;
+			this.process.resume();
+		}
 	}
 
 	private async deliverSafely(delivery: Delivery): Promise<void> {
@@ -192,6 +248,10 @@ export class RpcClient {
 			if (delivery.kind !== "fault") await this.deliverSafely({ kind: "fault", message: errorText(error) });
 		}
 	}
+}
+
+function charsOf(item: JsonlItem): number {
+	return item.kind === "line" ? item.text.length : 0;
 }
 
 /** Whoever awaited the answer runs its synchronous continuation before the next record is delivered. */

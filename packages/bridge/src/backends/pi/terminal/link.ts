@@ -55,6 +55,11 @@ export class TerminalLink {
 		await server?.stop();
 	}
 
+	/** The bridge's own `pi` started or stopped running `sessionId`: a terminal that has it open is told. */
+	hosted(sessionId: string, running: boolean): void {
+		this.server?.hosted(sessionId, running);
+	}
+
 	/** Why the link does not work, for `status()`. */
 	problem(): string | undefined {
 		return this.failure;

@@ -98,10 +98,24 @@ environment, which holds secrets: never argv, never a file) and closes it. The h
   complete lines go to `pi`'s stdin through one writer queue; a half line from a bridge that went is dropped, so the
   next bridge's first command is not glued to it; `{"holder":"stop"}` answers every dialog still open with Pi's
   default (`cancelled`, as a bridge's own stop does) and runs the stop ladder (§1) in the holder. A socket
-  that closes without `exit`, or `replaced`, is this bridge losing the session, not `pi` ending: the host ends quietly
-  (no `backend_unavailable`), and unless it was replaced the bridge takes the holder over again at once.
-- **`pi` is never made to wait.** The holder reads its stdout without pause; a bridge more than 16 MiB behind (beyond
-  its replay) is dropped and takes the session over again with a replay.
+  that closes without `exit`, or `replaced`, is this bridge losing the session, not `pi` ending. `replaced`: another
+  bridge took it, and what this one showed ends. A socket that closed: the host shows what it showed, run and asks
+  included, emits nothing, answers `busy` ("reconnecting"), and still counts as busy, so the core keeps the session
+  open and a terminal is warned; the bridge takes the holder over again (`live/reattach.ts`: at once, then after 0.5,
+  1, 2 and 4 s, each attempt under the session lock and no wait under it), the view moves to the new host with
+  `resynced`, and no run ends. When no holder answers any more the run ends `backend_unavailable` ("Pi stopped while
+  the bridge was reconnecting to it"); when the attempts run out it ends saying the run may still be going on, and
+  the next action takes the holder over. A takeover that fails lets the holder go: it never stops its `pi`.
+- **`pi` is never made to wait.** The holder reads its stdout without pause (`holder/backlog.ts`). A backlog alone is
+  no stall: one tool's progress record may be as large as the 32 MiB cap (a subagent tool that reports its whole
+  conversation sends tens of MB each time), and a burst of them outruns any reader for a moment. A bridge is dropped
+  when its backlog, beyond what is left of its replay, stays past 32 MiB for 5 s without the socket draining, or passes
+  128 MiB at all; it then takes the session over again with a replay.
+- **The bridge's reading** (`rpc/client.ts`): a tool's progress that a later one of the same call supersedes before it
+  is delivered is dropped (the adapter reads each as the whole output so far, `output_replaced`, as the replay does).
+  Past 16 MiB waiting for delivery the transport is paused, but never while a lookup is pending: a delivery awaits
+  `get_entries` for the entry a message was stored as, and its answer comes behind what is already sent. A replayed
+  message the file already held is matched from the seeded entries without asking Pi.
 - **The replay** (`replay-log.ts`) is every record since the session was last at rest, without `response`s (they answer
   the dead bridge's commands). At `agent_settled`, with no compaction or retry open, it starts over keeping only the
   dialogs nobody answered whose own `timeout` has not run out (a permission ask goes, Pi dropped it with its run's

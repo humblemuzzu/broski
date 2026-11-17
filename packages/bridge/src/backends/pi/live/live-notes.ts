@@ -3,6 +3,13 @@
 import type { ErrorEvent, NoticeEvent, NoticeLevel } from "../../../contract";
 import { errorText } from "../error-text";
 import { phoneText } from "../phone-text";
+import type { PiExit } from "../rpc/child";
+
+/** How a `pi` that exited unasked is told: how it ended, and what it said on stderr. */
+export function exitMessage(exit: PiExit, stderr: string): string {
+	const how = exit.error ?? (exit.signal ? `was stopped by ${exit.signal}` : `exited with code ${exit.code}`);
+	return `Pi ${how}${stderr === "" ? "" : `: ${stderr}`}`;
+}
 
 export function noticeEvent(level: NoticeLevel, text: string): NoticeEvent {
 	return { type: "notice", level, text: phoneText(text) };

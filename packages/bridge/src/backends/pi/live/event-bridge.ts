@@ -283,7 +283,10 @@ export class EventBridge {
 		this.tools.resultPersisted(message, entry?.id);
 	}
 
+	/** A replayed message the file already held is found among the entries the host was seeded with, without asking Pi. */
 	private async entryOf(message: UserMessage | ToolResultMessage) {
+		const seeded = this.replaying ? this.deps.cursor.entryOf(message) : undefined;
+		if (seeded !== undefined) return seeded;
 		const failure = await this.deps.cursor.refresh();
 		if (failure !== undefined) this.deps.live.emit(faultEvent(`Pi did not say where it stored a message: ${failure}`));
 		return this.deps.cursor.entryOf(message);

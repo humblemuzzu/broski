@@ -1,4 +1,4 @@
-// broski-link-extension v3: written by the Broski bridge; delete it, or set "pi.terminalLink": false in the bridge's config.
+// broski-link-extension v4: written by the Broski bridge; delete it, or set "pi.terminalLink": false in the bridge's config.
 //
 // Lets the Broski app on your phone follow this terminal's session live, stop it or send it a message, and answer what
 // it asks (`dialogs.ts`): a question shows in the terminal and on the phone, and the first answer wins. It runs in
@@ -49,8 +49,21 @@ export default function brokskiLink(pi: ExtensionAPI): void {
 	forwardRun(pi, link);
 	forwardTools(pi, link);
 	forwardSession(pi, link);
+	guardTyping(pi, link);
 	pi.events.on("broski:tasks", (tasks) => guarded(() => link.tasksChanged(compact(tasks ?? []))));
 	pi.events.on("broski:questions", (request) => guarded(() => link.dialogs.questions(request)));
+}
+
+/** What the user types here while the phone runs the session asks first (`Link.typed`); nothing else is held. */
+function guardTyping(pi: ExtensionAPI, link: Link): void {
+	pi.on("input", async (event, ctx) => {
+		if (event.source !== "interactive") return { action: "continue" };
+		try {
+			return await link.typed(ctx, event.text);
+		} catch {
+			return { action: "continue" };
+		}
+	});
 }
 
 function forwardRun(pi: ExtensionAPI, link: Link): void {
