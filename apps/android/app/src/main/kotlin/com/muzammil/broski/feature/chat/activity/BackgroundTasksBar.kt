@@ -39,6 +39,7 @@ import com.muzammil.broski.design.Haptic
 import com.muzammil.broski.design.mono
 import com.muzammil.broski.design.perform
 import com.muzammil.broski.feature.chat.work.duration
+import com.muzammil.broski.design.format.agentLine
 import kotlinx.coroutines.delay
 import uniffi.broski_contract.BackgroundTask
 import uniffi.broski_contract.BackgroundTaskKind
@@ -115,7 +116,7 @@ private fun TaskRow(task: BackgroundTask) {
             modifier = Modifier.size(18.dp),
         )
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(task.title, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(agentLine(task.title), style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
             task.command?.takeIf { it.isNotEmpty() && it != task.title }?.let {
                 Text(it, style = MaterialTheme.typography.bodySmall.mono(), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }

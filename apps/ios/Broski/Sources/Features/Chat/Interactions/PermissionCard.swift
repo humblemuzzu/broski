@@ -106,7 +106,7 @@ struct PermissionCard: View {
 
     private func optionButton(_ option: PermissionOption, wide: Bool = true) -> some View {
         Button { choose(option, confirmed: false) } label: {
-            Text(option.label)
+            Text(agentLine(option.label))
                 .font(.subheadline.weight(.semibold))
                 .frame(maxWidth: wide ? .infinity : nil)
         }

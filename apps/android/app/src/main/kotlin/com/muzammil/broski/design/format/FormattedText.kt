@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import uniffi.broski_core.FormatBlock
 import uniffi.broski_core.formatMarkdown
 import uniffi.broski_core.formatMessage
+import uniffi.broski_core.formatPlainText
 
 /**
  * Agent-authored markdown, formatted by the core (`formatMarkdown`) and drawn block by block. Every
@@ -57,6 +58,12 @@ fun FormatBlockList(blocks: List<FormatBlock>, role: FormatRole, streaming: Bool
 
 /** Whether [text] has more blocks than [limit] draws. */
 fun exceeds(text: String, limit: Int): Boolean = FormatCache.blocks(text, false).size > limit
+
+/**
+ * One line an agent wrote (an ask's title, an option's label, a task's name) as the plain words it
+ * says: its markers never show, and it takes the style of where it is drawn.
+ */
+fun agentLine(text: String): String = formatPlainText(text)
 
 /**
  * Formatted blocks kept by text, so a finished text is parsed once however often it is composed and

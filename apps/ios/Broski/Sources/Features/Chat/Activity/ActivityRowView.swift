@@ -46,7 +46,7 @@ struct ActivityRowView: View {
                 .foregroundStyle(look.tone.tint)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: Spacing.xxs) {
-                Text(activity.title)
+                Text(agentLine(activity.title))
                     .font(.subheadline)
                     .foregroundStyle(.primary)
                     .lineLimit(isOpen ? nil : 2)

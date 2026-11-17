@@ -56,7 +56,7 @@ private struct LinkList: View {
                     Link(destination: url) {
                         HStack(alignment: .firstTextBaseline, spacing: Spacing.s) {
                             VStack(alignment: .leading, spacing: 0) {
-                                Text(item.title.isEmpty ? item.url : item.title)
+                                Text(item.title.isEmpty ? item.url : agentLine(item.title))
                                     .font(.footnote.weight(.medium))
                                     .lineLimit(2)
                                 Text(url.host() ?? item.url)

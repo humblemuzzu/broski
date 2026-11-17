@@ -9,3 +9,16 @@ apps/ios/Broski/Sources/Features/Workspace/Git/BranchesScreen.swift | Text(upstr
 apps/ios/Broski/Extensions/Widgets/BroskiWidgets.swift | Text(state.summary) | "3 live agents · 1 needs you", made by RunActivityAttributes
 apps/ios/Broski/Extensions/Widgets/RunActivityViews.swift | Text(state.summary) | "3 live agents · 1 needs you", made by RunActivityAttributes
 apps/android/app/src/main/kotlin/com/muzammil/broski/feature/settings/FormattingGallery.kt | Text(sample.text, | the gallery's Source view: a sample's markdown as written, beside how it is drawn
+apps/ios/Broski/Sources/DesignSystem/DiffView.swift | Text("@@ | a hunk's line numbers from git, drawn as git writes them
+apps/ios/Broski/Sources/Features/Settings/SettingsScreen.swift | Text(option.title) | the app's own appearance names
+apps/ios/Broski/Sources/Features/Inbox/InboxScreen.swift | Text(state.title) | the app's own inbox state names
+apps/ios/Broski/Sources/Features/Chat/Composer/ComposerView.swift | Text(way.title) | the app's own dictation choices
+apps/ios/Broski/Sources/Features/Chat/Composer/ComposerChips.swift | Text(option.title) | a model or mode name from the agent's catalog, not its prose
+apps/ios/Broski/Sources/Features/Chat/Composer/ComposerChips.swift | Text(option.label) | a model or mode name from the agent's catalog, not its prose
+apps/ios/Broski/Sources/Features/Chat/Work/WorkRowView.swift | Text(tool.label) | the core's row label (toolLook): a command or a path, drawn as written
+apps/ios/Broski/Extensions/Widgets/BroskiWidgets.swift | Text(state.title) | the Live Activity's title, made by RunActivityAttributes; the widget does not link the formatter
+apps/ios/Broski/Extensions/Widgets/RunActivityViews.swift | Text(state.title) | the Live Activity's title, made by RunActivityAttributes
+apps/ios/Broski/Extensions/Widgets/RunActivityViews.swift | Text(run.title) | a session's name in the Live Activity, which does not link the formatter
+apps/ios/Broski/Extensions/Widgets/RunActivityViews.swift | Text(run.phase.title) | the app's own run phase names
+apps/android/app/src/main/kotlin/com/muzammil/broski/feature/settings/FormattingGallery.kt | Text(sample.title, | the gallery's own sample names
+apps/android/app/src/main/kotlin/com/muzammil/broski/feature/chat/work/TextSheet.kt | Text(page.title, | the core's row label of the call or activity the sheet opened from

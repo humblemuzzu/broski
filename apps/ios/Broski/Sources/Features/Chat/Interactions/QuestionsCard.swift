@@ -69,7 +69,7 @@ private struct QuestionView: View {
                 Image(systemName: symbol(picked: picked))
                     .foregroundStyle(picked ? Palette.accent : .secondary)
                 VStack(alignment: .leading, spacing: Spacing.xxs) {
-                    Text(option.label).font(.subheadline.weight(.medium))
+                    Text(agentLine(option.label)).font(.subheadline.weight(.medium))
                     if let description = option.description {
                         FormattedMessage(text: description, role: .quiet)
                     }

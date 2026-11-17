@@ -46,6 +46,7 @@ import com.muzammil.broski.design.format.tools.ToolArguments
 import com.muzammil.broski.design.mono
 import com.muzammil.broski.design.perform
 import com.muzammil.broski.feature.chat.work.FileChangeRow
+import com.muzammil.broski.design.format.agentLine
 import uniffi.broski_contract.Interaction
 import uniffi.broski_contract.PermissionEffect
 import uniffi.broski_contract.PermissionOption
@@ -152,10 +153,10 @@ private fun Options(
         request.options.filter { it != withWords }.forEach { option ->
             val enabled = context.enabled && canChoose(request, option, typed, grants)
             when {
-                option == primary -> Button(onClick = { pick(option) }, enabled = enabled, shapes = ButtonDefaults.shapes()) { Text(option.label) }
-                option.effect == PermissionEffect.ALLOW -> FilledTonalButton(onClick = { pick(option) }, enabled = enabled, shapes = ButtonDefaults.shapes()) { Text(option.label) }
+                option == primary -> Button(onClick = { pick(option) }, enabled = enabled, shapes = ButtonDefaults.shapes()) { Text(agentLine(option.label)) }
+                option.effect == PermissionEffect.ALLOW -> FilledTonalButton(onClick = { pick(option) }, enabled = enabled, shapes = ButtonDefaults.shapes()) { Text(agentLine(option.label)) }
                 else -> OutlinedButton(onClick = { pick(option) }, enabled = enabled, shapes = ButtonDefaults.shapes()) {
-                    Text(option.label, color = if (enabled) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f))
+                    Text(agentLine(option.label), color = if (enabled) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f))
                 }
             }
         }
@@ -175,7 +176,7 @@ private fun DenyRow(request: ToolPermissionRequest, deny: PermissionOption, mess
             modifier = Modifier.weight(1f),
         )
         TextButton(onClick = { pick(deny) }, enabled = context.enabled && canChoose(request, deny, message.text.toString(), emptySet())) {
-            Text(deny.label, color = MaterialTheme.colorScheme.error)
+            Text(agentLine(deny.label), color = MaterialTheme.colorScheme.error)
         }
     }
 }
@@ -186,7 +187,7 @@ private fun ConfirmOption(option: PermissionOption, onConfirm: () -> Unit, onDis
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.card_confirm_title, option.label)) },
         text = { Text(stringResource(R.string.card_confirm_body)) },
-        confirmButton = { TextButton(onClick = onConfirm) { Text(option.label) } },
+        confirmButton = { TextButton(onClick = onConfirm) { Text(agentLine(option.label)) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }

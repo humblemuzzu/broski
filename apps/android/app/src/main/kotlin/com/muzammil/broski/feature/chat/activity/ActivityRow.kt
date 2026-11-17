@@ -50,6 +50,7 @@ import com.muzammil.broski.design.mono
 import com.muzammil.broski.design.perform
 import com.muzammil.broski.feature.chat.work.TextPage
 import com.muzammil.broski.feature.chat.work.WorkActions
+import com.muzammil.broski.design.format.agentLine
 import uniffi.broski_contract.Activity
 import uniffi.broski_contract.ActivityBody
 import uniffi.broski_contract.ActivityFormat
@@ -97,7 +98,7 @@ fun ActivityRow(activity: Activity, look: ActivityLook, expanded: Boolean, onTog
             Icon(painterResource(activity.kind.icon), contentDescription = null, tint = look.tone.color(), modifier = Modifier.size(18.dp))
             Column(Modifier.weight(1f).padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
-                    activity.title,
+                    agentLine(activity.title),
                     style = MaterialTheme.typography.bodyMedium,
                     maxLines = if (expanded) Int.MAX_VALUE else 2,
                     overflow = TextOverflow.Ellipsis,

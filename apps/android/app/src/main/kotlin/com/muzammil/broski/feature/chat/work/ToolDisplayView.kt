@@ -27,6 +27,7 @@ import com.muzammil.broski.design.format.FormatRole
 import com.muzammil.broski.design.format.FormattedMessage
 import com.muzammil.broski.design.format.tools.FileTextBody
 import com.muzammil.broski.design.format.tools.ReportBody
+import com.muzammil.broski.design.format.agentLine
 import uniffi.broski_contract.LinkItem
 import uniffi.broski_contract.TodoItem
 import uniffi.broski_contract.TodoStatus
@@ -81,7 +82,7 @@ private fun LinkList(items: List<LinkItem>) {
             ) {
                 Column(Modifier.weight(1f)) {
                     Text(
-                        item.title.ifEmpty { item.url },
+                        agentLine(item.title).ifEmpty { item.url },
                         style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,

@@ -66,7 +66,7 @@ struct InteractionPanel: View {
 
     private var header: some View {
         HStack(alignment: .firstTextBaseline, spacing: Spacing.s) {
-            Text(interaction.request.label)
+            Text(agentLine(interaction.request.label))
                 .font(.caption2.weight(.bold))
                 .tracking(1.1)
                 .foregroundStyle(.secondary)
@@ -102,7 +102,7 @@ struct InteractionPanel: View {
     private var kind: some View {
         VStack(alignment: .leading, spacing: Spacing.m) {
             if !isPermission {
-                Text(interaction.title).font(.headline)
+                Text(agentLine(interaction.title)).font(.headline)
                 if let body = interaction.body { FormattedMessage(text: body, role: .quiet) }
             }
             if chat.canAnswer {

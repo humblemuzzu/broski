@@ -44,7 +44,7 @@ private struct FormFieldView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xs) {
             if case .boolean = field {} else {
-                Text(field.label + (field.required ? "" : " (optional)")).font(.subheadline.weight(.medium))
+                Text(agentLine(field.label) + (field.required ? "" : " (optional)")).font(.subheadline.weight(.medium))
             }
             control
             if let detail = field.detail {

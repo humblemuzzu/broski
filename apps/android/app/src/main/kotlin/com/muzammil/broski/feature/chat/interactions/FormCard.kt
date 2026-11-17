@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
 import com.muzammil.broski.design.Haptic
 import com.muzammil.broski.design.perform
+import com.muzammil.broski.design.format.agentLine
 import uniffi.broski_contract.BooleanValue
 import uniffi.broski_contract.ChoicesValue
 import uniffi.broski_contract.FormFieldSpec
@@ -99,7 +100,7 @@ private fun StringFieldView(label: String, field: FormFieldSpec.String, value: S
             Text(label, style = MaterialTheme.typography.bodyLarge)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 spec.options.forEach { option ->
-                    FilterChip(selected = option.value == value, enabled = enabled, onClick = { onChange(option.value) }, label = { Text(option.label) })
+                    FilterChip(selected = option.value == value, enabled = enabled, onClick = { onChange(option.value) }, label = { Text(agentLine(option.label)) })
                 }
             }
         }
@@ -140,7 +141,7 @@ private fun Choices(label: String, field: FormFieldSpec.Multiselect, value: Form
                 selected = on,
                 enabled = enabled,
                 onClick = { onChange(FormValue.Choices(ChoicesValue(if (on) chosen - option.value else chosen + option.value))) },
-                label = { Text(option.label) },
+                label = { Text(agentLine(option.label)) },
             )
         }
     }

@@ -42,6 +42,7 @@ import com.muzammil.broski.R
 import com.muzammil.broski.design.Haptic
 import com.muzammil.broski.design.format.FormattedMessage
 import com.muzammil.broski.design.perform
+import com.muzammil.broski.design.format.agentLine
 import uniffi.broski_contract.Interaction
 import uniffi.broski_contract.Question
 import uniffi.broski_contract.QuestionsRequest
@@ -52,11 +53,11 @@ fun QuestionsCard(interaction: Interaction, request: QuestionsRequest, context: 
     val haptics = LocalHapticFeedback.current
     val drafts = remember(interaction.id) { mutableStateMapOf<String, QuestionDraft>() }
     var tab by rememberSaveable(interaction.id) { mutableIntStateOf(0) }
-    Text(interaction.title, style = MaterialTheme.typography.titleMedium)
+    Text(agentLine(interaction.title), style = MaterialTheme.typography.titleMedium)
     if (request.questions.size > 1) {
         PrimaryScrollableTabRow(selectedTabIndex = tab, edgePadding = 0.dp) {
             request.questions.forEachIndexed { index, question ->
-                Tab(selected = tab == index, onClick = { tab = index }, text = { Text(question.header ?: stringResource(R.string.card_question_number, index + 1)) })
+                Tab(selected = tab == index, onClick = { tab = index }, text = { Text(agentLine(question.header.orEmpty()).ifEmpty { null } ?: stringResource(R.string.card_question_number, index + 1)) })
             }
         }
     }

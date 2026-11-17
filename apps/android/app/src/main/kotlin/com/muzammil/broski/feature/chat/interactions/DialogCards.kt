@@ -36,6 +36,7 @@ import com.muzammil.broski.R
 import com.muzammil.broski.design.Haptic
 import com.muzammil.broski.design.format.FormattedText
 import com.muzammil.broski.design.perform
+import com.muzammil.broski.design.format.agentLine
 import uniffi.broski_contract.ChoiceRequest
 import uniffi.broski_contract.ConfirmRequest
 import uniffi.broski_contract.Interaction
@@ -48,12 +49,12 @@ fun PlanCard(interaction: Interaction, request: PlanApprovalRequest, context: Ca
     val haptics = LocalHapticFeedback.current
     var modeAfter by rememberSaveable(interaction.id) { mutableStateOf(request.modeOptions?.defaultValue) }
     val feedback = rememberTextFieldState()
-    Text(interaction.title, style = MaterialTheme.typography.titleMedium)
+    Text(agentLine(interaction.title), style = MaterialTheme.typography.titleMedium)
     FormattedText(request.plan)
     request.modeOptions?.let { modes ->
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             modes.options.forEach { option ->
-                FilterChip(selected = option.value == modeAfter, onClick = { modeAfter = option.value }, enabled = context.enabled, label = { Text(option.label) })
+                FilterChip(selected = option.value == modeAfter, onClick = { modeAfter = option.value }, enabled = context.enabled, label = { Text(agentLine(option.label)) })
             }
         }
     }
@@ -88,7 +89,7 @@ fun PlanCard(interaction: Interaction, request: PlanApprovalRequest, context: Ca
 @Composable
 fun ChoiceCard(interaction: Interaction, request: ChoiceRequest, context: CardContext) {
     val haptics = LocalHapticFeedback.current
-    Text(interaction.title, style = MaterialTheme.typography.titleMedium)
+    Text(agentLine(interaction.title), style = MaterialTheme.typography.titleMedium)
     interaction.body?.let { Quiet(it) }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         request.options.forEach { option ->
@@ -100,7 +101,7 @@ fun ChoiceCard(interaction: Interaction, request: ChoiceRequest, context: CardCo
                 enabled = context.enabled,
                 shapes = ButtonDefaults.shapes(),
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text(option.label) }
+            ) { Text(agentLine(option.label)) }
             option.description?.let { Quiet(it) }
         }
     }
@@ -111,7 +112,7 @@ fun ChoiceCard(interaction: Interaction, request: ChoiceRequest, context: CardCo
 fun ConfirmCard(interaction: Interaction, request: ConfirmRequest, context: CardContext) {
     val haptics = LocalHapticFeedback.current
     val url = request.url
-    Text(interaction.title, style = MaterialTheme.typography.titleMedium)
+    Text(agentLine(interaction.title), style = MaterialTheme.typography.titleMedium)
     interaction.body?.let { Quiet(it) }
     if (url != null) LinkButton(url)
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -138,7 +139,7 @@ private fun LinkButton(url: String) {
 fun TextCard(interaction: Interaction, request: TextRequest, context: CardContext) {
     val haptics = LocalHapticFeedback.current
     val field = rememberTextFieldState(request.initialText.orEmpty())
-    Text(interaction.title, style = MaterialTheme.typography.titleMedium)
+    Text(agentLine(interaction.title), style = MaterialTheme.typography.titleMedium)
     interaction.body?.let { Quiet(it) }
     OutlinedTextField(
         state = field,

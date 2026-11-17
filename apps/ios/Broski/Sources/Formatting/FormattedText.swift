@@ -58,6 +58,12 @@ struct FormatBlockList: View {
     }
 }
 
+/// One line an agent wrote (an ask's title, an option's label, a task's name) as the plain words
+/// it says: its markers never show, and it takes the font of where it is drawn.
+nonisolated func agentLine(_ text: String) -> String {
+    formatPlainText(text: text)
+}
+
 /// Formatted blocks kept by text, so a finished text is parsed once however often it is drawn and a
 /// streaming one once per batch.
 @MainActor

@@ -92,7 +92,7 @@ private struct BackgroundTaskRow: View {
                 .foregroundStyle(Palette.working)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: Spacing.xxs) {
-                Text(task.title).font(.footnote).lineLimit(2)
+                Text(agentLine(task.title)).font(.footnote).lineLimit(2)
                 if let command = task.command, !command.isEmpty, command != task.title {
                     Text(command).font(.codeSmall).foregroundStyle(.secondary).lineLimit(2)
                 }
