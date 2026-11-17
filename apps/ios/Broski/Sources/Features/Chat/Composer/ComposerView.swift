@@ -3,7 +3,8 @@ import SwiftUI
 
 /// The composer: one Liquid Glass surface holding the field (one line, growing to six; Paste takes
 /// images), the slash commands above it while the text starts with `/`, the attached images, and
-/// under the field `+`, the chips and the one send button.
+/// under the field `+`, the chips, the mic and the one send button. While dictating, the recording
+/// takes the field's place and ✕ the place of `+` and the chips.
 struct ComposerView: View {
     @Binding var draft: ComposerDraft
     let agent: String
@@ -17,6 +18,16 @@ struct ComposerView: View {
     let perform: (SendAction) -> Void
     let refuse: (String) -> Void
     @Binding var focus: Bool
+    /// Where dictated text goes; `nil` shows no mic.
+    var dictation: DictationTarget?
+    @Environment(AppModel.self) private var app
+    @State private var voiceSettings = false
+
+    private var dictationPhase: Dictation.Phase {
+        dictation.map { app.dictation.phase(for: $0.id) } ?? .idle
+    }
+
+    private var isDictating: Bool { dictationPhase != .idle }
 
     private var placeholder: String {
         if action != .send { return "Message to queue…" }
@@ -39,19 +50,25 @@ struct ComposerView: View {
             if let command = draft.command {
                 CommandToken(command: command) { draft.command = nil }
             }
-            ComposerTextView(
-                placeholder: placeholder, text: $draft.text, isFocused: $focus, maxLines: 6,
-                pasteImages: acceptsImages ? { attach($0, to: $draft, refuse: refuse) } : nil
-            )
-            .padding(.horizontal, Spacing.xs)
-            HStack(spacing: Spacing.s) {
-                if acceptsImages {
-                    AttachmentMenu(draft: $draft, refuse: refuse)
-                }
-                FadingHorizontalScroll { ComposerChips(part: .model, catalog: catalog, choices: choices, choose: choose) }
-                ComposerChips(part: .modes, catalog: catalog, choices: choices, choose: choose)
-                SendButton(action: action, alternative: SendAction.alternative(to: action, modes: modes), canSend: draft.hasContent, perform: perform)
+            if isDictating {
+                RecordingBar(dictation: app.dictation, phase: dictationPhase) { voiceSettings = true }
+                    .padding(.horizontal, Spacing.xs)
+                    .transition(.opacity)
+            } else {
+                ComposerTextView(
+                    placeholder: placeholder, text: $draft.text, isFocused: $focus, maxLines: 6,
+                    pasteImages: acceptsImages ? { attach($0, to: $draft, refuse: refuse) } : nil
+                )
+                .padding(.horizontal, Spacing.xs)
             }
+            if let dictation, let notice = app.dictation.notice(for: dictation.id) {
+                Text(notice.text)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, Spacing.xs)
+                    .transition(.opacity)
+            }
+            controls
         }
         .padding(.top, Spacing.m)
         .padding(.horizontal, Spacing.m)
@@ -60,6 +77,61 @@ struct ComposerView: View {
         .disabled(!isEnabled)
         .animation(.spring(duration: 0.22, bounce: 0), value: matching.isEmpty)
         .animation(.spring(duration: 0.22, bounce: 0), value: draft.images.count)
+        .animation(.spring(duration: 0.22, bounce: 0), value: isDictating)
+        .sensoryFeedback(trigger: app.dictation.feedback) { _, feedback in
+            app.dictation.feedbackOwner == dictation?.id ? feedback?.moment.feedback : nil
+        }
+        .onDisappear {
+            if let dictation { app.dictation.composerLeft(dictation.id) }
+        }
+        .sheet(isPresented: $voiceSettings) {
+            NavigationStack { VoiceSettingsScreen(closes: true) }
+        }
+    }
+
+    private var controls: some View {
+        HStack(spacing: Spacing.s) {
+            if isDictating {
+                if case .failed = dictationPhase {} else {
+                    CancelDictation { app.dictation.cancel() }
+                }
+                Spacer(minLength: 0)
+            } else {
+                if acceptsImages {
+                    AttachmentMenu(draft: $draft, refuse: refuse)
+                }
+                FadingHorizontalScroll { ComposerChips(part: .model, catalog: catalog, choices: choices, choose: choose) }
+                ComposerChips(part: .modes, catalog: catalog, choices: choices, choose: choose)
+            }
+            if let dictation {
+                MicButton(
+                    phase: dictationPhase,
+                    press: { app.dictation.press(dictation, touch: $0) },
+                    slide: { app.dictation.slide(cancelling: $0) },
+                    release: { app.dictation.release(held: $0) })
+                    .disabled(app.dictation.isBusy(apartFrom: dictation.id))
+            }
+            if !isDictating {
+                SendButton(action: action, alternative: SendAction.alternative(to: action, modes: modes), canSend: draft.hasContent, perform: perform)
+            }
+        }
+    }
+}
+
+/// ✕ in place of `+` while dictating: throws the recording away.
+private struct CancelDictation: View {
+    let cancel: () -> Void
+
+    var body: some View {
+        Button(action: cancel) {
+            Image(systemName: "xmark")
+                .font(.body.weight(.medium))
+                .frame(width: 32, height: 32)
+                .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.secondary)
+        .accessibilityLabel("Cancel dictation")
     }
 }
 

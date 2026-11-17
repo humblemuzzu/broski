@@ -1,8 +1,8 @@
 import Foundation
 import Network
 
-/// A one-request-at-a-time HTTP/1.1 server on 127.0.0.1 for the letter tests: it answers every
-/// request with `status` and keeps what it received, as bytes off the socket.
+/// A one-request-at-a-time HTTP/1.1 server on 127.0.0.1 for the letter and dictation tests: it
+/// answers every request with `status` and `body` and keeps what it received, as bytes off the socket.
 nonisolated final class LocalHTTPServer: @unchecked Sendable {
     struct Request {
         let method: String
@@ -14,11 +14,13 @@ nonisolated final class LocalHTTPServer: @unchecked Sendable {
     private let listener: NWListener
     private let queue = DispatchQueue(label: "LocalHTTPServer")
     private let status: Int
+    private let body: Data
     private let lock = NSLock()
     private var received: [Request] = []
 
-    init(status: Int) throws {
+    init(status: Int, body: Data = Data()) throws {
         self.status = status
+        self.body = body
         let parameters = NWParameters.tcp
         parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: .any)
         listener = try NWListener(using: parameters)
@@ -62,8 +64,8 @@ nonisolated final class LocalHTTPServer: @unchecked Sendable {
             if let data { buffer.append(data) }
             if let request = Self.parse(buffer) {
                 lock.withLock { received.append(request) }
-                let reply = "HTTP/1.1 \(status) Status\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
-                connection.send(content: Data(reply.utf8), completion: .contentProcessed { _ in connection.cancel() })
+                let head = "HTTP/1.1 \(status) Status\r\nContent-Length: \(body.count)\r\nConnection: close\r\n\r\n"
+                connection.send(content: Data(head.utf8) + body, completion: .contentProcessed { _ in connection.cancel() })
             } else if isComplete || error != nil {
                 connection.cancel()
             } else {

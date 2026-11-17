@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The composer's mic -->
+    <string name="dictation_dictate">Dictate</string>
+    <string name="dictation_dictate_hint">Touch and hold to talk, or tap to start and tap again to finish</string>
+    <string name="dictation_insert">Insert dictation</string>
+    <string name="dictation_recording">Recording</string>
+    <string name="dictation_transcribing">Transcribing…</string>
+    <string name="dictation_cancel">Cancel dictation</string>
+    <string name="dictation_hint_held">Release to insert · slide left to cancel</string>
+    <string name="dictation_hint_cancelling">Release to cancel</string>
+    <string name="dictation_hint_locked">Tap ✓ to insert, ✕ to cancel</string>
+    <string name="dictation_try_again">Try again</string>
+    <string name="dictation_discard">Discard</string>
+    <string name="dictation_ok">OK</string>
+    <string name="dictation_open_settings">Open settings</string>
+    <string name="dictation_voice_settings">Voice settings</string>
+    <string name="dictation_phone_prompt">Say your prompt</string>
+
+    <!-- What a dictation left behind -->
+    <string name="dictation_heard_nothing">Didn\'t catch any words.</string>
+    <string name="dictation_too_short">Hold the mic while you talk, or tap it once and tap ✓ when you\'re done.</string>
+    <string name="dictation_phone_recognizer">Transcribed by this phone. Add an xAI key in Settings › Voice for sharper code words.</string>
+    <string name="dictation_no_recognizer">This phone has no speech recognizer. Add an xAI key in Settings › Voice to dictate.</string>
+    <string name="dictation_microphone_ready">Microphone on. Tap the mic to dictate.</string>
+
+    <!-- Why a dictation failed -->
+    <string name="dictation_microphone_denied">Broski can\'t use the microphone. Allow it in settings to dictate.</string>
+    <string name="dictation_microphone_failed">The microphone didn\'t start. Try again.</string>
+    <string name="dictation_no_key">Add an xAI key in Settings › Voice to dictate.</string>
+    <string name="dictation_invalid_key">xAI didn\'t accept your API key.</string>
+    <string name="dictation_out_of_credits">Your xAI account is out of credits. Add some at console.x.ai.</string>
+    <string name="dictation_forbidden">This xAI key isn\'t allowed to transcribe.</string>
+    <string name="dictation_rate_limited">xAI is busy right now. Try again in a moment.</string>
+    <string name="dictation_too_large">That recording is too long to send.</string>
+    <string name="dictation_rejected">xAI couldn\'t transcribe this recording.</string>
+    <string name="dictation_unavailable">xAI\'s transcription isn\'t answering. Try again.</string>
+    <string name="dictation_unexpected">xAI answered in a way Broski didn\'t expect.</string>
+    <string name="dictation_offline">No connection to xAI. Your recording is kept; try again when you\'re online.</string>
+    <string name="dictation_timed_out">xAI took too long to answer. Your recording is kept.</string>
+    <string name="dictation_not_sent">The recording didn\'t reach xAI.</string>
+
+    <!-- Settings › Voice -->
+    <string name="voice_title">Voice</string>
+    <string name="voice_settings_row">Voice</string>
+    <string name="voice_settings_row_body">Dictate prompts with the mic in the composer</string>
+    <string name="voice_xai">xAI</string>
+    <string name="voice_key">xAI key</string>
+    <string name="voice_key_field">Paste your xAI API key</string>
+    <string name="voice_key_save">Save key</string>
+    <string name="voice_key_checking">Checking with xAI…</string>
+    <string name="voice_key_remove">Remove key</string>
+    <string name="voice_key_get">Get a key at console.x.ai</string>
+    <string name="voice_key_checked">xAI took the key. Dictation now uses Grok.</string>
+    <string name="voice_key_unchecked">Saved without checking: xAI couldn\'t be reached.</string>
+    <string name="voice_key_not_saved">The key couldn\'t be saved on this phone.</string>
+    <string name="voice_key_footer">Your voice goes straight from this phone to xAI\'s Grok Voice Transcribe 2.0, about $0.10 per hour of speech, billed to your xAI account. Your Mac never hears it. Without a key, the phone\'s own recognizer stands in: free, but weaker with code.</string>
+    <string name="voice_dictation">Dictation</string>
+    <string name="voice_language">Language</string>
+    <string name="voice_language_detect">Detect automatically</string>
+    <string name="voice_send_after">Send after dictating</string>
+    <string name="voice_send_after_body">The composer sends as soon as the text is in</string>
+    <string name="voice_project_words">Use project words</string>
+    <string name="voice_project_words_body">Sends up to 100 names from the session, like files, identifiers and commands, so they come out spelled right</string>
+    <string name="voice_language_formats">Numbers, paths and code are written the way you\'d type them.</string>
+    <string name="voice_language_plain">Pick English, or another language xAI formats, to get paths and code written the way you\'d type them.</string>
+    <string name="voice_words">Your words</string>
+    <string name="voice_words_body">People, products and your own tools, up to 50 characters each. They go with every recording.</string>
+    <string name="voice_words_add">Add a word or name</string>
+    <string name="voice_words_add_action">Add</string>
+    <string name="voice_words_remove">Remove %1$s</string>
+</resources>

@@ -13,6 +13,8 @@ enum HapticMoment: Equatable {
     case toggled(expanded: Bool)
     case sent
     case stopped
+    /// The microphone started recording a dictation.
+    case listening
     /// One step in a picker (model, thinking).
     case pickerStep
     case snappedToLatest
@@ -25,6 +27,7 @@ enum HapticMoment: Equatable {
         case .toggled(let expanded): .selection(expanded ? .on : .off)
         case .sent: .impact(weight: .light)
         case .stopped: .stop
+        case .listening: .start
         case .pickerStep: .selection
         case .snappedToLatest: .alignment
         }

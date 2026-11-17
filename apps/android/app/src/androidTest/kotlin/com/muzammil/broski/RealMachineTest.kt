@@ -34,7 +34,7 @@ class RealMachineTest {
     val compose = createAndroidComposeRule<MainActivity>()
 
     @get:Rule
-    val notifications: GrantPermissionRule = GrantPermissionRule.grant(Manifest.permission.POST_NOTIFICATIONS)
+    val permissions: GrantPermissionRule = GrantPermissionRule.grant(Manifest.permission.POST_NOTIFICATIONS, Manifest.permission.RECORD_AUDIO)
 
     private val machine = RealMachine.fromArguments()
     private val ui = WorkspaceUiDriver(compose, machine)
@@ -124,6 +124,9 @@ class RealMachineTest {
 
     @Test
     fun t_theChatAtTwiceTheFontSize() = chat.atTwiceTheFontSize()
+
+    @Test
+    fun u_dictationKeepsWordsAndAKeyAndItsRecordingMakesTheRoundTrip() = VoiceFlow(ui, machine).run()
 
     private companion object {
         const val TIMEOUT = 10_000L

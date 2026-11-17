@@ -52,10 +52,16 @@ notifications and live status, the chat with its composer and pinned asks, and N
   side-by-side rows. Pure, bounded, no UniFFI dependency. Docs:
   [`docs/architecture/rendering.md`](docs/architecture/rendering.md),
   [`docs/architecture/formatting.md`](docs/architecture/formatting.md).
+- **Dictation** (`packages/link/voice/`, crate `broski-voice`) — the composer's mic, the same in both apps: the
+  phone records an AAC `.m4a` and uploads it itself to xAI's Grok Voice Transcribe 2.0 (`api.x.ai/v1/stt`, the
+  person's own key, about $0.10 per hour of speech); this crate picks the up to 100 names the session gives the
+  model (inline code, identifiers, tool paths and commands, git's changed files, the folder's entries, the person's
+  own words), builds the multipart request and reads xAI's answer. No I/O; the bridge takes no part. With no key
+  the phone's own recognizer stands in. Doc: [`docs/architecture/dictation.md`](docs/architecture/dictation.md).
 - **BroskiCore** (`packages/link/mobile/`, crate `broski-mobile`, library `libbroski_core`) — the UniFFI 0.32.2
   facade both apps call: thin wrappers over the client core (`Phone`, `Machine`, `SessionView`, `TerminalView`,
-  `SessionList`, `Inbox`), its values restated with `#[uniffi::remote]`, the rendering functions, and the pure
-  push and offer functions the notification handlers and the scanner call; updates pulled (`nextEvent`/`nextUpdate`/`nextChange`, no
+  `SessionList`, `Inbox`), its values restated with `#[uniffi::remote]`, the rendering and dictation functions,
+  and the pure push and offer functions the notification handlers and the scanner call; updates pulled (`nextEvent`/`nextUpdate`/`nextChange`, no
   foreign callbacks), `MachineRecord` opaque and stored as bytes.
   `scripts/build-ios-core.sh` makes `apps/ios/BroskiCore` (XCFramework + Swift package) and
   `scripts/build-android-core.sh` the `apps/android` `:core` module; bindings and binaries are build outputs,
@@ -63,8 +69,9 @@ notifications and live status, the chat with its composer and pinned asks, and N
 - **iOS app** (`apps/ios/Broski/`, XcodeGen `project.yml`; the `.xcodeproj` is a build output) — SwiftUI for
   iOS 26, Swift 6 with main-actor default isolation, Liquid Glass. `Sources/App` (entry, tabs, `Route`),
   `Sources/Core` (`AppModel` owning the `Phone`, keychain persistence, the inbox and machine pull loops, scene
-  phase, `NWPathMonitor`, `NWBrowser` LAN discovery, push registration and decisions, the Live Activity),
-  `Sources/DesignSystem`, `Sources/Features/*` (Workspace: files, git, a libghostty terminal), `Shared/` (what
+  phase, `NWPathMonitor`, `NWBrowser` LAN discovery, push registration and decisions, the Live Activity, and
+  dictation in `Sources/Core/Voice`), `Sources/DesignSystem`, `Sources/Features/*` (Workspace: files, git, a
+  libghostty terminal; Settings › Voice), `Shared/` (what
   its extensions compile), `Extensions/` (the notification service extension, the Live Activity widget). Doc:
   [`apps/ios/README.md`](apps/ios/README.md).
 - **Android app** (`apps/android/app/`, [`apps/android/README.md`](apps/android/README.md)) — Kotlin, Compose,
@@ -74,7 +81,8 @@ notifications and live status, the chat with its composer and pinned asks, and N
   from an inbox row, with the inbox's last known rows restored at launch. One `Phone` per process in
   `core/AppCore.kt`, its loops in `core/PhoneSession.kt`; the identity secret, records and seen state in a
   Keystore-sealed DataStore (`core/vault/`). The chat (`feature/chat/`) and New session
-  (`feature/newsession/`) are wired in `app/Features.kt`.
+  (`feature/newsession/`) are wired in `app/Features.kt`; dictation lives in `core/voice/` and the composer's
+  `feature/chat/composer/dictation/`, with Settings › Voice in `feature/settings/`.
 - **Identifiers kept from the Flutter app** ([`apps/carryover/README.md`](apps/carryover/README.md)) — the bundle
   ids, team, keychain groups and Android application id the native apps keep.
 - **Connection:** direct over the LAN when reachable, otherwise through the relay. No VPN, tunnel, port forwarding
@@ -190,7 +198,7 @@ packages/bridge/src/
   workspace/     files, git and terminals over the contract, behind the core's WorkspaceHost port (workspace-host.ts)
   transport/     send queue and frame limits
   platform/ config/ doctor/ wizard/ commands/ lifecycle/ logging/  the CLI and service around the bridge
-packages/link/   the Rust link stack: crypto, proto, core, daemon, power, relay; contract (the phone core's models and reducer); session (the phone side of the link); client (the mobile core over it); render (highlighting, diffs and tool rows for both apps); testkit (the daemon, relay, LAN and bridge harness the phone crates' tests share); mobile (BroskiCore, the UniFFI facade); uniffi-bindgen
+packages/link/   the Rust link stack: crypto, proto, core, daemon, power, relay; contract (the phone core's models and reducer); session (the phone side of the link); client (the mobile core over it); render (highlighting, diffs and tool rows for both apps); voice (dictation's names, xAI request and answer); testkit (the daemon, relay, LAN and bridge harness the phone crates' tests share); mobile (BroskiCore, the UniFFI facade); uniffi-bindgen
 apps/ios/BroskiCore/  the Swift package of BroskiCore (generated bindings + XCFramework, both from scripts/build-ios-core.sh)
 apps/ios/Broski/  the iOS app (project.yml, Sources/{App,Core,DesignSystem,Features}, Shared, Extensions, Tests, UITests)
 apps/android/    the Gradle build: :core, BroskiCore's Android library (bindings + .so from scripts/build-android-core.sh);

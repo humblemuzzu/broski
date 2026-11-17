@@ -243,6 +243,14 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
   `AppModel.drafts` while the app runs; a new session's first prompt goes there too, and its chat
   sends it once the view is attached. Models, commands and modes come from the catalog for the
   session's backend and folder, read again when `MachineModel.catalogChanges` moves.
+- **Dictation** (`Core/Voice`, [dictation.md](../../docs/architecture/dictation.md)): `AppModel.dictation`,
+  one for the app, owned by the composer that started it (`DictationTarget`: the chat's draft or New
+  session's). `DictationRecorder` records AAC at 16 kHz mono; on stop the session's names
+  (`dictationTerms`, from `ChatModel.recentItems()` and `WorkspaceGlance`'s folder listing and git status)
+  go with the file to xAI through `GrokTranscriber`, exactly as the core built the request. No key, or no
+  connection: `OnDeviceTranscriber` (`DictationTranscriber`, the names as `contextualStrings`). The key
+  is in the app's keychain (`xai-api-key`), the rest in `@AppStorage` `voice.*`. Leaving the app ends a
+  recording and transcribes it in background time.
 
 ## Screens
 
@@ -309,8 +317,9 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
   fitted by `TableLayout` with a viewer, code blocks with wrap, copy and a viewer, the long-press answer
   menu with Select Text; Settings › Reading (`reading.*` in `@AppStorage`) and Settings › Formatting, the
   core's samples in every appearance.
-- **Settings**: notification kinds (`NotificationPreferences`, in the app group), appearance (system /
-  light / dark), About (app version and build, core version and protocol, each Mac's bridge), the
+- **Settings**: notification kinds (`NotificationPreferences`, in the app group), Voice (the xAI key,
+  checked with xAI before it is kept; the language; send after dictating; project words; the person's
+  own words), appearance (system / light / dark), About (app version and build, core version and protocol, each Mac's bridge), the
   privacy line.
 - **Workspace** (tab between Inbox and Settings): the Mac chosen from the title menu when several are
   paired (an unreachable one shows its status, dimmed, actions off); its folders (`workspace.info`)

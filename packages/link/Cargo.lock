@@ -697,6 +697,7 @@ dependencies = [
  "broski-link-session",
  "broski-link-testkit",
  "broski-render",
+ "broski-voice",
  "tokio",
  "uniffi",
  "zeroize",
@@ -735,6 +736,16 @@ dependencies = [
  "serde_json",
  "similar",
  "syntect",
+]
+
+[[package]]
+name = "broski-voice"
+version = "0.1.0"
+dependencies = [
+ "broski-contract",
+ "broski-render",
+ "getrandom 0.3.4",
+ "serde_json",
 ]
 
 [[package]]

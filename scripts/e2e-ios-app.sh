@@ -6,8 +6,8 @@
 # pull the inbox to refresh, approve a permission the machine asks for from its inbox row, start a held
 # run from the chat's composer, follow it in the Live Activity and stop it from there, drive the chat
 # (streamed work, permissions, a choice, a queue, Stop, jump to latest, rename, a new session), browse,
-# diff, stage and commit in a git repository made in the served root, type into a terminal, and save
-# a screenshot of every screen. A second test machine serves `SessionMachineTests`, whose own phone
+# diff, stage and commit in a git repository made in the served root, type into a terminal, dictate
+# into a chat (the Mac speaks a line into its own microphone), and save a screenshot of every screen. A second test machine serves `SessionMachineTests`, whose own phone
 # follows real runs and holds the chat's session state equal to the core's view after every update.
 # Then it puts the push fixture's machine record in the app's keychain,
 # sends the fixture push with `simctl push` (which runs no notification service extension) and has
@@ -19,7 +19,9 @@
 # Usage: scripts/e2e-ios-app.sh [output directory]   (default apps/ios/Broski/build/e2e)
 # BROSKI_SIMULATOR names the simulator (default "iPhone Duo"); it is erased of the app, its
 # keychain and its privacy grants first. BROSKI_E2E_ONLY names UI tests to run alone
-# ("Class/testName", space separated; the first, PairingEndToEndTests/test1…, pairs the phone). Needs what scripts/build-ios-app.sh needs, plus Bun and
+# ("Class/testName", space separated; the first, PairingEndToEndTests/test1…, pairs the phone).
+# BROSKI_E2E_XAI_KEY, when set, is saved in Settings › Voice so dictation goes through xAI; without it
+# the simulator's own recognizer transcribes. Needs what scripts/build-ios-app.sh needs, plus Bun and
 # `bun install` in packages/bridge.
 set -euo pipefail
 
@@ -42,11 +44,13 @@ replica_tail_pid=""
 replica_pid=""
 advert_pid=""
 pusher_pid=""
+speaker_pid=""
 log_pid=""
 
 cleanup() {
   [[ -n $log_pid ]] && kill "$log_pid" 2>/dev/null || true
   [[ -n $pusher_pid ]] && kill "$pusher_pid" 2>/dev/null || true
+  [[ -n $speaker_pid ]] && kill "$speaker_pid" 2>/dev/null || true
   [[ -n $advert_pid ]] && kill "$advert_pid" 2>/dev/null || true
   # Closing the machine's stdin stops it, and with it the daemon and the bridge.
   [[ -n $tail_pid ]] && kill "$tail_pid" 2>/dev/null || true
@@ -167,8 +171,22 @@ echo "==> Running the end-to-end tests"
 xcrun simctl spawn "$SIMULATOR" log stream --level info --style compact \
   --predicate 'subsystem == "com.muzammil.broski"' >"$WORK/app.log" 2>/dev/null &
 log_pid=$!
+# VoiceEndToEndTests asks for speech by leaving speak-now in the screenshots folder: the Mac says a
+# line through its speakers, which the simulator records through the Mac's microphone.
+(
+  for _ in $(seq 3600); do
+    if [[ -f $OUT/screenshots/speak-now ]]; then
+      mv "$OUT/screenshots/speak-now" "$OUT/screenshots/spoken"
+      sleep 1
+      say "Rename the settings screen in SwiftUI, then run bun test."
+    fi
+    sleep 1
+  done
+) &
+speaker_pid=$!
 e2e_tests() {
   TEST_RUNNER_BROSKI_E2E_COMMANDS="$COMMANDS" \
+    TEST_RUNNER_BROSKI_E2E_XAI_KEY="${BROSKI_E2E_XAI_KEY:-}" \
     TEST_RUNNER_BROSKI_E2E_SCREENSHOTS="$OUT/screenshots" \
     TEST_RUNNER_BROSKI_E2E_ROOT="$served" \
     TEST_RUNNER_BROSKI_E2E_ASK_SESSION="$ask_session" \

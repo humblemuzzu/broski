@@ -181,6 +181,13 @@ terminal/     the :terminal module: libghostty-vt's JNI shim (src/main/c) and Vt
 - **Catalog**: models, modes and commands from the machine's cached catalog, read again on
   `PhoneSession.catalogChanges` (the machine loop's `CatalogInvalidated` and `BackendsChanged`) and when
   the machine comes back online.
+- **Dictation** (`core/voice/`, `feature/chat/composer/dictation/`,
+  [dictation.md](../../docs/architecture/dictation.md)): `AppCore.dictation`, one for the process, reached by
+  composers through `LocalDictation`. `DictationRecorder` (`MediaRecorder`, AAC 16 kHz mono) records; on
+  stop the session's names (`dictationTerms`, from the chat's newest items and `WorkspaceGlance`) go with
+  the file to xAI through `GrokTranscriber`, exactly as the core built the request. The key is sealed in
+  the vault (`voice:xai-key`) and checked with xAI in Settings › Voice before it is kept; with none, the
+  phone's own recognizer (`RecognizerIntent`) stands in. `RECORD_AUDIO` is asked on the first press.
 
 ## Core wiring
 

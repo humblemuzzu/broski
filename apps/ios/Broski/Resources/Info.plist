@@ -43,6 +43,10 @@
 	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>Broski uses the camera to scan the pairing code your Mac shows.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Broski records your voice when you hold or tap the mic, and turns it into text for your prompt.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Without an xAI key, or offline, Broski turns your recording into text on this iPhone.</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>NSLocalNetworkUsageDescription</key>

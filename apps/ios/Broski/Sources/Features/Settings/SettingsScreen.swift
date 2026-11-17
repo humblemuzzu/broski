@@ -2,7 +2,7 @@ import BroskiCore
 import SwiftUI
 import UIKit
 
-/// Notifications (which kinds, kept on this phone), appearance, and about.
+/// Notifications (which kinds, kept on this phone), voice, appearance, and about.
 struct SettingsScreen: View {
     @Environment(AppModel.self) private var model
     @Environment(\.openURL) private var openURL
@@ -18,6 +18,15 @@ struct SettingsScreen: View {
         NavigationStack {
             Form {
                 notifications
+                Section {
+                    NavigationLink {
+                        VoiceSettingsScreen()
+                    } label: {
+                        Label("Voice", systemImage: "mic")
+                    }
+                } footer: {
+                    Text("Dictate prompts with the mic in the composer.")
+                }
                 Section("Appearance") {
                     Picker("Appearance", selection: $appearance) {
                         ForEach(Appearance.allCases) { option in

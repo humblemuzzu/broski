@@ -43,6 +43,8 @@ import com.muzammil.broski.feature.chat.composer.ComposerActions
 import com.muzammil.broski.feature.chat.composer.ComposerLook
 import com.muzammil.broski.feature.chat.composer.ComposerSettings
 import com.muzammil.broski.feature.chat.composer.SettingActions
+import com.muzammil.broski.feature.chat.composer.dictation.DictationHook
+import com.muzammil.broski.feature.chat.composer.dictation.LocalDictation
 import com.muzammil.broski.feature.chat.composer.sendButton
 import com.muzammil.broski.feature.workspace.lastComponent
 import uniffi.broski_contract.AttachmentKind
@@ -129,6 +131,8 @@ private fun NewSessionComposer(model: NewSessionViewModel, catalog: Catalog, ui:
             settings = SettingActions(model::pickModel, model::pickThinking, model::pickMode),
         )
     }
+    val dictation = LocalDictation.current
+    val hook = remember(dictation, model) { dictation?.let { DictationHook(it, model.dictationTarget(it), openVoiceSettings = null) } }
     Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Composer(
             state = model.composer,
@@ -142,6 +146,7 @@ private fun NewSessionComposer(model: NewSessionViewModel, catalog: Catalog, ui:
             ),
             actions = actions,
             focus = focus,
+            dictation = hook,
         )
     }
 }

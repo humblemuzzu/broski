@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.muzammil.broski.core.PhoneSession
 import com.muzammil.broski.core.isOnline
+import com.muzammil.broski.core.voice.Dictation
+import com.muzammil.broski.core.voice.DictationTarget
 import com.muzammil.broski.feature.chat.composer.CatalogReader
 import com.muzammil.broski.feature.chat.composer.ComposerState
 import com.muzammil.broski.feature.chat.composer.ImageAttachments
@@ -37,6 +39,7 @@ import uniffi.broski_contract.SessionRef
 import uniffi.broski_contract.SessionSummary
 import uniffi.broski_contract.TranscriptItem
 import uniffi.broski_core.ClientException
+import uniffi.broski_core.DictationSources
 import uniffi.broski_core.Machine
 import uniffi.broski_core.SessionChange
 
@@ -49,7 +52,7 @@ class ChatViewModel(
     val phone: PhoneSession,
     val machineId: String,
     private val route: SessionRef,
-    machine: Machine,
+    private val machine: Machine,
     attachments: ImageAttachments,
 ) : ViewModel() {
     private val mutableSummary = MutableStateFlow<SessionSummary?>(null)
@@ -139,6 +142,22 @@ class ChatViewModel(
         (result as? SessionGetResult.Accepted)?.let { mutableSummary.value = it.v1.summary }
     }
 
+    /**
+     * Where this chat's dictation goes: its draft, sent by [send] when the person wants that, with the
+     * newest items and the session folder for the names the speech model is told.
+     */
+    fun dictationTarget(dictation: Dictation, send: () -> Unit) = DictationTarget(
+        id = "chat:$machineId:${route.backend}:${route.sessionId}",
+        sources = {
+            val items = (feed.history.value.items + feed.settled.value + feed.live.value.snapshot.run?.items.orEmpty()).takeLast(DICTATION_ITEMS)
+            val cwd = header.value.cwd
+            val (folder, git) = cwd?.let { dictation.glance.look(machine, machineId, it) } ?: (null to null)
+            DictationSources(items, folder, git, cwd, emptyList())
+        },
+        insert = composer::appendDictated,
+        send = send,
+    )
+
     /** The conversation as plain text, the person's turns and the agent's words, for the clipboard. */
     fun conversationText(): String {
         val items = feed.history.value.items + feed.settled.value + feed.live.value.snapshot.run?.items.orEmpty()
@@ -183,5 +202,6 @@ class ChatViewModel(
     private companion object {
         const val REVEAL_LIMIT_MS = 3_000L
         const val MAX_NOTICES = 3
+        const val DICTATION_ITEMS = 80
     }
 }

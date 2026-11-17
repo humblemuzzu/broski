@@ -1,0 +1,21 @@
+[package]
+name = "broski-voice"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "Dictation both phone apps do the same way: the words a session gives the speech model, and xAI's speech-to-text request and answer"
+
+[lib]
+doctest = false
+
+[dependencies]
+# broski-contract — the transcript items, folder listing and git status the words come from.
+broski-contract = { path = "../contract" }
+# broski-render — how a tool call reads (its paths and command) and markdown's inline code, as the
+# work fold and the transcript already read them.
+broski-render = { path = "../render" }
+# serde_json 1.0.151 — the contract crate's pin; reads xAI's answers.
+serde_json = "1.0.151"
+# getrandom 0.3.4 — the session crate's pin; the multipart boundary.
+getrandom = "0.3.4"

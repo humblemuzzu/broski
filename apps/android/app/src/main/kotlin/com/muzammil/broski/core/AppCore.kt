@@ -19,6 +19,7 @@ import com.muzammil.broski.core.vault.AesGcmCipher
 import com.muzammil.broski.core.vault.KeystoreKey
 import com.muzammil.broski.core.vault.UnreadableSecretException
 import com.muzammil.broski.core.vault.Vault
+import com.muzammil.broski.core.voice.Dictation
 import java.io.IOException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -84,6 +85,9 @@ class AppCore(private val context: Context) {
 
     /** `null` until the stored settings are read, so the first frame already has the right theme. */
     val settings: StateFlow<AppSettings?> = settingsStore.settings.stateIn(scope, SharingStarted.Eagerly, null)
+
+    /** Created on the main thread with the core, as its recorder and its state live there. */
+    val dictation = Dictation(context, vault, settings)
 
     private val mutableState = MutableStateFlow<CoreState>(CoreState.Starting)
     val state: StateFlow<CoreState> = mutableState.asStateFlow()
@@ -191,6 +195,7 @@ class AppCore(private val context: Context) {
 
             override fun onStop(owner: LifecycleOwner) {
                 foreground.value = false
+                dictation.sceneLeft()
                 discovery.stop()
             }
         })

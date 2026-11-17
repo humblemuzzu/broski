@@ -107,7 +107,8 @@ struct NewSessionSheet: View {
                 acceptsImages: capabilities?.attachments.contains(.image) ?? false,
                 isEnabled: machine.summary.isReady && model.backend != nil && model.folder != nil,
                 catalog: model.catalog, choices: model.choices, choose: model.choose(_:),
-                perform: { _ in create(on: machine) }, refuse: { _ in }, focus: $composing)
+                perform: { _ in create(on: machine) }, refuse: { _ in }, focus: $composing,
+                dictation: .newSession(model, machine: machine, glance: app.dictation.glance))
         }
     }
 

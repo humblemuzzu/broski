@@ -55,6 +55,9 @@ view is exported as `detach`, of a list as `stop`; a machine is ended through `P
 | `formatMarkdown(text:streaming:) → [FormatBlock]`, `formatMessage(text:) → [FormatBlock]`, `formatPlainText(text:) → String`, `formatSamples() → [FormatSample]` | `broski_render`'s formatter: agent text as keyed blocks, the person's message, plain words, the gallery's corpus ([formatting.md](formatting.md)) |
 | `tableMarkdown(table:)`, `tableCsv(table:)`, `tableTsv(table:)`, `tableHtml(table:)` → `String`, `formatJson(text:) → [CodeLine]?`, `languageLabel(label:) → String` | a table's exports, JSON pretty-printed and coloured, a fence's language named |
 | `toolBody(facts:output:) → ToolBody`, `toolArguments(facts:) → [ToolArgument]`, `formatLog(text:maxLines:keep:) → LogText` | `broski_render::tool_body`, `tool_arguments`, `format_log`: how an opened call's result, arguments and logs read |
+| `dictationTerms(sources:) → [String]` | `broski_voice::dictation_terms`: the up to 100 names a session gives the speech model ([dictation.md](dictation.md)) |
+| `dictationRequest(apiKey:audio:fileName:mimeType:language:terms:) → HttpRequest { url, headers, body }`, `dictationKeyCheck(apiKey:) → HttpRequest` | `broski_voice::transcription_request`, `key_check_request`: xAI's upload, which the app `POST`s itself |
+| `dictationResult(status:body:) throws → Transcription`, `dictationErrorRetryable(error:) → Bool`, `dictationLanguages() → [DictationLanguage]` | `broski_voice::transcription_result`, `DictationError::retryable`, `dictation_languages` |
 
 ### Values
 
@@ -68,7 +71,9 @@ view is exported as `detach`, of a list as `stop`; a machine is ended through `P
 - **The session's**, restated the same way in `mobile/src/link.rs` and `push.rs`: `LinkStatus` (its
   `Status`), `LinkState`, `WaitReason`, `LinkRoute` (`Route`), `BridgeStatus`, `BridgeState`,
   `SendFailure`, `Platform`, `PushPlatform`, `PushNotification`, `PushDecision`.
-- **The facade's own**: `PairingOffer`, `HttpHeader`, `LetterRequest`, `CoreVersion`.
+- **Dictation's**, restated the same way in `mobile/src/voice.rs`: `DictationSources`, `Transcription`,
+  `DictationLanguage`, and the error `DictationError` (Kotlin `DictationException`).
+- **The facade's own**: `PairingOffer`, `HttpHeader`, `LetterRequest`, `HttpRequest`, `CoreVersion`.
 - **The contract's** models are external types: `broski-contract` derives `uniffi::Record`/`Enum` behind
   its `uniffi` feature and sets up its own scaffolding, and the bindgen emits its bindings next to the
   facade's (`ClientMessage`, `ServerMessage`, `SessionRef`, `SessionSnapshot`, …).
@@ -186,7 +191,7 @@ and device secret of that pairing, the push vectors of [push.md](connectivity-v2
 client's `tests/common/replica.rs`) equals the snapshot, the inbox with a home-screen loop, its seen
 state and its cache, a session list, a terminal, then a new `Phone` from the stored identity, record,
 seen state and cache that shows the cached row at once and finds the session seen, and `forget`.
-`tests/render.rs` calls every rendering export. `tests/fixtures/inbox-cache.json` is an
+`tests/render.rs` calls every rendering export, `tests/voice.rs` every dictation export. `tests/fixtures/inbox-cache.json` is an
 `InboxUpdate.cache` of the fixture machine's inbox (a session waiting on `npm test` and an idle one),
 which `facade.rs`, the iOS app's and the Android app's tests restore.
 

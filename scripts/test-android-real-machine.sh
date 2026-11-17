@@ -9,6 +9,8 @@
 # cache. Screenshots, the cold start's included, land in app/build/outputs/real-machine-shots.
 #
 # Usage: scripts/test-android-real-machine.sh
+# BROSKI_E2E_XAI_KEY, when set, is saved in Settings › Voice and the dictation test records into a chat;
+# BROSKI_ANDROID_TESTS names test methods to run alone ("RealMachineTest#a_…,RealMachineTest#u_…").
 # Needs one booted device or emulator (or ANDROID_SERIAL naming one), cargo, Bun with `bun install` in
 # packages/bridge, git, python3, and ANDROID_HOME and JAVA_HOME (JDK 17).
 set -euo pipefail
@@ -80,7 +82,9 @@ status=0
   -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true \
   "-Pandroid.testInstrumentationRunnerArguments.offer=$OFFER" \
   "-Pandroid.testInstrumentationRunnerArguments.root=$SERVED" \
-  "-Pandroid.testInstrumentationRunnerArguments.control=http://127.0.0.1:$CONTROL") || status=$?
+  "-Pandroid.testInstrumentationRunnerArguments.control=http://127.0.0.1:$CONTROL" \
+  "-Pandroid.testInstrumentationRunnerArguments.xaiKey=${BROSKI_E2E_XAI_KEY:-}" \
+  ${BROSKI_ANDROID_TESTS:+"-Pandroid.testInstrumentationRunnerArguments.class=$(sed 's/RealMachineTest/com.muzammil.broski.RealMachineTest/g' <<<"$BROSKI_ANDROID_TESTS")"}) || status=$?
 
 echo "==> Stopping the machine"
 kill "$CONTROL_PID" 2>/dev/null || true

@@ -2,7 +2,8 @@
 //! exported to Swift and Kotlin through UniFFI, with the functions the notification handlers and the
 //! pairing scanner call without a `Phone`, and the rendering both apps draw the same way
 //! (`broski-render`), including how a tool call reads in the work fold, how an activity reads in
-//! the transcript, how long text is cut to a row, and what a form shows.
+//! the transcript, how long text is cut to a row, and what a form shows; and dictation
+//! (`broski-voice`): the words a session gives the speech model, and xAI's upload and answer.
 //!
 //! Every export is a thin wrapper; the behaviour lives in the client, session, contract and render
 //! crates.
@@ -24,6 +25,7 @@ mod render;
 mod values;
 mod version;
 mod views;
+mod voice;
 mod work;
 
 pub use activity::{activity_look, clip_text, format_duration};
@@ -46,6 +48,10 @@ pub use render::{
 };
 pub use version::{core_version, CoreVersion};
 pub use views::{SessionList, SessionView, TerminalView};
+pub use voice::{
+    dictation_error_retryable, dictation_key_check, dictation_languages, dictation_request,
+    dictation_result, dictation_terms, HttpRequest,
+};
 pub use work::{
     fold_counts, form_field_default, form_field_shown, format_log, tool_arguments, tool_body,
     tool_look,

@@ -45,6 +45,7 @@ import com.muzammil.broski.app.FeatureContext
 import com.muzammil.broski.app.FileRoute
 import com.muzammil.broski.app.FilesRoute
 import com.muzammil.broski.app.SessionRoute
+import com.muzammil.broski.app.VoiceRoute
 import com.muzammil.broski.core.isOnline
 import com.muzammil.broski.design.Haptic
 import com.muzammil.broski.design.animationsEnabled
@@ -116,7 +117,7 @@ fun ChatLayout(model: ChatViewModel, context: FeatureContext, snackbar: Snackbar
             Loading(connection, Modifier.align(Alignment.Center).padding(horizontal = 32.dp))
         }
         Header(model, context, dialogs, transcript.scrolledUnderTop, Modifier.align(Alignment.TopCenter).onSizeChanged { topHeight = it.height })
-        ChatBottom(model, dialogs.openDiff, Modifier.align(Alignment.BottomCenter).onSizeChanged { bottomHeight = it.height })
+        ChatBottom(model, dialogs.openDiff, { context.navigate(VoiceRoute) }, Modifier.align(Alignment.BottomCenter).onSizeChanged { bottomHeight = it.height })
         val bottom = with(density) { bottomHeight.toDp() }
         JumpToLatest(transcript, Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = bottom + 12.dp))
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = bottom))

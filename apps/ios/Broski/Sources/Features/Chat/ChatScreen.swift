@@ -56,7 +56,8 @@ private struct ChatContent: View {
             .safeAreaBar(edge: .bottom) {
                 ChatBottomBar(
                     chat: chat, catalog: catalog, agent: agent, capabilities: capabilities,
-                    isReady: chat.connectionProblem(machine.summary) == nil, position: $position, composing: $composing)
+                    isReady: chat.connectionProblem(machine.summary) == nil, dictation: dictationTarget, position: $position,
+                    composing: $composing)
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -86,6 +87,16 @@ private struct ChatContent: View {
             .task(id: CatalogKey(session: chat.session, cwd: cwd, changes: machine.catalogChanges)) {
                 await catalog.load(machine.machine, backend: chat.session.backend, cwd: cwd, session: chat.session)
             }
+    }
+
+    /// Dictated text goes into this chat's draft; "send after dictating" sends it as the button would.
+    private var dictationTarget: DictationTarget {
+        let modes = capabilities?.promptModes ?? [.start]
+        return .chat(chat, cwd: { [cwd] in cwd }, machine: machine, glance: app.dictation.glance) { [chat] in
+            let action = SendAction.resolve(running: chat.isRunning, hasContent: chat.draft.hasContent, modes: modes)
+            guard action.mode != nil else { return }
+            Task { await chat.send(action) }
+        }
     }
 
     private struct CatalogKey: Equatable {

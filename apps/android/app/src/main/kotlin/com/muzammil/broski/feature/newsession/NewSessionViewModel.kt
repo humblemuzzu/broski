@@ -7,6 +7,8 @@ import com.muzammil.broski.core.AgentInstall
 import com.muzammil.broski.core.MachineState
 import com.muzammil.broski.core.PhoneSession
 import com.muzammil.broski.core.isOnline
+import com.muzammil.broski.core.voice.Dictation
+import com.muzammil.broski.core.voice.DictationTarget
 import com.muzammil.broski.feature.chat.FirstPrompts
 import android.net.Uri
 import com.muzammil.broski.feature.chat.composer.Catalog
@@ -38,6 +40,7 @@ import uniffi.broski_contract.ServerMessage
 import uniffi.broski_contract.SessionCreateRequest
 import uniffi.broski_contract.SessionRef
 import uniffi.broski_core.ClientException
+import uniffi.broski_core.DictationSources
 import uniffi.broski_core.InboxRow
 
 /** What the person has chosen for the session so far. */
@@ -143,6 +146,21 @@ class NewSessionViewModel(private val phone: PhoneSession, private val attachmen
         val backend = chosen.backend ?: return
         reader.value = CatalogReader(machine, viewModelScope).also { it.load(backend, chosen.folder, null) }
     }
+
+    /** The new session's dictation: no transcript yet, only the chosen folder's names. */
+    fun dictationTarget(dictation: Dictation) = DictationTarget(
+        id = "new-session",
+        sources = {
+            val chosen = choice.value
+            val machineId = chosen.machineId
+            val machine = machineId?.let(phone::machine)
+            val cwd = chosen.folder
+            val (folder, git) = if (machineId != null && machine != null && cwd != null) dictation.glance.look(machine, machineId, cwd) else null to null
+            DictationSources(emptyList(), folder, git, cwd, emptyList())
+        },
+        insert = composer::appendDictated,
+        send = null,
+    )
 
     fun attachImage(uri: Uri) {
         viewModelScope.launch {

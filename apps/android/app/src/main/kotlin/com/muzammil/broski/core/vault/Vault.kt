@@ -79,6 +79,15 @@ class Vault(private val store: DataStore<Preferences>, private val cipher: Secre
         if (text.isBlank()) store.edit { it.remove(draftKey(name)) } else write(draftKey(name), text.encodeToByteArray())
     }
 
+    /** The xAI key dictation sends with, sealed like everything here; `null` when none is saved. */
+    suspend fun xaiKey(): String? = read(XAI_KEY)?.decodeToString()?.trim()?.ifEmpty { null }
+
+    suspend fun saveXaiKey(key: String) = write(XAI_KEY, key.trim().encodeToByteArray())
+
+    suspend fun deleteXaiKey() {
+        store.edit { it.remove(XAI_KEY) }
+    }
+
     /** Every draft of a machine's sessions, once the machine is forgotten. */
     suspend fun deleteDrafts(machineId: String) {
         store.edit { preferences ->
@@ -106,6 +115,7 @@ class Vault(private val store: DataStore<Preferences>, private val cipher: Secre
         val IDENTITY = byteArrayPreferencesKey("identity")
         val SEEN = byteArrayPreferencesKey("seen")
         val CACHE = byteArrayPreferencesKey("cache")
+        val XAI_KEY = byteArrayPreferencesKey("voice:xai-key")
 
         fun recordKey(machineId: String) = byteArrayPreferencesKey(RECORD_PREFIX + machineId)
 

@@ -9,6 +9,7 @@ struct ChatBottomBar: View {
     let agent: String
     let capabilities: Capabilities?
     let isReady: Bool
+    let dictation: DictationTarget
     @Binding var position: ScrollPosition
     @Binding var composing: Bool
     @State private var jumps = 0
@@ -49,7 +50,7 @@ struct ChatBottomBar: View {
             acceptsImages: capabilities?.attachments.contains(.image) ?? false,
             isEnabled: isReady, catalog: catalog,
             choices: ComposerChoices(chat.snapshot), choose: choose, perform: perform,
-            refuse: { chat.report(ChatProblem(message: $0)) }, focus: $composing)
+            refuse: { chat.report(ChatProblem(message: $0)) }, focus: $composing, dictation: dictation)
     }
 
     private func perform(_ action: SendAction) {

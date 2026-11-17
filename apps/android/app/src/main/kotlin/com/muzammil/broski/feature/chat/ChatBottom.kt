@@ -16,6 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
@@ -36,6 +37,8 @@ import com.muzammil.broski.feature.chat.composer.ComposerActions
 import com.muzammil.broski.feature.chat.composer.ComposerLook
 import com.muzammil.broski.feature.chat.composer.ComposerSettings
 import com.muzammil.broski.feature.chat.composer.SendFace
+import com.muzammil.broski.feature.chat.composer.dictation.DictationHook
+import com.muzammil.broski.feature.chat.composer.dictation.LocalDictation
 import com.muzammil.broski.feature.chat.composer.SettingActions
 import com.muzammil.broski.feature.chat.composer.matchingCommands
 import com.muzammil.broski.feature.chat.composer.sendButton
@@ -47,7 +50,7 @@ import uniffi.broski_contract.PromptMode
 
 /** Everything pinned at the bottom: what runs in the background, notices, the queue, the first ask, the commands list and the composer. */
 @Composable
-fun ChatBottom(model: ChatViewModel, openDiff: (FileChange) -> Unit, modifier: Modifier) {
+fun ChatBottom(model: ChatViewModel, openDiff: (FileChange) -> Unit, openVoiceSettings: () -> Unit, modifier: Modifier) {
     val live by model.live.collectAsStateWithLifecycle()
     val notices by model.notices.collectAsStateWithLifecycle()
     val answers by model.actions.answers.collectAsStateWithLifecycle()
@@ -77,13 +80,13 @@ fun ChatBottom(model: ChatViewModel, openDiff: (FileChange) -> Unit, modifier: M
         if (capabilities?.controllable == false) {
             WatchOnly()
         } else {
-            ChatComposer(model, agent, running = snapshot.run != null)
+            ChatComposer(model, agent, running = snapshot.run != null, openVoiceSettings)
         }
     }
 }
 
 @Composable
-private fun ChatComposer(model: ChatViewModel, agent: String, running: Boolean) {
+private fun ChatComposer(model: ChatViewModel, agent: String, running: Boolean, openVoiceSettings: () -> Unit) {
     val haptics = LocalHapticFeedback.current
     val focus = LocalFocusManager.current
     val live by model.live.collectAsStateWithLifecycle()
@@ -117,6 +120,18 @@ private fun ChatComposer(model: ChatViewModel, agent: String, running: Boolean) 
             settings = SettingActions(model.actions::setModel, model.actions::setThinking, model.actions::setMode),
         )
     }
+    val sendNow by rememberUpdatedState {
+        if (button.enabled && button.face != SendFace.Stop) {
+            button.face.mode?.let { mode ->
+                haptics.perform(Haptic.Send)
+                model.actions.send(mode)
+            }
+        }
+    }
+    val dictation = LocalDictation.current
+    val hook = remember(dictation, model) {
+        dictation?.let { DictationHook(it, model.dictationTarget(it) { sendNow() }, openVoiceSettings) }
+    }
     val matching = if (command == null) matchingCommands(text, catalog.commands) else emptyList()
     if (matching.isNotEmpty()) CommandList(matching, onPick = model.composer::pick)
     Composer(
@@ -130,6 +145,7 @@ private fun ChatComposer(model: ChatViewModel, agent: String, running: Boolean) 
             settings = settings,
         ),
         actions = actions,
+        dictation = hook,
     )
 }
 

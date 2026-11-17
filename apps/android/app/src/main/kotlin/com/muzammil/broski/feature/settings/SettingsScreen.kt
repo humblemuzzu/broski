@@ -71,10 +71,10 @@ private val AppearanceOptions = listOf(
     AppearanceOption(Appearance.Dark, R.string.settings_appearance_dark, R.drawable.ic_dark_mode),
 )
 
-/** Notification kinds, appearance, versions and the privacy line; nothing deeper. */
+/** Notification kinds, voice, appearance, versions and the privacy line. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun SettingsScreen(core: AppCore, phone: PhoneSession) {
+fun SettingsScreen(core: AppCore, phone: PhoneSession, onOpenVoice: () -> Unit) {
     val viewModel = viewModel { SettingsViewModel(core.settingsStore, core.settings, phone.machines) }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
@@ -102,6 +102,7 @@ fun SettingsScreen(core: AppCore, phone: PhoneSession) {
             ),
         ) {
             notifications(state.settings.notifications, viewModel::setNotification)
+            item(key = "voice") { VoiceRow(onOpenVoice) }
             item(key = "appearance") {
                 SectionHeader(stringResource(R.string.settings_appearance))
                 AppearancePicker(state.settings.appearance, viewModel::setAppearance)
@@ -152,6 +153,21 @@ private fun LazyListScope.notifications(enabled: Set<NotificationKind>, onChange
             ) { Text(stringResource(row.title)) }
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun VoiceRow(onOpen: () -> Unit) {
+    SectionHeader(stringResource(R.string.voice_title))
+    SegmentedListItem(
+        onClick = onOpen,
+        shapes = ListItemDefaults.segmentedShapes(0, 1),
+        modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = ListItemDefaults.SegmentedGap),
+        leadingContent = { Icon(painterResource(R.drawable.ic_mic), contentDescription = null) },
+        supportingContent = { Text(stringResource(R.string.voice_settings_row_body)) },
+        trailingContent = { Icon(painterResource(R.drawable.ic_chevron_right), contentDescription = null) },
+        colors = groupedListItemColors(),
+    ) { Text(stringResource(R.string.voice_settings_row)) }
 }
 
 /**

@@ -18,6 +18,7 @@ broski-client = { path = "../client" }
 broski-contract = { path = "../contract", features = ["uniffi"] }
 broski-link-session = { path = "../session" }
 broski-render = { path = "../render" }
+broski-voice = { path = "../voice" }
 # uniffi =0.32.2 — exact: the bindgen in ../uniffi-bindgen must be the same version.
 uniffi = "=0.32.2"
 # zeroize 1.8.2 — the same pin the session uses; wipes the offer the scanner hands in.

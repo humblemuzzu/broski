@@ -32,6 +32,7 @@ final class AppModel {
     var visibleSession: SessionTarget?
     /// What the person was writing in each chat, kept when they leave it.
     let drafts = DraftStore()
+    let dictation = Dictation()
 
     @ObservationIgnored private let storage: PhoneStorage
     @ObservationIgnored private var phone: Phone?
@@ -144,6 +145,7 @@ final class AppModel {
             Task { await notifications.refresh() }
         case .background:
             isActive = false
+            dictation.sceneLeft()
             phone?.pause()
             holdForDelivery()
         default:

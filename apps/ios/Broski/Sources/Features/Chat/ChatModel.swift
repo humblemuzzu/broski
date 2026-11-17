@@ -258,6 +258,12 @@ final class ChatModel {
         }
     }
 
+    /// The newest items, finished, settling and live, oldest first: what dictation reads the
+    /// session's names from.
+    func recentItems(limit: Int = 80) -> [TranscriptItem] {
+        Array((history.items + settling + (snapshot.run?.items ?? [])).suffix(limit))
+    }
+
     private func rebuildHistory() {
         var timeline = ChatTimeline()
         timeline.add(history.items)

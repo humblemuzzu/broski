@@ -28,6 +28,7 @@ import com.muzammil.broski.feature.inbox.InboxScreen
 import com.muzammil.broski.feature.machines.MachinesScreen
 import com.muzammil.broski.feature.pairing.PairScreen
 import com.muzammil.broski.feature.settings.SettingsScreen
+import com.muzammil.broski.feature.settings.VoiceSettingsScreen
 import com.muzammil.broski.feature.workspace.workspaceEntries
 
 /**
@@ -119,7 +120,8 @@ private fun EntryProviderScope<Route>.shellEntries(
         MachinesScreen(phone = phone, onBack = navigator::back, onPairAnother = { navigator.open(PairRoute) })
     }
     entry<PairRoute> { PairScreen(phone = phone, onBack = navigator::back, onPaired = navigator::back) }
-    entry<SettingsRoute> { SettingsScreen(core = core, phone = phone) }
+    entry<SettingsRoute> { SettingsScreen(core = core, phone = phone, onOpenVoice = { navigator.open(VoiceRoute) }) }
+    entry<VoiceRoute> { VoiceSettingsScreen(core = core, onBack = navigator::back) }
     features.session?.let { session -> entry<SessionRoute> { route -> context.session(route) } }
     features.workspace?.let { workspace ->
         entry<WorkspaceRoute> { context.workspace() }

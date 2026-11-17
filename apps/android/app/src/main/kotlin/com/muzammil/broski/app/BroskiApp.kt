@@ -11,6 +11,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.muzammil.broski.core.AppCore
 import com.muzammil.broski.core.CoreState
 import com.muzammil.broski.core.PhoneSession
+import com.muzammil.broski.feature.chat.composer.dictation.LocalDictation
 import com.muzammil.broski.feature.notifications.LocalNotificationAsk
 import com.muzammil.broski.feature.notifications.rememberNotificationAsk
 import com.muzammil.broski.feature.welcome.WelcomeScreen
@@ -41,7 +42,7 @@ private fun ReadyApp(core: AppCore, phone: PhoneSession, features: Features, ope
     LaunchedEffect(nothingPaired) {
         if (nothingPaired) welcome = true
     }
-    CompositionLocalProvider(LocalNotificationAsk provides rememberNotificationAsk()) {
+    CompositionLocalProvider(LocalNotificationAsk provides rememberNotificationAsk(), LocalDictation provides core.dictation) {
         if (welcome) {
             WelcomeScreen(phone = phone, onPaired = { welcome = false })
         } else {

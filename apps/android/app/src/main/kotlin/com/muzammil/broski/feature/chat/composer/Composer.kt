@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -22,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -45,7 +47,14 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.muzammil.broski.R
+import com.muzammil.broski.core.voice.DictationPhase
+import com.muzammil.broski.feature.chat.composer.dictation.DictationHaptics
+import com.muzammil.broski.feature.chat.composer.dictation.DictationHook
+import com.muzammil.broski.feature.chat.composer.dictation.DictationMic
+import com.muzammil.broski.feature.chat.composer.dictation.DictationNoticeText
+import com.muzammil.broski.feature.chat.composer.dictation.RecordingBar
 import uniffi.broski_contract.CommandSummary
 
 /** What the composer shows besides its own state: who it talks to and what its button does. */
@@ -67,7 +76,8 @@ class ComposerActions(
 
 /**
  * One floating surface: the waiting images, the picked command, the field (one line, growing to
- * six, then scrolling), and under it `+`, the setting chips and the one button. It rides the
+ * six, then scrolling), and under it `+`, the setting chips, the mic and the one button. While
+ * dictating, the recording takes the field's place and ✕ the place of `+` and the chips. It rides the
  * keyboard through the screen's insets; its height follows its text with no animation of its own.
  */
 @Composable
@@ -79,7 +89,12 @@ fun Composer(
     actions: ComposerActions,
     modifier: Modifier = Modifier,
     focus: FocusRequester? = null,
+    dictation: DictationHook? = null,
 ) {
+    val dictationState = dictation?.let { it.dictation.state.collectAsStateWithLifecycle().value }
+    val phase = dictation?.let { dictationState?.phaseFor(it.target.id) } ?: DictationPhase.Idle
+    val dictating = phase != DictationPhase.Idle
+    dictation?.let { DictationHaptics(it) }
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(28.dp),
@@ -90,7 +105,12 @@ fun Composer(
         Column(Modifier.padding(top = 8.dp, bottom = 6.dp)) {
             if (images.isNotEmpty()) ImageStrip(images, state::remove)
             command?.let { CommandChip(it, state::clearCommand) }
-            BasicTextField(
+            if (dictation != null && dictationState != null && dictating) {
+                RecordingBar(
+                    dictationState, phase, dictation.dictation, dictation.openVoiceSettings,
+                    Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                )
+            } else BasicTextField(
                 state = state.input,
                 lineLimits = TextFieldLineLimits.MultiLine(minHeightInLines = 1, maxHeightInLines = 6),
                 textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
@@ -108,19 +128,30 @@ fun Composer(
                     }
                 },
             )
+            dictation?.let { hook -> dictationState?.noticeFor(hook.target.id) }?.let { notice ->
+                DictationNoticeText(notice, Modifier.padding(horizontal = 20.dp, vertical = 2.dp))
+            }
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                if (look.images) AttachMenu(actions.onImage, actions.onNoImage)
-                val scroll = rememberScrollState()
-                Row(
-                    Modifier.weight(1f).trailingFade(scroll).horizontalScroll(scroll),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) { ModelChips(look.settings, actions.settings) }
-                PrimaryModeChip(look.settings, actions.settings)
-                SendButtonView(look.button, actions.onPress)
+                if (dictating) {
+                    if (phase !is DictationPhase.Failed) CancelDictation { dictation?.dictation?.cancel() }
+                    Spacer(Modifier.weight(1f))
+                } else {
+                    if (look.images) AttachMenu(actions.onImage, actions.onNoImage)
+                    val scroll = rememberScrollState()
+                    Row(
+                        Modifier.weight(1f).trailingFade(scroll).horizontalScroll(scroll),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) { ModelChips(look.settings, actions.settings) }
+                    PrimaryModeChip(look.settings, actions.settings)
+                }
+                if (dictation != null && dictationState != null) {
+                    DictationMic(dictation, phase, busy = dictationState.busyApartFrom(dictation.target.id))
+                }
+                if (!dictating) SendButtonView(look.button, actions.onPress)
             }
         }
     }
@@ -152,6 +183,14 @@ private fun Modifier.trailingFade(scroll: ScrollState): Modifier = graphicsLayer
     }
 
 private val FADE = 28.dp
+
+/** ✕ in place of `+` while dictating: throws the recording away. */
+@Composable
+private fun CancelDictation(onCancel: () -> Unit) {
+    IconButton(onClick = onCancel) {
+        Icon(painterResource(R.drawable.ic_close), contentDescription = stringResource(R.string.dictation_cancel), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
 
 @Composable
 private fun CommandChip(command: CommandSummary, onClear: () -> Unit) {

@@ -4,6 +4,7 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.snapshotFlow
+import com.muzammil.broski.core.voice.DictationState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -56,6 +57,11 @@ class ComposerState(initialText: String, scope: CoroutineScope, private val save
     fun add(image: ComposerImage) = mutableImages.update { it + image }
 
     fun remove(id: String) = mutableImages.update { list -> list.filterNot { it.id == id } }
+
+    /** Dictated text after what is typed, a space between them; the cursor goes to its end. */
+    fun appendDictated(text: String) {
+        input.setTextAndPlaceCursorAtEnd(DictationState.joined(input.text.toString(), text))
+    }
 
     /** Texts the backend handed back from its queue go in front of what is typed, a blank line apart. */
     fun prepend(texts: List<String>) {

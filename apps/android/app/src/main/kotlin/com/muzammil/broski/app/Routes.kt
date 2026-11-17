@@ -27,6 +27,10 @@ data object MachinesRoute : Route
 @Serializable
 data object PairRoute : Route
 
+/** Settings › Voice: the xAI key, the language and the person's own words. */
+@Serializable
+data object VoiceRoute : Route
+
 /** One session on one machine: the chat. The backend is kept by its enum name. */
 @Serializable
 data class SessionRoute(val machineId: String, val backend: String, val sessionId: String) : Route {

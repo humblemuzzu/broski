@@ -12,6 +12,7 @@ members = [
     "testkit",
     "client",
     "render",
+    "voice",
     "mobile",
     "uniffi-bindgen",
 ]
