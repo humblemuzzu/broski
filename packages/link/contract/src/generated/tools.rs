@@ -7,6 +7,23 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FileTextDisplay {
+    pub path: String,
+    pub first_line: i64,
+    pub text: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "crate::codec::present")]
+    pub note: Option<String>,
+}
+
+impl crate::Tagged for FileTextDisplay {
+    const KEY: &'static str = "kind";
+    const TAG: &'static str = "file_text";
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct FilesDisplay {
     pub paths: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -40,6 +57,18 @@ pub struct LinksDisplay {
 impl crate::Tagged for LinksDisplay {
     const KEY: &'static str = "kind";
     const TAG: &'static str = "links";
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct MarkdownDisplay {
+    pub text: String,
+}
+
+impl crate::Tagged for MarkdownDisplay {
+    const KEY: &'static str = "kind";
+    const TAG: &'static str = "markdown";
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -107,6 +136,10 @@ pub enum ToolDisplay {
     Links(LinksDisplay),
     #[serde(rename = "files")]
     Files(FilesDisplay),
+    #[serde(rename = "markdown")]
+    Markdown(MarkdownDisplay),
+    #[serde(rename = "file_text")]
+    FileText(FileTextDisplay),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

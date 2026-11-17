@@ -138,6 +138,14 @@ describe("tool results the real CLI wrote", () => {
 		expect(JSON.stringify(bash?.kind === "tool_result" ? bash.result.content : [])).toContain("hi");
 	});
 
+	test("the Read result shows the file's own lines, numbered from its first, not the numbered text the model read", () => {
+		const read = items.find((item) => item.kind === "tool_result" && item.toolCallId === ids.read);
+		const display = read?.kind === "tool_result" ? read.result.display : undefined;
+		expect(display).toMatchObject({ kind: "file_text", firstLine: 1, text: "one\ntwo\nthree\n" });
+		expect(display?.kind === "file_text" && display.path.endsWith("a.txt")).toBe(true);
+		expect(JSON.stringify(read?.kind === "tool_result" ? read.result.content : [])).toContain("1\\tone");
+	});
+
 	test("each history result equals what the live mapper finished the call with", () => {
 		for (const id of [ids.read, ids.edit, ids.write, ids.bash]) {
 			const item = items.find((entry) => entry.kind === "tool_result" && entry.toolCallId === id);

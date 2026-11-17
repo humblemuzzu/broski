@@ -270,7 +270,10 @@ function toolResultItem(
 			denied: context.toolOutcome === "denied",
 			aborted: context.toolOutcome === "aborted",
 		}),
-		result: toolResultOf(content, isError, changes, imageRef, message.details),
+		result: toolResultOf(content, isError, changes, imageRef, message.details, {
+			name: message.toolName,
+			input: context.toolInput,
+		}),
 	};
 }
 

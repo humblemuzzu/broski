@@ -70,6 +70,36 @@ describe("what a result shows in place of its text", () => {
 		expect(resultOf(block("No files found"), none, "Glob").result.display).toBeUndefined();
 		expect(resultOf(block("ok"), { oldTodos: [], newTodos: [] }, "TodoWrite").result.display).toBeUndefined();
 	});
+
+	test("a read is the file's lines from the line it started at, saying how much of the file that is", () => {
+		const file = { filePath: "/p/a.ts", content: "b\nc\n", numLines: 2, startLine: 2, totalLines: 9 };
+		expect(resultOf(block("2\tb\n3\tc"), { type: "text", file }, "Read").result.display).toEqual({
+			kind: "file_text",
+			path: "/p/a.ts",
+			firstLine: 2,
+			text: "b\nc\n",
+			note: "Lines 2–3 of 9",
+		});
+		const whole = { ...file, startLine: 1, totalLines: 2 };
+		expect(resultOf(block("1\tb"), { type: "text", file: whole }, "Read").result.display).not.toHaveProperty("note");
+		const image = { type: "image", file: { base64: "", type: "image/png", originalSize: 1 } };
+		expect(resultOf(block("[image]"), image, "Read").result.display).toBeUndefined();
+	});
+
+	test("a subagent's report and a fetched page are markdown; an agent still running is not", () => {
+		const report = { status: "completed", content: [{ type: "text", text: "## Findings\n\n- **one**" }] };
+		expect(resultOf(block("x"), report, "Agent").result.display).toEqual({
+			kind: "markdown",
+			text: "## Findings\n\n- **one**",
+		});
+		const page = { bytes: 10, code: 200, codeText: "OK", result: "# Docs\n\nUse `bun test`.", durationMs: 1, url: "u" };
+		expect(resultOf(block("x"), page, "WebFetch").result.display).toEqual({
+			kind: "markdown",
+			text: "# Docs\n\nUse `bun test`.",
+		});
+		const launched = { status: "async_launched", description: "audit" };
+		expect(resultOf(block("x"), launched, "Task").result.display).toBeUndefined();
+	});
 });
 
 describe("a completed result", () => {

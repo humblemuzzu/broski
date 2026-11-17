@@ -131,6 +131,7 @@ pub fn visit_types(visitor: &mut impl TypeVisitor) {
     visitor.plain::<FileMatch>("FileMatch");
     visitor.plain::<FilePath>("FilePath");
     visitor.tagged::<FileRead>("FileRead");
+    visitor.tagged::<FileTextDisplay>("FileTextDisplay");
     visitor.tagged::<FilesDisplay>("FilesDisplay");
     visitor.tagged::<FilesFound>("FilesFound");
     visitor.tagged::<FilesListed>("FilesListed");
@@ -211,6 +212,7 @@ pub fn visit_types(visitor: &mut impl TypeVisitor) {
     visitor.plain::<JsonValue>("JsonValue");
     visitor.plain::<LinkItem>("LinkItem");
     visitor.tagged::<LinksDisplay>("LinksDisplay");
+    visitor.tagged::<MarkdownDisplay>("MarkdownDisplay");
     visitor.plain::<MessageId>("MessageId");
     visitor.plain::<MessagePolicy>("MessagePolicy");
     visitor.tagged::<MessagesRetractedEvent>("MessagesRetractedEvent");

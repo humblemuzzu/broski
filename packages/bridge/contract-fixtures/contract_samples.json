@@ -3039,6 +3039,21 @@
       "truncated": false
     }
   ],
+  "FileTextDisplay": [
+    {
+      "kind": "file_text",
+      "path": "x",
+      "firstLine": 1,
+      "text": "x",
+      "note": "x"
+    },
+    {
+      "kind": "file_text",
+      "path": "x",
+      "firstLine": 1,
+      "text": "x"
+    }
+  ],
   "FilesDisplay": [
     {
       "kind": "files",
@@ -5294,6 +5309,12 @@
           "url": "https://example.com/x"
         }
       ]
+    }
+  ],
+  "MarkdownDisplay": [
+    {
+      "kind": "markdown",
+      "text": "x"
     }
   ],
   "MessageId": [
@@ -10182,6 +10203,23 @@
       "paths": [
         "x"
       ]
+    },
+    {
+      "kind": "markdown",
+      "text": "x"
+    },
+    {
+      "kind": "file_text",
+      "path": "x",
+      "firstLine": 1,
+      "text": "x",
+      "note": "x"
+    },
+    {
+      "kind": "file_text",
+      "path": "x",
+      "firstLine": 1,
+      "text": "x"
     }
   ],
   "ToolFileChanges": [

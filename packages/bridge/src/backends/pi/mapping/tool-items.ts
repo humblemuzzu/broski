@@ -27,6 +27,7 @@ import { phoneText } from "../phone-text";
 import type { PiEventOf } from "../rpc/frames";
 import { withoutTerminalEscapes } from "../terminal-text";
 import { hintedDisplay } from "./display-hint";
+import { readDisplay, type ToolCallFacts } from "./read-display";
 
 /** A model can send a call with no name; `ToolStartedEvent.name` and `ToolCallItem.name` need one. */
 const UNNAMED_TOOL = "unnamed";
@@ -105,7 +106,8 @@ export function toolInputOf(call: Pick<ToolCall, "id" | "arguments">, tools: Too
  * goes to `error` and not twice into `content`; a failed call changed nothing, so it reports no file
  * changes. An image `imageRef` cannot name (a nested call has no entry to read it from) becomes a
  * placeholder, never inline bytes. A tool written in JavaScript can return no `content`: Pi fills it in
- * for the stored message, not for `tool_execution_end.result`.
+ * for the stored message, not for `tool_execution_end.result`. `call` names the tool and its input, for the
+ * built-in `read`'s file text (`read-display.ts`).
  */
 export function toolResultOf(
 	content: readonly (TextContent | ImageContent | UnsupportedContent)[] | null | undefined,
@@ -113,8 +115,8 @@ export function toolResultOf(
 	fileChanges: readonly FileChange[],
 	imageRef: (contentIndex: number) => ImageRef | undefined,
 	details?: unknown,
+	call?: ToolCallFacts,
 ): ToolResult {
-	const display = isError ? undefined : hintedDisplay(details);
 	const parts: ToolContent[] = [];
 	const errors: string[] = [];
 	(content ?? []).slice(0, MAX_LIST_ITEMS).forEach((block, index) => {
@@ -128,6 +130,7 @@ export function toolResultOf(
 		if (isError) errors.push(text);
 		else parts.push({ kind: "text", text });
 	});
+	const display = isError ? undefined : (hintedDisplay(details) ?? readDisplay(call, parts));
 	return {
 		content: parts,
 		fileChanges: isError ? [] : fileChanges.slice(0, MAX_LIST_ITEMS),

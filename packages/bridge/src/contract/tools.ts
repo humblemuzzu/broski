@@ -45,11 +45,37 @@ export const FilesDisplay = z.strictObject({
 });
 export type FilesDisplay = z.infer<typeof FilesDisplay>;
 
+/** Text the agent's tool wrote as markdown (a subagent's report, a fetched page), drawn formatted. */
+export const MarkdownDisplay = z.strictObject({
+	kind: z.literal("markdown"),
+	text: z.string().min(1).max(MAX_TEXT_CHARS),
+});
+export type MarkdownDisplay = z.infer<typeof MarkdownDisplay>;
+
+/**
+ * Lines of a file as a read returned them, without any line-number prefixes: `firstLine` is the number of the first,
+ * `note` what the tool said about the rest ("Showing lines 1-2000 of 4512").
+ */
+export const FileTextDisplay = z.strictObject({
+	kind: z.literal("file_text"),
+	path: z.string().min(1).max(MAX_PATH_CHARS),
+	firstLine: z.int().positive(),
+	text: z.string().max(MAX_TEXT_CHARS),
+	note: z.string().min(1).max(MAX_NAME_CHARS).optional(),
+});
+export type FileTextDisplay = z.infer<typeof FileTextDisplay>;
+
 /**
  * What a result shows in place of its text, when its tool has a view of its own; any other result, and one whose list is
  * empty, shows its text.
  */
-export const ToolDisplay = z.discriminatedUnion("kind", [TodosDisplay, LinksDisplay, FilesDisplay]);
+export const ToolDisplay = z.discriminatedUnion("kind", [
+	TodosDisplay,
+	LinksDisplay,
+	FilesDisplay,
+	MarkdownDisplay,
+	FileTextDisplay,
+]);
 export type ToolDisplay = z.infer<typeof ToolDisplay>;
 
 export const ToolResult = z.strictObject({

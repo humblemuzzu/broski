@@ -1,9 +1,11 @@
 /**
  * What a result shows in place of its text, from the tool's structured output (`sdk-tools.d.ts`): `TodoWrite`'s list
  * (`TodoWriteOutput.newTodos`), `WebSearch`'s pages (`WebSearchOutput.results`), the files `Glob` and `Grep` found
- * (`GlobOutput`, `GrepOutput` in `files_with_matches` mode). An empty list is no display: the text says it ("No files
- * found"). The live mapper, the transcript and the terminal tail read results through `toolResultOf`, which asks here,
- * so a list reads the same in all three.
+ * (`GlobOutput`, `GrepOutput` in `files_with_matches` mode), the file `Read` returned (`FileReadOutput` of type `text`:
+ * the file's own lines and the number of the first, where the model read them numbered), and a subagent's report or a
+ * fetched page as markdown. An empty list is no display: the text says it ("No files found"). The live mapper, the
+ * transcript and the terminal tail read results through `toolResultOf`, which asks here, so a result reads the same in
+ * all three.
  */
 
 import {
@@ -18,6 +20,7 @@ import {
 } from "../../../contract";
 import { isRecord } from "../json";
 import { phoneLine, phoneText } from "../phone-text";
+import { structuredText } from "./tool-text";
 
 export function toolDisplay(toolName: string, output: unknown): ToolDisplay | undefined {
 	if (!isRecord(output)) return undefined;
@@ -36,9 +39,45 @@ export function toolDisplay(toolName: string, output: unknown): ToolDisplay | un
 			return output.mode === undefined || output.mode === "files_with_matches"
 				? files(output.filenames, output.numFiles)
 				: undefined;
+		case "Read":
+			return fileText(output);
+		case "Agent":
+		case "Task":
+		case "WebFetch":
+			return markdown(toolName, output);
 		default:
 			return undefined;
 	}
+}
+
+/** A text file's lines as `Read` returned them; an image, a notebook or a PDF has no lines to show. */
+function fileText(output: Record<string, unknown>): ToolDisplay | undefined {
+	const file = output.type === "text" && isRecord(output.file) ? output.file : undefined;
+	if (file === undefined || typeof file.filePath !== "string" || typeof file.content !== "string") return undefined;
+	if (file.filePath === "" || file.filePath.length > MAX_PATH_CHARS) return undefined;
+	const firstLine = lineNumber(file.startLine) ?? 1;
+	const shown = lineNumber(file.numLines) ?? 0;
+	const total = lineNumber(file.totalLines);
+	const lastLine = firstLine + Math.max(shown, 1) - 1;
+	const partial = total !== undefined && (firstLine > 1 || lastLine < total);
+	return {
+		kind: "file_text",
+		path: file.filePath,
+		firstLine,
+		text: phoneText(file.content),
+		...(partial && { note: `Lines ${firstLine}–${lastLine} of ${total}` }),
+	};
+}
+
+function lineNumber(value: unknown): number | undefined {
+	return typeof value === "number" && Number.isSafeInteger(value) && value > 0 ? value : undefined;
+}
+
+/** A subagent's report and a fetched page are markdown: the same text `structuredText` gives the result. */
+function markdown(toolName: string, output: Record<string, unknown>): ToolDisplay | undefined {
+	if ((toolName === "Agent" || toolName === "Task") && output.status !== "completed") return undefined;
+	const text = phoneText(structuredText(toolName, output) ?? "").trim();
+	return text === "" ? undefined : { kind: "markdown", text };
 }
 
 /** "Tasks 2/5 · Running the tests": how far the list is, and what is under way, as the CLI's own spinner says it. */

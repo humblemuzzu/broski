@@ -37,5 +37,9 @@ function cleanedWords(display: ToolDisplay): ToolDisplay {
 			};
 		case "files":
 			return display;
+		case "markdown":
+			return { ...display, text: phoneText(display.text).trim() };
+		case "file_text":
+			return { ...display, text: phoneText(display.text) };
 	}
 }
