@@ -21,6 +21,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -60,6 +61,7 @@ class FormattingShots {
 
     @After
     fun upright() {
+        automation.setRotation(UiAutomation.ROTATION_FREEZE_0)
         automation.setRotation(UiAutomation.ROTATION_UNFREEZE)
     }
 
@@ -85,8 +87,9 @@ class FormattingShots {
         compose.setContent { Gallery() }
         look = Look(Appearance.Light, 1f, formatSamples().first { it.title == "Big tables" })
         compose.waitForIdle()
-        compose.onAllNodesWithContentDescription("Expand").onFirst().performClick()
+        compose.onAllNodesWithContentDescription("Expand").onFirst().performScrollTo().performClick()
         compose.waitForIdle()
+        Thread.sleep(SETTLE_MS)
         Shots.save("formatting/portrait-light-x1-table-viewer")
     }
 
@@ -99,7 +102,7 @@ class FormattingShots {
                     Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface).safeDrawingPadding()
                         .verticalScroll(scroll).padding(horizontal = 16.dp, vertical = 12.dp),
                 ) {
-                    Text(look.sample.title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(bottom = 12.dp))
+                    Text(look.sample.title, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(bottom = 12.dp))
                     FormattedText(look.sample.text, streaming = look.sample.arriving)
                 }
             }
@@ -111,6 +114,7 @@ class FormattingShots {
         compose.runOnIdle { scroll.dispatchRawDelta(-scroll.value.toFloat()) }
         for (page in 1..MAX_PAGES) {
             compose.waitForIdle()
+            Thread.sleep(SETTLE_MS)
             Shots.save("formatting/$name-p$page")
             val before = scroll.value
             compose.runOnIdle { scroll.dispatchRawDelta(scroll.viewportSize * 0.9f) }
@@ -123,5 +127,8 @@ class FormattingShots {
 
     private companion object {
         const val MAX_PAGES = 4
+
+        /** Code is coloured off the main thread; a language's first use compiles its grammar. */
+        const val SETTLE_MS = 300L
     }
 }

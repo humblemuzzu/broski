@@ -58,6 +58,7 @@ struct TableViewer: View {
                     .background(.bar)
             }
         }
+        .frame(width: columns.reduce(0) { $0 + layout.widths[$1] })
     }
 
     private func cells(_ cells: [TableCell], columns: [Int], layout: TableLayout, height: CGFloat, header: Bool, style: SpanStyle) -> some View {

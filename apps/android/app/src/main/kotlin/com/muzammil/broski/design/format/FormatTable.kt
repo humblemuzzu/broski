@@ -107,7 +107,12 @@ fun FormatTable(table: FormatTable, streaming: Boolean) {
 @Composable
 fun tableStyles(scale: Float = 1f): Pair<TextStyle, TextStyle> {
     val base = MaterialTheme.typography.bodyMedium
-    val cell = base.copy(fontSize = base.fontSize * scale, lineHeight = base.lineHeight * scale, fontFeatureSettings = "tnum")
+    val cell = base.copy(
+        color = MaterialTheme.colorScheme.onSurface,
+        fontSize = base.fontSize * scale,
+        lineHeight = base.lineHeight * scale,
+        fontFeatureSettings = "tnum",
+    )
     return cell to cell.copy(fontWeight = FontWeight.SemiBold)
 }
 
