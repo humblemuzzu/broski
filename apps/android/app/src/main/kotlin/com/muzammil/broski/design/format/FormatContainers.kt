@@ -12,6 +12,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -23,12 +24,14 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -140,15 +143,16 @@ private fun ListItemFrame(marker: ListMarker, depth: UInt, width: UInt, first: B
     }
 }
 
+/** A numbered list's gutter: its widest marker (`width` characters, the dot included) measured in the marker's own style. */
 @Composable
 private fun gutter(marker: ListMarker, width: UInt, role: FormatRole): Dp {
     if (marker !is ListMarker.Number) return FormatTokens.bulletGutter
-    val digitWidth = role.textStyle().fontSize.value * DIGIT_EM
-    return (digitWidth * width.coerceAtLeast(3u).toInt()).dp
+    val measurer = rememberTextMeasurer()
+    val style = role.textStyle().copy(fontFeatureSettings = "tnum")
+    val widest = "0".repeat(width.toInt().coerceAtLeast(2) - 1) + "."
+    val pixels = remember(widest, style, measurer) { measurer.measure(widest, style).size.width }
+    return with(LocalDensity.current) { pixels.toDp() }
 }
-
-/** A tabular digit's width in ems, to size a numbered list's gutter. */
-private const val DIGIT_EM = 0.62f
 
 @Composable
 private fun Marker(marker: ListMarker, depth: UInt, role: FormatRole) {
@@ -168,7 +172,7 @@ private fun Marker(marker: ListMarker, depth: UInt, role: FormatRole) {
             painterResource(if (marker.checked) R.drawable.ic_check_circle else R.drawable.ic_radio_unchecked),
             contentDescription = stringResource(if (marker.checked) R.string.format_task_done else R.string.format_task_todo),
             tint = if (marker.checked) BroskiTheme.semantic.done else muted,
-            modifier = Modifier.padding(top = 3.dp).size(style.fontSize.value.dp + 2.dp),
+            modifier = Modifier.padding(top = 3.dp).size(with(LocalDensity.current) { style.fontSize.toDp() } + 2.dp),
         )
     }
 }

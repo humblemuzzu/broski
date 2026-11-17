@@ -1,6 +1,7 @@
 package com.muzammil.broski.design.format
 
 import android.content.ClipData
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.rememberScrollableState
@@ -9,6 +10,8 @@ import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -30,19 +33,23 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -52,7 +59,6 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import com.muzammil.broski.R
 import kotlinx.coroutines.launch
 import uniffi.broski_core.FormatTable
@@ -63,16 +69,19 @@ import uniffi.broski_core.tableTsv
 
 /**
  * A table opened whole: it scrolls both ways with its header row and first column held still, a
- * pinch changes its text size, it turns with the phone, copies as Markdown, CSV or TSV, and can be
- * read as rows instead, each a card of `Header: value`.
+ * pinch changes its text size (during the pinch what is drawn is scaled; when it ends the table is
+ * measured again at the new size), it turns with the phone, copies as Markdown, CSV or TSV, shares,
+ * and can be read as rows instead, each a card of `Header: value`.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TableViewer(table: FormatTable, onDone: () -> Unit) {
     var asRows by remember { mutableStateOf(false) }
     var zoom by remember { mutableFloatStateOf(1f) }
-    Dialog(onDismissRequest = onDone, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    var pinch by remember { mutableFloatStateOf(1f) }
+    Dialog(onDismissRequest = onDone, properties = FullScreenDialog) {
         Scaffold(
+            contentWindowInsets = WindowInsets.safeDrawing,
             topBar = {
                 TopAppBar(
                     title = { Text(stringResource(R.string.format_table_title, table.rows.size, table.columns.size)) },
@@ -81,9 +90,24 @@ fun TableViewer(table: FormatTable, onDone: () -> Unit) {
                 )
             },
         ) { padding ->
-            val transform = rememberTransformableState { _: Offset, change: Float, _: Offset, _: Float -> zoom = (zoom * change).coerceIn(MIN_ZOOM, MAX_ZOOM) }
+            val transform = rememberTransformableState { _: Offset, change: Float, _: Offset, _: Float ->
+                pinch = (zoom * pinch * change).coerceIn(MIN_ZOOM, MAX_ZOOM) / zoom
+            }
+            LaunchedEffect(transform) {
+                snapshotFlow { transform.isTransformInProgress }.collect { moving ->
+                    if (!moving && pinch != 1f) {
+                        zoom *= pinch
+                        pinch = 1f
+                    }
+                }
+            }
+            val scaled = Modifier.graphicsLayer {
+                scaleX = pinch
+                scaleY = pinch
+                transformOrigin = TransformOrigin(0f, 0f)
+            }
             Box(Modifier.padding(padding).fillMaxSize()) {
-                if (asRows) RowCards(table) else ViewerGrid(table, zoom, Modifier.fillMaxSize().transformable(transform))
+                if (asRows) RowCards(table) else ViewerGrid(table, zoom, Modifier.fillMaxSize().transformable(transform).then(scaled))
             }
         }
     }
@@ -93,6 +117,7 @@ fun TableViewer(table: FormatTable, onDone: () -> Unit) {
 private fun ViewerActions(table: FormatTable, asRows: Boolean, onToggle: () -> Unit) {
     var copying by remember { mutableStateOf(false) }
     val clipboard = LocalClipboard.current
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     fun copy(text: String) {
         copying = false
@@ -107,6 +132,10 @@ private fun ViewerActions(table: FormatTable, asRows: Boolean, onToggle: () -> U
             DropdownMenuItem(text = { Text(stringResource(R.string.format_copy_tsv)) }, onClick = { copy(tableTsv(table)) })
         }
     }
+    IconButton(onClick = {
+        val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, tableMarkdown(table))
+        context.startActivity(Intent.createChooser(send, null))
+    }) { Icon(painterResource(R.drawable.ic_share), stringResource(R.string.format_share)) }
 }
 
 /** Every row lazily, the header pinned, the first column held while the rest move together. */

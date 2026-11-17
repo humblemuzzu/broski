@@ -11,6 +11,8 @@ struct FormatTableView: View {
     let streaming: Bool
     @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(\.reading) private var reading
+    @Environment(\.formatContext) private var context
+    @Environment(AppModel.self) private var app: AppModel?
     @State private var width: CGFloat?
     @State private var grown: [CGFloat] = []
     @State private var showsAll = false
@@ -48,7 +50,7 @@ struct FormatTableView: View {
 
     private var currentLayout: TableLayout {
         let fonts = TableFonts(typeSize: typeSize)
-        var layout = TableLayout.fit(table, width: width ?? 360, fonts: fonts, rows: shownRows)
+        var layout = TableLayoutCache.fit(table, width: width ?? 360, fonts: fonts, rows: shownRows)
         if streaming, grown.count == layout.widths.count {
             layout.widths = zip(layout.widths, grown).map { max($0, $1) }
         }
@@ -70,7 +72,7 @@ struct FormatTableView: View {
             }
             Spacer(minLength: 0)
             Button {
-                FormatPresenter.present(UIHostingController(rootView: TableViewer(table: table).readingSettings()))
+                TableViewer.present(table, context: context, app: app)
             } label: {
                 Label("Expand table", systemImage: "arrow.up.left.and.arrow.down.right")
                     .labelStyle(.iconOnly)
@@ -91,33 +93,53 @@ struct TableGrid: View {
     let rows: Int
     let style: SpanStyle
 
+    @State private var moreToTheRight = false
+
     var body: some View {
+        let all = Array(table.columns.indices)
         if !layout.scrolls {
-            TableColumns(table: table, columns: Array(table.columns.indices), layout: layout, rows: rows, style: style)
+            TableColumns(table: table, columns: all, spoken: all, layout: layout, rows: rows, style: style)
         } else if layout.stickyFirstColumn {
             HStack(alignment: .top, spacing: 0) {
-                TableColumns(table: table, columns: [0], layout: layout, rows: rows, style: style)
+                TableColumns(table: table, columns: [0], spoken: [], layout: layout, rows: rows, style: style)
                     .overlay(alignment: .trailing) { Rectangle().fill(FormatTokens.hairline).frame(width: 0.5) }
-                scrolling(Array(table.columns.indices.dropFirst()))
+                scrolling(Array(all.dropFirst()), spoken: all)
             }
         } else {
-            scrolling(Array(table.columns.indices))
+            scrolling(all, spoken: all)
         }
     }
 
-    private func scrolling(_ columns: [Int]) -> some View {
+    /// Columns that scroll sideways, their trailing edge fading while more of the table is to the
+    /// right, so a cut column never reads as the table's end.
+    private func scrolling(_ columns: [Int], spoken: [Int]) -> some View {
         ScrollView(.horizontal) {
-            TableColumns(table: table, columns: columns, layout: layout, rows: rows, style: style)
+            TableColumns(table: table, columns: columns, spoken: spoken, layout: layout, rows: rows, style: style)
         }
         .scrollIndicatorsFlash(onAppear: true)
         .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
+        .onScrollGeometryChange(for: Bool.self) { geometry in
+            geometry.contentOffset.x + geometry.containerSize.width < geometry.contentSize.width - 1
+        } action: { _, more in
+            moreToTheRight = more
+        }
+        .mask {
+            HStack(spacing: 0) {
+                Rectangle()
+                LinearGradient(colors: [.black, .black.opacity(0.15)], startPoint: .leading, endPoint: .trailing)
+                    .frame(width: moreToTheRight ? FormatTokens.tableEdgeFade : 0)
+            }
+        }
     }
 }
 
-/// Some of a table's columns, header first, each row its own accessibility element.
+/// Some of a table's columns, header first, as wide as those columns together. Each row is one
+/// accessibility element reading the `spoken` columns; with none, the row is left to the part of
+/// the table that reads it whole.
 private struct TableColumns: View {
     let table: FormatTable
     let columns: [Int]
+    let spoken: [Int]
     let layout: TableLayout
     let rows: Int
     let style: SpanStyle
@@ -132,6 +154,7 @@ private struct TableColumns: View {
                 row(table.rows[index], index: index + 1, header: false)
             }
         }
+        .frame(width: columns.reduce(0) { $0 + layout.widths[$1] }, alignment: .leading)
     }
 
     private func row(_ cells: [TableCell], index: Int, header: Bool) -> some View {
@@ -144,6 +167,7 @@ private struct TableColumns: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(spoken(cells, index: index, header: header))
+        .accessibilityHidden(spoken.isEmpty)
     }
 
     private func alignment(_ column: Int) -> Alignment {
@@ -157,9 +181,9 @@ private struct TableColumns: View {
 
     /// "Row 2 of 5, Name: …", as VoiceOver reads a row.
     private func spoken(_ cells: [TableCell], index: Int, header: Bool) -> String {
-        let values = columns.map { TableLayout.plain(cells[$0].spans) }
+        let values = spoken.map { TableLayout.plain(cells[$0].spans) }
         if header { return "Columns: " + values.joined(separator: ", ") }
-        let named = zip(columns.map { TableLayout.plain(table.header[$0].spans) }, values).map { "\($0): \($1)" }
+        let named = zip(spoken.map { TableLayout.plain(table.header[$0].spans) }, values).map { "\($0): \($1)" }
         return "Row \(index) of \(table.rows.count), " + named.joined(separator: ", ")
     }
 }
@@ -204,6 +228,8 @@ struct TableCellView: View {
 /// Copy as TSV and HTML together, or as Markdown or CSV; Share; Expand.
 struct TableMenuItems: View {
     let table: FormatTable
+    @Environment(\.formatContext) private var context
+    @Environment(AppModel.self) private var app: AppModel?
 
     var body: some View {
         Button("Copy Table", systemImage: "tablecells") {
@@ -212,7 +238,7 @@ struct TableMenuItems: View {
         Button("Copy as Markdown", systemImage: "number") { UIPasteboard.general.string = tableMarkdown(table: table) }
         Button("Copy as CSV", systemImage: "list.bullet.rectangle") { UIPasteboard.general.string = tableCsv(table: table) }
         Button("Expand", systemImage: "arrow.up.left.and.arrow.down.right") {
-            FormatPresenter.present(UIHostingController(rootView: TableViewer(table: table).readingSettings()))
+            TableViewer.present(table, context: context, app: app)
         }
         ShareLink(item: tableMarkdown(table: table))
     }

@@ -29,6 +29,8 @@
     <string name="format_expand">Expand</string>
     <string name="format_done">Done</string>
     <string name="format_copy">Copy</string>
+    <string name="format_copy_link">Copy link</string>
+    <string name="format_answer_menu">Copy, select or share</string>
     <string name="format_copy_plain">Copy as plain text</string>
     <string name="format_copy_markdown">Copy as Markdown</string>
     <string name="format_copy_csv">Copy as CSV</string>

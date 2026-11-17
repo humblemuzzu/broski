@@ -39,7 +39,7 @@ struct ChatRowView: View, Equatable {
                 }
                 FormatBlockView(block: piece.block, next: piece.next, streaming: piece.isStreaming).equatable()
             }
-            .answerMenu(rowId: row.id)
+            .answerMenu(rowId: row.id, block: piece.block)
         case .answerEnd(let end):
             AnswerEndView(end: end)
         case .notice(let notice):

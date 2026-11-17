@@ -19,6 +19,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -27,7 +28,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
@@ -50,6 +50,7 @@ import com.muzammil.broski.design.code.diffRows
 import com.muzammil.broski.design.code.highlightedLines
 import com.muzammil.broski.design.code.segmentedText
 import com.muzammil.broski.design.mono
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import uniffi.broski_core.FormatCode
 import uniffi.broski_core.languageLabel
@@ -91,30 +92,42 @@ private fun CodeHeader(code: FormatCode, kind: CodeKind, onExpand: () -> Unit) {
     val lines = remember(code.text) { code.text.count { it == '\n' } + 1 }
     val reading = LocalReading.current
     val setReading = LocalSetReading.current
+    var copied by remember { mutableStateOf(false) }
+    LaunchedEffect(copied) {
+        if (copied) {
+            delay(COPIED_MS)
+            copied = false
+        }
+    }
     Row(Modifier.fillMaxWidth().padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(title(code, kind), style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold), color = muted)
         code.file?.let { Text(it, style = MaterialTheme.typography.labelSmall.mono(), color = muted, maxLines = 1, overflow = TextOverflow.StartEllipsis, modifier = Modifier.weight(1f, fill = false)) }
         if (lines > FormatTokens.CODE_COUNT_LINES) Text(pluralStringResource(R.plurals.format_code_lines, lines, lines), style = MaterialTheme.typography.labelSmall, color = muted.copy(alpha = 0.7f))
         Row(Modifier.weight(1f), horizontalArrangement = Arrangement.End) {
             if (!code.prose && kind != CodeKind.Diff) {
-                HeaderButton(R.drawable.ic_wrap_text, if (reading.wrapsCode) R.string.format_code_scroll else R.string.format_code_wrap) {
+                HeaderButton(R.drawable.ic_wrap_text, if (reading.wrapsCode) R.string.format_code_scroll else R.string.format_code_wrap, on = reading.wrapsCode) {
                     setReading(reading.copy(wrapsCode = !reading.wrapsCode))
                 }
             }
-            HeaderButton(R.drawable.ic_content_copy, R.string.format_copy_code) {
+            HeaderButton(if (copied) R.drawable.ic_check else R.drawable.ic_content_copy, R.string.format_copy_code) {
                 scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(code.language ?: "code", copyText(code.text, kind)))) }
+                copied = true
             }
-            HeaderButton(R.drawable.ic_open_in_full, R.string.format_expand, onExpand)
+            HeaderButton(R.drawable.ic_open_in_full, R.string.format_expand, onClick = onExpand)
         }
     }
 }
 
+/** A header button; [on] tints it in the link colour while its setting is on. */
 @Composable
-private fun HeaderButton(icon: Int, label: Int, onClick: () -> Unit) {
+private fun HeaderButton(icon: Int, label: Int, on: Boolean = false, onClick: () -> Unit) {
     IconButton(onClick = onClick, modifier = Modifier.size(40.dp)) {
-        Icon(painterResource(icon), contentDescription = stringResource(label), modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(painterResource(icon), contentDescription = stringResource(label), modifier = Modifier.size(18.dp), tint = if (on) formatLink else MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
+
+/** How long Copy shows its check. */
+private const val COPIED_MS = 1_500L
 
 @Composable
 private fun CodeBody(code: FormatCode, kind: CodeKind, streaming: Boolean) {
@@ -143,9 +156,9 @@ private fun CodeBody(code: FormatCode, kind: CodeKind, streaming: Boolean) {
         val padding = Modifier.padding(start = 12.dp, end = 12.dp, bottom = if (folds) 4.dp else 12.dp)
         SelectionContainer {
             if (wraps) {
-                Text(text, style = style, color = colors.plain, modifier = padding.fillMaxWidth().fade(folds))
+                Text(text, style = style, color = colors.plain, modifier = padding.fillMaxWidth().fadeFoot(folds))
             } else {
-                Row(Modifier.horizontalScroll(rememberScrollState()).then(padding).fade(folds)) { Text(text, style = style, color = colors.plain, softWrap = false) }
+                Row(Modifier.horizontalScroll(rememberScrollState()).then(padding).fadeFoot(folds)) { Text(text, style = style, color = colors.plain, softWrap = false) }
             }
         }
         if (folds) {
@@ -155,11 +168,6 @@ private fun CodeBody(code: FormatCode, kind: CodeKind, streaming: Boolean) {
         }
     }
 }
-
-/** A folded block fades out at its foot, so the cut reads as more to come. */
-private fun Modifier.fade(on: Boolean): Modifier = if (!on) this else this.then(
-    Modifier.background(Brush.verticalGradient(0.8f to Color.Transparent, 1f to Color.Transparent)),
-)
 
 private fun AnnotatedString.Builder.appendLine(line: AnnotatedString, shell: Boolean, dim: Color) {
     if (shell && line.text.startsWith("$ ")) {

@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
@@ -16,6 +17,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
 import com.muzammil.broski.design.format.AnswerMenu
+import com.muzammil.broski.design.format.menuLinks
 import com.muzammil.broski.design.format.FormatBlockView
 import com.muzammil.broski.feature.chat.activity.ActivityRow
 import com.muzammil.broski.feature.chat.work.WorkActions
@@ -70,7 +72,7 @@ private fun Row(row: ChatRow, images: Map<String, ImageBitmap>, state: Transcrip
     val padded = Modifier.padding(horizontal = 20.dp).entrance(row.at)
     when (row) {
         is ChatRow.User -> UserBubble(row, images, callbacks.requestImage, padded.padding(top = 20.dp, bottom = 4.dp))
-        is ChatRow.Text -> AnswerMenu(answer, padded.padding(top = if (row.first) 12.dp else 0.dp)) {
+        is ChatRow.Text -> AnswerMenu(answer, padded.padding(top = if (row.first) 12.dp else 0.dp), links = remember(row.block) { row.block.menuLinks() }) {
             FormatBlockView(row.block, next = row.next, streaming = row.streaming)
         }
         is ChatRow.CopyAnswer -> CopyAnswerRow(row.text, Modifier.padding(horizontal = 8.dp))

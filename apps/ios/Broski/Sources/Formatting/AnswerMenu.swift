@@ -15,9 +15,26 @@ extension View {
     }
 
     /// The same menu on one block of an answer in the transcript, for the whole answer the row is
-    /// part of, read when an item is chosen (`AnswerSource`).
-    func answerMenu(rowId: String) -> some View {
-        modifier(RowAnswerMenu(rowId: rowId))
+    /// part of, read when an item is chosen (`AnswerSource`); the block's own links come first.
+    func answerMenu(rowId: String, block: FormatBlock) -> some View {
+        modifier(RowAnswerMenu(rowId: rowId, links: block.menuLinks))
+    }
+}
+
+nonisolated extension FormatBlock {
+    /// The block's links a long-press offers by name, since a `Text` cannot say which link a press
+    /// landed on: web pages, addresses and files, each once, at most `FormatTokens.menuLinks`.
+    var menuLinks: [FormatLink] {
+        let spans: [FormatSpan] = switch content {
+        case .paragraph(let spans), .heading(_, let spans): spans
+        case .table(let table): (table.header + table.rows.flatMap { $0 }).flatMap(\.spans)
+        default: []
+        }
+        var seen = Set<String>()
+        return spans.compactMap(\.link)
+            .filter { FormatLinkTarget($0) != nil && seen.insert($0.target).inserted }
+            .prefix(FormatTokens.menuLinks)
+            .map { $0 }
     }
 }
 
@@ -32,10 +49,50 @@ extension EnvironmentValues {
 
 private struct RowAnswerMenu: ViewModifier {
     let rowId: String
+    let links: [FormatLink]
     @Environment(\.answerSource) private var source
 
     func body(content: Content) -> some View {
-        content.contextMenu { AnswerMenuItems { source.text(rowId) } }
+        content.contextMenu {
+            if !links.isEmpty {
+                Section { ForEach(links, id: \.target) { LinkMenu(link: $0) } }
+            }
+            AnswerMenuItems { source.text(rowId) }
+        }
+    }
+}
+
+/// One link of a long-pressed block: Open, Copy Link, Share.
+private struct LinkMenu: View {
+    let link: FormatLink
+    @Environment(\.formatContext) private var context
+    @Environment(AppModel.self) private var app: AppModel?
+
+    var body: some View {
+        if let target = FormatLinkTarget(link) {
+            Menu {
+                Button("Open", systemImage: symbol(target)) { FormatLinkOpener.open(target, context: context, app: app) }
+                Button("Copy Link", systemImage: "link") { UIPasteboard.general.string = copied(target) }
+                ShareLink(item: copied(target))
+            } label: {
+                Label(link.target, systemImage: symbol(target))
+            }
+        }
+    }
+
+    private func symbol(_ target: FormatLinkTarget) -> String {
+        switch target {
+        case .web: "safari"
+        case .mail: "envelope"
+        case .file: "doc.text"
+        }
+    }
+
+    private func copied(_ target: FormatLinkTarget) -> String {
+        switch target {
+        case .web(let url), .mail(let url): url.absoluteString
+        case .file(let path, let line): line.map { "\(path):\($0)" } ?? path
+        }
     }
 }
 

@@ -84,6 +84,7 @@ struct FormatCodeBlock: View {
         }
         .buttonStyle(.plain)
         .foregroundStyle(.secondary)
+        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
         .accessibilityLabel(label)
     }
 
@@ -102,21 +103,23 @@ struct FormatCodeBlock: View {
             .padding(.top, Spacing.xxs)
             .padding(.bottom, folds ? Spacing.xs : Spacing.m)
         VStack(alignment: .leading, spacing: 0) {
-            if wraps {
-                text.frame(maxWidth: .infinity, alignment: .leading)
-            } else {
-                ScrollView(.horizontal) { text.fixedSize(horizontal: true, vertical: false) }
-                    .scrollIndicators(.hidden)
-                    .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
+            Group {
+                if wraps {
+                    text.frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    ScrollView(.horizontal) { text.fixedSize(horizontal: true, vertical: false) }
+                        .scrollIndicators(.hidden)
+                        .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
+                }
+            }
+            .mask(alignment: .top) {
+                if folds {
+                    LinearGradient(stops: [.init(color: .black, location: 0.8), .init(color: .black.opacity(0.35), location: 1)], startPoint: .top, endPoint: .bottom)
+                } else {
+                    Rectangle()
+                }
             }
             if folds { foldButton }
-        }
-        .mask(alignment: .top) {
-            if folds {
-                LinearGradient(stops: [.init(color: .black, location: 0.8), .init(color: .black.opacity(0.35), location: 1)], startPoint: .top, endPoint: .bottom)
-            } else {
-                Rectangle()
-            }
         }
     }
 

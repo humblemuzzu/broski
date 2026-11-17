@@ -108,9 +108,49 @@ struct TableLayout: Equatable {
     }
 }
 
+/// Layouts kept by table, width, text size and rows shown, since measuring a table's cells in their
+/// fonts is the costly part of drawing it and a row scrolled back into view asks again.
+@MainActor
+enum TableLayoutCache {
+    private struct Key: Hashable {
+        let table: FormatTable
+        let width: CGFloat
+        let fonts: TableFonts
+        let rows: Int
+        /// The viewer's layout: every column up to `width`, every row measured.
+        let whole: Bool
+    }
+
+    private static var layouts: [Key: TableLayout] = [:]
+    private static let capacity = 64
+
+    static func fit(_ table: FormatTable, width: CGFloat, fonts: TableFonts, rows: Int) -> TableLayout {
+        cached(Key(table: table, width: width, fonts: fonts, rows: rows, whole: false)) {
+            TableLayout.fit(table, width: width, fonts: fonts, rows: rows)
+        }
+    }
+
+    /// Every column at its natural width up to `maxColumn`, every row measured, for the viewer.
+    static func whole(_ table: FormatTable, maxColumn: CGFloat, fonts: TableFonts) -> TableLayout {
+        cached(Key(table: table, width: maxColumn, fonts: fonts, rows: table.rows.count, whole: true)) {
+            let (natural, minimum) = TableLayout.columnWidths(table, fonts: fonts)
+            let widths = zip(natural, minimum).map { max(min($0, maxColumn), $1) }
+            return TableLayout.measured(table, widths: widths, fonts: fonts)
+        }
+    }
+
+    private static func cached(_ key: Key, measure: () -> TableLayout) -> TableLayout {
+        if let known = layouts[key] { return known }
+        if layouts.count >= capacity { layouts.removeAll(keepingCapacity: true) }
+        let layout = measure()
+        layouts[key] = layout
+        return layout
+    }
+}
+
 /// The fonts a table is drawn and measured in, at the text size on screen, in points so the
 /// measurement and the drawing agree: digits tabular, inline code monospaced.
-struct TableFonts: Equatable {
+struct TableFonts: Hashable {
     let cell: UIFont
     let header: UIFont
     let code: UIFont

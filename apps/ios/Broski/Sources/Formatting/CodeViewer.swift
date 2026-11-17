@@ -10,6 +10,9 @@ struct CodeViewer: View {
     let title: String
     @State var wraps: Bool
     @State private var lines: [CodeLine] = []
+    /// The longest line's width at one point of text size, so a sideways-scrolling viewer is as wide
+    /// as that line at any size: lines that do not wrap are then never cut or centred.
+    @State private var widestPerPoint: CGFloat = 0
     @State private var zoom: CGFloat = 1
     @GestureState private var pinch: CGFloat = 1
     @ScaledMetric(relativeTo: .body) private var codeSize = FormatTokens.codeSize
@@ -25,6 +28,7 @@ struct CodeViewer: View {
                         row(index)
                     }
                 }
+                .frame(width: wraps ? nil : contentWidth, alignment: .leading)
                 .padding(.vertical, Spacing.m)
             }
             .gesture(MagnifyGesture().updating($pinch) { value, state, _ in state = value.magnification }.onEnded { zoom *= $0.magnification })
@@ -35,8 +39,21 @@ struct CodeViewer: View {
         }
         .task {
             lines = Highlighter.plainLines(code)
+            widestPerPoint = Self.widestLine(code)
             if language != nil { lines = await Highlighter.shared.highlight(code, language: language) }
         }
+    }
+
+    private var contentWidth: CGFloat {
+        let gutter = CGFloat(String(lines.count).count + 1) * size * 0.62
+        return (widestPerPoint + 1) * size + gutter + Spacing.m + Spacing.l * 2
+    }
+
+    private static func widestLine(_ code: String) -> CGFloat {
+        let font = UIFont.monospacedSystemFont(ofSize: 1, weight: .regular)
+        return code.split(separator: "\n", omittingEmptySubsequences: false)
+            .map { (String($0) as NSString).size(withAttributes: [.font: font]).width }
+            .max() ?? 0
     }
 
     private func row(_ index: Int) -> some View {
@@ -54,6 +71,7 @@ struct CodeViewer: View {
         }
         .font(.system(size: size, design: .monospaced))
         .padding(.horizontal, Spacing.l)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ToolbarContentBuilder

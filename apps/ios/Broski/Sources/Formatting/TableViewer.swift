@@ -2,10 +2,21 @@ import BroskiCore
 import SwiftUI
 
 /// A table opened whole: it scrolls both ways with its header row and first column held still, a
-/// pinch changes its text size, it turns with the phone, copies as Markdown, CSV or TSV, and can be
+/// pinch changes its text size (the table is laid out again when the pinch ends; during it, what is
+/// drawn is scaled), it turns with the phone, copies as Markdown, CSV or TSV, shares, and can be
 /// read as rows instead, each a card of `Header: value`.
 struct TableViewer: View {
     let table: FormatTable
+
+    /// Over whatever is on screen, its paths opening on the machine `context` names, as in the chat.
+    static func present(_ table: FormatTable, context: FormatContext?, app: AppModel?) {
+        let viewer = TableViewer(table: table)
+            .readingSettings()
+            .formatLinkHandling()
+            .environment(\.formatContext, context)
+            .environment(app)
+        FormatPresenter.present(UIHostingController(rootView: viewer))
+    }
     @State private var asRows = false
     @State private var zoom: CGFloat = 1
     @GestureState private var pinch: CGFloat = 1
@@ -13,7 +24,8 @@ struct TableViewer: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.reading) private var reading
 
-    private var scale: CGFloat { min(max(zoom * pinch, 0.6), 2.2) }
+    private static let zoomRange: ClosedRange<CGFloat> = 0.6...2.2
+    private var livePinch: CGFloat { min(max(zoom * pinch, Self.zoomRange.lowerBound), Self.zoomRange.upperBound) / zoom }
     /// The widest a column grows in the viewer before its cells wrap.
     private static let maxColumn: CGFloat = 320
 
@@ -29,8 +41,8 @@ struct TableViewer: View {
     }
 
     private var grid: some View {
-        let fonts = TableFonts(typeSize: typeSize, scale: scale)
-        let layout = viewerLayout(fonts: fonts)
+        let fonts = TableFonts(typeSize: typeSize, scale: zoom)
+        let layout = TableLayoutCache.whole(table, maxColumn: Self.maxColumn * zoom, fonts: fonts)
         let style = fonts.spanStyle(underlinesLinks: reading.underlinesLinks)
         return ScrollView(.vertical) {
             HStack(alignment: .top, spacing: 0) {
@@ -41,8 +53,11 @@ struct TableViewer: View {
                     pinnedColumns(Array(table.columns.indices.dropFirst()), layout: layout, style: style)
                 }
             }
+            .scaleEffect(livePinch, anchor: .topLeading)
         }
-        .gesture(MagnifyGesture().updating($pinch) { value, state, _ in state = value.magnification }.onEnded { zoom = min(max(zoom * $0.magnification, 0.6), 2.2) })
+        .gesture(MagnifyGesture().updating($pinch) { value, state, _ in state = value.magnification }.onEnded { value in
+            zoom = min(max(zoom * value.magnification, Self.zoomRange.lowerBound), Self.zoomRange.upperBound)
+        })
     }
 
     /// Columns with the header row pinned to the top while the rows scroll under it.
@@ -68,13 +83,6 @@ struct TableViewer: View {
                     .frame(width: layout.widths[column], height: height, alignment: .topLeading)
             }
         }
-    }
-
-    /// Every column at its natural width up to the viewer's cap, every row measured.
-    private func viewerLayout(fonts: TableFonts) -> TableLayout {
-        let (natural, minimum) = TableLayout.columnWidths(table, fonts: fonts)
-        let widths = zip(natural, minimum).map { max(min($0, Self.maxColumn * scale), $1) }
-        return TableLayout.measured(table, widths: widths, fonts: fonts)
     }
 
     private var rows: some View {

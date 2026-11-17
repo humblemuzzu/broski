@@ -16,7 +16,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -177,8 +176,8 @@ fun MatchRows(rows: List<MatchRow>, hidden: Int, links: ToolLinks) {
 /** A log's lines with their links found, monospaced, in a capped box opening at its newest lines. */
 @Composable
 fun LogBox(lines: List<LogLine>, hidden: Int, title: String, source: String, links: ToolLinks, color: Color = MaterialTheme.colorScheme.onSurfaceVariant) {
-    val scroll = rememberScrollState()
-    LaunchedEffect(lines) { scroll.scrollTo(scroll.maxValue) }
+    // Started past its end: the state settles on the last line once the box knows its height.
+    val scroll = rememberScrollState(Int.MAX_VALUE)
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         CodeSurface {
             LogLines(lines, MaterialTheme.typography.bodySmall.mono(), color, Modifier.heightIn(max = OUTPUT_MAX).verticalScroll(scroll).padding(8.dp))

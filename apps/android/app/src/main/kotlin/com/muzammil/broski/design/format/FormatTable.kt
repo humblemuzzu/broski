@@ -39,8 +39,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
@@ -127,23 +125,21 @@ fun TableGrid(table: FormatTable, layout: TableLayout, rows: Int, styles: Pair<T
         val held = if (layout.sticky) 1 else 0
         val heldWidth = layout.widths.take(held).fold(0.dp) { a, b -> a + b }
         val reach = with(density) { (layout.widths.drop(held).fold(0.dp) { a, b -> a + b } - (maxWidth - heldWidth)).toPx().coerceAtLeast(0f) }
-        var offset by remember(layout) { mutableFloatStateOf(0f) }
+        var scrolled by remember(layout.sticky) { mutableFloatStateOf(0f) }
+        val offset = scrolled.coerceIn(0f, reach)
         val scroll = rememberScrollableState { delta ->
             val next = (offset - delta).coerceIn(0f, reach)
             val used = offset - next
-            offset = next
+            scrolled = next
             used
         }
-        Column(if (layout.scrolls) Modifier.scrollable(scroll, Orientation.Horizontal) else Modifier) {
+        val scrolling = if (layout.scrolls) Modifier.scrollable(scroll, Orientation.Horizontal) else Modifier
+        Column(scrolling.fadeEnd(layout.scrolls && offset < reach, FormatTokens.tableEdgeFade)) {
             TableRow(table, table.header, 0, layout, held, { offset }, styles.second, Modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh))
             for (index in 0 until minOf(rows, table.rows.size)) {
                 Box(Modifier.fillMaxWidth().height(0.5.dp).background(MaterialTheme.colorScheme.outlineVariant))
                 TableRow(table, table.rows[index], index + 1, layout, held, { offset }, styles.first)
             }
-        }
-        if (layout.scrolls && offset < reach) {
-            val surface = MaterialTheme.colorScheme.surface
-            Box(Modifier.matchParentSize().wrapContentWidth(Alignment.End).width(24.dp).background(Brush.horizontalGradient(listOf(Color.Transparent, surface.copy(alpha = 0.9f)))))
         }
     }
 }

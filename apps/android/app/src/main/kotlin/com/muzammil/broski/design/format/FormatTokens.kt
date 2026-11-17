@@ -51,6 +51,12 @@ object FormatTokens {
     val tableMaxMinColumn = 200.dp
     val tableScrollColumn = 240.dp
 
+    /** The width over which a sideways-scrolling table fades while more of it is to the end. */
+    val tableEdgeFade = 28.dp
+
+    /** Links a long-pressed block offers by name. */
+    const val MENU_LINKS = 5
+
     /** A table past [TABLE_FOLD_ROWS] rows shows [TABLE_SHOWN_ROWS] and a button for the rest. */
     const val TABLE_FOLD_ROWS = 12
     const val TABLE_SHOWN_ROWS = 10
@@ -116,6 +122,10 @@ enum class FormatRole {
 
     @Composable
     fun color(): Color = if (this == Page) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
+
+    /** The height of [lines] lines of this role's text at the font scale in effect, for a fold. */
+    @Composable
+    fun linesHeight(lines: Int): Dp = with(LocalDensity.current) { (textStyle().lineHeight * lines).toDp() }
 }
 
 /** Settings › Reading, as the formatter's composables read them. */

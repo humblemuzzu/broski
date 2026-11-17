@@ -39,7 +39,8 @@ import uniffi.broski_core.ArgumentValue
 import uniffi.broski_core.ToolArgument
 
 private val CODE_MAX = 180.dp
-private val FOLDED = 120.dp
+/** Lines of an argument's prose shown until it is opened. */
+private const val FOLDED_LINES = 6
 private val INDENT = 14.dp
 
 /**
@@ -134,7 +135,8 @@ private fun FoldedProse(text: String) {
     var open by remember { mutableStateOf(false) }
     val long = text.length > LONG_PROSE || text.count { it == '\n' } > 5
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Box(if (long && !open) Modifier.heightIn(max = FOLDED).clipToBounds() else Modifier) {
+        val folded = FormatRole.Quiet.linesHeight(FOLDED_LINES)
+        Box(if (long && !open) Modifier.heightIn(max = folded).clipToBounds() else Modifier) {
             FormattedText(text, role = FormatRole.Quiet, menu = false)
         }
         if (long && !open) TextButton(onClick = { open = true }) { Text(stringResource(R.string.format_show_more), color = formatLink) }

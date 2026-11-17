@@ -3,7 +3,9 @@ package com.muzammil.broski.design.format
 import android.content.ClipData
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -28,7 +30,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import com.muzammil.broski.R
 import com.muzammil.broski.design.MonoFamily
 import com.muzammil.broski.design.code.CodeColors
@@ -48,8 +49,9 @@ fun CodeViewer(code: String, language: String?, title: String, onDone: () -> Uni
     val scope = rememberCoroutineScope()
     val coloured = highlightedLines(code, language, CodeColors.current)
     val lines = remember(coloured) { coloured.mapIndexed { index, line -> ViewerLine(line, (index + 1).toString()) } }
-    Dialog(onDismissRequest = onDone, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    Dialog(onDismissRequest = onDone, properties = FullScreenDialog) {
         Scaffold(
+            contentWindowInsets = WindowInsets.safeDrawing,
             topBar = {
                 TopAppBar(
                     title = { Text(title, maxLines = 1, overflow = TextOverflow.StartEllipsis) },

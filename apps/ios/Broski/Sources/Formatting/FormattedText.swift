@@ -70,8 +70,14 @@ final class FormatCache {
         let message: Bool
     }
 
-    private var parsed: [Key: [FormatBlock]] = [:]
-    private let capacity = 2_000
+    /// Finished texts, kept until 2,000 of them or 16 MiB of text; a streaming text is kept only
+    /// among the last few, since each batch makes a new one that is never asked for again.
+    private var finished: [Key: [FormatBlock]] = [:]
+    private var finishedBytes = 0
+    private var streaming: [Key: [FormatBlock]] = [:]
+    private let finishedCapacity = 2_000
+    private let finishedByteBudget = 16 << 20
+    private let streamingCapacity = 16
 
     func blocks(_ text: String, streaming: Bool) -> [FormatBlock] {
         cached(Key(text: text, streaming: streaming, message: false)) { formatMarkdown(text: text, streaming: streaming) }
@@ -82,10 +88,19 @@ final class FormatCache {
     }
 
     private func cached(_ key: Key, parse: () -> [FormatBlock]) -> [FormatBlock] {
-        if let known = parsed[key] { return known }
-        if parsed.count >= capacity { parsed.removeAll(keepingCapacity: true) }
+        if let known = key.streaming ? streaming[key] : finished[key] { return known }
         let blocks = parse()
-        parsed[key] = blocks
+        if key.streaming {
+            if streaming.count >= streamingCapacity { streaming.removeAll(keepingCapacity: true) }
+            streaming[key] = blocks
+        } else {
+            if finished.count >= finishedCapacity || finishedBytes >= finishedByteBudget {
+                finished.removeAll(keepingCapacity: true)
+                finishedBytes = 0
+            }
+            finished[key] = blocks
+            finishedBytes += key.text.utf8.count
+        }
         return blocks
     }
 }

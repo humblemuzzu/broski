@@ -25,6 +25,10 @@ nonisolated enum FormatTokens {
     static let tableMinColumn: CGFloat = 56
     static let tableMaxMinColumn: CGFloat = 200
     static let tableScrollColumn: CGFloat = 240
+    /// Links a long-pressed block offers by name.
+    static let menuLinks = 5
+    /// The width over which a sideways-scrolling table fades while more of it is to the right.
+    static let tableEdgeFade: CGFloat = 28
     /// A table past `tableFoldRows` rows shows `tableShownRows` and a button for the rest.
     static let tableFoldRows = 12
     static let tableShownRows = 10

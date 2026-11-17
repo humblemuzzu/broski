@@ -47,6 +47,7 @@ import uniffi.broski_contract.RunLimit
 /** Rows that arrived this recently fade and rise in; older ones, remounted as the list scrolls, never do. */
 private const val FRESH_MS = 3_000L
 
+/** Lines of a note shown until it is tapped open. */
 private const val NOTE_LINES = 3
 
 /** A fade-and-rise for a row of the last few seconds (a fade alone with animations reduced). */
@@ -80,7 +81,8 @@ fun NoteRow(note: TranscriptNote, modifier: Modifier = Modifier) {
     ) {
         HorizontalDivider(Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
         val words = noteWords(note)
-        Box(Modifier.weight(4f, fill = false).then(if (open) Modifier else Modifier.heightIn(max = NOTE_HEIGHT).clipToBounds())) {
+        val folded = FormatRole.Quiet.linesHeight(NOTE_LINES)
+        Box(Modifier.weight(4f, fill = false).then(if (open) Modifier else Modifier.heightIn(max = folded).clipToBounds())) {
             CompositionLocalProvider(LocalContentColor provides color) {
                 FormattedMessage(words, role = FormatRole.Quiet)
             }
@@ -138,5 +140,3 @@ fun OlderRow(modifier: Modifier = Modifier) {
     }
 }
 
-/** A note shows about three lines until it is tapped open. */
-private val NOTE_HEIGHT = 60.dp

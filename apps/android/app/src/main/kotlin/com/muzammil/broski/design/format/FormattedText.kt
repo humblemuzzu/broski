@@ -64,11 +64,18 @@ fun exceeds(text: String, limit: Int): Boolean = FormatCache.blocks(text, false)
  */
 object FormatCache {
     private const val MAX_TEXTS = 2_000
+    private const val MAX_TEXT_CHARS = 16 shl 20
+    private const val MAX_STREAMING = 16
 
     private data class Key(val text: String, val streaming: Boolean, val message: Boolean)
 
-    private val parsed = object : LinkedHashMap<Key, List<FormatBlock>>(MAX_TEXTS, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Key, List<FormatBlock>>) = size > MAX_TEXTS
+    /** Finished texts, least recently used out first past 2,000 of them or 16 Mi characters. */
+    private val finished = LinkedHashMap<Key, List<FormatBlock>>(MAX_TEXTS, 0.75f, true)
+    private var finishedChars = 0
+
+    /** A streaming text is asked for again only within its batch: only the last few are kept. */
+    private val streaming = object : LinkedHashMap<Key, List<FormatBlock>>(MAX_STREAMING, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Key, List<FormatBlock>>) = size > MAX_STREAMING
     }
 
     fun blocks(text: String, streaming: Boolean): List<FormatBlock> =
@@ -77,9 +84,23 @@ object FormatCache {
     fun message(text: String): List<FormatBlock> = cached(Key(text, streaming = false, message = true)) { formatMessage(text) }
 
     private fun cached(key: Key, parse: () -> List<FormatBlock>): List<FormatBlock> {
-        synchronized(parsed) { parsed[key] }?.let { return it }
+        val store = if (key.streaming) streaming else finished
+        synchronized(this) { store[key] }?.let { return it }
         val blocks = parse()
-        synchronized(parsed) { parsed[key] = blocks }
+        synchronized(this) {
+            if (store.put(key, blocks) == null && !key.streaming) {
+                finishedChars += key.text.length
+                trimFinished()
+            }
+        }
         return blocks
+    }
+
+    private fun trimFinished() {
+        val eldest = finished.keys.iterator()
+        while ((finished.size > MAX_TEXTS || finishedChars > MAX_TEXT_CHARS) && finished.size > 1) {
+            finishedChars -= eldest.next().text.length
+            eldest.remove()
+        }
     }
 }
