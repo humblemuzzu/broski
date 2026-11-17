@@ -3,6 +3,7 @@ apps/ios/Broski/Sources/Features/Pairing/PairingProblemView.swift | Text(problem
 apps/ios/Broski/Sources/Features/Chat/Composer/Dictation/RecordingBar.swift | Text(problem.message) | the app's own sentence about a recording (DictationProblem)
 apps/ios/Broski/Sources/Features/Chat/Composer/ComposerView.swift | Text(notice.text) | the app's own dictation notice (DictationNotice)
 apps/ios/Broski/Sources/Features/Chat/PinnedPanel.swift | Text(item.preview) | the person's queued words, two lines as typed
+apps/ios/Broski/Sources/Features/Chat/Work/WorkFoldView.swift | Text("\(summary.text) | "Worked for 2m · Ran 2 commands", made by WorkFold.summary
 apps/ios/Broski/Sources/Features/Workspace/Git/GitScreen.swift | Text(upstream.summary) | "2 ahead, 1 behind origin/main", made by GitUpstream.summary
 apps/ios/Broski/Sources/Features/Workspace/Git/BranchesScreen.swift | Text(upstream.summary) | "2 ahead, 1 behind origin/main", made by GitUpstream.summary
 apps/ios/Broski/Extensions/Widgets/BroskiWidgets.swift | Text(state.summary) | "3 live agents · 1 needs you", made by RunActivityAttributes

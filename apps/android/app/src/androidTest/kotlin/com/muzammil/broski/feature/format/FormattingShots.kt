@@ -17,7 +17,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.activity.ComponentActivity
+import android.content.res.Configuration
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
@@ -46,7 +48,7 @@ import uniffi.broski_core.formatSamples
 @RunWith(AndroidJUnit4::class)
 class FormattingShots {
     @get:Rule
-    val compose = createComposeRule()
+    val compose = createAndroidComposeRule<ComponentActivity>()
 
     private val automation: UiAutomation get() = InstrumentationRegistry.getInstrumentation().uiAutomation
     private var look by mutableStateOf(Look(Appearance.Light, 1f, sample = formatSamples().first()))
@@ -66,17 +68,32 @@ class FormattingShots {
     }
 
     @Test
-    fun everySampleInBothAppearancesAtBothScalesUprightAndSideways() {
+    fun everySampleInBothAppearancesAtBothScalesUpright() {
+        shootAll(UiAutomation.ROTATION_FREEZE_0, "portrait")
+    }
+
+    /**
+     * Turned before anything is drawn, and drawn only once the activity turning recreates is the
+     * one in front: turning drops whatever the old activity showed.
+     */
+    @Test
+    fun everySampleInBothAppearancesAtBothScalesSideways() {
+        shootAll(UiAutomation.ROTATION_FREEZE_90, "landscape")
+    }
+
+    private fun shootAll(rotation: Int, orientation: String) {
+        automation.setRotation(rotation)
+        val wanted = if (rotation == UiAutomation.ROTATION_FREEZE_0) Configuration.ORIENTATION_PORTRAIT else Configuration.ORIENTATION_LANDSCAPE
+        compose.waitUntil(ROTATION_MS) {
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+            compose.activity.resources.configuration.orientation == wanted
+        }
         compose.setContent { Gallery() }
-        for (rotation in listOf(UiAutomation.ROTATION_FREEZE_0, UiAutomation.ROTATION_FREEZE_90)) {
-            automation.setRotation(rotation)
-            val orientation = if (rotation == UiAutomation.ROTATION_FREEZE_0) "portrait" else "landscape"
-            for (appearance in listOf(Appearance.Light, Appearance.Dark)) {
-                for (scale in listOf(1f, 2f)) {
-                    formatSamples().forEachIndexed { index, sample ->
-                        look = Look(appearance, scale, sample)
-                        pages("$orientation-${appearance.name.lowercase()}-x${scale.toInt()}-%02d-${slug(sample.title)}".format(index + 1))
-                    }
+        for (appearance in listOf(Appearance.Light, Appearance.Dark)) {
+            for (scale in listOf(1f, 2f)) {
+                formatSamples().forEachIndexed { index, sample ->
+                    look = Look(appearance, scale, sample)
+                    pages("$orientation-${appearance.name.lowercase()}-x${scale.toInt()}-%02d-${slug(sample.title)}".format(index + 1))
                 }
             }
         }
@@ -126,7 +143,10 @@ class FormattingShots {
     private fun slug(title: String) = title.lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-')
 
     private companion object {
-        const val MAX_PAGES = 4
+        const val MAX_PAGES = 8
+
+        /** The longest the emulator takes to turn and recreate the activity. */
+        const val ROTATION_MS = 10_000L
 
         /** Code is coloured off the main thread; a language's first use compiles its grammar. */
         const val SETTLE_MS = 300L

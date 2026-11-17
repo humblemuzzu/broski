@@ -23,17 +23,20 @@ every screen of both apps.
 
 **The guard.** `scripts/check-agent-text.sh` fails on a `Text(` in either app, outside those
 directories, whose argument reads a field agents write (`row.text`, `request.reason`, `tool.output`,
-`interaction.body`, …). A deliberate exception is a line of `scripts/agent-text-allowlist.txt` with
-why (today: the app's own problem sentences, git's ahead/behind line, the Live Activity's count, the
+`interaction.body`, …), however it is written: `Text(x.text)`, `Text( x.text)`, `Text(verbatim:
+x.text)`, Swift interpolation `Text("…\(x.text)…")`, and Kotlin's `text = x.text` in any position. A
+deliberate exception is a line of `scripts/agent-text-allowlist.txt` with why (today: the app's own
+problem sentences, git's ahead/behind line, the Live Activity's count, the work fold's summary, the
 person's queued words, the gallery's Source view). It runs in CI (`agent-text` job) and in the
-pre-commit hook when app files are staged. It reads the field where it is drawn: a value first copied
-into a local of another name passes, so it catches the direct slip, not every path.
+pre-commit hook when app files are staged. What it cannot see: a value first copied into a local of
+another name, a sink other than `Text` (a `Label`, a notification's body), and one-line titles and
+labels (an ask's title, an option's label), which are drawn plain on purpose and are not in its list.
 
 ## The core: `packages/link/render/src/format/`
 
 ```
 FormatBlock     { key, containers: [FormatContainer], spacing, direction, content }
-FormatContainer { key, kind: Quote | Callout(kind, title?) | Item(marker, depth) | Footnote(label) }
+FormatContainer { id, kind: Quote | Callout(kind) | Item(list, marker, depth, width) | Footnote(label), first }
 FormatContent   = Paragraph(spans) | Heading(level, spans) | Code(FormatCode) | Table(FormatTable)
                 | Math(text) | Html(text) | Rule
 FormatCode      { language?, file?, text, closed, prose }
@@ -48,17 +51,23 @@ FormatTable     { columns: [TableColumn{align, numeric, short}], header, rows, s
   code spans, links, images, autolinks, entities, raw HTML, `$math$`, footnote references); `flatten`
   turns the tree into blocks in reading order, each carrying the containers it sits in, so both apps
   draw a flat, lazy list.
-- **Agent rules on top of the spec** (each in `tests/cases.rs`): a bare path (`src/a.ts:42:7`, `~/x`)
-  becomes a `File` link; `*` between digits is arithmetic; `~20ms` is not a strike; `> [!NOTE]` and the
+- **Agent rules on top of the spec** (in `tests/cases.rs`, `links.rs` and `edges.rs`): a bare path
+  (`src/a.ts:42:7`, `~/x`) becomes a `File` link, and a host named without its scheme
+  (`github.com/acme/app/src/auth.ts`, a common top-level domain) a web link to `https://…`; `*`
+  between digits is arithmetic; a closing `$` before a digit, letter or `_` closes no math, so prices
+  and `$PATH:$HOME` stay text; `~20ms` is not a strike; `> [!NOTE]` and the
   bold `> **Note**` form are callouts, and Claude's `★ Insight` is an Insight callout; refused schemes
   (`javascript:`, `app:` …) stay text; an image is a chip, never loaded; a URL is shortened for show
   (`github.com/…/ChatMarkdown.tsx`); a table column of numbers is right-aligned in tabular digits; a
   two-column table of short keys is `KeyValue`; a paragraph's direction comes from its first strong
   character.
-- **Deliberate differences from the spec** (the 25 examples `tests/spec.rs` lists with reasons): one
-  level of the same emphasis inside itself; `2*3*4` is arithmetic; an empty link is dropped; an image
-  inside a link keeps only the image; raw HTML is never run (style pairs like `<b>…</b>` style the text
-  between them, `<br>` breaks the line, the rest shows as text); soft breaks are kept as written.
+- **Deliberate differences from the spec**: the 25 examples `tests/spec.rs` lists with reasons are
+  one level of the same emphasis inside itself, `2*3*4` as arithmetic, an empty link dropped, an image
+  inside a link keeping only the image, and GitHub's tag filter. The test fails if any of the 25 starts
+  to pass, so 651 of 676 is the agreed line, not a separate measurement. Two behaviours no spec
+  example exercises, and which the test's HTML writer smooths over (bare links and hard breaks are
+  normalised on both sides): raw HTML is never run (style pairs like `<b>…</b>` style the text between
+  them, `<br>` breaks the line, the rest shows as text), and soft breaks are kept as written.
 - **Keys.** A block's `key` is its kind and the byte offset its source starts at. Text appended later
   cannot move an earlier block's start, so while a message streams every block but the last keeps its
   key and content; both apps use the key as the view's identity.
@@ -66,9 +75,12 @@ FormatTable     { columns: [TableColumn{align, numeric, short}], header, rows, s
   than shown as written: open code, open emphasis on the last line, a half-written link destination,
   open brackets; a last line made only of markers (`-`, `#`, `|`, `` ` ``) is held back, as are table
   rows before their delimiter row; open display math counts as math only while streaming.
-- **Bounds.** The first `MAX_FORMAT_BYTES` (1 MiB, the contract's `MAX_TEXT_CHARS`) are parsed; the
-  rest is one plain paragraph. Nesting is capped; the fuzz tests feed random and adversarial input and
-  check nothing panics or runs long.
+- **Bounds.** The first `MAX_FORMAT_BYTES` (1 MiB of UTF-8) are parsed; the rest is one plain
+  paragraph. The contract bounds a text at 1 Mi *characters*, so a text near that bound in a script of
+  three-byte characters (Chinese, Japanese) is formatted for its first third. Nesting is capped; the
+  fuzz tests feed random and adversarial input (unclosed `<`, `[`, `[^`, autolinks, thousands of
+  addresses, paths and reference definitions, each about a megabyte) and check nothing panics or runs
+  long.
 
 ### Exports (BroskiCore)
 
@@ -99,7 +111,7 @@ sniffing is only the fallback for MCP and unknown tools.
 | Quotes, callouts, list gutters, footnotes | `FormatContainers.swift` | `FormatContainers.kt` |
 | Code: header, wrap, copy, expand, fold at 30 lines, diffs, `$` prompts | `FormatCodeBlock.swift`, `CodeViewer.swift` | `FormatCodeBlock.kt`, `CodeViewer.kt` |
 | Tables: fitting, fold at 12 rows, copy, viewer with Rows | `TableLayout`, `FormatTableView`, `TableViewer` | `TableLayout.kt`, `FormatTable.kt`, `TableViewer.kt` |
-| Long-press: Copy, Copy as Markdown, Select Text, Share | `AnswerMenu.swift` | `AnswerMenu.kt` |
+| Long-press: the block's links (open, copy), Copy, Copy as plain text, Select Text, Share | `AnswerMenu.swift` | `AnswerMenu.kt` |
 | Tool bodies, logs, command line, arguments | `Tools/` | `tools/` |
 | Settings › Reading | `ReadingSettings.swift`, `Features/Settings/ReadingSettingsScreen.swift` | `LocalReading` in `FormatTokens.kt`, `feature/settings/ReadingSheet.kt` |
 | Gallery | `FormattingGalleryScreen` | `FormattingGallery` sheet (`feature/settings/`) |
@@ -110,8 +122,10 @@ sniffing is only the fallback for MCP and unknown tools.
   `AfterHeading`, `Paragraph`, `Section`), scaled by the reader's density.
 - **Tables** fit in three tiers: natural widths when they fit; else each column at least its longest
   word (56–200 pt) with the rest shared out and cells wrapping; else columns capped and the table
-  scrolls sideways, its short first column held still. Widths are measured in the fonts the cells are
-  drawn in (tabular digits, monospaced code); while streaming they only grow.
+  scrolls sideways, its short first column held still and its end edge fading while more columns are
+  past it. Widths are measured in the fonts the cells are drawn in (tabular digits, monospaced code)
+  and kept per table, width and text size; while streaming they only grow. The viewer lays the table
+  out again only when a pinch ends; during it, what is drawn is scaled.
 - **Settings › Reading**: text size on top of the system's (−2…+3 steps), comfortable or compact
   density, code wraps by default, links underlined.
 - **The transcript** makes one row per block, so a long answer stays lazy and only its last block
@@ -121,12 +135,15 @@ sniffing is only the fallback for MCP and unknown tools.
 
 ## Tests and numbers
 
-- `cargo test -p broski-render`: 66 tests, among them every CommonMark 0.31.2 and GFM 0.29
+- `cargo test -p broski-render`: 73 tests, among them every CommonMark 0.31.2 and GFM 0.29
   extension example (651 of 676 pass; the 25 others are the deliberate differences above, each named
   in `tests/spec.rs`), the agent rules (`cases.rs`), streaming (every prefix of every sample keeps the
   earlier blocks' keys and content), fuzzing, the exports, `toolBody`, `toolArguments` and `formatLog`.
 - `mobile/tests/render.rs`, `RenderTests.swift` and `RenderTest.kt` call the exports from Rust, Swift
   and Kotlin.
+- The caches: each app keeps finished texts' blocks (up to 2,000 texts or 16 Mi characters) apart
+  from streaming ones (the last 16), since every batch of a streaming answer is a new text never asked
+  for again.
 - `cargo run --release -p broski-render --example bench` (Apple M-series, release): a 20,000-character
   message 0.34 ms, the same while it streams 0.35 ms, a 1,000,000-character text 19.5 ms.
 - iOS `ChatPerformanceTests`: rebuilding the rows of a 1,000-item run with a growing answer takes
@@ -134,8 +151,10 @@ sniffing is only the fallback for MCP and unknown tools.
 - iOS `TableWidthTests`: a page of tables in a real window stays exactly the window's width (a table
   at fixed column widths once held the page wider and cut every paragraph at the left).
 - `UITests/SettingsFormattingEndToEndTests` photographs every sample in light and dark, the default
-  size and AX3, upright and sideways (the iPhone Duo simulator stays upright), the table viewer and an
-  expanded code block
-  (`TEST_RUNNER_BROSKI_GALLERY_QUICK=1` for light, default, upright only). On Android,
-  `androidTest/.../feature/format/FormattingShots` does the same at font scale 1 and 2 into
-  `/sdcard/broski-shots/formatting`.
+  size and AX3, the table viewer and an expanded code block
+  (`TEST_RUNNER_BROSKI_GALLERY_QUICK=1` for light, default, upright only). It asks for sideways
+  shots too, but the iPhone Duo simulator (the only phone the iOS 27.1 runtime offers) stays upright,
+  so its `landscape` files are upright frames: iOS has no sideways proof. On Android,
+  `androidTest/.../feature/format/FormattingShots` photographs every sample at font scale 1 and 2,
+  light and dark, upright and sideways (turned before anything is drawn, since turning recreates the
+  activity), into `/sdcard/broski-shots/formatting`.

@@ -11,10 +11,14 @@ set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
 allowlist="$root/scripts/agent-text-allowlist.txt"
+# One-line titles and labels (an ask's title, a button's label) are drawn plain on purpose and are
+# not in this list.
 fields='text|output|body|reason|summary|plan|report|thinking|answer|error|message|question|prompt|detail|content|result|description|preview|snippet'
 read_field="([A-Za-z_][A-Za-z0-9_]*[?!]?\.)+($fields)([^A-Za-z0-9_(.]|\$)"
-swift="(^|[^A-Za-z0-9_])Text\((verbatim: *)?$read_field"
-kotlin="(^|[^A-Za-z0-9_])Text\((text *= *)?$read_field"
+# `Text(x.text)`, `Text( x.text)`, `Text(verbatim: x.text)` and `Text("\(x.text)")` in Swift;
+# `Text(x.text)` and `Text(…, text = x.text)` in Kotlin.
+swift="(^|[^A-Za-z0-9_])Text\( *(verbatim: *|\"[^\"]*\\\\\()?$read_field"
+kotlin="(^|[^A-Za-z0-9_])Text\( *(([^)]*[ ,])?text *= *)?$read_field"
 
 cd "$root"
 hits="$(
