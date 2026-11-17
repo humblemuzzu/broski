@@ -3,7 +3,7 @@
 //! fences, inline HTML and the size bound.
 
 use crate::format::model::*;
-use crate::format::{format_markdown, format_samples, MAX_FORMAT_BYTES};
+use crate::format::{format_markdown, format_samples, FormatSample, MAX_FORMAT_BYTES};
 
 fn spans(text: &str) -> Vec<FormatSpan> {
     match format_markdown(text, false).remove(0).content {
@@ -380,4 +380,40 @@ fn every_gallery_sample_formats() {
             sample.title
         );
     }
+}
+
+#[test]
+fn only_the_cut_sample_arrives_and_streaming_repairs_what_it_cut() {
+    let arriving: Vec<FormatSample> = format_samples()
+        .into_iter()
+        .filter(|sample| sample.arriving)
+        .collect();
+    assert_eq!(arriving.len(), 1);
+    assert_eq!(arriving[0].title, "Cut mid-stream");
+    assert_ne!(
+        format_markdown(&arriving[0].text, true),
+        format_markdown(&arriving[0].text, false)
+    );
+}
+
+#[test]
+fn the_persons_message_keeps_its_lines_as_typed_with_inline_styles_and_fenced_code() {
+    let blocks = crate::format::format_message(
+        "# not a heading\n- not a list **but bold**\n\n```sh\nls\n```\nafter",
+    );
+    let texts: Vec<String> = blocks
+        .iter()
+        .map(|block| match &block.content {
+            FormatContent::Paragraph { spans } => {
+                spans.iter().map(|span| span.text.as_str()).collect()
+            }
+            FormatContent::Code { code } => format!("code:{}", code.text),
+            other => format!("{other:?}"),
+        })
+        .collect();
+    assert_eq!(
+        texts,
+        ["# not a heading\n- not a list but bold", "code:ls", "after"]
+    );
+    assert!(matches!(&blocks[0].content, FormatContent::Paragraph { spans } if spans[1].strong));
 }

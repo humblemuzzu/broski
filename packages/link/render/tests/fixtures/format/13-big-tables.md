@@ -1,5 +1,4 @@
-I ran the parser benchmark on every phone we support. Times are the median of 101 runs, in
-milliseconds, for a 20,000-character answer:
+I ran the parser benchmark on every phone we support. Times are the median of 101 runs, in milliseconds, for a 20,000-character answer:
 
 | Device | Chip | OS | Cold start | Parse | Repair | Keys | Highlight | Layout | Draw | Total | Pass |
 |---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|:---:|

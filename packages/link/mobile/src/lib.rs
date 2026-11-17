@@ -28,8 +28,8 @@ mod work;
 
 pub use activity::{activity_look, clip_text, format_duration};
 pub use format::{
-    format_json, format_markdown, format_plain_text, format_samples, language_label, table_csv,
-    table_html, table_markdown, table_tsv,
+    format_json, format_markdown, format_message, format_plain_text, format_samples,
+    language_label, table_csv, table_html, table_markdown, table_tsv,
 };
 pub use inbox::Inbox;
 pub use link::{LinkRoute, LinkStatus};
@@ -47,7 +47,8 @@ pub use render::{
 pub use version::{core_version, CoreVersion};
 pub use views::{SessionList, SessionView, TerminalView};
 pub use work::{
-    fold_counts, form_field_default, form_field_shown, tool_arguments, tool_body, tool_look,
+    fold_counts, form_field_default, form_field_shown, format_log, tool_arguments, tool_body,
+    tool_look,
 };
 
 uniffi::setup_scaffolding!();

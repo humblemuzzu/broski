@@ -18,6 +18,7 @@ mod inline;
 mod json;
 mod leaves;
 mod links;
+mod message;
 mod model;
 mod samples;
 mod tables;
@@ -30,6 +31,7 @@ pub(crate) use inline::linked_text;
 pub(crate) use json::number_text;
 pub use json::{format_json, json_lines, MAX_JSON_BYTES};
 pub(crate) use links::is_path;
+pub use message::format_message;
 pub use model::{
     CalloutKind, ColumnAlign, ContainerKind, FormatBlock, FormatCode, FormatContainer,
     FormatContent, FormatLink, FormatSpacing, FormatSpan, FormatTable, LinkKind, ListMarker,

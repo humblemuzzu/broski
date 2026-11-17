@@ -23,11 +23,11 @@ pub use diff::{
     DiffLine, DiffLineKind, DiffSegment, ParsedDiff, SideBySideRow,
 };
 pub use format::{
-    format_json, format_markdown, format_plain_text, format_samples, json_lines, table_csv,
-    table_html, table_markdown, table_tsv, CalloutKind, ColumnAlign, ContainerKind, FormatBlock,
-    FormatCode, FormatContainer, FormatContent, FormatLink, FormatSample, FormatSpacing,
-    FormatSpan, FormatTable, LinkKind, ListMarker, TableCell, TableColumn, TableShape,
-    TextDirection, MAX_FORMAT_BYTES, MAX_JSON_BYTES,
+    format_json, format_markdown, format_message, format_plain_text, format_samples, json_lines,
+    table_csv, table_html, table_markdown, table_tsv, CalloutKind, ColumnAlign, ContainerKind,
+    FormatBlock, FormatCode, FormatContainer, FormatContent, FormatLink, FormatSample,
+    FormatSpacing, FormatSpan, FormatTable, LinkKind, ListMarker, TableCell, TableColumn,
+    TableShape, TextDirection, MAX_FORMAT_BYTES, MAX_JSON_BYTES,
 };
 pub use highlight::{
     highlight, language_for_path, language_label, normalize_language, CodeLine, CodeSpan, TokenKind,
@@ -35,9 +35,9 @@ pub use highlight::{
 pub use text::{clip_text, format_duration, opening_words, ClipEnd, TextClip, MAX_CLIP_BYTES};
 
 pub use work::{
-    fold_counts, tool_arguments, tool_body, tool_kind, tool_look, ArgumentValue, FoldCount,
-    FoldTool, FoldVerb, LogLine, MatchRow, MatchSegment, ToolArgument, ToolBody, ToolFacts,
-    ToolKind, ToolLook, TOOL_LOG_LINES,
+    fold_counts, format_log, tool_arguments, tool_body, tool_kind, tool_look, ArgumentValue,
+    FoldCount, FoldTool, FoldVerb, LogLine, LogText, MatchRow, MatchSegment, ToolArgument,
+    ToolBody, ToolFacts, ToolKind, ToolLook, TOOL_LOG_LINES,
 };
 
 /// The longest prefix of `text` of at most `max` bytes that ends on a character boundary.

@@ -17,6 +17,7 @@ import uniffi.broski_core.CodeSpan
 import uniffi.broski_core.DiffLineKind
 import uniffi.broski_core.DiffSegment
 import uniffi.broski_core.FoldTool
+import uniffi.broski_core.FormatCode
 import uniffi.broski_core.FormatContent
 import uniffi.broski_core.FormatSpan
 import uniffi.broski_core.TokenKind
@@ -39,8 +40,9 @@ class RenderTest {
     fun markdownComesBackAsKeyedBlocksAndTheGalleryHasItsSamples() {
         val blocks = formatMarkdown("Run `x`.\n\n```kotlin\nval x = 1", true)
         assertEquals(listOf("p-0", "code-10"), blocks.map { it.key })
-        assertEquals(FormatContent.Paragraph(listOf(FormatSpan("Run ", false), FormatSpan("x", true), FormatSpan(".", false))), blocks[0].content)
-        assertEquals(FormatContent.Code("kotlin", "val x = 1", false), blocks[1].content)
+        val span = { text: String, code: Boolean -> FormatSpan(text, false, false, false, code, false, false, null) }
+        assertEquals(FormatContent.Paragraph(listOf(span("Run ", false), span("x", true), span(".", false))), blocks[0].content)
+        assertEquals(FormatContent.Code(FormatCode("kotlin", null, "val x = 1", false, false)), blocks[1].content)
         assertTrue(formatSamples().isNotEmpty())
     }
 

@@ -16,6 +16,12 @@ pub fn format_markdown(text: String, streaming: bool) -> Vec<FormatBlock> {
     broski_render::format_markdown(&text, streaming)
 }
 
+/// The person's own message or a notice: inline styles and fenced code, the rest as typed.
+#[uniffi::export]
+pub fn format_message(text: String) -> Vec<FormatBlock> {
+    broski_render::format_message(&text)
+}
+
 /// `text` with its markup gone, for Copy as plain text.
 #[uniffi::export]
 pub fn format_plain_text(text: String) -> String {
@@ -223,4 +229,5 @@ pub enum TableShape {
 pub struct FormatSample {
     pub title: String,
     pub text: String,
+    pub arriving: bool,
 }

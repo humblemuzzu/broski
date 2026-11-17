@@ -2,8 +2,7 @@
 
 ## Summary
 
-Tool output is drawn as **plain monospace text** in both apps. Nothing passes it through the formatter, so a
-subagent's markdown report shows its markup as written.
+Tool output is drawn as **plain monospace text** in both apps. Nothing passes it through the formatter, so a subagent's markdown report shows its markup as written.
 
 ## Evidence
 

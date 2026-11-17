@@ -11,7 +11,9 @@ mod fold;
 mod tests;
 
 pub use arguments::{tool_arguments, ArgumentValue, ToolArgument};
-pub use body::{tool_body, LogLine, MatchRow, MatchSegment, ToolBody, TOOL_LOG_LINES};
+pub use body::{
+    format_log, tool_body, LogLine, LogText, MatchRow, MatchSegment, ToolBody, TOOL_LOG_LINES,
+};
 pub use fold::{fold_counts, FoldCount, FoldTool, FoldVerb};
 
 use broski_contract::JsonValue;

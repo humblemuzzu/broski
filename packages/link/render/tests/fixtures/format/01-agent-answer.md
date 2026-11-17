@@ -1,8 +1,6 @@
 ## What I changed
 
-I fixed the **flaky reconnect test** in `packages/link/client/tests/reconnect.rs`. The race was between the
-resume timer and the route race: when the LAN route won *after* the relay had already resumed, both paths
-tried to replay the outbound queue.
+I fixed the **flaky reconnect test** in `packages/link/client/tests/reconnect.rs`. The race was between the resume timer and the route race: when the LAN route won *after* the relay had already resumed, both paths tried to replay the outbound queue.
 
 ### The fix
 

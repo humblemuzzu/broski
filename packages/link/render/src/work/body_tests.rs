@@ -6,6 +6,7 @@ use broski_contract::{JsonMember, JsonValue};
 use super::*;
 use crate::format::LinkKind;
 use crate::highlight::TokenKind;
+use crate::ClipEnd;
 
 fn object(members: Vec<(&str, JsonValue)>) -> JsonValue {
     JsonValue::Object(
@@ -154,6 +155,30 @@ fn a_command_is_a_log_of_its_last_lines_with_its_links_found() {
         ]
     );
     assert_eq!(tool_body(&bash, " \n"), ToolBody::Empty);
+}
+
+#[test]
+fn an_error_keeps_its_first_lines_and_says_how_many_it_left_out() {
+    let error = format!("failed at src/lib.rs:7\n{}", "  at frame\n".repeat(50));
+    let log = format_log(&error, 3, ClipEnd::Head);
+    let shown: Vec<String> = log
+        .lines
+        .iter()
+        .map(|line| line.spans.iter().map(|span| span.text.as_str()).collect())
+        .collect();
+    assert_eq!(
+        shown,
+        ["failed at src/lib.rs:7", "  at frame", "  at frame"]
+    );
+    assert_eq!(log.hidden_lines, 48);
+    assert!(log.lines[0]
+        .spans
+        .iter()
+        .any(|span| span.text == "src/lib.rs:7"
+            && matches!(
+                span.link.as_ref().map(|link| &link.kind),
+                Some(LinkKind::File { line: Some(7), .. })
+            )));
 }
 
 #[test]

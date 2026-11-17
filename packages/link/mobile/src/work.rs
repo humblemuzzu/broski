@@ -5,8 +5,8 @@ use std::collections::HashMap;
 
 use broski_contract::{FormFieldSpec, FormValue};
 use broski_render::{
-    ArgumentValue, FoldCount, FoldTool, FoldVerb, FormatSpan, LogLine, MatchRow, MatchSegment,
-    TokenKind, ToolArgument, ToolBody, ToolFacts, ToolKind, ToolLook,
+    ArgumentValue, FoldCount, FoldTool, FoldVerb, FormatSpan, LogLine, LogText, MatchRow,
+    MatchSegment, TokenKind, ToolArgument, ToolBody, ToolFacts, ToolKind, ToolLook,
 };
 
 /// The kind, one line, command and files of a tool call, for its row in the work fold.
@@ -20,6 +20,13 @@ pub fn tool_look(facts: ToolFacts) -> ToolLook {
 #[uniffi::export]
 pub fn tool_body(facts: ToolFacts, output: String) -> ToolBody {
     broski_render::tool_body(&facts, &output)
+}
+
+/// Text that is not markdown (a log, an error, a command's output): at most `max_lines` lines from
+/// the end `keep` names, its links found.
+#[uniffi::export]
+pub fn format_log(text: String, max_lines: u32, keep: broski_render::ClipEnd) -> LogText {
+    broski_render::format_log(&text, max_lines, keep)
 }
 
 /// A call's arguments as a property list, for the work fold and the permission card.
@@ -137,6 +144,12 @@ pub struct MatchRow {
 pub struct MatchSegment {
     pub text: String,
     pub matched: bool,
+}
+
+#[uniffi::remote(Record)]
+pub struct LogText {
+    pub lines: Vec<LogLine>,
+    pub hidden_lines: u32,
 }
 
 #[uniffi::remote(Record)]

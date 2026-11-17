@@ -95,8 +95,18 @@ fn markdown(output: &str) -> ToolBody {
 }
 
 fn log(output: &str) -> ToolBody {
-    let clip = clip_text(output, TOOL_LOG_LINES, ClipEnd::Tail);
+    let log = format_log(output, TOOL_LOG_LINES, ClipEnd::Tail);
     ToolBody::Log {
+        lines: log.lines,
+        hidden_lines: log.hidden_lines,
+    }
+}
+
+/// Text that is not markdown (a log, an error, a command), as at most `max_lines` lines from the
+/// end `keep` names, with the web links, addresses and paths in it linked.
+pub fn format_log(text: &str, max_lines: u32, keep: ClipEnd) -> LogText {
+    let clip = clip_text(text, max_lines, keep);
+    LogText {
         lines: clip
             .text
             .split('\n')
@@ -106,6 +116,12 @@ fn log(output: &str) -> ToolBody {
             .collect(),
         hidden_lines: clip.hidden_lines,
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LogText {
+    pub lines: Vec<LogLine>,
+    pub hidden_lines: u32,
 }
 
 /// A read's lines: numbered as `cat -n` numbers them (`  12\t…` or `  12→…`, as Claude Code's

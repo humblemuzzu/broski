@@ -5,8 +5,7 @@ The user has not changed the file since it was last read.
 </system-reminder>
 
 `★ Insight ─────────────────────────────────────`
-**Why the second replay happened:** the relay route resumed *before* the LAN route was cancelled,
-so both replayed the queue. In general:
+**Why the second replay happened:** the relay route resumed *before* the LAN route was cancelled, so both replayed the queue. In general:
 1. Cancel the loser first.
 2. Then resume.
 
@@ -18,8 +17,7 @@ assert!(generation >= queue.generation);
 Summary
 =======
 
-The fix is two lines. The complexity is \(O(1)\) per frame, and the queue holds at most $k \le 64$
-frames, so a replay costs nothing measurable.[^bench]
+The fix is two lines. The complexity is \(O(1)\) per frame, and the queue holds at most $k \le 64$ frames, so a replay costs nothing measurable.[^bench]
 
 ---
 
