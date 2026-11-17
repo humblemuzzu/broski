@@ -26,8 +26,9 @@ directories, whose argument reads a field agents write (`row.text`, `request.rea
 `interaction.body`, …), however it is written: `Text(x.text)`, `Text( x.text)`, `Text(verbatim:
 x.text)`, Swift interpolation `Text("…\(x.text)…")`, and Kotlin's `text = x.text` in any position. A
 deliberate exception is a line of `scripts/agent-text-allowlist.txt` with why (today: the app's own
-problem sentences, git's ahead/behind line, the Live Activity's count, the work fold's summary, the
-person's queued words, the gallery's Source view). It runs in CI (`agent-text` job) and in the
+problem sentences and names, git's ahead/behind line and hunk header, the Live Activity's count and title,
+the work fold's summary, a tool's row label, model and mode names, the person's queued words, the gallery's
+Source view). It runs in CI (`agent-text` job) and in the
 pre-commit hook when app files are staged. What it cannot see: a value first copied into a local of
 another name, a sink other than `Text` (a `Label`, a notification's body), and one-line titles and
 labels (an ask's title, an option's label), which are drawn plain on purpose and are not in its list.

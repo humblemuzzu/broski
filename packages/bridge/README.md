@@ -6,15 +6,13 @@ Bridge server connecting your phone, through [Broski](https://github.com/humblem
 
 ## Installation
 
+Not published yet. From a checkout of this repository the CLI runs from source; `scripts/build.sh` builds the
+release binaries that `scripts/install.sh` installs.
+
 ```bash
-# Using bun (recommended)
-bunx broski
-
-# Using npm
-npx broski
-
-# Global install
-bun add -g broski
+cd packages/bridge
+bun install
+bun bin/broski.ts <command>   # the `broski` command below
 ```
 
 ## Quick Start
@@ -76,7 +74,7 @@ broski doctor
 ## What it does
 
 1. Serves the backend contract to `broski-link` over a Unix socket (`~/.broski/link/bridge.sock`)
-2. Hosts the AI agents: Claude Code through its SDK driving your installed `claude`, Pi through its SDK
+2. Hosts the AI agents: Claude Code through its SDK driving your installed `claude`, Pi over `pi --mode rpc` as your installed `pi`
 3. Streams their sessions to your phone, and relays permission prompts, questions and answers both ways
 4. Watches the sessions you start in a terminal, and relays their permission prompts to your phone
 5. Listens on `127.0.0.1` only, for the Claude Code permission hook, the dev-server preview proxy (`/proxy/<port>`) and a status probe at `/`

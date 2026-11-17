@@ -34,7 +34,7 @@ For each platform output in `dist/`:
 - Confirm sidecar exists next to binary.
 - Confirm build log shows:
   - `Building native PTY helper...`
-  - `Baking PTY sidecar hashes...`
+  - `✓ PTY library embedded (… bytes), sha256 …` (the binary carries the library and writes it out at first run)
 - If signing in CI, confirm `.sig` files were generated for binaries.
 
 ## 4) Fast Validation Commands

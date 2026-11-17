@@ -26,7 +26,7 @@ the session was last at rest, and a new bridge adopts it at start (`live/session
   callbacks and hooks would then cross the holder too).
 - How a new bridge rebuilds a run mid-way: the CLI keeps no replay, so the holder would keep one (as for Pi),
   or the transcript tail plus the CLI's own `~/.claude/sessions/<pid>.json` status
-  (`terminal/cli-processes.ts`) gives a coarser resume.
+  (`backends/claude-code/terminal/cli-processes.ts`) gives a coarser resume.
 - The terminal route already survives restarts (watch-only + `PermissionRequest` hook); hosting phone-started
   sessions as terminal-style processes is the alternative to weigh.
 

@@ -113,10 +113,9 @@ earlier is dialled there without waiting for an advert. Only routes the session 
 is not a reason to dial again, so a chatty responder cannot spin the link. A `lost` event never tears
 a connection down: a machine that stopped advertising may still answer.
 
-The status copy stays honest while this runs, and it is the app's: "looking" while a browse is open
-and nothing for this machine has been advertised yet — "Looking for <machine> on this network…";
-nothing advertised for 8 s makes it "absent" — "<machine> is offline". When an advert is live the app
-shows the link's own connecting copy instead. A browse that cannot run at all (no radio,
+The status copy is the app's and reads the link's own states: connecting, reconnecting, and
+"<machine> is offline" for `Waiting(MachineOffline)`, which the relay's presence reports. A browse that finds
+nothing adds no state of its own; it only feeds `lan_discovered` routes. A browse that cannot run at all (no radio,
 or iOS local-network permission off) says so once and leaves the record's routes and the relay as the
 only way through.
 
@@ -153,9 +152,8 @@ daemon is shutting down (the phone reconnects when it is back), 4002 bridge over
 4004 idle expired, 4005 session error (the session could not carry on, so the phone starts a new
 one). A 4002 or a 4005 makes the next connect report `session_reset`, because the bridge forgot this
 phone's view even when the link session itself resumes; a 4003 ends the session as
-`LinkState::Revoked` and nothing dials again until the phone pairs again. While it reconnects, the
-app shows the code as its own detail line (`Mac is restarting`, `Session reset`, `Session timed
-out`).
+`LinkState::Revoked` and nothing dials again until the phone pairs again. The status carries the code as
+`close_code`; neither app shows it yet, and the Machines screen words `link.state` alone.
 
 ## The phone's outbound queue
 

@@ -186,7 +186,7 @@ warnings` and `cargo test --workspace` are clean.
   priority and silent; the registration is in `devices.json` at `0600` and reaches the relay as an
   alert target; both edges of `watch` reach the relay; the feed keeps its one connection across its
   pings.
-- `daemon/tests/letters.rs` (3) — a decision letter becomes `link_decision` on the feed and is acked
+- `daemon/tests/letters.rs` (4) — a decision letter becomes `link_decision` on the feed and is acked
   (the relay's row is gone); the same letter replayed and a letter 25 h old are acked without being
   acted on; a `bridge` letter arrives verbatim on the device's own bridge socket.
 - `daemon/tests/power.rs` (1) — while the feed says an agent is working, `pmset -g assertions` lists

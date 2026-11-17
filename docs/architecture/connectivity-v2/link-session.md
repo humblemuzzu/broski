@@ -98,7 +98,7 @@ whose push key is not 32 bytes, whose relay is not `ws`/`wss`, or whose device i
 | retry | the first failure after a connect switches to the other configured route at once; later ones back off 0.5 s doubling to 10 s, ±20 %, racing both | `route_retry.dart`, `backoff.dart` |
 | network change | a connected link is probed: a ping that nothing answers within 4 s makes it dead and both routes are raced again; a link not connected races at once | phones report interface churn far more often than their connections die |
 | liveness | the phone pings after 5 s without sending and takes a link that heard nothing for 15 s as dead (the daemon keeps 15 s / 45 s) | a cellular connection often dies without a word |
-| segments | every socket the phone dials sends TCP segments of at most 1100 bytes, set after connect | Apple's kernel ignores a cap set before connect, and the daemon's cap binds only what it sends |
+| segments | every socket the phone dials sends TCP segments of at most 1100 bytes, set both before and after connect | Linux (Android) keeps only a cap set before connect and Apple's kernel only one set after, and the daemon's cap binds only what it sends |
 | LAN probe | while the relay carries the link, one LAN candidate at a time (1.5 s each) every 15 s | `lan_probe.dart`, `lan_probe_policy.dart` |
 | discovered routes | merged into the record; a route seen again inside 2 s is ignored | `lan_search.dart` |
 
@@ -176,7 +176,7 @@ socket applies.
 
 ## Verified
 
-`cargo test -p broski-link-session`: 56 unit tests and 26 integration tests, stable over repeated runs.
+`cargo test -p broski-link-session`: 64 unit tests and 36 integration tests, stable over repeated runs.
 The crate builds for `aarch64-apple-ios` and `aarch64-apple-ios-sim` in release, with ring as the only
 TLS provider in the graph (no aws-lc). Every integration test runs
 the real daemon (`broski_link_daemon::run`) and, where a relay is involved, the real relay

@@ -65,7 +65,9 @@ The target builds with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, `SWIFT_APPRO
   refused one back in the field, an ended run kept until the newest page holds it, a stale answer, a
   detached reader counting new messages, the view detached when the chat goes). Each of these fails
   when the rule it names is broken (checked by breaking each once). `ChatPerformanceTests` times 30
-  batches over a 1,000-item run. `PushFixtureInstall` and `SessionMachineTests` run only for the
+  batches over a 1,000-item run. Dictation (`VoiceTests`): the core's request byte for byte to a local
+  server, a refused key asking for Settings, which failures may record again, the key and settings round
+  trip. `PushFixtureInstall` and `SessionMachineTests` run only for the
   end-to-end script: the latter pairs a phone of its own with a second test machine and plays
   `work`, `stream`, `permission`, `ask`, `hold` and `replace`, holding `SessionState` equal to
   `SessionView.snapshot()` (`stream` writes its text a part every 120 ms, so the open block's text
@@ -97,7 +99,8 @@ The target builds with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, `SWIFT_APPRO
   the file, the diff, stage by swipe, commit, the log, a checkout; a new terminal where `echo
   broski | tee broski.txt` is typed and the file appears on the machine, then the terminal again
   from the list; dark and the largest text size. Then the script installs the push fixture's record
-  (`PushFixtureInstall`) and `NotificationEndToEndTests` receives a `simctl push` of the relay's
+  (`PushFixtureInstall`), `VoiceEndToEndTests` keeps words and a key in Settings › Voice and dictates
+  into the composer, and `NotificationEndToEndTests` receives a `simctl push` of the relay's
   body, long-presses it for Allow and Deny, and denies: the core's letter cannot reach
   relay.example, and the app says so. Screenshots land in `apps/ios/Broski/build/e2e/screenshots`. The test daemon never
   advertises itself, so the script advertises its LAN port the way `discovery.rs` does (`dns-sd -P`,
@@ -122,10 +125,12 @@ Broski/
                    IdentityProblemView
     Core/          AppModel, MachineModel, InboxModel, PhoneStorage, MachineSummary, LanDiscovery,
                    PathWatcher, NotificationAccess, PushNotifications, LiveRuns, WorkspaceRequests,
-                   WorkspaceProblem, SessionState, ChatRequests, ChatProblem, Preferences, Logging
+                   WorkspaceProblem, SessionState, ChatRequests, ChatProblem, Preferences, Logging;
+                   Voice/ (dictation)
     DesignSystem/  Palette, Typography, Metrics, Motion, Haptics, GlassControls, AgentMark,
                    BroskiMark, Indicators, StatusChip, Banner, CodeColors, CodeFileView, DiffView,
                    Shimmer, FadingScroll
+    Formatting/    the agent text formatter's views (FormattedText, FormatBlockView, tables, code)
     Features/      Welcome, Pairing, Inbox, Machines, Settings,
                    Chat/ (ChatScreen, ChatModel, PinnedPanel, ChatBottomBar; Transcript/, Work/,
                           Interactions/, Composer/, Header/, NewSession/),

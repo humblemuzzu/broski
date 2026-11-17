@@ -84,7 +84,10 @@ A device needs Google Play services for FCM (the `_playstore` emulator images ha
   (`HistoryTest`); follow or detach and what the jump counts (`FollowTest`); the send button's one rule
   (`SendButtonTest`); each kind's reply, words only on an option that takes them and grants only on an allow
   (`RepliesTest`); images fitted to the prompt's 4 MiB (`ImageFitTest`); diff rows from `gitDiffFile` and
-  `fileChangeDiff` with their word emphasis (`DiffRowsTest`).
+  `fileChangeDiff` with their word emphasis (`DiffRowsTest`); the rate limit's notices: when a refused
+  request may go again, how much is used, silence when it is no concern (`ChatNoticesTest`). Dictation (`VoiceTest`): the core's request and its headers byte for byte to
+  a local server, a refused key asking for Settings, which failures may record again, the key and settings
+  round trip.
 - **Instrumented** (`app/src/androidTest`): the vault under the real Keystore key; `StartupFailedTest`, the
   confirmation in front of Start Over; `NotificationsTest`, push without Firebase: the pinned push fed to
   `PushHandler` with its record in a Keystore-sealed vault posts an approval with Deny and Allow (Allow
@@ -140,7 +143,7 @@ app/src/main/kotlin/com/muzammil/broski/
               message screens, notices, command blocks, relative time
   core/       AppCore (vault, settings, the one Phone), PhoneSession (machines, inbox, actions),
               MachineState / MachineHealth, vault/ (Keystore key, AES-GCM, DataStore), settings/,
-              platform/ (foreground, network, NSD discovery)
+              platform/ (foreground, network, NSD discovery), voice/ (dictation)
   feature/welcome, feature/pairing, feature/inbox, feature/machines, feature/settings
   design/format  the formatter's views: FormattedText, FormattedMessage, FormatBlockView, FormatCache,
               tables (TableLayout, the viewer), code blocks, the answer menu, tools/ (a call's body,

@@ -233,7 +233,7 @@ Default LAN port `18275` (`--lan-port`, `config.json`, `0` = ephemeral). Control
 `~/.broski/link`.
 
 ```
-broski-link run    [--home PATH] [--relay URL] [--lan-port PORT] [--no-lan] [--bridge-socket PATH] [--bridge-cmd PROGRAM [ARGS…]]
+broski-link run    [--home PATH] [--relay URL] [--lan-port PORT] [--no-lan] [--no-advertise] [--bridge-socket PATH] [--bridge-cmd PROGRAM [ARGS…]]
 broski-link pair|status|devices|revoke     # pair prints the QR uri; status and devices take --json
 ```
 

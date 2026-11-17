@@ -186,12 +186,12 @@ Declared traits are checked against behaviour, both ways where the contract can 
 | `externalLive` | ✗ file tail only, on a watch-only open (CC D28) | ✓ a terminal `pi` through the terminal link (pi §11) |
 | `extensions` | rate_limit | — |
 | `fork` (derived) | ✓ `forkSession` (CC D27) | ✓ a file written by the store |
-| `rename` | ✓ | ✓ `setSessionName` |
+| `rename` | ✓ | ✓ an appended `session_info` line (pi §3) |
 | `delete` | ✓ | ✓ the Trash (pi §3) |
 | `compact` (session) | ✓ as a `/compact` prompt (CC D30) | ✓, but refused while running: Pi's `compact()` aborts the run (pi §7) |
 | `cancelQueued` (session) | ✓ per item, the adapter's queue (CC D9) | ✗ clear-all only (pi §6) |
-| `controllable` (session) | ✗ for terminal sessions (CC D28) | ✓ for a session this bridge runs, and for a terminal's through the link (message and Stop only); ✗ for one another client made |
-| `answer` (session) | ✓ for a terminal session the hook raised an ask on | ✗ a terminal's asks stay in the terminal |
+| `controllable` (session) | ✗ for terminal sessions (CC D28) | ✓ for a session this bridge runs, and for a terminal's through the link (a message, Stop, and answers to its dialogs); ✗ for one another client made |
+| `answer` (session) | ✓ for a terminal session the hook raised an ask on | ✓ for a terminal's dialogs, raised as asks; the first answer, the terminal's or the phone's, wins |
 
 ## 7. Events
 
@@ -361,7 +361,7 @@ The core gives first-answer-wins across phones by calling `answer` once and refu
 | Kind | Claude Code | Pi |
 |---|---|---|
 | `tool_permission` | `canUseTool` (CC D15). Options: allow once; allow for the session when the CLI suggested session updates; one allow-always per settings file it suggested a rule for (rule text, the `PermissionUpdate[]` echoed); deny (optional words, `interrupt:false`); deny-and-stop (`interrupt:true`). `suppressAlwaysAllowRule` drops always; `defaultToNo` → `defaultOptionId`; `requiresUserInteraction` → `deliberate`; the input is not editable. Previews from the tool input and `blocked_path`. A terminal `claude`'s `PermissionRequest` hook raises the same kind on a watch-only session. | Bridge-owned `tool_call` gate: allow once/session/always (bridge policy), deny (`block` + reason), deny-and-stop (block + abort); `input` mutable (pi §8.6). |
-| `questions` | `AskUserQuestion` via `canUseTool` (CC D15). Question id = index; answers mapped to question-text keys, multi-select comma-joined; `allowCustom` always (CC adds "Other"); `required` always. Cancel → deny (`interrupt` = `stopRun`). | ✗ |
+| `questions` | `AskUserQuestion` via `canUseTool` (CC D15). Question id = index; answers mapped to question-text keys, multi-select comma-joined; `allowCustom` always (CC adds "Other"); `required` always. Cancel → deny (`interrupt` = `stopRun`). | `broski:questions` (`ui/questions-dialog.ts`), a terminal's included |
 | `form` | `onElicitation` form mode: `requestedSchema` → fields in the schema's key order (CC D15). Submit → `accept` + `content`. | ✗ |
 | `plan_approval` | `ExitPlanMode` via `canUseTool` (CC D15): approve → `updatedInput.plan` = edited plan; reject → deny with feedback. | ✗ |
 | `choice` | ✗ | `ctx.ui.select` (pi §8). |
@@ -469,7 +469,7 @@ The settings a session runs under that change what the agent may do or how it wo
 | | Claude Code | Pi |
 |---|---|---|
 | what | `PermissionMode` (CC D13) | `permissions`: `off` or `ask` (pi §8.6) |
-| finite list | fixed enum: `default`, `acceptEdits`, `bypassPermissions`, `plan`, `dontAsk`, `auto` (`sdk.d.ts:2562`) | `off`, `ask` |
+| finite list | fixed enum: `default`, `acceptEdits`, `bypassPermissions`, `plan`, `dontAsk`, `auto` (`sdk.d.ts:2654`) | `off`, `ask` |
 | at start | `Options.permissionMode`, always passed (CC D5) | written to the session file |
 | set later | `Query.setPermissionMode`, mid-run | `broski.permissions` entry |
 | changed elsewhere | `system/status.permissionMode` | — |
@@ -615,7 +615,7 @@ What each backend cannot carry through the contract, and what is lost on the way
 
 **Pi**
 
-- Unsupported: `planProposals`; `questions`, `form`, `plan_approval`; per-item queue cancel (only `clearQueue`, pi §6); file attachments; a session another client made cannot be driven (watch-only).
+- Unsupported: `planProposals`; `form`, `plan_approval`; per-item queue cancel (only `clearQueue`, pi §6); file attachments; a session another client made cannot be driven (watch-only).
 - Lost: `custom()` TUI dialogs, which RPC mode never sends (`ui.custom` returns undefined, pi-coding-agent 1.5.2 `rpc-mode.js:156-159`); fire-and-forget extension UI (`setStatus` but the bridge's own `broski:tasks` key, `setWidget`, `setTitle`); confirm's cancel-vs-false distinction (pi §8.3); `summarization_retry_*` (compaction-internal retries); `entry_appended` custom entries; error strings carry no class, so most errors are `unknown` (pi §13).
 
 ## 16. Refinements of the brief
@@ -662,9 +662,9 @@ Every open item that affects the contract, with the experiment that settles it.
 | Q1 | Does a repeated CC `uuid` execute twice? | Nothing while the adapter de-duplicates (CC D10) | Same `uuid` twice while queued |
 | Q2 | Does a PreToolUse `defer` work in streaming mode? | `deferred` outcome reachability for CC | Hook returning `defer` on AskUserQuestion; watch for `tool_deferred` |
 | Q3 | How CC extended AskUserQuestion kinds (`text`, `number`) reach SDK sessions | `questions` vs `form` for CC | Enable `CLAUDE_CODE_QUESTION_EXTENDED`; log `canUseTool` input (CC D15) |
-| Q4 | Purpose of `~/.claude/sessions/` | CC external session status | Run a terminal `claude`; list the directory; close it |
 
-The other Claude Code questions are settled against the real CLI, each in its decision: an interrupted turn's outcome (CC D8), `command_lifecycle` for uuid-stamped sends and `interrupt({cancelQueued})` (CC D9), thinking by `applyFlagSettings({effortLevel})` (CC D12), the plan's next mode (CC D17), history before a compaction (CC D26), `idle` and background agents (CC D8), fork lineage (CC D27), effort levels (CC D12), and the rate limit's units (CC §5).
+The other Claude Code questions are settled against the real CLI, each in its decision: an interrupted turn's outcome (CC D8), `command_lifecycle` for uuid-stamped sends and `interrupt({cancelQueued})` (CC D9), thinking by `applyFlagSettings({effortLevel})` (CC D12), the plan's next mode (CC D17), history before a compaction (CC D26), `idle` and background agents (CC D8), fork lineage (CC D27), effort levels (CC D12), the rate limit's units (CC §5), and `~/.claude/sessions/`, the CLI's register of running
+processes (CC D28).
 
 ## 19. Errata
 

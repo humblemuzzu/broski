@@ -95,7 +95,7 @@ The App, including its design, user interface, features, graphics, and underlyin
 
 ### 7.2 License Grant
 
-Subject to your compliance with these Terms and payment of the applicable subscription fee, we grant you a limited, non-exclusive, non-transferable, non-sublicensable, revocable license to download, install, and use the App on devices you own or control, solely for your personal or internal business purposes.
+Subject to your compliance with these Terms, we grant you a limited, non-exclusive, non-transferable, non-sublicensable, revocable license to download, install, and use the App on devices you own or control, solely for your personal or internal business purposes.
 
 This license does not include the right to:
 
@@ -226,7 +226,6 @@ Upon termination:
 - Your right to use the App ceases immediately
 - Your license under Section 7.2 is automatically revoked
 - You must uninstall the App from all your devices
-- Cancellation of your subscription through the App Store or Google Play remains your responsibility -- termination of these Terms does not automatically cancel your subscription billing
 - The following sections survive termination: Sections 6.3 (AI-Generated Content), 7 (Intellectual Property), 9 (Disclaimer of Warranties), 10 (Limitation of Liability), 11 (Indemnification), 14 (Dispute Resolution), and 15 (Governing Law)
 
 ## 13. Modifications to Terms and Service
@@ -239,7 +238,7 @@ We reserve the right to modify these Terms at any time. When we make material ch
 - We will provide notice through the App (in-app notification or prompt) at least 30 days before material changes take effect, where practicable
 - For changes required by law or related to new features, we may provide shorter notice
 
-Your continued use of the App after the effective date of any changes constitutes your acceptance of the modified Terms. If you do not agree to the modified Terms, you must stop using the App and cancel your subscription.
+Your continued use of the App after the effective date of any changes constitutes your acceptance of the modified Terms. If you do not agree to the modified Terms, you must stop using the App.
 
 ### 13.2 Changes to the Service
 
@@ -247,7 +246,6 @@ We may, at any time and without obligation:
 
 - Modify, update, or discontinue features of the App
 - Release new versions that may require you to update
-- Change subscription pricing (effective at your next renewal)
 - Discontinue the App entirely (with reasonable notice)
 
 We are not liable to you or any third party for any modification, suspension, or discontinuation of the App or any part thereof.
