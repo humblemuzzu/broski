@@ -10,6 +10,13 @@ HOST_TARGET="$(rustc -vV | sed -n 's/^host: //p')"
 # library.
 export IPHONEOS_DEPLOYMENT_TARGET=26.0 MACOSX_DEPLOYMENT_TARGET=15.0
 
+# True when apps/ios/BroskiCore's outputs are missing or older than anything under packages/link.
+ios_core_is_stale() {
+  local stamp="$ROOT/apps/ios/BroskiCore/BroskiCoreFFI.xcframework/Info.plist"
+  [[ ! -f $stamp ]] && return 0
+  [[ -n $(find "$LINK_DIR" -path '*/target' -prune -o -type f -newer "$stamp" -print -quit) ]]
+}
+
 # Builds broski-mobile with the shipping profile for the cargo target $1.
 build_core() {
   (cd "$LINK_DIR" && cargo build --locked -p broski-mobile --profile "$CORE_PROFILE" --target "$1")

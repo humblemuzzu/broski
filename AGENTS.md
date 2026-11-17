@@ -7,14 +7,13 @@ your Mac, answer their permission prompts and questions, and watch sessions star
 your phone.
 
 ```
-Phone (native app, Phase 4) ←Broski Link (Noise e2e; LAN or relay)→ broski-link daemon (Rust, your Mac) ←unix socket→ Bridge (Bun/TS) ←SDK / RPC→ {Claude Code, Pi}
+Phone (iOS / Android app) ←Broski Link (Noise e2e; LAN or relay)→ broski-link daemon (Rust, your Mac) ←unix socket→ Bridge (Bun/TS) ←SDK / RPC→ {Claude Code, Pi}
 ```
 
-The repository is mid-rebuild on branch `rebuild` (plan: [`docs/rebuild/PLAN.md`](docs/rebuild/PLAN.md)). The
-Flutter app is gone; the tree it lived in is preserved on branch `final-flutter` (`git show final-flutter:<path>`).
-Phase 1, the cut, is done: what is here is the bridge, the link stack, the shared phone core packaged for both
-native apps, and the iOS and Android apps: their foundations (Phase 4.1), and the workspace, push
-notifications and live status, the chat with its composer and pinned asks, and New session (Phase 4.2).
+The rebuild happens on `main`; the plan and what each phase has delivered are in
+[`docs/rebuild/PLAN.md`](docs/rebuild/PLAN.md). The Flutter app is gone; its tree is preserved on branch
+`final-flutter` (`git show final-flutter:<path>`). What is here: the bridge, the link stack, the shared phone core
+packaged for both native apps, and the iOS and Android apps.
 
 - **Bridge** (`packages/bridge/`) — TypeScript on the user's machine. Hosts the agents through their SDKs and speaks
   the backend contract to the daemon over `~/.broski/link/bridge.sock`. Every socket upgrade must quote the key the
@@ -204,9 +203,11 @@ apps/ios/Broski/  the iOS app (project.yml, Sources/{App,Core,DesignSystem,Featu
 apps/android/    the Gradle build: :core, BroskiCore's Android library (bindings + .so from scripts/build-android-core.sh);
                  :terminal, libghostty-vt and its JNI shim (.so from scripts/build-android-terminal.sh);
                  :app, the Android app (app/ shell, design/, core/, feature/<screen>/)
-scripts/         build-ios-core.sh, build-ios-app.sh, e2e-ios-app.sh, build-android-core.sh, build-android-terminal.sh,
-                 test-android-real-machine.sh, check-android-alignment.sh
-docs/architecture/   contract, core, backends, connectivity-v2, mobile-packaging
+scripts/         build-ios-core.sh, build-ios-app.sh, e2e-ios-app.sh, send-ios-to-phone.sh, build-android-core.sh,
+                 build-android-terminal.sh, test-android-real-machine.sh, check-android-alignment.sh,
+                 check-agent-text.sh; lib/ (what they share)
+docs/architecture/   contract, core, backends, connectivity-v2, mobile-core, mobile-packaging, rendering, formatting,
+                     dictation, notifications
 ```
 
 Keep files under 400 lines and functions under 50; a new concern gets a new file, not a branch in an old one.
@@ -277,7 +278,19 @@ its `uniffi` feature, the bridge's dependencies for the client's tests, tests on
 device links), `ios-app` (macOS 26: an unsigned device build and the unit tests on a simulator the job creates) and
 `android-core` (both Android scripts, both assembles, the core's and the terminal's JVM tests, the 16 KB alignment check, then the app's assembles, unit tests and lint).
 **Pre-commit** (`.githooks/pre-commit`): biome errors and typecheck when bridge files are staged, `cargo fmt --check`
-when link files are.
+when link files are, `scripts/check-agent-text.sh` when app files are.
+
+## This Mac and the user's iPhone
+
+On the user's Mac the daemon runs in the tmux session `broski-daemon` (`packages/link/target/release/broski-link run
+--bridge-cmd packages/bridge/bin/broski.ts --daemon`, the bridge from source, output also in
+`/tmp/broski-daemon-debug.log`; the bridge's own log is `~/.broski/logs/bridge.log`), not as the launchd service. After
+a change to the bridge, restart both with `tmux respawn-pane -k -t broski-daemon`; after a change to the daemon, first
+`cargo build --release --locked -p broski-link-daemon` in `packages/link`. Hosted Pi runs survive the restart (their
+holders are taken over), and `broski-link status` shows the bridge up and the phone's session. To put the iOS app on
+the user's iPhone, run `scripts/send-ios-to-phone.sh` and give the user the URL it prints
+(`https://my-mac.example.ts.net/exampletoken/`): with Tailscale on, they open it in Safari and tap
+Install, and `/pair` under it gives a fresh pairing link. The script's header says what its build changes and needs.
 
 ## Test hygiene
 

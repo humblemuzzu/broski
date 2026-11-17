@@ -11,8 +11,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$ROOT/scripts/lib/broski-core.sh"
 APP="$ROOT/apps/ios/Broski"
-XCFRAMEWORK="$ROOT/apps/ios/BroskiCore/BroskiCoreFFI.xcframework"
 DERIVED="${DERIVED_DATA:-$APP/build/DerivedData}"
 
 platform=simulator
@@ -30,12 +30,7 @@ for arg in "$@"; do
   esac
 done
 
-core_is_stale() {
-  [[ ! -f $XCFRAMEWORK/Info.plist ]] && return 0
-  [[ -n $(find "$ROOT/packages/link" -path '*/target' -prune -o -type f -newer "$XCFRAMEWORK/Info.plist" -print -quit) ]]
-}
-
-if core_is_stale; then
+if ios_core_is_stale; then
   "$ROOT/scripts/build-ios-core.sh"
 fi
 
