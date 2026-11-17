@@ -5,8 +5,6 @@
     <!-- Agents -->
     <string name="agent_claude_code">Claude Code</string>
     <string name="agent_pi">Pi</string>
-    <string name="agent_mark_claude_code" translatable="false">CC</string>
-    <string name="agent_mark_pi" translatable="false">Pi</string>
 
     <string name="time_just_now">just now</string>
 

@@ -1,21 +1,20 @@
 package com.muzammil.broski.design
 
+import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.MaterialShapes
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.toShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
@@ -28,36 +27,33 @@ val BackendId.displayName: Int
         BackendId.PI -> R.string.agent_pi
     }
 
-/**
- * An agent's monogram in neutral tones, never its brand logo. Each agent also has its own shape,
- * so the two tell apart without reading the letters.
- */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+/** Each agent's own logo, white on its maker's colour, as the iOS app and its Live Activity draw it. */
+private class AgentBrand(@param:DrawableRes val glyph: Int, val glyphShare: Float, val top: Color, val bottom: Color)
+
+private val BackendId.brand: AgentBrand
+    get() = when (this) {
+        // Claude's spark is round and thin, Pi's blocks square and heavy: the spark takes more of the tile.
+        BackendId.CLAUDE_CODE -> AgentBrand(R.drawable.ic_agent_claude, 0.66f, Color(0xFFE38B6C), Color(0xFFC66242))
+        BackendId.PI -> AgentBrand(R.drawable.ic_agent_pi, 0.46f, Color(0xFF333655), Color(0xFF16192A))
+    }
+
+/** An agent's logo in its tile. Decorative: the row it sits in reads the agent's name. */
 @Composable
 fun AgentMark(backend: BackendId, modifier: Modifier = Modifier, size: Dp = 40.dp) {
-    val shape = when (backend) {
-        BackendId.CLAUDE_CODE -> MaterialShapes.Cookie9Sided
-        BackendId.PI -> MaterialShapes.Clover4Leaf
-    }.toShape()
-    val monogram = when (backend) {
-        BackendId.CLAUDE_CODE -> R.string.agent_mark_claude_code
-        BackendId.PI -> R.string.agent_mark_pi
-    }
+    val brand = backend.brand
+    val shape = RoundedCornerShape(28)
     Box(
         modifier = modifier
             .size(size)
-            .background(MaterialTheme.colorScheme.surfaceContainerHighest, shape)
+            .background(Brush.verticalGradient(listOf(brand.top, brand.bottom)), shape)
+            .border(0.5.dp, Color.White.copy(alpha = 0.14f), shape)
             .clearAndSetSemantics {},
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            text = stringResource(monogram),
-            style = MaterialTheme.typography.labelLarge,
-            // Sized to the mark, not the font scale: the mark is decorative and its row reads the name.
-            fontSize = with(LocalDensity.current) { (size * 0.34f).toSp() },
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
+        Image(
+            painterResource(brand.glyph),
+            contentDescription = null,
+            modifier = Modifier.size(size * brand.glyphShare),
         )
     }
 }

@@ -8,51 +8,75 @@ struct BroskiWidgets: WidgetBundle {
     }
 }
 
-/// The Live Activity on the Lock Screen and in the Dynamic Island: the agent, the session's title,
-/// how long it has been live, its state, and Stop.
+/// The Live Activity on the Lock Screen and in the Dynamic Island: the agent's logo, the session's
+/// title, how long it has been live, its state, and Stop.
 struct RunActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: RunActivityAttributes.self) { context in
             LockScreenRun(state: context.state)
                 .padding(16)
+                .activityBackgroundTint(ActivityStyle.background)
+                .activitySystemActionForegroundColor(ActivityStyle.primary)
         } dynamicIsland: { context in
             let state = context.state
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    AgentTile(state: state, side: 36)
+                    AgentLogo(brand: state.brand, side: 44)
+                        .padding(.leading, 4)
+                        .frame(maxHeight: .infinity)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    if state.phase == .done {
-                        PhaseIcon(phase: .done).font(.title3)
-                    } else {
-                        Elapsed(state: state)
-                            .font(.title3.weight(.semibold))
-                            .frame(maxWidth: 96, alignment: .trailing)
+                    Group {
+                        if state.phase == .done {
+                            PhaseIcon(phase: .done).font(.title2)
+                        } else {
+                            Elapsed(state: state)
+                                .font(.title3.weight(.semibold))
+                                .foregroundStyle(ActivityStyle.primary)
+                                .multilineTextAlignment(.trailing)
+                                .frame(maxWidth: 96, alignment: .trailing)
+                        }
                     }
+                    .padding(.trailing, 4)
+                    .frame(maxHeight: .infinity)
                 }
                 DynamicIslandExpandedRegion(.center) {
-                    Text(state.title).font(.headline).lineLimit(1)
-                }
-                DynamicIslandExpandedRegion(.bottom) {
-                    HStack {
-                        PhaseLabel(phase: state.phase)
-                        if state.liveCount > 1 {
-                            Text(state.summary).font(.footnote).foregroundStyle(.secondary).lineLimit(1)
-                        }
-                        Spacer()
-                        StopButton(state: state)
+                    VStack(spacing: 2) {
+                        Text(state.title).font(.headline).foregroundStyle(ActivityStyle.primary).lineLimit(1)
+                        Text("\(state.machineName) · \(state.agentName)")
+                            .font(.caption)
+                            .foregroundStyle(ActivityStyle.secondary)
+                            .lineLimit(1)
                     }
                 }
+                DynamicIslandExpandedRegion(.bottom) {
+                    HStack(spacing: 8) {
+                        PhasePill(phase: state.phase)
+                        if state.liveCount > 1 {
+                            Text(state.summary).font(.footnote).foregroundStyle(ActivityStyle.secondary).lineLimit(1)
+                        }
+                        Spacer(minLength: 0)
+                        StopButton(state: state)
+                    }
+                    .padding(.top, 6)
+                }
             } compactLeading: {
-                AgentTile(state: state, side: 22)
+                AgentGlyph(brand: state.brand, side: 22)
             } compactTrailing: {
                 if state.phase == .working {
-                    Elapsed(state: state).frame(maxWidth: 52)
+                    Elapsed(state: state)
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(state.phase.tint)
+                        .frame(maxWidth: 52)
                 } else {
                     PhaseIcon(phase: state.phase)
                 }
             } minimal: {
-                PhaseIcon(phase: state.phase)
+                if state.phase == .working {
+                    AgentGlyph(brand: state.brand, side: 20)
+                } else {
+                    PhaseIcon(phase: state.phase)
+                }
             }
             .keylineTint(state.phase.tint)
         }

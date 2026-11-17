@@ -35,8 +35,8 @@ nonisolated struct RunActivityAttributes: ActivityAttributes {
         var liveCount: Int
         var needsYouCount: Int
 
-        var agentName: String { backend == "pi" ? "Pi" : "Claude Code" }
-        var monogram: String { backend == "pi" ? "Pi" : "CC" }
+        var brand: AgentBrand { AgentBrand(wire: backend) }
+        var agentName: String { brand.name }
 
         /// "3 live agents · 1 needs you", or the focused session's state when it is the only one.
         var summary: String {
@@ -58,9 +58,9 @@ nonisolated extension RunActivityAttributes.ContentState.Phase {
 
     var symbol: String {
         switch self {
-        case .working: "circle.dashed"
-        case .needsYou: "exclamationmark.shield"
-        case .done: "checkmark.circle"
+        case .working: "sparkles"
+        case .needsYou: "hand.raised.fill"
+        case .done: "checkmark.circle.fill"
         }
     }
 }

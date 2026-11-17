@@ -2,7 +2,7 @@ import BroskiCore
 import SwiftUI
 
 /// Semantic colors. The accent (calm blue-violet, `AccentColor` in the asset catalog, tuned for
-/// AA contrast in light and dark) marks what needs the person; agent marks stay neutral.
+/// AA contrast in light and dark) marks what needs the person; agents wear their own colours (`AgentBrand`).
 enum Palette {
     static let accent = Color.accentColor
     static let needsYou = Color.accentColor
@@ -16,8 +16,6 @@ enum Palette {
     static let added = Color(light: 0x1A7F37, dark: 0x3FB950)
     static let removed = Color(light: 0xCF222E, dark: 0xF85149)
 
-    static let markFill = Color(uiColor: .tertiarySystemFill)
-    static let markInk = Color.primary.opacity(0.72)
     static let card = Color(uiColor: .secondarySystemGroupedBackground)
     static let screen = Color(uiColor: .systemGroupedBackground)
 }
@@ -63,11 +61,10 @@ extension BackendId {
         }
     }
 
-    /// The monogram the agent mark shows (never a brand logo).
-    var monogram: String {
+    var brand: AgentBrand {
         switch self {
-        case .claudeCode: "CC"
-        case .pi: "Pi"
+        case .claudeCode: .claudeCode
+        case .pi: .pi
         }
     }
 }
