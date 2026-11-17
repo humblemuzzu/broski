@@ -96,7 +96,7 @@ fun FileScreen(context: FeatureContext, route: FileRoute) {
                 when (val current = state) {
                     FileUiState.Loading -> WorkspaceLoading()
                     is FileUiState.Failed -> FailureMessage(current.failure, viewModel::reload, notFound = R.string.file_not_found)
-                    is FileUiState.Shown -> FileBody(current.content, route.path, wrap, padding.calculateBottomPadding())
+                    is FileUiState.Shown -> FileBody(current.content, route.path, route.line, wrap, padding.calculateBottomPadding())
                 }
             }
         }
@@ -104,11 +104,11 @@ fun FileScreen(context: FeatureContext, route: FileRoute) {
 }
 
 @Composable
-private fun FileBody(content: FileContent, path: String, wrap: Boolean, bottom: Dp) {
+private fun FileBody(content: FileContent, path: String, line: Int?, wrap: Boolean, bottom: Dp) {
     Column(Modifier.fillMaxSize()) {
         if (content.truncated) TruncatedNotice(content)
         when (content) {
-            is FileContent.Text -> FileText(content.lines, path, wrap, Modifier.fillMaxSize(), PaddingValues(top = 8.dp, bottom = bottom + 24.dp))
+            is FileContent.Text -> FileText(content.lines, path, wrap, Modifier.fillMaxSize(), PaddingValues(top = 8.dp, bottom = bottom + 24.dp), line)
             is FileContent.Bytes -> BytesBody(content, lastComponent(path))
         }
     }

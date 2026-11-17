@@ -1,54 +1,62 @@
 package com.muzammil.broski.design.format
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import uniffi.broski_core.FormatBlock
 import uniffi.broski_core.formatMarkdown
-
-/**
- * Where agent-authored text is drawn, which sets its size and emphasis: [Page] for the answer the
- * person reads (the transcript, a plan, a report opened whole), [Quiet] for what sits under a row
- * (thinking, a subagent's or an activity's text).
- */
-enum class FormatRole {
-    Page,
-    Quiet,
-    ;
-
-    val blockSpacing: Dp
-        get() = if (this == Page) 12.dp else 8.dp
-
-    @Composable
-    fun textStyle(): TextStyle {
-        val type = MaterialTheme.typography
-        return if (this == Page) type.bodyLarge.copy(lineHeight = type.bodyLarge.fontSize * 1.5f) else type.bodyMedium
-    }
-
-    @Composable
-    fun color(): Color = if (this == Page) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
-}
+import uniffi.broski_core.formatMessage
 
 /**
  * Agent-authored markdown, formatted by the core (`formatMarkdown`) and drawn block by block. Every
- * string an agent wrote is drawn through this or [FormatBlockView], never a bare `Text`.
- * [streaming] while more text is coming; [limit] blocks are drawn, the rest is for a sheet of its own.
+ * string an agent wrote is drawn through this, [FormatBlockView], [FormattedMessage] or a tool view
+ * built on the core's output, never a bare `Text`. [streaming] while more text is coming; [limit]
+ * blocks are drawn, the rest is for a sheet of its own; [menu] offers Copy, Copy as plain text,
+ * Select text and Share on a long press.
  */
 @Composable
-fun FormattedText(text: String, modifier: Modifier = Modifier, role: FormatRole = FormatRole.Page, streaming: Boolean = false, limit: Int? = null) {
+fun FormattedText(
+    text: String,
+    modifier: Modifier = Modifier,
+    role: FormatRole = FormatRole.Page,
+    streaming: Boolean = false,
+    limit: Int? = null,
+    menu: Boolean = true,
+) {
     val blocks = remember(text, streaming) { FormatCache.blocks(text, streaming) }
-    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(role.blockSpacing)) {
-        (if (limit != null) blocks.take(limit) else blocks).forEach { block -> FormatBlockView(block, role = role) }
+    val shown = if (limit != null) blocks.take(limit) else blocks
+    if (menu) {
+        AnswerMenu({ text }, modifier) { FormatBlockList(shown, role, streaming) }
+    } else {
+        FormatBlockList(shown, role, streaming, modifier)
     }
 }
+
+/** The person's own message or a notice: inline styles and fenced code, every other line exactly as typed. */
+@Composable
+fun FormattedMessage(text: String, modifier: Modifier = Modifier, role: FormatRole = FormatRole.Page) {
+    val blocks = remember(text) { FormatCache.message(text) }
+    FormatBlockList(blocks, role, streaming = false, modifier = modifier)
+}
+
+/** Blocks in order, each told the containers of the one after it. */
+@Composable
+fun FormatBlockList(blocks: List<FormatBlock>, role: FormatRole, streaming: Boolean, modifier: Modifier = Modifier) {
+    Column(modifier.fillMaxWidth()) {
+        blocks.forEachIndexed { index, block ->
+            key(block.key) {
+                val next = blocks.getOrNull(index + 1)?.containers?.map { it.id }.orEmpty()
+                FormatBlockView(block, role = role, next = next, streaming = streaming && index == blocks.lastIndex)
+            }
+        }
+    }
+}
+
+/** Whether [text] has more blocks than [limit] draws. */
+fun exceeds(text: String, limit: Int): Boolean = FormatCache.blocks(text, false).size > limit
 
 /**
  * Formatted blocks kept by text, so a finished text is parsed once however often it is composed and
@@ -57,16 +65,20 @@ fun FormattedText(text: String, modifier: Modifier = Modifier, role: FormatRole 
 object FormatCache {
     private const val MAX_TEXTS = 2_000
 
-    private data class Key(val text: String, val streaming: Boolean)
+    private data class Key(val text: String, val streaming: Boolean, val message: Boolean)
 
     private val parsed = object : LinkedHashMap<Key, List<FormatBlock>>(MAX_TEXTS, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Key, List<FormatBlock>>) = size > MAX_TEXTS
     }
 
-    fun blocks(text: String, streaming: Boolean): List<FormatBlock> {
-        val key = Key(text, streaming)
+    fun blocks(text: String, streaming: Boolean): List<FormatBlock> =
+        cached(Key(text, streaming, message = false)) { formatMarkdown(text, streaming) }
+
+    fun message(text: String): List<FormatBlock> = cached(Key(text, streaming = false, message = true)) { formatMessage(text) }
+
+    private fun cached(key: Key, parse: () -> List<FormatBlock>): List<FormatBlock> {
         synchronized(parsed) { parsed[key] }?.let { return it }
-        val blocks = formatMarkdown(text, streaming)
+        val blocks = parse()
         synchronized(parsed) { parsed[key] = blocks }
         return blocks
     }

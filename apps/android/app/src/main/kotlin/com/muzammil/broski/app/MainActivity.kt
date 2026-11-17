@@ -7,15 +7,21 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.muzammil.broski.core.CoreState
 import com.muzammil.broski.core.settings.Appearance
+import com.muzammil.broski.core.settings.ReadingSettings
 import com.muzammil.broski.design.BroskiTheme
 import com.muzammil.broski.design.ProvideClock
+import com.muzammil.broski.design.format.LocalReading
+import com.muzammil.broski.design.format.LocalSetReading
 import com.muzammil.broski.design.isDarkTheme
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -35,8 +41,14 @@ class MainActivity : ComponentActivity() {
                 enableEdgeToEdge(statusBarStyle = bars, navigationBarStyle = bars)
                 onDispose {}
             }
+            val scope = rememberCoroutineScope()
             BroskiTheme(appearance) {
-                ProvideClock { BroskiApp(core, BroskiFeatures, app.openRequests) }
+                CompositionLocalProvider(
+                    LocalReading provides (settings?.reading ?: ReadingSettings()),
+                    LocalSetReading provides { reading -> scope.launch { core.settingsStore.setReading(reading) } },
+                ) {
+                    ProvideClock { BroskiApp(core, BroskiFeatures, app.openRequests) }
+                }
             }
         }
     }

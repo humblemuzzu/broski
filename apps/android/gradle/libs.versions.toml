@@ -10,6 +10,8 @@ android-targetSdk = "36"
 android-ndk = "28.2.13676358"
 androidx-activity = "1.13.0"
 androidx-annotation = "1.11.0"
+# Custom Tabs: links in agent text open in the in-app browser.
+androidx-browser = "1.10.0"
 androidx-core = "1.19.1"
 androidx-core-splashscreen = "1.2.0"
 androidx-datastore = "1.3.0"
@@ -35,6 +37,7 @@ play-services-code-scanner = "16.1.0"
 [libraries]
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
 androidx-annotation = { module = "androidx.annotation:annotation", version.ref = "androidx-annotation" }
+androidx-browser = { module = "androidx.browser:browser", version.ref = "androidx-browser" }
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidx-core" }
 androidx-core-splashscreen = { module = "androidx.core:core-splashscreen", version.ref = "androidx-core-splashscreen" }
 androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "androidx-datastore" }

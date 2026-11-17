@@ -8,4 +8,77 @@
     <string name="format_source">Source</string>
     <string name="format_replay">Replay</string>
     <string name="format_back">Back to the samples</string>
+    <string name="format_callout_note">Note</string>
+    <string name="format_callout_tip">Tip</string>
+    <string name="format_callout_important">Important</string>
+    <string name="format_callout_warning">Warning</string>
+    <string name="format_callout_caution">Caution</string>
+    <string name="format_callout_insight">Insight</string>
+    <string name="format_code_text">Text</string>
+    <string name="format_code_mermaid">Mermaid diagram</string>
+    <plurals name="format_code_lines">
+        <item quantity="one">%d line</item>
+        <item quantity="other">%d lines</item>
+    </plurals>
+    <plurals name="format_code_more_lines">
+        <item quantity="one">Show %d more line</item>
+        <item quantity="other">Show %d more lines</item>
+    </plurals>
+    <string name="format_code_wrap">Wrap lines</string>
+    <string name="format_code_scroll">Scroll sideways</string>
+    <string name="format_expand">Expand</string>
+    <string name="format_done">Done</string>
+    <string name="format_copy">Copy</string>
+    <string name="format_copy_plain">Copy as plain text</string>
+    <string name="format_copy_markdown">Copy as Markdown</string>
+    <string name="format_copy_csv">Copy as CSV</string>
+    <string name="format_copy_tsv">Copy as TSV</string>
+    <string name="format_copy_table">Copy table</string>
+    <string name="format_select_text">Select text</string>
+    <string name="format_share">Share</string>
+    <string name="format_table_show_all">Show all %d rows</string>
+    <string name="format_table_show_fewer">Show fewer rows</string>
+    <string name="format_table_title">%1$d × %2$d table</string>
+    <string name="format_table_rows">Rows</string>
+    <string name="format_table_grid">Table</string>
+    <string name="format_table_row">Row %1$d of %2$d, %3$s</string>
+    <string name="format_table_columns">Columns: %s</string>
+    <string name="format_task_done">Done</string>
+    <string name="format_task_todo">To do</string>
+    <string name="format_bullet">Bullet</string>
+    <string name="format_math">Math: %s</string>
+    <string name="format_open_report">Open full report</string>
+    <string name="format_open_in_files">Open in Files</string>
+    <string name="format_show_more">Show more</string>
+    <plurals name="format_more_lines">
+        <item quantity="one">%d more line</item>
+        <item quantity="other">%d more lines</item>
+    </plurals>
+    <plurals name="format_more_matches">
+        <item quantity="one">%d more match</item>
+        <item quantity="other">%d more matches</item>
+    </plurals>
+    <plurals name="format_more_arguments">
+        <item quantity="one">%d more argument</item>
+        <item quantity="other">%d more arguments</item>
+    </plurals>
+    <plurals name="format_items">
+        <item quantity="one">%d item</item>
+        <item quantity="other">%d items</item>
+    </plurals>
+    <plurals name="format_fields">
+        <item quantity="one">%d field</item>
+        <item quantity="other">%d fields</item>
+    </plurals>
+    <string name="format_reading">Reading</string>
+    <string name="format_reading_body">How agents\' text reads</string>
+    <string name="format_reading_size">Text size</string>
+    <string name="format_reading_size_system">As the system</string>
+    <string name="format_reading_compact">Compact spacing</string>
+    <string name="format_reading_wrap">Wrap code</string>
+    <string name="format_reading_underline">Underline links</string>
+    <string name="format_reading_preview">Preview</string>
+    <string name="format_reading_footer">Text size adds to the font size set for the whole phone.</string>
+    <string name="format_smaller">Smaller</string>
+    <string name="format_larger">Larger</string>
 </resources>

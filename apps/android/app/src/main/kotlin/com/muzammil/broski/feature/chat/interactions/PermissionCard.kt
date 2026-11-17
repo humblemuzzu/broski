@@ -13,7 +13,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.rememberTextFieldState
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -39,6 +38,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
 import com.muzammil.broski.design.Haptic
+import com.muzammil.broski.design.format.FormatRole
+import com.muzammil.broski.design.format.FormattedMessage
+import com.muzammil.broski.design.format.tools.CommandLine
+import com.muzammil.broski.design.format.tools.LogLines
+import com.muzammil.broski.design.format.tools.ToolArguments
 import com.muzammil.broski.design.mono
 import com.muzammil.broski.design.perform
 import com.muzammil.broski.feature.chat.work.FileChangeRow
@@ -47,6 +51,10 @@ import uniffi.broski_contract.PermissionEffect
 import uniffi.broski_contract.PermissionOption
 import uniffi.broski_contract.PermissionPreview
 import uniffi.broski_contract.ToolPermissionRequest
+import uniffi.broski_core.ClipEnd
+import uniffi.broski_core.ToolFacts
+import uniffi.broski_core.formatLog
+import uniffi.broski_core.toolArguments
 
 /**
  * "Pi wants to run" and exactly what, scrolling rather than cut; the reason; then the backend's
@@ -67,7 +75,13 @@ fun PermissionCard(interaction: Interaction, request: ToolPermissionRequest, con
 
     Text(headline(request, interaction, context.agent), style = MaterialTheme.typography.titleMedium)
     Previews(request, context)
-    listOfNotNull(request.reason, interaction.body).forEach { Quiet(it) }
+    val arguments = remember(request.input) { toolArguments(ToolFacts(interaction.origin?.toolName.orEmpty(), null, request.input, false, emptyList())) }
+    if (arguments.isNotEmpty()) {
+        Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerHighest, modifier = Modifier.fillMaxWidth()) {
+            ToolArguments(arguments, Modifier.padding(12.dp))
+        }
+    }
+    listOfNotNull(request.reason, interaction.body).forEach { FormattedMessage(it, role = FormatRole.Quiet) }
     request.grants.forEach { grant ->
         Row(verticalAlignment = Alignment.CenterVertically) {
             Checkbox(grant.id in grants, onCheckedChange = { checked -> if (checked) grants += grant.id else grants -= grant.id })
@@ -93,7 +107,12 @@ private fun headline(request: ToolPermissionRequest, interaction: Interaction, a
 private fun Previews(request: ToolPermissionRequest, context: CardContext) {
     request.previews.forEach { preview ->
         when (preview) {
-            is PermissionPreview.Command -> Exact(listOfNotNull(preview.v1.command, preview.v1.cwd?.let { "in $it" }).joinToString("\n"))
+            is PermissionPreview.Command -> Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerHighest, modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.heightIn(max = 160.dp).verticalScroll(rememberScrollState()).padding(12.dp)) {
+                    CommandLine(preview.v1.command)
+                    preview.v1.cwd?.let { Text("in $it", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                }
+            }
             is PermissionPreview.FileChanges -> Column { preview.v1.changes.forEach { change -> FileChangeRow(change) { context.openDiff(change) } } }
             is PermissionPreview.Network -> Exact(listOfNotNull(preview.v1.protocol, preview.v1.host).joinToString("://"))
             is PermissionPreview.Paths -> Exact(preview.v1.paths.joinToString("\n"))
@@ -101,24 +120,22 @@ private fun Previews(request: ToolPermissionRequest, context: CardContext) {
     }
 }
 
-/** The agent's own words for what it will do, monospaced, scrolling both ways and never cut. */
+/** What it will reach (hosts, paths), monospaced with its paths and links live, scrolling and never cut. */
 @Composable
 fun Exact(text: String) {
+    val lines = remember(text) { formatLog(text, EXACT_LINES, ClipEnd.HEAD).lines }
     Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerHighest, modifier = Modifier.fillMaxWidth()) {
-        SelectionContainer {
-            Text(
-                text,
-                style = MaterialTheme.typography.bodyMedium.mono(),
-                softWrap = false,
-                modifier = Modifier
-                    .heightIn(max = 160.dp)
-                    .verticalScroll(rememberScrollState())
-                    .horizontalScroll(rememberScrollState())
-                    .padding(12.dp),
-            )
-        }
+        LogLines(
+            lines,
+            MaterialTheme.typography.bodyMedium.mono(),
+            MaterialTheme.colorScheme.onSurface,
+            Modifier.heightIn(max = 160.dp).verticalScroll(rememberScrollState()).horizontalScroll(rememberScrollState()).padding(12.dp),
+        )
     }
 }
+
+/** Lines of what a permission reaches, shown whole up to this. */
+private const val EXACT_LINES = 2_000u
 
 @Composable
 private fun Options(

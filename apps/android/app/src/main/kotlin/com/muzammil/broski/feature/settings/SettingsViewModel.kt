@@ -6,6 +6,7 @@ import com.muzammil.broski.core.MachineState
 import com.muzammil.broski.core.settings.AppSettings
 import com.muzammil.broski.core.settings.Appearance
 import com.muzammil.broski.core.settings.NotificationKind
+import com.muzammil.broski.core.settings.ReadingSettings
 import com.muzammil.broski.core.settings.SettingsStore
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -34,5 +35,9 @@ class SettingsViewModel(
 
     fun setNotification(kind: NotificationKind, enabled: Boolean) {
         viewModelScope.launch { store.setNotification(kind, enabled) }
+    }
+
+    fun setReading(reading: ReadingSettings) {
+        viewModelScope.launch { store.setReading(reading) }
     }
 }

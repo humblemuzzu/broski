@@ -13,16 +13,20 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import com.muzammil.broski.R
 import com.muzammil.broski.design.BroskiTheme
+import com.muzammil.broski.design.format.FormatRole
+import com.muzammil.broski.design.format.FormattedMessage
+import com.muzammil.broski.design.format.tools.FileTextBody
+import com.muzammil.broski.design.format.tools.ReportBody
 import uniffi.broski_contract.LinkItem
 import uniffi.broski_contract.TodoItem
 import uniffi.broski_contract.TodoStatus
@@ -34,14 +38,16 @@ private const val SHOWN_FILES = 20
 /**
  * What a call's result shows in place of its text when its tool has a view of its own: the agent's
  * task list as a checklist, the pages a search found as links, the files a search found, each
- * opening in Files.
+ * opening in Files, a report formatted, a read file's numbered lines.
  */
 @Composable
-internal fun ToolDisplayView(display: ToolDisplay, actions: WorkActions) {
+internal fun ToolDisplayView(display: ToolDisplay, actions: WorkActions, title: String) {
     when (display) {
         is ToolDisplay.Todos -> TodoList(display.v1.items)
         is ToolDisplay.Links -> LinkList(display.v1.items)
         is ToolDisplay.Files -> FileList(display.v1.paths, display.v1.total, actions.openFile)
+        is ToolDisplay.Markdown -> ReportBody(display.v1.text, title, actions.toolLinks)
+        is ToolDisplay.FileText -> with(display.v1) { FileTextBody(path, null, firstLine.toInt(), text, note, actions.toolLinks) }
     }
 }
 
@@ -57,14 +63,7 @@ private fun TodoList(items: List<TodoItem>) {
                     style = MaterialTheme.typography.bodySmall,
                     color = if (doing) BroskiTheme.semantic.working else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Text(
-                    item.text,
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        fontWeight = if (doing) FontWeight.SemiBold else FontWeight.Normal,
-                        textDecoration = if (done) TextDecoration.LineThrough else TextDecoration.None,
-                    ),
-                    color = if (done) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
-                )
+                FormattedMessage(item.text, Modifier.alpha(if (done) 0.6f else 1f), role = FormatRole.Quiet)
             }
         }
     }

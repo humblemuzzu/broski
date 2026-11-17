@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -43,7 +42,10 @@ import com.muzammil.broski.design.BroskiTheme
 import com.muzammil.broski.design.Haptic
 import com.muzammil.broski.design.format.FormatCache
 import com.muzammil.broski.design.format.FormatRole
+import com.muzammil.broski.design.format.FormattedMessage
 import com.muzammil.broski.design.format.FormattedText
+import com.muzammil.broski.design.format.tools.CommandLine
+import com.muzammil.broski.design.format.tools.LogLines
 import com.muzammil.broski.design.mono
 import com.muzammil.broski.design.perform
 import com.muzammil.broski.feature.chat.work.TextPage
@@ -56,6 +58,7 @@ import uniffi.broski_core.ActivityLook
 import uniffi.broski_core.ActivityTone
 import uniffi.broski_core.ClipEnd
 import uniffi.broski_core.clipText
+import uniffi.broski_core.formatLog
 
 private const val DISCLOSURE_MS = 180
 
@@ -139,9 +142,7 @@ private fun Disclosure(expanded: Boolean) {
 private fun ActivityDetail(activity: Activity, look: ActivityLook, actions: WorkActions) {
     Column(Modifier.fillMaxWidth().padding(start = 28.dp, bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         activity.command?.takeIf { it.isNotEmpty() }?.let { command ->
-            SelectionContainer {
-                Text("$ $command", style = MaterialTheme.typography.bodySmall.mono(), maxLines = 6, overflow = TextOverflow.Ellipsis)
-            }
+            CommandLine(command)
         }
         activity.body?.let { body -> ActivityBodyView(activity.title, body, look, actions) }
         activity.childSession?.let { child ->
@@ -158,10 +159,9 @@ private fun ActivityBodyView(title: String, body: ActivityBody, look: ActivityLo
     val page = TextPage(title, body.text, TextPage.formatOf(body.format))
     when (body.format) {
         ActivityFormat.LOG -> look.log?.let { log ->
+            val lines = remember(log.text) { formatLog(log.text, UInt.MAX_VALUE, ClipEnd.TAIL).lines }
             Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.surfaceContainerHighest, modifier = Modifier.fillMaxWidth()) {
-                SelectionContainer {
-                    Text(log.text, style = MaterialTheme.typography.bodySmall.mono(), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(8.dp))
-                }
+                LogLines(lines, MaterialTheme.typography.bodySmall.mono(), MaterialTheme.colorScheme.onSurfaceVariant, Modifier.padding(8.dp))
             }
             if (log.hiddenLines > 0u) ShowAll(R.string.chat_activity_show_log, log.hiddenLines.toInt()) { actions.openText(page) }
         }
@@ -171,7 +171,7 @@ private fun ActivityBodyView(title: String, body: ActivityBody, look: ActivityLo
         }
         ActivityFormat.TEXT -> {
             val clip = remember(body.text) { clipText(body.text, TEXT_LINES, ClipEnd.HEAD) }
-            SelectionContainer { Text(clip.text, style = MaterialTheme.typography.bodySmall) }
+            FormattedMessage(clip.text, role = FormatRole.Quiet)
             if (clip.hiddenLines > 0u) ShowAll(R.string.chat_activity_show_all, clip.hiddenLines.toInt()) { actions.openText(page) }
         }
     }

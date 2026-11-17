@@ -38,6 +38,10 @@ sealed interface ChatRow {
         val block: FormatBlock,
         val first: Boolean,
         val plan: Boolean,
+        /** The containers of the block after it, where a quote's bar or a callout's card ends. */
+        val next: List<UInt> = emptyList(),
+        /** The last block of a text still arriving. */
+        val streaming: Boolean = false,
     ) : ChatRow
 
     /** The quiet copy button under a finished answer. */

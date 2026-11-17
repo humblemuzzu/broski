@@ -116,7 +116,7 @@ private fun SampleView(sample: FormatSample, onBack: () -> Unit) {
             if (source) {
                 SelectionContainer { Text(sample.text, style = MaterialTheme.typography.bodySmall.mono()) }
             } else {
-                FormattedText(streamed ?: sample.text, role = role, streaming = streamed != null)
+                FormattedText(streamed ?: sample.text, role = role, streaming = streamed != null || sample.arriving)
             }
         }
     }

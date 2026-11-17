@@ -3,6 +3,7 @@ package com.muzammil.broski.feature.chat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
@@ -14,11 +15,14 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
+import com.muzammil.broski.design.format.FormatRole
+import com.muzammil.broski.design.format.FormattedMessage
 import uniffi.broski_contract.NoticeLevel
 import uniffi.broski_contract.QueueItem
 import uniffi.broski_contract.QueuedDelivery
@@ -41,7 +45,7 @@ fun NoticeCard(notice: ChatNotice, onDismiss: () -> Unit, modifier: Modifier = M
                 NoticeLevel.ERROR -> R.drawable.ic_error
             }
             Icon(painterResource(icon), contentDescription = null, modifier = Modifier.size(20.dp))
-            Text(notice.text, style = MaterialTheme.typography.bodyMedium, maxLines = 4, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(vertical = 12.dp))
+            FormattedMessage(notice.text, Modifier.weight(1f).padding(vertical = 12.dp).heightIn(max = NOTICE_HEIGHT).clipToBounds(), role = FormatRole.Quiet)
             IconButton(onClick = onDismiss) {
                 Icon(painterResource(R.drawable.ic_close), contentDescription = stringResource(R.string.chat_dismiss_notice))
             }
@@ -94,3 +98,6 @@ fun QueuedRow(item: QueueItem, onCancel: (() -> Unit)?, modifier: Modifier = Mod
         }
     }
 }
+
+/** A pinned notice shows about four lines. */
+private val NOTICE_HEIGHT = 84.dp

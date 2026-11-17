@@ -41,9 +41,9 @@ data class SessionRoute(val machineId: String, val backend: String, val sessionI
 @Serializable
 data class FilesRoute(val machineId: String, val path: String) : Route
 
-/** One file on one machine, read in the viewer. */
+/** One file on one machine, read in the viewer, opened at [line] when one is given. */
 @Serializable
-data class FileRoute(val machineId: String, val path: String) : Route
+data class FileRoute(val machineId: String, val path: String, val line: Int? = null) : Route
 
 /** The git repository that `cwd` lies in. */
 @Serializable

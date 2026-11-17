@@ -37,6 +37,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
+import com.muzammil.broski.design.format.FormattedMessage
 import kotlinx.coroutines.launch
 
 private const val MAX_WIDTH_FRACTION = 0.78f
@@ -60,7 +61,7 @@ fun UserBubble(row: ChatRow.User, images: Map<String, ImageBitmap>, requestImage
             if (row.text.isNotEmpty()) {
                 Surface(shape = BubbleShape, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
                     SelectionContainer {
-                        Text(row.text, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp))
+                        FormattedMessage(row.text, Modifier.padding(horizontal = 16.dp, vertical = 10.dp))
                     }
                 }
             }

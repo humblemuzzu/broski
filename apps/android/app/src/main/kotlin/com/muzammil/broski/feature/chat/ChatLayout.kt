@@ -23,6 +23,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -47,6 +48,8 @@ import com.muzammil.broski.app.SessionRoute
 import com.muzammil.broski.core.isOnline
 import com.muzammil.broski.design.Haptic
 import com.muzammil.broski.design.animationsEnabled
+import com.muzammil.broski.design.format.FormatLinks
+import com.muzammil.broski.design.format.LocalFormatLinks
 import com.muzammil.broski.design.label
 import com.muzammil.broski.design.perform
 import com.muzammil.broski.feature.chat.header.ChatTopBar
@@ -91,19 +94,23 @@ fun ChatLayout(model: ChatViewModel, context: FeatureContext, snackbar: Snackbar
                 openSession = { session -> context.navigate(SessionRoute.of(model.machineId, session)) },
                 openText = dialogs.openText,
                 openFile = { path -> context.navigate(FileRoute(model.machineId, path)) },
+                openFileAt = { path, line -> context.navigate(FileRoute(model.machineId, resolvePath(header.cwd, path), line)) },
             ),
         )
     }
+    val links = remember(callbacks) { FormatLinks(callbacks.work.openFileAt) }
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
-        TranscriptList(
-            rows = rows,
-            lane = laneStatus(live.snapshot),
-            images = images,
-            state = transcript,
-            callbacks = callbacks,
-            contentPadding = with(density) { PaddingValues(top = topHeight.toDp() + 8.dp, bottom = bottomHeight.toDp() + 8.dp) },
-            modifier = Modifier.alpha(shown * if (online) 1f else OFFLINE_ALPHA),
-        )
+        CompositionLocalProvider(LocalFormatLinks provides links) {
+            TranscriptList(
+                rows = rows,
+                lane = laneStatus(live.snapshot),
+                images = images,
+                state = transcript,
+                callbacks = callbacks,
+                contentPadding = with(density) { PaddingValues(top = topHeight.toDp() + 8.dp, bottom = bottomHeight.toDp() + 8.dp) },
+                modifier = Modifier.alpha(shown * if (online) 1f else OFFLINE_ALPHA),
+            )
+        }
         if (!revealed || !history.loaded) {
             val connection = header.health?.takeUnless { it.isOnline }?.label(header.machineName)
             Loading(connection, Modifier.align(Alignment.Center).padding(horizontal = 32.dp))
@@ -182,4 +189,10 @@ private fun JumpToLatest(state: TranscriptState, modifier: Modifier) {
             scope.launch { state.jump(animate) }
         }
     }
+}
+
+/** A path from agent text as the workspace names it: a relative one is in the session's folder. */
+private fun resolvePath(cwd: String?, path: String): String = when {
+    cwd == null || path.startsWith("/") || path.startsWith("~") -> path
+    else -> cwd.trimEnd('/') + "/" + path.removePrefix("./")
 }

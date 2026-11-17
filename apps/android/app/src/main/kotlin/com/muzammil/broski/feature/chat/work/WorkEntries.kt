@@ -29,12 +29,13 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
 import com.muzammil.broski.design.Haptic
+import com.muzammil.broski.design.format.tools.ToolLinks
 import com.muzammil.broski.design.mono
 import com.muzammil.broski.design.perform
 import uniffi.broski_contract.FileChange
@@ -50,7 +51,16 @@ class WorkActions(
     val openSession: (SessionRef) -> Unit,
     val openText: (TextPage) -> Unit,
     val openFile: (String) -> Unit,
-)
+    /** A file at a line, as a path in agent text or a search row opens it. */
+    val openFileAt: (String, Int?) -> Unit = { path, _ -> openFile(path) },
+) {
+    /** What a tool's result opens, for the formatter's tool views. */
+    val toolLinks = ToolLinks(
+        openFile = openFileAt,
+        openReport = { title, text -> openText(TextPage(title, text, TextPage.Format.MARKDOWN)) },
+        openLog = { title, text -> openText(TextPage(title, text, TextPage.Format.LOG)) },
+    )
+}
 
 /** other clients's numbers: an open fold stops at 256 dp and scrolls inside, under 12 dp edge fades. */
 private val MAX_HEIGHT = 256.dp

@@ -69,6 +69,7 @@ dependencies {
     implementation(libs.compose.material3)
     implementation(libs.compose.material3.navigation.suite)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.browser)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.datastore.preferences)

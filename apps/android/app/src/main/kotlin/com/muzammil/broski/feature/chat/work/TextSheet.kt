@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -35,10 +34,13 @@ import com.muzammil.broski.R
 import com.muzammil.broski.design.Haptic
 import com.muzammil.broski.design.format.FormatBlockView
 import com.muzammil.broski.design.format.FormatCache
+import com.muzammil.broski.design.format.tools.LogLines
 import com.muzammil.broski.design.mono
 import com.muzammil.broski.design.perform
 import kotlinx.coroutines.launch
 import uniffi.broski_contract.ActivityFormat
+import uniffi.broski_core.ClipEnd
+import uniffi.broski_core.formatLog
 
 /** A long text a row only shows a clip of (a log, a tool's output, a report), to open whole. */
 @Immutable
@@ -71,16 +73,18 @@ fun TextSheet(page: TextPage, onDismiss: () -> Unit) {
         SheetHeader(page)
         LazyColumn(state = list, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
             if (page.format == TextPage.Format.MARKDOWN) {
-                items(blocks, key = { it.key }) { block -> FormatBlockView(block, Modifier.padding(top = 12.dp)) }
+                items(blocks.size, key = { blocks[it].key }) { index ->
+                    val next = blocks.getOrNull(index + 1)?.containers?.map { it.id }.orEmpty()
+                    FormatBlockView(blocks[index], next = next)
+                }
             } else {
                 items(lines.size) { index ->
-                    SelectionContainer {
-                        Text(
-                            lines[index],
-                            style = if (page.format == TextPage.Format.LOG) MaterialTheme.typography.bodySmall.mono() else MaterialTheme.typography.bodyMedium,
-                            color = if (page.format == TextPage.Format.LOG) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
+                    val line = remember(lines[index]) { formatLog(lines[index], 1u, ClipEnd.HEAD).lines }
+                    LogLines(
+                        line,
+                        if (page.format == TextPage.Format.LOG) MaterialTheme.typography.bodySmall.mono() else MaterialTheme.typography.bodyMedium,
+                        if (page.format == TextPage.Format.LOG) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                    )
                 }
             }
         }

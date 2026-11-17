@@ -2,11 +2,11 @@ package com.muzammil.broski.feature.chat.interactions
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -44,6 +44,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
 import com.muzammil.broski.design.BroskiMotion
+import com.muzammil.broski.design.format.FormatRole
+import com.muzammil.broski.design.format.FormattedMessage
 import com.muzammil.broski.feature.chat.AnswerState
 import uniffi.broski_contract.FileChange
 import uniffi.broski_contract.Interaction
@@ -169,7 +171,8 @@ private fun kindLabel(request: InteractionRequest): String = stringResource(
     },
 )
 
+/** A card's quieter words, the agent's or ours, through the formatter. */
 @Composable
 fun Quiet(text: String) {
-    Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    FormattedMessage(text, role = FormatRole.Quiet)
 }

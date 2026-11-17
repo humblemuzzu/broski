@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.selection.DisableSelection
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.MaterialTheme
@@ -55,6 +57,7 @@ fun CodeLines(
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(),
     header: LazyListScope.() -> Unit = {},
+    state: LazyListState = rememberLazyListState(),
 ) {
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
@@ -74,6 +77,7 @@ fun CodeLines(
         }
         SelectionContainer {
             LazyColumn(
+                state = state,
                 modifier = if (wrap) Modifier else Modifier.scrollable(scroll, Orientation.Horizontal),
                 contentPadding = contentPadding,
             ) {

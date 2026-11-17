@@ -1,27 +1,20 @@
 package com.muzammil.broski.feature.chat.work
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -30,19 +23,18 @@ import com.muzammil.broski.R
 import com.muzammil.broski.design.BroskiTheme
 import com.muzammil.broski.design.format.FormatRole
 import com.muzammil.broski.design.format.FormattedText
+import com.muzammil.broski.design.format.tools.CommandLine
+import com.muzammil.broski.design.format.tools.LogLines
+import com.muzammil.broski.design.format.tools.ToolArguments
+import com.muzammil.broski.design.format.tools.ToolBodyView
 import com.muzammil.broski.design.mono
-import com.muzammil.broski.feature.chat.activity.ShowAll
 import uniffi.broski_contract.FileChange
-import uniffi.broski_core.ClipEnd
-import uniffi.broski_core.clipText
-import uniffi.broski_contract.JsonValue
 import uniffi.broski_contract.ToolDisplay
-import kotlin.math.abs
-
-private val OUTPUT_MAX = 180.dp
-
-/** Lines of output drawn in place; a tool can print megabytes, and the sheet has the rest. */
-private const val OUTPUT_LINES = 200u
+import uniffi.broski_core.ClipEnd
+import uniffi.broski_core.ToolFacts
+import uniffi.broski_core.formatLog
+import uniffi.broski_core.toolArguments
+import uniffi.broski_core.toolBody
 
 /** A row opened in place: the call as sent, the last lines it printed (or that it printed nothing), its files and its subagent. */
 @Composable
@@ -59,23 +51,32 @@ internal fun EntryDetail(entry: WorkEntry, actions: WorkActions) {
     }
 }
 
+/**
+ * A call opened in place: the command coloured as shell, its arguments as a property list, what its
+ * result shows (its tool's own view, else how the core reads the output), its error, its files and
+ * its subagent.
+ */
 @Composable
 private fun ToolDetail(tool: WorkEntry.Tool, actions: WorkActions) {
-    if (tool.display !is ToolDisplay.Todos) tool.input?.let { input -> Mono(inputText(tool, input), MaterialTheme.colorScheme.onSurface) }
-    val printed = listOfNotNull(tool.output.takeIf { it.isNotEmpty() }, tool.error).joinToString("\n")
+    val facts = remember(tool) { ToolFacts(tool.name, null, tool.input, tool.childSession != null, tool.fileChanges.map { it.path }) }
+    tool.look.command?.let { CommandLine(it) }
+    if (tool.display !is ToolDisplay.Todos) {
+        val arguments = remember(facts) { toolArguments(facts) }
+        if (arguments.isNotEmpty()) ToolArguments(arguments)
+    }
     val display = tool.display
-    if (display != null) {
-        ToolDisplayView(display, actions)
-    } else if (printed.isEmpty()) {
-        if (!tool.running && tool.fileChanges.isEmpty()) Prose(stringResource(R.string.chat_work_no_output))
-    } else {
-        val clip = remember(printed) { clipText(printed, OUTPUT_LINES, ClipEnd.TAIL) }
-        Mono(clip.text, if (tool.error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
-        if (clip.hiddenLines > 0u) {
-            ShowAll(R.string.chat_work_show_output, clip.hiddenLines.toInt()) {
-                actions.openText(TextPage(tool.label, printed, TextPage.Format.LOG))
-            }
+    when {
+        display != null -> ToolDisplayView(display, actions, tool.label)
+        tool.output.isNotEmpty() -> {
+            val body = remember(facts, tool.output) { toolBody(facts, tool.output) }
+            ToolBodyView(body, tool.label, tool.output, actions.toolLinks)
         }
+        !tool.running && tool.fileChanges.isEmpty() && tool.error == null ->
+            Text(stringResource(R.string.chat_work_no_output), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    tool.error?.let { error ->
+        val lines = remember(error) { formatLog(error, ERROR_LINES, ClipEnd.HEAD).lines }
+        LogLines(lines, MaterialTheme.typography.bodySmall.mono(), MaterialTheme.colorScheme.error)
     }
     tool.fileChanges.forEach { change -> FileChangeRow(change) { actions.openDiff(change) } }
     tool.childSession?.let { child ->
@@ -86,45 +87,8 @@ private fun ToolDetail(tool: WorkEntry.Tool, actions: WorkActions) {
     }
 }
 
-/** A command as typed; any other input as its members, one `key: value` a line. */
-private fun inputText(tool: WorkEntry.Tool, input: JsonValue): String {
-    tool.look.command?.let { return it }
-    val members = (input as? JsonValue.Object)?.v1 ?: return render(input)
-    return members.joinToString("\n") { "${it.key}: ${render(it.value)}" }
-}
-
-private fun render(value: JsonValue): String = when (value) {
-    JsonValue.Null -> "null"
-    is JsonValue.Bool -> value.v1.toString()
-    is JsonValue.Number -> value.v1.let { if (it % 1.0 == 0.0 && abs(it) < 1e15) it.toLong().toString() else it.toString() }
-    is JsonValue.String -> value.v1
-    is JsonValue.Array -> value.v1.joinToString(", ", "[", "]") { render(it) }
-    is JsonValue.Object -> value.v1.joinToString(", ", "{", "}") { "${it.key}: ${render(it.value)}" }
-}
-
-@Composable
-private fun Mono(text: String, color: Color) {
-    Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.surfaceContainerHighest) {
-        SelectionContainer {
-            Text(
-                text,
-                style = MaterialTheme.typography.bodySmall.mono(),
-                color = color,
-                softWrap = false,
-                modifier = Modifier
-                    .heightIn(max = OUTPUT_MAX)
-                    .verticalScroll(rememberScrollState())
-                    .horizontalScroll(rememberScrollState())
-                    .padding(8.dp),
-            )
-        }
-    }
-}
-
-@Composable
-private fun Prose(text: String) {
-    Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-}
+/** Lines of an error drawn in place. */
+private const val ERROR_LINES = 40u
 
 /** A file the call changed, with its counts; it opens the diff. */
 @Composable

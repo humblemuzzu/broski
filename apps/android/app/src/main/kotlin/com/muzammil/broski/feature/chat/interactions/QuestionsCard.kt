@@ -9,6 +9,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.clearText
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
@@ -21,16 +22,15 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.foundation.text.input.rememberTextFieldState
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,6 +40,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
 import com.muzammil.broski.design.Haptic
+import com.muzammil.broski.design.format.FormattedMessage
 import com.muzammil.broski.design.perform
 import uniffi.broski_contract.Interaction
 import uniffi.broski_contract.Question
@@ -79,7 +80,7 @@ fun QuestionsCard(interaction: Interaction, request: QuestionsRequest, context: 
 @Composable
 private fun QuestionView(question: Question, draft: QuestionDraft, enabled: Boolean, onChange: (QuestionDraft) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(question.text, style = MaterialTheme.typography.bodyLarge)
+        FormattedMessage(question.text)
         if (question.options.isNotEmpty()) {
             Text(
                 stringResource(if (question.multiSelect) R.string.card_pick_any else R.string.card_pick_one),

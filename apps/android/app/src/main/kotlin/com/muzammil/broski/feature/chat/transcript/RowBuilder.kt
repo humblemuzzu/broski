@@ -1,5 +1,6 @@
 package com.muzammil.broski.feature.chat.transcript
 
+import com.muzammil.broski.design.format.FormatCache
 import com.muzammil.broski.feature.chat.work.FoldLead
 import com.muzammil.broski.feature.chat.work.WorkEntry
 import uniffi.broski_contract.AttachmentRef
@@ -8,7 +9,6 @@ import uniffi.broski_contract.OpenBlock
 import uniffi.broski_contract.RunOutcome
 import uniffi.broski_contract.SessionSnapshot
 import uniffi.broski_contract.TranscriptItem
-import com.muzammil.broski.design.format.FormatCache
 import uniffi.broski_contract.UserMessageItem
 import uniffi.broski_core.FormatBlock
 import uniffi.broski_core.activityLook
@@ -98,8 +98,13 @@ class RowBuilder(private val format: (String, Boolean) -> List<FormatBlock> = Fo
                 text.isBlank() -> Unit
                 else -> {
                     fold = null
-                    format(text, open).forEachIndexed { index, block ->
-                        rows += ChatRow.Text("t:$id/${block.key}", at, block, first = index == 0, plan = kind == BlockKind.PLAN)
+                    val blocks = format(text, open)
+                    blocks.forEachIndexed { index, block ->
+                        val next = blocks.getOrNull(index + 1)?.containers?.map { it.id }.orEmpty()
+                        rows += ChatRow.Text(
+                            "t:$id/${block.key}", at, block, first = index == 0, plan = kind == BlockKind.PLAN,
+                            next = next, streaming = open && index == blocks.lastIndex,
+                        )
                     }
                     turn.answer += text
                     turn.lastTextId = id
