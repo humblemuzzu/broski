@@ -13,12 +13,13 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import com.muzammil.broski.R
 import com.muzammil.broski.app.MainActivity
 import com.muzammil.broski.core.PhoneSession
+import com.muzammil.broski.core.isOnline
 import com.muzammil.broski.design.displayName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 
 /**
@@ -42,8 +43,10 @@ class LiveUpdate(
     suspend fun run() {
         manager.cancel(ID)
         val since = mutableMapOf<SessionTarget, Long>()
-        phone.inboxRows
-            .map { rows -> LiveStatus.of(rows, since, System.currentTimeMillis()) }
+        combine(phone.inboxRows, phone.machines) { rows, machines ->
+            val reachable = machines.filter { it.health.isOnline }.map { it.id }.toSet()
+            LiveStatus.of(rows, since, System.currentTimeMillis(), reachable)
+        }
             .distinctUntilChanged()
             .conflate()
             .collect { status ->

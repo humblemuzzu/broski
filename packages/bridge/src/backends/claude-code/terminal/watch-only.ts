@@ -25,13 +25,19 @@ export function createTerminalWatch(deps: TerminalDeps): TerminalWatch {
 	const takesAsks = services.terminal.hookAsks !== undefined;
 	const sessions = new TerminalSessions(services.clock);
 	const paths = new TranscriptPaths(deps.locate);
-	const processes = new CliProcesses(join(services.sdk.configRoot(), "sessions"), services.clock, deps.announce);
+	const processes = new CliProcesses(join(services.sdk.configRoot(), "sessions"), services.clock, (sessionId) => {
+		const status = processes.row(sessionId)?.status;
+		if (status === undefined || status === "idle") sessions.terminalIdle(sessionId);
+		deps.announce(sessionId);
+	});
 	return {
 		writing: (sessionId) => writing(deps, sessions, paths, processes, sessionId),
 		row: (sessionId) => (deps.hosted(sessionId) ? undefined : processes.row(sessionId)),
 		openWatchOnly: async (ref, stored, sink) => {
 			paths.remember(stored.sessionId, stored.path);
-			const session = await sessions.acquire(ref.sessionId, stored.path, sink).catch(() => undefined);
+			const status = processes.row(ref.sessionId)?.status;
+			const activeProcess = status === "running" || status === "waiting_for_user";
+			const session = await sessions.acquire(ref.sessionId, stored.path, sink, activeProcess).catch(() => undefined);
 			if (session === undefined) return rejected("backend_error", "the terminal session could not be followed");
 			const open = watchOnlySession(ref, session, takesAsks, () => sessions.release(ref.sessionId, sink));
 			return { status: "accepted", snapshot: session.live.snapshot(), session: open };

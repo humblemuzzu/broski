@@ -25,9 +25,10 @@ struct ChatToolbar: ToolbarContent {
 
     var body: some ToolbarContent {
         ToolbarItem(placement: .principal) {
+            let blocked = chat.snapshot.interactions.contains(where: \.blocksRun)
             ChatTitle(
                 title: title, subtitle: subtitle, machineProblem: chat.connectionProblem(machine.summary),
-                runStartedAt: chat.snapshot.run?.startedAt, canRename: capabilities?.rename ?? false
+                runStartedAt: blocked ? nil : chat.snapshot.run?.startedAt, canRename: capabilities?.rename ?? false
             ) {
                 dialog = .rename
             }

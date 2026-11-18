@@ -268,6 +268,9 @@ impl StreamState {
     }
 
     pub(crate) fn live_info(&self) -> Option<LiveInfo> {
+        if self.phase == Phase::Ended {
+            return None;
+        }
         let answerable = self.capabilities.as_ref()?.answer;
         let snapshot = &self.snapshot;
         let first = snapshot.interactions.first();

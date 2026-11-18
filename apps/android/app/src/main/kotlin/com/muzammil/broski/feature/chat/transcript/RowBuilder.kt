@@ -73,10 +73,17 @@ class RowBuilder(private val format: (String, Boolean) -> List<FormatBlock> = Fo
                 is TranscriptItem.Activity -> {
                     fold = null
                     rows += ChatRow.Activity("a:${item.v1.id}", item.v1.at, item.v1.activity, activityLook(item.v1.activity))
+                    turn.start = item.v1.at
                 }
-                is TranscriptItem.Compaction -> note(item.v1.id, item.v1.at, TranscriptNote.Compacted(item.v1.tokensBefore, item.v1.tokensAfter))
+                is TranscriptItem.Compaction -> {
+                    note(item.v1.id, item.v1.at, TranscriptNote.Compacted(item.v1.tokensBefore, item.v1.tokensAfter))
+                    turn.start = item.v1.at
+                }
                 is TranscriptItem.ModelChange -> note(item.v1.id, item.v1.at, TranscriptNote.ModelChanged(item.v1.modelId, item.v1.thinking))
-                is TranscriptItem.RunBoundary -> item.v1.outcome.stopped()?.let { note(item.v1.id, item.v1.at, it) }
+                is TranscriptItem.RunBoundary -> {
+                    item.v1.outcome.stopped()?.let { note(item.v1.id, item.v1.at, it) }
+                    turn.start = item.v1.at
+                }
             }
         }
 
@@ -147,7 +154,7 @@ class RowBuilder(private val format: (String, Boolean) -> List<FormatBlock> = Fo
         }
     }
 
-    private class Turn(val start: Long?, val continued: Boolean, var live: Boolean) {
+    private class Turn(var start: Long?, val continued: Boolean, var live: Boolean) {
         val answer = mutableListOf<String>()
 
         /** The pages the turn's searches found, which the answer drew on. */

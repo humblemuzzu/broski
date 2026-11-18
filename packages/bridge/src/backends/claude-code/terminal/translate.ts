@@ -58,6 +58,15 @@ export class LineTranslator {
 		return out;
 	}
 
+	/** Ends an open run when the terminal process itself has gone idle or exited. */
+	finishOpen(): MappedEvent[] {
+		const out: MappedEvent[] = [];
+		if (this.state.runId !== undefined) {
+			this.state.finishRun(out, this.state.settled ? "completed" : "aborted");
+		}
+		return out;
+	}
+
 	/** A run to raise an ask on: a permission prompt means a turn is under way. */
 	ensureRun(): { readonly runId: RunId; readonly events: MappedEvent[] } {
 		const events: MappedEvent[] = [];

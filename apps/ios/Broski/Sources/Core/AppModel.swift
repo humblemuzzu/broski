@@ -141,12 +141,11 @@ final class AppModel {
             endDelivery()
             // An activity can only start in front; one that a background change could not start
             // starts now.
-            liveRuns?.follow(inbox.rows)
+            liveRuns?.follow(inbox.rows, reachableMachines: reachableMachineIds)
             Task { await notifications.refresh() }
         case .background:
             isActive = false
             dictation.sceneLeft()
-            phone?.pause()
             holdForDelivery()
         default:
             break
@@ -154,19 +153,42 @@ final class AppModel {
         updateDiscovery()
     }
 
+    private var reachableMachineIds: Set<String> {
+        Set(machines.filter { $0.summary.isReady }.map(\.id))
+    }
+
+    private var hasLiveWork: Bool {
+        let reachable = reachableMachineIds
+        return inbox.rows.contains {
+            !$0.cached && reachable.contains($0.machineId) && ($0.state == .working || $0.state == .needsYou)
+        }
+    }
+
     /// iOS suspends the app moments after it leaves the screen; the background time held here lets
-    /// a prompt sent just before reach the Mac (`Phone.paused` resolves once every link delivered
-    /// what it had, or gave up after 20 s).
+    /// a prompt sent just before reach the Mac and keeps a short run's Live Activity live until the
+    /// run finishes or iOS ends the background window, at which point the link pauses and the
+    /// activity ends so no timer ticks on its own while disconnected.
     private func holdForDelivery() {
         guard let phone else { return }
         endDelivery()
         delivery = UIApplication.shared.beginBackgroundTask(withName: "Broski delivery") { [weak self] in
-            self?.endDelivery()
+            guard let self else { return }
+            self.phone?.pause()
+            Task {
+                await self.liveRuns?.suspend()
+                self.endDelivery()
+            }
         }
         let held = delivery
         Task { [weak self] in
+            while let self, !self.isActive, self.delivery == held, self.hasLiveWork {
+                try? await Task.sleep(for: .milliseconds(500))
+            }
+            guard let self, !self.isActive, self.delivery == held else { return }
+            phone.pause()
             await phone.paused()
-            guard let self, self.delivery == held else { return }
+            guard !self.isActive, self.delivery == held else { return }
+            await self.liveRuns?.suspend()
             self.endDelivery()
         }
     }
@@ -233,13 +255,14 @@ final class AppModel {
         updateDiscovery()
     }
 
-    /// The Live Activity follows the inbox for the life of the phone.
+    /// The Live Activity follows the inbox and each machine's reachability for the life of the phone.
     private func followLiveRuns() {
         let liveRuns = LiveRuns()
         self.liveRuns = liveRuns
-        Task { [inbox] in
-            for await rows in Observations({ inbox.rows }) {
-                liveRuns.follow(rows)
+        Task { [weak self] in
+            guard let self else { return }
+            for await (rows, reachable) in Observations({ (self.inbox.rows, self.reachableMachineIds) }) {
+                liveRuns.follow(rows, reachableMachines: reachable)
             }
         }
     }

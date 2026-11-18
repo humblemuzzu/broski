@@ -16,15 +16,27 @@ data class LiveStatus(
     val target: SessionTarget get() = focused.target
 
     companion object {
+        private const val REAL_TIMESTAMP_FLOOR = 1_000_000_000_000L
+
         /** Null when nothing works, which ends the Live Update. `since` keeps each run's first sighting. */
-        fun of(rows: List<InboxRow>, since: MutableMap<SessionTarget, Long>, nowMs: Long): LiveStatus? {
-            val working = rows.filter { it.state == InboxState.WORKING }
+        fun of(
+            rows: List<InboxRow>,
+            since: MutableMap<SessionTarget, Long>,
+            nowMs: Long,
+            reachableMachines: Set<String>? = null,
+        ): LiveStatus? {
+            val reachable = rows.filter { !it.cached && (reachableMachines == null || it.machineId in reachableMachines) }
+            val working = reachable.filter { it.state == InboxState.WORKING }
             since.keys.retainAll(working.map { it.target }.toSet())
-            working.forEach { since.getOrPut(it.target) { nowMs } }
+            working.forEach { row ->
+                since.getOrPut(row.target) {
+                    if (row.updatedAt >= REAL_TIMESTAMP_FLOOR) minOf(nowMs, row.updatedAt) else nowMs
+                }
+            }
             val focused = working.maxByOrNull { it.updatedAt } ?: return null
             return LiveStatus(
                 working = working.size,
-                needsYou = rows.count { it.state == InboxState.NEEDS_YOU },
+                needsYou = reachable.count { it.state == InboxState.NEEDS_YOU },
                 focused = focused,
                 sinceMs = since.getValue(focused.target),
             )

@@ -21,7 +21,7 @@ nonisolated struct WorkFold: Equatable, Identifiable {
     var summary: WorkSummary {
         let tools = tools.filter { $0.parentToolCallId == nil }
         let counts = foldCounts(tools: tools.map { FoldTool(id: $0.id, kind: $0.kind, paths: $0.look.paths) })
-        let duration = isLive ? nil : startedAt.flatMap { start in endedAt.map { Double($0 - start) / 1000 } }
+        let duration = isLive ? nil : startedAt.flatMap { start in endedAt.map { Double(max(0, $0 - start)) / 1000 } }
         return WorkSummary(
             counts: counts,
             failed: tools.count(where: \.failed),

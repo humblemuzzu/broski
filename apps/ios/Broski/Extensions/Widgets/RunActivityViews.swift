@@ -88,13 +88,13 @@ private struct RunLine: View {
     }
 }
 
-/// Time since the focused session went live, counting on its own in tabular figures; nothing once
-/// it is done.
+/// Time since the focused session started working, counting on its own in tabular figures while it
+/// actively works.
 struct Elapsed: View {
     let state: RunState
 
     var body: some View {
-        if state.phase != .done {
+        if state.phase == .working {
             Text(timerInterval: state.startedAt...Date.distantFuture, countsDown: false)
                 .monospacedDigit()
         }

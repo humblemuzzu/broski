@@ -65,16 +65,31 @@ export type HostParts = PiParts & RunParts & IntakeParts;
 export function assembleHostParts(env: HostEnvironment, start: HostStart, links: HostLinks): HostParts {
 	// Pi's records arrive asynchronously, long after `events` below exists.
 	const deliver: Deliver = (delivery) => events.deliver(delivery);
-	const pi = piParts(env, start, links, deliver);
-	const run = runParts(env, pi, links);
-	const { children, events } = intakeParts(env, start, pi, run, links);
+	let replaying = false;
+	const liveNow = () => (replaying && start.facts.updatedAt > 0 ? start.facts.updatedAt : env.now());
+	const hookedLinks: HostLinks = {
+		...links,
+		replaying: (active) => {
+			replaying = active && start.adoption !== undefined;
+			links.replaying(active);
+		},
+	};
+	const pi = piParts(env, start, hookedLinks, deliver, liveNow);
+	const run = runParts(env, pi, hookedLinks);
+	const { children, events } = intakeParts(env, start, pi, run, hookedLinks);
 	return { ...pi, ...run, children, events };
 }
 
-function piParts(env: HostEnvironment, start: HostStart, links: HostLinks, deliver: Deliver): PiParts {
+function piParts(
+	env: HostEnvironment,
+	start: HostStart,
+	links: HostLinks,
+	deliver: Deliver,
+	liveNow: () => number,
+): PiParts {
 	const live = new HostLiveState(
 		{ ...emptySnapshot(), modes: [permissionsSetting(start.permissions.mode)] },
-		env.now,
+		liveNow,
 		(event) => links.emitted(event),
 	);
 	const child = new PiChild(start.transport, deliver);

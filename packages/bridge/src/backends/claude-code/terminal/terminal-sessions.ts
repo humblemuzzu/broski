@@ -27,14 +27,19 @@ export class TerminalSessions {
 	constructor(private readonly clock: Clock) {}
 
 	/** Opens the session once, whoever asks; each call is one holder to `release`. */
-	async acquire(sessionId: SessionId, path: string, sink: SessionSink): Promise<WatchedSession> {
-		const entry = await this.entryFor(sessionId, path);
+	async acquire(sessionId: SessionId, path: string, sink: SessionSink, activeProcess = false): Promise<WatchedSession> {
+		const entry = await this.entryFor(sessionId, path, activeProcess);
 		entry.holders += 1;
 		const session = entry.session;
 		session.attach(sink);
 		this.wake(sessionId, session);
 		session.schedule();
 		return session;
+	}
+
+	/** The terminal process holding `sessionId` went idle or exited. */
+	terminalIdle(sessionId: SessionId): void {
+		this.entries.get(sessionId)?.session.terminalIdle();
 	}
 
 	release(sessionId: SessionId, sink: SessionSink): void {
@@ -96,18 +101,18 @@ export class TerminalSessions {
 		this.waiters.clear();
 	}
 
-	private entryFor(sessionId: SessionId, path: string): Promise<Entry> {
+	private entryFor(sessionId: SessionId, path: string, activeProcess: boolean): Promise<Entry> {
 		const existing = this.entries.get(sessionId);
 		if (existing !== undefined) return Promise.resolve(existing);
 		const pending = this.opening.get(sessionId);
 		if (pending !== undefined) return pending;
-		const created = this.create(sessionId, path).finally(() => this.opening.delete(sessionId));
+		const created = this.create(sessionId, path, activeProcess).finally(() => this.opening.delete(sessionId));
 		this.opening.set(sessionId, created);
 		return created;
 	}
 
-	private async create(sessionId: SessionId, path: string): Promise<Entry> {
-		const session = await WatchedSession.open(path, this.clock);
+	private async create(sessionId: SessionId, path: string, activeProcess: boolean): Promise<Entry> {
+		const session = await WatchedSession.open(path, this.clock, activeProcess);
 		if (this.disposed) {
 			session.dispose();
 			throw new Error("the terminal watch is disposed");

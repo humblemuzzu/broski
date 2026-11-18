@@ -27,14 +27,14 @@ struct RunActivityWidget: Widget {
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     Group {
-                        if state.phase == .done {
-                            PhaseIcon(phase: .done).font(.title2)
-                        } else {
+                        if state.phase == .working {
                             Elapsed(state: state)
                                 .font(.title3.weight(.semibold))
                                 .foregroundStyle(ActivityStyle.primary)
                                 .multilineTextAlignment(.trailing)
                                 .frame(maxWidth: 96, alignment: .trailing)
+                        } else {
+                            PhaseIcon(phase: state.phase).font(.title2)
                         }
                     }
                     .padding(.trailing, 4)

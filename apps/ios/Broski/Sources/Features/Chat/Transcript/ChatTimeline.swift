@@ -54,21 +54,26 @@ struct ChatTimeline {
         case .notice(let notice):
             closeFold()
             append(.notice(notice), id: notice.id)
+            lastAt = notice.at ?? lastAt
         case .activity(let activity):
             closeFold()
             closeAnswer()
             append(.activity(ActivityEntry(activity)), id: activity.id)
+            lastAt = activity.at
         case .compaction(let compaction):
             closeFold()
             append(.marker(.compaction(compaction)), id: compaction.id)
+            lastAt = compaction.at
         case .modelChange(let change):
             closeFold()
             append(.marker(.model(change)), id: change.id)
+            lastAt = change.at ?? lastAt
         case .runBoundary(let boundary):
             closeFold()
             if case .completed = boundary.outcome {} else {
                 append(.marker(.outcome(boundary.outcome)), id: boundary.id)
             }
+            lastAt = boundary.at
         }
     }
 
@@ -103,6 +108,9 @@ struct ChatTimeline {
         }
         let blocks = format(text, open)
         guard !blocks.isEmpty else { return }
+        if let at, fold?.endedAt == nil || fold?.endedAt == fold?.startedAt {
+            fold?.endedAt = at
+        }
         closeFold()
         for (index, block) in blocks.enumerated() {
             let next = index + 1 < blocks.count ? blocks[index + 1].containers.map(\.id) : []

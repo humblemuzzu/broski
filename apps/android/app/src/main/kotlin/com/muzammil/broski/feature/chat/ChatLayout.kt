@@ -146,9 +146,10 @@ private fun Header(model: ChatViewModel, context: FeatureContext, dialogs: ChatD
             scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(header.title ?: "", text))) }
         },
     )
+    val blocked = live.snapshot.interactions.any { it.blocksRun }
     ChatTopBar(
         header = header,
-        runStartedAt = live.snapshot.run?.startedAt,
+        runStartedAt = if (blocked) null else live.snapshot.run?.startedAt,
         contextUsed = usage?.contextTokens?.let { used -> window?.let { (used.toFloat() / it).coerceIn(0f, 1f) } },
         scrolledUnder = scrolledUnder,
         onBack = context.back,

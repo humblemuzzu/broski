@@ -23,6 +23,8 @@ import { LineTranslator } from "./translate";
 const QUIET_MS = 2_500;
 /** Lines older than the tail's start (by their own timestamps) that a reset re-reads are history, not news. */
 const HISTORY_SLACK_MS = 1_000;
+/** An unsettled turn in the file older than this, with no active terminal process, was abandoned before attach. */
+const STALE_TURN_MS = 15_000;
 
 export class WatchedSession {
 	readonly live: LiveState;
@@ -62,10 +64,10 @@ export class WatchedSession {
 	 * Starts at the end of the file. What it held is the transcript's to show, except a turn still under way: that one is
 	 * the open snapshot's run, so its running tools can be finished, and its asks answered, by what is written next.
 	 */
-	static async open(path: string, clock: Clock): Promise<WatchedSession> {
+	static async open(path: string, clock: Clock, activeProcess = false): Promise<WatchedSession> {
 		const tail = new TranscriptTail(path);
 		const translator = new LineTranslator();
-		const initial = seeded(translator, await tail.attach(), clock.now());
+		const initial = seeded(translator, await tail.attach(), clock.now(), activeProcess);
 		return new WatchedSession(path, clock, tail, translator, initial);
 	}
 
@@ -137,6 +139,20 @@ export class WatchedSession {
 		});
 	}
 
+	/** The terminal process holding this session went idle or exited: finish any open run after its last flush. */
+	terminalIdle(): void {
+		if (this.closed || this.translator.runId === undefined) return;
+		this.cancelQuiet?.();
+		this.cancelQuiet = this.clock.after(QUIET_MS, () => {
+			this.cancelQuiet = undefined;
+			if (!this.closed && this.desk.size === 0) {
+				void this.catchUp().then(() => {
+					if (!this.closed && this.desk.size === 0) this.publish(this.translator.finishOpen());
+				});
+			}
+		});
+	}
+
 	/** An ask is a turn under way: a settled run the file never closed is over, and the ask gets a run of its own. */
 	private ensureRun(): RunId {
 		this.publish(this.translator.settle());
@@ -164,11 +180,23 @@ export class WatchedSession {
 }
 
 /** The live state of the lines already in the file: the turn still under way, else nothing. */
-function seeded(translator: LineTranslator, lines: readonly string[], now: number): SessionSnapshot {
-	const events = lines.flatMap((line) => translator.translate(parse(line)));
-	events.push(...translator.settle());
+function seeded(
+	translator: LineTranslator,
+	lines: readonly string[],
+	now: number,
+	activeProcess: boolean,
+): SessionSnapshot {
+	let lastAt: number | undefined;
+	const timed = lines.flatMap((line) => {
+		const entry = parse(line);
+		const at = entryTime(entry);
+		if (at !== undefined) lastAt = at;
+		return translator.translate(entry).map(({ event }) => ({ at: at ?? now, event }));
+	});
+	for (const { event } of translator.settle()) timed.push({ at: lastAt ?? now, event });
+	if (!activeProcess && lastAt !== undefined && now - lastAt > STALE_TURN_MS) return emptySnapshot();
 	try {
-		const state = events.reduce((snapshot, { event }) => applyEvent(snapshot, { at: now, event }), emptySnapshot());
+		const state = timed.reduce((snapshot, record) => applyEvent(snapshot, record), emptySnapshot());
 		return state.run === undefined ? emptySnapshot() : state;
 	} catch {
 		return emptySnapshot();
@@ -183,8 +211,13 @@ function parse(line: string): unknown {
 	}
 }
 
-function isHistory(entry: unknown, attachedAt: number): boolean {
-	if (typeof entry !== "object" || entry === null || !("timestamp" in entry)) return false;
+function entryTime(entry: unknown): number | undefined {
+	if (typeof entry !== "object" || entry === null || !("timestamp" in entry)) return undefined;
 	const stamp = typeof entry.timestamp === "string" ? Date.parse(entry.timestamp) : Number.NaN;
-	return Number.isFinite(stamp) && stamp < attachedAt - HISTORY_SLACK_MS;
+	return Number.isFinite(stamp) && stamp >= 0 ? Math.trunc(stamp) : undefined;
+}
+
+function isHistory(entry: unknown, attachedAt: number): boolean {
+	const stamp = entryTime(entry);
+	return stamp !== undefined && stamp < attachedAt - HISTORY_SLACK_MS;
 }

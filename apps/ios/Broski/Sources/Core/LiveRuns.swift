@@ -6,16 +6,37 @@ import os
 /// Picks what the Live Activity shows from the inbox's rows: every live session, those that need
 /// the person first and then the most recently updated, the first of them focused.
 struct LiveRunTracker {
-    /// When each live session was first seen live, for the activity's elapsed time.
-    private(set) var firstSeen: [InboxRow.Key: Date] = [:]
+    private static let realTimestampFloor: Int64 = 1_000_000_000_000
 
-    mutating func state(for rows: [InboxRow], now: Date) -> RunActivityAttributes.ContentState? {
-        let live = rows.filter { $0.state == .needsYou || $0.state == .working }.sorted {
+    /// When each live session started or was first seen live, for the activity's elapsed time.
+    private(set) var firstSeen: [InboxRow.Key: Date] = [:]
+    private var settledSeen: Set<InboxRow.Key> = []
+
+    mutating func seed(key: InboxRow.Key, startedAt: Date) {
+        firstSeen[key] = startedAt
+    }
+
+    mutating func state(
+        for rows: [InboxRow], reachableMachines: Set<String>? = nil, now: Date
+    ) -> RunActivityAttributes.ContentState? {
+        let reachable = rows.filter {
+            !$0.cached && (reachableMachines?.contains($0.machineId) ?? true)
+        }
+        for row in reachable where row.state == .done || row.state == .idle {
+            settledSeen.insert(row.key)
+        }
+        let live = reachable.filter { $0.state == .needsYou || $0.state == .working }.sorted {
             ($0.state == .needsYou ? 0 : 1, -$0.updatedAt) < ($1.state == .needsYou ? 0 : 1, -$1.updatedAt)
         }
         let keys = Set(live.map(\.key))
         firstSeen = firstSeen.filter { keys.contains($0.key) }
-        for key in keys where firstSeen[key] == nil { firstSeen[key] = now }
+        for row in live where firstSeen[row.key] == nil {
+            if !settledSeen.contains(row.key) && row.updatedAt >= Self.realTimestampFloor {
+                firstSeen[row.key] = min(now, Date(unixMilliseconds: row.updatedAt))
+            } else {
+                firstSeen[row.key] = now
+            }
+        }
         guard let focused = live.first else { return nil }
         return RunActivityAttributes.ContentState(
             phase: focused.phase,
@@ -61,13 +82,21 @@ final class LiveRuns {
         let running = ActivityKit.Activity<RunActivityAttributes>.activities
         activityId = running.first?.id
         shown = running.first?.content.state
+        if let shown, let backend = BackendId(wireName: shown.backend) {
+            let key = InboxRow.Key(
+                machineId: shown.machineId,
+                session: SessionRef(backend: backend, sessionId: shown.sessionId))
+            tracker.seed(key: key, startedAt: shown.startedAt)
+        }
         for stale in running.dropFirst().map(\.id) {
             Task { await Self.end(stale, with: nil, dismissal: .immediate) }
         }
     }
 
-    func follow(_ rows: [InboxRow]) {
-        let state = tracker.state(for: rows, now: .now)
+    var isShowing: Bool { activityId != nil }
+
+    func follow(_ rows: [InboxRow], reachableMachines: Set<String>? = nil) {
+        let state = tracker.state(for: rows, reachableMachines: reachableMachines, now: .now)
         guard state != shown else { return }
         pending?.cancel()
         let wait = lastUpdate + Self.minimumGap - ContinuousClock.now
@@ -76,6 +105,17 @@ final class LiveRuns {
             guard !Task.isCancelled else { return }
             await self?.show(state)
         }
+    }
+
+    /// Ends the activity immediately when the app is about to be suspended and its link paused,
+    /// so the Lock Screen never keeps a timer counting on its own after the session stopped.
+    func suspend() async {
+        pending?.cancel()
+        pending = nil
+        guard let id = activityId else { return }
+        activityId = nil
+        shown = nil
+        await Self.end(id, with: nil, dismissal: .immediate)
     }
 
     private func show(_ state: RunActivityAttributes.ContentState?) async {
