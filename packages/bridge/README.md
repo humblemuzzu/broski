@@ -118,6 +118,11 @@ nothing from `~/.zshrc`. So at startup the bridge asks your login shell for its 
 That means provider keys, `~/.local/bin` and version-manager shims exported in your shell profile work from the
 phone exactly as they do in your terminal.
 
+The shell starts as a new terminal's does, from the login session's variables alone (`HOME`, `USER`, `SHELL`,
+`PATH`, `TMPDIR`, the locale, `SSH_AUTH_SOCK`, and on Linux the `XDG_*` and display ones), and the bridge keeps
+nothing else of the environment it was started with. A daemon started by hand, from tmux or from an agent's
+command, carries whatever its starter had; the `[shell-env] left out …` line names what was dropped.
+
 - **Changed `~/.zshrc`?** Restart the bridge: run `broski restart`. The environment is
   read once at startup, not per request.
 - **A provider still shows as unavailable?** `broski doctor` resolves the same environment the service resolves and

@@ -5,7 +5,9 @@
  * HOME), so what the user exports in `~/.zshrc` — provider API keys, `~/.local/bin`, version manager
  * shims — is missing from the bridge and every agent it runs, while the same agents work in the user's
  * terminal. This asks the login shell for its environment and replaces `process.env` before any
- * connector or PTY exists.
+ * connector or PTY exists. The shell starts from the login session's variables alone, as a new terminal's
+ * does, and the result keeps nothing else of the environment the bridge was started with: a daemon started
+ * by hand inherits whatever its starter carried, which is no setting of the user's.
  *
  * A `~/.zshrc` change applies on the next bridge start: `broski restart`, or the app's restart button
  * (`bridge_restart`, which the link daemon answers by replacing the bridge process).
@@ -13,13 +15,15 @@
 
 import { isCompiledBinary } from "../compiled-binary";
 import { isInsideRealHome, isIsolationActive } from "../safety/real-home-guard";
-import { mergeShellEnv } from "./shell-env-parse";
+import { mergeShellEnv, sessionEnv } from "./shell-env-parse";
 import { resolveUserShellEnv, type ShellEnvOptions, type ShellEnvResult } from "./shell-env-resolve";
 
 export type { ShellEnvOptions, ShellEnvResult } from "./shell-env-resolve";
 export { resolveShellBinary, resolveUserShellEnv, SHELL_ENV_TIMEOUT_MS } from "./shell-env-resolve";
 
 /** The two ways a bridge starts without a terminal: the daemon's flags, or no TTY at all. */
+const LEFT_NAMES_SHOWN = 40;
+
 export type ServiceStartHint = {
 	daemon?: boolean;
 	linkSocket?: string;
@@ -88,7 +92,7 @@ export async function applyServiceShellEnv(
 		shell: options.shell,
 		timeoutMs: options.timeoutMs,
 		maxBytes: options.maxBytes,
-		env: target,
+		env: sessionEnv(target),
 	});
 	if (!resolved.ok) {
 		log.warn(`[shell-env] continuing with the service environment (${resolved.reason})`);
@@ -101,5 +105,10 @@ export async function applyServiceShellEnv(
 		`[shell-env] imported ${merged.imported} variables from ${resolved.shell} in ${Date.now() - started}ms, ` +
 			`left ${merged.dropped.length} shell-only names behind`,
 	);
+	if (merged.left.length > 0) {
+		const shown = merged.left.slice(0, LEFT_NAMES_SHOWN).join(", ");
+		const more = merged.left.length > LEFT_NAMES_SHOWN ? `, and ${merged.left.length - LEFT_NAMES_SHOWN} more` : "";
+		log.info(`[shell-env] left out ${merged.left.length} variables the bridge was started with: ${shown}${more}`);
+	}
 	return resolved;
 }

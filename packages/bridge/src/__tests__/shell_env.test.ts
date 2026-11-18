@@ -221,6 +221,30 @@ describe("applyServiceShellEnv", () => {
 	});
 
 	test.skipIf(!existsSync(ZSH))(
+		"what the bridge's starter carried reaches neither the user's shell nor the agents, and is named in the log",
+		async () => {
+			const home = tempHome(
+				".zshrc",
+				'export SAW_ROLE="$PI_SUBAGENT_TOOLS"\nexport BROSKI_TEST_SECRET_KEY=shell-value\n',
+			);
+			const target: NodeJS.ProcessEnv = { ...serviceEnv(home), PI_SUBAGENT_TOOLS: "read,chad", CLAUDECODE: "1" };
+			const log = recorder();
+
+			const applied = await applyServiceShellEnv(log, { target, daemon: true });
+
+			expect(applied?.ok).toBe(true);
+			expect(target.SAW_ROLE).toBe("");
+			expect(target.PI_SUBAGENT_TOOLS).toBeUndefined();
+			expect(target.CLAUDECODE).toBeUndefined();
+			expect(target.BROSKI_TEST_SECRET_KEY).toBe("shell-value");
+			expect(log.infos[1]).toBe(
+				"[shell-env] left out 2 variables the bridge was started with: CLAUDECODE, PI_SUBAGENT_TOOLS",
+			);
+			expect(log.infos.join("\n")).not.toContain("read,chad");
+		},
+	);
+
+	test.skipIf(!existsSync(ZSH))(
 		"a failing shell leaves the service environment standing, with one warning",
 		async () => {
 			const home = tempHome(".zshrc", "sleep 30\n");

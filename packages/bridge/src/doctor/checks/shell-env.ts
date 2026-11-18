@@ -10,6 +10,7 @@ import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { resolve } from "node:path";
 import { resolvesRealHome } from "../../platform/shell-env";
+import { sessionEnv } from "../../platform/shell-env-parse";
 import { resolveUserShellEnv } from "../../platform/shell-env-resolve";
 import { isIsolationActive } from "../../safety/real-home-guard";
 import type { CheckResult } from "../types";
@@ -67,7 +68,11 @@ export async function runShellEnvChecks(options: ShellEnvCheckOptions = {}): Pro
 		];
 	}
 
-	const resolved = await resolveUserShellEnv({ shell: options.shell, env, timeoutMs: options.timeoutMs });
+	const resolved = await resolveUserShellEnv({
+		shell: options.shell,
+		env: sessionEnv(env),
+		timeoutMs: options.timeoutMs,
+	});
 	const results: CheckResult[] = [];
 
 	if (resolved.ok) {

@@ -145,8 +145,28 @@ describe("mergeShellEnv", () => {
 		expect(merged.env.BROSKI_LINK_SOCKET).toBe("/tmp/bridge.sock");
 	});
 
-	test("a name only the service environment has survives", () => {
-		expect(mergeShellEnv(serviceEnv, shellEnv).env.PI_CODING_AGENT_DIR).toBe("/tmp/agent");
+	test("of what the bridge was started with, only the login session's names and its own survive", () => {
+		const started = {
+			...serviceEnv,
+			SSH_AUTH_SOCK: "/tmp/agent.sock",
+			LC_ALL: "en_US.UTF-8",
+			XDG_RUNTIME_DIR: "/run/user/501",
+			PI_SUBAGENT_TOOLS: "read,chad",
+			TMUX: "/tmp/tmux-501/default,1,0",
+		};
+		const merged = mergeShellEnv(started, shellEnv);
+
+		for (const kept of ["SSH_AUTH_SOCK", "LC_ALL", "XDG_RUNTIME_DIR", "LANG", "BROSKI_LINK_SOCKET"]) {
+			expect(merged.env[kept]).toBe(started[kept as keyof typeof started]);
+		}
+		for (const left of ["PI_SUBAGENT_TOOLS", "PI_CODING_AGENT_DIR", "TMUX"]) expect(merged.env[left]).toBeUndefined();
+		expect(merged.left).toEqual(["PI_CODING_AGENT_DIR", "PI_SUBAGENT_TOOLS", "TMUX"]);
+	});
+
+	test("a name the shell exports is kept even when the bridge was started with it too", () => {
+		const merged = mergeShellEnv({ ...serviceEnv, EDITOR: "nano" }, { ...shellEnv, EDITOR: "vim" });
+		expect(merged.env.EDITOR).toBe("vim");
+		expect(merged.left).not.toContain("EDITOR");
 	});
 
 	test("service PATH entries the shell lacks are appended, once", () => {

@@ -25,8 +25,10 @@ packaged for both native apps, and the iOS and Android apps.
   link socket.
 - **The bridge's environment** — a service start inherits only `PATH` and `HOME`, so at startup the bridge asks the
   user's login shell once (`platform/shell-env.ts`: one interactive `env -0` between markers, 10 s timeout,
-  process-group kill) and runs every agent and PTY with the result. A compiled binary never takes `BROSKI_*`/`BUN_*`
-  from a shell.
+  process-group kill) and runs every agent and PTY with the result. The shell starts from the login session's own
+  variables (`SESSION_NAMES` in `platform/shell-env-parse.ts`), and nothing else the bridge was started with
+  survives: a daemon started by hand (tmux, an agent's command) would otherwise hand its starter's variables, such as a
+  sub-agent's `PI_SUBAGENT_TOOLS`, to every agent. A compiled binary never takes `BROSKI_*`/`BUN_*` from a shell.
 - **broski-link daemon** (`packages/link/daemon/`, Rust) — a launchd (macOS) / systemd (Linux) service installed by
   `broski install`; supervises the bridge, terminates the Noise session with each paired phone, dials the relay.
   Windows is not supported.

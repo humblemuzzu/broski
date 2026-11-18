@@ -129,6 +129,45 @@ export function isBridgeOwned(name: string): boolean {
 	return BRIDGE_OWNED_PREFIXES.some((prefix) => name.startsWith(prefix));
 }
 
+/**
+ * What a new terminal inherits from the user's login session before its shell runs: who and where the user is,
+ * the locale, the ssh agent, and on Linux the desktop session. The process that started the bridge can carry
+ * anything besides (a tmux server keeps the environment of whoever started it, and an agent's command may have
+ * exported its own role), and an agent the bridge runs would take it for the user's setting.
+ */
+export const SESSION_NAMES: ReadonlySet<string> = new Set([
+	"HOME",
+	"USER",
+	"LOGNAME",
+	"SHELL",
+	"PATH",
+	"TMPDIR",
+	"LANG",
+	"LANGUAGE",
+	"TZ",
+	"SSH_AUTH_SOCK",
+	"__CF_USER_TEXT_ENCODING",
+	"COMMAND_MODE",
+	"DISPLAY",
+	"WAYLAND_DISPLAY",
+	"DBUS_SESSION_BUS_ADDRESS",
+]);
+
+export const SESSION_PREFIXES: readonly string[] = ["LC_", "XDG_"];
+
+function isSessionName(name: string): boolean {
+	return SESSION_NAMES.has(name) || SESSION_PREFIXES.some((prefix) => name.startsWith(prefix));
+}
+
+/** The part of the service environment a terminal would also have, and the bridge's own names: what the login shell starts from. */
+export function sessionEnv(serviceEnv: NodeJS.ProcessEnv): Record<string, string> {
+	const env: Record<string, string> = {};
+	for (const [name, value] of Object.entries(serviceEnv)) {
+		if (value !== undefined && (isSessionName(name) || isBridgeOwned(name))) env[name] = value;
+	}
+	return env;
+}
+
 export type MergeShellEnvOptions = {
 	pathDelimiter?: string;
 	/** False in a compiled binary: the bridge's own switches never come from a shell rc file there. */
@@ -141,6 +180,8 @@ export type ShellEnvMerge = {
 	imported: number;
 	/** Shell names deliberately left out, sorted, for the log line. */
 	dropped: string[];
+	/** Names the service environment had that neither the session nor the shell gives, sorted, for the log line. */
+	left: string[];
 };
 
 /**
@@ -148,7 +189,8 @@ export type ShellEnvMerge = {
  *
  * - the shell wins for everything it reported, except `HOME` and, where the service set one, a bridge-owned
  *   name (see `BRIDGE_OWNED_*`);
- * - a name only the service environment has survives, so a wrapper's `PI_CODING_AGENT_DIR` is kept;
+ * - of the names only the service environment has, the login session's (`SESSION_*`) and the bridge's own
+ *   survive; the rest belonged to whatever started the bridge, and are left out (`left`);
  * - `PATH` is the shell's, with any service entry it lacks appended;
  * - shell-run artefacts (`SHELL_NOISE_NAMES`/`SHELL_NOISE_PREFIXES`) are dropped.
  */
@@ -159,12 +201,8 @@ export function mergeShellEnv(
 ): ShellEnvMerge {
 	const pathDelimiter = options.pathDelimiter ?? delimiter;
 	const bridgeNamesFromShell = options.bridgeNamesFromShell ?? true;
-	const env: Record<string, string> = {};
+	const env = sessionEnv(serviceEnv);
 	const dropped: string[] = [];
-
-	for (const [name, value] of Object.entries(serviceEnv)) {
-		if (value !== undefined) env[name] = value;
-	}
 
 	let imported = 0;
 	for (const [name, value] of Object.entries(shellEnv)) {
@@ -180,8 +218,11 @@ export function mergeShellEnv(
 	const path = mergePath(shellEnv.PATH, serviceEnv.PATH, pathDelimiter);
 	if (path !== undefined) env.PATH = path;
 
+	const left = Object.keys(serviceEnv)
+		.filter((name) => serviceEnv[name] !== undefined && !(name in env))
+		.sort();
 	dropped.sort();
-	return { env, imported, dropped };
+	return { env, imported, dropped, left };
 }
 
 function mergePath(
