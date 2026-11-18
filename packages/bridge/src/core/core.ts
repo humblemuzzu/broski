@@ -23,6 +23,7 @@ import type {
 	DirectoryPolicy,
 	PromptJournal,
 	ReplacementJournal,
+	UsageReader,
 	WorkspaceFactory,
 	WorkspaceHost,
 } from "./ports";
@@ -48,6 +49,8 @@ export interface CoreOptions {
 	readonly replay?: ReplayWindow;
 	/** Told of every event of every open session, viewed or not. */
 	readonly observer?: CoreObserver;
+	/** The plans' usage; without it `plan.usage` is `unsupported`. */
+	readonly usage?: UsageReader;
 	/** The machine's files, git and terminals; without it every workspace request is `unsupported`. */
 	readonly workspace?: WorkspaceFactory;
 }
@@ -114,6 +117,7 @@ export class BridgeCore {
 			replacements,
 			directories: options.directories,
 			workspace: this.workspace,
+			usage: options.usage,
 			terminals: this.terminals,
 			bridgeVersion: options.bridgeVersion,
 			maxFrameBytes: options.maxFrameBytes,

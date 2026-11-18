@@ -5,6 +5,8 @@ import { defaultHoldersRoot } from "../backends/pi/holder/holders";
 import { agentDirOf } from "../backends/pi/pi-install";
 import { defaultLinkDirectory } from "../backends/pi/terminal/link";
 import { readConfig } from "../config";
+import { machineSystem } from "../usage/system";
+import { machineUsage } from "../usage/usage-reader";
 import type { ClaudeCodeWiring } from "./claude-code-wiring";
 import type { ContractOptions } from "./contract-seam";
 import { phoneWriting } from "./phone-writing";
@@ -32,12 +34,13 @@ const piBackend: ReturnType<typeof piBackendFactory> = async (host) => {
 	})(host);
 };
 
-/** The backends the bridge core serves: Pi and Claude Code. */
+/** The backends the bridge core serves, Pi and Claude Code, and the usage of the plans they run on. */
 export function contractOptions(claudeCode: ClaudeCodeWiring): ContractOptions {
 	return {
 		backends: [
 			["pi", piBackend],
 			["claude-code", claudeCode.backend],
 		],
+		usage: (log) => machineUsage(machineSystem(agentDirOf(process.env)), join(homedir(), ".broski"), log),
 	};
 }

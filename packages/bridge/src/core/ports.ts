@@ -11,6 +11,7 @@ import type {
 	GitDiffResult,
 	GitLogResult,
 	GitStatusResult,
+	PlanUsageResult,
 	PromptAccepted,
 	SessionRef,
 	StreamEpoch,
@@ -105,6 +106,14 @@ export interface WorkspaceHost {
 	};
 	/** Bridge shutdown: every terminal ends. */
 	dispose(): Promise<void>;
+}
+
+/**
+ * The subscription plans signed in on the machine and how much of each is used, which the bridge reads itself from
+ * the agents' sign-ins, not through a backend. `read` never throws: a plan it could not read carries its `problem`.
+ */
+export interface UsageReader {
+	read(): Promise<PlanUsageResult>;
 }
 
 /** Where the workspace's terminals send their output and exits; it never throws. */

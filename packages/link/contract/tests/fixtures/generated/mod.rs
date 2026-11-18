@@ -26,6 +26,8 @@ pub const CONSTANTS: &[(&str, usize)] = &[
     ("MAX_TERMINAL_OUTPUT_BYTES", MAX_TERMINAL_OUTPUT_BYTES),
     ("MAX_TERMINAL_OUTPUT_CHARS", MAX_TERMINAL_OUTPUT_CHARS),
     ("MAX_TEXT_CHARS", MAX_TEXT_CHARS),
+    ("MAX_USAGE_POINTS", MAX_USAGE_POINTS),
+    ("MAX_USAGE_WINDOWS", MAX_USAGE_WINDOWS),
     ("REQUEST_DEADLINE_MS", REQUEST_DEADLINE_MS),
 ];
 
@@ -261,7 +263,13 @@ pub fn visit_types(visitor: &mut impl TypeVisitor) {
     visitor.tagged::<PlanApprovalReply>("PlanApprovalReply");
     visitor.tagged::<PlanApprovalRequest>("PlanApprovalRequest");
     visitor.plain::<PlanDecision>("PlanDecision");
+    visitor.plain::<PlanId>("PlanId");
+    visitor.plain::<PlanMeter>("PlanMeter");
     visitor.plain::<PlanModeOptions>("PlanModeOptions");
+    visitor.tagged::<PlanUsage>("PlanUsage");
+    visitor.tagged::<PlanUsageRequest>("PlanUsageRequest");
+    visitor.tagged::<PlanUsageResponse>("PlanUsageResponse");
+    visitor.plain::<PlanUsageResult>("PlanUsageResult");
     visitor.tagged::<PromptAccepted>("PromptAccepted");
     visitor.plain::<PromptDisposition>("PromptDisposition");
     visitor.plain::<PromptInput>("PromptInput");
@@ -420,7 +428,10 @@ pub fn visit_types(visitor: &mut impl TypeVisitor) {
     visitor.tagged::<TranscriptReadResponse>("TranscriptReadResponse");
     visitor.plain::<TranscriptReadResult>("TranscriptReadResult");
     visitor.plain::<Usage>("Usage");
+    visitor.plain::<UsagePoint>("UsagePoint");
+    visitor.plain::<UsageSpan>("UsageSpan");
     visitor.tagged::<UsageUpdatedEvent>("UsageUpdatedEvent");
+    visitor.plain::<UsageWindow>("UsageWindow");
     visitor.tagged::<UserMessageEvent>("UserMessageEvent");
     visitor.tagged::<UserMessageItem>("UserMessageItem");
     visitor.plain::<WebUrl>("WebUrl");

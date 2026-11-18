@@ -12,6 +12,7 @@
 	<array>
 		<string>$(AppIdentifierPrefix)com.muzammil.broski</string>
 		<string>$(AppIdentifierPrefix)com.muzammil.broski.push</string>
+		<string>$(AppIdentifierPrefix)com.muzammil.broski.widgets</string>
 	</array>
 </dict>
 </plist>

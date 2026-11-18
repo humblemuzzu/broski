@@ -1274,6 +1274,9 @@
           "$ref": "#/$defs/CompactRequest"
         },
         {
+          "$ref": "#/$defs/PlanUsageRequest"
+        },
+        {
           "$ref": "#/$defs/WorkspaceInfoRequest"
         },
         {
@@ -5279,6 +5282,50 @@
         "reject"
       ]
     },
+    "PlanId": {
+      "x-module": "plan-usage",
+      "$id": "#/$defs/PlanId",
+      "type": "string",
+      "enum": [
+        "claude",
+        "antigravity"
+      ]
+    },
+    "PlanMeter": {
+      "x-module": "plan-usage",
+      "$id": "#/$defs/PlanMeter",
+      "type": "object",
+      "properties": {
+        "plan": {
+          "$ref": "#/$defs/PlanId"
+        },
+        "tier": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "windows": {
+          "maxItems": 16,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/UsageWindow"
+          }
+        },
+        "readAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "problem": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        }
+      },
+      "required": [
+        "plan",
+        "windows"
+      ],
+      "additionalProperties": false
+    },
     "PlanModeOptions": {
       "x-module": "interactions",
       "$id": "#/$defs/PlanModeOptions",
@@ -5305,6 +5352,83 @@
         "options"
       ],
       "additionalProperties": false
+    },
+    "PlanUsage": {
+      "x-module": "plan-usage",
+      "$id": "#/$defs/PlanUsage",
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "accepted"
+        },
+        "meters": {
+          "maxItems": 2,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PlanMeter"
+          }
+        }
+      },
+      "required": [
+        "status",
+        "meters"
+      ],
+      "additionalProperties": false
+    },
+    "PlanUsageRequest": {
+      "x-module": "protocol",
+      "$id": "#/$defs/PlanUsageRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "plan.usage"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        }
+      },
+      "required": [
+        "type",
+        "requestId"
+      ],
+      "additionalProperties": false
+    },
+    "PlanUsageResponse": {
+      "x-module": "protocol",
+      "$id": "#/$defs/PlanUsageResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "plan.usage.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/PlanUsageResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "PlanUsageResult": {
+      "x-module": "plan-usage",
+      "$id": "#/$defs/PlanUsageResult",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/PlanUsage"
+        },
+        {
+          "$ref": "#/$defs/Rejected"
+        }
+      ]
     },
     "PromptAccepted": {
       "x-module": "input",
@@ -6360,6 +6484,9 @@
         },
         {
           "$ref": "#/$defs/CompactResponse"
+        },
+        {
+          "$ref": "#/$defs/PlanUsageResponse"
         },
         {
           "$ref": "#/$defs/WorkspaceInfoResponse"
@@ -8963,6 +9090,35 @@
       },
       "additionalProperties": false
     },
+    "UsagePoint": {
+      "x-module": "plan-usage",
+      "$id": "#/$defs/UsagePoint",
+      "type": "object",
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "usedPercent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      "required": [
+        "at",
+        "usedPercent"
+      ],
+      "additionalProperties": false
+    },
+    "UsageSpan": {
+      "x-module": "plan-usage",
+      "$id": "#/$defs/UsageSpan",
+      "type": "string",
+      "enum": [
+        "five_hour",
+        "week"
+      ]
+    },
     "UsageUpdatedEvent": {
       "x-module": "events",
       "$id": "#/$defs/UsageUpdatedEvent",
@@ -8979,6 +9135,47 @@
       "required": [
         "type",
         "usage"
+      ],
+      "additionalProperties": false
+    },
+    "UsageWindow": {
+      "x-module": "plan-usage",
+      "$id": "#/$defs/UsageWindow",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "span": {
+          "$ref": "#/$defs/UsageSpan"
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "usedPercent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "resetsAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "history": {
+          "maxItems": 128,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/UsagePoint"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "span",
+        "usedPercent"
       ],
       "additionalProperties": false
     },

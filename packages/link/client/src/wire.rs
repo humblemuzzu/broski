@@ -30,6 +30,7 @@ pub(crate) fn stamped(mut message: ClientMessage, id: &str) -> ClientMessage {
         ClientMessage::ThinkingSet(request) => &mut request.request_id,
         ClientMessage::ModeSet(request) => &mut request.request_id,
         ClientMessage::Compact(request) => &mut request.request_id,
+        ClientMessage::PlanUsage(request) => &mut request.request_id,
         ClientMessage::WorkspaceInfo(request) => &mut request.request_id,
         ClientMessage::FsList(request) => &mut request.request_id,
         ClientMessage::FsRead(request) => &mut request.request_id,
@@ -82,6 +83,7 @@ pub(crate) fn repeatable(message: &ClientMessage) -> bool {
         | ClientMessage::SessionGet(_)
         | ClientMessage::TranscriptRead(_)
         | ClientMessage::AttachmentRead(_)
+        | ClientMessage::PlanUsage(_)
         | ClientMessage::WorkspaceInfo(_)
         | ClientMessage::FsList(_)
         | ClientMessage::FsRead(_)
@@ -153,6 +155,7 @@ pub(crate) fn classify(message: ServerMessage) -> Incoming {
         ServerMessage::ThinkingSetResult(answer) => &answer.request_id,
         ServerMessage::ModeSetResult(answer) => &answer.request_id,
         ServerMessage::CompactResult(answer) => &answer.request_id,
+        ServerMessage::PlanUsageResult(answer) => &answer.request_id,
         ServerMessage::WorkspaceInfoResult(answer) => &answer.request_id,
         ServerMessage::FsListResult(answer) => &answer.request_id,
         ServerMessage::FsReadResult(answer) => &answer.request_id,

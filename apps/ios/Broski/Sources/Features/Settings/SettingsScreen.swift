@@ -17,6 +17,15 @@ struct SettingsScreen: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section {
+                    NavigationLink {
+                        UsageScreen()
+                    } label: {
+                        Label("Plan Usage", systemImage: "gauge.with.needle")
+                    }
+                } footer: {
+                    Text("Your Claude and Antigravity limits, as your Mac reads them.")
+                }
                 notifications
                 Section {
                     NavigationLink {

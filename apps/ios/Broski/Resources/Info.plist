@@ -47,6 +47,16 @@
 	<string>Broski records your voice when you hold or tap the mic, and turns it into text for your prompt.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Without an xAI key, or offline, Broski turns your recording into text on this iPhone.</string>
+	<key>BroskiWidgetsKeychainGroup</key>
+	<string>$(DEVELOPMENT_TEAM).com.muzammil.broski.widgets</string>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.muzammil.broski.usage-refresh</string>
+	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+	</array>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>NSLocalNetworkUsageDescription</key>

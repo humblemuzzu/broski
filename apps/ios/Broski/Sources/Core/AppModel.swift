@@ -31,6 +31,7 @@ final class AppModel {
     /// What the person was writing in each chat, kept when they leave it.
     let drafts = DraftStore()
     let dictation = Dictation()
+    let usage = UsageModel()
 
     @ObservationIgnored private let storage: PhoneStorage
     @ObservationIgnored private var phone: Phone?
@@ -141,14 +142,56 @@ final class AppModel {
             // starts now.
             liveRuns?.follow(inbox.rows, reachableMachines: reachableMachineIds)
             Task { await notifications.refresh() }
+            refreshUsage()
         case .background:
             isActive = false
             dictation.sceneLeft()
             holdForDelivery()
+            UsageRefresh.schedule()
         default:
             break
         }
         updateDiscovery()
+    }
+
+    func refreshUsage(force: Bool = false) {
+        Task { await usage.refresh(from: machines, force: force) }
+    }
+
+    /// The background refresh: the link is resumed for it, given a moment to reach a Mac, and paused
+    /// again after, as for Stop on the Live Activity.
+    func refreshUsageInBackground() async {
+        UsageRefresh.schedule()
+        guard let phone, !machines.isEmpty else { return }
+        if !isActive { phone.resume() }
+        let deadline = ContinuousClock.now + UsageRefresh.connectTimeout
+        while !machines.contains(where: \.summary.isReady), ContinuousClock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(250))
+        }
+        await usage.refresh(from: machines, force: true)
+        if !isActive { phone.pause() }
+    }
+
+    /// Usage is read again when a Mac connects, when a run ends, and every five minutes in front.
+    private func followUsage() {
+        Task { [weak self] in
+            guard let self else { return }
+            var reachable: Set<String> = []
+            var working = 0
+            for await (nowReachable, nowWorking) in Observations({ (self.reachableMachineIds, self.inbox.workingCount) }) {
+                let connected = !nowReachable.isSubset(of: reachable)
+                let ended = nowWorking < working
+                (reachable, working) = (nowReachable, nowWorking)
+                if connected || ended { refreshUsage(force: connected) }
+            }
+        }
+        Task { [weak self] in
+            while true {
+                try? await Task.sleep(for: .seconds(5 * 60))
+                guard let self else { return }
+                if self.isActive { self.refreshUsage() }
+            }
+        }
     }
 
     private var reachableMachineIds: Set<String> {
@@ -246,6 +289,7 @@ final class AppModel {
         }
         inbox.start(core, storage: storage)
         followLiveRuns()
+        followUsage()
         pathWatcher = PathWatcher { [weak self] in
             self?.phone?.networkChanged()
             self?.discovery.networkChanged()

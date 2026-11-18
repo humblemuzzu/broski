@@ -2,7 +2,7 @@ import type { AgentBackend, BackendId, ClientMessage, ErrorResponse, ResponseFor
 import type { BackendRegistry } from "./backend-registry";
 import type { CoreClient } from "./client";
 import type { InteractionDesk } from "./interaction-desk";
-import type { CoreClock, CoreLog, DirectoryPolicy, WorkspaceHost } from "./ports";
+import type { CoreClock, CoreLog, DirectoryPolicy, UsageReader, WorkspaceHost } from "./ports";
 import type { PromptLedger } from "./prompt-ledger";
 import type { Replacements } from "./replacements";
 import { protocolError } from "./results";
@@ -19,6 +19,8 @@ export interface CoreContext {
 	readonly directories: DirectoryPolicy;
 	/** Absent when the bridge serves no workspace: every workspace request is then `unsupported`. */
 	readonly workspace: WorkspaceHost | undefined;
+	/** Absent when the bridge reads no plan usage: `plan.usage` is then `unsupported`. */
+	readonly usage: UsageReader | undefined;
 	readonly terminals: TerminalViewers;
 	readonly bridgeVersion: string;
 	readonly maxFrameBytes: number;

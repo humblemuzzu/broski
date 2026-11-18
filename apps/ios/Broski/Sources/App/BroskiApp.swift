@@ -24,5 +24,8 @@ struct BroskiApp: App {
         .onChange(of: scenePhase, initial: true) { _, phase in
             model.scenePhaseChanged(phase)
         }
+        .backgroundTask(.appRefresh(UsageRefresh.taskId)) {
+            await model.refreshUsageInBackground()
+        }
     }
 }

@@ -24,6 +24,10 @@ export const MAX_LIST_ITEMS = 1_000;
 /** Nesting of free JSON such as tool input: deeper than any real input, far shallower than a stack. */
 export const MAX_JSON_DEPTH = 64;
 export const MAX_CATALOG_ITEMS = 10_000;
+/** Windows of one plan's usage: Antigravity reports two per model group, Claude one per scoped model. */
+export const MAX_USAGE_WINDOWS = 16;
+/** Readings of one window's history: one per 1/120th of its span, the latest kept within each. */
+export const MAX_USAGE_POINTS = 128;
 /** UTF-8 bytes of one frame: the link's `LINK_MAX_MESSAGE_BYTES` (packages/link/daemon/src/limits.rs). */
 export const MAX_MESSAGE_BYTES = 8 * 1_048_576;
 /** JSON values in one client message: a refused message costs the bridge in proportion to them. */

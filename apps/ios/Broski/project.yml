@@ -3,7 +3,8 @@
 #
 # Every target globs its folders, so a new folder under Sources/Features needs no edit here. The
 # app embeds two extensions: NotificationService (opens pushes with the core; Shared without the
-# Live Activity) and BroskiWidgets (the Live Activity; Shared/LiveActivity only, no core).
+# Live Activity and the usage widgets' files) and BroskiWidgets (the Live Activity and the plan usage
+# widgets: Shared/LiveActivity, Shared/Usage and the keychain, no core).
 name: Broski
 
 options:
@@ -73,6 +74,7 @@ targets:
       - path: Shared
         excludes:
           - LiveActivity/**
+          - Usage/**
     dependencies:
       - package: BroskiCore
         product: BroskiCore
@@ -90,11 +92,15 @@ targets:
     sources:
       - path: Extensions/Widgets
       - path: Shared/LiveActivity
+      - path: Shared/Usage
+      - path: Shared/Keychain.swift
+      - path: Shared/ColorAppearance.swift
       - path: Resources/Assets.xcassets
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.muzammil.broski.Widgets
         INFOPLIST_FILE: Extensions/Widgets/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Extensions/Widgets/Widgets.entitlements
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
         TARGETED_DEVICE_FAMILY: "1,2"

@@ -8,6 +8,7 @@ import { InteractionAnswer } from "./interaction-replies";
 import { MAX_ID_CHARS, MAX_NAME_CHARS, MAX_TEXT_CHARS } from "./limits";
 import { ModeAxisId } from "./modes";
 import { PageRequest } from "./paging";
+import { PlanUsageResult } from "./plan-usage";
 import { RequestId, request, response } from "./protocol-request";
 import {
 	FsListRequest,
@@ -178,6 +179,8 @@ export const CompactRequest = request("compact", {
 	session: SessionRef,
 	instructions: z.string().min(1).max(MAX_TEXT_CHARS).optional(),
 });
+/** How much of each subscription plan signed in on the machine is used; the bridge reads it, not an agent. */
+export const PlanUsageRequest = request("plan.usage", {});
 
 export const ClientMessage = z.discriminatedUnion("type", [
 	HelloRequest,
@@ -204,6 +207,7 @@ export const ClientMessage = z.discriminatedUnion("type", [
 	ThinkingSetRequest,
 	ModeSetRequest,
 	CompactRequest,
+	PlanUsageRequest,
 	WorkspaceInfoRequest,
 	FsListRequest,
 	FsReadRequest,
@@ -258,6 +262,7 @@ export const ModelSetResponse = response("model.set", { result: ActionResult });
 export const ThinkingSetResponse = response("thinking.set", { result: ActionResult });
 export const ModeSetResponse = response("mode.set", { result: ActionResult });
 export const CompactResponse = response("compact", { result: ActionResult });
+export const PlanUsageResponse = response("plan.usage", { result: PlanUsageResult });
 
 /**
  * A request the bridge could not handle at all. Expected outcomes, including an operation the
@@ -316,6 +321,7 @@ export const ServerMessage = z.discriminatedUnion("type", [
 	ThinkingSetResponse,
 	ModeSetResponse,
 	CompactResponse,
+	PlanUsageResponse,
 	WorkspaceInfoResponse,
 	FsListResponse,
 	FsReadResponse,

@@ -5,6 +5,8 @@ import WidgetKit
 struct BroskiWidgets: WidgetBundle {
     var body: some Widget {
         RunActivityWidget()
+        PlanUsageWidget()
+        AllPlansWidget()
     }
 }
 

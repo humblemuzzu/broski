@@ -6,6 +6,7 @@ struct RootView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var pairing: PairingStart?
+    @State private var showingUsage = false
 
     var body: some View {
         Group {
@@ -27,9 +28,23 @@ struct RootView: View {
         .sheet(item: $pairing) { start in
             PairingSheet(start: start)
         }
+        .sheet(isPresented: $showingUsage) {
+            NavigationStack {
+                UsageScreen()
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done", systemImage: "checkmark") { showingUsage = false }
+                        }
+                    }
+            }
+        }
         .onOpenURL { url in
-            guard url.scheme == "broski", url.host() == "pair" else { return }
-            pairing = .link(url.absoluteString)
+            guard url.scheme == "broski" else { return }
+            switch url.host() {
+            case "pair": pairing = .link(url.absoluteString)
+            case "usage" where model.isPaired: showingUsage = true
+            default: break
+            }
         }
     }
 }

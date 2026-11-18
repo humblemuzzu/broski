@@ -7,6 +7,7 @@ import type { CoreClock } from "../core/ports";
 import { allowedBasePaths, resolveSecurePath } from "../security";
 import { frameBytes } from "../transport/send-limits";
 import type { SendQueue } from "../transport/send-queue";
+import type { SampledUsage } from "../usage/usage-reader";
 import { workspaceFactory } from "../workspace/workspace-host";
 import { openPromptJournal } from "./contract-prompt-journal";
 import { openReplacementJournal } from "./contract-replacement-journal";
@@ -29,6 +30,8 @@ export type ContractOptions = {
 	readonly journalDirectory?: string;
 	readonly idleCloseMs?: number;
 	readonly clock?: CoreClock;
+	/** The plans' usage, read on request and every so often from `start` to `stop`; without it `plan.usage` is unsupported. */
+	readonly usage?: (log: (message: string) => void) => SampledUsage;
 };
 
 /** The contract protocol on the bridge's client sockets: every frame a client sends goes to the core. */
@@ -73,8 +76,13 @@ export function createContractSeam(
 	const backends = options?.backends ?? [];
 	const ids = backends.map(([id]) => id);
 	if (new Set(ids).size !== ids.length) throw new Error(`a backend is configured twice: ${ids.join(", ")}`);
-	const core = new BridgeCore(coreOptions(options, backends.length > 0, version, limits, logger));
+	const usage = options?.usage?.(logger.logError);
+	const core = new BridgeCore({
+		...coreOptions(options, backends.length > 0, version, limits, logger),
+		...(usage && { usage }),
+	});
 	const sockets = socketConnections(core, queue);
+	let stopSampling: (() => void) | undefined;
 	return {
 		receive: (ws, raw) =>
 			sockets
@@ -88,8 +96,12 @@ export function createContractSeam(
 		release: (session) => core.release(session),
 		start: () => {
 			for (const [id, factory] of backends) void core.addBackend(id, factory);
+			stopSampling ??= usage?.sample();
 		},
-		stop: () => core.dispose(),
+		stop: () => {
+			stopSampling?.();
+			return core.dispose();
+		},
 	};
 }
 

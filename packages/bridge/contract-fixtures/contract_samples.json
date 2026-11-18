@@ -2329,6 +2329,10 @@
       }
     },
     {
+      "type": "plan.usage",
+      "requestId": "x"
+    },
+    {
       "type": "workspace.info",
       "requestId": "x"
     },
@@ -6145,6 +6149,43 @@
     "approve",
     "reject"
   ],
+  "PlanId": [
+    "claude",
+    "antigravity"
+  ],
+  "PlanMeter": [
+    {
+      "plan": "claude",
+      "tier": "x",
+      "windows": [
+        {
+          "id": "x",
+          "span": "five_hour",
+          "scope": "x",
+          "usedPercent": 1.5,
+          "resetsAt": 1,
+          "history": [
+            {
+              "at": 1,
+              "usedPercent": 1.5
+            }
+          ]
+        }
+      ],
+      "readAt": 1,
+      "problem": "x"
+    },
+    {
+      "plan": "claude",
+      "windows": [
+        {
+          "id": "x",
+          "span": "five_hour",
+          "usedPercent": 1.5
+        }
+      ]
+    }
+  ],
   "PlanModeOptions": [
     {
       "axis": "x",
@@ -6165,6 +6206,156 @@
           "label": "x"
         }
       ]
+    }
+  ],
+  "PlanUsage": [
+    {
+      "status": "accepted",
+      "meters": [
+        {
+          "plan": "claude",
+          "tier": "x",
+          "windows": [
+            {
+              "id": "x",
+              "span": "five_hour",
+              "scope": "x",
+              "usedPercent": 1.5,
+              "resetsAt": 1,
+              "history": [
+                {
+                  "at": 1,
+                  "usedPercent": 1.5
+                }
+              ]
+            }
+          ],
+          "readAt": 1,
+          "problem": "x"
+        }
+      ]
+    },
+    {
+      "status": "accepted",
+      "meters": [
+        {
+          "plan": "claude",
+          "windows": [
+            {
+              "id": "x",
+              "span": "five_hour",
+              "usedPercent": 1.5
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "PlanUsageRequest": [
+    {
+      "type": "plan.usage",
+      "requestId": "x"
+    }
+  ],
+  "PlanUsageResponse": [
+    {
+      "type": "plan.usage.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "meters": [
+          {
+            "plan": "claude",
+            "tier": "x",
+            "windows": [
+              {
+                "id": "x",
+                "span": "five_hour",
+                "scope": "x",
+                "usedPercent": 1.5,
+                "resetsAt": 1,
+                "history": [
+                  {
+                    "at": 1,
+                    "usedPercent": 1.5
+                  }
+                ]
+              }
+            ],
+            "readAt": 1,
+            "problem": "x"
+          }
+        ]
+      }
+    },
+    {
+      "type": "plan.usage.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "meters": [
+          {
+            "plan": "claude",
+            "windows": [
+              {
+                "id": "x",
+                "span": "five_hour",
+                "usedPercent": 1.5
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "PlanUsageResult": [
+    {
+      "status": "accepted",
+      "meters": [
+        {
+          "plan": "claude",
+          "tier": "x",
+          "windows": [
+            {
+              "id": "x",
+              "span": "five_hour",
+              "scope": "x",
+              "usedPercent": 1.5,
+              "resetsAt": 1,
+              "history": [
+                {
+                  "at": 1,
+                  "usedPercent": 1.5
+                }
+              ]
+            }
+          ],
+          "readAt": 1,
+          "problem": "x"
+        }
+      ]
+    },
+    {
+      "status": "accepted",
+      "meters": [
+        {
+          "plan": "claude",
+          "windows": [
+            {
+              "id": "x",
+              "span": "five_hour",
+              "usedPercent": 1.5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "status": "rejected",
+      "rejection": {
+        "code": "busy",
+        "message": "x"
+      }
     }
   ],
   "PromptAccepted": [
@@ -7576,6 +7767,55 @@
       "requestId": "x",
       "result": {
         "status": "accepted"
+      }
+    },
+    {
+      "type": "plan.usage.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "meters": [
+          {
+            "plan": "claude",
+            "tier": "x",
+            "windows": [
+              {
+                "id": "x",
+                "span": "five_hour",
+                "scope": "x",
+                "usedPercent": 1.5,
+                "resetsAt": 1,
+                "history": [
+                  {
+                    "at": 1,
+                    "usedPercent": 1.5
+                  }
+                ]
+              }
+            ],
+            "readAt": 1,
+            "problem": "x"
+          }
+        ]
+      }
+    },
+    {
+      "type": "plan.usage.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "meters": [
+          {
+            "plan": "claude",
+            "windows": [
+              {
+                "id": "x",
+                "span": "five_hour",
+                "usedPercent": 1.5
+              }
+            ]
+          }
+        ]
       }
     },
     {
@@ -11101,6 +11341,16 @@
     },
     {}
   ],
+  "UsagePoint": [
+    {
+      "at": 1,
+      "usedPercent": 1.5
+    }
+  ],
+  "UsageSpan": [
+    "five_hour",
+    "week"
+  ],
   "UsageUpdatedEvent": [
     {
       "type": "usage_updated",
@@ -11118,6 +11368,26 @@
     {
       "type": "usage_updated",
       "usage": {}
+    }
+  ],
+  "UsageWindow": [
+    {
+      "id": "x",
+      "span": "five_hour",
+      "scope": "x",
+      "usedPercent": 1.5,
+      "resetsAt": 1,
+      "history": [
+        {
+          "at": 1,
+          "usedPercent": 1.5
+        }
+      ]
+    },
+    {
+      "id": "x",
+      "span": "five_hour",
+      "usedPercent": 1.5
     }
   ],
   "UserMessageEvent": [

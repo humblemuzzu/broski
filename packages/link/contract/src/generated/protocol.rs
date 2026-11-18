@@ -201,6 +201,8 @@ pub enum ClientMessage {
     ModeSet(ModeSetRequest),
     #[serde(rename = "compact")]
     Compact(CompactRequest),
+    #[serde(rename = "plan.usage")]
+    PlanUsage(PlanUsageRequest),
     #[serde(rename = "workspace.info")]
     WorkspaceInfo(WorkspaceInfoRequest),
     #[serde(rename = "fs.list")]
@@ -503,6 +505,31 @@ impl crate::Tagged for ModesListResponse {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PlanUsageRequest {
+    pub request_id: RequestId,
+}
+
+impl crate::Tagged for PlanUsageRequest {
+    const KEY: &'static str = "type";
+    const TAG: &'static str = "plan.usage";
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PlanUsageResponse {
+    pub request_id: RequestId,
+    pub result: PlanUsageResult,
+}
+
+impl crate::Tagged for PlanUsageResponse {
+    const KEY: &'static str = "type";
+    const TAG: &'static str = "plan.usage.result";
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PromptRequest {
     pub request_id: RequestId,
     pub session: SessionRef,
@@ -669,6 +696,8 @@ pub enum ServerMessage {
     ModeSetResult(ModeSetResponse),
     #[serde(rename = "compact.result")]
     CompactResult(CompactResponse),
+    #[serde(rename = "plan.usage.result")]
+    PlanUsageResult(PlanUsageResponse),
     #[serde(rename = "workspace.info.result")]
     WorkspaceInfoResult(WorkspaceInfoResponse),
     #[serde(rename = "fs.list.result")]

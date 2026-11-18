@@ -23,6 +23,8 @@ pub const MAX_TERMINAL_INPUT_CHARS: usize = 87384;
 pub const MAX_TERMINAL_OUTPUT_BYTES: usize = 524288;
 pub const MAX_TERMINAL_OUTPUT_CHARS: usize = 699052;
 pub const MAX_TEXT_CHARS: usize = 1048576;
+pub const MAX_USAGE_POINTS: usize = 128;
+pub const MAX_USAGE_WINDOWS: usize = 16;
 pub const REQUEST_DEADLINE_MS: usize = 120000;
 
 pub const PROTOCOL_VERSION: ProtocolVersion = ProtocolVersion { major: 1, minor: 0 };

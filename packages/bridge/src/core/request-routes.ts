@@ -32,6 +32,7 @@ import {
 	sessionRename,
 	transcriptRead,
 } from "./requests-sessions";
+import { planUsage } from "./requests-usage";
 import { routeWorkspaceRequest, type WorkspaceMessage } from "./workspace-routes";
 
 /** Every request of `protocol.ts` to its handler; a request type without one does not compile. */
@@ -74,6 +75,8 @@ export function routeRequest(
 			return transcriptRead(ctx, client, request, respond);
 		case "attachment.read":
 			return attachmentRead(ctx, client, request, respond);
+		case "plan.usage":
+			return planUsage(ctx, client, request, respond);
 		default:
 			return routeSessionRequest(ctx, client, request, respond);
 	}

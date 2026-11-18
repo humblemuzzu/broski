@@ -22,6 +22,7 @@ export * from "./modes";
 export * from "./notice";
 export * from "./option";
 export * from "./paging";
+export * from "./plan-usage";
 export * from "./protocol";
 export * from "./protocol-workspace";
 export * from "./queue";

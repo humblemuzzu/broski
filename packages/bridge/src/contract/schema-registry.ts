@@ -18,6 +18,7 @@ import * as modes from "./modes";
 import * as notice from "./notice";
 import * as option from "./option";
 import * as paging from "./paging";
+import * as planUsage from "./plan-usage";
 import * as protocol from "./protocol";
 import * as protocolWorkspace from "./protocol-workspace";
 import * as queue from "./queue";
@@ -58,6 +59,7 @@ const SCHEMA_MODULES = {
 	modes,
 	status,
 	paging,
+	"plan-usage": planUsage,
 	sessions,
 	transcript,
 	snapshot,
