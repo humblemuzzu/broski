@@ -16,6 +16,8 @@ import uniffi.broski_contract.FileEntry
 import uniffi.broski_contract.FileMatch
 
 data class FilesUiState(
+    /** The folder as the bridge spells it, links resolved, once its first page came. */
+    val canonicalPath: String? = null,
     val entries: List<FileEntry> = emptyList(),
     val loading: Boolean = true,
     val loadingMore: Boolean = false,
@@ -44,7 +46,7 @@ class FilesViewModel(private val client: WorkspaceClient, val path: String) : Vi
         listing = viewModelScope.launch {
             when (val answer = client.list(path, cursor = null, hidden = state.value.showHidden)) {
                 is Answer.Done -> mutableState.update {
-                    it.copy(entries = answer.value.entries, nextCursor = answer.value.nextCursor, loading = false)
+                    it.copy(canonicalPath = answer.value.path, entries = answer.value.entries, nextCursor = answer.value.nextCursor, loading = false)
                 }
                 is Answer.Failed -> mutableState.update { it.copy(loading = false, failure = answer.failure) }
             }
@@ -60,7 +62,7 @@ class FilesViewModel(private val client: WorkspaceClient, val path: String) : Vi
         listing = viewModelScope.launch {
             when (val answer = client.list(path, cursor, current.showHidden)) {
                 is Answer.Done -> mutableState.update {
-                    it.copy(entries = it.entries + answer.value.entries, nextCursor = answer.value.nextCursor, loadingMore = false)
+                    it.copy(entries = it.entries + answer.value.entries, nextCursor = answer.value.nextCursor, loadingMore = false, failure = null)
                 }
                 is Answer.Failed -> mutableState.update { it.copy(loadingMore = false, failure = answer.failure) }
             }

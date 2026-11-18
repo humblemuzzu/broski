@@ -1,5 +1,6 @@
 package com.muzammil.broski.feature.newsession
 
+import android.net.Uri
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -10,14 +11,13 @@ import com.muzammil.broski.core.isOnline
 import com.muzammil.broski.core.voice.Dictation
 import com.muzammil.broski.core.voice.DictationTarget
 import com.muzammil.broski.feature.chat.FirstPrompts
-import android.net.Uri
 import com.muzammil.broski.feature.chat.composer.Catalog
 import com.muzammil.broski.feature.chat.composer.CatalogReader
-import com.muzammil.broski.feature.chat.composer.ImageAttachments
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
 import com.muzammil.broski.feature.chat.composer.ComposerState
+import com.muzammil.broski.feature.chat.composer.ImageAttachments
+import com.muzammil.broski.feature.workspace.Answer
+import com.muzammil.broski.feature.workspace.WorkspaceClient
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -26,6 +26,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -43,42 +46,72 @@ import uniffi.broski_core.ClientException
 import uniffi.broski_core.DictationSources
 import uniffi.broski_core.InboxRow
 
-/** What the person has chosen for the session so far. */
+/**
+ * A folder sessions ran in on one Mac, whichever agent ran them: every agent reports each session's real
+ * working directory (Claude Code from the session file, Pi from its header), so a project is a folder, not
+ * something either agent defines.
+ */
+@Immutable
+data class Project(val path: String, val updatedAt: Long)
+
+/** The folders of the sessions on [machineId], the most recently used first, each once. */
+fun projects(rows: List<InboxRow>, machineId: String?): List<Project> = rows
+    .filter { it.machineId == machineId }
+    .sortedByDescending { it.updatedAt }
+    .mapNotNull { row -> row.cwd?.let { Project(it, row.updatedAt) } }
+    .distinctBy { it.path }
+
+/** What the person has chosen for the session so far; [agentPicked] says the agent was theirs, not a default. */
 @Immutable
 data class Choice(
     val machineId: String? = null,
     val folder: String? = null,
     val backend: BackendId? = null,
+    val agentPicked: Boolean = false,
     val modelId: String? = null,
     val thinking: String? = null,
     val modes: Map<String, String> = emptyMap(),
 )
 
+/** Whether the agent can run now; one whose status has not come yet is taken to. */
+val AgentInstall.canRun: Boolean get() = status?.usable != false
+
 /**
- * The defaults filled in where the person has not chosen: the first online machine, the newest
- * folder its sessions ran in, and the agent used there last, or else the first that can run.
+ * Fills what the person has not picked. The Mac: the first online, else the first. The folder: the newest
+ * session's there. The agent: the one last used in that folder while it can run, else the first that can;
+ * one the person picked stays while the Mac can run it. A new agent starts from its own defaults.
  */
 internal fun settled(current: Choice, machines: List<MachineState>, rows: List<InboxRow>): Choice {
     val machineId = current.machineId?.takeIf { id -> machines.any { it.id == id } }
         ?: (machines.firstOrNull { it.health.isOnline } ?: machines.firstOrNull())?.id
-    val mine = rows.filter { it.machineId == machineId }
-    val folder = current.folder ?: mine.firstNotNullOfOrNull { it.cwd }
-    val usable = machines.firstOrNull { it.id == machineId }?.agents.orEmpty().filter { it.status?.usable == true }.map { it.backend }
-    val backend = current.backend?.takeIf { it in usable }
-        ?: mine.firstOrNull { it.cwd == folder }?.session?.backend?.takeIf { it in usable }
-        ?: usable.firstOrNull()
-    return current.copy(machineId = machineId, folder = folder, backend = backend)
+    val reset = if (machineId == current.machineId) current else Choice(machineId = machineId)
+    val folder = reset.folder ?: projects(rows, machineId).firstOrNull()?.path
+    val agents = machines.firstOrNull { it.id == machineId }?.agents.orEmpty()
+    val runnable = agents.filter { it.canRun }.map { it.backend }
+    val keeps = reset.agentPicked && reset.backend in runnable
+    val backend = if (keeps) {
+        reset.backend
+    } else {
+        rows.filter { it.machineId == machineId && it.cwd == folder }.maxByOrNull { it.updatedAt }?.session?.backend?.takeIf { it in runnable }
+            ?: runnable.firstOrNull()
+            ?: agents.firstOrNull()?.backend
+    }
+    val settled = reset.copy(folder = folder, backend = backend, agentPicked = keeps)
+    return if (backend == reset.backend) settled else settled.copy(modelId = null, thinking = null, modes = emptyMap())
 }
 
-/** The sheet's state: the machines, the recent folders and the agents to pick from, and the choice. */
+/** The screen's state: the Mac's folders and agents to pick from, its home, and the choice. */
 @Immutable
 data class NewSessionUi(
     val machines: List<MachineState>,
-    val recentFolders: List<String>,
+    val projects: List<Project>,
     val agents: List<AgentInstall>,
     val choice: Choice,
+    val home: String?,
     val creating: Boolean,
-)
+) {
+    val machine: MachineState? get() = machines.firstOrNull { it.id == choice.machineId }
+}
 
 sealed interface NewSessionEvent {
     data class Created(val machineId: String, val session: SessionRef) : NewSessionEvent
@@ -93,14 +126,15 @@ sealed interface NewSessionEvent {
 }
 
 /**
- * New session: the machine, folder and agent ([settled] fills what is not chosen), the catalog for
- * the composer's chips, and the send that creates the session and hands its first prompt to the
- * chat that opens it.
+ * New session: the Mac, folder and agent ([settled] fills what is not picked), the catalog for the
+ * composer's chips, and the send that creates the session and hands its first prompt to the chat it
+ * becomes.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class NewSessionViewModel(private val phone: PhoneSession, private val attachments: ImageAttachments) : ViewModel() {
     private val choice = MutableStateFlow(Choice())
     private val creating = MutableStateFlow(false)
+    private val homes = MutableStateFlow<Map<String, String>>(emptyMap())
     private val events = MutableSharedFlow<NewSessionEvent>(extraBufferCapacity = 4)
 
     val composer = ComposerState("", viewModelScope) {}
@@ -109,36 +143,38 @@ class NewSessionViewModel(private val phone: PhoneSession, private val attachmen
     /** The catalog of the chosen agent in the chosen folder, read again whenever either changes. */
     val catalog: StateFlow<Catalog> = reader.flatMapLatest { it?.catalog ?: flowOf(Catalog()) }
         .stateIn(viewModelScope, SharingStarted.Eagerly, Catalog())
-    val folders = FolderBrowser(phone, viewModelScope)
 
     val outcomes: SharedFlow<NewSessionEvent> = events.asSharedFlow()
 
-    val state: StateFlow<NewSessionUi> = combine(phone.machines, phone.inboxRows, choice, creating) { machines, rows, chosen, busy ->
-        val machine = machines.firstOrNull { it.id == chosen.machineId }
+    val state: StateFlow<NewSessionUi> = combine(phone.machines, phone.inboxRows, choice, homes, creating) { machines, rows, chosen, known, busy ->
         NewSessionUi(
             machines = machines,
-            recentFolders = rows.filter { it.machineId == chosen.machineId }.mapNotNull { it.cwd }.distinct(),
-            agents = machine?.agents.orEmpty(),
+            projects = projects(rows, chosen.machineId),
+            agents = machines.firstOrNull { it.id == chosen.machineId }?.agents.orEmpty(),
             choice = chosen,
+            home = chosen.machineId?.let(known::get),
             creating = busy,
         )
-    }.stateIn(viewModelScope, SharingStarted.Eagerly, NewSessionUi(emptyList(), emptyList(), emptyList(), Choice(), false))
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, NewSessionUi(emptyList(), emptyList(), emptyList(), Choice(), null, false))
 
     init {
         viewModelScope.launch {
-            combine(phone.machines, phone.inboxRows) { machines, rows -> machines to rows }.collect { (machines, rows) ->
-                choice.update { settled(it, machines, rows) }
-            }
+            combine(phone.machines, phone.inboxRows, choice) { machines, rows, _ -> machines to rows }
+                .collect { (machines, rows) -> choice.update { settled(it, machines, rows) } }
         }
         viewModelScope.launch {
-            choice.distinctUntilChanged { a, b -> a.machineId == b.machineId }.collect { chosen ->
-                val machineId = chosen.machineId ?: return@collect
-                if (chosen.folder == null) folders.home(machineId)?.let { home -> choice.update { it.copy(folder = it.folder ?: home) } }
-            }
+            choice.map { it.machineId }.distinctUntilChanged().collect { id -> id?.let { readHome(it) } }
         }
         viewModelScope.launch {
             choice.distinctUntilChanged { a, b -> a.machineId == b.machineId && a.backend == b.backend && a.folder == b.folder }.collect(::readCatalog)
         }
+    }
+
+    /** The Mac's home folder, where browsing starts and which paths are written from as `~`. */
+    private suspend fun readHome(machineId: String) {
+        val machine = phone.machine(machineId) ?: return
+        val home = (WorkspaceClient(machine::request).info() as? Answer.Done)?.value?.roots?.firstOrNull() ?: return
+        homes.update { it + (machineId to home) }
     }
 
     private fun readCatalog(chosen: Choice) {
@@ -173,11 +209,13 @@ class NewSessionViewModel(private val phone: PhoneSession, private val attachmen
         events.tryEmit(NewSessionEvent.NoImageToPaste)
     }
 
-    fun pickMachine(id: String) = choice.update { Choice(machineId = id) }
+    fun pickMachine(id: String) = choice.update { if (it.machineId == id) it else Choice(machineId = id) }
 
     fun pickFolder(path: String) = choice.update { it.copy(folder = path) }
 
-    fun pickAgent(backend: BackendId) = choice.update { it.copy(backend = backend, modelId = null, thinking = null, modes = emptyMap()) }
+    fun pickAgent(backend: BackendId) = choice.update {
+        if (it.backend == backend) it.copy(agentPicked = true) else it.copy(backend = backend, agentPicked = true, modelId = null, thinking = null, modes = emptyMap())
+    }
 
     fun pickModel(id: String) = choice.update { it.copy(modelId = id, thinking = null) }
 

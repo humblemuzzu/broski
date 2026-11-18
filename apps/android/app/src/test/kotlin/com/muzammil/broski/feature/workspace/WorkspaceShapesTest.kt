@@ -1,6 +1,7 @@
 package com.muzammil.broski.feature.workspace
 
 import com.muzammil.broski.feature.workspace.files.FileContent
+import com.muzammil.broski.feature.workspace.files.terminalsWithin
 import java.util.Base64
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -9,10 +10,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import uniffi.broski_contract.FileEncoding
 import uniffi.broski_contract.FileRead
-import uniffi.broski_contract.GitStatusRead
 import uniffi.broski_contract.ProtocolErrorCode
 import uniffi.broski_contract.Rejection
 import uniffi.broski_contract.RejectionCode
+import uniffi.broski_contract.TerminalStatus
+import uniffi.broski_contract.TerminalSummary
 import uniffi.broski_core.ClientException
 import uniffi.broski_core.SendFailure
 
@@ -63,10 +65,12 @@ class WorkspaceShapesTest {
     }
 
     @Test
-    fun foldersInOneRepositoryAreOneRepositoryListedByName() {
-        fun status(root: String, changes: Int) = GitStatusRead(root, "main", "abc", null, emptyList(), emptyList(), List(changes) { "f$it" }, false)
-        val found = repositories(listOf(status("/w/zeta", 0), status("/w/Alpha", 2), status("/w/zeta", 0)))
-        assertEquals(listOf("/w/Alpha" to 2, "/w/zeta" to 0), found.map { it.root to it.changes })
+    fun aFolderListsTheTerminalsOpenedInItOrBelowNewestFirst() {
+        fun terminal(id: String, cwd: String, at: Long) = TerminalSummary(id, cwd, 80, 24, at, TerminalStatus.RUNNING, null, null)
+        val all = listOf(terminal("here", "/w", 1), terminal("below", "/w/src", 3), terminal("beside", "/work", 2), terminal("top", "/", 4))
+        assertEquals(listOf("below", "here"), terminalsWithin(listOf("/w"), all).map { it.id })
+        assertEquals(listOf("top", "below", "beside", "here"), terminalsWithin(listOf("/"), all).map { it.id })
+        assertEquals("a folder reached through a link finds them by its real path", listOf("beside"), terminalsWithin(listOf("/link", "/work"), all).map { it.id })
     }
 
     @Test

@@ -70,16 +70,16 @@ class RealMachineTest {
     fun b_aTerminalsPermissionAskIsApprovedFromItsInboxRow() = InboxApproveFlow(ui, machine).run()
 
     @Test
-    fun c_filesBrowseSearchAndRead() = WorkspaceFlows(ui, machine).files()
+    fun c_aSessionsFilesBrowseSearchAndRead() = WorkspaceFlows(ui, machine).files()
 
     @Test
-    fun d_everyWorkspaceScreenInDarkAndAtTwiceTheFontSize() = WorkspaceFlows(ui, machine).appearances()
+    fun d_everyFilesScreenInDarkAndAtTwiceTheFontSize() = WorkspaceFlows(ui, machine).appearances()
 
     @Test
     fun e_gitShowsADiffStagesBySwipeAndCommits() = WorkspaceFlows(ui, machine).git()
 
     @Test
-    fun f_aTerminalRunsWhatIsTypedAndTheEngineShowsTheOutput() = WorkspaceFlows(ui, machine).terminal()
+    fun f_aTerminalOpenedInAFolderRunsWhatIsTypedAndIsListedThere() = WorkspaceFlows(ui, machine).terminal()
 
     @Test
     fun g_theLiveUpdateFollowsARunAndItsStopEndsIt() = LiveUpdateFlow(ui, machine).run()
@@ -108,7 +108,7 @@ class RealMachineTest {
     fun n_theTitleIsRenamedFromTheHeader() = chat.renameFromTheHeader()
 
     @Test
-    fun o_theNewSessionSheetStartsASessionAndOpensItsChat() = chat.newSessionFromTheSheet()
+    fun o_aNewSessionStartsInAFolderBrowsedToAndBecomesItsChat() = chat.newSessionInAFolderBrowsedTo()
 
     @Test
     fun p_readingUpDetachesAndJumpToLatestComesBack() = chat.jumpToLatest()

@@ -108,13 +108,12 @@ fun SearchField(query: String, onQuery: (String) -> Unit, onClose: () -> Unit) {
     )
 }
 
-/** Hidden files, copy path, the folder's git and a terminal in it. */
+/** Hidden files, copy path, and a terminal in the folder. */
 @Composable
 fun FolderMenu(
     showHidden: Boolean,
     onShowHidden: (Boolean) -> Unit,
     onCopyPath: () -> Unit,
-    onGit: () -> Unit,
     onTerminal: () -> Unit,
 ) {
     var open by remember { mutableStateOf(false) }
@@ -129,7 +128,6 @@ fun FolderMenu(
                 trailingIcon = { Checkbox(checked = showHidden, onCheckedChange = null) },
             )
             MenuAction(R.string.files_copy_path, R.drawable.ic_content_copy) { open = false; onCopyPath() }
-            MenuAction(R.string.files_open_git, R.drawable.ic_account_tree) { open = false; onGit() }
             MenuAction(R.string.files_open_terminal, R.drawable.ic_terminal) { open = false; onTerminal() }
         }
     }

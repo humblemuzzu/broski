@@ -9,10 +9,7 @@ import androidx.compose.material3.adaptive.navigationsuite.rememberNavigationSui
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -40,17 +37,16 @@ fun Shell(core: AppCore, phone: PhoneSession, features: Features, openRequests: 
     val navigator = rememberNavigator()
     OpenRequested(openRequests, phone, features, navigator)
     val context = remember(phone, navigator) { FeatureContext(phone, navigator::open, navigator::back) }
-    var newSessionOpen by rememberSaveable { mutableStateOf(false) }
-    val tabs = TopLevel.entries.filter { it != TopLevel.Workspace || features.workspace != null }
-    // The chat's composer is its bottom edge: no navigation bar under it.
+    // The chat's composer is its bottom edge, a new session's too: no navigation bar under it.
     val suite = rememberNavigationSuiteScaffoldState()
-    val inChat = navigator.entries.lastOrNull() is SessionRoute
+    val top = navigator.entries.lastOrNull()
+    val inChat = top is SessionRoute || top == NewSessionRoute
     LaunchedEffect(inChat) { if (inChat) suite.hide() else suite.show() }
 
     NavigationSuiteScaffold(
         state = suite,
         navigationItems = {
-            tabs.forEach { top ->
+            TopLevel.entries.forEach { top ->
                 val selected = navigator.tab == top
                 NavigationSuiteItem(
                     selected = selected,
@@ -62,7 +58,7 @@ fun Shell(core: AppCore, phone: PhoneSession, features: Features, openRequests: 
         },
         primaryActionContent = {
             if (features.newSession != null && navigator.entries.lastOrNull() == InboxRoute) {
-                LargeFloatingActionButton(onClick = { newSessionOpen = true }) {
+                LargeFloatingActionButton(onClick = { navigator.open(NewSessionRoute) }) {
                     Icon(painterResource(R.drawable.ic_add), contentDescription = stringResource(R.string.new_session))
                 }
             }
@@ -75,13 +71,8 @@ fun Shell(core: AppCore, phone: PhoneSession, features: Features, openRequests: 
                 rememberSaveableStateHolderNavEntryDecorator(),
                 rememberViewModelStoreNavEntryDecorator(),
             ),
-            entryProvider = entryProvider {
-                shellEntries(core, context, features, navigator) { newSessionOpen = true }
-            },
+            entryProvider = entryProvider { shellEntries(core, context, features, navigator) },
         )
-    }
-    if (newSessionOpen) {
-        features.newSession?.invoke(context) { newSessionOpen = false }
     }
 }
 
@@ -105,7 +96,6 @@ private fun EntryProviderScope<Route>.shellEntries(
     context: FeatureContext,
     features: Features,
     navigator: Navigator,
-    openNewSession: () -> Unit,
 ) {
     val phone = context.phone
     entry<InboxRoute> {
@@ -113,7 +103,7 @@ private fun EntryProviderScope<Route>.shellEntries(
             phone = phone,
             onOpenMachines = { navigator.open(MachinesRoute) },
             onOpenSession = features.session?.let { { route -> navigator.open(route) } },
-            onNewSession = features.newSession?.let { openNewSession },
+            onNewSession = features.newSession?.let { { navigator.open(NewSessionRoute) } },
         )
     }
     entry<MachinesRoute> {
@@ -123,8 +113,6 @@ private fun EntryProviderScope<Route>.shellEntries(
     entry<SettingsRoute> { SettingsScreen(core = core, phone = phone, onOpenVoice = { navigator.open(VoiceRoute) }) }
     entry<VoiceRoute> { VoiceSettingsScreen(core = core, onBack = navigator::back) }
     features.session?.let { session -> entry<SessionRoute> { route -> context.session(route) } }
-    features.workspace?.let { workspace ->
-        entry<WorkspaceRoute> { context.workspace() }
-        workspaceEntries(context)
-    }
+    features.newSession?.let { newSession -> entry<NewSessionRoute> { context.newSession() } }
+    workspaceEntries(context)
 }

@@ -11,8 +11,9 @@ import androidx.test.ext.junit.rules.ActivityScenarioRule
 import com.muzammil.broski.app.MainActivity
 import androidx.test.platform.app.InstrumentationRegistry
 import com.muzammil.broski.feature.workspace.lastComponent
+import java.util.UUID
 
-/** Finds and taps through the Workspace as a person would, waiting for what the Mac sends back. */
+/** Finds and taps through a session's files as a person would, waiting for what the Mac sends back. */
 @OptIn(ExperimentalTestApi::class)
 class WorkspaceUiDriver(
     val compose: AndroidComposeTestRule<ActivityScenarioRule<MainActivity>, MainActivity>,
@@ -34,10 +35,17 @@ class WorkspaceUiDriver(
 
     fun tapIcon(description: String) = tap(hasContentDescription(description) and hasClickAction())
 
-    /** The Workspace tab of the navigation bar, then one of Files, Git and Terminal. */
-    fun openWorkspace(tab: Int) {
-        tapText(string(R.string.nav_workspace))
-        tapText(string(tab))
+    /**
+     * The served folder as a person reaches it: from the inbox's root, a session that runs there, then
+     * the chat's Files button. The session is seeded fresh, so it is the inbox's newest row.
+     */
+    fun openServedFolder() {
+        tapText(string(R.string.nav_inbox))
+        val title = "Files of ${UUID.randomUUID().toString().take(8)}"
+        machine.seed(title)
+        tap(hasContentDescription(title, substring = true) and hasClickAction())
+        tapIcon(string(R.string.chat_open_files))
+        waitFor(hasText("README.md"))
     }
 
     fun back() {

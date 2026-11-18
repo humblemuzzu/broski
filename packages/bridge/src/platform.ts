@@ -484,13 +484,15 @@ async function generateCertPowerShell(cn: string, days: number, keyPath: string,
 // ============================================================================
 
 /**
- * Get safe default allowed base paths for file operations.
+ * The folders the phone may browse and start sessions in: the whole machine, home first so the phone opens there.
+ * The bases are no boundary against the phone itself, which runs any command in a terminal; they keep a
+ * request's path absolute, canonical and free of links that loop.
  */
 export function getDefaultAllowedPaths(): string[] {
 	if (IS_WINDOWS) {
 		return [homedir(), tmpdir()];
 	}
-	return [homedir(), "/tmp", "/var/tmp"];
+	return [homedir(), "/"];
 }
 
 // ============================================================================

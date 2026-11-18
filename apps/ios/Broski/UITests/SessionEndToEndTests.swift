@@ -196,22 +196,46 @@ final class SessionEndToEndTests: XCTestCase {
         try screenshot("chat-renamed")
     }
 
+    /// New Session opens on the folders the Mac's sessions ran in; All Projects lists them all and
+    /// browses the Mac, where Select picks `project/`, and Send turns the screen into that session's chat.
     @MainActor
-    func test8StartsANewSessionFromTheSheet() throws {
+    func test8StartsANewSessionInAFolderBrowsedTo() throws {
+        let rootName = URL(fileURLWithPath: try XCTUnwrap(environment["BROSKI_E2E_ROOT"])).lastPathComponent
         let app = XCUIApplication()
         app.launch()
         XCTAssertTrue(app.navigationBars["Inbox"].waitForExistence(timeout: timeout))
         app.buttons["New Session"].tap()
-        XCTAssertTrue(app.staticTexts["What should we build"].waitForExistence(timeout: timeout))
+        XCTAssertTrue(app.staticTexts["What should we build?"].waitForExistence(timeout: timeout))
+        let recent = app.buttons["Folder, \(rootName)"]
+        XCTAssertTrue(recent.waitForExistence(timeout: timeout), "the folder the seeded sessions ran in is offered first")
+        XCTAssertTrue(recent.isSelected, "and chosen")
+        try screenshot("new-session")
+        recent.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: timeout), "picking a folder brings the keyboard up")
+        XCTAssertTrue(app.buttons["Starts in \(rootName)"].exists)
+        app.buttons["Starts in \(rootName)"].tap()
+
+        app.buttons["All Projects"].tap()
+        XCTAssertTrue(app.navigationBars["Projects"].waitForExistence(timeout: timeout))
+        try screenshot("new-session-projects")
+        app.buttons["Choose Folder…"].tap()
+        let project = app.buttons["project"]
+        XCTAssertTrue(project.waitForExistence(timeout: timeout), "browsing starts at the Mac's home")
+        try screenshot("new-session-browse")
+        project.tap()
+        XCTAssertTrue(app.navigationBars["project"].waitForExistence(timeout: timeout))
+        app.buttons["Select"].tap()
+        XCTAssertTrue(app.buttons["Starts in project"].waitForExistence(timeout: timeout), "the pill names the folder picked")
+
         let field = composer(in: app)
         XCTAssertTrue(field.waitForExistence(timeout: timeout))
-        try screenshot("new-session")
         field.tap()
         field.typeText("Start the changelog")
         try screenshot("new-session-typed")
         app.buttons["Send"].tap()
         XCTAssertTrue(app.staticTexts["Done."].waitForExistence(timeout: timeout), "the chat opens and its first run answers")
         XCTAssertTrue(app.staticTexts["Start the changelog"].exists)
+        XCTAssertTrue(app.buttons["chat.title"].label.contains("project"), "in the folder picked")
         try screenshot("new-session-chat")
     }
 

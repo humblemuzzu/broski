@@ -35,8 +35,7 @@ export function expandAllowedBasePaths(bases: string[]): string[] {
 
 const SECURITY_ALLOWED_BASE_PATHS = (() => {
 	const defaults = getDefaultAllowedPaths();
-	// In compiled binaries, NEVER allow env var to override allowed paths.
-	// An attacker could set BROSKI_ALLOWED_BASE_PATHS=/ to read any file.
+	// A compiled binary serves the defaults whatever its environment says: tests narrow the bases through it.
 	if (isCompiledBinary()) return expandAllowedBasePaths(defaults);
 	const raw = (process.env.BROSKI_ALLOWED_BASE_PATHS ?? "").trim();
 	const bases = raw
@@ -49,7 +48,9 @@ const SECURITY_ALLOWED_BASE_PATHS = (() => {
 })();
 
 function isSecureBasePath(realPath: string): boolean {
-	return SECURITY_ALLOWED_BASE_PATHS.some((base) => realPath === base || realPath.startsWith(base + sep));
+	return SECURITY_ALLOWED_BASE_PATHS.some(
+		(base) => realPath === base || realPath.startsWith(base.endsWith(sep) ? base : base + sep),
+	);
 }
 
 /** The bases every served path must lie in, each in both spellings (`expandAllowedBasePaths`), home first. */

@@ -186,14 +186,30 @@ class ChatFlows(private val ui: WorkspaceUiDriver, private val machine: RealMach
         ui.back()
     }
 
-    fun newSessionFromTheSheet() {
+    /**
+     * New session opens on the folders the Mac's sessions ran in; All projects browses the Mac from home,
+     * where Select picks `src/`, and Send turns the screen into that session's chat.
+     */
+    fun newSessionInAFolderBrowsedTo() {
         touch(hasContentDescription(ui.string(R.string.new_session)) and hasClickAction())
-        ui.waitFor(hasText(ui.string(R.string.new_session_question_start), substring = true))
-        compose.onAllNodes(hasSetTextAction())[0].performTextInput("Write the release notes")
+        ui.waitFor(hasText(ui.string(R.string.new_session_question)))
+        ui.waitFor(hasText(ui.rootName) and hasClickAction())
         shot("new-session-light")
+        touchText(ui.string(R.string.new_session_all_projects))
+        ui.waitFor(hasText(ui.string(R.string.new_session_projects)))
+        shot("new-session-projects-light")
+        touchText(ui.string(R.string.new_session_choose_folder))
+        touchText("src")
+        ui.waitFor(hasText("~/src"))
+        shot("new-session-browse-light")
+        touchText(ui.string(R.string.new_session_select))
+        ui.waitFor(hasText("src") and hasClickAction())
+        compose.onAllNodes(hasSetTextAction())[0].performTextInput("Write the release notes")
+        shot("new-session-typed-light")
         touch(hasContentDescription(ui.string(R.string.composer_send)) and hasClickAction())
         ui.waitFor(hasText("Write the release notes"))
         ui.waitFor(hasText("Done."))
+        ui.waitFor(hasText("src", substring = true))
         shot("new-session-chat-light")
         ui.back()
     }
@@ -265,7 +281,7 @@ class ChatFlows(private val ui: WorkspaceUiDriver, private val machine: RealMach
         machine.release(session)
         ui.back()
         touch(hasContentDescription(ui.string(R.string.new_session)) and hasClickAction())
-        ui.waitFor(hasText(ui.string(R.string.new_session_question_start), substring = true))
+        ui.waitFor(hasText(ui.string(R.string.new_session_question)))
         shot("new-session-$suffix")
         ui.back()
     }

@@ -159,15 +159,25 @@ struct WorkspaceTests {
         #expect(size == 3)
     }
 
-    @Test func aFolderFromAnotherScreenOpensOnItsMachineInPlaceOfWhatWasShown() {
-        let navigation = WorkspaceNavigation()
-        navigation.path = [.machines]
-        navigation.open(FolderTarget(machineId: "m2", path: "/w/src"))
-        #expect(navigation.machineId == "m2")
-        #expect(navigation.path == [.workspace(machineId: "m2", place: .folder("/w/src"))])
+    @Test func aFolderListsTheTerminalsOpenedInItOrBelowNewestFirst() {
+        func terminal(_ id: String, _ cwd: String, at createdAt: Int64) -> TerminalSummary {
+            TerminalSummary(id: id, cwd: cwd, cols: 80, rows: 24, createdAt: createdAt, status: .running, exitCode: nil, signal: nil)
+        }
+        let all = [
+            terminal("here", "/w", at: 1), terminal("below", "/w/src", at: 3), terminal("beside", "/work", at: 2),
+            terminal("above", "/", at: 4),
+        ]
+        #expect(FolderTerminals.within(["/w"], all).map(\.id) == ["below", "here"], "/work is not under /w")
+        #expect(FolderTerminals.within(["/"], all).map(\.id) == ["above", "below", "beside", "here"])
+        #expect(FolderTerminals.within(["/link", "/work"], all).map(\.id) == ["beside"], "a folder reached through a link finds them by its real path")
+    }
 
-        navigation.choose("m1")
-        #expect(navigation.path.isEmpty, "another machine starts at its folders")
+    @Test func pathsReadFromHomeAndClimbToTheRoot() {
+        #expect("/Users/m/code/app".abbreviatingHome("/Users/m") == "~/code/app")
+        #expect("/Users/m".abbreviatingHome("/Users/m") == "~")
+        #expect("/Users/mo".abbreviatingHome("/Users/m") == "/Users/mo")
+        #expect("/Users/m/code".ancestorPaths == ["/Users/m", "/Users", "/"])
+        #expect("/".ancestorPaths.isEmpty)
     }
 }
 

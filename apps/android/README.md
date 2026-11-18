@@ -69,7 +69,9 @@ A device needs Google Play services for FCM (the `_playstore` emulator images ha
   real core with the facade's fixture offer (preview, expiry, wrong code, empty clipboard, an unreachable
   machine that stores nothing and can be tried again, a sentence for every `LinkFailure`); inbox sections
   from real `InboxRow` values; Approve and Deny only for the options a row's `pending` carries, and each
-  answer's haptic (`RowAnswerTest`); `MachineHealth` from `MachineStatus`; NSD routes. The Workspace's models
+  answer's haptic (`RowAnswerTest`); `MachineHealth` from `MachineStatus`; NSD routes; a new session's
+projects from every agent's sessions and what it starts with before and after the person picks
+(`NewSessionChoiceTest`). The files screens' models
   against a fake bridge answering in the contract's own result shapes (`FakeBridge`): listing pages by the
   cursor, hidden files, a forbidden folder, search after typing pauses; git status as the screen's lists,
   staging re-reads the status, a commit needs staged changes and a message, a refused checkout keeps git's
@@ -110,18 +112,19 @@ clipboard, taps **Paste pairing link**, **Pair with …**, waits for the inbox, 
 the app's own `Machine` and finds its row; (b) the machine seeds "Clean the build folder" and runs it as a
 terminal would (`{"run":<session>,"scenario":"permission"}`: it waits on a permission no phone prompted),
 the inbox finds "Pi wants to run bash" on the waiting row with no chat open, a long press shows Approve and
-Deny, Approve makes the row leave Needs you, and nothing says "Already answered elsewhere."; (c) Files lists
-the served folder, opens README.md and searches names; (d) every Workspace screen in dark and at font scale
-2.0; (e) Git opens README.md's diff, stages it by swipe and commits it, and the machine's own status and log
-confirm; (f) a new terminal takes typed `echo broski $((6*7))` and the emulator's screen (read back through
-the canvas's semantics) shows `broski 42`; (g) a held run on a seeded session raises the Live Update, and
+Deny, Approve makes the row leave Needs you, and nothing says "Already answered elsewhere."; (c) a seeded
+session's Files lists the served folder, opens README.md and searches names; (d) every files screen in dark
+and at font scale 2.0; (e) the folder's repository row opens Git, README.md's diff, stages it by swipe and
+commits it, and the machine's own status and log confirm; (f) a terminal opened in the folder takes typed
+`echo broski $((6*7))`, the emulator's screen (read back through the canvas's semantics) shows `broski 42`,
+and the folder lists it to open again; (g) a held run on a seeded session raises the Live Update, and
 its Stop aborts the run on the Mac and takes the Live Update away; (h) the chat's `LiveSession` against a
 real view through the `work`, `permission`, `ask`, `hold` and `replace` scenarios, compared with
 `view.snapshot()` after every update (a copy behind the view must be caught up by the next) and equal once
 the stream is quiet; (i–p) a session opened from its row with `work` streamed in, a deny with "Tell Pi what
 to do instead", an allow and its work row opened to the command and its output, an ask answered, a
-message queued while a run holds and Stop, a rename and a draft kept across leaving, a session from the
-New session sheet, Jump to latest after reading up; (q) the chat in dark and at font scale 2.0; (r) about
+message queued while a run holds and Stop, a rename and a draft kept across leaving, a new session in a
+folder browsed to from All projects that becomes its chat, Jump to latest after reading up; (q) the chat in dark and at font scale 2.0; (r) about
 a thousand transcript items scrolled to the first message and back with every frame's FrameMetrics
 logged (`ScrollFlow`); (s) the header's Files opening the session's folder and `/review` picked from the
 commands list. Screenshots of each screen (the inbox's row actions, light, dark, font scale 2.0, the
@@ -149,14 +152,17 @@ app/src/main/kotlin/com/muzammil/broski/
               tables (TableLayout, the viewer), code blocks, the answer menu, tools/ (a call's body,
               logs, arguments); Settings › Reading is LocalReading (formatting.md)
   design/code code coloured by the core's highlight, the line viewer, and the
-              diff view (unified, side by side from 840 dp) the chat and the Workspace share
+              diff view (unified, side by side from 840 dp) the chat and the files screens share
   feature/chat   the chat: LiveSession (the view's records applied), SessionFeed (the view's loop and
               the transcript's pages), ChatActions (each request), transcript/ (rows, the
               bubble, the status lane, follow or detach), work/ (folds, rows, the diff sheet),
               interactions/ (the pinned cards and their replies), composer/ (field, chips, commands,
               images, the send rule), header/ (title, subtitle, Files, overflow and its dialogs)
-  feature/newsession   the New session sheet: machine, folder (recent and browsed), agent, composer
-  feature/workspace   the Workspace tab and its routes: files/ (browser, viewer, FileText), git/ (status,
+  feature/newsession   New session, laid out as the chat it becomes: the projects (every agent's
+              session folders) and All projects (search, a browser of the whole Mac from home),
+              the agent and folder pills, the composer; settled() fills what is not picked
+  feature/workspace   a session's files, reached from its chat: files/ (browser with the folder's
+              repository and terminals, viewer, FileText), git/ (status,
               staging, commit, branches, log, diff), terminal/ (the byte pump, the renderer, IME,
               key row), WorkspaceClient (the §20 requests), WorkspaceFailure (their plain sentences)
   feature/notifications   FCM (PushService, FirebasePush, PushRegistration), PushHandler and Notifier,
@@ -177,8 +183,8 @@ terminal/     the :terminal module: libghostty-vt's JNI shim (src/main/c) and Vt
   work; notes between turns; newest first in a `LazyColumn` laid out from the bottom whose first item is
   the status lane, so new rows follow the end with no scroll call while a reader further up stays put.
 - **Requests**: `prompt` and `abort` go only while the chat's view is attached (the bridge refuses them
-  otherwise); New session creates the session and hands its first prompt to the chat it opens
-  (`FirstPrompts`), which sends it once its view's first update arrived.
+  otherwise); New session creates the session, becomes its chat in place and hands it its first prompt
+  (`FirstPrompts`), which it sends once its view's first update arrived.
 - **Drafts** live in the vault (`draft:<machine>/<backend>/<session>`), sealed like the rest, written a
   moment after typing stops and when the chat goes; forgetting a machine deletes its drafts.
 - **Catalog**: models, modes and commands from the machine's cached catalog, read again on
@@ -228,19 +234,20 @@ terminal/     the :terminal module: libghostty-vt's JNI shim (src/main/c) and Vt
 ## How the screens plug into the shell
 
 - **`app/Features.kt`** is the one place the feature screens plug in: `BroskiFeatures = Features(session =
-  ChatScreen, workspace = WorkspaceScreen, newSession = NewSessionSheet)`. Each slot gets a `FeatureContext`
-  (`phone: PhoneSession`, `navigate`, `back`). The shell offers a destination only once its slot is filled:
-  the Workspace tab, opening an inbox row (`SessionRoute`), the Inbox's large New session FAB and the empty
-  inbox's New session button.
+  ChatScreen, newSession = NewSessionScreen)`. Each slot gets a `FeatureContext` (`phone: PhoneSession`,
+  `navigate`, `back`). The shell offers a destination only once its slot is filled: opening an inbox row
+  (`SessionRoute`), and the Inbox's large New session FAB and the empty inbox's New session button
+  (`NewSessionRoute`). The navigation bar has Inbox and Settings.
 - **`SessionRoute(machineId, backend, sessionId)`** (`app/Routes.kt`; `.session` is the `SessionRef`) opens
   the chat. The chat calls `phone.markSeen(route.machineId, route.session)` when it opens and when it is
   left, and `phone.machine(id)` for views (`attach` in the coroutine, `detach()` in `finally`, as
   mobile-packaging.md §1 says).
 - **More routes**: add them to the sealed `Route` in `app/Routes.kt` (serializable; restored after process
   death) and register them where `Shell.kt` registers the slots.
-- **New session**: the sheet gets `dismiss`; it calls `navigate(SessionRoute.of(machineId, session))`.
-- **Open folder in Files**: `navigate(FilesRoute(machineId, path))`; the Workspace's routes are registered
-  whenever the Workspace slot is filled, so they open from any tab.
+- **New session**: once the session is created the screen shows its `ChatScreen` in place, the route kept
+  through process death, so Back from the chat returns to the Inbox.
+- **Open folder in Files**: `navigate(FilesRoute(machineId, path))`; the files routes are always registered,
+  so they open from any tab.
 - **Notification taps** come in as `OpenRequests` (`BroskiApplication.openRequests`, offered from
   `MainActivity`'s intent and `onNewIntent`); the shell opens the `SessionRoute` once `Features.session` is
   filled and the machine is paired, and the Inbox until then.

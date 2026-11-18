@@ -2,13 +2,11 @@ import BroskiCore
 import SwiftUI
 
 /// Home: every session on every paired Mac, needs you → working → done → idle, under the status of
-/// any machine that is not fine. A row opens its chat; New Session opens the prompt sheet, and the
-/// session it makes opens in its place.
+/// any machine that is not fine. A row opens its chat; New Session opens an empty one.
 struct InboxScreen: View {
     @Environment(AppModel.self) private var model
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var path: [Route] = []
-    @State private var startingSession = false
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -18,9 +16,6 @@ struct InboxScreen: View {
                 .routeDestinations()
         }
         .environment(\.openSession, OpenSessionAction { open($0) })
-        .sheet(isPresented: $startingSession) {
-            NewSessionSheet { target in open(target) }
-        }
         .onChange(of: model.sessionToOpen, initial: true) { _, target in
             guard let target else { return }
             path = [.session(machineId: target.machineId, session: target.session)]
@@ -68,7 +63,7 @@ struct InboxScreen: View {
             if sections.isEmpty {
                 InboxEmptyState(filter: model.inbox.filter, machines: model.machines, showAll: {
                     model.inbox.filter = nil
-                }, startSession: { startingSession = true })
+                }, startSession: { path.append(.newSession) })
             }
         }
         .refreshable { await model.inbox.refresh() }
@@ -94,7 +89,7 @@ struct InboxScreen: View {
         }
         ToolbarItem(placement: .topBarTrailing) {
             Button {
-                startingSession = true
+                path.append(.newSession)
             } label: {
                 Label("New Session", systemImage: "square.and.pencil")
             }

@@ -6,6 +6,8 @@ enum Route: Hashable {
     case machines
     case workspace(machineId: String, place: WorkspacePlace)
     case session(machineId: String, session: SessionRef)
+    /// A session yet to be made; it becomes the session's chat once sent.
+    case newSession
     /// A file a tool call changed, as its diff.
     case toolDiff(FileChange)
     /// A long text a row shows only a clip of.
@@ -25,6 +27,8 @@ struct RouteDestination: View {
         // changed under it, leaving the chat blank and Back dead.
         case .session(let machineId, let session):
             ChatScreen(target: SessionTarget(machineId: machineId, session: session))
+        case .newSession:
+            NewSessionScreen()
         case .toolDiff(let change):
             ToolDiffScreen(change: change)
         case .text(let page):

@@ -2,12 +2,14 @@ import BroskiCore
 import SwiftUI
 import UIKit
 
-/// One folder: its entries a page at a time, search by name under it, the repository it is in,
-/// and a terminal opened here.
+/// One folder: the repository it is in and the terminals opened in it, then its entries a page at
+/// a time, search by name under it, and a terminal opened here.
 struct FolderScreen: View {
     let machineId: String
     @State private var model: FolderModel
     @State private var repository: RepositoryModel
+    @State private var terminals: FolderTerminals
+    @State private var closing: TerminalSummary?
     @State private var query = ""
     @Environment(\.workspaceReachable) private var reachable
 
@@ -15,6 +17,7 @@ struct FolderScreen: View {
         self.machineId = machineId
         _model = State(initialValue: FolderModel(path: path, requests: requests))
         _repository = State(initialValue: RepositoryModel(cwd: path, requests: requests))
+        _terminals = State(initialValue: FolderTerminals(folder: path, requests: requests))
     }
 
     var body: some View {
@@ -29,6 +32,21 @@ struct FolderScreen: View {
                 async let checked: Void = repository.check()
                 _ = await (listed, checked)
             }
+            // Each time the folder shows again: the person may come back from a terminal opened here.
+            .task(id: TerminalsKey(reachable: reachable, canonical: model.canonicalPath)) {
+                guard reachable else { return }
+                terminals.canonicalFolder = model.canonicalPath
+                await terminals.load()
+            }
+            .confirmationDialog(
+                "Close this terminal?", isPresented: Binding { closing != nil } set: { if !$0 { closing = nil } },
+                titleVisibility: .visible, presenting: closing
+            ) { terminal in
+                Button("Close Terminal", role: .destructive) { Task { await terminals.close(terminal) } }
+            } message: { _ in
+                Text("What runs in it ends.")
+            }
+            .haptic(.destructive, trigger: terminals.terminals.count) { $1 < $0 }
             .task(id: query) {
                 guard reachable else { return }
                 try? await Task.sleep(for: .milliseconds(250))
@@ -65,7 +83,12 @@ struct FolderScreen: View {
                     }
                 }
             }
+            FolderTerminalsSection(machineId: machineId, model: terminals, closing: $closing)
             Section {
+                if model.entries.isEmpty, !model.hasMore, !isBare {
+                    Text("Nothing in this folder")
+                        .foregroundStyle(.secondary)
+                }
                 ForEach(model.entries, id: \.name) { entry in
                     EntryLink(machineId: machineId, entry: entry, path: model.childPath(entry))
                 }
@@ -81,15 +104,24 @@ struct FolderScreen: View {
         }
         .listStyle(.insetGrouped)
         .overlay {
-            if model.entries.isEmpty {
+            if model.entries.isEmpty, isBare {
                 ContentUnavailableView("Empty folder", systemImage: "folder")
             }
         }
         .refreshable {
             async let listed: Void = model.load()
             async let checked: Void = repository.check()
-            _ = await (listed, checked)
+            async let opened: Void = terminals.load()
+            _ = await (listed, checked, opened)
         }
+    }
+
+    /// Nothing above the entries either, so an empty folder can say so over the whole screen.
+    private var isBare: Bool { repository.status == nil && terminals.terminals.isEmpty }
+
+    private struct TerminalsKey: Equatable {
+        let reachable: Bool
+        let canonical: String?
     }
 
     @ToolbarContentBuilder

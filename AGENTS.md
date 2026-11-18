@@ -71,13 +71,15 @@ packaged for both native apps, and the iOS and Android apps.
   iOS 26, Swift 6 with main-actor default isolation, Liquid Glass. `Sources/App` (entry, tabs, `Route`),
   `Sources/Core` (`AppModel` owning the `Phone`, keychain persistence, the inbox and machine pull loops, scene
   phase, `NWPathMonitor`, `NWBrowser` LAN discovery, push registration and decisions, the Live Activity, and
-  dictation in `Sources/Core/Voice`), `Sources/DesignSystem`, `Sources/Features/*` (Workspace: files, git, a
-  libghostty terminal; Settings › Voice), `Shared/` (what
+  dictation in `Sources/Core/Voice`), `Sources/DesignSystem`, `Sources/Features/*` (New Session as the chat it
+  becomes; a session's files, git and a libghostty terminal behind the chat's Files button; Settings › Voice),
+  `Shared/` (what
   its extensions compile), `Extensions/` (the notification service extension, the Live Activity widget). Doc:
   [`apps/ios/README.md`](apps/ios/README.md).
 - **Android app** (`apps/android/app/`, [`apps/android/README.md`](apps/android/README.md)) — Kotlin, Compose,
   Material 3 Expressive, Navigation 3: welcome and pairing (Code Scanner or a pasted link), inbox, machines,
-  settings, the Workspace (files, git, a terminal on libghostty-vt through the `:terminal` module's JNI shim),
+  settings, a session's files, git and a terminal on libghostty-vt through the `:terminal` module's JNI shim
+  (behind the chat's Files button),
   FCM pushes with Allow/Deny and a Live Update while agents work (`feature/notifications/`), and Approve/Deny
   from an inbox row, with the inbox's last known rows restored at launch. One `Phone` per process in
   `core/AppCore.kt`, its loops in `core/PhoneSession.kt`; the identity secret, records and seen state in a

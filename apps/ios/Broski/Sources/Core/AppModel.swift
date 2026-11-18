@@ -25,8 +25,6 @@ final class AppModel {
     let discovery = LanDiscovery()
     /// Set to show a session; the Inbox tab opens it and sets this back to `nil`.
     var sessionToOpen: SessionTarget?
-    /// Set to show a folder; the Workspace tab opens it and sets this back to `nil`.
-    var folderToOpen: FolderTarget?
     /// The session on screen, set by the chat while it shows one and cleared when it leaves: its
     /// pushes do not banner while the app is in front.
     var visibleSession: SessionTarget?

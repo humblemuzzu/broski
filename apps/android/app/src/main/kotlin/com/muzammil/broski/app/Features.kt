@@ -4,8 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import com.muzammil.broski.core.PhoneSession
 import com.muzammil.broski.feature.chat.ChatScreen
-import com.muzammil.broski.feature.newsession.NewSessionSheet
-import com.muzammil.broski.feature.workspace.WorkspaceScreen
+import com.muzammil.broski.feature.newsession.NewSessionScreen
 
 @Immutable
 class FeatureContext(
@@ -21,12 +20,10 @@ class FeatureContext(
 @Immutable
 class Features(
     val session: (@Composable FeatureContext.(SessionRoute) -> Unit)? = null,
-    val workspace: (@Composable FeatureContext.() -> Unit)? = null,
-    val newSession: (@Composable FeatureContext.(dismiss: () -> Unit) -> Unit)? = null,
+    val newSession: (@Composable FeatureContext.() -> Unit)? = null,
 )
 
 val BroskiFeatures = Features(
     session = { route -> ChatScreen(this, route) },
-    workspace = { WorkspaceScreen(this) },
-    newSession = { dismiss -> NewSessionSheet(this, dismiss) },
+    newSession = { NewSessionScreen(this) },
 )

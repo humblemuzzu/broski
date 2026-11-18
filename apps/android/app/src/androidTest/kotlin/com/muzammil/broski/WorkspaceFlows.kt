@@ -4,9 +4,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
-import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasClickAction
-import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
@@ -22,15 +20,16 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 
-/** The Workspace on the real machine's served repository, driven through the UI. */
+/** A session's files on the real machine's served repository, from the chat's Files button, driven through the UI. */
 @OptIn(ExperimentalTestApi::class)
 class WorkspaceFlows(private val ui: WorkspaceUiDriver, private val machine: RealMachine) {
     private val client get() = WorkspaceClient(requireNotNull(machine.phone.machine(machine.machineId))::request)
 
+    /** The served repository's branch, which its row on the folder screen is named by. */
+    private val branch: String get() = requireNotNull((runBlocking { client.status(machine.root) } as Answer.Done).value.branch)
+
     fun files() {
-        ui.openWorkspace(R.string.workspace_tab_files)
-        ui.tapText(ui.rootName)
-        ui.waitFor(hasText("README.md"))
+        ui.openServedFolder()
         ui.waitFor(hasText("src"))
         Shots.save("files-light")
 
@@ -63,18 +62,13 @@ class WorkspaceFlows(private val ui: WorkspaceUiDriver, private val machine: Rea
     }
 
     private fun visitScreens(suffix: String) {
-        ui.openWorkspace(R.string.workspace_tab_files)
-        Shots.save("workspace-$suffix")
-        ui.tapText(ui.rootName)
-        ui.waitFor(hasText("README.md"))
+        ui.openServedFolder()
         Shots.save("files-$suffix")
         ui.tapText("README.md")
         ui.waitFor(hasText("A repository for the app tests, edited."))
         Shots.save("file-$suffix")
         ui.back()
-        ui.back()
-        ui.openWorkspace(R.string.workspace_tab_git)
-        ui.tapText(ui.rootName)
+        ui.tapText(branch)
         ui.waitFor(hasText("untracked.txt"))
         Shots.save("git-$suffix")
         ui.tapText("README.md")
@@ -82,14 +76,14 @@ class WorkspaceFlows(private val ui: WorkspaceUiDriver, private val machine: Rea
         Shots.save("diff-$suffix")
         ui.back()
         ui.back()
-        openTerminal()
+        openTerminalHere()
         Shots.save("terminal-$suffix")
         ui.back()
     }
 
     fun git() {
-        ui.openWorkspace(R.string.workspace_tab_git)
-        ui.tapText(ui.rootName)
+        ui.openServedFolder()
+        ui.tapText(branch)
         ui.waitFor(hasText("untracked.txt"))
         Shots.save("git-light")
         ui.tapText("README.md")
@@ -111,18 +105,25 @@ class WorkspaceFlows(private val ui: WorkspaceUiDriver, private val machine: Rea
         assertEquals("Edit the readme from the phone", log.commits.single().subject)
     }
 
+    /** A terminal opened in the folder runs what is typed, and the folder lists it to come back to. */
     fun terminal() {
-        openTerminal()
+        ui.openServedFolder()
+        openTerminalHere()
         InstrumentationRegistry.getInstrumentation().sendStringSync("echo broski \$((6*7))\n")
         ui.waitFor(hasContentDescription(ui.string(R.string.terminal_title)) and hasText("broski 42", substring = true))
         Shots.save("terminal-light")
+        ui.back()
+        ui.waitFor(hasText(ui.string(R.string.workspace_terminals)))
+        ui.waitFor(hasText(ui.string(R.string.terminal_running), substring = true))
+        Shots.save("folder-terminals-light")
+        ui.tap(hasText(ui.string(R.string.terminal_running), substring = true) and hasClickAction())
+        ui.waitFor(hasContentDescription(ui.string(R.string.terminal_title)) and hasText("broski 42", substring = true))
     }
 
-    /** New terminal in the served folder, until its shell has drawn its prompt, whatever the person's shell draws. */
-    private fun openTerminal() {
-        ui.openWorkspace(R.string.workspace_tab_terminal)
-        ui.tapText(ui.string(R.string.terminal_new))
-        ui.tap(hasText(ui.rootName) and hasClickAction() and hasAnyAncestor(isDialog()))
+    /** New terminal in the folder on screen, until its shell has drawn its prompt, whatever the person's shell draws. */
+    private fun openTerminalHere() {
+        ui.tapIcon(ui.string(R.string.files_more))
+        ui.tapText(ui.string(R.string.files_open_terminal))
         val drawn = SemanticsMatcher("shows output") { node ->
             node.config.getOrNull(SemanticsProperties.Text).orEmpty().any { it.text.isNotBlank() }
         }

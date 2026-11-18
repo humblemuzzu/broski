@@ -1,8 +1,9 @@
 import XCTest
 
-/// The Workspace tab against the real machine, after the pairing tests: `scripts/e2e-ios-app.sh`
-/// makes `project/` in the served root (`BROSKI_E2E_ROOT`) a git repository with one commit,
-/// `notes.md` modified since, `todo.txt` untracked, and a second branch `feature`.
+/// A session's files against the real machine, after the pairing tests. The chat's Files button opens
+/// the folder the session runs in, the served root (`BROSKI_E2E_ROOT`), where `scripts/e2e-ios-app.sh`
+/// makes `project/` a git repository with one commit, `notes.md` modified since, `todo.txt`
+/// untracked, and a second branch `feature`.
 final class WorkspaceEndToEndTests: XCTestCase {
     private let timeout: TimeInterval = 30
 
@@ -62,15 +63,13 @@ final class WorkspaceEndToEndTests: XCTestCase {
     }
 
     @MainActor
-    func test2OpensATerminalRunsACommandAndComesBackToIt() throws {
-        let output = URL(fileURLWithPath: try root).appending(path: "broski.txt")
+    func test2OpensATerminalInAFolderAndComesBackToItFromThere() throws {
+        let output = URL(fileURLWithPath: try root).appending(path: "project/broski.txt")
         try? FileManager.default.removeItem(at: output)
         let app = XCUIApplication()
         app.launch()
-        tab("Workspace", in: app)
-        let new = app.buttons["New Terminal"]
-        XCTAssertTrue(new.waitForExistence(timeout: timeout))
-        new.tap()
+        try openProject(in: app, mode: "terminal")
+        openTerminalHere(in: app)
 
         let terminal = terminalView(in: app)
         XCTAssertTrue(terminal.waitForExistence(timeout: timeout))
@@ -84,8 +83,8 @@ final class WorkspaceEndToEndTests: XCTestCase {
 
         back(in: app)
         let running = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Running'")).firstMatch
-        XCTAssertTrue(running.waitForExistence(timeout: timeout))
-        try screenshot("workspace-terminals")
+        XCTAssertTrue(running.waitForExistence(timeout: timeout), "the folder lists the terminal opened in it")
+        try screenshot("folder-terminals")
         running.tap()
         XCTAssertTrue(terminalView(in: app).waitForExistence(timeout: timeout))
         sleep(2)
@@ -107,13 +106,12 @@ final class WorkspaceEndToEndTests: XCTestCase {
         XCTAssertTrue(app.buttons.matching(label: "Untracked, todo.txt").firstMatch.waitForExistence(timeout: timeout))
         try screenshot("git-dark")
         back(in: app)
-        back(in: app)
-        back(in: app)
-        app.buttons["New Terminal"].tap()
+        openTerminalHere(in: app)
         XCTAssertTrue(terminalView(in: app).waitForExistence(timeout: timeout))
         sleep(2)
         try screenshot("terminal-dark")
-        back(in: app)
+        app.terminate()
+        app.launch()
         tab("Settings", in: app)
         app.buttons["System"].tap()
         app.terminate()
@@ -126,22 +124,46 @@ final class WorkspaceEndToEndTests: XCTestCase {
         try screenshot("git-largest-text")
     }
 
-    /// Workspace → the served root → project, a screenshot of each.
+    /// A session seeded in the served root, fresh so it is near the top of the inbox whatever ran
+    /// before → its chat → Files, its folder → project, a screenshot of each.
     @MainActor
     private func openProject(in app: XCUIApplication, mode: String) throws {
-        tab("Workspace", in: app)
-        let rootName = URL(fileURLWithPath: try root).lastPathComponent
-        let home = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Folder, ' AND label ENDSWITH %@", rootName))
-            .firstMatch
-        XCTAssertTrue(home.waitForExistence(timeout: timeout))
-        try screenshot("workspace-\(mode)")
-        home.tap()
+        tab("Inbox", in: app)
+        let session = "Files in \(mode)"
+        try command(#"{"seed":"\#(session)"}"#)
+        let row = app.staticTexts[session].firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: timeout))
+        row.tap()
+        let files = app.buttons["Files"]
+        XCTAssertTrue(files.waitForExistence(timeout: timeout), "a session's chat opens its folder")
+        files.tap()
         let project = app.buttons.matching(label: "Folder, project").firstMatch
-        XCTAssertTrue(project.waitForExistence(timeout: timeout))
+        XCTAssertTrue(app.buttons["More"].waitForExistence(timeout: timeout), "the folder opens")
         try screenshot("files-\(mode)")
+        XCTAssertTrue(reveal(project, in: app))
         project.tap()
-        XCTAssertTrue(app.buttons.matching(label: "File, notes.md").firstMatch.waitForExistence(timeout: timeout))
+        XCTAssertTrue(reveal(app.buttons.matching(label: "File, notes.md").firstMatch, in: app))
         try screenshot("folder-\(mode)")
+        reveal(app.buttons.matching(label: "feature").firstMatch, in: app, down: true)
+    }
+
+    /// Scrolls until `element` is on screen: the terminals the earlier tests opened under a folder
+    /// are listed above its files, and at the largest text size they fill the screen.
+    @MainActor
+    @discardableResult
+    private func reveal(_ element: XCUIElement, in app: XCUIApplication, down: Bool = false) -> Bool {
+        for _ in 0..<6 where !element.exists {
+            if down { app.swipeDown() } else { app.swipeUp() }
+        }
+        return element.waitForExistence(timeout: timeout)
+    }
+
+    @MainActor
+    private func openTerminalHere(in app: XCUIApplication) {
+        app.buttons["More"].firstMatch.tap()
+        let here = app.buttons["Open Terminal Here"]
+        XCTAssertTrue(here.waitForExistence(timeout: timeout))
+        here.tap()
     }
 
     @MainActor

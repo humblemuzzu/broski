@@ -20,7 +20,6 @@ struct ChatToolbar: ToolbarContent {
     let cwd: String?
     let capabilities: Capabilities?
     @Binding var dialog: ChatDialog?
-    @Environment(AppModel.self) private var app
     @Environment(\.openSession) private var openSession
 
     var body: some ToolbarContent {
@@ -35,9 +34,7 @@ struct ChatToolbar: ToolbarContent {
         }
         ToolbarItemGroup(placement: .topBarTrailing) {
             if let cwd {
-                Button {
-                    app.folderToOpen = FolderTarget(machineId: machine.id, path: cwd)
-                } label: {
+                NavigationLink(value: Route.workspace(machineId: machine.id, place: .folder(cwd))) {
                     Label("Files", systemImage: "folder")
                 }
             }

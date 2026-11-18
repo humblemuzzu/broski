@@ -36,13 +36,9 @@ struct ComposerTextView: UIViewRepresentable {
             view.text = text
             view.showPlaceholder()
         }
-        view.isEditable = context.environment.isEnabled
+        view.wantsEditable = context.environment.isEnabled
         view.wantsFocus = isFocused
-        if isFocused, !view.isFirstResponder {
-            view.focusWhenShown()
-        } else if !isFocused, view.isFirstResponder {
-            view.resignFirstResponder()
-        }
+        view.follow()
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView view: PastingTextView, context: Context) -> CGSize? {
@@ -82,7 +78,9 @@ struct ComposerTextView: UIViewRepresentable {
 final class PastingTextView: UITextView {
     var pasteImages: (([UIImage]) -> Void)?
     var wantsFocus = false
+    var wantsEditable = true
     let placeholder = UILabel()
+    private var followPending = false
 
     override init(frame: CGRect, textContainer: NSTextContainer?) {
         super.init(frame: frame, textContainer: textContainer)
@@ -106,13 +104,29 @@ final class PastingTextView: UITextView {
         placeholder.isHidden = !text.isEmpty
     }
 
-    func focusWhenShown() {
-        if window != nil { becomeFirstResponder() }
+    /// Takes up `wantsEditable` and `wantsFocus` on the next turn of the main queue, never inside
+    /// SwiftUI's update: a first responder changed there (by focus, or by an editable field becoming
+    /// read-only, which gives the keyboard up) makes the hosting view's focus bridge update the view
+    /// graph again from within that update, and the main thread never comes back.
+    func follow() {
+        let settled = isEditable == wantsEditable && (wantsFocus == isFirstResponder || window == nil)
+        guard !settled, !followPending else { return }
+        followPending = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            followPending = false
+            if isEditable != wantsEditable { isEditable = wantsEditable }
+            if wantsFocus, window != nil, !isFirstResponder {
+                becomeFirstResponder()
+            } else if !wantsFocus, isFirstResponder {
+                resignFirstResponder()
+            }
+        }
     }
 
     override func didMoveToWindow() {
         super.didMoveToWindow()
-        if wantsFocus, window != nil, !isFirstResponder { becomeFirstResponder() }
+        follow()
     }
 
     override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {

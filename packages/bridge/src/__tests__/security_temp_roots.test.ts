@@ -44,23 +44,32 @@ describe("expandAllowedBasePaths", () => {
 	});
 });
 
-describe("a path under a temp root, with the roots allowlisted as configured", () => {
-	function resolveInChild(paths: string[]): Record<string, SecurePath> {
-		const result = spawnSync("bun", [CHILD_SCRIPT, ...paths], {
-			cwd: BRIDGE_ROOT,
-			encoding: "utf-8",
-			env: {
-				PATH: process.env.PATH ?? "/usr/bin:/bin",
-				HOME: tempDirIn(tmpdir()),
-				BROSKI_ALLOWED_BASE_PATHS: "/tmp,/var/tmp",
-			},
-		});
-		const lines = (result.stdout ?? "").trim().split("\n");
-		const last = lines[lines.length - 1] ?? "";
-		if (!last.startsWith("{")) throw new Error(`child printed no result (status ${result.status}): ${result.stderr}`);
-		return JSON.parse(last) as Record<string, SecurePath>;
-	}
+function resolveInChild(paths: string[], bases = "/tmp,/var/tmp"): Record<string, SecurePath> {
+	const result = spawnSync("bun", [CHILD_SCRIPT, ...paths], {
+		cwd: BRIDGE_ROOT,
+		encoding: "utf-8",
+		env: {
+			PATH: process.env.PATH ?? "/usr/bin:/bin",
+			HOME: tempDirIn(tmpdir()),
+			BROSKI_ALLOWED_BASE_PATHS: bases,
+		},
+	});
+	const lines = (result.stdout ?? "").trim().split("\n");
+	const last = lines[lines.length - 1] ?? "";
+	if (!last.startsWith("{")) throw new Error(`child printed no result (status ${result.status}): ${result.stderr}`);
+	return JSON.parse(last) as Record<string, SecurePath>;
+}
 
+describe("the root as a base", () => {
+	test("admits every existing path on the machine, itself included", () => {
+		const answers = resolveInChild(["/", "/etc/hosts", "/usr/bin"], "/");
+		expect(answers["/"]).toEqual({ path: "/" });
+		expect(answers["/etc/hosts"]).toEqual({ path: realpathSync("/etc/hosts") });
+		expect(answers["/usr/bin"]).toEqual({ path: realpathSync("/usr/bin") });
+	});
+});
+
+describe("a path under a temp root, with the roots allowlisted as configured", () => {
 	test("/tmp is accepted as written and resolves to its real path", () => {
 		const dir = tempDirIn("/tmp");
 		const file = join(dir, "file.txt");

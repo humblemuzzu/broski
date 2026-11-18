@@ -13,6 +13,8 @@ final class FolderModel {
     }
 
     let path: String
+    /// The folder as the bridge spells it, links resolved, once its first page came.
+    private(set) var canonicalPath: String?
     private(set) var phase: Phase = .loading
     private(set) var entries: [FileEntry] = []
     private(set) var nextCursor: String?
@@ -36,6 +38,7 @@ final class FolderModel {
     func load() async {
         do throws(WorkspaceProblem) {
             let page = try await requests.list(path: path, cursor: nil, hidden: showsHidden)
+            canonicalPath = page.path
             entries = page.entries
             nextCursor = page.nextCursor
             pageProblem = nil

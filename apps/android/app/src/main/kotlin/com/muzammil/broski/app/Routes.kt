@@ -16,9 +16,6 @@ sealed interface Route : NavKey
 data object InboxRoute : Route
 
 @Serializable
-data object WorkspaceRoute : Route
-
-@Serializable
 data object SettingsRoute : Route
 
 @Serializable
@@ -31,6 +28,10 @@ data object PairRoute : Route
 @Serializable
 data object VoiceRoute : Route
 
+/** A session yet to be made: the chat it becomes once sent, on whichever Mac and in whichever folder the person picks. */
+@Serializable
+data object NewSessionRoute : Route
+
 /** One session on one machine: the chat. The backend is kept by its enum name. */
 @Serializable
 data class SessionRoute(val machineId: String, val backend: String, val sessionId: String) : Route {
@@ -41,7 +42,7 @@ data class SessionRoute(val machineId: String, val backend: String, val sessionI
     }
 }
 
-/** A folder on one machine in the Workspace's file browser, as the chat's "Open folder in Files" asks for it. */
+/** A folder on one machine, as the chat's Files button opens the session's. */
 @Serializable
 data class FilesRoute(val machineId: String, val path: String) : Route
 
@@ -69,6 +70,5 @@ enum class TopLevel(
     @param:DrawableRes val selectedIcon: Int,
 ) {
     Inbox(InboxRoute, R.string.nav_inbox, R.drawable.ic_inbox, R.drawable.ic_inbox_fill1),
-    Workspace(WorkspaceRoute, R.string.nav_workspace, R.drawable.ic_code_blocks, R.drawable.ic_code_blocks_fill1),
     Settings(SettingsRoute, R.string.nav_settings, R.drawable.ic_settings, R.drawable.ic_settings_fill1),
 }

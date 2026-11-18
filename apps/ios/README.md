@@ -45,7 +45,8 @@ The target builds with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, `SWIFT_APPRO
   `ScriptedMachine`, a stand-in for `Machine.request` answering with the generated contract types):
   paging that asks for each page once, every rejection's words with the Mac's own beneath (git's
   for a refused checkout), the git lists from a status, stage → commit reading the status again,
-  not-a-repository, text / image / binary reads, `folderToOpen`'s navigation. The terminal
+  not-a-repository, text / image / binary reads, the terminals a folder lists (links resolved, `/work`
+  not under `/w`), paths written from home and climbed to the root. The terminal
   (`TerminalTests`, over a scripted `TerminalChannel`): output in order with a reset starting the
   screen over, cancelling the pump detaching the view, keystrokes one request at a time joined while
   one is out and sizes replaced, a refused keystroke worded. Push (`PushTests`): the pinned push
@@ -89,16 +90,17 @@ The target builds with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, `SWIFT_APPRO
   `work` run sent from the composer streams, its withdrawn draft gone and its notice and compaction
   kept; jump to latest after scrolling up; a permission denied with "Keep the build folder" and
   another allowed, its fold opened to the command and its output; a choice answered; a message queued
-  behind a held run, cancelled, then Stop; dark and the largest text size; rename; a new session from
-  the sheet. `SessionScrollPerformanceTests` (a sixth session the machine runs 40 times as a
+  behind a held run, cancelled, then Stop; dark and the largest text size; rename; a new session
+  started in the folder the seeded sessions ran in, All Projects, a folder browsed to and selected,
+  then sent and become its chat. `SessionScrollPerformanceTests` (a sixth session the machine runs 40 times as a
   terminal, past 1,000 items): the scroll signpost over flings through it, older pages loading back
   to the first answer, and the app's CPU while a `work` run streams into it (`XCTHitchMetric` runs
   too, but reports nothing on the simulator).
   `WorkspaceEndToEndTests` (the script makes `project/` in the served root a repository with a
-  commit, `notes.md` modified, `todo.txt` untracked and a branch `feature`): the root, the folder,
-  the file, the diff, stage by swipe, commit, the log, a checkout; a new terminal where `echo
-  broski | tee broski.txt` is typed and the file appears on the machine, then the terminal again
-  from the list; dark and the largest text size. Then the script installs the push fixture's record
+  commit, `notes.md` modified, `todo.txt` untracked and a branch `feature`): a seeded session's chat,
+  its Files (the root), the folder, the file, the diff, stage by swipe, commit, the log, a checkout;
+  a terminal opened in `project/` where `echo broski | tee broski.txt` is typed and the file appears
+  on the machine, then the terminal again from the folder's list; dark and the largest text size. Then the script installs the push fixture's record
   (`PushFixtureInstall`), `VoiceEndToEndTests` keeps words and a key in Settings › Voice and dictates
   into the composer, and `NotificationEndToEndTests` receives a `simctl push` of the relay's
   body, long-presses it for Allow and Deny, and denies: the core's letter cannot reach
@@ -134,7 +136,8 @@ Broski/
     Features/      Welcome, Pairing, Inbox, Machines, Settings,
                    Chat/ (ChatScreen, ChatModel, PinnedPanel, ChatBottomBar; Transcript/, Work/,
                           Interactions/, Composer/, Header/, NewSession/),
-                   Workspace/ (WorkspaceScreen, routes, home; Files/, Git/, Terminal/)
+                   Workspace/ (a session's files, reached from its chat: routes; Files/, Git/,
+                              Terminal/)
   Tests/  UITests/
 ```
 
@@ -266,9 +269,8 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
   (`Clipboard.read`: empty, refused or text); offer preview with name, live expiry countdown,
   "Already paired"; progress in a glass card; every `LinkFailure` worded (`PairingProblem`) with its
   next step; success haptic; the notification permission ask with its one-line why.
-- **Inbox**: a row opens its chat with the zoom transition; **New Session** (`.glassProminent`,
-  and the empty state's action) opens the new-session sheet, and the session it makes opens
-  zooming out of the button; a tapped notification's `sessionToOpen` opens its chat.
+- **Inbox**: a row opens its chat; **New Session** (`.glassProminent`, and the empty state's
+  action) pushes the new-session screen; a tapped notification's `sessionToOpen` opens its chat.
   Sections Needs you / Working / Done / Idle from the core's order, machine status chips,
   rows (agent mark, title, what the agent wants ("Claude Code wants to run npm test" from the row's
   `command`, else its `ask`), machine · folder or the machine's status, relative time, state mark),
@@ -309,11 +311,20 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
   stays beside the send button; the rest scroll under a fading edge), and one send button: Send, Queue
   (with Steer on a long press), or a red Stop; "Message to queue…" while a run is live; the
   keyboard goes down after a send and when the transcript is tapped.
-- **New session** (a sheet): "What should we build in <folder>?", the folder a menu of the inbox's
-  recent folders and a browser of the Mac's shared folders (`fs.list`), the Mac when several are
-  paired, the agent as an inline picker (one that cannot run is disabled with why and what fixes
-  it), and the composer with its chips; Send creates the session (`session.create` with the
-  chips' model, thinking and modes) and opens its chat.
+- **New session** (`Route.newSession`, laid out as the chat it becomes): the agent's mark and "What
+  should we build?" where the transcript will be; above the composer, in one glass container, the
+  projects (`Project.recent`: the folders this Mac's sessions ran in, whichever agent ran them, newest
+  first, five shown, the chosen one lit, two of one name told apart by where they are) with **All
+  Projects**, then the agent and folder pills. The list folds into the folder pill when the composer
+  takes focus or a folder is picked. All Projects is a sheet: search, every project with its path
+  from `~`, and **Choose Folder…**, a browser of the whole Mac from home (`fs.list` folders and
+  links a page at a time, `fs.search` for folders under the one shown, the folders above it and home
+  in the title menu, **Select**). What the person has not picked follows the Mac
+  (`NewSessionModel.settle`): the newest session's folder, the agent last used there while it can
+  run; a picked agent stays. The Mac is a title menu when several are paired. Send with no folder
+  opens the list; Send creates the session (`session.create` with the chips' model, thinking and
+  modes) and the screen becomes its chat in place, the first prompt handed over through
+  `DraftStore`.
 - **Machines**: per Mac its link (LAN / relay / waiting and why / revoked), last seen, bridge and
   agent versions, Restart Bridge when the bridge is down or crashed, Forget with the confirm
   sentence; Pair Another (scan or paste); unreadable pairings; the Local Network hint.
@@ -326,11 +337,12 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
   checked with xAI before it is kept; the language; send after dictating; project words; the person's
   own words), appearance (system / light / dark), About (app version and build, core version and protocol, each Mac's bridge), the
   privacy line.
-- **Workspace** (tab between Inbox and Settings): the Mac chosen from the title menu when several are
-  paired (an unreachable one shows its status, dimmed, actions off); its folders (`workspace.info`)
-  and terminals. **Files**: `fs.list` a page at a time (the next page loads as the list ends),
-  hidden files on request, search by name under the folder (`fs.search`), a repository row when the
-  folder is in one; the viewer (`FileTextView`: numbered monospaced lines coloured by the language
+- **A session's files** (no tab of their own: the chat's **Files** pushes the session's folder, and
+  tool rows, answers' paths and "Open in Files" push a file; an unreachable Mac shows its status over
+  them, loads held, actions off). **Files**: a repository row when the folder is in one, the
+  terminals opened in it or below (`FolderTerminals`, read again each time the folder shows; swipe
+  to close with a confirm), `fs.list` a page at a time (the next page loads as the list ends), hidden
+  files on request, search by name under the folder (`fs.search`), Open Terminal Here; the viewer (`FileTextView`: numbered monospaced lines coloured by the language
   the name says; images inline; "Binary file · size"; how much a truncated read shows), Copy Path,
   Copy Text, Share. **Git**: branch and ahead/behind, Staged / Changes / Untracked with letters and
   +/− counts, swipe or menu to stage and unstage, Stage All / Unstage All, tap for the diff
@@ -338,12 +350,10 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
   numbers, signed and tinted lines with changed words tinted harder, side by side on a regular
   width) or the untracked file, the newest ten
   commits, a commit field with **Commit** (`.glassProminent`) in a glass capsule; Branches with a
-  confirmed checkout whose refusal shows git's words. **Terminal**: the list (newest first, swipe to
-  close with a confirm), New Terminal in a folder, the emulator with a glass key row (esc, sticky
+  confirmed checkout whose refusal shows git's words. **Terminal**: the emulator with a glass key row (esc, sticky
   ctrl and tab fixed, then arrows that repeat while held, `|`, `~`, `/`, the system Paste button,
   scrolling under a fading edge when the row is narrow); pinch zoom is
-  Ghostty's and the size is kept for the next terminal. `AppModel.folderToOpen` switches to this tab
-  and opens the folder (`WorkspaceNavigation.open`); the chat's Files button sets it.
+  Ghostty's and the size is kept for the next terminal.
 
 ## Design system
 
