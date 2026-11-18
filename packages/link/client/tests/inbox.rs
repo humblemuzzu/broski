@@ -138,6 +138,11 @@ async fn sessions_move_through_needs_you_working_done_and_idle_across_machines()
     let rows = inbox_until(&desk.phone, "the seen session idle", seen).await;
     assert_eq!(seen_at, Some(rows[position(&rows, &working)].updated_at));
     assert_eq!(state(&rows, &asking), Some(InboxState::Done));
+
+    desk.phone.inbox().mark_all_seen();
+    let all_seen = in_state(&asking, InboxState::Idle);
+    let rows = inbox_until(&desk.phone, "every done session marked seen", all_seen).await;
+    assert_eq!(state(&rows, &working), Some(InboxState::Idle));
 }
 
 /// A session the person opens the moment it exists (New session opens its chat at once) is not in

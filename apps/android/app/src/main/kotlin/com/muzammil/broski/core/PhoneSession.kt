@@ -124,6 +124,8 @@ class PhoneSession internal constructor(
     /** The person opened or left the session: it is not done again until something happens. */
     fun markSeen(machineId: String, session: SessionRef) = inbox.markSeen(machineId, session)
 
+    fun markAllSeen() = inbox.markAllSeen()
+
     suspend fun refresh() = inbox.refresh()
 
     /**

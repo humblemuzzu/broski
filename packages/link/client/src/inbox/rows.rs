@@ -7,6 +7,10 @@ use super::{InboxRow, InboxState};
 use crate::machine::InboxSource;
 use crate::view::stream::LiveInfo;
 
+/// Sessions older than this settle as `Idle` even with no marker, so old history never piles up
+/// in `Done`.
+pub(crate) const DONE_WINDOW_MS: i64 = 24 * 60 * 60 * 1_000;
+
 pub(super) struct MachineName {
     pub(super) id: String,
     pub(super) name: String,
@@ -14,9 +18,14 @@ pub(super) struct MachineName {
     pub(super) loaded: bool,
 }
 
-pub(super) fn live_row(machine: &MachineName, source: InboxSource, seen: Option<i64>) -> InboxRow {
+pub(super) fn live_row(
+    machine: &MachineName,
+    source: InboxSource,
+    seen: Option<i64>,
+    now_ms: i64,
+) -> InboxRow {
     let InboxSource { row, live } = source;
-    let state = state_of(&row, live.as_ref(), seen);
+    let state = state_of(&row, live.as_ref(), seen, now_ms);
     let (ask, command, pending) = match live {
         Some(live) => (live.ask, live.command, live.pending),
         None => (None, None, None),
@@ -38,10 +47,10 @@ pub(super) fn live_row(machine: &MachineName, source: InboxSource, seen: Option<
 
 /// A row as last known. Needs you and working stay as they were (nothing newer is known); done
 /// and idle follow what the person has seen since.
-pub(super) fn cached_row(cached: &CachedRow, seen: Option<i64>) -> InboxRow {
+pub(super) fn cached_row(cached: &CachedRow, seen: Option<i64>, now_ms: i64) -> InboxRow {
     let state = match cached.state {
         InboxState::NeedsYou | InboxState::Working => cached.state,
-        InboxState::Done | InboxState::Idle => settled(cached.updated_at, seen),
+        InboxState::Done | InboxState::Idle => settled(cached.updated_at, seen, now_ms),
     };
     InboxRow {
         machine_id: cached.machine_id.clone(),
@@ -60,7 +69,20 @@ pub(super) fn cached_row(cached: &CachedRow, seen: Option<i64>) -> InboxRow {
 
 /// A session a view is open on is read from its live state, which knows every pending
 /// interaction; any other from its row, whose status says whether a blocking one waits.
-fn state_of(row: &SessionSummary, live: Option<&LiveInfo>, seen: Option<i64>) -> InboxState {
+pub(super) fn is_settled(row: &SessionSummary, live: Option<&LiveInfo>) -> bool {
+    let needs_you = live.map_or(row.status == SessionStatus::WaitingForUser, |live| {
+        live.needs_you
+    });
+    let working = live.map_or(row.status == SessionStatus::Running, |live| live.working);
+    !needs_you && !working
+}
+
+fn state_of(
+    row: &SessionSummary,
+    live: Option<&LiveInfo>,
+    seen: Option<i64>,
+    now_ms: i64,
+) -> InboxState {
     let needs_you = live.map_or(row.status == SessionStatus::WaitingForUser, |live| {
         live.needs_you
     });
@@ -70,15 +92,33 @@ fn state_of(row: &SessionSummary, live: Option<&LiveInfo>, seen: Option<i64>) ->
     } else if working {
         InboxState::Working
     } else {
-        settled(row.updated_at, seen)
+        settled(row.updated_at, seen, now_ms)
     }
 }
 
-/// Done when something happened since the person's marker, or there is no marker.
-fn settled(updated_at: i64, seen: Option<i64>) -> InboxState {
-    if seen.is_none_or(|seen_at| updated_at > seen_at) {
+/// Done when something happened within `DONE_WINDOW_MS` since the person's marker, or there is no
+/// marker.
+fn settled(updated_at: i64, seen: Option<i64>, now_ms: i64) -> InboxState {
+    let recent = now_ms.saturating_sub(updated_at) <= DONE_WINDOW_MS;
+    if recent && seen.is_none_or(|seen_at| updated_at > seen_at) {
         InboxState::Done
     } else {
         InboxState::Idle
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sessions_older_than_the_done_window_settle_as_idle() {
+        let now = 1_800_000_000_000;
+        let within = now - DONE_WINDOW_MS;
+        let older = within - 1;
+        assert_eq!(settled(within, None, now), InboxState::Done);
+        assert_eq!(settled(older, None, now), InboxState::Idle);
+        assert_eq!(settled(older, Some(older - 10), now), InboxState::Idle);
+        assert_eq!(settled(within, Some(within), now), InboxState::Idle);
     }
 }

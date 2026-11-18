@@ -19,6 +19,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -48,6 +49,7 @@ import com.muzammil.broski.design.PrimaryButton
 import com.muzammil.broski.design.SectionHeader
 import com.muzammil.broski.design.perform
 import uniffi.broski_core.InboxRow
+import uniffi.broski_core.InboxState
 
 /**
  * Every session on every paired Mac, what needs the person first. `onOpenSession` and
@@ -96,7 +98,7 @@ fun InboxScreen(
                 )
             },
         ) {
-            InboxList(state, viewModel::showWorkingOnly, viewModel::answer, onOpenSession, onNewSession)
+            InboxList(state, viewModel::showWorkingOnly, viewModel::markAllSeen, viewModel::answer, onOpenSession, onNewSession)
         }
     }
 }
@@ -123,6 +125,7 @@ private fun AnswerFeedback(viewModel: InboxViewModel, snackbar: SnackbarHostStat
 private fun InboxList(
     state: InboxUiState,
     onWorkingOnly: (Boolean) -> Unit,
+    onMarkAllSeen: () -> Unit,
     onAnswer: (InboxRow, Decision) -> Unit,
     onOpenSession: ((SessionRoute) -> Unit)?,
     onNewSession: (() -> Unit)?,
@@ -145,18 +148,27 @@ private fun InboxList(
                 )
             }
         }
-        state.sections.forEach { section -> section(section, state, onAnswer, onOpenSession) }
+        state.sections.forEach { section -> section(section, state, onMarkAllSeen, onAnswer, onOpenSession) }
     }
 }
 
 private fun LazyListScope.section(
     section: InboxSection,
     state: InboxUiState,
+    onMarkAllSeen: () -> Unit,
     onAnswer: (InboxRow, Decision) -> Unit,
     onOpenSession: ((SessionRoute) -> Unit)?,
 ) {
     item(key = "section:${section.state}", contentType = "header") {
-        SectionHeader(stringResource(section.state.label), Modifier.animateItem())
+        SectionHeader(
+            text = stringResource(section.state.label),
+            modifier = Modifier.animateItem(),
+            action = if (section.state == InboxState.DONE) {
+                { TextButton(onClick = onMarkAllSeen) { Text(stringResource(R.string.inbox_mark_all_read)) } }
+            } else {
+                null
+            },
+        )
     }
     itemsIndexed(
         items = section.rows,

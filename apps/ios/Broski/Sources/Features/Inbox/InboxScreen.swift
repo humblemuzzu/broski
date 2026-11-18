@@ -57,7 +57,9 @@ struct InboxScreen: View {
                         .inboxRowActions(row, inbox: model.inbox)
                     }
                 } header: {
-                    InboxSectionHeader(state: section.state, count: section.rows.count)
+                    InboxSectionHeader(
+                        state: section.state, count: section.rows.count,
+                        markAllSeen: section.state == .done ? { model.inbox.markAllSeen() } : nil)
                 }
             }
         }
@@ -117,16 +119,25 @@ struct InboxScreen: View {
 private struct InboxSectionHeader: View {
     let state: InboxState
     let count: Int
+    var markAllSeen: (() -> Void)?
 
     var body: some View {
         HStack(spacing: Spacing.s) {
-            Text(state.title)
-            Text(count, format: .number)
-                .foregroundStyle(.secondary)
+            HStack(spacing: Spacing.s) {
+                Text(state.title)
+                Text(count, format: .number)
+                    .foregroundStyle(.secondary)
+            }
+            .font(.subheadline.weight(.semibold))
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isHeader)
+            if let markAllSeen {
+                Spacer()
+                Button("Mark All Read", action: markAllSeen)
+                    .font(.subheadline)
+                    .textCase(nil)
+            }
         }
-        .font(.subheadline.weight(.semibold))
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isHeader)
     }
 }
 

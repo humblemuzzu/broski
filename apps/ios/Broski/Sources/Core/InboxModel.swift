@@ -78,6 +78,10 @@ final class InboxModel {
     func markSeen(machineId: String, session: SessionRef) {
         inbox?.markSeen(machineId: machineId, session: session)
     }
+
+    func markAllSeen() {
+        inbox?.markAllSeen()
+    }
 }
 
 /// One section of the inbox: the rows of one state, in the core's order (newest first).

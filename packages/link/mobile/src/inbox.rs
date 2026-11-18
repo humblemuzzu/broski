@@ -34,6 +34,11 @@ impl Inbox {
         self.0.mark_seen(machine_id, session);
     }
 
+    /// Marks every settled session in the inbox as seen at its current `updatedAt`.
+    pub fn mark_all_seen(&self) {
+        self.0.mark_all_seen();
+    }
+
     pub fn seen(&self) -> SeenState {
         self.0.seen()
     }

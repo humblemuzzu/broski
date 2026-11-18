@@ -17,16 +17,27 @@ struct InboxRowActions: ViewModifier {
     func body(content: Content) -> some View {
         content
             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                ForEach(decisions, id: \.self) { button(for: $0) }
+                actions
             }
             .contextMenu {
-                ForEach(decisions, id: \.self) { button(for: $0) }
+                actions
             }
             .accessibilityActions {
                 ForEach(decisions, id: \.self) { decision in
                     Button(decision.title) { send(decision) }
                 }
+                if row.state == .done {
+                    Button("Mark as Read") { markSeen() }
+                }
             }
+    }
+
+    @ViewBuilder
+    private var actions: some View {
+        ForEach(decisions, id: \.self) { button(for: $0) }
+        if row.state == .done {
+            Button { markSeen() } label: { Label("Mark as Read", systemImage: "checkmark") }
+        }
     }
 
     @ViewBuilder
@@ -44,6 +55,10 @@ struct InboxRowActions: ViewModifier {
 
     private func send(_ decision: RowAnswer.Decision) {
         Task { await inbox.answer(row, decision) }
+    }
+
+    private func markSeen() {
+        inbox.markSeen(machineId: row.machineId, session: row.session)
     }
 }
 

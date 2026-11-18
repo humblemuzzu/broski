@@ -100,12 +100,20 @@ impl Seen {
     }
 
     fn mark(&mut self, machine_id: &str, session: &SessionRef, seen_at: i64) {
-        let marker = self
+        let key = key(machine_id, session);
+        if self
             .markers
-            .entry(key(machine_id, session))
-            .or_insert(seen_at);
-        *marker = (*marker).max(seen_at);
+            .get(&key)
+            .is_some_and(|known| *known >= seen_at)
+        {
+            return;
+        }
+        self.markers.insert(key, seen_at);
         self.changed = true;
+    }
+
+    pub(crate) fn mark_at(&mut self, machine_id: &str, session: &SessionRef, seen_at: i64) {
+        self.mark(machine_id, session, seen_at);
     }
 
     pub(crate) fn restore(&mut self, state: SeenState) {

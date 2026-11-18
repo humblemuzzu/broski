@@ -38,6 +38,10 @@ class InboxViewModel(private val phone: PhoneSession) : ViewModel() {
         workingOnly.value = only
     }
 
+    fun markAllSeen() {
+        phone.markAllSeen()
+    }
+
     fun refresh() {
         if (refreshing.value) return
         refreshing.value = true

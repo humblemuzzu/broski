@@ -51,7 +51,7 @@ and a machine ends through `Phone.forget`).
 | `view.next_update() -> SessionUpdate`, `snapshot()`, `session()`, `capabilities()`, `close()` | a chat screen's data |
 | `terminal.next_update() -> TerminalUpdate`, `input(bytes)`, `resize(cols, rows, cell_w?, cell_h?)`, `summary()`, `close()` | a terminal screen's data |
 | `list.rows()`, `next_change()`, `load_more()`, `refresh()`, `close()` | one session list |
-| `inbox.rows()`, `next_change() -> InboxUpdate`, `refresh()`, `mark_seen(machine_id, session)`, `seen()`, `restore_seen(state)`, `restore_cache(bytes)`, `answer(machine_id, session, interaction_id, option_id) -> AnswerOutcome` | the home screen |
+| `inbox.rows()`, `next_change() -> InboxUpdate`, `refresh()`, `mark_seen(machine_id, session)`, `mark_all_seen()`, `seen()`, `restore_seen(state)`, `restore_cache(bytes)`, `answer(machine_id, session, interaction_id, option_id) -> AnswerOutcome` | the home screen |
 
 Every failure is a `ClientError`: `Refused{code, detail}` (the bridge's `error{…}`), `Rejected{code,
 detail}` (a result's `Rejected`, from the helpers that return nothing on success; every other helper
@@ -200,7 +200,7 @@ ask, command, pending, cached}`, the backend being the session's.
 |---|---|
 | `NeedsYou` | a view of the session holds a pending interaction; unviewed, its row is `waiting_for_user` |
 | `Working` | a run, a compaction or a retry, by the view; unviewed, its row is `running` |
-| `Done` | otherwise, when the row's `updatedAt` is past the person's marker, or there is no marker |
+| `Done` | otherwise, when the row's `updatedAt` is within the last 24 hours (`DONE_WINDOW_MS`) and past the person's marker (or there is no marker) |
 | `Idle` | otherwise |
 
 Rows sort by state in that order, then newest first.

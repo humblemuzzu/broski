@@ -202,7 +202,7 @@ async fn the_cached_inbox_shows_its_machines_rows_until_it_answers_and_never_off
         shown,
         [
             ("s-ask", InboxState::NeedsYou, true),
-            ("s-old", InboxState::Done, true),
+            ("s-old", InboxState::Idle, true),
         ]
     );
     assert_eq!(rows[0].command.as_deref(), Some("npm test"));

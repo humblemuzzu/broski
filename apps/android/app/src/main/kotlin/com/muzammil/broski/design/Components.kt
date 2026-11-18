@@ -45,15 +45,26 @@ fun Dot(color: Color, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun SectionHeader(text: String, modifier: Modifier = Modifier) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.titleSmallEmphasized,
-        color = MaterialTheme.colorScheme.primary,
+fun SectionHeader(
+    text: String,
+    modifier: Modifier = Modifier,
+    action: (@Composable () -> Unit)? = null,
+) {
+    Row(
         modifier = modifier
-            .padding(start = 24.dp, end = 24.dp, top = 20.dp, bottom = 8.dp)
-            .semantics { heading() },
-    )
+            .fillMaxWidth()
+            .padding(start = 24.dp, end = 24.dp, top = 20.dp, bottom = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.titleSmallEmphasized,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.semantics { heading() },
+        )
+        action?.invoke()
+    }
 }
 
 /** What a screen says when it has nothing to list, with at most one action. */
