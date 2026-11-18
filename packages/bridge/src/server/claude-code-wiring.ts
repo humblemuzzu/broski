@@ -27,6 +27,7 @@ export interface ClaudeCodeWiringDeps {
 	readonly cli: () => ClaudeCliPath;
 	readonly version: string;
 	readonly log: (message: string) => void;
+	readonly appendSystemPrompt?: string;
 }
 
 const NOT_YET = {
@@ -46,7 +47,12 @@ export function createClaudeCodeWiring(deps: ClaudeCodeWiringDeps): ClaudeCodeWi
 		: undefined;
 	return {
 		terminalAsks,
-		backend: claudeCodeBackend({ cli: deps.cli, version: deps.version, hookAsks: receiver?.setHandler }),
+		backend: claudeCodeBackend({
+			cli: deps.cli,
+			version: deps.version,
+			hookAsks: receiver?.setHandler,
+			...(deps.appendSystemPrompt !== undefined && { appendSystemPrompt: deps.appendSystemPrompt }),
+		}),
 		receiver,
 		connect: (next) => {
 			seam = next;

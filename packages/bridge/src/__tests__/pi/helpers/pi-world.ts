@@ -63,6 +63,8 @@ export interface PiWorldOptions {
 	readonly noModels?: boolean;
 	/** Start the backend with the link to terminal `pi` processes on, in a directory of the world's own. */
 	readonly link?: boolean;
+	/** The note the backend adds to the end of every hosted `pi`'s system prompt. */
+	readonly appendSystemPrompt?: string;
 }
 
 /** When the backend last emitted anything, for a `quiesce` that waits on silence, not on a fixed time. */
@@ -103,6 +105,7 @@ export class PiWorld {
 		private readonly cli: string,
 		private readonly link: TerminalLinkOptions | undefined,
 		private readonly maxHosted: number | undefined,
+		private readonly appendSystemPrompt: string | undefined,
 		private running: Running | undefined,
 	) {}
 
@@ -126,6 +129,7 @@ export class PiWorld {
 				cli,
 				link,
 				options.maxHosted,
+				options.appendSystemPrompt,
 				undefined,
 			);
 			await world.start(host);
@@ -205,7 +209,12 @@ export class PiWorld {
 
 	private async start(host: BackendHost): Promise<void> {
 		const parts = createPiParts(host, {
-			install: { cli: { found: true, path: this.cli }, env: this.env.env(), agentDir: this.env.agentDir },
+			install: {
+				cli: { found: true, path: this.cli },
+				env: this.env.env(),
+				agentDir: this.env.agentDir,
+				...(this.appendSystemPrompt !== undefined && { appendSystemPrompt: this.appendSystemPrompt }),
+			},
 			hostDir: this.hostDir,
 			holders: { root: this.holdersRoot, command: HOLDER_COMMAND },
 			...(this.link !== undefined && { link: this.link }),

@@ -126,7 +126,7 @@ export interface RealRig extends LiveRig {
 /** The real CLI over a scripted endpoint; a test that never advances `clock` never ends an idle host. */
 export function realRig(
 	turns: ScriptedTurn[],
-	options: RigOptions & { server?: ScriptedAnthropicOptions } = {},
+	options: RigOptions & { server?: ScriptedAnthropicOptions; appendSystemPrompt?: string } = {},
 ): RealRig {
 	const home = createClaudeHome();
 	const server = serveScriptedAnthropic(turns, options.server);
@@ -139,6 +139,7 @@ export function realRig(
 		clientApp: "broski/live-test",
 		clock,
 		sdk: isolatedClaudeSdk(env),
+		...(options.appendSystemPrompt !== undefined && { appendSystemPrompt: options.appendSystemPrompt }),
 	});
 	const made = parts(options, services.sdk);
 	const rig = new LiveRig(services, made.store, made.ownership, made.catalogue, made.mapping, made.desk, async () => {

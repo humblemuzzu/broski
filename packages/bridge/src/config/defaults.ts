@@ -25,6 +25,7 @@ export function getDefaultConfig(): BroskiConfig {
 		},
 		claudeCode: { terminalAsks: true },
 		pi: {},
+		phoneWriting: true,
 		daemon: {
 			installed: false,
 			type: "none",

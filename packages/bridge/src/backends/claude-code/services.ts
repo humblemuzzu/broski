@@ -23,6 +23,8 @@ export interface ClaudeCodeFactoryOptions {
 	/** The SDK package's `claudeCodeVersion`, baked in at build time (D3). */
 	readonly expectedCliVersion?: string;
 	readonly terminal?: TerminalOptions;
+	/** Added to the end of Claude Code's own system prompt for every session the adapter starts. */
+	readonly appendSystemPrompt?: string;
 	readonly clock?: Clock;
 	/** Otherwise `createClaudeSdk()`; tests give one bound to their temp home. */
 	readonly sdk?: ClaudeSdk;
@@ -40,6 +42,7 @@ export interface ClaudeCodeServices {
 	readonly stateDir: string;
 	readonly expectedCliVersion: string | undefined;
 	readonly terminal: TerminalOptions;
+	readonly appendSystemPrompt: string | undefined;
 	readonly clock: Clock;
 }
 
@@ -53,6 +56,7 @@ export function createClaudeCodeServices(options: ClaudeCodeFactoryOptions): Cla
 		stateDir: options.stateDir,
 		expectedCliVersion: options.expectedCliVersion,
 		terminal: options.terminal ?? {},
+		appendSystemPrompt: options.appendSystemPrompt,
 		clock: options.clock ?? SYSTEM_CLOCK,
 	};
 }

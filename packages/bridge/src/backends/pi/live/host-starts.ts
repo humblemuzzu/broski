@@ -8,7 +8,7 @@ import type { Rejected, SessionId } from "../../../contract";
 import { holderDirs, readMeta, removeStale } from "../holder/holders";
 import { HolderLink, type HolderSetup } from "../holder/link";
 import { type HelloFrame, HOLDER_VERSION, type HolderMeta, holderDirOf } from "../holder/protocol";
-import { ensureHostExtension } from "../host/install";
+import { ensureHostExtension, PROMPT_NOTE_FLAG } from "../host/install";
 import { childEnv, type PiInstall } from "../pi-install";
 import type { SessionStore } from "../ports";
 import { rejected } from "../rejections";
@@ -52,12 +52,22 @@ export async function launchedStart(
 		file: target.file,
 		cwd: target.cwd,
 		cliPath: cli.path,
-		args: ["--session", target.file, "-e", extension.path],
+		args: hostArgs(deps.install, target.file, extension.path),
 		env: childEnv(deps.install),
 		extension: extension.hash,
 	});
 	if (typeof launched === "string") return rejected("backend_error", `the session could not be started: ${launched}`);
 	return { ...target, ...rest, transport: (sink) => launched.link.start(sink) };
+}
+
+/**
+ * `pi --session <file> -e <extension>`, and the note for the end of its system prompt as the extension's flag. Not Pi's
+ * own `--append-system-prompt`: given on the command line, that replaces the user's `APPEND_SYSTEM.md`
+ * (pi-coding-agent 1.5.2 `dist/core/resource-loader.js:495-499`).
+ */
+export function hostArgs(install: PiInstall, file: string, extension: string): string[] {
+	const note = install.appendSystemPrompt;
+	return ["--session", file, "-e", extension, ...(note === undefined ? [] : [`--${PROMPT_NOTE_FLAG}=${note}`])];
 }
 
 /** Every holder an earlier bridge left: its session `adopt`ed, or, when this bridge cannot read it, stopped. */

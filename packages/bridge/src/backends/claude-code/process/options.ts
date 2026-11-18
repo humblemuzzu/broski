@@ -29,7 +29,11 @@ export function hostOptions(input: HostOptionsInput): Options | Rejected {
 		includePartialMessages: true,
 		forwardSubagentText: true,
 		agentProgressSummaries: true,
-		systemPrompt: { type: "preset", preset: "claude_code" },
+		systemPrompt: {
+			type: "preset",
+			preset: "claude_code",
+			...(services.appendSystemPrompt !== undefined && { append: services.appendSystemPrompt }),
+		},
 		canUseTool: input.canUseTool,
 		onElicitation: input.onElicitation,
 		...("sessionId" in input.start ? { sessionId: input.start.sessionId } : { resume: input.start.resume }),

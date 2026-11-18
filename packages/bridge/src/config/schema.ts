@@ -47,6 +47,8 @@ export const BroskiConfigSchema = z.object({
 			terminalLink: z.boolean().optional(),
 		})
 		.default({}),
+	/** Tell every agent the bridge starts that its answers are read on a phone (`server/phone-writing.ts`). */
+	phoneWriting: z.boolean().default(true),
 	daemon: z
 		.object({
 			installed: z.boolean().default(false),

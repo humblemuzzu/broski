@@ -13,6 +13,9 @@ import * as extensionSource from "./extension/index.ts" with { type: "text" };
 
 export const HOST_EXTENSION_FILE = "broski-host.ts";
 
+/** The extension's flag carrying the note it adds to the system prompt (the same name in `./extension/index.ts`). */
+export const PROMPT_NOTE_FLAG = "broski-prompt-note";
+
 /** Bun puts a text import into a compiled binary, where the file itself is not on disk; TypeScript types it as the module. */
 function source(): string {
 	const text: unknown = Reflect.get(extensionSource, "default");

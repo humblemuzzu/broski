@@ -19,6 +19,8 @@ export interface PiInstall {
 	readonly env: Readonly<Record<string, string>>;
 	/** Where Pi keeps its configuration and sessions for that environment. */
 	readonly agentDir: string;
+	/** Added to the end of Pi's system prompt in every session the adapter hosts, by the bridge's extension. */
+	readonly appendSystemPrompt?: string;
 }
 
 /** `$PI_CODING_AGENT_DIR` with `~` expanded, else `~/.pi/agent` (pi-coding-agent 1.5.2 `dist/config.js:495-516`). */

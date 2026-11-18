@@ -3,7 +3,8 @@
 // It never loads in a `pi` you start yourself. In the bridge's own `pi` it asks the phone before a tool runs when the
 // session's permissions mode says so, writes the session records the bridge hands it (`broski.*` custom entries),
 // passes on the background tasks other extensions announce (`broski:tasks` on Pi's event bus) and the questions they
-// ask (`broski:questions`), and keeps the process on the one session the bridge opened it for.
+// ask (`broski:questions`), keeps the process on the one session the bridge opened it for, and adds the bridge's note
+// on how the phone draws answers to the end of the system prompt.
 import { type JsonObject, validateToolArguments } from "@earendil-works/pi-ai";
 import type {
 	ExtensionAPI,
@@ -22,6 +23,9 @@ const RECORD_PREFIX = "broski.";
 const PERMISSIONS = "broski.permissions";
 /** The event bus channel an extension announces its background tasks on, and the status key that carries them out. */
 const TASKS = "broski:tasks";
+/** The flag the bridge passes its note in (`PROMPT_NOTE_FLAG` in `host/install.ts`), and the prompt section it fills. */
+const PROMPT_NOTE_FLAG = "broski-prompt-note";
+const PROMPT_NOTE_SECTION = "broski_phone";
 
 const UNANSWERED = "The permission request ended before it was answered.";
 const DENIED = "The user denied this tool call.";
@@ -196,6 +200,12 @@ export default function broskiHost(pi: ExtensionAPI): void {
 		if (ui !== undefined) askOnPhone(ui, request);
 	});
 	pi.on("tool_call", (event, ctx) => gate.check(event, ctx));
+
+	pi.registerFlag(PROMPT_NOTE_FLAG, { description: "Used by the Broski bridge.", type: "string" });
+	pi.on("before_agent_start", (event) => {
+		const note = pi.getFlag(PROMPT_NOTE_FLAG);
+		if (typeof note === "string" && note !== "") event.systemPromptOptions.sections[PROMPT_NOTE_SECTION] = note;
+	});
 
 	pi.registerCommand(COMMAND, {
 		description: "Used by the Broski bridge.",

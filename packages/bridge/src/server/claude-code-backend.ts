@@ -22,6 +22,8 @@ export interface ClaudeCodeBackendDeps {
 	readonly env?: () => Readonly<Record<string, string>>;
 	readonly stateDir?: string;
 	readonly hookAsks?: (handler: TerminalAskHandler) => void;
+	/** `server/phone-writing.ts`, unless the config turns it off. */
+	readonly appendSystemPrompt?: string;
 }
 
 export function claudeCodeBackend(deps: ClaudeCodeBackendDeps): BackendFactory {
@@ -33,6 +35,7 @@ export function claudeCodeBackend(deps: ClaudeCodeBackendDeps): BackendFactory {
 			clientApp: `broski/${deps.version}`,
 			expectedCliVersion: EXPECTED_CLAUDE_CLI_VERSION,
 			terminal: deps.hookAsks === undefined ? {} : { hookAsks: deps.hookAsks },
+			...(deps.appendSystemPrompt !== undefined && { appendSystemPrompt: deps.appendSystemPrompt }),
 		})(host);
 }
 

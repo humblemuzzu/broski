@@ -7,6 +7,7 @@ import { defaultLinkDirectory } from "../backends/pi/terminal/link";
 import { readConfig } from "../config";
 import type { ClaudeCodeWiring } from "./claude-code-wiring";
 import type { ContractOptions } from "./contract-seam";
+import { phoneWriting } from "./phone-writing";
 import { resolvePiCli } from "./pi-cli-path";
 import { holderCommand } from "./pi-holder-command";
 
@@ -19,7 +20,12 @@ const piBackend: ReturnType<typeof piBackendFactory> = async (host) => {
 	const env: Record<string, string> = {};
 	for (const [key, value] of Object.entries(process.env)) if (value !== undefined) env[key] = value;
 	return piBackendFactory({
-		install: { cli: resolvePiCli(config.pi.cliPath), env, agentDir: agentDirOf(env) },
+		install: {
+			cli: resolvePiCli(config.pi.cliPath),
+			env,
+			agentDir: agentDirOf(env),
+			appendSystemPrompt: phoneWriting(config.phoneWriting),
+		},
 		hostDir: join(homedir(), ".broski", "pi"),
 		holders: { root: defaultHoldersRoot(), command: holderCommand() },
 		link: { enabled: config.pi.terminalLink !== false, directory: defaultLinkDirectory() },

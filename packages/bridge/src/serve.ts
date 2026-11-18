@@ -13,6 +13,7 @@ import { createBridgeServer, loadOrCreateAuthState } from "./server";
 import { defaultClaudeCliEnvironment, resolveClaudeCliPath } from "./server/claude-cli-path";
 import { type ClaudeCodeWiring, createClaudeCodeWiring } from "./server/claude-code-wiring";
 import { contractOptions } from "./server/contract-backends";
+import { phoneWriting } from "./server/phone-writing";
 import { startPeriodicUpdateCheck, startupUpdateCheck } from "./updater";
 
 async function runFirstRunWizard(cli: CliOptions): Promise<void> {
@@ -142,6 +143,7 @@ export async function runServe(cli: CliOptions, config: BroskiConfig): Promise<v
 		cli: () => resolveClaudeCliPath(defaultClaudeCliEnvironment(config.claudeCode.cliPath)),
 		version,
 		log: bridgeLogger.info,
+		appendSystemPrompt: phoneWriting(config.phoneWriting),
 	});
 
 	daemonLog("[daemon] Loading auth token...");
