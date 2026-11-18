@@ -38,7 +38,8 @@ object FormatTokens {
     val bulletGutter = 14.dp
     val markerGap = 6.dp
     val codeSize = 14.sp
-    const val INLINE_CODE_SCALE = 0.85f
+    const val INLINE_CODE_SCALE = 0.88f
+    val inlineCodeRadius = 4.dp
     val codeRadius = 12.dp
 
     /** A code block past this many lines folds; its header counts lines past [CODE_COUNT_LINES]. */
@@ -46,7 +47,7 @@ object FormatTokens {
     const val CODE_COUNT_LINES = 10
     val tableRadius = 12.dp
     val cellHorizontal = 10.dp
-    val cellVertical = 8.dp
+    val cellVertical = 10.dp
     val tableMinColumn = 56.dp
     val tableMaxMinColumn = 200.dp
     val tableScrollColumn = 240.dp
@@ -71,15 +72,19 @@ object FormatTokens {
     val linkLight = Color(0xFF1D4ED8)
     val linkDark = Color(0xFF60A5FA)
 
+    /** A path the agent named in code: it opens the file, so not plain code, and it is no page, so not link blue. */
+    val pathLight = Color(0xFF0F766E)
+    val pathDark = Color(0xFF7CC7BC)
+
     /** The space before a block, by its step, for the answer's size; quiet text is tighter. */
     fun spacing(step: FormatSpacing, quiet: Boolean = false, compact: Boolean = false): Dp {
         val points = when (step) {
             FormatSpacing.NONE -> 0f
-            FormatSpacing.TIGHT -> 4f
-            FormatSpacing.LOOSE -> 10f
-            FormatSpacing.AFTER_HEADING -> 8f
-            FormatSpacing.PARAGRAPH -> 12f
-            FormatSpacing.SECTION -> 24f
+            FormatSpacing.TIGHT -> 8f
+            FormatSpacing.LOOSE, FormatSpacing.AFTER_GROUP -> 14f
+            FormatSpacing.AFTER_HEADING -> 10f
+            FormatSpacing.PARAGRAPH -> 16f
+            FormatSpacing.SECTION -> 28f
         }
         return (points * (if (quiet) 0.75f else 1f) * (if (compact) 0.75f else 1f)).dp
     }
@@ -89,6 +94,22 @@ object FormatTokens {
 val formatLink: Color
     @Composable @ReadOnlyComposable
     get() = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) FormatTokens.linkDark else FormatTokens.linkLight
+
+/** The colour of a path that opens its file, for the surface in effect. */
+val formatPath: Color
+    @Composable @ReadOnlyComposable
+    get() = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) FormatTokens.pathDark else FormatTokens.pathLight
+
+/** Inline code's fill: the text's own colour, faint, so the code reads as part of its sentence. */
+val formatCodeFill: Color
+    @Composable @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.onSurface.copy(alpha = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) 0.11f else 0.06f)
+
+/**
+ * The side margin of the screen the text is on: a code block or a table at the top level of an answer
+ * reaches across it to the screen's edges. Zero where the text sits inside something else.
+ */
+val LocalFormatBleed = staticCompositionLocalOf { 0.dp }
 
 /**
  * Where agent-authored text is drawn, which sets its size and emphasis: [Page] for the answer the
@@ -107,21 +128,28 @@ enum class FormatRole {
         return if (this == Page) type.bodyLarge.copy(fontSize = 16.sp, lineHeight = 24.sp) else type.bodyMedium.copy(fontSize = 14.sp, lineHeight = 20.sp)
     }
 
-    /** H1 22 sp semibold, H2 19, H3 at body size semibold (never smaller), H4–H6 the same in medium. */
+    /** H1 23 sp bold, H2 20 semibold, H3 17 semibold, H4–H6 at body size semibold (drawn in the secondary colour). */
     @Composable
     fun headingStyle(level: UByte): TextStyle {
         val body = textStyle()
         return when {
             this == Quiet -> body.copy(fontWeight = FontWeight.SemiBold, fontSize = if (level == 1.toUByte()) 16.sp else 14.sp)
-            level == 1.toUByte() -> body.copy(fontSize = 22.sp, lineHeight = 28.sp, fontWeight = FontWeight.SemiBold)
-            level == 2.toUByte() -> body.copy(fontSize = 19.sp, lineHeight = 26.sp, fontWeight = FontWeight.SemiBold)
-            level == 3.toUByte() -> body.copy(fontWeight = FontWeight.SemiBold)
-            else -> body.copy(fontWeight = FontWeight.Medium)
+            level == 1.toUByte() -> body.copy(fontSize = 23.sp, lineHeight = 30.sp, fontWeight = FontWeight.Bold)
+            level == 2.toUByte() -> body.copy(fontSize = 20.sp, lineHeight = 27.sp, fontWeight = FontWeight.SemiBold)
+            level == 3.toUByte() -> body.copy(fontSize = 17.sp, lineHeight = 25.sp, fontWeight = FontWeight.SemiBold)
+            else -> body.copy(fontWeight = FontWeight.SemiBold)
         }
     }
 
     @Composable
     fun color(): Color = if (this == Page) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
+
+    /**
+     * An answer's running text, bold included: a step softer than the full text colour, so long reading does not glare;
+     * bold stands out by its weight alone, headings by their full colour.
+     */
+    @Composable
+    fun bodyColor(): Color = if (this == Page) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.86f) else color()
 
     /** The height of [lines] lines of this role's text at the font scale in effect, for a fold. */
     @Composable

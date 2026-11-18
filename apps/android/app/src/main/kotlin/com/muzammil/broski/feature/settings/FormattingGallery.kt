@@ -23,6 +23,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -38,6 +39,8 @@ import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
 import com.muzammil.broski.design.format.FormatRole
 import com.muzammil.broski.design.format.FormattedText
+import com.muzammil.broski.design.format.LocalFormatBleed
+import com.muzammil.broski.feature.chat.transcript.SIDE_MARGIN
 import com.muzammil.broski.design.mono
 import kotlinx.coroutines.delay
 import uniffi.broski_core.FormatSample
@@ -116,7 +119,9 @@ private fun SampleView(sample: FormatSample, onBack: () -> Unit) {
             if (source) {
                 SelectionContainer { Text(sample.text, style = MaterialTheme.typography.bodySmall.mono()) }
             } else {
-                FormattedText(streamed ?: sample.text, role = role, streaming = streamed != null || sample.arriving)
+                CompositionLocalProvider(LocalFormatBleed provides SIDE_MARGIN) {
+                    FormattedText(streamed ?: sample.text, role = role, streaming = streamed != null || sample.arriving)
+                }
             }
         }
     }

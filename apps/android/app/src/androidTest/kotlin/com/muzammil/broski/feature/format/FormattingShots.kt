@@ -32,6 +32,8 @@ import com.muzammil.broski.Shots
 import com.muzammil.broski.core.settings.Appearance
 import com.muzammil.broski.design.BroskiTheme
 import com.muzammil.broski.design.format.FormattedText
+import com.muzammil.broski.design.format.LocalFormatBleed
+import com.muzammil.broski.feature.chat.transcript.SIDE_MARGIN
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
@@ -117,10 +119,12 @@ class FormattingShots {
             CompositionLocalProvider(LocalDensity provides Density(density.density, look.fontScale)) {
                 Column(
                     Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface).safeDrawingPadding()
-                        .verticalScroll(scroll).padding(horizontal = 16.dp, vertical = 12.dp),
+                        .verticalScroll(scroll).padding(horizontal = SIDE_MARGIN, vertical = 12.dp),
                 ) {
                     Text(look.sample.title, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(bottom = 12.dp))
-                    FormattedText(look.sample.text, streaming = look.sample.arriving)
+                    CompositionLocalProvider(LocalFormatBleed provides SIDE_MARGIN) {
+                        FormattedText(look.sample.text, streaming = look.sample.arriving)
+                    }
                 }
             }
         }

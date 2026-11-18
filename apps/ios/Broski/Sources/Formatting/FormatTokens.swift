@@ -15,13 +15,18 @@ nonisolated enum FormatTokens {
     static let bulletGutter: CGFloat = 14
     static let markerGap: CGFloat = 6
     static let codeSize: CGFloat = 14
-    static let inlineCodeScale: CGFloat = 0.85
+    static let inlineCodeScale: CGFloat = 0.88
+    static let inlineCodeRadius: CGFloat = 4
+    /// The text's own colour, faint: inline code reads as part of its sentence.
+    static let inlineCodeFill = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark ? UIColor(white: 1, alpha: 0.11) : UIColor(white: 0, alpha: 0.06)
+    })
     static let codeRadius: CGFloat = 12
     /// A code block past this many lines folds; its header counts lines past `codeCountLines`.
     static let codeFoldLines = 30
     static let codeCountLines = 10
     static let tableRadius: CGFloat = 12
-    static let tableCellPadding = EdgeInsets(top: 8, leading: 10, bottom: 8, trailing: 10)
+    static let tableCellPadding = EdgeInsets(top: 10, leading: 10, bottom: 10, trailing: 10)
     static let tableMinColumn: CGFloat = 56
     static let tableMaxMinColumn: CGFloat = 200
     static let tableScrollColumn: CGFloat = 240
@@ -41,11 +46,11 @@ nonisolated enum FormatTokens {
     static func spacing(_ step: FormatSpacing, quiet: Bool = false, compact: Bool = false) -> CGFloat {
         let points: CGFloat = switch step {
         case .none: 0
-        case .tight: 4
-        case .loose: 10
-        case .afterHeading: 8
-        case .paragraph: 12
-        case .section: 24
+        case .tight: 8
+        case .loose, .afterGroup: 14
+        case .afterHeading: 10
+        case .paragraph: 16
+        case .section: 28
         }
         return points * (quiet ? 0.75 : 1) * (compact ? 0.75 : 1)
     }
@@ -88,15 +93,16 @@ nonisolated enum FormatRole: Equatable {
         }
     }
 
-    /// H1 22 bold, H2 20 semibold, H3 at body size semibold (never smaller), H4–H6 the same in
-    /// the secondary colour.
-    func headingFont(_ level: UInt8) -> Font {
+    /// The size of a heading at the default Dynamic Type size, and the text style it scales with:
+    /// H1 24, H2 21, H3 18, H4–H6 at body size in the secondary colour.
+    func heading(_ level: UInt8) -> (size: CGFloat, weight: Font.Weight) {
         switch (self, level) {
-        case (.page, 1): .title2.weight(.bold)
-        case (.page, 2): .title3.weight(.semibold)
-        case (.page, _): .body.weight(.semibold)
-        case (.quiet, 1): .headline
-        case (.quiet, _): .subheadline.weight(.semibold)
+        case (.page, 1): (24, .bold)
+        case (.page, 2): (21, .semibold)
+        case (.page, 3): (18, .semibold)
+        case (.page, _): (17, .semibold)
+        case (.quiet, 1): (16, .semibold)
+        case (.quiet, _): (15, .semibold)
         }
     }
 }
@@ -104,8 +110,19 @@ nonisolated enum FormatRole: Equatable {
 extension FormatTokens {
     /// Links in one blue, never the accent or the wallpaper's colour, AA on either background.
     @MainActor static let link = Color(light: 0x1D4ED8, dark: 0x60A5FA)
-    @MainActor static let inlineCodeFill = Color(uiColor: .tertiarySystemFill)
-    @MainActor static let tableHeaderFill = Color(uiColor: .secondarySystemFill).opacity(0.6)
+    /// An answer's running text: a step softer than the full text colour, so long reading does not
+    /// glare. Bold is a little brighter than it (`boldText`) and headings are at full strength.
+    @MainActor static let bodyText = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark ? UIColor(white: 1, alpha: 0.86) : UIColor(white: 0, alpha: 0.86)
+    })
+    /// Bold in running text: just above the body, so a point's opening is found when scanning
+    /// without pulling the eye while reading.
+    @MainActor static let boldText = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark ? UIColor(white: 1, alpha: 0.94) : UIColor(white: 0, alpha: 0.94)
+    })
+    /// A path the agent named in code: it opens the file, so it is not drawn as plain code, and it
+    /// is not a page, so it is not link blue.
+    @MainActor static let path = Color(light: 0x0F766E, dark: 0x7CC7BC)
     @MainActor static let hairline = Color(uiColor: .separator)
 }
 

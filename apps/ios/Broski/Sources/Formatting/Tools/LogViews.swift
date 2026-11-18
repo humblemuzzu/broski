@@ -8,9 +8,10 @@ struct LogLinesView: View {
     var tint: Color = .secondary
     var font: Font = .codeSmall
     @Environment(\.reading) private var reading
+    @Environment(\.formatContext) private var context
 
     var body: some View {
-        let style = SpanStyle(font: font, codeFont: .codeSmall, underlinesLinks: reading.underlinesLinks)
+        let style = SpanStyle(font: font, codeFont: .codeSmall, underlinesLinks: reading.underlinesLinks, opensFiles: context != nil)
         var text = AttributedString()
         for (index, line) in log.lines.enumerated() {
             if index > 0 { text += AttributedString("\n") }

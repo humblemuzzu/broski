@@ -1,6 +1,7 @@
 //! The pass's pieces and ranges as styled spans: each piece's styles counted from the ranges that
 //! start and end around it, its link the innermost one over it, an image's pieces folded into
-//! its alt text, then addresses and paths in the plain text linked.
+//! its alt text, then addresses and pages in the plain text linked, and a code span that names a
+//! file made a path.
 
 use super::autolink::{bare_links, host_link};
 use super::{Inline, Piece, Style};
@@ -158,7 +159,8 @@ fn same_style(a: &FormatSpan, b: &FormatSpan) -> bool {
         && a.link == b.link
 }
 
-/// Links the addresses and paths in plain spans, and a code span that is a path as a whole.
+/// Links the addresses and pages in plain spans, and a code span that is a path as a whole: the
+/// agent marked it as a name, so it opens the file, drawn as a path rather than as a link.
 fn link_bare(spans: Vec<FormatSpan>) -> Vec<FormatSpan> {
     let mut out = Vec::with_capacity(spans.len());
     for span in spans {
@@ -173,7 +175,7 @@ fn link_bare(spans: Vec<FormatSpan>) -> Vec<FormatSpan> {
             out.push(span);
             continue;
         }
-        let found = bare_links(&span.text);
+        let found = bare_links(&span.text, false);
         if found.is_empty() {
             out.push(span);
             continue;

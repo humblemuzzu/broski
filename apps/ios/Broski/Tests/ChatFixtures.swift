@@ -25,11 +25,11 @@ enum Item {
 
     static func result(
         _ id: String, _ outcome: ToolOutcome = .completed, output: String = "", exitCode: Int64? = nil,
-        changes: [FileChange] = [], at: Int64? = nil
+        changes: [FileChange] = [], display: ToolDisplay? = nil, at: Int64? = nil
     ) -> TranscriptItem {
         .toolResult(ToolResultItem(
             id: "\(id):result", at: at, toolCallId: id, outcome: outcome,
-            result: ToolResult(content: output.isEmpty ? [] : [.text(TextContent(text: output))], fileChanges: changes, error: nil, exitCode: exitCode, display: nil)))
+            result: ToolResult(content: output.isEmpty ? [] : [.text(TextContent(text: output))], fileChanges: changes, error: nil, exitCode: exitCode, display: display)))
     }
 
     static func notice(_ id: String, _ text: String) -> TranscriptItem {

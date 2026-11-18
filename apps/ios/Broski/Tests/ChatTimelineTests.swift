@@ -111,6 +111,23 @@ struct ChatTimelineTests {
         #expect(built[5].gap == 6, "activities in a row sit close, like rows of work")
     }
 
+    @Test func anAnswerListsThePagesItsSearchesFoundOnceEachAndTheNextTurnStartsAfresh() {
+        let docs = LinkItem(title: "Docs", url: "https://example.com/docs", snippet: nil)
+        let repo = LinkItem(title: "Repo", url: "https://github.com/acme/app", snippet: nil)
+        let built = rows([
+            Item.user("u1", "Look it up"),
+            Item.call("c1", "WebSearch", ["query": "x"]),
+            Item.result("c1", display: .links(LinksDisplay(items: [docs, repo]))),
+            Item.call("c2", "WebSearch", ["query": "y"]),
+            Item.result("c2", display: .links(LinksDisplay(items: [repo]))),
+            Item.text("b1", "Found it."),
+            Item.user("u2", "Thanks"),
+            Item.text("b2", "Any time."),
+        ])
+        let ends = built.compactMap { if case .answerEnd(let end) = $0.content { end } else { nil } }
+        #expect(ends.map(\.sources) == [[docs, repo], []])
+    }
+
     @Test func toolsAreNamedByWhatTheyDidAndTheirLabelIsWhatTheyActedOn() {
         #expect(ToolWork(call: call("Bash", ["command": "ls -la"])).label == "ls -la")
         #expect(ToolWork(call: call("Read", ["file_path": "/w/src/app.ts"])).label == "Read app.ts")

@@ -117,7 +117,7 @@ fn a_search_is_rows_that_open_their_files_with_the_match_marked() {
 fn a_command_is_a_log_of_its_last_lines_with_its_links_found() {
     let bash = facts("Bash", object(vec![("command", text("bun dev"))]));
     let output = format!(
-        "{}\n  ➜  Local:   http://localhost:5173/\nerror in src/app.ts:12:4",
+        "{}\n  ➜  Local:   http://localhost:5173/\n\tmodified:   src/app.ts\nerror in src/app.ts:12:4",
         "build\n".repeat(300)
     );
     let ToolBody::Log {

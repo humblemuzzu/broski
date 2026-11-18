@@ -28,13 +28,14 @@ struct FormattedText: View {
 }
 
 /// The person's own message or a notice: inline styles and fenced code, every other line exactly as
-/// typed (`formatMessage`).
+/// typed (`formatMessage`). It sits in a bubble or a card, which its code stays inside.
 struct FormattedMessage: View {
     let text: String
     var role: FormatRole = .page
 
     var body: some View {
         FormatBlockList(blocks: FormatCache.shared.message(text), role: role, streaming: false)
+            .environment(\.formatBleed, 0)
     }
 }
 

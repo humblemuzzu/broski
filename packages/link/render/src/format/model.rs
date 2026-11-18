@@ -79,10 +79,14 @@ pub enum FormatSpacing {
     Tight,
     /// Items of a list with blank lines between them.
     Loose,
+    /// The item after one that holds more than one block (a nested list, a second paragraph) or
+    /// runs past about two lines, in a list written without blank lines: its points still read
+    /// apart.
+    AfterGroup,
     /// The block under a heading.
     AfterHeading,
     Paragraph,
-    /// Before a heading.
+    /// Before a heading, and after a rule, a code block or a table.
     Section,
 }
 

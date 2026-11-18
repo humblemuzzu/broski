@@ -73,7 +73,8 @@ fn split_position(text: &str) -> (&str, Option<u32>, Option<u32>) {
 
 /// Whether `token` (a word without its surrounding punctuation) names a file: `src/a.ts:42:7`,
 /// `~/x`, `./x`, `/usr/bin/env`, `C:\x`. Never a version (`v1.2.3`), an abbreviation (`e.g.`), a
-/// bare name (`node.js`) or a pair of words (`and/or`).
+/// bare name (`node.js`), a pair of words (`and/or`) or a route (`/api/v1/users`): a rooted path
+/// needs a file name or a system folder at its root.
 pub(crate) fn is_path(token: &str) -> bool {
     let (path, _, _) = split_position(token);
     if path.contains("://") || path.chars().any(char::is_whitespace) || path.len() < 3 {
@@ -96,9 +97,35 @@ pub(crate) fn is_path(token: &str) -> bool {
     if !well_formed {
         return false;
     }
-    let rooted = path.starts_with('/') && segments.len() >= 3;
-    rooted || segments.last().is_some_and(|name| has_extension(name))
+    let named = segments.last().is_some_and(|name| has_extension(name));
+    let system_root = path.starts_with('/')
+        && segments.len() >= 3
+        && SYSTEM_ROOTS.contains(&segments[1].to_ascii_lowercase().as_str());
+    named || system_root
 }
+
+/// The folders at the root of a Mac or Linux disk, under which a path with no file name is still
+/// a path (`/usr/bin/env`); any other rooted path without one reads as a web route.
+const SYSTEM_ROOTS: [&str; 18] = [
+    "applications",
+    "bin",
+    "dev",
+    "etc",
+    "home",
+    "library",
+    "mnt",
+    "nix",
+    "opt",
+    "private",
+    "root",
+    "sbin",
+    "system",
+    "tmp",
+    "users",
+    "usr",
+    "var",
+    "volumes",
+];
 
 fn windows_path(path: &str) -> bool {
     let bytes = path.as_bytes();

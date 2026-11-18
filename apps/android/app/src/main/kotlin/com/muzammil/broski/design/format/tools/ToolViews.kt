@@ -37,6 +37,7 @@ import com.muzammil.broski.design.format.FormatRole
 import com.muzammil.broski.design.format.FormattedText
 import com.muzammil.broski.design.format.exceeds
 import com.muzammil.broski.design.format.formatLink
+import com.muzammil.broski.design.format.formatPath
 import com.muzammil.broski.design.format.rememberSpans
 import com.muzammil.broski.design.format.spanLook
 import com.muzammil.broski.design.mono
@@ -156,7 +157,7 @@ fun MatchRows(rows: List<MatchRow>, hidden: Int, links: ToolLinks) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         rows.forEach { row ->
             Column(Modifier.fillMaxWidth().clickable { links.openFile(row.path, row.line?.toInt()) }) {
-                Text(row.path + (row.line?.let { ":$it" } ?: ""), style = MaterialTheme.typography.bodySmall.mono().copy(fontWeight = FontWeight.Medium), color = formatLink, maxLines = 1, overflow = TextOverflow.StartEllipsis)
+                Text(row.path + (row.line?.let { ":$it" } ?: ""), style = MaterialTheme.typography.bodySmall.mono().copy(fontWeight = FontWeight.Medium), color = formatPath, maxLines = 1, overflow = TextOverflow.StartEllipsis)
                 if (row.segments.isNotEmpty()) {
                     val text = remember(row, mark) {
                         buildAnnotatedString {

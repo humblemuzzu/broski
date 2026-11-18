@@ -18,6 +18,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -34,9 +35,11 @@ import com.muzammil.broski.R
 import com.muzammil.broski.design.Haptic
 import com.muzammil.broski.design.format.FormatBlockView
 import com.muzammil.broski.design.format.FormatCache
+import com.muzammil.broski.design.format.LocalFormatBleed
 import com.muzammil.broski.design.format.tools.LogLines
 import com.muzammil.broski.design.mono
 import com.muzammil.broski.design.perform
+import com.muzammil.broski.feature.chat.transcript.SIDE_MARGIN
 import kotlinx.coroutines.launch
 import uniffi.broski_contract.ActivityFormat
 import uniffi.broski_core.ClipEnd
@@ -75,7 +78,7 @@ fun TextSheet(page: TextPage, onDismiss: () -> Unit) {
             if (page.format == TextPage.Format.MARKDOWN) {
                 items(blocks.size, key = { blocks[it].key }) { index ->
                     val next = blocks.getOrNull(index + 1)?.containers?.map { it.id }.orEmpty()
-                    FormatBlockView(blocks[index], next = next)
+                    CompositionLocalProvider(LocalFormatBleed provides SIDE_MARGIN) { FormatBlockView(blocks[index], next = next) }
                 }
             } else {
                 items(lines.size) { index ->

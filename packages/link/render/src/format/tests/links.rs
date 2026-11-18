@@ -82,7 +82,7 @@ fn bare_urls_end_before_trailing_punctuation_and_long_ones_show_shortened() {
 }
 
 #[test]
-fn paths_in_code_and_prose_open_at_their_line_and_lookalikes_do_not() {
+fn paths_in_code_open_at_their_line_and_lookalikes_do_not() {
     let path = link("open `src/auth.ts:42:7` now", "src/auth.ts:42:7");
     assert_eq!(
         path.kind,
@@ -93,10 +93,6 @@ fn paths_in_code_and_prose_open_at_their_line_and_lookalikes_do_not() {
     );
     assert_eq!(path.target, "src/auth.ts");
     assert_eq!(
-        linked("edit packages/link/render/src/lib.rs, then"),
-        ["packages/link/render/src/lib.rs"]
-    );
-    assert_eq!(
         linked("keys in `~/.broski/link/bridge.key`"),
         ["~/.broski/link/bridge.key"]
     );
@@ -104,11 +100,14 @@ fn paths_in_code_and_prose_open_at_their_line_and_lookalikes_do_not() {
         linked(r"on `C:\Users\dev\main.rs`"),
         [r"C:\Users\dev\main.rs"]
     );
+    assert_eq!(linked("run `/usr/bin/env`"), ["/usr/bin/env"]);
     for not_a_path in [
         "`v1.2.3`",
         "`e.g.`",
         "`node.js`",
         "`1.5x`",
+        "`/api/v1/stt`",
+        "`/v1/chat/completions`",
         "and/or",
         "TCP/IP",
         "e.g./i.e.",
@@ -119,6 +118,22 @@ fn paths_in_code_and_prose_open_at_their_line_and_lookalikes_do_not() {
             "{not_a_path}"
         );
     }
+}
+
+#[test]
+fn a_path_in_prose_stays_text_since_nothing_says_the_file_is_there() {
+    for prose in [
+        "edit packages/link/render/src/lib.rs, then",
+        "see src/auth.ts:42 for it",
+        "the route /api/v1/stt answers",
+        "in @scope/pkg/docs/x.md",
+    ] {
+        assert!(linked(prose).is_empty(), "{prose}");
+    }
+    assert_eq!(
+        linked("mail me@example.com or see example.com/docs"),
+        ["me@example.com", "example.com/docs"]
+    );
 }
 
 #[test]

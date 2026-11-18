@@ -60,10 +60,11 @@ nonisolated struct TextPiece: Equatable {
     var next: [UInt32] = []
 }
 
-/// Under a finished answer: its time, and the answer's text to copy.
+/// Under a finished answer: the pages its searches found, its time, and the answer's text to copy.
 nonisolated struct AnswerEnd: Equatable {
     let text: String
     let at: Int64?
+    var sources: [LinkItem] = []
 }
 
 nonisolated enum Marker: Equatable {

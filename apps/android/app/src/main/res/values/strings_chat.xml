@@ -181,4 +181,9 @@
     <string name="new_session_agent_missing">%1$s isn\'t installed on %2$s. Install it there to use it.</string>
     <string name="new_session_agent_signed_out">%1$s is signed out on %2$s. Sign in there to use it.</string>
     <string name="new_session_agent_cannot_run">%1$s can\'t run right now.</string>
+    <string name="chat_sources">Sources</string>
+    <plurals name="chat_sources_more">
+        <item quantity="one">Show %d more source</item>
+        <item quantity="other">Show %d more sources</item>
+    </plurals>
 </resources>

@@ -10,7 +10,22 @@ pub struct FormatSample {
     pub arriving: bool,
 }
 
-const SAMPLES: [(&str, &str, bool); 14] = [
+const SAMPLES: [(&str, &str, bool); 17] = [
+    (
+        "Written for the phone",
+        include_str!("../../tests/fixtures/format/16-phone-answer.md"),
+        false,
+    ),
+    (
+        "A long explainer",
+        include_str!("../../tests/fixtures/format/17-long-explainer.md"),
+        false,
+    ),
+    (
+        "Written for a terminal",
+        include_str!("../../tests/fixtures/format/15-terminal-report.md"),
+        false,
+    ),
     (
         "An agent's answer",
         include_str!("../../tests/fixtures/format/01-agent-answer.md"),

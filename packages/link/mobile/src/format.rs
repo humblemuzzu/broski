@@ -125,6 +125,7 @@ pub enum FormatSpacing {
     None,
     Tight,
     Loose,
+    AfterGroup,
     AfterHeading,
     Paragraph,
     Section,

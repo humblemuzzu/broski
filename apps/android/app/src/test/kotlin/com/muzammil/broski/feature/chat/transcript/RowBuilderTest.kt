@@ -10,11 +10,14 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import uniffi.broski_contract.BlockKind
+import uniffi.broski_contract.LinkItem
+import uniffi.broski_contract.LinksDisplay
 import uniffi.broski_contract.OpenBlock
 import uniffi.broski_contract.RunAborted
 import uniffi.broski_contract.RunBoundaryItem
 import uniffi.broski_contract.RunOutcome
 import uniffi.broski_contract.SessionSnapshot
+import uniffi.broski_contract.ToolDisplay
 import uniffi.broski_contract.ToolOutcome
 import uniffi.broski_contract.TranscriptItem
 import uniffi.broski_core.FoldCount
@@ -62,6 +65,25 @@ class RowBuilderTest {
         assertFalse(fold.live)
         assertEquals(listOf("Thought", "Read a.md", "npm test", "Edited b.md"), fold.entries.map { (it as? WorkEntry.Tool)?.label ?: "Thought" })
         assertEquals("Done, **both** files.", (rows[3] as ChatRow.CopyAnswer).text)
+    }
+
+    @Test
+    fun anAnswerListsThePagesItsSearchesFoundOnceEachAndTheNextTurnStartsAfresh() {
+        val docs = LinkItem("Docs", "https://example.com/docs", null)
+        val repo = LinkItem("Repo", "https://github.com/acme/app", null)
+        val rows = build(
+            history = listOf(
+                Items.user("u1", "Look it up"),
+                Items.call("c1", "WebSearch", null, "query" to "x"),
+                Items.result("c1", display = ToolDisplay.Links(LinksDisplay(listOf(docs, repo)))),
+                Items.call("c2", "WebSearch", null, "query" to "y"),
+                Items.result("c2", display = ToolDisplay.Links(LinksDisplay(listOf(repo)))),
+                Items.text("t1", "Found it."),
+                Items.user("u2", "Thanks"),
+                Items.text("t2", "Any time."),
+            ),
+        )
+        assertEquals(listOf(listOf(docs, repo), emptyList()), rows.filterIsInstance<ChatRow.CopyAnswer>().map { it.sources })
     }
 
     @Test

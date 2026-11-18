@@ -16,6 +16,8 @@ struct ChatTimeline {
     private var turnHasText = false
     private var answer: [String] = []
     private var answerAt: Int64?
+    /// The pages the turn's searches found, which the answer drew on.
+    private var sources: [LinkItem] = []
     private var running: [String: RunningTool] = [:]
 
     init(after previous: ChatRow? = nil, format: @escaping @MainActor (String, Bool) -> [FormatBlock] = FormatCache.shared.blocks) {
@@ -127,6 +129,9 @@ struct ChatTimeline {
 
     private mutating func finishTool(_ result: ToolResultItem) {
         lastAt = result.at ?? lastAt
+        if case .links(let found) = result.result.display {
+            for item in found.items where !sources.contains(where: { $0.url == item.url }) { sources.append(item) }
+        }
         if let index = toolsInFold[result.toolCallId], case .tool(var tool) = fold?.entries[index] {
             tool.finish(with: result)
             fold?.entries[index] = .tool(tool)
@@ -155,6 +160,7 @@ struct ChatTimeline {
         closeFold()
         closeAnswer()
         turnHasText = false
+        sources = []
     }
 
     private mutating func closeAnswer() {
@@ -162,9 +168,10 @@ struct ChatTimeline {
             answer = []
             return
         }
-        append(.answerEnd(AnswerEnd(text: answer.joined(separator: "\n\n"), at: answerAt)), id: "end-\(piece.blockId)")
+        append(.answerEnd(AnswerEnd(text: answer.joined(separator: "\n\n"), at: answerAt, sources: sources)), id: "end-\(piece.blockId)")
         answer = []
         answerAt = nil
+        sources = []
     }
 
     private mutating func append(_ content: ChatRow.Content, id: String) {

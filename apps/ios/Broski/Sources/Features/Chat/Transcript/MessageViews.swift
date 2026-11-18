@@ -113,20 +113,25 @@ struct CopyButton: View {
     }
 }
 
-/// Under a finished answer: a quiet copy button and its time.
+/// Under a finished answer: the pages its searches found, then a quiet copy button and its time.
 struct AnswerEndView: View {
     let end: AnswerEnd
     @State private var copied = 0
 
     var body: some View {
-        HStack(spacing: Spacing.s) {
-            CopyButton(text: end.text, copied: $copied)
-            if let at = end.at {
-                Text(Date(unixMilliseconds: at), format: .dateTime.hour().minute())
+        VStack(alignment: .leading, spacing: Spacing.s) {
+            if !end.sources.isEmpty {
+                SourcesList(sources: end.sources).padding(.top, Spacing.s)
             }
+            HStack(spacing: Spacing.s) {
+                CopyButton(text: end.text, copied: $copied)
+                if let at = end.at {
+                    Text(Date(unixMilliseconds: at), format: .dateTime.hour().minute())
+                }
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
         }
-        .font(.caption)
-        .foregroundStyle(.secondary)
         .haptic(.confirmed, trigger: copied)
     }
 }

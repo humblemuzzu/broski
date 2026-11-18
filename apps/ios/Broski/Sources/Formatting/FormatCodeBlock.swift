@@ -2,13 +2,15 @@ import BroskiCore
 import SwiftUI
 import UIKit
 
-/// A fenced block: a header with the language's name, the fence's file name and the line count,
-/// Wrap, Copy and Expand; the code scrolls sideways (text-like fences wrap), folds past 30 lines,
-/// is coloured line by line as it arrives, a `diff` fence draws as a diff, and a shell fence dims
-/// the `$` prompt that copying leaves out.
+/// A fenced block: a quiet header with the language's name, the fence's file name and the line
+/// count, Copy and Expand (Wrap is in its long-press menu); the code scrolls sideways (text-like
+/// fences wrap), folds past 30 lines, is coloured line by line as it arrives, a `diff` fence draws
+/// as a diff, and a shell fence dims the `$` prompt that copying leaves out. At the top level of an
+/// answer it runs to the screen's edges (`bleed`), its text still in line with the prose.
 struct FormatCodeBlock: View {
     let code: FormatCode
     let streaming: Bool
+    var bleed: CGFloat = 0
     @Environment(\.reading) private var reading
     @Environment(\.dynamicTypeSize) private var typeSize
     @AppStorage(Preference.readingWrapsCode) private var wrapsByDefault = false
@@ -20,10 +22,12 @@ struct FormatCodeBlock: View {
     private var kind: CodeKind { CodeKind(language: code.language) }
     private var plainLines: [Substring] { code.text.split(separator: "\n", omittingEmptySubsequences: false) }
     private var wraps: Bool { code.prose || reading.wrapsCode || typeSize.isAccessibilitySize }
+    /// Where the code starts: in line with the prose when the block runs to the screen's edges.
+    private var inset: CGFloat { bleed > 0 ? bleed : Spacing.m }
 
     var body: some View {
         if kind == .diff, code.closed, let file = parseUnifiedDiff(text: code.text).files.first {
-            card { DiffBody(file: file, showsHeader: false).padding(.bottom, Spacing.xs) }
+            card { DiffBody(file: file, showsHeader: false).padding(.horizontal, bleed).padding(.bottom, Spacing.xs) }
         } else {
             card { lines }
                 .task(id: completedText) { await colour() }
@@ -36,7 +40,8 @@ struct FormatCodeBlock: View {
             content()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Palette.codeBackground, in: .rect(cornerRadius: FormatTokens.codeRadius, style: .continuous))
+        .background(Palette.codeBackground, in: .rect(cornerRadius: bleed > 0 ? 0 : FormatTokens.codeRadius, style: .continuous))
+        .padding(.horizontal, -bleed)
         .contextMenu { menu }
         .haptic(.confirmed, trigger: copied)
         .accessibilityElement(children: .contain)
@@ -45,12 +50,12 @@ struct FormatCodeBlock: View {
     private var header: some View {
         HStack(spacing: Spacing.s) {
             Text(title)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.tertiary)
             if let file = code.file {
                 Text(file)
                     .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.tertiary)
                     .lineLimit(1)
                     .truncationMode(.head)
             }
@@ -61,16 +66,11 @@ struct FormatCodeBlock: View {
                     .fixedSize()
             }
             Spacer(minLength: Spacing.xs)
-            if !code.prose && kind != .diff {
-                headerButton(wraps ? "arrow.left.and.right.text.vertical" : "text.word.spacing", label: wraps ? "Scroll sideways" : "Wrap lines") {
-                    wrapsByDefault.toggle()
-                }
-            }
             headerButton(copied > 0 ? "checkmark" : "doc.on.doc", label: "Copy code") { copy() }
             headerButton("arrow.up.left.and.arrow.down.right", label: "Expand") { expand() }
         }
-        .padding(.leading, Spacing.m)
-        .padding(.trailing, Spacing.xxs)
+        .padding(.leading, inset)
+        .padding(.trailing, max(inset - Spacing.m, Spacing.xxs))
         .padding(.vertical, Spacing.xxs)
     }
 
@@ -83,7 +83,7 @@ struct FormatCodeBlock: View {
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        .foregroundStyle(.secondary)
+        .foregroundStyle(.tertiary)
         .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
         .accessibilityLabel(label)
     }
@@ -99,7 +99,7 @@ struct FormatCodeBlock: View {
         let text = Text(attributed(limit: folds ? FormatTokens.codeFoldLines : nil))
             .font(.system(size: codeSize, design: .monospaced))
             .lineSpacing(2)
-            .padding(.horizontal, Spacing.m)
+            .padding(.horizontal, inset)
             .padding(.top, Spacing.xxs)
             .padding(.bottom, folds ? Spacing.xs : Spacing.m)
         VStack(alignment: .leading, spacing: 0) {
@@ -191,6 +191,11 @@ struct FormatCodeBlock: View {
     @ViewBuilder
     private var menu: some View {
         Button("Copy Code", systemImage: "doc.on.doc") { copy() }
+        if !code.prose && kind != .diff && !typeSize.isAccessibilitySize {
+            Button(wraps ? "Scroll Sideways" : "Wrap Lines", systemImage: wraps ? "arrow.left.and.right.text.vertical" : "text.word.spacing") {
+                wrapsByDefault.toggle()
+            }
+        }
         Button("Copy as Markdown", systemImage: "number") {
             UIPasteboard.general.string = "```\(code.language ?? "")\n\(code.text)\n```"
         }

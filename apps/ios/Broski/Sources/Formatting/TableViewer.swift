@@ -93,9 +93,10 @@ struct TableViewer: View {
                         Text(TableLayout.plain(table.header[column].spans))
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
-                        Text(FormatSpans.attributed(table.rows[index][column].spans, style: SpanStyle(font: .body, codeFont: .system(.callout, design: .monospaced))))
+                        FormatSpans.text(table.rows[index][column].spans, style: SpanStyle(font: .body, codeFont: .system(.callout, design: .monospaced).weight(.medium)))
                             .font(.body)
                             .tint(FormatTokens.link)
+                            .textRenderer(ChipRenderer())
                     }
                 }
             }

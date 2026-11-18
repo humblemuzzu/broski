@@ -11,7 +11,7 @@ final class SettingsFormattingEndToEndTests: XCTestCase {
     private let maxPages = 14
 
     private let samples = [
-        "An agent's answer", "Tables", "Lists and tasks", "Quotes and callouts", "Links and paths", "Code",
+        "Written for the phone", "A long explainer", "Written for a terminal", "An agent's answer", "Tables", "Lists and tasks", "Quotes and callouts", "Links and paths", "Code",
         "Inline edge cases", "Thinking", "A subagent's report", "Languages and scripts", "Headings",
         "Cut mid-stream", "Big tables", "Agent quirks",
     ]

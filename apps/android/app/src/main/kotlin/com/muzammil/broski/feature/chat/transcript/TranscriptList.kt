@@ -1,12 +1,14 @@
 package com.muzammil.broski.feature.chat.transcript
 
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
@@ -19,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import com.muzammil.broski.design.format.AnswerMenu
 import com.muzammil.broski.design.format.menuLinks
 import com.muzammil.broski.design.format.FormatBlockView
+import com.muzammil.broski.design.format.LocalFormatBleed
 import com.muzammil.broski.feature.chat.activity.ActivityRow
 import com.muzammil.broski.feature.chat.work.WorkActions
 import com.muzammil.broski.feature.chat.work.WorkFoldRow
@@ -35,6 +38,9 @@ class TranscriptCallbacks(
 
 /** Rows from the end this close to the top start reading the page before them. */
 private const val OLDER_AHEAD = 4
+
+/** The transcript's side margin, which a top-level code block or table reaches across. */
+val SIDE_MARGIN = 20.dp
 
 /**
  * The conversation, full bleed under the top bar and the composer, laid out from the bottom so a
@@ -69,13 +75,18 @@ fun TranscriptList(
 
 @Composable
 private fun Row(row: ChatRow, images: Map<String, ImageBitmap>, state: TranscriptState, callbacks: TranscriptCallbacks, answer: () -> String?) {
-    val padded = Modifier.padding(horizontal = 20.dp).entrance(row.at)
+    val padded = Modifier.padding(horizontal = SIDE_MARGIN).entrance(row.at)
     when (row) {
         is ChatRow.User -> UserBubble(row, images, callbacks.requestImage, padded.padding(top = 20.dp, bottom = 4.dp))
         is ChatRow.Text -> AnswerMenu(answer, padded.padding(top = if (row.first) 12.dp else 0.dp), links = remember(row.block) { row.block.menuLinks() }) {
-            FormatBlockView(row.block, next = row.next, streaming = row.streaming)
+            CompositionLocalProvider(LocalFormatBleed provides SIDE_MARGIN) {
+                FormatBlockView(row.block, next = row.next, streaming = row.streaming)
+            }
         }
-        is ChatRow.CopyAnswer -> CopyAnswerRow(row.text, Modifier.padding(horizontal = 8.dp))
+        is ChatRow.CopyAnswer -> Column {
+            if (row.sources.isNotEmpty()) SourcesList(row.sources, Modifier.padding(start = SIDE_MARGIN, end = SIDE_MARGIN, top = 12.dp))
+            CopyAnswerRow(row.text, Modifier.padding(horizontal = 8.dp))
+        }
         is ChatRow.Work -> WorkFoldRow(
             fold = row.fold,
             expanded = row.key in state.openFolds,

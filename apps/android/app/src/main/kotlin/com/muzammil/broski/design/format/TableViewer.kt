@@ -191,7 +191,8 @@ private fun RowCards(table: FormatTable) {
                     table.rows[index].forEachIndexed { column, cell ->
                         Text(headers[column], style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.onSurfaceVariant)
                         val style = MaterialTheme.typography.bodyLarge
-                        Text(rememberSpans(cell.spans, spanLook(style)), style = style)
+                        val look = spanLook(style)
+                        SpanText(rememberSpans(cell.spans, look), style, codeSize = look.codeSize)
                     }
                 }
             }

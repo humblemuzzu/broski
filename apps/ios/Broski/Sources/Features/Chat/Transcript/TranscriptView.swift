@@ -33,7 +33,8 @@ struct TranscriptView: View {
             .scrollTargetLayout()
         }
         .environment(\.answerSource, AnswerSource { [chat] rowId in Self.answer(containing: rowId, in: chat) })
-        .contentMargins(.horizontal, Spacing.l + Spacing.xs, for: .scrollContent)
+        .environment(\.formatBleed, Self.sideMargin)
+        .contentMargins(.horizontal, Self.sideMargin, for: .scrollContent)
         .contentMargins(.vertical, Spacing.m, for: .scrollContent)
         .scrollPosition($position)
         .defaultScrollAnchor(.bottom, for: .initialOffset)
@@ -74,6 +75,7 @@ struct TranscriptView: View {
     }
 
     static let endId = "transcript-end"
+    static let sideMargin = Spacing.l + Spacing.xs
 
     /// Older pages load while the top is still this many screens away, so a drag at the top of a chat
     /// opened with the zoom transition (which dismisses it) never meets a page still on its way.

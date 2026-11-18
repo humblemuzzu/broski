@@ -10,6 +10,7 @@ import uniffi.broski_contract.JsonValue
 import uniffi.broski_contract.RunTrigger
 import uniffi.broski_contract.ToolCallItem
 import uniffi.broski_contract.ToolContent
+import uniffi.broski_contract.ToolDisplay
 import uniffi.broski_contract.ToolOutcome
 import uniffi.broski_contract.ToolResult
 import uniffi.broski_contract.ToolResultItem
@@ -35,8 +36,9 @@ object Items {
         output: String = "",
         exitCode: Long? = null,
         changes: List<FileChange> = emptyList(),
+        display: ToolDisplay? = null,
     ): TranscriptItem = TranscriptItem.ToolResult(
-        ToolResultItem("$id:result", at, id, outcome, ToolResult(listOf(ToolContent.Text(TextContent(output))), changes, null, exitCode, null)),
+        ToolResultItem("$id:result", at, id, outcome, ToolResult(listOf(ToolContent.Text(TextContent(output))), changes, null, exitCode, display)),
     )
 
     fun change(path: String) = FileChange(path, FileChangeKind.MODIFIED, null, "@@ -1 +1 @@\n-a\n+b\n", 1, 1)

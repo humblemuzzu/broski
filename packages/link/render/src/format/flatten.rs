@@ -80,15 +80,30 @@ impl Walk<'_> {
     /// The space between two neighbouring children of `parent`.
     fn gap(&self, parent: usize, before: usize, after: usize) -> FormatSpacing {
         let blank = self.node(before).end_line + 1 < self.node(after).start_line;
+        let previous = &self.node(before).kind;
         match self.node(parent).kind {
             Kind::List(_) if blank => FormatSpacing::Loose,
+            Kind::List(_) if self.roomy(before) => FormatSpacing::AfterGroup,
             Kind::List(_) => FormatSpacing::Tight,
             Kind::Item(_) | Kind::Footnote(_) if blank => FormatSpacing::Paragraph,
             Kind::Item(_) | Kind::Footnote(_) => FormatSpacing::Tight,
             _ if matches!(self.node(after).kind, Kind::Heading(_)) => FormatSpacing::Section,
-            _ if matches!(self.node(before).kind, Kind::Heading(_)) => FormatSpacing::AfterHeading,
+            _ if matches!(previous, Kind::Heading(_)) => FormatSpacing::AfterHeading,
+            _ if matches!(previous, Kind::Rule | Kind::Code(_) | Kind::Table(_)) => {
+                FormatSpacing::Section
+            }
             _ => FormatSpacing::Paragraph,
         }
+    }
+
+    /// An item that holds more than one block, or whose text runs past about two lines of a phone:
+    /// the item after it is set apart, so long points read as points and not as one wall of text.
+    fn roomy(&self, item: usize) -> bool {
+        let children = &self.node(item).children;
+        children.len() > 1
+            || children
+                .first()
+                .is_some_and(|&first| self.node(first).text.chars().count() > ROOMY_ITEM_CHARS)
     }
 
     fn visit(&mut self, node: usize, spacing: FormatSpacing) {
@@ -206,6 +221,9 @@ impl Walk<'_> {
         });
     }
 }
+
+/// About two lines of body text on a phone.
+const ROOMY_ITEM_CHARS: usize = 90;
 
 /// A list's widest marker in characters: one for bullets and tasks, at least `00.` for numbers.
 fn marker_width(data: &ListData, items: usize) -> u32 {

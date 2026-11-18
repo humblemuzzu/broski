@@ -67,13 +67,15 @@ import uniffi.broski_core.tableMarkdown
 import uniffi.broski_core.tableTsv
 
 /**
- * A table in a rounded card: the header bold on a light fill, rules between rows, cells top-aligned
- * and numbers right-aligned in tabular digits. Its columns fit the width as [TableLayout] decides;
- * past twelve rows it shows ten and a button for the rest; Expand opens it whole; a long-press
- * copies it as TSV and HTML at once, so a paste keeps it a table.
+ * A table drawn open, without a card: the header in the secondary colour, a hairline above and below
+ * it and under every row, cells top-aligned and numbers right-aligned in tabular digits. At the top
+ * level of an answer ([bleed]) its lines run to the screen's edges and its first column's text is in
+ * line with the prose. Its columns fit the width as [TableLayout] decides; past twelve rows it shows
+ * ten and a button for the rest; Expand opens it whole; a long-press copies it as TSV and HTML at
+ * once, so a paste keeps it a table.
  */
 @Composable
-fun FormatTable(table: FormatTable, streaming: Boolean) {
+fun FormatTable(table: FormatTable, streaming: Boolean, bleed: Dp = 0.dp) {
     var showsAll by remember { mutableStateOf(false) }
     var viewing by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
@@ -81,18 +83,20 @@ fun FormatTable(table: FormatTable, streaming: Boolean) {
     val rows = if (table.rows.size > FormatTokens.TABLE_FOLD_ROWS && !showsAll) FormatTokens.TABLE_SHOWN_ROWS else table.rows.size
     val styles = tableStyles()
     val measure = TableMeasure(rememberTextMeasurer(), styles.first, styles.second, LocalDensity.current)
+    val hang = if (bleed > 0.dp) FormatTokens.cellHorizontal else 0.dp
+    val edge = (bleed - hang).coerceAtLeast(0.dp)
     BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val fitted = remember(table, maxWidth, styles) { TableLayout.fit(table, maxWidth, measure) }
+        val width = maxWidth + hang * 2
+        val fitted = remember(table, width, styles) { TableLayout.fit(table, width, measure) }
         val layout = if (streaming && grown.size == fitted.widths.size) fitted.copy(widths = fitted.widths.zip(grown) { a, b -> maxOf(a, b) }) else fitted
         SideEffect { if (streaming) grown = layout.widths }
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Box(
                 Modifier
-                    .clip(RoundedCornerShape(FormatTokens.tableRadius))
-                    .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(FormatTokens.tableRadius))
+                    .bleed(bleed)
                     .combinedClickable(interactionSource = null, indication = null, onClick = {}, onLongClick = { menu = true }),
             ) {
-                TableGrid(table, layout, rows, styles)
+                TableGrid(table, layout, rows, styles, edge = edge)
                 TableMenu(table, menu, onDismiss = { menu = false }, onExpand = { viewing = true })
             }
             TableFooter(table, showsAll, onToggle = { showsAll = !showsAll }, onExpand = { viewing = true })
@@ -115,16 +119,17 @@ fun tableStyles(scale: Float = 1f): Pair<TextStyle, TextStyle> {
 }
 
 /**
- * The cells at the layout's widths. A scrolling table moves its columns together by one offset, the
- * first held still when the layout says so, so every row keeps one height.
+ * The cells at the layout's widths, [edge] in from the sides, with hairlines across the whole width. A
+ * scrolling table moves its columns together by one offset, the first held still when the layout says
+ * so, so every row keeps one height; it scrolls to the trailing edge.
  */
 @Composable
-fun TableGrid(table: FormatTable, layout: TableLayout, rows: Int, styles: Pair<TextStyle, TextStyle>, modifier: Modifier = Modifier) {
+fun TableGrid(table: FormatTable, layout: TableLayout, rows: Int, styles: Pair<TextStyle, TextStyle>, modifier: Modifier = Modifier, edge: Dp = 0.dp) {
     val density = LocalDensity.current
     BoxWithConstraints(modifier) {
         val held = if (layout.sticky) 1 else 0
         val heldWidth = layout.widths.take(held).fold(0.dp) { a, b -> a + b }
-        val reach = with(density) { (layout.widths.drop(held).fold(0.dp) { a, b -> a + b } - (maxWidth - heldWidth)).toPx().coerceAtLeast(0f) }
+        val reach = with(density) { (layout.widths.drop(held).fold(0.dp) { a, b -> a + b } - (maxWidth - edge - heldWidth)).toPx().coerceAtLeast(0f) }
         var scrolled by remember(layout.sticky) { mutableFloatStateOf(0f) }
         val offset = scrolled.coerceIn(0f, reach)
         val scroll = rememberScrollableState { delta ->
@@ -134,12 +139,15 @@ fun TableGrid(table: FormatTable, layout: TableLayout, rows: Int, styles: Pair<T
             used
         }
         val scrolling = if (layout.scrolls) Modifier.scrollable(scroll, Orientation.Horizontal) else Modifier
+        val line = MaterialTheme.colorScheme.outlineVariant
         Column(scrolling.fadeEnd(layout.scrolls && offset < reach, FormatTokens.tableEdgeFade)) {
-            TableRow(table, table.header, 0, layout, held, { offset }, styles.second, Modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh))
+            Box(Modifier.fillMaxWidth().height(0.5.dp).background(line))
+            TableRow(table, table.header, 0, layout, held, { offset }, styles.second.copy(color = MaterialTheme.colorScheme.onSurfaceVariant), Modifier.padding(start = edge))
             for (index in 0 until minOf(rows, table.rows.size)) {
-                Box(Modifier.fillMaxWidth().height(0.5.dp).background(MaterialTheme.colorScheme.outlineVariant))
-                TableRow(table, table.rows[index], index + 1, layout, held, { offset }, styles.first)
+                Box(Modifier.fillMaxWidth().height(0.5.dp).background(line))
+                TableRow(table, table.rows[index], index + 1, layout, held, { offset }, styles.first, Modifier.padding(start = edge))
             }
+            Box(Modifier.fillMaxWidth().height(0.5.dp).background(line))
         }
     }
 }
@@ -168,14 +176,15 @@ private fun TableRow(
 
 @Composable
 fun TableCellText(cell: TableCell, column: TableColumn, width: Dp, style: TextStyle) {
-    val text = rememberSpans(cell.spans, spanLook(style))
+    val look = spanLook(style)
+    val text = rememberSpans(cell.spans, look)
     val align = when (column.align) {
         ColumnAlign.CENTER -> TextAlign.Center
         ColumnAlign.END -> TextAlign.End
         ColumnAlign.AUTO -> if (column.numeric) TextAlign.End else TextAlign.Start
         ColumnAlign.START -> TextAlign.Start
     }
-    Text(text, style = style.copy(textAlign = align), modifier = Modifier.width(width).padding(horizontal = FormatTokens.cellHorizontal, vertical = FormatTokens.cellVertical))
+    SpanText(text, style.copy(textAlign = align), Modifier.width(width).padding(horizontal = FormatTokens.cellHorizontal, vertical = FormatTokens.cellVertical), codeSize = look.codeSize)
 }
 
 @Composable

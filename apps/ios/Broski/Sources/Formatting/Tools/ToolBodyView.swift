@@ -181,7 +181,7 @@ private struct MatchRowLine: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xxs) {
             HStack(spacing: Spacing.xs) {
-                Text(row.path).font(.footnote.weight(.medium)).foregroundStyle(FormatTokens.link).lineLimit(1).truncationMode(.head)
+                Text(row.path).font(.footnote.weight(.medium)).foregroundStyle(FormatTokens.path).lineLimit(1).truncationMode(.head)
                 if let line = row.line { Text(":\(line)").font(.footnote.monospacedDigit()).foregroundStyle(.secondary) }
             }
             if !row.segments.isEmpty {

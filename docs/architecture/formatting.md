@@ -52,9 +52,13 @@ FormatTable     { columns: [TableColumn{align, numeric, short}], header, rows, s
   code spans, links, images, autolinks, entities, raw HTML, `$math$`, footnote references); `flatten`
   turns the tree into blocks in reading order, each carrying the containers it sits in, so both apps
   draw a flat, lazy list.
-- **Agent rules on top of the spec** (in `tests/cases.rs`, `links.rs` and `edges.rs`): a bare path
-  (`src/a.ts:42:7`, `~/x`) becomes a `File` link, and a host named without its scheme
-  (`github.com/acme/app/src/auth.ts`, a common top-level domain) a web link to `https://…`; `*`
+- **Agent rules on top of the spec** (in `tests/cases.rs`, `links.rs` and `edges.rs`): a path the
+  agent put in a code span (`` `src/a.ts:42:7` ``, `` `~/x` ``) becomes a `File` link, but a path in
+  prose stays text, since nothing says the file is there and a word drawn as a link must open
+  something; a rooted path needs a file name or a system folder at its root, so a route
+  (`/api/v1/stt`) is no path; in a log only a path with a line (`src/lib.rs:7`, as a compiler or `grep`
+  prints it) is linked. A host named without its scheme
+  (`github.com/acme/app/src/auth.ts`, a common top-level domain) is a web link to `https://…`; `*`
   between digits is arithmetic; a closing `$` before a digit, letter or `_` closes no math, so prices
   and `$PATH:$HOME` stay text; `~20ms` is not a strike; `> [!NOTE]` and the
   bold `> **Note**` form are callouts, and Claude's `★ Insight` is an Insight callout; refused schemes
@@ -95,7 +99,7 @@ FormatTable     { columns: [TableColumn{align, numeric, short}], header, rows, s
 | `languageLabel(label)` | a fence's info string as a name (`ts` → TypeScript) |
 | `toolBody(facts, output)` | how a result reads when its tool has no display: `Markdown`, `FileText`, `Matches`, `Json`, `Log` |
 | `toolArguments(facts)` | a call's input as a property list: inline, block, markdown (folded), tree |
-| `formatLog(text, maxLines, keep)` | a log's lines with links and paths, clipped at the head or tail, and how many are hidden |
+| `formatLog(text, maxLines, keep)` | a log's lines with its links and its paths that name a line, clipped at the head or tail, and how many are hidden |
 | `formatSamples()` | the gallery's corpus, each with `arriving` when it stops mid-message |
 
 The bridge fills two typed displays beside `todos`, `links` and `files`: `markdown` (subagent reports,
@@ -119,9 +123,34 @@ sniffing is only the fallback for MCP and unknown tools.
 
 - **Roles.** `page` for what the person reads (17 pt / 16 sp body), `quiet` for what sits under a row
   (thinking, a subagent's or an activity's text, a card's body).
-- **Spacing** comes from the core's `FormatSpacing` step between blocks (`None`, `Tight`, `Loose`,
-  `AfterHeading`, `Paragraph`, `Section`), scaled by the reader's density.
-- **Tables** fit in three tiers: natural widths when they fit; else each column at least its longest
+- **Spacing** comes from the core's `FormatSpacing` step between blocks, scaled by the reader's
+  density: `Tight` 8 (items of a list written without blank lines), `Loose` 14, `AfterGroup` 14 (the
+  item after one that holds a nested list or a second paragraph, or runs past about two lines, so the
+  points of a tight list read apart), `AfterHeading` 10, `Paragraph` 16, `Section` 28 (before a heading, and after a rule, a code
+  block or a table). A rule draws nothing: the space around it is the separation.
+- **Text colour.** An answer's running text is the text colour at 86 %, so long reading does not
+  glare; bold is semibold at 94 % on iOS (on Android, for now, the body's 86 %), found when scanning
+  without pulling the eye while reading; headings are at full strength.
+- **Headings** 24 / 21 / 18 pt (iOS, scaling with Dynamic Type) and 23 / 20 / 17 sp, H4–H6 at body
+  size in the secondary colour.
+- **Inline code** is 0.88 of the text, medium weight, on a rounded fill of the text's own colour at
+  6 % (light) or 11 % (dark): `ChipRenderer` (a SwiftUI `TextRenderer`) and `SpanText` (Compose,
+  drawn behind the text from its layout) draw the fills under the glyphs. A path in code that opens a
+  file is drawn in its own colour (teal, `FormatTokens.path`) with no fill, never link blue; where the
+  text belongs to no machine it is plain code. Only pages and addresses are blue; a page named by a
+  title starts with a small globe.
+- **Bleed.** A code block or a table at the top level of an answer reaches across the screen's side
+  margin (`formatBleed` / `LocalFormatBleed`, set by the transcript, the text page and the gallery):
+  code on a full-width band with its text still in line with the prose, a table with its hairlines to
+  the edges and its first column's text where the prose starts. Inside a list, a quote, a callout, a
+  quiet row or a bubble they keep to their column.
+- **Code blocks** have a quiet header: the language, the file name, the line count past ten, Copy and
+  Expand. On iOS Wrap is in the long-press menu; on Android, whose code is selectable (so a long-press
+  selects), it stays in the header.
+- **Sources.** Under a finished answer, the pages its turn's searches found (`links` displays), each
+  once, as rows of title and site, four shown and the rest a tap away (`SourcesList`).
+- **Tables** are drawn open, without a card: the header in the secondary colour, hairlines above and
+  below it and under every row. They fit in three tiers: natural widths when they fit; else each column at least its longest
   word (56–200 pt) with the rest shared out and cells wrapping; else columns capped and the table
   scrolls sideways, its short first column held still and its end edge fading while more columns are
   past it. Widths are measured in the fonts the cells are drawn in (tabular digits, monospaced code)

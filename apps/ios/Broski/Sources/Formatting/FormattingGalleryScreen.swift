@@ -57,9 +57,10 @@ private struct FormattingSampleScreen: View {
                         .accessibilityIdentifier("formatted-sample")
                 }
             }
-            .padding(.horizontal, Spacing.l + Spacing.xs)
+            .padding(.horizontal, TranscriptView.sideMargin)
             .padding(.vertical, Spacing.m)
         }
+        .environment(\.formatBleed, TranscriptView.sideMargin)
         .accessibilityIdentifier("gallery-sample-scroll")
         .navigationTitle(sample.title)
         .navigationBarTitleDisplayMode(.inline)

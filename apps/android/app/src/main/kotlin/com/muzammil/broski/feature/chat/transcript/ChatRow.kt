@@ -44,9 +44,14 @@ sealed interface ChatRow {
         val streaming: Boolean = false,
     ) : ChatRow
 
-    /** The quiet copy button under a finished answer. */
+    /** Under a finished answer: the pages its searches found, then the quiet copy button. */
     @Immutable
-    data class CopyAnswer(override val key: String, override val at: Long?, val text: String) : ChatRow
+    data class CopyAnswer(
+        override val key: String,
+        override val at: Long?,
+        val text: String,
+        val sources: List<uniffi.broski_contract.LinkItem> = emptyList(),
+    ) : ChatRow
 
     @Immutable
     data class Work(override val key: String, override val at: Long?, val fold: WorkFold) : ChatRow

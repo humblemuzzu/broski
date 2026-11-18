@@ -50,9 +50,10 @@ struct TextPageScreen: View {
     var body: some View {
         ScrollView {
             content
-                .padding(.horizontal, Spacing.l + Spacing.xs)
+                .padding(.horizontal, TranscriptView.sideMargin)
                 .padding(.vertical, Spacing.m)
         }
+        .environment(\.formatBleed, TranscriptView.sideMargin)
         .defaultScrollAnchor(page.format == .log ? .bottom : .top, for: .initialOffset)
         .environment(\.formatContext, page.context)
         .navigationTitle(page.title)

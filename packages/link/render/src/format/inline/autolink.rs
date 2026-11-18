@@ -1,5 +1,8 @@
 //! Links in text that was not written as a link: `<…>` autolinks (CommonMark §6.5), GitHub's
-//! extended autolinks (bare `https://`, `www.` and addresses, GFM §6.9), and file paths.
+//! extended autolinks (bare `https://`, `www.` and addresses, GFM §6.9), and pages named without
+//! their scheme. A path in prose stays text: nothing says the file is there, and a word drawn as a
+//! link must open something. A log's path with a line (`src/lib.rs:7`, as a compiler or `grep`
+//! prints it) is the exception: a tool wrote it about a file it read.
 
 use crate::format::links::{is_path, path_link, short_url, written_link};
 use crate::format::model::{FormatLink, FormatSpan, LinkKind};
@@ -156,7 +159,7 @@ fn trimmed_length(link: &str) -> usize {
     }
 }
 
-/// A link found in plain text: an address or a file path, by byte range.
+/// A link found in plain text: an address or a page, by byte range.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct BareLink {
     pub start: usize,
@@ -164,9 +167,10 @@ pub(crate) struct BareLink {
     pub link: FormatLink,
 }
 
-/// The addresses and file paths in `text`, in order. (Web links are found during the pass,
-/// before emphasis can split them.)
-pub(crate) fn bare_links(text: &str) -> Vec<BareLink> {
+/// The addresses and scheme-less pages in `text`, in order, and with `positioned_paths` the paths
+/// that name a line. (Web links with a scheme are found during the pass, before emphasis can split
+/// them.)
+pub(crate) fn bare_links(text: &str, positioned_paths: bool) -> Vec<BareLink> {
     let mut found = Vec::new();
     let mut at = 0;
     for word in text.split_inclusive(char::is_whitespace) {
@@ -194,16 +198,11 @@ pub(crate) fn bare_links(text: &str) -> Vec<BareLink> {
             });
             continue;
         }
-        if let Some(link) = host_link(core) {
-            found.push(BareLink {
-                start,
-                end: start + core.len(),
-                link,
-            });
-            continue;
-        }
-        if is_path(core) {
-            let link = path_link(core, true);
+        let link = host_link(core).or_else(|| {
+            let path = (positioned_paths && is_path(core)).then(|| path_link(core, true))?;
+            matches!(path.kind, LinkKind::File { line: Some(_), .. }).then_some(path)
+        });
+        if let Some(link) = link {
             found.push(BareLink {
                 start,
                 end: start + core.len(),
@@ -263,7 +262,8 @@ fn bare_email(word: &str) -> Option<FormatLink> {
     })
 }
 
-/// Plain text (a log line, not markdown) as spans with its web links, addresses and paths linked.
+/// Plain text (a log line, not markdown) as spans with its web links, addresses and the paths that
+/// name a line linked.
 pub(crate) fn linked_text(text: &str) -> Vec<FormatSpan> {
     let mut spans = Vec::new();
     let mut plain_from = 0;
@@ -300,7 +300,7 @@ pub(crate) fn linked_text(text: &str) -> Vec<FormatSpan> {
 
 fn plain_spans(text: &str, spans: &mut Vec<FormatSpan>) {
     let mut at = 0;
-    for bare in bare_links(text) {
+    for bare in bare_links(text, true) {
         if bare.start > at {
             spans.push(FormatSpan {
                 text: text[at..bare.start].to_owned(),

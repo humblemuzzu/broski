@@ -2,13 +2,16 @@ import BroskiCore
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// A table in a rounded card: the header bold on a light fill, rules between rows, cells top-aligned
-/// and numbers right-aligned in tabular digits. Its columns fit the width as `TableLayout` decides;
-/// past twelve rows it shows ten and a button for the rest; Expand opens it whole; a long-press
-/// copies it as TSV and HTML at once, so a paste into Notes keeps it a table.
+/// A table drawn open, without a card: the header in the secondary colour, a hairline above and
+/// below it and under every row, cells top-aligned and numbers right-aligned in tabular digits. At
+/// the top level of an answer its lines run to the screen's edges and its first column's text is
+/// in line with the prose (`bleed`). Its columns fit the width as `TableLayout` decides; past twelve
+/// rows it shows ten and a button for the rest; Expand opens it whole; a long-press copies it as TSV
+/// and HTML at once, so a paste into Notes keeps it a table.
 struct FormatTableView: View {
     let table: FormatTable
     let streaming: Bool
+    var bleed: CGFloat = 0
     @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(\.reading) private var reading
     @Environment(\.formatContext) private var context
@@ -27,24 +30,15 @@ struct FormatTableView: View {
             Color.clear
                 .frame(height: 0)
                 .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
-            card(layout)
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                TableGrid(table: table, layout: layout, rows: shownRows, style: spanStyle, edge: bleed)
+                    .frame(minWidth: 0, maxWidth: width ?? .infinity, alignment: .leading)
+                    .contextMenu { TableMenuItems(table: table) }
+                footer
+            }
         }
         .onChange(of: layout.widths) { _, widths in
             if streaming { grown = widths }
-        }
-    }
-
-    private func card(_ layout: TableLayout) -> some View {
-        VStack(alignment: .leading, spacing: Spacing.xs) {
-            TableGrid(table: table, layout: layout, rows: shownRows, style: spanStyle)
-                .frame(minWidth: 0, maxWidth: width ?? .infinity, alignment: .leading)
-                .clipShape(.rect(cornerRadius: FormatTokens.tableRadius, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: FormatTokens.tableRadius, style: .continuous)
-                        .strokeBorder(FormatTokens.hairline, lineWidth: 0.5)
-                }
-                .contextMenu { TableMenuItems(table: table) }
-            footer
         }
     }
 
@@ -58,7 +52,9 @@ struct FormatTableView: View {
     }
 
     private var spanStyle: SpanStyle {
-        TableFonts(typeSize: typeSize).spanStyle(underlinesLinks: reading.underlinesLinks)
+        var style = TableFonts(typeSize: typeSize).spanStyle(underlinesLinks: reading.underlinesLinks)
+        style.opensFiles = context != nil
+        return style
     }
 
     private var footer: some View {
@@ -81,41 +77,46 @@ struct FormatTableView: View {
                     .contentShape(.rect)
             }
             .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(.tertiary)
         }
     }
 }
 
-/// The table's cells at the layout's widths, scrolling sideways when the layout says so.
+/// The table's cells at the layout's widths, scrolling sideways when the layout says so. `edge` is
+/// how far past the grid its lines run, and how far a sideways scroll reaches, to the screen's edges;
+/// with one, the first column's text starts where the prose does.
 struct TableGrid: View {
     let table: FormatTable
     let layout: TableLayout
     let rows: Int
     let style: SpanStyle
+    var edge: CGFloat = 0
 
     @State private var moreToTheRight = false
 
     var body: some View {
         let all = Array(table.columns.indices)
         if !layout.scrolls {
-            TableColumns(table: table, columns: all, spoken: all, layout: layout, rows: rows, style: style)
+            TableColumns(table: table, columns: all, spoken: all, layout: layout, rows: rows, style: style, lines: (edge, edge))
         } else if layout.stickyFirstColumn {
             HStack(alignment: .top, spacing: 0) {
-                TableColumns(table: table, columns: [0], spoken: [], layout: layout, rows: rows, style: style)
+                TableColumns(table: table, columns: [0], spoken: [], layout: layout, rows: rows, style: style, lines: (edge, 0))
                     .overlay(alignment: .trailing) { Rectangle().fill(FormatTokens.hairline).frame(width: 0.5) }
-                scrolling(Array(all.dropFirst()), spoken: all)
+                scrolling(Array(all.dropFirst()), spoken: all, leading: 0)
             }
         } else {
-            scrolling(all, spoken: all)
+            scrolling(all, spoken: all, leading: edge)
         }
     }
 
-    /// Columns that scroll sideways, their trailing edge fading while more of the table is to the
-    /// right, so a cut column never reads as the table's end.
-    private func scrolling(_ columns: [Int], spoken: [Int]) -> some View {
+    /// Columns that scroll sideways to the screen's edge, their trailing edge fading while more of the
+    /// table is to the right, so a cut column never reads as the table's end.
+    private func scrolling(_ columns: [Int], spoken: [Int], leading: CGFloat) -> some View {
         ScrollView(.horizontal) {
-            TableColumns(table: table, columns: columns, spoken: spoken, layout: layout, rows: rows, style: style)
+            TableColumns(table: table, columns: columns, spoken: spoken, layout: layout, rows: rows, style: style, lines: (leading, edge))
         }
+        .contentMargins(.leading, leading, for: .scrollContent)
+        .contentMargins(.trailing, edge, for: .scrollContent)
         .scrollIndicatorsFlash(onAppear: true)
         .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
         .onScrollGeometryChange(for: Bool.self) { geometry in
@@ -130,12 +131,15 @@ struct TableGrid: View {
                     .frame(width: moreToTheRight ? FormatTokens.tableEdgeFade : 0)
             }
         }
+        .padding(.leading, -leading)
+        .padding(.trailing, -edge)
     }
 }
 
-/// Some of a table's columns, header first, as wide as those columns together. Each row is one
-/// accessibility element reading the `spoken` columns; with none, the row is left to the part of
-/// the table that reads it whole.
+/// Some of a table's columns, header first, as wide as those columns together, with a hairline
+/// above the header and under every row that runs `lines` further on each side. Each row is one
+/// accessibility element reading the `spoken` columns; with none, the row is left to the part of the
+/// table that reads it whole.
 private struct TableColumns: View {
     let table: FormatTable
     let columns: [Int]
@@ -143,24 +147,35 @@ private struct TableColumns: View {
     let layout: TableLayout
     let rows: Int
     let style: SpanStyle
+    let lines: (leading: CGFloat, trailing: CGFloat)
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            line
             row(table.header, index: 0, header: true)
-                .background(FormatTokens.tableHeaderFill)
                 .accessibilityAddTraits(.isHeader)
+            line
             ForEach(0..<min(rows, table.rows.count), id: \.self) { index in
-                Rectangle().fill(FormatTokens.hairline).frame(height: 0.5)
                 row(table.rows[index], index: index + 1, header: false)
+                line
             }
         }
         .frame(width: columns.reduce(0) { $0 + layout.widths[$1] }, alignment: .leading)
     }
 
+    private var line: some View {
+        Rectangle()
+            .fill(FormatTokens.hairline)
+            .frame(height: 0.5)
+            .padding(.leading, -lines.leading)
+            .padding(.trailing, -lines.trailing)
+            .accessibilityHidden(true)
+    }
+
     private func row(_ cells: [TableCell], index: Int, header: Bool) -> some View {
         HStack(alignment: .top, spacing: 0) {
             ForEach(columns, id: \.self) { column in
-                TableCellView(cell: cells[column], column: table.columns[column], header: header, style: style)
+                TableCellView(cell: cells[column], column: table.columns[column], header: header, style: style, flush: column == 0 && lines.leading > 0)
                     .frame(width: layout.widths[column], alignment: alignment(column))
                     .frame(height: index < layout.rowHeights.count ? layout.rowHeights[index] : nil, alignment: .top)
             }
@@ -188,20 +203,27 @@ private struct TableColumns: View {
     }
 }
 
+/// One cell; a header cell in the secondary colour, a little heavier, so the eye goes to the rows.
 struct TableCellView: View {
     let cell: TableCell
     let column: BroskiCore.TableColumn
     let header: Bool
     let style: SpanStyle
     var size: CGFloat?
+    /// The first column of a table that reaches the screen's edges: its text starts where the prose does.
+    var flush = false
 
     var body: some View {
-        Text(FormatSpans.attributed(cell.spans, style: header ? headerStyle : style))
+        FormatSpans.text(cell.spans, style: header ? headerStyle : style)
             .font(font)
+            .foregroundStyle(header ? .secondary : .primary)
             .monospacedDigit()
             .multilineTextAlignment(textAlignment)
+            .tint(FormatTokens.link)
+            .textRenderer(ChipRenderer())
             .fixedSize(horizontal: false, vertical: true)
             .padding(FormatTokens.tableCellPadding)
+            .padding(.leading, flush ? -FormatTokens.tableCellPadding.leading : 0)
     }
 
     private var headerStyle: SpanStyle {

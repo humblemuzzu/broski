@@ -109,6 +109,35 @@ fn list_markers_number_from_the_start_and_the_gutter_fits_the_widest() {
 }
 
 #[test]
+fn groups_of_a_tight_list_and_the_blocks_after_code_tables_and_rules_get_room() {
+    let text = "- **Tables:**\n  - wrap\n  - scroll\n- **Code:**\n  - fold\n- plain\n- items\n\n```sh\nls\n```\nAfter code.\n\n---\n\nAfter a rule.";
+    let steps: Vec<FormatSpacing> = format_markdown(text, false)
+        .iter()
+        .map(|block| block.spacing)
+        .collect();
+    use FormatSpacing::*;
+    assert_eq!(
+        steps,
+        [
+            None, Tight, Tight, AfterGroup, Tight, AfterGroup, Tight, Paragraph, Section,
+            Paragraph, Section
+        ]
+    );
+}
+
+#[test]
+fn the_point_after_a_long_one_is_set_apart_and_short_points_stay_together() {
+    let long = "**Reciprocity of liking.** We like people who like us; someone who moves from cool to warm is liked more.";
+    let text = format!("- {long}\n- short\n- also short\n- {long}\n- last");
+    let steps: Vec<FormatSpacing> = format_markdown(&text, false)
+        .iter()
+        .map(|block| block.spacing)
+        .collect();
+    use FormatSpacing::*;
+    assert_eq!(steps, [None, AfterGroup, Tight, Tight, AfterGroup]);
+}
+
+#[test]
 fn spacing_steps_follow_what_each_block_comes_after() {
     let text =
         "Intro.\n\n## Heading\n\nUnder it.\n\n- tight\n- items\n\n- then\n\n  loose\n\nLast.";

@@ -5,12 +5,15 @@ import UIKit
 @testable import Broski
 
 /// A table is drawn at fixed column widths; if those widths set the page's minimum width, a page
-/// of tables grows wider than its window and every paragraph on it is cut at the left edge.
+/// of tables grows wider than its window and every paragraph on it is cut at the left edge. The
+/// page is laid out as the transcript lays it out, its tables and code reaching across the margin.
 struct TableWidthTests {
     @Test func aPageOfTablesStaysAsWideAsItsWindow() throws {
         let scene = try #require(UIApplication.shared.connectedScenes.first as? UIWindowScene)
-        for sample in formatSamples() where sample.text.contains("|---") {
-            let host = UIHostingController(rootView: ScrollView { FormattedText(text: sample.text).padding(.horizontal, 20) })
+        for sample in formatSamples() where sample.text.contains("|---") || sample.text.contains("```") {
+            let screen = ScrollView { FormattedText(text: sample.text).padding(.horizontal, TranscriptView.sideMargin) }
+                .environment(\.formatBleed, TranscriptView.sideMargin)
+            let host = UIHostingController(rootView: screen)
             let window = UIWindow(windowScene: scene)
             window.frame = CGRect(x: 0, y: 0, width: 390, height: 844)
             window.rootViewController = host

@@ -5,9 +5,11 @@ import com.muzammil.broski.feature.chat.work.FoldLead
 import com.muzammil.broski.feature.chat.work.WorkEntry
 import uniffi.broski_contract.AttachmentRef
 import uniffi.broski_contract.BlockKind
+import uniffi.broski_contract.LinkItem
 import uniffi.broski_contract.OpenBlock
 import uniffi.broski_contract.RunOutcome
 import uniffi.broski_contract.SessionSnapshot
+import uniffi.broski_contract.ToolDisplay
 import uniffi.broski_contract.TranscriptItem
 import uniffi.broski_contract.UserMessageItem
 import uniffi.broski_core.FormatBlock
@@ -61,7 +63,12 @@ class RowBuilder(private val format: (String, Boolean) -> List<FormatBlock> = Fo
                         tools[item.v1.toolCallId] = draft
                     },
                 )
-                is TranscriptItem.ToolResult -> tools[item.v1.toolCallId]?.result = item.v1
+                is TranscriptItem.ToolResult -> {
+                    tools[item.v1.toolCallId]?.result = item.v1
+                    (item.v1.result.display as? ToolDisplay.Links)?.v1?.items?.forEach { found ->
+                        if (turn.sources.none { it.url == found.url }) turn.sources += found
+                    }
+                }
                 is TranscriptItem.Notice -> note(item.v1.id, item.v1.at, TranscriptNote.Notice(item.v1.level, item.v1.text))
                 is TranscriptItem.Activity -> {
                     fold = null
@@ -127,7 +134,7 @@ class RowBuilder(private val format: (String, Boolean) -> List<FormatBlock> = Fo
         private fun closeTurn() {
             fold = null
             val last = turn.lastTextId ?: return
-            if (!turn.live) rows.add(turn.copyAt, ChatRow.CopyAnswer("copy:$last", null, turn.answer.joinToString("\n\n")))
+            if (!turn.live) rows.add(turn.copyAt, ChatRow.CopyAnswer("copy:$last", null, turn.answer.joinToString("\n\n"), turn.sources.toList()))
         }
 
         fun finish(): List<ChatRow> {
@@ -142,6 +149,9 @@ class RowBuilder(private val format: (String, Boolean) -> List<FormatBlock> = Fo
 
     private class Turn(val start: Long?, val continued: Boolean, var live: Boolean) {
         val answer = mutableListOf<String>()
+
+        /** The pages the turn's searches found, which the answer drew on. */
+        val sources = mutableListOf<LinkItem>()
         var lastTextId: String? = null
 
         /** Right under the answer's last block, above any note that came after it. */
