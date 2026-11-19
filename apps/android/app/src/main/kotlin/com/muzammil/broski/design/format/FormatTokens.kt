@@ -145,11 +145,15 @@ enum class FormatRole {
     fun color(): Color = if (this == Page) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
 
     /**
-     * An answer's running text, bold included: a step softer than the full text colour, so long reading does not glare;
-     * bold stands out by its weight alone, headings by their full colour.
+     * An answer's running text: a step softer than the full text colour, so long reading does not glare. Bold is a
+     * little brighter than it ([boldColor]) and headings are at full strength.
      */
     @Composable
     fun bodyColor(): Color = if (this == Page) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.86f) else color()
+
+    /** Bold in running text: just above the body, found when scanning without pulling the eye while reading. */
+    @Composable
+    fun boldColor(): Color = if (this == Page) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.94f) else Color.Unspecified
 
     /** The height of [lines] lines of this role's text at the font scale in effect, for a fold. */
     @Composable

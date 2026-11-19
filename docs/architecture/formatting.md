@@ -129,8 +129,7 @@ sniffing is only the fallback for MCP and unknown tools.
   points of a tight list read apart), `AfterHeading` 10, `Paragraph` 16, `Section` 28 (before a heading, and after a rule, a code
   block or a table). A rule draws nothing: the space around it is the separation.
 - **Text colour.** An answer's running text is the text colour at 86 %, so long reading does not
-  glare; bold is semibold at 94 % on iOS (on Android, for now, the body's 86 %), found when scanning
-  without pulling the eye while reading; headings are at full strength.
+  glare; bold is semibold at 94 %, found when scanning without pulling the eye while reading; headings are at full strength.
 - **Headings** 24 / 21 / 18 pt (iOS, scaling with Dynamic Type) and 23 / 20 / 17 sp, H4–H6 at body
   size in the secondary colour.
 - **Inline code** is 0.88 of the text, medium weight, on a rounded fill of the text's own colour at

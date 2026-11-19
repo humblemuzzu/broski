@@ -69,7 +69,7 @@ fun FormatBlockView(
 fun FormatContentView(block: FormatBlock, role: FormatRole, streaming: Boolean) {
     val bleed = if (role == FormatRole.Page && block.containers.isEmpty()) LocalFormatBleed.current else 0.dp
     when (val content = block.content) {
-        is FormatContent.Paragraph -> Prose(content.spans, role.textStyle(), role.bodyColor(), block.direction)
+        is FormatContent.Paragraph -> Prose(content.spans, role.textStyle(), role.bodyColor(), block.direction, strong = role.boldColor())
         is FormatContent.Heading -> Prose(
             content.spans,
             role.headingStyle(content.level),
@@ -97,8 +97,8 @@ fun Modifier.bleed(bleed: Dp): Modifier = if (bleed == 0.dp) this else layout { 
 
 /** A paragraph or a heading: its spans styled, laid out in the block's own direction. */
 @Composable
-fun Prose(spans: List<FormatSpan>, style: TextStyle, color: Color, direction: TextDirection, modifier: Modifier = Modifier) {
-    val look = spanLook(style)
+fun Prose(spans: List<FormatSpan>, style: TextStyle, color: Color, direction: TextDirection, modifier: Modifier = Modifier, strong: Color = Color.Unspecified) {
+    val look = spanLook(style).copy(strong = strong)
     val text = rememberSpans(spans, look)
     val layout = if (direction == TextDirection.RIGHT_TO_LEFT) LayoutDirection.Rtl else LayoutDirection.Ltr
     CompositionLocalProvider(LocalLayoutDirection provides layout) {

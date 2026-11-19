@@ -66,6 +66,8 @@ data class SpanLook(
     val muted: Color,
     val underlinesLinks: Boolean,
     val opensFiles: Boolean = true,
+    /** The colour of bold runs, where it differs from the text around them. */
+    val strong: Color = Color.Unspecified,
 )
 
 /** Spans as styled text with their links live: pages in Custom Tabs, addresses in mail, paths in Files. */
@@ -113,7 +115,7 @@ private fun AnnotatedString.Builder.appendStyled(span: FormatSpan, look: SpanLoo
         fontWeight = if (span.strong) FontWeight.SemiBold else if (span.code) FontWeight.Medium else null,
         fontStyle = if (span.emphasis || span.math) FontStyle.Italic else null,
         textDecoration = if (span.strike) TextDecoration.LineThrough else null,
-        color = if (span.strike || span.html) look.muted else Color.Unspecified,
+        color = if (span.strike || span.html) look.muted else if (span.strong) look.strong else Color.Unspecified,
         fontFamily = if (mono) MonoFamily else null,
         fontSize = if (span.code || span.math) look.codeSize else TextUnit.Unspecified,
     )
