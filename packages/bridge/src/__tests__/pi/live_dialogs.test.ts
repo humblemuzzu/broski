@@ -105,16 +105,17 @@ describe("each dialog kind reaches the phone and its answer reaches the extensio
 		live.assertSettled();
 	});
 
-	test.each([{ confirmed: true }, { confirmed: false }])("confirm is a confirm: %p comes back as that boolean", async ({
-		confirmed,
-	}) => {
-		t = await LiveRig.create();
-		const { live, interaction } = await asked(t, askHuman("confirm", "Sure?", { tag: "sure" }));
-		expect(interaction.request.kind).toBe("confirm");
-		await live.control.answer(answerTo(interaction, { kind: "confirm", confirmed }));
-		expect((await t.router.answered("sure")).answer).toBe(confirmed);
-		await live.waitFor("run_finished");
-	});
+	test.each([{ confirmed: true }, { confirmed: false }])(
+		"confirm is a confirm: %p comes back as that boolean",
+		async ({ confirmed }) => {
+			t = await LiveRig.create();
+			const { live, interaction } = await asked(t, askHuman("confirm", "Sure?", { tag: "sure" }));
+			expect(interaction.request.kind).toBe("confirm");
+			await live.control.answer(answerTo(interaction, { kind: "confirm", confirmed }));
+			expect((await t.router.answered("sure")).answer).toBe(confirmed);
+			await live.waitFor("run_finished");
+		},
+	);
 
 	test("input is one line of text, and editor is multiline text with its prefill", async () => {
 		t = await LiveRig.create();
@@ -159,28 +160,27 @@ describe("a cancel", () => {
 		{ dialog: "confirm", options: undefined, fallback: false },
 		{ dialog: "input", options: undefined, fallback: null },
 		{ dialog: "editor", options: undefined, fallback: null },
-	] as const)("of a $dialog gives the extension Pi's default, and the run goes on unless it was stopped", async ({
-		dialog,
-		options,
-		fallback,
-	}) => {
-		t = await LiveRig.create();
-		const first = await asked(
-			t,
-			askHuman(dialog, "Cancel me", { ...(options && { options: [...options] }), tag: `cancel-${dialog}` }),
-		);
-		await first.live.control.answer(answerTo(first.interaction, { kind: "cancel", stopRun: false }));
-		expect((await t.router.answered(`cancel-${dialog}`)).answer).toBe(fallback);
-		expect((await first.live.waitFor("run_finished")).outcome.kind).toBe("completed");
+	] as const)(
+		"of a $dialog gives the extension Pi's default, and the run goes on unless it was stopped",
+		async ({ dialog, options, fallback }) => {
+			t = await LiveRig.create();
+			const first = await asked(
+				t,
+				askHuman(dialog, "Cancel me", { ...(options && { options: [...options] }), tag: `cancel-${dialog}` }),
+			);
+			await first.live.control.answer(answerTo(first.interaction, { kind: "cancel", stopRun: false }));
+			expect((await t.router.answered(`cancel-${dialog}`)).answer).toBe(fallback);
+			expect((await first.live.waitFor("run_finished")).outcome.kind).toBe("completed");
 
-		const second = await asked(
-			t,
-			askHuman(dialog, "Cancel me", { ...(options && { options: [...options] }), tag: `stop-${dialog}` }),
-		);
-		await second.live.control.answer(answerTo(second.interaction, { kind: "cancel", stopRun: true }));
-		expect((await second.live.waitFor("run_finished")).outcome.kind).toBe("aborted");
-		second.live.assertSettled();
-	});
+			const second = await asked(
+				t,
+				askHuman(dialog, "Cancel me", { ...(options && { options: [...options] }), tag: `stop-${dialog}` }),
+			);
+			await second.live.control.answer(answerTo(second.interaction, { kind: "cancel", stopRun: true }));
+			expect((await second.live.waitFor("run_finished")).outcome.kind).toBe("aborted");
+			second.live.assertSettled();
+		},
+	);
 });
 
 describe("what ends a dialog without the human", () => {
@@ -232,22 +232,22 @@ describe("what ends a dialog without the human", () => {
 		live.assertSettled();
 	});
 
-	test.each([
-		{ withSignal: true },
-		{ withSignal: false },
-	])("an abort withdraws it whether or not the extension passed its signal ($withSignal)", async ({ withSignal }) => {
-		t = await LiveRig.create();
-		const { live, interaction } = await asked(
-			t,
-			askHuman("select", "Abort me", { options: ["a"], withSignal, tag: "abort" }),
-		);
-		await live.control.abort();
-		const resolved = await live.waitFor("interaction_resolved", (event) => event.interactionId === interaction.id);
-		expect(resolved.reason).toBe("withdrawn");
-		expect((await live.waitFor("run_finished")).outcome.kind).toBe("aborted");
-		expect((await t.router.answered("abort")).answer).toBeNull();
-		live.assertSettled();
-	});
+	test.each([{ withSignal: true }, { withSignal: false }])(
+		"an abort withdraws it whether or not the extension passed its signal ($withSignal)",
+		async ({ withSignal }) => {
+			t = await LiveRig.create();
+			const { live, interaction } = await asked(
+				t,
+				askHuman("select", "Abort me", { options: ["a"], withSignal, tag: "abort" }),
+			);
+			await live.control.abort();
+			const resolved = await live.waitFor("interaction_resolved", (event) => event.interactionId === interaction.id);
+			expect(resolved.reason).toBe("withdrawn");
+			expect((await live.waitFor("run_finished")).outcome.kind).toBe("aborted");
+			expect((await t.router.answered("abort")).answer).toBeNull();
+			live.assertSettled();
+		},
+	);
 
 	// On stdin EOF Pi runs `session_shutdown`, and a dialog asked from it can never be answered: Pi exits once its event
 	// loop is empty, with the handler still waiting (pi-coding-agent 1.5.2 `dist/modes/rpc/rpc-mode.js:597-610,666-669`).

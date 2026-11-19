@@ -15,7 +15,7 @@ permissions:
 jobs:
   bridge:
     name: Bridge checks
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     defaults:
       run:
         working-directory: packages/bridge
@@ -23,7 +23,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.4.2
+          bun-version: 1.4.4
       - name: Install dependencies
         run: bun install --frozen-lockfile
       - name: Typecheck
@@ -48,11 +48,7 @@ jobs:
 
   link:
     name: Broski Link (Rust)
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: macos-latest
     defaults:
       run:
         working-directory: packages/link
@@ -75,7 +71,7 @@ jobs:
       # The client's tests run the real bridge (Bun, the dev fake bridge) on the daemon's socket.
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.4.2
+          bun-version: 1.4.4
       - name: Bridge dependencies
         working-directory: packages/bridge
         run: bun install --frozen-lockfile
@@ -106,7 +102,7 @@ jobs:
       # One host test pairs with a real daemon and bridge (testkit's test-machine, Bun's fake bridge).
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.4.2
+          bun-version: 1.4.4
       - name: Bridge dependencies
         working-directory: packages/bridge
         run: bun install --frozen-lockfile

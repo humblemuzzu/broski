@@ -87,6 +87,9 @@ const REFUSALS: { readonly [R in SDKStartupFailureReason]: StartupRefusal } = {
 	managed_settings_not_delivered: {
 		text: "Claude Code was started expecting managed settings it did not get. If `claude` on this computer is a wrapper script, check the options it adds.",
 	},
+	initialize_fields_not_delivered: {
+		text: "Claude Code was started expecting settings through initialize that did not match its flags. If `claude` on this computer is a wrapper script, check the options it adds.",
+	},
 };
 
 /** Why the CLI would not start, and the file to repair when a configuration file does not parse. */

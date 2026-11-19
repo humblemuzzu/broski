@@ -35,31 +35,32 @@ function reported(events: readonly AgentEvent[], stage: string): boolean {
 const RUN_STAGES: string[] = ["input", "before_agent_start", "message_end", "agent_settled", "tool"];
 
 describe("a hook that throws while a run goes", () => {
-	test.each(
-		RUN_STAGES,
-	)("in %s: the run ends once, the session takes the next prompt, and it shuts down", async (stage) => {
-		t = await HostRig.create();
-		const live = await t.rig.rig.openNew();
-		t.router.script(live.ref.sessionId, [call("ignore_abort", {}), say("done")]);
-		t.set({ throwAt: stage });
+	test.each(RUN_STAGES)(
+		"in %s: the run ends once, the session takes the next prompt, and it shuts down",
+		async (stage) => {
+			t = await HostRig.create();
+			const live = await t.rig.rig.openNew();
+			t.router.script(live.ref.sessionId, [call("ignore_abort", {}), say("done")]);
+			t.set({ throwAt: stage });
 
-		const first = await live.prompt("go");
-		if (first.status === "accepted") {
-			await live.waitFor("run_finished");
-			expect(countOf(live, "run_started")).toBe(countOf(live, "run_finished"));
-		}
-		await t.rig.driver.quiesce();
-		expect(reported(live.events(), stage)).toBe(true);
-		expect(live.reduced().run).toBeUndefined();
-		live.assertSettled();
+			const first = await live.prompt("go");
+			if (first.status === "accepted") {
+				await live.waitFor("run_finished");
+				expect(countOf(live, "run_started")).toBe(countOf(live, "run_finished"));
+			}
+			await t.rig.driver.quiesce();
+			expect(reported(live.events(), stage)).toBe(true);
+			expect(live.reduced().run).toBeUndefined();
+			live.assertSettled();
 
-		t.set({ throwAt: undefined });
-		t.router.script(live.ref.sessionId, [say("fine")]);
-		expect((await live.run("again")).outcome.kind).toBe("completed");
+			t.set({ throwAt: undefined });
+			t.router.script(live.ref.sessionId, [say("fine")]);
+			expect((await live.run("again")).outcome.kind).toBe("completed");
 
-		await t.rig.rig.backend.dispose();
-		expect(t.rig.world.sessionProcesses()).toBe(0);
-	});
+			await t.rig.rig.backend.dispose();
+			expect(t.rig.world.sessionProcesses()).toBe(0);
+		},
+	);
 });
 
 describe("a hook that throws outside a run", () => {

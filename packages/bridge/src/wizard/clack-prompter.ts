@@ -6,11 +6,11 @@ import type { WizardPrompter } from "./prompter";
  * Check if a clack result was cancelled (user pressed Ctrl+C or Escape).
  * Throws WizardCancelledError to abort the wizard cleanly.
  */
-function assertNotCancelled<T>(value: T | symbol): T {
+function assertNotCancelled<T>(value: T): Exclude<T, symbol> {
 	if (clack.isCancel(value)) {
 		throw new WizardCancelledError();
 	}
-	return value as T;
+	return value as Exclude<T, symbol>;
 }
 
 /**

@@ -64,31 +64,30 @@ describe("which sessions a directory lists", () => {
 });
 
 describe("where session files live", () => {
-	test.each([
-		"env",
-		"setting",
-		"default",
-	] as const)("with the directory chosen by %s, sessions are written there and listed from there", async (at) => {
-		t = await LiveRig.create({ sessionsAt: at });
-		const expected = {
-			env: t.world.env.sessionDir,
-			setting: join(t.world.env.root, "sessions-by-setting"),
-			default: join(t.world.env.agentDir, "sessions"),
-		}[at];
-		const live = await t.rig.openNew();
-		await t.rig.arrange(live.ref, { kind: "reply" });
-		await live.run("Where do I go?");
-		const file = findSessionFile(expected, live.ref.sessionId);
-		expect(file).toBeDefined();
-		if (at !== "env") expect(findSessionFile(t.world.env.sessionDir, live.ref.sessionId)).toBeUndefined();
+	test.each(["env", "setting", "default"] as const)(
+		"with the directory chosen by %s, sessions are written there and listed from there",
+		async (at) => {
+			t = await LiveRig.create({ sessionsAt: at });
+			const expected = {
+				env: t.world.env.sessionDir,
+				setting: join(t.world.env.root, "sessions-by-setting"),
+				default: join(t.world.env.agentDir, "sessions"),
+			}[at];
+			const live = await t.rig.openNew();
+			await t.rig.arrange(live.ref, { kind: "reply" });
+			await live.run("Where do I go?");
+			const file = findSessionFile(expected, live.ref.sessionId);
+			expect(file).toBeDefined();
+			if (at !== "env") expect(findSessionFile(t.world.env.sessionDir, live.ref.sessionId)).toBeUndefined();
 
-		writeSessionFile(
-			dirname(file ?? ""),
-			{ id: "from-the-terminal", cwd: t.cwd, version: 3 },
-			conversation(["a", "b"]),
-		);
-		expect(idsOf(await listed(t, t.cwd))).toEqual(["from-the-terminal", live.ref.sessionId].sort());
-	});
+			writeSessionFile(
+				dirname(file ?? ""),
+				{ id: "from-the-terminal", cwd: t.cwd, version: 3 },
+				conversation(["a", "b"]),
+			);
+			expect(idsOf(await listed(t, t.cwd))).toEqual(["from-the-terminal", live.ref.sessionId].sort());
+		},
+	);
 
 	test("the environment variable beats the setting, as in the pi command", async () => {
 		const decoy = join(tmpdir(), `broski-pi-setting-must-lose-${crypto.randomUUID()}`);

@@ -38,8 +38,8 @@ const MAIN_STREAMS: readonly [scenario: string, shape: string, note: string][] =
 	["elicitation-url", TOOL_THEN_ANSWER("completed"), "the elicitation is the desk's"],
 	[
 		"interrupt-mid-text",
-		RUN("block_started:text block_delta block_finished", "aborted"),
-		"the aborted frame finishes its block; no model usage, so no usage_updated",
+		RUN("block_started:text block_delta block_finished usage_updated", "aborted"),
+		"the aborted frame finishes its block and reports partial model usage",
 	],
 	["interrupt-mid-tool", RUN("tool_started tool_finished:aborted usage_updated", "aborted"), "the tool ends aborted"],
 	["retry-529", RUN(`retry_scheduled retry_finished ${TURN}`), "the retry finishes at the next frame of the turn"],

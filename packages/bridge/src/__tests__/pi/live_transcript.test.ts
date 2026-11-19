@@ -143,34 +143,33 @@ describe("files as Pi and older versions leave them", () => {
 		{ name: "version 1", version: 1, stability: "positional" },
 		{ name: "version 2", version: 2, stability: "stable" },
 		{ name: "version 3", version: 3, stability: "stable" },
-	] as const)("$name is read in memory: its conversation comes back, the file is untouched", async ({
-		name,
-		version,
-		stability,
-	}) => {
-		t = await LiveRig.create();
-		const entries =
-			version === 1
-				? [
-						messageEntry(undefined, undefined, "user", "hello"),
-						messageEntry(undefined, undefined, "assistant", "hi there"),
-					]
-				: conversation(["hello", "hi there"]);
-		const id = `old-${name.replace(" ", "-")}`;
-		const ref = external(t, id, entries, version);
-		const file = t.fileOf(ref);
-		const before = { bytes: readFileSync(file), modified: statSync(file).mtimeMs };
+	] as const)(
+		"$name is read in memory: its conversation comes back, the file is untouched",
+		async ({ name, version, stability }) => {
+			t = await LiveRig.create();
+			const entries =
+				version === 1
+					? [
+							messageEntry(undefined, undefined, "user", "hello"),
+							messageEntry(undefined, undefined, "assistant", "hi there"),
+						]
+					: conversation(["hello", "hi there"]);
+			const id = `old-${name.replace(" ", "-")}`;
+			const ref = external(t, id, entries, version);
+			const file = t.fileOf(ref);
+			const before = { bytes: readFileSync(file), modified: statSync(file).mtimeMs };
 
-		const read = await page(t, ref, { limit: 50 });
-		expect(read.idStability).toBe(stability);
-		expect(read.items.map((item) => ("text" in item ? item.text : ""))).toEqual(["hi there", "hello"]);
-		await allRows(t.backend, { cwd: t.cwd }, 50);
-		const opened = await t.rig.open(ref);
-		await opened.close();
+			const read = await page(t, ref, { limit: 50 });
+			expect(read.idStability).toBe(stability);
+			expect(read.items.map((item) => ("text" in item ? item.text : ""))).toEqual(["hi there", "hello"]);
+			await allRows(t.backend, { cwd: t.cwd }, 50);
+			const opened = await t.rig.open(ref);
+			await opened.close();
 
-		expect(readFileSync(file).equals(before.bytes)).toBe(true);
-		expect(statSync(file).mtimeMs).toBe(before.modified);
-	});
+			expect(readFileSync(file).equals(before.bytes)).toBe(true);
+			expect(statSync(file).mtimeMs).toBe(before.modified);
+		},
+	);
 
 	test("entries Pi would skip are skipped: unknown types, null content, and a last line still being written", async () => {
 		t = await LiveRig.create();

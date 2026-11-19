@@ -1,37 +1,37 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.4.9/schema.json",
-  "linter": {
-    "enabled": true,
-    "rules": {
-      "recommended": true,
-      "style": {
-        "noNonNullAssertion": "off",
-        "useConst": "error",
-        "useNodejsImportProtocol": "off"
-      },
-      "suspicious": {
-        "noExplicitAny": "off",
-        "noControlCharactersInRegex": "off"
-      }
-    }
-  },
-  "formatter": {
-    "enabled": true,
-    "indentStyle": "tab",
-    "indentWidth": 2,
-    "lineWidth": 120
-  },
-  "files": {
-    "includes": [
-      "src/**/*.ts",
-      "bench/**/*.ts",
-      "scripts/gen-contract.ts",
-      "scripts/check-layers.ts",
-      "scripts/contract-gen/**/*.ts",
-      "scripts/mutate-core.ts",
-      "scripts/mutate-core/**/*.ts",
-      "scripts/dev-fake-bridge.ts",
-      "scripts/dev-fake-bridge/**/*.ts"
-    ]
-  }
+	"$schema": "https://biomejs.dev/schemas/2.6.8/schema.json",
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"preset": "recommended",
+			"style": {
+				"noNonNullAssertion": "off",
+				"useConst": "error",
+				"useNodejsImportProtocol": "off"
+			},
+			"suspicious": {
+				"noExplicitAny": "off",
+				"noControlCharactersInRegex": "off"
+			}
+		}
+	},
+	"formatter": {
+		"enabled": true,
+		"indentStyle": "tab",
+		"indentWidth": 2,
+		"lineWidth": 120
+	},
+	"files": {
+		"includes": [
+			"src/**/*.ts",
+			"bench/**/*.ts",
+			"scripts/gen-contract.ts",
+			"scripts/check-layers.ts",
+			"scripts/contract-gen/**/*.ts",
+			"scripts/mutate-core.ts",
+			"scripts/mutate-core/**/*.ts",
+			"scripts/dev-fake-bridge.ts",
+			"scripts/dev-fake-bridge/**/*.ts"
+		]
+	}
 }

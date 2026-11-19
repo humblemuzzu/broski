@@ -191,21 +191,22 @@ describe("every AgentSessionEvent", () => {
 		expect(Object.keys(SAMPLES)).toHaveLength(23);
 	});
 
-	test.each(
-		Object.entries(SAMPLES),
-	)("%s is read off the wire and mapped or delegated, or ignored with its reason", (type, sample) => {
-		const frame = parseFrame(JSON.stringify(sample));
-		const wanted = Object.entries(ON_THE_WIRE).find(([name]) => name === type)?.[1];
-		if (wanted !== "read") {
-			expect(frame.kind).toBe("ignored");
-			expect(wanted?.ignored).toBeTruthy();
-			return;
-		}
-		if (frame.kind !== "event") throw new Error(`${type} was not read: ${JSON.stringify(frame)}`);
-		const disposition = dispatch(deepFreeze(frame.event), new ToolCallIds());
-		if ("events" in disposition) validEvents(disposition.events);
-		else expect(disposition.delegated).toBeTruthy();
-	});
+	test.each(Object.entries(SAMPLES))(
+		"%s is read off the wire and mapped or delegated, or ignored with its reason",
+		(type, sample) => {
+			const frame = parseFrame(JSON.stringify(sample));
+			const wanted = Object.entries(ON_THE_WIRE).find(([name]) => name === type)?.[1];
+			if (wanted !== "read") {
+				expect(frame.kind).toBe("ignored");
+				expect(wanted?.ignored).toBeTruthy();
+				return;
+			}
+			if (frame.kind !== "event") throw new Error(`${type} was not read: ${JSON.stringify(frame)}`);
+			const disposition = dispatch(deepFreeze(frame.event), new ToolCallIds());
+			if ("events" in disposition) validEvents(disposition.events);
+			else expect(disposition.delegated).toBeTruthy();
+		},
+	);
 
 	test("the second summarization_retry_attempt_start shape is ignored the same way", () => {
 		const event: AgentSessionEvent = {

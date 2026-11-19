@@ -133,24 +133,22 @@ describe("live output", () => {
 		expect(event.update).toEqual({ kind: "output_replaced", text: "b".repeat(MAX_TEXT_CHARS) });
 	});
 
-	test.each([
-		[{}],
-		[{ content: [null, { type: "text", text: 4 }] }],
-	])("a partial result with no text in it (%j) is empty output", (partialResult) => {
-		expect(toolOutputOf(update(partialResult), new ToolCallIds()).update).toEqual({
-			kind: "output_replaced",
-			text: "",
-		});
-	});
+	test.each([[{}], [{ content: [null, { type: "text", text: 4 }] }]])(
+		"a partial result with no text in it (%j) is empty output",
+		(partialResult) => {
+			expect(toolOutputOf(update(partialResult), new ToolCallIds()).update).toEqual({
+				kind: "output_replaced",
+				text: "",
+			});
+		},
+	);
 
-	test.each([
-		[undefined],
-		[null],
-		["text"],
-		[{ content: "no" }],
-	])("an update whose partial result is not one (%j) is refused at the frame and never mapped", (partialResult) => {
-		expect(parseFrame(JSON.stringify(raw(partialResult))).kind).toBe("invalid");
-	});
+	test.each([[undefined], [null], ["text"], [{ content: "no" }]])(
+		"an update whose partial result is not one (%j) is refused at the frame and never mapped",
+		(partialResult) => {
+			expect(parseFrame(JSON.stringify(raw(partialResult))).kind).toBe("invalid");
+		},
+	);
 });
 
 describe("input", () => {

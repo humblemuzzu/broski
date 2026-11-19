@@ -113,62 +113,62 @@ describe("fork", () => {
 });
 
 describe("rename", () => {
-	test.each([
-		"a session nobody hosts",
-		"a session with a view open",
-	])("%s takes its new title, in the file and the catalog", async (kind) => {
-		t = await LiveRig.create();
-		const live = await t.rig.openNew();
-		await t.rig.arrange(live.ref, { kind: "reply" });
-		await live.run("Name me.");
-		if (kind === "a session nobody hosts") {
-			await live.close();
-			await t.router.shutDown(live.ref.sessionId);
-		}
-		const title = `Renamed: ${kind}`;
-		expect((await t.backend.rename?.(live.ref, title))?.status).toBe("accepted");
-		await t.catalog.waitFor(
-			(events) =>
-				events.find(
-					(event) =>
-						event.type === "session_updated" &&
-						event.summary.session.sessionId === live.ref.sessionId &&
-						event.summary.title?.text === title,
-				),
-			"session_updated with the title",
-		);
-		const found = await t.backend.getSession(live.ref);
-		expect(found.status === "accepted" && found.summary.title).toEqual({ text: title, source: "user" });
-		const names = sessionEntries(t.fileOf(live.ref)).flatMap((entry) =>
-			entry.type === "session_info" ? [entry.name] : [],
-		);
-		expect(names).toEqual([title]);
-	});
+	test.each(["a session nobody hosts", "a session with a view open"])(
+		"%s takes its new title, in the file and the catalog",
+		async (kind) => {
+			t = await LiveRig.create();
+			const live = await t.rig.openNew();
+			await t.rig.arrange(live.ref, { kind: "reply" });
+			await live.run("Name me.");
+			if (kind === "a session nobody hosts") {
+				await live.close();
+				await t.router.shutDown(live.ref.sessionId);
+			}
+			const title = `Renamed: ${kind}`;
+			expect((await t.backend.rename?.(live.ref, title))?.status).toBe("accepted");
+			await t.catalog.waitFor(
+				(events) =>
+					events.find(
+						(event) =>
+							event.type === "session_updated" &&
+							event.summary.session.sessionId === live.ref.sessionId &&
+							event.summary.title?.text === title,
+					),
+				"session_updated with the title",
+			);
+			const found = await t.backend.getSession(live.ref);
+			expect(found.status === "accepted" && found.summary.title).toEqual({ text: title, source: "user" });
+			const names = sessionEntries(t.fileOf(live.ref)).flatMap((entry) =>
+				entry.type === "session_info" ? [entry.name] : [],
+			);
+			expect(names).toEqual([title]);
+		},
+	);
 
-	test.each([
-		"a session nobody hosts",
-		"a session with a view open",
-	])("%s takes a title the same way: a blank one is refused, line breaks become spaces", async (kind) => {
-		t = await LiveRig.create();
-		const live = await t.rig.openNew();
-		await t.rig.arrange(live.ref, { kind: "reply" });
-		await live.run("Name me.");
-		if (kind === "a session nobody hosts") {
-			await live.close();
-			await t.router.shutDown(live.ref.sessionId);
-		}
-		for (const blank of ["", "   ", "\r\n\t"]) {
-			expect(await t.backend.rename?.(live.ref, blank)).toMatchObject({ rejection: { code: "invalid_input" } });
-		}
-		expect(await t.backend.rename?.(live.ref, "x".repeat(1_025))).toMatchObject({
-			rejection: { code: "invalid_input" },
-		});
-		expect((await t.backend.rename?.(live.ref, " two\nlines "))?.status).toBe("accepted");
-		const names = sessionEntries(t.fileOf(live.ref)).flatMap((entry) =>
-			entry.type === "session_info" ? [entry.name] : [],
-		);
-		expect(names).toEqual(["two lines"]);
-	});
+	test.each(["a session nobody hosts", "a session with a view open"])(
+		"%s takes a title the same way: a blank one is refused, line breaks become spaces",
+		async (kind) => {
+			t = await LiveRig.create();
+			const live = await t.rig.openNew();
+			await t.rig.arrange(live.ref, { kind: "reply" });
+			await live.run("Name me.");
+			if (kind === "a session nobody hosts") {
+				await live.close();
+				await t.router.shutDown(live.ref.sessionId);
+			}
+			for (const blank of ["", "   ", "\r\n\t"]) {
+				expect(await t.backend.rename?.(live.ref, blank)).toMatchObject({ rejection: { code: "invalid_input" } });
+			}
+			expect(await t.backend.rename?.(live.ref, "x".repeat(1_025))).toMatchObject({
+				rejection: { code: "invalid_input" },
+			});
+			expect((await t.backend.rename?.(live.ref, " two\nlines "))?.status).toBe("accepted");
+			const names = sessionEntries(t.fileOf(live.ref)).flatMap((entry) =>
+				entry.type === "session_info" ? [entry.name] : [],
+			);
+			expect(names).toEqual(["two lines"]);
+		},
+	);
 });
 
 describe("delete", () => {
