@@ -130,6 +130,7 @@ pub struct DiffLine {
 pub struct DiffSegment {
     pub text: String,
     pub emphasized: bool,
+    pub kind: TokenKind,
 }
 
 #[uniffi::remote(Record)]

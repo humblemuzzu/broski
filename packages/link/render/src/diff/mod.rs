@@ -5,12 +5,14 @@
 //! `FileChange.diff` holds), a contract `FileChange`, and a `git.diff` answer's `GitDiffFile`.
 
 mod contract;
+mod highlight;
 mod intraline;
 mod parse;
 mod side;
 #[cfg(test)]
 mod tests;
 
+use crate::highlight::TokenKind;
 pub use broski_contract::GitChange;
 
 pub use self::contract::{file_change_diff, git_diff_file};
@@ -82,6 +84,7 @@ pub struct DiffLine {
 pub struct DiffSegment {
     pub text: String,
     pub emphasized: bool,
+    pub kind: TokenKind,
 }
 
 /// One row of a side-by-side view: the old line on the left, the new on the right.
@@ -104,7 +107,7 @@ impl DiffFile {
         }
     }
 
-    /// Counts the lines and marks the changed words, once the hunks are complete.
+    /// Counts the lines, marks changed words, and adds syntax colouring once the hunks are complete.
     fn finish(mut self) -> DiffFile {
         let lines = self.hunks.iter().flat_map(|hunk| &hunk.lines);
         let count = |kind| lines.clone().filter(|line| line.kind == kind).count() as i64;
@@ -113,6 +116,7 @@ impl DiffFile {
         for hunk in &mut self.hunks {
             intraline::emphasize(&mut hunk.lines);
         }
+        highlight::colour(&self.path, self.previous_path.as_deref(), &mut self.hunks);
         self
     }
 }

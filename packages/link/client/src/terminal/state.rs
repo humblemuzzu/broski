@@ -191,7 +191,8 @@ impl TerminalState {
         self.pending.extend(bytes);
         let excess = self.pending.len().saturating_sub(MAX_TERMINAL_OUTPUT_BYTES);
         if excess > 0 {
-            self.pending.drain(..excess);
+            let cut = safe_trim_offset(&self.pending, excess);
+            self.pending.drain(..cut);
             self.reset = true;
         }
     }
@@ -231,6 +232,75 @@ impl TerminalState {
 
 fn exited(exit_code: Option<i64>, signal: Option<String>) -> TerminalUpdate {
     TerminalUpdate::Exited { exit_code, signal }
+}
+
+/// Smallest cut `>= min_drop` that neither bisects a VT escape sequence (CSI/OSC/DCS/2-byte ESC)
+/// nor lands on a UTF-8 continuation byte. Bounded so malformed binary streams never drop unbounded
+/// output.
+fn safe_trim_offset(buf: &[u8], min_drop: usize) -> usize {
+    const ESC_LOOKBACK: usize = 128;
+    const ESC_MAX_SKIP: usize = 256;
+
+    let mut cut = min_drop.min(buf.len());
+    let search_start = cut.saturating_sub(ESC_LOOKBACK);
+    if let Some(rel) = buf[search_start..cut].iter().rposition(|&b| b == 0x1B) {
+        let esc = search_start + rel;
+        if let Some(end) = escape_end(buf, esc, (cut + ESC_MAX_SKIP).min(buf.len())) {
+            if end > cut {
+                cut = end;
+            }
+        }
+    }
+    while cut < buf.len() && (buf[cut] & 0xC0) == 0x80 {
+        cut += 1;
+    }
+    cut
+}
+
+/// End offset (exclusive) of the escape sequence starting at `esc`, up to `limit`, or `None` if
+/// no terminator is found within `limit`.
+fn escape_end(buf: &[u8], esc: usize, limit: usize) -> Option<usize> {
+    let next = *buf.get(esc + 1)?;
+    match next {
+        // CSI: ESC [ <params/intermediates 0x20..=0x3F> <final 0x40..=0x7E>
+        b'[' => {
+            let mut i = esc + 2;
+            while i < limit {
+                let b = buf[i];
+                if (0x40..=0x7E).contains(&b) {
+                    return Some(i + 1);
+                }
+                if !(0x20..=0x3F).contains(&b) {
+                    return None;
+                }
+                i += 1;
+            }
+            None
+        }
+        // OSC / DCS / APC / PM / SOS: terminated by BEL (0x07) or ST (ESC \).
+        b']' | b'P' | b'_' | b'^' | b'X' => {
+            let mut i = esc + 2;
+            while i < limit {
+                if buf[i] == 0x07 {
+                    return Some(i + 1);
+                }
+                if buf[i] == 0x1B && buf.get(i + 1) == Some(&b'\\') {
+                    return Some(i + 2);
+                }
+                i += 1;
+            }
+            None
+        }
+        // Two-byte escape or nF sequence (`ESC ( B`, etc.): skip intermediate bytes 0x20..=0x2F.
+        0x20..=0x2F => {
+            let mut i = esc + 2;
+            while i < limit && (0x20..=0x2F).contains(&buf[i]) {
+                i += 1;
+            }
+            (i < limit).then_some(i + 1)
+        }
+        _ => Some((esc + 2).min(buf.len())),
+    }
 }
 
 /// The terminals this phone views, one view each.

@@ -49,8 +49,8 @@ pub use render::{
 pub use version::{core_version, CoreVersion};
 pub use views::{SessionList, SessionView, TerminalView};
 pub use voice::{
-    dictation_error_retryable, dictation_key_check, dictation_languages, dictation_request,
-    dictation_result, dictation_terms, HttpRequest,
+    dictation_error_retryable, dictation_insert, dictation_key_check, dictation_languages,
+    dictation_request, dictation_result, dictation_terms, HttpRequest,
 };
 pub use work::{
     fold_counts, form_field_default, form_field_shown, format_log, tool_arguments, tool_body,

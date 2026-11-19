@@ -2,6 +2,7 @@
 //! record and send the bytes [`transcription_request`] builds, as they send `decisionLetter`'s.
 
 mod grok;
+mod insert;
 mod languages;
 mod multipart;
 mod terms;
@@ -11,5 +12,6 @@ pub use grok::{
     key_check_request, transcription_request, transcription_result, DictationError, HttpRequest,
     Recording, Transcription, ENDPOINT, MODEL,
 };
+pub use insert::{insert_dictation, DictationInsert};
 pub use languages::{dictation_languages, DictationLanguage};
 pub use terms::{dictation_terms, DictationSources, MAX_TERMS, MAX_TERM_CHARS};

@@ -2,7 +2,9 @@
 //! answer. Pure; the apps record, send the request themselves, and hand the answer back.
 
 use broski_contract::{FilesListed, GitStatusRead, TranscriptItem};
-use broski_voice::{DictationError, DictationLanguage, DictationSources, Recording, Transcription};
+use broski_voice::{
+    DictationError, DictationInsert, DictationLanguage, DictationSources, Recording, Transcription,
+};
 
 use crate::push::HttpHeader;
 
@@ -20,6 +22,12 @@ pub struct Transcription {
     pub text: String,
     pub language: Option<String>,
     pub duration_seconds: f64,
+}
+
+#[uniffi::remote(Record)]
+pub struct DictationInsert {
+    pub text: String,
+    pub cursor_utf16: u32,
 }
 
 #[uniffi::remote(Record)]
@@ -109,4 +117,16 @@ pub fn dictation_error_retryable(error: DictationError) -> bool {
 #[uniffi::export]
 pub fn dictation_languages() -> Vec<DictationLanguage> {
     broski_voice::dictation_languages()
+}
+
+/// Inserts a spoken transcript into `draft` at `cursor_utf16` (or the end when `nil`), respecting
+/// CJK/no-space scripts and surrounding whitespace/punctuation.
+#[uniffi::export]
+pub fn dictation_insert(
+    draft: String,
+    cursor_utf16: Option<u32>,
+    transcript: String,
+    language: Option<String>,
+) -> DictationInsert {
+    broski_voice::insert_dictation(&draft, cursor_utf16, &transcript, language.as_deref())
 }

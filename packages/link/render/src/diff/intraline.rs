@@ -6,6 +6,8 @@ use std::time::{Duration, Instant};
 
 use similar::{capture_diff_slices_deadline, Algorithm, DiffTag};
 
+use crate::highlight::TokenKind;
+
 use super::{DiffLine, DiffLineKind, DiffSegment, MAX_EMPHASIS_LINE_BYTES};
 
 /// Below this share of its visible text in common with its partner, a line was rewritten rather
@@ -124,6 +126,7 @@ fn push(segments: &mut Vec<DiffSegment>, text: &str, emphasized: bool) {
         _ => segments.push(DiffSegment {
             text: text.to_owned(),
             emphasized,
+            kind: TokenKind::Plain,
         }),
     }
 }

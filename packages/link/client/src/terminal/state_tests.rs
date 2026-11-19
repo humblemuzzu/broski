@@ -139,11 +139,11 @@ fn output_while_attaching_is_left_to_the_replay_and_out_of_order_output_attaches
     assert_eq!(since(&mut terminals, key), Some(6));
 }
 
-/// The terminal's output from offset `from` on, one distinct byte per offset (modulo a prime), so
-/// what a view keeps shows where it started.
+/// Printable ASCII output from offset `from` on, one distinct byte per offset (modulo a prime), so
+/// what a view keeps shows where it started without injecting stray ESC or high-bit bytes.
 fn stream(from: usize, len: usize) -> Vec<u8> {
     (from..from + len)
-        .map(|offset| (offset % 251) as u8)
+        .map(|offset| b' ' + (offset % 89) as u8)
         .collect()
 }
 
@@ -292,5 +292,71 @@ fn a_passing_refusal_attaches_again_from_the_last_byte_and_a_lasting_one_fails_t
         TerminalUpdate::Failed {
             message: "not now".to_owned()
         }
+    );
+}
+
+#[test]
+fn overflow_trim_never_splits_utf8_or_vt_escape_sequences() {
+    // 4-byte emoji straddling the exact trim boundary.
+    let (mut terminals, key) = running();
+    let mut payload = vec![b'a'; MAX_TERMINAL_OUTPUT_BYTES];
+    // Place a 4-byte UTF-8 sequence starting 2 bytes into the stream, then push 4 more bytes so
+    // raw `excess` lands in the middle of the emoji.
+    payload[0] = b'x';
+    payload[1] = b'y';
+    let emoji = "🚀".as_bytes();
+    payload[2..6].copy_from_slice(emoji);
+    let view = terminals.get_mut(key).expect("view");
+    view.on_output(output(5, &payload));
+    view.on_output(output(5 + payload.len() as i64, b"ZZZZ"));
+    let TerminalUpdate::Output { data, reset } = update(&mut terminals, key) else {
+        panic!("expected output");
+    };
+    assert!(reset);
+    assert!(data.len() <= MAX_TERMINAL_OUTPUT_BYTES);
+    assert!(
+        std::str::from_utf8(&data).is_ok(),
+        "kept tail must be valid UTF-8"
+    );
+    assert!(
+        data.starts_with(b"aaaa"),
+        "must skip past the bisected emoji"
+    );
+
+    // CSI color sequence `\x1b[38;5;196m` straddling the exact trim boundary.
+    let (mut terminals, key) = running();
+    let mut payload = vec![b'b'; MAX_TERMINAL_OUTPUT_BYTES];
+    let csi = b"\x1b[38;5;196mOK";
+    payload[2..2 + csi.len()].copy_from_slice(csi);
+    let view = terminals.get_mut(key).expect("view");
+    view.on_output(output(5, &payload));
+    view.on_output(output(5 + payload.len() as i64, b"123456"));
+    let TerminalUpdate::Output { data, reset } = update(&mut terminals, key) else {
+        panic!("expected output");
+    };
+    assert!(reset);
+    assert!(data.len() <= MAX_TERMINAL_OUTPUT_BYTES);
+    assert!(
+        data.starts_with(b"OKbb"),
+        "must skip past the bisected CSI sequence, got {:?}",
+        &data[..8]
+    );
+
+    // OSC title sequence `\x1b]0;hello\x07` straddling the exact trim boundary.
+    let (mut terminals, key) = running();
+    let mut payload = vec![b'c'; MAX_TERMINAL_OUTPUT_BYTES];
+    let osc = b"\x1b]0;hello\x07AFTER";
+    payload[1..1 + osc.len()].copy_from_slice(osc);
+    let view = terminals.get_mut(key).expect("view");
+    view.on_output(output(5, &payload));
+    view.on_output(output(5 + payload.len() as i64, b"12345"));
+    let TerminalUpdate::Output { data, reset } = update(&mut terminals, key) else {
+        panic!("expected output");
+    };
+    assert!(reset);
+    assert!(
+        data.starts_with(b"AFTER"),
+        "must skip past the bisected OSC sequence, got {:?}",
+        &data[..8]
     );
 }

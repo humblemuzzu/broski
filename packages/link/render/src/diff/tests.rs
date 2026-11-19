@@ -176,7 +176,7 @@ fn a_changed_line_marks_only_the_words_it_changed() {
     assert_eq!(emphasized(&lines[2]), ["1"]);
     assert_eq!(emphasized(&lines[4]), ["2"]);
     assert!(
-        lines[5].segments.is_empty(),
+        emphasized(&lines[5]).is_empty(),
         "an added line with no partner"
     );
     let joined: String = lines[3]
@@ -369,4 +369,45 @@ fn a_diff_past_the_line_bound_is_cut_and_says_so() {
     let parsed = parse_unified_diff(&text);
     assert!(parsed.truncated);
     assert_eq!(parsed.files[0].hunks[0].lines.len(), MAX_DIFF_LINES);
+}
+
+#[test]
+fn code_diffs_carry_both_syntax_tokens_and_word_emphasis() {
+    use crate::highlight::TokenKind;
+
+    let parsed = parse_unified_diff(GIT_DIFF);
+    let main_rs = file(&parsed, "main.rs");
+    let hunk = &main_rs.hunks[0];
+    // Context line `fn main() {` has syntax tokens without emphasis.
+    let fn_line = &hunk.lines[0];
+    assert!(
+        fn_line.segments.iter().any(|seg| seg.text.trim() == "fn"
+            && seg.kind == TokenKind::Keyword
+            && !seg.emphasized),
+        "context line should carry Rust keyword colouring: {:?}",
+        fn_line.segments
+    );
+    // Added modified line `    let count = 2;` has both Keyword (`let`) and emphasized Number (`2`).
+    let added = hunk
+        .lines
+        .iter()
+        .find(|line| line.kind == DiffLineKind::Added && line.text.contains("let count = 2;"))
+        .expect("added let count = 2 line");
+    let joined: String = added.segments.iter().map(|s| s.text.as_str()).collect();
+    assert_eq!(joined, added.text, "segments join back to exact line text");
+    assert!(
+        added.segments.iter().any(|seg| seg.text.trim() == "let"
+            && seg.kind == TokenKind::Keyword
+            && !seg.emphasized),
+        "unchanged keyword keeps syntax kind without emphasis: {:?}",
+        added.segments
+    );
+    assert!(
+        added
+            .segments
+            .iter()
+            .any(|seg| seg.text == "2" && seg.kind == TokenKind::Number && seg.emphasized),
+        "changed literal keeps both syntax kind and word emphasis: {:?}",
+        added.segments
+    );
 }
