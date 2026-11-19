@@ -135,6 +135,26 @@
     <string name="settings_dynamic_color_body">Use your wallpaper\'s Material You colours instead of Broski\'s palette</string>
     <string name="settings_live_promotion">Allow Live Updates</string>
     <string name="settings_live_promotion_body">Let running agents appear as a promoted chip on your status bar and lock screen</string>
+
+    <!-- Plan Usage -->
+    <string name="usage_title">Plan Usage</string>
+    <string name="usage_settings_body">Claude and Antigravity usage limits</string>
+    <string name="usage_empty_title">No plans read yet</string>
+    <string name="usage_empty_offline">Broski reads your plans from your Mac once it\'s connected.</string>
+    <string name="usage_empty_ready">Your Mac reads the Claude and Antigravity sign-ins of Claude Code, agy and Pi. Sign in to one there, then pull to refresh.</string>
+    <string name="usage_window_limit">%1$s limit</string>
+    <string name="usage_resets_in">Resets in %1$s</string>
+    <string name="usage_runs_out_inline">· runs out %1$s at this pace</string>
+    <string name="usage_pace_under">Under pace</string>
+    <string name="usage_pace_steady">On pace</string>
+    <string name="usage_pace_over">Ahead of pace</string>
+    <string name="usage_pace_runs_out">Runs out %1$s</string>
+    <string name="usage_legend_used">Used</string>
+    <string name="usage_legend_even_pace">Even pace</string>
+    <string name="usage_legend_at_pace">At this pace</string>
+    <string name="usage_widget_hint">Add the Plan Usage widget to your Home Screen. The tick on each bar is where an even pace would be.</string>
+    <string name="usage_widget_description">Shows your Claude and Antigravity plan limits from your paired Mac.</string>
+    <string name="usage_widget_empty">Open Broski to read plan usage</string>
     <string name="settings_keep_awake">Keep screen awake</string>
     <string name="settings_keep_awake_dictation">Only while dictating</string>
     <string name="settings_keep_awake_working">While agents are working</string>

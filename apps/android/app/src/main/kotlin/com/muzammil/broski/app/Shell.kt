@@ -21,11 +21,13 @@ import androidx.navigation3.ui.NavDisplay
 import com.muzammil.broski.R
 import com.muzammil.broski.core.AppCore
 import com.muzammil.broski.core.PhoneSession
+import com.muzammil.broski.core.isOnline
 import com.muzammil.broski.feature.inbox.InboxScreen
 import com.muzammil.broski.feature.machines.MachinesScreen
 import com.muzammil.broski.feature.pairing.PairScreen
 import com.muzammil.broski.feature.settings.SettingsScreen
 import com.muzammil.broski.feature.settings.VoiceSettingsScreen
+import com.muzammil.broski.feature.usage.UsageScreen
 import com.muzammil.broski.feature.workspace.workspaceEntries
 
 /**
@@ -36,6 +38,11 @@ import com.muzammil.broski.feature.workspace.workspaceEntries
 fun Shell(core: AppCore, phone: PhoneSession, features: Features, openRequests: OpenRequests) {
     val navigator = rememberNavigator()
     OpenRequested(openRequests, phone, features, navigator)
+    val machines by phone.machines.collectAsStateWithLifecycle()
+    val onlineCount = machines.count { it.health.isOnline }
+    LaunchedEffect(phone, onlineCount) {
+        if (onlineCount > 0) core.usage.refresh(phone)
+    }
     val context = remember(phone, navigator) { FeatureContext(phone, navigator::open, navigator::back) }
     // The chat's composer is its bottom edge, a new session's too: no navigation bar under it.
     val suite = rememberNavigationSuiteScaffoldState()
@@ -85,8 +92,17 @@ private fun OpenRequested(openRequests: OpenRequests, phone: PhoneSession, featu
     val requested by openRequests.next.collectAsStateWithLifecycle()
     LaunchedEffect(requested) {
         val route = requested ?: return@LaunchedEffect
-        if (navigator.tab != TopLevel.Inbox) navigator.select(TopLevel.Inbox)
-        if (features.session != null && phone.machine(route.machineId) != null) navigator.open(route)
+        when (route) {
+            is SessionRoute -> {
+                if (navigator.tab != TopLevel.Inbox) navigator.select(TopLevel.Inbox)
+                if (features.session != null && phone.machine(route.machineId) != null) navigator.open(route)
+            }
+            UsageRoute -> {
+                if (navigator.tab != TopLevel.Settings) navigator.select(TopLevel.Settings)
+                navigator.open(UsageRoute)
+            }
+            else -> Unit
+        }
         openRequests.taken(route)
     }
 }
@@ -110,8 +126,16 @@ private fun EntryProviderScope<Route>.shellEntries(
         MachinesScreen(phone = phone, onBack = navigator::back, onPairAnother = { navigator.open(PairRoute) })
     }
     entry<PairRoute> { PairScreen(phone = phone, onBack = navigator::back, onPaired = navigator::back) }
-    entry<SettingsRoute> { SettingsScreen(core = core, phone = phone, onOpenVoice = { navigator.open(VoiceRoute) }) }
+    entry<SettingsRoute> {
+        SettingsScreen(
+            core = core,
+            phone = phone,
+            onOpenVoice = { navigator.open(VoiceRoute) },
+            onOpenUsage = { navigator.open(UsageRoute) },
+        )
+    }
     entry<VoiceRoute> { VoiceSettingsScreen(core = core, onBack = navigator::back) }
+    entry<UsageRoute> { UsageScreen(core = core, phone = phone, onBack = navigator::back) }
     features.session?.let { session -> entry<SessionRoute> { route -> context.session(route) } }
     features.newSession?.let { newSession -> entry<NewSessionRoute> { context.newSession() } }
     workspaceEntries(context)

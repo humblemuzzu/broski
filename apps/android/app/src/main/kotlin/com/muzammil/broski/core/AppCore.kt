@@ -15,6 +15,7 @@ import com.muzammil.broski.core.platform.LanDiscovery
 import com.muzammil.broski.core.platform.NetworkWatcher
 import com.muzammil.broski.core.settings.AppSettings
 import com.muzammil.broski.core.settings.SettingsStore
+import com.muzammil.broski.core.usage.UsageModel
 import com.muzammil.broski.core.vault.AesGcmCipher
 import com.muzammil.broski.core.vault.KeystoreKey
 import com.muzammil.broski.core.vault.UnreadableSecretException
@@ -88,6 +89,9 @@ class AppCore(private val context: Context) {
 
     /** Created on the main thread with the core, as its recorder and its state live there. */
     val dictation = Dictation(context, vault, settings)
+
+    /** Plan usage across connected Macs, cached on disk for both the screen and Home Screen widget. */
+    val usage = UsageModel(context)
 
     private val mutableState = MutableStateFlow<CoreState>(CoreState.Starting)
     val state: StateFlow<CoreState> = mutableState.asStateFlow()

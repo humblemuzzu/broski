@@ -2,4 +2,9 @@
 <resources>
     <color name="launcher_background">#191C2B</color>
     <color name="splash_background">#FCF8FF</color>
+    <color name="widget_surface">#F6F2FA</color>
+    <color name="widget_track">#1A1B1B21</color>
+    <color name="widget_text_primary">#1B1B21</color>
+    <color name="widget_text_secondary">#5D5D72</color>
+    <color name="widget_accent">#C15F3C</color>
 </resources>

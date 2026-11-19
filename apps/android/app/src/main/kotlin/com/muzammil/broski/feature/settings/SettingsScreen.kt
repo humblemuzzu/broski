@@ -55,6 +55,8 @@ import com.muzammil.broski.core.PhoneSession
 import com.muzammil.broski.core.settings.Appearance
 import com.muzammil.broski.core.settings.KeepScreenAwake
 import com.muzammil.broski.core.settings.NotificationKind
+import com.muzammil.broski.core.usage.UsageReport
+import kotlin.math.roundToInt
 import com.muzammil.broski.design.Haptic
 import com.muzammil.broski.design.SectionHeader
 import com.muzammil.broski.design.groupedListItemColors
@@ -88,9 +90,10 @@ private val KeepAwakeOptions = listOf(
 /** Notification kinds, voice, appearance, versions and the privacy line. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun SettingsScreen(core: AppCore, phone: PhoneSession, onOpenVoice: () -> Unit) {
+fun SettingsScreen(core: AppCore, phone: PhoneSession, onOpenVoice: () -> Unit, onOpenUsage: () -> Unit) {
     val viewModel = viewModel { SettingsViewModel(core.settingsStore, core.settings, phone.machines) }
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val usageReport by core.usage.report.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val core = remember { coreVersion() }
     val coreDescription = stringResource(R.string.settings_core_version, core.library, core.protocol.major, core.protocol.minor)
@@ -115,6 +118,7 @@ fun SettingsScreen(core: AppCore, phone: PhoneSession, onOpenVoice: () -> Unit) 
                 bottom = padding.calculateBottomPadding() + 24.dp,
             ),
         ) {
+            item(key = "usage") { UsageRow(usageReport, onOpenUsage) }
             notifications(state.settings.notifications, viewModel::setNotification)
             if (Build.VERSION.SDK_INT >= 36) {
                 item(key = "live-promotion") { LiveUpdatePromotionRow() }
@@ -132,6 +136,29 @@ fun SettingsScreen(core: AppCore, phone: PhoneSession, onOpenVoice: () -> Unit) 
             about(state, coreDescription)
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun UsageRow(report: UsageReport?, onOpenUsage: () -> Unit) {
+    val nowMs = System.currentTimeMillis()
+    val summary = report?.plans
+        ?.mapNotNull { plan ->
+            val window = plan.headline(nowMs) ?: return@mapNotNull null
+            "${plan.plan.displayName} ${(window.used(nowMs) * 100.0).roundToInt()}%"
+        }
+        ?.takeIf { it.isNotEmpty() }
+        ?.joinToString(" · ")
+        ?: stringResource(R.string.usage_settings_body)
+    SegmentedListItem(
+        onClick = onOpenUsage,
+        shapes = ListItemDefaults.segmentedShapes(0, 1),
+        modifier = Modifier.padding(horizontal = 16.dp).padding(top = 8.dp),
+        leadingContent = { Icon(painterResource(R.drawable.ic_schedule), contentDescription = null) },
+        supportingContent = { Text(summary) },
+        trailingContent = { Icon(painterResource(R.drawable.ic_chevron_right), contentDescription = null) },
+        colors = groupedListItemColors(),
+    ) { Text(stringResource(R.string.usage_title)) }
 }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)

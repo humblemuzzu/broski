@@ -28,6 +28,10 @@ data object PairRoute : Route
 @Serializable
 data object VoiceRoute : Route
 
+/** Settings › Plan Usage: Claude and Antigravity quota limits across paired Macs. */
+@Serializable
+data object UsageRoute : Route
+
 /** A session yet to be made: the chat it becomes once sent, on whichever Mac and in whichever folder the person picks. */
 @Serializable
 data object NewSessionRoute : Route

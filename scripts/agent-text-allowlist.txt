@@ -19,6 +19,7 @@ apps/ios/Broski/Sources/Features/Chat/Work/WorkRowView.swift | Text(tool.label) 
 apps/ios/Broski/Extensions/Widgets/BroskiWidgets.swift | Text(state.title) | the Live Activity's title, made by RunActivityAttributes; the widget does not link the formatter
 apps/ios/Broski/Extensions/Widgets/RunActivityViews.swift | Text(state.title) | the Live Activity's title, made by RunActivityAttributes
 apps/ios/Broski/Sources/Features/Usage/PlanUsageCard.swift | Text(window.title) | a plan usage window's name ("Weekly · Fable") from the bridge's reading of the plan, not an agent's words
+apps/android/app/src/main/kotlin/com/muzammil/broski/feature/usage/PlanUsageCard.kt | Text(window.label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold) | a plan usage window's name ("Weekly · Fable") from the bridge's reading of the plan, not an agent's words
 apps/ios/Broski/Extensions/Widgets/Usage/PlanViews.swift | Text(window.label) | a plan usage window's name ("Weekly · Fable"), made by LimitWindow.label; the widget does not link the formatter
 apps/ios/Broski/Extensions/Widgets/Usage/AllPlansView.swift | Text(window.label) | a plan usage window's name ("Weekly · Fable"), made by LimitWindow.label; the widget does not link the formatter
 apps/ios/Broski/Extensions/Widgets/RunActivityViews.swift | Text(run.title) | a session's name in the Live Activity, which does not link the formatter
