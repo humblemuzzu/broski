@@ -43,11 +43,3 @@ installed services it is reasoned, not run:
   holder leaves the bridge's group with `setsid`, so it should survive. Verify: `broski install`, start a
   hosted run from the phone, `launchctl kickstart -k gui/$UID/com.broski.link`, check the
   `__pi-holder` process and its `pi` are still alive and the phone shows the run going on.
-- **Linux systemd** (`src/platform/service/systemd.ts`): the unit now sets `KillMode=process`, because the
-  default `control-group` kills every process in the cgroup, holders included. Only the generated unit text
-  is tested (`service_systemd` test). Verify on a Linux machine: install, hosted run, `systemctl --user
-  restart`, holder and `pi` survive.
-- **Existing Linux installs** keep their old unit without `KillMode=process` until `broski install` runs again;
-  decide whether `broski update` should rewrite the unit.
-- **A SIGKILLed broski-link under `KillMode=process`** now also leaves its bridge running. Suggested: on start,
-  broski-link stops a bridge left over from a previous run (its process group) before it starts its own.

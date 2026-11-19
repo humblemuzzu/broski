@@ -9,24 +9,14 @@ From `packages/bridge/`:
 ```bash
 sh scripts/build.sh --target darwin-arm64
 sh scripts/build.sh --target darwin-x64
-sh scripts/build.sh --target linux-x64
-sh scripts/build.sh --target linux-arm64
 ```
 
-## 2) Required Artifacts Per Platform
+## 2) Required Artifacts
 
 ### macOS
 Ship both in the same directory:
 - `broski-darwin-arm64` (or `broski-darwin-x64`)
 - `libbroski_pty.dylib`
-
-### Linux
-Ship both in the same directory:
-- `broski-linux-x64` (or `broski-linux-arm64`)
-- `libbroski_pty.so`
-
-### Windows
-- Not supported (ConPTY future work).
 
 ## 3) Artifact Integrity Checks
 
@@ -65,7 +55,6 @@ does the full bridge suite.
 ## 7) Release Gate (must all be true)
 
 - [ ] Binary + sidecar pair present for macOS targets
-- [ ] Binary + sidecar pair present for Linux targets
 - [ ] PTY tests green
 - [ ] Full bridge tests green
 - [ ] Manual smoke test passed

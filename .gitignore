@@ -16,7 +16,6 @@ xcuserdata/
 node_modules/
 dist/
 packages/bridge/src/_bootstrap_embedded.ts
-packages/bridge/src/_claude_cli_embed.ts
 packages/bridge/bench/results/
 # Only the bridge's lockfile is committed: CI installs from it.
 bun.lock
@@ -47,44 +46,16 @@ local.properties
 __pycache__/
 *.pyc
 
-# Logs and caches
+# Logs
 *.log
-.ruff_cache/
 
 # Local state of agents and tools
 .worktrees/
 .pi/
 .asc/
-.broski/
 .claude/*
 !.claude/commands/
-
-# What the Flutter app (branch final-flutter) leaves in an old checkout
-/android/
-/ios/
-/linux/
-/macos/
-/windows/
-/lib/
-/test/
-/tool/
-/fonts/
-/build/
-.dart_tool/
-.flutter-plugins
-.flutter-plugins-dependencies
-
-# Reference repositories reference/sync-refs.sh clones
-reference/
-reference/
-reference/
-reference/
 
 # Large or private files kept out of the repository
 docs/assets/
 docs/tla/
-/dataset-export/
-/chart.png
-/geist-*.tgz
-/customized-claude.md
-/broski_pi_*.md

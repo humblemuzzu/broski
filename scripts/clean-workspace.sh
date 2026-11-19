@@ -45,7 +45,6 @@ report_sizes() {
     "$ROOT/apps/android/core/build" \
     "$ROOT/apps/android/terminal/build" \
     "$ROOT/packages/bridge/node_modules" \
-    "$ROOT/os-p" \
     2>/dev/null | sort -hr || true
 
   echo ""

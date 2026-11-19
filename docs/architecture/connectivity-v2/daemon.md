@@ -285,11 +285,10 @@ is withdrawn first, before any task stops: the daemon waits for the responder to
 goodbye and for its 120 ms repeat to go out, so caches drop the old port at once. Daemons started
 with `--no-advertise` (and every test daemon except the discovery tests) announce nothing.
 
-The responder is the pure-Rust `mdns-sd` crate, used on macOS and Linux alike. It shares UDP 5353
+The responder is the pure-Rust `mdns-sd` crate. It shares UDP 5353
 with the system responder (`SO_REUSEADDR` + `SO_REUSEPORT`) and joins the mDNS group on each
 interface, so macOS's own mDNSResponder keeps working and both answer queries; `daemon/tests/discovery.rs`
-proves it by browsing for the daemon's own advertisement on the machine it runs on. Using the
-Bonjour C API instead would have worked only on macOS and needed a second implementation for Linux.
+proves it by browsing for the daemon's own advertisement on the machine it runs on.
 A host with no multicast interface still reaches the daemon through the LAN candidates in `routes`
 or through the relay; the advertisement is an addition, never a requirement.
 
