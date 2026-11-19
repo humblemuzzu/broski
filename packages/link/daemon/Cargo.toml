@@ -46,14 +46,14 @@ tokio-tungstenite = { version = "0.29.0", features = ["rustls-tls-webpki-roots"]
 futures-util = "0.3.34"
 # axum 0.8 — the LAN listener, /v1/identity and the /v1/link upgrade.
 axum = { version = "0.8", features = ["ws"] }
-# qrcode 0.14.1 — renders the pairing uri as a terminal QR (unicode half blocks).
-qrcode = { version = "0.14.1", default-features = false }
-# if-addrs 0.14.0 — the non-loopback IPv4 addresses published in routes and in the offer.
-if-addrs = "0.14.0"
-# mdns-sd 0.21.7 — advertises `_broski-link._tcp` so the phone finds the machine without a scan.
+# qrcode 0.15.0 — renders the pairing uri as a terminal QR (unicode half blocks).
+qrcode = { version = "0.15.0", default-features = false }
+# if-addrs 0.15.0 — the non-loopback IPv4 addresses published in routes and in the offer.
+if-addrs = "0.15.0"
+# mdns-sd 0.22.0 — advertises `_broski-link._tcp` so the phone finds the machine without a scan.
 # Pure Rust, no async runtime of its own, shares UDP 5353 with mDNSResponder through SO_REUSEPORT
 # and follows the machine's interfaces itself.
-mdns-sd = "0.21.7"
+mdns-sd = "0.22.0"
 # getrandom 0.3.4 — session ids, pairing secrets and device relay tokens.
 getrandom = "0.3.4"
 # sha2 0.10.9 — sha256 of the public bundle (machine/device id) and of relay tokens.
@@ -85,5 +85,5 @@ tokio-tungstenite = { version = "0.29.0", features = ["rustls-tls-webpki-roots"]
 broski-relay = { path = "../relay" }
 # futures-util 0.3.34 — driving the test phone's websocket halves.
 futures-util = "0.3.34"
-# mdns-sd 0.21.7 — the discovery test browses for the machine the way the phone does.
-mdns-sd = "0.21.7"
+# mdns-sd 0.22.0 — the discovery test browses for the machine the way the phone does.
+mdns-sd = "0.22.0"

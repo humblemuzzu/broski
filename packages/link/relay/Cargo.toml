@@ -16,13 +16,13 @@ path = "src/main.rs"
 
 [dependencies]
 # async runtime (multi-thread, tcp, signals, timers, bounded channels)
-tokio = { version = "1.53", features = ["rt-multi-thread", "macros", "net", "sync", "time", "signal"] }
+tokio = { version = "1.54", features = ["rt-multi-thread", "macros", "net", "sync", "time", "signal"] }
 # http routing + WebSocket upgrade handling
 axum = { version = "0.8", features = ["ws"] }
 # listener with built-in TLS termination and graceful shutdown
-axum-server = { version = "0.8", features = ["tls-rustls"] }
+axum-server = { version = "0.9", features = ["tls-rustls"] }
 # persistence for machine secrets, allowed devices and last_seen; bundled sqlite
-rusqlite = { version = "0.40", features = ["bundled"] }
+rusqlite = { version = "0.43", features = ["bundled"] }
 # structured logging without payload bytes
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
@@ -45,15 +45,15 @@ tungstenite = "0.29"
 # split a WebSocket into concurrent sink/stream halves
 futures-util = "0.3"
 # outbound HTTP/2 to APNs and HTTP/1.1 to FCM/the push upstream, rustls only
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "http2"] }
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "http2", "form"] }
 # ES256 (APNs) and RS256 (FCM service account) provider assertions
-jsonwebtoken = "9.3"
+jsonwebtoken = { version = "12.0", features = ["aws_lc_rs"] }
 
 [dev-dependencies]
 # websocket client used to drive the relay over real sockets in tests
 tokio-tungstenite = "0.29"
 # spawning the relay binary from the cli test
-tokio = { version = "1.53", features = ["process"] }
+tokio = { version = "1.54", features = ["process"] }
 # temporary database directories per test
 tempfile = "3"
 # mock APNs/FCM providers over real http, including http2 prior knowledge
