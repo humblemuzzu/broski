@@ -17,8 +17,6 @@ android {
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
         versionName = "0.1.0"
-        // The ABIs scripts/build-android-core.sh and build-android-terminal.sh build for; JNA ships more.
-        ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // The Firebase project push needs, from the gradle properties broski.firebase.* (apps/android/README.md,
         // "Push"); empty without them, and the app then runs without push.
@@ -28,7 +26,11 @@ android {
     }
 
     buildTypes {
+        debug {
+            ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
+        }
         release {
+            ndk { abiFilters += listOf("arm64-v8a") }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
