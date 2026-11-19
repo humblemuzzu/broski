@@ -19,6 +19,7 @@ archive_ios_for_phone() {
   mkdir -p "$PHONE_STAGE"
   rsync -a --delete --exclude /build/ --exclude /Broski.xcodeproj/ "$ROOT/apps/ios/Broski/" "$PHONE_STAGE/Broski/"
   rsync -a --delete --exclude /.build/ "$ROOT/apps/ios/BroskiCore/" "$PHONE_STAGE/BroskiCore/"
+  rsync -a --delete --exclude /.build/ "$ROOT/apps/ios/BroskiPush/" "$PHONE_STAGE/BroskiPush/"
   for entitlements in "$PHONE_STAGE/Broski/Resources/Broski.entitlements" \
     "$PHONE_STAGE/Broski/Extensions/NotificationService/NotificationService.entitlements"; do
     /usr/libexec/PlistBuddy -c 'Delete :com.apple.security.application-groups' "$entitlements" 2>/dev/null || true

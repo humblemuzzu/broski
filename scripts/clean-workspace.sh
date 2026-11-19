@@ -40,6 +40,7 @@ report_sizes() {
     "$LINK_TARGET" \
     "$IOS_BUILD" \
     "$ROOT/apps/ios/BroskiCore/BroskiCoreFFI.xcframework" \
+    "$ROOT/apps/ios/BroskiPush/BroskiPushFFI.xcframework" \
     "$ROOT/apps/android/app/build" \
     "$ROOT/apps/android/core/build" \
     "$ROOT/apps/android/terminal/build" \
