@@ -315,8 +315,10 @@ private fun NewSessionComposer(model: NewSessionViewModel, ui: NewSessionUi, foc
     val hook = remember(dictation, model) { dictation?.let { DictationHook(it, model.dictationTarget(it), openVoiceSettings = null) } }
     val agent = choice.backend?.let { stringResource(it.displayName) }
     val text = model.composer.input.text.toString()
+    val selection = model.composer.input.selection
     FileMentionPopup(
         text = text,
+        cursor = if (selection.collapsed) selection.end else null,
         commandActive = command == null && text.startsWith("/") && !text.contains(' ') && !text.contains('\n'),
         root = folder,
         search = model::searchFiles,

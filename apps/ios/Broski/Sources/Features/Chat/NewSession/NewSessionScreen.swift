@@ -118,8 +118,8 @@ private struct NewSessionContent: View {
             guard machine.summary.isReady else { return nil }
             let requests = WorkspaceRequests(machine: machine.machine)
             return FileSearchSource(root: folder) { query in
-                let matches = (try? await requests.search(root: folder, query: query, limit: 15).matches) ?? []
-                return matches.map { $0.kind == .dir && !$0.path.hasSuffix("/") ? $0.path + "/" : $0.path }
+                guard let found = try? await requests.search(root: folder, query: query, limit: 15) else { return nil }
+                return found.matches.map { $0.kind == .dir && !$0.path.hasSuffix("/") ? $0.path + "/" : $0.path }
             }
         }
         return ComposerView(

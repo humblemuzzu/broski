@@ -26,6 +26,7 @@ struct ComposerView: View {
     @State private var voiceSettings = false
     @State private var mentionPaths: [String] = []
     @State private var mentionCache = FileMentionCache()
+    @State private var cursorUtf16: Int? = nil
 
     private var dictationPhase: Dictation.Phase {
         dictation.map { app.dictation.phase(for: $0.id) } ?? .idle
@@ -42,8 +43,12 @@ struct ComposerView: View {
         draft.commandQuery.map(catalog.commands(matching:)) ?? []
     }
 
+    private var activeMention: FileMention? {
+        matching.isEmpty ? draft.fileMention(at: cursorUtf16) : nil
+    }
+
     private var mentionTaskKey: String? {
-        guard matching.isEmpty, let fileSearch, let mention = draft.fileMention else { return nil }
+        guard let fileSearch, let mention = activeMention else { return nil }
         return "\(fileSearch.root)\u{0}\(mention.query)"
     }
 
@@ -52,9 +57,11 @@ struct ComposerView: View {
             if !matching.isEmpty {
                 CommandList(commands: matching) { draft.pick($0) }
                 Divider()
-            } else if !mentionPaths.isEmpty, draft.fileMention != nil {
+            } else if !mentionPaths.isEmpty, activeMention != nil {
                 FileMentionList(paths: mentionPaths) {
-                    draft.pickFile($0)
+                    if let nextCursor = draft.pickFile($0, at: cursorUtf16) {
+                        cursorUtf16 = nextCursor
+                    }
                     mentionPaths = []
                 }
                 Divider()
@@ -71,7 +78,7 @@ struct ComposerView: View {
                     .transition(.opacity)
             } else {
                 ComposerTextView(
-                    placeholder: placeholder, text: $draft.text, isFocused: $focus, maxLines: 6,
+                    placeholder: placeholder, text: $draft.text, isFocused: $focus, cursorUtf16: $cursorUtf16, maxLines: 6,
                     pasteImages: acceptsImages ? { attach($0, to: $draft, refuse: refuse) } : nil,
                     onSubmit: { if draft.hasContent { perform(action) } }
                 )
@@ -96,7 +103,7 @@ struct ComposerView: View {
         .animation(.spring(duration: 0.22, bounce: 0), value: draft.images.count)
         .animation(.spring(duration: 0.22, bounce: 0), value: isDictating)
         .task(id: mentionTaskKey) {
-            guard let fileSearch, let mention = draft.fileMention, matching.isEmpty else {
+            guard let fileSearch, let mention = activeMention else {
                 mentionPaths = []
                 return
             }
@@ -106,7 +113,10 @@ struct ComposerView: View {
             }
             try? await Task.sleep(for: .milliseconds(120))
             guard !Task.isCancelled else { return }
-            let results = await fileSearch.search(mention.query)
+            guard let results = await fileSearch.search(mention.query) else {
+                if !Task.isCancelled { mentionPaths = [] }
+                return
+            }
             guard !Task.isCancelled else { return }
             mentionCache.put(root: fileSearch.root, query: mention.query, paths: results)
             mentionPaths = results

@@ -139,15 +139,17 @@ private fun ChatComposer(model: ChatViewModel, agent: String, running: Boolean, 
     if (matching.isNotEmpty()) CommandList(matching, onPick = model.composer::pick)
     val header by model.header.collectAsStateWithLifecycle()
     val cwd = header.cwd
+    val selection = model.composer.input.selection
     FileMentionPopup(
         text = text,
+        cursor = if (selection.collapsed) selection.end else null,
         commandActive = matching.isNotEmpty() || (command == null && text.startsWith("/") && !text.contains(' ') && !text.contains('\n')),
         root = cwd,
         search = { query ->
-            val root = cwd ?: return@FileMentionPopup emptyList()
+            val root = cwd ?: return@FileMentionPopup null
             when (val found = model.workspace.search(root, query, limit = 15L)) {
                 is Answer.Done -> found.value.matches.map { if (it.kind == FileKind.DIR && !it.path.endsWith("/")) "${it.path}/" else it.path }
-                is Answer.Failed -> emptyList()
+                is Answer.Failed -> null
             }
         },
         onPick = model.composer::pickFile,

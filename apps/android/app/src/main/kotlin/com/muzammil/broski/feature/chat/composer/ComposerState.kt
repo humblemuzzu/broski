@@ -4,6 +4,7 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.text.TextRange
 import com.muzammil.broski.core.voice.DictationState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
@@ -50,9 +51,13 @@ class ComposerState(initialText: String, scope: CoroutineScope, private val save
         input.setTextAndPlaceCursorAtEnd(input.text.toString().substringAfter(' ', "").trimStart())
     }
 
-    /** Replaces the active `@query` with the picked file path and a trailing space. */
+    /** Replaces the active `@query` with the picked file path and places the cursor right after it. */
     fun pickFile(mention: FileMention, path: String) {
-        input.setTextAndPlaceCursorAtEnd(replaceFileMention(input.text.toString(), mention, path))
+        val result = replaceFileMention(input.text.toString(), mention, path)
+        input.edit {
+            replace(0, length, result.text)
+            selection = TextRange(result.cursor)
+        }
     }
 
     fun clearCommand() {

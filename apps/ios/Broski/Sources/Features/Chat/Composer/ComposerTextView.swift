@@ -8,6 +8,8 @@ struct ComposerTextView: UIViewRepresentable {
     let placeholder: String
     @Binding var text: String
     @Binding var isFocused: Bool
+    /// UTF-16 cursor offset kept in sync with the text view so `@file` mentions work mid-draft.
+    var cursorUtf16: Binding<Int?>? = nil
     let maxLines: Int
     /// Nil where the session takes no images: Paste is then text only.
     let pasteImages: (([UIImage]) -> Void)?
@@ -38,6 +40,10 @@ struct ComposerTextView: UIViewRepresentable {
         if view.markedTextRange == nil, view.text != text {
             view.text = text
             view.showPlaceholder()
+            if let wanted = cursorUtf16?.wrappedValue {
+                let clamped = min(max(wanted, 0), (view.text as NSString).length)
+                view.selectedRange = NSRange(location: clamped, length: 0)
+            }
         }
         view.wantsEditable = context.environment.isEnabled
         view.wantsFocus = isFocused
@@ -64,7 +70,19 @@ struct ComposerTextView: UIViewRepresentable {
 
         func textViewDidChange(_ view: UITextView) {
             if parent.text != view.text { parent.text = view.text }
+            syncCursor(view)
             (view as? PastingTextView)?.showPlaceholder()
+        }
+
+        func textViewDidChangeSelection(_ view: UITextView) {
+            syncCursor(view)
+        }
+
+        private func syncCursor(_ view: UITextView) {
+            guard let binding = parent.cursorUtf16 else { return }
+            let range = view.selectedRange
+            let next: Int? = range.length == 0 ? range.location : nil
+            if binding.wrappedValue != next { binding.wrappedValue = next }
         }
 
         func textViewDidBeginEditing(_ view: UITextView) {
