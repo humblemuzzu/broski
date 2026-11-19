@@ -12,16 +12,14 @@ doctest = false
 [dependencies]
 # broski-contract — the tool file changes and git diffs the diff views are built from.
 broski-contract = { path = "../contract" }
-# syntect 5.3.0 — Sublime Text grammars, parsing only (no themes: the apps colour by token kind);
-# fancy-regex keeps it pure Rust, with no Oniguruma C library to cross-compile.
-syntect = { version = "=5.3.0", default-features = false, features = ["parsing", "regex-fancy"] }
 # serde_json 1.0.151 — JSON read with its members in order (broski-contract's `JsonValue`) and
 # written back pretty; already in the tree through broski-contract.
 serde_json = "1.0.151"
 # similar 3.2.1 — the token diff (Myers, with a deadline) behind a changed line's emphasis.
 similar = { version = "=3.2.1", default-features = false, features = ["std"] }
+# unicode-ident 1.0.26 — answers the non-ASCII identifier checks @pierre/highlights' lexers import.
+unicode-ident = "1.0.26"
 
 [build-dependencies]
-# syntect 5.3.0 — the same version, with the YAML loader the build script compiles syntaxes/ with;
-# the library itself only reads the dump.
-syntect = { version = "=5.3.0", default-features = false, features = ["parsing", "regex-fancy", "yaml-load"] }
+# cc 1.7.0 — compiles the vendored wasm2c output of @pierre/highlights and its C runtime.
+cc = "1.7.0"

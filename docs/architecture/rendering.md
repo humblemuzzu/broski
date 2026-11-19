@@ -21,39 +21,33 @@ attribute, inserted, deleted, heading`: each app colours the kinds by its own pa
 
 - `languageForPath(path) → String?` names a file's language by its name (`Dockerfile`, `Makefile`) or
   extension; `nil` means plain text. `normalizeLanguage(label) → String?` names a fence label's
-  language (`ts` → `TypeScript`, `sh`/`zsh`/`shell` → `Bourne Again Shell (bash)`). `highlight` takes
-  either a label, an extension or a name either returned. Unknown, `text`, or absent: every line is
-  one plain span.
-- **Engine.** syntect 5.3.0, parsing only (no themes), with the pure-Rust fancy-regex engine (no
-  Oniguruma C library to cross-compile). A span takes the kind of the innermost TextMate scope a rule
-  names (`highlight/kinds.rs`), except that anything inside a comment is a comment and anything inside a
-  mapping key (JSON, YAML) a property.
-- **Grammars.** Bash, C, C++, C#, CSS, Dart, Diff, Dockerfile, Go, Groovy, HTML, Java, JavaScript, JSON,
-  Kotlin, Lua, Makefile, Markdown, Objective-C, Python, Ruby, Rust, SQL, Swift, TOML, TypeScript, TSX,
-  XML and YAML: the Sublime Text syntaxes of bat v0.26.1 (the curation two-face 0.5.2 ships), vendored
-  with their licenses in `render/syntaxes/` (its README lists the sources and commits) and compiled by
-  `build.rs` into a 0.26 MB dump loaded once on first use. A language one of them embeds that is not
-  in the set (a fenced block in Markdown) shows as plain text.
+  language (`ts` → `TypeScript`, `sh`/`zsh`/`shell` → `Shell`). `highlight` takes either a label, an
+  extension, or a name either returned. Unknown, `text`, or absent: every line is one plain span.
+- **Engine.** `@pierre/highlights` 0.5.1 (Apache-2.0), written in WebAssembly Text and compiled to C
+  by WABT's `wasm2c` 1.0.42 (`scripts/generate-highlights.sh`). The generated C, the small `wasm2c`
+  runtime, and SIMDe's amalgamated `wasm/simd128.h` live in `render/vendor/highlights/` and are
+  compiled by `build.rs` with plain `malloc` memory and explicit bounds checks (no guard-page signal
+  handlers fighting iOS/Android crash reporters). The engine runs in mode 3 (UTF-16 token records, no
+  themes), behind one mutex; `kinds.rs` maps Pierre's token IDs onto our 17 `TokenKind`s.
+- **Languages.** 152 languages built in (348 names and aliases in `highlight/generated.rs`), covering
+  every language agents meet with no grammar downloads or runtime parsing.
 - **Bounds**, by size and never by a clock (a clock would colour the same file differently on a cold
   start): at most `MAX_HIGHLIGHT_LINES` (5,000) lines and `MAX_HIGHLIGHT_BYTES` (512 KiB); a line longer
-  than `MAX_HIGHLIGHT_LINE_BYTES` (4 KiB, as Sublime Text itself) or a grammar error stops the
-  colouring; every line from there on is plain. A regex that would backtrack without end cannot hang a
-  line: fancy-regex gives up after a million steps, which syntect takes as no match.
-- **Cost** (same bench): loading the grammars and compiling Rust's on first use 18 ms, TypeScript's
-  89 ms on its first use; then 2,136 lines of Rust in 97 ms (about 22,000 lines a second; expect a
-  phone to be two to three times slower).
+  than `MAX_HIGHLIGHT_LINE_BYTES` (4 KiB) stops the colouring; every line from that point on is plain.
+  If the Wasm module traps or fails to grow memory, the instance resets and the file renders plain;
+  after any large input (> 8 MiB of Wasm memory) the next small call resets the instance to release it.
+- **Cost** (same bench): first-use instance init + Rust 0.96 ms, first TypeScript call 51 µs; then
+  2,280 lines of Rust in 2.29 ms (about 1,000,000 lines a second; ~42× faster than syntect on Rust
+  and ~300× faster on TypeScript, with 152 languages instead of 28).
 
-### Why syntect with a curated set
+### Why `@pierre/highlights` via `wasm2c`
 
-| Option | Arm64 Android `.so`, stripped | Verdict |
+| Option | Native arm64 cost | Verdict |
 |---|---|---|
-| syntect + two-face's whole dump (bat's ~200 grammars) | +3.13 MB for the whole crate, 0.94 MB of it the dump | over the 3 MB budget |
-| syntect + syntect's own defaults | the dump about 0.36 MB | no TypeScript, TSX, Kotlin, Swift, TOML or Dockerfile |
-| tree-sitter grammars | each grammar is a generated C parse table: tree-sitter-typescript 0.23.2's `parser.c` is 8.7 MB of source for TypeScript and 8.8 MB for TSX (compiled size not measured) | not tried: about 30 such grammars |
-| **syntect + the vendored subset** | **+2.43 MB for the whole crate, 0.26 MB of it the dump** | chosen |
-
-A syntect `SyntaxSet` cannot be cut down after it is built (its contexts reference each other by
-index), so the subset is compiled from the grammar sources.
+| syntect + two-face's whole dump (~200 grammars) | +3.13 MB for the whole crate, 0.94 MB dump | over budget and slow |
+| syntect + curated 28-grammar subset | ~1.05 MB (regex engine + 0.26 MB dump), 97 ms / 2.1k lines of Rust, 546 ms / 2.9k lines of TS | previously used; slow on phones |
+| tree-sitter grammars | 8+ MB of generated C per language (TS + TSX alone ~17 MB of source) | too large for mobile |
+| **`@pierre/highlights` via `wasm2c`** | **~0.86 MB (`-O2`) for 152 languages, 2.29 ms / 2.3k lines of Rust, 1.85 ms / 2.9k lines of TS** | **chosen** |
 
 ## Diffs
 

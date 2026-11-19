@@ -48,7 +48,9 @@ class RenderTest {
 
     @Test
     fun codeAndDiffsComeBackReadyToDraw() {
-        assertEquals(CodeSpan("val", TokenKind.KEYWORD), highlight("val x = 1", "kotlin").first().spans.first())
+        val first = highlight("val x = 1", "kotlin").first().spans.first()
+        assertEquals("val", first.text.trim())
+        assertEquals(TokenKind.KEYWORD, first.kind)
         assertEquals("Swift", languageForPath("Sources/App.swift"))
 
         val hunk = parseUnifiedDiff("@@ -1 +1 @@\n-val a = 1\n+val a = 2\n").files.single().hunks.single()

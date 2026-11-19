@@ -1,69 +1,108 @@
-//! Which grammar a fence label, a file extension or a path names.
+//! Which `@pierre/highlights` language a fence label, file extension, or path names.
 
-use syntect::parsing::{SyntaxReference, SyntaxSet};
+use super::generated::{CANONICAL_LANGUAGES, LANGUAGES};
 
-use super::syntaxes;
-
-/// Labels agents write that the grammars know by another name. Everything else is looked up as
-/// an extension, then as a grammar's name, ignoring case.
-const ALIASES: &[(&str, &str)] = &[
-    ("shell", "bash"),
+const EXTRA_ALIASES: &[(&str, &str)] = &[
     ("console", "bash"),
-    ("shellsession", "bash"),
-    ("golang", "go"),
-    ("c++", "cpp"),
-    ("objc", "m"),
-    ("python3", "py"),
-    ("jsonc", "json"),
-    ("json5", "json"),
-    ("docker", "dockerfile"),
+    ("terminal", "bash"),
+    ("python3", "python"),
+    ("py3", "python"),
+    ("pyi", "python"),
+    ("plist", "xml"),
+    ("cfg", "ini"),
+    ("conf", "ini"),
+    ("typescriptreact", "tsx"),
+    ("javascriptreact", "jsx"),
+    ("bourne again shell (bash)", "bash"),
+    (".env", "dotenv"),
 ];
 
-const PLAIN: &[&str] = &["text", "txt", "plain", "plaintext"];
+const FILENAMES: &[(&str, &str)] = &[
+    ("dockerfile", "dockerfile"),
+    ("containerfile", "dockerfile"),
+    ("makefile", "makefile"),
+    ("gnumakefile", "makefile"),
+    ("cmakelists.txt", "cmake"),
+    ("gemfile", "ruby"),
+    ("rakefile", "ruby"),
+    ("podfile", "ruby"),
+    ("fastfile", "ruby"),
+    ("brewfile", "ruby"),
+    ("vagrantfile", "ruby"),
+    ("justfile", "just"),
+    ("jenkinsfile", "groovy"),
+    ("cargo.lock", "toml"),
+    ("flake.lock", "json"),
+    ("go.mod", "go"),
+    (".bashrc", "bash"),
+    (".zshrc", "bash"),
+    (".bash_profile", "bash"),
+    (".zprofile", "bash"),
+    (".profile", "bash"),
+    (".env", "dotenv"),
+];
 
-pub(super) fn syntax_for<'a>(
-    syntaxes: &'a SyntaxSet,
-    language: &str,
-) -> Option<&'a SyntaxReference> {
-    let label = language.trim().to_ascii_lowercase();
-    if label.is_empty() || PLAIN.contains(&label.as_str()) {
+pub(super) fn language_id(language: &str) -> Option<u8> {
+    let lower = language.trim().to_ascii_lowercase();
+    if lower.is_empty() {
         return None;
     }
-    let token = ALIASES
+    let key = EXTRA_ALIASES
         .iter()
-        .find(|(alias, _)| *alias == label)
-        .map_or(label.as_str(), |(_, token)| token);
-    let found = syntaxes
-        .find_syntax_by_token(token)
-        .or_else(|| syntaxes.find_syntax_by_name(language.trim()))?;
-    let plain = syntaxes.find_syntax_plain_text();
-    (found.name != plain.name).then_some(found)
+        .find(|(alias, _)| *alias == lower)
+        .map_or(lower.as_str(), |(_, target)| *target);
+    let idx = LANGUAGES
+        .binary_search_by_key(&key, |(name, _)| *name)
+        .ok()?;
+    let id = LANGUAGES[idx].1;
+    (id != 0).then_some(id)
 }
 
-/// The grammar's name for a fence label such as `ts` or `sh` (`TypeScript`, `Bourne Again Shell
-/// (bash)`), or `None` when no grammar knows it.
+fn display_name_for_id(id: u8) -> String {
+    let canonical = CANONICAL_LANGUAGES
+        .get(id as usize)
+        .copied()
+        .unwrap_or("plain");
+    if let Some((_, label)) = LABELS
+        .iter()
+        .find(|(labels, _)| labels.split(' ').any(|known| known == canonical))
+    {
+        return (*label).to_owned();
+    }
+    let mut chars = canonical.chars();
+    match chars.next() {
+        Some(first) => format!("{}{}", first.to_ascii_uppercase(), chars.as_str()),
+        None => String::new(),
+    }
+}
+
+/// The canonical display name for a fence label such as `ts` or `sh` (`TypeScript`, `Shell`),
+/// or `None` when no language knows it. Accepted back by `highlight`.
 pub fn normalize_language(label: &str) -> Option<String> {
-    syntax_for(syntaxes(), label).map(|syntax| syntax.name.clone())
+    language_id(label).map(display_name_for_id)
 }
 
 /// The language of a file by its name (`Dockerfile`, `Makefile`) or its extension, as a name
 /// `highlight` takes; `None` for a file to show plainly.
 pub fn language_for_path(path: &str) -> Option<String> {
-    let syntaxes = syntaxes();
     let name = path.rsplit(['/', '\\']).next().unwrap_or(path);
-    let by_name = syntaxes.find_syntax_by_extension(name);
-    let by_extension = || {
-        let (_, extension) = name.rsplit_once('.')?;
-        syntaxes.find_syntax_by_extension(extension)
-    };
-    let found = by_name.or_else(by_extension)?;
-    let plain = syntaxes.find_syntax_plain_text();
-    (found.name != plain.name).then(|| found.name.clone())
+    let lower = name.to_ascii_lowercase();
+    if let Some((_, lang)) = FILENAMES.iter().find(|(exact, _)| *exact == lower) {
+        return normalize_language(lang);
+    }
+    if lower.starts_with("dockerfile.") || lower.starts_with("containerfile.") {
+        return normalize_language("dockerfile");
+    }
+    if lower.starts_with(".env.") {
+        return normalize_language("dotenv");
+    }
+    let (_, extension) = name.rsplit_once('.')?;
+    normalize_language(extension)
 }
 
 /// What a code block's header calls its language: the name people write (`TypeScript`, `Shell`,
-/// `C++`) for the labels agents put on fences, else the grammar's name without its aside, else the
-/// label as written.
+/// `C++`) for the labels agents put on fences, else the canonical language name, else the label as
+/// written.
 pub fn language_label(label: &str) -> String {
     let lower = label.trim().to_ascii_lowercase();
     if let Some((_, name)) = LABELS
@@ -73,12 +112,12 @@ pub fn language_label(label: &str) -> String {
         return (*name).to_owned();
     }
     match normalize_language(label) {
-        Some(name) => name.split(" (").next().unwrap_or(&name).to_owned(),
+        Some(name) => name,
         None => label.trim().to_owned(),
     }
 }
 
-/// Fence labels, space-separated, and the name each is shown as.
+/// Fence labels, space-separated, and the display name each is shown as.
 const LABELS: &[(&str, &str)] = &[
     ("ts typescript mts cts", "TypeScript"),
     ("tsx", "TSX"),
@@ -88,29 +127,37 @@ const LABELS: &[(&str, &str)] = &[
     ("swift", "Swift"),
     ("kt kts kotlin", "Kotlin"),
     ("py python python3 py3", "Python"),
-    ("sh bash zsh shell console shellsession terminal", "Shell"),
+    (
+        "sh bash zsh shell shellscript console shellsession terminal",
+        "Shell",
+    ),
     ("fish", "Fish"),
     ("ps1 powershell pwsh", "PowerShell"),
-    ("json jsonc json5 jsonl", "JSON"),
+    ("json jsonc", "JSON"),
+    ("json5", "JSON5"),
+    ("jsonl", "JSONL"),
     ("yml yaml", "YAML"),
     ("toml", "TOML"),
-    ("md markdown mdx", "Markdown"),
+    ("md markdown", "Markdown"),
+    ("mdx", "MDX"),
     ("go golang", "Go"),
     ("java", "Java"),
     ("c h", "C"),
     ("cpp c++ cc cxx hpp hh", "C++"),
     ("cs csharp", "C#"),
-    ("m objc objective-c", "Objective-C"),
+    ("m mm objc objective-c", "Objective-C"),
     ("rb ruby", "Ruby"),
     ("php", "PHP"),
     ("html htm", "HTML"),
     ("xml plist svg", "XML"),
     ("css", "CSS"),
-    ("scss sass", "SCSS"),
+    ("scss", "SCSS"),
+    ("sass", "Sass"),
     ("sql", "SQL"),
     ("diff patch", "Diff"),
     ("dockerfile docker containerfile", "Dockerfile"),
     ("makefile make mk", "Makefile"),
+    ("groovy gradle", "Groovy"),
     ("txt text plain plaintext", "Text"),
     ("log", "Log"),
     ("output", "Output"),

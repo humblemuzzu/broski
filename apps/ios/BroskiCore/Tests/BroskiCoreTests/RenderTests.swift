@@ -16,7 +16,8 @@ import Testing
 /// The rendering exports from Swift: what a code view and a diff view draw.
 @Test func codeAndDiffsComeBackReadyToDraw() throws {
     let lines = highlight(code: "let x = 1", language: "swift")
-    #expect(lines.first?.spans.first == CodeSpan(text: "let", kind: .keyword))
+    #expect(lines.first?.spans.first?.text.trimmingCharacters(in: .whitespaces) == "let")
+    #expect(lines.first?.spans.first?.kind == .keyword)
     #expect(languageForPath(path: "App.kt") == "Kotlin")
 
     let diff = parseUnifiedDiff(text: "@@ -1 +1 @@\n-let a = 1\n+let a = 2\n")
