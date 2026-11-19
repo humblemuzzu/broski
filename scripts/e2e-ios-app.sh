@@ -47,6 +47,21 @@ pusher_pid=""
 speaker_pid=""
 log_pid=""
 
+stop_pid() {
+  local pid=$1
+  [[ -z $pid ]] && return 0
+  if kill -0 "$pid" 2>/dev/null; then
+    for _ in $(seq 30); do
+      kill -0 "$pid" 2>/dev/null || return 0
+      sleep 0.1
+    done
+    kill -TERM "$pid" 2>/dev/null || true
+    sleep 0.5
+    kill -KILL "$pid" 2>/dev/null || true
+  fi
+  wait "$pid" 2>/dev/null || true
+}
+
 cleanup() {
   [[ -n $log_pid ]] && kill "$log_pid" 2>/dev/null || true
   [[ -n $pusher_pid ]] && kill "$pusher_pid" 2>/dev/null || true
@@ -55,11 +70,11 @@ cleanup() {
   # Closing the machine's stdin stops it, and with it the daemon and the bridge.
   [[ -n $tail_pid ]] && kill "$tail_pid" 2>/dev/null || true
   [[ -n $replica_tail_pid ]] && kill "$replica_tail_pid" 2>/dev/null || true
-  [[ -n $machine_pid ]] && wait "$machine_pid" 2>/dev/null || true
-  [[ -n $replica_pid ]] && wait "$replica_pid" 2>/dev/null || true
+  stop_pid "$machine_pid"
+  stop_pid "$replica_pid"
   rm -rf "$WORK"
 }
-trap cleanup EXIT
+trap cleanup EXIT INT TERM
 
 wait_for_lines() {
   local pattern=$1 count=$2 seconds=$3 output=${4:-$MACHINE_OUT} pid=${5:-$machine_pid}

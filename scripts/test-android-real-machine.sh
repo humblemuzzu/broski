@@ -32,14 +32,23 @@ CONTROL_PID=
 PORT=
 CONTROL=
 cleanup() {
-  [[ -n $CONTROL_PID ]] && kill "$CONTROL_PID" 2>/dev/null
-  [[ -n $PORT ]] && "$ADB" reverse --remove "tcp:$PORT" >/dev/null 2>&1
-  [[ -n $CONTROL ]] && "$ADB" reverse --remove "tcp:$CONTROL" >/dev/null 2>&1
-  exec 3>&-
-  wait "$MACHINE" || true
+  [[ -n $CONTROL_PID ]] && kill "$CONTROL_PID" 2>/dev/null || true
+  [[ -n $PORT ]] && "$ADB" reverse --remove "tcp:$PORT" >/dev/null 2>&1 || true
+  [[ -n $CONTROL ]] && "$ADB" reverse --remove "tcp:$CONTROL" >/dev/null 2>&1 || true
+  exec 3>&- 2>/dev/null || true
+  if [[ -n ${MACHINE:-} ]] && kill -0 "$MACHINE" 2>/dev/null; then
+    for _ in $(seq 30); do
+      kill -0 "$MACHINE" 2>/dev/null || break
+      sleep 0.1
+    done
+    kill -TERM "$MACHINE" 2>/dev/null || true
+    sleep 0.5
+    kill -KILL "$MACHINE" 2>/dev/null || true
+  fi
+  wait "${MACHINE:-}" 2>/dev/null || true
   rm -rf "$WORK"
 }
-trap cleanup EXIT
+trap cleanup EXIT INT TERM
 
 until grep -q '"offer"' "$WORK/out" 2>/dev/null; do
   kill -0 "$MACHINE" 2>/dev/null || { echo "error: test-machine exited" >&2; exit 1; }

@@ -178,3 +178,52 @@ async fn a_bridge_restart_request_is_honoured() {
 
     daemon.stop().await;
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn stopping_the_daemon_ends_the_supervised_bridge() {
+    let dir = tempfile::tempdir().expect("temp dir");
+    let pid_file = dir.path().join("bridge.pid");
+    let script = dir.path().join("bridge.sh");
+    std::fs::write(
+        &script,
+        format!(
+            "#!/bin/sh\necho $$ > {}\nexec sleep 60\n",
+            pid_file.display()
+        ),
+    )
+    .expect("write the supervised bridge");
+    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).expect("chmod");
+
+    let daemon = TestDaemon::start(Options {
+        bridge_cmd: Some(vec!["/bin/sh".to_owned(), script.display().to_string()]),
+        ..Options::default()
+    })
+    .await;
+
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let pid = loop {
+        if let Ok(text) = std::fs::read_to_string(&pid_file) {
+            let trimmed = text.trim();
+            if !trimmed.is_empty() {
+                break trimmed.to_owned();
+            }
+        }
+        assert!(
+            Instant::now() < deadline,
+            "the supervised bridge never wrote its pid"
+        );
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    };
+
+    daemon.stop().await;
+
+    let alive = std::process::Command::new("kill")
+        .args(["-0", &pid])
+        .status()
+        .expect("kill -0")
+        .success();
+    assert!(
+        !alive,
+        "supervised bridge pid {pid} survived daemon shutdown"
+    );
+}

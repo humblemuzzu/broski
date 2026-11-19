@@ -194,14 +194,29 @@ pub async fn run_command(args: cli::RunArgs) -> Result<()> {
 }
 
 async fn wait_for_signal() {
-    match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
-        Ok(mut terminate) => {
+    let term = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate());
+    let hup = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::hangup());
+    match (term, hup) {
+        (Ok(mut terminate), Ok(mut hangup)) => {
+            tokio::select! {
+                _ = tokio::signal::ctrl_c() => {}
+                _ = terminate.recv() => {}
+                _ = hangup.recv() => {}
+            }
+        }
+        (Ok(mut terminate), Err(_)) => {
             tokio::select! {
                 _ = tokio::signal::ctrl_c() => {}
                 _ = terminate.recv() => {}
             }
         }
-        Err(_) => {
+        (Err(_), Ok(mut hangup)) => {
+            tokio::select! {
+                _ = tokio::signal::ctrl_c() => {}
+                _ = hangup.recv() => {}
+            }
+        }
+        (Err(_), Err(_)) => {
             let _ = tokio::signal::ctrl_c().await;
         }
     }

@@ -21,9 +21,9 @@ members = [
 edition = "2021"
 license = "MIT"
 
-# crypto keeps debug symbols in release builds for its benchmarks; a workspace has
-# one profile table, so it lives at the root.
-[profile.release]
+# crypto keeps debug symbols for its benchmarks; putting it on [profile.bench] avoids
+# bloating every `cargo build --release` binary with gigabytes of DWARF info.
+[profile.bench]
 debug = true
 
 # The libraries the apps ship (scripts/build-{ios,android}-core.sh): no debug info, and one

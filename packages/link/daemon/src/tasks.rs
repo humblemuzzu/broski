@@ -70,7 +70,7 @@ impl Tasks {
             parts.advertisement.clone(),
             shutdown.clone(),
         )));
-        let (supervisor, supervisor_task) = supervise(options, &parts);
+        let (supervisor, supervisor_task) = supervise(options, &parts, shutdown.clone());
         if let Some(task) = supervisor_task {
             joined_set.spawn(joined(task));
         }
@@ -146,13 +146,18 @@ fn make_responder(
     }
 }
 
-fn supervise(options: &RunOptions, parts: &Parts) -> (Option<Supervisor>, Option<JoinHandle<()>>) {
+fn supervise(
+    options: &RunOptions,
+    parts: &Parts,
+    shutdown: watch::Receiver<bool>,
+) -> (Option<Supervisor>, Option<JoinHandle<()>>) {
     let command = options.bridge_cmd.clone().unwrap_or_default();
     match supervisor::spawn(
         command,
         options.bridge_socket.clone(),
         Arc::clone(&parts.link_key),
         parts.monitor.clone(),
+        shutdown,
     ) {
         Some((supervisor, task)) => (Some(supervisor), Some(task)),
         None => (None, None),

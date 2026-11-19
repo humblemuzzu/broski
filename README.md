@@ -41,16 +41,21 @@ Phone ←Broski Link (Noise end-to-end; LAN or blind relay)→ broski-link daemo
 
 ## Status
 
-The project is being rebuilt; the plan is [`docs/rebuild/PLAN.md`](docs/rebuild/PLAN.md). The bridge, the link stack
-and both apps work today and are not yet published. The previous Flutter app lives on branch `final-flutter`.
+Broski v1 is in active development and not yet published; the architecture and scope live in
+[`docs/rebuild/PLAN.md`](docs/rebuild/PLAN.md). It currently supports Claude Code and Pi and is built around an
+extensible backend contract so more agents can be added over time without changing the mobile apps. The unlaunched
+Flutter prototype is archived on branch `final-flutter`.
 
 ## Development
 
 ```bash
-cd packages/bridge && bun install && bun dev     # the bridge; bun test runs its tests
-cd packages/link && cargo test --workspace       # the link stack and BroskiCore
-scripts/build-ios-app.sh                         # the iOS app (builds BroskiCore first)
-scripts/send-ios-to-phone.sh                     # installs it on your iPhone over Tailscale
+scripts/dev-daemon.sh restart                    # single clean daemon + bridge in tmux (stops prior ones)
+cd packages/bridge && bun install && bun test    # bridge tests
+cd packages/link && cargo test --workspace       # link stack and BroskiCore tests
+scripts/build-ios-app.sh                         # build the iOS app (rebuilds BroskiCore if stale)
+scripts/install-ios-wifi.sh                      # install on your iPhone over Wi-Fi / USB
+scripts/send-ios-to-phone.sh                     # serve an iPhone install page over Tailscale (--stop to tear down)
+scripts/clean-workspace.sh                       # audit build caches and processes (--apply / --deep to clean)
 ```
 
 Every build, test and the architecture rules are in [`AGENTS.md`](AGENTS.md).

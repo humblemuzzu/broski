@@ -7,13 +7,14 @@ use tokio::time::Instant;
 
 use tokio::io::{AsyncBufReadExt, AsyncRead};
 use tokio::process::{Child, Command};
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, watch};
 use tokio::task::JoinHandle;
 use tracing::{debug, warn};
 
 use crate::backoff::{self, Backoff};
 use crate::bridge_status::{BridgeMonitor, Supervision};
 use crate::link_key::LinkKey;
+use crate::stop::stopped;
 
 const BACKOFF_MIN: Duration = Duration::from_secs(1);
 const BACKOFF_MAX: Duration = Duration::from_secs(30);
@@ -63,11 +64,12 @@ pub fn spawn(
     socket: PathBuf,
     key: Arc<LinkKey>,
     monitor: Arc<BridgeMonitor>,
+    shutdown: watch::Receiver<bool>,
 ) -> Option<(Supervisor, JoinHandle<()>)> {
     let (program, args) = command.split_first()?;
     let (program, args) = (program.clone(), args.to_vec());
     let (requests, rx) = mpsc::channel(4);
-    let task = tokio::spawn(run(program, args, socket, key, monitor, rx));
+    let task = tokio::spawn(run(program, args, socket, key, monitor, rx, shutdown));
     Some((
         Supervisor {
             requests,
@@ -84,12 +86,16 @@ async fn run(
     key: Arc<LinkKey>,
     monitor: Arc<BridgeMonitor>,
     mut requests: mpsc::Receiver<Request>,
+    mut shutdown: watch::Receiver<bool>,
 ) {
     let mut backoff = Backoff::new(BACKOFF_MIN, BACKOFF_MAX);
     loop {
+        if *shutdown.borrow() {
+            return;
+        }
         monitor.supervised(Supervision::Starting, None);
         let started = Instant::now();
-        let outcome = attempt(&program, &args, &socket, &key, &mut requests).await;
+        let outcome = attempt(&program, &args, &socket, &key, &mut requests, &mut shutdown).await;
         report(&outcome, &monitor);
         if let Outcome::Stop = outcome {
             return;
@@ -99,7 +105,10 @@ async fn run(
         if backoff::healthy(started, HEALTHY) {
             backoff.reset();
         }
-        tokio::time::sleep(backoff.next()).await;
+        tokio::select! {
+            _ = tokio::time::sleep(backoff.next()) => {}
+            _ = stopped(&mut shutdown) => return,
+        }
     }
 }
 
@@ -109,9 +118,10 @@ async fn attempt(
     socket: &Path,
     key: &LinkKey,
     requests: &mut mpsc::Receiver<Request>,
+    shutdown: &mut watch::Receiver<bool>,
 ) -> Outcome {
     match start(program, args, socket, key).await {
-        Ok(mut child) => supervise(&mut child, requests).await,
+        Ok(mut child) => supervise(&mut child, requests, shutdown).await,
         Err(error) => Outcome::SpawnFailed(error),
     }
 }
@@ -130,7 +140,11 @@ fn report(outcome: &Outcome, monitor: &Arc<BridgeMonitor>) {
     }
 }
 
-async fn supervise(child: &mut Child, requests: &mut mpsc::Receiver<Request>) -> Outcome {
+async fn supervise(
+    child: &mut Child,
+    requests: &mut mpsc::Receiver<Request>,
+    shutdown: &mut watch::Receiver<bool>,
+) -> Outcome {
     tokio::select! {
         status = child.wait() => match status {
             Ok(status) => Outcome::Exited(format!("bridge exited with {status}")),
@@ -149,6 +163,11 @@ async fn supervise(child: &mut Child, requests: &mut mpsc::Receiver<Request>) ->
                 Outcome::Stop
             }
         },
+        _ = stopped(shutdown) => {
+            let _ = child.start_kill();
+            let _ = child.wait().await;
+            Outcome::Stop
+        }
     }
 }
 
