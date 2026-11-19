@@ -20,8 +20,12 @@ struct ComposerView: View {
     @Binding var focus: Bool
     /// Where dictated text goes; `nil` shows no mic.
     var dictation: DictationTarget?
+    /// Project file search for `@file` mentions; `nil` when no working folder is known.
+    var fileSearch: FileSearchSource? = nil
     @Environment(AppModel.self) private var app
     @State private var voiceSettings = false
+    @State private var mentionPaths: [String] = []
+    @State private var mentionCache = FileMentionCache()
 
     private var dictationPhase: Dictation.Phase {
         dictation.map { app.dictation.phase(for: $0.id) } ?? .idle
@@ -38,10 +42,21 @@ struct ComposerView: View {
         draft.commandQuery.map(catalog.commands(matching:)) ?? []
     }
 
+    private var mentionTaskKey: String? {
+        guard matching.isEmpty, let fileSearch, let mention = draft.fileMention else { return nil }
+        return "\(fileSearch.root)\u{0}\(mention.query)"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.s) {
             if !matching.isEmpty {
                 CommandList(commands: matching) { draft.pick($0) }
+                Divider()
+            } else if !mentionPaths.isEmpty, draft.fileMention != nil {
+                FileMentionList(paths: mentionPaths) {
+                    draft.pickFile($0)
+                    mentionPaths = []
+                }
                 Divider()
             }
             if !draft.images.isEmpty {
@@ -77,8 +92,25 @@ struct ComposerView: View {
         .glassEffect(.regular, in: .rect(cornerRadius: 26, style: .continuous))
         .disabled(!isEnabled)
         .animation(.spring(duration: 0.22, bounce: 0), value: matching.isEmpty)
+        .animation(.spring(duration: 0.22, bounce: 0), value: mentionPaths.isEmpty)
         .animation(.spring(duration: 0.22, bounce: 0), value: draft.images.count)
         .animation(.spring(duration: 0.22, bounce: 0), value: isDictating)
+        .task(id: mentionTaskKey) {
+            guard let fileSearch, let mention = draft.fileMention, matching.isEmpty else {
+                mentionPaths = []
+                return
+            }
+            if let cached = mentionCache.get(root: fileSearch.root, query: mention.query) {
+                mentionPaths = cached
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(120))
+            guard !Task.isCancelled else { return }
+            let results = await fileSearch.search(mention.query)
+            guard !Task.isCancelled else { return }
+            mentionCache.put(root: fileSearch.root, query: mention.query, paths: results)
+            mentionPaths = results
+        }
         .sensoryFeedback(trigger: app.dictation.feedback) { _, feedback in
             app.dictation.feedbackOwner == dictation?.id ? feedback?.moment.feedback : nil
         }

@@ -10,6 +10,7 @@ struct ChatBottomBar: View {
     let capabilities: Capabilities?
     let isReady: Bool
     let dictation: DictationTarget
+    var fileSearch: FileSearchSource? = nil
     @Binding var position: ScrollPosition
     @Binding var composing: Bool
     @State private var jumps = 0
@@ -50,7 +51,8 @@ struct ChatBottomBar: View {
             acceptsImages: capabilities?.attachments.contains(.image) ?? false,
             isEnabled: isReady, catalog: catalog,
             choices: ComposerChoices(chat.snapshot), choose: choose, perform: perform,
-            refuse: { chat.report(ChatProblem(message: $0)) }, focus: $composing, dictation: dictation)
+            refuse: { chat.report(ChatProblem(message: $0)) }, focus: $composing, dictation: dictation,
+            fileSearch: fileSearch)
     }
 
     private func perform(_ action: SendAction) {

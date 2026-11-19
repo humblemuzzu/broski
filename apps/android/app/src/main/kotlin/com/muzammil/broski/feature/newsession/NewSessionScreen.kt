@@ -72,6 +72,7 @@ import com.muzammil.broski.feature.chat.composer.Composer
 import com.muzammil.broski.feature.chat.composer.ComposerActions
 import com.muzammil.broski.feature.chat.composer.ComposerLook
 import com.muzammil.broski.feature.chat.composer.ComposerSettings
+import com.muzammil.broski.feature.chat.composer.FileMentionPopup
 import com.muzammil.broski.feature.chat.composer.ImageAttachments
 import com.muzammil.broski.feature.chat.composer.SettingActions
 import com.muzammil.broski.feature.chat.composer.dictation.DictationHook
@@ -313,6 +314,14 @@ private fun NewSessionComposer(model: NewSessionViewModel, ui: NewSessionUi, foc
     val dictation = LocalDictation.current
     val hook = remember(dictation, model) { dictation?.let { DictationHook(it, model.dictationTarget(it), openVoiceSettings = null) } }
     val agent = choice.backend?.let { stringResource(it.displayName) }
+    val text = model.composer.input.text.toString()
+    FileMentionPopup(
+        text = text,
+        commandActive = command == null && text.startsWith("/") && !text.contains(' ') && !text.contains('\n'),
+        root = folder,
+        search = model::searchFiles,
+        onPick = model.composer::pickFile,
+    )
     Composer(
         state = model.composer,
         command = command,

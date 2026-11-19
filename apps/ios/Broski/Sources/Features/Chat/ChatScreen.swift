@@ -56,7 +56,8 @@ private struct ChatContent: View {
             .safeAreaBar(edge: .bottom) {
                 ChatBottomBar(
                     chat: chat, catalog: catalog, agent: agent, capabilities: capabilities,
-                    isReady: chat.connectionProblem(machine.summary) == nil, dictation: dictationTarget, position: $position,
+                    isReady: chat.connectionProblem(machine.summary) == nil, dictation: dictationTarget,
+                    fileSearch: fileSearchSource, position: $position,
                     composing: $composing)
             }
             .navigationBarTitleDisplayMode(.inline)
@@ -90,6 +91,15 @@ private struct ChatContent: View {
             .task(id: CatalogKey(session: chat.session, cwd: cwd, changes: machine.catalogChanges)) {
                 await catalog.load(machine.machine, backend: chat.session.backend, cwd: cwd, session: chat.session)
             }
+    }
+
+    private var fileSearchSource: FileSearchSource? {
+        guard let cwd, machine.summary.isReady else { return nil }
+        let requests = WorkspaceRequests(machine: machine.machine)
+        return FileSearchSource(root: cwd) { query in
+            let matches = (try? await requests.search(root: cwd, query: query, limit: 15).matches) ?? []
+            return matches.map { $0.kind == .dir && !$0.path.hasSuffix("/") ? $0.path + "/" : $0.path }
+        }
     }
 
     /// Dictated text goes into this chat's draft; "send after dictating" sends it as the button would.

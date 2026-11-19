@@ -114,13 +114,22 @@ private struct NewSessionContent: View {
 
     private func composer(_ machine: MachineModel) -> some View {
         let capabilities = machine.backends.first { $0.id == model.backend }?.capabilities
+        let fileSearch: FileSearchSource? = model.folder.flatMap { folder in
+            guard machine.summary.isReady else { return nil }
+            let requests = WorkspaceRequests(machine: machine.machine)
+            return FileSearchSource(root: folder) { query in
+                let matches = (try? await requests.search(root: folder, query: query, limit: 15).matches) ?? []
+                return matches.map { $0.kind == .dir && !$0.path.hasSuffix("/") ? $0.path + "/" : $0.path }
+            }
+        }
         return ComposerView(
             draft: $model.draft, agent: model.backend?.displayName ?? "the agent", action: .send, modes: [.start],
             acceptsImages: capabilities?.attachments.contains(.image) ?? false,
             isEnabled: machine.summary.isReady && model.backend != nil && !model.isCreating,
             catalog: model.catalog, choices: model.choices, choose: model.choose(_:),
             perform: { _ in send(on: machine) }, refuse: model.report(_:), focus: $composing,
-            dictation: .newSession(model, machine: machine, glance: app.dictation.glance))
+            dictation: .newSession(model, machine: machine, glance: app.dictation.glance),
+            fileSearch: fileSearch)
     }
 
     private func pick(_ folder: String, fromSheet: Bool) {

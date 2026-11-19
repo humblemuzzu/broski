@@ -98,8 +98,8 @@ class WorkspaceClient(private val requester: Requester) {
             }
         }
 
-    suspend fun search(root: String, query: String): Answer<FilesFound> =
-        ask(ClientMessage.FsSearch(FsSearchRequest("", root, query, limit = null))) {
+    suspend fun search(root: String, query: String, limit: Long? = null): Answer<FilesFound> =
+        ask(ClientMessage.FsSearch(FsSearchRequest("", root, query, limit = limit))) {
             when (val result = (it as? ServerMessage.FsSearchResult)?.v1?.result) {
                 is FsSearchResult.Accepted -> Answer.Done(result.v1)
                 is FsSearchResult.Rejected -> failed(result.v1)

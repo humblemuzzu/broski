@@ -223,6 +223,19 @@ class NewSessionViewModel(private val phone: PhoneSession, private val attachmen
 
     fun pickMode(axis: String, value: String) = choice.update { it.copy(modes = it.modes + (axis to value)) }
 
+    /** Searches files under the currently chosen folder for `@file` autocomplete. */
+    suspend fun searchFiles(query: String): List<String> {
+        val chosen = choice.value
+        val folder = chosen.folder ?: return emptyList()
+        val machine = chosen.machineId?.let(phone::machine) ?: return emptyList()
+        return when (val found = WorkspaceClient(machine::request).search(folder, query, limit = 15L)) {
+            is Answer.Done -> found.value.matches.map {
+                if (it.kind == uniffi.broski_contract.FileKind.DIR && !it.path.endsWith("/")) "${it.path}/" else it.path
+            }
+            is Answer.Failed -> emptyList()
+        }
+    }
+
     /** Creates the session in the chosen folder with the chosen settings; its chat sends the first prompt. */
     fun create() {
         val chosen = choice.value

@@ -50,6 +50,11 @@ class ComposerState(initialText: String, scope: CoroutineScope, private val save
         input.setTextAndPlaceCursorAtEnd(input.text.toString().substringAfter(' ', "").trimStart())
     }
 
+    /** Replaces the active `@query` with the picked file path and a trailing space. */
+    fun pickFile(mention: FileMention, path: String) {
+        input.setTextAndPlaceCursorAtEnd(replaceFileMention(input.text.toString(), mention, path))
+    }
+
     fun clearCommand() {
         mutableCommand.value = null
     }

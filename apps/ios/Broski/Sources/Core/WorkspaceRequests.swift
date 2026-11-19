@@ -42,8 +42,8 @@ struct WorkspaceRequests {
         }
     }
 
-    func search(root: String, query: String) async throws(WorkspaceProblem) -> FilesFound {
-        try await ask(.fsSearch(FsSearchRequest(requestId: "", root: root, query: query, limit: nil))) {
+    func search(root: String, query: String, limit: Int64? = nil) async throws(WorkspaceProblem) -> FilesFound {
+        try await ask(.fsSearch(FsSearchRequest(requestId: "", root: root, query: query, limit: limit))) {
             (answer) -> FsSearchResult? in
             if case .fsSearchResult(let answer) = answer { answer.result } else { nil }
         }

@@ -36,6 +36,7 @@ import com.muzammil.broski.feature.chat.composer.Composer
 import com.muzammil.broski.feature.chat.composer.ComposerActions
 import com.muzammil.broski.feature.chat.composer.ComposerLook
 import com.muzammil.broski.feature.chat.composer.ComposerSettings
+import com.muzammil.broski.feature.chat.composer.FileMentionPopup
 import com.muzammil.broski.feature.chat.composer.SendFace
 import com.muzammil.broski.feature.chat.composer.dictation.DictationHook
 import com.muzammil.broski.feature.chat.composer.dictation.LocalDictation
@@ -46,7 +47,9 @@ import com.muzammil.broski.feature.chat.interactions.CardContext
 import com.muzammil.broski.feature.chat.interactions.InteractionPanel
 import uniffi.broski_contract.AttachmentKind
 import uniffi.broski_contract.FileChange
+import uniffi.broski_contract.FileKind
 import uniffi.broski_contract.PromptMode
+import com.muzammil.broski.feature.workspace.Answer
 
 /** Everything pinned at the bottom: what runs in the background, notices, the queue, the first ask, the commands list and the composer. */
 @Composable
@@ -134,6 +137,21 @@ private fun ChatComposer(model: ChatViewModel, agent: String, running: Boolean, 
     }
     val matching = if (command == null) matchingCommands(text, catalog.commands) else emptyList()
     if (matching.isNotEmpty()) CommandList(matching, onPick = model.composer::pick)
+    val header by model.header.collectAsStateWithLifecycle()
+    val cwd = header.cwd
+    FileMentionPopup(
+        text = text,
+        commandActive = matching.isNotEmpty() || (command == null && text.startsWith("/") && !text.contains(' ') && !text.contains('\n')),
+        root = cwd,
+        search = { query ->
+            val root = cwd ?: return@FileMentionPopup emptyList()
+            when (val found = model.workspace.search(root, query, limit = 15L)) {
+                is Answer.Done -> found.value.matches.map { if (it.kind == FileKind.DIR && !it.path.endsWith("/")) "${it.path}/" else it.path }
+                is Answer.Failed -> emptyList()
+            }
+        },
+        onPick = model.composer::pickFile,
+    )
     Composer(
         state = model.composer,
         command = command,
