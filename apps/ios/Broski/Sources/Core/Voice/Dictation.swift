@@ -339,10 +339,9 @@ final class Dictation {
 
     // MARK: Helpers
 
-    /// `addition` after `text`, a space between them unless `text` already ends in white space.
-    static func joined(_ text: String, _ addition: String) -> String {
-        guard let last = text.last else { return addition }
-        return last.isWhitespace ? text + addition : text + " " + addition
+    /// Inserts `addition` into `text` using the shared Rust rule (CJK no-space, brackets, punctuation).
+    static func joined(_ text: String, _ addition: String, language: String? = nil) -> String {
+        dictationInsert(draft: text, cursorUtf16: nil, transcript: addition, language: language).text
     }
 
     /// The task's value, or `nil` once `limit` has passed.

@@ -7,7 +7,8 @@ struct CodeFileView: View {
     let text: String
     let language: String?
     var line: Int?
-    @State private var lines: [CodeLine]
+    @State private var rendered: [AttributedString]
+    @State private var rawLines: [String]
 
     init(text: String, language: String?, line: Int? = nil) {
         self.text = text
@@ -15,16 +16,22 @@ struct CodeFileView: View {
         self.line = line
         var plain = Highlighter.plainLines(text)
         if plain.count > 1, plain.last?.spans.isEmpty == true { plain.removeLast() }
-        _lines = State(initialValue: Highlighter.shared.cached(text, language: language) ?? plain)
+        let initial = Highlighter.shared.cached(text, language: language) ?? plain
+        _rendered = State(initialValue: initial.map(\.attributed))
+        _rawLines = State(initialValue: initial.map { $0.spans.map(\.text).joined() })
     }
 
-    private var widestNumber: String { String(lines.count) }
+    private var widestNumber: String { String(rendered.count) }
 
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
-                ForEach(lines.indices, id: \.self) { index in
-                    NumberedLine(number: index + 1, line: lines[index], widestNumber: widestNumber)
+                ForEach(rendered.indices, id: \.self) { index in
+                    NumberedLine(
+                        number: index + 1,
+                        text: rendered[index],
+                        plainText: rawLines[index],
+                        widestNumber: widestNumber)
                         .background(index + 1 == line ? Palette.working.opacity(0.14) : .clear)
                         .id(index + 1)
                 }
@@ -37,14 +44,19 @@ struct CodeFileView: View {
         .task(id: text) {
             guard language != nil else { return }
             let coloured = await Highlighter.shared.highlight(text, language: language)
-            if coloured.count >= lines.count { lines = Array(coloured.prefix(lines.count)) }
+            if coloured.count >= rendered.count {
+                let slice = coloured.prefix(rendered.count)
+                rendered = slice.map(\.attributed)
+                rawLines = slice.map { $0.spans.map(\.text).joined() }
+            }
         }
     }
 }
 
 private struct NumberedLine: View {
     let number: Int
-    let line: CodeLine
+    let text: AttributedString
+    let plainText: String
     let widestNumber: String
 
     var body: some View {
@@ -55,13 +67,13 @@ private struct NumberedLine: View {
             }
             .foregroundStyle(.tertiary)
             .accessibilityHidden(true)
-            Text(line.attributed)
+            Text(text)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .textSelection(.enabled)
         }
         .font(.codeSmall)
         .padding(.horizontal, Spacing.m)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Line \(number): \(line.spans.map(\.text).joined())")
+        .accessibilityLabel("Line \(number): \(plainText)")
     }
 }

@@ -57,7 +57,8 @@ struct ComposerView: View {
             } else {
                 ComposerTextView(
                     placeholder: placeholder, text: $draft.text, isFocused: $focus, maxLines: 6,
-                    pasteImages: acceptsImages ? { attach($0, to: $draft, refuse: refuse) } : nil
+                    pasteImages: acceptsImages ? { attach($0, to: $draft, refuse: refuse) } : nil,
+                    onSubmit: { if draft.hasContent { perform(action) } }
                 )
                 .padding(.horizontal, Spacing.xs)
             }

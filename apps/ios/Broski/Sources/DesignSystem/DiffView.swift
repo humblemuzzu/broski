@@ -37,9 +37,7 @@ struct DiffBody: View {
                 let hunk = file.hunks[index]
                 HunkHeader(hunk: hunk)
                 if sizeClass == .regular {
-                    ForEach(Array(sideBySide(hunk: hunk).enumerated()), id: \.offset) { _, row in
-                        SideBySideLine(row: row)
-                    }
+                    SideBySideHunk(hunk: hunk)
                 } else {
                     ForEach(hunk.lines.indices, id: \.self) { line in
                         UnifiedLine(line: hunk.lines[line])
@@ -140,6 +138,25 @@ private struct UnifiedLine: View {
     }
 }
 
+private struct SideBySideHunk: View {
+    let hunk: DiffHunk
+    @State private var rows: [SideBySideRow]
+
+    init(hunk: DiffHunk) {
+        self.hunk = hunk
+        _rows = State(initialValue: sideBySide(hunk: hunk))
+    }
+
+    var body: some View {
+        ForEach(rows.indices, id: \.self) { index in
+            SideBySideLine(row: rows[index])
+        }
+        .onChange(of: hunk) { _, updated in
+            rows = sideBySide(hunk: updated)
+        }
+    }
+}
+
 private struct SideBySideLine: View {
     let row: SideBySideRow
 
@@ -217,11 +234,12 @@ private extension DiffLine {
     }
 
     var attributed: AttributedString {
-        guard !segments.isEmpty, let tint else { return AttributedString(text.isEmpty ? " " : text) }
+        guard !segments.isEmpty else { return AttributedString(text.isEmpty ? " " : text) }
         var line = AttributedString()
         for segment in segments {
             var piece = AttributedString(segment.text)
-            if segment.emphasized { piece.backgroundColor = tint.opacity(0.32) }
+            if let color = segment.kind.color { piece.foregroundColor = color }
+            if segment.emphasized, let tint { piece.backgroundColor = tint.opacity(0.32) }
             line += piece
         }
         return line

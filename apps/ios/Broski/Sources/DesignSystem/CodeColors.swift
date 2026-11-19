@@ -58,21 +58,37 @@ final class Highlighter {
     }
 
     private var lines: [Key: [CodeLine]] = [:]
+    private var order: [Key] = []
     private let capacity = 256
 
     func cached(_ code: String, language: String?) -> [CodeLine]? {
-        lines[Key(code: code, language: language)]
+        let key = Key(code: code, language: language)
+        guard let found = lines[key] else { return nil }
+        touch(key)
+        return found
     }
 
     func highlight(_ code: String, language: String?) async -> [CodeLine] {
         let key = Key(code: code, language: language)
-        if let known = lines[key] { return known }
+        if let known = lines[key] {
+            touch(key)
+            return known
+        }
         let coloured = await Task.detached(priority: .userInitiated) {
             BroskiCore.highlight(code: code, language: language)
         }.value
-        if lines.count >= capacity { lines.removeAll(keepingCapacity: true) }
         lines[key] = coloured
+        touch(key)
+        while order.count > capacity {
+            let evicted = order.removeFirst()
+            lines.removeValue(forKey: evicted)
+        }
         return coloured
+    }
+
+    private func touch(_ key: Key) {
+        if let existing = order.firstIndex(of: key) { order.remove(at: existing) }
+        order.append(key)
     }
 
     static func plainLines(_ code: String) -> [CodeLine] {

@@ -9,6 +9,7 @@ struct TerminalScreen: View {
     @State private var title = ""
     @AppStorage(Preference.terminalFontSize) private var fontSize: Double = 0
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.workspaceReachable) private var reachable
 
     init(machine: Machine, start: TerminalModel.Start, requests: WorkspaceRequests) {
@@ -35,6 +36,9 @@ struct TerminalScreen: View {
             .toolbar(.hidden, for: .tabBar)
             .task(id: active) {
                 if active { await model.show() } else { model.hide() }
+            }
+            .task(id: colorScheme) {
+                model.applyColorScheme(colorScheme)
             }
             .onDisappear { model.hide() }
             .onReceive(model.state.$title) { title = $0 }

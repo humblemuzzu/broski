@@ -11,6 +11,8 @@ struct ComposerTextView: UIViewRepresentable {
     let maxLines: Int
     /// Nil where the session takes no images: Paste is then text only.
     let pasteImages: (([UIImage]) -> Void)?
+    /// Hardware keyboard ⌘Return shortcut.
+    var onSubmit: (() -> Void)? = nil
 
     func makeUIView(context: Context) -> PastingTextView {
         let view = PastingTextView()
@@ -31,6 +33,7 @@ struct ComposerTextView: UIViewRepresentable {
     func updateUIView(_ view: PastingTextView, context: Context) {
         context.coordinator.parent = self
         view.pasteImages = pasteImages
+        view.onSubmit = onSubmit
         view.placeholder.text = placeholder
         if view.markedTextRange == nil, view.text != text {
             view.text = text
@@ -77,10 +80,33 @@ struct ComposerTextView: UIViewRepresentable {
 /// A text view whose Paste is offered for images too, and which takes focus once it is on screen.
 final class PastingTextView: UITextView {
     var pasteImages: (([UIImage]) -> Void)?
+    var onSubmit: (() -> Void)?
     var wantsFocus = false
     var wantsEditable = true
     let placeholder = UILabel()
     private var followPending = false
+
+    override var keyCommands: [UIKeyCommand]? {
+        var commands = super.keyCommands ?? []
+        if onSubmit != nil {
+            let send = UIKeyCommand(input: "\r", modifierFlags: .command, action: #selector(handleSubmitKey))
+            send.wantsPriorityOverSystemBehavior = true
+            commands.append(send)
+        }
+        return commands
+    }
+
+    @objc private func handleSubmitKey() {
+        flushMarkedText()
+        onSubmit?()
+    }
+
+    /// Commits any pending inline autocorrection or IME composition before Send reads the draft.
+    func flushMarkedText() {
+        guard markedTextRange != nil else { return }
+        unmarkText()
+        delegate?.textViewDidChange?(self)
+    }
 
     override init(frame: CGRect, textContainer: NSTextContainer?) {
         super.init(frame: frame, textContainer: textContainer)

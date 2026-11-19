@@ -40,7 +40,7 @@ struct TranscriptView: View {
         .defaultScrollAnchor(.bottom, for: .initialOffset)
         .defaultScrollAnchor(.bottom, for: .alignment)
         .defaultScrollAnchor(chat.follow.isFollowing ? .bottom : .top, for: .sizeChanges)
-        .scrollEdgeEffectStyle(.soft, for: .top)
+        .scrollEdgeEffectStyle(.automatic, for: .top)
         .scrollDismissesKeyboard(.interactively)
         .onScrollPhaseChange { _, phase in
             personScrolling = phase == .tracking || phase == .interacting || phase == .decelerating

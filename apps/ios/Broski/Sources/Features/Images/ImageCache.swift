@@ -60,9 +60,11 @@ final class ChatImageStore {
 
     @ObservationIgnored private let thumbnails = NSCache<NSString, UIImage>()
     @ObservationIgnored private var localFull: [String: FullImagePayload] = [:]
+    @ObservationIgnored private var localFullOrder: [String] = []
     @ObservationIgnored private var sentByRequest: [String: [FullImagePayload]] = [:]
     @ObservationIgnored private var failedReasons: [String: String] = [:]
     @ObservationIgnored private var inFlight: Set<String> = []
+    private static let maxLocalFull = 24
     @ObservationIgnored private let requests: ChatRequests
     @ObservationIgnored private let workspace: WorkspaceRequests
     @ObservationIgnored private let currentSession: () -> SessionRef
@@ -93,7 +95,17 @@ final class ChatImageStore {
         let key = ImageTarget.local(id: composerImage.id.uuidString, name: composerImage.content.name).id
         storeThumbnail(composerImage.thumbnail, forKey: key)
         if let data = Data(base64Encoded: composerImage.content.data), let full = UIImage(data: data) {
-            localFull[key] = payload(image: full, data: data, mimeType: composerImage.content.mimeType, byteCount: Int64(data.count))
+            storeLocalFull(payload(image: full, data: data, mimeType: composerImage.content.mimeType, byteCount: Int64(data.count)), forKey: key)
+        }
+    }
+
+    private func storeLocalFull(_ payload: FullImagePayload, forKey key: String) {
+        localFull[key] = payload
+        if let idx = localFullOrder.firstIndex(of: key) { localFullOrder.remove(at: idx) }
+        localFullOrder.append(key)
+        while localFullOrder.count > Self.maxLocalFull {
+            let evicted = localFullOrder.removeFirst()
+            localFull.removeValue(forKey: evicted)
         }
     }
 
@@ -122,7 +134,7 @@ final class ChatImageStore {
             let item = payloads[index]
             let key = ImageTarget.attachment(ref).id
             storeThumbnail(item.image, forKey: key)
-            localFull[key] = item
+            storeLocalFull(item, forKey: key)
             failedReasons.removeValue(forKey: key)
         }
         revision += 1

@@ -2,6 +2,7 @@ import BroskiCore
 import Foundation
 import GhosttyTerminal
 import Observation
+import SwiftUI
 
 /// One terminal on a machine, opened here or attached from the list: the emulator, the pump that
 /// feeds it the terminal's output, and the outbox that carries keystrokes and resizes back. The
@@ -53,6 +54,7 @@ final class TerminalModel {
             write: { sink.yield(.input($0)) },
             resize: { sink.yield(.resize(TerminalGrid($0))) })
         emulator = GhosttyScreen(session: session)
+        state.controller.setTheme(Self.terminalTheme)
         state.configuration = TerminalSurfaceOptions(backend: .inMemory(session), fontSize: fontSize)
         state.inputAccessoryItems = []
         forwarding = Task { [weak self] in
@@ -64,6 +66,23 @@ final class TerminalModel {
         forwarding?.cancel()
         pump?.cancel()
     }
+
+    /// Updates Ghostty's active appearance in place without recreating the surface.
+    func applyColorScheme(_ scheme: ColorScheme) {
+        state.controller.setColorScheme(scheme == .dark ? .dark : .light)
+    }
+
+    private static let terminalTheme = TerminalTheme(
+        light: TerminalConfiguration {
+            $0.withBackground("#FFFFFF")
+            $0.withForeground("#1C1C1E")
+            $0.withCursorColor("#5B5FC7")
+        },
+        dark: TerminalConfiguration {
+            $0.withBackground("#111114")
+            $0.withForeground("#F2F2F7")
+            $0.withCursorColor("#C0C1FF")
+        })
 
     /// Opens the terminal when this screen made it, then attaches; a call while attached or
     /// opening does nothing.
