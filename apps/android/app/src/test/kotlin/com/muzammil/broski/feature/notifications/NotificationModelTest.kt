@@ -4,7 +4,9 @@ import com.muzammil.broski.core.settings.NotificationKind
 import java.io.File
 import java.util.Base64
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import uniffi.broski_contract.BackendId
 import uniffi.broski_contract.SessionRef
@@ -107,5 +109,17 @@ class NotificationModelTest {
         assertEquals("a keeps its known start time when runStartedAt is absent", 500L, back.sinceMs)
         assertNull(LiveStatus.of(listOf(row("a", InboxState.DONE, 40)), since, nowMs = 4_000))
         assertEquals(emptySet<SessionTarget>(), since.keys)
+    }
+
+    @Test
+    fun pushDedupSuppressesDuplicatesAndEvictsOldestBeyondCapacity() {
+        val dedup = PushDedup(capacity = 3)
+        assertTrue(dedup.record("a"))
+        assertFalse(dedup.record("a"))
+        assertTrue(dedup.record("b"))
+        assertTrue(dedup.record("c"))
+        assertTrue(dedup.record("d"))
+        assertTrue("oldest key 'a' was evicted", dedup.record("a"))
+        assertFalse("recent key 'd' is still suppressed", dedup.record("d"))
     }
 }

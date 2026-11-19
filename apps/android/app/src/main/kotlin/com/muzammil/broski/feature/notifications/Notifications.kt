@@ -1,8 +1,11 @@
 package com.muzammil.broski.feature.notifications
 
 import android.content.Context
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ProcessLifecycleOwner
 import com.muzammil.broski.core.AppCore
 import com.muzammil.broski.core.CoreState
+import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -35,5 +38,21 @@ class Notifications(private val context: Context, private val core: AppCore) {
                 }
             }
         }
+    }
+
+    companion object {
+        private val currentSession = AtomicReference<SessionTarget?>(null)
+
+        fun setVisibleSession(session: SessionTarget?) {
+            currentSession.set(session)
+        }
+
+        /** The session currently open while the app is in the foreground, or null. */
+        fun visibleForegroundSession(): SessionTarget? =
+            if (ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+                currentSession.get()
+            } else {
+                null
+            }
     }
 }

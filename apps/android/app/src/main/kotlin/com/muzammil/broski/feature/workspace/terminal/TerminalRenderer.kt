@@ -5,6 +5,7 @@ import android.graphics.Paint
 import android.graphics.Picture
 import android.graphics.Typeface
 import android.os.Build
+import android.util.LruCache
 import androidx.core.graphics.withTranslation
 import com.muzammil.broski.terminal.Cell
 import com.muzammil.broski.terminal.CursorStyle
@@ -24,14 +25,15 @@ class TerminalFont(base: Typeface, sizePx: Float) {
             fontFeatureSettings = "'liga' 0, 'calt' 0"
         }
     }
-    private val glyphs = HashMap<Int, Boolean>()
+    private val glyphs = LruCache<Int, Boolean>(GLYPH_CACHE_SIZE)
 
     val metrics: CellMetrics = paints[0].let { CellMetrics.of(it.measureText("M"), it.fontMetrics.ascent, it.fontMetrics.descent) }
 
     fun paint(attrs: Int): Paint = paints[(if (attrs and Cell.BOLD != 0) 1 else 0) or (if (attrs and Cell.ITALIC != 0) 2 else 0)]
 
     /** Whether JetBrains Mono itself draws `codepoint`, so it keeps the grid's advance. */
-    fun draws(codepoint: Int): Boolean = glyphs.getOrPut(codepoint) { paints[0].hasGlyph(String(Character.toChars(codepoint))) }
+    fun draws(codepoint: Int): Boolean = glyphs.get(codepoint)
+        ?: paints[0].hasGlyph(String(Character.toChars(codepoint))).also { glyphs.put(codepoint, it) }
 
     private fun face(base: Typeface, bold: Boolean, italic: Boolean): Typeface =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -49,6 +51,7 @@ class TerminalFont(base: Typeface, sizePx: Float) {
     private companion object {
         const val REGULAR_WEIGHT = 400
         const val BOLD_WEIGHT = 700
+        const val GLYPH_CACHE_SIZE = 2_048
     }
 }
 

@@ -28,6 +28,7 @@ import com.muzammil.broski.R
 import com.muzammil.broski.design.mono
 import uniffi.broski_core.DiffFile
 import uniffi.broski_core.DiffSegment
+import uniffi.broski_core.TokenKind
 
 /** From this width a diff shows old and new side by side (Material's expanded window width). */
 private val SIDE_BY_SIDE_WIDTH = 840.dp
@@ -62,7 +63,7 @@ fun DiffView(
 
 private fun unifiedLines(rows: List<DiffRow>, colors: CodeColors): List<ViewerLine> = rows.map { row ->
     val accent = row.kind.accent(colors)
-    val text = segmentedText(row.text, row.segments, accent?.let(colors::wordTint))
+    val text = segmentedText(row.text, row.segments, colors, accent?.let(colors::wordTint))
     when (row.kind) {
         DiffRowKind.Hunk -> ViewerLine(text, row.gutter, colors.hunk)
         else -> ViewerLine(text, row.gutter, accent?.let(colors::lineTint), accent)
@@ -75,12 +76,18 @@ fun DiffRowKind.accent(colors: CodeColors): Color? = when (this) {
     else -> null
 }
 
-/** [text] with the changed words of [segments] behind [wordTint]; plain when nothing is marked. */
-fun segmentedText(text: String, segments: List<DiffSegment>, wordTint: Color?): AnnotatedString {
-    if (segments.isEmpty() || wordTint == null) return AnnotatedString(text)
+/** [text] with syntax foreground colours and changed-word background tint from [segments]. */
+fun segmentedText(text: String, segments: List<DiffSegment>, colors: CodeColors, wordTint: Color?): AnnotatedString {
+    if (segments.isEmpty()) return AnnotatedString(text)
     return buildAnnotatedString {
         segments.forEach { segment ->
-            if (segment.emphasized) withStyle(SpanStyle(background = wordTint)) { append(segment.text) } else append(segment.text)
+            val fg = if (segment.kind == TokenKind.PLAIN) Color.Unspecified else colors.of(segment.kind)
+            val bg = if (segment.emphasized && wordTint != null) wordTint else Color.Unspecified
+            if (fg == Color.Unspecified && bg == Color.Unspecified) {
+                append(segment.text)
+            } else {
+                withStyle(SpanStyle(color = fg, background = bg)) { append(segment.text) }
+            }
         }
     }
 }

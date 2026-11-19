@@ -4,6 +4,7 @@ import uniffi.broski_core.DiffFile
 import uniffi.broski_core.DiffLine
 import uniffi.broski_core.DiffLineKind
 import uniffi.broski_core.DiffSegment
+import uniffi.broski_core.TokenKind
 
 enum class DiffRowKind { Hunk, Context, Added, Removed, NoNewline }
 
@@ -22,7 +23,7 @@ fun diffRows(file: DiffFile): List<DiffRow> {
             val kind = line.rowKind
             val sign = line.sign
             val gutter = if (kind == DiffRowKind.NoNewline) "" else "${number(line.oldLine, width)} ${number(line.newLine, width)}"
-            val segments = if (line.segments.isEmpty()) emptyList() else listOf(DiffSegment(sign, false)) + line.segments
+            val segments = if (line.segments.isEmpty()) emptyList() else listOf(DiffSegment(sign, false, TokenKind.PLAIN)) + line.segments
             DiffRow(kind, sign + line.text, segments, gutter)
         }
     }

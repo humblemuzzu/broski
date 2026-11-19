@@ -93,15 +93,18 @@ class LiveUpdate(
         }
         val session = row.title ?: context.getString(R.string.inbox_untitled)
         val isWorking = row.state == InboxState.WORKING
+        val chip = context.getString(if (status.needsYou > 0) R.string.live_chip_needs_you else R.string.live_chip)
         return NotificationCompat.Builder(context, Channel.LiveStatus.id)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(header)
             .setContentText(context.getString(R.string.live_focused, agent, session, row.machineName))
             .setStyle(NotificationCompat.ProgressStyle().setProgressIndeterminate(true))
+            .setColorized(false)
             .setRequestPromotedOngoing(true)
-            .setShortCriticalText(context.getString(R.string.live_chip))
+            .setShortCriticalText(chip)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
+            .setTimeoutAfter(LIVE_TIMEOUT_MS)
             .setWhen(status.sinceMs)
             .setUsesChronometer(isWorking)
             .setShowWhen(isWorking)
@@ -126,6 +129,7 @@ class LiveUpdate(
         const val ID = 1_000
         const val TAG = "LiveUpdate"
         private const val UPDATE_EVERY_MS = 2_000L
+        private const val LIVE_TIMEOUT_MS = 2L * 60 * 60 * 1_000
         private const val REQUEST_OPEN = 1
         private const val REQUEST_STOP = 2
 

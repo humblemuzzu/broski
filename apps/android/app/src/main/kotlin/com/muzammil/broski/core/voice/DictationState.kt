@@ -2,6 +2,7 @@ package com.muzammil.broski.core.voice
 
 import androidx.compose.runtime.Immutable
 import uniffi.broski_core.DictationSources
+import uniffi.broski_core.dictationInsert
 
 /** A composer that dictates: where the text goes, and what the session can tell the speech model. */
 class DictationTarget(
@@ -53,12 +54,9 @@ data class DictationState(
     fun busyApartFrom(id: String): Boolean = owner != null && owner != id && phase !is DictationPhase.Failed
 
     companion object {
-        /** `addition` after `text`, a space between them unless `text` already ends in white space. */
-        fun joined(text: String, addition: String): String = when {
-            text.isEmpty() -> addition
-            text.last().isWhitespace() -> text + addition
-            else -> "$text $addition"
-        }
+        /** Inserts [addition] into [text] via the shared Rust rule (CJK no-space, brackets, punctuation). */
+        fun joined(text: String, addition: String, language: String? = null): String =
+            dictationInsert(text, null, addition, language).text
     }
 }
 

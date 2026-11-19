@@ -16,7 +16,12 @@ class PushService : FirebaseMessagingService() {
     private val core get() = app.core
 
     override fun onMessageReceived(message: RemoteMessage) {
-        val handler = PushHandler(this, core.vault, { core.settings.filterNotNull().first().notifications })
+        val handler = PushHandler(
+            context = this,
+            vault = core.vault,
+            enabled = { core.settings.filterNotNull().first().notifications },
+            visibleSession = Notifications::visibleForegroundSession,
+        )
         runBlocking { handler.handle(message.data) }
     }
 

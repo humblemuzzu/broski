@@ -1,5 +1,9 @@
 package com.muzammil.broski.feature.settings
 
+import android.app.NotificationManager
+import android.content.Intent
+import android.os.Build
+import android.provider.Settings
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
@@ -33,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
@@ -111,16 +116,58 @@ fun SettingsScreen(core: AppCore, phone: PhoneSession, onOpenVoice: () -> Unit) 
             ),
         ) {
             notifications(state.settings.notifications, viewModel::setNotification)
+            if (Build.VERSION.SDK_INT >= 36) {
+                item(key = "live-promotion") { LiveUpdatePromotionRow() }
+            }
             item(key = "voice") { VoiceRow(onOpenVoice) }
             item(key = "appearance") {
                 SectionHeader(stringResource(R.string.settings_appearance))
                 AppearancePicker(state.settings.appearance, viewModel::setAppearance)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    DynamicColorRow(state.settings.dynamicColor, viewModel::setDynamicColor)
+                }
             }
             keepAwake(state.settings.keepScreenAwake, viewModel::setKeepScreenAwake)
             item(key = "formatting") { FormattingRow(onReading = { reading = true }, onGallery = { gallery = true }) }
             about(state, coreDescription)
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun DynamicColorRow(enabled: Boolean, onChange: (Boolean) -> Unit) {
+    SegmentedListItem(
+        checked = enabled,
+        onCheckedChange = onChange,
+        shapes = ListItemDefaults.segmentedShapes(0, 1),
+        modifier = Modifier.padding(horizontal = 16.dp).padding(top = 12.dp),
+        supportingContent = { Text(stringResource(R.string.settings_dynamic_color_body)) },
+        trailingContent = { Switch(checked = enabled, onCheckedChange = null) },
+        colors = groupedListItemColors(),
+    ) { Text(stringResource(R.string.settings_dynamic_color)) }
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun LiveUpdatePromotionRow() {
+    if (Build.VERSION.SDK_INT < 36) return
+    val context = LocalContext.current
+    val manager = remember(context) { context.getSystemService(NotificationManager::class.java) }
+    if (manager?.canPostPromotedNotifications() == true) return
+    SegmentedListItem(
+        onClick = {
+            val intent = Intent(Settings.ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS)
+                .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+            context.startActivity(intent)
+        },
+        shapes = ListItemDefaults.segmentedShapes(0, 1),
+        modifier = Modifier.padding(horizontal = 16.dp).padding(top = 8.dp),
+        leadingContent = { Icon(painterResource(R.drawable.ic_notification), contentDescription = null) },
+        supportingContent = { Text(stringResource(R.string.settings_live_promotion_body)) },
+        trailingContent = { Icon(painterResource(R.drawable.ic_open_in_new), contentDescription = null) },
+        colors = groupedListItemColors(),
+    ) { Text(stringResource(R.string.settings_live_promotion)) }
 }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)

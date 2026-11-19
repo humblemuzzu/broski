@@ -88,7 +88,7 @@ private fun Half(line: DiffLine?, isOld: Boolean, width: Int, gutter: Dp, style:
             modifier = Modifier.width(gutter).padding(end = 8.dp),
         )
         if (line != null) {
-            Text(segmentedText(line.text, line.segments, accent?.let(colors::wordTint)), style = style, modifier = Modifier.padding(end = 8.dp))
+            Text(segmentedText(line.text, line.segments, colors, accent?.let(colors::wordTint)), style = style, modifier = Modifier.padding(end = 8.dp))
         }
     }
 }

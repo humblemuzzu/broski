@@ -36,15 +36,15 @@ fun isDarkTheme(appearance: Appearance): Boolean = when (appearance) {
 }
 
 /**
- * Material 3 Expressive with the expressive motion scheme; dynamic colour from Android 12, the
- * brand's blue-violet scheme below it.
+ * Material 3 Expressive with the expressive motion scheme: Broski's brand blue-violet scheme by
+ * default, with optional Android 12+ dynamic wallpaper colours when [dynamicColor] is turned on.
  */
 @Composable
-fun BroskiTheme(appearance: Appearance, content: @Composable () -> Unit) {
+fun BroskiTheme(appearance: Appearance, dynamicColor: Boolean = false, content: @Composable () -> Unit) {
     val dark = isDarkTheme(appearance)
     val context = LocalContext.current
     val colors = when {
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
+        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
             if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         dark -> BroskiDarkColors
         else -> BroskiLightColors

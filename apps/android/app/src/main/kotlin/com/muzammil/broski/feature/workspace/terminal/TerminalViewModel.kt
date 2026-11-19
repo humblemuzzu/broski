@@ -154,7 +154,8 @@ class TerminalViewModel(open: () -> TerminalView) : ViewModel() {
                     is TerminalUpdate.Output -> {
                         if (update.reset) vt.reset()
                         val answer = vt.write(update.data)
-                        if (answer.isNotEmpty()) input.trySend(answer)
+                        // Replayed output had its queries answered when live; echoing them again would confuse the shell.
+                        if (!update.reset && answer.isNotEmpty()) input.trySend(answer)
                         redraw.trySend(Unit)
                     }
                     is TerminalUpdate.Exited -> mutableState.value = TerminalState.Exited(update.exitCode, update.signal)

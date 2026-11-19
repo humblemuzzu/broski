@@ -60,6 +60,7 @@ class MainActivity : ComponentActivity() {
                 onDispose { window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
             }
             val appearance = settings?.appearance ?: Appearance.System
+            val dynamicColor = settings?.dynamicColor ?: false
             val dark = isDarkTheme(appearance)
             DisposableEffect(dark) {
                 val bars = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { dark }
@@ -67,7 +68,7 @@ class MainActivity : ComponentActivity() {
                 onDispose {}
             }
             val scope = rememberCoroutineScope()
-            BroskiTheme(appearance) {
+            BroskiTheme(appearance, dynamicColor) {
                 CompositionLocalProvider(
                     LocalReading provides (settings?.reading ?: ReadingSettings()),
                     LocalSetReading provides { reading -> scope.launch { core.settingsStore.setReading(reading) } },

@@ -131,6 +131,10 @@
     <string name="settings_appearance_system">System</string>
     <string name="settings_appearance_light">Light</string>
     <string name="settings_appearance_dark">Dark</string>
+    <string name="settings_dynamic_color">Match wallpaper</string>
+    <string name="settings_dynamic_color_body">Use your wallpaper\'s Material You colours instead of Broski\'s palette</string>
+    <string name="settings_live_promotion">Allow Live Updates</string>
+    <string name="settings_live_promotion_body">Let running agents appear as a promoted chip on your status bar and lock screen</string>
     <string name="settings_keep_awake">Keep screen awake</string>
     <string name="settings_keep_awake_dictation">Only while dictating</string>
     <string name="settings_keep_awake_working">While agents are working</string>

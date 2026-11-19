@@ -199,7 +199,7 @@ private fun InlineDiff(file: uniffi.broski_core.DiffFile, inset: Dp) {
             val accent = row.kind.accent(colors)
             Row(Modifier.background(accent?.let(colors::lineTint) ?: Color.Transparent).padding(horizontal = inset)) {
                 Text(row.gutter, style = style, color = colors.gutter, softWrap = false)
-                Text(segmentedText(row.text, row.segments, accent?.let(colors::wordTint)), style = style, softWrap = false, modifier = Modifier.padding(start = 8.dp))
+                Text(segmentedText(row.text, row.segments, colors, accent?.let(colors::wordTint)), style = style, softWrap = false, modifier = Modifier.padding(start = 8.dp))
             }
         }
     }

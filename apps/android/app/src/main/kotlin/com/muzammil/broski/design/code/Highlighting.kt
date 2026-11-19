@@ -54,7 +54,7 @@ fun highlightedLines(text: String, language: String?, colors: CodeColors): List<
 internal fun colour(lines: List<String>, coloured: List<CodeLine>, colors: CodeColors): List<AnnotatedString> =
     lines.mapIndexed { index, line ->
         val spans = coloured.getOrNull(index)?.spans
-        if (spans == null || spans.joinToString("") { it.text } != line) {
+        if (spans == null || !matchesLine(spans, line)) {
             AnnotatedString(line)
         } else {
             buildAnnotatedString {
@@ -64,3 +64,13 @@ internal fun colour(lines: List<String>, coloured: List<CodeLine>, colors: CodeC
             }
         }
     }
+
+private fun matchesLine(spans: List<uniffi.broski_core.CodeSpan>, line: String): Boolean {
+    var offset = 0
+    for (span in spans) {
+        val len = span.text.length
+        if (offset + len > line.length || !line.regionMatches(offset, span.text, 0, len)) return false
+        offset += len
+    }
+    return offset == line.length
+}

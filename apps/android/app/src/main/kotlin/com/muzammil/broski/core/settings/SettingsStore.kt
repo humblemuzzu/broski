@@ -21,6 +21,7 @@ enum class NotificationKind { NeedsYou, Done, Failures }
 
 data class AppSettings(
     val appearance: Appearance = Appearance.System,
+    val dynamicColor: Boolean = false,
     val keepScreenAwake: KeepScreenAwake = KeepScreenAwake.DictationOnly,
     val notifications: Set<NotificationKind> = NotificationKind.entries.toSet(),
     val voice: VoiceSettings = VoiceSettings(),
@@ -67,6 +68,7 @@ class SettingsStore(private val store: DataStore<Preferences>) {
             appearance = preferences[APPEARANCE]
                 ?.let { stored -> Appearance.entries.firstOrNull { it.name == stored } }
                 ?: Appearance.System,
+            dynamicColor = preferences[DYNAMIC_COLOR] ?: false,
             keepScreenAwake = preferences[KEEP_SCREEN_AWAKE]
                 ?.let { stored -> KeepScreenAwake.entries.firstOrNull { it.name == stored } }
                 ?: KeepScreenAwake.DictationOnly,
@@ -89,6 +91,10 @@ class SettingsStore(private val store: DataStore<Preferences>) {
 
     suspend fun setAppearance(appearance: Appearance) {
         store.edit { it[APPEARANCE] = appearance.name }
+    }
+
+    suspend fun setDynamicColor(enabled: Boolean) {
+        store.edit { it[DYNAMIC_COLOR] = enabled }
     }
 
     suspend fun setKeepScreenAwake(mode: KeepScreenAwake) {
@@ -140,6 +146,7 @@ class SettingsStore(private val store: DataStore<Preferences>) {
 
         const val DETECT = "detect"
         val APPEARANCE = stringPreferencesKey("appearance")
+        val DYNAMIC_COLOR = booleanPreferencesKey("appearance.dynamicColor")
         val KEEP_SCREEN_AWAKE = stringPreferencesKey("display.keepScreenAwake")
         val VOICE_LANGUAGE = stringPreferencesKey("voice.language")
         val VOICE_SEND_AFTER = booleanPreferencesKey("voice.sendAfterDictating")

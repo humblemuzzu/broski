@@ -36,5 +36,6 @@
     </plurals>
     <string name="live_focused">%1$s · %2$s · %3$s</string>
     <string name="live_chip">Working</string>
+    <string name="live_chip_needs_you">Approve</string>
     <string name="live_stop">Stop</string>
 </resources>

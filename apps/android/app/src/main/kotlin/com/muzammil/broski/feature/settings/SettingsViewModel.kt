@@ -34,6 +34,10 @@ class SettingsViewModel(
         viewModelScope.launch { store.setAppearance(appearance) }
     }
 
+    fun setDynamicColor(enabled: Boolean) {
+        viewModelScope.launch { store.setDynamicColor(enabled) }
+    }
+
     fun setKeepScreenAwake(mode: KeepScreenAwake) {
         viewModelScope.launch { store.setKeepScreenAwake(mode) }
     }

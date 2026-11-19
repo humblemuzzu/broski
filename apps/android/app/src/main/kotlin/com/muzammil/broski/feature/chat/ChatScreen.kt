@@ -2,6 +2,7 @@ package com.muzammil.broski.feature.chat
 
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -26,6 +27,8 @@ import com.muzammil.broski.feature.chat.header.RenameDialog
 import com.muzammil.broski.feature.chat.work.DiffSheet
 import com.muzammil.broski.feature.chat.work.TextPage
 import com.muzammil.broski.feature.chat.work.TextSheet
+import com.muzammil.broski.feature.notifications.Notifications
+import com.muzammil.broski.feature.notifications.SessionTarget
 import uniffi.broski_contract.FileChange
 import uniffi.broski_core.ClientException
 import uniffi.broski_core.ViewEnd
@@ -39,6 +42,17 @@ fun ChatScreen(context: FeatureContext, route: SessionRoute) {
         return
     }
     val resolver = LocalContext.current.applicationContext.contentResolver
+    val visibleTarget = remember(route.machineId, route.backend, route.sessionId) {
+        SessionTarget(route.machineId, route.backend, route.sessionId)
+    }
+    DisposableEffect(visibleTarget) {
+        Notifications.setVisibleSession(visibleTarget)
+        onDispose {
+            if (Notifications.visibleForegroundSession() == visibleTarget) {
+                Notifications.setVisibleSession(null)
+            }
+        }
+    }
     val model = viewModel(key = "chat:${route.machineId}:${route.backend}:${route.sessionId}") {
         ChatViewModel(context.phone, route.machineId, route.session, machine, ImageAttachments(resolver))
     }
