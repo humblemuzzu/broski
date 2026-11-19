@@ -3,6 +3,7 @@ import type { CoreClient } from "./client";
 import type { CoreContext } from "./context";
 import { termAttach, termClose, termDetach, termInput, termList, termOpen, termResize } from "./requests-terminal";
 import {
+	fsImage,
 	fsList,
 	fsRead,
 	fsSearch,
@@ -37,6 +38,8 @@ export function routeWorkspaceRequest(
 			return fsList(ctx, client, request, respond);
 		case "fs.read":
 			return fsRead(ctx, client, request, respond);
+		case "fs.image":
+			return fsImage(ctx, client, request, respond);
 		case "fs.search":
 			return fsSearch(ctx, client, request, respond);
 		case "git.status":

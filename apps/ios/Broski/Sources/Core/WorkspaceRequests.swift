@@ -35,6 +35,13 @@ struct WorkspaceRequests {
         }
     }
 
+    func image(path: String, variant: ImageVariant = .full) async throws(WorkspaceProblem) -> FileImageRead {
+        try await ask(.fsImage(FsImageRequest(requestId: "", path: path, variant: variant))) {
+            (answer) -> FsImageResult? in
+            if case .fsImageResult(let answer) = answer { answer.result } else { nil }
+        }
+    }
+
     func search(root: String, query: String) async throws(WorkspaceProblem) -> FilesFound {
         try await ask(.fsSearch(FsSearchRequest(requestId: "", root: root, query: query, limit: nil))) {
             (answer) -> FsSearchResult? in
@@ -172,6 +179,17 @@ extension FsListResult: WorkspaceResult {
 
 extension FsReadResult: WorkspaceResult {
     var accepted: FileRead {
+        get throws(WorkspaceProblem) {
+            switch self {
+            case .accepted(let value): value
+            case .rejected(let rejected): throw WorkspaceProblem(rejected.rejection)
+            }
+        }
+    }
+}
+
+extension FsImageResult: WorkspaceResult {
+    var accepted: FileImageRead {
         get throws(WorkspaceProblem) {
             switch self {
             case .accepted(let value): value

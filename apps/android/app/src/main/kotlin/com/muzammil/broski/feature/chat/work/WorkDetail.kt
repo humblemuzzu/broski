@@ -1,12 +1,14 @@
 package com.muzammil.broski.feature.chat.work
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -18,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
 import com.muzammil.broski.design.BroskiTheme
@@ -28,6 +31,8 @@ import com.muzammil.broski.design.format.tools.LogLines
 import com.muzammil.broski.design.format.tools.ToolArguments
 import com.muzammil.broski.design.format.tools.ToolBodyView
 import com.muzammil.broski.design.mono
+import com.muzammil.broski.feature.chat.transcript.AttachmentTile
+import com.muzammil.broski.feature.images.ImageTarget
 import uniffi.broski_contract.FileChange
 import uniffi.broski_contract.ToolDisplay
 import uniffi.broski_core.ClipEnd
@@ -71,8 +76,18 @@ private fun ToolDetail(tool: WorkEntry.Tool, actions: WorkActions) {
             val body = remember(facts, tool.output) { toolBody(facts, tool.output) }
             ToolBodyView(body, tool.label, tool.output, actions.toolLinks)
         }
-        !tool.running && tool.fileChanges.isEmpty() && tool.error == null ->
+        !tool.running && tool.fileChanges.isEmpty() && tool.images.isEmpty() && tool.error == null ->
             Text(stringResource(R.string.chat_work_no_output), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    if (tool.images.isNotEmpty() && actions.imageStore != null) {
+        val targets = remember(tool.images) { tool.images.map(ImageTarget::Attachment) }
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            targets.forEachIndexed { index, target ->
+                AttachmentTile(target, actions.imageStore, DpSize(96.dp, 96.dp), cornerRadius = 12.dp) {
+                    actions.openImages(targets, index)
+                }
+            }
+        }
     }
     tool.error?.let { error ->
         val lines = remember(error) { formatLog(error, ERROR_LINES, ClipEnd.HEAD).lines }

@@ -3,7 +3,8 @@ package com.muzammil.broski.feature.chat.transcript
 import com.muzammil.broski.design.format.FormatCache
 import com.muzammil.broski.feature.chat.work.FoldLead
 import com.muzammil.broski.feature.chat.work.WorkEntry
-import uniffi.broski_contract.AttachmentRef
+import com.muzammil.broski.feature.images.ImageTarget
+import com.muzammil.broski.feature.images.imageTargets
 import uniffi.broski_contract.BlockKind
 import uniffi.broski_contract.LinkItem
 import uniffi.broski_contract.OpenBlock
@@ -16,7 +17,12 @@ import uniffi.broski_core.FormatBlock
 import uniffi.broski_core.activityLook
 
 /** A message the person sent that the agent has not yet shown as its own. */
-data class PendingSend(val clientRequestId: String, val text: String, val at: Long)
+data class PendingSend(
+    val clientRequestId: String,
+    val text: String,
+    val at: Long,
+    val images: List<ImageTarget> = emptyList(),
+)
 
 /** Everything the transcript shows: finished runs oldest first, then the live state. */
 class RowInput(
@@ -91,14 +97,14 @@ class RowBuilder(private val format: (String, Boolean) -> List<FormatBlock> = Fo
 
         fun pending() = input.pending.filterNot { it.clientRequestId in shownRequests }.forEach { send ->
             closeTurn()
-            rows += ChatRow.User("c:${send.clientRequestId}", send.at, send.text, emptyList(), pending = true)
+            rows += ChatRow.User("c:${send.clientRequestId}", send.at, send.text, send.images, pending = true)
             turn = Turn(start = send.at, continued = turn.live, live = true)
         }
 
         private fun user(message: UserMessageItem, live: Boolean, continued: Boolean) {
             closeTurn()
             message.clientRequestId?.let(shownRequests::add)
-            val images = message.attachments.filterIsInstance<AttachmentRef.ImageRef>().map { it.v1 }
+            val images = message.attachments.imageTargets()
             val key = message.clientRequestId?.let { "c:$it" } ?: "u:${message.id}"
             rows += ChatRow.User(key, message.at, message.text, images, pending = false)
             turn = Turn(start = message.at, continued = live && continued, live = live)

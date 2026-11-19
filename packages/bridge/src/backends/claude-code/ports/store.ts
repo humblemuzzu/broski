@@ -5,6 +5,7 @@ import type {
 	AttachmentId,
 	AttachmentReadResult,
 	ForkPoint,
+	ImageVariant,
 	ModelId,
 	NewSessionResult,
 	PageRequest,
@@ -58,7 +59,7 @@ export interface SessionStore {
 	get(sessionId: SessionId, live: LiveOverlay): Promise<SessionGetResult>;
 	/** Finished runs only: with a `LiveRow.cut`, nothing after `lastUuidBefore`. */
 	transcript(sessionId: SessionId, page: PageRequest, live: LiveOverlay): Promise<TranscriptReadResult>;
-	attachment(sessionId: SessionId, attachment: AttachmentId): Promise<AttachmentReadResult>;
+	attachment(sessionId: SessionId, attachment: AttachmentId, variant?: ImageVariant): Promise<AttachmentReadResult>;
 	locate(sessionId: SessionId): Promise<StoredSession | Rejected>;
 	/** The newest entry of the session's chain; null for a session with none. */
 	lastChainUuid(sessionId: SessionId): Promise<string | null | Rejected>;

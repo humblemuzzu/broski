@@ -13,14 +13,16 @@ import { ConfigWatch } from "./config-watch";
 import type { HolderSetup } from "./holder/link";
 import { parseChildSessionId } from "./ids";
 import { openChildSession } from "./live/child-open";
+import { LiveImageCache } from "./live/image-cache";
 import { SessionHosts } from "./live/session-hosts";
 import { ModelCatalogue } from "./models/catalogue";
 import { listPiModes } from "./modes";
 import type { PiInstall } from "./pi-install";
-import type { SessionStore } from "./ports";
+import type { ImageFitter, SessionStore } from "./ports";
 import { rejected } from "./rejections";
 import type { PiCommand } from "./rpc/replies";
 import { piStatus } from "./status";
+import { formatAttachment } from "./store/attachments";
 import { createSessionStore } from "./store/session-store";
 import { TerminalLink, type TerminalLinkOptions } from "./terminal/link";
 import { PI_TRAITS } from "./traits";
@@ -35,6 +37,7 @@ export interface PiBackendOptions {
 	readonly link?: TerminalLinkOptions;
 	/** How many `pi` processes may be hosted at once (`live/host-capacity.ts`). */
 	readonly maxHosted?: number;
+	readonly fitImage?: ImageFitter;
 }
 
 /** The parts one Pi backend is made of, which `piBackendOf` puts behind the contract. */
@@ -46,6 +49,8 @@ export interface PiParts {
 	readonly hosts: SessionHosts;
 	readonly config: ConfigWatch;
 	readonly terminal: TerminalLink;
+	readonly images: LiveImageCache;
+	readonly fitImage?: ImageFitter;
 	readonly status: () => ReturnType<typeof piStatus>;
 }
 
@@ -54,7 +59,13 @@ export function createPiParts(host: BackendHost, options: PiBackendOptions): PiP
 	const { agentDir } = install;
 	const catalog = new CatalogFeed(host.catalog);
 	const catalogs = new PiCatalogs(install);
-	const store = createSessionStore({ agentDir, catalog, now: Date.now });
+	const images = new LiveImageCache();
+	const store = createSessionStore({
+		agentDir,
+		catalog,
+		now: Date.now,
+		...(options.fitImage !== undefined && { fitImage: options.fitImage }),
+	});
 	const models = new ModelCatalogue(catalogs);
 	const terminal = new TerminalLink(agentDir, options.link, {
 		now: Date.now,
@@ -70,6 +81,7 @@ export function createPiParts(host: BackendHost, options: PiBackendOptions): PiP
 		store,
 		catalog,
 		now: Date.now,
+		images,
 		...(options.maxHosted !== undefined && { maxHosted: options.maxHosted }),
 		busyChanged: (sessionId, busy) => terminal.hosted(sessionId, busy),
 	});
@@ -87,11 +99,22 @@ export function createPiParts(host: BackendHost, options: PiBackendOptions): PiP
 	const config = new ConfigWatch(agentDir, catalog, status);
 	store.watch(hosts);
 	config.attach();
-	return { catalog, catalogs, store, models, hosts, config, terminal, status };
+	return {
+		catalog,
+		catalogs,
+		store,
+		models,
+		hosts,
+		config,
+		terminal,
+		images,
+		...(options.fitImage !== undefined && { fitImage: options.fitImage }),
+		status,
+	};
 }
 
 export function piBackendOf(parts: PiParts): AgentBackend {
-	const { catalog, store, models, hosts, config, terminal } = parts;
+	const { catalog, store, models, hosts, config, terminal, images, fitImage } = parts;
 	return {
 		id: "pi",
 		traits: PI_TRAITS,
@@ -111,7 +134,19 @@ export function piBackendOf(parts: PiParts): AgentBackend {
 			await hosts.adopted();
 			return ref.backend === "pi" ? store.transcript(ref.sessionId, page, hosts) : notFound(ref);
 		},
-		readAttachment: async (ref, id) => (ref.backend === "pi" ? store.attachment(ref.sessionId, id) : notFound(ref)),
+		readAttachment: async (ref, id, variant) => {
+			if (ref.backend !== "pi") return notFound(ref);
+			const cached = images.get(ref.sessionId, id);
+			if (cached !== undefined) {
+				return formatAttachment(
+					{ data: cached.data, mimeType: cached.mimeType },
+					variant ?? "full",
+					fitImage,
+					cached.name,
+				);
+			}
+			return store.attachment(ref.sessionId, id, variant);
+		},
 		listModels: (cwd, options) => models.list(cwd, options),
 		listCommands: (scope) => commandsOf(parts, scope),
 		listModes: async () => listPiModes(),

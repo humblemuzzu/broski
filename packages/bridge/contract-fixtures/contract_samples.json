@@ -1239,7 +1239,11 @@
         "mimeType": "x",
         "data": "x",
         "name": "x"
-      }
+      },
+      "width": 1,
+      "height": 1,
+      "originalBytes": 1,
+      "resized": true
     },
     {
       "status": "accepted",
@@ -1251,6 +1255,16 @@
     }
   ],
   "AttachmentReadRequest": [
+    {
+      "type": "attachment.read",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      },
+      "attachmentId": "x",
+      "variant": "thumbnail"
+    },
     {
       "type": "attachment.read",
       "requestId": "x",
@@ -1272,7 +1286,11 @@
           "mimeType": "x",
           "data": "x",
           "name": "x"
-        }
+        },
+        "width": 1,
+        "height": 1,
+        "originalBytes": 1,
+        "resized": true
       }
     },
     {
@@ -1296,7 +1314,11 @@
         "mimeType": "x",
         "data": "x",
         "name": "x"
-      }
+      },
+      "width": 1,
+      "height": 1,
+      "originalBytes": 1,
+      "resized": true
     },
     {
       "status": "accepted",
@@ -2175,6 +2197,16 @@
         "backend": "claude-code",
         "sessionId": "x"
       },
+      "attachmentId": "x",
+      "variant": "thumbnail"
+    },
+    {
+      "type": "attachment.read",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      },
       "attachmentId": "x"
     },
     {
@@ -2360,6 +2392,17 @@
     },
     {
       "type": "fs.read",
+      "requestId": "x",
+      "path": "x"
+    },
+    {
+      "type": "fs.image",
+      "requestId": "x",
+      "path": "x",
+      "variant": "thumbnail"
+    },
+    {
+      "type": "fs.image",
       "requestId": "x",
       "path": "x"
     },
@@ -3008,6 +3051,26 @@
       "kind": "file"
     }
   ],
+  "FileImageRead": [
+    {
+      "status": "accepted",
+      "path": "x",
+      "mimeType": "x",
+      "data": "x",
+      "size": 1,
+      "width": 1,
+      "height": 1,
+      "resized": true
+    },
+    {
+      "status": "accepted",
+      "path": "x",
+      "mimeType": "x",
+      "data": "x",
+      "size": 1,
+      "resized": false
+    }
+  ],
   "FileKind": [
     "file",
     "dir",
@@ -3461,6 +3524,74 @@
       "values": [
         "x"
       ]
+    }
+  ],
+  "FsImageRequest": [
+    {
+      "type": "fs.image",
+      "requestId": "x",
+      "path": "x",
+      "variant": "thumbnail"
+    },
+    {
+      "type": "fs.image",
+      "requestId": "x",
+      "path": "x"
+    }
+  ],
+  "FsImageResponse": [
+    {
+      "type": "fs.image.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "path": "x",
+        "mimeType": "x",
+        "data": "x",
+        "size": 1,
+        "width": 1,
+        "height": 1,
+        "resized": true
+      }
+    },
+    {
+      "type": "fs.image.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "path": "x",
+        "mimeType": "x",
+        "data": "x",
+        "size": 1,
+        "resized": false
+      }
+    }
+  ],
+  "FsImageResult": [
+    {
+      "status": "accepted",
+      "path": "x",
+      "mimeType": "x",
+      "data": "x",
+      "size": 1,
+      "width": 1,
+      "height": 1,
+      "resized": true
+    },
+    {
+      "status": "accepted",
+      "path": "x",
+      "mimeType": "x",
+      "data": "x",
+      "size": 1,
+      "resized": false
+    },
+    {
+      "status": "rejected",
+      "rejection": {
+        "code": "busy",
+        "message": "x"
+      }
     }
   ],
   "FsListRequest": [
@@ -4565,6 +4696,10 @@
       "id": "x",
       "mimeType": "x"
     }
+  ],
+  "ImageVariant": [
+    "thumbnail",
+    "full"
   ],
   "InputModality": [
     "text",
@@ -7692,7 +7827,11 @@
           "mimeType": "x",
           "data": "x",
           "name": "x"
-        }
+        },
+        "width": 1,
+        "height": 1,
+        "originalBytes": 1,
+        "resized": true
       }
     },
     {
@@ -7903,6 +8042,32 @@
         "length": 1,
         "size": 1,
         "truncated": false
+      }
+    },
+    {
+      "type": "fs.image.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "path": "x",
+        "mimeType": "x",
+        "data": "x",
+        "size": 1,
+        "width": 1,
+        "height": 1,
+        "resized": true
+      }
+    },
+    {
+      "type": "fs.image.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "path": "x",
+        "mimeType": "x",
+        "data": "x",
+        "size": 1,
+        "resized": false
       }
     },
     {

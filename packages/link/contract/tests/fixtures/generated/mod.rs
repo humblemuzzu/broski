@@ -129,6 +129,7 @@ pub fn visit_types(visitor: &mut impl TypeVisitor) {
     visitor.tagged::<FileContent>("FileContent");
     visitor.plain::<FileEncoding>("FileEncoding");
     visitor.plain::<FileEntry>("FileEntry");
+    visitor.tagged::<FileImageRead>("FileImageRead");
     visitor.plain::<FileKind>("FileKind");
     visitor.plain::<FileMatch>("FileMatch");
     visitor.plain::<FilePath>("FilePath");
@@ -144,6 +145,9 @@ pub fn visit_types(visitor: &mut impl TypeVisitor) {
     visitor.tagged::<FormRequest>("FormRequest");
     visitor.plain::<FormScalar>("FormScalar");
     visitor.plain::<FormValue>("FormValue");
+    visitor.tagged::<FsImageRequest>("FsImageRequest");
+    visitor.tagged::<FsImageResponse>("FsImageResponse");
+    visitor.plain::<FsImageResult>("FsImageResult");
     visitor.tagged::<FsListRequest>("FsListRequest");
     visitor.tagged::<FsListResponse>("FsListResponse");
     visitor.plain::<FsListResult>("FsListResult");
@@ -196,6 +200,7 @@ pub fn visit_types(visitor: &mut impl TypeVisitor) {
     visitor.plain::<IdStability>("IdStability");
     visitor.tagged::<ImageContent>("ImageContent");
     visitor.tagged::<ImageRef>("ImageRef");
+    visitor.plain::<ImageVariant>("ImageVariant");
     visitor.plain::<InputModality>("InputModality");
     visitor.tagged::<InputReturnedEvent>("InputReturnedEvent");
     visitor.tagged::<IntegerField>("IntegerField");

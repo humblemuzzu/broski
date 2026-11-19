@@ -137,6 +137,55 @@ fn a_path_in_prose_stays_text_since_nothing_says_the_file_is_there() {
 }
 
 #[test]
+fn image_paths_in_prose_code_file_uris_and_logs_open_as_files() {
+    let bare = link("Saved screenshot to /tmp/shot.png.", "/tmp/shot.png");
+    assert_eq!(bare.target, "/tmp/shot.png");
+    assert_eq!(
+        bare.kind,
+        LinkKind::File {
+            line: None,
+            column: None
+        }
+    );
+
+    let home = link("Check ~/Desktop/screen.jpg next", "~/Desktop/screen.jpg");
+    assert_eq!(home.target, "~/Desktop/screen.jpg");
+
+    let relative = link("See ./out/chart.webp", "./out/chart.webp");
+    assert_eq!(relative.target, "./out/chart.webp");
+
+    let spaced = link(
+        "open `/Users/me/Desktop/Screenshot 2026-11-19.png`",
+        "/Users/me/Desktop/Screenshot 2026-11-19.png",
+    );
+    assert_eq!(spaced.target, "/Users/me/Desktop/Screenshot 2026-11-19.png");
+
+    let file_uri = link("[shot](file:///tmp/my%20shot.png)", "shot");
+    assert_eq!(file_uri.target, "/tmp/my shot.png");
+    assert_eq!(
+        file_uri.kind,
+        LinkKind::File {
+            line: None,
+            column: None
+        }
+    );
+
+    let log_spans = crate::format::inline::linked_text("Wrote /tmp/browser-check.png ok");
+    assert!(log_spans.iter().any(|s| {
+        s.text == "/tmp/browser-check.png"
+            && matches!(
+                s.link.as_ref().map(|l| &l.kind),
+                Some(LinkKind::File { .. })
+            )
+    }));
+
+    assert!(crate::is_image_path("/tmp/shot.png"));
+    assert!(crate::is_image_path("assets/HERO.WEBP"));
+    assert!(!crate::is_image_path("/tmp/notes.txt"));
+    assert!(!crate::is_image_path("/api/v1/png"));
+}
+
+#[test]
 fn prices_tildes_and_arithmetic_stay_text_and_math_is_tex() {
     let plain = |text: &str| {
         spans(text)

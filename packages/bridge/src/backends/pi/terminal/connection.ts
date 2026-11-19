@@ -130,7 +130,12 @@ export class TerminalConnection {
 	private hello(frame: Extract<ExtensionFrame, { t: "hello" }>): boolean {
 		if (this.identity || frame.v !== LINK_VERSION || !keysMatch(frame.key, this.deps.key())) return false;
 		if (!isAbsolute(frame.session.file)) return false;
-		this.identity = { pid: frame.pid, file: frame.session.file, id: frame.session.id };
+		this.identity = {
+			pid: frame.pid,
+			file: frame.session.file,
+			id: frame.session.id,
+			...(frame.session.cwd !== "" && { cwd: frame.session.cwd }),
+		};
 		this.write({ t: "welcome", running: this.deps.busy(frame.session.id) });
 		return true;
 	}

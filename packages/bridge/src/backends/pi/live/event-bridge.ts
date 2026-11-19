@@ -7,7 +7,7 @@
 
 import type { AgentEvent, RunOutcome } from "../../../contract";
 import { type BroskiRecord, type PromptRecord, promptRecord, toolOutcomeRecord } from "../broski-entries";
-import { mintActivityId, mintMessageId } from "../ids";
+import { entryAttachmentId, mintActivityId, mintMessageId } from "../ids";
 import { customActivity } from "../mapping/custom-activity";
 import { userMessageEvent } from "../mapping/message-items";
 import {
@@ -30,6 +30,7 @@ import type { PiExit } from "../rpc/child";
 import type { Delivery } from "../rpc/client";
 import type { PiEvent, PiEventOf, UiRequest } from "../rpc/frames";
 import type { EntryCursor } from "./entry-cursor";
+import type { LiveImageCache } from "./image-cache";
 import { faultEvent, noticeEvent } from "./live-notes";
 import type { LiveState } from "./live-state";
 import type { PromptDesk } from "./prompt-desk";
@@ -71,6 +72,9 @@ export interface EventBridgeDeps {
 	readonly persistedPrompt: (entryId: string) => PromptRecord | undefined;
 	/** The host took over a `pi` an earlier bridge ran: its holder's replay was read once already. */
 	readonly adopted: boolean;
+	readonly sessionId?: string;
+	readonly cwd?: string;
+	readonly images?: LiveImageCache;
 }
 
 /** Pi takes a follow-up that comes as its run ends after the run's last look at its queue: it goes with the next prompt. */
@@ -273,14 +277,38 @@ export class EventBridge {
 		if (entry !== undefined) {
 			this.deps.runs.firstMessageUnder(entry.parentId);
 			if (claimed && !this.replaying) this.deps.record(promptRecord(entry.id, claimed));
+			this.cacheContentImages(entry.id, message.content, record?.imageNames);
 		}
-		this.deps.live.emit(userMessageEvent(message.content, entry?.id, record));
+		this.deps.live.emit(userMessageEvent(message.content, entry?.id, record, this.deps.cwd));
 		if (!this.replaying) this.deps.hooks.userMessage(contentText(message.content));
 	}
 
 	private async toolResultEnded(message: ToolResultMessage): Promise<void> {
 		const entry = await this.entryOf(message);
+		if (entry !== undefined) this.cacheContentImages(entry.id, message.content);
 		this.tools.resultPersisted(message, entry?.id);
+	}
+
+	private cacheContentImages(
+		entryId: string,
+		content: UserMessage["content"] | ToolResultMessage["content"],
+		names?: readonly (string | null)[],
+	): void {
+		const cache = this.deps.images;
+		const sessionId = this.deps.sessionId;
+		if (cache === undefined || sessionId === undefined || !Array.isArray(content)) return;
+		let imageIndex = 0;
+		content.forEach((block, index) => {
+			if (block.type !== "image") return;
+			const name = names?.[imageIndex] ?? undefined;
+			imageIndex += 1;
+			if (block.data === "" || block.mimeType === "") return;
+			cache.put(sessionId, entryAttachmentId(entryId, index), {
+				mimeType: block.mimeType,
+				data: block.data,
+				...(name !== undefined && { name }),
+			});
+		});
 	}
 
 	/** A replayed message the file already held is found among the entries the host was seeded with, without asking Pi. */

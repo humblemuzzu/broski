@@ -101,10 +101,10 @@ struct ChatRequests {
         }.page
     }
 
-    func attachment(_ session: SessionRef, id: String) async throws(ChatProblem) -> ImageContent {
-        try await ask(.attachmentRead(AttachmentReadRequest(requestId: "", session: session, attachmentId: id))) {
+    func attachment(_ session: SessionRef, id: String, variant: ImageVariant = .full) async throws(ChatProblem) -> AttachmentRead {
+        try await ask(.attachmentRead(AttachmentReadRequest(requestId: "", session: session, attachmentId: id, variant: variant))) {
             if case .attachmentReadResult(let answer) = $0 { answer.result } else { nil }
-        }.image
+        }
     }
 
     private func ask<Answer: ChatResult>(

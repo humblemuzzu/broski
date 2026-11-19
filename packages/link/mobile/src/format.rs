@@ -70,6 +70,12 @@ pub fn format_samples() -> Vec<FormatSample> {
     broski_render::format_samples()
 }
 
+/// Whether `path` ends with a known image file extension.
+#[uniffi::export]
+pub fn is_image_path(path: String) -> bool {
+    broski_render::is_image_path(&path)
+}
+
 #[uniffi::remote(Record)]
 pub struct FormatBlock {
     pub key: String,

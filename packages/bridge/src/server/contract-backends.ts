@@ -5,6 +5,7 @@ import { defaultHoldersRoot } from "../backends/pi/holder/holders";
 import { agentDirOf } from "../backends/pi/pi-install";
 import { defaultLinkDirectory } from "../backends/pi/terminal/link";
 import { readConfig } from "../config";
+import { fitImageBase64 } from "../platform/image-fit";
 import { machineSystem } from "../usage/system";
 import { machineUsage } from "../usage/usage-reader";
 import type { ClaudeCodeWiring } from "./claude-code-wiring";
@@ -31,6 +32,7 @@ const piBackend: ReturnType<typeof piBackendFactory> = async (host) => {
 		hostDir: join(homedir(), ".broski", "pi"),
 		holders: { root: defaultHoldersRoot(), command: holderCommand() },
 		link: { enabled: config.pi.terminalLink !== false, directory: defaultLinkDirectory() },
+		fitImage: fitImageBase64,
 	})(host);
 };
 

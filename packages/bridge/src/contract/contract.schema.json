@@ -404,6 +404,24 @@
         },
         "image": {
           "$ref": "#/$defs/ImageContent"
+        },
+        "width": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "height": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "originalBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "resized": {
+          "type": "boolean"
         }
       },
       "required": [
@@ -429,6 +447,9 @@
         },
         "attachmentId": {
           "$ref": "#/$defs/AttachmentId"
+        },
+        "variant": {
+          "$ref": "#/$defs/ImageVariant"
         }
       },
       "required": [
@@ -1286,6 +1307,9 @@
           "$ref": "#/$defs/FsReadRequest"
         },
         {
+          "$ref": "#/$defs/FsImageRequest"
+        },
+        {
           "$ref": "#/$defs/FsSearchRequest"
         },
         {
@@ -2107,6 +2131,57 @@
       ],
       "additionalProperties": false
     },
+    "FileImageRead": {
+      "x-module": "workspace-files",
+      "$id": "#/$defs/FileImageRead",
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "accepted"
+        },
+        "path": {
+          "$ref": "#/$defs/FilePath"
+        },
+        "mimeType": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "data": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4194304
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "width": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "height": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "resized": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "status",
+        "path",
+        "mimeType",
+        "data",
+        "size",
+        "resized"
+      ],
+      "additionalProperties": false
+    },
     "FileKind": {
       "x-module": "workspace-files",
       "$id": "#/$defs/FileKind",
@@ -2449,6 +2524,67 @@
         },
         {
           "$ref": "#/$defs/ChoicesValue"
+        }
+      ]
+    },
+    "FsImageRequest": {
+      "x-module": "protocol-workspace",
+      "$id": "#/$defs/FsImageRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "fs.image"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "path": {
+          "$ref": "#/$defs/FilePath"
+        },
+        "variant": {
+          "$ref": "#/$defs/ImageVariant"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "path"
+      ],
+      "additionalProperties": false
+    },
+    "FsImageResponse": {
+      "x-module": "protocol-workspace",
+      "$id": "#/$defs/FsImageResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "fs.image.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/FsImageResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "FsImageResult": {
+      "x-module": "workspace-files",
+      "$id": "#/$defs/FsImageResult",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/FileImageRead"
+        },
+        {
+          "$ref": "#/$defs/Rejected"
         }
       ]
     },
@@ -3706,6 +3842,15 @@
         "mimeType"
       ],
       "additionalProperties": false
+    },
+    "ImageVariant": {
+      "x-module": "content",
+      "$id": "#/$defs/ImageVariant",
+      "type": "string",
+      "enum": [
+        "thumbnail",
+        "full"
+      ]
     },
     "InputModality": {
       "x-module": "models",
@@ -6496,6 +6641,9 @@
         },
         {
           "$ref": "#/$defs/FsReadResponse"
+        },
+        {
+          "$ref": "#/$defs/FsImageResponse"
         },
         {
           "$ref": "#/$defs/FsSearchResponse"

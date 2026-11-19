@@ -1,16 +1,16 @@
 package com.muzammil.broski.feature.workspace.files
 
 import android.content.ClipData
-import android.graphics.BitmapFactory
 import android.text.format.Formatter
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconToggleButton
@@ -23,16 +23,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
@@ -47,6 +43,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.muzammil.broski.R
 import com.muzammil.broski.app.FeatureContext
 import com.muzammil.broski.app.FileRoute
+import com.muzammil.broski.feature.images.ImageSaver
+import com.muzammil.broski.feature.images.ZoomableImage
 import com.muzammil.broski.feature.workspace.FailureMessage
 import com.muzammil.broski.feature.workspace.MachineBanner
 import com.muzammil.broski.feature.workspace.MachineGate
@@ -54,11 +52,9 @@ import com.muzammil.broski.feature.workspace.PathTopBar
 import com.muzammil.broski.feature.workspace.WorkspaceClient
 import com.muzammil.broski.feature.workspace.WorkspaceLoading
 import com.muzammil.broski.feature.workspace.lastComponent
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
-/** One file of a Mac: text by numbered line, an image as itself, anything else by its size. */
+/** One file of a Mac: text by numbered line, a zoomable image, or anything else by its size. */
 @Composable
 fun FileScreen(context: FeatureContext, route: FileRoute) {
     MachineGate(context.phone, route.machineId) { machine, machineState ->
@@ -69,14 +65,31 @@ fun FileScreen(context: FeatureContext, route: FileRoute) {
         var wrap by rememberSaveable { mutableStateOf(false) }
         val snackbar = remember { SnackbarHostState() }
         val clipboard = LocalClipboard.current
+        val androidContext = LocalContext.current
         val resources = LocalResources.current
         val scope = rememberCoroutineScope()
+        val shownImage = ((state as? FileUiState.Shown)?.content as? FileContent.Image)?.payload
         Scaffold(
             topBar = {
                 PathTopBar(lastComponent(route.path), route.path, context.back) {
                     if ((state as? FileUiState.Shown)?.content is FileContent.Text) {
                         IconToggleButton(checked = wrap, onCheckedChange = { wrap = it }) {
                             Icon(painterResource(R.drawable.ic_wrap_text), contentDescription = stringResource(R.string.file_wrap_lines))
+                        }
+                    }
+                    if (shownImage != null) {
+                        IconButton(onClick = {
+                            scope.launch {
+                                val saved = ImageSaver.saveToGallery(androidContext, shownImage, lastComponent(route.path))
+                                snackbar.showSnackbar(resources.getString(if (saved) R.string.image_saved else R.string.image_save_failed))
+                            }
+                        }) {
+                            Icon(painterResource(R.drawable.ic_download), contentDescription = stringResource(R.string.image_save))
+                        }
+                        IconButton(onClick = {
+                            scope.launch { ImageSaver.share(androidContext, shownImage, lastComponent(route.path)) }
+                        }) {
+                            Icon(painterResource(R.drawable.ic_share), contentDescription = stringResource(R.string.image_share))
                         }
                     }
                     IconButton(onClick = {
@@ -109,7 +122,35 @@ private fun FileBody(content: FileContent, path: String, line: Int?, wrap: Boole
         if (content.truncated) TruncatedNotice(content)
         when (content) {
             is FileContent.Text -> FileText(content.lines, path, wrap, Modifier.fillMaxSize(), PaddingValues(top = 8.dp, bottom = bottom + 24.dp), line)
-            is FileContent.Bytes -> BytesBody(content, lastComponent(path))
+            is FileContent.Image -> ImageBody(content, lastComponent(path), bottom)
+            is FileContent.Bytes -> BinaryBody(content.size)
+        }
+    }
+}
+
+@Composable
+private fun ImageBody(content: FileContent.Image, name: String, bottom: Dp) {
+    val context = LocalContext.current
+    val payload = content.payload
+    Box(Modifier.fillMaxSize()) {
+        ZoomableImage(
+            bitmap = payload.bitmap,
+            animated = payload.animated,
+            hasAlpha = payload.hasAlpha,
+            contentDescription = name,
+            modifier = Modifier.fillMaxSize(),
+        )
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.92f),
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = bottom + 16.dp),
+        ) {
+            Text(
+                "${payload.pixelWidth} × ${payload.pixelHeight} · ${Formatter.formatShortFileSize(context, content.size)}",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+            )
         }
     }
 }
@@ -132,34 +173,6 @@ private fun TruncatedNotice(content: FileContent) {
             modifier = Modifier.padding(12.dp),
         )
     }
-}
-
-@Composable
-private fun BytesBody(content: FileContent.Bytes, name: String) {
-    val decoded by produceState<Decoded>(Decoded.Pending, content) {
-        value = withContext(Dispatchers.Default) {
-            val bitmap = if (content.truncated) null else BitmapFactory.decodeByteArray(content.bytes, 0, content.bytes.size)
-            bitmap?.let { Decoded.Image(it.asImageBitmap()) } ?: Decoded.NotAnImage
-        }
-    }
-    when (val current = decoded) {
-        Decoded.Pending -> WorkspaceLoading()
-        is Decoded.Image -> Image(
-            bitmap = current.bitmap,
-            contentDescription = name,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier.fillMaxSize().padding(16.dp),
-        )
-        Decoded.NotAnImage -> BinaryBody(content.size)
-    }
-}
-
-private sealed interface Decoded {
-    data object Pending : Decoded
-
-    class Image(val bitmap: ImageBitmap) : Decoded
-
-    data object NotAnImage : Decoded
 }
 
 @Composable

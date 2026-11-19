@@ -21,6 +21,7 @@ import { phoneText } from "../phone-text";
 import type { MessageEntry, ModelChangeEntry, SessionEntry, ThinkingLevelChangeEntry } from "../store/entries";
 import { bashItems } from "./bash-items";
 import { customActivity } from "./custom-activity";
+import { extractUserImagePaths } from "./image-paths";
 import { typedText } from "./prompt-title";
 import { fileChangesOf, toolNameOf, toolOutcome, toolResultOf } from "./tool-items";
 import { isCount } from "./usage";
@@ -42,6 +43,8 @@ export interface EntryContext {
 	readonly toolInput?: Readonly<Record<string, unknown>>;
 	/** For a `toolResult` entry, the outcome its `broski.tool_outcome` record holds. */
 	readonly toolOutcome?: RecordedToolOutcome;
+	/** The session's working directory, for resolving relative image paths in user messages. */
+	readonly cwd?: string;
 }
 
 /** A file can hold a message whose content is missing, which Pi reads as empty. */
@@ -96,8 +99,9 @@ export function userMessageEvent(
 	content: Content,
 	entryId: string | undefined,
 	prompt: PromptRecord | undefined,
+	cwd?: string,
 ): UserMessageEvent {
-	const { text, attachments } = userContent(content, entryId, prompt);
+	const { text, attachments } = userContent(content, entryId, prompt, cwd);
 	return {
 		type: "user_message",
 		messageId: entryId === undefined ? mintMessageId() : entryItemId(entryId, 0),
@@ -113,7 +117,7 @@ function messageItems(entry: MessageEntry, context: EntryContext, stamp: Stamp):
 	const message = entry.message;
 	switch (message.role) {
 		case "user": {
-			const { text, attachments } = userContent(message.content, entry.id, context.prompt);
+			const { text, attachments } = userContent(message.content, entry.id, context.prompt, context.cwd);
 			return [
 				{
 					kind: "user_message",
@@ -142,8 +146,13 @@ function userContent(
 	content: Content,
 	entryId: string | undefined,
 	prompt: PromptRecord | undefined,
+	cwd: string | undefined,
 ): { text: string; attachments: AttachmentRef[] } {
-	if (typeof content === "string") return { text: typedText(content), attachments: [] };
+	if (typeof content === "string") {
+		const raw = typedText(content);
+		const extracted = extractUserImagePaths(raw, cwd);
+		return { text: extracted.text, attachments: [...extracted.files] };
+	}
 	const texts: string[] = [];
 	const attachments: AttachmentRef[] = [];
 	let imageNumber = 0;
@@ -158,7 +167,13 @@ function userContent(
 		const ref = entryId === undefined ? undefined : imageRefOf(entryId, index, block, name);
 		if (ref && attachments.length < MAX_LIST_ITEMS) attachments.push(ref);
 	});
-	return { text: typedText(texts.join("\n")), attachments };
+	const raw = typedText(texts.join("\n"));
+	if (imageNumber > 0) return { text: raw, attachments };
+	const extracted = extractUserImagePaths(raw, cwd);
+	return {
+		text: extracted.text,
+		attachments: [...attachments, ...extracted.files].slice(0, MAX_LIST_ITEMS),
+	};
 }
 
 function imageRefOf(entryId: string, contentIndex: number, block: ImageContent, name?: string): ImageRef | undefined {

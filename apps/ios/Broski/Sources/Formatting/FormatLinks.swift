@@ -55,7 +55,12 @@ enum FormatLinkOpener {
                 UIPasteboard.general.string = path
                 return
             }
-            let place = WorkspacePlace.file(context.resolve(path), line: line)
+            let resolved = context.resolve(path)
+            if isImagePath(path: resolved), let machine = app.machine(id: context.machineId) {
+                ImageViewer.presentFile(path: resolved, workspace: WorkspaceRequests(machine: machine.machine))
+                return
+            }
+            let place = WorkspacePlace.file(resolved, line: line)
             let sheet = UIHostingController(rootView: FileSheet(machineId: context.machineId, place: place).environment(app))
             FormatPresenter.present(sheet)
         }

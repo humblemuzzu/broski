@@ -46,7 +46,7 @@ struct EntryRow: View {
                 }
             }
         } icon: {
-            Image(systemName: entry.kind.symbol)
+            Image(systemName: entry.symbol)
                 .foregroundStyle(entry.kind == .dir ? Palette.accent : .secondary)
         }
         .accessibilityElement(children: .ignore)
@@ -60,6 +60,13 @@ struct EntryRow: View {
         }
         let parts = [size, modified].compactMap(\.self)
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+}
+
+extension FileEntry {
+    var symbol: String {
+        if kind == .file && isImagePath(path: name) { return "photo" }
+        return kind.symbol
     }
 }
 

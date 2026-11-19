@@ -26,6 +26,30 @@ final class FileModel {
     var name: String { (path as NSString).lastPathComponent }
 
     func load() async {
+        phase = .loading
+        if isImagePath(path: path) {
+            do throws(WorkspaceProblem) {
+                let imageRead = try await requests.image(path: path, variant: .full)
+                let decoded = try? await ChatImageStore.decodeFullImage(
+                    base64: imageRead.data,
+                    mimeType: imageRead.mimeType,
+                    width: imageRead.width.map(Int.init),
+                    height: imageRead.height.map(Int.init),
+                    byteCount: imageRead.size)
+                if let decoded {
+                    phase = .loaded(.image(decoded))
+                } else {
+                    phase = .loaded(.binary(size: imageRead.size))
+                }
+                return
+            } catch {
+                // Fall back to `fs.read` if the file was invalid_input (e.g. a non-image file with a misleading extension).
+                if error.code != .invalidInput {
+                    phase = .failed(error)
+                    return
+                }
+            }
+        }
         do throws(WorkspaceProblem) {
             phase = .loaded(FileContent(try await requests.read(path: path)))
         } catch {
@@ -34,11 +58,10 @@ final class FileModel {
     }
 }
 
-/// What `fs.read` gave, by what the viewer can do with it. The bridge sends UTF-8 without a NUL as
-/// text and everything else as base64 (contract §20.1).
+/// What `fs.read` or `fs.image` gave, by what the viewer can do with it.
 enum FileContent {
     case text(TextFile)
-    case image(UIImage, size: Int64)
+    case image(FullImagePayload)
     /// Not text, and not an image the phone can draw (or more of one than a read carries).
     case binary(size: Int64)
 
@@ -48,7 +71,15 @@ enum FileContent {
             self = .text(TextFile(read.content, size: read.size, shown: read.length, truncated: read.truncated))
         case .base64:
             if !read.truncated, let data = Data(base64Encoded: read.content), let image = UIImage(data: data) {
-                self = .image(image, size: read.size)
+                let payload = FullImagePayload(
+                    image: image,
+                    data: data,
+                    mimeType: "image/png",
+                    pixelWidth: Int(image.size.width * image.scale),
+                    pixelHeight: Int(image.size.height * image.scale),
+                    byteCount: read.size,
+                    hasAlpha: ChatImageStore.hasAlpha(image))
+                self = .image(payload)
             } else {
                 self = .binary(size: read.size)
             }

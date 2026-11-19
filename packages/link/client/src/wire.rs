@@ -34,6 +34,7 @@ pub(crate) fn stamped(mut message: ClientMessage, id: &str) -> ClientMessage {
         ClientMessage::WorkspaceInfo(request) => &mut request.request_id,
         ClientMessage::FsList(request) => &mut request.request_id,
         ClientMessage::FsRead(request) => &mut request.request_id,
+        ClientMessage::FsImage(request) => &mut request.request_id,
         ClientMessage::FsSearch(request) => &mut request.request_id,
         ClientMessage::GitStatus(request) => &mut request.request_id,
         ClientMessage::GitDiff(request) => &mut request.request_id,
@@ -87,6 +88,7 @@ pub(crate) fn repeatable(message: &ClientMessage) -> bool {
         | ClientMessage::WorkspaceInfo(_)
         | ClientMessage::FsList(_)
         | ClientMessage::FsRead(_)
+        | ClientMessage::FsImage(_)
         | ClientMessage::FsSearch(_)
         | ClientMessage::GitStatus(_)
         | ClientMessage::GitDiff(_)
@@ -159,6 +161,7 @@ pub(crate) fn classify(message: ServerMessage) -> Incoming {
         ServerMessage::WorkspaceInfoResult(answer) => &answer.request_id,
         ServerMessage::FsListResult(answer) => &answer.request_id,
         ServerMessage::FsReadResult(answer) => &answer.request_id,
+        ServerMessage::FsImageResult(answer) => &answer.request_id,
         ServerMessage::FsSearchResult(answer) => &answer.request_id,
         ServerMessage::GitStatusResult(answer) => &answer.request_id,
         ServerMessage::GitDiffResult(answer) => &answer.request_id,

@@ -2,7 +2,7 @@ package com.muzammil.broski.feature.chat.transcript
 
 import androidx.compose.runtime.Immutable
 import com.muzammil.broski.feature.chat.work.WorkFold
-import uniffi.broski_contract.ImageRef
+import com.muzammil.broski.feature.images.ImageTarget
 import uniffi.broski_contract.NoticeLevel
 import uniffi.broski_contract.RunLimit
 import uniffi.broski_core.ActivityLook
@@ -25,7 +25,7 @@ sealed interface ChatRow {
         override val key: String,
         override val at: Long?,
         val text: String,
-        val images: List<ImageRef>,
+        val images: List<ImageTarget>,
         /** Sent, and not yet the agent's: dimmed until its `user_message` arrives. */
         val pending: Boolean,
     ) : ChatRow

@@ -127,6 +127,15 @@ impl crate::Tagged for ImageRef {
     const TAG: &'static str = "image_ref";
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+pub enum ImageVariant {
+    #[serde(rename = "thumbnail")]
+    Thumbnail,
+    #[serde(rename = "full")]
+    Full,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

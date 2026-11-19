@@ -1,11 +1,30 @@
 /** The factory's options (what the server layer hands the adapter) and the services every part shares. */
 
+import type { ImageVariant } from "../../contract";
 import type { ClaudeSdk } from "./ports/sdk";
 import type { TerminalOptions } from "./ports/terminal";
 import { type Clock, SYSTEM_CLOCK } from "./ports/time";
 import { mayBypassPermissions, processUid } from "./process/bypass";
 import { cliEnv } from "./process/env";
 import { createClaudeSdk } from "./sdk/claude-sdk";
+
+export type FittedImage =
+	| {
+			readonly ok: true;
+			readonly mimeType: string;
+			readonly data: string;
+			readonly width?: number;
+			readonly height?: number;
+			readonly originalBytes: number;
+			readonly resized: boolean;
+	  }
+	| {
+			readonly ok: false;
+			readonly reason: "not_image" | "too_large" | "unsupported";
+			readonly message: string;
+	  };
+
+export type ImageFitter = (data: string, mimeType: string, variant: ImageVariant) => Promise<FittedImage>;
 
 /** `server/claude-cli-path.ts`'s answer (D3), as a value: a missing binary is a `status()` issue, not a throw. */
 export type CliLocation =
@@ -30,6 +49,7 @@ export interface ClaudeCodeFactoryOptions {
 	readonly sdk?: ClaudeSdk;
 	/** Tests only: the uid the CLI runs as; otherwise the bridge's own. */
 	readonly uid?: number;
+	readonly fitImage?: ImageFitter;
 }
 
 export interface ClaudeCodeServices {
@@ -44,6 +64,7 @@ export interface ClaudeCodeServices {
 	readonly terminal: TerminalOptions;
 	readonly appendSystemPrompt: string | undefined;
 	readonly clock: Clock;
+	readonly fitImage?: ImageFitter;
 }
 
 export function createClaudeCodeServices(options: ClaudeCodeFactoryOptions): ClaudeCodeServices {
@@ -58,5 +79,6 @@ export function createClaudeCodeServices(options: ClaudeCodeFactoryOptions): Cla
 		terminal: options.terminal ?? {},
 		appendSystemPrompt: options.appendSystemPrompt,
 		clock: options.clock ?? SYSTEM_CLOCK,
+		...(options.fitImage !== undefined && { fitImage: options.fitImage }),
 	};
 }

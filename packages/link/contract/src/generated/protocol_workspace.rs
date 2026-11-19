@@ -7,6 +7,35 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FsImageRequest {
+    pub request_id: RequestId,
+    pub path: FilePath,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "crate::codec::present")]
+    pub variant: Option<ImageVariant>,
+}
+
+impl crate::Tagged for FsImageRequest {
+    const KEY: &'static str = "type";
+    const TAG: &'static str = "fs.image";
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FsImageResponse {
+    pub request_id: RequestId,
+    pub result: FsImageResult,
+}
+
+impl crate::Tagged for FsImageResponse {
+    const KEY: &'static str = "type";
+    const TAG: &'static str = "fs.image.result";
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct FsListRequest {
     pub request_id: RequestId,
     pub path: FilePath,

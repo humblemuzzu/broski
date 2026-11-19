@@ -4,6 +4,7 @@ import type { ModelCatalogue } from "../models/catalogue";
 import type { PiEntry } from "../rpc/replies";
 import type { OpenTransport } from "../rpc/transport";
 import type { HostedFacts } from "./host-summary";
+import type { LiveImageCache } from "./image-cache";
 import type { SessionHost } from "./session-host";
 import type { SessionLocks } from "./session-lock";
 
@@ -21,6 +22,7 @@ export interface HostEnvironment {
 	readonly lost: (host: SessionHost) => void;
 	/** An event changed the ready host's session: whether it is busy, and whether a terminal waiting for it may take it. */
 	readonly changed: (host: SessionHost) => void;
+	readonly images?: LiveImageCache;
 }
 
 /** A `pi` this bridge takes over from its holder, which replays what it said since the session was last at rest. */

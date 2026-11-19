@@ -38,6 +38,8 @@ import com.muzammil.broski.design.Haptic
 import com.muzammil.broski.design.format.tools.ToolLinks
 import com.muzammil.broski.design.mono
 import com.muzammil.broski.design.perform
+import com.muzammil.broski.feature.images.ChatImageStore
+import com.muzammil.broski.feature.images.ImageTarget
 import uniffi.broski_contract.FileChange
 import uniffi.broski_contract.SessionRef
 import uniffi.broski_contract.ToolDisplay
@@ -53,6 +55,8 @@ class WorkActions(
     val openFile: (String) -> Unit,
     /** A file at a line, as a path in agent text or a search row opens it. */
     val openFileAt: (String, Int?) -> Unit = { path, _ -> openFile(path) },
+    val imageStore: ChatImageStore? = null,
+    val openImages: (List<ImageTarget>, Int) -> Unit = { _, _ -> },
 ) {
     /** What a tool's result opens, for the formatter's tool views. */
     val toolLinks = ToolLinks(

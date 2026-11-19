@@ -8,7 +8,7 @@ import type { CatalogFeed } from "../catalog-feed";
 import { errorText } from "../error-text";
 import { parseChildSessionId } from "../ids";
 import { itemsOfEntry } from "../mapping/message-items";
-import type { LiveOverlay, SessionStore } from "../ports";
+import type { ImageFitter, LiveOverlay, SessionStore } from "../ports";
 import { rejected } from "../rejections";
 import { readAttachment } from "./attachments";
 import { childTranscript, getChild } from "./children";
@@ -26,6 +26,7 @@ export interface SessionStoreDeps {
 	readonly agentDir: string;
 	readonly catalog: CatalogFeed;
 	readonly now: () => number;
+	readonly fitImage?: ImageFitter;
 }
 
 export function createSessionStore(deps: SessionStoreDeps): SessionStore {
@@ -50,7 +51,8 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
 		},
 		get: (sessionId, live) => reaching(() => readSession(reads, sessionId, live)),
 		transcript: (sessionId, page, live) => reaching(() => readSessionTranscript(reads, sessionId, page, live)),
-		attachment: (sessionId, attachment) => reaching(() => readAttachment(index, sessionId, attachment)),
+		attachment: (sessionId, attachment, variant) =>
+			reaching(() => readAttachment(index, sessionId, attachment, variant, deps.fitImage)),
 		locate: (sessionId) => reaching(() => locateStored(index, sessionId)),
 		facts: (session) => reaching(() => storedFacts(index, session)),
 		recent: (session) => reaching(() => recentEntries(index, session)),

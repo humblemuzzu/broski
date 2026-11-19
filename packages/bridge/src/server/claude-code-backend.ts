@@ -10,6 +10,7 @@ import sdkPackage from "../../node_modules/@anthropic-ai/claude-agent-sdk/packag
 import { type CliLocation, claudeCodeBackendFactory } from "../backends/claude-code/factory";
 import type { TerminalAskHandler } from "../backends/claude-code/ports";
 import type { BackendFactory } from "../contract";
+import { fitImageBase64 } from "../platform/image-fit";
 import type { ClaudeCliPath } from "./claude-cli-path";
 
 /** The CLI the SDK this build bundles was released with; a host's `initialize` is checked against it (D3). */
@@ -35,6 +36,7 @@ export function claudeCodeBackend(deps: ClaudeCodeBackendDeps): BackendFactory {
 			clientApp: `broski/${deps.version}`,
 			expectedCliVersion: EXPECTED_CLAUDE_CLI_VERSION,
 			terminal: deps.hookAsks === undefined ? {} : { hookAsks: deps.hookAsks },
+			fitImage: fitImageBase64,
 			...(deps.appendSystemPrompt !== undefined && { appendSystemPrompt: deps.appendSystemPrompt }),
 		})(host);
 }

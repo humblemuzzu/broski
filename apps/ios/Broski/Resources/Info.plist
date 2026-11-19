@@ -42,7 +42,9 @@
 		<string>_broski-link._tcp</string>
 	</array>
 	<key>NSCameraUsageDescription</key>
-	<string>Broski uses the camera to scan the pairing code your Mac shows.</string>
+	<string>Broski uses the camera to scan pairing codes and take photos for your prompts.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Broski saves images you choose from your sessions and files to your Photo Library.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Broski records your voice when you hold or tap the mic, and turns it into text for your prompt.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>

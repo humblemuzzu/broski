@@ -8,6 +8,7 @@ import SwiftUI
 struct ToolDetailView: View {
     let tool: ToolWork
     @Environment(\.chatMachineId) private var machineId
+    @Environment(\.chatImages) private var imageStore
 
     static let outputCap: CGFloat = 220
     /// Lines of an error drawn in place.
@@ -23,6 +24,9 @@ struct ToolDetailView: View {
                 if !arguments.isEmpty { ToolArgumentsView(rows: arguments) }
             }
             result
+            if !tool.images.isEmpty {
+                toolImages
+            }
             if let error = tool.error, !error.isEmpty {
                 LogLinesView(log: formatLog(text: error, maxLines: Self.errorLines, keep: .head), tint: Palette.failed)
             }
@@ -58,7 +62,7 @@ struct ToolDetailView: View {
     @ViewBuilder
     private var output: some View {
         if tool.output.isEmpty {
-            if !tool.isRunning && tool.fileChanges.isEmpty && tool.error == nil {
+            if !tool.isRunning && tool.fileChanges.isEmpty && tool.images.isEmpty && tool.error == nil {
                 Text("No output.").font(.footnote).foregroundStyle(.secondary)
             }
         } else {
@@ -69,6 +73,21 @@ struct ToolDetailView: View {
                 ToolBodyView(body, title: tool.label)
             }
         }
+    }
+
+    private var toolImages: some View {
+        let targets = tool.images.map(ImageTarget.attachment)
+        return ScrollView(.horizontal) {
+            HStack(spacing: Spacing.s) {
+                ForEach(Array(targets.enumerated()), id: \.element.id) { index, target in
+                    AttachmentTile(target: target, size: CGSize(width: 96, height: 96), cornerRadius: 12) {
+                        guard let imageStore else { return }
+                        ImageViewer.present(items: targets, initialIndex: index, store: imageStore)
+                    }
+                }
+            }
+        }
+        .scrollIndicators(.hidden)
     }
 }
 

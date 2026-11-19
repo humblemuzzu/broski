@@ -35,8 +35,8 @@ private struct ChatContent: View {
         let core = machine.machine
         _chat = State(
             initialValue: ChatModel(
-                target: target, requests: ChatRequests(machine: core), drafts: drafts,
-                firstPrompt: drafts.takeFirstPrompt(for: target)
+                target: target, requests: ChatRequests(machine: core), workspace: WorkspaceRequests(machine: core),
+                drafts: drafts, firstPrompt: drafts.takeFirstPrompt(for: target)
             ) { try core.attach(session: $0) })
     }
 
@@ -68,7 +68,10 @@ private struct ChatContent: View {
             .environment(disclosure)
             .environment(\.chatMachineId, machine.id)
             .environment(\.formatContext, FormatContext(machineId: machine.id, cwd: cwd))
-            .environment(\.loadAttachment, AttachmentLoader { await chat.image($0) })
+            .environment(\.chatImages, chat.imageStore)
+            .onChange(of: machine.summary.isReady) { wasReady, isReady in
+                if !wasReady && isReady { chat.imageStore.retryFailed() }
+            }
             .sensoryFeedback(trigger: chat.feedback) { _, feedback in feedback?.moment.feedback }
             .onAppear { chat.start() }
             .task {

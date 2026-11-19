@@ -30,6 +30,7 @@ pub use export::{format_plain_text, table_csv, table_html, table_markdown, table
 pub(crate) use inline::linked_text;
 pub(crate) use json::number_text;
 pub use json::{format_json, json_lines, MAX_JSON_BYTES};
+pub use links::is_image_path;
 pub(crate) use links::is_path;
 pub use message::format_message;
 pub use model::{

@@ -22,12 +22,12 @@ struct ChatRowView: View, Equatable {
     private var content: some View {
         switch row.content {
         case .user(let turn):
-            UserBubble(text: turn.text, images: turn.attachments.images, at: turn.at)
+            UserBubble(text: turn.text, images: turn.attachments.imageTargets, at: turn.at)
         case .pending(let prompt):
             UserBubble(
                 text: [prompt.draft.command.map { "/\($0.name)" }, prompt.draft.text].compactMap(\.self)
                     .filter { !$0.isEmpty }.joined(separator: " "),
-                images: prompt.draft.images.map { .local($0.thumbnail) }, isPending: true)
+                images: prompt.draft.images.map { .local(id: $0.id.uuidString, name: $0.content.name) }, isPending: true)
         case .work(let fold):
             WorkFoldView(fold: fold)
         case .text(let piece):
@@ -79,7 +79,18 @@ nonisolated extension ChatRow {
 }
 
 extension [AttachmentRef] {
-    var images: [UserBubble.ImageSource] {
-        compactMap { if case .imageRef(let ref) = $0 { .remote(ref) } else { nil } }
+    var imageTargets: [ImageTarget] {
+        compactMap { attachment in
+            switch attachment {
+            case .imageRef(let ref):
+                .attachment(ref)
+            case .file(let file):
+                if file.mimeType?.hasPrefix("image/") == true || isImagePath(path: file.uri) {
+                    .file(path: file.uri, name: file.name)
+                } else {
+                    nil
+                }
+            }
+        }
     }
 }

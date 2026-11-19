@@ -31,11 +31,13 @@ import { CLOSED } from "../rejections";
 import { NO_LIVE } from "../store/list";
 import { terminalControl } from "../terminal/control";
 import type { TerminalRegistry, TerminalSession } from "../terminal/registry";
+import type { LiveImageCache } from "./image-cache";
 
 export interface SessionViewDeps {
 	readonly sessionId: string;
 	readonly path: string;
 	readonly terminals: Pick<TerminalRegistry, "session" | "watch">;
+	readonly images?: LiveImageCache;
 	/** The session as it reads now, for when its terminal goes. */
 	readonly reread: () => Promise<SessionSnapshot>;
 	/** A new host for the session, its events going to `sink`, once the last one's `pi` exited. */
@@ -205,7 +207,7 @@ export class SessionView implements OpenSession {
 
 	private terminalMode(session: TerminalSession): Mode {
 		session.feed.live.attach(this.sink);
-		const control = terminalControl(session);
+		const control = terminalControl(session, this.deps.images);
 		const whileOpen = <T>(call: () => Promise<T>) => (this.closed ? Promise.resolve(CLOSED) : call());
 		return {
 			kind: "terminal",

@@ -10,6 +10,18 @@ use serde::{Deserialize, Serialize};
 pub struct AttachmentRead {
     #[serde(with = "crate::tagged")]
     pub image: ImageContent,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "crate::codec::present")]
+    pub width: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "crate::codec::present")]
+    pub height: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "crate::codec::present")]
+    pub original_bytes: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "crate::codec::present")]
+    pub resized: Option<bool>,
 }
 
 impl crate::Tagged for AttachmentRead {

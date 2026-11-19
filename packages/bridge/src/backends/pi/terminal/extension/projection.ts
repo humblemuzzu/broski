@@ -51,9 +51,41 @@ export function toolResult(result: unknown): Frame {
 	return { content: blocks, ...(details !== undefined && { details: compact(details) }) };
 }
 
+function imageSlots(content: unknown): Json[] {
+	if (!Array.isArray(content)) return [];
+	const slots: Json[] = [];
+	content.slice(0, 100).forEach((block, index) => {
+		if (read(block, "type") === "image") {
+			slots.push({ index, mimeType: clip(String(read(block, "mimeType") ?? "image/png"), 1_024) });
+		}
+	});
+	return slots;
+}
+
 export function endedMessage(message: unknown): Frame {
 	const role = read(message, "role");
-	if (role === "user") return { role, text: textOf(read(message, "content")) };
+	if (role === "user") {
+		const content = read(message, "content");
+		const timestamp = read(message, "timestamp");
+		const images = imageSlots(content);
+		return {
+			role,
+			text: textOf(content),
+			...(typeof timestamp === "number" && Number.isFinite(timestamp) && { timestamp }),
+			...(images.length > 0 && { images }),
+		};
+	}
+	if (role === "toolResult") {
+		const timestamp = read(message, "timestamp");
+		return {
+			role,
+			toolCallId: clip(String(read(message, "toolCallId") ?? ""), 256),
+			toolName: clip(String(read(message, "toolName") ?? ""), 1_024),
+			isError: read(message, "isError") === true,
+			...(typeof timestamp === "number" && Number.isFinite(timestamp) && { timestamp }),
+			result: toolResult(message),
+		};
+	}
 	if (role === "custom") {
 		const details = read(message, "details");
 		return {

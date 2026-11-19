@@ -7,8 +7,16 @@
  * terminal's editor, not to the phone. Everything else is changed in the terminal.
  */
 
-import type { ActionResult, ClientRequestId, PromptInput, PromptResult, SessionControl } from "../../../contract";
+import type {
+	ActionResult,
+	ClientRequestId,
+	ImageRef,
+	PromptInput,
+	PromptResult,
+	SessionControl,
+} from "../../../contract";
 import { commandText, parseCommandId } from "../command-ids";
+import type { LiveImageCache } from "../live/image-cache";
 import { ACCEPTED, rejected } from "../rejections";
 import type { CommandAnswer } from "./protocol";
 import type { TerminalSession } from "./registry";
@@ -35,7 +43,7 @@ function problem(input: PromptInput) {
 	return undefined;
 }
 
-export function terminalControl(session: TerminalSession): SessionControl {
+export function terminalControl(session: TerminalSession, imageCache?: LiveImageCache): SessionControl {
 	const accepted = new Map<ClientRequestId, PromptResult>();
 	const remember = (id: ClientRequestId, result: PromptResult): void => {
 		accepted.set(id, result);
@@ -52,15 +60,28 @@ export function terminalControl(session: TerminalSession): SessionControl {
 			if (refused) return refused;
 			const ref = input.command === undefined ? undefined : parseCommandId(input.command);
 			const text = ref === undefined ? input.text : commandText(ref, input.text);
-			session.feed.sent.add(input.clientRequestId, text, input.mode === "start");
+			const images = input.attachments.flatMap((attachment) => (attachment.kind === "image" ? [attachment] : []));
+			const imageRefs: ImageRef[] = images.map((image, index) => {
+				const id = `live:${input.clientRequestId}:${index}`;
+				imageCache?.put(session.sessionId, id, {
+					mimeType: image.mimeType,
+					data: image.data,
+					...(image.name !== undefined && { name: image.name }),
+				});
+				return {
+					kind: "image_ref",
+					id,
+					mimeType: image.mimeType,
+					...(image.name !== undefined && { name: image.name }),
+				};
+			});
+			session.feed.sent.add(input.clientRequestId, text, input.mode === "start", imageRefs);
 			const answer = await session.command({
 				kind: "prompt",
 				mode: input.mode,
 				text,
 				expand: ref !== undefined,
-				images: input.attachments.flatMap((attachment) =>
-					attachment.kind === "image" ? [{ mimeType: attachment.mimeType, data: attachment.data }] : [],
-				),
+				images: images.map((image) => ({ mimeType: image.mimeType, data: image.data })),
 			});
 			if (!answer.ok) {
 				session.feed.sent.forget(input.clientRequestId);

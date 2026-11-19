@@ -5,7 +5,7 @@
 
 use super::autolink::{bare_links, host_link};
 use super::{Inline, Piece, Style};
-use crate::format::links::{is_path, path_link};
+use crate::format::links::{code_image_link, is_path, path_link};
 use crate::format::model::{FormatLink, FormatSpan};
 
 pub(super) fn flatten(inline: Inline) -> Vec<FormatSpan> {
@@ -171,6 +171,7 @@ fn link_bare(spans: Vec<FormatSpan>) -> Vec<FormatSpan> {
         if span.code {
             let mut span = span;
             span.link = host_link(&span.text)
+                .or_else(|| code_image_link(&span.text))
                 .or_else(|| is_path(&span.text).then(|| path_link(&span.text, true)));
             out.push(span);
             continue;

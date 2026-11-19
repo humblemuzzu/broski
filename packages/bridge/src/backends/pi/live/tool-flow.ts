@@ -123,6 +123,11 @@ export class ToolFlow {
 		this.finishCall(event.toolCallId, event.result.content ?? [], event.isError, event.result.details, () => undefined);
 	}
 
+	/** A terminal tool result whose timestamp lets `attachment.read` locate its persisted images. */
+	finishedWithRefs(event: ToolEvent<"tool_execution_end">, imageRef: (index: number) => ImageRef | undefined): void {
+		this.finishCall(event.toolCallId, event.result.content ?? [], event.isError, event.result.details, imageRef);
+	}
+
 	/** `entryId` is the entry the result was persisted as; undefined when it could not be found, and an image in it is a placeholder. */
 	resultPersisted(message: ToolResultMessage, entryId: string | undefined): void {
 		this.linkChild(message.toolCallId, message.details);

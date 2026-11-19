@@ -6,26 +6,15 @@ import UIKit
 /// above it, its time and a copy button beneath. A prompt still on its way shows dimmed.
 struct UserBubble: View {
     let text: String
-    var images: [ImageSource] = []
+    var images: [ImageTarget] = []
     var at: Int64?
     var isPending = false
     @State private var copied = 0
 
-    enum ImageSource: Hashable {
-        case local(UIImage)
-        case remote(ImageRef)
-    }
-
     var body: some View {
-        VStack(alignment: .trailing, spacing: Spacing.xs) {
+        VStack(alignment: .trailing, spacing: Spacing.xs + 2) {
             if !images.isEmpty {
-                ScrollView(.horizontal) {
-                    HStack(spacing: Spacing.s) {
-                        ForEach(images, id: \.self) { AttachmentThumbnail(source: $0) }
-                    }
-                }
-                .scrollIndicators(.hidden)
-                .defaultScrollAnchor(.trailing)
+                PromptImageGallery(images: images)
             }
             if !text.isEmpty {
                 FormattedMessage(text: text)
@@ -39,8 +28,7 @@ struct UserBubble: View {
         .padding(.leading, Spacing.xxxl)
         .frame(maxWidth: .infinity, alignment: .trailing)
         .opacity(isPending ? 0.55 : 1)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(isPending ? "You, sending: \(text)" : "You: \(text)")
+        .accessibilityElement(children: .contain)
         .haptic(.confirmed, trigger: copied)
         .contextMenu {
             if !text.isEmpty { AnswerMenuItems { text } }
@@ -64,33 +52,159 @@ struct UserBubble: View {
     }
 }
 
-/// An image the person sent: drawn from the phone's copy, or read back from the Mac by reference.
-private struct AttachmentThumbnail: View {
-    let source: UserBubble.ImageSource
-    @Environment(\.loadAttachment) private var load
-    @State private var loaded: UIImage?
-    @ScaledMetric(relativeTo: .body) private var side: CGFloat = 96
+/// Adaptive prompt image layout: single image keeps its natural aspect ratio, 2–3 sit side-by-side,
+/// 4+ form a 2×2 grid with a `+N` badge on the fourth tile. Tapping any tile opens the full viewer.
+private struct PromptImageGallery: View {
+    let images: [ImageTarget]
+    @Environment(\.chatImages) private var store
+    @ScaledMetric(relativeTo: .body) private var tileSide: CGFloat = 104
 
     var body: some View {
-        Group {
-            if let image {
-                Image(uiImage: image).resizable().scaledToFill()
-            } else {
-                Rectangle().fill(.quaternary).overlay { ProgressView() }
+        if images.count == 1, let only = images.first {
+            SinglePromptImage(target: only) { open(at: 0) }
+        } else if images.count <= 3 {
+            HStack(spacing: Spacing.xs + 2) {
+                ForEach(Array(images.enumerated()), id: \.element.id) { index, target in
+                    AttachmentTile(target: target, size: CGSize(width: tileSide, height: tileSide), cornerRadius: 14) {
+                        open(at: index)
+                    }
+                }
             }
-        }
-        .frame(width: side, height: side)
-        .clipShape(.rect(cornerRadius: Radius.small + 4, style: .continuous))
-        .accessibilityLabel("Image")
-        .task {
-            guard case .remote(let ref) = source, loaded == nil else { return }
-            loaded = await load(ref)
+        } else {
+            let shown = Array(images.prefix(4))
+            let extra = images.count - 4
+            Grid(horizontalSpacing: Spacing.xs + 2, verticalSpacing: Spacing.xs + 2) {
+                GridRow {
+                    tile(shown[0], index: 0, extra: 0)
+                    tile(shown[1], index: 1, extra: 0)
+                }
+                GridRow {
+                    tile(shown[2], index: 2, extra: 0)
+                    tile(shown[3], index: 3, extra: extra)
+                }
+            }
         }
     }
 
-    private var image: UIImage? {
-        if case .local(let image) = source { return image }
-        return loaded
+    private func tile(_ target: ImageTarget, index: Int, extra: Int) -> some View {
+        AttachmentTile(target: target, size: CGSize(width: tileSide, height: tileSide), cornerRadius: 14) {
+            open(at: index)
+        }
+        .overlay {
+            if extra > 0 {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(.black.opacity(0.48))
+                    .overlay {
+                        Text("+\(extra)")
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(.white)
+                    }
+                    .allowsHitTesting(false)
+            }
+        }
+    }
+
+    private func open(at index: Int) {
+        guard let store else { return }
+        ImageViewer.present(items: images, initialIndex: index, store: store)
+    }
+}
+
+private struct SinglePromptImage: View {
+    let target: ImageTarget
+    let onTap: () -> Void
+    @Environment(\.chatImages) private var store
+
+    var body: some View {
+        let _ = store?.revision
+        let image = store?.cachedThumbnail(for: target)
+        let size = fittedSize(for: image)
+        AttachmentTile(target: target, size: size, cornerRadius: 16, onTap: onTap)
+    }
+
+    private func fittedSize(for image: UIImage?) -> CGSize {
+        guard let image, image.size.width > 0, image.size.height > 0 else {
+            return CGSize(width: 176, height: 132)
+        }
+        let ratio = image.size.width / image.size.height
+        let maxW: CGFloat = 240
+        let maxH: CGFloat = 210
+        let minSide: CGFloat = 104
+        if ratio >= 1 {
+            let width = min(maxW, max(minSide, maxH * ratio))
+            let height = max(minSide * 0.75, min(maxH, width / ratio))
+            return CGSize(width: width.rounded(), height: height.rounded())
+        } else {
+            let height = min(maxH, max(minSide, maxW / ratio))
+            let width = max(minSide * 0.75, min(maxW, height * ratio))
+            return CGSize(width: width.rounded(), height: height.rounded())
+        }
+    }
+}
+
+/// Reusable thumbnail tile for prompt attachments and tool results: loads lazily, shows retry on
+/// failure instead of spinning forever, and opens the full-screen image viewer on tap.
+struct AttachmentTile: View {
+    let target: ImageTarget
+    let size: CGSize
+    var cornerRadius: CGFloat = 14
+    let onTap: () -> Void
+    @Environment(\.chatImages) private var store
+
+    var body: some View {
+        let _ = store?.revision
+        let state = store?.thumbnailState(for: target) ?? .idle
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        Button {
+            if case .failed = state {
+                Task { await store?.loadThumbnail(for: target, force: true) }
+            } else {
+                onTap()
+            }
+        } label: {
+            Group {
+                switch state {
+                case .loaded(let image):
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .transition(.opacity)
+                case .failed:
+                    VStack(spacing: Spacing.xs) {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.subheadline.weight(.semibold))
+                        Text("Retry")
+                            .font(.caption2.weight(.medium))
+                    }
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color(uiColor: .secondarySystemFill))
+                case .idle, .loading:
+                    Rectangle()
+                        .fill(Color(uiColor: .secondarySystemFill))
+                        .overlay { ProgressView().controlSize(.small) }
+                }
+            }
+            .frame(width: size.width, height: size.height)
+            .clipShape(shape)
+            .overlay(shape.strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5))
+            .contentShape(shape)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(target.displayName)
+        .accessibilityHint(state.hint)
+        .task(id: target.id) {
+            await store?.loadThumbnail(for: target)
+        }
+    }
+}
+
+private extension ThumbnailState {
+    var hint: String {
+        switch self {
+        case .failed: "Double-tap to retry loading"
+        default: "Double-tap to view full screen"
+        }
     }
 }
 
@@ -220,17 +334,4 @@ extension RunOutcome {
         case .deferred: "Paused"
         }
     }
-}
-
-/// Reads back an image a message names (`attachment.read`); the chat provides it.
-struct AttachmentLoader {
-    let load: @MainActor (ImageRef) async -> UIImage?
-
-    func callAsFunction(_ ref: ImageRef) async -> UIImage? {
-        await load(ref)
-    }
-}
-
-extension EnvironmentValues {
-    @Entry var loadAttachment = AttachmentLoader { _ in nil }
 }

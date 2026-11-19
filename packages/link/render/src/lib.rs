@@ -23,11 +23,11 @@ pub use diff::{
     DiffLine, DiffLineKind, DiffSegment, ParsedDiff, SideBySideRow,
 };
 pub use format::{
-    format_json, format_markdown, format_message, format_plain_text, format_samples, json_lines,
-    table_csv, table_html, table_markdown, table_tsv, CalloutKind, ColumnAlign, ContainerKind,
-    FormatBlock, FormatCode, FormatContainer, FormatContent, FormatLink, FormatSample,
-    FormatSpacing, FormatSpan, FormatTable, LinkKind, ListMarker, TableCell, TableColumn,
-    TableShape, TextDirection, MAX_FORMAT_BYTES, MAX_JSON_BYTES,
+    format_json, format_markdown, format_message, format_plain_text, format_samples, is_image_path,
+    json_lines, table_csv, table_html, table_markdown, table_tsv, CalloutKind, ColumnAlign,
+    ContainerKind, FormatBlock, FormatCode, FormatContainer, FormatContent, FormatLink,
+    FormatSample, FormatSpacing, FormatSpan, FormatTable, LinkKind, ListMarker, TableCell,
+    TableColumn, TableShape, TextDirection, MAX_FORMAT_BYTES, MAX_JSON_BYTES,
 };
 pub use highlight::{
     highlight, language_for_path, language_label, normalize_language, CodeLine, CodeSpan, TokenKind,

@@ -4,7 +4,7 @@
 //! link must open something. A log's path with a line (`src/lib.rs:7`, as a compiler or `grep`
 //! prints it) is the exception: a tool wrote it about a file it read.
 
-use crate::format::links::{is_path, path_link, short_url, written_link};
+use crate::format::links::{bare_image_link, is_path, path_link, short_url, written_link};
 use crate::format::model::{FormatLink, FormatSpan, LinkKind};
 
 /// `<scheme:…>` or `<address@host>`: the bytes it takes and its link.
@@ -198,10 +198,12 @@ pub(crate) fn bare_links(text: &str, positioned_paths: bool) -> Vec<BareLink> {
             });
             continue;
         }
-        let link = host_link(core).or_else(|| {
-            let path = (positioned_paths && is_path(core)).then(|| path_link(core, true))?;
-            matches!(path.kind, LinkKind::File { line: Some(_), .. }).then_some(path)
-        });
+        let link = host_link(core)
+            .or_else(|| bare_image_link(core))
+            .or_else(|| {
+                let path = (positioned_paths && is_path(core)).then(|| path_link(core, true))?;
+                matches!(path.kind, LinkKind::File { line: Some(_), .. }).then_some(path)
+            });
         if let Some(link) = link {
             found.push(BareLink {
                 start,

@@ -2,6 +2,7 @@ import type {
 	ActionResult,
 	ClientMessage,
 	ClientRequestId,
+	FsImageResult,
 	FsListResult,
 	FsReadResult,
 	FsSearchResult,
@@ -82,6 +83,7 @@ export interface WorkspaceHost {
 	readonly files: {
 		list(query: WorkspaceQuery<"fs.list">, limit: number): Promise<FsListResult>;
 		read(query: WorkspaceQuery<"fs.read">, length: number): Promise<FsReadResult>;
+		image(query: WorkspaceQuery<"fs.image">): Promise<FsImageResult>;
 		search(query: WorkspaceQuery<"fs.search">, limit: number): Promise<FsSearchResult>;
 	};
 	readonly git: {

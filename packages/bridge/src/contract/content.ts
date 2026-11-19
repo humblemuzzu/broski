@@ -13,6 +13,9 @@ export type BlockKind = z.infer<typeof BlockKind>;
 export const TextContent = z.strictObject({ kind: z.literal("text"), text: z.string().max(MAX_TEXT_CHARS) });
 export type TextContent = z.infer<typeof TextContent>;
 
+export const ImageVariant = z.enum(["thumbnail", "full"]);
+export type ImageVariant = z.infer<typeof ImageVariant>;
+
 /** Image bytes, base64-encoded. Only a prompt and `attachment.read` carry them; everything else names an `ImageRef`. */
 export const ImageContent = z.strictObject({
 	kind: z.literal("image"),

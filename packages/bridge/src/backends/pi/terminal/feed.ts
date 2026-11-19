@@ -6,9 +6,11 @@
  */
 
 import {
-	type ClientRequestId,
+	type AttachmentRef,
 	emptySnapshot,
+	type ImageRef,
 	type JsonValue,
+	MAX_LIST_ITEMS,
 	type SessionSnapshot,
 	sessionStatus,
 } from "../../../contract";
@@ -19,6 +21,7 @@ import { RunTracker } from "../live/run-tracker";
 import { NO_CHILDREN, ToolFlow } from "../live/tool-flow";
 import { announcedTasks } from "../mapping/background-tasks";
 import { customActivity } from "../mapping/custom-activity";
+import { extractUserImagePaths } from "../mapping/image-paths";
 import { compactionFinished, compactionRunOutcome, compactionStarted } from "../mapping/session-events";
 import { AssistantStream } from "../mapping/stream-blocks";
 import { modelWireId } from "../models/model-ids";
@@ -65,6 +68,15 @@ export class TerminalFeed {
 	private leafId: string | null = null;
 	private modelId: string | undefined;
 	private thinking: string | undefined;
+	private readonly deferredImageTools = new Map<
+		string,
+		{
+			readonly toolCallId: string;
+			readonly toolName: string;
+			readonly result: Extract<TerminalEvent, { e: "tool_end" }>["result"];
+			readonly isError: boolean;
+		}
+	>();
 
 	/**
 	 * `changed` is told when a run starts or ends or the session is renamed, which a session list shows; `command` sends
@@ -74,6 +86,7 @@ export class TerminalFeed {
 		now: () => number,
 		private readonly changed: () => void,
 		command: (command: Command) => void = () => {},
+		private readonly cwd?: string,
 	) {
 		this.live = new LiveState({ ...emptySnapshot(), modes: [permissionsSetting("off")] }, now);
 		this.dialogs = new TerminalDialogs({
@@ -196,7 +209,11 @@ export class TerminalFeed {
 					...(event.parentToolCallId !== undefined && { parentToolCallId: event.parentToolCallId }),
 				};
 				this.tools.executionEnded(ended);
-				if (event.parentToolCallId === undefined) this.tools.finishedWithoutEntry(ended);
+				if (event.parentToolCallId === undefined) {
+					const hasImage = (event.result.content ?? []).some((block) => block.type === "image");
+					if (hasImage) this.deferredImageTools.set(event.toolCallId, ended);
+					else this.tools.finishedWithoutEntry(ended);
+				}
 				return;
 			}
 			default:
@@ -273,6 +290,7 @@ export class TerminalFeed {
 
 	private finishRun(aborted: boolean): void {
 		if (!this.runs.current()) return;
+		this.flushDeferredImageTools();
 		const closing = this.closing();
 		const last = this.lastAssistant;
 		this.stream = undefined;
@@ -309,9 +327,15 @@ export class TerminalFeed {
 		if (role === "other") return;
 		const run = this.ensureRun();
 		if (role !== "assistant") return;
+		this.flushDeferredImageTools();
 		for (const event of this.stream?.abandon() ?? []) this.live.emit(event);
 		run.tools.nextResponse();
 		this.stream = new AssistantStream(mintMessageId(), run.tools);
+	}
+
+	private flushDeferredImageTools(): void {
+		for (const ended of this.deferredImageTools.values()) this.tools.finishedWithoutEntry(ended);
+		this.deferredImageTools.clear();
 	}
 
 	private streamed(event: Extract<TerminalEvent, { e: "stream" }>["ev"]): void {
@@ -336,14 +360,50 @@ export class TerminalFeed {
 			}
 			case "user": {
 				this.ensureRun();
-				const clientRequestId: ClientRequestId | undefined = this.sent.claim(message.text);
+				const claimed = this.sent.claim(message.text);
+				let text = message.text;
+				let attachments: AttachmentRef[] = [];
+				if (claimed !== undefined && claimed.images.length > 0) {
+					attachments = [...claimed.images];
+				} else if (message.images !== undefined && message.images.length > 0 && message.timestamp !== undefined) {
+					attachments = message.images.map(
+						(slot): ImageRef => ({
+							kind: "image_ref",
+							id: `ts:${message.timestamp}:${slot.index}`,
+							mimeType: slot.mimeType,
+						}),
+					);
+				} else {
+					const extracted = extractUserImagePaths(text, this.cwd);
+					text = extracted.text;
+					attachments = [...extracted.files].slice(0, MAX_LIST_ITEMS);
+				}
 				this.live.emit({
 					type: "user_message",
 					messageId: mintMessageId(),
-					text: message.text,
-					attachments: [],
-					...(clientRequestId !== undefined && { clientRequestId }),
+					text,
+					attachments,
+					...(claimed !== undefined && { clientRequestId: claimed.clientRequestId }),
 				});
+				return;
+			}
+			case "toolResult": {
+				this.deferredImageTools.delete(message.toolCallId);
+				const timestamp = message.timestamp;
+				const content = message.result.content ?? [];
+				this.tools.finishedWithRefs(
+					{
+						toolCallId: message.toolCallId,
+						toolName: message.toolName,
+						result: message.result,
+						isError: message.isError,
+					},
+					(index): ImageRef | undefined => {
+						const block = content[index];
+						if (block?.type !== "image" || timestamp === undefined) return undefined;
+						return { kind: "image_ref", id: `ts:${timestamp}:${index}`, mimeType: block.mimeType };
+					},
+				);
 				return;
 			}
 			case "custom": {

@@ -8,6 +8,7 @@ import type {
 	AttachmentId,
 	AttachmentReadResult,
 	ForkPoint,
+	ImageVariant,
 	InteractionAnswer,
 	ModelId,
 	NewSessionResult,
@@ -85,7 +86,7 @@ export interface SessionStore {
 	list(query: SessionQuery, page: PageRequest, live: LiveOverlay): Promise<SessionsListResult>;
 	get(sessionId: SessionId, live: LiveOverlay): Promise<SessionGetResult>;
 	transcript(sessionId: SessionId, page: PageRequest, live: LiveOverlay): Promise<TranscriptReadResult>;
-	attachment(sessionId: SessionId, attachment: AttachmentId): Promise<AttachmentReadResult>;
+	attachment(sessionId: SessionId, attachment: AttachmentId, variant?: ImageVariant): Promise<AttachmentReadResult>;
 	locate(sessionId: SessionId): Promise<StoredSession | Rejected>;
 	/** Read once, as a host starts from the file. */
 	facts(session: StoredSession): Promise<StoredFacts | Rejected>;
@@ -154,3 +155,21 @@ export interface TerminalHolder {
 export interface TerminalPresence {
 	holder(sessionPath: string): TerminalHolder | undefined;
 }
+
+export type FittedImage =
+	| {
+			readonly ok: true;
+			readonly mimeType: string;
+			readonly data: string;
+			readonly width?: number;
+			readonly height?: number;
+			readonly originalBytes: number;
+			readonly resized: boolean;
+	  }
+	| {
+			readonly ok: false;
+			readonly reason: "not_image" | "too_large" | "unsupported";
+			readonly message: string;
+	  };
+
+export type ImageFitter = (data: string, mimeType: string, variant: ImageVariant) => Promise<FittedImage>;

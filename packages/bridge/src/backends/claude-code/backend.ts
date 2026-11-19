@@ -6,6 +6,7 @@
 
 import type { AgentBackend, BackendHost, CommandsListResult, SessionRef } from "../../contract";
 import { CatalogFeed } from "./catalog-feed";
+import { LiveImageCache } from "./live/image-cache";
 import { createLiveSessions } from "./live/registry";
 import { CLAUDE_CODE_MAPPING } from "./mapping";
 import { createCatalogue } from "./models/catalog";
@@ -15,6 +16,7 @@ import { createOwnership } from "./owned";
 import type { CatalogueAccess, LiveOverlay, LiveSessions, Ownership, SessionStore, TerminalWatch } from "./ports";
 import { isRejected } from "./rejections";
 import type { ClaudeCodeServices } from "./services";
+import { formatImageRead } from "./store/attachments";
 import { createSessionStore } from "./store/session-store";
 import { createTerminalWatch } from "./terminal/watch-only";
 import { CLAUDE_CODE_TRAITS } from "./traits";
@@ -30,12 +32,14 @@ export interface ClaudeCodeParts {
 	readonly catalogue: CatalogueAccess;
 	readonly live: LiveSessions;
 	readonly configWatch: ConfigWatch;
+	readonly images: LiveImageCache;
 	/** What the store lays over a session's row: the hosted session's facts, else a terminal process's status. */
 	readonly overlay: LiveOverlay;
 }
 
 export function createClaudeCodeParts(host: BackendHost, services: ClaudeCodeServices): ClaudeCodeParts {
 	const catalog = new CatalogFeed(host.catalog);
+	const images = new LiveImageCache();
 	const ownership = createOwnership({ services });
 	const terminal = createTerminalWatch({
 		services,
@@ -56,14 +60,15 @@ export function createClaudeCodeParts(host: BackendHost, services: ClaudeCodeSer
 		catalogue,
 		mapping: CLAUDE_CODE_MAPPING,
 		createDesk: createAskDesk,
+		images,
 	});
 	const configWatch = createConfigWatch({ configRoot: services.sdk.configRoot(), catalogue });
 	const overlay: LiveOverlay = { row: (sessionId) => live.row(sessionId) ?? terminal.row(sessionId) };
-	return { services, catalog, ownership, terminal, store, catalogue, live, configWatch, overlay };
+	return { services, catalog, ownership, terminal, store, catalogue, live, configWatch, images, overlay };
 }
 
 export function claudeCodeBackendOf(parts: ClaudeCodeParts): AgentBackend {
-	const { services, catalog, terminal, store, catalogue, live, configWatch, overlay } = parts;
+	const { services, catalog, terminal, store, catalogue, live, configWatch, images, overlay } = parts;
 	return {
 		id: "claude-code",
 		traits: CLAUDE_CODE_TRAITS,
@@ -71,7 +76,14 @@ export function claudeCodeBackendOf(parts: ClaudeCodeParts): AgentBackend {
 		listSessions: (query, page) => store.list(query, page, overlay),
 		getSession: async (ref) => (mine(ref) ? store.get(ref.sessionId, overlay) : notFound(ref)),
 		readTranscript: async (ref, page) => (mine(ref) ? store.transcript(ref.sessionId, page, overlay) : notFound(ref)),
-		readAttachment: async (ref, id) => (mine(ref) ? store.attachment(ref.sessionId, id) : notFound(ref)),
+		readAttachment: async (ref, id, variant) => {
+			if (!mine(ref)) return notFound(ref);
+			const cached = images.get(ref.sessionId, id);
+			if (cached !== undefined) {
+				return formatImageRead(cached, variant ?? "full", services.fitImage);
+			}
+			return store.attachment(ref.sessionId, id, variant);
+		},
 		listModels: (cwd, options) => catalogue.models(cwd, options),
 		listCommands: (scope) => listCommands(parts, scope),
 		listModes: (cwd) => catalogue.modes(cwd),

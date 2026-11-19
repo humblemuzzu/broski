@@ -6,8 +6,10 @@
 import type { SessionMessage } from "@anthropic-ai/claude-agent-sdk";
 import {
 	type Activity,
+	type AttachmentRef,
 	ClientRequestId,
 	type ImageRef,
+	MAX_LIST_ITEMS,
 	MAX_NAME_CHARS,
 	MAX_TEXT_CHARS,
 	type TranscriptItem,
@@ -16,6 +18,7 @@ import { clip } from "../bounds";
 import { toolCallId, toolResultItemId } from "../ids";
 import { commandOutputActivity, savedTaskActivity, shellOutputActivity } from "../mapping/activities";
 import { type HarnessText, harnessText } from "../mapping/harness-text";
+import { extractUserImagePaths, stripImagePlaceholders } from "../mapping/image-paths";
 import { imageRefsOf } from "../mapping/images";
 import { toolResultOf } from "../mapping/tool-results";
 import type { PromptRecord } from "../ports/store";
@@ -96,13 +99,16 @@ function promptItem(
 	text: string,
 ): TranscriptItem | undefined {
 	const record = context.prompt(message.uuid);
-	const attachments = nameImages(imageRefsOf(rawContent(message), message.uuid), record);
-	if (text.trim() === "" && attachments.length === 0) return undefined;
+	const refs = nameImages(imageRefsOf(rawContent(message), message.uuid), record);
+	const displayText = refs.length > 0 ? stripImagePlaceholders(text) : text;
+	const attachments: AttachmentRef[] =
+		refs.length > 0 ? refs : extractUserImagePaths(displayText, context.cwd).slice(0, MAX_LIST_ITEMS);
+	if (displayText.trim() === "" && attachments.length === 0) return undefined;
 	return {
 		kind: "user_message",
 		id: message.uuid,
 		...(at !== undefined && { at }),
-		text: clip(text, MAX_TEXT_CHARS),
+		text: clip(displayText, MAX_TEXT_CHARS),
 		attachments,
 		...(record !== undefined && ClientRequestId.safeParse(message.uuid).success && { clientRequestId: message.uuid }),
 	};

@@ -1,6 +1,6 @@
 /** Bytes to complete JSONL lines; the partial last line waits for the next read, and a line past the bound is dropped. */
 
-export const MAX_LINE_BYTES = 4 * 1_048_576;
+export const MAX_LINE_BYTES = 24 * 1_048_576;
 
 const NEWLINE = 0x0a;
 const DECODER = new TextDecoder("utf-8", { fatal: false });

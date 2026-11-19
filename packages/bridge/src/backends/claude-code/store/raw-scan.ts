@@ -12,7 +12,7 @@ import { type SystemFact, systemFactOf } from "./system-facts";
 
 const CHUNK_BYTES = 1_048_576;
 /** A line longer than this is neither held nor parsed: a `toolUseResult` that large is not shown anyway. */
-export const MAX_RAW_LINE_BYTES = 8 * 1_048_576;
+export const MAX_RAW_LINE_BYTES = 24 * 1_048_576;
 const MAX_SYSTEM_LINE_BYTES = 65_536;
 const MAX_SPANS = 100_000;
 const MAX_FACTS = 20_000;

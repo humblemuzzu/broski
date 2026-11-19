@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ImageVariant } from "./content";
 import { ActionResult } from "./input";
 import {
 	MAX_FILE_READ_BYTES,
@@ -11,7 +12,14 @@ import {
 import { MAX_PAGE_LIMIT, PageCursor } from "./paging";
 import { request, response } from "./protocol-request";
 import { WorkingDirectory } from "./sessions";
-import { FilePath, FsListResult, FsReadResult, FsSearchResult, WorkspaceInfoResult } from "./workspace-files";
+import {
+	FilePath,
+	FsImageResult,
+	FsListResult,
+	FsReadResult,
+	FsSearchResult,
+	WorkspaceInfoResult,
+} from "./workspace-files";
 import {
 	GitBranchesResult,
 	GitCheckoutResult,
@@ -44,6 +52,10 @@ export const FsReadRequest = request("fs.read", {
 	path: FilePath,
 	offset: z.int().nonnegative().optional(),
 	length: z.int().min(1).max(MAX_FILE_READ_BYTES).optional(),
+});
+export const FsImageRequest = request("fs.image", {
+	path: FilePath,
+	variant: ImageVariant.optional(),
 });
 export const FsSearchRequest = request("fs.search", {
 	root: WorkingDirectory,
@@ -97,6 +109,7 @@ export const TermCloseRequest = request("term.close", { id: TerminalId });
 export const WorkspaceInfoResponse = response("workspace.info", { result: WorkspaceInfoResult });
 export const FsListResponse = response("fs.list", { result: FsListResult });
 export const FsReadResponse = response("fs.read", { result: FsReadResult });
+export const FsImageResponse = response("fs.image", { result: FsImageResult });
 export const FsSearchResponse = response("fs.search", { result: FsSearchResult });
 export const GitStatusResponse = response("git.status", { result: GitStatusResult });
 export const GitDiffResponse = response("git.diff", { result: GitDiffResult });

@@ -38,6 +38,7 @@ final class ChatModel {
     private(set) var feedback: ChatFeedback?
 
     @ObservationIgnored let requests: ChatRequests
+    @ObservationIgnored let imageStore: ChatImageStore
     @ObservationIgnored private let attach: (SessionRef) throws -> SessionView
     @ObservationIgnored private let drafts: DraftStore
     /// The items of a run that ended, and activities outside any run, shown until the transcript's
@@ -47,7 +48,6 @@ final class ChatModel {
     /// When each live row that rises in was first built.
     @ObservationIgnored private var births: [String: Date] = [:]
     @ObservationIgnored private var pull: Task<Void, Never>?
-    @ObservationIgnored private var images: [String: UIImage] = [:]
     @ObservationIgnored private var newestReads = 0
     @ObservationIgnored private var newestRetry: Task<Void, Never>?
     @ObservationIgnored private var newestFailures = 0
@@ -57,7 +57,8 @@ final class ChatModel {
     static let revealWait: Duration = .milliseconds(1200)
 
     init(
-        target: SessionTarget, requests: ChatRequests, drafts: DraftStore, firstPrompt: ComposerDraft? = nil,
+        target: SessionTarget, requests: ChatRequests, workspace: WorkspaceRequests? = nil, drafts: DraftStore,
+        firstPrompt: ComposerDraft? = nil,
         attach: @escaping (SessionRef) throws -> SessionView
     ) {
         machineId = target.machineId
@@ -67,6 +68,11 @@ final class ChatModel {
         self.attach = attach
         self.firstPrompt = firstPrompt
         draft = drafts[target]
+        let ws = workspace ?? WorkspaceRequests(send: requests.send)
+        var current: () -> SessionRef = { target.session }
+        let store = ChatImageStore(requests: requests, workspace: ws, session: { current() })
+        self.imageStore = store
+        current = { [weak self] in self?.session ?? target.session }
     }
 
     var target: SessionTarget { SessionTarget(machineId: machineId, session: session) }
@@ -147,6 +153,7 @@ final class ChatModel {
             Task { await loadNewest() }
         }
         retireDelivered(state.snapshot.run?.items.deliveredRequests ?? [])
+        bindConfirmedImages(in: state.snapshot.run?.items ?? [])
         if case .changes = update { rebuildLive() } else { rebuildLive(arriving: false) }
         if case .ended = update { isRevealed = true }
         revealIfReady()
@@ -196,14 +203,12 @@ final class ChatModel {
         }
     }
 
-    /// An image a message names, read back from the Mac once and kept while the chat is open.
-    func image(_ ref: ImageRef) async -> UIImage? {
-        if let known = images[ref.id] { return known }
-        guard let read = try? await requests.attachment(session, id: ref.id),
-            let data = Data(base64Encoded: read.data), let image = UIImage(data: data)
-        else { return nil }
-        images[ref.id] = image
-        return image
+    private func bindConfirmedImages(in items: [TranscriptItem]) {
+        for item in items {
+            if case .userMessage(let message) = item, let requestId = message.clientRequestId, !message.attachments.isEmpty {
+                imageStore.bindConfirmed(requestId: requestId, attachments: message.attachments)
+            }
+        }
     }
 
     // MARK: Transcript
@@ -229,6 +234,7 @@ final class ChatModel {
             if error.code == nil { readNewestLater() }
         }
         retireDelivered(history.deliveredRequests)
+        bindConfirmedImages(in: history.items)
         rebuildHistory()
         revealIfReady()
     }
@@ -326,6 +332,7 @@ final class ChatModel {
 
     private func deliver(_ sent: ComposerDraft, mode: PromptMode) async {
         let input = sent.input(mode: mode)
+        imageStore.rememberOutgoing(requestId: input.clientRequestId, images: sent.images)
         pending.append(PendingPrompt(id: input.clientRequestId, draft: sent))
         rebuildLive()
         feedback = ChatFeedback(.sent)

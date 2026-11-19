@@ -72,6 +72,21 @@ export type FileRead = z.infer<typeof FileRead>;
 export const FsReadResult = z.discriminatedUnion("status", [FileRead, Rejected]);
 export type FsReadResult = z.infer<typeof FsReadResult>;
 
+export const FileImageRead = z.strictObject({
+	status: z.literal("accepted"),
+	path: FilePath,
+	mimeType: z.string().min(1).max(MAX_NAME_CHARS),
+	data: z.string().min(1).max(MAX_IMAGE_CHARS),
+	size: z.int().nonnegative(),
+	width: z.int().positive().optional(),
+	height: z.int().positive().optional(),
+	resized: z.boolean(),
+});
+export type FileImageRead = z.infer<typeof FileImageRead>;
+
+export const FsImageResult = z.discriminatedUnion("status", [FileImageRead, Rejected]);
+export type FsImageResult = z.infer<typeof FsImageResult>;
+
 /** `path` is relative to the search's root. */
 export const FileMatch = z.strictObject({ path: FilePath, kind: FileKind });
 export type FileMatch = z.infer<typeof FileMatch>;

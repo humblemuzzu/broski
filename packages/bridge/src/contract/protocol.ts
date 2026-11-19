@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { Capabilities, SessionCapabilities } from "./capabilities";
 import { CatalogEvent } from "./catalog-events";
+import { ImageVariant } from "./content";
 import { EventEnvelope } from "./events";
 import { AttachmentId, BackendId, ModelId, QueueItemId, SessionRef } from "./ids";
 import { ActionResult, PromptInput, PromptResult } from "./input";
@@ -11,6 +12,8 @@ import { PageRequest } from "./paging";
 import { PlanUsageResult } from "./plan-usage";
 import { RequestId, request, response } from "./protocol-request";
 import {
+	FsImageRequest,
+	FsImageResponse,
 	FsListRequest,
 	FsListResponse,
 	FsReadRequest,
@@ -157,7 +160,11 @@ export const SessionAttachRequest = request("session.attach", {
 });
 export const SessionDetachRequest = request("session.detach", { session: SessionRef });
 export const TranscriptReadRequest = request("transcript.read", { session: SessionRef, page: PageRequest });
-export const AttachmentReadRequest = request("attachment.read", { session: SessionRef, attachmentId: AttachmentId });
+export const AttachmentReadRequest = request("attachment.read", {
+	session: SessionRef,
+	attachmentId: AttachmentId,
+	variant: ImageVariant.optional(),
+});
 export const PromptRequest = request("prompt", { session: SessionRef, input: PromptInput });
 export const AbortRequest = request("abort", { session: SessionRef });
 export const InteractionAnswerRequest = request("interaction.answer", {
@@ -211,6 +218,7 @@ export const ClientMessage = z.discriminatedUnion("type", [
 	WorkspaceInfoRequest,
 	FsListRequest,
 	FsReadRequest,
+	FsImageRequest,
 	FsSearchRequest,
 	GitStatusRequest,
 	GitDiffRequest,
@@ -325,6 +333,7 @@ export const ServerMessage = z.discriminatedUnion("type", [
 	WorkspaceInfoResponse,
 	FsListResponse,
 	FsReadResponse,
+	FsImageResponse,
 	FsSearchResponse,
 	GitStatusResponse,
 	GitDiffResponse,

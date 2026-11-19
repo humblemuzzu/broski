@@ -1,5 +1,6 @@
 import type { Capabilities, SessionCapabilities } from "./capabilities";
 import type { CatalogEvent } from "./catalog-events";
+import type { ImageVariant } from "./content";
 import type { EventEnvelope } from "./events";
 import type { AttachmentId, BackendId, ModelId, QueueItemId, SessionRef } from "./ids";
 import type { ActionResult, PromptInput, PromptResult } from "./input";
@@ -69,7 +70,7 @@ export interface AgentBackend {
 	/** Finished runs only: while an open session has an active run, its items are in `run.items` instead. */
 	readTranscript(session: SessionRef, page: PageRequest): Promise<TranscriptReadResult>;
 	/** The bytes behind an `ImageRef` the session's events or transcript named. */
-	readAttachment(session: SessionRef, attachment: AttachmentId): Promise<AttachmentReadResult>;
+	readAttachment(session: SessionRef, attachment: AttachmentId, variant?: ImageVariant): Promise<AttachmentReadResult>;
 	listModels(cwd: string | undefined, options?: ModelListOptions): Promise<ModelsListResult>;
 	listCommands(scope: { cwd?: string; session?: SessionRef }): Promise<CommandsListResult>;
 	listModes(cwd: string | undefined): Promise<ModesListResult>;

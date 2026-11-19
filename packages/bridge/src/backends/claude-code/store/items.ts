@@ -26,6 +26,8 @@ export interface ItemContext {
 	/** What the raw file says of this entry when it is a `system` entry, and of the chain entry before it. */
 	readonly system?: SystemFact;
 	readonly previousSystem?: SystemFact;
+	/** The session's working directory, for resolving relative image paths in user messages. */
+	readonly cwd?: string;
 }
 
 export function itemsOf(message: SessionMessage, context: ItemContext): TranscriptItem[] {

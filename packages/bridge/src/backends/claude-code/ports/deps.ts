@@ -2,6 +2,7 @@
 
 import type { Rejected, SessionId } from "../../../contract";
 import type { CatalogFeed } from "../catalog-feed";
+import type { LiveImageCache } from "../live/image-cache";
 import type { ClaudeCodeServices } from "../services";
 import type { AskDeskFactory } from "./asks";
 import type { CatalogueAccess } from "./catalogue";
@@ -33,6 +34,7 @@ export interface LiveDeps {
 	readonly catalogue: CatalogueAccess;
 	readonly mapping: MappingPort;
 	readonly createDesk: AskDeskFactory;
+	readonly images?: LiveImageCache;
 }
 
 /** The terminal watch is built before the store and the live sessions, so it reaches them through functions. */

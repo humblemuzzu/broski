@@ -81,11 +81,13 @@ enum FormatSpans {
         return piece
     }
 
-    /// An image is never loaded: a chip naming it and where it lives, opening in the browser.
+    /// An image link is never auto-loaded: a chip naming it and where it lives; local image paths
+    /// open in the image viewer, web images open in the browser.
     private static func image(_ span: FormatSpan, link: FormatLink, style: SpanStyle) -> AttributedString {
-        let host = URL(string: link.target)?.host() ?? link.target
-        let name = span.text.isEmpty ? "Image" : span.text
-        var piece = AttributedString("\u{202F}\(name) · \(host)\u{202F}")
+        let detail = link.kind == .web ? (URL(string: link.target)?.host() ?? link.target) : (link.target as NSString).lastPathComponent
+        let name = span.text.isEmpty ? detail : span.text
+        let label = name == detail ? name : "\(name) · \(detail)"
+        var piece = AttributedString("\u{202F}\(label)\u{202F}")
         piece.font = style.font.weight(.medium)
         apply(link, to: &piece, style: style)
         return piece

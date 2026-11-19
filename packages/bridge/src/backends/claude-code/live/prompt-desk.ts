@@ -11,11 +11,13 @@ import type {
 	RunTrigger,
 	SessionId,
 } from "../../../contract";
-import { sendUuid } from "../ids";
+import { imageAttachmentId, sendUuid } from "../ids";
+import { base64ImageOf } from "../mapping/images";
 import type { SessionEmitter } from "../ports/live";
 import type { Ownership } from "../ports/store";
 import { ACCEPTED, CLOSED, isRejected, rejected } from "../rejections";
 import { errorText } from "./error-text";
+import type { LiveImageCache } from "./image-cache";
 import { type PreparedSend, userMessageOf, withPriority } from "./input";
 import type { InputQueue } from "./queue";
 import type { RunTracker } from "./run-tracker";
@@ -40,6 +42,7 @@ export interface PromptDeskDeps {
 	readonly locked: <T>(work: () => Promise<T>) => Promise<T>;
 	/** A run began: the catalogue row flips to running. */
 	readonly runBegan: () => void;
+	readonly images?: LiveImageCache;
 }
 
 export interface SendOptions {
@@ -136,6 +139,7 @@ export class PromptDesk {
 	}
 
 	private record(send: PreparedSend): void {
+		this.cacheImages(send);
 		this.deps.noteSend(send.uuid);
 		try {
 			this.deps.ownership
@@ -146,6 +150,25 @@ export class PromptDesk {
 		} catch {
 			/* the journal is a convenience: the prompt goes on without its record */
 		}
+	}
+
+	private cacheImages(send: PreparedSend): void {
+		const cache = this.deps.images;
+		const content = send.message.message.content;
+		if (cache === undefined || !Array.isArray(content)) return;
+		const sessionId = this.deps.sessionId();
+		let imagePosition = 0;
+		content.forEach((block, blockIndex) => {
+			const image = base64ImageOf(block);
+			if (image === undefined) return;
+			const name = send.imageNames[imagePosition];
+			imagePosition += 1;
+			cache.put(sessionId, imageAttachmentId(send.uuid, blockIndex), {
+				mimeType: image.mimeType,
+				data: image.data,
+				...(name !== undefined && name !== "" && { name }),
+			});
+		});
 	}
 
 	private settled(id: ClientRequestId, attempt: Promise<PromptResult>, result: PromptResult): PromptResult {

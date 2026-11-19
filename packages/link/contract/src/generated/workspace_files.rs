@@ -27,6 +27,28 @@ pub struct FileEntry {
     pub modified_at: Option<Timestamp>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FileImageRead {
+    pub path: FilePath,
+    pub mime_type: String,
+    pub data: String,
+    pub size: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "crate::codec::present")]
+    pub width: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "crate::codec::present")]
+    pub height: Option<i64>,
+    pub resized: bool,
+}
+
+impl crate::Tagged for FileImageRead {
+    const KEY: &'static str = "status";
+    const TAG: &'static str = "accepted";
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 pub enum FileKind {
@@ -95,6 +117,16 @@ pub struct FilesListed {
 impl crate::Tagged for FilesListed {
     const KEY: &'static str = "status";
     const TAG: &'static str = "accepted";
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[serde(tag = "status")]
+pub enum FsImageResult {
+    #[serde(rename = "accepted")]
+    Accepted(FileImageRead),
+    #[serde(rename = "rejected")]
+    Rejected(Rejected),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

@@ -62,7 +62,11 @@ import com.muzammil.broski.feature.chat.transcript.TranscriptState
 import com.muzammil.broski.feature.chat.transcript.laneStatus
 import com.muzammil.broski.feature.chat.transcript.rememberTranscriptState
 import com.muzammil.broski.feature.chat.work.WorkActions
+import com.muzammil.broski.feature.images.ImageLightbox
+import com.muzammil.broski.feature.images.ImageTarget
+import com.muzammil.broski.feature.images.LightboxRequest
 import kotlinx.coroutines.launch
+import uniffi.broski_core.isImagePath
 
 private const val OFFLINE_ALPHA = 0.55f
 
@@ -80,32 +84,55 @@ fun ChatLayout(model: ChatViewModel, context: FeatureContext, snackbar: Snackbar
     val header by model.header.collectAsStateWithLifecycle()
     val revealed by model.revealed.collectAsStateWithLifecycle()
     val history by model.feed.history.collectAsStateWithLifecycle()
-    val images by model.images.images.collectAsStateWithLifecycle()
     val transcript = rememberTranscriptState(rememberLazyListState())
     var topHeight by remember { mutableIntStateOf(0) }
     var bottomHeight by remember { mutableIntStateOf(0) }
+    var lightbox by remember { mutableStateOf<LightboxRequest?>(null) }
     val online = header.online
     val shown by animateFloatAsState(if (revealed) 1f else 0f, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "reveal")
-    val callbacks = remember(model) {
+    val openImages: (List<ImageTarget>, Int) -> Unit = remember(model) {
+        { items, index ->
+            lightbox = LightboxRequest(
+                items = items,
+                initialIndex = index,
+                thumbnail = model.images::cachedThumbnail,
+                loadFull = model.images::loadFull,
+            )
+        }
+    }
+    val openResolvedPath: (String, Int?) -> Unit = remember(model, context, openImages) {
+        { rawPath, line ->
+            val resolved = resolvePath(model.header.value.cwd, rawPath)
+            if (isImagePath(resolved)) {
+                openImages(listOf(ImageTarget.File(resolved, null)), 0)
+            } else {
+                context.navigate(FileRoute(model.machineId, resolved, line))
+            }
+        }
+    }
+    val callbacks = remember(model, openImages, openResolvedPath) {
         TranscriptCallbacks(
-            requestImage = model.images::request,
+            openImages = openImages,
             loadOlder = model.feed::loadOlder,
             work = WorkActions(
                 openDiff = dialogs.openDiff,
                 openSession = { session -> context.navigate(SessionRoute.of(model.machineId, session)) },
                 openText = dialogs.openText,
-                openFile = { path -> context.navigate(FileRoute(model.machineId, path)) },
-                openFileAt = { path, line -> context.navigate(FileRoute(model.machineId, resolvePath(header.cwd, path), line)) },
+                openFile = { path -> openResolvedPath(path, null) },
+                openFileAt = openResolvedPath,
+                imageStore = model.images,
+                openImages = openImages,
             ),
         )
     }
     val links = remember(callbacks) { FormatLinks(callbacks.work.openFileAt) }
+    lightbox?.let { request -> ImageLightbox(request) { lightbox = null } }
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
         CompositionLocalProvider(LocalFormatLinks provides links) {
             TranscriptList(
                 rows = rows,
                 lane = laneStatus(live.snapshot),
-                images = images,
+                imageStore = model.images,
                 state = transcript,
                 callbacks = callbacks,
                 contentPadding = with(density) { PaddingValues(top = topHeight.toDp() + 8.dp, bottom = bottomHeight.toDp() + 8.dp) },

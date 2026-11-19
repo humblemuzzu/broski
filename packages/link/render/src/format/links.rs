@@ -6,14 +6,71 @@ use super::model::{FormatLink, LinkKind};
 /// A bare URL longer than this shows shortened; its link keeps the whole.
 const SHORT_URL_CHARS: usize = 60;
 
+const IMAGE_EXTENSIONS: [&str; 13] = [
+    "png", "jpg", "jpeg", "webp", "gif", "heic", "heif", "avif", "bmp", "tif", "tiff", "svg", "ico",
+];
+
+/// Whether `path` ends with a known image file extension.
+pub fn is_image_path(path: &str) -> bool {
+    let (clean, _, _) = split_position(path.trim());
+    let name = clean.rsplit(['/', '\\']).next().unwrap_or(clean);
+    let Some((stem, ext)) = name.rsplit_once('.') else {
+        return false;
+    };
+    !stem.is_empty() && IMAGE_EXTENSIONS.contains(&ext.to_ascii_lowercase().as_str())
+}
+
+/// Decodes a `file://` URL naming an image file into its local filesystem path.
+pub(crate) fn image_file_uri(text: &str) -> Option<String> {
+    let rest = text
+        .strip_prefix("file://")
+        .or_else(|| text.strip_prefix("FILE://"))?;
+    let path = rest.strip_prefix("localhost").unwrap_or(rest);
+    if !path.starts_with('/') {
+        return None;
+    }
+    let decoded = percent_decode(path);
+    is_image_path(&decoded).then_some(decoded)
+}
+
+fn percent_decode(text: &str) -> String {
+    let bytes = text.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' && i + 2 < bytes.len() {
+            if let (Some(hi), Some(lo)) = (hex(bytes[i + 1]), hex(bytes[i + 2])) {
+                out.push((hi << 4) | lo);
+                i += 3;
+                continue;
+            }
+        }
+        out.push(bytes[i]);
+        i += 1;
+    }
+    String::from_utf8(out).unwrap_or_else(|_| text.to_owned())
+}
+
+fn hex(b: u8) -> Option<u8> {
+    match b {
+        b'0'..=b'9' => Some(b - b'0'),
+        b'a'..=b'f' => Some(b - b'a' + 10),
+        b'A'..=b'F' => Some(b - b'A' + 10),
+        _ => None,
+    }
+}
+
 /// The link a written destination (`[label](destination)`) makes. Only `http`, `https` and
-/// `mailto` open; any other scheme and an anchor stay text; anything else is a path.
+/// `mailto` open; `file://` opens when it names an image; any other scheme and an anchor stay
+/// text; anything else is a path.
 pub(crate) fn written_link(destination: &str) -> FormatLink {
     let lower = destination.to_ascii_lowercase();
     let kind = if lower.starts_with("http://") || lower.starts_with("https://") {
         LinkKind::Web
     } else if lower.starts_with("mailto:") {
         LinkKind::Mail
+    } else if let Some(path) = image_file_uri(destination) {
+        return path_link(&path, false);
     } else if destination.starts_with('#') || has_scheme(destination) {
         LinkKind::Inert
     } else {
@@ -102,6 +159,50 @@ pub(crate) fn is_path(token: &str) -> bool {
         && segments.len() >= 3
         && SYSTEM_ROOTS.contains(&segments[1].to_ascii_lowercase().as_str());
     named || system_root
+}
+
+/// A path written inside inline code that names an image file, including macOS screenshot names
+/// containing spaces (e.g. `` `/Users/me/Desktop/Screenshot 2026-11-19.png` ``).
+pub(crate) fn code_image_link(text: &str) -> Option<FormatLink> {
+    if let Some(path) = image_file_uri(text) {
+        return Some(path_link(&path, true));
+    }
+    let trimmed = text.trim();
+    if trimmed.contains("://") || trimmed.contains('\n') || !is_image_path(trimmed) {
+        return None;
+    }
+    let rooted = trimmed.starts_with("~/")
+        || trimmed.starts_with("./")
+        || trimmed.starts_with("../")
+        || windows_path(trimmed)
+        || is_system_rooted(trimmed);
+    rooted.then(|| path_link(trimmed, true))
+}
+
+/// A bare token in prose or a log that unambiguously names a local image file (`/tmp/shot.png`,
+/// `~/Desktop/a.png`, `./out/chart.webp`, `file:///tmp/shot.png`).
+pub(crate) fn bare_image_link(token: &str) -> Option<FormatLink> {
+    if let Some(path) = image_file_uri(token) {
+        return Some(path_link(&path, true));
+    }
+    if token.contains("://") || token.chars().any(char::is_whitespace) || !is_image_path(token) {
+        return None;
+    }
+    let rooted = token.starts_with("~/")
+        || token.starts_with("./")
+        || token.starts_with("../")
+        || windows_path(token)
+        || is_system_rooted(token);
+    (rooted && is_path(token)).then(|| path_link(token, true))
+}
+
+fn is_system_rooted(path: &str) -> bool {
+    let mut parts = path.split('/');
+    matches!(parts.next(), Some(""))
+        && parts
+            .next()
+            .is_some_and(|root| SYSTEM_ROOTS.contains(&root.to_ascii_lowercase().as_str()))
+        && parts.next().is_some_and(|rest| !rest.is_empty())
 }
 
 /// The folders at the root of a Mac or Linux disk, under which a path with no file name is still

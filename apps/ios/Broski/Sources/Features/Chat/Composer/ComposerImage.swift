@@ -26,14 +26,22 @@ nonisolated enum ImageFitter {
     static func fit(_ image: UIImage, within budget: Int, name: String? = nil) -> ComposerImage? {
         let longest = max(image.size.width, image.size.height) * image.scale
         guard longest > 0 else { return nil }
+        // Preserve lossless PNG for screenshots / transparent images when small enough to stay crisp.
+        if longest <= sides[0], ChatImageStore.hasAlpha(image),
+            let png = draw(image, longest: longest, opaque: false).pngData(),
+            png.count <= 1_572_864, base64Length(png.count) <= budget
+        {
+            let content = ImageContent(mimeType: "image/png", data: png.base64EncodedString(), name: name)
+            return ComposerImage(id: UUID(), thumbnail: draw(image, longest: thumbnailSide, opaque: false), content: content)
+        }
         let steps = sides.filter { $0 < longest }
         for side in (longest <= sides[0] ? [longest] : []) + steps {
-            let drawn = draw(image, longest: side)
+            let drawn = draw(image, longest: side, opaque: true)
             for quality in qualities {
                 guard let data = drawn.jpegData(compressionQuality: quality) else { continue }
                 if base64Length(data.count) <= budget {
                     let content = ImageContent(mimeType: "image/jpeg", data: data.base64EncodedString(), name: name)
-                    return ComposerImage(id: UUID(), thumbnail: draw(image, longest: thumbnailSide), content: content)
+                    return ComposerImage(id: UUID(), thumbnail: draw(image, longest: thumbnailSide, opaque: true), content: content)
                 }
             }
         }
@@ -43,13 +51,13 @@ nonisolated enum ImageFitter {
     static func base64Length(_ bytes: Int) -> Int { (bytes + 2) / 3 * 4 }
 
     /// The image at `longest` pixels on its longer side, at scale 1, never larger than it is.
-    static func draw(_ image: UIImage, longest: CGFloat) -> UIImage {
+    static func draw(_ image: UIImage, longest: CGFloat, opaque: Bool = true) -> UIImage {
         let pixels = CGSize(width: image.size.width * image.scale, height: image.size.height * image.scale)
         let factor = min(1, longest / max(pixels.width, pixels.height))
         let size = CGSize(width: (pixels.width * factor).rounded(), height: (pixels.height * factor).rounded())
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1
-        format.opaque = true
+        format.opaque = opaque
         return UIGraphicsImageRenderer(size: size, format: format).image { _ in
             image.draw(in: CGRect(origin: .zero, size: size))
         }

@@ -53,7 +53,14 @@ export type TranscriptRead = z.infer<typeof TranscriptRead>;
 export const TranscriptReadResult = z.discriminatedUnion("status", [TranscriptRead, Rejected]);
 export type TranscriptReadResult = z.infer<typeof TranscriptReadResult>;
 
-export const AttachmentRead = z.strictObject({ status: z.literal("accepted"), image: ImageContent });
+export const AttachmentRead = z.strictObject({
+	status: z.literal("accepted"),
+	image: ImageContent,
+	width: z.int().positive().optional(),
+	height: z.int().positive().optional(),
+	originalBytes: z.int().nonnegative().optional(),
+	resized: z.boolean().optional(),
+});
 export type AttachmentRead = z.infer<typeof AttachmentRead>;
 
 export const AttachmentReadResult = z.discriminatedUnion("status", [AttachmentRead, Rejected]);

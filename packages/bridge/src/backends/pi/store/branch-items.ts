@@ -86,7 +86,13 @@ export class BranchItems {
 		if (entry.type !== "message") return {};
 		const message = entry.message;
 		const records = this.file.records.get(entry.id);
-		if (message.role === "user") return records?.prompt === undefined ? {} : { prompt: records.prompt };
+		if (message.role === "user") {
+			const cwd = this.file.header.cwd || undefined;
+			return {
+				...(records?.prompt !== undefined && { prompt: records.prompt }),
+				...(cwd !== undefined && { cwd }),
+			};
+		}
 		if (message.role === "assistant") return this.childLinks(position, message.content);
 		if (message.role !== "toolResult") return {};
 		const call =

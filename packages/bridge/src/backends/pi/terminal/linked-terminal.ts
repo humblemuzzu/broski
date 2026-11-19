@@ -33,6 +33,7 @@ export interface TerminalIdentity {
 	readonly pid: number;
 	readonly file: string;
 	readonly id: string;
+	readonly cwd?: string;
 }
 
 /** Whether process `pid` exists; another user's counts. A zombie counts too, until its parent reaps it. */
@@ -96,6 +97,7 @@ export class LinkedTerminal implements TerminalSession {
 			deps.now,
 			() => this.announce(),
 			(command) => void this.command(command),
+			identity.cwd,
 		);
 	}
 

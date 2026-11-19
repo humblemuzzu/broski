@@ -64,7 +64,7 @@ export const transcriptRead = onBackend<"transcript.read">(
 export const attachmentRead = onBackend<"attachment.read">(
 	(request) => request.session.backend,
 	async ({ request, respond, backend }) => {
-		const result = await backend.readAttachment(request.session, request.attachmentId);
+		const result = await backend.readAttachment(request.session, request.attachmentId, request.variant);
 		respond({ type: "attachment.read.result", requestId: request.requestId, result });
 	},
 );

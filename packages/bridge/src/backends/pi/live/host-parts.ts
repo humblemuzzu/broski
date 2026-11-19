@@ -158,6 +158,9 @@ function intakeParts(
 		record: (record) => void pi.child.record(record),
 		persistedPrompt: (entryId) => start.adoption?.prompts(entryId),
 		adopted: start.adoption !== undefined,
+		sessionId: start.facts.sessionId,
+		cwd: start.cwd,
+		...(env.images !== undefined && { images: env.images }),
 		hooks: {
 			userMessage: (text) => pi.listRow.userMessage(text),
 			renamed: (name) => pi.listRow.renamed(name),

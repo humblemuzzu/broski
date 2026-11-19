@@ -2,15 +2,19 @@ package com.muzammil.broski.feature.workspace
 
 import uniffi.broski_contract.ActionResult
 import uniffi.broski_contract.ClientMessage
+import uniffi.broski_contract.FileImageRead
 import uniffi.broski_contract.FileRead
 import uniffi.broski_contract.FilesFound
 import uniffi.broski_contract.FilesListed
+import uniffi.broski_contract.FsImageRequest
+import uniffi.broski_contract.FsImageResult
 import uniffi.broski_contract.FsListRequest
 import uniffi.broski_contract.FsListResult
 import uniffi.broski_contract.FsReadRequest
 import uniffi.broski_contract.FsReadResult
 import uniffi.broski_contract.FsSearchRequest
 import uniffi.broski_contract.FsSearchResult
+import uniffi.broski_contract.ImageVariant
 import uniffi.broski_contract.GitBranchesListed
 import uniffi.broski_contract.GitBranchesRequest
 import uniffi.broski_contract.GitBranchesResult
@@ -81,6 +85,15 @@ class WorkspaceClient(private val requester: Requester) {
             when (val result = (it as? ServerMessage.FsReadResult)?.v1?.result) {
                 is FsReadResult.Accepted -> Answer.Done(result.v1)
                 is FsReadResult.Rejected -> failed(result.v1)
+                null -> null
+            }
+        }
+
+    suspend fun image(path: String, variant: ImageVariant = ImageVariant.FULL): Answer<FileImageRead> =
+        ask(ClientMessage.FsImage(FsImageRequest("", path, variant))) {
+            when (val result = (it as? ServerMessage.FsImageResult)?.v1?.result) {
+                is FsImageResult.Accepted -> Answer.Done(result.v1)
+                is FsImageResult.Rejected -> failed(result.v1)
                 null -> null
             }
         }

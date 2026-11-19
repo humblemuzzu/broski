@@ -5,8 +5,11 @@
  */
 
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
-import { MAX_TEXT_CHARS } from "../../../contract";
+import { MAX_TEXT_CHARS, type SessionId } from "../../../contract";
 import { clip } from "../bounds";
+import { imageAttachmentId } from "../ids";
+import { isRecord } from "../json";
+import { base64ImageOf } from "../mapping/images";
 import type { AskDesk } from "../ports/asks";
 import type { CatalogueAccess } from "../ports/catalogue";
 import type { SessionEmitter } from "../ports/live";
@@ -14,6 +17,7 @@ import type { FrameMapper, MappedEvent, MappingPort } from "../ports/mapping";
 import type { CommandLifecycle } from "../ports/sdk";
 import { asCommandLifecycle } from "../sdk/lifecycle";
 import type { ChildRouter } from "./child-router";
+import type { LiveImageCache } from "./image-cache";
 import type { InputQueue } from "./queue";
 import type { RunTracker } from "./run-tracker";
 import type { SessionSettings } from "./settings";
@@ -42,6 +46,8 @@ export interface FrameDeps {
 	/** Asks the CLI to stop the run again. */
 	readonly stopAgain: () => void;
 	readonly conversationReset: (newConversationId: string) => void;
+	readonly sessionId?: () => SessionId;
+	readonly images?: LiveImageCache;
 }
 
 export class FrameHandler {
@@ -62,6 +68,7 @@ export class FrameHandler {
 				break;
 			case "assistant":
 			case "user":
+				if (frame.type === "user") this.cacheFrameImages(frame);
 				this.entry(frame);
 				this.began();
 				break;
@@ -155,5 +162,26 @@ export class FrameHandler {
 
 	private show(frame: SDKMessage): void {
 		this.deps.emitMapped(this.deps.mapper().map(frame));
+	}
+
+	private cacheFrameImages(frame: Extract<SDKMessage, { type: "user" }>): void {
+		const cache = this.deps.images;
+		const sessionId = this.deps.sessionId?.();
+		const uuid = frame.uuid;
+		const content = frame.message.content;
+		if (cache === undefined || sessionId === undefined || !uuid || !Array.isArray(content)) return;
+		content.forEach((block, blockIndex) => {
+			const top = base64ImageOf(block);
+			if (top !== undefined) {
+				cache.put(sessionId, imageAttachmentId(uuid, blockIndex), top);
+				return;
+			}
+			if (isRecord(block) && block.type === "tool_result" && Array.isArray(block.content)) {
+				block.content.forEach((inner, innerIndex) => {
+					const nested = base64ImageOf(inner);
+					if (nested !== undefined) cache.put(sessionId, imageAttachmentId(uuid, blockIndex, innerIndex), nested);
+				});
+			}
+		});
 	}
 }

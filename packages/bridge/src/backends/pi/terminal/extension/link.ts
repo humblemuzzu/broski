@@ -6,7 +6,7 @@ import type { ExtensionAPI, ExtensionContext, InputEventResult } from "@earendil
 import { RemoteDialogs } from "./dialogs";
 import { type Frame, type Json, MAX_TEXT, read } from "./projection";
 
-const VERSION = "5";
+const VERSION = "6";
 const LINK_VERSION = 1;
 const MAX_QUEUED_BYTES = 2 * 1024 * 1024;
 const MAX_LINE_BYTES = 1024 * 1024;

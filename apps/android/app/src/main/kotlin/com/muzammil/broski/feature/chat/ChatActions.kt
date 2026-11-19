@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.muzammil.broski.feature.chat.composer.ImageAttachments
 import com.muzammil.broski.feature.chat.composer.Outgoing
 import com.muzammil.broski.feature.chat.transcript.PendingSend
+import com.muzammil.broski.feature.images.ImageTarget
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -47,7 +48,9 @@ class ChatActions(
     /** Sends a prompt, shown at once and dimmed until the agent shows it as its own. */
     fun deliver(outgoing: Outgoing) {
         val id = outgoing.input.clientRequestId
-        model.feed.sent(PendingSend(id, outgoing.input.text, System.currentTimeMillis()))
+        model.images.rememberOutgoing(id, outgoing.images)
+        val localTargets = outgoing.images.map { ImageTarget.Local(it.id, name = null) }
+        model.feed.sent(PendingSend(id, outgoing.input.text, System.currentTimeMillis(), localTargets))
         scope.launch {
             val result = try {
                 client.prompt(outgoing.input)

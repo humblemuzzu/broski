@@ -1,3 +1,4 @@
+import BroskiCore
 import PhotosUI
 import SwiftUI
 import UIKit
@@ -75,7 +76,7 @@ func attach(_ images: [UIImage], to draft: Binding<ComposerDraft>, refuse: @esca
     }
 }
 
-/// The attached images as a strip of thumbnails, each with a remove button.
+/// The attached images as a strip of thumbnails, each tappable to preview and with a remove button.
 struct AttachmentStrip: View {
     @Binding var draft: ComposerDraft
     @ScaledMetric(relativeTo: .body) private var side: CGFloat = 56
@@ -83,31 +84,65 @@ struct AttachmentStrip: View {
     var body: some View {
         ScrollView(.horizontal) {
             HStack(spacing: Spacing.s) {
-                ForEach(draft.images) { image in
-                    Image(uiImage: image.thumbnail)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: side, height: side)
-                        .clipShape(.rect(cornerRadius: Radius.small + 2, style: .continuous))
-                        .overlay(alignment: .topTrailing) {
-                            Button {
-                                withAnimation(.snappy(duration: 0.22)) { draft.images.removeAll { $0.id == image.id } }
-                            } label: {
-                                Image(systemName: "xmark.circle.fill")
-                                    .symbolRenderingMode(.palette)
-                                    .foregroundStyle(.white, .black.opacity(0.6))
-                                    .font(.body)
-                            }
-                            .buttonStyle(.plain)
-                            .offset(x: 6, y: -6)
-                            .accessibilityLabel("Remove image")
+                ForEach(Array(draft.images.enumerated()), id: \.element.id) { index, image in
+                    Button {
+                        preview(at: index)
+                    } label: {
+                        Image(uiImage: image.thumbnail)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: side, height: side)
+                            .clipShape(.rect(cornerRadius: Radius.small + 2, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .overlay(alignment: .topTrailing) {
+                        Button {
+                            withAnimation(.snappy(duration: 0.22)) { draft.images.removeAll { $0.id == image.id } }
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .symbolRenderingMode(.palette)
+                                .foregroundStyle(.white, .black.opacity(0.6))
+                                .font(.body)
                         }
+                        .buttonStyle(.plain)
+                        .offset(x: 6, y: -6)
+                        .accessibilityLabel("Remove image")
+                    }
                 }
             }
             .padding(.top, Spacing.s)
             .padding(.trailing, Spacing.s)
         }
         .scrollIndicators(.hidden)
+    }
+
+    private func preview(at index: Int) {
+        let snapshot = draft.images
+        let targets = snapshot.map { ImageTarget.local(id: $0.id.uuidString, name: $0.content.name) }
+        let byId = Dictionary(uniqueKeysWithValues: snapshot.map { ($0.id.uuidString, $0) })
+        let host = UIHostingController(
+            rootView: ImageViewer(
+                items: targets,
+                initialIndex: index,
+                loadThumbnail: { target in
+                    if case .local(let id, _) = target { return byId[id]?.thumbnail }
+                    return nil
+                },
+                loadFull: { target async throws(ImageLoadError) in
+                    guard case .local(let id, _) = target, let item = byId[id] else {
+                        throw ImageLoadError(message: "Image removed.")
+                    }
+                    return try await ChatImageStore.decodeFullImage(
+                        base64: item.content.data, mimeType: item.content.mimeType, width: nil, height: nil, byteCount: nil)
+                },
+                onRemove: { target in
+                    guard case .local(let id, _) = target else { return }
+                    draft.images.removeAll { $0.id.uuidString == id }
+                }))
+        host.modalPresentationStyle = .overFullScreen
+        host.modalTransitionStyle = .crossDissolve
+        host.view.backgroundColor = .clear
+        FormatPresenter.present(host)
     }
 }
 

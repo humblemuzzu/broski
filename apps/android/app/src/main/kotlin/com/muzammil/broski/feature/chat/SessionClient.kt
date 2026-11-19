@@ -6,6 +6,7 @@ import uniffi.broski_contract.AttachmentReadRequest
 import uniffi.broski_contract.AttachmentReadResult
 import uniffi.broski_contract.ClientMessage
 import uniffi.broski_contract.CompactRequest
+import uniffi.broski_contract.ImageVariant
 import uniffi.broski_contract.InteractionAnswer
 import uniffi.broski_contract.InteractionAnswerRequest
 import uniffi.broski_contract.ModeSetRequest
@@ -66,9 +67,10 @@ class SessionClient(private val machine: Machine, private val current: () -> Ses
         ClientMessage.TranscriptRead(TranscriptReadRequest("", session, PageRequest(cursor, limit))),
     ).v1.result
 
-    suspend fun attachment(attachmentId: String): AttachmentReadResult = send<ServerMessage.AttachmentReadResult>(
-        ClientMessage.AttachmentRead(AttachmentReadRequest("", session, attachmentId)),
-    ).v1.result
+    suspend fun attachment(attachmentId: String, variant: ImageVariant = ImageVariant.FULL): AttachmentReadResult =
+        send<ServerMessage.AttachmentReadResult>(
+            ClientMessage.AttachmentRead(AttachmentReadRequest("", session, attachmentId, variant)),
+        ).v1.result
 
     suspend fun summary(): SessionGetResult =
         send<ServerMessage.SessionGetResult>(ClientMessage.SessionGet(SessionGetRequest("", session))).v1.result

@@ -30,7 +30,7 @@ mod work;
 
 pub use activity::{activity_look, clip_text, format_duration};
 pub use format::{
-    format_json, format_markdown, format_message, format_plain_text, format_samples,
+    format_json, format_markdown, format_message, format_plain_text, format_samples, is_image_path,
     language_label, table_csv, table_html, table_markdown, table_tsv,
 };
 pub use inbox::Inbox;

@@ -9,10 +9,11 @@ import com.muzammil.broski.core.voice.DictationTarget
 import com.muzammil.broski.feature.chat.composer.CatalogReader
 import com.muzammil.broski.feature.chat.composer.ComposerState
 import com.muzammil.broski.feature.chat.composer.ImageAttachments
-import com.muzammil.broski.feature.chat.transcript.AttachmentCache
 import com.muzammil.broski.feature.chat.transcript.ChatRow
 import com.muzammil.broski.feature.chat.transcript.RowBuilder
 import com.muzammil.broski.feature.chat.transcript.RowInput
+import com.muzammil.broski.feature.images.ChatImageStore
+import com.muzammil.broski.feature.workspace.WorkspaceClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -60,11 +61,12 @@ class ChatViewModel(
     private val mutableEvents = MutableSharedFlow<ChatEvent>(extraBufferCapacity = 8)
     private var noticeIds = 0L
 
+    val workspace = WorkspaceClient(machine::request)
     val feed = SessionFeed(machine, route, viewModelScope, ::moment, ::followed, ::runEnded)
     val composer = ComposerState("", viewModelScope) { phone.saveDraft(machineId, route, it) }
     val catalog = CatalogReader(machine, viewModelScope)
     val actions = ChatActions(this, attachments, mutableEvents)
-    val images = AttachmentCache(feed.client, viewModelScope)
+    val images = ChatImageStore(feed.client, workspace, viewModelScope)
 
     val events: SharedFlow<ChatEvent> = mutableEvents.asSharedFlow()
     val notices: StateFlow<List<ChatNotice>> = mutableNotices
@@ -127,7 +129,19 @@ class ChatViewModel(
         viewModelScope.launch {
             header.map { it.health?.isOnline == true }.distinctUntilChanged().filter { it }.collect {
                 catalog.load(feed.session.backend, header.value.cwd, feed.session)
+                images.retryFailed()
                 if (mutableSummary.value == null) readSummary()
+            }
+        }
+        viewModelScope.launch {
+            combine(feed.history, feed.live) { history, live ->
+                history.items + live.snapshot.run?.items.orEmpty()
+            }.collect { items ->
+                items.forEach { item ->
+                    val message = (item as? TranscriptItem.UserMessage)?.v1 ?: return@forEach
+                    val requestId = message.clientRequestId ?: return@forEach
+                    if (message.attachments.isNotEmpty()) images.bindConfirmed(requestId, message.attachments)
+                }
             }
         }
     }

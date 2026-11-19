@@ -86,7 +86,14 @@ fun formatSpans(spans: List<FormatSpan>, look: SpanLook, open: (FormatLink) -> U
             link != null && link.image -> withLink(annotation(link, look, open)) {
                 withAnnotation(CHIP, "") {
                     withStyle(SpanStyle(fontWeight = FontWeight.Medium)) {
-                        append("\u202F${span.text.ifEmpty { "Image" }} · ${link.target.toUri().host ?: link.target}\u202F")
+                        val detail = if (link.kind == LinkKind.Web) {
+                            link.target.toUri().host ?: link.target
+                        } else {
+                            link.target.substringAfterLast('/')
+                        }
+                        val name = span.text.ifEmpty { detail }
+                        val label = if (name == detail) name else "$name · $detail"
+                        append("\u202F$label\u202F")
                     }
                 }
             }

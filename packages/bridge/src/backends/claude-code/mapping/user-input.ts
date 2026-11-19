@@ -1,12 +1,13 @@
 /** `user` frames: tool results (`tool_finished`), and prompts this host did not send (`user_message`). */
 
 import type { SDKUserMessage, SDKUserMessageReplay } from "@anthropic-ai/claude-agent-sdk";
-import { MAX_TEXT_CHARS } from "../../../contract";
+import { type AttachmentRef, MAX_LIST_ITEMS, MAX_TEXT_CHARS } from "../../../contract";
 import { clip } from "../bounds";
 import { userItemId } from "../ids";
 import type { MappedEvent } from "../ports/mapping";
 import { fileChangesOf } from "./file-changes";
 import { harnessText } from "./harness-text";
+import { extractUserImagePaths, stripImagePlaceholders } from "./image-paths";
 import { imageRefsOf } from "./images";
 import { refusedToolUseIds } from "./result-meta";
 import { fanOut, placementOf } from "./routing";
@@ -67,9 +68,11 @@ function promptEvents(state: MapperState, frame: UserFrame): MappedEvent[] {
 	if (uuid === undefined || placement.streams.length === 0 || state.ownSends.has(uuid)) return [];
 	if (frame.isSynthetic === true || (frame.origin !== undefined && frame.origin.kind !== "human")) return [];
 	const said = harnessText(textOf(frame.message.content));
-	if (said.kind !== "prompt") return [];
-	const text = said.text;
-	const attachments = imageRefsOf(frame.message.content, uuid);
+	if (said.kind !== "prompt" && said.kind !== "context") return [];
+	const refs = imageRefsOf(frame.message.content, uuid);
+	const rawText = said.kind === "prompt" ? said.text : "";
+	const text = refs.length > 0 ? stripImagePlaceholders(rawText) : rawText;
+	const attachments: AttachmentRef[] = refs.length > 0 ? refs : extractUserImagePaths(text).slice(0, MAX_LIST_ITEMS);
 	if (text.trim() === "" && attachments.length === 0) return [];
 	const streams =
 		frame.agent_id === undefined ? placement.streams : placement.streams.filter((stream) => stream === placement.own);

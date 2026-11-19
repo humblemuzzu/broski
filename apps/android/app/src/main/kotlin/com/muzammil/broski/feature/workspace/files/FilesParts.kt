@@ -36,6 +36,7 @@ import com.muzammil.broski.design.mono
 import com.muzammil.broski.design.relativeTime
 import uniffi.broski_contract.FileEntry
 import uniffi.broski_contract.FileKind
+import uniffi.broski_core.isImagePath
 
 @get:DrawableRes
 val FileKind.icon: Int
@@ -54,7 +55,7 @@ fun EntryRow(entry: FileEntry, index: Int, count: Int, modifier: Modifier = Modi
         modifier = modifier,
         leading = {
             Icon(
-                painterResource(entry.kind.icon),
+                painterResource(if (entry.kind == FileKind.FILE && isImagePath(entry.name)) R.drawable.ic_photo_library else entry.kind.icon),
                 contentDescription = null,
                 tint = if (entry.kind == FileKind.DIR) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             )

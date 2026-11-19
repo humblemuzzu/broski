@@ -3,12 +3,13 @@
  * command's output, a background task's end (`harnessText`).
  */
 
-import { type Activity, MAX_TEXT_CHARS } from "../../../contract";
+import { type Activity, type AttachmentRef, MAX_LIST_ITEMS, MAX_TEXT_CHARS } from "../../../contract";
 import { clip, fitsId } from "../bounds";
 import { toolCallId, userItemId } from "../ids";
 import { isRecord } from "../json";
 import { commandOutputActivity, savedTaskActivity, shellOutputActivity } from "../mapping/activities";
 import { harnessText } from "../mapping/harness-text";
+import { extractUserImagePaths, stripImagePlaceholders } from "../mapping/image-paths";
 import { imageRefsOf } from "../mapping/images";
 import { toolResultOf } from "../mapping/tool-results";
 import type { MappedEvent } from "../ports/mapping";
@@ -24,7 +25,9 @@ export function userEvents(state: TranslatorState, entry: Record<string, unknown
 	resultEvents(state, out, blocks, entry.toolUseResult, uuid);
 	const text = typeof content === "string" ? content : textOf(blocks);
 	const sessionId = typeof entry.sessionId === "string" ? entry.sessionId : undefined;
-	if (text !== undefined) saidEvents(state, out, { text, content, uuid, sessionId });
+	const cwd = typeof entry.cwd === "string" ? entry.cwd : undefined;
+	const hasImages = imageRefsOf(content, uuid).length > 0;
+	if (text !== undefined || hasImages) saidEvents(state, out, { text: text ?? "", content, uuid, sessionId, cwd });
 	return out;
 }
 
@@ -71,6 +74,7 @@ interface UserLine {
 	readonly content: unknown;
 	readonly uuid: string;
 	readonly sessionId: string | undefined;
+	readonly cwd: string | undefined;
 }
 
 /**
@@ -82,6 +86,7 @@ function saidEvents(state: TranslatorState, out: MappedEvent[], line: UserLine):
 	const said = harnessText(line.text);
 	switch (said.kind) {
 		case "context":
+			if (imageRefsOf(line.content, line.uuid).length > 0) promptEvents(state, out, "", line);
 			return;
 		case "interrupt":
 			state.finishRun(out, "aborted");
@@ -110,12 +115,16 @@ function promptEvents(state: TranslatorState, out: MappedEvent[], text: string, 
 	if (state.settled) state.finishRun(out, "completed");
 	state.startRun(out);
 	state.lastStop = undefined;
+	const refs = imageRefsOf(line.content, line.uuid);
+	const displayText = refs.length > 0 ? stripImagePlaceholders(text) : text;
+	const attachments: AttachmentRef[] =
+		refs.length > 0 ? refs : extractUserImagePaths(displayText, line.cwd).slice(0, MAX_LIST_ITEMS);
 	out.push({
 		event: {
 			type: "user_message",
 			messageId: userItemId(line.uuid),
-			text: clip(text, MAX_TEXT_CHARS),
-			attachments: imageRefsOf(line.content, line.uuid),
+			text: clip(displayText, MAX_TEXT_CHARS),
+			attachments,
 		},
 	});
 }

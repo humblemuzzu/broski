@@ -21,7 +21,7 @@ export function createSessionStore(deps: StoreDeps): SessionStore {
 		list: (query, page, live) => listPage(ctx, query, page, live),
 		get: (sessionId, live) => getSession(ctx, sessionId, live),
 		transcript: (sessionId, page, live) => transcriptPage(ctx, sessionId, page, live),
-		attachment: (sessionId, attachment) => readImage(ctx, sessionId, attachment),
+		attachment: (sessionId, attachment, variant) => readImage(ctx, sessionId, attachment, variant),
 		locate: (sessionId) => locate(ctx, sessionId),
 		lastChainUuid: (sessionId) => lastChainUuid(ctx, sessionId),
 		rename: (sessionId, title, live) => renameStored(ctx, sessionId, title, live),

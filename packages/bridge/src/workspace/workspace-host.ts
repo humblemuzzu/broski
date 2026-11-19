@@ -1,6 +1,7 @@
 import type { Rejected } from "../contract";
 import type { WorkspaceFactory, WorkspaceHost } from "../core/ports";
 import { findBinary } from "../platform";
+import { readImageFile } from "./files/image";
 import { listDirectory } from "./files/list";
 import { readFileSlice } from "./files/read";
 import { searchFiles } from "./files/search";
@@ -39,6 +40,7 @@ function workspaceHost({ policy, bases }: WorkspaceOptions, terminals: Terminals
 			list: (query, limit) => at(allowedPath(policy, query.path), (path) => listDirectory(path, query, limit)),
 			read: (query, length) =>
 				at(allowedPath(policy, query.path), (path) => readFileSlice(path, query.offset ?? 0, length)),
+			image: (query) => at(allowedPath(policy, query.path), (path) => readImageFile(path, query.variant)),
 			search: (query, limit) =>
 				at(allowedDirectory(policy, query.root), (root) => searchFiles(root, query.query, limit)),
 		},

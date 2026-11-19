@@ -35,12 +35,17 @@ export function imageRefsOf(content: unknown, entryUuid: string): ImageRef[] {
 }
 
 /** The bytes of one image of a user entry's content, or of an image inside its tool result; undefined when absent or too large. */
-export function imageAt(content: unknown, part: ImagePart): ImageContent | undefined {
+export function imageAt(
+	content: unknown,
+	part: ImagePart,
+	maxChars: number | null = MAX_IMAGE_CHARS,
+): ImageContent | undefined {
 	if (!Array.isArray(content)) return undefined;
 	const outer: unknown = content[part.blockIndex];
 	const block = part.innerIndex === undefined ? outer : innerBlock(outer, part.innerIndex);
 	const image = base64ImageOf(block);
-	if (image === undefined || image.data.length > MAX_IMAGE_CHARS) return undefined;
+	if (image === undefined) return undefined;
+	if (maxChars !== null && image.data.length > maxChars) return undefined;
 	return { kind: "image", mimeType: image.mimeType, data: image.data };
 }
 

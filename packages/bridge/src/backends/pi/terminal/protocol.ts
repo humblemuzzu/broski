@@ -60,9 +60,24 @@ export type StreamEvent = z.infer<typeof StreamEvent>;
 
 export const StopReason = z.enum(["stop", "length", "toolUse", "error", "aborted", "deferred", "pending"]);
 
+const ImageSlot = z.strictObject({ index: Count, mimeType: Name });
+
 /** The messages Pi ends, cut to what the bridge reads. */
 export const EndedMessage = z.discriminatedUnion("role", [
-	z.strictObject({ role: z.literal("user"), text: Text }),
+	z.strictObject({
+		role: z.literal("user"),
+		text: Text,
+		timestamp: z.number().nonnegative().optional(),
+		images: z.array(ImageSlot).max(100).optional(),
+	}),
+	z.strictObject({
+		role: z.literal("toolResult"),
+		toolCallId: Id,
+		toolName: z.string().max(1_024),
+		isError: z.boolean(),
+		timestamp: z.number().nonnegative().optional(),
+		result: ToolResultShape,
+	}),
 	z.strictObject({
 		role: z.literal("assistant"),
 		content: z.array(z.discriminatedUnion("type", [TextBlock, ThinkingBlock, CallBlock])).max(1_000),

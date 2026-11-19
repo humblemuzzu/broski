@@ -14,7 +14,6 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
@@ -25,13 +24,15 @@ import com.muzammil.broski.design.format.LocalFormatBleed
 import com.muzammil.broski.feature.chat.activity.ActivityRow
 import com.muzammil.broski.feature.chat.work.WorkActions
 import com.muzammil.broski.feature.chat.work.WorkFoldRow
+import com.muzammil.broski.feature.images.ChatImageStore
+import com.muzammil.broski.feature.images.ImageTarget
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 
-/** What the transcript's rows reach out to: images by reference, older pages, diffs and subagents. */
+/** What the transcript's rows reach out to: images, older pages, diffs and subagents. */
 @Stable
 class TranscriptCallbacks(
-    val requestImage: (String) -> Unit,
+    val openImages: (List<ImageTarget>, Int) -> Unit,
     val loadOlder: () -> Unit,
     val work: WorkActions,
 )
@@ -51,7 +52,7 @@ val SIDE_MARGIN = 20.dp
 fun TranscriptList(
     rows: List<ChatRow>,
     lane: LaneStatus?,
-    images: Map<String, ImageBitmap>,
+    imageStore: ChatImageStore,
     state: TranscriptState,
     callbacks: TranscriptCallbacks,
     contentPadding: PaddingValues,
@@ -68,16 +69,16 @@ fun TranscriptList(
     ) {
         item(key = "lane", contentType = "lane") { StatusLaneView(lane, Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) }
         items(rows, key = { it.key }, contentType = { it::class }) { row ->
-            Row(row, images, state, callbacks) { answerOf(rows, row) }
+            Row(row, imageStore, state, callbacks) { answerOf(rows, row) }
         }
     }
 }
 
 @Composable
-private fun Row(row: ChatRow, images: Map<String, ImageBitmap>, state: TranscriptState, callbacks: TranscriptCallbacks, answer: () -> String?) {
+private fun Row(row: ChatRow, imageStore: ChatImageStore, state: TranscriptState, callbacks: TranscriptCallbacks, answer: () -> String?) {
     val padded = Modifier.padding(horizontal = SIDE_MARGIN).entrance(row.at)
     when (row) {
-        is ChatRow.User -> UserBubble(row, images, callbacks.requestImage, padded.padding(top = 20.dp, bottom = 4.dp))
+        is ChatRow.User -> UserBubble(row, imageStore, callbacks.openImages, padded.padding(top = 20.dp, bottom = 4.dp))
         is ChatRow.Text -> AnswerMenu(answer, padded.padding(top = if (row.first) 12.dp else 0.dp), links = remember(row.block) { row.block.menuLinks() }) {
             CompositionLocalProvider(LocalFormatBleed provides SIDE_MARGIN) {
                 FormatBlockView(row.block, next = row.next, streaming = row.streaming)

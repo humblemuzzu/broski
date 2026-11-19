@@ -68,6 +68,7 @@ export function promptDeskOf(host: HostParts): PromptDesk {
 		closed: () => host.ended,
 		locked: (work) => host.lock.run(work),
 		runBegan: () => host.rowChanged(),
+		...(host.deps.images !== undefined && { images: host.deps.images }),
 	});
 }
 
@@ -93,5 +94,7 @@ export function frameHandlerOf(host: HostParts, prompts: PromptDesk): FrameHandl
 		cancelledBeforeStart: () => host.cancelledBeforeStart(),
 		stopAgain: () => host.stopAgain(),
 		conversationReset: (newId) => host.conversationReset(newId),
+		sessionId: () => host.sessionId,
+		...(host.deps.images !== undefined && { images: host.deps.images }),
 	});
 }

@@ -21,13 +21,19 @@ import uniffi.broski_contract.ImageContent
 
 /** An image waiting in the composer: what is sent, and the thumbnail its strip shows. */
 @Immutable
-class ComposerImage(val id: String, val base64: String, val thumbnail: ImageBitmap) {
-    fun attachment(): Attachment = Attachment.Image(ImageContent(mimeType = "image/jpeg", data = base64, name = null))
+class ComposerImage(
+    val id: String,
+    val base64: String,
+    val mimeType: String,
+    val thumbBitmap: Bitmap,
+    val thumbnail: ImageBitmap = thumbBitmap.asImageBitmap(),
+) {
+    fun attachment(): Attachment = Attachment.Image(ImageContent(mimeType = mimeType, data = base64, name = null))
 }
 
 /**
- * Reads a picked, photographed or pasted image and fits it to what a prompt may carry: JPEG, at
- * most [MAX_SIDE] on its longest side, within the base64 the prompt's other images leave.
+ * Reads a picked, photographed or pasted image and fits it to what a prompt may carry: preserves
+ * lossless PNG for transparent screenshots when it fits comfortably, else JPEG within the budget.
  */
 class ImageAttachments(private val resolver: ContentResolver) {
     /** The image at [uri] within [budget] base64 characters; `null` when it does not decode or cannot fit. */
@@ -37,15 +43,28 @@ class ImageAttachments(private val resolver: ContentResolver) {
         } catch (_: IOException) {
             null
         } ?: return@withContext null
-        val bytes = fitImage(source.width, source.height, budget) { width, height, quality ->
-            val scaled = source.scale(width, height)
-            ByteArrayOutputStream().also { scaled.compress(Bitmap.CompressFormat.JPEG, quality, it) }.toByteArray()
-        } ?: return@withContext null
+        val pngBytes = if (source.hasAlpha()) {
+            ByteArrayOutputStream().also { source.compress(Bitmap.CompressFormat.PNG, 100, it) }.toByteArray()
+                .takeIf { it.size <= PNG_BUDGET_BYTES && base64Length(it.size) <= budget }
+        } else {
+            null
+        }
+        val (bytes, mimeType) = if (pngBytes != null) {
+            pngBytes to "image/png"
+        } else {
+            val jpeg = fitImage(source.width, source.height, budget) { width, height, quality ->
+                val scaled = source.scale(width, height)
+                ByteArrayOutputStream().also { scaled.compress(Bitmap.CompressFormat.JPEG, quality, it) }.toByteArray()
+            } ?: return@withContext null
+            jpeg to "image/jpeg"
+        }
         val (thumbWidth, thumbHeight) = thumbnailSize(source.width, source.height)
+        val thumbBitmap = source.scale(thumbWidth, thumbHeight)
         ComposerImage(
             id = UUID.randomUUID().toString(),
             base64 = Base64.encodeToString(bytes, Base64.NO_WRAP),
-            thumbnail = source.scale(thumbWidth, thumbHeight).asImageBitmap(),
+            mimeType = mimeType,
+            thumbBitmap = thumbBitmap,
         )
     }
 
@@ -67,5 +86,6 @@ class ImageAttachments(private val resolver: ContentResolver) {
 
     private companion object {
         const val THUMBNAIL_SIDE = 192
+        const val PNG_BUDGET_BYTES = 1_572_864
     }
 }

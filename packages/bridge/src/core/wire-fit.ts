@@ -115,6 +115,7 @@ function elisionScope(message: ServerMessage): ElisionScope | undefined {
 			return headScope(["status"]);
 		case "attachment.read.result":
 		case "fs.read.result":
+		case "fs.image.result":
 		case "git.diff.result":
 		case "term.attach.result":
 			return undefined;

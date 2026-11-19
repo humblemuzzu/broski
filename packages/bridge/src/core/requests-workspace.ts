@@ -1,5 +1,6 @@
 import {
 	type ActionResult,
+	type FsImageResult,
 	type FsListResult,
 	type FsReadResult,
 	type FsSearchResult,
@@ -32,6 +33,11 @@ export const fsRead = fitted<"fs.read", FsReadResult>(
 	(request, result) => ({ type: "fs.read.result", requestId: request.requestId, result }),
 	(request) => request.length ?? MAX_FILE_READ_BYTES,
 	({ workspace, request }, length) => workspace.files.read(request, length),
+);
+
+export const fsImage = served<"fs.image", FsImageResult>(
+	(request, result) => ({ type: "fs.image.result", requestId: request.requestId, result }),
+	({ workspace, request }) => workspace.files.image(request),
 );
 
 export const fsSearch = fitted<"fs.search", FsSearchResult>(

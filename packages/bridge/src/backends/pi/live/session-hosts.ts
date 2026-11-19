@@ -31,6 +31,7 @@ import { MAX_HOSTED_SESSIONS, makeRoom } from "./host-capacity";
 import type { HostEnvironment, HostStart } from "./host-environment";
 import { adoptedStart, adoptLeftHolders, attachHolder, launchedStart, type Target } from "./host-starts";
 import { factsOf } from "./hosted-session";
+import type { LiveImageCache } from "./image-cache";
 import { type NewSessionRegistry, openNewSession } from "./open-new";
 import { openSessionView } from "./open-session";
 import { RECONNECTING, reattachLost } from "./reattach";
@@ -52,6 +53,7 @@ export interface SessionHostsDeps {
 	readonly maxHosted?: number;
 	/** `isBusy(sessionId)` changed, for a terminal that has the session open (`terminal/`). */
 	readonly busyChanged?: (sessionId: SessionId, busy: boolean) => void;
+	readonly images?: LiveImageCache;
 }
 
 /** A hosted session's write, or the store's when nobody hosts it; both under the session lock. */
@@ -94,6 +96,7 @@ export class SessionHosts implements LiveOverlay {
 				this.busy.review(host.sessionId);
 				this.views.get(host.sessionId)?.hostChanged();
 			},
+			...(deps.images !== undefined && { images: deps.images }),
 		};
 		this.adopting = adoptLeftHolders(deps.holders.root, (meta) => {
 			deps.store.sessionDirFor(meta.cwd);
@@ -240,6 +243,7 @@ export class SessionHosts implements LiveOverlay {
 			sessionId,
 			path,
 			terminals: this.deps.terminals,
+			...(this.deps.images !== undefined && { images: this.deps.images }),
 			reread: () => watchedSnapshot(sessionId, this.deps.store),
 			revive: async (viewSink) => {
 				await this.adopting;

@@ -49,6 +49,9 @@ pub struct AttachmentReadRequest {
     pub request_id: RequestId,
     pub session: SessionRef,
     pub attachment_id: AttachmentId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "crate::codec::present")]
+    pub variant: Option<ImageVariant>,
 }
 
 impl crate::Tagged for AttachmentReadRequest {
@@ -209,6 +212,8 @@ pub enum ClientMessage {
     FsList(FsListRequest),
     #[serde(rename = "fs.read")]
     FsRead(FsReadRequest),
+    #[serde(rename = "fs.image")]
+    FsImage(FsImageRequest),
     #[serde(rename = "fs.search")]
     FsSearch(FsSearchRequest),
     #[serde(rename = "git.status")]
@@ -704,6 +709,8 @@ pub enum ServerMessage {
     FsListResult(FsListResponse),
     #[serde(rename = "fs.read.result")]
     FsReadResult(FsReadResponse),
+    #[serde(rename = "fs.image.result")]
+    FsImageResult(FsImageResponse),
     #[serde(rename = "fs.search.result")]
     FsSearchResult(FsSearchResponse),
     #[serde(rename = "git.status.result")]
