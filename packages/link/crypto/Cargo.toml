@@ -10,7 +10,7 @@ doctest = false
 
 [dependencies]
 base64 = "0.22.1"
-clatter = { version = "=2.2.0", default-features = false, features = [
+clatter = { version = "=2.3.0", default-features = false, features = [
     "alloc",
     "getrandom",
     "use-25519",
@@ -19,5 +19,5 @@ clatter = { version = "=2.2.0", default-features = false, features = [
     "use-sha",
 ] }
 sha2 = "0.10.9"
-thiserror = "2.0.17"
-zeroize = "1.8.2"
+thiserror = "2.0.21"
+zeroize = "1.9.2"

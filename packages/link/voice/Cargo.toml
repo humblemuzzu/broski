@@ -15,7 +15,7 @@ broski-contract = { path = "../contract" }
 # broski-render — how a tool call reads (its paths and command) and markdown's inline code, as the
 # work fold and the transcript already read them.
 broski-render = { path = "../render" }
-# serde_json 1.0.151 — the contract crate's pin; reads xAI's answers.
-serde_json = "1.0.151"
+# serde_json 1.0.154 — the contract crate's pin; reads xAI's answers.
+serde_json = "1.0.154"
 # getrandom 0.3.4 — the session crate's pin; the multipart boundary.
 getrandom = "0.3.4"

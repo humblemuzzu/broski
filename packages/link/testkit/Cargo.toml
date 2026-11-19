@@ -17,10 +17,10 @@ broski-link-core = { path = "../core" }
 broski-link-daemon = { path = "../daemon" }
 # broski-relay — the real relay, in-process on a loopback port.
 broski-relay = { path = "../relay" }
-# tokio 1.53.2 — the daemon's control socket, the relay listener, the forwarder's sockets, the
+# tokio 1.54.1 — the daemon's control socket, the relay listener, the forwarder's sockets, the
 # bridge as a child process, and test-machine's stdin.
-tokio = { version = "1.53.2", features = ["rt", "net", "time", "sync", "macros", "io-util", "process", "io-std"] }
+tokio = { version = "1.54.1", features = ["rt", "net", "time", "sync", "macros", "io-util", "process", "io-std"] }
 # tempfile 3.27.0 — a private home per daemon and a database per relay.
 tempfile = "3.27.0"
-# serde_json 1.0.151 — the daemon's control socket speaks JSON lines.
-serde_json = "1.0.151"
+# serde_json 1.0.154 — the daemon's control socket speaks JSON lines.
+serde_json = "1.0.154"

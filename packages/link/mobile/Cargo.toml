@@ -21,11 +21,11 @@ broski-render = { path = "../render" }
 broski-voice = { path = "../voice" }
 # uniffi =0.32.2 — exact: the bindgen in ../uniffi-bindgen must be the same version.
 uniffi = "=0.32.2"
-# zeroize 1.8.2 — the same pin the session uses; wipes the offer the scanner hands in.
-zeroize = "1.8.2"
+# zeroize 1.9.2 — the same pin the session uses; wipes the offer the scanner hands in.
+zeroize = "1.9.2"
 
 [dev-dependencies]
 # broski-link-testkit — the real daemon and bridge the exported API is driven against.
 broski-link-testkit = { path = "../testkit" }
-# tokio 1.53.2 — the session's pin; runs the async exports in this crate's tests.
-tokio = { version = "1.53.2", features = ["macros", "rt-multi-thread", "sync"] }
+# tokio 1.54.1 — the session's pin; runs the async exports in this crate's tests.
+tokio = { version = "1.54.1", features = ["macros", "rt-multi-thread", "sync"] }

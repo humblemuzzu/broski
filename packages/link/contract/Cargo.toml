@@ -15,8 +15,8 @@ uniffi = ["dep:uniffi"]
 [dependencies]
 # serde 1.0.229 — the same pin the daemon uses; derives the wire codec of every model.
 serde = { version = "1.0.229", features = ["derive"] }
-# serde_json 1.0.151 — the same pin the daemon uses; reads and writes contract frames.
-serde_json = "1.0.151"
+# serde_json 1.0.154 — the same pin the daemon uses; reads and writes contract frames.
+serde_json = "1.0.154"
 # thiserror 2.0.21 — the same pin core and proto use; derives the frame error.
 thiserror = "2.0.21"
 # uniffi =0.32.2 — exact: the bindgen that reads this crate must be the same version.

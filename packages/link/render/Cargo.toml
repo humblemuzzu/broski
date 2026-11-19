@@ -12,14 +12,14 @@ doctest = false
 [dependencies]
 # broski-contract — the tool file changes and git diffs the diff views are built from.
 broski-contract = { path = "../contract" }
-# serde_json 1.0.151 — JSON read with its members in order (broski-contract's `JsonValue`) and
+# serde_json 1.0.154 — JSON read with its members in order (broski-contract's `JsonValue`) and
 # written back pretty; already in the tree through broski-contract.
-serde_json = "1.0.151"
+serde_json = "1.0.154"
 # similar 3.2.1 — the token diff (Myers, with a deadline) behind a changed line's emphasis.
 similar = { version = "=3.2.1", default-features = false, features = ["std"] }
-# unicode-ident 1.0.26 — answers the non-ASCII identifier checks @pierre/highlights' lexers import.
-unicode-ident = "1.0.26"
+# unicode-ident 1.0.27 — answers the non-ASCII identifier checks @pierre/highlights' lexers import.
+unicode-ident = "1.0.27"
 
 [build-dependencies]
-# cc 1.7.0 — compiles the vendored wasm2c output of @pierre/highlights and its C runtime.
-cc = "1.7.0"
+# cc 1.11.2 — compiles the vendored wasm2c output of @pierre/highlights and its C runtime.
+cc = "1.11.2"
