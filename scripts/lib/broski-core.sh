@@ -10,16 +10,26 @@ HOST_TARGET="$(rustc -vV | sed -n 's/^host: //p')"
 # library.
 export IPHONEOS_DEPLOYMENT_TARGET=26.0 MACOSX_DEPLOYMENT_TARGET=15.0
 
-# True when apps/ios/BroskiCore's outputs are missing or older than anything under packages/link.
+# True when apps/ios/BroskiCore's or BroskiPush's outputs are missing or older than anything under packages/link.
 ios_core_is_stale() {
-  local stamp="$ROOT/apps/ios/BroskiCore/BroskiCoreFFI.xcframework/Info.plist"
-  [[ ! -f $stamp ]] && return 0
-  [[ -n $(find "$LINK_DIR" -path '*/target' -prune -o -type f -newer "$stamp" -print -quit) ]]
+  local stamp
+  for stamp in \
+    "$ROOT/apps/ios/BroskiCore/BroskiCoreFFI.xcframework/Info.plist" \
+    "$ROOT/apps/ios/BroskiPush/BroskiPushFFI.xcframework/Info.plist"; do
+    [[ ! -f $stamp ]] && return 0
+    [[ -n $(find "$LINK_DIR" -path '*/target' -prune -o -type f -newer "$stamp" -print -quit) ]] && return 0
+  done
+  return 1
 }
 
 # Builds broski-mobile with the shipping profile for the cargo target $1.
 build_core() {
   (cd "$LINK_DIR" && cargo build --locked -p broski-mobile --profile "$CORE_PROFILE" --target "$1")
+}
+
+# Builds broski-push-mobile with the shipping profile for the cargo target $1.
+build_push() {
+  (cd "$LINK_DIR" && cargo build --locked -p broski-push-mobile --profile "$CORE_PROFILE" --target "$1")
 }
 
 # Where build_core puts the libraries of target $1.
@@ -33,6 +43,13 @@ host_core_library() {
   case "$(uname -s)" in
     Darwin) echo "$(core_output "$HOST_TARGET")/libbroski_core.dylib" ;;
     *) echo "$(core_output "$HOST_TARGET")/libbroski_core.so" ;;
+  esac
+}
+
+host_push_library() {
+  case "$(uname -s)" in
+    Darwin) echo "$(core_output "$HOST_TARGET")/libbroski_push.dylib" ;;
+    *) echo "$(core_output "$HOST_TARGET")/libbroski_push.so" ;;
   esac
 }
 
@@ -57,12 +74,12 @@ android_ndk_home() {
   fi
 }
 
-# Replaces $3 with the $2 (swift|kotlin) bindings of every UniFFI crate in the library $1. The
-# bindgen runs from the workspace because it reads crate roots with `cargo metadata`.
+# Replaces $3 with the $2 (swift|kotlin) bindings of every UniFFI crate in the library $1, using
+# config $4 (default mobile/bindgen.toml).
 generate_bindings() {
-  local library=$1 language=$2 out=$3
+  local library=$1 language=$2 out=$3 config=${4:-mobile/bindgen.toml}
   rm -rf "$out"
   mkdir -p "$out"
   (cd "$LINK_DIR" && cargo run --locked --quiet -p uniffi-bindgen -- generate \
-    --language "$language" --no-format --config mobile/bindgen.toml --out-dir "$out" "$library")
+    --language "$language" --no-format --config "$config" --out-dir "$out" "$library")
 }

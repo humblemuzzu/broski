@@ -2,9 +2,9 @@
 # which is a build output and never committed.
 #
 # Every target globs its folders, so a new folder under Sources/Features needs no edit here. The
-# app embeds two extensions: NotificationService (opens pushes with the core; Shared without the
-# Live Activity and the usage widgets' files) and BroskiWidgets (the Live Activity and the plan usage
-# widgets: Shared/LiveActivity, Shared/Usage and the keychain, no core).
+# app embeds two extensions: NotificationService (opens pushes with the minimal BroskiPush library;
+# Shared without the Live Activity and the usage widgets' files) and BroskiWidgets (the Live
+# Activity and the plan usage widgets: Shared/LiveActivity, Shared/Usage and the keychain, no core).
 name: Broski
 
 options:
@@ -17,6 +17,8 @@ options:
 packages:
   BroskiCore:
     path: ../BroskiCore
+  BroskiPush:
+    path: ../BroskiPush
   # The terminal emulator (Ghostty, host-managed IO). Exact: it wraps Ghostty's embedder API, which
   # promises no ABI, and releases weekly (docs/rebuild/research/terminal.md).
   GhosttyKit:
@@ -76,13 +78,14 @@ targets:
           - LiveActivity/**
           - Usage/**
     dependencies:
-      - package: BroskiCore
-        product: BroskiCore
+      - package: BroskiPush
+        product: BroskiPush
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.muzammil.broski.NotificationService
         INFOPLIST_FILE: Extensions/NotificationService/Info.plist
         CODE_SIGN_ENTITLEMENTS: Extensions/NotificationService/NotificationService.entitlements
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) PUSH_ONLY
         TARGETED_DEVICE_FAMILY: "1,2"
         SKIP_INSTALL: YES
 

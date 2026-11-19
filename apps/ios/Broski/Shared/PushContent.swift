@@ -1,4 +1,8 @@
+#if PUSH_ONLY
+import BroskiPush
+#else
 import BroskiCore
+#endif
 import Foundation
 import UserNotifications
 

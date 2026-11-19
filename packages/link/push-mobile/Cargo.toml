@@ -1,0 +1,20 @@
+[package]
+name = "broski-push-mobile"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "BroskiPush: minimal push-opening UniFFI facade for the iOS notification service extension"
+
+[lib]
+name = "broski_push"
+# staticlib for the iOS XCFramework, cdylib for library-mode bindgen on the host, lib for tests.
+crate-type = ["lib", "staticlib", "cdylib"]
+doctest = false
+
+[dependencies]
+broski-link-session = { path = "../session" }
+# thiserror 2.0.21 — the session crate's pin; derives the small public error enum.
+thiserror = "2.0.21"
+# uniffi =0.32.2 — exact: must match packages/link/uniffi-bindgen.
+uniffi = "=0.32.2"

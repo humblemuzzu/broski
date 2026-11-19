@@ -10,9 +10,11 @@ packages/link/session   (broski-link-session: sockets, route race, resume, pairi
 packages/link/contract  (broski-contract: contract models with UniFFI derives, frame codec, reducer)
 packages/link/client    (broski-client: the phone's client core over both; no UniFFI dependency)
 packages/link/render    (broski-render: highlighting, diffs and tool rows both apps draw; no UniFFI dependency)
-          └── packages/link/mobile  (broski-mobile → libbroski_core: the UniFFI facade)
-                ├── scripts/build-ios-core.sh      → apps/ios/BroskiCore (XCFramework + Swift package)
-                └── scripts/build-android-core.sh  → apps/android/core   (Android library module)
+          ├── packages/link/mobile       (broski-mobile → libbroski_core: full UniFFI facade)
+          │     ├── scripts/build-ios-core.sh      → apps/ios/BroskiCore (XCFramework + Swift package)
+          │     └── scripts/build-android-core.sh  → apps/android/core   (Android library module)
+          └── packages/link/push-mobile  (broski-push-mobile → libbroski_push: push-only UniFFI facade)
+                └── scripts/build-ios-core.sh      → apps/ios/BroskiPush (iOS NotificationService only)
 ```
 
 ## 1. The facade
