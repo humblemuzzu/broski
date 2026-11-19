@@ -1,9 +1,6 @@
 import { z } from "zod";
 import { DEFAULT_PORT, PORT_MAX, PORT_MIN } from "./port";
 
-// Config files written by Windows installs of older versions.
-const LEGACY_TASK_SCHEDULER = "taskscheduler";
-
 // Zod v4: .default() requires the full output type — provide explicit defaults
 export const BroskiConfigSchema = z.object({
 	version: z.literal(1),
@@ -52,12 +49,7 @@ export const BroskiConfigSchema = z.object({
 	daemon: z
 		.object({
 			installed: z.boolean().default(false),
-			type: z
-				.preprocess(
-					(value) => (value === LEGACY_TASK_SCHEDULER ? "none" : value),
-					z.enum(["launchagent", "systemd", "none"]),
-				)
-				.default("none"),
+			type: z.enum(["launchagent", "none"]).default("none"),
 		})
 		.default({ installed: false, type: "none" as const }),
 });

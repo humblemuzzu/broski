@@ -76,7 +76,7 @@ export type CertExpiryInfo = {
 export function checkCertExpiry(certPath: string): CertExpiryInfo {
 	const fallback: CertExpiryInfo = { valid: false, expiresAt: null, daysRemaining: 0 };
 
-	// Try openssl first (most reliable, available on macOS/Linux)
+	// Try openssl first (most reliable, always on macOS)
 	try {
 		const opensslBin = findBinary("openssl") ?? "openssl";
 		const result = spawnSync(opensslBin, ["x509", "-enddate", "-noout", "-in", certPath], {

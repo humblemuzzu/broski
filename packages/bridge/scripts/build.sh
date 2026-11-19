@@ -63,8 +63,6 @@ detect_host_platform() {
 
   case "$HOST_OS" in
     darwin*) echo "darwin-${HOST_ARCH}" ;;
-    linux*) echo "linux-${HOST_ARCH}" ;;
-    mingw*|msys*|cygwin*) echo "windows-${HOST_ARCH}" ;;
     *) echo "${HOST_OS}-${HOST_ARCH}" ;;
   esac
 }
@@ -96,14 +94,6 @@ build_pty_helper() {
         echo "    ⚠ Failed to build libbroski_pty.dylib"
       fi
       ;;
-    linux-*)
-      OUTPUT="${DIST}/libbroski_pty.so"
-      if cc -shared -fPIC -o "$OUTPUT" "$PTY_SRC" -lutil 2>/dev/null; then
-        echo "    ✓ Built libbroski_pty.so"
-      else
-        echo "    ⚠ Failed to build libbroski_pty.so"
-      fi
-      ;;
     *)
       echo "  Native PTY helper not supported on ${PLATFORM}"
       ;;
@@ -127,7 +117,6 @@ build_target() {
   PTY_B64="%%EMBEDDED_PTY_LIB_BASE64_PLACEHOLDER%%"
   case "$PLATFORM" in
     darwin-*) PTY_EMBED_LIB="${DIST}/libbroski_pty.dylib" ;;
-    linux-*)  PTY_EMBED_LIB="${DIST}/libbroski_pty.so" ;;
     *)        PTY_EMBED_LIB="" ;;
   esac
 
@@ -163,8 +152,6 @@ build_target() {
 TARGETS="
 darwin-arm64:broski-darwin-arm64
 darwin-x64:broski-darwin-x64
-linux-x64:broski-linux-x64
-linux-arm64:broski-linux-arm64
 "
 
 BUILT=0
@@ -185,21 +172,19 @@ done
 
 if [ "$BUILT" -eq 0 ]; then
   echo "  Error: No targets matched '${TARGET_FILTER}'"
-  echo "  Valid targets: darwin-arm64, darwin-x64, linux-x64, linux-arm64"
+  echo "  Valid targets: darwin-arm64, darwin-x64"
   exit 1
 fi
 
 # ──────────────────────────────────────────────
 # broski-link (Rust daemon that supervises the bridge)
 # ──────────────────────────────────────────────
-# Built for the host target always, and for the other unix targets when their
+# Built for the host target always, and for the other macOS target when its
 # Rust target is already installed. Toolchains are never installed from here.
 
 LINK_TARGETS="
 darwin-arm64:aarch64-apple-darwin
 darwin-x64:x86_64-apple-darwin
-linux-x64:x86_64-unknown-linux-gnu
-linux-arm64:aarch64-unknown-linux-gnu
 "
 
 rustup_has_target() {
@@ -279,7 +264,7 @@ echo ""
 echo "  Signing macOS binaries..."
 for binary in "$DIST"/broski-*darwin*; do
   [ -f "$binary" ] || continue
-  case "$binary" in *.dylib|*.so|*.dll) continue ;; esac
+  case "$binary" in *.dylib) continue ;; esac
 
   if command -v codesign >/dev/null 2>&1; then
     codesign -f -s - "$binary" 2>/dev/null
@@ -296,16 +281,10 @@ done
 # before it would not match the published files.
 
 echo ""
-if command -v sha256sum >/dev/null 2>&1; then
-  HASH_TOOL="sha256sum"
-elif command -v shasum >/dev/null 2>&1; then
-  HASH_TOOL="shasum -a 256"
-else
-  HASH_TOOL=""
-fi
+HASH_TOOL="shasum -a 256"
 
-if [ -z "$HASH_TOOL" ]; then
-  echo "  ⚠ Neither sha256sum nor shasum found; skipping SHA256SUMS"
+if ! command -v shasum >/dev/null 2>&1; then
+  echo "  ⚠ shasum not found; skipping SHA256SUMS"
 else
   : > "${DIST}/SHA256SUMS"
   for artifact in "$DIST"/broski-* "$DIST"/libbroski_pty.*; do

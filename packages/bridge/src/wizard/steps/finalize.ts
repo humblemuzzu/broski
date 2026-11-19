@@ -17,7 +17,6 @@ function formatDaemon(config: BroskiConfig): string {
 	if (!config.daemon.installed) return muted("not installed");
 	const typeLabels: Record<string, string> = {
 		launchagent: "LaunchAgent",
-		systemd: "systemd",
 	};
 	return success(`Installed (${typeLabels[config.daemon.type] ?? config.daemon.type})`);
 }

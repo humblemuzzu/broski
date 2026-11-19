@@ -7,9 +7,9 @@ import { SessionSummary, type TranscriptItem } from "../../../contract";
 import { createStoreWorld, type StoreWorld } from "./helpers/store-world";
 import { TranscriptBuilder } from "./helpers/transcript-builder";
 
-/** Where `trash.ts` puts a file under the world's temp HOME (its XDG data dir is `HOME/.local/share`). */
+/** Where `trash.ts` puts a file under the world's temp HOME. */
 function trashFiles(home: string): string {
-	return process.platform === "darwin" ? join(home, ".Trash") : join(home, ".local", "share", "Trash", "files");
+	return join(home, ".Trash");
 }
 
 let world: StoreWorld;

@@ -30,10 +30,7 @@ export function ensureNativePtyLibrary(): "prebuilt" | "built" {
 	mkdirSync(dirname(outPath), { recursive: true });
 	// Built aside and renamed, so a test file running at the same time never loads a half-written library.
 	const partial = `${outPath}.${process.pid}.partial`;
-	const args =
-		process.platform === "darwin"
-			? ["-dynamiclib", "-o", partial, PTY_SOURCE]
-			: ["-shared", "-fPIC", "-o", partial, PTY_SOURCE, "-lutil"];
+	const args = ["-dynamiclib", "-o", partial, PTY_SOURCE];
 
 	let build: ReturnType<typeof Bun.spawnSync>;
 	try {

@@ -10,7 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { extractPtySidecar, ptySidecarName, sha256Hex } from "../workspace/pty/sidecar-embed";
 
-const HOST = process.platform === "darwin" ? "darwin" : "linux";
+const HOST = "darwin";
 const LIB_NAME = ptySidecarName(HOST) as string;
 
 const EMBEDDED = Buffer.from("libbroski_pty v2 — the library this build embeds", "utf8");
@@ -68,6 +68,6 @@ describe("PTY sidecar extraction", () => {
 	});
 
 	it("skips platforms without a native helper", () => {
-		expect(extractPtySidecar({ binDir: tmpdir(), embeddedBase64: EMBEDDED_B64, platform: "win32" })).toBe("skipped");
+		expect(extractPtySidecar({ binDir: tmpdir(), embeddedBase64: EMBEDDED_B64, platform: "freebsd" })).toBe("skipped");
 	});
 });

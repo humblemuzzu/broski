@@ -5,7 +5,7 @@
  * Dynamic import() at the bottom is critical — static imports would be hoisted
  * and evaluated before our bootstrap code runs.
  *
- * What this extracts: libbroski_pty.dylib/.so, the native PTY library for terminal sessions. It is rewritten
+ * What this extracts: libbroski_pty.dylib, the native PTY library for terminal sessions. It is rewritten
  * whenever the bytes on disk differ from the embedded ones, because an in-place upgrade leaves the previous
  * release's library behind and the compiled loader refuses a sidecar whose sha256 does not match.
  */

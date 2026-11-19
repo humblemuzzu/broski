@@ -1,8 +1,8 @@
 /**
  * Whether this process is a `bun build --compile` binary.
  *
- * Compiled binaries mount the bundle on a virtual root (`/$bunfs/` on
- * macOS/Linux, `B:/~BUN/` on Windows). Comparing `process.execPath` with
+ * Compiled binaries mount the bundle on a virtual root (`/$bunfs/`).
+ * Comparing `process.execPath` with
  * `process.argv[1]` never detects this: argv[1] is the virtual entry path.
  */
 
@@ -16,14 +16,12 @@ export type CompiledBinaryInput = {
 	execPath?: string;
 };
 
-const UNIX_BUNFS_SEGMENT = "/$bunfs/";
-const WINDOWS_BUNFS_PREFIX = /^\/?[a-z]:\/~bun\//;
+const BUNFS_SEGMENT = "/$bunfs/";
 
 export function isBunfsPath(value: string | null | undefined): boolean {
 	if (!value) return false;
 	const withoutScheme = value.startsWith("file://") ? value.slice("file://".length) : value;
-	const normalized = withoutScheme.replace(/\\/g, "/").toLowerCase();
-	return normalized.includes(UNIX_BUNFS_SEGMENT) || WINDOWS_BUNFS_PREFIX.test(normalized);
+	return withoutScheme.includes(BUNFS_SEGMENT);
 }
 
 export function detectCompiledBinary(input: CompiledBinaryInput): boolean {

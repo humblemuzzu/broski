@@ -9,8 +9,6 @@ function daemonTypeLabel(type: string): string {
 	switch (type) {
 		case "launchagent":
 			return "macOS LaunchAgent";
-		case "systemd":
-			return "Linux systemd";
 		default:
 			return "None";
 	}

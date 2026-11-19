@@ -4,7 +4,7 @@
  * The obvious implementation — `poll(fd, timeout)` through `bun:ffi` — runs the wait on the JS
  * thread, so a single idle session held every timer in the process for the length of the timeout.
  * Handing the fd to Bun's event loop instead parks for free while the session is idle, and still
- * wakes on the two ways a PTY master finishes: EOF (macOS) and EIO (Linux, once the child is gone).
+ * wakes on the two ways a PTY master finishes: EOF and EIO (once the child is gone).
  */
 
 export type PtyReaderOptions = {
@@ -45,7 +45,7 @@ export function createPtyReader(options: PtyReaderOptions): PtyReader {
 				if (value?.length) options.onData(value);
 			}
 		} catch {
-			// The child exiting closes the master: EIO on Linux, a clean EOF on macOS.
+			// The child exiting closes the master: EIO or a clean EOF.
 		}
 		finish();
 	})();

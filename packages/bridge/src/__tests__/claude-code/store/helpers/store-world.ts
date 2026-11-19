@@ -80,7 +80,6 @@ export async function createStoreWorld(existing?: ClaudeHome): Promise<StoreWorl
 	const env = {
 		CLAUDE_CONFIG_DIR: home.configDir,
 		HOME: home.homeDir,
-		XDG_DATA_HOME: join(home.homeDir, ".local", "share"),
 	};
 	const calls: SdkCalls = {
 		getSessionInfo: 0,

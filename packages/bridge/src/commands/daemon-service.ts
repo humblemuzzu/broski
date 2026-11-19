@@ -14,7 +14,6 @@ import {
 	getProcessOnPort,
 	getSleepPreventionTip,
 	getTailLogsHint,
-	IS_WINDOWS,
 	installDaemon,
 	isCompiledBinary,
 	killProcess,
@@ -31,11 +30,6 @@ const BROSKI_LOG_DIR = resolve(homedir(), ".broski", "logs");
 
 export async function runInstall(linkBin?: string): Promise<void> {
 	console.log("Installing Broski as background service...\n");
-
-	if (IS_WINDOWS) {
-		console.log("   Broski Link is not supported on Windows yet.");
-		return;
-	}
 
 	const status = await getDaemonStatus();
 	if (status.installed) {
@@ -159,9 +153,6 @@ export async function runStatus(): Promise<void> {
 
 function printServiceState(status: DaemonStatus): void {
 	console.log(`Broski Link service: ${status.installed ? "  Installed" : "  Not installed"}`);
-	if (IS_WINDOWS) {
-		console.log("                       Broski Link is not supported on Windows yet.");
-	}
 	if (!status.installed) return;
 
 	console.log(`Service status:      ${status.running ? "  Running" : "  Not running"}`);

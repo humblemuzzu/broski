@@ -34,14 +34,12 @@ describe("Agent Name Parsing (from onboarding)", () => {
 describe("Daemon Type Mapping (from daemon step)", () => {
 	test("getDaemonType returns valid type", () => {
 		const { getDaemonType } = require("../platform");
-		expect(["launchagent", "systemd", "none"].includes(getDaemonType())).toBe(true);
+		expect(["launchagent", "none"].includes(getDaemonType())).toBe(true);
 	});
 
 	function daemonTypeLabel(): string {
-		const { IS_MACOS, IS_LINUX } = require("../platform");
-		if (IS_MACOS) return "LaunchAgent";
-		if (IS_LINUX) return "systemd service";
-		return "background service";
+		const { IS_MACOS } = require("../platform");
+		return IS_MACOS ? "LaunchAgent" : "background service";
 	}
 
 	test("daemonTypeLabel returns platform-appropriate label", () => {
@@ -70,7 +68,7 @@ describe("Configuration Result Types", () => {
 	test("DaemonResult structure", () => {
 		type DaemonResult = {
 			installed: boolean;
-			type: "launchagent" | "systemd" | "none";
+			type: "launchagent" | "none";
 		};
 
 		const mockResult: DaemonResult = {
@@ -79,7 +77,7 @@ describe("Configuration Result Types", () => {
 		};
 
 		expect(typeof mockResult.installed).toBe("boolean");
-		expect(["launchagent", "systemd", "none"].includes(mockResult.type)).toBe(true);
+		expect(["launchagent", "none"].includes(mockResult.type)).toBe(true);
 	});
 
 	test("WelcomeResult structure", () => {

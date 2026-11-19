@@ -18,7 +18,7 @@ bun bin/broski.ts <command>   # the `broski` command below
 ## Quick Start
 
 ```bash
-# Install the Broski Link service (macOS launchd / Linux systemd)
+# Install the Broski Link service (macOS launchd)
 broski install
 
 # Show a pairing QR, then scan it with the Broski app on your phone
@@ -29,7 +29,7 @@ No VPN or port forwarding is needed. The phone reaches your Mac directly over th
 
 ## Background Service
 
-`broski install` registers `broski-link` as a launchd (macOS) or systemd (Linux) user service. `broski-link` starts the bridge, restarts it if it crashes, and talks to it over `~/.broski/link/bridge.sock`. Windows is not supported.
+`broski install` registers `broski-link` as a launchd user service. `broski-link` starts the bridge, restarts it if it crashes, and talks to it over `~/.broski/link/bridge.sock`.
 
 ```bash
 # Install and start the service
@@ -93,7 +93,7 @@ The relay is blind: it forwards encrypted frames and cannot read them. See `docs
 ## Requirements
 
 - [Bun](https://bun.sh) 1.4.2+
-- macOS or Linux (Windows is not supported)
+- macOS
 - One of:
   - [Claude Code](https://github.com/anthropics/claude-code)
   - [Pi](https://github.com/mariozechner/pi-coding-agent)
@@ -111,7 +111,7 @@ The bridge reads `~/.broski/config.json`. See `src/config/schema.ts` for the ful
 
 ## Environment
 
-A bridge started by the service inherits almost nothing: launchd and systemd hand it a `PATH` and a `HOME`, and
+A bridge started by the service inherits almost nothing: launchd hands it a `PATH` and a `HOME`, and
 nothing from `~/.zshrc`. So at startup the bridge asks your login shell for its environment once (one interactive
 `env -0` through `zsh`/`bash`/`fish`, 10 s timeout) and runs every agent with it — Claude Code and Pi.
 
@@ -119,7 +119,7 @@ That means provider keys, `~/.local/bin` and version-manager shims exported in y
 phone exactly as they do in your terminal.
 
 The shell starts as a new terminal's does, from the login session's variables alone (`HOME`, `USER`, `SHELL`,
-`PATH`, `TMPDIR`, the locale, `SSH_AUTH_SOCK`, and on Linux the `XDG_*` and display ones), and the bridge keeps
+`PATH`, `TMPDIR`, the locale, `SSH_AUTH_SOCK`), and the bridge keeps
 nothing else of the environment it was started with. A daemon started by hand, from tmux or from an agent's
 command, carries whatever its starter had; the `[shell-env] left out …` line names what was dropped.
 

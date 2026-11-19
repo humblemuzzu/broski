@@ -1,7 +1,7 @@
 /**
  * Importing the user's login-shell environment, once, when the bridge runs as a service.
  *
- * launchd and systemd start `broski-link` with a near-empty environment (the plist sets only PATH and
+ * launchd starts `broski-link` with a near-empty environment (the plist sets only PATH and
  * HOME), so what the user exports in `~/.zshrc` — provider API keys, `~/.local/bin`, version manager
  * shims — is missing from the bridge and every agent it runs, while the same agents work in the user's
  * terminal. This asks the login shell for its environment and replaces `process.env` before any
@@ -31,7 +31,6 @@ export type ServiceStartHint = {
 };
 
 export function isServiceStart(hint: ServiceStartHint): boolean {
-	if (process.platform === "win32") return false;
 	if (hint.daemon === true || hint.linkSocket !== undefined) return true;
 	return hint.isTty === false;
 }

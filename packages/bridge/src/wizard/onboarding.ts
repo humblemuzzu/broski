@@ -10,7 +10,6 @@ import {
 	type DaemonType,
 	getBroskiBinaryPath,
 	getDaemonType,
-	IS_LINUX,
 	IS_MACOS,
 	installDaemon,
 } from "../platform";
@@ -46,9 +45,7 @@ function agentNameFromFlag(flag: string): "claude" | "pi" | null {
 }
 
 function daemonTypeLabel(): string {
-	if (IS_MACOS) return "LaunchAgent";
-	if (IS_LINUX) return "systemd";
-	return "none";
+	return IS_MACOS ? "LaunchAgent" : "none";
 }
 
 async function runNonInteractiveSetup(options: OnboardingOptions): Promise<void> {
@@ -102,7 +99,7 @@ async function runNonInteractiveSetup(options: OnboardingOptions): Promise<void>
 	let daemonType: DaemonType = "none";
 
 	if (getDaemonType() === "none") {
-		log("Daemon: skipped (background service is available on macOS and Linux only)");
+		log("Daemon: skipped (background service is available on macOS only)");
 	} else if (shouldInstallDaemon) {
 		try {
 			const logDir = resolve(homedir(), ".broski", "logs");

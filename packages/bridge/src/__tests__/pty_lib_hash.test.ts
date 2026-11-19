@@ -17,19 +17,13 @@ const PROBE_SOURCE = resolve(__dirname, "fixtures", "pty-hash-probe.ts");
 const BOOTSTRAP_PROBE_SOURCE = resolve(__dirname, "fixtures", "pty-bootstrap-probe.ts");
 const PTY_SOURCE = resolve(BRIDGE_ROOT, "native", "pty", "pty_helper.c");
 
-const HOST_TARGET =
-	process.platform === "darwin"
-		? `bun-darwin-${process.arch === "arm64" ? "arm64" : "x64"}`
-		: `bun-linux-${process.arch === "arm64" ? "arm64" : "x64"}`;
+const HOST_TARGET = `bun-darwin-${process.arch === "arm64" ? "arm64" : "x64"}`;
 
-const LIB_NAME = process.platform === "darwin" ? "libbroski_pty.dylib" : "libbroski_pty.so";
-const SUPPORTED = process.platform === "darwin" || process.platform === "linux";
+const LIB_NAME = "libbroski_pty.dylib";
+const SUPPORTED = process.platform === "darwin";
 
 function buildDylib(outPath: string): { ok: boolean; detail: string } {
-	const args =
-		process.platform === "darwin"
-			? ["-dynamiclib", "-o", outPath, PTY_SOURCE]
-			: ["-shared", "-fPIC", "-o", outPath, PTY_SOURCE, "-lutil"];
+	const args = ["-dynamiclib", "-o", outPath, PTY_SOURCE];
 	const result = Bun.spawnSync({ cmd: ["cc", ...args], stdout: "pipe", stderr: "pipe" });
 	if (result.exitCode !== 0) return { ok: false, detail: new TextDecoder().decode(result.stderr) };
 	return { ok: true, detail: "" };

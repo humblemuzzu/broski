@@ -13,7 +13,7 @@ const SIGKILL = 9;
 const REAP_AFTER_EOF_MS = 300;
 /**
  * How often a connected terminal's child is looked for having ended. A kernel need not end the terminal with the
- * session leader: Linux keeps a pty open for a background job that still holds it, so no EOF follows the exit.
+ * session leader: a pty stays open for a background job that still holds it, so no EOF follows the exit.
  */
 const CHILD_POLL_MS = 100;
 /** The output of a child that has just ended is waited for until it has been quiet this long, but never past the cap. */

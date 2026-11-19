@@ -7,7 +7,6 @@ import {
 	getBroskiBinaryPath,
 	getDaemonStatus,
 	getDaemonType,
-	IS_LINUX,
 	IS_MACOS,
 	installDaemon,
 } from "../../platform";
@@ -20,17 +19,12 @@ export type DaemonResult = {
 };
 
 function daemonTypeLabel(): string {
-	if (IS_MACOS) return "LaunchAgent";
-	if (IS_LINUX) return "systemd service";
-	return "background service";
+	return IS_MACOS ? "LaunchAgent" : "background service";
 }
 
 export async function runDaemonStep(prompter: WizardPrompter): Promise<DaemonResult> {
 	if (getDaemonType() === "none") {
-		await prompter.note(
-			`  ${muted("Broski Link runs as a background service on macOS and Linux only.")}`,
-			"Background Service",
-		);
+		await prompter.note(`  ${muted("Broski Link runs as a background service on macOS only.")}`, "Background Service");
 		return { installed: false, type: "none" };
 	}
 

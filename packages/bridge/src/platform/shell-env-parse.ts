@@ -131,7 +131,7 @@ export function isBridgeOwned(name: string): boolean {
 
 /**
  * What a new terminal inherits from the user's login session before its shell runs: who and where the user is,
- * the locale, the ssh agent, and on Linux the desktop session. The process that started the bridge can carry
+ * the locale and the ssh agent. The process that started the bridge can carry
  * anything besides (a tmux server keeps the environment of whoever started it, and an agent's command may have
  * exported its own role), and an agent the bridge runs would take it for the user's setting.
  */
@@ -148,12 +148,9 @@ export const SESSION_NAMES: ReadonlySet<string> = new Set([
 	"SSH_AUTH_SOCK",
 	"__CF_USER_TEXT_ENCODING",
 	"COMMAND_MODE",
-	"DISPLAY",
-	"WAYLAND_DISPLAY",
-	"DBUS_SESSION_BUS_ADDRESS",
 ]);
 
-export const SESSION_PREFIXES: readonly string[] = ["LC_", "XDG_"];
+export const SESSION_PREFIXES: readonly string[] = ["LC_"];
 
 function isSessionName(name: string): boolean {
 	return SESSION_NAMES.has(name) || SESSION_PREFIXES.some((prefix) => name.startsWith(prefix));

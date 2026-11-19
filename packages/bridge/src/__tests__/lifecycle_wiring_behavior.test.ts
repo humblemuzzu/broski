@@ -34,11 +34,11 @@ function recordingShutdown() {
 }
 
 describe("installProcessHandlers", () => {
-	test("registers the shutdown and fatal handlers on POSIX", () => {
+	test("registers the shutdown and fatal handlers", () => {
 		const { target, handlers } = fakeTarget();
 		const { hooks, signals, fatals } = recordingShutdown();
 
-		installProcessHandlers(hooks, target, false);
+		installProcessHandlers(hooks, target);
 
 		expect([...handlers.keys()].sort()).toEqual([
 			"SIGINT",
@@ -55,13 +55,6 @@ describe("installProcessHandlers", () => {
 		handlers.get("uncaughtException")?.(new Error("boom"));
 		handlers.get("unhandledRejection")?.("reason");
 		expect(fatals.map((entry) => entry.label)).toEqual(["Uncaught exception", "Unhandled promise rejection"]);
-	});
-
-	test("skips SIGTSTP on Windows", () => {
-		const { target, handlers } = fakeTarget();
-		installProcessHandlers(recordingShutdown().hooks, target, true);
-		expect(handlers.has("SIGTSTP")).toBe(false);
-		expect(handlers.has("SIGINT")).toBe(true);
 	});
 });
 

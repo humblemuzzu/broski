@@ -4,7 +4,7 @@ import type { BroskiConfig } from "./config";
 import { bindWithRetry, isAddressInUse } from "./lifecycle/port-retry";
 import { logDaemon, setDaemonLogger } from "./logging/daemon-log";
 import { createBridgeLogger } from "./logging/logger";
-import { getKillPortHint, getProcessOnPort, IS_WINDOWS } from "./platform";
+import { getKillPortHint, getProcessOnPort } from "./platform";
 import { applyServiceShellEnv } from "./platform/shell-env";
 import { installProcessHandlers } from "./serve/process-handlers";
 import { shutdown } from "./serve/shutdown";
@@ -113,7 +113,7 @@ export async function runServe(cli: CliOptions, config: BroskiConfig): Promise<v
 	const argvHas = (flag: string): boolean => process.argv.includes(flag);
 	const argvHasPortFlag = argvHas("--port") || argvHas("--bridge-port");
 
-	installProcessHandlers(shutdown, process, IS_WINDOWS);
+	installProcessHandlers(shutdown, process);
 	serveState.verboseMode = cli.verbose;
 
 	// Create leveled logger — binary users see only important events;

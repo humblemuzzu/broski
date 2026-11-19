@@ -15,9 +15,7 @@ export type PtySidecarOutcome = "written" | "unchanged" | "skipped";
 
 /** The sidecar filename for a platform, or null where no native helper is built. */
 export function ptySidecarName(platform: NodeJS.Platform = process.platform): string | null {
-	if (platform === "darwin") return "libbroski_pty.dylib";
-	if (platform === "linux") return "libbroski_pty.so";
-	return null;
+	return platform === "darwin" ? "libbroski_pty.dylib" : null;
 }
 
 export function sha256Hex(bytes: Buffer): string {

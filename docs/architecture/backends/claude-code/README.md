@@ -396,8 +396,7 @@ Images are `ImageRef`s read back from the entry.
 
 Rename is `renameSession`. Fork is `forkSession` (`upToMessageId` is inclusive): `through` an item forks at it, and
 through a tool call at its result; `before` at the chain entry before it; a running session forks only what is
-finished. The lineage is kept in `<stateDir>/forks.jsonl`, since the CLI keeps none. Delete moves the transcript and
-its directory to the OS trash by `rename` (`trash.ts`: macOS `~/.Trash`, Linux the XDG trash with its `.trashinfo`),
+finished. The lineage is kept in `<stateDir>/forks.jsonl`, since the CLI keeps none. Delete moves the transcript and its directory to macOS `~/.Trash` by `rename` (`trash.ts`),
 the trash found from the environment the CLI gets, so a test's temp `HOME` keeps it off the real one; a move never
 copies or removes, and EPERM/EACCES on darwin (a service without Full Disk Access) is a `backend_error` that says so.
 Each emits its catalog event; a child session refuses all three.

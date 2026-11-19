@@ -74,18 +74,14 @@ function compareSemver(a: string, b: string): number {
 
 /**
  * Get the platform key for this machine (matches build script naming).
- * E.g. "darwin-arm64", "linux-x64", "windows-x64"
+ * E.g. "darwin-arm64", "darwin-x64"
  */
 function getPlatformKey(): string {
-	const os = CURRENT_PLATFORM === "win32" ? "windows" : CURRENT_PLATFORM;
-	const arch = process.arch === "x64" ? "x64" : process.arch; // arm64 stays arm64
-	return `${os}-${arch}`;
+	return `${CURRENT_PLATFORM}-${process.arch}`;
 }
 
 function getPtySidecarFilename(): string | null {
-	if (CURRENT_PLATFORM === "darwin") return "libbroski_pty.dylib";
-	if (CURRENT_PLATFORM === "linux") return "libbroski_pty.so";
-	return null;
+	return CURRENT_PLATFORM === "darwin" ? "libbroski_pty.dylib" : null;
 }
 
 async function tryUpdatePtySidecar(binaryUrl: string, binaryDir: string, logger: (msg: string) => void): Promise<void> {

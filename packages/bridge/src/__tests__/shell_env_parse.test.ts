@@ -150,13 +150,12 @@ describe("mergeShellEnv", () => {
 			...serviceEnv,
 			SSH_AUTH_SOCK: "/tmp/agent.sock",
 			LC_ALL: "en_US.UTF-8",
-			XDG_RUNTIME_DIR: "/run/user/501",
 			PI_SUBAGENT_TOOLS: "read,chad",
 			TMUX: "/tmp/tmux-501/default,1,0",
 		};
 		const merged = mergeShellEnv(started, shellEnv);
 
-		for (const kept of ["SSH_AUTH_SOCK", "LC_ALL", "XDG_RUNTIME_DIR", "LANG", "BROSKI_LINK_SOCKET"]) {
+		for (const kept of ["SSH_AUTH_SOCK", "LC_ALL", "LANG", "BROSKI_LINK_SOCKET"]) {
 			expect(merged.env[kept]).toBe(started[kept as keyof typeof started]);
 		}
 		for (const left of ["PI_SUBAGENT_TOOLS", "PI_CODING_AGENT_DIR", "TMUX"]) expect(merged.env[left]).toBeUndefined();

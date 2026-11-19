@@ -32,28 +32,18 @@ describe("Agent Flag Parsing", () => {
 });
 
 describe("Daemon Type Mapping", () => {
-	function mapDaemonTypeNonInteractive(): "launchagent" | "systemd" | "none" {
+	function mapDaemonTypeNonInteractive(): "launchagent" | "none" {
 		// Simulate platform detection
-		const IS_MACOS = process.platform === "darwin";
-		const IS_LINUX = process.platform === "linux";
-
-		if (IS_MACOS) return "launchagent";
-		if (IS_LINUX) return "systemd";
-		return "none";
+		return process.platform === "darwin" ? "launchagent" : "none";
 	}
 
 	test("returns valid daemon type for current platform", () => {
 		const result = mapDaemonTypeNonInteractive();
-		expect(["launchagent", "systemd", "none"].includes(result)).toBe(true);
+		expect(["launchagent", "none"].includes(result)).toBe(true);
 	});
 
 	function daemonTypeLabel(): string {
-		const IS_MACOS = process.platform === "darwin";
-		const IS_LINUX = process.platform === "linux";
-
-		if (IS_MACOS) return "LaunchAgent";
-		if (IS_LINUX) return "systemd";
-		return "none";
+		return process.platform === "darwin" ? "LaunchAgent" : "none";
 	}
 
 	test("returns appropriate label for current platform", () => {
@@ -103,7 +93,7 @@ describe("Non-Interactive Config Assembly", () => {
 		expect(typeof mockConfig.agents.claudeCode).toBe("boolean");
 
 		expect(typeof mockConfig.daemon.installed).toBe("boolean");
-		expect(["launchagent", "systemd", "none"].includes(mockConfig.daemon.type)).toBe(true);
+		expect(["launchagent", "none"].includes(mockConfig.daemon.type)).toBe(true);
 	});
 });
 
@@ -175,11 +165,11 @@ describe("Wizard Step Result Types", () => {
 	});
 
 	test("daemon type consistency", () => {
-		type DaemonType = "launchagent" | "systemd" | "none";
-		const validTypes: DaemonType[] = ["launchagent", "systemd", "none"];
+		type DaemonType = "launchagent" | "none";
+		const validTypes: DaemonType[] = ["launchagent", "none"];
 
 		validTypes.forEach((type) => {
-			expect(["launchagent", "systemd", "none"].includes(type)).toBe(true);
+			expect(["launchagent", "none"].includes(type)).toBe(true);
 		});
 	});
 });

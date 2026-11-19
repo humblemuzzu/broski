@@ -32,11 +32,3 @@ objc2-io-kit = { version = "0.3.2", default-features = false, features = [
     "ps",
     "pwr_mgt",
 ] }
-
-[target.'cfg(target_os = "linux")'.dependencies]
-# logind PrepareForSleep signal and Inhibit locks over the system bus
-zbus = "5.19.0"
-
-[target.'cfg(target_os = "windows")'.dependencies]
-# SetThreadExecutionState and GetSystemPowerStatus
-windows-sys = { version = "0.61.2", features = ["Win32_System_Power"] }

@@ -33,7 +33,7 @@ describe("Setup Wizard Integration", () => {
 		expect(config.network.port).toBeLessThan(65536); // Valid port range
 
 		// Daemon settings
-		expect(["launchagent", "systemd", "none"].includes(config.daemon.type)).toBe(true);
+		expect(["launchagent", "none"].includes(config.daemon.type)).toBe(true);
 	});
 
 	test("agent configuration allows at least one enabled", () => {
@@ -48,23 +48,11 @@ describe("Setup Wizard Integration", () => {
 
 describe("Platform Integration", () => {
 	test("platform detection is consistent", () => {
-		const { IS_MACOS, IS_LINUX, IS_WINDOWS, CURRENT_PLATFORM, getDaemonType } = require("../platform");
+		const { IS_MACOS, CURRENT_PLATFORM, getDaemonType } = require("../platform");
 
-		// Exactly one platform flag should be true
-		const platformFlags = [IS_MACOS, IS_LINUX, IS_WINDOWS];
-		const trueCount = platformFlags.filter(Boolean).length;
-		expect(trueCount).toBe(1);
-
-		// Platform constant should match flags
-		if (IS_MACOS) expect(CURRENT_PLATFORM).toBe("darwin");
-		if (IS_LINUX) expect(CURRENT_PLATFORM).toBe("linux");
-		if (IS_WINDOWS) expect(CURRENT_PLATFORM).toBe("win32");
-
-		// Daemon type should match platform
-		const daemonType = getDaemonType();
-		if (IS_MACOS) expect(daemonType).toBe("launchagent");
-		if (IS_LINUX) expect(daemonType).toBe("systemd");
-		if (IS_WINDOWS) expect(daemonType).toBe("none");
+		expect(IS_MACOS).toBe(true);
+		expect(CURRENT_PLATFORM).toBe("darwin");
+		expect(getDaemonType()).toBe("launchagent");
 	});
 });
 
@@ -131,7 +119,7 @@ describe("End-to-End Configuration Flow", () => {
 		const mockAgentsResult = { claudeCode: true, pi: true };
 		const mockNetworkResult = { port: 8080 };
 		const mockSecurityResult = { tls: true };
-		const mockDaemonResult = { installed: true, type: "systemd" as const };
+		const mockDaemonResult = { installed: true, type: "launchagent" as const };
 
 		// Verify each result type is valid
 		expect(["continue", "modify", "reset", "keep"].includes(mockWelcomeResult.action)).toBe(true);
@@ -144,7 +132,7 @@ describe("End-to-End Configuration Flow", () => {
 		expect(typeof mockSecurityResult.tls).toBe("boolean");
 
 		expect(typeof mockDaemonResult.installed).toBe("boolean");
-		expect(["launchagent", "systemd", "none"].includes(mockDaemonResult.type)).toBe(true);
+		expect(["launchagent", "none"].includes(mockDaemonResult.type)).toBe(true);
 
 		// Assemble a config (simplified version of what onboarding does)
 		const finalConfig = {
@@ -178,6 +166,6 @@ describe("End-to-End Configuration Flow", () => {
 		expect(finalConfig.security.tls).toBe(true);
 		expect(finalConfig.agents.claudeCode).toBe(true);
 		expect(finalConfig.agents.pi).toBe(true);
-		expect(finalConfig.daemon.type).toBe("systemd");
+		expect(finalConfig.daemon.type).toBe("launchagent");
 	});
 });

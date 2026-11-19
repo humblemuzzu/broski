@@ -5,11 +5,7 @@
  * real PTY.
  */
 
-#if defined(__APPLE__)
 #include <util.h>
-#else
-#include <pty.h>
-#endif
 
 #include <errno.h>
 #include <fcntl.h>

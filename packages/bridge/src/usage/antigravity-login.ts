@@ -55,9 +55,8 @@ export class AntigravityLogin {
 	/** agy's own user agent: the service tells a consumer account from an enterprise one by it. */
 	async userAgent(): Promise<string> {
 		this.agyVersion ??= await this.readVersion();
-		const os = this.system.platform === "win32" ? "windows" : this.system.platform;
 		const arch = this.system.arch === "x64" ? "amd64" : this.system.arch;
-		return `antigravity/cli/${this.agyVersion} (aidev_client; os_type=${os}; arch=${arch}; auth_method=consumer)`;
+		return `antigravity/cli/${this.agyVersion} (aidev_client; os_type=${this.system.platform}; arch=${arch}; auth_method=consumer)`;
 	}
 
 	private async logins(): Promise<GoogleLogin[]> {

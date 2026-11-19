@@ -1,21 +1,15 @@
 use std::time::Duration;
 
-#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[cfg(target_os = "macos")]
 pub(crate) type EventHandler = Box<dyn Fn(PowerEvent) + Send + 'static>;
 
-#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[cfg(target_os = "macos")]
 mod event_worker;
 
 #[cfg(target_os = "macos")]
 #[path = "platform/macos.rs"]
 mod platform;
-#[cfg(target_os = "linux")]
-#[path = "platform/linux.rs"]
-mod platform;
-#[cfg(target_os = "windows")]
-#[path = "platform/windows.rs"]
-mod platform;
-#[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+#[cfg(not(target_os = "macos"))]
 #[path = "platform/unsupported.rs"]
 mod platform;
 

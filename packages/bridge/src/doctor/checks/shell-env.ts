@@ -1,7 +1,7 @@
 /**
  * Whether the bridge, running as a service, can see what the user's terminal can see.
  *
- * A launchd/systemd start inherits a near-empty environment, so a provider key exported only in `~/.zshrc` is
+ * A launchd start inherits a near-empty environment, so a provider key exported only in `~/.zshrc` is
  * missing and Pi reports its provider as unavailable. This check resolves the login shell the way the bridge
  * does at startup and lists which well-known agent variables are present — by name, never by value.
  */

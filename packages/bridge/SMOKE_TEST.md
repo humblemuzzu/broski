@@ -1,6 +1,6 @@
 # Broski Bridge — Smoke Test Checklist
 
-Run these tests on each platform after building a new release.
+Run these tests on each Mac architecture after building a new release.
 
 ## macOS (Apple Silicon — darwin-arm64)
 
@@ -42,58 +42,10 @@ Binary: `broski-darwin-x64`
 - [ ] Loopback TLS certificate generation works
 - [ ] Phone can pair via QR scan
 
-## Linux (x64 — linux-x64)
+## Notes
 
-Binary: `broski-linux-x64`
-
-- [ ] `broski version` — prints version, `(compiled binary)`, `Platform: linux-x64`
-- [ ] `broski --version` — same output as `broski version`
-- [ ] `broski --help` — shows help text with all commands listed
-- [ ] `broski update` — checks for updates
-- [ ] `broski doctor` — runs diagnostics
-- [ ] `broski install` — installs the `broski-link` systemd user service (`~/.config/systemd/user/broski-link.service`)
-- [ ] `broski status` — shows service status, version, update check
-- [ ] `broski stop` — stops the systemd service
-- [ ] `broski restart` — restarts the systemd service
-- [ ] `broski uninstall` — removes the systemd unit file, daemon-reload
-- [ ] `broski` (serve) — starts the bridge server
-- [ ] `broski-link pair` — shows a QR code
-- [ ] Loopback TLS certificate generation works (openssl)
-- [ ] Phone can pair via QR scan
-
-## Linux (ARM — linux-arm64)
-
-Binary: `broski-linux-arm64`
-
-- [ ] `broski version` — prints version, `(compiled binary)`, `Platform: linux-arm64`
-- [ ] `broski --version` — same output as `broski version`
-- [ ] `broski --help` — shows help text with all commands listed
-- [ ] `broski update` — checks for updates
-- [ ] `broski doctor` — runs diagnostics
-- [ ] `broski install` — installs the `broski-link` systemd user service
-- [ ] `broski status` — shows service status, version, update check
-- [ ] `broski` (serve) — starts the bridge server
-- [ ] `broski-link pair` — shows a QR code
-- [ ] Loopback TLS certificate generation works
-- [ ] Phone can pair via QR scan
-
-## Windows (x64 — win32-x64)
-
-Binary: `broski-windows-x64.exe`
-
-Broski Link is not supported on Windows, so only the local commands are checked.
-
-- [ ] `broski version` — prints version, `(compiled binary)`, `Platform: win32-x64`
-- [ ] `broski --version` — same output as `broski version`
-- [ ] `broski --help` — shows help text with all commands listed
-- [ ] `broski update` — checks for updates
-- [ ] `broski doctor` — runs diagnostics
-- [ ] `broski install` — prints "Broski Link is not supported on Windows yet." and installs nothing
-
-## Cross-Platform Notes
-
-- Daemon types: macOS=LaunchAgent, Linux=systemd user service (both run `broski-link`); Windows has none
-- Port detection: macOS/Linux=lsof+ss, Windows=netstat
-- TLS (loopback listener for agent hooks): macOS/Linux=openssl CLI, Windows=openssl or PowerShell New-SelfSignedCertificate
-- Process kill: macOS/Linux=kill -9, Windows=taskkill /F
+- Daemon type: macOS LaunchAgent, which runs `broski-link`
+- Port detection: `lsof`
+- TLS (loopback listener for agent hooks): the `openssl` CLI
+- Process kill: `kill -9`
 - Binary detection: `isCompiledBinary()` checks `process.execPath === process.argv[1]`

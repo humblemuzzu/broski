@@ -145,9 +145,7 @@ environment, which holds secrets: never argv, never a file) and closes it. The h
   taken over and ends once idle (`retiring`). A run that ended with no bridge is taken over idle, and its `pi` ends.
 - **Shutdown**: an idle host stops its `pi` as before; a host with work under way is let go, its holder keeping it.
   `broski stop` and `broski uninstall` stop every holder (`holders.ts`, `stopHolders`); `broski restart` spares them.
-- **Supervisors**: launchd kills a job's process group, which a holder has left. systemd's default `KillMode` kills the
-  whole control group, holders included, so the unit says `KillMode=process` (`platform/service/systemd.ts`); a unit
-  installed before this needs `broski install` again.
+- **Supervisors**: launchd kills a job's process group, which a holder has left.
 
 ## 2. Status
 

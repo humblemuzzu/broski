@@ -25,7 +25,7 @@ export function fileIdentityFromPath(path: string): FileIdentity | null {
 
 /**
  * True when the given descriptor already writes into `path` — i.e. a supervisor
- * (launchd/systemd) redirected stdout/stderr at the same file the logger uses.
+ * (launchd) redirected stdout/stderr at the same file the logger uses.
  */
 export function isFdRedirectedToFile(
 	fd: number,

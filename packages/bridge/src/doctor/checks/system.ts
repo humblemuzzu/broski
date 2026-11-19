@@ -1,7 +1,7 @@
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import packageMeta from "../../../package.json";
-import { CURRENT_PLATFORM, IS_WINDOWS, isCompiledBinary } from "../../platform";
+import { CURRENT_PLATFORM, isCompiledBinary } from "../../platform";
 import type { DoctorContext } from "../context";
 import type { CheckResult } from "../types";
 import { dirExists } from "../utils";
@@ -105,7 +105,7 @@ export async function runSystemChecks(ctx: DoctorContext): Promise<CheckResult[]
 	}
 
 	const pathEnv = process.env.PATH ?? "";
-	const onPath = pathEnv.split(IS_WINDOWS ? ";" : ":").some((p) => {
+	const onPath = pathEnv.split(":").some((p) => {
 		try {
 			return resolve(p) === ctx.paths.bin;
 		} catch {
@@ -125,9 +125,7 @@ export async function runSystemChecks(ctx: DoctorContext): Promise<CheckResult[]
 					category: "system",
 					status: "warning",
 					message: "~/.broski/bin not on PATH",
-					fix: IS_WINDOWS
-						? "Add %USERPROFILE%\\.broski\\bin to PATH"
-						: 'Add export PATH="$HOME/.broski/bin:$PATH" to your shell profile',
+					fix: 'Add export PATH="$HOME/.broski/bin:$PATH" to your shell profile',
 				},
 	);
 

@@ -327,7 +327,7 @@ Commands:
   configure         Reconfigure existing setup
   troubleshoot      Interactive troubleshooter
   logs              Tail bridge logs
-  install           Install as background service (broski-link on macOS/Linux, starts on login)
+  install           Install as background service (broski-link on macOS, starts on login)
   uninstall         Remove background service
   status            Show if bridge is running
   stop              Stop the background service

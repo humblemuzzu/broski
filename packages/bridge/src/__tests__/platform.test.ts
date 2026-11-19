@@ -12,41 +12,14 @@ import {
 	getProcessOnPort,
 	getSleepPreventionTip,
 	getTailLogsHint,
-	IS_LINUX,
 	IS_MACOS,
-	IS_WINDOWS,
 	isCompiledBinary,
 } from "../platform";
 
 describe("Platform Detection", () => {
-	test("CURRENT_PLATFORM is a valid platform", () => {
-		expect(["darwin", "linux", "win32"].includes(CURRENT_PLATFORM)).toBe(true);
-	});
-
-	test("exactly one platform flag is true", () => {
-		const flags = [IS_WINDOWS, IS_MACOS, IS_LINUX];
-		const trueCount = flags.filter(Boolean).length;
-		expect(trueCount).toBe(1);
-	});
-
-	test("platform flags match CURRENT_PLATFORM", () => {
-		switch (CURRENT_PLATFORM) {
-			case "darwin":
-				expect(IS_MACOS).toBe(true);
-				expect(IS_LINUX).toBe(false);
-				expect(IS_WINDOWS).toBe(false);
-				break;
-			case "linux":
-				expect(IS_MACOS).toBe(false);
-				expect(IS_LINUX).toBe(true);
-				expect(IS_WINDOWS).toBe(false);
-				break;
-			case "win32":
-				expect(IS_MACOS).toBe(false);
-				expect(IS_LINUX).toBe(false);
-				expect(IS_WINDOWS).toBe(true);
-				break;
-		}
+	test("the desktop host is macOS", () => {
+		expect(CURRENT_PLATFORM).toBe("darwin");
+		expect(IS_MACOS).toBe(true);
 	});
 });
 
@@ -79,28 +52,17 @@ describe("Binary Detection", () => {
 describe("Daemon System", () => {
 	test("getDaemonType returns valid daemon type", () => {
 		const result = getDaemonType();
-		expect(["launchagent", "systemd", "none"].includes(result)).toBe(true);
+		expect(["launchagent", "none"].includes(result)).toBe(true);
 	});
 
-	test("daemon type matches platform", () => {
-		const type = getDaemonType();
-		if (IS_MACOS) {
-			expect(type).toBe("launchagent");
-		} else if (IS_LINUX) {
-			expect(type).toBe("systemd");
-		} else {
-			expect(type).toBe("none");
-		}
+	test("daemon type is the LaunchAgent on macOS", () => {
+		expect(getDaemonType()).toBe("launchagent");
 	});
 
-	test("getDaemonConfigPath returns a path where a service exists", () => {
+	test("getDaemonConfigPath returns the LaunchAgent plist path", () => {
 		const result = getDaemonConfigPath();
-		if (IS_WINDOWS) {
-			expect(result).toBeNull();
-		} else {
-			expect(typeof result).toBe("string");
-			expect(result?.length).toBeGreaterThan(0);
-		}
+		expect(typeof result).toBe("string");
+		expect(result?.length).toBeGreaterThan(0);
 	});
 });
 
@@ -114,44 +76,25 @@ describe("System Helpers", () => {
 });
 
 describe("User-Facing Messages", () => {
-	test("getKillPortHint returns platform-appropriate command", () => {
+	test("getKillPortHint returns a command for the port", () => {
 		const hint = getKillPortHint(8080);
 		expect(typeof hint).toBe("string");
 		expect(hint).toContain("8080");
-
-		if (IS_WINDOWS) {
-			expect(hint).toContain("netstat");
-			expect(hint).toContain("taskkill");
-		} else {
-			expect(hint).toContain("kill");
-			expect(hint).toContain("lsof");
-		}
+		expect(hint).toContain("kill");
+		expect(hint).toContain("lsof");
 	});
 
-	test("getTailLogsHint returns platform-appropriate command", () => {
+	test("getTailLogsHint returns the tail command", () => {
 		const hint = getTailLogsHint();
 		expect(typeof hint).toBe("string");
 		expect(hint).toContain(".broski");
-
-		if (IS_WINDOWS) {
-			expect(hint).toContain("Get-Content");
-		} else {
-			expect(hint).toContain("tail");
-		}
+		expect(hint).toContain("tail");
 	});
 
-	test("getSleepPreventionTip returns platform-specific advice", () => {
+	test("getSleepPreventionTip returns macOS advice", () => {
 		const tip = getSleepPreventionTip();
 		expect(typeof tip).toBe("string");
-		expect(tip.length).toBeGreaterThan(10);
-
-		if (IS_MACOS) {
-			expect(tip).toContain("Amphetamine");
-		} else if (IS_LINUX) {
-			expect(tip).toContain("systemctl");
-		} else if (IS_WINDOWS) {
-			expect(tip).toContain("powercfg");
-		}
+		expect(tip).toContain("Amphetamine");
 	});
 });
 

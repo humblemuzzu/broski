@@ -42,9 +42,7 @@ export type NativeLib = Library<typeof SYMBOLS>;
 let libHandle: NativeLib | null = null;
 
 function getLibName(): string {
-	if (process.platform === "darwin") return "libbroski_pty.dylib";
-	if (process.platform === "linux") return "libbroski_pty.so";
-	return "";
+	return process.platform === "darwin" ? "libbroski_pty.dylib" : "";
 }
 
 function findLibraryPath(): string | null {

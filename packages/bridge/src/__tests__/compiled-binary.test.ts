@@ -2,21 +2,14 @@ import { describe, expect, test } from "bun:test";
 import { detectCompiledBinary, isBunfsPath, isCompiledBinary } from "../compiled-binary";
 
 describe("isBunfsPath", () => {
-	test("matches the macOS/Linux virtual root", () => {
+	test("matches the virtual root", () => {
 		expect(isBunfsPath("/$bunfs/root/broski-darwin-arm64")).toBe(true);
-		expect(isBunfsPath("/$bunfs/root/broski-linux-x64")).toBe(true);
+		expect(isBunfsPath("/$bunfs/root/broski-darwin-x64")).toBe(true);
 		expect(isBunfsPath("file:///$bunfs/root/broski")).toBe(true);
-	});
-
-	test("matches the Windows virtual root", () => {
-		expect(isBunfsPath("B:/~BUN/root/broski-windows-x64.exe")).toBe(true);
-		expect(isBunfsPath("B:\\~BUN\\root\\broski-windows-x64.exe")).toBe(true);
-		expect(isBunfsPath("file:///B:/~BUN/root/broski.exe")).toBe(true);
 	});
 
 	test("rejects real filesystem paths", () => {
 		expect(isBunfsPath("/Users/me/proj/packages/bridge/src/index.ts")).toBe(false);
-		expect(isBunfsPath("C:/Users/me/proj/bin/broski.ts")).toBe(false);
 		expect(isBunfsPath("file:///Users/me/proj/bin/broski.ts")).toBe(false);
 		expect(isBunfsPath("")).toBe(false);
 		expect(isBunfsPath(undefined)).toBe(false);
@@ -77,28 +70,15 @@ describe("detectCompiledBinary", () => {
 		).toBe(true);
 	});
 
-	test("compiled linux-x64", () => {
+	test("compiled darwin-x64", () => {
 		expect(
 			detectCompiledBinary({
 				standaloneFlag: true,
-				metaUrl: "file:///$bunfs/root/broski-linux-x64",
-				metaPath: "/$bunfs/root/broski-linux-x64",
-				bunMain: "/$bunfs/root/broski-linux-x64",
-				argv1: "/$bunfs/root/broski-linux-x64",
-				execPath: "/home/me/dist/broski-linux-x64",
-			}),
-		).toBe(true);
-	});
-
-	test("compiled windows-x64", () => {
-		expect(
-			detectCompiledBinary({
-				standaloneFlag: true,
-				metaUrl: "file:///B:/~BUN/root/broski-windows-x64.exe",
-				metaPath: "B:/~BUN/root/broski-windows-x64.exe",
-				bunMain: "B:/~BUN/root/broski-windows-x64.exe",
-				argv1: "B:/~BUN/root/broski-windows-x64.exe",
-				execPath: "C:\\Users\\me\\dist\\broski-windows-x64.exe",
+				metaUrl: "file:///$bunfs/root/broski-darwin-x64",
+				metaPath: "/$bunfs/root/broski-darwin-x64",
+				bunMain: "/$bunfs/root/broski-darwin-x64",
+				argv1: "/$bunfs/root/broski-darwin-x64",
+				execPath: "/Users/me/dist/broski-darwin-x64",
 			}),
 		).toBe(true);
 	});

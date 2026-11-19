@@ -44,19 +44,9 @@ echo ""
 OS_RAW=$(uname -s)
 case "$OS_RAW" in
   Darwin)  OS="darwin" ;;
-  Linux)   OS="linux" ;;
-  MINGW*|MSYS*|CYGWIN*|Windows_NT)
-    echo "  Error: Windows detected."
-    echo "  Note: Broski Link is not supported on Windows yet."
-    echo "  Please use the PowerShell installer instead:"
-    echo ""
-    echo "    irm https://broskiapp.com/install.ps1 | iex"
-    echo ""
-    exit 1
-    ;;
   *)
     echo "  Error: Unsupported operating system '${OS_RAW}'."
-    echo "  Broski supports macOS and Linux."
+    echo "  Broski supports macOS."
     exit 1
     ;;
 esac
@@ -89,11 +79,7 @@ mkdir -p "$INSTALL_DIR"
 # verification mechanism.
 
 sha256_of() {
-  if command -v sha256sum >/dev/null 2>&1; then
-    sha256sum "$1" | awk '{print $1}'
-  else
-    shasum -a 256 "$1" | awk '{print $1}'
-  fi
+  shasum -a 256 "$1" | awk '{print $1}'
 }
 
 expected_sha256() {
@@ -148,23 +134,17 @@ fi
 
 # ── Download native PTY library ──────────────
 # Enables terminal sessions from the app.
-PTY_LIB=""
-case "$OS" in
-  darwin) PTY_LIB="libbroski_pty.dylib" ;;
-  linux)  PTY_LIB="libbroski_pty.so" ;;
-esac
+PTY_LIB="libbroski_pty.dylib"
 
-if [ -n "$PTY_LIB" ]; then
-  if curl -fSL "${BASE_URL}/${PTY_LIB}" -o "${INSTALL_DIR}/${PTY_LIB}" 2>/dev/null; then
-    if [ -n "$(expected_sha256 "$PTY_LIB")" ]; then
-      verify_sha256 "${INSTALL_DIR}/${PTY_LIB}" "${PTY_LIB}"
-    else
-      echo "  ✓ PTY library installed (not listed in SHA256SUMS)"
-    fi
+if curl -fSL "${BASE_URL}/${PTY_LIB}" -o "${INSTALL_DIR}/${PTY_LIB}" 2>/dev/null; then
+  if [ -n "$(expected_sha256 "$PTY_LIB")" ]; then
+    verify_sha256 "${INSTALL_DIR}/${PTY_LIB}" "${PTY_LIB}"
   else
-    echo "  ⚠ PTY library not available (terminal sessions disabled)"
-    rm -f "${INSTALL_DIR}/${PTY_LIB}" 2>/dev/null
+    echo "  ✓ PTY library installed (not listed in SHA256SUMS)"
   fi
+else
+  echo "  ⚠ PTY library not available (terminal sessions disabled)"
+  rm -f "${INSTALL_DIR}/${PTY_LIB}" 2>/dev/null
 fi
 
 echo ""

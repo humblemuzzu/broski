@@ -1,6 +1,6 @@
 import type { CommandRunner } from "../command";
 
-export type DaemonType = "launchagent" | "systemd" | "none";
+export type DaemonType = "launchagent" | "none";
 
 export interface DaemonConfig {
 	/** Path to the broski binary */

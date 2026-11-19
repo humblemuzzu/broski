@@ -208,7 +208,7 @@ describe("Config Update", () => {
 	});
 
 	test("config validation with all daemon types", () => {
-		const types = ["launchagent", "systemd", "none"] as const;
+		const types = ["launchagent", "none"] as const;
 
 		types.forEach((type) => {
 			const config = {
@@ -224,16 +224,10 @@ describe("Config Update", () => {
 		});
 	});
 
-	test("an unknown daemon type from an older config falls back to none and keeps the rest", () => {
-		const config = {
-			...getDefaultConfig(),
-			network: { port: 9090 },
-			daemon: { installed: true, type: "taskscheduler" },
-		};
-
-		const result = BroskiConfigSchema.safeParse(config);
-		expect(result.success).toBe(true);
-		expect(result.data?.daemon).toEqual({ installed: true, type: "none" });
-		expect(result.data?.network.port).toBe(9090);
+	test("a daemon type for a platform the bridge does not run on is rejected", () => {
+		for (const type of ["systemd", "taskscheduler"]) {
+			const config = { ...getDefaultConfig(), daemon: { installed: true, type } };
+			expect(BroskiConfigSchema.safeParse(config).success).toBe(false);
+		}
 	});
 });
