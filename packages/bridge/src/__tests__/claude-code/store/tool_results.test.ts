@@ -7,6 +7,7 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { isRecord } from "../../../backends/claude-code/json";
 import * as helper from "../../../backends/claude-code/mapping/tool-results";
+import { MAX_RAW_LINE_BYTES } from "../../../backends/claude-code/store/raw-scan";
 import { MAX_LIST_ITEMS, MAX_TEXT_CHARS } from "../../../contract";
 import { frameScenarios, readFrameFixture } from "../helpers/frame-fixtures";
 import { createStoreWorld, type StoreWorld } from "./helpers/store-world";
@@ -146,7 +147,7 @@ describe("what reaches toolResultOf", () => {
 			lines: Array.from({ length: MAX_LIST_ITEMS + 50 }, (_, n) => n),
 		});
 		b.toolUse("msg_2", "toolu_huge", "Read", {});
-		b.toolResult("toolu_huge", "ok", { content: "x".repeat(9 * 1_048_576) });
+		b.toolResult("toolu_huge", "ok", { content: "x".repeat(MAX_RAW_LINE_BYTES + 1_048_576) });
 		b.write(world.home.configDir);
 		const got = await received(sessionId);
 		const big = got.get("toolu_big")?.toolUseResult as { content: string; lines: number[] };
