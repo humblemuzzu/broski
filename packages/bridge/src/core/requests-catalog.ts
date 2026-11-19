@@ -89,11 +89,18 @@ export const sessionsList = onBackend<"sessions.list">(
 		const message = await pageWithinFrame(
 			ctx.maxFrameBytes,
 			request.page.limit,
-			async (limit): Promise<ResponseFor<"sessions.list">> => ({
-				type: "sessions.list.result",
-				requestId: request.requestId,
-				result: await backend.listSessions(query, { ...request.page, limit }),
-			}),
+			async (limit): Promise<ResponseFor<"sessions.list">> => {
+				const result = await backend.listSessions(query, { ...request.page, limit });
+				const enriched =
+					result.status === "accepted"
+						? { ...result, page: { ...result.page, items: result.page.items.map((item) => ctx.runClock.enrich(item)) } }
+						: result;
+				return {
+					type: "sessions.list.result",
+					requestId: request.requestId,
+					result: enriched,
+				};
+			},
 		);
 		respond(message);
 	},
@@ -101,8 +108,10 @@ export const sessionsList = onBackend<"sessions.list">(
 
 export const sessionGet = onBackend<"session.get">(
 	(request) => request.session.backend,
-	async ({ request, respond, backend }) => {
+	async ({ ctx, request, respond, backend }) => {
 		const result = await backend.getSession(request.session);
-		respond({ type: "session.get.result", requestId: request.requestId, result });
+		const enriched =
+			result.status === "accepted" ? { ...result, summary: ctx.runClock.enrich(result.summary) } : result;
+		respond({ type: "session.get.result", requestId: request.requestId, result: enriched });
 	},
 );

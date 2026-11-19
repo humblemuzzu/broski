@@ -42,10 +42,10 @@ export class RunTracker {
 	}
 
 	/** Emits `run_started`; `leafEntryId` is the session's leaf now, where the transcript is cut. */
-	start(trigger: RunTrigger, leafEntryId: string | null, solo?: SoloRun): RunContext {
+	start(trigger: RunTrigger, leafEntryId: string | null, solo?: SoloRun, startedAt?: number): RunContext {
 		const context: RunContext = { runId: mintRunId(), tools: new ToolCallIds() };
 		this.active = { context, cut: { leafEntryId }, cutExact: false, solo, aborting: false };
-		this.deps.live.emit({ type: "run_started", runId: context.runId, trigger });
+		this.deps.live.emit({ type: "run_started", runId: context.runId, trigger }, undefined, startedAt);
 		return context;
 	}
 

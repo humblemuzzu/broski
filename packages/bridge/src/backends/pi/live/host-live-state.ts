@@ -11,8 +11,8 @@ export class HostLiveState extends LiveState {
 		super(initial, now);
 	}
 
-	override emit(event: AgentEvent, native?: NativeIds): void {
-		super.emit(event, native);
+	override emit(event: AgentEvent, native?: NativeIds, at?: number): void {
+		super.emit(event, native, at);
 		this.emitted(event);
 	}
 }

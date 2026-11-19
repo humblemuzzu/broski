@@ -40,6 +40,7 @@ export class ReplayLog {
 	private agentActive = false;
 	private compacting = false;
 	private retrying = false;
+	private startedAt: number | undefined;
 	private messageSeq = 0;
 	private endedMessages = new Set<string>();
 	private endedTools = new Set<string>();
@@ -49,6 +50,7 @@ export class ReplayLog {
 	constructor(
 		private readonly now: () => number,
 		private readonly maxBytes = MAX_REPLAY_BYTES,
+		private readonly wallNow: () => number = Date.now,
 	) {}
 
 	/** One line `pi` wrote on stdout. */
@@ -68,7 +70,7 @@ export class ReplayLog {
 	}
 
 	/** What a bridge taking over reads first; an ask's `timeout` is what is left of it. */
-	replay(): { readonly lines: readonly string[]; readonly truncated: boolean } {
+	replay(): { readonly lines: readonly string[]; readonly truncated: boolean; readonly runStartedAt?: number } {
 		const now = this.now();
 		const lines: string[] = [];
 		for (const line of this.lines) {
@@ -77,7 +79,11 @@ export class ReplayLog {
 			if (expiresAt === undefined) lines.push(line.text);
 			else if (expiresAt > now) lines.push(withTimeout(line.text, expiresAt - now));
 		}
-		return { lines, truncated: this.truncated };
+		return {
+			lines,
+			truncated: this.truncated,
+			...(this.startedAt !== undefined && { runStartedAt: this.startedAt }),
+		};
 	}
 
 	/** The dialogs still waiting for an answer. */
@@ -96,10 +102,14 @@ export class ReplayLog {
 	}
 
 	private follow(type: unknown): void {
-		if (type === "agent_start") this.agentActive = true;
-		else if (type === "agent_settled") this.agentActive = false;
-		else if (type === "compaction_start") this.compacting = true;
-		else if (type === "compaction_end") this.compacting = false;
+		if (type === "agent_start") {
+			this.agentActive = true;
+			this.startedAt ??= this.wallNow();
+		} else if (type === "agent_settled") this.agentActive = false;
+		else if (type === "compaction_start") {
+			this.compacting = true;
+			this.startedAt ??= this.wallNow();
+		} else if (type === "compaction_end") this.compacting = false;
 		else if (type === "auto_retry_start") this.retrying = true;
 		else if (type === "auto_retry_end") this.retrying = false;
 	}
@@ -197,6 +207,7 @@ export class ReplayLog {
 		}
 		this.compact();
 		this.truncated = false;
+		this.startedAt = undefined;
 		this.endedMessages = new Set();
 		this.endedTools = new Set();
 		this.latestUpdate = new Map();

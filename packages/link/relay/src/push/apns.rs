@@ -8,7 +8,7 @@ use tracing::warn;
 
 use crate::limits::{APNS_JWT_REFRESH, PROVIDER_BODY_BYTES};
 use crate::push::config::ApnsConfig;
-use crate::push::{bounded_body, client_builder, PushError, PushRequest};
+use crate::push::{bounded_body, client_builder, Platform, PushError, PushRequest};
 
 const PUSH_TYPE: HeaderName = HeaderName::from_static("apns-push-type");
 const TOPIC: HeaderName = HeaderName::from_static("apns-topic");
@@ -19,6 +19,7 @@ pub struct ApnsClient {
     http: reqwest::Client,
     endpoint: reqwest::Url,
     topic: HeaderValue,
+    liveactivity_topic: HeaderValue,
     key_id: String,
     team_id: String,
     key: EncodingKey,
@@ -73,10 +74,14 @@ impl ApnsClient {
         }
         let http = builder.build().map_err(|error| error.to_string())?;
         let topic = HeaderValue::from_str(&config.topic).map_err(|error| error.to_string())?;
+        let liveactivity_topic =
+            HeaderValue::from_str(&format!("{}.push-type.liveactivity", config.topic))
+                .map_err(|error| error.to_string())?;
         Ok(ApnsClient {
             http,
             endpoint: config.endpoint.clone(),
             topic,
+            liveactivity_topic,
             key_id: config.key_id.clone(),
             team_id: config.team_id.clone(),
             key: config.key.clone(),
@@ -90,9 +95,24 @@ impl ApnsClient {
         url.path_segments_mut()
             .map_err(|_| PushError::BadRequest)?
             .extend(["3", "device", request.token.as_str()]);
+        let live_activity = request.platform == Platform::ApnsLiveActivity;
         let mut headers = HeaderMap::new();
-        headers.insert(PUSH_TYPE, HeaderValue::from_static("alert"));
-        headers.insert(TOPIC, self.topic.clone());
+        headers.insert(
+            PUSH_TYPE,
+            HeaderValue::from_static(if live_activity {
+                "liveactivity"
+            } else {
+                "alert"
+            }),
+        );
+        headers.insert(
+            TOPIC,
+            if live_activity {
+                self.liveactivity_topic.clone()
+            } else {
+                self.topic.clone()
+            },
+        );
         headers.insert(PRIORITY, HeaderValue::from_static(request.priority.apns()));
         if let Some(collapse) = &request.collapse {
             headers.insert(
@@ -104,21 +124,25 @@ impl ApnsClient {
             AUTHORIZATION,
             HeaderValue::from_str(&format!("bearer {bearer}")).map_err(|_| PushError::Failed)?,
         );
-        let body = serde_json::to_vec(&Notification {
-            aps: Aps {
-                alert: Alert {
-                    title: "Broski",
-                    body: "New activity",
+        let body = if live_activity {
+            request.data.clone()
+        } else {
+            serde_json::to_vec(&Notification {
+                aps: Aps {
+                    alert: Alert {
+                        title: "Broski",
+                        body: "New activity",
+                    },
+                    mutable: 1,
+                    category: request.kind.as_str(),
+                    sound: request.kind.wants_sound().then_some("default"),
                 },
-                mutable: 1,
-                category: request.kind.as_str(),
-                sound: request.kind.wants_sound().then_some("default"),
-            },
-            m: &request.machine,
-            k: request.kind.as_str(),
-            e: crate::auth::b64url_encode(&request.data),
-        })
-        .map_err(|_| PushError::Failed)?;
+                m: &request.machine,
+                k: request.kind.as_str(),
+                e: crate::auth::b64url_encode(&request.data),
+            })
+            .map_err(|_| PushError::Failed)?
+        };
         let response = self
             .http
             .post(url)

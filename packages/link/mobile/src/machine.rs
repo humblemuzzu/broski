@@ -117,6 +117,16 @@ impl Machine {
         self.0.unregister_push();
     }
 
+    /// Registers the active iOS Live Activity push token so the machine can update it while the app
+    /// is in the background.
+    pub fn register_live_activity(&self, token: String) {
+        self.0.register_live_activity(token);
+    }
+
+    pub fn unregister_live_activity(&self) {
+        self.0.unregister_live_activity();
+    }
+
     /// `host:port` routes the platform's browse (`NWBrowser`, `NsdManager`) found for this machine,
     /// newest first.
     pub fn lan_discovered(&self, routes: Vec<String>) {

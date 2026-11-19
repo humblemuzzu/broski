@@ -16,9 +16,12 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 LINK_DIR="$ROOT/packages/link"
 DAEMON_BIN="$LINK_DIR/target/release/broski-link"
+RELAY_BIN="$LINK_DIR/target/release/broski-relay"
 BRIDGE_ENTRY="$ROOT/packages/bridge/bin/broski.ts"
 SESSION="broski-daemon"
+RELAY_SESSION="broski-relay"
 DEBUG_LOG="/tmp/broski-daemon-debug.log"
+RELAY_LOG="/tmp/broski-relay-debug.log"
 MAX_LOG_BYTES=$((10 * 1024 * 1024))
 LINK_HOME="${BROSKI_LINK_HOME:-$HOME/.broski/link}"
 
@@ -80,7 +83,7 @@ for line in out.splitlines():
         continue
     pid = int(parts[0])
     cmd = parts[1]
-    if pid in spared or "__pi-holder" in cmd:
+    if pid in spared or "__pi-holder" in cmd or cmd.startswith("tmux "):
         continue
     if "broski-link run" in cmd or "packages/bridge/bin/broski.ts" in cmd or "packages/bridge/src/index.ts" in cmd:
         found.append(pid)
@@ -161,7 +164,7 @@ print_status() {
 
   echo ""
   echo "=== Broski processes ==="
-  ps -ax -o pid=,ppid=,etime=,command= | grep -E 'broski-link run|packages/bridge/bin/broski\.ts|packages/bridge/src/index\.ts|__pi-holder|test-machine|dev-fake-bridge|phone-install-server' | grep -v grep || echo "(none)"
+  ps -ax -o pid=,ppid=,etime=,command= | grep -E 'broski-link run|broski-relay|packages/bridge/bin/broski\.ts|packages/bridge/src/index\.ts|__pi-holder|test-machine|dev-fake-bridge|phone-install-server' | grep -v grep || echo "(none)"
 
   echo ""
   echo "=== tmux sessions ==="
@@ -181,6 +184,10 @@ fi
 
 if [[ $cmd == stop ]]; then
   stop_existing
+  if tmux has-session -t "$RELAY_SESSION" 2>/dev/null; then
+    echo "==> Stopping $RELAY_SESSION"
+    tmux kill-session -t "$RELAY_SESSION" 2>/dev/null || true
+  fi
   if tmux has-session -t broski-phone 2>/dev/null; then
     echo "==> Stopping broski-phone OTA server"
     tmux kill-session -t broski-phone 2>/dev/null || true
@@ -193,11 +200,37 @@ if [[ $cmd == stop ]]; then
   exit 0
 fi
 
+ensure_local_relay() {
+  local cfg="$LINK_HOME/config.json"
+  local apns_key="$LINK_HOME/apns.p8"
+  local apns_meta="$LINK_HOME/apns.json"
+  [[ -f $cfg && -f $apns_key && -f $apns_meta ]] || return 0
+  grep -q '127\.0\.0\.1:8765' "$cfg" || return 0
+  if [[ ! -x $RELAY_BIN ]]; then
+    echo "==> Building broski-relay (release)"
+    (cd "$LINK_DIR" && cargo build --release --locked -p broski-relay)
+  fi
+  if tmux has-session -t "$RELAY_SESSION" 2>/dev/null; then
+    return 0
+  fi
+  local key_id team_id topic sandbox_flag=""
+  key_id="$(/usr/bin/python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["keyId"])' "$apns_meta")"
+  team_id="$(/usr/bin/python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["teamId"])' "$apns_meta")"
+  topic="$(/usr/bin/python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["topic"])' "$apns_meta")"
+  if /usr/bin/python3 -c 'import json,sys; sys.exit(0 if json.load(open(sys.argv[1])).get("sandbox") else 1)' "$apns_meta"; then
+    sandbox_flag="--apns-sandbox"
+  fi
+  echo "==> Starting local $RELAY_SESSION (127.0.0.1:8765)"
+  tmux new-session -d -s "$RELAY_SESSION" -c "$HOME" \
+    "exec env RUST_LOG='info,broski_relay=debug' '$RELAY_BIN' --listen 127.0.0.1:8765 --db '$LINK_HOME/relay.db' --apns-key '$apns_key' --apns-key-id '$key_id' --apns-team-id '$team_id' --apns-topic '$topic' $sandbox_flag >> '$RELAY_LOG' 2>&1"
+}
+
 if ((force_build == 1)) || daemon_is_stale; then
   echo "==> Building broski-link (release)"
   (cd "$LINK_DIR" && cargo build --release --locked -p broski-link-daemon)
 fi
 
+ensure_local_relay
 stop_existing
 rotate_debug_log
 

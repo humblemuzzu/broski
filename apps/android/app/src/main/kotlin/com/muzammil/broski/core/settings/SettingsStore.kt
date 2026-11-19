@@ -14,11 +14,14 @@ import kotlinx.coroutines.flow.map
 
 enum class Appearance { System, Light, Dark }
 
+enum class KeepScreenAwake { DictationOnly, WhileWorking, Always }
+
 /** The kinds of notification the person can turn off; local preferences, never sent anywhere. */
 enum class NotificationKind { NeedsYou, Done, Failures }
 
 data class AppSettings(
     val appearance: Appearance = Appearance.System,
+    val keepScreenAwake: KeepScreenAwake = KeepScreenAwake.DictationOnly,
     val notifications: Set<NotificationKind> = NotificationKind.entries.toSet(),
     val voice: VoiceSettings = VoiceSettings(),
     val reading: ReadingSettings = ReadingSettings(),
@@ -64,6 +67,9 @@ class SettingsStore(private val store: DataStore<Preferences>) {
             appearance = preferences[APPEARANCE]
                 ?.let { stored -> Appearance.entries.firstOrNull { it.name == stored } }
                 ?: Appearance.System,
+            keepScreenAwake = preferences[KEEP_SCREEN_AWAKE]
+                ?.let { stored -> KeepScreenAwake.entries.firstOrNull { it.name == stored } }
+                ?: KeepScreenAwake.DictationOnly,
             notifications = NotificationKind.entries.filterTo(mutableSetOf()) { preferences[notifyKey(it)] ?: true },
             voice = VoiceSettings(
                 language = preferences[VOICE_LANGUAGE].let { stored ->
@@ -83,6 +89,10 @@ class SettingsStore(private val store: DataStore<Preferences>) {
 
     suspend fun setAppearance(appearance: Appearance) {
         store.edit { it[APPEARANCE] = appearance.name }
+    }
+
+    suspend fun setKeepScreenAwake(mode: KeepScreenAwake) {
+        store.edit { it[KEEP_SCREEN_AWAKE] = mode.name }
     }
 
     suspend fun setNotification(kind: NotificationKind, enabled: Boolean) {
@@ -130,6 +140,7 @@ class SettingsStore(private val store: DataStore<Preferences>) {
 
         const val DETECT = "detect"
         val APPEARANCE = stringPreferencesKey("appearance")
+        val KEEP_SCREEN_AWAKE = stringPreferencesKey("display.keepScreenAwake")
         val VOICE_LANGUAGE = stringPreferencesKey("voice.language")
         val VOICE_SEND_AFTER = booleanPreferencesKey("voice.sendAfterDictating")
         val VOICE_PROJECT_WORDS = booleanPreferencesKey("voice.projectWords")

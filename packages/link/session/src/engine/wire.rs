@@ -5,7 +5,7 @@ use broski_link_core::{LinkEvent, STREAM_BRIDGE, STREAM_CONTROL};
 use tokio::sync::mpsc::error::TrySendError;
 use tracing::debug;
 
-use super::{Engine, Handshake, PushIntent};
+use super::{Engine, Handshake, LiveActivityIntent, PushIntent};
 use crate::control::{self, FromMachine, Malformed};
 use crate::events::{locked, Event};
 use crate::outbound::SendFailure;
@@ -73,9 +73,19 @@ impl Engine {
             Some(PushIntent::Unregister) => Some(control::push_unregister()),
             None => None,
         };
+        let live_activity = match &self.live_activity {
+            Some(LiveActivityIntent::Register { token }) => {
+                Some(control::live_activity_register(token))
+            }
+            Some(LiveActivityIntent::Unregister) => Some(control::live_activity_unregister()),
+            None => None,
+        };
         let hello = control::hello(&self.options.device_name, self.options.platform);
         let mut outbound = locked(&self.shared.outbound);
         let dropped = if reset { outbound.reset() } else { Vec::new() };
+        if let Some(live_activity) = live_activity {
+            outbound.push_front(STREAM_CONTROL, live_activity);
+        }
         if let Some(push) = push {
             outbound.push_front(STREAM_CONTROL, push);
         }

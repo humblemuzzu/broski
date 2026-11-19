@@ -10,7 +10,7 @@ struct InboxTests {
     ) -> InboxRow {
         InboxRow(
             machineId: machine, machineName: "Studio Mac", session: SessionRef(backend: .claudeCode, sessionId: id),
-            title: id, cwd: "/Users/me/broski", state: state, updatedAt: updatedAt,
+            title: id, cwd: "/Users/me/broski", state: state, updatedAt: updatedAt, runStartedAt: nil,
             ask: state == .needsYou ? "Allow Bash command?" : nil, command: command, pending: pending,
             cached: false)
     }

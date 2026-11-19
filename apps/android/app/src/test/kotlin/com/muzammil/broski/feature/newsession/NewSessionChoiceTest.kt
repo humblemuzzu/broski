@@ -18,7 +18,7 @@ import uniffi.broski_core.WaitReason
 /** What a new session starts with before the person picks anything, and what their picks keep. */
 class NewSessionChoiceTest {
     private fun row(machine: String, cwd: String?, updatedAt: Long, backend: BackendId = BackendId.PI) =
-        InboxRow(machine, "studio", SessionRef(backend, "s$updatedAt"), null, cwd, InboxState.IDLE, updatedAt, null, null, null, false)
+        InboxRow(machine, "studio", SessionRef(backend, "s$updatedAt"), null, cwd, InboxState.IDLE, updatedAt, null, null, null, null, false)
 
     private fun status(usable: Boolean) = BackendStatus(usable, "1.0", AuthState.SIGNED_IN, usable, emptyList())
 

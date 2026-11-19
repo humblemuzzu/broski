@@ -32,6 +32,8 @@ export interface Adoption {
 	readonly truncated: boolean;
 	/** The `pi` runs another version of the bridge's extension, so the host ends once it is idle. */
 	readonly retiring: boolean;
+	/** Wall-clock epoch ms when the holder's active run started, if one was under way. */
+	readonly runStartedAt?: number;
 }
 
 /** The session a host runs, as its `pi` is started on it. */

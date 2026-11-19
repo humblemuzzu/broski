@@ -6,6 +6,7 @@ import type { CoreClock, CoreLog, DirectoryPolicy, UsageReader, WorkspaceHost } 
 import type { PromptLedger } from "./prompt-ledger";
 import type { Replacements } from "./replacements";
 import { protocolError } from "./results";
+import type { RunClock } from "./run-clock";
 import type { SessionHub } from "./session-hub";
 import type { TerminalViewers } from "./terminal-viewers";
 
@@ -13,6 +14,7 @@ import type { TerminalViewers } from "./terminal-viewers";
 export interface CoreContext {
 	readonly registry: BackendRegistry;
 	readonly hub: SessionHub;
+	readonly runClock: RunClock;
 	readonly desk: InteractionDesk;
 	readonly ledger: PromptLedger;
 	readonly replacements: Replacements;

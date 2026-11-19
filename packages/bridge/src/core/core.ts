@@ -31,6 +31,7 @@ import { PromptLedger } from "./prompt-ledger";
 import { ProtocolServer } from "./protocol-server";
 import { Replacements } from "./replacements";
 import { rejected } from "./results";
+import { RunClock } from "./run-clock";
 import { SessionHub } from "./session-hub";
 import { TerminalViewers } from "./terminal-viewers";
 
@@ -81,13 +82,9 @@ export class BridgeCore {
 
 	constructor(private readonly options: CoreOptions) {
 		const { desk } = this;
-		const observation = new Observation(
-			options.observer,
-			(ref) => this.registry.get(ref.backend),
-			options.clock,
-			options.log,
-		);
 		const replacements = new Replacements(options.clock, options.replacementJournal);
+		let runClock: RunClock;
+		let observation: Observation;
 		this.hub = new SessionHub({
 			maxFrameBytes: options.maxFrameBytes,
 			replay: options.replay ?? DEFAULT_REPLAY_WINDOW,
@@ -95,12 +92,22 @@ export class BridgeCore {
 			log: options.log,
 			idleCloseMs: options.idleCloseMs ?? DEFAULT_IDLE_CLOSE_MS,
 			onEvent: (live, record, before) => {
+				if (record.event.type === "session_replaced") runClock.replace(live.ref, record.event.session);
+				else runClock.observeEvent(live.ref, live.snapshot);
 				desk.observe(live, record.event);
 				observation.publish(live, record, before);
 			},
 			replacements,
 		});
-		this.feed = new CatalogFeed(this.clients, this.hub, options.maxFrameBytes, options.log);
+		runClock = new RunClock(this.hub, options.clock);
+		observation = new Observation(
+			options.observer,
+			(ref) => this.registry.get(ref.backend),
+			runClock,
+			options.clock,
+			options.log,
+		);
+		this.feed = new CatalogFeed(this.clients, this.hub, runClock, observation, options.maxFrameBytes, options.log);
 		this.terminals = new TerminalViewers(options.maxFrameBytes, options.log);
 		this.workspace = options.workspace?.(this.terminals.publish);
 		this.registry = new BackendRegistry({
@@ -112,6 +119,7 @@ export class BridgeCore {
 		const ctx: CoreContext = {
 			registry: this.registry,
 			hub: this.hub,
+			runClock,
 			desk,
 			ledger: new PromptLedger(options.journal),
 			replacements,

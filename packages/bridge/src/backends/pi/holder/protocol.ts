@@ -50,6 +50,8 @@ export interface HelloFrame {
 	readonly replayed: number;
 	/** The replay lost the start of the run under way. */
 	readonly truncated: boolean;
+	/** Wall-clock epoch ms when the active run or compaction started, if one is under way. */
+	readonly runStartedAt?: number;
 }
 
 export interface ExitFrame {

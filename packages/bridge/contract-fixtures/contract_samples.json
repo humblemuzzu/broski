@@ -1794,6 +1794,7 @@
         "cwd": "x",
         "createdAt": 1,
         "updatedAt": 1,
+        "runStartedAt": 1,
         "parent": {
           "kind": "fork",
           "session": {
@@ -1884,6 +1885,7 @@
           "cwd": "x",
           "createdAt": 1,
           "updatedAt": 1,
+          "runStartedAt": 1,
           "parent": {
             "kind": "fork",
             "session": {
@@ -7472,6 +7474,7 @@
               "cwd": "x",
               "createdAt": 1,
               "updatedAt": 1,
+              "runStartedAt": 1,
               "parent": {
                 "kind": "fork",
                 "session": {
@@ -7526,6 +7529,7 @@
           "cwd": "x",
           "createdAt": 1,
           "updatedAt": 1,
+          "runStartedAt": 1,
           "parent": {
             "kind": "fork",
             "session": {
@@ -8322,6 +8326,7 @@
           "cwd": "x",
           "createdAt": 1,
           "updatedAt": 1,
+          "runStartedAt": 1,
           "parent": {
             "kind": "fork",
             "session": {
@@ -8561,6 +8566,7 @@
         "cwd": "x",
         "createdAt": 1,
         "updatedAt": 1,
+        "runStartedAt": 1,
         "parent": {
           "kind": "fork",
           "session": {
@@ -8615,6 +8621,7 @@
           "cwd": "x",
           "createdAt": 1,
           "updatedAt": 1,
+          "runStartedAt": 1,
           "parent": {
             "kind": "fork",
             "session": {
@@ -8661,6 +8668,7 @@
         "cwd": "x",
         "createdAt": 1,
         "updatedAt": 1,
+        "runStartedAt": 1,
         "parent": {
           "kind": "fork",
           "session": {
@@ -8716,6 +8724,7 @@
           "cwd": "x",
           "createdAt": 1,
           "updatedAt": 1,
+          "runStartedAt": 1,
           "parent": {
             "kind": "fork",
             "session": {
@@ -9090,6 +9099,7 @@
       "cwd": "x",
       "createdAt": 1,
       "updatedAt": 1,
+      "runStartedAt": 1,
       "parent": {
         "kind": "fork",
         "session": {
@@ -9133,6 +9143,7 @@
         "cwd": "x",
         "createdAt": 1,
         "updatedAt": 1,
+        "runStartedAt": 1,
         "parent": {
           "kind": "fork",
           "session": {
@@ -9206,6 +9217,7 @@
               "cwd": "x",
               "createdAt": 1,
               "updatedAt": 1,
+              "runStartedAt": 1,
               "parent": {
                 "kind": "fork",
                 "session": {
@@ -9261,6 +9273,7 @@
             "cwd": "x",
             "createdAt": 1,
             "updatedAt": 1,
+            "runStartedAt": 1,
             "parent": {
               "kind": "fork",
               "session": {
@@ -9318,6 +9331,7 @@
             "cwd": "x",
             "createdAt": 1,
             "updatedAt": 1,
+            "runStartedAt": 1,
             "parent": {
               "kind": "fork",
               "session": {

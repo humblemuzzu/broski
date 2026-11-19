@@ -36,7 +36,7 @@ struct SettingsScreen: View {
                 } footer: {
                     Text("Dictate prompts with the mic in the composer.")
                 }
-                Section("Appearance") {
+                Section {
                     Picker("Appearance", selection: $appearance) {
                         ForEach(Appearance.allCases) { option in
                             Text(option.title).tag(option)
@@ -45,6 +45,15 @@ struct SettingsScreen: View {
                     .pickerStyle(.segmented)
                     .labelsHidden()
                     .haptic(.pickerStep, trigger: appearance)
+                    Picker("Keep Screen Awake", selection: keepScreenAwakeBinding) {
+                        ForEach(KeepScreenAwake.allCases) { option in
+                            Text(option.title).tag(option)
+                        }
+                    }
+                } header: {
+                    Text("Display")
+                } footer: {
+                    Text("Voice dictation always keeps the screen awake while you're speaking.")
                 }
                 Section {
                     NavigationLink {
@@ -110,6 +119,10 @@ struct SettingsScreen: View {
             )
             .padding(.top, Spacing.s)
         }
+    }
+
+    private var keepScreenAwakeBinding: Binding<KeepScreenAwake> {
+        Binding(get: { model.keepScreenAwake }, set: { model.keepScreenAwake = $0 })
     }
 
     private var coreDescription: String {

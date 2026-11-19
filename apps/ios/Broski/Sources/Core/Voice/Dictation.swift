@@ -60,6 +60,14 @@ final class Dictation {
     /// Another composer's dictation is under way, so this one's mic waits.
     func isBusy(apartFrom id: String) -> Bool { owner != nil && owner != id && !isFailed }
 
+    /// True while recording or transcribing on screen, so the display never dims mid-sentence.
+    var isKeepingScreenAwake: Bool {
+        switch phase {
+        case .recording, .transcribing: true
+        case .idle, .failed: false
+        }
+    }
+
     private var isFailed: Bool { if case .failed = phase { true } else { false } }
 
     // MARK: The mic's gesture

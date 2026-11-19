@@ -20,6 +20,7 @@ fn row(index: i64, status: SessionStatus) -> SessionSummary {
         cwd: Some("/w".to_owned()),
         created_at: None,
         updated_at: index,
+        run_started_at: None,
         parent: None,
         model_id: None,
         status,

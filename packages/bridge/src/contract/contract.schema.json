@@ -7193,6 +7193,9 @@
         "updatedAt": {
           "$ref": "#/$defs/Timestamp"
         },
+        "runStartedAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
         "parent": {
           "$ref": "#/$defs/SessionParent"
         },

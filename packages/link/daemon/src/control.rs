@@ -46,11 +46,19 @@ pub struct PushRegister {
     pub key: String,
 }
 
+#[derive(Deserialize)]
+pub struct LiveActivityRegister {
+    #[serde(default)]
+    pub token: String,
+}
+
 pub enum FromDevice {
     Hello(Hello),
     BridgeRestart,
     PushRegister(PushRegister),
     PushUnregister,
+    LiveActivityRegister(LiveActivityRegister),
+    LiveActivityUnregister,
     Unknown,
 }
 
@@ -70,6 +78,11 @@ pub fn parse_device(bytes: &[u8]) -> FromDevice {
             Err(_) => FromDevice::Unknown,
         },
         Some("push_unregister") => FromDevice::PushUnregister,
+        Some("live_activity_register") => match serde_json::from_value(value) {
+            Ok(register) => FromDevice::LiveActivityRegister(register),
+            Err(_) => FromDevice::Unknown,
+        },
+        Some("live_activity_unregister") => FromDevice::LiveActivityUnregister,
         _ => FromDevice::Unknown,
     }
 }

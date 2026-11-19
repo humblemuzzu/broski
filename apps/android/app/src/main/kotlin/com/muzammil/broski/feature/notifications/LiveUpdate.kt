@@ -15,6 +15,7 @@ import com.muzammil.broski.app.MainActivity
 import com.muzammil.broski.core.PhoneSession
 import com.muzammil.broski.core.isOnline
 import com.muzammil.broski.design.displayName
+import uniffi.broski_core.InboxState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
@@ -83,12 +84,18 @@ class LiveUpdate(
     fun build(status: LiveStatus): Notification {
         val row = status.focused
         val agent = context.getString(row.session.backend.displayName)
-        val title = context.resources.getQuantityString(R.plurals.live_working, status.working, status.working)
+        val working = context.resources.getQuantityString(R.plurals.live_working, status.working, status.working)
         val needsYou = context.resources.getQuantityString(R.plurals.live_needs_you, status.needsYou, status.needsYou)
+        val header = when {
+            status.working > 0 && status.needsYou > 0 -> "$working · $needsYou"
+            status.needsYou > 0 -> needsYou
+            else -> working
+        }
         val session = row.title ?: context.getString(R.string.inbox_untitled)
+        val isWorking = row.state == InboxState.WORKING
         return NotificationCompat.Builder(context, Channel.LiveStatus.id)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(if (status.needsYou > 0) "$title · $needsYou" else title)
+            .setContentTitle(header)
             .setContentText(context.getString(R.string.live_focused, agent, session, row.machineName))
             .setStyle(NotificationCompat.ProgressStyle().setProgressIndeterminate(true))
             .setRequestPromotedOngoing(true)
@@ -96,8 +103,8 @@ class LiveUpdate(
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setWhen(status.sinceMs)
-            .setUsesChronometer(true)
-            .setShowWhen(true)
+            .setUsesChronometer(isWorking)
+            .setShowWhen(isWorking)
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
             .setContentIntent(open(status.target))
             .addAction(R.drawable.ic_stop, context.getString(R.string.live_stop), stop(status.target))

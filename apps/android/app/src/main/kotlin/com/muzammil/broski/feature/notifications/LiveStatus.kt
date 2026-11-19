@@ -4,8 +4,9 @@ import uniffi.broski_core.InboxRow
 import uniffi.broski_core.InboxState
 
 /**
- * What the one Live Update says while any agent works: how many work and how many need the person,
- * and the run it follows (the one active most recently), with when the phone first saw it working.
+ * What the one Live Update says while any agent is live: how many work and how many need the
+ * person, and the focused session (needs-you first, then most recently updated), with the bridge's
+ * authoritative `runStartedAt` (or the first sighting as fallback for older bridges).
  */
 data class LiveStatus(
     val working: Int,
@@ -16,9 +17,7 @@ data class LiveStatus(
     val target: SessionTarget get() = focused.target
 
     companion object {
-        private const val REAL_TIMESTAMP_FLOOR = 1_000_000_000_000L
-
-        /** Null when nothing works, which ends the Live Update. `since` keeps each run's first sighting. */
+        /** Null when nothing is live, which ends the Live Update. */
         fun of(
             rows: List<InboxRow>,
             since: MutableMap<SessionTarget, Long>,
@@ -26,19 +25,30 @@ data class LiveStatus(
             reachableMachines: Set<String>? = null,
         ): LiveStatus? {
             val reachable = rows.filter { !it.cached && (reachableMachines == null || it.machineId in reachableMachines) }
-            val working = reachable.filter { it.state == InboxState.WORKING }
-            since.keys.retainAll(working.map { it.target }.toSet())
-            working.forEach { row ->
-                since.getOrPut(row.target) {
-                    if (row.updatedAt >= REAL_TIMESTAMP_FLOOR) minOf(nowMs, row.updatedAt) else nowMs
+            reachable
+                .filter { it.state == InboxState.DONE || it.state == InboxState.IDLE }
+                .forEach { since.remove(it.target) }
+            val live = reachable
+                .filter { it.state == InboxState.WORKING || it.state == InboxState.NEEDS_YOU }
+                .sortedWith(compareBy<InboxRow> { if (it.state == InboxState.NEEDS_YOU) 0 else 1 }.thenByDescending { it.updatedAt }.thenBy { it.session.sessionId })
+            if (live.isEmpty()) {
+                since.clear()
+                return null
+            }
+            live.forEach { row ->
+                val authoritative = row.runStartedAt
+                if (authoritative != null) {
+                    since[row.target] = authoritative
+                } else {
+                    since.putIfAbsent(row.target, nowMs)
                 }
             }
-            val focused = working.maxByOrNull { it.updatedAt } ?: return null
+            val focused = live.first()
             return LiveStatus(
-                working = working.size,
-                needsYou = reachable.count { it.state == InboxState.NEEDS_YOU },
+                working = live.count { it.state == InboxState.WORKING },
+                needsYou = live.count { it.state == InboxState.NEEDS_YOU },
                 focused = focused,
-                sinceMs = since.getValue(focused.target),
+                sinceMs = focused.runStartedAt ?: since.getValue(focused.target),
             )
         }
     }

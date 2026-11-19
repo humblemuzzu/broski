@@ -137,6 +137,9 @@ pub struct SessionSummary {
     pub updated_at: Timestamp,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "crate::codec::present")]
+    pub run_started_at: Option<Timestamp>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "crate::codec::present")]
     pub parent: Option<SessionParent>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "crate::codec::present")]

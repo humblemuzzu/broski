@@ -1,6 +1,6 @@
 use tracing::{debug, warn};
 
-use crate::control::{self, FromDevice, Hello, PushRegister};
+use crate::control::{self, FromDevice, Hello, LiveActivityRegister, PushRegister};
 use crate::device::{clamp_name, short, PushRegistration};
 use crate::push::{keys, platform, valid_token};
 
@@ -20,6 +20,8 @@ impl Actor {
             }
             FromDevice::PushRegister(register) => self.push(register).await,
             FromDevice::PushUnregister => self.push_unregister().await,
+            FromDevice::LiveActivityRegister(register) => self.live_activity(register).await,
+            FromDevice::LiveActivityUnregister => self.store_live_activity(None).await,
             FromDevice::Unknown => {}
         }
     }
@@ -56,6 +58,32 @@ impl Actor {
 
     async fn push_unregister(&mut self) {
         self.store_push(None).await;
+    }
+
+    async fn live_activity(&mut self, register: LiveActivityRegister) {
+        if !valid_token(&register.token) {
+            debug!(
+                device = short(&self.device.id),
+                "live activity registration with a malformed token"
+            );
+            return;
+        }
+        self.store_live_activity(Some(register.token)).await;
+    }
+
+    async fn store_live_activity(&mut self, token: Option<String>) {
+        if let Err(error) = self
+            .deps
+            .store
+            .set_live_activity(&self.device.id, token)
+            .await
+        {
+            warn!(
+                device = short(&self.device.id),
+                error = %error,
+                "live activity token not stored"
+            );
+        }
     }
 
     async fn store_push(&mut self, push: Option<PushRegistration>) {

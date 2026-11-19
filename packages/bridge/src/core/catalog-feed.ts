@@ -1,6 +1,8 @@
 import { type BackendId, CatalogEvent } from "../contract";
 import type { CoreClient } from "./client";
+import type { Observation } from "./observer";
 import type { CoreLog } from "./ports";
+import type { RunClock } from "./run-clock";
 import type { SessionHub } from "./session-hub";
 import { fitMessage } from "./wire-fit";
 
@@ -13,6 +15,8 @@ export class CatalogFeed {
 	constructor(
 		private readonly clients: ReadonlySet<CoreClient>,
 		private readonly hub: SessionHub,
+		private readonly runClock: RunClock,
+		private readonly observation: Observation,
 		private readonly maxFrameBytes: number,
 		private readonly log: CoreLog,
 	) {}
@@ -31,12 +35,22 @@ export class CatalogFeed {
 			this.log.error(`[core] dropped a ${backend} catalog event that breaks the contract: ${checked.error.message}`);
 			return;
 		}
-		const frame = fitMessage({ type: "catalog", backend, event }, this.maxFrameBytes, this.log);
+		const enriched = this.enrich(checked.data);
+		const frame = fitMessage({ type: "catalog", backend, event: enriched }, this.maxFrameBytes, this.log);
 		if (frame) {
 			for (const client of this.clients) if (client.negotiated) client.send(frame);
 		} else {
-			this.log.error(`[core] dropped a ${backend} ${event.type} catalog event too large for the link`);
+			this.log.error(`[core] dropped a ${backend} ${enriched.type} catalog event too large for the link`);
 		}
-		if (event.type === "session_removed") this.hub.remove(event.session);
+		if (enriched.type === "session_removed") {
+			this.runClock.remove(enriched.session);
+			this.hub.remove(enriched.session);
+		}
+		this.observation.publishCatalog(enriched);
+	}
+
+	private enrich(event: CatalogEvent): CatalogEvent {
+		if (event.type !== "session_updated") return event;
+		return { ...event, summary: this.runClock.enrich(event.summary) };
 	}
 }

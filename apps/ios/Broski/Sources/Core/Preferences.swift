@@ -4,6 +4,7 @@ import SwiftUI
 /// the person wants are `NotificationPreferences`, in the app group the extension reads.
 enum Preference {
     static let appearance = "appearance"
+    static let keepScreenAwake = "display.keepScreenAwake"
     /// The terminal's font size in points as last pinched; 0 until then (Ghostty's own default).
     static let terminalFontSize = "terminal.fontSize"
     /// Settings › Reading: text size steps on top of the system's, compact spacing, code that
@@ -12,6 +13,26 @@ enum Preference {
     static let readingCompact = "reading.compact"
     static let readingWrapsCode = "reading.wrapsCode"
     static let readingUnderlinesLinks = "reading.underlinesLinks"
+}
+
+enum KeepScreenAwake: String, CaseIterable, Identifiable {
+    case dictationOnly
+    case whileWorking
+    case always
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .dictationOnly: "Only while dictating"
+        case .whileWorking: "While agents are working"
+        case .always: "Always while open"
+        }
+    }
+
+    static func current(in defaults: UserDefaults = .standard) -> KeepScreenAwake {
+        defaults.string(forKey: Preference.keepScreenAwake).flatMap(KeepScreenAwake.init(rawValue:)) ?? .dictationOnly
+    }
 }
 
 enum Appearance: String, CaseIterable, Identifiable {

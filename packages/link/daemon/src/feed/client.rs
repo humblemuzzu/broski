@@ -15,7 +15,7 @@ use tracing::warn;
 
 use crate::backoff::{self, Backoff};
 use crate::device::short;
-use crate::push::{self, keys, policy, seal};
+use crate::push::{self, keys, live_activity::LiveActivityFeed, policy, seal};
 use crate::relay::{PushRequest, RelayCommand};
 
 use super::pending::{Pending, UNGROUPED};
@@ -49,11 +49,20 @@ async fn run(
 ) {
     let mut backoff = Backoff::new(deps.durations.feed_retry_min, deps.durations.feed_retry_max);
     let mut debounce = policy::Debounce::new(deps.durations.push_debounce);
+    let mut live_activity = LiveActivityFeed::default();
     loop {
         if let Some(socket) = dial(&deps).await {
             let opened = Instant::now();
             deps.monitor.opened();
-            session(socket, &deps, &mut inbox, &mut shutdown, &mut debounce).await;
+            session(
+                socket,
+                &deps,
+                &mut inbox,
+                &mut shutdown,
+                &mut debounce,
+                &mut live_activity,
+            )
+            .await;
             deps.monitor.closed();
             if backoff::healthy(opened, HEALTHY) {
                 backoff.reset();
@@ -72,6 +81,7 @@ async fn session(
     inbox: &mut mpsc::Receiver<Request>,
     shutdown: &mut watch::Receiver<bool>,
     debounce: &mut policy::Debounce,
+    live_activity: &mut LiveActivityFeed,
 ) {
     let (mut sink, mut source) = socket.split();
     let mut pending = Pending::new();
@@ -86,7 +96,7 @@ async fn session(
         tokio::select! {
             incoming = source.next() => match incoming {
                 Some(Ok(Message::Text(text))) => {
-                    handle(&text, deps, &mut pending, debounce, &mut pong_by).await;
+                    handle(&text, deps, &mut pending, debounce, live_activity, &mut pong_by).await;
                 }
                 Some(Ok(Message::Close(_))) | Some(Err(_)) | None => break,
                 Some(Ok(_)) => {}
@@ -135,6 +145,7 @@ async fn handle(
     deps: &Deps,
     pending: &mut Pending,
     debounce: &mut policy::Debounce,
+    live_activity: &mut LiveActivityFeed,
     pong_by: &mut Option<Instant>,
 ) {
     let Ok(value) = serde_json::from_str::<Value>(text) else {
@@ -154,6 +165,7 @@ async fn handle(
             });
         }
         Some("link_event") => alert(deps, &value, debounce).await,
+        Some("link_runs") => live_activity.handle(deps, &value).await,
         Some("link_decision_result") => {
             let group = match value.get("request") {
                 Some(group) if !group.is_null() => group.to_string(),

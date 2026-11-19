@@ -210,6 +210,7 @@ mod tests {
             cwd: None,
             created_at: None,
             updated_at,
+            run_started_at: None,
             parent: None,
             model_id: None,
             status,
@@ -226,6 +227,7 @@ mod tests {
             pending: None,
             needs_you,
             working,
+            run_started_at: None,
         }
     }
 

@@ -105,9 +105,11 @@ export class TerminalFeed {
 	row(): LiveRow {
 		const snapshot = this.live.snapshot();
 		const cut = this.runs.cut();
+		const runStartedAt = snapshot.run?.startedAt ?? snapshot.compaction?.startedAt;
 		return {
 			status: sessionStatus(snapshot),
 			...(snapshot.modelId !== undefined && { modelId: snapshot.modelId }),
+			...(runStartedAt !== undefined && { runStartedAt }),
 			...(cut && { cut }),
 		};
 	}
@@ -134,7 +136,7 @@ export class TerminalFeed {
 	 */
 	private resumeRun(state: TerminalState): void {
 		const open = this.runs.current();
-		const run = open ?? this.runs.start(this.trigger(), state.leafId);
+		const run = open ?? this.runs.start(this.trigger(), state.leafId, undefined, state.runStartedAt);
 		if (!open) this.changed();
 		const caughtUp = this.stream?.catchUp(state.blocks);
 		const going = new Set([

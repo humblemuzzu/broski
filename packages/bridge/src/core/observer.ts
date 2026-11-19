@@ -1,6 +1,7 @@
 import {
 	type AgentBackend,
 	type AgentEvent,
+	type CatalogEvent,
 	type SessionRef,
 	type SessionSnapshot,
 	SessionSummary,
@@ -10,6 +11,7 @@ import {
 import { SESSION_CALL_DEADLINE_MS, settled, within } from "./deadline";
 import type { LiveSession } from "./live-session";
 import type { CoreClock, CoreLog } from "./ports";
+import type { RunClock } from "./run-clock";
 import { sessionLabel } from "./session-key";
 
 /** One event of an open session, after every viewer has it. */
@@ -31,6 +33,7 @@ export interface ObservedEvent {
  */
 export interface CoreObserver {
 	observe(observed: ObservedEvent): void;
+	observeCatalog?(event: CatalogEvent): void;
 }
 
 /** Hands every event the hub published to the observer; a fault in the observer costs it that event and nothing else. */
@@ -38,9 +41,19 @@ export class Observation {
 	constructor(
 		private readonly observer: CoreObserver | undefined,
 		private readonly backendOf: (ref: SessionRef) => AgentBackend | undefined,
+		private readonly runClock: RunClock,
 		private readonly clock: CoreClock,
 		private readonly log: CoreLog,
 	) {}
+
+	publishCatalog(event: CatalogEvent): void {
+		if (!this.observer?.observeCatalog) return;
+		try {
+			this.observer.observeCatalog(event);
+		} catch (error) {
+			this.log.error(`[core] the observer failed on catalog ${event.type}: ${String(error)}`);
+		}
+	}
 
 	publish(live: LiveSession, record: SinkRecord, before: SessionSnapshot): void {
 		if (!this.observer) return;
@@ -72,6 +85,6 @@ export class Observation {
 		}
 		if (outcome.value.status === "rejected") return undefined;
 		const checked = SessionSummary.safeParse(outcome.value.summary);
-		return checked.success ? checked.data : undefined;
+		return checked.success ? this.runClock.enrich(checked.data) : undefined;
 	}
 }

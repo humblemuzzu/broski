@@ -50,7 +50,16 @@ pub(crate) enum Command {
     NetworkChanged,
     LanDiscovered(Vec<String>),
     Push(Option<PushIntent>),
+    LiveActivity(Option<LiveActivityIntent>),
     Close,
+}
+
+/// What the machine should hold for this phone's active iOS Live Activity; sent again after every
+/// connect until cleared.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum LiveActivityIntent {
+    Register { token: String },
+    Unregister,
 }
 
 /// What the machine should hold for this phone's pushes; sent again after every connect, so a
@@ -152,6 +161,7 @@ pub(crate) struct Engine {
     reporter: StatusReporter,
     pending_wire: Option<Vec<u8>>,
     push: Option<PushIntent>,
+    live_activity: Option<LiveActivityIntent>,
     lan_seen: Vec<(String, Instant)>,
     next_id: u64,
     reading_paused: bool,
@@ -195,6 +205,7 @@ impl Engine {
             reporter: StatusReporter::new(),
             pending_wire: None,
             push: None,
+            live_activity: None,
             lan_seen: Vec::new(),
             next_id: 0,
             reading_paused: false,

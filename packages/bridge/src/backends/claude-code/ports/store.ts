@@ -15,6 +15,7 @@ import type {
 	SessionQuery,
 	SessionStatus,
 	SessionsListResult,
+	Timestamp,
 	TranscriptReadResult,
 } from "../../../contract";
 
@@ -27,6 +28,7 @@ export interface TranscriptCut {
 export interface LiveRow {
 	readonly status: SessionStatus;
 	readonly modelId?: ModelId;
+	readonly runStartedAt?: Timestamp;
 	/** Present exactly while a run is active. */
 	readonly cut?: TranscriptCut;
 }

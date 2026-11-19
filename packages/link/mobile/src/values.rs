@@ -208,6 +208,7 @@ pub struct InboxRow {
     pub cwd: Option<WorkingDirectory>,
     pub state: InboxState,
     pub updated_at: i64,
+    pub run_started_at: Option<i64>,
     pub ask: Option<String>,
     pub command: Option<String>,
     pub pending: Option<PendingAsk>,

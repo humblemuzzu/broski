@@ -32,7 +32,13 @@ export function createTerminalWatch(deps: TerminalDeps): TerminalWatch {
 	});
 	return {
 		writing: (sessionId) => writing(deps, sessions, paths, processes, sessionId),
-		row: (sessionId) => (deps.hosted(sessionId) ? undefined : processes.row(sessionId)),
+		row: (sessionId) => {
+			if (deps.hosted(sessionId)) return undefined;
+			const row = processes.row(sessionId);
+			if (row === undefined) return undefined;
+			const runStartedAt = sessions.runStartedAt(sessionId);
+			return runStartedAt !== undefined ? { ...row, runStartedAt } : row;
+		},
 		openWatchOnly: async (ref, stored, sink) => {
 			paths.remember(stored.sessionId, stored.path);
 			const status = processes.row(ref.sessionId)?.status;

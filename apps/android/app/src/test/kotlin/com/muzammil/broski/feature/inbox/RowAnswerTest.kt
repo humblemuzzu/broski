@@ -29,6 +29,7 @@ class RowAnswerTest {
         cwd = "/Users/me/src/broski",
         state = InboxState.NEEDS_YOU,
         updatedAt = 900,
+        runStartedAt = null,
         ask = "Allow Bash command?",
         command = "npm test",
         pending = pending,

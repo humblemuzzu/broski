@@ -43,9 +43,13 @@ export async function rowOfInfo(
 	const forkOf = await ctx.forks.parentOf(info.sessionId);
 	const titled = info.customTitle !== undefined && info.customTitle !== "";
 	const path = known ?? (await ctx.locator.find(info.sessionId));
+	const active = live?.status === "running" || live?.status === "waiting_for_user";
+	const runStartedAt =
+		active && live?.runStartedAt === undefined && path !== undefined ? await ctx.activity.promptAt(path) : undefined;
 	return sessionRow(info, {
 		origin: ctx.deps.ownership.origin(info.sessionId),
 		updatedAt: path === undefined ? undefined : await ctx.activity.updatedAt(path),
+		...(runStartedAt !== undefined && { runStartedAt }),
 		userTitled: titled && (await ctx.titles.userTitled(info.sessionId, path)),
 		...(live !== undefined && { live }),
 		...(forkOf !== undefined && {

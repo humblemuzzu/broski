@@ -57,6 +57,7 @@ pub(crate) struct LiveInfo {
     pub(crate) pending: Option<PendingAsk>,
     pub(crate) needs_you: bool,
     pub(crate) working: bool,
+    pub(crate) run_started_at: Option<i64>,
 }
 
 impl StreamState {
@@ -285,6 +286,12 @@ impl StreamState {
             working: snapshot.run.is_some()
                 || snapshot.compaction.is_some()
                 || snapshot.retry.is_some(),
+            run_started_at: snapshot.run.as_ref().map(|run| run.started_at).or_else(|| {
+                snapshot
+                    .compaction
+                    .as_ref()
+                    .map(|compaction| compaction.started_at)
+            }),
         })
     }
 }

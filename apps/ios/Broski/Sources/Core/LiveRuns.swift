@@ -3,54 +3,65 @@ import BroskiCore
 import Foundation
 import os
 
+enum LiveRunDecision: Equatable {
+    /// Machines are reconnecting; keep whatever the Live Activity currently shows.
+    case keep
+    case show(RunActivityAttributes.ContentState)
+    case none(endedAtMs: Int64)
+}
+
 /// Picks what the Live Activity shows from the inbox's rows: every live session, those that need
 /// the person first and then the most recently updated, the first of them focused.
 struct LiveRunTracker {
-    private static let realTimestampFloor: Int64 = 1_000_000_000_000
+    /// Fallback start times used only when connected to an older bridge that omits `runStartedAt`.
+    private(set) var fallbackStarts: [InboxRow.Key: Int64] = [:]
 
-    /// When each live session started or was first seen live, for the activity's elapsed time.
-    private(set) var firstSeen: [InboxRow.Key: Date] = [:]
-    private var settledSeen: Set<InboxRow.Key> = []
-
-    mutating func seed(key: InboxRow.Key, startedAt: Date) {
-        firstSeen[key] = startedAt
+    mutating func seed(key: InboxRow.Key, startedAtMs: Int64) {
+        fallbackStarts[key] = startedAtMs
     }
 
     mutating func state(
-        for rows: [InboxRow], reachableMachines: Set<String>? = nil, now: Date
-    ) -> RunActivityAttributes.ContentState? {
-        let reachable = rows.filter {
-            !$0.cached && (reachableMachines?.contains($0.machineId) ?? true)
+        for rows: [InboxRow],
+        readyMachines: Set<String>? = nil,
+        settlingMachines: Set<String> = [],
+        now: Date
+    ) -> LiveRunDecision {
+        let nowMs = Int64(now.timeIntervalSince1970 * 1000)
+        let ready = rows.filter {
+            !$0.cached && (readyMachines?.contains($0.machineId) ?? true)
         }
-        for row in reachable where row.state == .done || row.state == .idle {
-            settledSeen.insert(row.key)
+        for row in ready where row.state == .done || row.state == .idle {
+            fallbackStarts.removeValue(forKey: row.key)
         }
-        let live = reachable.filter { $0.state == .needsYou || $0.state == .working }.sorted {
+        let live = ready.filter { $0.state == .needsYou || $0.state == .working }.sorted {
             ($0.state == .needsYou ? 0 : 1, -$0.updatedAt) < ($1.state == .needsYou ? 0 : 1, -$1.updatedAt)
         }
-        let keys = Set(live.map(\.key))
-        firstSeen = firstSeen.filter { keys.contains($0.key) }
-        for row in live where firstSeen[row.key] == nil {
-            if !settledSeen.contains(row.key) && row.updatedAt >= Self.realTimestampFloor {
-                firstSeen[row.key] = min(now, Date(unixMilliseconds: row.updatedAt))
-            } else {
-                firstSeen[row.key] = now
+        guard let focused = live.first else {
+            return settlingMachines.isEmpty ? .none(endedAtMs: nowMs) : .keep
+        }
+        for row in live {
+            if let authoritative = row.runStartedAt {
+                fallbackStarts[row.key] = authoritative
+            } else if fallbackStarts[row.key] == nil {
+                fallbackStarts[row.key] = nowMs
             }
         }
-        guard let focused = live.first else { return nil }
-        return RunActivityAttributes.ContentState(
-            phase: focused.phase,
-            title: focused.displayTitle,
-            machineId: focused.machineId,
-            machineName: focused.machineName,
-            backend: focused.session.backend.wireName,
-            sessionId: focused.session.sessionId,
-            startedAt: firstSeen[focused.key] ?? now,
-            runs: live.prefix(RunActivityAttributes.ContentState.listed).map {
-                .init(title: $0.displayTitle, machineName: $0.machineName, phase: $0.phase)
-            },
-            liveCount: live.count,
-            needsYouCount: live.count { $0.state == .needsYou })
+        let startedAtMs = focused.runStartedAt ?? fallbackStarts[focused.key] ?? nowMs
+        return .show(
+            RunActivityAttributes.ContentState(
+                phase: focused.phase,
+                title: focused.displayTitle,
+                machineId: focused.machineId,
+                machineName: focused.machineName,
+                backend: focused.session.backend.wireName,
+                sessionId: focused.session.sessionId,
+                startedAtMs: startedAtMs,
+                endedAtMs: nil,
+                runs: live.prefix(RunActivityAttributes.ContentState.listed).map {
+                    .init(title: $0.displayTitle, machineName: $0.machineName, phase: $0.phase)
+                },
+                liveCount: live.count,
+                needsYouCount: live.count { $0.state == .needsYou }))
     }
 }
 
@@ -61,94 +72,215 @@ private extension InboxRow {
     var displayTitle: String { String((title ?? "Untitled session").prefix(80)) }
 }
 
-/// Keeps one Live Activity in step with the inbox while any session is live, ends it as "Done"
-/// for a few seconds when none is, and spaces its updates at least a second apart. Updates come
-/// only while the app runs: the relay sends no ActivityKit pushes, so a suspended app leaves the
-/// activity as it was until the app runs again (the elapsed time still counts on its own).
+/// Keeps one Live Activity in step with the inbox while any session is live, starts it immediately
+/// when foregrounded, spaces repeated updates at least a second apart, observes system/user
+/// dismissals, and publishes ActivityKit push tokens so the Mac daemon can update or end it while
+/// the app is suspended in the background.
 final class LiveRuns {
     static let minimumGap: Duration = .seconds(1)
-    static let doneLingers: TimeInterval = 8
+    static let doneLingers: TimeInterval = 12
+    nonisolated static let staleAfter: TimeInterval = 2 * 60 * 60
+
+    var onPushToken: (String?) -> Void = { _ in }
+    private(set) var currentPushToken: String?
 
     private var tracker = LiveRunTracker()
-    /// The activity is held by id: ActivityKit's `Activity` is not `Sendable`, so each change looks
-    /// it up where it is used.
+    private var isForeground = false
+    /// Held by id because `Activity` is not `Sendable`.
     private var activityId: String?
     private var shown: RunActivityAttributes.ContentState?
+    private var desired: LiveRunDecision = .keep
+    private var dirty = false
     private var lastUpdate = ContinuousClock.now - LiveRuns.minimumGap
-    private var pending: Task<Void, Never>?
+    private var worker: Task<Void, Never>?
+    private var tokenObserver: Task<Void, Never>?
+    private var stateObserver: Task<Void, Never>?
 
-    /// Adopts the activity a previous run of the app left, and ends any beyond it.
+    /// Adopts the active Live Activity left by a previous run, and ends any duplicates.
     init() {
         let running = ActivityKit.Activity<RunActivityAttributes>.activities
-        activityId = running.first?.id
-        shown = running.first?.content.state
-        if let shown, let backend = BackendId(wireName: shown.backend) {
-            let key = InboxRow.Key(
-                machineId: shown.machineId,
-                session: SessionRef(backend: backend, sessionId: shown.sessionId))
-            tracker.seed(key: key, startedAt: shown.startedAt)
+        if let first = running.first, first.activityState == .active {
+            activityId = first.id
+            shown = first.content.state
+            if let shown, let backend = BackendId(wireName: shown.backend) {
+                let key = InboxRow.Key(
+                    machineId: shown.machineId,
+                    session: SessionRef(backend: backend, sessionId: shown.sessionId))
+                tracker.seed(key: key, startedAtMs: shown.startedAtMs)
+            }
+            observe(activityId: first.id)
         }
         for stale in running.dropFirst().map(\.id) {
             Task { await Self.end(stale, with: nil, dismissal: .immediate) }
         }
     }
 
+    deinit {
+        worker?.cancel()
+        tokenObserver?.cancel()
+        stateObserver?.cancel()
+    }
+
     var isShowing: Bool { activityId != nil }
 
-    func follow(_ rows: [InboxRow], reachableMachines: Set<String>? = nil) {
-        let state = tracker.state(for: rows, reachableMachines: reachableMachines, now: .now)
-        guard state != shown else { return }
-        pending?.cancel()
-        let wait = lastUpdate + Self.minimumGap - ContinuousClock.now
-        pending = Task { [weak self] in
-            if wait > .zero { try? await Task.sleep(for: wait) }
-            guard !Task.isCancelled else { return }
-            await self?.show(state)
+    func setForeground(_ foreground: Bool) {
+        guard isForeground != foreground else { return }
+        isForeground = foreground
+        if foreground { scheduleDrain() }
+    }
+
+    func follow(
+        _ rows: [InboxRow],
+        readyMachines: Set<String>? = nil,
+        settlingMachines: Set<String> = []
+    ) {
+        let decision = tracker.state(
+            for: rows, readyMachines: readyMachines, settlingMachines: settlingMachines, now: .now)
+        guard decision != .keep else { return }
+        desired = decision
+        dirty = true
+        scheduleDrain()
+    }
+
+    private func scheduleDrain() {
+        guard worker == nil else { return }
+        worker = Task { [weak self] in
+            guard let self else { return }
+            await self.drain()
+            self.worker = nil
+            if self.dirty { self.scheduleDrain() }
         }
     }
 
-    /// Ends the activity immediately when the app is about to be suspended and its link paused,
-    /// so the Lock Screen never keeps a timer counting on its own after the session stopped.
-    func suspend() async {
-        pending?.cancel()
-        pending = nil
+    private func drain() async {
+        while true {
+            dirty = false
+            reconcileDismissed()
+            switch (activityId, desired) {
+            case (_, .keep):
+                return
+            case (nil, .show(let state)):
+                guard isForeground else { return }
+                startActivity(state)
+            case (let id?, .show(let state)):
+                guard state != shown else { return }
+                let wait = lastUpdate + Self.minimumGap - ContinuousClock.now
+                if wait > .zero {
+                    try? await Task.sleep(for: wait)
+                    if dirty { continue }
+                }
+                guard let currentId = activityId, currentId == id, case .show(let latest) = desired else { continue }
+                guard latest != shown else { return }
+                lastUpdate = .now
+                shown = latest
+                await Self.update(id, to: latest)
+            case (let id?, .none(let endedAtMs)):
+                let previous = shown
+                clearTracked()
+                var done = previous
+                done?.phase = .done
+                done?.endedAtMs = endedAtMs
+                done?.runs = []
+                done?.liveCount = 0
+                done?.needsYouCount = 0
+                lastUpdate = .now
+                await Self.end(id, with: done, dismissal: .after(.now.addingTimeInterval(Self.doneLingers)))
+            case (nil, .none):
+                return
+            }
+            if !dirty { return }
+        }
+    }
+
+    private func startActivity(_ state: RunActivityAttributes.ContentState) {
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+        do {
+            let content = ActivityContent(
+                state: state, staleDate: .now.addingTimeInterval(Self.staleAfter))
+            let activity = try ActivityKit.Activity.request(
+                attributes: RunActivityAttributes(), content: content, pushType: .token)
+            activityId = activity.id
+            shown = state
+            lastUpdate = .now
+            observe(activityId: activity.id)
+        } catch {
+            shown = nil
+            Logger.core.error("the Live Activity did not start: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    private func reconcileDismissed() {
         guard let id = activityId else { return }
+        guard let live = Self.activity(id), live.activityState == .active || live.activityState == .stale else {
+            clearTracked()
+            return
+        }
+    }
+
+    private func clearTracked() {
         activityId = nil
         shown = nil
-        await Self.end(id, with: nil, dismissal: .immediate)
+        tokenObserver?.cancel()
+        tokenObserver = nil
+        stateObserver?.cancel()
+        stateObserver = nil
+        if currentPushToken != nil {
+            currentPushToken = nil
+            onPushToken(nil)
+        }
     }
 
-    private func show(_ state: RunActivityAttributes.ContentState?) async {
-        let previous = shown
-        lastUpdate = .now
-        shown = state
-        switch (activityId, state) {
-        case (nil, let state?):
-            do {
-                activityId = try ActivityKit.Activity.request(
-                    attributes: RunActivityAttributes(), content: ActivityContent(state: state, staleDate: nil)
-                ).id
-            } catch {
-                shown = nil
-                Logger.core.error("the Live Activity did not start: \(error.localizedDescription, privacy: .public)")
-            }
-        case (let id?, let state?):
-            await Self.update(id, to: state)
-        case (let id?, nil):
-            activityId = nil
-            var done = previous
-            done?.phase = .done
-            done?.runs = []
-            done?.liveCount = 0
-            done?.needsYouCount = 0
-            await Self.end(id, with: done, dismissal: .after(.now.addingTimeInterval(Self.doneLingers)))
-        case (nil, nil):
-            break
+    private func observe(activityId id: String) {
+        tokenObserver?.cancel()
+        stateObserver?.cancel()
+        let handleToken: @MainActor @Sendable (String) -> Void = { [weak self] hex in
+            guard let self, self.activityId == id, self.currentPushToken != hex else { return }
+            self.currentPushToken = hex
+            self.onPushToken(hex)
         }
+        let handleEnded: @MainActor @Sendable () -> Void = { [weak self] in
+            guard let self, self.activityId == id else { return }
+            self.clearTracked()
+        }
+        tokenObserver = Task {
+            await Self.watchTokens(id, onToken: handleToken)
+        }
+        stateObserver = Task {
+            await Self.watchStates(id, onEnded: handleEnded)
+        }
+    }
+
+    private nonisolated static func watchTokens(
+        _ id: String, onToken: @MainActor @Sendable (String) -> Void
+    ) async {
+        guard let activity = activity(id) else { return }
+        if let initial = activity.pushToken {
+            await onToken(hexString(initial))
+        }
+        for await token in activity.pushTokenUpdates {
+            await onToken(hexString(token))
+        }
+    }
+
+    private nonisolated static func watchStates(
+        _ id: String, onEnded: @MainActor @Sendable () -> Void
+    ) async {
+        guard let activity = activity(id) else { return }
+        for await state in activity.activityStateUpdates {
+            if state == .dismissed || state == .ended {
+                await onEnded()
+                return
+            }
+        }
+    }
+
+    private nonisolated static func hexString(_ data: Data) -> String {
+        data.map { String(format: "%02x", $0) }.joined()
     }
 
     private nonisolated static func update(_ id: String, to state: RunActivityAttributes.ContentState) async {
-        await activity(id)?.update(ActivityContent(state: state, staleDate: nil))
+        let content = ActivityContent(state: state, staleDate: .now.addingTimeInterval(staleAfter))
+        await activity(id)?.update(content)
     }
 
     private nonisolated static func end(

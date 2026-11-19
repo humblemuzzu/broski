@@ -15,12 +15,14 @@ struct BroskiWidgets: WidgetBundle {
 struct RunActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: RunActivityAttributes.self) { context in
-            LockScreenRun(state: context.state)
+            LockScreenRun(state: context.state, isStale: context.isStale)
                 .padding(16)
                 .activityBackgroundTint(ActivityStyle.background)
                 .activitySystemActionForegroundColor(ActivityStyle.primary)
+                .widgetURL(context.state.deepLinkURL)
         } dynamicIsland: { context in
             let state = context.state
+            let isStale = context.isStale
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
                     AgentLogo(brand: state.brand, side: 44)
@@ -29,11 +31,13 @@ struct RunActivityWidget: Widget {
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     Group {
-                        if state.phase == .working {
-                            Elapsed(state: state)
+                        if state.phase == .working || (state.phase == .done && state.endedAt != nil) {
+                            Elapsed(state: state, isStale: isStale)
                                 .font(.title3.weight(.semibold))
                                 .foregroundStyle(ActivityStyle.primary)
                                 .multilineTextAlignment(.trailing)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.75)
                                 .frame(maxWidth: 96, alignment: .trailing)
                         } else {
                             PhaseIcon(phase: state.phase).font(.title2)
@@ -65,14 +69,7 @@ struct RunActivityWidget: Widget {
             } compactLeading: {
                 AgentGlyph(brand: state.brand, side: 22)
             } compactTrailing: {
-                if state.phase == .working {
-                    Elapsed(state: state)
-                        .font(.callout.weight(.semibold))
-                        .foregroundStyle(state.phase.tint)
-                        .frame(maxWidth: 52)
-                } else {
-                    PhaseIcon(phase: state.phase)
-                }
+                CompactTrailingRun(state: state, isStale: isStale)
             } minimal: {
                 if state.phase == .working {
                     AgentGlyph(brand: state.brand, side: 20)
@@ -80,7 +77,53 @@ struct RunActivityWidget: Widget {
                     PhaseIcon(phase: state.phase)
                 }
             }
+            .widgetURL(state.deepLinkURL)
             .keylineTint(state.phase.tint)
+        }
+    }
+}
+
+private struct CompactTrailingRun: View {
+    let state: RunState
+    let isStale: Bool
+
+    var body: some View {
+        if #available(iOS 27.0, *) {
+            AdaptiveCompactTrailingRun(state: state, isStale: isStale)
+        } else {
+            CompactTrailingBody(state: state, isStale: isStale, limitedWidth: false)
+        }
+    }
+}
+
+@available(iOS 27.0, *)
+private struct AdaptiveCompactTrailingRun: View {
+    let state: RunState
+    let isStale: Bool
+    @Environment(\.isDynamicIslandLimitedInWidth) private var limitedWidth
+
+    var body: some View {
+        CompactTrailingBody(state: state, isStale: isStale, limitedWidth: limitedWidth)
+    }
+}
+
+private struct CompactTrailingBody: View {
+    let state: RunState
+    let isStale: Bool
+    let limitedWidth: Bool
+
+    var body: some View {
+        if limitedWidth || isStale {
+            PhaseIcon(phase: state.phase)
+        } else if state.phase == .working {
+            Elapsed(state: state, isStale: false)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(state.phase.tint)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+                .frame(maxWidth: 52, alignment: .trailing)
+        } else {
+            PhaseIcon(phase: state.phase)
         }
     }
 }

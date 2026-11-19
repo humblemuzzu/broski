@@ -48,6 +48,7 @@ import com.muzammil.broski.R
 import com.muzammil.broski.core.AppCore
 import com.muzammil.broski.core.PhoneSession
 import com.muzammil.broski.core.settings.Appearance
+import com.muzammil.broski.core.settings.KeepScreenAwake
 import com.muzammil.broski.core.settings.NotificationKind
 import com.muzammil.broski.design.Haptic
 import com.muzammil.broski.design.SectionHeader
@@ -69,6 +70,14 @@ private val AppearanceOptions = listOf(
     AppearanceOption(Appearance.System, R.string.settings_appearance_system, R.drawable.ic_brightness_auto),
     AppearanceOption(Appearance.Light, R.string.settings_appearance_light, R.drawable.ic_light_mode),
     AppearanceOption(Appearance.Dark, R.string.settings_appearance_dark, R.drawable.ic_dark_mode),
+)
+
+private data class KeepAwakeOption(val mode: KeepScreenAwake, @StringRes val label: Int)
+
+private val KeepAwakeOptions = listOf(
+    KeepAwakeOption(KeepScreenAwake.DictationOnly, R.string.settings_keep_awake_dictation),
+    KeepAwakeOption(KeepScreenAwake.WhileWorking, R.string.settings_keep_awake_working),
+    KeepAwakeOption(KeepScreenAwake.Always, R.string.settings_keep_awake_always),
 )
 
 /** Notification kinds, voice, appearance, versions and the privacy line. */
@@ -107,6 +116,7 @@ fun SettingsScreen(core: AppCore, phone: PhoneSession, onOpenVoice: () -> Unit) 
                 SectionHeader(stringResource(R.string.settings_appearance))
                 AppearancePicker(state.settings.appearance, viewModel::setAppearance)
             }
+            keepAwake(state.settings.keepScreenAwake, viewModel::setKeepScreenAwake)
             item(key = "formatting") { FormattingRow(onReading = { reading = true }, onGallery = { gallery = true }) }
             about(state, coreDescription)
         }
@@ -215,6 +225,35 @@ private fun AppearancePicker(selected: Appearance, onSelect: (Appearance) -> Uni
         ) {
             AppearanceOptions.forEachIndexed { index, it -> option(index, it, Modifier.weight(1f)) }
         }
+    }
+}
+
+private fun LazyListScope.keepAwake(selected: KeepScreenAwake, onSelect: (KeepScreenAwake) -> Unit) {
+    item(key = "keep_awake") { SectionHeader(stringResource(R.string.settings_keep_awake)) }
+    KeepAwakeOptions.forEachIndexed { index, option ->
+        item(key = "keep_awake:${option.mode}") {
+            val checked = selected == option.mode
+            SegmentedListItem(
+                selected = checked,
+                onClick = { onSelect(option.mode) },
+                shapes = ListItemDefaults.segmentedShapes(index, KeepAwakeOptions.size),
+                modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = ListItemDefaults.SegmentedGap),
+                trailingContent = if (checked) {
+                    { Icon(painterResource(R.drawable.ic_check), contentDescription = null) }
+                } else {
+                    null
+                },
+                colors = groupedListItemColors(),
+            ) { Text(stringResource(option.label)) }
+        }
+    }
+    item(key = "keep_awake_body") {
+        Text(
+            stringResource(R.string.settings_keep_awake_body),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 6.dp),
+        )
     }
 }
 

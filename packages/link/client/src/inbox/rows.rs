@@ -26,10 +26,14 @@ pub(super) fn live_row(
 ) -> InboxRow {
     let InboxSource { row, live } = source;
     let state = state_of(&row, live.as_ref(), seen, now_ms);
-    let (ask, command, pending) = match live {
-        Some(live) => (live.ask, live.command, live.pending),
-        None => (None, None, None),
+    let active = matches!(state, InboxState::NeedsYou | InboxState::Working);
+    let (ask, command, pending, live_started_at) = match live {
+        Some(live) => (live.ask, live.command, live.pending, live.run_started_at),
+        None => (None, None, None, None),
     };
+    let run_started_at = active
+        .then(|| live_started_at.or(row.run_started_at))
+        .flatten();
     InboxRow {
         machine_id: machine.id.clone(),
         machine_name: machine.name.clone(),
@@ -38,6 +42,7 @@ pub(super) fn live_row(
         cwd: row.cwd,
         state,
         updated_at: row.updated_at,
+        run_started_at,
         ask,
         command,
         pending,
@@ -52,6 +57,9 @@ pub(super) fn cached_row(cached: &CachedRow, seen: Option<i64>, now_ms: i64) -> 
         InboxState::NeedsYou | InboxState::Working => cached.state,
         InboxState::Done | InboxState::Idle => settled(cached.updated_at, seen, now_ms),
     };
+    let run_started_at = matches!(state, InboxState::NeedsYou | InboxState::Working)
+        .then_some(cached.run_started_at)
+        .flatten();
     InboxRow {
         machine_id: cached.machine_id.clone(),
         machine_name: cached.machine_name.clone(),
@@ -60,6 +68,7 @@ pub(super) fn cached_row(cached: &CachedRow, seen: Option<i64>, now_ms: i64) -> 
         cwd: cached.cwd.clone(),
         state,
         updated_at: cached.updated_at,
+        run_started_at,
         ask: cached.ask.clone(),
         command: cached.command.clone(),
         pending: None,

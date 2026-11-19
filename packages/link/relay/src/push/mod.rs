@@ -25,6 +25,7 @@ pub use message::{from_machine, from_public, PublicPush};
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Platform {
     Apns,
+    ApnsLiveActivity,
     Fcm,
 }
 
@@ -32,6 +33,7 @@ impl Platform {
     pub fn parse(text: &str) -> Option<Platform> {
         match text {
             "apns" => Some(Platform::Apns),
+            "apns_live_activity" => Some(Platform::ApnsLiveActivity),
             "fcm" => Some(Platform::Fcm),
             _ => None,
         }
@@ -40,6 +42,7 @@ impl Platform {
     pub fn as_str(self) -> &'static str {
         match self {
             Platform::Apns => "apns",
+            Platform::ApnsLiveActivity => "apns_live_activity",
             Platform::Fcm => "fcm",
         }
     }
@@ -52,6 +55,7 @@ pub enum Kind {
     Attention,
     Generic,
     Offline,
+    LiveActivity,
 }
 
 impl Kind {
@@ -62,6 +66,7 @@ impl Kind {
             "attention" => Some(Kind::Attention),
             "generic" => Some(Kind::Generic),
             "offline" => Some(Kind::Offline),
+            "live_activity" => Some(Kind::LiveActivity),
             _ => None,
         }
     }
@@ -73,6 +78,7 @@ impl Kind {
             Kind::Attention => "attention",
             Kind::Generic => "generic",
             Kind::Offline => "offline",
+            Kind::LiveActivity => "live_activity",
         }
     }
 
@@ -233,7 +239,7 @@ impl PushSender {
 
     async fn dispatch(&self, request: &PushRequest) -> Result<(), PushError> {
         match request.platform {
-            Platform::Apns => {
+            Platform::Apns | Platform::ApnsLiveActivity => {
                 if let Some(client) = &self.apns {
                     return client.send(request).await;
                 }

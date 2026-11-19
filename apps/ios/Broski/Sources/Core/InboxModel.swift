@@ -31,6 +31,7 @@ final class InboxModel {
             while true {
                 let update = await inbox.nextChange()
                 rows = update.rows
+                if filter == .working && workingCount == 0 { filter = nil }
                 persist(update, in: storage)
             }
         }

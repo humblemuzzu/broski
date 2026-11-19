@@ -196,6 +196,10 @@ export class HolderLink implements PiTransport {
 }
 
 function helloOf(frame: Readonly<Record<string, unknown>>): HelloFrame {
+	const runStartedAt =
+		typeof frame.runStartedAt === "number" && Number.isFinite(frame.runStartedAt) && frame.runStartedAt >= 0
+			? Math.trunc(frame.runStartedAt)
+			: undefined;
 	return {
 		holder: "hello",
 		version: Number(frame.version),
@@ -203,6 +207,7 @@ function helloOf(frame: Readonly<Record<string, unknown>>): HelloFrame {
 		extension: String(frame.extension),
 		replayed: Number(frame.replayed),
 		truncated: frame.truncated === true,
+		...(runStartedAt !== undefined && { runStartedAt }),
 	};
 }
 

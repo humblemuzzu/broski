@@ -32,11 +32,16 @@ final class AppModel {
     let drafts = DraftStore()
     let dictation = Dictation()
     let usage = UsageModel()
+    private(set) var isActive = false
+    var keepScreenAwake: KeepScreenAwake = KeepScreenAwake.current() {
+        didSet {
+            UserDefaults.standard.set(keepScreenAwake.rawValue, forKey: Preference.keepScreenAwake)
+        }
+    }
 
     @ObservationIgnored private let storage: PhoneStorage
     @ObservationIgnored private var phone: Phone?
     @ObservationIgnored private var pathWatcher: PathWatcher?
-    @ObservationIgnored private var isActive = false
     @ObservationIgnored private var liveRuns: LiveRuns?
     @ObservationIgnored private var delivery = UIBackgroundTaskIdentifier.invalid
 
@@ -116,40 +121,59 @@ final class AppModel {
     }
 
     /// Stop from the Live Activity, which may run the app in the background just for it: the link
-    /// is resumed for the request and paused again after. The bridge takes `abort` only for a session
-    /// the phone views, so the session is viewed while it is sent.
+    /// is resumed for the request, waits for the Mac and view attach, sends abort, then pauses and
+    /// flushes before returning.
     func stopRun(machineId: String, session: SessionRef) async {
         guard let machine = machine(id: machineId) else { return }
-        if !isActive { phone?.resume() }
+        let wasBackground = !isActive
+        if wasBackground { phone?.resume() }
+        let readyDeadline = ContinuousClock.now + .seconds(8)
+        while !machine.summary.isReady, ContinuousClock.now < readyDeadline {
+            try? await Task.sleep(for: .milliseconds(150))
+        }
         do {
             let view = try machine.machine.attach(session: session)
             defer { view.detach() }
+            await waitForAttach(view, timeout: .seconds(4))
             let answer = try await machine.machine.request(message: .abort(AbortRequest(requestId: "", session: session)))
             Logger.core.info("a run was stopped from the Live Activity: \(String(describing: answer), privacy: .public)")
         } catch {
             Logger.core.error("the stop was not sent: \(String(describing: error), privacy: .public)")
         }
-        if !isActive { phone?.pause() }
+        if wasBackground && !isActive {
+            phone?.pause()
+            await phone?.paused()
+        }
+    }
+
+    private func waitForAttach(_ view: SessionView, timeout: Duration) async {
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask { _ = await view.nextUpdate() }
+            group.addTask { try? await Task.sleep(for: timeout) }
+            await group.next()
+            group.cancelAll()
+        }
     }
 
     func scenePhaseChanged(_ phase: ScenePhase) {
         switch phase {
         case .active:
             isActive = true
-            phone?.resume()
             endDelivery()
-            // An activity can only start in front; one that a background change could not start
-            // starts now.
-            liveRuns?.follow(inbox.rows, reachableMachines: reachableMachineIds)
+            phone?.resume()
+            liveRuns?.setForeground(true)
             Task { await notifications.refresh() }
             refreshUsage()
+        case .inactive:
+            isActive = false
         case .background:
             isActive = false
+            liveRuns?.setForeground(false)
             dictation.sceneLeft()
-            holdForDelivery()
+            pauseForBackground()
             UsageRefresh.schedule()
-        default:
-            break
+        @unknown default:
+            isActive = false
         }
         updateDiscovery()
     }
@@ -198,6 +222,10 @@ final class AppModel {
         Set(machines.filter { $0.summary.isReady }.map(\.id))
     }
 
+    private var settlingMachineIds: Set<String> {
+        Set(machines.filter { $0.summary.health == .settling }.map(\.id))
+    }
+
     private var hasLiveWork: Bool {
         let reachable = reachableMachineIds
         return inbox.rows.contains {
@@ -205,31 +233,37 @@ final class AppModel {
         }
     }
 
-    /// iOS suspends the app moments after it leaves the screen; the background time held here lets
-    /// a prompt sent just before reach the Mac and keeps a short run's Live Activity live until the
-    /// run finishes or iOS ends the background window, at which point the link pauses and the
-    /// activity ends so no timer ticks on its own while disconnected.
-    private func holdForDelivery() {
+    private var shouldKeepScreenAwake: Bool {
+        guard isActive else { return false }
+        if dictation.isKeepingScreenAwake { return true }
+        switch keepScreenAwake {
+        case .dictationOnly: return false
+        case .whileWorking: return hasLiveWork
+        case .always: return true
+        }
+    }
+
+    /// Flushes any prompt sent right before backgrounding and closes the link cleanly so the daemon
+    /// resumes APNs alerts and Live Activity push updates right away. The expiration handler ends
+    /// the background task synchronously on the main thread as UIKit requires.
+    private func pauseForBackground() {
         guard let phone else { return }
         endDelivery()
-        delivery = UIApplication.shared.beginBackgroundTask(withName: "Broski delivery") { [weak self] in
-            guard let self else { return }
-            self.phone?.pause()
-            Task {
-                await self.liveRuns?.suspend()
-                self.endDelivery()
+        phone.pause()
+        var taskId = UIBackgroundTaskIdentifier.invalid
+        taskId = UIApplication.shared.beginBackgroundTask(withName: "Broski pause") { [weak self] in
+            if taskId != .invalid {
+                UIApplication.shared.endBackgroundTask(taskId)
+                taskId = .invalid
             }
+            self?.delivery = .invalid
         }
-        let held = delivery
+        delivery = taskId
+        guard taskId != .invalid else { return }
+        let held = taskId
         Task { [weak self] in
-            while let self, !self.isActive, self.delivery == held, self.hasLiveWork {
-                try? await Task.sleep(for: .milliseconds(500))
-            }
-            guard let self, !self.isActive, self.delivery == held else { return }
-            phone.pause()
             await phone.paused()
-            guard !self.isActive, self.delivery == held else { return }
-            await self.liveRuns?.suspend()
+            guard let self, self.delivery == held else { return }
             self.endDelivery()
         }
     }
@@ -289,6 +323,7 @@ final class AppModel {
         }
         inbox.start(core, storage: storage)
         followLiveRuns()
+        followIdleTimer()
         followUsage()
         pathWatcher = PathWatcher { [weak self] in
             self?.phone?.networkChanged()
@@ -297,14 +332,38 @@ final class AppModel {
         updateDiscovery()
     }
 
-    /// The Live Activity follows the inbox and each machine's reachability for the life of the phone.
+    /// The Live Activity follows the inbox and each machine's state for the life of the phone.
     private func followLiveRuns() {
         let liveRuns = LiveRuns()
+        liveRuns.setForeground(isActive)
+        liveRuns.onPushToken = { [weak self] token in
+            self?.machines.forEach { $0.registerLiveActivity(token) }
+        }
+        if let token = liveRuns.currentPushToken {
+            machines.forEach { $0.registerLiveActivity(token) }
+        }
         self.liveRuns = liveRuns
         Task { [weak self] in
             guard let self else { return }
-            for await (rows, reachable) in Observations({ (self.inbox.rows, self.reachableMachineIds) }) {
-                liveRuns.follow(rows, reachableMachines: reachable)
+            for await (rows, ready, settling) in Observations({
+                (self.inbox.rows, self.reachableMachineIds, self.settlingMachineIds)
+            }) {
+                liveRuns.follow(rows, readyMachines: ready, settlingMachines: settling)
+            }
+        }
+    }
+
+    /// Single owner of `UIApplication.shared.isIdleTimerDisabled`: keeps the display awake during
+    /// active dictation and per the person's Settings › Keep Screen Awake preference, and resets it
+    /// to `false` whenever the scene is not active.
+    private func followIdleTimer() {
+        Task { [weak self] in
+            guard let self else { return }
+            var current = false
+            for await awake in Observations({ self.shouldKeepScreenAwake }) {
+                guard awake != current else { continue }
+                current = awake
+                UIApplication.shared.isIdleTimerDisabled = awake
             }
         }
     }
@@ -335,6 +394,7 @@ final class AppModel {
         unreadablePairings.removeAll { $0 == model.id }
         add(model)
         model.registerPush(push.token)
+        model.registerLiveActivity(liveRuns?.currentPushToken)
         updateDiscovery()
         return model
     }

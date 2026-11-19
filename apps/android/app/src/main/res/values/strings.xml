@@ -131,6 +131,11 @@
     <string name="settings_appearance_system">System</string>
     <string name="settings_appearance_light">Light</string>
     <string name="settings_appearance_dark">Dark</string>
+    <string name="settings_keep_awake">Keep screen awake</string>
+    <string name="settings_keep_awake_dictation">Only while dictating</string>
+    <string name="settings_keep_awake_working">While agents are working</string>
+    <string name="settings_keep_awake_always">Always while open</string>
+    <string name="settings_keep_awake_body">Voice dictation always keeps the screen awake while you\'re speaking.</string>
     <string name="settings_about">About</string>
     <string name="settings_version_app">Broski</string>
     <string name="settings_version_core">Core</string>

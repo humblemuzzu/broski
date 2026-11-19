@@ -42,6 +42,12 @@ export class TerminalSessions {
 		this.entries.get(sessionId)?.session.terminalIdle();
 	}
 
+	/** The open watched session's active run start time, if one is currently watched. */
+	runStartedAt(sessionId: SessionId): number | undefined {
+		const snapshot = this.entries.get(sessionId)?.session.live.snapshot();
+		return snapshot?.run?.startedAt ?? snapshot?.compaction?.startedAt;
+	}
+
 	release(sessionId: SessionId, sink: SessionSink): void {
 		const entry = this.entries.get(sessionId);
 		if (entry === undefined) return;

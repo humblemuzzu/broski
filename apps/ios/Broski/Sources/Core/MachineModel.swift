@@ -76,6 +76,15 @@ final class MachineModel: Identifiable {
         machine.registerPush(platform: .apns, token: token)
     }
 
+    /// Registers or clears the active iOS Live Activity push token on this machine.
+    func registerLiveActivity(_ token: String?) {
+        if let token {
+            machine.registerLiveActivity(token: token)
+        } else {
+            machine.unregisterLiveActivity()
+        }
+    }
+
     func restartBridge() throws {
         try machine.restartBridge()
     }

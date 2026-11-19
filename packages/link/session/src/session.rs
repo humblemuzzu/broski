@@ -5,7 +5,7 @@ use broski_link_core::{STREAM_BRIDGE, STREAM_CONTROL};
 use tokio::sync::mpsc;
 
 use crate::control::{self, PushPlatform};
-use crate::engine::{Command, Engine, Pairing, Parts, PushIntent};
+use crate::engine::{Command, Engine, LiveActivityIntent, Pairing, Parts, PushIntent};
 use crate::error::Error;
 use crate::events::{locked, Event, Shared};
 use crate::identity::DeviceIdentity;
@@ -111,6 +111,17 @@ impl Session {
 
     pub fn unregister_push(&self) {
         self.command(Command::Push(Some(PushIntent::Unregister)));
+    }
+
+    /// Registers the active iOS Live Activity push token with the machine; repeated on connect.
+    pub fn register_live_activity(&self, token: String) {
+        self.command(Command::LiveActivity(Some(LiveActivityIntent::Register {
+            token,
+        })));
+    }
+
+    pub fn unregister_live_activity(&self) {
+        self.command(Command::LiveActivity(Some(LiveActivityIntent::Unregister)));
     }
 
     /// The app went to the background.

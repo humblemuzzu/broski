@@ -1,4 +1,5 @@
 pub mod keys;
+pub mod live_activity;
 pub mod policy;
 pub mod seal;
 

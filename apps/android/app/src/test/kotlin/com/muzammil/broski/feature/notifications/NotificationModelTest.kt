@@ -66,21 +66,45 @@ class NotificationModelTest {
         assertNull(DecisionInput.read(data.keyValueMap.mapValues { it.value as String }.minus("request")::get))
     }
 
-    private fun row(session: String, state: InboxState, updatedAt: Long, backend: BackendId = BackendId.PI) =
-        InboxRow(machine, "studio", SessionRef(backend, session), "Title $session", "/w", state, updatedAt, null, null, null, false)
+    private fun row(
+        session: String,
+        state: InboxState,
+        updatedAt: Long,
+        backend: BackendId = BackendId.PI,
+        runStartedAt: Long? = null,
+    ) = InboxRow(machine, "studio", SessionRef(backend, session), "Title $session", "/w", state, updatedAt, runStartedAt, null, null, null, false)
 
     @Test
-    fun theLiveUpdateFollowsTheNewestRunAndCountsWhatWorksAndWhatWaits() {
+    fun theLiveUpdateFollowsNeedsYouFirstThenNewestWorkingAndUsesRunStartedAt() {
         val since = mutableMapOf<SessionTarget, Long>()
-        val first = LiveStatus.of(listOf(row("a", InboxState.WORKING, 10), row("q", InboxState.NEEDS_YOU, 5)), since, nowMs = 1_000)!!
-        assertEquals(Triple(1, 1, "a"), Triple(first.working, first.needsYou, first.focused.session.sessionId))
-        assertEquals(1_000L, first.sinceMs)
-        val second = LiveStatus.of(listOf(row("a", InboxState.WORKING, 10), row("b", InboxState.WORKING, 20, BackendId.CLAUDE_CODE)), since, nowMs = 2_000)!!
+        val first = LiveStatus.of(
+            listOf(
+                row("a", InboxState.WORKING, 10, runStartedAt = 500),
+                row("q", InboxState.NEEDS_YOU, 5, runStartedAt = 400),
+            ),
+            since,
+            nowMs = 1_000,
+        )!!
+        assertEquals(Triple(1, 1, "q"), Triple(first.working, first.needsYou, first.focused.session.sessionId))
+        assertEquals(400L, first.sinceMs)
+
+        val second = LiveStatus.of(
+            listOf(
+                row("a", InboxState.WORKING, 10, runStartedAt = 500),
+                row("b", InboxState.WORKING, 20, BackendId.CLAUDE_CODE, runStartedAt = 900),
+            ),
+            since,
+            nowMs = 2_000,
+        )!!
         assertEquals(Triple(2, 0, "b"), Triple(second.working, second.needsYou, second.focused.session.sessionId))
         assertEquals(SessionTarget(machine, "claude-code", "b"), second.target)
-        assertEquals(2_000L, second.sinceMs)
+        assertEquals(900L, second.sinceMs)
+
+        val onlyNeedsYou = LiveStatus.of(listOf(row("q", InboxState.NEEDS_YOU, 25, runStartedAt = 400)), since, nowMs = 2_500)!!
+        assertEquals(Triple(0, 1, "q"), Triple(onlyNeedsYou.working, onlyNeedsYou.needsYou, onlyNeedsYou.focused.session.sessionId))
+
         val back = LiveStatus.of(listOf(row("a", InboxState.WORKING, 30)), since, nowMs = 3_000)!!
-        assertEquals("a keeps the moment it was first seen working", 1_000L, back.sinceMs)
+        assertEquals("a keeps its known start time when runStartedAt is absent", 500L, back.sinceMs)
         assertNull(LiveStatus.of(listOf(row("a", InboxState.DONE, 40)), since, nowMs = 4_000))
         assertEquals(emptySet<SessionTarget>(), since.keys)
     }

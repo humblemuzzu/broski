@@ -131,6 +131,7 @@ export async function adoptedStart(
 			prompts: recent.prompts,
 			truncated: hello.truncated,
 			retiring: !("hash" in extension) || extension.hash !== hello.extension,
+			...(hello.runStartedAt !== undefined && { runStartedAt: hello.runStartedAt }),
 		},
 	};
 }

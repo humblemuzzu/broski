@@ -144,10 +144,12 @@ export class Holder {
 		this.client = socket;
 		this.everAttached = true;
 		this.review();
-		const { lines, truncated } = this.log.replay();
+		const { lines, truncated, runStartedAt } = this.log.replay();
 		const { sessionId, extension } = this.options.spec;
 		const hello = { holder: "hello" as const, version: HOLDER_VERSION, sessionId, extension };
-		socket.write(controlLine({ ...hello, replayed: lines.length, truncated }));
+		socket.write(
+			controlLine({ ...hello, replayed: lines.length, truncated, ...(runStartedAt !== undefined && { runStartedAt }) }),
+		);
 		for (const line of lines) socket.write(`${line}\n`);
 		socket.write(controlLine({ holder: "live" }));
 		this.backlog?.stop();

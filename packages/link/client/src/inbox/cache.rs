@@ -34,6 +34,8 @@ pub(super) struct CachedRow {
     pub(super) cwd: Option<WorkingDirectory>,
     pub(super) state: InboxState,
     pub(super) updated_at: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) run_started_at: Option<i64>,
     pub(super) ask: Option<String>,
     pub(super) command: Option<String>,
 }
@@ -120,6 +122,7 @@ fn kept(rows: &[InboxRow]) -> Vec<CachedRow> {
             cwd: row.cwd.clone(),
             state: row.state,
             updated_at: row.updated_at,
+            run_started_at: row.run_started_at,
             ask: row.ask.as_deref().map(clip),
             command: row.command.as_deref().map(clip),
         })
@@ -172,6 +175,7 @@ mod tests {
             cwd: Some("/w".to_owned()),
             state: InboxState::Done,
             updated_at: index as i64,
+            run_started_at: None,
             ask: None,
             command: None,
             pending: None,

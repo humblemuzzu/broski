@@ -61,12 +61,20 @@ fn build(
         .filter(|token| valid_token(token))
         .ok_or(PushError::BadRequest)?;
     let kind = kind.and_then(Kind::parse).ok_or(PushError::BadRequest)?;
+    if (platform == Platform::ApnsLiveActivity) != (kind == Kind::LiveActivity) {
+        return Err(PushError::BadRequest);
+    }
     let encoded = data.ok_or(PushError::BadRequest)?;
     if encoded.len() > MAX_PUSH_DATA * 4 / 3 + 4 {
         return Err(PushError::BadRequest);
     }
     let data = b64url_decode(encoded).ok_or(PushError::BadRequest)?;
     if data.len() > MAX_PUSH_DATA {
+        return Err(PushError::BadRequest);
+    }
+    if platform == Platform::ApnsLiveActivity
+        && !serde_json::from_slice::<serde_json::Value>(&data).is_ok_and(|value| value.is_object())
+    {
         return Err(PushError::BadRequest);
     }
     let collapse = match collapse {

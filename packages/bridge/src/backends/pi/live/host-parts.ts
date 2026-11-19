@@ -66,7 +66,8 @@ export function assembleHostParts(env: HostEnvironment, start: HostStart, links:
 	// Pi's records arrive asynchronously, long after `events` below exists.
 	const deliver: Deliver = (delivery) => events.deliver(delivery);
 	let replaying = false;
-	const liveNow = () => (replaying && start.facts.updatedAt > 0 ? start.facts.updatedAt : env.now());
+	const adoptedStart = start.adoption?.runStartedAt;
+	const liveNow = () => (replaying && adoptedStart !== undefined ? adoptedStart : env.now());
 	const hookedLinks: HostLinks = {
 		...links,
 		replaying: (active) => {

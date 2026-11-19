@@ -250,6 +250,7 @@ mod tests {
             cwd: Some(cwd.to_owned()),
             created_at: None,
             updated_at,
+            run_started_at: None,
             parent: None,
             model_id: None,
             status: SessionStatus::Idle,

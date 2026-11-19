@@ -52,6 +52,8 @@ pub struct InboxRow {
     pub cwd: Option<WorkingDirectory>,
     pub state: InboxState,
     pub updated_at: i64,
+    /// When the active run or compaction started, when the session is `NeedsYou` or `Working`.
+    pub run_started_at: Option<i64>,
     /// The title of the first pending interaction: live for a session the inbox views, as last
     /// known for a row from the cache.
     pub ask: Option<String>,

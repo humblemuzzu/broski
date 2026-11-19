@@ -17,6 +17,8 @@ pub struct DeviceRecord {
     pub paired_at: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub push: Option<PushRegistration>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub live_activity_token: Option<String>,
 }
 
 /// A device's push registration: where to send, and the key its payloads are sealed with.

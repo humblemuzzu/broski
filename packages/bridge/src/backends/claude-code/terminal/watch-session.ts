@@ -68,7 +68,9 @@ export class WatchedSession {
 		const tail = new TranscriptTail(path);
 		const translator = new LineTranslator();
 		const initial = seeded(translator, await tail.attach(), clock.now(), activeProcess);
-		return new WatchedSession(path, clock, tail, translator, initial);
+		const session = new WatchedSession(path, clock, tail, translator, initial);
+		if (!activeProcess && initial.run !== undefined) session.terminalIdle();
+		return session;
 	}
 
 	/** Every open of the session gets its events; the snapshot is the state they apply on top of. */
@@ -126,7 +128,7 @@ export class WatchedSession {
 		for (const line of read.lines) {
 			const entry = parse(line);
 			if (read.reset && isHistory(entry, this.attachedAt)) this.translator.remember(entry);
-			else this.publish(this.translator.translate(entry));
+			else this.publish(this.translator.translate(entry), entryTime(entry));
 		}
 		this.armQuiet();
 	}
@@ -161,11 +163,11 @@ export class WatchedSession {
 		return runId;
 	}
 
-	private publish(events: readonly MappedEvent[]): void {
+	private publish(events: readonly MappedEvent[], at?: number): void {
 		for (const { event, native } of events) {
 			this.beforeEmit(event);
 			try {
-				this.live.emit(event, native);
+				this.live.emit(event, native, at);
 			} catch {
 				// An event the reducer refuses is dropped, not allowed to stop the tail.
 			}

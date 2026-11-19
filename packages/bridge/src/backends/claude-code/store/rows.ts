@@ -17,6 +17,8 @@ export interface RowContext {
 	readonly origin: SessionOrigin;
 	/** When the conversation last moved (`activity.ts`); the SDK's `lastModified` only when the file is gone. */
 	readonly updatedAt: number | undefined;
+	/** When the active turn began (`activity.ts`), used for unopened terminal sessions. */
+	readonly runStartedAt?: number;
 	/** `customTitle` is a person's (`title-source.ts`), not the AI title the SDK folds into it. */
 	readonly userTitled?: boolean;
 	readonly live?: LiveRow;
@@ -46,17 +48,21 @@ export function sessionRow(info: SDKSessionInfo, context: RowContext): SessionSu
 	if (!isUuid(info.sessionId)) return undefined;
 	const createdAt = timestamp(info.createdAt);
 	const cwd = info.cwd !== undefined && info.cwd !== "" && info.cwd.length <= MAX_PATH_CHARS ? info.cwd : undefined;
+	const status = context.live?.status ?? "unknown";
+	const active = status === "running" || status === "waiting_for_user";
+	const runStartedAt = active ? (context.live?.runStartedAt ?? context.runStartedAt) : undefined;
 	return {
 		session: { backend: "claude-code", sessionId: info.sessionId },
 		title: titleOf(info, context.userTitled === true),
 		...(cwd !== undefined && { cwd }),
 		...(createdAt !== undefined && { createdAt }),
 		updatedAt: context.updatedAt ?? timestamp(info.lastModified) ?? 0,
+		...(runStartedAt !== undefined && { runStartedAt }),
 		...(context.parent !== undefined && { parent: context.parent }),
 		...(context.live?.modelId !== undefined && {
 			modelId: context.live.modelId,
 		}),
-		status: context.live?.status ?? "unknown",
+		status,
 		origin: context.origin,
 	};
 }

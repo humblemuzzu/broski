@@ -126,7 +126,8 @@ impl Store {
             role: ROLE_OWNER.to_owned(),
             relay_token_hash: codec::token_hash(&token),
             paired_at: crate::clock::unix_secs(),
-            push: known.and_then(|device| device.push),
+            push: known.as_ref().and_then(|device| device.push.clone()),
+            live_activity_token: known.and_then(|device| device.live_activity_token),
         };
 
         match data.devices.iter().position(|device| device.id == id) {
@@ -162,6 +163,25 @@ impl Store {
             return Ok(None);
         };
         data.devices[index].push = push;
+        let updated = data.devices[index].clone();
+        self.persist(&data.devices).await?;
+        Ok(Some(updated))
+    }
+
+    /// Replaces the device's active iOS Live Activity push token, or clears it.
+    pub async fn set_live_activity(
+        &self,
+        id: &str,
+        token: Option<String>,
+    ) -> Result<Option<DeviceRecord>> {
+        let mut data = self.data.lock().await;
+        let Some(index) = data.devices.iter().position(|device| device.id == id) else {
+            return Ok(None);
+        };
+        if data.devices[index].live_activity_token == token {
+            return Ok(Some(data.devices[index].clone()));
+        }
+        data.devices[index].live_activity_token = token;
         let updated = data.devices[index].clone();
         self.persist(&data.devices).await?;
         Ok(Some(updated))

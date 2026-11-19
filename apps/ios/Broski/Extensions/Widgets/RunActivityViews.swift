@@ -8,6 +8,7 @@ typealias RunState = RunActivityAttributes.ContentState
 /// title, Mac), the other live sessions, then the state, the elapsed time and Stop.
 struct LockScreenRun: View {
     let state: RunState
+    var isStale = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -36,10 +37,11 @@ struct LockScreenRun: View {
             }
             HStack(spacing: 10) {
                 PhasePill(phase: state.phase)
-                Elapsed(state: state)
+                Elapsed(state: state, isStale: isStale)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(ActivityStyle.secondary)
-                    .frame(maxWidth: 80, alignment: .leading)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                 Spacer()
                 StopButton(state: state)
             }
@@ -88,16 +90,35 @@ private struct RunLine: View {
     }
 }
 
-/// Time since the focused session started working, counting on its own in tabular figures while it
-/// actively works.
+/// Time since the focused run started: counts live while working, freezes at `endedAt` once done,
+/// and shows "Paused" when the activity became stale offline.
 struct Elapsed: View {
     let state: RunState
+    var isStale = false
 
     var body: some View {
-        if state.phase == .working {
+        if isStale && state.phase != .done {
+            Text("Paused")
+                .foregroundStyle(ActivityStyle.tertiary)
+        } else if state.phase == .working {
             Text(timerInterval: state.startedAt...Date.distantFuture, countsDown: false)
                 .monospacedDigit()
+                .contentTransition(.numericText())
+        } else if state.phase == .done, let endedAt = state.endedAt {
+            Text(Self.format(max(0, endedAt.timeIntervalSince(state.startedAt))))
+                .monospacedDigit()
         }
+    }
+
+    static func format(_ seconds: TimeInterval) -> String {
+        let total = Int(seconds.rounded())
+        let hours = total / 3600
+        let minutes = (total % 3600) / 60
+        let secs = total % 60
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d", hours, minutes, secs)
+        }
+        return String(format: "%d:%02d", minutes, secs)
     }
 }
 

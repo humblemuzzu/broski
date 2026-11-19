@@ -29,8 +29,8 @@ export class LiveState implements SessionEmitter {
 		return this.state;
 	}
 
-	emit(event: AgentEvent, native?: NativeIds): void {
-		const record: SinkRecord = { at: this.now(), event, ...(native !== undefined && { native }) };
+	emit(event: AgentEvent, native?: NativeIds, at?: number): void {
+		const record: SinkRecord = { at: at ?? this.now(), event, ...(native !== undefined && { native }) };
 		this.state = applyEvent(this.state, record);
 		this.sink?.emit(record);
 	}

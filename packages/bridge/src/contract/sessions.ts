@@ -35,6 +35,8 @@ export const SessionSummary = z.strictObject({
 	cwd: WorkingDirectory.optional(),
 	createdAt: Timestamp.optional(),
 	updatedAt: Timestamp,
+	/** When the active run or compaction started; present while `running` or `waiting_for_user`. */
+	runStartedAt: Timestamp.optional(),
 	parent: SessionParent.optional(),
 	modelId: ModelId.optional(),
 	status: SessionStatus,

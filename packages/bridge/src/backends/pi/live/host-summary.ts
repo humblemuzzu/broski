@@ -31,12 +31,14 @@ export interface HostedFacts {
 
 export function hostedSummary(facts: HostedFacts, snapshot: SessionSnapshot): SessionSummary {
 	const title = titleOf(facts);
+	const runStartedAt = snapshot.run?.startedAt ?? snapshot.compaction?.startedAt;
 	return {
 		session: { backend: "pi", sessionId: facts.sessionId },
 		...(title && { title }),
 		...(facts.cwd.length > 0 && facts.cwd.length <= MAX_PATH_CHARS && { cwd: facts.cwd }),
 		createdAt: facts.createdAt,
 		updatedAt: facts.updatedAt,
+		...(runStartedAt !== undefined && { runStartedAt }),
 		...(facts.parent && { parent: facts.parent }),
 		...(snapshot.modelId !== undefined && { modelId: snapshot.modelId }),
 		status: sessionStatus(snapshot),
@@ -64,9 +66,11 @@ export function quietSnapshot(snapshot: SessionSnapshot): boolean {
 
 /** What the store lays over a hosted session's row: its status and model, and the cut while a run is active. */
 export function liveRowOf(snapshot: SessionSnapshot, cut: TranscriptCut | undefined): LiveRow {
+	const runStartedAt = snapshot.run?.startedAt ?? snapshot.compaction?.startedAt;
 	return {
 		status: sessionStatus(snapshot),
 		...(snapshot.modelId !== undefined && { modelId: snapshot.modelId }),
+		...(runStartedAt !== undefined && { runStartedAt }),
 		...(cut && { cut }),
 	};
 }

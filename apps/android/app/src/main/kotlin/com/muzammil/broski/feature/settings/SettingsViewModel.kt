@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.muzammil.broski.core.MachineState
 import com.muzammil.broski.core.settings.AppSettings
 import com.muzammil.broski.core.settings.Appearance
+import com.muzammil.broski.core.settings.KeepScreenAwake
 import com.muzammil.broski.core.settings.NotificationKind
 import com.muzammil.broski.core.settings.ReadingSettings
 import com.muzammil.broski.core.settings.SettingsStore
@@ -31,6 +32,10 @@ class SettingsViewModel(
 
     fun setAppearance(appearance: Appearance) {
         viewModelScope.launch { store.setAppearance(appearance) }
+    }
+
+    fun setKeepScreenAwake(mode: KeepScreenAwake) {
+        viewModelScope.launch { store.setKeepScreenAwake(mode) }
     }
 
     fun setNotification(kind: NotificationKind, enabled: Boolean) {

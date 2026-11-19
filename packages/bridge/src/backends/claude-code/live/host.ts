@@ -182,9 +182,11 @@ export class SessionHost {
 	row(): LiveRow {
 		const snapshot = this.state.snapshot();
 		const cut = this.runs.cut();
+		const runStartedAt = snapshot.run?.startedAt ?? snapshot.compaction?.startedAt;
 		return {
 			status: sessionStatus(snapshot),
 			...(snapshot.modelId !== undefined && { modelId: snapshot.modelId }),
+			...(runStartedAt !== undefined && { runStartedAt }),
 			...(cut !== undefined && { cut }),
 		};
 	}

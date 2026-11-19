@@ -202,6 +202,16 @@ pub(crate) fn push_unregister() -> Vec<u8> {
     br#"{"t":"push_unregister"}"#.to_vec()
 }
 
+pub(crate) fn live_activity_register(token: &str) -> Vec<u8> {
+    json!({"t": "live_activity_register", "token": token})
+        .to_string()
+        .into_bytes()
+}
+
+pub(crate) fn live_activity_unregister() -> Vec<u8> {
+    br#"{"t":"live_activity_unregister"}"#.to_vec()
+}
+
 pub(crate) fn bridge_restart() -> Vec<u8> {
     br#"{"t":"bridge_restart"}"#.to_vec()
 }

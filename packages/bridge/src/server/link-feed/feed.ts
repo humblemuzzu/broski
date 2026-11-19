@@ -7,6 +7,7 @@ import { ContractFeedTap } from "./contract-tap";
 import { createLinkDecisionApplier, type LinkDecisionApplier, parseLinkDecision } from "./decision";
 import { busyMessage, LINK_FEED_PONG } from "./format";
 import { LinkFeedRequests } from "./requests";
+import { LinkRunsTracker } from "./runs";
 import { LinkFeedTracker } from "./tracker";
 
 /** A health check or a decision fits well inside this; anything longer is not a feed frame. */
@@ -44,14 +45,24 @@ function sendToFeed(payload: unknown): void {
 
 const requests = new LinkFeedRequests();
 const tracker = new LinkFeedTracker(sendToFeed, requests);
+const runs = new LinkRunsTracker(sendToFeed);
 const contractTap = new ContractFeedTap(tracker);
 
 /** What the bridge core tells the feed of every open contract session. */
-export const contractFeedObserver: CoreObserver = { observe: (observed) => contractTap.observe(observed) };
+export const contractFeedObserver: CoreObserver = {
+	observe: (observed) => {
+		contractTap.observe(observed);
+		runs.observe(observed);
+	},
+	observeCatalog: (event) => {
+		runs.observeCatalog(event);
+	},
+};
 
 /** Forgets every tracked session, request and timer. */
 export function resetLinkFeed(): void {
 	tracker.reset();
+	runs.reset();
 	contractTap.reset();
 }
 
@@ -73,6 +84,8 @@ export function attachLinkFeed(ws: ServerWebSocket<unknown>, log?: (message: str
 	}
 	activeFeed = ws;
 	sendToFeed(busyMessage(tracker.currentBusy()));
+	const currentRuns = runs.current();
+	if (currentRuns.runs.length > 0) sendToFeed(currentRuns);
 	tracker.replayPending();
 }
 

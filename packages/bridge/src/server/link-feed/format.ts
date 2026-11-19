@@ -7,6 +7,20 @@ export type LinkFeedAlertKind = "approval" | "attention" | "done";
 
 export type LinkFeedBusyMessage = { type: "link_busy"; busy: boolean };
 
+export type LinkRunEntry = {
+	backend: BackendId;
+	sessionId: string;
+	title: string;
+	phase: "working" | "needsYou";
+	startedAt: number;
+};
+
+export type LinkFeedRunsMessage = {
+	type: "link_runs";
+	runs: LinkRunEntry[];
+	at: number;
+};
+
 export type LinkFeedEventMessage = {
 	type: "link_event";
 	kind: LinkFeedAlertKind;
@@ -20,7 +34,7 @@ export type LinkFeedEventMessage = {
 	request?: string;
 };
 
-export type LinkFeedMessage = LinkFeedBusyMessage | LinkFeedEventMessage;
+export type LinkFeedMessage = LinkFeedBusyMessage | LinkFeedEventMessage | LinkFeedRunsMessage;
 
 export const LINK_FEED_PONG = { type: "link_feed_pong" } as const;
 

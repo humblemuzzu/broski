@@ -21,6 +21,7 @@ import type {
 	SessionStatus,
 	SessionSummary,
 	SessionsListResult,
+	Timestamp,
 	TranscriptReadResult,
 } from "../../contract";
 import type { PermissionsRecord, PromptRecord } from "./broski-entries";
@@ -38,6 +39,7 @@ export interface TranscriptCut {
 export interface LiveRow {
 	readonly status: SessionStatus;
 	readonly modelId?: ModelId;
+	readonly runStartedAt?: Timestamp;
 	/** Present exactly while a run is active. */
 	readonly cut?: TranscriptCut;
 }

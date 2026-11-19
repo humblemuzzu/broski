@@ -6,7 +6,7 @@ import type { ExtensionAPI, ExtensionContext, InputEventResult } from "@earendil
 import { RemoteDialogs } from "./dialogs";
 import { type Frame, type Json, MAX_TEXT, read } from "./projection";
 
-const VERSION = "4";
+const VERSION = "5";
 const LINK_VERSION = 1;
 const MAX_QUEUED_BYTES = 2 * 1024 * 1024;
 const MAX_LINE_BYTES = 1024 * 1024;
@@ -43,6 +43,7 @@ export class Link {
 	private blocked = false;
 	private dirty = false;
 	private running = false;
+	private runStartedAt: number | undefined;
 	/**
 	 * The bridge's own `pi` runs this session, as the bridge last said (`welcome`, `hosted`). Kept when the bridge goes:
 	 * the bridge's `pi` outlives it.
@@ -61,6 +62,7 @@ export class Link {
 		this.ctx = ctx;
 		this.dialogs.watch(ctx.ui);
 		this.running = false;
+		this.runStartedAt = undefined;
 		this.blocks.clear();
 		this.tools.clear();
 		this.stopped = false;
@@ -115,9 +117,11 @@ export class Link {
 		switch (event.e) {
 			case "agent_start":
 				this.running = true;
+				this.runStartedAt ??= Date.now();
 				return;
 			case "agent_settled":
 				this.running = false;
+				this.runStartedAt = undefined;
 				this.blocks.clear();
 				this.tools.clear();
 				return;
@@ -193,8 +197,10 @@ export class Link {
 	private state(): Frame {
 		const ctx = this.ctx;
 		const model = ctx?.model;
+		const running = this.running && ctx?.isIdle() === false;
 		return {
-			running: this.running && ctx?.isIdle() === false,
+			running,
+			...(running && this.runStartedAt !== undefined && { runStartedAt: this.runStartedAt }),
 			leafId: ctx?.sessionManager.getLeafId() ?? null,
 			...(model && { model: { provider: model.provider, id: model.id, images: model.input.includes("image") } }),
 			thinking: this.pi.getThinkingLevel(),

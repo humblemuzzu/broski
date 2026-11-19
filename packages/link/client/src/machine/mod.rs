@@ -153,6 +153,15 @@ impl Machine {
         self.shared.session().unregister_push();
     }
 
+    /// Registers the active iOS Live Activity push token with the machine.
+    pub fn register_live_activity(&self, token: String) {
+        self.shared.session().register_live_activity(token);
+    }
+
+    pub fn unregister_live_activity(&self) {
+        self.shared.session().unregister_live_activity();
+    }
+
     /// The app went to the background.
     pub fn pause(&self) {
         self.shared.session().pause();

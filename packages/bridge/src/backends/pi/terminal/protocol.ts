@@ -159,6 +159,7 @@ export type TerminalEvent = z.infer<typeof TerminalEvent>;
 /** What the terminal's session is doing now: enough to join a run already under way. */
 export const TerminalState = z.strictObject({
 	running: z.boolean(),
+	runStartedAt: z.int().nonnegative().optional(),
 	leafId: Id.nullable(),
 	model: z.strictObject({ provider: Name, id: Name, images: z.boolean() }).optional(),
 	thinking: Name.optional(),
