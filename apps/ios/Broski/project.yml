@@ -21,7 +21,7 @@ packages:
   # promises no ABI, and releases weekly (docs/rebuild/research/terminal.md).
   GhosttyKit:
     url: https://github.com/Lakr233/libghostty-spm
-    exactVersion: 2.2.2026111302
+    exactVersion: 2.2.2026111701
 
 settings:
   base:
