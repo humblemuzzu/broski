@@ -23,7 +23,7 @@ import Testing
     let diff = parseUnifiedDiff(text: "@@ -1 +1 @@\n-let a = 1\n+let a = 2\n")
     let hunk = try #require(diff.files.first?.hunks.first)
     #expect(hunk.lines.map(\.kind) == [.removed, .added])
-    #expect(hunk.lines[1].segments.contains(DiffSegment(text: "2", emphasized: true)))
+    #expect(hunk.lines[1].segments.contains(DiffSegment(text: "2", emphasized: true, kind: .plain)))
     #expect(sideBySide(hunk: hunk).count == 1)
 }
 

@@ -55,7 +55,7 @@ class RenderTest {
 
         val hunk = parseUnifiedDiff("@@ -1 +1 @@\n-val a = 1\n+val a = 2\n").files.single().hunks.single()
         assertEquals(listOf(DiffLineKind.REMOVED, DiffLineKind.ADDED), hunk.lines.map { it.kind })
-        assertTrue(DiffSegment("2", true) in hunk.lines[1].segments)
+        assertTrue(DiffSegment("2", true, TokenKind.PLAIN) in hunk.lines[1].segments)
         assertEquals(1, sideBySide(hunk).size)
     }
 

@@ -410,4 +410,32 @@ fn code_diffs_carry_both_syntax_tokens_and_word_emphasis() {
         "changed literal keeps both syntax kind and word emphasis: {:?}",
         added.segments
     );
+
+    // Bare hunk from an agent tool FileChange (no file header inside the diff string) still gets
+    // syntax colouring from change.path.
+    let tool_diff = file_change_diff(&FileChange {
+        path: "src/count.ts".to_owned(),
+        change: FileChangeKind::Modified,
+        previous_path: None,
+        diff: Some("@@ -1 +1 @@\n-let count = 1;\n+let count = 2;\n".to_owned()),
+        additions: Some(1),
+        deletions: Some(1),
+    });
+    let tool_added = &tool_diff.hunks[0].lines[1];
+    assert!(
+        tool_added
+            .segments
+            .iter()
+            .any(|seg| seg.text.trim() == "let" && seg.kind == TokenKind::Keyword),
+        "bare tool FileChange diff must still syntax-colour via change.path: {:?}",
+        tool_added.segments
+    );
+    assert!(
+        tool_added
+            .segments
+            .iter()
+            .any(|seg| seg.text == "2" && seg.kind == TokenKind::Number && seg.emphasized),
+        "bare tool FileChange diff must keep emphasis + syntax: {:?}",
+        tool_added.segments
+    );
 }

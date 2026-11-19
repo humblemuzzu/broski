@@ -2,7 +2,7 @@
 
 use broski_contract::{FileChange, FileChangeKind, GitDiffFile, GitDiffHunk, GitDiffLineKind};
 
-use super::{parse_unified_diff, DiffFile, DiffHunk, DiffLine, DiffLineKind, GitChange};
+use super::{highlight, parse_unified_diff, DiffFile, DiffHunk, DiffLine, DiffLineKind, GitChange};
 
 /// What git prints for a line `noNewline` marks.
 const NO_NEWLINE: &str = "No newline at end of file";
@@ -23,11 +23,18 @@ pub fn file_change_diff(change: &FileChange) -> DiffFile {
         file.deletions = change.deletions.unwrap_or(0);
         return file;
     };
+    let mut needs_colour = false;
     for parsed in parse_unified_diff(diff).files {
         file.binary |= parsed.binary;
         file.additions += parsed.additions;
         file.deletions += parsed.deletions;
+        if parsed.path.is_empty() && parsed.previous_path.is_none() {
+            needs_colour = true;
+        }
         file.hunks.extend(parsed.hunks);
+    }
+    if needs_colour {
+        highlight::colour(&file.path, file.previous_path.as_deref(), &mut file.hunks);
     }
     file
 }
