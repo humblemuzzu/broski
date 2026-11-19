@@ -1,5 +1,6 @@
 import BroskiCore
 import SwiftUI
+import ThinkingOrbsKit
 
 /// Work the agent left running in the background: a glass pill above the composer saying what runs,
 /// which opens in place to each task, its command and how long it has run. Each task's end shows in
@@ -32,7 +33,7 @@ struct BackgroundTasksCard: View {
     private var pill: some View {
         Button { open = true } label: {
             HStack(spacing: Spacing.s) {
-                LiveIndicator()
+                Orb(.working, side: 18, relativeTo: .subheadline)
                 Text(summary)
                     .font(.subheadline.weight(.medium))
                     .lineLimit(1)

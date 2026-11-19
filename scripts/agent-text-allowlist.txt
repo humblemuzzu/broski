@@ -24,5 +24,6 @@ apps/ios/Broski/Extensions/Widgets/Usage/PlanViews.swift | Text(window.label) | 
 apps/ios/Broski/Extensions/Widgets/Usage/AllPlansView.swift | Text(window.label) | a plan usage window's name ("Weekly · Fable"), made by LimitWindow.label; the widget does not link the formatter
 apps/ios/Broski/Extensions/Widgets/RunActivityViews.swift | Text(run.title) | a session's name in the Live Activity, which does not link the formatter
 apps/ios/Broski/Extensions/Widgets/RunActivityViews.swift | Text(run.phase.title) | the app's own run phase names
+apps/ios/Broski/Extensions/Widgets/RunActivityViews.swift | Text(phase.title) | the app's own run phase names
 apps/android/app/src/main/kotlin/com/muzammil/broski/feature/settings/FormattingGallery.kt | Text(sample.title, | the gallery's own sample names
 apps/android/app/src/main/kotlin/com/muzammil/broski/feature/chat/work/TextSheet.kt | Text(page.title, | the core's row label of the call or activity the sheet opened from

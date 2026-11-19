@@ -129,6 +129,9 @@ jobs:
           workspaces: packages/link
       - name: Install XcodeGen
         run: brew install xcodegen
+      # Not reliably on the image (actions/runner-images#13014); the Libraries.dev shaders need it.
+      - name: Install the Metal Toolchain
+        run: xcodebuild -downloadComponent MetalToolchain
       # BroskiCore is built by the script first; warnings are errors in the project.
       - name: Build for an iOS device
         run: scripts/build-ios-app.sh device --unsigned

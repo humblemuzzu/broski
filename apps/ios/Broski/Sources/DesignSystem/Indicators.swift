@@ -1,7 +1,8 @@
 import BroskiCore
 import SwiftUI
+import ThinkingOrbsKit
 
-/// The trailing mark of a session row: an accent dot for needs you, a live symbol for working, a
+/// The trailing mark of a session row: an accent dot for needs you, a working orb for working, a
 /// green dot for done (unseen), nothing for idle. The row's own label says the state in words, so
 /// this is hidden from VoiceOver.
 struct StateIndicator: View {
@@ -15,24 +16,13 @@ struct StateIndicator: View {
             case .needsYou, .done:
                 Circle().fill(state.tint).frame(width: dot, height: dot)
             case .working:
-                LiveIndicator()
+                Orb(.working, side: 18)
             case .idle:
                 Color.clear.frame(width: dot, height: dot)
             }
         }
         .frame(width: width)
         .accessibilityHidden(true)
-    }
-}
-
-/// Work under way: a small symbol whose layers pulse. Symbol effects stop with the view, so only
-/// rows on screen animate.
-struct LiveIndicator: View {
-    var body: some View {
-        Image(systemName: "waveform")
-            .font(.footnote.weight(.semibold))
-            .foregroundStyle(Palette.working)
-            .symbolEffect(.variableColor.iterative, options: .repeating)
     }
 }
 

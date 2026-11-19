@@ -1,5 +1,6 @@
 import BroskiCore
 import SwiftUI
+import ThinkingOrbsKit
 
 /// Every branch, the current one checked; tapping another asks before switching to it.
 struct BranchesScreen: View {
@@ -39,7 +40,7 @@ struct BranchesScreen: View {
     private var content: some View {
         switch model.phase {
         case .loading:
-            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            LoadingOrb(side: 64).frame(maxWidth: .infinity, maxHeight: .infinity)
         case .failed(let problem):
             ProblemView(problem: problem) { await model.load() }
         case .loaded:
@@ -98,7 +99,7 @@ private struct BranchLabel: View {
             }
             Spacer()
             if switching {
-                ProgressView()
+                LoadingOrb(state: .working, label: "Switching")
             } else if branch.current {
                 Image(systemName: "checkmark").foregroundStyle(Palette.accent)
             }

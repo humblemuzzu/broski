@@ -1,5 +1,6 @@
 import BroskiCore
 import SwiftUI
+import ThinkingOrbsKit
 
 /// The transcript, full bleed under the header and the composer: finished runs, then the live run,
 /// then the status lane. It follows its end by anchoring growth to the bottom while following and to
@@ -125,7 +126,7 @@ private struct LoadingConversation: View {
 
     var body: some View {
         VStack(spacing: Spacing.s) {
-            ProgressView()
+            Orb(.connecting, side: 64)
             Text(connection ?? "Loading the conversation").font(.footnote).foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .contentTransition(.opacity)
@@ -137,7 +138,7 @@ private struct LoadingConversation: View {
     }
 }
 
-/// The top of what is loaded: a spinner while older pages load (they load well before the top is in
+/// The top of what is loaded: an orb while older pages load (they load well before the top is in
 /// view, so it is feedback only), or what stopped them.
 private struct OlderPages: View {
     let chat: ChatModel
@@ -149,7 +150,7 @@ private struct OlderPages: View {
             }
             .padding(.bottom, Spacing.l)
         } else if chat.history.hasOlder {
-            ProgressView()
+            LoadingOrb(label: "Loading earlier messages")
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, Spacing.l)
         }

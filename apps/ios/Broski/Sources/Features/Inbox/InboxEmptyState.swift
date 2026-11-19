@@ -1,5 +1,6 @@
 import BroskiCore
 import SwiftUI
+import ThinkingOrbsKit
 
 /// What an empty inbox says: nothing working under the working filter, the machines still on their
 /// way, every machine unreachable, or simply no sessions yet.
@@ -20,8 +21,11 @@ struct InboxEmptyState: View {
             !machines.contains(where: { $0.summary.isReady })
         {
             ContentUnavailableView {
-                Label("Connecting to \(settling.name)…", systemImage: "antenna.radiowaves.left.and.right")
-                    .symbolEffect(.variableColor.iterative, options: .repeating)
+                Label {
+                    Text("Connecting to \(settling.name)…")
+                } icon: {
+                    Orb(.connecting, side: 64)
+                }
             } description: {
                 Text(settling.summary.line)
             }

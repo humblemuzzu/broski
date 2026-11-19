@@ -1,9 +1,11 @@
 package com.muzammil.broski.feature.workspace.files
 
 import android.content.ClipData
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
@@ -25,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.ClipEntry
@@ -46,6 +49,7 @@ import com.muzammil.broski.app.TerminalRoute
 import com.muzammil.broski.core.MachineState
 import com.muzammil.broski.design.EmptyState
 import com.muzammil.broski.design.GroupedRow
+import com.muzammil.broski.design.LoadingOrb
 import com.muzammil.broski.feature.workspace.FailureMessage
 import com.muzammil.broski.feature.workspace.MachineBanner
 import com.muzammil.broski.feature.workspace.MachineGate
@@ -214,7 +218,11 @@ private fun EntryList(
         itemsIndexed(entries, key = { _, entry -> entry.name }, contentType = { _, _ -> "entry" }) { index, entry ->
             EntryRow(entry, index, entries.size, Modifier.animateItem()) { onOpen(childPath(folder, entry.name), entry.kind) }
         }
-        if (state.loadingMore) item(key = "more", contentType = "more") { WorkspaceLoading(Modifier.padding(16.dp)) }
+        if (state.loadingMore) {
+            item(key = "more", contentType = "more") {
+                Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) { LoadingOrb() }
+            }
+        }
         state.failure?.let { failure ->
             item(key = "failure", contentType = "failure") { FailureMessage(failure, onNearEnd) }
         }

@@ -12,8 +12,9 @@ apps/ios/
 
 ## Build, run, test
 
-Xcode 27.2, XcodeGen 2.46 (`/opt/homebrew/bin/xcodegen`), and what `scripts/build-ios-core.sh` needs
-(the Rust iOS targets). From the repository root:
+Xcode 27.2 with its Metal Toolchain (`xcodebuild -downloadComponent MetalToolchain`; BorderBeamKit's
+and VoiceGlowKit's shaders need it), XcodeGen 2.46 (`/opt/homebrew/bin/xcodegen`), and what
+`scripts/build-ios-core.sh` needs (the Rust iOS targets). From the repository root:
 
 ```bash
 scripts/build-ios-app.sh                     # BroskiCore if stale, xcodegen, build for any simulator
@@ -75,8 +76,9 @@ The target builds with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, `SWIFT_APPRO
   changes across batches, and keeps its file edit; the other scenarios play within one batch interval).
 - **`UITests/`** (scheme `BroskiE2E`): `scripts/e2e-ios-app.sh` starts `packages/link/testkit`'s
   `test-machine` (the real daemon and the real bridge on its fake backend; needs Bun and
-  `bun install` in `packages/bridge`), seeds four sessions, reinstalls the app with a clean keychain,
-  puts the pairing link on the simulator's pasteboard, and runs the tests: pair from the pasted link,
+  `bun install` in `packages/bridge`), seeds four sessions, makes a fresh simulator like
+  `BROSKI_SIMULATOR` (deleted at exit: an uninstall leaves the app's notification answer behind,
+  which would skip the pairing test's ask), puts the pairing link on the simulator's pasteboard, and runs the tests: pair from the pasted link,
   see the history as idle, add a session through the machine (`{"seed":…}` appended to the file the
   machine reads) and see it as done, pull the inbox to refresh (the list stays whole, and the script
   fails unless the app logged that the core answered the refresh), then Machines, Settings, dark appearance and the largest text
@@ -85,8 +87,9 @@ The target builds with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, `SWIFT_APPRO
   run bash" under Needs you with no chat opened, a swipe offers Deny and Approve, and Approve sends
   the row leaving Needs you. `RunEndToEndTests`: a third session scripted to `hold` is started from
   its chat's composer, streams, the Live Activity shows it in Notification Center, Stop ends the
-  run on the machine (the chat's lane and the row leave Working; the script fails unless the app
-  logged the stop). `SessionEndToEndTests` (the fifth session, each test scripting its next run): a
+  run on the machine and the activity says Done (the app, woken in the background for Stop, keeps
+  its link up until the run's end reaches the activity: `LiveRuns.settle`), the chat's lane and the
+  row leave Working; the script fails unless the app logged the stop. `SessionEndToEndTests` (the fifth session, each test scripting its next run): a
   `work` run sent from the composer streams, its withdrawn draft gone and its notice and compaction
   kept; jump to latest after scrolling up; a permission denied with "Keep the build folder" and
   another allowed, its fold opened to the command and its output; a choice answered; a message queued
@@ -109,7 +112,7 @@ The target builds with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, `SWIFT_APPRO
   TXT `id`, `v=1`) and fails unless the app logged that its browse found the machine.
   iOS 27 simulators cannot show the paste prompt, so the script grants "Paste from Other Apps"
   through the simulator's TCC database (`kTCCServicePasteboard`); `simctl privacy` has no such
-  service.
+  service. The app's log is kept beside the screenshots as `app.log`.
 
 ## Layout
 
@@ -130,8 +133,8 @@ Broski/
                    WorkspaceProblem, SessionState, ChatRequests, ChatProblem, Preferences, Logging;
                    Voice/ (dictation)
     DesignSystem/  Palette, Typography, Metrics, Motion, Haptics, GlassControls, AgentMark,
-                   BroskiMark, Indicators, StatusChip, Banner, CodeColors, CodeFileView, DiffView,
-                   Shimmer, FadingScroll
+                   BroskiMark, Indicators, Orb, StatusChip, Banner, CodeColors, CodeFileView,
+                   DiffView, Shimmer, FadingScroll
     Formatting/    the agent text formatter's views (FormattedText, FormatBlockView, tables, code)
     Features/      Welcome, Pairing, Inbox, Machines, Settings,
                    Chat/ (ChatScreen, ChatModel, PinnedPanel, ChatBottomBar; Transcript/, Work/,
@@ -250,7 +253,8 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
   refusal puts the draft back in front of anything typed since). Drafts are kept per session in
   `AppModel.drafts` while the app runs; a new session's first prompt goes there too, and its chat
   sends it once the view is attached. Models, commands and modes come from the catalog for the
-  session's backend and folder, read again when `MachineModel.catalogChanges` moves.
+  session's backend and folder, read again when `MachineModel.catalogChanges` moves. While a run is
+  live, BorderBeamKit's beam rides the composer's rim (left out under Reduce Motion).
 - **Dictation** (`Core/Voice`, [dictation.md](../../docs/architecture/dictation.md)): `AppModel.dictation`,
   one for the app, owned by the composer that started it (`DictationTarget`: the chat's draft or New
   session's). `DictationRecorder` records AAC at 16 kHz mono; on stop the session's names
@@ -258,7 +262,9 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
   go with the file to xAI through `GrokTranscriber`, exactly as the core built the request. No key, or no
   connection: `OnDeviceTranscriber` (`DictationTranscriber`, the names as `contextualStrings`). The key
   is in the app's keychain (`xai-api-key`), the rest in `@AppStorage` `voice.*`. Leaving the app ends a
-  recording and transcribes it in background time.
+  recording and transcribes it in background time. While recording, the composer wears VoiceGlowKit's
+  `VoiceGlow`, fed `Dictation.level` (the recorder's meter every 50 ms) through `levelProvider`, so no
+  second microphone opens; sliding to cancel fades it.
 
 ## Screens
 
@@ -366,8 +372,9 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
 | `Haptics` | `HapticMoment` (the design table) and `.haptic(_:trigger:)` / `.haptic(_:trigger:when:)` |
 | `GlassControls` | `.primaryActionStyle()` (`.glassProminent`), `.secondaryActionStyle()` (`.glass`), `.glassCard()`, `WideLabel`, `GlassCapsuleBar` (the composer's capsule and its send/stop accessory in one container) |
 | `AgentMark`, `BroskiMark` | agent monograms; the app's mark |
-| `Indicators` | `StateIndicator`, `LiveIndicator`, `RelativeTime`, `Date(unixMilliseconds:)` |
-| `StatusChip`, `Banner` | status capsules with tone and symbol; inline notices with one action; `.dimmed(_:)` |
+| `Indicators` | `StateIndicator`, `RelativeTime`, `Date(unixMilliseconds:)` |
+| `Orb` | `Orb` and `LoadingOrb`: ThinkingOrbsKit's thinking orb, the only "under way" mark (agents working, thinking, connecting, loading; no `ProgressView` or animated symbol), sized with its text, still outside an active scene and under Reduce Motion |
+| `StatusChip`, `Banner` | status capsules with tone and symbol (the connecting orb in progress); inline notices with one action; `.dimmed(_:)` |
 | `CodeColors` | `TokenKind.color` (GitHub's light and dark syntax palettes), `CodeLine.attributed`, `Highlighter` (the core's `highlight` off the main actor, kept by text and language) |
 | `CodeFileView` | `CodeFileView` (numbered, wrapping, lazy lines of a file) |
 | `DiffView` | a `DiffFile`: unified on a compact width, `sideBySide` rows on a regular one, emphasised segments; `LineCounts` |

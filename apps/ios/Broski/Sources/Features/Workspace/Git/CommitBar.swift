@@ -1,5 +1,6 @@
 import BroskiCore
 import SwiftUI
+import ThinkingOrbsKit
 
 /// The commit message in a floating capsule with Commit beside it, the screen's one primary action.
 /// At the accessibility sizes Commit goes under the field, the whole width.
@@ -41,7 +42,7 @@ struct CommitBar: View {
             Task { await model.commit() }
         } label: {
             if model.isChanging {
-                ProgressView()
+                LoadingOrb(state: .working, theme: .dark, label: "Committing")
             } else {
                 label()
             }

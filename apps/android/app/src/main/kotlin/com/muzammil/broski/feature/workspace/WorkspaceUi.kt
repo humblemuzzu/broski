@@ -10,10 +10,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -33,6 +31,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
+import com.muzammil.broski.design.LoadingOrb
 import com.muzammil.broski.design.QuietButton
 import com.muzammil.broski.design.mono
 
@@ -50,12 +49,10 @@ fun WorkspaceFailure.sentence(@StringRes notFound: Int? = null): String = senten
 val WorkspaceFailure.extra: String?
     get() = detail?.takeIf { it.isNotBlank() && reason != WorkspaceFailure.Reason.Refused }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun WorkspaceLoading(modifier: Modifier = Modifier) {
-    val loading = stringResource(R.string.workspace_loading)
-    Box(modifier.fillMaxSize().semantics { contentDescription = loading }, contentAlignment = Alignment.Center) {
-        LoadingIndicator(Modifier.size(64.dp))
+    Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        LoadingOrb(size = 64.dp, label = stringResource(R.string.workspace_loading))
     }
 }
 

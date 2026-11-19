@@ -45,8 +45,10 @@ import com.muzammil.broski.app.SessionRoute
 import com.muzammil.broski.core.PhoneSession
 import com.muzammil.broski.design.EmptyState
 import com.muzammil.broski.design.MachineStatusChip
+import com.muzammil.broski.design.Orb
 import com.muzammil.broski.design.PrimaryButton
 import com.muzammil.broski.design.SectionHeader
+import com.muzammil.broski.design.orb.OrbState
 import com.muzammil.broski.design.perform
 import uniffi.broski_core.InboxRow
 import uniffi.broski_core.InboxState
@@ -142,6 +144,7 @@ private fun InboxList(
                 EmptyState(
                     title = stringResource(if (state.anyOnline) R.string.inbox_empty_title else R.string.inbox_waiting_title),
                     body = stringResource(if (state.anyOnline) R.string.inbox_empty_body else R.string.inbox_waiting_body),
+                    leading = if (state.connecting && !state.anyOnline) ({ Orb(OrbState.CONNECTING, size = 64.dp) }) else null,
                     action = onNewSession?.let { open ->
                         { PrimaryButton(stringResource(R.string.new_session), open, icon = R.drawable.ic_add) }
                     },

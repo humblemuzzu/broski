@@ -24,6 +24,13 @@ packages:
   GhosttyKit:
     url: https://github.com/Lakr233/libghostty-spm
     exactVersion: 2.2.2026111701
+  # BorderBeamKit (the composer's beam while a run is live), ThinkingOrbsKit (every "under way"
+  # mark: the app's `Orb`, and a still one in the Live Activity) and VoiceGlowKit (the composer's
+  # glow while dictating). A revision of main: the repo's tags predate its root Package.swift. The
+  # beam's and the glow's Metal shaders are compiled only by Xcode's build system.
+  LibrariesDev:
+    url: https://github.com/Jakubantalik/Libraries.dev
+    revision: cd89f411ff257f0dfeab66a54f888db2de3b6c8c
 
 settings:
   base:
@@ -52,6 +59,12 @@ targets:
         product: BroskiCore
       - package: GhosttyKit
         product: GhosttyTerminal
+      - package: LibrariesDev
+        product: BorderBeamKit
+      - package: LibrariesDev
+        product: ThinkingOrbsKit
+      - package: LibrariesDev
+        product: VoiceGlowKit
       - target: NotificationService
         embed: true
       - target: BroskiWidgets
@@ -99,6 +112,9 @@ targets:
       - path: Shared/Keychain.swift
       - path: Shared/ColorAppearance.swift
       - path: Resources/Assets.xcassets
+    dependencies:
+      - package: LibrariesDev
+        product: ThinkingOrbsKit
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.muzammil.broski.Widgets

@@ -19,6 +19,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
 import com.muzammil.broski.core.MachineHealth
+import com.muzammil.broski.design.orb.OrbState
 import uniffi.broski_core.LinkRoute
 import uniffi.broski_core.WaitReason
 
@@ -62,6 +63,14 @@ val MachineHealth.icon: Int
         MachineHealth.Ended -> R.drawable.ic_link_off
     }
 
+/** Whether the link to the machine is being made: the one health a thinking orb stands for. */
+val MachineHealth.settling: Boolean
+    get() = when (this) {
+        MachineHealth.Connecting, MachineHealth.BridgeStarting -> true
+        is MachineHealth.Waiting -> reason == WaitReason.RETRY
+        else -> false
+    }
+
 private enum class Severity { Fine, Passing, Broken }
 
 private val MachineHealth.severity: Severity
@@ -85,7 +94,11 @@ fun MachineStatusChip(health: MachineHealth, machineName: String, modifier: Modi
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(painterResource(health.icon), contentDescription = null, modifier = Modifier.size(18.dp))
+            if (health.settling) {
+                Orb(OrbState.CONNECTING, size = 18.dp)
+            } else {
+                Icon(painterResource(health.icon), contentDescription = null, modifier = Modifier.size(18.dp))
+            }
             Spacer(Modifier.width(8.dp))
             Text(health.label(machineName), style = MaterialTheme.typography.labelLarge)
         }

@@ -22,13 +22,12 @@ final class Dictation {
     static let tapLength: TimeInterval = 0.35
     /// A recording shorter than this is a slip, not speech.
     static let shortest: TimeInterval = 0.5
-    static let levelCount = 48
 
     private(set) var phase: Phase = .idle
     /// The composer the phase belongs to.
     private(set) var owner: String?
-    /// The loudness of the last few seconds, newest last.
-    private(set) var levels: [Float] = []
+    /// The loudness now, 0 to 1, read every 50 ms while recording.
+    private(set) var level: Float = 0
     private(set) var startedAt: Date?
     private(set) var notice: DictationNotice?
     private(set) var feedback: ChatFeedback?
@@ -152,15 +151,14 @@ final class Dictation {
         self.target = target
         owner = target.id
         notice = nil
-        levels = []
+        level = 0
         startedAt = .now
         phase = .recording(held: true, cancelling: false)
         play(.listening, for: target.id)
         sources = Task { await target.sources() }
         metering = Task { [weak self] in
             while !Task.isCancelled, let self, case .recording = self.phase {
-                self.levels.append(self.recorder.level())
-                if self.levels.count > Self.levelCount { self.levels.removeFirst(self.levels.count - Self.levelCount) }
+                self.level = self.recorder.level()
                 self.followTouch()
                 try? await Task.sleep(for: .milliseconds(50))
             }
@@ -224,7 +222,7 @@ final class Dictation {
         target = nil
         file = nil
         owner = nil
-        levels = []
+        level = 0
         startedAt = nil
         finishOnRelease = false
         touch = nil

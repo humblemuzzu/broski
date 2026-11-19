@@ -1,19 +1,15 @@
 package com.muzammil.broski.feature.chat.transcript
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,6 +27,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
 import com.muzammil.broski.design.BroskiTheme
+import com.muzammil.broski.design.Orb
 import com.muzammil.broski.design.shimmer
 import kotlinx.coroutines.delay
 import kotlin.math.ceil
@@ -39,13 +36,20 @@ import kotlin.math.ceil
 val LaneHeight = 28.dp
 
 /**
- * The one live line under the transcript: what the session is doing, its words swept by a shimmer.
- * Empty, it keeps its height. A run with nothing to show yet says so in two lines.
+ * The one live line under the transcript: a thinking orb for what the session is doing, then its
+ * words swept by a shimmer. Empty, it keeps its height. A run with nothing to show yet says so in
+ * two lines.
  */
 @Composable
 fun StatusLaneView(status: LaneStatus?, modifier: Modifier = Modifier) {
     val fade = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
-    Box(modifier.fillMaxWidth().heightIn(min = LaneHeight).semantics { liveRegion = LiveRegionMode.Polite }) {
+    Row(
+        modifier.fillMaxWidth().heightIn(min = LaneHeight).semantics { liveRegion = LiveRegionMode.Polite },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Crossfade(status?.orb, animationSpec = fade, label = "lane orb") { orb ->
+            if (orb != null) Orb(orb, Modifier.padding(end = 12.dp), size = 20.dp)
+        }
         AnimatedContent(
             targetState = status,
             transitionSpec = { fadeIn(fade) togetherWith fadeOut(fade) },
@@ -66,19 +70,15 @@ fun StatusLaneView(status: LaneStatus?, modifier: Modifier = Modifier) {
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun Starting() {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        LoadingIndicator(Modifier.size(28.dp), color = BroskiTheme.semantic.working)
-        Column {
-            Text(stringResource(R.string.chat_agent_working), style = MaterialTheme.typography.titleSmall, color = BroskiTheme.semantic.working)
-            Text(
-                stringResource(R.string.chat_output_soon),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+    Column {
+        Text(stringResource(R.string.chat_agent_working), style = MaterialTheme.typography.titleSmall, color = BroskiTheme.semantic.working)
+        Text(
+            stringResource(R.string.chat_output_soon),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

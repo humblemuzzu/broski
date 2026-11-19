@@ -1,7 +1,9 @@
 import SwiftUI
+import ThinkingOrbsKit
 
 /// A short status in a tinted capsule ("MacBook offline", "Reconnecting…"). Content, not a
-/// control, so it uses a fill rather than glass; the symbol carries the meaning beside the color.
+/// control, so it uses a fill rather than glass; the symbol, or the orb while in progress, carries
+/// the meaning beside the color.
 struct StatusChip: View {
     enum Tone {
         case neutral
@@ -18,10 +20,11 @@ struct StatusChip: View {
             }
         }
 
-        var symbol: String {
+        /// `nil` for progress, which shows the connecting orb.
+        var symbol: String? {
             switch self {
             case .neutral: "circle"
-            case .progress: "arrow.triangle.2.circlepath"
+            case .progress: nil
             case .attention: "exclamationmark.triangle.fill"
             case .critical: "xmark.octagon.fill"
             }
@@ -35,8 +38,11 @@ struct StatusChip: View {
         Label {
             Text(text)
         } icon: {
-            Image(systemName: tone.symbol)
-                .symbolEffect(.rotate, options: .repeating, isActive: tone == .progress)
+            if let symbol = tone.symbol {
+                Image(systemName: symbol)
+            } else {
+                Orb(.connecting, side: 16, relativeTo: .footnote)
+            }
         }
         .font(.footnote.weight(.medium))
         .foregroundStyle(tone.tint)

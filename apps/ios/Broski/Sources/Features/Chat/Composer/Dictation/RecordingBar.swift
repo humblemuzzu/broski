@@ -1,8 +1,8 @@
 import SwiftUI
 import UIKit
 
-/// What takes the field's place while dictating: the live waveform and time, then "Transcribing…",
-/// or why it failed with what to do.
+/// What takes the field's place while dictating: "Listening…" and the time (the composer's voice
+/// glow follows the voice), then "Transcribing…", or why it failed with what to do.
 struct RecordingBar: View {
     let dictation: Dictation
     let phase: Dictation.Phase
@@ -14,11 +14,13 @@ struct RecordingBar: View {
         case .recording(let held, let cancelling):
             VStack(alignment: .leading, spacing: Spacing.xs) {
                 HStack(spacing: Spacing.s) {
-                    RecordingDot()
+                    Text("Listening…")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 0)
                     Elapsed(since: dictation.startedAt ?? .now)
-                    Waveform(levels: dictation.levels, count: Dictation.levelCount, dimmed: cancelling)
-                        .frame(height: 26)
                 }
+                .frame(minHeight: 26)
                 Text(hint(held: held, cancelling: cancelling))
                     .font(.caption)
                     .foregroundStyle(cancelling ? Palette.failed : .secondary)
@@ -48,23 +50,6 @@ struct RecordingBar: View {
     }
 }
 
-private struct RecordingDot: View {
-    @State private var dim = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    var body: some View {
-        Circle()
-            .fill(Palette.failed)
-            .frame(width: 9, height: 9)
-            .opacity(dim ? 0.35 : 1)
-            .onAppear {
-                guard !reduceMotion else { return }
-                withAnimation(.easeInOut(duration: 0.7).repeatForever()) { dim = true }
-            }
-            .accessibilityHidden(true)
-    }
-}
-
 private struct Elapsed: View {
     let since: Date
 
@@ -75,28 +60,6 @@ private struct Elapsed: View {
                 .foregroundStyle(.secondary)
         }
         .accessibilityLabel("Recording")
-    }
-}
-
-/// The last few seconds' loudness as bars, newest at the right.
-private struct Waveform: View {
-    let levels: [Float]
-    let count: Int
-    let dimmed: Bool
-
-    var body: some View {
-        Canvas { context, size in
-            let gap: CGFloat = 2
-            let width = max(1, (size.width - gap * CGFloat(count - 1)) / CGFloat(count))
-            let padded = Array(repeating: Float(0), count: max(0, count - levels.count)) + levels.suffix(count)
-            for (index, level) in padded.enumerated() {
-                let height = max(3, CGFloat(level) * size.height)
-                let rect = CGRect(
-                    x: CGFloat(index) * (width + gap), y: (size.height - height) / 2, width: width, height: height)
-                context.fill(Path(roundedRect: rect, cornerRadius: width / 2), with: .color(dimmed ? .secondary : Palette.accent))
-            }
-        }
-        .accessibilityHidden(true)
     }
 }
 

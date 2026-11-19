@@ -10,11 +10,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -37,6 +35,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
 import com.muzammil.broski.design.BroskiMotion
+import com.muzammil.broski.design.LoadingOrb
 import com.muzammil.broski.design.animationsEnabled
 import com.muzammil.broski.design.format.FormatRole
 import com.muzammil.broski.design.format.FormattedMessage
@@ -132,11 +131,10 @@ fun CopyAnswerRow(text: String, modifier: Modifier = Modifier) {
 }
 
 /** Earlier messages being read, at the top of the list. */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun OlderRow(modifier: Modifier = Modifier) {
     Box(modifier.fillMaxWidth().padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
-        LoadingIndicator(Modifier.size(32.dp))
+        LoadingOrb(label = stringResource(R.string.chat_loading_older))
     }
 }
 

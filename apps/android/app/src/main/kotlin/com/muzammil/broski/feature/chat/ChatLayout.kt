@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -38,9 +37,11 @@ import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.muzammil.broski.R
 import com.muzammil.broski.app.FeatureContext
 import com.muzammil.broski.app.FileRoute
 import com.muzammil.broski.app.FilesRoute
@@ -48,10 +49,13 @@ import com.muzammil.broski.app.SessionRoute
 import com.muzammil.broski.app.VoiceRoute
 import com.muzammil.broski.core.isOnline
 import com.muzammil.broski.design.Haptic
+import com.muzammil.broski.design.LoadingOrb
+import com.muzammil.broski.design.Orb
 import com.muzammil.broski.design.animationsEnabled
 import com.muzammil.broski.design.format.FormatLinks
 import com.muzammil.broski.design.format.LocalFormatLinks
 import com.muzammil.broski.design.label
+import com.muzammil.broski.design.orb.OrbState
 import com.muzammil.broski.design.perform
 import com.muzammil.broski.feature.chat.header.ChatTopBar
 import com.muzammil.broski.feature.chat.header.SessionMenu
@@ -190,12 +194,13 @@ private fun Header(model: ChatViewModel, context: FeatureContext, dialogs: ChatD
 }
 
 /** What a chat shows while its first page is on its way, and why it is late when the Mac is out of reach. */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun Loading(connection: String?, modifier: Modifier) {
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        LoadingIndicator(Modifier.size(48.dp))
-        if (connection != null) {
+        if (connection == null) {
+            LoadingOrb(state = OrbState.CONNECTING, size = 64.dp, label = stringResource(R.string.chat_loading))
+        } else {
+            Orb(OrbState.CONNECTING, size = 64.dp)
             Text(
                 connection,
                 style = MaterialTheme.typography.bodyMedium,

@@ -11,7 +11,7 @@ struct ScanStep: View {
         Group {
             switch availability {
             case .checking:
-                ProgressView()
+                LoadingOrb(side: 64, label: "Checking the camera")
             case .available:
                 scanner
             case .unsupported:

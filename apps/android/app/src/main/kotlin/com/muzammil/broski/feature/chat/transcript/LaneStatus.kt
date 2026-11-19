@@ -1,6 +1,7 @@
 package com.muzammil.broski.feature.chat.transcript
 
 import androidx.compose.runtime.Immutable
+import com.muzammil.broski.design.orb.OrbState
 import uniffi.broski_contract.BlockKind
 import uniffi.broski_contract.InteractionRequest
 import uniffi.broski_contract.SessionSnapshot
@@ -24,6 +25,16 @@ sealed interface LaneStatus {
 
     data class Retrying(val retryAt: Long?) : LaneStatus
 }
+
+/** The orb that leads the lane's words; none while the session waits on the person. */
+val LaneStatus.orb: OrbState?
+    get() = when (this) {
+        LaneStatus.Starting, LaneStatus.Thinking -> OrbState.BREATHING
+        LaneStatus.Working -> OrbState.WORKING
+        LaneStatus.Compacting -> OrbState.WEAVING
+        is LaneStatus.Retrying -> OrbState.CONNECTING
+        LaneStatus.WaitingForApproval, LaneStatus.WaitingForAnswer -> null
+    }
 
 /**
  * The lane's words for this snapshot, `null` when nothing is under way. Read off the snapshot, never

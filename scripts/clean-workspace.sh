@@ -70,6 +70,14 @@ pkill -f 'broski-link-testkit|target/.*/test-machine|scripts/dev-fake-bridge\.ts
 if command -v xcrun >/dev/null 2>&1; then
   echo "==> Shutting down booted iOS simulators"
   xcrun simctl shutdown all 2>/dev/null || true
+  echo "==> Deleting simulators an interrupted e2e run left behind"
+  xcrun simctl list devices --json | /usr/bin/python3 -c '
+import json, sys
+for devices in json.load(sys.stdin)["devices"].values():
+    for device in devices:
+        if device["name"].startswith("Broski E2E "):
+            print(device["udid"])
+' | while read -r udid; do xcrun simctl delete "$udid" 2>/dev/null || true; done
 fi
 
 echo "==> Cleaning ad-hoc iOS build folders and debug artifacts"

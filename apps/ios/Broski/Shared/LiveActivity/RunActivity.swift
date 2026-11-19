@@ -78,9 +78,10 @@ nonisolated extension RunActivityAttributes.ContentState.Phase {
         }
     }
 
-    var symbol: String {
+    /// `nil` while working, which shows a still thinking orb (a Live Activity cannot animate one).
+    var symbol: String? {
         switch self {
-        case .working: "sparkles"
+        case .working: nil
         case .needsYou: "hand.raised.fill"
         case .done: "checkmark.circle.fill"
         }

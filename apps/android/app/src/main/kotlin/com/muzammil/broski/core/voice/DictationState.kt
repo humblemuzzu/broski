@@ -41,8 +41,6 @@ data class DictationState(
     /** The composer [phase] belongs to. */
     val owner: String? = null,
     val phase: DictationPhase = DictationPhase.Idle,
-    /** The loudness of the last few seconds, newest last. */
-    val levels: List<Float> = emptyList(),
     val startedAtMs: Long? = null,
     val notice: DictationNotice? = null,
 ) {

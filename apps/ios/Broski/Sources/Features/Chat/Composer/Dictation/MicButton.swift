@@ -1,4 +1,5 @@
 import SwiftUI
+import ThinkingOrbsKit
 
 /// The composer's mic. Touch and hold to talk, let go to insert, slide left to cancel; a tap starts
 /// a recording that goes on by itself, and the button then turns into ✓, which inserts it. The
@@ -57,7 +58,7 @@ struct MicButton: View {
                         .foregroundStyle(.white)
                 }
         case .transcribing:
-            ProgressView()
+            Orb(.listening, side: 24)
         case .idle, .failed:
             Image(systemName: "mic")
                 .font(.body.weight(.medium))

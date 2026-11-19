@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ListItemShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedListItem
@@ -30,9 +29,11 @@ import com.muzammil.broski.core.isOnline
 import com.muzammil.broski.design.AgentMark
 import com.muzammil.broski.design.BroskiTheme
 import com.muzammil.broski.design.Dot
+import com.muzammil.broski.design.Orb
 import com.muzammil.broski.design.displayName
 import com.muzammil.broski.design.groupedListItemColors
 import com.muzammil.broski.design.label
+import com.muzammil.broski.design.orb.OrbState
 import com.muzammil.broski.design.relativeTime
 import uniffi.broski_core.InboxRow
 import uniffi.broski_core.InboxState
@@ -162,10 +163,7 @@ private fun RowSupporting(row: InboxRow, ask: String, healthLabel: String?) {
 private fun StateMark(state: InboxState) {
     when (state) {
         InboxState.NEEDS_YOU -> Dot(MaterialTheme.colorScheme.primary)
-        InboxState.WORKING -> CircularWavyProgressIndicator(
-            modifier = Modifier.size(24.dp),
-            color = BroskiTheme.semantic.working,
-        )
+        InboxState.WORKING -> Orb(OrbState.WORKING, size = 18.dp)
         InboxState.DONE -> Dot(BroskiTheme.semantic.done)
         InboxState.IDLE -> Unit
     }

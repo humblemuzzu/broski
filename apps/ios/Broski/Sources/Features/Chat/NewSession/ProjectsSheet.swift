@@ -145,7 +145,7 @@ struct FolderPicker: View {
     private var content: some View {
         switch folder.phase {
         case .loading:
-            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            LoadingOrb(side: 64).frame(maxWidth: .infinity, maxHeight: .infinity)
         case .failed(let problem):
             ProblemView(problem: problem) { await folder.load() }
         case .loaded:
@@ -163,7 +163,7 @@ struct FolderPicker: View {
                             Banner(problem: problem)
                             Button("Load More") { Task { await folder.loadMore() } }
                         } else if folder.hasMore {
-                            ProgressView()
+                            LoadingOrb()
                                 .frame(maxWidth: .infinity)
                                 .task(id: folder.entries.count) { await folder.loadMore() }
                         }

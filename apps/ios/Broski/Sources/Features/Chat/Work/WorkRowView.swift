@@ -1,5 +1,6 @@
 import BroskiCore
 import SwiftUI
+import ThinkingOrbsKit
 
 /// One call or thought in an open fold: a 28 pt line (kind, label, how it ended) that opens in place
 /// to the command and its output, its files, or the reasoning.
@@ -36,10 +37,8 @@ struct WorkRowView: View {
 
     private var line: some View {
         HStack(spacing: Spacing.s) {
-            Image(systemName: symbol)
-                .font(.footnote)
+            icon
                 .frame(width: iconWidth)
-                .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
             label
                 .lineLimit(1)
@@ -61,6 +60,18 @@ struct WorkRowView: View {
             Text(tool.label).foregroundStyle(.primary)
         case .thinking(let thinking):
             Text(thinking.isOpen ? "Thinking" : "Thought").foregroundStyle(.secondary)
+        }
+    }
+
+    /// A live thought's orb is still: the status lane under the run is the one that moves.
+    @ViewBuilder
+    private var icon: some View {
+        if case .thinking(let thinking) = entry, thinking.isOpen {
+            Orb(.breathing, side: 18, relativeTo: .footnote, still: true)
+        } else {
+            Image(systemName: symbol)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
         }
     }
 

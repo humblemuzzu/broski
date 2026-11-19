@@ -5,6 +5,7 @@
     <string name="dictation_dictate_hint">Touch and hold to talk, or tap to start and tap again to finish</string>
     <string name="dictation_insert">Insert dictation</string>
     <string name="dictation_recording">Recording</string>
+    <string name="dictation_listening">Listening…</string>
     <string name="dictation_transcribing">Transcribing…</string>
     <string name="dictation_cancel">Cancel dictation</string>
     <string name="dictation_hint_held">Release to insert · slide left to cancel</string>

@@ -67,12 +67,13 @@ fun SectionHeader(
     }
 }
 
-/** What a screen says when it has nothing to list, with at most one action. */
+/** What a screen says when it has nothing to list, with at most one action and a mark above the title. */
 @Composable
 fun EmptyState(
     title: String,
     body: String,
     modifier: Modifier = Modifier,
+    leading: (@Composable () -> Unit)? = null,
     action: (@Composable () -> Unit)? = null,
 ) {
     Column(
@@ -80,6 +81,7 @@ fun EmptyState(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        leading?.invoke()
         Text(
             title,
             style = MaterialTheme.typography.headlineSmall,

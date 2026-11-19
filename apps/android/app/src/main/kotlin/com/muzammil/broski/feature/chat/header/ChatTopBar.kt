@@ -2,7 +2,9 @@ package com.muzammil.broski.feature.chat.header
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -31,15 +33,17 @@ import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
 import com.muzammil.broski.core.isOnline
 import com.muzammil.broski.design.BroskiTheme
+import com.muzammil.broski.design.Orb
 import com.muzammil.broski.design.displayName
 import com.muzammil.broski.design.label
+import com.muzammil.broski.design.orb.OrbState
 import com.muzammil.broski.feature.chat.ChatHeader
 import com.muzammil.broski.feature.chat.work.duration
 import kotlinx.coroutines.delay
 
 /**
  * The chat's header: back, the title (renamed on a tap) over `agent · folder · machine`, with the
- * run's elapsed time while one is live, or the machine's state in words when it is not ready;
+ * run's elapsed time behind a working orb while one is live, or the machine's state in words when it is not ready;
  * then Files and the overflow, the context ring drawn around the overflow. The bar takes its
  * container only while the transcript runs under it.
  */
@@ -104,18 +108,26 @@ private fun Subtitle(header: ChatHeader, runStartedAt: Long?) {
         return
     }
     val parts = listOfNotNull(stringResource(header.backend.displayName), header.folder, header.machineName.takeIf { it.isNotEmpty() })
+    val subtitle = parts.joinToString(" · ")
     val elapsed = runStartedAt?.let { elapsedSince(it) }
+    if (elapsed == null) {
+        Text(subtitle, style = style, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        return
+    }
     val working = BroskiTheme.semantic.working
-    Text(
-        buildAnnotatedString {
-            append(parts.joinToString(" · "))
-            if (elapsed != null) withStyle(SpanStyle(color = working, fontFeatureSettings = "tnum")) { append(" · $elapsed") }
-        },
-        style = style,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-    )
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Orb(OrbState.WORKING, size = 14.dp)
+        Text(
+            buildAnnotatedString {
+                withStyle(SpanStyle(color = working, fontFeatureSettings = "tnum")) { append(elapsed) }
+                append(" · $subtitle")
+            },
+            style = style,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
 }
 
 /** Seconds since [start], ticking once a second. */

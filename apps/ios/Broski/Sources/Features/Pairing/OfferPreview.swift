@@ -1,4 +1,5 @@
 import SwiftUI
+import ThinkingOrbsKit
 
 /// What the scanned offer says before anything is sent: the Mac's name, how long the code lasts,
 /// and whether this phone already controls that Mac. While pairing, a glass card holds the progress.
@@ -84,8 +85,7 @@ struct OfferPreview: View {
 
     private var progress: some View {
         VStack(spacing: Spacing.l) {
-            ProgressView()
-                .controlSize(.large)
+            Orb(.connecting, side: 64)
             Text("Pairing with \(offer.name)…")
                 .font(.headline)
                 .multilineTextAlignment(.center)

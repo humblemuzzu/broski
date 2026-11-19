@@ -12,9 +12,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,9 +34,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.muzammil.broski.R
 import com.muzammil.broski.design.Haptic
+import com.muzammil.broski.design.Orb
 import com.muzammil.broski.design.PrimaryButton
 import com.muzammil.broski.design.QuietButton
 import com.muzammil.broski.design.SecondaryButton
+import com.muzammil.broski.design.orb.OrbState
 import com.muzammil.broski.design.perform
 import com.muzammil.broski.feature.notifications.LocalNotificationAsk
 import kotlinx.coroutines.launch
@@ -141,7 +141,6 @@ private fun PairingActions(onScan: () -> Unit, onPaste: () -> Unit) {
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun PairingProgress(name: String) {
     Column(
@@ -149,7 +148,7 @@ private fun PairingProgress(name: String) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-        LoadingIndicator(Modifier.size(96.dp))
+        Orb(OrbState.CONNECTING, size = 64.dp)
         Text(
             stringResource(R.string.pairing_in_progress, name),
             style = MaterialTheme.typography.titleLarge,

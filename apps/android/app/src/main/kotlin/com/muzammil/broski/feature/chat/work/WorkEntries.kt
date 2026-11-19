@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
@@ -35,8 +36,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
 import com.muzammil.broski.design.Haptic
+import com.muzammil.broski.design.Orb
 import com.muzammil.broski.design.format.tools.ToolLinks
 import com.muzammil.broski.design.mono
+import com.muzammil.broski.design.orb.OrbState
 import com.muzammil.broski.design.perform
 import com.muzammil.broski.feature.images.ChatImageStore
 import com.muzammil.broski.feature.images.ImageTarget
@@ -116,7 +119,12 @@ private fun EntryRow(entry: WorkEntry, expanded: Boolean, onToggle: () -> Unit, 
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Icon(painterResource(entry.icon), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+            if (entry is WorkEntry.Thought && entry.live) {
+                // still: the status lane under the run is the one orb that moves
+                Orb(OrbState.BREATHING, Modifier.size(16.dp).wrapContentSize(unbounded = true), size = 18.dp, still = true)
+            } else {
+                Icon(painterResource(entry.icon), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+            }
             Text(
                 entryLabel(entry, expanded),
                 style = MaterialTheme.typography.bodySmall.let { if (!expanded && entry is WorkEntry.Tool && entry.kind == ToolKind.COMMAND) it.mono() else it },

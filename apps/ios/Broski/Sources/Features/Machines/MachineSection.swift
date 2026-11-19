@@ -1,5 +1,6 @@
 import BroskiCore
 import SwiftUI
+import ThinkingOrbsKit
 
 /// One paired Mac: how it is connected or why it is not, when the relay last saw it, its bridge
 /// and agents, and what can be done about it.
@@ -16,8 +17,12 @@ struct MachineSection: View {
             Label {
                 Text(summary.line)
             } icon: {
-                Image(systemName: statusSymbol)
-                    .foregroundStyle(statusTint)
+                if let statusSymbol {
+                    Image(systemName: statusSymbol)
+                        .foregroundStyle(statusTint)
+                } else {
+                    Orb(.connecting)
+                }
             }
             if !summary.isReady, let lastSeen = machine.lastSeen {
                 LabeledContent("Last seen") { RelativeTime(date: lastSeen) }
@@ -62,10 +67,11 @@ struct MachineSection: View {
         .haptic(.failed, trigger: restartFailure, when: { $0 == nil && $1 != nil })
     }
 
-    private var statusSymbol: String {
+    /// `nil` while settling, which shows the connecting orb.
+    private var statusSymbol: String? {
         switch summary.health {
         case .ready: machine.status.link.route == .lan ? "wifi" : "globe"
-        case .settling: "arrow.triangle.2.circlepath"
+        case .settling: nil
         case .attention: "exclamationmark.triangle.fill"
         case .revoked: "xmark.octagon.fill"
         }

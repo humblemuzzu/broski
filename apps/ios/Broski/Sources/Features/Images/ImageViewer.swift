@@ -1,5 +1,6 @@
 import Photos
 import SwiftUI
+import ThinkingOrbsKit
 import UIKit
 
 /// Full-screen image gallery lightbox with Liquid Glass chrome, pinch/double-tap zoom, horizontal
@@ -150,14 +151,12 @@ struct ImageViewer: View {
                     hasAlpha: ChatImageStore.hasAlpha(thumb),
                     onSingleTap: { showsChrome.toggle() },
                     onZoomChanged: { isZoomed = $0 })
-                ProgressView()
+                LoadingOrb(state: .shaping)
                     .padding(Spacing.m)
                     .glassEffect(.regular, in: .circle)
             }
         } else {
-            ProgressView()
-                .controlSize(.large)
-                .tint(.white)
+            LoadingOrb(state: .shaping, side: 64, theme: .dark)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .contentShape(.rect)
                 .onTapGesture { showsChrome.toggle() }

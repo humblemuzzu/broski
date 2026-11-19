@@ -1,9 +1,10 @@
 import BroskiCore
 import SwiftUI
+import ThinkingOrbsKit
 
 /// The chat's title in the bar: the session's title (tap to rename), and under it `agent · folder ·
-/// machine`, or the machine's state in words while it is not ready; while a run is live, the live
-/// mark and its elapsed time in tabular figures.
+/// machine`, or the machine's state in words while it is not ready; while a run is live, a working
+/// orb and its elapsed time in tabular figures.
 struct ChatTitle: View {
     let title: String
     let subtitle: String
@@ -20,7 +21,7 @@ struct ChatTitle: View {
                     .lineLimit(1)
                 HStack(spacing: Spacing.xs) {
                     if let runStartedAt, machineProblem == nil {
-                        LiveIndicator().imageScale(.small)
+                        Orb(.working, side: 14, relativeTo: .caption)
                         ElapsedTime(since: runStartedAt).foregroundStyle(Palette.working)
                         Text("·")
                     }

@@ -23,7 +23,6 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -56,6 +55,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.muzammil.broski.R
+import com.muzammil.broski.design.LoadingOrb
+import com.muzammil.broski.design.orb.OrbState
+import com.muzammil.broski.design.orb.OrbTheme
 import kotlin.math.abs
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -185,15 +187,11 @@ fun ImageLightbox(request: LightboxRequest, onDismiss: () -> Unit) {
                             onZoomChanged = { if (page == pager.currentPage) isZoomed = it },
                         )
                         Surface(shape = CircleShape, color = Color.Black.copy(alpha = 0.6f)) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.padding(12.dp).size(24.dp),
-                                color = Color.White,
-                                strokeWidth = 2.5.dp,
-                            )
+                            LoadingOrb(Modifier.padding(12.dp), OrbState.SHAPING, theme = OrbTheme.DARK)
                         }
                     }
                     else -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = Color.White)
+                        LoadingOrb(state = OrbState.SHAPING, size = 64.dp, theme = OrbTheme.DARK)
                     }
                 }
             }

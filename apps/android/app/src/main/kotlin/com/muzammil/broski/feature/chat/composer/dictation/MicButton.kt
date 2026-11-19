@@ -11,7 +11,6 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -34,6 +33,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
 import com.muzammil.broski.core.voice.DictationPhase
+import com.muzammil.broski.design.Orb
+import com.muzammil.broski.design.orb.OrbState
 
 private val SIZE = 44.dp
 
@@ -123,7 +124,7 @@ fun MicButton(
     ) {
         AnimatedContent(face(phase), transitionSpec = { scaleIn() togetherWith scaleOut() }, label = "mic face") { face ->
             when (face) {
-                Face.Working -> CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+                Face.Working -> Orb(OrbState.LISTENING, size = 24.dp)
                 else -> Icon(
                     painterResource(face.icon),
                     contentDescription = null,

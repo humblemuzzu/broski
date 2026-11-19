@@ -121,8 +121,8 @@ final class AppModel {
     }
 
     /// Stop from the Live Activity, which may run the app in the background just for it: the link
-    /// is resumed for the request, waits for the Mac and view attach, sends abort, then pauses and
-    /// flushes before returning.
+    /// is resumed for the request, waits for the Mac and view attach, sends abort, stays up until
+    /// the run's end has reached the activity, then pauses and flushes before returning.
     func stopRun(machineId: String, session: SessionRef) async {
         guard let machine = machine(id: machineId) else { return }
         let wasBackground = !isActive
@@ -131,16 +131,21 @@ final class AppModel {
         while !machine.summary.isReady, ContinuousClock.now < readyDeadline {
             try? await Task.sleep(for: .milliseconds(150))
         }
+        var stopped = false
         do {
             let view = try machine.machine.attach(session: session)
             defer { view.detach() }
             await waitForAttach(view, timeout: .seconds(4))
             let answer = try await machine.machine.request(message: .abort(AbortRequest(requestId: "", session: session)))
             Logger.core.info("a run was stopped from the Live Activity: \(String(describing: answer), privacy: .public)")
+            if case .abortResult(let response) = answer, case .accepted = response.result { stopped = true }
         } catch {
             Logger.core.error("the stop was not sent: \(String(describing: error), privacy: .public)")
         }
         if wasBackground && !isActive {
+            if stopped {
+                await liveRuns?.settle(leaving: InboxRow.Key(machineId: machineId, session: session), within: .seconds(6))
+            }
             phone?.pause()
             await phone?.paused()
         }

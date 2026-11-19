@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -45,7 +44,9 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.muzammil.broski.R
+import com.muzammil.broski.design.LoadingOrb
 import com.muzammil.broski.design.format.FormattedMessage
+import com.muzammil.broski.design.orb.OrbState
 import com.muzammil.broski.feature.images.ChatImageStore
 import com.muzammil.broski.feature.images.ImageTarget
 import com.muzammil.broski.feature.images.ThumbnailState
@@ -205,7 +206,7 @@ fun AttachmentTile(
                 )
             }
             ThumbnailState.Idle, ThumbnailState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                LoadingOrb(state = OrbState.SHAPING, size = 16.dp)
             }
         }
     }

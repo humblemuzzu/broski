@@ -39,7 +39,7 @@ struct DiffScreen: View {
     private var content: some View {
         switch phase {
         case .loading:
-            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            LoadingOrb(side: 64).frame(maxWidth: .infinity, maxHeight: .infinity)
         case .failed(let problem):
             ProblemView(problem: problem) { await load() }
         case .loaded(let diff):

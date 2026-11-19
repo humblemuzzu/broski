@@ -153,6 +153,12 @@ app/src/main/kotlin/com/muzammil/broski/
               logs, arguments); Settings › Reading is LocalReading (formatting.md)
   design/code code coloured by the core's highlight, the line viewer, and the
               diff view (unified, side by side from 840 dp) the chat and the files screens share
+  design/orb  ThinkingOrbs' engine ported from the library's SwiftUI one (MIT, its LICENSE beside it) as
+              pure Kotlin, and the `ThinkingOrb` composable that draws it
+  design/beam Border Beam's rotate family (MIT, LICENSE beside it): `Modifier.borderBeam`, AGSL on
+              Android 13+, its spec in assets/beam-spec.json
+  design/voiceglow  Voice Glow's level-driven glow (MIT, LICENSE beside it): `Modifier.voiceGlow`, AGSL
+              on Android 13+
   feature/chat   the chat: LiveSession (the view's records applied), SessionFeed (the view's loop and
               the transcript's pages), ChatActions (each request), transcript/ (rows, the
               bubble, the status lane, follow or detach), work/ (folds, rows, the diff sheet),
@@ -197,6 +203,10 @@ terminal/     the :terminal module: libghostty-vt's JNI shim (src/main/c) and Vt
   the file to xAI through `GrokTranscriber`, exactly as the core built the request. The key is sealed in
   the vault (`voice:xai-key`) and checked with xAI in Settings › Voice before it is kept; with none, the
   phone's own recognizer (`RecognizerIntent`) stands in. `RECORD_AUDIO` is asked on the first press.
+  While recording, the composer wears `voiceGlow`, fed `Dictation.level` (the recorder's meter every
+  50 ms, outside `state` so nothing recomposes) and faded out while sliding to cancel; while a run is
+  live, `borderBeam` rides its rim (`ComposerLook.running`, left out with animations off). Below
+  Android 13 neither draws.
 
 ## Core wiring
 
@@ -254,8 +264,15 @@ terminal/     the :terminal module: libghostty-vt's JNI shim (src/main/c) and Vt
 - **Design system**: `design/` (`BroskiTheme.semantic`, `Haptic`, `AgentMark`, `MachineStatusChip`,
   `groupedListItemColors`, `GroupedRow`, `PrimaryButton`/`SecondaryButton`/`QuietButton`, `SectionHeader`,
   `EmptyState`, `Notice`, `MessageScreen`, `CommandBlock`, `BroskiMotion.spring()`, `shimmer`,
-  `MonoFamily`/`TextStyle.mono()`, `relativeTime`; `design/code`: `CodeBlock`, `CodeLines`, `DiffView`,
+  `Orb`/`LoadingOrb`, `MonoFamily`/`TextStyle.mono()`, `relativeTime`; `design/code`: `CodeBlock`, `CodeLines`, `DiffView`,
   `highlightedLines`).
+- **The orb is the only "under way" mark**: `Orb` (decorative, next to words that say what is under way) and
+  `LoadingOrb` (read to TalkBack as its label, where no words sit beside it) in `design/Orb.kt` draw the
+  thinking orbs of `design/orb/`, whose golden test (`OrbGoldenTest`) holds the engine to the reference's
+  numbers. Never a spinner, a loading or a progress indicator for a wait: the system's pull-to-refresh and
+  the context ring (a gauge) are the two that stay. An orb sizes with the font scale, uses the 20 dp design
+  under 40 dp and the 64 dp one above, and rests on one still frame when `still`, off screen, with
+  animations turned off, and for a live thought's row (the status lane is the one that moves).
 
 ## Notifications and the Live Update
 

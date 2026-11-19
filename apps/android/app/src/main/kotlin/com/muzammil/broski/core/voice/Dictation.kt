@@ -49,6 +49,13 @@ class Dictation(context: Context, private val vault: Vault, private val settings
 
     /** The saved xAI key; `null` while none is. */
     val key: StateFlow<String?> = mutableKey.asStateFlow()
+
+    /**
+     * The loudness now, 0 to 1, read every [METER_MS] while recording. Kept out of [state] so the
+     * composer's voice glow samples it each frame without recomposing anything.
+     */
+    var level: Float = 0f
+        private set
     val glance = WorkspaceGlance()
 
     private var target: DictationTarget? = null
@@ -128,6 +135,7 @@ class Dictation(context: Context, private val vault: Vault, private val settings
         }
         this.target = target
         file = started
+        level = 0f
         mutableState.value = DictationState(
             owner = target.id,
             phase = DictationPhase.Recording(held = true, cancelling = false),
@@ -137,10 +145,10 @@ class Dictation(context: Context, private val vault: Vault, private val settings
         sources = scope.async { target.sources() }
         metering = scope.launch {
             while (state.value.phase is DictationPhase.Recording) {
-                val level = recorder.level()
-                mutableState.update { it.copy(levels = (it.levels + level).takeLast(LEVELS)) }
+                level = recorder.level()
                 delay(METER_MS)
             }
+            level = 0f
         }
     }
 
@@ -224,7 +232,7 @@ class Dictation(context: Context, private val vault: Vault, private val settings
             file?.delete()
             file = null
         }
-        mutableState.update { it.copy(owner = owner, phase = DictationPhase.Failed(problem), levels = emptyList()) }
+        mutableState.update { it.copy(owner = owner, phase = DictationPhase.Failed(problem)) }
         play(DictationFeedback.Moment.Failed, owner)
     }
 
@@ -248,7 +256,7 @@ class Dictation(context: Context, private val vault: Vault, private val settings
         val recording = file ?: return
         val key = key.value ?: return fail(DictationProblem(R.string.dictation_no_key, fix = DictationProblem.Fix.VoiceSettings), target.id)
         val voice = settings.value?.voice ?: VoiceSettings()
-        mutableState.update { it.copy(phase = DictationPhase.Transcribing, levels = emptyList()) }
+        mutableState.update { it.copy(phase = DictationPhase.Transcribing) }
         work = scope.launch {
             val terms = terms(voice)
             val outcome = try {
@@ -342,7 +350,6 @@ class Dictation(context: Context, private val vault: Vault, private val settings
 
         /** A recording shorter than this is a slip, not speech. */
         const val SHORTEST_MS = 500L
-        const val LEVELS = 48
         private const val METER_MS = 50L
         private const val NOTICE_MS = 5_000L
         private const val SOURCES_MS = 1_500L

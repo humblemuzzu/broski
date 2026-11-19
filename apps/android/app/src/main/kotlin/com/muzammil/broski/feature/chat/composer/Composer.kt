@@ -62,6 +62,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.muzammil.broski.R
 import com.muzammil.broski.core.voice.DictationPhase
+import com.muzammil.broski.design.animationsEnabled
+import com.muzammil.broski.design.beam.borderBeam
+import com.muzammil.broski.design.voiceglow.voiceGlow
 import com.muzammil.broski.feature.chat.composer.dictation.DictationHaptics
 import com.muzammil.broski.feature.chat.composer.dictation.DictationHook
 import com.muzammil.broski.feature.chat.composer.dictation.DictationMic
@@ -76,13 +79,17 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import uniffi.broski_contract.CommandSummary
 
-/** What the composer shows besides its own state: who it talks to and what its button does. */
+/**
+ * What the composer shows besides its own state: who it talks to, what its button does, and
+ * whether a run is live (the beam rides the rim then).
+ */
 @Immutable
 class ComposerLook(
     val placeholder: String,
     val button: SendButton,
     val images: Boolean,
     val settings: ComposerSettings,
+    val running: Boolean = false,
 )
 
 @Immutable
@@ -98,6 +105,8 @@ class ComposerActions(
  * six, then scrolling), and under it `+`, the setting chips, the mic and the one button. While
  * dictating, the recording takes the field's place and ✕ the place of `+` and the chips. It rides the
  * keyboard through the screen's insets; its height follows its text with no animation of its own.
+ * While a run is live a beam rides its rim (left out with animations off), and while recording a glow
+ * rises from its bottom edge with the voice (both Android 13 and later).
  */
 @Composable
 fun Composer(
@@ -113,10 +122,17 @@ fun Composer(
     val dictationState = dictation?.let { it.dictation.state.collectAsStateWithLifecycle().value }
     val phase = dictation?.let { dictationState?.phaseFor(it.target.id) } ?: DictationPhase.Idle
     val dictating = phase != DictationPhase.Idle
+    val listening = (phase as? DictationPhase.Recording)?.cancelling == false
     dictation?.let { DictationHaptics(it) }
+    val shape = 28.dp
     Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp),
+        modifier = modifier.fillMaxWidth()
+            .borderBeam(active = look.running && animationsEnabled(), cornerRadius = shape)
+            .then(
+                dictation?.let { hook -> Modifier.voiceGlow(level = { hook.dictation.level }, active = listening, cornerRadius = shape) }
+                    ?: Modifier,
+            ),
+        shape = RoundedCornerShape(shape),
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         tonalElevation = 2.dp,
         shadowElevation = 2.dp,

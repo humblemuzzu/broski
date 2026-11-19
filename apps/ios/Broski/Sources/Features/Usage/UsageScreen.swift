@@ -1,4 +1,5 @@
 import SwiftUI
+import ThinkingOrbsKit
 
 /// How much of each plan the Macs' agents run on is used: Claude's and Antigravity's limits as the
 /// Macs read them, the same reading the widgets draw. Pull to read again.
@@ -37,7 +38,7 @@ struct UsageScreen: View {
         .refreshable { await model.usage.refresh(from: model.machines, force: true) }
         .toolbar {
             if model.usage.isReading {
-                ToolbarItem(placement: .primaryAction) { ProgressView() }
+                ToolbarItem(placement: .primaryAction) { LoadingOrb(state: .working, label: "Reading usage") }
             }
         }
         .task { await model.usage.refresh(from: model.machines) }

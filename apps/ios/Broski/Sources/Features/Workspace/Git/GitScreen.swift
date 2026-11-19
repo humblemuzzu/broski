@@ -30,7 +30,7 @@ struct GitScreen: View {
     private var content: some View {
         switch model.phase {
         case .loading:
-            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            LoadingOrb(side: 64).frame(maxWidth: .infinity, maxHeight: .infinity)
         case .notRepository:
             ContentUnavailableView(
                 "Not a git repository", systemImage: "arrow.triangle.branch",

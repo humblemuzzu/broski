@@ -1,5 +1,6 @@
 import BroskiCore
 import SwiftUI
+import ThinkingOrbsKit
 import UIKit
 
 /// The person's message: the transcript's only container, trailing and sized to its text, images
@@ -182,7 +183,7 @@ struct AttachmentTile: View {
                 case .idle, .loading:
                     Rectangle()
                         .fill(Color(uiColor: .secondarySystemFill))
-                        .overlay { ProgressView().controlSize(.small) }
+                        .overlay { LoadingOrb(state: .shaping, side: 16) }
                 }
             }
             .frame(width: size.width, height: size.height)

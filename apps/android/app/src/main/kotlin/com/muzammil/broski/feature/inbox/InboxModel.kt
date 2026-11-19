@@ -5,6 +5,7 @@ import com.muzammil.broski.core.MachineHealth
 import com.muzammil.broski.core.MachineState
 import com.muzammil.broski.core.isOnline
 import com.muzammil.broski.core.needsMention
+import com.muzammil.broski.design.settling
 import uniffi.broski_core.InboxRow
 import uniffi.broski_core.InboxState
 
@@ -24,6 +25,7 @@ data class InboxUiState(
     val workingOnly: Boolean = false,
     val refreshing: Boolean = false,
     val anyOnline: Boolean = false,
+    val connecting: Boolean = false,
     /** Rows whose answer is on its way ([key]); their actions wait for it. */
     val answering: Set<String> = emptySet(),
 ) {
@@ -55,6 +57,7 @@ fun inboxUiState(
         workingOnly = filtered,
         refreshing = refreshing,
         anyOnline = machines.any { it.health.isOnline },
+        connecting = machines.any { it.health.settling },
         answering = answering,
     )
 }

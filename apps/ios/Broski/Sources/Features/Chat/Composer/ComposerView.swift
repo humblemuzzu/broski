@@ -1,10 +1,13 @@
+import BorderBeamKit
 import BroskiCore
 import SwiftUI
+import VoiceGlowKit
 
 /// The composer: one Liquid Glass surface holding the field (one line, growing to six; Paste takes
 /// images), the slash commands above it while the text starts with `/`, the attached images, and
 /// under the field `+`, the chips, the mic and the one send button. While dictating, the recording
-/// takes the field's place and ✕ the place of `+` and the chips.
+/// takes the field's place and ✕ the place of `+` and the chips, and a glow rises from the bottom edge
+/// with the voice. A beam rides its rim while a run is live.
 struct ComposerView: View {
     @Binding var draft: ComposerDraft
     let agent: String
@@ -23,6 +26,7 @@ struct ComposerView: View {
     /// Project file search for `@file` mentions; `nil` when no working folder is known.
     var fileSearch: FileSearchSource? = nil
     @Environment(AppModel.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var voiceSettings = false
     @State private var mentionPaths: [String] = []
     @State private var mentionCache = FileMentionCache()
@@ -33,6 +37,11 @@ struct ComposerView: View {
     }
 
     private var isDictating: Bool { dictationPhase != .idle }
+
+    /// Recording and not about to be cancelled: the voice glow shows.
+    private var isListening: Bool {
+        if case .recording(_, cancelling: false) = dictationPhase { true } else { false }
+    }
 
     private var placeholder: String {
         if action != .send { return "Message to queue…" }
@@ -97,6 +106,8 @@ struct ComposerView: View {
         .padding(.horizontal, Spacing.m)
         .padding(.bottom, Spacing.s)
         .glassEffect(.regular, in: .rect(cornerRadius: 26, style: .continuous))
+        .borderBeam(.md, theme: .auto, active: action != .send && !reduceMotion, borderRadius: 26)
+        .voiceGlow(levelProvider: { Double(app.dictation.level) }, active: isListening, cornerRadius: 26)
         .disabled(!isEnabled)
         .animation(.spring(duration: 0.22, bounce: 0), value: matching.isEmpty)
         .animation(.spring(duration: 0.22, bounce: 0), value: mentionPaths.isEmpty)

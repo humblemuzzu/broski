@@ -1,5 +1,6 @@
 import AppIntents
 import SwiftUI
+import ThinkingOrbsKit
 import WidgetKit
 
 typealias RunState = RunActivityAttributes.ContentState
@@ -127,12 +128,16 @@ struct PhasePill: View {
     let phase: RunState.Phase
 
     var body: some View {
-        Label(phase.title, systemImage: phase.symbol)
-            .font(.footnote.weight(.semibold))
-            .foregroundStyle(phase.tint)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(phase.tint.opacity(0.16), in: .capsule)
+        Label {
+            Text(phase.title)
+        } icon: {
+            PhaseIcon(phase: phase).accessibilityHidden(true)
+        }
+        .font(.footnote.weight(.semibold))
+        .foregroundStyle(phase.tint)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(phase.tint.opacity(0.16), in: .capsule)
     }
 }
 
@@ -140,9 +145,15 @@ struct PhaseIcon: View {
     let phase: RunState.Phase
 
     var body: some View {
-        Image(systemName: phase.symbol)
-            .foregroundStyle(phase.tint)
-            .accessibilityLabel(phase.title)
+        ZStack {
+            if let symbol = phase.symbol {
+                Image(systemName: symbol).foregroundStyle(phase.tint)
+            } else {
+                ThinkingOrb(state: .working, size: .px20, theme: .dark, paused: true, displaySize: 16)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(phase.title)
     }
 }
 

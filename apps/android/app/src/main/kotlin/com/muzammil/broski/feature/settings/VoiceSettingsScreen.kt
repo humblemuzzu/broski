@@ -15,7 +15,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -52,8 +51,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.muzammil.broski.R
 import com.muzammil.broski.core.AppCore
 import com.muzammil.broski.core.settings.VoiceSettings
+import com.muzammil.broski.design.Orb
 import com.muzammil.broski.design.SectionHeader
 import com.muzammil.broski.design.groupedListItemColors
+import com.muzammil.broski.design.orb.OrbState
 import uniffi.broski_core.dictationLanguages
 
 /** Settings › Voice: the xAI key, the spoken language, sending after dictating, project words, and the person's own words. */
@@ -118,7 +119,7 @@ private fun KeySection(state: VoiceUiState, viewModel: VoiceSettingsViewModel) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             Button(onClick = save, enabled = entry.isNotBlank() && state.status != KeyStatus.Checking) {
                 if (state.status == KeyStatus.Checking) {
-                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                    Orb(OrbState.CONNECTING)
                     Text(stringResource(R.string.voice_key_checking), modifier = Modifier.padding(start = 8.dp))
                 } else {
                     Text(stringResource(R.string.voice_key_save))

@@ -10,8 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.CircularWavyProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -36,7 +34,9 @@ import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
 import com.muzammil.broski.design.BroskiTheme
 import com.muzammil.broski.design.Haptic
+import com.muzammil.broski.design.Orb
 import com.muzammil.broski.design.mono
+import com.muzammil.broski.design.orb.OrbState
 import com.muzammil.broski.design.perform
 import com.muzammil.broski.feature.chat.work.duration
 import com.muzammil.broski.design.format.agentLine
@@ -51,7 +51,6 @@ private val LIST_MAX = 220.dp
  * which opens in place to each task, its command and how long it has run. Each task's end shows in
  * the transcript as an activity.
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun BackgroundTasksBar(tasks: List<BackgroundTask>, modifier: Modifier = Modifier) {
     val haptics = LocalHapticFeedback.current
@@ -65,7 +64,6 @@ fun BackgroundTasksBar(tasks: List<BackgroundTask>, modifier: Modifier = Modifie
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun Pill(tasks: List<BackgroundTask>, onOpen: () -> Unit) {
     val summary = if (tasks.size == 1) tasks.first().title else pluralStringResource(R.plurals.chat_background_tasks, tasks.size, tasks.size)
@@ -76,7 +74,7 @@ private fun Pill(tasks: List<BackgroundTask>, onOpen: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                CircularWavyProgressIndicator(Modifier.size(16.dp), color = BroskiTheme.semantic.working)
+                Orb(OrbState.WORKING, size = 18.dp)
                 Text(summary, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Icon(painterResource(R.drawable.ic_keyboard_arrow_up), contentDescription = stringResource(R.string.chat_background_show), modifier = Modifier.size(18.dp))
             }

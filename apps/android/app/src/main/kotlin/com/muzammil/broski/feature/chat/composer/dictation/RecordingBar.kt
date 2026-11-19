@@ -3,23 +3,13 @@ package com.muzammil.broski.feature.chat.composer.dictation
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -33,10 +23,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -51,8 +37,8 @@ import com.muzammil.broski.design.shimmer
 import kotlinx.coroutines.delay
 
 /**
- * What takes the field's place while dictating: the live waveform and time, then "Transcribing…",
- * or why it failed with what to do.
+ * What takes the field's place while dictating: "Listening…" and the time (the composer's voice
+ * glow follows the voice), then "Transcribing…", or why it failed with what to do.
  */
 @Composable
 fun RecordingBar(state: DictationState, phase: DictationPhase, dictation: Dictation, openVoiceSettings: (() -> Unit)?, modifier: Modifier = Modifier) {
@@ -74,10 +60,18 @@ fun RecordingBar(state: DictationState, phase: DictationPhase, dictation: Dictat
 @Composable
 private fun Recording(state: DictationState, phase: DictationPhase.Recording) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            RecordingDot()
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 28.dp),
+        ) {
+            Text(
+                stringResource(R.string.dictation_listening),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
             Elapsed(state.startedAtMs ?: System.currentTimeMillis())
-            Waveform(state.levels, dimmed = phase.cancelling, modifier = Modifier.weight(1f).height(26.dp))
         }
         Text(
             stringResource(
@@ -91,13 +85,6 @@ private fun Recording(state: DictationState, phase: DictationPhase.Recording) {
             color = if (phase.cancelling) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
-}
-
-@Composable
-private fun RecordingDot() {
-    val pulse = rememberInfiniteTransition(label = "dot")
-    val alpha by pulse.animateFloat(1f, 0.35f, infiniteRepeatable(tween(700), RepeatMode.Reverse), label = "dot alpha")
-    Box(Modifier.size(9.dp).alpha(alpha).background(MaterialTheme.colorScheme.error, CircleShape))
 }
 
 @Composable
@@ -115,27 +102,6 @@ private fun Elapsed(startedAtMs: Long) {
         style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
-}
-
-/** The last few seconds' loudness as bars, newest at the right. */
-@Composable
-private fun Waveform(levels: List<Float>, dimmed: Boolean, modifier: Modifier) {
-    val color = if (dimmed) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.primary
-    Canvas(modifier) {
-        val count = Dictation.LEVELS
-        val gap = 2.dp.toPx()
-        val width = ((size.width - gap * (count - 1)) / count).coerceAtLeast(1f)
-        val padded = List((count - levels.size).coerceAtLeast(0)) { 0f } + levels.takeLast(count)
-        padded.forEachIndexed { index, level ->
-            val height = (level * size.height).coerceAtLeast(3.dp.toPx())
-            drawRoundRect(
-                color = color,
-                topLeft = Offset(index * (width + gap), (size.height - height) / 2),
-                size = Size(width, height),
-                cornerRadius = CornerRadius(width / 2),
-            )
-        }
-    }
 }
 
 @Composable

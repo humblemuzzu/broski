@@ -17,8 +17,10 @@
 # answered pull, the stop and the decision.
 #
 # Usage: scripts/e2e-ios-app.sh [output directory]   (default apps/ios/Broski/build/e2e)
-# BROSKI_SIMULATOR names the simulator (default "iPhone Duo"); it is erased of the app, its
-# keychain and its privacy grants first. BROSKI_E2E_ONLY names UI tests to run alone
+# BROSKI_SIMULATOR names the simulator whose model and iOS the run copies (default "iPhone Duo"):
+# every run makes a new simulator of that kind and deletes it at exit, because an uninstall
+# leaves the app's notification answer behind (no simctl service resets it), which would skip the
+# pairing test's notification ask. BROSKI_E2E_ONLY names UI tests to run alone
 # ("Class/testName", space separated; the first, PairingEndToEndTests/test1…, pairs the phone).
 # BROSKI_E2E_XAI_KEY, when set, is saved in Settings › Voice so dictation goes through xAI; without it
 # the simulator's own recognizer transcribes. Needs what scripts/build-ios-app.sh needs, plus Bun and
@@ -28,7 +30,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP="$ROOT/apps/ios/Broski"
 OUT="${1:-$APP/build/e2e}"
-SIMULATOR="${BROSKI_SIMULATOR:-iPhone Duo}"
+TEMPLATE="${BROSKI_SIMULATOR:-iPhone Duo}"
+SIMULATOR=""
 
 WORK="$(mktemp -d)"
 COMMANDS="$WORK/commands"
@@ -72,6 +75,10 @@ cleanup() {
   [[ -n $replica_tail_pid ]] && kill "$replica_tail_pid" 2>/dev/null || true
   stop_pid "$machine_pid"
   stop_pid "$replica_pid"
+  if [[ -n $SIMULATOR ]]; then
+    xcrun simctl shutdown "$SIMULATOR" 2>/dev/null || true
+    xcrun simctl delete "$SIMULATOR" 2>/dev/null || true
+  fi
   rm -rf "$WORK"
 }
 trap cleanup EXIT INT TERM
@@ -153,11 +160,19 @@ dns-sd -P "Broski E2E" _broski-link._tcp local. "$lan_port" broski-e2e.local. 12
   >/dev/null &
 advert_pid=$!
 
-echo "==> Resetting $SIMULATOR"
+echo "==> Making a fresh simulator like $TEMPLATE"
+read -r device_type runtime < <(xcrun simctl list devices --json | /usr/bin/python3 -c '
+import json, sys
+name = sys.argv[1]
+for runtime, devices in json.load(sys.stdin)["devices"].items():
+    for device in devices:
+        if device["name"] == name or device["udid"] == name:
+            print(device["deviceTypeIdentifier"], runtime)
+            raise SystemExit
+sys.exit("error: no simulator named " + name)
+' "$TEMPLATE")
+SIMULATOR="$(xcrun simctl create "Broski E2E $$" "$device_type" "$runtime")"
 xcrun simctl bootstatus "$SIMULATOR" -b >/dev/null
-xcrun simctl uninstall "$SIMULATOR" com.muzammil.broski
-xcrun simctl keychain "$SIMULATOR" reset
-xcrun simctl privacy "$SIMULATOR" reset all com.muzammil.broski
 printf '%s' "$offer" | xcrun simctl pbcopy "$SIMULATOR"
 # iOS 27 simulators cannot show the paste prompt (SpringBoard refuses to post it for the pasteboard
 # daemon), so the read would be refused; `simctl privacy` has no pasteboard service, so the grant
@@ -184,7 +199,7 @@ echo "==> Running the end-to-end tests"
 # The app's log is streamed while the tests run: `log show` afterwards misses info messages the
 # simulator kept only in memory.
 xcrun simctl spawn "$SIMULATOR" log stream --level info --style compact \
-  --predicate 'subsystem == "com.muzammil.broski"' >"$WORK/app.log" 2>/dev/null &
+  --predicate 'subsystem == "com.muzammil.broski"' >"$OUT/app.log" 2>/dev/null &
 log_pid=$!
 # VoiceEndToEndTests asks for speech by leaving speak-now in the screenshots folder: the Mac says a
 # line through its speakers, which the simulator records through the Mac's microphone.
@@ -210,7 +225,7 @@ e2e_tests() {
     xcodebuild test \
     -project "$APP/Broski.xcodeproj" \
     -scheme BroskiE2E \
-    -destination "platform=iOS Simulator,name=$SIMULATOR" \
+    -destination "platform=iOS Simulator,id=$SIMULATOR" \
     -derivedDataPath "$APP/build/DerivedData-e2e" \
     "$@"
 }
@@ -237,7 +252,7 @@ TEST_RUNNER_BROSKI_REPLICA_OFFER="$replica_offer" \
   xcodebuild test \
   -project "$APP/Broski.xcodeproj" \
   -scheme Broski \
-  -destination "platform=iOS Simulator,name=$SIMULATOR" \
+  -destination "platform=iOS Simulator,id=$SIMULATOR" \
   -derivedDataPath "$APP/build/DerivedData-e2e" \
   -only-testing:BroskiTests/SessionMachineTests \
   -resultBundlePath "$OUT/Replica.xcresult"
@@ -246,7 +261,7 @@ echo "==> Putting the push fixture's machine record in the app's keychain"
 TEST_RUNNER_BROSKI_E2E_INSTALL_PUSH_RECORD=1 xcodebuild test \
   -project "$APP/Broski.xcodeproj" \
   -scheme Broski \
-  -destination "platform=iOS Simulator,name=$SIMULATOR" \
+  -destination "platform=iOS Simulator,id=$SIMULATOR" \
   -derivedDataPath "$APP/build/DerivedData-e2e" \
   -only-testing:BroskiTests/PushFixtureInstall \
   -resultBundlePath "$OUT/PushRecord.xcresult"
@@ -279,7 +294,7 @@ rm -f "$OUT/screenshots/push-now"
 echo "==> Screenshots in $OUT/screenshots"
 
 kill "$log_pid"
-app_log="$(cat "$WORK/app.log")"
+app_log="$(cat "$OUT/app.log")"
 found="$(grep "machine $machine_id found on the LAN" <<<"$app_log" || true)"
 if [[ -z $found ]]; then
   echo "error: the app's LAN browse never reported $machine_id" >&2

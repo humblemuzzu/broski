@@ -40,7 +40,7 @@ struct FileScreen: View {
     private var content: some View {
         switch model.phase {
         case .loading:
-            ProgressView()
+            LoadingOrb(side: 64)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .failed(let problem):
             ProblemView(problem: problem) { await model.load() }

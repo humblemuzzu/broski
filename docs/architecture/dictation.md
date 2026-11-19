@@ -77,7 +77,9 @@ Pure, no I/O, exported through BroskiCore like `decisionLetter`:
 The gesture: the recording starts on touch down. Held past 350 ms, release inserts and sliding 70 pt
 left cancels; a shorter press keeps recording without the finger, and the mic becomes ✓ (insert)
 beside ✕ (cancel). A recording under 500 ms is a slip and is dropped. Ten minutes is the most one
-recording takes (2.4 MB). While dictating, the waveform and timer take the field's place; then
+recording takes (2.4 MB). While dictating, "Listening…" and the timer take the field's place and the
+Voice Glow rises from the composer's bottom edge with the recorder's level (iOS: VoiceGlowKit; Android:
+its port, Android 13 and later), fading while a slide cancels; no second microphone opens for it; then
 "Transcribing…"; then the text joins the draft after one space, or the failure shows what to do
 (Try again keeps the recording; a key problem leads to Voice settings; a refused microphone to the
 system's settings). "Send after dictating" sends the draft as the composer's button would. The app

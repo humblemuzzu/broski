@@ -62,7 +62,7 @@ struct FolderScreen: View {
     private var content: some View {
         switch model.phase {
         case .loading:
-            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            LoadingOrb(side: 64).frame(maxWidth: .infinity, maxHeight: .infinity)
         case .failed(let problem):
             ProblemView(problem: problem) { await model.load() }
         case .loaded:
@@ -96,7 +96,7 @@ struct FolderScreen: View {
                     Banner(problem: problem)
                     Button("Load More") { Task { await model.loadMore() } }
                 } else if model.hasMore {
-                    ProgressView()
+                    LoadingOrb()
                         .frame(maxWidth: .infinity)
                         .task { await model.loadMore() }
                 }

@@ -1,6 +1,7 @@
 import BroskiCore
 import Foundation
 import Testing
+import ThinkingOrbsKit
 import UIKit
 
 @testable import Broski
@@ -58,6 +59,12 @@ struct ChatRulesTests {
         #expect(LaneStatus.starting.title(at: .now) == "Agent is working")
         snapshot.run?.items.append(Item.text("b", "Hi"))
         #expect(LaneStatus(snapshot) == .working)
+        snapshot.blocks = [OpenBlock(blockId: "t", messageId: "m", kind: .thinking, parentToolCallId: nil, text: "Hmm")]
+        #expect(LaneStatus(snapshot) == .thinking, "reasoning streaming last says so")
+        #expect(LaneStatus.thinking.title(at: .now) == "Thinking")
+        snapshot.blocks.append(OpenBlock(blockId: "a", messageId: "m", kind: .text, parentToolCallId: nil, text: "So"))
+        #expect(LaneStatus(snapshot) == .working, "text after the reasoning is work")
+        #expect(LaneStatus.waitingForApproval.orb == nil && LaneStatus.thinking.orb == .breathing)
         snapshot.retry = RetryState(attempt: 1, maxAttempts: 3, retryAt: 10_000, message: "overloaded")
         #expect(LaneStatus(snapshot)?.title(at: Date(unixMilliseconds: 2_000)) == "Retrying in 8 s")
         snapshot.compaction = CompactionState(trigger: .auto, startedAt: 0)

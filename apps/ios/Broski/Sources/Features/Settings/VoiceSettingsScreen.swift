@@ -1,5 +1,6 @@
 import BroskiCore
 import SwiftUI
+import ThinkingOrbsKit
 
 /// Dictation: the xAI key, the spoken language, sending after dictating, the session's names, and
 /// the person's own words.
@@ -74,7 +75,7 @@ private struct VoiceKeySection: View {
                     .onSubmit(save)
                 Button(action: save) {
                     if key.isChecking {
-                        HStack { ProgressView(); Text("Checking with xAI…") }
+                        HStack { Orb(.connecting); Text("Checking with xAI…") }
                     } else {
                         Text("Save Key")
                     }

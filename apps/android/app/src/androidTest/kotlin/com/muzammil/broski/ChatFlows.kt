@@ -50,6 +50,7 @@ class ChatFlows(private val ui: WorkspaceUiDriver, private val machine: RealMach
 
     private fun touch(matcher: SemanticsMatcher) {
         ui.waitFor(matcher)
+        ui.awaitStill(matcher)
         compose.onAllNodes(matcher)[0].performTouchInput { click() }
     }
 
@@ -62,10 +63,13 @@ class ChatFlows(private val ui: WorkspaceUiDriver, private val machine: RealMach
         assertTrue("the mode chip ends at ${chip.right}, under the send button that starts at ${button.left}", chip.right <= button.left)
     }
 
-    /** An opened row says what it did, and its detail holds the command: the command is on screen once. */
+    /**
+     * An opened row says what it did, and its detail holds the command after its dimmed `$ `: the
+     * command is on screen once.
+     */
     private fun checkTheCommandIsShownOnce() {
         ui.waitFor(hasText("Ran command"))
-        compose.onAllNodes(hasText("rm -rf build")).assertCountEquals(1)
+        compose.onAllNodes(hasText("rm -rf build", substring = true)).assertCountEquals(1)
     }
 
     /** A tap's ripple on Android 12+ is a speckled sparkle that Compose's idleness does not wait for: a shot taken at once shows it as grain over the tapped rows. */

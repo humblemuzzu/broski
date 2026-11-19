@@ -81,6 +81,7 @@ class VoiceFlow(private val ui: WorkspaceUiDriver, private val machine: RealMach
 
     private fun touch(matcher: SemanticsMatcher) {
         ui.waitFor(matcher)
+        ui.awaitStill(matcher)
         compose.onAllNodes(matcher)[0].performTouchInput { click() }
     }
 

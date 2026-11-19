@@ -1,5 +1,6 @@
 import BroskiCore
 import SwiftUI
+import ThinkingOrbsKit
 
 enum AppTab: Hashable {
     case inbox
@@ -60,7 +61,7 @@ private struct WorkingAccessoryLabel: View {
     var body: some View {
         Button(action: open) {
             HStack(spacing: Spacing.s) {
-                LiveIndicator()
+                Orb(.working, side: 18, relativeTo: .footnote)
                 Text("^[\(count) agent](inflect: true) working")
                     .font(placement == .inline ? .footnote.weight(.semibold) : .subheadline.weight(.semibold))
                     .lineLimit(1)

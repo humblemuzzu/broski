@@ -123,6 +123,22 @@ final class LiveRuns {
 
     var isShowing: Bool { activityId != nil }
 
+    /// Waits, at most `limit`, until the activity no longer shows `key`'s run as live and nothing is
+    /// left to apply, so a Stop that woke the app in the background ends the activity before the
+    /// app pauses its link again (no push reaches it once paused).
+    func settle(leaving key: InboxRow.Key, within limit: Duration) async {
+        let deadline = ContinuousClock.now + limit
+        while ContinuousClock.now < deadline, showsLive(key) || worker != nil {
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+    }
+
+    private func showsLive(_ key: InboxRow.Key) -> Bool {
+        guard let shown, shown.phase != .done else { return false }
+        return shown.machineId == key.machineId && shown.sessionId == key.session.sessionId
+            && shown.backend == key.session.backend.wireName
+    }
+
     func setForeground(_ foreground: Bool) {
         guard isForeground != foreground else { return }
         isForeground = foreground
