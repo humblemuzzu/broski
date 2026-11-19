@@ -55,7 +55,3 @@ __pycache__/
 .asc/
 .claude/*
 !.claude/commands/
-
-# Large or private files kept out of the repository
-docs/assets/
-docs/tla/
