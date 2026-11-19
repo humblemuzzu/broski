@@ -65,6 +65,12 @@ imports only Pi's packages, `node:` built-ins and itself, and that everything el
 - **New sessions** are written by the bridge before `pi` starts (header and `broski.origin`), because Pi writes no
   file until the first message. The model and thinking level a phone chose are set after the handshake with
   `set_model` / `set_thinking_level`, which do not change Pi's saved defaults (`rpc-mode.js:387-413`).
+- **The phone's note never changes a session's system prompt**: a changed one makes the provider read the whole cached
+  conversation again. A session the phone starts gets the note (`server/phone-writing.ts`) as the `broski_phone` section
+  and keeps it as recorded, even after the config drops it; the phone's fork of a session begun elsewhere gets it once
+  as a hidden `broski.phone_note` message after the prompt (`host/extension/`); and a terminal `pi` that goes on with a
+  session the phone began keeps the recorded section through the link extension (`terminal/extension/phone-note.ts`).
+  Proven by `live_phone_writing.test.ts`.
 - **Idle and keep-open**: a host with no view, run, ask, compaction, retry or queued input ends; one that exits on its
   own is revived when a phone acts in its view again (`session-view.ts`); a view of a deleted session answers
   `closed`.

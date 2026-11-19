@@ -1,11 +1,12 @@
-// broski-host-extension v1: written by the Broski bridge for the `pi` processes it starts (`pi --mode rpc -e <this file>`).
+// broski-host-extension v2: written by the Broski bridge for the `pi` processes it starts (`pi --mode rpc -e <this file>`).
 //
 // It never loads in a `pi` you start yourself. In the bridge's own `pi` it asks the phone before a tool runs when the
 // session's permissions mode says so, writes the session records the bridge hands it (`broski.*` custom entries),
 // passes on the background tasks other extensions announce (`broski:tasks` on Pi's event bus) and the questions they
-// ask (`broski:questions`), keeps the process on the one session the bridge opened it for, and adds the bridge's note
-// on how the phone draws answers to the end of the system prompt.
-import { type JsonObject, validateToolArguments } from "@earendil-works/pi-ai";
+// ask (`broski:questions`), keeps the process on the one session the bridge opened it for, and tells the model how the
+// phone draws answers: at the end of the system prompt of a session the phone starts, and as a message in one it takes
+// over, so a session's system prompt never changes and its prompt cache stays warm.
+import { getCurrentSystemMessage, type JsonObject, validateToolArguments } from "@earendil-works/pi-ai";
 import type {
 	ExtensionAPI,
 	ExtensionContext,
@@ -26,6 +27,8 @@ const TASKS = "broski:tasks";
 /** The flag the bridge passes its note in (`PROMPT_NOTE_FLAG` in `host/install.ts`), and the prompt section it fills. */
 const PROMPT_NOTE_FLAG = "broski-prompt-note";
 const PROMPT_NOTE_SECTION = "broski_phone";
+/** The hidden message that carries the note into a session begun elsewhere. */
+const PROMPT_NOTE_MESSAGE = "broski.phone_note";
 
 const UNANSWERED = "The permission request ended before it was answered.";
 const DENIED = "The user denied this tool call.";
@@ -181,6 +184,56 @@ class PermissionGate {
 	}
 }
 
+/**
+ * The sections the session's system prompt already has, replayed from its system messages; undefined before its first
+ * run. Each holds its rendered text, `<name>\n…\n</name>` (pi-coding-agent 1.5.2 `dist/core/system-prompt.js:114-118`).
+ */
+function recordedSections(ctx: ExtensionContext): Record<string, string | null> | undefined {
+	const system = ctx.sessionManager
+		.getBranch()
+		.flatMap((entry) => (entry.type === "message" && entry.message.role === "system" ? [entry.message] : []));
+	return system.length === 0 ? undefined : (getCurrentSystemMessage(system)?.sections ?? {});
+}
+
+/** A recorded section's own text, which Pi wraps again when the section is set. */
+function sectionText(name: string, rendered: string): string | undefined {
+	const open = `<${name}>\n`;
+	const close = `\n</${name}>`;
+	return rendered.startsWith(open) && rendered.endsWith(close) ? rendered.slice(open.length, -close.length) : undefined;
+}
+
+function noteSent(ctx: ExtensionContext): boolean {
+	return ctx.sessionManager
+		.getBranch()
+		.some((entry) => entry.type === "custom_message" && entry.customType === PROMPT_NOTE_MESSAGE);
+}
+
+/**
+ * A changed system prompt is a new prompt to the provider, so a session's cached conversation would be read again in
+ * full. A session that has the note keeps it as recorded, a session the phone starts gets it, and a session begun
+ * without it gets it once as a hidden message after the person's prompt.
+ */
+function placeNote(
+	sections: Record<string, string>,
+	ctx: ExtensionContext,
+	note: string,
+): { message: { customType: string; content: string; display: false } } | undefined {
+	const recorded = recordedSections(ctx);
+	const kept = recorded?.[PROMPT_NOTE_SECTION];
+	const keptText = typeof kept === "string" ? sectionText(PROMPT_NOTE_SECTION, kept) : undefined;
+	if (keptText !== undefined) {
+		sections[PROMPT_NOTE_SECTION] = keptText;
+		return undefined;
+	}
+	if (note === "") return undefined;
+	if (recorded === undefined) {
+		sections[PROMPT_NOTE_SECTION] = note;
+		return undefined;
+	}
+	if (noteSent(ctx)) return undefined;
+	return { message: { customType: PROMPT_NOTE_MESSAGE, content: note, display: false } };
+}
+
 export default function broskiHost(pi: ExtensionAPI): void {
 	const gate = new PermissionGate(pi);
 	let ui: ExtensionContext["ui"] | undefined;
@@ -202,9 +255,9 @@ export default function broskiHost(pi: ExtensionAPI): void {
 	pi.on("tool_call", (event, ctx) => gate.check(event, ctx));
 
 	pi.registerFlag(PROMPT_NOTE_FLAG, { description: "Used by the Broski bridge.", type: "string" });
-	pi.on("before_agent_start", (event) => {
+	pi.on("before_agent_start", (event, ctx) => {
 		const note = pi.getFlag(PROMPT_NOTE_FLAG);
-		if (typeof note === "string" && note !== "") event.systemPromptOptions.sections[PROMPT_NOTE_SECTION] = note;
+		return placeNote(event.systemPromptOptions.sections, ctx, typeof note === "string" ? note : "");
 	});
 
 	pi.registerCommand(COMMAND, {

@@ -41,7 +41,7 @@ describe("installing", () => {
 	test("writes its files, entry point marked, and says so once", () => {
 		const dir = agentDir();
 		expect(installExtension(dir)).toEqual({ kind: "installed" });
-		expect(files(dir)).toEqual(["dialogs.ts", "index.ts", "link.ts", "projection.ts"]);
+		expect(files(dir)).toEqual(["dialogs.ts", "index.ts", "link.ts", "phone-note.ts", "projection.ts"]);
 		expect(readFileSync(extensionEntry(dir), "utf8").startsWith(MARKER)).toBe(true);
 		expect(EXTENSION_FILES.map((file) => readFileSync(join(extensionDirectory(dir), file.name), "utf8"))).toEqual(
 			EXTENSION_FILES.map((file) => file.content),
@@ -58,7 +58,7 @@ describe("installing", () => {
 		expect(installExtension(dir)).toEqual({ kind: "updated" });
 		expect(readFileSync(link, "utf8")).toBe(EXTENSION_FILES.find((file) => file.name === "link.ts")?.content ?? "");
 		expect(statSync(extensionEntry(dir)).mtimeMs).toBe(untouched);
-		expect(files(dir)).toEqual(["dialogs.ts", "index.ts", "link.ts", "projection.ts"]);
+		expect(files(dir)).toEqual(["dialogs.ts", "index.ts", "link.ts", "phone-note.ts", "projection.ts"]);
 	});
 
 	test("leaves a folder of that name that is not the bridge's alone", () => {
