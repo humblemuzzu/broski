@@ -209,7 +209,10 @@ startup: uid 0 without `IS_SANDBOX=1` or `CLAUDE_CODE_BUBBLEWRAP` (read in the 2
 ### D14. Usage and the context figure
 
 `usage_updated` carries the process's running totals from `result.modelUsage` and `total_cost_usd` (subagents and
-compaction included), replacing what was shown, never summed (`mapping/usage.ts`). The context figure comes after
+compaction included), replacing what was shown, never summed (`mapping/usage.ts`), together with `Usage.cache`
+(`CacheWindow` derived from `cacheCreationEphemeral5mInputTokens` / `cacheCreationEphemeral1hInputTokens` with 5 m
+taking precedence over 1 h on mixed writes, `confidence: "exact"` for explicit lifetime breakdowns and `"estimated"`
+for inferred/read-only refreshes, and `lastTouchAt` stamped from the main loop's last `message_start`). The context figure comes after
 each run: once `run_finished` is out, if the host's process is still live, one `getContextUsage({detail:
 "summary"})`, sent as `usage_updated` over the snapshot's usage with `contextTokens = totalTokens` and
 `contextWindow = maxTokens` (the window `/context` divides by; `live/context-after-run.ts`). It is never awaited by

@@ -1,7 +1,7 @@
 # Terms of Service
 
 **Effective Date:** February 13, 2026
-**Last Updated:** February 13, 2026
+**Last Updated:** November 22, 2026
 
 ## 1. Agreement to Terms
 
@@ -55,16 +55,10 @@ Broski is free and open source. There is no in-app purchase, subscription, trial
 You agree to use the App only for lawful purposes and in accordance with these Terms. You agree NOT to:
 
 - Use the App for any illegal purpose or in violation of any applicable law or regulation
-- Attempt to gain unauthorized access to any systems, networks, or accounts
+- Attempt to gain unauthorized access to any systems, networks, or computers
 - Use the App to connect to computers or networks you do not own or have explicit authorization to access
-- Interfere with, disrupt, or attempt to compromise the integrity or performance of the App or our services
-- Attempt to reverse engineer, decompile, disassemble, or derive the source code of the App, except to the extent expressly permitted by applicable law
-- Circumvent, disable, or interfere with any security, licensing, or access-control features of the App
-- Use the App to transmit malware, viruses, or any harmful code
-- Share, transfer, or sublicense your subscription or account to another person
-- Create multiple accounts to circumvent machine limits or other restrictions
-- Use automated means (bots, scripts, scrapers) to access or interact with the App
-- Reproduce, distribute, publicly display, or create derivative works based on the App
+- Interfere with, disrupt, or attempt to compromise the integrity or performance of any relay or network infrastructure you do not own
+- Use the App to transmit malware, viruses, or harmful code to systems without authorization
 
 ### 6.2 Your Computer, Network, and AI Services
 
@@ -87,22 +81,15 @@ You understand and acknowledge that:
 - You should always maintain backups before allowing AI modifications to your codebase
 - AI-generated code may be subject to the terms of the AI service provider (not us)
 
-## 7. Intellectual Property
+## 7. Open-Source License & Intellectual Property
 
-### 7.1 Our Intellectual Property
+### 7.1 MIT License
 
-The App, including its design, user interface, features, graphics, and underlying code, is owned by us and is protected by copyright, trademark, and other intellectual property laws. All rights not expressly granted to you are reserved.
+Broski's source code is licensed under the [MIT License](/LICENSE). You are free to inspect, modify, redistribute, and create derivative works from the source code in accordance with the terms of the MIT License. Nothing in these Terms restricts any rights granted to you under the MIT License.
 
-### 7.2 License Grant
+### 7.2 Compiled Store Distributions
 
-Subject to your compliance with these Terms, we grant you a limited, non-exclusive, non-transferable, non-sublicensable, revocable license to download, install, and use the App on devices you own or control, solely for your personal or internal business purposes.
-
-This license does not include the right to:
-
-- Modify, adapt, or create derivative works of the App
-- Distribute, sublicense, lease, rent, or lend the App
-- Remove, alter, or obscure any proprietary notices in the App
-- Use the App for competitive analysis or to build a competing product
+Official compiled builds distributed via the Apple App Store or Google Play are additionally subject to the respective store's standard distribution terms (Sections 16 and 17). Broski's name and branding remain owned by their respective owner; forks and derivative works should not misrepresent themselves as official Broski releases.
 
 ### 7.3 Your Content
 
@@ -211,22 +198,11 @@ You may terminate these Terms at any time by uninstalling the App from your devi
 
 ### 12.2 By Us
 
-We reserve the right to suspend or terminate your account and access to the App, with or without notice, if:
-
-- You breach any provision of these Terms
-- You engage in fraudulent, abusive, or illegal activity
-- You attempt to circumvent security measures
-- We are required to do so by law, regulation, or legal process
-- We discontinue the App or the service (with reasonable notice when practicable)
+Because Broski requires no cloud account and runs locally on your own devices, we do not maintain user accounts to suspend. We may discontinue publishing official store builds or updating the repository at any time without obligation.
 
 ### 12.3 Effect of Termination
 
-Upon termination:
-
-- Your right to use the App ceases immediately
-- Your license under Section 7.2 is automatically revoked
-- You must uninstall the App from all your devices
-- The following sections survive termination: Sections 6.3 (AI-Generated Content), 7 (Intellectual Property), 9 (Disclaimer of Warranties), 10 (Limitation of Liability), 11 (Indemnification), 14 (Dispute Resolution), and 15 (Governing Law)
+Upon uninstalling the App, your use of any official compiled store build ends. Your rights under the MIT License for the open-source codebase continue in accordance with the MIT License. The following sections survive: Sections 6.3 (AI-Generated Content), 7 (Open-Source License & Intellectual Property), 9 (Disclaimer of Warranties), 10 (Limitation of Liability), 11 (Indemnification), 14 (Dispute Resolution), and 15 (Governing Law).
 
 ## 13. Modifications to Terms and Service
 
@@ -323,7 +299,7 @@ You represent and warrant that you are not located in a country subject to a US 
 
 ### 19.1 Entire Agreement
 
-These Terms, together with our Privacy Policy and any subscription terms presented in the App, constitute the entire agreement between you and us regarding the App and supersede all prior agreements, understandings, and communications.
+These Terms, together with our Privacy Policy and the MIT License (`/LICENSE`) for the source code, constitute the entire agreement between you and us regarding the App and supersede all prior agreements, understandings, and communications.
 
 ### 19.2 Severability
 
@@ -347,7 +323,7 @@ We shall not be liable for any failure or delay in performance due to causes bey
 
 ### 19.7 Notices
 
-We may provide notices to you through the App, via email to the address associated with your account, or by posting updates to our website. You may contact us at the email address listed in Section 20.
+We may provide notices to you through the App or by posting updates in the repository. You may contact us at the email address listed in Section 20.
 
 ### 19.8 Headings
 

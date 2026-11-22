@@ -17,7 +17,7 @@ and VoiceGlowKit's shaders need it), XcodeGen 2.46 (`/opt/homebrew/bin/xcodegen`
 
 ```bash
 scripts/build-ios-app.sh                     # BroskiCore if stale, xcodegen, build for any simulator
-scripts/build-ios-app.sh device              # any iOS device (automatic signing; see CONTRIBUTING.md#ios-signing)
+scripts/build-ios-app.sh device              # any iOS device (automatic signing; see CONTRIBUTING.md#app-identifiers--ios-signing)
 scripts/build-ios-app.sh device --unsigned   # without a provisioning profile
 BROSKI_SIMULATOR="iPhone Duo" scripts/build-ios-app.sh --test   # the unit tests
 BROSKI_SIMULATOR="iPhone Duo" scripts/e2e-ios-app.sh            # the real-machine run below

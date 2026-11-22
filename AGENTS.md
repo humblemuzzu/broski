@@ -86,8 +86,8 @@ apps. See [`ARCHITECTURE.md`](ARCHITECTURE.md) and [`docs/architecture/`](docs/a
   Keystore-sealed DataStore (`core/vault/`). The chat (`feature/chat/`) and New session
   (`feature/newsession/`) are wired in `app/Features.kt`; dictation lives in `core/voice/` and the composer's
   `feature/chat/composer/dictation/`, with Settings › Voice in `feature/settings/`.
-- **App identifiers** ([`apps/carryover/README.md`](apps/carryover/README.md)) — the bundle
-  ids, team, keychain groups and Android application id used by the native apps.
+- **App identifiers & signing** ([`CONTRIBUTING.md`](CONTRIBUTING.md#app-identifiers--ios-signing)) — the bundle
+  ids, keychain groups, app group, Bonjour service and Android application id used by the native apps.
 - **Connection:** direct over the LAN when reachable, otherwise through the relay. No VPN, tunnel, port forwarding
   or public exposure of the bridge.
 - **Auth layers:** QR v2 pairing (`broski://pair?v=2&h=<fingerprint>&s=<one-time secret>&e=<expiry>&n=<name>[&r=<relay>][&l=<lan>]`),

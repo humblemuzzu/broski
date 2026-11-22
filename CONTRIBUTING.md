@@ -117,10 +117,17 @@ What every adapter does today, whatever its tier:
    `bun add --cwd ~/.broski/adapters broski-adapter-example`; absolute paths also work). The core and apps need no
    change.
 
-## iOS signing
+## App identifiers & iOS signing
 
-The project signs as team `FGYQ983C57` with bundle ids under `com.muzammil.broski` and the app group
-`group.com.muzammil.broski` (`apps/carryover/README.md`). Simulator builds and `scripts/build-ios-app.sh device
+Both native apps use the following identifiers:
+
+- **iOS:** bundle id `com.muzammil.broski`, notification extension `com.muzammil.broski.NotificationService`,
+  keychain access groups `$(AppIdentifierPrefix)com.muzammil.broski` and `$(AppIdentifierPrefix)com.muzammil.broski.push`,
+  app group `group.com.muzammil.broski`, Bonjour service `_broski-link._tcp`.
+- **Android:** `applicationId` and `namespace` `com.muzammil.broski` (with cleartext LAN traffic permitted in
+  `network_security_config.xml` for Noise-encrypted LAN sessions to `broski-link`; relay traffic uses `wss://`).
+
+The XcodeGen project currently signs as team `FGYQ983C57`. Simulator builds and `scripts/build-ios-app.sh device
 --unsigned` need no Apple account; CI runs both.
 
 To run the app on your own iPhone, change these locally (paths under `apps/ios/Broski`) and do not commit them:

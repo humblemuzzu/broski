@@ -66,7 +66,7 @@ Then build the app and pair it:
 - **Android** (JDK 17 and the Android SDK; versions in [`CONTRIBUTING.md`](CONTRIBUTING.md)):
   `scripts/build-android-core.sh && scripts/build-android-terminal.sh && (cd apps/android && ./gradlew :app:installDebug)`.
 - **iOS** (Xcode and XcodeGen): `scripts/build-ios-app.sh` builds for the simulator. Signing for your own iPhone is
-  covered in [`CONTRIBUTING.md`](CONTRIBUTING.md#ios-signing).
+  covered in [`CONTRIBUTING.md`](CONTRIBUTING.md#app-identifiers--ios-signing).
 
 In the app, scan the QR code or paste the `broski://pair?…` link. With no relay configured the phone reaches the Mac
 only on the same network; to reach it from anywhere, run your own relay

@@ -1,7 +1,7 @@
 # Privacy Policy
 
 **Effective Date:** February 13, 2026
-**Last Updated:** November 17, 2026
+**Last Updated:** November 22, 2026
 
 ## 1. Introduction
 
@@ -32,7 +32,7 @@ The following data is stored exclusively on your mobile device using platform-na
 | Data | Storage Method | Purpose |
 |------|---------------|---------|
 | Pairing data for each paired computer (the computer's public key and fingerprint, local network addresses, relay address and relay token) and this device's encryption key | iOS Keychain / Android Keystore-encrypted storage | Connecting to your computer through Broski Link |
-| The inbox's last known rows and what you have already seen | Encrypted local storage | Showing your inbox at launch |
+| The inbox's last known rows, seen/unread state, and pinned/muted sessions | Encrypted local storage | Showing your inbox at launch and remembering session preferences |
 | Your xAI API key, if you add one for dictation | iOS Keychain / Android Keystore-encrypted storage | Transcribing what you dictate (section 5.7) |
 | App settings and preferences (theme, notification preferences, selected agent) | Encrypted local storage | Remembering your preferences |
 | Paired computer fingerprints (from the pairing QR code) | Encrypted local storage | Verifying that the end-to-end encrypted connection reaches the computer you paired with |
@@ -104,7 +104,7 @@ None. Broski does not sell subscriptions.
 
 ### 5.3 Cloud Infrastructure
 
-None. There is no Convex (or other) Broski cloud backend.
+None. There is no Broski cloud backend.
 
 ### 5.4 AI Service Providers (User-Configured)
 
@@ -187,7 +187,7 @@ Our legal bases for processing are: performance of contract (providing the local
 If you are a California resident, you have the right to:
 
 - **Know** what personal information we collect and how we use it (described in this policy)
-- **Delete** your personal information (Settings > Account > Delete Account)
+- **Delete** your locally stored data (Settings > Start Over, Machines > Forget, or uninstalling the App)
 - **Opt-out of sale** of personal information -- **We do not sell your personal information**
 - **Non-discrimination** -- We will not discriminate against you for exercising your rights
 
@@ -219,6 +219,7 @@ The App requests the following device permissions:
 |-----------|---------|---------------|
 | Camera | Scanning QR codes for bridge connection setup; attaching photos to AI conversations | None sent to our servers -- photos go to your bridge only |
 | Photo Library | Attaching images to AI conversations | None sent to our servers -- images go to your bridge only |
+| Microphone & Speech Recognition | Dictating prompts into the composer (transcribed on-device, or via xAI with your own API key) | Audio is never sent to our servers |
 | Local Network (iOS) | Connecting directly to your computer on the local network | None |
 | Notifications | Alerting you when AI tasks complete | None |
 
@@ -258,4 +259,4 @@ If you have questions, concerns, or requests regarding this Privacy Policy or yo
 
 **Response time:** We will acknowledge your request within 48 hours and provide a substantive response within 30 days (or sooner if required by applicable law).
 
-For security vulnerabilities, please see our [Security Reporting](../../Public%20Docs/pd/privacy-security.md) documentation.
+For security issues, please open a private security advisory on the [GitHub repository](https://github.com/humblemuzzu/broski/security) or email broskiappp@gmail.com.

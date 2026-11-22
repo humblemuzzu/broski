@@ -171,7 +171,11 @@ tool result from `broski.tool_outcome`.
 `message_update` carries no `partial` over RPC; `toolcall_start` names its call (`docs/json.md:72-93`). Message ids
 are minted by the adapter. A run starts on `agent_start` or a `started` prompt, and ends only on `agent_settled`
 (`aborted` decides aborted). Usage is pulled with `get_session_stats` after each assistant message, before a run's and
-a compaction run's end, and as a session opens. An extension's `sendMessage` with no turn starts no run.
+a compaction run's end, as a session opens, and when Pi's built-in idle cache warmer appends a `usage` entry
+(`entry_appended`). `Usage.cache` reads the model's `promptCache` (`short` / `long` with `cacheWrite1h`, falling back
+to Anthropic 5m/1h only on `provider === "anthropic"` without `promptCache`), labelling explicit writes `exact` and
+read-only refreshes `estimated`. Oversized (>32 MiB) `agent_end` dumps are dropped silently in both `rpc/client.ts`
+and `holder/holder.ts`. An extension's `sendMessage` with no turn starts no run.
 
 ## 6. Input
 
@@ -233,13 +237,16 @@ time its dialog has left, answered to Pi under Pi's own id; one answered before 
 is `broski-permission:` + the call as JSON, passing `ctx.signal`, and the bridge answers with a verdict as JSON
 (`allow`, `allow_session`, `deny` with a message). An edited input is checked with pi-ai's `validateToolArguments`; one
 it refuses is asked again with the problem. Permissions live in the last `broski.permissions` entry, read at
-`session_start` and appended by the bridge through the extension's `broski-host` command. The extension also cancels
+`session_start` and appended by the bridge through the extension's `broski-host` command. `broski_ask` (`host/extension/ask.ts`,
+registered with `defaultActive: false` and additively enabled in new phone sessions unless a cooperating extension claims
+`broski:ask-tool`/`broski:probe-ask-tool`) is exempt from the permission gate. The extension also cancels
 `session_before_switch` and `session_before_fork`, so the `pi` stays on the session the bridge opened.
 
 ## 9. Catalogs
 
 `probeCatalog` runs `pi --mode rpc --no-session` in the directory: `get_state`, `get_available_models`,
-`get_commands`, dialogs cancelled. A listing with a hosted session in that directory asks that `pi` instead. The cache
+`get_commands`; fire-and-forget UI frames are ignored and a blocking startup dialog fails the probe at once naming it
+(since Pi does not read stdin before `session_start` finishes). A listing with a hosted session in that directory asks that `pi` instead. The cache
 holds a read for 30 s while the stamps of Pi's sources (auth, models, settings, trust, extensions, prompts, skills, the
 project's `.pi`) are unchanged, stamped once the probe is done: a first `pi` start writes an empty `auth.json` and
 `models-store.json` (experiment). RPC lists only models Pi can run, so `includeUnavailable` adds nothing. A `pi` with no model reports a placeholder
@@ -259,8 +266,10 @@ A session another client wrote opens watch-only. A terminal `pi` runs the Broski
 agent dir, which reports over a unix socket with a key file ([terminal-link.md](terminal-link.md)); it does nothing
 outside the interactive terminal (`ctx.mode`), so the bridge's own `pi` links nothing. What the terminal asks reaches
 the phone too: the extension wraps Pi's shared `ctx.ui` (`select`, `confirm`, `input`) and listens on
-`broski:questions` ([extension-hints.md](extension-hints.md)), the bridge raises each as an ask (`terminal/dialogs.ts`),
-and the first answer, the terminal's or the phone's, closes the other.
+`broski:questions` in TUI mode ([extension-hints.md](extension-hints.md)), the bridge raises each as an ask (`terminal/dialogs.ts`),
+and the first answer, the terminal's or the phone's, closes the other. When resuming a phone-started session whose
+branch recorded `broski_ask`, `terminal/extension/ask.ts` registers and activates `broski_ask` lazily in TUI mode with
+exact schema parity, racing terminal select/multi-select/input against the phone card.
 
 ## 12. Capabilities
 
@@ -271,7 +280,9 @@ and the first answer, the terminal's or the phone's, closes the other.
 ## 13. Mapping
 
 `mapping/`: stream blocks keyed by content index, tool calls by provider id per response, results with file changes
-for `edit` and `write`, compaction and retry events, error classes, usage copied from Pi's totals.
+for `edit` and `write`, compaction and retry events, error classes (excluding Bedrock `Throttling error:` and
+`Service unavailable:` from overflow), `adapter-kit/phone-text` sanitization on dialogs and questions (mapping cleaned
+option labels back to original labels), and usage + `CacheWindow` from Pi's totals and per-model `promptCache`.
 
 ## 14. Facts relied on, and where they come from
 
