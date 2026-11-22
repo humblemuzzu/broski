@@ -10,7 +10,7 @@ import { isQuestionsAsk, questionsAskOf } from "../host/protocol";
 import { phoneName, phoneText } from "../phone-text";
 import type { DialogRequest } from "../rpc/frames";
 import type { AskOutcome, AskSpec } from "./interactions";
-import { type AskedQuestion, answersOf, questionsAsk } from "./questions-dialog";
+import { type AskedQuestion, type QuestionAnswers, questionsDialog } from "./questions-dialog";
 
 export type DialogAnswer = { readonly value: string } | { readonly confirmed: boolean } | { readonly cancelled: true };
 
@@ -51,12 +51,13 @@ export function raisedAs(dialog: DialogSpec): Raised<DialogAnswer> | undefined {
 export function questionsRaised<Value>(
 	title: string | undefined,
 	asked: readonly AskedQuestion[],
-	value: (answers: NonNullable<ReturnType<typeof answersOf>>) => Value,
+	value: (answers: QuestionAnswers) => Value,
 ): Raised<{ readonly value: Value } | { readonly cancelled: true }> {
+	const dialog = questionsDialog(title, asked);
 	return {
-		spec: questionsAsk(title, asked),
+		spec: dialog.spec,
 		answerOf: (outcome) => {
-			const answers = answersOf(outcome, asked.length);
+			const answers = dialog.answersOf(outcome);
 			return answers === undefined ? { cancelled: true } : { value: value(answers) };
 		},
 	};

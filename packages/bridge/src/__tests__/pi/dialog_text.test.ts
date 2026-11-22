@@ -6,6 +6,7 @@
 import { describe, expect, test } from "bun:test";
 import { raisedAs } from "../../backends/pi/ui/dialog-asks";
 import type { AskSpec } from "../../backends/pi/ui/interactions";
+import { InteractionRequest } from "../../contract";
 
 const RLO = "\u202E";
 const HIDDEN = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/;
@@ -78,5 +79,29 @@ describe("an extension's dialog on the phone", () => {
 			},
 		});
 		for (const text of shown(raised?.spec)) expect(text).not.toMatch(HIDDEN);
+	});
+
+	test("a picked option goes back to the asker as the label it offered, however the phone showed it", () => {
+		const asked = { questions: [{ question: "Keep it?", options: [{ label: "Yes, keep  it" }, { label: "No " }] }] };
+		const raised = raisedAs({ method: "input", title: `broski-questions:${JSON.stringify({ ...asked, run: true })}` });
+		expect(raised?.spec.request).toMatchObject({
+			questions: [{ options: [{ label: "Yes, keep it" }, { label: "No" }] }],
+		});
+		const pick = (selected: string[]) =>
+			raised?.answerOf({ kind: "answered", reply: { kind: "questions", answers: [{ questionId: "0", selected }] } });
+		expect(pick(["Yes, keep it"])).toEqual({ value: JSON.stringify([{ selected: ["Yes, keep  it"] }]) });
+		expect(pick(["No"])).toEqual({ value: JSON.stringify([{ selected: ["No "] }]) });
+	});
+
+	test("an option that cleans to nothing, or to one already shown, is still a distinct option to pick", () => {
+		const options = [{ label: "   " }, { label: "Same" }, { label: "Same\u202E" }, { label: "\u0007" }];
+		const asked = { questions: [{ question: "Which?", options }] };
+		const raised = raisedAs({ method: "input", title: `broski-questions:${JSON.stringify(asked)}` });
+		const request = InteractionRequest.parse(raised?.spec.request);
+		const labels = request.kind === "questions" ? request.questions[0]?.options.map((option) => option.label) : [];
+		expect(labels).toEqual(["Option 1", "Same", "Option 3", "Option 4"]);
+		const answers = [{ questionId: "0", selected: ["Option 1", "Option 3"] }];
+		const answer = raised?.answerOf({ kind: "answered", reply: { kind: "questions", answers } });
+		expect(answer).toEqual({ value: JSON.stringify([{ selected: ["   ", "Same\u202E"] }]) });
 	});
 });

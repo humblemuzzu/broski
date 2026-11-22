@@ -104,7 +104,10 @@ function askResult(questions: unknown, reply: string | undefined): JsonObject {
 	};
 }
 
-/** Registering never activates it (`offerAsk` does): a session's recorded tools say whether it has it. */
+/**
+ * Registering never activates it (`offerAsk` does): a session's recorded tools say whether it has it. Its dialog says
+ * `run: true`: it is bound to the tool call's signal, so it ends with the run (`holder/replay-log.ts`).
+ */
 export function registerAsk(pi: ExtensionAPI): void {
 	pi.registerTool({
 		name: ASK_TOOL,
@@ -113,7 +116,7 @@ export function registerAsk(pi: ExtensionAPI): void {
 		parameters: ASK_PARAMETERS,
 		defaultActive: false,
 		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
-			const text = `${QUESTIONS_PREFIX}${JSON.stringify(params)}`;
+			const text = `${QUESTIONS_PREFIX}${JSON.stringify({ ...params, run: true })}`;
 			const reply = await ctx.ui.input(text, undefined, signal === undefined ? undefined : { signal });
 			const result = askResult(field(params, "questions"), reply);
 			return { content: [{ type: "text", text: JSON.stringify(result) }], details: result };

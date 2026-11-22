@@ -3,9 +3,9 @@
  * replayed through its ordinary event path, it rebuilds the run under way, the asks still open and the extensions'
  * statuses (pi-coding-agent 1.5.2 `docs/json.md`, `docs/rpc-extension-ui.md`). Command responses answer only the bridge
  * that sent them and are not kept. At rest (`agent_settled`, with no compaction or retry open) the record starts over
- * with only the asks nobody answered that have not timed out, and the last status per key. A permission ask and a
- * `broski_ask` question are bound to their run's signal, so Pi dropped them without a word when the run ended
- * (`rpc-mode.js:51-82`): they go then too.
+ * with only the asks nobody answered that have not timed out, and the last status per key. A permission ask and the
+ * questions of `broski_ask` (which say `"run":true`) are bound to their run's signal, so Pi dropped them without a word
+ * when the run ended (`rpc-mode.js:51-82`): they go then too. Another extension's questions may outlive any run.
  */
 
 import { isRecord } from "./protocol";
@@ -13,7 +13,8 @@ import { isRecord } from "./protocol";
 export const MAX_REPLAY_BYTES = 64 * 1024 * 1024;
 
 const DIALOGS: ReadonlySet<unknown> = new Set(["select", "confirm", "input", "editor"]);
-const RUN_BOUND_PREFIXES = ["broski-permission:", "broski-questions:"];
+const PERMISSION_PREFIX = "broski-permission:";
+const QUESTIONS_PREFIX = "broski-questions:";
 
 /** `delta` and `tool_update` lines may go once their message or call has ended: its end line carries all of it. */
 type Kind = "structure" | "delta" | "tool_update" | "transient" | "ask" | "status";
@@ -157,7 +158,7 @@ export class ReplayLog {
 		}
 		if (!DIALOGS.has(method) || typeof id !== "string") return transient(text);
 		const expiresAt = typeof timeout === "number" && timeout > 0 ? this.now() + timeout : undefined;
-		const runBound = typeof title === "string" && RUN_BOUND_PREFIXES.some((prefix) => title.startsWith(prefix));
+		const runBound = typeof title === "string" && isRunBound(title);
 		return { text, kind: "ask", key: id, ask: { expiresAt, runBound }, dropped: false };
 	}
 
@@ -225,6 +226,17 @@ function parsed(text: string): Readonly<Record<string, unknown>> | undefined {
 		return isRecord(value) && typeof value.type === "string" ? value : undefined;
 	} catch {
 		return undefined;
+	}
+}
+
+function isRunBound(title: string): boolean {
+	if (title.startsWith(PERMISSION_PREFIX)) return true;
+	if (!title.startsWith(QUESTIONS_PREFIX)) return false;
+	try {
+		const payload: unknown = JSON.parse(title.slice(QUESTIONS_PREFIX.length));
+		return isRecord(payload) && payload.run === true;
+	} catch {
+		return false;
 	}
 }
 

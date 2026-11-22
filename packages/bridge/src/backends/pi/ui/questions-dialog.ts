@@ -39,42 +39,68 @@ export const QuestionAnswers = z
 	.max(MAX_QUESTIONS);
 export type QuestionAnswers = z.infer<typeof QuestionAnswers>;
 
+/** The questions as the phone is asked them, and its reply as the answers the asker reads. */
+export interface QuestionsDialog {
+	readonly spec: AskSpec;
+	/** The answers in the questions' order, each pick the label the asker offered; a question left out has none. */
+	answersOf(outcome: Extract<AskOutcome, { kind: "answered" }>): QuestionAnswers | undefined;
+}
+
 /** Every question takes words of the person's own, as a picker's "type your own answer" row does; none is required. */
-export function questionsAsk(title: string | undefined, asked: readonly AskedQuestion[]): AskSpec {
+export function questionsDialog(title: string | undefined, asked: readonly AskedQuestion[]): QuestionsDialog {
+	const offered = asked.map((item) => shownLabels(item.options ?? []));
 	const questions = asked.map((item, index): Question => {
-		const header = item.header === undefined ? "" : phoneName(item.header).trim();
+		const header = item.header === undefined ? "" : phoneName(item.header);
+		const shown = offered[index] ?? new Map<string, string>();
 		return {
 			id: String(index).slice(0, MAX_ID_CHARS),
 			...(header !== "" && { header }),
 			text: phoneText(item.question),
-			options: (item.options ?? []).map((option) => ({
-				label: phoneName(option.label),
-				...(option.description !== undefined && { description: phoneText(option.description) }),
-			})),
+			options: [...shown.keys()].map((label, at) => {
+				const description = item.options?.[at]?.description;
+				return { label, ...(description !== undefined && { description: phoneText(description) }) };
+			}),
 			multiSelect: item.multiple === true,
 			allowCustom: true,
 			secret: false,
 			required: false,
 		};
 	});
-	const shown = phoneName(title ?? "").trim();
+	const shownTitle = phoneName(title ?? "");
 	return {
-		title: shown !== "" ? shown : (questions[0]?.text.split("\n")[0] ?? "A question"),
-		request: { kind: "questions", questions },
+		spec: {
+			title: shownTitle !== "" ? shownTitle : (questions[0]?.text.split("\n")[0] ?? "A question"),
+			request: { kind: "questions", questions },
+		},
+		answersOf: (outcome) => answersOf(outcome, offered),
 	};
 }
 
-/** The answers in the questions' order; a question left out of the reply has none. */
-export function answersOf(
+/**
+ * Each option's label as the phone shows it, to the label the asker offered, in the options' order. A label that
+ * cleans to nothing or to one already shown is `Option N`: the contract takes neither.
+ */
+function shownLabels(options: NonNullable<AskedQuestion["options"]>): Map<string, string> {
+	const shown = new Map<string, string>();
+	options.forEach((option, index) => {
+		let label = phoneName(option.label);
+		if (label === "" || shown.has(label)) label = `Option ${index + 1}`;
+		while (shown.has(label)) label = `${label}'`;
+		shown.set(label, option.label);
+	});
+	return shown;
+}
+
+function answersOf(
 	outcome: Extract<AskOutcome, { kind: "answered" }>,
-	count: number,
+	offered: readonly ReadonlyMap<string, string>[],
 ): QuestionAnswers | undefined {
 	const { reply } = outcome;
 	if (reply.kind !== "questions") return undefined;
-	return Array.from({ length: count }, (_, index) => {
+	return offered.map((labels, index) => {
 		const given = reply.answers.find((answer) => answer.questionId === String(index));
 		return {
-			selected: given?.selected ?? [],
+			selected: (given?.selected ?? []).map((label) => labels.get(label) ?? label),
 			...(given?.custom !== undefined && given.custom !== "" && { custom: given.custom }),
 		};
 	});

@@ -63,7 +63,7 @@ describe("asks", () => {
 			type: "extension_ui_request",
 			id: "q",
 			method: "input",
-			title: 'broski-questions:{"questions":[{"question":"Which store?"}]}',
+			title: 'broski-questions:{"questions":[{"question":"Which store?"}],"run":true}',
 		});
 		const { log, clock } = logWith(
 			line({ type: "agent_start" }),
@@ -87,6 +87,27 @@ describe("asks", () => {
 		expect(log.state()).toEqual({ running: false, asking: true });
 		log.resolved("open");
 		expect(log.state()).toEqual({ running: false, asking: false });
+	});
+
+	test("another extension's questions, bound to no run, outlive a settle and a compaction's end", () => {
+		const idle = line({
+			type: "extension_ui_request",
+			id: "idle",
+			method: "input",
+			title: 'broski-questions:{"questions":[{"question":"Deploy now?"}]}',
+		});
+		const broken = line({ type: "extension_ui_request", id: "odd", method: "input", title: "broski-questions:{" });
+		const { log } = logWith(
+			idle,
+			broken,
+			line({ type: "agent_start" }),
+			line({ type: "agent_settled", aborted: false }),
+		);
+		expect(log.openAsks()).toEqual(["idle", "odd"]);
+		log.take(line({ type: "compaction_start", reason: "manual" }));
+		log.take(line({ type: "compaction_end", reason: "manual", aborted: false }));
+		expect(log.openAsks()).toEqual(["idle", "odd"]);
+		expect(log.state()).toEqual({ running: false, asking: true });
 	});
 
 	test("an extension's status is kept, its latest value per key", () => {
