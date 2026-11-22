@@ -2,7 +2,7 @@ package com.muzammil.broski.feature.chat
 
 import android.content.ClipData
 import android.content.Context
-import android.content.Intent
+import android.content.res.Resources
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -21,26 +21,47 @@ import com.muzammil.broski.core.SessionMark
 import com.muzammil.broski.design.Haptic
 import com.muzammil.broski.design.perform
 import com.muzammil.broski.feature.chat.header.SessionMenuActions
+import java.io.IOException
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
-/** Puts a value on the clipboard with the haptic that says it is there, then does [copy]'s `after`. */
-class ChatCopier(private val clipboard: Clipboard, private val haptics: HapticFeedback, private val scope: CoroutineScope) {
-    fun copy(label: String, value: String, after: suspend () -> Unit = {}) {
+/**
+ * Puts a value on the clipboard with the haptic that says it is there, and [copy]'s `confirmation` in
+ * the snackbar. A value too large for the system's clipboard is refused with a `RuntimeException`
+ * (a `TransactionTooLargeException` within); that is said, never thrown.
+ */
+class ChatCopier(
+    private val clipboard: Clipboard,
+    private val haptics: HapticFeedback,
+    private val snackbar: SnackbarHostState,
+    private val resources: Resources,
+    private val scope: CoroutineScope,
+) {
+    fun copy(label: String, value: String, confirmation: String? = null) {
         scope.launch {
-            clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(label, value)))
+            try {
+                clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(label, value)))
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: RuntimeException) {
+                haptics.perform(Haptic.Failure)
+                snackbar.showSnackbar(resources.getString(R.string.chat_copy_too_large))
+                return@launch
+            }
             haptics.perform(Haptic.Success)
-            after()
+            confirmation?.let { snackbar.showSnackbar(it) }
         }
     }
 }
 
 @Composable
-fun rememberChatCopier(): ChatCopier {
+fun rememberChatCopier(snackbar: SnackbarHostState): ChatCopier {
     val clipboard = LocalClipboard.current
     val haptics = LocalHapticFeedback.current
+    val resources = LocalResources.current
     val scope = rememberCoroutineScope()
-    return remember(clipboard, haptics, scope) { ChatCopier(clipboard, haptics, scope) }
+    return remember(clipboard, haptics, snackbar, resources, scope) { ChatCopier(clipboard, haptics, snackbar, resources, scope) }
 }
 
 /** The overflow's actions for the chat's session, each wired to what does it. */
@@ -53,6 +74,7 @@ fun sessionMenuActions(model: ChatViewModel, dialogs: ChatDialogs, snackbar: Sna
     val muted by model.phone.muted.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val resources = LocalResources.current
+    val scope = rememberCoroutineScope()
     val key = model.sessionKey
     val backend = catalog.capabilities
     val title = header.title ?: resources.getString(R.string.inbox_untitled)
@@ -61,26 +83,33 @@ fun sessionMenuActions(model: ChatViewModel, dialogs: ChatDialogs, snackbar: Sna
         togglePin = { model.phone.setMarked(SessionMark.Pinned, key, key !in pinned) },
         rename = dialogs.rename.takeIf { backend?.rename == true },
         copySessionId = {
-            val id = key.sessionId
-            copier.copy(resources.getString(R.string.info_session_id), id) { snackbar.showSnackbar(resources.getString(R.string.chat_session_id_copied)) }
+            copier.copy(resources.getString(R.string.info_session_id), key.sessionId, resources.getString(R.string.chat_session_id_copied))
         },
         markUnread = model::markUnread.takeIf { header.settled },
         muted = key in muted,
         toggleMute = { model.phone.setMarked(SessionMark.Muted, key, key !in muted) },
         compact = model.actions::compact.takeIf { live.capabilities?.compact == true },
         fork = model.actions::fork.takeIf { backend?.fork == true },
-        shareMarkdown = { shareText(context, title, model.conversationText()) },
+        shareMarkdown = { share(scope, context, snackbar, title, model.conversationText()) },
         copyConversation = { copier.copy(title, model.conversationText()) },
         sessionInfo = openInfo,
         delete = dialogs.delete.takeIf { backend?.delete == true },
     )
 }
 
-private fun shareText(context: Context, subject: String, text: String) {
-    val send = Intent(Intent.ACTION_SEND).apply {
-        type = "text/plain"
-        putExtra(Intent.EXTRA_SUBJECT, subject)
-        putExtra(Intent.EXTRA_TEXT, text)
+/** Shares the conversation, saying so in the snackbar when no app took it or its file could not be written. */
+private fun share(scope: CoroutineScope, context: Context, snackbar: SnackbarHostState, subject: String, text: String) {
+    scope.launch {
+        val shared = try {
+            shareConversation(context, subject, text)
+            true
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: RuntimeException) {
+            false
+        } catch (_: IOException) {
+            false
+        }
+        if (!shared) snackbar.showSnackbar(context.getString(R.string.chat_share_failed))
     }
-    context.startActivity(Intent.createChooser(send, subject))
 }

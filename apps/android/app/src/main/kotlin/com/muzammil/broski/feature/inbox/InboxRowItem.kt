@@ -68,30 +68,62 @@ fun InboxRowItem(
     val title = row.title ?: stringResource(R.string.inbox_untitled)
     val ask = askLine(row, agent)
     val offline = row.cached || (health != null && !health.isOnline)
-    val healthLabel = health?.takeIf { !it.isOnline }?.label(row.machineName)
+    val look = RowLook(title, ask, health?.takeIf { !it.isOnline }?.label(row.machineName), pinned, muted)
     val decisions = row.quickDecisions
     val sessionActions = row.actions(pinned, muted)
     var menuOpen by remember { mutableStateOf(false) }
     val showMenu = { menuOpen = true }
-    val description = stringResource(
-        R.string.inbox_row_description,
-        stringResource(row.state.label),
-        if (row.state == InboxState.NEEDS_YOU) ask else title,
-        listOfNotNull(listOfNotNull(row.machineName, row.folder).joinToString(", "), healthLabel).joinToString(". "),
-    )
-    val actions = decisions.map { decision ->
-        CustomAccessibilityAction(stringResource(decision.label)) {
-            onAnswer(decision)
-            true
-        }
-    } + sessionActions.map { action ->
-        CustomAccessibilityAction(stringResource(action.label)) {
-            onAction(action)
-            true
-        }
-    }
     val open = onOpen ?: showMenu
-    val semantics = modifier.alpha(if (offline) OFFLINE_ALPHA else 1f).clearAndSetSemantics {
+    val semantics = modifier.rowSemantics(
+        description = rowDescription(row, look),
+        actions = accessibilityActions(decisions, sessionActions, onAnswer, onAction),
+        offline = offline,
+        open = open,
+    )
+    Box {
+        RowItem(row, agent, look, shapes, open, showMenu, semantics)
+        RowMenu(
+            expanded = menuOpen,
+            decisions = decisions,
+            actions = sessionActions,
+            busy = busy,
+            onDismiss = { menuOpen = false },
+            onAnswer = onAnswer,
+            onAction = onAction,
+        )
+    }
+}
+
+/** What TalkBack reads: the state, then what it asks or its title, then where it runs and how its machine is. */
+@Composable
+private fun rowDescription(row: InboxRow, look: RowLook): String = stringResource(
+    R.string.inbox_row_description,
+    stringResource(row.state.label),
+    if (row.state == InboxState.NEEDS_YOU) look.ask else look.title,
+    listOfNotNull(listOfNotNull(row.machineName, row.folder).joinToString(", "), look.healthLabel).joinToString(". "),
+)
+
+@Composable
+private fun accessibilityActions(
+    decisions: List<Decision>,
+    sessionActions: List<RowAction>,
+    onAnswer: (Decision) -> Unit,
+    onAction: (RowAction) -> Unit,
+): List<CustomAccessibilityAction> = decisions.map { decision ->
+    CustomAccessibilityAction(stringResource(decision.label)) {
+        onAnswer(decision)
+        true
+    }
+} + sessionActions.map { action ->
+    CustomAccessibilityAction(stringResource(action.label)) {
+        onAction(action)
+        true
+    }
+}
+
+/** Dimmed while offline; one node for TalkBack that opens on a tap and offers every action. */
+private fun Modifier.rowSemantics(description: String, actions: List<CustomAccessibilityAction>, offline: Boolean, open: () -> Unit) =
+    alpha(if (offline) OFFLINE_ALPHA else 1f).clearAndSetSemantics {
         contentDescription = description
         customActions = actions
         onClick {
@@ -99,25 +131,6 @@ fun InboxRowItem(
             true
         }
     }
-    Box {
-        RowItem(row, agent, RowLook(title, ask, healthLabel, pinned, muted), shapes, open, showMenu, semantics)
-        RowMenu(
-            expanded = menuOpen,
-            decisions = decisions,
-            actions = sessionActions,
-            busy = busy,
-            onDismiss = { menuOpen = false },
-            onAnswer = { decision ->
-                menuOpen = false
-                onAnswer(decision)
-            },
-            onAction = { action ->
-                menuOpen = false
-                onAction(action)
-            },
-        )
-    }
-}
 
 /** "Claude Code wants to run npm test", or the agent's own words for any other ask. */
 @Composable

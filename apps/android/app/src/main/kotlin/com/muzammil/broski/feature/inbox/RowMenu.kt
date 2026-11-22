@@ -27,7 +27,7 @@ fun InboxRow.actions(pinned: Boolean, muted: Boolean): List<RowAction> = listOfN
     if (muted) RowAction.Unmute else RowAction.Mute,
 )
 
-/** Approve and Deny for a row's pending tool permission, then what else can be done to its session; each item acts only on its tap. */
+/** Approve and Deny for a row's pending tool permission, then what else can be done to its session; a tap closes the menu, then acts. */
 @Composable
 fun RowMenu(
     expanded: Boolean,
@@ -46,7 +46,10 @@ fun RowMenu(
             }
             DropdownMenuItem(
                 text = { Text(stringResource(decision.label)) },
-                onClick = { onAnswer(decision) },
+                onClick = {
+                    onDismiss()
+                    onAnswer(decision)
+                },
                 enabled = !busy,
                 leadingIcon = { Icon(painterResource(decision.icon), contentDescription = null, tint = tint) },
             )
@@ -55,7 +58,10 @@ fun RowMenu(
         actions.forEach { action ->
             DropdownMenuItem(
                 text = { Text(stringResource(action.label)) },
-                onClick = { onAction(action) },
+                onClick = {
+                    onDismiss()
+                    onAction(action)
+                },
                 leadingIcon = { Icon(painterResource(action.icon), contentDescription = null) },
             )
         }

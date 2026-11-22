@@ -21,6 +21,8 @@
     <string name="chat_delete_confirm">Delete</string>
     <string name="chat_copy_session_id">Copy session ID</string>
     <string name="chat_session_id_copied">Session ID copied</string>
+    <string name="chat_copy_too_large">The conversation is too long for the clipboard. Share it instead.</string>
+    <string name="chat_share_failed">Couldn\'t share the conversation.</string>
     <string name="chat_share_markdown">Share as Markdown</string>
     <string name="chat_session_info">Session info</string>
     <string name="session_pin">Pin</string>

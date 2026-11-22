@@ -76,7 +76,8 @@ A device needs Google Play services for FCM (the `_playstore` emulator images ha
   machine that stores nothing and can be tried again, a sentence for every `LinkFailure`); inbox sections
   from real `InboxRow` values, pinned rows once each right below Needs you, and which of Mark as unread or
   read a row offers (`InboxModelTest`); Session info's names from the catalog, context fill, token totals
-  and cost (`SessionInfoTest`); Approve and Deny only for the options a row's `pending` carries, and each
+  and cost (`SessionInfoTest`); a conversation shared inline up to the limit and as a UTF-8 file beyond it,
+  under a safe name, the newest files kept (`ConversationShareTest`); Approve and Deny only for the options a row's `pending` carries, and each
   answer's haptic (`RowAnswerTest`); `MachineHealth` from `MachineStatus`; NSD routes; a new session's
 projects from every agent's sessions and what it starts with before and after the person picks
 (`NewSessionChoiceTest`). The files screens' models
@@ -269,7 +270,9 @@ terminal/     the :terminal module: libghostty-vt's JNI shim (src/main/c) and Vt
   mobile-packaging.md §1 says). Mark as unread in its overflow goes back to the inbox and leaves the session
   unread (`PhoneSession.markUnread`, `Inbox.markUnread`): neither leaving nor following the session marks it
   seen after that. The overflow groups Pin, Rename, Copy session ID, Mark as unread and Mute; Compact, Fork,
-  Share as Markdown, Copy conversation and Session info (a sheet with the session's details, model and
+  Share as Markdown (inline text up to 100,000 characters, past that a `.md` file in the cache's `shared/`
+  through the FileProvider), Copy conversation (one too long for the clipboard is refused with a word, not a
+  crash) and Session info (a sheet with the session's details, model and
   settings, context and token use, and the prompt cache counting down); then Delete.
 - **More routes**: add them to the sealed `Route` in `app/Routes.kt` (serializable; restored after process
   death) and register them where `Shell.kt` registers the slots.

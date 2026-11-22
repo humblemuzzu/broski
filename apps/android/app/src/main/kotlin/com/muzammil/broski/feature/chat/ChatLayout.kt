@@ -161,7 +161,7 @@ private fun Header(model: ChatViewModel, context: FeatureContext, dialogs: ChatD
     val catalog by model.catalog.catalog.collectAsStateWithLifecycle()
     var menuOpen by remember { mutableStateOf(false) }
     var infoOpen by rememberSaveable { mutableStateOf(false) }
-    val copier = rememberChatCopier()
+    val copier = rememberChatCopier(snackbar)
     val usage = live.snapshot.usage
     val window = usage?.contextWindow ?: catalog.model(live.snapshot.modelId)?.contextWindow
     val actions = sessionMenuActions(model, dialogs, snackbar, copier) { infoOpen = true }
