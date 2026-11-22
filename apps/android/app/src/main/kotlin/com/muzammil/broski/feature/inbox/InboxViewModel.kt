@@ -3,6 +3,8 @@ package com.muzammil.broski.feature.inbox
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.muzammil.broski.core.PhoneSession
+import com.muzammil.broski.core.SessionMark
+import com.muzammil.broski.core.sessionKey
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -23,13 +25,23 @@ class InboxViewModel(private val phone: PhoneSession) : ViewModel() {
     private val answering = MutableStateFlow<Set<String>>(emptySet())
     private val answerEvents = MutableSharedFlow<RowAnswer>(extraBufferCapacity = 8)
 
+    private val marks = combine(phone.pinned, phone.muted, ::SessionMarks)
+
     val state: StateFlow<InboxUiState> =
-        combine(phone.inboxRows, phone.machines, workingOnly, refreshing, answering, ::inboxUiState)
-            .stateIn(
-                viewModelScope,
-                SharingStarted.WhileSubscribed(5_000),
-                inboxUiState(phone.inboxRows.value, phone.machines.value, workingOnly = false, refreshing = false),
-            )
+        combine(phone.inboxRows, phone.machines, workingOnly, refreshing, combine(answering, marks, ::Pair)) {
+                rows, machines, only, pulling, (sending, marked) ->
+            inboxUiState(rows, machines, only, pulling, sending, marked)
+        }.stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5_000),
+            inboxUiState(
+                phone.inboxRows.value,
+                phone.machines.value,
+                workingOnly = false,
+                refreshing = false,
+                marks = SessionMarks(phone.pinned.value, phone.muted.value),
+            ),
+        )
 
     /** Each answer given from a row, once, for its haptic and what the screen says of it. */
     val answers: SharedFlow<RowAnswer> = answerEvents.asSharedFlow()
@@ -40,6 +52,15 @@ class InboxViewModel(private val phone: PhoneSession) : ViewModel() {
 
     fun markAllSeen() {
         phone.markAllSeen()
+    }
+
+    fun act(row: InboxRow, action: RowAction) {
+        when (action) {
+            RowAction.Pin, RowAction.Unpin -> phone.setMarked(SessionMark.Pinned, row.sessionKey, action == RowAction.Pin)
+            RowAction.Mute, RowAction.Unmute -> phone.setMarked(SessionMark.Muted, row.sessionKey, action == RowAction.Mute)
+            RowAction.MarkUnread -> phone.markUnread(row.machineId, row.session)
+            RowAction.MarkRead -> phone.markSeen(row.machineId, row.session)
+        }
     }
 
     fun refresh() {

@@ -14,7 +14,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import uniffi.broski_contract.BackendDescriptor
@@ -62,6 +65,12 @@ class PhoneSession internal constructor(
     /** A machine's catalog changed (models, commands, modes, or its backends): what a screen read of it is out of date. */
     val catalogChanges: SharedFlow<CatalogChange> = catalog.asSharedFlow()
 
+    /** Sessions the inbox lists right below Needs you. */
+    val pinned: StateFlow<Set<SessionKey>> = marked(SessionMark.Pinned)
+
+    /** Sessions whose pushes this phone does not post. */
+    val muted: StateFlow<Set<SessionKey>> = marked(SessionMark.Muted)
+
     init {
         started.forEach(::watch)
         scope.launch { readInbox() }
@@ -94,7 +103,13 @@ class PhoneSession internal constructor(
         unreadable.update { it - id }
         vault.deleteRecord(id)
         vault.deleteDrafts(id)
+        vault.unmark { it.machineId == id }
     }
+
+    fun setMarked(mark: SessionMark, session: SessionKey, marked: Boolean) = editMarks { vault.mark(mark) { if (marked) it + session else it - session } }
+
+    /** The session is gone from its machine: nothing keeps it pinned or muted. */
+    fun sessionDeleted(session: SessionKey) = editMarks { vault.unmark { it == session } }
 
     /** What the person had typed in a session's composer and not sent, if anything. */
     suspend fun draft(machineId: String, session: SessionRef): String? = try {
@@ -124,6 +139,9 @@ class PhoneSession internal constructor(
     fun markSeen(machineId: String, session: SessionRef) = inbox.markSeen(machineId, session)
 
     fun markAllSeen() = inbox.markAllSeen()
+
+    /** The person wants the settled session back in Done until they open it again. */
+    fun markUnread(machineId: String, session: SessionRef) = inbox.markUnread(machineId, session)
 
     suspend fun refresh() = inbox.refresh()
 
@@ -197,6 +215,23 @@ class PhoneSession internal constructor(
                 update.cache?.let { vault.saveInboxCache(it) }
             } catch (error: IOException) {
                 Log.e(TAG, "the inbox's state could not be stored", error)
+            }
+        }
+    }
+
+    private fun marked(mark: SessionMark): StateFlow<Set<SessionKey>> = vault.marked(mark)
+        .catch { error ->
+            if (error !is IOException) throw error
+            Log.e(TAG, "the sessions marked $mark could not be read", error)
+        }
+        .stateIn(scope, SharingStarted.Eagerly, emptySet())
+
+    private fun editMarks(edit: suspend () -> Unit) {
+        scope.launch {
+            try {
+                edit()
+            } catch (error: IOException) {
+                Log.e(TAG, "a session's marks could not be stored", error)
             }
         }
     }

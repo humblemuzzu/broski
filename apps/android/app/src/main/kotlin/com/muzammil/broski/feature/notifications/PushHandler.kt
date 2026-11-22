@@ -3,9 +3,12 @@ package com.muzammil.broski.feature.notifications
 import android.content.Context
 import android.util.Log
 import com.muzammil.broski.R
+import com.muzammil.broski.core.SessionKey
+import com.muzammil.broski.core.SessionMark
 import com.muzammil.broski.core.settings.NotificationKind
 import com.muzammil.broski.core.vault.Vault
 import java.io.IOException
+import kotlinx.coroutines.flow.first
 import uniffi.broski_core.ClientException
 import uniffi.broski_core.MachineRecord
 import uniffi.broski_core.openNotification
@@ -24,7 +27,7 @@ class PushHandler(
     private val nowMs: () -> Long = System::currentTimeMillis,
     private val seen: PushDedup = SharedDedup,
 ) {
-    /** The alert that was posted, or null when the push was dropped (unknown machine, turned off, stale, duplicate, foreground, unreadable). */
+    /** The alert that was posted, or null when the push was dropped (unknown machine, turned off, muted, stale, duplicate, foreground, unreadable). */
     suspend fun handle(data: Map<String, String>): Alert? {
         val push = RelayPush.of(data) ?: return dropped("not a relay push: ${data.keys}")
         if (push.kind.preference !in enabled()) return null
@@ -48,6 +51,7 @@ class PushHandler(
             null
         } ?: return null
         val (alert, atMs) = decoded
+        if (alert.mutedBy(muted())) return dropped("session is muted")
         val dedupKey = "${alert.tag}:${atMs ?: push.payload.hashCode()}"
         if (!seen.record(dedupKey)) return dropped("duplicate push")
         if (push.kind == PushKind.Done && atMs != null && nowMs() - atMs > DONE_STALE_MS) {
@@ -58,6 +62,13 @@ class PushHandler(
         }
         notifier.post(alert)
         return alert
+    }
+
+    private suspend fun muted(): Set<SessionKey> = try {
+        vault.marked(SessionMark.Muted).first()
+    } catch (error: IOException) {
+        Log.e(TAG, "the muted sessions could not be read", error)
+        emptySet()
     }
 
     private fun offline(record: MachineRecord, push: RelayPush): Alert? {

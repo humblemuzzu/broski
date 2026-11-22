@@ -58,6 +58,7 @@
 
     <!-- Inbox -->
     <string name="inbox_section_needs_you">Needs you</string>
+    <string name="inbox_section_pinned">Pinned</string>
     <string name="inbox_section_working">Working</string>
     <string name="inbox_section_done">Done</string>
     <string name="inbox_section_idle">Idle</string>

@@ -1,8 +1,5 @@
 package com.muzammil.broski.feature.chat.header
 
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.selectAll
@@ -23,43 +20,53 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
-import com.muzammil.broski.feature.chat.breakdown
-import uniffi.broski_contract.CacheWindow
 
-/** What the session's overflow offers: each item present only when the session can do it. */
+/** What the session's overflow offers: an item without its action is one the session cannot do. */
 class SessionMenuActions(
-    val fork: (() -> Unit)?,
+    val pinned: Boolean,
+    val togglePin: () -> Unit,
     val rename: (() -> Unit)?,
-    val delete: (() -> Unit)?,
+    val copySessionId: () -> Unit,
+    val markUnread: (() -> Unit)?,
+    val muted: Boolean,
+    val toggleMute: () -> Unit,
     val compact: (() -> Unit)?,
+    val fork: (() -> Unit)?,
+    val shareMarkdown: () -> Unit,
     val copyConversation: () -> Unit,
+    val sessionInfo: () -> Unit,
+    val delete: (() -> Unit)?,
 )
 
-/** The overflow: the prompt cache's numbers when it holds any, then what the session can do. */
+/** The overflow: the session itself, then its conversation, then Delete apart from the rest. */
 @Composable
-fun SessionMenu(expanded: Boolean, actions: SessionMenuActions, cache: CacheWindow?, onDismiss: () -> Unit) {
+fun SessionMenu(expanded: Boolean, actions: SessionMenuActions, onDismiss: () -> Unit) {
     DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
-        cache?.breakdown(nowMs = System.currentTimeMillis())?.takeIf { it.isNotEmpty() }?.let { lines -> CacheBreakdown(lines) }
-        MenuItem(R.string.chat_fork, R.drawable.ic_call_split, actions.fork, onDismiss)
+        if (actions.pinned) {
+            MenuItem(R.string.session_unpin, R.drawable.ic_keep_off, actions.togglePin, onDismiss)
+        } else {
+            MenuItem(R.string.session_pin, R.drawable.ic_keep, actions.togglePin, onDismiss)
+        }
         MenuItem(R.string.chat_rename, R.drawable.ic_edit, actions.rename, onDismiss)
+        MenuItem(R.string.chat_copy_session_id, R.drawable.ic_tag, actions.copySessionId, onDismiss)
+        MenuItem(R.string.session_mark_unread, R.drawable.ic_mark_chat_unread, actions.markUnread, onDismiss)
+        if (actions.muted) {
+            MenuItem(R.string.session_unmute, R.drawable.ic_notifications, actions.toggleMute, onDismiss)
+        } else {
+            MenuItem(R.string.session_mute, R.drawable.ic_notifications_off, actions.toggleMute, onDismiss)
+        }
+        HorizontalDivider()
         MenuItem(R.string.chat_compact, R.drawable.ic_compress, actions.compact, onDismiss)
+        MenuItem(R.string.chat_fork, R.drawable.ic_call_split, actions.fork, onDismiss)
+        MenuItem(R.string.chat_share_markdown, R.drawable.ic_share, actions.shareMarkdown, onDismiss)
         MenuItem(R.string.chat_copy_conversation, R.drawable.ic_content_copy, actions.copyConversation, onDismiss)
-        MenuItem(R.string.chat_delete, R.drawable.ic_delete, actions.delete, onDismiss, destructive = true)
-    }
-}
-
-@Composable
-private fun CacheBreakdown(lines: List<String>) {
-    Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp).widthIn(max = 280.dp).semantics(mergeDescendants = true) {}) {
-        Text(stringResource(R.string.chat_prompt_cache), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-        lines.forEach { line ->
-            Text(line, style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        MenuItem(R.string.chat_session_info, R.drawable.ic_info, actions.sessionInfo, onDismiss)
+        if (actions.delete != null) {
+            HorizontalDivider()
+            MenuItem(R.string.chat_delete, R.drawable.ic_delete, actions.delete, onDismiss, destructive = true)
         }
     }
-    HorizontalDivider()
 }
 
 @Composable

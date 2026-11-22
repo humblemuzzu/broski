@@ -1,6 +1,7 @@
 package com.muzammil.broski.feature.notifications
 
 import com.muzammil.broski.core.BackendIds
+import com.muzammil.broski.core.SessionKey
 import com.muzammil.broski.core.settings.NotificationKind
 import java.io.File
 import java.util.Base64
@@ -36,6 +37,22 @@ class NotificationModelTest {
         assertEquals("req-1", alert.request)
         assertEquals("$machine/claude-code/s-1/req-1", alert.tag)
         assertEquals("$machine/claude-code/s-1", alert.group)
+    }
+
+    @Test
+    fun aMutedSessionsPushIsSilencedWhileAnotherSessionOnTheSameMachineStillAlerts() {
+        val data = mapOf("m" to machine, "k" to "approval", "e" to File(fixtures, "push.txt").readText().trim())
+        val push = requireNotNull(RelayPush.of(data))
+        val opened = MachineRecord.fromBytes(File(fixtures, "push-record.json").readBytes()).use { openNotification(it, push.payload) }
+        val alert = Alert.of(push.machineId, push.kind, opened)
+        val sibling = SessionKey(machine, "claude-code", "s-2")
+
+        assertTrue(alert.mutedBy(setOf(SessionKey(machine, "claude-code", "s-1"))))
+        assertFalse(alert.mutedBy(setOf(sibling)))
+        assertFalse("the same id under another backend is another session", alert.mutedBy(setOf(SessionKey(machine, "pi", "s-1"))))
+        assertFalse(alert.mutedBy(emptySet()))
+        val offline = alert.copy(tag = "$machine/offline", channel = Channel.MachineOffline, session = null, request = null)
+        assertFalse("muting every session leaves the machine's own alerts on", offline.mutedBy(setOf(SessionKey(machine, "claude-code", "s-1"), sibling)))
     }
 
     @Test

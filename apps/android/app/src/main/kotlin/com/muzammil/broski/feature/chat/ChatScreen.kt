@@ -96,6 +96,10 @@ private fun Events(model: ChatViewModel, context: FeatureContext, snackbar: Snac
                     context.back()
                     null
                 }
+                ChatEvent.LeftUnread -> {
+                    context.back()
+                    null
+                }
                 is ChatEvent.OpenSession -> {
                     context.navigate(SessionRoute.of(model.machineId, event.session))
                     null

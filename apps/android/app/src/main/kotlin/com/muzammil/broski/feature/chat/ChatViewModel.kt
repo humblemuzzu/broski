@@ -3,6 +3,7 @@ package com.muzammil.broski.feature.chat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.muzammil.broski.core.PhoneSession
+import com.muzammil.broski.core.SessionKey
 import com.muzammil.broski.core.agent
 import com.muzammil.broski.core.isOnline
 import com.muzammil.broski.core.voice.Dictation
@@ -44,6 +45,7 @@ import uniffi.broski_core.ClientException
 import uniffi.broski_core.DictationSources
 import uniffi.broski_core.Machine
 import uniffi.broski_core.SessionChange
+import uniffi.broski_core.ViewEnd
 
 /**
  * One chat: the session's live view and transcript, its catalog for the composer, and the
@@ -61,6 +63,7 @@ class ChatViewModel(
     private val mutableNotices = MutableStateFlow<List<ChatNotice>>(emptyList())
     private val mutableEvents = MutableSharedFlow<ChatEvent>(extraBufferCapacity = 8)
     private var noticeIds = 0L
+    private var keepUnread = false
 
     val workspace = WorkspaceClient(machine::request)
     val feed = SessionFeed(machine, route, viewModelScope, ::moment, ::followed, ::runEnded)
@@ -72,6 +75,8 @@ class ChatViewModel(
     val events: SharedFlow<ChatEvent> = mutableEvents.asSharedFlow()
     val notices: StateFlow<List<ChatNotice>> = mutableNotices
     val live = feed.live
+
+    val sessionKey: SessionKey get() = SessionKey.of(machineId, feed.session)
 
     val rows: StateFlow<List<ChatRow>> = RowBuilder().let { builder ->
         combine(feed.history, feed.settled, feed.live, feed.pending, feed.loadingOlder) { history, settled, live, pending, _ ->
@@ -92,6 +97,7 @@ class ChatViewModel(
                 machineName = state?.name ?: row?.machineName.orEmpty(),
                 health = state?.health,
                 reconnecting = reconnecting,
+                inboxState = row?.state,
             )
         }.stateIn(viewModelScope, SharingStarted.Eagerly, ChatHeader(null, phone.machines.value.agent(machineId, route.backend), null, "", null))
 
@@ -110,6 +116,10 @@ class ChatViewModel(
         feed.start()
         viewModelScope.launch { phone.draft(machineId, route)?.let { composer.prepend(listOf(it)) } }
         viewModelScope.launch { readSummary() }
+        viewModelScope.launch {
+            feed.live.first { it.ended is ViewEnd.Removed }
+            phone.sessionDeleted(sessionKey)
+        }
         watchCatalog()
         FirstPrompts.take(machineId, route)?.let { outgoing ->
             viewModelScope.launch {
@@ -185,6 +195,13 @@ class ChatViewModel(
         }.joinToString("\n\n")
     }
 
+    /** Leaves the session unread: the chat goes back to the inbox, and neither leaving nor following it marks it seen. */
+    fun markUnread() {
+        keepUnread = true
+        phone.markUnread(machineId, feed.session)
+        mutableEvents.tryEmit(ChatEvent.LeftUnread)
+    }
+
     fun dismiss(notice: ChatNotice) = mutableNotices.update { list -> list.filterNot { it.id == notice.id } }
 
     fun say(event: ChatEvent) {
@@ -204,13 +221,13 @@ class ChatViewModel(
     private fun runEnded() = mutableNotices.update { list -> list.filterNot { it.level == NoticeLevel.INFO } }
 
     private fun followed(session: SessionRef) {
-        phone.markSeen(machineId, session)
+        if (!keepUnread) phone.markSeen(machineId, session)
         mutableSummary.value = null
         viewModelScope.launch { readSummary() }
     }
 
     override fun onCleared() {
-        phone.markSeen(machineId, feed.session)
+        if (!keepUnread) phone.markSeen(machineId, feed.session)
         phone.saveDraft(machineId, route, composer.input.text.toString())
     }
 

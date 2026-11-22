@@ -4,10 +4,17 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.byteArrayPreferencesKey
 import androidx.datastore.preferences.core.edit
+import com.muzammil.broski.core.SessionKey
+import com.muzammil.broski.core.SessionMark
 import java.io.IOException
 import java.security.GeneralSecurityException
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.serialization.SerializationException
+import kotlinx.serialization.builtins.SetSerializer
+import kotlinx.serialization.json.Json
 import uniffi.broski_core.SeenState
 
 /** A stored value that is there but does not open: never a reason to write a new one over it. */
@@ -20,7 +27,8 @@ class StoredRecords(val readable: Map<String, ByteArray>, val unreadable: Set<St
 /**
  * What the app keeps between launches, each value sealed by [cipher] under its own name: the
  * phone's identity secret, each machine's record (`MachineRecord.toBytes()`, which holds the relay
- * token and push key), the inbox's seen state and its last known rows.
+ * token and push key), the inbox's seen state and its last known rows, and the sessions the person
+ * pinned or muted.
  */
 class Vault(private val store: DataStore<Preferences>, private val cipher: SecretCipher) {
 
@@ -107,6 +115,35 @@ class Vault(private val store: DataStore<Preferences>, private val cipher: Secre
         store.edit { it.remove(XAI_KEY) }
     }
 
+    /** The sessions marked [mark], again after each change; a stored set that does not open reads as none. */
+    fun marked(mark: SessionMark): Flow<Set<SessionKey>> = store.data.map { marks(it, mark) }.distinctUntilChanged()
+
+    /** Changes the sessions marked [mark] in one transaction, so two changes at once never undo each other. */
+    suspend fun mark(mark: SessionMark, change: (Set<SessionKey>) -> Set<SessionKey>) {
+        val key = markKey(mark)
+        store.edit { preferences ->
+            val next = change(marks(preferences, mark))
+            preferences[key] = cipher.seal(json.encodeToString(KEYS, next).encodeToByteArray(), key.name)
+        }
+    }
+
+    /** Every mark on a session matching [which]: its machine forgotten, or the session deleted. */
+    suspend fun unmark(which: (SessionKey) -> Boolean) {
+        SessionMark.entries.forEach { mark -> mark(mark) { keys -> keys.filterNot(which).toSet() } }
+    }
+
+    private fun marks(preferences: Preferences, mark: SessionMark): Set<SessionKey> {
+        val key = markKey(mark)
+        val sealed = preferences[key] ?: return emptySet()
+        return try {
+            json.decodeFromString(KEYS, cipher.open(sealed, key.name).decodeToString())
+        } catch (_: GeneralSecurityException) {
+            emptySet()
+        } catch (_: SerializationException) {
+            emptySet()
+        }
+    }
+
     /** Every draft of a machine's sessions, once the machine is forgotten. */
     suspend fun deleteDrafts(machineId: String) {
         store.edit { preferences ->
@@ -135,6 +172,10 @@ class Vault(private val store: DataStore<Preferences>, private val cipher: Secre
         val SEEN = byteArrayPreferencesKey("seen")
         val CACHE = byteArrayPreferencesKey("cache")
         val XAI_KEY = byteArrayPreferencesKey("voice:xai-key")
+        val KEYS = SetSerializer(SessionKey.serializer())
+        val json = Json { ignoreUnknownKeys = true }
+
+        fun markKey(mark: SessionMark) = byteArrayPreferencesKey("marks:${mark.name.lowercase()}")
 
         fun recordKey(machineId: String) = byteArrayPreferencesKey(RECORD_PREFIX + machineId)
 
