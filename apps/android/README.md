@@ -62,17 +62,22 @@ A device needs Google Play services for FCM (the `_playstore` emulator images ha
 
 - **JVM** (`app/src/test`): the vault over a real DataStore file and real AES-GCM with a software key
   (round trip across a restart, nothing in the clear, a value that does not open is an error and never a
-  first run, a value moved under another name does not open, seen markers an older build stored by enum name
-  read as wire ids beside any other backend's); each backend's name, accent and art from its machine's
+  first run, a value moved under another name does not open, seen markers and unread sessions an older build
+  stored by enum name read as wire ids beside any other backend's, a seen state from before unread existed
+  reads with none, pins and mutes outlive a restart and go with their machine or session); each backend's name, accent and art from its machine's
   descriptor, else from its id alone, and the initials tile of an agent with no logo (`AgentTest`,
   `AgentMarkTest`); any plan a bridge reads, by its own name after Claude and Antigravity, and a usage report
   an older build stored by enum name (`UsageReportTest`); which identity the phone opens with
   (made on a first run only, never over stored pairings; Start Over clears the vault); a handle on a
   forgotten machine stays usable and a cold start with the machine unreachable shows the cached inbox
-  (`inbox-cache.json`) with nothing to answer (`PhoneSessionTest`); the pairing flow over the host build of the
+  (`inbox-cache.json`) with nothing to answer, a session marked unread is stored and still Done after a
+  restart, and pins and mutes show at once and leave with a forgotten machine (`PhoneSessionTest`); the pairing flow over the host build of the
   real core with the facade's fixture offer (preview, expiry, wrong code, empty clipboard, an unreachable
   machine that stores nothing and can be tried again, a sentence for every `LinkFailure`); inbox sections
-  from real `InboxRow` values; Approve and Deny only for the options a row's `pending` carries, and each
+  from real `InboxRow` values, pinned rows once each right below Needs you, and which of Mark as unread or
+  read a row offers (`InboxModelTest`); Session info's names from the catalog, context fill, token totals
+  and cost (`SessionInfoTest`); a conversation shared inline up to the limit and as a UTF-8 file beyond it,
+  under a safe name, the newest files kept (`ConversationShareTest`); Approve and Deny only for the options a row's `pending` carries, and each
   answer's haptic (`RowAnswerTest`); `MachineHealth` from `MachineStatus`; NSD routes; a new session's
 projects from every agent's sessions and what it starts with before and after the person picks
 (`NewSessionChoiceTest`). The files screens' models
@@ -81,7 +86,8 @@ projects from every agent's sessions and what it starts with before and after th
   staging re-reads the status, a commit needs staged changes and a message, a refused checkout keeps git's
   words; file text by line and cut reads, diff rows, every rejection's reason; cell metrics and the grid,
   key events to the encoder's keys. Notifications: the facade's pinned push opened into an approval with
-  its decision target, done and question pushes, the relay's offline alert, a decision crossing from the
+  its decision target, done and question pushes, a muted session's push silenced while another session on
+  the machine still alerts, the relay's offline alert, a decision crossing from the
   receiver to the worker, which run the Live Update follows. The chat, over real contract values and the
   host core's diffs: a batch that starts and ends a run is still seen to end (`LiveSessionTest`);
   the transcript's rows (one fold per stretch of work with its lead, duration, verbs and failures, keys that
@@ -224,17 +230,23 @@ terminal/     the :terminal module: libghostty-vt's JNI shim (src/main/c) and Vt
 - **Vault** (`core/vault`): one Preferences DataStore file, each value sealed with AES-256-GCM under the
   Keystore key `broski.vault.v1`, the value's name as associated data: `identity`, `machine:<id>` (the
   record's `toBytes()`, stored at pairing and at every `RecordChanged`), `seen` (each non-null
-  `InboxUpdate.seen`), `cache` (each non-null `InboxUpdate.cache`, at most every 2 s; bytes only the core
-  reads), `draft:<machine>/<backend>/<session>` (a chat's unsent text). Backups and device transfer exclude the app's data: the key never leaves the device.
+  `InboxUpdate.seen`, its unread sessions with it), `cache` (each non-null `InboxUpdate.cache`, at most every
+  2 s; bytes only the core reads), `draft:<machine>/<backend>/<session>` (a chat's unsent text),
+  `marks:pinned` and `marks:muted` (the sessions the person pinned or muted, `SessionKey`s as JSON; dropped
+  with their machine when it is forgotten and with a session once it is deleted). `PushHandler` posts nothing
+  for a muted session; a machine's own alerts are never muted. Backups and device transfer exclude the app's data: the key never leaves the device.
 - **Loops**: one per subscription in `AppCore`'s `SupervisorJob` scope for the life of the process: the
   inbox (`rows()` first, then `nextChange()`), and per machine its events (`status()` and `record()` first,
   then `nextEvent()` until it ends), whose reads (each backend's status) are its children. Forgetting a
   machine cancels and joins that loop, then calls `Phone.forget`; the `Machine` handle is never closed by
   the session, since a screen may hold it and the binding's cleaner releases it. Screens observe `StateFlow`s.
-- **Answers from the inbox** (`feature/inbox/RowAnswer.kt`, `RowAnswerMenu.kt`): a row reads "<agent> wants to
+- **Answers from the inbox** (`feature/inbox/RowAnswer.kt`, `RowMenu.kt`): a row reads "<agent> wants to
   run <command>" from its `command`, else its `ask`; a cached row is dimmed like one of an offline machine.
   Approve and Deny exist only for the backend's own `pending.allow` / `pending.deny`: a long press (or a tap
-  while no chat opens) shows them in a menu, and TalkBack gets them as custom actions. The tap goes through
+  while no chat opens) shows them in a menu, above Pin or Unpin, Mark as unread (an idle row) or Mark as
+  read (a done one), and Mute or Unmute; TalkBack gets them all as custom actions. Pinned rows other than
+  those waiting on the person are listed once, under Pinned, right below Needs you; a pinned or muted row
+  shows a small pin or muted bell. The tap goes through
   `PhoneSession.answer` (`Inbox.answer`); `Confirm` for an approval sent, `Reject` for a denial, an ask
   answered elsewhere (snackbar "Already answered elsewhere.") or a failure.
 - **Lifecycle**: `ProcessLifecycleOwner` start/stop → `phone.resume()`/`pause()` and NSD discovery on/off; a
@@ -255,7 +267,13 @@ terminal/     the :terminal module: libghostty-vt's JNI shim (src/main/c) and Vt
 - **`SessionRoute(machineId, backend, sessionId)`** (`app/Routes.kt`; `.session` is the `SessionRef`) opens
   the chat. The chat calls `phone.markSeen(route.machineId, route.session)` when it opens and when it is
   left, and `phone.machine(id)` for views (`attach` in the coroutine, `detach()` in `finally`, as
-  mobile-packaging.md §1 says).
+  mobile-packaging.md §1 says). Mark as unread in its overflow goes back to the inbox and leaves the session
+  unread (`PhoneSession.markUnread`, `Inbox.markUnread`): neither leaving nor following the session marks it
+  seen after that. The overflow groups Pin, Rename, Copy session ID, Mark as unread and Mute; Compact, Fork,
+  Share as Markdown (inline text up to 100,000 characters, past that a `.md` file in the cache's `shared/`
+  through the FileProvider), Copy conversation (one too long for the clipboard is refused with a word, not a
+  crash) and Session info (a sheet with the session's details, model and
+  settings, context and token use, and the prompt cache counting down); then Delete.
 - **More routes**: add them to the sealed `Route` in `app/Routes.kt` (serializable; restored after process
   death) and register them where `Shell.kt` registers the slots.
 - **New session**: once the session is created the screen shows its `ChatScreen` in place, the route kept

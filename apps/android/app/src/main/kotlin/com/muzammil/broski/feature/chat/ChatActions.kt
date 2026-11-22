@@ -103,7 +103,10 @@ class ChatActions(
 
     fun rename(title: String) = act({ model.readSummary() }) { client.rename(title.trim()) }
 
-    fun delete() = act({ events.emit(ChatEvent.Deleted) }) { client.delete() }
+    fun delete() = act({
+        model.phone.sessionDeleted(model.sessionKey)
+        events.emit(ChatEvent.Deleted)
+    }) { client.delete() }
 
     fun fork() {
         scope.launch {

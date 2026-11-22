@@ -12,6 +12,8 @@ import androidx.work.ListenableWorker
 import androidx.work.testing.TestListenableWorkerBuilder
 import com.muzammil.broski.Shots
 import com.muzammil.broski.app.BroskiApplication
+import com.muzammil.broski.core.SessionKey
+import com.muzammil.broski.core.SessionMark
 import com.muzammil.broski.core.settings.NotificationKind
 import com.muzammil.broski.core.vault.AesGcmCipher
 import com.muzammil.broski.core.vault.KeystoreKey
@@ -102,6 +104,18 @@ class NotificationsTest {
         val handler = PushHandler(context, vault(), { setOf(NotificationKind.Done, NotificationKind.Failures) })
         assertNull(handler.handle(push))
         assertTrue(nothingPosted())
+    }
+
+    @Test
+    fun aMutedSessionPostsNothingAndMutingAnotherOnTheMachineLeavesItAlerting() = runBlocking<Unit> {
+        val vault = vault()
+        vault.mark(SessionMark.Muted) { setOf(SessionKey(machine, "claude-code", "s-1")) }
+        assertNull(PushHandler(context, vault, { NotificationKind.entries.toSet() }, seen = PushDedup()).handle(push))
+        assertTrue(nothingPosted())
+
+        vault.mark(SessionMark.Muted) { setOf(SessionKey(machine, "claude-code", "s-2")) }
+        val alert = requireNotNull(PushHandler(context, vault, { NotificationKind.entries.toSet() }, seen = PushDedup()).handle(push))
+        posted(alert.tag)
     }
 
     @Test

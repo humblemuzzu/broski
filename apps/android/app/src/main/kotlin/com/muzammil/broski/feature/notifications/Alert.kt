@@ -1,5 +1,6 @@
 package com.muzammil.broski.feature.notifications
 
+import com.muzammil.broski.core.SessionKey
 import uniffi.broski_core.PushNotification
 
 /** The channels the app posts on, one per kind of news, each turned up or down by the person in Settings. */
@@ -11,7 +12,9 @@ enum class Channel(val id: String) {
 }
 
 /** A session on a machine, as a notification refers to it: what a tap opens and a decision names. */
-data class SessionTarget(val machineId: String, val backend: String, val sessionId: String)
+data class SessionTarget(val machineId: String, val backend: String, val sessionId: String) {
+    val key: SessionKey get() = SessionKey(machineId, backend, sessionId)
+}
 
 /**
  * One notification to post, before any words are looked up. A push about a session is tagged by
@@ -30,6 +33,9 @@ data class Alert(
     val request: String?,
 ) {
     val group: String get() = session?.let { "${it.machineId}/${it.backend}/${it.sessionId}" } ?: tag
+
+    /** About a session the person muted; a machine's own alerts are never muted with its sessions. */
+    fun mutedBy(muted: Set<SessionKey>): Boolean = session?.key in muted
 
     companion object {
         fun of(machineId: String, kind: PushKind, push: PushNotification): Alert {

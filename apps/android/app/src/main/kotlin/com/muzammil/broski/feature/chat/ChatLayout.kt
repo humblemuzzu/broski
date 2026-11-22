@@ -1,6 +1,5 @@
 package com.muzammil.broski.feature.chat
 
-import android.content.ClipData
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
@@ -27,14 +26,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.ClipEntry
-import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
@@ -59,7 +57,8 @@ import com.muzammil.broski.design.orb.OrbState
 import com.muzammil.broski.design.perform
 import com.muzammil.broski.feature.chat.header.ChatTopBar
 import com.muzammil.broski.feature.chat.header.SessionMenu
-import com.muzammil.broski.feature.chat.header.SessionMenuActions
+import com.muzammil.broski.feature.chat.header.SessionInfoSheet
+import com.muzammil.broski.feature.chat.header.sessionInfo
 import com.muzammil.broski.feature.chat.transcript.TranscriptCallbacks
 import com.muzammil.broski.feature.chat.transcript.TranscriptList
 import com.muzammil.broski.feature.chat.transcript.TranscriptState
@@ -147,7 +146,7 @@ fun ChatLayout(model: ChatViewModel, context: FeatureContext, snackbar: Snackbar
             val connection = header.health?.takeUnless { it.isOnline }?.label(header.machineName)
             Loading(connection, Modifier.align(Alignment.Center).padding(horizontal = 32.dp))
         }
-        Header(model, context, dialogs, transcript.scrolledUnderTop, Modifier.align(Alignment.TopCenter).onSizeChanged { topHeight = it.height })
+        Header(model, context, dialogs, snackbar, transcript.scrolledUnderTop, Modifier.align(Alignment.TopCenter).onSizeChanged { topHeight = it.height })
         ChatBottom(model, dialogs.openDiff, { context.navigate(VoiceRoute) }, Modifier.align(Alignment.BottomCenter).onSizeChanged { bottomHeight = it.height })
         val bottom = with(density) { bottomHeight.toDp() }
         JumpToLatest(transcript, Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = bottom + 12.dp))
@@ -156,27 +155,16 @@ fun ChatLayout(model: ChatViewModel, context: FeatureContext, snackbar: Snackbar
 }
 
 @Composable
-private fun Header(model: ChatViewModel, context: FeatureContext, dialogs: ChatDialogs, scrolledUnder: Boolean, modifier: Modifier) {
+private fun Header(model: ChatViewModel, context: FeatureContext, dialogs: ChatDialogs, snackbar: SnackbarHostState, scrolledUnder: Boolean, modifier: Modifier) {
     val header by model.header.collectAsStateWithLifecycle()
     val live by model.live.collectAsStateWithLifecycle()
     val catalog by model.catalog.catalog.collectAsStateWithLifecycle()
-    val clipboard = LocalClipboard.current
-    val scope = rememberCoroutineScope()
     var menuOpen by remember { mutableStateOf(false) }
-    val backend = catalog.capabilities
-    val session = live.capabilities
+    var infoOpen by rememberSaveable { mutableStateOf(false) }
+    val copier = rememberChatCopier(snackbar)
     val usage = live.snapshot.usage
     val window = usage?.contextWindow ?: catalog.model(live.snapshot.modelId)?.contextWindow
-    val actions = SessionMenuActions(
-        fork = model.actions::fork.takeIf { backend?.fork == true },
-        rename = dialogs.rename.takeIf { backend?.rename == true },
-        delete = dialogs.delete.takeIf { backend?.delete == true },
-        compact = model.actions::compact.takeIf { session?.compact == true },
-        copyConversation = {
-            val text = model.conversationText()
-            scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(header.title ?: "", text))) }
-        },
-    )
+    val actions = sessionMenuActions(model, dialogs, snackbar, copier) { infoOpen = true }
     val blocked = live.snapshot.interactions.any { it.blocksRun }
     ChatTopBar(
         header = header,
@@ -185,13 +173,17 @@ private fun Header(model: ChatViewModel, context: FeatureContext, dialogs: ChatD
         contextUsed = usage?.contextTokens?.let { used -> window?.let { (used.toFloat() / it).coerceIn(0f, 1f) } },
         scrolledUnder = scrolledUnder,
         onBack = context.back,
-        onRename = dialogs.rename.takeIf { backend?.rename == true },
+        onRename = actions.rename,
         onOpenFiles = header.cwd?.let { cwd -> { context.navigate(FilesRoute(model.machineId, cwd)) } },
-        menu = { dismiss -> SessionMenu(menuOpen, actions, usage?.cache, dismiss) },
+        menu = { dismiss -> SessionMenu(menuOpen, actions, dismiss) },
         menuOpen = menuOpen,
         onMenu = { menuOpen = it },
         modifier = modifier,
     )
+    if (infoOpen) {
+        val info = sessionInfo(header, model.feed.session, live.snapshot, catalog)
+        SessionInfoSheet(info, onCopy = { label, value -> copier.copy(label, value) }, onDismiss = { infoOpen = false })
+    }
 }
 
 /** What a chat shows while its first page is on its way, and why it is late when the Mac is out of reach. */

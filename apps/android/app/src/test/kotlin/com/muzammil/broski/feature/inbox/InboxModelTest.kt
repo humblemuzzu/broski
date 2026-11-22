@@ -3,6 +3,7 @@ package com.muzammil.broski.feature.inbox
 import com.muzammil.broski.core.BackendIds
 import com.muzammil.broski.core.MachineHealth
 import com.muzammil.broski.core.MachineState
+import com.muzammil.broski.core.SessionKey
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -51,8 +52,8 @@ class InboxModelTest {
     fun rowsFallIntoSectionsInStateOrderKeepingTheCoresOrderWithinEach() {
         val state = inboxUiState(rows, machines, workingOnly = false, refreshing = false)
         assertEquals(
-            listOf(InboxState.NEEDS_YOU, InboxState.WORKING, InboxState.DONE, InboxState.IDLE),
-            state.sections.map { it.state },
+            listOf(InboxGroup.NEEDS_YOU, InboxGroup.WORKING, InboxGroup.DONE, InboxGroup.IDLE),
+            state.sections.map { it.group },
         )
         assertEquals(listOf("pi-run", "cc-run"), state.sections[1].rows.map { it.session.sessionId })
         assertEquals(listOf("cc-old", "pi-older"), state.sections[3].rows.map { it.session.sessionId })
@@ -63,14 +64,14 @@ class InboxModelTest {
     @Test
     fun anEmptyStateHasNoSection() {
         val state = inboxUiState(rows.filter { it.state != InboxState.WORKING }, machines, false, false)
-        assertEquals(listOf(InboxState.NEEDS_YOU, InboxState.DONE, InboxState.IDLE), state.sections.map { it.state })
+        assertEquals(listOf(InboxGroup.NEEDS_YOU, InboxGroup.DONE, InboxGroup.IDLE), state.sections.map { it.group })
         assertTrue(inboxUiState(emptyList(), machines, false, false).isEmpty)
     }
 
     @Test
     fun workingOnlyShowsTheWorkingSectionWhileAnythingWorks() {
         val filtered = inboxUiState(rows, machines, workingOnly = true, refreshing = false)
-        assertEquals(listOf(InboxState.WORKING), filtered.sections.map { it.state })
+        assertEquals(listOf(InboxGroup.WORKING), filtered.sections.map { it.group })
         assertTrue(filtered.workingOnly)
 
         val nothingWorking = inboxUiState(rows.filter { it.state != InboxState.WORKING }, machines, true, false)
@@ -87,5 +88,40 @@ class InboxModelTest {
         assertEquals(MachineHealth.Waiting(WaitReason.MACHINE_OFFLINE), state.health["m-2"])
         assertTrue(state.anyOnline)
         assertFalse("an empty inbox of unreachable Macs is waiting, not empty", inboxUiState(emptyList(), listOf(revoked), false, false).anyOnline)
+    }
+
+    private fun pin(vararg ids: String) = SessionMarks(pinned = rows.filter { it.session.sessionId in ids }.map { SessionKey.of(it.machineId, it.session) }.toSet())
+
+    @Test
+    fun pinnedRowsComeRightBelowNeedsYouOnceEachAndAWaitingPinnedRowStaysInNeedsYou() {
+        val state = inboxUiState(rows, machines, workingOnly = false, refreshing = false, marks = pin("cc-ask", "cc-run", "pi-older"))
+        assertEquals(
+            listOf(InboxGroup.NEEDS_YOU, InboxGroup.PINNED, InboxGroup.WORKING, InboxGroup.DONE, InboxGroup.IDLE),
+            state.sections.map { it.group },
+        )
+        val ids = state.sections.associate { section -> section.group to section.rows.map { it.session.sessionId } }
+        assertEquals(listOf("cc-ask"), ids[InboxGroup.NEEDS_YOU])
+        assertEquals("in the core's order, whatever their state", listOf("cc-run", "pi-older"), ids[InboxGroup.PINNED])
+        assertEquals(listOf("pi-run"), ids[InboxGroup.WORKING])
+        assertEquals(listOf("cc-old"), ids[InboxGroup.IDLE])
+        assertEquals("no row is listed twice", rows.size, state.sections.sumOf { it.rows.size })
+        assertTrue(state.pinned(rows[2]))
+        assertEquals("a pinned run still counts as working", 2, state.working)
+    }
+
+    @Test
+    fun workingOnlyListsEveryWorkingRowPinnedOrNot() {
+        val state = inboxUiState(rows, machines, workingOnly = true, refreshing = false, marks = pin("cc-run"))
+        assertEquals(listOf(InboxGroup.WORKING), state.sections.map { it.group })
+        assertEquals(listOf("pi-run", "cc-run"), state.sections.single().rows.map { it.session.sessionId })
+    }
+
+    @Test
+    fun aRowOffersMarkUnreadOnceSeenMarkReadWhileDoneAndNeitherWhileItWaitsOrWorks() {
+        val (ask, working, _, done, idle) = rows
+        assertEquals(listOf(RowAction.Pin, RowAction.MarkUnread, RowAction.Mute), idle.actions(pinned = false, muted = false))
+        assertEquals(listOf(RowAction.Unpin, RowAction.MarkRead, RowAction.Unmute), done.actions(pinned = true, muted = true))
+        assertEquals(listOf(RowAction.Pin, RowAction.Mute), ask.actions(pinned = false, muted = false))
+        assertEquals(listOf(RowAction.Unpin, RowAction.Mute), working.actions(pinned = true, muted = false))
     }
 }

@@ -50,8 +50,6 @@ import com.muzammil.broski.design.PrimaryButton
 import com.muzammil.broski.design.SectionHeader
 import com.muzammil.broski.design.orb.OrbState
 import com.muzammil.broski.design.perform
-import uniffi.broski_core.InboxRow
-import uniffi.broski_core.InboxState
 
 /**
  * Every session on every paired Mac, what needs the person first. `onOpenSession` and
@@ -100,7 +98,7 @@ fun InboxScreen(
                 )
             },
         ) {
-            InboxList(state, viewModel::showWorkingOnly, viewModel::markAllSeen, viewModel::answer, onOpenSession, onNewSession)
+            InboxList(state, viewModel, onOpenSession, onNewSession)
         }
     }
 }
@@ -126,9 +124,7 @@ private fun AnswerFeedback(viewModel: InboxViewModel, snackbar: SnackbarHostStat
 @Composable
 private fun InboxList(
     state: InboxUiState,
-    onWorkingOnly: (Boolean) -> Unit,
-    onMarkAllSeen: () -> Unit,
-    onAnswer: (InboxRow, Decision) -> Unit,
+    viewModel: InboxViewModel,
     onOpenSession: ((SessionRoute) -> Unit)?,
     onNewSession: (() -> Unit)?,
 ) {
@@ -137,7 +133,7 @@ private fun InboxList(
         contentPadding = PaddingValues(bottom = if (onNewSession != null) 112.dp else 24.dp),
     ) {
         if (state.mentions.isNotEmpty() || state.working > 0) {
-            item(key = "status", contentType = "status") { StatusHeader(state, onWorkingOnly) }
+            item(key = "status", contentType = "status") { StatusHeader(state, viewModel::showWorkingOnly) }
         }
         if (state.isEmpty) {
             item(key = "empty", contentType = "empty") {
@@ -151,23 +147,22 @@ private fun InboxList(
                 )
             }
         }
-        state.sections.forEach { section -> section(section, state, onMarkAllSeen, onAnswer, onOpenSession) }
+        state.sections.forEach { section -> section(section, state, viewModel, onOpenSession) }
     }
 }
 
 private fun LazyListScope.section(
     section: InboxSection,
     state: InboxUiState,
-    onMarkAllSeen: () -> Unit,
-    onAnswer: (InboxRow, Decision) -> Unit,
+    viewModel: InboxViewModel,
     onOpenSession: ((SessionRoute) -> Unit)?,
 ) {
-    item(key = "section:${section.state}", contentType = "header") {
+    item(key = "section:${section.group}", contentType = "header") {
         SectionHeader(
-            text = stringResource(section.state.label),
+            text = stringResource(section.group.label),
             modifier = Modifier.animateItem(),
-            action = if (section.state == InboxState.DONE) {
-                { TextButton(onClick = onMarkAllSeen) { Text(stringResource(R.string.inbox_mark_all_read)) } }
+            action = if (section.group == InboxGroup.DONE) {
+                { TextButton(onClick = viewModel::markAllSeen) { Text(stringResource(R.string.inbox_mark_all_read)) } }
             } else {
                 null
             },
@@ -186,7 +181,10 @@ private fun LazyListScope.section(
             shapes = ListItemDefaults.segmentedShapes(index, section.rows.size),
             onOpen = onOpenSession?.let { open -> { open(SessionRoute.of(row.machineId, row.session)) } },
             busy = row.key in state.answering,
-            onAnswer = { decision -> onAnswer(row, decision) },
+            pinned = state.pinned(row),
+            muted = state.muted(row),
+            onAnswer = { decision -> viewModel.answer(row, decision) },
+            onAction = { action -> viewModel.act(row, action) },
             modifier = Modifier
                 .animateItem(
                     fadeInSpec = motion.defaultEffectsSpec(),

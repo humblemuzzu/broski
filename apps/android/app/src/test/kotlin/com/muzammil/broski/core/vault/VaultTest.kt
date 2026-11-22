@@ -5,6 +5,8 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.byteArrayPreferencesKey
 import androidx.datastore.preferences.core.edit
+import com.muzammil.broski.core.SessionKey
+import com.muzammil.broski.core.SessionMark
 import java.io.File
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -26,6 +28,7 @@ import org.junit.rules.TemporaryFolder
 import uniffi.broski_contract.SessionRef
 import uniffi.broski_core.SeenMarker
 import uniffi.broski_core.SeenState
+import uniffi.broski_core.UnreadSession
 
 /**
  * The vault over a real Preferences DataStore file and real AES-GCM with a software key, the JVM's
@@ -59,6 +62,7 @@ class VaultTest {
             SeenMarker("m-2", SessionRef("codex", "s-3"), 1_725_000_000_500),
         ),
         readMachines = listOf("m-1", "m-2"),
+        unread = listOf(UnreadSession("m-2", SessionRef("pi", "s-4"))),
     )
 
     @Test
@@ -162,5 +166,49 @@ class VaultTest {
         val rewritten = SeenStateCodec.encode(migrated).decodeToString()
         assertEquals(listOf("claude-code", "pi", "codex"), Regex("\"backend\":\"([^\"]*)\"").findAll(rewritten).map { it.groupValues[1] }.toList())
         assertEquals(migrated, SeenStateCodec.decode(rewritten.encodeToByteArray()))
+    }
+
+    @Test
+    fun aSeenStateStoredBeforeUnreadExistedReadsWithNoneAndUnreadSessionsKeepTheirWireIds() {
+        val older = """{"markers":[{"machineId":"m-1","backend":"pi","sessionId":"s-1","seenAt":5}],"readMachines":[]}"""
+        val read = SeenStateCodec.decode(older.encodeToByteArray())
+        assertEquals(SeenState(listOf(SeenMarker("m-1", SessionRef("pi", "s-1"), 5)), emptyList(), emptyList()), read)
+
+        val stored = """
+            {"markers":[],"readMachines":[],"unread":[
+              {"machineId":"m-1","backend":"CLAUDE_CODE","sessionId":"s-1"},
+              {"machineId":"m-2","backend":"codex","sessionId":"s-2"},
+              {"machineId":"m-2","backend":"../pi","sessionId":"s-3"}
+            ]}
+        """.trimIndent().encodeToByteArray()
+        val migrated = SeenStateCodec.decode(stored)
+        assertEquals(
+            listOf(UnreadSession("m-1", SessionRef("claude-code", "s-1")), UnreadSession("m-2", SessionRef("codex", "s-2"))),
+            migrated.unread,
+        )
+        val rewritten = SeenStateCodec.encode(migrated).decodeToString()
+        assertFalse("the enum name is not written back", rewritten.contains("CLAUDE_CODE"))
+        assertEquals(migrated, SeenStateCodec.decode(rewritten.encodeToByteArray()))
+    }
+
+    @Test
+    fun pinsAndMutesOutliveARestartAndGoWithTheirMachineOrSession() = runBlocking {
+        val kept = SessionKey("m-1", "pi", "s-1")
+        val deleted = SessionKey("m-1", "claude-code", "s-2")
+        val forgotten = SessionKey("m-2", "pi", "s-3")
+        vault().apply {
+            mark(SessionMark.Pinned) { it + kept + deleted + forgotten }
+            mark(SessionMark.Muted) { it + forgotten + kept }
+            mark(SessionMark.Muted) { it - kept }
+        }
+        val restarted = vault()
+        assertEquals(setOf(kept, deleted, forgotten), restarted.marked(SessionMark.Pinned).first())
+        assertEquals(setOf(forgotten), restarted.marked(SessionMark.Muted).first())
+
+        restarted.unmark { it.machineId == "m-2" }
+        restarted.unmark { it == deleted }
+        assertEquals(setOf(kept), vault().marked(SessionMark.Pinned).first())
+        assertTrue(vault().marked(SessionMark.Muted).first().isEmpty())
+        assertTrue("marks that no longer open are none, not a failure", vault(with = newKey()).marked(SessionMark.Pinned).first().isEmpty())
     }
 }
