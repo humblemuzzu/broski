@@ -2,7 +2,8 @@
  * What a third-party adapter package (`broski-adapter-*`) is written against, as `broski-bridge/plugin`. The package
  * exports `createBroskiAdapter`, a `BroskiAdapterPlugin`; the bridge calls it once at startup for each enabled entry of
  * the config's `adapters` (`server/plugin-loader.ts`) and starts the backend its factory makes, which must have the
- * entry's `id`.
+ * entry's `id`. An entry's `module` is an absolute path, or the name of a package installed in `~/.broski/adapters`
+ * (`bun add --cwd ~/.broski/adapters broski-adapter-example`): a package name resolves there and nowhere else.
  */
 
 import type { BackendFactory, BackendId } from "./contract";

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -129,11 +129,53 @@ describe("Config Schema", () => {
 		expect(entry.adapters).toEqual([{ id: "example", module: "broski-adapter-x", enabled: true }]);
 	});
 
-	test("BroskiConfigSchema rejects an adapter whose id is no backend id, and more than 16 adapters", () => {
-		const adapter = (id: string) => ({ id, module: "/opt/adapter.ts" });
-		expect(BroskiConfigSchema.safeParse({ version: 1, adapters: [adapter("Not Valid")] }).success).toBe(false);
-		const many = Array.from({ length: 17 }, (_, index) => adapter(`agent-${index}`));
-		expect(BroskiConfigSchema.safeParse({ version: 1, adapters: many }).success).toBe(false);
+	test("an invalid adapter entry is left out alone, and every other setting stands", () => {
+		const result = BroskiConfigSchema.parse({
+			version: 1,
+			network: { port: 19999 },
+			claudeCode: { terminalAsks: false },
+			phoneWriting: false,
+			bridgeTools: { notify: false },
+			adapters: [
+				{ id: "good", module: "/abs/good.ts" },
+				{ id: "Bad_ID", module: "/abs/bad.ts" },
+				{ id: "no-module" },
+				{ id: "bad-config", module: "/abs/c.ts", config: "not an object" },
+			],
+		});
+		expect(result.network.port).toBe(19999);
+		expect(result.claudeCode.terminalAsks).toBe(false);
+		expect(result.phoneWriting).toBe(false);
+		expect(result.bridgeTools).toEqual({ notify: false });
+		expect(result.adapters).toEqual([{ id: "good", module: "/abs/good.ts", enabled: true }]);
+	});
+
+	test("adapters that are no list load none, and past 16 only the first 16 load", () => {
+		expect(BroskiConfigSchema.parse({ version: 1, phoneWriting: false, adapters: "x" })).toMatchObject({
+			phoneWriting: false,
+			adapters: [],
+		});
+		const many = Array.from({ length: 17 }, (_, index) => ({ id: `agent-${index}`, module: "/opt/adapter.ts" }));
+		const ids = BroskiConfigSchema.parse({ version: 1, adapters: many }).adapters.map((entry) => entry.id);
+		expect(ids).toEqual(many.slice(0, 16).map((entry) => entry.id));
+	});
+
+	test("readConfig says which adapter entry it left out, and why", async () => {
+		const path = tempConfigPath();
+		const adapters = [
+			{ id: "good", module: "/abs/good.ts" },
+			{ id: "Bad_ID", module: "/abs/bad.ts" },
+		];
+		await Bun.write(path, JSON.stringify({ version: 1, network: { port: 19999 }, adapters }));
+		const warn = spyOn(console, "warn").mockImplementation(() => undefined);
+		try {
+			const config = await readConfig(path);
+			expect(config.network.port).toBe(19999);
+			expect(config.adapters.map((entry) => entry.id)).toEqual(["good"]);
+			expect(warn.mock.calls.map((call) => String(call[0]))).toEqual([expect.stringContaining("adapters[1]: id:")]);
+		} finally {
+			warn.mockRestore();
+		}
 	});
 });
 

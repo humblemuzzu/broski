@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { BroskiConfigSchema, getDefaultConfig } from "../config";
+import { setupConfig } from "../wizard/setup-config";
 
 // Test the non-interactive setup logic from onboarding.ts
 // We focus on pure functions that don't require user interaction
@@ -170,6 +172,35 @@ describe("Wizard Step Result Types", () => {
 
 		validTypes.forEach((type) => {
 			expect(["launchagent", "none"].includes(type)).toBe(true);
+		});
+	});
+});
+
+describe("the config a setup run writes", () => {
+	const choices = {
+		port: 18274,
+		tls: true,
+		agents: { claudeCode: true, pi: true },
+		daemon: { installed: false, type: "none" as const },
+	};
+
+	test("takes the run's answers and keeps what setup does not ask about", () => {
+		const existing = {
+			...getDefaultConfig(),
+			claudeCode: { terminalAsks: false },
+			phoneWriting: false,
+			bridgeTools: { notify: false },
+			adapters: [{ id: "example", module: "/opt/broski-adapter-example/index.ts", enabled: true }],
+		};
+		const written = setupConfig(existing, choices, new Date("2026-11-22T10:00:00Z"));
+		expect(BroskiConfigSchema.parse(written)).toEqual(written);
+		expect(written).toMatchObject({
+			wizard: { completedSetup: true, lastRunAt: "2026-11-22T10:00:00.000Z" },
+			agents: { claudeCode: true, pi: true },
+			claudeCode: { terminalAsks: false },
+			phoneWriting: false,
+			bridgeTools: { notify: false },
+			adapters: existing.adapters,
 		});
 	});
 });

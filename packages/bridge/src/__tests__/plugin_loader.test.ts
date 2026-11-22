@@ -193,3 +193,51 @@ describe("the plugin loader", () => {
 		E2E_TEST_TIMEOUT_MS,
 	);
 });
+
+/** A package whose plugin names its backend after where it was installed. */
+function installPackage(root: string, name: string, displayName: string): void {
+	const dir = join(root, "node_modules", name);
+	mkdirSync(dir, { recursive: true });
+	writeFileSync(join(dir, "package.json"), JSON.stringify({ name, type: "module", main: "index.ts" }));
+	writeFileSync(
+		join(dir, "index.ts"),
+		`import { createFakeBackend } from "${SRC}/contract/testing/fake-backend";
+export const createBroskiAdapter = (ctx) => async (host) =>
+	createFakeBackend(host, { id: ctx.id, meta: { displayName: "${displayName}" } });
+`,
+	);
+}
+
+async function startedFrom(project: string, module: string, plugins: Plugins) {
+	const [loaded] = loadConfiguredAdapters([{ id: "probe", module, enabled: true }], [], host(plugins, []));
+	if (loaded === undefined) throw new Error("nothing loaded");
+	const previous = process.cwd();
+	process.chdir(project);
+	try {
+		return await loaded[1]({ catalog: { emit: () => undefined } });
+	} finally {
+		process.chdir(previous);
+	}
+}
+
+describe("a plugin named by its package", () => {
+	test("resolves in the adapters folder, whatever project the bridge was started in", async () => {
+		const plugins = pluginFiles();
+		const project = join(plugins.root, "project");
+		installPackage(plugins.stateRoot, "broski-adapter-probe", "From the adapters folder");
+		installPackage(project, "broski-adapter-probe", "From the project");
+		const backend = await startedFrom(project, "broski-adapter-probe", plugins);
+		expect(backend.meta.displayName).toBe("From the adapters folder");
+		await backend.dispose();
+	});
+
+	test("installed only in the working directory's node_modules is not loaded", async () => {
+		const plugins = pluginFiles();
+		const project = join(plugins.root, "project");
+		installPackage(project, "broski-adapter-hostile", "From the project");
+		const started = startedFrom(project, "broski-adapter-hostile", plugins);
+		await expect(started).rejects.toThrow("is not installed in");
+		installPackage(plugins.stateRoot, "broski-adapter-other", "Another");
+		await expect(startedFrom(project, "broski-adapter-hostile", plugins)).rejects.toThrow("is not installed in");
+	});
+});

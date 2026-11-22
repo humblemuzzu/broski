@@ -2,6 +2,7 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { assertNotRealHome } from "../safety/real-home-guard";
+import { checkedAdapters } from "./adapters";
 import { getDefaultConfig } from "./defaults";
 import { type BroskiConfig, BroskiConfigSchema } from "./schema";
 
@@ -22,6 +23,9 @@ export async function readConfig(path = getConfigPath()): Promise<BroskiConfig> 
 		const parsed = JSON.parse(raw);
 		const result = BroskiConfigSchema.safeParse(parsed);
 		if (result.success) {
+			for (const problem of checkedAdapters(parsed.adapters).problems) {
+				console.warn(`[config] An adapter is left out: ${problem}`);
+			}
 			return result.data;
 		}
 		// Schema validation failed — return defaults

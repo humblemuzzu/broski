@@ -1,10 +1,8 @@
 import { mkdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { resolve } from "node:path";
-import packageMeta from "../../package.json";
 import { getConfigPath, readConfig, writeConfig } from "../config";
 import { getDefaultConfig } from "../config/defaults";
-import type { BroskiConfig } from "../config/schema";
 import {
 	type DaemonConfig,
 	type DaemonType,
@@ -16,6 +14,7 @@ import {
 import { WizardCancelledError } from "./errors";
 import { brand, muted, warning } from "./palette";
 import type { WizardPrompter } from "./prompter";
+import { setupConfig } from "./setup-config";
 import { detectAgents, runAgentsStep } from "./steps/agents";
 import { runDaemonStep } from "./steps/daemon";
 import { runFinalizeStep } from "./steps/finalize";
@@ -123,34 +122,13 @@ async function runNonInteractiveSetup(options: OnboardingOptions): Promise<void>
 		log("Daemon: skipped (--no-daemon)");
 	}
 
-	// 6. Write config (spread defaults for cloud/pi sections not configured by quick setup)
-	const defaults = getDefaultConfig();
-	const finalConfig: BroskiConfig = {
-		...defaults,
-		version: 1,
-		wizard: {
-			completedSetup: true,
-			lastRunAt: new Date().toISOString(),
-			lastRunVersion: packageMeta.version ?? "0.1.0",
-		},
-		network: {
-			port,
-		},
-		security: {
-			tls: tlsEnabled,
-			verifyCodeSignature: defaults.security.verifyCodeSignature,
-		},
-		agents: {
-			claudeCode: agents.claudeCode,
-			pi: agents.pi,
-		},
-		daemon: {
-			installed: daemonInstalled,
-			type: daemonType,
-		},
-		claudeCode: existing.claudeCode,
-		pi: existing.pi,
-	};
+	// 6. Write config
+	const finalConfig = setupConfig(existing, {
+		port,
+		tls: tlsEnabled,
+		agents,
+		daemon: { installed: daemonInstalled, type: daemonType },
+	});
 
 	await writeConfig(finalConfig);
 
@@ -212,34 +190,13 @@ export async function runOnboardingWizard(prompter: WizardPrompter | null, optio
 		// 6. Daemon step
 		const daemon = await runDaemonStep(prompter);
 
-		// 7. Assemble final config (spread defaults for sections not configured by wizard)
-		const wizardDefaults = getDefaultConfig();
-		const finalConfig: BroskiConfig = {
-			...wizardDefaults,
-			version: 1,
-			wizard: {
-				completedSetup: true,
-				lastRunAt: new Date().toISOString(),
-				lastRunVersion: packageMeta.version ?? "0.1.0",
-			},
-			network: {
-				port: config.network.port,
-			},
-			security: {
-				tls: security.tls,
-				verifyCodeSignature: wizardDefaults.security.verifyCodeSignature,
-			},
-			agents: {
-				claudeCode: agents.claudeCode,
-				pi: agents.pi,
-			},
-			daemon: {
-				installed: daemon.installed,
-				type: daemon.type,
-			},
-			claudeCode: config.claudeCode,
-			pi: config.pi,
-		};
+		// 7. Assemble final config
+		const finalConfig = setupConfig(config, {
+			port: config.network.port,
+			tls: security.tls,
+			agents,
+			daemon,
+		});
 
 		// 8. Write config
 		await writeConfig(finalConfig);

@@ -3,10 +3,13 @@
  * when its backend starts, beside the others: one that fails to import, exports no `createBroskiAdapter` or throws
  * fails that backend's start, which the core's registry logs and names to every request for it, and nothing else. An
  * id already taken, by a built-in backend or an earlier entry, is refused, so a plugin never stands in for another.
+ * A package name is looked up in `<stateRoot>/node_modules` alone, never from the bridge's working directory, so a
+ * project's `node_modules` can never supply a plugin, and a compiled binary finds the same one as `bun`.
  */
 
+import { realpathSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
-import { isAbsolute, join } from "node:path";
+import { isAbsolute, join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { AdapterEntry } from "../config/schema";
 import type { BackendFactory, BackendId } from "../contract";
@@ -20,7 +23,10 @@ export interface PluginHost {
 	readonly mcp: (backend: BackendId) => BroskiMcpIssuer;
 	readonly phoneWriting: string | undefined;
 	readonly fitImage: ImageFitter;
-	/** Each adapter's `stateDir` is `<stateRoot>/<id>`: `~/.broski/adapters` in production. */
+	/**
+	 * Each adapter's `stateDir` is `<stateRoot>/<id>`, and a package name resolves in `<stateRoot>/node_modules`:
+	 * `~/.broski/adapters` in production.
+	 */
 	readonly stateRoot: string;
 	readonly log: (message: string) => void;
 }
@@ -46,7 +52,7 @@ export function loadConfiguredAdapters(
 
 function pluginFactory(entry: AdapterEntry, host: PluginHost): BackendFactory {
 	return async (backendHost) => {
-		const plugin = await importPlugin(entry.module);
+		const plugin = await importPlugin(entry.module, host.stateRoot);
 		const factory = factoryOf(plugin, await contextOf(entry, host), entry.module);
 		return factory(backendHost);
 	};
@@ -63,18 +69,38 @@ function factoryOf(plugin: BroskiAdapterPlugin, ctx: BroskiPluginContext, module
 	return factory;
 }
 
-async function importPlugin(module: string): Promise<BroskiAdapterPlugin> {
-	if (module.startsWith(".")) {
-		throw new Error(`the plugin module ${module} is a relative path; give an absolute path or a package name`);
-	}
+async function importPlugin(module: string, packageRoot: string): Promise<BroskiAdapterPlugin> {
+	const url = moduleUrl(module, packageRoot);
 	let loaded: unknown;
 	try {
-		loaded = await import(isAbsolute(module) ? pathToFileURL(module).href : module);
+		loaded = await import(url);
 	} catch (error) {
 		throw new Error(`the plugin module ${module} failed to load: ${messageOf(error)}`);
 	}
 	if (!isPluginModule(loaded)) throw new Error(`the plugin module ${module} exports no createBroskiAdapter function`);
 	return loaded.createBroskiAdapter;
+}
+
+function moduleUrl(module: string, packageRoot: string): string {
+	if (isAbsolute(module)) return pathToFileURL(module).href;
+	if (module.startsWith(".") || module.startsWith("~")) {
+		throw new Error(`the plugin module ${module} is a relative path; give an absolute path or a package name`);
+	}
+	const modules = join(packageRoot, "node_modules");
+	let root: string;
+	let found: string;
+	try {
+		// Without a `node_modules` to find, Bun's resolver may install the package from the registry.
+		root = realpathSync(modules);
+		found = realpathSync(Bun.resolveSync(module, packageRoot));
+	} catch (error) {
+		throw new Error(`the plugin package ${module} is not installed in ${modules}: ${messageOf(error)}`);
+	}
+	const inside = relative(root, found);
+	if (inside === "" || inside.startsWith("..") || isAbsolute(inside)) {
+		throw new Error(`the plugin package ${module} resolves outside ${modules}`);
+	}
+	return pathToFileURL(found).href;
 }
 
 function isPluginModule(value: unknown): value is { readonly createBroskiAdapter: BroskiAdapterPlugin } {
