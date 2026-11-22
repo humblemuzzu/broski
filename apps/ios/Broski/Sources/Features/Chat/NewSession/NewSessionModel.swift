@@ -33,7 +33,7 @@ nonisolated struct Project: Hashable, Identifiable {
 final class NewSessionModel {
     private(set) var machineId: String?
     private(set) var folder: String?
-    private(set) var backend: BackendId?
+    private(set) var backend: String?
     var draft = ComposerDraft()
     private(set) var choices = ComposerChoices()
     let catalog = ComposerCatalog()
@@ -64,7 +64,7 @@ final class NewSessionModel {
         }
     }
 
-    static func defaultBackend(_ machine: MachineModel, folder: String?, rows: [InboxRow]) -> BackendId? {
+    static func defaultBackend(_ machine: MachineModel, folder: String?, rows: [InboxRow]) -> String? {
         let lastHere = rows.filter { $0.machineId == machine.id && $0.cwd == folder }
             .max { $0.updatedAt < $1.updatedAt }?.session.backend
         if let lastHere, machine.canRun(lastHere) { return lastHere }
@@ -87,7 +87,7 @@ final class NewSessionModel {
         problem = nil
     }
 
-    func pickBackend(_ id: BackendId) {
+    func pickBackend(_ id: String) {
         guard id != backend else { return }
         backend = id
         pickedBackend = true
@@ -139,7 +139,7 @@ final class NewSessionModel {
 
 extension MachineModel {
     /// Whether the agent can run now; one whose status has not come yet is taken to.
-    func canRun(_ backend: BackendId) -> Bool {
+    func canRun(_ backend: String) -> Bool {
         backendStatuses[backend]?.usable ?? true
     }
 }

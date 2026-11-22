@@ -9,7 +9,7 @@ import Testing
 /// answer that lost the race says, and the view detached when the chat goes.
 @Suite
 struct ChatModelTests {
-    private let session = SessionRef(backend: .pi, sessionId: "s1")
+    private let session = SessionRef(backend: "pi", sessionId: "s1")
     private let capabilities = SessionCapabilities(controllable: true, compact: true, cancelQueued: true, answer: true)
 
     private func chat(_ machine: ScriptedChat, view: ScriptedSessionView) -> ChatModel {

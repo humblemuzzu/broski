@@ -1,14 +1,15 @@
 import SwiftUI
 import WidgetKit
 
-/// Every plan the Macs read. Medium: a meter each, with its figure, reset and pace. Large: a panel
-/// each, with the window's journey and the plan's other windows.
+/// The first two plans the Macs read, as many as the widget fits. Medium: a meter each, with its
+/// figure, reset and pace. Large: a panel each, with the window's journey and the plan's other
+/// windows.
 struct AllPlansView: View {
     let entry: UsageEntry
     @Environment(\.widgetFamily) private var family
 
     private var plans: [PlanReport] {
-        UsagePlan.allCases.compactMap { entry.report?.plan($0) }.filter { !$0.windows.isEmpty }
+        Array((entry.report?.plans ?? []).filter { !$0.windows.isEmpty }.prefix(2))
     }
 
     var body: some View {
@@ -53,9 +54,9 @@ struct PlanMeterRow: View {
         if let window = report.headline(at: now) {
             VStack(spacing: 5) {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    PlanGlyph(plan: report.plan, size: 13)
+                    PlanGlyph(plan: report.plan, name: report.name, size: 13)
                         .alignmentGuide(.firstTextBaseline) { $0[.bottom] - 2 }
-                    Text(report.plan.name)
+                    Text(report.name)
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(report.plan.bright)
                     Text(window.label)

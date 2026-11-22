@@ -4,7 +4,8 @@
 # Every target globs its folders, so a new folder under Sources/Features needs no edit here. The
 # app embeds two extensions: NotificationService (opens pushes with the minimal BroskiPush library;
 # Shared without the Live Activity and the usage widgets' files) and BroskiWidgets (the Live
-# Activity and the plan usage widgets: Shared/LiveActivity, Shared/Usage and the keychain, no core).
+# Activity and the plan usage widgets: Shared/LiveActivity, Shared/Usage, the keychain and the slugs,
+# no core).
 name: Broski
 
 options:
@@ -111,6 +112,7 @@ targets:
       - path: Shared/Usage
       - path: Shared/Keychain.swift
       - path: Shared/ColorAppearance.swift
+      - path: Shared/Slug.swift
       - path: Resources/Assets.xcassets
     dependencies:
       - package: LibrariesDev

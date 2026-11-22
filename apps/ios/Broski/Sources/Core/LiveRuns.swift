@@ -11,7 +11,8 @@ enum LiveRunDecision: Equatable {
 }
 
 /// Picks what the Live Activity shows from the inbox's rows: every live session, those that need
-/// the person first and then the most recently updated, the first of them focused.
+/// the person first and then the most recently updated, the first of them focused, its agent as
+/// `brands` (machine id, then backend id) describes it.
 struct LiveRunTracker {
     /// Fallback start times used only when connected to an older bridge that omits `runStartedAt`.
     private(set) var fallbackStarts: [InboxRow.Key: Int64] = [:]
@@ -22,6 +23,7 @@ struct LiveRunTracker {
 
     mutating func state(
         for rows: [InboxRow],
+        brands: [String: [String: AgentBrand]] = [:],
         readyMachines: Set<String>? = nil,
         settlingMachines: Set<String> = [],
         now: Date
@@ -53,7 +55,8 @@ struct LiveRunTracker {
                 title: focused.displayTitle,
                 machineId: focused.machineId,
                 machineName: focused.machineName,
-                backend: focused.session.backend.wireName,
+                backend: focused.session.backend,
+                agent: brands[focused.machineId]?[focused.session.backend],
                 sessionId: focused.session.sessionId,
                 startedAtMs: startedAtMs,
                 endedAtMs: nil,
@@ -102,10 +105,10 @@ final class LiveRuns {
         if let first = running.first, first.activityState == .active {
             activityId = first.id
             shown = first.content.state
-            if let shown, let backend = BackendId(wireName: shown.backend) {
-                let key = InboxRow.Key(
-                    machineId: shown.machineId,
-                    session: SessionRef(backend: backend, sessionId: shown.sessionId))
+            if let shown,
+                let target = SessionTarget(machineId: shown.machineId, backend: shown.backend, sessionId: shown.sessionId)
+            {
+                let key = InboxRow.Key(machineId: target.machineId, session: target.session)
                 tracker.seed(key: key, startedAtMs: shown.startedAtMs)
             }
             observe(activityId: first.id)
@@ -136,7 +139,7 @@ final class LiveRuns {
     private func showsLive(_ key: InboxRow.Key) -> Bool {
         guard let shown, shown.phase != .done else { return false }
         return shown.machineId == key.machineId && shown.sessionId == key.session.sessionId
-            && shown.backend == key.session.backend.wireName
+            && shown.backend == key.session.backend
     }
 
     func setForeground(_ foreground: Bool) {
@@ -147,11 +150,12 @@ final class LiveRuns {
 
     func follow(
         _ rows: [InboxRow],
+        brands: [String: [String: AgentBrand]],
         readyMachines: Set<String>? = nil,
         settlingMachines: Set<String> = []
     ) {
         let decision = tracker.state(
-            for: rows, readyMachines: readyMachines, settlingMachines: settlingMachines, now: .now)
+            for: rows, brands: brands, readyMachines: readyMachines, settlingMachines: settlingMachines, now: .now)
         guard decision != .keep else { return }
         desired = decision
         dirty = true

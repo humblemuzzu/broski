@@ -121,7 +121,8 @@ Broski/
   project.yml
   Resources/   Info.plist, Broski.entitlements, Assets.xcassets (AppIcon, AccentColor)
   Shared/      what the extensions compile too: Keychain, MachineRecordStore, NotificationPreferences,
-               PushContent; LiveActivity/ (RunActivityAttributes, StopRunIntent) for the widget
+               PushContent, Slug (the contract's open backend and plan ids); LiveActivity/
+               (RunActivityAttributes, StopRunIntent, AgentBrand) for the widget
   Extensions/
     NotificationService/  opens each push with the core (Shared without LiveActivity/, BroskiCore)
     Widgets/              the Live Activity: Lock Screen and Dynamic Island (Shared/LiveActivity only)
@@ -365,13 +366,13 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
 
 | File | What |
 |---|---|
-| `Palette` | accent (`AccentColor`, blue-violet, AA in light and dark), needs you / working / done / failed / caution, neutral mark colors; `InboxState.title/.tint`, `BackendId.displayName/.monogram` |
+| `Palette` | accent (`AccentColor`, blue-violet, AA in light and dark), needs you / working / done / failed / caution, neutral mark colors; `InboxState.title/.tint` |
 | `Typography` | `Font.screenTitle`, `.rowTitle`, `.rowDetail`, `.code`, `.codeSmall` (all Dynamic Type) |
 | `Metrics` | `Spacing` (4-pt grid), `Radius` |
 | `Motion` | `Motion.spring/snappy/crossfade`, `(reduceMotion:)` variants, `AnyTransition.rise`, `.springAnimation(value:)` |
 | `Haptics` | `HapticMoment` (the design table) and `.haptic(_:trigger:)` / `.haptic(_:trigger:when:)` |
 | `GlassControls` | `.primaryActionStyle()` (`.glassProminent`), `.secondaryActionStyle()` (`.glass`), `.glassCard()`, `WideLabel`, `GlassCapsuleBar` (the composer's capsule and its send/stop accessory in one container) |
-| `AgentMark`, `BroskiMark` | agent monograms; the app's mark |
+| `AgentMark`, `BroskiMark` | an agent's mark from its bridge's `BackendDescriptor` (`MachineModel.brand(for:)`): Claude Code's and Pi's logos, any other agent its initials on its `accentHex` (slate without one), drawn by `AgentBrand`/`AgentLogo` in `Shared/LiveActivity`; the app's mark |
 | `Indicators` | `StateIndicator`, `RelativeTime`, `Date(unixMilliseconds:)` |
 | `Orb` | `Orb` and `LoadingOrb`: ThinkingOrbsKit's thinking orb, the only "under way" mark (agents working, thinking, connecting, loading; no `ProgressView` or animated symbol), sized with its text, still outside an active scene and under Reduce Motion |
 | `StatusChip`, `Banner` | status capsules with tone and symbol (the connecting orb in progress); inline notices with one action; `.dimmed(_:)` |

@@ -116,6 +116,34 @@ struct LiveRunTests {
         #expect(state.startedAtMs == 1_760_000_000_000)
         #expect(state.endedAtMs == 1_760_000_060_000)
         #expect(state.deepLinkURL?.absoluteString == "broski://session?machine=00112233445566778899aabbccddeeff&backend=pi&session=s-1")
+        #expect(state.agent == nil)
+        #expect(state.brand.name == "Pi" && state.brand.logo == .pi, "the daemon names only the backend")
+    }
+
+    /// The focused session's agent goes into the state as its bridge describes it, and survives the
+    /// JSON ActivityKit keeps the state as; a session whose bridge said nothing reads its id.
+    @Test func theFocusedAgentIsDrawnAsItsBridgeDescribesIt() throws {
+        var tracker = LiveRunTracker()
+        let codex = AgentBrand(backend: "codex", name: "Codex", accentHex: "#10A37F", logo: nil)
+        let rows = [row("a", .working, at: 9, backend: "codex"), row("b", .working, at: 1, backend: "my-agent")]
+        guard case .show(let state) = tracker.state(
+            for: rows, brands: ["00112233445566778899aabbccddeeff": ["codex": codex]], now: .now)
+        else {
+            Issue.record("expected .show")
+            return
+        }
+        #expect(state.backend == "codex" && state.brand == codex)
+        let stored = try JSONDecoder().decode(
+            RunActivityAttributes.ContentState.self, from: JSONEncoder().encode(state))
+        #expect(stored.brand == codex)
+
+        guard case .show(let other) = tracker.state(for: [row("b", .needsYou, at: 2, backend: "my-agent")], now: .now)
+        else {
+            Issue.record("expected .show")
+            return
+        }
+        #expect(other.agent == nil)
+        #expect(other.brand.name == "My Agent" && other.brand.logo == nil && other.brand.initials == "MA")
     }
 
     private func row(
@@ -123,11 +151,12 @@ struct LiveRunTests {
         _ state: InboxState,
         at updatedAt: Int64,
         runStartedAt: Int64? = nil,
-        cached: Bool = false
+        cached: Bool = false,
+        backend: String = "claude-code"
     ) -> InboxRow {
         InboxRow(
             machineId: "00112233445566778899aabbccddeeff", machineName: "Studio Mac",
-            session: SessionRef(backend: .claudeCode, sessionId: id), title: "Session \(id)", cwd: "/w", state: state,
+            session: SessionRef(backend: backend, sessionId: id), title: "Session \(id)", cwd: "/w", state: state,
             updatedAt: updatedAt, runStartedAt: runStartedAt, ask: nil, command: nil, pending: nil, cached: cached)
     }
 }

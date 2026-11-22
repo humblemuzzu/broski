@@ -51,9 +51,10 @@ struct PersistenceTests {
         let seen = SeenState(
             markers: [
                 SeenMarker(
-                    machineId: machineId, session: SessionRef(backend: .claudeCode, sessionId: "s-9"),
+                    machineId: machineId, session: SessionRef(backend: "claude-code", sessionId: "s-9"),
                     seenAt: 1_725_000_000_000),
-                SeenMarker(machineId: machineId, session: SessionRef(backend: .pi, sessionId: "s-10"), seenAt: 1_725_000_000_500),
+                SeenMarker(machineId: machineId, session: SessionRef(backend: "pi", sessionId: "s-10"), seenAt: 1_725_000_000_500),
+                SeenMarker(machineId: machineId, session: SessionRef(backend: "my-agent", sessionId: "s-11"), seenAt: 1_725_000_000_900),
             ],
             readMachines: [machineId])
         #expect(try test.storage.seenState() == nil)
@@ -65,6 +66,28 @@ struct PersistenceTests {
         inbox.restoreSeen(state: restored)
         #expect(Set(inbox.seen().markers) == Set(seen.markers), "the core keeps markers in an order of its own")
         #expect(inbox.seen().readMachines == seen.readMachines)
+    }
+
+    /// The seen state as an earlier build wrote it reads back unchanged; a marker whose backend is
+    /// no valid id is dropped, the rest kept.
+    @Test func aStoredSeenStateFromAnEarlierBuildStillReads() throws {
+        let test = TestStorage()
+        defer { test.remove() }
+        let machineId = "00112233445566778899aabbccddeeff"
+        let stored = """
+            {"markers":[\
+            {"machineId":"\(machineId)","backend":"claude-code","sessionId":"s-1","seenAt":1},\
+            {"machineId":"\(machineId)","backend":"pi","sessionId":"s-2","seenAt":2},\
+            {"machineId":"\(machineId)","backend":"Not A Slug","sessionId":"s-3","seenAt":3}],\
+            "readMachines":["\(machineId)"]}
+            """
+        try test.storage.app.set(Data(stored.utf8), for: "inbox-seen")
+
+        let restored = try #require(try test.storage.seenState())
+        #expect(restored.markers.map(\.session) == [
+            SessionRef(backend: "claude-code", sessionId: "s-1"), SessionRef(backend: "pi", sessionId: "s-2"),
+        ])
+        #expect(restored.readMachines == [machineId])
     }
 
     /// A cold start with the machine unreachable (the fixture's one route refuses) shows the inbox
@@ -84,7 +107,7 @@ struct PersistenceTests {
         let rows = app.inbox.rows
         #expect(rows.map(\.session.sessionId) == ["s-ask", "s-old"])
         #expect(rows.allSatisfy { $0.cached && $0.pending == nil })
-        #expect(rows.first?.askLine == "Claude Code wants to run npm test")
+        #expect(rows.first?.askLine(agent: app.brand(of: rows[0].session, on: rows[0].machineId).name) == "Claude Code wants to run npm test")
         #expect(app.machine(id: rows[0].machineId)?.summary.isReady == false)
     }
 

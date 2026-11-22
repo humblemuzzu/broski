@@ -62,7 +62,8 @@ struct PhoneStorage {
     }
 }
 
-/// `SeenState` as JSON. Backends are spelled as the contract spells them on the wire.
+/// `SeenState` as JSON. Backends are spelled as the contract spells them on the wire; a marker
+/// whose backend is no valid id is dropped.
 private struct StoredSeenState: Codable {
     struct Marker: Codable {
         let machineId: String
@@ -77,7 +78,7 @@ private struct StoredSeenState: Codable {
     init(_ state: SeenState) {
         markers = state.markers.map {
             Marker(
-                machineId: $0.machineId, backend: $0.session.backend.wireName,
+                machineId: $0.machineId, backend: $0.session.backend,
                 sessionId: $0.session.sessionId, seenAt: $0.seenAt)
         }
         readMachines = state.readMachines
@@ -85,31 +86,12 @@ private struct StoredSeenState: Codable {
 
     var state: SeenState {
         SeenState(
-            markers: markers.compactMap { marker in
-                BackendId(wireName: marker.backend).map {
-                    SeenMarker(
-                        machineId: marker.machineId,
-                        session: SessionRef(backend: $0, sessionId: marker.sessionId),
-                        seenAt: marker.seenAt)
-                }
+            markers: markers.filter { Slug.isValid($0.backend) }.map {
+                SeenMarker(
+                    machineId: $0.machineId,
+                    session: SessionRef(backend: $0.backend, sessionId: $0.sessionId),
+                    seenAt: $0.seenAt)
             },
             readMachines: readMachines)
-    }
-}
-
-extension BackendId {
-    var wireName: String {
-        switch self {
-        case .claudeCode: "claude-code"
-        case .pi: "pi"
-        }
-    }
-
-    init?(wireName: String) {
-        switch wireName {
-        case "claude-code": self = .claudeCode
-        case "pi": self = .pi
-        default: return nil
-        }
     }
 }

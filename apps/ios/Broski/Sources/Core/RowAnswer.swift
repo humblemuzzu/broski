@@ -62,9 +62,9 @@ extension InboxRow {
     }
 
     /// "Claude Code wants to run npm test", or the agent's own words for any other ask.
-    var askLine: String? {
+    func askLine(agent: String) -> String? {
         guard state == .needsYou else { return nil }
-        if let command { return "\(session.backend.displayName) wants to run \(command)" }
+        if let command { return "\(agent) wants to run \(command)" }
         return ask
     }
 }

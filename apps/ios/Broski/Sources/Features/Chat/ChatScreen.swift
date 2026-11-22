@@ -46,8 +46,8 @@ private struct ChatContent: View {
 
     private var cwd: String? { chat.summary?.cwd ?? row?.cwd }
     private var title: String { chat.renamedTitle ?? row?.title ?? chat.summary?.title?.text ?? "New session" }
-    private var agent: String { chat.session.backend.displayName }
-    private var capabilities: Capabilities? { machine.backends.first { $0.id == chat.session.backend }?.capabilities }
+    private var agent: String { machine.brand(for: chat.session.backend).name }
+    private var capabilities: Capabilities? { machine.descriptor(for: chat.session.backend)?.capabilities }
 
     var body: some View {
         TranscriptView(
@@ -64,7 +64,7 @@ private struct ChatContent: View {
             .toolbar {
                 ChatToolbar(chat: chat, machine: machine, title: title, cwd: cwd, capabilities: capabilities, dialog: $dialog)
             }
-            .chatDialogs(chat, machineName: machine.name, title: title, dialog: $dialog)
+            .chatDialogs(chat, agent: agent, machineName: machine.name, title: title, dialog: $dialog)
             .toolbarVisibility(.hidden, for: .tabBar)
             .environment(disclosure)
             .environment(\.chatMachineId, machine.id)

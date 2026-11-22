@@ -72,6 +72,8 @@ struct NoReading: View {
     let hasReport: Bool
     @Environment(\.widgetFamily) private var family
 
+    private var name: String { report?.name ?? plan.name }
+
     private var message: String {
         if let problem = report?.problem { return problem }
         return hasReport ? "Not signed in on your Mac" : "Open Broski to read your plans"
@@ -80,17 +82,17 @@ struct NoReading: View {
     var body: some View {
         switch family {
         case .accessoryInline:
-            Text("\(plan.name): \(hasReport ? "no reading" : "open Broski")")
+            Text("\(name): \(hasReport ? "no reading" : "open Broski")")
         case .accessoryCircular:
             ZStack {
                 AccessoryWidgetBackground()
-                PlanGlyph(plan: plan, size: 22)
+                PlanGlyph(plan: plan, name: name, size: 22)
             }
         default:
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 5) {
-                    PlanGlyph(plan: plan, size: 13)
-                    Eyebrow(plan.name, style: .primary)
+                    PlanGlyph(plan: plan, name: name, size: 13)
+                    Eyebrow(name, style: .primary)
                 }
                 Spacer(minLength: 0)
                 Text(message)

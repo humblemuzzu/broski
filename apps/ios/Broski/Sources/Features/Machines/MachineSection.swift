@@ -31,7 +31,7 @@ struct MachineSection: View {
                 LabeledContent("Bridge", value: version)
             }
             ForEach(machine.backends, id: \.id) { backend in
-                LabeledContent(backend.id.displayName, value: agentStatus(backend.id))
+                LabeledContent(AgentBrand(backend).name, value: agentStatus(backend.id))
             }
             if summary.canRestartBridge {
                 Button("Restart Bridge", systemImage: "arrow.clockwise") {
@@ -86,7 +86,7 @@ struct MachineSection: View {
         }
     }
 
-    private func agentStatus(_ backend: BackendId) -> String {
+    private func agentStatus(_ backend: String) -> String {
         guard let status = machine.backendStatuses[backend] else { return "Checking…" }
         if !status.installed { return "Not installed" }
         if !status.usable { return status.issues.first?.message ?? "Can't be used" }

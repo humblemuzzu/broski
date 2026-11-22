@@ -45,22 +45,11 @@ struct RootView: View {
             case "pair": pairing = .link(url.absoluteString)
             case "usage" where model.isPaired: showingUsage = true
             case "session" where model.isPaired:
-                if let target = Self.sessionTarget(from: url) {
+                if let target = SessionTarget(url: url) {
                     model.sessionToOpen = target
                 }
             default: break
             }
         }
-    }
-
-    private static func sessionTarget(from url: URL) -> SessionTarget? {
-        guard let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems else { return nil }
-        let values = Dictionary(uniqueKeysWithValues: items.compactMap { item in item.value.map { (item.name, $0) } })
-        guard let machineId = values["machine"],
-            let backendName = values["backend"],
-            let sessionId = values["session"],
-            let backend = BackendId(wireName: backendName)
-        else { return nil }
-        return SessionTarget(machineId: machineId, session: SessionRef(backend: backend, sessionId: sessionId))
     }
 }

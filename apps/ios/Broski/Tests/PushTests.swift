@@ -28,7 +28,7 @@ struct PushTests {
         #expect(content.interruptionLevel != .passive)
         let target = PushTarget(content.userInfo)
         #expect(target.machineId == Self.machineId)
-        #expect(target.session == SessionTarget(machineId: Self.machineId, session: SessionRef(backend: .claudeCode, sessionId: "s-1")))
+        #expect(target.session == SessionTarget(machineId: Self.machineId, session: SessionRef(backend: "claude-code", sessionId: "s-1")))
         #expect(target.request == "req-1")
     }
 

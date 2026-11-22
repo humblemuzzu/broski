@@ -13,7 +13,7 @@ final class MachineModel: Identifiable {
     let pairedAt: Date
     private(set) var status: MachineStatus
     private(set) var backends: [BackendDescriptor] = []
-    private(set) var backendStatuses: [BackendId: BackendStatus] = [:]
+    private(set) var backendStatuses: [String: BackendStatus] = [:]
     /// Counts the catalog's invalidations: a screen that shows models, commands or modes reads
     /// them again when it changes.
     private(set) var catalogChanges = 0
@@ -35,6 +35,20 @@ final class MachineModel: Identifiable {
     }
 
     var summary: MachineSummary { MachineSummary(name: name, status: status) }
+
+    func descriptor(for backendId: String) -> BackendDescriptor? {
+        backends.first { $0.id == backendId }
+    }
+
+    /// The agent as this machine's bridge describes it; before it has, as the phone knows it.
+    func brand(for backendId: String) -> AgentBrand {
+        descriptor(for: backendId).map(AgentBrand.init) ?? AgentBrand(backend: backendId)
+    }
+
+    /// The agents the bridge describes, by backend id.
+    var brands: [String: AgentBrand] {
+        Dictionary(backends.map { ($0.id, AgentBrand($0)) }) { first, _ in first }
+    }
 
     var bridgeVersion: String? {
         if case .ready(let version) = status.contract { version } else { nil }

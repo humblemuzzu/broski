@@ -39,11 +39,11 @@ struct PlanUsageCard: View {
 
     private var header: some View {
         HStack(spacing: Spacing.m) {
-            PlanGlyph(plan: report.plan, size: 22)
+            PlanGlyph(plan: report.plan, name: report.name, size: 22)
                 .frame(width: 40, height: 40)
                 .background(report.plan.tint.opacity(0.12), in: .rect(cornerRadius: 12, style: .continuous))
             VStack(alignment: .leading, spacing: Spacing.xxs) {
-                Text(report.plan.name).font(.headline)
+                Text(report.name).font(.headline)
                 Text([report.tier, report.machineName].compactMap(\.self).joined(separator: " · "))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)

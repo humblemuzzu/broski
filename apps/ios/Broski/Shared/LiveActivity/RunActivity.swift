@@ -29,8 +29,11 @@ nonisolated struct RunActivityAttributes: ActivityAttributes {
         var title: String
         var machineId: String
         var machineName: String
-        /// The contract's wire name: `claude-code` or `pi`.
+        /// The contract's backend id: `claude-code`, `pi`, `my-agent`.
         var backend: String
+        /// The agent as its bridge describes it; absent from the daemon's pushes, which name only
+        /// `backend`.
+        var agent: AgentBrand?
         var sessionId: String
         /// Unix epoch milliseconds when the focused run started.
         var startedAtMs: Int64
@@ -44,7 +47,7 @@ nonisolated struct RunActivityAttributes: ActivityAttributes {
         var startedAt: Date { Date(timeIntervalSince1970: TimeInterval(startedAtMs) / 1000) }
         var endedAt: Date? { endedAtMs.map { Date(timeIntervalSince1970: TimeInterval($0) / 1000) } }
 
-        var brand: AgentBrand { AgentBrand(wire: backend) }
+        var brand: AgentBrand { agent ?? AgentBrand(backend: backend) }
         var agentName: String { brand.name }
 
         /// Deep link that opens the focused session in Broski.

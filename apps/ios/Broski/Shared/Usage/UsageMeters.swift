@@ -90,7 +90,7 @@ struct TimeTrack: View {
                         Capsule()
                             .fill(LinearGradient(colors: plan.meterColors(.normal).map { $0.opacity(0.85) }, startPoint: .leading, endPoint: .trailing))
                             .frame(width: max(4, x), height: 4)
-                        PlanGlyph(plan: plan, size: 11)
+                        PlanGlyph(plan: plan, name: plan.name, size: 11)
                             .frame(width: 20, height: 20)
                             .background(Circle().fill(Color(uiColor: .systemBackground)))
                             .overlay(Circle().strokeBorder(plan.bright.opacity(0.7), lineWidth: 1.5))

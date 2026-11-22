@@ -50,11 +50,20 @@ final class UsageModel {
         save(next)
     }
 
-    /// One report per plan: when two Macs read the same account, the newer reading.
+    /// One report per plan, in the order the Macs first gave them: when two Macs read the same
+    /// account, the newer reading.
     static func merged(_ plans: [PlanReport]) -> [PlanReport] {
-        UsagePlan.allCases.compactMap { plan in
-            plans.filter { $0.plan == plan }.max { ($0.readAt ?? .distantPast) < ($1.readAt ?? .distantPast) }
+        var order: [UsagePlan] = []
+        var newest: [UsagePlan: PlanReport] = [:]
+        for report in plans {
+            if let kept = newest[report.plan] {
+                if (report.readAt ?? .distantPast) > (kept.readAt ?? .distantPast) { newest[report.plan] = report }
+            } else {
+                order.append(report.plan)
+                newest[report.plan] = report
+            }
         }
+        return order.compactMap { newest[$0] }
     }
 
     /// The Mac's plans, or nil when it gave no answer (an older bridge answers `unsupported`).
@@ -85,7 +94,8 @@ final class UsageModel {
 extension PlanReport {
     init(_ meter: PlanMeter, machineName: String) {
         self.init(
-            plan: UsagePlan(meter.plan),
+            plan: UsagePlan(id: meter.plan),
+            displayName: meter.displayName,
             tier: meter.tier,
             windows: meter.windows.map(LimitWindow.init),
             readAt: meter.readAt.map(Date.init(unixMilliseconds:)),
@@ -106,14 +116,5 @@ extension LimitWindow {
             history: (window.history ?? []).map {
                 UsagePoint(at: Date(unixMilliseconds: $0.at), usedPercent: $0.usedPercent)
             })
-    }
-}
-
-extension UsagePlan {
-    init(_ plan: PlanId) {
-        switch plan {
-        case .claude: self = .claude
-        case .antigravity: self = .antigravity
-        }
     }
 }

@@ -9,7 +9,7 @@ final class ComposerCatalog {
     private(set) var commands: [CommandSummary] = []
     private(set) var modes: [ModeAxis] = []
 
-    func load(_ machine: Machine, backend: BackendId, cwd: String?, session: SessionRef?) async {
+    func load(_ machine: Machine, backend: String, cwd: String?, session: SessionRef?) async {
         async let models = try? machine.models(backend: backend, cwd: cwd, includeUnavailable: false)
         async let commands = try? machine.commands(backend: backend, cwd: cwd, session: session)
         async let modes = try? machine.modes(backend: backend, cwd: cwd)

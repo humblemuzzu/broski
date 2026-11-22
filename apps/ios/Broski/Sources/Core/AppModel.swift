@@ -64,14 +64,25 @@ final class AppModel {
         machines.first { $0.id == id }
     }
 
+    /// The session's agent as its machine's bridge describes it, or as the phone knows it while
+    /// the machine has not.
+    func brand(of session: SessionRef, on machineId: String) -> AgentBrand {
+        machine(id: machineId)?.brand(for: session.backend) ?? AgentBrand(backend: session.backend)
+    }
+
+    /// Every machine's agents by machine id, then backend id.
+    var brands: [String: [String: AgentBrand]] {
+        Dictionary(machines.map { ($0.id, $0.brands) }) { first, _ in first }
+    }
+
     /// Opens the phone from the stored identity and starts every stored machine. Safe to call
     /// again after a failure; a running phone is left alone.
     func start() {
         guard phone == nil else { return }
         push.start()
         RunStopper.stop = { [weak self] machineId, backend, sessionId in
-            guard let backend = BackendId(wireName: backend) else { return }
-            await self?.stopRun(machineId: machineId, session: SessionRef(backend: backend, sessionId: sessionId))
+            guard let target = SessionTarget(machineId: machineId, backend: backend, sessionId: sessionId) else { return }
+            await self?.stopRun(machineId: machineId, session: target.session)
         }
         launch = .starting
         do throws(IdentityProblem) {
@@ -350,10 +361,10 @@ final class AppModel {
         self.liveRuns = liveRuns
         Task { [weak self] in
             guard let self else { return }
-            for await (rows, ready, settling) in Observations({
-                (self.inbox.rows, self.reachableMachineIds, self.settlingMachineIds)
+            for await (rows, brands, ready, settling) in Observations({
+                (self.inbox.rows, self.brands, self.reachableMachineIds, self.settlingMachineIds)
             }) {
-                liveRuns.follow(rows, readyMachines: ready, settlingMachines: settling)
+                liveRuns.follow(rows, brands: brands, readyMachines: ready, settlingMachines: settling)
             }
         }
     }

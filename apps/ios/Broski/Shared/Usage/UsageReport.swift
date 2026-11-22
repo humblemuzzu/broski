@@ -17,24 +17,37 @@ nonisolated struct UsageReport: Codable, Equatable, Sendable {
     }
 }
 
-nonisolated enum UsagePlan: String, Codable, CaseIterable, Sendable, Identifiable {
-    case claude
-    case antigravity
+/// A plan by the contract's id: `claude`, `antigravity`, or any other a bridge meters. Stored as
+/// the bare id.
+nonisolated struct UsagePlan: Codable, Hashable, Sendable, Identifiable {
+    static let claude = UsagePlan(id: "claude")
+    static let antigravity = UsagePlan(id: "antigravity")
 
-    var id: Self { self }
+    let id: String
 
-    var name: String {
-        switch self {
-        case .claude: "Claude"
-        case .antigravity: "Antigravity"
-        }
+    init(id: String) {
+        self.id = id
     }
+
+    init(from decoder: Decoder) throws {
+        id = try decoder.singleValueContainer().decode(String.self)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(id)
+    }
+
+    /// What the phone calls a plan its bridge did not name: "claude" reads "Claude".
+    var name: String { Slug.label(id) }
 }
 
 /// One plan on one Mac: its windows, or why the Mac could not read them this time (the windows
 /// are then those of the last reading that worked).
 nonisolated struct PlanReport: Codable, Equatable, Sendable, Identifiable {
     var plan: UsagePlan
+    /// The bridge's name for the plan, when it gives one.
+    var displayName: String?
     var tier: String?
     var windows: [LimitWindow]
     var readAt: Date?
@@ -42,6 +55,8 @@ nonisolated struct PlanReport: Codable, Equatable, Sendable, Identifiable {
     var machineName: String
 
     var id: UsagePlan { plan }
+
+    var name: String { displayName ?? plan.name }
 
     /// The window nearest its limit, the week on a tie: what a glance should show.
     func headline(at now: Date) -> LimitWindow? {

@@ -47,7 +47,9 @@ struct InboxScreen: View {
                 Section {
                     ForEach(section.rows, id: \.key) { row in
                         NavigationLink(value: Route.session(machineId: row.machineId, session: row.session)) {
-                            InboxRowView(row: row, machine: model.machine(id: row.machineId)?.summary)
+                            InboxRowView(
+                                row: row, brand: model.brand(of: row.session, on: row.machineId),
+                                machine: model.machine(id: row.machineId)?.summary)
                         }
                         .inboxRowActions(row, inbox: model.inbox)
                     }

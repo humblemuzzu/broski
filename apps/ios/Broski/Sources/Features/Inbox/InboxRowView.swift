@@ -6,6 +6,7 @@ import SwiftUI
 /// listed, dimmed, with the machine's status.
 struct InboxRowView: View {
     let row: InboxRow
+    let brand: AgentBrand
     let machine: MachineSummary?
     @Environment(\.dynamicTypeSize) private var typeSize
 
@@ -32,7 +33,7 @@ struct InboxRowView: View {
     /// the place's own length never cuts off.
     private var compact: some View {
         HStack(alignment: .top, spacing: Spacing.m) {
-            AgentMark(backend: row.session.backend)
+            AgentMark(brand: brand)
             VStack(alignment: .leading, spacing: Spacing.xxs) {
                 Text(title).font(.rowTitle).lineLimit(2)
                 askText?.lineLimit(1)
@@ -52,7 +53,7 @@ struct InboxRowView: View {
     private var stacked: some View {
         VStack(alignment: .leading, spacing: Spacing.xs) {
             HStack {
-                AgentMark(backend: row.session.backend)
+                AgentMark(brand: brand)
                 Spacer()
                 StateIndicator(state: row.state)
             }
@@ -64,7 +65,7 @@ struct InboxRowView: View {
     }
 
     private var askText: Text? {
-        guard let ask = row.askLine else { return nil }
+        guard let ask = row.askLine(agent: brand.name) else { return nil }
         return Text(ask).font(.subheadline).foregroundStyle(Palette.needsYou)
     }
 
@@ -91,8 +92,8 @@ struct InboxRowView: View {
 
     /// "Needs you. Claude Code wants to run npm test. MacBook, broski."
     private var spokenLabel: String {
-        let what = row.askLine
-        var sentences = [row.state.title, what ?? "\(row.session.backend.displayName), \(title)"]
+        let what = row.askLine(agent: brand.name)
+        var sentences = [row.state.title, what ?? "\(brand.name), \(title)"]
         sentences.append([row.machineName, folder].compactMap(\.self).joined(separator: ", "))
         if !reachable, let machine { sentences.append(machine.line) }
         return sentences.map { $0.hasSuffix(".") || $0.hasSuffix("…") ? $0 : $0 + "." }.joined(separator: " ")

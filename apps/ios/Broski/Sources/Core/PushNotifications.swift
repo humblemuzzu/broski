@@ -123,8 +123,8 @@ nonisolated struct PushTarget: Sendable {
     }
 
     @MainActor var session: SessionTarget? {
-        guard let machineId, let sessionId, let backend = backend.flatMap(BackendId.init(wireName:)) else { return nil }
-        return SessionTarget(machineId: machineId, session: SessionRef(backend: backend, sessionId: sessionId))
+        guard let machineId, let backend, let sessionId else { return nil }
+        return SessionTarget(machineId: machineId, backend: backend, sessionId: sessionId)
     }
 }
 

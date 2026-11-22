@@ -39,20 +39,3 @@ extension InboxState {
         }
     }
 }
-
-extension BackendId {
-    /// The agent's name, exactly as its makers write it.
-    var displayName: String {
-        switch self {
-        case .claudeCode: "Claude Code"
-        case .pi: "Pi"
-        }
-    }
-
-    var brand: AgentBrand {
-        switch self {
-        case .claudeCode: .claudeCode
-        case .pi: .pi
-        }
-    }
-}

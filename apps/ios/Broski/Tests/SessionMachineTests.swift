@@ -84,7 +84,7 @@ private struct ScenarioPlayer {
 
     func play(_ scenario: String) async throws -> (updates: Int, equal: Int) {
         let requests = ChatRequests(machine: machine)
-        let session = try await requests.create(.pi, NewSessionOptions(cwd: setup.root, modelId: nil, thinking: nil, modes: nil))
+        let session = try await requests.create("pi", NewSessionOptions(cwd: setup.root, modelId: nil, thinking: nil, modes: nil))
         let view = try machine.attach(session: session)
         defer { view.detach() }
         var follower = Follower(view: view)
@@ -125,7 +125,7 @@ private struct ScenarioPlayer {
     }
 
     private func wire(_ session: SessionRef) -> JSONValue {
-        .object(["backend": .string(session.backend.wireName), "sessionId": .string(session.sessionId)])
+        .object(["backend": .string(session.backend), "sessionId": .string(session.sessionId)])
     }
 
     /// Appends a command to the machine's file and waits for its answer line.

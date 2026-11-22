@@ -10,8 +10,8 @@ struct PlanTitle: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            PlanGlyph(plan: report.plan, size: 14)
-            Text(report.plan.name)
+            PlanGlyph(plan: report.plan, name: report.name, size: 14)
+            Text(report.name)
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(report.plan.bright)
                 .lineLimit(1)
@@ -103,10 +103,10 @@ struct PlanCircular: View {
 
     var body: some View {
         Gauge(value: window.used(at: now)) {
-            PlanGlyph(plan: report.plan, size: 12)
+            PlanGlyph(plan: report.plan, name: report.name, size: 12)
         } currentValueLabel: {
             VStack(spacing: 0) {
-                PlanGlyph(plan: report.plan, size: 11)
+                PlanGlyph(plan: report.plan, name: report.name, size: 11)
                 Text("\(Int((window.used(at: now) * 100).rounded()))")
                     .font(.system(size: 15, weight: .bold, design: .rounded))
                     .monospacedDigit()
@@ -126,8 +126,8 @@ struct PlanRectangular: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline, spacing: 4) {
-                PlanGlyph(plan: report.plan, size: 11)
-                Text(report.plan.name).font(.system(size: 12, weight: .semibold)).lineLimit(1)
+                PlanGlyph(plan: report.plan, name: report.name, size: 11)
+                Text(report.name).font(.system(size: 12, weight: .semibold)).lineLimit(1)
                 Spacer(minLength: 2)
                 Text("\(Int((window.used(at: now) * 100).rounded()))%")
                     .font(.system(size: 17, weight: .bold))
@@ -151,7 +151,7 @@ struct PlanInline: View {
 
     var body: some View {
         Label {
-            Text("\(report.plan.name) \(Int((window.used(at: now) * 100).rounded()))% \(window.span.shortTitle.lowercased())")
+            Text("\(report.name) \(Int((window.used(at: now) * 100).rounded()))% \(window.span.shortTitle.lowercased())")
         } icon: {
             Image(systemName: "gauge.with.needle")
         }

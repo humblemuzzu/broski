@@ -43,11 +43,11 @@ nonisolated struct PlanUsageProvider: AppIntentTimelineProvider {
     }
 
     func snapshot(for configuration: PlanChoice, in context: Context) async -> UsageEntry {
-        UsageTimeline.preview(plan: configuration.plan, in: context)
+        UsageTimeline.preview(plan: configuration.plan.plan, in: context)
     }
 
     func timeline(for configuration: PlanChoice, in context: Context) async -> Timeline<UsageEntry> {
-        UsageTimeline.entries(plan: configuration.plan)
+        UsageTimeline.entries(plan: configuration.plan.plan)
     }
 }
 
@@ -71,19 +71,25 @@ struct PlanChoice: WidgetConfigurationIntent {
     static let title: LocalizedStringResource = "Plan"
     static let description = IntentDescription("The plan this widget shows.")
 
-    @Parameter(title: "Plan", default: .claude) var plan: UsagePlan
+    @Parameter(title: "Plan", default: .claude) var plan: PlanOption
 
     init() {}
 
-    init(plan: UsagePlan) {
+    init(plan: PlanOption) {
         self.plan = plan
     }
 }
 
-extension UsagePlan: AppEnum {
+/// The plans the widget can be set to, by the contract's plan id.
+enum PlanOption: String, AppEnum {
+    case claude
+    case antigravity
+
     nonisolated static let typeDisplayRepresentation: TypeDisplayRepresentation = "Plan"
-    nonisolated static let caseDisplayRepresentations: [UsagePlan: DisplayRepresentation] = [
+    nonisolated static let caseDisplayRepresentations: [PlanOption: DisplayRepresentation] = [
         .claude: DisplayRepresentation(title: "Claude", subtitle: "Your claude.ai plan"),
         .antigravity: DisplayRepresentation(title: "Antigravity", subtitle: "Google Antigravity's plan"),
     ]
+
+    var plan: UsagePlan { UsagePlan(id: rawValue) }
 }

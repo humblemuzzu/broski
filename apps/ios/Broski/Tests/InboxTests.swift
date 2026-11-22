@@ -9,7 +9,7 @@ struct InboxTests {
         command: String? = nil, pending: PendingAsk? = nil
     ) -> InboxRow {
         InboxRow(
-            machineId: machine, machineName: "Studio Mac", session: SessionRef(backend: .claudeCode, sessionId: id),
+            machineId: machine, machineName: "Studio Mac", session: SessionRef(backend: "claude-code", sessionId: id),
             title: id, cwd: "/Users/me/broski", state: state, updatedAt: updatedAt, runStartedAt: nil,
             ask: state == .needsYou ? "Allow Bash command?" : nil, command: command, pending: pending,
             cached: false)
@@ -71,9 +71,9 @@ struct InboxTests {
     }
 
     @Test func aNeedsYouRowSaysWhatTheAgentWantsInItsOwnWords() {
-        #expect(row("a", .needsYou, 1, command: "npm test").askLine == "Claude Code wants to run npm test")
-        #expect(row("b", .needsYou, 1).askLine == "Allow Bash command?")
-        #expect(row("c", .working, 1, command: "npm test").askLine == nil)
+        #expect(row("a", .needsYou, 1, command: "npm test").askLine(agent: "Codex") == "Codex wants to run npm test")
+        #expect(row("b", .needsYou, 1).askLine(agent: "Codex") == "Allow Bash command?")
+        #expect(row("c", .working, 1, command: "npm test").askLine(agent: "Codex") == nil)
     }
 
     @Test func rowsOfTheSameSessionOnTwoMachinesStayApart() {

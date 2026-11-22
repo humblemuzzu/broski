@@ -48,7 +48,7 @@ struct ChatToolbar: ToolbarContent {
     }
 
     private var subtitle: String {
-        [chat.session.backend.displayName, cwd?.lastPathComponent, machine.name].compactMap(\.self).joined(separator: " · ")
+        [machine.brand(for: chat.session.backend).name, cwd?.lastPathComponent, machine.name].compactMap(\.self).joined(separator: " · ")
     }
 
     @ViewBuilder
@@ -80,6 +80,7 @@ struct ChatToolbar: ToolbarContent {
 /// Rename (a title field) and Delete (a confirmation) for the chat's header.
 private struct ChatDialogs: ViewModifier {
     let chat: ChatModel
+    let agent: String
     let machineName: String
     let title: String
     @Binding var dialog: ChatDialog?
@@ -98,7 +99,7 @@ private struct ChatDialogs: ViewModifier {
                     Task { if await chat.delete() { dismiss() } }
                 }
             } message: {
-                Text("\(chat.session.backend.displayName) deletes it on \(machineName).")
+                Text("\(agent) deletes it on \(machineName).")
             }
             .onChange(of: dialog) { _, shown in
                 if shown == .rename { newTitle = title }
@@ -111,8 +112,10 @@ private struct ChatDialogs: ViewModifier {
 }
 
 extension View {
-    func chatDialogs(_ chat: ChatModel, machineName: String, title: String, dialog: Binding<ChatDialog?>) -> some View {
-        modifier(ChatDialogs(chat: chat, machineName: machineName, title: title, dialog: dialog))
+    func chatDialogs(
+        _ chat: ChatModel, agent: String, machineName: String, title: String, dialog: Binding<ChatDialog?>
+    ) -> some View {
+        modifier(ChatDialogs(chat: chat, agent: agent, machineName: machineName, title: title, dialog: dialog))
     }
 }
 

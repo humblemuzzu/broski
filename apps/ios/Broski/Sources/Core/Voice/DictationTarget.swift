@@ -49,7 +49,7 @@ extension DictationTarget {
         send: @escaping () -> Void
     ) -> DictationTarget {
         DictationTarget(
-            id: "chat:\(chat.machineId):\(chat.session.backend.wireName):\(chat.session.sessionId)",
+            id: "chat:\(chat.machineId):\(chat.session.backend):\(chat.session.sessionId)",
             sources: { [weak chat] in
                 guard let chat else { return .empty }
                 let cwd = cwd()

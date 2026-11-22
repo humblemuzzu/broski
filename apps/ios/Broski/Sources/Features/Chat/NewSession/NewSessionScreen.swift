@@ -36,10 +36,14 @@ private struct NewSessionContent: View {
 
     private var machine: MachineModel? { model.machineId.flatMap(app.machine(id:)) }
     private var projects: [Project] { Project.recent(app.inbox.rows, machineId: model.machineId) }
+    private var brand: AgentBrand? {
+        guard let machine, let backend = model.backend else { return nil }
+        return machine.brand(for: backend)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
-            NewSessionHero(backend: model.backend)
+            NewSessionHero(brand: brand)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .contentShape(.rect)
                 .onTapGesture { composing = false }
@@ -113,7 +117,7 @@ private struct NewSessionContent: View {
     }
 
     private func composer(_ machine: MachineModel) -> some View {
-        let capabilities = machine.backends.first { $0.id == model.backend }?.capabilities
+        let capabilities = model.backend.flatMap(machine.descriptor(for:))?.capabilities
         let fileSearch: FileSearchSource? = model.folder.flatMap { folder in
             guard machine.summary.isReady else { return nil }
             let requests = WorkspaceRequests(machine: machine.machine)
@@ -123,7 +127,7 @@ private struct NewSessionContent: View {
             }
         }
         return ComposerView(
-            draft: $model.draft, agent: model.backend?.displayName ?? "the agent", action: .send, modes: [.start],
+            draft: $model.draft, agent: brand?.name ?? "the agent", action: .send, modes: [.start],
             acceptsImages: capabilities?.attachments.contains(.image) ?? false,
             isEnabled: machine.summary.isReady && model.backend != nil && !model.isCreating,
             catalog: model.catalog, choices: model.choices, choose: model.choose(_:),
@@ -175,12 +179,12 @@ private struct NewSessionContent: View {
         let ready: [String]
         let rows: [InboxRow]
         let folder: String?
-        let backends: [BackendId]
-        let statuses: [BackendId: BackendStatus]
+        let backends: [String]
+        let statuses: [String: BackendStatus]
     }
 
     private struct CatalogKey: Equatable {
-        let backend: BackendId?
+        let backend: String?
         let folder: String?
         let changes: Int
     }
@@ -189,26 +193,26 @@ private struct NewSessionContent: View {
 /// Where the transcript will be: the agent's mark and the question, gone when the keyboard and the
 /// folders leave no room for them.
 private struct NewSessionHero: View {
-    let backend: BackendId?
+    let brand: AgentBrand?
 
     var body: some View {
         ViewThatFits(in: .vertical) {
             VStack(spacing: Spacing.l) {
                 Group {
-                    if let backend {
-                        AgentMark(backend: backend)
+                    if let brand {
+                        AgentMark(brand: brand)
                     } else {
                         BroskiMark(side: 44)
                     }
                 }
-                .id(backend)
+                .id(brand)
                 .transition(.scale(scale: 0.8).combined(with: .opacity))
                 Text("What should we build?")
                     .font(.title2.weight(.semibold))
                     .multilineTextAlignment(.center)
             }
             .padding(.horizontal, Spacing.xl)
-            .animation(.spring(duration: 0.3, bounce: 0.2), value: backend)
+            .animation(.spring(duration: 0.3, bounce: 0.2), value: brand)
             Color.clear
         }
     }

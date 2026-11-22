@@ -97,18 +97,20 @@ private struct ChooserRow<Icon: View, Title: View>: View {
 /// is a menu, where one that cannot run says why; the folder opens and closes the list above.
 struct SessionPills: View {
     let machine: MachineModel
-    let backend: BackendId?
+    let backend: String?
     let folder: String?
     let showsProjects: Bool
-    let pickBackend: (BackendId) -> Void
+    let pickBackend: (String) -> Void
     let toggleProjects: () -> Void
+
+    private var brand: AgentBrand? { backend.map(machine.brand(for:)) }
 
     var body: some View {
         HStack(spacing: Spacing.s) {
             Menu {
                 ForEach(machine.backends, id: \.id) { descriptor in
                     Button { pickBackend(descriptor.id) } label: {
-                        Text(descriptor.id.displayName)
+                        Text(AgentBrand(descriptor).name)
                         if let reason = reason(descriptor.id) { Text(reason) }
                         if descriptor.id == backend { Image(systemName: "checkmark") }
                     }
@@ -116,17 +118,17 @@ struct SessionPills: View {
                 }
             } label: {
                 PillLabel {
-                    if let backend {
-                        AgentLogo(brand: backend.brand, side: 20)
+                    if let brand {
+                        AgentLogo(brand: brand, side: 20)
                     }
-                    Text(backend?.displayName ?? "Agent")
+                    Text(brand?.name ?? "Agent")
                     Image(systemName: "chevron.up.chevron.down")
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(.secondary)
                 }
             }
             .glassEffect(.regular.interactive(), in: .capsule)
-            .accessibilityLabel("Agent, \(backend?.displayName ?? "none")")
+            .accessibilityLabel("Agent, \(brand?.name ?? "none")")
 
             Button(action: toggleProjects) {
                 PillLabel {
@@ -150,7 +152,7 @@ struct SessionPills: View {
     }
 
     /// Why the agent cannot run: not installed, signed out, or its own words.
-    private func reason(_ backend: BackendId) -> String? {
+    private func reason(_ backend: String) -> String? {
         guard let status = machine.backendStatuses[backend], !status.usable else { return nil }
         if !status.installed { return "Not installed on \(machine.name)" }
         if status.auth == .signedOut { return "Signed out on \(machine.name)" }

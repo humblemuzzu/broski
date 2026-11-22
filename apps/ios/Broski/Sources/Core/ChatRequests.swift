@@ -63,7 +63,7 @@ struct ChatRequests {
         }
     }
 
-    func create(_ backend: BackendId, _ options: NewSessionOptions) async throws(ChatProblem) -> SessionRef {
+    func create(_ backend: String, _ options: NewSessionOptions) async throws(ChatProblem) -> SessionRef {
         try await ask(.sessionCreate(SessionCreateRequest(requestId: "", backend: backend, options: options))) {
             if case .sessionCreateResult(let answer) = $0 { answer.result } else { nil }
         }.session
