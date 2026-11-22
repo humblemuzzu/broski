@@ -9,10 +9,19 @@ import type {
 } from "../contract";
 import { BackendRegistry } from "./backend-registry";
 import { answerFromBridge } from "./bridge-answer";
+import { BridgeLayer } from "./bridge-layer";
+import { CacheClock } from "./cache-clock";
 import { CatalogFeed } from "./catalog-feed";
 import { CoreClient } from "./client";
 import type { CoreContext } from "./context";
 import { DEFAULT_REPLAY_WINDOW, type ReplayWindow } from "./event-log";
+import {
+	type ExternalInteractionOutcome,
+	type ExternalInteractionSpec,
+	ExternalInteractions,
+	type ExternalNoticeSpec,
+} from "./external-interactions";
+import { CoreFallbacks, type FallbackOptions } from "./fallbacks";
 import { InteractionDesk } from "./interaction-desk";
 import { DEFAULT_IDLE_CLOSE_MS } from "./keep-open";
 import { type CoreObserver, Observation } from "./observer";
@@ -54,6 +63,8 @@ export interface CoreOptions {
 	readonly usage?: UsageReader;
 	/** The machine's files, git and terminals; without it every workspace request is `unsupported`. */
 	readonly workspace?: WorkspaceFactory;
+	/** What the core does itself for a backend that cannot; each is off unless asked for. */
+	readonly fallbacks?: FallbackOptions;
 }
 
 /** One client's view of the core, for the connection that carries it. */
@@ -76,6 +87,7 @@ export class BridgeCore {
 	private readonly feed: CatalogFeed;
 	private readonly server: ProtocolServer;
 	private readonly desk = new InteractionDesk();
+	private readonly externals: ExternalInteractions;
 	private readonly clients = new Set<CoreClient>();
 	private readonly terminals: TerminalViewers;
 	private readonly workspace: WorkspaceHost | undefined;
@@ -85,6 +97,15 @@ export class BridgeCore {
 		const replacements = new Replacements(options.clock, options.replacementJournal);
 		let runClock: RunClock;
 		let observation: Observation;
+		let fallbacks: CoreFallbacks;
+		const externals = new ExternalInteractions({
+			hold: (ref) => this.hold(ref),
+			release: (ref) => this.release(ref),
+			find: (ref) => this.hub.find(ref),
+			now: () => options.clock.now(),
+			log: options.log,
+		});
+		this.externals = externals;
 		this.hub = new SessionHub({
 			maxFrameBytes: options.maxFrameBytes,
 			replay: options.replay ?? DEFAULT_REPLAY_WINDOW,
@@ -96,8 +117,11 @@ export class BridgeCore {
 				else runClock.observeEvent(live.ref, live.snapshot);
 				desk.observe(live, record.event);
 				observation.publish(live, record, before);
+				fallbacks.observe(live, record.event);
 			},
 			replacements,
+			layer: new BridgeLayer(new CacheClock(options.clock), externals),
+			ending: (live) => externals.ending(live),
 		});
 		runClock = new RunClock(this.hub, options.clock);
 		observation = new Observation(
@@ -116,23 +140,8 @@ export class BridgeCore {
 			clock: options.clock,
 			log: options.log,
 		});
-		const ctx: CoreContext = {
-			registry: this.registry,
-			hub: this.hub,
-			runClock,
-			desk,
-			ledger: new PromptLedger(options.journal),
-			replacements,
-			directories: options.directories,
-			workspace: this.workspace,
-			usage: options.usage,
-			terminals: this.terminals,
-			bridgeVersion: options.bridgeVersion,
-			maxFrameBytes: options.maxFrameBytes,
-			clock: options.clock,
-			log: options.log,
-		};
-		this.server = new ProtocolServer(ctx);
+		fallbacks = new CoreFallbacks(options.fallbacks ?? {}, { ...options, registry: this.registry, hub: this.hub });
+		this.server = new ProtocolServer(this.context(runClock, replacements, fallbacks));
 	}
 
 	/**
@@ -162,11 +171,8 @@ export class BridgeCore {
 	 * the same checks as a phone's and, as there, answers nothing by itself.
 	 */
 	answer(ref: SessionRef, answer: InteractionAnswer): Promise<ActionResult> {
-		return answerFromBridge(
-			{ hub: this.hub, desk: this.desk, clock: this.options.clock, log: this.options.log },
-			ref,
-			answer,
-		);
+		const { hub, desk, externals, options } = this;
+		return answerFromBridge({ hub, desk, externals, clock: options.clock, log: options.log }, ref, answer);
 	}
 
 	/**
@@ -184,6 +190,24 @@ export class BridgeCore {
 	}
 
 	/**
+	 * An ask the bridge raises on the session itself, for a tool the agent called: it holds the session open, reaches
+	 * every viewer, every attach and the observer as an adapter's ask does, and its answer reaches the caller. It ends
+	 * once: answered, withdrawn (`signal`, or the end of the run it blocks) or expired (the session's stream ended).
+	 */
+	raiseExternalInteraction(
+		session: SessionRef,
+		spec: ExternalInteractionSpec,
+		signal: AbortSignal,
+	): Promise<ExternalInteractionOutcome> {
+		return this.externals.raise(session, spec, signal);
+	}
+
+	/** A notice on an open session's stream; `not_found` when the session is not open. */
+	async emitExternalNotice(session: SessionRef, notice: ExternalNoticeSpec): Promise<ActionResult> {
+		return this.externals.notify(session, notice);
+	}
+
+	/**
 	 * Bridge shutdown: every backend is disposed, which closes their sessions; pending asks expire with them.
 	 * Every terminal ends.
 	 */
@@ -198,6 +222,28 @@ export class BridgeCore {
 		} catch (error) {
 			this.options.log.error(`[core] the workspace failed to dispose: ${String(error)}`);
 		}
+	}
+
+	private context(runClock: RunClock, replacements: Replacements, fallbacks: CoreFallbacks): CoreContext {
+		const { options } = this;
+		return {
+			registry: this.registry,
+			hub: this.hub,
+			runClock,
+			desk: this.desk,
+			externals: this.externals,
+			fallbacks,
+			ledger: new PromptLedger(options.journal),
+			replacements,
+			directories: options.directories,
+			workspace: this.workspace,
+			usage: options.usage,
+			terminals: this.terminals,
+			bridgeVersion: options.bridgeVersion,
+			maxFrameBytes: options.maxFrameBytes,
+			clock: options.clock,
+			log: options.log,
+		};
 	}
 
 	/** A backend that landed is news to every client that listed the backends before it did. */

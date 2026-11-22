@@ -18,8 +18,8 @@ export const sessionCreate = onBackend<"session.create">(
 
 export const sessionFork = onBackend<"session.fork">(
 	(request) => request.session.backend,
-	async ({ request, respond, backend }) => {
-		const result = backend.fork ? await backend.fork(request.session, request.at) : unsupported("fork a session");
+	async ({ ctx, request, respond, backend }) => {
+		const result = await ctx.fallbacks.fork(backend, request.session, request.at);
 		respond({ type: "session.fork.result", requestId: request.requestId, result });
 	},
 );

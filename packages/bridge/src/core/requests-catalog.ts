@@ -31,7 +31,7 @@ export const hello: Handler<"hello"> = async (ctx, client, request, respond) => 
 
 /** The backends registered now; one still starting is announced by a `status_changed` once it lands. */
 export const backendsList: Handler<"backends.list"> = async (ctx, _client, request, respond) => {
-	const backends = ctx.registry.descriptors();
+	const backends = ctx.registry.descriptors().map((descriptor) => ctx.fallbacks.described(descriptor));
 	respond({ type: "backends.list.result", requestId: request.requestId, backends });
 };
 

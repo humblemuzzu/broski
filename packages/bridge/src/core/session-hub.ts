@@ -28,6 +28,8 @@ export interface HubDeps extends Omit<LiveSessionDeps, "published"> {
 	readonly onEvent: (live: LiveSession, record: SinkRecord, before: SessionSnapshot) => void;
 	/** Told which stream replaced which, for a phone that was away. */
 	readonly replacements: Replacements;
+	/** A stream is about to end without a successor (a close, a removal, shutdown); it may still publish. */
+	readonly ending: (live: LiveSession) => void;
 }
 
 /**
@@ -128,7 +130,10 @@ export class SessionHub {
 	/** Bridge shutdown, the one time sessions close while busy; the backends' `dispose` closes them. */
 	dispose(): void {
 		this.disposed = true;
-		for (const live of [...this.live.values()]) this.retire(live);
+		for (const live of [...this.live.values()]) {
+			this.deps.ending(live);
+			this.retire(live);
+		}
 	}
 
 	private async openExisting(backend: AgentBackend, ref: SessionRef): Promise<LiveSession | Rejected> {
@@ -202,6 +207,7 @@ export class SessionHub {
 			old.sink,
 			{ ...this.deps, published: (session, record, before) => this.published(session, record, before) },
 			old.claims,
+			old.extras,
 		);
 		this.deps.replacements.record(old.epoch, ref, next.epoch);
 		this.holds.move(old.key, next.key);
@@ -211,6 +217,7 @@ export class SessionHub {
 	}
 
 	private close(live: LiveSession): void {
+		this.deps.ending(live);
 		this.retire(live);
 		this.awaitEnd(live.key, this.closeQuietly(live.open, live.label), live.label);
 	}

@@ -1,4 +1,5 @@
 import { type Mutant, mutantsOf } from "./mutant";
+import { SMARTS_MUTANTS } from "./smarts-mutants";
 
 /** Mutants of the session machinery: registry, hub, live stream, sinks, clients, keep-open. */
 export const SESSION_MUTANTS: Mutant[] = [
@@ -198,13 +199,13 @@ export const SESSION_MUTANTS: Mutant[] = [
 		{ name: "live: invalid records are published", find: "if (checked.success) {", replace: "if (true) {" },
 		{
 			name: "live: reconcile never resyncs",
-			find: "if (sameState(this.state, this.open.snapshot())) return;",
+			find: "if (sameState(this.state, this.deps.layer.onto(this, this.open.snapshot()))) return;",
 			replace: "return;",
 		},
 		{
 			name: "live: an invalid adapter snapshot is published",
-			find: "\t\tif (!checked.success) {\n\t\t\tthis.deps.log.error(\n",
-			replace: "\t\tif (false) {\n\t\t\tthis.deps.log.error(\n",
+			find: "const checked = SessionSnapshot.safeParse(snapshot);\n\t\tif (!checked.success) {",
+			replace: "const checked = SessionSnapshot.safeParse(snapshot);\n\t\tif (false) {",
 		},
 		{ name: "live: any epoch replays", find: "if (resume?.epoch === this.epoch) {", replace: "if (resume) {" },
 		{ name: "live: events are not logged for replay", find: "this.log.push(this.seq, frame);", replace: "" },
@@ -320,4 +321,5 @@ export const SESSION_MUTANTS: Mutant[] = [
 		{ name: "log: no byte bound", find: "(this.bytes > this.window.maxBytes && this.size() > 1)", replace: "false" },
 		{ name: "log: may drop its newest", find: "&& this.size() > 1)", replace: "&& this.size() > 0)" },
 	]),
+	...SMARTS_MUTANTS,
 ];

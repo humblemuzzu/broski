@@ -1,4 +1,4 @@
-import { type ActionResult, type PromptResult, sessionCapabilities } from "../contract";
+import type { ActionResult, PromptResult } from "../contract";
 import { movedTo, redirectAttach } from "./attach-redirect";
 import { type BackendRequest, type Handler, reachBackend } from "./context";
 import { controlled } from "./controlled";
@@ -64,7 +64,7 @@ async function join(target: BackendRequest<"session.attach">): Promise<void> {
 	const sent = respond({
 		type: "session.attach.result",
 		requestId: request.requestId,
-		capabilities: sessionCapabilities(live.open),
+		capabilities: ctx.fallbacks.capabilitiesOf(live),
 		sync,
 	});
 	if (!sent) return;
@@ -90,7 +90,8 @@ export const sessionDetach: Handler<"session.detach"> = async (ctx, client, requ
 
 export const prompt = controlled<"prompt", PromptResult>(
 	(request, result) => ({ type: "prompt.result", requestId: request.requestId, result }),
-	({ ctx, request, live, control }) => ctx.ledger.submit(live.ref, request.input, (input) => control.prompt(input)),
+	({ ctx, request, live, control }) =>
+		ctx.ledger.submit(live.ref, request.input, (input) => ctx.fallbacks.prompt(live, control, input)),
 );
 
 export const abort = controlled<"abort", ActionResult>(
@@ -100,8 +101,7 @@ export const abort = controlled<"abort", ActionResult>(
 
 export const queueCancel = controlled<"queue.cancel", ActionResult>(
 	(request, result) => ({ type: "queue.cancel.result", requestId: request.requestId, result }),
-	async ({ request, control }) =>
-		control.cancelQueued ? control.cancelQueued(request.queueItemId) : unsupported("cancel queued input"),
+	({ ctx, request, live, control }) => ctx.fallbacks.cancelQueued(live, control, request.queueItemId),
 );
 
 export const modelSet = controlled<"model.set", ActionResult>(

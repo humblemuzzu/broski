@@ -3,6 +3,11 @@ import { join } from "node:path";
 import type { ServerWebSocket } from "bun";
 import type { ActionResult, BackendFactory, BackendId, InteractionAnswer, JsonValue, SessionRef } from "../contract";
 import { BridgeCore, type CoreConnection, type CoreOptions } from "../core/core";
+import type {
+	ExternalInteractionOutcome,
+	ExternalInteractionSpec,
+	ExternalNoticeSpec,
+} from "../core/external-interactions";
 import type { CoreClock } from "../core/ports";
 import { allowedBasePaths, resolveSecurePath } from "../security";
 import { frameBytes } from "../transport/send-limits";
@@ -53,6 +58,14 @@ export type ContractSeam = {
 	hold(session: SessionRef): Promise<ActionResult>;
 	/** Lets one `hold` of the session go. */
 	release(session: SessionRef): void;
+	/** An ask the bridge raises on the session itself, for a tool the agent called; resolves once it ends. */
+	raiseExternalInteraction(
+		session: SessionRef,
+		spec: ExternalInteractionSpec,
+		signal: AbortSignal,
+	): Promise<ExternalInteractionOutcome>;
+	/** A notice on an open session's stream. */
+	emitExternalNotice(session: SessionRef, notice: ExternalNoticeSpec): Promise<ActionResult>;
 	/** Starts the backends, once the listeners are up: a slow start keeps no phone from connecting. */
 	start(): void;
 	stop(): Promise<void>;
@@ -94,6 +107,8 @@ export function createContractSeam(
 		answer: (session, answer) => core.answer(session, answer),
 		hold: (session) => core.hold(session),
 		release: (session) => core.release(session),
+		raiseExternalInteraction: (session, spec, signal) => core.raiseExternalInteraction(session, spec, signal),
+		emitExternalNotice: (session, notice) => core.emitExternalNotice(session, notice),
 		start: () => {
 			for (const [id, factory] of backends) void core.addBackend(id, factory);
 			stopSampling ??= usage?.sample();
@@ -121,6 +136,7 @@ function coreOptions(
 		clock: options?.clock ?? SYSTEM_CLOCK,
 		observer: contractFeedObserver,
 		directories: resolveSecurePath,
+		fallbacks: { queue: true, steer: true, portableFork: true },
 		workspace: workspaceFactory({ policy: resolveSecurePath, bases: allowedBasePaths() }),
 		...(journals !== undefined && {
 			journal: openPromptJournal(join(journals, "prompts.jsonl"), log),

@@ -2,7 +2,9 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createFakeBackend } from "../contract/testing/fake-backend";
+import { PROTOCOL_VERSION } from "../contract";
+import { createFakeBackend, NO_METHODS } from "../contract/testing/fake-backend";
+import { FULL_TRAITS } from "../contract/testing/fake-data";
 import { DEFAULT_IDLE_CLOSE_MS } from "../core/keep-open";
 import { createContractSeam } from "../server/contract-seam";
 import { type OpenRecord, recordingOpens } from "./helpers/core-adapters";
@@ -75,6 +77,62 @@ describe("the contract seam", () => {
 		expect(opens.closed).toEqual([session.sessionId]);
 		const refused = await contract.hold({ backend: "claude-code", sessionId: "s" });
 		expect(refused.status === "rejected" && refused.rejection.code).toBe("not_found");
+		await contract.stop();
+	});
+
+	test("serves every fallback to a backend that lacks it, and the bridge's own asks and notices", async () => {
+		let fake: ReturnType<typeof createFakeBackend> | undefined;
+		const traits = { ...FULL_TRAITS, promptModes: ["start" as const], queue: false };
+		const sent: string[] = [];
+		const root = mkdtempSync(join(tmpdir(), "broski-seam-"));
+		roots.push(root);
+		const factory = async (host: Parameters<typeof createFakeBackend>[0]) => {
+			fake = createFakeBackend(host, { traits, methods: NO_METHODS });
+			return fake;
+		};
+		const contract = createContractSeam(
+			{ backends: [["pi", factory]], clock: new ManualClock(), journalDirectory: join(root, "journals") },
+			"0.0.0-test",
+			{ sendPayload: (_ws, payload) => sent.push(payload) },
+			LIMITS,
+			LOG,
+		);
+		contract.start();
+		await Bun.sleep(0);
+		if (!fake) throw new Error("the backend did not start");
+		const session = fake.fake.seed({ cwd: "/fake/project" });
+		const ws = {} as Parameters<typeof contract.receive>[0];
+		const hello = { type: "hello", requestId: "h", protocol: PROTOCOL_VERSION, client: { name: "t", version: "1" } };
+		for (const message of [
+			hello,
+			{ type: "backends.list", requestId: "b" },
+			{ type: "session.attach", requestId: "a", session },
+		]) {
+			await contract.receive(ws, JSON.stringify({ type: "contract", message }));
+		}
+		const messages = () => sent.map((payload) => JSON.parse(payload).message);
+		expect(
+			messages().find((message) => message.type === "backends.list.result").backends[0].capabilities,
+		).toMatchObject({
+			promptModes: ["start", "steer", "queue"],
+			queue: true,
+			fork: true,
+		});
+		const outcome = contract.raiseExternalInteraction(
+			session,
+			{ title: "Go on?", request: { kind: "confirm" } },
+			new AbortController().signal,
+		);
+		await Bun.sleep(0);
+		const requested = messages().find((message) => message.envelope?.event.type === "interaction_requested");
+		const interactionId = requested.envelope.event.interaction.id;
+		const reply = { kind: "confirm" as const, confirmed: true };
+		expect(await contract.answer(session, { interactionId, reply })).toEqual({ status: "accepted" });
+		expect(await outcome).toEqual({ kind: "answered", reply });
+		expect(await contract.emitExternalNotice(session, { level: "info", text: "Halfway" })).toEqual({
+			status: "accepted",
+		});
+		expect(messages().at(-1).envelope.event).toEqual({ type: "notice", level: "info", text: "Halfway" });
 		await contract.stop();
 	});
 

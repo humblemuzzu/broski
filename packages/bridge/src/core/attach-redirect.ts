@@ -1,4 +1,4 @@
-import { type SessionRef, sessionCapabilities } from "../contract";
+import type { SessionRef } from "../contract";
 import { type BackendRequest, type CoreContext, reachBackend } from "./context";
 import { LiveSession } from "./live-session";
 import { openFailure } from "./results";
@@ -35,7 +35,7 @@ export async function redirectAttach(target: BackendRequest<"session.attach">, m
 	respond({
 		type: "session.attach.result",
 		requestId: request.requestId,
-		capabilities: sessionCapabilities(live.open),
+		capabilities: ctx.fallbacks.capabilitiesOf(live),
 		sync: { kind: "replaced", epoch: moved.epoch, session: live.ref },
 	});
 }

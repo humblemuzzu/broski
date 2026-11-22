@@ -15,8 +15,8 @@ export const ANSWER_MUTANTS: Mutant[] = [
 		},
 		{
 			name: "answer: a watched session that takes answers is refused",
-			find: "const answerer = sessionAnswerer(live.open);",
-			replace: "const answerer = live.open.control;",
+			find: "answer.interactionId) ?? sessionAnswerer(live.open);",
+			replace: "answer.interactionId) ?? live.open.control;",
 		},
 		{
 			name: "answer: the deadline never gives up",

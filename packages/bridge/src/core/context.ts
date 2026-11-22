@@ -1,6 +1,8 @@
 import type { AgentBackend, BackendId, ClientMessage, ErrorResponse, ResponseFor, ServerMessage } from "../contract";
 import type { BackendRegistry } from "./backend-registry";
 import type { CoreClient } from "./client";
+import type { ExternalInteractions } from "./external-interactions";
+import type { CoreFallbacks } from "./fallbacks";
 import type { InteractionDesk } from "./interaction-desk";
 import type { CoreClock, CoreLog, DirectoryPolicy, UsageReader, WorkspaceHost } from "./ports";
 import type { PromptLedger } from "./prompt-ledger";
@@ -16,6 +18,8 @@ export interface CoreContext {
 	readonly hub: SessionHub;
 	readonly runClock: RunClock;
 	readonly desk: InteractionDesk;
+	readonly externals: ExternalInteractions;
+	readonly fallbacks: CoreFallbacks;
 	readonly ledger: PromptLedger;
 	readonly replacements: Replacements;
 	readonly directories: DirectoryPolicy;
