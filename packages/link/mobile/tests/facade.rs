@@ -10,7 +10,7 @@
 //! one last updated in 2024.
 
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use broski_client::{
     ClientError, ContractState, InboxRow, InboxState, LinkFailure, MachineStatus, PhoneConfig,
@@ -18,7 +18,7 @@ use broski_client::{
 };
 use broski_contract::{ClientMessage, HelloRequest, SessionRef, PROTOCOL_VERSION};
 use broski_core::{
-    decision_letter, new_identity_secret, open_notification, parse_pairing_offer, Machine,
+    decision_letter, new_identity_secret, open_notification, parse_pairing_offer, Inbox, Machine,
     MachineRecord, Phone, PushDecision,
 };
 use broski_link_session::{LinkState, Platform, WaitReason};
@@ -227,26 +227,27 @@ fn shown(rows: &[InboxRow]) -> Vec<(&str, InboxState)> {
         .collect()
 }
 
+/// The fixtures' phone started again with what the app stored; its machine never answers, so the
+/// cached rows stay.
+fn started(cache: Vec<u8>, seen: Option<SeenState>) -> (Arc<Phone>, Arc<Inbox>, Arc<Machine>) {
+    let phone = phone();
+    let inbox = phone.inbox();
+    if let Some(seen) = seen {
+        inbox.restore_seen(seen);
+    }
+    inbox.restore_cache(cache).expect("the cache restores");
+    let record = MachineRecord::from_bytes(fixture("record.json")).expect("record");
+    let machine = phone.start(record).expect("started");
+    (phone, inbox, machine)
+}
+
 #[test]
 fn an_old_session_marked_unread_is_done_after_a_restart_until_it_is_seen() {
     let old = SessionRef {
         backend: "pi".to_owned(),
         session_id: "s-old".into(),
     };
-    let started = |seen: Option<SeenState>| {
-        let phone = phone();
-        let inbox = phone.inbox();
-        if let Some(seen) = seen {
-            inbox.restore_seen(seen);
-        }
-        inbox
-            .restore_cache(fixture("inbox-cache.json"))
-            .expect("the cache restores");
-        let record = MachineRecord::from_bytes(fixture("record.json")).expect("record");
-        let machine = phone.start(record).expect("started");
-        (phone, inbox, machine)
-    };
-    let (_phone, inbox, machine) = started(None);
+    let (_phone, inbox, machine) = started(fixture("inbox-cache.json"), None);
     assert_eq!(
         shown(&inbox.rows()),
         [("s-ask", InboxState::NeedsYou), ("s-old", InboxState::Idle)]
@@ -263,7 +264,7 @@ fn an_old_session_marked_unread_is_done_after_a_restart_until_it_is_seen() {
     }];
     assert_eq!(stored.unread, unread);
 
-    let (phone, inbox, machine) = started(Some(stored));
+    let (phone, inbox, machine) = started(fixture("inbox-cache.json"), Some(stored));
     assert_eq!(
         shown(&inbox.rows()),
         [("s-ask", InboxState::NeedsYou), ("s-old", InboxState::Done)]
@@ -278,6 +279,51 @@ fn an_old_session_marked_unread_is_done_after_a_restart_until_it_is_seen() {
     inbox.mark_unread(machine.id(), old);
     phone.forget(machine.id());
     assert!(inbox.seen().unread.is_empty());
+}
+
+/// A row an hour old is within the done window, so only a marker keeps it idle: seeing it while its
+/// machine has not answered marks it at the cached row's `updatedAt`.
+#[test]
+fn a_recent_cached_session_marked_unread_then_seen_is_idle_after_a_restart() {
+    let record = MachineRecord::from_bytes(fixture("record.json")).expect("record");
+    let machine_id = record.id();
+    let now_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("after 1970")
+        .as_millis() as i64;
+    let updated_at = now_ms - 60 * 60 * 1_000;
+    let cache = format!(
+        r#"{{"version":1,"rows":[{{"machineId":"{machine_id}","machineName":"Studio Mac","session":{{"backend":"pi","sessionId":"s-recent"}},"title":"Release notes","cwd":"/Users/me/broski","state":"idle","updatedAt":{updated_at},"ask":null,"command":null}}]}}"#
+    );
+    let recent = SessionRef {
+        backend: "pi".to_owned(),
+        session_id: "s-recent".into(),
+    };
+    let marker = SeenMarker {
+        machine_id: machine_id.clone(),
+        session: recent.clone(),
+        seen_at: updated_at,
+    };
+    let stored = SeenState {
+        markers: vec![marker.clone()],
+        read_machines: vec![machine_id.clone()],
+        unread: Vec::new(),
+    };
+
+    let (phone, inbox, machine) = started(cache.clone().into_bytes(), Some(stored));
+    assert_eq!(shown(&inbox.rows()), [("s-recent", InboxState::Idle)]);
+    inbox.mark_unread(machine_id.clone(), recent.clone());
+    assert_eq!(shown(&inbox.rows()), [("s-recent", InboxState::Done)]);
+    inbox.mark_seen(machine_id.clone(), recent);
+    assert_eq!(shown(&inbox.rows()), [("s-recent", InboxState::Idle)]);
+    let seen = inbox.seen();
+    assert_eq!(seen.markers, [marker]);
+    assert!(seen.unread.is_empty());
+    phone.forget(machine.id());
+
+    let (phone, inbox, machine) = started(cache.into_bytes(), Some(seen));
+    assert_eq!(shown(&inbox.rows()), [("s-recent", InboxState::Idle)]);
+    phone.forget(machine.id());
 }
 
 #[test]

@@ -192,18 +192,21 @@ impl Inbox {
     /// The person has seen the session as it is now: it is done no more until something happens,
     /// and no longer marked unread.
     ///
-    /// A session not listed yet, or whose row has not caught up with what the person's own view
-    /// saw, is marked when its row settles.
+    /// A cached row, shown while its machine's lists load, is marked at its `updatedAt`. A session
+    /// not listed yet, or whose row has not caught up with what the person's own view saw, is
+    /// marked when its row settles.
     pub fn mark_seen(&self, machine_id: String, session: SessionRef) {
-        let source = self
-            .sources()
-            .into_iter()
-            .filter(|(machine, _)| machine.id == machine_id)
-            .flat_map(|(_, sources)| sources)
+        let listed = (self.sources().into_iter()).find(|(machine, _)| machine.id == machine_id);
+        let loaded = listed.as_ref().is_some_and(|(machine, _)| machine.loaded);
+        let source = (listed.into_iter().flat_map(|(_, sources)| sources))
             .find(|source| source.row.session == session);
-        locked(&self.tracker)
-            .seen
-            .see(&machine_id, &session, source.as_ref());
+        let mut tracker = locked(&self.tracker);
+        let cached = (!loaded).then(|| tracker.cache.settled_at(&machine_id, &session));
+        match cached.flatten() {
+            Some(updated_at) => tracker.seen.see_cached(&machine_id, &session, updated_at),
+            None => tracker.seen.see(&machine_id, &session, source.as_ref()),
+        }
+        drop(tracker);
         self.wake.notify_one();
     }
 

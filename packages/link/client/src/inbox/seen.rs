@@ -103,13 +103,20 @@ impl Seen {
         session: &SessionRef,
         source: Option<&InboxSource>,
     ) {
-        self.changed |= self.unread.remove(&key(machine_id, session));
         match source {
             Some(source) if !lags(source) => self.mark(machine_id, session, source.row.updated_at),
             _ => {
-                self.deferred.insert(key(machine_id, session));
+                let key = key(machine_id, session);
+                self.changed |= self.unread.remove(&key);
+                self.deferred.insert(key);
             }
         }
+    }
+
+    /// The person has seen `session` as the cached row its machine's unloaded lists stand in for.
+    pub(crate) fn see_cached(&mut self, machine_id: &str, session: &SessionRef, updated_at: i64) {
+        self.deferred.remove(&key(machine_id, session));
+        self.mark(machine_id, session, updated_at);
     }
 
     /// Marks the deferred sessions of `machine_id` whose row has settled.
@@ -127,6 +134,7 @@ impl Seen {
 
     fn mark(&mut self, machine_id: &str, session: &SessionRef, seen_at: i64) {
         let key = key(machine_id, session);
+        self.changed |= self.unread.remove(&key);
         if self
             .markers
             .get(&key)
@@ -139,7 +147,6 @@ impl Seen {
     }
 
     pub(crate) fn mark_at(&mut self, machine_id: &str, session: &SessionRef, seen_at: i64) {
-        self.changed |= self.unread.remove(&key(machine_id, session));
         self.mark(machine_id, session, seen_at);
     }
 

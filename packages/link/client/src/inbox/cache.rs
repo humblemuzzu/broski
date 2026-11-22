@@ -88,6 +88,15 @@ impl Cache {
         self.restored.get(machine_id).map_or(&[], Vec::as_slice)
     }
 
+    /// The `updatedAt` of the session's cached row, when it is done or idle.
+    pub(super) fn settled_at(&self, machine_id: &str, session: &SessionRef) -> Option<i64> {
+        let settled = |row: &&CachedRow| matches!(row.state, InboxState::Done | InboxState::Idle);
+        (self.rows_of(machine_id).iter())
+            .filter(settled)
+            .find(|row| &row.session == session)
+            .map(|row| row.updated_at)
+    }
+
     /// The machine's own rows are in, or it was forgotten: its cached rows go.
     pub(super) fn drop_machine(&mut self, machine_id: &str) {
         self.restored.remove(machine_id);

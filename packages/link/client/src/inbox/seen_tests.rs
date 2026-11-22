@@ -191,6 +191,18 @@ fn marking_unread_cancels_a_mark_waiting_for_its_row() {
 }
 
 #[test]
+fn a_session_seen_as_its_cached_row_is_marked_there_and_waits_for_no_row() {
+    let mut seen = Seen::default();
+    seen.see(MACHINE, &session(), None);
+    seen.unsee(MACHINE, &session());
+    seen.see_cached(MACHINE, &session(), 10);
+    assert_eq!(seen.get(MACHINE, &session()), Mark::SeenAt(10));
+    assert!(seen.state().unread.is_empty());
+    seen.resolve(MACHINE, &[source(SessionStatus::Idle, 30, None)]);
+    assert_eq!(marker(&seen), Some(10), "what happened since is still done");
+}
+
+#[test]
 fn marking_everything_seen_clears_unread_marks() {
     let mut seen = Seen::default();
     seen.unsee(MACHINE, &session());
