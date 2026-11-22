@@ -1,8 +1,7 @@
-import type { BackendTraits } from "../backend";
+import type { BackendMeta, BackendTraits } from "../backend";
 import type { CommandSummary } from "../commands";
 import type { ModelSummary } from "../models";
 import type { ModeAxis } from "../modes";
-import type { BackendMeta } from "../protocol";
 import type { BackendStatus } from "../status";
 
 export const FAKE_META: BackendMeta = { displayName: "Fake", accentHex: "#6E56CF", iconHint: "generic" };

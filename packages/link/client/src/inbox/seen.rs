@@ -176,7 +176,11 @@ impl Seen {
             })
             .collect();
         markers.sort_by(|a, b| {
-            (&a.machine_id, &a.session.session_id).cmp(&(&b.machine_id, &b.session.session_id))
+            (&a.machine_id, &a.session.backend, &a.session.session_id).cmp(&(
+                &b.machine_id,
+                &b.session.backend,
+                &b.session.session_id,
+            ))
         });
         let mut read_machines: Vec<String> = self.read.iter().cloned().collect();
         read_machines.sort();
@@ -285,6 +289,32 @@ mod tests {
             seen.resolve(MACHINE, &[source(SessionStatus::Idle, 25, None)]);
             assert_eq!(marker(&seen), Some(25), "the run's own update is seen");
         }
+    }
+
+    #[test]
+    fn markers_of_one_session_id_under_many_backends_come_out_in_backend_order() {
+        let backends = [
+            "acp",
+            "claude-code",
+            "codex",
+            "cursor",
+            "gemini",
+            "grok",
+            "opencode",
+            "pi",
+        ];
+        let mut seen = Seen::default();
+        for backend in backends.iter().rev() {
+            let session = SessionRef {
+                backend: (*backend).to_owned(),
+                session_id: "s".to_owned(),
+            };
+            seen.mark(MACHINE, &session, 1);
+        }
+        let order: Vec<String> = (seen.state().markers.into_iter())
+            .map(|marker| marker.session.backend)
+            .collect();
+        assert_eq!(order, backends);
     }
 
     #[test]

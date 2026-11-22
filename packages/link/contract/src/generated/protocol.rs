@@ -115,19 +115,6 @@ pub enum BackendIconHint {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct BackendMeta {
-    pub display_name: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(deserialize_with = "crate::codec::present")]
-    pub accent_hex: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(deserialize_with = "crate::codec::present")]
-    pub icon_hint: Option<BackendIconHint>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BackendStatusRequest {
     pub request_id: RequestId,
     pub backend: BackendId,

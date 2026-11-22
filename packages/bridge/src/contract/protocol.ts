@@ -101,15 +101,14 @@ export type BackendIconHint = z.infer<typeof BackendIconHint>;
 
 export const ACCENT_HEX_PATTERN = /^#[0-9a-fA-F]{6}$/;
 
-/** How the phone presents a backend: its name, and optionally a `#RRGGBB` brand accent and its art. */
-export const BackendMeta = z.strictObject({
+/** A backend as the phone presents it: its name, and optionally a `#RRGGBB` brand accent and its art. */
+export const BackendDescriptor = z.strictObject({
+	id: BackendId,
 	displayName: z.string().min(1).max(MAX_NAME_CHARS),
 	accentHex: z.string().length(7).regex(ACCENT_HEX_PATTERN).optional(),
 	iconHint: BackendIconHint.optional(),
+	capabilities: Capabilities,
 });
-export type BackendMeta = z.infer<typeof BackendMeta>;
-
-export const BackendDescriptor = z.strictObject({ id: BackendId, ...BackendMeta.shape, capabilities: Capabilities });
 export type BackendDescriptor = z.infer<typeof BackendDescriptor>;
 
 /** Changes whenever the bridge starts a session's event stream afresh. */

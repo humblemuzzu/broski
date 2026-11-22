@@ -1,3 +1,4 @@
+import type { z } from "zod";
 import type { Capabilities, SessionCapabilities } from "./capabilities";
 import type { CatalogEvent } from "./catalog-events";
 import type { ImageVariant } from "./content";
@@ -7,7 +8,7 @@ import type { ActionResult, PromptInput, PromptResult } from "./input";
 import type { InteractionAnswer } from "./interaction-replies";
 import type { ModeAxisId } from "./modes";
 import type { PageRequest } from "./paging";
-import type { BackendDescriptor, BackendMeta } from "./protocol";
+import { BackendDescriptor } from "./protocol";
 import type {
 	AttachmentReadResult,
 	CommandsListResult,
@@ -21,6 +22,10 @@ import type { Rejected } from "./rejection";
 import type { ForkPoint, NewSessionOptions, NewSessionResult, SessionQuery } from "./sessions";
 import type { SessionSnapshot } from "./snapshot";
 import type { BackendStatus } from "./status";
+
+/** How an adapter presents its backend: the descriptor's own fields, checked when the backend starts. */
+export const BackendMeta = BackendDescriptor.pick({ displayName: true, accentHex: true, iconHint: true });
+export type BackendMeta = z.infer<typeof BackendMeta>;
 
 /** Backend-wide news for the core. `emit` never throws. */
 export interface CatalogSink {

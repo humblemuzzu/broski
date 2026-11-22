@@ -3,7 +3,7 @@
 
 LINK_DIR="$ROOT/packages/link"
 CORE_PROFILE=mobile
-CORE_TARGET_DIR="$LINK_DIR/target"
+CORE_TARGET_DIR="${CARGO_TARGET_DIR:-$LINK_DIR/target}"
 HOST_TARGET="$(rustc -vV | sed -n 's/^host: //p')"
 # The minimums of apps/ios/BroskiCore/Package.swift, so the core's C code (ring) is built for them
 # rather than for the SDK's own version. Both scripts set them, so neither rebuilds the other's host

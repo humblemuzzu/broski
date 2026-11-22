@@ -1477,16 +1477,6 @@
   "BackendId": [
     "x"
   ],
-  "BackendMeta": [
-    {
-      "displayName": "x",
-      "accentHex": "#D97757",
-      "iconHint": "claude"
-    },
-    {
-      "displayName": "x"
-    }
-  ],
   "BackendStatus": [
     {
       "installed": true,

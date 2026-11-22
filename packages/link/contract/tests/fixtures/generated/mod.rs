@@ -66,7 +66,6 @@ pub fn visit_types(visitor: &mut impl TypeVisitor) {
     visitor.plain::<BackendExtension>("BackendExtension");
     visitor.plain::<BackendIconHint>("BackendIconHint");
     visitor.plain::<BackendId>("BackendId");
-    visitor.plain::<BackendMeta>("BackendMeta");
     visitor.plain::<BackendStatus>("BackendStatus");
     visitor.tagged::<BackendStatusRequest>("BackendStatusRequest");
     visitor.tagged::<BackendStatusResponse>("BackendStatusResponse");

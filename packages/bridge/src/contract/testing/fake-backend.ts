@@ -1,7 +1,6 @@
-import type { AgentBackend, BackendHost, BackendTraits } from "../backend";
+import type { AgentBackend, BackendHost, BackendMeta, BackendTraits } from "../backend";
 import type { BackendId, InteractionId, SessionRef } from "../ids";
 import type { ModeAxis } from "../modes";
-import type { BackendMeta } from "../protocol";
 import type { DeliveredInput } from "./conformance-types";
 import { FAKE_COMMANDS, FAKE_META, FAKE_MODES, FAKE_STATUS, FULL_TRAITS } from "./fake-data";
 import { sessionPage } from "./fake-paging";
