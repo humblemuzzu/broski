@@ -94,8 +94,8 @@ only on the same network; to reach it from anywhere, run your own relay
 
 ## Supported agents
 
-- **Claude Code**, through the Claude Agent SDK (0.3.328) driving your installed `claude`.
-- **Pi**, over `pi --mode rpc` with your installed `pi` (tested against Pi 1.5.2).
+- **Claude Code**, through the Claude Agent SDK (0.3.330) driving your installed `claude`.
+- **Pi**, over `pi --mode rpc` with your installed `pi` (tested against Pi 1.6.0).
 
 Every agent is an `AgentBackend` behind the backend contract
 ([`docs/architecture/contract/README.md`](docs/architecture/contract/README.md)), and the apps never branch on which

@@ -229,7 +229,7 @@ Keep files under 400 lines and functions under 50; a new concern gets a new file
 
 ## SDK notes
 
-- **Claude Code** (`@anthropic-ai/claude-agent-sdk` 0.3.328, exact pin, released with CLI 2.1.328). The SDK's
+- **Claude Code** (`@anthropic-ai/claude-agent-sdk` 0.3.330, exact pin, released with CLI 2.1.330). The SDK's
   JavaScript spawns `claude`; the bridge embeds no binary and runs the user's installed one, found from the
   `claudeCode.cliPath` config key or the login shell's `PATH` (`server/claude-cli-path.ts`); a different version is a
   status warning. Tests run the SDK's own platform package (`testClaudeBinary()`; `BROSKI_TEST_CLAUDE_CLI` names
@@ -239,7 +239,7 @@ Keep files under 400 lines and functions under 50; a new concern gets a new file
 - **Pi** runs as the user's own `pi` (config `pi.cliPath`, else `PATH`; `server/pi-cli-path.ts`), driven over
   `pi --mode rpc`; production code imports no `@earendil-works` package (`check:layers`), except the extension the
   adapter writes for `pi` (`backends/pi/host/extension/`), read by the rest only as text. Models, commands and settings
-  come from Pi itself (`get_available_models`, `get_commands`, `get_state`). `@earendil-works/pi-coding-agent` 1.5.2 is
+  come from Pi itself (`get_available_models`, `get_commands`, `get_state`). `@earendil-works/pi-coding-agent` 1.6.0 is
   an exact devDependency: the tests run its `pi`, and the docs and `dist/` of that version are where Pi facts are checked
   ([`docs/architecture/backends/pi/README.md`](docs/architecture/backends/pi/README.md)).
 - Use the SDK's exported types (Pi's RPC frames: the zod schemas in `backends/pi/rpc/`); never `as any`. Do not keep

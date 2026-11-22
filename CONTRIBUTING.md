@@ -9,7 +9,7 @@ Development happens on macOS (the only host Broski supports today).
 
 | Part | Needs |
 |---|---|
-| Bridge (`packages/bridge`) | Bun 1.4.4 or newer (CI uses 1.4.4). `bun install` brings Pi 1.5.2 and the Claude Agent SDK's own `claude`, which the tests run; no agent account is needed. |
+| Bridge (`packages/bridge`) | Bun 1.4.4 or newer (CI uses 1.4.4). `bun install` brings Pi 1.6.0 and the Claude Agent SDK's own `claude`, which the tests run; no agent account is needed. |
 | Link stack (`packages/link`) | A stable Rust toolchain. `cargo test -p broski-client` also needs `bun install` in `packages/bridge`: it runs the real bridge. |
 | iOS | Xcode 27.2 with its Metal Toolchain (`xcodebuild -downloadComponent MetalToolchain`), XcodeGen 2.46, and the Rust targets `aarch64-apple-ios`, `aarch64-apple-ios-sim`, `x86_64-apple-ios`. |
 | Android | JDK 17; the Android SDK (`platforms;android-36`, `platforms;android-37.0`, `build-tools;36.0.0`) and NDK 28.2.13676358; cargo-ndk 4.1.2; the Rust targets `aarch64-linux-android`, `x86_64-linux-android`. `scripts/build-android-terminal.sh` downloads Zig 0.17.1 itself and caches it in `~/.cache/broski`. |
