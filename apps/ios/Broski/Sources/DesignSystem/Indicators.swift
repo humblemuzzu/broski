@@ -37,8 +37,10 @@ struct RelativeTime: View {
     }
 }
 
-extension Date {
+nonisolated extension Date {
     init(unixMilliseconds: Int64) {
         self.init(timeIntervalSince1970: TimeInterval(unixMilliseconds) / 1000)
     }
+
+    var unixMilliseconds: Int64 { Int64((timeIntervalSince1970 * 1000).rounded()) }
 }

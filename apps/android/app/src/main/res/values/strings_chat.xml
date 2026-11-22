@@ -8,6 +8,7 @@
     <string name="chat_loading_older">Loading earlier messages</string>
     <string name="chat_more">More</string>
     <string name="chat_open_files">Open folder in Files</string>
+    <string name="chat_prompt_cache">Prompt cache</string>
     <string name="chat_fork">Fork</string>
     <string name="chat_rename">Rename</string>
     <string name="chat_rename_title">Rename session</string>

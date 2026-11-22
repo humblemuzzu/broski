@@ -25,6 +25,8 @@ struct ComposerView: View {
     var dictation: DictationTarget?
     /// Project file search for `@file` mentions; `nil` when no working folder is known.
     var fileSearch: FileSearchSource? = nil
+    /// The session's prompt cache, which the model picker warns about; `nil` before a session exists.
+    var cache: CacheWindow? = nil
     @Environment(AppModel.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var voiceSettings = false
@@ -154,7 +156,7 @@ struct ComposerView: View {
                 if acceptsImages {
                     AttachmentMenu(draft: $draft, refuse: refuse)
                 }
-                FadingHorizontalScroll { ComposerChips(part: .model, catalog: catalog, choices: choices, choose: choose) }
+                FadingHorizontalScroll { ComposerChips(part: .model, catalog: catalog, choices: choices, choose: choose, cache: cache) }
                 ComposerChips(part: .modes, catalog: catalog, choices: choices, choose: choose)
             }
             if let dictation {

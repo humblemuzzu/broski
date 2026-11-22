@@ -115,12 +115,12 @@ internal val BroskiDarkColors = darkColorScheme(
  * The colours that carry meaning beyond the scheme: working is blue and done green on every
  * device; needs you is the scheme's primary and failed its error. Tones 40 (light) and 80 (dark)
  * of material-color-utilities tonal palettes from #1F6FEB and #2DA44E, which keep AA contrast on
- * the scheme's surfaces.
+ * the scheme's surfaces. Caution is the amber of a warning callout, for what is about to run out.
  */
 @Immutable
-data class SemanticColors(val working: Color, val done: Color)
+data class SemanticColors(val working: Color, val done: Color, val caution: Color)
 
-internal val LightSemanticColors = SemanticColors(working = Color(0xFF0059C8), done = Color(0xFF006E2C))
-internal val DarkSemanticColors = SemanticColors(working = Color(0xFFAFC6FF), done = Color(0xFF6BDE80))
+internal val LightSemanticColors = SemanticColors(working = Color(0xFF0059C8), done = Color(0xFF006E2C), caution = Color(0xFF9A6700))
+internal val DarkSemanticColors = SemanticColors(working = Color(0xFFAFC6FF), done = Color(0xFF6BDE80), caution = Color(0xFFD29922))
 
 internal val LocalSemanticColors = staticCompositionLocalOf { LightSemanticColors }

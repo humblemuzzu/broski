@@ -33,12 +33,14 @@ import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
 import com.muzammil.broski.design.Haptic
 import com.muzammil.broski.design.perform
+import com.muzammil.broski.feature.chat.CacheSwitchNotice
+import uniffi.broski_contract.CacheWindow
 import uniffi.broski_contract.ModelSummary
 
-/** Every model, searchable by name or provider, the one in use checked; picking one closes the sheet. */
+/** Every model, searchable by name or provider, the one in use checked; picking one closes the sheet. A warm prompt cache says what switching costs. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ModelSheet(models: List<ModelSummary>, selected: String?, onPick: (String) -> Unit, onDismiss: () -> Unit) {
+fun ModelSheet(models: List<ModelSummary>, selected: String?, cache: CacheWindow?, onPick: (String) -> Unit, onDismiss: () -> Unit) {
     val haptics = LocalHapticFeedback.current
     val query = rememberTextFieldState()
     val shown by remember(models) {
@@ -50,6 +52,7 @@ fun ModelSheet(models: List<ModelSummary>, selected: String?, onPick: (String) -
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)) {
         Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.composer_model), style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
+            CacheSwitchNotice(cache)
             OutlinedTextField(
                 state = query,
                 lineLimits = TextFieldLineLimits.SingleLine,

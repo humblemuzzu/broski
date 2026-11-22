@@ -5,7 +5,7 @@ import SwiftUI
 /// nothing when there is one) with its thinking levels and the mode axes after the first, which scroll
 /// when they do not fit; and the first mode axis (Claude Code's permission mode, Pi's permissions),
 /// which the composer keeps beside the send button so it is always in view. Plain text on the composer's glass, never glass on glass; every step plays the
-/// picker haptic.
+/// picker haptic. With a warm prompt cache, the model picker opens on what switching would cost.
 struct ComposerChips: View {
     enum Part { case model, modes }
 
@@ -13,6 +13,7 @@ struct ComposerChips: View {
     let catalog: ComposerCatalog
     let choices: ComposerChoices
     let choose: (ComposerChoice) -> Void
+    var cache: CacheWindow?
     @State private var pickingModel = false
     @State private var steps = 0
 
@@ -41,7 +42,7 @@ struct ComposerChips: View {
         .foregroundStyle(.secondary)
         .haptic(.pickerStep, trigger: steps)
         .sheet(isPresented: $pickingModel) {
-            ModelPickerSheet(models: catalog.models, selected: model?.id) {
+            ModelPickerSheet(models: catalog.models, selected: model?.id, cache: cache) {
                 steps += 1
                 choose(.model($0))
             }
@@ -50,21 +51,41 @@ struct ComposerChips: View {
 
     @ViewBuilder
     private var modelChip: some View {
+        if let cache, cache.warnsOnModelSwitch, catalog.models.count > 1, catalog.models.count <= Self.menuLimit {
+            TimelineView(CacheCountdown(cache)) { context in
+                modelChip(warning: cache.switchWarning(at: context.date.unixMilliseconds))
+            }
+            .id(cache)
+        } else {
+            modelChip(warning: nil)
+        }
+    }
+
+    @ViewBuilder
+    private func modelChip(warning: String?) -> some View {
         if catalog.models.count > Self.menuLimit {
             Button { pickingModel = true } label: { ChipLabel(text: model?.displayName ?? "Model") }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Model, \(model?.displayName ?? "default")")
         } else if catalog.models.count > 1 {
             Menu {
-                Picker("Model", selection: binding(model?.id ?? "") { choose(.model($0)) }) {
-                    ForEach(catalog.models, id: \.id) { model in
-                        Text(model.displayName).tag(model.id)
-                    }
+                if let warning {
+                    Section(warning) { modelPicker }
+                } else {
+                    modelPicker
                 }
             } label: {
                 ChipLabel(text: model?.displayName ?? "Model")
             }
             .accessibilityLabel("Model, \(model?.displayName ?? "default")")
+        }
+    }
+
+    private var modelPicker: some View {
+        Picker("Model", selection: binding(model?.id ?? "") { choose(.model($0)) }) {
+            ForEach(catalog.models, id: \.id) { model in
+                Text(model.displayName).tag(model.id)
+            }
         }
     }
 
@@ -150,6 +171,7 @@ extension ThinkingOption {
 private struct ModelPickerSheet: View {
     let models: [ModelSummary]
     let selected: String?
+    let cache: CacheWindow?
     let choose: (String) -> Void
     @State private var query = ""
     @Environment(\.dismiss) private var dismiss
@@ -164,23 +186,11 @@ private struct ModelPickerSheet: View {
 
     var body: some View {
         NavigationStack {
-            List(shown, id: \.id) { model in
-                Button {
-                    choose(model.id)
-                    dismiss()
-                } label: {
-                    HStack {
-                        VStack(alignment: .leading, spacing: Spacing.xxs) {
-                            Text(model.displayName).foregroundStyle(.primary)
-                            if let provider = model.providerName ?? model.providerId {
-                                Text(provider).font(.footnote).foregroundStyle(.secondary)
-                            }
-                        }
-                        Spacer()
-                        if model.id == selected {
-                            Image(systemName: "checkmark").foregroundStyle(Palette.accent)
-                        }
-                    }
+            List {
+                Section {
+                    ForEach(shown, id: \.id, content: row)
+                } header: {
+                    if let cache, cache.warnsOnModelSwitch { CacheSwitchNotice(cache: cache) }
                 }
             }
             .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always))
@@ -192,5 +202,25 @@ private struct ModelPickerSheet: View {
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+    }
+
+    private func row(_ model: ModelSummary) -> some View {
+        Button {
+            choose(model.id)
+            dismiss()
+        } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: Spacing.xxs) {
+                    Text(model.displayName).foregroundStyle(.primary)
+                    if let provider = model.providerName ?? model.providerId {
+                        Text(provider).font(.footnote).foregroundStyle(.secondary)
+                    }
+                }
+                Spacer()
+                if model.id == selected {
+                    Image(systemName: "checkmark").foregroundStyle(Palette.accent)
+                }
+            }
+        }
     }
 }
