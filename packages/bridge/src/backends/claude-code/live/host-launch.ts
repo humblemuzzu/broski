@@ -42,6 +42,7 @@ function modeOf(snapshot: SessionSnapshot): PermissionMode {
 export async function launchOptions(input: LaunchInput): Promise<Options | Rejected> {
 	const { services, desk } = input;
 	const effort = effortOf(input.snapshot.thinking);
+	const mcpServer = services.mcpServer?.(input.sessionId);
 	return hostOptions({
 		services,
 		cwd: input.cwd,
@@ -51,5 +52,6 @@ export async function launchOptions(input: LaunchInput): Promise<Options | Rejec
 		onElicitation: desk.onElicitation,
 		...(input.explicitModel !== undefined && { model: input.explicitModel }),
 		...(effort !== undefined && { effort }),
+		...(mcpServer !== undefined && { mcpServer }),
 	});
 }

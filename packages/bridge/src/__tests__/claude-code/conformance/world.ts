@@ -57,7 +57,12 @@ export class ClaudeWorld {
 		this.models = new ModelEcho(parts.cliPath, home.projectDir, { ...options.env });
 	}
 
-	static async create(host: BackendHost, seam?: HoldSeam): Promise<ClaudeWorld> {
+	/** `extra`: factory options over the world's own. */
+	static async create(
+		host: BackendHost,
+		seam?: HoldSeam,
+		extra: Partial<ClaudeCodeFactoryOptions> = {},
+	): Promise<ClaudeWorld> {
 		const home = createClaudeHome();
 		const router = new SessionRouter();
 		const server = serveScriptedAnthropic([], { routes: router.routes() });
@@ -72,6 +77,7 @@ export class ClaudeWorld {
 			clientApp: "broski/conformance",
 			expectedCliVersion: EXPECTED_CLAUDE_CLI_VERSION,
 			terminal: { hookAsks: terminalAsks.hookAsks },
+			...extra,
 		};
 		const activity = new Activity();
 		const observed = observe(await claudeCodeBackendFactory(withSdk(options))(host), activity);

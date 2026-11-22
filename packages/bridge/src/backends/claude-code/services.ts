@@ -1,6 +1,6 @@
 /** The factory's options (what the server layer hands the adapter) and the services every part shares. */
 
-import type { ImageVariant } from "../../contract";
+import type { ImageVariant, SessionId } from "../../contract";
 import type { ClaudeSdk } from "./ports/sdk";
 import type { TerminalOptions } from "./ports/terminal";
 import { type Clock, SYSTEM_CLOCK } from "./ports/time";
@@ -31,6 +31,18 @@ export type CliLocation =
 	| { readonly found: true; readonly path: string }
 	| { readonly found: false; readonly reason: string };
 
+/**
+ * The bridge's MCP server as one session's Claude Code reaches it. Its token grants `broski_notify` only: Claude Code
+ * asks and proposes plans with its own `AskUserQuestion` and `ExitPlanMode`.
+ */
+export interface BridgeMcpServer {
+	readonly name: string;
+	readonly url: string;
+	readonly token: string;
+}
+
+export type BridgeMcpServers = (sessionId: SessionId) => BridgeMcpServer | undefined;
+
 export interface ClaudeCodeFactoryOptions {
 	readonly cli: CliLocation;
 	/** The bridge's login-shell environment (`platform/shell-env.ts`). */
@@ -44,6 +56,8 @@ export interface ClaudeCodeFactoryOptions {
 	readonly terminal?: TerminalOptions;
 	/** Added to the end of Claude Code's own system prompt for every session the adapter starts. */
 	readonly appendSystemPrompt?: string;
+	/** The MCP server each session's CLI starts with; none when unset. */
+	readonly mcpServer?: BridgeMcpServers;
 	readonly clock?: Clock;
 	/** Otherwise `createClaudeSdk()`; tests give one bound to their temp home. */
 	readonly sdk?: ClaudeSdk;
@@ -63,6 +77,7 @@ export interface ClaudeCodeServices {
 	readonly expectedCliVersion: string | undefined;
 	readonly terminal: TerminalOptions;
 	readonly appendSystemPrompt: string | undefined;
+	readonly mcpServer?: BridgeMcpServers;
 	readonly clock: Clock;
 	readonly fitImage?: ImageFitter;
 }
@@ -78,6 +93,7 @@ export function createClaudeCodeServices(options: ClaudeCodeFactoryOptions): Cla
 		expectedCliVersion: options.expectedCliVersion,
 		terminal: options.terminal ?? {},
 		appendSystemPrompt: options.appendSystemPrompt,
+		...(options.mcpServer !== undefined && { mcpServer: options.mcpServer }),
 		clock: options.clock ?? SYSTEM_CLOCK,
 		...(options.fitImage !== undefined && { fitImage: options.fitImage }),
 	};
