@@ -7,12 +7,7 @@
 // one session the bridge opened it for, and tells the model how the phone draws answers: at the end of the system
 // prompt of a session the phone starts, and as a message in one it takes over, so a session's system prompt never
 // changes and its prompt cache stays warm.
-import {
-	getCurrentSystemMessage,
-	getCurrentTools,
-	type JsonObject,
-	validateToolArguments,
-} from "@earendil-works/pi-ai";
+import { getCurrentSystemMessage, type JsonObject, validateToolArguments } from "@earendil-works/pi-ai";
 import type {
 	ExtensionAPI,
 	ExtensionContext,
@@ -20,10 +15,10 @@ import type {
 	ToolCallEvent,
 	ToolCallEventResult,
 } from "@earendil-works/pi-coding-agent";
+import { ASK_TOOL, askOnPhone, offerAsk, parsed, registerAsk } from "./ask";
 
 const COMMAND = "broski-host";
 const ASK_PREFIX = "broski-permission:";
-const QUESTIONS_PREFIX = "broski-questions:";
 /** The event bus channel an extension asks questions on (`docs/architecture/backends/pi/extension-hints.md`). */
 const QUESTIONS = "broski:questions";
 const RECORD_PREFIX = "broski.";
@@ -36,8 +31,6 @@ const PROMPT_NOTE_SECTION = "broski_phone";
 /** The hidden message that carries the note into a session begun elsewhere. */
 const PROMPT_NOTE_MESSAGE = "broski.phone_note";
 
-/** The model's own questions tool. It asks nothing but the person, so it is never gated behind a permission ask. */
-const ASK_TOOL = "broski_ask";
 /**
  * How another extension says its own questions tool reaches the phone, which makes `broski_ask` a second: it emits
  * `ASK_TOOL_ANNOUNCE` as it loads, or calls `claim()` on the `ASK_TOOL_PROBE` sent at session start. A tool's name says
@@ -45,43 +38,6 @@ const ASK_TOOL = "broski_ask";
  */
 const ASK_TOOL_ANNOUNCE = "broski:ask-tool";
 const ASK_TOOL_PROBE = "broski:probe-ask-tool";
-/**
- * `AskedQuestions` of `ui/questions-dialog.ts`, bounds included (the contract's `MAX_TEXT_CHARS`, `MAX_NAME_CHARS` and
- * `MAX_LIST_ITEMS`), so Pi refuses a call the bridge could not read before it reaches the phone.
- */
-const ASK_PARAMETERS = {
-	type: "object",
-	properties: {
-		title: { type: "string", maxLength: 1_024 },
-		questions: {
-			type: "array",
-			minItems: 1,
-			maxItems: 20,
-			items: {
-				type: "object",
-				properties: {
-					question: { type: "string", minLength: 1, maxLength: 1_048_576 },
-					header: { type: "string", maxLength: 1_024 },
-					options: {
-						type: "array",
-						maxItems: 1_000,
-						items: {
-							type: "object",
-							properties: {
-								label: { type: "string", minLength: 1, maxLength: 1_024 },
-								description: { type: "string", maxLength: 1_048_576 },
-							},
-							required: ["label"],
-						},
-					},
-					multiple: { type: "boolean" },
-				},
-				required: ["question"],
-			},
-		},
-	},
-	required: ["questions"],
-} as const;
 
 const UNANSWERED = "The permission request ended before it was answered.";
 const DENIED = "The user denied this tool call.";
@@ -109,79 +65,6 @@ function lastPermissions(entries: readonly SessionEntry[]): Permissions {
 		if (found) return found;
 	}
 	return { mode: "off", allowed: new Set() };
-}
-
-function parsed(text: string): unknown {
-	try {
-		return JSON.parse(text);
-	} catch {
-		return undefined;
-	}
-}
-
-function field(value: unknown, key: string): unknown {
-	return typeof value === "object" && value !== null ? Reflect.get(value, key) : undefined;
-}
-
-/**
- * Another extension's questions, as one `input` dialog whose title carries them; the answer is the answers as JSON, and
- * no answer (a dismissal) is `undefined`. Claimed at once: in a session the bridge hosts, only the phone can answer.
- */
-function askOnPhone(ui: ExtensionContext["ui"], request: unknown): void {
-	const answer = field(request, "answer");
-	const questions = field(request, "questions");
-	if (typeof answer !== "function" || !Array.isArray(questions)) return;
-	const claim = field(request, "claim");
-	const title = field(request, "title");
-	const signal = field(request, "signal");
-	if (typeof claim === "function") claim();
-	let text: string;
-	try {
-		text = `${QUESTIONS_PREFIX}${JSON.stringify({ ...(typeof title === "string" && { title }), questions })}`;
-	} catch {
-		answer(undefined);
-		return;
-	}
-	void ui.input(text, undefined, signal instanceof AbortSignal ? { signal } : undefined).then(
-		(reply) => answer(reply === undefined ? undefined : parsed(reply)),
-		() => answer(undefined),
-	);
-}
-
-/** The person's answers, in the questions' order, each with the question it answers. */
-function askResult(questions: unknown, reply: string | undefined): JsonObject {
-	const answers = reply === undefined ? undefined : parsed(reply);
-	if (!Array.isArray(answers) || !Array.isArray(questions)) {
-		return { status: "cancelled", message: "The user dismissed the questions." };
-	}
-	return {
-		status: "answered",
-		answers: answers.map((answer, index) => {
-			const question = field(questions[index], "question");
-			const selected = field(answer, "selected");
-			const custom = field(answer, "custom");
-			return {
-				question: typeof question === "string" ? question : "",
-				selected: Array.isArray(selected) ? selected.filter((label) => typeof label === "string") : [],
-				...(typeof custom === "string" && { custom }),
-			};
-		}),
-	};
-}
-
-function registerAsk(pi: ExtensionAPI): void {
-	pi.registerTool({
-		name: ASK_TOOL,
-		label: "Ask on the phone",
-		description: "Ask the user questions on their phone and wait for the answers. Not for permissions.",
-		parameters: ASK_PARAMETERS,
-		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
-			const text = `${QUESTIONS_PREFIX}${JSON.stringify(params)}`;
-			const reply = await ctx.ui.input(text, undefined, signal === undefined ? undefined : { signal });
-			const result = askResult(field(params, "questions"), reply);
-			return { content: [{ type: "text", text: JSON.stringify(result) }], details: result };
-		},
-	});
 }
 
 /** For a value `JSON.parse` made, which holds nothing but JSON. */
@@ -290,17 +173,6 @@ function systemMessagesOf(ctx: ExtensionContext) {
 		.flatMap((entry) => (entry.type === "message" && entry.message.role === "system" ? [entry.message] : []));
 }
 
-/**
- * A session that has run declared its tools to the provider, and Pi records them (`toolsAdded`); one that ran without
- * `broski_ask` (begun in a terminal, or before the tool existed) goes on without it, so its tools and its cache stay.
- * A new session takes it unless another extension's questions tool reaches the phone.
- */
-function keepsAsk(ctx: ExtensionContext, phoneAsk: boolean): boolean {
-	const system = systemMessagesOf(ctx);
-	if (system.length > 0) return getCurrentTools(system).some((tool) => tool.name === ASK_TOOL);
-	return !phoneAsk;
-}
-
 /** A recorded section's own text, which Pi wraps again when the section is set. */
 function sectionText(name: string, rendered: string): string | undefined {
 	const open = `<${name}>\n`;
@@ -353,7 +225,7 @@ export default function broskiHost(pi: ExtensionAPI): void {
 		ui = ctx.ui;
 		gate.load(ctx.sessionManager.getEntries());
 		pi.events.emit(ASK_TOOL_PROBE, { claim });
-		if (!keepsAsk(ctx, phoneAsk)) pi.setActiveTools(pi.getActiveTools().filter((name) => name !== ASK_TOOL));
+		offerAsk(pi, systemMessagesOf(ctx), phoneAsk);
 	});
 	pi.events.on(TASKS, (tasks) => {
 		try {

@@ -55,11 +55,18 @@ export default function brokskiLink(pi: ExtensionAPI): void {
 	forwardSession(pi, link);
 	guardTyping(pi, link);
 	const ask = new AskHandoff(pi, link.dialogs);
-	pi.on("session_start", (_event, ctx) => guarded(() => ask.sync(ctx)));
+	// A bridge's own `pi` puts the questions on the phone itself (`host/extension/`).
+	let tui = false;
+	pi.on("session_start", (_event, ctx) => {
+		tui = ctx.mode === "tui";
+		guarded(() => ask.sync(ctx));
+	});
 	pi.on("session_tree", (_event, ctx) => guarded(() => ask.sync(ctx)));
 	pi.on("before_agent_start", (event, ctx) => guarded(() => keepPhoneNote(event.systemPromptOptions.sections, ctx)));
 	pi.events.on("broski:tasks", (tasks) => guarded(() => link.tasksChanged(compact(tasks ?? []))));
-	pi.events.on("broski:questions", (request) => guarded(() => link.dialogs.questions(request)));
+	pi.events.on("broski:questions", (request) => {
+		if (tui) guarded(() => link.dialogs.questions(request));
+	});
 }
 
 /** What the user types here while the phone runs the session asks first (`Link.typed`); nothing else is held. */

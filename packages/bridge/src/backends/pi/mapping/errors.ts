@@ -14,15 +14,19 @@ const UNKNOWN_ERROR = "Unknown error";
  * Pi gives a failure no class, only the provider's text, so the class is read from it, the first pattern that matches
  * winning: a quota error sent as an HTTP 429 is a quota, and a throttle of one API key is a throttle, not a bad key.
  * A status code or a bare word counts only on its own, as in pi-ai's own retry patterns. An overflow is read as Pi
- * reads it, from the provider error patterns of pi-ai 1.5.2 `dist/utils/overflow.js:37-82`, after the throttles those
- * patterns exclude.
+ * reads it, from the provider error patterns of pi-ai 1.5.2 `dist/utils/overflow.js:37-82`, after the throttles and
+ * Bedrock's unavailable service those patterns exclude (`:78-79`): Bedrock throttles with "Too many tokens".
  */
 const CLASSES: readonly (readonly [ErrorCode, RegExp])[] = [
 	[
 		"quota",
 		/insufficient[_ ]quota|quota[_ ]exceeded|exceeded your current quota|out of budget|budget[_ -]?(?:limit|exceeded)|\bbilling\b|usage[_ ]limit|credit balance|available balance/i,
 	],
-	["rate_limit", /rate[_ -]?limit|too many requests|resource[_ ]?exhausted|(?<![a-z0-9])429(?![a-z0-9])/i],
+	[
+		"rate_limit",
+		/^Throttling error:|rate[_ -]?limit|too many requests|resource[_ ]?exhausted|(?<![a-z0-9])429(?![a-z0-9])/i,
+	],
+	["server", /^Service unavailable:/i],
 	[
 		"context_overflow",
 		/prompt (?:is )?too long|prompt exceeds max length|request_too_large|input is too long for requested model|exceeds the context window|exceeds (?:the )?(?:model'?s )?maximum context length|context window exceeded|input token count.*exceeds the maximum|maximum prompt length is \d+|reduce the length of the messages|maximum context length is \d+ tokens|exceeds (?:the )?maximum allowed input length|is longer than the model'?s context length|exceeds the limit of \d+|exceeds the available context size|greater than the context length|context window exceeds limit|exceeded model token limit|too large for model with \d+ maximum context length|but the configured context size is|model_context_window_exceeded|exceeded (?:max )?context length|range of input length should be|context[_ ]length[_ ]exceeded|too many tokens|token limit exceeded|^(?:[\w -]+ API error \(413\):|413(?:\s|:|$))/i,

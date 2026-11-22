@@ -5,7 +5,9 @@
 // The bridge's own `pi` loads this extension beside the bridge's `broski_ask`, and Pi stops at startup when two
 // extensions register one tool name as they load (pi-coding-agent 1.5.2 `core/resource-loader.js:599-608`,
 // `main.js:767, 803-808`). So the tool is registered at session start, in the terminal only; a session's recorded
-// tool that registers late is still activated (`core/agent-session.js:1471-1474, 3047`).
+// tool that registers late is still activated (`core/agent-session.js:1471-1474, 3047`). Registering never activates
+// it (`defaultActive: false`), so a branch whose recorded tools leave it out goes without it, and the tools Pi restored
+// for that branch stay as they are (`core/agent-session.js:1178-1185, 1469`).
 import { getCurrentTools, type JsonObject } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { LocalDialogs, RemoteDialogs } from "./dialogs";
@@ -78,14 +80,21 @@ export class AskHandoff {
 		private readonly dialogs: RemoteDialogs,
 	) {}
 
-	/** At each session start and move in the session's tree: the tool is active only where the branch declared it. */
+	/**
+	 * At each session start and move in the session's tree: the tool is active only where the branch declared it. A
+	 * branch that records no tools keeps whatever was active (`core/agent-session.js:1460-1462`), so only there is it
+	 * taken away, with no restored tool pending to lose.
+	 */
 	sync(ctx: ExtensionContext): void {
 		const keep = ctx.mode === "tui" && declaresAsk(ctx);
 		if (keep && !this.registered) {
 			this.registered = true;
 			this.register();
-		} else if (!keep && this.registered) {
-			this.pi.setActiveTools(this.pi.getActiveTools().filter((name) => name !== ASK_TOOL));
+		}
+		const active = this.pi.getActiveTools();
+		if (keep && !active.includes(ASK_TOOL)) this.pi.setActiveTools([...active, ASK_TOOL]);
+		else if (!keep && this.registered && active.includes(ASK_TOOL)) {
+			this.pi.setActiveTools(active.filter((name) => name !== ASK_TOOL));
 		}
 	}
 
@@ -95,6 +104,7 @@ export class AskHandoff {
 			label: "Ask",
 			description: ASK_DESCRIPTION,
 			parameters: ASK_PARAMETERS,
+			defaultActive: false,
 			execute: async (_toolCallId, params, signal, _onUpdate, ctx) => {
 				const asked = read(params, "questions");
 				const questions = Array.isArray(asked) ? asked : [];

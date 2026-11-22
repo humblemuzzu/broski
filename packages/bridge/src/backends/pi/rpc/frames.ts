@@ -159,9 +159,18 @@ const EVENTS = {
 	auto_retry_end: z.object({ type: z.literal("auto_retry_end"), success: z.boolean() }),
 	thinking_level_changed: z.object({ type: z.literal("thinking_level_changed"), level: z.string() }),
 	session_info_changed: z.object({ type: z.literal("session_info_changed"), name: optionalString }),
+	/** A `usage` entry is a request Pi sent itself, as its cache warming does (`dist/core/cache-warmer.js:188-189`). */
 	entry_appended: z.object({
 		type: z.literal("entry_appended"),
-		entry: z.object({ id: z.string(), parentId: z.string().nullable(), type: z.string() }),
+		entry: z.object({
+			id: z.string(),
+			parentId: z.string().nullable(),
+			type: z.string(),
+			timestamp: z.string().optional().catch(undefined),
+			kind: z.string().optional().catch(undefined),
+			provider: z.string().optional().catch(undefined),
+			usage: RequestUsage,
+		}),
 	}),
 	extension_error: z.object({
 		type: z.literal("extension_error"),

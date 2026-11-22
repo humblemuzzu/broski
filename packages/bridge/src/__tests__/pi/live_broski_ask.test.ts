@@ -228,6 +228,39 @@ describe("a phone session's broski_ask across a new pi", () => {
 	});
 });
 
+/**
+ * A tool of the user's that registers only once a run starts, as an MCP server still connecting does, and is never
+ * activated by registering: a session that recorded it gets it back only from Pi's pending tools.
+ */
+const LATE_TOOL = `
+const tool = { name: "late_tool", label: "late_tool", description: "Registers late.", parameters: { type: "object", properties: {} }, defaultActive: false, execute: async () => ({ content: [{ type: "text", text: "late" }], details: {} }) };
+let registered = false;
+const register = () => { if (!registered) { registered = true; pi.registerTool(tool); } };
+pi.events.on("broski:probe-ask-tool", (probe) => probe.claim());
+pi.on("session_start", (_event, ctx) => {
+	if (ctx.sessionManager.getBranch().some((entry) => entry.type === "message" && entry.message.role === "system")) return;
+	register();
+	pi.setActiveTools([...pi.getActiveTools(), "late_tool"]);
+});
+pi.on("before_agent_start", () => register());`;
+
+describe("a session without broski_ask across a new pi", () => {
+	test("keeps a recorded tool that registers late: the bridge's extension never takes a tool away", async () => {
+		t = await LiveRig.create({ maxHosted: 1 });
+		installUserExtension(t.world.env.agentDir, LATE_TOOL);
+		const first = await t.rig.openNew();
+		t.router.script(first.ref.sessionId, [say("one"), say("two")]);
+		await first.run("first");
+		await t.rig.openNew();
+		await first.run("again");
+		const [before, after] = t.router.requests(first.ref.sessionId);
+		expect(first.events().filter((event) => event.type === "resynced")).toHaveLength(1);
+		expect(before?.tools).toContain("late_tool");
+		expect(before?.tools).not.toContain("broski_ask");
+		expect(after?.tools).toEqual(before?.tools ?? []);
+	});
+});
+
 describe("questions the bridge cannot read", () => {
 	test("past a bound, Pi refuses the call and the model reads why; no card is raised", async () => {
 		t = await LiveRig.create();

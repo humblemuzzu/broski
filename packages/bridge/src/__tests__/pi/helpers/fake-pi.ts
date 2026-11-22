@@ -1,7 +1,8 @@
 /**
  * A stand-in for `pi --mode rpc` under a holder: it prints `$FAKE_PI_START` (a JSON array of records) as it starts,
  * then for each stdin line `{"type":"emit","lines":[...]}` prints those records, `{"type":"flood","count","bytes"}`
- * prints that many records of that size, then `{"type":"flooded"}` and `$FAKE_PI_DIR/flooded`, and echoes any other line as
+ * prints that many records of that size, then `{"type":"flooded"}` and `$FAKE_PI_DIR/flooded`, `{"type":"big","record","bytes"}`
+ * prints one record of type `record` with that many bytes of filler then `{"type":"big_done"}`, and echoes any other line as
  * `{"type":"echo","line"}`. At stdin's end it writes `$FAKE_PI_DIR/eof` and exits. Its pid is in `$FAKE_PI_DIR/pid` once the start records are out.
  */
 
@@ -27,6 +28,11 @@ async function flood(count: number, bytes: number): Promise<void> {
 	writeFileSync(join(dir, "flooded"), "");
 }
 
+async function big(type: string, bytes: number): Promise<void> {
+	if (!out({ type, filler: "x".repeat(bytes) })) await new Promise((resolve) => process.stdout.once("drain", resolve));
+	out({ type: "big_done" });
+}
+
 let pending = "";
 process.stdin.setEncoding("utf8");
 process.stdin.on("data", (chunk: string) => {
@@ -34,9 +40,16 @@ process.stdin.on("data", (chunk: string) => {
 	for (let newline = pending.indexOf("\n"); newline !== -1; newline = pending.indexOf("\n")) {
 		const line = pending.slice(0, newline);
 		pending = pending.slice(newline + 1);
-		const command = JSON.parse(line) as { type: string; lines?: unknown[]; count?: number; bytes?: number };
+		const command = JSON.parse(line) as {
+			type: string;
+			lines?: unknown[];
+			count?: number;
+			bytes?: number;
+			record?: string;
+		};
 		if (command.type === "emit") for (const record of command.lines ?? []) out(record);
 		else if (command.type === "flood") void flood(command.count ?? 0, command.bytes ?? 0);
+		else if (command.type === "big") void big(command.record ?? "big", command.bytes ?? 0);
 		else out({ type: "echo", line });
 	}
 });

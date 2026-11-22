@@ -1,12 +1,24 @@
 /** A session's totals and context fill as the contract's `Usage`, and the prompt cache its latest request left. */
 
 import type { CacheWindow, Usage } from "../../../contract";
-import type { AssistantMessage } from "../messages";
-import type { SessionStats } from "../rpc/replies";
+import type { PromptCache, SessionStats } from "../rpc/replies";
 
-/** Anthropic's lifetimes for a short and a long retention write (pi-ai 1.5.2 `dist/cache-warming.js:22-33`). */
-const SHORT_TTL_MS = 300_000;
-const LONG_TTL_MS = 3_600_000;
+/** Anthropic's lifetimes in seconds, for an `anthropic` model Pi reports none of (pi-ai 1.5.2 `dist/cache-warming.js:22-33`). */
+const ANTHROPIC_CACHE: PromptCache = { short: 300, long: 3600 };
+
+/** A request that may have touched the cache: an assistant message, or a usage entry Pi wrote for a request of its own. */
+export interface CacheRequest {
+	readonly timestamp: number;
+	readonly provider?: string | undefined;
+	readonly usage?:
+		| {
+				readonly input: number;
+				readonly cacheRead: number;
+				readonly cacheWrite: number;
+				readonly cacheWrite1h?: number;
+		  }
+		| undefined;
+}
 
 /**
  * Pi's totals (`get_session_stats`, pi-coding-agent 1.5.2 `docs/rpc-commands.md:526-567`) copied as they stand. Its
@@ -30,30 +42,52 @@ export function usageOf(stats: SessionStats, cache?: CacheWindow): Usage {
 	return usage;
 }
 
-/** Other providers speak `anthropic-messages` too (MiniMax, GitHub Copilot, OpenRouter) without Anthropic's lifetimes. */
-function isAnthropic(message: AssistantMessage): boolean {
-	return message.provider === "anthropic";
-}
-
 /**
- * Only Anthropic publishes how long a cache entry lives: an hour for one written with long retention
- * (`cacheWrite1h`), five minutes for one written without it. A request that only read the cache refreshed the entry
- * the previous request wrote, so it keeps that one's lifetime. Undefined for a request that touched no cache.
+ * The window a request left. `promptCache` is the model's (pi-ai 1.5.2 `dist/types.d.ts:673-674`); Anthropic's own
+ * lifetimes stand in for an `anthropic` model Pi reports none of, and a model with neither gets no lifetime (GitHub
+ * Copilot and MiniMax speak `anthropic-messages` without Anthropic's). Undefined for a request that touched no cache.
  */
-export function cacheWindowOf(message: AssistantMessage, previous?: CacheWindow): CacheWindow | undefined {
-	const usage = message.usage;
-	if (usage === undefined || !isCount(message.timestamp)) return undefined;
+export function cacheWindowOf(
+	request: CacheRequest,
+	previous?: CacheWindow,
+	promptCache?: PromptCache,
+): CacheWindow | undefined {
+	const usage = request.usage;
+	if (usage === undefined || !isCount(request.timestamp)) return undefined;
 	const { input, cacheRead, cacheWrite } = usage;
 	const long = usage.cacheWrite1h ?? 0;
 	if (![input, cacheRead, cacheWrite, long].every(isCount) || cacheRead + cacheWrite === 0) return undefined;
-	const window: CacheWindow = {
-		lastTouchAt: message.timestamp,
+	const tiers = promptCache ?? (request.provider === "anthropic" ? ANTHROPIC_CACHE : undefined);
+	return {
+		lastTouchAt: request.timestamp,
+		...(tiers !== undefined && lifetime(tiers, cacheWrite, long, previous)),
 		cachedTokens: cacheRead,
 		promptTokens: input + cacheRead + cacheWrite,
 	};
-	if (!isAnthropic(message)) return window;
-	const ttlMs = long > 0 ? LONG_TTL_MS : cacheWrite > 0 ? SHORT_TTL_MS : (previous?.ttlMs ?? SHORT_TTL_MS);
-	return { ...window, ttlMs, confidence: "exact" };
+}
+
+/**
+ * A write's lifetime is its retention's tier, `long` for one written with long retention (`cacheWrite1h`), exactly
+ * (pi-ai 1.5.2 `dist/cache-warming.js:26-33`). A request that only read the cache refreshed an entry an earlier one
+ * wrote, whose retention it does not show: it keeps that one's lifetime, or the short one, estimated.
+ */
+function lifetime(
+	tiers: PromptCache,
+	cacheWrite: number,
+	long: number,
+	previous: CacheWindow | undefined,
+): Pick<CacheWindow, "ttlMs" | "confidence"> {
+	if (cacheWrite > 0) {
+		const ttlMs = millis(long > 0 ? tiers.long : tiers.short);
+		return ttlMs === undefined ? {} : { ttlMs, confidence: "exact" };
+	}
+	const ttlMs = previous?.ttlMs ?? millis(tiers.short);
+	return ttlMs === undefined ? {} : { ttlMs, confidence: "estimated" };
+}
+
+function millis(seconds: number | undefined): number | undefined {
+	const ms = seconds === undefined ? undefined : Math.round(seconds * 1000);
+	return ms !== undefined && isPositiveCount(ms) ? ms : undefined;
 }
 
 /** What the contract's `z.int().nonnegative()` takes: Pi's numbers come from files and providers, so they are checked, not trusted. */

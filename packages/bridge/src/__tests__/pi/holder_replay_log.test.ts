@@ -52,12 +52,18 @@ describe("the replay", () => {
 });
 
 describe("asks", () => {
-	test("an open one outlives the rest; an answered, a timed-out or a permission ask does not", () => {
+	test("an open one outlives the rest; an answered, a timed-out, a permission or a broski_ask one does not", () => {
 		const permission = line({
 			type: "extension_ui_request",
 			id: "p",
 			method: "input",
 			title: 'broski-permission:{"toolCallId":"t"}',
+		});
+		const questions = line({
+			type: "extension_ui_request",
+			id: "q",
+			method: "input",
+			title: 'broski-questions:{"questions":[{"question":"Which store?"}],"run":true}',
 		});
 		const { log, clock } = logWith(
 			line({ type: "agent_start" }),
@@ -65,6 +71,7 @@ describe("asks", () => {
 			ask("answered"),
 			ask("timed", { timeout: 1_000 }),
 			permission,
+			questions,
 			line({ type: "extension_ui_request", id: "n", method: "notify", message: "hi" }),
 		);
 		log.resolved("answered");
@@ -80,6 +87,27 @@ describe("asks", () => {
 		expect(log.state()).toEqual({ running: false, asking: true });
 		log.resolved("open");
 		expect(log.state()).toEqual({ running: false, asking: false });
+	});
+
+	test("another extension's questions, bound to no run, outlive a settle and a compaction's end", () => {
+		const idle = line({
+			type: "extension_ui_request",
+			id: "idle",
+			method: "input",
+			title: 'broski-questions:{"questions":[{"question":"Deploy now?"}]}',
+		});
+		const broken = line({ type: "extension_ui_request", id: "odd", method: "input", title: "broski-questions:{" });
+		const { log } = logWith(
+			idle,
+			broken,
+			line({ type: "agent_start" }),
+			line({ type: "agent_settled", aborted: false }),
+		);
+		expect(log.openAsks()).toEqual(["idle", "odd"]);
+		log.take(line({ type: "compaction_start", reason: "manual" }));
+		log.take(line({ type: "compaction_end", reason: "manual", aborted: false }));
+		expect(log.openAsks()).toEqual(["idle", "odd"]);
+		expect(log.state()).toEqual({ running: false, asking: true });
 	});
 
 	test("an extension's status is kept, its latest value per key", () => {

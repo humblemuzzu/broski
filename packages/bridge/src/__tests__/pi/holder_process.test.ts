@@ -13,6 +13,7 @@ import { HolderLink } from "../../backends/pi/holder/link";
 import { ORPHAN_LIMITS } from "../../backends/pi/holder/orphan-policy";
 import { HOLDER_SUBCOMMAND, metaOf, socketOf } from "../../backends/pi/holder/protocol";
 import { attachHolder } from "../../backends/pi/live/host-starts";
+import { MAX_RECORD_BYTES } from "../../backends/pi/rpc/jsonl";
 import type { TransportItem } from "../../backends/pi/rpc/transport";
 import { eventually, FakeClock, type HolderWorld, holderWorld, isAlive, RawClient } from "./helpers/holder-rig";
 import { HOLDER_COMMAND } from "./helpers/pi-world";
@@ -143,6 +144,23 @@ describe("pi", () => {
 		await eventually(() => reader.closed || reader.lines.some((line) => line === '{"type":"flooded"}'), "the flood");
 		expect(reader.closed).toBe(false);
 		expect(reader.lines.filter((line) => line.startsWith('{"type":"message_update"'))).toHaveLength(4);
+	});
+
+	test("a run's agent_end past the record bound reaches its bridge as nothing; any other record as its size", async () => {
+		const { world } = await started();
+		const reader = await attach(world.dir);
+		const big = (record: string) => `${JSON.stringify({ type: "big", record, bytes: MAX_RECORD_BYTES })}\n`;
+		reader.send(big("agent_end"));
+		await reader.untilRecord((record) => record.type === "big_done", "the agent_end to pass");
+		expect(reader.records().filter((record) => record.holder === "oversized")).toEqual([]);
+		reader.send(big("message_end"));
+		await reader.until(
+			(client) => client.records().filter((record) => record.type === "big_done").length === 2,
+			"more",
+		);
+		expect(reader.records().filter((record) => record.holder === "oversized")).toEqual([
+			{ holder: "oversized", bytes: MAX_RECORD_BYTES + '{"type":"message_end","filler":""}'.length },
+		]);
 	});
 
 	test("asked to stop gets stdin's end and exits; the holder tells its bridge and removes its directory", async () => {
