@@ -30,8 +30,9 @@ export function usageOf(stats: SessionStats, cache?: CacheWindow): Usage {
 	return usage;
 }
 
+/** Other providers speak `anthropic-messages` too (MiniMax, GitHub Copilot, OpenRouter) without Anthropic's lifetimes. */
 function isAnthropic(message: AssistantMessage): boolean {
-	return message.api === "anthropic-messages" || message.provider === "anthropic";
+	return message.provider === "anthropic";
 }
 
 /**

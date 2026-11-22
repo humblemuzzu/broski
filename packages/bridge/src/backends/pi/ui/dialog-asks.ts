@@ -6,7 +6,7 @@
  */
 
 import { MAX_LIST_ITEMS } from "../../../contract";
-import { questionsAskOf } from "../host/protocol";
+import { isQuestionsAsk, questionsAskOf } from "../host/protocol";
 import { phoneName, phoneText } from "../phone-text";
 import type { DialogRequest } from "../rpc/frames";
 import type { AskOutcome, AskSpec } from "./interactions";
@@ -25,7 +25,7 @@ export interface Raised<Answer> {
 	readonly answerOf: (outcome: Extract<AskOutcome, { kind: "answered" }>) => Answer;
 }
 
-/** Undefined for a `select` with no options, which nobody could answer. */
+/** Undefined for a `select` with no options, or questions that cannot be read: nobody could answer either. */
 export function raisedAs(dialog: DialogSpec): Raised<DialogAnswer> | undefined {
 	switch (dialog.method) {
 		case "select":
@@ -38,10 +38,9 @@ export function raisedAs(dialog: DialogSpec): Raised<DialogAnswer> | undefined {
 			};
 		}
 		case "input": {
+			if (!isQuestionsAsk(dialog.title)) return textAsk(dialog.title, false, dialog.placeholder, undefined);
 			const asked = questionsAskOf(dialog.title);
-			if (asked !== undefined)
-				return questionsRaised(asked.title, asked.questions, (answers) => JSON.stringify(answers));
-			return textAsk(dialog.title, false, dialog.placeholder, undefined);
+			return asked && questionsRaised(asked.title, asked.questions, (answers) => JSON.stringify(answers));
 		}
 		case "editor":
 			return textAsk(dialog.title, true, undefined, dialog.prefill);

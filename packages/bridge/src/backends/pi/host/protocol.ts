@@ -44,9 +44,14 @@ const QUESTIONS_PREFIX = "broski-questions:";
 const QuestionsAsk = z.object({ title: z.string().optional(), questions: AskedQuestions });
 export type QuestionsAsk = z.output<typeof QuestionsAsk>;
 
-/** The questions an `input` dialog's title carries; undefined for any other dialog. */
+/** An `input` dialog the bridge's extension opened for questions, whether or not they can be read. */
+export function isQuestionsAsk(title: string): boolean {
+	return title.startsWith(QUESTIONS_PREFIX);
+}
+
+/** The questions an `input` dialog's title carries; undefined for any other dialog, or questions that cannot be read. */
 export function questionsAskOf(title: string): QuestionsAsk | undefined {
-	if (!title.startsWith(QUESTIONS_PREFIX)) return undefined;
+	if (!isQuestionsAsk(title)) return undefined;
 	try {
 		const parsed = QuestionsAsk.safeParse(JSON.parse(title.slice(QUESTIONS_PREFIX.length)));
 		return parsed.success ? parsed.data : undefined;

@@ -39,6 +39,8 @@ export interface ScriptedRequest {
 	readonly sessionId: string | undefined;
 	readonly model: string;
 	readonly messages: readonly ScriptedMessage[];
+	/** The names of the tools the request declared to the model. */
+	readonly tools: readonly string[];
 }
 
 export interface ScriptedOpenAI {
@@ -186,7 +188,9 @@ function turnStream(
 function requestOf(sessionId: string | undefined, body: unknown): ScriptedRequest {
 	const record = typeof body === "object" && body !== null ? (body as Record<string, unknown>) : {};
 	const messages = Array.isArray(record.messages) ? (record.messages as ScriptedMessage[]) : [];
-	return { sessionId, model: String(record.model ?? ""), messages };
+	const declared: unknown[] = Array.isArray(record.tools) ? record.tools : [];
+	const tools = declared.map((tool) => String(Reflect.get(Object(Reflect.get(Object(tool), "function")), "name")));
+	return { sessionId, model: String(record.model ?? ""), messages, tools };
 }
 
 export function serveScriptedOpenAI(options: ScriptedOptions): ScriptedOpenAI {

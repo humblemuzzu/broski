@@ -217,6 +217,19 @@ describe("the prompt cache the latest request left", () => {
 		expect(cacheWindowOf(byProvider)?.ttlMs).toBe(3_600_000);
 	});
 
+	test.each(["github-copilot", "minimax"])(
+		"%s speaks anthropic-messages without Anthropic's lifetimes: no countdown",
+		(provider) => {
+			const message = assistant([], {
+				api: "anthropic-messages",
+				provider,
+				usage: requestUsage(100, 900, 0, 0),
+				timestamp: 9,
+			});
+			expect(cacheWindowOf(message)).toEqual({ lastTouchAt: 9, cachedTokens: 900, promptTokens: 1_000 });
+		},
+	);
+
 	test("a request that only read the cache keeps the lifetime of the write it refreshed", () => {
 		const long = cacheWindowOf(anthropic(requestUsage(10, 0, 4_000, 4_000)));
 		const read = cacheWindowOf(anthropic(requestUsage(20, 4_000, 0), 1_700_000_060_000), long);

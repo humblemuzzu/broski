@@ -7,7 +7,12 @@
 // one session the bridge opened it for, and tells the model how the phone draws answers: at the end of the system
 // prompt of a session the phone starts, and as a message in one it takes over, so a session's system prompt never
 // changes and its prompt cache stays warm.
-import { getCurrentSystemMessage, type JsonObject, validateToolArguments } from "@earendil-works/pi-ai";
+import {
+	getCurrentSystemMessage,
+	getCurrentTools,
+	type JsonObject,
+	validateToolArguments,
+} from "@earendil-works/pi-ai";
 import type {
 	ExtensionAPI,
 	ExtensionContext,
@@ -33,11 +38,14 @@ const PROMPT_NOTE_MESSAGE = "broski.phone_note";
 
 /** The model's own questions tool. It asks nothing but the person, so it is never gated behind a permission ask. */
 const ASK_TOOL = "broski_ask";
-/** The bounds of `AskedQuestions` (`ui/questions-dialog.ts`) a model could break; past them the phone shows no card. */
+/**
+ * `AskedQuestions` of `ui/questions-dialog.ts`, bounds included (the contract's `MAX_TEXT_CHARS`, `MAX_NAME_CHARS` and
+ * `MAX_LIST_ITEMS`), so Pi refuses a call the bridge could not read before it reaches the phone.
+ */
 const ASK_PARAMETERS = {
 	type: "object",
 	properties: {
-		title: { type: "string" },
+		title: { type: "string", maxLength: 1_024 },
 		questions: {
 			type: "array",
 			minItems: 1,
@@ -45,13 +53,17 @@ const ASK_PARAMETERS = {
 			items: {
 				type: "object",
 				properties: {
-					question: { type: "string", minLength: 1 },
-					header: { type: "string" },
+					question: { type: "string", minLength: 1, maxLength: 1_048_576 },
+					header: { type: "string", maxLength: 1_024 },
 					options: {
 						type: "array",
+						maxItems: 1_000,
 						items: {
 							type: "object",
-							properties: { label: { type: "string", minLength: 1 }, description: { type: "string" } },
+							properties: {
+								label: { type: "string", minLength: 1, maxLength: 1_024 },
+								description: { type: "string", maxLength: 1_048_576 },
+							},
 							required: ["label"],
 						},
 					},
@@ -261,10 +273,23 @@ class PermissionGate {
  * run. Each holds its rendered text, `<name>\n…\n</name>` (pi-coding-agent 1.5.2 `dist/core/system-prompt.js:114-118`).
  */
 function recordedSections(ctx: ExtensionContext): Record<string, string | null> | undefined {
-	const system = ctx.sessionManager
+	const system = systemMessagesOf(ctx);
+	return system.length === 0 ? undefined : (getCurrentSystemMessage(system)?.sections ?? {});
+}
+
+function systemMessagesOf(ctx: ExtensionContext) {
+	return ctx.sessionManager
 		.getBranch()
 		.flatMap((entry) => (entry.type === "message" && entry.message.role === "system" ? [entry.message] : []));
-	return system.length === 0 ? undefined : (getCurrentSystemMessage(system)?.sections ?? {});
+}
+
+/**
+ * A session that has run declared its tools to the provider, and Pi records them (`toolsAdded`); one that ran without
+ * `broski_ask` (begun in a terminal, or before the tool existed) goes on without it, so its tools and its cache stay.
+ */
+function keepsAsk(ctx: ExtensionContext): boolean {
+	const system = systemMessagesOf(ctx);
+	return system.length === 0 || getCurrentTools(system).some((tool) => tool.name === ASK_TOOL);
 }
 
 /** A recorded section's own text, which Pi wraps again when the section is set. */
@@ -313,6 +338,7 @@ export default function broskiHost(pi: ExtensionAPI): void {
 	pi.on("session_start", (_event, ctx) => {
 		ui = ctx.ui;
 		gate.load(ctx.sessionManager.getEntries());
+		if (!keepsAsk(ctx)) pi.setActiveTools(pi.getActiveTools().filter((name) => name !== ASK_TOOL));
 	});
 	pi.events.on(TASKS, (tasks) => {
 		try {
