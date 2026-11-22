@@ -20,6 +20,7 @@ final class AppModel {
     /// Stored pairings whose record no longer reads; the Machines screen offers to forget them.
     private(set) var unreadablePairings: [String] = []
     let inbox = InboxModel()
+    let sessionPreferences = SessionPreferences()
     let notifications = NotificationAccess()
     let push: PushNotifications
     let discovery = LanDiscovery()
@@ -118,17 +119,28 @@ final class AppModel {
         model.retire()
         phone?.forget(id: model.id)
         removeRecord(id: model.id)
+        sessionPreferences.forgetMachine(model.id)
         machines.removeAll { $0.id == model.id }
         updateDiscovery()
     }
 
     func forgetUnreadablePairing(id: String) {
         removeRecord(id: id)
+        sessionPreferences.forgetMachine(id)
         unreadablePairings.removeAll { $0 == id }
     }
 
     func markSeen(machineId: String, session: SessionRef) {
         inbox.markSeen(machineId: machineId, session: session)
+    }
+
+    func markUnread(machineId: String, session: SessionRef) {
+        inbox.markUnread(machineId: machineId, session: session)
+    }
+
+    /// The session was deleted on its Mac: nothing kept for it outlives it.
+    func sessionDeleted(_ target: SessionTarget) {
+        sessionPreferences.removeSession(target)
     }
 
     /// Stop from the Live Activity, which may run the app in the background just for it: the link
@@ -321,6 +333,7 @@ final class AppModel {
     private func restore(into phone: Phone) {
         let core = phone.inbox()
         restoreInbox(core)
+        sessionPreferences.load(from: storage)
         let records: [(id: String, bytes: Data)]
         do throws(Keychain.Failure) {
             records = try storage.records.all()

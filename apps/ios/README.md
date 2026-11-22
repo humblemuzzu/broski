@@ -36,11 +36,12 @@ The target builds with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, `SWIFT_APPRO
 
 - **`Tests/`** (scheme `Broski`, Swift Testing, hosted by the app in the simulator): the keychain in
   both groups (`PersistenceTests`: the identity secret opens the same phone, records in the shared
-  group, the seen state back into a new phone's inbox, a launch with the machine unreachable that
+  group, the seen state and its unread marks back into a new phone's inbox (one stored before
+  unread marks existed reading as none), pins and mutes that go with their machine or session, a launch with the machine unreachable that
   shows the cached inbox (`inbox-cache.json`) with nothing to answer, a cache the core refuses that
-  does not stop the launch, start over, a launch that never replaces an identity), pairing (`PairingTests`: every `LinkFailure`'s words and next step, a pasted offer's
+  does not stop the launch, start over (pins too), a launch that never replaces an identity), pairing (`PairingTests`: every `LinkFailure`'s words and next step, a pasted offer's
   preview, a pairing with the fixture machine that cannot be reached), the inbox's sections from
-  `InboxRow` values, Approve and Deny offered only for the options a row's `pending` carries, the
+  `InboxRow` values (pinned rows once, right after Needs you, never above an urgent one), Approve and Deny offered only for the options a row's `pending` carries, the
   row's "<agent> wants to run <command>", and `MachineSummary`'s words. They read `packages/link/mobile/tests/fixtures`
   from the checkout and use keychain services of their own. The workspace (`WorkspaceTests`, over
   `ScriptedMachine`, a stand-in for `Machine.request` answering with the generated contract types):
@@ -52,7 +53,8 @@ The target builds with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, `SWIFT_APPRO
   screen over, cancelling the pump detaching the view, keystrokes one request at a time joined while
   one is out and sizes replaced, a refused keystroke worded. Push (`PushTests`): the pinned push
   vector opened as the extension opens it (title, body, the Mac as subtitle, thread, `approval`,
-  `userInfo`), a kind turned off in the app group arriving quietly, the relay's offline alert, a
+  `userInfo`), a kind turned off in the app group arriving quietly, a muted session arriving quietly
+  and only it, the relay's offline alert, a
   push that does not open keeping the relay's text and no actions, and a decision posted to a real
   HTTP listener on 127.0.0.1 with exactly the core's URL path, headers and body (and a 507 as a
   failure). The Live Activity (`LiveRunTests`): who is focused, the summary, at most four rows, the
@@ -67,7 +69,8 @@ The target builds with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, `SWIFT_APPRO
   refused one back in the field, an ended run kept until the newest page holds it, a stale answer, a
   detached reader counting new messages, the view detached when the chat goes). Each of these fails
   when the rule it names is broken (checked by breaking each once). `ChatPerformanceTests` times 30
-  batches over a 1,000-item run. Dictation (`VoiceTests`): the core's request byte for byte to a local
+  batches over a 1,000-item run. Session Info (`SessionInfoTests`): the context's fill, only the token counts
+  reported, the cost, the cache's countdown and its numbers. Dictation (`VoiceTests`): the core's request byte for byte to a local
   server, a refused key asking for Settings, which failures may record again, the key and settings round
   trip. `PushFixtureInstall` and `SessionMachineTests` run only for the
   end-to-end script: the latter pairs a phone of its own with a second test machine and plays
@@ -167,11 +170,13 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
   | identity secret | `com.muzammil.broski` / `identity-secret` | the app's own (first entitlement) |
   | inbox `SeenState` (JSON, backends as wire names) | `com.muzammil.broski` / `inbox-seen` | the app's own |
   | inbox cache (`InboxUpdate.cache`, bytes only the core reads) | `com.muzammil.broski` / `inbox-cache` | the app's own |
+  | pinned sessions (JSON, machine id, backend, session id) | `com.muzammil.broski` / `inbox-pinned` | the app's own |
   | each `MachineRecord.toBytes()` | `com.muzammil.broski.machine` / machine id | `BroskiKeychainGroup` = `<team>.com.muzammil.broski.push`, shared with the notification extension |
 
   A record is written right after pairing and at every `MachineEvent.recordChanged`, removed on
   forget; the seen state and the cache whenever `InboxUpdate.seen` or `.cache` is not `nil` (the core
-  hands a cache out at most every 2 s).
+  hands a cache out at most every 2 s). Pins and mutes (`SessionPreferences`) are written on each
+  change and dropped when their machine is forgotten or the session deleted.
 - **Loops**: one per subscription, as `Task`s on the main actor. `InboxModel` pulls
   `Inbox.nextChange()` for the life of the phone (it never ends). Each `MachineModel` pulls
   `Machine.nextEvent()` until the core ends it (forgotten, replaced by a new pairing, revoked):
@@ -212,7 +217,9 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
   JSON) reads "<Mac> is offline/asleep". A push that does not open keeps the relay's text and no
   actions. **Preferences** (Settings' Needs you / Done / Failures) live in the app group
   `group.com.muzammil.broski` (`NotificationPreferences`), which the extension reads; no push says a
-  run failed (push.md), so Failures governs the offline alert. A kind turned off still arrives, as
+  run failed (push.md), so Failures governs the offline alert. A session muted from its chat or its
+  row (`notifications.mutedSessions`) is checked once the push opens. A kind turned off or a muted
+  session still arrives, as
   `.passive` without sound: dropping a push needs `com.apple.developer.usernotifications.filtering`,
   which Apple grants on request.
 - **Live Activity** (`LiveRuns`, following `inbox.rows` through `Observations` for the life of the
@@ -278,20 +285,25 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
   next step; success haptic; the notification permission ask with its one-line why.
 - **Inbox**: a row opens its chat; **New Session** (`.glassProminent`, and the empty state's
   action) pushes the new-session screen; a tapped notification's `sessionToOpen` opens its chat.
-  Sections Needs you / Working / Done / Idle from the core's order, machine status chips,
+  Sections Needs you / Pinned / Working / Done / Idle from the core's order, machine status chips,
   rows (agent mark, title, what the agent wants ("Claude Code wants to run npm test" from the row's
-  `command`, else its `ask`), machine · folder or the machine's status, relative time, state mark),
+  `command`, else its `ask`), machine · folder or the machine's status, relative time, a pin and a
+  muted bell when set, state mark),
   rows of an unreachable machine or from the cached inbox dimmed; Approve and Deny
   (`InboxRowActions`: trailing swipe without full swipe, context menu, VoiceOver actions) only for a
   row whose `pending` carries the backend's allow or deny, sent with `Inbox.answer` on the tap and
-  disabled while it is on its way, `.success` for an approval sent, `.warning` for a denial or an ask
+  disabled while it is on its way; Mark as Read on a Done row, Mark as Unread on an Idle one and Pin
+  on the leading swipe, those and Mute in the context menu; `.success` for an approval sent, `.warning` for a denial or an ask
   answered elsewhere ("Already answered elsewhere." above the rows), `.error` for one that failed;
   empty states (connecting, unreachable, no sessions, nothing
   working), the "n agents working" bottom accessory (iOS 26.1+) that filters to working, a failure
   haptic when a machine is lost, a needs-you badge on the tab.
 - **Chat**: the header's title (tap to rename) over `agent · folder · machine`, the live mark and
-  the run's elapsed time, or the machine's state in words; Files and the overflow (Fork, Rename,
-  Compact, Copy Conversation, Delete with a confirm) with the context ring around it. The
+  the run's elapsed time, or the machine's state in words; Files and the overflow with the context
+  ring around it: Pin, Rename, Copy Session ID, Mark as Unread (which leaves the chat without
+  marking it seen again), Mute; Compact, Fork, Export (Share Markdown, Copy Conversation), Session
+  Info (a sheet: the session, its model and settings, context and token use, cost, the prompt
+  cache counting down); Delete with a confirm. The
   transcript, full bleed under the bar (`scrollEdgeEffectStyle(.soft)`) and the composer
   (`safeAreaBar`), dimmed while the machine is unreachable: the person's bubble with its time and
   copy, the agent's text one formatted block per row through `Sources/Formatting`

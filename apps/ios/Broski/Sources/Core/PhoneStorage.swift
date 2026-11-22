@@ -1,14 +1,16 @@
 import BroskiCore
 import Foundation
 
-/// What the app keeps between launches: the phone's identity secret, the inbox's seen state and its
-/// last known rows in the app's own keychain group, and the machine records in the group the
-/// notification service extension shares. Nothing here is ever regenerated on an error.
+/// What the app keeps between launches: the phone's identity secret, the inbox's seen state, its
+/// last known rows and the pinned sessions in the app's own keychain group, and the machine records
+/// in the group the notification service extension shares. Nothing here is ever regenerated on an
+/// error.
 struct PhoneStorage {
     static let service = "com.muzammil.broski"
     private static let identityAccount = "identity-secret"
     private static let seenAccount = "inbox-seen"
     private static let cacheAccount = "inbox-cache"
+    private static let pinnedAccount = "inbox-pinned"
 
     let app: Keychain
     let records: MachineRecordStore
@@ -50,20 +52,50 @@ struct PhoneStorage {
         try app.set(cache, for: Self.cacheAccount)
     }
 
-    /// Forgets the identity, the seen state, the cached inbox and every pairing: only ever on the
-    /// person's word.
+    /// The pinned sessions; a stored list that no longer decodes, or a backend that is no valid id,
+    /// is dropped.
+    func pinnedSessions() throws(Keychain.Failure) -> Set<SessionTarget> {
+        guard let data = try app.data(for: Self.pinnedAccount),
+            let stored = try? JSONDecoder().decode([StoredSession].self, from: data)
+        else { return [] }
+        return Set(stored.compactMap(\.target))
+    }
+
+    func savePinnedSessions(_ sessions: Set<SessionTarget>) throws(Keychain.Failure) {
+        let data = try! JSONEncoder().encode(sessions.map(StoredSession.init))
+        try app.set(data, for: Self.pinnedAccount)
+    }
+
+    /// Forgets the identity, the seen state, the cached inbox, the pins and every pairing: only ever
+    /// on the person's word.
     func removeEverything() throws(Keychain.Failure) {
         for (id, _) in try records.all() {
             try records.remove(id: id)
         }
+        try app.remove(Self.pinnedAccount)
         try app.remove(Self.cacheAccount)
         try app.remove(Self.seenAccount)
         try app.remove(Self.identityAccount)
     }
 }
 
-/// `SeenState` as JSON. Backends are spelled as the contract spells them on the wire; a marker
-/// whose backend is no valid id is dropped.
+/// One session on one machine as JSON, its backend as the contract spells it on the wire.
+private struct StoredSession: Codable {
+    let machineId: String
+    let backend: String
+    let sessionId: String
+
+    init(_ target: SessionTarget) {
+        machineId = target.machineId
+        backend = target.session.backend
+        sessionId = target.session.sessionId
+    }
+
+    var target: SessionTarget? { SessionTarget(machineId: machineId, backend: backend, sessionId: sessionId) }
+}
+
+/// `SeenState` as JSON. A marker or an unread mark whose backend is no valid id is dropped; a
+/// state stored before unread marks existed reads as having none.
 private struct StoredSeenState: Codable {
     struct Marker: Codable {
         let machineId: String
@@ -74,6 +106,7 @@ private struct StoredSeenState: Codable {
 
     let markers: [Marker]
     let readMachines: [String]
+    let unread: [StoredSession]?
 
     init(_ state: SeenState) {
         markers = state.markers.map {
@@ -82,6 +115,7 @@ private struct StoredSeenState: Codable {
                 sessionId: $0.session.sessionId, seenAt: $0.seenAt)
         }
         readMachines = state.readMachines
+        unread = state.unread.map { StoredSession(SessionTarget(machineId: $0.machineId, session: $0.session)) }
     }
 
     var state: SeenState {
@@ -92,6 +126,7 @@ private struct StoredSeenState: Codable {
                     session: SessionRef(backend: $0.backend, sessionId: $0.sessionId),
                     seenAt: $0.seenAt)
             },
-            readMachines: readMachines)
+            readMachines: readMachines,
+            unread: (unread ?? []).compactMap(\.target).map { UnreadSession(machineId: $0.machineId, session: $0.session) })
     }
 }

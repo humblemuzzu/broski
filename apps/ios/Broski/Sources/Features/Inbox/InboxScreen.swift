@@ -1,8 +1,8 @@
 import BroskiCore
 import SwiftUI
 
-/// Home: every session on every paired Mac, needs you → working → done → idle, under the status of
-/// any machine that is not fine. A row opens its chat; New Session opens an empty one.
+/// Home: every session on every paired Mac, needs you → pinned → working → done → idle, under the
+/// status of any machine that is not fine. A row opens its chat; New Session opens an empty one.
 struct InboxScreen: View {
     @Environment(AppModel.self) private var model
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -27,7 +27,7 @@ struct InboxScreen: View {
         path.append(.session(machineId: target.machineId, session: target.session))
     }
 
-    private var sections: [InboxSection] { model.inbox.sections }
+    private var sections: [InboxSection] { model.inbox.sections(pinned: model.sessionPreferences.pinned) }
 
     private var rowKeys: [InboxRow.Key] { sections.flatMap { $0.rows.map(\.key) } }
 
@@ -49,14 +49,16 @@ struct InboxScreen: View {
                         NavigationLink(value: Route.session(machineId: row.machineId, session: row.session)) {
                             InboxRowView(
                                 row: row, brand: model.brand(of: row.session, on: row.machineId),
-                                machine: model.machine(id: row.machineId)?.summary)
+                                machine: model.machine(id: row.machineId)?.summary,
+                                pinned: model.sessionPreferences.pinned.contains(row.target),
+                                muted: model.sessionPreferences.muted.contains(row.target))
                         }
-                        .inboxRowActions(row, inbox: model.inbox)
+                        .inboxRowActions(row, inbox: model.inbox, preferences: model.sessionPreferences)
                     }
                 } header: {
                     InboxSectionHeader(
-                        state: section.state, count: section.rows.count,
-                        markAllSeen: section.state == .done ? { model.inbox.markAllSeen() } : nil)
+                        kind: section.kind, count: section.rows.count,
+                        markAllSeen: section.kind == .state(.done) ? { model.inbox.markAllSeen() } : nil)
                 }
             }
         }
@@ -114,14 +116,21 @@ struct InboxScreen: View {
 }
 
 private struct InboxSectionHeader: View {
-    let state: InboxState
+    let kind: InboxSection.Kind
     let count: Int
     var markAllSeen: (() -> Void)?
+
+    private var title: String {
+        switch kind {
+        case .state(let state): state.title
+        case .pinned: "Pinned"
+        }
+    }
 
     var body: some View {
         HStack(spacing: Spacing.s) {
             HStack(spacing: Spacing.s) {
-                Text(state.title)
+                Text(title)
                 Text(count, format: .number)
                     .foregroundStyle(.secondary)
             }

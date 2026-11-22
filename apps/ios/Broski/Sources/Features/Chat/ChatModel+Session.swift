@@ -1,4 +1,5 @@
 import BroskiCore
+import CoreTransferable
 
 /// What the header's overflow and the composer's chips do to the session itself.
 extension ChatModel {
@@ -43,11 +44,21 @@ extension ChatModel {
         do throws(ChatProblem) { try await requests.setMode(session, axis: axis, value: value) } catch { report(error) }
     }
 
-    /// The conversation as plain text, as far as it is loaded: each message of the person's and
-    /// each of the agent's answers, oldest first.
-    var conversationText: String {
-        let items = history.items + (snapshot.run?.items ?? [])
-        return items.compactMap { item -> String? in
+    /// The conversation as far as it is loaded, to copy or share.
+    var conversation: ConversationExport {
+        ConversationExport(history: history.items, live: snapshot.run?.items ?? [])
+    }
+}
+
+/// The conversation as plain text: each message of the person's and each of the agent's answers,
+/// oldest first. Holding the items rather than the text, it is cheap to make each time the menu
+/// holding it is drawn; the text is built only when the person shares it.
+nonisolated struct ConversationExport: Transferable {
+    let history: [TranscriptItem]
+    let live: [TranscriptItem]
+
+    var text: String {
+        (history + live).compactMap { item -> String? in
             switch item {
             case .userMessage(let message): "You: \(message.text)"
             case .block(let block) where block.block == .text && block.parentToolCallId == nil: block.text
@@ -55,5 +66,9 @@ extension ChatModel {
             }
         }
         .joined(separator: "\n\n")
+    }
+
+    static var transferRepresentation: some TransferRepresentation {
+        ProxyRepresentation(exporting: \.text)
     }
 }

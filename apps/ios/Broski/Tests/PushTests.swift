@@ -50,6 +50,46 @@ struct PushTests {
         #expect(content.title == "Approve Bash", "a quiet push still says what happened")
     }
 
+    @Test func aMutedSessionArrivesQuietlyAndNoOtherDoes() throws {
+        let test = try RecordStore()
+        defer { test.remove() }
+        let preferences = test.preferences
+        preferences.setMuted(true, machineId: Self.machineId, backend: "claude-code", sessionId: "s-1")
+        #expect(preferences.isMuted(machineId: Self.machineId, backend: "claude-code", sessionId: "s-1"))
+        #expect(!preferences.allows(kind: "approval", machineId: Self.machineId, backend: "claude-code", sessionId: "s-1"))
+        #expect(preferences.allows(kind: "approval", machineId: Self.machineId, backend: "pi", sessionId: "s-1"))
+        #expect(preferences.allows(kind: "approval", machineId: Self.machineId, backend: nil, sessionId: nil))
+        #expect(preferences.allows(kind: "approval"), "a kind alone knows no session")
+
+        let muted = try relayPush(kind: "approval", payload: Fixture.text("push.txt"))
+        PushContent.describe(muted, records: test.records, preferences: preferences)
+        #expect(muted.interruptionLevel == .passive && muted.sound == nil)
+        #expect(muted.title == "Approve Bash" && muted.categoryIdentifier == PushContent.Category.approval)
+
+        preferences.setMuted(false, machineId: Self.machineId, backend: "claude-code", sessionId: "s-1")
+        let unmuted = try relayPush(kind: "approval", payload: Fixture.text("push.txt"))
+        unmuted.sound = .default
+        PushContent.describe(unmuted, records: test.records, preferences: preferences)
+        #expect(unmuted.interruptionLevel != .passive && unmuted.sound != nil)
+    }
+
+    @Test func forgettingAMachineOrRemovingASessionUnmutesOnlyIt() throws {
+        let test = try RecordStore()
+        defer { test.remove() }
+        let preferences = test.preferences
+        preferences.setMuted(true, machineId: "m1", backend: "pi", sessionId: "s-1")
+        preferences.setMuted(true, machineId: "m1", backend: "pi", sessionId: "s-2")
+        preferences.setMuted(true, machineId: "m2", backend: "pi", sessionId: "s-1")
+
+        preferences.removeSession(machineId: "m1", backend: "pi", sessionId: "s-2")
+        #expect(preferences.mutedSessions == [
+            MutedSession(machineId: "m1", backend: "pi", sessionId: "s-1"),
+            MutedSession(machineId: "m2", backend: "pi", sessionId: "s-1"),
+        ])
+        preferences.forgetMachine("m1")
+        #expect(preferences.mutedSessions == [MutedSession(machineId: "m2", backend: "pi", sessionId: "s-1")])
+    }
+
     @Test func theRelaysOfflineAlertIsWordedWithTheMachinesName() throws {
         let test = try RecordStore()
         defer { test.remove() }

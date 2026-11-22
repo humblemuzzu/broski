@@ -88,6 +88,63 @@ struct PersistenceTests {
             SessionRef(backend: "claude-code", sessionId: "s-1"), SessionRef(backend: "pi", sessionId: "s-2"),
         ])
         #expect(restored.readMachines == [machineId])
+        #expect(restored.unread.isEmpty, "written before unread marks existed")
+    }
+
+    /// A session marked unread in one launch is still unread in the next: the mark survives the
+    /// keychain, goes back into a new phone's inbox, and one whose backend is no valid id is dropped.
+    @Test func anUnreadMarkComesBackIntoANewPhonesInbox() throws {
+        let test = TestStorage()
+        defer { test.remove() }
+        let machineId = "00112233445566778899aabbccddeeff"
+        let unread = [
+            UnreadSession(machineId: machineId, session: SessionRef(backend: "claude-code", sessionId: "s-1")),
+            UnreadSession(machineId: machineId, session: SessionRef(backend: "pi", sessionId: "s-2")),
+        ]
+        try test.storage.saveSeenState(SeenState(markers: [], readMachines: [machineId], unread: unread))
+
+        let restored = try #require(try test.storage.seenState())
+        #expect(restored.unread == unread)
+        let inbox = try Phone(identitySecret: try newIdentitySecret(), config: config).inbox()
+        inbox.restoreSeen(state: restored)
+        #expect(Set(inbox.seen().unread) == Set(unread))
+
+        let stored = try #require(try test.storage.app.data(for: "inbox-seen"))
+        var json = try #require(try JSONSerialization.jsonObject(with: stored) as? [String: Any])
+        var marks = try #require(json["unread"] as? [[String: Any]])
+        marks.append(["machineId": machineId, "backend": "Not A Slug", "sessionId": "s-3"])
+        json["unread"] = marks
+        try test.storage.app.set(try JSONSerialization.data(withJSONObject: json), for: "inbox-seen")
+        #expect(try test.storage.seenState()?.unread == unread)
+    }
+
+    @Test func pinnedSessionsComeBackAndGoWithTheirMachineOrTheirSession() throws {
+        let test = TestStorage()
+        defer { test.remove() }
+        let suite = "\(NotificationPreferences.appGroup).tests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let kept = SessionTarget(machineId: "m1", session: SessionRef(backend: "claude-code", sessionId: "s-1"))
+        let deleted = SessionTarget(machineId: "m1", session: SessionRef(backend: "pi", sessionId: "s-2"))
+        let forgotten = SessionTarget(machineId: "m2", session: SessionRef(backend: "pi", sessionId: "s-1"))
+        #expect(try test.storage.pinnedSessions().isEmpty)
+
+        let preferences = SessionPreferences(notifications: NotificationPreferences(defaults: defaults))
+        preferences.load(from: test.storage)
+        for target in [kept, deleted, forgotten] {
+            preferences.setPinned(true, target)
+            preferences.setMuted(true, target)
+        }
+        #expect(try test.storage.pinnedSessions() == [kept, deleted, forgotten])
+
+        preferences.removeSession(deleted)
+        preferences.forgetMachine("m2")
+        #expect(preferences.pinned == [kept] && preferences.muted == [kept])
+
+        let next = SessionPreferences(notifications: NotificationPreferences(defaults: UserDefaults(suiteName: suite)))
+        next.load(from: test.storage)
+        #expect(next.pinned == [kept])
+        #expect(next.muted == [kept])
     }
 
     /// A cold start with the machine unreachable (the fixture's one route refuses) shows the inbox
@@ -123,18 +180,22 @@ struct PersistenceTests {
         #expect(app.inbox.rows.isEmpty)
     }
 
-    @Test func startingOverRemovesTheIdentityTheSeenStateAndEveryPairing() throws {
+    @Test func startingOverRemovesTheIdentityTheSeenStateThePinsAndEveryPairing() throws {
         let test = TestStorage()
         defer { test.remove() }
         try test.storage.saveIdentitySecret(try newIdentitySecret())
         try test.storage.saveInboxCache(try Fixture.data("inbox-cache.json"))
         try test.storage.saveSeenState(SeenState(markers: [], readMachines: ["00112233445566778899aabbccddeeff"]))
         try test.storage.records.save(try Fixture.data("record.json"), id: "00112233445566778899aabbccddeeff")
+        try test.storage.savePinnedSessions([
+            SessionTarget(machineId: "00112233445566778899aabbccddeeff", session: SessionRef(backend: "pi", sessionId: "s-1"))
+        ])
 
         try test.storage.removeEverything()
         #expect(try test.storage.identitySecret() == nil)
         #expect(try test.storage.inboxCache() == nil)
         #expect(try test.storage.seenState() == nil)
+        #expect(try test.storage.pinnedSessions().isEmpty)
         #expect(try test.storage.records.all().isEmpty)
     }
 

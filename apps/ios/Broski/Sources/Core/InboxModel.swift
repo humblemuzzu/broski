@@ -18,7 +18,9 @@ final class InboxModel {
     @ObservationIgnored private var inbox: Inbox?
     @ObservationIgnored private var changes: Task<Void, Never>?
 
-    var sections: [InboxSection] { InboxSection.group(rows, showing: filter) }
+    func sections(pinned: Set<SessionTarget>) -> [InboxSection] {
+        InboxSection.group(rows, pinned: pinned, showing: filter)
+    }
 
     var workingCount: Int { rows.count { $0.state == .working } }
 
@@ -80,27 +82,49 @@ final class InboxModel {
         inbox?.markSeen(machineId: machineId, session: session)
     }
 
+    /// The person marked the session unread: it is Done until they open it or mark it read.
+    func markUnread(machineId: String, session: SessionRef) {
+        inbox?.markUnread(machineId: machineId, session: session)
+    }
+
     func markAllSeen() {
         inbox?.markAllSeen()
     }
 }
 
-/// One section of the inbox: the rows of one state, in the core's order (newest first).
+/// One section of the inbox: the rows of one state, or the pinned rows, in the core's order (newest
+/// first within each state).
 struct InboxSection: Identifiable, Equatable {
-    let state: InboxState
+    enum Kind: Hashable {
+        case state(InboxState)
+        case pinned
+    }
+
+    let kind: Kind
     let rows: [InboxRow]
 
-    var id: InboxState { state }
+    var id: Kind { kind }
 
     static let order: [InboxState] = [.needsYou, .working, .done, .idle]
 
-    /// Needs you, working, done, idle; empty sections left out.
-    static func group(_ rows: [InboxRow], showing filter: InboxState? = nil) -> [InboxSection] {
-        let byState = Dictionary(grouping: rows, by: \.state)
-        return order.compactMap { state in
-            guard filter == nil || filter == state, let rows = byState[state] else { return nil }
-            return InboxSection(state: state, rows: rows)
+    /// Needs you, then the pinned rows that do not need the person, then working, done, idle; empty
+    /// sections left out. A filter shows its state alone, pinned rows in it.
+    static func group(
+        _ rows: [InboxRow], pinned: Set<SessionTarget> = [], showing filter: InboxState? = nil
+    ) -> [InboxSection] {
+        if let filter {
+            let shown = rows.filter { $0.state == filter }
+            return shown.isEmpty ? [] : [InboxSection(kind: .state(filter), rows: shown)]
         }
+        let isPinned = { (row: InboxRow) in row.state != .needsYou && pinned.contains(row.target) }
+        let byState = Dictionary(grouping: rows.filter { !isPinned($0) }, by: \.state)
+        let sections = order.compactMap { state in
+            byState[state].map { InboxSection(kind: .state(state), rows: $0) }
+        }
+        let pinnedRows = rows.filter(isPinned)
+        let pinnedSection = pinnedRows.isEmpty ? [] : [InboxSection(kind: .pinned, rows: pinnedRows)]
+        let urgent = sections.prefix { $0.kind == .state(.needsYou) }
+        return Array(urgent) + pinnedSection + sections.dropFirst(urgent.count)
     }
 }
 
@@ -111,4 +135,6 @@ extension InboxRow {
     }
 
     var key: Key { Key(machineId: machineId, session: session) }
+
+    var target: SessionTarget { SessionTarget(machineId: machineId, session: session) }
 }

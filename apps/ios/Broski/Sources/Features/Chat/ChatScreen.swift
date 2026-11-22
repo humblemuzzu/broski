@@ -26,7 +26,10 @@ private struct ChatContent: View {
     @State private var position = ScrollPosition(idType: String.self, edge: .bottom)
     @State private var dialog: ChatDialog?
     @State private var composing = false
+    /// Set by Mark as Unread, which leaves the chat: leaving must not mark the session seen again.
+    @State private var leftUnread = false
     @Environment(AppModel.self) private var app
+    @Environment(\.dismiss) private var dismiss
 
     /// SwiftUI keeps the model of the first init for the screen's life, which is the one handed the
     /// first prompt of a session just created.
@@ -62,9 +65,14 @@ private struct ChatContent: View {
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ChatToolbar(chat: chat, machine: machine, title: title, cwd: cwd, capabilities: capabilities, dialog: $dialog)
+                ChatToolbar(
+                    chat: chat, machine: machine, title: title, cwd: cwd, capabilities: capabilities,
+                    markUnread: unreadAction, dialog: $dialog)
             }
             .chatDialogs(chat, agent: agent, machineName: machine.name, title: title, dialog: $dialog)
+            .sheet(isPresented: showingInfo) {
+                SessionInfoSheet(chat: chat, machine: machine, title: title, cwd: cwd, catalog: catalog)
+            }
             .cacheExpiryClock(chat.snapshot.usage?.cache)
             .toolbarVisibility(.hidden, for: .tabBar)
             .environment(disclosure)
@@ -80,18 +88,32 @@ private struct ChatContent: View {
                 // After the push settles: these change the tab bar's accessory and the inbox
                 // behind the chat, which must not move while the push runs.
                 try? await Task.sleep(for: .milliseconds(450))
-                guard !Task.isCancelled else { return }
+                guard !Task.isCancelled, !leftUnread else { return }
                 app.visibleSession = chat.target
                 app.markSeen(machineId: machine.id, session: chat.session)
             }
             .onDisappear {
                 if app.visibleSession == chat.target { app.visibleSession = nil }
-                app.markSeen(machineId: machine.id, session: chat.session)
+                if !leftUnread { app.markSeen(machineId: machine.id, session: chat.session) }
             }
             .task { await chat.loadSummary() }
             .task(id: CatalogKey(session: chat.session, cwd: cwd, changes: machine.catalogChanges)) {
                 await catalog.load(machine.machine, backend: chat.session.backend, cwd: cwd, session: chat.session)
             }
+    }
+
+    private var showingInfo: Binding<Bool> {
+        Binding { dialog == .info } set: { if !$0 { dialog = nil } }
+    }
+
+    /// Offered while the session is settled; leaves the chat once marked.
+    private var unreadAction: (() -> Void)? {
+        guard row?.state == .idle || row?.state == .done else { return nil }
+        return {
+            leftUnread = true
+            app.markUnread(machineId: machine.id, session: chat.session)
+            dismiss()
+        }
     }
 
     private var fileSearchSource: FileSearchSource? {

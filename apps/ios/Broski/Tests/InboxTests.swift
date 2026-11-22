@@ -34,7 +34,7 @@ struct InboxTests {
 
     @Test func sectionsFollowNeedsYouWorkingDoneIdleAndKeepTheCoresOrderWithin() {
         let sections = InboxSection.group(rows)
-        #expect(sections.map(\.state) == [.needsYou, .working, .done, .idle])
+        #expect(sections.map(\.kind) == [.state(.needsYou), .state(.working), .state(.done), .state(.idle)])
         #expect(sections.map { $0.rows.map(\.session.sessionId) } == [
             ["ask"], ["run-new", "run-old"], ["done"], ["idle-new", "idle-old"],
         ])
@@ -43,15 +43,48 @@ struct InboxTests {
 
     @Test func emptySectionsAreLeftOut() {
         let sections = InboxSection.group(rows.filter { $0.state != .needsYou && $0.state != .done })
-        #expect(sections.map(\.state) == [.working, .idle])
+        #expect(sections.map(\.kind) == [.state(.working), .state(.idle)])
         #expect(InboxSection.group([]).isEmpty)
     }
 
     @Test func theWorkingFilterShowsOnlyWorking() {
         let sections = InboxSection.group(rows, showing: .working)
-        #expect(sections.map(\.state) == [.working])
+        #expect(sections.map(\.kind) == [.state(.working)])
         #expect(sections.first?.rows.count == 2)
         #expect(InboxSection.group(rows.filter { $0.state != .working }, showing: .working).isEmpty)
+    }
+
+    private func pin(_ ids: String..., machine: String = "m1") -> Set<SessionTarget> {
+        Set(ids.map { SessionTarget(machineId: machine, session: SessionRef(backend: "claude-code", sessionId: $0)) })
+    }
+
+    @Test func pinnedRowsComeRightAfterNeedsYouOnceAndInTheCoresOrder() {
+        let pinned = pin("idle-old", "done", "run-old").union(pin("idle-new", machine: "m2"))
+        let sections = InboxSection.group(rows, pinned: pinned)
+        #expect(sections.map(\.kind) == [.state(.needsYou), .pinned, .state(.working)])
+        #expect(sections.map { $0.rows.map(\.session.sessionId) } == [
+            ["ask"], ["run-old", "done", "idle-new", "idle-old"], ["run-new"],
+        ])
+        #expect(sections.flatMap(\.rows).count == rows.count, "no row twice")
+    }
+
+    @Test func aPinnedRowThatNeedsThePersonStaysUnderNeedsYou() {
+        let sections = InboxSection.group(rows, pinned: pin("ask", "idle-old"))
+        #expect(sections.map(\.kind) == [.state(.needsYou), .pinned, .state(.working), .state(.done), .state(.idle)])
+        #expect(sections[0].rows.map(\.session.sessionId) == ["ask"])
+        #expect(sections[1].rows.map(\.session.sessionId) == ["idle-old"])
+    }
+
+    @Test func pinsLeadWhenNothingNeedsThePersonAndAPinOnAnotherMachineIsNotThisOne() {
+        let calm = rows.filter { $0.state != .needsYou }
+        #expect(InboxSection.group(calm, pinned: pin("done")).map(\.kind) == [.pinned, .state(.working), .state(.idle)])
+        #expect(InboxSection.group(calm, pinned: pin("done", machine: "m2")) == InboxSection.group(calm))
+    }
+
+    @Test func aFilterShowsItsStateWithItsPinnedRowsInIt() {
+        let sections = InboxSection.group(rows, pinned: pin("run-old"), showing: .working)
+        #expect(sections.map(\.kind) == [.state(.working)])
+        #expect(sections[0].rows.map(\.session.sessionId) == ["run-new", "run-old"])
     }
 
     @Test func aRowOffersOnlyTheOptionsItsPendingAskCarries() {

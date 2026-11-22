@@ -90,21 +90,6 @@ nonisolated extension CacheWindow {
         let until = (confidence == .estimated ? "until about " : "until ") + clock(expiresAtMs)
         return "Cache warm (\(CacheFormat.tokens(cachedTokens ?? 0)) tokens, \(until)) — switching models will re-cache"
     }
-
-    /// The overflow's lines: how much of the last prompt was cached, and when the window closes or
-    /// closed, as a time of day, since a menu is drawn once and a countdown in it would go stale.
-    func breakdown(nowMs: Int64, clock: (Int64) -> String = CacheFormat.timeOfDay) -> [String] {
-        guard (cachedTokens ?? 0) > 0 || ttlMs != nil else { return [] }
-        var lines: [String] = []
-        if let cachedTokens, let promptTokens, let hitPercent {
-            lines.append("\(CacheFormat.tokens(cachedTokens)) of \(CacheFormat.tokens(promptTokens)) prompt tokens cached (\(hitPercent)%)")
-        }
-        if let expiresAtMs {
-            let verb = expiresAtMs <= nowMs ? "Expired " : confidence == .estimated ? "Expires about " : "Expires "
-            lines.append(verb + clock(expiresAtMs))
-        }
-        return lines
-    }
 }
 
 nonisolated enum CacheFormat {

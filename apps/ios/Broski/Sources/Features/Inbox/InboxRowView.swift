@@ -1,13 +1,15 @@
 import BroskiCore
 import SwiftUI
 
-/// One session: agent mark, title, what it asks (needs you), machine and folder, time, state.
-/// A session on a machine that is not reachable, or known only from the cached inbox, stays
+/// One session: agent mark, title, what it asks (needs you), machine and folder, time, whether it
+/// is pinned or muted, state. A session on a machine that is not reachable, or known only from the cached inbox, stays
 /// listed, dimmed, with the machine's status.
 struct InboxRowView: View {
     let row: InboxRow
     let brand: AgentBrand
     let machine: MachineSummary?
+    var pinned = false
+    var muted = false
     @Environment(\.dynamicTypeSize) private var typeSize
 
     private var title: String { row.title ?? "Untitled session" }
@@ -41,6 +43,7 @@ struct InboxRowView: View {
                     placeText.lineLimit(1)
                     Text(" · ").font(.footnote).foregroundStyle(.secondary).layoutPriority(1)
                     timeText.layoutPriority(1)
+                    if pinned || muted { marks.padding(.leading, Spacing.xs).layoutPriority(1) }
                 }
             }
             StateIndicator(state: row.state)
@@ -59,9 +62,21 @@ struct InboxRowView: View {
             }
             Text(title).font(.rowTitle)
             askText
-            timeText
+            HStack(spacing: Spacing.xs) {
+                timeText
+                if pinned || muted { marks }
+            }
             placeText
         }
+    }
+
+    private var marks: some View {
+        HStack(spacing: Spacing.xxs) {
+            if pinned { Image(systemName: "pin.fill") }
+            if muted { Image(systemName: "bell.slash") }
+        }
+        .font(.caption2)
+        .foregroundStyle(.secondary)
     }
 
     private var askText: Text? {
@@ -96,6 +111,8 @@ struct InboxRowView: View {
         var sentences = [row.state.title, what ?? "\(brand.name), \(title)"]
         sentences.append([row.machineName, folder].compactMap(\.self).joined(separator: ", "))
         if !reachable, let machine { sentences.append(machine.line) }
+        if pinned { sentences.append("Pinned") }
+        if muted { sentences.append("Muted") }
         return sentences.map { $0.hasSuffix(".") || $0.hasSuffix("…") ? $0 : $0 + "." }.joined(separator: " ")
     }
 }

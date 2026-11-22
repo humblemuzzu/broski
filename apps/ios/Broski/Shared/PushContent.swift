@@ -21,9 +21,9 @@ nonisolated enum PushContent {
 
     /// Replaces the relay's placeholder in `content` with what the machine said, threads it by
     /// session, and copies what a tap or a decision needs into `userInfo` (`machine`, `backend`,
-    /// `session`, `request`). A kind the person turned off arrives quietly: dropping a push needs
-    /// the filtering entitlement Apple grants on request. A push that does not open keeps the
-    /// relay's generic text.
+    /// `session`, `request`). A kind the person turned off, or a push for a session they muted,
+    /// arrives quietly: dropping a push needs the filtering entitlement Apple grants on request. A
+    /// push that does not open keeps the relay's generic text.
     static func describe(
         _ content: UNMutableNotificationContent, records: MachineRecordStore, preferences: NotificationPreferences
     ) {
@@ -31,10 +31,7 @@ nonisolated enum PushContent {
         guard let machineId = push["m"] as? String, let kind = push["k"] as? String,
             let payload = push["e"] as? String
         else { return }
-        if !preferences.allows(kind: kind) {
-            content.interruptionLevel = .passive
-            content.sound = nil
-        }
+        if !preferences.allows(kind: kind) { quiet(content) }
         // The relay names the category after the kind; Allow and Deny only go on a push that
         // opened with a request to answer.
         content.categoryIdentifier = ""
@@ -45,7 +42,15 @@ nonisolated enum PushContent {
             describeOffline(content, payload: payload, machineId: machineId, name: record.name())
         } else if let notification = try? openNotification(record: record, data: payload) {
             describe(content, notification, machineId: machineId)
+            let allowed = preferences.allows(
+                kind: kind, machineId: machineId, backend: notification.backend, sessionId: notification.session)
+            if !allowed { quiet(content) }
         }
+    }
+
+    private static func quiet(_ content: UNMutableNotificationContent) {
+        content.interruptionLevel = .passive
+        content.sound = nil
     }
 
     private static func describe(

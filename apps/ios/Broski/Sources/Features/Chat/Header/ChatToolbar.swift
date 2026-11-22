@@ -2,17 +2,19 @@ import BroskiCore
 import SwiftUI
 import UIKit
 
-/// What the header asks before it acts.
+/// What the header asks or shows before it acts.
 enum ChatDialog: Identifiable {
     case rename
     case delete
+    case info
 
     var id: Self { self }
 }
 
 /// The header's controls: the title (tap to rename), and one trailing cluster of Files for the
-/// session's folder and the overflow (the prompt cache's numbers, then Fork, Rename, Compact, Copy
-/// Conversation, Delete) with the context ring around it. Its dialogs hang on the screen
+/// session's folder and the overflow with the context ring around it: the session's own marks
+/// (Pin, Rename, Copy Session ID, Mark as Unread, Mute), then what acts on its conversation
+/// (Compact, Fork, Export, Session Info), then Delete. Its dialogs hang on the screen
 /// (`chatDialogs`), not in the bar.
 struct ChatToolbar: ToolbarContent {
     let chat: ChatModel
@@ -20,9 +22,11 @@ struct ChatToolbar: ToolbarContent {
     let title: String
     let cwd: String?
     let capabilities: Capabilities?
+    /// Set while the session is settled: marks it unread and leaves the chat.
+    let markUnread: (() -> Void)?
     @Binding var dialog: ChatDialog?
+    @Environment(AppModel.self) private var app
     @Environment(\.openSession) private var openSession
-    @Environment(\.cacheReadAtMs) private var cacheReadAtMs
 
     var body: some ToolbarContent {
         ToolbarItem(placement: .principal) {
@@ -42,7 +46,13 @@ struct ChatToolbar: ToolbarContent {
                 }
             }
             Menu {
-                overflow
+                marks
+                actions
+                if capabilities?.delete ?? false {
+                    Section {
+                        Button("Delete Session", systemImage: "trash", role: .destructive) { dialog = .delete }
+                    }
+                }
             } label: {
                 ContextRing(fraction: chat.snapshot.usage?.contextFraction(window: nil))
                     .accessibilityLabel("More")
@@ -54,33 +64,53 @@ struct ChatToolbar: ToolbarContent {
         [machine.brand(for: chat.session.backend).name, cwd?.lastPathComponent, machine.name].compactMap(\.self).joined(separator: " · ")
     }
 
-    @ViewBuilder
-    private var overflow: some View {
-        if let lines = chat.snapshot.usage?.cache?.breakdown(nowMs: cacheReadAtMs ?? Date.now.unixMilliseconds), !lines.isEmpty {
-            Section("Prompt Cache") {
-                ForEach(lines, id: \.self) { Text($0) }
+    private var preferences: SessionPreferences { app.sessionPreferences }
+
+    private var marks: some View {
+        Section {
+            let pinned = preferences.pinned.contains(chat.target)
+            Button(pinned ? "Unpin" : "Pin", systemImage: pinned ? "pin.slash" : "pin") {
+                preferences.setPinned(!pinned, chat.target)
+            }
+            if capabilities?.rename ?? false {
+                Button("Rename", systemImage: "pencil") { dialog = .rename }
+            }
+            Button("Copy Session ID", systemImage: "number") {
+                UIPasteboard.general.string = chat.session.sessionId
+                chat.play(.confirmed)
+            }
+            if let markUnread {
+                Button("Mark as Unread", systemImage: "envelope.badge", action: markUnread)
+            }
+            let muted = preferences.muted.contains(chat.target)
+            Button(muted ? "Unmute" : "Mute", systemImage: muted ? "bell" : "bell.slash") {
+                preferences.setMuted(!muted, chat.target)
             }
         }
-        if capabilities?.fork ?? false {
-            Button("Fork", systemImage: "arrow.triangle.branch") {
-                Task {
-                    if let forked = await chat.fork() { openSession(SessionTarget(machineId: machine.id, session: forked)) }
+    }
+
+    private var actions: some View {
+        Section {
+            if chat.state.capabilities?.compact ?? false {
+                Button("Compact", systemImage: "rectangle.compress.vertical") { Task { await chat.compact() } }
+            }
+            if capabilities?.fork ?? false {
+                Button("Fork", systemImage: "arrow.triangle.branch") {
+                    Task {
+                        if let forked = await chat.fork() { openSession(SessionTarget(machineId: machine.id, session: forked)) }
+                    }
                 }
             }
-        }
-        if capabilities?.rename ?? false {
-            Button("Rename", systemImage: "pencil") { dialog = .rename }
-        }
-        if chat.state.capabilities?.compact ?? false {
-            Button("Compact", systemImage: "rectangle.compress.vertical") { Task { await chat.compact() } }
-        }
-        Button("Copy Conversation", systemImage: "doc.on.doc") {
-            UIPasteboard.general.string = chat.conversationText
-            chat.play(.confirmed)
-        }
-        if capabilities?.delete ?? false {
-            Divider()
-            Button("Delete", systemImage: "trash", role: .destructive) { dialog = .delete }
+            Menu("Export", systemImage: "square.and.arrow.up.on.square") {
+                ShareLink(item: chat.conversation, subject: Text(title), preview: SharePreview(title)) {
+                    Label("Share Markdown", systemImage: "square.and.arrow.up")
+                }
+                Button("Copy Conversation", systemImage: "doc.on.doc") {
+                    UIPasteboard.general.string = chat.conversation.text
+                    chat.play(.confirmed)
+                }
+            }
+            Button("Session Info", systemImage: "info.circle") { dialog = .info }
         }
     }
 }
@@ -93,6 +123,7 @@ private struct ChatDialogs: ViewModifier {
     let title: String
     @Binding var dialog: ChatDialog?
     @State private var newTitle = ""
+    @Environment(AppModel.self) private var app
     @Environment(\.dismiss) private var dismiss
 
     func body(content: Content) -> some View {
@@ -104,7 +135,11 @@ private struct ChatDialogs: ViewModifier {
             }
             .confirmationDialog("Delete this session?", isPresented: showing(.delete), titleVisibility: .visible) {
                 Button("Delete Session", role: .destructive) {
-                    Task { if await chat.delete() { dismiss() } }
+                    Task {
+                        guard await chat.delete() else { return }
+                        app.sessionDeleted(chat.target)
+                        dismiss()
+                    }
                 }
             } message: {
                 Text("\(agent) deletes it on \(machineName).")

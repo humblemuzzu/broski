@@ -115,22 +115,6 @@ struct CacheStatusTests {
         #expect(CacheFormat.tokens(1_240_000) == "1.2M")
     }
 
-    @Test func theOverflowGivesTheNumbersAndATimeOfDay() {
-        let clock: (Int64) -> String = { "T\($0)" }
-        let warm = touched + 299_999
-        #expect(window().breakdown(nowMs: warm, clock: clock) == ["142k of 151k prompt tokens cached (94%)", "Expires T1300000"])
-        #expect(window(confidence: .estimated, prompt: nil).breakdown(nowMs: warm, clock: clock) == ["Expires about T1300000"])
-        #expect(window(ttl: nil).breakdown(nowMs: warm, clock: clock) == ["142k of 151k prompt tokens cached (94%)"])
-        #expect(window(ttl: nil, cached: 0).breakdown(nowMs: warm, clock: clock).isEmpty)
-    }
-
-    @Test func aClosedWindowSaysItExpiredNotThatItExpires() {
-        let clock: (Int64) -> String = { "T\($0)" }
-        #expect(window().breakdown(nowMs: touched + 300_000, clock: clock) == ["142k of 151k prompt tokens cached (94%)", "Expired T1300000"])
-        #expect(window(confidence: .estimated, prompt: nil).breakdown(nowMs: touched + 900_000, clock: clock) == ["Expired T1300000"])
-        #expect(!window().breakdown(nowMs: touched + 300_000, clock: clock).contains { $0.hasPrefix("Expires") })
-    }
-
     @Test func theCountdownWakesAsEachSecondFallsThenStops() {
         let start = Date(unixMilliseconds: touched + 300_000 - 2_500)
         let ticks = Array(CacheCountdown(window()).entries(from: start, mode: .normal)).map(\.unixMilliseconds)
