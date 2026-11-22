@@ -25,7 +25,12 @@ export const SESSION_MUTANTS: Mutant[] = [
 			replace: "\t\t\tstart.release();",
 		},
 		{ name: "registry: dispose leaves waiters waiting", find: "\t\t\tstart.release();\n", replace: "" },
-		{ name: "registry: a wrong-id backend is kept", find: "if (backend.id !== id) {", replace: "if (false) {" },
+		{
+			name: "registry: a wrong-id backend is kept",
+			find: "if (backend.id !== id) return",
+			replace: "if (false) return",
+		},
+		{ name: "registry: an invalid meta passes", find: "meta.success ? undefined", replace: "true ? undefined" },
 		{
 			name: "registry: a wrong-id backend is not disposed",
 			find: "\t\t\tawait this.disposeQuietly(backend);\n\t\t\treturn this.failed",
@@ -214,8 +219,8 @@ export const SESSION_MUTANTS: Mutant[] = [
 		{ name: "observer: it is never told", find: "this.observer.observe(observed);", replace: "" },
 		{
 			name: "observer: a throwing observer escapes into the adapter",
-			find: "} catch (error) {",
-			replace: "} catch (error) { throw error;",
+			find: "this.observer.observe(observed);\n\t\t} catch (error) {",
+			replace: "this.observer.observe(observed);\n\t\t} catch (error) { throw error;",
 		},
 		{
 			name: "observer: a backend that never answers is given a row",
@@ -224,13 +229,18 @@ export const SESSION_MUTANTS: Mutant[] = [
 		},
 		{
 			name: "observer: a row that breaks the contract is passed on",
-			find: "return checked.success ? checked.data : undefined;",
+			find: "return checked.success ? this.runClock.enrich(checked.data) : undefined;",
 			replace: "return outcome.value.summary;",
 		},
 		{
 			name: "observer: a backend that is gone is looked up anyway",
 			find: "if (!backend) return undefined;",
 			replace: "",
+		},
+		{
+			name: "observer: a backend is named by its id",
+			find: "this.backendOf(live.ref)?.meta.displayName ?? live.ref.backend",
+			replace: "live.ref.backend",
 		},
 	]),
 	...mutantsOf("core/core.ts", [

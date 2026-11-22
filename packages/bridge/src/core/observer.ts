@@ -17,6 +17,8 @@ import { sessionLabel } from "./session-key";
 /** One event of an open session, after every viewer has it. */
 export interface ObservedEvent {
 	readonly session: SessionRef;
+	/** What the phone calls the session's backend (`BackendMeta.displayName`). */
+	readonly backendName: string;
 	readonly at: Timestamp;
 	readonly event: AgentEvent;
 	/** The live state the event applied to, and the state it left. */
@@ -60,6 +62,7 @@ export class Observation {
 		const { at, event } = record;
 		const observed: ObservedEvent = {
 			session: live.ref,
+			backendName: this.backendOf(live.ref)?.meta.displayName ?? live.ref.backend,
 			at,
 			event,
 			before,

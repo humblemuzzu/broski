@@ -19,7 +19,7 @@ import type { ClaudeCodeServices } from "./services";
 import { formatImageRead } from "./store/attachments";
 import { createSessionStore } from "./store/session-store";
 import { createTerminalWatch } from "./terminal/watch-only";
-import { CLAUDE_CODE_TRAITS } from "./traits";
+import { CLAUDE_CODE_META, CLAUDE_CODE_TRAITS } from "./traits";
 import { createAskDesk } from "./ui/desk";
 
 /** The parts one Claude Code backend is made of, which `claudeCodeBackendOf` puts behind the contract. */
@@ -71,6 +71,7 @@ export function claudeCodeBackendOf(parts: ClaudeCodeParts): AgentBackend {
 	const { services, catalog, terminal, store, catalogue, live, configWatch, images, overlay } = parts;
 	return {
 		id: "claude-code",
+		meta: CLAUDE_CODE_META,
 		traits: CLAUDE_CODE_TRAITS,
 		status: () => catalogue.status(),
 		listSessions: (query, page) => store.list(query, page, overlay),

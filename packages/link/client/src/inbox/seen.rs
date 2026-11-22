@@ -30,7 +30,7 @@ type Key = (String, BackendId, String);
 fn key(machine_id: &str, session: &SessionRef) -> Key {
     (
         machine_id.to_owned(),
-        session.backend,
+        session.backend.clone(),
         session.session_id.clone(),
     )
 }
@@ -169,7 +169,7 @@ impl Seen {
             .map(|((machine_id, backend, session_id), seen_at)| SeenMarker {
                 machine_id: machine_id.clone(),
                 session: SessionRef {
-                    backend: *backend,
+                    backend: backend.clone(),
                     session_id: session_id.clone(),
                 },
                 seen_at: *seen_at,
@@ -198,7 +198,7 @@ mod tests {
 
     fn session() -> SessionRef {
         SessionRef {
-            backend: BackendId::Pi,
+            backend: "pi".to_owned(),
             session_id: "s".to_owned(),
         }
     }

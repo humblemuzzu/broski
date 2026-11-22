@@ -4267,7 +4267,14 @@
                 "inputTokens": 1200,
                 "outputTokens": 80,
                 "cacheReadTokens": 900,
-                "costUsd": 0.0125
+                "costUsd": 0.0125,
+                "cache": {
+                  "lastTouchAt": 40,
+                  "ttlMs": 300000,
+                  "confidence": "exact",
+                  "cachedTokens": 900,
+                  "promptTokens": 1200
+                }
               }
             }
           },
@@ -4449,7 +4456,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             }
           }
         },
@@ -4642,7 +4656,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             },
             "retry": {
               "attempt": 1,
@@ -4838,7 +4859,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             }
           }
         },
@@ -5028,7 +5056,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             },
             "compaction": {
               "trigger": "auto",
@@ -5226,7 +5261,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             }
           }
         },
@@ -5421,7 +5463,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             }
           }
         },
@@ -5612,7 +5661,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             }
           }
         },
@@ -5818,7 +5874,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             }
           }
         },
@@ -6045,7 +6108,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             }
           }
         },
@@ -6252,7 +6322,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             }
           }
         },
@@ -6463,7 +6540,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             }
           }
         },
@@ -6543,7 +6627,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             }
           }
         },
@@ -6624,7 +6715,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             }
           }
         },
@@ -6711,7 +6809,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             }
           }
         },
@@ -6797,7 +6902,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             }
           }
         },
@@ -6883,7 +6995,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             }
           }
         },
@@ -6969,7 +7088,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             }
           }
         },
@@ -7056,7 +7182,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             }
           }
         },
@@ -7100,7 +7233,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             }
           }
         },
@@ -7150,7 +7290,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             }
           }
         },
@@ -7199,7 +7346,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             }
           }
         },
@@ -7248,7 +7402,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             }
           }
         },
@@ -7297,7 +7458,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             }
           }
         },
@@ -7348,7 +7516,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             }
           }
         },
@@ -7385,7 +7560,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             },
             "lastOutcome": {
               "kind": "completed"
@@ -7430,7 +7612,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             },
             "lastOutcome": {
               "kind": "completed"
@@ -7486,7 +7675,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             },
             "lastOutcome": {
               "kind": "completed"
@@ -7548,7 +7744,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             },
             "lastOutcome": {
               "kind": "completed"
@@ -7622,7 +7825,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             },
             "lastOutcome": {
               "kind": "completed"
@@ -7690,7 +7900,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             },
             "lastOutcome": {
               "kind": "completed"
@@ -7776,7 +7993,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             },
             "lastOutcome": {
               "kind": "completed"
@@ -7850,7 +8074,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             },
             "lastOutcome": {
               "kind": "completed"
@@ -7924,7 +8155,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             },
             "lastOutcome": {
               "kind": "completed"
@@ -7999,7 +8237,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             },
             "lastOutcome": {
               "kind": "completed"
@@ -8084,7 +8329,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             },
             "lastOutcome": {
               "kind": "completed"
@@ -8167,7 +8419,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             },
             "lastOutcome": {
               "kind": "completed"
@@ -8252,7 +8511,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             },
             "lastOutcome": {
               "kind": "completed"
@@ -8336,7 +8602,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             },
             "lastOutcome": {
               "kind": "completed"
@@ -8420,7 +8693,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             },
             "lastOutcome": {
               "kind": "completed"
@@ -8504,7 +8784,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             },
             "lastOutcome": {
               "kind": "completed"
@@ -8589,7 +8876,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             },
             "lastOutcome": {
               "kind": "completed"
@@ -8636,7 +8930,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             },
             "lastOutcome": {
               "kind": "completed"
@@ -8673,7 +8974,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             },
             "lastOutcome": {
               "kind": "completed"
@@ -8718,7 +9026,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             },
             "lastOutcome": {
               "kind": "completed"
@@ -8774,7 +9089,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             },
             "lastOutcome": {
               "kind": "completed"
@@ -8836,7 +9158,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             },
             "lastOutcome": {
               "kind": "completed"
@@ -8897,7 +9226,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             },
             "lastOutcome": {
               "kind": "completed"
@@ -8958,7 +9294,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             },
             "lastOutcome": {
               "kind": "completed"
@@ -9019,7 +9362,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             },
             "lastOutcome": {
               "kind": "completed"
@@ -9081,7 +9431,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             },
             "lastOutcome": {
               "kind": "completed"
@@ -9121,7 +9478,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             },
             "lastOutcome": {
               "kind": "completed"
@@ -9160,7 +9524,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             },
             "lastOutcome": {
               "kind": "completed"
@@ -9199,7 +9570,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             },
             "lastOutcome": {
               "kind": "completed"
@@ -9231,7 +9609,14 @@
                   "inputTokens": 1200,
                   "outputTokens": 80,
                   "cacheReadTokens": 900,
-                  "costUsd": 0.0125
+                  "costUsd": 0.0125,
+                  "cache": {
+                    "lastTouchAt": 40,
+                    "ttlMs": 300000,
+                    "confidence": "exact",
+                    "cachedTokens": 900,
+                    "promptTokens": 1200
+                  }
                 },
                 "lastOutcome": {
                   "kind": "completed"
@@ -9264,7 +9649,14 @@
               "inputTokens": 1200,
               "outputTokens": 80,
               "cacheReadTokens": 900,
-              "costUsd": 0.0125
+              "costUsd": 0.0125,
+              "cache": {
+                "lastTouchAt": 40,
+                "ttlMs": 300000,
+                "confidence": "exact",
+                "cachedTokens": 900,
+                "promptTokens": 1200
+              }
             },
             "lastOutcome": {
               "kind": "completed"
@@ -39103,6 +39495,46 @@
             "at": 1009,
             "event": {
               "type": "usage_updated",
+              "usage": {
+                "inputTokens": 6,
+                "cache": {
+                  "lastTouchAt": 400,
+                  "confidence": "estimated"
+                }
+              }
+            }
+          },
+          "status": "idle",
+          "expected": {
+            "blocks": [],
+            "tools": [],
+            "interactions": [],
+            "queue": [],
+            "backgroundTasks": [],
+            "modes": [
+              {
+                "axis": "a",
+                "value": "2"
+              },
+              {
+                "axis": "b",
+                "value": "x"
+              }
+            ],
+            "usage": {
+              "inputTokens": 6,
+              "cache": {
+                "lastTouchAt": 400,
+                "confidence": "estimated"
+              }
+            }
+          }
+        },
+        {
+          "record": {
+            "at": 1010,
+            "event": {
+              "type": "usage_updated",
               "usage": {}
             }
           },
@@ -39128,7 +39560,7 @@
         },
         {
           "record": {
-            "at": 1010,
+            "at": 1011,
             "event": {
               "type": "retry_scheduled",
               "attempt": 2,
@@ -39165,7 +39597,7 @@
         },
         {
           "record": {
-            "at": 1011,
+            "at": 1012,
             "event": {
               "type": "retry_finished",
               "succeeded": false

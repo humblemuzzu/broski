@@ -267,7 +267,7 @@ describe("approvals", () => {
 			ok: false,
 			error: "unknown request",
 		});
-		expect(await decide(current, request, "allow", current.session.sessionId, "nonsense")).toMatchObject({
+		expect(await decide(current, request, "allow", current.session.sessionId, "Not a backend")).toMatchObject({
 			ok: false,
 			error: "unknown backend",
 		});

@@ -65,7 +65,16 @@ export async function fakeSessionStream(): Promise<ServerMessage[]> {
 			},
 		},
 		{ kind: "ask", title: "Pick a library", request: sampleRequest("questions") },
-		{ kind: "usage", usage: { inputTokens: 1200, outputTokens: 80, cacheReadTokens: 900, costUsd: 0.0125 } },
+		{
+			kind: "usage",
+			usage: {
+				inputTokens: 1200,
+				outputTokens: 80,
+				cacheReadTokens: 900,
+				costUsd: 0.0125,
+				cache: { lastTouchAt: 40, ttlMs: 300_000, confidence: "exact", cachedTokens: 900, promptTokens: 1200 },
+			},
+		},
 		{ kind: "retry", attempts: 1 },
 		{ kind: "compaction" },
 		{

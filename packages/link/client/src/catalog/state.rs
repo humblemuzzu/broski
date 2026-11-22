@@ -83,32 +83,38 @@ impl Catalog {
         self.backends = Some(backends);
     }
 
-    pub(crate) fn status_of(&self, backend: BackendId) -> Option<BackendStatus> {
-        self.statuses.get(&backend).cloned()
+    pub(crate) fn status_of(&self, backend: &str) -> Option<BackendStatus> {
+        self.statuses.get(backend).cloned()
     }
 
     /// True when the backend is one already listed.
     pub(crate) fn set_status(&mut self, backend: BackendId, status: BackendStatus) -> bool {
-        self.statuses.insert(backend, status);
-        self.backends
+        let listed = self
+            .backends
             .as_ref()
-            .is_some_and(|backends| backends.iter().any(|known| known.id == backend))
+            .is_some_and(|backends| backends.iter().any(|known| known.id == backend));
+        self.statuses.insert(backend, status);
+        listed
     }
 
-    pub(crate) fn stamp(&self, backend: BackendId, scope: CatalogScope) -> Stamp {
+    pub(crate) fn stamp(&self, backend: &str, scope: CatalogScope) -> Stamp {
         Stamp {
             epoch: self.epoch,
-            scope: self.scopes.get(&(backend, scope)).copied().unwrap_or(0),
+            scope: self
+                .scopes
+                .get(&(backend.to_owned(), scope))
+                .copied()
+                .unwrap_or(0),
         }
     }
 
-    pub(crate) fn invalidate(&mut self, backend: BackendId, scope: CatalogScope) {
-        *self.scopes.entry((backend, scope)).or_default() += 1;
-        let other = |key_backend: BackendId| key_backend != backend;
+    pub(crate) fn invalidate(&mut self, backend: &str, scope: CatalogScope) {
+        *self.scopes.entry((backend.to_owned(), scope)).or_default() += 1;
+        let other = |key_backend: &str| key_backend != backend;
         match scope {
-            CatalogScope::Models => self.models.forget(|key| other(key.backend)),
-            CatalogScope::Commands => self.commands.forget(|key| other(key.backend)),
-            CatalogScope::Modes => self.modes.forget(|key| other(key.backend)),
+            CatalogScope::Models => self.models.forget(|key| other(&key.backend)),
+            CatalogScope::Commands => self.commands.forget(|key| other(&key.backend)),
+            CatalogScope::Modes => self.modes.forget(|key| other(&key.backend)),
         }
     }
 
@@ -129,9 +135,9 @@ mod tests {
 
     use super::*;
 
-    fn key(backend: BackendId) -> ListKey<bool> {
+    fn key(backend: &str) -> ListKey<bool> {
         ListKey {
-            backend,
+            backend: backend.to_owned(),
             cwd: None,
             extra: false,
         }
@@ -144,35 +150,35 @@ mod tests {
     #[test]
     fn an_invalidation_drops_that_backends_scope_and_a_list_asked_for_before_it() {
         let mut catalog = Catalog::default();
-        catalog.models.insert(key(BackendId::Pi), models());
-        catalog.models.insert(key(BackendId::ClaudeCode), models());
+        catalog.models.insert(key("pi"), models());
+        catalog.models.insert(key("claude-code"), models());
         let modes = ModesListResult::Accepted(ModesListed { modes: Vec::new() });
         let modes_key = ListKey {
-            backend: BackendId::Pi,
+            backend: "pi".to_owned(),
             cwd: None,
             extra: (),
         };
         catalog.modes.insert(modes_key.clone(), modes);
-        let asked = catalog.stamp(BackendId::Pi, CatalogScope::Models);
-        let other = catalog.stamp(BackendId::ClaudeCode, CatalogScope::Models);
+        let asked = catalog.stamp("pi", CatalogScope::Models);
+        let other = catalog.stamp("claude-code", CatalogScope::Models);
 
-        catalog.invalidate(BackendId::Pi, CatalogScope::Models);
-        assert!(catalog.models.get(&key(BackendId::Pi)).is_none());
+        catalog.invalidate("pi", CatalogScope::Models);
+        assert!(catalog.models.get(&key("pi")).is_none());
         assert!(
-            catalog.models.get(&key(BackendId::ClaudeCode)).is_some(),
+            catalog.models.get(&key("claude-code")).is_some(),
             "another backend's"
         );
         assert!(catalog.modes.get(&modes_key).is_some(), "another scope");
         assert!(
-            catalog.stamp(BackendId::Pi, CatalogScope::Models) != asked,
+            catalog.stamp("pi", CatalogScope::Models) != asked,
             "stale once answered"
         );
-        assert!(catalog.stamp(BackendId::ClaudeCode, CatalogScope::Models) == other);
+        assert!(catalog.stamp("claude-code", CatalogScope::Models) == other);
 
         catalog.forget();
-        assert!(catalog.models.get(&key(BackendId::ClaudeCode)).is_none());
+        assert!(catalog.models.get(&key("claude-code")).is_none());
         assert!(
-            catalog.stamp(BackendId::ClaudeCode, CatalogScope::Models) != other,
+            catalog.stamp("claude-code", CatalogScope::Models) != other,
             "a new socket"
         );
     }

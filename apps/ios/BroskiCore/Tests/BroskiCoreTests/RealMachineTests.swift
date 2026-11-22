@@ -48,7 +48,7 @@ private final class TestMachine {
 private func createSession(_ machine: Machine, cwd: String) async throws -> SessionRef {
     let options = NewSessionOptions(cwd: cwd, modelId: nil, thinking: nil, modes: nil)
     let create = ClientMessage.sessionCreate(
-        SessionCreateRequest(requestId: "", backend: .pi, options: options))
+        SessionCreateRequest(requestId: "", backend: "pi", options: options))
     let answer = try await machine.request(message: create)
     guard case .sessionCreateResult(let created) = answer, case .accepted(let accepted) = created.result
     else { throw UnexpectedAnswer(answer: answer) }
@@ -90,7 +90,7 @@ func anAppPairsWithARealMachineAndARunStreamsIntoItsView() async throws {
     try await events(of: machine) {
         if case .ready = $0.contract { true } else { false }
     }
-    #expect(try await machine.backends().map(\.id) == [.pi])
+    #expect(try await machine.backends().map(\.id) == ["pi"])
 
     let session = try await createSession(machine, cwd: mac.root)
     let view = try machine.attach(session: session)

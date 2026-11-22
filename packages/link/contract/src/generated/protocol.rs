@@ -77,7 +77,52 @@ impl crate::Tagged for AttachmentReadResponse {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BackendDescriptor {
     pub id: BackendId,
+    pub display_name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "crate::codec::present")]
+    pub accent_hex: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "crate::codec::present")]
+    pub icon_hint: Option<BackendIconHint>,
     pub capabilities: Capabilities,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+pub enum BackendIconHint {
+    #[serde(rename = "claude")]
+    Claude,
+    #[serde(rename = "pi")]
+    Pi,
+    #[serde(rename = "codex")]
+    Codex,
+    #[serde(rename = "gemini")]
+    Gemini,
+    #[serde(rename = "cursor")]
+    Cursor,
+    #[serde(rename = "grok")]
+    Grok,
+    #[serde(rename = "opencode")]
+    Opencode,
+    #[serde(rename = "antigravity")]
+    Antigravity,
+    #[serde(rename = "acp")]
+    Acp,
+    #[serde(rename = "generic")]
+    Generic,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BackendMeta {
+    pub display_name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "crate::codec::present")]
+    pub accent_hex: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "crate::codec::present")]
+    pub icon_hint: Option<BackendIconHint>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

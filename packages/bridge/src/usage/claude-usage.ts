@@ -19,6 +19,7 @@ export const CLAUDE_EXPIRED =
 export function claudeSource(system: UsageSystem): PlanSource {
 	return {
 		plan: "claude",
+		displayName: "Claude",
 		async read(): Promise<PlanReading | undefined> {
 			const logins = await claudeLogins(system);
 			if (logins.length === 0) return undefined;

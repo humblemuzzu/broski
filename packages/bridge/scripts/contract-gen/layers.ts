@@ -1,4 +1,5 @@
 import { dirname, join, relative, resolve, sep } from "node:path";
+import { BACKEND_ID_PATTERN } from "../../src/contract/ids";
 import { type ImportSite, importSites } from "./import-scan";
 
 export interface SourceFile {
@@ -6,11 +7,8 @@ export interface SourceFile {
 	readonly source: string;
 }
 
-/** The SDK packages each directory under `src/backends` may import, by directory name. */
-const BACKEND_SDKS = new Map<string, readonly string[]>([
-	["claude-code", ["@anthropic-ai/claude-agent-sdk"]],
-	["pi", []],
-]);
+/** The SDK packages each directory under `src/backends` may import, by directory name; one not listed imports none. */
+const BACKEND_SDKS = new Map<string, readonly string[]>([["claude-code", ["@anthropic-ai/claude-agent-sdk"]]]);
 
 /**
  * Code a backend writes out for its agent to load (a directory named `extension` in its tree): it runs inside the
@@ -37,15 +35,18 @@ const transpiler = new Bun.Transpiler({ loader: "ts" });
 /**
  * Every import in `files` that breaks the bridge's layers (contract README §2, Hard rules), as
  * `path: problem`. `src` is the bridge's `src` directory; only files under `src/contract`,
- * `src/core` and `src/backends`, and the `CORE_INFRASTRUCTURE` modules, are judged.
+ * `src/core`, `src/adapter-kit` and `src/backends`, and the `CORE_INFRASTRUCTURE` modules, are judged.
  *
  * - `src/contract/` is a leaf: it imports only zod and itself; its `testing/` may also import bun:test.
  * - `src/core/` imports only itself, the contract (not its test kit), zod and `CORE_INFRASTRUCTURE`:
  *   never a connector, handler, runtime mapper, adapter, `node:` module or the server. It reaches
  *   adapters only through the `AgentBackend` values its registry holds.
  * - A `CORE_INFRASTRUCTURE` module imports only zod and the other such modules.
- * - `src/backends/<id>/` imports only the contract (not its test kit), itself, `node:` built-ins, zod (to check what a
- *   backend reads from a process it talks to) and that backend's own SDK; an `extension/` directory in it only as text.
+ * - `src/adapter-kit/`, what adapters share, imports only itself, the contract (not its test kit), zod and `node:`
+ *   built-ins: never the core, the server or any backend's SDK.
+ * - `src/backends/<id>/`, `<id>` a `BackendId`, imports only the contract (not its test kit), the adapter kit, itself,
+ *   `node:` built-ins, zod (to check what a backend reads from a process it talks to) and that backend's own SDK; an
+ *   `extension/` directory in it only as text.
  * - An `extension/` directory under `src/backends/<id>/` imports only itself, `node:` built-ins and its agent's packages.
  * - Every specifier is a plain string, so the check sees what is loaded.
  */
@@ -55,24 +56,26 @@ export function layerViolations(src: string, files: readonly SourceFile[]): stri
 		contract: join(src, "contract"),
 		testing: join(src, "contract", "testing"),
 		core: join(src, "core"),
+		adapterKit: join(src, "adapter-kit"),
 		backends: join(src, "backends"),
 	};
 	return files.flatMap((file) => problemsOf(file, layout).map((problem) => `${relative(src, file.path)}: ${problem}`));
 }
 
-type Layout = { src: string; contract: string; testing: string; core: string; backends: string };
+type Layout = { src: string; contract: string; testing: string; core: string; adapterKit: string; backends: string };
 type Judge = (specifier: string | undefined) => string[];
 
 function problemsOf(file: SourceFile, layout: Layout): string[] {
 	if (within(file.path, layout.contract)) return specifiersOf(file).flatMap(contractJudge(file, layout));
 	if (within(file.path, layout.core)) return specifiersOf(file).flatMap(coreJudge(file, layout));
+	if (within(file.path, layout.adapterKit)) return specifiersOf(file).flatMap(adapterKitJudge(file, layout));
 	if (infrastructureOf(layout).has(withoutExtension(file.path))) {
 		return specifiersOf(file).flatMap(infrastructureJudge(file, layout));
 	}
 	if (!within(file.path, layout.backends)) return [];
 	const [id = ""] = relative(layout.backends, file.path).split(sep);
-	const sdks = BACKEND_SDKS.get(id);
-	if (!sdks) return [`${id} is not a backend id directory`];
+	if (!BACKEND_ID_PATTERN.test(id)) return [`${id} is not a backend id directory`];
+	const sdks = BACKEND_SDKS.get(id) ?? [];
 	const extension = extensionDirectoryOf(file.path, layout.backends);
 	if (extension !== undefined) {
 		return specifiersOf(file).flatMap(extensionJudge(file, extension, AGENT_EXTENSION_PACKAGES.get(id) ?? []));
@@ -128,12 +131,23 @@ function coreJudge(file: SourceFile, layout: Layout): Judge {
 		if (specifier.startsWith(".")) {
 			const target = resolve(dirname(file.path), specifier);
 			const allowed =
-				within(target, layout.core) ||
-				(within(target, layout.contract) && !within(target, layout.testing)) ||
-				infrastructure.has(withoutExtension(target));
+				within(target, layout.core) || inContract(target, layout) || infrastructure.has(withoutExtension(target));
 			return allowed ? [] : [`${specifier} is neither the core, the contract nor the core's infrastructure`];
 		}
 		return isPackage(specifier, "zod") ? [] : [`${specifier} is not zod`];
+	};
+}
+
+function adapterKitJudge(file: SourceFile, layout: Layout): Judge {
+	return (specifier) => {
+		if (specifier === undefined) return ["an import whose specifier is not a plain string"];
+		if (specifier.startsWith(".")) {
+			const target = resolve(dirname(file.path), specifier);
+			const allowed = within(target, layout.adapterKit) || inContract(target, layout);
+			return allowed ? [] : [`${specifier} is neither the adapter kit nor the contract`];
+		}
+		if (LOADERS.has(specifier)) return [`${specifier} loads modules this check cannot see`];
+		return specifier.startsWith("node:") || isPackage(specifier, "zod") ? [] : [`${specifier} is not zod or node`];
 	};
 }
 
@@ -171,8 +185,8 @@ function backendJudge(
 		if (specifier === undefined) return ["an import whose specifier is not a plain string"];
 		if (specifier.startsWith(".")) {
 			const target = resolve(dirname(file.path), specifier);
-			const allowed = within(target, own) || (within(target, layout.contract) && !within(target, layout.testing));
-			if (!allowed) return [`${specifier} is neither this backend nor the contract`];
+			const allowed = within(target, own) || within(target, layout.adapterKit) || inContract(target, layout);
+			if (!allowed) return [`${specifier} is neither this backend, the adapter kit nor the contract`];
 			const asText =
 				sites.some((site) => site.specifier === specifier) &&
 				sites.every((site) => site.specifier !== specifier || site.asText === true);
@@ -185,6 +199,11 @@ function backendJudge(
 		}
 		return [`${specifier} is not this backend's SDK`];
 	};
+}
+
+/** In the contract, outside its test kit. */
+function inContract(path: string, layout: Layout): boolean {
+	return within(path, layout.contract) && !within(path, layout.testing);
 }
 
 function within(path: string, dir: string): boolean {

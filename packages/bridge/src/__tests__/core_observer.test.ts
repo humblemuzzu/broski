@@ -36,6 +36,7 @@ describe("the core's observer", () => {
 		expect(finished?.before.run?.items.some((item) => item.kind === "block" && item.text === "Done.")).toBe(true);
 		expect(finished?.after.run).toBeUndefined();
 		expect(finished?.session).toEqual(session);
+		expect(finished?.backendName).toBe("Fake");
 		expect(rig.log.errors).toEqual([]);
 	});
 

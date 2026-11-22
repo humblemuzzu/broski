@@ -2,7 +2,7 @@
 //! contract README §12.2).
 
 use broski_contract::{
-    AgentEvent, AttachSync, BackendId, ClientMessage, ConfirmRequest, EventEnvelope, Interaction,
+    AgentEvent, AttachSync, ClientMessage, ConfirmRequest, EventEnvelope, Interaction,
     InteractionRequest, NoticeEvent, NoticeLevel, ReplacedSync, ReplaySync, ServerMessage,
     SessionAttachResponse, SessionCapabilities, SessionRef, SessionReplacedEvent, SnapshotSync,
     StreamPosition,
@@ -16,7 +16,7 @@ use crate::attach::Next;
 
 pub(super) fn session(id: &str) -> SessionRef {
     SessionRef {
-        backend: BackendId::Pi,
+        backend: "pi".to_owned(),
         session_id: id.to_owned(),
     }
 }

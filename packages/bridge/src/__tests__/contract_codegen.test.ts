@@ -26,7 +26,8 @@ describe("the type model", () => {
 		const types = typeModel(contractSchemaDocument());
 		expect(types.get("AgentEvent")).toMatchObject({ kind: "union", key: "type" });
 		expect(types.get("SessionRef")).toMatchObject({ kind: "class" });
-		expect(types.get("BackendId")).toMatchObject({ kind: "enum" });
+		expect(types.get("BackendId")).toMatchObject({ kind: "alias", target: { kind: "string" } });
+		expect(types.get("BackendIconHint")).toMatchObject({ kind: "enum" });
 		expect(types.get("RunId")).toMatchObject({ kind: "alias", target: { kind: "string" } });
 	});
 

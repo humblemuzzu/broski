@@ -5,14 +5,7 @@ use serde::{Deserialize, Serialize};
 
 pub type AttachmentId = String;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-pub enum BackendId {
-    #[serde(rename = "claude-code")]
-    ClaudeCode,
-    #[serde(rename = "pi")]
-    Pi,
-}
+pub type BackendId = String;
 
 pub type BlockId = String;
 

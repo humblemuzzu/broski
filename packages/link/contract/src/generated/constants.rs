@@ -3,6 +3,7 @@
 
 use super::ProtocolVersion;
 
+pub const MAX_BACKENDS: usize = 32;
 pub const MAX_CATALOG_ITEMS: usize = 10000;
 pub const MAX_CLIENT_MESSAGE_VALUES: usize = 50000;
 pub const MAX_DIFF_LINES: usize = 20000;
@@ -15,6 +16,7 @@ pub const MAX_MESSAGE_BYTES: usize = 8388608;
 pub const MAX_NAME_CHARS: usize = 1024;
 pub const MAX_PAGE_LIMIT: usize = 200;
 pub const MAX_PATH_CHARS: usize = 4096;
+pub const MAX_PLAN_METERS: usize = 32;
 pub const MAX_SEARCH_QUERY_CHARS: usize = 256;
 pub const MAX_TERMINALS: usize = 20;
 pub const MAX_TERMINAL_DIMENSION: usize = 500;

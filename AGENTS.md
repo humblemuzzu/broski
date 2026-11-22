@@ -127,8 +127,10 @@ The wire shape between bridge and phone is the backend contract in `packages/bri
 - **Adapters are reached only through `AgentBackend`.** The core never imports `backends/<id>/`; an adapter never
   sees sockets, phones or the wire.
 - **The contract is a leaf**: `src/contract/` imports only `zod` and itself (its `testing/` may add `bun:test`);
-  `src/backends/<id>/` imports only the contract, itself, `zod`, `node:` built-ins (not `node:module`) and its own
-  SDK; no adapter reaches another adapter's directory. Every import specifier is a plain string.
+  `src/adapter-kit/` imports only the contract, itself, `zod` and `node:` built-ins (not `node:module`);
+  `src/backends/<id>/` (`<id>` any `BackendId` slug) imports only the contract, the adapter kit, itself, `zod`,
+  `node:` built-ins (not `node:module`) and its own SDK; no adapter reaches another adapter's directory. Every import
+  specifier is a plain string.
   `bun run check:layers` enforces it.
 - **Expected failures are values**: every adapter method that can fail returns `{status: "accepted", …} | Rejected`;
   `status()` never fails (its failures are `issues`). Every wire string, list and map is bounded

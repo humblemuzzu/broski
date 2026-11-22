@@ -843,7 +843,14 @@
           "inputTokens": 1200,
           "outputTokens": 80,
           "cacheReadTokens": 900,
-          "costUsd": 0.0125
+          "costUsd": 0.0125,
+          "cache": {
+            "lastTouchAt": 40,
+            "ttlMs": 300000,
+            "confidence": "exact",
+            "cachedTokens": 900,
+            "promptTokens": 1200
+          }
         }
       }
     }
@@ -1783,7 +1790,14 @@
             "inputTokens": 1200,
             "outputTokens": 80,
             "cacheReadTokens": 900,
-            "costUsd": 0.0125
+            "costUsd": 0.0125,
+            "cache": {
+              "lastTouchAt": 40,
+              "ttlMs": 300000,
+              "confidence": "exact",
+              "cachedTokens": 900,
+              "promptTokens": 1200
+            }
           },
           "lastOutcome": {
             "kind": "completed"

@@ -58,6 +58,20 @@ describe("the backend registry", () => {
 		expect(log.errors.some((line) => line.includes("made a pi backend"))).toBe(true);
 	});
 
+	test("refuses and disposes a backend whose meta breaks the contract", async () => {
+		const { registry: backends } = registry();
+		let disposed = 0;
+		expect(
+			await backends.add("pi", async (host) => ({
+				...createFakeBackend(host, { meta: { displayName: "Pi", accentHex: "orange" } }),
+				dispose: async () => void disposed++,
+			})),
+		).toBe(false);
+		expect(disposed).toBe(1);
+		expect(backends.descriptors()).toEqual([]);
+		expect(missingOf(await backends.reach("pi"))).toStartWith("the pi backend did not start: its meta is invalid");
+	});
+
 	test("goes on without a backend whose factory fails, and says why to whoever asks for it", async () => {
 		const { registry: backends, log } = registry();
 		expect(

@@ -1,10 +1,11 @@
 import { z } from "zod";
 import { Timestamp } from "./ids";
-import { MAX_NAME_CHARS, MAX_USAGE_POINTS, MAX_USAGE_WINDOWS } from "./limits";
+import { MAX_NAME_CHARS, MAX_PLAN_METERS, MAX_USAGE_POINTS, MAX_USAGE_WINDOWS } from "./limits";
 import { Rejected } from "./rejection";
 
-/** The subscriptions the bridge can meter: Claude's plan (claude.ai) and Google Antigravity's. */
-export const PlanId = z.enum(["claude", "antigravity"]);
+/** A subscription the bridge meters, as a slug: `claude` (claude.ai), `antigravity` (Google Antigravity), … */
+export const PLAN_ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/;
+export const PlanId = z.string().min(1).max(64).regex(PLAN_ID_PATTERN);
 export type PlanId = z.infer<typeof PlanId>;
 
 /** How long a window runs before it starts over: the rolling five hours, or the week. */
@@ -35,11 +36,13 @@ export const UsageWindow = z.strictObject({
 export type UsageWindow = z.infer<typeof UsageWindow>;
 
 /**
- * One plan signed in on the machine. `readAt` is when its service last answered; when the latest read failed,
- * `problem` says why and the windows are those of that last answer (none when there was none).
+ * One plan signed in on the machine. `displayName` is what the phone calls it. `readAt` is when its service last
+ * answered; when the latest read failed, `problem` says why and the windows are those of that last answer (none
+ * when there was none).
  */
 export const PlanMeter = z.strictObject({
 	plan: PlanId,
+	displayName: z.string().min(1).max(MAX_NAME_CHARS).optional(),
 	tier: z.string().min(1).max(MAX_NAME_CHARS).optional(),
 	windows: z.array(UsageWindow).max(MAX_USAGE_WINDOWS),
 	readAt: Timestamp.optional(),
@@ -47,10 +50,10 @@ export const PlanMeter = z.strictObject({
 });
 export type PlanMeter = z.infer<typeof PlanMeter>;
 
-/** Every plan signed in on the machine, in `PlanId` order; a plan with no sign-in there is left out. */
+/** Every plan signed in on the machine, in the bridge's order of its sources; a plan with no sign-in there is left out. */
 export const PlanUsage = z.strictObject({
 	status: z.literal("accepted"),
-	meters: z.array(PlanMeter).max(PlanId.options.length),
+	meters: z.array(PlanMeter).max(MAX_PLAN_METERS),
 });
 export type PlanUsage = z.infer<typeof PlanUsage>;
 

@@ -9,7 +9,7 @@ import { LiveState } from "../../../../backends/claude-code/live/live-state";
 import { PERMISSION_MODES } from "../../../../backends/claude-code/permission-modes";
 import type { AskDesk } from "../../../../backends/claude-code/ports/asks";
 import { ACCEPTED, rejected } from "../../../../backends/claude-code/rejections";
-import { CLAUDE_CODE_TRAITS } from "../../../../backends/claude-code/traits";
+import { CLAUDE_CODE_META, CLAUDE_CODE_TRAITS } from "../../../../backends/claude-code/traits";
 import { createAskDesk } from "../../../../backends/claude-code/ui/desk";
 import {
 	type AgentBackend,
@@ -111,6 +111,7 @@ class AskRigSession {
 
 export class AskRigBackend implements AgentBackend {
 	readonly id = "claude-code";
+	readonly meta = CLAUDE_CODE_META;
 	readonly traits = CLAUDE_CODE_TRAITS;
 	readonly arranged = new Map<string, InteractionKind>();
 	private readonly sessions: AskRigSession[] = [];

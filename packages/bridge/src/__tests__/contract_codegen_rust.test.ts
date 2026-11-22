@@ -40,7 +40,7 @@ describe("the Rust models", () => {
 			expect(declared.length).toBe(type.kind === "json" ? 0 : 1);
 		}
 		expect(files.get("constants.rs")).toContain("pub const MAX_TEXT_CHARS: usize = 1048576;\n");
-		expect(files.get("constants.rs")).toContain("use super::ProtocolVersion;\n\npub const MAX_CATALOG_ITEMS");
+		expect(files.get("constants.rs")).toContain("use super::ProtocolVersion;\n\npub const MAX_BACKENDS");
 		expect(files.get("constants.rs")).toEndWith(
 			"\npub const PROTOCOL_VERSION: ProtocolVersion = ProtocolVersion { major: 3, minor: 7 };\n",
 		);

@@ -5,7 +5,8 @@ function id() {
 	return z.string().min(1).max(MAX_ID_CHARS);
 }
 
-export const BackendId = z.enum(["claude-code", "pi"]);
+export const BACKEND_ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/;
+export const BackendId = z.string().min(1).max(64).regex(BACKEND_ID_PATTERN);
 export type BackendId = z.infer<typeof BackendId>;
 
 /** Milliseconds since the Unix epoch. */

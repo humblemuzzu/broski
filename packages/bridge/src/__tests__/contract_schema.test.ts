@@ -3,6 +3,8 @@ import { z } from "zod";
 import { contractSchemaDocument, type Schema } from "../../scripts/contract-gen/json-schema";
 import {
 	AgentEvent,
+	BackendDescriptor,
+	BackendId,
 	ClientMessage,
 	JsonValue,
 	MAX_IMAGE_CHARS,
@@ -16,6 +18,7 @@ import {
 	ServerMessage,
 	SessionRef,
 } from "../contract";
+import { FULL_TRAITS } from "../contract/testing/fake-data";
 
 describe("the contract schemas", () => {
 	test("refuse fields they do not define", () => {
@@ -25,7 +28,25 @@ describe("the contract schemas", () => {
 
 	test("refuse an unknown union tag and an unknown enum value", () => {
 		expect(AgentEvent.safeParse({ type: "agent_started" }).success).toBe(false);
-		expect(SessionRef.safeParse({ backend: "cursor", sessionId: "s" }).success).toBe(false);
+		const descriptor = BackendDescriptor.parse({
+			id: "cursor",
+			displayName: "Cursor",
+			accentHex: "#1A1A1A",
+			iconHint: "cursor",
+			capabilities: { ...FULL_TRAITS, fork: true, rename: true, delete: true },
+		});
+		expect(BackendDescriptor.safeParse({ ...descriptor, iconHint: "vim" }).success).toBe(false);
+		expect(BackendDescriptor.safeParse({ ...descriptor, accentHex: "#1A1A1" }).success).toBe(false);
+		expect(BackendDescriptor.safeParse({ ...descriptor, accentHex: "1A1A1A1" }).success).toBe(false);
+	});
+
+	test("take any backend slug, and nothing else, as a backend id", () => {
+		for (const id of ["pi", "claude-code", "cursor", "0x", "a".repeat(64)]) {
+			expect([id, BackendId.safeParse(id).success]).toEqual([id, true]);
+		}
+		for (const id of ["", "Cursor", "-pi", "claude_code", "pi.ts", "a".repeat(65)]) {
+			expect([id, BackendId.safeParse(id).success]).toEqual([id, false]);
+		}
 	});
 
 	test("key prompts by a UUID", () => {

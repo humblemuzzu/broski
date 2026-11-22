@@ -49,10 +49,10 @@ describe("the layer check", () => {
 			'import { createFakeBackend } from "../../contract/testing/fake-backend";',
 		].join("\n");
 		expect(check("backends/claude-code/index.ts", source)).toEqual([
-			"backends/claude-code/index.ts: ../pi/sessions is neither this backend nor the contract",
-			"backends/claude-code/index.ts: ../../server is neither this backend nor the contract",
+			"backends/claude-code/index.ts: ../pi/sessions is neither this backend, the adapter kit nor the contract",
+			"backends/claude-code/index.ts: ../../server is neither this backend, the adapter kit nor the contract",
 			"backends/claude-code/index.ts: @earendil-works/pi-coding-agent is not this backend's SDK",
-			"backends/claude-code/index.ts: ../../contract/testing/fake-backend is neither this backend nor the contract",
+			"backends/claude-code/index.ts: ../../contract/testing/fake-backend is neither this backend, the adapter kit nor the contract",
 		]);
 	});
 
@@ -71,7 +71,7 @@ describe("the layer check", () => {
 			"backends/pi/a.ts: an import whose specifier is not a plain string",
 		]);
 		expect(check("backends/pi/a.ts", 'const m = require("../claude-code/x");')).toEqual([
-			"backends/pi/a.ts: ../claude-code/x is neither this backend nor the contract",
+			"backends/pi/a.ts: ../claude-code/x is neither this backend, the adapter kit nor the contract",
 		]);
 	});
 
@@ -137,15 +137,50 @@ describe("the layer check", () => {
 
 	test("an adapter reaches no other adapter's directory", () => {
 		expect(check("backends/claude-code/index.ts", 'import { x } from "../pi/sessions";')).toEqual([
-			"backends/claude-code/index.ts: ../pi/sessions is neither this backend nor the contract",
+			"backends/claude-code/index.ts: ../pi/sessions is neither this backend, the adapter kit nor the contract",
 		]);
 	});
 
-	test("only backend ids are adapter directories", () => {
-		expect(check("backends/cursor/index.ts", "")).toEqual([
-			"backends/cursor/index.ts: cursor is not a backend id directory",
+	test("any backend id is an adapter directory, and one with no SDK listed imports none", () => {
+		const source = ['import { z } from "zod";', 'import { phoneText } from "../../adapter-kit/phone-text";'].join("\n");
+		expect(check("backends/cursor/index.ts", source)).toEqual([]);
+		expect(check("backends/cursor/index.ts", 'import { query } from "@anthropic-ai/claude-agent-sdk";')).toEqual([
+			"backends/cursor/index.ts: @anthropic-ai/claude-agent-sdk is not this backend's SDK",
+		]);
+		expect(check("backends/Cursor/index.ts", "")).toEqual([
+			"backends/Cursor/index.ts: Cursor is not a backend id directory",
 		]);
 		expect(check("backends/index.ts", "")).toEqual(["backends/index.ts: index.ts is not a backend id directory"]);
+	});
+
+	test("lets the adapter kit import itself, the contract, zod and node", () => {
+		const source = [
+			'import { clip } from "./clip";',
+			'import type { InteractionId } from "../contract";',
+			'import { z } from "zod";',
+			'import { rename } from "node:fs/promises";',
+		].join("\n");
+		expect(check("adapter-kit/ask-desk.ts", source)).toEqual([]);
+	});
+
+	test("stops the adapter kit importing the core, the server, an adapter, an SDK or the contract's test kit", () => {
+		const source = [
+			'import { BridgeCore } from "../core/core";',
+			'import { x } from "../server/state";',
+			'import { y } from "../backends/pi/backend";',
+			'import { createFakeBackend } from "../contract/testing/fake-backend";',
+			'import { query } from "@anthropic-ai/claude-agent-sdk";',
+			'import { createRequire } from "node:module";',
+		].join("\n");
+		const outside = "is neither the adapter kit nor the contract";
+		expect(check("adapter-kit/ask-desk.ts", source)).toEqual([
+			`adapter-kit/ask-desk.ts: ../core/core ${outside}`,
+			`adapter-kit/ask-desk.ts: ../server/state ${outside}`,
+			`adapter-kit/ask-desk.ts: ../backends/pi/backend ${outside}`,
+			`adapter-kit/ask-desk.ts: ../contract/testing/fake-backend ${outside}`,
+			"adapter-kit/ask-desk.ts: @anthropic-ai/claude-agent-sdk is not zod or node",
+			"adapter-kit/ask-desk.ts: node:module loads modules this check cannot see",
+		]);
 	});
 
 	test("lets the core import itself, the contract, zod and its listed infrastructure", () => {
@@ -214,7 +249,7 @@ describe("the layer check", () => {
 
 	test("stops an adapter importing the core", () => {
 		expect(check("backends/pi/index.ts", 'import { BridgeCore } from "../../core/core";')).toEqual([
-			"backends/pi/index.ts: ../../core/core is neither this backend nor the contract",
+			"backends/pi/index.ts: ../../core/core is neither this backend, the adapter kit nor the contract",
 		]);
 	});
 

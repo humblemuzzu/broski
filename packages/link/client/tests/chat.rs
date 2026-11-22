@@ -5,10 +5,10 @@ mod common;
 
 use broski_client::{SessionChange, SessionUpdate};
 use broski_contract::{
-    AbortRequest, ActionResult, BackendId, ClientMessage, InteractionAnswer,
-    InteractionAnswerRequest, InteractionReply, InteractionRequest, PageRequest, PermissionPreview,
-    PromptDisposition, PromptMode, PromptResult, QueueCancelRequest, RejectionCode, RunOutcome,
-    ServerMessage, SessionRef, SessionStatus, ToolOutcome, ToolPermissionReply, TranscriptItem,
+    AbortRequest, ActionResult, ClientMessage, InteractionAnswer, InteractionAnswerRequest,
+    InteractionReply, InteractionRequest, PageRequest, PermissionPreview, PromptDisposition,
+    PromptMode, PromptResult, QueueCancelRequest, RejectionCode, RunOutcome, ServerMessage,
+    SessionRef, SessionStatus, ToolOutcome, ToolPermissionReply, TranscriptItem,
     TranscriptReadRequest, TranscriptReadResult,
 };
 use common::replica::Replica;
@@ -90,9 +90,9 @@ async fn a_run_streams_into_the_view_and_the_ui_holds_the_views_snapshot() {
     assert_eq!(
         backends
             .iter()
-            .map(|backend| backend.id)
+            .map(|backend| (backend.id.as_str(), backend.display_name.as_str()))
             .collect::<Vec<_>>(),
-        [BackendId::Pi]
+        [("pi", "Fake")]
     );
 
     let session = create_session(&machine, &mac.root()).await;

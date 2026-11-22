@@ -25,7 +25,7 @@ import { piStatus } from "./status";
 import { formatAttachment } from "./store/attachments";
 import { createSessionStore } from "./store/session-store";
 import { TerminalLink, type TerminalLinkOptions } from "./terminal/link";
-import { PI_TRAITS } from "./traits";
+import { PI_META, PI_TRAITS } from "./traits";
 
 export interface PiBackendOptions {
 	readonly install: PiInstall;
@@ -117,6 +117,7 @@ export function piBackendOf(parts: PiParts): AgentBackend {
 	const { catalog, store, models, hosts, config, terminal, images, fitImage } = parts;
 	return {
 		id: "pi",
+		meta: PI_META,
 		traits: PI_TRAITS,
 		status: () => {
 			config.attach();

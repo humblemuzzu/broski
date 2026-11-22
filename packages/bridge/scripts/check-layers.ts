@@ -1,5 +1,5 @@
 /**
- * Fails when an import in src/contract, src/core, the core's infrastructure or src/backends breaks
+ * Fails when an import in src/contract, src/core, the core's infrastructure, src/adapter-kit or src/backends breaks
  * the bridge's layers (see layerViolations, docs/architecture/contract/README.md §2 and
  * docs/architecture/core/README.md).
  *
@@ -24,12 +24,15 @@ const infrastructure = CORE_INFRASTRUCTURE.map((path) => {
 	const file = join(SRC, `${path}.ts`);
 	return { path: file, source: readFileSync(file, "utf8") };
 });
-const files = [...["contract", "core", "backends"].flatMap((dir) => sourceFiles(join(SRC, dir))), ...infrastructure];
+const files = [
+	...["contract", "core", "adapter-kit", "backends"].flatMap((dir) => sourceFiles(join(SRC, dir))),
+	...infrastructure,
+];
 const problems = layerViolations(SRC, files);
 if (problems.length > 0) {
 	console.error(`Layer violations:\n${problems.join("\n")}`);
 	process.exit(1);
 }
 console.log(
-	`layers: ${files.length} files in src/contract, src/core, its infrastructure and src/backends import only what their layer allows`,
+	`layers: ${files.length} files in src/contract, src/core, its infrastructure, src/adapter-kit and src/backends import only what their layer allows`,
 );

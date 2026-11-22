@@ -295,22 +295,29 @@ describe("a window's history", () => {
 });
 
 describe("the usage reader", () => {
-	function scripted(plan: "claude" | "antigravity", readings: Array<PlanReading | undefined>) {
+	function scripted(plan: string, displayName: string, readings: Array<PlanReading | undefined>) {
 		let reads = 0;
-		const source: PlanSource = { plan, read: async () => readings[Math.min(reads++, readings.length - 1)] };
+		const source: PlanSource = {
+			plan,
+			displayName,
+			read: async () => readings[Math.min(reads++, readings.length - 1)],
+		};
 		return { source, reads: () => reads };
 	}
 
 	test("one reading answers for a minute, and a failed read keeps the last windows with why", async () => {
 		let now = NOW;
 		const window = { id: "weekly_all", span: "week", usedPercent: 10 } as const;
-		const claude = scripted("claude", [{ windows: [window], tier: "Pro" }, { problem: "Claude answered 429." }]);
-		const antigravity = scripted("antigravity", [undefined]);
+		const claude = scripted("claude", "Claude", [
+			{ windows: [window], tier: "Pro" },
+			{ problem: "Claude answered 429." },
+		]);
+		const antigravity = scripted("antigravity", "Antigravity", [undefined]);
 		const reader = usageReader([claude.source, antigravity.source], () => now);
 		const first = await reader.read();
 		expect(first).toEqual({
 			status: "accepted",
-			meters: [{ plan: "claude", tier: "Pro", windows: [window], readAt: NOW }],
+			meters: [{ plan: "claude", displayName: "Claude", tier: "Pro", windows: [window], readAt: NOW }],
 		});
 		now += FRESH_FOR_MS - 1;
 		expect(await reader.read()).toBe(first);
@@ -319,7 +326,16 @@ describe("the usage reader", () => {
 		const second: PlanUsageResult = await reader.read();
 		expect(second).toEqual({
 			status: "accepted",
-			meters: [{ plan: "claude", tier: "Pro", windows: [window], readAt: NOW, problem: "Claude answered 429." }],
+			meters: [
+				{
+					plan: "claude",
+					displayName: "Claude",
+					tier: "Pro",
+					windows: [window],
+					readAt: NOW,
+					problem: "Claude answered 429.",
+				},
+			],
 		});
 	});
 });

@@ -2,20 +2,23 @@ import type {
 	Interaction,
 	PermissionPreview,
 	RunOutcome,
-	SessionRef,
 	SessionSnapshot,
 	SessionSummary,
 	ToolPermissionRequest,
 	ToolResultItem,
 	TranscriptItem,
 } from "../../contract";
-import { alertEvent, backendName, firstLine, type LinkFeedEventMessage, stringOf, summarize } from "./format";
+import type { ObservedEvent } from "../../core/observer";
+import { alertEvent, firstLine, type LinkFeedEventMessage, stringOf, summarize } from "./format";
+
+/** The session an alert is about, and what its backend is called. */
+export type AlertSource = Pick<ObservedEvent, "session" | "backendName">;
 
 /** Room left in the 80 characters of a title for the words after the session's own name. */
 const LABEL_MAX = 50;
 
 export function contractApproval(
-	session: SessionRef,
+	source: AlertSource,
 	summary: SessionSummary | undefined,
 	interaction: Interaction,
 	request: ToolPermissionRequest,
@@ -30,10 +33,10 @@ export function contractApproval(
 		"approval required";
 	return alertEvent(
 		"approval",
-		session.backend,
-		session.sessionId,
+		source.session.backend,
+		source.session.sessionId,
 		summary?.cwd,
-		titled(session, summary, "needs approval"),
+		titled(source, summary, "needs approval"),
 		tool ? `${tool}: ${detail}` : detail,
 		at,
 		interaction.id,
@@ -41,17 +44,17 @@ export function contractApproval(
 }
 
 export function contractAttention(
-	session: SessionRef,
+	source: AlertSource,
 	summary: SessionSummary | undefined,
 	interaction: Interaction,
 	at: number,
 ): LinkFeedEventMessage {
 	return alertEvent(
 		"attention",
-		session.backend,
-		session.sessionId,
+		source.session.backend,
+		source.session.sessionId,
 		summary?.cwd,
-		titled(session, summary, "needs input"),
+		titled(source, summary, "needs input"),
 		stringOf(interaction.title) ?? stringOf(interaction.body) ?? "input required",
 		at,
 		interaction.id,
@@ -60,7 +63,7 @@ export function contractAttention(
 
 /** The `done` alert of a run that ended, or undefined when its ending is no news (the person stopped it, or it will resume). */
 export function contractDone(
-	session: SessionRef,
+	source: AlertSource,
 	summary: SessionSummary | undefined,
 	outcome: RunOutcome,
 	beforeEnd: SessionSnapshot,
@@ -70,10 +73,10 @@ export function contractDone(
 	if (!words) return undefined;
 	return alertEvent(
 		"done",
-		session.backend,
-		session.sessionId,
+		source.session.backend,
+		source.session.sessionId,
 		summary?.cwd,
-		titled(session, summary, words.title),
+		titled(source, summary, words.title),
 		words.body,
 		at,
 	);
@@ -127,8 +130,8 @@ function resultOf(items: readonly TranscriptItem[], toolCallId: string): ToolRes
 }
 
 /** The session's own name, or its backend's, followed by what happened. */
-function titled(session: SessionRef, summary: SessionSummary | undefined, what: string): string {
-	const name = stringOf(summary?.title?.text) ?? backendName(session.backend);
+function titled(source: AlertSource, summary: SessionSummary | undefined, what: string): string {
+	const name = stringOf(summary?.title?.text) ?? source.backendName;
 	const label = name.length <= LABEL_MAX ? name : `${name.slice(0, LABEL_MAX - 1)}…`;
 	return `${label} — ${what}`;
 }

@@ -95,16 +95,20 @@ impl MachineEvents {
         self.notify.notify_one();
     }
 
-    pub(crate) fn backend_status(&mut self, backend: BackendId) {
-        if !self.statuses.contains(&backend) {
-            self.statuses.push(backend);
+    pub(crate) fn backend_status(&mut self, backend: &str) {
+        if !self.statuses.iter().any(|known| known == backend) {
+            self.statuses.push(backend.to_owned());
         }
         self.notify.notify_one();
     }
 
-    pub(crate) fn invalidated(&mut self, backend: BackendId, scope: CatalogScope) {
-        if !self.invalidated.contains(&(backend, scope)) {
-            self.invalidated.push((backend, scope));
+    pub(crate) fn invalidated(&mut self, backend: &str, scope: CatalogScope) {
+        if !self
+            .invalidated
+            .iter()
+            .any(|known| known.0 == backend && known.1 == scope)
+        {
+            self.invalidated.push((backend.to_owned(), scope));
         }
         self.notify.notify_one();
     }
@@ -131,7 +135,7 @@ pub(crate) fn take(state: &mut State) -> Taken {
         }
     }
     while let Some(backend) = state.events.statuses.pop() {
-        if let Some(status) = state.catalog.status_of(backend) {
+        if let Some(status) = state.catalog.status_of(&backend) {
             return Taken::Event(MachineEvent::BackendStatusChanged { backend, status });
         }
     }

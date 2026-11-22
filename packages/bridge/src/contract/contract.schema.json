@@ -525,12 +525,27 @@
         "id": {
           "$ref": "#/$defs/BackendId"
         },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "accentHex": {
+          "type": "string",
+          "minLength": 7,
+          "maxLength": 7,
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "iconHint": {
+          "$ref": "#/$defs/BackendIconHint"
+        },
         "capabilities": {
           "$ref": "#/$defs/Capabilities"
         }
       },
       "required": [
         "id",
+        "displayName",
         "capabilities"
       ],
       "additionalProperties": false
@@ -544,14 +559,55 @@
         }
       ]
     },
+    "BackendIconHint": {
+      "x-module": "protocol",
+      "$id": "#/$defs/BackendIconHint",
+      "type": "string",
+      "enum": [
+        "claude",
+        "pi",
+        "codex",
+        "gemini",
+        "cursor",
+        "grok",
+        "opencode",
+        "antigravity",
+        "acp",
+        "generic"
+      ]
+    },
     "BackendId": {
       "x-module": "ids",
       "$id": "#/$defs/BackendId",
       "type": "string",
-      "enum": [
-        "claude-code",
-        "pi"
-      ]
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+    },
+    "BackendMeta": {
+      "x-module": "protocol",
+      "$id": "#/$defs/BackendMeta",
+      "type": "object",
+      "properties": {
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "accentHex": {
+          "type": "string",
+          "minLength": 7,
+          "maxLength": 7,
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "iconHint": {
+          "$ref": "#/$defs/BackendIconHint"
+        }
+      },
+      "required": [
+        "displayName"
+      ],
+      "additionalProperties": false
     },
     "BackendStatus": {
       "x-module": "status",
@@ -665,7 +721,7 @@
           "$ref": "#/$defs/RequestId"
         },
         "backends": {
-          "maxItems": 2,
+          "maxItems": 32,
           "type": "array",
           "items": {
             "$ref": "#/$defs/BackendDescriptor"
@@ -942,6 +998,47 @@
       "required": [
         "kind",
         "value"
+      ],
+      "additionalProperties": false
+    },
+    "CacheConfidence": {
+      "x-module": "usage",
+      "$id": "#/$defs/CacheConfidence",
+      "type": "string",
+      "enum": [
+        "exact",
+        "estimated"
+      ]
+    },
+    "CacheWindow": {
+      "x-module": "usage",
+      "$id": "#/$defs/CacheWindow",
+      "type": "object",
+      "properties": {
+        "lastTouchAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "ttlMs": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "confidence": {
+          "$ref": "#/$defs/CacheConfidence"
+        },
+        "cachedTokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "promptTokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "lastTouchAt"
       ],
       "additionalProperties": false
     },
@@ -5431,10 +5528,9 @@
       "x-module": "plan-usage",
       "$id": "#/$defs/PlanId",
       "type": "string",
-      "enum": [
-        "claude",
-        "antigravity"
-      ]
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
     },
     "PlanMeter": {
       "x-module": "plan-usage",
@@ -5443,6 +5539,11 @@
       "properties": {
         "plan": {
           "$ref": "#/$defs/PlanId"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
         },
         "tier": {
           "type": "string",
@@ -5508,7 +5609,7 @@
           "const": "accepted"
         },
         "meters": {
-          "maxItems": 2,
+          "maxItems": 32,
           "type": "array",
           "items": {
             "$ref": "#/$defs/PlanMeter"
@@ -9237,6 +9338,9 @@
           "type": "integer",
           "exclusiveMinimum": 0,
           "maximum": 9007199254740991
+        },
+        "cache": {
+          "$ref": "#/$defs/CacheWindow"
         }
       },
       "additionalProperties": false

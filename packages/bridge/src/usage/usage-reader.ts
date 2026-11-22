@@ -65,10 +65,11 @@ export function usageReader(
 		const named = tier === undefined ? {} : { tier: clip(tier, MAX_NAME_CHARS) };
 		if ("windows" in reading) {
 			const windows = history.record(source.plan, reading.windows.map(fitted), at);
-			return { plan: source.plan, ...named, windows, readAt: at };
+			return { plan: source.plan, displayName: source.displayName, ...named, windows, readAt: at };
 		}
 		return {
 			plan: source.plan,
+			displayName: source.displayName,
 			...named,
 			windows: earlier?.windows ?? [],
 			...(earlier?.readAt !== undefined && { readAt: earlier.readAt }),

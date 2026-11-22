@@ -73,7 +73,7 @@ impl ListState {
         };
         let request = ClientMessage::SessionsList(SessionsListRequest {
             request_id: String::new(),
-            backend: self.backend,
+            backend: self.backend.clone(),
             query: self.query.clone(),
             page: PageRequest {
                 cursor: ask.cursor.clone(),
@@ -243,7 +243,7 @@ mod tests {
     fn row(id: &str, updated_at: i64, cwd: &str) -> SessionSummary {
         SessionSummary {
             session: SessionRef {
-                backend: BackendId::Pi,
+                backend: "pi".to_owned(),
                 session_id: id.to_owned(),
             },
             title: None,
@@ -271,7 +271,7 @@ mod tests {
             cwd: cwd.map(str::to_owned),
             parent: None,
         };
-        lists.create(BackendId::Pi, query, 50)
+        lists.create("pi".to_owned(), query, 50)
     }
 
     #[test]
@@ -370,7 +370,7 @@ mod tests {
     fn a_bounded_list_keeps_its_newest_rows() {
         let mut lists = Lists::default();
         let id = lists.create_bounded(
-            BackendId::Pi,
+            "pi".to_owned(),
             SessionQuery {
                 cwd: None,
                 parent: None,

@@ -142,15 +142,15 @@ impl Shared {
                 });
             }
             CatalogEvent::StatusChanged(changed) => {
+                state.events.backend_status(&backend);
                 let listed = state.catalog.set_status(backend, changed.status);
-                state.events.backend_status(backend);
                 if !listed {
                     self.relist_backends();
                 }
             }
             CatalogEvent::CatalogInvalidated(invalidated) => {
-                state.catalog.invalidate(backend, invalidated.scope);
-                state.events.invalidated(backend, invalidated.scope);
+                state.catalog.invalidate(&backend, invalidated.scope);
+                state.events.invalidated(&backend, invalidated.scope);
             }
         }
     }

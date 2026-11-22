@@ -7,6 +7,7 @@ import type { ActionResult, PromptInput, PromptResult } from "./input";
 import type { InteractionAnswer } from "./interaction-replies";
 import type { ModeAxisId } from "./modes";
 import type { PageRequest } from "./paging";
+import type { BackendDescriptor, BackendMeta } from "./protocol";
 import type {
 	AttachmentReadResult,
 	CommandsListResult,
@@ -62,6 +63,7 @@ export type OpenResult = { status: "accepted"; session: OpenSession; snapshot: S
  */
 export interface AgentBackend {
 	readonly id: BackendId;
+	readonly meta: BackendMeta;
 	readonly traits: BackendTraits;
 	status(): Promise<BackendStatus>;
 	/** Rejected `invalid_input` for a cursor this adapter did not mint. */
@@ -128,6 +130,10 @@ export function backendCapabilities(backend: AgentBackend): Capabilities {
 		rename: backend.rename !== undefined,
 		delete: backend.delete !== undefined,
 	};
+}
+
+export function backendDescriptor(backend: AgentBackend): BackendDescriptor {
+	return { id: backend.id, ...backend.meta, capabilities: backendCapabilities(backend) };
 }
 
 /** What takes answers to a session's asks. */

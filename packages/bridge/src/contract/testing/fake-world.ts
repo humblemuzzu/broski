@@ -3,6 +3,7 @@ import type { CatalogEvent } from "../catalog-events";
 import type { BackendId, SessionRef, ToolCallId } from "../ids";
 import type { ActionResult } from "../input";
 import type { ModeAxis } from "../modes";
+import type { BackendMeta } from "../protocol";
 import type { SessionGetResult } from "../read-results";
 import type { Rejected } from "../rejection";
 import { emptySnapshot } from "../session-reducer";
@@ -30,6 +31,7 @@ export interface FakeMethods {
 
 export interface FakeSettings {
 	readonly id: BackendId;
+	readonly meta: BackendMeta;
 	readonly traits: BackendTraits;
 	readonly methods: FakeMethods;
 	readonly modes: readonly ModeAxis[];

@@ -9,7 +9,7 @@ use std::time::Duration;
 use broski_client::{
     new_identity_secret, InboxRow, InboxState, LinkState, Machine, MachineStatus, Phone,
 };
-use broski_contract::{BackendId, PromptMode, SessionQuery, SessionRef};
+use broski_contract::{PromptMode, SessionQuery, SessionRef};
 use broski_link_testkit::WAIT;
 use common::{
     choose, create_session, inbox_until, listed, paired, phone, phone_with, prompt, requests_sent,
@@ -182,7 +182,7 @@ async fn a_session_that_appears_before_the_ui_reads_the_inbox_is_still_done() {
         parent: None,
     };
     let list = Arc::clone(&machine)
-        .session_list(BackendId::Pi, query)
+        .session_list("pi".to_owned(), query)
         .expect("a list");
 
     let news = mac.bridge.seed(&mac.root(), "Finished meanwhile").await;

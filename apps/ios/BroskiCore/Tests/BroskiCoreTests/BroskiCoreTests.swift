@@ -23,7 +23,7 @@ private func storedMachine() throws -> (Phone, Machine) {
     return (phone, machine)
 }
 
-private let session = SessionRef(backend: .pi, sessionId: "s-1")
+private let session = SessionRef(backend: "pi", sessionId: "s-1")
 
 @Test func aNewSecretMakesAPhoneAndABrokenOneIsRefused() throws {
     let secret = try newIdentitySecret()
@@ -129,7 +129,7 @@ func cancellingAViewsLoopDetachesTheViewAndEndsItsPull() async throws {
         markers: [
             SeenMarker(
                 machineId: machineId,
-                session: SessionRef(backend: .claudeCode, sessionId: "s-9"),
+                session: SessionRef(backend: "claude-code", sessionId: "s-9"),
                 seenAt: 1_725_000_000_000)
         ],
         readMachines: [machineId, "ffeeddccbbaa99887766554433221100"])

@@ -159,8 +159,6 @@ fn encode(rows: &[CachedRow]) -> Vec<u8> {
 
 #[cfg(test)]
 mod tests {
-    use broski_contract::BackendId;
-
     use super::*;
 
     fn row(index: usize, title: &str) -> InboxRow {
@@ -168,7 +166,7 @@ mod tests {
             machine_id: "m".to_owned(),
             machine_name: "Mac".to_owned(),
             session: SessionRef {
-                backend: BackendId::Pi,
+                backend: "pi".to_owned(),
                 session_id: format!("s{index}"),
             },
             title: Some(title.to_owned()),

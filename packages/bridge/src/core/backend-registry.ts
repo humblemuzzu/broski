@@ -3,8 +3,9 @@ import {
 	type BackendDescriptor,
 	type BackendFactory,
 	type BackendId,
+	BackendMeta,
 	BackendStatus,
-	backendCapabilities,
+	backendDescriptor,
 	type CatalogEvent,
 	clip,
 } from "../contract";
@@ -82,10 +83,7 @@ export class BackendRegistry {
 	}
 
 	descriptors(): BackendDescriptor[] {
-		return [...this.backends.values()].map((backend) => ({
-			id: backend.id,
-			capabilities: backendCapabilities(backend),
-		}));
+		return [...this.backends.values()].map(backendDescriptor);
 	}
 
 	/**
@@ -120,9 +118,10 @@ export class BackendRegistry {
 		const made = await settled(() => factory({ catalog: { emit: (event) => this.deps.onCatalog(id, event) } }));
 		if (!made.ok) return this.failed(id, made.thrown);
 		const backend = made.value;
-		if (backend.id !== id) {
+		const refusal = refusalOf(id, backend);
+		if (refusal !== undefined) {
 			await this.disposeQuietly(backend);
-			return this.failed(id, `the factory made a ${backend.id} backend`);
+			return this.failed(id, refusal);
 		}
 		if (this.disposed) {
 			this.deps.log.info(`[core] backend ${id} started as the bridge stopped; disposing it`);
@@ -150,6 +149,13 @@ export class BackendRegistry {
 		const disposed = await settled(() => backend.dispose());
 		if (!disposed.ok) this.deps.log.error(`[core] ${backend.id} dispose failed: ${disposed.thrown}`);
 	}
+}
+
+/** Why the backend a factory made cannot serve as `id`; undefined when it can. */
+function refusalOf(id: BackendId, backend: AgentBackend): string | undefined {
+	if (backend.id !== id) return `the factory made a ${backend.id} backend`;
+	const meta = BackendMeta.safeParse(backend.meta);
+	return meta.success ? undefined : `its meta is invalid: ${meta.error.message}`;
 }
 
 function failedStatus(message: string): BackendStatus {

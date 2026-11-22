@@ -30,7 +30,8 @@ export class ContractFeedTap {
 		this.describing.clear();
 	}
 
-	private followRun({ session, event, before, after, describe, at }: ObservedEvent): void {
+	private followRun(observed: ObservedEvent): void {
+		const { session, event, before, after, describe, at } = observed;
 		const { backend, sessionId } = session;
 		if (after.run) {
 			this.tracker.runStarted(backend, sessionId);
@@ -43,7 +44,7 @@ export class ContractFeedTap {
 			return;
 		}
 		this.tracker.runEnded(backend, sessionId, async () =>
-			contractDone(session, await describe(), event.outcome, before, at),
+			contractDone(observed, await describe(), event.outcome, before, at),
 		);
 	}
 
@@ -72,7 +73,7 @@ export class ContractFeedTap {
 					session.sessionId,
 					interaction.id,
 					{ kind: "approval", contract: { ...target, replies: permissionVerdicts(request) } },
-					contractApproval(session, summary, interaction, request, at),
+					contractApproval(observed, summary, interaction, request, at),
 				);
 				return;
 			}
@@ -81,7 +82,7 @@ export class ContractFeedTap {
 				session.sessionId,
 				interaction.id,
 				{ kind: "attention", contract: { ...target, replies: {} } },
-				contractAttention(session, summary, interaction, at),
+				contractAttention(observed, summary, interaction, at),
 			);
 		});
 	}

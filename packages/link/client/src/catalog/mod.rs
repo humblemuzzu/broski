@@ -51,19 +51,19 @@ impl Machine {
     }
 
     pub async fn backend_status(&self, backend: BackendId) -> Result<BackendStatus, ClientError> {
-        if let Some(status) = self.shared().lock().catalog.status_of(backend) {
+        if let Some(status) = self.shared().lock().catalog.status_of(&backend) {
             return Ok(status);
         }
         let request = ClientMessage::BackendStatus(BackendStatusRequest {
             request_id: String::new(),
-            backend,
+            backend: backend.clone(),
         });
         let status = match self.shared().request(request).await? {
             ServerMessage::BackendStatusResult(answer) => answer.status,
             other => return Err(unexpected(&other)),
         };
         let mut state = self.shared().lock();
-        if state.catalog.status_of(backend).is_none() {
+        if state.catalog.status_of(&backend).is_none() {
             state.catalog.set_status(backend, status.clone());
         }
         Ok(status)
@@ -77,14 +77,14 @@ impl Machine {
     ) -> Result<ModelsListResult, ClientError> {
         let request = ClientMessage::ModelsList(ModelsListRequest {
             request_id: String::new(),
-            backend,
+            backend: backend.clone(),
             cwd: cwd.clone(),
             include_unavailable: include_unavailable.then_some(true),
         });
         let how = Cached {
             cache: |catalog| &mut catalog.models,
             key: ListKey {
-                backend,
+                backend: backend.clone(),
                 cwd,
                 extra: include_unavailable,
             },
@@ -107,17 +107,17 @@ impl Machine {
     ) -> Result<CommandsListResult, ClientError> {
         let extra = session
             .as_ref()
-            .map(|session| (session.backend, session.session_id.clone()));
+            .map(|session| (session.backend.clone(), session.session_id.clone()));
         let request = ClientMessage::CommandsList(CommandsListRequest {
             request_id: String::new(),
-            backend,
+            backend: backend.clone(),
             cwd: cwd.clone(),
             session,
         });
         let how = Cached {
             cache: |catalog| &mut catalog.commands,
             key: ListKey {
-                backend,
+                backend: backend.clone(),
                 cwd,
                 extra,
             },
@@ -139,13 +139,13 @@ impl Machine {
     ) -> Result<ModesListResult, ClientError> {
         let request = ClientMessage::ModesList(ModesListRequest {
             request_id: String::new(),
-            backend,
+            backend: backend.clone(),
             cwd: cwd.clone(),
         });
         let how = Cached {
             cache: |catalog| &mut catalog.modes,
             key: ListKey {
-                backend,
+                backend: backend.clone(),
                 cwd,
                 extra: (),
             },
@@ -191,12 +191,12 @@ impl Shared {
             if let Some(hit) = (how.cache)(&mut state.catalog).get(&how.key) {
                 return Ok(hit);
             }
-            state.catalog.stamp(how.backend, how.scope)
+            state.catalog.stamp(&how.backend, how.scope)
         };
         let value = (how.read)(self.request(request).await?)?;
         if (how.accepted)(&value) {
             let mut state = self.lock();
-            if state.catalog.stamp(how.backend, how.scope) == stamp {
+            if state.catalog.stamp(&how.backend, how.scope) == stamp {
                 (how.cache)(&mut state.catalog).insert(how.key, value.clone());
             }
         }
@@ -220,7 +220,7 @@ impl Shared {
         state.events.backends();
         let created = backends
             .iter()
-            .filter_map(|backend| inbox_list(&mut state.catalog, backend.id))
+            .filter_map(|backend| inbox_list(&mut state.catalog, &backend.id))
             .collect();
         Ok((backends, created))
     }
@@ -312,8 +312,8 @@ impl Shared {
 }
 
 /// The inbox's list of `backend`'s newest top-level sessions, created when the backend has none.
-fn inbox_list(catalog: &mut Catalog, backend: BackendId) -> Option<u64> {
-    if catalog.inbox.iter().any(|(known, _)| *known == backend) {
+fn inbox_list(catalog: &mut Catalog, backend: &str) -> Option<u64> {
+    if catalog.inbox.iter().any(|(known, _)| known == backend) {
         return None;
     }
     let query = SessionQuery {
@@ -323,7 +323,7 @@ fn inbox_list(catalog: &mut Catalog, backend: BackendId) -> Option<u64> {
     let limit = MAX_PAGE_LIMIT as i64;
     let list = catalog
         .lists
-        .create_bounded(backend, query, limit, MAX_PAGE_LIMIT);
-    catalog.inbox.push((backend, list));
+        .create_bounded(backend.to_owned(), query, limit, MAX_PAGE_LIMIT);
+    catalog.inbox.push((backend.to_owned(), list));
     Some(list)
 }

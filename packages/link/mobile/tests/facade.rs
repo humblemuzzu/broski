@@ -16,7 +16,7 @@ use broski_client::{
     ClientError, ContractState, InboxState, LinkFailure, MachineStatus, PhoneConfig, SeenMarker,
     SeenState, SessionUpdate,
 };
-use broski_contract::{BackendId, ClientMessage, HelloRequest, SessionRef, PROTOCOL_VERSION};
+use broski_contract::{ClientMessage, HelloRequest, SessionRef, PROTOCOL_VERSION};
 use broski_core::{
     decision_letter, new_identity_secret, open_notification, parse_pairing_offer, Machine,
     MachineRecord, Phone, PushDecision,
@@ -123,7 +123,7 @@ async fn a_stored_machine_retries_its_dial_holds_its_views_and_ends_when_forgott
     assert_eq!(machine.status().contract, ContractState::Waiting);
 
     let session = SessionRef {
-        backend: BackendId::Pi,
+        backend: "pi".to_owned(),
         session_id: "s-1".into(),
     };
     let view = machine.attach(session.clone()).expect("a view");
@@ -169,7 +169,7 @@ fn what_was_seen_goes_back_in_as_the_app_stored_it() {
         markers: vec![SeenMarker {
             machine_id: machine_id.into(),
             session: SessionRef {
-                backend: BackendId::ClaudeCode,
+                backend: "claude-code".to_owned(),
                 session_id: "s-9".into(),
             },
             seen_at: 1_725_000_000_000,

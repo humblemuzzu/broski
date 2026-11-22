@@ -4,7 +4,7 @@
       "type": "abort",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       }
     }
@@ -93,7 +93,7 @@
         "text": "x"
       },
       "childSession": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       }
     },
@@ -124,7 +124,7 @@
           "text": "x"
         },
         "childSession": {
-          "backend": "claude-code",
+          "backend": "x",
           "sessionId": "x"
         }
       }
@@ -160,7 +160,7 @@
           "text": "x"
         },
         "childSession": {
-          "backend": "claude-code",
+          "backend": "x",
           "sessionId": "x"
         }
       }
@@ -478,7 +478,7 @@
           "command": "x",
           "startedAt": 1,
           "childSession": {
-            "backend": "claude-code",
+            "backend": "x",
             "sessionId": "x"
           }
         }
@@ -548,7 +548,14 @@
         "reasoningTokens": 1,
         "costUsd": 1.5,
         "contextTokens": 1,
-        "contextWindow": 1
+        "contextWindow": 1,
+        "cache": {
+          "lastTouchAt": 1,
+          "ttlMs": 1,
+          "confidence": "exact",
+          "cachedTokens": 1,
+          "promptTokens": 1
+        }
       }
     },
     {
@@ -594,7 +601,7 @@
           "text": "x"
         },
         "childSession": {
-          "backend": "claude-code",
+          "backend": "x",
           "sessionId": "x"
         }
       }
@@ -643,7 +650,7 @@
     {
       "type": "session_replaced",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       }
     },
@@ -702,7 +709,7 @@
             "messageId": "x",
             "parentToolCallId": "x",
             "childSession": {
-              "backend": "claude-code",
+              "backend": "x",
               "sessionId": "x"
             },
             "output": "x",
@@ -795,7 +802,7 @@
             "command": "x",
             "startedAt": 1,
             "childSession": {
-              "backend": "claude-code",
+              "backend": "x",
               "sessionId": "x"
             }
           }
@@ -816,7 +823,14 @@
           "reasoningTokens": 1,
           "costUsd": 1.5,
           "contextTokens": 1,
-          "contextWindow": 1
+          "contextWindow": 1,
+          "cache": {
+            "lastTouchAt": 1,
+            "ttlMs": 1,
+            "confidence": "exact",
+            "cachedTokens": 1,
+            "promptTokens": 1
+          }
         },
         "compaction": {
           "trigger": "manual",
@@ -978,7 +992,7 @@
             "messageId": "x",
             "parentToolCallId": "x",
             "childSession": {
-              "backend": "claude-code",
+              "backend": "x",
               "sessionId": "x"
             },
             "output": "x",
@@ -1071,7 +1085,7 @@
             "command": "x",
             "startedAt": 1,
             "childSession": {
-              "backend": "claude-code",
+              "backend": "x",
               "sessionId": "x"
             }
           }
@@ -1092,7 +1106,14 @@
           "reasoningTokens": 1,
           "costUsd": 1.5,
           "contextTokens": 1,
-          "contextWindow": 1
+          "contextWindow": 1,
+          "cache": {
+            "lastTouchAt": 1,
+            "ttlMs": 1,
+            "confidence": "exact",
+            "cachedTokens": 1,
+            "promptTokens": 1
+          }
         },
         "compaction": {
           "trigger": "manual",
@@ -1196,7 +1217,7 @@
       "kind": "replaced",
       "epoch": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       }
     }
@@ -1259,7 +1280,7 @@
       "type": "attachment.read",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       },
       "attachmentId": "x",
@@ -1269,7 +1290,7 @@
       "type": "attachment.read",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       },
       "attachmentId": "x"
@@ -1366,7 +1387,10 @@
   ],
   "BackendDescriptor": [
     {
-      "id": "claude-code",
+      "id": "x",
+      "displayName": "x",
+      "accentHex": "#D97757",
+      "iconHint": "claude",
       "capabilities": {
         "streamText": true,
         "streamThinking": true,
@@ -1395,7 +1419,8 @@
       }
     },
     {
-      "id": "claude-code",
+      "id": "x",
+      "displayName": "x",
       "capabilities": {
         "streamText": false,
         "streamThinking": false,
@@ -1437,9 +1462,30 @@
       "window": "x"
     }
   ],
+  "BackendIconHint": [
+    "claude",
+    "pi",
+    "codex",
+    "gemini",
+    "cursor",
+    "grok",
+    "opencode",
+    "antigravity",
+    "acp",
+    "generic"
+  ],
   "BackendId": [
-    "claude-code",
-    "pi"
+    "x"
+  ],
+  "BackendMeta": [
+    {
+      "displayName": "x",
+      "accentHex": "#D97757",
+      "iconHint": "claude"
+    },
+    {
+      "displayName": "x"
+    }
   ],
   "BackendStatus": [
     {
@@ -1470,7 +1516,7 @@
     {
       "type": "backend.status",
       "requestId": "x",
-      "backend": "claude-code"
+      "backend": "x"
     }
   ],
   "BackendStatusResponse": [
@@ -1518,7 +1564,10 @@
       "requestId": "x",
       "backends": [
         {
-          "id": "claude-code",
+          "id": "x",
+          "displayName": "x",
+          "accentHex": "#D97757",
+          "iconHint": "claude",
           "capabilities": {
             "streamText": true,
             "streamThinking": true,
@@ -1553,7 +1602,8 @@
       "requestId": "x",
       "backends": [
         {
-          "id": "claude-code",
+          "id": "x",
+          "displayName": "x",
           "capabilities": {
             "streamText": false,
             "streamThinking": false,
@@ -1592,7 +1642,7 @@
       "command": "x",
       "startedAt": 1,
       "childSession": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       }
     },
@@ -1617,7 +1667,7 @@
           "command": "x",
           "startedAt": 1,
           "childSession": {
-            "backend": "claude-code",
+            "backend": "x",
             "sessionId": "x"
           }
         }
@@ -1736,6 +1786,22 @@
       "value": false
     }
   ],
+  "CacheConfidence": [
+    "exact",
+    "estimated"
+  ],
+  "CacheWindow": [
+    {
+      "lastTouchAt": 1,
+      "ttlMs": 1,
+      "confidence": "exact",
+      "cachedTokens": 1,
+      "promptTokens": 1
+    },
+    {
+      "lastTouchAt": 1
+    }
+  ],
   "CancelReply": [
     {
       "kind": "cancel",
@@ -1806,7 +1872,7 @@
       "type": "session_updated",
       "summary": {
         "session": {
-          "backend": "claude-code",
+          "backend": "x",
           "sessionId": "x"
         },
         "title": {
@@ -1820,7 +1886,7 @@
         "parent": {
           "kind": "fork",
           "session": {
-            "backend": "claude-code",
+            "backend": "x",
             "sessionId": "x"
           }
         },
@@ -1834,7 +1900,7 @@
       "type": "session_updated",
       "summary": {
         "session": {
-          "backend": "claude-code",
+          "backend": "x",
           "sessionId": "x"
         },
         "updatedAt": 1,
@@ -1845,7 +1911,7 @@
     {
       "type": "session_removed",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       }
     },
@@ -1892,12 +1958,12 @@
   "CatalogMessage": [
     {
       "type": "catalog",
-      "backend": "claude-code",
+      "backend": "x",
       "event": {
         "type": "session_updated",
         "summary": {
           "session": {
-            "backend": "claude-code",
+            "backend": "x",
             "sessionId": "x"
           },
           "title": {
@@ -1911,7 +1977,7 @@
           "parent": {
             "kind": "fork",
             "session": {
-              "backend": "claude-code",
+              "backend": "x",
               "sessionId": "x"
             }
           },
@@ -1924,12 +1990,12 @@
     },
     {
       "type": "catalog",
-      "backend": "claude-code",
+      "backend": "x",
       "event": {
         "type": "session_updated",
         "summary": {
           "session": {
-            "backend": "claude-code",
+            "backend": "x",
             "sessionId": "x"
           },
           "updatedAt": 1,
@@ -2005,54 +2071,54 @@
     {
       "type": "backend.status",
       "requestId": "x",
-      "backend": "claude-code"
+      "backend": "x"
     },
     {
       "type": "models.list",
       "requestId": "x",
-      "backend": "claude-code",
+      "backend": "x",
       "cwd": "x",
       "includeUnavailable": true
     },
     {
       "type": "models.list",
       "requestId": "x",
-      "backend": "claude-code"
+      "backend": "x"
     },
     {
       "type": "commands.list",
       "requestId": "x",
-      "backend": "claude-code",
+      "backend": "x",
       "cwd": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       }
     },
     {
       "type": "commands.list",
       "requestId": "x",
-      "backend": "claude-code"
+      "backend": "x"
     },
     {
       "type": "modes.list",
       "requestId": "x",
-      "backend": "claude-code",
+      "backend": "x",
       "cwd": "x"
     },
     {
       "type": "modes.list",
       "requestId": "x",
-      "backend": "claude-code"
+      "backend": "x"
     },
     {
       "type": "sessions.list",
       "requestId": "x",
-      "backend": "claude-code",
+      "backend": "x",
       "query": {
         "cwd": "x",
         "parent": {
-          "backend": "claude-code",
+          "backend": "x",
           "sessionId": "x"
         }
       },
@@ -2064,7 +2130,7 @@
     {
       "type": "sessions.list",
       "requestId": "x",
-      "backend": "claude-code",
+      "backend": "x",
       "query": {},
       "page": {
         "limit": 1
@@ -2074,14 +2140,14 @@
       "type": "session.get",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       }
     },
     {
       "type": "session.create",
       "requestId": "x",
-      "backend": "claude-code",
+      "backend": "x",
       "options": {
         "cwd": "x",
         "modelId": "x",
@@ -2097,7 +2163,7 @@
     {
       "type": "session.create",
       "requestId": "x",
-      "backend": "claude-code",
+      "backend": "x",
       "options": {
         "cwd": "x"
       }
@@ -2106,7 +2172,7 @@
       "type": "session.fork",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       },
       "at": {
@@ -2118,7 +2184,7 @@
       "type": "session.fork",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       }
     },
@@ -2126,7 +2192,7 @@
       "type": "session.rename",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       },
       "title": "x"
@@ -2135,7 +2201,7 @@
       "type": "session.delete",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       }
     },
@@ -2143,7 +2209,7 @@
       "type": "session.attach",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       },
       "resume": {
@@ -2155,7 +2221,7 @@
       "type": "session.attach",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       }
     },
@@ -2163,7 +2229,7 @@
       "type": "session.detach",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       }
     },
@@ -2171,7 +2237,7 @@
       "type": "transcript.read",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       },
       "page": {
@@ -2183,7 +2249,7 @@
       "type": "transcript.read",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       },
       "page": {
@@ -2194,7 +2260,7 @@
       "type": "attachment.read",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       },
       "attachmentId": "x",
@@ -2204,7 +2270,7 @@
       "type": "attachment.read",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       },
       "attachmentId": "x"
@@ -2213,7 +2279,7 @@
       "type": "prompt",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       },
       "input": {
@@ -2235,7 +2301,7 @@
       "type": "prompt",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       },
       "input": {
@@ -2255,7 +2321,7 @@
       "type": "abort",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       }
     },
@@ -2263,7 +2329,7 @@
       "type": "interaction.answer",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       },
       "answer": {
@@ -2294,7 +2360,7 @@
       "type": "interaction.answer",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       },
       "answer": {
@@ -2312,7 +2378,7 @@
       "type": "queue.cancel",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       },
       "queueItemId": "x"
@@ -2321,7 +2387,7 @@
       "type": "model.set",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       },
       "modelId": "x"
@@ -2330,7 +2396,7 @@
       "type": "thinking.set",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       },
       "thinking": "x"
@@ -2339,7 +2405,7 @@
       "type": "mode.set",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       },
       "axis": "x",
@@ -2349,7 +2415,7 @@
       "type": "compact",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       },
       "instructions": "x"
@@ -2358,7 +2424,7 @@
       "type": "compact",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       }
     },
@@ -2584,17 +2650,17 @@
     {
       "type": "commands.list",
       "requestId": "x",
-      "backend": "claude-code",
+      "backend": "x",
       "cwd": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       }
     },
     {
       "type": "commands.list",
       "requestId": "x",
-      "backend": "claude-code"
+      "backend": "x"
     }
   ],
   "CommandsListResponse": [
@@ -2689,7 +2755,7 @@
       "type": "compact",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       },
       "instructions": "x"
@@ -2698,7 +2764,7 @@
       "type": "compact",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       }
     }
@@ -2879,7 +2945,7 @@
   "EventEnvelope": [
     {
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       },
       "seq": 1,
@@ -2895,7 +2961,7 @@
     },
     {
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       },
       "seq": 1,
@@ -2912,7 +2978,7 @@
       "type": "event",
       "envelope": {
         "session": {
-          "backend": "claude-code",
+          "backend": "x",
           "sessionId": "x"
         },
         "seq": 1,
@@ -2931,7 +2997,7 @@
       "type": "event",
       "envelope": {
         "session": {
-          "backend": "claude-code",
+          "backend": "x",
           "sessionId": "x"
         },
         "seq": 1,
@@ -4886,7 +4952,7 @@
       "type": "interaction.answer",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       },
       "answer": {
@@ -4917,7 +4983,7 @@
       "type": "interaction.answer",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       },
       "answer": {
@@ -5514,7 +5580,7 @@
       "type": "mode.set",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       },
       "axis": "x",
@@ -5567,7 +5633,7 @@
       "type": "model.set",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       },
       "modelId": "x"
@@ -5623,14 +5689,14 @@
     {
       "type": "models.list",
       "requestId": "x",
-      "backend": "claude-code",
+      "backend": "x",
       "cwd": "x",
       "includeUnavailable": true
     },
     {
       "type": "models.list",
       "requestId": "x",
-      "backend": "claude-code"
+      "backend": "x"
     }
   ],
   "ModelsListResponse": [
@@ -5793,13 +5859,13 @@
     {
       "type": "modes.list",
       "requestId": "x",
-      "backend": "claude-code",
+      "backend": "x",
       "cwd": "x"
     },
     {
       "type": "modes.list",
       "requestId": "x",
-      "backend": "claude-code"
+      "backend": "x"
     }
   ],
   "ModesListResponse": [
@@ -5998,7 +6064,7 @@
     {
       "status": "accepted",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       }
     }
@@ -6023,7 +6089,7 @@
     {
       "status": "accepted",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       }
     },
@@ -6287,12 +6353,12 @@
     "reject"
   ],
   "PlanId": [
-    "claude",
-    "antigravity"
+    "x"
   ],
   "PlanMeter": [
     {
-      "plan": "claude",
+      "plan": "x",
+      "displayName": "x",
       "tier": "x",
       "windows": [
         {
@@ -6313,7 +6379,7 @@
       "problem": "x"
     },
     {
-      "plan": "claude",
+      "plan": "x",
       "windows": [
         {
           "id": "x",
@@ -6350,7 +6416,8 @@
       "status": "accepted",
       "meters": [
         {
-          "plan": "claude",
+          "plan": "x",
+          "displayName": "x",
           "tier": "x",
           "windows": [
             {
@@ -6376,7 +6443,7 @@
       "status": "accepted",
       "meters": [
         {
-          "plan": "claude",
+          "plan": "x",
           "windows": [
             {
               "id": "x",
@@ -6402,7 +6469,8 @@
         "status": "accepted",
         "meters": [
           {
-            "plan": "claude",
+            "plan": "x",
+            "displayName": "x",
             "tier": "x",
             "windows": [
               {
@@ -6432,7 +6500,7 @@
         "status": "accepted",
         "meters": [
           {
-            "plan": "claude",
+            "plan": "x",
             "windows": [
               {
                 "id": "x",
@@ -6450,7 +6518,8 @@
       "status": "accepted",
       "meters": [
         {
-          "plan": "claude",
+          "plan": "x",
+          "displayName": "x",
           "tier": "x",
           "windows": [
             {
@@ -6476,7 +6545,7 @@
       "status": "accepted",
       "meters": [
         {
-          "plan": "claude",
+          "plan": "x",
           "windows": [
             {
               "id": "x",
@@ -6550,7 +6619,7 @@
       "type": "prompt",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       },
       "input": {
@@ -6572,7 +6641,7 @@
       "type": "prompt",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       },
       "input": {
@@ -6774,7 +6843,7 @@
       "type": "queue.cancel",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       },
       "queueItemId": "x"
@@ -6883,7 +6952,7 @@
       "kind": "replaced",
       "epoch": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       }
     }
@@ -6959,7 +7028,7 @@
             "messageId": "x",
             "parentToolCallId": "x",
             "childSession": {
-              "backend": "claude-code",
+              "backend": "x",
               "sessionId": "x"
             },
             "output": "x",
@@ -7052,7 +7121,7 @@
             "command": "x",
             "startedAt": 1,
             "childSession": {
-              "backend": "claude-code",
+              "backend": "x",
               "sessionId": "x"
             }
           }
@@ -7073,7 +7142,14 @@
           "reasoningTokens": 1,
           "costUsd": 1.5,
           "contextTokens": 1,
-          "contextWindow": 1
+          "contextWindow": 1,
+          "cache": {
+            "lastTouchAt": 1,
+            "ttlMs": 1,
+            "confidence": "exact",
+            "cachedTokens": 1,
+            "promptTokens": 1
+          }
         },
         "compaction": {
           "trigger": "manual",
@@ -7327,7 +7403,7 @@
       "messageId": "x",
       "parentToolCallId": "x",
       "childSession": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       },
       "output": "x",
@@ -7370,7 +7446,10 @@
       "requestId": "x",
       "backends": [
         {
-          "id": "claude-code",
+          "id": "x",
+          "displayName": "x",
+          "accentHex": "#D97757",
+          "iconHint": "claude",
           "capabilities": {
             "streamText": true,
             "streamThinking": true,
@@ -7405,7 +7484,8 @@
       "requestId": "x",
       "backends": [
         {
-          "id": "claude-code",
+          "id": "x",
+          "displayName": "x",
           "capabilities": {
             "streamText": false,
             "streamThinking": false,
@@ -7599,7 +7679,7 @@
           "items": [
             {
               "session": {
-                "backend": "claude-code",
+                "backend": "x",
                 "sessionId": "x"
               },
               "title": {
@@ -7613,7 +7693,7 @@
               "parent": {
                 "kind": "fork",
                 "session": {
-                  "backend": "claude-code",
+                  "backend": "x",
                   "sessionId": "x"
                 }
               },
@@ -7636,7 +7716,7 @@
           "items": [
             {
               "session": {
-                "backend": "claude-code",
+                "backend": "x",
                 "sessionId": "x"
               },
               "updatedAt": 1,
@@ -7654,7 +7734,7 @@
         "status": "accepted",
         "summary": {
           "session": {
-            "backend": "claude-code",
+            "backend": "x",
             "sessionId": "x"
           },
           "title": {
@@ -7668,7 +7748,7 @@
           "parent": {
             "kind": "fork",
             "session": {
-              "backend": "claude-code",
+              "backend": "x",
               "sessionId": "x"
             }
           },
@@ -7686,7 +7766,7 @@
         "status": "accepted",
         "summary": {
           "session": {
-            "backend": "claude-code",
+            "backend": "x",
             "sessionId": "x"
           },
           "updatedAt": 1,
@@ -7701,7 +7781,7 @@
       "result": {
         "status": "accepted",
         "session": {
-          "backend": "claude-code",
+          "backend": "x",
           "sessionId": "x"
         }
       }
@@ -7712,7 +7792,7 @@
       "result": {
         "status": "accepted",
         "session": {
-          "backend": "claude-code",
+          "backend": "x",
           "sessionId": "x"
         }
       }
@@ -7919,7 +7999,8 @@
         "status": "accepted",
         "meters": [
           {
-            "plan": "claude",
+            "plan": "x",
+            "displayName": "x",
             "tier": "x",
             "windows": [
               {
@@ -7949,7 +8030,7 @@
         "status": "accepted",
         "meters": [
           {
-            "plan": "claude",
+            "plan": "x",
             "windows": [
               {
                 "id": "x",
@@ -8443,7 +8524,7 @@
       "type": "event",
       "envelope": {
         "session": {
-          "backend": "claude-code",
+          "backend": "x",
           "sessionId": "x"
         },
         "seq": 1,
@@ -8462,7 +8543,7 @@
       "type": "event",
       "envelope": {
         "session": {
-          "backend": "claude-code",
+          "backend": "x",
           "sessionId": "x"
         },
         "seq": 1,
@@ -8476,12 +8557,12 @@
     },
     {
       "type": "catalog",
-      "backend": "claude-code",
+      "backend": "x",
       "event": {
         "type": "session_updated",
         "summary": {
           "session": {
-            "backend": "claude-code",
+            "backend": "x",
             "sessionId": "x"
           },
           "title": {
@@ -8495,7 +8576,7 @@
           "parent": {
             "kind": "fork",
             "session": {
-              "backend": "claude-code",
+              "backend": "x",
               "sessionId": "x"
             }
           },
@@ -8508,12 +8589,12 @@
     },
     {
       "type": "catalog",
-      "backend": "claude-code",
+      "backend": "x",
       "event": {
         "type": "session_updated",
         "summary": {
           "session": {
-            "backend": "claude-code",
+            "backend": "x",
             "sessionId": "x"
           },
           "updatedAt": 1,
@@ -8544,7 +8625,7 @@
       "type": "session.attach",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       },
       "resume": {
@@ -8556,7 +8637,7 @@
       "type": "session.attach",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       }
     }
@@ -8611,7 +8692,7 @@
     {
       "type": "session.create",
       "requestId": "x",
-      "backend": "claude-code",
+      "backend": "x",
       "options": {
         "cwd": "x",
         "modelId": "x",
@@ -8627,7 +8708,7 @@
     {
       "type": "session.create",
       "requestId": "x",
-      "backend": "claude-code",
+      "backend": "x",
       "options": {
         "cwd": "x"
       }
@@ -8640,7 +8721,7 @@
       "result": {
         "status": "accepted",
         "session": {
-          "backend": "claude-code",
+          "backend": "x",
           "sessionId": "x"
         }
       }
@@ -8651,7 +8732,7 @@
       "type": "session.delete",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       }
     }
@@ -8670,7 +8751,7 @@
       "type": "session.detach",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       }
     }
@@ -8686,7 +8767,7 @@
       "type": "session.fork",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       },
       "at": {
@@ -8698,7 +8779,7 @@
       "type": "session.fork",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       }
     }
@@ -8710,7 +8791,7 @@
       "result": {
         "status": "accepted",
         "session": {
-          "backend": "claude-code",
+          "backend": "x",
           "sessionId": "x"
         }
       }
@@ -8721,7 +8802,7 @@
       "status": "accepted",
       "summary": {
         "session": {
-          "backend": "claude-code",
+          "backend": "x",
           "sessionId": "x"
         },
         "title": {
@@ -8735,7 +8816,7 @@
         "parent": {
           "kind": "fork",
           "session": {
-            "backend": "claude-code",
+            "backend": "x",
             "sessionId": "x"
           }
         },
@@ -8749,7 +8830,7 @@
       "status": "accepted",
       "summary": {
         "session": {
-          "backend": "claude-code",
+          "backend": "x",
           "sessionId": "x"
         },
         "updatedAt": 1,
@@ -8763,7 +8844,7 @@
       "type": "session.get",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       }
     }
@@ -8776,7 +8857,7 @@
         "status": "accepted",
         "summary": {
           "session": {
-            "backend": "claude-code",
+            "backend": "x",
             "sessionId": "x"
           },
           "title": {
@@ -8790,7 +8871,7 @@
           "parent": {
             "kind": "fork",
             "session": {
-              "backend": "claude-code",
+              "backend": "x",
               "sessionId": "x"
             }
           },
@@ -8808,7 +8889,7 @@
         "status": "accepted",
         "summary": {
           "session": {
-            "backend": "claude-code",
+            "backend": "x",
             "sessionId": "x"
           },
           "updatedAt": 1,
@@ -8823,7 +8904,7 @@
       "status": "accepted",
       "summary": {
         "session": {
-          "backend": "claude-code",
+          "backend": "x",
           "sessionId": "x"
         },
         "title": {
@@ -8837,7 +8918,7 @@
         "parent": {
           "kind": "fork",
           "session": {
-            "backend": "claude-code",
+            "backend": "x",
             "sessionId": "x"
           }
         },
@@ -8851,7 +8932,7 @@
       "status": "accepted",
       "summary": {
         "session": {
-          "backend": "claude-code",
+          "backend": "x",
           "sessionId": "x"
         },
         "updatedAt": 1,
@@ -8879,7 +8960,7 @@
       "items": [
         {
           "session": {
-            "backend": "claude-code",
+            "backend": "x",
             "sessionId": "x"
           },
           "title": {
@@ -8893,7 +8974,7 @@
           "parent": {
             "kind": "fork",
             "session": {
-              "backend": "claude-code",
+              "backend": "x",
               "sessionId": "x"
             }
           },
@@ -8909,7 +8990,7 @@
       "items": [
         {
           "session": {
-            "backend": "claude-code",
+            "backend": "x",
             "sessionId": "x"
           },
           "updatedAt": 1,
@@ -8923,7 +9004,7 @@
     {
       "kind": "fork",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       }
     }
@@ -8932,7 +9013,7 @@
     {
       "cwd": "x",
       "parent": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       }
     },
@@ -8940,7 +9021,7 @@
   ],
   "SessionRef": [
     {
-      "backend": "claude-code",
+      "backend": "x",
       "sessionId": "x"
     }
   ],
@@ -8948,7 +9029,7 @@
     {
       "type": "session_removed",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       }
     }
@@ -8958,7 +9039,7 @@
       "type": "session.rename",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       },
       "title": "x"
@@ -8977,7 +9058,7 @@
     {
       "type": "session_replaced",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       }
     }
@@ -9036,7 +9117,7 @@
           "messageId": "x",
           "parentToolCallId": "x",
           "childSession": {
-            "backend": "claude-code",
+            "backend": "x",
             "sessionId": "x"
           },
           "output": "x",
@@ -9129,7 +9210,7 @@
           "command": "x",
           "startedAt": 1,
           "childSession": {
-            "backend": "claude-code",
+            "backend": "x",
             "sessionId": "x"
           }
         }
@@ -9150,7 +9231,14 @@
         "reasoningTokens": 1,
         "costUsd": 1.5,
         "contextTokens": 1,
-        "contextWindow": 1
+        "contextWindow": 1,
+        "cache": {
+          "lastTouchAt": 1,
+          "ttlMs": 1,
+          "confidence": "exact",
+          "cachedTokens": 1,
+          "promptTokens": 1
+        }
       },
       "compaction": {
         "trigger": "manual",
@@ -9254,7 +9342,7 @@
   "SessionSummary": [
     {
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       },
       "title": {
@@ -9268,7 +9356,7 @@
       "parent": {
         "kind": "fork",
         "session": {
-          "backend": "claude-code",
+          "backend": "x",
           "sessionId": "x"
         }
       },
@@ -9279,7 +9367,7 @@
     },
     {
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       },
       "updatedAt": 1,
@@ -9298,7 +9386,7 @@
       "type": "session_updated",
       "summary": {
         "session": {
-          "backend": "claude-code",
+          "backend": "x",
           "sessionId": "x"
         },
         "title": {
@@ -9312,7 +9400,7 @@
         "parent": {
           "kind": "fork",
           "session": {
-            "backend": "claude-code",
+            "backend": "x",
             "sessionId": "x"
           }
         },
@@ -9326,7 +9414,7 @@
       "type": "session_updated",
       "summary": {
         "session": {
-          "backend": "claude-code",
+          "backend": "x",
           "sessionId": "x"
         },
         "updatedAt": 1,
@@ -9339,11 +9427,11 @@
     {
       "type": "sessions.list",
       "requestId": "x",
-      "backend": "claude-code",
+      "backend": "x",
       "query": {
         "cwd": "x",
         "parent": {
-          "backend": "claude-code",
+          "backend": "x",
           "sessionId": "x"
         }
       },
@@ -9355,7 +9443,7 @@
     {
       "type": "sessions.list",
       "requestId": "x",
-      "backend": "claude-code",
+      "backend": "x",
       "query": {},
       "page": {
         "limit": 1
@@ -9372,7 +9460,7 @@
           "items": [
             {
               "session": {
-                "backend": "claude-code",
+                "backend": "x",
                 "sessionId": "x"
               },
               "title": {
@@ -9386,7 +9474,7 @@
               "parent": {
                 "kind": "fork",
                 "session": {
-                  "backend": "claude-code",
+                  "backend": "x",
                   "sessionId": "x"
                 }
               },
@@ -9409,7 +9497,7 @@
           "items": [
             {
               "session": {
-                "backend": "claude-code",
+                "backend": "x",
                 "sessionId": "x"
               },
               "updatedAt": 1,
@@ -9428,7 +9516,7 @@
         "items": [
           {
             "session": {
-              "backend": "claude-code",
+              "backend": "x",
               "sessionId": "x"
             },
             "title": {
@@ -9442,7 +9530,7 @@
             "parent": {
               "kind": "fork",
               "session": {
-                "backend": "claude-code",
+                "backend": "x",
                 "sessionId": "x"
               }
             },
@@ -9461,7 +9549,7 @@
         "items": [
           {
             "session": {
-              "backend": "claude-code",
+              "backend": "x",
               "sessionId": "x"
             },
             "updatedAt": 1,
@@ -9486,7 +9574,7 @@
         "items": [
           {
             "session": {
-              "backend": "claude-code",
+              "backend": "x",
               "sessionId": "x"
             },
             "title": {
@@ -9500,7 +9588,7 @@
             "parent": {
               "kind": "fork",
               "session": {
-                "backend": "claude-code",
+                "backend": "x",
                 "sessionId": "x"
               }
             },
@@ -9519,7 +9607,7 @@
         "items": [
           {
             "session": {
-              "backend": "claude-code",
+              "backend": "x",
               "sessionId": "x"
             },
             "updatedAt": 1,
@@ -9588,7 +9676,7 @@
             "messageId": "x",
             "parentToolCallId": "x",
             "childSession": {
-              "backend": "claude-code",
+              "backend": "x",
               "sessionId": "x"
             },
             "output": "x",
@@ -9681,7 +9769,7 @@
             "command": "x",
             "startedAt": 1,
             "childSession": {
-              "backend": "claude-code",
+              "backend": "x",
               "sessionId": "x"
             }
           }
@@ -9702,7 +9790,14 @@
           "reasoningTokens": 1,
           "costUsd": 1.5,
           "contextTokens": 1,
-          "contextWindow": 1
+          "contextWindow": 1,
+          "cache": {
+            "lastTouchAt": 1,
+            "ttlMs": 1,
+            "confidence": "exact",
+            "cachedTokens": 1,
+            "promptTokens": 1
+          }
         },
         "compaction": {
           "trigger": "manual",
@@ -10444,7 +10539,7 @@
       "type": "thinking.set",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       },
       "thinking": "x"
@@ -10534,7 +10629,7 @@
       },
       "parentToolCallId": "x",
       "childSession": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       }
     },
@@ -10549,7 +10644,7 @@
     {
       "kind": "child_session",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       }
     }
@@ -11046,7 +11141,7 @@
     {
       "kind": "child_session",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       }
     }
@@ -11138,7 +11233,7 @@
       },
       "parentToolCallId": "x",
       "childSession": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       }
     },
@@ -11233,7 +11328,7 @@
           "text": "x"
         },
         "childSession": {
-          "backend": "claude-code",
+          "backend": "x",
           "sessionId": "x"
         }
       }
@@ -11380,7 +11475,7 @@
       "type": "transcript.read",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       },
       "page": {
@@ -11392,7 +11487,7 @@
       "type": "transcript.read",
       "requestId": "x",
       "session": {
-        "backend": "claude-code",
+        "backend": "x",
         "sessionId": "x"
       },
       "page": {
@@ -11516,7 +11611,14 @@
       "reasoningTokens": 1,
       "costUsd": 1.5,
       "contextTokens": 1,
-      "contextWindow": 1
+      "contextWindow": 1,
+      "cache": {
+        "lastTouchAt": 1,
+        "ttlMs": 1,
+        "confidence": "exact",
+        "cachedTokens": 1,
+        "promptTokens": 1
+      }
     },
     {}
   ],
@@ -11541,7 +11643,14 @@
         "reasoningTokens": 1,
         "costUsd": 1.5,
         "contextTokens": 1,
-        "contextWindow": 1
+        "contextWindow": 1,
+        "cache": {
+          "lastTouchAt": 1,
+          "ttlMs": 1,
+          "confidence": "exact",
+          "cachedTokens": 1,
+          "promptTokens": 1
+        }
       }
     },
     {

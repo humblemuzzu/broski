@@ -4,9 +4,8 @@
 use std::path::PathBuf;
 
 use broski_contract::{
-    session_status, AgentEvent, BackendId, BlockDeltaEvent, BlockKind, BlockStartedEvent,
-    RunStartedEvent, RunTrigger, SessionCapabilities, SessionRef, SessionSnapshot, Timestamp,
-    MAX_LIST_ITEMS,
+    session_status, AgentEvent, BlockDeltaEvent, BlockKind, BlockStartedEvent, RunStartedEvent,
+    RunTrigger, SessionCapabilities, SessionRef, SessionSnapshot, Timestamp, MAX_LIST_ITEMS,
 };
 use serde_json::Value;
 use tokio::time::Instant;
@@ -79,7 +78,7 @@ fn expand(value: Value) -> Value {
 
 fn session() -> SessionRef {
     SessionRef {
-        backend: BackendId::Pi,
+        backend: "pi".to_owned(),
         session_id: "s".to_owned(),
     }
 }

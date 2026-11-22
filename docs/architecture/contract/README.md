@@ -44,7 +44,7 @@ Commands, from `packages/bridge`: `bun run contract:gen` writes every generated 
 
 1. **The UI never branches on the backend.** It branches on `Capabilities`, `SessionCapabilities`, and the shape of what it receives. A backend's extras reach the app only as typed `extension` events (§13).
 2. **Adapters are reached only through the contract.** The core holds `AgentBackend` values. It never imports `backends/<id>/`, and an adapter never sees sockets, phones, viewers or the wire.
-3. **The contract is a leaf.** `src/contract/` imports only `zod` and itself. Its `testing/` may also import `bun:test`. `src/backends/<id>/` may import only the contract (not its test kit), itself, `zod` (to check frames that cross a process boundary the adapter owns, such as Pi's terminal link), `node:` built-ins (not `node:module`, whose `createRequire` loads what no check sees) and that backend's own SDK. No adapter imports another adapter's directory. Every specifier must be a plain string. `bun run check:layers` enforces all of it in CI: it reads every import, type-only ones included, from the file's tokens (`import-scan.ts`, so comments and strings never count), joined with Bun's own `Transpiler.scanImports`.
+3. **The contract is a leaf.** `src/contract/` imports only `zod` and itself. Its `testing/` may also import `bun:test`. `src/adapter-kit/`, what adapters share, imports only itself, the contract (not its test kit), `zod` and `node:` built-ins (not `node:module`). `src/backends/<id>/`, `<id>` any `BackendId`, may import only the contract (not its test kit), the adapter kit, itself, `zod` (to check frames that cross a process boundary the adapter owns, such as Pi's terminal link), `node:` built-ins (not `node:module`, whose `createRequire` loads what no check sees) and that backend's own SDK. No adapter imports another adapter's directory. Every specifier must be a plain string. `bun run check:layers` enforces all of it in CI: it reads every import, type-only ones included, from the file's tokens (`import-scan.ts`, so comments and strings never count), joined with Bun's own `Transpiler.scanImports`.
 4. **Generated code is never edited by hand.** Change the zod schema, run `bun run contract:gen`, commit the result. CI fails on a stale file.
 5. **Expected failures are values.** Every adapter method that can fail returns a result union, `{status: "accepted", …} | Rejected`, the same unions the wire carries (`PromptResult`, `ActionResult`, `NewSessionResult`, the read results of `read-results.ts`, and `OpenResult` for `open`). `status()` cannot fail: whatever stops it from finding out is an `error` issue in `BackendStatus.issues`, with `usable: false`. A thrown error is an adapter bug.
 6. **No invalid answer reaches a backend.** The core runs `answerProblem` on every answer before an adapter sees it, and an adapter rejects a faulted one with `invalid_input` all the same. A malformed answer can otherwise become a silent denial or an over-grant.
@@ -104,7 +104,7 @@ The emitter fails, naming the type, on a member tagged twice (serde reads one di
 
 | Id | Type | Minted by | Rule |
 |---|---|---|---|
-| `BackendId` | `claude-code \| pi` | contract | |
+| `BackendId` | slug `^[a-z0-9][a-z0-9-]{0,63}$` | adapter | `claude-code`, `pi`, or any other agent an adapter brings; the app shows a backend by its `BackendDescriptor` (`displayName`, `accentHex?`, `iconHint?`), never by its id. |
 | `SessionRef` | `{backend, sessionId}` | adapter | `sessionId` is the backend's own durable session id: CC UUID (CC D2), Pi header UUIDv7 (pi §3). Stable for the session's life. |
 | `RunId` | string | adapter | Unique per session for good (a UUID is the safe choice); CC and Pi have no native run id (CC D21, pi §13). A run ends with the bridge. |
 | `MessageId`, `BlockId` | string | adapter | Unique per session. Derive from native identity where it exists, so live ids match transcript ids: CC `message.id` + block index (CC D21). Pi has no message id mid-stream, so the adapter mints one (pi §5). |
@@ -124,7 +124,7 @@ Backend-native ids may ride along in `EventEnvelope.native` (`NativeIds`) for de
 ```ts
 type BackendFactory = (host: BackendHost) => Promise<AgentBackend>;   // host.catalog: CatalogSink
 interface AgentBackend {
-  id; traits;                                                // traits: the declared capabilities (§6)
+  id; meta; traits;                                          // meta: BackendMeta, checked when the backend starts; traits: the declared capabilities (§6)
   status(): Promise<BackendStatus>;                          // never fails (§2 rule 5)
   listSessions(query, page); getSession(ref); readTranscript(ref, page); readAttachment(ref, attachmentId);
   listModels(cwd, {includeUnavailable?}); listCommands({cwd?, session?}); listModes(cwd);
@@ -459,7 +459,7 @@ Rejection { code: busy|not_steerable|no_model|auth|invalid_input|unsupported|not
 ### 11.4 Commands, usage, status
 
 - `CommandSummary{id, name, kind: command|skill|prompt, description?, argumentHint?}`. A prompt invokes one with `PromptInput.command = id` and its arguments as `text`. Sources: CC `SlashCommand` and skills, with `terminal_slash_commands` filtered out (CC D7); Pi extension commands, prompt templates and skills (pi §9).
-- `Usage{inputTokens?, outputTokens?, cacheReadTokens?, cacheWriteTokens?, reasoningTokens?, costUsd?, contextTokens?, contextWindow?}` holds session totals as reported and the context window's fill; an unreported field is absent. CC `modelUsage` is cumulative per CLI process (CC D14), and the context figure comes from `getContextUsage` after each run. Pi's is `get_session_stats`' `contextUsage`, whose `tokens` may be null after compaction (pi §5).
+- `Usage{inputTokens?, outputTokens?, cacheReadTokens?, cacheWriteTokens?, reasoningTokens?, costUsd?, contextTokens?, contextWindow?, cache?}` holds session totals as reported and the context window's fill; an unreported field is absent. `cache` (`CacheWindow{lastTouchAt, ttlMs?, confidence?: exact|estimated, cachedTokens?, promptTokens?}`) is the prompt cache as the latest request left it, its token counts that request's own. CC `modelUsage` is cumulative per CLI process (CC D14), and the context figure comes from `getContextUsage` after each run. Pi's is `get_session_stats`' `contextUsage`, whose `tokens` may be null after compaction (pi §5).
 - `BackendStatus{installed, version?, auth: signed_in|signed_out|unknown, usable, issues[]}`, from CC D7, pi §2. Finding it out never fails: a Pi catalog that cannot be read (pi §2) becomes an `error` issue with `usable: false`. The catalog lists that can fail return a result: `listModels`, `listCommands`, `listModes`.
 
 ### 11.5 Session modes
@@ -489,7 +489,7 @@ Every client message is a request `{type, requestId, …}` answered by exactly o
 | Request | Answer |
 |---|---|
 | `hello{protocol, client}` | `{protocol, bridgeVersion}` |
-| `backends.list` | `{backends[{id, capabilities}]}` |
+| `backends.list` | `{backends[{id, displayName, accentHex?, iconHint?, capabilities}]}` |
 | `backend.status{backend}` | `{status}` |
 | `models.list{backend, cwd?, includeUnavailable?}` | `{result: ModelsListed{models} \| Rejected}` |
 | `commands.list{backend, cwd?, session?}` | `{result: CommandsListed{commands} \| Rejected}` |

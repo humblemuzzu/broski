@@ -13,9 +13,9 @@ use broski_client::{
     TerminalUpdate,
 };
 use broski_contract::{
-    ActionResult, BackendId, BackendsListRequest, ClientMessage, NewSessionOptions,
-    NewSessionResult, PromptInput, PromptMode, PromptRequest, PromptResult, RunOutcome,
-    ServerMessage, SessionCreateRequest, SessionQuery, SessionRef, TermOpenRequest, TermOpenResult,
+    ActionResult, BackendsListRequest, ClientMessage, NewSessionOptions, NewSessionResult,
+    PromptInput, PromptMode, PromptRequest, PromptResult, RunOutcome, ServerMessage,
+    SessionCreateRequest, SessionQuery, SessionRef, TermOpenRequest, TermOpenResult,
 };
 use broski_core::{
     new_identity_secret, parse_pairing_offer, Inbox, Machine, MachineRecord, Phone, SessionList,
@@ -68,7 +68,7 @@ async fn answer<T>(
 async fn create_session(machine: &Machine, cwd: String) -> SessionRef {
     let create = ClientMessage::SessionCreate(SessionCreateRequest {
         request_id: String::new(),
-        backend: BackendId::Pi,
+        backend: "pi".to_owned(),
         options: NewSessionOptions {
             cwd,
             model_id: None,
@@ -293,7 +293,9 @@ async fn an_app_pairs_chats_and_finds_it_all_again_after_a_restart() {
         cwd: Some(mac.root_text()),
         parent: None,
     };
-    let list = machine.session_list(BackendId::Pi, query).expect("a list");
+    let list = machine
+        .session_list("pi".to_owned(), query)
+        .expect("a list");
     listed(&list, &session).await;
     terminal(&machine, mac.root_text()).await;
     // The cache is the app's opaque bytes; JSON inside, which is how the test knows it is current.

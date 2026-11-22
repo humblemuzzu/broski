@@ -28,7 +28,7 @@ afterEach(() => {
 });
 
 function observed(event: ObservedEvent["event"], before: SessionSnapshot, after: SessionSnapshot, at: number) {
-	return { session: SESSION, at, event, before, after, describe: async () => undefined };
+	return { session: SESSION, backendName: "Pi", at, event, before, after, describe: async () => undefined };
 }
 
 describe("the done alert of a contract session", () => {

@@ -10,7 +10,7 @@ use std::task::Poll;
 
 use broski_client::{SessionList, SessionListUpdate};
 use broski_contract::{
-    ActionResult, BackendId, ClientMessage, ModelsListResult, ModesListResult, ServerMessage,
+    ActionResult, ClientMessage, ModelsListResult, ModesListResult, ServerMessage,
     SessionDeleteRequest, SessionQuery, SessionRef, SessionRenameRequest,
 };
 use broski_link_testkit::WAIT;
@@ -79,7 +79,7 @@ fn list_in(machine: &Arc<broski_client::Machine>, cwd: &std::path::Path) -> Arc<
         cwd: Some(cwd.to_string_lossy().into_owned()),
         parent: None,
     };
-    let list = Arc::clone(machine).session_list(BackendId::Pi, query);
+    let list = Arc::clone(machine).session_list("pi".to_owned(), query);
     list.expect("a list")
 }
 
@@ -133,13 +133,13 @@ async fn backends_and_their_catalogs_are_read_and_kept() {
     let phone = phone();
     let machine = paired(&phone, &mac).await;
     let status = machine
-        .backend_status(BackendId::Pi)
+        .backend_status("pi".to_owned())
         .await
         .expect("a status");
     assert!(status.usable);
     let cwd = Some(mac.root_text());
     let models = machine
-        .models(BackendId::Pi, cwd.clone(), false)
+        .models("pi".to_owned(), cwd.clone(), false)
         .await
         .expect("models");
     let ModelsListResult::Accepted(listed) = &models else {
@@ -147,21 +147,21 @@ async fn backends_and_their_catalogs_are_read_and_kept() {
     };
     assert!(!listed.models.is_empty());
     assert_eq!(
-        machine.models(BackendId::Pi, cwd.clone(), false).await,
+        machine.models("pi".to_owned(), cwd.clone(), false).await,
         Ok(models)
     );
     let modes = machine
-        .modes(BackendId::Pi, cwd.clone())
+        .modes("pi".to_owned(), cwd.clone())
         .await
         .expect("modes");
     assert!(matches!(modes, ModesListResult::Accepted(ref listed) if !listed.modes.is_empty()));
     let commands = machine
-        .commands(BackendId::Pi, cwd, None)
+        .commands("pi".to_owned(), cwd, None)
         .await
         .expect("commands");
     assert_eq!(
         machine
-            .commands(BackendId::Pi, Some(mac.root_text()), None)
+            .commands("pi".to_owned(), Some(mac.root_text()), None)
             .await,
         Ok(commands)
     );

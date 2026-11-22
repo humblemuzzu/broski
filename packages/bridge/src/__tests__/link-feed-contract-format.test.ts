@@ -9,10 +9,16 @@ import {
 	type SessionSummary,
 	type ToolPermissionRequest,
 } from "../contract";
-import { contractApproval, contractAttention, contractDone } from "../server/link-feed/contract-format";
+import {
+	type AlertSource,
+	contractApproval,
+	contractAttention,
+	contractDone,
+} from "../server/link-feed/contract-format";
 import { permissionVerdicts } from "../server/link-feed/contract-replies";
 
 const SESSION: SessionRef = { backend: "pi", sessionId: "s-1" };
+const SOURCE: AlertSource = { session: SESSION, backendName: "Pi" };
 
 function row(overrides: Partial<SessionSummary> = {}): SessionSummary {
 	return {
@@ -49,7 +55,7 @@ function option(overrides: Partial<PermissionOption>): PermissionOption {
 describe("the approval alert of a contract session", () => {
 	test("its body names the tool and what it will do, from the preview", () => {
 		const alert = contractApproval(
-			SESSION,
+			SOURCE,
 			row(),
 			asked(permission({ previews: [{ kind: "command", command: "rm -rf build" }] }), {
 				origin: { toolName: "bash" },
@@ -72,7 +78,7 @@ describe("the approval alert of a contract session", () => {
 
 	test("a cut never splits a character in two", () => {
 		const request = permission({ previews: [{ kind: "command", command: `${"a".repeat(192)}😀 more` }] });
-		const alert = contractApproval(SESSION, row(), asked(request, { origin: { toolName: "bash" } }), request, 1);
+		const alert = contractApproval(SOURCE, row(), asked(request, { origin: { toolName: "bash" } }), request, 1);
 		expect(alert.body).toBe(`bash: ${"a".repeat(192)}…`);
 		expect(alert.body.isWellFormed()).toBe(true);
 	});
@@ -86,30 +92,30 @@ describe("the approval alert of a contract session", () => {
 					{ kind: "file_changes", changes: [{ path: "src/a.ts", change: "modified", diff: "+ password = hunter2" }] },
 				],
 			}),
-		].map((request) => contractApproval(SESSION, row(), asked(request), request, 1).body);
+		].map((request) => contractApproval(SOURCE, row(), asked(request), request, 1).body);
 		expect(bodies).toEqual(["a.txt b.txt", "example.com", "src/a.ts"]);
 	});
 
 	test("without a preview only the keys a body may quote are read from the input", () => {
 		const quoted = permission({ input: { path: "notes.md", content: "api key sk-123" } });
 		const hidden = permission({ input: { content: "api key sk-123" } });
-		expect(contractApproval(SESSION, row(), asked(quoted), quoted, 1).body).toBe("notes.md");
-		expect(contractApproval(SESSION, row(), asked(hidden), hidden, 1).body).toBe("Allow bash?");
+		expect(contractApproval(SOURCE, row(), asked(quoted), quoted, 1).body).toBe("notes.md");
+		expect(contractApproval(SOURCE, row(), asked(hidden), hidden, 1).body).toBe("Allow bash?");
 	});
 
 	test("an untitled session is named by its backend, a long name is cut, and a missing row leaves the cwd empty", () => {
 		const request = permission();
-		const untitled = contractApproval(SESSION, row({ title: undefined }), asked(request), request, 1);
+		const untitled = contractApproval(SOURCE, row({ title: undefined }), asked(request), request, 1);
 		expect(untitled.title).toBe("Pi — needs approval");
 		const long = contractApproval(
-			SESSION,
+			SOURCE,
 			row({ title: { text: "w".repeat(200), source: "user" } }),
 			asked(request),
 			request,
 			1,
 		);
 		expect(long.title).toBe(`${"w".repeat(49)}… — needs approval`);
-		const unknown = contractApproval(SESSION, undefined, asked(request), request, 1);
+		const unknown = contractApproval(SOURCE, undefined, asked(request), request, 1);
 		expect(unknown).toMatchObject({ cwd: "", title: "Pi — needs approval" });
 	});
 });
@@ -117,15 +123,15 @@ describe("the approval alert of a contract session", () => {
 describe("the attention alert of a contract session", () => {
 	test("it carries the question's title, then its body", () => {
 		const request = { kind: "confirm" as const };
-		expect(contractAttention(SESSION, row(), asked(permission(), { request, title: "Go on?" }), 3)).toMatchObject({
+		expect(contractAttention(SOURCE, row(), asked(permission(), { request, title: "Go on?" }), 3)).toMatchObject({
 			kind: "attention",
 			title: "Fix the build — needs input",
 			body: "Go on?",
 			request: "i-1",
 		});
 		const untitled = asked(permission(), { request, title: "", body: "Pick a branch" });
-		expect(contractAttention(SESSION, row(), untitled, 3).body).toBe("Pick a branch");
-		expect(contractAttention(SESSION, row(), asked(permission(), { request, title: "" }), 3).body).toBe(
+		expect(contractAttention(SOURCE, row(), untitled, 3).body).toBe("Pick a branch");
+		expect(contractAttention(SOURCE, row(), asked(permission(), { request, title: "" }), 3).body).toBe(
 			"input required",
 		);
 	});
@@ -166,7 +172,7 @@ describe("the done alert of a contract session", () => {
 				text("c", "A subagent's words", "tool-1"),
 			],
 		);
-		expect(contractDone(SESSION, row(), completed, state, 9)).toMatchObject({
+		expect(contractDone(SOURCE, row(), completed, state, 9)).toMatchObject({
 			kind: "done",
 			title: "Fix the build — finished",
 			body: "Final answer.",
@@ -176,13 +182,13 @@ describe("the done alert of a contract session", () => {
 
 	test("a block still open when the run ends is newer than the finished ones", () => {
 		const open = { blockId: "o", messageId: "m", kind: "text" as const, text: "Streaming the end" };
-		expect(contractDone(SESSION, row(), completed, ended([open], [text("a", "Earlier")]), 9)?.body).toBe(
+		expect(contractDone(SOURCE, row(), completed, ended([open], [text("a", "Earlier")]), 9)?.body).toBe(
 			"Streaming the end",
 		);
 	});
 
 	test("a run that said nothing still finished", () => {
-		expect(contractDone(SESSION, row(), completed, ended(), 9)?.body).toBe("Turn finished");
+		expect(contractDone(SOURCE, row(), completed, ended(), 9)?.body).toBe("Turn finished");
 	});
 
 	test("a run that only ran a call, as a command typed for the shell does, names the call and a failing exit code", () => {
@@ -201,21 +207,21 @@ describe("the done alert of a contract session", () => {
 			result: { content: [], fileChanges: [], exitCode },
 		});
 		const passed = ended([], [call("t1", "npm test\n--watch=false"), result("t1", 0)]);
-		expect(contractDone(SESSION, row(), completed, passed, 9)?.body).toBe("bash: npm test");
+		expect(contractDone(SOURCE, row(), completed, passed, 9)?.body).toBe("bash: npm test");
 		const failed = ended([], [call("t1", "make"), result("t1", 2)]);
-		expect(contractDone(SESSION, row(), completed, failed, 9)?.body).toBe("bash: make (exit code 2)");
+		expect(contractDone(SOURCE, row(), completed, failed, 9)?.body).toBe("bash: make (exit code 2)");
 	});
 
 	test("a failed or limited run is told by its code, never by the backend's message", () => {
 		const failed = contractDone(
-			SESSION,
+			SOURCE,
 			row(),
 			{ kind: "error", error: { code: "auth", message: "token sk-1" } },
 			ended(),
 			9,
 		);
 		expect(failed).toMatchObject({ title: "Fix the build — stopped with an error", body: "Run failed: auth" });
-		const limited = contractDone(SESSION, row(), { kind: "limit", limit: "max_turns" }, ended(), 9);
+		const limited = contractDone(SOURCE, row(), { kind: "limit", limit: "max_turns" }, ended(), 9);
 		expect(limited).toMatchObject({
 			title: "Fix the build — stopped at a limit",
 			body: "Run stopped at its max turns limit",
@@ -224,7 +230,7 @@ describe("the done alert of a contract session", () => {
 
 	test("a run the person stopped, or that a later run picks up, is no news", () => {
 		for (const kind of ["aborted", "deferred"] as const) {
-			expect([kind, contractDone(SESSION, row(), { kind }, ended(), 9)]).toEqual([kind, undefined]);
+			expect([kind, contractDone(SOURCE, row(), { kind }, ended(), 9)]).toEqual([kind, undefined]);
 		}
 	});
 });

@@ -12,9 +12,9 @@ use broski_client::{
     PhoneConfig, Platform, SessionList, SessionUpdate, SessionView, Timings,
 };
 use broski_contract::{
-    BackendId, ChoiceReply, ClientMessage, InteractionAnswer, InteractionAnswerRequest,
-    InteractionReply, NewSessionOptions, NewSessionResult, PromptInput, PromptMode, PromptRequest,
-    PromptResult, ServerMessage, SessionCreateRequest, SessionRef, TermListRequest, TranscriptItem,
+    ChoiceReply, ClientMessage, InteractionAnswer, InteractionAnswerRequest, InteractionReply,
+    NewSessionOptions, NewSessionResult, PromptInput, PromptMode, PromptRequest, PromptResult,
+    ServerMessage, SessionCreateRequest, SessionRef, TermListRequest, TranscriptItem,
 };
 pub use broski_link_testkit::mac::Mac;
 use broski_link_testkit::WAIT;
@@ -90,7 +90,7 @@ pub async fn status_until(machine: &Machine, what: &str, done: impl Fn(&MachineS
 pub async fn create_session(machine: &Machine, cwd: &Path) -> SessionRef {
     let request = ClientMessage::SessionCreate(SessionCreateRequest {
         request_id: String::new(),
-        backend: BackendId::Pi,
+        backend: "pi".to_owned(),
         options: NewSessionOptions {
             cwd: cwd.to_string_lossy().into_owned(),
             model_id: None,

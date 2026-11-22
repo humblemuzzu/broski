@@ -1,8 +1,9 @@
 import type { AgentBackend, BackendHost, BackendTraits } from "../backend";
 import type { BackendId, InteractionId, SessionRef } from "../ids";
 import type { ModeAxis } from "../modes";
+import type { BackendMeta } from "../protocol";
 import type { DeliveredInput } from "./conformance-types";
-import { FAKE_COMMANDS, FAKE_MODES, FAKE_STATUS, FULL_TRAITS } from "./fake-data";
+import { FAKE_COMMANDS, FAKE_META, FAKE_MODES, FAKE_STATUS, FULL_TRAITS } from "./fake-data";
 import { sessionPage } from "./fake-paging";
 import type { FakeStep } from "./fake-script";
 import { FakeSession } from "./fake-session";
@@ -29,6 +30,7 @@ export const NO_METHODS: FakeMethods = {
 
 export interface FakeBackendOptions {
 	readonly id?: BackendId;
+	readonly meta?: BackendMeta;
 	readonly traits?: BackendTraits;
 	readonly methods?: FakeMethods;
 	readonly modes?: readonly ModeAxis[];
@@ -70,6 +72,7 @@ export interface FakeBackend extends AgentBackend {
 export function createFakeBackend(host: BackendHost, options: FakeBackendOptions = {}): FakeBackend {
 	const settings: FakeSettings = {
 		id: options.id ?? "pi",
+		meta: options.meta ?? FAKE_META,
 		traits: options.traits ?? FULL_TRAITS,
 		methods: options.methods ?? ALL_METHODS,
 		modes: options.modes ?? FAKE_MODES,
@@ -90,9 +93,10 @@ function steadyClock(): () => number {
 }
 
 function backendOver(world: FakeWorld): FakeBackend {
-	const { traits, methods } = world.settings;
+	const { meta, traits, methods } = world.settings;
 	return {
 		id: world.id,
+		meta,
 		traits,
 		status: async () => FAKE_STATUS,
 		listSessions: async (query, page) => sessionPage(world.rows(query), page),

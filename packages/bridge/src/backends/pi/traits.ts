@@ -5,7 +5,9 @@
  * (a message and Stop go through that terminal), neither for one another client made (watch-only); never `cancelQueued`.
  */
 
-import type { BackendTraits } from "../../contract";
+import type { BackendMeta, BackendTraits } from "../../contract";
+
+export const PI_META: BackendMeta = { displayName: "Pi", accentHex: "#333655", iconHint: "pi" };
 
 export const PI_TRAITS: BackendTraits = {
 	streamText: true,

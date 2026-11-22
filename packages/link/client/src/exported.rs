@@ -1,7 +1,7 @@
 //! UniFFI exports an object only when it is `Send + Sync`, and an async method only when its future
 //! is `Send`: this module does not compile when one of them is not.
 
-use broski_contract::{BackendId, ClientMessage, SessionRef, WorkspaceInfoRequest};
+use broski_contract::{ClientMessage, SessionRef, WorkspaceInfoRequest};
 
 use crate::{Inbox, Machine, Phone, SessionList, SessionView, TerminalView};
 
@@ -34,10 +34,10 @@ fn every_future_is_send(
     sent(machine.next_event());
     sent(machine.request(info));
     sent(machine.backends());
-    sent(machine.backend_status(BackendId::Pi));
-    sent(machine.models(BackendId::Pi, None, false));
-    sent(machine.commands(BackendId::Pi, None, Some(session)));
-    sent(machine.modes(BackendId::Pi, None));
+    sent(machine.backend_status("pi".to_owned()));
+    sent(machine.models("pi".to_owned(), None, false));
+    sent(machine.commands("pi".to_owned(), None, Some(session)));
+    sent(machine.modes("pi".to_owned(), None));
     sent(view.next_update());
     sent(terminal.next_update());
     sent(terminal.input(Vec::new()));
@@ -52,7 +52,7 @@ fn every_future_is_send(
 
 fn session_ref() -> SessionRef {
     SessionRef {
-        backend: BackendId::Pi,
+        backend: "pi".to_owned(),
         session_id: String::new(),
     }
 }

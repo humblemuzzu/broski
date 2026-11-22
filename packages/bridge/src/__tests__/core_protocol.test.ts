@@ -117,11 +117,19 @@ describe("the core's protocol: handshake and validation", () => {
 });
 
 describe("the core's protocol: backend-wide requests", () => {
-	test("backends.list gives each registered backend with its derived capabilities", async () => {
+	test("backends.list gives each registered backend with its meta and derived capabilities", async () => {
 		const rig = await startCoreRig({ fake: { methods: NO_METHODS } });
 		const client = await rig.client("a");
 		const answer = await client.ok("backends.list", {});
-		expect(answer.backends).toEqual([{ id: "pi", capabilities: backendCapabilities(rig.fake) }]);
+		expect(answer.backends).toEqual([
+			{
+				id: "pi",
+				displayName: "Fake",
+				accentHex: "#6E56CF",
+				iconHint: "generic",
+				capabilities: backendCapabilities(rig.fake),
+			},
+		]);
 		expect(answer.backends[0]?.capabilities).toMatchObject({
 			fork: false,
 			rename: false,

@@ -8,6 +8,7 @@ export type PlanReading =
 /** One plan's service. `read` answers undefined when the plan has no sign-in on this machine. */
 export interface PlanSource {
 	readonly plan: PlanId;
+	readonly displayName: string;
 	read(): Promise<PlanReading | undefined>;
 }
 

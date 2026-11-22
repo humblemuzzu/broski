@@ -3,7 +3,9 @@
  * `fork`, `rename` and `delete` follow from the methods `backend.ts` implements.
  */
 
-import type { BackendTraits } from "../../contract";
+import type { BackendMeta, BackendTraits } from "../../contract";
+
+export const CLAUDE_CODE_META: BackendMeta = { displayName: "Claude Code", accentHex: "#D97757", iconHint: "claude" };
 
 export const CLAUDE_CODE_TRAITS: BackendTraits = {
 	streamText: true,

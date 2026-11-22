@@ -265,7 +265,7 @@ export const PROTOCOL_MUTANTS: Mutant[] = [
 		},
 		{
 			name: "catalog: a deleted session's stream goes on",
-			find: 'if (event.type === "session_removed") this.hub.remove(event.session);',
+			find: "\t\t\tthis.hub.remove(enriched.session);\n",
 			replace: "",
 		},
 		{

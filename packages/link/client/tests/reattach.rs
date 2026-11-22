@@ -101,7 +101,7 @@ async fn an_attach_refused_for_good_ends_the_view_refused() {
     let phone = phone();
     let machine = paired(&phone, &mac).await;
     let gone = broski_contract::SessionRef {
-        backend: broski_contract::BackendId::Pi,
+        backend: "pi".to_owned(),
         session_id: "never-was".to_owned(),
     };
     let view = std::sync::Arc::clone(&machine)

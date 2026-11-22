@@ -1,4 +1,4 @@
-import { namedSchemas } from "../../src/contract";
+import { ACCENT_HEX_PATTERN, namedSchemas } from "../../src/contract";
 import type { JsonValue } from "../../src/contract/json";
 import { type ContractSchemaDocument, refName, type Schema } from "./json-schema";
 
@@ -8,6 +8,8 @@ const SAMPLE_UUID = "00000000-0000-4000-8000-000000000000";
 const SAMPLE_BASE64 = "eA==";
 const SAMPLE_URL = "https://example.com/x";
 const SAMPLE_JSON: JsonValue = { text: "x", list: [1, 2.5, true, null], nested: { ok: false } };
+/** A sample of each pattern that `x` does not match, by the pattern's source. */
+const PATTERN_SAMPLES = new Map([[ACCENT_HEX_PATTERN.source, "#D97757"]]);
 
 /**
  * Samples of every named type, keyed by type name: both shapes of every object, every member of
@@ -96,7 +98,8 @@ class Sampler {
 		if (schema.format === "uuid") return SAMPLE_UUID;
 		if (schema.format === "base64") return SAMPLE_BASE64;
 		if (schema.format === "uri") return SAMPLE_URL;
-		const text = "x".repeat(Math.max(schema.minLength ?? 0, 1));
+		const patterned = schema.pattern === undefined ? undefined : PATTERN_SAMPLES.get(schema.pattern);
+		const text = patterned ?? "x".repeat(Math.max(schema.minLength ?? 0, 1));
 		if (schema.pattern !== undefined && !new RegExp(schema.pattern).test(text))
 			throw new Error(`cannot sample the pattern ${schema.pattern}`);
 		return text;

@@ -246,6 +246,7 @@ function settingsCase(): ReducerCase {
 			{ type: "queue_changed", items: [{ id: "q1", delivery: "queue", preview: "later", clientRequestId: UUID }] },
 			{ type: "queue_changed", items: [] },
 			{ type: "usage_updated", usage: { inputTokens: 5, costUsd: 0.25, contextWindow: 1000 } },
+			{ type: "usage_updated", usage: { inputTokens: 6, cache: { lastTouchAt: 400, confidence: "estimated" } } },
 			{ type: "usage_updated", usage: {} },
 			{ type: "retry_scheduled", attempt: 2, maxAttempts: 3, retryAt: 500, message: "busy" },
 			{ type: "retry_finished", succeeded: false },

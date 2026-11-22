@@ -6,7 +6,7 @@ import { EventEnvelope } from "./events";
 import { AttachmentId, BackendId, ModelId, QueueItemId, SessionRef } from "./ids";
 import { ActionResult, PromptInput, PromptResult } from "./input";
 import { InteractionAnswer } from "./interaction-replies";
-import { MAX_ID_CHARS, MAX_NAME_CHARS, MAX_TEXT_CHARS } from "./limits";
+import { MAX_BACKENDS, MAX_ID_CHARS, MAX_NAME_CHARS, MAX_TEXT_CHARS } from "./limits";
 import { ModeAxisId } from "./modes";
 import { PageRequest } from "./paging";
 import { PlanUsageResult } from "./plan-usage";
@@ -84,7 +84,32 @@ export const ClientInfo = z.strictObject({
 });
 export type ClientInfo = z.infer<typeof ClientInfo>;
 
-export const BackendDescriptor = z.strictObject({ id: BackendId, capabilities: Capabilities });
+/** The art a phone may draw for a backend; one it has none for gets a monogram of the backend's name. */
+export const BackendIconHint = z.enum([
+	"claude",
+	"pi",
+	"codex",
+	"gemini",
+	"cursor",
+	"grok",
+	"opencode",
+	"antigravity",
+	"acp",
+	"generic",
+]);
+export type BackendIconHint = z.infer<typeof BackendIconHint>;
+
+export const ACCENT_HEX_PATTERN = /^#[0-9a-fA-F]{6}$/;
+
+/** How the phone presents a backend: its name, and optionally a `#RRGGBB` brand accent and its art. */
+export const BackendMeta = z.strictObject({
+	displayName: z.string().min(1).max(MAX_NAME_CHARS),
+	accentHex: z.string().length(7).regex(ACCENT_HEX_PATTERN).optional(),
+	iconHint: BackendIconHint.optional(),
+});
+export type BackendMeta = z.infer<typeof BackendMeta>;
+
+export const BackendDescriptor = z.strictObject({ id: BackendId, ...BackendMeta.shape, capabilities: Capabilities });
 export type BackendDescriptor = z.infer<typeof BackendDescriptor>;
 
 /** Changes whenever the bridge starts a session's event stream afresh. */
@@ -243,7 +268,7 @@ export const HelloResponse = response("hello", {
 	bridgeVersion: z.string().min(1).max(MAX_NAME_CHARS),
 });
 export const BackendsListResponse = response("backends.list", {
-	backends: z.array(BackendDescriptor).max(BackendId.options.length),
+	backends: z.array(BackendDescriptor).max(MAX_BACKENDS),
 });
 export const BackendStatusResponse = response("backend.status", { status: BackendStatus });
 export const ModelsListResponse = response("models.list", { result: ModelsListResult });

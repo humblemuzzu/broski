@@ -6,6 +6,7 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 
 pub const CONSTANTS: &[(&str, usize)] = &[
+    ("MAX_BACKENDS", MAX_BACKENDS),
     ("MAX_CATALOG_ITEMS", MAX_CATALOG_ITEMS),
     ("MAX_CLIENT_MESSAGE_VALUES", MAX_CLIENT_MESSAGE_VALUES),
     ("MAX_DIFF_LINES", MAX_DIFF_LINES),
@@ -18,6 +19,7 @@ pub const CONSTANTS: &[(&str, usize)] = &[
     ("MAX_NAME_CHARS", MAX_NAME_CHARS),
     ("MAX_PAGE_LIMIT", MAX_PAGE_LIMIT),
     ("MAX_PATH_CHARS", MAX_PATH_CHARS),
+    ("MAX_PLAN_METERS", MAX_PLAN_METERS),
     ("MAX_SEARCH_QUERY_CHARS", MAX_SEARCH_QUERY_CHARS),
     ("MAX_TERMINALS", MAX_TERMINALS),
     ("MAX_TERMINAL_DIMENSION", MAX_TERMINAL_DIMENSION),
@@ -62,7 +64,9 @@ pub fn visit_types(visitor: &mut impl TypeVisitor) {
     visitor.plain::<AuthState>("AuthState");
     visitor.plain::<BackendDescriptor>("BackendDescriptor");
     visitor.plain::<BackendExtension>("BackendExtension");
+    visitor.plain::<BackendIconHint>("BackendIconHint");
     visitor.plain::<BackendId>("BackendId");
+    visitor.plain::<BackendMeta>("BackendMeta");
     visitor.plain::<BackendStatus>("BackendStatus");
     visitor.tagged::<BackendStatusRequest>("BackendStatusRequest");
     visitor.tagged::<BackendStatusResponse>("BackendStatusResponse");
@@ -79,6 +83,8 @@ pub fn visit_types(visitor: &mut impl TypeVisitor) {
     visitor.tagged::<BlockStartedEvent>("BlockStartedEvent");
     visitor.tagged::<BooleanField>("BooleanField");
     visitor.tagged::<BooleanValue>("BooleanValue");
+    visitor.plain::<CacheConfidence>("CacheConfidence");
+    visitor.plain::<CacheWindow>("CacheWindow");
     visitor.tagged::<CancelReply>("CancelReply");
     visitor.plain::<Capabilities>("Capabilities");
     visitor.plain::<CatalogEvent>("CatalogEvent");

@@ -1,7 +1,7 @@
 //! Which sessions the inbox keeps viewed, on a machine whose rows are fed in by hand.
 
 use broski_contract::{
-    BackendId, SessionOrigin, SessionPage, SessionQuery, SessionRef, SessionStatus, SessionSummary,
+    SessionOrigin, SessionPage, SessionQuery, SessionRef, SessionStatus, SessionSummary,
     MAX_PAGE_LIMIT,
 };
 
@@ -13,7 +13,7 @@ use crate::view::ViewEnd;
 fn row(index: i64, status: SessionStatus) -> SessionSummary {
     SessionSummary {
         session: SessionRef {
-            backend: BackendId::Pi,
+            backend: "pi".to_owned(),
             session_id: format!("s{index}"),
         },
         title: None,
@@ -37,8 +37,8 @@ fn load(state: &mut State, rows: Vec<SessionSummary>) {
         parent: None,
     };
     let limit = MAX_PAGE_LIMIT as i64;
-    let id = (state.catalog.lists).create_bounded(BackendId::Pi, query, limit, MAX_PAGE_LIMIT);
-    state.catalog.inbox.push((BackendId::Pi, id));
+    let id = (state.catalog.lists).create_bounded("pi".to_owned(), query, limit, MAX_PAGE_LIMIT);
+    state.catalog.inbox.push(("pi".to_owned(), id));
     let list = state.catalog.lists.get_mut(id).expect("the list");
     let (ask, _) = list.ask(false).expect("a first page");
     list.page(

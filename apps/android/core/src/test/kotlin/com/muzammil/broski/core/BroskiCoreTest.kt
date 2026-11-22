@@ -11,7 +11,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import uniffi.broski_contract.BackendId
 import uniffi.broski_contract.ClientInfo
 import uniffi.broski_contract.ClientMessage
 import uniffi.broski_contract.HelloRequest
@@ -55,7 +54,7 @@ class BroskiCoreTest {
         clientName = "BroskiCore tests",
         clientVersion = "0.0.0",
     )
-    private val session = SessionRef(backend = BackendId.PI, sessionId = "s-1")
+    private val session = SessionRef(backend = "pi", sessionId = "s-1")
 
     private fun fixture(name: String) = File(fixtures, name).readBytes()
 
@@ -173,7 +172,7 @@ class BroskiCoreTest {
             markers = listOf(
                 SeenMarker(
                     machineId = machineId,
-                    session = SessionRef(backend = BackendId.CLAUDE_CODE, sessionId = "s-9"),
+                    session = SessionRef(backend = "claude-code", sessionId = "s-9"),
                     seenAt = 1_725_000_000_000,
                 ),
             ),

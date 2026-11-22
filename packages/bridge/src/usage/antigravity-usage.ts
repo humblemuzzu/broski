@@ -24,6 +24,7 @@ export function antigravitySource(system: UsageSystem): PlanSource {
 	let account: Account | undefined;
 	return {
 		plan: "antigravity",
+		displayName: "Antigravity",
 		async read(): Promise<PlanReading | undefined> {
 			const access = await login.accessToken();
 			if (access === undefined) return undefined;
