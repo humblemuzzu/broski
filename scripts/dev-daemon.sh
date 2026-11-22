@@ -15,9 +15,14 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 LINK_DIR="$ROOT/packages/link"
-TARGET_DIR="${CARGO_TARGET_DIR:-$LINK_DIR/target}"
-DAEMON_BIN="$TARGET_DIR/release/broski-link"
-RELAY_BIN="$TARGET_DIR/release/broski-relay"
+# Cargo runs in $LINK_DIR, so a relative CARGO_TARGET_DIR is relative to it.
+case "${CARGO_TARGET_DIR:-}" in
+  "") LINK_TARGET="$LINK_DIR/target" ;;
+  /*) LINK_TARGET="$CARGO_TARGET_DIR" ;;
+  *) LINK_TARGET="$LINK_DIR/$CARGO_TARGET_DIR" ;;
+esac
+DAEMON_BIN="$LINK_TARGET/release/broski-link"
+RELAY_BIN="$LINK_TARGET/release/broski-relay"
 BRIDGE_ENTRY="$ROOT/packages/bridge/bin/broski.ts"
 SESSION="broski-daemon"
 RELAY_SESSION="broski-relay"

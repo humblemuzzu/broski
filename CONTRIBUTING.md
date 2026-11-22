@@ -17,9 +17,10 @@ Development happens on macOS (the only host Broski supports today).
 Nothing sets `ANDROID_HOME` or `JAVA_HOME` for you; export them per command, for example
 `export ANDROID_HOME="$HOME/Library/Android/sdk" JAVA_HOME="$(/usr/libexec/java_home -v 17)"`.
 
-Rust builds go to `packages/link/target`, or to `$CARGO_TARGET_DIR` when it is set; the scripts in `scripts/` follow
-it. `broski install` looks for `broski-link` beside the `broski` binary, in `~/.broski/bin` and under
-`packages/link/target/release`, not in `$CARGO_TARGET_DIR`: pass `--link-bin <path>` then.
+Rust builds go to `packages/link/target`, or to `$CARGO_TARGET_DIR` when it is set (a relative one is relative to
+`packages/link`); the scripts in `scripts/` follow it, and `scripts/clean-workspace.sh --deep` never prunes one
+outside the repository. `broski install` looks for `broski-link` beside the `broski` binary, in `~/.broski/bin` and
+under `packages/link/target/release`, not in `$CARGO_TARGET_DIR`: pass `--link-bin <path>` then.
 
 Install the pre-commit hook (biome and typecheck for bridge files, `cargo fmt --check` for link files, the agent-text
 check for app files):

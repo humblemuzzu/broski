@@ -1,10 +1,11 @@
 """The page an iPhone installs Broski from, served on loopback for `tailscale serve` to publish on the tailnet.
 
-Usage: phone-install-server.py <dir> <token> <port> <tailnet-ip>
+Usage: phone-install-server.py <dir> <token> <port> <tailnet-ip> <broski-link> <bundle-id>
 
 Everything is under /<token>/: the page with the itms-services link, manifest.plist, Broski.ipa and icon.png from
 <dir> (read per request, so a new build needs no restart), and pair, a page with a fresh `broski-link pair` link whose
-LAN address is this Mac's tailnet address, so a phone off the LAN pairs through Tailscale.
+LAN address is this Mac's tailnet address, so a phone off the LAN pairs through Tailscale. <broski-link> is the binary
+that runs `broski-link pair`, empty when there is none; <bundle-id> is the app's, for the manifest.
 """
 
 import html
@@ -15,7 +16,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 ROOT, TOKEN, PORT, TAILNET_IP = Path(sys.argv[1]), sys.argv[2], int(sys.argv[3]), sys.argv[4]
-BROSKI_LINK = str(Path.home() / ".local/bin/broski-link")
+BROSKI_LINK, BUNDLE_ID = sys.argv[5], sys.argv[6]
 FILES = {"Broski.ipa": "application/octet-stream", "icon.png": "image/png"}
 
 STYLE = """body{font:18px -apple-system,sans-serif;text-align:center;padding:48px 24px;background:#f5f5f7;color:#1d1d1f}
@@ -37,7 +38,7 @@ MANIFEST = """<?xml version="1.0" encoding="UTF-8"?>
 <dict><key>kind</key><string>software-package</string><key>url</key><string>{base}/Broski.ipa</string></dict>
 <dict><key>kind</key><string>display-image</string><key>url</key><string>{base}/icon.png</string></dict>
 <dict><key>kind</key><string>full-size-image</string><key>url</key><string>{base}/icon.png</string></dict>
-</array><key>metadata</key><dict><key>bundle-identifier</key><string>com.muzammil.broski</string>
+</array><key>metadata</key><dict><key>bundle-identifier</key><string>{bundle}</string>
 <key>bundle-version</key><string>1.0</string><key>kind</key><string>software</string>
 <key>title</key><string>Broski</string></dict></dict></array></dict></plist>"""
 
@@ -82,8 +83,10 @@ class Handler(BaseHTTPRequestHandler):
             built = html.escape((ROOT / "built.txt").read_text().strip()) if (ROOT / "built.txt").exists() else ""
             return self.send(200, "text/html", INSTALL.format(style=STYLE, built=built, link=html.escape(link)).encode())
         if name == "manifest.plist":
-            return self.send(200, "text/xml", MANIFEST.format(base=base).encode())
+            return self.send(200, "text/xml", MANIFEST.format(base=base, bundle=html.escape(BUNDLE_ID)).encode())
         if name == "pair":
+            if not BROSKI_LINK:
+                return self.send(503, "text/plain", b"no broski-link binary on this Mac")
             link = pairing_link()
             if link is None:
                 return self.send(503, "text/plain", b"broski-link pair printed no link")

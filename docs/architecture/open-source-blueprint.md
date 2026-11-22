@@ -352,7 +352,7 @@ Once Wave 1 is merged to `main`, **three isolated worktrees run in parallel** wi
 
 #### Workstream 3B — Open-Source Hygiene, Docs & Full Proof (`wt-3b-oss-polish`)
 1. **Personal Reference & Signing Audit:**
-   - Remove hardcoded personal Tailscale hostname (`my-mac.example.ts.net`) from `AGENTS.md` / scripts (read from env var `BROSKI_OTA_HOST` instead).
+   - Remove the hardcoded personal tailnet hostname from `AGENTS.md` / scripts (read from env var `BROSKI_OTA_HOST` instead).
    - Ensure iOS `project.yml` signing team / bundle IDs override cleanly via local `Local.xcconfig` (gitignored) with a clear `Local.xcconfig.example`.
    - Verify `.env.local` and personal keys are never required to build or run tests.
    - Add a crisp single-command self-hosting guide (and Dockerfile if absent) for `packages/link/relay/`.

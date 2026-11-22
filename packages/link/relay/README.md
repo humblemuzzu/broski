@@ -22,11 +22,12 @@ From source, in `packages/link`:
 
 ```bash
 cargo build --release --locked -p broski-relay
+sudo install -d -o "$USER" -m 700 /var/lib/broski
 target/release/broski-relay --listen 0.0.0.0:8765 --db /var/lib/broski/relay.db
 ```
 
-`target/` is `$CARGO_TARGET_DIR` when that is set. The database file is created when missing. `RUST_LOG` sets the log
-level (`info` by default); logs carry ids cut to 8 characters, never tokens, payloads or keys.
+`target/` is `$CARGO_TARGET_DIR` when that is set. The database file is created when missing; its directory is not.
+`RUST_LOG` sets the log level (`info` by default); logs carry ids cut to 8 characters, never tokens, payloads or keys.
 
 With Docker, from `packages/link` (the build context is the whole Cargo workspace):
 
@@ -46,12 +47,12 @@ Check it: `curl http://127.0.0.1:8765/healthz` answers `ok`.
 | Flag | Meaning |
 |---|---|
 | `--listen <addr:port>` | Address to listen on (required) |
-| `--db <path>` | SQLite database, created when missing (required) |
+| `--db <path>` | SQLite database, created when missing in a directory that exists (required) |
 | `--tls-cert <pem>` `--tls-key <pem>` | Serve TLS itself; both or neither |
 | `--apns-key <p8>` `--apns-key-id <kid>` `--apns-team-id <team>` `--apns-topic <bundle id>` | Push to iOS through APNs; all four together |
 | `--apns-sandbox` | Use the APNs sandbox host (development builds of the app) |
 | `--fcm-service-account <json>` | Push to Android through FCM |
-| `--push-upstream <url>` | With no provider keys, forward every push to another relay's `/v1/push` |
+| `--push-upstream <url>` | Forward pushes for any platform this relay has no provider keys for to another relay's `/v1/push` |
 
 `broski-relay --help` prints the same list.
 
@@ -121,8 +122,8 @@ relay's offline alert all need it.
 - **iOS**: an APNs key (`.p8`) of the Apple team the app is signed with, and the app's bundle id as `--apns-topic`.
 - **Android**: the Firebase project's service account JSON, for the Firebase project built into the app
   ([`apps/android/README.md`](../../../apps/android/README.md#push-firebase)).
-- **Upstream**: a relay with no keys and `--push-upstream https://<other relay>/v1/push` hands each push to a relay that
-  has them.
+- **Upstream**: with `--push-upstream https://<other relay>/v1/push`, every push for a platform this relay has no keys
+  for (APNs or FCM) goes to that relay, which must have them.
 
 A relay with provider keys serves `POST /v1/push` to anyone, unauthenticated and rate limited, so anyone who knows a
 device's push token can send that device a push through it. Only point `--push-upstream` at relays you control.
