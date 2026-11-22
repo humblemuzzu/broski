@@ -101,6 +101,10 @@ export class McpSessionRegistry {
 		return found.grant;
 	}
 
+	revokeAll(): void {
+		this.entries.clear();
+	}
+
 	get size(): number {
 		return this.entries.size;
 	}

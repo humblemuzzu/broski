@@ -4,6 +4,7 @@
  */
 
 import type { BackendFactory, SessionRef } from "../contract";
+import type { BroskiMcpIssuer } from "./bridge-mcp";
 import { createTerminalHookReceiver, type TerminalHookReceiver } from "./cc-terminal-hook";
 import type { ClaudeCliPath } from "./claude-cli-path";
 import { claudeCodeBackend } from "./claude-code-backend";
@@ -28,6 +29,8 @@ export interface ClaudeCodeWiringDeps {
 	readonly version: string;
 	readonly log: (message: string) => void;
 	readonly appendSystemPrompt?: string;
+	/** The bridge's MCP server, for `broski_notify`; none when `bridgeTools.notify` is off. */
+	readonly mcp?: BroskiMcpIssuer;
 }
 
 const NOT_YET = {
@@ -51,6 +54,8 @@ export function createClaudeCodeWiring(deps: ClaudeCodeWiringDeps): ClaudeCodeWi
 			cli: deps.cli,
 			version: deps.version,
 			hookAsks: receiver?.setHandler,
+			log: deps.log,
+			...(deps.mcp !== undefined && { mcp: deps.mcp }),
 			...(deps.appendSystemPrompt !== undefined && { appendSystemPrompt: deps.appendSystemPrompt }),
 		}),
 		receiver,

@@ -17,7 +17,8 @@ export function serveLoopback(options: LoopbackListenerOptions): Server<unknown>
 	return Bun.serve({
 		hostname: "127.0.0.1",
 		port: options.port,
-		// A permission hook's request stays open while a person decides on the phone; Bun's default resets it at 10 s.
+		// A permission hook's request and an MCP tool's event stream stay open while a person decides on the phone; Bun's
+		// default closes a connection idle for 10 s.
 		idleTimeout: 0,
 		...(options.tls && { tls: { key: Bun.file(options.tls.keyPath), cert: Bun.file(options.tls.certPath) } }),
 		fetch: options.fetch,

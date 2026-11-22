@@ -21,10 +21,19 @@ export interface SampledUsage extends UsageReader {
 	sample(): () => void;
 }
 
-/** The plans signed in on this machine, with their history in `<broskiDir>/usage/history.json`. */
-export function machineUsage(system: UsageSystem, broskiDir: string, log: (message: string) => void): SampledUsage {
+/**
+ * The plans signed in on this machine, Claude and Antigravity and any `extraSources` beside them, with their history in
+ * `<broskiDir>/usage/history.json`. An extra source whose plan id is taken already is left out.
+ */
+export function machineUsage(
+	system: UsageSystem,
+	broskiDir: string,
+	log: (message: string) => void,
+	extraSources: readonly PlanSource[] = [],
+): SampledUsage {
 	const history = new UsageHistory(fileHistoryStore(join(broskiDir, "usage", "history.json"), log));
-	const reader = usageReader([claudeSource(system), antigravitySource(system)], () => system.now(), history);
+	const sources = distinctPlans([claudeSource(system), antigravitySource(system), ...extraSources], log);
+	const reader = usageReader(sources, () => system.now(), history);
 	return {
 		read: () => reader.read(),
 		sample() {
@@ -85,6 +94,18 @@ export function usageReader(
 			return latest.result;
 		},
 	};
+}
+
+function distinctPlans(sources: readonly PlanSource[], log: (message: string) => void): PlanSource[] {
+	const plans = new Set<PlanId>();
+	return sources.filter((source) => {
+		if (plans.has(source.plan)) {
+			log(`[usage] a second ${source.plan} plan source is left out`);
+			return false;
+		}
+		plans.add(source.plan);
+		return true;
+	});
 }
 
 async function settle(source: PlanSource): Promise<PlanReading | undefined> {

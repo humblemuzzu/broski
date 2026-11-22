@@ -10,6 +10,7 @@ import { installProcessHandlers } from "./serve/process-handlers";
 import { shutdown } from "./serve/shutdown";
 import { serveState } from "./serve/state";
 import { createBridgeServer, loadOrCreateAuthState } from "./server";
+import { type BridgeMcp, createBridgeMcp } from "./server/bridge-mcp";
 import { defaultClaudeCliEnvironment, resolveClaudeCliPath } from "./server/claude-cli-path";
 import { type ClaudeCodeWiring, createClaudeCodeWiring } from "./server/claude-code-wiring";
 import { contractOptions } from "./server/contract-backends";
@@ -51,7 +52,7 @@ async function bindBridgeServer(
 	effectivePort: number,
 	logger: ReturnType<typeof createBridgeLogger>,
 	daemonLog: (message: string) => void,
-	claudeCode: ClaudeCodeWiring,
+	wiring: { readonly claudeCode: ClaudeCodeWiring; readonly mcp: BridgeMcp; readonly config: BroskiConfig },
 ): Promise<void> {
 	const auth = await loadOrCreateAuthState(cli.newToken);
 	if (cli.newToken) {
@@ -70,8 +71,9 @@ async function bindBridgeServer(
 					linkSocket: cli.linkSocket,
 					linkKeyFile: cli.linkKeyFile,
 					bridgeLogger: logger,
-					contract: contractOptions(claudeCode),
-					claudeCode,
+					contract: contractOptions({ ...wiring, log: logger.info }),
+					claudeCode: wiring.claudeCode,
+					mcp: wiring.mcp,
 				}),
 			{
 				mode: cli.daemon ? "daemon" : "once",
@@ -138,17 +140,19 @@ export async function runServe(cli: CliOptions, config: BroskiConfig): Promise<v
 		{ daemon: cli.daemon, linkSocket: cli.linkSocket },
 	);
 
+	const mcp = createBridgeMcp({ version, notify: config.bridgeTools.notify });
 	const claudeCode = createClaudeCodeWiring({
 		settings: config.claudeCode,
 		cli: () => resolveClaudeCliPath(defaultClaudeCliEnvironment(config.claudeCode.cliPath)),
 		version,
 		log: bridgeLogger.info,
 		appendSystemPrompt: phoneWriting(config.phoneWriting),
+		...(config.bridgeTools.notify && { mcp: mcp.issuer("claude-code") }),
 	});
 
 	daemonLog("[daemon] Loading auth token...");
 	daemonLog("[daemon] Creating bridge server...");
-	await bindBridgeServer(cli, effectivePort, bridgeLogger, daemonLog, claudeCode);
+	await bindBridgeServer(cli, effectivePort, bridgeLogger, daemonLog, { claudeCode, mcp, config });
 	const bridgeServer = serveState.bridgeServer;
 	if (!bridgeServer) return;
 	const bridgePort = bridgeServer.port();

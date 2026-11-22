@@ -9,6 +9,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AgentBackend, BackendFactory } from "../../contract";
 import { createFakeBackend, type FakeBackend, type FakeBackendOptions } from "../../contract/testing/fake-backend";
+import type { BridgeServerOptions } from "../../server";
 import { type BridgeHandle, E2E_WAIT_MS, startBridge } from "../e2e/harness";
 import { type OpenRecord, recordingOpens } from "./core-adapters";
 import { ManualClock } from "./core-rig";
@@ -37,6 +38,8 @@ export interface CoreBridgeOptions {
 	readonly adapt?: (backend: AgentBackend) => AgentBackend;
 	/** Starts the fake from another's state, as a restarted bridge does. */
 	readonly from?: { root: string; restart: (host: Parameters<BackendFactory>[0]) => Promise<FakeBackend> };
+	/** More of the server, such as the bridge's MCP server. */
+	readonly server?: Pick<BridgeServerOptions, "mcp">;
 }
 
 export async function startCoreBridge(options: CoreBridgeOptions = {}): Promise<CoreBridge> {
@@ -65,6 +68,7 @@ export async function startCoreBridge(options: CoreBridgeOptions = {}): Promise<
 	const bridge = await startBridge({
 		linkSocket: socketPath,
 		contract: { backends: [[options.fake?.id ?? "pi", factory]], clock, journalDirectory },
+		...options.server,
 	});
 	const unstarted = setTimeout(() => started.reject(new Error("the fake backend did not start")), E2E_WAIT_MS);
 	const fake = await started.promise.finally(() => clearTimeout(unstarted));

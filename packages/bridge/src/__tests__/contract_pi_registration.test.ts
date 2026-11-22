@@ -4,7 +4,9 @@
 
 import { afterEach, describe, expect, test } from "bun:test";
 import { join } from "node:path";
+import { getDefaultConfig } from "../config";
 import { BackendStatus } from "../contract";
+import { createBridgeMcp } from "../server/bridge-mcp";
 import { createClaudeCodeWiring } from "../server/claude-code-wiring";
 import { contractOptions } from "../server/contract-backends";
 import { E2E_TEST_TIMEOUT_MS, startBridge } from "./e2e/harness";
@@ -25,9 +27,17 @@ const wiring = createClaudeCodeWiring({
 	log: () => undefined,
 });
 
+const options = () =>
+	contractOptions({
+		claudeCode: wiring,
+		config: getDefaultConfig(),
+		mcp: createBridgeMcp({ version: "0.0.0-test", notify: true }),
+		log: () => undefined,
+	});
+
 describe("which backends the core serves", () => {
 	test("pi and Claude Code", () => {
-		expect((contractOptions(wiring).backends ?? []).map(([id]) => id)).toEqual(["pi", "claude-code"]);
+		expect((options().backends ?? []).map(([id]) => id)).toEqual(["pi", "claude-code"]);
 	});
 });
 
@@ -41,7 +51,7 @@ describe("a bridge", () => {
 				linkSocket: socketPath,
 				contract: {
 					// Claude Code's production factory reads the real home; only Pi runs here, in its throwaway agent dir.
-					backends: (contractOptions(wiring).backends ?? []).filter(([id]) => id === "pi"),
+					backends: (options().backends ?? []).filter(([id]) => id === "pi"),
 					journalDirectory: join(env.root, "journals"),
 				},
 			});

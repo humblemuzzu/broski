@@ -2,7 +2,7 @@ import { validateAuthToken } from "../auth-token";
 import { createFetchHandler, type FetchHandlerDeps } from "../http-handler";
 import { buildProxyPortAllowlist } from "../http-utils";
 import { isLoopbackAddress } from "../security";
-import type { TerminalHookReceiver } from "./cc-terminal-hook";
+import type { HookIngress } from "./hook-ingress";
 import type { BridgeLimits } from "./limits";
 import type { LeveledLogger } from "./logger";
 import type { BridgeState } from "./state";
@@ -12,11 +12,13 @@ export type HttpWiringDeps = {
 	log: LeveledLogger;
 	limits: BridgeLimits;
 	version: string;
-	/** The Claude Code terminal hook's receiver (adapter README D29), served while `claudeCode.terminalAsks` is on. */
-	terminalHook?: TerminalHookReceiver;
+	/** `/hook/<backend>` and `/cc-terminal-hook` (`server/hook-ingress.ts`). */
+	hookIngress: HookIngress;
+	/** The bridge's MCP server at `/mcp`. */
+	handleMcp?: (request: Request) => Promise<Response>;
 };
 
-/** The loopback listener's fetch handler: auth, TLS enforcement, the dev-server proxy and the terminal hook. */
+/** The loopback listener's fetch handler: auth, TLS enforcement, the dev-server proxy, the hooks and `/mcp`. */
 export function createHttpFetch(deps: HttpWiringDeps): ReturnType<typeof createFetchHandler> {
 	const { state } = deps;
 	const allowedProxyPorts = buildProxyPortAllowlist();
@@ -26,7 +28,7 @@ export function createHttpFetch(deps: HttpWiringDeps): ReturnType<typeof createF
 			version: deps.version,
 			allowedProxyPorts,
 			logUser: deps.log.logUser,
-			...(deps.terminalHook && { handleCcTerminalHook: deps.terminalHook.handle }),
+			hookIngress: deps.hookIngress,
 		},
 		allowTokenInUrl: state.allowTokenInUrl,
 		validateAuthToken,
@@ -38,6 +40,7 @@ export function createHttpFetch(deps: HttpWiringDeps): ReturnType<typeof createF
 		allowedProxyPorts,
 		log: deps.log.logInfo,
 		logUser: deps.log.logUser,
+		...(deps.handleMcp && { handleMcp: deps.handleMcp }),
 	};
 	return createFetchHandler(fetchHandlerDeps);
 }

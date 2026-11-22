@@ -1,11 +1,14 @@
 import type { AuthTokenState } from "./auth-token";
+import type { BackendId } from "./contract";
 import { toErrorMessage } from "./http-utils";
 import type { TeardownResult } from "./lifecycle/teardown";
 import type { BridgeLogger } from "./logging/logger";
+import type { BridgeMcp } from "./server/bridge-mcp";
 import { setClaudeCodeTerminalHook } from "./server/claude-code-hooks";
 import type { ClaudeCodeWiring } from "./server/claude-code-wiring";
 import { createConnections } from "./server/connections";
 import { type ContractOptions, createContractSeam } from "./server/contract-seam";
+import { createHookIngress, type HookHandler } from "./server/hook-ingress";
 import { createHttpFetch } from "./server/http";
 import { createLimits } from "./server/limits";
 import { attachLinkDecisionPath } from "./server/link-feed/feed";
@@ -35,6 +38,8 @@ export type BridgeServerOptions = {
 	contract?: ContractOptions;
 	/** Claude Code's terminal hook and its receiver (`server/claude-code-wiring.ts`); absent in tests that need neither. */
 	claudeCode?: ClaudeCodeWiring;
+	/** The bridge's MCP server at `/mcp` (`server/bridge-mcp.ts`); its tokens name this listener once it is bound. */
+	mcp?: BridgeMcp;
 };
 
 export type BridgeServer = {
@@ -59,6 +64,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
 	const contract = createContractSeam(options.contract, options.version, state.sendQueue, limits, log);
 	options.claudeCode?.connect(contract);
+	options.mcp?.connect(contract);
 	attachLinkDecisionPath(contract.answer);
 	const connections = createConnections({ state, log, limits, contract });
 
@@ -79,7 +85,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 				log,
 				limits,
 				version: options.version,
-				terminalHook: options.claudeCode?.receiver,
+				hookIngress: createHookIngress(hookHandlers(options.claudeCode)),
+				...(options.mcp && { handleMcp: options.mcp.handle }),
 			}),
 			websocket: connections.websocketConfig,
 		});
@@ -88,6 +95,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		throw error;
 	}
 	state.securePort = state.secureServer.port ?? options.port;
+	options.mcp?.listen(state.securePort, state.tlsMaterial?.certPath);
 	state.sweepTimer = setInterval(() => sweepBoundedState(), SWEEP_INTERVAL_MS);
 	contract.start();
 	if (options.claudeCode) {
@@ -98,7 +106,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	}
 
 	return {
-		stop: createStop({ state, log, contract }),
+		stop: createStop({ state, log, contract, ...(options.mcp && { mcp: options.mcp }) }),
 		connections: () => state.sockets.size,
 		port: () => state.securePort,
 		authToken: () => state.authToken,
@@ -107,4 +115,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 			certSha256: state.tlsMaterial?.certSha256 ?? null,
 		}),
 	};
+}
+
+function hookHandlers(claudeCode: ClaudeCodeWiring | undefined): ReadonlyMap<BackendId, HookHandler> {
+	return new Map<BackendId, HookHandler>(claudeCode?.receiver ? [["claude-code", claudeCode.receiver.handle]] : []);
 }

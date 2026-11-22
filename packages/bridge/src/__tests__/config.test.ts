@@ -120,6 +120,21 @@ describe("Config Schema", () => {
 		const result = BroskiConfigSchema.safeParse(invalidConfig);
 		expect(result.success).toBe(false);
 	});
+
+	test("BroskiConfigSchema offers broski_notify and loads no adapter unless told to", () => {
+		const result = BroskiConfigSchema.parse({ version: 1 });
+		expect(result.bridgeTools).toEqual({ notify: true });
+		expect(result.adapters).toEqual([]);
+		const entry = BroskiConfigSchema.parse({ version: 1, adapters: [{ id: "example", module: "broski-adapter-x" }] });
+		expect(entry.adapters).toEqual([{ id: "example", module: "broski-adapter-x", enabled: true }]);
+	});
+
+	test("BroskiConfigSchema rejects an adapter whose id is no backend id, and more than 16 adapters", () => {
+		const adapter = (id: string) => ({ id, module: "/opt/adapter.ts" });
+		expect(BroskiConfigSchema.safeParse({ version: 1, adapters: [adapter("Not Valid")] }).success).toBe(false);
+		const many = Array.from({ length: 17 }, (_, index) => adapter(`agent-${index}`));
+		expect(BroskiConfigSchema.safeParse({ version: 1, adapters: many }).success).toBe(false);
+	});
 });
 
 describe("Default Config", () => {

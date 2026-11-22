@@ -4,6 +4,9 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { PlanUsageResult } from "../contract";
 import { AGY_SIGNED_OUT, decodeKeyring } from "../usage/antigravity-login";
 import { antigravitySource, antigravityWindows } from "../usage/antigravity-usage";
@@ -11,7 +14,7 @@ import { CLAUDE_EXPIRED, claudeSource, claudeWindows } from "../usage/claude-usa
 import type { PlanReading, PlanSource } from "../usage/plan-source";
 import type { UsageSystem } from "../usage/system";
 import { type HistoryStore, SPAN_MS, UsageHistory } from "../usage/usage-history";
-import { FRESH_FOR_MS, usageReader } from "../usage/usage-reader";
+import { FRESH_FOR_MS, machineUsage, usageReader } from "../usage/usage-reader";
 
 const NOW = Date.parse("2026-11-18T18:00:00Z");
 const HOUR = 3_600_000;
@@ -337,5 +340,34 @@ describe("the usage reader", () => {
 				},
 			],
 		});
+	});
+
+	test("a source given beside the built-in ones is sampled, kept for a minute and answered with them", async () => {
+		const broskiDir = mkdtempSync(join(tmpdir(), "broski-usage-"));
+		try {
+			const { system } = machine({
+				files: piAuth({ anthropic: { type: "oauth", access: "pi-token", refresh: "r", expires: NOW + HOUR } }),
+				answer: () => [200, CLAUDE_USAGE],
+			});
+			const window = { id: "weekly", span: "week", usedPercent: 30 } as const;
+			const codex = scripted("codex", "Codex", [{ windows: [window], tier: "Plus" }]);
+			const shadow = scripted("claude", "Not Claude", [{ windows: [] }]);
+			const logged: string[] = [];
+			const usage = machineUsage(system, broskiDir, (line) => void logged.push(line), [codex.source, shadow.source]);
+			const stop = usage.sample();
+			const result = await usage.read();
+			stop();
+			if (result.status !== "accepted") throw new Error("usage was not read");
+			expect(result.meters.map((meter) => [meter.plan, meter.displayName])).toEqual([
+				["claude", "Claude"],
+				["codex", "Codex"],
+			]);
+			expect(result.meters[1]).toMatchObject({ tier: "Plus", readAt: NOW, windows: [window] });
+			expect(codex.reads()).toBe(1);
+			expect(shadow.reads()).toBe(0);
+			expect(logged).toEqual(["[usage] a second claude plan source is left out"]);
+		} finally {
+			rmSync(broskiDir, { recursive: true, force: true });
+		}
 	});
 });

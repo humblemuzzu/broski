@@ -20,6 +20,9 @@ function sources(dir: string): string[] {
 const shipped = () =>
 	[...sources(join(BRIDGE, "src")), ...sources(join(BRIDGE, "bin"))].filter((path) => !path.includes("__tests__"));
 
+/** The one shipped file whose import names no module: it loads the adapters the user's config lists. */
+const USER_MODULE_LOADER = "src/server/plugin-loader.ts";
+
 /** Whether `specifier` reaches into a `scripts` directory: `../scripts/x`, `../../scripts`. */
 const intoScripts = (specifier: string) => /(^|\/)scripts(\/|$)/.test(specifier);
 
@@ -33,7 +36,9 @@ describe("the dev fake bridge", () => {
 	test("no file the bridge ships imports anything under scripts/", () => {
 		const reaching = shipped().flatMap((path) =>
 			importSites(readFileSync(path, "utf8"))
-				.filter((site) => site.specifier === undefined || intoScripts(site.specifier))
+				.filter((site) =>
+					site.specifier === undefined ? relative(BRIDGE, path) !== USER_MODULE_LOADER : intoScripts(site.specifier),
+				)
 				.map((site) => `${relative(BRIDGE, path)}:${site.line}`),
 		);
 		expect(reaching).toEqual([]);

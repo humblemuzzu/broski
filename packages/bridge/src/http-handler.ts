@@ -1,6 +1,6 @@
 /**
- * The loopback listener's HTTP routes (the dev-server reverse proxy, the status root, the Claude Code
- * terminal hook) and its fetch handler factory (auth, origin and TLS checks, WebSocket upgrades).
+ * The loopback listener's HTTP routes (the dev-server reverse proxy, the status root, the terminal hooks, the bridge's
+ * MCP server) and its fetch handler factory (auth, origin and TLS checks, WebSocket upgrades).
  */
 import type { ServerWebSocket } from "bun";
 import {
@@ -17,6 +17,8 @@ import {
 	toErrorMessage,
 	toPublicErrorMessage,
 } from "./http-utils";
+import { MCP_PATH } from "./mcp";
+import type { HookIngress } from "./server/hook-ingress";
 
 // ── handleHttpRequest Dependencies ─────────────────────────────────────
 
@@ -25,7 +27,7 @@ export interface HandleHttpDeps {
 	version: string;
 	allowedProxyPorts: Set<number>;
 	logUser: (msg: string) => void;
-	handleCcTerminalHook?: (request: Request) => Promise<Response>;
+	hookIngress?: HookIngress;
 }
 
 /** Handles one HTTP request that passed the fetch handler's checks. */
@@ -101,8 +103,7 @@ export async function handleHttpRequest(request: Request, deps: HandleHttpDeps):
 		return jsonResponse({ status: "ok", version: deps.version });
 	}
 
-	if (url.pathname === "/cc-terminal-hook" && deps.handleCcTerminalHook)
-		return await deps.handleCcTerminalHook(request);
+	if (deps.hookIngress?.owns(url.pathname)) return await deps.hookIngress.handle(request);
 
 	return new Response("Not found", { status: 404 });
 }
@@ -121,6 +122,30 @@ export interface FetchHandlerDeps {
 	allowedProxyPorts: Set<number>;
 	log: (msg: string) => void;
 	logUser: (msg: string) => void;
+	/** `/mcp`, which authenticates with its own per-session tokens rather than the bridge's. */
+	handleMcp?: (request: Request) => Promise<Response>;
+}
+
+/**
+ * What only this machine may reach: `/mcp`, answered here since it takes its own tokens and not the bridge's, and the
+ * hooks, refused here from elsewhere and answered once the bridge's token is checked. Undefined for every other path.
+ */
+async function loopbackOnlyRoute(
+	request: Request,
+	url: URL,
+	isLoopback: boolean,
+	deps: FetchHandlerDeps,
+): Promise<Response | undefined> {
+	const mcp = url.pathname === MCP_PATH ? deps.handleMcp : undefined;
+	if (mcp === undefined && !deps.httpDeps.hookIngress?.owns(url.pathname)) return undefined;
+	if (!isLoopback || !isAllowedBrowserRequest(request)) return new Response("Forbidden", { status: 403 });
+	if (mcp === undefined) return undefined;
+	try {
+		return await mcp(request);
+	} catch (error) {
+		deps.log(`[MCP] Error: ${toErrorMessage(error)}`);
+		return publicJson({ error: toPublicErrorMessage(error) }, 500);
+	}
 }
 
 /**
@@ -163,6 +188,11 @@ export function createFetchHandler(deps: FetchHandlerDeps) {
 
 		if (!deps.tlsEnabled && !isLoopback) {
 			return new Response("TLS required for non-local connections", { status: 403 });
+		}
+
+		if (!isWebSocketUpgrade) {
+			const routed = await loopbackOnlyRoute(request, url, isLoopback, deps);
+			if (routed) return routed;
 		}
 
 		// WebSocket proxy (loopback-only, no auth token).

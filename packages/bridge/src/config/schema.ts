@@ -1,5 +1,16 @@
 import { z } from "zod";
+import { BackendId } from "../contract/ids";
 import { DEFAULT_PORT, PORT_MAX, PORT_MIN } from "./port";
+
+/** A third-party adapter (`server/plugin-loader.ts`): `module` is a package name or an absolute path. */
+const AdapterEntry = z.object({
+	id: BackendId,
+	module: z.string().min(1).max(512),
+	enabled: z.boolean().default(true),
+	/** Handed to the plugin as `ctx.config`. */
+	config: z.record(z.string(), z.unknown()).optional(),
+});
+export type AdapterEntry = z.infer<typeof AdapterEntry>;
 
 // Zod v4: .default() requires the full output type — provide explicit defaults
 export const BroskiConfigSchema = z.object({
@@ -46,6 +57,9 @@ export const BroskiConfigSchema = z.object({
 		.default({}),
 	/** Tell every agent the bridge starts that its answers are read on a phone (`server/phone-writing.ts`). */
 	phoneWriting: z.boolean().default(true),
+	/** The bridge's own MCP tools offered to agents (`mcp/`): `notify` is `broski_notify`. */
+	bridgeTools: z.object({ notify: z.boolean().default(true) }).default({ notify: true }),
+	adapters: z.array(AdapterEntry).max(16).default([]),
 	daemon: z
 		.object({
 			installed: z.boolean().default(false),

@@ -5,6 +5,7 @@
  */
 
 import { z } from "zod";
+import { phoneName, phoneText } from "../adapter-kit/phone-text";
 import {
 	MAX_ID_CHARS,
 	MAX_LIST_ITEMS,
@@ -16,7 +17,6 @@ import {
 } from "../contract";
 import type { McpCapability } from "./session-tokens";
 import type { ExternalInteractionOutcome, McpBridgeSink } from "./sink";
-import { phoneLine, phoneText } from "./text";
 
 const MAX_TITLE_CHARS = 120;
 const MAX_QUESTIONS = 10;
@@ -101,13 +101,13 @@ type AskedQuestion = z.infer<typeof AskArguments>["questions"][number];
 
 function optionsOf(asked: AskedQuestion): QuestionOption[] {
 	return (asked.options ?? []).map((option) => ({
-		label: phoneLine(option.label),
+		label: phoneName(option.label),
 		...(option.description !== undefined && { description: phoneText(option.description) }),
 	}));
 }
 
 function questionOf(asked: AskedQuestion): Question | string {
-	const id = phoneLine(asked.id, MAX_ID_CHARS);
+	const id = phoneName(asked.id, MAX_ID_CHARS);
 	const text = phoneText(asked.text);
 	const options = optionsOf(asked);
 	const allowCustom = asked.allowCustom ?? true;
@@ -117,7 +117,7 @@ function questionOf(asked: AskedQuestion): Question | string {
 		return `question "${id}": option labels must be distinct`;
 	}
 	if (options.length === 0 && !allowCustom) return `question "${id}": give options or allow a custom answer`;
-	const header = asked.header === undefined ? "" : phoneLine(asked.header);
+	const header = asked.header === undefined ? "" : phoneName(asked.header);
 	return {
 		id,
 		...(header !== "" && { header }),
@@ -186,7 +186,7 @@ const askTool: McpTool = {
 	async call(args, { session, sink, signal }) {
 		const input = parsed(AskArguments, args);
 		if (!("args" in input)) return input;
-		const title = phoneLine(input.args.title, MAX_TITLE_CHARS);
+		const title = phoneName(input.args.title, MAX_TITLE_CHARS);
 		const questions = questionsOf(input.args.questions);
 		if (title === "") return failure("title: must be visible text");
 		if (typeof questions === "string") return failure(questions);
@@ -227,7 +227,7 @@ const planTool: McpTool = {
 	async call(args, { session, sink, signal }) {
 		const input = parsed(PlanArguments, args);
 		if (!("args" in input)) return input;
-		const title = phoneLine(input.args.title, MAX_TITLE_CHARS);
+		const title = phoneName(input.args.title, MAX_TITLE_CHARS);
 		if (title === "") return failure("title: must be visible text");
 		const spec = {
 			title,
@@ -256,7 +256,7 @@ const notifyTool: McpTool = {
 	async call(args, { session, sink }) {
 		const input = parsed(NotifyArguments, args);
 		if (!("args" in input)) return input;
-		const title = phoneLine(input.args.title, MAX_TITLE_CHARS);
+		const title = phoneName(input.args.title, MAX_TITLE_CHARS);
 		const body = phoneText(input.args.body ?? "").trim();
 		if (title === "") return failure("title: must be visible text");
 		const text = body === "" ? title : `${title}\n${body}`;

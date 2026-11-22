@@ -30,6 +30,11 @@
   ],
   "type": "module",
   "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./plugin": "./src/plugin.ts",
+    "./package.json": "./package.json"
+  },
   "bin": {
     "broski": "./bin/broski.ts",
     "broski-bridge": "./bin/broski.ts"
