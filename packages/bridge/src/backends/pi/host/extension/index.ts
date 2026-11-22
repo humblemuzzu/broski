@@ -1,11 +1,12 @@
-// broski-host-extension v2: written by the Broski bridge for the `pi` processes it starts (`pi --mode rpc -e <this file>`).
+// broski-host-extension v3: written by the Broski bridge for the `pi` processes it starts (`pi --mode rpc -e <this file>`).
 //
 // It never loads in a `pi` you start yourself. In the bridge's own `pi` it asks the phone before a tool runs when the
 // session's permissions mode says so, writes the session records the bridge hands it (`broski.*` custom entries),
 // passes on the background tasks other extensions announce (`broski:tasks` on Pi's event bus) and the questions they
-// ask (`broski:questions`), keeps the process on the one session the bridge opened it for, and tells the model how the
-// phone draws answers: at the end of the system prompt of a session the phone starts, and as a message in one it takes
-// over, so a session's system prompt never changes and its prompt cache stays warm.
+// ask (`broski:questions`), gives the model its own way to ask them (the `broski_ask` tool), keeps the process on the
+// one session the bridge opened it for, and tells the model how the phone draws answers: at the end of the system
+// prompt of a session the phone starts, and as a message in one it takes over, so a session's system prompt never
+// changes and its prompt cache stays warm.
 import { getCurrentSystemMessage, type JsonObject, validateToolArguments } from "@earendil-works/pi-ai";
 import type {
 	ExtensionAPI,
@@ -29,6 +30,39 @@ const PROMPT_NOTE_FLAG = "broski-prompt-note";
 const PROMPT_NOTE_SECTION = "broski_phone";
 /** The hidden message that carries the note into a session begun elsewhere. */
 const PROMPT_NOTE_MESSAGE = "broski.phone_note";
+
+/** The model's own questions tool. It asks nothing but the person, so it is never gated behind a permission ask. */
+const ASK_TOOL = "broski_ask";
+/** The bounds of `AskedQuestions` (`ui/questions-dialog.ts`) a model could break; past them the phone shows no card. */
+const ASK_PARAMETERS = {
+	type: "object",
+	properties: {
+		title: { type: "string" },
+		questions: {
+			type: "array",
+			minItems: 1,
+			maxItems: 20,
+			items: {
+				type: "object",
+				properties: {
+					question: { type: "string", minLength: 1 },
+					header: { type: "string" },
+					options: {
+						type: "array",
+						items: {
+							type: "object",
+							properties: { label: { type: "string", minLength: 1 }, description: { type: "string" } },
+							required: ["label"],
+						},
+					},
+					multiple: { type: "boolean" },
+				},
+				required: ["question"],
+			},
+		},
+	},
+	required: ["questions"],
+} as const;
 
 const UNANSWERED = "The permission request ended before it was answered.";
 const DENIED = "The user denied this tool call.";
@@ -95,6 +129,42 @@ function askOnPhone(ui: ExtensionContext["ui"], request: unknown): void {
 	);
 }
 
+/** The person's answers, in the questions' order, each with the question it answers. */
+function askResult(questions: unknown, reply: string | undefined): JsonObject {
+	const answers = reply === undefined ? undefined : parsed(reply);
+	if (!Array.isArray(answers) || !Array.isArray(questions)) {
+		return { status: "cancelled", message: "The user dismissed the questions." };
+	}
+	return {
+		status: "answered",
+		answers: answers.map((answer, index) => {
+			const question = field(questions[index], "question");
+			const selected = field(answer, "selected");
+			const custom = field(answer, "custom");
+			return {
+				question: typeof question === "string" ? question : "",
+				selected: Array.isArray(selected) ? selected.filter((label) => typeof label === "string") : [],
+				...(typeof custom === "string" && { custom }),
+			};
+		}),
+	};
+}
+
+function registerAsk(pi: ExtensionAPI): void {
+	pi.registerTool({
+		name: ASK_TOOL,
+		label: "Ask on the phone",
+		description: "Ask the user questions on their phone and wait for the answers. Not for permissions.",
+		parameters: ASK_PARAMETERS,
+		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
+			const text = `${QUESTIONS_PREFIX}${JSON.stringify(params)}`;
+			const reply = await ctx.ui.input(text, undefined, signal === undefined ? undefined : { signal });
+			const result = askResult(field(params, "questions"), reply);
+			return { content: [{ type: "text", text: JSON.stringify(result) }], details: result };
+		},
+	});
+}
+
 /** For a value `JSON.parse` made, which holds nothing but JSON. */
 function isObject(value: unknown): value is JsonObject {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -143,7 +213,9 @@ class PermissionGate {
 	}
 
 	async check(event: ToolCallEvent, ctx: ExtensionContext): Promise<ToolCallEventResult | undefined> {
-		if (this.permissions.mode === "off" || this.permissions.allowed.has(event.toolName)) return undefined;
+		const { toolName } = event;
+		if (this.permissions.mode === "off" || toolName === ASK_TOOL || this.permissions.allowed.has(toolName))
+			return undefined;
 		try {
 			return await this.ask(event, ctx);
 		} catch {
@@ -253,6 +325,7 @@ export default function broskiHost(pi: ExtensionAPI): void {
 		if (ui !== undefined) askOnPhone(ui, request);
 	});
 	pi.on("tool_call", (event, ctx) => gate.check(event, ctx));
+	registerAsk(pi);
 
 	pi.registerFlag(PROMPT_NOTE_FLAG, { description: "Used by the Broski bridge.", type: "string" });
 	pi.on("before_agent_start", (event, ctx) => {
