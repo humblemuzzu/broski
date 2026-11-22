@@ -7,14 +7,14 @@
 //! a relay, so nothing leaves the host. `push-record.json` and `push.txt` are the machine and the
 //! sealed push of the vectors `docs/architecture/connectivity-v2/push.md` pins. `inbox-cache.json`
 //! is an `InboxUpdate.cache` of that machine's inbox: a session waiting on `npm test` and an idle
-//! one.
+//! one last updated in 2024.
 
 use std::sync::Arc;
 use std::time::Duration;
 
 use broski_client::{
-    ClientError, ContractState, InboxState, LinkFailure, MachineStatus, PhoneConfig, SeenMarker,
-    SeenState, SessionUpdate,
+    ClientError, ContractState, InboxRow, InboxState, LinkFailure, MachineStatus, PhoneConfig,
+    SeenMarker, SeenState, SessionUpdate, UnreadSession,
 };
 use broski_contract::{ClientMessage, HelloRequest, SessionRef, PROTOCOL_VERSION};
 use broski_core::{
@@ -175,6 +175,13 @@ fn what_was_seen_goes_back_in_as_the_app_stored_it() {
             seen_at: 1_725_000_000_000,
         }],
         read_machines: vec![machine_id.into(), "ffeeddccbbaa99887766554433221100".into()],
+        unread: vec![UnreadSession {
+            machine_id: machine_id.into(),
+            session: SessionRef {
+                backend: "pi".to_owned(),
+                session_id: "s-10".into(),
+            },
+        }],
     };
     inbox.restore_seen(stored.clone());
     assert_eq!(inbox.seen(), stored);
@@ -212,6 +219,65 @@ async fn the_cached_inbox_shows_its_machines_rows_until_it_answers_and_never_off
         inbox.rows().is_empty(),
         "a forgotten machine takes its cached rows"
     );
+}
+
+fn shown(rows: &[InboxRow]) -> Vec<(&str, InboxState)> {
+    rows.iter()
+        .map(|row| (row.session.session_id.as_str(), row.state))
+        .collect()
+}
+
+#[test]
+fn an_old_session_marked_unread_is_done_after_a_restart_until_it_is_seen() {
+    let old = SessionRef {
+        backend: "pi".to_owned(),
+        session_id: "s-old".into(),
+    };
+    let started = |seen: Option<SeenState>| {
+        let phone = phone();
+        let inbox = phone.inbox();
+        if let Some(seen) = seen {
+            inbox.restore_seen(seen);
+        }
+        inbox
+            .restore_cache(fixture("inbox-cache.json"))
+            .expect("the cache restores");
+        let record = MachineRecord::from_bytes(fixture("record.json")).expect("record");
+        let machine = phone.start(record).expect("started");
+        (phone, inbox, machine)
+    };
+    let (_phone, inbox, machine) = started(None);
+    assert_eq!(
+        shown(&inbox.rows()),
+        [("s-ask", InboxState::NeedsYou), ("s-old", InboxState::Idle)]
+    );
+    inbox.mark_unread(machine.id(), old.clone());
+    assert_eq!(
+        shown(&inbox.rows()),
+        [("s-ask", InboxState::NeedsYou), ("s-old", InboxState::Done)]
+    );
+    let stored = inbox.seen();
+    let unread = [UnreadSession {
+        machine_id: machine.id(),
+        session: old.clone(),
+    }];
+    assert_eq!(stored.unread, unread);
+
+    let (phone, inbox, machine) = started(Some(stored));
+    assert_eq!(
+        shown(&inbox.rows()),
+        [("s-ask", InboxState::NeedsYou), ("s-old", InboxState::Done)]
+    );
+    inbox.mark_seen(machine.id(), old.clone());
+    assert_eq!(
+        shown(&inbox.rows()),
+        [("s-ask", InboxState::NeedsYou), ("s-old", InboxState::Idle)]
+    );
+    assert!(inbox.seen().unread.is_empty());
+
+    inbox.mark_unread(machine.id(), old);
+    phone.forget(machine.id());
+    assert!(inbox.seen().unread.is_empty());
 }
 
 #[test]

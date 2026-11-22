@@ -18,6 +18,8 @@ import uniffi.broski_contract.ProtocolVersion
 import uniffi.broski_contract.SessionRef
 import uniffi.broski_core.ClientException
 import uniffi.broski_core.ContractState
+import uniffi.broski_core.Inbox
+import uniffi.broski_core.InboxState
 import uniffi.broski_core.LinkFailure
 import uniffi.broski_core.LinkState
 import uniffi.broski_core.Machine
@@ -30,6 +32,7 @@ import uniffi.broski_core.PushDecision
 import uniffi.broski_core.SeenMarker
 import uniffi.broski_core.SeenState
 import uniffi.broski_core.SessionUpdate
+import uniffi.broski_core.UnreadSession
 import uniffi.broski_core.ViewEnd
 import uniffi.broski_core.WaitReason
 import uniffi.broski_core.decisionLetter
@@ -177,9 +180,39 @@ class BroskiCoreTest {
                 ),
             ),
             readMachines = listOf(machineId, "ffeeddccbbaa99887766554433221100"),
+            unread = listOf(UnreadSession(machineId, SessionRef(backend = "pi", sessionId = "s-10"))),
         )
         inbox.restoreSeen(stored)
         assertEquals(stored, inbox.seen())
+    }
+
+    /** The fixtures' cache holds `s-old`, idle since 2024: marked unread it is done, through a restart, until it is seen. */
+    @Test
+    fun anOldSessionMarkedUnreadIsDoneAfterARestartUntilItIsSeen() {
+        val old = SessionRef(backend = "pi", sessionId = "s-old")
+        fun started(seen: SeenState?): Triple<Phone, Inbox, Machine> {
+            val phone = Phone(fixture("device-secret.bin"), config)
+            val inbox = phone.inbox()
+            seen?.let(inbox::restoreSeen)
+            inbox.restoreCache(fixture("inbox-cache.json"))
+            return Triple(phone, inbox, phone.start(MachineRecord.fromBytes(fixture("record.json"))))
+        }
+        fun shown(inbox: Inbox) = inbox.rows().associate { it.session.sessionId to it.state }
+
+        val (first, inbox, machine) = started(null)
+        assertEquals(mapOf("s-ask" to InboxState.NEEDS_YOU, "s-old" to InboxState.IDLE), shown(inbox))
+        inbox.markUnread(machine.id(), old)
+        assertEquals(mapOf("s-ask" to InboxState.NEEDS_YOU, "s-old" to InboxState.DONE), shown(inbox))
+        val stored = inbox.seen()
+        assertEquals(listOf(UnreadSession(machine.id(), old)), stored.unread)
+        first.forget(machine.id())
+
+        val (phone, restarted, again) = started(stored)
+        assertEquals(mapOf("s-ask" to InboxState.NEEDS_YOU, "s-old" to InboxState.DONE), shown(restarted))
+        restarted.markSeen(again.id(), old)
+        assertEquals(mapOf("s-ask" to InboxState.NEEDS_YOU, "s-old" to InboxState.IDLE), shown(restarted))
+        assertTrue(restarted.seen().unread.isEmpty())
+        phone.forget(again.id())
     }
 
     @Test

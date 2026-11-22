@@ -3,12 +3,13 @@
 use broski_contract::{SessionStatus, SessionSummary};
 
 use super::cache::CachedRow;
+use super::seen::Mark;
 use super::{InboxRow, InboxState};
 use crate::machine::InboxSource;
 use crate::view::stream::LiveInfo;
 
 /// Sessions older than this settle as `Idle` even with no marker, so old history never piles up
-/// in `Done`.
+/// in `Done`; one the person marked unread is `Done` however old.
 pub(crate) const DONE_WINDOW_MS: i64 = 24 * 60 * 60 * 1_000;
 
 pub(super) struct MachineName {
@@ -21,11 +22,11 @@ pub(super) struct MachineName {
 pub(super) fn live_row(
     machine: &MachineName,
     source: InboxSource,
-    seen: Option<i64>,
+    mark: Mark,
     now_ms: i64,
 ) -> InboxRow {
     let InboxSource { row, live } = source;
-    let state = state_of(&row, live.as_ref(), seen, now_ms);
+    let state = state_of(&row, live.as_ref(), mark, now_ms);
     let active = matches!(state, InboxState::NeedsYou | InboxState::Working);
     let (ask, command, pending, live_started_at) = match live {
         Some(live) => (live.ask, live.command, live.pending, live.run_started_at),
@@ -52,10 +53,10 @@ pub(super) fn live_row(
 
 /// A row as last known. Needs you and working stay as they were (nothing newer is known); done
 /// and idle follow what the person has seen since.
-pub(super) fn cached_row(cached: &CachedRow, seen: Option<i64>, now_ms: i64) -> InboxRow {
+pub(super) fn cached_row(cached: &CachedRow, mark: Mark, now_ms: i64) -> InboxRow {
     let state = match cached.state {
         InboxState::NeedsYou | InboxState::Working => cached.state,
-        InboxState::Done | InboxState::Idle => settled(cached.updated_at, seen, now_ms),
+        InboxState::Done | InboxState::Idle => settled(cached.updated_at, mark, now_ms),
     };
     let run_started_at = matches!(state, InboxState::NeedsYou | InboxState::Working)
         .then_some(cached.run_started_at)
@@ -86,12 +87,7 @@ pub(super) fn is_settled(row: &SessionSummary, live: Option<&LiveInfo>) -> bool 
     !needs_you && !working
 }
 
-fn state_of(
-    row: &SessionSummary,
-    live: Option<&LiveInfo>,
-    seen: Option<i64>,
-    now_ms: i64,
-) -> InboxState {
+fn state_of(row: &SessionSummary, live: Option<&LiveInfo>, mark: Mark, now_ms: i64) -> InboxState {
     let needs_you = live.map_or(row.status == SessionStatus::WaitingForUser, |live| {
         live.needs_you
     });
@@ -101,15 +97,20 @@ fn state_of(
     } else if working {
         InboxState::Working
     } else {
-        settled(row.updated_at, seen, now_ms)
+        settled(row.updated_at, mark, now_ms)
     }
 }
 
-/// Done when something happened within `DONE_WINDOW_MS` since the person's marker, or there is no
-/// marker.
-fn settled(updated_at: i64, seen: Option<i64>, now_ms: i64) -> InboxState {
+/// Done when the person marked the session unread, or something happened within `DONE_WINDOW_MS`
+/// since their marker or with no marker.
+fn settled(updated_at: i64, mark: Mark, now_ms: i64) -> InboxState {
     let recent = now_ms.saturating_sub(updated_at) <= DONE_WINDOW_MS;
-    if recent && seen.is_none_or(|seen_at| updated_at > seen_at) {
+    let done = match mark {
+        Mark::Unread => true,
+        Mark::SeenAt(seen_at) => recent && updated_at > seen_at,
+        Mark::Unseen => recent,
+    };
+    if done {
         InboxState::Done
     } else {
         InboxState::Idle
@@ -125,9 +126,20 @@ mod tests {
         let now = 1_800_000_000_000;
         let within = now - DONE_WINDOW_MS;
         let older = within - 1;
-        assert_eq!(settled(within, None, now), InboxState::Done);
-        assert_eq!(settled(older, None, now), InboxState::Idle);
-        assert_eq!(settled(older, Some(older - 10), now), InboxState::Idle);
-        assert_eq!(settled(within, Some(within), now), InboxState::Idle);
+        assert_eq!(settled(within, Mark::Unseen, now), InboxState::Done);
+        assert_eq!(settled(older, Mark::Unseen, now), InboxState::Idle);
+        assert_eq!(
+            settled(older, Mark::SeenAt(older - 10), now),
+            InboxState::Idle
+        );
+        assert_eq!(settled(within, Mark::SeenAt(within), now), InboxState::Idle);
+    }
+
+    #[test]
+    fn a_session_marked_unread_is_done_however_old() {
+        let now = 1_800_000_000_000;
+        let five_days_ago = now - 5 * DONE_WINDOW_MS;
+        assert_eq!(settled(five_days_ago, Mark::Unread, now), InboxState::Done);
+        assert_eq!(settled(now, Mark::Unread, now), InboxState::Done);
     }
 }

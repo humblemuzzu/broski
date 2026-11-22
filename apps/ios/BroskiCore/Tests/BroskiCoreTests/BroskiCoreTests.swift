@@ -132,9 +132,41 @@ func cancellingAViewsLoopDetachesTheViewAndEndsItsPull() async throws {
                 session: SessionRef(backend: "claude-code", sessionId: "s-9"),
                 seenAt: 1_725_000_000_000)
         ],
-        readMachines: [machineId, "ffeeddccbbaa99887766554433221100"])
+        readMachines: [machineId, "ffeeddccbbaa99887766554433221100"],
+        unread: [UnreadSession(machineId: machineId, session: SessionRef(backend: "pi", sessionId: "s-10"))])
     inbox.restoreSeen(state: stored)
     #expect(inbox.seen() == stored)
+}
+
+/// The fixtures' cache holds `s-old`, idle since 2024: marked unread it is done, through a restart,
+/// until it is seen.
+@Test func anOldSessionMarkedUnreadIsDoneAfterARestartUntilItIsSeen() throws {
+    let old = SessionRef(backend: "pi", sessionId: "s-old")
+    func started(_ seen: SeenState?) throws -> (Phone, Inbox, Machine) {
+        let phone = try Phone(identitySecret: try fixture("device-secret.bin"), config: config)
+        let inbox = phone.inbox()
+        if let seen { inbox.restoreSeen(state: seen) }
+        try inbox.restoreCache(cache: try fixture("inbox-cache.json"))
+        let machine = try phone.start(record: try MachineRecord.fromBytes(bytes: try fixture("record.json")))
+        return (phone, inbox, machine)
+    }
+    func shown(_ inbox: Inbox) -> [String: InboxState] {
+        Dictionary(uniqueKeysWithValues: inbox.rows().map { ($0.session.sessionId, $0.state) })
+    }
+    let (first, inbox, machine) = try started(nil)
+    #expect(shown(inbox) == ["s-ask": .needsYou, "s-old": .idle])
+    inbox.markUnread(machineId: machine.id(), session: old)
+    #expect(shown(inbox) == ["s-ask": .needsYou, "s-old": .done])
+    let stored = inbox.seen()
+    #expect(stored.unread == [UnreadSession(machineId: machine.id(), session: old)])
+    first.forget(id: machine.id())
+
+    let (phone, restarted, again) = try started(stored)
+    #expect(shown(restarted) == ["s-ask": .needsYou, "s-old": .done])
+    restarted.markSeen(machineId: again.id(), session: old)
+    #expect(shown(restarted) == ["s-ask": .needsYou, "s-old": .idle])
+    #expect(restarted.seen().unread.isEmpty)
+    phone.forget(id: again.id())
 }
 
 @Test func thePinnedPushOpensAndADecisionSealsForTheRelay() throws {

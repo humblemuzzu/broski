@@ -23,7 +23,7 @@ pub use self::pending::PendingAsk;
 pub(crate) use self::pending::{ask_command, pending_ask};
 use self::rows::{cached_row, is_settled, live_row, MachineName};
 use self::seen::Seen;
-pub use self::seen::{SeenMarker, SeenState};
+pub use self::seen::{SeenMarker, SeenState, UnreadSession};
 use crate::error::ClientError;
 use crate::machine::{InboxSource, Machine};
 use crate::view::queue::BATCH_INTERVAL;
@@ -189,7 +189,8 @@ impl Inbox {
         locked(&self.tracker).seen.state()
     }
 
-    /// The person has seen the session as it is now: it is done no more until something happens.
+    /// The person has seen the session as it is now: it is done no more until something happens,
+    /// and no longer marked unread.
     ///
     /// A session not listed yet, or whose row has not caught up with what the person's own view
     /// saw, is marked when its row settles.
@@ -203,6 +204,13 @@ impl Inbox {
         locked(&self.tracker)
             .seen
             .see(&machine_id, &session, source.as_ref());
+        self.wake.notify_one();
+    }
+
+    /// The person wants the session shown as `Done`, however old, until they next see it. A session
+    /// that is working or needs them shows that first, and is `Done` once it settles.
+    pub fn mark_unread(&self, machine_id: String, session: SessionRef) {
+        locked(&self.tracker).seen.unsee(&machine_id, &session);
         self.wake.notify_one();
     }
 
@@ -329,14 +337,14 @@ impl Inbox {
             let cached = tracker.cache.rows_of(&machine.id);
             if !machine.loaded && !cached.is_empty() {
                 for row in cached {
-                    let seen = tracker.seen.get(&machine.id, &row.session);
-                    rows.push(cached_row(row, seen, now_ms));
+                    let mark = tracker.seen.get(&machine.id, &row.session);
+                    rows.push(cached_row(row, mark, now_ms));
                 }
                 continue;
             }
             for source in sources {
-                let seen = tracker.seen.get(&machine.id, &source.row.session);
-                rows.push(live_row(&machine, source, seen, now_ms));
+                let mark = tracker.seen.get(&machine.id, &source.row.session);
+                rows.push(live_row(&machine, source, mark, now_ms));
             }
         }
         rows.sort_by(|a, b| {

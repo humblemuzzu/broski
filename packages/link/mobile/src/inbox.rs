@@ -34,6 +34,11 @@ impl Inbox {
         self.0.mark_seen(machine_id, session);
     }
 
+    /// The person marked the session unread: it is `Done`, however old, until `mark_seen`.
+    pub fn mark_unread(&self, machine_id: String, session: SessionRef) {
+        self.0.mark_unread(machine_id, session);
+    }
+
     /// Marks every settled session in the inbox as seen at its current `updatedAt`.
     pub fn mark_all_seen(&self) {
         self.0.mark_all_seen();

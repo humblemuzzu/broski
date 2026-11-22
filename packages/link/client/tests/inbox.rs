@@ -7,7 +7,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use broski_client::{
-    new_identity_secret, InboxRow, InboxState, LinkState, Machine, MachineStatus, Phone,
+    new_identity_secret, InboxRow, InboxState, LinkState, Machine, MachineStatus, Phone, SeenState,
+    UnreadSession,
 };
 use broski_contract::{PromptMode, SessionQuery, SessionRef};
 use broski_link_testkit::WAIT;
@@ -80,6 +81,77 @@ fn see(desk: &Desk, machine: &Machine, session: &SessionRef) -> Option<i64> {
         .into_iter()
         .find(|marker| &marker.session == session);
     marker.map(|marker| marker.seen_at)
+}
+
+/// Pulls the inbox's updates until one carries a seen state that satisfies `done`: what the app
+/// persists.
+async fn persisted_until(
+    phone: &Phone,
+    what: &str,
+    done: impl Fn(&SeenState) -> bool,
+) -> SeenState {
+    let deadline = Instant::now() + WAIT;
+    loop {
+        let update = timeout_at(deadline, phone.inbox().next_change())
+            .await
+            .unwrap_or_else(|_| panic!("timed out waiting for {what}"));
+        if let Some(seen) = update.seen.filter(&done) {
+            return seen;
+        }
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_session_marked_unread_is_done_across_a_restart_until_it_is_seen() {
+    let mut mac = Mac::on_lan().await;
+    let history = mac.bridge.seed(&mac.root(), "Last week").await;
+    let secret = new_identity_secret().expect("a secret");
+    let first = phone_with(secret.clone());
+    let machine = paired(&first, &mac).await;
+    inbox_until(
+        &first,
+        "the history seen",
+        in_state(&history, InboxState::Idle),
+    )
+    .await;
+
+    first.inbox().mark_unread(machine.id(), history.clone());
+    let unread = [UnreadSession {
+        machine_id: machine.id(),
+        session: history.clone(),
+    }];
+    let persisted = persisted_until(&first, "the unread mark", |seen| seen.unread == unread).await;
+    assert!(
+        !persisted
+            .markers
+            .iter()
+            .any(|marker| marker.session == history),
+        "no longer marked seen"
+    );
+    let rows = first.inbox().rows();
+    assert_eq!(state(&rows, &history), Some(InboxState::Done));
+    let record = machine.record();
+    drop((machine, first));
+
+    let second = phone_with(secret);
+    second.inbox().restore_seen(persisted);
+    let machine = second.start(record).expect("started");
+    let done = in_state(&history, InboxState::Done);
+    inbox_until(&second, "the unread session after a restart", done).await;
+    assert_eq!(second.inbox().seen().unread, unread);
+
+    second.inbox().mark_seen(machine.id(), history.clone());
+    inbox_until(
+        &second,
+        "the opened session",
+        in_state(&history, InboxState::Idle),
+    )
+    .await;
+    assert!(second.inbox().seen().unread.is_empty());
+
+    second.inbox().mark_unread(machine.id(), history.clone());
+    second.forget(machine.id());
+    assert!(second.inbox().seen().unread.is_empty());
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
