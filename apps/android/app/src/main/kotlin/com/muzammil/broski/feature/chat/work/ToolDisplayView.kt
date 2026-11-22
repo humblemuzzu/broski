@@ -62,7 +62,7 @@ private fun TodoList(items: List<TodoItem>) {
                 Text(
                     if (done) "☑" else "☐",
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (doing) BroskiTheme.semantic.working else MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (doing) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 FormattedMessage(item.text, Modifier.alpha(if (done) 0.6f else 1f), role = FormatRole.Quiet)
             }

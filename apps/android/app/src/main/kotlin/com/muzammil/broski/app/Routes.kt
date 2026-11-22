@@ -27,9 +27,25 @@ data object PairRoute : Route
 @Serializable
 data object VoiceRoute : Route
 
-/** Settings › Plan Usage: every plan's quota limits (Claude, Antigravity, …) across paired Macs. */
+/** The Usage tab: every plan's limits (Claude, Antigravity, …) across paired Macs. */
 @Serializable
 data object UsageRoute : Route
+
+/** Settings › Notifications: which kinds alert, and Live Updates. */
+@Serializable
+data object NotificationSettingsRoute : Route
+
+/** Settings › Appearance: light or dark, wallpaper colours, keeping the screen awake, and reading. */
+@Serializable
+data object AppearanceRoute : Route
+
+/** Settings › About: the version, the source, the licence. */
+@Serializable
+data object AboutRoute : Route
+
+/** Settings › Developer: the formatting gallery and the versions each side speaks. */
+@Serializable
+data object DeveloperRoute : Route
 
 /** A session yet to be made: the chat it becomes once sent, on whichever Mac and in whichever folder the person picks. */
 @Serializable
@@ -65,13 +81,14 @@ data class DiffRoute(val machineId: String, val cwd: String, val path: String, v
 @Serializable
 data class TerminalRoute(val machineId: String, val terminalId: String, val cwd: String) : Route
 
-/** The navigation bar's destinations, in its order. */
+/** The navigation bar's destinations, in its order, each drawn as its icon alone; [label] is what TalkBack reads. */
 enum class TopLevel(
     val root: Route,
     @param:StringRes val label: Int,
     @param:DrawableRes val icon: Int,
     @param:DrawableRes val selectedIcon: Int,
 ) {
-    Inbox(InboxRoute, R.string.nav_inbox, R.drawable.ic_inbox, R.drawable.ic_inbox_fill1),
+    Inbox(InboxRoute, R.string.nav_inbox, R.drawable.ic_chat, R.drawable.ic_chat_fill1),
+    Usage(UsageRoute, R.string.nav_usage, R.drawable.ic_bar_chart, R.drawable.ic_bar_chart),
     Settings(SettingsRoute, R.string.nav_settings, R.drawable.ic_settings, R.drawable.ic_settings_fill1),
 }

@@ -69,7 +69,7 @@ private const val TEXT_LINES = 20u
 
 /**
  * Something that happened that is not a turn (a background task's end, a subagent's report, a
- * command's output, an extension's message), as one quiet line like a row of work: its kind, what
+ * command's output, an extension's message), as one quiet line like a work fold: its kind, what
  * happened, how long it took. It opens in place to what it carries, each part capped, and the whole
  * of a long body opens in a sheet.
  */
@@ -96,23 +96,19 @@ fun ActivityRow(activity: Activity, look: ActivityLook, expanded: Boolean, onTog
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Icon(painterResource(activity.kind.icon), contentDescription = null, tint = look.tone.color(), modifier = Modifier.size(18.dp))
-            Column(Modifier.weight(1f).padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    agentLine(activity.title),
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = if (expanded) Int.MAX_VALUE else 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                val preview = look.preview
-                if (!expanded && preview != null) {
-                    Text(preview, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                }
-            }
+            Text(
+                agentLine(activity.title),
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (expanded) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = if (expanded) Int.MAX_VALUE else 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f).padding(vertical = 6.dp),
+            )
             if (look.facts.isNotEmpty()) {
                 Text(
                     look.facts.joinToString(" · "),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = if (look.tone == ActivityTone.FAILED) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"),
+                    color = if (look.tone == ActivityTone.FAILED) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
                 )
             }
             if (look.opens) Disclosure(expanded)

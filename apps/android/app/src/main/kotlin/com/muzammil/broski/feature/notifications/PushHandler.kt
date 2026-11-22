@@ -6,6 +6,7 @@ import com.muzammil.broski.R
 import com.muzammil.broski.core.SessionKey
 import com.muzammil.broski.core.SessionMark
 import com.muzammil.broski.core.settings.NotificationKind
+import com.muzammil.broski.core.MachineName
 import com.muzammil.broski.core.vault.Vault
 import java.io.IOException
 import kotlinx.coroutines.flow.first
@@ -31,19 +32,20 @@ class PushHandler(
     suspend fun handle(data: Map<String, String>): Alert? {
         val push = RelayPush.of(data) ?: return dropped("not a relay push: ${data.keys}")
         if (push.kind.preference !in enabled()) return null
-        val record = try {
-            vault.records().readable[push.machineId]
+        val records = try {
+            vault.records().readable
         } catch (error: IOException) {
             Log.e(TAG, "the stored records could not be read", error)
-            null
-        } ?: return dropped("no stored record for the machine the push names")
+            emptyMap()
+        }
+        val record = records[push.machineId] ?: return dropped("no stored record for the machine the push names")
         val decoded = try {
             MachineRecord.fromBytes(record).use { stored ->
                 if (push.kind == PushKind.Offline) {
                     offline(stored, push)?.let { it to null }
                 } else {
                     val note = openNotification(stored, push.payload)
-                    Alert.of(push.machineId, push.kind, note) to note.atMs.toLong()
+                    Alert.of(push.machineId, push.kind, note, namesMachine = records.size > 1) to note.atMs.toLong()
                 }
             }
         } catch (error: ClientException) {
@@ -73,13 +75,13 @@ class PushHandler(
 
     private fun offline(record: MachineRecord, push: RelayPush): Alert? {
         val alert = OfflineAlert.of(push.payload) ?: return dropped("an offline alert that does not read")
-        val name = record.name()
+        val name = MachineName.display(record.name())
         return Alert(
             tag = "${push.machineId}/offline",
             channel = Channel.MachineOffline,
             title = context.getString(if (alert.asleep) R.string.notify_machine_asleep else R.string.notify_machine_offline, name),
             text = context.getString(R.string.notify_machine_away_body),
-            machineName = name,
+            machineName = null,
             session = null,
             request = null,
         )

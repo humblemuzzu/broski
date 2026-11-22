@@ -64,9 +64,19 @@ fun rememberChatCopier(snackbar: SnackbarHostState): ChatCopier {
     return remember(clipboard, haptics, snackbar, resources, scope) { ChatCopier(clipboard, haptics, snackbar, resources, scope) }
 }
 
+/** Where the overflow leads in the session's folder; `null` while the session names no folder. */
+class FolderLinks(val files: () -> Unit, val changes: () -> Unit, val terminal: () -> Unit)
+
 /** The overflow's actions for the chat's session, each wired to what does it. */
 @Composable
-fun sessionMenuActions(model: ChatViewModel, dialogs: ChatDialogs, snackbar: SnackbarHostState, copier: ChatCopier, openInfo: () -> Unit): SessionMenuActions {
+fun sessionMenuActions(
+    model: ChatViewModel,
+    dialogs: ChatDialogs,
+    snackbar: SnackbarHostState,
+    copier: ChatCopier,
+    folder: FolderLinks?,
+    openInfo: () -> Unit,
+): SessionMenuActions {
     val header by model.header.collectAsStateWithLifecycle()
     val live by model.live.collectAsStateWithLifecycle()
     val catalog by model.catalog.catalog.collectAsStateWithLifecycle()
@@ -79,12 +89,12 @@ fun sessionMenuActions(model: ChatViewModel, dialogs: ChatDialogs, snackbar: Sna
     val backend = catalog.capabilities
     val title = header.title ?: resources.getString(R.string.inbox_untitled)
     return SessionMenuActions(
+        openFiles = folder?.files,
+        openChanges = folder?.changes,
+        openTerminal = folder?.terminal,
         pinned = key in pinned,
         togglePin = { model.phone.setMarked(SessionMark.Pinned, key, key !in pinned) },
         rename = dialogs.rename.takeIf { backend?.rename == true },
-        copySessionId = {
-            copier.copy(resources.getString(R.string.info_session_id), key.sessionId, resources.getString(R.string.chat_session_id_copied))
-        },
         markUnread = model::markUnread.takeIf { header.settled },
         muted = key in muted,
         toggleMute = { model.phone.setMarked(SessionMark.Muted, key, key !in muted) },

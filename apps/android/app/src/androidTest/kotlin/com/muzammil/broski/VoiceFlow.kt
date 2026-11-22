@@ -27,14 +27,14 @@ class VoiceFlow(private val ui: WorkspaceUiDriver, private val machine: RealMach
     private val key: String? = InstrumentationRegistry.getArguments().getString("xaiKey")?.takeIf { it.isNotBlank() }
 
     fun run() {
-        ui.tapText(ui.string(R.string.nav_settings))
-        touch(hasText(ui.string(R.string.voice_settings_row)) and hasClickAction())
+        ui.tapIcon(ui.string(R.string.nav_settings))
+        touch(hasText(ui.string(R.string.voice_title)) and hasClickAction())
         ui.waitFor(hasText(ui.string(R.string.voice_title)))
         addAWord()
         key?.let(::saveTheKey)
         Shots.save("voice-settings")
         ui.back()
-        ui.tapText(ui.string(R.string.nav_inbox))
+        ui.tapIcon(ui.string(R.string.nav_inbox))
         if (key != null) dictateIntoAChat()
     }
 

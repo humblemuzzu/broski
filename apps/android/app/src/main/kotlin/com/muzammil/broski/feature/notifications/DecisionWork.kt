@@ -118,7 +118,7 @@ internal object DecisionInput {
         )
     }
 
-    /** Null unless every field is there: what reaches a receiver from outside is not trusted to be whole. */
+    /** Null unless every field is there (the Mac's name is left out while only one is paired): what reaches a receiver from outside is not trusted to be whole. */
     fun read(field: (String) -> String?): Pair<Alert, Decision>? {
         val session = SessionTarget(field("machine") ?: return null, field("backend") ?: return null, field("session") ?: return null)
         val alert = Alert(
@@ -126,7 +126,7 @@ internal object DecisionInput {
             channel = Channel.entries.firstOrNull { it.name == field("channel") } ?: return null,
             title = field("title") ?: return null,
             text = field("text") ?: return null,
-            machineName = field("machineName") ?: return null,
+            machineName = field("machineName"),
             session = session,
             request = field("request") ?: return null,
         )

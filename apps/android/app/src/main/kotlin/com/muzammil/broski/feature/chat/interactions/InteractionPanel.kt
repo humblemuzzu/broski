@@ -44,6 +44,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
 import com.muzammil.broski.design.BroskiMotion
+import com.muzammil.broski.design.BroskiTheme
+import com.muzammil.broski.design.Dot
 import com.muzammil.broski.design.format.FormatRole
 import com.muzammil.broski.design.format.FormattedMessage
 import com.muzammil.broski.feature.chat.AnswerState
@@ -112,7 +114,7 @@ private fun Card(interaction: Interaction, waiting: Int, context: CardContext, m
                 Text(
                     kindLabel(interaction.request).uppercase(),
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f),
                 )
                 if (waiting > 1) {
@@ -156,6 +158,7 @@ private fun Pill(interaction: Interaction, waiting: Int, onExpand: () -> Unit) {
                 questions?.takeIf { it > 1 }?.let { pluralStringResource(R.plurals.card_questions, it, it) },
                 if (waiting > 1) pluralStringResource(R.plurals.card_more_waiting, waiting - 1, waiting - 1) else null,
             ).joinToString(" · ")
+            Dot(BroskiTheme.semantic.needsYou, Modifier.padding(end = 12.dp))
             Text(words, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
             Icon(painterResource(R.drawable.ic_keyboard_arrow_up), contentDescription = stringResource(R.string.card_expand), Modifier.size(20.dp))
         }

@@ -1,5 +1,6 @@
 package com.muzammil.broski.feature.notifications
 
+import com.muzammil.broski.core.MachineName
 import com.muzammil.broski.core.SessionKey
 import uniffi.broski_core.PushNotification
 
@@ -27,7 +28,8 @@ data class Alert(
     val channel: Channel,
     val title: String,
     val text: String,
-    val machineName: String,
+    /** The Mac's name under the title; `null` while only one Mac is paired, which needs no naming. */
+    val machineName: String?,
     val session: SessionTarget?,
     /** The pending request Allow and Deny answer: only for an approval that names one. */
     val request: String?,
@@ -38,7 +40,7 @@ data class Alert(
     fun mutedBy(muted: Set<SessionKey>): Boolean = session?.key in muted
 
     companion object {
-        fun of(machineId: String, kind: PushKind, push: PushNotification): Alert {
+        fun of(machineId: String, kind: PushKind, push: PushNotification, namesMachine: Boolean = true): Alert {
             val session = SessionTarget(machineId, push.backend, push.session)
             return Alert(
                 tag = "${session.machineId}/${session.backend}/${session.sessionId}/${push.request ?: kind.wire}",
@@ -49,7 +51,7 @@ data class Alert(
                 },
                 title = push.title,
                 text = push.body,
-                machineName = push.machine,
+                machineName = MachineName.display(push.machine).takeIf { namesMachine },
                 session = session,
                 request = push.request.takeIf { kind == PushKind.Approval },
             )

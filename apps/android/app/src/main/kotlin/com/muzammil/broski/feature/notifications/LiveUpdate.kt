@@ -13,7 +13,6 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import com.muzammil.broski.R
 import com.muzammil.broski.app.MainActivity
 import com.muzammil.broski.core.PhoneSession
-import com.muzammil.broski.core.agent
 import com.muzammil.broski.core.isOnline
 import uniffi.broski_core.InboxState
 import kotlinx.coroutines.Dispatchers
@@ -26,8 +25,8 @@ import kotlinx.coroutines.withContext
 /**
  * The one ongoing notification while any agent works: a promoted Live Update on Android 16 (an
  * indeterminate ProgressStyle the system shows as a chip and on the lock screen), an ordinary
- * ongoing notification below it. It summarises every run, follows the newest one with its elapsed
- * time and a Stop for it, and goes when nothing works.
+ * ongoing notification below it. One live session shows as itself, its state, its elapsed time and a
+ * Stop; several as how many run and how many need the person. It goes when nothing works.
  *
  * While it shows, [hold] keeps the phone's links up and [LiveUpdateService] keeps the process
  * running in the background, so it stays true with the phone locked. Android lets that service
@@ -46,14 +45,12 @@ class LiveUpdate(
         val since = mutableMapOf<SessionTarget, Long>()
         combine(phone.inboxRows, phone.machines) { rows, machines ->
             val reachable = machines.filter { it.health.isOnline }.map { it.id }.toSet()
-            LiveStatus.of(rows, since, System.currentTimeMillis(), reachable)?.let { status ->
-                status to machines.agent(status.focused.machineId, status.focused.session.backend).name
-            }
+            LiveStatus.of(rows, since, System.currentTimeMillis(), reachable)
         }
             .distinctUntilChanged()
             .conflate()
             .collect { live ->
-                if (live == null) end() else show(build(live.first, live.second))
+                if (live == null) end() else show(build(live))
                 delay(UPDATE_EVERY_MS)
             }
     }
@@ -83,22 +80,23 @@ class LiveUpdate(
         }
     }
 
-    fun build(status: LiveStatus, agent: String): Notification {
+    fun build(status: LiveStatus): Notification {
         val row = status.focused
-        val working = context.resources.getQuantityString(R.plurals.live_working, status.working, status.working)
-        val needsYou = context.resources.getQuantityString(R.plurals.live_needs_you, status.needsYou, status.needsYou)
-        val header = when {
-            status.working > 0 && status.needsYou > 0 -> "$working · $needsYou"
-            status.needsYou > 0 -> needsYou
-            else -> working
-        }
+        val live = status.working + status.needsYou
         val session = row.title ?: context.getString(R.string.inbox_untitled)
         val isWorking = row.state == InboxState.WORKING
+        val needsYou = context.resources.getQuantityString(R.plurals.live_needs_you, status.needsYou, status.needsYou)
+        val (title, text) = if (live > 1) {
+            context.resources.getQuantityString(R.plurals.live_running, live, live) to
+                if (status.needsYou > 0) "$needsYou · $session" else session
+        } else {
+            session to context.getString(if (isWorking) R.string.live_state_working else R.string.live_state_needs_you)
+        }
         val chip = context.getString(if (status.needsYou > 0) R.string.live_chip_needs_you else R.string.live_chip)
-        return NotificationCompat.Builder(context, Channel.LiveStatus.id)
+        val builder = NotificationCompat.Builder(context, Channel.LiveStatus.id)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(header)
-            .setContentText(context.getString(R.string.live_focused, agent, session, row.machineName))
+            .setContentTitle(title)
+            .setContentText(text)
             .setStyle(NotificationCompat.ProgressStyle().setProgressIndeterminate(true))
             .setColorized(false)
             .setRequestPromotedOngoing(true)
@@ -111,8 +109,8 @@ class LiveUpdate(
             .setShowWhen(isWorking)
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
             .setContentIntent(open(status.target))
-            .addAction(R.drawable.ic_stop, context.getString(R.string.live_stop), stop(status.target))
-            .build()
+        if (live == 1 && isWorking) builder.addAction(R.drawable.ic_stop, context.getString(R.string.live_stop), stop(status.target))
+        return builder.build()
     }
 
     private fun open(target: SessionTarget): PendingIntent {

@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
 import com.muzammil.broski.core.Agent
 import com.muzammil.broski.core.MachineHealth
+import com.muzammil.broski.core.MachineName
 import com.muzammil.broski.core.isOnline
 import com.muzammil.broski.design.AgentMark
 import com.muzammil.broski.design.BroskiTheme
@@ -45,8 +46,8 @@ import uniffi.broski_core.InboxState
 private const val OFFLINE_ALPHA = 0.55f
 
 /**
- * One session: agent mark, title, what it asks, machine and folder, when, and its state at the
- * end, a pin and a muted bell beside it when the person set them. A row of a machine that is not
+ * One session: agent mark, title, what it asks, its folder (and its Mac once more than one is
+ * paired), when, and its state at the end, a pin and a muted bell beside it when the person set them. A row of a machine that is not
  * online, or known only from the cached inbox, stays listed, dimmed, with the machine's status. A long
  * press (a tap too while no chat opens) and TalkBack offer Approve and Deny for a tool permission the
  * backend lets one tap answer, then pin, read state and mute.
@@ -56,6 +57,7 @@ fun InboxRowItem(
     row: InboxRow,
     agent: Agent,
     health: MachineHealth?,
+    showsMachine: Boolean,
     shapes: ListItemShapes,
     onOpen: (() -> Unit)?,
     busy: Boolean,
@@ -68,7 +70,8 @@ fun InboxRowItem(
     val title = row.title ?: stringResource(R.string.inbox_untitled)
     val ask = askLine(row, agent)
     val offline = row.cached || (health != null && !health.isOnline)
-    val look = RowLook(title, ask, health?.takeIf { !it.isOnline }?.label(row.machineName), pinned, muted)
+    val machine = MachineName.display(row.machineName)
+    val look = RowLook(title, ask, health?.takeIf { !it.isOnline }?.label(machine), machine.takeIf { showsMachine }, pinned, muted)
     val decisions = row.quickDecisions
     val sessionActions = row.actions(pinned, muted)
     var menuOpen by remember { mutableStateOf(false) }
@@ -100,7 +103,7 @@ private fun rowDescription(row: InboxRow, look: RowLook): String = stringResourc
     R.string.inbox_row_description,
     stringResource(row.state.label),
     if (row.state == InboxState.NEEDS_YOU) look.ask else look.title,
-    listOfNotNull(listOfNotNull(row.machineName, row.folder).joinToString(", "), look.healthLabel).joinToString(". "),
+    listOfNotNull(listOfNotNull(look.machine, row.folder).joinToString(", ").ifEmpty { null }, look.healthLabel).joinToString(". "),
 )
 
 @Composable
@@ -140,7 +143,15 @@ private fun askLine(row: InboxRow, agent: Agent): String = row.command
     ?: stringResource(R.string.inbox_waiting_for_you)
 
 /** The words a row shows and the marks the person set on its session. */
-private class RowLook(val title: String, val ask: String, val healthLabel: String?, val pinned: Boolean, val muted: Boolean)
+private class RowLook(
+    val title: String,
+    val ask: String,
+    val healthLabel: String?,
+    /** The Mac's name, only while more than one is paired. */
+    val machine: String?,
+    val pinned: Boolean,
+    val muted: Boolean,
+)
 
 @Composable
 private fun RowItem(
@@ -159,7 +170,7 @@ private fun RowItem(
         modifier = modifier,
         leadingContent = { AgentMark(agent) },
         trailingContent = { Trailing(row.state, look) },
-        supportingContent = { RowSupporting(row, look.ask, look.healthLabel) },
+        supportingContent = { RowSupporting(row, look) },
         onLongClick = onLongClick,
         colors = groupedListItemColors(),
         content = { Text(headline, maxLines = 2, overflow = TextOverflow.Ellipsis) },
@@ -179,24 +190,24 @@ private fun Trailing(state: InboxState, look: RowLook) {
 private val InboxRow.folder: String? get() = cwd?.trimEnd('/')?.substringAfterLast('/')
 
 @Composable
-private fun RowSupporting(row: InboxRow, ask: String, healthLabel: String?) {
+private fun RowSupporting(row: InboxRow, look: RowLook) {
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         if (row.state == InboxState.NEEDS_YOU) {
-            Text(ask, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(look.ask, color = BroskiTheme.semantic.needsYou, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Text(
-            listOfNotNull(row.machineName, row.folder, relativeTime(row.updatedAt)).joinToString(" · "),
-            maxLines = 3,
+            listOfNotNull(look.machine, row.folder, relativeTime(row.updatedAt)).joinToString(" · "),
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
-        healthLabel?.let { Text(it, style = MaterialTheme.typography.labelMedium) }
+        look.healthLabel?.let { Text(it, style = MaterialTheme.typography.labelMedium) }
     }
 }
 
 @Composable
 private fun StateMark(state: InboxState) {
     when (state) {
-        InboxState.NEEDS_YOU -> Dot(MaterialTheme.colorScheme.primary)
+        InboxState.NEEDS_YOU -> Dot(BroskiTheme.semantic.needsYou)
         InboxState.WORKING -> Orb(OrbState.WORKING, size = 18.dp)
         InboxState.DONE -> Dot(BroskiTheme.semantic.done)
         InboxState.IDLE -> Unit

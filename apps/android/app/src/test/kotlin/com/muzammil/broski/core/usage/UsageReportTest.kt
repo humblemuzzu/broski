@@ -32,13 +32,11 @@ class UsageReportTest {
         assertEquals(0.50, fast.elapsed(now)!!, 0.001)
         val pace = fast.pace(now)
         assertTrue("expected RunsOut pace, got $pace", pace is UsagePace.RunsOut)
-        assertEquals(UsageSeverity.High, fast.severity(now))
 
-        // Past reset -> 0% used, null elapsed, empty trace.
+        // Past reset -> 0% used, null elapsed.
         val pastReset = fast.resetsAtMs!! + 1_000L
         assertEquals(0.0, fast.used(pastReset), 0.001)
         assertNull(fast.elapsed(pastReset))
-        assertTrue(fast.trace(pastReset).isEmpty())
     }
 
     @Test

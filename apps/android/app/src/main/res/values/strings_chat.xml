@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="chat_menu_files">Files</string>
+    <string name="chat_menu_changes">Changes</string>
+    <string name="chat_menu_terminal">Terminal</string>
     <!-- Chat -->
     <string name="chat_not_paired_title">This Mac isn\'t paired any more</string>
     <string name="chat_not_paired_body">Pair it again to open its sessions.</string>
@@ -7,7 +10,6 @@
     <string name="chat_loading">Loading the conversation</string>
     <string name="chat_loading_older">Loading earlier messages</string>
     <string name="chat_more">More</string>
-    <string name="chat_open_files">Open folder in Files</string>
     <string name="chat_prompt_cache">Prompt cache</string>
     <string name="chat_fork">Fork</string>
     <string name="chat_rename">Rename</string>
@@ -19,8 +21,6 @@
     <string name="chat_delete_title">Delete “%1$s”?</string>
     <string name="chat_delete_body">The session and its history are deleted on your Mac.</string>
     <string name="chat_delete_confirm">Delete</string>
-    <string name="chat_copy_session_id">Copy session ID</string>
-    <string name="chat_session_id_copied">Session ID copied</string>
     <string name="chat_copy_too_large">The conversation is too long for the clipboard. Share it instead.</string>
     <string name="chat_share_failed">Couldn\'t share the conversation.</string>
     <string name="chat_share_markdown">Share as Markdown</string>
@@ -52,10 +52,10 @@
     <string name="info_cache_left">%1$s left</string>
     <string name="info_cache_expired">Expired</string>
     <string name="chat_sending">Sending…</string>
-    <string name="chat_copy_message">Copy message</string>
+    <string name="chat_bubble_unfold">Show all of it</string>
+    <string name="chat_bubble_fold">Show less</string>
     <string name="chat_copy_answer">Copy answer</string>
-    <string name="chat_agent_working">Agent is working</string>
-    <string name="chat_output_soon">New output will appear here</string>
+    <string name="chat_lane_starting">Starting</string>
     <string name="chat_lane_working">Working</string>
     <string name="chat_lane_thinking">Thinking</string>
     <string name="chat_lane_waiting_approval">Waiting for your approval</string>
@@ -135,9 +135,9 @@
         <item quantity="one">%1$d task in the background</item>
         <item quantity="other">%1$d tasks in the background</item>
     </plurals>
-    <string name="chat_background_title">In the background</string>
+    <string name="chat_background_title">Running in the background</string>
     <string name="chat_background_show">Show what runs in the background</string>
-    <string name="chat_background_hide">Hide</string>
+    <string name="chat_background_hide">Hide what runs in the background</string>
 
     <!-- Interactions -->
     <string name="card_needs_approval">Needs your approval</string>

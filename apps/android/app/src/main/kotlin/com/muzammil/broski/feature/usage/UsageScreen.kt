@@ -1,17 +1,15 @@
 package com.muzammil.broski.feature.usage
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -28,28 +26,32 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.muzammil.broski.R
 import com.muzammil.broski.core.AppCore
 import com.muzammil.broski.core.PhoneSession
 import com.muzammil.broski.core.isOnline
+import com.muzammil.broski.core.usage.PlanReport
+import com.muzammil.broski.design.BroskiTheme
 import com.muzammil.broski.design.EmptyState
+import com.muzammil.broski.design.relativeTime
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/** Plan usage across connected Macs (Claude and Antigravity): pull to refresh, same data the widget draws. */
+/** The Usage tab: each plan the Macs' agents run on, under its mark, with one card per limit. Pull to read again. */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun UsageScreen(core: AppCore, phone: PhoneSession, onBack: () -> Unit) {
+fun UsageScreen(core: AppCore, phone: PhoneSession) {
     val report by core.usage.report.collectAsStateWithLifecycle()
     val isReading by core.usage.isReading.collectAsStateWithLifecycle()
     val machines by phone.machines.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-
     var nowMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -57,23 +59,11 @@ fun UsageScreen(core: AppCore, phone: PhoneSession, onBack: () -> Unit) {
             nowMs = System.currentTimeMillis()
         }
     }
-    LaunchedEffect(phone) {
-        core.usage.refresh(phone)
-    }
+    LaunchedEffect(phone) { core.usage.refresh(phone) }
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = {
-            LargeFlexibleTopAppBar(
-                title = { Text(stringResource(R.string.usage_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(painterResource(R.drawable.ic_arrow_back), contentDescription = stringResource(R.string.action_back))
-                    }
-                },
-                scrollBehavior = scrollBehavior,
-            )
-        },
+        topBar = { LargeFlexibleTopAppBar(title = { Text(stringResource(R.string.usage_title)) }, scrollBehavior = scrollBehavior) },
     ) { padding ->
         PullToRefreshBox(
             isRefreshing = isReading,
@@ -82,47 +72,55 @@ fun UsageScreen(core: AppCore, phone: PhoneSession, onBack: () -> Unit) {
         ) {
             val plans = report?.plans.orEmpty()
             if (plans.isEmpty()) {
-                val anyReady = machines.any { it.health.isOnline }
                 EmptyState(
                     title = stringResource(R.string.usage_empty_title),
-                    body = stringResource(if (anyReady) R.string.usage_empty_ready else R.string.usage_empty_offline),
+                    body = stringResource(if (machines.any { it.health.isOnline }) R.string.usage_empty_ready else R.string.usage_empty_offline),
                     modifier = Modifier.fillMaxSize(),
                 )
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(
-                        start = 16.dp,
-                        end = 16.dp,
-                        top = 8.dp,
-                        bottom = padding.calculateBottomPadding() + 24.dp,
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = padding.calculateBottomPadding() + 96.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    items(plans, key = { it.plan }) { plan ->
-                        PlanUsageCard(plan, nowMs)
-                    }
-                    item(key = "widget-hint") {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            verticalAlignment = Alignment.Top,
-                        ) {
-                            Icon(
-                                painterResource(R.drawable.ic_info),
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(16.dp).padding(top = 2.dp),
-                            )
-                            Text(
-                                stringResource(R.string.usage_widget_hint),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                    plans.forEach { plan ->
+                        item(key = "plan:${plan.plan}") {
+                            PlanHeader(plan, nowMs, showsMachine = machines.size > 1, Modifier.padding(top = 16.dp))
+                        }
+                        items(plan.orderedWindows, key = { "${plan.plan}:${it.id}" }) { window ->
+                            LimitCard(plan.plan, window, nowMs)
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+/** A plan: its mark, name and tier, when it was read, and why the last read failed when it did. */
+@Composable
+private fun PlanHeader(report: PlanReport, nowMs: Long, showsMachine: Boolean, modifier: Modifier) {
+    val secondary = MaterialTheme.colorScheme.onSurfaceVariant
+    Column(modifier.padding(horizontal = 4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PlanGlyph(report.plan, report.name)
+            Text(report.name, style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
+            val detail = listOfNotNull(report.tier, report.machineName.takeIf { showsMachine }).joinToString(" · ")
+            if (detail.isNotEmpty()) {
+                Text(detail, style = MaterialTheme.typography.bodyMedium, color = secondary, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+            }
+            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.End) {
+                report.readAtMs?.let {
+                    Text(
+                        relativeTime(it),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (report.isStale(nowMs)) BroskiTheme.semantic.caution else secondary,
+                    )
+                }
+            }
+        }
+        report.problem?.let { problem ->
+            Text(problem, style = MaterialTheme.typography.bodySmall, color = BroskiTheme.semantic.caution, modifier = Modifier.padding(top = 4.dp))
         }
     }
 }

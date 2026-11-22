@@ -58,8 +58,6 @@ sealed interface UsagePace {
     data class RunsOut(val atMs: Long) : UsagePace
 }
 
-enum class UsageSeverity { Normal, High, Critical }
-
 @Serializable
 data class LimitWindow(
     val id: String,
@@ -111,23 +109,6 @@ data class LimitWindow(
         }
     }
 
-    fun trace(nowMs: Long): List<UsagePoint> {
-        val start = startMs ?: return emptyList()
-        val reset = resetsAtMs ?: return emptyList()
-        if (reset <= nowMs) return emptyList()
-        val known = history.filter { it.atMs in start..nowMs }.sortedBy { it.atMs }
-        return known.ifEmpty { listOf(UsagePoint(nowMs, usedPercent)) }
-    }
-
-    fun severity(nowMs: Long): UsageSeverity {
-        val used = used(nowMs)
-        return when {
-            used >= 0.90 -> UsageSeverity.Critical
-            used >= 0.75 || runsOutMs(nowMs) != null -> UsageSeverity.High
-            else -> UsageSeverity.Normal
-        }
-    }
-
     companion object {
         fun from(window: UsageWindow): LimitWindow = LimitWindow(
             id = window.id,
@@ -161,6 +142,13 @@ data class PlanReport(
             else -> 0
         }
     }
+
+    /** Its limits as they read best: each scope in the order the plan gives them, the whole plan first, its five-hour limit before its week. */
+    val orderedWindows: List<LimitWindow>
+        get() {
+            val scopes = (listOf<String?>(null) + windows.map { it.scope }).distinct()
+            return windows.sortedWith(compareBy<LimitWindow> { scopes.indexOf(it.scope) }.thenBy { it.span != LimitSpan.FiveHour })
+        }
 
     fun isStale(nowMs: Long): Boolean {
         val read = readAtMs ?: return true

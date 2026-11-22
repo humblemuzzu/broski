@@ -69,14 +69,15 @@ class WorkspaceUiDriver(
 
     /**
      * The served folder as a person reaches it: from the inbox's root, a session that runs there, then
-     * the chat's Files button. The session is seeded fresh, so it is the inbox's newest row.
+     * Files in the chat's overflow. The session is seeded fresh, so it is the inbox's newest row.
      */
     fun openServedFolder() {
-        tapText(string(R.string.nav_inbox))
+        tapIcon(string(R.string.nav_inbox))
         val title = "Files of ${UUID.randomUUID().toString().take(8)}"
         machine.seed(title)
         tap(hasContentDescription(title, substring = true) and hasClickAction())
-        tapIcon(string(R.string.chat_open_files))
+        tapIcon(string(R.string.chat_more))
+        tapText(string(R.string.chat_menu_files))
         waitFor(hasText("README.md"))
     }
 

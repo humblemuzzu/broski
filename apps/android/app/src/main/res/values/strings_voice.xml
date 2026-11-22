@@ -43,8 +43,6 @@
 
     <!-- Settings › Voice -->
     <string name="voice_title">Voice</string>
-    <string name="voice_settings_row">Voice</string>
-    <string name="voice_settings_row_body">Dictate prompts with the mic in the composer</string>
     <string name="voice_xai">xAI</string>
     <string name="voice_key">xAI key</string>
     <string name="voice_key_field">Paste your xAI API key</string>

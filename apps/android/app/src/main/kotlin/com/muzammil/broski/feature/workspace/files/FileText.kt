@@ -27,7 +27,7 @@ fun FileText(
     val text = remember(lines) { lines.joinToString("\n") }
     val language = remember(path) { languageForPath(path) }
     val coloured = highlightedLines(text, language, CodeColors.current)
-    val marked = BroskiTheme.semantic.working.copy(alpha = 0.14f)
+    val marked = BroskiTheme.semantic.highlight.copy(alpha = 0.14f)
     val numbered = remember(coloured, line, marked) {
         coloured.mapIndexed { index, text -> ViewerLine(text, (index + 1).toString(), background = marked.takeIf { index + 1 == line }) }
     }

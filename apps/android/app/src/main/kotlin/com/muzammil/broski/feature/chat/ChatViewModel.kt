@@ -2,6 +2,7 @@ package com.muzammil.broski.feature.chat
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.muzammil.broski.core.MachineName
 import com.muzammil.broski.core.PhoneSession
 import com.muzammil.broski.core.SessionKey
 import com.muzammil.broski.core.agent
@@ -94,7 +95,7 @@ class ChatViewModel(
                 title = summary?.title?.text ?: row?.title,
                 agent = machines.agent(machineId, session.backend),
                 cwd = summary?.cwd ?: row?.cwd,
-                machineName = state?.name ?: row?.machineName.orEmpty(),
+                machineName = state?.name ?: MachineName.display(row?.machineName.orEmpty()),
                 health = state?.health,
                 reconnecting = reconnecting,
                 inboxState = row?.state,

@@ -143,7 +143,7 @@ private fun TerminalRow(terminal: TerminalSummary, folder: String, index: Int, c
             Icon(
                 painterResource(R.drawable.ic_terminal),
                 contentDescription = null,
-                tint = if (running) BroskiTheme.semantic.working else MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = if (running) BroskiTheme.semantic.highlight else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         },
         supporting = { Text("$status · ${relativeTime(terminal.createdAt)}", maxLines = 1, overflow = TextOverflow.Ellipsis) },

@@ -52,14 +52,13 @@ import com.muzammil.broski.design.orb.OrbState
 import com.muzammil.broski.design.perform
 
 /**
- * Every session on every paired Mac, what needs the person first. `onOpenSession` and
- * `onNewSession` are null until Phase 4.2 provides the chat and the New session sheet.
+ * Every session on every paired Mac, what needs the person first. The Macs themselves are in
+ * Settings; New session is the navigation bar's floating action.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun InboxScreen(
     phone: PhoneSession,
-    onOpenMachines: () -> Unit,
     onOpenSession: ((SessionRoute) -> Unit)?,
     onNewSession: (() -> Unit)?,
 ) {
@@ -76,11 +75,6 @@ fun InboxScreen(
         topBar = {
             LargeFlexibleTopAppBar(
                 title = { Text(stringResource(R.string.nav_inbox)) },
-                actions = {
-                    IconButton(onClick = onOpenMachines) {
-                        Icon(painterResource(R.drawable.ic_computer), contentDescription = stringResource(R.string.inbox_machines))
-                    }
-                },
                 scrollBehavior = scrollBehavior,
             )
         },
@@ -130,7 +124,7 @@ private fun InboxList(
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = if (onNewSession != null) 112.dp else 24.dp),
+        contentPadding = PaddingValues(bottom = if (onNewSession != null) 96.dp else 24.dp),
     ) {
         if (state.mentions.isNotEmpty() || state.working > 0) {
             item(key = "status", contentType = "status") { StatusHeader(state, viewModel::showWorkingOnly) }
@@ -178,6 +172,7 @@ private fun LazyListScope.section(
             row = row,
             agent = state.agent(row),
             health = state.health[row.machineId],
+            showsMachine = state.machines.size > 1,
             shapes = ListItemDefaults.segmentedShapes(index, section.rows.size),
             onOpen = onOpenSession?.let { open -> { open(SessionRoute.of(row.machineId, row.session)) } },
             busy = row.key in state.answering,

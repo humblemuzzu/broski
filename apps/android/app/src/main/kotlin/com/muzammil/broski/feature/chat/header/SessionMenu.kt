@@ -24,10 +24,12 @@ import com.muzammil.broski.R
 
 /** What the session's overflow offers: an item without its action is one the session cannot do. */
 class SessionMenuActions(
+    val openFiles: (() -> Unit)?,
+    val openChanges: (() -> Unit)?,
+    val openTerminal: (() -> Unit)?,
     val pinned: Boolean,
     val togglePin: () -> Unit,
     val rename: (() -> Unit)?,
-    val copySessionId: () -> Unit,
     val markUnread: (() -> Unit)?,
     val muted: Boolean,
     val toggleMute: () -> Unit,
@@ -39,23 +41,31 @@ class SessionMenuActions(
     val delete: (() -> Unit)?,
 )
 
-/** The overflow: the session itself, then its conversation, then Delete apart from the rest. */
+/**
+ * The overflow: the session's folder (its files, what changed, a terminal in it), the session itself,
+ * then its conversation, then Delete apart from the rest.
+ */
 @Composable
 fun SessionMenu(expanded: Boolean, actions: SessionMenuActions, onDismiss: () -> Unit) {
     DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        if (actions.openFiles != null) {
+            MenuItem(R.string.chat_menu_files, R.drawable.ic_folder_open, actions.openFiles, onDismiss)
+            MenuItem(R.string.chat_menu_changes, R.drawable.ic_difference, actions.openChanges, onDismiss)
+            MenuItem(R.string.chat_menu_terminal, R.drawable.ic_terminal, actions.openTerminal, onDismiss)
+            HorizontalDivider()
+        }
         if (actions.pinned) {
             MenuItem(R.string.session_unpin, R.drawable.ic_keep_off, actions.togglePin, onDismiss)
         } else {
             MenuItem(R.string.session_pin, R.drawable.ic_keep, actions.togglePin, onDismiss)
         }
         MenuItem(R.string.chat_rename, R.drawable.ic_edit, actions.rename, onDismiss)
-        MenuItem(R.string.chat_copy_session_id, R.drawable.ic_tag, actions.copySessionId, onDismiss)
-        MenuItem(R.string.session_mark_unread, R.drawable.ic_mark_chat_unread, actions.markUnread, onDismiss)
         if (actions.muted) {
             MenuItem(R.string.session_unmute, R.drawable.ic_notifications, actions.toggleMute, onDismiss)
         } else {
             MenuItem(R.string.session_mute, R.drawable.ic_notifications_off, actions.toggleMute, onDismiss)
         }
+        MenuItem(R.string.session_mark_unread, R.drawable.ic_mark_chat_unread, actions.markUnread, onDismiss)
         HorizontalDivider()
         MenuItem(R.string.chat_compact, R.drawable.ic_compress, actions.compact, onDismiss)
         MenuItem(R.string.chat_fork, R.drawable.ic_call_split, actions.fork, onDismiss)

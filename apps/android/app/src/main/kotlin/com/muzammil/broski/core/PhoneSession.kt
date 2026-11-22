@@ -175,7 +175,7 @@ class PhoneSession internal constructor(
         val initial = machine.record().use { record ->
             MachineState(
                 id = id,
-                name = record.name(),
+                name = MachineName.display(record.name()),
                 os = record.os(),
                 pairedAtMs = record.pairedAtMs().toLong(),
                 health = MachineHealth.Connecting,

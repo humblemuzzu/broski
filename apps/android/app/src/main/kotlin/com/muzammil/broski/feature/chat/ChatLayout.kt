@@ -35,6 +35,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -43,6 +44,7 @@ import com.muzammil.broski.R
 import com.muzammil.broski.app.FeatureContext
 import com.muzammil.broski.app.FileRoute
 import com.muzammil.broski.app.FilesRoute
+import com.muzammil.broski.app.GitRoute
 import com.muzammil.broski.app.SessionRoute
 import com.muzammil.broski.app.VoiceRoute
 import com.muzammil.broski.core.isOnline
@@ -68,6 +70,8 @@ import com.muzammil.broski.feature.chat.work.WorkActions
 import com.muzammil.broski.feature.images.ImageLightbox
 import com.muzammil.broski.feature.images.ImageTarget
 import com.muzammil.broski.feature.images.LightboxRequest
+import com.muzammil.broski.feature.workspace.sentence
+import com.muzammil.broski.feature.workspace.terminal.rememberTerminalOpener
 import kotlinx.coroutines.launch
 import uniffi.broski_core.isImagePath
 
@@ -135,6 +139,7 @@ fun ChatLayout(model: ChatViewModel, context: FeatureContext, snackbar: Snackbar
             TranscriptList(
                 rows = rows,
                 lane = laneStatus(live.snapshot),
+                runStartedAt = live.snapshot.run?.startedAt,
                 imageStore = model.images,
                 state = transcript,
                 callbacks = callbacks,
@@ -164,17 +169,13 @@ private fun Header(model: ChatViewModel, context: FeatureContext, dialogs: ChatD
     val copier = rememberChatCopier(snackbar)
     val usage = live.snapshot.usage
     val window = usage?.contextWindow ?: catalog.model(live.snapshot.modelId)?.contextWindow
-    val actions = sessionMenuActions(model, dialogs, snackbar, copier) { infoOpen = true }
-    val blocked = live.snapshot.interactions.any { it.blocksRun }
+    val actions = sessionMenuActions(model, dialogs, snackbar, copier, folderLinks(model, context, header.cwd, snackbar)) { infoOpen = true }
     ChatTopBar(
         header = header,
-        runStartedAt = if (blocked) null else live.snapshot.run?.startedAt,
-        cache = usage?.cache,
         contextUsed = usage?.contextTokens?.let { used -> window?.let { (used.toFloat() / it).coerceIn(0f, 1f) } },
         scrolledUnder = scrolledUnder,
         onBack = context.back,
         onRename = actions.rename,
-        onOpenFiles = header.cwd?.let { cwd -> { context.navigate(FilesRoute(model.machineId, cwd)) } },
         menu = { dismiss -> SessionMenu(menuOpen, actions, dismiss) },
         menuOpen = menuOpen,
         onMenu = { menuOpen = it },
@@ -184,6 +185,23 @@ private fun Header(model: ChatViewModel, context: FeatureContext, dialogs: ChatD
         val info = sessionInfo(header, model.feed.session, live.snapshot, catalog)
         SessionInfoSheet(info, onCopy = { label, value -> copier.copy(label, value) }, onDismiss = { infoOpen = false })
     }
+}
+
+/** The session's folder, its repository and a new terminal in it, from the overflow; `null` without a folder. */
+@Composable
+private fun folderLinks(model: ChatViewModel, context: FeatureContext, cwd: String?, snackbar: SnackbarHostState): FolderLinks? {
+    val machine = context.phone.machine(model.machineId) ?: return null
+    val resources = LocalResources.current
+    val scope = rememberCoroutineScope()
+    val openTerminal = rememberTerminalOpener(machine, model.machineId, context.navigate) { failure ->
+        scope.launch { snackbar.showSnackbar(failure.sentence(resources)) }
+    }
+    cwd ?: return null
+    return FolderLinks(
+        files = { context.navigate(FilesRoute(model.machineId, cwd)) },
+        changes = { context.navigate(GitRoute(model.machineId, cwd)) },
+        terminal = { openTerminal(cwd) },
+    )
 }
 
 /** What a chat shows while its first page is on its way, and why it is late when the Mac is out of reach. */

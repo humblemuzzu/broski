@@ -187,7 +187,7 @@ private fun ChangeMark(row: ChangeRow) {
     val tint: Color = when (row.change) {
         GitChange.ADDED -> BroskiTheme.semantic.done
         GitChange.DELETED, GitChange.CONFLICTED -> colors.error
-        GitChange.MODIFIED, GitChange.TYPE_CHANGED -> BroskiTheme.semantic.working
+        GitChange.MODIFIED, GitChange.TYPE_CHANGED -> BroskiTheme.semantic.highlight
         GitChange.RENAMED, GitChange.COPIED -> colors.tertiary
         null -> colors.onSurfaceVariant
     }

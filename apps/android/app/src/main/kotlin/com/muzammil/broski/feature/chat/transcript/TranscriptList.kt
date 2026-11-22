@@ -52,6 +52,7 @@ val SIDE_MARGIN = 20.dp
 fun TranscriptList(
     rows: List<ChatRow>,
     lane: LaneStatus?,
+    runStartedAt: Long?,
     imageStore: ChatImageStore,
     state: TranscriptState,
     callbacks: TranscriptCallbacks,
@@ -67,7 +68,7 @@ fun TranscriptList(
         contentPadding = contentPadding,
         modifier = modifier.fillMaxSize().pointerInput(focus) { detectTapGestures(onTap = { focus.clearFocus() }) },
     ) {
-        item(key = "lane", contentType = "lane") { StatusLaneView(lane, Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) }
+        item(key = "lane", contentType = "lane") { StatusLaneView(lane, runStartedAt, Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) }
         items(rows, key = { it.key }, contentType = { it::class }) { row ->
             Row(row, imageStore, state, callbacks) { answerOf(rows, row) }
         }
@@ -104,7 +105,7 @@ private fun Row(row: ChatRow, imageStore: ChatImageStore, state: TranscriptState
             expanded = row.key in state.openEntries,
             onToggle = { state.openEntries.toggle(row.key) },
             actions = callbacks.work,
-            modifier = padded.padding(top = 6.dp),
+            modifier = padded.padding(top = 2.dp),
         )
         is ChatRow.Older -> OlderRow()
     }

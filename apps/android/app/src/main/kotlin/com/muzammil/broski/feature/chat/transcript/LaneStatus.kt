@@ -10,7 +10,7 @@ import uniffi.broski_contract.TranscriptItem
 /** What the one live line under the transcript says while the session is busy. */
 @Immutable
 sealed interface LaneStatus {
-    /** A run that has shown nothing yet: "Agent is working" over "New output will appear here". */
+    /** A run that has shown nothing yet. */
     data object Starting : LaneStatus
 
     data object Working : LaneStatus

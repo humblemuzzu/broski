@@ -38,7 +38,7 @@ fun groupedListItemColors(): ListItemColors = ListItemDefaults.segmentedColors(
     selectedSupportingContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
 )
 
-/** A small filled dot: needs you in the accent, unread in green. Never the only sign of a state. */
+/** A small filled dot: needs you in orange, unread in green. Never the only sign of a state. */
 @Composable
 fun Dot(color: Color, modifier: Modifier = Modifier) {
     Box(modifier.size(10.dp).background(color, CircleShape))
@@ -60,7 +60,7 @@ fun SectionHeader(
         Text(
             text = text,
             style = MaterialTheme.typography.titleSmallEmphasized,
-            color = MaterialTheme.colorScheme.primary,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.semantics { heading() },
         )
         action?.invoke()

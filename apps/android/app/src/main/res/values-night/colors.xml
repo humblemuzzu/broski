@@ -1,9 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="splash_background">#131318</color>
-    <color name="widget_surface">#1F1F25</color>
-    <color name="widget_track">#24E4E1E9</color>
-    <color name="widget_text_primary">#E4E1E9</color>
-    <color name="widget_text_secondary">#9E9CA8</color>
-    <color name="widget_accent">#D97757</color>
+    <color name="splash_background">#0E0E10</color>
+    <color name="widget_surface">#1C1C1E</color>
+    <color name="widget_text_primary">#F2F2F7</color>
+    <color name="widget_text_secondary">#AEAEB2</color>
 </resources>

@@ -2,9 +2,7 @@ package com.muzammil.broski.feature.chat.header
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -15,54 +13,33 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
 import com.muzammil.broski.core.isOnline
-import com.muzammil.broski.design.BroskiTheme
-import com.muzammil.broski.design.Orb
 import com.muzammil.broski.design.label
-import com.muzammil.broski.design.orb.OrbState
 import com.muzammil.broski.feature.chat.ChatHeader
-import com.muzammil.broski.feature.chat.cacheNow
-import com.muzammil.broski.feature.chat.cacheStatus
-import com.muzammil.broski.feature.chat.color
-import com.muzammil.broski.feature.chat.compact
-import com.muzammil.broski.feature.chat.tone
-import com.muzammil.broski.feature.chat.work.duration
-import kotlinx.coroutines.delay
-import uniffi.broski_contract.CacheWindow
 
 /**
- * The chat's header: back, the title (renamed on a tap) over `agent · folder · machine`, with the
- * run's elapsed time behind a working orb while one is live and the prompt cache's state before the words,
- * or the machine's state in words when it is not ready; then Files and the overflow, the context ring drawn
- * around the overflow. The bar takes its container only while the transcript runs under it.
+ * The chat's header: back, the title (renamed on a tap) over the folder, or the machine's state in
+ * words when it is not ready; then the overflow, the context ring drawn around it. What runs and for
+ * how long is the status lane's to say. The bar takes its container only while the transcript runs
+ * under it.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatTopBar(
     header: ChatHeader,
-    runStartedAt: Long?,
-    cache: CacheWindow?,
     contextUsed: Float?,
     scrolledUnder: Boolean,
     onBack: () -> Unit,
     onRename: (() -> Unit)?,
-    onOpenFiles: (() -> Unit)?,
     menu: @Composable (dismiss: () -> Unit) -> Unit,
     menuOpen: Boolean,
     onMenu: (Boolean) -> Unit,
@@ -82,76 +59,35 @@ fun ChatTopBar(
                 modifier = if (onRename != null) Modifier.clickable(onClickLabel = stringResource(R.string.chat_rename), role = Role.Button, onClick = onRename) else Modifier,
             )
         },
-        subtitle = { Subtitle(header, runStartedAt, cache) },
+        subtitle = { Subtitle(header) },
         navigationIcon = {
             IconButton(onClick = onBack) {
                 Icon(painterResource(R.drawable.ic_arrow_back), contentDescription = stringResource(R.string.action_back))
             }
         },
-        actions = {
-            if (onOpenFiles != null) {
-                IconButton(onClick = onOpenFiles) {
-                    Icon(painterResource(R.drawable.ic_folder_open), contentDescription = stringResource(R.string.chat_open_files))
-                }
-            }
-            OverflowWithRing(contextUsed, menuOpen, onMenu, menu)
-        },
+        actions = { OverflowWithRing(contextUsed, menuOpen, onMenu, menu) },
         colors = TopAppBarDefaults.topAppBarColors(containerColor = container, scrolledContainerColor = container),
         modifier = modifier,
     )
 }
 
+/** The folder, or why what shows may not be live. */
 @Composable
-private fun Subtitle(header: ChatHeader, runStartedAt: Long?, cache: CacheWindow?) {
+private fun Subtitle(header: ChatHeader) {
     val health = header.health
-    val style = MaterialTheme.typography.labelMedium
-    if (health != null && !health.isOnline) {
-        Text(health.label(header.machineName), style = style, color = MaterialTheme.colorScheme.error, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        return
+    val problem = when {
+        health != null && !health.isOnline -> health.label(header.machineName)
+        header.reconnecting -> stringResource(R.string.chat_reconnecting)
+        else -> null
     }
-    if (header.reconnecting) {
-        Text(stringResource(R.string.chat_reconnecting), style = style, color = MaterialTheme.colorScheme.error, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        return
-    }
-    val parts = listOfNotNull(header.agent.name, header.folder, header.machineName.takeIf { it.isNotEmpty() })
-    val subtitle = parts.joinToString(" · ")
-    val elapsed = runStartedAt?.let { elapsedSince(it) }
-    val status = cacheStatus(cache, cacheNow(cache))
-    val working = BroskiTheme.semantic.working
-    val cacheColor = status?.tone?.color()
-    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-        if (elapsed != null) Orb(OrbState.WORKING, size = 14.dp)
-        Text(
-            buildAnnotatedString {
-                if (elapsed != null) {
-                    withStyle(SpanStyle(color = working, fontFeatureSettings = "tnum")) { append(elapsed) }
-                    append(" · ")
-                }
-                if (status != null && cacheColor != null) {
-                    withStyle(SpanStyle(color = cacheColor, fontFeatureSettings = "tnum")) { append(status.compact) }
-                    append(" · ")
-                }
-                append(subtitle)
-            },
-            style = style,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-    }
-}
-
-/** Seconds since [start], ticking once a second. */
-@Composable
-private fun elapsedSince(start: Long): String {
-    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(start) {
-        while (true) {
-            now = System.currentTimeMillis()
-            delay(1_000L - now % 1_000L)
-        }
-    }
-    return duration((now - start).coerceAtLeast(0))
+    val words = problem ?: header.folder ?: return
+    Text(
+        words,
+        style = MaterialTheme.typography.labelMedium,
+        color = if (problem != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+    )
 }
 
 @Composable
@@ -163,7 +99,7 @@ private fun OverflowWithRing(contextUsed: Float?, open: Boolean, onMenu: (Boolea
                 modifier = Modifier.size(40.dp),
                 strokeWidth = 2.dp,
                 trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                color = if (contextUsed > 0.85f) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                color = if (contextUsed > 0.85f) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                 gapSize = 0.dp,
             )
         }

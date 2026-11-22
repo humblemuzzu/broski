@@ -153,7 +153,7 @@ fun CodeBox(lines: List<CodeLine>) {
 /** Search results: a row per file, or per matching line, opening the file at it. */
 @Composable
 fun MatchRows(rows: List<MatchRow>, hidden: Int, links: ToolLinks) {
-    val mark = BroskiTheme.semantic.working.copy(alpha = 0.22f)
+    val mark = BroskiTheme.semantic.highlight.copy(alpha = 0.22f)
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         rows.forEach { row ->
             Column(Modifier.fillMaxWidth().clickable { links.openFile(row.path, row.line?.toInt()) }) {

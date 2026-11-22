@@ -4,131 +4,121 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/widget_usage_bg"
+    android:gravity="center_vertical"
     android:orientation="vertical"
     android:padding="16dp">
-
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/usage_title"
-        android:textColor="@color/widget_text_secondary"
-        android:textSize="12sp"
-        android:textStyle="bold" />
 
     <TextView
         android:id="@+id/widget_empty"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
         android:text="@string/usage_widget_empty"
-        android:textColor="@color/widget_text_primary"
-        android:textSize="14sp"
+        android:textColor="@color/widget_text_secondary"
+        android:textSize="13sp"
         android:visibility="gone" />
 
     <LinearLayout
-        android:id="@+id/widget_plan_1"
+        android:id="@+id/widget_columns"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        android:orientation="vertical">
+        android:baselineAligned="false"
+        android:orientation="horizontal">
 
         <LinearLayout
-            android:layout_width="match_parent"
+            android:id="@+id/widget_column_1"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:id="@+id/widget_glyph_1"
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
+                    android:layout_marginEnd="6dp"
+                    android:importantForAccessibility="no" />
+
+                <TextView
+                    android:id="@+id/widget_name_1"
+                    style="@style/Widget.Broski.UsageName" />
+            </LinearLayout>
 
             <TextView
-                android:id="@+id/widget_plan_1_name"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:textColor="@color/widget_text_primary"
-                android:textSize="15sp"
-                android:textStyle="bold" />
+                android:id="@+id/widget_label_1"
+                style="@style/Widget.Broski.UsageCaption"
+                android:layout_marginTop="10dp" />
 
             <TextView
-                android:id="@+id/widget_plan_1_percent"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textColor="@color/widget_accent"
-                android:textSize="16sp"
-                android:textStyle="bold" />
+                android:id="@+id/widget_left_1"
+                style="@style/Widget.Broski.UsageFigure" />
+
+            <ImageView
+                android:id="@+id/widget_bar_1"
+                android:layout_width="match_parent"
+                android:layout_height="14dp"
+                android:layout_marginTop="4dp"
+                android:importantForAccessibility="no"
+                android:scaleType="fitStart" />
+
+            <TextView
+                android:id="@+id/widget_reset_1"
+                style="@style/Widget.Broski.UsageCaption"
+                android:layout_marginTop="4dp" />
         </LinearLayout>
-
-        <ProgressBar
-            android:id="@+id/widget_plan_1_progress"
-            style="?android:attr/progressBarStyleHorizontal"
-            android:layout_width="match_parent"
-            android:layout_height="8dp"
-            android:layout_marginTop="6dp"
-            android:max="100"
-            android:progressDrawable="@drawable/widget_progress" />
-
-        <TextView
-            android:id="@+id/widget_plan_1_meta"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:textColor="@color/widget_text_secondary"
-            android:textSize="12sp" />
-    </LinearLayout>
-
-    <LinearLayout
-        android:id="@+id/widget_plan_2"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:orientation="vertical"
-        android:visibility="gone">
 
         <LinearLayout
-            android:layout_width="match_parent"
+            android:id="@+id/widget_column_2"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
+            android:layout_marginStart="20dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:id="@+id/widget_glyph_2"
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
+                    android:layout_marginEnd="6dp"
+                    android:importantForAccessibility="no" />
+
+                <TextView
+                    android:id="@+id/widget_name_2"
+                    style="@style/Widget.Broski.UsageName" />
+            </LinearLayout>
 
             <TextView
-                android:id="@+id/widget_plan_2_name"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:textColor="@color/widget_text_primary"
-                android:textSize="15sp"
-                android:textStyle="bold" />
+                android:id="@+id/widget_label_2"
+                style="@style/Widget.Broski.UsageCaption"
+                android:layout_marginTop="10dp" />
 
             <TextView
-                android:id="@+id/widget_plan_2_percent"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textColor="@color/widget_accent"
-                android:textSize="16sp"
-                android:textStyle="bold" />
+                android:id="@+id/widget_left_2"
+                style="@style/Widget.Broski.UsageFigure" />
+
+            <ImageView
+                android:id="@+id/widget_bar_2"
+                android:layout_width="match_parent"
+                android:layout_height="14dp"
+                android:layout_marginTop="4dp"
+                android:importantForAccessibility="no"
+                android:scaleType="fitStart" />
+
+            <TextView
+                android:id="@+id/widget_reset_2"
+                style="@style/Widget.Broski.UsageCaption"
+                android:layout_marginTop="4dp" />
         </LinearLayout>
-
-        <ProgressBar
-            android:id="@+id/widget_plan_2_progress"
-            style="?android:attr/progressBarStyleHorizontal"
-            android:layout_width="match_parent"
-            android:layout_height="8dp"
-            android:layout_marginTop="6dp"
-            android:max="100"
-            android:progressDrawable="@drawable/widget_progress" />
-
-        <TextView
-            android:id="@+id/widget_plan_2_meta"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:textColor="@color/widget_text_secondary"
-            android:textSize="12sp" />
     </LinearLayout>
 </LinearLayout>

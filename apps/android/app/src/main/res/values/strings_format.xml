@@ -73,13 +73,11 @@
         <item quantity="other">%d fields</item>
     </plurals>
     <string name="format_reading">Reading</string>
-    <string name="format_reading_body">How agents\' text reads</string>
     <string name="format_reading_size">Text size</string>
     <string name="format_reading_size_system">As the system</string>
     <string name="format_reading_compact">Compact spacing</string>
     <string name="format_reading_wrap">Wrap code</string>
     <string name="format_reading_underline">Underline links</string>
-    <string name="format_reading_preview">Preview</string>
     <string name="format_reading_footer">Text size adds to the font size set for the whole phone.</string>
     <string name="format_smaller">Smaller</string>
     <string name="format_larger">Larger</string>
