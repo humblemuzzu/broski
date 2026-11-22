@@ -8,11 +8,18 @@
 #                                         # truncate oversized daemon debug log, shut down idle iOS simulators
 #   scripts/clean-workspace.sh --deep     # everything in --apply, plus prune Rust target/debug (keeps release
 #                                         # broski-link & mobile slices), iOS DerivedData and Android build/ dirs
+# The Rust target directory is $CARGO_TARGET_DIR when set (relative to packages/link), else packages/link/target;
+# --deep leaves its debug/ alone when it lies outside this repository.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 IOS_BUILD="$ROOT/apps/ios/Broski/build"
-LINK_TARGET="$ROOT/packages/link/target"
+LINK_DIR="$ROOT/packages/link"
+case "${CARGO_TARGET_DIR:-}" in
+  "") LINK_TARGET="$LINK_DIR/target" ;;
+  /*) LINK_TARGET="$CARGO_TARGET_DIR" ;;
+  *) LINK_TARGET="$LINK_DIR/$CARGO_TARGET_DIR" ;;
+esac
 DEBUG_LOG="/tmp/broski-daemon-debug.log"
 
 mode=check
@@ -22,7 +29,7 @@ for arg in "$@"; do
     --apply) mode=apply ;;
     --deep) mode=deep ;;
     -h | --help)
-      sed -n '2,10p' "$0"
+      sed -n '2,12p' "$0"
       exit 0
       ;;
     *)
@@ -97,9 +104,17 @@ if [[ -f $DEBUG_LOG ]]; then
 fi
 
 if [[ $mode == deep ]]; then
-  echo "==> Deep clean: pruning Rust target/debug, iOS DerivedData and Android build dirs"
+  if [[ -d $LINK_TARGET/debug ]]; then
+    target_real="$(cd "$LINK_TARGET" && pwd -P)"
+    if [[ $target_real == "$ROOT"/* ]]; then
+      echo "==> Deep clean: pruning $target_real/debug"
+      rm -rf "$target_real/debug"
+    else
+      echo "==> Keeping $target_real/debug: CARGO_TARGET_DIR is outside this repository and may hold other projects' builds"
+    fi
+  fi
+  echo "==> Deep clean: pruning iOS DerivedData and Android build dirs"
   rm -rf \
-    "$LINK_TARGET/debug" \
     "$IOS_BUILD/DerivedData" \
     "$IOS_BUILD/phone/DerivedData" \
     "$IOS_BUILD/phone/stage" \

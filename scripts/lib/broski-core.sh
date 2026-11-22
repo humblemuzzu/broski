@@ -3,7 +3,12 @@
 
 LINK_DIR="$ROOT/packages/link"
 CORE_PROFILE=mobile
-CORE_TARGET_DIR="${CARGO_TARGET_DIR:-$LINK_DIR/target}"
+# Cargo runs in $LINK_DIR, so a relative CARGO_TARGET_DIR is relative to it.
+case "${CARGO_TARGET_DIR:-}" in
+  "") LINK_TARGET="$LINK_DIR/target" ;;
+  /*) LINK_TARGET="$CARGO_TARGET_DIR" ;;
+  *) LINK_TARGET="$LINK_DIR/$CARGO_TARGET_DIR" ;;
+esac
 HOST_TARGET="$(rustc -vV | sed -n 's/^host: //p')"
 # The minimums of apps/ios/BroskiCore/Package.swift, so the core's C code (ring) is built for them
 # rather than for the SDK's own version. Both scripts set them, so neither rebuilds the other's host
@@ -34,7 +39,7 @@ build_push() {
 
 # Where build_core puts the libraries of target $1.
 core_output() {
-  echo "$CORE_TARGET_DIR/$1/$CORE_PROFILE"
+  echo "$LINK_TARGET/$1/$CORE_PROFILE"
 }
 
 # The host's cdylib (after `build_core "$HOST_TARGET"`): what bindgen reads in library mode and what

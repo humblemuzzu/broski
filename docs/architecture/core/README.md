@@ -4,7 +4,7 @@ Status: the core of the rebuild. It speaks the [contract](../contract/README.md)
 
 Code: `packages/bridge/src/core/` (one concept per file), wired into the existing connection layer by `packages/bridge/src/server/contract-seam.ts`.
 
-**Contents.** [1 What it owns](#1-what-the-core-owns) · [2 Layout](#2-layout) · [3 Data flow](#3-data-flow) · [4 The seam](#4-the-seam-into-the-running-bridge) · [5 Sessions](#5-session-lifecycle) · [6 Streams](#6-streams-seq-epoch-replay) · [7 Interactions](#7-interactions) · [8 Prompts](#8-prompts) · [9 Fitting the link](#9-fitting-every-message-to-the-link) · [10 Backpressure](#10-backpressure-and-the-rate-limit) · [11 Trust](#11-what-the-core-does-not-trust) · [12 Versioning](#12-versioning) · [13 Layers](#13-layers) · [14 Numbers](#14-numbers) · [15 Client core](#15-how-the-client-core-plugs-in) · [16 Adding a backend](#16-adding-a-backend) · [17 Tests](#17-tests) · [18 Limits](#18-limits-and-open-risks) · [19 Observing](#19-observing-sessions-and-answering-from-outside) · [20 Holding](#20-holding-a-session-open-with-no-client) · [21 Answering without control](#21-answering-a-session-without-control) · [22 The workspace](#22-the-workspace)
+**Contents.** [1 What it owns](#1-what-the-core-owns) · [2 Layout](#2-layout) · [3 Data flow](#3-data-flow) · [4 The seam](#4-the-seam-into-the-running-bridge) · [5 Sessions](#5-session-lifecycle) · [6 Streams](#6-streams-seq-epoch-replay) · [7 Interactions](#7-interactions) · [8 Prompts](#8-prompts) · [9 Fitting the link](#9-fitting-every-message-to-the-link) · [10 Backpressure](#10-backpressure-and-the-rate-limit) · [11 Trust](#11-what-the-core-does-not-trust) · [12 Versioning](#12-versioning) · [13 Layers](#13-layers) · [14 Numbers](#14-numbers) · [15 Client core](#15-how-the-client-core-plugs-in) · [16 Adding a backend](#16-adding-a-backend) · [17 Tests](#17-tests) · [18 Limits](#18-limits-and-open-risks) · [19 Observing](#19-observing-sessions-and-answering-from-outside) · [20 Holding](#20-holding-a-session-open-with-no-client) · [21 Answering without control](#21-answering-a-session-without-control) · [22 The workspace](#22-the-workspace) · [23 Bridge-raised asks](#23-asks-and-notices-the-bridge-raises) · [24 Fallbacks](#24-fallbacks-for-what-a-backend-lacks) · [25 Clocks](#25-the-run-clock-and-the-cache-clock)
 
 ## 1. What the core owns
 
@@ -20,9 +20,12 @@ What no backend provides (contract README §5, §8, §9, §10, §12):
 - **one answer per request**, whatever the adapter does, within a deadline;
 - **every wire message within the link's cap**, never cut mid-JSON;
 - the **wire boundary**: every inbound frame bounded and checked against the contract's zod schemas, every outbound message checked too;
-- the **workspace requests**' answers and the **terminal viewers**: which clients a terminal's output goes to (§22).
+- the **workspace requests**' answers and the **terminal viewers**: which clients a terminal's output goes to (§22);
+- **asks and notices the bridge raises itself** (`BridgeCore.raiseExternalInteraction`, `emitExternalNotice`), for a tool an agent calls that no adapter knows of (§23);
+- **fallbacks** for a backend without a native queue, steer or fork, each on only when the bridge asks for it (§24);
+- each session's **run start** and **prompt cache window**, across every backend (§25).
 
-What it does not do: anything backend-specific. It never mints run, block, tool, interaction or queue ids (adapters do, README §4), never synthesizes `interaction_resolved` (adapters do, README §9), and never branches on the backend id.
+What it does not do: anything backend-specific. For an adapter's runs, blocks, tools, asks and queue it never mints ids (adapters do, README §4) and never synthesizes `interaction_resolved` (adapters do, README §9); it mints ids and resolves only the asks it raised and the prompts it queued itself (§23, §24). It never branches on the backend id.
 
 ## 2. Layout
 
@@ -56,6 +59,13 @@ What it does not do: anything backend-specific. It never mints run, block, tool,
 | `wire-fit.ts`, `snapshot-fit.ts`, `text-elision.ts` | Fitting a message to the link: run items, free text, the event fallbacks. |
 | `workspace-handler.ts`, `requests-workspace.ts`, `requests-terminal.ts` | The workspace requests: `served` and `fitted` (an answer read again smaller to fit), the files, git and terminal handlers (§22). |
 | `terminal-viewers.ts` | The clients attached to each terminal, and the sink the workspace's terminals publish to (§22). |
+| `requests-usage.ts` | `plan.usage`: the `UsageReader` port's answer, `unsupported` when the bridge has none. |
+| `session-extras.ts` | `SessionExtras`: what the bridge keeps on an open session beside the adapter's state (its asks, its queue, a start or steer under way, who waits for the run to end); a replacing stream takes it over. |
+| `bridge-layer.ts` | `BridgeLayer`: the bridge's asks, its queue and the cache window laid onto every snapshot phones get, the attach's reconcile included, so an adapter that knows nothing of them is never resynced for leaving them out. |
+| `external-interactions.ts` | `ExternalInteractions`: the asks and notices the bridge raises on a session itself (§23). |
+| `fallbacks.ts` | `CoreFallbacks`: routes a prompt, a queue cancel or a fork to a fallback when it is on and the backend lacks the capability, and describes the backend with what the fallbacks add (§24). |
+| `bridge-queue.ts`, `steer-fallback.ts`, `portable-fork.ts` | The three fallbacks: a queue, stop-and-start steering, a fork with a context handoff (§24). |
+| `run-clock.ts`, `cache-clock.ts` | `RunClock` (each active session's `runStartedAt`) and `CacheClock` (each session's `Usage.cache`) (§25). |
 
 Outside `core/`: `server/contract-seam.ts` (the seam, §4; it installs the observer and exposes `answer`, §19, and gives the core the workspace, §22), `server/json-lines-journal.ts` (a journal file) with `contract-prompt-journal.ts` and `contract-replacement-journal.ts` (the two it keeps), and `workspace/workspace-host.ts` (the `WorkspaceHost` the seam passes).
 
@@ -87,6 +97,7 @@ The rest of the bridge knows the core only through `server/contract-seam.ts` (`C
 | `disconnect(ws)` | A client socket closed. |
 | `answer(session, answer)` | The daemon's feed relays a lock-screen decision (§19). |
 | `hold(session)`, `release(session)` | The Claude Code hook receiver (§20). |
+| `raiseExternalInteraction(session, spec, signal)`, `emitExternalNotice(session, notice)` | The bridge's MCP server (`src/mcp/`, through its `McpBridgeSink`) (§23). Nothing mounts that server on a listener yet. |
 | `start()`, `stop()` | `server.ts` starts the backends once the listeners are bound, and stops the core among the shutdown's disposals, inside the teardown budget. |
 
 The frame is not run through any prototype-poison or depth guard of the connection layer on purpose: legal contract data names keys (form field keys, free JSON in `editedInput`) such a guard refuses, and nesting it refuses, while the contract's strict schemas never merge an object into another. A contract frame inside a JSON array or batch is not served (the contract has no batch). Replies go through the send queue (§10).
@@ -96,7 +107,7 @@ The frame is not run through any prototype-poison or depth guard of the connecti
 - **Open on first use**: an attach (`acquire`) or a `session.create` (`open({kind:"new"})`). Concurrent attaches share one open. A session closing is not opened again until its `close()` has finished: at most one `OpenSession` per session at a time (README §5 rule 12).
 - **Deadlines on the adapter.** An `open` that has not resolved within 30 s fails `backend_error` (an attach answers `internal` with that code); an `OpenSession` it hands over later is closed at once, and the next open of that session waits for that close. A `close` waited for more than 30 s is logged and waited for no longer. An adapter that does not answer has broken its liveness, and without these one wedged call would keep a session from ever opening again; rule 12 holds for every adapter that answers.
 - **The sink holds early records.** `open` resolves with the snapshot; records the adapter emits after that moment but before the hub's continuation runs are held and published in order, on top of that snapshot (README §5 rule 1).
-- **Keep-open rule** (README §5 rule 3). `holdsOpen(snapshot)`: an active run, a pending interaction, a compaction or retry under way, or accepted input still queued. While it holds, the session stays open with or without viewers, so no ask is raised to nobody and no event is lost from the log. The queue is included because closing would strand accepted input an adapter may hold in its own memory.
+- **Keep-open rule** (README §5 rule 3). `holdsOpen(snapshot)`: an active run, a pending interaction, a compaction or retry under way, accepted input still queued, or a background task running. While it holds, the session stays open with or without viewers, so no ask is raised to nobody and no event is lost from the log. The queue is included because closing would strand accepted input an adapter may hold in its own memory.
 - **Idle close**: once a session is idle and unviewed, it closes after `idleCloseMs` (60 s). Any viewer change and every event passes through `reviewIdle`, which schedules or cancels the timer. A created session nobody attaches to closes the same way.
 - **Replacement**: `session_replaced{session}` is the old stream's last event. A new stream (new epoch, `seq` from 1) takes over the same `OpenSession`, sink and in-flight answers (one shared set of claims) under the new id. Viewers of the old stream are let go and attach to the new one. The core records which stream replaced which (`Replacements`: the old stream's epoch to the new session and its epoch, so a chain is followed from the first epoch alone): at most 4,096 records, none older than 30 days, appended to `replacements.jsonl` beside the prompt journal and loaded at start. A client that attaches with a `resume` of one of those epochs, or whose attach was under way when its session was replaced, is answered `replaced{epoch, session}` with the successor's own capabilities, opened for the purpose and kept for the attach that follows (README §12.2). A session replaced and then reopened under its old id is a new stream with a new epoch, which no record names.
 - **Removal**: a catalog `session_removed` ends the session's stream and lets its viewers go.
@@ -115,7 +126,8 @@ The frame is not run through any prototype-poison or depth guard of the connecti
 
 - **Every answer is checked by `answerProblem` before any adapter sees it** (README §2 rule 6). A faulted answer is `invalid_input` and changes nothing.
 - **First answer wins** across phones (README §9, §12.3). An answer on its way to the adapter claims the interaction; another is `stale`. If the adapter refuses the first, or throws, the claim is released and the next answer may go. A resolved interaction is remembered, so a late answer is `stale`, not `not_found`.
-- The other phones see the end as the adapter's `interaction_resolved`.
+- The other phones see the end as the adapter's `interaction_resolved`, or the core's for an ask the bridge raised itself (§23).
+- **Two kinds of ask, one desk.** An adapter's ask is answered through its session's answerer (§21); an ask the bridge raised is answered through the waiting caller (`ExternalInteractions.answerer`, tried first). Both pass the same `answerProblem` check, first-answer-wins and `stale` memory, from a phone (`answering.ts`) or the lock screen (`bridge-answer.ts`).
 - **Re-delivery**: pending interactions are in every attach's snapshot and in replayed `interaction_requested` events.
 - **No timeout policy.** The core never answers on anyone's behalf: an interaction ends only when a human answers or cancels it, or the backend withdraws it or lets it expire. A phone may come back hours later and the ask is still there. `Interaction.expiresAt` is the backend's own deadline, shown, never acted on. (The request deadline of §11 answers a *request* the adapter never answered; it answers no interaction.)
 - A session that can only be watched (`controllable: false`) answers every control request `unsupported`. An answer is refused too, unless the session takes answers without control (`OpenSession.answer`, §21).
@@ -170,7 +182,8 @@ Inbound, a socket has one token bucket (`BROSKI_RATE_LIMIT_*`: 60 a second, burs
 
 - `src/core/` may import only itself, the contract (not `contract/testing/`), `zod`, and `CORE_INFRASTRUCTURE`: `state/bounded-map` and `transport/send-limits` (`frameBytes`).
 - Those infrastructure modules are judged as well: they may import only `zod` and each other, so the core reaches nothing through them.
-- So the core never imports `connectors/`, `handlers/`, `runtime/`, `server/`, `types/`, `logging/`, `backends/<id>/` or a `node:` module.
+- So the core never imports `connectors/`, `handlers/`, `runtime/`, `server/`, `types/`, `logging/`, `adapter-kit/`, `backends/<id>/` or a `node:` module.
+- `src/adapter-kit/` is what adapters share (`ask-desk.ts`, `cursor.ts`, `image-cache.ts`, `phone-text.ts`, `safe-trash.ts`): it may import only itself, the contract (not `contract/testing/`), `zod` and `node:` built-ins (not `node:module`), never the core, the server or a backend's SDK. `src/backends/<id>/` may import it; the core may not.
 - Adapters still may not import the core; they reach it only through the `AgentBackend` they hand the registry.
 
 ## 14. Numbers
@@ -191,6 +204,11 @@ Inbound, a socket has one token bucket (`BROSKI_RATE_LIMIT_*`: 60 a second, burs
 | A request waits for a backend still starting | 30 s from its start | `backend-registry.ts` |
 | An adapter's open, or a close waited for | 30 s | `deadline.ts` |
 | A request, start to answer | 120 s | `protocol-server.ts` |
+| Prompts the bridge queues per session | 32 | `bridge-queue.ts` |
+| A fallback steer waits for the run to stop | 10 s | `steer-fallback.ts` |
+| A portable fork's handoff | 65,536 UTF-16 units, tags included; 50 transcript pages read at most | `portable-fork.ts` |
+| Handoffs waiting for a first prompt | 256, for 24 h | `portable-fork.ts` |
+| Run starts and cache windows remembered | 512 each, for 24 h | `run-clock.ts`, `cache-clock.ts` |
 
 ## 15. How the client core plugs in
 
@@ -206,18 +224,20 @@ The shared client core (Phase 3 of `docs/rebuild/PLAN.md`) does all of this.
 ## 16. Adding a backend
 
 - Write `backends/<id>/`, export a `BackendFactory`, and register it in `server/contract-backends.ts` (`contractOptions`: `backends: [[id, factory]]`). Nothing in the core changes.
+- Take what `adapter-kit/` already has (an asks ledger, page cursors, phone-safe text, a trash move, an image cache) rather than writing it again. Claude Code and Pi keep their own copies.
+- Leave out a queue, steering or fork the backend cannot do natively: the bridge serves them (§24).
 - Factories start once the bridge listens (`contract.start()`), all at once and in the background: a request that names a backend still starting waits for it up to 30 s from the start, then is answered `unknown_backend` saying it is still starting; a backend that lands later is announced to every client (`status_changed`). A factory may take as long as its backend needs, but report an unreachable service through `status()` rather than failing.
 - Pass the conformance suite.
 - Once backends are registered the journals (`prompts.jsonl`, `replacements.jsonl`) default to `~/.broski/core`; pass another `journalDirectory` to move them.
 
 ## 17. Tests
 
-- Unit, in process (`__tests__/helpers/core-rig.ts`: the core, the fake backend, in-memory clients that check every frame against `ServerMessage`, a manual clock): `core_protocol`, `core_streams`, `core_session_lifecycle`, `core_control`, `core_interactions`, `core_wire_fit`, `core_text_elision`, `core_wire_guards`, `core_adapter_guards`, `core_backend_start`, `core_backend_registry`, `core_event_log`, `core_keep_open`, `core_session_keys`, `core_prompt_journal`, `core_replacement_journal`, `core_session_replacement` (a phone away, a chain, the memory's bounds, a successor not yet open), `core_seam`, `core_observer` (what the observer sees, `describe`, a failing observer), `core_bridge_answer` (an answer from outside the phones), `core_session_hold` (§20), `core_watched_answers` (§21); the layer rules in `contract_layers`.
+- Unit, in process (`__tests__/helpers/core-rig.ts`: the core, the fake backend, in-memory clients that check every frame against `ServerMessage`, a manual clock): `core_protocol`, `core_streams`, `core_session_lifecycle`, `core_control`, `core_interactions`, `core_wire_fit`, `core_text_elision`, `core_wire_guards`, `core_adapter_guards`, `core_backend_start`, `core_backend_registry`, `core_event_log`, `core_keep_open`, `core_session_keys`, `core_prompt_journal`, `core_replacement_journal`, `core_session_replacement` (a phone away, a chain, the memory's bounds, a successor not yet open), `core_seam`, `core_observer` (what the observer sees, `describe`, a failing observer), `core_bridge_answer` (an answer from outside the phones), `core_session_hold` (§20), `core_watched_answers` (§21), `core_external_interactions` (§23), `core_bridge_queue`, `core_steer_fallback` and `core_portable_fork` (§24), `core_run_clock` and `core_cache_clock` (§25), `core_plan_usage`, `core_well_formed_json`; the layer rules in `contract_layers`. The adapter kit is tested on its own in `adapter_kit`.
 - Adapters that differ from the fake in one way live in `__tests__/helpers/core-adapters.ts` (`wrappingSessions`, `changedSession`, `Gate` for a call that waits for the test); faults are made by wrapping the fake (`adapt`), never by mocking the core.
 - End to end over the real link path (`__tests__/helpers/core-bridge.ts`: a real bridge with the fake registered, phones on its unix socket through `link/unix-ws.ts`): `core_e2e_link` (hello, broken frames and frames that are not contract frames, two phones, steer and queue, catalog, interactions across phones), `core_e2e_resilience` (replay and stale-epoch snapshot, a slow phone, a burst of large answers to a phone that is not reading, a phone cut off at its link window, a loopback client shed at its own window with 1013, keep-open, the snapshot of a long run at a 1 MiB cap), `core_e2e_seam` (a closed socket's sessions, stop, keys an object merge would misread, the rate limit, an oversized frame, backends starting after the bridge listens) and `core_e2e_replacement` (a replaced session told to the phone that comes back, also after a bridge restart). The queue under them is tested on its own in `send_queue.test.ts`.
 - No sleeps: the fake works in microtasks, so `setImmediate` is its quiescence; timers run on the manual clock (`whenPending` waits for another process to schedule one); e2e waits on frames.
 - Workspace, with the real workspace host (path policy, git, the native PTY helper, built from `native/pty/` when missing by `helpers/native-pty-library.ts`): `core_workspace` (no workspace, the bounds before the schema, answers read again smaller, the viewer rule, `term_exited`, a replay that does not fit, an event that breaks the contract) and `core_e2e_workspace` (files, git and a terminal over the real link, shutdown ending terminals); the behaviour of each part in `workspace_files`, `workspace_git` and `workspace_terminal`.
-- **Mutation check**: `bun run mutate:core` (`scripts/mutate-core.ts`, mutants in `scripts/mutate-core/`) applies each of 227 mutants (one guard changed or removed) of the core, the seam, the journals, the reducer, the layer rules, the field-key rule, the contract's `sessionAnswerer` and the workspace rules to a copy of the bridge and runs these tests; `--check` only verifies that every mutant still matches its file. Every mutant is killed except the ones listed with the reason they change nothing a test can see (memory only, speed only, or a guard no input can reach).
+- **Mutation check**: `bun run mutate:core` (`scripts/mutate-core.ts`, mutants in `scripts/mutate-core/`) applies each of 282 mutants (one guard changed or removed) of the core, the seam, the journals, the reducer, the layer rules, the field-key rule, the contract's `sessionAnswerer`, the workspace rules, and the bridge's asks, fallbacks and cache clock (`smarts-mutants.ts`, 53 of them) to a copy of the bridge and runs these tests; `--check` only verifies that every mutant still matches its file. Every mutant is killed except the ones listed with the reason they change nothing a test can see (memory only, speed only, or a guard no input can reach).
 
 ## 18. Limits and open risks
 
@@ -276,3 +296,31 @@ The phone's files, git and terminals (contract README §20) are served by the br
 5. **Where viewing ends.** `term.detach`; a client that disconnects or says `hello` in another major; `term_exited`, after which nothing follows, so an exited terminal has no viewers and no client views more terminals than run (at most `MAX_TERMINALS`). Attaching to an exited terminal answers its replay and adds no viewer, and an answer that did not reach the client (it did not fit the link) adds none either.
 6. **Input in order.** `term.input` and `term.resize` need the client attached (`not_attached` otherwise) and reach the host before anything awaits, so keystrokes arrive in the order they were sent.
 7. **Shutdown.** `BridgeCore.dispose` disposes the workspace beside the backends: every terminal ends.
+
+## 23. Asks and notices the bridge raises
+
+An agent may call a tool the bridge serves itself rather than its adapter (a bridge MCP tool such as `broski_ask`). Its question has no adapter to raise it or take its answer, so the core raises it on the session's stream beside the adapter's asks (`external-interactions.ts`), reached from outside the core only through the seam (§4):
+
+1. **`BridgeCore.raiseExternalInteraction(session, spec, signal)`** holds the session (§20), mints the interaction's id, and publishes an `interaction_requested` on the session's stream. Every viewer, every attach's snapshot (`BridgeLayer`) and the observer (§19, so the lock-screen push) get it as they get an adapter's ask. The title and body are clipped to the contract's bounds; an interaction that still breaks the contract is logged and withdrawn without being raised.
+2. **It blocks the run** when the session has one, unless `spec.blocksRun` is false; an ask that does not block names no run.
+3. **It ends once**, and the promise resolves with how: `answered` with the person's reply; `withdrawn` when `signal` aborts, the hold is refused, or the run it blocks ends (withdrawn before that run's `run_finished` is published); `expired` when the session's stream ends without a successor. The core publishes the `interaction_resolved` and releases the hold.
+4. **Its answer passes the desk** (§7): a phone's `interaction.answer` and a lock-screen decision (`BridgeCore.answer`) reach the waiting caller, not the adapter. A reply that ends the run (`cancel{stopRun: true}`, a permission option that `stopsRun`) also aborts the session's run.
+5. **A replaced session keeps its asks**: the replacing stream takes over the session's `SessionExtras`.
+6. **`BridgeCore.emitExternalNotice(session, notice)`** publishes a `notice` event on an open session (`not_found` when it is not open). `urgent` is accepted but not acted on: the daemon's feed has no alert for a notice.
+
+Nothing here answers on anyone's behalf (§7): only the person, the caller's `signal` or the stream's end ends a bridge ask.
+
+## 24. Fallbacks for what a backend lacks
+
+`CoreOptions.fallbacks` (`fallbacks.ts`) turns on three things the core does for a backend that cannot; the seam turns on all three (`server/contract-seam.ts`). Each applies only when the backend lacks the capability natively, so a backend that queues, steers or forks itself never meets it (Claude Code and Pi do all three). What a fallback adds is in the backend's descriptor (`backends.list`) and the session's capabilities, so a phone offers exactly what the bridge serves.
+
+- **Queue** (`bridge-queue.ts`), for a backend whose `promptModes` lack `queue`. A `queue` prompt that arrives while a run is active, or while a start is still on its way, is held by the bridge: at most 32 per session (`busy` past that), published as the session's queue after the adapter's own items (`queue_changed`), each cancellable (`queue.cancel`, `SessionCapabilities.cancelQueued`). The queue keeps the session open (§5). When the run finishes the head starts as a `start` prompt; when the run was aborted, or the head could not start, the queue is handed back to the composer (`input_returned`). A queue prompt to an idle session starts at once.
+- **Steer** (`steer-fallback.ts`), for a backend whose `promptModes` lack `steer`. The steer aborts the active run, waits up to 10 s for its `run_finished`, then starts as the next run; what the bridge queued stays queued behind it. A run that does not stop in time, or a second steer while one is stopping the run, is answered `busy`.
+- **Fork** (`portable-fork.ts`), for a backend with no `fork` method. The core creates a new session in the source session's working directory (through the directory policy, §11) and keeps a `<broski_context_handoff>` of the conversation's newest finished items up to the fork point (at most 65,536 UTF-16 units, from at most 50 transcript pages). The handoff is put before the text of the new session's first prompt that is not a command and fits within the prompt bound, and is dropped once that prompt is accepted. It is kept in memory only: at most 256, for 24 h, lost on bridge restart.
+
+## 25. The run clock and the cache clock
+
+Two bridge-wide clocks fill in what an adapter need not track itself:
+
+- **`RunClock`** (`run-clock.ts`) keeps each active session's `runStartedAt` on its rows (`SessionSummary`): the start the open session's snapshot carries, else the one the adapter's row gives (a terminal run already under way when the bridge saw it), else the moment the bridge first saw the row active. At most 512 sessions, for 24 h.
+- **`CacheClock`** (`cache-clock.ts`) keeps each session's `Usage.cache`, the prompt cache window the latest model request left. An adapter that knows the cache's lifetime reports `ttlMs` and `confidence`; the clock keeps that window, stamps `lastTouchAt` when the adapter gave none, and takes the latest request's `cachedTokens` and `promptTokens` from the growth of the session's totals when it gave none. An adapter that reports only cache read and write totals gets a window from them when they move, with no `ttlMs`, since none is known. Windows outlive the session's close (512, for 24 h), so a phone that reattaches to a warm session still sees its countdown and hit ratio. The phone counts down from `lastTouchAt + ttlMs`; the bridge sends no ticks.
