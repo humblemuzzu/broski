@@ -63,12 +63,19 @@ nonisolated struct RunActivityAttributes: ActivityAttributes {
             return components.url
         }
 
-        /// "3 live agents · 1 needs you", or the focused session's state when it is the only one.
-        var summary: String {
-            guard liveCount > 1 else { return phase.title }
-            let live = "\(liveCount) live agents"
-            return needsYouCount == 0 ? live : "\(live) · \(needsYouCount) \(needsYouCount == 1 ? "needs" : "need") you"
+        /// More than one session is live: the activity speaks for all of them, not the focused one.
+        var isMany: Bool { liveCount > 1 }
+
+        /// "3 agents running".
+        var countLine: String { "\(liveCount) agents running" }
+
+        /// "1 needs you", when any does.
+        var needsYouLine: String? {
+            needsYouCount == 0 ? nil : "\(needsYouCount) \(needsYouCount == 1 ? "needs" : "need") you"
         }
+
+        /// Whether the live sessions run on more than one Mac, the only time a Mac's name is worth saying.
+        var spansMachines: Bool { Set(runs.map(\.machineName)).count > 1 }
     }
 }
 

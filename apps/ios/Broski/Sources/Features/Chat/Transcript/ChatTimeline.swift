@@ -200,7 +200,8 @@ nonisolated extension ChatRow {
         case (.text(let before), .text(let after)) where before.blockId == after.blockId: return 0
         case (_, .answerEnd): return 6
         case (.work, .work): return 2
-        case (.activity, .activity): return 6
+        case (.activity, .activity): return 2
+        case (.work, .activity), (.activity, .work): return 2
         case (.user, _), (.pending, _): return 18
         case (.work, .text): return 10
         default: return 14

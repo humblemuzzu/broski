@@ -16,5 +16,6 @@ enum Spacing {
 enum Radius {
     static let small: CGFloat = 8
     static let card: CGFloat = 20
+    static let panel: CGFloat = 22
     static let sheetCard: CGFloat = 28
 }

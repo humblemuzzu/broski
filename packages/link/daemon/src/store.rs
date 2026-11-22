@@ -7,7 +7,7 @@ use tokio::sync::Mutex;
 use zeroize::{Zeroize, Zeroizing};
 
 use crate::codec;
-use crate::device::{hostname, DeviceRecord, PushRegistration, ROLE_OWNER};
+use crate::device::{machine_name, DeviceRecord, PushRegistration, ROLE_OWNER};
 use crate::error::{Error, Result};
 use crate::fsx;
 
@@ -42,7 +42,7 @@ impl Store {
             None => {
                 let fresh = MachineState {
                     relay_secret: codec::b64url(&crate::clock::bytes::<SECRET_BYTES>()?),
-                    name: hostname(),
+                    name: machine_name(),
                 };
                 fsx::write_atomic(&state_path, &serde_json::to_vec(&fresh)?)?;
                 fresh

@@ -35,11 +35,10 @@ struct InteractionPanel: View {
             }
             .padding(.horizontal, Spacing.l)
             .padding(.vertical, Spacing.m)
-            .background(.regularMaterial, in: .capsule)
-            .overlay { Capsule().strokeBorder(.separator, lineWidth: 0.5) }
             .contentShape(.capsule)
         }
         .buttonStyle(.plain)
+        .glassEffect(.regular.interactive(), in: .capsule)
         .accessibilityHint("Shows the question")
     }
 
@@ -59,8 +58,8 @@ struct InteractionPanel: View {
             }
         }
         .padding(Spacing.l)
-        .background(.regularMaterial, in: .rect(cornerRadius: Radius.card, style: .continuous))
-        .overlay { RoundedRectangle(cornerRadius: Radius.card, style: .continuous).strokeBorder(.separator, lineWidth: 0.5) }
+        .background(.regularMaterial, in: .rect(cornerRadius: Radius.panel, style: .continuous))
+        .overlay { RoundedRectangle(cornerRadius: Radius.panel, style: .continuous).strokeBorder(.separator.opacity(0.6), lineWidth: 0.5) }
         .accessibilityElement(children: .contain)
     }
 

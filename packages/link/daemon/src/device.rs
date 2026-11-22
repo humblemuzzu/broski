@@ -67,6 +67,25 @@ pub fn short(id: &str) -> &str {
     id.get(..8).unwrap_or(id)
 }
 
+/// The name a fresh machine state carries: the Mac's Computer Name ("Sam's MacBook Pro", as
+/// System Settings shows it), else the network host name.
+pub fn machine_name() -> String {
+    computer_name().unwrap_or_else(hostname)
+}
+
+fn computer_name() -> Option<String> {
+    let output = std::process::Command::new("/usr/sbin/scutil")
+        .args(["--get", "ComputerName"])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let name = String::from_utf8(output.stdout).ok()?;
+    let name = name.trim();
+    (!name.is_empty()).then(|| name.to_owned())
+}
+
 pub fn hostname() -> String {
     let mut buffer = [0i8; 256];
     // SAFETY: `buffer` is a live, correctly sized array that outlives the call.

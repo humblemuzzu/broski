@@ -28,7 +28,7 @@ final class MachineModel: Identifiable {
         let record = machine.record()
         id = machine.id()
         self.machine = machine
-        name = record.name()
+        name = MachineName.display(record.name())
         pairedAt = Date(timeIntervalSince1970: TimeInterval(record.pairedAtMs()) / 1000)
         status = machine.status()
         self.records = records

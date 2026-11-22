@@ -24,7 +24,7 @@ struct InboxRowActions: ViewModifier {
                 ForEach(decisions, id: \.self) { button(for: $0) }
             }
             .swipeActions(edge: .leading) {
-                readButton.tint(Palette.accent)
+                readButton.tint(.blue)
                 pinButton.tint(Palette.caution)
             }
             .contextMenu {

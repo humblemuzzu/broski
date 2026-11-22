@@ -22,7 +22,7 @@ struct PushTests {
 
         #expect(content.title == "Approve Bash")
         #expect(content.body == "rm -rf /tmp/x")
-        #expect(content.subtitle == "studio")
+        #expect(content.subtitle.isEmpty, "with one Mac paired, naming it says nothing")
         #expect(content.categoryIdentifier == PushContent.Category.approval)
         #expect(content.threadIdentifier == "\(Self.machineId)/s-1")
         #expect(content.interruptionLevel != .passive)
@@ -30,6 +30,19 @@ struct PushTests {
         #expect(target.machineId == Self.machineId)
         #expect(target.session == SessionTarget(machineId: Self.machineId, session: SessionRef(backend: "claude-code", sessionId: "s-1")))
         #expect(target.request == "req-1")
+    }
+
+    @Test func thePushNamesItsMacOnlyOnceMoreThanOneIsPaired() throws {
+        let test = try RecordStore()
+        defer { test.remove() }
+        let other = "ffeeddccbbaa99887766554433221100"
+        try test.records.save(try Fixture.data("push-record.json"), id: other)
+        defer { try? test.records.remove(id: other) }
+        let content = try relayPush(kind: "approval", payload: Fixture.text("push.txt"))
+
+        PushContent.describe(content, records: test.records, preferences: test.preferences)
+
+        #expect(content.subtitle == "studio")
     }
 
     @Test func aKindTurnedOffInSettingsArrivesQuietlyReadThroughTheAppGroup() throws {

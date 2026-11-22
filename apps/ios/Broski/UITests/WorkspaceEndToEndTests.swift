@@ -95,8 +95,7 @@ final class WorkspaceEndToEndTests: XCTestCase {
     func test3LaysOutInDarkAndAtTheLargestTextSize() throws {
         let app = XCUIApplication()
         app.launch()
-        tab("Settings", in: app)
-        app.buttons["Dark"].tap()
+        setAppearance("Dark", in: app)
         try openProject(in: app, mode: "dark")
         app.buttons.matching(label: "File, notes.md").firstMatch.tap()
         XCTAssertTrue(element(in: app, "Line 1: one").waitForExistence(timeout: timeout))
@@ -112,8 +111,7 @@ final class WorkspaceEndToEndTests: XCTestCase {
         try screenshot("terminal-dark")
         app.terminate()
         app.launch()
-        tab("Settings", in: app)
-        app.buttons["System"].tap()
+        setAppearance("System", in: app)
         app.terminate()
 
         app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
@@ -134,13 +132,15 @@ final class WorkspaceEndToEndTests: XCTestCase {
         let row = app.staticTexts[session].firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: timeout))
         row.tap()
+        let more = app.buttons["More"].firstMatch
+        XCTAssertTrue(more.waitForExistence(timeout: timeout))
+        more.tap()
         let files = app.buttons["Files"]
-        XCTAssertTrue(files.waitForExistence(timeout: timeout), "a session's chat opens its folder")
+        XCTAssertTrue(files.waitForExistence(timeout: timeout), "a session's overflow opens its folder")
         files.tap()
         let project = app.buttons.matching(label: "Folder, project").firstMatch
-        XCTAssertTrue(app.buttons["More"].waitForExistence(timeout: timeout), "the folder opens")
+        XCTAssertTrue(reveal(project, in: app), "the folder opens")
         try screenshot("files-\(mode)")
-        XCTAssertTrue(reveal(project, in: app))
         project.tap()
         XCTAssertTrue(reveal(app.buttons.matching(label: "File, notes.md").firstMatch, in: app))
         try screenshot("folder-\(mode)")

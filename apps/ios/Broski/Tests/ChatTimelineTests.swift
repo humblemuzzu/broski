@@ -108,7 +108,7 @@ struct ChatTimelineTests {
             "user:Run the daemon", "work:Ran 1 command", "text", "end", "activity:bash-6bfa failed after 1h00m",
             "activity:Review finished", "work:Read 1 file",
         ])
-        #expect(built[5].gap == 6, "activities in a row sit close, like rows of work")
+        #expect(built[5].gap == 2, "activities in a row sit close, like rows of work")
     }
 
     @Test func anAnswerListsThePagesItsSearchesFoundOnceEachAndTheNextTurnStartsAfresh() {

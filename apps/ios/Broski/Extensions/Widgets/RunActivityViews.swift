@@ -5,89 +5,127 @@ import WidgetKit
 
 typealias RunState = RunActivityAttributes.ContentState
 
-/// The Lock Screen's activity on Broski's navy: the brand, the focused session (its agent's logo,
-/// title, Mac), the other live sessions, then the state, the elapsed time and Stop.
+/// The Lock Screen's activity on the system's own material. One live session: its agent, title, state
+/// with the time it has run, and Stop. Several: how many run and how many need the person, then
+/// each of them on a line.
 struct LockScreenRun: View {
     let state: RunState
     var isStale = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            BrandLine(state: state)
-            HStack(alignment: .center, spacing: 12) {
-                AgentLogo(brand: state.brand, side: 46)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(state.title)
-                        .font(.headline)
-                        .foregroundStyle(ActivityStyle.primary)
-                        .lineLimit(2)
-                    Text("\(state.machineName) · \(state.agentName)")
-                        .font(.subheadline)
-                        .foregroundStyle(ActivityStyle.secondary)
-                        .lineLimit(1)
-                }
-                Spacer(minLength: 0)
-            }
-            if state.runs.count > 1 {
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(Array(state.runs.dropFirst().enumerated()), id: \.offset) { _, run in
-                        RunLine(run: run)
-                    }
-                }
-                .padding(.leading, 58)
-            }
-            HStack(spacing: 10) {
-                PhasePill(phase: state.phase)
-                Elapsed(state: state, isStale: isStale)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(ActivityStyle.secondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-                Spacer()
-                StopButton(state: state)
-            }
+        if state.isMany {
+            ManyRuns(state: state, isStale: isStale)
+        } else {
+            OneRun(state: state, isStale: isStale)
         }
     }
 }
 
-/// Broski's mark and name, with the count across every Mac when more than one agent is live.
-private struct BrandLine: View {
+private struct OneRun: View {
     let state: RunState
+    let isStale: Bool
 
     var body: some View {
-        HStack(spacing: 6) {
-            Image("BroskiMark")
-                .resizable()
-                .frame(width: 20, height: 20)
-                .clipShape(.rect(cornerRadius: 5, style: .continuous))
-                .accessibilityHidden(true)
-            Text("Broski")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(ActivityStyle.secondary)
-            Spacer(minLength: 8)
-            if state.liveCount > 1 {
-                Text(state.summary)
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(state.needsYouCount > 0 ? RunState.Phase.needsYou.tint : ActivityStyle.secondary)
+        HStack(spacing: 12) {
+            AgentLogo(brand: state.brand, side: 42)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(state.title)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
                     .lineLimit(1)
+                StatusLine(state: state, isStale: isStale)
+                    .font(.subheadline)
+            }
+            Spacer(minLength: 8)
+            StopButton(state: state)
+        }
+    }
+}
+
+private struct ManyRuns: View {
+    let state: RunState
+    let isStale: Bool
+
+    private static let shown = 3
+    private var more: Int { max(0, state.liveCount - min(state.runs.count, Self.shown)) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(state.countLine)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                if let needsYou = state.needsYouLine {
+                    Text("·").foregroundStyle(.tertiary)
+                    Text(needsYou)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(RunState.Phase.needsYou.tint)
+                }
+                Spacer(minLength: 0)
+                if isStale {
+                    Text("Paused").font(.footnote).foregroundStyle(.tertiary)
+                }
+            }
+            .lineLimit(1)
+            VStack(alignment: .leading, spacing: 7) {
+                ForEach(Array(state.runs.prefix(Self.shown).enumerated()), id: \.offset) { _, run in
+                    RunLine(run: run, showsMachine: state.spansMachines)
+                }
+                if more > 0 {
+                    Text("+\(more) more")
+                        .font(.footnote)
+                        .foregroundStyle(.tertiary)
+                        .padding(.leading, 14)
+                }
             }
         }
     }
 }
 
-/// Another live session: its state as a dot, its title and Mac, its state as a word.
-private struct RunLine: View {
+/// One live session among several: its state as a dot, its title (and Mac, when they run on more
+/// than one), its state as a word when it needs the person.
+struct RunLine: View {
     let run: RunState.Run
+    var showsMachine = false
 
     var body: some View {
         HStack(spacing: 8) {
-            Circle().fill(run.phase.tint).frame(width: 6, height: 6)
-            Text(run.title).font(.subheadline).foregroundStyle(ActivityStyle.primary).lineLimit(1)
-            Text(run.machineName).font(.footnote).foregroundStyle(ActivityStyle.tertiary).lineLimit(1)
+            Circle().fill(run.phase == .working ? Color.primary.opacity(0.35) : run.phase.tint).frame(width: 6, height: 6)
+            Text(run.title).font(.subheadline).foregroundStyle(.primary).lineLimit(1)
+            if showsMachine {
+                Text(run.machineName).font(.footnote).foregroundStyle(.tertiary).lineLimit(1)
+            }
             Spacer(minLength: 6)
-            Text(run.phase.title).font(.footnote.weight(.semibold)).foregroundStyle(run.phase.tint)
+            if run.phase != .working {
+                Text(run.phase.title).font(.footnote.weight(.semibold)).foregroundStyle(run.phase.tint)
+            }
         }
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// "Working · 2:56", "Needs you", "Done · 4:12": the focused run's state and the time it has run.
+struct StatusLine: View {
+    let state: RunState
+    var isStale = false
+
+    var body: some View {
+        HStack(spacing: 5) {
+            PhaseIcon(phase: state.phase)
+                .font(.footnote)
+            Text(state.phase.title)
+                .foregroundStyle(state.phase == .working ? AnyShapeStyle(.secondary) : AnyShapeStyle(state.phase.tint))
+            if showsTime {
+                Text("·").foregroundStyle(.tertiary)
+                Elapsed(state: state, isStale: isStale)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .lineLimit(1)
+    }
+
+    private var showsTime: Bool {
+        isStale || state.phase == .working || (state.phase == .done && state.endedAt != nil)
     }
 }
 
@@ -100,7 +138,6 @@ struct Elapsed: View {
     var body: some View {
         if isStale && state.phase != .done {
             Text("Paused")
-                .foregroundStyle(ActivityStyle.tertiary)
         } else if state.phase == .working {
             Text(timerInterval: state.startedAt...Date.distantFuture, countsDown: false)
                 .monospacedDigit()
@@ -123,24 +160,6 @@ struct Elapsed: View {
     }
 }
 
-/// A state as an icon and a word on a capsule of its colour.
-struct PhasePill: View {
-    let phase: RunState.Phase
-
-    var body: some View {
-        Label {
-            Text(phase.title)
-        } icon: {
-            PhaseIcon(phase: phase).accessibilityHidden(true)
-        }
-        .font(.footnote.weight(.semibold))
-        .foregroundStyle(phase.tint)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(phase.tint.opacity(0.16), in: .capsule)
-    }
-}
-
 struct PhaseIcon: View {
     let phase: RunState.Phase
 
@@ -149,7 +168,7 @@ struct PhaseIcon: View {
             if let symbol = phase.symbol {
                 Image(systemName: symbol).foregroundStyle(phase.tint)
             } else {
-                ThinkingOrb(state: .working, size: .px20, theme: .dark, paused: true, displaySize: 16)
+                ThinkingOrb(state: .working, size: .px20, theme: .auto, paused: true, displaySize: 14)
             }
         }
         .accessibilityElement(children: .ignore)
@@ -157,21 +176,24 @@ struct PhaseIcon: View {
     }
 }
 
-/// Stop runs `StopRunIntent` in the app, which aborts the focused run through the core.
+/// Stop runs `StopRunIntent` in the app, which aborts the focused run through the core: a quiet
+/// round button, there only while the run is live.
 struct StopButton: View {
     let state: RunState
+    var side: CGFloat = 36
 
     var body: some View {
         if state.phase != .done {
             Button(intent: StopRunIntent(machineId: state.machineId, backend: state.backend, sessionId: state.sessionId)) {
-                Label("Stop", systemImage: "stop.fill")
-                    .font(.footnote.weight(.semibold))
-                    .padding(.horizontal, 4)
+                Image(systemName: "stop.fill")
+                    .font(.system(size: side * 0.36, weight: .bold))
+                    .foregroundStyle(.primary)
+                    .frame(width: side, height: side)
+                    .background(Color.primary.opacity(0.12), in: .circle)
             }
-            .buttonStyle(.bordered)
-            .buttonBorderShape(.capsule)
-            .tint(.red)
-            .accessibilityHint("Stops \(state.agentName)'s run on \(state.machineName)")
+            .buttonStyle(.plain)
+            .accessibilityLabel("Stop")
+            .accessibilityHint("Stops \(state.agentName)'s run")
         }
     }
 }

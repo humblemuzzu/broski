@@ -1,132 +1,142 @@
 import BroskiCore
 import SwiftUI
-import UIKit
 
-/// Notifications (which kinds, kept on this phone), voice, appearance, and about.
+/// Settings: the paired Macs on top, then what the phone does (notifications, appearance, voice,
+/// plan usage), then about and the developer's tools, with the version beneath.
 struct SettingsScreen: View {
     @Environment(AppModel.self) private var model
-    @Environment(\.openURL) private var openURL
+    @Environment(\.startPairing) private var startPairing
     @AppStorage(Preference.appearance) private var appearance: Appearance = .system
-    @AppStorage(NotificationPreferences.needsYou, store: NotificationPreferences.store)
-    private var notifyNeedsYou = true
-    @AppStorage(NotificationPreferences.done, store: NotificationPreferences.store)
-    private var notifyDone = true
-    @AppStorage(NotificationPreferences.failures, store: NotificationPreferences.store)
-    private var notifyFailures = true
+    @State private var hasVoiceKey = false
 
     var body: some View {
         NavigationStack {
-            Form {
+            List {
+                machines
                 Section {
                     NavigationLink {
-                        UsageScreen()
+                        NotificationSettingsScreen()
                     } label: {
-                        Label("Plan Usage", systemImage: "gauge.with.needle")
+                        SettingsRow(title: "Notifications", symbol: "bell.badge.fill", tint: .red, value: notificationsValue)
                     }
-                } footer: {
-                    Text("Your Claude and Antigravity limits, as your Mac reads them.")
-                }
-                notifications
-                Section {
+                    NavigationLink {
+                        AppearanceSettingsScreen()
+                    } label: {
+                        SettingsRow(title: "Appearance", symbol: "circle.lefthalf.filled", tint: .blue, value: appearance.label)
+                    }
                     NavigationLink {
                         VoiceSettingsScreen()
                     } label: {
-                        Label("Voice", systemImage: "mic")
+                        SettingsRow(title: "Voice", symbol: "waveform", tint: .orange, value: hasVoiceKey ? "Grok" : "On device")
                     }
-                } footer: {
-                    Text("Dictate prompts with the mic in the composer.")
-                }
-                Section {
-                    Picker("Appearance", selection: $appearance) {
-                        ForEach(Appearance.allCases) { option in
-                            Text(option.title).tag(option)
-                        }
+                    NavigationLink {
+                        UsageScreen()
+                    } label: {
+                        SettingsRow(title: "Plan Usage", symbol: "gauge.with.needle.fill", tint: .green)
                     }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .haptic(.pickerStep, trigger: appearance)
-                    Picker("Keep Screen Awake", selection: keepScreenAwakeBinding) {
-                        ForEach(KeepScreenAwake.allCases) { option in
-                            Text(option.title).tag(option)
-                        }
-                    }
-                } header: {
-                    Text("Display")
-                } footer: {
-                    Text("Voice dictation always keeps the screen awake while you're speaking.")
                 }
                 Section {
                     NavigationLink {
-                        ReadingSettingsScreen()
+                        AboutScreen()
                     } label: {
-                        Label("Reading", systemImage: "textformat.size")
+                        SettingsRow(title: "About", symbol: "info", tint: .gray)
                     }
                     NavigationLink {
-                        FormattingGalleryScreen()
+                        DeveloperScreen()
                     } label: {
-                        Label("Formatting", systemImage: "textformat")
+                        SettingsRow(title: "Developer", symbol: "hammer.fill", tint: .gray)
                     }
                 } footer: {
-                    Text("How agents' text reads, and every kind of text an agent writes as the chat draws it.")
+                    Text("Broski \(Bundle.main.appVersion) (\(Bundle.main.buildNumber))")
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, Spacing.l)
                 }
-                about
             }
+            .listStyle(.insetGrouped)
             .navigationTitle("Settings")
+            .onAppear { hasVoiceKey = VoiceKeyStore().key() != nil }
         }
     }
 
-    private var notifications: some View {
+    /// Each Mac with how it is connected, opening Machines; then pairing another.
+    private var machines: some View {
         Section {
-            if model.notifications.status == .denied {
-                Banner(style: .warning, message: "Notifications are off for Broski in iOS Settings.") {
-                    Button("Open Settings") {
-                        if let url = URL(string: UIApplication.openNotificationSettingsURLString) { openURL(url) }
-                    }
-                }
-                .listRowInsets(EdgeInsets())
-                .listRowBackground(Color.clear)
-            } else if model.notifications.canAsk {
-                Button("Turn On Notifications") {
-                    Task { await model.notifications.ask() }
-                }
-            }
-            Group {
-                Toggle("Needs you", isOn: $notifyNeedsYou)
-                Toggle("Done", isOn: $notifyDone)
-                Toggle("Failures", isOn: $notifyFailures)
-            }
-            .disabled(model.notifications.status == .denied)
-        } header: {
-            Text("Notifications")
-        } footer: {
-            Text("Approvals and questions, finished runs, and runs that failed. Kept on this phone.")
-        }
-    }
-
-    private var about: some View {
-        Section {
-            LabeledContent("Broski", value: "\(Bundle.main.appVersion) (\(Bundle.main.buildNumber))")
-            LabeledContent("Core", value: coreDescription)
             ForEach(model.machines) { machine in
-                LabeledContent(machine.name, value: machine.bridgeVersion.map { "Bridge \($0)" } ?? machine.summary.line)
+                NavigationLink {
+                    MachinesScreen()
+                } label: {
+                    MachineCardRow(machine: machine)
+                }
+                .accessibilityIdentifier("Machines")
             }
-        } header: {
-            Text("About")
-        } footer: {
-            Label(
-                "Everything is end-to-end encrypted between this phone and your Mac. The relay can't read it.",
-                systemImage: "lock.fill"
-            )
-            .padding(.top, Spacing.s)
+            Menu {
+                Button("Scan Pairing Code", systemImage: "qrcode.viewfinder") { startPairing(.scan) }
+                Button("Paste Pairing Link", systemImage: "doc.on.clipboard") { startPairing(.pasteFromClipboard()) }
+            } label: {
+                Label(model.machines.isEmpty ? "Pair a Mac" : "Pair Another Mac", systemImage: "plus")
+            }
         }
     }
 
-    private var keepScreenAwakeBinding: Binding<KeepScreenAwake> {
-        Binding(get: { model.keepScreenAwake }, set: { model.keepScreenAwake = $0 })
+    private var notificationsValue: String {
+        switch model.notifications.status {
+        case .denied, .notDetermined: "Off"
+        default: "On"
+        }
     }
+}
 
-    private var coreDescription: String {
-        let core = coreVersion()
-        return "\(core.library) · protocol \(core.protocol.major).\(core.protocol.minor)"
+/// A paired Mac at the top of Settings: its name, and how it is connected beside a dot of its
+/// health.
+private struct MachineCardRow: View {
+    let machine: MachineModel
+    @ScaledMetric(relativeTo: .body) private var side: CGFloat = 44
+
+    private var summary: MachineSummary { machine.summary }
+
+    var body: some View {
+        HStack(spacing: Spacing.m) {
+            Image(systemName: "laptopcomputer")
+                .font(.system(size: side * 0.42, weight: .medium))
+                .foregroundStyle(.primary)
+                .frame(width: side, height: side)
+                .background(Color(uiColor: .tertiarySystemFill), in: .rect(cornerRadius: side * 0.26, style: .continuous))
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: Spacing.xxs) {
+                Text(machine.name)
+                    .font(.headline)
+                    .lineLimit(1)
+                HStack(spacing: Spacing.xs + Spacing.xxs) {
+                    Circle().fill(summary.health.dot).frame(width: 7, height: 7)
+                    Text(summary.line)
+                        .lineLimit(1)
+                }
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, Spacing.xs)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+extension MachineSummary.Health {
+    var dot: Color {
+        switch self {
+        case .ready: Palette.done
+        case .settling: .secondary
+        case .attention: Palette.caution
+        case .revoked: Palette.failed
+        }
+    }
+}
+
+extension Appearance {
+    var label: String {
+        switch self {
+        case .system: "System"
+        case .light: "Light"
+        case .dark: "Dark"
+        }
     }
 }

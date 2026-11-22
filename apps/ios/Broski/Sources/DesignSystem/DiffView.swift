@@ -112,7 +112,7 @@ private struct HunkHeader: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, Spacing.m)
             .padding(.vertical, Spacing.xs)
-            .background(Palette.working.opacity(0.08))
+            .background(Palette.highlight.opacity(0.08))
             .accessibilityLabel("Lines \(hunk.newStart) to \(hunk.newStart + max(hunk.newLines - 1, 0))")
     }
 }

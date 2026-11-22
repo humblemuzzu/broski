@@ -2,15 +2,13 @@ import BroskiCore
 import SwiftUI
 import ThinkingOrbsKit
 
-/// The chat's title in the bar: the session's title (tap to rename), and under it `agent · folder ·
-/// machine`, or the machine's state in words while it is not ready; while a run is live, a working
-/// orb and its elapsed time in tabular figures; the prompt cache's state before the words.
+/// The chat's title in the bar, on a glass capsule over the transcript that scrolls beneath it: the
+/// session's title (tap to rename) and under it the folder, or the machine's state in words while
+/// it is not ready. What runs and for how long is the status lane's to say.
 struct ChatTitle: View {
     let title: String
-    let subtitle: String
+    let subtitle: String?
     let machineProblem: String?
-    let runStartedAt: Int64?
-    let cache: CacheWindow?
     let canRename: Bool
     let rename: () -> Void
 
@@ -18,26 +16,21 @@ struct ChatTitle: View {
         Button(action: rename) {
             VStack(spacing: 0) {
                 Text(title)
-                    .font(.headline)
+                    .font(.subheadline.weight(.semibold))
                     .lineLimit(1)
-                HStack(spacing: Spacing.xs) {
-                    if let runStartedAt, machineProblem == nil {
-                        Orb(.working, side: 14, relativeTo: .caption)
-                        ElapsedTime(since: runStartedAt).foregroundStyle(Palette.working)
-                        Text("·")
-                    }
-                    if let cache, machineProblem == nil {
-                        CacheIndicator(cache: cache)
-                    }
-                    Text(machineProblem ?? subtitle)
+                if let line = machineProblem ?? subtitle {
+                    Text(line)
+                        .font(.caption)
                         .foregroundStyle(machineProblem == nil ? AnyShapeStyle(.secondary) : AnyShapeStyle(Palette.caution))
                         .lineLimit(1)
                 }
-                .font(.caption)
-                .foregroundStyle(.secondary)
             }
-            .frame(maxWidth: 260)
-            .contentShape(.rect)
+            .padding(.horizontal, Spacing.l)
+            .padding(.vertical, Spacing.xs + Spacing.xxs)
+            .frame(minHeight: 44)
+            .frame(maxWidth: 240)
+            .contentShape(.capsule)
+            .glassEffect(.regular.interactive(), in: .capsule)
         }
         .buttonStyle(.plain)
         .disabled(!canRename)
@@ -73,7 +66,7 @@ struct ContextRing: View {
                         .stroke(.quaternary, lineWidth: 2)
                     Circle()
                         .trim(from: 0, to: min(1, max(0.02, fraction)))
-                        .stroke(fraction > 0.85 ? Palette.caution : Palette.accent, style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                        .stroke(fraction > 0.85 ? Palette.caution : Color.primary.opacity(0.7), style: StrokeStyle(lineWidth: 2, lineCap: .round))
                         .rotationEffect(.degrees(-90))
                 }
             }

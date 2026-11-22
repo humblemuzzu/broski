@@ -11,11 +11,10 @@ enum ChatDialog: Identifiable {
     var id: Self { self }
 }
 
-/// The header's controls: the title (tap to rename), and one trailing cluster of Files for the
-/// session's folder and the overflow with the context ring around it: the session's own marks
-/// (Pin, Rename, Copy Session ID, Mark as Unread, Mute), then what acts on its conversation
-/// (Compact, Fork, Export, Session Info), then Delete. Its dialogs hang on the screen
-/// (`chatDialogs`), not in the bar.
+/// The header's controls: the title (tap to rename) and one overflow with the context ring around
+/// it: the session's folder (Files, Changes, Terminal), its own marks (Pin, Rename, Mute, Mark as
+/// Unread), then what acts on its conversation (Compact, Fork, Export, Session Info), then Delete.
+/// Its dialogs hang on the screen (`chatDialogs`), not in the bar.
 struct ChatToolbar: ToolbarContent {
     let chat: ChatModel
     let machine: MachineModel
@@ -27,25 +26,21 @@ struct ChatToolbar: ToolbarContent {
     @Binding var dialog: ChatDialog?
     @Environment(AppModel.self) private var app
     @Environment(\.openSession) private var openSession
+    @Environment(\.openRoute) private var openRoute
 
     var body: some ToolbarContent {
         ToolbarItem(placement: .principal) {
-            let blocked = chat.snapshot.interactions.contains(where: \.blocksRun)
             ChatTitle(
-                title: title, subtitle: subtitle, machineProblem: chat.connectionProblem(machine.summary),
-                runStartedAt: blocked ? nil : chat.snapshot.run?.startedAt, cache: chat.snapshot.usage?.cache,
+                title: title, subtitle: cwd?.lastPathComponent, machineProblem: chat.connectionProblem(machine.summary),
                 canRename: capabilities?.rename ?? false
             ) {
                 dialog = .rename
             }
         }
-        ToolbarItemGroup(placement: .topBarTrailing) {
-            if let cwd {
-                NavigationLink(value: Route.workspace(machineId: machine.id, place: .folder(cwd))) {
-                    Label("Files", systemImage: "folder")
-                }
-            }
+        .sharedBackgroundVisibility(.hidden)
+        ToolbarItem(placement: .topBarTrailing) {
             Menu {
+                if let cwd { workspace(cwd) }
                 marks
                 actions
                 if capabilities?.delete ?? false {
@@ -60,11 +55,20 @@ struct ChatToolbar: ToolbarContent {
         }
     }
 
-    private var subtitle: String {
-        [machine.brand(for: chat.session.backend).name, cwd?.lastPathComponent, machine.name].compactMap(\.self).joined(separator: " · ")
+    private var preferences: SessionPreferences { app.sessionPreferences }
+
+    /// The session's folder on the Mac: its files, what changed in its repository, a terminal in it.
+    private func workspace(_ cwd: String) -> some View {
+        Section {
+            Button("Files", systemImage: "folder") { open(.folder(cwd)) }
+            Button("Changes", systemImage: "arrow.triangle.branch") { open(.git(cwd: cwd)) }
+            Button("Terminal", systemImage: "apple.terminal") { open(.newTerminal(cwd: cwd)) }
+        }
     }
 
-    private var preferences: SessionPreferences { app.sessionPreferences }
+    private func open(_ place: WorkspacePlace) {
+        openRoute(.workspace(machineId: machine.id, place: place))
+    }
 
     private var marks: some View {
         Section {
@@ -75,16 +79,12 @@ struct ChatToolbar: ToolbarContent {
             if capabilities?.rename ?? false {
                 Button("Rename", systemImage: "pencil") { dialog = .rename }
             }
-            Button("Copy Session ID", systemImage: "number") {
-                UIPasteboard.general.string = chat.session.sessionId
-                chat.play(.confirmed)
-            }
-            if let markUnread {
-                Button("Mark as Unread", systemImage: "envelope.badge", action: markUnread)
-            }
             let muted = preferences.muted.contains(chat.target)
             Button(muted ? "Unmute" : "Mute", systemImage: muted ? "bell" : "bell.slash") {
                 preferences.setMuted(!muted, chat.target)
+            }
+            if let markUnread {
+                Button("Mark as Unread", systemImage: "envelope.badge", action: markUnread)
             }
         }
     }
@@ -171,6 +171,17 @@ struct OpenSessionAction {
     }
 }
 
+/// Pushes a screen on the stack the chat is on, from a menu item, where a link cannot sit; the inbox
+/// provides it.
+struct OpenRouteAction {
+    let open: @MainActor (Route) -> Void
+
+    func callAsFunction(_ route: Route) {
+        open(route)
+    }
+}
+
 extension EnvironmentValues {
     @Entry var openSession = OpenSessionAction { _ in }
+    @Entry var openRoute = OpenRouteAction { _ in }
 }

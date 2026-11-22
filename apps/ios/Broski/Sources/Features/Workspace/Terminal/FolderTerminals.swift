@@ -87,7 +87,7 @@ private struct TerminalRow: View {
             }
         } icon: {
             Image(systemName: terminal.status == .running ? "apple.terminal.fill" : "apple.terminal")
-                .foregroundStyle(terminal.status == .running ? Palette.working : .secondary)
+                .foregroundStyle(terminal.status == .running ? Palette.highlight : .secondary)
         }
         .accessibilityElement(children: .combine)
     }

@@ -1,32 +1,6 @@
 import BroskiCore
 import SwiftUI
 
-/// The header's cache segment and its separator: the warm window counting down, green, amber in
-/// its last minute, then the hit rate alone in the subtitle's grey; nothing when nothing was cached.
-struct CacheIndicator: View {
-    let cache: CacheWindow
-
-    var body: some View {
-        TimelineView(CacheCountdown(cache)) { context in
-            if let status = CacheStatus(cache, nowMs: context.date.unixMilliseconds) {
-                let compact = status.compact
-                HStack(spacing: Spacing.xs) {
-                    Text(compact)
-                        .monospacedDigit()
-                        .contentTransition(.numericText())
-                        .foregroundStyle(status.tone.style)
-                        .lineLimit(1)
-                    Text("·")
-                }
-                .layoutPriority(1)
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(status.spoken)
-            }
-        }
-        .id(cache)
-    }
-}
-
 /// Above the model list while switching would throw a warm prefix away.
 struct CacheSwitchNotice: View {
     let cache: CacheWindow

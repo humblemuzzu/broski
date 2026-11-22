@@ -63,7 +63,7 @@ private struct ViewEndCard: View {
         }
         .padding(.horizontal, Spacing.m)
         .padding(.vertical, Spacing.s + 2)
-        .background(.regularMaterial, in: .rect(cornerRadius: 16, style: .continuous))
+        .panelCard()
         .accessibilityElement(children: .combine)
     }
 
@@ -104,7 +104,7 @@ private struct NoticeCard: View {
         }
         .padding(.horizontal, Spacing.m)
         .padding(.vertical, Spacing.s + 2)
-        .background(.regularMaterial, in: .rect(cornerRadius: 16, style: .continuous))
+        .panelCard()
         .accessibilityElement(children: .combine)
     }
 
@@ -156,6 +156,6 @@ private struct QueueCard: View {
         }
         .padding(.horizontal, Spacing.m)
         .padding(.vertical, Spacing.s + 2)
-        .background(.regularMaterial, in: .rect(cornerRadius: 16, style: .continuous))
+        .panelCard()
     }
 }

@@ -32,7 +32,7 @@ struct QuestionsCard: View {
                     .font(.subheadline.weight(.semibold))
                     .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.glassProminent)
+            .prominentStyle()
             .controlSize(.large)
             .disabled(isSending || !draft.isComplete(request))
         }

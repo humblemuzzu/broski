@@ -29,7 +29,7 @@ struct FormCard: View {
             } label: {
                 Text("Submit").font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity)
             }
-            .buttonStyle(.glassProminent)
+            .prominentStyle()
             .controlSize(.large)
             .disabled(isSending || !draft.missing(request).isEmpty)
         }

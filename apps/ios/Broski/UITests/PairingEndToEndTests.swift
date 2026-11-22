@@ -70,26 +70,29 @@ final class PairingEndToEndTests: XCTestCase {
         let app = XCUIApplication()
         app.launch()
         XCTAssertTrue(app.navigationBars["Inbox"].waitForExistence(timeout: timeout))
+        try screenshot("inbox-light")
 
-        app.buttons["Machines"].tap()
+        tab("Settings", in: app)
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: timeout))
+        try screenshot("settings-light")
+        app.buttons["Machines"].firstMatch.tap()
         XCTAssertTrue(app.navigationBars["Machines"].waitForExistence(timeout: timeout))
         XCTAssertTrue(app.staticTexts["Connected on this network"].waitForExistence(timeout: timeout))
         XCTAssertTrue(app.staticTexts["Bridge"].exists)
         try screenshot("machines")
         app.buttons["BackButton"].tap()
 
-        tab("Settings", in: app)
-        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: timeout))
-        try screenshot("settings-light")
+        app.buttons["Appearance"].tap()
         app.buttons["Dark"].tap()
+        try screenshot("appearance-dark")
+        app.buttons["BackButton"].firstMatch.tap()
         try screenshot("settings-dark")
 
         tab("Inbox", in: app)
         XCTAssertTrue(app.staticTexts["Add dark mode to the dashboard"].waitForExistence(timeout: timeout))
         try screenshot("inbox-dark")
 
-        tab("Settings", in: app)
-        app.buttons["System"].tap()
+        setAppearance("System", in: app)
     }
 
     @MainActor
@@ -100,14 +103,13 @@ final class PairingEndToEndTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Add dark mode to the dashboard"].waitForExistence(timeout: timeout))
         try screenshot("inbox-largest-text")
 
-        app.buttons["Machines"].tap()
-        XCTAssertTrue(app.navigationBars["Machines"].waitForExistence(timeout: timeout))
-        try screenshot("machines-largest-text")
-        app.buttons["BackButton"].tap()
-
         tab("Settings", in: app)
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: timeout))
         try screenshot("settings-largest-text")
+        app.buttons["Machines"].firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["Machines"].waitForExistence(timeout: timeout))
+        try screenshot("machines-largest-text")
+        app.buttons["BackButton"].tap()
     }
 
     /// No phone prompts the run: the row learns the ask by itself, offers the backend's allow and

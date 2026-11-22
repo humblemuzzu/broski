@@ -80,7 +80,7 @@ private struct ChangeBadge: View {
         case .added, nil: Palette.added
         case .deleted: Palette.removed
         case .conflicted: Palette.caution
-        case .modified, .renamed, .copied, .typeChanged: Palette.working
+        case .modified, .renamed, .copied, .typeChanged: Palette.highlight
         }
     }
 }

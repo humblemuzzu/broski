@@ -32,7 +32,7 @@ struct CodeFileView: View {
                         text: rendered[index],
                         plainText: rawLines[index],
                         widestNumber: widestNumber)
-                        .background(index + 1 == line ? Palette.working.opacity(0.14) : .clear)
+                        .background(index + 1 == line ? Palette.highlight.opacity(0.14) : .clear)
                         .id(index + 1)
                 }
             }

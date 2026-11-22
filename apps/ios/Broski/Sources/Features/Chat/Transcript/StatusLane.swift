@@ -40,7 +40,7 @@ enum LaneStatus: Equatable {
 
     func title(at now: Date) -> String {
         switch self {
-        case .starting: return "Agent is working"
+        case .starting: return "Starting"
         case .thinking: return "Thinking"
         case .working: return "Working"
         case .waitingForApproval: return "Waiting for your approval"
@@ -64,10 +64,12 @@ enum LaneStatus: Equatable {
     }
 }
 
-/// The lane under the live run: a thinking orb and one shimmering line, its height kept when nothing
-/// is live so the rows above never move when it comes and goes.
+/// The lane under the live run: a thinking orb, one shimmering line and how long the run has gone,
+/// its height kept when nothing is live so the rows above never move when it comes and goes.
 struct StatusLaneView: View {
     let status: LaneStatus?
+    /// When the live run began, shown while the agent works rather than waits on the person.
+    var startedAt: Int64?
     @ScaledMetric(relativeTo: .subheadline) private var height: CGFloat = 24
 
     var body: some View {
@@ -84,12 +86,15 @@ struct StatusLaneView: View {
                             title(status.title(at: context.date))
                         }
                     } else {
-                        title(status.title(at: .now))
-                    }
-                    if status == .starting {
-                        Text("New output will appear here")
-                            .font(.footnote)
-                            .foregroundStyle(.tertiary)
+                        HStack(spacing: Spacing.xs) {
+                            title(status.title(at: .now))
+                            if let startedAt, status.orb != nil {
+                                Text("·")
+                                ElapsedTime(since: startedAt)
+                            }
+                        }
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(.tertiary)
                     }
                 }
             }

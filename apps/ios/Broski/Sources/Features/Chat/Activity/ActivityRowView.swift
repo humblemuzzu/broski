@@ -2,7 +2,7 @@ import BroskiCore
 import SwiftUI
 
 /// Something that happened that is not a turn (a background task's end, a subagent's report, a
-/// command's output, an extension's message), as one quiet line like a work row: its kind, what
+/// command's output, an extension's message), as one quiet line like a work fold: its kind, what
 /// happened, how long it took. It opens in place to what it carries, each part capped, and the
 /// whole of a long body opens on a screen of its own.
 struct ActivityRowView: View {
@@ -45,23 +45,15 @@ struct ActivityRowView: View {
                 .frame(width: iconWidth)
                 .foregroundStyle(look.tone.tint)
                 .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: Spacing.xxs) {
-                Text(agentLine(activity.title))
-                    .font(.subheadline)
-                    .foregroundStyle(.primary)
-                    .lineLimit(isOpen ? nil : 2)
-                if !isOpen, let preview = look.preview {
-                    Text(preview)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                }
-            }
+            Text(agentLine(activity.title))
+                .font(.subheadline)
+                .foregroundStyle(isOpen ? .primary : .secondary)
+                .lineLimit(isOpen ? nil : 1)
             Spacer(minLength: Spacing.s)
             if !look.facts.isEmpty {
                 Text(look.facts.joined(separator: " · "))
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(look.tone == .failed ? Palette.failed : .secondary)
+                    .font(.footnote.monospacedDigit())
+                    .foregroundStyle(look.tone == .failed ? AnyShapeStyle(Palette.failed) : AnyShapeStyle(.tertiary))
                     .fixedSize()
             }
             if look.opens {

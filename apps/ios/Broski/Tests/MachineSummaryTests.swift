@@ -14,6 +14,13 @@ struct MachineSummaryTests {
 
     private let connected = LinkState.connected(resumed: false, sessionReset: false)
 
+    @Test func aHostNameReadsAsWordsAndAChosenNameAsWritten() {
+        #expect(MachineName.display("Studio-MacBook-Pro-5.local") == "Studio MacBook Pro 5")
+        #expect(MachineName.display("studio.LOCAL") == "studio")
+        #expect(MachineName.display("Sam's MacBook-Pro") == "Sam's MacBook-Pro")
+        #expect(MachineName.display(".local") == ".local")
+    }
+
     @Test func aReadyMachineSaysHowItIsConnectedAndShowsNoChip() {
         let lan = MachineSummary(name: "Mac", status: status(connected, route: .lan, bridge: .up, contract: .ready(bridgeVersion: "1.0")))
         #expect(lan.isReady && lan.chip == nil && lan.line == "Connected on this network")

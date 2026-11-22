@@ -22,9 +22,10 @@ struct ChatRowView: View, Equatable {
     private var content: some View {
         switch row.content {
         case .user(let turn):
-            UserBubble(text: turn.text, images: turn.attachments.imageTargets, at: turn.at)
+            UserBubble(id: turn.id, text: turn.text, images: turn.attachments.imageTargets)
         case .pending(let prompt):
             UserBubble(
+                id: prompt.id,
                 text: [prompt.draft.command.map { "/\($0.name)" }, prompt.draft.text].compactMap(\.self)
                     .filter { !$0.isEmpty }.joined(separator: " "),
                 images: prompt.draft.images.map { .local(id: $0.id.uuidString, name: $0.content.name) }, isPending: true)

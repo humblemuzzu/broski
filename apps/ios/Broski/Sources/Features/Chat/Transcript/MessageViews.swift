@@ -3,14 +3,26 @@ import SwiftUI
 import ThinkingOrbsKit
 import UIKit
 
-/// The person's message: the transcript's only container, trailing and sized to its text, images
-/// above it, its time and a copy button beneath. A prompt still on its way shows dimmed.
+/// The person's message: the transcript's only container, trailing and as wide as its words (a
+/// message with code takes the width, its code scrolling), images above it; long-press copies it.
+/// A long one shows its first lines, the last fading into a chevron in the corner that opens it (kept
+/// by `Disclosure`, so it stays open as the lazy stack rebuilds it). A prompt still on its way shows
+/// dimmed.
 struct UserBubble: View {
+    let id: String
     let text: String
     var images: [ImageTarget] = []
-    var at: Int64?
     var isPending = false
-    @State private var copied = 0
+    @State private var fullHeight: CGFloat = 0
+    @Environment(Disclosure.self) private var disclosure
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ScaledMetric(relativeTo: .body) private var line: CGFloat = 22
+
+    /// Four lines show while folded; a message only two lines longer is shown whole.
+    private var foldedHeight: CGFloat { line * 4 }
+    private var folds: Bool { fullHeight > line * 6 }
+    private var isOpen: Bool { disclosure.isOpen(id) }
+    private var folded: Bool { folds && !isOpen }
 
     var body: some View {
         VStack(alignment: .trailing, spacing: Spacing.xs + 2) {
@@ -18,38 +30,96 @@ struct UserBubble: View {
                 PromptImageGallery(images: images)
             }
             if !text.isEmpty {
-                FormattedMessage(text: text)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, Spacing.l - 2)
-                    .padding(.vertical, Spacing.m - 2)
-                    .background(Color(uiColor: .secondarySystemFill), in: .rect(cornerRadius: Radius.card, style: .continuous))
+                VStack(alignment: .trailing, spacing: Spacing.xs) {
+                    HugWidth(hugs: !hasCode) { FormattedMessage(text: text) }
+                        .fixedSize(horizontal: false, vertical: true)
+                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { fullHeight = $0 }
+                        .frame(maxHeight: folded ? foldedHeight : nil, alignment: .top)
+                        .clipped()
+                        .mask { if folded { lastLineFade } else { Rectangle() } }
+                        .overlay(alignment: .bottomTrailing) {
+                            if folded { foldButton.frame(height: line * 1.2) }
+                        }
+                    if folds && isOpen { foldButton }
+                }
+                .padding(.horizontal, Spacing.l)
+                .padding(.vertical, Spacing.m - 2)
+                .background(Color(uiColor: .secondarySystemBackground), in: .rect(cornerRadius: Radius.card, style: .continuous))
             }
-            footer
+            if isPending {
+                Text("Sending…")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.trailing, Spacing.xs)
+            }
         }
-        .padding(.leading, Spacing.xxxl)
+        .padding(.leading, Spacing.xxxl + Spacing.s)
         .frame(maxWidth: .infinity, alignment: .trailing)
         .opacity(isPending ? 0.55 : 1)
         .accessibilityElement(children: .contain)
-        .haptic(.confirmed, trigger: copied)
         .contextMenu {
             if !text.isEmpty { AnswerMenuItems { text } }
         }
     }
 
-    private var footer: some View {
-        HStack(spacing: Spacing.s) {
-            if isPending {
-                Text("Sending…")
-            } else if let at {
-                Text(Date(unixMilliseconds: at), format: .dateTime.hour().minute())
+    private var foldButton: some View {
+        Button {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.22)) { disclosure.toggle(id) }
+        } label: {
+            Image(systemName: "chevron.down")
+                .font(.footnote.weight(.semibold))
+                .rotationEffect(.degrees(isOpen ? 180 : 0))
+                .frame(width: 28, height: 28)
+                .background(Color(uiColor: .tertiarySystemFill), in: .circle)
+                .contentShape(.circle)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.secondary)
+        .accessibilityLabel(isOpen ? "Show less" : "Show all of it")
+    }
+
+    /// The folded text whole but for its last line, which fades out where the chevron sits.
+    private var lastLineFade: some View {
+        VStack(spacing: 0) {
+            Rectangle()
+            HStack(spacing: 0) {
+                Rectangle()
+                LinearGradient(colors: [.black, .clear], startPoint: .leading, endPoint: .trailing)
+                    .frame(width: line * 3)
+                Color.clear.frame(width: line * 1.4)
             }
-            if !isPending && !text.isEmpty {
-                CopyButton(text: text, copied: $copied)
+            .frame(height: line * 1.2)
+        }
+    }
+
+    private var hasCode: Bool {
+        FormatCache.shared.message(text).contains { block in
+            switch block.content {
+            case .code, .table: true
+            default: false
             }
         }
-        .font(.caption)
-        .foregroundStyle(.secondary)
-        .padding(.trailing, Spacing.xs)
+    }
+}
+
+/// Its content at the width it needs on one line, up to the width offered: a short message makes a
+/// short bubble, a long one wraps at the bubble's widest. Formatted text fills whatever width it is
+/// offered, so it has to be offered only what it needs.
+private struct HugWidth: Layout {
+    let hugs: Bool
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        subviews[0].sizeThatFits(offer(proposal, to: subviews[0]))
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        subviews[0].place(at: bounds.origin, proposal: ProposedViewSize(bounds.size))
+    }
+
+    private func offer(_ proposal: ProposedViewSize, to subview: LayoutSubview) -> ProposedViewSize {
+        guard hugs, let available = proposal.width else { return proposal }
+        let needed = subview.sizeThatFits(.unspecified).width
+        return ProposedViewSize(width: min(needed.rounded(.up), available), height: proposal.height)
     }
 }
 

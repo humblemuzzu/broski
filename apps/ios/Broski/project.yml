@@ -113,6 +113,7 @@ targets:
       - path: Shared/Keychain.swift
       - path: Shared/ColorAppearance.swift
       - path: Shared/Slug.swift
+      - path: Shared/MachineName.swift
       - path: Resources/Assets.xcassets
     dependencies:
       - package: LibrariesDev

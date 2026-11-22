@@ -36,7 +36,7 @@ private struct TodoList: View {
                         .opacity(item.status == .completed ? 0.6 : 1)
                 } icon: {
                     Image(systemName: item.status.symbol)
-                        .foregroundStyle(item.status == .inProgress ? Palette.working : .secondary)
+                        .foregroundStyle(item.status == .inProgress ? Color.primary : .secondary)
                 }
                 .font(.footnote)
                 .accessibilityValue(item.status.words)

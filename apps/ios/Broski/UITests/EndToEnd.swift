@@ -25,6 +25,15 @@ extension XCTestCase {
         (inBar.exists ? inBar : app.buttons[name].firstMatch).tap()
     }
 
+    /// Settings › Appearance's theme (`System`, `Light`, `Dark`), back on Settings after.
+    @MainActor
+    func setAppearance(_ name: String, in app: XCUIApplication) {
+        tab("Settings", in: app)
+        app.buttons["Appearance"].tap()
+        app.buttons[name].tap()
+        app.buttons["BackButton"].firstMatch.tap()
+    }
+
     /// Appends one command to the file the test machine reads (`{"seed":…}`, `{"release":…}`).
     func command(_ json: String) throws {
         let path = try XCTUnwrap(environment["BROSKI_E2E_COMMANDS"])

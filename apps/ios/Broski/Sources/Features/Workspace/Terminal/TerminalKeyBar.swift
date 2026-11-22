@@ -94,7 +94,7 @@ private struct KeyCap: ViewModifier {
             .foregroundStyle(active ? Color.white : Color.primary)
             .frame(minWidth: 44, minHeight: max(height, 36))
             .padding(.horizontal, Spacing.xs)
-            .glassEffect(active ? .regular.tint(Palette.accent).interactive() : .regular.interactive(), in: .capsule)
+            .glassEffect(active ? .regular.tint(Palette.highlight).interactive() : .regular.interactive(), in: .capsule)
             .contentShape(.capsule)
     }
 }

@@ -1,13 +1,14 @@
 import BroskiCore
 import SwiftUI
 
-/// One session: agent mark, title, what it asks (needs you), machine and folder, time, whether it
-/// is pinned or muted, state. A session on a machine that is not reachable, or known only from the cached inbox, stays
+/// One session: agent mark, title, what it asks (needs you), folder (and the Mac, once more than
+/// one is paired), time, whether it is pinned or muted, state. A session on a machine that is not reachable, or known only from the cached inbox, stays
 /// listed, dimmed, with the machine's status.
 struct InboxRowView: View {
     let row: InboxRow
     let brand: AgentBrand
     let machine: MachineSummary?
+    var showsMachine = false
     var pinned = false
     var muted = false
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -40,8 +41,10 @@ struct InboxRowView: View {
                 Text(title).font(.rowTitle).lineLimit(2)
                 askText?.lineLimit(1)
                 HStack(spacing: 0) {
-                    placeText.lineLimit(1)
-                    Text(" · ").font(.footnote).foregroundStyle(.secondary).layoutPriority(1)
+                    if !place.isEmpty {
+                        placeText.lineLimit(1)
+                        Text(" · ").font(.footnote).foregroundStyle(.secondary).layoutPriority(1)
+                    }
                     timeText.layoutPriority(1)
                     if pinned || muted { marks.padding(.leading, Spacing.xs).layoutPriority(1) }
                 }
@@ -66,7 +69,7 @@ struct InboxRowView: View {
                 timeText
                 if pinned || muted { marks }
             }
-            placeText
+            if !place.isEmpty { placeText }
         }
     }
 
@@ -94,9 +97,10 @@ struct InboxRowView: View {
             .foregroundStyle(.secondary)
     }
 
-    /// "MacBook · broski", or the machine's status in place of the folder while it is unreachable.
+    /// "broski", "MacBook · broski" with several Macs paired, or the machine's status in place of
+    /// the folder while it is unreachable.
     private var place: String {
-        var parts = [row.machineName]
+        var parts = showsMachine ? [MachineName.display(row.machineName)] : []
         if !reachable, let machine {
             parts.append(machine.line)
         } else if let folder {
@@ -109,7 +113,8 @@ struct InboxRowView: View {
     private var spokenLabel: String {
         let what = row.askLine(agent: brand.name)
         var sentences = [row.state.title, what ?? "\(brand.name), \(title)"]
-        sentences.append([row.machineName, folder].compactMap(\.self).joined(separator: ", "))
+        let location = [showsMachine ? MachineName.display(row.machineName) : nil, folder].compactMap(\.self)
+        if !location.isEmpty { sentences.append(location.joined(separator: ", ")) }
         if !reachable, let machine { sentences.append(machine.line) }
         if pinned { sentences.append("Pinned") }
         if muted { sentences.append("Muted") }

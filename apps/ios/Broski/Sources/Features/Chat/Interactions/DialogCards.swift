@@ -38,7 +38,7 @@ struct PlanCard: View {
                     } label: {
                         Text("Approve Plan").font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.glassProminent)
+                    .prominentStyle()
                     HStack(spacing: Spacing.s) {
                         TextField("What to change", text: $feedback, axis: .vertical).lineLimit(1...3).fieldBackground()
                         Button {
@@ -123,7 +123,7 @@ struct DialogCard: View {
                     Button { send(.confirm(ConfirmReply(confirmed: true))) } label: {
                         Text(ask.url == nil ? "Yes" : "Done").font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.glassProminent)
+                    .prominentStyle()
                 }
             }
         case .text(let ask):
@@ -134,7 +134,7 @@ struct DialogCard: View {
                 Button { send(DialogAnswer.text(text, for: ask)) } label: {
                     Text("Send").font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.glassProminent)
+                .prominentStyle()
             }
         default:
             EmptyView()

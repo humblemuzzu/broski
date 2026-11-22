@@ -6,12 +6,23 @@ import SwiftUI
 extension View {
     /// The one primary action of a screen.
     func primaryActionStyle() -> some View {
-        buttonStyle(.glassProminent).controlSize(.large)
+        prominentStyle().controlSize(.large)
+    }
+
+    /// Prominent glass in the accent, its label in the colour that reads on the accent.
+    func prominentStyle() -> some View {
+        buttonStyle(.glassProminent).foregroundStyle(Palette.onAccent)
     }
 
     /// An action beside the primary one.
     func secondaryActionStyle() -> some View {
         buttonStyle(.glass).controlSize(.large)
+    }
+
+    /// A card pinned above the composer (what runs in the background, a notice, the queue), on the
+    /// same glass as the composer it sits on.
+    func panelCard() -> some View {
+        glassEffect(.regular, in: .rect(cornerRadius: Radius.panel, style: .continuous))
     }
 
     /// A floating card on the control layer (pairing progress), in concentric-friendly corners.

@@ -47,7 +47,8 @@ struct LiveRunTests {
         #expect(state.title == "Session new")
         #expect(state.backend == "claude-code" && state.machineName == "Studio Mac")
         #expect(state.runs.map(\.title) == ["Session new", "Session old"])
-        #expect(state.summary == "2 live agents")
+        #expect(state.isMany && state.countLine == "2 agents running" && state.needsYouLine == nil)
+        #expect(!state.spansMachines, "both run on one Mac, which goes unnamed")
     }
 
     @Test func sessionsThatNeedThePersonComeFirstAndTheSummaryCountsThem() throws {
@@ -61,7 +62,7 @@ struct LiveRunTests {
         #expect(state.sessionId == "ask" && state.phase == .needsYou)
         #expect(state.runs.map(\.title) == ["Session ask", "Session w1", "Session more6", "Session w2"], "four at most")
         #expect(state.runs.map(\.phase) == [.needsYou, .working, .working, .working])
-        #expect(state.summary == "7 live agents · 1 needs you")
+        #expect(state.countLine == "7 agents running" && state.needsYouLine == "1 needs you")
     }
 
     @Test func fallbackStartSurvivesReconnectAndResetsOnlyWhenSessionSettles() throws {

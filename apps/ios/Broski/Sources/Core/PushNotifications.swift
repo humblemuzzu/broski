@@ -98,7 +98,7 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
             Logger.core.info("a decision reached the relay")
         } catch {
             Logger.core.error("a decision was not sent: \(String(describing: error), privacy: .public)")
-            await DecisionFailure.post(machineName: record.name(), push: push)
+            await DecisionFailure.post(machineName: MachineName.display(record.name()), push: push)
         }
     }
 }

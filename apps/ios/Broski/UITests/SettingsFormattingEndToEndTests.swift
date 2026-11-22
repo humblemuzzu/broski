@@ -52,8 +52,10 @@ final class SettingsFormattingEndToEndTests: XCTestCase {
     @MainActor
     private func shootGallery(_ app: XCUIApplication, prefix: String) throws {
         tab("Settings", in: app)
+        let developer = app.buttons["Developer"]
+        if !developer.waitForExistence(timeout: timeout) { app.swipeUp() }
+        developer.tap()
         let formatting = app.buttons["Formatting"]
-        if !formatting.waitForExistence(timeout: timeout) { app.swipeUp() }
         XCTAssertTrue(formatting.waitForExistence(timeout: timeout), app.debugDescription)
         formatting.tap()
         for (index, title) in samples.enumerated() {
@@ -72,6 +74,7 @@ final class SettingsFormattingEndToEndTests: XCTestCase {
             if title == "Code" { try shootViewer(app, button: "Expand", name: "\(prefix)-\(label)-expanded") }
             app.buttons["BackButton"].firstMatch.tap()
         }
+        app.buttons["BackButton"].firstMatch.tap()
         app.buttons["BackButton"].firstMatch.tap()
     }
 

@@ -54,14 +54,14 @@ struct LiveRunTracker {
                 phase: focused.phase,
                 title: focused.displayTitle,
                 machineId: focused.machineId,
-                machineName: focused.machineName,
+                machineName: MachineName.display(focused.machineName),
                 backend: focused.session.backend,
                 agent: brands[focused.machineId]?[focused.session.backend]?.capped(),
                 sessionId: focused.session.sessionId,
                 startedAtMs: startedAtMs,
                 endedAtMs: nil,
                 runs: live.prefix(RunActivityAttributes.ContentState.listed).map {
-                    .init(title: $0.displayTitle, machineName: $0.machineName, phase: $0.phase)
+                    .init(title: $0.displayTitle, machineName: MachineName.display($0.machineName), phase: $0.phase)
                 },
                 liveCount: live.count,
                 needsYouCount: live.count { $0.state == .needsYou }))

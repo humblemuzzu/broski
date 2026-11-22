@@ -152,8 +152,7 @@ final class SessionEndToEndTests: XCTestCase {
         let app = XCUIApplication()
         app.launch()
         XCTAssertTrue(app.navigationBars["Inbox"].waitForExistence(timeout: timeout))
-        tab("Settings", in: app)
-        app.buttons["Dark"].tap()
+        setAppearance("Dark", in: app)
         tab("Inbox", in: app)
         app.staticTexts[title].firstMatch.tap()
         XCTAssertTrue(composer(in: app).waitForExistence(timeout: timeout))
@@ -167,8 +166,7 @@ final class SessionEndToEndTests: XCTestCase {
         app.buttons["Retry"].tap()
         XCTAssertTrue(app.buttons["Retry"].waitForNonExistence(timeout: timeout))
         app.buttons["BackButton"].tap()
-        tab("Settings", in: app)
-        app.buttons["System"].tap()
+        setAppearance("System", in: app)
         app.terminate()
 
         let large = try openChat(arguments: ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
@@ -266,17 +264,23 @@ final class SessionEndToEndTests: XCTestCase {
         fold.tap()
 
         pill.tap()
-        XCTAssertTrue(app.staticTexts["IN THE BACKGROUND"].waitForExistence(timeout: timeout), "the pill opens in place")
+        let hide = app.buttons["Hide what runs in the background"]
+        XCTAssertTrue(hide.waitForExistence(timeout: timeout), "the pill opens in place")
         XCTAssertTrue(app.staticTexts["tail -F /tmp/broski-daemon.log"].exists, "with each task's command")
         try screenshot("chat-background-open")
+        hide.tap()
+        XCTAssertTrue(pill.waitForExistence(timeout: timeout), "the whole header folds it back into the pill")
+        pill.tap()
+        XCTAssertTrue(hide.waitForExistence(timeout: timeout))
 
         try release()
-        XCTAssertTrue(app.staticTexts["IN THE BACKGROUND"].waitForNonExistence(timeout: timeout), "an empty list leaves")
+        XCTAssertTrue(hide.waitForNonExistence(timeout: timeout), "an empty list leaves")
         let failed = app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "bash-6bfa failed after 1h00m")).firstMatch
         XCTAssertTrue(failed.waitForExistence(timeout: timeout), "a task's end is a row of its own")
         XCTAssertTrue(failed.label.contains("Exit 1"), failed.label)
-        let review = app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "No blockers.")).firstMatch
-        XCTAssertTrue(review.exists, "a subagent's report previews its words under its title")
+        let review = app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "Review the pairing code finished")).firstMatch
+        XCTAssertTrue(review.exists, "a subagent's report is one line under its title")
+        XCTAssertFalse(app.staticTexts["No blockers. The responder drops LAN handshakes after its window; retry once on the relay."].exists)
         try screenshot("chat-activities")
 
         failed.tap()

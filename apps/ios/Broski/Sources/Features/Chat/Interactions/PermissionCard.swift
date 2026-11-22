@@ -72,7 +72,7 @@ struct PermissionCard: View {
         GlassEffectContainer(spacing: Spacing.s) {
             VStack(spacing: Spacing.s) {
                 if let primary = answer.primary {
-                    optionButton(primary).buttonStyle(.glassProminent)
+                    optionButton(primary).prominentStyle()
                 }
                 ViewThatFits(in: .horizontal) {
                     HStack(spacing: Spacing.s) { otherAllows }

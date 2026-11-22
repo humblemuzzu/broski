@@ -56,7 +56,7 @@ struct ChatRulesTests {
         #expect(LaneStatus(snapshot) == nil)
         snapshot.run = run
         #expect(LaneStatus(snapshot) == .starting, "a run that has shown nothing says so")
-        #expect(LaneStatus.starting.title(at: .now) == "Agent is working")
+        #expect(LaneStatus.starting.title(at: .now) == "Starting")
         snapshot.run?.items.append(Item.text("b", "Hi"))
         #expect(LaneStatus(snapshot) == .working)
         snapshot.blocks = [OpenBlock(blockId: "t", messageId: "m", kind: .thinking, parentToolCallId: nil, text: "Hmm")]

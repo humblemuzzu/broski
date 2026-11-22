@@ -41,7 +41,8 @@ nonisolated enum PushContent {
         if kind == "offline" {
             describeOffline(content, payload: payload, machineId: machineId, name: record.name())
         } else if let notification = try? openNotification(record: record, data: payload) {
-            describe(content, notification, machineId: machineId)
+            let pairedMacs = (try? records.all().count) ?? 1
+            describe(content, notification, machineId: machineId, namesMachine: pairedMacs > 1)
             let allowed = preferences.allows(
                 kind: kind, machineId: machineId, backend: notification.backend, sessionId: notification.session)
             if !allowed { quiet(content) }
@@ -53,12 +54,14 @@ nonisolated enum PushContent {
         content.sound = nil
     }
 
+    /// The Mac's name goes in the subtitle only when more than one is paired.
     private static func describe(
-        _ content: UNMutableNotificationContent, _ notification: PushNotification, machineId: String
+        _ content: UNMutableNotificationContent, _ notification: PushNotification, machineId: String,
+        namesMachine: Bool
     ) {
         content.title = notification.title
         content.body = notification.body
-        content.subtitle = notification.machine
+        content.subtitle = namesMachine ? MachineName.display(notification.machine) : ""
         content.threadIdentifier = "\(machineId)/\(notification.session)"
         switch notification.kind {
         case "approval" where notification.request != nil: content.categoryIdentifier = Category.approval
@@ -77,6 +80,7 @@ nonisolated enum PushContent {
         guard let data = Data(base64URLEncoded: payload),
             let alert = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
         else { return }
+        let name = MachineName.display(name)
         content.title = alert["state"] as? String == "asleep" ? "\(name) is asleep" : "\(name) is offline"
         content.body = "Broski reconnects when it's back."
         content.threadIdentifier = machineId

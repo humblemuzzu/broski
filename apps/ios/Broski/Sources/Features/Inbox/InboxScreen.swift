@@ -2,7 +2,8 @@ import BroskiCore
 import SwiftUI
 
 /// Home: every session on every paired Mac, needs you → pinned → working → done → idle, under the
-/// status of any machine that is not fine. A row opens its chat; New Session opens an empty one.
+/// status of any machine that is not fine. A row opens its chat; the tab bar's New Session button
+/// opens an empty one here.
 struct InboxScreen: View {
     @Environment(AppModel.self) private var model
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -16,10 +17,16 @@ struct InboxScreen: View {
                 .routeDestinations()
         }
         .environment(\.openSession, OpenSessionAction { open($0) })
+        .environment(\.openRoute, OpenRouteAction { path.append($0) })
         .onChange(of: model.sessionToOpen, initial: true) { _, target in
             guard let target else { return }
             path = [.session(machineId: target.machineId, session: target.session)]
             model.sessionToOpen = nil
+        }
+        .onChange(of: model.startsNewSession, initial: true) { _, starts in
+            guard starts else { return }
+            model.startsNewSession = false
+            if path.last != .newSession { path = [.newSession] }
         }
     }
 
@@ -50,6 +57,7 @@ struct InboxScreen: View {
                             InboxRowView(
                                 row: row, brand: model.brand(of: row.session, on: row.machineId),
                                 machine: model.machine(id: row.machineId)?.summary,
+                                showsMachine: model.machines.count > 1,
                                 pinned: model.sessionPreferences.pinned.contains(row.target),
                                 muted: model.sessionPreferences.muted.contains(row.target))
                         }
@@ -81,24 +89,10 @@ struct InboxScreen: View {
 
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
-        ToolbarItem(placement: .topBarLeading) {
-            NavigationLink(value: Route.machines) {
-                Label("Machines", systemImage: "laptopcomputer")
-            }
-        }
         if model.inbox.filter != nil {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Show All") { model.inbox.filter = nil }
             }
-        }
-        ToolbarItem(placement: .topBarTrailing) {
-            Button {
-                path.append(.newSession)
-            } label: {
-                Label("New Session", systemImage: "square.and.pencil")
-            }
-            .buttonStyle(.glassProminent)
-            .disabled(!model.machines.contains { $0.summary.isReady })
         }
     }
 

@@ -27,7 +27,7 @@ struct TranscriptView: View {
                 ForEach(chat.liveRows) { row in
                     ChatRowView(row: row, isFresh: chat.isFresh(row)).equatable()
                 }
-                StatusLaneView(status: LaneStatus(chat.snapshot))
+                StatusLaneView(status: LaneStatus(chat.snapshot), startedAt: chat.snapshot.run?.startedAt)
                     .padding(.top, Spacing.s)
                     .id(TranscriptView.endId)
             }
@@ -41,7 +41,9 @@ struct TranscriptView: View {
         .defaultScrollAnchor(.bottom, for: .initialOffset)
         .defaultScrollAnchor(.bottom, for: .alignment)
         .defaultScrollAnchor(chat.follow.isFollowing ? .bottom : .top, for: .sizeChanges)
-        .scrollEdgeEffectStyle(.automatic, for: .top)
+        // Explicit: built against the iOS 27 SDK, `.automatic` resolves to the hard edge, an opaque
+        // band with a rule under the bar and over the composer.
+        .scrollEdgeEffectStyle(.soft, for: .all)
         .scrollDismissesKeyboard(.interactively)
         .onScrollPhaseChange { _, phase in
             personScrolling = phase == .tracking || phase == .interacting || phase == .decelerating

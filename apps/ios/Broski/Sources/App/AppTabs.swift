@@ -5,16 +5,20 @@ import ThinkingOrbsKit
 enum AppTab: Hashable {
     case inbox
     case settings
+    /// The round button at the bar's trailing end. It is never selected: it opens New Session on
+    /// the inbox.
+    case newSession
 }
 
-/// The tab shell: a Liquid Glass tab bar that minimises as the content scrolls down, and, while
-/// any agent works, an accessory above it that opens the inbox filtered to working.
+/// The tab shell: a Liquid Glass tab bar that minimises as the content scrolls down, with New
+/// Session as the round button beside it, and, while any agent works, an accessory above it that
+/// opens the inbox filtered to working.
 struct AppTabs: View {
     @Environment(AppModel.self) private var model
     @State private var tab: AppTab = .inbox
 
     var body: some View {
-        TabView(selection: $tab) {
+        TabView(selection: selection) {
             Tab("Inbox", systemImage: "tray.full", value: .inbox) {
                 InboxScreen()
             }
@@ -23,15 +27,34 @@ struct AppTabs: View {
             Tab("Settings", systemImage: "gearshape", value: .settings) {
                 SettingsScreen()
             }
+
+            Tab("New Session", systemImage: "square.and.pencil", value: .newSession, role: .search) {
+                Color.clear
+            }
         }
         .tabBarMinimizeBehavior(.onScrollDown)
         .onChange(of: model.sessionToOpen) { _, target in
             if target != nil { tab = .inbox }
         }
+        .onChange(of: model.startsNewSession) { _, starts in
+            if starts { tab = .inbox }
+        }
         .modifier(WorkingAccessory(count: model.visibleSession == nil ? model.inbox.workingCount : 0) {
             tab = .inbox
             model.inbox.filter = .working
         })
+    }
+
+    private var selection: Binding<AppTab> {
+        Binding {
+            tab
+        } set: { picked in
+            if picked == .newSession {
+                model.startsNewSession = true
+            } else {
+                tab = picked
+            }
+        }
     }
 }
 
