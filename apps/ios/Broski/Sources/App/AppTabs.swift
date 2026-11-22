@@ -4,6 +4,7 @@ import ThinkingOrbsKit
 
 enum AppTab: Hashable {
     case inbox
+    case usage
     case settings
     /// The round button at the bar's trailing end. It is never selected: it opens New Session on
     /// the inbox.
@@ -19,17 +20,29 @@ struct AppTabs: View {
 
     var body: some View {
         TabView(selection: selection) {
-            Tab("Inbox", systemImage: "tray.full", value: .inbox) {
+            Tab(value: .inbox) {
                 InboxScreen()
+            } label: {
+                TabIcon("Inbox", symbol: "text.bubble")
             }
             .badge(model.inbox.rows.count { $0.state == .needsYou })
 
-            Tab("Settings", systemImage: "gearshape", value: .settings) {
-                SettingsScreen()
+            Tab(value: .usage) {
+                UsageScreen()
+            } label: {
+                TabIcon("Usage", symbol: "chart.bar")
             }
 
-            Tab("New Session", systemImage: "square.and.pencil", value: .newSession, role: .search) {
+            Tab(value: .settings) {
+                SettingsScreen()
+            } label: {
+                TabIcon("Settings", symbol: "gearshape")
+            }
+
+            Tab(value: .newSession, role: Self.composeRole) {
                 Color.clear
+            } label: {
+                TabIcon("New Session", symbol: "square.and.pencil")
             }
         }
         .tabBarMinimizeBehavior(.onScrollDown)
@@ -39,10 +52,20 @@ struct AppTabs: View {
         .onChange(of: model.startsNewSession) { _, starts in
             if starts { tab = .inbox }
         }
+        .onChange(of: model.opensUsage, initial: true) { _, opens in
+            guard opens else { return }
+            model.opensUsage = false
+            tab = .usage
+        }
         .modifier(WorkingAccessory(count: model.visibleSession == nil ? model.inbox.workingCount : 0) {
             tab = .inbox
             model.inbox.filter = .working
         })
+    }
+
+    /// iOS 27 sets an action apart from the bar as its prominent tab; iOS 26 does that only for search.
+    private static var composeRole: TabRole {
+        if #available(iOS 27.0, *) { .prominent } else { .search }
     }
 
     private var selection: Binding<AppTab> {
@@ -73,6 +96,24 @@ private struct WorkingAccessory: ViewModifier {
         } else {
             content
         }
+    }
+}
+
+/// A tab drawn as its symbol alone, at the size it has beside a title (the bar draws a bare symbol
+/// larger); VoiceOver and the UI tests read its name.
+private struct TabIcon: View {
+    let name: String
+    let symbol: String
+
+    init(_ name: String, symbol: String) {
+        self.name = name
+        self.symbol = symbol
+    }
+
+    var body: some View {
+        Image(systemName: symbol)
+            .font(.system(size: 17, weight: .medium))
+            .accessibilityLabel(name)
     }
 }
 

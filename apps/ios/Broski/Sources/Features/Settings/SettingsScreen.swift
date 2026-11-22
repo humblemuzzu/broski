@@ -1,8 +1,8 @@
 import BroskiCore
 import SwiftUI
 
-/// Settings: the paired Macs on top, then what the phone does (notifications, appearance, voice,
-/// plan usage), then about and the developer's tools, with the version beneath.
+/// Settings: the paired Macs on top, then what the phone does (notifications, appearance, voice),
+/// then about and the developer's tools, with the version beneath.
 struct SettingsScreen: View {
     @Environment(AppModel.self) private var model
     @Environment(\.startPairing) private var startPairing
@@ -28,11 +28,6 @@ struct SettingsScreen: View {
                         VoiceSettingsScreen()
                     } label: {
                         SettingsRow(title: "Voice", symbol: "waveform", tint: .orange, value: hasVoiceKey ? "Grok" : "On device")
-                    }
-                    NavigationLink {
-                        UsageScreen()
-                    } label: {
-                        SettingsRow(title: "Plan Usage", symbol: "gauge.with.needle.fill", tint: .green)
                     }
                 }
                 Section {

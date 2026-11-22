@@ -1,11 +1,11 @@
 import SwiftUI
 import WidgetKit
 
-/// Opens the app's Plan Usage screen.
+/// Opens the app's Usage tab.
 let usageURL = URL(string: "broski://usage")
 
-/// One plan, Claude, Antigravity or any other the Macs read: on the Home Screen its fullest window as
-/// a figure over its burn chart; on the Lock Screen a gauge, a figure with a sparkline, or a line.
+/// One plan, Claude, Antigravity or any other the Macs read: what is left of its limits on the Home
+/// Screen; a gauge, a bar or a line on the Lock Screen.
 struct PlanUsageWidget: Widget {
     static let kind = "PlanUsage"
 
@@ -15,7 +15,7 @@ struct PlanUsageWidget: Widget {
                 .widgetURL(usageURL)
         }
         .configurationDisplayName("Plan Usage")
-        .description("How much of a plan is used, its pace, and when it resets.")
+        .description("What's left of a plan's limits.")
         .supportedFamilies([
             .systemSmall, .systemMedium, .accessoryCircular, .accessoryRectangular, .accessoryInline,
         ])
@@ -34,7 +34,7 @@ struct AllPlansWidget: Widget {
                 .widgetURL(usageURL)
         }
         .configurationDisplayName("All Plans")
-        .description("Your plans together: each plan's burn, its pace, and when it resets.")
+        .description("What's left of each plan.")
         .supportedFamilies([.systemMedium, .systemLarge])
         .contentMarginsDisabled()
         .containerBackgroundRemovable(true)
@@ -52,7 +52,7 @@ private struct PlanUsageView: View {
                 case .accessoryCircular: PlanCircular(report: report, window: window, now: entry.date)
                 case .accessoryRectangular: PlanRectangular(report: report, window: window, now: entry.date)
                 case .accessoryInline: PlanInline(report: report, window: window, now: entry.date)
-                case .systemMedium: PlanMedium(report: report, window: window, now: entry.date)
+                case .systemMedium: PlanMedium(report: report, now: entry.date)
                 default: PlanSmall(report: report, window: window, now: entry.date)
                 }
             } else {
@@ -60,7 +60,7 @@ private struct PlanUsageView: View {
                     .padding(family.isAccessory ? 0 : 16)
             }
         }
-        .usageBackground(plan: entry.plan)
+        .usageBackground()
     }
 }
 
@@ -90,9 +90,9 @@ struct NoReading: View {
             }
         default:
             VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 5) {
-                    PlanGlyph(plan: plan, name: name, size: 13)
-                    Eyebrow(name, style: .primary)
+                HStack(spacing: 6) {
+                    PlanGlyph(plan: plan, name: name, size: 14)
+                    Text(name).font(.system(size: 13, weight: .semibold))
                 }
                 Spacer(minLength: 0)
                 Text(message)
@@ -106,31 +106,23 @@ struct NoReading: View {
 }
 
 extension View {
-    /// The Home Screen's backdrop: near black in the dark, white in the light, with a faint glow of the
-    /// plan's colour. The system takes it away for a tinted or clear Home Screen and the Lock Screen.
-    func usageBackground(plan: UsagePlan?) -> some View {
+    /// The Home Screen's plain backdrop, white in the light and graphite in the dark. The system takes
+    /// it away for a tinted or clear Home Screen and the Lock Screen.
+    func usageBackground() -> some View {
         containerBackground(for: .widget) {
-            UsageBackdrop(plan: plan)
+            UsageBackdrop()
         }
     }
 }
 
 private struct UsageBackdrop: View {
-    let plan: UsagePlan?
     @Environment(\.widgetFamily) private var family
-    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         if family.isAccessory {
             Color.clear
         } else {
-            let tint = (plan ?? .claude).tint
-            ZStack {
-                Color(light: 0xFFFFFF, dark: 0x0A0A0C)
-                RadialGradient(
-                    colors: [tint.opacity(colorScheme == .dark ? 0.12 : 0.06), .clear],
-                    center: .topLeading, startRadius: 0, endRadius: 200)
-            }
+            Color(light: 0xFFFFFF, dark: 0x1C1C1E)
         }
     }
 }

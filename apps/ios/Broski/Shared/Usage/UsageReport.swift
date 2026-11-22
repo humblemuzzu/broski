@@ -120,12 +120,6 @@ nonisolated struct LimitWindow: Codable, Equatable, Sendable, Identifiable {
     var resetsAt: Date?
     var history: [UsagePoint] = []
 
-    enum Severity: Sendable {
-        case normal
-        case high
-        case critical
-    }
-
     /// Where use stands against an even spread across the window.
     enum Pace: Equatable, Sendable {
         case under
@@ -173,19 +167,6 @@ nonisolated struct LimitWindow: Codable, Equatable, Sendable, Identifiable {
         return ahead > 0.05 ? .over : ahead < -0.05 ? .under : .steady
     }
 
-    /// The readings to chart, oldest first, ending with the latest; empty once the window has started over.
-    func trace(at now: Date) -> [UsagePoint] {
-        guard let start, let resetsAt, resetsAt > now else { return [] }
-        let known = history.filter { $0.at >= start && $0.at <= now }.sorted { $0.at < $1.at }
-        return known.isEmpty ? [UsagePoint(at: now, usedPercent: usedPercent)] : known
-    }
-
-    func severity(at now: Date) -> Severity {
-        let used = used(at: now)
-        if used >= 0.9 { return .critical }
-        if used >= 0.75 || runsOut(at: now) != nil { return .high }
-        return .normal
-    }
 }
 
 nonisolated extension UsageReport {

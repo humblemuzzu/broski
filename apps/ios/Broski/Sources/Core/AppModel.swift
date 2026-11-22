@@ -28,6 +28,8 @@ final class AppModel {
     var sessionToOpen: SessionTarget?
     /// Set by the tab bar's New Session button; the Inbox tab opens New Session and clears it.
     var startsNewSession = false
+    /// Set by the usage widgets' link; the tab shell shows Usage and clears it.
+    var opensUsage = false
     /// The session on screen, set by the chat while it shows one and cleared when it leaves: its
     /// pushes do not banner while the app is in front.
     var visibleSession: SessionTarget?

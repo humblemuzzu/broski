@@ -1,41 +1,82 @@
 import SwiftUI
 import WidgetKit
 
-/// The plan's mark and name in its colour, and on the right a quiet word, or a warning when the
-/// reading is old or the last read failed.
-struct PlanTitle: View {
+/// The plan's mark and name, its tier when there is room, and a quiet clock when the reading is
+/// old or the last read failed.
+struct PlanHeader: View {
     let report: PlanReport
     let now: Date
-    var trailing: String?
+    var showsTier = false
 
     var body: some View {
         HStack(spacing: 6) {
             PlanGlyph(plan: report.plan, name: report.name, size: 14)
             Text(report.name)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(report.plan.bright)
                 .lineLimit(1)
+            if showsTier, let tier = report.tier {
+                Text(tier)
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
             Spacer(minLength: 4)
             if report.problem != nil || report.isStale(at: now) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(.orange)
+                Image(systemName: "clock")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.tertiary)
                     .accessibilityLabel(report.problem ?? "This reading is old")
-            } else if let trailing {
-                Eyebrow(trailing, style: .tertiary)
             }
         }
     }
 }
 
-/// What a window covers, in a few words: "Weekly", "Weekly · Fable", "5-hour · Gemini".
-extension LimitWindow {
-    var label: String {
-        shortScope.map { "\(span.title) · \($0)" } ?? span.title
+/// One limit as a column: what it covers, what is left, its bar, when it resets.
+struct LimitColumn: View {
+    let report: PlanReport
+    let window: LimitWindow
+    let now: Date
+    var figure: CGFloat = 30
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(window.label)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            LeftFigure(window: window, now: now, size: figure)
+            UsageBar(plan: report.plan, window: window, now: now, height: 7)
+                .padding(.vertical, 2)
+            Text(window.resetWords(at: now))
+                .font(.system(size: 10.5, weight: .medium))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
-/// Small: the plan, its figure, the meter, and when it resets.
+/// "83% left": the figure a glance reads.
+struct LeftFigure: View {
+    let window: LimitWindow
+    let now: Date
+    var size: CGFloat = 30
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 3) {
+            Text(window.leftPercent(at: now))
+                .font(.system(size: size, weight: .semibold, design: .rounded))
+                .monospacedDigit()
+            Text("left")
+                .font(.system(size: max(11, size * 0.4), weight: .medium))
+                .foregroundStyle(.secondary)
+        }
+        .lineLimit(1)
+        .minimumScaleFactor(0.7)
+    }
+}
+
+/// Small: the plan, then its fullest limit.
 struct PlanSmall: View {
     let report: PlanReport
     let window: LimitWindow
@@ -43,72 +84,47 @@ struct PlanSmall: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            PlanTitle(report: report, now: now)
-            Spacer(minLength: 4)
-            HeroPercent(used: window.used(at: now), size: 44, color: report.plan.bright)
-            Text(window.label)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
+            PlanHeader(report: report, now: now)
+            Spacer(minLength: 6)
+            LimitColumn(report: report, window: window, now: now, figure: 32)
+        }
+        .padding(16)
+    }
+}
+
+/// Medium: the plan, then its first two limits side by side.
+struct PlanMedium: View {
+    let report: PlanReport
+    let now: Date
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            PlanHeader(report: report, now: now, showsTier: true)
             Spacer(minLength: 8)
-            TickMeter(plan: report.plan, window: window, now: now, height: 22)
-            Spacer(minLength: 8)
-            if let resetsAt = window.resetsAt, resetsAt > now {
-                HStack(spacing: 4) {
-                    Image(systemName: "arrow.counterclockwise")
-                    TimeLeft(resetsAt: resetsAt, now: now)
+            HStack(alignment: .bottom, spacing: 20) {
+                ForEach(report.orderedWindows.prefix(2)) { window in
+                    LimitColumn(report: report, window: window, now: now)
                 }
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
             }
         }
         .padding(16)
     }
 }
 
-/// Medium: the plan and its figure on one line, the meter on its scale, then the window's journey.
-struct PlanMedium: View {
-    let report: PlanReport
-    let window: LimitWindow
-    let now: Date
-
-    var body: some View {
-        VStack(spacing: 0) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 2) {
-                    PlanTitle(report: report, now: now)
-                    Text(window.label)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                HeroPercent(used: window.used(at: now), size: 36, color: report.plan.bright)
-            }
-            Spacer(minLength: 6)
-            TickMeter(plan: report.plan, window: window, now: now, height: 24, showsScale: true)
-            Spacer(minLength: 10)
-            TimeTrack(plan: report.plan, window: window, now: now)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-    }
-}
-
-/// Lock Screen, round: the window's share around the plan's mark.
+/// Lock Screen, round: what is left around the plan's mark.
 struct PlanCircular: View {
     let report: PlanReport
     let window: LimitWindow
     let now: Date
 
     var body: some View {
-        Gauge(value: window.used(at: now)) {
+        Gauge(value: window.left(at: now)) {
             PlanGlyph(plan: report.plan, name: report.name, size: 12)
         } currentValueLabel: {
             VStack(spacing: 0) {
                 PlanGlyph(plan: report.plan, name: report.name, size: 11)
-                Text("\(Int((window.used(at: now) * 100).rounded()))")
-                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                Text("\(Int((window.left(at: now) * 100).rounded()))")
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
                     .monospacedDigit()
             }
         }
@@ -117,26 +133,25 @@ struct PlanCircular: View {
     }
 }
 
-/// Lock Screen, wide: the plan and its figure over the meter.
+/// Lock Screen, wide: the plan and what is left, the bar, what the limit covers.
 struct PlanRectangular: View {
     let report: PlanReport
     let window: LimitWindow
     let now: Date
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 4) {
                 PlanGlyph(plan: report.plan, name: report.name, size: 11)
-                Text(report.name).font(.system(size: 12, weight: .semibold)).lineLimit(1)
+                Text(report.name).font(.system(size: 13, weight: .semibold)).lineLimit(1)
                 Spacer(minLength: 2)
-                Text("\(Int((window.used(at: now) * 100).rounded()))%")
-                    .font(.system(size: 17, weight: .bold))
+                Text("\(window.leftPercent(at: now)) left")
+                    .font(.system(size: 13, weight: .semibold))
                     .monospacedDigit()
             }
-            TickMeter(plan: report.plan, window: window, now: now, height: 14)
-            Text(window.label.uppercased())
-                .font(.system(size: 9, weight: .semibold))
-                .tracking(0.5)
+            UsageBar(plan: report.plan, window: window, now: now, height: 6)
+            Text(window.label)
+                .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
         }
@@ -151,7 +166,7 @@ struct PlanInline: View {
 
     var body: some View {
         Label {
-            Text("\(report.name) \(Int((window.used(at: now) * 100).rounded()))% \(window.span.shortTitle.lowercased())")
+            Text("\(report.name) \(window.leftPercent(at: now)) left")
         } icon: {
             Image(systemName: "gauge.with.needle")
         }

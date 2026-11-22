@@ -1,9 +1,8 @@
 import SwiftUI
 import WidgetKit
 
-/// The first two plans the Macs read, as many as the widget fits. Medium: a meter each, with its
-/// figure, reset and pace. Large: a panel each, with the window's journey and the plan's other
-/// windows.
+/// The first two plans the Macs read. Medium: a column each, its fullest limit; one plan alone shows
+/// two of its limits. Large: each plan with its first two limits side by side.
 struct AllPlansView: View {
     let entry: UsageEntry
     @Environment(\.widgetFamily) private var family
@@ -17,102 +16,57 @@ struct AllPlansView: View {
             if plans.isEmpty {
                 NoReading(plan: .claude, report: nil, hasReport: entry.report != nil)
                     .padding(16)
+            } else if family == .systemLarge {
+                VStack(alignment: .leading, spacing: 24) {
+                    ForEach(plans) { PlanBlock(report: $0, now: entry.date) }
+                }
+                .padding(16)
+                .frame(maxHeight: .infinity, alignment: .top)
+            } else if plans.count == 1, let only = plans.first {
+                PlanMedium(report: only, now: entry.date)
             } else {
-                VStack(spacing: 0) {
-                    ForEach(Array(plans.enumerated()), id: \.element.id) { index, plan in
-                        if index > 0 { Hairline() }
-                        Group {
-                            if family == .systemLarge {
-                                PlanPanel(report: plan, now: entry.date)
-                            } else {
-                                PlanMeterRow(report: plan, now: entry.date)
-                            }
-                        }
-                        .frame(maxHeight: .infinity)
-                    }
+                HStack(alignment: .top, spacing: 20) {
+                    ForEach(plans) { PlanColumn(report: $0, now: entry.date) }
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, family == .systemLarge ? 10 : 4)
+                .padding(16)
+                .frame(maxHeight: .infinity)
             }
         }
-        .usageBackground(plan: plans.count == 1 ? plans.first?.plan : nil)
+        .usageBackground()
     }
 }
 
-struct Hairline: View {
-    var body: some View {
-        Rectangle().fill(.primary.opacity(0.1)).frame(height: 0.5)
-    }
-}
-
-/// A plan in the medium widget: mark, name, window and figure; the meter; when it resets and its pace.
-struct PlanMeterRow: View {
+/// A plan in the medium widget: its mark and name over its fullest limit.
+private struct PlanColumn: View {
     let report: PlanReport
     let now: Date
 
     var body: some View {
-        if let window = report.headline(at: now) {
-            VStack(spacing: 5) {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    PlanGlyph(plan: report.plan, name: report.name, size: 13)
-                        .alignmentGuide(.firstTextBaseline) { $0[.bottom] - 2 }
-                    Text(report.name)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(report.plan.bright)
-                    Text(window.label)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                    Spacer(minLength: 4)
-                    HeroPercent(used: window.used(at: now), size: 24, color: report.plan.bright)
-                }
-                TickMeter(plan: report.plan, window: window, now: now, height: 16)
-                HStack(spacing: 4) {
-                    if let resetsAt = window.resetsAt, resetsAt > now {
-                        Image(systemName: "arrow.counterclockwise")
-                        TimeLeft(resetsAt: resetsAt, now: now)
-                    }
-                    Spacer(minLength: 4)
-                    if let pace = window.pace(at: now) {
-                        PaceBadge(plan: report.plan, pace: pace, span: window.span, plain: true)
-                    }
-                }
-                .font(.system(size: 10.5, weight: .semibold))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
+        VStack(alignment: .leading, spacing: 0) {
+            PlanHeader(report: report, now: now)
+            Spacer(minLength: 8)
+            if let window = report.headline(at: now) {
+                LimitColumn(report: report, window: window, now: now, figure: 28)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
     }
 }
 
-/// A plan in the large widget.
-struct PlanPanel: View {
+/// A plan in the large widget: its header, then its first two limits side by side.
+private struct PlanBlock: View {
     let report: PlanReport
     let now: Date
 
     var body: some View {
-        if let window = report.headline(at: now) {
-            VStack(spacing: 8) {
-                PlanTitle(report: report, now: now, trailing: report.tier)
-                HStack(alignment: .firstTextBaseline) {
-                    Text(window.label)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.secondary)
-                    if let pace = window.pace(at: now) {
-                        PaceBadge(plan: report.plan, pace: pace, span: window.span, plain: true)
-                            .font(.system(size: 10.5, weight: .semibold))
-                    }
-                    Spacer()
-                    HeroPercent(used: window.used(at: now), size: 30, color: report.plan.bright)
+        VStack(alignment: .leading, spacing: 14) {
+            PlanHeader(report: report, now: now, showsTier: true)
+            HStack(alignment: .bottom, spacing: 20) {
+                ForEach(report.orderedWindows.prefix(2)) { window in
+                    LimitColumn(report: report, window: window, now: now)
                 }
-                TickMeter(plan: report.plan, window: window, now: now, height: 20)
-                TimeTrack(plan: report.plan, window: window, now: now)
-                OtherWindows(
-                    plan: report.plan,
-                    windows: Array(report.windows.filter { $0.id != window.id }.prefix(3)),
-                    now: now)
             }
-            .padding(.vertical, 4)
         }
+        .frame(maxHeight: .infinity, alignment: .top)
     }
 }
