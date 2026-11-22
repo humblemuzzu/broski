@@ -42,7 +42,7 @@ class SessionMenuActions(
 @Composable
 fun SessionMenu(expanded: Boolean, actions: SessionMenuActions, cache: CacheWindow?, onDismiss: () -> Unit) {
     DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
-        cache?.breakdown()?.takeIf { it.isNotEmpty() }?.let { lines -> CacheBreakdown(lines) }
+        cache?.breakdown(nowMs = System.currentTimeMillis())?.takeIf { it.isNotEmpty() }?.let { lines -> CacheBreakdown(lines) }
         MenuItem(R.string.chat_fork, R.drawable.ic_call_split, actions.fork, onDismiss)
         MenuItem(R.string.chat_rename, R.drawable.ic_edit, actions.rename, onDismiss)
         MenuItem(R.string.chat_compact, R.drawable.ic_compress, actions.compact, onDismiss)

@@ -15,9 +15,10 @@ struct CacheIndicator: View {
                         .monospacedDigit()
                         .contentTransition(.numericText())
                         .foregroundStyle(status.tone.style)
-                        .fixedSize()
+                        .lineLimit(1)
                     Text("·")
                 }
+                .layoutPriority(1)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(status.spoken)
             }
@@ -42,6 +43,38 @@ struct CacheSwitchNotice: View {
         }
         .id(cache)
     }
+}
+
+/// Keeps `cacheReadAtMs` for the views under it: the moment `cache` arrived, then once more the
+/// moment it expires, one wake rather than a ticking clock, so what a menu draws from it stops
+/// promising a window that has closed.
+private struct CacheExpiryClock: ViewModifier {
+    let expiresAtMs: Int64?
+    @State private var nowMs = Date.now.unixMilliseconds
+
+    func body(content: Content) -> some View {
+        content
+            .environment(\.cacheReadAtMs, nowMs)
+            .task(id: expiresAtMs) {
+                nowMs = Date.now.unixMilliseconds
+                while let expiresAtMs, nowMs < expiresAtMs {
+                    try? await Task.sleep(for: .milliseconds(expiresAtMs - nowMs))
+                    guard !Task.isCancelled else { return }
+                    nowMs = Date.now.unixMilliseconds
+                }
+            }
+    }
+}
+
+extension View {
+    func cacheExpiryClock(_ cache: CacheWindow?) -> some View {
+        modifier(CacheExpiryClock(expiresAtMs: cache?.expiresAtMs))
+    }
+}
+
+extension EnvironmentValues {
+    /// When the chat last read its prompt cache's window; `nil` outside a chat, where it is read now.
+    @Entry var cacheReadAtMs: Int64?
 }
 
 extension CacheStatus.Tone {

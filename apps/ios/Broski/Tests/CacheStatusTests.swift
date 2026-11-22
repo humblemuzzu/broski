@@ -69,28 +69,43 @@ struct CacheStatusTests {
         #expect(CacheFormat.duration(ms: 59_999, estimated: false) == "1m 00s")
         #expect(CacheFormat.duration(ms: 42_000, estimated: false) == "42s")
         #expect(CacheFormat.duration(ms: 1, estimated: false) == "1s")
-        #expect(CacheFormat.duration(ms: 222_000, estimated: true) == "~3m")
-        #expect(CacheFormat.duration(ms: 3_722_000, estimated: true) == "~1h 02m")
+        #expect(CacheFormat.duration(ms: 222_000, estimated: true) == "~4m", "whole minutes count up")
+        #expect(CacheFormat.duration(ms: 180_000, estimated: true) == "~3m")
+        #expect(CacheFormat.duration(ms: 60_001, estimated: true) == "~2m")
+        #expect(CacheFormat.duration(ms: 59_500, estimated: true) == "~1m")
+        #expect(CacheFormat.duration(ms: 3_722_000, estimated: true) == "~1h 03m")
         #expect(CacheFormat.duration(ms: 42_000, estimated: true) == "~42s")
     }
 
     @Test func theHeaderSaysTheWindowInFewWords() {
         #expect(CacheStatus.warm(remainingMs: 222_000, estimated: false, hitPercent: 94).compact == "Cache 3m 42s · 94%")
-        #expect(CacheStatus.warm(remainingMs: 222_000, estimated: true, hitPercent: nil).compact == "Cache ~3m")
+        #expect(CacheStatus.warm(remainingMs: 222_000, estimated: true, hitPercent: nil).compact == "Cache ~4m")
         #expect(CacheStatus.hitOnly(hitPercent: 91).compact == "91% cached")
-        #expect(CacheStatus.warm(remainingMs: 222_000, estimated: true, hitPercent: 94).spoken == "Prompt cache warm, about 3m left, 94% cached")
+        #expect(CacheStatus.warm(remainingMs: 222_000, estimated: true, hitPercent: 94).spoken == "Prompt cache warm, about 4m left, 94% cached")
     }
 
     @Test func switchingModelsWarnsOnlyWhileAtLeast20kTokensAreWarm() {
         let now = touched + 300_000 - 222_000
         #expect(window().switchWarning(at: now) == "Cache warm (142k tokens, 3m 42s left) — switching models will re-cache")
-        #expect(window(confidence: .estimated).switchWarning(at: now) == "Cache warm (142k tokens, ~3m left) — switching models will re-cache")
+        #expect(window(confidence: .estimated).switchWarning(at: now) == "Cache warm (142k tokens, ~4m left) — switching models will re-cache")
         #expect(window(cached: 20_000).shouldWarnOnModelSwitch(at: now))
         #expect(!window(cached: 19_999).shouldWarnOnModelSwitch(at: now))
         #expect(!window(cached: nil).shouldWarnOnModelSwitch(at: now))
         #expect(!window().shouldWarnOnModelSwitch(at: touched + 300_000))
         #expect(!window(ttl: nil).shouldWarnOnModelSwitch(at: now) && window(ttl: nil).switchWarning(at: now) == nil)
         #expect(!window(ttl: nil).warnsOnModelSwitch && window().warnsOnModelSwitch)
+    }
+
+    @Test func aMenuWarnsUntilATimeOfDayAndNotOnceTheWindowCloses() {
+        let clock: (Int64) -> String = { "T\($0)" }
+        let now = touched + 78_000
+        #expect(window().switchWarningUntil(nowMs: now, clock: clock) == "Cache warm (142k tokens, until T1300000) — switching models will re-cache")
+        #expect(
+            window(confidence: .estimated).switchWarningUntil(nowMs: now, clock: clock)
+                == "Cache warm (142k tokens, until about T1300000) — switching models will re-cache")
+        #expect(window().switchWarningUntil(nowMs: touched + 300_000, clock: clock) == nil)
+        #expect(window(cached: 19_999).switchWarningUntil(nowMs: now, clock: clock) == nil)
+        #expect(window(ttl: nil).switchWarningUntil(nowMs: now, clock: clock) == nil)
     }
 
     @Test func tokenCountsAreShort() {
@@ -102,10 +117,18 @@ struct CacheStatusTests {
 
     @Test func theOverflowGivesTheNumbersAndATimeOfDay() {
         let clock: (Int64) -> String = { "T\($0)" }
-        #expect(window().breakdown(clock: clock) == ["142k of 151k prompt tokens cached (94%)", "Expires T1300000"])
-        #expect(window(confidence: .estimated, prompt: nil).breakdown(clock: clock) == ["Expires about T1300000"])
-        #expect(window(ttl: nil).breakdown(clock: clock) == ["142k of 151k prompt tokens cached (94%)"])
-        #expect(window(ttl: nil, cached: 0).breakdown(clock: clock).isEmpty)
+        let warm = touched + 299_999
+        #expect(window().breakdown(nowMs: warm, clock: clock) == ["142k of 151k prompt tokens cached (94%)", "Expires T1300000"])
+        #expect(window(confidence: .estimated, prompt: nil).breakdown(nowMs: warm, clock: clock) == ["Expires about T1300000"])
+        #expect(window(ttl: nil).breakdown(nowMs: warm, clock: clock) == ["142k of 151k prompt tokens cached (94%)"])
+        #expect(window(ttl: nil, cached: 0).breakdown(nowMs: warm, clock: clock).isEmpty)
+    }
+
+    @Test func aClosedWindowSaysItExpiredNotThatItExpires() {
+        let clock: (Int64) -> String = { "T\($0)" }
+        #expect(window().breakdown(nowMs: touched + 300_000, clock: clock) == ["142k of 151k prompt tokens cached (94%)", "Expired T1300000"])
+        #expect(window(confidence: .estimated, prompt: nil).breakdown(nowMs: touched + 900_000, clock: clock) == ["Expired T1300000"])
+        #expect(!window().breakdown(nowMs: touched + 300_000, clock: clock).contains { $0.hasPrefix("Expires") })
     }
 
     @Test func theCountdownWakesAsEachSecondFallsThenStops() {
@@ -114,6 +137,17 @@ struct CacheStatusTests {
         #expect(ticks == [touched + 297_500, touched + 298_000, touched + 299_000, touched + 300_000])
         #expect(Array(CacheCountdown(window(ttl: nil)).entries(from: start, mode: .normal)).count == 1)
         #expect(Array(CacheCountdown(window()).entries(from: Date(unixMilliseconds: touched + 400_000), mode: .normal)).count == 1)
-        #expect([3_000, 2_500, 1_001, 1, 0].map { CacheFormat.nextTickMs(remainingMs: $0) } == [1_000, 500, 1, 1, 1])
+        #expect([3_000, 2_500, 1_001, 1, 0].map { CacheFormat.nextTickMs(remainingMs: $0, estimated: false) } == [1_000, 500, 1, 1, 1])
+    }
+
+    @Test func anEstimateWakesOncePerMinuteUntilItsLastMinute() {
+        #expect([300_000, 222_000, 60_001, 60_000, 2_500].map { CacheFormat.nextTickMs(remainingMs: $0, estimated: true) } == [60_000, 42_000, 1, 1_000, 500])
+        #expect(CacheFormat.nextTickMs(remainingMs: 300_000, estimated: false) == 1_000)
+        let start = Date(unixMilliseconds: touched)
+        let ticks = Array(CacheCountdown(window(confidence: .estimated)).entries(from: start, mode: .normal)).map(\.unixMilliseconds)
+        #expect(Array(ticks.prefix(6)) == [touched, touched + 60_000, touched + 120_000, touched + 180_000, touched + 240_000, touched + 241_000])
+        #expect(ticks.count == 65, "four minute wakes, then each second of the last minute, not 301")
+        #expect(ticks.last == touched + 300_000)
+        #expect(Array(CacheCountdown(window()).entries(from: start, mode: .normal)).count == 301)
     }
 }

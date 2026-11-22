@@ -78,27 +78,41 @@ fun CacheWindow.switchWarning(nowMs: Long): String? {
     return "Cache warm (${compactTokens(cachedTokens ?: 0)} tokens, $left left) — switching models will re-cache"
 }
 
-/** The overflow's lines: how much of the last prompt was cached, and when the window closes, as a time of day. */
-fun CacheWindow.breakdown(clock: (Long) -> String = ::cacheTimeOfDay): List<String> {
+/** The overflow's lines: how much of the last prompt was cached, and when the window closes or closed, as a time of day. */
+fun CacheWindow.breakdown(nowMs: Long, clock: (Long) -> String = ::cacheTimeOfDay): List<String> {
     if ((cachedTokens ?: 0) <= 0 && ttlMs == null) return emptyList()
     val cached = cachedTokens
     val prompt = promptTokens
     val hit = hitPercent
     return listOfNotNull(
         if (cached != null && prompt != null && hit != null) "${compactTokens(cached)} of ${compactTokens(prompt)} prompt tokens cached ($hit%)" else null,
-        expiresAtMs?.let { (if (confidence == CacheConfidence.ESTIMATED) "Expires about " else "Expires ") + clock(it) },
+        expiresAtMs?.let { at ->
+            val verb = when {
+                at <= nowMs -> "Expired "
+                confidence == CacheConfidence.ESTIMATED -> "Expires about "
+                else -> "Expires "
+            }
+            verb + clock(at)
+        },
     )
 }
 
-/** "1h 02m", "3m 42s", "42s", whole seconds counted up; an estimate drops the seconds behind a "~": "~3m". */
+/**
+ * "1h 02m", "3m 42s", "42s", whole seconds counted up so "1s" shows until the very end; an estimate
+ * counts whole minutes behind a "~" down to its last one: "~4m", then "~42s".
+ */
 fun cacheDuration(ms: Long, estimated: Boolean): String {
-    val seconds = (ms.coerceAtLeast(0) + 999) / 1_000
+    val left = ms.coerceAtLeast(0)
+    val seconds = (left + 999) / 1_000
+    if (estimated && seconds >= 60) {
+        val minutes = (left + 59_999) / 60_000
+        return if (minutes >= 60) String.format(Locale.ROOT, "~%dh %02dm", minutes / 60, minutes % 60) else "~${minutes}m"
+    }
     val hours = seconds / 3_600
     val minutes = seconds % 3_600 / 60
     val secs = seconds % 60
     val span = when {
         hours > 0 -> String.format(Locale.ROOT, "%dh %02dm", hours, minutes)
-        minutes > 0 && estimated -> "${minutes}m"
         minutes > 0 -> String.format(Locale.ROOT, "%dm %02ds", minutes, secs)
         else -> "${secs}s"
     }
@@ -112,15 +126,18 @@ fun compactTokens(count: Long): String = when {
     else -> String.format(Locale.ROOT, "%.1fM", count / 1_000_000.0)
 }
 
-/** How long until the shown second changes: the moment the next whole second falls past. */
-fun nextCacheTickMs(remainingMs: Long): Long = (remainingMs.coerceAtLeast(1) - 1) % 1_000 + 1
+/** How long until the shown time changes: the moment the next whole second falls past, or for an estimate still counting minutes, the next whole minute. */
+fun nextCacheTickMs(remainingMs: Long, estimated: Boolean): Long {
+    val remaining = remainingMs.coerceAtLeast(1)
+    return if (estimated && remaining > EXPIRING_MS) (remaining - 1) % 60_000 + 1 else (remaining - 1) % 1_000 + 1
+}
 
-/** Reads [clock] into [onTick] now and each time the shown second changes, returning at [expiresAtMs], or at once without one. */
-suspend fun tickCacheClock(expiresAtMs: Long?, clock: () -> Long, onTick: (Long) -> Unit) {
+/** Reads [clock] into [onTick] now and each time the shown time changes, returning at [expiresAtMs], or at once without one. */
+suspend fun tickCacheClock(expiresAtMs: Long?, estimated: Boolean, clock: () -> Long, onTick: (Long) -> Unit) {
     var now = clock()
     onTick(now)
     while (expiresAtMs != null && now < expiresAtMs) {
-        delay(nextCacheTickMs(expiresAtMs - now))
+        delay(nextCacheTickMs(expiresAtMs - now, estimated))
         now = clock()
         onTick(now)
     }

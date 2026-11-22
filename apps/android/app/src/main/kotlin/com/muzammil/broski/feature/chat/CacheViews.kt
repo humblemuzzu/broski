@@ -20,17 +20,18 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
 import com.muzammil.broski.design.BroskiTheme
+import uniffi.broski_contract.CacheConfidence
 import uniffi.broski_contract.CacheWindow
 
 /**
- * The wall clock for [cache]'s countdown: moved each time its shown second changes, and left alone
+ * The wall clock for [cache]'s countdown: moved each time its shown time changes, and left alone
  * once the window expires or when it has no lifetime, so an idle chat runs no loop.
  */
 @Composable
 fun cacheNow(cache: CacheWindow?): Long {
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(cache?.lastTouchAt, cache?.ttlMs) {
-        tickCacheClock(cache?.expiresAtMs, System::currentTimeMillis) { now = it }
+    LaunchedEffect(cache?.lastTouchAt, cache?.ttlMs, cache?.confidence) {
+        tickCacheClock(cache?.expiresAtMs, cache?.confidence == CacheConfidence.ESTIMATED, System::currentTimeMillis) { now = it }
     }
     return now
 }

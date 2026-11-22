@@ -81,15 +81,18 @@ class CacheStatusTest {
         assertEquals("1m 00s", cacheDuration(59_999, estimated = false))
         assertEquals("42s", cacheDuration(42_000, estimated = false))
         assertEquals("1s", cacheDuration(1, estimated = false))
-        assertEquals("~3m", cacheDuration(222_000, estimated = true))
-        assertEquals("~1h 02m", cacheDuration(3_722_000, estimated = true))
+        assertEquals("whole minutes count up", "~4m", cacheDuration(222_000, estimated = true))
+        assertEquals("~3m", cacheDuration(180_000, estimated = true))
+        assertEquals("~2m", cacheDuration(60_001, estimated = true))
+        assertEquals("~1m", cacheDuration(59_500, estimated = true))
+        assertEquals("~1h 03m", cacheDuration(3_722_000, estimated = true))
         assertEquals("~42s", cacheDuration(42_000, estimated = true))
     }
 
     @Test
     fun theHeaderSaysTheWindowInFewWords() {
         assertEquals("Cache 3m 42s · 94%", CacheStatus.Warm(222_000, false, 94).compact)
-        assertEquals("Cache ~3m", CacheStatus.Warm(222_000, true, null).compact)
+        assertEquals("Cache ~4m", CacheStatus.Warm(222_000, true, null).compact)
         assertEquals("91% cached", CacheStatus.HitOnly(91).compact)
     }
 
@@ -98,7 +101,7 @@ class CacheStatusTest {
         val now = touched + 300_000 - 222_000
         assertEquals("Cache warm (142k tokens, 3m 42s left) — switching models will re-cache", window().switchWarning(now))
         assertEquals(
-            "Cache warm (142k tokens, ~3m left) — switching models will re-cache",
+            "Cache warm (142k tokens, ~4m left) — switching models will re-cache",
             window(confidence = CacheConfidence.ESTIMATED).switchWarning(now),
         )
         assertTrue(window(cached = 20_000).shouldWarnOnModelSwitch(now))
@@ -122,23 +125,51 @@ class CacheStatusTest {
     @Test
     fun theOverflowGivesTheNumbersAndATimeOfDay() {
         val clock: (Long) -> String = { "T$it" }
-        assertEquals(listOf("142k of 151k prompt tokens cached (94%)", "Expires T1300000"), window().breakdown(clock))
-        assertEquals(listOf("Expires about T1300000"), window(confidence = CacheConfidence.ESTIMATED, prompt = null).breakdown(clock))
-        assertEquals(listOf("142k of 151k prompt tokens cached (94%)"), window(ttl = null).breakdown(clock))
-        assertTrue(window(ttl = null, cached = 0).breakdown(clock).isEmpty())
+        val warm = touched + 299_999
+        assertEquals(listOf("142k of 151k prompt tokens cached (94%)", "Expires T1300000"), window().breakdown(warm, clock))
+        assertEquals(listOf("Expires about T1300000"), window(confidence = CacheConfidence.ESTIMATED, prompt = null).breakdown(warm, clock))
+        assertEquals(listOf("142k of 151k prompt tokens cached (94%)"), window(ttl = null).breakdown(warm, clock))
+        assertTrue(window(ttl = null, cached = 0).breakdown(warm, clock).isEmpty())
+    }
+
+    @Test
+    fun aClosedWindowSaysItExpiredNotThatItExpires() {
+        val clock: (Long) -> String = { "T$it" }
+        assertEquals(listOf("142k of 151k prompt tokens cached (94%)", "Expired T1300000"), window().breakdown(touched + 300_000, clock))
+        assertEquals(listOf("Expired T1300000"), window(confidence = CacheConfidence.ESTIMATED, prompt = null).breakdown(touched + 900_000, clock))
+        assertTrue(window().breakdown(touched + 300_000, clock).none { it.startsWith("Expires") })
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
     fun theClockWakesAsEachSecondFallsThenStops() = runTest {
-        assertEquals(listOf(1_000L, 500L, 1L, 1L, 1L), listOf(3_000L, 2_500L, 1_001L, 1L, 0L).map(::nextCacheTickMs))
+        assertEquals(listOf(1_000L, 500L, 1L, 1L, 1L), listOf(3_000L, 2_500L, 1_001L, 1L, 0L).map { nextCacheTickMs(it, estimated = false) })
         val clock = { testScheduler.currentTime }
         val ticks = mutableListOf<Long>()
-        tickCacheClock(2_500, clock) { ticks += it }
+        tickCacheClock(2_500, estimated = false, clock) { ticks += it }
         assertEquals(listOf(0L, 500L, 1_500L, 2_500L), ticks)
         val idle = mutableListOf<Long>()
-        tickCacheClock(null, clock) { idle += it }
-        tickCacheClock(0, clock) { idle += it }
+        tickCacheClock(null, estimated = false, clock) { idle += it }
+        tickCacheClock(0, estimated = false, clock) { idle += it }
         assertEquals("no lifetime, or an expired one, reads the clock once", listOf(2_500L, 2_500L), idle)
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun anEstimateWakesOncePerMinuteUntilItsLastMinute() = runTest {
+        assertEquals(
+            listOf(60_000L, 42_000L, 1L, 1_000L, 500L),
+            listOf(300_000L, 222_000L, 60_001L, 60_000L, 2_500L).map { nextCacheTickMs(it, estimated = true) },
+        )
+        assertEquals(1_000L, nextCacheTickMs(300_000, estimated = false))
+        val clock = { testScheduler.currentTime }
+        val ticks = mutableListOf<Long>()
+        tickCacheClock(300_000, estimated = true, clock) { ticks += it }
+        assertEquals(listOf(0L, 60_000L, 120_000L, 180_000L, 240_000L, 241_000L), ticks.take(6))
+        assertEquals("four minute wakes, then each second of the last minute, not 301", 65, ticks.size)
+        assertEquals(300_000L, ticks.last())
+        val exact = mutableListOf<Long>()
+        tickCacheClock(testScheduler.currentTime + 300_000, estimated = false, clock) { exact += it }
+        assertEquals(301, exact.size)
     }
 }

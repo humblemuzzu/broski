@@ -22,6 +22,7 @@ struct ChatToolbar: ToolbarContent {
     let capabilities: Capabilities?
     @Binding var dialog: ChatDialog?
     @Environment(\.openSession) private var openSession
+    @Environment(\.cacheReadAtMs) private var cacheReadAtMs
 
     var body: some ToolbarContent {
         ToolbarItem(placement: .principal) {
@@ -55,7 +56,7 @@ struct ChatToolbar: ToolbarContent {
 
     @ViewBuilder
     private var overflow: some View {
-        if let lines = chat.snapshot.usage?.cache?.breakdown(), !lines.isEmpty {
+        if let lines = chat.snapshot.usage?.cache?.breakdown(nowMs: cacheReadAtMs ?? Date.now.unixMilliseconds), !lines.isEmpty {
             Section("Prompt Cache") {
                 ForEach(lines, id: \.self) { Text($0) }
             }

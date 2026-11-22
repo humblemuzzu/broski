@@ -14,6 +14,7 @@ struct ComposerChips: View {
     let choices: ComposerChoices
     let choose: (ComposerChoice) -> Void
     var cache: CacheWindow?
+    @Environment(\.cacheReadAtMs) private var cacheReadAtMs
     @State private var pickingModel = false
     @State private var steps = 0
 
@@ -51,25 +52,13 @@ struct ComposerChips: View {
 
     @ViewBuilder
     private var modelChip: some View {
-        if let cache, cache.warnsOnModelSwitch, catalog.models.count > 1, catalog.models.count <= Self.menuLimit {
-            TimelineView(CacheCountdown(cache)) { context in
-                modelChip(warning: cache.switchWarning(at: context.date.unixMilliseconds))
-            }
-            .id(cache)
-        } else {
-            modelChip(warning: nil)
-        }
-    }
-
-    @ViewBuilder
-    private func modelChip(warning: String?) -> some View {
         if catalog.models.count > Self.menuLimit {
             Button { pickingModel = true } label: { ChipLabel(text: model?.displayName ?? "Model") }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Model, \(model?.displayName ?? "default")")
         } else if catalog.models.count > 1 {
             Menu {
-                if let warning {
+                if let warning = cache?.switchWarningUntil(nowMs: cacheReadAtMs ?? Date.now.unixMilliseconds) {
                     Section(warning) { modelPicker }
                 } else {
                     modelPicker

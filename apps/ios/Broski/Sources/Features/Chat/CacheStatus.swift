@@ -83,33 +83,47 @@ nonisolated extension CacheWindow {
         return "Cache warm (\(CacheFormat.tokens(cachedTokens ?? 0)) tokens, \(left) left) — switching models will re-cache"
     }
 
-    /// The overflow's lines: how much of the last prompt was cached, and when the window closes,
-    /// as a time of day, since a menu is drawn once and a countdown in it would go stale.
-    func breakdown(clock: (Int64) -> String = CacheFormat.timeOfDay) -> [String] {
+    /// "Cache warm (142k tokens, until 3:42 PM) — switching models will re-cache": the warning a
+    /// menu draws once, with the expiry as a time of day rather than a countdown that would go stale.
+    func switchWarningUntil(nowMs: Int64, clock: (Int64) -> String = CacheFormat.timeOfDay) -> String? {
+        guard shouldWarnOnModelSwitch(at: nowMs), let expiresAtMs else { return nil }
+        let until = (confidence == .estimated ? "until about " : "until ") + clock(expiresAtMs)
+        return "Cache warm (\(CacheFormat.tokens(cachedTokens ?? 0)) tokens, \(until)) — switching models will re-cache"
+    }
+
+    /// The overflow's lines: how much of the last prompt was cached, and when the window closes or
+    /// closed, as a time of day, since a menu is drawn once and a countdown in it would go stale.
+    func breakdown(nowMs: Int64, clock: (Int64) -> String = CacheFormat.timeOfDay) -> [String] {
         guard (cachedTokens ?? 0) > 0 || ttlMs != nil else { return [] }
         var lines: [String] = []
         if let cachedTokens, let promptTokens, let hitPercent {
             lines.append("\(CacheFormat.tokens(cachedTokens)) of \(CacheFormat.tokens(promptTokens)) prompt tokens cached (\(hitPercent)%)")
         }
         if let expiresAtMs {
-            lines.append((confidence == .estimated ? "Expires about " : "Expires ") + clock(expiresAtMs))
+            let verb = expiresAtMs <= nowMs ? "Expired " : confidence == .estimated ? "Expires about " : "Expires "
+            lines.append(verb + clock(expiresAtMs))
         }
         return lines
     }
 }
 
 nonisolated enum CacheFormat {
-    /// "1h 02m", "3m 42s", "42s"; an estimate drops the seconds behind a "~": "~3m".
+    /// "1h 02m", "3m 42s", "42s"; an estimate counts whole minutes behind a "~" down to its last
+    /// one: "~4m", then "~42s".
     static func duration(ms: Int64, estimated: Bool) -> String {
         estimated ? "~" + span(ms: ms, coarse: true) : span(ms: ms, coarse: false)
     }
 
-    /// Whole seconds counted up, so "1s" shows until the very end.
+    /// Whole units counted up, so "1s" shows until the very end and "~4m" until four minutes are left.
     static func span(ms: Int64, coarse: Bool) -> String {
         let seconds = (max(0, ms) + 999) / 1000
+        if coarse, seconds >= 60 {
+            let minutes = (max(0, ms) + 59_999) / 60_000
+            return minutes >= 60 ? "\(minutes / 60)h " + String(format: "%02lldm", minutes % 60) : "\(minutes)m"
+        }
         let hours = seconds / 3600, minutes = seconds % 3600 / 60, secs = seconds % 60
         if hours > 0 { return "\(hours)h " + String(format: "%02lldm", minutes) }
-        if minutes > 0 { return coarse ? "\(minutes)m" : "\(minutes)m " + String(format: "%02llds", secs) }
+        if minutes > 0 { return "\(minutes)m " + String(format: "%02llds", secs) }
         return "\(secs)s"
     }
 
@@ -120,9 +134,11 @@ nonisolated enum CacheFormat {
         return String(format: "%.1fM", Double(count) / 1_000_000)
     }
 
-    /// How long until the shown second changes: the moment the next whole second falls past.
-    static func nextTickMs(remainingMs: Int64) -> Int64 {
-        (max(1, remainingMs) - 1) % 1000 + 1
+    /// How long until the shown time changes: the moment the next whole second falls past, or for
+    /// an estimate still counting minutes, the next whole minute.
+    static func nextTickMs(remainingMs: Int64, estimated: Bool) -> Int64 {
+        let remaining = max(1, remainingMs)
+        return estimated && remaining > 60_000 ? (remaining - 1) % 60_000 + 1 : (remaining - 1) % 1000 + 1
     }
 
     static func timeOfDay(_ ms: Int64) -> String {
@@ -130,21 +146,23 @@ nonisolated enum CacheFormat {
     }
 }
 
-/// Each moment the countdown's second changes, up to the expiry, then nothing: an expired or
+/// Each moment the countdown's shown time changes, up to the expiry, then nothing: an expired or
 /// lifetime-less window is drawn once and never wakes its view again.
 nonisolated struct CacheCountdown: TimelineSchedule {
     let expiresAtMs: Int64?
+    let estimated: Bool
 
     init(_ cache: CacheWindow) {
         expiresAtMs = cache.expiresAtMs
+        estimated = cache.confidence == .estimated
     }
 
     func entries(from start: Date, mode _: TimelineScheduleMode) -> some Sequence<Date> {
-        sequence(first: start) { [expiresAtMs] date in
+        sequence(first: start) { [expiresAtMs, estimated] date in
             guard let expiresAtMs else { return nil }
             let remaining = expiresAtMs - date.unixMilliseconds
             guard remaining > 0 else { return nil }
-            return date.addingTimeInterval(Double(CacheFormat.nextTickMs(remainingMs: remaining)) / 1000)
+            return date.addingTimeInterval(Double(CacheFormat.nextTickMs(remainingMs: remaining, estimated: estimated)) / 1000)
         }
     }
 }

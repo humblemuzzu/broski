@@ -65,6 +65,7 @@ private struct ChatContent: View {
                 ChatToolbar(chat: chat, machine: machine, title: title, cwd: cwd, capabilities: capabilities, dialog: $dialog)
             }
             .chatDialogs(chat, agent: agent, machineName: machine.name, title: title, dialog: $dialog)
+            .cacheExpiryClock(chat.snapshot.usage?.cache)
             .toolbarVisibility(.hidden, for: .tabBar)
             .environment(disclosure)
             .environment(\.chatMachineId, machine.id)
