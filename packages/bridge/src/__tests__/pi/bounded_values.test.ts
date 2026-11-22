@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { withoutTerminalEscapes } from "../../adapter-kit/phone-text";
 import {
 	PERMISSIONS_ENTRY,
 	PROMPT_ENTRY,
@@ -16,7 +17,6 @@ import { initialPermissions, listPiModes, modeProblem } from "../../backends/pi/
 import { rejected } from "../../backends/pi/rejections";
 import type { PiModel } from "../../backends/pi/rpc/replies";
 import type { CustomEntry } from "../../backends/pi/store/entries";
-import { withoutTerminalEscapes } from "../../backends/pi/terminal-text";
 import { PI_TRAITS } from "../../backends/pi/traits";
 import {
 	Capabilities,

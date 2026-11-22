@@ -3,8 +3,9 @@
  * replayed through its ordinary event path, it rebuilds the run under way, the asks still open and the extensions'
  * statuses (pi-coding-agent 1.5.2 `docs/json.md`, `docs/rpc-extension-ui.md`). Command responses answer only the bridge
  * that sent them and are not kept. At rest (`agent_settled`, with no compaction or retry open) the record starts over
- * with only the asks nobody answered that have not timed out, and the last status per key. A permission ask is bound to
- * its run's signal, so Pi dropped it without a word when the run ended (`rpc-mode.js:51-82`): it goes then too.
+ * with only the asks nobody answered that have not timed out, and the last status per key. A permission ask and a
+ * `broski_ask` question are bound to their run's signal, so Pi dropped them without a word when the run ended
+ * (`rpc-mode.js:51-82`): they go then too.
  */
 
 import { isRecord } from "./protocol";
@@ -12,7 +13,7 @@ import { isRecord } from "./protocol";
 export const MAX_REPLAY_BYTES = 64 * 1024 * 1024;
 
 const DIALOGS: ReadonlySet<unknown> = new Set(["select", "confirm", "input", "editor"]);
-const PERMISSION_PREFIX = "broski-permission:";
+const RUN_BOUND_PREFIXES = ["broski-permission:", "broski-questions:"];
 
 /** `delta` and `tool_update` lines may go once their message or call has ended: its end line carries all of it. */
 type Kind = "structure" | "delta" | "tool_update" | "transient" | "ask" | "status";
@@ -21,7 +22,7 @@ interface Logged {
 	readonly text: string;
 	readonly kind: Kind;
 	readonly key: string;
-	readonly ask?: { readonly expiresAt: number | undefined; readonly permission: boolean };
+	readonly ask?: { readonly expiresAt: number | undefined; readonly runBound: boolean };
 	dropped: boolean;
 }
 
@@ -156,8 +157,8 @@ export class ReplayLog {
 		}
 		if (!DIALOGS.has(method) || typeof id !== "string") return transient(text);
 		const expiresAt = typeof timeout === "number" && timeout > 0 ? this.now() + timeout : undefined;
-		const permission = typeof title === "string" && title.startsWith(PERMISSION_PREFIX);
-		return { text, kind: "ask", key: id, ask: { expiresAt, permission }, dropped: false };
+		const runBound = typeof title === "string" && RUN_BOUND_PREFIXES.some((prefix) => title.startsWith(prefix));
+		return { text, kind: "ask", key: id, ask: { expiresAt, runBound }, dropped: false };
 	}
 
 	private add(logged: Logged): void {
@@ -202,7 +203,7 @@ export class ReplayLog {
 		const now = this.now();
 		for (const line of this.lines) {
 			const ask = line.ask;
-			const kept = line.kind === "status" || (ask !== undefined && !ask.permission && !expired(line, now));
+			const kept = line.kind === "status" || (ask !== undefined && !ask.runBound && !expired(line, now));
 			if (!kept) this.drop(line);
 		}
 		this.compact();

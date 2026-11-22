@@ -3,6 +3,7 @@
  * the live stream and the transcript alike, and the file changes built-in tools report.
  */
 
+import { withoutTerminalEscapes } from "../../../adapter-kit/phone-text";
 import {
 	type FileChange,
 	type ImageRef,
@@ -25,7 +26,6 @@ import { boundedJson } from "../json";
 import type { ImageContent, TextContent, ToolCall, UnsupportedContent } from "../messages";
 import { phoneText } from "../phone-text";
 import type { PiEventOf } from "../rpc/frames";
-import { withoutTerminalEscapes } from "../terminal-text";
 import { hintedDisplay } from "./display-hint";
 import { readDisplay, type ToolCallFacts } from "./read-display";
 

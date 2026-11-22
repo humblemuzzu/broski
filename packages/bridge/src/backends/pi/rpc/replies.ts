@@ -16,8 +16,14 @@ export const PiModel = z.object({
 	thinkingLevelMap: z.record(z.string(), z.string().nullable()).optional(),
 	input: z.array(z.string()).optional(),
 	contextWindow: z.number().optional(),
+	/** Seconds a prompt cache entry lives per retention (pi-ai 1.5.2 `dist/types.d.ts:673-674`); unset when unknown. */
+	promptCache: z
+		.object({ short: z.number().positive().optional(), long: z.number().positive().optional() })
+		.optional()
+		.catch(undefined),
 });
 export type PiModel = z.output<typeof PiModel>;
+export type PromptCache = NonNullable<PiModel["promptCache"]>;
 
 export const StateReply = z.object({
 	model: PiModel.optional(),

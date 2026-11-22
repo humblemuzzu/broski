@@ -52,12 +52,18 @@ describe("the replay", () => {
 });
 
 describe("asks", () => {
-	test("an open one outlives the rest; an answered, a timed-out or a permission ask does not", () => {
+	test("an open one outlives the rest; an answered, a timed-out, a permission or a broski_ask one does not", () => {
 		const permission = line({
 			type: "extension_ui_request",
 			id: "p",
 			method: "input",
 			title: 'broski-permission:{"toolCallId":"t"}',
+		});
+		const questions = line({
+			type: "extension_ui_request",
+			id: "q",
+			method: "input",
+			title: 'broski-questions:{"questions":[{"question":"Which store?"}]}',
 		});
 		const { log, clock } = logWith(
 			line({ type: "agent_start" }),
@@ -65,6 +71,7 @@ describe("asks", () => {
 			ask("answered"),
 			ask("timed", { timeout: 1_000 }),
 			permission,
+			questions,
 			line({ type: "extension_ui_request", id: "n", method: "notify", message: "hi" }),
 		);
 		log.resolved("answered");

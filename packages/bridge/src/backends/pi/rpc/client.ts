@@ -17,7 +17,7 @@ import type { z } from "zod";
 import { errorText } from "../error-text";
 import type { PiExit } from "./child";
 import { type InboundFrame, type PiEvent, parseFrame, type ResponseFrame, type UiRequest } from "./frames";
-import type { JsonlItem } from "./jsonl";
+import { isRunDump, type JsonlItem } from "./jsonl";
 import type { OpenTransport, PiEnd, PiTransport, TransportItem } from "./transport";
 
 export type RpcAnswer<T> = { readonly ok: true; readonly data: T } | { readonly ok: false; readonly error: string };
@@ -142,8 +142,7 @@ export class RpcClient {
 			this.enqueue({ ...item, chars: 0 });
 			return;
 		}
-		const frame: InboundFrame =
-			item.kind === "line" ? parseFrame(item.text) : { kind: "invalid", reason: `a record of ${item.bytes} bytes` };
+		const frame = frameOf(item);
 		switch (frame.kind) {
 			case "response":
 				this.answered(frame.response);
@@ -248,6 +247,11 @@ export class RpcClient {
 			if (delivery.kind !== "fault") await this.deliverSafely({ kind: "fault", message: errorText(error) });
 		}
 	}
+}
+
+function frameOf(item: JsonlItem): InboundFrame {
+	if (item.kind === "line") return parseFrame(item.text);
+	return isRunDump(item) ? { kind: "ignored" } : { kind: "invalid", reason: `a record of ${item.bytes} bytes` };
 }
 
 function charsOf(item: JsonlItem): number {

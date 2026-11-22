@@ -79,6 +79,8 @@ describe("error classes", () => {
 		["unknown", "Tool output exceeded the forbiddenWords filter"],
 		["unknown", "The billingAddress field is invalid"],
 		["unknown", "Session timeouts are configured per project"],
+		["rate_limit", "Throttling error: Too many tokens, please wait before trying again."],
+		["server", "Service unavailable: too many tokens in flight, please try again later."],
 	] as const)("%s: %s", (code, text) => {
 		expect(ErrorInfo.parse(errorInfo(failed(text)))).toEqual({ code, message: text });
 	});
@@ -230,11 +232,49 @@ describe("the prompt cache the latest request left", () => {
 		},
 	);
 
-	test("a request that only read the cache keeps the lifetime of the write it refreshed", () => {
+	test("a request that only read the cache keeps the lifetime of the write it refreshed, estimated", () => {
 		const long = cacheWindowOf(anthropic(requestUsage(10, 0, 4_000, 4_000)));
+		expect(long?.confidence).toBe("exact");
 		const read = cacheWindowOf(anthropic(requestUsage(20, 4_000, 0), 1_700_000_060_000), long);
-		expect(read).toMatchObject({ lastTouchAt: 1_700_000_060_000, ttlMs: 3_600_000, cachedTokens: 4_000 });
-		expect(cacheWindowOf(anthropic(requestUsage(20, 4_000, 0)))?.ttlMs).toBe(300_000);
+		expect(read).toMatchObject({
+			lastTouchAt: 1_700_000_060_000,
+			ttlMs: 3_600_000,
+			confidence: "estimated",
+			cachedTokens: 4_000,
+		});
+		expect(cacheWindowOf(anthropic(requestUsage(20, 4_000, 0)))).toMatchObject({
+			ttlMs: 300_000,
+			confidence: "estimated",
+		});
+	});
+
+	test("the model's own promptCache gives the lifetime, whatever its provider", () => {
+		const promptCache = { short: 300, long: 3600 };
+		const radius = (usage: object) => assistant([], { api: "pi-messages", provider: "radius", usage, timestamp: 5 });
+		expect(cacheWindowOf(radius(requestUsage(10, 0, 900)), undefined, promptCache)).toMatchObject({
+			ttlMs: 300_000,
+			confidence: "exact",
+		});
+		expect(cacheWindowOf(radius(requestUsage(10, 0, 900, 900)), undefined, promptCache)).toMatchObject({
+			ttlMs: 3_600_000,
+			confidence: "exact",
+		});
+		expect(cacheWindowOf(radius(requestUsage(10, 900, 0)), undefined, promptCache)).toMatchObject({
+			ttlMs: 300_000,
+			confidence: "estimated",
+		});
+		const custom = assistant([], { api: "openai-completions", provider: "mine", usage: requestUsage(1, 0, 9) });
+		expect(cacheWindowOf(custom, undefined, { short: 120 })).toMatchObject({ ttlMs: 120_000, confidence: "exact" });
+		expect(cacheWindowOf(anthropic(requestUsage(1, 0, 9)), undefined, { short: 60 })?.ttlMs).toBe(60_000);
+	});
+
+	test("a tier the model does not give is no lifetime, not the other tier's", () => {
+		const message = assistant([], { provider: "mine", usage: requestUsage(1, 0, 9, 9), timestamp: 5 });
+		expect(cacheWindowOf(message, undefined, { short: 300 })).toEqual({
+			lastTouchAt: 5,
+			cachedTokens: 0,
+			promptTokens: 10,
+		});
 	});
 
 	test("OpenAI, Gemini, Grok and the rest publish no lifetime: the hit is shown, no countdown", () => {

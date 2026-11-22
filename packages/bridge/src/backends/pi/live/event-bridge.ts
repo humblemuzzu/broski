@@ -208,11 +208,17 @@ export class EventBridge {
 				return;
 			case "entry_appended":
 				this.deps.cursor.appended(event.entry);
+				if (event.entry.type === "usage" && !this.replaying) this.requestedByPi(event.entry);
 				return;
 			case "extension_error":
 				live.emit(noticeEvent("error", `${event.extensionPath} ${event.event}: ${event.error}`));
 				return;
 		}
+	}
+
+	private requestedByPi({ timestamp, provider, usage }: PiEventOf<"entry_appended">["entry"]): void {
+		const at = timestamp === undefined ? Number.NaN : Date.parse(timestamp);
+		this.deps.usage.requested({ timestamp: Number.isNaN(at) ? this.deps.now() : at, provider, usage });
 	}
 
 	/** A run Pi started on its own (an extension's `sendUserMessage`), or a prompt's own when `started` came first. */

@@ -6,6 +6,8 @@
 
 import { afterEach, describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import brokskiLink from "../../backends/pi/terminal/extension/index";
 import type { InteractionReply } from "../../contract";
 import type { LiveSession } from "../../contract/testing/conformance-harness";
 import type { ScriptedRequest } from "../helpers/scripted-openai-server";
@@ -229,5 +231,27 @@ describe("broski_ask asked in the terminal", () => {
 			answers: [{ question: "Which stores?", selected: ["Redis", "Postgres"] }],
 		});
 		await running;
+	});
+});
+
+describe("the link in a pi that is not the interactive terminal", () => {
+	test("leaves questions on broski:questions to the bridge's own extension, claiming none", () => {
+		const handlers = new Map<string, ((event: unknown, ctx: unknown) => unknown)[]>();
+		const listeners = new Map<string, ((data: unknown) => void)[]>();
+		const add = <T>(map: Map<string, T[]>, name: string, item: T) => map.set(name, [...(map.get(name) ?? []), item]);
+		const pi = {
+			on: (name: string, handler: (event: unknown, ctx: unknown) => unknown) => add(handlers, name, handler),
+			events: { on: (name: string, listener: (data: unknown) => void) => add(listeners, name, listener), emit() {} },
+			getActiveTools: () => [],
+			setActiveTools() {},
+			registerTool() {},
+		} as unknown as ExtensionAPI;
+		brokskiLink(pi);
+		const ctx = { mode: "rpc", sessionManager: { getBranch: () => [], getSessionFile: () => "/work/s.jsonl" } };
+		for (const handler of handlers.get("session_start") ?? []) handler({ type: "session_start" }, ctx);
+		let claimed = 0;
+		const request = { questions: [{ question: "Which store?" }], answer() {}, claim: () => claimed++ };
+		for (const listener of listeners.get("broski:questions") ?? []) listener(request);
+		expect(claimed).toBe(0);
 	});
 });

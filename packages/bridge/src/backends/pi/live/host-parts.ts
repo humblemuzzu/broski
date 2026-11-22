@@ -94,7 +94,7 @@ function piParts(
 		(event) => links.emitted(event),
 	);
 	const child = new PiChild(start.transport, deliver);
-	const usage = new UsageFeed(child, live);
+	const usage = new UsageFeed(child, live, () => settings.currentModel);
 	const settings = new SessionSettings(
 		{ child, live, models: env.models, cwd: start.cwd, modelSwitched: () => usage.refresh() },
 		start.permissions,

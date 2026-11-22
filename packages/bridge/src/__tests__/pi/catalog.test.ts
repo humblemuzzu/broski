@@ -8,10 +8,11 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { chmodSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { createPiParts, piBackendOf } from "../../backends/pi/backend";
+import { probeCatalog } from "../../backends/pi/catalog/probe";
 import { MIN_PI_VERSION } from "../../backends/pi/cli-version";
 import { BackendStatus, type CommandSummary, type ModelSummary } from "../../contract";
 import { LiveRig } from "./helpers/live-rig";
-import { HOLDER_COMMAND, MODELS, wireIdOf } from "./helpers/pi-world";
+import { HOLDER_COMMAND, MODELS, PI_BIN, wireIdOf } from "./helpers/pi-world";
 import { useWatchdog } from "./helpers/use-watchdog";
 
 useWatchdog();
@@ -188,5 +189,37 @@ describe("the status", () => {
 		} finally {
 			await backend.dispose();
 		}
+	});
+});
+
+describe("the probe a catalog is read with", () => {
+	/** The catalog of the world's project, read with a user's extension whose `session_start` does `body`. */
+	async function probedWith(rig: LiveRig, body: string) {
+		const folder = join(rig.world.env.agentDir, "extensions");
+		mkdirSync(folder, { recursive: true });
+		writeFileSync(join(folder, "starts.ts"), `export default function (pi) {\n${body}\n}\n`);
+		const { env, agentDir } = rig.world.env;
+		return probeCatalog({ cli: { found: true, path: PI_BIN }, env: env(), agentDir }, rig.cwd);
+	}
+
+	test("fails at once, naming it, when an extension asks a human while Pi starts", async () => {
+		t = await LiveRig.create();
+		const began = performance.now();
+		const read = await probedWith(
+			t,
+			`pi.on("session_start", async (_event, ctx) => { await ctx.ui.select("Trust this folder?", ["yes", "no"]); });`,
+		);
+		expect(read).toEqual({ failure: expect.stringContaining('"Trust this folder?"') });
+		expect(performance.now() - began).toBeLessThan(10_000);
+	});
+
+	test("reads on past a status line and a notice, which ask nothing", async () => {
+		t = await LiveRig.create();
+		const read = await probedWith(
+			t,
+			`pi.on("session_start", (_event, ctx) => { ctx.ui.setStatus("k", "busy"); ctx.ui.notify("hello", "info"); });`,
+		);
+		expect(read).not.toHaveProperty("failure");
+		expect(read).toMatchObject({ thinking: expect.any(String) });
 	});
 });

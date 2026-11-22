@@ -9,7 +9,7 @@
 import { chmodSync, existsSync, mkdirSync, renameSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { createServer, type Server, type Socket } from "node:net";
 import { PiProcess } from "../rpc/child";
-import type { JsonlItem } from "../rpc/jsonl";
+import { isRunDump, type JsonlItem } from "../rpc/jsonl";
 import { BACKLOG_LIMITS, type BacklogLimits, BacklogWatch } from "./backlog";
 import { ORPHAN_LIMITS, type OrphanLimits, orphanDeadline } from "./orphan-policy";
 import {
@@ -197,7 +197,9 @@ export class Holder {
 	private fromPi(item: JsonlItem): void {
 		const client = this.client;
 		if (item.kind === "oversized") {
-			if (client !== undefined) this.send(client, controlLine({ holder: "oversized", bytes: item.bytes }));
+			if (client !== undefined && !isRunDump(item)) {
+				this.send(client, controlLine({ holder: "oversized", bytes: item.bytes }));
+			}
 			return;
 		}
 		this.log.take(item.text);
