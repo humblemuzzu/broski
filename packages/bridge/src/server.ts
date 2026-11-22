@@ -48,6 +48,8 @@ export type BridgeServer = {
 	connections: () => number;
 	port: () => number;
 	authToken: () => string;
+	/** The token the terminal hook quotes; it opens the hook routes and nothing else. */
+	hookToken: () => string;
 	tls: () => { enabled: boolean; certSha256: string | null };
 };
 
@@ -99,7 +101,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	state.sweepTimer = setInterval(() => sweepBoundedState(), SWEEP_INTERVAL_MS);
 	contract.start();
 	if (options.claudeCode) {
-		const listener = { port: state.securePort, token: state.authToken, certPath: state.tlsMaterial?.certPath };
+		const listener = { port: state.securePort, token: state.hookToken, certPath: state.tlsMaterial?.certPath };
 		void setClaudeCodeTerminalHook(options.claudeCode.terminalAsks, { ...listener, log: log.logInfo }).catch((err) => {
 			log.logInfo(`[CC terminal hook] Install failed (non-fatal): ${toErrorMessage(err)}`);
 		});
@@ -110,6 +112,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		connections: () => state.sockets.size,
 		port: () => state.securePort,
 		authToken: () => state.authToken,
+		hookToken: () => state.hookToken,
 		tls: () => ({
 			enabled: !!state.tlsMaterial,
 			certSha256: state.tlsMaterial?.certSha256 ?? null,

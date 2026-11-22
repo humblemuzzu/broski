@@ -59,6 +59,7 @@ export type BridgeHandle = {
 	server: BridgeServer;
 	port: number;
 	token: string;
+	hookToken: string;
 	stop: () => Promise<unknown>;
 };
 
@@ -76,7 +77,13 @@ export async function startBridge(overrides: Partial<BridgeServerOptions> = {}):
 		auth,
 		...overrides,
 	});
-	return { server, port: server.port(), token: server.authToken(), stop: () => server.stop(true) };
+	return {
+		server,
+		port: server.port(),
+		token: server.authToken(),
+		hookToken: server.hookToken(),
+		stop: () => server.stop(true),
+	};
 }
 
 export type MessageCollector = {

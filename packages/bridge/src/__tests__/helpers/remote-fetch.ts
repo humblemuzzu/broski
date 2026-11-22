@@ -25,6 +25,7 @@ export function fetchFrom(address: string, routes: RemoteRoutes): (request: Requ
 		allowTokenInUrl: false,
 		validateAuthToken: () => true,
 		getAuthToken: () => "bridge-token",
+		getHookToken: () => "hook-token",
 		sockets: new Set(),
 		maxClients: 4,
 		tlsEnabled: true,

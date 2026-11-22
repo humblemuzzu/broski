@@ -50,8 +50,13 @@ export const SMARTS_MUTANTS: Mutant[] = [
 		},
 		{
 			name: "cache: a backend's window gets no request tokens",
-			find: "...(cache.cachedTokens === undefined && turn && { cachedTokens: turn.read }),",
+			find: "...(cache.cachedTokens === undefined && known.cachedTokens !== undefined && { cachedTokens: known.cachedTokens }),",
 			replace: "",
+		},
+		{
+			name: "cache: totals that did not move zero the same touch's request tokens",
+			find: "if (turn && moved(turn))",
+			replace: "if (turn)",
 		},
 		{
 			name: "cache: totals that did not move restamp the window",

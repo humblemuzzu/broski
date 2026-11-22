@@ -1,6 +1,7 @@
 /**
- * Where terminal agents' hooks post: `/hook/<backend>`, with `/cc-terminal-hook` still Claude Code's, behind the
- * listener's bearer token and from this machine only.
+ * Where terminal agents' hooks post: `/hook/<backend>`, with `/cc-terminal-hook` still Claude Code's, behind the hook
+ * token and from this machine only. The hook token opens those routes and nothing else; the bridge's token does not
+ * open them.
  */
 
 import { afterEach, describe, expect, test } from "bun:test";
@@ -42,6 +43,18 @@ function recording(): { readonly handlers: Map<BackendId, HookHandler>; readonly
 	return { handlers: new Map([["claude-code", handler]]), reached };
 }
 
+/** Whether a WebSocket quoting `token` is let in. */
+function upgraded(port: number, token: string): Promise<boolean> {
+	const socket = new WebSocket(`ws://127.0.0.1:${port}/ws`, [`broski-auth.${token}`]);
+	return new Promise((resolve) => {
+		socket.onopen = () => {
+			socket.close();
+			resolve(true);
+		};
+		socket.onerror = () => resolve(false);
+	});
+}
+
 function hookPost(path: string): Request {
 	return new Request(`http://127.0.0.1:18274${path}`, { method: "POST", body: ASK });
 }
@@ -74,7 +87,7 @@ describe("the hook ingress", () => {
 	});
 
 	test(
-		"a running bridge serves both of Claude Code's paths to its receiver behind the bridge's token",
+		"a running bridge serves both of Claude Code's paths to its receiver behind the hook token alone",
 		async () => {
 			env = setupTestEnv();
 			claude = createClaudeHome();
@@ -89,15 +102,22 @@ describe("the hook ingress", () => {
 			try {
 				const post = (path: string, headers: Record<string, string> = {}) =>
 					fetch(`http://127.0.0.1:${bridge.port}${path}`, { method: "POST", headers, body: ASK });
-				const authorized = { authorization: `Bearer ${bridge.token}` };
+				const authorized = { authorization: `Bearer ${bridge.hookToken}` };
+				expect(bridge.hookToken).toMatch(/^[0-9a-f]{64}$/);
+				expect(bridge.hookToken).not.toBe(bridge.token);
 				expect((await post("/hook/claude-code")).status).toBe(401);
 				for (const path of ["/hook/claude-code", "/cc-terminal-hook"]) {
+					expect((await post(path, { authorization: `Bearer ${bridge.token}` })).status).toBe(401);
 					const answered = await post(path, authorized);
 					expect(answered.status).toBe(200);
 					expect(await answered.json()).toEqual({});
 				}
 				expect((await post("/hook/gemini", authorized)).status).toBe(404);
 				expect((await post("/hook/NOT_VALID", authorized)).status).toBe(400);
+				const root = await fetch(`http://127.0.0.1:${bridge.port}/`, { headers: authorized });
+				expect(root.status).toBe(401);
+				expect(await upgraded(bridge.port, bridge.hookToken)).toBe(false);
+				expect(await upgraded(bridge.port, bridge.token)).toBe(true);
 			} finally {
 				await bridge.stop();
 			}

@@ -44,6 +44,8 @@ export interface BridgeMcpServer {
 /** One CLI process's hold on the server; `release` revokes its token once the process is gone. */
 export interface BridgeMcpLease {
 	readonly server: BridgeMcpServer;
+	/** The process's conversation went on under `sessionId` (`/clear`): the token now speaks for it. */
+	rebind(sessionId: SessionId): void;
 	release(): void;
 }
 

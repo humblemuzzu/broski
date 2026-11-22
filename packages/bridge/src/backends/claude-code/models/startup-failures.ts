@@ -15,8 +15,9 @@ interface StartupRefusal {
 }
 
 /**
- * A wrapper script is the one way the bridge's own launch meets the two `initialize` refusals: it never passes
- * `--await-initialize` or `--managed-settings-in-initialize` itself, but the user's `claude` may be a script.
+ * The SDK passes `--await-initialize` when a host's launch carries the bridge's MCP server (`mcpServersDelivery:
+ * "initialize"`) and writes that request first, so `initialize_not_first` means a wrapper script read or changed it;
+ * the bridge never passes `--managed-settings-in-initialize`, so `managed_settings_not_delivered` comes from a wrapper.
  */
 const REFUSALS: { readonly [R in SDKStartupFailureReason]: StartupRefusal } = {
 	org_pin_api_key_conflict: {

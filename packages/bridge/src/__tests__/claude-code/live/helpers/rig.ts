@@ -23,6 +23,7 @@ import {
 import { CLAUDE_CODE_TRAITS } from "../../../../backends/claude-code/traits";
 import type { CatalogEvent, OpenTarget, SessionRef } from "../../../../contract";
 import { LiveSession, SessionRecorder } from "../../../../contract/testing/conformance-harness";
+import { EXPECTED_CLAUDE_CLI_VERSION } from "../../../../server/claude-code-backend";
 import { type ClaudeHome, claudeTestEnv, createClaudeHome } from "../../../helpers/claude-home";
 import {
 	type ScriptedAnthropic,
@@ -178,6 +179,7 @@ export function fakeRig(
 		env: { PATH: "/usr/bin" },
 		stateDir: "/nonexistent/state",
 		clientApp: "broski/fake-test",
+		expectedCliVersion: EXPECTED_CLAUDE_CLI_VERSION,
 		clock,
 		sdk,
 		...(options.uid !== undefined && { uid: options.uid }),

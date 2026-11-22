@@ -22,6 +22,8 @@ export interface ProcessSlotDeps {
 	readonly frame: (message: SDKMessage) => void;
 	readonly fault: (error: unknown) => void;
 	readonly ended: (process: HostProcess, error: unknown) => void;
+	/** A launch that started no process: what it was given for the process is let go. */
+	readonly unlaunched: () => void;
 	readonly initialized: (init: SDKControlInitializeResponse) => void;
 }
 
@@ -77,8 +79,12 @@ export class ProcessSlot {
 	private async start(): Promise<Rejected | undefined> {
 		await this.process?.closed();
 		const options = await this.deps.launch();
-		if (isRejected(options)) return options;
-		if (this.deps.finished()) return CLOSED;
+		const failure = isRejected(options) ? options : this.deps.finished() ? CLOSED : this.spawn(options);
+		if (failure) this.deps.unlaunched();
+		return failure;
+	}
+
+	private spawn(options: Options): Rejected | undefined {
 		const started: { process?: HostProcess } = {};
 		const sink: FrameSink = {
 			frame: (message) => {

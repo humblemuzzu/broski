@@ -33,6 +33,7 @@ export function createHttpFetch(deps: HttpWiringDeps): ReturnType<typeof createF
 		allowTokenInUrl: state.allowTokenInUrl,
 		validateAuthToken,
 		getAuthToken: () => state.authToken,
+		getHookToken: () => state.hookToken,
 		sockets: state.sockets,
 		maxClients: deps.limits.maxClients,
 		tlsEnabled: state.tlsEnabled,

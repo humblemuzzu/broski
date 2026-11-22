@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import type { ServerWebSocket } from "bun";
 import type { AuthTokenState } from "../auth-token";
 import { isCompiledBinary } from "../platform";
@@ -20,6 +21,11 @@ export type BridgeState = {
 	allowTokenInUrl: boolean;
 	tlsMaterial: TlsMaterial | null;
 	authToken: string;
+	/**
+	 * What Claude Code's terminal hook quotes, written into the user's settings in place of `authToken`: good on the
+	 * hook routes alone, and new each run.
+	 */
+	hookToken: string;
 	sendQueue: SendQueue;
 	sweepTimer: ReturnType<typeof setInterval> | null;
 	secureServer: ReturnType<typeof Bun.serve> | null;
@@ -65,6 +71,7 @@ export function createBridgeState(params: CreateBridgeStateParams): BridgeState 
 		allowTokenInUrl: !compiled && process.env.BROSKI_ALLOW_TOKEN_IN_URL === "1",
 		tlsMaterial: null,
 		authToken: params.auth.token,
+		hookToken: randomBytes(32).toString("hex"),
 		sendQueue: createSendQueue(params),
 		sweepTimer: null,
 		secureServer: null,

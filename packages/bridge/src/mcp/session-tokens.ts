@@ -1,8 +1,8 @@
 /**
- * The bearer tokens of the MCP server. Each binds one session and the tools it was given, both fixed when it is
- * issued: a client's tool list never changes under it, so its prompt cache stays warm. A token lives until it is
- * revoked or goes unused for a day. Only a token's SHA-256 is kept, and a presented token is compared with every live
- * one in constant time.
+ * The bearer tokens of the MCP server. Each binds one session and the tools it was given when it is issued. The tools
+ * never change, so a client's tool list never changes under it and its prompt cache stays warm; the session moves only
+ * when the conversation goes on under a new id (`rebind`). A token lives until it is revoked or goes unused for a day.
+ * Only a token's SHA-256 is kept, and a presented token is compared with every live one in constant time.
  */
 
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
@@ -31,6 +31,8 @@ export interface McpIssueRequest {
 export interface McpCredential {
 	readonly token: string;
 	readonly capabilities: readonly McpCapability[];
+	/** The same process's conversation goes on as `session`: what the token raises from now on lands there. */
+	rebind(session: SessionRef): void;
 	revoke(): void;
 }
 
@@ -44,6 +46,10 @@ interface Entry {
 	readonly digest: Buffer;
 	readonly grant: McpGrant;
 	lastUsedAt: number;
+}
+
+function sessionOf(session: SessionRef): SessionRef {
+	return Object.freeze({ backend: session.backend, sessionId: session.sessionId });
 }
 
 function digestOf(token: string): Buffer {
@@ -67,16 +73,23 @@ export class McpSessionRegistry {
 		this.prune();
 		const token = randomBytes(32).toString("hex");
 		const capabilities = Object.freeze(CAPABILITIES.filter((capability) => request.tools[capability]));
-		const session = Object.freeze({ backend: request.session.backend, sessionId: request.session.sessionId });
-		const entry: Entry = {
-			digest: digestOf(token),
-			grant: Object.freeze({ session, capabilities }),
-			lastUsedAt: this.now(),
-		};
+		let session = sessionOf(request.session);
+		// A getter, so `rebind` moves the session while the grant stays one frozen object: the server keys a token's
+		// waiting calls by it.
+		const grant: McpGrant = Object.freeze({
+			get session() {
+				return session;
+			},
+			capabilities,
+		});
+		const entry: Entry = { digest: digestOf(token), grant, lastUsedAt: this.now() };
 		this.entries.add(entry);
 		return {
 			token,
 			capabilities,
+			rebind: (next) => {
+				session = sessionOf(next);
+			},
 			revoke: () => {
 				this.entries.delete(entry);
 			},

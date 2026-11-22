@@ -5,7 +5,6 @@ import type { FrameMapper, MappedEvent, MappingSeed } from "../ports/mapping";
 import { assistantEvents } from "./assistant";
 import { rateLimitEvents } from "./extension-frames";
 import { noticeEvent } from "./notices";
-import { resetEvents } from "./reset";
 import { resultEvents } from "./result";
 import { retractionEvents } from "./retraction";
 import { retryEvents } from "./retry";
@@ -36,7 +35,6 @@ function frameEvents(state: MapperState, frame: SDKMessage): MappedEvent[] {
 		case "rate_limit_event":
 			return rateLimitEvents(state, frame);
 		case "conversation_reset":
-			return resetEvents(state, frame);
 		case "tool_use_summary":
 		case "auth_status":
 		case "prompt_suggestion":

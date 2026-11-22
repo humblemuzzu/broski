@@ -1,4 +1,4 @@
-/** Frames that are not part of a turn's content: notices, the two extensions, a conversation reset. */
+/** Frames that are not part of a turn's content: notices and the two extensions. */
 
 import { describe, expect, test } from "bun:test";
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
@@ -179,29 +179,5 @@ describe("rate limit", () => {
 			type: "extension",
 			extension: { kind: "rate_limit", window: "five_hour", status: "allowed" },
 		});
-	});
-});
-
-describe("conversation reset", () => {
-	test("the session goes on as the new conversation", () => {
-		const events = map({
-			type: "conversation_reset",
-			new_conversation_id: "22222222-3333-4444-8555-666666666666",
-			trigger: "clear",
-			...ids(),
-		});
-		expect(events).toEqual([
-			{
-				type: "session_replaced",
-				session: { backend: "claude-code", sessionId: "22222222-3333-4444-8555-666666666666" },
-			},
-		]);
-		valid(events);
-	});
-
-	test("an id that cannot be a session id is not followed", () => {
-		expect(map({ type: "conversation_reset", new_conversation_id: `${"a".repeat(300)}-1-2-3-4`, ...ids() })).toEqual(
-			[],
-		);
 	});
 });

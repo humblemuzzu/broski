@@ -47,8 +47,7 @@ export function withHook(settings: Settings, spec: HookSpec): Edit {
 	}
 	const next: Settings = { ...settings };
 	next.hooks = { ...hooks.all, [HOOK_EVENT]: [...hooks.kept, hookGroup(spec)] };
-	if (allowed.present && allowed.others.length > 0) next.allowedHttpHookUrls = [...allowed.others, spec.url];
-	else delete next.allowedHttpHookUrls;
+	if (allowed.present) next.allowedHttpHookUrls = [...allowed.others, spec.url];
 	if (env !== undefined) next.env = env.env;
 	return { ok: true, settings: next };
 }
@@ -61,10 +60,7 @@ export function withoutHook(settings: Settings, caCertPath?: string): Edit {
 	if (!allowed.ok) return allowed;
 	const next: Settings = { ...settings };
 	if (hooks.removed > 0) dropHooks(next, hooks);
-	if (allowed.ours > 0) {
-		if (allowed.others.length > 0) next.allowedHttpHookUrls = allowed.others;
-		else delete next.allowedHttpHookUrls;
-	}
+	if (allowed.ours > 0) next.allowedHttpHookUrls = allowed.others;
 	if (caCertPath !== undefined) dropCa(next, caCertPath);
 	return { ok: true, settings: next };
 }

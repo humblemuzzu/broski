@@ -32,6 +32,24 @@ describe("McpSessionRegistry", () => {
 		expect(registry.lookup(token)?.session.sessionId).toBe("s-1");
 	});
 
+	test("rebind moves the token to the new session: the same frozen grant, its tools unchanged, the old id gone", () => {
+		const registry = new McpSessionRegistry();
+		const credential = registry.issue({ session: SESSION, tools: { ask: false, plan: false, notify: true } });
+		const before = registry.lookup(credential.token);
+		const next = { backend: "pi", sessionId: "s-2" };
+		credential.rebind(next);
+		next.sessionId = "s-3";
+		const after = registry.lookup(credential.token);
+		expect(after).toBe(before);
+		expect(after).toEqual({ session: { backend: "pi", sessionId: "s-2" }, capabilities: ["notify"] });
+		expect(Object.isFrozen(after)).toBe(true);
+		expect(Object.isFrozen(after?.session)).toBe(true);
+		credential.revoke();
+		credential.rebind(SESSION);
+		expect(registry.lookup(credential.token)).toBeUndefined();
+		expect(registry.size).toBe(0);
+	});
+
 	test("a wrong, malformed or near token grants nothing", () => {
 		const registry = new McpSessionRegistry();
 		const { token } = registry.issue({ session: SESSION, tools: ALL });

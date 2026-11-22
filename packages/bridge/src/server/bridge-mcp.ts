@@ -19,6 +19,8 @@ export type McpTools = Readonly<Record<McpCapability, boolean>>;
 export interface McpLease extends McpEndpoint {
 	readonly token: string;
 	readonly tools: readonly McpCapability[];
+	/** The session went on under a new id in the same process. */
+	rebind(sessionId: SessionId): void;
 	revoke(): void;
 }
 
@@ -73,7 +75,13 @@ export function createBridgeMcp(options: BridgeMcpOptions): BridgeMcp {
 				const granted = { ...tools, notify: tools.notify && options.notify };
 				if (!granted.ask && !granted.plan && !granted.notify) return undefined;
 				const credential = registry.issue({ session: { backend, sessionId }, tools: granted });
-				return { ...endpoint, token: credential.token, tools: credential.capabilities, revoke: credential.revoke };
+				return {
+					...endpoint,
+					token: credential.token,
+					tools: credential.capabilities,
+					rebind: (next) => credential.rebind({ backend, sessionId: next }),
+					revoke: credential.revoke,
+				};
 			},
 		}),
 		revokeAll: () => registry.revokeAll(),

@@ -198,10 +198,12 @@ describe("installing the terminal ask hook", () => {
 		expect(read()).toEqual({ allowedHttpHookUrls: ["https://hooks.example.com/*"] });
 	});
 
-	test("a list an older install created with only our URL goes, so nothing is blocked any more", async () => {
+	test("a list of only our URL stays a list of only ours, never widened to every URL", async () => {
 		write({ allowedHttpHookUrls: ["https://127.0.0.1:1234/cc-terminal-hook"] });
 		await installTerminalHook(root, SPEC);
-		expect("allowedHttpHookUrls" in read()).toBe(false);
+		expect(read().allowedHttpHookUrls).toEqual([SPEC.url]);
+		await removeTerminalHook(root);
+		expect(read()).toEqual({ allowedHttpHookUrls: [] });
 	});
 
 	test("an empty URL list (no HTTP hook may run) refuses the install and writes nothing", async () => {

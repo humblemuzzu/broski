@@ -61,6 +61,20 @@ function refreshedTtlOf(own: ModelTotals | undefined): number {
 }
 
 /**
+ * How long the request kept the cache: `exact` only when the provider broke its write down by lifetime. Five-minute
+ * entries outlive no one-hour countdown, so they win when both were written; a write not broken down, or a read that
+ * only refreshed earlier entries, is `estimated`.
+ */
+function lifetimeOf(
+	tokens: ReturnType<typeof requestTokensOf>,
+	own: ModelTotals | undefined,
+): Pick<CacheWindow, "ttlMs" | "confidence"> {
+	if (tokens.write5m > 0) return { ttlMs: SHORT_TTL_MS, confidence: "exact" };
+	if (tokens.write1h > 0) return { ttlMs: LONG_TTL_MS, confidence: "exact" };
+	return { ttlMs: tokens.write > 0 ? SHORT_TTL_MS : refreshedTtlOf(own), confidence: "estimated" };
+}
+
+/**
  * The prompt cache the turn's last request left, touched `at`. Its own hit is known from the newest `message`
  * iteration; without one, only the turn's `result.usage` says whether and how long the cache was written. Undefined for
  * a turn that touched no cache.
@@ -73,12 +87,9 @@ function cacheWindowOf(
 ): CacheWindow | undefined {
 	const tokens = requestTokensOf(latest ?? turn);
 	if (tokens.read + tokens.write === 0) return undefined;
-	const ttlMs =
-		tokens.write1h > 0 ? LONG_TTL_MS : tokens.write5m > 0 || tokens.write > 0 ? SHORT_TTL_MS : refreshedTtlOf(own);
 	return {
 		lastTouchAt: at,
-		ttlMs,
-		confidence: "exact",
+		...lifetimeOf(tokens, own),
 		...(latest !== undefined && {
 			cachedTokens: tokens.read,
 			promptTokens: tokens.input + tokens.read + tokens.write,

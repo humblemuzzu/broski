@@ -2,11 +2,11 @@
 
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import type { SDKControlGetContextUsageResponse } from "@anthropic-ai/claude-agent-sdk";
-import type { AgentEvent } from "../../../contract";
+import type { AgentEvent, Usage } from "../../../contract";
 import { FakeQuery } from "../helpers/fake-query";
 import { expectNoOrphans } from "../spike/rig/orphans";
 import { flush, promptOf, tempProject } from "./helpers/fake-host";
-import { idle, init, running } from "./helpers/frames";
+import { idle, init, result, running } from "./helpers/frames";
 import { fakeRig, realRig } from "./helpers/rig";
 
 expectNoOrphans();
@@ -62,6 +62,33 @@ describe("the context usage after a run", () => {
 		expect(types(events).slice(-2)).toEqual(["run_finished", "usage_updated"]);
 		expect(events.at(-1)).toEqual({ type: "usage_updated", usage: { contextTokens: 12_345, contextWindow: 200_000 } });
 		expect(live.reduced().usage).toEqual({ contextTokens: 12_345, contextWindow: 200_000 });
+		await rig.dispose();
+	});
+
+	test("goes over the run's totals and cache window as they were, and a figure the snapshot has is not sent again", async () => {
+		const query = new FakeQuery({ getContextUsage: async () => contextAnswer(8_110, 200_000) });
+		const rig = fakeRig([query]);
+		const usage: Usage = {
+			inputTokens: 110,
+			cacheReadTokens: 8_000,
+			cache: { lastTouchAt: 1_000, ttlMs: 300_000, confidence: "exact" },
+		};
+		rig.mapping.script((frame) => (frame.type === "result" ? [{ event: { type: "usage_updated", usage } }] : []));
+		const project = tempProject();
+		projects.push(project);
+		const live = await rig.openNew(project.dir);
+		await live.control.prompt(promptOf("hello"));
+		query.push(running(), init(), result(), idle());
+		await flush();
+		expect(live.events().at(-1)).toEqual({
+			type: "usage_updated",
+			usage: { ...usage, contextTokens: 8_110, contextWindow: 200_000 },
+		});
+		await live.control.prompt(promptOf("again"));
+		query.push(running(), idle());
+		await flush();
+		expect(query.calls.filter((call) => call.method === "getContextUsage")).toHaveLength(2);
+		expect(types(live.events()).at(-1)).toBe("run_finished");
 		await rig.dispose();
 	});
 

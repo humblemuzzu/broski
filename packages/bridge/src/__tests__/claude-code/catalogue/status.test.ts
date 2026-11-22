@@ -119,6 +119,7 @@ describe("status()", () => {
 		expect(status.issues[0]?.severity).toBe("warning");
 		expect(status.issues[0]?.message).toContain("2.1.316");
 		expect(status.issues[0]?.message).toContain("2.1.400");
+		expect(status.issues[0]?.message).toContain("broski_notify");
 	});
 
 	test("no warning when the build bakes in no version or the CLI reports none", async () => {
@@ -139,6 +140,7 @@ describe("status()", () => {
 		const status = await statusOf(rig);
 		expect(status.version).toBe("2.1.999");
 		expect(status.issues.map((issue) => issue.severity)).toEqual(["warning"]);
+		expect(status.issues[0]?.message).not.toContain("broski_notify");
 		expect(rig.sdk.started).toHaveLength(0);
 		rig.catalogue.observe("/p", initAnswer());
 		expect((await statusOf(rig)).issues).toEqual([]);

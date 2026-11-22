@@ -30,6 +30,7 @@ import type {
 	SessionGetResult,
 	SessionId,
 } from "../../../../contract";
+import { EXPECTED_CLAUDE_CLI_VERSION } from "../../../../server/claude-code-backend";
 
 /** The answer of a stand-in part that the test under way never reaches. */
 function notBuilt(what: string): Rejected {
@@ -67,15 +68,18 @@ export const STAND_IN_AXIS: ModeAxis = {
 export interface StandInCatalogue extends CatalogueAccess {
 	readonly observed: { cwd: string; version: string | undefined }[];
 	readonly invalidated: (string | undefined)[];
+	/** What `cliVersion` answers: the version this build expects unless a test names another. */
+	version: string | undefined;
 }
 
 /** Lists the four models and the six modes; a wire id resolves to the listed id `wires` names. */
 export function standInCatalogue(wires: Readonly<Record<string, ModelId>> = {}): StandInCatalogue {
 	const observed: StandInCatalogue["observed"] = [];
 	const invalidated: (string | undefined)[] = [];
-	return {
+	const catalogue: StandInCatalogue = {
 		observed,
 		invalidated,
+		version: EXPECTED_CLAUDE_CLI_VERSION,
 		initialize: async () => notBuilt("stand-in catalogue: initialize"),
 		observe: (cwd, init) => {
 			observed.push({ cwd, version: init.claude_code_version });
@@ -88,8 +92,10 @@ export function standInCatalogue(wires: Readonly<Record<string, ModelId>> = {}):
 		modes: async () => ({ status: "accepted", modes: [STAND_IN_AXIS] }),
 		model: async (_cwd, id) => STAND_IN_MODELS.find((candidate) => candidate.id === id),
 		listedModelId: async (_cwd, wire) => wires[wire],
+		cliVersion: async () => catalogue.version,
 		status: async () => ({ installed: true, auth: "unknown", usable: true, issues: [] }),
 	};
+	return catalogue;
 }
 
 export function outcomeOf(result: SDKResultMessage): RunOutcome {

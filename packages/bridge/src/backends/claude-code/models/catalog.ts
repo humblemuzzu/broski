@@ -109,6 +109,12 @@ class Catalogue implements CatalogueAccess {
 		return isRejected(entry) ? undefined : listedModelIdOf(entry.init.models, wireModel);
 	}
 
+	async cliVersion(cwd: string): Promise<string | undefined> {
+		if (this.latest !== undefined) return this.latest.init.claude_code_version;
+		const init = await this.initialize(cwd);
+		return isRejected(init) ? undefined : init.claude_code_version;
+	}
+
 	async status(): Promise<BackendStatus> {
 		const { cli, expectedCliVersion } = this.services;
 		try {

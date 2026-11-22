@@ -1,7 +1,7 @@
 /**
  * Where terminal agents' hooks post on the loopback listener: `POST /hook/<backend>` reaches that backend's receiver,
  * and `/cc-terminal-hook`, the path Claude Code's installed hook names, stays Claude Code's. Each receiver bounds its own
- * body; the listener's bearer token and loopback check come first (`http-handler.ts`).
+ * body; the hook token (never the bridge's) and the loopback check come first (`http-handler.ts`).
  */
 
 import { type BackendId, BackendId as BackendIdSchema } from "../contract";

@@ -24,7 +24,11 @@ beforeAll(async () => {
 		mcpServer: (sessionId) => {
 			const session = { backend: "claude-code", sessionId };
 			const credential = mcp.registry.issue({ session, tools: { ask: false, plan: false, notify: true } });
-			return { server: { name: "broski", url: mcp.url, token: credential.token }, release: credential.revoke };
+			return {
+				server: { name: "broski", url: mcp.url, token: credential.token },
+				rebind: (next) => credential.rebind({ ...session, sessionId: next }),
+				release: credential.revoke,
+			};
 		},
 	});
 	rig = new Rig(world.backend, new ClaudeCodeConformanceDriver(world, WAIT_MS), catalog, WAIT_MS);

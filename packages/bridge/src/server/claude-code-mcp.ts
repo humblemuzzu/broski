@@ -46,5 +46,9 @@ function trustingEnv(
 
 function leaseOf(lease: ReturnType<BroskiMcpIssuer["issue"]>): BridgeMcpLease | undefined {
 	if (lease === undefined) return undefined;
-	return { server: { name: SERVER_NAME, url: lease.url, token: lease.token }, release: lease.revoke };
+	return {
+		server: { name: SERVER_NAME, url: lease.url, token: lease.token },
+		rebind: lease.rebind,
+		release: lease.revoke,
+	};
 }

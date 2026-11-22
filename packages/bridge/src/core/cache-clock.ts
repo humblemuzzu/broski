@@ -12,11 +12,13 @@ interface TurnTokens {
 	readonly input: number;
 }
 
+type HitTokens = Pick<CacheWindow, "cachedTokens" | "promptTokens">;
+
 /**
  * Bridge-wide single source of truth for each session's `Usage.cache`, the prompt cache as the latest model request
  * left it. An adapter that knows the cache's lifetime says so (`ttlMs`, `confidence`) and its window is kept, with a
  * `lastTouchAt` stamped when it gave none and the latest request's tokens taken from the session totals when it gave
- * none. An adapter that reports only cache read and write totals gets a window from them, stamped when its totals
+ * none; totals that did not move are no request, so the same touch keeps the tokens it had. An adapter that reports only cache read and write totals gets a window from them, stamped when its totals
  * moved and with no lifetime, since none is known. The window outlives the session's close, so a phone that comes
  * back to a warm session still sees its countdown and its hit ratio.
  */
@@ -45,7 +47,7 @@ export class CacheClock {
 	/** A `usage_updated`'s usage as phones get it; `previous` is the session's usage before it. */
 	usage(key: string, usage: Usage, previous: Usage | undefined): Usage {
 		const turn = turnTokens(usage, previous);
-		const next = usage.cache ? this.completed(usage.cache, turn) : turn && this.synthesized(turn);
+		const next = usage.cache ? this.completed(key, usage.cache, turn) : turn && this.synthesized(turn);
 		if (next) this.windows.set(key, next);
 		const cache = next ?? this.windows.get(key) ?? previous?.cache;
 		return cache ? { ...usage, cache } : usage;
@@ -55,12 +57,22 @@ export class CacheClock {
 		return cache.lastTouchAt > 0 ? cache : { ...cache, lastTouchAt: this.clock.now() };
 	}
 
-	private completed(cache: CacheWindow, turn: TurnTokens | undefined): CacheWindow {
+	private completed(key: string, cache: CacheWindow, turn: TurnTokens | undefined): CacheWindow {
+		const stamped = this.stamped(cache);
+		const known = this.hitTokens(key, stamped, turn);
 		return {
-			...this.stamped(cache),
-			...(cache.cachedTokens === undefined && turn && { cachedTokens: turn.read }),
-			...(cache.promptTokens === undefined && turn && { promptTokens: promptTokens(turn) }),
+			...stamped,
+			...(cache.cachedTokens === undefined && known.cachedTokens !== undefined && { cachedTokens: known.cachedTokens }),
+			...(cache.promptTokens === undefined && known.promptTokens !== undefined && { promptTokens: known.promptTokens }),
 		};
+	}
+
+	/** The latest request's tokens when the totals moved, else those the stored window of the same touch holds. */
+	private hitTokens(key: string, cache: CacheWindow, turn: TurnTokens | undefined): HitTokens {
+		if (turn && moved(turn)) return { cachedTokens: turn.read, promptTokens: promptTokens(turn) };
+		const stored = this.windows.get(key);
+		if (stored?.lastTouchAt !== cache.lastTouchAt) return {};
+		return { cachedTokens: stored.cachedTokens, promptTokens: stored.promptTokens };
 	}
 
 	/** A window from the totals alone, only when they moved: a request that read or wrote the cache touched it. */
@@ -78,6 +90,11 @@ function turnTokens(usage: Usage, previous: Usage | undefined): TurnTokens | und
 		write: growth(usage.cacheWriteTokens, previous?.cacheWriteTokens),
 		input: growth(usage.inputTokens, previous?.inputTokens),
 	};
+}
+
+/** Totals that did not grow are a usage sent again, not a request. */
+function moved(turn: TurnTokens): boolean {
+	return turn.read + turn.write + turn.input > 0;
 }
 
 /** `inputTokens` counts what the cache neither read nor wrote, as Anthropic and Pi report it. */

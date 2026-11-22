@@ -76,7 +76,7 @@ export const FRAME_KINDS: Readonly<Record<FrameKey, Disposition>> = {
 	tool_progress: { shows: "tool_updated(progress) while the call runs" },
 	prompt_suggestion: { ignored: "the host does not ask for prompt suggestions" },
 	rate_limit_event: { shows: "extension(rate_limit)" },
-	conversation_reset: { shows: "session_replaced" },
+	conversation_reset: { ignored: `${HOST}: the session goes on under the new id, announced as session_replaced` },
 	"system/session_state_changed": {
 		ignored: `${HOST}: idle ends the run, requires_action is the desk's`,
 	},

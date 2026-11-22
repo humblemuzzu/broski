@@ -306,9 +306,19 @@ describe("the prompt cache window", () => {
 		expect(Usage.safeParse({ cache }).success).toBe(true);
 	});
 
-	test("a one-hour write is an hour; a write the CLI gave no lifetime is five minutes", () => {
-		expect(cacheOf(turn([request(10, 0, 4_000, written(0, 4_000))]))?.ttlMs).toBe(3_600_000);
-		expect(cacheOf(turn([request(10, 0, 4_000)]))?.ttlMs).toBe(300_000);
+	test("a one-hour write is an exact hour; a write the CLI gave no lifetime is an estimated five minutes", () => {
+		expect(cacheOf(turn([request(10, 0, 4_000, written(0, 4_000))]))).toMatchObject({
+			ttlMs: 3_600_000,
+			confidence: "exact",
+		});
+		expect(cacheOf(turn([request(10, 0, 4_000)]))).toMatchObject({ ttlMs: 300_000, confidence: "estimated" });
+	});
+
+	test("a request that wrote both lifetimes counts down the five minutes, exactly", () => {
+		expect(cacheOf(turn([request(10, 0, 4_000, written(1_000, 3_000))]))).toMatchObject({
+			ttlMs: 300_000,
+			confidence: "exact",
+		});
 	});
 
 	test("a request that only read keeps an hour only where the model has only written one-hour entries", () => {
@@ -321,9 +331,10 @@ describe("the prompt cache window", () => {
 				cacheCreationEphemeral5mInputTokens: 9,
 			},
 		};
-		expect(cacheOf(turn([request(10, 4_000, 0)], longOnly))?.ttlMs).toBe(3_600_000);
-		expect(cacheOf(turn([request(10, 4_000, 0)], mixed))?.ttlMs).toBe(300_000);
-		expect(cacheOf(turn([request(10, 4_000, 0)]))?.ttlMs).toBe(300_000);
+		const estimated = (ttlMs: number) => expect.objectContaining({ ttlMs, confidence: "estimated" });
+		expect(cacheOf(turn([request(10, 4_000, 0)], longOnly))).toEqual(estimated(3_600_000));
+		expect(cacheOf(turn([request(10, 4_000, 0)], mixed))).toEqual(estimated(300_000));
+		expect(cacheOf(turn([request(10, 4_000, 0)]))).toEqual(estimated(300_000));
 	});
 
 	test("with no iteration the turn's own usage gives the lifetime, and no hit is claimed", () => {

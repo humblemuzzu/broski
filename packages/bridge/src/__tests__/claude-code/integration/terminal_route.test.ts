@@ -62,11 +62,13 @@ describe("a bridge with Claude Code wired", () => {
 				const post = (headers: Record<string, string>) =>
 					fetch(url, { method: "POST", headers, body: JSON.stringify(ASK) });
 				expect((await post({})).status).toBe(401);
-				const answered = await post({ authorization: `Bearer ${bridge.token}` });
+				const answered = await post({ authorization: `Bearer ${bridge.hookToken}` });
 				expect(answered.status).toBe(200);
 				expect(await answered.json()).toEqual({});
 				const settings = await settingsWritten(join(claude.configDir, "settings.json"));
 				expect(JSON.stringify(settings)).toContain(url);
+				expect(JSON.stringify(settings)).toContain(`Bearer ${bridge.hookToken}`);
+				expect(JSON.stringify(settings)).not.toContain(bridge.token);
 			} finally {
 				await bridge.stop();
 			}

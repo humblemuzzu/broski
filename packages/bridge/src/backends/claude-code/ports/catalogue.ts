@@ -26,6 +26,8 @@ export interface CatalogueAccess {
 	model(cwd: string, modelId: ModelId): Promise<ModelSummary | Rejected | undefined>;
 	/** The listed id a wire model (`init.model`) resolves from, through `ModelInfo.resolvedModel` (D12). */
 	listedModelId(cwd: string, wireModel: string): Promise<ModelId | undefined>;
+	/** The CLI's own `claude_code_version`: the newest answer's, else `cwd`'s; undefined when none is known. */
+	cliVersion(cwd: string): Promise<string | undefined>;
 	/** Never fails (contract `status()`). */
 	status(): Promise<BackendStatus>;
 }

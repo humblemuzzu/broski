@@ -115,6 +115,8 @@ export interface FetchHandlerDeps {
 	allowTokenInUrl: boolean;
 	validateAuthToken: (provided: string, expected: string) => boolean;
 	getAuthToken: () => string;
+	/** The hook routes' own token, which opens nothing else; the bridge's token does not open them. */
+	getHookToken: () => string;
 	sockets: Set<ServerWebSocket<unknown>>;
 	maxClients: number;
 	tlsEnabled: boolean;
@@ -128,7 +130,7 @@ export interface FetchHandlerDeps {
 
 /**
  * What only this machine may reach: `/mcp`, answered here since it takes its own tokens and not the bridge's, and the
- * hooks, refused here from elsewhere and answered once the bridge's token is checked. Undefined for every other path.
+ * hooks, refused here from elsewhere and answered once the hook token is checked. Undefined for every other path.
  */
 async function loopbackOnlyRoute(
 	request: Request,
@@ -231,7 +233,9 @@ export function createFetchHandler(deps: FetchHandlerDeps) {
 		}
 
 		const providedToken = extractTokenFromRequest(url, request);
-		const isValidToken = !!(providedToken && deps.validateAuthToken(providedToken, deps.getAuthToken()));
+		const hookRoute = !isWebSocketUpgrade && deps.httpDeps.hookIngress?.owns(url.pathname) === true;
+		const expectedToken = hookRoute ? deps.getHookToken() : deps.getAuthToken();
+		const isValidToken = !!(providedToken && deps.validateAuthToken(providedToken, expectedToken));
 
 		if (isWebSocketUpgrade) {
 			if (!isValidToken) {

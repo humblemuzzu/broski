@@ -68,6 +68,20 @@ describe("the cache clock", () => {
 		]);
 	});
 
+	test("a usage that only adds the context figure keeps the request's tokens, live and on a late attach", async () => {
+		const { rig, phone, session } = await viewed();
+		const cache: CacheWindow = { lastTouchAt: 1_000, ttlMs: 300_000, confidence: "exact" };
+		const totals: Usage = { inputTokens: 110, cacheReadTokens: 8_000, cache };
+		await turn(rig, phone, session, totals);
+		await turn(rig, phone, session, { ...totals, contextTokens: 8_110, contextWindow: 200_000 });
+		const kept: CacheWindow = { ...cache, cachedTokens: 8_000, promptTokens: 8_110 };
+		expect(windows(phone, session)).toEqual([kept, kept]);
+		const late = await rig.client("late");
+		const attached = await late.ok("session.attach", { session });
+		if (attached.sync.kind !== "snapshot") throw new Error("a first attach gives a snapshot");
+		expect(attached.sync.snapshot.usage?.cache).toEqual(kept);
+	});
+
 	test("a backend that reports no cache totals gets no window", async () => {
 		const { rig, phone, session } = await viewed();
 		await turn(rig, phone, session, { inputTokens: 10, outputTokens: 5 });
