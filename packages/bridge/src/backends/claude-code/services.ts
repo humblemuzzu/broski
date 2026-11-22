@@ -41,7 +41,13 @@ export interface BridgeMcpServer {
 	readonly token: string;
 }
 
-export type BridgeMcpServers = (sessionId: SessionId) => BridgeMcpServer | undefined;
+/** One CLI process's hold on the server; `release` revokes its token once the process is gone. */
+export interface BridgeMcpLease {
+	readonly server: BridgeMcpServer;
+	release(): void;
+}
+
+export type BridgeMcpServers = (sessionId: SessionId) => BridgeMcpLease | undefined;
 
 export interface ClaudeCodeFactoryOptions {
 	readonly cli: CliLocation;

@@ -8,7 +8,7 @@ import type { Rejected, SessionId, SessionSnapshot } from "../../../contract";
 import { DEFAULT_PERMISSION_MODE, isPermissionMode, PERMISSIONS_AXIS } from "../permission-modes";
 import type { AskDesk } from "../ports/asks";
 import { hostOptions } from "../process/options";
-import type { ClaudeCodeServices } from "../services";
+import type { BridgeMcpServer, ClaudeCodeServices } from "../services";
 
 export interface LaunchInput {
 	readonly services: ClaudeCodeServices;
@@ -19,6 +19,7 @@ export interface LaunchInput {
 	readonly snapshot: SessionSnapshot;
 	readonly explicitModel: string | undefined;
 	readonly desk: AskDesk;
+	readonly mcpServer: BridgeMcpServer | undefined;
 }
 
 function effortOf(value: string | undefined): EffortLevel | undefined {
@@ -42,7 +43,7 @@ function modeOf(snapshot: SessionSnapshot): PermissionMode {
 export async function launchOptions(input: LaunchInput): Promise<Options | Rejected> {
 	const { services, desk } = input;
 	const effort = effortOf(input.snapshot.thinking);
-	const mcpServer = services.mcpServer?.(input.sessionId);
+	const { mcpServer } = input;
 	return hostOptions({
 		services,
 		cwd: input.cwd,

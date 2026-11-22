@@ -23,8 +23,8 @@ beforeAll(async () => {
 	world = await ClaudeWorld.create({ catalog }, undefined, {
 		mcpServer: (sessionId) => {
 			const session = { backend: "claude-code", sessionId };
-			const { token } = mcp.registry.issue({ session, tools: { ask: false, plan: false, notify: true } });
-			return { name: "broski", url: mcp.url, token };
+			const credential = mcp.registry.issue({ session, tools: { ask: false, plan: false, notify: true } });
+			return { server: { name: "broski", url: mcp.url, token: credential.token }, release: credential.revoke };
 		},
 	});
 	rig = new Rig(world.backend, new ClaudeCodeConformanceDriver(world, WAIT_MS), catalog, WAIT_MS);
@@ -32,10 +32,12 @@ beforeAll(async () => {
 
 afterAll(async () => {
 	await rig.backend.dispose();
+	const leftLive = mcp.registry.size;
 	const escapes = world.escapes();
 	await world.dispose();
 	mcp.stop();
 	expect(escapes).toEqual([]);
+	expect(leftLive).toBe(0);
 });
 
 function toolNames(body: unknown): string[] {
