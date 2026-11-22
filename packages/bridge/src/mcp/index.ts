@@ -8,7 +8,7 @@ export {
 } from "./http-server";
 export {
 	MAX_MCP_TOKENS,
-	MCP_TOKEN_LIFETIME_MS,
+	MCP_TOKEN_IDLE_MS,
 	type McpCapability,
 	type McpCredential,
 	type McpGrant,

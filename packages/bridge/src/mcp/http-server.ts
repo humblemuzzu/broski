@@ -1,5 +1,6 @@
 /**
- * `POST /mcp`: MCP's Streamable HTTP transport (protocol 2025-06-18, and 2025-03-26) for one bearer token at a time.
+ * `POST /mcp`: MCP's Streamable HTTP transport, protocol 2025-06-18 (one JSON-RPC message per request, no batches), for
+ * one bearer token at a time.
  * A tool that waits for the person answers as a server-sent event stream with a progress notification every
  * `heartbeatMs`, which resets the client's request timeout for as long as the person takes. The client hanging up, or
  * sending `notifications/cancelled`, aborts the wait, which withdraws the card from the phone.
@@ -32,8 +33,8 @@ export const MCP_HEARTBEAT_MS = 20_000;
 /** Calls one token may have waiting at once. */
 export const MAX_PENDING_CALLS = 16;
 
-const PROTOCOL_VERSIONS: readonly string[] = ["2025-06-18", "2025-03-26"];
-const LATEST_PROTOCOL = "2025-06-18";
+/** A client asking for another version is offered this one, and decides whether to go on (MCP lifecycle). */
+const PROTOCOL_VERSION = "2025-06-18";
 const ENCODER = new TextEncoder();
 
 export interface McpHttpOptions {
@@ -65,22 +66,27 @@ class McpHttpServer {
 		const grant = grantOf(request, this.options.registry);
 		if (grant === undefined) return unauthorized();
 		const version = request.headers.get("mcp-protocol-version");
-		if (version !== null && !PROTOCOL_VERSIONS.includes(version)) {
+		if (version !== null && version !== PROTOCOL_VERSION) {
 			return Response.json(rpcError(null, INVALID_REQUEST, `Unsupported protocol version ${version}`), { status: 400 });
 		}
 		const body = await readBounded(request);
 		if (body === undefined) return Response.json({ error: "Request too large" }, { status: 413 });
 		const message = parseJson(body);
 		if (message === undefined) return Response.json(rpcError(null, PARSE_ERROR, "Parse error"), { status: 400 });
-		const call = RpcRequest.safeParse(message);
-		if (call.success) return this.answer(call.data, grant, request);
-		const notification = RpcNotification.safeParse(message);
-		if (notification.success) {
-			if (notification.data.method === "notifications/cancelled") this.cancel(grant, notification.data.params);
-			return new Response(null, { status: 202 });
+		return this.dispatch(message, grant, request);
+	}
+
+	/** A message with a method and an id is a request, whatever its id; one with a method alone a notification. */
+	private dispatch(message: unknown, grant: McpGrant, request: Request): Promise<Response> | Response {
+		if (!hasKey(message, "method")) return RpcResponse.safeParse(message).success ? accepted() : invalidMessage();
+		if (hasKey(message, "id")) {
+			const call = RpcRequest.safeParse(message);
+			return call.success ? this.answer(call.data, grant, request) : invalidMessage();
 		}
-		if (RpcResponse.safeParse(message).success) return new Response(null, { status: 202 });
-		return Response.json(rpcError(null, INVALID_REQUEST, "Not a JSON-RPC 2.0 message"), { status: 400 });
+		const notification = RpcNotification.safeParse(message);
+		if (!notification.success) return invalidMessage();
+		if (notification.data.method === "notifications/cancelled") this.cancel(grant, notification.data.params);
+		return accepted();
 	}
 
 	private cancel(grant: McpGrant, params: unknown): void {
@@ -91,7 +97,7 @@ class McpHttpServer {
 	private async answer(call: RpcRequest, grant: McpGrant, request: Request): Promise<Response> {
 		switch (call.method) {
 			case "initialize":
-				return Response.json(rpcResult(call.id, initializeResult(call.params, this.options.version)));
+				return Response.json(rpcResult(call.id, initializeResult(this.options.version)));
 			case "ping":
 				return Response.json(rpcResult(call.id, {}));
 			case "tools/list":
@@ -206,10 +212,9 @@ function callResult(output: McpToolOutput) {
 	};
 }
 
-function initializeResult(params: Readonly<Record<string, unknown>> | undefined, version: string) {
-	const asked = params?.protocolVersion;
+function initializeResult(version: string) {
 	return {
-		protocolVersion: typeof asked === "string" && PROTOCOL_VERSIONS.includes(asked) ? asked : LATEST_PROTOCOL,
+		protocolVersion: PROTOCOL_VERSION,
 		capabilities: { tools: { listChanged: false } },
 		serverInfo: { name: "broski", version },
 	};
@@ -218,6 +223,18 @@ function initializeResult(params: Readonly<Record<string, unknown>> | undefined,
 function grantOf(request: Request, registry: McpSessionRegistry): McpGrant | undefined {
 	const header = request.headers.get("authorization");
 	return header?.startsWith("Bearer ") ? registry.lookup(header.slice("Bearer ".length)) : undefined;
+}
+
+function hasKey(message: unknown, key: string): boolean {
+	return typeof message === "object" && message !== null && !Array.isArray(message) && Object.hasOwn(message, key);
+}
+
+function accepted(): Response {
+	return new Response(null, { status: 202 });
+}
+
+function invalidMessage(): Response {
+	return Response.json(rpcError(null, INVALID_REQUEST, "Not a JSON-RPC 2.0 message"), { status: 400 });
 }
 
 function unauthorized(): Response {

@@ -58,30 +58,40 @@ describe("who the server answers", () => {
 		expect(broken.status).toBe(400);
 		expect(((await broken.json()) as { error: { code: number } }).error.code).toBe(-32700);
 		expect((await t.post(token, PING, { "mcp-protocol-version": "2024-01-01" })).status).toBe(400);
+		expect((await t.post(token, PING, { "mcp-protocol-version": "2025-03-26" })).status).toBe(400);
 		expect((await t.post(token, [PING])).status).toBe(400);
 	});
 });
 
 describe("the protocol", () => {
-	test.each(["2025-06-18", "2025-03-26"])("initialize agrees on %s", async (version) => {
-		const t = started();
-		const { token } = t.issue();
-		const reply = await t.rpc(token, "initialize", {
-			protocolVersion: version,
-			capabilities: {},
-			clientInfo: { name: "test", version: "1" },
-		});
-		expect(reply.result).toEqual({
-			protocolVersion: version,
-			capabilities: { tools: { listChanged: false } },
-			serverInfo: { name: "broski", version: "9.9.9" },
-		});
-	});
+	test.each(["2025-06-18", "2025-03-26", "2099-01-01"])(
+		"initialize answers 2025-06-18, the version without batches, to a client asking for %s",
+		async (version) => {
+			const t = started();
+			const { token } = t.issue();
+			const reply = await t.rpc(token, "initialize", {
+				protocolVersion: version,
+				capabilities: {},
+				clientInfo: { name: "test", version: "1" },
+			});
+			expect(reply.result).toEqual({
+				protocolVersion: "2025-06-18",
+				capabilities: { tools: { listChanged: false } },
+				serverInfo: { name: "broski", version: "9.9.9" },
+			});
+		},
+	);
 
-	test("initialize offers the newest version to a client asking for one it does not speak", async () => {
+	test("a request whose id is out of bounds or not an integer is refused, never taken for a notification", async () => {
 		const t = started();
-		const reply = await t.rpc(t.issue().token, "initialize", { protocolVersion: "2099-01-01" });
-		expect(reply.result?.protocolVersion).toBe("2025-06-18");
+		const { token } = t.issue({ notify: true });
+		for (const id of ["i".repeat(300), 1.5, null, true]) {
+			const call = { ...callOf("broski_notify", { title: "hi" }), id };
+			const response = await t.post(token, call, { accept: "application/json" });
+			expect(response.status).toBe(400);
+			expect(((await response.json()) as { error: { code: number } }).error.code).toBe(-32600);
+		}
+		expect(t.sink.notices).toEqual([]);
 	});
 
 	test("notifications and client responses are accepted with no body; ping answers; unknown methods are -32601", async () => {

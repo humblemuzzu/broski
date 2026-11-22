@@ -1,7 +1,8 @@
 /**
  * The bearer tokens of the MCP server. Each binds one session and the tools it was given, both fixed when it is
- * issued: a client's tool list never changes under it, so its prompt cache stays warm. Only a token's SHA-256 is kept,
- * and a presented token is compared with every live one in constant time.
+ * issued: a client's tool list never changes under it, so its prompt cache stays warm. A token lives until it is
+ * revoked or goes unused for a day. Only a token's SHA-256 is kept, and a presented token is compared with every live
+ * one in constant time.
  */
 
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
@@ -12,7 +13,7 @@ export type McpCapability = "ask" | "plan" | "notify";
 /** In the order `tools/list` lists their tools. */
 const CAPABILITIES: readonly McpCapability[] = ["ask", "plan", "notify"];
 
-export const MCP_TOKEN_LIFETIME_MS = 24 * 60 * 60 * 1000;
+export const MCP_TOKEN_IDLE_MS = 24 * 60 * 60 * 1000;
 export const MAX_MCP_TOKENS = 512;
 
 const TOKEN = /^[0-9a-f]{64}$/;
@@ -35,14 +36,14 @@ export interface McpCredential {
 
 export interface McpRegistryOptions {
 	readonly now?: () => number;
-	readonly lifetimeMs?: number;
+	readonly idleMs?: number;
 	readonly maxEntries?: number;
 }
 
 interface Entry {
 	readonly digest: Buffer;
 	readonly grant: McpGrant;
-	readonly issuedAt: number;
+	lastUsedAt: number;
 }
 
 function digestOf(token: string): Buffer {
@@ -52,16 +53,16 @@ function digestOf(token: string): Buffer {
 export class McpSessionRegistry {
 	private readonly entries = new Set<Entry>();
 	private readonly now: () => number;
-	private readonly lifetimeMs: number;
+	private readonly idleMs: number;
 	private readonly maxEntries: number;
 
 	constructor(options: McpRegistryOptions = {}) {
 		this.now = options.now ?? Date.now;
-		this.lifetimeMs = options.lifetimeMs ?? MCP_TOKEN_LIFETIME_MS;
+		this.idleMs = options.idleMs ?? MCP_TOKEN_IDLE_MS;
 		this.maxEntries = options.maxEntries ?? MAX_MCP_TOKENS;
 	}
 
-	/** The oldest token is revoked when `maxEntries` are live. */
+	/** The least recently used token is revoked when `maxEntries` are live. */
 	issue(request: McpIssueRequest): McpCredential {
 		this.prune();
 		const token = randomBytes(32).toString("hex");
@@ -70,7 +71,7 @@ export class McpSessionRegistry {
 		const entry: Entry = {
 			digest: digestOf(token),
 			grant: Object.freeze({ session, capabilities }),
-			issuedAt: this.now(),
+			lastUsedAt: this.now(),
 		};
 		this.entries.add(entry);
 		return {
@@ -94,6 +95,9 @@ export class McpSessionRegistry {
 			this.entries.delete(found);
 			return undefined;
 		}
+		found.lastUsedAt = this.now();
+		this.entries.delete(found);
+		this.entries.add(found);
 		return found.grant;
 	}
 
@@ -102,16 +106,16 @@ export class McpSessionRegistry {
 	}
 
 	private expired(entry: Entry): boolean {
-		return this.now() - entry.issuedAt >= this.lifetimeMs;
+		return this.now() - entry.lastUsedAt >= this.idleMs;
 	}
 
 	private prune(): void {
 		for (const entry of this.entries) {
 			if (this.expired(entry)) this.entries.delete(entry);
 		}
-		for (const oldest of this.entries) {
+		for (const leastUsed of this.entries) {
 			if (this.entries.size < this.maxEntries) return;
-			this.entries.delete(oldest);
+			this.entries.delete(leastUsed);
 		}
 	}
 }
