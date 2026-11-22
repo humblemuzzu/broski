@@ -198,12 +198,16 @@ describe("installing the terminal ask hook", () => {
 		expect(read()).toEqual({ allowedHttpHookUrls: ["https://hooks.example.com/*"] });
 	});
 
-	test("a list of only our URL stays a list of only ours, never widened to every URL", async () => {
+	test("a list of only our URL stays a list of only ours through install, removal and install again", async () => {
 		write({ allowedHttpHookUrls: ["https://127.0.0.1:1234/cc-terminal-hook"] });
-		await installTerminalHook(root, SPEC);
+		expect(await installTerminalHook(root, SPEC)).toMatchObject({ status: "installed" });
 		expect(read().allowedHttpHookUrls).toEqual([SPEC.url]);
-		await removeTerminalHook(root);
-		expect(read()).toEqual({ allowedHttpHookUrls: [] });
+		expect(await removeTerminalHook(root)).toMatchObject({ status: "removed" });
+		expect(read()).toEqual({ allowedHttpHookUrls: [SPEC.url] });
+		const next = { ...SPEC, url: "https://127.0.0.1:19999/cc-terminal-hook" };
+		expect(await installTerminalHook(root, next)).toMatchObject({ status: "installed" });
+		expect(read().allowedHttpHookUrls).toEqual([next.url]);
+		expect(read().hooks.PermissionRequest).toHaveLength(1);
 	});
 
 	test("an empty URL list (no HTTP hook may run) refuses the install and writes nothing", async () => {

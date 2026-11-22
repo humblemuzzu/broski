@@ -119,7 +119,7 @@ describe("status()", () => {
 		expect(status.issues[0]?.severity).toBe("warning");
 		expect(status.issues[0]?.message).toContain("2.1.316");
 		expect(status.issues[0]?.message).toContain("2.1.400");
-		expect(status.issues[0]?.message).toContain("broski_notify");
+		expect(status.issues[0]?.message).toContain("get broski_notify only from Claude Code 2.1.400 on.");
 	});
 
 	test("no warning when the build bakes in no version or the CLI reports none", async () => {

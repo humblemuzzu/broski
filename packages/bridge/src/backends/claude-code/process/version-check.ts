@@ -9,10 +9,13 @@ const RELEASE = /^(\d+)\.(\d+)\.(\d+)/;
 /** Absent on either side is no finding: a CLI that predates the field, or a build that did not bake one in. */
 export function versionIssue(reported: string | undefined, expected: string | undefined): StatusIssue | undefined {
 	if (reported === undefined || expected === undefined || reported === expected) return undefined;
-	const older = !atLeastVersion(reported, expected);
+	const made = clip(expected, MAX_VERSION_CHARS);
+	const notify = atLeastVersion(reported, expected)
+		? ""
+		: ` Sessions started from the phone get broski_notify only from Claude Code ${made} on.`;
 	return {
 		severity: "warning",
-		message: `Claude Code ${clip(reported, MAX_VERSION_CHARS)} is running, but this Broski build was made for ${clip(expected, MAX_VERSION_CHARS)}; some features may not work until they match.${older ? " Sessions started from the phone do not get broski_notify on this older version." : ""}`,
+		message: `Claude Code ${clip(reported, MAX_VERSION_CHARS)} is running, but this Broski build was made for ${made}; some features may not work until they match.${notify}`,
 	};
 }
 

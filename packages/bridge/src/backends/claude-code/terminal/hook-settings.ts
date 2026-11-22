@@ -60,7 +60,7 @@ export function withoutHook(settings: Settings, caCertPath?: string): Edit {
 	if (!allowed.ok) return allowed;
 	const next: Settings = { ...settings };
 	if (hooks.removed > 0) dropHooks(next, hooks);
-	if (allowed.ours > 0) next.allowedHttpHookUrls = allowed.others;
+	if (allowed.ours > 0 && allowed.others.length > 0) next.allowedHttpHookUrls = allowed.others;
 	if (caCertPath !== undefined) dropCa(next, caCertPath);
 	return { ok: true, settings: next };
 }

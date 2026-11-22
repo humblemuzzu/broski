@@ -104,7 +104,7 @@ export async function runSecurityChecks(ctx: DoctorContext): Promise<CheckResult
 			id: "auth_token",
 			category: "security",
 			status: "error",
-			message: "Local hook token file missing (~/.broski/token.json)",
+			message: "Local auth token file missing (~/.broski/token.json)",
 			fix: "Start the bridge with `broski` to generate the token",
 			autoFix: async () => {
 				try {
@@ -123,7 +123,7 @@ export async function runSecurityChecks(ctx: DoctorContext): Promise<CheckResult
 			message: "No token file to validate",
 		});
 	} else {
-		results.push({ id: "auth_token", category: "security", status: "ok", message: "Local hook token exists" });
+		results.push({ id: "auth_token", category: "security", status: "ok", message: "Local auth token exists" });
 		try {
 			const raw = await readFile(ctx.paths.tokenFile, "utf-8");
 			const parsed = JSON.parse(raw) as { version?: number; token?: string };
@@ -137,7 +137,7 @@ export async function runSecurityChecks(ctx: DoctorContext): Promise<CheckResult
 					fix: "Run `broski --new-token`",
 				});
 			} else {
-				results.push({ id: "auth_token_valid", category: "security", status: "ok", message: "Local hook token valid" });
+				results.push({ id: "auth_token_valid", category: "security", status: "ok", message: "Local auth token valid" });
 			}
 		} catch {
 			results.push({
