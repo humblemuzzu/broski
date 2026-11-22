@@ -17,6 +17,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import uniffi.broski_contract.SessionRef
 import uniffi.broski_core.MachineRecord
 import uniffi.broski_core.Phone
 import uniffi.broski_core.PhoneConfig
@@ -59,6 +60,17 @@ class PhoneSessionTest {
         assertEquals(listOf("s-ask", "s-old"), rows.map { it.session.sessionId })
         assertTrue(rows.all { it.cached && it.pending == null })
         assertEquals("npm test", rows.first().command)
+    }
+
+    @Test
+    fun aDraftAnOlderBuildKeptUnderTheBackendsEnumNameOpensInItsSession() = runBlocking {
+        vault.saveDraft("m-1/PI/s-1", "rename the flag")
+        val session = PhoneSession(phone(), vault, scope, emptyList(), emptySet())
+
+        assertEquals("rename the flag", session.draft("m-1", SessionRef("pi", "s-1")))
+        assertEquals("rename the flag", vault.draft("m-1/pi/s-1"))
+        assertNull(vault.draft("m-1/PI/s-1"))
+        assertNull("a backend no older build knew has no former name", session.draft("m-1", SessionRef("codex", "s-1")))
     }
 
     @Test

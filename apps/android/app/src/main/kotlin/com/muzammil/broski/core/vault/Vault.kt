@@ -71,12 +71,31 @@ class Vault(private val store: DataStore<Preferences>, private val cipher: Secre
 
     suspend fun saveInboxCache(cache: ByteArray) = write(CACHE, cache)
 
-    /** What the person had typed in a session's composer, under the session's [name]; `null` when nothing. */
-    suspend fun draft(name: String): String? = read(draftKey(name))?.decodeToString()
+    /**
+     * What the person had typed in a session's composer, under the session's [name]; `null` when nothing.
+     * A draft an older build stored under [formerly] moves to [name] as it is read.
+     */
+    suspend fun draft(name: String, formerly: String? = null): String? {
+        val key = draftKey(name)
+        read(key)?.let { return it.decodeToString() }
+        val old = formerly?.let(::draftKey) ?: return null
+        val text = read(old) ?: return null
+        val sealed = cipher.seal(text, key.name)
+        store.edit {
+            it[key] = sealed
+            it.remove(old)
+        }
+        return text.decodeToString()
+    }
 
-    /** Stores [text] as the draft, or forgets it when blank. */
-    suspend fun saveDraft(name: String, text: String) {
-        if (text.isBlank()) store.edit { it.remove(draftKey(name)) } else write(draftKey(name), text.encodeToByteArray())
+    /** Stores [text] as the draft, or forgets it when blank; either way a draft under [formerly] is gone. */
+    suspend fun saveDraft(name: String, text: String, formerly: String? = null) {
+        val key = draftKey(name)
+        val sealed = text.takeIf { it.isNotBlank() }?.let { cipher.seal(it.encodeToByteArray(), key.name) }
+        store.edit { preferences ->
+            if (sealed == null) preferences.remove(key) else preferences[key] = sealed
+            formerly?.let { preferences.remove(draftKey(it)) }
+        }
     }
 
     /** The xAI key dictation sends with, sealed like everything here; `null` when none is saved. */

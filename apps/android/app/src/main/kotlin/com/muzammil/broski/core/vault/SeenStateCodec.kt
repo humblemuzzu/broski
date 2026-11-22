@@ -17,9 +17,6 @@ internal object SeenStateCodec {
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    /** What builds that knew only a closed set of backends wrote: the Kotlin enum's names. */
-    private val legacy = mapOf("CLAUDE_CODE" to BackendIds.CLAUDE_CODE, "PI" to BackendIds.PI)
-
     fun encode(state: SeenState): ByteArray {
         val stored = StoredSeen(
             markers = state.markers.map {
@@ -35,7 +32,7 @@ internal object SeenStateCodec {
         val stored = json.decodeFromString(StoredSeen.serializer(), bytes.decodeToString())
         return SeenState(
             markers = stored.markers.mapNotNull { marker ->
-                val backend = legacy[marker.backend] ?: marker.backend.takeIf(BackendIds::isValid) ?: return@mapNotNull null
+                val backend = BackendIds.fromLegacy(marker.backend) ?: marker.backend.takeIf(BackendIds::isValid) ?: return@mapNotNull null
                 SeenMarker(marker.machineId, SessionRef(backend, marker.sessionId), marker.seenAt)
             },
             readMachines = stored.readMachines,

@@ -74,15 +74,23 @@ private fun Monogram(agent: Agent, modifier: Modifier, size: Dp) {
         else -> Color.White
     }
     val letters = monogram(agent)
-    // In dp, not sp: the tile is a fixed size, so its letters must not grow with the font scale.
-    val fontSize = with(LocalDensity.current) { (size * if (letters.length > 1) 0.36f else 0.46f).toSp() }
+    // In dp, not sp: the tile is a fixed size, so its letters and their line must not grow with the font scale.
+    val letterSize = with(LocalDensity.current) { (size * if (letters.length > 1) 0.36f else 0.46f).toSp() }
     Box(
         modifier = modifier
             .background(background, TileShape)
             .border(0.5.dp, ink.copy(alpha = 0.14f), TileShape),
         contentAlignment = Alignment.Center,
     ) {
-        Text(letters, color = ink, fontSize = fontSize, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
+        Text(
+            letters,
+            color = ink,
+            fontSize = letterSize,
+            lineHeight = letterSize,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            softWrap = false,
+        )
     }
 }
 

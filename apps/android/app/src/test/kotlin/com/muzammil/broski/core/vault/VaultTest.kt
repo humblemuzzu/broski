@@ -127,6 +127,18 @@ class VaultTest {
     }
 
     @Test
+    fun aDraftAnOlderBuildStoredUnderTheEnumNameMovesToTheWireIdAndClearsForGood() = runBlocking {
+        vault().saveDraft("m-1/CLAUDE_CODE/s-1", "half a thought")
+        assertEquals("half a thought", vault().draft("m-1/claude-code/s-1", formerly = "m-1/CLAUDE_CODE/s-1"))
+        assertEquals("it moved under the wire id", "half a thought", vault().draft("m-1/claude-code/s-1"))
+        assertNull("and left the old name", vault().draft("m-1/CLAUDE_CODE/s-1"))
+
+        vault().saveDraft("m-1/PI/s-2", "an older line")
+        vault().saveDraft("m-1/pi/s-2", "", formerly = "m-1/PI/s-2")
+        assertNull("clearing the draft clears the old name too", vault().draft("m-1/pi/s-2", formerly = "m-1/PI/s-2"))
+    }
+
+    @Test
     fun markersAnOlderBuildStoredByEnumNameReadAsWireIdsBesideAnyOtherBackend() {
         val stored = """
             {"markers":[

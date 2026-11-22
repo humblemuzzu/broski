@@ -11,7 +11,14 @@ object BackendIds {
 
     private val wire = Regex("[a-z0-9][a-z0-9-]{0,63}")
 
+    /** What builds that knew only a closed set of backends stored for each: the Kotlin enum's name. */
+    private val legacy = mapOf("CLAUDE_CODE" to CLAUDE_CODE, "PI" to PI)
+
     fun isValid(id: String): Boolean = wire.matches(id)
+
+    fun fromLegacy(stored: String): String? = legacy[stored]
+
+    fun legacyName(id: String): String? = legacy.entries.firstOrNull { it.value == id }?.key
 }
 
 /**
