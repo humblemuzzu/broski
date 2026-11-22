@@ -1,11 +1,11 @@
 package com.muzammil.broski.feature.chat
 
+import com.muzammil.broski.core.BackendIds
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import uniffi.broski_contract.BackendId
 import uniffi.broski_contract.BlockKind
 import uniffi.broski_contract.NoticeEvent
 import uniffi.broski_contract.NoticeLevel
@@ -23,7 +23,7 @@ import uniffi.broski_core.ViewEnd
  * the chat reads off a batch besides the state.
  */
 class LiveSessionTest {
-    private val session = SessionRef(BackendId.PI, "s1")
+    private val session = SessionRef(BackendIds.PI, "s1")
     private val started = LiveSession().apply(
         SessionUpdate.Reset(session, SessionCapabilities(true, false, false, true), EmptySnapshot, SessionStatus.IDLE),
     ).session

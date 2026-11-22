@@ -181,6 +181,7 @@ private fun LazyListScope.section(
         val motion = MaterialTheme.motionScheme
         InboxRowItem(
             row = row,
+            agent = state.agent(row),
             health = state.health[row.machineId],
             shapes = ListItemDefaults.segmentedShapes(index, section.rows.size),
             onOpen = onOpenSession?.let { open -> { open(SessionRoute.of(row.machineId, row.session)) } },

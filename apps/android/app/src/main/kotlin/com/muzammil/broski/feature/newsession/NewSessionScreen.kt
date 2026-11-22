@@ -61,10 +61,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.muzammil.broski.R
 import com.muzammil.broski.app.FeatureContext
 import com.muzammil.broski.app.SessionRoute
+import com.muzammil.broski.core.Agent
 import com.muzammil.broski.core.isOnline
 import com.muzammil.broski.design.AgentMark
 import com.muzammil.broski.design.Haptic
-import com.muzammil.broski.design.displayName
 import com.muzammil.broski.design.perform
 import com.muzammil.broski.feature.chat.ChatScreen
 import com.muzammil.broski.feature.chat.composer.Catalog
@@ -81,7 +81,6 @@ import com.muzammil.broski.feature.chat.composer.sendButton
 import com.muzammil.broski.feature.workspace.MachineBanner
 import com.muzammil.broski.feature.workspace.lastComponent
 import uniffi.broski_contract.AttachmentKind
-import uniffi.broski_contract.BackendId
 import uniffi.broski_contract.PromptMode
 
 /**
@@ -131,7 +130,7 @@ private fun NewSessionContent(model: NewSessionViewModel, context: FeatureContex
     ) { padding ->
         Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
             ui.machine?.let { MachineBanner(it) }
-            Hero(ui.choice.backend, Modifier.weight(1f).fillMaxWidth())
+            Hero(ui.agent, Modifier.weight(1f).fillMaxWidth())
             Bottom(model, ui, error, showsProjects, onShowProjects = { showsProjects = it }, onBrowse = { browsing = true })
         }
     }
@@ -215,10 +214,10 @@ private fun Title(ui: NewSessionUi, onMachine: (String) -> Unit) {
 
 /** Where the transcript will be: the agent's mark and the question, left out when the keyboard and the folders leave no room. */
 @Composable
-private fun Hero(backend: BackendId?, modifier: Modifier) {
+private fun Hero(agent: Agent?, modifier: Modifier) {
     BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
         if (maxHeight >= HERO_MIN_HEIGHT) Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            AnimatedContent(backend, transitionSpec = { (fadeIn() + scaleIn(initialScale = 0.8f)) togetherWith fadeOut() }, label = "agent") { agent ->
+            AnimatedContent(agent, transitionSpec = { (fadeIn() + scaleIn(initialScale = 0.8f)) togetherWith fadeOut() }, label = "agent") { agent ->
                 if (agent != null) {
                     AgentMark(agent, size = 56.dp)
                 } else {
@@ -265,7 +264,7 @@ private fun Bottom(
         val machine = ui.machine ?: return@Column
         SessionPills(
             agents = ui.agents,
-            backend = ui.choice.backend,
+            chosen = ui.agent,
             machineName = machine.name,
             folder = ui.choice.folder,
             showsProjects = showsProjects,
@@ -313,7 +312,7 @@ private fun NewSessionComposer(model: NewSessionViewModel, ui: NewSessionUi, foc
     }
     val dictation = LocalDictation.current
     val hook = remember(dictation, model) { dictation?.let { DictationHook(it, model.dictationTarget(it), openVoiceSettings = null) } }
-    val agent = choice.backend?.let { stringResource(it.displayName) }
+    val agent = ui.agent?.name
     val text = model.composer.input.text.toString()
     val selection = model.composer.input.selection
     FileMentionPopup(

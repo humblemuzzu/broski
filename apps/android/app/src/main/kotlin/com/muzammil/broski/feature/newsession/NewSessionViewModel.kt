@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.muzammil.broski.core.Agent
 import com.muzammil.broski.core.AgentInstall
 import com.muzammil.broski.core.MachineState
 import com.muzammil.broski.core.PhoneSession
@@ -32,7 +33,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import uniffi.broski_contract.BackendId
 import uniffi.broski_contract.ClientMessage
 import uniffi.broski_contract.ModeSetting
 import uniffi.broski_contract.NewSessionOptions
@@ -66,7 +66,7 @@ fun projects(rows: List<InboxRow>, machineId: String?): List<Project> = rows
 data class Choice(
     val machineId: String? = null,
     val folder: String? = null,
-    val backend: BackendId? = null,
+    val backend: String? = null,
     val agentPicked: Boolean = false,
     val modelId: String? = null,
     val thinking: String? = null,
@@ -111,6 +111,9 @@ data class NewSessionUi(
     val creating: Boolean,
 ) {
     val machine: MachineState? get() = machines.firstOrNull { it.id == choice.machineId }
+
+    /** The chosen agent as the chosen Mac describes it. */
+    val agent: Agent? get() = choice.backend?.let { backend -> machine?.agent(backend) ?: Agent.known(backend) }
 }
 
 sealed interface NewSessionEvent {
@@ -213,7 +216,7 @@ class NewSessionViewModel(private val phone: PhoneSession, private val attachmen
 
     fun pickFolder(path: String) = choice.update { it.copy(folder = path) }
 
-    fun pickAgent(backend: BackendId) = choice.update {
+    fun pickAgent(backend: String) = choice.update {
         if (it.backend == backend) it.copy(agentPicked = true) else it.copy(backend = backend, agentPicked = true, modelId = null, thinking = null, modes = emptyMap())
     }
 

@@ -13,8 +13,8 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import com.muzammil.broski.R
 import com.muzammil.broski.app.MainActivity
 import com.muzammil.broski.core.PhoneSession
+import com.muzammil.broski.core.agent
 import com.muzammil.broski.core.isOnline
-import com.muzammil.broski.design.displayName
 import uniffi.broski_core.InboxState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -46,12 +46,14 @@ class LiveUpdate(
         val since = mutableMapOf<SessionTarget, Long>()
         combine(phone.inboxRows, phone.machines) { rows, machines ->
             val reachable = machines.filter { it.health.isOnline }.map { it.id }.toSet()
-            LiveStatus.of(rows, since, System.currentTimeMillis(), reachable)
+            LiveStatus.of(rows, since, System.currentTimeMillis(), reachable)?.let { status ->
+                status to machines.agent(status.focused.machineId, status.focused.session.backend).name
+            }
         }
             .distinctUntilChanged()
             .conflate()
-            .collect { status ->
-                if (status == null) end() else show(build(status))
+            .collect { live ->
+                if (live == null) end() else show(build(live.first, live.second))
                 delay(UPDATE_EVERY_MS)
             }
     }
@@ -81,9 +83,8 @@ class LiveUpdate(
         }
     }
 
-    fun build(status: LiveStatus): Notification {
+    fun build(status: LiveStatus, agent: String): Notification {
         val row = status.focused
-        val agent = context.getString(row.session.backend.displayName)
         val working = context.resources.getQuantityString(R.plurals.live_working, status.working, status.working)
         val needsYou = context.resources.getQuantityString(R.plurals.live_needs_you, status.needsYou, status.needsYou)
         val header = when {

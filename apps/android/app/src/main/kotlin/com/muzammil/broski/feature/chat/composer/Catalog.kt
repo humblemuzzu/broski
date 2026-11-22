@@ -10,7 +10,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import uniffi.broski_contract.BackendId
 import uniffi.broski_contract.Capabilities
 import uniffi.broski_contract.CommandSummary
 import uniffi.broski_contract.CommandsListResult
@@ -42,12 +41,12 @@ class CatalogReader(private val machine: Machine, private val scope: CoroutineSc
     val catalog: StateFlow<Catalog> = mutable.asStateFlow()
     private var reading: Job? = null
 
-    fun load(backend: BackendId, cwd: String?, session: SessionRef?) {
+    fun load(backend: String, cwd: String?, session: SessionRef?) {
         reading?.cancel()
         reading = scope.launch { mutable.value = read(backend, cwd, session) }
     }
 
-    private suspend fun read(backend: BackendId, cwd: String?, session: SessionRef?): Catalog = coroutineScope {
+    private suspend fun read(backend: String, cwd: String?, session: SessionRef?): Catalog = coroutineScope {
         val capabilities = async { quietly { machine.backends().firstOrNull { it.id == backend }?.capabilities } }
         val models = async { quietly { (machine.models(backend, cwd, false) as? ModelsListResult.Accepted)?.v1?.models } }
         val modes = async { quietly { (machine.modes(backend, cwd) as? ModesListResult.Accepted)?.v1?.modes } }

@@ -12,7 +12,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import uniffi.broski_contract.AbortRequest
-import uniffi.broski_contract.BackendId
 import uniffi.broski_contract.ClientMessage
 import uniffi.broski_contract.SessionRef
 import uniffi.broski_core.ClientException
@@ -24,11 +23,10 @@ import uniffi.broski_core.ClientException
 class StopReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val target = OpenSession.from(intent) ?: return
-        val backend = BackendId.entries.firstOrNull { it.wire == target.backend } ?: return
         val phone = ((context.applicationContext as BroskiApplication).core.state.value as? CoreState.Ready)?.session ?: return
         val machine = phone.machine(target.machineId) ?: return
         val pending = goAsync()
-        val session = SessionRef(backend, target.sessionId)
+        val session = SessionRef(target.backend, target.sessionId)
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
                 val view = machine.attach(session)

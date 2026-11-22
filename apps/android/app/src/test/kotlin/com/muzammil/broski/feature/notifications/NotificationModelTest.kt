@@ -1,5 +1,6 @@
 package com.muzammil.broski.feature.notifications
 
+import com.muzammil.broski.core.BackendIds
 import com.muzammil.broski.core.settings.NotificationKind
 import java.io.File
 import java.util.Base64
@@ -8,7 +9,6 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import uniffi.broski_contract.BackendId
 import uniffi.broski_contract.SessionRef
 import uniffi.broski_core.InboxRow
 import uniffi.broski_core.InboxState
@@ -72,7 +72,7 @@ class NotificationModelTest {
         session: String,
         state: InboxState,
         updatedAt: Long,
-        backend: BackendId = BackendId.PI,
+        backend: String = BackendIds.PI,
         runStartedAt: Long? = null,
     ) = InboxRow(machine, "studio", SessionRef(backend, session), "Title $session", "/w", state, updatedAt, runStartedAt, null, null, null, false)
 
@@ -93,7 +93,7 @@ class NotificationModelTest {
         val second = LiveStatus.of(
             listOf(
                 row("a", InboxState.WORKING, 10, runStartedAt = 500),
-                row("b", InboxState.WORKING, 20, BackendId.CLAUDE_CODE, runStartedAt = 900),
+                row("b", InboxState.WORKING, 20, BackendIds.CLAUDE_CODE, runStartedAt = 900),
             ),
             since,
             nowMs = 2_000,

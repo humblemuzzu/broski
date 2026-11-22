@@ -24,13 +24,13 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
+import com.muzammil.broski.core.Agent
 import com.muzammil.broski.core.MachineHealth
 import com.muzammil.broski.core.isOnline
 import com.muzammil.broski.design.AgentMark
 import com.muzammil.broski.design.BroskiTheme
 import com.muzammil.broski.design.Dot
 import com.muzammil.broski.design.Orb
-import com.muzammil.broski.design.displayName
 import com.muzammil.broski.design.groupedListItemColors
 import com.muzammil.broski.design.label
 import com.muzammil.broski.design.orb.OrbState
@@ -49,6 +49,7 @@ private const val OFFLINE_ALPHA = 0.55f
 @Composable
 fun InboxRowItem(
     row: InboxRow,
+    agent: Agent,
     health: MachineHealth?,
     shapes: ListItemShapes,
     onOpen: (() -> Unit)?,
@@ -57,7 +58,7 @@ fun InboxRowItem(
     modifier: Modifier = Modifier,
 ) {
     val title = row.title ?: stringResource(R.string.inbox_untitled)
-    val ask = askLine(row)
+    val ask = askLine(row, agent)
     val offline = row.cached || (health != null && !health.isOnline)
     val healthLabel = health?.takeIf { !it.isOnline }?.label(row.machineName)
     val decisions = row.quickDecisions
@@ -87,7 +88,7 @@ fun InboxRowItem(
         }
     }
     Box {
-        RowItem(row, title, ask, healthLabel, shapes, open, showMenu.takeIf { decisions.isNotEmpty() }, semantics)
+        RowItem(row, agent, title, ask, healthLabel, shapes, open, showMenu.takeIf { decisions.isNotEmpty() }, semantics)
         RowAnswerMenu(menuOpen, decisions, busy, onDismiss = { menuOpen = false }) { decision ->
             menuOpen = false
             onAnswer(decision)
@@ -97,14 +98,15 @@ fun InboxRowItem(
 
 /** "Claude Code wants to run npm test", or the agent's own words for any other ask. */
 @Composable
-private fun askLine(row: InboxRow): String = row.command
-    ?.let { stringResource(R.string.inbox_wants_to_run, stringResource(row.session.backend.displayName), it) }
+private fun askLine(row: InboxRow, agent: Agent): String = row.command
+    ?.let { stringResource(R.string.inbox_wants_to_run, agent.name, it) }
     ?: row.ask
     ?: stringResource(R.string.inbox_waiting_for_you)
 
 @Composable
 private fun RowItem(
     row: InboxRow,
+    agent: Agent,
     title: String,
     ask: String,
     healthLabel: String?,
@@ -114,7 +116,7 @@ private fun RowItem(
     modifier: Modifier,
 ) {
     val supporting: @Composable () -> Unit = { RowSupporting(row, ask, healthLabel) }
-    val leading: @Composable () -> Unit = { AgentMark(row.session.backend) }
+    val leading: @Composable () -> Unit = { AgentMark(agent) }
     val trailing: @Composable () -> Unit = { StateMark(row.state) }
     val headline: @Composable () -> Unit = { Text(title, maxLines = 2, overflow = TextOverflow.Ellipsis) }
     if (onClick != null) {

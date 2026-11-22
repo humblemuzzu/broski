@@ -62,7 +62,11 @@ A device needs Google Play services for FCM (the `_playstore` emulator images ha
 
 - **JVM** (`app/src/test`): the vault over a real DataStore file and real AES-GCM with a software key
   (round trip across a restart, nothing in the clear, a value that does not open is an error and never a
-  first run, a value moved under another name does not open); which identity the phone opens with
+  first run, a value moved under another name does not open, seen markers an older build stored by enum name
+  read as wire ids beside any other backend's); each backend's name, accent and art from its machine's
+  descriptor, else from its id alone, and the initials tile of an agent with no logo (`AgentTest`,
+  `AgentMarkTest`); any plan a bridge reads, by its own name after Claude and Antigravity, and a usage report
+  an older build stored by enum name (`UsageReportTest`); which identity the phone opens with
   (made on a first run only, never over stored pairings; Start Over clears the vault); a handle on a
   forgotten machine stays usable and a cold start with the machine unreachable shows the cached inbox
   (`inbox-cache.json`) with nothing to answer (`PhoneSessionTest`); the pairing flow over the host build of the
@@ -111,7 +115,7 @@ reversed into the device too, through which the tests send `test-machine` its `s
 clipboard, taps **Paste pairing link**, **Pair with …**, waits for the inbox, starts a Pi session through
 the app's own `Machine` and finds its row; (b) the machine seeds "Clean the build folder" and runs it as a
 terminal would (`{"run":<session>,"scenario":"permission"}`: it waits on a permission no phone prompted),
-the inbox finds "Pi wants to run bash" on the waiting row with no chat open, a long press shows Approve and
+the inbox finds "<agent> wants to run bash" (the agent named as the bridge's descriptor names it) on the waiting row with no chat open, a long press shows Approve and
 Deny, Approve makes the row leave Needs you, and nothing says "Already answered elsewhere."; (c) a seeded
 session's Files lists the served folder, opens README.md and searches names; (d) every files screen in dark
 and at font scale 2.0; (e) the folder's repository row opens Git, README.md's diff, stages it by swipe and

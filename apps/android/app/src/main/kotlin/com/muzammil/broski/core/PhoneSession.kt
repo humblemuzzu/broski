@@ -18,7 +18,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import uniffi.broski_contract.BackendDescriptor
-import uniffi.broski_contract.BackendId
 import uniffi.broski_contract.BackendStatus
 import uniffi.broski_contract.PermissionOption
 import uniffi.broski_contract.SessionRef
@@ -99,7 +98,7 @@ class PhoneSession internal constructor(
 
     /** What the person had typed in a session's composer and not sent, if anything. */
     suspend fun draft(machineId: String, session: SessionRef): String? = try {
-        vault.draft(draftName(machineId, session))
+        vault.draft(draftName(machineId, session), legacyDraftName(machineId, session))
     } catch (error: IOException) {
         Log.e(TAG, "a draft could not be read", error)
         null
@@ -109,7 +108,7 @@ class PhoneSession internal constructor(
     fun saveDraft(machineId: String, session: SessionRef, text: String) {
         scope.launch {
             try {
-                vault.saveDraft(draftName(machineId, session), text)
+                vault.saveDraft(draftName(machineId, session), text, legacyDraftName(machineId, session))
             } catch (error: IOException) {
                 Log.e(TAG, "a draft could not be stored", error)
             }
@@ -215,7 +214,7 @@ class PhoneSession internal constructor(
         updateMachine(id) { state ->
             state.copy(
                 agents = backends.map { backend ->
-                    state.agents.firstOrNull { it.backend == backend.id } ?: AgentInstall(backend.id, null)
+                    AgentInstall(Agent.of(backend), state.agents.firstOrNull { it.backend == backend.id }?.status)
                 },
             )
         }
@@ -228,7 +227,7 @@ class PhoneSession internal constructor(
         }
     }
 
-    private fun setAgent(id: String, backend: BackendId, status: BackendStatus) = updateMachine(id) { state ->
+    private fun setAgent(id: String, backend: String, status: BackendStatus) = updateMachine(id) { state ->
         state.copy(agents = state.agents.map { if (it.backend == backend) it.copy(status = status) else it })
     }
 
@@ -240,8 +239,12 @@ class PhoneSession internal constructor(
         const val TAG = "PhoneSession"
 
         fun draftName(machineId: String, session: SessionRef) = "$machineId/${session.backend}/${session.sessionId}"
+
+        /** Where builds that spelled the backend by its enum name kept the session's draft. */
+        fun legacyDraftName(machineId: String, session: SessionRef) =
+            BackendIds.legacyName(session.backend)?.let { "$machineId/$it/${session.sessionId}" }
     }
 }
 
 /** [backend]'s catalog on a machine changed; `null` when the machine's list of backends did. */
-data class CatalogChange(val machineId: String, val backend: BackendId?)
+data class CatalogChange(val machineId: String, val backend: String?)

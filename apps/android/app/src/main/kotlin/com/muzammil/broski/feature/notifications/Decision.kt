@@ -3,6 +3,7 @@ package com.muzammil.broski.feature.notifications
 import android.content.Intent
 import androidx.annotation.StringRes
 import com.muzammil.broski.R
+import com.muzammil.broski.core.BackendIds
 import uniffi.broski_core.PushDecision
 
 /** What the person chose on a lock-screen approval; only ever their own tap. */
@@ -25,7 +26,7 @@ enum class DecisionState {
     }
 }
 
-/** The session a notification opens, carried in the intent that starts the app. */
+/** The session a notification opens, carried in the intent that starts the app; one naming no backend id the contract could is none. */
 object OpenSession {
     private const val MACHINE = "broski.open.machine"
     private const val BACKEND = "broski.open.backend"
@@ -38,7 +39,7 @@ object OpenSession {
 
     fun from(intent: Intent?): SessionTarget? {
         val machine = intent?.getStringExtra(MACHINE) ?: return null
-        val backend = intent.getStringExtra(BACKEND) ?: return null
+        val backend = intent.getStringExtra(BACKEND)?.takeIf(BackendIds::isValid) ?: return null
         val session = intent.getStringExtra(SESSION) ?: return null
         return SessionTarget(machine, backend, session)
     }

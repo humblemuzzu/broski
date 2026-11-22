@@ -5,7 +5,6 @@ import androidx.annotation.StringRes
 import androidx.navigation3.runtime.NavKey
 import com.muzammil.broski.R
 import kotlinx.serialization.Serializable
-import uniffi.broski_contract.BackendId
 import uniffi.broski_contract.SessionRef
 
 /** Every destination. Sealed and serializable, so back stacks survive process death without reflection. */
@@ -28,7 +27,7 @@ data object PairRoute : Route
 @Serializable
 data object VoiceRoute : Route
 
-/** Settings › Plan Usage: Claude and Antigravity quota limits across paired Macs. */
+/** Settings › Plan Usage: every plan's quota limits (Claude, Antigravity, …) across paired Macs. */
 @Serializable
 data object UsageRoute : Route
 
@@ -36,13 +35,13 @@ data object UsageRoute : Route
 @Serializable
 data object NewSessionRoute : Route
 
-/** One session on one machine: the chat. The backend is kept by its enum name. */
+/** One session on one machine: the chat. The backend is kept by its wire id (`claude-code`, `pi`). */
 @Serializable
 data class SessionRoute(val machineId: String, val backend: String, val sessionId: String) : Route {
-    val session: SessionRef get() = SessionRef(BackendId.valueOf(backend), sessionId)
+    val session: SessionRef get() = SessionRef(backend, sessionId)
 
     companion object {
-        fun of(machineId: String, session: SessionRef) = SessionRoute(machineId, session.backend.name, session.sessionId)
+        fun of(machineId: String, session: SessionRef) = SessionRoute(machineId, session.backend, session.sessionId)
     }
 }
 

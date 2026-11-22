@@ -2,10 +2,6 @@
 <resources>
     <string name="app_name">Broski</string>
 
-    <!-- Agents -->
-    <string name="agent_claude_code">Claude Code</string>
-    <string name="agent_pi">Pi</string>
-
     <string name="time_just_now">just now</string>
     <string name="orb_loading">Loading</string>
 

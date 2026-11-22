@@ -3,6 +3,7 @@ package com.muzammil.broski.feature.chat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.muzammil.broski.core.PhoneSession
+import com.muzammil.broski.core.agent
 import com.muzammil.broski.core.isOnline
 import com.muzammil.broski.core.voice.Dictation
 import com.muzammil.broski.core.voice.DictationTarget
@@ -86,13 +87,13 @@ class ChatViewModel(
             val state = machines.firstOrNull { it.id == machineId }
             ChatHeader(
                 title = summary?.title?.text ?: row?.title,
-                backend = session.backend,
+                agent = machines.agent(machineId, session.backend),
                 cwd = summary?.cwd ?: row?.cwd,
                 machineName = state?.name ?: row?.machineName.orEmpty(),
                 health = state?.health,
                 reconnecting = reconnecting,
             )
-        }.stateIn(viewModelScope, SharingStarted.Eagerly, ChatHeader(null, route.backend, null, "", null))
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, ChatHeader(null, phone.machines.value.agent(machineId, route.backend), null, "", null))
 
     /** False until the first view and the newest page are in, or [REVEAL_LIMIT_MS] passed, so the screen never builds in view. */
     val revealed: StateFlow<Boolean> = MutableStateFlow(false).also { revealed ->

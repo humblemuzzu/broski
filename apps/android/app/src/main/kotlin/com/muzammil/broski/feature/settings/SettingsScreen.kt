@@ -145,7 +145,7 @@ private fun UsageRow(report: UsageReport?, onOpenUsage: () -> Unit) {
     val summary = report?.plans
         ?.mapNotNull { plan ->
             val window = plan.headline(nowMs) ?: return@mapNotNull null
-            "${plan.plan.displayName} ${(window.used(nowMs) * 100.0).roundToInt()}%"
+            "${plan.name} ${(window.used(nowMs) * 100.0).roundToInt()}%"
         }
         ?.takeIf { it.isNotEmpty() }
         ?.joinToString(" · ")
