@@ -72,7 +72,9 @@ fun UsageScreen(core: AppCore, phone: PhoneSession) {
             nowMs = System.currentTimeMillis()
         }
     }
-    LaunchedEffect(phone) {
+    val onlineMachineIds = machines.filter { it.health.isOnline }.map { it.id }
+    LaunchedEffect(phone, onlineMachineIds) {
+        if (onlineMachineIds.isEmpty()) return@LaunchedEffect
         core.stats.refresh(phone)
         core.usage.refresh(phone)
     }

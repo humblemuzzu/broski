@@ -25,6 +25,10 @@ struct UsageScreen: View {
         tab == .stats ? model.stats.isReading : model.usage.isReading
     }
 
+    private var readyMachineIds: [String] {
+        model.machines.filter(\.summary.isReady).map(\.id)
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -60,7 +64,8 @@ struct UsageScreen: View {
                     ToolbarItem(placement: .primaryAction) { LoadingOrb(state: .working, label: "Reading usage") }
                 }
             }
-            .task {
+            .task(id: readyMachineIds) {
+                guard !readyMachineIds.isEmpty else { return }
                 await model.stats.refresh(from: model.machines)
                 await model.usage.refresh(from: model.machines)
             }
