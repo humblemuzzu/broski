@@ -15,8 +15,9 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 LINK_DIR="$ROOT/packages/link"
-DAEMON_BIN="$LINK_DIR/target/release/broski-link"
-RELAY_BIN="$LINK_DIR/target/release/broski-relay"
+TARGET_DIR="${CARGO_TARGET_DIR:-$LINK_DIR/target}"
+DAEMON_BIN="$TARGET_DIR/release/broski-link"
+RELAY_BIN="$TARGET_DIR/release/broski-relay"
 BRIDGE_ENTRY="$ROOT/packages/bridge/bin/broski.ts"
 SESSION="broski-daemon"
 RELAY_SESSION="broski-relay"

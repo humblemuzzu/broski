@@ -8,11 +8,12 @@
 #                                         # truncate oversized daemon debug log, shut down idle iOS simulators
 #   scripts/clean-workspace.sh --deep     # everything in --apply, plus prune Rust target/debug (keeps release
 #                                         # broski-link & mobile slices), iOS DerivedData and Android build/ dirs
+# The Rust target directory is $CARGO_TARGET_DIR when set, else packages/link/target.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 IOS_BUILD="$ROOT/apps/ios/Broski/build"
-LINK_TARGET="$ROOT/packages/link/target"
+LINK_TARGET="${CARGO_TARGET_DIR:-$ROOT/packages/link/target}"
 DEBUG_LOG="/tmp/broski-daemon-debug.log"
 
 mode=check
@@ -22,7 +23,7 @@ for arg in "$@"; do
     --apply) mode=apply ;;
     --deep) mode=deep ;;
     -h | --help)
-      sed -n '2,10p' "$0"
+      sed -n '2,11p' "$0"
       exit 0
       ;;
     *)
@@ -97,7 +98,7 @@ if [[ -f $DEBUG_LOG ]]; then
 fi
 
 if [[ $mode == deep ]]; then
-  echo "==> Deep clean: pruning Rust target/debug, iOS DerivedData and Android build dirs"
+  echo "==> Deep clean: pruning $LINK_TARGET/debug, iOS DerivedData and Android build dirs"
   rm -rf \
     "$LINK_TARGET/debug" \
     "$IOS_BUILD/DerivedData" \
