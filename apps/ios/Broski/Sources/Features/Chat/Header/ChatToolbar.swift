@@ -11,8 +11,9 @@ enum ChatDialog: Identifiable {
 }
 
 /// The header's controls: the title (tap to rename), and one trailing cluster of Files for the
-/// session's folder and the overflow (Fork, Rename, Compact, Copy Conversation, Delete) with the
-/// context ring around it. Its dialogs hang on the screen (`chatDialogs`), not in the bar.
+/// session's folder and the overflow (the prompt cache's numbers, then Fork, Rename, Compact, Copy
+/// Conversation, Delete) with the context ring around it. Its dialogs hang on the screen
+/// (`chatDialogs`), not in the bar.
 struct ChatToolbar: ToolbarContent {
     let chat: ChatModel
     let machine: MachineModel
@@ -21,13 +22,15 @@ struct ChatToolbar: ToolbarContent {
     let capabilities: Capabilities?
     @Binding var dialog: ChatDialog?
     @Environment(\.openSession) private var openSession
+    @Environment(\.cacheReadAtMs) private var cacheReadAtMs
 
     var body: some ToolbarContent {
         ToolbarItem(placement: .principal) {
             let blocked = chat.snapshot.interactions.contains(where: \.blocksRun)
             ChatTitle(
                 title: title, subtitle: subtitle, machineProblem: chat.connectionProblem(machine.summary),
-                runStartedAt: blocked ? nil : chat.snapshot.run?.startedAt, canRename: capabilities?.rename ?? false
+                runStartedAt: blocked ? nil : chat.snapshot.run?.startedAt, cache: chat.snapshot.usage?.cache,
+                canRename: capabilities?.rename ?? false
             ) {
                 dialog = .rename
             }
@@ -53,6 +56,11 @@ struct ChatToolbar: ToolbarContent {
 
     @ViewBuilder
     private var overflow: some View {
+        if let lines = chat.snapshot.usage?.cache?.breakdown(nowMs: cacheReadAtMs ?? Date.now.unixMilliseconds), !lines.isEmpty {
+            Section("Prompt Cache") {
+                ForEach(lines, id: \.self) { Text($0) }
+            }
+        }
         if capabilities?.fork ?? false {
             Button("Fork", systemImage: "arrow.triangle.branch") {
                 Task {

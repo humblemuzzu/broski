@@ -37,20 +37,27 @@ import com.muzammil.broski.design.Orb
 import com.muzammil.broski.design.label
 import com.muzammil.broski.design.orb.OrbState
 import com.muzammil.broski.feature.chat.ChatHeader
+import com.muzammil.broski.feature.chat.cacheNow
+import com.muzammil.broski.feature.chat.cacheStatus
+import com.muzammil.broski.feature.chat.color
+import com.muzammil.broski.feature.chat.compact
+import com.muzammil.broski.feature.chat.tone
 import com.muzammil.broski.feature.chat.work.duration
 import kotlinx.coroutines.delay
+import uniffi.broski_contract.CacheWindow
 
 /**
  * The chat's header: back, the title (renamed on a tap) over `agent · folder · machine`, with the
- * run's elapsed time behind a working orb while one is live, or the machine's state in words when it is not ready;
- * then Files and the overflow, the context ring drawn around the overflow. The bar takes its
- * container only while the transcript runs under it.
+ * run's elapsed time behind a working orb while one is live and the prompt cache's state before the words,
+ * or the machine's state in words when it is not ready; then Files and the overflow, the context ring drawn
+ * around the overflow. The bar takes its container only while the transcript runs under it.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatTopBar(
     header: ChatHeader,
     runStartedAt: Long?,
+    cache: CacheWindow?,
     contextUsed: Float?,
     scrolledUnder: Boolean,
     onBack: () -> Unit,
@@ -75,7 +82,7 @@ fun ChatTopBar(
                 modifier = if (onRename != null) Modifier.clickable(onClickLabel = stringResource(R.string.chat_rename), role = Role.Button, onClick = onRename) else Modifier,
             )
         },
-        subtitle = { Subtitle(header, runStartedAt) },
+        subtitle = { Subtitle(header, runStartedAt, cache) },
         navigationIcon = {
             IconButton(onClick = onBack) {
                 Icon(painterResource(R.drawable.ic_arrow_back), contentDescription = stringResource(R.string.action_back))
@@ -95,7 +102,7 @@ fun ChatTopBar(
 }
 
 @Composable
-private fun Subtitle(header: ChatHeader, runStartedAt: Long?) {
+private fun Subtitle(header: ChatHeader, runStartedAt: Long?, cache: CacheWindow?) {
     val health = header.health
     val style = MaterialTheme.typography.labelMedium
     if (health != null && !health.isOnline) {
@@ -109,17 +116,22 @@ private fun Subtitle(header: ChatHeader, runStartedAt: Long?) {
     val parts = listOfNotNull(header.agent.name, header.folder, header.machineName.takeIf { it.isNotEmpty() })
     val subtitle = parts.joinToString(" · ")
     val elapsed = runStartedAt?.let { elapsedSince(it) }
-    if (elapsed == null) {
-        Text(subtitle, style = style, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        return
-    }
+    val status = cacheStatus(cache, cacheNow(cache))
     val working = BroskiTheme.semantic.working
+    val cacheColor = status?.tone?.color()
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Orb(OrbState.WORKING, size = 14.dp)
+        if (elapsed != null) Orb(OrbState.WORKING, size = 14.dp)
         Text(
             buildAnnotatedString {
-                withStyle(SpanStyle(color = working, fontFeatureSettings = "tnum")) { append(elapsed) }
-                append(" · $subtitle")
+                if (elapsed != null) {
+                    withStyle(SpanStyle(color = working, fontFeatureSettings = "tnum")) { append(elapsed) }
+                    append(" · ")
+                }
+                if (status != null && cacheColor != null) {
+                    withStyle(SpanStyle(color = cacheColor, fontFeatureSettings = "tnum")) { append(status.compact) }
+                    append(" · ")
+                }
+                append(subtitle)
             },
             style = style,
             color = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -52,7 +52,7 @@ struct ChatBottomBar: View {
             isEnabled: isReady, catalog: catalog,
             choices: ComposerChoices(chat.snapshot), choose: choose, perform: perform,
             refuse: { chat.report(ChatProblem(message: $0)) }, focus: $composing, dictation: dictation,
-            fileSearch: fileSearch)
+            fileSearch: fileSearch, cache: chat.snapshot.usage?.cache)
     }
 
     private func perform(_ action: SendAction) {

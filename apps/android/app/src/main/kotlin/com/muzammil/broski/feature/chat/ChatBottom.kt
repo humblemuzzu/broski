@@ -104,6 +104,7 @@ private fun ChatComposer(model: ChatViewModel, agent: String, running: Boolean, 
         thinking = live.snapshot.thinking,
         axes = catalog.modes,
         modes = live.snapshot.modes.associate { it.axis to it.value },
+        cache = live.snapshot.usage?.cache,
     )
     val actions = remember(model) {
         ComposerActions(

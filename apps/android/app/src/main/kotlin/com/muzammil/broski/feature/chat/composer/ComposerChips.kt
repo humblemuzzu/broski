@@ -31,6 +31,8 @@ import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
 import com.muzammil.broski.design.Haptic
 import com.muzammil.broski.design.perform
+import com.muzammil.broski.feature.chat.CacheSwitchNotice
+import uniffi.broski_contract.CacheWindow
 import uniffi.broski_contract.ModeAxis
 import uniffi.broski_contract.ModelSummary
 
@@ -39,7 +41,7 @@ private val CHIP_LABEL_MAX = 160.dp
 /** From this many models the chip opens a searchable sheet; fewer fit a menu. */
 private const val SHEET_FROM = 13
 
-/** What the composer's chips show and change: the model, its thinking, and each mode axis. */
+/** What the composer's chips show and change: the model, its thinking, and each mode axis; and the session's prompt cache, which the model picker warns about. */
 @Immutable
 data class ComposerSettings(
     val models: List<ModelSummary> = emptyList(),
@@ -47,6 +49,7 @@ data class ComposerSettings(
     val thinking: String? = null,
     val axes: List<ModeAxis> = emptyList(),
     val modes: Map<String, String> = emptyMap(),
+    val cache: CacheWindow? = null,
 ) {
     val model: ModelSummary? get() = models.firstOrNull { it.id == modelId } ?: models.firstOrNull { it.isDefault }
 }
@@ -108,11 +111,12 @@ private fun ModelChip(settings: ComposerSettings, model: ModelSummary, onPick: (
             options = settings.models.map { PickerOption(it.id, it.displayName, it.providerName ?: it.providerId) },
             selected = model.id,
             onPick = onPick,
+            notice = { CacheSwitchNotice(settings.cache, Modifier.padding(horizontal = 12.dp, vertical = 8.dp).widthIn(max = 280.dp)) },
         )
     } else {
         var open by rememberSaveable { mutableStateOf(false) }
         Chip(model.displayName, null, stringResource(R.string.composer_model)) { open = true }
-        if (open) ModelSheet(settings.models, model.id, onPick) { open = false }
+        if (open) ModelSheet(settings.models, model.id, settings.cache, onPick) { open = false }
     }
 }
 
@@ -128,12 +132,14 @@ private fun Picker(
     selected: String?,
     onPick: (String) -> Unit,
     maxLabel: Dp = CHIP_LABEL_MAX,
+    notice: @Composable () -> Unit = {},
 ) {
     val haptics = LocalHapticFeedback.current
     var open by rememberSaveable { mutableStateOf(false) }
     Box {
         Chip(label, icon, description, maxLabel) { open = true }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            notice()
             options.forEach { option ->
                 DropdownMenuItem(
                     text = { OptionText(option.label, option.detail) },

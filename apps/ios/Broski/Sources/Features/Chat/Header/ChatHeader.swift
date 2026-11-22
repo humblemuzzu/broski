@@ -4,12 +4,13 @@ import ThinkingOrbsKit
 
 /// The chat's title in the bar: the session's title (tap to rename), and under it `agent · folder ·
 /// machine`, or the machine's state in words while it is not ready; while a run is live, a working
-/// orb and its elapsed time in tabular figures.
+/// orb and its elapsed time in tabular figures; the prompt cache's state before the words.
 struct ChatTitle: View {
     let title: String
     let subtitle: String
     let machineProblem: String?
     let runStartedAt: Int64?
+    let cache: CacheWindow?
     let canRename: Bool
     let rename: () -> Void
 
@@ -24,6 +25,9 @@ struct ChatTitle: View {
                         Orb(.working, side: 14, relativeTo: .caption)
                         ElapsedTime(since: runStartedAt).foregroundStyle(Palette.working)
                         Text("·")
+                    }
+                    if let cache, machineProblem == nil {
+                        CacheIndicator(cache: cache)
                     }
                     Text(machineProblem ?? subtitle)
                         .foregroundStyle(machineProblem == nil ? AnyShapeStyle(.secondary) : AnyShapeStyle(Palette.caution))
