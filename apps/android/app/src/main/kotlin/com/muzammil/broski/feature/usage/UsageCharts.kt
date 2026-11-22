@@ -28,37 +28,31 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
 import com.muzammil.broski.core.usage.LimitWindow
-import com.muzammil.broski.core.usage.UsagePlan
+import com.muzammil.broski.core.usage.PlanIds
 import com.muzammil.broski.core.usage.UsageSeverity
 
-/** Brand colours matching iOS `UsageStyle.swift`. */
+/** Brand colours matching iOS `UsageStyle.swift`; a plan without its own is drawn in the theme's primary. */
 internal object UsagePalette {
     @Composable
     fun isDark(): Boolean = MaterialTheme.colorScheme.surface.luminance() < 0.5f
 
     @Composable
-    fun tint(plan: UsagePlan): Color = if (isDark()) {
-        when (plan) {
-            UsagePlan.Claude -> Color(0xFFD97757)
-            UsagePlan.Antigravity -> Color(0xFF5B9DFF)
-        }
-    } else {
-        when (plan) {
-            UsagePlan.Claude -> Color(0xFFC15F3C)
-            UsagePlan.Antigravity -> Color(0xFF1A73E8)
+    fun tint(plan: String): Color {
+        val dark = isDark()
+        return when (plan) {
+            PlanIds.CLAUDE -> if (dark) Color(0xFFD97757) else Color(0xFFC15F3C)
+            PlanIds.ANTIGRAVITY -> if (dark) Color(0xFF5B9DFF) else Color(0xFF1A73E8)
+            else -> MaterialTheme.colorScheme.primary
         }
     }
 
     @Composable
-    fun bright(plan: UsagePlan): Color = if (isDark()) {
-        when (plan) {
-            UsagePlan.Claude -> Color(0xFFFF9B73)
-            UsagePlan.Antigravity -> Color(0xFF8AB4FF)
-        }
-    } else {
-        when (plan) {
-            UsagePlan.Claude -> Color(0xFFC2522D)
-            UsagePlan.Antigravity -> Color(0xFF2F5BEA)
+    fun bright(plan: String): Color {
+        val dark = isDark()
+        return when (plan) {
+            PlanIds.CLAUDE -> if (dark) Color(0xFFFF9B73) else Color(0xFFC2522D)
+            PlanIds.ANTIGRAVITY -> if (dark) Color(0xFF8AB4FF) else Color(0xFF2F5BEA)
+            else -> MaterialTheme.colorScheme.primary
         }
     }
 
@@ -69,26 +63,27 @@ internal object UsagePalette {
     fun critical(): Color = if (isDark()) Color(0xFFFF453A) else Color(0xFFD70015)
 
     @Composable
-    fun severityTint(plan: UsagePlan, severity: UsageSeverity): Color = when (severity) {
+    fun severityTint(plan: String, severity: UsageSeverity): Color = when (severity) {
         UsageSeverity.Normal -> tint(plan)
         UsageSeverity.High -> caution()
         UsageSeverity.Critical -> critical()
     }
 
     @Composable
-    fun meterColors(plan: UsagePlan, severity: UsageSeverity): List<Color> {
+    fun meterColors(plan: String, severity: UsageSeverity): List<Color> {
         val dark = isDark()
         val base = when (plan) {
-            UsagePlan.Claude -> if (dark) {
+            PlanIds.CLAUDE -> if (dark) {
                 listOf(Color(0xFFFFC2A3), Color(0xFFFF8A5C), Color(0xFFF2603D))
             } else {
                 listOf(Color(0xFFF0A27E), Color(0xFFD9663F), Color(0xFFC2452D))
             }
-            UsagePlan.Antigravity -> if (dark) {
+            PlanIds.ANTIGRAVITY -> if (dark) {
                 listOf(Color(0xFF9CC4FF), Color(0xFF4D8BFF), Color(0xFF8C6CFF))
             } else {
                 listOf(Color(0xFF5B9DFF), Color(0xFF2F6BFF), Color(0xFF6B4BEA))
             }
+            else -> MaterialTheme.colorScheme.let { listOf(it.primary.copy(alpha = 0.55f), it.primary, it.tertiary) }
         }
         return when (severity) {
             UsageSeverity.Normal -> base
@@ -104,7 +99,7 @@ internal object UsagePalette {
  */
 @Composable
 fun TickMeter(
-    plan: UsagePlan,
+    plan: String,
     window: LimitWindow,
     nowMs: Long,
     height: Dp,
@@ -161,7 +156,7 @@ fun TickMeter(
  */
 @Composable
 fun BurnChart(
-    plan: UsagePlan,
+    plan: String,
     window: LimitWindow,
     nowMs: Long,
     modifier: Modifier = Modifier,

@@ -1,12 +1,12 @@
 package com.muzammil.broski.feature.inbox
 
+import com.muzammil.broski.core.BackendIds
 import com.muzammil.broski.core.MachineHealth
 import com.muzammil.broski.core.MachineState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import uniffi.broski_contract.BackendId
 import uniffi.broski_contract.SessionRef
 import uniffi.broski_core.InboxRow
 import uniffi.broski_core.InboxState
@@ -17,7 +17,7 @@ class InboxModelTest {
     private fun row(id: String, state: InboxState, updatedAt: Long, machine: String = "m-1") = InboxRow(
         machineId = machine,
         machineName = if (machine == "m-1") "MacBook" else "Studio",
-        session = SessionRef(if (id.startsWith("cc")) BackendId.CLAUDE_CODE else BackendId.PI, id),
+        session = SessionRef(if (id.startsWith("cc")) BackendIds.CLAUDE_CODE else BackendIds.PI, id),
         title = "Session $id",
         cwd = "/Users/me/src/broski",
         state = state,

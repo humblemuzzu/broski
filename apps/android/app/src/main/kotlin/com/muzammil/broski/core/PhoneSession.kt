@@ -18,7 +18,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import uniffi.broski_contract.BackendDescriptor
-import uniffi.broski_contract.BackendId
 import uniffi.broski_contract.BackendStatus
 import uniffi.broski_contract.PermissionOption
 import uniffi.broski_contract.SessionRef
@@ -215,7 +214,7 @@ class PhoneSession internal constructor(
         updateMachine(id) { state ->
             state.copy(
                 agents = backends.map { backend ->
-                    state.agents.firstOrNull { it.backend == backend.id } ?: AgentInstall(backend.id, null)
+                    AgentInstall(Agent.of(backend), state.agents.firstOrNull { it.backend == backend.id }?.status)
                 },
             )
         }
@@ -228,7 +227,7 @@ class PhoneSession internal constructor(
         }
     }
 
-    private fun setAgent(id: String, backend: BackendId, status: BackendStatus) = updateMachine(id) { state ->
+    private fun setAgent(id: String, backend: String, status: BackendStatus) = updateMachine(id) { state ->
         state.copy(agents = state.agents.map { if (it.backend == backend) it.copy(status = status) else it })
     }
 
@@ -244,4 +243,4 @@ class PhoneSession internal constructor(
 }
 
 /** [backend]'s catalog on a machine changed; `null` when the machine's list of backends did. */
-data class CatalogChange(val machineId: String, val backend: BackendId?)
+data class CatalogChange(val machineId: String, val backend: String?)

@@ -1,22 +1,37 @@
 package com.muzammil.broski.core.usage
 
+import com.muzammil.broski.core.titled
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
-import uniffi.broski_contract.PlanId
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 import uniffi.broski_contract.PlanMeter
 import uniffi.broski_contract.UsageSpan
 import uniffi.broski_contract.UsageWindow
 import kotlin.math.roundToLong
 
-@Serializable
-enum class UsagePlan(val displayName: String) {
-    Claude("Claude"),
-    Antigravity("Antigravity");
+/** The plans the app has its own look for, by their wire ids; any other is drawn in the theme's colours. */
+object PlanIds {
+    const val CLAUDE = "claude"
+    const val ANTIGRAVITY = "antigravity"
 
-    companion object {
-        fun from(id: PlanId): UsagePlan = when (id) {
-            PlanId.CLAUDE -> Claude
-            PlanId.ANTIGRAVITY -> Antigravity
-        }
+    private val known = listOf(CLAUDE, ANTIGRAVITY)
+
+    internal fun rank(plan: String): Int = known.indexOf(plan).takeIf { it >= 0 } ?: known.size
+}
+
+/** A plan's wire id, reading too the enum names (`Claude`, `Antigravity`) builds that knew only those stored. */
+internal object PlanIdSerializer : KSerializer<String> {
+    override val descriptor = PrimitiveSerialDescriptor("com.muzammil.broski.core.usage.PlanId", PrimitiveKind.STRING)
+
+    override fun serialize(encoder: Encoder, value: String) = encoder.encodeString(value)
+
+    override fun deserialize(decoder: Decoder): String = when (val stored = decoder.decodeString()) {
+        "Claude" -> PlanIds.CLAUDE
+        "Antigravity" -> PlanIds.ANTIGRAVITY
+        else -> stored
     }
 }
 
@@ -127,13 +142,16 @@ data class LimitWindow(
 
 @Serializable
 data class PlanReport(
-    val plan: UsagePlan,
+    @Serializable(with = PlanIdSerializer::class) val plan: String,
+    val displayName: String? = null,
     val tier: String? = null,
     val windows: List<LimitWindow>,
     val readAtMs: Long? = null,
     val problem: String? = null,
     val machineName: String,
 ) {
+    val name: String get() = displayName ?: titled(plan)
+
     /** Fullest window, preferring Weekly on a tie. */
     fun headline(nowMs: Long): LimitWindow? = windows.maxWithOrNull { a, b ->
         val diff = a.used(nowMs).compareTo(b.used(nowMs))
@@ -153,7 +171,8 @@ data class PlanReport(
         private const val STALE_MS = 2L * 3_600_000L
 
         fun from(meter: PlanMeter, machineName: String): PlanReport = PlanReport(
-            plan = UsagePlan.from(meter.plan),
+            plan = meter.plan,
+            displayName = meter.displayName,
             tier = meter.tier,
             windows = meter.windows.map(LimitWindow::from),
             readAtMs = meter.readAt,
@@ -168,12 +187,12 @@ data class UsageReport(
     val plans: List<PlanReport>,
     val savedAtMs: Long,
 ) {
-    fun plan(plan: UsagePlan): PlanReport? = plans.firstOrNull { it.plan == plan }
-
     companion object {
-        /** One report per plan: when multiple Macs read the same plan, keep the newer reading. */
-        fun merged(plans: List<PlanReport>): List<PlanReport> = UsagePlan.entries.mapNotNull { plan ->
-            plans.filter { it.plan == plan }.maxByOrNull { it.readAtMs ?: Long.MIN_VALUE }
-        }
+        /** One report per plan: when multiple Macs read the same plan, keep the newer reading. Claude, Antigravity, then the rest by id. */
+        fun merged(plans: List<PlanReport>): List<PlanReport> = plans
+            .groupBy { it.plan }
+            .values
+            .map { readings -> readings.maxBy { it.readAtMs ?: Long.MIN_VALUE } }
+            .sortedWith(compareBy<PlanReport> { PlanIds.rank(it.plan) }.thenBy { it.plan })
     }
 }

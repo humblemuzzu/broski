@@ -1,8 +1,10 @@
 package com.muzammil.broski.feature.inbox
 
 import androidx.compose.runtime.Immutable
+import com.muzammil.broski.core.Agent
 import com.muzammil.broski.core.MachineHealth
 import com.muzammil.broski.core.MachineState
+import com.muzammil.broski.core.agent
 import com.muzammil.broski.core.isOnline
 import com.muzammil.broski.core.needsMention
 import com.muzammil.broski.design.settling
@@ -20,6 +22,7 @@ data class MachineMention(val id: String, val name: String, val health: MachineH
 data class InboxUiState(
     val sections: List<InboxSection> = emptyList(),
     val health: Map<String, MachineHealth> = emptyMap(),
+    val machines: List<MachineState> = emptyList(),
     val mentions: List<MachineMention> = emptyList(),
     val working: Int = 0,
     val workingOnly: Boolean = false,
@@ -30,6 +33,8 @@ data class InboxUiState(
     val answering: Set<String> = emptySet(),
 ) {
     val isEmpty: Boolean get() = sections.isEmpty()
+
+    fun agent(row: InboxRow): Agent = machines.agent(row.machineId, row.session.backend)
 }
 
 /**
@@ -52,6 +57,7 @@ fun inboxUiState(
     return InboxUiState(
         sections = sections,
         health = machines.associate { it.id to it.health },
+        machines = machines,
         mentions = machines.filter { it.health.needsMention }.map { MachineMention(it.id, it.name, it.health) },
         working = working,
         workingOnly = filtered,

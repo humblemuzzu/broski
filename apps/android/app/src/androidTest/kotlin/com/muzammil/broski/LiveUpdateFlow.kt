@@ -28,7 +28,7 @@ class LiveUpdateFlow(private val ui: WorkspaceUiDriver, private val machine: Rea
         }
         val live = waitFor { live() }
         assertEquals("1 agent working", live.notification.extras.getString(Notification.EXTRA_TITLE))
-        assertEquals("Pi · Live update · ${machine.phone.machines.value.single().name}", live.notification.extras.getCharSequence(Notification.EXTRA_TEXT).toString())
+        assertEquals("${machine.agentName} · Live update · ${machine.phone.machines.value.single().name}", live.notification.extras.getCharSequence(Notification.EXTRA_TEXT).toString())
         Shots.shade("live-update")
         val stop = live.notification.actions.single { it.title.toString() == ui.string(R.string.live_stop) }
         stop.actionIntent.send()

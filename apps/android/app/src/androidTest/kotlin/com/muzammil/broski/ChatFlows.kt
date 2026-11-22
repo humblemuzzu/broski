@@ -32,7 +32,7 @@ import uniffi.broski_contract.SessionRef
 @OptIn(ExperimentalTestApi::class)
 class ChatFlows(private val ui: WorkspaceUiDriver, private val machine: RealMachine) {
     private val compose get() = ui.compose
-    private val pi get() = ui.string(R.string.agent_pi)
+    private val pi get() = machine.agentName
 
     /** A session scripted with [scenario], opened from its inbox row. */
     private fun open(title: String, scenario: String? = null): SessionRef {

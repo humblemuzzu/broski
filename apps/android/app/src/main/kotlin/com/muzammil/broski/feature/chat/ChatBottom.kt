@@ -28,7 +28,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.muzammil.broski.R
 import com.muzammil.broski.design.Haptic
-import com.muzammil.broski.design.displayName
 import com.muzammil.broski.design.perform
 import com.muzammil.broski.feature.chat.activity.BackgroundTasksBar
 import com.muzammil.broski.feature.chat.composer.CommandList
@@ -58,7 +57,7 @@ fun ChatBottom(model: ChatViewModel, openDiff: (FileChange) -> Unit, openVoiceSe
     val notices by model.notices.collectAsStateWithLifecycle()
     val answers by model.actions.answers.collectAsStateWithLifecycle()
     val header by model.header.collectAsStateWithLifecycle()
-    val agent = stringResource(header.backend.displayName)
+    val agent = header.agent.name
     val capabilities = live.capabilities
     val snapshot = live.snapshot
     Column(

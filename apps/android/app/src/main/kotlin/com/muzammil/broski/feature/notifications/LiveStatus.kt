@@ -54,7 +54,4 @@ data class LiveStatus(
     }
 }
 
-val InboxRow.target: SessionTarget get() = SessionTarget(machineId, session.backend.wire, session.sessionId)
-
-/** The backend's id on the wire (`claude-code`, `pi`), as push payloads and letters carry it. */
-val uniffi.broski_contract.BackendId.wire: String get() = name.lowercase().replace('_', '-')
+val InboxRow.target: SessionTarget get() = SessionTarget(machineId, session.backend, session.sessionId)

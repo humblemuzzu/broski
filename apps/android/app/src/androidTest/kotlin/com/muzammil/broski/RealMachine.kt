@@ -3,9 +3,10 @@ package com.muzammil.broski
 import android.content.Context
 import androidx.test.platform.app.InstrumentationRegistry
 import com.muzammil.broski.app.BroskiApplication
+import com.muzammil.broski.core.BackendIds
 import com.muzammil.broski.core.CoreState
 import com.muzammil.broski.core.PhoneSession
-import com.muzammil.broski.feature.notifications.wire
+import com.muzammil.broski.core.agent
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.UUID
@@ -16,7 +17,6 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.junit.Assume.assumeTrue
-import uniffi.broski_contract.BackendId
 import uniffi.broski_contract.ClientMessage
 import uniffi.broski_contract.NewSessionOptions
 import uniffi.broski_contract.NewSessionResult
@@ -42,6 +42,10 @@ class RealMachine private constructor(val offer: String, val root: String, priva
     /** The one machine the first test paired. */
     val machineId: String
         get() = requireNotNull(phone.machines.value.singleOrNull()) { "the machine is paired by the first test" }.id
+
+    /** The name the machine's bridge gives the agent its sessions run on: its fake backend, served as `pi`. */
+    val agentName: String
+        get() = phone.machines.value.agent(machineId, BackendIds.PI).name
 
     /** A session with one finished exchange in the served folder (test-machine's `seed`). */
     fun seed(title: String): SessionRef {
@@ -80,7 +84,7 @@ class RealMachine private constructor(val offer: String, val root: String, priva
     suspend fun newSession(): SessionRef {
         val machine = requireNotNull(phone.machine(machineId))
         val options = NewSessionOptions(cwd = root, modelId = null, thinking = null, modes = null)
-        val created = machine.request(ClientMessage.SessionCreate(SessionCreateRequest("", BackendId.PI, options))) as ServerMessage.SessionCreateResult
+        val created = machine.request(ClientMessage.SessionCreate(SessionCreateRequest("", BackendIds.PI, options))) as ServerMessage.SessionCreateResult
         return (created.v1.result as NewSessionResult.Accepted).v1.session
     }
 
@@ -107,13 +111,12 @@ class RealMachine private constructor(val offer: String, val root: String, priva
     }
 
     private fun wire(session: SessionRef) = buildJsonObject {
-        put("backend", session.backend.wire)
+        put("backend", session.backend)
         put("sessionId", session.sessionId)
     }
 
     private fun session(json: JsonObject): SessionRef {
-        val backend = json.getValue("backend").jsonPrimitive.content
-        return SessionRef(BackendId.entries.first { it.wire == backend }, json.getValue("sessionId").jsonPrimitive.content)
+        return SessionRef(json.getValue("backend").jsonPrimitive.content, json.getValue("sessionId").jsonPrimitive.content)
     }
 
     companion object {

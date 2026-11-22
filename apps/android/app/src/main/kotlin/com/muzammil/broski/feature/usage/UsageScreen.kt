@@ -99,7 +99,7 @@ fun UsageScreen(core: AppCore, phone: PhoneSession, onBack: () -> Unit) {
                     ),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    items(plans, key = { it.plan.name }) { plan ->
+                    items(plans, key = { it.plan }) { plan ->
                         PlanUsageCard(plan, nowMs)
                     }
                     item(key = "widget-hint") {

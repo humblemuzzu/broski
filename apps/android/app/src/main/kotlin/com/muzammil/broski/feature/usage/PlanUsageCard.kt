@@ -30,7 +30,7 @@ import com.muzammil.broski.R
 import com.muzammil.broski.core.usage.LimitWindow
 import com.muzammil.broski.core.usage.PlanReport
 import com.muzammil.broski.core.usage.UsagePace
-import com.muzammil.broski.core.usage.UsagePlan
+import com.muzammil.broski.core.usage.PlanIds
 import com.muzammil.broski.core.usage.UsageSeverity
 import com.muzammil.broski.design.relativeTime
 import java.time.Instant
@@ -102,14 +102,14 @@ private fun PlanHeader(report: PlanReport, nowMs: Long, tint: Color) {
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                painterResource(if (report.plan == UsagePlan.Claude) R.drawable.ic_agent_claude else R.drawable.ic_star),
+                painterResource(if (report.plan == PlanIds.CLAUDE) R.drawable.ic_agent_claude else R.drawable.ic_star),
                 contentDescription = null,
                 tint = tint,
                 modifier = Modifier.size(22.dp),
             )
         }
         Column(Modifier.weight(1f)) {
-            Text(report.plan.displayName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(report.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             val subtitle = listOfNotNull(report.tier, report.machineName.takeIf { it.isNotBlank() }).joinToString(" · ")
             if (subtitle.isNotEmpty()) {
                 Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -142,7 +142,7 @@ private fun ProblemStrip(message: String) {
 }
 
 @Composable
-private fun HeadlineWindow(plan: UsagePlan, window: LimitWindow, nowMs: Long) {
+private fun HeadlineWindow(plan: String, window: LimitWindow, nowMs: Long) {
     val pct = (window.used(nowMs) * 100.0).roundToInt()
     val eyebrow = window.shortScope?.let { "${window.span.title} · $it" }
         ?: stringResource(R.string.usage_window_limit, window.span.title)
@@ -180,7 +180,7 @@ private fun HeadlineWindow(plan: UsagePlan, window: LimitWindow, nowMs: Long) {
 }
 
 @Composable
-private fun PaceBadge(plan: UsagePlan, pace: UsagePace) {
+private fun PaceBadge(plan: String, pace: UsagePace) {
     val (label, color) = when (pace) {
         UsagePace.Under -> stringResource(R.string.usage_pace_under) to UsagePalette.tint(plan)
         UsagePace.Steady -> stringResource(R.string.usage_pace_steady) to MaterialTheme.colorScheme.onSurfaceVariant
@@ -201,7 +201,7 @@ private fun PaceBadge(plan: UsagePlan, pace: UsagePace) {
 }
 
 @Composable
-private fun LimitRow(plan: UsagePlan, window: LimitWindow, nowMs: Long) {
+private fun LimitRow(plan: String, window: LimitWindow, nowMs: Long) {
     val severity = window.severity(nowMs)
     val pct = (window.used(nowMs) * 100.0).roundToInt()
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {

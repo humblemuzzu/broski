@@ -34,7 +34,6 @@ import com.muzammil.broski.R
 import com.muzammil.broski.core.isOnline
 import com.muzammil.broski.design.BroskiTheme
 import com.muzammil.broski.design.Orb
-import com.muzammil.broski.design.displayName
 import com.muzammil.broski.design.label
 import com.muzammil.broski.design.orb.OrbState
 import com.muzammil.broski.feature.chat.ChatHeader
@@ -107,7 +106,7 @@ private fun Subtitle(header: ChatHeader, runStartedAt: Long?) {
         Text(stringResource(R.string.chat_reconnecting), style = style, color = MaterialTheme.colorScheme.error, maxLines = 1, overflow = TextOverflow.Ellipsis)
         return
     }
-    val parts = listOfNotNull(stringResource(header.backend.displayName), header.folder, header.machineName.takeIf { it.isNotEmpty() })
+    val parts = listOfNotNull(header.agent.name, header.folder, header.machineName.takeIf { it.isNotEmpty() })
     val subtitle = parts.joinToString(" · ")
     val elapsed = runStartedAt?.let { elapsedSince(it) }
     if (elapsed == null) {

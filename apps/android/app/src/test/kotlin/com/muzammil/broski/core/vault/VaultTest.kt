@@ -23,7 +23,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
-import uniffi.broski_contract.BackendId
 import uniffi.broski_contract.SessionRef
 import uniffi.broski_core.SeenMarker
 import uniffi.broski_core.SeenState
@@ -55,7 +54,10 @@ class VaultTest {
     private fun vault(with: SecretKey = key, store: DataStore<Preferences> = store()) = Vault(store, AesGcmCipher { with })
 
     private val seen = SeenState(
-        markers = listOf(SeenMarker("m-1", SessionRef(BackendId.CLAUDE_CODE, "s-9"), 1_725_000_000_000)),
+        markers = listOf(
+            SeenMarker("m-1", SessionRef("claude-code", "s-9"), 1_725_000_000_000),
+            SeenMarker("m-2", SessionRef("codex", "s-3"), 1_725_000_000_500),
+        ),
         readMachines = listOf("m-1", "m-2"),
     )
 
@@ -125,15 +127,28 @@ class VaultTest {
     }
 
     @Test
-    fun aMarkerOfABackendThisBuildDoesNotKnowIsLeftOut() {
+    fun markersAnOlderBuildStoredByEnumNameReadAsWireIdsBesideAnyOtherBackend() {
         val stored = """
             {"markers":[
-              {"machineId":"m-1","backend":"PI","sessionId":"s-1","seenAt":5},
-              {"machineId":"m-1","backend":"CODEX","sessionId":"s-2","seenAt":6}
+              {"machineId":"m-1","backend":"CLAUDE_CODE","sessionId":"s-1","seenAt":5},
+              {"machineId":"m-1","backend":"PI","sessionId":"s-2","seenAt":6},
+              {"machineId":"m-2","backend":"codex","sessionId":"s-3","seenAt":7},
+              {"machineId":"m-2","backend":"","sessionId":"s-4","seenAt":8},
+              {"machineId":"m-2","backend":"CODEX","sessionId":"s-5","seenAt":9},
+              {"machineId":"m-2","backend":"../pi","sessionId":"s-6","seenAt":10}
             ],"readMachines":["m-1"]}
         """.trimIndent().encodeToByteArray()
-        val decoded = SeenStateCodec.decode(stored)
-        assertEquals(listOf(SeenMarker("m-1", SessionRef(BackendId.PI, "s-1"), 5)), decoded.markers)
-        assertEquals(seen, SeenStateCodec.decode(SeenStateCodec.encode(seen)))
+        val migrated = SeenStateCodec.decode(stored)
+        val expected = listOf(
+            SeenMarker("m-1", SessionRef("claude-code", "s-1"), 5),
+            SeenMarker("m-1", SessionRef("pi", "s-2"), 6),
+            SeenMarker("m-2", SessionRef("codex", "s-3"), 7),
+        )
+        assertEquals(expected, migrated.markers)
+        assertEquals(listOf("m-1"), migrated.readMachines)
+
+        val rewritten = SeenStateCodec.encode(migrated).decodeToString()
+        assertEquals(listOf("claude-code", "pi", "codex"), Regex("\"backend\":\"([^\"]*)\"").findAll(rewritten).map { it.groupValues[1] }.toList())
+        assertEquals(migrated, SeenStateCodec.decode(rewritten.encodeToByteArray()))
     }
 }

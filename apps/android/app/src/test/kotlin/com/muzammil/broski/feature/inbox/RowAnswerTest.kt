@@ -1,10 +1,10 @@
 package com.muzammil.broski.feature.inbox
 
+import com.muzammil.broski.core.BackendIds
 import com.muzammil.broski.design.Haptic
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
-import uniffi.broski_contract.BackendId
 import uniffi.broski_contract.InteractionKind
 import uniffi.broski_contract.MessagePolicy
 import uniffi.broski_contract.PermissionEffect
@@ -24,7 +24,7 @@ class RowAnswerTest {
     private fun row(pending: PendingAsk?, cached: Boolean = false) = InboxRow(
         machineId = "m-1",
         machineName = "MacBook",
-        session = SessionRef(BackendId.CLAUDE_CODE, "cc-ask"),
+        session = SessionRef(BackendIds.CLAUDE_CODE, "cc-ask"),
         title = "Fix the flaky test",
         cwd = "/Users/me/src/broski",
         state = InboxState.NEEDS_YOU,

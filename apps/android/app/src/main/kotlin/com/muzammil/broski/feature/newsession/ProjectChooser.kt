@@ -38,14 +38,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
+import com.muzammil.broski.core.Agent
 import com.muzammil.broski.core.AgentInstall
 import com.muzammil.broski.design.AgentMark
-import com.muzammil.broski.design.displayName
 import com.muzammil.broski.feature.workspace.lastComponent
 import com.muzammil.broski.feature.workspace.parentPath
 import com.muzammil.broski.feature.workspace.shortPath
 import uniffi.broski_contract.AuthState
-import uniffi.broski_contract.BackendId
 
 /** The composer's shape, which the card above it shares. */
 internal val ComposerShape = RoundedCornerShape(28.dp)
@@ -134,15 +133,15 @@ private fun ChooserRow(@DrawableRes icon: Int, title: String, detail: String?, c
 @Composable
 internal fun SessionPills(
     agents: List<AgentInstall>,
-    backend: BackendId?,
+    chosen: Agent?,
     machineName: String,
     folder: String?,
     showsProjects: Boolean,
-    onAgent: (BackendId) -> Unit,
+    onAgent: (String) -> Unit,
     onFolder: () -> Unit,
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        AgentPill(agents, backend, machineName, onAgent)
+        AgentPill(agents, chosen, machineName, onAgent)
         Pill(onClick = onFolder, modifier = Modifier.weight(1f, fill = false)) {
             Icon(painterResource(R.drawable.ic_folder), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
             Text(
@@ -162,12 +161,12 @@ internal fun SessionPills(
 }
 
 @Composable
-private fun AgentPill(agents: List<AgentInstall>, backend: BackendId?, machineName: String, onAgent: (BackendId) -> Unit) {
+private fun AgentPill(agents: List<AgentInstall>, chosen: Agent?, machineName: String, onAgent: (String) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
         Pill(onClick = { open = true }) {
-            backend?.let { AgentMark(it, size = 22.dp) }
-            Text(backend?.let { stringResource(it.displayName) } ?: stringResource(R.string.new_session_agent))
+            chosen?.let { AgentMark(it, size = 22.dp) }
+            Text(chosen?.name ?: stringResource(R.string.new_session_agent))
             Icon(painterResource(R.drawable.ic_keyboard_arrow_down), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
@@ -175,14 +174,14 @@ private fun AgentPill(agents: List<AgentInstall>, backend: BackendId?, machineNa
                 DropdownMenuItem(
                     text = {
                         Column {
-                            Text(stringResource(agent.backend.displayName))
+                            Text(agent.agent.name)
                             unusable(agent, machineName)?.let {
                                 Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     },
-                    leadingIcon = { AgentMark(agent.backend, size = 28.dp) },
-                    trailingIcon = if (agent.backend == backend) ({ Icon(painterResource(R.drawable.ic_check), contentDescription = null) }) else null,
+                    leadingIcon = { AgentMark(agent.agent, size = 28.dp) },
+                    trailingIcon = if (agent.backend == chosen?.id) ({ Icon(painterResource(R.drawable.ic_check), contentDescription = null) }) else null,
                     enabled = agent.canRun,
                     onClick = {
                         open = false

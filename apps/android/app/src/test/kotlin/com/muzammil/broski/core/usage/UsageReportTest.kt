@@ -9,6 +9,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import uniffi.broski_contract.PlanMeter
+import uniffi.broski_contract.UsageSpan
+import uniffi.broski_contract.UsageWindow
 
 class UsageReportTest {
     @get:Rule
@@ -41,7 +44,7 @@ class UsageReportTest {
     @Test
     fun mergedPicksNewerReadingAcrossMachinesAndHeadlinePrefersFullest() {
         val older = PlanReport(
-            plan = UsagePlan.Claude,
+            plan = "claude",
             tier = "Max",
             windows = listOf(LimitWindow("s", LimitSpan.FiveHour, usedPercent = 20.0)),
             readAtMs = 1_000L,
@@ -70,7 +73,8 @@ class UsageReportTest {
         val report = UsageReport(
             plans = listOf(
                 PlanReport(
-                    plan = UsagePlan.Claude,
+                    plan = "codex",
+                    displayName = "Codex",
                     tier = "Max 5x",
                     windows = listOf(
                         LimitWindow(
@@ -91,5 +95,35 @@ class UsageReportTest {
         val loaded = store.load()
         assertNotNull(loaded)
         assertEquals(report, loaded)
+    }
+
+    @Test
+    fun anyPlanTheBridgeReadsIsReportedByItsOwnNameAfterClaudeAndAntigravity() {
+        val window = UsageWindow("w", UsageSpan.WEEK, null, 10.0, null, null)
+        val meters = listOf(
+            PlanMeter("zed-pro", "Zed Pro", null, listOf(window), 3_000L, null),
+            PlanMeter("antigravity", "Antigravity", "Pro", listOf(window), 2_000L, null),
+            PlanMeter("cursor", null, null, listOf(window), 1_000L, null),
+            PlanMeter("claude", "Claude", "Max", listOf(window), 1_000L, null),
+        )
+        val merged = UsageReport.merged(meters.map { PlanReport.from(it, "Mac") })
+        assertEquals(listOf("claude", "antigravity", "cursor", "zed-pro"), merged.map { it.plan })
+        assertEquals(listOf("Claude", "Antigravity", "Cursor", "Zed Pro"), merged.map { it.name })
+    }
+
+    @Test
+    fun aReportAnOlderBuildStoredByEnumNameStillOpensAsWireIds() {
+        val file = File(temp.root, "usage_report.json")
+        file.writeText(
+            """
+            {"plans":[
+              {"plan":"Claude","tier":"Max","windows":[],"machineName":"Mac"},
+              {"plan":"Antigravity","windows":[],"machineName":"Mac"}
+            ],"savedAtMs":5}
+            """.trimIndent(),
+        )
+        val loaded = requireNotNull(UsageStore(file).load())
+        assertEquals(listOf("claude", "antigravity"), loaded.plans.map { it.plan })
+        assertEquals(listOf("Claude", "Antigravity"), loaded.plans.map { it.name })
     }
 }

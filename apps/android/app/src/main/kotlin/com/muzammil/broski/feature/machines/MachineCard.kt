@@ -27,7 +27,6 @@ import com.muzammil.broski.core.MachineHealth
 import com.muzammil.broski.core.MachineState
 import com.muzammil.broski.core.isOnline
 import com.muzammil.broski.design.MachineStatusChip
-import com.muzammil.broski.design.displayName
 import com.muzammil.broski.design.relativeTime
 
 @Composable
@@ -85,7 +84,7 @@ private fun MachineFacts(machine: MachineState) {
 
 @Composable
 private fun agentLine(agent: AgentInstall): String {
-    val name = stringResource(agent.backend.displayName)
+    val name = agent.agent.name
     val status = agent.status ?: return name
     return when {
         !status.installed -> stringResource(R.string.machines_agent_not_installed, name)

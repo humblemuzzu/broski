@@ -1,10 +1,10 @@
 package com.muzammil.broski.feature.chat
 
 import androidx.compose.runtime.Immutable
+import com.muzammil.broski.core.Agent
 import com.muzammil.broski.core.MachineHealth
 import com.muzammil.broski.core.isOnline
 import com.muzammil.broski.feature.chat.composer.Outgoing
-import uniffi.broski_contract.BackendId
 import uniffi.broski_contract.NoticeLevel
 import uniffi.broski_contract.RejectionCode
 import uniffi.broski_contract.SessionRef
@@ -14,7 +14,7 @@ import uniffi.broski_core.ClientException
 @Immutable
 data class ChatHeader(
     val title: String?,
-    val backend: BackendId,
+    val agent: Agent,
     val cwd: String?,
     val machineName: String,
     val health: MachineHealth?,

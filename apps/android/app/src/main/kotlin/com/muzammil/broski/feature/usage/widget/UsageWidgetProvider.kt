@@ -13,13 +13,13 @@ import android.widget.RemoteViews
 import com.muzammil.broski.R
 import com.muzammil.broski.app.MainActivity
 import com.muzammil.broski.core.usage.PlanReport
-import com.muzammil.broski.core.usage.UsagePlan
+import com.muzammil.broski.core.usage.PlanIds
 import com.muzammil.broski.core.usage.UsageStore
 import com.muzammil.broski.feature.usage.formatCountdown
 import kotlin.math.roundToInt
 
 /**
- * Native Android Home Screen widget showing Claude and Antigravity plan usage from [UsageStore].
+ * Native Android Home Screen widget showing the first two plans' usage from [UsageStore].
  * Tapping opens Broski directly to the Plan Usage screen.
  */
 class UsageWidgetProvider : AppWidgetProvider() {
@@ -102,11 +102,12 @@ class UsageWidgetProvider : AppWidgetProvider() {
         }.joinToString(" · ")
         val dark = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         val accent = when (plan.plan) {
-            UsagePlan.Claude -> if (dark) Color.parseColor("#FF9B73") else Color.parseColor("#C2522D")
-            UsagePlan.Antigravity -> if (dark) Color.parseColor("#8AB4FF") else Color.parseColor("#2F5BEA")
+            PlanIds.CLAUDE -> if (dark) Color.parseColor("#FF9B73") else Color.parseColor("#C2522D")
+            PlanIds.ANTIGRAVITY -> if (dark) Color.parseColor("#8AB4FF") else Color.parseColor("#2F5BEA")
+            else -> if (dark) Color.parseColor("#C0C1FF") else Color.parseColor("#575992")
         }
         views.setViewVisibility(containerId, View.VISIBLE)
-        views.setTextViewText(nameId, plan.plan.displayName)
+        views.setTextViewText(nameId, plan.name)
         views.setTextViewText(metaId, meta.ifEmpty { plan.tier ?: plan.machineName })
         views.setTextViewText(percentId, "$pct%")
         views.setTextColor(percentId, accent)
