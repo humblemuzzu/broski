@@ -327,7 +327,7 @@ function watchChild(
  */
 export function nativeConnectPty(id: string): NativePtyConnection | null {
 	const session = sessions.get(id);
-	if (!session || session.status !== "running" || session.closed) return null;
+	if (session?.status !== "running" || session.closed) return null;
 	const lib = nativeLib();
 	let onData: ((data: Uint8Array) => void) | null = null;
 	let onExit: ((exit: PtyExit) => void) | null = null;

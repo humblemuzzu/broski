@@ -7,7 +7,7 @@ the user is looking at.**
 | Source | Where | Raises |
 |---|---|---|
 | Daemon push (APNs / FCM, needs the relay) | `server/link-feed/contract-tap.ts` ← the core's observer → `broski-link` | `approval` and `attention` per request id, `done` after a session's run ends and the session stays idle 5 s; from a run's start and end (`run_finished` `completed`, `error`, `limit`; not `aborted`) and from pending interactions (`tool_permission` → `approval`, every other kind → `attention`) ([bridge-feed.md](connectivity-v2/bridge-feed.md), [push.md](connectivity-v2/push.md)) |
-| Local notification while the app is alive | the phone app (Phase 4 of `docs/rebuild/PLAN.md`), from the catalog's session rows | one "completed" notification on a row's busy → idle edge, except for a subagent's child session (its run is inside its parent's, which is told) and for the chat on screen with the app in front |
+| Local notification while the app is alive | the phone app, from the catalog's session rows | one "completed" notification on a row's busy → idle edge, except for a subagent's child session (its run is inside its parent's, which is told) and for the chat on screen with the app in front |
 
 A run's end raises the `done` push and the local notification alike; when the run wrote no text, the push body names
 its newest top-level call and a failing exit code instead of an answer line (`server/link-feed/contract-format.ts`).

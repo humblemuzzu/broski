@@ -2,7 +2,7 @@ import BroskiCore
 import SwiftUI
 
 /// Every measure the formatter draws with, in one place; Android's `FormatTokens.kt` holds the same
-/// table so the two apps cannot drift (docs/rebuild/formatting-plan.md §5).
+/// table so the two apps cannot drift.
 nonisolated enum FormatTokens {
     /// Prose wider than this reads badly; in landscape and on iPad it is centred at this width.
     static let readableWidth: CGFloat = 680

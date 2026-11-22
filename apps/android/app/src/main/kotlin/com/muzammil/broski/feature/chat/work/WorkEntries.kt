@@ -69,7 +69,7 @@ class WorkActions(
     )
 }
 
-/** other clients's numbers: an open fold stops at 256 dp and scrolls inside, under 12 dp edge fades. */
+/** An open fold stops at 256 dp and scrolls inside, under 12 dp edge fades. */
 private val MAX_HEIGHT = 256.dp
 private val ROW_HEIGHT = 28.dp
 private val FADE = 12.dp

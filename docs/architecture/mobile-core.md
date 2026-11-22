@@ -26,8 +26,8 @@ SwiftUI / Compose ── broski-mobile (UniFFI) ── broski-client ── bros
   the spawned task: a `Sleep` finds its timer when it is constructed), aborted when the wait is dropped;
   waits for news are `tokio::sync::Notify`, which needs no runtime (`wait.rs`, tested by polling from a
   thread with no runtime).
-- Subscriptions are **pulled**, as litter does it (`docs/rebuild/research/uniffi.md`): `next_update`,
-  `next_change`, `next_event`. The app runs a loop per subscription. A pull dropped before it returns
+- Subscriptions are **pulled** (no foreign callbacks): `next_update`, `next_change`, `next_event`.
+  The app runs a loop per subscription. A pull dropped before it returns
   loses nothing, since an update is only taken in the poll that returns it, and closing a view or list
   wakes a pull in progress to return `None`. How Swift and Kotlin cancel a pull differs:
   [mobile-packaging.md §1](mobile-packaging.md#subscriptions-cancellation-and-threads).
@@ -51,7 +51,7 @@ and a machine ends through `Phone.forget`).
 | `view.next_update() -> SessionUpdate`, `snapshot()`, `session()`, `capabilities()`, `close()` | a chat screen's data |
 | `terminal.next_update() -> TerminalUpdate`, `input(bytes)`, `resize(cols, rows, cell_w?, cell_h?)`, `summary()`, `close()` | a terminal screen's data |
 | `list.rows()`, `next_change()`, `load_more()`, `refresh()`, `close()` | one session list |
-| `inbox.rows()`, `next_change() -> InboxUpdate`, `refresh()`, `mark_seen(machine_id, session)`, `mark_all_seen()`, `seen()`, `restore_seen(state)`, `restore_cache(bytes)`, `answer(machine_id, session, interaction_id, option_id) -> AnswerOutcome` | the home screen |
+| `inbox.rows()`, `next_change() -> InboxUpdate`, `refresh()`, `mark_seen(machine_id, session)`, `mark_unread(machine_id, session)`, `mark_all_seen()`, `seen()`, `restore_seen(state)`, `restore_cache(bytes)`, `answer(machine_id, session, interaction_id, option_id) -> AnswerOutcome` | the home screen |
 
 Every failure is a `ClientError`: `Refused{code, detail}` (the bridge's `error{…}`), `Rejected{code,
 detail}` (a result's `Rejected`, from the helpers that return nothing on success; every other helper
@@ -247,9 +247,12 @@ have not loaded since the start shows its restored rows (`cached: true`, no `pen
 `Working` as last known, `Done` and `Idle` by the seen markers); its own rows replace them once its
 lists load, and `forget` drops them. Restored rows show only for machines started; bytes of another
 version, or not a cache, are refused `InvalidRequest` and change nothing (the next cache replaces
-them). **What the person has seen** is `SeenState{markers, read_machines}`. A marker is
+them). **What the person has seen** is `SeenState{markers, read_machines, unread}`. A marker is
 `{machine_id, session, seen_at}`, `seen_at` being the row's `updatedAt` when the person looked: `mark_seen`
-sets one, and never moves one back. A session not listed yet, or whose row still shows a run or an ask the
+sets one, clears any explicit `unread` entry for that session, and never moves a marker back. `mark_unread`
+removes the session's marker and records an `UnreadSession{machine_id, session}` in `unread` so the row
+shows as `Done` even past the 24-hour window until the person opens it (`mark_seen`), runs `mark_all_seen`,
+or forgets the machine. A session not listed yet, or whose row still shows a run or an ask the
 phone's own view has already seen end, is not marked at that stale row: its mark waits until its row
 settles, so the update that follows does not make a session the person just watched `Done` again.
 `read_machines` are the machines whose history is already marked. `InboxUpdate.seen` carries the

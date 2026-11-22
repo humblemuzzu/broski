@@ -2,18 +2,16 @@
 
 ## What Broski Is
 
-Broski is a **native phone remote for the AI coding agents on your computer**. It has not launched yet — what is on
-`main` is **Broski v1** (the unlaunched Flutter prototype is preserved only as an archive on branch `final-flutter`,
-readable with `git show final-flutter:<path>`). Broski currently ships with **Claude Code** and **Pi**, driving the
-user's own installed agents, config and extensions, and is architected around the backend contract so additional
-agents can be added over time without rewriting the mobile UI.
+Broski is a **native phone remote for the AI coding agents on your computer**. Broski currently ships with **Claude Code**
+and **Pi**, driving the user's own installed agents, config and extensions, and is architected around an open backend
+contract so additional agents can be added without rewriting the mobile UI.
 
 ```
 Phone (iOS / Android app) ←Broski Link (Noise e2e; LAN or relay)→ broski-link daemon (Rust, your Mac) ←unix socket→ Bridge (Bun/TS) ←SDK / RPC→ {Claude Code, Pi, …}
 ```
 
 What is here: the bridge, the link stack, the shared phone core packaged for both native apps, and the iOS and Android
-apps. The architecture plan and scope live in [`docs/rebuild/PLAN.md`](docs/rebuild/PLAN.md).
+apps. See [`ARCHITECTURE.md`](ARCHITECTURE.md) and [`docs/architecture/`](docs/architecture/).
 
 - **Bridge** (`packages/bridge/`) — TypeScript on the user's machine. Hosts the agents through their SDKs and speaks
   the backend contract to the daemon over `~/.broski/link/bridge.sock`. Every socket upgrade must quote the key the
@@ -88,8 +86,8 @@ apps. The architecture plan and scope live in [`docs/rebuild/PLAN.md`](docs/rebu
   Keystore-sealed DataStore (`core/vault/`). The chat (`feature/chat/`) and New session
   (`feature/newsession/`) are wired in `app/Features.kt`; dictation lives in `core/voice/` and the composer's
   `feature/chat/composer/dictation/`, with Settings › Voice in `feature/settings/`.
-- **Identifiers kept from the Flutter app** ([`apps/carryover/README.md`](apps/carryover/README.md)) — the bundle
-  ids, team, keychain groups and Android application id the native apps keep.
+- **App identifiers** ([`apps/carryover/README.md`](apps/carryover/README.md)) — the bundle
+  ids, team, keychain groups and Android application id used by the native apps.
 - **Connection:** direct over the LAN when reachable, otherwise through the relay. No VPN, tunnel, port forwarding
   or public exposure of the bridge.
 - **Auth layers:** QR v2 pairing (`broski://pair?v=2&h=<fingerprint>&s=<one-time secret>&e=<expiry>&n=<name>[&r=<relay>][&l=<lan>]`),
@@ -163,8 +161,8 @@ The wire shape between bridge and phone is the backend contract in `packages/bri
   `scripts/check-agent-text.sh` (CI and pre-commit) fails on a `Text(` reading an agent-written field outside
   those directories; a deliberate exception is a line of `scripts/agent-text-allowlist.txt` with why.
 - **The parser is ours** (`render/src/format/`); do not add a markdown, highlighting-theme or rendering library to
-  the core or either app. The target design is [`docs/rebuild/formatting-plan.md`](docs/rebuild/formatting-plan.md);
-  judge changes on the phone in Settings › Formatting, whose samples are `render/tests/fixtures/format/`.
+  the core or either app. See [`docs/architecture/formatting.md`](docs/architecture/formatting.md); judge changes on
+  the phone in Settings › Formatting, whose samples are `render/tests/fixtures/format/`.
 
 ## The bridge core
 

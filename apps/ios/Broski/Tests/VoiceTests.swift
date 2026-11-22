@@ -81,11 +81,11 @@ struct VoiceTests {
 
         defaults.set(VoiceLanguage.detect, forKey: VoicePreference.language)
         defaults.set(false, forKey: VoicePreference.projectWords)
-        defaults.set("humblemuzzu\n  Ghostty \n\n", forKey: VoicePreference.dictionary)
+        defaults.set("Broski\n  Ghostty \n\n", forKey: VoicePreference.dictionary)
         let stored = VoiceSettings.current(defaults)
         #expect(stored.language == nil)
         #expect(!stored.projectWords)
-        #expect(stored.dictionary == ["Zanzibar", "Ghostty"])
+        #expect(stored.dictionary == ["Broski", "Ghostty"])
     }
 
     @Test

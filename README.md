@@ -46,8 +46,8 @@ update.
 ## Status
 
 Unreleased and in active development. There are no App Store or Play Store builds, no published bridge package and
-no hosted relay yet: you build everything from this repository. The plan and scope are in
-[`docs/rebuild/PLAN.md`](docs/rebuild/PLAN.md); the unlaunched Flutter prototype is archived on branch `final-flutter`.
+no hosted relay yet: you build everything from this repository. See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the
+system map and [`docs/architecture/`](docs/architecture/) for the specifications.
 
 ## Quickstart (from source)
 

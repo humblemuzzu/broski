@@ -28,15 +28,15 @@ fn the_dictionary_and_the_project_come_first_in_order() {
         items: vec![user("u1", "Refactor `ChatModel` please")],
         cwd: Some("/Users/me/StudioProjects/broski/".to_owned()),
         dictionary: vec![
-            "Zanzibar".to_owned(),
-            " Ghostty ".to_owned(),
-            "humblemuzzu".to_owned(),
+            "Ghostty".to_owned(),
+            " UniFFI ".to_owned(),
+            "ghostty".to_owned(),
         ],
         ..Default::default()
     };
     assert_eq!(
         terms(&sources),
-        ["Zanzibar", "Ghostty", "broski", "ChatModel"]
+        ["Ghostty", "UniFFI", "broski", "ChatModel"]
     );
 }
 

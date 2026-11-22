@@ -34,7 +34,7 @@ render crates; each export is a one-line forward. It calls
 | `SessionView` | `nextUpdate() async → SessionUpdate?`, `snapshot() → SessionSnapshot?`, `session() → SessionRef?`, `capabilities() → SessionCapabilities?`, `detach()` | `broski_client::SessionView` (`detach` is its `close`) |
 | `TerminalView` | `id()`, `nextUpdate() async → TerminalUpdate?`, `summary() → TerminalSummary?`, `input(data:) async throws → ActionResult`, `resize(cols:rows:cellWidth:cellHeight:) async throws → ActionResult`, `detach()` | `broski_client::TerminalView` |
 | `SessionList` | `rows() → SessionListUpdate`, `nextChange() async → SessionListUpdate?`, `loadMore() async throws`, `refresh() async throws`, `stop()` | `broski_client::SessionList` |
-| `Inbox` | `rows() → [InboxRow]`, `nextChange() async → InboxUpdate`, `refresh() async`, `markSeen(machineId:session:)`, `seen() → SeenState`, `restoreSeen(state:)`, `restoreCache(cache:) throws`, `answer(machineId:session:interactionId:optionId:) async throws → AnswerOutcome` | `broski_client::Inbox` |
+| `Inbox` | `rows() → [InboxRow]`, `nextChange() async → InboxUpdate`, `refresh() async`, `markSeen(machineId:session:)`, `markUnread(machineId:session:)`, `markAllSeen()`, `seen() → SeenState`, `restoreSeen(state:)`, `restoreCache(cache:) throws`, `answer(machineId:session:interactionId:optionId:) async throws → AnswerOutcome` | `broski_client::Inbox` |
 | `MachineRecord` | `MachineRecord.fromBytes(bytes:) throws`, `toBytes()`, `id()`, `name()`, `os()`, `pairedAtMs()` | the session's `MachineRecord` and its stored form (`session/src/record_codec.rs`), opaque |
 
 No object has a method named `close` or `destroy`: Kotlin objects already have both, from
@@ -67,7 +67,7 @@ view is exported as `detach`, of a list as `stop`; a machine is ended through `P
   each restatement against `broski-client`, so they cannot drift): `PhoneConfig`, `MachineStatus`,
   `ContractState`, `MachineEvent`, `SessionUpdate`, `SessionChange`, `ViewEnd`, `TerminalUpdate`,
   `SessionListUpdate`, `InboxRow`, `InboxState`, `InboxUpdate`, `PendingAsk`, `AnswerOutcome`,
-  `SeenState`, `SeenMarker`, `LinkFailure`, and the error `ClientError`.
+  `SeenState`, `SeenMarker`, `UnreadSession`, `LinkFailure`, and the error `ClientError`.
 - **The renderer's**, restated the same way in `mobile/src/render.rs`: `TokenKind`, `CodeLine`, `CodeSpan`, `ParsedDiff`, `DiffFile` (its `change` is the
   contract's `GitChange`), `DiffHunk`, `DiffLine`, `DiffLineKind`, `DiffSegment`, `SideBySideRow`.
 - **The session's**, restated the same way in `mobile/src/link.rs` and `push.rs`: `LinkStatus` (its

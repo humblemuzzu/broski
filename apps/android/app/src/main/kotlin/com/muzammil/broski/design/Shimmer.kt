@@ -33,7 +33,7 @@ fun animationsEnabled(): Boolean {
     return remember(resolver) { Settings.Global.getFloat(resolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f }
 }
 
-/** other clients's sweep: 1,350 ms across the text, then 1,450 ms of rest. */
+/** Shimmer sweep: 1,350 ms across the text, then 1,450 ms of rest. */
 private val ShimmerCycle: InfiniteRepeatableSpec<Float> = infiniteRepeatable(
     animation = keyframes {
         durationMillis = 2_800

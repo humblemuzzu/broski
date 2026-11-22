@@ -15,7 +15,7 @@ final class Disclosure {
 }
 
 /// A stretch of work as one muted row, `Worked for 2m · Edited 1 file · Ran 2 commands ›`, that
-/// opens in place to its calls (other clients's work log): 28 pt rows, the list capped at 256 pt with
+/// opens in place to its calls: 28 pt rows, the list capped at 256 pt with
 /// faded edges so opening it never pushes the answer away.
 struct WorkFoldView: View {
     let fold: WorkFold

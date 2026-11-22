@@ -129,7 +129,7 @@ class VoiceTest {
         store.setVoiceLanguage(null)
         store.setSendAfterDictating(true)
         store.setProjectWords(false)
-        store.setDictionary(listOf("Zanzibar", "Ghostty"))
-        assertEquals(VoiceSettings(language = null, sendAfterDictating = true, projectWords = false, dictionary = listOf("Zanzibar", "Ghostty")), store.settings.first().voice)
+        store.setDictionary(listOf("Broski", "Ghostty"))
+        assertEquals(VoiceSettings(language = null, sendAfterDictating = true, projectWords = false, dictionary = listOf("Broski", "Ghostty")), store.settings.first().voice)
     }
 }

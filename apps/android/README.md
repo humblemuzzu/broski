@@ -2,8 +2,7 @@
 
 The native Android app: Kotlin, Jetpack Compose, Material 3 Expressive. It renders and sends; everything
 below the UI is BroskiCore (`:core`, [mobile-core.md](../../docs/architecture/mobile-core.md),
-[mobile-packaging.md](../../docs/architecture/mobile-packaging.md)). Product and design spec:
-[design.md](../../docs/rebuild/design.md).
+[mobile-packaging.md](../../docs/architecture/mobile-packaging.md)).
 
 ## Build, run, test
 

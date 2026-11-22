@@ -5,7 +5,7 @@ runs the user's own installed `pi`: one `pi --mode rpc` per hosted session, kept
 bridge (§1.1), plus short-lived `pi --mode rpc --no-session` probes for the catalogs. It bundles no Pi and imports no Pi package; the contract README
 cites this file as `pi §n`, and the sections below keep that numbering.
 
-Every Pi fact here was checked against Pi 1.5.2 (`@earendil-works/pi-coding-agent`, the devDependency the tests run),
+Every Pi fact here was checked against Pi 1.6.0 (`@earendil-works/pi-coding-agent`, the devDependency the tests run),
 by its docs and `dist/`, or by an experiment with `PI_CODING_AGENT_DIR` on a temp dir. Paths are relative to that
 package.
 
@@ -27,7 +27,7 @@ The bridge finds `pi` from the config key `pi.cliPath`, else `pi` on the login s
 | `rpc/` | The wire: `JsonlSplitter` (LF-only records, CR stripped, 32 MiB cap), zod frames for responses, events and UI requests, `RpcClient` (request ids, deadlines, ordered delivery, backpressure), `PiProcess` (spawn in its own process group, stderr tail, the stop ladder). |
 | `holder/` | The holder of a hosted session's `pi` (§1.1): the process itself (`holder.ts`, `main.ts`), what it keeps for the next bridge (`replay-log.ts`), how long it keeps an unattached `pi` (`orphan-policy.ts`), the socket protocol (`protocol.ts`) and the bridge's end of it (`link.ts`, `holders.ts`). The holder process loads only `node:` built-ins, `rpc/child.ts`, `rpc/jsonl.ts` and `contract/clip.ts`. |
 | `live/` | A hosted session: `SessionHost` driving the parts `host-parts.ts` wires (a `PiChild`, the run tracker, prompt desk, queue mirror, settings, usage feed, the event bridge, the entry cursor), and `SessionHosts` (the registry with its locks, revive, idle end and the bound on hosts). |
-| `host/` | The bridge's own extension, written into `~/.broski/pi/broski-host.ts` and loaded with `-e`: the permission gate and the `broski.*` records. `extension/` is agent code, read by the rest of the adapter only as text. |
+| `host/` | The bridge's own extension (`extension/{index,ask}.ts`), written into `~/.broski/pi/` and loaded with `-e`: the permission gate, the fallback `broski_ask` tool (registered `defaultActive: false`, additively enabled in new phone sessions unless a cooperating extension claims `broski:ask-tool`/`broski:probe-ask-tool`) and the `broski.*` records. `extension/` is agent code, read by the rest of the adapter only as text. |
 | `ui/` | Extension dialogs as interactions (`dialogs.ts`, `interactions.ts`) and permission asks (`permission-asks.ts`, `permission-request.ts`). |
 | `mapping/` | Pi's messages and events as contract events and transcript items. |
 | `models/`, `catalog/` | The catalogs a probe reads (`get_state`, `get_available_models`, `get_commands`), cached per directory. |

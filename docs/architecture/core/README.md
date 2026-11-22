@@ -219,12 +219,12 @@ Inbound, a socket has one token bucket (`BROSKI_RATE_LIMIT_*`: 60 a second, burs
 - Mirror `applyEvent`; treat `resynced` as a replacement; expect `droppedItems > 0` on a long run; expect `…` in very long text; re-read the transcript's newest page at `run_finished` (README §8).
 - After `session_replaced`, attach to the new id. An attach whose answer is `replaced{session}` (a phone that was away) says the same: attach to `session` instead, without `resume`. After `session_removed`, drop the session.
 
-The shared client core (Phase 3 of `docs/rebuild/PLAN.md`) does all of this.
+The shared Rust client core ([mobile-core.md](../mobile-core.md)) does all of this.
 
 ## 16. Adding a backend
 
 - Write `backends/<id>/`, export a `BackendFactory`, and register it in `server/contract-backends.ts` (`contractOptions`: `backends: [[id, factory]]`). Nothing in the core changes.
-- Take what `adapter-kit/` already has (an asks ledger, page cursors, phone-safe text, a trash move, an image cache) rather than writing it again. Claude Code and Pi keep their own copies.
+- Take what `adapter-kit/` already has (an asks ledger, page cursors, phone-safe text, a trash move, an image cache) rather than writing it again (Pi uses its `phone-text` directly; Claude Code keeps its own copies).
 - Leave out a queue, steering or fork the backend cannot do natively: the bridge serves them (§24).
 - Factories start once the bridge listens (`contract.start()`), all at once and in the background: a request that names a backend still starting waits for it up to 30 s from the start, then is answered `unknown_backend` saying it is still starting; a backend that lands later is announced to every client (`status_changed`). A factory may take as long as its backend needs, but report an unreachable service through `status()` rather than failing.
 - Pass the conformance suite.

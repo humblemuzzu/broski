@@ -3,8 +3,7 @@
 Everything an agent writes (its answers, its thinking, a plan, a subagent's report, a tool's output and
 arguments, a notice, a question) reaches the person's eyes through one formatter, the same on iOS and
 Android. It is ours: there is no markdown, highlighting-theme or rendering library in the core or
-either app, and no WebView. The design it was built to is
-[`docs/rebuild/formatting-plan.md`](../rebuild/formatting-plan.md).
+either app, and no WebView.
 
 ```
 agent text ──► broski-render `format` (Rust: CommonMark 0.31.2 + GitHub's extensions, streaming repair, keys)

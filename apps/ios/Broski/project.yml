@@ -21,7 +21,7 @@ packages:
   BroskiPush:
     path: ../BroskiPush
   # The terminal emulator (Ghostty, host-managed IO). Exact: it wraps Ghostty's embedder API, which
-  # promises no ABI, and releases weekly (docs/rebuild/research/terminal.md).
+  # promises no ABI, and releases weekly.
   GhosttyKit:
     url: https://github.com/Lakr233/libghostty-spm
     exactVersion: 2.2.2026111701

@@ -2,15 +2,14 @@
 
 The contract backend for Claude Code (`packages/bridge/src/backends/claude-code/`). It implements `AgentBackend`
 (`src/contract/backend.ts`, [contract README](../../contract/README.md) §5) on `@anthropic-ai/claude-agent-sdk`
-**0.3.325** (exact pin), whose package names the CLI it was released with: `claudeCodeVersion` **2.1.325**. It drives
+**0.3.330** (exact pin), whose package names the CLI it was released with: `claudeCodeVersion` **2.1.330**. It drives
 the `claude` the user installed; the bridge carries no Claude Code binary. It is registered in every bridge
 (`server/contract-backends.ts`) and passes all 28 conformance rules against the real CLI
 (`src/__tests__/claude-code/conformance/`).
 
-It serves no ops, custom tools, hook activities or prompt suggestions: the phone is not where those are managed
-(`docs/rebuild/PLAN.md`).
+It serves no ops, custom tools, hook activities or prompt suggestions: the phone is not where those are managed.
 
-Evidence below cites the installed SDK (`sdk.d.ts`, `sdk.mjs` of 0.3.325), the hooks reference
+Evidence below cites the installed SDK (`sdk.d.ts`, `sdk.mjs` of 0.3.330), the hooks reference
 (<https://code.claude.com/docs/en/hooks>), and the tests that hold each fact to the real CLI. Decisions are numbered
 D1–D31; the code cites them by these numbers.
 
@@ -97,8 +96,12 @@ inherited from a terminal `claude`, so the SDK stamps its own (`process/env.ts`)
 text, D20), `agentProgressSummaries`, `systemPrompt: {type: "preset", preset: "claude_code"}` (the CLI's own prompt,
 as the terminal has it), `canUseTool` and `onElicitation` (D15), `sessionId` or `resume` (D2), and `model` / `effort`
 when the person chose them. `allowDangerouslySkipPermissions` is passed only where `process/bypass.ts` allows it
-(D13). Never set: `settingSources` (the user's settings load as in the terminal), `persistSession: false`,
-`sessionStore`, `permissionPrompts`, `hooks`.
+(D13). When `bridgeTools.notify` is enabled and the installed CLI version is at least `EXPECTED_CLAUDE_CLI_VERSION`,
+each host also attaches Broski's loopback HTTP MCP server (`server/claude-code-mcp.ts`, `live/mcp-hold.ts`) via
+`mcpServers` + `mcpServersDelivery: "initialize"` + `allowedTools: ["mcp__broski__broski_notify"]` (exposing only
+`broski_notify`, never duplicating native `AskUserQuestion` or `ExitPlanMode`, and rebinding its lease across
+`conversation_reset`). Never set: `settingSources` (the user's settings load as in the terminal),
+`persistSession: false`, `sessionStore`, `permissionPrompts`, `hooks`.
 
 `agentProgressSummaries` costs a little: the CLI forks a running subagent's conversation about every 30 s for a
 summary, a small billed call on the subagent's model and prompt cache, made only while the conversation changes
@@ -444,7 +447,9 @@ a non-2xx status, a connection failure and a timeout are non-blocking (unless `o
 here), so the CLI goes on to its own prompt. For a call that reaches the SDK's `canUseTool`, the hook runs beside the
 host and whichever decides first applies.
 
-- **The receiver** (`server/cc-terminal-hook.ts`, behind the loopback listener's bearer token) checks the body,
+- **The receiver** (`server/cc-terminal-hook.ts`, mounted at `/cc-terminal-hook` and `/hook/claude-code` via
+  `server/hook-ingress.ts`, behind a dedicated per-run `hookToken` accepted only on hook routes and never on
+  WebSocket upgrades) checks the body,
   hands the ask to the adapter, and holds the session open in the core (`BridgeCore.hold`, core README §20) while a
   person decides. The ask is raised on the watch-only session as a `tool_permission` with Allow once, the grants the
   terminal's own dialog would offer (its `permission_suggestions`, each checked on its own by
@@ -467,7 +472,9 @@ host and whichever decides first applies.
 - **`allowedHttpHookUrls`**: when defined anywhere, only matching hook URLs run; the lists merge across sources; an
   empty list allows none (`sdk.d.ts` `Settings.allowedHttpHookUrls`). The installer never creates one (that would
   block the user's other HTTP hooks): it appends our URL to a non-empty list the user keeps, refuses an empty one,
-  and removes a list that holds only our URL. A project or managed list that leaves our URL out still blocks the hook;
+  and on removal strips our URL only when other URLs remain (keeping a single-entry list intact so removal neither
+  widens policy to all URLs nor leaves `[]` blocking future reinstalls). A project or managed list that leaves our
+  URL out still blocks the hook;
   `status()` says so and names the sources (`terminal/allowed-urls.ts` matches a pattern as the binary does,
   `hook-blocked.ts`). Project and managed settings are never edited.
 - **The edit** (`terminal/hook-install.ts`, `files/`) is strict JSON, key-preserving, atomic (temp then rename,

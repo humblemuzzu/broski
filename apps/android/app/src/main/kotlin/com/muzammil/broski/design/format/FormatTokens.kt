@@ -23,7 +23,7 @@ import uniffi.broski_core.FormatSpacing
 
 /**
  * Every measure the formatter draws with, in one place; iOS's `FormatTokens.swift` holds the same
- * table so the two apps cannot drift (docs/rebuild/formatting-plan.md §5).
+ * table so the two apps cannot drift.
  */
 object FormatTokens {
     /** Prose wider than this reads badly; on a wide screen it is centred at this width. */

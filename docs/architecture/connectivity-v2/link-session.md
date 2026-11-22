@@ -2,10 +2,8 @@
 
 Crate `packages/link/session` (`broski-link-session`). The async client the native apps' shared Rust
 core uses for every paired machine: it owns the sockets and drives the sans-IO `Link`
-([link-core.md](link-core.md)). It replaces the deleted Dart `link_dart` package (branch
-`final-flutter`), whose behaviour is the spec; where this crate differs, the section says so and why.
-It does no storage I/O and exposes plain Rust; the `mobile` crate (`broski-mobile`) wraps it in UniFFI
-([mobile-packaging.md](../mobile-packaging.md)).
+([link-core.md](link-core.md)). It does no storage I/O and exposes plain Rust; the `mobile` crate
+(`broski-mobile`) wraps it in UniFFI ([mobile-packaging.md](../mobile-packaging.md)).
 
 ## Runtime
 
@@ -13,7 +11,7 @@ It does no storage I/O and exposes plain Rust; the `mobile` crate (`broski-mobil
 every session of the app. A phone holds a handful of sessions whose work is socket I/O and a few
 microseconds of AEAD per frame, so one thread keeps up; it parks in the kernel whenever no socket or
 timer is due, and no work stealing wakes a second core for a frame. UniFFI never starts a runtime and
-polls futures on the foreign caller's thread (`docs/rebuild/research/uniffi.md`), so every async entry
+polls futures on the foreign caller's thread, so every async entry
 point (`pair`) spawns its work onto this thread and awaits the `JoinHandle`, which any executor can
 poll. `Session::next_event` needs no runtime at all: it waits on a `tokio::sync::Notify`. Dropping the
 last `LinkRuntime` clone stops the thread, which drops every task and socket on it. `handle()` lets the

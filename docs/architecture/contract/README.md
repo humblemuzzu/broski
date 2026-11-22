@@ -691,7 +691,7 @@ Found in the Pi terminal link work:
 
 ## 20. The workspace
 
-The machine's files, git and terminals, for quick work from the phone: browse, read and search files; status, diff, stage, commit, branches and checkout; a real terminal. The bridge serves them itself, not an agent backend (`docs/rebuild/PLAN.md`), behind the core's `WorkspaceHost` port (core README §22). The requests are machine-level: none names a backend or a session.
+The machine's files, git and terminals, for quick work from the phone: browse, read and search files; status, diff, stage, commit, branches and checkout; a real terminal. The bridge serves them itself, not an agent backend, behind the core's `WorkspaceHost` port (core README §22). The requests are machine-level: none names a backend or a session.
 
 ### 20.1 Requests
 
@@ -722,7 +722,7 @@ Every git request names a directory inside the repository; the bridge runs git i
 
 ### 20.2 Terminals
 
-- **The bridge ships bytes; the phone emulates.** `term_output{id, seq, data}` carries raw output as base64: no decoding, no emulation, no replacement of bytes that are not UTF-8. The phone's VT emulator (libghostty) renders it (`docs/rebuild/research/terminal.md`).
+- **The bridge ships bytes; the phone emulates.** `term_output{id, seq, data}` carries raw output as base64: no decoding, no emulation, no replacement of bytes that are not UTF-8. The phone's VT emulator (libghostty) renders it.
 - **`seq` is a byte offset** into the terminal's output since it opened: an output's `seq` is the offset of its first byte, so the next starts at `seq` plus its length.
 - **Replay.** A terminal is read from the moment it opens until its process ends, viewed or not, into a ring of its newest `MAX_TERMINAL_OUTPUT_BYTES` (512 KiB). `term.attach{since}` answers what the ring holds from `since` on when it reaches back that far, else everything it holds; the answer's `seq` says where it starts, so a client that asked for more than it got knows there is a gap (and resets its emulator before applying it). Live output follows from `seq` plus the replay's length, with nothing missed or repeated in between. A full-screen program redraws on a resize, which a phone can send after a gapped replay.
 - **Only to its viewers.** `term_output` and `term_exited{id, exitCode?, signal?}` go only to the clients attached to the terminal. `term_exited` is the last: an exited terminal has no viewers, and attaching to one answers its replay and views nothing.
@@ -764,5 +764,5 @@ What could not be done is a `Rejected` with a plain message:
 ### 20.5 Not offered
 
 - **Content search.** No served code searches file contents, and the one fast way (ripgrep) is not on every machine; a search that works only sometimes would need its own capability for little gain on a phone, where the agent searches contents on request.
-- Push, pull, fetch, stash, branch creation, discarding changes and per-commit diffs: outside the phone's scope (PLAN, Phone scope).
+- Push, pull, fetch, stash, branch creation, discarding changes and per-commit diffs: outside the phone's scope.
 - A diff of an untracked file: its content is read with `fs.read`.

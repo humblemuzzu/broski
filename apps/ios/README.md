@@ -1,7 +1,6 @@
 # Broski for iOS
 
-The native iPhone and iPad app: SwiftUI for iOS 26+, Swift 6 language mode, Liquid Glass. The product
-and design spec is [`docs/rebuild/design.md`](../../docs/rebuild/design.md); the core it renders is
+The native iPhone and iPad app: SwiftUI for iOS 26+, Swift 6 language mode, Liquid Glass. The core it renders is
 BroskiCore ([`BroskiCore/`](BroskiCore), [`docs/architecture/mobile-packaging.md`](../../docs/architecture/mobile-packaging.md)).
 
 ```
@@ -18,7 +17,7 @@ and VoiceGlowKit's shaders need it), XcodeGen 2.46 (`/opt/homebrew/bin/xcodegen`
 
 ```bash
 scripts/build-ios-app.sh                     # BroskiCore if stale, xcodegen, build for any simulator
-scripts/build-ios-app.sh device              # any iOS device (team FGYQ983C57, automatic signing)
+scripts/build-ios-app.sh device              # any iOS device (automatic signing; see CONTRIBUTING.md#ios-signing)
 scripts/build-ios-app.sh device --unsigned   # without a provisioning profile
 BROSKI_SIMULATOR="iPhone Duo" scripts/build-ios-app.sh --test   # the unit tests
 BROSKI_SIMULATOR="iPhone Duo" scripts/e2e-ios-app.sh            # the real-machine run below

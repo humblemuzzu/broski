@@ -1,8 +1,8 @@
 # Broski Open-Source Architecture & Agent-Authoring Blueprint
 
-> **Purpose:** This document is the authoritative master plan for preparing Broski for open source and the permanent engineering handbook for adding new coding agents cleanly afterward.
+> **Purpose:** This document records Broski's open-source architecture and serves as the permanent engineering handbook for adding new coding agents cleanly.
 >
-> **Scope decision:** We ship **Claude Code** and **Pi** to perfection first. We do **not** rush 40 half-baked agent integrations in v1. Instead, we make Broski's core, contract, shared adapter kit, bridge MCP server, and prompt-cache tracking rock-solid and open — so adding Codex, Gemini CLI, Cursor, Grok Build, OpenCode, Antigravity, or any future agent later is clean, bounded, and never requires an iOS or Android app update.
+> **Status:** All core architecture waves (**open `BackendId`/`PlanId`, `BackendDescriptor`, `CacheWindow` + `CacheClock`, shared `adapter-kit/`, bridge core fallbacks, loopback `/mcp` server, vanilla Pi `broski_ask` + terminal handoff, third-party plugin loader, generic `/hook/<backend>` ingress, and Session Info / Pin / Unread / Mute on iOS & Android**) are **implemented on `main`**. Part III below is the live handbook for adding Codex, Gemini CLI, Cursor, Grok Build, OpenCode, Antigravity, ACP agents, or standalone npm plugins.
 
 ---
 
@@ -54,7 +54,7 @@ iOS (SwiftUI, Liquid Glass)      Android (Compose, Material 3 Expressive)
                  └─ Adapters (Claude Code, Pi, future ACP & native plugins)
 ```
 
-Broski is **not** a desktop IDE (like Electron-based other clients), **not** an agent runtime (it never bundles `claude`, `pi`, or any LLM harness), and **not** a cloud enterprise orchestration cluster (no Kafka streams, no multi-tenant cloud POSIX filesystem, no server-side SQLite event store).
+Broski is **not** a desktop IDE, **not** an agent runtime (it never bundles `claude`, `pi`, or any LLM harness), and **not** a cloud enterprise orchestration cluster (no Kafka streams, no multi-tenant cloud POSIX filesystem, no server-side SQLite event store).
 
 Broski wins by staying **sharp, native, private, and thin**:
 - **Native mobile craft:** True SwiftUI and Jetpack Compose, native haptics, Live Activities, Android Live Updates, and lock-screen Allow/Deny.
@@ -803,7 +803,7 @@ When a contributor wants richer native fidelity than ACP provides, here are the 
   - Native approvals: server-initiated JSON-RPC approval requests (`approval_policy`: `on-request`, `never`, etc.) → map directly to `tool_permission` via `adapter-kit/ask-desk.ts`, keeping native decision payloads intact.
   - Native async questions: Codex emits non-blocking question notifications answered by posting a user message; preserve as `questions` interaction or wire Bridge MCP `broski_ask`.
   - Native `/compact` and rich per-turn token usage (`cached_tokens` → `Usage.cache` with `confidence: "estimated"` or `"exact"` if `prompt_cache_options.ttl` is configured).
-- **Bridge MCP injection gotcha (learned from other clients):**
+- **Bridge MCP injection note:**
   - Pass Broski's `/mcp` server in `thread/start`, `thread/resume`, and `thread/fork` `mcp_servers` config with the per-session `Authorization: Bearer <token>` header.
   - **CRITICAL:** Register `broski_ask` / `broski_propose_plan` with `omit_tools_from = ["code_mode", "deferred"]` because Codex's Code Mode yields scripts after ~30 seconds, which breaks human-blocking tools!
 - **Process gotchas:**
@@ -819,7 +819,7 @@ When a contributor wants richer native fidelity than ACP provides, here are the 
   - Native `question` tool (`/question/:id/reply`, `/question/:id/reject`) → **disable Bridge MCP `broski_ask`** on OpenCode to avoid duplicate question tools!
   - Native `GET /session/:id/children` for child subagent sessions.
   - Native `POST /session/:id/abort`, native compaction, and steering/queue.
-- **MCP scoping gotcha (learned from other clients):**
+- **MCP scoping note:**
   - OpenCode registers MCP servers per directory, while Broski's MCP tokens are per session. On OpenCode 2.x, register a session-namespaced server key (`broski-<shortSessionId>`) and deny other sessions' keys in session permission rules so two concurrent sessions in one folder never collide on tokens.
 
 ---

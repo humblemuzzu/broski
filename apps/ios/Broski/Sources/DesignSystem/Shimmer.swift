@@ -1,8 +1,8 @@
 import SwiftUI
 
 extension View {
-    /// The one "alive" signal: a band of brighter ink that sweeps the text, then rests (other clients's
-    /// 1.35 s sweep and 1.45 s pause, 72 pt wide). It runs only while `active`, on screen, in an
+    /// The one "alive" signal: a band of brighter ink that sweeps the text, then rests (1.35 s
+    /// sweep and 1.45 s pause, 72 pt wide). It runs only while `active`, on screen, in an
     /// active scene, and never under Reduce Motion; otherwise the text simply shows in `base`.
     func shimmer(_ active: Bool, base: Color = .secondary) -> some View {
         modifier(Shimmer(active: active, base: base))

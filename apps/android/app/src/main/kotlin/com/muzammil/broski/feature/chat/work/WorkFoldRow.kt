@@ -42,7 +42,7 @@ import com.muzammil.broski.R
 import com.muzammil.broski.design.Haptic
 import com.muzammil.broski.design.perform
 
-/** The disclosure's turn and the fold's opening, as other clients times them. */
+/** Disclosure rotation and fold expansion timing. */
 private const val DISCLOSURE_MS = 180
 
 /**
