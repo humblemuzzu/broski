@@ -34,6 +34,8 @@ export interface Terminal {
 /** A dialog the terminal shows while a terminal opened with `dialogs: "waiting"` waits for its person. */
 export interface ShownDialog {
 	readonly title: string;
+	/** A select's rows, in the order shown. */
+	readonly options: readonly string[];
 	/** The person at the terminal answers it. */
 	readonly answer: (value: unknown) => void;
 	/** Its signal closed it before anyone at the terminal answered. */
@@ -133,9 +135,15 @@ export class TerminalRig {
 }
 
 /** A dialog that waits for the person or for `signal`, which resolves it with Pi's default. */
-function waiting<T>(shown: ShownDialog[], title: string, fallback: T, signal: AbortSignal | undefined): Promise<T> {
+function waiting<T>(
+	shown: ShownDialog[],
+	title: string,
+	fallback: T,
+	signal: AbortSignal | undefined,
+	options: readonly string[] = [],
+): Promise<T> {
 	return new Promise((resolve) => {
-		const dialog: ShownDialog = { title, answer: (value) => resolve(value as T), closed: false };
+		const dialog: ShownDialog = { title, options, answer: (value) => resolve(value as T), closed: false };
 		shown.push(dialog);
 		signal?.addEventListener(
 			"abort",
@@ -151,8 +159,8 @@ function waiting<T>(shown: ShownDialog[], title: string, fallback: T, signal: Ab
 /** A UI that keeps what it was told, and whose dialogs answer nothing at once, or wait when `shown` is given. */
 function silentUi(notices: string[], shown: ShownDialog[] | undefined): ExtensionUIContext {
 	return {
-		select: async (title, _options, opts) =>
-			shown === undefined ? undefined : waiting<string | undefined>(shown, title, undefined, opts?.signal),
+		select: async (title, options, opts) =>
+			shown === undefined ? undefined : waiting<string | undefined>(shown, title, undefined, opts?.signal, options),
 		confirm: async (title, _message, opts) =>
 			shown === undefined ? false : waiting(shown, title, false, opts?.signal),
 		input: async (title, _placeholder, opts) =>

@@ -13,6 +13,7 @@ import { read } from "./projection";
 
 const ASK_TOOL = "broski_ask";
 const SOMETHING_ELSE = "Something else…";
+const DONE = "Done";
 /**
  * The bridge's own tool (`host/extension/index.ts`) to the character: Pi compares a tool's description and parameters
  * with the declaration the session recorded, and any difference is a new tool to the provider.
@@ -55,6 +56,11 @@ const ASK_PARAMETERS = {
 interface Answer {
 	selected: string[];
 	custom?: string;
+}
+
+interface Choice {
+	readonly label: string;
+	readonly shown: string;
 }
 
 function declaresAsk(ctx: ExtensionContext): boolean {
@@ -143,13 +149,13 @@ async function askHere(here: LocalDialogs, questions: unknown[], signal: AbortSi
 	return answers;
 }
 
-/** One question: a choice of its options or an answer of the person's own, typed. */
+/** One question: a choice of its options, several when it allows them, or an answer of the person's own, typed. */
 async function askOne(here: LocalDialogs, question: unknown, signal: AbortSignal): Promise<Answer | undefined> {
 	const header = read(question, "header");
 	const text = String(read(question, "question") ?? "");
 	const title = typeof header === "string" && header !== "" ? `${header}: ${text}` : text;
 	const listed = read(question, "options");
-	const choices = (Array.isArray(listed) ? listed : []).map((option) => {
+	const choices = (Array.isArray(listed) ? listed : []).map((option): Choice => {
 		const label = String(read(option, "label") ?? "");
 		const description = read(option, "description");
 		return {
@@ -157,14 +163,66 @@ async function askOne(here: LocalDialogs, question: unknown, signal: AbortSignal
 			shown: typeof description === "string" && description !== "" ? `${label} — ${description}` : label,
 		};
 	});
-	if (choices.length > 0) {
-		const picked = await here.select(title, [...choices.map((choice) => choice.shown), SOMETHING_ELSE], { signal });
-		if (picked === undefined) return undefined;
-		const choice = choices.find((candidate) => candidate.shown === picked);
-		if (choice !== undefined) return { selected: [choice.label] };
-	}
+	if (choices.length === 0) return typed(here, title, [], signal);
+	if (read(question, "multiple") === true) return pickMany(here, title, choices, signal);
+	return pickOne(here, title, choices, signal);
+}
+
+/** `row`, made unlike every row in `taken`: an option may carry the very text of one of the picker's own rows. */
+function unique(row: string, taken: readonly string[]): string {
+	let free = row;
+	while (taken.includes(free)) free = `${free} `;
+	return free;
+}
+
+async function typed(
+	here: LocalDialogs,
+	title: string,
+	selected: string[],
+	signal: AbortSignal,
+): Promise<Answer | undefined> {
 	const custom = await here.input(title, undefined, { signal });
-	return custom === undefined ? undefined : { selected: [], custom };
+	return custom === undefined ? undefined : { selected, custom };
+}
+
+async function pickOne(
+	here: LocalDialogs,
+	title: string,
+	choices: readonly Choice[],
+	signal: AbortSignal,
+): Promise<Answer | undefined> {
+	const shown = choices.map((choice) => choice.shown);
+	const other = unique(SOMETHING_ELSE, shown);
+	const picked = await here.select(title, [...shown, other], { signal });
+	if (picked === undefined) return undefined;
+	if (picked === other) return typed(here, title, [], signal);
+	const choice = choices.find((candidate) => candidate.shown === picked);
+	return choice === undefined ? undefined : { selected: [choice.label] };
+}
+
+/** One option at a time, each picked one leaving the list, until `Done`; a typed answer ends it too. */
+async function pickMany(
+	here: LocalDialogs,
+	title: string,
+	choices: readonly Choice[],
+	signal: AbortSignal,
+): Promise<Answer | undefined> {
+	const shown = choices.map((choice) => choice.shown);
+	const done = unique(DONE, shown);
+	const other = unique(SOMETHING_ELSE, [...shown, done]);
+	const selected: string[] = [];
+	let left = choices;
+	for (;;) {
+		const heading = selected.length === 0 ? title : `${title} (${selected.join(", ")})`;
+		const picked = await here.select(heading, [...left.map((choice) => choice.shown), other, done], { signal });
+		if (picked === undefined) return undefined;
+		if (picked === done) return { selected };
+		if (picked === other) return typed(here, title, selected, signal);
+		const choice = left.find((candidate) => candidate.shown === picked);
+		if (choice === undefined) return undefined;
+		selected.push(choice.label);
+		left = left.filter((candidate) => candidate !== choice);
+	}
 }
 
 /** As the bridge's own tool answers the model: the answers in the questions' order, each with the question it answers. */
