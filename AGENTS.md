@@ -200,10 +200,13 @@ The wire shape between bridge and phone is the backend contract in `packages/bri
 packages/bridge/src/
   contract/      the backend contract: zod schemas, reducer, answer check, conformance kit (testing/)
   core/          the bridge core on the contract
+  adapter-kit/   what adapters share (asks ledger, cursors, phone text, trash, image cache); the core may not import it
   backends/pi/   the Pi adapter (one `pi --mode rpc` per hosted session, kept by a holder process that outlives the
                  bridge, so a run goes on through a restart; no Pi package imported)
   backends/claude-code/  the Claude Code adapter (Claude Agent SDK driving the user's `claude`)
   server/        wiring: listeners, the contract seam, the link feed, the Claude Code hook receiver
+  mcp/           the bridge's MCP server (broski_ask, broski_notify, broski_propose_plan) over the core's external asks;
+                 not mounted on a listener yet
   workspace/     files, git and terminals over the contract, behind the core's WorkspaceHost port (workspace-host.ts)
   usage/         plan usage readers and sampling (Claude and Antigravity) behind the core's UsageReader port
   transport/     send queue and frame limits
@@ -313,8 +316,9 @@ Follow these rules in every session so background servers never pile up and buil
     and installs + launches directly via `xcrun devicectl`. **Never** improvise manual `xcodebuild archive` commands
     into fresh timestamped `apps/ios/Broski/build/wifi-*` folders (each one duplicates ~1.1 GB).
   - **Away from home (Tailscale OTA):** run `scripts/send-ios-to-phone.sh` and share its printed URL
-    (`https://my-mac.example.ts.net/exampletoken/`; `/pair` under it gives a fresh pairing link). Stop
-    the OTA server and Tailscale route afterwards with `scripts/send-ios-to-phone.sh --stop`.
+    (`https://$BROSKI_OTA_HOST/$BROSKI_OTA_PREFIX/`: the Mac's tailnet name and the token in
+    `apps/ios/Broski/build/phone/token` unless those are set; `/pair` under it gives a fresh pairing link). Stop the
+    OTA server and Tailscale route afterwards with `scripts/send-ios-to-phone.sh --stop`.
 - **Simulators, emulators, and disk hygiene.**
   - Shut down iOS simulators (`xcrun simctl shutdown all`) and Android emulators once tests finish so they do not burn
     CPU overnight.
