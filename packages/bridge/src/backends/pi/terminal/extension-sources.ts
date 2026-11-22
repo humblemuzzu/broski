@@ -4,6 +4,7 @@
  * the namespace's `default` and checked to be a string.
  */
 
+import * as askSource from "./extension/ask.ts" with { type: "text" };
 import * as dialogsSource from "./extension/dialogs.ts" with { type: "text" };
 import * as indexSource from "./extension/index.ts" with { type: "text" };
 import * as linkSource from "./extension/link.ts" with { type: "text" };
@@ -27,5 +28,6 @@ export const EXTENSION_FILES: readonly ExtensionFile[] = [
 	text("dialogs.ts", dialogsSource),
 	text("link.ts", linkSource),
 	text("phone-note.ts", phoneNoteSource),
+	text("ask.ts", askSource),
 	text("index.ts", indexSource),
 ];

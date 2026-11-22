@@ -39,6 +39,13 @@ const PROMPT_NOTE_MESSAGE = "broski.phone_note";
 /** The model's own questions tool. It asks nothing but the person, so it is never gated behind a permission ask. */
 const ASK_TOOL = "broski_ask";
 /**
+ * How another extension says its own questions tool reaches the phone, which makes `broski_ask` a second: it emits
+ * `ASK_TOOL_ANNOUNCE` as it loads, or calls `claim()` on the `ASK_TOOL_PROBE` sent at session start. A tool's name says
+ * nothing: one that draws with `ctx.ui.custom` gets `undefined` in `pi --mode rpc` and never reaches the phone.
+ */
+const ASK_TOOL_ANNOUNCE = "broski:ask-tool";
+const ASK_TOOL_PROBE = "broski:probe-ask-tool";
+/**
  * `AskedQuestions` of `ui/questions-dialog.ts`, bounds included (the contract's `MAX_TEXT_CHARS`, `MAX_NAME_CHARS` and
  * `MAX_LIST_ITEMS`), so Pi refuses a call the bridge could not read before it reaches the phone.
  */
@@ -286,10 +293,12 @@ function systemMessagesOf(ctx: ExtensionContext) {
 /**
  * A session that has run declared its tools to the provider, and Pi records them (`toolsAdded`); one that ran without
  * `broski_ask` (begun in a terminal, or before the tool existed) goes on without it, so its tools and its cache stay.
+ * A new session takes it unless another extension's questions tool reaches the phone.
  */
-function keepsAsk(ctx: ExtensionContext): boolean {
+function keepsAsk(ctx: ExtensionContext, phoneAsk: boolean): boolean {
 	const system = systemMessagesOf(ctx);
-	return system.length === 0 || getCurrentTools(system).some((tool) => tool.name === ASK_TOOL);
+	if (system.length > 0) return getCurrentTools(system).some((tool) => tool.name === ASK_TOOL);
+	return !phoneAsk;
 }
 
 /** A recorded section's own text, which Pi wraps again when the section is set. */
@@ -334,11 +343,17 @@ function placeNote(
 export default function broskiHost(pi: ExtensionAPI): void {
 	const gate = new PermissionGate(pi);
 	let ui: ExtensionContext["ui"] | undefined;
+	let phoneAsk = false;
+	const claim = () => {
+		phoneAsk = true;
+	};
+	pi.events.on(ASK_TOOL_ANNOUNCE, claim);
 
 	pi.on("session_start", (_event, ctx) => {
 		ui = ctx.ui;
 		gate.load(ctx.sessionManager.getEntries());
-		if (!keepsAsk(ctx)) pi.setActiveTools(pi.getActiveTools().filter((name) => name !== ASK_TOOL));
+		pi.events.emit(ASK_TOOL_PROBE, { claim });
+		if (!keepsAsk(ctx, phoneAsk)) pi.setActiveTools(pi.getActiveTools().filter((name) => name !== ASK_TOOL));
 	});
 	pi.events.on(TASKS, (tasks) => {
 		try {

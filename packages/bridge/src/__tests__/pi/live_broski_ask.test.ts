@@ -2,10 +2,15 @@
  * On the real adapter and the real `pi`: the bridge's own extension gives the model `broski_ask`, so a Pi with no
  * questions extension of the user's asks on the phone. The run waits on one questions card, never behind a permission
  * ask, and the model reads the person's answer, or that they dismissed it. A session that ran without the tool, as one
- * begun in a terminal did, goes on without it, so its tools and its prompt cache stay as they were.
+ * begun in a terminal did, goes on without it, so its tools and its prompt cache stay as they were. A Pi whose own
+ * extensions give an ask tool that says it reaches the phone gets no second one; a tool's name alone says nothing.
+ * The terminal link installed beside it changes nothing.
  */
 
 import { afterEach, describe, expect, test } from "bun:test";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { extensionEntry } from "../../backends/pi/terminal/install";
 import { raisedAs } from "../../backends/pi/ui/dialog-asks";
 import type { Interaction, InteractionReply } from "../../contract";
 import type { LiveSession } from "../../contract/testing/conformance-harness";
@@ -53,6 +58,30 @@ async function asking(rig: LiveRig, modes: { axis: string; value: string }[] = [
 
 function answer(live: LiveSession, interaction: Interaction, reply: InteractionReply) {
 	return live.control.answer({ interactionId: interaction.id, reply });
+}
+
+/** A user's own extension, found where Pi looks for the user's extensions; `body` runs with its `pi`. */
+function installUserExtension(agentDir: string, body: string): void {
+	const folder = join(agentDir, "extensions");
+	mkdirSync(folder, { recursive: true });
+	writeFileSync(join(folder, "user-ask.ts"), `export default function (pi) {\n${body}\n}\n`);
+}
+
+/** A questions tool named `name` whose `execute` is `run`. */
+function userTool(name: string, run: string): string {
+	return `pi.registerTool({ name: "${name}", label: "${name}", description: "Asks the user.", parameters: { type: "object", properties: {} }, execute: ${run} });`;
+}
+
+const ANSWERS_NOTHING = `async () => ({ content: [{ type: "text", text: "asked" }], details: {} })`;
+
+/** The tools a new phone session of a Pi with the user's `extension` declared on its first request. */
+async function declaredWith(extension: string): Promise<readonly string[]> {
+	t = await LiveRig.create();
+	installUserExtension(t.world.env.agentDir, extension);
+	const hosted = await t.rig.openNew();
+	t.router.script(hosted.ref.sessionId, [say("hosted")]);
+	await hosted.run("from the phone");
+	return t.router.requests(hosted.ref.sessionId)[0]?.tools ?? [];
 }
 
 describe("broski_ask in a hosted pi", () => {
@@ -139,6 +168,48 @@ describe("which sessions have broski_ask", () => {
 		expect(desk?.tools).not.toContain("broski_ask");
 		expect(phone?.tools).toEqual(desk?.tools ?? []);
 		await taken.close();
+	});
+});
+
+describe("beside the user's own extensions", () => {
+	test("an ask tool that says it reaches the phone as it loads is the only one a new session declares", async () => {
+		const tools = await declaredWith(
+			`pi.events.emit("broski:ask-tool", {});\n${userTool("interview", ANSWERS_NOTHING)}`,
+		);
+		expect(tools).toContain("interview");
+		expect(tools).not.toContain("broski_ask");
+	});
+
+	test("an ask tool that claims the session start's probe is the only one a new session declares", async () => {
+		const claims = `pi.events.on("broski:probe-ask-tool", (probe) => probe.claim());`;
+		const tools = await declaredWith(`${claims}\n${userTool("questionnaire", ANSWERS_NOTHING)}`);
+		expect(tools).toContain("questionnaire");
+		expect(tools).not.toContain("broski_ask");
+	});
+
+	test("an ask tool that only draws its own component, which never reaches the phone, leaves broski_ask", async () => {
+		const custom = `async (_id, _params, _signal, _update, ctx) => ({ content: [{ type: "text", text: String(await ctx.ui.custom(() => undefined)) }], details: {} })`;
+		const tools = await declaredWith(userTool("ask", custom));
+		expect(tools).toEqual(expect.arrayContaining(["ask", "broski_ask"]));
+	});
+
+	test("with the terminal link installed, the bridge's pi starts and broski_ask asks the phone once", async () => {
+		t = await LiveRig.create({ link: true });
+		expect(existsSync(extensionEntry(t.world.env.agentDir))).toBe(true);
+		const { live, interaction, toolResult } = await asking(t);
+		const reply: InteractionReply = { kind: "questions", answers: [{ questionId: "0", selected: ["SQLite"] }] };
+		expect((await answer(live, interaction, reply)).status).toBe("accepted");
+		expect(JSON.parse(await toolResult)).toEqual({
+			status: "answered",
+			answers: [
+				{ question: "Which store?", selected: ["SQLite"] },
+				{ question: "Anything else?", selected: [] },
+			],
+		});
+		await live.waitFor("run_finished");
+		const tools = t.router.requests(live.ref.sessionId)[0]?.tools ?? [];
+		expect(tools.filter((name) => name === "broski_ask")).toEqual(["broski_ask"]);
+		expect(live.events().filter((event) => event.type === "interaction_requested")).toHaveLength(1);
 	});
 });
 

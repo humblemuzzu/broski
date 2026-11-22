@@ -16,10 +16,12 @@ interface Open {
 	readonly answer: (reply: unknown) => void;
 }
 
+export type LocalDialogs = Pick<ExtensionUIContext, "select" | "input">;
+
 export class RemoteDialogs {
 	private readonly open = new Map<string, Open>();
-	/** Pi's own `select` of each `ui` this mirrors, which asks in the terminal alone. */
-	private readonly local = new WeakMap<object, ExtensionUIContext["select"]>();
+	/** Pi's own dialogs of each `ui` this mirrors, which ask in the terminal alone. */
+	private readonly local = new WeakMap<object, LocalDialogs>();
 	private next = 0;
 
 	constructor(private readonly post: (event: Frame) => void) {}
@@ -28,7 +30,7 @@ export class RemoteDialogs {
 	watch(ui: ExtensionUIContext): void {
 		if (this.local.has(ui)) return;
 		const { select, confirm, input } = ui;
-		this.local.set(ui, select);
+		this.local.set(ui, { select, input });
 		ui.select = (title, options, opts) =>
 			this.race(
 				{
@@ -73,7 +75,12 @@ export class RemoteDialogs {
 
 	/** Asks in the terminal only: a question about the terminal itself, which the phone has no part in. */
 	askHere(ui: ExtensionUIContext, title: string, options: string[]): Promise<string | undefined> {
-		return (this.local.get(ui) ?? ui.select)(title, options);
+		return this.here(ui).select(title, options);
+	}
+
+	/** The dialogs of `ui` that show in the terminal alone, for a question the phone is asked on its own. */
+	here(ui: ExtensionUIContext): LocalDialogs {
+		return this.local.get(ui) ?? ui;
 	}
 
 	/**
