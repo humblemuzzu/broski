@@ -146,6 +146,26 @@ struct LiveRunTests {
         #expect(other.brand.name == "My Agent" && other.brand.logo == nil && other.brand.initials == "MA")
     }
 
+    /// A bridge may name its agent with up to 1,024 characters; the state ActivityKit holds to 4 KB
+    /// keeps only the first 40 scalars of it, and no accent that is not one.
+    @Test func aLongAgentNameIsCutBeforeItReachesTheActivity() throws {
+        var tracker = LiveRunTracker()
+        let long = AgentBrand(
+            backend: "my-agent", name: String(repeating: "代理", count: 512), accentHex: String(repeating: "#", count: 900),
+            logo: nil)
+        guard case .show(let state) = tracker.state(
+            for: [row("a", .working, at: 1, backend: "my-agent")],
+            brands: ["00112233445566778899aabbccddeeff": ["my-agent": long]], now: .now)
+        else {
+            Issue.record("expected .show")
+            return
+        }
+        let agent = try #require(state.agent)
+        #expect(agent.name == String(repeating: "代理", count: 20))
+        #expect(agent.accentHex == nil)
+        #expect(try JSONEncoder().encode(state).count < 1024)
+    }
+
     private func row(
         _ id: String,
         _ state: InboxState,

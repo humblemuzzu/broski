@@ -31,9 +31,22 @@ nonisolated struct AgentBrand: Codable, Hashable, Sendable {
 
     init(backend: String, name: String?, accentHex: String?, logo: Logo?) {
         let named = name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        self.name = named.isEmpty ? Slug.label(backend) : named
+        self.init(name: named.isEmpty ? Slug.label(backend) : named, logo: logo, accentHex: accentHex)
+    }
+
+    private init(name: String, logo: Logo?, accentHex: String?) {
+        self.name = name
         self.logo = logo
         self.accentHex = accentHex
+    }
+
+    /// Small enough for ActivityKit's 4 KB state whatever the bridge sent: the name cut to
+    /// `maxNameLength` Unicode scalars, which bounds its bytes in any script, and an accent kept
+    /// only when it is one.
+    func capped(maxNameLength: Int = 40) -> AgentBrand {
+        AgentBrand(
+            name: String(String.UnicodeScalarView(name.unicodeScalars.prefix(maxNameLength))), logo: logo,
+            accentHex: accentHex.flatMap { RGB(hex: $0) == nil ? nil : $0 })
     }
 
     /// The first letters of the name's first two words: "My Agent" is "MA", "Codex" is "C".
@@ -44,9 +57,10 @@ nonisolated struct AgentBrand: Codable, Hashable, Sendable {
 
     var accent: RGB { accentHex.flatMap(RGB.init(hex:)) ?? .slate }
 
-    /// The figure's colour on the tile: white, or near black on an accent too light for white.
+    /// The figure's colour on the tile: white on the logos, else whichever of white and near black
+    /// stands out more from the accent.
     var tileInk: Color {
-        logo == nil && accent.luminance > 0.62 ? Color.black.opacity(0.78) : .white
+        logo == nil && accent.prefersDarkInk ? Color.black.opacity(0.78) : .white
     }
 
     /// The figure's own colour, for the glyph drawn on black without its tile.
@@ -119,6 +133,11 @@ nonisolated struct RGB: Hashable, Sendable {
         return 0.2126 * linear(red) + 0.7152 * linear(green) + 0.0722 * linear(blue)
     }
 
+    /// Whether black text has the higher WCAG contrast ratio on this colour than white.
+    var prefersDarkInk: Bool {
+        (luminance + 0.05) / 0.05 > 1.05 / (luminance + 0.05)
+    }
+
     func mixed(with other: RGB, _ amount: Double) -> RGB {
         RGB(
             red: red + (other.red - red) * amount, green: green + (other.green - green) * amount,
@@ -137,11 +156,13 @@ struct AgentLogo: View {
         let shape = RoundedRectangle(cornerRadius: side * 0.28, style: .continuous)
         figure
             .frame(width: side, height: side)
-            .background(brand.fill, in: shape)
-            .overlay {
-                if brand.logo == nil {
-                    shape.fill(LinearGradient(
-                        colors: [.white.opacity(0.26), .white.opacity(0)], startPoint: .top, endPoint: .center))
+            .background {
+                ZStack {
+                    shape.fill(brand.fill)
+                    if brand.logo == nil {
+                        shape.fill(LinearGradient(
+                            colors: [.white.opacity(0.26), .white.opacity(0)], startPoint: .top, endPoint: .center))
+                    }
                 }
             }
             .overlay { shape.strokeBorder(.white.opacity(0.14), lineWidth: max(0.5, side / 80)) }

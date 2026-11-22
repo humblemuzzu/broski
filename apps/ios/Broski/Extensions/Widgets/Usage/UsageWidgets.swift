@@ -4,8 +4,8 @@ import WidgetKit
 /// Opens the app's Plan Usage screen.
 let usageURL = URL(string: "broski://usage")
 
-/// One plan, Claude or Antigravity: on the Home Screen its fullest window as a figure over its burn
-/// chart; on the Lock Screen a gauge, a figure with a sparkline, or a line.
+/// One plan, Claude, Antigravity or any other the Macs read: on the Home Screen its fullest window as
+/// a figure over its burn chart; on the Lock Screen a gauge, a figure with a sparkline, or a line.
 struct PlanUsageWidget: Widget {
     static let kind = "PlanUsage"
 
@@ -15,7 +15,7 @@ struct PlanUsageWidget: Widget {
                 .widgetURL(usageURL)
         }
         .configurationDisplayName("Plan Usage")
-        .description("How much of your Claude or Antigravity plan is used, its pace, and when it resets.")
+        .description("How much of a plan is used, its pace, and when it resets.")
         .supportedFamilies([
             .systemSmall, .systemMedium, .accessoryCircular, .accessoryRectangular, .accessoryInline,
         ])
@@ -34,7 +34,7 @@ struct AllPlansWidget: Widget {
                 .widgetURL(usageURL)
         }
         .configurationDisplayName("All Plans")
-        .description("Claude and Antigravity together: each plan's burn, its pace, and when it resets.")
+        .description("Your plans together: each plan's burn, its pace, and when it resets.")
         .supportedFamilies([.systemMedium, .systemLarge])
         .contentMarginsDisabled()
         .containerBackgroundRemovable(true)

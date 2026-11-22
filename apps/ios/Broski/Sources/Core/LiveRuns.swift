@@ -56,7 +56,7 @@ struct LiveRunTracker {
                 machineId: focused.machineId,
                 machineName: focused.machineName,
                 backend: focused.session.backend,
-                agent: brands[focused.machineId]?[focused.session.backend],
+                agent: brands[focused.machineId]?[focused.session.backend]?.capped(),
                 sessionId: focused.session.sessionId,
                 startedAtMs: startedAtMs,
                 endedAtMs: nil,

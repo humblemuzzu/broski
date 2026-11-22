@@ -43,7 +43,7 @@ private struct NewSessionContent: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            NewSessionHero(brand: brand)
+            NewSessionHero(backend: model.backend, brand: brand)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .contentShape(.rect)
                 .onTapGesture { composing = false }
@@ -193,6 +193,7 @@ private struct NewSessionContent: View {
 /// Where the transcript will be: the agent's mark and the question, gone when the keyboard and the
 /// folders leave no room for them.
 private struct NewSessionHero: View {
+    let backend: String?
     let brand: AgentBrand?
 
     var body: some View {
@@ -205,14 +206,14 @@ private struct NewSessionHero: View {
                         BroskiMark(side: 44)
                     }
                 }
-                .id(brand)
+                .id(backend)
                 .transition(.scale(scale: 0.8).combined(with: .opacity))
                 Text("What should we build?")
                     .font(.title2.weight(.semibold))
                     .multilineTextAlignment(.center)
             }
             .padding(.horizontal, Spacing.xl)
-            .animation(.spring(duration: 0.3, bounce: 0.2), value: brand)
+            .animation(.spring(duration: 0.3, bounce: 0.2), value: backend)
             Color.clear
         }
     }

@@ -71,25 +71,56 @@ struct PlanChoice: WidgetConfigurationIntent {
     static let title: LocalizedStringResource = "Plan"
     static let description = IntentDescription("The plan this widget shows.")
 
-    @Parameter(title: "Plan", default: .claude) var plan: PlanOption
+    @Parameter(title: "Plan", default: PlanEntity.claude) var plan: PlanEntity
 
     init() {}
 
-    init(plan: PlanOption) {
+    init(plan: PlanEntity) {
         self.plan = plan
     }
 }
 
-/// The plans the widget can be set to, by the contract's plan id.
-enum PlanOption: String, AppEnum {
-    case claude
-    case antigravity
+/// A plan the widget can be set to, by the contract's plan id.
+nonisolated struct PlanEntity: AppEntity {
+    static let typeDisplayRepresentation: TypeDisplayRepresentation = "Plan"
+    static let defaultQuery = PlanEntityQuery()
+    static let claude = PlanEntity(.claude, name: UsagePlan.claude.name)
+    static let antigravity = PlanEntity(.antigravity, name: UsagePlan.antigravity.name)
 
-    nonisolated static let typeDisplayRepresentation: TypeDisplayRepresentation = "Plan"
-    nonisolated static let caseDisplayRepresentations: [PlanOption: DisplayRepresentation] = [
-        .claude: DisplayRepresentation(title: "Claude", subtitle: "Your claude.ai plan"),
-        .antigravity: DisplayRepresentation(title: "Antigravity", subtitle: "Google Antigravity's plan"),
-    ]
+    let id: String
+    let name: String
 
-    var plan: UsagePlan { UsagePlan(id: rawValue) }
+    init(_ plan: UsagePlan, name: String) {
+        id = plan.id
+        self.name = name
+    }
+
+    var plan: UsagePlan { UsagePlan(id: id) }
+
+    var displayRepresentation: DisplayRepresentation { DisplayRepresentation(title: "\(name)") }
+}
+
+/// The plans the app last read, Claude and Antigravity before it has read any. A widget set to a
+/// plan the last reading left out keeps it, named from its id.
+nonisolated struct PlanEntityQuery: EntityQuery {
+    func entities(for identifiers: [String]) async -> [PlanEntity] {
+        let known = Self.plans()
+        return identifiers.map { id in
+            let plan = UsagePlan(id: id)
+            return known.first { $0.id == id } ?? PlanEntity(plan, name: plan.name)
+        }
+    }
+
+    func suggestedEntities() async -> [PlanEntity] {
+        Self.plans()
+    }
+
+    func defaultResult() async -> PlanEntity? {
+        Self.plans().first
+    }
+
+    private static func plans() -> [PlanEntity] {
+        let read = UsageStore.shared.load()?.plans.map { PlanEntity($0.plan, name: $0.name) } ?? []
+        return read.isEmpty ? [.claude, .antigravity] : read
+    }
 }

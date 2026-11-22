@@ -30,7 +30,7 @@ struct OpenBackendTests {
     @Test func anyOtherAgentIsItsInitialsOnItsAccent() {
         let codex = AgentBrand(descriptor("codex", "Codex", accent: "#10A37F", hint: .codex))
         #expect(codex.logo == nil && codex.initials == "C")
-        #expect(codex.accent == RGB(hex: "#10A37F"))
+        #expect(codex.accent == RGB(red: 16.0 / 255, green: 163.0 / 255, blue: 127.0 / 255))
 
         let mine = AgentBrand(descriptor("my-agent", "  My Agent  ", accent: "#10A37F", hint: .generic))
         #expect(mine.name == "My Agent" && mine.initials == "MA")
@@ -45,6 +45,18 @@ struct OpenBackendTests {
         #expect(AgentBrand(descriptor("x", "X")).accent == .slate)
         #expect(AgentBrand(descriptor("bot", "🤖")).initials == "🤖")
         #expect(AgentBrand(descriptor("bot", " ")).name == "Bot", "a blank name reads the id")
+    }
+
+    /// Whichever of white and near black has the higher WCAG contrast ratio on the accent: mid-light
+    /// accents, where white falls under 3:1, take dark ink.
+    @Test func initialsTakeTheInkThatStandsOutMoreFromTheAccent() throws {
+        for light in ["#FFA500", "#22C55E", "#0EA5E9", "#FFFFFF"] {
+            #expect(try #require(RGB(hex: light)).prefersDarkInk, "\(light)")
+        }
+        for dark in ["#16192A", "#333655", "#000000"] {
+            #expect(try !#require(RGB(hex: dark)).prefersDarkInk, "\(dark)")
+        }
+        #expect(!RGB.slate.prefersDarkInk)
     }
 
     @Test func aLinkOpensASessionOnlyForAValidBackendId() throws {
