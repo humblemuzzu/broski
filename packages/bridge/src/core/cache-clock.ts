@@ -33,9 +33,12 @@ export class CacheClock {
 		if (cache) this.windows.set(key, this.stamped(cache));
 	}
 
-	/** `snapshot` with the session's window in place of whatever window it carries. */
-	onto(key: string, snapshot: SessionSnapshot): SessionSnapshot {
-		const cache = this.windows.get(key);
+	/**
+	 * `snapshot` with the session's window in place of whatever window it carries. `live` is the window the open session
+	 * shows now, for one this clock has let go of (past its bound or its TTL): an open session keeps its window.
+	 */
+	onto(key: string, snapshot: SessionSnapshot, live: CacheWindow | undefined): SessionSnapshot {
+		const cache = this.windows.get(key) ?? live;
 		return cache ? { ...snapshot, usage: { ...snapshot.usage, cache } } : snapshot;
 	}
 
@@ -44,7 +47,7 @@ export class CacheClock {
 		const turn = turnTokens(usage, previous);
 		const next = usage.cache ? this.completed(usage.cache, turn) : turn && this.synthesized(turn);
 		if (next) this.windows.set(key, next);
-		const cache = next ?? this.windows.get(key);
+		const cache = next ?? this.windows.get(key) ?? previous?.cache;
 		return cache ? { ...usage, cache } : usage;
 	}
 

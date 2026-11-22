@@ -26,8 +26,12 @@ export interface QueuedPrompt {
 export class SessionExtras {
 	readonly asks = new Map<InteractionId, BridgeAsk>();
 	queued: QueuedPrompt[] = [];
+	/** The queue the adapter itself reports, such as its pending steers, which the bridge's goes after. */
+	adapterQueue: QueueItem[] = [];
 	/** The head of the queue is on its way to the adapter: a prompt arriving now waits behind it. */
 	dispatching = false;
+	/** A start is on its way to the adapter and its run has not begun yet: a queued prompt waits behind it. */
+	starting = false;
 	/** A steer is stopping the run to start another: the run's end returns no queued input. */
 	restarting = false;
 	/** Told when the session's run ends. */

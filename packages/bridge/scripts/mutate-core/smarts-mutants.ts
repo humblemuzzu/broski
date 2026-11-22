@@ -29,6 +29,16 @@ export const SMARTS_MUTANTS: Mutant[] = [
 	]),
 	...mutantsOf("core/cache-clock.ts", [
 		{
+			name: "cache: an open session's window is let go with the memory",
+			find: "this.windows.get(key) ?? live;",
+			replace: "this.windows.get(key);",
+		},
+		{
+			name: "cache: a usage after the memory let go drops the window",
+			find: "?? this.windows.get(key) ?? previous?.cache;",
+			replace: "?? this.windows.get(key);",
+		},
+		{
 			name: "cache: the window is never laid on a snapshot",
 			find: "return cache ? { ...snapshot, usage: { ...snapshot.usage, cache } } : snapshot;",
 			replace: "return snapshot;",
@@ -55,11 +65,16 @@ export const SMARTS_MUTANTS: Mutant[] = [
 		},
 		{
 			name: "cache: a request that touched nothing drops the window",
-			find: "const cache = next ?? this.windows.get(key);",
+			find: "const cache = next ?? this.windows.get(key) ?? previous?.cache;",
 			replace: "const cache = next;",
 		},
 	]),
 	...mutantsOf("core/bridge-layer.ts", [
+		{
+			name: "layer: an adapter's queue change drops the bridge's items",
+			find: "return { ...record, event: { ...event, items: withQueued(event.items, live.extras) } };",
+			replace: "return record;",
+		},
 		{
 			name: "layer: the bridge's asks are left out of a snapshot",
 			find: "interactions: withAsks(snapshot.interactions, live.extras, live.snapshot.interactions),",
@@ -83,6 +98,11 @@ export const SMARTS_MUTANTS: Mutant[] = [
 	]),
 	...mutantsOf("core/external-interactions.ts", [
 		{
+			name: "external: an ask that blocks nothing names its run",
+			find: "...(blocksRun && { runId }),",
+			replace: "...(runId !== undefined && { runId }),",
+		},
+		{
 			name: "external: an aborted signal withdraws nothing",
 			find: 'signal.addEventListener("abort", withdraw, { once: true });',
 			replace: "",
@@ -99,8 +119,8 @@ export const SMARTS_MUTANTS: Mutant[] = [
 		},
 		{
 			name: "external: an ask outside a run blocks one",
-			find: "blocksRun: runId !== undefined && spec.blocksRun !== false,",
-			replace: "blocksRun: spec.blocksRun !== false,",
+			find: "const blocksRun = runId !== undefined && spec.blocksRun !== false;",
+			replace: "const blocksRun = spec.blocksRun !== false;",
 		},
 		{
 			name: "external: a notice is not bounded",
@@ -123,6 +143,21 @@ export const SMARTS_MUTANTS: Mutant[] = [
 		},
 	]),
 	...mutantsOf("core/fallbacks.ts", [
+		{
+			name: "fallbacks: a refused steer leaves the queue stuck",
+			find: "if (this.queues(live)) this.queue.resume(live);",
+			replace: "",
+		},
+		{
+			name: "fallbacks: a run that begins leaves its start under way",
+			find: 'if (event.type === "run_started") live.extras.starting = false;',
+			replace: "",
+		},
+		{
+			name: "fallbacks: a refused start stays under way",
+			find: "\t\t\t\tlive.extras.starting = false;\n\t\t\t}\n\t\t}",
+			replace: "\t\t\t}\n\t\t}",
+		},
 		{
 			name: "fallbacks: a backend that queues itself is stood in for",
 			find: 'this.options.queue === true && !this.modesOf(live).includes("queue")',
@@ -156,6 +191,13 @@ export const SMARTS_MUTANTS: Mutant[] = [
 		},
 	]),
 	...mutantsOf("core/bridge-queue.ts", [
+		{ name: "queue: a start under way is taken for idle", find: "!extras.starting && ", replace: "" },
+		{ name: "queue: a steer's restart is taken for idle", find: " && !extras.restarting;", replace: ";" },
+		{
+			name: "queue: the bridge's queue change drops the adapter's items",
+			find: "const items = [...live.extras.adapterQueue, ",
+			replace: "const items = [",
+		},
 		{ name: "queue: a run's end starts nothing", find: "else void this.dispatch(live);", replace: "" },
 		{
 			name: "queue: an aborted run keeps its queue",
@@ -180,6 +222,11 @@ export const SMARTS_MUTANTS: Mutant[] = [
 		},
 	]),
 	...mutantsOf("core/steer-fallback.ts", [
+		{
+			name: "steer: two steers race",
+			find: 'if (live.extras.restarting) return rejected("busy"',
+			replace: 'if (false) return rejected("busy"',
+		},
 		{
 			name: "steer: a run that never stops is waited for without end",
 			find: "this.clock.after(STEER_STOP_MS,",

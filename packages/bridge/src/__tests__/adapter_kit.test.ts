@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -103,6 +103,16 @@ describe("the ask desk", () => {
 		expect(records).toHaveLength(4);
 	});
 
+	test("an ask that does not block its run names no run, so it may outlive the run", () => {
+		const { desk, records } = deskRig();
+		void desk.ask({ runId: "run", title: "Later?", blocksRun: false, request: { kind: "confirm" } });
+		const [requested] = records;
+		expect(requested?.event).toMatchObject({ type: "interaction_requested", interaction: { blocksRun: false } });
+		expect(requested?.event.type === "interaction_requested" && requested.event.interaction.runId).toBeUndefined();
+		desk.withdrawRun("run");
+		expect(desk.pending()).toHaveLength(1);
+	});
+
 	test("an aborted signal withdraws its ask, the end of the run withdraws its blocking asks, expireAll the rest", async () => {
 		const { desk, resolutions } = deskRig();
 		const controller = new AbortController();
@@ -147,6 +157,22 @@ describe("the trash", () => {
 		expect(moved).toEqual({ status: "accepted" });
 		expect(readdirSync(join(home, ".Trash")).sort()).toEqual(["notes 2.jsonl", "notes.jsonl"]);
 		expect(readdirSync(join(home, "a"))).toEqual([]);
+	});
+
+	test("two moves at once of files with one name both land, neither over the other", async () => {
+		const home = tempHome();
+		const target = trashTargetOf({ HOME: home }, "darwin");
+		const paths = ["a", "b"].map((dir) => {
+			mkdirSync(join(home, dir));
+			writeFileSync(join(home, dir, "notes.md"), dir);
+			return join(home, dir, "notes.md");
+		});
+		const moved = await Promise.all(paths.map((path) => moveToTrash([path], target)));
+		expect(moved).toEqual([{ status: "accepted" }, { status: "accepted" }]);
+		const trash = join(home, ".Trash");
+		const kept = readdirSync(trash).sort();
+		expect(kept).toEqual(["notes 2.md", "notes.md"]);
+		expect(kept.map((name) => readFileSync(join(trash, name), "utf8")).sort()).toEqual(["a", "b"]);
 	});
 
 	test("a move macOS refuses leaves the file where it is and names Full Disk Access", async () => {

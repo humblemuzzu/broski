@@ -54,9 +54,9 @@ const EXPIRED: ExternalInteractionOutcome = { kind: "ended", reason: "expired" }
 
 /**
  * Asks the bridge raises on a session itself, for a tool the agent calls (a bridge MCP tool such as `broski_ask`),
- * which no adapter knows of. Each is an `interaction_requested` on the session's stream, so every viewer, every attach's snapshot and
- * the observer (the lock-screen push) get it as they get an adapter's; its answers pass the interactions desk like any
- * other, and reach the waiting asker instead of an adapter. It ends once: `answered`; `withdrawn` when the asker's
+ * which no adapter knows of. Each is an `interaction_requested` on the session's stream, so every viewer, every
+ * attach's snapshot and the observer (the lock-screen push) get it as they get an adapter's; its answers pass the
+ * interactions desk like any other, and reach the waiting asker instead of an adapter. It ends once: `answered`; `withdrawn` when the asker's
  * signal aborts or the run it blocks ends; `expired` when the session's stream ends without a successor.
  */
 export class ExternalInteractions {
@@ -150,15 +150,17 @@ export class ExternalInteractions {
 		ask.settle(outcome);
 	}
 
+	/** An ask that does not block names no run: the contract ends a run's asks with the run. */
 	private interactionOf(live: LiveSession, spec: ExternalInteractionSpec): Interaction | undefined {
 		const runId = live.snapshot.run?.runId;
+		const blocksRun = runId !== undefined && spec.blocksRun !== false;
 		const candidate: Interaction = {
 			id: crypto.randomUUID(),
-			...(runId !== undefined && { runId }),
+			...(blocksRun && { runId }),
 			createdAt: this.deps.now(),
 			title: clip(spec.title, MAX_NAME_CHARS),
 			...(spec.body !== undefined && { body: clip(spec.body, MAX_TEXT_CHARS) }),
-			blocksRun: runId !== undefined && spec.blocksRun !== false,
+			blocksRun,
 			...(spec.origin !== undefined && { origin: spec.origin }),
 			request: spec.request,
 		};

@@ -30,9 +30,8 @@ export class BridgeQueue {
 	) {}
 
 	async prompt(live: LiveSession, control: SessionControl, input: PromptInput): Promise<PromptResult> {
+		if (live.extras.queued.length === 0 && idle(live)) return this.send(live, control, { ...input, mode: "start" });
 		const { extras } = live;
-		const idle = !live.snapshot.run && extras.queued.length === 0 && !extras.dispatching;
-		if (idle) return this.send(live, control, { ...input, mode: "start" });
 		if (extras.queued.length >= MAX_BRIDGE_QUEUE) {
 			return rejected("busy", `the bridge holds at most ${MAX_BRIDGE_QUEUE} queued prompts`);
 		}
@@ -65,6 +64,11 @@ export class BridgeQueue {
 		if (texts.length > 0) live.inject({ type: "input_returned", texts });
 	}
 
+	/** Starts the head of the queue when nothing else will: no run, and no start or restart under way. */
+	resume(live: LiveSession): void {
+		if (live.extras.queued.length > 0 && idle(live)) void this.dispatch(live);
+	}
+
 	/** A run that ends hands the queue on: aborted, it gives the queue back; otherwise the head starts. */
 	observe(live: LiveSession, event: AgentEvent): void {
 		if (event.type !== "run_finished" || live.extras.queued.length === 0 || live.extras.restarting) return;
@@ -92,6 +96,13 @@ export class BridgeQueue {
 	}
 }
 
+function idle(live: LiveSession): boolean {
+	const { extras } = live;
+	return !live.snapshot.run && !extras.dispatching && !extras.starting && !extras.restarting;
+}
+
+/** The whole queue: the adapter's own, then the bridge's. */
 function publishQueue(live: LiveSession): void {
-	live.inject({ type: "queue_changed", items: live.extras.queued.map(({ item }) => item) });
+	const items = [...live.extras.adapterQueue, ...live.extras.queued.map(({ item }) => item)];
+	live.inject({ type: "queue_changed", items });
 }

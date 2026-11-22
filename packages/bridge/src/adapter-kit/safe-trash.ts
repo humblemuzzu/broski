@@ -18,6 +18,9 @@ export interface TrashTarget {
 const DIR_MODE = 0o700;
 const MAX_NAME_TRIES = 1_000;
 
+/** Moves run one at a time, so two of one name cannot both find the same free name and one replace the other. */
+let lastMove: Promise<void> = Promise.resolve();
+
 /** Undefined when `HOME` is not an absolute path: the process's own home is never assumed. */
 export function trashTargetOf(
 	env: Readonly<Record<string, string | undefined>>,
@@ -37,7 +40,7 @@ export async function moveToTrash(paths: readonly string[], target: TrashTarget 
 	}
 	for (const path of paths) {
 		try {
-			await moveToMacTrash(path, target);
+			await oneAtATime(() => moveToMacTrash(path, target));
 		} catch (error) {
 			return rejected("backend_error", refusalText(basename(path), error));
 		}
@@ -55,6 +58,12 @@ async function moveToMacTrash(path: string, target: TrashTarget): Promise<void> 
 		return;
 	}
 	throw new Error("no free name in the trash");
+}
+
+function oneAtATime(move: () => Promise<void>): Promise<void> {
+	const next = lastMove.then(move);
+	lastMove = next.catch(() => undefined);
+	return next;
 }
 
 /** `name`, else `stem 2.ext`, `stem 3.ext`…: Finder's way of keeping both. */

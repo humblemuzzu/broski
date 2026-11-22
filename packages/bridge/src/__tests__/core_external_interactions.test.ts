@@ -171,6 +171,25 @@ describe("an ask the bridge raises itself", () => {
 		expect(phone.events(session).at(-1)).toMatchObject({ type: "run_finished", outcome: { kind: "aborted" } });
 	});
 
+	test("one that blocks nothing names no run, so it may outlive the run within the contract", async () => {
+		const { rig, phone, session, initial } = await running();
+		const outcome = rig.core.raiseExternalInteraction(
+			session,
+			{ ...SPEC, blocksRun: false },
+			new AbortController().signal,
+		);
+		await quiesce();
+		const [requested] = phone.events(session).filter((event) => event.type === "interaction_requested");
+		expect(requested).toMatchObject({ interaction: { blocksRun: false } });
+		expect(requested?.type === "interaction_requested" && requested.interaction.runId).toBeUndefined();
+		rig.fake.fake.release(session);
+		await quiesce();
+		expect(phone.events(session).at(-1)).toMatchObject({ type: "run_finished" });
+		expect(await rig.core.answer(session, answerTo(asked(phone, session)))).toEqual({ status: "accepted" });
+		expect(await outcome).toMatchObject({ kind: "answered" });
+		expect(streamProblems(phone, session, FULL_TRAITS, initial)).toEqual([]);
+	});
+
 	test("goes on with the session that replaces its own, and is answered there", async () => {
 		const rig = await startCoreRig();
 		const phone = await rig.client("phone");

@@ -31,7 +31,7 @@ export type AskOutcome =
 	| { readonly kind: "ended"; readonly reason: "withdrawn" | "expired" };
 
 export interface AskSpec {
-	/** The run the ask belongs to; absent for an ask outside a run. */
+	/** The run the ask blocks; absent for an ask outside a run. */
 	readonly runId?: RunId;
 	readonly title: string;
 	readonly body?: string;
@@ -147,15 +147,17 @@ class Desk implements AskDesk {
 	}
 }
 
+/** An ask that does not block names no run: the contract ends a run's asks with the run. */
 function interactionOf(id: InteractionId, createdAt: number, spec: AskSpec): Interaction {
+	const blocksRun = spec.runId !== undefined && spec.blocksRun !== false;
 	return {
 		id,
-		...(spec.runId !== undefined && { runId: spec.runId }),
+		...(blocksRun && { runId: spec.runId }),
 		createdAt,
 		...(spec.expiresAt !== undefined && { expiresAt: spec.expiresAt }),
 		title: clip(spec.title, MAX_NAME_CHARS),
 		...(spec.body !== undefined && { body: clip(spec.body, MAX_TEXT_CHARS) }),
-		blocksRun: spec.runId !== undefined && spec.blocksRun !== false,
+		blocksRun,
 		...(spec.origin !== undefined && { origin: spec.origin }),
 		request: spec.request,
 	};

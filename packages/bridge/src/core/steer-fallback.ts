@@ -10,7 +10,7 @@ export const STEER_STOP_MS = 10_000;
 /**
  * Steering for a backend that cannot join a running run: the run is stopped and the steer starts the next one. What
  * the bridge queued stays queued, behind it. A run that has not ended `STEER_STOP_MS` after the abort leaves the steer
- * unsent (`busy`).
+ * unsent (`busy`), and so does a steer arriving while another is stopping the run.
  */
 export class SteerFallback {
 	constructor(
@@ -20,6 +20,7 @@ export class SteerFallback {
 
 	async steer(live: LiveSession, control: SessionControl, input: PromptInput): Promise<PromptResult> {
 		const start: PromptInput = { ...input, mode: "start" };
+		if (live.extras.restarting) return rejected("busy", "another steer is already stopping the run");
 		if (!live.snapshot.run) return this.send(live, control, start);
 		live.extras.restarting = true;
 		try {

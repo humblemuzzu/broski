@@ -87,7 +87,7 @@ export class CoreFallbacks {
 
 	prompt(live: LiveSession, control: SessionControl, input: PromptInput): Promise<PromptResult> {
 		if (input.mode === "queue" && this.queues(live)) return this.queue.prompt(live, control, input);
-		if (input.mode === "steer" && this.steers(live)) return this.steering.steer(live, control, input);
+		if (input.mode === "steer" && this.steers(live)) return this.steer(live, control, input);
 		return this.send(live, control, input);
 	}
 
@@ -105,14 +105,34 @@ export class CoreFallbacks {
 
 	/** Every event of every open session, after the observer had it. */
 	observe(live: LiveSession, event: AgentEvent): void {
+		if (event.type === "run_started") live.extras.starting = false;
 		if (event.type !== "run_finished") return;
 		for (const ended of [...live.extras.runEnds]) ended();
 		if (this.queues(live)) this.queue.observe(live, event);
 	}
 
+	/** A steer that started no run leaves the stopped session idle: what the bridge queued starts instead. */
+	private async steer(live: LiveSession, control: SessionControl, input: PromptInput): Promise<PromptResult> {
+		try {
+			return await this.steering.steer(live, control, input);
+		} finally {
+			if (this.queues(live)) this.queue.resume(live);
+		}
+	}
+
+	/** Every prompt the bridge sends; a start counts as under way until its run begins or it is refused. */
 	private readonly send: PromptSend = async (live, control, input) => {
 		const sent = this.forks.withHandoff(live.ref, input);
-		const result = await control.prompt(sent);
+		const starting = input.mode === "start";
+		if (starting) live.extras.starting = true;
+		let result: PromptResult | undefined;
+		try {
+			result = await control.prompt(sent);
+		} finally {
+			if (starting && (result?.status !== "accepted" || result.disposition !== "started")) {
+				live.extras.starting = false;
+			}
+		}
 		if (sent !== input && result.status === "accepted") this.forks.taken(live.ref);
 		return result;
 	};

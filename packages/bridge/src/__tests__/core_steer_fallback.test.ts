@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import type { AgentBackend, BackendTraits, SessionRef } from "../contract";
+import type { ActionResult, AgentBackend, BackendTraits, SessionRef } from "../contract";
 import { NO_METHODS } from "../contract/testing/fake-backend";
 import { FULL_TRAITS } from "../contract/testing/fake-data";
 import type { FallbackOptions } from "../core/fallbacks";
 import { STEER_STOP_MS } from "../core/steer-fallback";
-import { changedSession, wrappingSessions } from "./helpers/core-adapters";
+import { changedSession, Gate, wrappingSessions } from "./helpers/core-adapters";
 import { promptInput, quiesce, RIG_CWD, startCoreRig, type TestClient } from "./helpers/core-rig";
 
 const HOLD = [{ kind: "text" as const, text: "Working." }, { kind: "hold" as const }];
@@ -27,6 +27,38 @@ async function running(fallbacks: FallbackOptions | undefined, adapt?: (backend:
 
 function steer(phone: TestClient, session: SessionRef, text: string) {
 	return phone.ok("prompt", { session, input: promptInput(text, "steer") });
+}
+
+/** An adapter that refuses a prompt of `text`, as a backend whose sign-in lapsed would. */
+function refusing(text: string): (backend: AgentBackend) => AgentBackend {
+	return (backend) =>
+		wrappingSessions(backend, (session) =>
+			changedSession(session, {
+				control: (control) => ({
+					...control,
+					prompt: async (input) =>
+						input.text === text
+							? { status: "rejected", rejection: { code: "auth", message: "signed out" } }
+							: control.prompt(input),
+				}),
+			}),
+		);
+}
+
+/** An adapter whose abort ends the run at once but answers only when the test lets it. */
+function abortsAnsweredLater(gate: Gate<ActionResult>): (backend: AgentBackend) => AgentBackend {
+	return (backend) =>
+		wrappingSessions(backend, (session) =>
+			changedSession(session, {
+				control: (control) => ({
+					...control,
+					abort: () => {
+						void control.abort();
+						return gate.hold();
+					},
+				}),
+			}),
+		);
 }
 
 /** An adapter whose abort is accepted at once, and ends the run a moment later. */
@@ -90,6 +122,36 @@ describe("steering a backend that cannot join a running run", () => {
 		await quiesce();
 		const texts = phone.events(session).flatMap((event) => (event.type === "user_message" ? [event.text] : []));
 		expect(texts).toEqual(["First", "After"]);
+	});
+
+	test("a steer the backend refuses after the run stopped lets what was queued start", async () => {
+		const { rig, phone, session } = await running({ steer: true, queue: true }, refusing("Steer"));
+		expect((await phone.ok("prompt", { session, input: promptInput("Queued", "queue") })).result).toMatchObject({
+			disposition: "queued",
+		});
+		expect((await steer(phone, session, "Steer")).result).toMatchObject({ rejection: { code: "auth" } });
+		await quiesce();
+		expect(rig.fake.fake.delivered(session)?.text).toBe("Queued");
+		const last = phone.events(session).findLast((event) => event.type === "queue_changed");
+		expect(last).toEqual({ type: "queue_changed", items: [] });
+		expect(phone.events(session).some((event) => event.type === "input_returned")).toBe(false);
+	});
+
+	test("a queued prompt while a steer restarts the run waits behind the steer, and a second steer is busy", async () => {
+		const gate = new Gate<ActionResult>();
+		const { phone, session } = await running({ steer: true, queue: true }, abortsAnsweredLater(gate));
+		const steering = steer(phone, session, "Steer");
+		await gate.arrived();
+		await quiesce();
+		expect((await phone.ok("prompt", { session, input: promptInput("Queued", "queue") })).result).toMatchObject({
+			disposition: "queued",
+		});
+		expect((await steer(phone, session, "Another")).result).toMatchObject({ rejection: { code: "busy" } });
+		gate.pass({ status: "accepted" });
+		expect((await steering).result).toEqual({ status: "accepted", disposition: "started" });
+		await quiesce();
+		const texts = phone.events(session).flatMap((event) => (event.type === "user_message" ? [event.text] : []));
+		expect(texts).toEqual(["First", "Steer", "Queued"]);
 	});
 
 	test("a run that does not stop in time leaves the steer unsent", async () => {

@@ -1,9 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import type { BackendTraits, SessionRef } from "../contract";
+import type { AgentBackend, BackendTraits, SessionRef } from "../contract";
 import { NO_METHODS } from "../contract/testing/fake-backend";
 import { FULL_TRAITS } from "../contract/testing/fake-data";
 import { MAX_BRIDGE_QUEUE } from "../core/bridge-queue";
 import type { FallbackOptions } from "../core/fallbacks";
+import { changedSession, wrappingSessions } from "./helpers/core-adapters";
 import {
 	attachForSnapshot,
 	type CoreRig,
@@ -17,6 +18,21 @@ import {
 
 const HOLD = [{ kind: "text" as const, text: "Working." }, { kind: "hold" as const }];
 const START_ONLY: BackendTraits = { ...FULL_TRAITS, promptModes: ["start"], queue: false };
+
+/** An adapter whose prompts reach the backend a moment after they are sent, as a process on the other end of a pipe. */
+function slowPrompts(backend: AgentBackend): AgentBackend {
+	return wrappingSessions(backend, (session) =>
+		changedSession(session, {
+			control: (control) => ({
+				...control,
+				prompt: async (input) => {
+					await new Promise((resolve) => setImmediate(resolve));
+					return control.prompt(input);
+				},
+			}),
+		}),
+	);
+}
 
 async function startOnly(fallbacks: FallbackOptions = { queue: true }) {
 	const rig = await startCoreRig({ fake: { traits: START_ONLY, methods: NO_METHODS }, core: { fallbacks } });
@@ -110,6 +126,67 @@ describe("the bridge's queue for a backend without one", () => {
 			expect(await queue(phone, session, `q${index}`)).toMatchObject({ disposition: "queued" });
 		}
 		expect(await queue(phone, session, "one too many")).toMatchObject({ rejection: { code: "busy" } });
+	});
+
+	test("once the run it started has ended, the next queued prompt starts at once", async () => {
+		const { rig, phone, session } = await startOnly();
+		await running(rig, phone, session);
+		rig.fake.fake.release(session);
+		await quiesce();
+		expect(await queue(phone, session, "Next")).toEqual({ status: "accepted", disposition: "started" });
+		await quiesce();
+		expect(delivered(phone, session)).toEqual(["First", "Next"]);
+	});
+
+	test("two queued prompts sent at once to an idle session start the first and queue the second", async () => {
+		const rig = await startCoreRig({
+			fake: { traits: START_ONLY, methods: NO_METHODS },
+			core: { fallbacks: { queue: true } },
+			adapt: slowPrompts,
+		});
+		const phone = await rig.client("phone");
+		const session = rig.fake.fake.seed({ cwd: RIG_CWD });
+		rig.fake.fake.script(session, HOLD);
+		await phone.ok("session.attach", { session });
+		const [first, second] = await Promise.all([queue(phone, session, "One"), queue(phone, session, "Two")]);
+		expect([first, second]).toMatchObject([{ disposition: "started" }, { disposition: "queued" }]);
+		rig.fake.fake.release(session);
+		await quiesce();
+		await quiesce();
+		expect(delivered(phone, session)).toEqual(["One", "Two"]);
+		expect(rig.log.errors).toEqual([]);
+	});
+
+	test("keeps what it queued when a backend that shows its own queue changes it", async () => {
+		const steersItself: BackendTraits = { ...FULL_TRAITS, promptModes: ["start", "steer"], queue: true };
+		const rig = await startCoreRig({
+			fake: { traits: steersItself, methods: NO_METHODS },
+			core: { fallbacks: { queue: true } },
+		});
+		const phone = await rig.client("phone");
+		const session = rig.fake.fake.seed({ cwd: RIG_CWD });
+		rig.fake.fake.script(session, HOLD);
+		await phone.ok("session.attach", { session });
+		await running(rig, phone, session);
+		expect(await queue(phone, session, "Queued")).toMatchObject({ disposition: "queued" });
+		const dropped = await queue(phone, session, "Dropped");
+		const steered = (await phone.ok("prompt", { session, input: promptInput("Steered", "steer") })).result;
+		expect(steered).toMatchObject({ disposition: "steered" });
+		const previews = () => {
+			const last = phone.events(session).findLast((event) => event.type === "queue_changed");
+			return last?.type === "queue_changed" ? last.items.map((item) => item.preview) : [];
+		};
+		expect(previews()).toEqual(["Steered", "Queued", "Dropped"]);
+		if (dropped.status !== "accepted" || !dropped.queueItemId) throw new Error("Dropped was not queued");
+		await phone.ok("queue.cancel", { session, queueItemId: dropped.queueItemId });
+		expect(previews()).toEqual(["Steered", "Queued"]);
+		const late = await attachForSnapshot(await rig.client("late"), session);
+		expect(late.queue.map((item) => item.preview)).toEqual(["Steered", "Queued"]);
+		await phone.ok("session.attach", { session });
+		expect(phone.events(session).some((event) => event.type === "resynced")).toBe(false);
+		rig.fake.fake.release(session);
+		await quiesce();
+		expect(delivered(phone, session)).toEqual(["First", "Steered", "Queued"]);
 	});
 
 	test("never stands in for a backend that queues itself", async () => {

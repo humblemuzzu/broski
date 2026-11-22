@@ -74,6 +74,22 @@ describe("the cache clock", () => {
 		expect(windows(phone, session)).toEqual([undefined]);
 	});
 
+	test("a session held open past the memory's lifetime keeps its window, and is not resynced for it", async () => {
+		const { rig, phone, session } = await viewed();
+		await turn(rig, phone, session, { inputTokens: 100, cacheReadTokens: 4_000, cacheWriteTokens: 0 });
+		const [warm] = windows(phone, session);
+		expect(await rig.core.hold(session)).toEqual({ status: "accepted" });
+		await phone.ok("session.detach", { session });
+		rig.clock.advance(25 * 60 * MINUTE);
+		const back = await phone.ok("session.attach", { session });
+		if (back.sync.kind !== "snapshot") throw new Error("an attach without resume gives a snapshot");
+		expect(back.sync.snapshot.usage?.cache).toEqual(warm);
+		expect(phone.events(session).some((event) => event.type === "resynced")).toBe(false);
+		await turn(rig, phone, session, { inputTokens: 100, cacheReadTokens: 4_000, cacheWriteTokens: 0, costUsd: 1 });
+		expect(windows(phone, session).at(-1)).toEqual(warm);
+		expect(rig.log.errors).toEqual([]);
+	});
+
 	test("the window outlives the session's close, so a phone that comes back sees it warm", async () => {
 		const { rig, phone, session } = await viewed();
 		await turn(rig, phone, session, { inputTokens: 100, cacheReadTokens: 4_000, cacheWriteTokens: 0 });

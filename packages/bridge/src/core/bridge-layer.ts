@@ -17,6 +17,7 @@ export class BridgeLayer implements StateLayer {
 
 	adopt(live: LiveSession, snapshot: SessionSnapshot): void {
 		this.cache.adopt(live.key, snapshot);
+		live.extras.adapterQueue = adapterItems(snapshot.queue, live.extras);
 	}
 
 	onto(live: LiveSession, snapshot: SessionSnapshot): SessionSnapshot {
@@ -25,7 +26,7 @@ export class BridgeLayer implements StateLayer {
 			interactions: withAsks(snapshot.interactions, live.extras, live.snapshot.interactions),
 			queue: withQueued(snapshot.queue, live.extras),
 		};
-		return this.cache.onto(live.key, own);
+		return this.cache.onto(live.key, own, live.snapshot.usage?.cache);
 	}
 
 	enrich(live: LiveSession, record: SinkRecord): SinkRecord {
@@ -33,6 +34,9 @@ export class BridgeLayer implements StateLayer {
 		switch (event.type) {
 			case "usage_updated":
 				return { ...record, event: { ...event, usage: this.cache.usage(live.key, event.usage, live.snapshot.usage) } };
+			case "queue_changed":
+				live.extras.adapterQueue = adapterItems(event.items, live.extras);
+				return { ...record, event: { ...event, items: withQueued(event.items, live.extras) } };
 			case "resynced":
 				this.adopt(live, event.snapshot);
 				return { ...record, event: { ...event, snapshot: this.onto(live, event.snapshot) } };
@@ -64,8 +68,13 @@ function withAsks(
 		.map(({ interaction }) => interaction);
 }
 
+/** The adapter's queue, then the bridge's. */
 function withQueued(adapter: readonly QueueItem[], extras: SessionExtras): QueueItem[] {
-	if (extras.queued.length === 0) return [...adapter];
-	const ids = new Set(extras.queued.map(({ item }) => item.id));
-	return [...adapter.filter((item) => !ids.has(item.id)), ...extras.queued.map(({ item }) => item)];
+	return [...adapterItems(adapter, extras), ...extras.queued.map(({ item }) => item)];
+}
+
+/** The items of `queue` the adapter holds, not the bridge. */
+function adapterItems(queue: readonly QueueItem[], extras: SessionExtras): QueueItem[] {
+	const own = new Set(extras.queued.map(({ item }) => item.id));
+	return queue.filter((item) => !own.has(item.id));
 }
