@@ -79,10 +79,10 @@ only on the same network; to reach it from anywhere, run your own relay
   Push notifications with Allow and Deny on the lock screen (needs a relay with push keys).
 - **Chat**: streamed answers, thinking and tool calls; diffs with word-level emphasis; Broski's own markdown formatter
   and code highlighting. Start, resume, fork and rename sessions; steer or queue a prompt while a run is going.
-- **Questions from Pi**: Broski's Pi extension adds a `broski_ask` tool, so a stock Pi with no extensions of its own
-  can ask multiple-choice and free-text questions on the phone. A bridge MCP server offering `broski_ask`,
-  `broski_notify` and `broski_propose_plan` to other agents is written (`packages/bridge/src/mcp/`) but not yet
-  mounted.
+- **Questions and alerts**: Broski's Pi extension adds a `broski_ask` tool for stock Pi (suppressed automatically when a
+  cooperating user extension already provides phone questions, and handed off cleanly if resumed in a terminal). The
+  bridge also serves an authenticated loopback HTTP MCP endpoint (`/mcp`) offering `broski_ask`, `broski_notify` (wired
+  for Claude Code) and `broski_propose_plan` to plugin and future adapters.
 - **Prompt cache timer**: the time left on the agent's prompt cache, when the agent reports its lifetime, and the
   latest request's cache hit ratio.
 - **Files, git and a terminal** for the session's folder: browse, read and search files; status, diff, stage, commit,
@@ -99,8 +99,8 @@ only on the same network; to reach it from anywhere, run your own relay
 
 Every agent is an `AgentBackend` behind the backend contract
 ([`docs/architecture/contract/README.md`](docs/architecture/contract/README.md)), and the apps never branch on which
-one it is. Codex, Gemini CLI, Cursor, Grok, OpenCode, ACP agents and third-party adapter packages are not built yet;
-how to add them is planned in
+one it is. Third-party adapters can be loaded as plugins from `~/.broski/config.json` (`broski-bridge/plugin`); Codex,
+Gemini CLI, Cursor, Grok, OpenCode and the shared ACP adapter are not built yet, and how to add them is documented in
 [`docs/architecture/open-source-blueprint.md`](docs/architecture/open-source-blueprint.md#4-part-iii--complete-guide-to-adding-any-new-agent-later).
 
 ## Security model

@@ -85,6 +85,26 @@ const fromPhone = new Promise((resolve) => {
 Pi's own `select`, `confirm` and `input` need nothing: in a terminal the link extension shows them on the phone too,
 and the first answer wins (`terminal/extension/dialogs.ts`). `editor` takes no signal, so it stays the terminal's.
 
+### Suppressing Broski's built-in `broski_ask` tool
+
+In a session started from the phone, `broski-host` registers a fallback `broski_ask` tool so a stock Pi with no user
+extensions can still ask structured questions on the phone (and if that session is later resumed in a terminal,
+`broski-link` handles `broski_ask` there too so the tool list and prompt cache stay unchanged).
+
+If your own extension already registers a question tool that reaches the phone through `broski:questions`, tell
+`broski-host` so the model does not see two ask tools:
+
+```ts
+// Either emit once as your extension loads (broski-host loads first via -e):
+pi.events.emit("broski:ask-tool");
+
+// Or claim the probe emitted at session_start:
+pi.events.on("broski:probe-ask-tool", ({ claim }) => claim());
+```
+
+Extensions that only draw a terminal picker with `ctx.ui.custom` (and never emit `broski:questions`) should **not**
+claim this handshake, because `ctx.ui.custom` returns `undefined` in `pi --mode rpc`.
+
 ## Work in the background: `broski:tasks`
 
 ```ts

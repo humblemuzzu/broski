@@ -111,9 +111,11 @@ What every adapter does today, whatever its tier:
 3. Return expected failures as `Rejected` values, and keep every string and list within `src/contract/limits.ts`.
 4. Pass `runConformance` (`src/contract/testing/`) against the real agent and a scripted model, as
    `src/__tests__/pi/conformance.test.ts` and `src/__tests__/claude-code/conformance/conformance.test.ts` do.
-5. Register it in `packages/bridge/src/server/contract-backends.ts`. The core and the apps need no change.
-
-Loading an adapter from a separate package is planned in the blueprint (Workstream 3A) and not built.
+5. Register it in `packages/bridge/src/server/contract-backends.ts` (for built-in adapters), or ship it as a standalone
+   plugin exporting `createBroskiAdapter` (`broski-bridge/plugin`) and list it under `adapters` in
+   `~/.broski/config.json` (bare package names resolve strictly from `~/.broski/adapters/node_modules`, e.g.
+   `bun add --cwd ~/.broski/adapters broski-adapter-example`; absolute paths also work). The core and apps need no
+   change.
 
 ## iOS signing
 

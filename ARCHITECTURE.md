@@ -28,9 +28,10 @@ apps/ios (SwiftUI)        apps/android (Compose)        native shells: screens, 
 | `backends/<id>/` | One adapter per agent (`claude-code/`, `pi/`), reached only as an `AgentBackend` | the contract (not `testing/`), `adapter-kit/`, `zod`, `node:` built-ins, its own SDK, itself |
 
 Around them, outside the layer rules: `server/` wires listeners, the contract seam (`server/contract-seam.ts`), the
-daemon feed and the Claude Code hook; `mcp/` is the bridge's MCP server (`broski_ask`, `broski_notify`,
-`broski_propose_plan`), not yet mounted; `workspace/` serves files, git and terminals behind the core's
-`WorkspaceHost` port; `usage/` reads plan usage behind its `UsageReader` port.
+daemon feed, the plugin loader (`server/plugin-loader.ts`) and the `/hook/<backend>` hook ingress (including Claude
+Code's `/cc-terminal-hook`); `mcp/` is the loopback authenticated HTTP MCP server mounted at `/mcp` (`broski_ask`,
+`broski_notify`, `broski_propose_plan`); `workspace/` serves files, git and terminals behind the core's `WorkspaceHost`
+port; `usage/` reads plan usage behind its `UsageReader` port.
 
 ## The Rust stack
 
