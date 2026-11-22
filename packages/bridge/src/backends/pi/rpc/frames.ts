@@ -36,6 +36,12 @@ const ResultContent = blocks(z.union([TextBlock, ImageBlock]));
 
 const STOP_REASONS = ["pending", "stop", "length", "toolUse", "error", "aborted", "deferred"] as const;
 
+/** The request's own tokens (pi-ai 1.5.2 `dist/types.d.ts:292-320`); one Pi reports oddly costs only the cache window. */
+const RequestUsage = z
+	.object({ input: z.number(), cacheRead: z.number(), cacheWrite: z.number(), cacheWrite1h: z.number().optional() })
+	.optional()
+	.catch(undefined);
+
 const MESSAGES = [
 	z.object({ role: z.literal("user"), content: UserContent, timestamp: z.number() }),
 	z.object({
@@ -44,6 +50,9 @@ const MESSAGES = [
 		stopReason: z.enum(STOP_REASONS),
 		errorMessage: z.string().optional(),
 		timestamp: z.number(),
+		api: z.string().optional().catch(undefined),
+		provider: z.string().optional().catch(undefined),
+		usage: RequestUsage,
 	}),
 	z.object({
 		role: z.literal("toolResult"),

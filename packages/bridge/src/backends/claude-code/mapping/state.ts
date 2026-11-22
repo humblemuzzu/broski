@@ -79,6 +79,8 @@ export class MapperState {
 	compaction: CompactionPhase = "none";
 	/** A `system/init` or a model request has been seen in the turn in progress. */
 	turnUnderway = false;
+	/** When the main loop's latest response began to stream: the cache window's `lastTouchAt` at the turn's result. */
+	requestAt: number | undefined;
 	model: string | undefined;
 	/** The last rate limit sent per window, so a repeated one is not sent again. */
 	readonly rateLimits = new Map<string, string>();

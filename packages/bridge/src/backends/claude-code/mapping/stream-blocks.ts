@@ -24,6 +24,7 @@ export function streamEvents(state: MapperState, frame: SDKPartialAssistantMessa
 			const messageId = wireId(event.message.id);
 			state.streaming = messageId === undefined ? undefined : state.ledger(messageId);
 			state.turnUnderway = true;
+			if (frame.parent_tool_use_id === null) state.requestAt = state.now();
 			return [];
 		}
 		case "content_block_start":

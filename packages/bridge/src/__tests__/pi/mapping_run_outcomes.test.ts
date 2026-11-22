@@ -10,7 +10,7 @@ import {
 	retryFinished,
 	retryScheduled,
 } from "../../backends/pi/mapping/session-events";
-import { usageOf } from "../../backends/pi/mapping/usage";
+import { cacheWindowOf, usageOf } from "../../backends/pi/mapping/usage";
 import type { PiEventOf } from "../../backends/pi/rpc/frames";
 import type { SessionStats } from "../../backends/pi/rpc/replies";
 import { ErrorInfo, MAX_TEXT_CHARS, RunOutcome, Usage, UsageUpdatedEvent } from "../../contract";
@@ -177,6 +177,69 @@ describe("usage", () => {
 		});
 		expect(UsageUpdatedEvent.parse({ type: "usage_updated", usage })).toBeDefined();
 		expect(usage).toEqual({ cacheWriteTokens: 40 });
+	});
+
+	test("the cache window rides along with the totals", () => {
+		const cache = { lastTouchAt: 5, cachedTokens: 1, promptTokens: 2 };
+		expect(Usage.parse(usageOf(stats({}), cache)).cache).toEqual(cache);
+		expect(usageWith(stats({}), undefined)).not.toHaveProperty("cache");
+	});
+});
+
+describe("the prompt cache the latest request left", () => {
+	const requestUsage = (input: number, cacheRead: number, cacheWrite: number, cacheWrite1h?: number) => ({
+		input,
+		output: 9,
+		cacheRead,
+		cacheWrite,
+		...(cacheWrite1h !== undefined && { cacheWrite1h }),
+		totalTokens: 0,
+		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+	});
+	const anthropic = (usage: object, at = 1_700_000_000_000) =>
+		assistant([], { api: "anthropic-messages", provider: "anthropic", usage, timestamp: at });
+
+	test("Anthropic with a short write: five minutes from the request, exact, and the request's own hit", () => {
+		const window = cacheWindowOf(anthropic(requestUsage(100, 9_000, 900)));
+		expect(window).toEqual({
+			lastTouchAt: 1_700_000_000_000,
+			ttlMs: 300_000,
+			confidence: "exact",
+			cachedTokens: 9_000,
+			promptTokens: 10_000,
+		});
+		expect(Usage.parse({ cache: window }).cache).toEqual(window);
+	});
+
+	test("Anthropic with a long-retention write: an hour", () => {
+		expect(cacheWindowOf(anthropic(requestUsage(10, 0, 4_000, 4_000)))?.ttlMs).toBe(3_600_000);
+		const byProvider = assistant([], { api: "other", provider: "anthropic", usage: requestUsage(1, 0, 5, 5) });
+		expect(cacheWindowOf(byProvider)?.ttlMs).toBe(3_600_000);
+	});
+
+	test("a request that only read the cache keeps the lifetime of the write it refreshed", () => {
+		const long = cacheWindowOf(anthropic(requestUsage(10, 0, 4_000, 4_000)));
+		const read = cacheWindowOf(anthropic(requestUsage(20, 4_000, 0), 1_700_000_060_000), long);
+		expect(read).toMatchObject({ lastTouchAt: 1_700_000_060_000, ttlMs: 3_600_000, cachedTokens: 4_000 });
+		expect(cacheWindowOf(anthropic(requestUsage(20, 4_000, 0)))?.ttlMs).toBe(300_000);
+	});
+
+	test("OpenAI, Gemini, Grok and the rest publish no lifetime: the hit is shown, no countdown", () => {
+		for (const [api, provider] of [
+			["openai-responses", "openai"],
+			["google-generative-ai", "google"],
+			["openai-completions", "xai"],
+		]) {
+			const window = cacheWindowOf(assistant([], { api, provider, usage: requestUsage(200, 800, 0), timestamp: 7 }));
+			expect(window).toEqual({ lastTouchAt: 7, cachedTokens: 800, promptTokens: 1_000 });
+		}
+	});
+
+	test("a request that touched no cache, or whose numbers are broken, leaves no window", () => {
+		expect(cacheWindowOf(anthropic(requestUsage(100, 0, 0)))).toBeUndefined();
+		expect(cacheWindowOf(anthropic(requestUsage(100, -1, 5)))).toBeUndefined();
+		expect(cacheWindowOf(anthropic(requestUsage(100, 5, 0, Number.NaN)))).toBeUndefined();
+		expect(cacheWindowOf(assistant([], { usage: "broken" }))).toBeUndefined();
 	});
 });
 

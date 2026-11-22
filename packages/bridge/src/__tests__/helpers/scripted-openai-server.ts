@@ -26,6 +26,8 @@ export type ScriptedTurn = {
 	error?: string;
 	/** The stream breaks off after the tool calls with this error in an SSE event, as a provider failing mid-response does. */
 	breaksWith?: string;
+	/** Of the prompt, the tokens the provider read from its cache (`prompt_tokens_details.cached_tokens`). */
+	cachedTokens?: number;
 };
 
 export interface ScriptedMessage {
@@ -109,7 +111,12 @@ function usageOf(request: ScriptedRequest, turn: ScriptedTurn) {
 	];
 	const prompt = Math.ceil(JSON.stringify(request.messages).length / 4);
 	const completion = Math.ceil(said.join("").length / 4);
-	return { prompt_tokens: prompt, completion_tokens: completion, total_tokens: prompt + completion };
+	return {
+		prompt_tokens: prompt,
+		completion_tokens: completion,
+		total_tokens: prompt + completion,
+		...(turn.cachedTokens !== undefined && { prompt_tokens_details: { cached_tokens: turn.cachedTokens } }),
+	};
 }
 
 function turnStream(
