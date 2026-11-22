@@ -106,6 +106,7 @@ final class AppModel {
             launch = .unavailable(.keychain(error.status))
             return
         }
+        sessionPreferences.forgetAll()
         unreadablePairings = []
         start()
     }

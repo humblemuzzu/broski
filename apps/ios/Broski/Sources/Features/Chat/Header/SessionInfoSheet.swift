@@ -10,6 +10,7 @@ struct SessionInfoSheet: View {
     let title: String
     let cwd: String?
     let catalog: ComposerCatalog
+    @State private var nowMs = Date.now.unixMilliseconds
     @Environment(\.dismiss) private var dismiss
 
     private var snapshot: SessionSnapshot { chat.snapshot }
@@ -27,9 +28,10 @@ struct SessionInfoSheet: View {
                     UsageSection(usage: usage)
                 }
                 if let cache = snapshot.usage?.cache {
-                    CacheSection(cache: cache)
+                    CacheSection(cache: cache, nowMs: nowMs)
                 }
             }
+            .task(id: snapshot.usage?.cache) { await countDown(snapshot.usage?.cache) }
             .navigationTitle("Session Info")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -82,6 +84,17 @@ struct SessionInfoSheet: View {
         }
     }
 
+    /// Wakes at each moment the cache's shown time changes, up to its expiry. The clock lives here
+    /// rather than in a `TimelineView` around the rows, which would draw them as one Form cell.
+    private func countDown(_ cache: CacheWindow?) async {
+        guard let cache else { return }
+        for entry in CacheCountdown(cache).entries(from: .now, mode: .normal) {
+            try? await Task.sleep(for: .seconds(max(0, entry.timeIntervalSinceNow)))
+            guard !Task.isCancelled else { return }
+            nowMs = Date.now.unixMilliseconds
+        }
+    }
+
     private func thinkingTitle(_ value: String) -> String {
         modelId.flatMap { catalog.model($0) }?.thinking.options.first { $0.value == value }?.title ?? value.capitalized
     }
@@ -116,27 +129,24 @@ private struct UsageSection: View {
     }
 }
 
-/// The prompt cache's window counting down to its expiry, then its numbers.
+/// The prompt cache's window as of `nowMs`, counting down to its expiry, then its numbers.
 private struct CacheSection: View {
     let cache: CacheWindow
+    let nowMs: Int64
 
     var body: some View {
         Section("Prompt Cache") {
-            TimelineView(CacheCountdown(cache)) { context in
-                let nowMs = context.date.unixMilliseconds
-                if let remaining = cache.remainingLine(nowMs: nowMs) {
-                    LabeledContent("Warm") {
-                        Text(remaining)
-                            .monospacedDigit()
-                            .contentTransition(.numericText())
-                            .foregroundStyle((CacheStatus(cache, nowMs: nowMs)?.tone ?? .quiet).style)
-                    }
-                }
-                ForEach(cache.infoLines(nowMs: nowMs), id: \.self) { line in
-                    LabeledContent(line.label) { Text(line.value).monospacedDigit() }
+            if let remaining = cache.remainingLine(nowMs: nowMs) {
+                LabeledContent("Warm") {
+                    Text(remaining)
+                        .monospacedDigit()
+                        .contentTransition(.numericText())
+                        .foregroundStyle((CacheStatus(cache, nowMs: nowMs)?.tone ?? .quiet).style)
                 }
             }
-            .id(cache)
+            ForEach(cache.infoLines(nowMs: nowMs), id: \.self) { line in
+                LabeledContent(line.label) { Text(line.value).monospacedDigit() }
+            }
         }
     }
 }

@@ -63,6 +63,10 @@ nonisolated struct NotificationPreferences {
         setMuted(false, machineId: machineId, backend: backend, sessionId: sessionId)
     }
 
+    func unmuteAll() {
+        defaults?.removeObject(forKey: Self.muted)
+    }
+
     private func save(_ sessions: Set<MutedSession>) {
         defaults?.set(sessions.map(\.stored), forKey: Self.muted)
     }

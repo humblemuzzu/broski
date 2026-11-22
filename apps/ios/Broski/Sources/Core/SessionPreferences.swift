@@ -52,6 +52,13 @@ final class SessionPreferences {
         muted = Self.targets(notifications.mutedSessions)
     }
 
+    /// Start Over: the keychain's pins are already gone with everything else, the mutes go here.
+    func forgetAll() {
+        pinned = []
+        notifications.unmuteAll()
+        muted = []
+    }
+
     private func savePinned() {
         do throws(Keychain.Failure) {
             try storage?.savePinnedSessions(pinned)

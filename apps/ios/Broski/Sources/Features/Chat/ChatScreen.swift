@@ -28,6 +28,8 @@ private struct ChatContent: View {
     @State private var composing = false
     /// Set by Mark as Unread, which leaves the chat: leaving must not mark the session seen again.
     @State private var leftUnread = false
+    /// The session this chat told the app it shows; a replaced session changes `chat.target` under it.
+    @State private var shownTarget: SessionTarget?
     @Environment(AppModel.self) private var app
     @Environment(\.dismiss) private var dismiss
 
@@ -89,17 +91,28 @@ private struct ChatContent: View {
                 // behind the chat, which must not move while the push runs.
                 try? await Task.sleep(for: .milliseconds(450))
                 guard !Task.isCancelled, !leftUnread else { return }
-                app.visibleSession = chat.target
+                show(chat.target)
                 app.markSeen(machineId: machine.id, session: chat.session)
             }
+            .onChange(of: chat.target) { _, target in
+                if shownTarget != nil { show(target) }
+            }
             .onDisappear {
-                if app.visibleSession == chat.target { app.visibleSession = nil }
+                if let visible = app.visibleSession, visible == shownTarget || visible == chat.target {
+                    app.visibleSession = nil
+                }
+                shownTarget = nil
                 if !leftUnread { app.markSeen(machineId: machine.id, session: chat.session) }
             }
             .task { await chat.loadSummary() }
             .task(id: CatalogKey(session: chat.session, cwd: cwd, changes: machine.catalogChanges)) {
                 await catalog.load(machine.machine, backend: chat.session.backend, cwd: cwd, session: chat.session)
             }
+    }
+
+    private func show(_ target: SessionTarget) {
+        shownTarget = target
+        app.visibleSession = target
     }
 
     private var showingInfo: Binding<Bool> {

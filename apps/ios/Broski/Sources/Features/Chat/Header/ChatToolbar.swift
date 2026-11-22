@@ -103,7 +103,7 @@ struct ChatToolbar: ToolbarContent {
             }
             Menu("Export", systemImage: "square.and.arrow.up.on.square") {
                 ShareLink(item: chat.conversation, subject: Text(title), preview: SharePreview(title)) {
-                    Label("Share Markdown", systemImage: "square.and.arrow.up")
+                    Label("Share Conversation", systemImage: "square.and.arrow.up")
                 }
                 Button("Copy Conversation", systemImage: "doc.on.doc") {
                     UIPasteboard.general.string = chat.conversation.text

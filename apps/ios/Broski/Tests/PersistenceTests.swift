@@ -147,6 +147,29 @@ struct PersistenceTests {
         #expect(next.muted == [kept])
     }
 
+    @Test func startingOverForgetsEveryPinAndEveryMuteInTheAppGroup() throws {
+        let test = TestStorage()
+        defer { test.remove() }
+        let suite = "\(NotificationPreferences.appGroup).tests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let preferences = SessionPreferences(notifications: NotificationPreferences(defaults: defaults))
+        preferences.load(from: test.storage)
+        for machine in ["m1", "m2"] {
+            let target = SessionTarget(machineId: machine, session: SessionRef(backend: "pi", sessionId: "s-1"))
+            preferences.setPinned(true, target)
+            preferences.setMuted(true, target)
+        }
+
+        try test.storage.removeEverything()
+        preferences.forgetAll()
+
+        #expect(preferences.pinned.isEmpty && preferences.muted.isEmpty)
+        #expect(NotificationPreferences(defaults: UserDefaults(suiteName: suite)).mutedSessions.isEmpty)
+        #expect(defaults.object(forKey: NotificationPreferences.muted) == nil)
+        #expect(try test.storage.pinnedSessions().isEmpty)
+    }
+
     /// A cold start with the machine unreachable (the fixture's one route refuses) shows the inbox
     /// the core last handed over, dimmed and with nothing to answer.
     @Test func aLaunchShowsTheCachedInboxBeforeItsMachineAnswers() throws {

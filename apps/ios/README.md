@@ -39,7 +39,7 @@ The target builds with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, `SWIFT_APPRO
   group, the seen state and its unread marks back into a new phone's inbox (one stored before
   unread marks existed reading as none), pins and mutes that go with their machine or session, a launch with the machine unreachable that
   shows the cached inbox (`inbox-cache.json`) with nothing to answer, a cache the core refuses that
-  does not stop the launch, start over (pins too), a launch that never replaces an identity), pairing (`PairingTests`: every `LinkFailure`'s words and next step, a pasted offer's
+  does not stop the launch, start over (pins and mutes too), a launch that never replaces an identity), pairing (`PairingTests`: every `LinkFailure`'s words and next step, a pasted offer's
   preview, a pairing with the fixture machine that cannot be reached), the inbox's sections from
   `InboxRow` values (pinned rows once, right after Needs you, never above an urgent one), Approve and Deny offered only for the options a row's `pending` carries, the
   row's "<agent> wants to run <command>", and `MachineSummary`'s words. They read `packages/link/mobile/tests/fixtures`
@@ -301,7 +301,7 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
 - **Chat**: the header's title (tap to rename) over `agent · folder · machine`, the live mark and
   the run's elapsed time, or the machine's state in words; Files and the overflow with the context
   ring around it: Pin, Rename, Copy Session ID, Mark as Unread (which leaves the chat without
-  marking it seen again), Mute; Compact, Fork, Export (Share Markdown, Copy Conversation), Session
+  marking it seen again), Mute; Compact, Fork, Export (Share Conversation, Copy Conversation), Session
   Info (a sheet: the session, its model and settings, context and token use, cost, the prompt
   cache counting down); Delete with a confirm. The
   transcript, full bleed under the bar (`scrollEdgeEffectStyle(.soft)`) and the composer
