@@ -1,12 +1,18 @@
-// broski-host-extension v2: written by the Broski bridge for the `pi` processes it starts (`pi --mode rpc -e <this file>`).
+// broski-host-extension v3: written by the Broski bridge for the `pi` processes it starts (`pi --mode rpc -e <this file>`).
 //
 // It never loads in a `pi` you start yourself. In the bridge's own `pi` it asks the phone before a tool runs when the
 // session's permissions mode says so, writes the session records the bridge hands it (`broski.*` custom entries),
 // passes on the background tasks other extensions announce (`broski:tasks` on Pi's event bus) and the questions they
-// ask (`broski:questions`), keeps the process on the one session the bridge opened it for, and tells the model how the
-// phone draws answers: at the end of the system prompt of a session the phone starts, and as a message in one it takes
-// over, so a session's system prompt never changes and its prompt cache stays warm.
-import { getCurrentSystemMessage, type JsonObject, validateToolArguments } from "@earendil-works/pi-ai";
+// ask (`broski:questions`), gives the model its own way to ask them (the `broski_ask` tool), keeps the process on the
+// one session the bridge opened it for, and tells the model how the phone draws answers: at the end of the system
+// prompt of a session the phone starts, and as a message in one it takes over, so a session's system prompt never
+// changes and its prompt cache stays warm.
+import {
+	getCurrentSystemMessage,
+	getCurrentTools,
+	type JsonObject,
+	validateToolArguments,
+} from "@earendil-works/pi-ai";
 import type {
 	ExtensionAPI,
 	ExtensionContext,
@@ -29,6 +35,46 @@ const PROMPT_NOTE_FLAG = "broski-prompt-note";
 const PROMPT_NOTE_SECTION = "broski_phone";
 /** The hidden message that carries the note into a session begun elsewhere. */
 const PROMPT_NOTE_MESSAGE = "broski.phone_note";
+
+/** The model's own questions tool. It asks nothing but the person, so it is never gated behind a permission ask. */
+const ASK_TOOL = "broski_ask";
+/**
+ * `AskedQuestions` of `ui/questions-dialog.ts`, bounds included (the contract's `MAX_TEXT_CHARS`, `MAX_NAME_CHARS` and
+ * `MAX_LIST_ITEMS`), so Pi refuses a call the bridge could not read before it reaches the phone.
+ */
+const ASK_PARAMETERS = {
+	type: "object",
+	properties: {
+		title: { type: "string", maxLength: 1_024 },
+		questions: {
+			type: "array",
+			minItems: 1,
+			maxItems: 20,
+			items: {
+				type: "object",
+				properties: {
+					question: { type: "string", minLength: 1, maxLength: 1_048_576 },
+					header: { type: "string", maxLength: 1_024 },
+					options: {
+						type: "array",
+						maxItems: 1_000,
+						items: {
+							type: "object",
+							properties: {
+								label: { type: "string", minLength: 1, maxLength: 1_024 },
+								description: { type: "string", maxLength: 1_048_576 },
+							},
+							required: ["label"],
+						},
+					},
+					multiple: { type: "boolean" },
+				},
+				required: ["question"],
+			},
+		},
+	},
+	required: ["questions"],
+} as const;
 
 const UNANSWERED = "The permission request ended before it was answered.";
 const DENIED = "The user denied this tool call.";
@@ -95,6 +141,42 @@ function askOnPhone(ui: ExtensionContext["ui"], request: unknown): void {
 	);
 }
 
+/** The person's answers, in the questions' order, each with the question it answers. */
+function askResult(questions: unknown, reply: string | undefined): JsonObject {
+	const answers = reply === undefined ? undefined : parsed(reply);
+	if (!Array.isArray(answers) || !Array.isArray(questions)) {
+		return { status: "cancelled", message: "The user dismissed the questions." };
+	}
+	return {
+		status: "answered",
+		answers: answers.map((answer, index) => {
+			const question = field(questions[index], "question");
+			const selected = field(answer, "selected");
+			const custom = field(answer, "custom");
+			return {
+				question: typeof question === "string" ? question : "",
+				selected: Array.isArray(selected) ? selected.filter((label) => typeof label === "string") : [],
+				...(typeof custom === "string" && { custom }),
+			};
+		}),
+	};
+}
+
+function registerAsk(pi: ExtensionAPI): void {
+	pi.registerTool({
+		name: ASK_TOOL,
+		label: "Ask on the phone",
+		description: "Ask the user questions on their phone and wait for the answers. Not for permissions.",
+		parameters: ASK_PARAMETERS,
+		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
+			const text = `${QUESTIONS_PREFIX}${JSON.stringify(params)}`;
+			const reply = await ctx.ui.input(text, undefined, signal === undefined ? undefined : { signal });
+			const result = askResult(field(params, "questions"), reply);
+			return { content: [{ type: "text", text: JSON.stringify(result) }], details: result };
+		},
+	});
+}
+
 /** For a value `JSON.parse` made, which holds nothing but JSON. */
 function isObject(value: unknown): value is JsonObject {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -143,7 +225,9 @@ class PermissionGate {
 	}
 
 	async check(event: ToolCallEvent, ctx: ExtensionContext): Promise<ToolCallEventResult | undefined> {
-		if (this.permissions.mode === "off" || this.permissions.allowed.has(event.toolName)) return undefined;
+		const { toolName } = event;
+		if (this.permissions.mode === "off" || toolName === ASK_TOOL || this.permissions.allowed.has(toolName))
+			return undefined;
 		try {
 			return await this.ask(event, ctx);
 		} catch {
@@ -189,10 +273,23 @@ class PermissionGate {
  * run. Each holds its rendered text, `<name>\n…\n</name>` (pi-coding-agent 1.5.2 `dist/core/system-prompt.js:114-118`).
  */
 function recordedSections(ctx: ExtensionContext): Record<string, string | null> | undefined {
-	const system = ctx.sessionManager
+	const system = systemMessagesOf(ctx);
+	return system.length === 0 ? undefined : (getCurrentSystemMessage(system)?.sections ?? {});
+}
+
+function systemMessagesOf(ctx: ExtensionContext) {
+	return ctx.sessionManager
 		.getBranch()
 		.flatMap((entry) => (entry.type === "message" && entry.message.role === "system" ? [entry.message] : []));
-	return system.length === 0 ? undefined : (getCurrentSystemMessage(system)?.sections ?? {});
+}
+
+/**
+ * A session that has run declared its tools to the provider, and Pi records them (`toolsAdded`); one that ran without
+ * `broski_ask` (begun in a terminal, or before the tool existed) goes on without it, so its tools and its cache stay.
+ */
+function keepsAsk(ctx: ExtensionContext): boolean {
+	const system = systemMessagesOf(ctx);
+	return system.length === 0 || getCurrentTools(system).some((tool) => tool.name === ASK_TOOL);
 }
 
 /** A recorded section's own text, which Pi wraps again when the section is set. */
@@ -241,6 +338,7 @@ export default function broskiHost(pi: ExtensionAPI): void {
 	pi.on("session_start", (_event, ctx) => {
 		ui = ctx.ui;
 		gate.load(ctx.sessionManager.getEntries());
+		if (!keepsAsk(ctx)) pi.setActiveTools(pi.getActiveTools().filter((name) => name !== ASK_TOOL));
 	});
 	pi.events.on(TASKS, (tasks) => {
 		try {
@@ -253,6 +351,7 @@ export default function broskiHost(pi: ExtensionAPI): void {
 		if (ui !== undefined) askOnPhone(ui, request);
 	});
 	pi.on("tool_call", (event, ctx) => gate.check(event, ctx));
+	registerAsk(pi);
 
 	pi.registerFlag(PROMPT_NOTE_FLAG, { description: "Used by the Broski bridge.", type: "string" });
 	pi.on("before_agent_start", (event, ctx) => {

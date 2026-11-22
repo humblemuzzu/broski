@@ -15,7 +15,11 @@ import type {
 	LiveSessions,
 	SessionFunctions,
 } from "../../../../backends/claude-code/ports";
-import { type ClaudeCodeServices, createClaudeCodeServices } from "../../../../backends/claude-code/services";
+import {
+	type BridgeMcpServers,
+	type ClaudeCodeServices,
+	createClaudeCodeServices,
+} from "../../../../backends/claude-code/services";
 import { CLAUDE_CODE_TRAITS } from "../../../../backends/claude-code/traits";
 import type { CatalogEvent, OpenTarget, SessionRef } from "../../../../contract";
 import { LiveSession, SessionRecorder } from "../../../../contract/testing/conformance-harness";
@@ -160,7 +164,12 @@ export interface FakeRig extends LiveRig {
 /** The host over `FakeQuery`s: each `query()` call gets the next, and the test pushes its frames. */
 export function fakeRig(
 	queries: FakeQuery[],
-	options: RigOptions & { cli?: boolean; sdk?: Partial<SessionFunctions>; uid?: number } = {},
+	options: RigOptions & {
+		cli?: boolean;
+		sdk?: Partial<SessionFunctions>;
+		uid?: number;
+		mcpServer?: BridgeMcpServers;
+	} = {},
 ): FakeRig {
 	const sdk = fakeClaudeSdk({ queries, overrides: options.sdk });
 	const clock = new ManualClock();
@@ -172,6 +181,7 @@ export function fakeRig(
 		clock,
 		sdk,
 		...(options.uid !== undefined && { uid: options.uid }),
+		...(options.mcpServer !== undefined && { mcpServer: options.mcpServer }),
 	});
 	const made = parts(options, sdk);
 	const rig = new LiveRig(

@@ -43,12 +43,24 @@ export interface UserMessage {
 
 export type StopReason = "pending" | "stop" | "length" | "toolUse" | "error" | "aborted" | "deferred";
 
+/** `cacheWrite1h`: the part of `cacheWrite` written with an hour's retention; only Anthropic reports it. */
+export interface RequestUsage {
+	readonly input: number;
+	readonly cacheRead: number;
+	readonly cacheWrite: number;
+	readonly cacheWrite1h?: number | undefined;
+}
+
+/** `timestamp` is when the request started; `api`, `provider` and `usage` are of the request that answered. */
 export interface AssistantMessage {
 	readonly role: "assistant";
 	readonly content: readonly (TextContent | ThinkingContent | ToolCall | UnsupportedContent)[];
 	readonly stopReason: StopReason;
 	readonly errorMessage?: string | undefined;
 	readonly timestamp: number;
+	readonly api?: string | undefined;
+	readonly provider?: string | undefined;
+	readonly usage?: RequestUsage | undefined;
 }
 
 export interface ToolResultMessage {

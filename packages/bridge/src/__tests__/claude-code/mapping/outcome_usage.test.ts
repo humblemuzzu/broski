@@ -1,11 +1,14 @@
-/** The outcome of a turn (adapter README D8) over every `terminal_reason`, and the totals `usage_updated` carries. */
+/**
+ * The outcome of a turn (adapter README D8) over every `terminal_reason`, and the totals and prompt cache window
+ * `usage_updated` carries.
+ */
 
 import { describe, expect, test } from "bun:test";
 import type { SDKResultMessage, TerminalReason } from "@anthropic-ai/claude-agent-sdk";
 import { turnOutcome } from "../../../backends/claude-code/mapping/outcome";
 import { usageOf } from "../../../backends/claude-code/mapping/usage";
 import { type ErrorCode, RunOutcome, Usage } from "../../../contract";
-import { failure, success } from "./frames";
+import { failure, messageStart, success } from "./frames";
 import { newMapper, ofType } from "./helpers";
 
 function outcome(result: SDKResultMessage): RunOutcome {
@@ -152,6 +155,8 @@ describe("turnOutcome by terminal_reason first", () => {
 	});
 });
 
+const AT = 1_700_000_000_000;
+
 const MODEL_USAGE = {
 	"claude-opus-5-5": {
 		inputTokens: 100,
@@ -178,7 +183,7 @@ const MODEL_USAGE = {
 
 describe("usageOf", () => {
 	test("sums the models of modelUsage, takes the cost from total_cost_usd, and the window from the session's model", () => {
-		const usage = usageOf(success({ modelUsage: MODEL_USAGE, total_cost_usd: 0.51 }), "claude-opus-5-5");
+		const usage = usageOf(success({ modelUsage: MODEL_USAGE, total_cost_usd: 0.51 }), "claude-opus-5-5", AT);
 		expect(usage).toEqual({
 			inputTokens: 140,
 			outputTokens: 28,
@@ -192,22 +197,22 @@ describe("usageOf", () => {
 	});
 
 	test("with several models and none the session's, no window is claimed", () => {
-		expect(usageOf(success({ modelUsage: MODEL_USAGE }), undefined)?.contextWindow).toBeUndefined();
-		expect(usageOf(success({ modelUsage: MODEL_USAGE }), "claude-other")?.contextWindow).toBeUndefined();
+		expect(usageOf(success({ modelUsage: MODEL_USAGE }), undefined, AT)?.contextWindow).toBeUndefined();
+		expect(usageOf(success({ modelUsage: MODEL_USAGE }), "claude-other", AT)?.contextWindow).toBeUndefined();
 	});
 
 	test("with one model its window stands even before an init named it", () => {
 		const only = { "claude-haiku-5-5": MODEL_USAGE["claude-haiku-5-5"] };
-		expect(usageOf(success({ modelUsage: only }), undefined)?.contextWindow).toBe(200_000);
+		expect(usageOf(success({ modelUsage: only }), undefined, AT)?.contextWindow).toBe(200_000);
 	});
 
 	test("reasoning tokens are absent when no model reported them", () => {
 		const only = { "claude-haiku-5-5": MODEL_USAGE["claude-haiku-5-5"] };
-		expect(usageOf(success({ modelUsage: only }))).not.toHaveProperty("reasoningTokens");
+		expect(usageOf(success({ modelUsage: only }), undefined, AT)).not.toHaveProperty("reasoningTokens");
 	});
 
 	test("a zeroed result (an abort before any request) says nothing", () => {
-		expect(usageOf(success({ modelUsage: {}, total_cost_usd: 0 }))).toBeUndefined();
+		expect(usageOf(success({ modelUsage: {}, total_cost_usd: 0 }), undefined, AT)).toBeUndefined();
 		const mapper = newMapper();
 		expect(mapper.map(failure({ terminal_reason: "aborted_streaming", modelUsage: {} }))).toEqual([]);
 	});
@@ -232,7 +237,7 @@ describe("usageOf", () => {
 		};
 		const iterations = [request(10, 1, 1), request(700, 200, 50), compaction];
 		const base = success({ modelUsage: MODEL_USAGE });
-		const usage = usageOf({ ...base, usage: { ...base.usage, iterations } }, "claude-opus-5-5");
+		const usage = usageOf({ ...base, usage: { ...base.usage, iterations } }, "claude-opus-5-5", AT);
 		expect(usage?.contextTokens).toBe(950);
 	});
 
@@ -253,10 +258,96 @@ describe("usageOf", () => {
 				contextWindow: 0,
 			},
 		};
-		const usage = usageOf(success({ modelUsage: bad, total_cost_usd: Number.NaN }));
+		const usage = usageOf(success({ modelUsage: bad, total_cost_usd: Number.NaN }), undefined, AT);
 		expect(Usage.safeParse(usage).success).toBe(true);
 		expect(usage).toMatchObject({ inputTokens: 0, outputTokens: 0 });
 		expect(usage).not.toHaveProperty("costUsd");
 		expect(usage).not.toHaveProperty("contextWindow");
+	});
+});
+
+describe("the prompt cache window", () => {
+	const written = (fiveMinutes: number, oneHour: number) => ({
+		ephemeral_5m_input_tokens: fiveMinutes,
+		ephemeral_1h_input_tokens: oneHour,
+	});
+	const request = (
+		input: number,
+		read: number,
+		write: number,
+		cacheCreation: ReturnType<typeof written> | null = null,
+	) => ({
+		type: "message" as const,
+		input_tokens: input,
+		cache_read_input_tokens: read,
+		cache_creation_input_tokens: write,
+		output_tokens: 1,
+		model: "m",
+		cache_creation: cacheCreation,
+	});
+	const turn = (
+		iterations: SDKResultMessage["usage"]["iterations"],
+		modelUsage: SDKResultMessage["modelUsage"] = MODEL_USAGE,
+	): SDKResultMessage => {
+		const base = success({ modelUsage });
+		return { ...base, usage: { ...base.usage, iterations } };
+	};
+	const cacheOf = (result: SDKResultMessage) => usageOf(result, "claude-opus-5-5", AT)?.cache;
+
+	test("a five-minute write: exact, from when the request was made, with the last request's own hit", () => {
+		const cache = cacheOf(turn([request(1, 1, 1), request(100, 9_000, 900, written(900, 0))]));
+		expect(cache).toEqual({
+			lastTouchAt: AT,
+			ttlMs: 300_000,
+			confidence: "exact",
+			cachedTokens: 9_000,
+			promptTokens: 10_000,
+		});
+		expect(Usage.safeParse({ cache }).success).toBe(true);
+	});
+
+	test("a one-hour write is an hour; a write the CLI gave no lifetime is five minutes", () => {
+		expect(cacheOf(turn([request(10, 0, 4_000, written(0, 4_000))]))?.ttlMs).toBe(3_600_000);
+		expect(cacheOf(turn([request(10, 0, 4_000)]))?.ttlMs).toBe(300_000);
+	});
+
+	test("a request that only read keeps an hour only where the model has only written one-hour entries", () => {
+		const opus = MODEL_USAGE["claude-opus-5-5"];
+		const longOnly = { "claude-opus-5-5": { ...opus, cacheCreationEphemeral1hInputTokens: 4_000 } };
+		const mixed = {
+			"claude-opus-5-5": {
+				...opus,
+				cacheCreationEphemeral1hInputTokens: 4_000,
+				cacheCreationEphemeral5mInputTokens: 9,
+			},
+		};
+		expect(cacheOf(turn([request(10, 4_000, 0)], longOnly))?.ttlMs).toBe(3_600_000);
+		expect(cacheOf(turn([request(10, 4_000, 0)], mixed))?.ttlMs).toBe(300_000);
+		expect(cacheOf(turn([request(10, 4_000, 0)]))?.ttlMs).toBe(300_000);
+	});
+
+	test("with no iteration the turn's own usage gives the lifetime, and no hit is claimed", () => {
+		const base = success({ modelUsage: MODEL_USAGE });
+		const usage = { ...base.usage, cache_read_input_tokens: 50, cache_creation: written(0, 70) };
+		expect(cacheOf({ ...base, usage })).toEqual({ lastTouchAt: AT, ttlMs: 3_600_000, confidence: "exact" });
+	});
+
+	test("a turn that touched no cache has no window", () => {
+		expect(cacheOf(turn([request(100, 0, 0)]))).toBeUndefined();
+		expect(cacheOf(success({ modelUsage: MODEL_USAGE }))).toBeUndefined();
+	});
+
+	test("the mapper stamps the window when the main loop's last response began, not when the result came", () => {
+		let now = 1_000;
+		const mapper = newMapper(() => now);
+		mapper.map(messageStart("msg_sub"));
+		now = 2_000;
+		mapper.map({ ...messageStart("msg_sub_2"), parent_tool_use_id: "toolu_1" });
+		now = 9_000;
+		const first = mapper.map(turn([request(1, 10, 0)])).map((item) => item.event);
+		expect(ofType(first, "usage_updated")[0]?.usage.cache?.lastTouchAt).toBe(1_000);
+		now = 12_000;
+		const second = mapper.map(turn([request(1, 10, 0)])).map((item) => item.event);
+		expect(ofType(second, "usage_updated")[0]?.usage.cache?.lastTouchAt).toBe(12_000);
 	});
 });

@@ -26,6 +26,8 @@ export type ScriptedTurn = {
 	error?: string;
 	/** The stream breaks off after the tool calls with this error in an SSE event, as a provider failing mid-response does. */
 	breaksWith?: string;
+	/** Of the prompt, the tokens the provider read from its cache (`prompt_tokens_details.cached_tokens`). */
+	cachedTokens?: number;
 };
 
 export interface ScriptedMessage {
@@ -37,6 +39,8 @@ export interface ScriptedRequest {
 	readonly sessionId: string | undefined;
 	readonly model: string;
 	readonly messages: readonly ScriptedMessage[];
+	/** The names of the tools the request declared to the model. */
+	readonly tools: readonly string[];
 }
 
 export interface ScriptedOpenAI {
@@ -109,7 +113,12 @@ function usageOf(request: ScriptedRequest, turn: ScriptedTurn) {
 	];
 	const prompt = Math.ceil(JSON.stringify(request.messages).length / 4);
 	const completion = Math.ceil(said.join("").length / 4);
-	return { prompt_tokens: prompt, completion_tokens: completion, total_tokens: prompt + completion };
+	return {
+		prompt_tokens: prompt,
+		completion_tokens: completion,
+		total_tokens: prompt + completion,
+		...(turn.cachedTokens !== undefined && { prompt_tokens_details: { cached_tokens: turn.cachedTokens } }),
+	};
 }
 
 function turnStream(
@@ -179,7 +188,9 @@ function turnStream(
 function requestOf(sessionId: string | undefined, body: unknown): ScriptedRequest {
 	const record = typeof body === "object" && body !== null ? (body as Record<string, unknown>) : {};
 	const messages = Array.isArray(record.messages) ? (record.messages as ScriptedMessage[]) : [];
-	return { sessionId, model: String(record.model ?? ""), messages };
+	const declared: unknown[] = Array.isArray(record.tools) ? record.tools : [];
+	const tools = declared.map((tool) => String(Reflect.get(Object(Reflect.get(Object(tool), "function")), "name")));
+	return { sessionId, model: String(record.model ?? ""), messages, tools };
 }
 
 export function serveScriptedOpenAI(options: ScriptedOptions): ScriptedOpenAI {

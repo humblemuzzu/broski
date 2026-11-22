@@ -267,7 +267,7 @@ export class EventBridge {
 		for (const event of stream?.end(message) ?? []) this.deps.live.emit(event);
 		this.stream = undefined;
 		this.tools.responseEnded(message, stream?.unexecutedCalls(message) ?? []);
-		if (!this.replaying) this.deps.usage.refresh();
+		if (!this.replaying) this.deps.usage.refresh(message);
 	}
 
 	private async userEnded(message: UserMessage): Promise<void> {

@@ -14,6 +14,7 @@ import { usageOf } from "./usage";
 export function resultEvents(state: MapperState, frame: SDKResultMessage): MappedEvent[] {
 	state.turnUnderway = false;
 	const compaction = endCompaction(state, turnOutcome(frame).kind === "aborted" ? "aborted" : "completed");
-	const usage = usageOf(frame, state.model);
+	const usage = usageOf(frame, state.model, state.requestAt ?? state.now());
+	state.requestAt = undefined;
 	return [...compaction, ...(usage === undefined ? [] : [{ event: { type: "usage_updated" as const, usage } }])];
 }

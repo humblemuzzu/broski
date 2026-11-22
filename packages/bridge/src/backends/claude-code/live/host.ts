@@ -16,6 +16,7 @@ import type { AskDesk } from "../ports/asks";
 import type { LiveDeps } from "../ports/deps";
 import type { LiveOverlay, LiveRow } from "../ports/store";
 import { CLOSED, isRejected } from "../rejections";
+import type { BridgeMcpLease } from "../services";
 import { abortRun } from "./abort";
 import { ChildRouter } from "./child-router";
 import { startCompaction } from "./compaction";
@@ -58,6 +59,8 @@ export class SessionHost {
 	private persisted: boolean;
 	private launched = 0;
 	private finished = false;
+	/** The bridge's MCP server as the running process holds it. */
+	private mcpLease: BridgeMcpLease | undefined;
 	private readonly watch: IdleWatch;
 
 	constructor(
@@ -221,6 +224,7 @@ export class SessionHost {
 			await this.slot.end();
 			if (this.launched > 0) await this.deps.ownership.noteOwnWrite(this.id, this.deps.services.clock.now());
 		} finally {
+			this.releaseMcp();
 			this.hooks.released(this);
 		}
 	}
@@ -257,6 +261,8 @@ export class SessionHost {
 	private async launchOptions() {
 		const restart = this.launched++ > 0;
 		const resume = this.persisted || (restart && (await this.onDisk()));
+		this.releaseMcp();
+		this.mcpLease = this.deps.services.mcpServer?.(this.id);
 		return launchOptions({
 			services: this.deps.services,
 			cwd: this.cwd,
@@ -265,7 +271,13 @@ export class SessionHost {
 			snapshot: this.state.snapshot(),
 			explicitModel: this.settings.explicitModel,
 			desk: this.desk,
+			mcpServer: this.mcpLease?.server,
 		});
+	}
+
+	private releaseMcp(): void {
+		this.mcpLease?.release();
+		this.mcpLease = undefined;
 	}
 
 	private async onDisk(): Promise<boolean> {
@@ -277,7 +289,9 @@ export class SessionHost {
 	}
 
 	private processEnded(process: HostProcess, error: unknown): void {
-		if (!this.slot.release(process) || this.finished) return;
+		if (!this.slot.release(process)) return;
+		this.releaseMcp();
+		if (this.finished) return;
 		processEnded(
 			{
 				live: this.live,

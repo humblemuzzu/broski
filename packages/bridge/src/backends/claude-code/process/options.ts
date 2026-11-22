@@ -3,7 +3,7 @@
 import type { CanUseTool, EffortLevel, OnElicitation, Options, PermissionMode } from "@anthropic-ai/claude-agent-sdk";
 import type { Rejected } from "../../../contract";
 import { rejected } from "../rejections";
-import type { ClaudeCodeServices } from "../services";
+import type { BridgeMcpServer, ClaudeCodeServices } from "../services";
 
 export interface HostOptionsInput {
 	readonly services: ClaudeCodeServices;
@@ -14,6 +14,26 @@ export interface HostOptionsInput {
 	readonly effort?: EffortLevel;
 	readonly canUseTool: CanUseTool;
 	readonly onElicitation: OnElicitation;
+	readonly mcpServer?: BridgeMcpServer;
+}
+
+/**
+ * The server sent in the initialize request, so its token stays off the command line; always loaded, so tool search
+ * never defers it; and its one tool allowed without a permission ask.
+ */
+function mcpOptions(server: BridgeMcpServer): Pick<Options, "mcpServers" | "mcpServersDelivery" | "allowedTools"> {
+	return {
+		mcpServers: {
+			[server.name]: {
+				type: "http",
+				url: server.url,
+				headers: { authorization: `Bearer ${server.token}` },
+				alwaysLoad: true,
+			},
+		},
+		mcpServersDelivery: "initialize",
+		allowedTools: [`mcp__${server.name}__broski_notify`],
+	};
 }
 
 /** `backend_error` when `services.cli` found no binary. */
@@ -39,5 +59,6 @@ export function hostOptions(input: HostOptionsInput): Options | Rejected {
 		...("sessionId" in input.start ? { sessionId: input.start.sessionId } : { resume: input.start.resume }),
 		...(input.model !== undefined && { model: input.model }),
 		...(input.effort !== undefined && { effort: input.effort }),
+		...(input.mcpServer !== undefined && mcpOptions(input.mcpServer)),
 	};
 }
