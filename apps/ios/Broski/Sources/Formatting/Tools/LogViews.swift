@@ -47,7 +47,7 @@ struct LogBox: View {
             .fixedSize(horizontal: false, vertical: true)
             .background(Palette.codeBackground, in: .rect(cornerRadius: Radius.small, style: .continuous))
             if log.hiddenLines > 0, let source {
-                NavigationLink(value: Route.text(TextPage(title: title, text: source, format: .log, context: context))) {
+                RouteLink(value: Route.text(TextPage(title: title, text: source, format: .log, context: context))) {
                     HStack(spacing: Spacing.xs) {
                         Text(showAll)
                         Text("· ^[\(log.hiddenLines) more line](inflect: true)").foregroundStyle(.secondary)

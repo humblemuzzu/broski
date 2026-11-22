@@ -1,8 +1,10 @@
 import BroskiCore
 import SwiftUI
 
-/// One transcript row, by what it holds. New rows of a live run rise in; a row the lazy stack
-/// rebuilds as the person scrolls back (older than ~3 s) just appears, so history never flickers.
+/// One transcript row, by what it holds. New rows of a live run rise in; a row drawn again as the
+/// person scrolls back (older than ~3 s) just appears, so history never flickers. What the person
+/// opens in a row is kept under the row's id, which survives the run's live rows giving way to the
+/// transcript's.
 struct ChatRowView: View, Equatable {
     let row: ChatRow
     let isFresh: Bool
@@ -22,15 +24,15 @@ struct ChatRowView: View, Equatable {
     private var content: some View {
         switch row.content {
         case .user(let turn):
-            UserBubble(id: turn.id, text: turn.text, images: turn.attachments.imageTargets)
+            UserBubble(id: row.id, text: turn.text, images: turn.attachments.imageTargets)
         case .pending(let prompt):
             UserBubble(
-                id: prompt.id,
+                id: row.id,
                 text: [prompt.draft.command.map { "/\($0.name)" }, prompt.draft.text].compactMap(\.self)
                     .filter { !$0.isEmpty }.joined(separator: " "),
                 images: prompt.draft.images.map { .local(id: $0.id.uuidString, name: $0.content.name) }, isPending: true)
         case .work(let fold):
-            WorkFoldView(fold: fold)
+            WorkFoldView(fold: fold, key: row.id)
         case .text(let piece):
             VStack(alignment: .leading, spacing: Spacing.xs) {
                 if piece.kind == .plan && piece.isFirst {
@@ -40,6 +42,7 @@ struct ChatRowView: View, Equatable {
                 }
                 FormatBlockView(block: piece.block, next: piece.next, streaming: piece.isStreaming).equatable()
             }
+            .environment(\.disclosureKey, row.id)
             .answerMenu(rowId: row.id, block: piece.block)
         case .answerEnd(let end):
             AnswerEndView(end: end)

@@ -2,116 +2,96 @@ import BroskiCore
 import SwiftUI
 import ThinkingOrbsKit
 
-/// The transcript, full bleed under the header and the composer: finished runs, then the live run,
-/// then the status lane. It follows its end by anchoring growth to the bottom while following and to
-/// the top while the person reads above (never a scroll per update); a short conversation sits at
-/// the bottom; older pages load before the top comes into view and keep the reader's place.
 struct TranscriptView: View {
     let chat: ChatModel
-    let dimmed: Bool
-    /// What the link is doing while it cannot reach the Mac, which is why the conversation is late.
     let connection: String?
     let dismissKeyboard: () -> Void
-    @Binding var position: ScrollPosition
-    @State private var personScrolling = false
-    @State private var olderAnchor: String?
-    @State private var screensFromTop = CGFloat.infinity
+    @State private var safeFrame = CGRect.zero
+    @State private var fullFrame = CGRect.zero
+    @State private var jumps = 0
+    @Environment(AppModel.self) private var app
+    @Environment(Disclosure.self) private var disclosure
+    @Environment(\.openRoute) private var openRoute
+    @Environment(\.formatContext) private var formatContext
+    @Environment(\.chatMachineId) private var machineId
+    @Environment(\.chatImages) private var images
+    @Environment(\.modelNames) private var modelNames
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
-                OlderPages(chat: chat)
-                ForEach(chat.historyRows) { row in
-                    ChatRowView(row: row, isFresh: false).equatable()
-                }
-                ForEach(chat.liveRows) { row in
-                    ChatRowView(row: row, isFresh: chat.isFresh(row)).equatable()
-                }
-                StatusLaneView(status: LaneStatus(chat.snapshot), startedAt: chat.snapshot.run?.startedAt)
-                    .padding(.top, Spacing.s)
-                    .id(TranscriptView.endId)
+        Color.clear
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { safeFrame = $0 }
+            .overlay {
+                TranscriptList(
+                    entries: entries, freshIDs: chat.freshRowIDs, insets: insets, following: chat.follow.isFollowing,
+                    jumpRequest: chat.jumpRequest, cellContext: cellContext, callbacks: callbacks
+                )
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { fullFrame = $0 }
+                .ignoresSafeArea()
+                .opacity(chat.isRevealed ? 1 : 0)
+                .animation(.easeOut(duration: 0.2), value: chat.isRevealed)
             }
-            .scrollTargetLayout()
-        }
-        .environment(\.answerSource, AnswerSource { [chat] rowId in Self.answer(containing: rowId, in: chat) })
-        .environment(\.formatBleed, Self.sideMargin)
-        .contentMargins(.horizontal, Self.sideMargin, for: .scrollContent)
-        .contentMargins(.vertical, Spacing.m, for: .scrollContent)
-        .scrollPosition($position)
-        .defaultScrollAnchor(.bottom, for: .initialOffset)
-        .defaultScrollAnchor(.bottom, for: .alignment)
-        .defaultScrollAnchor(chat.follow.isFollowing ? .bottom : .top, for: .sizeChanges)
-        // Explicit: built against the iOS 27 SDK, `.automatic` resolves to the hard edge, an opaque
-        // band with a rule under the bar and over the composer.
-        .scrollEdgeEffectStyle(.soft, for: .all)
-        .scrollDismissesKeyboard(.interactively)
-        .onScrollPhaseChange { _, phase in
-            personScrolling = phase == .tracking || phase == .interacting || phase == .decelerating
-        }
-        .onScrollGeometryChange(for: CGFloat.self, of: Self.distanceFromEnd) { _, distance in
-            chat.updateFollow { $0.scrolled(distanceFromEnd: distance, byPerson: personScrolling) }
-        }
-        .onScrollGeometryChange(for: CGFloat.self, of: Self.visibleHeight) { _, _ in
-            // The end row, not `scrollTo(edge: .bottom)`: that one resets the horizontal offset to 0, and the
-            // whole transcript lands the width of its side margin to the left.
-            if chat.follow.isFollowing { position.scrollTo(id: Self.endId, anchor: .bottom) }
-        }
-        .onScrollGeometryChange(for: CGFloat.self, of: Self.screensFromTop) { _, screens in
-            screensFromTop = screens
-            prefetchOlder()
-        }
-        .onChange(of: chat.history.olderCursor) { prefetchOlder() }
-        .onChange(of: chat.isRevealed) { prefetchOlder() }
-        .onChange(of: chat.historyRows.first?.id) {
-            guard let olderAnchor else { return }
-            self.olderAnchor = nil
-            position.scrollTo(id: olderAnchor, anchor: .top)
-        }
-        .simultaneousGesture(TapGesture().onEnded(dismissKeyboard))
-        .opacity(chat.isRevealed ? (dimmed ? 0.5 : 1) : 0)
-        .animation(.easeOut(duration: 0.2), value: chat.isRevealed)
-        .overlay {
-            if chat.isRevealed, !chat.history.isLoaded, chat.historyProblem == nil {
-                LoadingConversation(connection: connection)
+            .overlay(alignment: .bottom) {
+                if chat.isRevealed && !chat.follow.isFollowing {
+                    JumpToLatest(unseen: chat.follow.unseen) {
+                        jumps += 1
+                        chat.requestJump()
+                    }
+                    .padding(.bottom, Spacing.s)
+                }
             }
-        }
+            .animation(reduceMotion ? .easeOut(duration: 0.14) : .spring(duration: 0.28, bounce: 0.12), value: chat.follow.isFollowing)
+            .haptic(.snappedToLatest, trigger: jumps)
+            .overlay {
+                if chat.isRevealed, !chat.history.isLoaded, chat.historyProblem == nil {
+                    LoadingConversation(connection: connection)
+                }
+            }
     }
 
-    static let endId = "transcript-end"
     static let sideMargin = Spacing.l + Spacing.xs
 
-    /// Older pages load while the top is still this many screens away, so a drag at the top of a chat
-    /// opened with the zoom transition (which dismisses it) never meets a page still on its way.
-    private static let prefetchScreens: CGFloat = 2
-
-    private func prefetchOlder() {
-        guard chat.isRevealed, chat.history.hasOlder, chat.historyProblem == nil, screensFromTop < Self.prefetchScreens else { return }
-        olderAnchor = chat.historyRows.first?.id
-        Task { await chat.loadOlder() }
+    private var insets: EdgeInsets {
+        guard fullFrame.height > 0, safeFrame.height > 0 else { return EdgeInsets() }
+        return EdgeInsets(
+            top: max(0, safeFrame.minY - fullFrame.minY), leading: 0,
+            bottom: max(0, fullFrame.maxY - safeFrame.maxY), trailing: 0)
     }
 
-    /// How far the visible top is below the content's top, in screens.
-    nonisolated static func screensFromTop(_ geometry: ScrollGeometry) -> CGFloat {
-        (geometry.contentOffset.y + geometry.contentInsets.top) / max(geometry.containerSize.height, 1)
+    private var entries: [(id: String, entry: TranscriptEntry)] {
+        var items: [(id: String, entry: TranscriptEntry)] = []
+        items.reserveCapacity(chat.historyRows.count + chat.liveRows.count + 2)
+        if chat.history.hasOlder || chat.historyProblem != nil {
+            items.append((TranscriptEntry.olderID, .older(problem: chat.historyProblem?.message)))
+        }
+        for row in chat.historyRows {
+            items.append((row.id, .row(row)))
+        }
+        for row in chat.liveRows {
+            items.append((row.id, .row(row)))
+        }
+        items.append((TranscriptEntry.laneID, .lane(LaneStatus(chat.snapshot), startedAt: chat.snapshot.run?.startedAt)))
+        return items
     }
 
-    /// The height content shows in, which the keyboard and the composer's growth change: the
-    /// anchor keeps the end in place as content grows, and this keeps it as the window shrinks.
-    nonisolated static func visibleHeight(_ geometry: ScrollGeometry) -> CGFloat {
-        geometry.containerSize.height - geometry.contentInsets.top - geometry.contentInsets.bottom
+    private var cellContext: TranscriptCellContext {
+        TranscriptCellContext(
+            app: app, disclosure: disclosure, images: images, formatContext: formatContext, machineId: machineId,
+            openRoute: openRoute,
+            answerSource: AnswerSource { [chat] rowId in Self.answer(containing: rowId, in: chat) },
+            modelNames: modelNames, retryHistory: chat.retryHistory)
     }
 
-    /// How far the visible end is above the content's end, insets included.
-    nonisolated static func distanceFromEnd(_ geometry: ScrollGeometry) -> CGFloat {
-        let maxOffset = geometry.contentSize.height + geometry.contentInsets.bottom - geometry.containerSize.height
-        return max(0, maxOffset - geometry.contentOffset.y)
+    private var callbacks: TranscriptController.Callbacks {
+        TranscriptController.Callbacks(
+            updateFollow: { [chat] change in
+                chat.updateFollow(change)
+                return chat.follow
+            },
+            nearTop: chat.loadOlderIfNeeded,
+            dismissKeyboard: dismissKeyboard)
     }
-}
 
-/// What a chat shows while its newest page is still on its way: a slow link must not read as an
-/// empty conversation.
-extension TranscriptView {
-    /// The whole answer the row with `rowId` is part of: the text of the line under it.
     static func answer(containing rowId: String, in chat: ChatModel) -> String? {
         let rows = chat.historyRows + chat.liveRows
         guard let start = rows.firstIndex(where: { $0.id == rowId }) else { return nil }
@@ -120,6 +100,53 @@ extension TranscriptView {
             if case .user = row.content { return nil }
         }
         return nil
+    }
+}
+
+private struct TranscriptList: UIViewControllerRepresentable {
+    let entries: [(id: String, entry: TranscriptEntry)]
+    let freshIDs: Set<String>
+    let insets: EdgeInsets
+    let following: Bool
+    let jumpRequest: TranscriptJump?
+    let cellContext: TranscriptCellContext
+    let callbacks: TranscriptController.Callbacks
+
+    func makeUIViewController(context: Context) -> TranscriptController {
+        TranscriptController()
+    }
+
+    func updateUIViewController(_ controller: TranscriptController, context: Context) {
+        controller.loadViewIfNeeded()
+        controller.callbacks = callbacks
+        controller.context = cellContext
+        controller.show(entries, freshIDs: freshIDs)
+        controller.setBarInsets(insets)
+        controller.setFollowing(following)
+        controller.jump(jumpRequest)
+    }
+}
+
+private struct JumpToLatest: View {
+    let unseen: Int
+    let jump: () -> Void
+
+    var body: some View {
+        Button(action: jump) {
+            HStack(spacing: Spacing.xs) {
+                if unseen > 0 {
+                    Text("^[\(unseen) new message](inflect: true)").font(.subheadline.weight(.medium))
+                }
+                Image(systemName: "arrow.down").font(.body.weight(.semibold))
+            }
+            .padding(.horizontal, unseen > 0 ? Spacing.m : 0)
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(.capsule)
+        }
+        .buttonStyle(.plain)
+        .glassEffect(.regular.interactive(), in: .capsule)
+        .accessibilityLabel(unseen > 0 ? "Jump to latest, \(unseen) new" : "Jump to latest")
+        .transition(.scale(scale: 0.6).combined(with: .opacity))
     }
 }
 
@@ -137,24 +164,5 @@ private struct LoadingConversation: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .allowsHitTesting(false)
         .transition(.opacity)
-    }
-}
-
-/// The top of what is loaded: an orb while older pages load (they load well before the top is in
-/// view, so it is feedback only), or what stopped them.
-private struct OlderPages: View {
-    let chat: ChatModel
-
-    var body: some View {
-        if let problem = chat.historyProblem {
-            Banner(style: .warning, message: "Couldn't read this conversation's history. \(problem.message)") {
-                Button("Try Again") { Task { await chat.loadNewest() } }
-            }
-            .padding(.bottom, Spacing.l)
-        } else if chat.history.hasOlder {
-            LoadingOrb(label: "Loading earlier messages")
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, Spacing.l)
-        }
     }
 }

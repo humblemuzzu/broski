@@ -5,24 +5,23 @@ import UIKit
 
 /// The person's message: the transcript's only container, trailing and as wide as its words (a
 /// message with code takes the width, its code scrolling), images above it; long-press copies it.
-/// A long one shows its first lines, the last fading into a chevron in the corner that opens it (kept
-/// by `Disclosure`, so it stays open as the lazy stack rebuilds it). A prompt still on its way shows
-/// dimmed.
+/// A long one shows its first lines fading out at the bottom, with Show more under them (kept by
+/// `Disclosure` under `id`). Whether it folds is settled in the same layout pass that measures it,
+/// so it never draws whole and then shrinks. A prompt still on its way shows dimmed.
 struct UserBubble: View {
     let id: String
     let text: String
     var images: [ImageTarget] = []
     var isPending = false
-    @State private var fullHeight: CGFloat = 0
     @Environment(Disclosure.self) private var disclosure
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @ScaledMetric(relativeTo: .body) private var line: CGFloat = 22
+    /// One line of the message as the formatter sets body text (17 pt with 4.5 pt between lines).
+    @ScaledMetric(relativeTo: .body) private var line: CGFloat = 26.5
 
-    /// Four lines show while folded; a message only two lines longer is shown whole.
-    private var foldedHeight: CGFloat { line * 4 }
-    private var folds: Bool { fullHeight > line * 6 }
+    /// Six lines show while folded; only a message well past that folds at all.
+    private var foldedHeight: CGFloat { line * 6 }
+    private var foldsPast: CGFloat { line * 10 }
     private var isOpen: Bool { disclosure.isOpen(id) }
-    private var folded: Bool { folds && !isOpen }
 
     var body: some View {
         VStack(alignment: .trailing, spacing: Spacing.xs + 2) {
@@ -30,17 +29,26 @@ struct UserBubble: View {
                 PromptImageGallery(images: images)
             }
             if !text.isEmpty {
-                VStack(alignment: .trailing, spacing: Spacing.xs) {
-                    HugWidth(hugs: !hasCode) { FormattedMessage(text: text) }
-                        .fixedSize(horizontal: false, vertical: true)
-                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { fullHeight = $0 }
-                        .frame(maxHeight: folded ? foldedHeight : nil, alignment: .top)
-                        .clipped()
-                        .mask { if folded { lastLineFade } else { Rectangle() } }
-                        .overlay(alignment: .bottomTrailing) {
-                            if folded { foldButton.frame(height: line * 1.2) }
+                Group {
+                    if isOpen {
+                        VStack(alignment: .trailing, spacing: Spacing.xs) {
+                            message
+                            foldButton("Show less")
                         }
-                    if folds && isOpen { foldButton }
+                    } else {
+                        ProposingHeight(height: foldsPast) {
+                            ViewThatFits(in: .vertical) {
+                                message
+                                VStack(alignment: .trailing, spacing: Spacing.xs) {
+                                    message
+                                        .frame(height: foldedHeight, alignment: .top)
+                                        .clipped()
+                                        .mask { bottomFade }
+                                    foldButton("Show more")
+                                }
+                            }
+                        }
+                    }
                 }
                 .padding(.horizontal, Spacing.l)
                 .padding(.vertical, Spacing.m - 2)
@@ -62,33 +70,28 @@ struct UserBubble: View {
         }
     }
 
-    private var foldButton: some View {
-        Button {
-            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.22)) { disclosure.toggle(id) }
-        } label: {
-            Image(systemName: "chevron.down")
-                .font(.footnote.weight(.semibold))
-                .rotationEffect(.degrees(isOpen ? 180 : 0))
-                .frame(width: 28, height: 28)
-                .background(Color(uiColor: .tertiarySystemFill), in: .circle)
-                .contentShape(.circle)
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(.secondary)
-        .accessibilityLabel(isOpen ? "Show less" : "Show all of it")
+    private var message: some View {
+        HugWidth(hugs: !hasCode) { FormattedMessage(text: text) }
+            .fixedSize(horizontal: false, vertical: true)
     }
 
-    /// The folded text whole but for its last line, which fades out where the chevron sits.
-    private var lastLineFade: some View {
+    private func foldButton(_ title: String) -> some View {
+        Button(title) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.22)) { disclosure.toggle(id) }
+        }
+        .buttonStyle(.plain)
+        .font(.footnote.weight(.semibold))
+        .foregroundStyle(.secondary)
+        .frame(minHeight: 32)
+        .contentShape(.rect)
+    }
+
+    /// The folded text whole down to its last line and a half, which fade out.
+    private var bottomFade: some View {
         VStack(spacing: 0) {
             Rectangle()
-            HStack(spacing: 0) {
-                Rectangle()
-                LinearGradient(colors: [.black, .clear], startPoint: .leading, endPoint: .trailing)
-                    .frame(width: line * 3)
-                Color.clear.frame(width: line * 1.4)
-            }
-            .frame(height: line * 1.2)
+            LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
+                .frame(height: line * 1.5)
         }
     }
 
@@ -99,6 +102,20 @@ struct UserBubble: View {
             default: false
             }
         }
+    }
+}
+
+/// Its content as if offered `height`, whatever it is offered: lets a `ViewThatFits` decide against
+/// a fixed height inside a stack that offers none.
+private struct ProposingHeight: Layout {
+    let height: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        subviews[0].sizeThatFits(ProposedViewSize(width: proposal.width, height: height))
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        subviews[0].place(at: bounds.origin, proposal: ProposedViewSize(width: bounds.width, height: height))
     }
 }
 
@@ -343,9 +360,21 @@ struct NoticeLine: View {
     }
 }
 
+/// A model's display name by its id, from the chat's catalog; the id itself when it is not listed.
+struct ModelNames {
+    let name: (String) -> String?
+
+    func callAsFunction(_ id: String) -> String { name(id) ?? id }
+}
+
+extension EnvironmentValues {
+    @Entry var modelNames = ModelNames { _ in nil }
+}
+
 /// A compaction, a model change, or how a run ended, as a centred caption between turns.
 struct MarkerLine: View {
     let marker: Marker
+    @Environment(\.modelNames) private var modelNames
 
     var body: some View {
         HStack(spacing: Spacing.s) {
@@ -370,7 +399,12 @@ struct MarkerLine: View {
             }
             return "Context compacted"
         case .model(let change):
-            return "Switched to \(change.modelId ?? "the default model")" + (change.thinking.map { " · \($0)" } ?? "")
+            switch (change.modelId, change.thinking) {
+            case (let model?, let thinking?): return "Switched to \(modelNames(model)) · \(thinking.capitalized)"
+            case (let model?, nil): return "Switched to \(modelNames(model))"
+            case (nil, let thinking?): return "Thinking set to \(thinking.capitalized)"
+            case (nil, nil): return "Switched to the default model"
+            }
         case .outcome(let outcome):
             return outcome.marker
         }

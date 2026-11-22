@@ -91,7 +91,7 @@ private struct FileList: View {
         VStack(alignment: .leading, spacing: Spacing.xs) {
             ForEach(paths.prefix(ToolDisplayView.shownFiles), id: \.self) { path in
                 if let machineId {
-                    NavigationLink(value: Route.workspace(machineId: machineId, place: .file(path))) { row(path) }
+                    RouteLink(value: Route.workspace(machineId: machineId, place: .file(path))) { row(path) }
                         .buttonStyle(.plain)
                 } else {
                     row(path)

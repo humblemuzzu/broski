@@ -18,9 +18,7 @@ nonisolated enum FormatTokens {
     static let inlineCodeScale: CGFloat = 0.88
     static let inlineCodeRadius: CGFloat = 4
     /// The text's own colour, faint: inline code reads as part of its sentence.
-    static let inlineCodeFill = Color(uiColor: UIColor { traits in
-        traits.userInterfaceStyle == .dark ? UIColor(white: 1, alpha: 0.11) : UIColor(white: 0, alpha: 0.06)
-    })
+    static let inlineCodeFill = Color(light: UIColor(white: 0, alpha: 0.06), dark: UIColor(white: 1, alpha: 0.11))
     static let codeRadius: CGFloat = 12
     /// A code block past this many lines folds; its header counts lines past `codeCountLines`.
     static let codeFoldLines = 30
@@ -112,14 +110,10 @@ extension FormatTokens {
     @MainActor static let link = Color(light: 0x1D4ED8, dark: 0x60A5FA)
     /// An answer's running text: a step softer than the full text colour, so long reading does not
     /// glare. Bold is a little brighter than it (`boldText`) and headings are at full strength.
-    @MainActor static let bodyText = Color(uiColor: UIColor { traits in
-        traits.userInterfaceStyle == .dark ? UIColor(white: 1, alpha: 0.86) : UIColor(white: 0, alpha: 0.86)
-    })
+    static let bodyText = Color(light: UIColor(white: 0, alpha: 0.86), dark: UIColor(white: 1, alpha: 0.86))
     /// Bold in running text: just above the body, so a point's opening is found when scanning
     /// without pulling the eye while reading.
-    @MainActor static let boldText = Color(uiColor: UIColor { traits in
-        traits.userInterfaceStyle == .dark ? UIColor(white: 1, alpha: 0.94) : UIColor(white: 0, alpha: 0.94)
-    })
+    static let boldText = Color(light: UIColor(white: 0, alpha: 0.94), dark: UIColor(white: 1, alpha: 0.94))
     /// A path the agent named in code: it opens the file, so it is not drawn as plain code, and it
     /// is not a page, so it is not link blue.
     @MainActor static let path = Color(light: 0x0F766E, dark: 0x7CC7BC)

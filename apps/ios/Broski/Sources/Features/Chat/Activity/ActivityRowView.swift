@@ -83,7 +83,7 @@ private struct ActivityDetail: View {
                 ActivityBodyView(title: activity.title, content: content, log: look.log)
             }
             if let child = activity.childSession, let machineId {
-                NavigationLink(value: Route.session(machineId: machineId, session: child)) {
+                RouteLink(value: Route.session(machineId: machineId, session: child)) {
                     Label("Open the subagent's session", systemImage: "arrow.up.forward.square")
                         .font(.footnote.weight(.medium))
                 }
@@ -125,7 +125,7 @@ private struct ActivityBodyView: View {
 
     private func showAll(_ words: String, hidden: UInt32?) -> some View {
         let page = TextPage(title: title, text: content.text, format: TextPage.Format(content.format), context: context)
-        return NavigationLink(value: Route.text(page)) {
+        return RouteLink(value: Route.text(page)) {
             HStack(spacing: Spacing.xs) {
                 Text(words)
                 if let hidden { Text("· ^[\(hidden) more line](inflect: true)").foregroundStyle(.secondary) }

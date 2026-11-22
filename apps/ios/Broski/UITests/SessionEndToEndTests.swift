@@ -30,7 +30,7 @@ final class SessionEndToEndTests: XCTestCase {
         XCTAssertTrue(last.isHittable, "a follower sees the newest text")
         try screenshot("chat-work")
         XCTAssertFalse(app.staticTexts["A draft the agent withdraws."].exists, "a retracted message leaves")
-        let transcript = app.scrollViews.firstMatch
+        let transcript = app.collectionViews["transcript"]
         let compacted = app.staticTexts["Context compacted · 1K → 200 tokens"]
         for _ in 0..<6 where !compacted.exists {
             transcript.swipeDown()
@@ -46,7 +46,7 @@ final class SessionEndToEndTests: XCTestCase {
         let app = try openChat()
         let last = app.staticTexts["Paragraph 24: what the agent found, streamed in parts."]
         XCTAssertTrue(last.waitForExistence(timeout: timeout))
-        let transcript = app.scrollViews.firstMatch
+        let transcript = app.collectionViews["transcript"]
         transcript.swipeDown(velocity: .fast)
         transcript.swipeDown(velocity: .fast)
         let jump = app.buttons["Jump to latest"]
@@ -64,10 +64,10 @@ final class SessionEndToEndTests: XCTestCase {
         let app = try openChat()
         try script("permission")
         send("Clean the build", in: app)
-        let instead = app.textFields["Tell Pi what to do instead"].firstMatch
+        let instead = app.textFields["Tell Fake what to do instead"].firstMatch
         XCTAssertTrue(instead.waitForExistence(timeout: timeout), "the ask is pinned above the composer")
         try screenshot("chat-permission")
-        XCTAssertTrue(app.staticTexts["Pi wants to run"].exists)
+        XCTAssertTrue(app.staticTexts["Fake wants to run"].exists)
         XCTAssertTrue(app.staticTexts["Waiting for your approval"].waitForExistence(timeout: timeout))
         instead.tap()
         instead.typeText("Keep the build folder")
@@ -129,7 +129,7 @@ final class SessionEndToEndTests: XCTestCase {
         try screenshot("chat-running")
         XCTAssertEqual(
             words.frame.minX, 20, accuracy: 2,
-            "while the run follows its end the agent's words keep the transcript's side margin (transcript \(app.scrollViews.firstMatch.frame), words \(words.frame))")
+            "while the run follows its end the agent's words keep the transcript's side margin (transcript \(app.collectionViews["transcript"].frame), words \(words.frame))")
 
         let field = composer(in: app)
         field.tap()

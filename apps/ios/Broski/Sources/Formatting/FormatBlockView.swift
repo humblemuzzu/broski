@@ -5,6 +5,9 @@ extension EnvironmentValues {
     /// The side margin of the screen the text is on: a code block or a table at the top level of an
     /// answer reaches across it to the screen's edges. Zero where the text sits inside something else.
     @Entry var formatBleed: CGFloat = 0
+    /// The width a top-level block is laid out at, where the screen knows it before layout: a table
+    /// then fits its columns once rather than first at a guess.
+    @Entry var formatWidthHint: CGFloat?
 }
 
 /// One block of formatted text with the containers around it and the space above it. Equatable, so

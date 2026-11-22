@@ -5,53 +5,46 @@ import UIKit
 import os
 
 /// One open chat: the session view's state as the core hands it over, the finished runs read from
-/// the transcript, the rows both make, and what the person has sent that has not landed yet. The
-/// view stays attached while the chat is on screen, which is also what lets the bridge take its
-/// prompts and stops (contract §12.1).
+/// the transcript, the rows both make, and what the person has sent that has not landed yet.
 @Observable
 final class ChatModel {
     let machineId: String
     private(set) var session: SessionRef
     private(set) var state = SessionState()
-    private(set) var history = TranscriptHistory()
-    private(set) var historyRows: [ChatRow] = []
-    private(set) var liveRows: [ChatRow] = []
-    private(set) var pending: [PendingPrompt] = []
+    var history = TranscriptHistory()
+    var historyRows: [ChatRow] = []
+    var liveRows: [ChatRow] = []
+    var pending: [PendingPrompt] = []
     private(set) var notices: [ChatNotice] = []
-    /// The session's row as `session.get` gave it: its title and folder.
     private(set) var summary: SessionSummary?
-    /// The title the person gave here, shown for the rest of the visit whatever the row says.
     private(set) var renamedTitle: String?
-    private(set) var historyProblem: ChatProblem?
-    private(set) var isLoadingOlder = false
-    /// False until the newest page and the live state are both in (or a short wait passed), so the
-    /// transcript never builds itself in front of the person.
-    private(set) var isRevealed = false
+    var historyProblem: ChatProblem?
+    var isLoadingOlder = false
+    var isRevealed = false
     private(set) var follow = FollowState()
+    private(set) var jumpRequest: TranscriptJump?
     var draft: ComposerDraft {
         didSet { drafts[target] = draft }
     }
-    /// The interactions whose answers are on their way, and what came of each answered one.
     private(set) var answering: Set<String> = []
     private(set) var answerProblems: [String: ChatProblem] = [:]
-    /// Bumped by every send, answer and stop, for the haptics they play.
     private(set) var feedback: ChatFeedback?
 
     @ObservationIgnored let requests: ChatRequests
     @ObservationIgnored let imageStore: ChatImageStore
     @ObservationIgnored private let attach: (SessionRef) throws -> SessionView
     @ObservationIgnored private let drafts: DraftStore
-    /// The items of a run that ended, and activities outside any run, shown until the transcript's
-    /// newest page holds them.
-    @ObservationIgnored private var settling: [TranscriptItem] = []
+    @ObservationIgnored var settling: [TranscriptItem] = []
     @ObservationIgnored private var firstPrompt: ComposerDraft?
-    /// When each live row that rises in was first built.
-    @ObservationIgnored private var births: [String: Date] = [:]
-    @ObservationIgnored private var pull: Task<Void, Never>?
-    @ObservationIgnored private var newestReads = 0
-    @ObservationIgnored private var newestRetry: Task<Void, Never>?
-    @ObservationIgnored private var newestFailures = 0
-    /// The pause before reading the newest page again after this many failed reads in a row.
+    @ObservationIgnored var freshRowIDs: Set<String> = []
+    @ObservationIgnored var pull: Task<Void, Never>?
+    @ObservationIgnored var newestReads = 0
+    @ObservationIgnored var newestRetry: Task<Void, Never>?
+    @ObservationIgnored var newestFailures = 0
+    @ObservationIgnored var olderFailed = false
+    @ObservationIgnored var rowAliases: [String: String] = [:]
+    @ObservationIgnored private var nextJumpID = 0
+    @ObservationIgnored let pacer = StreamingPacer()
     @ObservationIgnored var newestRetryPause: (Int) -> Duration = { .seconds(min(30, 1 << min($0, 5))) }
 
     static let revealWait: Duration = .milliseconds(1200)
@@ -73,6 +66,7 @@ final class ChatModel {
         let store = ChatImageStore(requests: requests, workspace: ws, session: { current() })
         self.imageStore = store
         current = { [weak self] in self?.session ?? target.session }
+        pacer.onTick = { [weak self] in self?.rebuildLive(arriving: true) }
     }
 
     var target: SessionTarget { SessionTarget(machineId: machineId, session: session) }
@@ -81,21 +75,16 @@ final class ChatModel {
     var interactions: [Interaction] { snapshot.interactions }
     var canControl: Bool { state.capabilities?.controllable ?? false }
     var canAnswer: Bool { state.capabilities?.answer ?? false }
-    /// Why the live view stopped; until `reattach`, nothing live reaches this chat.
     var viewEnd: ViewEnd? { state.ended }
-    /// False while the view attaches again after the link or the bridge came back.
     var isLive: Bool { state.isLive }
 
-    /// Attaches the view and pulls it for as long as the chat lives. The stack keeps a chat alive
-    /// while a diff or another session is pushed over it; its end cancels the pull, and the
-    /// cancellation detaches the view, which is what ends a Swift pull (mobile-packaging.md §1).
     func start() {
         guard pull == nil else { return }
         let view: SessionView
         do {
             view = try attach(session)
         } catch {
-            notices.append(ChatNotice(ChatProblem(error)))
+            notify(ChatNotice(ChatProblem(error)))
             isRevealed = true
             return
         }
@@ -121,11 +110,14 @@ final class ChatModel {
         newestRetry?.cancel()
     }
 
-    /// A new view in place of one the bridge refused: the refusal may have been passing (an agent
-    /// that failed to start, a Mac that was busy), and the old view never attaches again.
+    func stopStreamingPacer() {
+        pacer.stop()
+    }
+
     func reattach() {
         pull?.cancel()
         pull = nil
+        pacer.reset()
         state = SessionState()
         start()
     }
@@ -140,21 +132,22 @@ final class ChatModel {
         if case .changes = update, state.snapshot.lastOutcome != before, let outcome = state.snapshot.lastOutcome,
             let notice = ChatNotice(outcome: outcome)
         {
-            notices.append(notice)
+            notify(notice)
         }
         if let replaced = state.session, replaced != previous {
             session = replaced
             history = TranscriptHistory()
             historyRows = []
+            rowAliases = [:]
+            pacer.reset()
             Task { await loadNewest() }
         } else if case .reset = update, wasAttached {
-            // The view started over after a gap the bridge could not replay: runs may have begun and
-            // ended meanwhile, and only the transcript has them.
+            pacer.flush()
             Task { await loadNewest() }
         }
         retireDelivered(state.snapshot.run?.items.deliveredRequests ?? [])
         bindConfirmedImages(in: state.snapshot.run?.items ?? [])
-        if case .changes = update { rebuildLive() } else { rebuildLive(arriving: false) }
+        if case .changes = update { rebuildLive(arriving: true) } else { rebuildLive(arriving: false) }
         if case .ended = update { isRevealed = true }
         revealIfReady()
         sendFirstPromptIfReady()
@@ -162,12 +155,13 @@ final class ChatModel {
 
     private func handle(_ moment: SessionMoment) {
         switch moment {
-        case .notice(let notice): notices.append(ChatNotice(notice, transcribed: true))
+        case .notice(let notice): notify(ChatNotice(notice, transcribed: true))
         case .activity(let item): settling.append(.activity(item))
-        case .error(let error): notices.append(ChatNotice(error))
-        case .rateLimit(let update): if let notice = ChatNotice(rateLimit: update) { notices.append(notice) }
+        case .error(let error): notify(ChatNotice(error))
+        case .rateLimit(let update): if let notice = ChatNotice(rateLimit: update) { notify(notice) }
         case .inputReturned(let texts): draft.prepend(returned: texts)
         case .runEnded(let items):
+            pacer.flush()
             notices.removeAll { $0.tone == .info && $0.isTranscribed }
             settling += items
             Task { await loadNewest() }
@@ -179,8 +173,12 @@ final class ChatModel {
     }
 
     func report(_ problem: ChatProblem) {
-        notices.append(ChatNotice(problem))
+        notify(ChatNotice(problem))
         play(.failed)
+    }
+
+    private func notify(_ notice: ChatNotice) {
+        notices.show(notice)
     }
 
     func play(_ moment: HapticMoment) {
@@ -203,126 +201,16 @@ final class ChatModel {
         }
     }
 
-    private func bindConfirmedImages(in items: [TranscriptItem]) {
-        for item in items {
-            if case .userMessage(let message) = item, let requestId = message.clientRequestId, !message.attachments.isEmpty {
-                imageStore.bindConfirmed(requestId: requestId, attachments: message.attachments)
-            }
-        }
-    }
-
-    // MARK: Transcript
-
-    /// Reads the newest page; an answer to an earlier read that comes after a later one's is dropped,
-    /// since it may not hold the run that just ended.
-    func loadNewest() async {
-        let session = session
-        newestReads += 1
-        let read = newestReads
-        let limit = history.isLoaded ? TranscriptHistory.pageSize : TranscriptHistory.firstPageSize
-        do throws(ChatProblem) {
-            let page = try await requests.transcript(session, cursor: nil, limit: limit)
-            guard session == self.session, read == newestReads else { return }
-            history.setNewest(page)
-            settling = []
-            historyProblem = nil
-            newestFailures = 0
-        } catch {
-            Logger.core.error("the transcript was not read: \(error.message, privacy: .public)")
-            guard read == newestReads else { return }
-            historyProblem = error
-            if error.code == nil { readNewestLater() }
-        }
-        retireDelivered(history.deliveredRequests)
-        bindConfirmedImages(in: history.items)
-        rebuildHistory()
-        revealIfReady()
-    }
-
-    /// A read that got no answer goes again by itself while the chat is open, after a pause that
-    /// grows; the problem stays shown until a read lands.
-    private func readNewestLater() {
-        let pause = newestRetryPause(newestFailures)
-        newestFailures += 1
-        newestRetry?.cancel()
-        newestRetry = Task { [weak self] in
-            try? await Task.sleep(for: pause)
-            guard !Task.isCancelled, let self, pull != nil else { return }
-            await loadNewest()
-        }
-    }
-
-    func loadOlder() async {
-        guard let cursor = history.olderCursor, !isLoadingOlder else { return }
-        isLoadingOlder = true
-        defer { isLoadingOlder = false }
-        do throws(ChatProblem) {
-            history.addOlder(try await requests.transcript(session, cursor: cursor, limit: TranscriptHistory.pageSize))
-            rebuildHistory()
-        } catch {
-            historyProblem = error
-        }
-    }
-
-    /// The newest items, finished, settling and live, oldest first: what dictation reads the
-    /// session's names from.
-    func recentItems(limit: Int = 80) -> [TranscriptItem] {
-        Array((history.items + settling + (snapshot.run?.items ?? [])).suffix(limit))
-    }
-
-    private func rebuildHistory() {
-        var timeline = ChatTimeline()
-        timeline.add(history.items)
-        timeline.close(live: false)
-        historyRows = timeline.rows
-        rebuildLive()
-    }
-
-    /// - Parameter arriving: whether rows new to the live part arrive now (and rise in), or were
-    ///   there already when the view started over.
-    private func rebuildLive(arriving: Bool = true) {
-        let previous = historyRows.last
-        var timeline = ChatTimeline(after: previous)
-        timeline.add(settling)
-        if let run = snapshot.run {
-            timeline.addLive(items: run.items, blocks: snapshot.blocks, tools: snapshot.tools)
-        }
-        timeline.close(live: isRunning)
-        for prompt in pending { timeline.append(pending: prompt) }
-        let rows = timeline.finished(continuing: previous)
-        updateFollow { $0.appended(messages: rows.count(where: \.startsMessage) - liveRows.count(where: \.startsMessage)) }
-        let now = Date.now
-        let ids = Set(rows.map(\.id))
-        births = births.filter { ids.contains($0.key) }
-        for row in rows where row.risesIn && births[row.id] == nil { births[row.id] = arriving ? now : .distantPast }
-        liveRows = rows
-    }
-
-    /// The transcript reports its scrolling from inside layout, and that layout reads `follow`. A
-    /// mutation in place (`follow.scrolled(…)`) announces a change even when nothing changed, and
-    /// UIKit lays the whole app out again for each one: that spun the layout every frame, freezing
-    /// the app with the chat half pushed and its transcript never shown. So the new value is worked
-    /// out on a copy and assigned only when it differs.
+    /// Assigns only when the value actually changed, preventing feedback loops when scroll events
+    /// report back into `@Observable` state during layout.
     func updateFollow(_ change: (inout FollowState) -> Void) {
         var next = follow
         change(&next)
         if next != follow { follow = next }
     }
 
-    /// A live row built within the last three seconds, which rises in when it appears.
-    func isFresh(_ row: ChatRow) -> Bool {
-        births[row.id].map { Date.now.timeIntervalSince($0) < 3 } ?? false
-    }
+    // MARK: Sending & Jumps
 
-    private func revealIfReady() {
-        guard !isRevealed, state.session != nil, history.isLoaded || historyProblem != nil else { return }
-        isRevealed = true
-    }
-
-    // MARK: Sending
-
-    /// Sends what the draft holds the way `action` says; the person's bubble shows at once, dimmed
-    /// until the agent shows it delivered. A refused prompt goes back into the field.
     func send(_ action: SendAction) async {
         guard let mode = action.mode, draft.hasContent else { return }
         let sent = draft
@@ -330,11 +218,29 @@ final class ChatModel {
         await deliver(sent, mode: mode)
     }
 
+    func requestJump() {
+        updateFollow { $0.jumped() }
+        nextJumpID += 1
+        jumpRequest = TranscriptJump(id: nextJumpID, kind: .end)
+    }
+
+    func requestPromptAnchor(_ rowID: String) {
+        updateFollow { $0.jumped() }
+        nextJumpID += 1
+        jumpRequest = TranscriptJump(id: nextJumpID, kind: .anchorPrompt(rowID))
+    }
+
     private func deliver(_ sent: ComposerDraft, mode: PromptMode) async {
         let input = sent.input(mode: mode)
         imageStore.rememberOutgoing(requestId: input.clientRequestId, images: sent.images)
-        pending.append(PendingPrompt(id: input.clientRequestId, draft: sent))
-        rebuildLive()
+        if mode != .queue { pending.append(PendingPrompt(id: input.clientRequestId, draft: sent)) }
+        rebuildLive(arriving: true)
+        if mode == .queue {
+            requestJump()
+        } else {
+            let promptRowID = ChatTimeline.userRowID(input.clientRequestId, clientRequestId: input.clientRequestId)
+            requestPromptAnchor(promptRowID)
+        }
         feedback = ChatFeedback(.sent)
         do throws(ChatProblem) {
             let accepted = try await requests.prompt(session, input)
@@ -344,27 +250,16 @@ final class ChatModel {
         } catch {
             retire(input.clientRequestId)
             draft = sent.merged(before: draft)
-            notices.append(ChatNotice(error))
+            notify(ChatNotice(error))
             feedback = ChatFeedback(.failed)
             Logger.core.error("a prompt was refused: \(error.message, privacy: .public)")
         }
     }
 
-    /// A new session's first prompt goes once the view is attached, which the bridge requires.
     private func sendFirstPromptIfReady() {
         guard let firstPrompt, state.session != nil else { return }
         self.firstPrompt = nil
         Task { await deliver(firstPrompt, mode: .start) }
-    }
-
-    private func retireDelivered(_ delivered: Set<String>) {
-        guard !delivered.isEmpty else { return }
-        pending.removeAll { delivered.contains($0.id) }
-    }
-
-    private func retire(_ id: String) {
-        pending.removeAll { $0.id == id }
-        rebuildLive()
     }
 
     func stop() async {
@@ -372,7 +267,7 @@ final class ChatModel {
         do throws(ChatProblem) {
             try await requests.abort(session)
         } catch {
-            notices.append(ChatNotice(error))
+            notify(ChatNotice(error))
         }
     }
 
@@ -381,14 +276,12 @@ final class ChatModel {
             try await requests.cancelQueued(session, id: item.id)
             feedback = ChatFeedback(.destructive)
         } catch {
-            notices.append(ChatNotice(error))
+            notify(ChatNotice(error))
         }
     }
 
     // MARK: Answers
 
-    /// Sends exactly the reply the person chose. The card stays until the bridge withdraws the ask
-    /// (`InteractionRemoved`); a refusal as stale says another answer got there first.
     func answer(_ interaction: Interaction, _ reply: InteractionReply) async {
         guard answering.insert(interaction.id).inserted else { return }
         defer { answering.remove(interaction.id) }
@@ -402,4 +295,3 @@ final class ChatModel {
         }
     }
 }
-

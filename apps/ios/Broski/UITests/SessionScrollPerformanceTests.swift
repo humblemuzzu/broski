@@ -12,7 +12,7 @@ final class SessionScrollPerformanceTests: XCTestCase {
     @MainActor
     func test1FlingingThroughAThousandItemsKeepsItsFrames() throws {
         let app = try openLongChat()
-        let transcript = app.scrollViews.firstMatch
+        let transcript = app.collectionViews["transcript"]
         let options = XCTMeasureOptions()
         options.iterationCount = 5
         measure(metrics: [XCTHitchMetric(application: app), XCTOSSignpostMetric.scrollingAndDecelerationMetric], options: options) {
@@ -24,7 +24,8 @@ final class SessionScrollPerformanceTests: XCTestCase {
         // reaches the top of a chat opened with the zoom transition (a drag down there dismisses it)
         // before the next page is in.
         let first = app.staticTexts["Hi."]
-        for _ in 0..<80 where !first.exists {
+        // Each page lands above the reader without moving them, so the flings cross all forty runs.
+        for _ in 0..<200 where !first.exists {
             transcript.swipeDown(velocity: .fast)
         }
         XCTAssertTrue(first.exists, "every older page loads as the top comes into view, back to the first answer")

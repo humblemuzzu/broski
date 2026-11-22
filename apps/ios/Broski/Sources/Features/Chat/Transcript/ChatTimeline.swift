@@ -10,6 +10,10 @@ struct ChatTimeline {
     let format: @MainActor (_ text: String, _ streaming: Bool) -> [FormatBlock]
 
     private(set) var rows: [ChatRow] = []
+    /// The items start the session: the model settings it opened with are not a switch.
+    private let atStart: Bool
+    /// `rows` begins with the row this timeline continues, which it must not change.
+    private let continues: Bool
     private var fold: WorkFold?
     private var toolsInFold: [String: Int] = [:]
     private var lastAt: Int64?
@@ -20,8 +24,13 @@ struct ChatTimeline {
     private var sources: [LinkItem] = []
     private var running: [String: RunningTool] = [:]
 
-    init(after previous: ChatRow? = nil, format: @escaping @MainActor (String, Bool) -> [FormatBlock] = FormatCache.shared.blocks) {
+    init(
+        after previous: ChatRow? = nil, atStart: Bool = false,
+        format: @escaping @MainActor (String, Bool) -> [FormatBlock] = FormatCache.shared.blocks
+    ) {
         self.format = format
+        self.atStart = atStart && previous == nil
+        continues = previous != nil
         if let previous {
             rows = [previous]
             turnHasText = previous.isAgentText
@@ -41,7 +50,9 @@ struct ChatTimeline {
         switch item {
         case .userMessage(let message):
             closeTurn()
-            append(.user(UserTurn(id: message.id, text: message.text, attachments: message.attachments, at: message.at)), id: message.id)
+            append(
+                .user(UserTurn(id: message.id, text: message.text, attachments: message.attachments, at: message.at)),
+                id: Self.userRowID(message.id, clientRequestId: message.clientRequestId))
             lastAt = message.at ?? lastAt
         case .block(let block):
             addBlock(id: block.id, kind: block.block, text: block.text, nested: block.parentToolCallId != nil, open: false, at: block.at)
@@ -64,10 +75,17 @@ struct ChatTimeline {
             closeFold()
             append(.marker(.compaction(compaction)), id: compaction.id)
             lastAt = compaction.at
-        case .modelChange(let change):
+        case .modelChange(var change):
             closeFold()
-            append(.marker(.model(change)), id: change.id)
             lastAt = change.at ?? lastAt
+            // Pi writes a model and its thinking level as two entries: one line says both.
+            if case .marker(.model(let earlier)) = rows.last?.content, rows.count > (continues ? 1 : 0) {
+                rows.removeLast()
+                change.modelId = change.modelId ?? earlier.modelId
+                change.thinking = change.thinking ?? earlier.thinking
+            }
+            guard !(atStart && rows.isEmpty) else { return }
+            append(.marker(.model(change)), id: change.id)
         case .runBoundary(let boundary):
             closeFold()
             if case .completed = boundary.outcome {} else {
@@ -87,9 +105,19 @@ struct ChatTimeline {
         }
     }
 
+    /// A prompt on its way, under the id its delivered message will have: the bubble stays the same
+    /// row when the agent shows it.
     mutating func append(pending prompt: PendingPrompt) {
+        let id = Self.userRowID(prompt.id, clientRequestId: prompt.id)
+        guard !rows.contains(where: { $0.id == id }) else { return }
         closeTurn()
-        append(.pending(prompt), id: prompt.id)
+        append(.pending(prompt), id: id)
+    }
+
+    /// The person's message by the request that sent it, which the prompt, the live run and the
+    /// transcript all carry; by its item id when it came from elsewhere.
+    static func userRowID(_ id: String, clientRequestId: String?) -> String {
+        clientRequestId.map { "c:" + $0 } ?? id
     }
 
     /// Closes what is still open: a live run's last stretch stays live and its answer gets no line

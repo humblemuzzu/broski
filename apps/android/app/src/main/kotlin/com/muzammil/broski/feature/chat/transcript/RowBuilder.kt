@@ -43,13 +43,32 @@ class RowInput(
  * cache behind it formats a finished text once, so a streaming message costs one parse a batch.
  */
 class RowBuilder(private val format: (String, Boolean) -> List<FormatBlock> = FormatCache::blocks) {
+    private val aliases = HashMap<String, String>()
+    private var lastLiveRows: List<ChatRow> = emptyList()
+
+    @Synchronized
+    fun resetAliases() {
+        aliases.clear()
+        lastLiveRows = emptyList()
+    }
+
+    @Synchronized
+    private fun reconcileAliases(historyPart: List<ChatRow>, livePart: List<ChatRow>): List<ChatRow> {
+        if (lastLiveRows.isNotEmpty() && historyPart.isNotEmpty()) {
+            RowAliases.learn(lastLiveRows, historyPart, aliases)
+        }
+        if (livePart.isNotEmpty()) lastLiveRows = livePart
+        return RowAliases.apply(historyPart, aliases) + livePart
+    }
+
     fun build(input: RowInput): List<ChatRow> {
         val pass = Pass(input)
         input.history.forEach { pass.item(it, live = false) }
+        val historyEnd = pass.snapshotRowCount()
         input.snapshot.run?.items?.forEachIndexed { index, item -> pass.item(item, live = true, continued = index > 0) }
         input.snapshot.blocks.forEach(pass::openBlock)
         pass.pending()
-        return pass.finish()
+        return pass.finish(historyEnd)
     }
 
     private inner class Pass(private val input: RowInput) {
@@ -150,11 +169,17 @@ class RowBuilder(private val format: (String, Boolean) -> List<FormatBlock> = Fo
             if (!turn.live) rows.add(turn.copyAt, ChatRow.CopyAnswer("copy:$last", null, turn.answer.joinToString("\n\n"), turn.sources.toList()))
         }
 
-        fun finish(): List<ChatRow> {
+        fun snapshotRowCount(): Int = rows.size
+
+        fun finish(historyEnd: Int): List<ChatRow> {
             if (input.snapshot.run == null) closeTurn()
             val built = rows.map { if (it is FoldDraft) it.row() else it as ChatRow }
+            val split = historyEnd.coerceIn(0, built.size)
+            val historyPart = built.subList(0, split)
+            val livePart = built.subList(split, built.size)
+            val merged = reconcileAliases(historyPart, livePart)
             val unique = LinkedHashMap<String, ChatRow>()
-            built.forEach { unique.putIfAbsent(it.key, it) }
+            merged.forEach { unique.putIfAbsent(it.key, it) }
             val newestFirst = unique.values.reversed()
             return if (input.hasOlder) newestFirst + ChatRow.Older() else newestFirst
         }

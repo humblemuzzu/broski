@@ -52,7 +52,7 @@
     <string name="info_cache_left">%1$s left</string>
     <string name="info_cache_expired">Expired</string>
     <string name="chat_sending">Sending…</string>
-    <string name="chat_bubble_unfold">Show all of it</string>
+    <string name="chat_bubble_unfold">Show more</string>
     <string name="chat_bubble_fold">Show less</string>
     <string name="chat_copy_answer">Copy answer</string>
     <string name="chat_lane_starting">Starting</string>

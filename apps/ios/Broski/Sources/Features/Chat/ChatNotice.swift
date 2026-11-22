@@ -71,6 +71,18 @@ struct ChatNotice: Identifiable, Equatable {
     }
 }
 
+extension [ChatNotice] {
+    static let shownLimit = 3
+
+    /// A notice already shown is not shown twice, and the panel keeps the newest three: a repeated
+    /// warning (a rate limit on every request) never piles cards over the transcript.
+    mutating func show(_ notice: ChatNotice) {
+        guard !contains(where: { $0.tone == notice.tone && $0.message == notice.message }) else { return }
+        append(notice)
+        if count > Self.shownLimit { removeFirst(count - Self.shownLimit) }
+    }
+}
+
 extension ErrorCode {
     var sentence: String {
         switch self {

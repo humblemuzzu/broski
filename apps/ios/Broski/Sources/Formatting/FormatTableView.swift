@@ -16,9 +16,21 @@ struct FormatTableView: View {
     @Environment(\.reading) private var reading
     @Environment(\.formatContext) private var context
     @Environment(AppModel.self) private var app: AppModel?
+    @Environment(Disclosure.self) private var disclosure: Disclosure?
+    @Environment(\.disclosureKey) private var disclosureKey
+    @Environment(\.formatWidthHint) private var widthHint
     @State private var width: CGFloat?
     @State private var grown: [CGFloat] = []
-    @State private var showsAll = false
+    @State private var showsAllHere = false
+
+    /// Kept by the chat in a transcript row, which a reused cell would otherwise fold again.
+    private var showsAll: Bool {
+        if let disclosure, let disclosureKey { disclosure.isOpen(disclosureKey + "/rows") } else { showsAllHere }
+    }
+
+    private func toggleShowsAll() {
+        if let disclosure, let disclosureKey { disclosure.toggle(disclosureKey + "/rows") } else { showsAllHere.toggle() }
+    }
 
     private var shownRows: Int {
         table.rows.count > FormatTokens.tableFoldRows && !showsAll ? FormatTokens.tableShownRows : table.rows.count
@@ -44,7 +56,7 @@ struct FormatTableView: View {
 
     private var currentLayout: TableLayout {
         let fonts = TableFonts(typeSize: typeSize)
-        var layout = TableLayoutCache.fit(table, width: width ?? 360, fonts: fonts, rows: shownRows)
+        var layout = TableLayoutCache.fit(table, width: width ?? widthHint ?? 360, fonts: fonts, rows: shownRows)
         if streaming, grown.count == layout.widths.count {
             layout.widths = zip(layout.widths, grown).map { max($0, $1) }
         }
@@ -61,7 +73,7 @@ struct FormatTableView: View {
         HStack(spacing: Spacing.m) {
             if table.rows.count > FormatTokens.tableFoldRows {
                 Button(showsAll ? "Show fewer rows" : "Show all \(table.rows.count) rows") {
-                    withAnimation(.easeOut(duration: 0.2)) { showsAll.toggle() }
+                    withAnimation(.easeOut(duration: 0.2)) { toggleShowsAll() }
                 }
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(FormatTokens.link)

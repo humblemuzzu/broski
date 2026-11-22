@@ -31,13 +31,13 @@ struct ToolDetailView: View {
                 LogLinesView(log: formatLog(text: error, maxLines: Self.errorLines, keep: .head), tint: Palette.failed)
             }
             ForEach(tool.fileChanges, id: \.path) { change in
-                NavigationLink(value: Route.toolDiff(change)) {
+                RouteLink(value: Route.toolDiff(change)) {
                     FileChangeRow(change: change)
                 }
                 .buttonStyle(.plain)
             }
             if let child = tool.childSession, let machineId {
-                NavigationLink(value: Route.session(machineId: machineId, session: child)) {
+                RouteLink(value: Route.session(machineId: machineId, session: child)) {
                     Label("Open the subagent's session", systemImage: "arrow.up.forward.square")
                         .font(.footnote.weight(.medium))
                 }

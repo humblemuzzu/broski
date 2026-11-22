@@ -15,6 +15,7 @@ import com.muzammil.broski.feature.chat.composer.ImageAttachments
 import com.muzammil.broski.feature.chat.transcript.ChatRow
 import com.muzammil.broski.feature.chat.transcript.RowBuilder
 import com.muzammil.broski.feature.chat.transcript.RowInput
+import com.muzammil.broski.feature.chat.transcript.StreamingPacer
 import com.muzammil.broski.feature.images.ChatImageStore
 import com.muzammil.broski.feature.workspace.WorkspaceClient
 import kotlinx.coroutines.Dispatchers
@@ -74,16 +75,26 @@ class ChatViewModel(
     val images = ChatImageStore(feed.client, workspace, viewModelScope)
 
     val events: SharedFlow<ChatEvent> = mutableEvents.asSharedFlow()
+    private val mutableJumps = MutableStateFlow(0)
+
+    /** Bumped by each send, which takes the transcript to its end once so the person sees what they sent. */
+    val jumps: StateFlow<Int> = mutableJumps
+
+    fun requestJump() = mutableJumps.update { it + 1 }
     val notices: StateFlow<List<ChatNotice>> = mutableNotices
     val live = feed.live
 
     val sessionKey: SessionKey get() = SessionKey.of(machineId, feed.session)
 
-    val rows: StateFlow<List<ChatRow>> = RowBuilder().let { builder ->
-        combine(feed.history, feed.settled, feed.live, feed.pending, feed.loadingOlder) { history, settled, live, pending, _ ->
-            RowInput(history.items + settled, live.snapshot, pending, history.hasOlder, System.currentTimeMillis())
-        }.mapLatest(builder::build).flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-    }
+    private val rowBuilder = RowBuilder()
+    private val pacer = StreamingPacer(viewModelScope)
+
+    val rows: StateFlow<List<ChatRow>> =
+        combine(feed.history, feed.settled, feed.live, feed.pending, pacer.blocks) { history, settled, live, pending, blocks ->
+            val paced = if (live.snapshot.blocks.isEmpty()) emptyList() else blocks
+            val snapshot = if (paced == live.snapshot.blocks) live.snapshot else live.snapshot.copy(blocks = paced)
+            RowInput(history.items + settled, snapshot, pending, history.hasOlder, System.currentTimeMillis())
+        }.mapLatest(rowBuilder::build).flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     val header: StateFlow<ChatHeader> =
         combine(mutableSummary, phone.inboxRows, phone.machines, feed.live.map { it.reconnecting }.distinctUntilChanged()) {
@@ -122,6 +133,11 @@ class ChatViewModel(
             phone.sessionDeleted(sessionKey)
         }
         watchCatalog()
+        viewModelScope.launch {
+            feed.live.collect { live ->
+                pacer.sync(live.snapshot.blocks, animated = revealed.value && live.snapshot.run != null)
+            }
+        }
         FirstPrompts.take(machineId, route)?.let { outgoing ->
             viewModelScope.launch {
                 feed.live.first { it.started }
@@ -219,9 +235,14 @@ class ChatViewModel(
     }
 
     /** A run's info notices are part of its turn in the transcript once it ends; warnings and errors wait to be read. */
-    private fun runEnded() = mutableNotices.update { list -> list.filterNot { it.level == NoticeLevel.INFO } }
+    private fun runEnded() {
+        pacer.flush()
+        mutableNotices.update { list -> list.filterNot { it.level == NoticeLevel.INFO } }
+    }
 
     private fun followed(session: SessionRef) {
+        pacer.reset()
+        rowBuilder.resetAliases()
         if (!keepUnread) phone.markSeen(machineId, session)
         mutableSummary.value = null
         viewModelScope.launch { readSummary() }

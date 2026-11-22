@@ -8,7 +8,27 @@ struct PinnedPanel: View {
     let agent: String
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    private var hasCards: Bool {
+        !chat.snapshot.backgroundTasks.isEmpty
+            || chat.viewEnd != nil
+            || !chat.notices.isEmpty
+            || !chat.snapshot.queue.isEmpty
+            || !chat.interactions.isEmpty
+    }
+
     var body: some View {
+        if hasCards {
+            ScrollView {
+                cards
+            }
+            .scrollIndicators(.hidden)
+            .scrollBounceBehavior(.basedOnSize)
+            .frame(maxHeight: 320)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var cards: some View {
         VStack(spacing: Spacing.s) {
             if !chat.snapshot.backgroundTasks.isEmpty {
                 BackgroundTasksCard(tasks: chat.snapshot.backgroundTasks)

@@ -2,7 +2,8 @@ import BroskiCore
 import SwiftUI
 
 /// A session's chat. Layout, bottom to top: the composer, the pinned panel above it, the transcript
-/// full bleed under the bar and the composer, the header.
+/// full bleed under the bar and the composer, the header. A Mac out of reach says so in the header
+/// and holds back sending; it never dims the conversation or takes the field away.
 struct ChatScreen: View {
     let target: SessionTarget
     @Environment(AppModel.self) private var app
@@ -23,7 +24,6 @@ private struct ChatContent: View {
     @State private var chat: ChatModel
     @State private var catalog = ComposerCatalog()
     @State private var disclosure = Disclosure()
-    @State private var position = ScrollPosition(idType: String.self, edge: .bottom)
     @State private var dialog: ChatDialog?
     @State private var composing = false
     /// Set by Mark as Unread, which leaves the chat: leaving must not mark the session seen again.
@@ -55,15 +55,12 @@ private struct ChatContent: View {
     private var capabilities: Capabilities? { machine.descriptor(for: chat.session.backend)?.capabilities }
 
     var body: some View {
-        TranscriptView(
-            chat: chat, dimmed: chat.connectionProblem(machine.summary) != nil, connection: chat.connectionProblem(machine.summary),
-            dismissKeyboard: { composing = false }, position: $position)
+        TranscriptView(chat: chat, connection: chat.connectionProblem(machine.summary), dismissKeyboard: { composing = false })
             .safeAreaBar(edge: .bottom) {
                 ChatBottomBar(
                     chat: chat, catalog: catalog, agent: agent, capabilities: capabilities,
                     isReady: chat.connectionProblem(machine.summary) == nil, dictation: dictationTarget,
-                    fileSearch: fileSearchSource, position: $position,
-                    composing: $composing)
+                    fileSearch: fileSearchSource, composing: $composing)
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -81,6 +78,7 @@ private struct ChatContent: View {
             .environment(\.chatMachineId, machine.id)
             .environment(\.formatContext, FormatContext(machineId: machine.id, cwd: cwd))
             .environment(\.chatImages, chat.imageStore)
+            .environment(\.modelNames, ModelNames { [catalog] in catalog.model($0)?.displayName })
             .onChange(of: machine.summary.isReady) { wasReady, isReady in
                 if !wasReady && isReady { chat.imageStore.retryFailed() }
             }
@@ -98,6 +96,7 @@ private struct ChatContent: View {
                 if shownTarget != nil { show(target) }
             }
             .onDisappear {
+                chat.stopStreamingPacer()
                 if let visible = app.visibleSession, visible == shownTarget || visible == chat.target {
                     app.visibleSession = nil
                 }

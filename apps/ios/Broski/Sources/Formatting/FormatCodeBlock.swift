@@ -15,9 +15,24 @@ struct FormatCodeBlock: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     @AppStorage(Preference.readingWrapsCode) private var wrapsByDefault = false
     @ScaledMetric(relativeTo: .body) private var codeSize = FormatTokens.codeSize
+    @Environment(Disclosure.self) private var disclosure: Disclosure?
+    @Environment(\.disclosureKey) private var disclosureKey
     @State private var coloured: [CodeLine]?
-    @State private var unfolded = false
+    @State private var unfoldedHere = false
     @State private var copied = 0
+
+    /// Kept by the chat in a transcript row, which a reused cell would otherwise fold again.
+    private var unfolded: Bool {
+        if let disclosure, let key = disclosureKey.map({ $0 + "/code" }) { disclosure.isOpen(key) } else { unfoldedHere }
+    }
+
+    private func unfold() {
+        if let disclosure, let key = disclosureKey.map({ $0 + "/code" }) {
+            if !disclosure.isOpen(key) { disclosure.toggle(key) }
+        } else {
+            unfoldedHere = true
+        }
+    }
 
     private var kind: CodeKind { CodeKind(language: code.language) }
     private var plainLines: [Substring] { code.text.split(separator: "\n", omittingEmptySubsequences: false) }
@@ -125,7 +140,7 @@ struct FormatCodeBlock: View {
 
     private var foldButton: some View {
         Button {
-            withAnimation(.easeOut(duration: 0.2)) { unfolded = true }
+            withAnimation(.easeOut(duration: 0.2)) { unfold() }
         } label: {
             Text("Show ^[\(plainLines.count - FormatTokens.codeFoldLines) more line](inflect: true)")
                 .font(.footnote.weight(.semibold))

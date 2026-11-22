@@ -53,27 +53,6 @@ struct ElapsedTime: View {
     }
 }
 
-/// The overflow's icon with how full the context window is drawn around it, when known.
-struct ContextRing: View {
-    let fraction: Double?
-
-    var body: some View {
-        Image(systemName: "ellipsis")
-            .frame(width: 28, height: 28)
-            .overlay {
-                if let fraction {
-                    Circle()
-                        .stroke(.quaternary, lineWidth: 2)
-                    Circle()
-                        .trim(from: 0, to: min(1, max(0.02, fraction)))
-                        .stroke(fraction > 0.85 ? Palette.caution : Color.primary.opacity(0.7), style: StrokeStyle(lineWidth: 2, lineCap: .round))
-                        .rotationEffect(.degrees(-90))
-                }
-            }
-            .accessibilityValue(fraction.map { "Context \(Int(($0 * 100).rounded())) percent used" } ?? "")
-    }
-}
-
 extension Usage {
     /// How much of the context window the conversation fills, when both are reported.
     func contextFraction(window fallback: Int64?) -> Double? {

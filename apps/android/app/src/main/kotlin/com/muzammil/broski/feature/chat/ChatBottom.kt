@@ -4,11 +4,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -60,25 +63,33 @@ fun ChatBottom(model: ChatViewModel, openDiff: (FileChange) -> Unit, openVoiceSe
     val agent = header.agent.name
     val capabilities = live.capabilities
     val snapshot = live.snapshot
+    val hasCards = snapshot.backgroundTasks.isNotEmpty() || live.ended != null || notices.isNotEmpty() || snapshot.queue.isNotEmpty() || snapshot.interactions.isNotEmpty()
     Column(
         modifier.imePadding().navigationBarsPadding().padding(start = 12.dp, end = 12.dp, bottom = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        if (snapshot.backgroundTasks.isNotEmpty()) BackgroundTasksBar(snapshot.backgroundTasks)
-        live.ended?.let { end -> ViewEndCard(end, onRetry = model.feed::reattach) }
-        notices.forEach { notice -> NoticeCard(notice, onDismiss = { model.dismiss(notice) }) }
-        snapshot.queue.forEach { item ->
-            QueuedRow(item, onCancel = if (capabilities?.cancelQueued == true) ({ model.actions.cancelQueued(item.id) }) else null)
+        if (hasCards) {
+            Column(
+                Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                if (snapshot.backgroundTasks.isNotEmpty()) BackgroundTasksBar(snapshot.backgroundTasks)
+                live.ended?.let { end -> ViewEndCard(end, onRetry = model.feed::reattach) }
+                notices.forEach { notice -> NoticeCard(notice, onDismiss = { model.dismiss(notice) }) }
+                snapshot.queue.forEach { item ->
+                    QueuedRow(item, onCancel = if (capabilities?.cancelQueued == true) ({ model.actions.cancelQueued(item.id) }) else null)
+                }
+                InteractionPanel(snapshot.interactions, context = { interaction ->
+                    CardContext(
+                        agent = agent,
+                        canAnswer = capabilities?.answer == true,
+                        state = answers[interaction.id],
+                        answer = { reply -> model.actions.answer(interaction.id, reply) },
+                        openDiff = openDiff,
+                    )
+                })
+            }
         }
-        InteractionPanel(snapshot.interactions, context = { interaction ->
-            CardContext(
-                agent = agent,
-                canAnswer = capabilities?.answer == true,
-                state = answers[interaction.id],
-                answer = { reply -> model.actions.answer(interaction.id, reply) },
-                openDiff = openDiff,
-            )
-        })
         if (capabilities?.controllable == false) {
             WatchOnly()
         } else {

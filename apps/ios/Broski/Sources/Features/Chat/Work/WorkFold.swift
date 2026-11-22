@@ -27,11 +27,13 @@ nonisolated struct WorkFold: Equatable, Identifiable {
             failed: tools.count(where: \.failed),
             thoughts: entries.count { if case .thinking = $0 { true } else { false } },
             duration: duration,
-            isContinuation: isContinuation)
+            isContinuation: isContinuation,
+            isLive: isLive)
     }
 }
 
-/// The fold's one line: `Worked for 2m · Edited 1 file · Ran 2 commands · 1 failed`.
+/// The fold's one line: `Worked for 2m · Edited 1 file · Ran 2 commands · 1 failed`, or for a
+/// stretch that only reasoned, `Thinking` while it does and `Thought for 12s` once it is done.
 nonisolated struct WorkSummary: Equatable {
     /// What the tools did, most consequential first, as the core words it: at most two verbs, the rest as "Used n tools".
     let counts: [FoldCount]
@@ -39,15 +41,19 @@ nonisolated struct WorkSummary: Equatable {
     let thoughts: Int
     let duration: TimeInterval?
     let isContinuation: Bool
+    var isLive = false
+
+    private var onlyThought: Bool { counts.isEmpty && thoughts > 0 }
 
     var lead: String? {
         guard let duration, duration >= 1 else { return nil }
+        if onlyThought { return "Thought for \(Self.format(duration))" }
         return "\(isContinuation ? "Continued" : "Worked") for \(Self.format(duration))"
     }
 
     var phrases: [String] {
-        let phrases = counts.map(\.phrase)
-        return phrases.isEmpty && thoughts > 0 ? ["Thought"] : phrases
+        guard onlyThought else { return counts.map(\.phrase) }
+        return lead == nil ? [isLive ? "Thinking" : "Thought"] : []
     }
 
     /// The line without the failures, which the row shows in red.

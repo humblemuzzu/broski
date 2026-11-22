@@ -1,4 +1,3 @@
-import BorderBeamKit
 import BroskiCore
 import SwiftUI
 import VoiceGlowKit
@@ -7,7 +6,8 @@ import VoiceGlowKit
 /// images), the slash commands above it while the text starts with `/`, the attached images, and
 /// under the field `+`, the chips, the mic and the one send button. While dictating, the recording
 /// takes the field's place and ✕ the place of `+` and the chips, and a glow rises from the bottom edge
-/// with the voice. A beam rides its rim while a run is live.
+/// with the voice. While the Mac is out of reach the field still takes typing; only what needs the
+/// Mac (sending, the chips) waits.
 struct ComposerView: View {
     @Binding var draft: ComposerDraft
     let agent: String
@@ -91,7 +91,7 @@ struct ComposerView: View {
                 ComposerTextView(
                     placeholder: placeholder, text: $draft.text, isFocused: $focus, cursorUtf16: $cursorUtf16, maxLines: 6,
                     pasteImages: acceptsImages ? { attach($0, to: $draft, refuse: refuse) } : nil,
-                    onSubmit: { if draft.hasContent { perform(action) } }
+                    onSubmit: { if isEnabled && draft.hasContent { perform(action) } }
                 )
                 .padding(.horizontal, Spacing.xs)
             }
@@ -108,9 +108,7 @@ struct ComposerView: View {
         .padding(.horizontal, Spacing.m)
         .padding(.bottom, Spacing.s)
         .glassEffect(.regular, in: .rect(cornerRadius: 26, style: .continuous))
-        .borderBeam(.md, theme: .auto, active: action != .send && !reduceMotion, borderRadius: 26)
         .voiceGlow(levelProvider: { Double(app.dictation.level) }, active: isListening, cornerRadius: 26)
-        .disabled(!isEnabled)
         .animation(.spring(duration: 0.22, bounce: 0), value: matching.isEmpty)
         .animation(.spring(duration: 0.22, bounce: 0), value: mentionPaths.isEmpty)
         .animation(.spring(duration: 0.22, bounce: 0), value: draft.images.count)
@@ -157,7 +155,9 @@ struct ComposerView: View {
                     AttachmentMenu(draft: $draft, refuse: refuse)
                 }
                 FadingHorizontalScroll { ComposerChips(part: .model, catalog: catalog, choices: choices, choose: choose, cache: cache) }
+                    .disabled(!isEnabled)
                 ComposerChips(part: .modes, catalog: catalog, choices: choices, choose: choose)
+                    .disabled(!isEnabled)
             }
             if let dictation {
                 MicButton(
@@ -168,7 +168,10 @@ struct ComposerView: View {
                     .disabled(app.dictation.isBusy(apartFrom: dictation.id))
             }
             if !isDictating {
-                SendButton(action: action, alternative: SendAction.alternative(to: action, modes: modes), canSend: draft.hasContent, perform: perform)
+                SendButton(
+                    action: action, alternative: SendAction.alternative(to: action, modes: modes),
+                    canSend: draft.hasContent && isEnabled, perform: perform)
+                    .disabled(!isEnabled)
             }
         }
     }

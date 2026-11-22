@@ -150,7 +150,7 @@ private struct PermissionPreviews: View {
             CodeLines(text: command.command, caption: command.cwd, isCommand: true)
         case .fileChanges(let files):
             ForEach(files.changes, id: \.path) { change in
-                NavigationLink(value: Route.toolDiff(change)) { FileChangeRow(change: change) }
+                RouteLink(value: Route.toolDiff(change)) { FileChangeRow(change: change) }
                     .buttonStyle(.plain)
             }
         case .network(let network):

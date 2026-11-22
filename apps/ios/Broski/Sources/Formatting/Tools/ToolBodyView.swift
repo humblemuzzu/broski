@@ -44,7 +44,7 @@ struct ReportBody: View {
         VStack(alignment: .leading, spacing: Spacing.s) {
             FormattedText(text: text, role: .quiet, limit: ToolBodyView.reportBlocks)
             if FormattedText.exceeds(text, limit: ToolBodyView.reportBlocks) {
-                NavigationLink(value: Route.text(TextPage(title: title, text: text, format: .markdown, context: context))) {
+                RouteLink(value: Route.text(TextPage(title: title, text: text, format: .markdown, context: context))) {
                     Label("Open full report", systemImage: "doc.text")
                         .font(.footnote.weight(.semibold))
                 }
@@ -79,7 +79,7 @@ struct FileTextBody: View {
                 }
                 Spacer(minLength: 0)
                 if let context {
-                    NavigationLink(value: Route.workspace(machineId: context.machineId, place: .file(context.resolve(path), line: firstLine))) {
+                    RouteLink(value: Route.workspace(machineId: context.machineId, place: .file(context.resolve(path), line: firstLine))) {
                         Label("Open in Files", systemImage: "doc.text.magnifyingglass").font(.footnote.weight(.semibold))
                     }
                 }
@@ -160,7 +160,7 @@ struct MatchRowsView: View {
             ForEach(rows.indices, id: \.self) { index in
                 let row = rows[index]
                 if let context {
-                    NavigationLink(value: Route.workspace(machineId: context.machineId, place: .file(context.resolve(row.path), line: row.line.map { Int($0) }))) {
+                    RouteLink(value: Route.workspace(machineId: context.machineId, place: .file(context.resolve(row.path), line: row.line.map { Int($0) }))) {
                         MatchRowLine(row: row)
                     }
                     .buttonStyle(.plain)

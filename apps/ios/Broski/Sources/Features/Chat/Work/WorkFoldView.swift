@@ -1,8 +1,8 @@
 import BroskiCore
 import SwiftUI
 
-/// Which folds and rows the person opened. Kept by the chat rather than each row, since the lazy
-/// stack drops a row's own state once it scrolls far away.
+/// Which folds and rows the person opened. Kept by the chat rather than each row, since a cell
+/// that scrolls away is reused for another row and its own state goes with it.
 @Observable
 final class Disclosure {
     private(set) var open: Set<String> = []
@@ -14,18 +14,27 @@ final class Disclosure {
     }
 }
 
+extension EnvironmentValues {
+    /// The transcript row a view is drawn in, under which a block keeps what the person opened in
+    /// it (a code block's hidden lines, a table's hidden rows) in the chat's `Disclosure`.
+    @Entry var disclosureKey: String?
+}
+
 /// A stretch of work as one muted row, `Worked for 2m · Edited 1 file · Ran 2 commands ›`, that
 /// opens in place to its calls: 28 pt rows, the list capped at 256 pt with
 /// faded edges so opening it never pushes the answer away.
 struct WorkFoldView: View {
     let fold: WorkFold
+    /// What `Disclosure` keeps its open state under: the row's id, which stays the same when the
+    /// run's live rows give way to the transcript's.
+    let key: String
     @Environment(Disclosure.self) private var disclosure
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var listHeight: CGFloat = 0
+    @State private var overflows = false
 
     static let cap: CGFloat = 256
 
-    private var isOpen: Bool { disclosure.isOpen(fold.id) }
+    private var isOpen: Bool { disclosure.isOpen(key) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xs) {
@@ -41,7 +50,7 @@ struct WorkFoldView: View {
     private var header: some View {
         Button {
             withAnimation(reduceMotion ? .easeOut(duration: 0.14) : .easeOut(duration: 0.18)) {
-                disclosure.toggle(fold.id)
+                disclosure.toggle(key)
             }
         } label: {
             HStack(spacing: Spacing.xs) {
@@ -63,36 +72,42 @@ struct WorkFoldView: View {
         .accessibilityIdentifier("work.fold")
     }
 
+    /// The line, cut at its tail when narrow; the failures, which matter most, are never cut.
     private var summary: some View {
         let summary = fold.summary
-        let failed = summary.failedText.map { Text(summary.text.isEmpty ? $0 : " · \($0)").foregroundStyle(Palette.failed) }
-        return Text("\(summary.text)\(failed ?? Text(""))")
-            .lineLimit(1)
-            .contentTransition(.numericText())
-            .animation(reduceMotion ? nil : .spring(duration: 0.24, bounce: 0.14), value: summary.text)
+        return HStack(spacing: 0) {
+            Text(summary.text)
+                .lineLimit(1)
+                .contentTransition(.numericText())
+                .animation(reduceMotion ? nil : .spring(duration: 0.24, bounce: 0.14), value: summary.text)
+            if let failed = summary.failedText {
+                Text(summary.text.isEmpty ? failed : " · \(failed)")
+                    .foregroundStyle(Palette.failed)
+                    .lineLimit(1)
+                    .fixedSize()
+                    .layoutPriority(1)
+            }
+        }
     }
 
-    /// A plain stack until it passes the cap, then a scroll view of the cap's height: a nested scroll
-    /// view whose height changes (a row opening) moves the transcript's horizontal offset, and the
-    /// transcript loses its side margins.
+    /// The rows at their own height up to the cap, scrolling past it: sized in one pass, so opening
+    /// the fold never draws it at one height and then another. The edges fade only while it scrolls.
     private var list: some View {
-        let rows = VStack(alignment: .leading, spacing: 1) {
-            ForEach(fold.entries) { entry in
-                WorkRowView(entry: entry)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 1) {
+                ForEach(fold.entries) { entry in
+                    WorkRowView(entry: entry)
+                }
             }
         }
-        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { listHeight = $0 }
-        return Group {
-            if listHeight > Self.cap {
-                ScrollView { rows }
-                    .scrollBounceBehavior(.basedOnSize)
-                    .scrollIndicators(.hidden)
-                    .frame(height: Self.cap)
-                    .mask { EdgeFade() }
-            } else {
-                rows
-            }
+        .scrollBounceBehavior(.basedOnSize)
+        .scrollIndicators(.hidden)
+        .onScrollGeometryChange(for: Bool.self) { $0.contentSize.height > $0.containerSize.height + 1 } action: { _, now in
+            overflows = now
         }
+        .mask { if overflows { EdgeFade() } else { Rectangle() } }
+        .frame(maxHeight: Self.cap)
+        .fixedSize(horizontal: false, vertical: true)
         .padding(.leading, Spacing.xs)
     }
 }

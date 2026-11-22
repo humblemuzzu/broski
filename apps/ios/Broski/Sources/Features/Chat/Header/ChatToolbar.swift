@@ -11,8 +11,8 @@ enum ChatDialog: Identifiable {
     var id: Self { self }
 }
 
-/// The header's controls: the title (tap to rename) and one overflow with the context ring around
-/// it: the session's folder (Files, Changes, Terminal), its own marks (Pin, Rename, Mute, Mark as
+/// The header's controls: the title (tap to rename) and one overflow, which opens on how full the
+/// context is, then the session's folder (Files, Changes, Terminal), its own marks (Pin, Rename, Mute, Mark as
 /// Unread), then what acts on its conversation (Compact, Fork, Export, Session Info), then Delete.
 /// Its dialogs hang on the screen (`chatDialogs`), not in the bar.
 struct ChatToolbar: ToolbarContent {
@@ -40,6 +40,11 @@ struct ChatToolbar: ToolbarContent {
         .sharedBackgroundVisibility(.hidden)
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
+                if let fraction = chat.snapshot.usage?.contextFraction(window: nil) {
+                    Section {
+                        Label("Context \(Int((fraction * 100).rounded()))% full", systemImage: "gauge.with.dots.needle.33percent")
+                    }
+                }
                 if let cwd { workspace(cwd) }
                 marks
                 actions
@@ -49,7 +54,8 @@ struct ChatToolbar: ToolbarContent {
                     }
                 }
             } label: {
-                ContextRing(fraction: chat.snapshot.usage?.contextFraction(window: nil))
+                Image(systemName: "ellipsis")
+                    .frame(width: 28, height: 28)
                     .accessibilityLabel("More")
             }
         }

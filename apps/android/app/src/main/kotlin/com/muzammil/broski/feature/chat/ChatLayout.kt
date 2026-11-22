@@ -22,6 +22,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -75,12 +76,11 @@ import com.muzammil.broski.feature.workspace.terminal.rememberTerminalOpener
 import kotlinx.coroutines.launch
 import uniffi.broski_core.isImagePath
 
-private const val OFFLINE_ALPHA = 0.55f
-
 /**
  * The chat, bottom to top: the composer and what is pinned above it, the transcript running full
  * bleed under both and under the header, and the header. The transcript's padding follows the
- * measured bars, so the conversation rides up with the keyboard.
+ * measured bars, so the conversation rides up with the keyboard. A Mac out of reach says so in the
+ * header; it never dims the conversation.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -95,7 +95,14 @@ fun ChatLayout(model: ChatViewModel, context: FeatureContext, snackbar: Snackbar
     var topHeight by remember { mutableIntStateOf(0) }
     var bottomHeight by remember { mutableIntStateOf(0) }
     var lightbox by remember { mutableStateOf<LightboxRequest?>(null) }
-    val online = header.online
+    val jumps by model.jumps.collectAsStateWithLifecycle()
+    var handledJumps by rememberSaveable { mutableIntStateOf(jumps) }
+    val animate = animationsEnabled()
+    LaunchedEffect(jumps) {
+        if (jumps == handledJumps) return@LaunchedEffect
+        handledJumps = jumps
+        transcript.jump(animate)
+    }
     val shown by animateFloatAsState(if (revealed) 1f else 0f, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "reveal")
     val openImages: (List<ImageTarget>, Int) -> Unit = remember(model) {
         { items, index ->
@@ -144,7 +151,7 @@ fun ChatLayout(model: ChatViewModel, context: FeatureContext, snackbar: Snackbar
                 state = transcript,
                 callbacks = callbacks,
                 contentPadding = with(density) { PaddingValues(top = topHeight.toDp() + 8.dp, bottom = bottomHeight.toDp() + 8.dp) },
-                modifier = Modifier.alpha(shown * if (online) 1f else OFFLINE_ALPHA),
+                modifier = Modifier.alpha(shown),
             )
         }
         if (!revealed || !history.loaded) {
@@ -154,7 +161,7 @@ fun ChatLayout(model: ChatViewModel, context: FeatureContext, snackbar: Snackbar
         Header(model, context, dialogs, snackbar, transcript.scrolledUnderTop, Modifier.align(Alignment.TopCenter).onSizeChanged { topHeight = it.height })
         ChatBottom(model, dialogs.openDiff, { context.navigate(VoiceRoute) }, Modifier.align(Alignment.BottomCenter).onSizeChanged { bottomHeight = it.height })
         val bottom = with(density) { bottomHeight.toDp() }
-        JumpToLatest(transcript, Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = bottom + 12.dp))
+        JumpToLatest(transcript, Modifier.align(Alignment.BottomCenter).padding(bottom = bottom + 12.dp))
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = bottom))
     }
 }

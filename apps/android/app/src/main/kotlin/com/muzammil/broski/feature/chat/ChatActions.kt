@@ -50,7 +50,10 @@ class ChatActions(
         val id = outgoing.input.clientRequestId
         model.images.rememberOutgoing(id, outgoing.images)
         val localTargets = outgoing.images.map { ImageTarget.Local(it.id, name = null) }
-        model.feed.sent(PendingSend(id, outgoing.input.text, System.currentTimeMillis(), localTargets))
+        if (outgoing.input.mode != PromptMode.QUEUE) {
+            model.feed.sent(PendingSend(id, outgoing.input.text, System.currentTimeMillis(), localTargets))
+        }
+        model.requestJump()
         scope.launch {
             val result = try {
                 client.prompt(outgoing.input)
@@ -61,7 +64,12 @@ class ChatActions(
                 return@launch
             }
             when (result) {
-                is PromptResult.Accepted -> if (result.v1.disposition == PromptDisposition.HANDLED) model.feed.withdrawn(id)
+                is PromptResult.Accepted -> if (
+                    result.v1.disposition == PromptDisposition.HANDLED ||
+                    result.v1.disposition == PromptDisposition.QUEUED
+                ) {
+                    model.feed.withdrawn(id)
+                }
                 is PromptResult.Rejected -> {
                     model.feed.withdrawn(id)
                     model.composer.restore(outgoing)

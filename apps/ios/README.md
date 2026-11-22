@@ -256,12 +256,12 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
   starts over. `ChatTimeline` makes rows from items, one per formatted block of the agent's text
   (`FormatCache` formats a text once per text and streaming state, so while a text streams only it
   is formatted again), and `Highlighter` colours code once per text, off the main actor. A prompt carries a fresh `clientRequestId` and shows dimmed
-  until its `user_message` arrives (a `queued` or `handled` disposition retires it at once; a
-  refusal puts the draft back in front of anything typed since). Drafts are kept per session in
+  until its `user_message` arrives, as the same row (keyed by that request id); a queued prompt shows
+  only in the queue above the composer; a refusal puts the draft back in front of anything typed since. Drafts are kept per session in
   `AppModel.drafts` while the app runs; a new session's first prompt goes there too, and its chat
   sends it once the view is attached. Models, commands and modes come from the catalog for the
-  session's backend and folder, read again when `MachineModel.catalogChanges` moves. While a run is
-  live, BorderBeamKit's beam rides the composer's rim (left out under Reduce Motion).
+  session's backend and folder, read again when `MachineModel.catalogChanges` moves. The field takes
+  typing while the Mac is out of reach; only sending and the chips wait for it.
 - **Dictation** (`Core/Voice`, [dictation.md](../../docs/architecture/dictation.md)): `AppModel.dictation`,
   one for the app, owned by the composer that started it (`DictationTarget`: the chat's draft or New
   session's). `DictationRecorder` records AAC at 16 kHz mono; on stop the session's names
@@ -298,23 +298,26 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
   working), the "n agents working" bottom accessory (iOS 26.1+) that filters to working, a failure
   haptic when a machine is lost, a needs-you badge on the tab.
 - **Chat**: the header's title (tap to rename) over `agent · folder · machine`, the live mark and
-  the run's elapsed time, or the machine's state in words; Files and the overflow with the context
-  ring around it: Pin, Rename, Copy Session ID, Mark as Unread (which leaves the chat without
+  the run's elapsed time, or the machine's state in words; Files and the overflow, which opens on how
+  full the context is: Pin, Rename, Copy Session ID, Mark as Unread (which leaves the chat without
   marking it seen again), Mute; Compact, Fork, Export (Share Conversation, Copy Conversation), Session
   Info (a sheet: the session, its model and settings, context and token use, cost, the prompt
   cache counting down); Delete with a confirm. The
-  transcript, full bleed under the bar (`scrollEdgeEffectStyle(.soft)`) and the composer
-  (`safeAreaBar`), dimmed while the machine is unreachable: the person's bubble with its time and
-  copy, the agent's text one formatted block per row through `Sources/Formatting`
+  transcript, full bleed under the bar and the composer (`safeAreaBar`), a `UICollectionView`
+  (`TranscriptController`) whose cells host the SwiftUI rows: the person's bubble (past ten lines it
+  folds to six, fading, with Show more) with its time and copy, the agent's text one formatted block per row through `Sources/Formatting`
   ([formatting.md](../../docs/architecture/formatting.md)), one fold per stretch of work
   (`Worked for 2m · Ran 2 commands · 1 failed`, opening in place to 28 pt rows capped at 256 pt with
   faded edges, each opening to the command, its output and exit, its files and their diffs, a
   subagent's session), notices, compaction and how a run ended as quiet lines, and one status lane
   (`Working`, `Waiting for your approval`, `Agent is working` / `New output will appear here`,
   `Compacting context…`, `Retrying in 8 s`) shimmering only on screen, in an active scene and
-  without Reduce Motion. It follows its end by anchoring growth to the bottom while following and
-  to the top while the person reads above (`FollowState`); scrolling up shows a glass Jump to
-  latest that counts new messages and snaps back with the alignment haptic. Pinned above the
+  without Reduce Motion. Every layout pass either holds the end (following, no finger down) or holds
+  the row being read where it was on screen (`TranscriptCollectionView`), so older pages, rows
+  measured late, a run's transcript replacing its live rows (`RowAliases` keeps their ids) and the
+  bars changing never move the reader. Only a drag 24 pt toward older messages detaches; coming to
+  rest within 48 pt of the end, a send, or Jump to latest follows (`FollowState`). Jump to latest
+  floats over the transcript, counts new messages and snaps back with the alignment haptic. Pinned above the
   composer: notices and failures as quiet cards, the queue (cancellable where the backend allows),
   and the first pending ask, foldable to a pill: tool permission (the exact command, files, host or
   paths and the arguments, the backend's options with allow-once prominent, Deny beside "Tell

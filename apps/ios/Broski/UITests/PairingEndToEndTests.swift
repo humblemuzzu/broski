@@ -123,7 +123,7 @@ final class PairingEndToEndTests: XCTestCase {
         try command("{\"run\":\(session),\"scenario\":\"permission\"}")
 
         let row = app.cells.containing(.staticText, identifier: "Clean the build folder").firstMatch
-        let ask = app.staticTexts["Pi wants to run rm -rf build"]
+        let ask = app.staticTexts["Fake wants to run rm -rf build"]
         XCTAssertTrue(ask.waitForExistence(timeout: timeout), "the row says what the agent wants")
         XCTAssertTrue(app.staticTexts["Needs you"].exists)
         try screenshot("inbox-needs-you")

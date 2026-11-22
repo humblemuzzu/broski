@@ -22,21 +22,21 @@ struct ChatModelTests {
         .reset(session: session, capabilities: capabilities, snapshot: snapshot, status: .idle)
     }
 
-    /// The transcript reports scrolling from inside layout, which reads `follow`; UIKit lays the app
-    /// out again for every change it is told of, so scrolling that changes nothing must tell nobody.
+    /// The transcript reports every scroll step, and SwiftUI updates the screen for every change it
+    /// is told of, so scrolling that changes nothing must tell nobody.
     @Test func scrollingThatChangesNothingAnnouncesNothingSoLayoutCannotSpinOnIt() {
         let chat = chat(ScriptedChat(), view: ScriptedSessionView())
         let announced = Announcements()
         withObservationTracking { _ = chat.follow } onChange: { announced.count += 1 }
 
         for distance in [0, 0.5, 1] as [CGFloat] {
-            chat.updateFollow { $0.scrolled(distanceFromEnd: distance, byPerson: false) }
+            chat.updateFollow { $0.settled(distanceFromEnd: distance) }
         }
-        chat.updateFollow { $0.scrolled(distanceFromEnd: 300, byPerson: false) }
+        chat.updateFollow { $0.dragged(travelled: 0, distanceFromEnd: 300) }
         chat.updateFollow { $0.appended(messages: 3) }
         #expect(announced.count == 0, "following stays following, and nothing was unseen")
 
-        chat.updateFollow { $0.scrolled(distanceFromEnd: 300, byPerson: true) }
+        chat.updateFollow { $0.dragged(travelled: 300, distanceFromEnd: 300) }
         #expect(announced.count == 1)
         #expect(!chat.follow.isFollowing)
     }
@@ -148,7 +148,7 @@ struct ChatModelTests {
         chat.start()
         view.push(reset())
         try await until { chat.isRevealed }
-        chat.updateFollow { $0.scrolled(distanceFromEnd: 500, byPerson: true) }
+        chat.updateFollow { $0.dragged(travelled: 500, distanceFromEnd: 500) }
 
         let run = ActiveRun(runId: "r", trigger: .external, startedAt: 0, items: [Item.user("u1", "From the terminal")], droppedItems: 0)
         view.push(.changes(changes: [.runChanged(run: run), .blockOpened(block: OpenBlock(

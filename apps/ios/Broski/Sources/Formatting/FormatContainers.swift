@@ -12,23 +12,60 @@ struct FormatContainersView<Content: View>: View {
     @ViewBuilder let content: Content
 
     var body: some View {
-        wrapped(containers[...])
+        switch containers.count {
+        case 0:
+            content
+        case 1:
+            ContainerLayer(container: containers[0], next: next, gap: gap, role: role) { content }
+        case 2:
+            ContainerLayer(container: containers[0], next: next, gap: gap, role: role) {
+                ContainerLayer(container: containers[1], next: next, gap: gap, role: role) { content }
+            }
+        case 3:
+            ContainerLayer(container: containers[0], next: next, gap: gap, role: role) {
+                ContainerLayer(container: containers[1], next: next, gap: gap, role: role) {
+                    ContainerLayer(container: containers[2], next: next, gap: gap, role: role) { content }
+                }
+            }
+        case 4:
+            ContainerLayer(container: containers[0], next: next, gap: gap, role: role) {
+                ContainerLayer(container: containers[1], next: next, gap: gap, role: role) {
+                    ContainerLayer(container: containers[2], next: next, gap: gap, role: role) {
+                        ContainerLayer(container: containers[3], next: next, gap: gap, role: role) { content }
+                    }
+                }
+            }
+        default:
+            deepWrapped(containers[...])
+        }
     }
 
-    private func wrapped(_ rest: ArraySlice<FormatContainer>) -> AnyView {
+    private func deepWrapped(_ rest: ArraySlice<FormatContainer>) -> AnyView {
         guard let outer = rest.first else { return AnyView(content) }
-        let inner = wrapped(rest.dropFirst())
-        let continues = next.contains(outer.id)
-        let above = outer.first ? 0 : gap
-        switch outer.kind {
+        let inner = deepWrapped(rest.dropFirst())
+        return AnyView(ContainerLayer(container: outer, next: next, gap: gap, role: role) { inner })
+    }
+}
+
+private struct ContainerLayer<Content: View>: View {
+    let container: FormatContainer
+    let next: [UInt32]
+    let gap: CGFloat
+    let role: FormatRole
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        let continues = next.contains(container.id)
+        let above = container.first ? 0 : gap
+        switch container.kind {
         case .quote:
-            return AnyView(QuoteFrame(above: above) { inner })
+            QuoteFrame(above: above) { content }
         case .callout(let kind):
-            return AnyView(CalloutFrame(kind: kind, first: outer.first, continues: continues, above: above) { inner })
+            CalloutFrame(kind: kind, first: container.first, continues: continues, above: above) { content }
         case .item(_, let marker, let depth, let width):
-            return AnyView(ListItemFrame(marker: marker, depth: depth, width: width, first: outer.first, role: role) { inner })
+            ListItemFrame(marker: marker, depth: depth, width: width, first: container.first, role: role) { content }
         case .footnote(let label):
-            return AnyView(FootnoteFrame(label: label, first: outer.first) { inner })
+            FootnoteFrame(label: label, first: container.first) { content }
         }
     }
 }

@@ -15,6 +15,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.snapshots.SnapshotStateSet
 import androidx.compose.runtime.mutableStateSetOf
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
+import com.muzammil.broski.design.animationsEnabled
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterIsInstance
@@ -35,13 +38,19 @@ class TranscriptState(
 ) {
     var follow by mutableStateOf(following)
 
-    /** Within a pixel of the end: a collapse clamps exactly to it, a nudge away is the person's. */
-    val atEnd: Boolean by derivedStateOf { list.firstVisibleItemIndex == 0 && list.firstVisibleItemScrollOffset <= 1 }
+    /**
+     * How far the end is below what shows, in px: the lane is item 0 of the bottom-up list, so the end
+     * is as far away as the lane is scrolled off; any later item first means it is out of sight.
+     */
+    val distanceFromEnd: Int by derivedStateOf {
+        if (list.firstVisibleItemIndex == 0) list.firstVisibleItemScrollOffset else Int.MAX_VALUE
+    }
 
     /** Whether there is transcript under the top bar, which then takes its scrim. */
     val scrolledUnderTop: Boolean by derivedStateOf { list.canScrollForward }
 
     internal var dragged = false
+    internal var dragStartDistance = 0
 
     suspend fun jump(animate: Boolean) {
         follow = follow.jumped()
@@ -70,22 +79,48 @@ fun rememberTranscriptState(list: LazyListState): TranscriptState =
         TranscriptState(list, Follow(), mutableStateSetOf(), mutableStateSetOf())
     }
 
+/** A drag this far from the end leaves it; a scroll at rest this close to it is at it. */
+private val DETACH_DISTANCE = 24.dp
+private val FOLLOW_DISTANCE = 48.dp
+
 /**
- * Feeds [TranscriptState.follow]: the person's drags (and the fling after them) detach or follow
- * by where they leave the list; rows arriving while detached are counted.
+ * Feeds [TranscriptState.follow]: the person's drags (and the fling after them) detach once they take
+ * the end more than [DETACH_DISTANCE] away; where they come to rest follows again within
+ * [FOLLOW_DISTANCE], gliding the rest of the way. Rows arriving while detached are counted.
  */
 @Composable
 fun TrackFollow(state: TranscriptState, rows: List<ChatRow>) {
-    LaunchedEffect(state) {
+    val density = LocalDensity.current
+    val detachPx = with(density) { DETACH_DISTANCE.roundToPx() }
+    val followPx = with(density) { FOLLOW_DISTANCE.roundToPx() }
+    val animate = animationsEnabled()
+    LaunchedEffect(state, detachPx, followPx, animate) {
         launch {
-            state.list.interactionSource.interactions.filterIsInstance<DragInteraction.Start>().collect { state.dragged = true }
+            state.list.interactionSource.interactions.filterIsInstance<DragInteraction.Start>().collect {
+                state.dragged = true
+                state.dragStartDistance = state.distanceFromEnd
+            }
         }
-        snapshotFlow { state.list.isScrollInProgress to state.atEnd }
+        snapshotFlow { state.list.isScrollInProgress to state.distanceFromEnd }
             .distinctUntilChanged()
             .filter { state.dragged }
-            .collect { (moving, atEnd) ->
-                state.follow = state.follow.scrolled(atEnd)
-                if (!moving) state.dragged = false
+            .collect { (moving, distance) ->
+                if (moving) {
+                    val travelled = if (distance == Int.MAX_VALUE) {
+                        Int.MAX_VALUE
+                    } else if (state.dragStartDistance == Int.MAX_VALUE) {
+                        0
+                    } else {
+                        (distance - state.dragStartDistance).coerceAtLeast(0)
+                    }
+                    state.follow = state.follow.dragged(travelled, distance, detachPx)
+                } else {
+                    state.dragged = false
+                    state.follow = state.follow.settled(distance, followPx)
+                    if (state.follow.following && distance > 0) {
+                        if (animate) state.list.animateScrollToItem(0) else state.list.scrollToItem(0)
+                    }
+                }
             }
     }
     val previous = remember { arrayOf(rows) }

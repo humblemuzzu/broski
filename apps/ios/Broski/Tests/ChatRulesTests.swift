@@ -27,27 +27,28 @@ struct ChatRulesTests {
         #expect(SendAction.steer.explanation == "Interrupt what the agent is doing")
     }
 
-    @Test func followingEndsOnlyWhenThePersonScrollsAwayAndResumesAtTheEndOrOnAJump() {
+    @Test func followingEndsOnlyWhenAFingerMovesAwayAndResumesNearTheEndOrOnAJump() {
         var follow = FollowState()
-        follow.scrolled(distanceFromEnd: 300, byPerson: false)
-        #expect(follow.isFollowing, "content growing does not detach")
+        follow.dragged(travelled: 0, distanceFromEnd: 300)
+        #expect(follow.isFollowing, "content growing under a resting finger does not detach")
+        follow.dragged(travelled: 10, distanceFromEnd: 300)
+        #expect(follow.isFollowing, "a nudge is not leaving")
         follow.appended(messages: 2)
         #expect(follow.unseen == 0, "a follower has nothing unseen")
 
-        follow.scrolled(distanceFromEnd: 0.5, byPerson: true)
-        #expect(follow.isFollowing, "within a point of the end is the end")
-        follow.scrolled(distanceFromEnd: 2, byPerson: true)
-        #expect(!follow.isFollowing)
+        follow.dragged(travelled: 40, distanceFromEnd: 40)
+        #expect(!follow.isFollowing, "a drag toward older messages detaches")
         follow.appended(messages: 2)
         follow.appended(messages: 0)
-        follow.scrolled(distanceFromEnd: 600, byPerson: false)
-        #expect(!follow.isFollowing && follow.unseen == 2, "new messages below a reader are counted, not scrolled to")
+        #expect(follow.unseen == 2, "new messages below a reader are counted, not scrolled to")
+        follow.settled(distanceFromEnd: 600)
+        #expect(!follow.isFollowing, "resting far from the end stays detached")
 
         follow.jumped()
         #expect(follow.isFollowing && follow.unseen == 0)
-        follow.scrolled(distanceFromEnd: 40, byPerson: true)
-        follow.scrolled(distanceFromEnd: 0, byPerson: true)
-        #expect(follow.isFollowing, "scrolling back to the end follows again")
+        follow.dragged(travelled: 200, distanceFromEnd: 200)
+        follow.settled(distanceFromEnd: 30)
+        #expect(follow.isFollowing, "coming to rest near the end follows again")
     }
 
     @Test func theLaneSaysWhatTheLiveRunWaitsOnAndNothingWithoutOne() {
