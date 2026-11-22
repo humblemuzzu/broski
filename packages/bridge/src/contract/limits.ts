@@ -32,6 +32,14 @@ export const MAX_PLAN_METERS = 32;
 export const MAX_USAGE_WINDOWS = 16;
 /** Readings of one window's history: one per 1/120th of its span, the latest kept within each. */
 export const MAX_USAGE_POINTS = 128;
+/** Series buckets in one stats summary (up to 366 daily buckets or 24 hourly buckets). */
+export const MAX_STATS_SERIES = 366;
+/** Ranked models, projects, sub-agents, and source statuses carried in one stats summary. */
+export const MAX_STATS_MODELS = 64;
+export const MAX_STATS_PROJECTS = 64;
+export const MAX_STATS_SUBAGENTS = 32;
+export const MAX_STATS_SOURCES = 16;
+export const MAX_STATS_UNPRICED_MODELS = 32;
 /** UTF-8 bytes of one frame: the link's `LINK_MAX_MESSAGE_BYTES` (packages/link/daemon/src/limits.rs). */
 export const MAX_MESSAGE_BYTES = 8 * 1_048_576;
 /** JSON values in one client message: a refused message costs the bridge in proportion to them. */

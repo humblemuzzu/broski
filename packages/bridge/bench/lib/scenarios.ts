@@ -19,6 +19,11 @@ export const SCENARIOS: ScenarioSpec[] = [
 		description: "3 idle native PTY sessions (BENCH_PTY_SESSIONS): JS-thread yield p99 plus an echo round trip",
 		needsTempHome: true,
 	},
+	{
+		name: "stats-scan",
+		description: "cold scan, warm unchanged tick, SQLite query latency, and peak RSS over synthetic multi-agent JSONLs",
+		needsTempHome: true,
+	},
 ];
 
 export const SELFTEST: ScenarioSpec = {

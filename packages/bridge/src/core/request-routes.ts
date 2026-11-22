@@ -32,6 +32,7 @@ import {
 	sessionRename,
 	transcriptRead,
 } from "./requests-sessions";
+import { statsSummary } from "./requests-stats";
 import { planUsage } from "./requests-usage";
 import { routeWorkspaceRequest, type WorkspaceMessage } from "./workspace-routes";
 
@@ -77,6 +78,8 @@ export function routeRequest(
 			return attachmentRead(ctx, client, request, respond);
 		case "plan.usage":
 			return planUsage(ctx, client, request, respond);
+		case "stats.summary":
+			return statsSummary(ctx, client, request, respond);
 		default:
 			return routeSessionRequest(ctx, client, request, respond);
 	}

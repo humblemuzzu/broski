@@ -64,6 +64,7 @@ import {
 } from "./read-results";
 import { ForkPoint, NewSessionOptions, NewSessionResult, SessionQuery, WorkingDirectory } from "./sessions";
 import { SessionSnapshot } from "./snapshot";
+import { StatsHarness, StatsRange, StatsSummaryResult } from "./stats";
 import { BackendStatus } from "./status";
 import { TermExitedMessage, TermOutputMessage } from "./workspace-terminal";
 
@@ -212,6 +213,13 @@ export const CompactRequest = request("compact", {
 });
 /** How much of each subscription plan signed in on the machine is used; the bridge reads it, not an agent. */
 export const PlanUsageRequest = request("plan.usage", {});
+/** Token and API-equivalent cost statistics aggregated from local coding-agent logs on the machine. */
+export const StatsSummaryRequest = request("stats.summary", {
+	range: StatsRange,
+	harness: StatsHarness.optional(),
+	timeZone: z.string().min(1).max(128).optional(),
+	refresh: z.boolean().optional(),
+});
 
 export const ClientMessage = z.discriminatedUnion("type", [
 	HelloRequest,
@@ -239,6 +247,7 @@ export const ClientMessage = z.discriminatedUnion("type", [
 	ModeSetRequest,
 	CompactRequest,
 	PlanUsageRequest,
+	StatsSummaryRequest,
 	WorkspaceInfoRequest,
 	FsListRequest,
 	FsReadRequest,
@@ -295,6 +304,7 @@ export const ThinkingSetResponse = response("thinking.set", { result: ActionResu
 export const ModeSetResponse = response("mode.set", { result: ActionResult });
 export const CompactResponse = response("compact", { result: ActionResult });
 export const PlanUsageResponse = response("plan.usage", { result: PlanUsageResult });
+export const StatsSummaryResponse = response("stats.summary", { result: StatsSummaryResult });
 
 /**
  * A request the bridge could not handle at all. Expected outcomes, including an operation the
@@ -354,6 +364,7 @@ export const ServerMessage = z.discriminatedUnion("type", [
 	ModeSetResponse,
 	CompactResponse,
 	PlanUsageResponse,
+	StatsSummaryResponse,
 	WorkspaceInfoResponse,
 	FsListResponse,
 	FsReadResponse,

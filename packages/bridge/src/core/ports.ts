@@ -15,6 +15,9 @@ import type {
 	PlanUsageResult,
 	PromptAccepted,
 	SessionRef,
+	StatsHarness,
+	StatsRange,
+	StatsSummaryResult,
 	StreamEpoch,
 	TermAttachResult,
 	TerminalEvent,
@@ -116,6 +119,21 @@ export interface WorkspaceHost {
  */
 export interface UsageReader {
 	read(): Promise<PlanUsageResult>;
+}
+
+export interface StatsQuery {
+	readonly range: StatsRange;
+	readonly harness?: StatsHarness;
+	readonly timeZone?: string;
+	readonly refresh?: boolean;
+}
+
+/**
+ * Aggregated token and API-equivalent cost statistics from local coding-agent logs on the machine.
+ * Never throws; returns a `Rejected` result when unavailable.
+ */
+export interface StatsReader {
+	summary(query: StatsQuery): Promise<StatsSummaryResult>;
 }
 
 /** Where the workspace's terminals send their output and exits; it never throws. */

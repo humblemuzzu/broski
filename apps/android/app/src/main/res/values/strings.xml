@@ -136,6 +136,8 @@
 
     <!-- Plan Usage -->
     <string name="usage_title">Usage</string>
+    <string name="usage_tab_stats">Stats</string>
+    <string name="usage_tab_limits">Limits</string>
     <string name="usage_left">left</string>
     <string name="usage_left_spoken">%1$s left</string>
     <string name="usage_resets_at">Resets %1$s</string>

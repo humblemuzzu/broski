@@ -4,7 +4,7 @@ import type { CoreClient } from "./client";
 import type { ExternalInteractions } from "./external-interactions";
 import type { CoreFallbacks } from "./fallbacks";
 import type { InteractionDesk } from "./interaction-desk";
-import type { CoreClock, CoreLog, DirectoryPolicy, UsageReader, WorkspaceHost } from "./ports";
+import type { CoreClock, CoreLog, DirectoryPolicy, StatsReader, UsageReader, WorkspaceHost } from "./ports";
 import type { PromptLedger } from "./prompt-ledger";
 import type { Replacements } from "./replacements";
 import { protocolError } from "./results";
@@ -27,6 +27,8 @@ export interface CoreContext {
 	readonly workspace: WorkspaceHost | undefined;
 	/** Absent when the bridge reads no plan usage: `plan.usage` is then `unsupported`. */
 	readonly usage: UsageReader | undefined;
+	/** Absent when the bridge tracks no local agent stats: `stats.summary` is then `unsupported`. */
+	readonly stats: StatsReader | undefined;
 	readonly terminals: TerminalViewers;
 	readonly bridgeVersion: string;
 	readonly maxFrameBytes: number;

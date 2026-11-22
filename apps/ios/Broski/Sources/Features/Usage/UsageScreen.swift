@@ -1,43 +1,98 @@
 import SwiftUI
 import ThinkingOrbsKit
 
-/// The Usage tab: each plan the Macs' agents run on, under its mark, with one card per limit. Pull
-/// to read again.
+private enum UsageSectionTab: String, CaseIterable, Identifiable {
+    case stats
+    case limits
+
+    var id: String { rawValue }
+
+    var shortName: String {
+        switch self {
+        case .stats: "Stats"
+        case .limits: "Limits"
+        }
+    }
+}
+
+/// The Usage tab: Stats (left) for cross-agent tokens and API-equivalent cost, and Limits (right)
+/// for each signed-in subscription plan's live quota windows.
 struct UsageScreen: View {
     @Environment(AppModel.self) private var model
+    @State private var tab: UsageSectionTab = .stats
+
+    private var isReading: Bool {
+        tab == .stats ? model.stats.isReading : model.usage.isReading
+    }
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                if let report = model.usage.report, !report.plans.isEmpty {
-                    TimelineView(.everyMinute) { context in
-                        LazyVStack(alignment: .leading, spacing: Spacing.xxl) {
-                            ForEach(report.plans) { plan in
-                                PlanSection(report: plan, now: context.date, showsMachine: model.machines.count > 1)
-                            }
+                VStack(alignment: .leading, spacing: Spacing.l) {
+                    Picker("Section", selection: $tab) {
+                        ForEach(UsageSectionTab.allCases) { item in
+                            Text(item.shortName).tag(item)
                         }
-                        .padding(.horizontal, Spacing.l)
-                        .padding(.top, Spacing.s)
-                        .padding(.bottom, Spacing.xxl)
                     }
-                } else {
-                    ContentUnavailableView {
-                        Label("No plans yet", systemImage: "gauge.with.needle")
-                    } description: {
-                        Text(emptyDescription)
+                    .pickerStyle(.segmented)
+
+                    if tab == .stats {
+                        StatsTabView()
+                    } else {
+                        limitsContent
                     }
-                    .padding(.top, Spacing.xxxl * 2)
                 }
+                .padding(.horizontal, Spacing.l)
+                .padding(.top, Spacing.s)
+                .padding(.bottom, Spacing.xxl)
             }
             .background(Palette.screen)
             .navigationTitle("Usage")
-            .refreshable { await model.usage.refresh(from: model.machines, force: true) }
+            .refreshable {
+                if tab == .stats {
+                    await model.stats.refresh(from: model.machines, force: true)
+                } else {
+                    await model.usage.refresh(from: model.machines, force: true)
+                }
+            }
             .toolbar {
-                if model.usage.isReading {
+                if isReading {
                     ToolbarItem(placement: .primaryAction) { LoadingOrb(state: .working, label: "Reading usage") }
                 }
             }
-            .task { await model.usage.refresh(from: model.machines) }
+            .task {
+                await model.stats.refresh(from: model.machines)
+                await model.usage.refresh(from: model.machines)
+            }
+            .onChange(of: tab) { _, next in
+                Task {
+                    if next == .stats {
+                        await model.stats.refresh(from: model.machines)
+                    } else {
+                        await model.usage.refresh(from: model.machines)
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var limitsContent: some View {
+        if let report = model.usage.report, !report.plans.isEmpty {
+            TimelineView(.everyMinute) { context in
+                LazyVStack(alignment: .leading, spacing: Spacing.xxl) {
+                    ForEach(report.plans) { plan in
+                        PlanSection(report: plan, now: context.date, showsMachine: model.machines.count > 1)
+                    }
+                }
+            }
+        } else {
+            ContentUnavailableView {
+                Label("No plans yet", systemImage: "gauge.with.needle")
+            } description: {
+                Text(emptyDescription)
+            }
+            .padding(.top, Spacing.xxl)
         }
     }
 

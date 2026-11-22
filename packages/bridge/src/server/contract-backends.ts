@@ -7,6 +7,7 @@ import { defaultLinkDirectory } from "../backends/pi/terminal/link";
 import { type BroskiConfig, readConfig } from "../config";
 import type { BackendFactory, BackendId } from "../contract";
 import { fitImageBase64 } from "../platform/image-fit";
+import { machineStats } from "../stats/service";
 import { machineSystem } from "../usage/system";
 import { machineUsage } from "../usage/usage-reader";
 import type { BridgeMcp } from "./bridge-mcp";
@@ -75,5 +76,6 @@ export function contractOptions(deps: ContractBackendsDeps): ContractOptions {
 	return {
 		backends: [...builtIn, ...plugins],
 		usage: (log) => machineUsage(machineSystem(agentDirOf(process.env)), join(homedir(), ".broski"), log),
+		stats: (log) => machineStats(agentDirOf(process.env), join(homedir(), ".broski"), log),
 	};
 }

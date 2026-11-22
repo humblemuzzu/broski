@@ -15,6 +15,7 @@ import com.muzammil.broski.core.platform.LanDiscovery
 import com.muzammil.broski.core.platform.NetworkWatcher
 import com.muzammil.broski.core.settings.AppSettings
 import com.muzammil.broski.core.settings.SettingsStore
+import com.muzammil.broski.core.usage.StatsModel
 import com.muzammil.broski.core.usage.UsageModel
 import com.muzammil.broski.core.vault.AesGcmCipher
 import com.muzammil.broski.core.vault.KeystoreKey
@@ -92,6 +93,9 @@ class AppCore(private val context: Context) {
 
     /** Plan usage across connected Macs, cached on disk for both the screen and Home Screen widget. */
     val usage = UsageModel(context)
+
+    /** Cross-agent token and API-equivalent cost stats merged across connected Macs. */
+    val stats = StatsModel()
 
     private val mutableState = MutableStateFlow<CoreState>(CoreState.Starting)
     val state: StateFlow<CoreState> = mutableState.asStateFlow()

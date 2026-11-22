@@ -37,6 +37,7 @@ final class AppModel {
     let drafts = DraftStore()
     let dictation = Dictation()
     let usage = UsageModel()
+    let stats = StatsModel()
     private(set) var isActive = false
     var keepScreenAwake: KeepScreenAwake = KeepScreenAwake.current() {
         didSet {

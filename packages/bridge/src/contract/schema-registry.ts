@@ -27,6 +27,7 @@ import * as rejection from "./rejection";
 import * as runs from "./runs";
 import * as sessions from "./sessions";
 import * as snapshot from "./snapshot";
+import * as stats from "./stats";
 import * as status from "./status";
 import * as tools from "./tools";
 import * as transcript from "./transcript";
@@ -60,6 +61,7 @@ const SCHEMA_MODULES = {
 	status,
 	paging,
 	"plan-usage": planUsage,
+	stats,
 	sessions,
 	transcript,
 	snapshot,

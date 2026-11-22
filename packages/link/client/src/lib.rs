@@ -20,6 +20,7 @@ mod inbox;
 mod machine;
 mod phone;
 mod requests;
+mod stats;
 mod terminal;
 mod view;
 mod wait;
@@ -39,5 +40,6 @@ pub use crate::inbox::{
 };
 pub use crate::machine::{ContractState, Machine, MachineEvent, MachineStatus};
 pub use crate::phone::{new_identity_secret, Phone, PhoneConfig};
+pub use crate::stats::merge_stats_summaries;
 pub use crate::terminal::{TerminalUpdate, TerminalView};
 pub use crate::view::{SessionChange, SessionUpdate, SessionView, ViewEnd};

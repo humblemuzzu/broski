@@ -34,6 +34,7 @@ export * from "./schema-registry";
 export * from "./session-reducer";
 export * from "./sessions";
 export * from "./snapshot";
+export * from "./stats";
 export * from "./status";
 export * from "./tools";
 export * from "./transcript";

@@ -21,6 +21,12 @@ pub const CONSTANTS: &[(&str, usize)] = &[
     ("MAX_PATH_CHARS", MAX_PATH_CHARS),
     ("MAX_PLAN_METERS", MAX_PLAN_METERS),
     ("MAX_SEARCH_QUERY_CHARS", MAX_SEARCH_QUERY_CHARS),
+    ("MAX_STATS_MODELS", MAX_STATS_MODELS),
+    ("MAX_STATS_PROJECTS", MAX_STATS_PROJECTS),
+    ("MAX_STATS_SERIES", MAX_STATS_SERIES),
+    ("MAX_STATS_SOURCES", MAX_STATS_SOURCES),
+    ("MAX_STATS_SUBAGENTS", MAX_STATS_SUBAGENTS),
+    ("MAX_STATS_UNPRICED_MODELS", MAX_STATS_UNPRICED_MODELS),
     ("MAX_TERMINALS", MAX_TERMINALS),
     ("MAX_TERMINAL_DIMENSION", MAX_TERMINAL_DIMENSION),
     ("MAX_TERMINAL_INPUT_BYTES", MAX_TERMINAL_INPUT_BYTES),
@@ -363,6 +369,29 @@ pub fn visit_types(visitor: &mut impl TypeVisitor) {
     visitor.plain::<SessionsListResult>("SessionsListResult");
     visitor.tagged::<SessionsListed>("SessionsListed");
     visitor.tagged::<SnapshotSync>("SnapshotSync");
+    visitor.plain::<StatsCostParts>("StatsCostParts");
+    visitor.plain::<StatsCostSource>("StatsCostSource");
+    visitor.plain::<StatsFingerprint>("StatsFingerprint");
+    visitor.plain::<StatsHarness>("StatsHarness");
+    visitor.plain::<StatsHarnessEntry>("StatsHarnessEntry");
+    visitor.plain::<StatsModelEntry>("StatsModelEntry");
+    visitor.plain::<StatsPricingInfo>("StatsPricingInfo");
+    visitor.plain::<StatsPricingStatus>("StatsPricingStatus");
+    visitor.plain::<StatsProjectEntry>("StatsProjectEntry");
+    visitor.plain::<StatsRange>("StatsRange");
+    visitor.plain::<StatsResolution>("StatsResolution");
+    visitor.plain::<StatsScanState>("StatsScanState");
+    visitor.plain::<StatsSeriesPoint>("StatsSeriesPoint");
+    visitor.plain::<StatsSeriesSlice>("StatsSeriesSlice");
+    visitor.plain::<StatsSourceStatus>("StatsSourceStatus");
+    visitor.plain::<StatsSpeedCost>("StatsSpeedCost");
+    visitor.plain::<StatsSubagentEntry>("StatsSubagentEntry");
+    visitor.tagged::<StatsSummary>("StatsSummary");
+    visitor.tagged::<StatsSummaryRequest>("StatsSummaryRequest");
+    visitor.tagged::<StatsSummaryResponse>("StatsSummaryResponse");
+    visitor.plain::<StatsSummaryResult>("StatsSummaryResult");
+    visitor.plain::<StatsTokenTotals>("StatsTokenTotals");
+    visitor.plain::<StatsTotals>("StatsTotals");
     visitor.tagged::<StatusChangedEvent>("StatusChangedEvent");
     visitor.plain::<StatusIssue>("StatusIssue");
     visitor.plain::<StreamEpoch>("StreamEpoch");

@@ -8,8 +8,10 @@ import type {
 	ExternalInteractionSpec,
 	ExternalNoticeSpec,
 } from "../core/external-interactions";
+import type { CoreObserver } from "../core/observer";
 import type { CoreClock } from "../core/ports";
 import { allowedBasePaths, resolveSecurePath } from "../security";
+import type { SampledStats } from "../stats/service";
 import { frameBytes } from "../transport/send-limits";
 import type { SendQueue } from "../transport/send-queue";
 import type { SampledUsage } from "../usage/usage-reader";
@@ -37,6 +39,8 @@ export type ContractOptions = {
 	readonly clock?: CoreClock;
 	/** The plans' usage, read on request and every so often from `start` to `stop`; without it `plan.usage` is unsupported. */
 	readonly usage?: (log: (message: string) => void) => SampledUsage;
+	/** Local coding-agent token and cost stats; without it `stats.summary` is unsupported. */
+	readonly stats?: (log: (message: string) => void) => SampledStats;
 };
 
 /** The contract protocol on the bridge's client sockets: every frame a client sends goes to the core. */
@@ -90,12 +94,15 @@ export function createContractSeam(
 	const ids = backends.map(([id]) => id);
 	if (new Set(ids).size !== ids.length) throw new Error(`a backend is configured twice: ${ids.join(", ")}`);
 	const usage = options?.usage?.(logger.logError);
+	const stats = options?.stats?.(logger.logError);
 	const core = new BridgeCore({
-		...coreOptions(options, backends.length > 0, version, limits, logger),
+		...coreOptions(options, backends.length > 0, version, limits, logger, stats),
 		...(usage && { usage }),
+		...(stats && { stats }),
 	});
 	const sockets = socketConnections(core, queue);
 	let stopSampling: (() => void) | undefined;
+	let stopStats: (() => void) | undefined;
 	return {
 		receive: (ws, raw) =>
 			sockets
@@ -112,10 +119,12 @@ export function createContractSeam(
 		start: () => {
 			for (const [id, factory] of backends) void core.addBackend(id, factory);
 			stopSampling ??= usage?.sample();
+			stopStats ??= stats?.start();
 		},
-		stop: () => {
+		stop: async () => {
 			stopSampling?.();
-			return core.dispose();
+			stopStats?.();
+			await Promise.all([core.dispose(), stats?.dispose()]);
 		},
 	};
 }
@@ -126,15 +135,27 @@ function coreOptions(
 	version: string,
 	limits: Pick<BridgeLimits, "linkMessageLimitBytes">,
 	logger: Pick<LeveledLogger, "logInfo" | "logError">,
+	stats?: SampledStats,
 ): CoreOptions {
 	const log = { info: logger.logInfo, error: logger.logError };
 	const journals = options?.journalDirectory ?? (servesBackends ? defaultJournalDirectory() : undefined);
+	const observer: CoreObserver = stats
+		? {
+				observe(observed) {
+					contractFeedObserver.observe(observed);
+					if (observed.event.type === "run_finished") stats.notifyActivity();
+				},
+				observeCatalog(event) {
+					contractFeedObserver.observeCatalog?.(event);
+				},
+			}
+		: contractFeedObserver;
 	return {
 		bridgeVersion: version,
 		maxFrameBytes: limits.linkMessageLimitBytes,
 		log,
 		clock: options?.clock ?? SYSTEM_CLOCK,
-		observer: contractFeedObserver,
+		observer,
 		directories: resolveSecurePath,
 		fallbacks: { queue: true, steer: true, portableFork: true },
 		workspace: workspaceFactory({ policy: resolveSecurePath, bases: allowedBasePaths() }),

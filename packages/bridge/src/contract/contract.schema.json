@@ -1370,6 +1370,9 @@
           "$ref": "#/$defs/PlanUsageRequest"
         },
         {
+          "$ref": "#/$defs/StatsSummaryRequest"
+        },
+        {
           "$ref": "#/$defs/WorkspaceInfoRequest"
         },
         {
@@ -6710,6 +6713,9 @@
           "$ref": "#/$defs/PlanUsageResponse"
         },
         {
+          "$ref": "#/$defs/StatsSummaryResponse"
+        },
+        {
           "$ref": "#/$defs/WorkspaceInfoResponse"
         },
         {
@@ -7595,6 +7601,876 @@
         "epoch",
         "lastSeq",
         "snapshot"
+      ],
+      "additionalProperties": false
+    },
+    "StatsCostParts": {
+      "x-module": "stats",
+      "$id": "#/$defs/StatsCostParts",
+      "type": "object",
+      "properties": {
+        "input": {
+          "type": "number",
+          "minimum": 0
+        },
+        "output": {
+          "type": "number",
+          "minimum": 0
+        },
+        "cacheRead": {
+          "type": "number",
+          "minimum": 0
+        },
+        "cacheWrite": {
+          "type": "number",
+          "minimum": 0
+        },
+        "total": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "input",
+        "output",
+        "cacheRead",
+        "cacheWrite",
+        "total"
+      ],
+      "additionalProperties": false
+    },
+    "StatsCostSource": {
+      "x-module": "stats",
+      "$id": "#/$defs/StatsCostSource",
+      "type": "string",
+      "enum": [
+        "provider_reported",
+        "api_estimate",
+        "mixed",
+        "unpriced"
+      ]
+    },
+    "StatsFingerprint": {
+      "x-module": "stats",
+      "$id": "#/$defs/StatsFingerprint",
+      "type": "object",
+      "properties": {
+        "hostId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "volumeId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      },
+      "required": [
+        "hostId",
+        "volumeId"
+      ],
+      "additionalProperties": false
+    },
+    "StatsHarness": {
+      "x-module": "stats",
+      "$id": "#/$defs/StatsHarness",
+      "type": "string",
+      "enum": [
+        "pi",
+        "claude",
+        "codex",
+        "opencode",
+        "antigravity",
+        "grok",
+        "gemini"
+      ]
+    },
+    "StatsHarnessEntry": {
+      "x-module": "stats",
+      "$id": "#/$defs/StatsHarnessEntry",
+      "type": "object",
+      "properties": {
+        "harness": {
+          "$ref": "#/$defs/StatsHarness"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "sessions": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "turns": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "tokens": {
+          "$ref": "#/$defs/StatsTokenTotals"
+        },
+        "costUsd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "cacheSavingsUsd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "unpricedTurns": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "harness",
+        "displayName",
+        "sessions",
+        "turns",
+        "tokens",
+        "costUsd",
+        "cacheSavingsUsd",
+        "unpricedTurns"
+      ],
+      "additionalProperties": false
+    },
+    "StatsModelEntry": {
+      "x-module": "stats",
+      "$id": "#/$defs/StatsModelEntry",
+      "type": "object",
+      "properties": {
+        "model": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "provider": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "harnesses": {
+          "maxItems": 16,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StatsHarness"
+          }
+        },
+        "turns": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "tokens": {
+          "$ref": "#/$defs/StatsTokenTotals"
+        },
+        "cost": {
+          "$ref": "#/$defs/StatsCostParts"
+        },
+        "cacheSavingsUsd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "timedOutputTokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "errors": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "unpricedTurns": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "model",
+        "provider",
+        "harnesses",
+        "turns",
+        "tokens",
+        "cost",
+        "cacheSavingsUsd",
+        "durationMs",
+        "timedOutputTokens",
+        "errors",
+        "unpricedTurns"
+      ],
+      "additionalProperties": false
+    },
+    "StatsPricingInfo": {
+      "x-module": "stats",
+      "$id": "#/$defs/StatsPricingInfo",
+      "type": "object",
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/StatsPricingStatus"
+        },
+        "fetchedAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "knownModels": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "unpricedModels": {
+          "maxItems": 32,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          }
+        }
+      },
+      "required": [
+        "status",
+        "knownModels",
+        "unpricedModels"
+      ],
+      "additionalProperties": false
+    },
+    "StatsPricingStatus": {
+      "x-module": "stats",
+      "$id": "#/$defs/StatsPricingStatus",
+      "type": "string",
+      "enum": [
+        "fresh",
+        "cached",
+        "bundled"
+      ]
+    },
+    "StatsProjectEntry": {
+      "x-module": "stats",
+      "$id": "#/$defs/StatsProjectEntry",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "harnesses": {
+          "maxItems": 16,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StatsHarness"
+          }
+        },
+        "sessions": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "turns": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "totalTokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "costUsd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "lastAt": {
+          "$ref": "#/$defs/Timestamp"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "harnesses",
+        "sessions",
+        "turns",
+        "totalTokens",
+        "costUsd",
+        "lastAt"
+      ],
+      "additionalProperties": false
+    },
+    "StatsRange": {
+      "x-module": "stats",
+      "$id": "#/$defs/StatsRange",
+      "type": "string",
+      "enum": [
+        "day",
+        "week",
+        "month",
+        "quarter",
+        "year",
+        "all"
+      ]
+    },
+    "StatsResolution": {
+      "x-module": "stats",
+      "$id": "#/$defs/StatsResolution",
+      "type": "string",
+      "enum": [
+        "hour",
+        "day"
+      ]
+    },
+    "StatsScanState": {
+      "x-module": "stats",
+      "$id": "#/$defs/StatsScanState",
+      "type": "string",
+      "enum": [
+        "fresh",
+        "refreshing",
+        "indexing"
+      ]
+    },
+    "StatsSeriesPoint": {
+      "x-module": "stats",
+      "$id": "#/$defs/StatsSeriesPoint",
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "costUsd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "totalTokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "turns": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "cacheRead": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "cacheDenom": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "byHarness": {
+          "maxItems": 16,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StatsSeriesSlice"
+          }
+        }
+      },
+      "required": [
+        "key",
+        "label",
+        "costUsd",
+        "totalTokens",
+        "turns",
+        "cacheRead",
+        "cacheDenom",
+        "byHarness"
+      ],
+      "additionalProperties": false
+    },
+    "StatsSeriesSlice": {
+      "x-module": "stats",
+      "$id": "#/$defs/StatsSeriesSlice",
+      "type": "object",
+      "properties": {
+        "harness": {
+          "$ref": "#/$defs/StatsHarness"
+        },
+        "costUsd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "totalTokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "turns": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "harness",
+        "costUsd",
+        "totalTokens",
+        "turns"
+      ],
+      "additionalProperties": false
+    },
+    "StatsSourceStatus": {
+      "x-module": "stats",
+      "$id": "#/$defs/StatsSourceStatus",
+      "type": "object",
+      "properties": {
+        "harness": {
+          "$ref": "#/$defs/StatsHarness"
+        },
+        "state": {
+          "$ref": "#/$defs/StatsScanState"
+        },
+        "files": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "parsedFiles": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "bytesRead": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "totalBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "problem": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        }
+      },
+      "required": [
+        "harness",
+        "state",
+        "files",
+        "parsedFiles",
+        "bytesRead",
+        "totalBytes"
+      ],
+      "additionalProperties": false
+    },
+    "StatsSpeedCost": {
+      "x-module": "stats",
+      "$id": "#/$defs/StatsSpeedCost",
+      "type": "object",
+      "properties": {
+        "standard": {
+          "type": "number",
+          "minimum": 0
+        },
+        "fast": {
+          "type": "number",
+          "minimum": 0
+        },
+        "ultrafast": {
+          "type": "number",
+          "minimum": 0
+        },
+        "premium": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "standard",
+        "fast",
+        "ultrafast",
+        "premium"
+      ],
+      "additionalProperties": false
+    },
+    "StatsSubagentEntry": {
+      "x-module": "stats",
+      "$id": "#/$defs/StatsSubagentEntry",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "harnesses": {
+          "maxItems": 16,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StatsHarness"
+          }
+        },
+        "runs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "turns": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "totalTokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "costUsd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "failures": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "name",
+        "harnesses",
+        "runs",
+        "turns",
+        "totalTokens",
+        "costUsd",
+        "failures"
+      ],
+      "additionalProperties": false
+    },
+    "StatsSummary": {
+      "x-module": "stats",
+      "$id": "#/$defs/StatsSummary",
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "accepted"
+        },
+        "generatedAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "range": {
+          "$ref": "#/$defs/StatsRange"
+        },
+        "resolution": {
+          "$ref": "#/$defs/StatsResolution"
+        },
+        "timeZone": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "sinceDay": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "untilDay": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "scanState": {
+          "$ref": "#/$defs/StatsScanState"
+        },
+        "fingerprint": {
+          "$ref": "#/$defs/StatsFingerprint"
+        },
+        "totals": {
+          "$ref": "#/$defs/StatsTotals"
+        },
+        "previousTotals": {
+          "$ref": "#/$defs/StatsTotals"
+        },
+        "harnesses": {
+          "maxItems": 16,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StatsHarnessEntry"
+          }
+        },
+        "models": {
+          "maxItems": 64,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StatsModelEntry"
+          }
+        },
+        "projects": {
+          "maxItems": 64,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StatsProjectEntry"
+          }
+        },
+        "subagents": {
+          "maxItems": 32,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StatsSubagentEntry"
+          }
+        },
+        "series": {
+          "maxItems": 366,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StatsSeriesPoint"
+          }
+        },
+        "sources": {
+          "maxItems": 16,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StatsSourceStatus"
+          }
+        },
+        "pricing": {
+          "$ref": "#/$defs/StatsPricingInfo"
+        }
+      },
+      "required": [
+        "status",
+        "generatedAt",
+        "range",
+        "resolution",
+        "timeZone",
+        "sinceDay",
+        "untilDay",
+        "scanState",
+        "fingerprint",
+        "totals",
+        "harnesses",
+        "models",
+        "projects",
+        "subagents",
+        "series",
+        "sources",
+        "pricing"
+      ],
+      "additionalProperties": false
+    },
+    "StatsSummaryRequest": {
+      "x-module": "protocol",
+      "$id": "#/$defs/StatsSummaryRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "stats.summary"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "range": {
+          "$ref": "#/$defs/StatsRange"
+        },
+        "harness": {
+          "$ref": "#/$defs/StatsHarness"
+        },
+        "timeZone": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "refresh": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "range"
+      ],
+      "additionalProperties": false
+    },
+    "StatsSummaryResponse": {
+      "x-module": "protocol",
+      "$id": "#/$defs/StatsSummaryResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "stats.summary.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/StatsSummaryResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "StatsSummaryResult": {
+      "x-module": "stats",
+      "$id": "#/$defs/StatsSummaryResult",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/StatsSummary"
+        },
+        {
+          "$ref": "#/$defs/Rejected"
+        }
+      ]
+    },
+    "StatsTokenTotals": {
+      "x-module": "stats",
+      "$id": "#/$defs/StatsTokenTotals",
+      "type": "object",
+      "properties": {
+        "uncachedInput": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "cachedInput": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "cacheCreation": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "cacheCreation1h": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "output": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "reasoning": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "uncachedInput",
+        "cachedInput",
+        "cacheCreation",
+        "cacheCreation1h",
+        "output",
+        "reasoning"
+      ],
+      "additionalProperties": false
+    },
+    "StatsTotals": {
+      "x-module": "stats",
+      "$id": "#/$defs/StatsTotals",
+      "type": "object",
+      "properties": {
+        "tokens": {
+          "$ref": "#/$defs/StatsTokenTotals"
+        },
+        "cost": {
+          "$ref": "#/$defs/StatsCostParts"
+        },
+        "speedCost": {
+          "$ref": "#/$defs/StatsSpeedCost"
+        },
+        "cacheSavingsUsd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "sessions": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "turns": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "activeDays": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "activeMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "busts": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "idleBusts": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "bustCostUsd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "unpricedTurns": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "unpricedTokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "costSource": {
+          "$ref": "#/$defs/StatsCostSource"
+        }
+      },
+      "required": [
+        "tokens",
+        "cost",
+        "speedCost",
+        "cacheSavingsUsd",
+        "sessions",
+        "turns",
+        "activeDays",
+        "activeMs",
+        "busts",
+        "idleBusts",
+        "bustCostUsd",
+        "unpricedTurns",
+        "unpricedTokens",
+        "costSource"
       ],
       "additionalProperties": false
     },

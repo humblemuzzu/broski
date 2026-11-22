@@ -238,6 +238,8 @@ pub enum ClientMessage {
     Compact(CompactRequest),
     #[serde(rename = "plan.usage")]
     PlanUsage(PlanUsageRequest),
+    #[serde(rename = "stats.summary")]
+    StatsSummary(StatsSummaryRequest),
     #[serde(rename = "workspace.info")]
     WorkspaceInfo(WorkspaceInfoRequest),
     #[serde(rename = "fs.list")]
@@ -735,6 +737,8 @@ pub enum ServerMessage {
     CompactResult(CompactResponse),
     #[serde(rename = "plan.usage.result")]
     PlanUsageResult(PlanUsageResponse),
+    #[serde(rename = "stats.summary.result")]
+    StatsSummaryResult(StatsSummaryResponse),
     #[serde(rename = "workspace.info.result")]
     WorkspaceInfoResult(WorkspaceInfoResponse),
     #[serde(rename = "fs.list.result")]
@@ -1017,6 +1021,41 @@ pub struct SnapshotSync {
 impl crate::Tagged for SnapshotSync {
     const KEY: &'static str = "kind";
     const TAG: &'static str = "snapshot";
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct StatsSummaryRequest {
+    pub request_id: RequestId,
+    pub range: StatsRange,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "crate::codec::present")]
+    pub harness: Option<StatsHarness>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "crate::codec::present")]
+    pub time_zone: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "crate::codec::present")]
+    pub refresh: Option<bool>,
+}
+
+impl crate::Tagged for StatsSummaryRequest {
+    const KEY: &'static str = "type";
+    const TAG: &'static str = "stats.summary";
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct StatsSummaryResponse {
+    pub request_id: RequestId,
+    pub result: StatsSummaryResult,
+}
+
+impl crate::Tagged for StatsSummaryResponse {
+    const KEY: &'static str = "type";
+    const TAG: &'static str = "stats.summary.result";
 }
 
 pub type StreamEpoch = String;

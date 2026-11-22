@@ -32,6 +32,7 @@ import type {
 	DirectoryPolicy,
 	PromptJournal,
 	ReplacementJournal,
+	StatsReader,
 	UsageReader,
 	WorkspaceFactory,
 	WorkspaceHost,
@@ -61,6 +62,8 @@ export interface CoreOptions {
 	readonly observer?: CoreObserver;
 	/** The plans' usage; without it `plan.usage` is `unsupported`. */
 	readonly usage?: UsageReader;
+	/** Aggregated token/cost stats from local coding-agent logs; without it `stats.summary` is `unsupported`. */
+	readonly stats?: StatsReader;
 	/** The machine's files, git and terminals; without it every workspace request is `unsupported`. */
 	readonly workspace?: WorkspaceFactory;
 	/** What the core does itself for a backend that cannot; each is off unless asked for. */
@@ -238,6 +241,7 @@ export class BridgeCore {
 			directories: options.directories,
 			workspace: this.workspace,
 			usage: options.usage,
+			stats: options.stats,
 			terminals: this.terminals,
 			bridgeVersion: options.bridgeVersion,
 			maxFrameBytes: options.maxFrameBytes,
