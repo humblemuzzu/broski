@@ -35,10 +35,11 @@ impl Inbox {
     /// has been marked seen, and its cached rows let go.
     pub(super) fn settle(&self) -> Vec<(MachineName, Feed)> {
         let feeds = self.sources();
+        let now_ms = rows::wall_ms();
         let mut tracker = locked(&self.tracker);
         for (machine, feed) in &feeds {
             if machine.loaded {
-                tracker.seen.first_read(&machine.id, &feed.sources);
+                tracker.seen.first_read(&machine.id, &feed.sources, now_ms);
                 tracker.seen.resolve(&machine.id, &feed.sources);
                 tracker.cache.drop_machine(&machine.id);
             }

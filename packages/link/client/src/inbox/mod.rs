@@ -26,7 +26,7 @@ pub use self::pending::PendingAsk;
 pub(crate) use self::pending::{ask_command, pending_ask};
 use self::rows::is_settled;
 use self::seen::Seen;
-pub use self::seen::{SeenMarker, SeenState, UnreadSession};
+pub use self::seen::{MachineHistory, SeenMarker, SeenState, UnreadSession};
 use crate::error::ClientError;
 use crate::machine::Machine;
 use crate::view::queue::BATCH_INTERVAL;

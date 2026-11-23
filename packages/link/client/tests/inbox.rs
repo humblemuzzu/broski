@@ -158,13 +158,12 @@ async fn a_session_marked_unread_is_done_across_a_restart_until_it_is_seen() {
 async fn a_machine_paired_for_the_first_time_shows_its_history_as_seen() {
     let desk = desk().await;
     let history = in_state(&desk.history, InboxState::Idle);
-    inbox_until(&desk.phone, "the first machine's history", history).await;
+    let rows = inbox_until(&desk.phone, "the first machine's history", history).await;
+    let updated_at = rows[position(&rows, &desk.history)].updated_at;
     let seen = desk.phone.inbox().seen();
-    let marked = seen
-        .markers
-        .iter()
-        .any(|marker| marker.session == desk.history && marker.machine_id == desk.machine_a.id());
-    assert!(marked, "a marker the app persists");
+    let marked = (seen.histories.iter())
+        .any(|history| history.machine_id == desk.machine_a.id() && history.through >= updated_at);
+    assert!(marked, "a history the app persists, which covers the row");
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -240,11 +239,11 @@ async fn a_session_that_appears_before_the_ui_reads_the_inbox_is_still_done() {
     let phone = phone();
     let machine = paired(&phone, &mac).await;
     // Nothing reads the inbox, so the history is marked only if the inbox settles by itself. The
-    // marker is state, not an update, so it is polled for.
+    // history is state, not an update, so it is polled for.
     let deadline = Instant::now() + WAIT;
-    while !(phone.inbox().seen().markers)
+    while !(phone.inbox().seen().histories)
         .iter()
-        .any(|marker| marker.session == history)
+        .any(|known| known.machine_id == machine.id())
     {
         assert!(Instant::now() < deadline, "the history was never marked");
         tokio::time::sleep(Duration::from_millis(20)).await;

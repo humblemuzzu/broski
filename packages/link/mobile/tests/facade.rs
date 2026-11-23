@@ -13,8 +13,8 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use broski_client::{
-    ClientError, ContractState, InboxRow, InboxState, LinkFailure, MachineStatus, PhoneConfig,
-    SeenMarker, SeenState, SessionUpdate, UnreadSession,
+    ClientError, ContractState, InboxRow, InboxState, LinkFailure, MachineHistory, MachineStatus,
+    PhoneConfig, SeenMarker, SeenState, SessionUpdate, UnreadSession,
 };
 use broski_contract::{ClientMessage, HelloRequest, SessionRef, PROTOCOL_VERSION};
 use broski_core::{
@@ -182,6 +182,10 @@ fn what_was_seen_goes_back_in_as_the_app_stored_it() {
                 session_id: "s-10".into(),
             },
         }],
+        histories: vec![MachineHistory {
+            machine_id: machine_id.into(),
+            through: 1_724_000_000_000,
+        }],
     };
     inbox.restore_seen(stored.clone());
     assert_eq!(inbox.seen(), stored);
@@ -308,6 +312,7 @@ fn a_recent_cached_session_marked_unread_then_seen_is_idle_after_a_restart() {
         markers: vec![marker.clone()],
         read_machines: vec![machine_id.clone()],
         unread: Vec::new(),
+        histories: Vec::new(),
     };
 
     let (phone, inbox, machine) = started(cache.clone().into_bytes(), Some(stored));

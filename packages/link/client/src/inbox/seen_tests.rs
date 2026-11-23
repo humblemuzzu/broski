@@ -4,6 +4,14 @@ use super::*;
 use crate::view::stream::LiveInfo;
 
 const MACHINE: &str = "m";
+const NOW: i64 = 1_800_000_000_000;
+
+fn named(id: &str) -> SessionRef {
+    SessionRef {
+        backend: "pi".to_owned(),
+        session_id: id.to_owned(),
+    }
+}
 
 fn session() -> SessionRef {
     SessionRef {
@@ -245,7 +253,7 @@ fn a_first_read_keeps_unread_marks_of_listed_sessions_and_drops_the_rest() {
     });
     seen.unsee(MACHINE, &session());
     seen.unsee(MACHINE, &gone);
-    seen.first_read(MACHINE, &[source(SessionStatus::Idle, 10, None)]);
+    seen.first_read(MACHINE, &[source(SessionStatus::Idle, 10, None)], NOW);
     assert_eq!(seen.get(MACHINE, &session()), Mark::Unread);
     assert_eq!(seen.get(MACHINE, &gone), Mark::Unseen);
 }
@@ -254,9 +262,86 @@ fn a_first_read_keeps_unread_marks_of_listed_sessions_and_drops_the_rest() {
 fn a_machine_first_read_after_a_session_was_marked_unread_leaves_it_unread() {
     let mut seen = Seen::default();
     seen.unsee(MACHINE, &session());
-    seen.first_read(MACHINE, &[source(SessionStatus::Idle, 10, None)]);
+    seen.first_read(MACHINE, &[source(SessionStatus::Idle, 10, None)], NOW);
     assert_eq!(seen.get(MACHINE, &session()), Mark::Unread);
     assert!(seen.state().markers.is_empty());
+}
+
+#[test]
+fn a_first_pairing_counts_every_older_session_seen_even_one_no_page_has_loaded() {
+    let mut seen = Seen::default();
+    seen.first_read(
+        MACHINE,
+        &[source(SessionStatus::Idle, NOW - 100, None)],
+        NOW,
+    );
+    assert_eq!(
+        seen.get(MACHINE, &named("deep")),
+        Mark::SeenAt(NOW - 100),
+        "a session older than the first read, loaded later by scrolling or a search"
+    );
+    let history = seen.state().histories;
+    assert_eq!(history.len(), 1);
+    assert_eq!(history[0].through, NOW - 100);
+
+    let mut restarted = Seen::default();
+    restarted.restore(seen.state());
+    restarted.first_read(MACHINE, &[], NOW + 10);
+    assert_eq!(
+        restarted.get(MACHINE, &named("deep")),
+        Mark::SeenAt(NOW - 100)
+    );
+}
+
+#[test]
+fn a_restart_keeps_the_markers_of_sessions_no_page_has_loaded_and_drops_the_ones_that_change_nothing(
+) {
+    let mut seen = Seen::default();
+    seen.first_read(
+        MACHINE,
+        &[source(SessionStatus::Idle, NOW - 100, None)],
+        NOW,
+    );
+    seen.mark_at(MACHINE, &named("earlier"), NOW - 50);
+    seen.mark_at(MACHINE, &named("later"), NOW - 40);
+    let mut restarted = Seen::default();
+    restarted.restore(seen.state());
+    restarted.first_read(MACHINE, &[], NOW + DONE_WINDOW_MS - 45);
+    let kept: Vec<String> = (restarted.state().markers.into_iter())
+        .map(|marker| marker.session.session_id)
+        .collect();
+    assert_eq!(
+        kept,
+        ["later"],
+        "one past the window goes, one still able to matter stays"
+    );
+}
+
+#[test]
+fn a_machine_read_before_histories_were_kept_takes_its_newest_marker_as_its_history() {
+    let mut seen = Seen::default();
+    seen.restore(SeenState {
+        read_machines: vec![MACHINE.into()],
+        markers: vec![
+            SeenMarker {
+                machine_id: MACHINE.into(),
+                session: named("a"),
+                seen_at: NOW - 30,
+            },
+            SeenMarker {
+                machine_id: MACHINE.into(),
+                session: named("b"),
+                seen_at: NOW - 20,
+            },
+        ],
+        ..SeenState::default()
+    });
+    seen.first_read(MACHINE, &[], NOW);
+    assert_eq!(seen.get(MACHINE, &named("deep")), Mark::SeenAt(NOW - 20));
+    assert!(
+        seen.state().markers.is_empty(),
+        "the history covers both markers"
+    );
 }
 
 #[test]

@@ -4,6 +4,7 @@ import com.muzammil.broski.core.BackendIds
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import uniffi.broski_contract.SessionRef
+import uniffi.broski_core.MachineHistory
 import uniffi.broski_core.SeenMarker
 import uniffi.broski_core.SeenState
 import uniffi.broski_core.UnreadSession
@@ -15,7 +16,11 @@ internal object SeenStateCodec {
         val markers: List<StoredMarker>,
         val readMachines: List<String>,
         val unread: List<StoredUnread> = emptyList(),
+        val histories: List<StoredHistory> = emptyList(),
     )
+
+    @Serializable
+    private data class StoredHistory(val machineId: String, val through: Long)
 
     @Serializable
     private data class StoredMarker(val machineId: String, val backend: String, val sessionId: String, val seenAt: Long)
@@ -32,6 +37,7 @@ internal object SeenStateCodec {
             },
             readMachines = state.readMachines,
             unread = state.unread.map { StoredUnread(it.machineId, it.session.backend, it.session.sessionId) },
+            histories = state.histories.map { StoredHistory(it.machineId, it.through) },
         )
         return json.encodeToString(StoredSeen.serializer(), stored).encodeToByteArray()
     }
@@ -49,6 +55,7 @@ internal object SeenStateCodec {
                 val backend = wireId(entry.backend) ?: return@mapNotNull null
                 UnreadSession(entry.machineId, SessionRef(backend, entry.sessionId))
             },
+            histories = stored.histories.map { MachineHistory(it.machineId, it.through) },
         )
     }
 

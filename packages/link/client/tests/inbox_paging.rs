@@ -5,7 +5,7 @@ mod common;
 
 use std::time::Duration;
 
-use broski_client::{InboxUpdate, KeptSession, LinkState, MachineStatus, Phone};
+use broski_client::{InboxState, InboxUpdate, KeptSession, LinkState, MachineStatus, Phone};
 use broski_contract::SessionRef;
 use broski_link_testkit::WAIT;
 use common::{paired, phone, status_until, Mac};
@@ -69,6 +69,10 @@ async fn older_sessions_load_page_by_page_and_a_refresh_keeps_what_was_loaded() 
     let all = update_until(&phone, "every session", |update| update.rows.len() == 450).await;
     assert!(!all.has_more, "nothing left to load");
     assert!(holds(&all, &oldest));
+    assert!(
+        all.rows.iter().all(|row| row.state == InboxState::Idle),
+        "history loaded after the first read is history still, not done"
+    );
 
     phone.inbox().refresh().await;
     assert_eq!(
@@ -157,6 +161,12 @@ async fn a_search_reaches_a_session_no_page_loaded_and_ends_with_an_empty_query(
     })
     .await;
     assert!(!found.has_more, "the search read every session");
+    let needle_row = found.rows.iter().find(|row| row.session == needle);
+    assert_eq!(
+        needle_row.map(|row| row.state),
+        Some(InboxState::Idle),
+        "an old session a search found is history, not done"
+    );
 
     phone.inbox().search("   ".to_owned());
     update_until(&phone, "the search to end", |update| {

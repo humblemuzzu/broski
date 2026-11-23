@@ -26,6 +26,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import uniffi.broski_contract.SessionRef
+import uniffi.broski_core.MachineHistory
 import uniffi.broski_core.SeenMarker
 import uniffi.broski_core.SeenState
 import uniffi.broski_core.UnreadSession
@@ -63,6 +64,7 @@ class VaultTest {
         ),
         readMachines = listOf("m-1", "m-2"),
         unread = listOf(UnreadSession("m-2", SessionRef("pi", "s-4"))),
+        histories = listOf(MachineHistory("m-1", 1_724_000_000_000)),
     )
 
     @Test

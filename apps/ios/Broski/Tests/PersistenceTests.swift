@@ -56,7 +56,8 @@ struct PersistenceTests {
                 SeenMarker(machineId: machineId, session: SessionRef(backend: "pi", sessionId: "s-10"), seenAt: 1_725_000_000_500),
                 SeenMarker(machineId: machineId, session: SessionRef(backend: "my-agent", sessionId: "s-11"), seenAt: 1_725_000_000_900),
             ],
-            readMachines: [machineId])
+            readMachines: [machineId],
+            histories: [MachineHistory(machineId: machineId, through: 1_724_000_000_000)])
         #expect(try test.storage.seenState() == nil)
         try test.storage.saveSeenState(seen)
 
@@ -66,6 +67,7 @@ struct PersistenceTests {
         inbox.restoreSeen(state: restored)
         #expect(Set(inbox.seen().markers) == Set(seen.markers), "the core keeps markers in an order of its own")
         #expect(inbox.seen().readMachines == seen.readMachines)
+        #expect(inbox.seen().histories == seen.histories)
     }
 
     /// The seen state as an earlier build wrote it reads back unchanged; a marker whose backend is
@@ -89,6 +91,7 @@ struct PersistenceTests {
         ])
         #expect(restored.readMachines == [machineId])
         #expect(restored.unread.isEmpty, "written before unread marks existed")
+        #expect(restored.histories.isEmpty, "written before histories existed")
     }
 
     /// A session marked unread in one launch is still unread in the next: the mark survives the

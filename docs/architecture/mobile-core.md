@@ -270,7 +270,7 @@ have not loaded since the start shows its restored rows (`cached: true`, no `pen
 `Working` as last known, `Done` and `Idle` by the seen markers); its own rows replace them once its
 lists load, and `forget` drops them. Restored rows show only for machines started; bytes of another
 version, or not a cache, are refused `InvalidRequest` and change nothing (the next cache replaces
-them). **What the person has seen** is `SeenState{markers, read_machines, unread}`. A marker is
+them). **What the person has seen** is `SeenState{markers, read_machines, unread, histories}`. A marker is
 `{machine_id, session, seen_at}`, `seen_at` being the row's `updatedAt` when the person looked: `mark_seen`
 sets one, clears any explicit `unread` entry for that session, and never moves a marker back. `mark_unread`
 removes the session's marker and records an `UnreadSession{machine_id, session}` in `unread` so the row
@@ -278,14 +278,19 @@ shows as `Done` even past the 24-hour window until the person opens it (`mark_se
 or forgets the machine. A session not listed yet, or whose row still shows a run or an ask the
 phone's own view has already seen end, is not marked at that stale row: its mark waits until its row
 settles, so the update that follows does not make a session the person just watched `Done` again.
-`read_machines` are the machines whose history is already marked. `InboxUpdate.seen` carries the
-whole state whenever it changed, for the app to persist and hand back to `restore_seen` at its next start,
-before it starts any machine. The inbox settles a machine by itself, on a task of the link runtime, the
+`read_machines` are the machines whose history is already marked, and `histories` holds each one's
+`MachineHistory{machine_id, through}`: a session with no marker counts as seen up to `through`. `InboxUpdate.seen`
+carries the whole state whenever it changed, for the app to persist and hand back to `restore_seen` at its next
+start, before it starts any machine. The inbox settles a machine by itself, on a task of the link runtime, the
 first time its rows are all in during a run, whether or not the UI reads the inbox: a machine not in
-`read_machines` gets a marker for every row (a first pairing does not show its history as done) and joins
-them, with or without rows; for one in them, markers of sessions no longer listed are dropped, which keeps
-them bounded by the rows. So a session that appears or finishes after that is `Done` however late the UI
-looks, and a machine that had no session at its first read is not marked again at the next start.
+`read_machines` joins them, with or without rows, and its history runs `through` its newest row, so a first
+pairing does not show its history as done, including the sessions only a later page or a search loads. For one
+in them, a marker the history covers or older than `DONE_WINDOW_MS` goes (it can no longer change a row: a row
+that recent is newer than it, one older is idle anyway), so markers stay bounded by time, not by the rows a
+page happens to hold; unread marks of sessions no longer listed are dropped. A machine read before histories
+were kept takes its newest marker as its history. So a session that appears or finishes after the first read
+is `Done` however late the UI looks, and a machine that had no session at its first read is not marked again
+at the next start.
 `next_change()` delivers the rows when they or the seen state changed, at most 30 times a second.
 `refresh()` is pull to refresh: each machine whose link is connected and whose bridge agreed on the
 protocol reloads every inbox list from its first page, and each machine whose link waits to dial dials
@@ -441,7 +446,7 @@ keep older rows and search lists (`catalog/lists_tests.rs`), search words (`cata
 ## Limits
 
 - The inbox pages each backend's top-level sessions down to `MAX_CATALOG_ITEMS`; older ones are found by
-  searching. A session never marked is `Done` once idle (unless its machine's first read marked it).
+  searching. A session never marked is `Done` once idle (unless its machine's history covers it).
 - Search matches every word of a title or the last component of a folder, case-insensitively, the way
   the apps filter rows they hold; it does not search transcripts.
 - `Done` means a row's `updatedAt` moved past the marker, and `updatedAt` is the backend's last-modified

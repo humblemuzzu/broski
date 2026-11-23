@@ -95,7 +95,7 @@ private struct StoredSession: Codable {
 }
 
 /// `SeenState` as JSON. A marker or an unread mark whose backend is no valid id is dropped; a
-/// state stored before unread marks existed reads as having none.
+/// state stored before unread marks or histories existed reads as having none.
 private struct StoredSeenState: Codable {
     struct Marker: Codable {
         let machineId: String
@@ -104,9 +104,15 @@ private struct StoredSeenState: Codable {
         let seenAt: Int64
     }
 
+    struct History: Codable {
+        let machineId: String
+        let through: Int64
+    }
+
     let markers: [Marker]
     let readMachines: [String]
     let unread: [StoredSession]?
+    let histories: [History]?
 
     init(_ state: SeenState) {
         markers = state.markers.map {
@@ -116,6 +122,7 @@ private struct StoredSeenState: Codable {
         }
         readMachines = state.readMachines
         unread = state.unread.map { StoredSession(SessionTarget(machineId: $0.machineId, session: $0.session)) }
+        histories = state.histories.map { History(machineId: $0.machineId, through: $0.through) }
     }
 
     var state: SeenState {
@@ -127,6 +134,7 @@ private struct StoredSeenState: Codable {
                     seenAt: $0.seenAt)
             },
             readMachines: readMachines,
-            unread: (unread ?? []).compactMap(\.target).map { UnreadSession(machineId: $0.machineId, session: $0.session) })
+            unread: (unread ?? []).compactMap(\.target).map { UnreadSession(machineId: $0.machineId, session: $0.session) },
+            histories: (histories ?? []).map { MachineHistory(machineId: $0.machineId, through: $0.through) })
     }
 }
