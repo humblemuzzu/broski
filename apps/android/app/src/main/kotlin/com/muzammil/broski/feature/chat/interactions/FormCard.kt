@@ -8,14 +8,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.rememberTextFieldState
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateMapOf
@@ -29,6 +26,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
 import com.muzammil.broski.design.Haptic
+import com.muzammil.broski.design.IosText
 import com.muzammil.broski.design.perform
 import com.muzammil.broski.design.format.agentLine
 import uniffi.broski_contract.BooleanValue
@@ -50,22 +48,22 @@ fun FormCard(interaction: Interaction, request: FormRequest, context: CardContex
     val values = remember(interaction.id) {
         mutableStateMapOf<String, FormValue>().apply { request.fields.forEach { field -> formFieldDefault(field)?.let { put(field.key, it) } } }
     }
-    Text(listOfNotNull(request.server, interaction.title).joinToString(" · "), style = MaterialTheme.typography.titleMedium)
-    interaction.body?.let { Quiet(it) }
-    request.fields.filter { formFieldShown(it, values) }.forEach { field ->
-        FieldView(field, values[field.key], context.enabled) { value -> if (value == null) values.remove(field.key) else values[field.key] = value }
-    }
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Button(
-            onClick = {
-                haptics.perform(Haptic.Success)
-                context.answer(formReply(request.fields, values))
-            },
-            enabled = context.enabled && formComplete(request.fields, values),
-            shapes = ButtonDefaults.shapes(),
-        ) { Text(stringResource(R.string.card_submit)) }
-        TextButton(onClick = { context.answer(dismissReply()) }, enabled = context.enabled) { Text(stringResource(R.string.card_dismiss)) }
-    }
+    AskBody(
+        content = {
+            request.server?.let { Text(stringResource(R.string.card_form_from, it), style = IosText.caption, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            request.fields.filter { formFieldShown(it, values) }.forEach { field ->
+                FieldView(field, values[field.key], context.enabled) { value -> if (value == null) values.remove(field.key) else values[field.key] = value }
+            }
+        },
+        actions = {
+            AskButtons {
+                AskButton(stringResource(R.string.card_submit), AskLook.Primary, context.enabled && formComplete(request.fields, values)) {
+                    haptics.perform(Haptic.Success)
+                    context.answer(formReply(request.fields, values))
+                }
+            }
+        },
+    )
 }
 
 @Composable

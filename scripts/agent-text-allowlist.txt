@@ -12,6 +12,7 @@ apps/ios/Broski/Sources/Features/Settings/AppearanceSettingsScreen.swift | Text(
 apps/ios/Broski/Sources/Features/Chat/Composer/ComposerButtons.swift | Text(way.title) | the app's own Send, Queue and Steer
 apps/ios/Broski/Sources/Features/Chat/Composer/ComposerPickers.swift | Text(option.label) | a mode name from the agent's catalog, not its prose
 apps/android/app/src/main/kotlin/com/muzammil/broski/feature/chat/composer/ComposerPickers.kt | Text(option.label | a mode name from the agent's catalog, not its prose
+apps/android/app/src/main/kotlin/com/muzammil/broski/feature/chat/interactions/InteractionPanel.kt | Text(item.label, color = | an ask's menu item: a permission option's button label ("Deny and stop") through agentLine, or our own Dismiss, never prose
 apps/android/app/src/main/kotlin/com/muzammil/broski/feature/chat/composer/ModelSheet.kt | Text(choice.title) | a thinking level or mode name from the agent's catalog, not its prose
 apps/ios/Broski/Sources/Features/Chat/Work/WorkRowView.swift | Text(tool.label) | the core's row label (toolLook): a command or a path, drawn as written
 apps/ios/Broski/Extensions/Widgets/IslandViews.swift | Text(state.title) | the Live Activity's title, made by RunActivityAttributes; the widget does not link the formatter

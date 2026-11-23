@@ -1,26 +1,30 @@
 package com.muzammil.broski.feature.chat.interactions
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicSecureTextField
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.rememberTextFieldState
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Checkbox
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedSecureTextField
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.PrimaryScrollableTabRow
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import com.muzammil.broski.design.IosText
+import com.muzammil.broski.feature.usage.Segments
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -47,58 +51,73 @@ import uniffi.broski_contract.Interaction
 import uniffi.broski_contract.Question
 import uniffi.broski_contract.QuestionsRequest
 
-/** The agent's questions, one tab each when there are several: options with their hints, the person's own answer, a secret masked. */
+/**
+ * The agent's questions, one tab each when there are several: options as full-width rows with their
+ * hints, the person's own answer, a secret masked; Send pinned under them.
+ */
 @Composable
 fun QuestionsCard(interaction: Interaction, request: QuestionsRequest, context: CardContext) {
     val haptics = LocalHapticFeedback.current
     val drafts = remember(interaction.id) { mutableStateMapOf<String, QuestionDraft>() }
     var tab by rememberSaveable(interaction.id) { mutableIntStateOf(0) }
-    Text(agentLine(interaction.title), style = MaterialTheme.typography.titleMedium)
-    if (request.questions.size > 1) {
-        PrimaryScrollableTabRow(selectedTabIndex = tab, edgePadding = 0.dp) {
-            request.questions.forEachIndexed { index, question ->
-                Tab(selected = tab == index, onClick = { tab = index }, text = { Text(agentLine(question.header.orEmpty()).ifEmpty { null } ?: stringResource(R.string.card_question_number, index + 1)) })
+    AskBody(
+        content = {
+            if (request.questions.size > 1) {
+                Segments(
+                    request.questions.indices.toList(),
+                    tab,
+                    label = { index -> agentLine(request.questions[index].header.orEmpty()).ifEmpty { null } ?: stringResource(R.string.card_question_number, index + 1) },
+                    onSelect = { tab = it },
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
-        }
-    }
-    val question = request.questions[tab.coerceIn(request.questions.indices)]
-    key(question.id) {
-        QuestionView(question, drafts[question.id] ?: QuestionDraft(), context.enabled) { drafts[question.id] = it }
-    }
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Button(
-            onClick = {
-                haptics.perform(Haptic.Success)
-                context.answer(questionsReply(request.questions, drafts))
-            },
-            enabled = context.enabled && questionsComplete(request.questions, drafts),
-            shapes = ButtonDefaults.shapes(),
-        ) { Text(stringResource(R.string.card_submit)) }
-        TextButton(onClick = { context.answer(dismissReply()) }, enabled = context.enabled) { Text(stringResource(R.string.card_dismiss)) }
-    }
+            val question = request.questions[tab.coerceIn(request.questions.indices)]
+            key(question.id) {
+                QuestionView(question, drafts[question.id] ?: QuestionDraft(), context.enabled) {
+                    if (it.selected != drafts[question.id]?.selected) haptics.perform(Haptic.PickerStep)
+                    drafts[question.id] = it
+                }
+            }
+        },
+        actions = {
+            AskButtons {
+                AskButton(
+                    stringResource(if (request.questions.size > 1) R.string.card_send_answers else R.string.card_send_answer),
+                    AskLook.Primary,
+                    context.enabled && questionsComplete(request.questions, drafts),
+                ) {
+                    haptics.perform(Haptic.Success)
+                    context.answer(questionsReply(request.questions, drafts))
+                }
+            }
+        },
+    )
 }
 
 @Composable
 private fun QuestionView(question: Question, draft: QuestionDraft, enabled: Boolean, onChange: (QuestionDraft) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         FormattedMessage(question.text)
         if (question.options.isNotEmpty()) {
             Text(
                 stringResource(if (question.multiSelect) R.string.card_pick_any else R.string.card_pick_one),
-                style = MaterialTheme.typography.labelMedium,
+                style = IosText.footnote,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-        }
-        question.options.forEach { option ->
-            val picked = option.label in draft.selected
-            val toggle = {
-                val selected = when {
-                    question.multiSelect -> if (picked) draft.selected - option.label else draft.selected + option.label
-                    else -> setOf(option.label)
+            Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f), RoundedCornerShape(18.dp))) {
+                question.options.forEachIndexed { index, option ->
+                    if (index > 0) HorizontalDivider(Modifier.padding(start = 48.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+                    val picked = option.label in draft.selected
+                    val toggle = {
+                        val selected = when {
+                            question.multiSelect -> if (picked) draft.selected - option.label else draft.selected + option.label
+                            else -> setOf(option.label)
+                        }
+                        onChange(draft.copy(selected = selected, custom = if (question.multiSelect) draft.custom else ""))
+                    }
+                    OptionRow(agentLine(option.label), option.description, picked, question.multiSelect, enabled, toggle)
                 }
-                onChange(draft.copy(selected = selected, custom = if (question.multiSelect) draft.custom else ""))
             }
-            OptionRow(option.label, option.description, picked, question.multiSelect, enabled, toggle)
         }
         if (question.allowCustom) CustomAnswer(question, draft, enabled, onChange)
     }
@@ -111,11 +130,20 @@ private fun OptionRow(label: String, description: String?, picked: Boolean, mult
     } else {
         Modifier.selectable(picked, enabled = enabled, role = Role.RadioButton, onClick = onToggle)
     }
-    Row(rowModifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        if (multi) Checkbox(picked, onCheckedChange = null, enabled = enabled) else RadioButton(picked, onClick = null, enabled = enabled)
-        Column(Modifier.padding(start = 12.dp)) {
-            Text(label, style = MaterialTheme.typography.bodyLarge)
-            description?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+    Row(
+        rowModifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Icon(
+            painterResource(pickIcon(picked, multi)),
+            contentDescription = null,
+            tint = if (picked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(24.dp),
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(label, style = IosText.body.copy(fontWeight = FontWeight.Medium))
+            description?.let { Quiet(it) }
         }
     }
 }
@@ -136,16 +164,38 @@ private fun CustomAnswer(question: Question, draft: QuestionDraft, enabled: Bool
     LaunchedEffect(draft.custom) {
         if (draft.custom.isEmpty() && field.text.isNotEmpty()) field.clearText()
     }
-    val label = stringResource(if (question.secret) R.string.card_secret_answer else R.string.card_own_answer)
+    val label = stringResource(
+        when {
+            question.secret -> R.string.card_secret_answer
+            question.options.isEmpty() -> R.string.card_your_answer
+            else -> R.string.card_own_answer
+        },
+    )
     if (question.secret) {
-        OutlinedSecureTextField(state = field, label = { Text(label) }, enabled = enabled, modifier = Modifier.fillMaxWidth())
-    } else {
-        OutlinedTextField(
+        BasicSecureTextField(
             state = field,
-            label = { Text(label) },
+            enabled = enabled,
+            textStyle = IosText.body.copy(color = MaterialTheme.colorScheme.onSurface),
+            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+            modifier = Modifier.askField(label),
+            decorator = { inner -> FieldHint(field.text.isEmpty(), label, inner) },
+        )
+    } else {
+        BasicTextField(
+            state = field,
             enabled = enabled,
             lineLimits = TextFieldLineLimits.MultiLine(1, 4),
-            modifier = Modifier.fillMaxWidth(),
+            textStyle = IosText.body.copy(color = MaterialTheme.colorScheme.onSurface),
+            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+            modifier = Modifier.askField(label),
+            decorator = { inner -> FieldHint(field.text.isEmpty(), label, inner) },
         )
     }
+}
+
+private fun pickIcon(picked: Boolean, multi: Boolean): Int = when {
+    multi && picked -> R.drawable.ic_check_box
+    multi -> R.drawable.ic_check_box_outline_blank
+    picked -> R.drawable.ic_radio_button_checked
+    else -> R.drawable.ic_radio_button_unchecked
 }

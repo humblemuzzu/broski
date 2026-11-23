@@ -1,5 +1,11 @@
 package com.muzammil.broski.feature.chat
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,7 +23,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
@@ -45,6 +55,7 @@ import com.muzammil.broski.feature.chat.composer.dictation.LocalDictation
 import com.muzammil.broski.feature.chat.composer.SettingActions
 import com.muzammil.broski.feature.chat.composer.matchingCommands
 import com.muzammil.broski.feature.chat.composer.sendButton
+import com.muzammil.broski.feature.chat.interactions.AskPill
 import com.muzammil.broski.feature.chat.interactions.CardContext
 import com.muzammil.broski.feature.chat.interactions.InteractionPanel
 import uniffi.broski_contract.AttachmentKind
@@ -53,7 +64,11 @@ import uniffi.broski_contract.FileKind
 import uniffi.broski_contract.PromptMode
 import com.muzammil.broski.feature.workspace.Answer
 
-/** Everything pinned at the bottom: what runs in the background, notices, the queue, the first ask, the commands list and the composer. */
+/**
+ * Everything pinned at the bottom: what runs in the background, notices, the queue, the commands list
+ * and the composer. An ask takes the composer's place, its answers where the thumb is; folded, it
+ * becomes a pill over the composer.
+ */
 @Composable
 fun ChatBottom(model: ChatViewModel, openDiff: (FileChange) -> Unit, openVoiceSettings: () -> Unit, modifier: Modifier) {
     val live by model.live.collectAsStateWithLifecycle()
@@ -81,19 +96,40 @@ fun ChatBottom(model: ChatViewModel, openDiff: (FileChange) -> Unit, openVoiceSe
                 }
             }
         }
-        InteractionPanel(snapshot.interactions, context = { interaction ->
-            CardContext(
-                agent = agent,
-                canAnswer = capabilities?.answer == true,
-                state = answers[interaction.id],
-                answer = { reply -> model.actions.answer(interaction.id, reply) },
-                openDiff = openDiff,
-            )
-        })
-        if (capabilities?.controllable == false) {
-            WatchOnly()
-        } else {
-            ChatComposer(model, running = snapshot.run != null, openVoiceSettings)
+        val ask = snapshot.interactions.firstOrNull()
+        var folded by rememberSaveable { mutableStateOf<String?>(null) }
+        val shown = ask?.takeIf { it.id != folded }
+        val focus = LocalFocusManager.current
+        LaunchedEffect(shown?.id) { if (shown != null) focus.clearFocus() }
+        AnimatedContent(
+            targetState = shown,
+            contentKey = { it?.id },
+            transitionSpec = { (slideInVertically { it / 4 } + fadeIn()) togetherWith fadeOut() using SizeTransform(clip = false) },
+            label = "ask or composer",
+        ) { open ->
+            if (open != null) {
+                InteractionPanel(
+                    open,
+                    waiting = snapshot.interactions.size,
+                    context = CardContext(
+                        agent = agent,
+                        canAnswer = capabilities?.answer == true,
+                        state = answers[open.id],
+                        answer = { reply -> model.actions.answer(open.id, reply) },
+                        openDiff = openDiff,
+                    ),
+                    onFold = { folded = open.id },
+                )
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ask?.let { AskPill(it, snapshot.interactions.size) { folded = null } }
+                    if (capabilities?.controllable == false) {
+                        WatchOnly()
+                    } else {
+                        ChatComposer(model, running = snapshot.run != null, openVoiceSettings)
+                    }
+                }
+            }
         }
     }
 }

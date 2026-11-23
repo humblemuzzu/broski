@@ -37,6 +37,16 @@ fun denyWithWords(options: List<PermissionOption>): PermissionOption? = options.
     it.effect == PermissionEffect.DENY && !it.stopsRun && it.message != MessagePolicy.NONE
 }
 
+/** The Deny beside Allow: the deny that lets the run go on, else the first deny. */
+fun plainDeny(options: List<PermissionOption>): PermissionOption? =
+    options.firstOrNull { it.effect == PermissionEffect.DENY && !it.stopsRun } ?: options.firstOrNull { it.effect == PermissionEffect.DENY }
+
+/** The denies kept in the card's menu: every one but the Deny beside Allow (Deny and Stop). */
+fun menuDenies(options: List<PermissionOption>): List<PermissionOption> {
+    val plain = plainDeny(options)
+    return options.filter { it.effect == PermissionEffect.DENY && it != plain }
+}
+
 /** Whether [option] can go now: the words it requires are typed, and an allow keeps a grant when grants were asked for. */
 fun canChoose(request: ToolPermissionRequest, option: PermissionOption, message: String, grants: Set<String>): Boolean =
     (option.message != MessagePolicy.REQUIRED || message.isNotBlank()) &&

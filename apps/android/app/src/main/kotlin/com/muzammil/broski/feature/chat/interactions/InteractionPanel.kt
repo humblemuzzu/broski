@@ -1,71 +1,59 @@
 package com.muzammil.broski.feature.chat.interactions
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.SizeTransform
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
-import com.muzammil.broski.design.Glass
-import com.muzammil.broski.design.GlassSurface
-import com.muzammil.broski.design.IosText
-import com.muzammil.broski.design.glassShadow
-import uniffi.broski_contract.CancelReply
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
-import com.muzammil.broski.design.BroskiMotion
 import com.muzammil.broski.design.BroskiTheme
 import com.muzammil.broski.design.Dot
-import com.muzammil.broski.design.format.FormatRole
-import com.muzammil.broski.design.format.FormattedMessage
+import com.muzammil.broski.design.Glass
+import com.muzammil.broski.design.GlassSurface
+import com.muzammil.broski.design.Haptic
+import com.muzammil.broski.design.IosText
+import com.muzammil.broski.design.format.agentLine
+import com.muzammil.broski.design.glassShadow
+import com.muzammil.broski.design.perform
 import com.muzammil.broski.feature.chat.AnswerState
+import uniffi.broski_contract.CancelReply
 import uniffi.broski_contract.FileChange
 import uniffi.broski_contract.Interaction
 import uniffi.broski_contract.InteractionReply
@@ -84,121 +72,134 @@ class CardContext(
     val enabled: Boolean get() = canAnswer && state == null
 }
 
-/** The ask under the card's header scrolls past 320 dp, or past this share of a short window, so the composer stays in view. */
-private val BODY_CAP = 320.dp
-private const val MAX_SHARE = 0.45f
-
 /**
- * The first pending ask, pinned above the composer and never in the transcript, until the bridge
- * says it is resolved. It can fold to a pill so the person reads first; more asks wait behind it.
+ * The first pending ask, in place of the composer and never in the transcript, until the bridge says
+ * it is resolved: what the agent wants as its title, the ask scrolling under it, and the answers
+ * pinned at the bottom where the thumb is. Folding it gives the composer back under a pill.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun InteractionPanel(interactions: List<Interaction>, context: (Interaction) -> CardContext, modifier: Modifier = Modifier) {
-    var last by remember { mutableStateOf(interactions) }
-    if (interactions.isNotEmpty()) last = interactions
-    AnimatedVisibility(
-        visible = interactions.isNotEmpty(),
-        enter = slideInVertically(BroskiMotion.spring()) { it / 3 } + fadeIn(BroskiMotion.spring()),
-        exit = shrinkVertically(BroskiMotion.spring()) + fadeOut(BroskiMotion.spring()),
-        modifier = modifier,
-    ) {
-        last.firstOrNull()?.let { FirstAsk(it, last.size, context) }
-    }
-}
-
-@Composable
-private fun FirstAsk(first: Interaction, waiting: Int, context: (Interaction) -> CardContext) {
-    var collapsed by rememberSaveable(first.id) { mutableStateOf(false) }
-    AnimatedContent(
-        targetState = collapsed,
-        transitionSpec = { fadeIn() togetherWith fadeOut() using SizeTransform(clip = false) },
-        label = "card",
-        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-    ) { folded ->
-        if (folded) {
-            Pill(first, waiting) { collapsed = false }
-        } else {
-            val window = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.height.toDp() }
-            Card(first, waiting, context(first), bodyCap = minOf(BODY_CAP, window * MAX_SHARE)) { collapsed = true }
-        }
-    }
-}
-
-/** The ask on the composer's glass, 22 dp round: its micro-label, how many more wait, its menu and a fold-away chevron over the ask itself. */
-@Composable
-private fun Card(interaction: Interaction, waiting: Int, context: CardContext, bodyCap: Dp, onCollapse: () -> Unit) {
-    val shape = RoundedCornerShape(22.dp)
-    Box(
-        Modifier
+fun InteractionPanel(interaction: Interaction, waiting: Int, context: CardContext, onFold: () -> Unit, modifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(28.dp)
+    val keyboardUp = WindowInsets.isImeVisible
+    Column(
+        modifier
             .fillMaxWidth()
             .glassShadow(shape)
             .clip(shape)
             .background(Glass.fill, shape)
-            .border(0.5.dp, Glass.edge, shape),
+            .border(0.5.dp, Glass.edge, shape)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            CardHeader(interaction, waiting, context, onCollapse)
-            Column(Modifier.heightIn(max = bodyCap).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                CardBody(interaction, context)
-            }
-            when {
-                !context.canAnswer -> Text(stringResource(R.string.card_answer_on_mac), style = IosText.footnote, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                context.state == AnswerState.Stale -> Text(stringResource(R.string.card_answered_elsewhere), style = IosText.footnote, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+        Header(interaction, waiting, context, onFold)
+        if (context.canAnswer) {
+            CompositionLocalProvider(
+                LocalAskCap provides if (keyboardUp) 150.dp else 320.dp,
+                LocalAskIntro provides interaction.body.takeIf { interaction.request !is InteractionRequest.ToolPermission }?.let { agentLine(it) },
+            ) { CardBody(interaction, context) }
+        } else {
+            Text(stringResource(R.string.card_answer_on_mac), style = IosText.footnote, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        if (context.state == AnswerState.Stale) {
+            Text(stringResource(R.string.card_answered_elsewhere), style = IosText.footnote, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
 
 @Composable
-private fun CardHeader(interaction: Interaction, waiting: Int, context: CardContext, onCollapse: () -> Unit) {
-    val permission = interaction.request is InteractionRequest.ToolPermission
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            microLabel(interaction.request),
-            style = TextStyle(fontSize = 11.sp, lineHeight = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (waiting > 1) {
-            Text(stringResource(R.string.card_more, waiting - 1), style = IosText.caption, color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun Header(interaction: Interaction, waiting: Int, context: CardContext, onFold: () -> Unit) {
+    val keyboard = LocalSoftwareKeyboardController.current
+    val kind = kindWords(interaction.request)
+    Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(
+            Modifier
+                .weight(1f)
+                .padding(top = 4.dp)
+                .clickable(remember { MutableInteractionSource() }, indication = null) { keyboard?.hide() },
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(
+                askTitle(interaction, context.agent),
+                style = IosText.body.copy(fontWeight = FontWeight.SemiBold),
+                maxLines = 2,
+                modifier = Modifier.semantics { heading() },
+            )
+            Text(
+                if (waiting > 1) stringResource(R.string.card_kind_more, kind, waiting - 1) else kind,
+                style = IosText.footnote,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
-        Spacer(Modifier.weight(1f))
-        if (context.canAnswer && !permission) DismissMenu(context)
-        HeaderIcon(R.drawable.ic_keyboard_arrow_down, stringResource(R.string.card_collapse), onCollapse)
+        val items = menuItems(interaction)
+        if (context.canAnswer && items.isNotEmpty()) Menu(items, context)
+        HeaderButton(R.drawable.ic_keyboard_arrow_down, stringResource(R.string.card_collapse), onFold)
     }
 }
 
-/** Dismissing a question (and, when asked, stopping the run), as the header's menu offers it. */
 @Composable
-private fun DismissMenu(context: CardContext) {
+private fun askTitle(interaction: Interaction, agent: String): String = when (val request = interaction.request) {
+    is InteractionRequest.ToolPermission -> permissionTitle(request.v1, interaction, agent)
+    else -> agentLine(interaction.title)
+}
+
+@Composable
+private fun kindWords(request: InteractionRequest): String = when {
+    request is InteractionRequest.ToolPermission -> stringResource(R.string.card_needs_approval)
+    request is InteractionRequest.PlanApproval -> stringResource(R.string.card_kind_plan)
+    request is InteractionRequest.Questions && request.v1.questions.size > 1 ->
+        pluralStringResource(R.plurals.card_questions, request.v1.questions.size, request.v1.questions.size)
+    else -> stringResource(R.string.card_needs_answer)
+}
+
+private class MenuItem(val label: String, val destructive: Boolean, val reply: InteractionReply)
+
+@Composable
+private fun menuItems(interaction: Interaction): List<MenuItem> = when (val request = interaction.request) {
+    is InteractionRequest.ToolPermission -> menuDenies(request.v1.options).map {
+        MenuItem(agentLine(it.label), true, permissionReply(request.v1, it, "", emptySet()))
+    }
+    else -> listOf(
+        MenuItem(stringResource(R.string.card_dismiss), false, InteractionReply.Cancel(CancelReply(stopRun = false, message = null))),
+        MenuItem(stringResource(R.string.card_dismiss_stop), true, InteractionReply.Cancel(CancelReply(stopRun = true, message = null))),
+    )
+}
+
+@Composable
+private fun Menu(items: List<MenuItem>, context: CardContext) {
+    val haptics = LocalHapticFeedback.current
     var open by remember { mutableStateOf(false) }
     Box {
-        HeaderIcon(R.drawable.ic_more_horiz, stringResource(R.string.chat_more)) { open = true }
+        HeaderButton(R.drawable.ic_more_horiz, stringResource(R.string.chat_more)) { open = true }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.card_dismiss)) },
-                onClick = {
-                    open = false
-                    context.answer(InteractionReply.Cancel(CancelReply(stopRun = false, message = null)))
-                },
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.card_dismiss_stop), color = MaterialTheme.colorScheme.error) },
-                onClick = {
-                    open = false
-                    context.answer(InteractionReply.Cancel(CancelReply(stopRun = true, message = null)))
-                },
-            )
+            items.forEach { item ->
+                DropdownMenuItem(
+                    text = { Text(item.label, color = if (item.destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface) },
+                    enabled = context.enabled,
+                    onClick = {
+                        open = false
+                        haptics.perform(Haptic.Warning)
+                        context.answer(item.reply)
+                    },
+                )
+            }
         }
     }
 }
 
+/** A round 32 dp control in the card's top corner, inside a 44 dp target: fold it away, or its menu. */
 @Composable
-private fun HeaderIcon(icon: Int, label: String, onClick: () -> Unit) {
+private fun HeaderButton(icon: Int, label: String, onClick: () -> Unit) {
     Box(
-        Modifier.size(28.dp).clickable(role = Role.Button, onClickLabel = label, onClick = onClick).semantics { contentDescription = label },
+        Modifier
+            .size(44.dp)
+            .clickable(remember { MutableInteractionSource() }, indication = null, role = Role.Button, onClickLabel = label, onClick = onClick)
+            .semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(painterResource(icon), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+        Box(Modifier.size(32.dp).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), CircleShape), contentAlignment = Alignment.Center) {
+            Icon(painterResource(icon), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+        }
     }
 }
 
@@ -209,22 +210,23 @@ private fun CardBody(interaction: Interaction, context: CardContext) {
         is InteractionRequest.Questions -> QuestionsCard(interaction, request.v1, context)
         is InteractionRequest.Form -> FormCard(interaction, request.v1, context)
         is InteractionRequest.PlanApproval -> PlanCard(interaction, request.v1, context)
-        is InteractionRequest.Choice -> ChoiceCard(interaction, request.v1, context)
-        is InteractionRequest.Confirm -> ConfirmCard(interaction, request.v1, context)
-        is InteractionRequest.Text -> TextCard(interaction, request.v1, context)
+        is InteractionRequest.Choice -> ChoiceCard(request.v1, context)
+        is InteractionRequest.Confirm -> ConfirmCard(request.v1, context)
+        is InteractionRequest.Text -> TextCard(request.v1, context)
     }
 }
 
+/** The ask folded away: a pill over the composer that brings it back. */
 @Composable
-private fun Pill(interaction: Interaction, waiting: Int, onExpand: () -> Unit) {
-    GlassSurface(CircleShape, Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onExpand)) {
+fun AskPill(interaction: Interaction, waiting: Int, onOpen: () -> Unit) {
+    GlassSurface(CircleShape, Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onOpen)) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             val questions = (interaction.request as? InteractionRequest.Questions)?.v1?.questions?.size
             val words = listOfNotNull(
-                kindLabel(interaction.request),
+                pillWords(interaction.request),
                 questions?.takeIf { it > 1 }?.let { pluralStringResource(R.plurals.card_questions, it, it) },
                 if (waiting > 1) pluralStringResource(R.plurals.card_more_waiting, waiting - 1, waiting - 1) else null,
-            ).joinToString(" · ")
+            ).joinToString(" \u00b7 ")
             Dot(BroskiTheme.semantic.needsYou, Modifier.padding(end = 8.dp))
             Text(words, style = IosText.subheadline.copy(fontWeight = FontWeight.SemiBold), modifier = Modifier.weight(1f))
             Icon(
@@ -238,25 +240,10 @@ private fun Pill(interaction: Interaction, waiting: Int, onExpand: () -> Unit) {
 }
 
 @Composable
-private fun microLabel(request: InteractionRequest): String = stringResource(
-    when (request) {
-        is InteractionRequest.ToolPermission -> R.string.card_label_approval
-        is InteractionRequest.PlanApproval -> R.string.card_label_plan
-        else -> R.string.card_label_answer
-    },
-)
-
-@Composable
-private fun kindLabel(request: InteractionRequest): String = stringResource(
+private fun pillWords(request: InteractionRequest): String = stringResource(
     when (request) {
         is InteractionRequest.ToolPermission -> R.string.card_needs_approval
         is InteractionRequest.PlanApproval -> R.string.card_needs_plan
         else -> R.string.card_needs_answer
     },
 )
-
-/** A card's quieter words, the agent's or ours, through the formatter. */
-@Composable
-fun Quiet(text: String) {
-    FormattedMessage(text, role = FormatRole.Quiet)
-}
