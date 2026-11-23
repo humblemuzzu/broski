@@ -54,8 +54,10 @@ function verdictOf(
 	const { reply } = outcome;
 	const deny = (message: string | undefined, fallback: string): PermissionVerdict => {
 		run?.tools.deny(ask.toolCallId);
-		return { decision: "deny", message: message?.trim() || fallback };
+		const words = message?.trim();
+		return { decision: "deny", message: words ? `${fallback} They said: ${words}` : fallback };
 	};
+	// The human's words reach the model after what they did, so it never reads them as the tool's own output.
 	if (reply.kind === "cancel") return deny(reply.message, DISMISSED);
 	if (reply.kind !== "tool_permission") return undefined;
 	switch (reply.optionId) {

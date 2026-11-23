@@ -149,6 +149,15 @@ describe("the answers", () => {
 		expect(finished(live).map((tool) => tool.outcome)).toEqual(["denied"]);
 	});
 
+	test("deny with words tells the model the user denied the call and what they said", async () => {
+		t = await LiveRig.create();
+		const live = await asking(t, [readReadme(), say("understood")]);
+		const { interaction } = await live.waitFor("interaction_requested");
+		await decide(live, interaction, deny, { message: "Use echo hello instead" });
+		expect((await live.waitFor("run_finished")).outcome.kind).toBe("completed");
+		expect(toolResultsSent(t, live)).toEqual(["The user denied this tool call. They said: Use echo hello instead"]);
+	});
+
 	test("a cancel that continues blocks only the call; one that stops ends the run aborted", async () => {
 		t = await LiveRig.create();
 		const going = await asking(t, [readReadme(), say("goes on")]);

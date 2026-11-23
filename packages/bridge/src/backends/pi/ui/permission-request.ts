@@ -77,9 +77,12 @@ export function permissionOrigin(ask: PermissionAsk, tools: ToolCallIds | undefi
 	};
 }
 
+/** Where a bash tool keeps its command: Pi's own `bash` says `command`; tools that replace it say `cmd` or `script`. */
+const COMMAND_KEYS = ["command", "cmd", "script"] as const;
+
 /** What will run, every character visible (`visibleText`), and said to be cut where it is. */
 function previewsOf(ask: PermissionAsk): PermissionPreview[] {
-	const command = stringField(ask.input, "command");
+	const command = COMMAND_KEYS.map((key) => stringField(ask.input, key)).find((value) => value !== undefined);
 	if (ask.toolName === "bash" && command !== undefined) {
 		return [{ kind: "command", command: shownCut(command, MAX_TEXT_CHARS), cwd: shownCut(ask.cwd, MAX_PATH_CHARS) }];
 	}
