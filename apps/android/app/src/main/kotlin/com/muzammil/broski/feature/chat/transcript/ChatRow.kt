@@ -56,6 +56,13 @@ sealed interface ChatRow {
     @Immutable
     data class Work(override val key: String, override val at: Long?, val fold: WorkFold) : ChatRow
 
+    /**
+     * A turn's work as one line above its answer (`WorkGroups`): the [members] rows after it, the
+     * stretches of work and the words between them, show only while it is open.
+     */
+    @Immutable
+    data class WorkGroup(override val key: String, override val at: Long?, val summary: WorkFold, val members: Int) : ChatRow
+
     @Immutable
     data class Note(override val key: String, override val at: Long?, val note: TranscriptNote) : ChatRow
 

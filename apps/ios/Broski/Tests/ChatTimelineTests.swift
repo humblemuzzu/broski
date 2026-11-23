@@ -41,8 +41,10 @@ struct ChatTimelineTests {
             Item.result("c2"),
             Item.text("b2", "Done."),
         ])
-        #expect(built.map(\.shape) == ["user:Go", "work:Edited 1 file", "text", "work:Searched 1 time", "text", "end"])
-        guard case .work(let first) = built[1].content, case .work(let second) = built[3].content else {
+        #expect(built.map(\.shape) == [
+            "user:Go", "group:3:Edited 1 file · Searched 1 time", "work:Edited 1 file", "text", "work:Searched 1 time", "text", "end",
+        ])
+        guard case .work(let first) = built[2].content, case .work(let second) = built[4].content else {
             Issue.record("expected two folds")
             return
         }

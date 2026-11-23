@@ -33,6 +33,8 @@ struct ChatRowView: View, Equatable {
                 images: prompt.draft.images.map { .local(id: $0.id.uuidString, name: $0.content.name) }, isPending: true)
         case .work(let fold):
             WorkFoldView(fold: fold, key: row.id)
+        case .group(let group):
+            WorkGroupView(group: group, key: row.id)
         case .text(let piece):
             VStack(alignment: .leading, spacing: Spacing.xs) {
                 if piece.kind == .plan && piece.isFirst {

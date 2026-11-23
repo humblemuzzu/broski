@@ -18,15 +18,18 @@ struct TranscriptView: View {
     @Environment(\.modelNames) private var modelNames
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.reading) private var reading
+    @AppStorage(Preference.collapsesWork) private var collapsesWork = true
 
     var body: some View {
+        let shown = self.shown
         Color.clear
             .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { safeFrame = $0 }
             .overlay {
-                let built = entries
                 TranscriptList(
-                    entries: built.items, historyRange: built.historyRange, historyRevision: chat.historyRevision,
-                    freshIDs: chat.freshRowIDs, insets: insets, following: chat.follow.isFollowing,
+                    entries: shown.entries, historyRange: shown.historyRange,
+                    historyKey: TranscriptController.HistoryKey(
+                        revision: chat.historyRevision, collapsing: collapsesWork, open: disclosure.open),
+                    freshIDs: chat.freshRowIDs.union(shown.revealed), insets: insets, following: chat.follow.isFollowing,
                     jumpRequest: chat.jumpRequest, cellContext: cellContext, callbacks: callbacks
                 )
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { fullFrame = $0 }
@@ -62,22 +65,26 @@ struct TranscriptView: View {
             bottom: max(0, fullFrame.maxY - safeFrame.maxY), trailing: 0)
     }
 
-    private var entries: (items: [(id: String, entry: TranscriptEntry)], historyRange: Range<Int>) {
+    /// What the list draws, and the rows of work groups the person has just opened, which come in
+    /// as new rows do.
+    private var shown: (entries: [(id: String, entry: TranscriptEntry)], historyRange: Range<Int>, revealed: Set<String>) {
+        let historyShown = WorkGroups.shown(chat.historyRows, collapsing: collapsesWork, isOpen: disclosure.isOpen)
+        let liveShown = WorkGroups.shown(chat.liveRows, collapsing: collapsesWork, isOpen: disclosure.isOpen)
         var items: [(id: String, entry: TranscriptEntry)] = []
-        items.reserveCapacity(chat.historyRows.count + chat.liveRows.count + 2)
+        items.reserveCapacity(historyShown.rows.count + liveShown.rows.count + 2)
         if chat.history.hasOlder || chat.historyProblem != nil {
             items.append((TranscriptEntry.olderID, .older(problem: chat.historyProblem?.message)))
         }
         let historyStart = items.count
-        for row in chat.historyRows {
+        for row in historyShown.rows {
             items.append((row.id, .row(row)))
         }
         let historyEnd = items.count
-        for row in chat.liveRows {
+        for row in liveShown.rows {
             items.append((row.id, .row(row)))
         }
         items.append((TranscriptEntry.laneID, .lane(LaneStatus(chat.snapshot), startedAt: chat.snapshot.run?.startedAt)))
-        return (items, historyStart..<historyEnd)
+        return (items, historyStart..<historyEnd, historyShown.revealed.union(liveShown.revealed))
     }
 
     private var cellContext: TranscriptCellContext {
@@ -112,7 +119,7 @@ struct TranscriptView: View {
 private struct TranscriptList: UIViewControllerRepresentable {
     let entries: [(id: String, entry: TranscriptEntry)]
     let historyRange: Range<Int>
-    let historyRevision: Int
+    let historyKey: TranscriptController.HistoryKey
     let freshIDs: Set<String>
     let insets: EdgeInsets
     let following: Bool
@@ -128,7 +135,7 @@ private struct TranscriptList: UIViewControllerRepresentable {
         controller.loadViewIfNeeded()
         controller.callbacks = callbacks
         controller.context = cellContext
-        controller.show(entries, freshIDs: freshIDs, historyRange: historyRange, historyRevision: historyRevision)
+        controller.show(entries, freshIDs: freshIDs, historyRange: historyRange, historyKey: historyKey)
         controller.setBarInsets(insets)
         controller.setFollowing(following)
         controller.jump(jumpRequest)

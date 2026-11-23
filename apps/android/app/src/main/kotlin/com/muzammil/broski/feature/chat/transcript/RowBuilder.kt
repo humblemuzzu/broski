@@ -36,8 +36,8 @@ class RowInput(
 /**
  * Lays the conversation out as rows, newest first for a list that starts at its end. Turns run from
  * one message of the person's to the next; the agent's words are the page, block by block, and the
- * work between them folds into one row a stretch. It derives nothing about the session: what is
- * running or pending is the snapshot's.
+ * work between them folds into one row a stretch, a turn's whole work into one line above its answer
+ * ([WorkGroups]). It derives nothing about the session: what is running or pending is the snapshot's.
  *
  * [format] gives a text's formatted blocks, by its text and whether it is still streaming; the
  * cache behind it formats a finished text once, so a streaming message costs one parse a batch.
@@ -226,6 +226,8 @@ class RowBuilder(private val format: (String, Boolean) -> List<FormatBlock> = Fo
             fold = it
             rows += it
             turn.live = turn.live || live
+            turn.answer.clear()
+            turn.lastTextId = null
         }
 
         private fun note(id: String, at: Long?, note: TranscriptNote) {
@@ -262,8 +264,8 @@ class RowBuilder(private val format: (String, Boolean) -> List<FormatBlock> = Fo
             if (input.snapshot.run == null) closeTurn()
             val built = rows.map { if (it is FoldDraft) it.row() else it as ChatRow }
             val split = historyEnd.coerceIn(0, built.size)
-            val historyPart = built.subList(0, split)
-            val livePart = built.subList(split, built.size)
+            val historyPart = WorkGroups.grouping(built.subList(0, split))
+            val livePart = WorkGroups.grouping(built.subList(split, built.size))
             val merged = reconcileAliases(historyPart, livePart)
             val unique = LinkedHashMap<String, ChatRow>()
             merged.forEach { unique.putIfAbsent(it.key, it) }

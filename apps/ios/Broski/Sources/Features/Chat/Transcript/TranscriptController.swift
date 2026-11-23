@@ -23,12 +23,18 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, UI
     var callbacks = Callbacks()
     var context: TranscriptCellContext?
 
+    struct HistoryKey: Equatable {
+        let revision: Int
+        let collapsing: Bool
+        let open: Set<String>
+    }
+
     private let layout = TranscriptLayout()
     private(set) lazy var collectionView = TranscriptCollectionView(frame: .zero, collectionViewLayout: layout)
     private var dataSource: UICollectionViewDiffableDataSource<Int, String>!
     private var entries: [String: TranscriptEntry] = [:]
     private var order: [String] = []
-    private var lastHistoryRevision: Int?
+    private var lastHistoryKey: HistoryKey?
     private var lastHistoryRange: Range<Int> = 0..<0
     private var readingCompact = UserDefaults.standard.bool(forKey: Preference.readingCompact)
     /// Rows that have already animated their first appearance (never animated a second time).
@@ -109,14 +115,14 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, UI
         _ items: [(id: String, entry: TranscriptEntry)],
         freshIDs: Set<String> = [],
         historyRange: Range<Int>? = nil,
-        historyRevision: Int? = nil
+        historyKey: HistoryKey? = nil
     ) {
         self.freshIDs = freshIDs
 
         // Fast path: unchanged order and unchanged history slice (60 Hz streaming tick) — skip
         // rebuilding the full entries map and skip deep-comparing every historical row.
-        if let historyRange, let historyRevision,
-            historyRevision == lastHistoryRevision,
+        if let historyRange, let historyKey,
+            historyKey == lastHistoryKey,
             historyRange == lastHistoryRange,
             items.count == order.count,
             sameTailOrder(items, from: historyRange.upperBound)
@@ -152,7 +158,7 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, UI
         }
         let changed = ids.filter { id in entries[id].map { $0 != next[id] } ?? false }
         entries = next
-        lastHistoryRevision = historyRevision
+        lastHistoryKey = historyKey
         lastHistoryRange = historyRange ?? 0..<0
         guard ids != order || !changed.isEmpty else { return }
         layout.markNeedsMeasure(changed)

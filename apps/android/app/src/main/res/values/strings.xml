@@ -144,6 +144,9 @@
     <string name="settings_dark_canvas_black">True Black</string>
     <string name="settings_dark_canvas_charcoal">Charcoal</string>
     <string name="settings_appearance_footer">True Black uses pure #000000 for OLED contrast. Dictating always keeps the screen awake.</string>
+    <string name="settings_chat">Chat</string>
+    <string name="settings_collapse_work">Collapse Agent Work</string>
+    <string name="settings_collapse_work_footer">Folds the reasoning, tool calls and notes before an answer under “Worked for 2m”. Tap that line to see every step.</string>
     <string name="settings_live_preview">Live Preview</string>
     <string name="settings_versions">Versions</string>
     <string name="settings_notify_turn_on">Turn On Notifications</string>

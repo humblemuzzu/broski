@@ -3,6 +3,7 @@ import SwiftUI
 struct AppearanceSettingsScreen: View {
     @Environment(AppModel.self) private var model
     @AppStorage(Preference.appearance) private var appearance: Appearance = .system
+    @AppStorage(Preference.collapsesWork) private var collapsesWork = true
     @AppStorage(Preference.readingSize) private var size = 0
     @AppStorage(Preference.readingDensity) private var densityRaw = ReadingDensity.balanced.rawValue
     @AppStorage(Preference.readingFont) private var fontRaw = ReadingFont.system.rawValue
@@ -88,6 +89,14 @@ struct AppearanceSettingsScreen: View {
                 }
             } footer: {
                 Text("True Black uses pure #000000 for OLED contrast. Dictating always keeps the screen awake.")
+            }
+
+            Section {
+                Toggle("Collapse Agent Work", isOn: $collapsesWork)
+            } header: {
+                Text("Chat")
+            } footer: {
+                Text("Folds the reasoning, tool calls and notes before an answer under “Worked for 2m”. Tap that line to see every step.")
             }
 
             Section {

@@ -35,7 +35,7 @@ enum RowAliases {
 nonisolated extension ChatRow {
     /// What a row is, for matching a live run's rows to the transcript's.
     enum Kind: Equatable {
-        case message, work, text, answerEnd, notice, activity, marker
+        case message, work, group, text, answerEnd, notice, activity, marker
 
         /// Rows only the transcript has: the live run carries no notices, compactions or model
         /// changes (they show in the live state instead).
@@ -46,6 +46,7 @@ nonisolated extension ChatRow {
         switch content {
         case .user, .pending: .message
         case .work: .work
+        case .group: .group
         case .text: .text
         case .answerEnd: .answerEnd
         case .notice: .notice

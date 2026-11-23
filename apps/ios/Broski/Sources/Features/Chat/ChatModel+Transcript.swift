@@ -118,7 +118,7 @@ extension ChatModel {
         timeline.close(live: isRunning)
         for prompt in pending { timeline.append(pending: prompt) }
         let rows = timeline.finished(continuing: previous)
-        updateFollow { $0.appended(messages: rows.count(where: \.startsMessage) - liveRows.count(where: \.startsMessage)) }
+        updateFollow { $0.appended(messages: WorkGroups.messageCount(in: rows) - WorkGroups.messageCount(in: liveRows)) }
         let existingIDs = Set(liveRows.map(\.id))
         let currentIDs = Set(rows.map(\.id))
         freshRowIDs.formIntersection(currentIDs)

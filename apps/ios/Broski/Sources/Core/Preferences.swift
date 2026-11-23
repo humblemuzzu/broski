@@ -4,6 +4,7 @@ enum Preference {
     static let appearance = "appearance"
     static let keepScreenAwake = "display.keepScreenAwake"
     static let terminalFontSize = "terminal.fontSize"
+    static let collapsesWork = "chat.collapsesWork"
     static let readingSize = "reading.size"
     static let readingCompact = "reading.compact"
     static let readingDensity = "reading.density"

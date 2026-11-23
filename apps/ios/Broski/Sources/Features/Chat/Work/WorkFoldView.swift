@@ -29,7 +29,6 @@ struct WorkFoldView: View {
     /// run's live rows give way to the transcript's.
     let key: String
     @Environment(Disclosure.self) private var disclosure
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var overflows = false
 
     static let cap: CGFloat = 256
@@ -38,54 +37,11 @@ struct WorkFoldView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xs) {
-            header
-            if isOpen {
-                list.transition(.opacity)
-            }
-        }
-        .haptic(.toggled(expanded: true), trigger: isOpen) { !$0 && $1 }
-        .haptic(.toggled(expanded: false), trigger: isOpen) { $0 && !$1 }
-    }
-
-    private var header: some View {
-        Button {
-            withAnimation(reduceMotion ? .easeOut(duration: 0.14) : .easeOut(duration: 0.18)) {
+            WorkSummaryLine(summary: fold.summary, isOpen: isOpen, hint: "Shows each step", identifier: "work.fold") {
                 disclosure.toggle(key)
             }
-        } label: {
-            HStack(spacing: Spacing.xs) {
-                summary
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
-                    .rotationEffect(.degrees(isOpen ? 90 : 0))
-                    .foregroundStyle(.tertiary)
-            }
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
-            .frame(minHeight: 28)
-            .contentShape(.rect)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(fold.summary.text + (fold.summary.failedText.map { ", \($0)" } ?? ""))
-        .accessibilityValue(isOpen ? "Expanded" : "Collapsed")
-        .accessibilityHint("Shows each step")
-        .accessibilityIdentifier("work.fold")
-    }
-
-    /// The line, cut at its tail when narrow; the failures, which matter most, are never cut.
-    private var summary: some View {
-        let summary = fold.summary
-        return HStack(spacing: 0) {
-            Text(summary.text)
-                .lineLimit(1)
-                .contentTransition(.numericText())
-                .animation(reduceMotion ? nil : .spring(duration: 0.24, bounce: 0.14), value: summary.text)
-            if let failed = summary.failedText {
-                Text(summary.text.isEmpty ? failed : " · \(failed)")
-                    .foregroundStyle(Palette.failed)
-                    .lineLimit(1)
-                    .fixedSize()
-                    .layoutPriority(1)
+            if isOpen {
+                list.transition(.opacity)
             }
         }
     }
@@ -119,6 +75,58 @@ private struct EdgeFade: View {
             LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom).frame(height: 12)
             Color.black
             LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom).frame(height: 12)
+        }
+    }
+}
+
+/// The one muted line of a fold or a group, its summary and a chevron that turns; a tap opens it.
+struct WorkSummaryLine: View {
+    let summary: WorkSummary
+    let isOpen: Bool
+    let hint: LocalizedStringKey
+    let identifier: String
+    let toggle: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        Button {
+            withAnimation(reduceMotion ? .easeOut(duration: 0.14) : .easeOut(duration: 0.18), toggle)
+        } label: {
+            HStack(spacing: Spacing.xs) {
+                line
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .rotationEffect(.degrees(isOpen ? 90 : 0))
+                    .foregroundStyle(.tertiary)
+            }
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .frame(minHeight: 28)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(summary.text + (summary.failedText.map { ", \($0)" } ?? ""))
+        .accessibilityValue(isOpen ? "Expanded" : "Collapsed")
+        .accessibilityHint(hint)
+        .accessibilityIdentifier(identifier)
+        .haptic(.toggled(expanded: true), trigger: isOpen) { !$0 && $1 }
+        .haptic(.toggled(expanded: false), trigger: isOpen) { $0 && !$1 }
+    }
+
+    /// The line, cut at its tail when narrow; the failures, which matter most, are never cut.
+    private var line: some View {
+        HStack(spacing: 0) {
+            Text(summary.text)
+                .lineLimit(1)
+                .contentTransition(.numericText())
+                .animation(reduceMotion ? nil : .spring(duration: 0.24, bounce: 0.14), value: summary.text)
+            if let failed = summary.failedText {
+                Text(summary.text.isEmpty ? failed : " · \(failed)")
+                    .foregroundStyle(Palette.failed)
+                    .lineLimit(1)
+                    .fixedSize()
+                    .layoutPriority(1)
+            }
         }
     }
 }

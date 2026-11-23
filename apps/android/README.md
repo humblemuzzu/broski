@@ -91,7 +91,8 @@ projects from every agent's sessions and what it starts with before and after th
   host core's diffs: a batch that starts and ends a run is still seen to end (`LiveSessionTest`);
   the transcript's rows (one fold per stretch of work with its lead, duration, verbs and failures, keys that
   hold while a block streams and closes, a sent message one row from send to `user_message`, the copy
-  under the answer, no key twice; `RowBuilderTest`); history pages and the newest page read again
+  under the answer, no key twice; `RowBuilderTest`); a turn's work folded under one `Worked for 2m` line
+  above its answer, what it counts, where it stops and what the transcript draws of it (`WorkGroupsTest`); history pages and the newest page read again
   (`HistoryTest`); follow or detach and what the jump counts (`FollowTest`); the send button's one rule
   (`SendButtonTest`); each kind's reply, words only on an option that takes them and grants only on an allow
   (`RepliesTest`); images fitted to the prompt's 4 MiB (`ImageFitTest`); diff rows from `gitDiffFile` and

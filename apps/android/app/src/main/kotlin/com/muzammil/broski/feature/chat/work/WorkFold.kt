@@ -24,6 +24,10 @@ data class WorkFold(
     val counts: List<FoldCount>,
     val failed: Int,
     val live: Boolean,
+    /** When the turn began, if the page of history that holds this reaches it; a group's line never states a start it cannot know. */
+    val turnStartedAt: Long? = null,
+    /** When the stretch's last row was written. */
+    val endedAt: Long? = null,
 ) {
     val thoughtOnly: Boolean get() = counts.isEmpty() && entries.all { it is WorkEntry.Thought }
 }

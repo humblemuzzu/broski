@@ -60,6 +60,7 @@ fun AppearanceScreen(core: AppCore, onBack: () -> Unit) {
     val settings = state.settings
     SettingsPage(stringResource(R.string.settings_appearance), onBack) {
         display(settings, viewModel)
+        chat(settings.collapsesWork, viewModel::setCollapsesWork)
         reading(settings.reading, viewModel::setReading)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             item(key = "dynamic") {
@@ -94,6 +95,14 @@ private fun LazyListScope.display(settings: AppSettings, viewModel: SettingsView
             onSelect = viewModel::setKeepScreenAwake,
         )
         FormFooter(stringResource(R.string.settings_appearance_footer))
+    }
+}
+
+private fun LazyListScope.chat(collapsesWork: Boolean, onChange: (Boolean) -> Unit) {
+    item(key = "chat") {
+        FormHeader(stringResource(R.string.settings_chat))
+        FormToggle(0, 1, stringResource(R.string.settings_collapse_work), collapsesWork, onChange)
+        FormFooter(stringResource(R.string.settings_collapse_work_footer))
     }
 }
 

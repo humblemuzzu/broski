@@ -28,6 +28,7 @@ import com.muzammil.broski.design.format.LocalSetReading
 import com.muzammil.broski.design.isDarkTheme
 import com.muzammil.broski.feature.chat.composer.LocalModelPreferences
 import com.muzammil.broski.feature.chat.composer.ModelPreferencesHook
+import com.muzammil.broski.feature.chat.transcript.LocalCollapsesWork
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import uniffi.broski_core.InboxState
@@ -74,6 +75,7 @@ class MainActivity : ComponentActivity() {
             BroskiTheme(appearance, dynamicColor) {
                 CompositionLocalProvider(
                     LocalReading provides (settings?.reading ?: ReadingSettings()),
+                    LocalCollapsesWork provides (settings?.collapsesWork ?: true),
                     LocalSetReading provides { reading -> scope.launch { core.settingsStore.setReading(reading) } },
                     LocalModelPreferences provides ModelPreferencesHook(settings?.models ?: ModelPreferences()) { change ->
                         scope.launch { core.settingsStore.updateModels(change) }

@@ -3,7 +3,8 @@ import CoreGraphics
 
 /// Turns transcript items (oldest first) into the transcript's rows: the person's messages as
 /// bubbles, each stretch of tool calls and reasoning as one fold, the agent's text block by block,
-/// and a quiet line under each finished answer. Pure: the same items give the same rows.
+/// and a quiet line under each finished answer. A turn that did its work in more than one stretch
+/// gets a `WorkGroup` row above it (`WorkGroups`). Pure: the same items give the same rows.
 struct ChatTimeline {
     /// A text's formatted blocks, by its text and whether it is still streaming (cached, since a
     /// finished text never changes and only the open one is formatted again).
@@ -23,6 +24,11 @@ struct ChatTimeline {
     /// The pages the turn's searches found, which the answer drew on.
     private var sources: [LinkItem] = []
     private var running: [String: RunningTool] = [:]
+    /// Whether the rows since the last message, notice or marker already have their first work or text.
+    private var inSegment = false
+    /// When each stretch's first row began: the time of the item before it, by the row's id.
+    private var segmentStarts: [String: Int64] = [:]
+    private var isGrouped = false
 
     init(
         after previous: ChatRow? = nil, atStart: Bool = false,
@@ -136,6 +142,9 @@ struct ChatTimeline {
         fold?.isLive = live
         closeFold()
         if !live { closeAnswer() }
+        guard !isGrouped else { return }
+        isGrouped = true
+        rows = WorkGroups.grouping(rows, from: continues ? 1 : 0, startedAt: segmentStarts)
     }
 
     private mutating func addBlock(id: String, kind: BlockKind, text: String, nested: Bool, open: Bool, at: Int64?) {
@@ -150,6 +159,7 @@ struct ChatTimeline {
             fold?.endedAt = at
         }
         closeFold()
+        opening("\(id)/\(blocks[0].key)")
         for (index, block) in blocks.enumerated() {
             let next = index + 1 < blocks.count ? blocks[index + 1].containers.map(\.id) : []
             let piece = TextPiece(
@@ -166,7 +176,10 @@ struct ChatTimeline {
         if fold == nil {
             fold = WorkFold(id: "work-\(entry.id)", entries: [], startedAt: lastAt ?? at, isContinuation: turnHasText)
             toolsInFold = [:]
+            opening("work-\(entry.id)")
         }
+        answer = []
+        answerAt = nil
         if case .tool(let tool) = entry { toolsInFold[tool.id] = fold?.entries.count }
         fold?.entries.append(entry)
         if let at { fold?.endedAt = at }
@@ -220,7 +233,16 @@ struct ChatTimeline {
         sources = []
     }
 
+    /// The first work or text of a stretch notes when the item before it was written, which is when
+    /// the stretch began.
+    private mutating func opening(_ rowID: String) {
+        guard !inSegment else { return }
+        inSegment = true
+        segmentStarts[rowID] = lastAt
+    }
+
     private mutating func append(_ content: ChatRow.Content, id: String) {
+        if content.isBreak { inSegment = false }
         rows.append(ChatRow(id: id, content: content, gap: ChatRow.gap(between: rows.last?.content, and: content)))
     }
 }
@@ -237,11 +259,11 @@ nonisolated extension ChatRow {
         case (_, .user), (_, .pending): return 28
         case (.text(let before), .text(let after)) where before.blockId == after.blockId: return 0
         case (_, .answerEnd): return 6
-        case (.work, .work): return 2
+        case (.work, .work), (.group, .work): return 2
         case (.activity, .activity): return 2
         case (.work, .activity), (.activity, .work): return 2
         case (.user, _), (.pending, _): return 18
-        case (.work, .text): return 10
+        case (.work, .text), (.group, .text): return 10
         default: return 14
         }
     }
