@@ -61,16 +61,17 @@ struct FormatContentView: View {
         case .paragraph(let spans):
             let bodyColor: Color = role == .quiet ? .secondary : (inQuote ? FormatTokens.quoteText : FormatTokens.bodyText)
             let strongColor: Color? = role == .page && !inQuote ? FormatTokens.boldText : nil
+            let codeColor: Color? = role == .page && !inQuote ? FormatTokens.inlineCodeText : nil
             let lines = (role == .page ? pageLines : quietLines) * (reading.compact ? 0.65 : 1)
-            prose(spans, font: bodyFont, codeSize: bodySize * FormatTokens.inlineCodeScale, color: bodyColor, strong: strongColor, lineSpacing: lines, tracking: 0)
+            prose(spans, font: bodyFont, codeSize: bodySize * FormatTokens.inlineCodeScale, color: bodyColor, strong: strongColor, codeColor: codeColor, lineSpacing: lines, tracking: 0)
         case .heading(let level, let spans):
             let spec = role.heading(level)
             let size = headingSize(level)
             prose(
                 spans, font: .system(size: size, weight: spec.weight),
                 codeSize: size * FormatTokens.inlineCodeScale,
-                color: level >= 4 || role == .quiet ? Color.secondary : Color.primary,
-                strong: nil, lineSpacing: spec.lineSpacing, tracking: spec.tracking
+                color: level >= 4 || role == .quiet ? Color.secondary : FormatTokens.boldText,
+                strong: nil, codeColor: nil, lineSpacing: spec.lineSpacing, tracking: spec.tracking
             )
             .accessibilityAddTraits(.isHeader)
         case .code(let code):
@@ -118,11 +119,12 @@ struct FormatContentView: View {
 
     private func prose(
         _ spans: [FormatSpan], font: Font, codeSize: CGFloat, color: Color,
-        strong: Color?, lineSpacing: CGFloat, tracking: CGFloat
+        strong: Color?, codeColor: Color?, lineSpacing: CGFloat, tracking: CGFloat
     ) -> some View {
         let spanStyle = SpanStyle(
-            font: font, codeFont: .system(size: codeSize, weight: .medium, design: .monospaced),
-            underlinesLinks: reading.underlinesLinks, opensFiles: context != nil, strongColor: strong)
+            font: font, codeFont: .system(size: codeSize, design: .monospaced),
+            underlinesLinks: reading.underlinesLinks, opensFiles: context != nil,
+            strongColor: strong, inlineCodeColor: codeColor)
         return (spans.isEmpty ? Text(verbatim: " ") : FormatSpans.text(spans, style: spanStyle))
             .font(font)
             .tracking(tracking)

@@ -69,9 +69,8 @@ enum TranscriptEstimate {
             return gap + extra + 35 + CGFloat(shown) * 20 + (folded ? 40 : 22)
         case .table(let table):
             let rows = table.rows.count > FormatTokens.tableFoldRows ? FormatTokens.tableShownRows : table.rows.count
-            let controls: CGFloat = table.shape == .grid ? 26 : 0
-            let fold: CGFloat = table.rows.count > FormatTokens.tableFoldRows ? 36 : 0
-            return gap + extra + controls + CGFloat(rows + 1) * 40 + fold
+            let fold: CGFloat = table.rows.count > FormatTokens.tableFoldRows ? 32 : 0
+            return gap + extra + CGFloat(rows + 1) * 42 + fold
         case .math, .html:
             return gap + extra + 56
         case .rule:

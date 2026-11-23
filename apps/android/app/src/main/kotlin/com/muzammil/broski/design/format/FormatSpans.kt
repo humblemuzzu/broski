@@ -19,7 +19,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
@@ -58,6 +57,7 @@ data class SpanLook(
     val underlinesLinks: Boolean,
     val opensFiles: Boolean = true,
     val strong: Color = Color.Unspecified,
+    val inlineCode: Color = Color.Unspecified,
 )
 
 @Composable
@@ -68,12 +68,13 @@ fun rememberSpans(spans: List<FormatSpan>, look: SpanLook): AnnotatedString {
     return remember(spans, opens, links) { formatSpans(spans, opens) { link -> openLink(context, links, link) } }
 }
 
+/** Inline code, paths, and math render cleanly without boxes; only unloaded image links use a chip pill. */
 fun formatSpans(spans: List<FormatSpan>, look: SpanLook, open: (FormatLink) -> Unit): AnnotatedString = buildAnnotatedString {
     spans.forEach { span ->
         val link = span.link
         when {
             link != null && link.image -> withLink(annotation(link, look, open)) {
-                withAnnotation(CHIP, CHIP_CODE) {
+                withAnnotation(CHIP, CHIP_IMAGE) {
                     withStyle(SpanStyle(fontWeight = FontWeight.Medium)) {
                         val detail = if (link.kind == LinkKind.Web) {
                             link.target.toUri().host ?: link.target
@@ -89,13 +90,10 @@ fun formatSpans(spans: List<FormatSpan>, look: SpanLook, open: (FormatLink) -> U
             link != null && link.kind == LinkKind.Footnote -> withStyle(
                 SpanStyle(baselineShift = BaselineShift.Superscript, color = look.link, fontWeight = FontWeight.SemiBold),
             ) { append(span.text) }
-            link != null && opens(link, look) -> {
-                val pathChip = span.code && link.kind is LinkKind.File
-                withLink(annotation(link, look, open)) {
-                    appendStyled(span, look, chipKind = if (pathChip) CHIP_PATH else null)
-                }
+            link != null && opens(link, look) -> withLink(annotation(link, look, open)) {
+                appendStyled(span, look, linked = true)
             }
-            else -> appendStyled(span, look, chipKind = if (span.code || span.math) CHIP_CODE else null)
+            else -> appendStyled(span, look, linked = false)
         }
     }
 }
@@ -106,21 +104,24 @@ private fun opens(link: FormatLink, look: SpanLook): Boolean = when (link.kind) 
     LinkKind.Footnote, LinkKind.Inert -> false
 }
 
-private fun AnnotatedString.Builder.appendStyled(span: FormatSpan, look: SpanLook, chipKind: String?) {
+private fun AnnotatedString.Builder.appendStyled(span: FormatSpan, look: SpanLook, linked: Boolean) {
     val mono = span.code || span.math || span.html
+    val color = when {
+        linked -> Color.Unspecified
+        span.strike || span.html -> look.muted
+        span.strong -> look.strong
+        span.code || span.math -> look.inlineCode
+        else -> Color.Unspecified
+    }
     val style = SpanStyle(
-        fontWeight = if (span.strong) FontWeight.SemiBold else if (span.code) FontWeight.Medium else null,
+        fontWeight = if (span.strong) FontWeight.SemiBold else null,
         fontStyle = if (span.emphasis || span.math) FontStyle.Italic else null,
         textDecoration = if (span.strike) TextDecoration.LineThrough else null,
-        color = if (span.strike || span.html) look.muted else if (span.strong) look.strong else Color.Unspecified,
+        color = color,
         fontFamily = if (mono) MonoFamily else null,
         fontSize = if (span.code || span.math) look.codeSize else TextUnit.Unspecified,
     )
-    if (chipKind != null) {
-        withAnnotation(CHIP, chipKind) { withStyle(style) { append("\u202F${span.text}\u202F") } }
-    } else {
-        withStyle(style) { append(span.text) }
-    }
+    withStyle(style) { append(span.text) }
 }
 
 private fun annotation(link: FormatLink, look: SpanLook, open: (FormatLink) -> Unit): LinkAnnotation {
@@ -147,13 +148,9 @@ fun inlineCodeSize(body: TextUnit): TextUnit = body * FormatTokens.INLINE_CODE_S
 @Composable
 fun SpanText(text: AnnotatedString, style: TextStyle, modifier: Modifier = Modifier, color: Color = Color.Unspecified, codeSize: TextUnit) {
     var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
-    val codeFill = formatCodeFill
-    val codeBorder = formatCodeBorder
-    val pathFill = formatPathFill
-    val pathBorder = formatPathBorder
+    val fill = formatImageChipFill
     val density = LocalDensity.current
     val radius = with(density) { FormatTokens.inlineCodeRadius.toPx() }
-    val strokePx = with(density) { 0.5.dp.toPx() }
     val padX = with(density) { 1.dp.toPx() }
     val codePx = with(density) { codeSize.toPx() }
     Text(
@@ -162,24 +159,19 @@ fun SpanText(text: AnnotatedString, style: TextStyle, modifier: Modifier = Modif
         color = color,
         onTextLayout = { layout = it },
         modifier = modifier.drawBehind {
-            layout?.let { drawChips(it, text, codeFill, codeBorder, pathFill, pathBorder, radius, strokePx, padX, codePx) }
+            layout?.let { drawChips(it, text, fill, radius, padX, codePx) }
         },
     )
 }
 
 internal const val CHIP = "chip"
-internal const val CHIP_CODE = "code"
-internal const val CHIP_PATH = "path"
+internal const val CHIP_IMAGE = "image"
 
 private fun DrawScope.drawChips(
     layout: TextLayoutResult,
     text: AnnotatedString,
-    codeFill: Color,
-    codeBorder: Color,
-    pathFill: Color,
-    pathBorder: Color,
+    fill: Color,
     radius: Float,
-    strokePx: Float,
     padX: Float,
     codePx: Float,
 ) {
@@ -188,9 +180,6 @@ private fun DrawScope.drawChips(
         val from = chip.start.coerceAtMost(end)
         val to = chip.end.coerceAtMost(end)
         if (from >= to) continue
-        val isPath = chip.item == CHIP_PATH
-        val fill = if (isPath) pathFill else codeFill
-        val border = if (isPath) pathBorder else codeBorder
         for (line in layout.getLineForOffset(from)..layout.getLineForOffset(to - 1)) {
             val lineStart = layout.getLineStart(line)
             val lineEnd = layout.getLineEnd(line, visibleEnd = true)
@@ -205,10 +194,7 @@ private fun DrawScope.drawChips(
             val bottom = baseline + codePx * 0.34f
             val left = minOf(a, b) - padX
             val width = kotlin.math.abs(b - a) + padX * 2f
-            val rectSize = Size(width, bottom - top)
-            val corner = CornerRadius(radius)
-            drawRoundRect(fill, Offset(left, top), rectSize, corner)
-            drawRoundRect(border, Offset(left, top), rectSize, corner, style = Stroke(width = strokePx))
+            drawRoundRect(fill, Offset(left, top), Size(width, bottom - top), CornerRadius(radius))
         }
     }
 }

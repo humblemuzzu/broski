@@ -123,39 +123,41 @@ sniffing is only the fallback for MCP and unknown tools.
 - **Roles.** `page` for what the person reads (16 pt / 16 sp body), `quiet` for what sits under a row
   (thinking, a subagent's or an activity's text, a card's body).
 - **Spacing** comes from the core's `FormatSpacing` step between blocks, scaled by the reader's
-  density: `Tight` 6 (tight list siblings and inner items), `AfterHeading` 7, `LeadIn` 8 (paragraph
-  directly introducing a list), `StackedHeading` 10 (heading under heading, or a framed block under a
-  heading), `Loose` / `AfterGroup` 12 (blank-line lists and items following a multi-block item),
-  `Paragraph` 14, `Block` 16 (symmetrical before and after code, tables, quotes, callouts, math),
-  `Rule` 18 (symmetrical above and below a subtle 0.5 pt `---` hairline), `SubSection` 20 (before
-  H3–H6), `Section` 26 (before H1–H2).
+  density: `Tight` 10 (tight list siblings and inner items), `AfterHeading` 10, `LeadIn` 10 (paragraph
+  directly introducing a list), `StackedHeading` 12 (heading under heading, or a framed block under a
+  heading), `Loose` / `AfterGroup` 14 (blank-line lists and items following a multi-block item),
+  `Paragraph` 16, `Block` 18 (symmetrical before and after code, tables, quotes, callouts, math),
+  `Rule` 20 (symmetrical above and below a subtle 0.5 pt `---` hairline), `SubSection` 22 (before
+  H3–H6), `Section` 28 (before H1–H2).
 - **Lists.** Contiguous nested list items collapse into a single flat hanging-indent layout with
-  diminishing per-level steps (`14 / 12 / 10 pt`, capped at `36 pt`), whisper-quiet vertical nesting
-  guides, geometric x-height-centered markers (solid dot, hollow ring, rounded square), and
-  left-aligned tabular numbers that start flush with paragraphs without shifting at `10.`.
-- **Text colour.** An answer's running text (and table cells) uses softened ink (~88–90 %), bold is
-  semibold at ~97–98 %, quotes soften to 72 %, and headings are at full strength.
-- **Headings** 22 / 19 / 17 pt (iOS, scaling with Dynamic Type) and 22 / 19 / 17 sp (Android), all
-  semibold with tight line-height and negative optical tracking; H4–H6 at body size in the secondary
-  colour.
-- **Inline code** is 0.87 of the text, medium weight, on a rounded hairline-bordered pill (5 pt radius,
-  5.5 % light / 9 % dark fill). A path in code that opens a file gets a matching teal-tinted pill
-  (`FormatTokens.path`); where the text belongs to no machine it is plain code. Prose links stay clean
-  link blue without inline icons.
-- **Code blocks** sit in rounded hairline-bordered cards (`12 pt` radius) with a compact header strip
+  diminishing per-level steps (`16 / 14 / 12 pt`, capped at `42 pt`), no vertical tree lines,
+  crisp geometric markers (solid primary dot, smaller muted dot, subtle dash), and flush-left
+  tabular numbers that expand naturally for `10.`+.
+- **Text colour.** Running prose uses soft off-white/near-black (~85–90 %), bold and headings are
+  full strength (100 % semibold) so hierarchy scans effortlessly, and quotes soften to 72 %.
+- **Headings** 21 / 18.5 / 16.5 pt (iOS, scaling with Dynamic Type) and 21 / 18.5 / 16.5 sp
+  (Android), all semibold with calm line-height and negative optical tracking; H4–H6 at 15.5 pt/sp
+  in the secondary colour.
+- **Inline code** renders clean and boxless: `0.90×` monospace in a
+  cool-tinted ink with no background pill or border. A path in code that opens a file renders in
+  borderless teal monospace (`FormatTokens.path`); where the text belongs to no machine it stays
+  plain inline code. Only unloaded image links draw as subtle chips. Prose links stay clean blue
+  without inline icons.
+- **Code blocks** sit in rounded hairline-bordered cards (`10 pt` radius) with a compact header strip
   (language, file name, line count past ten, Copy with checkmark feedback, Expand) separated by a
   hairline and a trailing fade when horizontally scrollable. On iOS Wrap is in the long-press menu; on
   Android, whose code is selectable, it stays in the header.
 - **Sources.** Under a finished answer, the pages its turn's searches found (`links` displays), each
   once, as rows of title and site, four shown and the rest a tap away (`SourcesList`).
-- **Tables** reach across the 16 pt/dp screen margin (`formatBleed` / `LocalFormatBleed`) at the top
-  level, with a subtle header fill, a 1 pt header rule, 0.5 pt row hairlines, compact top-right
-  Copy/Expand controls on grid tables (no empty bottom footer bar), and styled span width measurement
-  on both platforms. They fit in three tiers: natural widths when they fit; else each column at least
-  its longest word (56–192 pt) with the rest shared out and cells wrapping; else columns capped at
-  236 pt and the table scrolls sideways, its short first column held still and its end edge fading
-  while more columns are past it. The viewer lays the table out again only when a pinch ends; during
-  it, what is drawn is scaled.
+- **Tables** reach across the 18 pt/dp screen margin (`formatBleed` / `LocalFormatBleed`) at the top
+  level, open and borderless with muted headers, clean 0.5 pt horizontal dividers, no permanent
+  header/footer button chrome (Expand appears only when sideways-scrolling; Show all appears only
+  past 12 rows; Copy/Expand/Share stay in long-press), and styled span width measurement on both
+  platforms. They fit in three tiers: natural widths when they fit; else each column at least its
+  longest word (56–192 pt) with the rest shared out and cells wrapping; else columns capped at 236 pt
+  and the table scrolls sideways, its short first column held still and its end edge fading while
+  more columns are past it. The viewer lays the table out again only when a pinch ends; during it,
+  what is drawn is scaled.
 - **Settings › Reading**: text size on top of the system's (−2…+3 steps), comfortable or compact
   density, code wraps by default, links underlined.
 - **The transcript** makes one row per block, so a long answer stays lazy and only its last block

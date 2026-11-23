@@ -98,14 +98,14 @@ class TableMeasure(private val measurer: TextMeasurer, private val cell: TextSty
     private fun buildMeasurable(spans: List<FormatSpan>, base: TextStyle, isHeader: Boolean): AnnotatedString = buildAnnotatedString {
         val codeSize = inlineCodeSize(base.fontSize)
         for (span in spans) {
-            val chip = span.code || span.math
+            val mono = span.code || span.math || span.html
             val style = SpanStyle(
-                fontFamily = if (chip || span.html) MonoFamily else null,
-                fontSize = if (chip) codeSize else base.fontSize,
-                fontWeight = if (span.strong || isHeader) FontWeight.SemiBold else if (span.code) FontWeight.Medium else null,
+                fontFamily = if (mono) MonoFamily else null,
+                fontSize = if (span.code || span.math) codeSize else base.fontSize,
+                fontWeight = if (span.strong || isHeader) FontWeight.SemiBold else null,
             )
             withStyle(style) {
-                append(if (chip) "\u202F${span.text}\u202F" else span.text)
+                append(span.text)
             }
         }
     }

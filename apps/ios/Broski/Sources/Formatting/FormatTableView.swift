@@ -16,8 +16,6 @@ struct FormatTableView: View {
     @State private var width: CGFloat?
     @State private var grown: [CGFloat] = []
     @State private var showsAllHere = false
-    @State private var copied = 0
-    @State private var showCopied = false
 
     private var showsAll: Bool {
         if let disclosure, let disclosureKey { disclosure.isOpen(disclosureKey + "/rows") } else { showsAllHere }
@@ -31,26 +29,16 @@ struct FormatTableView: View {
         table.rows.count > FormatTokens.tableFoldRows && !showsAll ? FormatTokens.tableShownRows : table.rows.count
     }
 
-    private var showsControls: Bool { table.shape == .grid }
-
     var body: some View {
         let layout = currentLayout
         VStack(alignment: .leading, spacing: 0) {
             Color.clear
                 .frame(height: 0)
                 .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
-            if showsControls { topBar }
             TableGrid(table: table, layout: layout, rows: shownRows, style: spanStyle, edge: bleed)
                 .frame(minWidth: 0, maxWidth: width ?? .infinity, alignment: .leading)
                 .contextMenu { TableMenuItems(table: table) }
-            if table.rows.count > FormatTokens.tableFoldRows { foldRow }
-        }
-        .haptic(.confirmed, trigger: copied)
-        .task(id: copied) {
-            guard copied > 0 else { return }
-            showCopied = true
-            try? await Task.sleep(for: .milliseconds(1500))
-            showCopied = false
+            if table.rows.count > FormatTokens.tableFoldRows || layout.scrolls { tableFooter(scrolls: layout.scrolls) }
         }
         .onChange(of: layout.widths) { _, widths in
             if streaming { grown = widths }
@@ -73,47 +61,29 @@ struct FormatTableView: View {
         return style
     }
 
-    private var topBar: some View {
-        HStack(spacing: Spacing.xxs) {
+    private func tableFooter(scrolls: Bool) -> some View {
+        HStack(spacing: Spacing.m) {
+            if table.rows.count > FormatTokens.tableFoldRows {
+                Button(showsAll ? "Show fewer rows" : "Show all \(table.rows.count) rows") {
+                    withAnimation(.easeOut(duration: 0.2)) { toggleShowsAll() }
+                }
+                .buttonStyle(.plain)
+                .font(.footnote.weight(.medium))
+                .foregroundStyle(FormatTokens.link)
+            }
             Spacer(minLength: 0)
-            Button {
-                UIPasteboard.general.setItems([[UTType.plainText.identifier: tableTsv(table: table), UTType.html.identifier: tableHtml(table: table)]])
-                copied += 1
-            } label: {
-                Image(systemName: showCopied ? "checkmark" : "doc.on.doc")
-                    .contentTransition(.symbolEffect(.replace))
-                    .font(.caption2.weight(.medium))
-                    .frame(minWidth: 30, minHeight: 24)
-                    .contentShape(.rect)
+            if scrolls {
+                Button {
+                    TableViewer.present(table, context: context, app: app)
+                } label: {
+                    Label("Expand", systemImage: "arrow.up.left.and.arrow.down.right")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(showCopied ? Palette.done : Color(uiColor: .secondaryLabel).opacity(0.75))
-            .accessibilityLabel("Copy table")
-
-            Button {
-                TableViewer.present(table, context: context, app: app)
-            } label: {
-                Image(systemName: "arrow.up.left.and.arrow.down.right")
-                    .font(.caption2.weight(.medium))
-                    .frame(minWidth: 30, minHeight: 24)
-                    .contentShape(.rect)
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(Color(uiColor: .secondaryLabel).opacity(0.75))
-            .accessibilityLabel("Expand table")
         }
-        .padding(.bottom, Spacing.xxs)
-    }
-
-    private var foldRow: some View {
-        Button(showsAll ? "Show fewer rows" : "Show all \(table.rows.count) rows") {
-            withAnimation(.easeOut(duration: 0.2)) { toggleShowsAll() }
-        }
-        .buttonStyle(.plain)
-        .font(.footnote.weight(.semibold))
-        .foregroundStyle(FormatTokens.link)
-        .frame(minHeight: 32)
-        .padding(.top, Spacing.xs)
+        .padding(.top, Spacing.s)
     }
 }
 
@@ -177,19 +147,14 @@ private struct TableColumns: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            hairline(FormatTokens.tableRowHairline, height: 0.5)
             row(table.header, index: 0, header: true)
-                .background {
-                    Rectangle()
-                        .fill(FormatTokens.tableHeaderFill)
-                        .padding(.leading, -lines.leading)
-                        .padding(.trailing, -lines.trailing)
-                }
                 .accessibilityAddTraits(.isHeader)
-            hairline(FormatTokens.tableHeaderHairline, height: 1)
+            hairline(FormatTokens.tableHeaderHairline, height: 0.5)
             ForEach(0..<min(rows, table.rows.count), id: \.self) { index in
                 row(table.rows[index], index: index + 1, header: false)
-                hairline(FormatTokens.tableRowHairline, height: 0.5)
+                if index + 1 < min(rows, table.rows.count) {
+                    hairline(FormatTokens.tableRowHairline, height: 0.5)
+                }
             }
         }
         .frame(width: columns.reduce(0) { $0 + layout.widths[$1] }, alignment: .leading)

@@ -76,7 +76,7 @@ private struct SegmentStack<Content: View>: View {
                     SegmentStack(segments: tail, next: next, gap: gap, role: role) { content }
                 }
             case .listRun(let items):
-                FlatListFrame(items: items, next: next, gap: gap, role: role) {
+                FlatListFrame(items: items, role: role) {
                     SegmentStack(segments: tail, next: next, gap: gap, role: role) { content }
                 }
             case .footnote(let container, let label):
@@ -100,7 +100,7 @@ private struct QuoteFrame<Content: View>: View {
             .padding(.leading, FormatTokens.quoteBarWidth + FormatTokens.quoteGap)
             .background(alignment: .leading) {
                 Capsule()
-                    .fill(FormatTokens.markerColor.opacity(0.55))
+                    .fill(FormatTokens.markerColor.opacity(0.5))
                     .frame(width: FormatTokens.quoteBarWidth)
                     .padding(.top, -above)
                     .accessibilityHidden(true)
@@ -141,7 +141,7 @@ private struct CalloutFrame<Content: View>: View {
             bottomTrailingRadius: continues ? 0 : radius, topTrailingRadius: first ? radius : 0,
             style: .continuous)
         return ZStack(alignment: .leading) {
-            shape.fill(kind.tint.opacity(0.085))
+            shape.fill(kind.tint.opacity(0.08))
             Rectangle()
                 .fill(kind.tint.opacity(0.75))
                 .frame(width: FormatTokens.calloutBarWidth)
@@ -154,8 +154,6 @@ private struct CalloutFrame<Content: View>: View {
 
 private struct FlatListFrame<Content: View>: View {
     let items: [FormatContainer]
-    let next: [UInt32]
-    let gap: CGFloat
     let role: FormatRole
     @ViewBuilder let content: Content
 
@@ -164,7 +162,7 @@ private struct FlatListFrame<Content: View>: View {
     @ScaledMetric(relativeTo: .body) private var step3: CGFloat = FormatTokens.listIndentSteps[2]
     @ScaledMetric(relativeTo: .body) private var bulletBox: CGFloat = FormatTokens.bulletBoxWidth
     @ScaledMetric(relativeTo: .body) private var bulletGap: CGFloat = FormatTokens.bulletGap
-    @ScaledMetric(relativeTo: .body) private var numberMinGutter: CGFloat = 15
+    @ScaledMetric(relativeTo: .body) private var numberMinGutter: CGFloat = 16
     @ScaledMetric(relativeTo: .body) private var taskGutter: CGFloat = FormatTokens.taskGutter
     @ScaledMetric(relativeTo: .body) private var pageSize: CGFloat = FormatRole.page.baseSize
     @ScaledMetric(relativeTo: .subheadline) private var quietSize: CGFloat = FormatRole.quiet.baseSize
@@ -202,39 +200,13 @@ private struct FlatListFrame<Content: View>: View {
             content.opacity(isDone ? 0.55 : 1)
         }
         .padding(.leading, baseIndent)
-        .background(alignment: .topLeading) { nestingGuides }
-    }
-
-    @ViewBuilder
-    private var nestingGuides: some View {
-        let levels = min(visualDepth, FormatTokens.listIndentSteps.count)
-        if levels > 0 {
-            GeometryReader { geo in
-                ForEach(0..<levels, id: \.self) { level in
-                    let ancestor = items[level]
-                    let topExtend: CGFloat = ancestor.first ? 0 : gap
-                    let x = indentFor(level: level) + guideCenter(for: ancestor)
-                    Rectangle()
-                        .fill(FormatTokens.listGuide)
-                        .frame(width: 1, height: geo.size.height + topExtend)
-                        .offset(x: x - 0.5, y: -topExtend)
-                }
-            }
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
-        }
-    }
-
-    private func guideCenter(for container: FormatContainer) -> CGFloat {
-        if case .item(_, .task, _, _) = container.kind { return taskGutter * 0.5 }
-        return bulletBox * 0.5
     }
 
     @ViewBuilder
     private func markerSlot(marker: ListMarker, show: Bool) -> some View {
         switch marker {
         case .bullet:
-            // Baseline anchor matches the first line of prose so the geometric dot centers on x-height.
+            // Baseline anchor matches the first line of prose so the dot centers on cap/x-height.
             Text(verbatim: "\u{200B}")
                 .font(.system(size: fontSize))
                 .frame(width: bulletBox, alignment: .center)
@@ -267,20 +239,21 @@ private struct FlatListFrame<Content: View>: View {
 
     @ViewBuilder
     private var bulletShape: some View {
-        let dot = max(4.5, fontSize * 0.31)
-        switch visualDepth % 3 {
+        switch visualDepth {
         case 0:
+            let dot = max(5.2, fontSize * 0.34)
             Circle()
-                .fill(FormatTokens.markerColor)
+                .fill(FormatTokens.bulletPrimary)
                 .frame(width: dot, height: dot)
         case 1:
+            let dot = max(4.2, fontSize * 0.27)
             Circle()
-                .strokeBorder(FormatTokens.markerColor, lineWidth: 1.25)
+                .fill(FormatTokens.bulletNested)
                 .frame(width: dot, height: dot)
         default:
-            RoundedRectangle(cornerRadius: 1, style: .continuous)
-                .fill(FormatTokens.markerColor)
-                .frame(width: dot * 0.88, height: dot * 0.88)
+            Capsule()
+                .fill(FormatTokens.bulletNested)
+                .frame(width: max(5.5, fontSize * 0.35), height: 1.5)
         }
     }
 }

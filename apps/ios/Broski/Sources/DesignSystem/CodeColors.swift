@@ -21,7 +21,7 @@ extension TokenKind {
 }
 
 extension Palette {
-    static let codeBackground = Color(light: 0xF6F6F8, dark: 0x1A1A1E)
+    static let codeBackground = Color(light: 0xF6F6F9, dark: 0x17171D)
 }
 
 extension CodeLine {

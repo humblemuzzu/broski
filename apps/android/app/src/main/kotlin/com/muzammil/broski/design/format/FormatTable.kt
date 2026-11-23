@@ -21,12 +21,10 @@ import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -54,14 +52,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
-import com.muzammil.broski.design.BroskiTheme
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import uniffi.broski_core.ColumnAlign
 import uniffi.broski_core.FormatTable
 import uniffi.broski_core.TableCell
 import uniffi.broski_core.TableColumn
-import uniffi.broski_core.TableShape
 import uniffi.broski_core.tableCsv
 import uniffi.broski_core.tableHtml
 import uniffi.broski_core.tableMarkdown
@@ -84,7 +79,6 @@ fun FormatTable(table: FormatTable, streaming: Boolean, bleed: Dp = 0.dp) {
         val layout = if (streaming && grown.size == fitted.widths.size) fitted.copy(widths = fitted.widths.zip(grown) { a, b -> maxOf(a, b) }) else fitted
         SideEffect { if (streaming) grown = layout.widths }
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            if (table.shape == TableShape.GRID) TableTopBar(table) { viewing = true }
             Box(
                 Modifier
                     .bleed(bleed)
@@ -93,14 +87,15 @@ fun FormatTable(table: FormatTable, streaming: Boolean, bleed: Dp = 0.dp) {
                 TableGrid(table, layout, rows, styles, edge = edge)
                 TableMenu(table, menu, onDismiss = { menu = false }, onExpand = { viewing = true })
             }
-            if (table.rows.size > FormatTokens.TABLE_FOLD_ROWS) {
-                TextButton(onClick = { showsAll = !showsAll }) {
-                    Text(
-                        if (showsAll) stringResource(R.string.format_table_show_fewer) else stringResource(R.string.format_table_show_all, table.rows.size),
-                        color = formatLink,
-                        style = MaterialTheme.typography.labelLarge,
-                    )
-                }
+            if (table.rows.size > FormatTokens.TABLE_FOLD_ROWS || layout.scrolls) {
+                TableFooterRow(
+                    folded = table.rows.size > FormatTokens.TABLE_FOLD_ROWS,
+                    showsAll = showsAll,
+                    totalRows = table.rows.size,
+                    scrolls = layout.scrolls,
+                    onToggle = { showsAll = !showsAll },
+                    onExpand = { viewing = true },
+                )
             }
         }
     }
@@ -108,34 +103,35 @@ fun FormatTable(table: FormatTable, streaming: Boolean, bleed: Dp = 0.dp) {
 }
 
 @Composable
-private fun TableTopBar(table: FormatTable, onExpand: () -> Unit) {
-    val clipboard = LocalClipboard.current
-    val scope = rememberCoroutineScope()
-    val muted = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-    var copied by remember { mutableStateOf(false) }
-    LaunchedEffect(copied) {
-        if (copied) {
-            delay(1_500L)
-            copied = false
+private fun TableFooterRow(
+    folded: Boolean,
+    showsAll: Boolean,
+    totalRows: Int,
+    scrolls: Boolean,
+    onToggle: () -> Unit,
+    onExpand: () -> Unit,
+) {
+    Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (folded) {
+            TextButton(onClick = onToggle) {
+                Text(
+                    if (showsAll) stringResource(R.string.format_table_show_fewer) else stringResource(R.string.format_table_show_all, totalRows),
+                    color = formatLink,
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
         }
-    }
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-        IconButton(
-            onClick = {
-                scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newHtmlText("table", tableTsv(table), tableHtml(table)))) }
-                copied = true
-            },
-            modifier = Modifier.size(30.dp),
-        ) {
-            Icon(
-                painterResource(if (copied) R.drawable.ic_check else R.drawable.ic_content_copy),
-                contentDescription = stringResource(R.string.format_copy_table),
-                modifier = Modifier.size(15.dp),
-                tint = if (copied) BroskiTheme.semantic.done else muted,
-            )
-        }
-        IconButton(onClick = onExpand, modifier = Modifier.size(30.dp)) {
-            Icon(painterResource(R.drawable.ic_open_in_full), contentDescription = stringResource(R.string.format_expand), modifier = Modifier.size(15.dp), tint = muted)
+        Box(Modifier.weight(1f))
+        if (scrolls) {
+            TextButton(onClick = onExpand) {
+                Icon(painterResource(R.drawable.ic_open_in_full), contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    stringResource(R.string.format_expand),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.padding(start = 4.dp),
+                )
+            }
         }
     }
 }
@@ -170,14 +166,15 @@ fun TableGrid(table: FormatTable, layout: TableLayout, rows: Int, styles: Pair<T
         val scrolling = if (layout.scrolls) Modifier.scrollable(scroll, Orientation.Horizontal) else Modifier
         val rowLine = formatTableRowHairline
         val headerLine = formatTableHeaderHairline
-        val headerFill = formatTableHeaderFill
+        val visibleRows = minOf(rows, table.rows.size)
         Column(scrolling.fadeEnd(layout.scrolls && offset < reach, FormatTokens.tableEdgeFade)) {
-            Box(Modifier.fillMaxWidth().height(0.5.dp).background(rowLine))
-            TableRow(table, table.header, 0, layout, held, { offset }, styles.second, Modifier.background(headerFill).padding(start = edge))
-            Box(Modifier.fillMaxWidth().height(1.dp).background(headerLine))
-            for (index in 0 until minOf(rows, table.rows.size)) {
+            TableRow(table, table.header, 0, layout, held, { offset }, styles.second, Modifier.padding(start = edge))
+            Box(Modifier.fillMaxWidth().height(0.5.dp).background(headerLine))
+            for (index in 0 until visibleRows) {
                 TableRow(table, table.rows[index], index + 1, layout, held, { offset }, styles.first, Modifier.padding(start = edge))
-                Box(Modifier.fillMaxWidth().height(0.5.dp).background(rowLine))
+                if (index + 1 < visibleRows) {
+                    Box(Modifier.fillMaxWidth().height(0.5.dp).background(rowLine))
+                }
             }
         }
     }

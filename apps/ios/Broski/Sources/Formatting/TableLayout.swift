@@ -163,14 +163,14 @@ struct TableFonts: Hashable {
         let traits = UITraitCollection(preferredContentSizeCategory: UIContentSizeCategory(typeSize))
         let size = (UIFont.preferredFont(forTextStyle: .subheadline, compatibleWith: traits).pointSize - 0.5) * scale
         cell = .monospacedDigitSystemFont(ofSize: size, weight: .regular)
-        header = .monospacedDigitSystemFont(ofSize: size, weight: .semibold)
-        code = .monospacedSystemFont(ofSize: size * FormatTokens.inlineCodeScale, weight: .medium)
+        header = .monospacedDigitSystemFont(ofSize: size, weight: .medium)
+        code = .monospacedSystemFont(ofSize: size * FormatTokens.inlineCodeScale, weight: .regular)
     }
 
     func spanStyle(underlinesLinks: Bool) -> SpanStyle {
         SpanStyle(
             font: .system(size: cell.pointSize).monospacedDigit(),
-            codeFont: .system(size: code.pointSize, weight: .medium, design: .monospaced),
+            codeFont: .system(size: code.pointSize, design: .monospaced),
             underlinesLinks: underlinesLinks, size: cell.pointSize)
     }
 
@@ -179,10 +179,9 @@ struct TableFonts: Hashable {
         paragraph.lineSpacing = 2
         let text = NSMutableAttributedString()
         for span in spans {
-            let chip = span.code || span.math
-            let font = chip || span.html ? code : (span.strong || isHeader ? header : cell)
-            let string = chip ? "\u{202F}\(span.text)\u{202F}" : span.text
-            text.append(NSAttributedString(string: string, attributes: [.font: font, .paragraphStyle: paragraph]))
+            let mono = span.code || span.math || span.html
+            let font = mono ? code : (span.strong || isHeader ? header : cell)
+            text.append(NSAttributedString(string: span.text, attributes: [.font: font, .paragraphStyle: paragraph]))
         }
         return text.length == 0
             ? NSAttributedString(string: " ", attributes: [.font: isHeader ? header : cell, .paragraphStyle: paragraph])

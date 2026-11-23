@@ -79,6 +79,7 @@ fun FormatContentView(block: FormatBlock, role: FormatRole, streaming: Boolean) 
             if (content.level >= 4.toUByte()) MaterialTheme.colorScheme.onSurfaceVariant else role.color(),
             block.direction,
             Modifier.semantics { heading() },
+            inlineCode = Color.Unspecified,
         )
         is FormatContent.Code -> FormatCodeBlock(content.code, streaming)
         is FormatContent.Table -> FormatTable(content.table, streaming, tableBleed)
@@ -103,8 +104,16 @@ fun Modifier.bleed(bleed: Dp): Modifier = if (bleed == 0.dp) this else layout { 
 }
 
 @Composable
-fun Prose(spans: List<FormatSpan>, style: TextStyle, color: Color, direction: TextDirection, modifier: Modifier = Modifier, strong: Color = Color.Unspecified) {
-    val look = spanLook(style).copy(strong = strong)
+fun Prose(
+    spans: List<FormatSpan>,
+    style: TextStyle,
+    color: Color,
+    direction: TextDirection,
+    modifier: Modifier = Modifier,
+    strong: Color = Color.Unspecified,
+    inlineCode: Color = formatInlineCodeText,
+) {
+    val look = spanLook(style).copy(strong = strong, inlineCode = inlineCode)
     val text = rememberSpans(spans, look)
     val layout = if (direction == TextDirection.RIGHT_TO_LEFT) LayoutDirection.Rtl else LayoutDirection.Ltr
     CompositionLocalProvider(LocalLayoutDirection provides layout) {
@@ -119,6 +128,7 @@ fun spanLook(style: TextStyle): SpanLook = SpanLook(
     path = formatPath,
     muted = MaterialTheme.colorScheme.onSurfaceVariant,
     underlinesLinks = LocalReading.current.underlinesLinks,
+    inlineCode = formatInlineCodeText,
 )
 
 @Composable

@@ -8,15 +8,19 @@ struct SpanStyle: Equatable {
     var size: CGFloat?
     var opensFiles = true
     var strongColor: Color?
+    var inlineCodeColor: Color? = FormatTokens.inlineCodeText
 }
 
 enum FormatSpans {
+    /// Inline code, paths, and math render cleanly without box clutter (like other clients / OpenCode).
+    /// Only unloaded image links receive a subtle chip pill through `ChipRenderer`.
     static func text(_ spans: [FormatSpan], style: SpanStyle) -> Text {
         var text = Text(verbatim: "")
         var run = AttributedString()
         for span in spans {
-            if let (chip, kind) = chip(span, style: style) {
-                text = Text("\(text)\(Text(run))\(Text(chip).customAttribute(ChipAttribute(kind: kind)))")
+            if let link = span.link, link.image {
+                let chip = image(span, link: link, style: style)
+                text = Text("\(text)\(Text(run))\(Text(chip).customAttribute(ChipAttribute()))")
                 run = AttributedString()
             } else {
                 run += piece(span, style: style)
@@ -27,20 +31,30 @@ enum FormatSpans {
 
     static func attributed(_ spans: [FormatSpan], style: SpanStyle) -> AttributedString {
         spans.reduce(into: AttributedString()) { text, span in
-            text += chip(span, style: style)?.0 ?? piece(span, style: style)
+            if let link = span.link, link.image {
+                text += image(span, link: link, style: style)
+            } else {
+                text += piece(span, style: style)
+            }
         }
     }
 
     private static func piece(_ span: FormatSpan, style: SpanStyle) -> AttributedString {
         var piece = AttributedString(span.text)
-        piece.font = font(span, base: span.code ? style.codeFont : style.font)
-        if span.strong, let strong = style.strongColor { piece.foregroundColor = strong }
+        let isCodeLike = span.code || span.math || span.html
+        let base = isCodeLike ? style.codeFont : style.font
+        piece.font = font(span, base: base)
+        if span.code || span.math, let codeColor = style.inlineCodeColor {
+            piece.foregroundColor = codeColor
+        }
+        if span.strong, let strong = style.strongColor {
+            piece.foregroundColor = strong
+        }
         if span.strike {
             piece.strikethroughStyle = .single
             piece.foregroundColor = .secondary
         }
         if span.html {
-            piece.font = style.codeFont
             piece.foregroundColor = .secondary
         }
         apply(span.link, to: &piece, style: style)
@@ -48,34 +62,13 @@ enum FormatSpans {
     }
 
     private static func font(_ span: FormatSpan, base: Font) -> Font {
-        switch (span.strong, span.emphasis) {
-        case (true, true): base.weight(.semibold).italic()
-        case (true, false): base.weight(.semibold)
-        case (false, true): base.italic()
-        case (false, false): base
+        let italic = span.emphasis || span.math
+        switch (span.strong, italic) {
+        case (true, true): return base.weight(.semibold).italic()
+        case (true, false): return base.weight(.semibold)
+        case (false, true): return base.italic()
+        case (false, false): return base
         }
-    }
-
-    private static func chip(_ span: FormatSpan, style: SpanStyle) -> (AttributedString, ChipKind)? {
-        if let link = span.link, link.image { return (image(span, link: link, style: style), .code) }
-        if span.code, let link = span.link, case .file = link.kind, opens(link, style: style) {
-            var piece = AttributedString("\u{202F}\(span.text)\u{202F}")
-            var font = style.codeFont
-            if span.strong { font = font.weight(.semibold) }
-            if span.emphasis { font = font.italic() }
-            piece.font = font
-            if span.strike { piece.strikethroughStyle = .single }
-            apply(link, to: &piece, style: style)
-            return (piece, .path)
-        }
-        guard span.code || span.math, !opens(span.link, style: style) else { return nil }
-        var piece = AttributedString("\u{202F}\(span.text)\u{202F}")
-        var font = style.codeFont
-        if span.strong { font = font.weight(.semibold) }
-        if span.math || span.emphasis { font = font.italic() }
-        piece.font = font
-        if span.strike { piece.strikethroughStyle = .single }
-        return (piece, .code)
     }
 
     private static func image(_ span: FormatSpan, link: FormatLink, style: SpanStyle) -> AttributedString {
@@ -113,28 +106,16 @@ enum FormatSpans {
     }
 }
 
-nonisolated enum ChipKind: Hashable {
-    case code
-    case path
-}
+nonisolated struct ChipAttribute: TextAttribute {}
 
-nonisolated struct ChipAttribute: TextAttribute {
-    let kind: ChipKind
-}
-
-/// Draws rounded hairline-bordered chips behind inline code and file-path runs. Thin spaces can
-/// split into fallback-font runs on a line, so touching runs of the same kind merge into one pill.
 nonisolated struct ChipRenderer: TextRenderer {
-    var displayPadding: EdgeInsets { EdgeInsets(top: 2, leading: 3, bottom: 2, trailing: 3) }
+    var displayPadding: EdgeInsets { EdgeInsets(top: 2, leading: 2, bottom: 2, trailing: 2) }
 
     func draw(layout: Text.Layout, in context: inout GraphicsContext) {
         for line in layout {
-            for item in chipRects(line) {
-                let path = Path(roundedRect: item.rect, cornerRadius: FormatTokens.inlineCodeRadius, style: .continuous)
-                let fill = item.kind == .path ? FormatTokens.pathFill : FormatTokens.inlineCodeFill
-                let stroke = item.kind == .path ? FormatTokens.pathBorder : FormatTokens.inlineCodeBorder
-                context.fill(path, with: .color(fill))
-                context.stroke(path, with: .color(stroke), lineWidth: 0.5)
+            for rect in chipRects(line) {
+                let path = Path(roundedRect: rect, cornerRadius: FormatTokens.inlineCodeRadius, style: .continuous)
+                context.fill(path, with: .color(FormatTokens.imageChipFill))
             }
         }
         for line in layout {
@@ -142,20 +123,17 @@ nonisolated struct ChipRenderer: TextRenderer {
         }
     }
 
-    private func chipRects(_ line: Text.Layout.Line) -> [(rect: CGRect, kind: ChipKind)] {
-        var raw: [(rect: CGRect, kind: ChipKind)] = []
-        for run in line {
-            guard let attr = run[ChipAttribute.self] else { continue }
+    private func chipRects(_ line: Text.Layout.Line) -> [CGRect] {
+        var raw: [CGRect] = []
+        for run in line where run[ChipAttribute.self] != nil {
             let bounds = run.typographicBounds.rect
-            if let last = raw.last, last.kind == attr.kind,
-               abs(last.rect.maxX - bounds.minX) < 0.5 || abs(bounds.maxX - last.rect.minX) < 0.5
-            {
-                raw[raw.count - 1].rect = last.rect.union(bounds)
+            if let last = raw.last, abs(last.maxX - bounds.minX) < 0.5 || abs(bounds.maxX - last.minX) < 0.5 {
+                raw[raw.count - 1] = last.union(bounds)
             } else {
-                raw.append((bounds, attr.kind))
+                raw.append(bounds)
             }
         }
-        return raw.map { ($0.rect.insetBy(dx: -1, dy: -1), $0.kind) }
+        return raw.map { $0.insetBy(dx: -1, dy: -1) }
     }
 }
 

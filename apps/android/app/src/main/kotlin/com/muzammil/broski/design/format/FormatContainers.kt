@@ -27,7 +27,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -115,14 +114,14 @@ private fun WrappedSegments(
             if (segment.container.first) 0.dp else gap,
             inner,
         )
-        is ContainerSegment.ListRun -> FlatListFrame(segment.items, gap, role, inner)
+        is ContainerSegment.ListRun -> FlatListFrame(segment.items, role, inner)
         is ContainerSegment.Footnote -> FootnoteFrame(segment.label, segment.container.first, inner)
     }
 }
 
 @Composable
 private fun QuoteFrame(above: Dp, content: @Composable () -> Unit) {
-    val bar = formatMarkerColor.copy(alpha = 0.55f)
+    val bar = formatMarkerColor.copy(alpha = 0.5f)
     CompositionLocalProvider(LocalInQuote provides true) {
         Box(
             Modifier.fillMaxWidth()
@@ -173,7 +172,7 @@ private fun DrawScope.callout(tint: Color, first: Boolean, continues: Boolean, a
         bottomRightCornerRadius = CornerRadius(bottomRadius), bottomLeftCornerRadius = CornerRadius(bottomRadius),
     )
     val path = Path().apply { addRoundRect(rect) }
-    drawPath(path, tint.copy(alpha = 0.085f))
+    drawPath(path, tint.copy(alpha = 0.08f))
     drawRoundRect(
         tint.copy(alpha = 0.75f),
         Offset(0f, top),
@@ -183,7 +182,7 @@ private fun DrawScope.callout(tint: Color, first: Boolean, continues: Boolean, a
 }
 
 @Composable
-private fun FlatListFrame(items: List<FormatContainer>, gap: Dp, role: FormatRole, content: @Composable () -> Unit) {
+private fun FlatListFrame(items: List<FormatContainer>, role: FormatRole, content: @Composable () -> Unit) {
     val leaf = items.last()
     val itemKind = leaf.kind as ContainerKind.Item
     val marker = itemKind.marker
@@ -192,35 +191,17 @@ private fun FlatListFrame(items: List<FormatContainer>, gap: Dp, role: FormatRol
     val baseIndent = FormatTokens.listBaseIndentDp(visualDepth, fontScale)
     val bulletBox = (FormatTokens.bulletBoxWidth.value * fontScale.coerceIn(0.85f, 1.35f)).dp
     val done = marker is ListMarker.Task && marker.checked
-    val guideColor = formatListGuide
     val spacing = when (marker) {
         ListMarker.Bullet -> FormatTokens.bulletGap
         is ListMarker.Number -> FormatTokens.numberGap
         is ListMarker.Task -> FormatTokens.taskGap
     }
-    val guideLevels = visualDepth.coerceAtMost(FormatTokens.listIndentSteps.size)
     Row(
         horizontalArrangement = Arrangement.spacedBy(spacing),
-        modifier = Modifier.fillMaxWidth()
-            .drawBehind {
-                if (guideLevels > 0) {
-                    val stroke = 1.dp.toPx()
-                    val halfBox = bulletBox.toPx() * 0.5f
-                    val halfTask = (FormatTokens.taskGutter.value * fontScale.coerceIn(0.85f, 1.4f)).dp.toPx() * 0.5f
-                    val gapPx = gap.toPx()
-                    for (level in 0 until guideLevels) {
-                        val ancestor = items[level]
-                        val top = if (ancestor.first) 0f else -gapPx
-                        val center = if ((ancestor.kind as? ContainerKind.Item)?.marker is ListMarker.Task) halfTask else halfBox
-                        val x = FormatTokens.listBaseIndentDp(level, fontScale).toPx() + center
-                        drawLine(guideColor, Offset(x, top), Offset(x, size.height), strokeWidth = stroke)
-                    }
-                }
-            }
-            .padding(start = baseIndent),
+        modifier = Modifier.fillMaxWidth().padding(start = baseIndent),
     ) {
         val markerMod = when (marker) {
-            is ListMarker.Number -> Modifier.widthIn(min = (15f * fontScale.coerceIn(0.85f, 1.4f)).dp)
+            is ListMarker.Number -> Modifier.widthIn(min = (16f * fontScale.coerceIn(0.85f, 1.4f)).dp)
             else -> Modifier.width(gutter(marker, bulletBox))
         }
         Box(markerMod, contentAlignment = Alignment.TopStart) {
@@ -240,12 +221,14 @@ private fun gutter(marker: ListMarker, bulletBox: Dp): Dp {
     return when (marker) {
         ListMarker.Bullet -> bulletBox
         is ListMarker.Task -> (FormatTokens.taskGutter.value * density.fontScale.coerceIn(0.85f, 1.4f)).dp
-        is ListMarker.Number -> (15f * density.fontScale.coerceIn(0.85f, 1.4f)).dp
+        is ListMarker.Number -> (16f * density.fontScale.coerceIn(0.85f, 1.4f)).dp
     }
 }
 
 @Composable
 private fun Marker(marker: ListMarker, visualDepth: Int, role: FormatRole, bulletBox: Dp) {
+    val primaryDot = formatBulletPrimary
+    val nestedDot = formatBulletNested
     val muted = formatMarkerColor
     val style = role.textStyle()
     val density = LocalDensity.current
@@ -253,19 +236,23 @@ private fun Marker(marker: ListMarker, visualDepth: Int, role: FormatRole, bulle
     when (marker) {
         ListMarker.Bullet -> {
             val bulletDesc = stringResource(R.string.format_bullet)
-            val dotDp = with(density) { (style.fontSize * 0.31f).toDp() }.coerceAtLeast(4.5.dp)
             Box(
                 Modifier.size(width = bulletBox, height = lineHeightDp).semantics { contentDescription = bulletDesc },
                 contentAlignment = Alignment.Center,
             ) {
-                Canvas(Modifier.size(dotDp)) {
-                    when (visualDepth % 3) {
-                        0 -> drawCircle(muted)
-                        1 -> drawCircle(muted, style = Stroke(width = 1.25.dp.toPx()))
-                        else -> {
-                            val side = size.minDimension * 0.88f
-                            val inset = (size.minDimension - side) / 2f
-                            drawRoundRect(muted, Offset(inset, inset), Size(side, side), CornerRadius(1.dp.toPx()))
+                when (visualDepth) {
+                    0 -> {
+                        val dotDp = with(density) { (style.fontSize * 0.34f).toDp() }.coerceAtLeast(5.2.dp)
+                        Canvas(Modifier.size(dotDp)) { drawCircle(primaryDot) }
+                    }
+                    1 -> {
+                        val dotDp = with(density) { (style.fontSize * 0.27f).toDp() }.coerceAtLeast(4.2.dp)
+                        Canvas(Modifier.size(dotDp)) { drawCircle(nestedDot) }
+                    }
+                    else -> {
+                        val widthDp = with(density) { (style.fontSize * 0.35f).toDp() }.coerceAtLeast(5.5.dp)
+                        Canvas(Modifier.size(width = widthDp, height = 1.5.dp)) {
+                            drawRoundRect(nestedDot, cornerRadius = CornerRadius(size.height / 2f))
                         }
                     }
                 }
