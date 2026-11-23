@@ -144,4 +144,35 @@ class RowBuilderTest {
         val rows = build(history = listOf(item), snapshot = EmptySnapshot.copy(run = Items.run(item)), hasOlder = true)
         assertEquals(listOf("older", "u:u1"), rows.map { it.key })
     }
+
+    @Test
+    fun cachedPrefixStreamingReusesHistoryAndRunRowsAcrossBlockDeltas() {
+        val history = (0 until 100).flatMap { turn ->
+            val at = turn * 10_000L
+            listOf(
+                Items.user("u$turn", "Step $turn: run the tests", at = at),
+                Items.call("c$turn", "Bash", at + 1_000, "command" to "npm test"),
+                Items.result("c$turn", at + 2_000),
+                Items.text("t$turn", "Fixed **step $turn** with `patch`.", at = at + 3_000),
+            )
+        }
+        val run = Items.run(
+            Items.user("u-live", "Stream a long answer", at = 2_000_000L, request = "req-live"),
+            Items.call("c-live", "Read", 2_001_000L, "file_path" to "README.md"),
+            Items.result("c-live", 2_002_000L),
+        )
+        val fresh = RowBuilder()
+        var text = "Streaming"
+        val first = fresh.build(RowInput(history, EmptySnapshot.copy(run = run, blocks = listOf(OpenBlock("b1", "m1", BlockKind.TEXT, null, text))), emptyList(), false, 2_003_000L))
+        val t0 = System.nanoTime()
+        var last = first
+        repeat(30) {
+            text += " more words arriving in a streaming delta batch."
+            last = fresh.build(RowInput(history, EmptySnapshot.copy(run = run, blocks = listOf(OpenBlock("b1", "m1", BlockKind.TEXT, null, text))), emptyList(), false, 2_003_000L + it * 16L))
+        }
+        val elapsedMs = (System.nanoTime() - t0) / 1_000_000.0
+        // Historical rows must be the exact same instances (reference equality for Compose skipping).
+        assertTrue("historical row reused by reference", first.last() === last.last())
+        assertTrue("30 cached streaming ticks took ${elapsedMs}ms", elapsedMs < 200.0)
+    }
 }

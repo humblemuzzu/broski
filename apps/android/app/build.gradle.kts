@@ -62,6 +62,10 @@ android {
     }
 }
 
+composeCompiler {
+    stabilityConfigurationFiles.add(layout.projectDirectory.file("compose_compiler_config.conf"))
+}
+
 dependencies {
     implementation(project(":core"))
     implementation(project(":terminal"))

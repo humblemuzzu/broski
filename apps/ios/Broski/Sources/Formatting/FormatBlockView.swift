@@ -123,6 +123,7 @@ struct FormatContentView: View {
         return max(12, base + offset)
     }
 
+    @ViewBuilder
     private func prose(
         _ spans: [FormatSpan], font: Font, codeSize: CGFloat, color: Color,
         strong: Color?, codeColor: Color?, codeStyle: InlineCodeStyle,
@@ -132,16 +133,22 @@ struct FormatContentView: View {
             font: font, codeFont: .system(size: codeSize, design: .monospaced),
             underlinesLinks: reading.underlinesLinks, opensFiles: context != nil,
             strongColor: strong, inlineCodeColor: codeColor, inlineCodeStyle: codeStyle)
-        return (spans.isEmpty ? Text(verbatim: " ") : FormatSpans.text(spans, style: spanStyle))
+        let base = (spans.isEmpty ? Text(verbatim: " ") : FormatSpans.text(spans, style: spanStyle))
             .font(font)
             .tracking(tracking)
             .foregroundStyle(color)
             .lineSpacing(lineSpacing)
             .tint(FormatTokens.link)
-            .textRenderer(ChipRenderer())
-            .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
-            .fixedSize(horizontal: false, vertical: true)
-            .environment(\.layoutDirection, block.direction == .rightToLeft ? .rightToLeft : .leftToRight)
+        Group {
+            if FormatSpans.hasChips(spans, style: spanStyle) {
+                base.textRenderer(ChipRenderer())
+            } else {
+                base
+            }
+        }
+        .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+        .fixedSize(horizontal: false, vertical: true)
+        .environment(\.layoutDirection, block.direction == .rightToLeft ? .rightToLeft : .leftToRight)
     }
 }
 

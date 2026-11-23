@@ -28,6 +28,9 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, UI
     private var dataSource: UICollectionViewDiffableDataSource<Int, String>!
     private var entries: [String: TranscriptEntry] = [:]
     private var order: [String] = []
+    private var lastHistoryRevision: Int?
+    private var lastHistoryRange: Range<Int> = 0..<0
+    private var readingCompact = UserDefaults.standard.bool(forKey: Preference.readingCompact)
     /// Rows that have already animated their first appearance (never animated a second time).
     private var animatedIDs: Set<String> = []
     /// Live rows eligible to animate on first appearance, supplied by `ChatModel`.
@@ -61,11 +64,12 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, UI
         layout.indexPathForID = collectionView.indexPathForID
         layout.estimate = { [weak self] path in
             guard let self, let id = dataSource.itemIdentifier(for: path), let entry = entries[id] else { return 80 }
-            let compact = UserDefaults.standard.bool(forKey: Preference.readingCompact)
-            return TranscriptEstimate.height(of: entry, width: contentWidth, compact: compact)
+            return TranscriptEstimate.height(of: entry, width: contentWidth, compact: readingCompact)
         }
         NotificationCenter.default.addObserver(
             self, selector: #selector(keyboardWillChange(_:)), name: UIResponder.keyboardWillChangeFrameNotification, object: nil)
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(defaultsChanged), name: UserDefaults.didChangeNotification, object: nil)
     }
 
     private var contentWidth: CGFloat { collectionView.bounds.width - 2 * TranscriptView.sideMargin }
@@ -101,17 +105,55 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, UI
 
     // MARK: Updates
 
-    func show(_ items: [(id: String, entry: TranscriptEntry)], freshIDs: Set<String> = []) {
+    func show(
+        _ items: [(id: String, entry: TranscriptEntry)],
+        freshIDs: Set<String> = [],
+        historyRange: Range<Int>? = nil,
+        historyRevision: Int? = nil
+    ) {
         self.freshIDs = freshIDs
+
+        // Fast path: unchanged order and unchanged history slice (60 Hz streaming tick) — skip
+        // rebuilding the full entries map and skip deep-comparing every historical row.
+        if let historyRange, let historyRevision,
+            historyRevision == lastHistoryRevision,
+            historyRange == lastHistoryRange,
+            items.count == order.count,
+            sameTailOrder(items, from: historyRange.upperBound)
+        {
+            var changed: [String] = []
+            for index in 0..<historyRange.lowerBound {
+                let (id, entry) = items[index]
+                if entries[id] != entry {
+                    entries[id] = entry
+                    changed.append(id)
+                }
+            }
+            for index in historyRange.upperBound..<items.count {
+                let (id, entry) = items[index]
+                if entries[id] != entry {
+                    entries[id] = entry
+                    changed.append(id)
+                }
+            }
+            guard !changed.isEmpty else { return }
+            layout.markNeedsMeasure(changed)
+            updateChangedVisibleCells(changed)
+            return
+        }
+
         var ids: [String] = []
         var next: [String: TranscriptEntry] = [:]
         ids.reserveCapacity(items.count)
+        next.reserveCapacity(items.count)
         for (id, entry) in items where next[id] == nil {
             ids.append(id)
             next[id] = entry
         }
         let changed = ids.filter { id in entries[id].map { $0 != next[id] } ?? false }
         entries = next
+        lastHistoryRevision = historyRevision
+        lastHistoryRange = historyRange ?? 0..<0
         guard ids != order || !changed.isEmpty else { return }
         layout.markNeedsMeasure(changed)
 
@@ -129,6 +171,16 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, UI
         if !changed.isEmpty { snapshot.reconfigureItems(changed) }
         collectionView.preservingPosition { dataSource.apply(snapshot, animatingDifferences: false) }
         checkNearTop()
+    }
+
+    private func sameTailOrder(_ items: [(id: String, entry: TranscriptEntry)], from tailStart: Int) -> Bool {
+        for index in 0..<lastHistoryRange.lowerBound where items[index].id != order[index] {
+            return false
+        }
+        for index in tailStart..<items.count where items[index].id != order[index] {
+            return false
+        }
+        return true
     }
 
     private func updateChangedVisibleCells(_ changed: [String]) {
@@ -249,6 +301,10 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, UI
         let duration = (info?[UIResponder.keyboardAnimationDurationUserInfoKey] as? NSNumber)?.doubleValue ?? 0.25
         let curve = (info?[UIResponder.keyboardAnimationCurveUserInfoKey] as? NSNumber)?.uintValue ?? 7
         keyboard = (duration, curve, .now)
+    }
+
+    @objc private func defaultsChanged() {
+        readingCompact = UserDefaults.standard.bool(forKey: Preference.readingCompact)
     }
 
     @objc private func tapped() {

@@ -98,8 +98,18 @@ struct ChatTimeline {
     /// The live run: its finished items, the running tools among them (which carry the output so
     /// far in place of their call items), then its open blocks.
     mutating func addLive(items: [TranscriptItem], blocks: [OpenBlock], tools: [RunningTool]) {
+        addRunItems(items, tools: tools)
+        addOpenBlocks(blocks)
+    }
+
+    /// Finished items and running tools of the live run, separated from `addOpenBlocks` so
+    /// high-frequency streaming ticks can reuse the prefix snapshot without re-walking `items`.
+    mutating func addRunItems(_ items: [TranscriptItem], tools: [RunningTool]) {
         running = Dictionary(tools.map { ($0.toolCallId, $0) }, uniquingKeysWith: { $1 })
         add(items)
+    }
+
+    mutating func addOpenBlocks(_ blocks: [OpenBlock]) {
         for block in blocks {
             addBlock(id: block.blockId, kind: block.kind, text: block.text, nested: block.parentToolCallId != nil, open: true, at: nil)
         }

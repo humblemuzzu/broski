@@ -45,11 +45,13 @@ class RowInput(
 class RowBuilder(private val format: (String, Boolean) -> List<FormatBlock> = FormatCache::blocks) {
     private val aliases = HashMap<String, String>()
     private var lastLiveRows: List<ChatRow> = emptyList()
+    private var cachedPrefix: PrefixCache? = null
 
     @Synchronized
     fun resetAliases() {
         aliases.clear()
         lastLiveRows = emptyList()
+        cachedPrefix = null
     }
 
     @Synchronized
@@ -61,15 +63,40 @@ class RowBuilder(private val format: (String, Boolean) -> List<FormatBlock> = Fo
         return RowAliases.apply(historyPart, aliases) + livePart
     }
 
+    @Synchronized
     fun build(input: RowInput): List<ChatRow> {
+        val prefix = cachedPrefix?.takeIf {
+            it.history === input.history &&
+                it.run === input.snapshot.run &&
+                it.tools === input.snapshot.tools &&
+                it.hasOlder == input.hasOlder
+        } ?: buildPrefix(input).also { cachedPrefix = it }
+        val pass = Pass(input, prefix)
+        input.snapshot.blocks.forEach(pass::openBlock)
+        pass.pending()
+        return pass.finish(prefix.historyEnd)
+    }
+
+    private fun buildPrefix(input: RowInput): PrefixCache {
         val pass = Pass(input)
         input.history.forEach { pass.item(it, live = false) }
         val historyEnd = pass.snapshotRowCount()
         input.snapshot.run?.items?.forEachIndexed { index, item -> pass.item(item, live = true, continued = index > 0) }
-        input.snapshot.blocks.forEach(pass::openBlock)
-        pass.pending()
-        return pass.finish(historyEnd)
+        return pass.freezePrefix(input, historyEnd)
     }
+
+    private class PrefixCache(
+        val history: List<TranscriptItem>,
+        val run: uniffi.broski_contract.ActiveRun?,
+        val tools: List<uniffi.broski_contract.RunningTool>,
+        val hasOlder: Boolean,
+        val historyEnd: Int,
+        val rows: List<Any>,
+        val activeFoldIndex: Int,
+        val activeFold: FoldDraft?,
+        val shownRequests: Set<String>,
+        val turn: Turn,
+    )
 
     private inner class Pass(private val input: RowInput) {
         private val rows = mutableListOf<Any>()
@@ -77,6 +104,48 @@ class RowBuilder(private val format: (String, Boolean) -> List<FormatBlock> = Fo
         private val shownRequests = HashSet<String>()
         private var fold: FoldDraft? = null
         private var turn = Turn(start = null, continued = false, live = false)
+
+        constructor(input: RowInput, prefix: PrefixCache) : this(input) {
+            rows.addAll(prefix.rows)
+            if (prefix.activeFold != null && prefix.activeFoldIndex >= 0) {
+                val cloned = prefix.activeFold.copy()
+                rows[prefix.activeFoldIndex] = cloned
+                fold = cloned
+            }
+            shownRequests.addAll(prefix.shownRequests)
+            turn = prefix.turn.copy()
+        }
+
+        fun freezePrefix(input: RowInput, historyEnd: Int): PrefixCache {
+            val active = fold
+            var activeIndex = -1
+            val frozen = ArrayList<Any>(rows.size)
+            for (index in rows.indices) {
+                val entry = rows[index]
+                if (entry is FoldDraft) {
+                    if (entry === active) {
+                        activeIndex = index
+                        frozen.add(entry)
+                    } else {
+                        frozen.add(entry.row())
+                    }
+                } else {
+                    frozen.add(entry)
+                }
+            }
+            return PrefixCache(
+                history = input.history,
+                run = input.snapshot.run,
+                tools = input.snapshot.tools,
+                hasOlder = input.hasOlder,
+                historyEnd = historyEnd,
+                rows = frozen,
+                activeFoldIndex = activeIndex,
+                activeFold = active?.copy(),
+                shownRequests = HashSet(shownRequests),
+                turn = turn.copy(),
+            )
+        }
 
         fun item(item: TranscriptItem, live: Boolean, continued: Boolean = false) {
             when (item) {
@@ -221,6 +290,15 @@ class RowBuilder(private val format: (String, Boolean) -> List<FormatBlock> = Fo
             folds++ > 0 -> FoldLead.None
             continued -> FoldLead.Continued
             else -> FoldLead.Worked
+        }
+
+        fun copy(): Turn = Turn(start, continued, live).also {
+            it.answer.addAll(answer)
+            it.sources.addAll(sources)
+            it.lastTextId = lastTextId
+            it.lastAt = lastAt
+            it.copyAt = copyAt
+            it.folds = folds
         }
     }
 }

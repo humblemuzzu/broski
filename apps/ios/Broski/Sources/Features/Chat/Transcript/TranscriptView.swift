@@ -23,8 +23,10 @@ struct TranscriptView: View {
         Color.clear
             .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { safeFrame = $0 }
             .overlay {
+                let built = entries
                 TranscriptList(
-                    entries: entries, freshIDs: chat.freshRowIDs, insets: insets, following: chat.follow.isFollowing,
+                    entries: built.items, historyRange: built.historyRange, historyRevision: chat.historyRevision,
+                    freshIDs: chat.freshRowIDs, insets: insets, following: chat.follow.isFollowing,
                     jumpRequest: chat.jumpRequest, cellContext: cellContext, callbacks: callbacks
                 )
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { fullFrame = $0 }
@@ -60,20 +62,22 @@ struct TranscriptView: View {
             bottom: max(0, fullFrame.maxY - safeFrame.maxY), trailing: 0)
     }
 
-    private var entries: [(id: String, entry: TranscriptEntry)] {
+    private var entries: (items: [(id: String, entry: TranscriptEntry)], historyRange: Range<Int>) {
         var items: [(id: String, entry: TranscriptEntry)] = []
         items.reserveCapacity(chat.historyRows.count + chat.liveRows.count + 2)
         if chat.history.hasOlder || chat.historyProblem != nil {
             items.append((TranscriptEntry.olderID, .older(problem: chat.historyProblem?.message)))
         }
+        let historyStart = items.count
         for row in chat.historyRows {
             items.append((row.id, .row(row)))
         }
+        let historyEnd = items.count
         for row in chat.liveRows {
             items.append((row.id, .row(row)))
         }
         items.append((TranscriptEntry.laneID, .lane(LaneStatus(chat.snapshot), startedAt: chat.snapshot.run?.startedAt)))
-        return items
+        return (items, historyStart..<historyEnd)
     }
 
     private var cellContext: TranscriptCellContext {
@@ -107,6 +111,8 @@ struct TranscriptView: View {
 
 private struct TranscriptList: UIViewControllerRepresentable {
     let entries: [(id: String, entry: TranscriptEntry)]
+    let historyRange: Range<Int>
+    let historyRevision: Int
     let freshIDs: Set<String>
     let insets: EdgeInsets
     let following: Bool
@@ -122,7 +128,7 @@ private struct TranscriptList: UIViewControllerRepresentable {
         controller.loadViewIfNeeded()
         controller.callbacks = callbacks
         controller.context = cellContext
-        controller.show(entries, freshIDs: freshIDs)
+        controller.show(entries, freshIDs: freshIDs, historyRange: historyRange, historyRevision: historyRevision)
         controller.setBarInsets(insets)
         controller.setFollowing(following)
         controller.jump(jumpRequest)

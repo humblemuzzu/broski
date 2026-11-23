@@ -60,6 +60,11 @@ internal class FoldDraft(val lead: FoldLead, val turnStart: Long?) {
         tool.call.at?.let { lastAt = it }
     }
 
+    fun copy(): FoldDraft = FoldDraft(lead, turnStart).also {
+        it.parts.addAll(parts)
+        it.lastAt = lastAt
+    }
+
     fun row(): ChatRow.Work {
         val entries = parts.map { if (it is ToolDraft) it.entry() else it as WorkEntry }
         val live = parts.any { (it is ToolDraft && it.live && it.result == null) || (it is WorkEntry.Thought && it.live) }

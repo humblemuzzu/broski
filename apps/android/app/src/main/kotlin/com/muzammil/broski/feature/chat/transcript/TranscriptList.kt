@@ -11,7 +11,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
@@ -61,6 +63,7 @@ fun TranscriptList(
     modifier: Modifier = Modifier,
 ) {
     val focus = LocalFocusManager.current
+    val latestRows = rememberUpdatedState(rows)
     TrackFollow(state, rows)
     LoadOlder(state, rows, callbacks.loadOlder)
     LazyColumn(
@@ -73,7 +76,8 @@ fun TranscriptList(
             StatusLaneView(lane, runStartedAt, Modifier.padding(start = SIDE_MARGIN, end = SIDE_MARGIN, top = 8.dp))
         }
         itemsIndexed(rows, key = { _, row -> row.key }, contentType = { _, row -> row::class }) { index, row ->
-            Row(row, gap(rows.getOrNull(index + 1), row), imageStore, state, callbacks) { answerOf(rows, row) }
+            val answer = remember(row.key) { { answerOf(latestRows.value, row.key) } }
+            Row(row, gap(rows.getOrNull(index + 1), row), imageStore, state, callbacks, answer)
         }
     }
 }
@@ -132,8 +136,9 @@ private fun Row(row: ChatRow, gap: Dp, imageStore: ChatImageStore, state: Transc
 }
 
 /** The whole answer a block belongs to: the text of the copy row under it (newer rows come first). */
-private fun answerOf(rows: List<ChatRow>, row: ChatRow): String? {
-    val index = rows.indexOf(row)
+private fun answerOf(rows: List<ChatRow>, key: String): String? {
+    val index = rows.indexOfFirst { it.key == key }
+    if (index < 0) return null
     for (newer in index downTo 0) {
         when (val candidate = rows[newer]) {
             is ChatRow.CopyAnswer -> return candidate.text

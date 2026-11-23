@@ -32,6 +32,22 @@ nonisolated final class ChatPerformanceTests: XCTestCase {
     }
 
     @MainActor
+    func testCachedPrefixStreamingOfAThousandItemRunIsNearConstantTime() {
+        var base = ChatTimeline()
+        base.addRunItems(Self.items, tools: [])
+        var open = "The answer streams"
+        measure(metrics: [XCTClockMetric(), XCTCPUMetric()]) {
+            for _ in 0..<30 {
+                open += " and grows by a few words each batch, the way a model writes."
+                var timeline = base
+                timeline.addOpenBlocks([OpenBlock(blockId: "open", messageId: "m", kind: .text, parentToolCallId: nil, text: open)])
+                timeline.close(live: true)
+                _ = timeline.rows
+            }
+        }
+    }
+
+    @MainActor
     private func rebuild(_ open: String) -> [ChatRow] {
         var timeline = ChatTimeline()
         let block = OpenBlock(blockId: "open", messageId: "m", kind: .text, parentToolCallId: nil, text: open)

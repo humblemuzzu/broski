@@ -93,8 +93,10 @@ export function nextRun(run: ActiveRun, before: SessionSnapshot, record: Pick<Si
 					...finishedItems(before, record),
 				],
 			});
-		default:
-			return bounded({ ...run, items: [...run.items, ...finishedItems(before, record)] });
+		default: {
+			const added = finishedItems(before, record);
+			return added.length === 0 ? run : bounded({ ...run, items: [...run.items, ...added] });
+		}
 	}
 }
 

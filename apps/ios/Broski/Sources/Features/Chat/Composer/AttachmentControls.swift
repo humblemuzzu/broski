@@ -61,13 +61,24 @@ struct AttachmentMenu: View {
 }
 
 /// Adds `images` to the draft, each fitted into what is left of the prompt's 4 MiB off the main
-/// actor; one that cannot fit is said so.
+/// actor; re-checks the remaining budget right before appending so concurrent picks or pastes can
+/// never push the prompt past `MAX_IMAGE_CHARS`.
 func attach(_ images: [UIImage], to draft: Binding<ComposerDraft>, refuse: @escaping (String) -> Void) {
     Task {
         for image in images {
-            let left = ImageFitter.promptBudget - draft.wrappedValue.imageCost
-            let fitted = await Task.detached(priority: .userInitiated) { ImageFitter.fit(image, within: left) }.value
-            if let fitted {
+            let initialBudget = ImageFitter.promptBudget - draft.wrappedValue.imageCost
+            guard initialBudget > 0 else {
+                refuse("That image doesn't fit in one message. Send it on its own, or send fewer images.")
+                continue
+            }
+            var fitted = await Task.detached(priority: .userInitiated) { ImageFitter.fit(image, within: initialBudget) }.value
+            let remaining = ImageFitter.promptBudget - draft.wrappedValue.imageCost
+            if let candidate = fitted, candidate.cost > remaining {
+                fitted = remaining > 0
+                    ? await Task.detached(priority: .userInitiated) { ImageFitter.fit(image, within: remaining) }.value
+                    : nil
+            }
+            if let fitted, fitted.cost <= ImageFitter.promptBudget - draft.wrappedValue.imageCost {
                 draft.wrappedValue.images.append(fitted)
             } else {
                 refuse("That image doesn't fit in one message. Send it on its own, or send fewer images.")

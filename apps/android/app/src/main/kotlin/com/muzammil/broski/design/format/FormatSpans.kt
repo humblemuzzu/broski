@@ -175,6 +175,11 @@ fun inlineCodeSize(body: TextUnit): TextUnit = body * FormatTokens.INLINE_CODE_S
 
 @Composable
 fun SpanText(text: AnnotatedString, style: TextStyle, modifier: Modifier = Modifier, color: Color = Color.Unspecified, codeSize: TextUnit) {
+    val hasChips = remember(text) { text.getStringAnnotations(CHIP, 0, text.length).isNotEmpty() }
+    if (!hasChips) {
+        Text(text, style = style, color = color, modifier = modifier)
+        return
+    }
     var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
     val fill = formatImageChipFill
     val tintFill = formatInlineCodeTintFill

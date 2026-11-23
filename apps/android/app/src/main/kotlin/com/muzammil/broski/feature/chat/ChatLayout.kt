@@ -63,14 +63,12 @@ import com.muzammil.broski.design.orb.OrbState
 import com.muzammil.broski.design.perform
 import com.muzammil.broski.feature.chat.header.ChatTopBar
 import com.muzammil.broski.feature.chat.header.SessionMenu
-import com.muzammil.broski.feature.chat.header.contextPercent
 import com.muzammil.broski.feature.chat.header.SessionInfoSheet
 import com.muzammil.broski.feature.chat.header.sessionInfo
 import com.muzammil.broski.feature.chat.transcript.LocalModelNames
 import com.muzammil.broski.feature.chat.transcript.TranscriptCallbacks
 import com.muzammil.broski.feature.chat.transcript.TranscriptList
 import com.muzammil.broski.feature.chat.transcript.TranscriptState
-import com.muzammil.broski.feature.chat.transcript.laneStatus
 import com.muzammil.broski.feature.chat.transcript.rememberTranscriptState
 import com.muzammil.broski.feature.chat.work.WorkActions
 import com.muzammil.broski.feature.images.ImageLightbox
@@ -92,8 +90,6 @@ import uniffi.broski_core.isImagePath
 @Composable
 fun ChatLayout(model: ChatViewModel, context: FeatureContext, snackbar: SnackbarHostState, dialogs: ChatDialogs) {
     val density = LocalDensity.current
-    val rows by model.rows.collectAsStateWithLifecycle()
-    val live by model.live.collectAsStateWithLifecycle()
     val header by model.header.collectAsStateWithLifecycle()
     val revealed by model.revealed.collectAsStateWithLifecycle()
     val history by model.feed.history.collectAsStateWithLifecycle()
@@ -146,16 +142,14 @@ fun ChatLayout(model: ChatViewModel, context: FeatureContext, snackbar: Snackbar
         )
     }
     val links = remember(callbacks) { FormatLinks(callbacks.work.openFileAt) }
+    val openVoiceSettings = remember(context) { { context.navigate(VoiceRoute) } }
     lightbox?.let { request -> ImageLightbox(request) { lightbox = null } }
     val catalog by model.catalog.catalog.collectAsStateWithLifecycle()
     val names: (String) -> String = remember(catalog) { { id -> catalog.models.firstOrNull { it.id == id }?.displayName ?: id } }
     Box(Modifier.fillMaxSize().background(chatCanvas)) {
         CompositionLocalProvider(LocalFormatLinks provides links, LocalModelNames provides names) {
-            TranscriptList(
-                rows = rows,
-                lane = laneStatus(live.snapshot),
-                runStartedAt = live.snapshot.run?.startedAt,
-                imageStore = model.images,
+            TranscriptSection(
+                model = model,
                 state = transcript,
                 callbacks = callbacks,
                 contentPadding = with(density) { PaddingValues(top = topHeight.toDp() + 8.dp, bottom = bottomHeight.toDp() + 8.dp) },
@@ -167,23 +161,43 @@ fun ChatLayout(model: ChatViewModel, context: FeatureContext, snackbar: Snackbar
             Loading(connection, Modifier.align(Alignment.Center).padding(horizontal = 32.dp))
         }
         Header(model, context, dialogs, snackbar, Modifier.align(Alignment.TopCenter).onSizeChanged { topHeight = it.height })
-        ChatBottom(model, dialogs.openDiff, { context.navigate(VoiceRoute) }, Modifier.align(Alignment.BottomCenter).onSizeChanged { bottomHeight = it.height })
+        ChatBottom(model, dialogs.openDiff, openVoiceSettings, Modifier.align(Alignment.BottomCenter).onSizeChanged { bottomHeight = it.height })
         val bottom = with(density) { bottomHeight.toDp() }
         JumpToLatest(transcript, Modifier.align(Alignment.BottomCenter).padding(bottom = bottom + 12.dp))
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = bottom))
     }
 }
 
+/** Isolates 60 Hz streaming row updates from the header, composer, and overlays. */
+@Composable
+private fun TranscriptSection(
+    model: ChatViewModel,
+    state: TranscriptState,
+    callbacks: TranscriptCallbacks,
+    contentPadding: PaddingValues,
+    modifier: Modifier,
+) {
+    val rows by model.rows.collectAsStateWithLifecycle()
+    val lane by model.lane.collectAsStateWithLifecycle()
+    TranscriptList(
+        rows = rows,
+        lane = lane.lane,
+        runStartedAt = lane.runStartedAt,
+        imageStore = model.images,
+        state = state,
+        callbacks = callbacks,
+        contentPadding = contentPadding,
+        modifier = modifier,
+    )
+}
+
 @Composable
 private fun Header(model: ChatViewModel, context: FeatureContext, dialogs: ChatDialogs, snackbar: SnackbarHostState, modifier: Modifier) {
     val header by model.header.collectAsStateWithLifecycle()
-    val live by model.live.collectAsStateWithLifecycle()
-    val catalog by model.catalog.catalog.collectAsStateWithLifecycle()
+    val percent by model.contextPercent.collectAsStateWithLifecycle()
     var menuOpen by remember { mutableStateOf(false) }
     var infoOpen by rememberSaveable { mutableStateOf(false) }
     val copier = rememberChatCopier(snackbar)
-    val usage = live.snapshot.usage
-    val percent = contextPercent(usage?.contextTokens, usage?.contextWindow)
     val actions = sessionMenuActions(model, dialogs, snackbar, copier, folderLinks(model, context, header.cwd, snackbar)) { infoOpen = true }
     ChatTopBar(
         header = header,
@@ -195,6 +209,8 @@ private fun Header(model: ChatViewModel, context: FeatureContext, dialogs: ChatD
         modifier = modifier,
     )
     if (infoOpen) {
+        val live by model.live.collectAsStateWithLifecycle()
+        val catalog by model.catalog.catalog.collectAsStateWithLifecycle()
         val info = sessionInfo(header, model.feed.session, live.snapshot, catalog)
         val home by produceState<String?>(null, model) {
             value = (model.workspace.info() as? Answer.Done)?.value?.roots?.firstOrNull()

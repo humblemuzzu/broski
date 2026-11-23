@@ -64,3 +64,21 @@ fn a_queue_with_room_answers_every_ping() {
     assert_eq!(decode_frame(&first).kind, Kind::Pong);
     assert_eq!(take(&mut session).len(), 3);
 }
+
+#[test]
+fn keepalive_and_ack_overtake_a_queued_bulk_data_burst() {
+    let mut session = session();
+    let bulk = vec![0xAB; 512 * 1024];
+    session.send(1, &bulk, 0).expect("queued");
+    assert!(session.probe(100, 4_000));
+    session
+        .handle_frame(&ping(0), 100)
+        .expect("peer ping accepted");
+
+    let first = poll_frame(&mut session);
+    let second = poll_frame(&mut session);
+    let third = poll_frame(&mut session);
+    assert_eq!(decode_frame(&first).kind, Kind::Ping);
+    assert_eq!(decode_frame(&second).kind, Kind::Pong);
+    assert_eq!(decode_frame(&third).kind, Kind::Data);
+}

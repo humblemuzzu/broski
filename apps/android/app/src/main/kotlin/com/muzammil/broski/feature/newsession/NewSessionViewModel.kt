@@ -33,6 +33,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import uniffi.broski_contract.ClientMessage
 import uniffi.broski_contract.ModeSetting
 import uniffi.broski_contract.NewSessionOptions
@@ -144,6 +146,7 @@ class NewSessionViewModel(private val phone: PhoneSession, private val attachmen
     private val creating = MutableStateFlow(false)
     private val homes = MutableStateFlow<Map<String, String>>(emptyMap())
     private val events = MutableSharedFlow<NewSessionEvent>(extraBufferCapacity = 4)
+    private val imageLock = Mutex()
 
     val composer = ComposerState("", viewModelScope) {}
     private val reader = MutableStateFlow<CatalogReader?>(null)
@@ -208,8 +211,11 @@ class NewSessionViewModel(private val phone: PhoneSession, private val attachmen
 
     fun attachImage(uri: Uri) {
         viewModelScope.launch {
-            val image = attachments.read(uri, composer.imageBudget)
-            if (image == null) events.emit(NewSessionEvent.ImageTooLarge) else composer.add(image)
+            imageLock.withLock {
+                val budget = composer.imageBudget
+                val image = if (budget > 0) attachments.read(uri, budget) else null
+                if (image == null) events.emit(NewSessionEvent.ImageTooLarge) else composer.add(image)
+            }
         }
     }
 

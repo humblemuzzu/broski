@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.getAndUpdate
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import uniffi.broski_contract.ActionResult
 import uniffi.broski_contract.InteractionAnswer
 import uniffi.broski_contract.InteractionReply
@@ -41,6 +43,7 @@ class ChatActions(
     private val scope get() = model.viewModelScope
     private val client get() = model.feed.client
     private val mutableAnswers = MutableStateFlow<Map<String, AnswerState>>(emptyMap())
+    private val imageLock = Mutex()
 
     /** Interactions whose answer is on its way, or was too late; a card's buttons wait on it. */
     val answers: StateFlow<Map<String, AnswerState>> = mutableAnswers.asStateFlow()
@@ -139,8 +142,11 @@ class ChatActions(
 
     fun attachImage(uri: Uri) {
         scope.launch {
-            val image = images.read(uri, model.composer.imageBudget)
-            if (image == null) events.emit(ChatEvent.ImageTooLarge) else model.composer.add(image)
+            imageLock.withLock {
+                val budget = model.composer.imageBudget
+                val image = if (budget > 0) images.read(uri, budget) else null
+                if (image == null) events.emit(ChatEvent.ImageTooLarge) else model.composer.add(image)
+            }
         }
     }
 

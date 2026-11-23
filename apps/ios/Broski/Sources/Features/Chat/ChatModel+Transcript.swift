@@ -71,6 +71,12 @@ extension ChatModel {
         Array((history.items + settling + (snapshot.run?.items ?? [])).suffix(limit))
     }
 
+    struct LivePrefixKey: Equatable {
+        let historyRevision: Int
+        let settlingRevision: Int
+        let livePrefixRevision: Int
+    }
+
     /// Rebuilds finished transcript rows. Rows of a run that just ended keep the ids their live
     /// rows had, so disclosures stay open across run-end reconciliation.
     func rebuildHistory() {
@@ -82,16 +88,32 @@ extension ChatModel {
         historyRows = rowAliases.isEmpty ? rows : rows.map { row in
             rowAliases[row.id].map { ChatRow(id: $0, content: row.content, gap: row.gap) } ?? row
         }
+        historyRevision &+= 1
+        livePrefixCache = nil
         rebuildLive(arriving: false)
     }
 
     func rebuildLive(arriving: Bool = true) {
         let previous = historyRows.last
-        var timeline = ChatTimeline(after: previous)
-        timeline.add(settling)
+        let prefixKey = LivePrefixKey(
+            historyRevision: historyRevision,
+            settlingRevision: settlingRevision,
+            livePrefixRevision: state.livePrefixRevision)
+        var timeline: ChatTimeline
+        if let cached = livePrefixCache, cached.key == prefixKey {
+            timeline = cached.timeline
+        } else {
+            var fresh = ChatTimeline(after: previous)
+            fresh.add(settling)
+            if let run = snapshot.run {
+                fresh.addRunItems(run.items, tools: snapshot.tools)
+            }
+            livePrefixCache = (prefixKey, fresh)
+            timeline = fresh
+        }
         let pacedBlocks = pacer.sync(snapshot.blocks, animated: arriving && isRevealed && follow.isFollowing)
-        if let run = snapshot.run {
-            timeline.addLive(items: run.items, blocks: pacedBlocks, tools: snapshot.tools)
+        if snapshot.run != nil {
+            timeline.addOpenBlocks(pacedBlocks)
         }
         timeline.close(live: isRunning)
         for prompt in pending { timeline.append(pending: prompt) }

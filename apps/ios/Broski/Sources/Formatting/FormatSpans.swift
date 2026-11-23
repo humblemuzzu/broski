@@ -13,6 +13,13 @@ struct SpanStyle: Equatable {
 }
 
 enum FormatSpans {
+    static func hasChips(_ spans: [FormatSpan], style: SpanStyle) -> Bool {
+        spans.contains { span in
+            if let link = span.link, link.image { return true }
+            return style.inlineCodeStyle == .tinted && span.code && !opensFile(span.link, style: style)
+        }
+    }
+
     static func text(_ spans: [FormatSpan], style: SpanStyle) -> Text {
         var text = Text(verbatim: "")
         var run = AttributedString()

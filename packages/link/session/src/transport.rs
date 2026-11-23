@@ -28,6 +28,9 @@ pub(crate) type WsStream = WebSocketStream<MaybeTlsStream<TcpStream>>;
 const MAX_WIRE_MESSAGE: usize = 128 * 1024;
 /// Sealed frames waiting for the writer; past it the engine holds the next one itself.
 const OUT_FRAMES: usize = 64;
+/// Cap per-flush batching so a multi-megabyte burst flushes incrementally and never traps urgent
+/// keepalives or peer ACKs behind several megabytes of buffered frames.
+const WRITE_FLUSH_BYTES: usize = 128 * 1024;
 
 /// Why a dial opened no websocket.
 #[derive(Debug)]
@@ -298,10 +301,13 @@ impl Drop for Socket {
 
 async fn write(mut sink: SplitSink<WsStream, Message>, mut frames: mpsc::Receiver<Vec<u8>>) {
     while let Some(frame) = frames.recv().await {
+        let mut batched = frame.len();
         if sink.feed(Message::Binary(frame.into())).await.is_err() {
             return;
         }
-        while let Ok(frame) = frames.try_recv() {
+        while batched < WRITE_FLUSH_BYTES {
+            let Ok(frame) = frames.try_recv() else { break };
+            batched += frame.len();
             if sink.feed(Message::Binary(frame.into())).await.is_err() {
                 return;
             }

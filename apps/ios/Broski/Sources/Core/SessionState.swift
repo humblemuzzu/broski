@@ -23,6 +23,8 @@ struct SessionState: Equatable {
     private(set) var ended: ViewEnd?
     /// False while the view attaches again: the state is the last one known, not the session's now.
     private(set) var isLive = true
+    /// Bumped whenever `run`, `run.items`, or `tools` changes (not on streaming `blockTextChanged`).
+    private(set) var livePrefixRevision = 0
 
     var isRunning: Bool { snapshot.run != nil }
 
@@ -36,13 +38,17 @@ struct SessionState: Equatable {
             self.capabilities = capabilities
             self.snapshot = snapshot
             self.status = status
+            livePrefixRevision &+= 1
         case .changes(let changes, let status):
+            var prefixChanged = false
             for change in changes {
                 if case .runChanged(let run) = change, let ended = snapshot.run.ended(by: run) {
                     moments.append(.runEnded(ended.items))
                 }
+                if change.affectsLivePrefix { prefixChanged = true }
                 if let moment = snapshot.apply(change) { moments.append(moment) }
             }
+            if prefixChanged { livePrefixRevision &+= 1 }
             self.status = status
         case .live(let live):
             isLive = live
@@ -103,5 +109,16 @@ extension SessionSnapshot {
         case .extensionReceived(.rateLimit(let update)): return .rateLimit(update)
         }
         return nil
+    }
+}
+
+private extension SessionChange {
+    var affectsLivePrefix: Bool {
+        switch self {
+        case .runChanged, .runItemAppended, .runItemReplaced, .runItemsDropped, .toolOpened, .toolChanged, .toolClosed:
+            true
+        default:
+            false
+        }
     }
 }

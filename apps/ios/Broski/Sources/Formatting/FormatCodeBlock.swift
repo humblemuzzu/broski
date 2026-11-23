@@ -12,10 +12,21 @@ struct FormatCodeBlock: View {
     @Environment(Disclosure.self) private var disclosure: Disclosure?
     @Environment(\.disclosureKey) private var disclosureKey
     @State private var coloured: [CodeLine]?
+    @State private var colourRevision = 0
+    @State private var renderedKey: RenderedKey?
+    @State private var renderedText = AttributedString()
     @State private var unfoldedHere = false
     @State private var copied = 0
     @State private var showCopied = false
     @State private var moreToTheRight = false
+
+    private struct RenderedKey: Equatable {
+        let text: String
+        let language: String?
+        let colourRevision: Int
+        let limit: Int?
+        let shell: Bool
+    }
 
     private var unfolded: Bool {
         if let disclosure, let key = disclosureKey.map({ $0 + "/code" }) { disclosure.isOpen(key) } else { unfoldedHere }
@@ -30,7 +41,11 @@ struct FormatCodeBlock: View {
     }
 
     private var kind: CodeKind { CodeKind(language: code.language) }
-    private var plainLines: [Substring] { code.text.split(separator: "\n", omittingEmptySubsequences: false) }
+    private var lineCount: Int {
+        var count = 1
+        for byte in code.text.utf8 where byte == 0x0A { count += 1 }
+        return count
+    }
     private var wraps: Bool { code.prose || reading.wrapsCode || typeSize.isAccessibilitySize }
     private let inset: CGFloat = Spacing.m + 2
 
@@ -79,8 +94,9 @@ struct FormatCodeBlock: View {
                     .lineLimit(1)
                     .truncationMode(.head)
             }
-            if plainLines.count > FormatTokens.codeCountLines {
-                Text("^[\(plainLines.count) line](inflect: true)")
+            let count = lineCount
+            if count > FormatTokens.codeCountLines {
+                Text("^[\(count) line](inflect: true)")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                     .fixedSize()
@@ -115,13 +131,29 @@ struct FormatCodeBlock: View {
 
     @ViewBuilder
     private var lines: some View {
-        let folds = plainLines.count > FormatTokens.codeFoldLines && !unfolded
-        let text = Text(attributed(limit: folds ? FormatTokens.codeFoldLines : nil))
+        let total = lineCount
+        let folds = total > FormatTokens.codeFoldLines && !unfolded
+        let limit = folds ? FormatTokens.codeFoldLines : nil
+        let key = RenderedKey(
+            text: code.text, language: code.language, colourRevision: colourRevision,
+            limit: limit, shell: kind == .shell)
+        let shown = renderedKey == key ? renderedText : attributed(limit: limit)
+        let text = Text(shown)
             .font(.system(size: max(10, codeSize + reading.bodyPointOffset * 0.8), design: .monospaced))
             .lineSpacing(4)
             .padding(.horizontal, inset)
             .padding(.top, Spacing.m - 2)
             .padding(.bottom, folds ? Spacing.xs : Spacing.m)
+            .onAppear {
+                if renderedKey != key {
+                    renderedText = shown
+                    renderedKey = key
+                }
+            }
+            .onChange(of: key) { _, next in
+                renderedText = shown
+                renderedKey = next
+            }
         VStack(alignment: .leading, spacing: 0) {
             Group {
                 if wraps {
@@ -151,15 +183,15 @@ struct FormatCodeBlock: View {
                     Rectangle()
                 }
             }
-            if folds { foldButton }
+            if folds { foldButton(hidden: total - FormatTokens.codeFoldLines) }
         }
     }
 
-    private var foldButton: some View {
+    private func foldButton(hidden: Int) -> some View {
         Button {
             withAnimation(.easeOut(duration: 0.2)) { unfold() }
         } label: {
-            Text("Show ^[\(plainLines.count - FormatTokens.codeFoldLines) more line](inflect: true)")
+            Text("Show ^[\(hidden) more line](inflect: true)")
                 .font(.footnote.weight(.semibold))
                 .frame(maxWidth: .infinity, minHeight: 36)
                 .contentShape(.rect)
@@ -169,7 +201,7 @@ struct FormatCodeBlock: View {
     }
 
     private func attributed(limit: Int?) -> AttributedString {
-        let plain = plainLines
+        let plain = code.text.split(separator: "\n", omittingEmptySubsequences: false)
         let count = limit.map { min($0, plain.count) } ?? plain.count
         var text = AttributedString()
         for index in 0..<count {
@@ -200,11 +232,14 @@ struct FormatCodeBlock: View {
         let text = completedText
         guard !text.isEmpty, code.language != nil else { return }
         coloured = await Highlighter.shared.highlight(text, language: code.language)
+        colourRevision &+= 1
     }
 
     private var copyText: String {
         guard kind == .shell else { return code.text }
-        return plainLines.map { $0.hasPrefix("$ ") ? String($0.dropFirst(2)) : String($0) }.joined(separator: "\n")
+        return code.text.split(separator: "\n", omittingEmptySubsequences: false)
+            .map { $0.hasPrefix("$ ") ? String($0.dropFirst(2)) : String($0) }
+            .joined(separator: "\n")
     }
 
     private func copy() {

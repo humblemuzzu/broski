@@ -9,7 +9,7 @@
 import { chmodSync, existsSync, mkdirSync, renameSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { createServer, type Server, type Socket } from "node:net";
 import { PiProcess } from "../rpc/child";
-import { isRunDump, type JsonlItem } from "../rpc/jsonl";
+import { isRunDump, type JsonlItem, JsonlSplitter } from "../rpc/jsonl";
 import { BACKLOG_LIMITS, type BacklogLimits, BacklogWatch } from "./backlog";
 import { ORPHAN_LIMITS, type OrphanLimits, orphanDeadline } from "./orphan-policy";
 import {
@@ -154,10 +154,12 @@ export class Holder {
 		socket.write(controlLine({ holder: "live" }));
 		this.backlog?.stop();
 		this.backlog = new BacklogWatch(socket, this.clock, this.options.backlog ?? BACKLOG_LIMITS, () => socket.destroy());
-		socket.setEncoding("utf8");
-		let partial = "";
-		socket.on("data", (chunk: string) => {
-			if (this.client === socket) partial = this.fromBridge(partial + chunk);
+		const splitter = new JsonlSplitter();
+		socket.on("data", (chunk: Buffer) => {
+			if (this.client !== socket) return;
+			for (const item of splitter.push(chunk)) {
+				if (item.kind === "line") this.fromBridgeLine(item.text);
+			}
 		});
 		socket.on("error", () => undefined);
 		socket.on("close", () => {
@@ -169,16 +171,6 @@ export class Holder {
 			this.review();
 		});
 		if (this.exit !== undefined) this.tellAndEnd(socket, this.exit);
-	}
-
-	/** Complete lines go to `pi`; what follows the last newline waits for the rest, and goes if this bridge does. */
-	private fromBridge(text: string): string {
-		let start = 0;
-		for (let newline = text.indexOf("\n"); newline !== -1; newline = text.indexOf("\n", start)) {
-			this.fromBridgeLine(text.slice(start, newline));
-			start = newline + 1;
-		}
-		return text.slice(start);
 	}
 
 	private fromBridgeLine(line: string): void {

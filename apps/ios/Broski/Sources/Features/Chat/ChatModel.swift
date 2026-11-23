@@ -36,7 +36,12 @@ final class ChatModel {
     @ObservationIgnored let imageStore: ChatImageStore
     @ObservationIgnored private let attach: (SessionRef) throws -> SessionView
     @ObservationIgnored private let drafts: DraftStore
-    @ObservationIgnored var settling: [TranscriptItem] = []
+    @ObservationIgnored var settling: [TranscriptItem] = [] {
+        didSet { settlingRevision &+= 1 }
+    }
+    @ObservationIgnored var settlingRevision = 0
+    @ObservationIgnored var historyRevision = 0
+    @ObservationIgnored var livePrefixCache: (key: LivePrefixKey, timeline: ChatTimeline)?
     @ObservationIgnored private var firstPrompt: ComposerDraft?
     @ObservationIgnored var freshRowIDs: Set<String> = []
     @ObservationIgnored var pull: Task<Void, Never>?
@@ -82,6 +87,7 @@ final class ChatModel {
 
     func start() {
         guard pull == nil else { return }
+        if firstPrompt == nil { firstPrompt = drafts.takeFirstPrompt(for: target) }
         let view: SessionView
         do {
             view = try attach(session)
@@ -120,6 +126,7 @@ final class ChatModel {
         pull?.cancel()
         pull = nil
         pacer.reset()
+        livePrefixCache = nil
         state = SessionState()
         start()
     }

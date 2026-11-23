@@ -8,7 +8,7 @@ final class StreamingPacer {
     var onTick: () -> Void = {}
 
     private var targets: [String: String] = [:]
-    private var displayed: [String: String] = [:]
+    private var displayedBytes: [String: Int] = [:]
     private var link: CADisplayLink?
 
     /// Updates targets from the latest snapshot's open blocks and returns blocks with paced text.
@@ -16,7 +16,7 @@ final class StreamingPacer {
     func sync(_ blocks: [OpenBlock], animated: Bool) -> [OpenBlock] {
         let activeIDs = Set(blocks.map(\.blockId))
         targets = targets.filter { activeIDs.contains($0.key) }
-        displayed = displayed.filter { activeIDs.contains($0.key) }
+        displayedBytes = displayedBytes.filter { activeIDs.contains($0.key) }
 
         let pace = animated && !UIAccessibility.isReduceMotionEnabled
         var result: [OpenBlock] = []
@@ -25,21 +25,26 @@ final class StreamingPacer {
         for var block in blocks {
             let id = block.blockId
             let target = block.text
+            let targetBytes = target.utf8.count
             let previousTarget = targets[id]
             targets[id] = target
 
             if !pace {
-                displayed[id] = target
-            } else if let shown = displayed[id], target.hasPrefix(shown) {
-                // Keep advancing smoothly from the already-revealed prefix.
+                displayedBytes[id] = targetBytes
+            } else if let prev = previousTarget, let shownBytes = displayedBytes[id],
+                targetBytes >= shownBytes,
+                (target == prev || target.hasPrefix(prev))
+            {
+                // Keep advancing smoothly from the already-revealed UTF-8 byte offset.
             } else if previousTarget == nil {
-                displayed[id] = target.count <= 8 ? target : advance(from: "", toward: target)
+                displayedBytes[id] = targetBytes <= 8 ? targetBytes : advanceBytes(from: 0, in: target)
             } else {
                 // Non-prefix edit or reset: snap so we never slice an invalid index.
-                displayed[id] = target
+                displayedBytes[id] = targetBytes
             }
 
-            block.text = displayed[id] ?? target
+            let shownBytes = displayedBytes[id] ?? targetBytes
+            block.text = shownBytes >= targetBytes ? target : slice(target, utf8Bytes: shownBytes)
             result.append(block)
         }
 
@@ -49,14 +54,14 @@ final class StreamingPacer {
 
     /// Snaps all in-flight text to its final target and stops the display link.
     func flush() {
-        for (id, target) in targets { displayed[id] = target }
+        for (id, target) in targets { displayedBytes[id] = target.utf8.count }
         stop()
     }
 
     /// Clears all state and stops the display link (call when switching or leaving a session).
     func reset() {
         targets.removeAll()
-        displayed.removeAll()
+        displayedBytes.removeAll()
         stop()
     }
 
@@ -70,37 +75,35 @@ final class StreamingPacer {
         var stillPending = false
 
         for (id, target) in targets {
-            guard let shown = displayed[id], shown != target else { continue }
-            guard target.hasPrefix(shown) else {
-                displayed[id] = target
-                changed = true
-                continue
-            }
-            let next = advance(from: shown, toward: target)
-            if next != shown {
-                displayed[id] = next
+            let targetBytes = target.utf8.count
+            guard let shownBytes = displayedBytes[id], shownBytes < targetBytes else { continue }
+            let next = advanceBytes(from: shownBytes, in: target)
+            if next != shownBytes {
+                displayedBytes[id] = next
                 changed = true
             }
-            if next != target { stillPending = true }
+            if next < targetBytes { stillPending = true }
         }
 
         if !stillPending { stop() }
         if changed { onTick() }
     }
 
-    private func advance(from shown: String, toward target: String) -> String {
-        let start = shown.endIndex
-        let remaining = target[start...]
-        let backlog = remaining.count
-        guard backlog > 0 else { return target }
+    private func advanceBytes(from shownBytes: Int, in target: String) -> Int {
+        let targetBytes = target.utf8.count
+        let backlogBytes = targetBytes - shownBytes
+        guard backlogBytes > 0 else { return targetBytes }
 
-        let baseStep = max(2, Int(ceil(Double(backlog) / 5.0)))
-        guard baseStep < backlog else { return target }
+        let baseStep = max(2, Int(ceil(Double(backlogBytes) / 5.0)))
+        guard baseStep < backlogBytes else { return targetBytes }
 
-        var cut = target.index(start, offsetBy: baseStep)
+        let utf8 = target.utf8
+        let start = utf8.index(utf8.startIndex, offsetBy: shownBytes)
+        var cut = target.index(start, offsetBy: baseStep, limitedBy: target.endIndex) ?? target.endIndex
+        if cut >= target.endIndex { return targetBytes }
         // When catching up on longer bursts, snap slightly forward to the next word boundary so
         // whole words appear cleanly rather than flickering mid-word.
-        if backlog > 12 {
+        if backlogBytes > 12 {
             var lookahead = cut
             for _ in 0..<4 where lookahead < target.endIndex {
                 if target[lookahead].isWhitespace {
@@ -110,11 +113,17 @@ final class StreamingPacer {
                 lookahead = target.index(after: lookahead)
             }
         }
-        return String(target[..<cut])
+        return utf8.distance(from: utf8.startIndex, to: cut)
+    }
+
+    private func slice(_ target: String, utf8Bytes: Int) -> String {
+        let utf8 = target.utf8
+        let end = utf8.index(utf8.startIndex, offsetBy: min(utf8Bytes, utf8.count))
+        return String(target[..<end])
     }
 
     private func updateLink() {
-        let hasPending = targets.contains { displayed[$0.key] != $0.value }
+        let hasPending = targets.contains { (displayedBytes[$0.key] ?? 0) < $0.value.utf8.count }
         if hasPending {
             guard link == nil else { return }
             let displayLink = CADisplayLink(target: DisplayLinkProxy(self), selector: #selector(DisplayLinkProxy.step(_:)))

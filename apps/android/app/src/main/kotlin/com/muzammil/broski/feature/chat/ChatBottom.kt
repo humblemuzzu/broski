@@ -71,14 +71,13 @@ import com.muzammil.broski.feature.workspace.Answer
  */
 @Composable
 fun ChatBottom(model: ChatViewModel, openDiff: (FileChange) -> Unit, openVoiceSettings: () -> Unit, modifier: Modifier) {
-    val live by model.live.collectAsStateWithLifecycle()
+    val bottom by model.bottom.collectAsStateWithLifecycle()
     val notices by model.notices.collectAsStateWithLifecycle()
     val answers by model.actions.answers.collectAsStateWithLifecycle()
     val header by model.header.collectAsStateWithLifecycle()
     val agent = header.agent.name
-    val capabilities = live.capabilities
-    val snapshot = live.snapshot
-    val hasCards = snapshot.backgroundTasks.isNotEmpty() || live.ended != null || notices.isNotEmpty() || snapshot.queue.isNotEmpty()
+    val capabilities = bottom.capabilities
+    val hasCards = bottom.backgroundTasks.isNotEmpty() || bottom.ended != null || notices.isNotEmpty() || bottom.queue.isNotEmpty()
     Column(
         modifier.imePadding().navigationBarsPadding().padding(start = 12.dp, end = 12.dp, bottom = 4.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -88,15 +87,15 @@ fun ChatBottom(model: ChatViewModel, openDiff: (FileChange) -> Unit, openVoiceSe
                 Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                if (snapshot.backgroundTasks.isNotEmpty()) BackgroundTasksBar(snapshot.backgroundTasks)
-                live.ended?.let { end -> ViewEndCard(end, onRetry = model.feed::reattach) }
+                if (bottom.backgroundTasks.isNotEmpty()) BackgroundTasksBar(bottom.backgroundTasks)
+                bottom.ended?.let { end -> ViewEndCard(end, onRetry = model.feed::reattach) }
                 notices.forEach { notice -> NoticeCard(notice, onDismiss = { model.dismiss(notice) }) }
-                snapshot.queue.forEach { item ->
+                bottom.queue.forEach { item ->
                     QueuedRow(item, onCancel = if (capabilities?.cancelQueued == true) ({ model.actions.cancelQueued(item.id) }) else null)
                 }
             }
         }
-        val ask = snapshot.interactions.firstOrNull()
+        val ask = bottom.interactions.firstOrNull()
         var folded by rememberSaveable { mutableStateOf<String?>(null) }
         val shown = ask?.takeIf { it.id != folded }
         val focus = LocalFocusManager.current
@@ -110,7 +109,7 @@ fun ChatBottom(model: ChatViewModel, openDiff: (FileChange) -> Unit, openVoiceSe
             if (open != null) {
                 InteractionPanel(
                     open,
-                    waiting = snapshot.interactions.size,
+                    waiting = bottom.interactions.size,
                     context = CardContext(
                         agent = agent,
                         canAnswer = capabilities?.answer == true,
@@ -122,11 +121,11 @@ fun ChatBottom(model: ChatViewModel, openDiff: (FileChange) -> Unit, openVoiceSe
                 )
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ask?.let { AskPill(it, snapshot.interactions.size) { folded = null } }
+                    ask?.let { AskPill(it, bottom.interactions.size) { folded = null } }
                     if (capabilities?.controllable == false) {
                         WatchOnly()
                     } else {
-                        ChatComposer(model, running = snapshot.run != null, openVoiceSettings)
+                        ChatComposer(model, bottom = bottom, openVoiceSettings = openVoiceSettings)
                     }
                 }
             }
@@ -135,26 +134,28 @@ fun ChatBottom(model: ChatViewModel, openDiff: (FileChange) -> Unit, openVoiceSe
 }
 
 @Composable
-private fun ChatComposer(model: ChatViewModel, running: Boolean, openVoiceSettings: () -> Unit) {
+private fun ChatComposer(model: ChatViewModel, bottom: ChatBottomSlice, openVoiceSettings: () -> Unit) {
     val haptics = LocalHapticFeedback.current
     val focus = LocalFocusManager.current
-    val live by model.live.collectAsStateWithLifecycle()
+    val running = bottom.running
     val catalog by model.catalog.catalog.collectAsStateWithLifecycle()
     val command by model.composer.command.collectAsStateWithLifecycle()
     val images by model.composer.images.collectAsStateWithLifecycle()
     val text = model.composer.input.text.toString()
     val modes = catalog.capabilities?.promptModes ?: listOf(PromptMode.START)
-    val button = sendButton(running, text.isNotBlank() || command != null || images.isNotEmpty(), modes, live.started && live.capabilities?.controllable == true)
+    val button = sendButton(running, text.isNotBlank() || command != null || images.isNotEmpty(), modes, bottom.started && bottom.capabilities?.controllable == true)
     val picked by model.actions.picked.collectAsStateWithLifecycle()
-    val settings = ComposerSettings(
-        backend = model.sessionKey.backend,
-        models = catalog.models,
-        modelId = live.snapshot.modelId,
-        thinking = live.snapshot.thinking,
-        axes = catalog.modes,
-        modes = live.snapshot.modes.associate { it.axis to it.value },
-        cache = live.snapshot.usage?.cache,
-    ).showing(picked)
+    val settings = remember(model.sessionKey.backend, catalog.models, catalog.modes, bottom.modelId, bottom.thinking, bottom.modes, bottom.cache, picked) {
+        ComposerSettings(
+            backend = model.sessionKey.backend,
+            models = catalog.models,
+            modelId = bottom.modelId,
+            thinking = bottom.thinking,
+            axes = catalog.modes,
+            modes = bottom.modes.associate { it.axis to it.value },
+            cache = bottom.cache,
+        ).showing(picked)
+    }
     val actions = remember(model) {
         ComposerActions(
             onPress = { face ->

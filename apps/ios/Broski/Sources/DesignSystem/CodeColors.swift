@@ -56,38 +56,48 @@ final class Highlighter {
         let language: String?
     }
 
-    private var lines: [Key: [CodeLine]] = [:]
-    private var order: [Key] = []
+    private struct Entry {
+        let lines: [CodeLine]
+        var stamp: UInt64
+    }
+
+    private var entries: [Key: Entry] = [:]
+    private var tick: UInt64 = 0
     private let capacity = 256
 
     func cached(_ code: String, language: String?) -> [CodeLine]? {
         let key = Key(code: code, language: language)
-        guard let found = lines[key] else { return nil }
-        touch(key)
-        return found
+        guard var entry = entries[key] else { return nil }
+        tick &+= 1
+        entry.stamp = tick
+        entries[key] = entry
+        return entry.lines
     }
 
     func highlight(_ code: String, language: String?) async -> [CodeLine] {
         let key = Key(code: code, language: language)
-        if let known = lines[key] {
-            touch(key)
-            return known
+        if var known = entries[key] {
+            tick &+= 1
+            known.stamp = tick
+            entries[key] = known
+            return known.lines
         }
         let coloured = await Task.detached(priority: .userInitiated) {
             BroskiCore.highlight(code: code, language: language)
         }.value
-        lines[key] = coloured
-        touch(key)
-        while order.count > capacity {
-            let evicted = order.removeFirst()
-            lines.removeValue(forKey: evicted)
+        tick &+= 1
+        entries[key] = Entry(lines: coloured, stamp: tick)
+        if entries.count > capacity {
+            evictOldest()
         }
         return coloured
     }
 
-    private func touch(_ key: Key) {
-        if let existing = order.firstIndex(of: key) { order.remove(at: existing) }
-        order.append(key)
+    private func evictOldest() {
+        while entries.count > capacity {
+            guard let oldest = entries.min(by: { $0.value.stamp < $1.value.stamp })?.key else { break }
+            entries.removeValue(forKey: oldest)
+        }
     }
 
     static func plainLines(_ code: String) -> [CodeLine] {

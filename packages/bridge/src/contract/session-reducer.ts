@@ -19,7 +19,9 @@ export function sessionStatus(snapshot: SessionSnapshot): SessionStatus {
 /** The live state after `record`. This is the meaning of every event; adapters and clients agree with it. */
 export function applyEvent(snapshot: SessionSnapshot, record: Pick<SinkRecord, "at" | "event">): SessionSnapshot {
 	const live = applyToLiveState(snapshot, record);
-	return snapshot.run && live.run ? { ...live, run: nextRun(live.run, snapshot, record) } : live;
+	if (!snapshot.run || !live.run) return live;
+	const run = nextRun(live.run, snapshot, record);
+	return run === live.run ? live : { ...live, run };
 }
 
 function applyToLiveState(snapshot: SessionSnapshot, record: Pick<SinkRecord, "at" | "event">): SessionSnapshot {

@@ -33,15 +33,15 @@ private struct ChatContent: View {
     @Environment(AppModel.self) private var app
     @Environment(\.dismiss) private var dismiss
 
-    /// SwiftUI keeps the model of the first init for the screen's life, which is the one handed the
-    /// first prompt of a session just created.
+    /// SwiftUI keeps the model of the first init for the screen's life; the first prompt is
+    /// consumed inside `ChatModel.start()` so a speculative `View.init` can never drop it.
     init(machine: MachineModel, target: SessionTarget, drafts: DraftStore) {
         self.machine = machine
         let core = machine.machine
         _chat = State(
             initialValue: ChatModel(
                 target: target, requests: ChatRequests(machine: core), workspace: WorkspaceRequests(machine: core),
-                drafts: drafts, firstPrompt: drafts.takeFirstPrompt(for: target)
+                drafts: drafts
             ) { try core.attach(session: $0) })
     }
 

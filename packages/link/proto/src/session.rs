@@ -323,6 +323,17 @@ impl Session {
             }
         }
         let frame = Frame::control(kind, self.next_expected, payload);
-        self.out.push_back(Out::Ctrl(frame.encode()));
+        let ctrl = Out::Ctrl(frame.encode());
+        if kind == Kind::Close {
+            self.out.push_back(ctrl);
+        } else {
+            // Keepalives and ACKs must not sit behind a multi-megabyte DATA burst.
+            let at = self
+                .out
+                .iter()
+                .position(|out| matches!(out, Out::Data(_)))
+                .unwrap_or(self.out.len());
+            self.out.insert(at, ctrl);
+        }
     }
 }

@@ -1,5 +1,6 @@
 package com.muzammil.broski.feature.chat
 
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.muzammil.broski.core.MachineName
@@ -12,10 +13,13 @@ import com.muzammil.broski.core.voice.DictationTarget
 import com.muzammil.broski.feature.chat.composer.CatalogReader
 import com.muzammil.broski.feature.chat.composer.ComposerState
 import com.muzammil.broski.feature.chat.composer.ImageAttachments
+import com.muzammil.broski.feature.chat.header.contextPercent
 import com.muzammil.broski.feature.chat.transcript.ChatRow
+import com.muzammil.broski.feature.chat.transcript.LaneStatus
 import com.muzammil.broski.feature.chat.transcript.RowBuilder
 import com.muzammil.broski.feature.chat.transcript.RowInput
 import com.muzammil.broski.feature.chat.transcript.StreamingPacer
+import com.muzammil.broski.feature.chat.transcript.laneStatus
 import com.muzammil.broski.feature.images.ChatImageStore
 import com.muzammil.broski.feature.workspace.WorkspaceClient
 import kotlinx.coroutines.Dispatchers
@@ -37,8 +41,14 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import uniffi.broski_contract.BackgroundTask
 import uniffi.broski_contract.BlockKind
+import uniffi.broski_contract.CacheWindow
+import uniffi.broski_contract.Interaction
+import uniffi.broski_contract.ModeSetting
 import uniffi.broski_contract.NoticeLevel
+import uniffi.broski_contract.QueueItem
+import uniffi.broski_contract.SessionCapabilities
 import uniffi.broski_contract.SessionGetResult
 import uniffi.broski_contract.SessionRef
 import uniffi.broski_contract.SessionSummary
@@ -48,6 +58,26 @@ import uniffi.broski_core.DictationSources
 import uniffi.broski_core.Machine
 import uniffi.broski_core.SessionChange
 import uniffi.broski_core.ViewEnd
+
+/** Narrow bottom-bar state slice that stays equal across streaming text deltas. */
+@Immutable
+data class ChatBottomSlice(
+    val started: Boolean = false,
+    val capabilities: SessionCapabilities? = null,
+    val ended: ViewEnd? = null,
+    val running: Boolean = false,
+    val backgroundTasks: List<BackgroundTask> = emptyList(),
+    val queue: List<QueueItem> = emptyList(),
+    val interactions: List<Interaction> = emptyList(),
+    val modelId: String? = null,
+    val thinking: String? = null,
+    val modes: List<ModeSetting> = emptyList(),
+    val cache: CacheWindow? = null,
+)
+
+/** Narrow transcript status-lane slice that stays equal across streaming text deltas. */
+@Immutable
+data class ChatLaneSlice(val lane: LaneStatus? = null, val runStartedAt: Long? = null)
 
 /**
  * One chat: the session's live view and transcript, its catalog for the composer, and the
@@ -89,12 +119,45 @@ class ChatViewModel(
     private val rowBuilder = RowBuilder()
     private val pacer = StreamingPacer(viewModelScope)
 
+    private val historyItems: StateFlow<Pair<List<TranscriptItem>, Boolean>> =
+        combine(feed.history, feed.settled) { history, settled ->
+            (if (settled.isEmpty()) history.items else history.items + settled) to history.hasOlder
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList<TranscriptItem>() to false)
+
     val rows: StateFlow<List<ChatRow>> =
-        combine(feed.history, feed.settled, feed.live, feed.pending, pacer.blocks) { history, settled, live, pending, blocks ->
+        combine(historyItems, feed.live, feed.pending, pacer.blocks) { (items, hasOlder), live, pending, blocks ->
             val paced = if (live.snapshot.blocks.isEmpty()) emptyList() else blocks
             val snapshot = if (paced == live.snapshot.blocks) live.snapshot else live.snapshot.copy(blocks = paced)
-            RowInput(history.items + settled, snapshot, pending, history.hasOlder, System.currentTimeMillis())
+            RowInput(items, snapshot, pending, hasOlder, System.currentTimeMillis())
         }.mapLatest(rowBuilder::build).flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    val lane: StateFlow<ChatLaneSlice> =
+        feed.live.map { ChatLaneSlice(laneStatus(it.snapshot), it.snapshot.run?.startedAt) }
+            .distinctUntilChanged()
+            .stateIn(viewModelScope, SharingStarted.Eagerly, ChatLaneSlice())
+
+    val contextPercent: StateFlow<Int?> =
+        feed.live.map { contextPercent(it.snapshot.usage?.contextTokens, it.snapshot.usage?.contextWindow) }
+            .distinctUntilChanged()
+            .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    val bottom: StateFlow<ChatBottomSlice> =
+        feed.live.map { live ->
+            val s = live.snapshot
+            ChatBottomSlice(
+                started = live.started,
+                capabilities = live.capabilities,
+                ended = live.ended,
+                running = s.run != null,
+                backgroundTasks = s.backgroundTasks,
+                queue = s.queue,
+                interactions = s.interactions,
+                modelId = s.modelId,
+                thinking = s.thinking,
+                modes = s.modes,
+                cache = s.usage?.cache,
+            )
+        }.distinctUntilChanged().stateIn(viewModelScope, SharingStarted.Eagerly, ChatBottomSlice())
 
     val header: StateFlow<ChatHeader> =
         combine(mutableSummary, phone.inboxRows, phone.machines, feed.live.map { it.reconnecting }.distinctUntilChanged()) {
@@ -134,9 +197,12 @@ class ChatViewModel(
         }
         watchCatalog()
         viewModelScope.launch {
-            feed.live.collect { live ->
-                pacer.sync(live.snapshot.blocks, animated = revealed.value && live.snapshot.run != null)
-            }
+            feed.live
+                .map { it.snapshot.blocks to (it.snapshot.run != null) }
+                .distinctUntilChanged()
+                .collect { (blocks, running) ->
+                    pacer.sync(blocks, animated = revealed.value && running)
+                }
         }
         FirstPrompts.take(machineId, route)?.let { outgoing ->
             viewModelScope.launch {
@@ -162,14 +228,19 @@ class ChatViewModel(
             }
         }
         viewModelScope.launch {
-            combine(feed.history, feed.live) { history, live ->
-                history.items + live.snapshot.run?.items.orEmpty()
-            }.collect { items ->
-                items.forEach { item ->
-                    val message = (item as? TranscriptItem.UserMessage)?.v1 ?: return@forEach
-                    val requestId = message.clientRequestId ?: return@forEach
-                    if (message.attachments.isNotEmpty()) images.bindConfirmed(requestId, message.attachments)
+            val liveItems = feed.live.map { it.snapshot.run?.items.orEmpty() }.distinctUntilChanged()
+            combine(feed.history, liveItems) { history, items ->
+                history.items to items
+            }.collect { (history, items) ->
+                val bind: (TranscriptItem) -> Unit = { item ->
+                    val message = (item as? TranscriptItem.UserMessage)?.v1
+                    val requestId = message?.clientRequestId
+                    if (requestId != null && message.attachments.isNotEmpty()) {
+                        images.bindConfirmed(requestId, message.attachments)
+                    }
                 }
+                history.forEach(bind)
+                items.forEach(bind)
             }
         }
     }
