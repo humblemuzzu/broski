@@ -29,18 +29,19 @@ fun changeSections(status: GitStatusRead): List<ChangeSection> = listOf(
     ChangeSection(Area.Untracked, status.untracked.map { ChangeRow(it, null, null, null, null, Area.Untracked) }),
 ).filter { it.rows.isNotEmpty() }
 
-/** The one-letter mark git itself prints for a change. */
-val ChangeRow.letter: String
-    get() = when (change) {
-        null -> "U"
-        GitChange.ADDED -> "A"
-        GitChange.MODIFIED -> "M"
-        GitChange.DELETED -> "D"
-        GitChange.RENAMED -> "R"
-        GitChange.COPIED -> "C"
-        GitChange.TYPE_CHANGED -> "T"
-        GitChange.CONFLICTED -> "!"
-    }
+/** The one-letter mark git itself prints for a change; an untracked file has none, so `?`. */
+val ChangeRow.letter: String get() = letter(change)
+
+fun letter(change: GitChange?): String = when (change) {
+    null -> "?"
+    GitChange.ADDED -> "A"
+    GitChange.MODIFIED -> "M"
+    GitChange.DELETED -> "D"
+    GitChange.RENAMED -> "R"
+    GitChange.COPIED -> "C"
+    GitChange.TYPE_CHANGED -> "T"
+    GitChange.CONFLICTED -> "U"
+}
 
 /** The name `git.checkout` takes: a remote branch without its remote, which makes a local branch tracking it. */
 fun checkoutName(branch: GitBranch): String = if (branch.remote) branch.name.substringAfter('/') else branch.name

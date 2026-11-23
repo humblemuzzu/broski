@@ -27,6 +27,10 @@ class Navigator internal constructor(
     val entries: List<Route>
         get() = stacks.getValue(TopLevel.Inbox) + if (tab == TopLevel.Inbox) emptyList() else stacks.getValue(tab)
 
+    /** The chosen tab's own stack, its root first. */
+    val shown: List<Route>
+        get() = stacks.getValue(tab)
+
     /** Selecting the tab already shown goes back to its root. */
     fun select(target: TopLevel) {
         if (target == tab) {

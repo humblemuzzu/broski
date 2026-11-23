@@ -2,7 +2,11 @@ package com.muzammil.broski.design
 
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.ReadOnlyComposable
+import com.muzammil.broski.core.settings.DarkCanvas
+import com.muzammil.broski.design.format.LocalReading
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
@@ -33,7 +37,7 @@ internal val BroskiLightColors = lightColorScheme(
     surfaceTint = Color(0xFF1C1C1E),
     inverseSurface = Color(0xFF2C2C2E),
     inverseOnSurface = Color(0xFFF2F2F7),
-    error = Color(0xFFBA1A1A),
+    error = Color(0xFFFF3B30),
     onError = Color(0xFFFFFFFF),
     errorContainer = Color(0xFFFFDAD6),
     onErrorContainer = Color(0xFF93000A),
@@ -84,8 +88,8 @@ internal val BroskiDarkColors = darkColorScheme(
     surfaceTint = Color(0xFFF5F5F7),
     inverseSurface = Color(0xFFE5E5EA),
     inverseOnSurface = Color(0xFF1C1C1E),
-    error = Color(0xFFFFB4AB),
-    onError = Color(0xFF690005),
+    error = Color(0xFFFF453A),
+    onError = Color(0xFFFFFFFF),
     errorContainer = Color(0xFF93000A),
     onErrorContainer = Color(0xFFFFDAD6),
     outline = Color(0xFF8E8E93),
@@ -125,7 +129,18 @@ data class SemanticColors(
     val done: Color,
     val caution: Color,
     val highlight: Color,
+    /** The person's message bubble. */
+    val userBubble: Color,
+    /** The chat's page: pure white in light, pure black in dark. */
+    val canvas: Color,
+    /** The chat's page when the person picks Charcoal for dark. */
+    val canvasCharcoal: Color,
 )
+
+/** The chat's page, with the dark background the person picked in Appearance. */
+val chatCanvas: Color
+    @Composable @ReadOnlyComposable
+    get() = with(BroskiTheme.semantic) { if (LocalReading.current.darkCanvas == DarkCanvas.Charcoal) canvasCharcoal else canvas }
 
 internal val LightSemanticColors = SemanticColors(
     needsYou = Color(0xFFB45309),
@@ -133,6 +148,9 @@ internal val LightSemanticColors = SemanticColors(
     done = Color(0xFF15803D),
     caution = Color(0xFFB45309),
     highlight = Color(0xFF1D4ED8),
+    userBubble = Color(0xFFF0F0F3),
+    canvas = Color(0xFFFFFFFF),
+    canvasCharcoal = Color(0xFFFFFFFF),
 )
 internal val DarkSemanticColors = SemanticColors(
     needsYou = Color(0xFFFF9F0A),
@@ -140,6 +158,9 @@ internal val DarkSemanticColors = SemanticColors(
     done = Color(0xFF30D158),
     caution = Color(0xFFFF9F0A),
     highlight = Color(0xFF60A5FA),
+    userBubble = Color(0xFF1C1C1E),
+    canvas = Color(0xFF000000),
+    canvasCharcoal = Color(0xFF121214),
 )
 
 internal val LocalSemanticColors = staticCompositionLocalOf { LightSemanticColors }

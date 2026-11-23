@@ -28,7 +28,7 @@ object ComposerMetrics {
     val CONTROL = 36.dp
     val INSET = 8.dp
     val RADIUS = 26.dp
-    val GLYPH = 20.dp
+    val GLYPH = 17.dp
 }
 
 /** The round controls' and the model pill's fill: a soft step up from the composer's surface. */

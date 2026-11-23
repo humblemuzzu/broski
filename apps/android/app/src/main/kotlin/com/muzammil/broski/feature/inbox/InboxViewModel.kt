@@ -2,6 +2,8 @@ package com.muzammil.broski.feature.inbox
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.muzammil.broski.core.InboxFilter
+import com.muzammil.broski.core.InboxFilters
 import com.muzammil.broski.core.PhoneSession
 import com.muzammil.broski.core.SessionMark
 import com.muzammil.broski.core.sessionKey
@@ -18,26 +20,29 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import uniffi.broski_core.ClientException
 import uniffi.broski_core.InboxRow
+import uniffi.broski_core.InboxState
 
-class InboxViewModel(private val phone: PhoneSession) : ViewModel() {
-    private val workingOnly = MutableStateFlow(false)
+class InboxViewModel(private val phone: PhoneSession, private val filters: InboxFilters) : ViewModel() {
+    private val query = MutableStateFlow("")
     private val refreshing = MutableStateFlow(false)
     private val answering = MutableStateFlow<Set<String>>(emptySet())
     private val answerEvents = MutableSharedFlow<RowAnswer>(extraBufferCapacity = 8)
 
     private val marks = combine(phone.pinned, phone.muted, ::SessionMarks)
+    private val view = combine(filters.filter, query, refreshing, ::Triple)
 
     val state: StateFlow<InboxUiState> =
-        combine(phone.inboxRows, phone.machines, workingOnly, refreshing, combine(answering, marks, ::Pair)) {
-                rows, machines, only, pulling, (sending, marked) ->
-            inboxUiState(rows, machines, only, pulling, sending, marked)
+        combine(phone.inboxRows, phone.machines, view, combine(answering, marks, ::Pair)) {
+                rows, machines, (filter, searched, pulling), (sending, marked) ->
+            inboxUiState(rows, machines, filter, searched, pulling, sending, marked)
         }.stateIn(
             viewModelScope,
             SharingStarted.WhileSubscribed(5_000),
             inboxUiState(
                 phone.inboxRows.value,
                 phone.machines.value,
-                workingOnly = false,
+                filters.filter.value,
+                query = "",
                 refreshing = false,
                 marks = SessionMarks(phone.pinned.value, phone.muted.value),
             ),
@@ -46,9 +51,22 @@ class InboxViewModel(private val phone: PhoneSession) : ViewModel() {
     /** Each answer given from a row, once, for its haptic and what the screen says of it. */
     val answers: SharedFlow<RowAnswer> = answerEvents.asSharedFlow()
 
-    fun showWorkingOnly(only: Boolean) {
-        workingOnly.value = only
+    init {
+        // The working focus ends with the last working session, as it does on iOS.
+        viewModelScope.launch {
+            combine(phone.inboxRows, filters.filter, ::Pair).collect { (rows, filter) ->
+                if (filter.state == InboxState.WORKING && rows.none { it.state == InboxState.WORKING }) {
+                    filters.update { it.copy(state = null) }
+                }
+            }
+        }
     }
+
+    fun search(text: String) {
+        query.value = text
+    }
+
+    fun setFilter(filter: InboxFilter) = filters.set(filter)
 
     fun markAllSeen() {
         phone.markAllSeen()

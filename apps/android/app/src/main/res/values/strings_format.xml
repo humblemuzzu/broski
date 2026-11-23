@@ -2,7 +2,7 @@
 <resources>
     <string name="format_copy_code">Copy code</string>
     <string name="format_gallery">Formatting</string>
-    <string name="format_gallery_body">Every kind of text an agent writes, as the chat draws it</string>
+    <string name="format_gallery_body">Every kind of text an agent writes, drawn the way the chat draws it.</string>
     <string name="format_style_answer">Answer</string>
     <string name="format_style_quiet">Quiet</string>
     <string name="format_source">Source</string>
@@ -73,8 +73,9 @@
         <item quantity="other">%d fields</item>
     </plurals>
     <string name="format_reading">Reading &amp; Typography</string>
-    <string name="format_reading_size">Text size</string>
-    <string name="format_reading_size_system">14.5 sp (Default)</string>
+    <string name="format_reading_size">Text Size</string>
+    <string name="format_reading_size_value">%1$s sp</string>
+    <string name="format_reading_size_default">%1$s sp (Default)</string>
     <string name="format_reading_density">Spacing</string>
     <string name="format_reading_density_compact">Compact</string>
     <string name="format_reading_density_balanced">Balanced</string>
@@ -83,13 +84,12 @@
     <string name="format_reading_font_sans">Sans</string>
     <string name="format_reading_font_serif">Serif</string>
     <string name="format_reading_font_mono">Mono</string>
-    <string name="format_reading_inline_code">Inline code</string>
+    <string name="format_reading_inline_code">Inline Code</string>
     <string name="format_reading_inline_plain">Clean</string>
-    <string name="format_reading_inline_tinted">Subtle tint</string>
-    <string name="format_reading_compact">Compact spacing</string>
-    <string name="format_reading_wrap">Wrap code</string>
-    <string name="format_reading_underline">Underline links</string>
-    <string name="format_reading_footer">Adjusts text size, breathing room, typeface, and inline code across every chat and tool report.</string>
+    <string name="format_reading_inline_tinted">Subtle Tint</string>
+    <string name="format_reading_wrap">Wrap Code Blocks</string>
+    <string name="format_reading_underline">Underline Links</string>
+    <string name="format_reading_footer">Adjusts body size, line breathing, typeface, and inline code presentation across every chat and tool report.</string>
     <string name="format_smaller">Smaller</string>
     <string name="format_larger">Larger</string>
 </resources>

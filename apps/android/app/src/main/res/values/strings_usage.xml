@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="usage_section_label">Section</string>
+    <string name="usage_reading">Reading usage</string>
+    <string name="usage_plans_empty_title">No plans yet</string>
+    <string name="usage_plans_empty_offline">Your Mac reads your plans once it\'s connected.</string>
+    <string name="usage_plans_empty_ready">Sign in to Claude Code or Antigravity on your Mac, then pull to refresh.</string>
+
+    <string name="stats_empty_title">No stats yet</string>
+    <string name="stats_empty_offline">Your Mac reads your agents\' history once it\'s connected.</string>
+    <string name="stats_empty_ready">Nothing ran in this period. Pull to read your agents\' history again.</string>
+    <string name="stats_reading">Reading your agents\' history</string>
+
+    <string name="stats_metric_cost">Cost</string>
+    <string name="stats_metric_tokens">Tokens</string>
+    <string name="stats_caption_spent">Spent</string>
+    <string name="stats_caption_tokens">Tokens</string>
+    <string name="stats_caption_agent">%1$s · %2$s</string>
+
+    <string name="stats_previous_day">the day before</string>
+    <string name="stats_previous_week">the week before</string>
+    <string name="stats_previous_month">the previous 30 days</string>
+    <string name="stats_previous_quarter">the previous 90 days</string>
+    <string name="stats_previous_year">the year before</string>
+    <string name="stats_change_vs">%1$s vs %2$s</string>
+    <string name="stats_change_same">Same as %1$s</string>
+    <string name="stats_detail_join">%1$s · %2$s</string>
+    <string name="stats_most_by">most by %1$s</string>
+    <string name="stats_week_of">Week of %1$s</string>
+
+    <plurals name="stats_turns">
+        <item quantity="one">%1$s turn</item>
+        <item quantity="other">%1$s turns</item>
+    </plurals>
+    <plurals name="stats_sessions">
+        <item quantity="one">%1$s session</item>
+        <item quantity="other">%1$s sessions</item>
+    </plurals>
+    <plurals name="stats_runs">
+        <item quantity="one">%1$s run</item>
+        <item quantity="other">%1$s runs</item>
+    </plurals>
+    <string name="stats_failed">%1$s failed</string>
+
+    <string name="stats_chart_empty">Nothing ran in this period</string>
+    <string name="stats_chart_average">avg %1$s %2$s</string>
+    <string name="stats_per_hour">an hour</string>
+    <string name="stats_per_day">a day</string>
+    <string name="stats_per_week">a week</string>
+    <string name="stats_edge_now">Now</string>
+    <string name="stats_edge_today">Today</string>
+    <string name="stats_edge_this_week">This week</string>
+
+    <string name="stats_agents_title">Agents</string>
+    <string name="stats_agents_all">All agents</string>
+    <string name="stats_agents_show_only">Shows only %1$s</string>
+    <string name="stats_agents_show_every">Shows every agent</string>
+
+    <string name="stats_top_title">Top</string>
+    <string name="stats_top_models">Models</string>
+    <string name="stats_top_projects">Projects</string>
+    <string name="stats_top_subagents">Sub-agents</string>
+    <string name="stats_top_show_all">Show all %1$d</string>
+    <string name="stats_top_show_fewer">Show fewer</string>
+    <string name="stats_top_detail">%1$s · %2$s</string>
+    <string name="stats_tokens_count">%1$s tokens</string>
+
+    <string name="stats_types_title">By type</string>
+    <string name="stats_type_cache_read">Cache read</string>
+    <string name="stats_type_cache_write">Cache write</string>
+    <string name="stats_type_input">Input</string>
+    <string name="stats_type_output">Output</string>
+    <string name="stats_figure_cache_hit">Cache hit</string>
+    <string name="stats_figure_cache_saved">Saved by cache</string>
+    <string name="stats_figure_reasoning">Reasoning</string>
+    <string name="stats_figure_fast">Fast mode</string>
+
+    <string name="stats_note_scanning">Still reading your agents\' history.</string>
+    <string name="stats_note_provider">Costs are what each provider reported.</string>
+    <string name="stats_note_api">Costs are what the same use would cost at API prices.</string>
+    <plurals name="stats_note_unpriced">
+        <item quantity="one">%1$s turn has no price and counts as nothing.</item>
+        <item quantity="other">%1$s turns have no price and count as nothing.</item>
+    </plurals>
+
+    <string name="link_ms">%1$d ms</string>
+    <string name="link_route_lan">On this network</string>
+    <string name="link_route_relay">Through the relay</string>
+    <string name="link_route_join">%1$s · %2$s</string>
+    <string name="link_description">%1$s, %2$s</string>
+    <string name="link_description_trip">%1$s, %2$s, %3$d milliseconds</string>
+</resources>

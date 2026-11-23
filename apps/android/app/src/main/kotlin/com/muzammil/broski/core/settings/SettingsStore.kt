@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.emptyPreferences
+import com.muzammil.broski.core.InboxFilter
 import java.io.IOException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -27,6 +28,8 @@ data class AppSettings(
     val voice: VoiceSettings = VoiceSettings(),
     val reading: ReadingSettings = ReadingSettings(),
     val models: ModelPreferences = ModelPreferences(),
+    /** The inbox's agent, Mac and folder filter; never its state. */
+    val inbox: InboxFilter = InboxFilter(),
 )
 
 enum class ReadingDensity { Compact, Balanced, Airy }
@@ -35,11 +38,15 @@ enum class ReadingFont { Sans, Serif, Mono }
 
 enum class InlineCodeStyle { Plain, Tinted }
 
+/** The chat's page in dark: pure black for OLED contrast, or a charcoal a step above it. */
+enum class DarkCanvas { PureBlack, Charcoal }
+
 data class ReadingSettings(
     val sizeSteps: Int = 0,
     val density: ReadingDensity = ReadingDensity.Balanced,
     val font: ReadingFont = ReadingFont.Sans,
     val inlineCode: InlineCodeStyle = InlineCodeStyle.Plain,
+    val darkCanvas: DarkCanvas = DarkCanvas.PureBlack,
     val wrapsCode: Boolean = false,
     val underlinesLinks: Boolean = false,
 ) {
@@ -97,7 +104,19 @@ class SettingsStore(private val store: DataStore<Preferences>) {
             ),
             reading = reading(preferences),
             models = ModelPreferences.decoded(preferences[MODELS]),
+            inbox = InboxFilter(
+                backend = preferences[INBOX_AGENT],
+                machineId = preferences[INBOX_MACHINE],
+                folder = preferences[INBOX_FOLDER],
+            ),
         )
+    }
+
+    suspend fun setInboxFilter(filter: InboxFilter) {
+        store.edit { stored ->
+            listOf(INBOX_AGENT to filter.backend, INBOX_MACHINE to filter.machineId, INBOX_FOLDER to filter.folder)
+                .forEach { (key, value) -> if (value == null) stored.remove(key) else stored[key] = value }
+        }
     }
 
     suspend fun updateModels(change: (ModelPreferences) -> ModelPreferences) {
@@ -144,6 +163,7 @@ class SettingsStore(private val store: DataStore<Preferences>) {
             it[READING_DENSITY] = reading.density.name
             it[READING_FONT] = reading.font.name
             it[READING_INLINE_CODE] = reading.inlineCode.name
+            it[READING_DARK_CANVAS] = reading.darkCanvas.name
             it[READING_WRAPS_CODE] = reading.wrapsCode
             it[READING_UNDERLINES_LINKS] = reading.underlinesLinks
         }
@@ -155,6 +175,7 @@ class SettingsStore(private val store: DataStore<Preferences>) {
         val READING_DENSITY = stringPreferencesKey("reading.density")
         val READING_FONT = stringPreferencesKey("reading.font")
         val READING_INLINE_CODE = stringPreferencesKey("reading.inlineCode")
+        val READING_DARK_CANVAS = stringPreferencesKey("reading.darkCanvas")
         val READING_WRAPS_CODE = booleanPreferencesKey("reading.wrapsCode")
         val READING_UNDERLINES_LINKS = booleanPreferencesKey("reading.underlinesLinks")
 
@@ -173,6 +194,9 @@ class SettingsStore(private val store: DataStore<Preferences>) {
                 density = density,
                 font = font,
                 inlineCode = inlineCode,
+                darkCanvas = preferences[READING_DARK_CANVAS]
+                    ?.let { name -> DarkCanvas.entries.firstOrNull { it.name == name } }
+                    ?: DarkCanvas.PureBlack,
                 wrapsCode = preferences[READING_WRAPS_CODE] ?: false,
                 underlinesLinks = preferences[READING_UNDERLINES_LINKS] ?: false,
             )
@@ -187,6 +211,9 @@ class SettingsStore(private val store: DataStore<Preferences>) {
         val VOICE_PROJECT_WORDS = booleanPreferencesKey("voice.projectWords")
         val VOICE_DICTIONARY = stringPreferencesKey("voice.dictionary")
         val MODELS = stringPreferencesKey("models")
+        val INBOX_AGENT = stringPreferencesKey("inbox.agent")
+        val INBOX_MACHINE = stringPreferencesKey("inbox.machine")
+        val INBOX_FOLDER = stringPreferencesKey("inbox.folder")
 
         fun words(stored: String) = stored.split('\n').map { it.trim() }.filter { it.isNotEmpty() }
 

@@ -25,7 +25,7 @@ class SessionInfoTest {
     private val catalog = Catalog(
         models = listOf(
             ModelSummary(
-                "claude-opus", "Opus", null, null, null, 200_000, null,
+                "claude-opus", "Opus", null, "anthropic", "Anthropic", 200_000, null,
                 ThinkingSpec(listOf(ThinkingOption("high", "Think hard", null)), null), isDefault = false, unavailableReason = null,
             ),
         ),
@@ -36,7 +36,7 @@ class SessionInfoTest {
         Usage(12_345, 678, null, 4_000, null, costUsd, contextTokens, contextWindow, null)
 
     @Test
-    fun theCatalogNamesTheModelItsThinkingAndModesAndTheWindowFallsBackToTheModels() {
+    fun theCatalogNamesTheModelItsProviderThinkingAndModesAndOnlyTheReportedWindowCounts() {
         val snapshot = EmptySnapshot.copy(
             modelId = "claude-opus",
             thinking = "high",
@@ -44,10 +44,10 @@ class SessionInfoTest {
             usage = usage(contextTokens = 64_000),
         )
         val info = sessionInfo(header, session, snapshot, catalog)
-        assertEquals("Opus" to "claude-opus", info.model to info.modelId)
+        assertEquals("Opus" to "Anthropic", info.model to info.provider)
         assertEquals("Think hard", info.thinking)
         assertEquals(listOf("Permissions" to "Plan mode", "sandbox" to "strict"), info.modes)
-        assertEquals(200_000L, info.contextWindow)
+        assertNull("the model's window is not the session's", info.contextWindow)
         assertEquals("s-1" to "/Users/me/broski", info.sessionId to info.cwd)
     }
 
@@ -55,7 +55,7 @@ class SessionInfoTest {
     fun aModelTheCatalogDoesNotListIsShownByItsIdOnce() {
         val info = sessionInfo(header, session, EmptySnapshot.copy(modelId = "gpt-x", thinking = "max", usage = usage(contextWindow = 1_000)), catalog)
         assertEquals("gpt-x", info.model)
-        assertNull(info.modelId)
+        assertNull(info.provider)
         assertEquals("max", info.thinking)
         assertEquals("the snapshot's own window wins", 1_000L, info.contextWindow)
     }
@@ -73,14 +73,14 @@ class SessionInfoTest {
     fun onlyReportedTotalsAreListedAndTheCostReadsInDollars() {
         assertEquals(
             listOf(
-                UsageFact(R.string.info_input, "12,345"),
-                UsageFact(R.string.info_output, "678"),
-                UsageFact(R.string.info_cache_write, "4,000"),
-                UsageFact(R.string.info_cost, "$0.42"),
+                InfoLine(R.string.info_input, "12,345"),
+                InfoLine(R.string.info_output, "678"),
+                InfoLine(R.string.info_cache_write, "4,000"),
+                InfoLine(R.string.info_cost, "$0.42"),
             ),
             usage(costUsd = 0.4195).facts(Locale.US),
         )
-        assertEquals("<$0.01", cost(0.0021))
+        assertEquals("under a cent keeps its digits", "$0.0021", cost(0.0021))
         assertEquals("$0.00", cost(0.0))
         assertEquals("$12.50", cost(12.5))
     }

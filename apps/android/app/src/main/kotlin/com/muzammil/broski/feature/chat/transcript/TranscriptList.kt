@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -16,6 +16,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.muzammil.broski.design.format.AnswerMenu
 import com.muzammil.broski.design.format.menuLinks
@@ -68,26 +69,45 @@ fun TranscriptList(
         contentPadding = contentPadding,
         modifier = modifier.fillMaxSize().pointerInput(focus) { detectTapGestures(onTap = { focus.clearFocus() }) },
     ) {
-        item(key = "lane", contentType = "lane") { StatusLaneView(lane, runStartedAt, Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) }
-        items(rows, key = { it.key }, contentType = { it::class }) { row ->
-            Row(row, imageStore, state, callbacks) { answerOf(rows, row) }
+        item(key = "lane", contentType = "lane") {
+            StatusLaneView(lane, runStartedAt, Modifier.padding(start = SIDE_MARGIN, end = SIDE_MARGIN, top = 8.dp))
+        }
+        itemsIndexed(rows, key = { _, row -> row.key }, contentType = { _, row -> row::class }) { index, row ->
+            Row(row, gap(rows.getOrNull(index + 1), row), imageStore, state, callbacks) { answerOf(rows, row) }
         }
     }
 }
 
+/**
+ * The rhythm of the page, as iOS spaces it: messages apart, an answer's blocks spaced by the formatter
+ * itself, the work and activity of a turn close together. [older] is the row above [row] on the page.
+ */
+private fun gap(older: ChatRow?, row: ChatRow): Dp = when {
+    older == null || older is ChatRow.Older -> 0.dp
+    row is ChatRow.User -> 28.dp
+    row is ChatRow.Text && older is ChatRow.Text && !row.first -> 0.dp
+    row is ChatRow.CopyAnswer -> 6.dp
+    row.isWork && older.isWork -> 2.dp
+    older is ChatRow.User -> 18.dp
+    older is ChatRow.Work && row is ChatRow.Text -> 10.dp
+    else -> 14.dp
+}
+
+private val ChatRow.isWork: Boolean get() = this is ChatRow.Work || this is ChatRow.Activity
+
 @Composable
-private fun Row(row: ChatRow, imageStore: ChatImageStore, state: TranscriptState, callbacks: TranscriptCallbacks, answer: () -> String?) {
-    val padded = Modifier.padding(horizontal = SIDE_MARGIN).entrance(row.at)
+private fun Row(row: ChatRow, gap: Dp, imageStore: ChatImageStore, state: TranscriptState, callbacks: TranscriptCallbacks, answer: () -> String?) {
+    val padded = Modifier.padding(top = gap).padding(horizontal = SIDE_MARGIN).entrance(row.at)
     when (row) {
-        is ChatRow.User -> UserBubble(row, imageStore, callbacks.openImages, padded.padding(top = 20.dp, bottom = 4.dp))
-        is ChatRow.Text -> AnswerMenu(answer, padded.padding(top = if (row.first) 12.dp else 0.dp), links = remember(row.block) { row.block.menuLinks() }) {
+        is ChatRow.User -> UserBubble(row, imageStore, callbacks.openImages, padded)
+        is ChatRow.Text -> AnswerMenu(answer, padded, links = remember(row.block) { row.block.menuLinks() }) {
             CompositionLocalProvider(LocalFormatBleed provides SIDE_MARGIN) {
                 FormatBlockView(row.block, next = row.next, streaming = row.streaming)
             }
         }
-        is ChatRow.CopyAnswer -> Column {
-            if (row.sources.isNotEmpty()) SourcesList(row.sources, Modifier.padding(start = SIDE_MARGIN, end = SIDE_MARGIN, top = 12.dp))
-            CopyAnswerRow(row.text, Modifier.padding(horizontal = 8.dp))
+        is ChatRow.CopyAnswer -> Column(Modifier.padding(top = gap)) {
+            if (row.sources.isNotEmpty()) SourcesList(row.sources, Modifier.padding(start = SIDE_MARGIN, end = SIDE_MARGIN, bottom = 8.dp))
+            CopyAnswerRow(row.text, row.at, Modifier.padding(horizontal = SIDE_MARGIN))
         }
         is ChatRow.Work -> WorkFoldRow(
             fold = row.fold,
@@ -96,16 +116,16 @@ private fun Row(row: ChatRow, imageStore: ChatImageStore, state: TranscriptState
             entryExpanded = { it in state.openEntries },
             onToggleEntry = { state.openEntries.toggle(it) },
             actions = callbacks.work,
-            modifier = padded.padding(top = 8.dp),
+            modifier = padded,
         )
-        is ChatRow.Note -> NoteRow(row.note, padded.padding(vertical = 12.dp))
+        is ChatRow.Note -> NoteRow(row.note, padded)
         is ChatRow.Activity -> ActivityRow(
             activity = row.activity,
             look = row.look,
             expanded = row.key in state.openEntries,
             onToggle = { state.openEntries.toggle(row.key) },
             actions = callbacks.work,
-            modifier = padded.padding(top = 2.dp),
+            modifier = padded,
         )
         is ChatRow.Older -> OlderRow()
     }

@@ -119,9 +119,10 @@ fun TerminalCanvas(
 @Composable
 private fun rememberRenderer(terminal: TerminalViewModel, font: TerminalFont): TerminalRenderer {
     val scheme = MaterialTheme.colorScheme
-    val foreground = scheme.onSurface.toArgb()
-    val background = scheme.surfaceContainerLowest.toArgb()
-    val cursor = scheme.primary.toArgb()
+    val palette = TerminalPalette.current
+    val foreground = palette.foreground.toArgb()
+    val background = palette.background.toArgb()
+    val cursor = palette.cursor.toArgb()
     LaunchedEffect(foreground, background, cursor) { terminal.setColors(foreground, background, cursor) }
     val colors = TerminalColors(selection = scheme.primaryContainer.toArgb(), onSelection = scheme.onPrimaryContainer.toArgb(), cursor = cursor)
     return remember(font, colors) { TerminalRenderer(font, colors) }

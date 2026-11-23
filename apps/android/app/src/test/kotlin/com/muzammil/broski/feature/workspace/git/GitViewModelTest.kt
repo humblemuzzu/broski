@@ -90,7 +90,7 @@ class GitViewModelTest {
         val readme = sections[0].rows.single()
         assertEquals(Triple("M", 2L, 1L), Triple(readme.letter, readme.additions, readme.deletions))
         val todo = sections[1].rows.single()
-        assertEquals(Triple("todo.txt", "notes", "U"), Triple(todo.name, todo.folder, todo.letter))
+        assertEquals(Triple("todo.txt", "notes", "?"), Triple(todo.name, todo.folder, todo.letter))
         assertEquals(listOf("first commit"), git.state.value.log.map { it.subject })
     }
 

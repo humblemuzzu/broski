@@ -71,7 +71,9 @@ fun ChatScreen(context: FeatureContext, route: SessionRoute) {
     )
     val title = header.title ?: stringResource(R.string.inbox_untitled)
     if (renaming) RenameDialog(title, onRename = { renaming = false; model.actions.rename(it) }, onDismiss = { renaming = false })
-    if (deleting) DeleteDialog(title, onDelete = { deleting = false; model.actions.delete() }, onDismiss = { deleting = false })
+    if (deleting) {
+        DeleteDialog(header.agent.name, header.machineName, onDelete = { deleting = false; model.actions.delete() }, onDismiss = { deleting = false })
+    }
     diff?.let { change -> DiffSheet(change) { diff = null } }
     page?.let { shown -> TextSheet(shown) { page = null } }
 }

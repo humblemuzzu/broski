@@ -13,6 +13,11 @@ import androidx.compose.foundation.content.hasMediaType
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -49,7 +54,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.muzammil.broski.R
 import com.muzammil.broski.core.voice.DictationPhase
 import com.muzammil.broski.design.animationsEnabled
-import com.muzammil.broski.design.beam.borderBeam
+import androidx.compose.foundation.BorderStroke
+import com.muzammil.broski.design.Glass
+import com.muzammil.broski.design.glassShadow
 import com.muzammil.broski.design.voiceglow.voiceGlow
 import com.muzammil.broski.feature.chat.composer.dictation.DictationHaptics
 import com.muzammil.broski.feature.chat.composer.dictation.DictationHook
@@ -107,29 +114,30 @@ fun Composer(
     dictation?.let { DictationHaptics(it) }
     val requester = focus ?: remember { FocusRequester() }
     var focused by remember { mutableStateOf(false) }
+    ReleaseFocusWithKeyboard(focused)
     var pickingModel by rememberSaveable { mutableStateOf(false) }
     var refocusAfterSheet by remember { mutableStateOf(false) }
     val hasInput = state.input.text.isNotBlank() || images.isNotEmpty() || command != null
     val open = focused || hasInput || failed
     val progress by animateFloatAsState(
         if (open) 1f else 0f,
-        if (animationsEnabled()) spring(dampingRatio = 0.9f, stiffness = Spring.StiffnessMediumLow) else spring(stiffness = Spring.StiffnessHigh),
+        if (animationsEnabled()) spring(dampingRatio = 0.87f, stiffness = 340f) else spring(stiffness = Spring.StiffnessHigh),
         label = "composer",
     )
     val placeholder = if (!open && dictation != null && !look.running) stringResource(R.string.composer_placeholder_resting) else look.placeholder
     val showsSend = dictation == null || look.button.face != SendFace.Send || hasInput
     val radius = ComposerMetrics.RADIUS
+    val shape = RoundedCornerShape(radius)
     Surface(
         modifier = modifier.fillMaxWidth()
-            .borderBeam(active = look.running && animationsEnabled(), cornerRadius = radius)
+            .glassShadow(shape)
             .then(
                 dictation?.let { hook -> Modifier.voiceGlow(level = { hook.dictation.level }, active = listening, cornerRadius = radius) }
                     ?: Modifier,
             ),
-        shape = RoundedCornerShape(radius),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        tonalElevation = 2.dp,
-        shadowElevation = 2.dp,
+        shape = shape,
+        color = Glass.fill,
+        border = BorderStroke(0.5.dp, Glass.edge),
     ) {
         Column(
             Modifier
@@ -185,6 +193,28 @@ fun Composer(
             if (refocusAfterSheet) {
                 refocusAfterSheet = false
                 requester.requestFocus()
+            }
+        }
+    }
+}
+
+/**
+ * Hiding the keyboard ends the writing, as on iOS: once the keyboard has shown for the focused field,
+ * its going away clears the focus and the composer folds back to its pill.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ReleaseFocusWithKeyboard(focused: Boolean) {
+    val keyboard = WindowInsets.isImeVisible
+    val focusManager = LocalFocusManager.current
+    var shown by remember { mutableStateOf(false) }
+    LaunchedEffect(keyboard, focused) {
+        when {
+            !focused -> shown = false
+            keyboard -> shown = true
+            shown -> {
+                shown = false
+                focusManager.clearFocus()
             }
         }
     }

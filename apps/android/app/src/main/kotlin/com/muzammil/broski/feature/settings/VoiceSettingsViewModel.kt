@@ -58,7 +58,7 @@ class VoiceSettingsViewModel(private val store: SettingsStore, settings: StateFl
                 dictation.removeKey()
                 KeyStatus.None
             } catch (error: IOException) {
-                KeyStatus.Failed(DictationProblem(R.string.voice_key_not_saved, error.message, DictationProblem.Fix.None))
+                KeyStatus.Failed(DictationProblem(R.string.voice_key_not_removed, error.message, DictationProblem.Fix.None))
             }
         }
     }

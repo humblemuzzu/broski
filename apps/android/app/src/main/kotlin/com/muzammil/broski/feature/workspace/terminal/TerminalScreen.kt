@@ -7,14 +7,12 @@ import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -23,6 +21,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.unit.dp
@@ -56,9 +55,11 @@ fun TerminalScreen(context: FeatureContext, route: TerminalRoute) {
         val scope = rememberCoroutineScope()
         val resources = LocalResources.current
         var closing by rememberSaveable { mutableStateOf(false) }
+        val palette = TerminalPalette.current
         Scaffold(
+            containerColor = palette.background,
             topBar = {
-                PathTopBar(lastComponent(route.cwd), route.cwd, context.back) {
+                PathTopBar(lastComponent(route.cwd), route.cwd, context.back, containerColor = Color.Transparent) {
                     TerminalMenu(onCopyAll = clipboard.copyAll, onClose = { closing = true })
                 }
             },
@@ -66,8 +67,9 @@ fun TerminalScreen(context: FeatureContext, route: TerminalRoute) {
         ) { padding ->
             Column(Modifier.padding(padding).consumeWindowInsets(padding).imePadding().fillMaxSize()) {
                 MachineBanner(machineState)
-                TerminalBody(terminal, keyboard, clipboard, state, Modifier.weight(1f))
-                if (state == TerminalState.Live) AccessoryRow(keyboard, onPaste = clipboard.paste)
+                TerminalNote(state)
+                TerminalBody(terminal, keyboard, clipboard, state, palette, Modifier.weight(1f))
+                AccessoryRow(keyboard, enabled = state == TerminalState.Live, onPaste = clipboard.paste)
             }
         }
         if (closing) {
@@ -94,23 +96,24 @@ private fun TerminalBody(
     keyboard: TerminalKeyboard,
     clipboard: TerminalClipboard,
     state: TerminalState,
+    palette: TerminalPalette,
     modifier: Modifier,
 ) {
     val context = LocalContext.current
     val typeface = remember { requireNotNull(ResourcesCompat.getFont(context, R.font.jetbrains_mono)) }
-    var fontSize by rememberSaveable { mutableFloatStateOf(DEFAULT_FONT_SIZE) }
+    val (fontSize, setFontSize) = rememberTerminalFontSize()
     var selecting by rememberSaveable { mutableStateOf(false) }
     val focus = remember { FocusRequester() }
     val screen by terminal.screen.collectAsStateWithLifecycle()
-    LaunchedEffect(state) { if (state == TerminalState.Live) focus.requestFocus() }
-    Box(modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainerLowest)) {
+    LaunchedEffect(state) { if (state == TerminalState.Live || state == TerminalState.Opening) focus.requestFocus() }
+    Box(modifier.fillMaxSize().background(palette.background)) {
         TerminalCanvas(
             terminal = terminal,
             keyboard = keyboard,
             typeface = typeface,
             fontSize = fontSize,
             focus = focus,
-            callbacks = TerminalCanvasCallbacks(onFontSize = { fontSize = it }, onSelected = { selecting = true }),
+            callbacks = TerminalCanvasCallbacks(onFontSize = setFontSize, onSelected = { selecting = true }),
             modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 6.dp),
         )
         SelectionBar(
@@ -128,12 +131,5 @@ private fun TerminalBody(
         if (!screen.scrollback.atBottom) {
             JumpToBottom(terminal::scrollToBottom, Modifier.align(Alignment.BottomEnd).padding(16.dp))
         }
-        when (state) {
-            TerminalState.Live -> Unit
-            is TerminalState.Exited -> EndedBanner(state, Modifier.align(Alignment.BottomCenter))
-            is TerminalState.Failed -> EndedBanner(state, Modifier.align(Alignment.BottomCenter))
-        }
     }
 }
-
-private const val DEFAULT_FONT_SIZE = 13f

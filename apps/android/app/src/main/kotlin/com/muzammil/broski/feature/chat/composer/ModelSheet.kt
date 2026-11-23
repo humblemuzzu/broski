@@ -38,7 +38,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
 import com.muzammil.broski.core.settings.ModelPreferences
+import androidx.compose.runtime.CompositionLocalProvider
+import com.muzammil.broski.design.Grouped
 import com.muzammil.broski.design.GroupedRow
+import com.muzammil.broski.design.LocalGroupedSheet
 import com.muzammil.broski.design.Haptic
 import com.muzammil.broski.design.perform
 import com.muzammil.broski.feature.chat.CacheSwitchNotice
@@ -87,39 +90,45 @@ fun ModelSheet(settings: ComposerSettings, actions: SettingActions, onDismiss: (
     }
 
     BackHandler(enabled = page != Page.Models) { page = Page.Models }
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)) {
-        SheetHeader(
-            title = when (val shown = page) {
-                Page.Models -> stringResource(R.string.composer_model)
-                Page.Thinking -> stringResource(R.string.composer_thinking)
-                is Page.Mode -> settings.axes.firstOrNull { it.id == shown.axis }?.label.orEmpty()
-                Page.AllModels -> stringResource(R.string.composer_all_models)
-            },
-            back = page != Page.Models,
-            onLeading = { if (page == Page.Models) onDismiss() else page = Page.Models },
-        )
-        AnimatedContent(page, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "model sheet") { shown ->
-            when (shown) {
-                Page.Models -> LazyColumn { modelsPage(settings, preferences, backend, ::pick) { page = it } }
-                Page.Thinking -> current?.let { model ->
-                    OptionPage(
-                        model.thinking.options.map { Choice(it.value, it.label ?: it.value.replaceFirstChar(Char::uppercase), it.description) },
-                        chosen = settings.thinking ?: model.thinking.defaultValue,
-                    ) { value ->
-                        haptics.perform(Haptic.PickerStep)
-                        preferences.update { it.remembering(value, model.id, backend) }
-                        actions.thinking(value)
-                        page = Page.Models
+    CompositionLocalProvider(LocalGroupedSheet provides true) {
+        ModalBottomSheet(
+            onDismissRequest = onDismiss,
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false),
+            containerColor = Grouped.screen,
+        ) {
+            SheetHeader(
+                title = when (val shown = page) {
+                    Page.Models -> stringResource(R.string.composer_model)
+                    Page.Thinking -> stringResource(R.string.composer_thinking)
+                    is Page.Mode -> settings.axes.firstOrNull { it.id == shown.axis }?.label.orEmpty()
+                    Page.AllModels -> stringResource(R.string.composer_all_models)
+                },
+                back = page != Page.Models,
+                onLeading = { if (page == Page.Models) onDismiss() else page = Page.Models },
+            )
+            AnimatedContent(page, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "model sheet") { shown ->
+                when (shown) {
+                    Page.Models -> LazyColumn { modelsPage(settings, preferences, backend, ::pick) { page = it } }
+                    Page.Thinking -> current?.let { model ->
+                        OptionPage(
+                            model.thinking.options.map { Choice(it.value, it.label ?: it.value.replaceFirstChar(Char::uppercase), it.description) },
+                            chosen = settings.thinking ?: model.thinking.defaultValue,
+                        ) { value ->
+                            haptics.perform(Haptic.PickerStep)
+                            preferences.update { it.remembering(value, model.id, backend) }
+                            actions.thinking(value)
+                            page = Page.Models
+                        }
                     }
-                }
-                is Page.Mode -> settings.axes.firstOrNull { it.id == shown.axis }?.let { axis ->
-                    OptionPage(axis.options.map { Choice(it.value, it.label, it.description) }, chosen = settings.modes[axis.id] ?: axis.usualValue) { value ->
-                        haptics.perform(Haptic.PickerStep)
-                        actions.mode(axis.id, value)
-                        page = Page.Models
+                    is Page.Mode -> settings.axes.firstOrNull { it.id == shown.axis }?.let { axis ->
+                        OptionPage(axis.options.map { Choice(it.value, it.label, it.description) }, chosen = settings.modes[axis.id] ?: axis.usualValue) { value ->
+                            haptics.perform(Haptic.PickerStep)
+                            actions.mode(axis.id, value)
+                            page = Page.Models
+                        }
                     }
+                    Page.AllModels -> ModelBrowser(settings.models, current?.id, backend, ::pick)
                 }
-                Page.AllModels -> ModelBrowser(settings.models, current?.id, backend, ::pick)
             }
         }
     }
@@ -220,7 +229,7 @@ private fun SheetHeader(title: String, back: Boolean, onLeading: () -> Unit) {
     Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 8.dp)) {
         IconButton(onClick = onLeading, modifier = Modifier.align(Alignment.CenterStart)) {
             Icon(
-                painterResource(if (back) R.drawable.ic_arrow_back else R.drawable.ic_close),
+                painterResource(if (back) R.drawable.ic_chevron_left else R.drawable.ic_close),
                 contentDescription = stringResource(if (back) R.string.composer_back else R.string.composer_close),
             )
         }

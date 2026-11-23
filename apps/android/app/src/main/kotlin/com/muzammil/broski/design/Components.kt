@@ -32,8 +32,8 @@ import androidx.compose.ui.unit.dp
  */
 @Composable
 fun groupedListItemColors(): ListItemColors = ListItemDefaults.segmentedColors(
-    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-    selectedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+    containerColor = Grouped.card,
+    selectedContainerColor = Grouped.card,
     selectedContentColor = MaterialTheme.colorScheme.onSurface,
     selectedSupportingContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
 )
@@ -88,12 +88,14 @@ fun EmptyState(
             textAlign = TextAlign.Center,
             modifier = Modifier.semantics { heading() },
         )
-        Text(
-            body,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
+        if (body.isNotEmpty()) {
+            Text(
+                body,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+        }
         action?.invoke()
     }
 }

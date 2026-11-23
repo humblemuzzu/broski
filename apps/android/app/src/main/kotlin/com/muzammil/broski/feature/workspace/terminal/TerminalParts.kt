@@ -8,6 +8,8 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -39,13 +41,14 @@ import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
 import com.muzammil.broski.design.BroskiMotion
 import com.muzammil.broski.design.mono
+import com.muzammil.broski.feature.workspace.WorkspaceType
 
 @Composable
 fun TerminalMenu(onCopyAll: () -> Unit, onClose: () -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { open = true }) {
-            Icon(painterResource(R.drawable.ic_more_vert), contentDescription = stringResource(R.string.files_more))
+            Icon(painterResource(R.drawable.ic_more_horiz), contentDescription = stringResource(R.string.files_more))
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             DropdownMenuItem(
@@ -126,27 +129,28 @@ fun JumpToBottom(onClick: () -> Unit, modifier: Modifier = Modifier) {
     }
 }
 
-/** How the terminal ended, in words, over its last screen. */
+/** What the terminal is doing, or how it ended, as a plain centred line under the bar. */
 @Composable
-fun EndedBanner(state: TerminalState, modifier: Modifier = Modifier) {
-    val text = when (state) {
-        is TerminalState.Exited -> when {
-            state.signal != null -> stringResource(R.string.terminal_exited_signal, state.signal)
-            state.exitCode != null -> stringResource(R.string.terminal_exited_code, state.exitCode)
-            else -> stringResource(R.string.terminal_exited)
-        }
-        is TerminalState.Failed -> stringResource(R.string.terminal_failed, state.message.orEmpty())
+fun TerminalNote(state: TerminalState, modifier: Modifier = Modifier) {
+    val (icon, text) = when (state) {
+        TerminalState.Opening -> R.drawable.ic_schedule to stringResource(R.string.terminal_opening)
+        is TerminalState.Exited -> R.drawable.ic_stop to exitText(state)
+        is TerminalState.Failed -> R.drawable.ic_warning to (state.message ?: stringResource(R.string.workspace_failure_closed))
         TerminalState.Live -> return
     }
-    Surface(
-        color = MaterialTheme.colorScheme.secondaryContainer,
-        shape = MaterialTheme.shapes.large,
-        modifier = modifier.fillMaxWidth().padding(16.dp),
+    Row(
+        modifier = modifier.fillMaxWidth().padding(vertical = 8.dp).semantics { liveRegion = LiveRegionMode.Polite },
+        horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text,
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.padding(16.dp).semantics { liveRegion = LiveRegionMode.Polite },
-        )
+        Icon(painterResource(icon), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+        Text(text, style = WorkspaceType.footnoteMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
+}
+
+@Composable
+private fun exitText(state: TerminalState.Exited): String = when {
+    state.signal != null -> stringResource(R.string.terminal_exited_signal, state.signal)
+    state.exitCode != null && state.exitCode != 0L -> stringResource(R.string.terminal_exited_code, state.exitCode)
+    else -> stringResource(R.string.terminal_exited)
 }

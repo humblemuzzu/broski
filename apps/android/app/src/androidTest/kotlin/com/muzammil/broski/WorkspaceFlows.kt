@@ -10,7 +10,7 @@ import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
-import androidx.compose.ui.test.swipeRight
+import androidx.compose.ui.test.swipeLeft
 import androidx.test.platform.app.InstrumentationRegistry
 import com.muzammil.broski.app.BroskiApplication
 import com.muzammil.broski.core.settings.Appearance
@@ -38,7 +38,6 @@ class WorkspaceFlows(private val ui: WorkspaceUiDriver, private val machine: Rea
         Shots.save("file-light")
         ui.back()
 
-        ui.tapIcon(ui.string(R.string.files_search))
         ui.waitFor(hasSetTextAction())
         compose().onAllNodes(hasSetTextAction())[0].performTextInput("main.rs")
         ui.waitFor(hasText("src/main.rs"))
@@ -88,14 +87,14 @@ class WorkspaceFlows(private val ui: WorkspaceUiDriver, private val machine: Rea
         Shots.save("git-light")
         ui.tapText("README.md")
         ui.waitFor(hasText("+Another line."))
-        ui.waitFor(hasText("-A repository for the app tests."))
+        ui.waitFor(hasText("\u2212A repository for the app tests."))
         Shots.save("diff-light")
         ui.back()
 
-        compose().onAllNodes(hasText("README.md"))[0].performTouchInput { swipeRight() }
-        ui.waitFor(hasText(ui.string(R.string.git_section_staged, 1)))
+        compose().onAllNodes(hasText("README.md"))[0].performTouchInput { swipeLeft() }
+        ui.waitFor(hasText(ui.string(R.string.git_area_staged)))
         compose().onAllNodes(hasSetTextAction())[0].performTextInput("Edit the readme from the phone")
-        ui.tapText(machine.context.resources.getQuantityString(R.plurals.git_commit, 1, 1))
+        ui.tapText(ui.string(R.string.git_commit))
         ui.waitFor(hasText("Edit the readme from the phone") and !hasSetTextAction())
         Shots.save("git-committed-light")
 

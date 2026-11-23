@@ -1,17 +1,18 @@
 package com.muzammil.broski.feature.workspace.git
 
-import androidx.compose.foundation.layout.Column
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -23,7 +24,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalResources
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -33,15 +33,21 @@ import com.muzammil.broski.app.DiffRoute
 import com.muzammil.broski.app.FeatureContext
 import com.muzammil.broski.app.FileRoute
 import com.muzammil.broski.app.GitRoute
+import com.muzammil.broski.core.MachineState
+import com.muzammil.broski.core.isOnline
+import com.muzammil.broski.design.Grouped
 import com.muzammil.broski.design.Haptic
 import com.muzammil.broski.design.SectionHeader
 import com.muzammil.broski.design.perform
+import com.muzammil.broski.feature.workspace.ContentUnavailable
 import com.muzammil.broski.feature.workspace.FailureMessage
 import com.muzammil.broski.feature.workspace.MachineBanner
 import com.muzammil.broski.feature.workspace.MachineGate
 import com.muzammil.broski.feature.workspace.PathTopBar
 import com.muzammil.broski.feature.workspace.WorkspaceClient
+import com.muzammil.broski.feature.workspace.WorkspaceFailure
 import com.muzammil.broski.feature.workspace.WorkspaceLoading
+import com.muzammil.broski.feature.workspace.WorkspaceType
 import com.muzammil.broski.feature.workspace.childPath
 import com.muzammil.broski.feature.workspace.lastComponent
 import com.muzammil.broski.feature.workspace.sentence
@@ -57,35 +63,47 @@ fun GitScreen(context: FeatureContext, route: GitRoute) {
         val snackbar = remember { SnackbarHostState() }
         var branchesOpen by rememberSaveable { mutableStateOf(false) }
         GitEvents(viewModel, snackbar)
-        val root = state.status?.root ?: route.cwd
-        val openRow = { row: ChangeRow ->
-            context.navigate(
-                if (row.area == Area.Untracked) {
-                    FileRoute(route.machineId, childPath(root, row.path))
-                } else {
-                    DiffRoute(route.machineId, root, row.path, staged = row.area == Area.Staged)
-                },
-            )
+        if (branchesOpen) {
+            BackHandler { branchesOpen = false }
+            BranchesScreen(state, viewModel, machineState.health.isOnline, snackbar) { branchesOpen = false }
+        } else {
+            GitContent(route, state, viewModel, machineState, snackbar, context) { branchesOpen = true }
         }
-        Scaffold(
-            topBar = {
-                PathTopBar(lastComponent(root), root, context.back) {
-                    IconButton(onClick = { branchesOpen = true }, enabled = state.status != null) {
-                        Icon(painterResource(R.drawable.ic_call_split), contentDescription = stringResource(R.string.git_branches))
-                    }
-                }
+    }
+}
+
+@Composable
+private fun GitContent(
+    route: GitRoute,
+    state: GitUiState,
+    viewModel: GitViewModel,
+    machineState: MachineState,
+    snackbar: SnackbarHostState,
+    context: FeatureContext,
+    onBranches: () -> Unit,
+) {
+    val root = state.status?.root ?: route.cwd
+    val openRow = { row: ChangeRow ->
+        context.navigate(
+            if (row.area == Area.Untracked) {
+                FileRoute(route.machineId, childPath(root, row.path))
+            } else {
+                DiffRoute(route.machineId, root, row.path, staged = row.area == Area.Staged)
             },
-            bottomBar = {
-                if (state.status?.staged?.isNotEmpty() == true) CommitBar(state, viewModel::editMessage, viewModel::commit)
-            },
-            snackbarHost = { SnackbarHost(snackbar) },
-        ) { padding ->
-            Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
-                MachineBanner(machineState)
-                GitBody(state, viewModel, openRow, PaddingValues(top = 8.dp, bottom = padding.calculateBottomPadding() + 24.dp))
-            }
+        )
+    }
+    Scaffold(
+        containerColor = Grouped.screen,
+        topBar = { PathTopBar(stringResource(R.string.git_title), null, context.back, containerColor = Grouped.screen) },
+        bottomBar = {
+            if (state.status != null) CommitBar(state, machineState.health.isOnline, viewModel::editMessage, viewModel::commit)
+        },
+        snackbarHost = { SnackbarHost(snackbar) },
+    ) { padding ->
+        androidx.compose.foundation.layout.Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
+            MachineBanner(machineState)
+            GitBody(state, viewModel, route.cwd, openRow, onBranches, PaddingValues(top = 8.dp, bottom = padding.calculateBottomPadding() + 24.dp))
         }
-        if (branchesOpen) BranchesSheet(state, viewModel, onDismiss = { branchesOpen = false })
     }
 }
 
@@ -115,26 +133,51 @@ private fun GitEvents(viewModel: GitViewModel, snackbar: SnackbarHostState) {
 }
 
 @Composable
-private fun GitBody(state: GitUiState, viewModel: GitViewModel, onOpen: (ChangeRow) -> Unit, contentPadding: PaddingValues) {
+private fun GitBody(
+    state: GitUiState,
+    viewModel: GitViewModel,
+    cwd: String,
+    onOpen: (ChangeRow) -> Unit,
+    onBranches: () -> Unit,
+    contentPadding: PaddingValues,
+) {
     val status = state.status
+    val failure = state.failure
     when {
         status == null && state.loading -> WorkspaceLoading()
-        status == null -> FailureMessage(state.failure ?: return, viewModel::refresh, notFound = R.string.git_not_a_repository)
+        status == null && failure?.reason == WorkspaceFailure.Reason.NotFound -> ContentUnavailable(
+            icon = R.drawable.ic_call_split,
+            title = stringResource(R.string.git_not_a_repository_title),
+            description = stringResource(R.string.git_not_a_repository_body, lastComponent(cwd)),
+            modifier = Modifier.fillMaxSize(),
+        )
+        status == null -> FailureMessage(failure ?: return, viewModel::refresh)
         else -> PullToRefreshBox(isRefreshing = state.refreshing, onRefresh = viewModel::refresh) {
             LazyColumn(Modifier.fillMaxSize(), contentPadding = contentPadding) {
-                item(key = "branch", contentType = "branch") { BranchHeader(status) }
-                if (state.sections.isEmpty()) item(key = "clean", contentType = "clean") { CleanTree() }
+                item(key = "branch", contentType = "branch") { BranchRow(status, onBranches) }
                 state.sections.forEach { section -> changes(section, state.busy, viewModel, onOpen) }
+                if (state.sections.isEmpty()) item(key = "clean", contentType = "clean") { CleanTree() }
+                if (status.truncated) item(key = "truncated", contentType = "note") { TruncatedStatus() }
                 if (state.log.isNotEmpty()) log(state)
             }
         }
     }
 }
 
+@Composable
+private fun TruncatedStatus() {
+    Text(
+        stringResource(R.string.git_truncated),
+        style = WorkspaceType.footnote,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 32.dp, vertical = 8.dp),
+    )
+}
+
 private fun LazyListScope.changes(section: ChangeSection, busy: Boolean, viewModel: GitViewModel, onOpen: (ChangeRow) -> Unit) {
     item(key = "section:${section.area}", contentType = "header") {
         SectionTitle(section, enabled = !busy) {
-            if (section.area == Area.Staged) viewModel.unstage(listOf(".")) else viewModel.stage(section.rows.map { it.path })
+            if (section.area == Area.Staged) viewModel.unstage(listOf(".")) else viewModel.stage(section.rows.take(MAX_STAGE_ALL).map { it.path })
         }
     }
     itemsIndexed(section.rows, key = { _, row -> "${row.area}:${row.path}" }, contentType = { _, _ -> "change" }) { index, row ->
@@ -158,3 +201,4 @@ private fun LazyListScope.log(state: GitUiState) {
 }
 
 internal const val SHORT_HASH = 7
+private const val MAX_STAGE_ALL = 1000

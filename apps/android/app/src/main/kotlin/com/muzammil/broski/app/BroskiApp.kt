@@ -42,7 +42,11 @@ private fun ReadyApp(core: AppCore, phone: PhoneSession, features: Features, ope
     LaunchedEffect(nothingPaired) {
         if (nothingPaired) welcome = true
     }
-    CompositionLocalProvider(LocalNotificationAsk provides rememberNotificationAsk(), LocalDictation provides core.dictation) {
+    CompositionLocalProvider(
+        LocalNotificationAsk provides rememberNotificationAsk(),
+        LocalDictation provides core.dictation,
+        LocalOpenRequests provides openRequests,
+    ) {
         if (welcome) {
             WelcomeScreen(phone = phone, onPaired = { welcome = false })
         } else {

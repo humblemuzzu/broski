@@ -40,16 +40,16 @@ class CodeColors(
                     tokens = if (dark) DarkTokens else LightTokens,
                     plain = scheme.onSurface,
                     gutter = scheme.onSurfaceVariant.copy(alpha = GUTTER_ALPHA),
-                    added = BroskiTheme.semantic.done,
-                    removed = scheme.error,
-                    hunk = scheme.primary.copy(alpha = HUNK_ALPHA),
+                    added = if (dark) Color(0xFF3FB950) else Color(0xFF1A7F37),
+                    removed = if (dark) Color(0xFFF85149) else Color(0xFFCF222E),
+                    hunk = BroskiTheme.semantic.highlight.copy(alpha = HUNK_ALPHA),
                 )
             }
     }
 }
 
-private const val LINE_ALPHA = 0.14f
-private const val WORD_ALPHA = 0.34f
+private const val LINE_ALPHA = 0.12f
+private const val WORD_ALPHA = 0.32f
 private const val GUTTER_ALPHA = 0.7f
 private const val HUNK_ALPHA = 0.08f
 

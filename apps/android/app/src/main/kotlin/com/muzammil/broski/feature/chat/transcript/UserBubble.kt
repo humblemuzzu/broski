@@ -57,7 +57,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.muzammil.broski.R
+import androidx.compose.animation.animateContentSize
+import com.muzammil.broski.design.BroskiTheme
 import com.muzammil.broski.design.Haptic
+import com.muzammil.broski.design.format.AnswerMenu
 import com.muzammil.broski.design.perform
 import com.muzammil.broski.design.LoadingOrb
 import com.muzammil.broski.design.format.FormatCache
@@ -68,22 +71,24 @@ import com.muzammil.broski.feature.images.ImageTarget
 import com.muzammil.broski.feature.images.ThumbnailState
 import uniffi.broski_core.FormatContent
 
-private const val MAX_WIDTH_FRACTION = 0.8f
+/** The page's room left of every bubble, so a long message never reaches the left edge. */
+private val LEADING_GUTTER = 56.dp
 private const val PENDING_ALPHA = 0.55f
 private val BubbleShape = RoundedCornerShape(20.dp)
 
-/** A message's line in the bubble, as the formatter sets the page's body. */
-private val LINE = 24.sp
+/** A message's line in the bubble, as iOS measures the body's leading. */
+private val LINE = 22.5.sp
 private const val FOLDED_LINES = 5
 
 /** A message up to this many lines is shown whole; a longer one folds to [FOLDED_LINES]. */
 private const val FOLD_PAST_LINES = 7
 
 /**
- * The person's message, the transcript's only container: trailing, as wide as its words up to 80 % of
- * the page (a message with code takes the width, its code scrolling), images in an adaptive gallery
- * over it; a long press copies it. A long one shows its first lines fading out, a chevron in the corner,
- * and a tap anywhere on it opens or folds it. Dimmed, with "Sending…" under it, while it is on its way.
+ * The person's message, the transcript's only container: trailing, as wide as its words up to the page
+ * less a 56 dp gutter (a message with code takes the width, its code scrolling), images in an adaptive
+ * gallery over it; a long press offers copy, select and share. A long one shows its first lines fading
+ * out, a chevron in the corner, and a tap anywhere on it opens or folds it. Dimmed, with "Sending…"
+ * under it, while it is on its way.
  */
 @Composable
 fun UserBubble(
@@ -92,16 +97,21 @@ fun UserBubble(
     onOpenImages: (List<ImageTarget>, Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    BoxWithConstraints(modifier.fillMaxWidth()) {
+    Box(modifier.fillMaxWidth()) {
         Column(
-            Modifier.align(Alignment.TopEnd).widthIn(max = maxWidth * MAX_WIDTH_FRACTION).alpha(if (row.pending) PENDING_ALPHA else 1f),
+            Modifier.align(Alignment.TopEnd).padding(start = LEADING_GUTTER).alpha(if (row.pending) PENDING_ALPHA else 1f),
             horizontalAlignment = Alignment.End,
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             if (row.images.isNotEmpty()) PromptImageGallery(row.images, imageStore, onOpenImages)
-            if (row.text.isNotEmpty()) Bubble(row.text)
+            if (row.text.isNotEmpty()) AnswerMenu({ row.text }) { Bubble(row.text) }
             if (row.pending) {
-                Text(stringResource(R.string.chat_sending), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    stringResource(R.string.chat_sending),
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    modifier = Modifier.padding(end = 4.dp),
+                )
             }
         }
     }
@@ -109,7 +119,8 @@ fun UserBubble(
 
 @Composable
 private fun Bubble(text: String) {
-    val color = MaterialTheme.colorScheme.surfaceContainer
+    val color = BroskiTheme.semantic.userBubble
+    val motion = MaterialTheme.motionScheme
     val hugs = remember(text) { FormatCache.message(text).none { it.content is FormatContent.Code || it.content is FormatContent.Table } }
     var open by rememberSaveable(text) { mutableStateOf(false) }
     var folds by remember(text) { mutableStateOf(false) }
@@ -123,6 +134,7 @@ private fun Bubble(text: String) {
         shape = BubbleShape,
         color = color,
         modifier = (if (hugs) Modifier.width(IntrinsicSize.Max) else Modifier)
+            .animateContentSize(motion.fastSpatialSpec())
             .then(
                 if (folds) {
                     Modifier
@@ -133,7 +145,7 @@ private fun Bubble(text: String) {
                 },
             ),
     ) {
-        FoldingMessage(text, open, color, Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) { folds = it }
+        FoldingMessage(text, open, color, Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) { folds = it }
     }
 }
 
@@ -158,25 +170,23 @@ private fun FoldingMessage(text: String, open: Boolean, color: Color, modifier: 
     Layout(
         modifier = modifier,
         content = {
-            SelectionContainer {
-                FormattedMessage(
-                    text,
-                    Modifier
-                        .clipToBounds()
-                        .drawWithContent {
-                            drawContent()
-                            if (folded()) {
-                                drawRect(Brush.verticalGradient(listOf(color.copy(alpha = 0f), color), startY = size.height - fadePx, endY = size.height))
-                            }
+            FormattedMessage(
+                text,
+                Modifier
+                    .clipToBounds()
+                    .drawWithContent {
+                        drawContent()
+                        if (folded()) {
+                            drawRect(Brush.verticalGradient(listOf(color.copy(alpha = 0f), color), startY = size.height - fadePx, endY = size.height))
                         }
-                        .layout { measurable, constraints ->
-                            val placeable = measurable.measure(constraints.copy(minHeight = 0, maxHeight = Constraints.Infinity))
-                            probe.fullHeight = placeable.height
-                            val height = if (folded()) minOf(placeable.height, foldedPx) else placeable.height
-                            layout(placeable.width, height) { placeable.place(0, 0) }
-                        },
-                )
-            }
+                    }
+                    .layout { measurable, constraints ->
+                        val placeable = measurable.measure(constraints.copy(minHeight = 0, maxHeight = Constraints.Infinity))
+                        probe.fullHeight = placeable.height
+                        val height = if (folded()) minOf(placeable.height, foldedPx) else placeable.height
+                        layout(placeable.width, height) { placeable.place(0, 0) }
+                    },
+            )
             Chevron(open, color)
         },
     ) { measurables, constraints ->
@@ -207,15 +217,15 @@ private fun Chevron(open: Boolean, color: Color) {
     val line = with(LocalDensity.current) { LINE.toDp() }
     Box(
         Modifier
-            .size(width = 48.dp, height = line)
+            .size(width = 24.dp, height = line)
             .then(if (open) Modifier else Modifier.background(Brush.horizontalGradient(listOf(color.copy(alpha = 0f), color, color)))),
         contentAlignment = Alignment.CenterEnd,
     ) {
         Icon(
             painterResource(if (open) R.drawable.ic_keyboard_arrow_up else R.drawable.ic_keyboard_arrow_down),
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(20.dp),
+            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+            modifier = Modifier.size(15.dp),
         )
     }
 }

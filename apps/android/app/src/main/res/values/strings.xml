@@ -9,7 +9,7 @@
     <string name="nav_inbox">Inbox</string>
     <string name="nav_usage">Usage</string>
     <string name="nav_settings">Settings</string>
-    <string name="new_session">New session</string>
+    <string name="new_session">New Session</string>
     <string name="action_back">Back</string>
 
     <!-- Startup failures -->
@@ -63,11 +63,11 @@
     <string name="inbox_section_working">Working</string>
     <string name="inbox_section_done">Done</string>
     <string name="inbox_section_idle">Idle</string>
-    <string name="inbox_mark_all_read">Mark all read</string>
-    <string name="inbox_untitled">New session</string>
+    <string name="inbox_mark_all_read">Mark All Read</string>
+    <string name="inbox_untitled">Untitled session</string>
     <string name="inbox_waiting_for_you">Waiting for you</string>
     <string name="inbox_empty_title">No sessions yet</string>
-    <string name="inbox_empty_body">Sessions you start in Claude Code or Pi on your Mac show up here.</string>
+    <string name="inbox_empty_body">Sessions you start with Claude Code or Pi on your Mac show up here.</string>
     <string name="inbox_waiting_title">Waiting for your Mac</string>
     <string name="inbox_waiting_body">Its sessions show up here once Broski reaches it.</string>
     <string name="inbox_show_all">Show all sessions</string>
@@ -100,19 +100,28 @@
 
     <!-- Machines -->
     <string name="machines_title">Machines</string>
-    <string name="machines_pair_another">Pair another</string>
-    <string name="machines_last_seen">Last seen %1$s</string>
+    <string name="machines_pair_another">Pair Another Mac</string>
+    <string name="machines_last_seen_label">Last seen</string>
     <string name="machines_paired">Paired %1$s</string>
+    <string name="machines_bridge">Bridge</string>
     <string name="machines_bridge_version">Bridge %1$s</string>
-    <string name="machines_agent_installed">%1$s %2$s</string>
-    <string name="machines_agent_not_installed">%1$s not installed</string>
-    <string name="machines_restart_bridge">Restart bridge</string>
-    <string name="machines_restart_failed">The restart couldn\'t be sent. Check the connection and try again.</string>
+    <string name="machines_agent_checking">Checking…</string>
+    <string name="machines_agent_installed">Installed</string>
+    <string name="machines_agent_not_installed">Not installed</string>
+    <string name="machines_agent_unusable">Can\'t be used</string>
+    <string name="machines_agent_signed_out">Signed out</string>
+    <string name="machines_restart_bridge">Restart Bridge</string>
+    <string name="machines_restart_failed_title">The bridge didn\'t restart</string>
+    <string name="machines_restart_failed">Try again once %1$s is connected.</string>
     <string name="machines_forget">Forget</string>
+    <string name="machines_forget_named">Forget %1$s…</string>
+    <string name="machines_empty_title">No Macs paired</string>
+    <string name="machines_empty_body">Run broski-link pair on your Mac, then scan its code.</string>
+    <string name="machines_unreadable_header">Can\'t be read</string>
+    <string name="action_ok">OK</string>
     <string name="machines_forget_title">Forget %1$s?</string>
     <string name="machines_forget_body">This phone will stop controlling %1$s.</string>
-    <string name="machines_unreadable_title">A stored pairing can\'t be read</string>
-    <string name="machines_unreadable_body">Forget it, then pair that Mac again.</string>
+    <string name="machines_unreadable_body">This phone can\'t read these pairings anymore. Forget them, then pair those Macs again.</string>
     <string name="machines_unreadable_name">Unreadable pairing</string>
     <string name="action_cancel">Cancel</string>
 
@@ -120,19 +129,25 @@
     <string name="settings_title">Settings</string>
     <string name="settings_notifications">Notifications</string>
     <string name="settings_notify_needs_you">Needs you</string>
-    <string name="settings_notify_needs_you_body">Approvals and questions</string>
     <string name="settings_notify_done">Done</string>
-    <string name="settings_notify_done_body">A run finished</string>
     <string name="settings_notify_failures">Failures</string>
-    <string name="settings_notify_failures_body">A run failed or a Mac went offline</string>
     <string name="settings_appearance">Appearance</string>
     <string name="settings_appearance_system">System</string>
     <string name="settings_appearance_light">Light</string>
     <string name="settings_appearance_dark">Dark</string>
-    <string name="settings_dynamic_color">Match wallpaper</string>
-    <string name="settings_dynamic_color_body">Use your wallpaper\'s Material You colours instead of Broski\'s palette</string>
+    <string name="settings_dynamic_color">Match Wallpaper</string>
+    <string name="settings_dynamic_color_body">Uses your wallpaper\'s Material You colours instead of Broski\'s.</string>
     <string name="settings_live_promotion">Allow Live Updates</string>
-    <string name="settings_live_promotion_body">Let running agents appear as a promoted chip on your status bar and lock screen</string>
+    <string name="settings_live_promotion_body">Lets running agents show as a chip on your status bar and lock screen.</string>
+    <string name="settings_dark_canvas">Dark Background</string>
+    <string name="settings_dark_canvas_black">True Black</string>
+    <string name="settings_dark_canvas_charcoal">Charcoal</string>
+    <string name="settings_appearance_footer">True Black uses pure #000000 for OLED contrast. Dictating always keeps the screen awake.</string>
+    <string name="settings_live_preview">Live Preview</string>
+    <string name="settings_versions">Versions</string>
+    <string name="settings_notify_turn_on">Turn On Notifications</string>
+    <string name="settings_notify_denied">Notifications are off for Broski in Android Settings.</string>
+    <string name="settings_open_settings">Open Settings</string>
 
     <!-- Plan Usage -->
     <string name="usage_title">Usage</string>
@@ -152,11 +167,10 @@
     <string name="usage_pace_runs_out">Runs out %1$s</string>
     <string name="usage_widget_description">What\'s left of each plan.</string>
     <string name="usage_widget_empty">Open Broski to read plan usage</string>
-    <string name="settings_keep_awake">Keep screen awake</string>
+    <string name="settings_keep_awake">Keep Screen Awake</string>
     <string name="settings_keep_awake_dictation">Only while dictating</string>
     <string name="settings_keep_awake_working">While agents are working</string>
     <string name="settings_keep_awake_always">Always while open</string>
-    <string name="settings_keep_awake_body">Voice dictation always keeps the screen awake while you\'re speaking.</string>
     <string name="settings_about">About</string>
     <string name="settings_version_app">Broski</string>
     <string name="settings_version_core">Core</string>
@@ -169,11 +183,11 @@
     <string name="settings_voice_grok">Grok</string>
     <string name="settings_voice_device">On device</string>
     <string name="settings_developer">Developer</string>
-    <string name="settings_source">Source code</string>
+    <string name="settings_source">Source Code</string>
     <string name="settings_license">License</string>
     <string name="settings_license_mit">MIT</string>
-    <string name="settings_version_label">Version %1$s</string>
+    <string name="settings_version_label">Version %1$s (%2$d)</string>
     <string name="settings_version_footer">Broski %1$s</string>
-    <string name="settings_notify_footer">Kept on this phone. A muted session never alerts.</string>
-    <string name="settings_privacy">Everything is end-to-end encrypted between this phone and your Mac. The relay can\'t read it.</string>
+    <string name="settings_notify_footer">Approvals and questions, finished runs, and a Mac that went offline. Muted sessions never alert.</string>
+    <string name="settings_privacy">Everything between this phone and your Mac is end-to-end encrypted. The relay can\'t read it.</string>
 </resources>

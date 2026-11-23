@@ -4,12 +4,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import com.muzammil.broski.core.usage.StatsMetric
+import java.text.NumberFormat
+import java.util.Currency
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.roundToLong
-import uniffi.broski_contract.StatsCostSource
 import uniffi.broski_contract.StatsHarness
 import uniffi.broski_contract.StatsRange
 import uniffi.broski_contract.StatsTokenTotals
@@ -118,10 +120,17 @@ object StatsFormat {
         return if (abs(rounded) > 999) "${sign}999%+" else "$sign$clamped%"
     }
 
-    fun costSourceCaption(source: StatsCostSource): String = when (source) {
-        StatsCostSource.PROVIDER_REPORTED -> "Provider reported"
-        StatsCostSource.API_ESTIMATE -> "API estimate"
-        StatsCostSource.MIXED -> "API estimate"
-        StatsCostSource.UNPRICED -> "Unpriced"
+    /** The headline figure, whole dollars once there are a hundred: "$10,742", "$84.20". */
+    fun usdFigure(value: Double): String {
+        val format = NumberFormat.getCurrencyInstance(Locale.getDefault())
+        format.currency = Currency.getInstance("USD")
+        val digits = if (value >= 100.0) 0 else 2
+        format.minimumFractionDigits = digits
+        format.maximumFractionDigits = digits
+        return format.format(value)
     }
+
+    /** A figure as short as it reads: "$358", "$1.2K", "1.6B". */
+    fun compact(value: Double, metric: StatsMetric): String =
+        if (metric == StatsMetric.COST) usd(value) else tokens(value.toLong())
 }

@@ -17,7 +17,8 @@ apps/ios/Broski/Sources/Features/Chat/Work/WorkRowView.swift | Text(tool.label) 
 apps/ios/Broski/Extensions/Widgets/IslandViews.swift | Text(state.title) | the Live Activity's title, made by RunActivityAttributes; the widget does not link the formatter
 apps/ios/Broski/Extensions/Widgets/RunActivityViews.swift | Text(state.title) | the Live Activity's title, made by RunActivityAttributes
 apps/ios/Broski/Sources/Features/Usage/LimitCard.swift | Text(window.title) | a plan usage window's name ("Weekly · Fable") from the bridge's reading of the plan, not an agent's words
-apps/android/app/src/main/kotlin/com/muzammil/broski/feature/usage/LimitCard.kt | Text(window.label, style = MaterialTheme.typography.titleSmall | a plan usage window's name ("Weekly · Fable") from the bridge's reading of the plan, not an agent's words
+apps/android/app/src/main/kotlin/com/muzammil/broski/feature/usage/LimitCard.kt | Text(window.label, style = IosText.subheadline | a plan usage window's name ("Weekly · Fable") from the bridge's reading of the plan, not an agent's words
+apps/android/app/src/main/kotlin/com/muzammil/broski/feature/inbox/InboxRowItem.kt | Text(look.title, style = MaterialTheme.typography.bodyLarge | a session's one-line title in an inbox row, cut to one line, as iOS draws it with Text(title); a name, never markdown
 apps/ios/Broski/Extensions/Widgets/Usage/PlanViews.swift | Text(window.label) | a plan usage window's name ("Weekly · Fable"), made by LimitWindow.label; the widget does not link the formatter
 apps/ios/Broski/Extensions/Widgets/Usage/AllPlansView.swift | Text(window.label) | a plan usage window's name ("Weekly · Fable"), made by LimitWindow.label; the widget does not link the formatter
 apps/ios/Broski/Extensions/Widgets/RunActivityViews.swift | Text(run.title) | a session's name in the Live Activity, which does not link the formatter

@@ -2,6 +2,7 @@ package com.muzammil.broski.feature.workspace
 
 import com.muzammil.broski.feature.workspace.files.FileContent
 import com.muzammil.broski.feature.workspace.files.terminalsWithin
+import com.muzammil.broski.feature.workspace.git.letter
 import java.util.Base64
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -10,6 +11,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import uniffi.broski_contract.FileEncoding
 import uniffi.broski_contract.FileRead
+import uniffi.broski_contract.GitChange
 import uniffi.broski_contract.ProtocolErrorCode
 import uniffi.broski_contract.Rejection
 import uniffi.broski_contract.RejectionCode
@@ -82,5 +84,14 @@ class WorkspaceShapesTest {
         assertEquals("/a", parentPath("/a/b"))
         assertEquals("~/code", shortPath("/Users/me/code", "/Users/me"))
         assertEquals("/Users/meet", shortPath("/Users/meet", "/Users/me"))
+    }
+
+    @Test
+    fun aChangeIsMarkedWithTheLetterGitPrintsAndAConflictWithU() {
+        assertEquals(
+            listOf("?", "A", "M", "D", "R", "C", "T", "U"),
+            listOf(null, GitChange.ADDED, GitChange.MODIFIED, GitChange.DELETED, GitChange.RENAMED, GitChange.COPIED, GitChange.TYPE_CHANGED, GitChange.CONFLICTED)
+                .map(::letter),
+        )
     }
 }

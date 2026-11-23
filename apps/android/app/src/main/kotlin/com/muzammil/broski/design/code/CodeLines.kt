@@ -40,9 +40,20 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.muzammil.broski.design.mono
 
-/** What [CodeLines] needs to know of one line to place it; [accent] marks its leading edge. */
-class ViewerLine(val text: AnnotatedString, val gutter: String, val background: Color? = null, val accent: Color? = null)
+/** What [CodeLines] needs to know of one line to place it; [accent] marks its leading edge, [verticalPadding] gives the line air. */
+class ViewerLine(
+    val text: AnnotatedString,
+    val gutter: String,
+    val background: Color? = null,
+    val accent: Color? = null,
+    val verticalPadding: Dp = 0.dp,
+)
+
+/** `codeSmall`: footnote-sized monospace, the size of every code line the workspace draws. */
+val CodeTextStyle: TextStyle = TextStyle(fontSize = 13.sp, lineHeight = 18.sp).mono()
 
 /**
  * Monospaced lines with a gutter that stays put: unwrapped, every line scrolls sideways together,
@@ -58,6 +69,7 @@ fun CodeLines(
     contentPadding: PaddingValues = PaddingValues(),
     header: LazyListScope.() -> Unit = {},
     state: LazyListState = rememberLazyListState(),
+    footer: LazyListScope.() -> Unit = {},
 ) {
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
@@ -85,6 +97,7 @@ fun CodeLines(
                 items(lines.size, contentType = { "line" }) { index ->
                     CodeRow(lines[index], style, gutterWidth, wrap) { offset }
                 }
+                footer()
             }
         }
     }
@@ -96,6 +109,7 @@ private fun CodeRow(line: ViewerLine, style: TextStyle, gutterWidth: Dp, wrap: B
         Modifier
             .fillMaxWidth()
             .then(if (line.background != null) Modifier.background(line.background) else Modifier)
+            .padding(vertical = line.verticalPadding)
             .then(
                 if (line.accent != null) {
                     Modifier.drawBehind { drawRect(line.accent, size = Size(ACCENT_WIDTH.toPx(), size.height)) }

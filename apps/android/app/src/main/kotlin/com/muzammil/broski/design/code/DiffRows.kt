@@ -1,6 +1,7 @@
 package com.muzammil.broski.design.code
 
 import uniffi.broski_core.DiffFile
+import uniffi.broski_core.DiffHunk
 import uniffi.broski_core.DiffLine
 import uniffi.broski_core.DiffLineKind
 import uniffi.broski_core.DiffSegment
@@ -18,8 +19,7 @@ data class DiffRow(val kind: DiffRowKind, val text: String, val segments: List<D
 fun diffRows(file: DiffFile): List<DiffRow> {
     val width = numberWidth(file)
     return file.hunks.flatMap { hunk ->
-        val header = "@@ -${hunk.oldStart},${hunk.oldLines} +${hunk.newStart},${hunk.newLines} @@" + (hunk.header?.let { " $it" } ?: "")
-        listOf(DiffRow(DiffRowKind.Hunk, header, emptyList(), "")) + hunk.lines.map { line ->
+        listOf(DiffRow(DiffRowKind.Hunk, hunkHeader(hunk), emptyList(), "")) + hunk.lines.map { line ->
             val kind = line.rowKind
             val sign = line.sign
             val gutter = if (kind == DiffRowKind.NoNewline) "" else "${number(line.oldLine, width)} ${number(line.newLine, width)}"
@@ -28,6 +28,10 @@ fun diffRows(file: DiffFile): List<DiffRow> {
         }
     }
 }
+
+/** `@@ −9,2 +9,2 @@ ## Usage`: the removed side signed with a true minus, as the iOS app draws it. */
+fun hunkHeader(hunk: DiffHunk): String =
+    "@@ −${hunk.oldStart},${hunk.oldLines} +${hunk.newStart},${hunk.newLines} @@" + (hunk.header?.let { " $it" } ?: "")
 
 /** The digits the widest line number of [file] takes, so every gutter lines up. */
 fun numberWidth(file: DiffFile): Int =
@@ -46,7 +50,7 @@ val DiffLine.rowKind: DiffRowKind
 private val DiffLine.sign: String
     get() = when (kind) {
         DiffLineKind.ADDED -> "+"
-        DiffLineKind.REMOVED -> "-"
+        DiffLineKind.REMOVED -> "−"
         DiffLineKind.CONTEXT -> " "
-        DiffLineKind.NO_NEWLINE -> "\\ "
+        DiffLineKind.NO_NEWLINE -> " "
     }

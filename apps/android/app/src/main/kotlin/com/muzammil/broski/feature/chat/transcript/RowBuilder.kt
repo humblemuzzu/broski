@@ -104,7 +104,7 @@ class RowBuilder(private val format: (String, Boolean) -> List<FormatBlock> = Fo
                     note(item.v1.id, item.v1.at, TranscriptNote.Compacted(item.v1.tokensBefore, item.v1.tokensAfter))
                     turn.start = item.v1.at
                 }
-                is TranscriptItem.ModelChange -> note(item.v1.id, item.v1.at, TranscriptNote.ModelChanged(item.v1.modelId, item.v1.thinking))
+                is TranscriptItem.ModelChange -> modelChange(item.v1.id, item.v1.at, TranscriptNote.ModelChanged(item.v1.modelId, item.v1.thinking))
                 is TranscriptItem.RunBoundary -> {
                     item.v1.outcome.stopped()?.let { note(item.v1.id, item.v1.at, it) }
                     turn.start = item.v1.at
@@ -147,6 +147,7 @@ class RowBuilder(private val format: (String, Boolean) -> List<FormatBlock> = Fo
                     }
                     turn.answer += text
                     turn.lastTextId = id
+                    turn.lastAt = at ?: turn.lastAt
                     turn.copyAt = rows.size
                 }
             }
@@ -163,10 +164,27 @@ class RowBuilder(private val format: (String, Boolean) -> List<FormatBlock> = Fo
             rows += ChatRow.Note("n:$id", at, note)
         }
 
+        /**
+         * Pi writes a model and its thinking level as two entries: one line says both, as iOS reads
+         * them. Changes at the very start of a session, before anything else, are its setup and say
+         * nothing.
+         */
+        private fun modelChange(id: String, at: Long?, change: TranscriptNote.ModelChanged) {
+            fold = null
+            var merged = change
+            val last = rows.lastOrNull()
+            if (last is ChatRow.Note && last.note is TranscriptNote.ModelChanged) {
+                rows.removeAt(rows.lastIndex)
+                merged = TranscriptNote.ModelChanged(change.modelId ?: last.note.modelId, change.thinking ?: last.note.thinking)
+            }
+            if (rows.isEmpty() && !input.hasOlder) return
+            rows += ChatRow.Note("n:$id", at, merged)
+        }
+
         private fun closeTurn() {
             fold = null
             val last = turn.lastTextId ?: return
-            if (!turn.live) rows.add(turn.copyAt, ChatRow.CopyAnswer("copy:$last", null, turn.answer.joinToString("\n\n"), turn.sources.toList()))
+            if (!turn.live) rows.add(turn.copyAt, ChatRow.CopyAnswer("copy:$last", turn.lastAt, turn.answer.joinToString("\n\n"), turn.sources.toList()))
         }
 
         fun snapshotRowCount(): Int = rows.size
@@ -191,6 +209,9 @@ class RowBuilder(private val format: (String, Boolean) -> List<FormatBlock> = Fo
         /** The pages the turn's searches found, which the answer drew on. */
         val sources = mutableListOf<LinkItem>()
         var lastTextId: String? = null
+
+        /** When the answer's last block came: the time under it. */
+        var lastAt: Long? = null
 
         /** Right under the answer's last block, above any note that came after it. */
         var copyAt = 0

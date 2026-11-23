@@ -1,111 +1,114 @@
 package com.muzammil.broski.feature.chat.header
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.muzammil.broski.R
 import com.muzammil.broski.core.isOnline
+import com.muzammil.broski.design.BroskiTheme
+import com.muzammil.broski.design.chatCanvas
+import com.muzammil.broski.design.GlassCircleButton
+import com.muzammil.broski.design.GlassSurface
+import com.muzammil.broski.design.SoftTopBar
 import com.muzammil.broski.design.label
 import com.muzammil.broski.feature.chat.ChatHeader
 
 /**
- * The chat's header: back, the title (renamed on a tap) over the folder, or the machine's state in
- * words when it is not ready; then the overflow, the context ring drawn around it. What runs and for
- * how long is the status lane's to say. The bar takes its container only while the transcript runs
- * under it.
+ * The chat's header as iOS draws it over the transcript: a round glass back button, the title on a
+ * glass capsule in the middle (tap to rename) with the folder under it, or the Mac's state in words
+ * while it is not ready, and a round glass More button whose menu opens with how full the context is.
+ * The transcript slides softly under it; what runs and for how long is the status lane's to say.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatTopBar(
     header: ChatHeader,
-    contextUsed: Float?,
-    scrolledUnder: Boolean,
+    contextPercent: Int?,
     onBack: () -> Unit,
     onRename: (() -> Unit)?,
     menu: @Composable (dismiss: () -> Unit) -> Unit,
-    menuOpen: Boolean,
     onMenu: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val container by animateColorAsState(
-        if (scrolledUnder) MaterialTheme.colorScheme.surfaceContainer else MaterialTheme.colorScheme.surface.copy(alpha = 0f),
-        MaterialTheme.motionScheme.defaultEffectsSpec(),
-        label = "scrim",
-    )
-    TopAppBar(
-        title = {
-            Text(
-                header.title ?: stringResource(R.string.inbox_untitled),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = if (onRename != null) Modifier.clickable(onClickLabel = stringResource(R.string.chat_rename), role = Role.Button, onClick = onRename) else Modifier,
-            )
-        },
-        subtitle = { Subtitle(header) },
-        navigationIcon = {
-            IconButton(onClick = onBack) {
-                Icon(painterResource(R.drawable.ic_arrow_back), contentDescription = stringResource(R.string.action_back))
+    SoftTopBar(chatCanvas, modifier) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            GlassCircleButton(R.drawable.ic_chevron_left, stringResource(R.string.action_back), onBack)
+            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { TitlePill(header, onRename) }
+            Box {
+                GlassCircleButton(R.drawable.ic_more_horiz, stringResource(R.string.chat_more), { onMenu(true) })
+                menu { onMenu(false) }
             }
-        },
-        actions = { OverflowWithRing(contextUsed, menuOpen, onMenu, menu) },
-        colors = TopAppBarDefaults.topAppBarColors(containerColor = container, scrolledContainerColor = container),
-        modifier = modifier,
-    )
+        }
+    }
 }
 
-/** The folder, or why what shows may not be live. */
 @Composable
-private fun Subtitle(header: ChatHeader) {
+private fun TitlePill(header: ChatHeader, onRename: (() -> Unit)?) {
     val health = header.health
     val problem = when {
         health != null && !health.isOnline -> health.label(header.machineName)
         header.reconnecting -> stringResource(R.string.chat_reconnecting)
         else -> null
     }
-    val words = problem ?: header.folder ?: return
-    Text(
-        words,
-        style = MaterialTheme.typography.labelMedium,
-        color = if (problem != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-    )
+    val line = problem ?: header.folder
+    val hint = stringResource(R.string.chat_rename_hint)
+    GlassSurface(
+        shape = CircleShape,
+        modifier = Modifier
+            .widthIn(max = 240.dp)
+            .heightIn(min = 44.dp)
+            .clip(CircleShape)
+            .then(if (onRename != null) Modifier.clickable(role = Role.Button, onClickLabel = hint, onClick = onRename) else Modifier),
+    ) {
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                header.title ?: stringResource(R.string.inbox_untitled),
+                fontSize = 15.sp,
+                lineHeight = 19.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+            )
+            line?.let {
+                Text(
+                    it,
+                    fontSize = 12.sp,
+                    lineHeight = 15.sp,
+                    color = if (problem != null) BroskiTheme.semantic.caution else MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
 }
 
-@Composable
-private fun OverflowWithRing(contextUsed: Float?, open: Boolean, onMenu: (Boolean) -> Unit, menu: @Composable (dismiss: () -> Unit) -> Unit) {
-    Box(contentAlignment = Alignment.Center) {
-        if (contextUsed != null) {
-            CircularProgressIndicator(
-                progress = { contextUsed },
-                modifier = Modifier.size(40.dp),
-                strokeWidth = 2.dp,
-                trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                color = if (contextUsed > 0.85f) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-                gapSize = 0.dp,
-            )
-        }
-        IconButton(onClick = { onMenu(true) }) {
-            Icon(painterResource(R.drawable.ic_more_vert), contentDescription = stringResource(R.string.chat_more))
-        }
-        menu { onMenu(false) }
-    }
+/** How much of the context window the conversation fills, when the Mac reports both, as a whole percent. */
+fun contextPercent(tokens: Long?, window: Long?): Int? {
+    if (tokens == null || window == null || window <= 0) return null
+    return Math.round(tokens.toDouble() / window * 100).toInt()
 }

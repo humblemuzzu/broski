@@ -30,7 +30,10 @@ data class GitUiState(
     val refreshing: Boolean = false,
     val message: String = "",
     val branches: List<GitBranch>? = null,
+    val branchesTruncated: Boolean = false,
     val branchesFailure: WorkspaceFailure? = null,
+    /** The branch being switched to. */
+    val switching: String? = null,
 ) {
     val canCommit: Boolean get() = !busy && message.isNotBlank() && status?.staged?.isNotEmpty() == true
 }
@@ -84,23 +87,29 @@ class GitViewModel(private val client: WorkspaceClient, val cwd: String) : ViewM
     }
 
     fun loadBranches() {
-        mutableState.update { it.copy(branches = null, branchesFailure = null) }
+        mutableState.update { if (it.branchesFailure != null) it.copy(branches = null, branchesFailure = null) else it }
         viewModelScope.launch {
             when (val answer = client.branches(cwd)) {
-                is Answer.Done -> mutableState.update { it.copy(branches = answer.value.branches) }
+                is Answer.Done -> mutableState.update {
+                    it.copy(branches = answer.value.branches, branchesTruncated = answer.value.truncated, branchesFailure = null)
+                }
                 is Answer.Failed -> mutableState.update { it.copy(branches = emptyList(), branchesFailure = answer.failure) }
             }
         }
     }
 
     /** Git refuses a switch that would overwrite local changes; its words come back as the failure. */
-    fun checkout(branch: GitBranch) = mutate {
-        when (val answer = client.checkout(cwd, checkoutName(branch))) {
-            is Answer.Done -> {
-                outcomes.send(GitEvent.CheckedOut(answer.value.branch))
-                null
+    fun checkout(branch: GitBranch) {
+        if (state.value.busy) return
+        mutableState.update { it.copy(switching = branch.name) }
+        mutate {
+            when (val answer = client.checkout(cwd, checkoutName(branch))) {
+                is Answer.Done -> {
+                    outcomes.send(GitEvent.CheckedOut(answer.value.branch))
+                    null
+                }
+                is Answer.Failed -> answer.failure
             }
-            is Answer.Failed -> answer.failure
         }
     }
 
@@ -110,7 +119,8 @@ class GitViewModel(private val client: WorkspaceClient, val cwd: String) : ViewM
         viewModelScope.launch {
             action()?.let { outcomes.send(GitEvent.Failed(it)) }
             read()
-            mutableState.update { it.copy(busy = false) }
+            if (state.value.branches != null) loadBranches()
+            mutableState.update { it.copy(busy = false, switching = null) }
         }
     }
 
@@ -129,6 +139,6 @@ class GitViewModel(private val client: WorkspaceClient, val cwd: String) : ViewM
     private fun Answer<Unit>.failure(): WorkspaceFailure? = (this as? Answer.Failed)?.failure
 
     private companion object {
-        const val LOG_LIMIT = 20L
+        const val LOG_LIMIT = 10L
     }
 }

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="inbox_age_now">now</string>
+    <string name="inbox_search">Search</string>
+    <string name="inbox_search_prompt">Search sessions</string>
+    <string name="inbox_search_clear">Clear text</string>
+    <string name="inbox_search_close">Close Search</string>
+    <string name="inbox_filters">Filters</string>
+    <string name="inbox_filters_on">Filters, on</string>
+    <string name="inbox_filter_working_only">Working Only</string>
+    <string name="inbox_filter_agent">Agent</string>
+    <string name="inbox_filter_all_agents">All Agents</string>
+    <string name="inbox_filter_project">Project</string>
+    <string name="inbox_filter_all_projects">All Projects</string>
+    <string name="inbox_filter_mac">Mac</string>
+    <string name="inbox_filter_all_macs">All Macs</string>
+    <string name="inbox_filter_clear">Clear Filters</string>
+    <string name="inbox_showing">Showing %1$s</string>
+    <string name="inbox_idle_header">Idle, %1$d sessions</string>
+    <string name="inbox_idle_shown">Shown</string>
+    <string name="inbox_idle_folded">Folded</string>
+    <string name="inbox_idle_fold_hint">Folds the idle sessions</string>
+    <string name="inbox_idle_show_hint">Shows the idle sessions</string>
+    <string name="inbox_nothing_working">Nothing is working right now</string>
+    <string name="inbox_show_all_states">Show All</string>
+    <string name="inbox_no_match_title">No sessions match</string>
+    <string name="inbox_no_match_body">Nothing in your inbox fits %1$s.</string>
+    <string name="inbox_no_match_these">these filters</string>
+    <string name="inbox_connecting_to">Connecting to %1$s…</string>
+    <string name="inbox_back_soon">Sessions show up here once %1$s is back.</string>
+    <string name="inbox_no_results">No results for “%1$s”</string>
+    <string name="inbox_no_results_body">Check the spelling or try a new search.</string>
+    <string name="inbox_pinned">Pinned</string>
+    <string name="inbox_muted">Muted</string>
+</resources>

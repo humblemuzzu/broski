@@ -10,7 +10,16 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import com.muzammil.broski.design.BroskiTheme
+import com.muzammil.broski.design.GlassCircleButton
+import com.muzammil.broski.design.GlassMetrics
+import com.muzammil.broski.design.SoftTopBar
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -116,23 +125,17 @@ private fun NewSessionContent(model: NewSessionViewModel, context: FeatureContex
     var showsProjects by rememberSaveable { mutableStateOf(true) }
     var browsing by rememberSaveable { mutableStateOf(false) }
     Outcomes(model, created) { error = it }
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Title(ui, model::pickMachine) },
-                navigationIcon = {
-                    IconButton(onClick = context.back) {
-                        Icon(painterResource(R.drawable.ic_arrow_back), contentDescription = stringResource(R.string.action_back))
-                    }
-                },
-            )
-        },
-    ) { padding ->
-        Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
-            ui.machine?.let { MachineBanner(it) }
-            Hero(ui.agent, Modifier.weight(1f).fillMaxWidth())
-            Bottom(model, ui, error, showsProjects, onShowProjects = { showsProjects = it }, onBrowse = { browsing = true })
+    Column(Modifier.fillMaxSize().background(BroskiTheme.semantic.canvas)) {
+        SoftTopBar(BroskiTheme.semantic.canvas) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                GlassCircleButton(R.drawable.ic_chevron_left, stringResource(R.string.action_back), context.back)
+                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { Title(ui, model::pickMachine) }
+                Spacer(Modifier.size(GlassMetrics.control))
+            }
         }
+        ui.machine?.let { MachineBanner(it) }
+        Hero(ui.agent, Modifier.weight(1f).fillMaxWidth())
+        Bottom(model, ui, error, showsProjects, onShowProjects = { showsProjects = it }, onBrowse = { browsing = true })
     }
     val machineId = ui.choice.machineId
     val machine = machineId?.let(context.phone::machine)
@@ -174,13 +177,15 @@ private fun Title(ui: NewSessionUi, onMachine: (String) -> Unit) {
     val folder = ui.choice.folder?.let(::lastComponent) ?: stringResource(R.string.new_session_pick_folder)
     Box {
         Column(
-            Modifier.clip(RoundedCornerShape(12.dp)).then(if (several) Modifier.clickable { open = true } else Modifier).padding(horizontal = 4.dp),
+            Modifier.widthIn(max = 260.dp).clip(RoundedCornerShape(12.dp)).then(if (several) Modifier.clickable { open = true } else Modifier).padding(horizontal = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(stringResource(R.string.new_session), maxLines = 1, modifier = Modifier.semantics { heading() })
+            Text(stringResource(R.string.new_session), fontSize = 17.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.semantics { heading() })
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     if (several) "$folder · ${ui.machine?.name.orEmpty()}" else folder,
-                    style = MaterialTheme.typography.labelMedium,
+                    fontSize = 12.sp,
+                    lineHeight = 15.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -219,16 +224,18 @@ private fun Hero(agent: Agent?, modifier: Modifier) {
         if (maxHeight >= HERO_MIN_HEIGHT) Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
             AnimatedContent(agent, transitionSpec = { (fadeIn() + scaleIn(initialScale = 0.8f)) togetherWith fadeOut() }, label = "agent") { agent ->
                 if (agent != null) {
-                    AgentMark(agent, size = 56.dp)
+                    AgentMark(agent, size = 36.dp)
                 } else {
-                    Image(painterResource(R.drawable.broski_icon), contentDescription = null, modifier = Modifier.size(56.dp).clip(RoundedCornerShape(16.dp)))
+                    Image(painterResource(R.drawable.broski_icon), contentDescription = null, modifier = Modifier.size(44.dp).clip(RoundedCornerShape(10.dp)))
                 }
             }
             Text(
                 stringResource(R.string.new_session_question),
-                style = MaterialTheme.typography.headlineSmall,
+                fontSize = 22.sp,
+                lineHeight = 28.sp,
+                fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 32.dp),
+                modifier = Modifier.padding(horizontal = 24.dp),
             )
         }
     }

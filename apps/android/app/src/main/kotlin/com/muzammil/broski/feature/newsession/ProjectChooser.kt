@@ -37,6 +37,11 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.text.TextStyle
+import com.muzammil.broski.design.Glass
+import com.muzammil.broski.design.glassShadow
 import com.muzammil.broski.R
 import com.muzammil.broski.core.Agent
 import com.muzammil.broski.core.AgentInstall
@@ -47,7 +52,7 @@ import com.muzammil.broski.feature.workspace.shortPath
 import uniffi.broski_contract.AuthState
 
 /** The composer's shape, which the card above it shares. */
-internal val ComposerShape = RoundedCornerShape(28.dp)
+internal val ComposerShape = RoundedCornerShape(26.dp)
 
 /**
  * The folders this Mac's sessions ran in, newest first, the chosen one lit; then All projects for the
@@ -56,13 +61,12 @@ internal val ComposerShape = RoundedCornerShape(28.dp)
 @Composable
 internal fun ProjectCard(projects: List<Project>, selected: String?, home: String?, onPick: (String) -> Unit, onBrowse: () -> Unit) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().glassShadow(ComposerShape),
         shape = ComposerShape,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        tonalElevation = 2.dp,
-        shadowElevation = 2.dp,
+        color = Glass.fill,
+        border = BorderStroke(0.5.dp, Glass.edge),
     ) {
-        Column(Modifier.padding(6.dp)) {
+        Column(Modifier.padding(4.dp)) {
             projects.forEach { project ->
                 val chosen = project.path == selected
                 val twin = projects.any { it != project && lastComponent(it.path) == lastComponent(project.path) }
@@ -91,13 +95,13 @@ private fun ChooserRow(@DrawableRes icon: Int, title: String, detail: String?, c
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(22.dp),
-        color = if (chosen) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
-        contentColor = if (chosen) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface,
-        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).semantics { selected = chosen },
+        color = if (chosen) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f) else Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp).semantics { selected = chosen },
     ) {
         Row(
-            Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
@@ -140,7 +144,7 @@ internal fun SessionPills(
     onAgent: (String) -> Unit,
     onFolder: () -> Unit,
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
         AgentPill(agents, chosen, machineName, onAgent)
         Pill(onClick = onFolder, modifier = Modifier.weight(1f, fill = false)) {
             Icon(painterResource(R.drawable.ic_folder), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
@@ -165,7 +169,7 @@ private fun AgentPill(agents: List<AgentInstall>, chosen: Agent?, machineName: S
     var open by remember { mutableStateOf(false) }
     Box {
         Pill(onClick = { open = true }) {
-            chosen?.let { AgentMark(it, size = 22.dp) }
+            chosen?.let { AgentMark(it, size = 20.dp) }
             Text(chosen?.name ?: stringResource(R.string.new_session_agent))
             Icon(painterResource(R.drawable.ic_keyboard_arrow_down), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
         }
@@ -199,17 +203,16 @@ private fun Pill(onClick: () -> Unit, modifier: Modifier = Modifier, content: @C
     Surface(
         onClick = onClick,
         shape = CircleShape,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        tonalElevation = 2.dp,
-        shadowElevation = 1.dp,
-        modifier = modifier.heightIn(min = 40.dp).semantics { role = Role.Button },
+        color = Glass.fill,
+        border = BorderStroke(0.5.dp, Glass.edge),
+        modifier = modifier.glassShadow(CircleShape).heightIn(min = 36.dp).semantics { role = Role.Button },
     ) {
         Row(
-            Modifier.padding(start = 10.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ProvideTextStyle(MaterialTheme.typography.labelLarge) { content() }
+            ProvideTextStyle(TextStyle(fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium)) { content() }
         }
     }
 }

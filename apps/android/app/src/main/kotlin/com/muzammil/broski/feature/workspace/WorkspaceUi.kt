@@ -2,10 +2,20 @@ package com.muzammil.broski.feature.workspace
 
 import android.content.res.Resources
 import androidx.annotation.StringRes
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.layout.SubcomposeLayout
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import com.muzammil.broski.design.GlassCircleButton
+import com.muzammil.broski.design.GlassMetrics
+import com.muzammil.broski.design.GlassSurface
+import com.muzammil.broski.design.SoftTopBar
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -14,11 +24,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -56,7 +66,7 @@ fun WorkspaceLoading(modifier: Modifier = Modifier) {
     }
 }
 
-/** What could not be read or done, in plain words, with Try again. */
+/** What could not be read or done: the sentence, the Mac's own words under it, and Try Again. */
 @Composable
 fun FailureMessage(
     failure: WorkspaceFailure,
@@ -64,65 +74,69 @@ fun FailureMessage(
     modifier: Modifier = Modifier,
     @StringRes notFound: Int? = null,
 ) {
-    Column(
-        modifier = modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 48.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Icon(
-            painterResource(R.drawable.ic_error),
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.error,
-            modifier = Modifier.size(32.dp),
-        )
-        Text(
-            failure.sentence(notFound),
-            style = MaterialTheme.typography.titleMedium,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-        )
-        failure.extra?.let {
-            Text(
-                stringResource(R.string.error_details, it),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
-        }
-        onRetry?.let { QuietButton(stringResource(R.string.workspace_try_again), it) }
-    }
+    ContentUnavailable(
+        icon = R.drawable.ic_warning,
+        title = failure.sentence(notFound),
+        modifier = modifier,
+        detail = failure.extra,
+        actions = onRetry?.let { retry -> { QuietButton(stringResource(R.string.workspace_try_again), retry) } },
+    )
 }
 
-/** A top bar naming a place on the Mac: its name, and its full path under it in monospace. */
+/**
+ * A workspace screen's bar as iOS draws it over the content: a round glass back button, the place's
+ * name centred (a plain [path] under it, such as a diff's "Staged"; a [mono] path is the screen's own
+ * business and stays out of the bar), and the screen's actions on a glass capsule.
+ */
 @Composable
 fun PathTopBar(
     title: String,
     path: String?,
     onBack: () -> Unit,
-    scrollBehavior: TopAppBarScrollBehavior? = null,
+    @Suppress("UNUSED_PARAMETER") scrollBehavior: TopAppBarScrollBehavior? = null,
+    containerColor: Color = MaterialTheme.colorScheme.surface,
+    mono: Boolean = true,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
-    TopAppBar(
-        title = {
-            Column {
-                Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.semantics { heading() })
-                path?.let {
-                    Text(
-                        it,
-                        style = MaterialTheme.typography.labelMedium.mono(),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.StartEllipsis,
-                    )
+    SoftTopBar(containerColor) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            GlassCircleButton(R.drawable.ic_chevron_left, stringResource(R.string.action_back), onBack)
+            Column(Modifier.weight(1f).padding(horizontal = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    title,
+                    fontSize = 17.sp,
+                    lineHeight = 22.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.MiddleEllipsis,
+                    modifier = Modifier.semantics { heading() },
+                )
+                if (path != null && !mono) {
+                    Text(path, fontSize = 12.sp, lineHeight = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                 }
             }
-        },
-        navigationIcon = {
-            IconButton(onClick = onBack) {
-                Icon(painterResource(R.drawable.ic_arrow_back), contentDescription = stringResource(R.string.action_back))
+            BarActions(actions)
+        }
+    }
+}
+
+/** The bar's actions on one glass capsule, or room the back button's width when there are none, so the title stays centred. */
+@Composable
+private fun BarActions(actions: @Composable RowScope.() -> Unit) {
+    SubcomposeLayout { constraints ->
+        val measured = subcompose("actions") { Row(verticalAlignment = Alignment.CenterVertically, content = actions) }.map { it.measure(constraints) }
+        val empty = measured.all { it.width == 0 }
+        val shown = subcompose("shown") {
+            if (empty) {
+                Spacer(Modifier.size(GlassMetrics.control))
+            } else {
+                GlassSurface(CircleShape, Modifier.heightIn(min = GlassMetrics.control)) {
+                    Row(Modifier.padding(horizontal = 2.dp), verticalAlignment = Alignment.CenterVertically, content = actions)
+                }
             }
-        },
-        actions = actions,
-        scrollBehavior = scrollBehavior,
-    )
+        }.map { it.measure(constraints) }
+        val width = shown.maxOfOrNull { it.width } ?: 0
+        val height = shown.maxOfOrNull { it.height } ?: 0
+        layout(width, height) { shown.forEach { it.place(0, 0) } }
+    }
 }

@@ -18,7 +18,7 @@ import uniffi.broski_core.gitDiffFile
 /** Diff lines as the app draws them, from the real core's parse of a git answer and of a tool's file change. */
 class DiffRowsTest {
     @Test
-    fun aGitHunkBecomesUnifiedLinesWithBothLineNumbersAndTheMissingNewlineSaid() {
+    fun aGitHunkBecomesUnifiedLinesWithBothLineNumbersAndATrueMinusForWhatWasRemoved() {
         val file = GitDiffFile(
             path = "README.md",
             previousPath = null,
@@ -38,10 +38,10 @@ class DiffRowsTest {
         val rows = diffRows(gitDiffFile(file)).map { Triple(it.kind, it.text, it.gutter) }
         assertEquals(
             listOf(
-                Triple(DiffRowKind.Hunk, "@@ -9,2 +9,2 @@ ## Usage", ""),
+                Triple(DiffRowKind.Hunk, "@@ −9,2 +9,2 @@ ## Usage", ""),
                 Triple(DiffRowKind.Context, " # Demo", " 9  9"),
-                Triple(DiffRowKind.Removed, "-old", "10   "),
-                Triple(DiffRowKind.NoNewline, "\\ No newline at end of file", ""),
+                Triple(DiffRowKind.Removed, "−old", "10   "),
+                Triple(DiffRowKind.NoNewline, " No newline at end of file", ""),
                 Triple(DiffRowKind.Added, "+new", "   10"),
             ),
             rows,
@@ -53,7 +53,7 @@ class DiffRowsTest {
         val change = FileChange("src/count.ts", FileChangeKind.MODIFIED, null, "@@ -1 +1 @@\n-let count = 1;\n+let count = 2;\n", 1, 1)
         val rows = diffRows(fileChangeDiff(change)).drop(1)
         rows.forEach { row -> assertEquals(row.text, row.segments.joinToString("") { it.text }) }
-        assertEquals(DiffSegment("-", false, TokenKind.PLAIN), rows[0].segments.first())
+        assertEquals(DiffSegment("−", false, TokenKind.PLAIN), rows[0].segments.first())
         assertTrue(rows[0].segments.any { it.text.trim() == "let" && it.kind == TokenKind.KEYWORD && !it.emphasized })
         assertEquals(DiffSegment("1", true, TokenKind.NUMBER), rows[0].segments.single { it.emphasized })
         assertEquals(DiffSegment("2", true, TokenKind.NUMBER), rows[1].segments.single { it.emphasized })

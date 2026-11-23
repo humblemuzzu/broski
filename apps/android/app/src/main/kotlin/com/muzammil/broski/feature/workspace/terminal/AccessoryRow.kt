@@ -2,42 +2,61 @@ package com.muzammil.broski.feature.workspace.terminal
 
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.muzammil.broski.R
+import com.muzammil.broski.design.BroskiTheme
+import com.muzammil.broski.design.GlassSurface
 import com.muzammil.broski.design.Haptic
 import com.muzammil.broski.design.mono
 import com.muzammil.broski.design.perform
@@ -46,108 +65,169 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/** The keys a phone keyboard lacks, floating above it: esc, a sticky ctrl, tab, arrows that repeat, `|`, `~`, `/` and paste. */
+private val KeyHeight = 36.dp
+private val KeyMinWidth = 44.dp
+private val KeyGap = 4.dp
+private val FadeWidth = 24.dp
+private val KeyStyle = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold).mono()
+
+/**
+ * The keys a phone keyboard lacks, in one row under the terminal: esc, a sticky ctrl and tab, which
+ * stay where they are, then arrows that repeat while held, `|`, `~`, `/` and paste, which scroll under
+ * a fading edge when the row is too narrow. Every key goes through the emulator's encoder.
+ */
 @Composable
-fun AccessoryRow(keyboard: TerminalKeyboard, onPaste: () -> Unit, modifier: Modifier = Modifier) {
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = MaterialTheme.shapes.extraLarge,
-        shadowElevation = 3.dp,
-        modifier = modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
+fun AccessoryRow(keyboard: TerminalKeyboard, enabled: Boolean, onPaste: () -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier.fillMaxWidth().padding(start = 12.dp, top = 4.dp, bottom = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(KeyGap),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            modifier = Modifier
-                .horizontalScroll(rememberScrollState())
-                .height(IntrinsicSize.Min)
-                .padding(horizontal = 8.dp, vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            TextKey("esc", R.string.terminal_key_escape) { keyboard.key(Key.Escape) }
-            TextKey("ctrl", R.string.terminal_key_ctrl, checked = keyboard.ctrl) { keyboard.ctrl = !keyboard.ctrl }
-            IconKey(R.drawable.ic_keyboard_tab, R.string.terminal_key_tab) { keyboard.key(Key.Tab) }
-            IconKey(R.drawable.ic_keyboard_arrow_left, R.string.terminal_key_left, repeats = true) { keyboard.key(Key.ArrowLeft) }
-            IconKey(R.drawable.ic_keyboard_arrow_up, R.string.terminal_key_up, repeats = true) { keyboard.key(Key.ArrowUp) }
-            IconKey(R.drawable.ic_keyboard_arrow_down, R.string.terminal_key_down, repeats = true) { keyboard.key(Key.ArrowDown) }
-            IconKey(R.drawable.ic_keyboard_arrow_right, R.string.terminal_key_right, repeats = true) { keyboard.key(Key.ArrowRight) }
-            TextKey("|", R.string.terminal_key_pipe) { keyboard.commit("|") }
-            TextKey("~", R.string.terminal_key_tilde) { keyboard.commit("~") }
-            TextKey("/", R.string.terminal_key_slash) { keyboard.commit("/") }
-            IconKey(R.drawable.ic_content_paste, R.string.terminal_paste, onPress = onPaste)
+        TextKey("esc", R.string.terminal_key_escape, enabled) { keyboard.key(Key.Escape) }
+        CtrlKey(keyboard.ctrl, enabled, keyboard::tapCtrl)
+        TextKey("tab", R.string.terminal_key_tab, enabled) { keyboard.key(Key.Tab) }
+        FadingScroll(Modifier.weight(1f)) {
+            IconKey(R.drawable.ic_keyboard_arrow_left, R.string.terminal_key_left, enabled, repeats = true) { keyboard.key(Key.ArrowLeft) }
+            IconKey(R.drawable.ic_keyboard_arrow_up, R.string.terminal_key_up, enabled, repeats = true) { keyboard.key(Key.ArrowUp) }
+            IconKey(R.drawable.ic_keyboard_arrow_down, R.string.terminal_key_down, enabled, repeats = true) { keyboard.key(Key.ArrowDown) }
+            IconKey(R.drawable.ic_keyboard_arrow_right, R.string.terminal_key_right, enabled, repeats = true) { keyboard.key(Key.ArrowRight) }
+            TextKey("|", R.string.terminal_key_pipe, enabled) { keyboard.commit("|") }
+            TextKey("~", R.string.terminal_key_tilde, enabled) { keyboard.commit("~") }
+            TextKey("/", R.string.terminal_key_slash, enabled) { keyboard.commit("/") }
+            IconKey(R.drawable.ic_content_paste, R.string.terminal_paste, enabled, onPress = onPaste)
         }
     }
 }
 
+/** A row that scrolls sideways under a fading trailing edge while there is more of it past that edge. */
 @Composable
-private fun TextKey(label: String, @StringRes description: Int, checked: Boolean = false, onPress: () -> Unit) {
-    AccessoryKey(stringResource(description), checked, repeats = false, onPress) {
-        Text(label, style = MaterialTheme.typography.labelLarge.mono())
+private fun FadingScroll(modifier: Modifier, content: @Composable () -> Unit) {
+    val scroll = rememberScrollState()
+    Row(
+        modifier = modifier
+            .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+            .drawWithContent {
+                drawContent()
+                if (scroll.canScrollForward) {
+                    val fade = FadeWidth.toPx()
+                    drawRect(
+                        Brush.horizontalGradient(0f to Color.Black, 1f to Color.Transparent, startX = size.width - fade, endX = size.width),
+                        topLeft = Offset(size.width - fade, 0f),
+                        blendMode = BlendMode.DstIn,
+                    )
+                }
+            }
+            .horizontalScroll(scroll)
+            .padding(end = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(KeyGap),
+        verticalAlignment = Alignment.CenterVertically,
+    ) { content() }
+}
+
+@Composable
+private fun TextKey(label: String, @StringRes description: Int, enabled: Boolean, onPress: () -> Unit) {
+    KeyCap(stringResource(description), enabled, active = false, repeats = false, onPress = onPress) {
+        Text(label, style = KeyStyle, maxLines = 1, softWrap = false)
     }
 }
 
 @Composable
-private fun IconKey(@DrawableRes icon: Int, @StringRes description: Int, repeats: Boolean = false, onPress: () -> Unit) {
-    AccessoryKey(stringResource(description), checked = false, repeats, onPress) {
+private fun IconKey(@DrawableRes icon: Int, @StringRes description: Int, enabled: Boolean, repeats: Boolean = false, onPress: () -> Unit) {
+    KeyCap(stringResource(description), enabled, active = false, repeats = repeats, onPress = onPress) {
         Icon(painterResource(icon), contentDescription = null, modifier = Modifier.size(20.dp))
     }
 }
 
-/** A key that fires on press, as keyboard keys do; held, a repeating one fires again and again. */
+/** Ctrl: lit while it is on for the next key or kept on, and it says which, with how to keep it on. */
 @Composable
-private fun AccessoryKey(
+private fun CtrlKey(state: CtrlState, enabled: Boolean, onTap: () -> Unit) {
+    val description = stringResource(
+        when (state) {
+            CtrlState.Off -> R.string.terminal_key_ctrl_off
+            CtrlState.Armed -> R.string.terminal_key_ctrl_armed
+            CtrlState.Locked -> R.string.terminal_key_ctrl_locked
+        },
+    )
+    KeyCap(
+        description = stringResource(R.string.terminal_key_ctrl),
+        enabled = enabled,
+        active = state != CtrlState.Off,
+        repeats = false,
+        state = description,
+        hint = stringResource(R.string.terminal_key_ctrl_hint),
+        onPress = onTap,
+    ) { Text("ctrl", style = KeyStyle, maxLines = 1, softWrap = false) }
+}
+
+/**
+ * A key cap: a glass capsule at least 44 by 36 that answers the touch, firing on press as keyboard
+ * keys do; held, a repeating one fires again and again.
+ */
+@Composable
+private fun KeyCap(
     description: String,
-    checked: Boolean,
+    enabled: Boolean,
+    active: Boolean,
     repeats: Boolean,
+    state: String? = null,
+    hint: String? = null,
     onPress: () -> Unit,
     content: @Composable () -> Unit,
 ) {
     val haptics = LocalHapticFeedback.current
     val press = rememberUpdatedState(onPress)
-    val colors = MaterialTheme.colorScheme
-    val firePress = { haptics.perform(Haptic.KeyPress); press.value() }
-    Surface(
-        shape = MaterialTheme.shapes.medium,
-        color = if (checked) colors.primary else colors.surfaceContainerLowest,
-        contentColor = if (checked) colors.onPrimary else colors.onSurface,
-        modifier = Modifier
-            .fillMaxHeight()
-            .heightIn(min = 44.dp)
-            .widthIn(min = 48.dp)
-            .semantics {
-                contentDescription = description
-                role = Role.Button
-                if (checked) selected = true
-                onClick {
-                    press.value()
-                    true
-                }
+    var pressed by remember { mutableStateOf(false) }
+    val height = with(LocalDensity.current) { 36.sp.toDp() }.coerceAtLeast(KeyHeight)
+    val shape = CircleShape
+    val body = Modifier
+        .heightIn(min = height)
+        .widthIn(min = KeyMinWidth)
+        .alpha(if (!enabled) 0.4f else if (pressed) 0.7f else 1f)
+        .semantics {
+            contentDescription = description
+            role = Role.Button
+            state?.let { stateDescription = it }
+            if (!enabled) disabled()
+            onClick(label = hint) {
+                press.value()
+                true
             }
-            .keyPresses(repeats, onDown = firePress, onRepeat = { press.value() }),
-    ) {
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) { content() }
+        }
+        .keyPresses(enabled, repeats, onDown = { pressed = true; haptics.perform(Haptic.KeyPress); press.value() }, onRepeat = { press.value() }, onUp = { pressed = false })
+    val label = if (active) Color.White else LocalContentColor.current
+    if (active) {
+        Box(body.clip(shape).background(BroskiTheme.semantic.highlight, shape).padding(horizontal = KeyGap), contentAlignment = Alignment.Center) {
+            CompositionLocalProvider(LocalContentColor provides label) { content() }
+        }
+    } else {
+        GlassSurface(shape, body) { Box(Modifier.padding(horizontal = KeyGap).heightIn(min = height).widthIn(min = KeyMinWidth - KeyGap * 2), contentAlignment = Alignment.Center) { content() } }
     }
 }
 
-private fun Modifier.keyPresses(repeats: Boolean, onDown: () -> Unit, onRepeat: () -> Unit): Modifier = pointerInput(repeats) {
-    coroutineScope {
-        awaitEachGesture {
-            awaitFirstDown()
-            onDown()
-            val repeater = if (repeats) {
-                launch {
-                    delay(REPEAT_DELAY_MS)
-                    while (true) {
-                        onRepeat()
-                        delay(REPEAT_EVERY_MS)
+private fun Modifier.keyPresses(enabled: Boolean, repeats: Boolean, onDown: () -> Unit, onRepeat: () -> Unit, onUp: () -> Unit): Modifier =
+    pointerInput(enabled, repeats) {
+        if (!enabled) return@pointerInput
+        coroutineScope {
+            awaitEachGesture {
+                awaitFirstDown()
+                onDown()
+                val repeater = if (repeats) {
+                    launch {
+                        delay(REPEAT_DELAY_MS)
+                        while (true) {
+                            onRepeat()
+                            delay(REPEAT_EVERY_MS)
+                        }
                     }
+                } else {
+                    null
                 }
-            } else {
-                null
+                waitForUpOrCancellation()
+                repeater?.cancel()
+                onUp()
             }
-            waitForUpOrCancellation()
-            repeater?.cancel()
         }
     }
-}
 
 private const val REPEAT_DELAY_MS = 400L
-private const val REPEAT_EVERY_MS = 50L
+private const val REPEAT_EVERY_MS = 70L

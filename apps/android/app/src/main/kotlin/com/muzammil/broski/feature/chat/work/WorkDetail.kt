@@ -45,7 +45,7 @@ import uniffi.broski_core.toolBody
 @Composable
 internal fun EntryDetail(entry: WorkEntry, actions: WorkActions) {
     Column(
-        Modifier.fillMaxWidth().padding(start = 38.dp, end = 12.dp, bottom = 8.dp),
+        Modifier.fillMaxWidth().padding(start = 26.dp, bottom = 8.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         when (entry) {

@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.muzammil.broski.R
+import com.muzammil.broski.design.IosText
 import com.muzammil.broski.core.usage.LimitWindow
 import com.muzammil.broski.core.usage.PlanIds
 
@@ -98,30 +99,21 @@ fun LimitCard(plan: String, window: LimitWindow, nowMs: Long, modifier: Modifier
     val reset = window.resetWords(resources, nowMs)
     val left = window.leftPercent(nowMs)
     val secondary = MaterialTheme.colorScheme.onSurfaceVariant
-    Surface(
-        shape = RoundedCornerShape(28.dp),
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        modifier = modifier.fillMaxWidth().semantics(mergeDescendants = true) {
+    StatsCard(
+        modifier.semantics(mergeDescendants = true) {
             contentDescription = listOfNotNull(window.label, resources.getString(R.string.usage_left_spoken, left), pace, reset).joinToString(", ")
         },
+        Arrangement.spacedBy(12.dp),
     ) {
-        Column(Modifier.padding(20.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(window.label, style = MaterialTheme.typography.titleSmall, color = secondary, maxLines = 1, modifier = Modifier.weight(1f))
-                pace?.let { Text(it, style = MaterialTheme.typography.labelLarge, color = secondary, maxLines = 1) }
-            }
-            Spacer(Modifier.height(10.dp))
-            Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(
-                    left,
-                    style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.SemiBold, fontFeatureSettings = "tnum"),
-                )
-                Text(stringResource(R.string.usage_left), style = MaterialTheme.typography.titleMedium, color = secondary, modifier = Modifier.padding(bottom = 6.dp))
-            }
-            Spacer(Modifier.height(12.dp))
-            UsageBar(plan, window, nowMs)
-            Spacer(Modifier.height(10.dp))
-            Text(reset, style = MaterialTheme.typography.bodyMedium, color = secondary)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(window.label, style = IosText.subheadline, fontWeight = FontWeight.Medium, color = secondary, maxLines = 1, modifier = Modifier.weight(1f).alignByBaseline())
+            pace?.let { Text(it, style = IosText.footnote, fontWeight = FontWeight.Medium, color = secondary, maxLines = 1, modifier = Modifier.alignByBaseline()) }
         }
+        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            NumericText(left, IosText.figure)
+            Text(stringResource(R.string.usage_left), style = IosText.body, fontWeight = FontWeight.Medium, color = secondary, modifier = Modifier.padding(bottom = 5.dp))
+        }
+        UsageBar(plan, window, nowMs, Modifier.padding(vertical = 2.dp))
+        Text(reset, style = IosText.footnote, color = secondary)
     }
 }

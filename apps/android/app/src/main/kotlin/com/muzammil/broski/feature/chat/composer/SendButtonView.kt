@@ -61,7 +61,7 @@ fun SendButtonView(button: SendButton, onPress: (SendFace) -> Unit) {
         contentAlignment = Alignment.Center,
     ) {
         AnimatedContent(button.face, transitionSpec = { scaleIn() togetherWith scaleOut() }, label = "face") { face ->
-            Icon(painterResource(face.icon), contentDescription = label, tint = content, modifier = Modifier.size(20.dp))
+            Icon(painterResource(face.icon), contentDescription = label, tint = content, modifier = Modifier.size(16.dp))
         }
         DropdownMenu(expanded = offering, onDismissRequest = { offering = false }) {
             listOfNotNull(button.face, button.alternative).forEach { face ->

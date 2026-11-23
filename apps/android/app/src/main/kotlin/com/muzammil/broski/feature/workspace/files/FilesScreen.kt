@@ -1,43 +1,29 @@
 package com.muzammil.broski.feature.workspace.files
 
-import android.content.ClipData
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.ClipEntry
-import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalResources
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.muzammil.broski.R
@@ -47,16 +33,14 @@ import com.muzammil.broski.app.FilesRoute
 import com.muzammil.broski.app.GitRoute
 import com.muzammil.broski.app.TerminalRoute
 import com.muzammil.broski.core.MachineState
-import com.muzammil.broski.design.EmptyState
-import com.muzammil.broski.design.GroupedRow
-import com.muzammil.broski.design.LoadingOrb
-import com.muzammil.broski.feature.workspace.FailureMessage
+import com.muzammil.broski.core.isOnline
+import com.muzammil.broski.design.Grouped
+import com.muzammil.broski.design.Haptic
+import com.muzammil.broski.design.perform
 import com.muzammil.broski.feature.workspace.MachineBanner
 import com.muzammil.broski.feature.workspace.MachineGate
 import com.muzammil.broski.feature.workspace.PathTopBar
 import com.muzammil.broski.feature.workspace.WorkspaceClient
-import com.muzammil.broski.feature.workspace.WorkspaceLoading
-import com.muzammil.broski.feature.workspace.childPath
 import com.muzammil.broski.feature.workspace.lastComponent
 import com.muzammil.broski.feature.workspace.sentence
 import com.muzammil.broski.feature.workspace.terminal.CloseTerminalDialog
@@ -65,7 +49,11 @@ import kotlinx.coroutines.launch
 import uniffi.broski_contract.FileKind
 import uniffi.broski_contract.TerminalSummary
 
-/** One folder of a Mac: the repository it lies in and the terminals opened in it, then its entries, folders first, a search by name under it, and its actions. */
+/**
+ * One folder of a Mac: the repository it lies in and the terminals opened in it, then its entries a
+ * page at a time, search by name under the bar, and a terminal opened here. Loading, a failure, the
+ * entries and the matches all show in one list under a search field that stays put.
+ */
 @Composable
 fun FilesScreen(context: FeatureContext, route: FilesRoute) {
     MachineGate(context.phone, route.machineId) { machine, machineState ->
@@ -89,7 +77,6 @@ fun FilesScreen(context: FeatureContext, route: FilesRoute) {
             onGit = { context.navigate(GitRoute(route.machineId, route.path)) },
             onTerminal = { openTerminal(route.path) },
             onOpenTerminal = { context.navigate(TerminalRoute(route.machineId, it.id, it.cwd)) },
-            onCloseTerminal = overview::close,
         )
         FilesScaffold(route, viewModel, overview, machineState, snackbar, actions)
     }
@@ -101,7 +88,6 @@ class FolderActions(
     val onGit: () -> Unit,
     val onTerminal: () -> Unit,
     val onOpenTerminal: (TerminalSummary) -> Unit,
-    val onCloseTerminal: (id: String) -> Unit,
 )
 
 @Composable
@@ -117,34 +103,19 @@ private fun FilesScaffold(
     val here by overview.state.collectAsStateWithLifecycle()
     var closing by rememberSaveable { mutableStateOf<String?>(null) }
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
-    val clipboard = LocalClipboard.current
-    val resources = LocalResources.current
+    val copy = rememberCopier()
     LaunchedEffect(overview, state.canonicalPath) { overview.refresh(state.canonicalPath) }
-    LaunchedEffect(here.closeFailure) {
-        here.closeFailure?.let { snackbar.showSnackbar(it.sentence(resources)) }
-    }
-    val scope = rememberCoroutineScope()
-    var searching by rememberSaveable { mutableStateOf(false) }
-    val closeSearch = {
-        searching = false
-        viewModel.search("")
-    }
+    TerminalClosedHaptic(here.terminals.size)
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        containerColor = Grouped.screen,
         topBar = {
-            PathTopBar(lastComponent(route.path), route.path, actions.onBack, scrollBehavior) {
-                IconButton(onClick = { if (searching) closeSearch() else searching = true }) {
-                    Icon(painterResource(R.drawable.ic_search), contentDescription = stringResource(R.string.files_search))
-                }
+            PathTopBar(lastComponent(route.path), route.path, actions.onBack, scrollBehavior, containerColor = Grouped.screen) {
                 FolderMenu(
                     showHidden = state.showHidden,
+                    reachable = machineState.health.isOnline,
                     onShowHidden = viewModel::showHidden,
-                    onCopyPath = {
-                        scope.launch {
-                            clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(route.path, route.path)))
-                            snackbar.showSnackbar(resources.getString(R.string.files_path_copied))
-                        }
-                    },
+                    onCopyPath = { copy(route.path) },
                     onTerminal = actions.onTerminal,
                 )
             }
@@ -153,110 +124,60 @@ private fun FilesScaffold(
     ) { padding ->
         Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
             MachineBanner(machineState)
-            if (searching) SearchField(state.query, viewModel::search, onClose = closeSearch)
-            val above: LazyListScope.() -> Unit = {
-                folderOverview(here, route.path, actions.onGit, actions.onOpenTerminal) { closing = it.id }
-            }
-            FilesBody(state, route.path, viewModel, actions.onOpen, above, bottom = padding.calculateBottomPadding())
+            SearchField(state.query, viewModel::search, stringResource(R.string.files_search_prompt, lastComponent(route.path)))
+            RefreshableFolder(state, here, route.path, viewModel, overview, actions, padding.calculateBottomPadding()) { closing = it.id }
         }
     }
     closing?.let { id ->
         CloseTerminalDialog(
             onClose = {
                 closing = null
-                actions.onCloseTerminal(id)
+                overview.close(id)
             },
             onDismiss = { closing = null },
         )
     }
 }
 
+/** The folder's list and what stands in for it, pulled down to read the entries, the repository and the terminals again. */
 @Composable
-private fun FilesBody(
+private fun ColumnScope.RefreshableFolder(
     state: FilesUiState,
+    here: FolderOverview,
     folder: String,
     viewModel: FilesViewModel,
-    onOpen: (String, FileKind) -> Unit,
-    above: LazyListScope.() -> Unit,
+    overview: FolderOverviewViewModel,
+    actions: FolderActions,
     bottom: Dp,
+    onClose: (TerminalSummary) -> Unit,
 ) {
-    val matches = state.matches
-    when {
-        matches != null -> SearchResults(state, folder, matches, onOpen, bottom)
-        state.loading -> WorkspaceLoading()
-        state.failure != null && state.entries.isEmpty() ->
-            FailureMessage(state.failure, viewModel::reload, notFound = R.string.files_not_found)
-        else -> EntryList(state, folder, viewModel::loadMore, onOpen, above, bottom)
-    }
-}
-
-@Composable
-private fun EntryList(
-    state: FilesUiState,
-    folder: String,
-    onNearEnd: () -> Unit,
-    onOpen: (String, FileKind) -> Unit,
-    above: LazyListScope.() -> Unit,
-    bottom: Dp,
-) {
-    val listState = rememberLazyListState()
-    val nearEnd by remember {
-        derivedStateOf {
-            val last = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-            last >= listState.layoutInfo.totalItemsCount - PAGE_AHEAD
-        }
-    }
-    LaunchedEffect(nearEnd, state.nextCursor) {
-        if (nearEnd && state.nextCursor != null) onNearEnd()
-    }
-    val entries = state.entries
-    LazyColumn(state = listState, contentPadding = PaddingValues(top = 8.dp, bottom = bottom + 24.dp)) {
-        above()
-        if (entries.isEmpty() && state.nextCursor == null) {
-            item(key = "empty", contentType = "empty") { EmptyState(stringResource(R.string.files_empty_title), stringResource(R.string.files_empty_body)) }
-        }
-        itemsIndexed(entries, key = { _, entry -> entry.name }, contentType = { _, _ -> "entry" }) { index, entry ->
-            EntryRow(entry, index, entries.size, Modifier.animateItem()) { onOpen(childPath(folder, entry.name), entry.kind) }
-        }
-        if (state.loadingMore) {
-            item(key = "more", contentType = "more") {
-                Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) { LoadingOrb() }
+    var refreshing by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    PullToRefreshBox(
+        isRefreshing = refreshing,
+        onRefresh = {
+            refreshing = true
+            scope.launch {
+                viewModel.reload().join()
+                overview.refresh(viewModel.state.value.canonicalPath).join()
+                refreshing = false
             }
-        }
-        state.failure?.let { failure ->
-            item(key = "failure", contentType = "failure") { FailureMessage(failure, onNearEnd) }
-        }
+        },
+        modifier = Modifier.weight(1f),
+    ) {
+        val bare = here.repository == null && here.terminals.isEmpty()
+        FolderList(state, here, folder, bare, viewModel, actions, bottom, onClose)
+        FolderPlaceholder(state, bare, viewModel::reload)
     }
 }
 
+/** A terminal that is gone from the list was closed: the warning haptic of a destructive act that happened. */
 @Composable
-private fun SearchResults(
-    state: FilesUiState,
-    folder: String,
-    matches: List<uniffi.broski_contract.FileMatch>,
-    onOpen: (String, FileKind) -> Unit,
-    bottom: Dp,
-) {
-    when {
-        state.searchFailure != null -> FailureMessage(state.searchFailure, onRetry = null)
-        matches.isEmpty() -> EmptyState(
-            stringResource(R.string.files_search_none_title),
-            stringResource(R.string.files_search_none_body, state.query),
-        )
-        else -> LazyColumn(contentPadding = PaddingValues(top = 8.dp, bottom = bottom + 24.dp)) {
-            itemsIndexed(matches, key = { _, match -> match.path }) { index, match ->
-                GroupedRow(
-                    index = index,
-                    count = matches.size,
-                    onClick = { onOpen(childPath(folder, match.path), match.kind) },
-                    leading = { Icon(painterResource(match.kind.icon), contentDescription = null) },
-                    supporting = { MonoPath(match.path) },
-                ) {
-                    Text(lastComponent(match.path), maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
-                }
-            }
-        }
+private fun TerminalClosedHaptic(count: Int) {
+    val haptics = LocalHapticFeedback.current
+    var seen by remember { mutableIntStateOf(count) }
+    LaunchedEffect(count) {
+        if (count < seen) haptics.perform(Haptic.Warning)
+        seen = count
     }
 }
-
-private const val PAGE_AHEAD = 20

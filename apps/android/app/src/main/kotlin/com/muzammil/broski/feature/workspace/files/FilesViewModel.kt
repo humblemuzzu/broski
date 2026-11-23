@@ -23,6 +23,8 @@ data class FilesUiState(
     val loadingMore: Boolean = false,
     val nextCursor: String? = null,
     val failure: WorkspaceFailure? = null,
+    /** The last page that did not come, said under the list; Load More tries again. */
+    val pageFailure: WorkspaceFailure? = null,
     val showHidden: Boolean = false,
     val query: String = "",
     val matches: List<FileMatch>? = null,
@@ -40,20 +42,21 @@ class FilesViewModel(private val client: WorkspaceClient, val path: String) : Vi
         reload()
     }
 
-    fun reload() {
+    /** The first page again, replacing everything listed; the entries stay on screen meanwhile. */
+    fun reload(): Job {
         listing?.cancel()
-        mutableState.update { it.copy(loading = true, failure = null) }
-        listing = viewModelScope.launch {
+        mutableState.update { it.copy(loading = true, failure = null, pageFailure = null, loadingMore = false) }
+        return viewModelScope.launch {
             when (val answer = client.list(path, cursor = null, hidden = state.value.showHidden)) {
                 is Answer.Done -> mutableState.update {
                     it.copy(canonicalPath = answer.value.path, entries = answer.value.entries, nextCursor = answer.value.nextCursor, loading = false)
                 }
                 is Answer.Failed -> mutableState.update { it.copy(loading = false, failure = answer.failure) }
             }
-        }
+        }.also { listing = it }
     }
 
-    /** The next page, once the person nears the end of what is listed. */
+    /** The next page, once the last row shows; a call while one is on its way does nothing. */
     fun loadMore() {
         val current = state.value
         val cursor = current.nextCursor ?: return
@@ -62,9 +65,9 @@ class FilesViewModel(private val client: WorkspaceClient, val path: String) : Vi
         listing = viewModelScope.launch {
             when (val answer = client.list(path, cursor, current.showHidden)) {
                 is Answer.Done -> mutableState.update {
-                    it.copy(entries = it.entries + answer.value.entries, nextCursor = answer.value.nextCursor, loadingMore = false, failure = null)
+                    it.copy(entries = it.entries + answer.value.entries, nextCursor = answer.value.nextCursor, loadingMore = false, pageFailure = null)
                 }
-                is Answer.Failed -> mutableState.update { it.copy(loadingMore = false, failure = answer.failure) }
+                is Answer.Failed -> mutableState.update { it.copy(loadingMore = false, pageFailure = answer.failure) }
             }
         }
     }

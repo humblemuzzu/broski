@@ -88,6 +88,9 @@ class AppCore(private val context: Context) {
     /** `null` until the stored settings are read, so the first frame already has the right theme. */
     val settings: StateFlow<AppSettings?> = settingsStore.settings.stateIn(scope, SharingStarted.Eagerly, null)
 
+    /** What the inbox narrows to, shared by the inbox and the working capsule. */
+    val inboxFilters = InboxFilters(settingsStore, scope)
+
     /** Created on the main thread with the core, as its recorder and its state live there. */
     val dictation = Dictation(context, vault, settings)
 

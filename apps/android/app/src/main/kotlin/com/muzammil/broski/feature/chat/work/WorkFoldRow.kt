@@ -12,6 +12,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -41,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
 import com.muzammil.broski.design.Haptic
 import com.muzammil.broski.design.perform
+import com.muzammil.broski.design.IosText
 
 /** Disclosure rotation and fold expansion timing. */
 private const val DISCLOSURE_MS = 180
@@ -67,7 +69,7 @@ fun WorkFoldRow(
         Row(
             Modifier
                 .fillMaxWidth()
-                .heightIn(min = 36.dp)
+                .heightIn(min = 28.dp)
                 .clickable {
                     haptics.perform(if (expanded) Haptic.Collapse else Haptic.Expand)
                     onToggle()
@@ -79,6 +81,7 @@ fun WorkFoldRow(
                     onClick { onToggle(); true }
                 },
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             FoldSentence(parts, Modifier.weight(1f, fill = false))
             Disclosure(expanded)
@@ -99,8 +102,8 @@ private fun Disclosure(expanded: Boolean) {
     Icon(
         painterResource(R.drawable.ic_chevron_right),
         contentDescription = null,
-        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.size(18.dp).rotate(turn),
+        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+        modifier = Modifier.size(14.dp).rotate(turn),
     )
 }
 
@@ -126,7 +129,7 @@ private fun FoldSentence(parts: List<FoldPart>, modifier: Modifier) {
 
 @Composable
 private fun FoldText(text: String, color: Color) {
-    Text(text, style = MaterialTheme.typography.bodyMedium, color = color, maxLines = 1)
+    Text(text, style = IosText.subheadline, color = color, maxLines = 1)
 }
 
 @Composable

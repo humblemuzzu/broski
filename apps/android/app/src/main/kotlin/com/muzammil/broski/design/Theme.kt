@@ -2,6 +2,7 @@ package com.muzammil.broski.design
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.Typography
@@ -54,8 +55,9 @@ fun BroskiTheme(appearance: Appearance, dynamicColor: Boolean = false, content: 
             colorScheme = colors,
             motionScheme = MotionScheme.expressive(),
             typography = BroskiTypography,
-            content = content,
-        )
+        ) {
+            CompositionLocalProvider(LocalContentColor provides colors.onSurface, content = content)
+        }
     }
 }
 

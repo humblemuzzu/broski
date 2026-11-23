@@ -1,7 +1,14 @@
 package com.muzammil.broski.feature.chat.work
 
 import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.text.font.FontWeight
+import com.muzammil.broski.design.BroskiTheme
+import com.muzammil.broski.design.IosText
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,7 +21,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -72,6 +78,7 @@ class WorkActions(
 /** An open fold stops at 256 dp and scrolls inside, under 12 dp edge fades. */
 private val MAX_HEIGHT = 256.dp
 private val ROW_HEIGHT = 28.dp
+private val ICON_WIDTH = 18.dp
 private val FADE = 12.dp
 
 @Composable
@@ -82,21 +89,17 @@ internal fun WorkEntries(
     actions: WorkActions,
 ) {
     val scroll = rememberScrollState()
-    Surface(
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(start = 4.dp, top = 4.dp)
+            .heightIn(max = MAX_HEIGHT)
+            .edgeFades(scroll)
+            .verticalScroll(scroll),
+        verticalArrangement = Arrangement.spacedBy(1.dp),
     ) {
-        Column(
-            Modifier
-                .heightIn(max = MAX_HEIGHT)
-                .edgeFades(scroll)
-                .verticalScroll(scroll)
-                .padding(vertical = 6.dp),
-        ) {
-            entries.forEach { entry ->
-                EntryRow(entry, expanded(entry.id), { onToggle(entry.id) }, actions)
-            }
+        entries.forEach { entry ->
+            EntryRow(entry, expanded(entry.id), { onToggle(entry.id) }, actions)
         }
     }
 }
@@ -115,19 +118,22 @@ private fun EntryRow(entry: WorkEntry, expanded: Boolean, onToggle: () -> Unit, 
                     onToggle()
                 }
                 .semantics { stateDescription = stateWords }
-                .padding(start = if (entry is WorkEntry.Tool && entry.nested) 28.dp else 12.dp, end = 12.dp),
+                .padding(start = if (entry is WorkEntry.Tool && entry.nested) ICON_WIDTH else 0.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            if (entry is WorkEntry.Thought && entry.live) {
-                // still: the status lane under the run is the one orb that moves
-                Orb(OrbState.BREATHING, Modifier.size(16.dp).wrapContentSize(unbounded = true), size = 18.dp, still = true)
-            } else {
-                Icon(painterResource(entry.icon), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+            Box(Modifier.width(ICON_WIDTH), contentAlignment = Alignment.Center) {
+                if (entry is WorkEntry.Thought && entry.live) {
+                    // still: the status lane under the run is the one orb that moves
+                    Orb(OrbState.BREATHING, Modifier.size(16.dp).wrapContentSize(unbounded = true), size = 18.dp, still = true)
+                } else {
+                    Icon(painterResource(entry.icon), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(15.dp))
+                }
             }
             Text(
                 entryLabel(entry, expanded),
-                style = MaterialTheme.typography.bodySmall.let { if (!expanded && entry is WorkEntry.Tool && entry.kind == ToolKind.COMMAND) it.mono() else it },
+                style = IosText.footnote.let { if (!expanded && entry is WorkEntry.Tool && entry.kind == ToolKind.COMMAND) it.mono() else it },
+                color = if (entry is WorkEntry.Thought) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
@@ -145,24 +151,28 @@ private fun entryLabel(entry: WorkEntry, expanded: Boolean): String = when (entr
     is WorkEntry.Aside -> entry.text.lineSequence().firstOrNull { it.isNotBlank() }.orEmpty()
 }
 
-/** How a call ended, in a word, when it did not simply complete; a running call shows nothing, the lane is alive. */
+/** How a call ended, in words on a capsule of its tint: nothing for a call that completed cleanly. */
 @Composable
 private fun Outcome(tool: WorkEntry.Tool) {
     val words = when {
+        tool.running -> stringResource(R.string.chat_work_outcome_running)
         tool.exitCode != null && tool.exitCode != 0L -> stringResource(R.string.chat_work_exit, tool.exitCode)
         tool.outcome == ToolOutcome.FAILED -> stringResource(R.string.chat_work_outcome_failed)
         tool.outcome == ToolOutcome.DENIED -> stringResource(R.string.chat_work_outcome_denied)
         tool.outcome == ToolOutcome.ABORTED -> stringResource(R.string.chat_work_outcome_stopped)
         else -> return
     }
-    val error = tool.failed
-    Surface(
-        shape = MaterialTheme.shapes.small,
-        color = if (error) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
-        contentColor = if (error) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-    ) {
-        Text(words, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+    val tint = when {
+        tool.running -> BroskiTheme.semantic.working
+        tool.failed -> MaterialTheme.colorScheme.error
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
+    Text(
+        words,
+        style = IosText.caption.copy(fontWeight = FontWeight.SemiBold),
+        color = tint,
+        modifier = Modifier.background(tint.copy(alpha = 0.14f), CircleShape).padding(horizontal = 8.dp, vertical = 2.dp),
+    )
 }
 
 private val WorkEntry.icon: Int

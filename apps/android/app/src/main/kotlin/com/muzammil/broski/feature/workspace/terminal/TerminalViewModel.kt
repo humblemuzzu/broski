@@ -26,6 +26,9 @@ import uniffi.broski_core.TerminalUpdate
 import uniffi.broski_core.TerminalView
 
 sealed interface TerminalState {
+    /** Attached, and nothing heard from the terminal yet. */
+    data object Opening : TerminalState
+
     data object Live : TerminalState
 
     data class Exited(val exitCode: Long?, val signal: String?) : TerminalState
@@ -51,7 +54,7 @@ class TerminalViewModel(open: () -> TerminalView) : ViewModel() {
 
     private val mutableScreen = MutableStateFlow(Screen.Empty)
     val screen: StateFlow<Screen> = mutableScreen.asStateFlow()
-    private val mutableState = MutableStateFlow<TerminalState>(TerminalState.Live)
+    private val mutableState = MutableStateFlow<TerminalState>(TerminalState.Opening)
     val state: StateFlow<TerminalState> = mutableState.asStateFlow()
     private val view: TerminalView? = try {
         open()
@@ -62,6 +65,12 @@ class TerminalViewModel(open: () -> TerminalView) : ViewModel() {
 
     init {
         view?.let { viewModelScope.launch(engine) { pump(it) } }
+        view?.let {
+            viewModelScope.launch {
+                delay(OPENING_MS)
+                mutableState.compareAndSet(TerminalState.Opening, TerminalState.Live)
+            }
+        }
         viewModelScope.launch(engine) { draw() }
         view?.let { viewModelScope.launch { send(it) } }
         view?.let { attached ->
@@ -152,6 +161,7 @@ class TerminalViewModel(open: () -> TerminalView) : ViewModel() {
             while (true) {
                 when (val update = view.nextUpdate() ?: break) {
                     is TerminalUpdate.Output -> {
+                        mutableState.compareAndSet(TerminalState.Opening, TerminalState.Live)
                         if (update.reset) vt.reset()
                         val answer = vt.write(update.data)
                         // Replayed output had its queries answered when live; echoing them again would confuse the shell.
@@ -221,6 +231,9 @@ class TerminalViewModel(open: () -> TerminalView) : ViewModel() {
         const val INITIAL_ROWS = 24
         const val FRAME_MS = 16L
         const val RESIZE_PAUSE_MS = 150L
+
+        /** A terminal that prints nothing is live all the same once this has passed. */
+        const val OPENING_MS = 1_500L
 
         /** The contract's `MAX_TERMINAL_INPUT_BYTES`. */
         const val MAX_INPUT_BYTES = 65_536

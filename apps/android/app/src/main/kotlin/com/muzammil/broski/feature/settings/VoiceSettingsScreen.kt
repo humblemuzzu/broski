@@ -1,34 +1,17 @@
 package com.muzammil.broski.feature.settings
 
 import android.content.Intent
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedListItem
-import androidx.compose.material3.Switch
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,13 +20,15 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardCapitalization
-import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -51,38 +36,25 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.muzammil.broski.R
 import com.muzammil.broski.core.AppCore
 import com.muzammil.broski.core.settings.VoiceSettings
+import com.muzammil.broski.design.Banner
+import com.muzammil.broski.design.BannerStyle
+import com.muzammil.broski.design.Grouped
+import com.muzammil.broski.design.Haptic
 import com.muzammil.broski.design.Orb
-import com.muzammil.broski.design.SectionHeader
-import com.muzammil.broski.design.groupedListItemColors
 import com.muzammil.broski.design.orb.OrbState
+import com.muzammil.broski.design.perform
+import com.muzammil.broski.design.IosText
 import uniffi.broski_core.dictationLanguages
 
 /** Settings › Voice: the xAI key, the spoken language, sending after dictating, project words, and the person's own words. */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun VoiceSettingsScreen(core: AppCore, onBack: () -> Unit) {
     val viewModel = viewModel { VoiceSettingsViewModel(core.settingsStore, core.settings, core.dictation) }
     val state by viewModel.state.collectAsStateWithLifecycle()
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.voice_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(painterResource(R.drawable.ic_arrow_back), contentDescription = stringResource(R.string.action_back))
-                    }
-                },
-            )
-        },
-    ) { padding ->
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + 24.dp),
-        ) {
-            item(key = "key") { KeySection(state, viewModel) }
-            dictation(state.voice, viewModel)
-            words(state.voice.dictionary, viewModel)
-        }
+    SettingsPage(stringResource(R.string.voice_title), onBack) {
+        item(key = "key") { KeySection(state, viewModel) }
+        dictation(state.voice, viewModel)
+        words(state.voice.dictionary, viewModel)
     }
 }
 
@@ -90,162 +62,149 @@ fun VoiceSettingsScreen(core: AppCore, onBack: () -> Unit) {
 private fun KeySection(state: VoiceUiState, viewModel: VoiceSettingsViewModel) {
     val context = LocalContext.current
     var entry by rememberSaveable { mutableStateOf("") }
-    SectionHeader(stringResource(R.string.voice_xai))
-    val rows = Modifier.padding(horizontal = 16.dp).padding(bottom = ListItemDefaults.SegmentedGap)
     val key = state.key
+    val note = (state.status as? KeyStatus.Said)?.let { stringResource(it.message) }
+    FormHeader(stringResource(R.string.voice_xai))
     if (key != null) {
-        SegmentedListItem(
-            shapes = ListItemDefaults.segmentedShapes(0, 1),
-            modifier = rows,
-            supportingContent = { Text(masked(key), fontFamily = FontFamily.Monospace) },
-            trailingContent = { TextButton(onClick = viewModel::removeKey) { Text(stringResource(R.string.voice_key_remove)) } },
-            colors = groupedListItemColors(),
-        ) { Text(stringResource(R.string.voice_key)) }
+        val count = if (note != null) 3 else 2
+        FormValueRow(0, count, stringResource(R.string.voice_key), masked(key))
+        FormButtonRow(1, count, stringResource(R.string.voice_key_remove), viewModel::removeKey, destructive = true)
+        note?.let { NoteRow(2, count, it) }
     } else {
+        val checking = state.status == KeyStatus.Checking
         val save = { viewModel.saveKey(entry) { entry = "" } }
-        OutlinedTextField(
-            value = entry,
+        val count = if (note != null) 4 else 3
+        FormTextField(
+            0, count, entry,
             onValueChange = {
                 entry = it
                 viewModel.clearStatus()
             },
-            label = { Text(stringResource(R.string.voice_key_field)) },
-            singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, autoCorrectEnabled = false, imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { save() }),
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            placeholder = stringResource(R.string.voice_key_field),
+            onDone = save,
+            secure = true,
         )
-        Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Button(onClick = save, enabled = entry.isNotBlank() && state.status != KeyStatus.Checking) {
-                if (state.status == KeyStatus.Checking) {
-                    Orb(OrbState.CONNECTING)
-                    Text(stringResource(R.string.voice_key_checking), modifier = Modifier.padding(start = 8.dp))
-                } else {
-                    Text(stringResource(R.string.voice_key_save))
-                }
+        if (checking) {
+            FormRow(1, count) {
+                Orb(OrbState.CONNECTING)
+                Text(stringResource(R.string.voice_key_checking), style = IosText.body, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            TextButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, KEYS_URL.toUri())) }) {
-                Text(stringResource(R.string.voice_key_get))
-            }
+        } else {
+            FormButtonRow(1, count, stringResource(R.string.voice_key_save), save, enabled = entry.isNotBlank())
         }
+        FormButtonRow(2, count, stringResource(R.string.voice_key_get), onClick = {
+            context.startActivity(Intent(Intent.ACTION_VIEW, KEYS_URL.toUri()))
+        })
+        note?.let { NoteRow(3, count, it) }
     }
-    when (val status = state.status) {
-        is KeyStatus.Said -> Note(stringResource(status.message))
-        is KeyStatus.Failed -> Note(listOfNotNull(stringResource(status.problem.message), status.problem.detail).joinToString("\n"), error = true)
-        KeyStatus.None, KeyStatus.Checking -> Unit
+    (state.status as? KeyStatus.Failed)?.let { failed ->
+        Banner(
+            BannerStyle.Error,
+            stringResource(failed.problem.message),
+            modifier = Modifier.padding(horizontal = Grouped.margin).padding(top = 12.dp),
+            detail = failed.problem.detail,
+        )
     }
-    Note(stringResource(R.string.voice_key_footer))
+    FormFooter(stringResource(R.string.voice_key_footer))
 }
 
 @Composable
-private fun Note(text: String, error: Boolean = false) {
-    Text(
-        text,
-        style = MaterialTheme.typography.bodyMedium,
-        color = if (error) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(horizontal = 24.dp, vertical = 6.dp),
-    )
+private fun NoteRow(index: Int, count: Int, text: String) {
+    FormRow(index, count) {
+        Text(text, style = IosText.footnote, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 private fun LazyListScope.dictation(voice: VoiceSettings, viewModel: VoiceSettingsViewModel) {
-    item(key = "dictation") { SectionHeader(stringResource(R.string.voice_dictation)) }
-    item(key = "language") { LanguageRow(voice.language, viewModel::setLanguage) }
-    item(key = "send-after") {
-        SwitchRow(R.string.voice_send_after, R.string.voice_send_after_body, voice.sendAfterDictating, 1, viewModel::setSendAfter)
-    }
-    item(key = "project-words") {
-        SwitchRow(R.string.voice_project_words, R.string.voice_project_words_body, voice.projectWords, 2, viewModel::setProjectWords)
-    }
-    item(key = "language-note") {
-        val formats = dictationLanguages().firstOrNull { it.code == voice.language }?.formats == true
-        Note(stringResource(if (formats) R.string.voice_language_formats else R.string.voice_language_plain))
+    item(key = "dictation") {
+        val languages = remember { dictationLanguages() }
+        val formats = languages.firstOrNull { it.code == voice.language }?.formats == true
+        val detect = stringResource(R.string.voice_language_detect)
+        FormHeader(stringResource(R.string.voice_dictation))
+        FormMenuRow(
+            0, 3, stringResource(R.string.voice_language),
+            options = listOf<String?>(null) + languages.map { it.code },
+            selected = voice.language,
+            label = { code -> languages.firstOrNull { it.code == code }?.name ?: detect },
+            onSelect = viewModel::setLanguage,
+        )
+        FormToggle(1, 3, stringResource(R.string.voice_send_after), voice.sendAfterDictating, viewModel::setSendAfter)
+        FormToggle(2, 3, stringResource(R.string.voice_project_words), voice.projectWords, viewModel::setProjectWords)
+        FormFooter(
+            stringResource(if (formats) R.string.voice_language_formats else R.string.voice_language_plain) + " " +
+                stringResource(R.string.voice_project_words_footer),
+        )
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+private fun LazyListScope.words(words: List<String>, viewModel: VoiceSettingsViewModel) {
+    item(key = "words") { FormHeader(stringResource(R.string.voice_words)) }
+    val count = words.size + 1
+    words.forEachIndexed { index, word ->
+        item(key = "word:$word") { WordRow(index, count, word) { viewModel.removeWord(word) } }
+    }
+    item(key = "word-entry") {
+        WordEntry(words.size, count, words, viewModel::addWord)
+        FormFooter(stringResource(R.string.voice_words_body))
+    }
+}
+
+/** A word of the person's own; swiped toward the start it is deleted, as iOS's list deletes. */
 @Composable
-private fun LanguageRow(language: String?, onPick: (String?) -> Unit) {
-    val languages = remember { dictationLanguages() }
-    var open by remember { mutableStateOf(false) }
-    val detect = stringResource(R.string.voice_language_detect)
-    Box {
-        SegmentedListItem(
-            onClick = { open = true },
-            shapes = ListItemDefaults.segmentedShapes(0, 3),
-            modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = ListItemDefaults.SegmentedGap),
-            supportingContent = { Text(languages.firstOrNull { it.code == language }?.name ?: detect) },
-            trailingContent = { Icon(painterResource(R.drawable.ic_keyboard_arrow_down), contentDescription = null) },
-            colors = groupedListItemColors(),
-        ) { Text(stringResource(R.string.voice_language)) }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            DropdownMenuItem(text = { Text(detect) }, onClick = { open = false; onPick(null) })
-            languages.forEach { option ->
-                DropdownMenuItem(
-                    text = { Text(option.name) },
-                    trailingIcon = if (option.code == language) ({ Icon(painterResource(R.drawable.ic_check), null) }) else null,
-                    onClick = {
-                        open = false
-                        onPick(option.code)
-                    },
-                )
+private fun WordRow(index: Int, count: Int, word: String, onDelete: () -> Unit) {
+    val haptics = LocalHapticFeedback.current
+    val swipe = rememberSwipeToDismissBoxState()
+    val delete = stringResource(R.string.voice_words_delete)
+    SwipeToDismissBox(
+        state = swipe,
+        enableDismissFromStartToEnd = false,
+        onDismiss = {
+            haptics.perform(Haptic.Warning)
+            onDelete()
+        },
+        backgroundContent = {
+            if (swipe.dismissDirection != SwipeToDismissBoxValue.Settled) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = Grouped.margin)
+                        .background(MaterialTheme.colorScheme.error, Grouped.shape(index, count))
+                        .padding(horizontal = 20.dp),
+                    contentAlignment = Alignment.CenterEnd,
+                ) {
+                    Text(delete, style = IosText.body.copy(fontWeight = FontWeight.SemiBold), color = Color.White)
+                }
             }
+        },
+        modifier = Modifier.semantics { customActions = listOf(CustomAccessibilityAction(delete) { onDelete(); true }) },
+    ) {
+        FormRow(index, count) { Text(word, style = IosText.body) }
+    }
+}
+
+@Composable
+private fun WordEntry(index: Int, count: Int, words: List<String>, onAdd: (String) -> Unit) {
+    var entry by rememberSaveable { mutableStateOf("") }
+    val word = entry.trim()
+    val canAdd = word.isNotEmpty() && word.length <= VoiceSettingsViewModel.MAX_WORD && words.none { it.equals(word, ignoreCase = true) }
+    val add = {
+        if (canAdd) {
+            onAdd(entry)
+            entry = ""
         }
     }
-}
-
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-private fun SwitchRow(title: Int, body: Int, checked: Boolean, index: Int, onChange: (Boolean) -> Unit) {
-    SegmentedListItem(
-        checked = checked,
-        onCheckedChange = onChange,
-        shapes = ListItemDefaults.segmentedShapes(index, 3),
-        modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = ListItemDefaults.SegmentedGap),
-        supportingContent = { Text(stringResource(body)) },
-        trailingContent = { Switch(checked = checked, onCheckedChange = null) },
-        colors = groupedListItemColors(),
-    ) { Text(stringResource(title)) }
-}
-
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-private fun LazyListScope.words(words: List<String>, viewModel: VoiceSettingsViewModel) {
-    item(key = "words") { SectionHeader(stringResource(R.string.voice_words)) }
-    itemsIndexed(words, key = { _, word -> "word:$word" }) { index, word ->
-        SegmentedListItem(
-            shapes = ListItemDefaults.segmentedShapes(index, words.size),
-            modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = ListItemDefaults.SegmentedGap),
-            trailingContent = {
-                IconButton(onClick = { viewModel.removeWord(word) }) {
-                    Icon(painterResource(R.drawable.ic_close), contentDescription = stringResource(R.string.voice_words_remove, word))
-                }
-            },
-            colors = groupedListItemColors(),
-        ) { Text(word) }
-    }
-    item(key = "word-entry") { WordEntry(viewModel::addWord) }
-    item(key = "words-note") { Note(stringResource(R.string.voice_words_body)) }
-}
-
-@Composable
-private fun WordEntry(onAdd: (String) -> Unit) {
-    var entry by rememberSaveable { mutableStateOf("") }
-    val add = {
-        onAdd(entry)
-        entry = ""
-    }
-    Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(
-            value = entry,
-            onValueChange = { if (it.length <= VoiceSettingsViewModel.MAX_WORD) entry = it },
-            label = { Text(stringResource(R.string.voice_words_add)) },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, autoCorrectEnabled = false, imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { add() }),
-            modifier = Modifier.weight(1f),
+    FormTextField(
+        index, count, entry,
+        onValueChange = { if (it.length <= VoiceSettingsViewModel.MAX_WORD) entry = it },
+        placeholder = stringResource(R.string.voice_words_add),
+        onDone = add,
+    ) {
+        Text(
+            stringResource(R.string.voice_words_add_action),
+            style = IosText.body,
+            color = if (canAdd) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+            modifier = Modifier.clickable(enabled = canAdd, role = Role.Button, onClick = add).padding(vertical = 6.dp),
         )
-        TextButton(onClick = add, enabled = entry.isNotBlank()) { Text(stringResource(R.string.voice_words_add_action)) }
     }
 }
 

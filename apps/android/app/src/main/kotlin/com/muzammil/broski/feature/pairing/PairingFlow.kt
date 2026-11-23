@@ -33,6 +33,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.muzammil.broski.R
+import com.muzammil.broski.app.LocalOpenRequests
 import com.muzammil.broski.design.Haptic
 import com.muzammil.broski.design.Orb
 import com.muzammil.broski.design.PrimaryButton
@@ -56,6 +57,7 @@ fun PairingFlow(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     PairingEffects(state, viewModel, onPaired)
+    OpenedLink(viewModel)
     val (scan, paste) = rememberPairingInputs(viewModel)
     val motion = MaterialTheme.motionScheme
     AnimatedContent(
@@ -105,6 +107,16 @@ private fun PairingEffects(state: PairingState, viewModel: PairingViewModel, onP
             is PairingState.Failed -> haptics.perform(Haptic.Failure)
             else -> Unit
         }
+    }
+}
+
+/** A `broski://pair` link opened from outside goes to the offer's preview as a scanned one would. */
+@Composable
+private fun OpenedLink(viewModel: PairingViewModel) {
+    val requests = LocalOpenRequests.current ?: return
+    val link by requests.pairLink.collectAsStateWithLifecycle()
+    LaunchedEffect(link) {
+        if (link != null) requests.takePairLink()?.let(viewModel::scanned)
     }
 }
 

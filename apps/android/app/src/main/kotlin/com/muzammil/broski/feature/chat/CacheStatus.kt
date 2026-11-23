@@ -143,5 +143,5 @@ suspend fun tickCacheClock(expiresAtMs: Long?, estimated: Boolean, clock: () -> 
     }
 }
 
-private fun cacheTimeOfDay(millis: Long): String =
+fun cacheTimeOfDay(millis: Long): String =
     DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).format(Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()))

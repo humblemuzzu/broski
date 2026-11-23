@@ -1,6 +1,18 @@
 package com.muzammil.broski.feature.chat.transcript
 
 import android.content.ClipData
+import android.text.format.DateFormat
+import androidx.compose.material3.Text
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.text.style.TextAlign
+import com.muzammil.broski.design.Haptic
+import com.muzammil.broski.design.perform
+import java.util.Date
+import kotlinx.coroutines.delay
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -34,7 +46,10 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
+import androidx.compose.runtime.staticCompositionLocalOf
 import com.muzammil.broski.design.BroskiMotion
+import com.muzammil.broski.design.BroskiTheme
+import com.muzammil.broski.feature.chat.compactTokens
 import com.muzammil.broski.design.LoadingOrb
 import com.muzammil.broski.design.animationsEnabled
 import com.muzammil.broski.design.format.FormatRole
@@ -64,38 +79,75 @@ fun Modifier.entrance(at: Long?): Modifier {
     }
 }
 
-/** A line between turns: a notice, a compaction, a model change, or a run that did not finish; three lines at most until tapped open. */
+/** A model's display name by its id, from the chat's catalog; the id itself when it is not listed. */
+val LocalModelNames = staticCompositionLocalOf<(String) -> String> { { it } }
+
+/** A line between turns: something the agent said, as a quiet notice, or a compaction, a model change or how a run ended, as a marker. */
 @Composable
 fun NoteRow(note: TranscriptNote, modifier: Modifier = Modifier) {
+    if (note is TranscriptNote.Notice) NoticeLine(note, modifier) else MarkerLine(note, modifier)
+}
+
+/** The agent's words that are not a turn: its level's symbol, then the words, three lines until tapped open. */
+@Composable
+private fun NoticeLine(note: TranscriptNote.Notice, modifier: Modifier) {
     var open by remember { mutableStateOf(false) }
-    val color = when {
-        note is TranscriptNote.Notice && note.level == NoticeLevel.ERROR -> MaterialTheme.colorScheme.error
-        note is TranscriptNote.Stopped && note.failure != null -> MaterialTheme.colorScheme.error
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    val (icon, tint) = when (note.level) {
+        NoticeLevel.INFO -> R.drawable.ic_info to MaterialTheme.colorScheme.onSurfaceVariant
+        NoticeLevel.WARNING -> R.drawable.ic_warning to BroskiTheme.semantic.caution
+        NoticeLevel.ERROR -> R.drawable.ic_error to MaterialTheme.colorScheme.error
     }
     Row(
         modifier.fillMaxWidth().clickable(onClickLabel = null) { open = !open },
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        HorizontalDivider(Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
-        val words = noteWords(note)
+        Icon(painterResource(icon), contentDescription = null, tint = tint, modifier = Modifier.padding(top = 2.dp).size(14.dp))
         val folded = FormatRole.Quiet.linesHeight(NOTE_LINES)
-        Box(Modifier.weight(4f, fill = false).then(if (open) Modifier else Modifier.heightIn(max = folded).clipToBounds())) {
-            CompositionLocalProvider(LocalContentColor provides color) {
-                FormattedMessage(words, role = FormatRole.Quiet)
+        Box(if (open) Modifier else Modifier.heightIn(max = folded).clipToBounds()) {
+            CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurfaceVariant) {
+                FormattedMessage(note.text, role = FormatRole.Quiet)
             }
         }
-        HorizontalDivider(Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
+    }
+}
+
+/** A compaction, a model change, or how a run ended, as a centred caption between two hairlines. */
+@Composable
+private fun MarkerLine(note: TranscriptNote, modifier: Modifier) {
+    val rule = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+    val failed = note is TranscriptNote.Stopped && note.failure != null
+    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        HorizontalDivider(Modifier.weight(1f), thickness = 1.dp, color = rule)
+        Text(
+            markerWords(note),
+            fontSize = 12.sp,
+            color = if (failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 2,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.widthIn(max = 280.dp),
+        )
+        HorizontalDivider(Modifier.weight(1f), thickness = 1.dp, color = rule)
     }
 }
 
 @Composable
-private fun noteWords(note: TranscriptNote): String = when (note) {
+private fun markerWords(note: TranscriptNote): String = when (note) {
     is TranscriptNote.Notice -> note.text
-    is TranscriptNote.Compacted -> stringResource(R.string.chat_note_compacted)
-    is TranscriptNote.ModelChanged -> note.modelId?.let { stringResource(R.string.chat_note_model, it) }
-        ?: stringResource(R.string.chat_note_thinking, note.thinking.orEmpty())
+    is TranscriptNote.Compacted -> if (note.tokensBefore != null && note.tokensAfter != null) {
+        stringResource(R.string.chat_note_compacted_counts, compactTokens(note.tokensBefore), compactTokens(note.tokensAfter))
+    } else {
+        stringResource(R.string.chat_note_compacted)
+    }
+    is TranscriptNote.ModelChanged -> {
+        val name = note.modelId?.let(LocalModelNames.current)
+        val thinking = note.thinking?.replaceFirstChar(Char::uppercaseChar)
+        when {
+            name != null && thinking != null -> stringResource(R.string.chat_note_model_thinking, name, thinking)
+            name != null -> stringResource(R.string.chat_note_model, name)
+            thinking != null -> stringResource(R.string.chat_note_thinking, thinking)
+            else -> stringResource(R.string.chat_note_default_model)
+        }
+    }
     is TranscriptNote.Stopped -> when {
         note.failure != null -> stringResource(R.string.chat_note_failed, note.failure)
         note.limit != null -> stringResource(note.limit.words)
@@ -110,21 +162,44 @@ private val RunLimit.words: Int
         RunLimit.OUTPUT_TOKENS -> R.string.chat_note_limit_output
     }
 
-/** The quiet copy button under a finished answer. */
+/**
+ * Under a finished answer: the quiet copy button, a check for a moment once copied, and the time the
+ * answer came, as iOS ends an answer.
+ */
 @Composable
-fun CopyAnswerRow(text: String, modifier: Modifier = Modifier) {
+fun CopyAnswerRow(text: String, at: Long?, modifier: Modifier = Modifier) {
     val clipboard = LocalClipboard.current
+    val haptics = LocalHapticFeedback.current
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    Box(modifier.fillMaxWidth()) {
-        IconButton(
-            onClick = { scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(text.take(40), text))) } },
-            modifier = Modifier.size(36.dp),
+    var copies by remember { mutableIntStateOf(0) }
+    LaunchedEffect(copies) {
+        if (copies > 0) {
+            delay(1_500)
+            copies = 0
+        }
+    }
+    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Box(
+            Modifier.size(28.dp).clickable(onClickLabel = stringResource(R.string.chat_copy_answer)) {
+                scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(text.take(40), text))) }
+                haptics.perform(Haptic.Success)
+                copies += 1
+            },
+            contentAlignment = Alignment.CenterStart,
         ) {
             Icon(
-                painterResource(R.drawable.ic_content_copy),
+                painterResource(if (copies > 0) R.drawable.ic_check else R.drawable.ic_content_copy),
                 contentDescription = stringResource(R.string.chat_copy_answer),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(18.dp),
+                modifier = Modifier.size(15.dp),
+            )
+        }
+        at?.let {
+            Text(
+                remember(it) { DateFormat.getTimeFormat(context).format(Date(it)) },
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }

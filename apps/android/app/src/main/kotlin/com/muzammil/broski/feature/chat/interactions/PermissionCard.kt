@@ -1,27 +1,23 @@
 package com.muzammil.broski.feature.chat.interactions
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -34,8 +30,17 @@ import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.muzammil.broski.design.GlassButton
+import com.muzammil.broski.design.IosText
+import com.muzammil.broski.design.IosSwitch
+import uniffi.broski_contract.GrantKind
+import uniffi.broski_contract.PermissionGrant
 import com.muzammil.broski.R
 import com.muzammil.broski.design.Haptic
 import com.muzammil.broski.design.format.FormatRole
@@ -74,19 +79,19 @@ fun PermissionCard(interaction: Interaction, request: ToolPermissionRequest, con
     }
     val pick: (PermissionOption) -> Unit = { option -> if (request.deliberate) confirming = option else choose(option) }
 
-    Text(headline(request, interaction, context.agent), style = MaterialTheme.typography.titleMedium)
+    Text(headline(request, interaction, context.agent), style = IosText.body.copy(fontWeight = FontWeight.SemiBold))
     Previews(request, context)
     val arguments = remember(request.input) { toolArguments(ToolFacts(interaction.origin?.toolName.orEmpty(), null, request.input, false, emptyList())) }
     if (arguments.isNotEmpty()) {
-        Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerHighest, modifier = Modifier.fillMaxWidth()) {
+        Surface(shape = CodeShape, color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth()) {
             ToolArguments(arguments, Modifier.padding(12.dp))
         }
     }
-    listOfNotNull(request.reason, interaction.body).forEach { FormattedMessage(it, role = FormatRole.Quiet) }
+    (request.reason ?: interaction.body)?.let { FormattedMessage(it, role = FormatRole.Quiet) }
     request.grants.forEach { grant ->
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(grant.id in grants, onCheckedChange = { checked -> if (checked) grants += grant.id else grants -= grant.id })
-            Text(listOfNotNull(grant.kind.name.lowercase(), grant.target).joinToString(" "), style = MaterialTheme.typography.bodyMedium.mono())
+            Text(grantWords(grant), style = IosText.subheadline, modifier = Modifier.weight(1f))
+            IosSwitch(grant.id in grants) { checked -> if (checked) grants += grant.id else grants -= grant.id }
         }
     }
     if (context.canAnswer) Options(request, message, grants.toSet(), context, pick)
@@ -101,17 +106,19 @@ private fun headline(request: ToolPermissionRequest, interaction: Interaction, a
     is PermissionPreview.FileChanges -> stringResource(R.string.card_wants_to_change, agent)
     is PermissionPreview.Network -> stringResource(R.string.card_wants_to_reach, agent)
     is PermissionPreview.Paths -> stringResource(R.string.card_wants_to_use, agent)
-    null -> stringResource(R.string.card_wants_to_use_tool, agent, interaction.origin?.toolName ?: interaction.title)
+    null -> agentLine(interaction.title)
 }
 
 @Composable
 private fun Previews(request: ToolPermissionRequest, context: CardContext) {
     request.previews.forEach { preview ->
         when (preview) {
-            is PermissionPreview.Command -> Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerHighest, modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.heightIn(max = 160.dp).verticalScroll(rememberScrollState()).padding(12.dp)) {
-                    CommandLine(preview.v1.command)
-                    preview.v1.cwd?.let { Text("in $it", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            is PermissionPreview.Command -> Surface(shape = CodeShape, color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Column(Modifier.heightIn(max = 160.dp).verticalScroll(rememberScrollState())) { CommandLine(preview.v1.command) }
+                    preview.v1.cwd?.let {
+                        Text(stringResource(R.string.card_in_folder, it), style = IosText.caption, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.StartEllipsis)
+                    }
                 }
             }
             is PermissionPreview.FileChanges -> Column { preview.v1.changes.forEach { change -> FileChangeRow(change) { context.openDiff(change) } } }
@@ -125,7 +132,7 @@ private fun Previews(request: ToolPermissionRequest, context: CardContext) {
 @Composable
 fun Exact(text: String) {
     val lines = remember(text) { formatLog(text, EXACT_LINES, ClipEnd.HEAD).lines }
-    Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerHighest, modifier = Modifier.fillMaxWidth()) {
+    Surface(shape = CodeShape, color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth()) {
         LogLines(
             lines,
             MaterialTheme.typography.bodyMedium.mono(),
@@ -133,6 +140,21 @@ fun Exact(text: String) {
             Modifier.heightIn(max = 160.dp).verticalScroll(rememberScrollState()).horizontalScroll(rememberScrollState()).padding(12.dp),
         )
     }
+}
+
+private val CodeShape = RoundedCornerShape(12.dp)
+
+@Composable
+private fun grantWords(grant: PermissionGrant): String {
+    val target = grant.target?.let { " $it" }.orEmpty()
+    return stringResource(
+        when (grant.kind) {
+            GrantKind.NETWORK -> R.string.card_grant_network
+            GrantKind.READ -> R.string.card_grant_read
+            GrantKind.WRITE -> R.string.card_grant_write
+            GrantKind.DENY -> R.string.card_grant_deny
+        },
+    ) + target
 }
 
 /** Lines of what a permission reaches, shown whole up to this. */
@@ -149,35 +171,72 @@ private fun Options(
     val primary = primaryAllow(request.options)
     val withWords = denyWithWords(request.options)
     val typed = message.text.toString()
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        request.options.filter { it != withWords }.forEach { option ->
-            val enabled = context.enabled && canChoose(request, option, typed, grants)
-            when {
-                option == primary -> Button(onClick = { pick(option) }, enabled = enabled, shapes = ButtonDefaults.shapes()) { Text(agentLine(option.label)) }
-                option.effect == PermissionEffect.ALLOW -> FilledTonalButton(onClick = { pick(option) }, enabled = enabled, shapes = ButtonDefaults.shapes()) { Text(agentLine(option.label)) }
-                else -> OutlinedButton(onClick = { pick(option) }, enabled = enabled, shapes = ButtonDefaults.shapes()) {
-                    Text(agentLine(option.label), color = if (enabled) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f))
-                }
+    val enabled = { option: PermissionOption -> context.enabled && canChoose(request, option, typed, grants) }
+    val otherAllows = request.options.filter { it.effect == PermissionEffect.ALLOW && it != primary }
+    val otherDenies = request.options.filter { it.effect != PermissionEffect.ALLOW && it != withWords }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        primary?.let { GlassButton(agentLine(it.label), { pick(it) }, prominent = true, enabled = enabled(it), height = 50.dp) }
+        if (otherAllows.isNotEmpty()) {
+            SideBySide(otherAllows.size) { option ->
+                val it = otherAllows[option]
+                GlassButton(agentLine(it.label), { pick(it) }, enabled = enabled(it), height = 44.dp)
+            }
+        }
+        withWords?.let { deny -> DenyRow(deny, message, context, enabled(deny), pick) }
+        otherDenies.forEach { option ->
+            TextButton(onClick = { pick(option) }, enabled = enabled(option), modifier = Modifier.fillMaxWidth()) {
+                Text(agentLine(option.label), style = IosText.subheadline.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.error)
             }
         }
     }
-    withWords?.let { deny -> DenyRow(request, deny, message, context, pick) }
+}
+
+/** [count] buttons in one row when each fits its share, else one under another, as iOS's `ViewThatFits`. */
+@Composable
+private fun SideBySide(count: Int, button: @Composable (Int) -> Unit) {
+    SubcomposeLayout { constraints ->
+        val gap = 8.dp.roundToPx()
+        val share = ((constraints.maxWidth - gap * (count - 1)) / count).coerceAtLeast(0)
+        val natural = subcompose("natural") { repeat(count) { Box { button(it) } } }
+            .map { it.maxIntrinsicWidth(constraints.maxHeight) }
+        val fits = natural.all { it <= share }
+        val loose = constraints.copy(minWidth = 0)
+        val placeables = subcompose("shown") { repeat(count) { button(it) } }
+            .map { it.measure(if (fits) loose.copy(maxWidth = share) else loose) }
+        val height = if (fits) placeables.maxOf { it.height } else placeables.sumOf { it.height } + gap * (count - 1)
+        layout(constraints.maxWidth, height) {
+            var at = 0
+            placeables.forEach {
+                if (fits) it.place(at, 0) else it.place(0, at)
+                at += (if (fits) it.width else it.height) + gap
+            }
+        }
+    }
 }
 
 @Composable
-private fun DenyRow(request: ToolPermissionRequest, deny: PermissionOption, message: TextFieldState, context: CardContext, pick: (PermissionOption) -> Unit) {
+private fun DenyRow(deny: PermissionOption, message: TextFieldState, context: CardContext, enabled: Boolean, pick: (PermissionOption) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(
+        BasicTextField(
             state = message,
-            lineLimits = TextFieldLineLimits.SingleLine,
-            placeholder = { Text(stringResource(R.string.card_tell_instead, context.agent)) },
-            shape = CircleShape,
+            lineLimits = TextFieldLineLimits.MultiLine(minHeightInLines = 1, maxHeightInLines = 3),
             enabled = context.enabled,
-            modifier = Modifier.weight(1f),
+            textStyle = IosText.subheadline.copy(color = MaterialTheme.colorScheme.onSurface),
+            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+            modifier = Modifier
+                .weight(1f)
+                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), RoundedCornerShape(18.dp))
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            decorator = { field ->
+                Box {
+                    if (message.text.isEmpty()) {
+                        Text(stringResource(R.string.card_tell_instead, context.agent), style = IosText.subheadline, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    field()
+                }
+            },
         )
-        TextButton(onClick = { pick(deny) }, enabled = context.enabled && canChoose(request, deny, message.text.toString(), emptySet())) {
-            Text(agentLine(deny.label), color = MaterialTheme.colorScheme.error)
-        }
+        GlassButton(agentLine(deny.label), { pick(deny) }, tint = MaterialTheme.colorScheme.error, enabled = enabled, wide = false, height = 40.dp)
     }
 }
 

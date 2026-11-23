@@ -63,9 +63,9 @@ fun ChatBottom(model: ChatViewModel, openDiff: (FileChange) -> Unit, openVoiceSe
     val agent = header.agent.name
     val capabilities = live.capabilities
     val snapshot = live.snapshot
-    val hasCards = snapshot.backgroundTasks.isNotEmpty() || live.ended != null || notices.isNotEmpty() || snapshot.queue.isNotEmpty() || snapshot.interactions.isNotEmpty()
+    val hasCards = snapshot.backgroundTasks.isNotEmpty() || live.ended != null || notices.isNotEmpty() || snapshot.queue.isNotEmpty()
     Column(
-        modifier.imePadding().navigationBarsPadding().padding(start = 12.dp, end = 12.dp, bottom = 8.dp),
+        modifier.imePadding().navigationBarsPadding().padding(start = 12.dp, end = 12.dp, bottom = 4.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         if (hasCards) {
@@ -79,17 +79,17 @@ fun ChatBottom(model: ChatViewModel, openDiff: (FileChange) -> Unit, openVoiceSe
                 snapshot.queue.forEach { item ->
                     QueuedRow(item, onCancel = if (capabilities?.cancelQueued == true) ({ model.actions.cancelQueued(item.id) }) else null)
                 }
-                InteractionPanel(snapshot.interactions, context = { interaction ->
-                    CardContext(
-                        agent = agent,
-                        canAnswer = capabilities?.answer == true,
-                        state = answers[interaction.id],
-                        answer = { reply -> model.actions.answer(interaction.id, reply) },
-                        openDiff = openDiff,
-                    )
-                })
             }
         }
+        InteractionPanel(snapshot.interactions, context = { interaction ->
+            CardContext(
+                agent = agent,
+                canAnswer = capabilities?.answer == true,
+                state = answers[interaction.id],
+                answer = { reply -> model.actions.answer(interaction.id, reply) },
+                openDiff = openDiff,
+            )
+        })
         if (capabilities?.controllable == false) {
             WatchOnly()
         } else {
