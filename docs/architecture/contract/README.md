@@ -382,7 +382,7 @@ Rejection { code: busy|not_steerable|no_model|auth|invalid_input|unsupported|not
 
 `PromptInput` is strict: it has no other field. `disposition: handled` means the backend consumed the input without a run, such as an extension command.
 
-**Modes.** `start` begins a run and is rejected `busy` while one is active. `steer` joins the active run at its next safe boundary. `queue` is delivered when the agent would otherwise stop: Pi goes on with it inside the same run (pi §6 `followUp`), Claude Code's adapter sends it once the run settled, as a run of its own (CC D9). With no active run, `steer` and `queue` start one (disposition `started`).
+**Modes.** `start` begins a run and is rejected `busy` while one is active. `steer` joins the active run at its next safe boundary. `queue` is delivered when the agent would otherwise stop: Pi goes on with it inside the same run (pi §6 `followUp`), Claude Code's adapter sends it once the run settled, as a run of its own (CC D9). With no active run, `steer` and `queue` start one (disposition `started`). The apps follow the agent's own terminal, where Enter steers and Alt+Enter queues: with a run live and a message typed, the send button steers (when `promptModes` has `steer`) and a long press offers `queue`; a backend with `queue` alone gets Queue as the button.
 
 | | Claude Code | Pi |
 |---|---|---|

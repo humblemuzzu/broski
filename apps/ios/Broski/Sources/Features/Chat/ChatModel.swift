@@ -243,13 +243,13 @@ final class ChatModel {
     private func deliver(_ sent: ComposerDraft, mode: PromptMode) async {
         let input = sent.input(mode: mode)
         imageStore.rememberOutgoing(requestId: input.clientRequestId, images: sent.images)
-        if mode != .queue { pending.append(PendingPrompt(id: input.clientRequestId, draft: sent)) }
+        if mode == .start { pending.append(PendingPrompt(id: input.clientRequestId, draft: sent)) }
         rebuildLive(arriving: true)
-        if mode == .queue {
-            requestJump()
-        } else {
+        if mode == .start {
             let promptRowID = ChatTimeline.userRowID(input.clientRequestId, clientRequestId: input.clientRequestId)
             requestPromptAnchor(promptRowID)
+        } else {
+            requestJump()
         }
         feedback = ChatFeedback(.sent)
         do throws(ChatProblem) {

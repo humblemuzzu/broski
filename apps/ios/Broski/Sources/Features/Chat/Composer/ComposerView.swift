@@ -66,7 +66,9 @@ struct ComposerView: View {
     private var showsSend: Bool { dictation == nil || action != .send || draft.hasContent }
 
     private var placeholder: String {
-        if action != .send, modes.contains(.queue) { return "Queue a message" }
+        if action != .send, let invitation = SendAction.resolve(running: true, hasContent: true, modes: modes).invitation {
+            return invitation
+        }
         return !isExpanded && dictation != nil ? "Type or hold to talk" : "Chat with Broski"
     }
 

@@ -1,8 +1,8 @@
 import BroskiCore
 
-/// The composer's one button, its face from one rule (design.md, "Composer"): idle, Send; running
-/// with something typed, Queue by default or Steer, with the other offered on a long press; running
-/// with nothing typed, a red Stop.
+/// The composer's one button, its face from one rule: idle, Send; running with something typed,
+/// Steer, as Enter does in the agent's own terminal, or Queue when the backend takes no steering,
+/// with the other offered on a long press; running with nothing typed, a red Stop.
 enum SendAction: Equatable {
     case send
     case queue
@@ -15,8 +15,8 @@ enum SendAction: Equatable {
     static func resolve(running: Bool, hasContent: Bool, modes: [PromptMode]) -> SendAction {
         guard running else { return .send }
         guard hasContent else { return .stop }
-        if modes.contains(.queue) { return .queue }
         if modes.contains(.steer) { return .steer }
+        if modes.contains(.queue) { return .queue }
         return .wait
     }
 
@@ -52,11 +52,20 @@ enum SendAction: Equatable {
     /// What the long press says of each way.
     var explanation: String {
         switch self {
-        case .queue: "Run after the current turn"
-        case .steer: "Interrupt what the agent is doing"
+        case .queue: "Waits until the agent finishes"
+        case .steer: "Joins the run at the agent's next step"
         case .send: "Start a run"
         case .stop: "Stop the run"
         case .wait: "Waits until the run ends"
+        }
+    }
+
+    /// What the field invites while a run is live; `nil` when a message cannot be sent before it ends.
+    var invitation: String? {
+        switch self {
+        case .steer: "Steer the agent"
+        case .queue: "Queue a message"
+        case .send, .stop, .wait: nil
         }
     }
 

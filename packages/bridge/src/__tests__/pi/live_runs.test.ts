@@ -3,6 +3,7 @@
  */
 
 import { afterEach, describe, expect, test } from "bun:test";
+import type { ScriptedRequest } from "../helpers/scripted-openai-server";
 import { LiveRig } from "./helpers/live-rig";
 import { countOf, holdingRun, lastUserText, userMessages } from "./helpers/live-steps";
 import { textOf } from "./helpers/pi-router";
@@ -190,5 +191,40 @@ describe("steer and queue", () => {
 		expect(countOf(live, "run_started")).toBe(1);
 		expect(live.reduced().queue).toEqual([]);
 		live.assertSettled();
+	});
+});
+
+describe("the user's own steering setting", () => {
+	/** Two steers sent while the run holds, then the run released; the requests Pi made to the model. */
+	async function twoSteers(settings: Record<string, unknown>, script: ReturnType<typeof say>[]) {
+		t = await LiveRig.create({ settings });
+		const live = await t.rig.openNew();
+		const gate = t.router.newGate(live.ref.sessionId);
+		t.router.script(live.ref.sessionId, [holdAt(gate, "Working."), ...script]);
+		await live.prompt("begin");
+		await live.waitFor("tool_started", (event) => event.name === "driver_hold");
+		for (const text of ["steer one", "steer two"]) {
+			expect(await live.prompt(text, "steer")).toMatchObject({ status: "accepted", disposition: "steered" });
+		}
+		t.router.release(live.ref.sessionId);
+		await live.waitFor("run_finished");
+		live.assertSettled();
+		return t.router.requests(live.ref.sessionId);
+	}
+
+	const userTextsOf = (request: ScriptedRequest | undefined) =>
+		(request?.messages ?? []).filter((message) => message.role === "user").map((message) => textOf(message.content));
+
+	test("Pi's default hands steers over one per turn", async () => {
+		const requests = await twoSteers({}, [say("first"), say("second")]);
+		expect(requests).toHaveLength(3);
+		expect(userTextsOf(requests[1])).toEqual(["begin", "steer one"]);
+		expect(userTextsOf(requests[2])).toEqual(["begin", "steer one", "steer two"]);
+	});
+
+	test("with steeringMode all in the user's settings every steer is handed over at once", async () => {
+		const requests = await twoSteers({ steeringMode: "all" }, [say("both")]);
+		expect(requests).toHaveLength(2);
+		expect(userTextsOf(requests[1])).toEqual(["begin", "steer one", "steer two"]);
 	});
 });

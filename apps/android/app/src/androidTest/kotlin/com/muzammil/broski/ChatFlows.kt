@@ -15,6 +15,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
 import com.muzammil.broski.app.BroskiApplication
@@ -46,6 +47,16 @@ class ChatFlows(private val ui: WorkspaceUiDriver, private val machine: RealMach
     private fun send(text: String, face: Int = R.string.composer_send) {
         compose.onAllNodes(hasSetTextAction())[0].performTextInput(text)
         touch(hasContentDescription(ui.string(face)) and hasClickAction())
+    }
+
+    /** While a run is live the button steers; the queue is what a long press offers. */
+    private fun queue(text: String) {
+        compose.onAllNodes(hasSetTextAction())[0].performTextInput(text)
+        val steer = hasContentDescription(ui.string(R.string.composer_steer)) and hasClickAction()
+        ui.waitFor(steer)
+        ui.awaitStill(steer)
+        compose.onAllNodes(steer)[0].performTouchInput { longClick() }
+        touchText(ui.string(R.string.composer_queue))
     }
 
     private fun touch(matcher: SemanticsMatcher) {
@@ -163,7 +174,7 @@ class ChatFlows(private val ui: WorkspaceUiDriver, private val machine: RealMach
         send("Start and wait")
         ui.waitFor(hasContentDescription(ui.string(R.string.composer_stop)))
         shot("chat-running-light")
-        send("Then check the tests", R.string.composer_queue)
+        queue("Then check the tests")
         ui.waitFor(hasContentDescription(ui.string(R.string.chat_queued)))
         shot("chat-queued-light")
         machine.release(session)

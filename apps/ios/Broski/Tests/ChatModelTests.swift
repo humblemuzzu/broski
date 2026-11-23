@@ -66,7 +66,7 @@ struct ChatModelTests {
         #expect(chat.liveRows.map(\.shape) == ["user:Tidy the notes"])
     }
 
-    @Test func aQueuedPromptLeavesTheBubbleToTheQueueAndARefusedOneGoesBackIntoTheField() async throws {
+    @Test func aQueuedOrSteeredPromptLeavesTheBubbleToTheQueueAndARefusedOneGoesBackIntoTheField() async throws {
         let machine = ScriptedChat()
         let view = ScriptedSessionView()
         let chat = chat(machine, view: view)
@@ -79,6 +79,12 @@ struct ChatModelTests {
         await chat.send(.queue)
         #expect(machine.prompts.last?.mode == .queue)
         #expect(chat.pending.isEmpty && chat.liveRows.isEmpty, "the queue shows it now")
+
+        machine.promptResult = .accepted(PromptAccepted(disposition: .steered, queueItemId: "q2"))
+        chat.draft.text = "Instead"
+        await chat.send(.steer)
+        #expect(machine.prompts.last?.mode == .steer)
+        #expect(chat.pending.isEmpty && chat.liveRows.isEmpty, "a steer waits in the queue too until the agent takes it")
 
         machine.promptResult = .rejected(Rejected(rejection: Rejection(code: .busy, message: "a run is active")))
         chat.draft.text = "Now"

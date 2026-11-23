@@ -262,8 +262,8 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
   starts over. `ChatTimeline` makes rows from items, one per formatted block of the agent's text
   (`FormatCache` formats a text once per text and streaming state, so while a text streams only it
   is formatted again), and `Highlighter` colours code once per text, off the main actor. A prompt carries a fresh `clientRequestId` and shows dimmed
-  until its `user_message` arrives, as the same row (keyed by that request id); a queued prompt shows
-  only in the queue above the composer; a refusal puts the draft back in front of anything typed since. Drafts are kept per session in
+  until its `user_message` arrives, as the same row (keyed by that request id); a steered or queued
+  prompt shows only in the queue above the composer; a refusal puts the draft back in front of anything typed since. Drafts are kept per session in
   `AppModel.drafts` while the app runs; a new session's first prompt goes there too, and its chat
   sends it once the view is attached. Models, commands and modes come from the catalog for the
   session's backend and folder, read again when `MachineModel.catalogChanges` moves. The field takes
@@ -346,8 +346,8 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
   `+`, "Type or hold to talk", the mic, and Stop while a run is live; touched or holding anything, the
   field ("Chat with Broski", one line growing to six) across the top over `+`, the model pill
   ("Opus 5.5 High": the model and its thinking level), any mode off its usual value (Plan, Accept
-  edits…), the mic and the send button, an ink circle: Send, Queue (with Steer on a long press), or
-  Stop; it appears with the first character, the mic ending the row before. Above the field: the
+  edits…), the mic and the send button, an ink circle: Send, Steer while a run is live, as Enter does in
+  the agent's own terminal (with Queue, which waits for the agent to finish, on a long press), or Stop; it appears with the first character, the mic ending the row before. Above the field: the
   slash commands while the text starts with `/`, `@` file matches, attached images with remove. The
   pill opens the model sheet: every model when the agent lists six or fewer, else the session's and
   the pinned ones (up to ten per agent, `ModelPreferences`, kept on the phone); Thinking and each

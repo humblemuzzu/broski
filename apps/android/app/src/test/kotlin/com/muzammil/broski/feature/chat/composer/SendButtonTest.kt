@@ -4,7 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 import uniffi.broski_contract.PromptMode
 
-/** The composer's one button, by design.md's rule, for each backend's prompt modes. */
+/** The composer's one button, by the rule in `SendButton.kt`, for each backend's prompt modes. */
 class SendButtonTest {
     private val all = listOf(PromptMode.START, PromptMode.STEER, PromptMode.QUEUE)
 
@@ -20,15 +20,15 @@ class SendButtonTest {
     }
 
     @Test
-    fun runningWithTextItQueuesAndALongPressOffersSteerWhenTheBackendTakesBoth() {
-        assertEquals(SendButton(SendFace.Queue, true, SendFace.Steer), sendButton(running = true, hasInput = true, all, controllable = true))
-        assertEquals(
-            SendButton(SendFace.Queue, true, null),
-            sendButton(running = true, hasInput = true, listOf(PromptMode.START, PromptMode.QUEUE), controllable = true),
-        )
+    fun runningWithTextItSteersAndALongPressOffersTheQueueWhenTheBackendTakesBoth() {
+        assertEquals(SendButton(SendFace.Steer, true, SendFace.Queue), sendButton(running = true, hasInput = true, all, controllable = true))
         assertEquals(
             SendButton(SendFace.Steer, true, null),
             sendButton(running = true, hasInput = true, listOf(PromptMode.START, PromptMode.STEER), controllable = true),
+        )
+        assertEquals(
+            SendButton(SendFace.Queue, true, null),
+            sendButton(running = true, hasInput = true, listOf(PromptMode.START, PromptMode.QUEUE), controllable = true),
         )
     }
 

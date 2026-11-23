@@ -209,7 +209,13 @@ private fun ChatComposer(model: ChatViewModel, bottom: ChatBottomSlice, openVoic
         command = command,
         images = images,
         look = ComposerLook(
-            placeholder = if (running && PromptMode.QUEUE in modes) stringResource(R.string.composer_placeholder_queue) else stringResource(R.string.composer_placeholder),
+            placeholder = stringResource(
+                when (sendButton(running, hasInput = true, modes, controllable = true).face) {
+                    SendFace.Steer -> R.string.composer_placeholder_steer
+                    SendFace.Queue -> R.string.composer_placeholder_queue
+                    else -> R.string.composer_placeholder
+                },
+            ),
             button = button,
             images = catalog.capabilities?.attachments?.contains(AttachmentKind.IMAGE) == true,
             settings = settings,
