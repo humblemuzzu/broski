@@ -9,18 +9,21 @@ struct SpanStyle: Equatable {
     var opensFiles = true
     var strongColor: Color?
     var inlineCodeColor: Color? = FormatTokens.inlineCodeText
+    var inlineCodeStyle: InlineCodeStyle = .plain
 }
 
 enum FormatSpans {
-    /// Inline code, paths, and math render cleanly without box clutter (like other clients / OpenCode).
-    /// Only unloaded image links receive a subtle chip pill through `ChipRenderer`.
     static func text(_ spans: [FormatSpan], style: SpanStyle) -> Text {
         var text = Text(verbatim: "")
         var run = AttributedString()
         for span in spans {
             if let link = span.link, link.image {
                 let chip = image(span, link: link, style: style)
-                text = Text("\(text)\(Text(run))\(Text(chip).customAttribute(ChipAttribute()))")
+                text = Text("\(text)\(Text(run))\(Text(chip).customAttribute(ChipAttribute(kind: .image)))")
+                run = AttributedString()
+            } else if style.inlineCodeStyle == .tinted, span.code, !opensFile(span.link, style: style) {
+                let codePiece = piece(span, style: style)
+                text = Text("\(text)\(Text(run))\(Text(codePiece).customAttribute(ChipAttribute(kind: .codeTint)))")
                 run = AttributedString()
             } else {
                 run += piece(span, style: style)
@@ -37,6 +40,11 @@ enum FormatSpans {
                 text += piece(span, style: style)
             }
         }
+    }
+
+    private static func opensFile(_ link: FormatLink?, style: SpanStyle) -> Bool {
+        guard let link, case .file = link.kind else { return false }
+        return opens(link, style: style)
     }
 
     private static func piece(_ span: FormatSpan, style: SpanStyle) -> AttributedString {
@@ -106,16 +114,24 @@ enum FormatSpans {
     }
 }
 
-nonisolated struct ChipAttribute: TextAttribute {}
+nonisolated enum ChipKind: Hashable {
+    case image
+    case codeTint
+}
+
+nonisolated struct ChipAttribute: TextAttribute {
+    let kind: ChipKind
+}
 
 nonisolated struct ChipRenderer: TextRenderer {
-    var displayPadding: EdgeInsets { EdgeInsets(top: 2, leading: 2, bottom: 2, trailing: 2) }
+    var displayPadding: EdgeInsets { EdgeInsets(top: 2, leading: 3, bottom: 2, trailing: 3) }
 
     func draw(layout: Text.Layout, in context: inout GraphicsContext) {
         for line in layout {
-            for rect in chipRects(line) {
-                let path = Path(roundedRect: rect, cornerRadius: FormatTokens.inlineCodeRadius, style: .continuous)
-                context.fill(path, with: .color(FormatTokens.imageChipFill))
+            for item in chipRects(line) {
+                let path = Path(roundedRect: item.rect, cornerRadius: FormatTokens.inlineCodeRadius, style: .continuous)
+                let fill = item.kind == .codeTint ? FormatTokens.inlineCodeTintFill : FormatTokens.imageChipFill
+                context.fill(path, with: .color(fill))
             }
         }
         for line in layout {
@@ -123,17 +139,23 @@ nonisolated struct ChipRenderer: TextRenderer {
         }
     }
 
-    private func chipRects(_ line: Text.Layout.Line) -> [CGRect] {
-        var raw: [CGRect] = []
-        for run in line where run[ChipAttribute.self] != nil {
+    private func chipRects(_ line: Text.Layout.Line) -> [(rect: CGRect, kind: ChipKind)] {
+        var raw: [(rect: CGRect, kind: ChipKind)] = []
+        for run in line {
+            guard let attr = run[ChipAttribute.self] else { continue }
             let bounds = run.typographicBounds.rect
-            if let last = raw.last, abs(last.maxX - bounds.minX) < 0.5 || abs(bounds.maxX - last.minX) < 0.5 {
-                raw[raw.count - 1] = last.union(bounds)
+            if let last = raw.last, last.kind == attr.kind,
+               abs(last.rect.maxX - bounds.minX) < 0.5 || abs(bounds.maxX - last.rect.minX) < 0.5
+            {
+                raw[raw.count - 1].rect = last.rect.union(bounds)
             } else {
-                raw.append(bounds)
+                raw.append((bounds, attr.kind))
             }
         }
-        return raw.map { $0.insetBy(dx: -1, dy: -1) }
+        return raw.map { item in
+            let inset = item.kind == .codeTint ? item.rect.insetBy(dx: -2, dy: -0.5) : item.rect.insetBy(dx: -1, dy: -1)
+            return (inset, item.kind)
+        }
     }
 }
 

@@ -44,7 +44,7 @@ fun FormatBlockView(
     next: List<UInt> = emptyList(),
     streaming: Boolean = false,
 ) {
-    val gap = FormatTokens.spacing(block.spacing, quiet = role == FormatRole.Quiet, compact = LocalReading.current.compact)
+    val gap = FormatTokens.spacing(block.spacing, quiet = role == FormatRole.Quiet, density = LocalReading.current.density)
     val prose = block.content !is FormatContent.Code && block.content !is FormatContent.Table
     ReadingTextSize {
         Box(modifier.fillMaxWidth().padding(top = gap), contentAlignment = Alignment.TopCenter) {
@@ -67,8 +67,7 @@ fun FormatContentView(block: FormatBlock, role: FormatRole, streaming: Boolean) 
     val inQuote = LocalInQuote.current
     when (val content = block.content) {
         is FormatContent.Paragraph -> {
-            val baseStyle = role.textStyle()
-            val style = if (LocalReading.current.compact) baseStyle.copy(lineHeight = baseStyle.lineHeight * 0.92f) else baseStyle
+            val style = role.textStyle()
             val color = if (inQuote) role.quoteColor() else role.bodyColor()
             val strong = if (inQuote) Color.Unspecified else role.boldColor()
             Prose(content.spans, style, color, block.direction, strong = strong)
@@ -129,6 +128,7 @@ fun spanLook(style: TextStyle): SpanLook = SpanLook(
     muted = MaterialTheme.colorScheme.onSurfaceVariant,
     underlinesLinks = LocalReading.current.underlinesLinks,
     inlineCode = formatInlineCodeText,
+    inlineCodeStyle = LocalReading.current.inlineCode,
 )
 
 @Composable

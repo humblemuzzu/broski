@@ -72,13 +72,24 @@
         <item quantity="one">%d field</item>
         <item quantity="other">%d fields</item>
     </plurals>
-    <string name="format_reading">Reading</string>
+    <string name="format_reading">Reading &amp; Typography</string>
     <string name="format_reading_size">Text size</string>
-    <string name="format_reading_size_system">As the system</string>
+    <string name="format_reading_size_system">14.5 sp (Default)</string>
+    <string name="format_reading_density">Spacing</string>
+    <string name="format_reading_density_compact">Compact</string>
+    <string name="format_reading_density_balanced">Balanced</string>
+    <string name="format_reading_density_airy">Airy</string>
+    <string name="format_reading_font">Font</string>
+    <string name="format_reading_font_sans">Sans</string>
+    <string name="format_reading_font_serif">Serif</string>
+    <string name="format_reading_font_mono">Mono</string>
+    <string name="format_reading_inline_code">Inline code</string>
+    <string name="format_reading_inline_plain">Clean</string>
+    <string name="format_reading_inline_tinted">Subtle tint</string>
     <string name="format_reading_compact">Compact spacing</string>
     <string name="format_reading_wrap">Wrap code</string>
     <string name="format_reading_underline">Underline links</string>
-    <string name="format_reading_footer">Text size adds to the font size set for the whole phone.</string>
+    <string name="format_reading_footer">Adjusts text size, breathing room, typeface, and inline code across every chat and tool report.</string>
     <string name="format_smaller">Smaller</string>
     <string name="format_larger">Larger</string>
 </resources>

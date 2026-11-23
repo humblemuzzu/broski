@@ -242,16 +242,16 @@ private fun Marker(marker: ListMarker, visualDepth: Int, role: FormatRole, bulle
             ) {
                 when (visualDepth) {
                     0 -> {
-                        val dotDp = with(density) { (style.fontSize * 0.34f).toDp() }.coerceAtLeast(5.2.dp)
+                        val dotDp = with(density) { (style.fontSize * 0.31f).toDp() }.coerceAtLeast(4.5.dp)
                         Canvas(Modifier.size(dotDp)) { drawCircle(primaryDot) }
                     }
                     1 -> {
-                        val dotDp = with(density) { (style.fontSize * 0.27f).toDp() }.coerceAtLeast(4.2.dp)
+                        val dotDp = with(density) { (style.fontSize * 0.25f).toDp() }.coerceAtLeast(3.6.dp)
                         Canvas(Modifier.size(dotDp)) { drawCircle(nestedDot) }
                     }
                     else -> {
-                        val widthDp = with(density) { (style.fontSize * 0.35f).toDp() }.coerceAtLeast(5.5.dp)
-                        Canvas(Modifier.size(width = widthDp, height = 1.5.dp)) {
+                        val widthDp = with(density) { (style.fontSize * 0.34f).toDp() }.coerceAtLeast(5.0.dp)
+                        Canvas(Modifier.size(width = widthDp, height = 1.4.dp)) {
                             drawRoundRect(nestedDot, cornerRadius = CornerRadius(size.height / 2f))
                         }
                     }

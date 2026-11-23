@@ -159,9 +159,10 @@ struct TableFonts: Hashable {
     let header: UIFont
     let code: UIFont
 
-    init(typeSize: DynamicTypeSize, scale: CGFloat = 1) {
+    init(typeSize: DynamicTypeSize, scale: CGFloat = 1, offset: CGFloat = 0) {
         let traits = UITraitCollection(preferredContentSizeCategory: UIContentSizeCategory(typeSize))
-        let size = (UIFont.preferredFont(forTextStyle: .subheadline, compatibleWith: traits).pointSize - 0.5) * scale
+        let base = UIFont.preferredFont(forTextStyle: .footnote, compatibleWith: traits).pointSize + 0.5 + offset * 0.75
+        let size = max(11, base) * scale
         cell = .monospacedDigitSystemFont(ofSize: size, weight: .regular)
         header = .monospacedDigitSystemFont(ofSize: size, weight: .medium)
         code = .monospacedSystemFont(ofSize: size * FormatTokens.inlineCodeScale, weight: .regular)

@@ -1,16 +1,15 @@
 import SwiftUI
 
-/// Local preferences, kept in `UserDefaults` (`@AppStorage`) under these keys. Which notifications
-/// the person wants are `NotificationPreferences`, in the app group the extension reads.
 enum Preference {
     static let appearance = "appearance"
     static let keepScreenAwake = "display.keepScreenAwake"
-    /// The terminal's font size in points as last pinched; 0 until then (Ghostty's own default).
     static let terminalFontSize = "terminal.fontSize"
-    /// Settings › Reading: text size steps on top of the system's, compact spacing, code that
-    /// wraps, underlined links.
     static let readingSize = "reading.size"
     static let readingCompact = "reading.compact"
+    static let readingDensity = "reading.density"
+    static let readingFont = "reading.font"
+    static let readingInlineCode = "reading.inlineCode"
+    static let readingDarkCanvas = "reading.darkCanvas"
     static let readingWrapsCode = "reading.wrapsCode"
     static let readingUnderlinesLinks = "reading.underlinesLinks"
 }
@@ -55,6 +54,93 @@ enum Appearance: String, CaseIterable, Identifiable {
         case .system: nil
         case .light: .light
         case .dark: .dark
+        }
+    }
+}
+
+nonisolated enum ReadingDensity: String, CaseIterable, Identifiable {
+    case compact
+    case balanced
+    case airy
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .compact: "Compact"
+        case .balanced: "Balanced"
+        case .airy: "Airy"
+        }
+    }
+
+    var spacingMultiplier: CGFloat {
+        switch self {
+        case .compact: 0.78
+        case .balanced: 1.0
+        case .airy: 1.22
+        }
+    }
+
+    var lineSpacingMultiplier: CGFloat {
+        switch self {
+        case .compact: 0.72
+        case .balanced: 1.0
+        case .airy: 1.24
+        }
+    }
+}
+
+nonisolated enum ReadingFont: String, CaseIterable, Identifiable {
+    case system
+    case serif
+    case rounded
+    case mono
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .system: "Sans"
+        case .serif: "Serif"
+        case .rounded: "Rounded"
+        case .mono: "Mono"
+        }
+    }
+
+    var design: Font.Design {
+        switch self {
+        case .system: .default
+        case .serif: .serif
+        case .rounded: .rounded
+        case .mono: .monospaced
+        }
+    }
+}
+
+nonisolated enum InlineCodeStyle: String, CaseIterable, Identifiable {
+    case plain
+    case tinted
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .plain: "Clean"
+        case .tinted: "Subtle Tint"
+        }
+    }
+}
+
+nonisolated enum DarkCanvas: String, CaseIterable, Identifiable {
+    case pureBlack
+    case charcoal
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .pureBlack: "True Black"
+        case .charcoal: "Charcoal"
         }
     }
 }

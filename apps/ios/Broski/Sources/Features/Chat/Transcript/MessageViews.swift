@@ -15,7 +15,7 @@ struct UserBubble: View {
     var isPending = false
     @Environment(Disclosure.self) private var disclosure
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @ScaledMetric(relativeTo: .body) private var line: CGFloat = 24.5
+    @ScaledMetric(relativeTo: .body) private var line: CGFloat = 22.5
 
     /// Six lines show while folded; only a message well past that folds at all.
     private var foldedHeight: CGFloat { line * 6 }

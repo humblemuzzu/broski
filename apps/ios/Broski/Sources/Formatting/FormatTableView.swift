@@ -46,7 +46,7 @@ struct FormatTableView: View {
     }
 
     private var currentLayout: TableLayout {
-        let fonts = TableFonts(typeSize: typeSize)
+        let fonts = TableFonts(typeSize: typeSize, offset: reading.bodyPointOffset)
         var layout = TableLayoutCache.fit(table, width: width ?? widthHint ?? 360, fonts: fonts, rows: shownRows)
         if streaming, grown.count == layout.widths.count {
             layout.widths = zip(layout.widths, grown).map { max($0, $1) }
@@ -55,9 +55,10 @@ struct FormatTableView: View {
     }
 
     private var spanStyle: SpanStyle {
-        var style = TableFonts(typeSize: typeSize).spanStyle(underlinesLinks: reading.underlinesLinks)
+        var style = TableFonts(typeSize: typeSize, offset: reading.bodyPointOffset).spanStyle(underlinesLinks: reading.underlinesLinks)
         style.opensFiles = context != nil
         style.strongColor = FormatTokens.boldText
+        style.inlineCodeStyle = reading.inlineCode
         return style
     }
 

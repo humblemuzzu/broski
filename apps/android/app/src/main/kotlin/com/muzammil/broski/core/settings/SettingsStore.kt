@@ -28,15 +28,24 @@ data class AppSettings(
     val reading: ReadingSettings = ReadingSettings(),
 )
 
-/** Settings › Reading: text size steps on top of the system's, compact spacing, code that wraps, underlined links. */
+enum class ReadingDensity { Compact, Balanced, Airy }
+
+enum class ReadingFont { Sans, Serif, Mono }
+
+enum class InlineCodeStyle { Plain, Tinted }
+
 data class ReadingSettings(
     val sizeSteps: Int = 0,
-    val compact: Boolean = false,
+    val density: ReadingDensity = ReadingDensity.Balanced,
+    val font: ReadingFont = ReadingFont.Sans,
+    val inlineCode: InlineCodeStyle = InlineCodeStyle.Plain,
     val wrapsCode: Boolean = false,
     val underlinesLinks: Boolean = false,
 ) {
+    val compact: Boolean get() = density == ReadingDensity.Compact
+
     companion object {
-        val SIZE_STEPS = -2..3
+        val SIZE_STEPS = -2..4
     }
 }
 
@@ -126,6 +135,9 @@ class SettingsStore(private val store: DataStore<Preferences>) {
         store.edit {
             it[READING_SIZE] = reading.sizeSteps.coerceIn(ReadingSettings.SIZE_STEPS)
             it[READING_COMPACT] = reading.compact
+            it[READING_DENSITY] = reading.density.name
+            it[READING_FONT] = reading.font.name
+            it[READING_INLINE_CODE] = reading.inlineCode.name
             it[READING_WRAPS_CODE] = reading.wrapsCode
             it[READING_UNDERLINES_LINKS] = reading.underlinesLinks
         }
@@ -134,15 +146,31 @@ class SettingsStore(private val store: DataStore<Preferences>) {
     private companion object {
         val READING_SIZE = intPreferencesKey("reading.size")
         val READING_COMPACT = booleanPreferencesKey("reading.compact")
+        val READING_DENSITY = stringPreferencesKey("reading.density")
+        val READING_FONT = stringPreferencesKey("reading.font")
+        val READING_INLINE_CODE = stringPreferencesKey("reading.inlineCode")
         val READING_WRAPS_CODE = booleanPreferencesKey("reading.wrapsCode")
         val READING_UNDERLINES_LINKS = booleanPreferencesKey("reading.underlinesLinks")
 
-        fun reading(preferences: Preferences) = ReadingSettings(
-            sizeSteps = (preferences[READING_SIZE] ?: 0).coerceIn(ReadingSettings.SIZE_STEPS),
-            compact = preferences[READING_COMPACT] ?: false,
-            wrapsCode = preferences[READING_WRAPS_CODE] ?: false,
-            underlinesLinks = preferences[READING_UNDERLINES_LINKS] ?: false,
-        )
+        fun reading(preferences: Preferences): ReadingSettings {
+            val density = preferences[READING_DENSITY]
+                ?.let { name -> ReadingDensity.entries.firstOrNull { it.name == name } }
+                ?: if (preferences[READING_COMPACT] == true) ReadingDensity.Compact else ReadingDensity.Balanced
+            val font = preferences[READING_FONT]
+                ?.let { name -> ReadingFont.entries.firstOrNull { it.name == name } }
+                ?: ReadingFont.Sans
+            val inlineCode = preferences[READING_INLINE_CODE]
+                ?.let { name -> InlineCodeStyle.entries.firstOrNull { it.name == name } }
+                ?: InlineCodeStyle.Plain
+            return ReadingSettings(
+                sizeSteps = (preferences[READING_SIZE] ?: 0).coerceIn(ReadingSettings.SIZE_STEPS),
+                density = density,
+                font = font,
+                inlineCode = inlineCode,
+                wrapsCode = preferences[READING_WRAPS_CODE] ?: false,
+                underlinesLinks = preferences[READING_UNDERLINES_LINKS] ?: false,
+            )
+        }
 
         const val DETECT = "detect"
         val APPEARANCE = stringPreferencesKey("appearance")

@@ -41,7 +41,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.muzammil.broski.R
 import com.muzammil.broski.core.AppCore
 import com.muzammil.broski.core.settings.Appearance
+import com.muzammil.broski.core.settings.InlineCodeStyle
 import com.muzammil.broski.core.settings.KeepScreenAwake
+import com.muzammil.broski.core.settings.ReadingDensity
+import com.muzammil.broski.core.settings.ReadingFont
 import com.muzammil.broski.core.settings.ReadingSettings
 import com.muzammil.broski.design.Haptic
 import com.muzammil.broski.design.SectionHeader
@@ -69,10 +72,11 @@ private val KeepAwakeOptions = listOf(
 private val SAMPLE = """
 ## Fixed the reconnect test
 
-The route race now cancels the loser **before** it resumes, so the queue is replayed once. See [the change](https://github.com) in `route_race.rs`.
+The route race now cancels the loser **before** it resumes, so the queue replays once. See [the change](https://github.com) in `route_race.rs:42`.
 
-- Added a paused-clock test
-- Ran it 50 times in a row
+- **Clean inline code:** `set_model` and `compact` read without heavy boxes
+  - Nested points stay airy with clear rhythm
+- **True OLED black:** high-contrast typography on pure black
 
 ```rust
 if generation < self.generation { return Vec::new(); }
@@ -173,10 +177,11 @@ private fun LazyListScope.keepAwake(selected: KeepScreenAwake, onSelect: (KeepSc
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 private fun LazyListScope.reading(reading: ReadingSettings, onChange: (ReadingSettings) -> Unit) {
+    val totalRows = 6
     item(key = "reading") { SectionHeader(stringResource(R.string.format_reading)) }
     item(key = "reading:size") {
         SegmentedListItem(
-            shapes = ListItemDefaults.segmentedShapes(0, 4),
+            shapes = ListItemDefaults.segmentedShapes(0, totalRows),
             modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = ListItemDefaults.SegmentedGap),
             supportingContent = {
                 Text(if (reading.sizeSteps == 0) stringResource(R.string.format_reading_size_system) else "%+d".format(reading.sizeSteps))
@@ -196,8 +201,59 @@ private fun LazyListScope.reading(reading: ReadingSettings, onChange: (ReadingSe
             colors = groupedListItemColors(),
         ) { Text(stringResource(R.string.format_reading_size)) }
     }
+    item(key = "reading:density") {
+        val label = when (reading.density) {
+            ReadingDensity.Compact -> R.string.format_reading_density_compact
+            ReadingDensity.Balanced -> R.string.format_reading_density_balanced
+            ReadingDensity.Airy -> R.string.format_reading_density_airy
+        }
+        SegmentedListItem(
+            onClick = {
+                val all = ReadingDensity.entries
+                val next = all[(all.indexOf(reading.density) + 1) % all.size]
+                onChange(reading.copy(density = next))
+            },
+            shapes = ListItemDefaults.segmentedShapes(1, totalRows),
+            modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = ListItemDefaults.SegmentedGap),
+            trailingContent = { Text(stringResource(label), color = MaterialTheme.colorScheme.onSurfaceVariant) },
+            colors = groupedListItemColors(),
+        ) { Text(stringResource(R.string.format_reading_density)) }
+    }
+    item(key = "reading:font") {
+        val label = when (reading.font) {
+            ReadingFont.Sans -> R.string.format_reading_font_sans
+            ReadingFont.Serif -> R.string.format_reading_font_serif
+            ReadingFont.Mono -> R.string.format_reading_font_mono
+        }
+        SegmentedListItem(
+            onClick = {
+                val all = ReadingFont.entries
+                val next = all[(all.indexOf(reading.font) + 1) % all.size]
+                onChange(reading.copy(font = next))
+            },
+            shapes = ListItemDefaults.segmentedShapes(2, totalRows),
+            modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = ListItemDefaults.SegmentedGap),
+            trailingContent = { Text(stringResource(label), color = MaterialTheme.colorScheme.onSurfaceVariant) },
+            colors = groupedListItemColors(),
+        ) { Text(stringResource(R.string.format_reading_font)) }
+    }
+    item(key = "reading:inline") {
+        val label = when (reading.inlineCode) {
+            InlineCodeStyle.Plain -> R.string.format_reading_inline_plain
+            InlineCodeStyle.Tinted -> R.string.format_reading_inline_tinted
+        }
+        SegmentedListItem(
+            onClick = {
+                val next = if (reading.inlineCode == InlineCodeStyle.Plain) InlineCodeStyle.Tinted else InlineCodeStyle.Plain
+                onChange(reading.copy(inlineCode = next))
+            },
+            shapes = ListItemDefaults.segmentedShapes(3, totalRows),
+            modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = ListItemDefaults.SegmentedGap),
+            trailingContent = { Text(stringResource(label), color = MaterialTheme.colorScheme.onSurfaceVariant) },
+            colors = groupedListItemColors(),
+        ) { Text(stringResource(R.string.format_reading_inline_code)) }
+    }
     val toggles = listOf(
-        R.string.format_reading_compact to reading.compact,
         R.string.format_reading_wrap to reading.wrapsCode,
         R.string.format_reading_underline to reading.underlinesLinks,
     )
@@ -208,13 +264,12 @@ private fun LazyListScope.reading(reading: ReadingSettings, onChange: (ReadingSe
                 onCheckedChange = { on ->
                     onChange(
                         when (label) {
-                            R.string.format_reading_compact -> reading.copy(compact = on)
                             R.string.format_reading_wrap -> reading.copy(wrapsCode = on)
                             else -> reading.copy(underlinesLinks = on)
                         },
                     )
                 },
-                shapes = ListItemDefaults.segmentedShapes(index + 1, 4),
+                shapes = ListItemDefaults.segmentedShapes(index + 4, totalRows),
                 modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = ListItemDefaults.SegmentedGap),
                 trailingContent = { Switch(checked = checked, onCheckedChange = null) },
                 colors = groupedListItemColors(),
@@ -226,7 +281,7 @@ private fun LazyListScope.reading(reading: ReadingSettings, onChange: (ReadingSe
         Spacer(Modifier.height(12.dp))
         Surface(
             shape = MaterialTheme.shapes.large,
-            color = MaterialTheme.colorScheme.surfaceContainer,
+            color = MaterialTheme.colorScheme.surface,
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
         ) {
             CompositionLocalProvider(LocalReading provides reading) {

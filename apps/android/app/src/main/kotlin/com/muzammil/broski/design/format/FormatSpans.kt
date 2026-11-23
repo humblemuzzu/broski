@@ -39,6 +39,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
+import com.muzammil.broski.core.settings.InlineCodeStyle
 import com.muzammil.broski.design.MonoFamily
 import uniffi.broski_core.FormatLink
 import uniffi.broski_core.FormatSpan
@@ -58,6 +59,7 @@ data class SpanLook(
     val opensFiles: Boolean = true,
     val strong: Color = Color.Unspecified,
     val inlineCode: Color = Color.Unspecified,
+    val inlineCodeStyle: InlineCodeStyle = InlineCodeStyle.Plain,
 )
 
 @Composable
@@ -93,7 +95,13 @@ fun formatSpans(spans: List<FormatSpan>, look: SpanLook, open: (FormatLink) -> U
             link != null && opens(link, look) -> withLink(annotation(link, look, open)) {
                 appendStyled(span, look, linked = true)
             }
-            else -> appendStyled(span, look, linked = false)
+            else -> {
+                if (look.inlineCodeStyle == InlineCodeStyle.Tinted && span.code) {
+                    withAnnotation(CHIP, CHIP_CODE_TINT) { appendStyled(span, look, linked = false) }
+                } else {
+                    appendStyled(span, look, linked = false)
+                }
+            }
         }
     }
 }
@@ -149,9 +157,10 @@ fun inlineCodeSize(body: TextUnit): TextUnit = body * FormatTokens.INLINE_CODE_S
 fun SpanText(text: AnnotatedString, style: TextStyle, modifier: Modifier = Modifier, color: Color = Color.Unspecified, codeSize: TextUnit) {
     var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
     val fill = formatImageChipFill
+    val tintFill = formatInlineCodeTintFill
     val density = LocalDensity.current
     val radius = with(density) { FormatTokens.inlineCodeRadius.toPx() }
-    val padX = with(density) { 1.dp.toPx() }
+    val padX = with(density) { 2.dp.toPx() }
     val codePx = with(density) { codeSize.toPx() }
     Text(
         text,
@@ -159,18 +168,20 @@ fun SpanText(text: AnnotatedString, style: TextStyle, modifier: Modifier = Modif
         color = color,
         onTextLayout = { layout = it },
         modifier = modifier.drawBehind {
-            layout?.let { drawChips(it, text, fill, radius, padX, codePx) }
+            layout?.let { drawChips(it, text, fill, tintFill, radius, padX, codePx) }
         },
     )
 }
 
 internal const val CHIP = "chip"
 internal const val CHIP_IMAGE = "image"
+internal const val CHIP_CODE_TINT = "code_tint"
 
 private fun DrawScope.drawChips(
     layout: TextLayoutResult,
     text: AnnotatedString,
     fill: Color,
+    tintFill: Color,
     radius: Float,
     padX: Float,
     codePx: Float,
@@ -180,6 +191,7 @@ private fun DrawScope.drawChips(
         val from = chip.start.coerceAtMost(end)
         val to = chip.end.coerceAtMost(end)
         if (from >= to) continue
+        val chipFill = if (chip.item == CHIP_CODE_TINT) tintFill else fill
         for (line in layout.getLineForOffset(from)..layout.getLineForOffset(to - 1)) {
             val lineStart = layout.getLineStart(line)
             val lineEnd = layout.getLineEnd(line, visibleEnd = true)
@@ -190,11 +202,11 @@ private fun DrawScope.drawChips(
             val a = if (start == lineStart) (if (rtl) layout.getLineRight(line) else layout.getLineLeft(line)) else layout.getHorizontalPosition(start, usePrimaryDirection = true)
             val b = if (stop == lineEnd) (if (rtl) layout.getLineLeft(line) else layout.getLineRight(line)) else layout.getHorizontalPosition(stop, usePrimaryDirection = true)
             val baseline = layout.getLineBaseline(line)
-            val top = baseline - codePx * 1.02f
-            val bottom = baseline + codePx * 0.34f
+            val top = baseline - codePx * 1.0f
+            val bottom = baseline + codePx * 0.30f
             val left = minOf(a, b) - padX
             val width = kotlin.math.abs(b - a) + padX * 2f
-            drawRoundRect(fill, Offset(left, top), Size(width, bottom - top), CornerRadius(radius))
+            drawRoundRect(chipFill, Offset(left, top), Size(width, bottom - top), CornerRadius(radius))
         }
     }
 }

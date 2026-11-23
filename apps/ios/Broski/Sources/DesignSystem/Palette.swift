@@ -24,8 +24,16 @@ enum Palette {
 
     static let card = Color(uiColor: .secondarySystemGroupedBackground)
     static let screen = Color(uiColor: .systemGroupedBackground)
-    static let chatCanvas = Color(light: 0xFFFFFF, dark: 0x111116)
-    static let userBubble = Color(light: 0xF2F2F6, dark: 0x202028)
+    static let chatCanvas = Color(light: 0xFFFFFF, dark: 0x000000)
+    static let chatCanvasCharcoal = Color(light: 0xFFFFFF, dark: 0x121214)
+    static let userBubble = Color(light: 0xF0F0F3, dark: 0x1C1C1E)
+
+    static func canvas(for darkCanvas: DarkCanvas) -> Color {
+        switch darkCanvas {
+        case .pureBlack: chatCanvas
+        case .charcoal: chatCanvasCharcoal
+        }
+    }
 }
 
 extension InboxState {

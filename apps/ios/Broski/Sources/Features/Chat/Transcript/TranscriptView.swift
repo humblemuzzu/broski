@@ -17,6 +17,7 @@ struct TranscriptView: View {
     @Environment(\.chatImages) private var images
     @Environment(\.modelNames) private var modelNames
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.reading) private var reading
 
     var body: some View {
         Color.clear
@@ -28,7 +29,7 @@ struct TranscriptView: View {
                 )
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { fullFrame = $0 }
                 .ignoresSafeArea()
-                .background(Palette.chatCanvas.ignoresSafeArea())
+                .background(Palette.canvas(for: reading.darkCanvas).ignoresSafeArea())
                 .opacity(chat.isRevealed ? 1 : 0)
                 .animation(.easeOut(duration: 0.2), value: chat.isRevealed)
             }

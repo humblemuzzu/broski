@@ -11,13 +11,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.muzammil.broski.R
+import com.muzammil.broski.core.settings.ReadingDensity
+import com.muzammil.broski.core.settings.ReadingFont
 import com.muzammil.broski.core.settings.ReadingSettings
+import com.muzammil.broski.design.MonoFamily
 import uniffi.broski_core.CalloutKind
 import uniffi.broski_core.FormatSpacing
 
@@ -29,14 +33,14 @@ object FormatTokens {
     val calloutBarWidth = 3.dp
     val calloutPadding = 12.dp
     val listIndentSteps = listOf(16f, 14f, 12f)
-    val bulletBoxWidth = 7.dp
+    val bulletBoxWidth = 6.dp
     val bulletGap = 9.dp
     val numberGap = 6.dp
-    val taskGutter = 16.dp
+    val taskGutter = 15.dp
     val taskGap = 8.dp
-    val codeSize = 13.5.sp
+    val codeSize = 12.5.sp
     const val INLINE_CODE_SCALE = 0.90f
-    val inlineCodeRadius = 5.dp
+    val inlineCodeRadius = 4.dp
     val codeRadius = 10.dp
     const val CODE_FOLD_LINES = 30
     const val CODE_COUNT_LINES = 10
@@ -56,7 +60,7 @@ object FormatTokens {
     val linkLight = Color(0xFF1D4ED8)
     val linkDark = Color(0xFF60A5FA)
     val pathLight = Color(0xFF0F766E)
-    val pathDark = Color(0xFF6EC8BC)
+    val pathDark = Color(0xFF68C7BB)
 
     fun listBaseIndentDp(depth: Int, fontScale: Float = 1f): Dp {
         val clamped = depth.coerceIn(0, listIndentSteps.size)
@@ -65,22 +69,33 @@ object FormatTokens {
         return (sum * fontScale.coerceIn(0.85f, 1.35f)).dp
     }
 
-    fun spacing(step: FormatSpacing, quiet: Boolean = false, compact: Boolean = false): Dp {
+    fun spacing(step: FormatSpacing, quiet: Boolean = false, density: ReadingDensity = ReadingDensity.Balanced): Dp {
         val points = when (step) {
             FormatSpacing.NONE -> 0f
-            FormatSpacing.TIGHT -> 10f
-            FormatSpacing.AFTER_HEADING -> 10f
-            FormatSpacing.LEAD_IN -> 10f
+            FormatSpacing.TIGHT -> 9f
+            FormatSpacing.AFTER_HEADING -> 9f
+            FormatSpacing.LEAD_IN -> 9f
             FormatSpacing.STACKED_HEADING -> 12f
-            FormatSpacing.LOOSE, FormatSpacing.AFTER_GROUP -> 14f
-            FormatSpacing.PARAGRAPH -> 16f
+            FormatSpacing.LOOSE, FormatSpacing.AFTER_GROUP -> 13f
+            FormatSpacing.PARAGRAPH -> 15f
             FormatSpacing.BLOCK -> 18f
             FormatSpacing.RULE -> 20f
             FormatSpacing.SUB_SECTION -> 22f
-            FormatSpacing.SECTION -> 28f
+            FormatSpacing.SECTION -> 26f
         }
-        return (points * (if (quiet) 0.75f else 1f) * (if (compact) 0.78f else 1f)).dp
+        val mult = when (density) {
+            ReadingDensity.Compact -> 0.78f
+            ReadingDensity.Balanced -> 1f
+            ReadingDensity.Airy -> 1.22f
+        }
+        return (points * (if (quiet) 0.75f else 1f) * mult).dp
     }
+}
+
+fun ReadingFont.fontFamily(): FontFamily = when (this) {
+    ReadingFont.Sans -> FontFamily.Default
+    ReadingFont.Serif -> FontFamily.Serif
+    ReadingFont.Mono -> MonoFamily
 }
 
 private val isDarkSurface: Boolean
@@ -97,39 +112,43 @@ val formatPath: Color
 
 val formatInlineCodeText: Color
     @Composable @ReadOnlyComposable
-    get() = if (isDarkSurface) Color(0xFFC7D4E6) else Color(0xFF384050)
+    get() = if (isDarkSurface) Color(0xFFF2F2F4) else Color(0xFF242428)
+
+val formatInlineCodeTintFill: Color
+    @Composable @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.onSurface.copy(alpha = if (isDarkSurface) 0.09f else 0.06f)
 
 val formatImageChipFill: Color
     @Composable @ReadOnlyComposable
-    get() = MaterialTheme.colorScheme.onSurface.copy(alpha = if (isDarkSurface) 0.08f else 0.055f)
+    get() = MaterialTheme.colorScheme.onSurface.copy(alpha = if (isDarkSurface) 0.09f else 0.06f)
 
 val formatCardBorder: Color
     @Composable @ReadOnlyComposable
-    get() = MaterialTheme.colorScheme.onSurface.copy(alpha = if (isDarkSurface) 0.09f else 0.08f)
+    get() = MaterialTheme.colorScheme.onSurface.copy(alpha = if (isDarkSurface) 0.11f else 0.08f)
 
 val formatRuleColor: Color
     @Composable @ReadOnlyComposable
-    get() = MaterialTheme.colorScheme.onSurface.copy(alpha = if (isDarkSurface) 0.10f else 0.09f)
+    get() = MaterialTheme.colorScheme.onSurface.copy(alpha = if (isDarkSurface) 0.12f else 0.09f)
 
 val formatBulletPrimary: Color
     @Composable @ReadOnlyComposable
-    get() = MaterialTheme.colorScheme.onSurface.copy(alpha = if (isDarkSurface) 0.76f else 0.72f)
+    get() = MaterialTheme.colorScheme.onSurface.copy(alpha = if (isDarkSurface) 0.78f else 0.72f)
 
 val formatBulletNested: Color
     @Composable @ReadOnlyComposable
-    get() = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.50f)
+    get() = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.52f)
 
 val formatMarkerColor: Color
     @Composable @ReadOnlyComposable
-    get() = MaterialTheme.colorScheme.onSurface.copy(alpha = if (isDarkSurface) 0.60f else 0.58f)
+    get() = MaterialTheme.colorScheme.onSurface.copy(alpha = if (isDarkSurface) 0.62f else 0.58f)
 
 val formatTableRowHairline: Color
     @Composable @ReadOnlyComposable
-    get() = MaterialTheme.colorScheme.onSurface.copy(alpha = if (isDarkSurface) 0.09f else 0.08f)
+    get() = MaterialTheme.colorScheme.onSurface.copy(alpha = if (isDarkSurface) 0.10f else 0.08f)
 
 val formatTableHeaderHairline: Color
     @Composable @ReadOnlyComposable
-    get() = MaterialTheme.colorScheme.onSurface.copy(alpha = if (isDarkSurface) 0.15f else 0.14f)
+    get() = MaterialTheme.colorScheme.onSurface.copy(alpha = if (isDarkSurface) 0.17f else 0.14f)
 
 val LocalFormatBleed = staticCompositionLocalOf { 0.dp }
 val LocalInQuote = staticCompositionLocalOf { false }
@@ -142,18 +161,29 @@ enum class FormatRole {
     @Composable
     fun textStyle(): TextStyle {
         val type = MaterialTheme.typography
-        return if (this == Page) type.bodyLarge.copy(fontSize = 16.sp, lineHeight = 24.5.sp) else type.bodyMedium.copy(fontSize = 14.5.sp, lineHeight = 21.sp)
+        val reading = LocalReading.current
+        val family = reading.font.fontFamily()
+        val lineMult = when (reading.density) {
+            ReadingDensity.Compact -> 0.90f
+            ReadingDensity.Balanced -> 1.0f
+            ReadingDensity.Airy -> 1.10f
+        }
+        return if (this == Page) {
+            type.bodyLarge.copy(fontSize = 14.5.sp, lineHeight = 23.sp * lineMult, fontFamily = family)
+        } else {
+            type.bodyMedium.copy(fontSize = 13.5.sp, lineHeight = 20.sp * lineMult, fontFamily = family)
+        }
     }
 
     @Composable
     fun headingStyle(level: UByte): TextStyle {
         val body = textStyle()
         return when {
-            this == Quiet -> body.copy(fontWeight = FontWeight.SemiBold, fontSize = if (level == 1.toUByte()) 15.5.sp else 14.5.sp, lineHeight = 21.sp)
-            level == 1.toUByte() -> body.copy(fontSize = 21.sp, lineHeight = 27.5.sp, letterSpacing = (-0.3).sp, fontWeight = FontWeight.SemiBold)
-            level == 2.toUByte() -> body.copy(fontSize = 18.5.sp, lineHeight = 24.5.sp, letterSpacing = (-0.2).sp, fontWeight = FontWeight.SemiBold)
-            level == 3.toUByte() -> body.copy(fontSize = 16.5.sp, lineHeight = 22.5.sp, letterSpacing = (-0.1).sp, fontWeight = FontWeight.SemiBold)
-            else -> body.copy(fontSize = 15.5.sp, lineHeight = 21.5.sp, fontWeight = FontWeight.SemiBold)
+            this == Quiet -> body.copy(fontWeight = FontWeight.SemiBold, fontSize = if (level == 1.toUByte()) 14.5.sp else 13.5.sp, lineHeight = 20.sp)
+            level == 1.toUByte() -> body.copy(fontSize = 19.sp, lineHeight = 25.sp, letterSpacing = (-0.25).sp, fontWeight = FontWeight.SemiBold)
+            level == 2.toUByte() -> body.copy(fontSize = 17.sp, lineHeight = 23.sp, letterSpacing = (-0.2).sp, fontWeight = FontWeight.SemiBold)
+            level == 3.toUByte() -> body.copy(fontSize = 15.5.sp, lineHeight = 21.5.sp, letterSpacing = (-0.1).sp, fontWeight = FontWeight.SemiBold)
+            else -> body.copy(fontSize = 14.5.sp, lineHeight = 21.sp, fontWeight = FontWeight.SemiBold)
         }
     }
 
@@ -161,7 +191,7 @@ enum class FormatRole {
     fun color(): Color = if (this == Page) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
 
     @Composable
-    fun bodyColor(): Color = if (this == Page) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f) else color()
+    fun bodyColor(): Color = if (this == Page) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.91f) else color()
 
     @Composable
     fun boldColor(): Color = if (this == Page) MaterialTheme.colorScheme.onSurface else Color.Unspecified
@@ -187,7 +217,7 @@ fun ReadingTextSize(content: @Composable () -> Unit) {
     }
 }
 
-private const val SIZE_STEP = 0.12f
+private const val SIZE_STEP = 0.07f
 
 @Composable
 fun CalloutKind.tint(): Color {

@@ -18,14 +18,13 @@ struct FormatBlockView: View, Equatable {
     }
 
     var body: some View {
-        let gap = FormatTokens.spacing(block.spacing, quiet: role == .quiet, compact: reading.compact)
+        let gap = FormatTokens.spacing(block.spacing, quiet: role == .quiet, density: reading.density)
         FormatContainersView(containers: block.containers, next: next, gap: gap, role: role) {
             FormatContentView(block: block, role: role, streaming: streaming)
         }
         .padding(.top, gap)
         .frame(maxWidth: maxWidth, alignment: .leading)
         .frame(maxWidth: .infinity)
-        .readingTextSize()
         .formatLinkHandling()
     }
 
@@ -62,16 +61,21 @@ struct FormatContentView: View {
             let bodyColor: Color = role == .quiet ? .secondary : (inQuote ? FormatTokens.quoteText : FormatTokens.bodyText)
             let strongColor: Color? = role == .page && !inQuote ? FormatTokens.boldText : nil
             let codeColor: Color? = role == .page && !inQuote ? FormatTokens.inlineCodeText : nil
-            let lines = (role == .page ? pageLines : quietLines) * (reading.compact ? 0.65 : 1)
-            prose(spans, font: bodyFont, codeSize: bodySize * FormatTokens.inlineCodeScale, color: bodyColor, strong: strongColor, codeColor: codeColor, lineSpacing: lines, tracking: 0)
+            let lines = (role == .page ? pageLines : quietLines) * reading.density.lineSpacingMultiplier
+            prose(
+                spans, font: bodyFont, codeSize: bodySize * FormatTokens.inlineCodeScale,
+                color: bodyColor, strong: strongColor, codeColor: codeColor,
+                codeStyle: reading.inlineCode, lineSpacing: lines, tracking: 0
+            )
         case .heading(let level, let spans):
             let spec = role.heading(level)
             let size = headingSize(level)
             prose(
-                spans, font: .system(size: size, weight: spec.weight),
+                spans, font: .system(size: size, weight: spec.weight, design: reading.font.design),
                 codeSize: size * FormatTokens.inlineCodeScale,
                 color: level >= 4 || role == .quiet ? Color.secondary : FormatTokens.boldText,
-                strong: nil, codeColor: nil, lineSpacing: spec.lineSpacing, tracking: spec.tracking
+                strong: nil, codeColor: nil, codeStyle: .plain,
+                lineSpacing: spec.lineSpacing, tracking: spec.tracking
             )
             .accessibilityAddTraits(.isHeader)
         case .code(let code):
@@ -99,15 +103,16 @@ struct FormatContentView: View {
         }
     }
 
-    private var bodySize: CGFloat { role == .page ? pageSize : quietSize }
-    private var bodyFont: Font { .system(size: bodySize) }
+    private var offset: CGFloat { reading.bodyPointOffset }
+    private var bodySize: CGFloat { max(11, (role == .page ? pageSize : quietSize) + offset) }
+    private var bodyFont: Font { .system(size: bodySize, design: reading.font.design) }
 
     private var tableBleed: CGFloat {
         role == .page && block.containers.isEmpty ? screenBleed : 0
     }
 
     private func headingSize(_ level: UInt8) -> CGFloat {
-        switch (role, level) {
+        let base: CGFloat = switch (role, level) {
         case (.page, 1): h1
         case (.page, 2): h2
         case (.page, 3): h3
@@ -115,16 +120,18 @@ struct FormatContentView: View {
         case (.quiet, 1): quietH1
         case (.quiet, _): quietH2
         }
+        return max(12, base + offset)
     }
 
     private func prose(
         _ spans: [FormatSpan], font: Font, codeSize: CGFloat, color: Color,
-        strong: Color?, codeColor: Color?, lineSpacing: CGFloat, tracking: CGFloat
+        strong: Color?, codeColor: Color?, codeStyle: InlineCodeStyle,
+        lineSpacing: CGFloat, tracking: CGFloat
     ) -> some View {
         let spanStyle = SpanStyle(
             font: font, codeFont: .system(size: codeSize, design: .monospaced),
             underlinesLinks: reading.underlinesLinks, opensFiles: context != nil,
-            strongColor: strong, inlineCodeColor: codeColor)
+            strongColor: strong, inlineCodeColor: codeColor, inlineCodeStyle: codeStyle)
         return (spans.isEmpty ? Text(verbatim: " ") : FormatSpans.text(spans, style: spanStyle))
             .font(font)
             .tracking(tracking)

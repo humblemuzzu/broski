@@ -157,6 +157,7 @@ private struct FlatListFrame<Content: View>: View {
     let role: FormatRole
     @ViewBuilder let content: Content
 
+    @Environment(\.reading) private var reading
     @ScaledMetric(relativeTo: .body) private var step1: CGFloat = FormatTokens.listIndentSteps[0]
     @ScaledMetric(relativeTo: .body) private var step2: CGFloat = FormatTokens.listIndentSteps[1]
     @ScaledMetric(relativeTo: .body) private var step3: CGFloat = FormatTokens.listIndentSteps[2]
@@ -169,7 +170,7 @@ private struct FlatListFrame<Content: View>: View {
 
     private var leaf: FormatContainer { items[items.count - 1] }
     private var visualDepth: Int { items.count - 1 }
-    private var fontSize: CGFloat { role == .page ? pageSize : quietSize }
+    private var fontSize: CGFloat { max(11, (role == .page ? pageSize : quietSize) + reading.bodyPointOffset) }
 
     private var leafMarker: ListMarker {
         if case .item(_, let marker, _, _) = leaf.kind { return marker }
@@ -208,14 +209,14 @@ private struct FlatListFrame<Content: View>: View {
         case .bullet:
             // Baseline anchor matches the first line of prose so the dot centers on cap/x-height.
             Text(verbatim: "\u{200B}")
-                .font(.system(size: fontSize))
+                .font(.system(size: fontSize, design: reading.font.design))
                 .frame(width: bulletBox, alignment: .center)
                 .overlay(alignment: .center) {
                     if show { bulletShape }
                 }
                 .accessibilityLabel(show ? "Bullet" : "")
         case .number(let value, let paren):
-            let markerFont = Font.system(size: fontSize * 0.94).monospacedDigit()
+            let markerFont = Font.system(size: fontSize * 0.94, design: reading.font.design).monospacedDigit()
             Text("\(value)\(paren ? ")" : ".")")
                 .font(markerFont)
                 .foregroundStyle(FormatTokens.markerColor)
@@ -224,7 +225,7 @@ private struct FlatListFrame<Content: View>: View {
                 .fixedSize()
         case .task(let checked):
             Text(verbatim: "\u{200B}")
-                .font(.system(size: fontSize))
+                .font(.system(size: fontSize, design: reading.font.design))
                 .frame(width: taskGutter, alignment: .center)
                 .overlay(alignment: .center) {
                     if show {
@@ -241,19 +242,19 @@ private struct FlatListFrame<Content: View>: View {
     private var bulletShape: some View {
         switch visualDepth {
         case 0:
-            let dot = max(5.2, fontSize * 0.34)
+            let dot = max(4.5, fontSize * 0.31)
             Circle()
                 .fill(FormatTokens.bulletPrimary)
                 .frame(width: dot, height: dot)
         case 1:
-            let dot = max(4.2, fontSize * 0.27)
+            let dot = max(3.6, fontSize * 0.25)
             Circle()
                 .fill(FormatTokens.bulletNested)
                 .frame(width: dot, height: dot)
         default:
             Capsule()
                 .fill(FormatTokens.bulletNested)
-                .frame(width: max(5.5, fontSize * 0.35), height: 1.5)
+                .frame(width: max(5.0, fontSize * 0.34), height: 1.4)
         }
     }
 }

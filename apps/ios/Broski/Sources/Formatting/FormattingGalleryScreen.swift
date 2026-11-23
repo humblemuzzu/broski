@@ -21,6 +21,7 @@ struct FormattingGalleryScreen: View {
 /// it in a few characters a batch, the way an answer arrives.
 private struct FormattingSampleScreen: View {
     let sample: FormatSample
+    @Environment(\.reading) private var reading
     @State private var role = Role.page
     @State private var showsSource = false
     @State private var streamed: String?
@@ -60,7 +61,7 @@ private struct FormattingSampleScreen: View {
             .padding(.horizontal, TranscriptView.sideMargin)
             .padding(.vertical, Spacing.m)
         }
-        .background(Palette.chatCanvas.ignoresSafeArea())
+        .background(Palette.canvas(for: reading.darkCanvas).ignoresSafeArea())
         .environment(\.formatBleed, TranscriptView.sideMargin)
         .accessibilityIdentifier("gallery-sample-scroll")
         .navigationTitle(sample.title)

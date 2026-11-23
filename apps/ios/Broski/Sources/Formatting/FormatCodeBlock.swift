@@ -117,8 +117,8 @@ struct FormatCodeBlock: View {
     private var lines: some View {
         let folds = plainLines.count > FormatTokens.codeFoldLines && !unfolded
         let text = Text(attributed(limit: folds ? FormatTokens.codeFoldLines : nil))
-            .font(.system(size: codeSize, design: .monospaced))
-            .lineSpacing(3.5)
+            .font(.system(size: max(10, codeSize + reading.bodyPointOffset * 0.8), design: .monospaced))
+            .lineSpacing(4)
             .padding(.horizontal, inset)
             .padding(.top, Spacing.m - 2)
             .padding(.bottom, folds ? Spacing.xs : Spacing.m)
