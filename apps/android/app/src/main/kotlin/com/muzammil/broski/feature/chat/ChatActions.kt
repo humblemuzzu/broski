@@ -4,8 +4,10 @@ import android.net.Uri
 import androidx.lifecycle.viewModelScope
 import com.muzammil.broski.feature.chat.composer.ImageAttachments
 import com.muzammil.broski.feature.chat.composer.Outgoing
+import com.muzammil.broski.feature.chat.composer.Picked
 import com.muzammil.broski.feature.chat.transcript.PendingSend
 import com.muzammil.broski.feature.images.ImageTarget
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -42,6 +44,11 @@ class ChatActions(
 
     /** Interactions whose answer is on its way, or was too late; a card's buttons wait on it. */
     val answers: StateFlow<Map<String, AnswerState>> = mutableAnswers.asStateFlow()
+
+    private val mutablePicked = MutableStateFlow<Picked?>(null)
+
+    /** A model, level or mode the person picked, shown before the session reports it. */
+    val picked: StateFlow<Picked?> = mutablePicked.asStateFlow()
 
     fun send(mode: PromptMode) = deliver(model.composer.take(mode))
 
@@ -101,11 +108,15 @@ class ChatActions(
 
     fun cancelQueued(queueItemId: String) = act { client.cancelQueued(queueItemId) }
 
-    fun setModel(modelId: String) = act { client.setModel(modelId) }
+    /** The model, then the level when one is given: a level is checked against the model the session runs. */
+    fun setModel(modelId: String, thinking: String?) = change(Picked(modelId = modelId, thinking = thinking)) {
+        val set = client.setModel(modelId)
+        if (set is ActionResult.Accepted && thinking != null) client.setThinking(thinking) else set
+    }
 
-    fun setThinking(thinking: String) = act { client.setThinking(thinking) }
+    fun setThinking(thinking: String) = change(Picked(thinking = thinking)) { client.setThinking(thinking) }
 
-    fun setMode(axis: String, value: String) = act { client.setMode(axis, value) }
+    fun setMode(axis: String, value: String) = change(Picked(modes = mapOf(axis to value))) { client.setMode(axis, value) }
 
     fun compact() = act { client.compact() }
 
@@ -133,6 +144,23 @@ class ChatActions(
         }
     }
 
+    /**
+     * Shows [choice] at once. The bridge's answer and the session's own report of the change come on
+     * separate paths, so the choice is kept a moment past the answer rather than letting the old value
+     * flash back in between.
+     */
+    private fun change(choice: Picked, send: suspend () -> ActionResult) {
+        mutablePicked.value = choice
+        scope.launch {
+            when (val result = request(send)) {
+                is ActionResult.Accepted -> delay(SETTLE_MS)
+                is ActionResult.Rejected -> events.emit(ChatEvent.Refused(result.v1.rejection.code, result.v1.rejection.message))
+                null -> Unit
+            }
+            mutablePicked.compareAndSet(choice, null)
+        }
+    }
+
     private fun act(onAccepted: suspend () -> Unit = {}, request: suspend () -> ActionResult) {
         scope.launch {
             when (val result = request(request)) {
@@ -149,5 +177,9 @@ class ChatActions(
     } catch (error: ClientException) {
         events.emit(ChatEvent.Failed(error))
         null
+    }
+
+    private companion object {
+        const val SETTLE_MS = 1_000L
     }
 }

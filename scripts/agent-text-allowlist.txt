@@ -9,9 +9,10 @@ apps/ios/Broski/Sources/Features/Workspace/Git/BranchesScreen.swift | Text(upstr
 apps/android/app/src/main/kotlin/com/muzammil/broski/feature/settings/FormattingGallery.kt | Text(sample.text, | the gallery's Source view: a sample's markdown as written, beside how it is drawn
 apps/ios/Broski/Sources/DesignSystem/DiffView.swift | Text("@@ | a hunk's line numbers from git, drawn as git writes them
 apps/ios/Broski/Sources/Features/Settings/AppearanceSettingsScreen.swift | Text(option.title) | the app's own appearance and keep-awake names
-apps/ios/Broski/Sources/Features/Chat/Composer/ComposerView.swift | Text(way.title) | the app's own dictation choices
-apps/ios/Broski/Sources/Features/Chat/Composer/ComposerChips.swift | Text(option.title) | a model or mode name from the agent's catalog, not its prose
-apps/ios/Broski/Sources/Features/Chat/Composer/ComposerChips.swift | Text(option.label) | a model or mode name from the agent's catalog, not its prose
+apps/ios/Broski/Sources/Features/Chat/Composer/ComposerButtons.swift | Text(way.title) | the app's own Send, Queue and Steer
+apps/ios/Broski/Sources/Features/Chat/Composer/ComposerPickers.swift | Text(option.label) | a mode name from the agent's catalog, not its prose
+apps/android/app/src/main/kotlin/com/muzammil/broski/feature/chat/composer/ComposerPickers.kt | Text(option.label | a mode name from the agent's catalog, not its prose
+apps/android/app/src/main/kotlin/com/muzammil/broski/feature/chat/composer/ModelSheet.kt | Text(choice.title) | a thinking level or mode name from the agent's catalog, not its prose
 apps/ios/Broski/Sources/Features/Chat/Work/WorkRowView.swift | Text(tool.label) | the core's row label (toolLook): a command or a path, drawn as written
 apps/ios/Broski/Extensions/Widgets/IslandViews.swift | Text(state.title) | the Live Activity's title, made by RunActivityAttributes; the widget does not link the formatter
 apps/ios/Broski/Extensions/Widgets/RunActivityViews.swift | Text(state.title) | the Live Activity's title, made by RunActivityAttributes

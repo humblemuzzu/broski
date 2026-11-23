@@ -26,6 +26,7 @@ data class AppSettings(
     val notifications: Set<NotificationKind> = NotificationKind.entries.toSet(),
     val voice: VoiceSettings = VoiceSettings(),
     val reading: ReadingSettings = ReadingSettings(),
+    val models: ModelPreferences = ModelPreferences(),
 )
 
 enum class ReadingDensity { Compact, Balanced, Airy }
@@ -95,7 +96,12 @@ class SettingsStore(private val store: DataStore<Preferences>) {
                 dictionary = words(preferences[VOICE_DICTIONARY].orEmpty()),
             ),
             reading = reading(preferences),
+            models = ModelPreferences.decoded(preferences[MODELS]),
         )
+    }
+
+    suspend fun updateModels(change: (ModelPreferences) -> ModelPreferences) {
+        store.edit { it[MODELS] = change(ModelPreferences.decoded(it[MODELS])).encoded() }
     }
 
     suspend fun setAppearance(appearance: Appearance) {
@@ -180,6 +186,7 @@ class SettingsStore(private val store: DataStore<Preferences>) {
         val VOICE_SEND_AFTER = booleanPreferencesKey("voice.sendAfterDictating")
         val VOICE_PROJECT_WORDS = booleanPreferencesKey("voice.projectWords")
         val VOICE_DICTIONARY = stringPreferencesKey("voice.dictionary")
+        val MODELS = stringPreferencesKey("models")
 
         fun words(stored: String) = stored.split('\n').map { it.trim() }.filter { it.isNotEmpty() }
 

@@ -37,8 +37,9 @@ import com.muzammil.broski.design.shimmer
 import kotlinx.coroutines.delay
 
 /**
- * What takes the field's place while dictating: "Listening…" and the time (the composer's voice
- * glow follows the voice), then "Transcribing…", or why it failed with what to do.
+ * What takes the field's place while dictating, on the field's one line: "Listening…" (or, with the
+ * finger down, how to cancel) and the time, while the composer's voice glow follows the voice; then
+ * "Transcribing…", or why it failed with what to do.
  */
 @Composable
 fun RecordingBar(state: DictationState, phase: DictationPhase, dictation: Dictation, openVoiceSettings: (() -> Unit)?, modifier: Modifier = Modifier) {
@@ -59,31 +60,25 @@ fun RecordingBar(state: DictationState, phase: DictationPhase, dictation: Dictat
 
 @Composable
 private fun Recording(state: DictationState, phase: DictationPhase.Recording) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxWidth().heightIn(min = 28.dp),
-        ) {
-            Text(
-                stringResource(R.string.dictation_listening),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.weight(1f),
-            )
-            Elapsed(state.startedAtMs ?: System.currentTimeMillis())
-        }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 28.dp),
+    ) {
         Text(
             stringResource(
                 when {
                     phase.cancelling -> R.string.dictation_hint_cancelling
                     phase.held -> R.string.dictation_hint_held
-                    else -> R.string.dictation_hint_locked
+                    else -> R.string.dictation_listening
                 },
             ),
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.bodyLarge,
             color = if (phase.cancelling) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            modifier = Modifier.weight(1f),
         )
+        Elapsed(state.startedAtMs ?: System.currentTimeMillis())
     }
 }
 

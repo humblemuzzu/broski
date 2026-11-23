@@ -2,15 +2,18 @@ import BroskiCore
 import SwiftUI
 import VoiceGlowKit
 
-/// The composer: one Liquid Glass surface holding the field (one line, growing to six; Paste takes
-/// images), the slash commands above it while the text starts with `/`, the attached images, and
-/// under the field `+`, the chips, the mic and the one send button. While dictating, the recording
-/// takes the field's place and ✕ the place of `+` and the chips, and a glow rises from the bottom edge
-/// with the voice. While the Mac is out of reach the field still takes typing; only what needs the
-/// Mac (sending, the chips) waits.
+/// The composer, one Liquid Glass surface in two shapes. Collapsed, while the person is not writing:
+/// a capsule of `+`, the field, the mic, and Stop while a run is live. Expanded, once the field is
+/// touched or holds something: the field across the top, growing to six lines, and under it `+`,
+/// the model pill, the mic and the send button. Above the field, when there are any: the slash
+/// commands while the text starts with `/`, the `@` file matches, the attached images and the
+/// picked command. While dictating the recording takes the field's line and ✕ the place of `+`,
+/// and a glow rises from the bottom edge with the voice. While the Mac is out of reach the field
+/// still takes typing; only what needs the Mac (sending, the pickers) waits.
 struct ComposerView: View {
     @Binding var draft: ComposerDraft
-    let agent: String
+    /// The agent the pinned models and remembered levels are kept for.
+    let backend: String?
     let action: SendAction
     let modes: [PromptMode]
     let acceptsImages: Bool
@@ -25,11 +28,15 @@ struct ComposerView: View {
     var dictation: DictationTarget?
     /// Project file search for `@file` mentions; `nil` when no working folder is known.
     var fileSearch: FileSearchSource? = nil
-    /// The session's prompt cache, which the model picker warns about; `nil` before a session exists.
+    /// The session's prompt cache, which the model sheet warns about; `nil` before a session exists.
     var cache: CacheWindow? = nil
     @Environment(AppModel.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var voiceSettings = false
+    @State private var pickingModel = false
+    /// The sheet takes the keyboard; the field gets it back when the sheet goes if it had it.
+    @State private var refocusAfterSheet = false
+    @State private var steps = 0
     @State private var mentionPaths: [String] = []
     @State private var mentionCache = FileMentionCache()
     @State private var cursorUtf16: Int? = nil
@@ -40,14 +47,27 @@ struct ComposerView: View {
 
     private var isDictating: Bool { dictationPhase != .idle }
 
+    private var dictationFailed: Bool {
+        if case .failed = dictationPhase { true } else { false }
+    }
+
     /// Recording and not about to be cancelled: the voice glow shows.
     private var isListening: Bool {
         if case .recording(_, cancelling: false) = dictationPhase { true } else { false }
     }
 
+    private var isExpanded: Bool {
+        focus || draft.hasContent || dictationFailed || !matching.isEmpty
+    }
+
+    private var showsPickers: Bool { isExpanded && !isDictating }
+
+    /// With nothing to send and nothing running, the mic ends the row; Send comes in with the text.
+    private var showsSend: Bool { dictation == nil || action != .send || draft.hasContent }
+
     private var placeholder: String {
-        if action != .send { return "Message to queue…" }
-        return catalog.commands.isEmpty ? "Message \(agent)" : "Message \(agent) · / for commands"
+        if action != .send, modes.contains(.queue) { return "Queue a message" }
+        return !isExpanded && dictation != nil ? "Type or hold to talk" : "Chat with Broski"
     }
 
     private var matching: [CommandSummary] {
@@ -65,73 +85,34 @@ struct ComposerView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.s) {
-            if !matching.isEmpty {
-                CommandList(commands: matching) { draft.pick($0) }
-                Divider()
-            } else if !mentionPaths.isEmpty, activeMention != nil {
-                FileMentionList(paths: mentionPaths) {
-                    if let nextCursor = draft.pickFile($0, at: cursorUtf16) {
-                        cursorUtf16 = nextCursor
-                    }
-                    mentionPaths = []
-                }
-                Divider()
+            accessories
+            ComposerLayout(expanded: isExpanded) {
+                ZStack { leading }
+                field
+                ComposerPickers(catalog: catalog, choices: choices, choose: step(choose), openModel: openModel)
+                    .disabled(!isEnabled)
+                    .opacity(showsPickers ? 1 : 0)
+                    .allowsHitTesting(showsPickers)
+                    .accessibilityHidden(!showsPickers)
+                trailing
             }
-            if !draft.images.isEmpty {
-                AttachmentStrip(draft: $draft)
-            }
-            if let command = draft.command {
-                CommandToken(command: command) { draft.command = nil }
-            }
-            if isDictating {
-                RecordingBar(dictation: app.dictation, phase: dictationPhase) { voiceSettings = true }
-                    .padding(.horizontal, Spacing.xs)
-                    .transition(.opacity)
-            } else {
-                ComposerTextView(
-                    placeholder: placeholder, text: $draft.text, isFocused: $focus, cursorUtf16: $cursorUtf16, maxLines: 6,
-                    pasteImages: acceptsImages ? { attach($0, to: $draft, refuse: refuse) } : nil,
-                    onSubmit: { if isEnabled && draft.hasContent { perform(action) } }
-                )
-                .padding(.horizontal, Spacing.xs)
-            }
-            if let dictation, let notice = app.dictation.notice(for: dictation.id) {
-                Text(notice.text)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, Spacing.xs)
-                    .transition(.opacity)
-            }
-            controls
         }
-        .padding(.top, Spacing.m)
-        .padding(.horizontal, Spacing.m)
-        .padding(.bottom, Spacing.s)
-        .glassEffect(.regular, in: .rect(cornerRadius: 26, style: .continuous))
-        .voiceGlow(levelProvider: { Double(app.dictation.level) }, active: isListening, cornerRadius: 26)
+        .padding(ComposerMetrics.inset)
+        .background {
+            Color.clear
+                .contentShape(.rect)
+                .onTapGesture { focus = true }
+        }
+        .glassEffect(.regular, in: .rect(cornerRadius: ComposerMetrics.radius, style: .continuous))
+        .voiceGlow(levelProvider: { Double(app.dictation.level) }, active: isListening, cornerRadius: ComposerMetrics.radius)
+        .animation(reduceMotion ? .easeOut(duration: 0.15) : .spring(duration: 0.34, bounce: 0.1), value: isExpanded)
+        .animation(.snappy(duration: 0.22), value: showsSend)
+        .animation(.snappy(duration: 0.22), value: isDictating)
         .animation(.spring(duration: 0.22, bounce: 0), value: matching.isEmpty)
         .animation(.spring(duration: 0.22, bounce: 0), value: mentionPaths.isEmpty)
         .animation(.spring(duration: 0.22, bounce: 0), value: draft.images.count)
-        .animation(.spring(duration: 0.22, bounce: 0), value: isDictating)
-        .task(id: mentionTaskKey) {
-            guard let fileSearch, let mention = activeMention else {
-                mentionPaths = []
-                return
-            }
-            if let cached = mentionCache.get(root: fileSearch.root, query: mention.query) {
-                mentionPaths = cached
-                return
-            }
-            try? await Task.sleep(for: .milliseconds(120))
-            guard !Task.isCancelled else { return }
-            guard let results = await fileSearch.search(mention.query) else {
-                if !Task.isCancelled { mentionPaths = [] }
-                return
-            }
-            guard !Task.isCancelled else { return }
-            mentionCache.put(root: fileSearch.root, query: mention.query, paths: results)
-            mentionPaths = results
-        }
+        .haptic(.pickerStep, trigger: steps)
+        .task(id: mentionTaskKey) { await searchMentions() }
         .sensoryFeedback(trigger: app.dictation.feedback) { _, feedback in
             app.dictation.feedbackOwner == dictation?.id ? feedback?.moment.feedback : nil
         }
@@ -141,24 +122,73 @@ struct ComposerView: View {
         .sheet(isPresented: $voiceSettings) {
             NavigationStack { VoiceSettingsScreen(closes: true) }
         }
+        .sheet(isPresented: $pickingModel, onDismiss: refocus) {
+            ModelSheet(backend: backend ?? "", catalog: catalog, choices: choices, cache: cache, choose: step(choose))
+        }
     }
 
-    private var controls: some View {
-        HStack(spacing: Spacing.s) {
-            if isDictating {
-                if case .failed = dictationPhase {} else {
-                    CancelDictation { app.dictation.cancel() }
+    @ViewBuilder
+    private var accessories: some View {
+        if !matching.isEmpty {
+            CommandList(commands: matching) { draft.pick($0) }
+            Divider()
+        } else if !mentionPaths.isEmpty, activeMention != nil {
+            FileMentionList(paths: mentionPaths) {
+                if let nextCursor = draft.pickFile($0, at: cursorUtf16) {
+                    cursorUtf16 = nextCursor
                 }
-                Spacer(minLength: 0)
-            } else {
-                if acceptsImages {
-                    AttachmentMenu(draft: $draft, refuse: refuse)
-                }
-                FadingHorizontalScroll { ComposerChips(part: .model, catalog: catalog, choices: choices, choose: choose, cache: cache) }
-                    .disabled(!isEnabled)
-                ComposerChips(part: .modes, catalog: catalog, choices: choices, choose: choose)
-                    .disabled(!isEnabled)
+                mentionPaths = []
             }
+            Divider()
+        }
+        if !draft.images.isEmpty {
+            AttachmentStrip(draft: $draft)
+                .padding(.horizontal, ComposerLayout.fieldInset)
+        }
+        if let command = draft.command {
+            CommandToken(command: command) { draft.command = nil }
+                .padding(.horizontal, ComposerLayout.fieldInset)
+        }
+        if let dictation, let notice = app.dictation.notice(for: dictation.id) {
+            Text(notice.text)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, ComposerLayout.fieldInset)
+                .transition(.opacity)
+        }
+    }
+
+    @ViewBuilder
+    private var leading: some View {
+        if isDictating && !dictationFailed {
+            CancelDictation { app.dictation.cancel() }
+                .transition(.opacity)
+        } else if acceptsImages {
+            AttachmentMenu(draft: $draft, refuse: refuse)
+                .transition(.opacity)
+        }
+    }
+
+    private var field: some View {
+        ZStack(alignment: .leading) {
+            if isDictating {
+                RecordingBar(dictation: app.dictation, phase: dictationPhase) { voiceSettings = true }
+                    .transition(.opacity)
+            } else {
+                ComposerTextView(
+                    placeholder: placeholder, text: $draft.text, isFocused: $focus, cursorUtf16: $cursorUtf16, maxLines: 6,
+                    pasteImages: acceptsImages ? { attach($0, to: $draft, refuse: refuse) } : nil,
+                    onSubmit: { if isEnabled && draft.hasContent { perform(action) } }
+                )
+                .accessibilityActions {
+                    if !catalog.models.isEmpty { Button("Choose Model", action: openModel) }
+                }
+            }
+        }
+    }
+
+    private var trailing: some View {
+        HStack(spacing: ComposerLayout.spacing) {
             if let dictation {
                 MicButton(
                     phase: dictationPhase,
@@ -167,30 +197,52 @@ struct ComposerView: View {
                     release: { app.dictation.release(held: $0) })
                     .disabled(app.dictation.isBusy(apartFrom: dictation.id))
             }
-            if !isDictating {
+            if showsSend {
                 SendButton(
                     action: action, alternative: SendAction.alternative(to: action, modes: modes),
-                    canSend: draft.hasContent && isEnabled, perform: perform)
+                    canSend: draft.hasContent && !isDictating, perform: perform)
                     .disabled(!isEnabled)
+                    .transition(.scale(scale: 0.6).combined(with: .opacity))
             }
         }
     }
-}
 
-/// ✕ in place of `+` while dictating: throws the recording away.
-private struct CancelDictation: View {
-    let cancel: () -> Void
+    private func openModel() {
+        refocusAfterSheet = focus
+        pickingModel = true
+    }
 
-    var body: some View {
-        Button(action: cancel) {
-            Image(systemName: "xmark")
-                .font(.body.weight(.medium))
-                .frame(width: 32, height: 32)
-                .contentShape(.rect)
+    private func refocus() {
+        guard refocusAfterSheet else { return }
+        refocusAfterSheet = false
+        focus = true
+    }
+
+    private func step(_ choose: @escaping (ComposerChoice) -> Void) -> (ComposerChoice) -> Void {
+        { choice in
+            steps += 1
+            choose(choice)
         }
-        .buttonStyle(.plain)
-        .foregroundStyle(.secondary)
-        .accessibilityLabel("Cancel dictation")
+    }
+
+    private func searchMentions() async {
+        guard let fileSearch, let mention = activeMention else {
+            mentionPaths = []
+            return
+        }
+        if let cached = mentionCache.get(root: fileSearch.root, query: mention.query) {
+            mentionPaths = cached
+            return
+        }
+        try? await Task.sleep(for: .milliseconds(120))
+        guard !Task.isCancelled else { return }
+        guard let results = await fileSearch.search(mention.query) else {
+            if !Task.isCancelled { mentionPaths = [] }
+            return
+        }
+        guard !Task.isCancelled else { return }
+        mentionCache.put(root: fileSearch.root, query: mention.query, paths: results)
+        mentionPaths = results
     }
 }
 
@@ -211,61 +263,6 @@ private struct CommandToken: View {
         }
         .padding(.horizontal, Spacing.s)
         .padding(.vertical, Spacing.xs)
-        .background(Palette.accent.opacity(0.14), in: .capsule)
-    }
-}
-
-/// The one button: its face from `SendAction`; a long press offers the other way to send while a
-/// run is live, each with its one-line explanation.
-private struct SendButton: View {
-    let action: SendAction
-    let alternative: SendAction?
-    let canSend: Bool
-    let perform: (SendAction) -> Void
-    @ScaledMetric(relativeTo: .body) private var scaledSide: CGFloat = 36
-
-    /// Grows with the text, up to a size that leaves the chips beside it room.
-    private var side: CGFloat { min(scaledSide, 52) }
-
-    var body: some View {
-        Group {
-            if let alternative {
-                Menu {
-                    choice(action)
-                    choice(alternative)
-                } label: {
-                    face
-                } primaryAction: {
-                    perform(action)
-                }
-            } else {
-                Button { perform(action) } label: { face }
-            }
-        }
-        .buttonStyle(.glassProminent)
-        .buttonBorderShape(.circle)
-        .tint(action == .stop ? Palette.failed : Palette.accent)
-        .disabled(action == .wait || (action != .stop && !canSend))
-        .accessibilityLabel(action.title)
-        .accessibilityHint(alternative == nil ? "" : "Touch and hold for \(alternative?.title ?? "")")
-        .animation(.spring(duration: 0.22, bounce: 0.1), value: action)
-    }
-
-    private var face: some View {
-        Image(systemName: action.symbol)
-            .font(.body.weight(.semibold))
-            .contentTransition(.symbolEffect(.replace))
-            .frame(width: side - 14, height: side - 14)
-    }
-
-    private func choice(_ way: SendAction) -> some View {
-        Button { perform(way) } label: {
-            Label {
-                Text(way.title)
-                Text(way.explanation)
-            } icon: {
-                Image(systemName: way.symbol)
-            }
-        }
+        .background(Color.composerFill, in: .capsule)
     }
 }

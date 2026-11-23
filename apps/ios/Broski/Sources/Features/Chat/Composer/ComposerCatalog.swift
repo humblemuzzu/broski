@@ -44,16 +44,19 @@ struct ComposerChoices: Equatable {
         self.modes = modes
     }
 
-    init(_ snapshot: SessionSnapshot) {
+    /// The session's choices, with what the person just picked shown before the session reports it.
+    init(_ snapshot: SessionSnapshot, pending: ComposerChoices? = nil) {
         self.init(
-            modelId: snapshot.modelId, thinking: snapshot.thinking,
-            modes: Dictionary(snapshot.modes.map { ($0.axis, $0.value) }, uniquingKeysWith: { $1 }))
+            modelId: pending?.modelId ?? snapshot.modelId, thinking: pending?.thinking ?? snapshot.thinking,
+            modes: Dictionary(snapshot.modes.map { ($0.axis, $0.value) }, uniquingKeysWith: { $1 })
+                .merging(pending?.modes ?? [:]) { $1 })
     }
 }
 
-/// One step a chip takes.
+/// One step the model sheet takes. A model comes with the level last chosen on it, when it offers
+/// that level, applied after the model.
 enum ComposerChoice: Equatable {
-    case model(String)
+    case model(String, thinking: String?)
     case thinking(String)
     case mode(axis: String, value: String)
 }

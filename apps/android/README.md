@@ -171,7 +171,10 @@ app/src/main/kotlin/com/muzammil/broski/
   feature/chat   the chat: LiveSession (the view's records applied), SessionFeed (the view's loop and
               the transcript's pages), ChatActions (each request), transcript/ (rows, the
               bubble, the status lane, follow or detach), work/ (folds, rows, the diff sheet),
-              interactions/ (the pinned cards and their replies), composer/ (field, chips, commands,
+              interactions/ (the pinned cards and their replies), composer/ (one surface resting as a
+              capsule and opening into a card when touched or holding anything, ComposerLayout
+              morphing one set of children; the model pill, the model sheet with Thinking, the modes,
+              All Models and the pins in ModelPreferences; commands,
               images, the send rule), header/ (title, subtitle, Files, overflow and its dialogs)
   feature/newsession   New session, laid out as the chat it becomes: the projects (every agent's
               session folders) and All projects (search, a browser of the whole Mac from home),

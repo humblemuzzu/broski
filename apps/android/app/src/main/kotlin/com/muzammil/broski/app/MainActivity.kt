@@ -18,6 +18,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.muzammil.broski.core.CoreState
 import com.muzammil.broski.core.settings.Appearance
 import com.muzammil.broski.core.settings.KeepScreenAwake
+import com.muzammil.broski.core.settings.ModelPreferences
 import com.muzammil.broski.core.settings.ReadingSettings
 import com.muzammil.broski.core.voice.DictationPhase
 import com.muzammil.broski.design.BroskiTheme
@@ -25,6 +26,8 @@ import com.muzammil.broski.design.ProvideClock
 import com.muzammil.broski.design.format.LocalReading
 import com.muzammil.broski.design.format.LocalSetReading
 import com.muzammil.broski.design.isDarkTheme
+import com.muzammil.broski.feature.chat.composer.LocalModelPreferences
+import com.muzammil.broski.feature.chat.composer.ModelPreferencesHook
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import uniffi.broski_core.InboxState
@@ -72,6 +75,9 @@ class MainActivity : ComponentActivity() {
                 CompositionLocalProvider(
                     LocalReading provides (settings?.reading ?: ReadingSettings()),
                     LocalSetReading provides { reading -> scope.launch { core.settingsStore.setReading(reading) } },
+                    LocalModelPreferences provides ModelPreferencesHook(settings?.models ?: ModelPreferences()) { change ->
+                        scope.launch { core.settingsStore.updateModels(change) }
+                    },
                 ) {
                     ProvideClock { BroskiApp(core, BroskiFeatures, app.openRequests) }
                 }

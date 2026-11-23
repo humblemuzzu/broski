@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -40,9 +39,7 @@ fun AttachMenu(onImage: (Uri) -> Unit, onNoImage: () -> Unit) {
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(MAX_PICKED)) { uris -> uris.forEach(onImage) }
     val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { taken -> if (taken) photo?.let(onImage) }
     Box {
-        IconButton(onClick = { open = true }) {
-            Icon(painterResource(R.drawable.ic_add), contentDescription = stringResource(R.string.composer_attach))
-        }
+        ComposerCircle(R.drawable.ic_add, stringResource(R.string.composer_attach), onClick = { open = true })
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             Item(R.string.composer_attach_photos, R.drawable.ic_photo_library) {
                 open = false

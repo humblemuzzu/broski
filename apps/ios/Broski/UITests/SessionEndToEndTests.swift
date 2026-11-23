@@ -171,9 +171,11 @@ final class SessionEndToEndTests: XCTestCase {
 
         let large = try openChat(arguments: ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
         try screenshot("chat-largest-text")
-        let mode = large.buttons["Permissions, Ask first"]
-        XCTAssertTrue(mode.waitForExistence(timeout: timeout), "the permission mode stays in the composer")
-        XCTAssertLessThanOrEqual(mode.frame.maxX, large.buttons["Send"].frame.minX, "and beside the send button, not under it")
+        composer(in: large).tap()
+        let model = large.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Model, ")).firstMatch
+        XCTAssertTrue(model.waitForExistence(timeout: timeout), "the expanded composer names its model")
+        XCTAssertLessThanOrEqual(model.frame.maxX, large.buttons["Dictate"].frame.minX, "beside the mic, not under it")
+        try screenshot("chat-largest-text-expanded")
         try script("permission")
         send("Clean once more", in: large)
         XCTAssertTrue(large.buttons["Allow"].waitForExistence(timeout: timeout))
@@ -292,6 +294,48 @@ final class SessionEndToEndTests: XCTestCase {
         XCTAssertTrue(app.navigationBars["bash-6bfa failed after 1h00m"].waitForExistence(timeout: timeout), "the whole log on a screen of its own")
         try screenshot("activity-whole-log")
         app.buttons["BackButton"].firstMatch.tap()
+    }
+
+    /// The composer rests as a capsule and opens into the card when touched; its model pill opens the
+    /// model sheet, whose Thinking list sets the level the pill then names. In dark, Send is an ink
+    /// circle whose arrow reads on it.
+    @MainActor
+    func test10ChoosesTheModelAndItsThinkingFromTheComposer() throws {
+        let app = try openChat()
+        XCTAssertFalse(
+            app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Model, ")).firstMatch.isHittable,
+            "the resting composer shows no pickers")
+        try screenshot("composer-collapsed")
+
+        composer(in: app).tap()
+        let model = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Model, ")).firstMatch
+        XCTAssertTrue(model.waitForExistence(timeout: timeout) && model.isHittable, "touched, it opens with the model pill")
+        try screenshot("composer-expanded")
+
+        model.tap()
+        XCTAssertTrue(app.navigationBars["Model"].waitForExistence(timeout: timeout))
+        try screenshot("model-sheet")
+        app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Thinking")).firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["Thinking"].waitForExistence(timeout: timeout))
+        try screenshot("model-sheet-thinking")
+        app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "High")).firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["Model"].waitForExistence(timeout: timeout), "a level goes back to the sheet")
+        app.buttons["Close"].firstMatch.tap()
+        XCTAssertTrue(app.buttons["Model, Fake Large, High"].waitForExistence(timeout: timeout), "the pill names the level")
+
+        app.buttons["BackButton"].tap()
+        setAppearance("Dark", in: app)
+        tab("Inbox", in: app)
+        app.staticTexts[title].firstMatch.tap()
+        let field = composer(in: app)
+        XCTAssertTrue(field.waitForExistence(timeout: timeout))
+        try screenshot("composer-dark-collapsed")
+        field.tap()
+        field.typeText("Ready when you are")
+        XCTAssertTrue(app.buttons["Send"].waitForExistence(timeout: timeout))
+        try screenshot("composer-dark-send")
+        app.buttons["BackButton"].tap()
+        setAppearance("System", in: app)
     }
 
     @MainActor

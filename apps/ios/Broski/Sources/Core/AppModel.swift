@@ -21,6 +21,7 @@ final class AppModel {
     private(set) var unreadablePairings: [String] = []
     let inbox = InboxModel()
     let sessionPreferences = SessionPreferences()
+    let modelPreferences = ModelPreferences()
     let notifications = NotificationAccess()
     let push: PushNotifications
     let discovery = LanDiscovery()

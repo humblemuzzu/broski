@@ -181,8 +181,9 @@
     <string name="card_date_set">Set</string>
 
     <!-- Composer -->
-    <string name="composer_placeholder">Message %1$s · / for commands</string>
-    <string name="composer_placeholder_queue">Message to queue…</string>
+    <string name="composer_placeholder">Chat with Broski</string>
+    <string name="composer_placeholder_resting">Type or hold to talk</string>
+    <string name="composer_placeholder_queue">Queue a message</string>
     <string name="composer_send">Send</string>
     <string name="composer_queue">Queue</string>
     <string name="composer_steer">Steer</string>
@@ -199,7 +200,18 @@
     <string name="composer_remove_command">Remove command</string>
     <string name="composer_model">Model</string>
     <string name="composer_thinking">Thinking</string>
-    <string name="composer_search_models">Search models</string>
+    <string name="composer_thinking_default">Default</string>
+    <plurals name="composer_search_models">
+        <item quantity="one">Search %1$d model</item>
+        <item quantity="other">Search %1$d models</item>
+    </plurals>
+    <string name="composer_all_models">All Models</string>
+    <string name="composer_pins_hint">Pin the models you use in All Models to keep them here.</string>
+    <string name="composer_pin">Pin %1$s</string>
+    <string name="composer_unpin">Unpin %1$s</string>
+    <string name="composer_model_pill">Model, %1$s</string>
+    <string name="composer_back">Back</string>
+    <string name="composer_close">Close</string>
 
     <!-- New session -->
     <string name="new_session_question">What should we build?</string>
@@ -221,7 +233,6 @@
     <string name="new_session_search_folders">Search folders in %1$s</string>
     <string name="new_session_no_folders_title">No folders in here</string>
     <string name="new_session_no_folders_body">Select starts the session in %1$s.</string>
-    <string name="new_session_placeholder">Describe the task</string>
     <string name="new_session_refused">Your Mac couldn\'t start it: %1$s</string>
     <string name="new_session_agent_missing">Not installed on %1$s</string>
     <string name="new_session_agent_signed_out">Signed out on %1$s</string>

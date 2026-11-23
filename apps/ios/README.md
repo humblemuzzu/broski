@@ -325,13 +325,20 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
   questions (tabs, pick one or any, own words, secret masked), forms (native controls, fields
   shown as their conditions hold), plan approval (the plan, the mode to go on in, Reject with a
   note), Pi's choice, confirm and text; "Already answered elsewhere." for a stale answer; a
-  watch-only session's asks shown without buttons. The composer: one glass surface with the field
-  (one line growing to six), the slash commands while the text starts with `/`, attached images
-  with remove, `+` (photo library, camera, paste), the model chip (a menu, a searchable sheet past a
-  dozen, nothing with one), thinking and one chip per mode axis (the first axis, the permission mode,
-  stays beside the send button; the rest scroll under a fading edge), and one send button: Send, Queue
-  (with Steer on a long press), or a red Stop; "Message to queue…" while a run is live; the
-  keyboard goes down after a send and when the transcript is tapped.
+  watch-only session's asks shown without buttons. The composer is one glass surface in two shapes
+  from one layout (`ComposerLayout`, so the field keeps its keyboard as it moves): at rest a capsule of
+  `+`, "Type or hold to talk", the mic, and Stop while a run is live; touched or holding anything, the
+  field ("Chat with Broski", one line growing to six) across the top over `+`, the model pill
+  ("Opus 5.5 High": the model and its thinking level), any mode off its usual value (Plan, Accept
+  edits…), the mic and the send button, an ink circle: Send, Queue (with Steer on a long press), or
+  Stop; it appears with the first character, the mic ending the row before. Above the field: the
+  slash commands while the text starts with `/`, `@` file matches, attached images with remove. The
+  pill opens the model sheet: every model when the agent lists six or fewer, else the session's and
+  the pinned ones (up to ten per agent, `ModelPreferences`, kept on the phone); Thinking and each
+  mode as rows opening their lists; All Models, searchable by name, id and provider, a folding section
+  per provider, a pin on each row. A model is picked with the level last chosen on it, model then
+  level, and the pill shows the pick until the session reports it. The keyboard goes down after a
+  send and when the transcript is tapped, and the composer rests again.
 - **New session** (`Route.newSession`, laid out as the chat it becomes): the agent's mark and "What
   should we build?" where the transcript will be; above the composer, in one glass container, the
   projects (`Project.recent`: the folders this Mac's sessions ran in, whichever agent ran them, newest

@@ -9,18 +9,15 @@ struct MicButton: View {
     let press: (UITouch?) -> Void
     let slide: (_ cancelling: Bool) -> Void
     let release: (_ held: TimeInterval) -> Void
-    @ScaledMetric(relativeTo: .body) private var scaledSide: CGFloat = 36
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.isEnabled) private var isEnabled
 
     /// How far left the finger slides before letting go cancels.
     static let cancelDistance: CGFloat = 70
 
-    private var side: CGFloat { min(scaledSide, 52) }
-
     var body: some View {
         face
-            .frame(width: side, height: side)
+            .frame(width: ComposerMetrics.control, height: ComposerMetrics.control)
             .contentShape(.circle)
             .overlay {
                 MicTouchArea(enabled: isEnabled, press: press, slide: { slide($0 > Self.cancelDistance) }, release: release)
@@ -40,29 +37,25 @@ struct MicButton: View {
     private var face: some View {
         switch phase {
         case .recording(held: true, let cancelling):
-            Circle()
-                .fill(cancelling ? Color.secondary : Palette.failed)
-                .overlay {
-                    Image(systemName: cancelling ? "xmark" : "mic.fill")
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .contentTransition(.symbolEffect(.replace))
-                }
-                .scaleEffect(reduceMotion ? 1 : 1.18)
+            Image(systemName: cancelling ? "xmark" : "mic.fill")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(cancelling ? AnyShapeStyle(Color.white) : AnyShapeStyle(Palette.onAccent))
+                .contentTransition(.symbolEffect(.replace))
+                .composerCircle(cancelling ? Palette.failed : Palette.accent)
+                .scaleEffect(reduceMotion ? 1 : 1.12)
         case .recording(held: false, _):
-            Circle()
-                .fill(Palette.accent)
-                .overlay {
-                    Image(systemName: "checkmark")
-                        .font(.body.weight(.bold))
-                        .foregroundStyle(.white)
-                }
+            Image(systemName: "checkmark")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(Palette.onAccent)
+                .composerCircle(Palette.accent)
         case .transcribing:
-            Orb(.listening, side: 24)
+            Orb(.listening, side: 22)
+                .composerCircle()
         case .idle, .failed:
             Image(systemName: "mic")
-                .font(.body.weight(.medium))
-                .foregroundStyle(.secondary)
+                .font(ComposerMetrics.glyph)
+                .foregroundStyle(.primary)
+                .composerCircle()
         }
     }
 

@@ -62,8 +62,7 @@ enum SendAction: Equatable {
 
     var symbol: String {
         switch self {
-        case .send, .wait: "arrow.up"
-        case .queue: "text.line.last.and.arrowtriangle.forward"
+        case .send, .queue, .wait: "arrow.up"
         case .steer: "arrow.turn.left.up"
         case .stop: "stop.fill"
         }

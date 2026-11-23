@@ -42,10 +42,10 @@ struct ChatBottomBar: View {
     private var composer: some View {
         ComposerView(
             draft: Binding { chat.draft } set: { chat.draft = $0 },
-            agent: agent, action: action, modes: modes,
+            backend: chat.session.backend, action: action, modes: modes,
             acceptsImages: capabilities?.attachments.contains(.image) ?? false,
             isEnabled: isReady && chat.canControl, catalog: catalog,
-            choices: ComposerChoices(chat.snapshot), choose: choose, perform: perform,
+            choices: ComposerChoices(chat.snapshot, pending: chat.pendingChoice), choose: choose, perform: perform,
             refuse: { chat.report(ChatProblem(message: $0)) }, focus: $composing, dictation: dictation,
             fileSearch: fileSearch, cache: chat.snapshot.usage?.cache)
     }
@@ -62,7 +62,7 @@ struct ChatBottomBar: View {
     private func choose(_ choice: ComposerChoice) {
         Task {
             switch choice {
-            case .model(let id): await chat.setModel(id)
+            case .model(let id, let thinking): await chat.setModel(id, thinking: thinking)
             case .thinking(let value): await chat.setThinking(value)
             case .mode(let axis, let value): await chat.setMode(axis: axis, value: value)
             }

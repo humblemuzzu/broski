@@ -93,13 +93,13 @@ fun ChatBottom(model: ChatViewModel, openDiff: (FileChange) -> Unit, openVoiceSe
         if (capabilities?.controllable == false) {
             WatchOnly()
         } else {
-            ChatComposer(model, agent, running = snapshot.run != null, openVoiceSettings)
+            ChatComposer(model, running = snapshot.run != null, openVoiceSettings)
         }
     }
 }
 
 @Composable
-private fun ChatComposer(model: ChatViewModel, agent: String, running: Boolean, openVoiceSettings: () -> Unit) {
+private fun ChatComposer(model: ChatViewModel, running: Boolean, openVoiceSettings: () -> Unit) {
     val haptics = LocalHapticFeedback.current
     val focus = LocalFocusManager.current
     val live by model.live.collectAsStateWithLifecycle()
@@ -109,14 +109,16 @@ private fun ChatComposer(model: ChatViewModel, agent: String, running: Boolean, 
     val text = model.composer.input.text.toString()
     val modes = catalog.capabilities?.promptModes ?: listOf(PromptMode.START)
     val button = sendButton(running, text.isNotBlank() || command != null || images.isNotEmpty(), modes, live.started && live.capabilities?.controllable == true)
+    val picked by model.actions.picked.collectAsStateWithLifecycle()
     val settings = ComposerSettings(
+        backend = model.sessionKey.backend,
         models = catalog.models,
         modelId = live.snapshot.modelId,
         thinking = live.snapshot.thinking,
         axes = catalog.modes,
         modes = live.snapshot.modes.associate { it.axis to it.value },
         cache = live.snapshot.usage?.cache,
-    )
+    ).showing(picked)
     val actions = remember(model) {
         ComposerActions(
             onPress = { face ->
@@ -170,7 +172,7 @@ private fun ChatComposer(model: ChatViewModel, agent: String, running: Boolean, 
         command = command,
         images = images,
         look = ComposerLook(
-            placeholder = if (running) stringResource(R.string.composer_placeholder_queue) else stringResource(R.string.composer_placeholder, agent),
+            placeholder = if (running && PromptMode.QUEUE in modes) stringResource(R.string.composer_placeholder_queue) else stringResource(R.string.composer_placeholder),
             button = button,
             images = catalog.capabilities?.attachments?.contains(AttachmentKind.IMAGE) == true,
             settings = settings,

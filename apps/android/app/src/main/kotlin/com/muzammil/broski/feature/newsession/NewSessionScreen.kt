@@ -312,7 +312,6 @@ private fun NewSessionComposer(model: NewSessionViewModel, ui: NewSessionUi, foc
     }
     val dictation = LocalDictation.current
     val hook = remember(dictation, model) { dictation?.let { DictationHook(it, model.dictationTarget(it), openVoiceSettings = null) } }
-    val agent = ui.agent?.name
     val text = model.composer.input.text.toString()
     val selection = model.composer.input.selection
     FileMentionPopup(
@@ -328,10 +327,10 @@ private fun NewSessionComposer(model: NewSessionViewModel, ui: NewSessionUi, foc
         command = command,
         images = images,
         look = ComposerLook(
-            placeholder = agent?.let { stringResource(R.string.composer_placeholder, it) } ?: stringResource(R.string.new_session_placeholder),
+            placeholder = stringResource(R.string.composer_placeholder),
             button = sendButton(running = false, hasInput = hasInput, modes = listOf(PromptMode.START), controllable = ready),
             images = catalog.capabilities?.attachments?.contains(AttachmentKind.IMAGE) == true,
-            settings = ComposerSettings(catalog.models, choice.modelId, choice.thinking, catalog.modes, choice.modes),
+            settings = ComposerSettings(choice.backend, catalog.models, choice.modelId, choice.thinking, catalog.modes, choice.modes),
         ),
         actions = actions,
         modifier = modifier,

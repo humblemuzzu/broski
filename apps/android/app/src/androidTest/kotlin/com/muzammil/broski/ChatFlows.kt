@@ -56,11 +56,23 @@ class ChatFlows(private val ui: WorkspaceUiDriver, private val machine: RealMach
 
     private fun touchText(text: String) = touch(hasText(text) and hasClickAction())
 
-    /** The permission chip's caret is the chip's end: it sits left of the send button, not under it. */
-    private fun checkTheModeChipIsClearOfTheSendButton() {
-        val chip = compose.onNode(hasContentDescription("Permissions")).getBoundsInRoot()
-        val button = compose.onNode(hasContentDescription(ui.string(R.string.composer_send)) and hasClickAction()).getBoundsInRoot()
-        assertTrue("the mode chip ends at ${chip.right}, under the send button that starts at ${button.left}", chip.right <= button.left)
+    /** Touched, the composer opens with its model pill, which ends left of the mic, not under it. */
+    private fun checkTheModelPillIsClearOfTheMic(suffix: String) {
+        touch(hasSetTextAction())
+        val pill = model()
+        ui.waitFor(pill)
+        shot("composer-open-$suffix")
+        val bounds = compose.onAllNodes(pill)[0].fetchSemanticsNode().boundsInWindow
+        val mic = compose.onNode(hasContentDescription(ui.string(R.string.dictation_dictate))).fetchSemanticsNode().boundsInWindow
+        assertTrue("the model pill ends at ${bounds.right}, under the mic that starts at ${mic.left}", bounds.right <= mic.left)
+    }
+
+    private fun model() = hasContentDescription(ui.string(R.string.composer_model_pill, ""), substring = true) and hasClickAction()
+
+    /** The run is over: the button no longer stops it. */
+    private fun waitForTheRunToEnd() {
+        val stop = hasContentDescription(ui.string(R.string.composer_stop))
+        compose.waitUntil(TIMEOUT_MS) { compose.onAllNodes(stop).fetchSemanticsNodes().isEmpty() }
     }
 
     /**
@@ -84,9 +96,21 @@ class ChatFlows(private val ui: WorkspaceUiDriver, private val machine: RealMach
     fun openSendAndWatchWork() {
         open("Tidy the notes", "work")
         shot("chat-open-light")
+        touch(hasSetTextAction())
+        ui.waitFor(model())
+        shot("composer-open-light")
+        touch(model())
+        ui.waitFor(hasText(ui.string(R.string.composer_thinking)))
+        shot("model-sheet-light")
+        touch(hasText(ui.string(R.string.composer_thinking)) and hasClickAction())
+        ui.waitFor(hasText("High") and hasClickAction())
+        shot("model-sheet-thinking-light")
+        touch(hasText("High") and hasClickAction())
+        touch(hasContentDescription(ui.string(R.string.composer_close)) and hasClickAction())
+        ui.waitFor(hasContentDescription("High", substring = true) and hasContentDescription(ui.string(R.string.composer_model_pill, ""), substring = true))
         send("Tidy the notes, please")
         ui.waitFor(hasText("Paragraph 24", substring = true))
-        ui.waitFor(hasContentDescription(ui.string(R.string.composer_send)))
+        waitForTheRunToEnd()
         shot("chat-work-light")
         ui.back()
     }
@@ -262,7 +286,7 @@ class ChatFlows(private val ui: WorkspaceUiDriver, private val machine: RealMach
 
     private fun visitStates(suffix: String) {
         val session = open("Looks $suffix", "permission")
-        checkTheModeChipIsClearOfTheSendButton()
+        checkTheModelPillIsClearOfTheMic(suffix)
         send("Clean the build in $suffix")
         ui.waitFor(hasText(ui.string(R.string.card_wants_to_run, pi)))
         shot("chat-permission-$suffix")

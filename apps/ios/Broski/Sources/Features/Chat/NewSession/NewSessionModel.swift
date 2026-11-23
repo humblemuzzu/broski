@@ -96,9 +96,9 @@ final class NewSessionModel {
 
     func choose(_ choice: ComposerChoice) {
         switch choice {
-        case .model(let id):
+        case .model(let id, let thinking):
             choices.modelId = id
-            choices.thinking = nil
+            choices.thinking = thinking
         case .thinking(let value): choices.thinking = value
         case .mode(let axis, let value): choices.modes[axis] = value
         }

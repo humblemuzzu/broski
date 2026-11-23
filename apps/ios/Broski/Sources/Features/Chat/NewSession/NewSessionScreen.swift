@@ -127,7 +127,7 @@ private struct NewSessionContent: View {
             }
         }
         return ComposerView(
-            draft: $model.draft, agent: brand?.name ?? "the agent", action: .send, modes: [.start],
+            draft: $model.draft, backend: model.backend, action: .send, modes: [.start],
             acceptsImages: capabilities?.attachments.contains(.image) ?? false,
             isEnabled: machine.summary.isReady && model.backend != nil && !model.isCreating,
             catalog: model.catalog, choices: model.choices, choose: model.choose(_:),

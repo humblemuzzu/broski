@@ -8,9 +8,8 @@
     <string name="dictation_listening">Listening…</string>
     <string name="dictation_transcribing">Transcribing…</string>
     <string name="dictation_cancel">Cancel dictation</string>
-    <string name="dictation_hint_held">Release to insert · slide left to cancel</string>
+    <string name="dictation_hint_held">Slide left to cancel</string>
     <string name="dictation_hint_cancelling">Release to cancel</string>
-    <string name="dictation_hint_locked">Tap ✓ to insert, ✕ to cancel</string>
     <string name="dictation_try_again">Try again</string>
     <string name="dictation_discard">Discard</string>
     <string name="dictation_ok">OK</string>

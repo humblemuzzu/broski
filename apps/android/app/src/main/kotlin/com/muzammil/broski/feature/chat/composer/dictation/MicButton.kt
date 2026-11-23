@@ -35,8 +35,10 @@ import com.muzammil.broski.R
 import com.muzammil.broski.core.voice.DictationPhase
 import com.muzammil.broski.design.Orb
 import com.muzammil.broski.design.orb.OrbState
+import com.muzammil.broski.feature.chat.composer.ComposerMetrics
+import com.muzammil.broski.feature.chat.composer.composerFill
 
-private val SIZE = 44.dp
+private val SIZE = ComposerMetrics.CONTROL
 
 /** How far left the finger slides before letting go cancels. */
 private val CANCEL_DISTANCE = 70.dp
@@ -60,7 +62,7 @@ fun MicButton(
     val cancelPx = with(LocalDensity.current) { CANCEL_DISTANCE.toPx() }
     val held = phase is DictationPhase.Recording && phase.held
     val hint = stringResource(R.string.dictation_dictate_hint)
-    val scale by animateFloatAsState(if (held) 1.18f else 1f, label = "mic")
+    val scale by animateFloatAsState(if (held) 1.12f else 1f, label = "mic")
     val label = stringResource(
         when {
             phase is DictationPhase.Recording && !phase.held -> R.string.dictation_insert
@@ -124,12 +126,12 @@ fun MicButton(
     ) {
         AnimatedContent(face(phase), transitionSpec = { scaleIn() togetherWith scaleOut() }, label = "mic face") { face ->
             when (face) {
-                Face.Working -> Orb(OrbState.LISTENING, size = 24.dp)
+                Face.Working -> Orb(OrbState.LISTENING, size = 22.dp)
                 else -> Icon(
                     painterResource(face.icon),
                     contentDescription = null,
-                    tint = if (face == Face.Idle) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (enabled) 1f else 0.38f) else Color.White,
-                    modifier = Modifier.size(22.dp),
+                    tint = glyph(face, enabled),
+                    modifier = Modifier.size(ComposerMetrics.GLYPH),
                 )
             }
         }
@@ -156,8 +158,14 @@ private fun face(phase: DictationPhase): Face = when (phase) {
 
 @Composable
 private fun container(phase: DictationPhase): Color = when (face(phase)) {
-    Face.Listening -> MaterialTheme.colorScheme.error
-    Face.Cancelling -> MaterialTheme.colorScheme.outline
-    Face.Insert -> MaterialTheme.colorScheme.primary
-    Face.Idle, Face.Working -> Color.Transparent
+    Face.Listening, Face.Insert -> MaterialTheme.colorScheme.primary
+    Face.Cancelling -> MaterialTheme.colorScheme.error
+    Face.Idle, Face.Working -> composerFill
+}
+
+@Composable
+private fun glyph(face: Face, enabled: Boolean): Color = when (face) {
+    Face.Listening, Face.Insert -> MaterialTheme.colorScheme.onPrimary
+    Face.Cancelling -> MaterialTheme.colorScheme.onError
+    Face.Idle, Face.Working -> MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) 1f else 0.38f)
 }

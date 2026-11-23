@@ -12,6 +12,8 @@ enum Preference {
     static let readingDarkCanvas = "reading.darkCanvas"
     static let readingWrapsCode = "reading.wrapsCode"
     static let readingUnderlinesLinks = "reading.underlinesLinks"
+    static let modelPins = "models.pinned"
+    static let modelLevels = "models.levels"
 }
 
 enum KeepScreenAwake: String, CaseIterable, Identifiable {

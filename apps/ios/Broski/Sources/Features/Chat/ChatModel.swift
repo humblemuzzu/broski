@@ -29,6 +29,8 @@ final class ChatModel {
     private(set) var answering: Set<String> = []
     private(set) var answerProblems: [String: ChatProblem] = [:]
     private(set) var feedback: ChatFeedback?
+    /// A model, level or mode the person picked that the session has not reported yet.
+    var pendingChoice: ComposerChoices?
 
     @ObservationIgnored let requests: ChatRequests
     @ObservationIgnored let imageStore: ChatImageStore
@@ -149,6 +151,7 @@ final class ChatModel {
         bindConfirmedImages(in: state.snapshot.run?.items ?? [])
         if case .changes = update { rebuildLive(arriving: true) } else { rebuildLive(arriving: false) }
         if case .ended = update { isRevealed = true }
+        settlePendingChoice()
         revealIfReady()
         sendFirstPromptIfReady()
     }

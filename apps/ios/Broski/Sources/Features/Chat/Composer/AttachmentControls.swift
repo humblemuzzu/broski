@@ -28,11 +28,11 @@ struct AttachmentMenu: View {
             }
         } label: {
             Image(systemName: "plus")
-                .font(.body.weight(.medium))
-                .frame(width: 32, height: 32)
-                .contentShape(.rect)
+                .font(ComposerMetrics.glyph)
+                .foregroundStyle(.primary)
+                .composerCircle()
         }
-        .foregroundStyle(.secondary)
+        .buttonStyle(.plain)
         .accessibilityLabel("Attach")
         .photosPicker(isPresented: $picking, selection: $photos, maxSelectionCount: 4, matching: .images)
         .onChange(of: photos) { _, items in

@@ -220,7 +220,7 @@ class NewSessionViewModel(private val phone: PhoneSession, private val attachmen
         if (it.backend == backend) it.copy(agentPicked = true) else it.copy(backend = backend, agentPicked = true, modelId = null, thinking = null, modes = emptyMap())
     }
 
-    fun pickModel(id: String) = choice.update { it.copy(modelId = id, thinking = null) }
+    fun pickModel(id: String, thinking: String?) = choice.update { it.copy(modelId = id, thinking = thinking) }
 
     fun pickThinking(value: String) = choice.update { it.copy(thinking = value) }
 

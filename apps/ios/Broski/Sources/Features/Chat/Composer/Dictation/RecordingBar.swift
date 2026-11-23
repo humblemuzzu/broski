@@ -1,8 +1,9 @@
 import SwiftUI
 import UIKit
 
-/// What takes the field's place while dictating: "Listening…" and the time (the composer's voice
-/// glow follows the voice), then "Transcribing…", or why it failed with what to do.
+/// What takes the field's place while dictating, on the field's one line: "Listening…" (or, with the
+/// finger down, how to cancel) and the time, while the composer's voice glow follows the voice; then
+/// "Transcribing…", or why it failed with what to do.
 struct RecordingBar: View {
     let dictation: Dictation
     let phase: Dictation.Phase
@@ -12,20 +13,17 @@ struct RecordingBar: View {
     var body: some View {
         switch phase {
         case .recording(let held, let cancelling):
-            VStack(alignment: .leading, spacing: Spacing.xs) {
-                HStack(spacing: Spacing.s) {
-                    Text("Listening…")
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                    Spacer(minLength: 0)
-                    Elapsed(since: dictation.startedAt ?? .now)
-                }
-                .frame(minHeight: 26)
-                Text(hint(held: held, cancelling: cancelling))
-                    .font(.caption)
-                    .foregroundStyle(cancelling ? Palette.failed : .secondary)
+            HStack(spacing: Spacing.s) {
+                Text(line(held: held, cancelling: cancelling))
+                    .font(.body)
+                    .foregroundStyle(cancelling ? AnyShapeStyle(Palette.failed) : AnyShapeStyle(.secondary))
+                    .lineLimit(1)
                     .contentTransition(.opacity)
+                Spacer(minLength: 0)
+                Elapsed(since: dictation.startedAt ?? .now)
             }
+            .frame(minHeight: 26)
+            .animation(.easeOut(duration: 0.15), value: cancelling)
             .accessibilityElement(children: .combine)
         case .transcribing(let onDevice):
             HStack(spacing: Spacing.s) {
@@ -44,9 +42,9 @@ struct RecordingBar: View {
         }
     }
 
-    private func hint(held: Bool, cancelling: Bool) -> String {
+    private func line(held: Bool, cancelling: Bool) -> String {
         if cancelling { return "Release to cancel" }
-        return held ? "Release to insert · slide left to cancel" : "Tap ✓ to insert, ✕ to cancel"
+        return held ? "Slide left to cancel" : "Listening…"
     }
 }
 
@@ -86,9 +84,9 @@ private struct Failure: View {
             }
             HStack(spacing: Spacing.m) {
                 switch problem.fix {
-                case .retry: Button("Try Again", action: retry).buttonStyle(.glassProminent)
-                case .voiceSettings: Button("Voice Settings", action: openVoiceSettings).buttonStyle(.glassProminent)
-                case .systemSettings: Button("Open Settings", action: openSystemSettings).buttonStyle(.glassProminent)
+                case .retry: Button("Try Again", action: retry).prominentStyle()
+                case .voiceSettings: Button("Voice Settings", action: openVoiceSettings).prominentStyle()
+                case .systemSettings: Button("Open Settings", action: openSystemSettings).prominentStyle()
                 case .none: EmptyView()
                 }
                 Button(problem.fix == .none ? "OK" : "Discard", action: discard).buttonStyle(.glass)
