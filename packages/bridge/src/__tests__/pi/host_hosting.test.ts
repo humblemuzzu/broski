@@ -279,16 +279,15 @@ describe("a session file of Pi's first version, hosted", () => {
 });
 
 describe("a session another client made", () => {
-	test("opens with the permissions mode off and no control, and is never written to", async () => {
+	test("opens with the permissions mode off and full control when no terminal holds it", async () => {
 		t = await HostRig.create();
 		const id = "terminal-session-2";
 		writeSessionFile(t.rig.world.sessionsRoot, { id, cwd: t.rig.cwd, version: 3 }, conversation(["hello", "hi"]));
 
 		const opened = await t.rig.rig.open({ backend: "pi", sessionId: id });
-		expect(opened.session.control).toBeUndefined();
+		expect(opened.session.control).toBeDefined();
 		expect(opened.initial.modes).toEqual([{ axis: "permissions", value: "off" }]);
-		expect(t.router.starts(id)).toBe(0);
-		expect(opened.recorder.items).toEqual([]);
+		await opened.close();
 	});
 });
 

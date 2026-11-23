@@ -141,6 +141,17 @@ export class WatchedSession {
 		});
 	}
 
+	/** The terminal process holding this session exited: read any final bytes flushed before exit and close any open run. */
+	async finishExited(): Promise<void> {
+		if (this.closed) return;
+		this.cancelQuiet?.();
+		this.cancelQuiet = undefined;
+		await this.catchUp();
+		if (this.closed) return;
+		this.desk.withdrawAll();
+		this.publish(this.translator.finishOpen());
+	}
+
 	/** The terminal process holding this session went idle or exited: finish any open run after its last flush. */
 	terminalIdle(): void {
 		if (this.closed || this.translator.runId === undefined) return;

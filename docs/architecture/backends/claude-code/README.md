@@ -428,7 +428,11 @@ a 512 KiB baseline, bounded lines, translation of the terminal's entries into th
 (D21). A run without a closing entry ends after 2.5 s of quiet unless an ask is on it. A hook ask can come before the
 CLI's first flush of a new session, so `open-session.ts` looks for it for up to 3 s before `not_found`.
 `externalLive` stays false: conformance rule 26 expects another client's run on a session this bridge hosts, and a
-hosted session follows only its own process.
+hosted session follows only its own process. When a tracked terminal `claude` exits (`CliProcesses` sees its register
+file disappear or its pid die), `watch-only.ts` records `exitedAt` so the 10 s mtime window clears immediately for its
+final flush, and `PromotableWatchView` (`terminal/promotable-view.ts`) flushes the tail, closes the watch, switches to
+controllable dormant-hosted mode (`resynced` + `session_replaced`), and revives a hosted session lazily on the phone's
+next action (or switches back to watch-only if another terminal opens the session first).
 
 ### D29. Terminal permission prompts through a `PermissionRequest` hook
 

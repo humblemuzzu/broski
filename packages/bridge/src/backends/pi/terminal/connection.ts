@@ -39,6 +39,11 @@ function keysMatch(offered: string, expected: string): boolean {
 	return a.length === b.length && timingSafeEqual(a, b);
 }
 
+function parseExtensionVersion(raw: string): number {
+	const parsed = Number.parseInt(raw, 10);
+	return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+}
+
 export class TerminalConnection {
 	private buffered = "";
 	private identity: TerminalIdentity | undefined;
@@ -134,6 +139,7 @@ export class TerminalConnection {
 			pid: frame.pid,
 			file: frame.session.file,
 			id: frame.session.id,
+			extensionVersion: parseExtensionVersion(frame.extension),
 			...(frame.session.cwd !== "" && { cwd: frame.session.cwd }),
 		};
 		this.write({ t: "welcome", running: this.deps.busy(frame.session.id) });

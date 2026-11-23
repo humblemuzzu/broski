@@ -247,7 +247,7 @@ describe("with a bridge", () => {
 
 		t.choose = (options) => options[1];
 		expect(await t.link.typed(ctx, "send it")).toEqual({ action: "continue" });
-		expect(phone.some((event) => event.type === "interaction_requested")).toBe(false);
+		expect(phone.some((event) => event.type === "interaction_requested" || event.type === "notice")).toBe(false);
 
 		server.hosted("terminal-session", false);
 		await until(() => Reflect.get(t.link, "phoneRunning") === false);

@@ -46,6 +46,8 @@ export interface CliProcess {
 	readonly status: SessionStatus | undefined;
 }
 
+export type ProcessTransition = "entered" | "updated" | "exited";
+
 /** How a process's start reads to `ps -o lstart=` in UTC, as the CLI wrote it into `procStart`; undefined when unknown. */
 export type StartOf = (pid: number) => Promise<string | undefined>;
 
@@ -99,7 +101,7 @@ export class CliProcesses {
 	constructor(
 		private readonly dir: string,
 		private readonly clock: Clock,
-		private readonly changed: (sessionId: SessionId) => void,
+		private readonly changed: (sessionId: SessionId, transition: ProcessTransition) => void,
 		private readonly startOf: StartOf = processStart,
 	) {}
 
@@ -171,7 +173,9 @@ export class CliProcesses {
 		for (const sessionId of new Set([...before.keys(), ...held.keys()])) {
 			const was = before.get(sessionId);
 			const now = held.get(sessionId);
-			if (was?.status !== now?.status || (was === undefined) !== (now === undefined)) this.changed(sessionId);
+			if (was === undefined && now !== undefined) this.changed(sessionId, "entered");
+			else if (was !== undefined && now === undefined) this.changed(sessionId, "exited");
+			else if (was?.status !== now?.status) this.changed(sessionId, "updated");
 		}
 	}
 

@@ -190,10 +190,13 @@ export type TerminalState = z.infer<typeof TerminalState>;
 
 const Session = z.strictObject({ file: z.string().min(1).max(4_096), id: Id, cwd: z.string().max(4_096) });
 const ShutdownReason = z.enum(["quit", "reload", "new", "resume", "fork"]);
-const FailureCode = z.enum(["busy", "no_model", "invalid_input", "backend_error"]);
+const FailureCode = z.enum(["busy", "no_model", "invalid_input", "not_found", "auth", "unsupported", "backend_error"]);
 
 export const CommandAnswer = z.discriminatedUnion("ok", [
-	z.strictObject({ ok: z.literal(true), disposition: z.enum(["started", "steered", "queued", "stopped", "answered"]) }),
+	z.strictObject({
+		ok: z.literal(true),
+		disposition: z.enum(["started", "steered", "queued", "stopped", "answered", "applied", "compacted"]),
+	}),
 	z.strictObject({ ok: z.literal(false), code: FailureCode, message: Text }),
 ]);
 export type CommandAnswer = z.infer<typeof CommandAnswer>;
@@ -225,6 +228,9 @@ export const Command = z.discriminatedUnion("kind", [
 	}),
 	z.strictObject({ kind: z.literal("abort") }),
 	z.strictObject({ kind: z.literal("answer"), id: Id, reply: DialogReply }),
+	z.strictObject({ kind: z.literal("set_model"), provider: Name, id: Name }),
+	z.strictObject({ kind: z.literal("set_thinking"), level: Name }),
+	z.strictObject({ kind: z.literal("compact"), instructions: Text.optional() }),
 ]);
 export type Command = z.infer<typeof Command>;
 

@@ -7,6 +7,8 @@ import type { Command, CommandAnswer } from "./protocol";
 export interface TerminalSession extends TerminalHolder {
 	readonly sessionPath: string;
 	readonly sessionId: string;
+	readonly cwd?: string;
+	readonly extensionVersion: number;
 	readonly feed: TerminalFeed;
 	/** Sends `command` to the terminal; resolves with its answer, or `backend_error` once the terminal is gone. */
 	command(command: Command): Promise<CommandAnswer>;

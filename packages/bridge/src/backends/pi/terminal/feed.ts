@@ -241,8 +241,8 @@ export class TerminalFeed {
 				this.compactionEnded(event);
 				return;
 			case "ui_prompt":
-				if (event.phase === "start" && !this.dialogs.anyOpen()) {
-					this.live.emit(noticeEvent("info", `The terminal is waiting for an answer: ${event.title ?? "a question"}`));
+				if (event.phase === "start" && event.title !== undefined && !this.dialogs.anyOpen()) {
+					this.live.emit(noticeEvent("info", `The terminal is waiting for an answer: ${event.title}`));
 				}
 				return;
 			case "tasks":

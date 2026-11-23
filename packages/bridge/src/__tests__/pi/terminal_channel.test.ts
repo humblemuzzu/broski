@@ -4,6 +4,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { readFileSync, statSync, writeFileSync } from "node:fs";
 import type { Socket } from "node:net";
 import { join } from "node:path";
+import { terminalControl } from "../../backends/pi/terminal/control";
 import { KEY_FILE, SOCKET_FILE, TerminalLinkServer } from "../../backends/pi/terminal/link-server";
 import { LINK_VERSION } from "../../backends/pi/terminal/protocol";
 import { TerminalRegistry } from "../../backends/pi/terminal/registry";
@@ -161,6 +162,31 @@ describe("a terminal that loaded an older copy of the extension", () => {
 			activity: { kind: "message", title: "Extension message", body: { format: "markdown", text: "Done." } },
 		});
 		expect(client.socket.destroyed).toBe(false);
+	});
+
+	test("pre-v10 extension does not advertise compact and refuses model/thinking without sending unknown commands", async () => {
+		t = await LiveRig.create({ link: true });
+		const file = join(t.world.env.sessionDir, "v9.jsonl");
+		writeFileSync(file, "");
+		const client = await dial(directoryOf(t));
+		client.send(hello(t, { extension: "9" }, file));
+		expect(await client.next()).toMatchObject({ t: "welcome" });
+		client.send({ t: "snapshot", reason: "connect", state: STATE });
+		const registry = t.world.parts.terminal.registry;
+		await until(() => registry.session(file) !== undefined, "the v9 terminal to be held");
+		const session = registry.session(file);
+		if (!session) throw new Error("expected session");
+		const control = terminalControl(session);
+		expect(control.compact).toBeUndefined();
+		expect(await control.setModel("scripted/scripted-plain")).toMatchObject({
+			status: "rejected",
+			rejection: { code: "unsupported" },
+		});
+		expect(await control.setThinking("high")).toMatchObject({
+			status: "rejected",
+			rejection: { code: "unsupported" },
+		});
+		expect(client.lines).toEqual([]);
 	});
 });
 

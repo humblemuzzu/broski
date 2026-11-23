@@ -12,9 +12,15 @@ export interface TerminalPresence {
 	writing(sessionId: SessionId): Promise<boolean>;
 }
 
+export type TerminalPresenceEvent = "entered" | "exited";
+
 export interface TerminalWatch extends TerminalPresence {
 	/** An `OpenSession` without `control`, fed by the live tail. */
 	openWatchOnly(ref: SessionRef, stored: StoredSession, sink: SessionSink): Promise<OpenResult>;
+	/** Notifies `listener` when a tracked terminal `claude` enters or exits `sessionId`. */
+	watchPresence(sessionId: SessionId, listener: (event: TerminalPresenceEvent) => void): () => void;
+	/** Flushes any final bytes written before the terminal holding `sessionId` exited and closes any open run. */
+	finishExited(sessionId: SessionId): Promise<void>;
 	/** The status the CLI's register gives a session a terminal `claude` holds and this bridge does not host. */
 	row(sessionId: SessionId): LiveRow | undefined;
 	start(): Promise<void>;

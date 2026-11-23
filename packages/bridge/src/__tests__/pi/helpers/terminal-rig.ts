@@ -176,9 +176,7 @@ function silentUi(notices: string[], shown: ShownDialog[] | undefined): Extensio
 		setFooter: () => {},
 		setHeader: () => {},
 		setTitle: () => {},
-		custom: async () => {
-			throw new Error("the test terminal draws no custom component");
-		},
+		custom: async () => undefined as never,
 		pasteToEditor: () => {},
 		setEditorText: () => {},
 		getEditorText: () => "",

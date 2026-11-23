@@ -262,14 +262,18 @@ the session's holder is taken over (§1.1): the run under way is in the reopened
 
 ## 11. External sessions
 
-A session another client wrote opens watch-only. A terminal `pi` runs the Broski link extension, installed in the
-agent dir, which reports over a unix socket with a key file ([terminal-link.md](terminal-link.md)); it does nothing
-outside the interactive terminal (`ctx.mode`), so the bridge's own `pi` links nothing. What the terminal asks reaches
-the phone too: the extension wraps Pi's shared `ctx.ui` (`select`, `confirm`, `input`) and listens on
-`broski:questions` in TUI mode ([extension-hints.md](extension-hints.md)), the bridge raises each as an ask (`terminal/dialogs.ts`),
-and the first answer, the terminal's or the phone's, closes the other. When resuming a phone-started session whose
-branch recorded `broski_ask`, `terminal/extension/ask.ts` registers and activates `broski_ask` lazily in TUI mode with
-exact schema parity, racing terminal select/multi-select/input against the phone card.
+Any session whose working directory still exists and that no linked terminal holds opens hosted and controllable,
+keeping its `origin: "external"` metadata and leaving its recorded system prompt and tools untouched so the prompt
+cache stays warm. A terminal `pi` runs the Broski link extension, installed in the agent dir, which reports over a
+unix socket with a key file ([terminal-link.md](terminal-link.md)); it does nothing outside the interactive terminal
+(`ctx.mode`), so the bridge's own `pi` links nothing. What the terminal asks reaches the phone too: the extension
+wraps Pi's shared `ctx.ui` (`select`, `confirm`, `input`, `editor`, `custom`) and listens on `broski:questions` in
+TUI mode ([extension-hints.md](extension-hints.md)), the bridge raises mirrored dialogs as asks (`terminal/dialogs.ts`)
+where the first answer wins, and reports `ui_prompt` notices only for `editor` and `custom(..., { blocked })` (never
+for non-blocking TUI overlays). When the terminal quits or switches sessions, open views return to controllable
+dormant-hosted mode (lazy revive on the next phone action) rather than watch-only. When resuming a phone-started
+session whose branch recorded `broski_ask`, `terminal/extension/ask.ts` registers and activates `broski_ask` lazily
+in TUI mode with exact schema parity, racing terminal select/multi-select/input against the phone card.
 
 ## 12. Capabilities
 

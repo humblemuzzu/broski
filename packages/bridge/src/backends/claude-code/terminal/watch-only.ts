@@ -4,7 +4,7 @@ import { stat } from "node:fs/promises";
 import { join } from "node:path";
 import type { InteractionAnswer, OpenSession, SessionId, SessionRef } from "../../../contract";
 import type { TerminalDeps } from "../ports/deps";
-import type { TerminalWatch } from "../ports/terminal";
+import type { TerminalPresenceEvent, TerminalWatch } from "../ports/terminal";
 import { CLOSED, isRejected, rejected } from "../rejections";
 import { CliProcesses } from "./cli-processes";
 import { createHookAsks } from "./hook-asks";
@@ -25,13 +25,38 @@ export function createTerminalWatch(deps: TerminalDeps): TerminalWatch {
 	const takesAsks = services.terminal.hookAsks !== undefined;
 	const sessions = new TerminalSessions(services.clock);
 	const paths = new TranscriptPaths(deps.locate);
-	const processes = new CliProcesses(join(services.sdk.configRoot(), "sessions"), services.clock, (sessionId) => {
-		const status = processes.row(sessionId)?.status;
-		if (status === undefined || status === "idle") sessions.terminalIdle(sessionId);
-		deps.announce(sessionId);
-	});
+	/** When a tracked terminal process last exited each session, so its own final flush does not re-trigger `WRITING_MS`. */
+	const exitedAt = new Map<SessionId, number>();
+	const presenceWatchers = new Map<SessionId, Set<(event: TerminalPresenceEvent) => void>>();
+	const notifyPresence = (sessionId: SessionId, event: TerminalPresenceEvent): void => {
+		const listeners = presenceWatchers.get(sessionId);
+		if (listeners === undefined) return;
+		for (const listener of [...listeners]) listener(event);
+	};
+	const processes = new CliProcesses(
+		join(services.sdk.configRoot(), "sessions"),
+		services.clock,
+		(sessionId, transition) => {
+			const status = processes.row(sessionId)?.status;
+			if (transition === "entered") {
+				exitedAt.delete(sessionId);
+				notifyPresence(sessionId, "entered");
+			} else if (transition === "exited") {
+				if (exitedAt.size >= MAX_KNOWN_PATHS) {
+					const oldest = exitedAt.keys().next();
+					if (!oldest.done) exitedAt.delete(oldest.value);
+				}
+				exitedAt.set(sessionId, services.clock.now());
+				sessions.terminalIdle(sessionId);
+				notifyPresence(sessionId, "exited");
+			} else if (status === undefined || status === "idle") {
+				sessions.terminalIdle(sessionId);
+			}
+			deps.announce(sessionId);
+		},
+	);
 	return {
-		writing: (sessionId) => writing(deps, sessions, paths, processes, sessionId),
+		writing: (sessionId) => writing(deps, sessions, paths, processes, exitedAt, sessionId),
 		row: (sessionId) => {
 			if (deps.hosted(sessionId)) return undefined;
 			const row = processes.row(sessionId);
@@ -48,6 +73,16 @@ export function createTerminalWatch(deps: TerminalDeps): TerminalWatch {
 			const open = watchOnlySession(ref, session, takesAsks, () => sessions.release(ref.sessionId, sink));
 			return { status: "accepted", snapshot: session.live.snapshot(), session: open };
 		},
+		watchPresence: (sessionId, listener) => {
+			const set = presenceWatchers.get(sessionId) ?? new Set();
+			set.add(listener);
+			presenceWatchers.set(sessionId, set);
+			return () => {
+				set.delete(listener);
+				if (set.size === 0 && presenceWatchers.get(sessionId) === set) presenceWatchers.delete(sessionId);
+			};
+		},
+		finishExited: (sessionId) => sessions.finishExited(sessionId),
 		start: async () => {
 			services.terminal.hookAsks?.(createHookAsks({ sessions, hosted: deps.hosted }));
 			processes.start();
@@ -56,6 +91,8 @@ export function createTerminalWatch(deps: TerminalDeps): TerminalWatch {
 			processes.dispose();
 			sessions.dispose();
 			paths.clear();
+			exitedAt.clear();
+			presenceWatchers.clear();
 		},
 	};
 }
@@ -98,6 +135,7 @@ async function writing(
 	sessions: TerminalSessions,
 	paths: TranscriptPaths,
 	processes: CliProcesses,
+	exitedAt: ReadonlyMap<SessionId, number>,
 	sessionId: SessionId,
 ): Promise<boolean> {
 	if (deps.hosted(sessionId)) return false;
@@ -109,6 +147,8 @@ async function writing(
 		const written = (await stat(path)).mtimeMs;
 		const own = deps.ownWriteAt(sessionId);
 		if (own !== undefined && written <= own + OWN_FLUSH_MS) return false;
+		const exited = exitedAt.get(sessionId);
+		if (exited !== undefined && written <= exited + OWN_FLUSH_MS) return false;
 		return deps.services.clock.now() - written <= WRITING_MS;
 	} catch {
 		paths.forget(sessionId);

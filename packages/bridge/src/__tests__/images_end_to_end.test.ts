@@ -121,10 +121,11 @@ describe("Pi live & terminal images", () => {
 				pid: 1,
 				sessionPath: join(tempDir, "s.jsonl"),
 				sessionId: "pi-term-1",
+				extensionVersion: 10,
 				feed,
 				command: async () => ({ ok: true, disposition: "started" }),
 			},
-			cache,
+			{ imageCache: cache },
 		);
 		const reqId = crypto.randomUUID();
 		const pngB64 = makePng(16, 16).toString("base64");

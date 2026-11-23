@@ -8,6 +8,7 @@ import type { ClaudeCodeParts } from "./backend";
 import { parseChildRef } from "./ids";
 import type { StoredSession } from "./ports";
 import { isRejected, rejected } from "./rejections";
+import { dormantClaudeSnapshot, openPromotableWatch } from "./terminal/promotable-view";
 
 /**
  * A terminal's hook ask can come before the CLI's first flush of a new session's transcript (about 100 ms late, D28),
@@ -28,7 +29,26 @@ export async function openSession(parts: ClaudeCodeParts, target: OpenTarget, si
 	if (child) return parts.live.openChild(session, child, sink);
 	if (!parts.live.isHosted(session.sessionId) && (await parts.terminal.writing(session.sessionId))) {
 		const stored = await locateWritten(parts, session.sessionId);
-		return isRejected(stored) ? stored : parts.terminal.openWatchOnly(session, stored, sink);
+		if (isRejected(stored)) return stored;
+		return openPromotableWatch(
+			{
+				ref: session,
+				watchPresence: (listener) => parts.terminal.watchPresence(session.sessionId, listener),
+				finishExited: () => parts.terminal.finishExited(session.sessionId),
+				isTerminalActive: () => parts.terminal.writing(session.sessionId),
+				locate: () => parts.store.locate(session.sessionId),
+				dormantSnapshot: (found) => dormantSnapshot(parts, found),
+				openWatch: (found, watchSink) => parts.terminal.openWatchOnly(session, found, watchSink),
+				openHosted: async (hostedSink) => {
+					const opened = await parts.live.open(target, hostedSink);
+					if (!isRejected(opened)) void trackStored(parts, session.sessionId);
+					return opened;
+				},
+				now: () => parts.services.clock.now(),
+			},
+			stored,
+			sink,
+		);
 	}
 	const opened = await parts.live.open(target, sink);
 	if (!isRejected(opened)) void trackStored(parts, session.sessionId);
@@ -48,6 +68,16 @@ async function locateWritten(parts: ClaudeCodeParts, sessionId: SessionId): Prom
 		if (!(await parts.terminal.writing(sessionId))) return stored;
 		await new Promise<void>((resolve) => clock.after(LOOK_AGAIN_MS, resolve));
 	}
+}
+
+async function dormantSnapshot(parts: ClaudeCodeParts, stored: StoredSession) {
+	const found = await parts.store.get(stored.sessionId, parts.overlay);
+	const recorded = found.status === "accepted" ? found.summary.modelId : undefined;
+	const listed =
+		recorded !== undefined && stored.cwd !== undefined
+			? await parts.catalogue.listedModelId(stored.cwd, recorded)
+			: undefined;
+	return dormantClaudeSnapshot(listed ?? recorded);
 }
 
 async function trackStored(parts: ClaudeCodeParts, sessionId: SessionId): Promise<void> {

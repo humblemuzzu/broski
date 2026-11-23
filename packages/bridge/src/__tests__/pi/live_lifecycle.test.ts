@@ -166,7 +166,7 @@ describe("a restart mid-run", () => {
 });
 
 describe("a session another client made", () => {
-	test("opens watch-only: no control, no runtime, and the file is not touched", async () => {
+	test("opens controllable when no terminal holds it, keeps origin external, and does not touch the file until prompted", async () => {
 		t = await LiveRig.create();
 		const id = "terminal-session-1";
 		const path = writeSessionFile(
@@ -179,24 +179,26 @@ describe("a session another client made", () => {
 		const rows = await allRows(t.backend, { cwd: t.cwd }, 50);
 		expect(rows.find((row) => row.session.sessionId === id)?.origin).toBe("external");
 		const opened = await t.rig.open({ backend: "pi", sessionId: id });
-		expect(opened.session.control).toBeUndefined();
+		expect(opened.session.control).toBeDefined();
 		expect(sessionCapabilities(opened.session)).toEqual({
-			controllable: false,
-			compact: false,
+			controllable: true,
+			compact: true,
 			cancelQueued: false,
-			answer: false,
+			answer: true,
 		});
 		expect(opened.initial.run).toBeUndefined();
 		const items = await allItems(t.backend, opened.ref, 200);
 		expect(userItems(items).map((item) => item.text)).toEqual(["from the terminal"]);
-		await opened.close();
-
-		expect(t.router.starts(id)).toBe(0);
 		expect(readFileSync(path).equals(before.bytes)).toBe(true);
 		expect(statSync(path).mtimeMs).toBe(before.modified);
+
+		t.router.script(id, [say("continued on phone")]);
+		expect((await opened.run("follow up from phone")).outcome).toEqual({ kind: "completed" });
+		expect(userTexts(path)).toEqual(["from the terminal", "follow up from phone"]);
+		await opened.close();
 	});
 
-	test("one Pi's own SessionManager wrote, as the app's old path writes them, is the same: watch-only, and a fork is the bridge's", async () => {
+	test("one Pi's own SessionManager wrote is controllable too, and a fork is the bridge's", async () => {
 		t = await LiveRig.create();
 		const manager = SessionManager.create(t.cwd, t.world.sessionsRoot);
 		manager.appendMessage({ role: "user", content: "made by the old app", timestamp: Date.now() });
@@ -206,7 +208,7 @@ describe("a session another client made", () => {
 		const found = await t.backend.getSession(ref);
 		expect(found.status === "accepted" && found.summary.origin).toBe("external");
 		const opened = await t.rig.open(ref);
-		expect(opened.session.control).toBeUndefined();
+		expect(opened.session.control).toBeDefined();
 		await opened.close();
 
 		const forked = await t.backend.fork?.(ref, undefined);
@@ -215,5 +217,6 @@ describe("a session another client made", () => {
 		expect(child.status === "accepted" && child.summary.origin).toBe("broski");
 		const continued = await t.rig.open(forked.session);
 		expect(continued.session.control).toBeDefined();
+		await continued.close();
 	});
 });

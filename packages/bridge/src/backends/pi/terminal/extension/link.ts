@@ -6,8 +6,10 @@ import type { ExtensionAPI, ExtensionContext, InputEventResult } from "@earendil
 import { RemoteDialogs } from "./dialogs";
 import { type Frame, type Json, MAX_TEXT, read } from "./projection";
 
-const VERSION = "8";
+const VERSION = "10";
 const LINK_VERSION = 1;
+const THINKING_LEVELS = new Set(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
+const NO_CREDENTIALS = "No API key for ";
 const MAX_QUEUED_BYTES = 2 * 1024 * 1024;
 const MAX_LINE_BYTES = 1024 * 1024;
 const MAX_INBOUND_BYTES = 8 * 1024 * 1024;
@@ -43,6 +45,8 @@ export class Link {
 	private blocked = false;
 	private dirty = false;
 	private running = false;
+	private compacting = false;
+	private onCompactStart: (() => void) | undefined;
 	private runStartedAt: number | undefined;
 	/**
 	 * The bridge's own `pi` runs this session, as the bridge last said (`welcome`, `hosted`). Kept when the bridge goes:
@@ -62,6 +66,8 @@ export class Link {
 		this.ctx = ctx;
 		this.dialogs.watch(ctx.ui);
 		this.running = false;
+		this.compacting = false;
+		this.onCompactStart = undefined;
 		this.runStartedAt = undefined;
 		this.blocks.clear();
 		this.tools.clear();
@@ -77,6 +83,8 @@ export class Link {
 		if (socket && this.welcomed) socket.end(`${JSON.stringify({ t: "bye", reason })}\n`);
 		else socket?.destroy();
 		this.welcomed = false;
+		this.compacting = false;
+		this.onCompactStart = undefined;
 		this.queue = [];
 	}
 
@@ -136,6 +144,17 @@ export class Link {
 				return;
 			case "stream":
 				if (typeof event.ev === "object" && event.ev !== null && !Array.isArray(event.ev)) this.trackStream(event.ev);
+				return;
+			case "compaction_start": {
+				this.compacting = true;
+				const notify = this.onCompactStart;
+				this.onCompactStart = undefined;
+				notify?.();
+				return;
+			}
+			case "compaction_end":
+				this.compacting = false;
+				return;
 		}
 	}
 
@@ -303,21 +322,96 @@ export class Link {
 			this.phoneRunning = read(frame, "running") === true;
 		} else if (type === "command" && this.welcomed && this.socket === socket) {
 			const id = String(read(frame, "id"));
-			this.send({ t: "result", id, answer: this.run(read(frame, "command")) });
+			void this.run(read(frame, "command")).then((answer) => {
+				if (this.socket === socket && this.welcomed) this.send({ t: "result", id, answer });
+			});
 		}
 	}
 
-	/** Prompt, abort and an answer, through the terminal's own session, which is the only writer of its file. */
-	private run(command: unknown): Frame {
+	/** Prompt, abort, dialog answer, model/thinking and compact, through the terminal's own session. */
+	private async run(command: unknown): Promise<Frame> {
 		const ctx = this.ctx;
 		if (!ctx) return { ok: false, code: "backend_error", message: "The terminal's session has ended." };
 		try {
-			const kind = read(command, "kind");
-			if (kind === "answer") return this.answer(command);
-			return kind === "abort" ? this.abort(ctx) : this.prompt(ctx, command);
+			switch (read(command, "kind")) {
+				case "answer":
+					return this.answer(command);
+				case "abort":
+					return this.abort(ctx);
+				case "prompt":
+					return this.prompt(ctx, command);
+				case "set_model":
+					return await this.setModel(ctx, command);
+				case "set_thinking":
+					return this.setThinking(ctx, command);
+				case "compact":
+					return await this.compact(ctx, command);
+				default:
+					return { ok: false, code: "unsupported", message: "This terminal does not support that command." };
+			}
 		} catch (error) {
 			return { ok: false, code: "backend_error", message: `The terminal refused it: ${String(error)}` };
 		}
+	}
+
+	private async setModel(ctx: ExtensionContext, command: unknown): Promise<Frame> {
+		const provider = String(read(command, "provider") ?? "");
+		const id = String(read(command, "id") ?? "");
+		const model = ctx.modelRegistry.find(provider, id);
+		if (!model) return { ok: false, code: "not_found", message: `The terminal has no model ${provider}/${id}.` };
+		try {
+			const ok = await this.pi.setModel(model);
+			if (!ok) return { ok: false, code: "auth", message: `${NO_CREDENTIALS}${provider}/${id}` };
+			return { ok: true, disposition: "applied" };
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			return { ok: false, code: message.startsWith(NO_CREDENTIALS) ? "auth" : "backend_error", message };
+		}
+	}
+
+	private setThinking(ctx: ExtensionContext, command: unknown): Frame {
+		if (!ctx.model) return { ok: false, code: "no_model", message: "The terminal has no model selected." };
+		const level = String(read(command, "level") ?? "");
+		if (!THINKING_LEVELS.has(level)) {
+			return { ok: false, code: "invalid_input", message: `Unknown thinking level ${level}.` };
+		}
+		this.pi.setThinkingLevel(level as Parameters<ExtensionAPI["setThinkingLevel"]>[0]);
+		return { ok: true, disposition: "applied" };
+	}
+
+	private compact(ctx: ExtensionContext, command: unknown): Promise<Frame> {
+		if (!ctx.model) {
+			return Promise.resolve({ ok: false, code: "no_model", message: "The terminal has no model selected." });
+		}
+		if (!ctx.isIdle() || this.compacting) {
+			return Promise.resolve({
+				ok: false,
+				code: "busy",
+				message: "Compaction needs a session with no run under way.",
+			});
+		}
+		const raw = read(command, "instructions");
+		const customInstructions = typeof raw === "string" && raw.length > 0 ? raw : undefined;
+		return new Promise<Frame>((resolve) => {
+			let settled = false;
+			const finish = (answer: Frame) => {
+				if (settled) return;
+				settled = true;
+				if (this.onCompactStart === started) this.onCompactStart = undefined;
+				resolve(answer);
+			};
+			const started = () => finish({ ok: true, disposition: "compacted" });
+			this.onCompactStart = started;
+			try {
+				ctx.compact({
+					...(customInstructions !== undefined && { customInstructions }),
+					onComplete: () => finish({ ok: true, disposition: "compacted" }),
+					onError: (error) => finish({ ok: false, code: "backend_error", message: error.message }),
+				});
+			} catch (error) {
+				finish({ ok: false, code: "backend_error", message: error instanceof Error ? error.message : String(error) });
+			}
+		});
 	}
 
 	private answer(command: unknown): Frame {

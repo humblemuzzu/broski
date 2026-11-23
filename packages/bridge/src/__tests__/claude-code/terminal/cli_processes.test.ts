@@ -148,6 +148,26 @@ describe("a session a terminal claude holds", () => {
 		expect(announced.length).toBeGreaterThan(announcedBeforeExit);
 	});
 
+	test("a terminal that just exited clears writing() at once even when the transcript was written moments ago", async () => {
+		home = createClaudeHome();
+		rig = terminalRig(home);
+		const watch = rig.watch;
+		const sessionId = crypto.randomUUID();
+		const path = writeFixtureSession(home.configDir, { sessionId, cwd: home.projectDir, prompts: ["fresh"] });
+		await watch.start();
+
+		const pid = running();
+		await register(home, pid, sessionId, { status: "busy" });
+		await until(() => watch.row(sessionId)?.status === "running", "the process to register");
+		expect(await watch.writing(sessionId)).toBe(true);
+
+		const now = new Date();
+		utimesSync(path, now, now);
+		rmSync(registerFile(home, pid));
+		await until(() => watch.row(sessionId) === undefined, "the process to exit");
+		expect(await watch.writing(sessionId)).toBe(false);
+	});
+
 	test("a process killed without removing its entry is seen gone by the sweep", async () => {
 		home = createClaudeHome();
 		rig = terminalRig(home);

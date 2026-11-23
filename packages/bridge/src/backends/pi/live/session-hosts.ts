@@ -12,7 +12,6 @@ import type {
 	Rejected,
 	SessionId,
 	SessionSink,
-	SessionSnapshot,
 	SessionSummary,
 } from "../../../contract";
 import type { CatalogFeed } from "../catalog-feed";
@@ -37,7 +36,7 @@ import { openSessionView } from "./open-session";
 import { RECONNECTING, reattachLost } from "./reattach";
 import { SessionHost } from "./session-host";
 import { SessionLocks } from "./session-lock";
-import { type HostedPart, SessionView, type SessionViewDeps, watchedSnapshot } from "./session-view";
+import { type HostedPart, rereadSession, SessionView, type SessionViewDeps, type ViewStart } from "./session-view";
 
 export interface SessionHostsDeps {
 	readonly install: PiInstall;
@@ -215,36 +214,28 @@ export class SessionHosts implements LiveOverlay {
 		if (existing) return existing.ended ? CLOSED : this.viewOf(existing, sink);
 		const stored = await this.deps.store.locate(sessionId);
 		if ("status" in stored) return stored;
+		const hostable = stored.cwd !== undefined && isDirectory(stored.cwd);
 		const heldByTerminal = this.deps.terminals.holder(stored.path) !== undefined;
-		if (heldByTerminal || stored.origin === "external" || stored.cwd === undefined || !isDirectory(stored.cwd)) {
-			return this.watch(stored, sink);
+		if (heldByTerminal || !hostable || stored.origin === "external") {
+			const { snapshot, hostable: canHost } = await rereadSession(stored.sessionId, this.deps.store);
+			const view = this.register(stored.sessionId, stored.path, sink, {
+				kind: canHost ? "dormant" : "watching",
+				snapshot,
+			});
+			return { status: "accepted", session: view, snapshot: view.snapshot() };
 		}
 		const host = await this.hostStored(stored);
 		return "status" in host ? host : this.attachNew(host, sink);
 	}
 
-	private async watch(stored: StoredSession, sink: SessionSink): Promise<OpenResult> {
-		const view = this.register(
-			stored.sessionId,
-			stored.path,
-			sink,
-			await watchedSnapshot(stored.sessionId, this.deps.store),
-		);
-		return { status: "accepted", session: view, snapshot: view.snapshot() };
-	}
-
-	private register(
-		sessionId: SessionId,
-		path: string,
-		sink: SessionSink,
-		start: HostedPart | SessionSnapshot,
-	): SessionView {
+	private register(sessionId: SessionId, path: string, sink: SessionSink, start: ViewStart): SessionView {
 		const deps: SessionViewDeps = {
 			sessionId,
 			path,
 			terminals: this.deps.terminals,
+			models: this.deps.models,
 			...(this.deps.images !== undefined && { images: this.deps.images }),
-			reread: () => watchedSnapshot(sessionId, this.deps.store),
+			reread: () => rereadSession(sessionId, this.deps.store),
 			revive: async (viewSink) => {
 				await this.adopting;
 				return this.locks.run(sessionId, () => this.revive(sessionId, viewSink));
@@ -276,6 +267,9 @@ export class SessionHosts implements LiveOverlay {
 		if (existing && !existing.ended) return this.partOf(existing, sink);
 		const stored = await this.deps.store.locate(sessionId);
 		if ("status" in stored) return stored.rejection.code === "not_found" ? CLOSED : stored;
+		if (this.deps.terminals.holder(stored.path) !== undefined) {
+			return rejected("busy", "A terminal just opened this session; try again.");
+		}
 		const host = await this.hostStored(stored);
 		if ("status" in host) return host;
 		const part = this.partOf(host, sink);

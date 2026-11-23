@@ -4,6 +4,7 @@
  */
 
 import { afterEach, describe, expect, test } from "bun:test";
+import { TerminalFeed } from "../../backends/pi/terminal/feed";
 import type { Interaction, InteractionReply } from "../../contract";
 import type { LiveSession } from "../../contract/testing/conformance-harness";
 import { LiveRig } from "./helpers/live-rig";
@@ -109,5 +110,69 @@ describe("a dialog in the terminal", () => {
 			{ selected: [], custom: "Postgres" },
 		]);
 		await running;
+	});
+
+	test("a non-blocking custom overlay (such as a background bash viewer) raises no notice or ask on the phone", async () => {
+		const { terminal, live } = await watched();
+		const mark = live.recorder.items.length;
+		const ui = terminal.session.extensionRunner.getUIContext();
+		await ui.custom(() => ({ render: () => [], invalidate: () => {} }), { overlay: true });
+		await Bun.sleep(50);
+		const after = live.events().slice(mark);
+		expect(after.filter((event) => event.type === "notice" || event.type === "interaction_requested")).toEqual([]);
+		await live.close();
+	});
+
+	test("a blocking custom prompt reports its message when unmirrored, and stays quiet when mirrored via broski:questions", async () => {
+		const { t, terminal, live, id } = await watched();
+		const ui = terminal.session.extensionRunner.getUIContext();
+		const mark = live.recorder.items.length;
+		await ui.custom(() => ({ render: () => [], invalidate: () => {} }), {
+			overlay: true,
+			blocked: { kind: "question", message: "Approve deploy?" },
+		});
+		const notice = await live.waitFor("notice", () => true, mark);
+		expect(notice.text).toBe("The terminal is waiting for an answer: Approve deploy?");
+
+		const duringMirrored = live.recorder.items.length;
+		t.router.script(id, [
+			askHuman("questions", "Which store?", { options: ["SQLite", "Redis"], tag: "custom-mirrored" }),
+			say("Done."),
+		]);
+		const running = terminal.session.prompt("Ask me.");
+		const { interaction } = await live.waitFor("interaction_requested", () => true, duringMirrored);
+		await ui.custom(() => ({ render: () => [], invalidate: () => {} }), {
+			blocked: { kind: "question", message: "Which store?" },
+		});
+		await live.control.answer({
+			interactionId: interaction.id,
+			reply: { kind: "questions", answers: [{ questionId: "0", selected: ["SQLite"] }] },
+		});
+		await running;
+		const extraNotices = live
+			.events()
+			.slice(duringMirrored)
+			.filter((event) => event.type === "notice");
+		expect(extraNotices).toEqual([]);
+		await live.close();
+	});
+
+	test("an editor dialog reports a notice naming its title", async () => {
+		const { terminal, live } = await watched();
+		const ui = terminal.session.extensionRunner.getUIContext();
+		const mark = live.recorder.items.length;
+		await ui.editor("Edit commit message", "draft");
+		const notice = await live.waitFor("notice", () => true, mark);
+		expect(notice.text).toBe("The terminal is waiting for an answer: Edit commit message");
+		await live.close();
+	});
+
+	test("a legacy titleless ui_prompt frame from an older extension raises no fake notice", () => {
+		const feed = new TerminalFeed(Date.now, () => {});
+		const events: unknown[] = [];
+		feed.live.attach({ emit: (record) => events.push(record.event) });
+		feed.event({ e: "ui_prompt", phase: "start" });
+		feed.event({ e: "ui_prompt", phase: "end" });
+		expect(events).toEqual([]);
 	});
 });

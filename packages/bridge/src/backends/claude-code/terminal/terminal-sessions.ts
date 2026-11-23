@@ -42,6 +42,11 @@ export class TerminalSessions {
 		this.entries.get(sessionId)?.session.terminalIdle();
 	}
 
+	/** The terminal process holding `sessionId` exited: flush any final bytes and settle any open run. */
+	async finishExited(sessionId: SessionId): Promise<void> {
+		await this.entries.get(sessionId)?.session.finishExited();
+	}
+
 	/** The open watched session's active run start time, if one is currently watched. */
 	runStartedAt(sessionId: SessionId): number | undefined {
 		const snapshot = this.entries.get(sessionId)?.session.live.snapshot();

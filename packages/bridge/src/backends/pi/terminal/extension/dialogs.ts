@@ -29,7 +29,7 @@ export class RemoteDialogs {
 	/** Mirrors the dialogs of `ui`; a second call for the same object changes nothing. */
 	watch(ui: ExtensionUIContext): void {
 		if (this.local.has(ui)) return;
-		const { select, confirm, input } = ui;
+		const { select, confirm, input, editor, custom } = ui;
 		this.local.set(ui, { select, input });
 		ui.select = (title, options, opts) =>
 			this.race(
@@ -71,6 +71,15 @@ export class RemoteDialogs {
 				},
 				undefined,
 			);
+		if (typeof editor === "function") {
+			ui.editor = (title, prefill) => {
+				const label = typeof title === "string" ? title.trim() : "";
+				return this.notifyPrompt(clip(label || "editor", 1_000), () => editor(title, prefill));
+			};
+		}
+		if (typeof custom === "function") {
+			ui.custom = (factory, options) => this.notifyPrompt(blockedTitle(options), () => custom(factory, options));
+		}
 	}
 
 	/** Asks in the terminal only: a question about the terminal itself, which the phone has no part in. */
@@ -160,6 +169,18 @@ export class RemoteDialogs {
 		});
 	}
 
+	/** Reports an unmirrored blocking terminal prompt (`editor`, or `custom` with `blocked`) when nothing is mirrored. */
+	private notifyPrompt<T>(title: string | undefined, run: () => Promise<T>): Promise<T> {
+		if (title === undefined || this.open.size > 0) return run();
+		this.post({ e: "ui_prompt", phase: "start", title });
+		try {
+			return run().finally(() => this.post({ e: "ui_prompt", phase: "end", title }));
+		} catch (error) {
+			this.post({ e: "ui_prompt", phase: "end", title });
+			throw error;
+		}
+	}
+
 	private withdraw(id: string): void {
 		if (!this.open.delete(id)) return;
 		this.post({ e: "dialog_close", id });
@@ -169,6 +190,19 @@ export class RemoteDialogs {
 		this.next += 1;
 		return `d${process.pid}-${this.next}`;
 	}
+}
+
+function blockedTitle(options: unknown): string | undefined {
+	const blocked = read(options, "blocked");
+	const message = read(blocked, "message");
+	const kind = read(blocked, "kind");
+	const raw =
+		typeof message === "string" && message.trim() !== ""
+			? message.trim()
+			: typeof kind === "string" && kind.trim() !== ""
+				? kind.trim()
+				: undefined;
+	return raw === undefined ? undefined : clip(raw, 1_000);
 }
 
 function timeout(opts: ExtensionUIDialogOptions | undefined): Frame {

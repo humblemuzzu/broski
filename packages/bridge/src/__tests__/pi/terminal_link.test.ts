@@ -7,6 +7,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { type AgentEvent, sessionCapabilities } from "../../contract";
 import type { LiveSession } from "../../contract/testing/conformance-harness";
 import { LiveRig } from "./helpers/live-rig";
+import { MODELS, wireIdOf } from "./helpers/pi-world";
 import { call, holdAt, say } from "./helpers/scenarios";
 import { type Terminal, TerminalRig } from "./helpers/terminal-rig";
 import { useWatchdog } from "./helpers/use-watchdog";
@@ -51,7 +52,7 @@ describe("a session a terminal runs", () => {
 		const { t, terminal, live, id } = await watched();
 		expect(sessionCapabilities(live.session)).toEqual({
 			controllable: true,
-			compact: false,
+			compact: true,
 			cancelQueued: false,
 			answer: true,
 		});
@@ -150,21 +151,80 @@ describe("a session a terminal runs", () => {
 		await live.close();
 	});
 
-	test("when the terminal quits the session goes back to being watched, and the viewers are told", async () => {
-		const { terminals, terminal, live } = await watched();
+	test("when the terminal quits the session returns to controllable dormant mode, and the phone can keep prompting", async () => {
+		const { t, terminals, terminal, live, id } = await watched();
 		const mark = live.recorder.items.length;
 		await terminals.quit();
 		await terminals.gone(terminal.file);
 		const replaced = await live.waitFor("session_replaced", () => true, mark);
 		expect(replaced.session).toEqual(live.ref);
 		expect(sessionCapabilities(live.session)).toEqual({
-			controllable: false,
-			compact: false,
+			controllable: true,
+			compact: true,
 			cancelQueued: false,
-			answer: false,
+			answer: true,
 		});
-		expect(live.session.control).toBeUndefined();
+		expect(live.session.control).toBeDefined();
+		expect(t.world.sessionProcesses()).toBe(0);
+		expect((await live.control.abort()).status).toBe("accepted");
+		expect(
+			await live.control.answer({
+				interactionId: "missing",
+				reply: { kind: "confirm", confirmed: true },
+			}),
+		).toMatchObject({ status: "rejected", rejection: { code: "not_found" } });
+
+		const afterQuit = live.recorder.items.length;
+		t.router.script(id, [say("back on phone")]);
+		const run = await live.run("continue from phone");
+		expect(run.outcome).toEqual({ kind: "completed" });
+		expect(
+			live
+				.events()
+				.slice(afterQuit)
+				.some((event) => event.type === "resynced"),
+		).toBe(true);
 		await live.close();
+	});
+
+	test("a session started on the phone, opened in the terminal, and quit in the terminal stays controllable from the phone", async () => {
+		t = await LiveRig.create({ link: true });
+		terminals = new TerminalRig(t);
+		const hosted = await t.rig.openNew({});
+		const id = hosted.ref.sessionId;
+		t.router.script(id, [say("from phone")]);
+		await hosted.run("hello phone");
+		await t.driver.quiesce();
+
+		const file = t.fileOf(hosted.ref);
+		const beforeTerminal = hosted.recorder.items.length;
+		const opened = await terminals.open(file);
+		await terminals.connected(file);
+		await hosted.waitFor("session_replaced", () => true, beforeTerminal);
+		expect(sessionCapabilities(hosted.session)).toEqual({
+			controllable: true,
+			compact: true,
+			cancelQueued: false,
+			answer: true,
+		});
+
+		t.router.script(id, [say("from terminal")]);
+		await opened.session.prompt("hello terminal");
+
+		const beforeQuit = hosted.recorder.items.length;
+		await terminals.quit();
+		await terminals.gone(file);
+		await hosted.waitFor("session_replaced", () => true, beforeQuit);
+		expect(sessionCapabilities(hosted.session)).toEqual({
+			controllable: true,
+			compact: true,
+			cancelQueued: false,
+			answer: true,
+		});
+
+		t.router.script(id, [say("phone again")]);
+		expect((await hosted.run("after quit")).outcome).toEqual({ kind: "completed" });
+		await hosted.close();
 	});
 
 	test("a terminal that quits mid-run ends the run on the phone", async () => {
@@ -182,7 +242,7 @@ describe("a session a terminal runs", () => {
 		await live.close();
 	});
 
-	test("a terminal that connects while the phone looks at the session makes it live, and the viewers are told", async () => {
+	test("a terminal that connects while the phone looks at the session takes it over live, and the viewers are told", async () => {
 		t = await LiveRig.create({ link: true });
 		terminals = new TerminalRig(t);
 		const first = await terminals.open();
@@ -194,12 +254,22 @@ describe("a session a terminal runs", () => {
 		await terminals.gone(first.file);
 
 		const live = await t.rig.open({ backend: "pi", sessionId: id });
-		expect(live.session.control).toBeUndefined();
+		expect(sessionCapabilities(live.session)).toEqual({
+			controllable: true,
+			compact: true,
+			cancelQueued: false,
+			answer: true,
+		});
 		const mark = live.recorder.items.length;
 		const again = await terminals.open(first.file);
 		await terminals.connected(first.file);
 		await live.waitFor("session_replaced", () => true, mark);
-		expect(sessionCapabilities(live.session).controllable).toBe(true);
+		expect(sessionCapabilities(live.session)).toEqual({
+			controllable: true,
+			compact: true,
+			cancelQueued: false,
+			answer: true,
+		});
 		t.router.script(id, [say("again")]);
 		await again.session.prompt("once more");
 		await live.waitFor("run_finished", () => true, mark);
@@ -220,14 +290,14 @@ describe("a session a terminal runs", () => {
 		expect(t.router.starts(id)).toBe(sessionStarts);
 		expect(sessionCapabilities(live.session)).toEqual({
 			controllable: true,
-			compact: false,
+			compact: true,
 			cancelQueued: false,
 			answer: true,
 		});
 		await live.close();
 	});
 
-	test("a terminal that starts a new session leaves the old one watch-only and is followed in the new one", async () => {
+	test("a terminal that starts a new session leaves the old one controllable and is followed in the new one", async () => {
 		const { t, terminals, terminal, live, id } = await watched();
 		const mark = live.recorder.items.length;
 		await terminal.runtime.newSession();
@@ -238,6 +308,12 @@ describe("a session a terminal runs", () => {
 
 		await terminals.gone(terminal.file);
 		await live.waitFor("session_replaced", () => true, mark);
+		expect(sessionCapabilities(live.session)).toEqual({
+			controllable: true,
+			compact: true,
+			cancelQueued: false,
+			answer: true,
+		});
 		await terminals.connected(freshFile);
 		t.router.script(freshId, [say("in the new one")]);
 		await fresh.prompt("hello there");
@@ -273,7 +349,7 @@ describe("a session a terminal runs", () => {
 		const replaced = await t.rig.open({ backend: "pi", sessionId: hosted.ref.sessionId });
 		expect(sessionCapabilities(replaced.session)).toEqual({
 			controllable: true,
-			compact: false,
+			compact: true,
 			cancelQueued: false,
 			answer: true,
 		});
@@ -328,6 +404,48 @@ describe("a session a terminal runs", () => {
 		const mark = live.recorder.items.length;
 		terminal.session.setThinkingLevel("high");
 		await live.waitFor("model_changed", (event) => event.thinking === "high", mark);
+		await live.close();
+	});
+
+	test("the phone can change model, thinking level, and trigger compaction in the terminal", async () => {
+		const { t, terminal, live, id } = await watched();
+
+		const beforeThinking = live.recorder.items.length;
+		expect(await live.control.setThinking("high")).toEqual({ status: "accepted" });
+		await live.waitFor("model_changed", (event) => event.thinking === "high", beforeThinking);
+		expect(terminal.session.thinkingLevel).toBe("high");
+
+		const beforeModel = live.recorder.items.length;
+		expect(await live.control.setModel(wireIdOf(MODELS.plain))).toEqual({ status: "accepted" });
+		await live.waitFor("model_changed", (event) => event.modelId === wireIdOf(MODELS.plain), beforeModel);
+		expect(terminal.session.model?.id).toBe(MODELS.plain);
+		expect(await live.control.setThinking("high")).toMatchObject({
+			status: "rejected",
+			rejection: { code: "invalid_input" },
+		});
+		expect(await live.control.setModel("scripted/no-such-model")).toMatchObject({
+			status: "rejected",
+			rejection: { code: "not_found" },
+		});
+
+		const beforeCompact = live.recorder.items.length;
+		expect(await live.control.compact?.("Keep decisions.")).toEqual({ status: "accepted" });
+		await live.waitFor("compaction_finished", () => true, beforeCompact);
+		expect(live.reduced().compaction).toBeUndefined();
+
+		const beforeBusy = live.recorder.items.length;
+		const gate = t.router.newGate(id);
+		t.router.script(id, [holdAt(gate, "Busy."), say("Done.")]);
+		const running = terminal.session.prompt("hold it");
+		await t.router.entered(id);
+		expect(await live.control.compact?.(undefined)).toMatchObject({
+			status: "rejected",
+			rejection: { code: "busy" },
+		});
+		t.router.release(id);
+		await running;
+		await live.waitFor("run_finished", () => true, beforeBusy);
+		live.assertSettled();
 		await live.close();
 	});
 

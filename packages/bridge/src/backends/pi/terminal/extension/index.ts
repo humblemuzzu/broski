@@ -1,4 +1,4 @@
-// broski-link-extension v8: written by the Broski bridge; delete it, or set "pi.terminalLink": false in the bridge's config.
+// broski-link-extension v10: written by the Broski bridge; delete it, or set "pi.terminalLink": false in the bridge's config.
 //
 // Lets the Broski app on your phone follow this terminal's session live, stop it or send it a message, and answer what
 // it asks (`dialogs.ts`): a question shows in the terminal and on the phone, and the first answer wins. It runs in
@@ -173,16 +173,6 @@ function forwardSession(pi: ExtensionAPI, link: Link): void {
 				outcome: event.aborted ? "aborted" : "failed",
 				...(event.errorMessage !== undefined && { error: clip(event.errorMessage, MAX_TEXT) }),
 			}),
-		),
-	);
-	pi.on("ui_prompt_start", (event, ctx) =>
-		guarded(() =>
-			link.emit(ctx, { e: "ui_prompt", phase: "start", ...(event.title && { title: clip(event.title, 1_000) }) }),
-		),
-	);
-	pi.on("ui_prompt_end", (event, ctx) =>
-		guarded(() =>
-			link.emit(ctx, { e: "ui_prompt", phase: "end", ...(event.title && { title: clip(event.title, 1_000) }) }),
 		),
 	);
 }
