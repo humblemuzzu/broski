@@ -1,8 +1,11 @@
 //! A machine's catalog: its backends and their status, the models, commands and modes each lists
 //! (kept until `catalog_invalidated`), and session lists kept current by the catalog's rows.
 
+mod inbox_feed;
+pub(crate) mod kept;
 pub(crate) mod lists;
 mod refresh;
+mod search;
 mod session_list;
 pub(crate) mod state;
 
@@ -13,10 +16,8 @@ use broski_contract::{
     BackendDescriptor, BackendId, BackendStatus, BackendStatusRequest, BackendsListRequest,
     CatalogScope, ClientMessage, CommandsListRequest, CommandsListResult, ModelsListRequest,
     ModelsListResult, ModesListRequest, ModesListResult, ServerMessage, SessionQuery, SessionRef,
-    SessionsListResult, MAX_PAGE_LIMIT,
+    SessionsListResult,
 };
-use broski_link_session::LinkState;
-use tokio::task::JoinHandle;
 
 pub use self::session_list::{SessionList, SessionListUpdate};
 use self::state::{Cache, Catalog, ListKey};
@@ -203,8 +204,8 @@ impl Shared {
         Ok(value)
     }
 
-    /// Lists the backends, and gives each new one its inbox list; returns the backends and the
-    /// lists it created.
+    /// Lists the backends, and gives each new one its inbox list, and its search list while the
+    /// inbox searches; returns the backends and the lists it created.
     pub(crate) async fn fetch_backends(
         &self,
     ) -> Result<(Vec<BackendDescriptor>, Vec<u64>), ClientError> {
@@ -220,39 +221,9 @@ impl Shared {
         state.events.backends();
         let created = backends
             .iter()
-            .filter_map(|backend| inbox_list(&mut state.catalog, &backend.id))
+            .flat_map(|backend| state.catalog.feed_lists_for(&backend.id))
             .collect();
         Ok((backends, created))
-    }
-
-    /// The inbox's lists from their first page again, each fetched on the link runtime; the handles
-    /// finish once the pages are answered. A link that is down, or a bridge that has not agreed on
-    /// the protocol, would only hold the requests, so then a link waiting to dial dials now instead.
-    pub(crate) fn reload_inbox(self: &Arc<Self>) -> Vec<JoinHandle<()>> {
-        let (ready, waiting, lists) = {
-            let state = self.lock();
-            let lists: Vec<u64> = state.catalog.inbox.iter().map(|(_, id)| *id).collect();
-            let connected = matches!(state.link.state, LinkState::Connected { .. });
-            let waiting = matches!(state.link.state, LinkState::Waiting(_));
-            (connected && state.contract.ready(), waiting, lists)
-        };
-        if !ready {
-            if waiting {
-                self.session().network_changed();
-            }
-            return Vec::new();
-        }
-        lists
-            .into_iter()
-            .map(|list| {
-                let shared = Arc::clone(self);
-                self.runtime().handle().spawn(async move {
-                    if let Err(error) = shared.fetch_page(list, true).await {
-                        tracing::debug!(%error, "reloading an inbox list failed");
-                    }
-                })
-            })
-            .collect()
     }
 
     /// The list's next page, or its first again with `reload`. The page is fetched on the link
@@ -300,30 +271,15 @@ impl Shared {
             Ok(page) => {
                 list.page(&ask, page);
                 self.hold_waiting(&mut state);
+                self.read_kept(&mut state);
                 self.poke_inbox();
                 Ok(())
             }
             Err(error) => {
                 list.page_failed(ask.generation);
+                self.poke_inbox();
                 Err(error)
             }
         }
     }
-}
-
-/// The inbox's list of `backend`'s newest top-level sessions, created when the backend has none.
-fn inbox_list(catalog: &mut Catalog, backend: &str) -> Option<u64> {
-    if catalog.inbox.iter().any(|(known, _)| known == backend) {
-        return None;
-    }
-    let query = SessionQuery {
-        cwd: None,
-        parent: None,
-    };
-    let limit = MAX_PAGE_LIMIT as i64;
-    let list = catalog
-        .lists
-        .create_bounded(backend.to_owned(), query, limit, MAX_PAGE_LIMIT);
-    catalog.inbox.push((backend.to_owned(), list));
-    Some(list)
 }

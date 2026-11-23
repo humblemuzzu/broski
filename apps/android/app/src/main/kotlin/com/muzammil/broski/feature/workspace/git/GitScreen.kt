@@ -158,7 +158,7 @@ private fun GitBody(
                 state.sections.forEach { section -> changes(section, state.busy, viewModel, onOpen) }
                 if (state.sections.isEmpty()) item(key = "clean", contentType = "clean") { CleanTree() }
                 if (status.truncated) item(key = "truncated", contentType = "note") { TruncatedStatus() }
-                if (state.log.isNotEmpty()) log(state)
+                if (state.log.isNotEmpty()) log(state, viewModel::loadOlderCommits)
             }
         }
     }
@@ -177,7 +177,7 @@ private fun TruncatedStatus() {
 private fun LazyListScope.changes(section: ChangeSection, busy: Boolean, viewModel: GitViewModel, onOpen: (ChangeRow) -> Unit) {
     item(key = "section:${section.area}", contentType = "header") {
         SectionTitle(section, enabled = !busy) {
-            if (section.area == Area.Staged) viewModel.unstage(listOf(".")) else viewModel.stage(section.rows.take(MAX_STAGE_ALL).map { it.path })
+            if (section.area == Area.Staged) viewModel.unstage(listOf(".")) else viewModel.stage(section.rows.map { it.path })
         }
     }
     itemsIndexed(section.rows, key = { _, row -> "${row.area}:${row.path}" }, contentType = { _, _ -> "change" }) { index, row ->
@@ -193,12 +193,17 @@ private fun LazyListScope.changes(section: ChangeSection, busy: Boolean, viewMod
     }
 }
 
-private fun LazyListScope.log(state: GitUiState) {
+private fun LazyListScope.log(state: GitUiState, loadOlder: () -> Unit) {
     item(key = "log", contentType = "header") { SectionHeader(stringResource(R.string.git_recent_commits)) }
     itemsIndexed(state.log, key = { _, commit -> "commit:${commit.hash}" }, contentType = { _, _ -> "commit" }) { index, commit ->
         CommitItem(commit, index, state.log.size)
     }
+    if (state.olderCommits != null) {
+        item(key = "log:more", contentType = "more") {
+            LaunchedEffect(state.log.size) { loadOlder() }
+            WorkspaceLoading(Modifier.padding(16.dp))
+        }
+    }
 }
 
 internal const val SHORT_HASH = 7
-private const val MAX_STAGE_ALL = 1000

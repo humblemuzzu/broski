@@ -1,7 +1,14 @@
 import { z } from "zod";
 import { Timestamp } from "./ids";
-import { MAX_DIFF_LINES, MAX_ID_CHARS, MAX_LIST_ITEMS, MAX_NAME_CHARS, MAX_TEXT_CHARS } from "./limits";
-import { MAX_PAGE_LIMIT } from "./paging";
+import {
+	MAX_DIFF_LINES,
+	MAX_GIT_ENTRIES,
+	MAX_ID_CHARS,
+	MAX_LIST_ITEMS,
+	MAX_NAME_CHARS,
+	MAX_TEXT_CHARS,
+} from "./limits";
+import { MAX_PAGE_LIMIT, PageCursor } from "./paging";
 import { Rejected } from "./rejection";
 import { WorkingDirectory } from "./sessions";
 import { FilePath } from "./workspace-files";
@@ -38,9 +45,9 @@ export const GitStatusRead = z.strictObject({
 	branch: z.string().min(1).max(MAX_NAME_CHARS).optional(),
 	head: z.string().min(1).max(MAX_ID_CHARS).optional(),
 	upstream: GitUpstream.optional(),
-	staged: z.array(GitFileChange).max(MAX_LIST_ITEMS),
-	unstaged: z.array(GitFileChange).max(MAX_LIST_ITEMS),
-	untracked: z.array(FilePath).max(MAX_LIST_ITEMS),
+	staged: z.array(GitFileChange).max(MAX_GIT_ENTRIES),
+	unstaged: z.array(GitFileChange).max(MAX_GIT_ENTRIES),
+	untracked: z.array(FilePath).max(MAX_GIT_ENTRIES),
 	truncated: z.boolean(),
 });
 export type GitStatusRead = z.infer<typeof GitStatusRead>;
@@ -105,7 +112,7 @@ export type GitBranch = z.infer<typeof GitBranch>;
 /** Local branches first, each group by name. */
 export const GitBranchesListed = z.strictObject({
 	status: z.literal("accepted"),
-	branches: z.array(GitBranch).max(MAX_LIST_ITEMS),
+	branches: z.array(GitBranch).max(MAX_GIT_ENTRIES),
 	truncated: z.boolean(),
 });
 export type GitBranchesListed = z.infer<typeof GitBranchesListed>;
@@ -121,10 +128,11 @@ export const GitCommit = z.strictObject({
 });
 export type GitCommit = z.infer<typeof GitCommit>;
 
-/** The current branch's newest commits, newest first. */
+/** The current branch's commits, newest first; `nextCursor` reads on from the same head, absent at the root. */
 export const GitLogRead = z.strictObject({
 	status: z.literal("accepted"),
 	commits: z.array(GitCommit).max(MAX_PAGE_LIMIT),
+	nextCursor: PageCursor.optional(),
 });
 export type GitLogRead = z.infer<typeof GitLogRead>;
 

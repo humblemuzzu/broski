@@ -7,18 +7,28 @@
 
 import { realpath } from "node:fs/promises";
 import { join } from "node:path";
-import type { PageRequest, Rejected, SessionQuery, SessionSummary, SessionsListResult } from "../../../contract";
+import {
+	type PageRequest,
+	type Rejected,
+	type SessionQuery,
+	type SessionSummary,
+	type SessionsListResult,
+	searchWords,
+	sessionMatches,
+} from "../../../contract";
 import { parseChildRef } from "../ids";
 import type { LiveOverlay } from "../ports/store";
 import { isRejected, rejected } from "../rejections";
 import { childrenPage } from "./children";
-import type { StoreContext } from "./context";
-import { byNewest, type Candidate, enumerateSessions, isAfter } from "./enumerate";
+import type { RankedCandidate, StoreContext } from "./context";
+import { byNewest, type Candidate, enumerateSessions } from "./enumerate";
 import { rowOfInfo, sessionInfo } from "./info";
 import { type ListPosition, listCursor, listPosition, listScope } from "./list-cursor";
 import { projectDirNames } from "./locator";
 
 const READ_BATCH = 32;
+/** Rows one page of a search reads at most; past them it ends early with a cursor, so a rare word never stalls a request. */
+const SEARCH_SCAN_ROWS = 2_000;
 
 export async function listPage(
 	ctx: StoreContext,
@@ -34,14 +44,21 @@ export async function listPage(
 	const { parent } = query;
 	if (parent !== undefined && parseChildRef(parent.sessionId) !== undefined)
 		return { status: "accepted", page: { items: [] } };
-	if (parent !== undefined) return childrenPage(ctx, parent.sessionId, { after, scope, limit: page.limit }, live);
-	return sessionsPage(ctx, query, { after, scope, limit: page.limit }, live);
+	const words = searchWords(query.search ?? "");
+	if (parent !== undefined) {
+		const children = await childrenPage(ctx, parent.sessionId, { after, scope, limit: page.limit }, live);
+		if (children.status === "rejected" || words.length === 0) return children;
+		const items = children.page.items.filter((row) => sessionMatches(words, row.title?.text, row.cwd));
+		return { status: "accepted", page: { ...children.page, items } };
+	}
+	return sessionsPage(ctx, query, { after, scope, limit: page.limit, words }, live);
 }
 
 interface PageSpec {
 	readonly after: ListPosition | undefined;
 	readonly scope: string;
 	readonly limit: number;
+	readonly words: readonly string[];
 }
 
 async function wantedCwds(cwd: string): Promise<Set<string>> {
@@ -63,20 +80,37 @@ async function sessionsPage(
 	const dirs = (await projectDirNames(root)).filter(
 		(dir) => wanted === undefined || ctx.dirs.scopeOf(dir, wanted) !== "out",
 	);
-	const ahead = newestFirst(ctx, root, await enumerateSessions(root, dirs), spec.after, wanted);
+	const key = JSON.stringify([root, wanted === undefined ? null : [...wanted].sort()]);
+	const ahead = ctx.listings.rows(key, spec.after, async function* () {
+		yield* newestFirst(ctx, root, await enumerateSessions(root, dirs), wanted);
+	});
+	const searching = spec.words.length > 0;
 	const items: SessionSummary[] = [];
-	let last: Ranked | undefined;
-	while (items.length < spec.limit) {
-		const batch = await take(ahead, Math.min(spec.limit - items.length, READ_BATCH));
+	let last: RankedCandidate | undefined;
+	let read = 0;
+	let unread = false;
+	while (items.length < spec.limit && !unread && (!searching || read < SEARCH_SCAN_ROWS)) {
+		const batch = await take(ahead, searching ? READ_BATCH : Math.min(spec.limit - items.length, READ_BATCH));
 		if (batch.length === 0) break;
-		last = batch.at(-1);
-		const rows = await Promise.all(batch.map((candidate) => rowOf(ctx, candidate, wanted, live)));
-		for (const row of rows) {
+		const rows = await Promise.all(
+			batch.map(async (candidate) =>
+				spec.after !== undefined && (await movedSinceRanked(ctx, candidate))
+					? undefined
+					: rowOf(ctx, candidate, wanted, live),
+			),
+		);
+		for (const [index, row] of rows.entries()) {
 			if (row !== undefined && isRejected(row)) return row;
-			if (row !== undefined) items.push(row);
+			read += 1;
+			last = batch[index];
+			if (row !== undefined && sessionMatches(spec.words, row.title?.text, row.cwd)) items.push(row);
+			if (items.length === spec.limit) {
+				unread = index < batch.length - 1;
+				break;
+			}
 		}
 	}
-	const more = (await take(ahead, 1)).length > 0;
+	const more = unread || (await take(ahead, 1)).length > 0;
 	return {
 		status: "accepted",
 		page: {
@@ -86,23 +120,18 @@ async function sessionsPage(
 	};
 }
 
-interface Ranked extends Candidate, ListPosition {
-	readonly path: string;
-}
-
 /**
- * The candidates after `after`, newest `updatedAt` first. They come newest mtime first, and a row's `updatedAt` is
- * never later than its file's mtime, so a row is final once it is newer than the next file's mtime: only the files
- * down to there are read, most of them once (`activity.ts` caches by stamp).
+ * The candidates newest `updatedAt` first. They come newest mtime first, and a row's `updatedAt` is never later than
+ * its file's mtime, so a row is final once it is newer than the next file's mtime: only the files down to there are
+ * read, most of them once (`activity.ts` caches by stamp).
  */
 async function* newestFirst(
 	ctx: StoreContext,
 	root: string,
 	candidates: readonly Candidate[],
-	after: ListPosition | undefined,
 	wanted: ReadonlySet<string> | undefined,
-): AsyncGenerator<Ranked> {
-	const ready: Ranked[] = [];
+): AsyncGenerator<RankedCandidate> {
+	const ready: RankedCandidate[] = [];
 	for (const candidate of candidates) {
 		for (let first = ready[0]; first !== undefined && first.at > candidate.mtime; first = ready[0]) {
 			ready.shift();
@@ -113,12 +142,12 @@ async function* newestFirst(
 		const at = await ctx.activity.updatedAt(path);
 		if (at === undefined) continue;
 		const ranked = { ...candidate, path, at: Math.min(at, candidate.mtime) };
-		if (after === undefined || isAfter(ranked, after)) ready.splice(insertionPoint(ready, ranked), 0, ranked);
+		ready.splice(insertionPoint(ready, ranked), 0, ranked);
 	}
 	yield* ready;
 }
 
-function insertionPoint(sorted: readonly Ranked[], item: Ranked): number {
+function insertionPoint(sorted: readonly RankedCandidate[], item: RankedCandidate): number {
 	let low = 0;
 	let high = sorted.length;
 	while (low < high) {
@@ -130,8 +159,8 @@ function insertionPoint(sorted: readonly Ranked[], item: Ranked): number {
 	return low;
 }
 
-async function take(ranked: AsyncGenerator<Ranked>, count: number): Promise<Ranked[]> {
-	const taken: Ranked[] = [];
+async function take(ranked: AsyncGenerator<RankedCandidate>, count: number): Promise<RankedCandidate[]> {
+	const taken: RankedCandidate[] = [];
 	while (taken.length < count) {
 		const next = await ranked.next();
 		if (next.done === true) break;
@@ -140,9 +169,18 @@ async function take(ranked: AsyncGenerator<Ranked>, count: number): Promise<Rank
 	return taken;
 }
 
+/**
+ * A later page reads on from a kept listing. A conversation is never newer than its file's mtime, so one newer than
+ * the mtime the listing saw moved since: it ranks above the cursor now, the phone has it from the catalog's events,
+ * and listed here it would break the page's order.
+ */
+async function movedSinceRanked(ctx: StoreContext, candidate: RankedCandidate): Promise<boolean> {
+	return ((await ctx.activity.updatedAt(candidate.path)) ?? 0) > candidate.mtime;
+}
+
 async function rowOf(
 	ctx: StoreContext,
-	candidate: Ranked,
+	candidate: RankedCandidate,
 	wanted: ReadonlySet<string> | undefined,
 	live: LiveOverlay,
 ): Promise<SessionSummary | undefined | Rejected> {

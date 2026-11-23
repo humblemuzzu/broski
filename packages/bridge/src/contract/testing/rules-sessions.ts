@@ -1,6 +1,6 @@
 import type { AgentBackend } from "../backend";
 import type { SessionRef } from "../ids";
-import { type SessionQuery, SessionSummary } from "../sessions";
+import { type SessionQuery, SessionSummary, searchWords, sessionMatches } from "../sessions";
 import { TranscriptItem } from "../transcript";
 import { canonical, expect, fail, type Rig } from "./conformance-harness";
 import { allPages, allTranscript, listed } from "./conformance-reads";
@@ -37,6 +37,36 @@ export async function sessionPagesConcatenate(rig: Rig): Promise<void> {
 		bad.status === "rejected" && bad.rejection.code === "invalid_input",
 		"a cursor the adapter did not mint must be rejected invalid_input",
 	);
+}
+
+/** A search by the folder's name, in another case, lists that folder's sessions and only rows that match it. */
+export async function sessionSearchNarrowsTheListing(rig: Rig): Promise<void> {
+	const { backend, driver } = rig;
+	await driver.seedSessions(driver.cwd, 3);
+	await driver.seedSessions(driver.otherCwd, 2);
+	const folder = driver.cwd.split("/").filter(Boolean).at(-1) ?? "";
+	const other = driver.otherCwd.split("/").filter(Boolean).at(-1) ?? "";
+	expect(folder !== "" && !other.toLowerCase().includes(folder.toLowerCase()), "the driver's two folders share a name");
+	const search = folder.toUpperCase();
+	const found = await allPages(backend, { search }, 200);
+	const words = searchWords(search);
+	expect(
+		found.every((row) => sessionMatches(words, row.title?.text, row.cwd)),
+		"a listed row does not match the search",
+	);
+	expect(
+		found.filter((row) => row.cwd === driver.cwd).length >= 3,
+		"a search by the folder's name misses its sessions",
+	);
+	const paged = await allPages(backend, { search }, 1);
+	expect(
+		canonical(paged.map((row) => row.session.sessionId)) === canonical(found.map((row) => row.session.sessionId)),
+		"pages of a search differ from one listing of it",
+	);
+	const nothing = await allPages(backend, { search: "xylophonequark" }, 200);
+	expect(nothing.length === 0, "a word nothing has still lists sessions");
+	const both = await allPages(backend, { search: `${folder} xylophonequark` }, 200);
+	expect(both.length === 0, "a search lists a session that has only some of its words");
 }
 
 export async function aSessionCanBeRead(rig: Rig): Promise<void> {

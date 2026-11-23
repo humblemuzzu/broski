@@ -29,8 +29,8 @@ import com.muzammil.broski.design.perform
 import uniffi.broski_core.InboxRow
 import uniffi.broski_core.InboxState
 
-/** The most folders the menu offers, newest first. */
-private const val FOLDERS = 8
+/** The most recent folders the menu offers first, newest first; the rest are under More projects. */
+private const val RECENT_FOLDERS = 8
 
 /**
  * The inbox's one filter control: a button in the bar, filled while a filter is on, opening a menu:
@@ -40,6 +40,7 @@ private const val FOLDERS = 8
 @Composable
 fun InboxFilterMenu(state: InboxUiState, onFilter: (InboxFilter) -> Unit) {
     var open by remember { mutableStateOf(false) }
+    var allFolders by remember { mutableStateOf(false) }
     val haptics = LocalHapticFeedback.current
     val filter = state.filter
     val set = { next: InboxFilter ->
@@ -68,8 +69,20 @@ fun InboxFilterMenu(state: InboxUiState, onFilter: (InboxFilter) -> Unit) {
             }
             Heading(R.string.inbox_filter_project)
             Choice(stringResource(R.string.inbox_filter_all_projects), filter.folder == null) { set(filter.copy(folder = null)) }
-            recentFolders(state.rows, filter.folder).forEach { folder ->
+            val folders = folderChoices(state.rows, filter.folder)
+            folders.recent.forEach { folder ->
                 Choice(folder.lastComponent, filter.folder == folder) { set(filter.copy(folder = folder)) }
+            }
+            if (folders.others.isNotEmpty()) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(if (allFolders) R.string.inbox_filter_fewer_projects else R.string.inbox_filter_more_projects)) },
+                    onClick = { allFolders = !allFolders },
+                )
+                if (allFolders) {
+                    folders.others.forEach { folder ->
+                        Choice(folder.lastComponent, filter.folder == folder) { set(filter.copy(folder = folder)) }
+                    }
+                }
             }
             if (state.machines.size > 1) {
                 Heading(R.string.inbox_filter_mac)
@@ -111,10 +124,22 @@ private fun Choice(label: String, chosen: Boolean, onClick: () -> Unit) {
 private fun agents(machines: List<MachineState>): List<Agent> =
     machines.flatMap { machine -> machine.agents.map { it.agent } }.distinctBy { it.id }
 
-/** The folders sessions ran in lately, newest first; the chosen one kept even once it is older. */
-private fun recentFolders(rows: List<InboxRow>, chosen: String?): List<String> {
-    val shown = rows.sortedByDescending { it.updatedAt }.mapNotNull { it.cwd }.distinct().take(FOLDERS)
-    return if (chosen == null || chosen in shown) shown else listOf(chosen) + shown
+private class FolderChoices(val recent: List<String>, val others: List<String>)
+
+/**
+ * The folders sessions ran in: the most recent first, the chosen one among them even once it is older, and the
+ * rest by name. One pass over the rows, which may be thousands.
+ */
+private fun folderChoices(rows: List<InboxRow>, chosen: String?): FolderChoices {
+    val newest = HashMap<String, Long>()
+    for (row in rows) {
+        val cwd = row.cwd ?: continue
+        newest[cwd] = maxOf(newest[cwd] ?: Long.MIN_VALUE, row.updatedAt)
+    }
+    val byRecency = newest.entries.sortedByDescending { it.value }.map { it.key }
+    val recent = byRecency.take(RECENT_FOLDERS).let { if (chosen == null || chosen in it) it else listOf(chosen) + it }
+    val others = byRecency.drop(RECENT_FOLDERS).filter { it != chosen }.sortedBy { it.lastComponent.lowercase() }
+    return FolderChoices(recent, others)
 }
 
 private val String.lastComponent: String get() = trimEnd('/').substringAfterLast('/').ifEmpty { this }

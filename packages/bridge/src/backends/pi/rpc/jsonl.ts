@@ -6,7 +6,7 @@
  */
 
 /** The largest record kept. A tool call's arguments or an image in a message fit; a run's `agent_end`, which repeats every message, may not, and is not read. */
-export const MAX_RECORD_BYTES = 32 * 1024 * 1024;
+export const MAX_RECORD_BYTES = 64 * 1024 * 1024;
 
 /** Enough of a skipped record to read its `type`, which Pi writes first. */
 const HEAD_BYTES = 128;

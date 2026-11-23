@@ -1,4 +1,5 @@
 import BroskiCore
+import Foundation
 import Testing
 
 @testable import Broski
@@ -66,6 +67,21 @@ struct InboxTests {
 
     private func pin(_ ids: String..., machine: String = "m1") -> Set<SessionTarget> {
         Set(ids.map { SessionTarget(machineId: machine, session: SessionRef(backend: "claude-code", sessionId: $0)) })
+    }
+
+    @Test func theFolderMenuOffersTheRecentFoldersThenTheRestByNameWithTheChosenOneAmongTheRecent() {
+        let many = (0..<12).map { n in
+            InboxRow(
+                machineId: "m1", machineName: "Studio Mac", session: SessionRef(backend: "pi", sessionId: "s\(n)"),
+                title: nil, cwd: "/p/f\(String(format: "%02d", 11 - n))", state: .idle, updatedAt: Int64(1_000 - n),
+                runStartedAt: nil, ask: nil, command: nil, pending: nil, cached: false)
+        }
+        let plain = InboxFilterMenu.folderChoices(many, chosen: nil)
+        #expect(plain.recent == (4...11).reversed().map { "/p/f" + String(format: "%02d", $0) })
+        #expect(plain.others == ["/p/f00", "/p/f01", "/p/f02", "/p/f03"])
+        let chosen = InboxFilterMenu.folderChoices(many, chosen: "/p/f01")
+        #expect(chosen.recent.first == "/p/f01" && chosen.recent.count == 9)
+        #expect(chosen.others == ["/p/f00", "/p/f02", "/p/f03"])
     }
 
     @Test func pinnedRowsComeRightAfterNeedsYouOnceAndInTheCoresOrder() {

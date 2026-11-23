@@ -357,8 +357,14 @@ mapper never throws.
 newest first, then the greater `sessionId` first (`foundation/session_order.test.ts`). A row's `updatedAt` is never
 later than its file's mtime, so walking the files newest mtime first, a row is final once it is newer than the next
 file's mtime: a page reads the tails of the files down to there (cached by size and mtime) and only that page's rows
-with `getSessionInfo`: at most `limit + 32` lite reads however deep the page. Cursors are versioned and bound to the
-read they page (`cursor.ts`); a foreign one is `invalid_input`. A row's `cwd` is the asked cwd, so a session started
+with `getSessionInfo`: at most `limit + 32` lite reads however deep the page. A listing's ranking is kept for 30 s
+after its last page (`store/ranked-listing.ts`, at most 16 listings), so the pages after the first read on from where
+the last one stopped instead of listing every project directory and ranking every newer file again: with 20,000
+sessions the slowest later page fell from 343 ms to 58 ms and a full pass from 21 s to 5 s (measured, warm cache). A first page always ranks afresh. A conversation
+that moves while pages are read (its activity passes the mtime the listing saw) is left off the later pages, where it
+would break their order; it ranks above the cursor now, and the phone has it from the catalog. A search
+(`SessionQuery.search`) reads rows until its page is full or it has read 2,000. Cursors are versioned and bound to the
+read they page and the search (`cursor.ts`, `list-cursor.ts`); a foreign one is `invalid_input`. A row's `cwd` is the asked cwd, so a session started
 in a git worktree lists under the worktree, not under its repository as `listSessions({dir})` would include it
 (`store/list.test.ts`). Archived sessions (`SDKSessionInfo.archived`, set by Claude's apps) are listed like any
 other: the contract has no archive, and hiding them would lose sessions the phone cannot get back.

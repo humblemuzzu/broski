@@ -8,6 +8,7 @@ use broski_contract::{
     ModelsListResult, ModesListResult,
 };
 
+use super::kept::Kept;
 use super::lists::Lists;
 
 /// Entries a cache keeps; past them it starts over. A phone asks for the lists of a handful of
@@ -72,6 +73,15 @@ pub(crate) struct Catalog {
     pub(crate) lists: Lists,
     /// The list of each backend's newest sessions the inbox shows.
     pub(crate) inbox: Vec<(BackendId, u64)>,
+    /// What the inbox searches for, with one list of each backend's sessions that match it.
+    pub(crate) search: Option<InboxSearch>,
+    /// The sessions pinned on this machine, which the inbox shows whether or not a list holds them.
+    pub(crate) kept: Kept,
+}
+
+pub(crate) struct InboxSearch {
+    pub(crate) query: String,
+    pub(crate) lists: Vec<(BackendId, u64)>,
 }
 
 impl Catalog {

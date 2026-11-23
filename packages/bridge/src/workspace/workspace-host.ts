@@ -5,7 +5,8 @@ import { readImageFile } from "./files/image";
 import { listDirectory } from "./files/list";
 import { readFileSlice } from "./files/read";
 import { searchFiles } from "./files/search";
-import { gitBranches, gitDiff, gitLog, gitStatus } from "./git/read";
+import { gitLog } from "./git/log";
+import { gitBranches, gitDiff, gitStatus } from "./git/read";
 import { repositoryRoot } from "./git/repository";
 import { gitCheckout, gitCommit, gitStage, gitUnstage } from "./git/write";
 import { type AllowedPath, allowedDirectory, allowedPath, type PathPolicy } from "./paths";
@@ -52,7 +53,7 @@ function workspaceHost({ policy, bases }: WorkspaceOptions, terminals: Terminals
 			commit: (query) => inRepository(query.cwd, (root) => gitCommit(root, query.message)),
 			branches: (query, limit) => inRepository(query.cwd, (root) => gitBranches(root, limit)),
 			checkout: (query) => inRepository(query.cwd, (root) => gitCheckout(root, query.branch)),
-			log: (query, limit) => inRepository(query.cwd, (root) => gitLog(root, limit)),
+			log: (query, limit) => inRepository(query.cwd, (root) => gitLog(root, query.cursor, limit)),
 		},
 		terminals: {
 			list: () => terminals.list(),

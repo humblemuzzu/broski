@@ -29,6 +29,7 @@ import {
 	aSessionCanBeRead,
 	sessionMutationsShowInTheCatalog,
 	sessionPagesConcatenate,
+	sessionSearchNarrowsTheListing,
 	transcriptPagesConcatenate,
 } from "./rules-sessions";
 import { compactionRuns, modelAndThinkingCanBeSet, modesCanBeSet } from "./rules-settings";
@@ -46,6 +47,7 @@ export const CONFORMANCE_RULES: readonly ConformanceRule[] = [
 	{ name: "commands are listed exactly when declared", check: commandsAreListed },
 	{ name: "modes and their options are consistent", check: modesAreConsistent },
 	{ name: "session pages concatenate newest first inside the requested cwd", check: sessionPagesConcatenate },
+	{ name: "a search keeps the sessions whose title or folder has every word", check: sessionSearchNarrowsTheListing },
 	{ name: "a session can be read by its ref", check: aSessionCanBeRead },
 	{ name: "transcript pages concatenate newest first", check: transcriptPagesConcatenate },
 	{

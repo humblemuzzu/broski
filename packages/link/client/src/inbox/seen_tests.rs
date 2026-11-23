@@ -26,7 +26,11 @@ fn source(status: SessionStatus, updated_at: i64, live: Option<LiveInfo>) -> Inb
         origin: SessionOrigin::Broski,
         source: None,
     };
-    InboxSource { row, live }
+    InboxSource {
+        row,
+        live,
+        pinned: false,
+    }
 }
 
 fn live(working: bool, needs_you: bool) -> LiveInfo {

@@ -1,7 +1,7 @@
 /**
  * How far behind a bridge is on what its holder sends it. `pi` is never made to wait (`holder.ts`), so a bridge that
  * stops reading is dropped rather than buffered for without end. A backlog alone is no sign of that: a tool's progress
- * record may be as large as the JSONL cap (32 MiB, `rpc/jsonl.ts`), and a burst of them outruns any reader for a moment.
+ * record may be as large as the JSONL cap (64 MiB, `rpc/jsonl.ts`), and a burst of them outruns any reader for a moment.
  * A stall is a matter of time: a bridge is dropped when its backlog stays past `soft` for `graceMs` without the socket
  * draining, or passes `hard` at all. What is left of its replay, which it reads first, is not counted.
  */
@@ -16,8 +16,8 @@ export interface BacklogLimits {
 }
 
 export const BACKLOG_LIMITS: BacklogLimits = {
-	soft: 32 * 1024 * 1024,
-	hard: 128 * 1024 * 1024,
+	soft: 64 * 1024 * 1024,
+	hard: 256 * 1024 * 1024,
 	graceMs: 5_000,
 };
 

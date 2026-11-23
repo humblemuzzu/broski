@@ -1,6 +1,6 @@
 /** The session list's keyset cursor (D23), through `cursor.ts`. */
 
-import type { JsonValue, PageCursor, SessionQuery } from "../../../contract";
+import { type JsonValue, type PageCursor, type SessionQuery, searchWords } from "../../../contract";
 import { cursorScope, decodeCursor, encodeCursor } from "../cursor";
 import { isRecord } from "../json";
 import type { Position } from "./enumerate";
@@ -13,7 +13,7 @@ interface Wire {
 }
 
 export function listScope(query: SessionQuery): string {
-	return cursorScope(["sessions", query.cwd ?? "", query.parent?.sessionId ?? ""]);
+	return cursorScope(["sessions", query.cwd ?? "", query.parent?.sessionId ?? "", ...searchWords(query.search ?? "")]);
 }
 
 export function listCursor(scope: string, after: ListPosition): PageCursor {

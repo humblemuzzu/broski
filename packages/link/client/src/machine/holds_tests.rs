@@ -5,6 +5,8 @@ use broski_contract::{
     MAX_PAGE_LIMIT,
 };
 
+use crate::catalog::lists::ListSpec;
+
 use super::holds::MAX_HELD_SESSIONS;
 use super::state::State;
 use super::tests::unreachable;
@@ -35,9 +37,15 @@ fn load(state: &mut State, rows: Vec<SessionSummary>) {
     let query = SessionQuery {
         cwd: None,
         parent: None,
+        search: None,
     };
-    let limit = MAX_PAGE_LIMIT as i64;
-    let id = (state.catalog.lists).create_bounded("pi".to_owned(), query, limit, MAX_PAGE_LIMIT);
+    let id = state.catalog.lists.create_with(ListSpec {
+        backend: "pi".to_owned(),
+        query,
+        limit: MAX_PAGE_LIMIT as i64,
+        capacity: MAX_PAGE_LIMIT,
+        keeps_older: true,
+    });
     state.catalog.inbox.push(("pi".to_owned(), id));
     let list = state.catalog.lists.get_mut(id).expect("the list");
     let (ask, _) = list.ask(false).expect("a first page");
@@ -70,35 +78,41 @@ async fn the_newest_waiting_sessions_are_held_until_their_rows_stop_waiting() {
     let machine = unreachable();
     let shared = machine.shared();
     let mut state = shared.lock();
-    let mut rows: Vec<SessionSummary> = (1..=10)
+    let bound = MAX_HELD_SESSIONS as i64;
+    let mut rows: Vec<SessionSummary> = (1..=bound + 2)
         .map(|index| row(index, SessionStatus::WaitingForUser))
         .collect();
-    rows.push(row(11, SessionStatus::Idle));
+    rows.push(row(bound + 3, SessionStatus::Idle));
     shared.hold_waiting(&mut state);
     assert!(held(&state).is_empty(), "nothing before the rows are in");
 
     load(&mut state, rows);
     shared.hold_waiting(&mut state);
-    assert_eq!(MAX_HELD_SESSIONS, 8);
-    assert_eq!(held(&state), ids(3..=10), "the eight newest waiting");
+    assert_eq!(MAX_HELD_SESSIONS, 16);
+    assert_eq!(
+        held(&state),
+        ids(3..=bound + 2),
+        "the sixteen newest waiting"
+    );
 
     state
         .catalog
         .lists
-        .updated(&row(10, SessionStatus::Running));
+        .updated(&row(bound + 2, SessionStatus::Running));
     shared.hold_waiting(&mut state);
     assert_eq!(
         held(&state),
-        ids(2..=9),
+        ids(2..=bound + 1),
         "one stops waiting, the next oldest takes its place"
     );
 
+    let newest = format!("s{}", bound + 1);
     let refused = state
         .streams
         .held()
         .into_iter()
-        .find(|(_, session)| session.session_id == "s9");
-    let (stream, session) = refused.expect("s9 held");
+        .find(|(_, session)| session.session_id == newest);
+    let (stream, session) = refused.expect("the newest waiting is held");
     let message = "no such session".to_owned();
     state
         .streams
@@ -106,18 +120,18 @@ async fn the_newest_waiting_sessions_are_held_until_their_rows_stop_waiting() {
         .expect("stream")
         .end(ViewEnd::Refused { message });
     shared.hold_waiting(&mut state);
-    let streams_of_s9 = state
+    let streams_of_refused = state
         .streams
         .held()
         .into_iter()
         .filter(|(_, held)| held == &session);
     assert_eq!(
-        streams_of_s9.count(),
+        streams_of_refused.count(),
         1,
         "a refused session is not attached again"
     );
 
-    for index in 1..=10 {
+    for index in 1..=bound + 2 {
         state
             .catalog
             .lists

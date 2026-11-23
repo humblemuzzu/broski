@@ -27,6 +27,7 @@ import uniffi.broski_contract.SessionRef
 import uniffi.broski_core.AnswerOutcome
 import uniffi.broski_core.ClientException
 import uniffi.broski_core.InboxRow
+import uniffi.broski_core.KeptSession
 import uniffi.broski_core.Machine
 import uniffi.broski_core.MachineEvent
 import uniffi.broski_core.Phone
@@ -49,12 +50,16 @@ class PhoneSession internal constructor(
     private val lanRoutes = ConcurrentHashMap<String, List<String>>()
 
     private val rows = MutableStateFlow(inbox.rows())
+    private val more = MutableStateFlow(false)
     private val machineStates = MutableStateFlow<List<MachineState>>(emptyList())
     private val unreadable = MutableStateFlow(unreadableRecords)
     private val catalog = MutableSharedFlow<CatalogChange>(extraBufferCapacity = 16, onBufferOverflow = BufferOverflow.DROP_OLDEST)
 
     /** Needs you, working, done, idle; newest first within each, as the core orders them. */
     val inboxRows: StateFlow<List<InboxRow>> = rows.asStateFlow()
+
+    /** Older sessions are still to load: [loadMore] reads the next page as the person nears the end. */
+    val inboxHasMore: StateFlow<Boolean> = more.asStateFlow()
 
     /** Every paired machine, oldest pairing first. */
     val machines: StateFlow<List<MachineState>> = machineStates.asStateFlow()
@@ -74,6 +79,11 @@ class PhoneSession internal constructor(
     init {
         started.forEach(::watch)
         scope.launch { readInbox() }
+        scope.launch {
+            pinned.collect { keys ->
+                inbox.keep(keys.map { KeptSession(it.machineId, SessionRef(it.backend, it.sessionId)) })
+            }
+        }
     }
 
     /** The machine to open views, terminals and lists on, or to send requests to. */
@@ -145,6 +155,12 @@ class PhoneSession internal constructor(
 
     suspend fun refresh() = inbox.refresh()
 
+    /** The next page of older sessions; returns once it is in. */
+    suspend fun loadMore() = inbox.loadMore()
+
+    /** Searches every Mac's sessions as well as the rows loaded; an empty query ends the search. */
+    fun searchInbox(query: String) = inbox.search(query)
+
     /**
      * The person tapped Approve or Deny on a row: answers its pending ask with [option], which must
      * be that ask's own `allow` or `deny`.
@@ -210,6 +226,7 @@ class PhoneSession internal constructor(
         while (true) {
             val update = inbox.nextChange()
             rows.value = update.rows
+            more.value = update.hasMore
             try {
                 update.seen?.let { vault.saveSeen(it) }
                 update.cache?.let { vault.saveInboxCache(it) }

@@ -1,13 +1,14 @@
 /**
  * The store's reading of a session file against the pinned SDK's own: `SessionManager.list` (pi-coding-agent
- * `src/core/session-manager.ts:799-882`) over the same directory. Title, creation and modification time, cwd and
- * parent are compared field by field; the files avoid U+2028/U+2029, which the SDK's `readline` splits on.
+ * `src/core/session-manager.ts:799-882`) over the same directory. Title (the first prompt's line, cut where every
+ * listing cuts it), creation and modification time, cwd and parent are compared field by field; the files avoid U+2028/U+2029, which the SDK's `readline` splits on.
  */
 
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { utimesSync } from "node:fs";
 import { join } from "node:path";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
+import { TITLE_CHARS } from "../../backends/pi/mapping/prompt-title";
 import { piSessionDirs } from "../../backends/pi/store/session-dir";
 import { SessionIndex } from "../../backends/pi/store/session-index";
 import { createPiTestEnv, type PiTestEnv } from "./helpers/pi-test-env";
@@ -94,6 +95,10 @@ test("title, times, cwd and parent agree with SessionManager.list for every kind
 	const paths = new Map(fixtures().map((builder) => [builder.options.id, writeSession(env.sessionDir, builder)]));
 	utimesSync(paths.get("bad-date") ?? "", new Date(T0 + 50_000), new Date(T0 + 50_000));
 	const oneLine = (text: string) => text.replace(/\s+/g, " ").trim();
+	const title = (text: string) => {
+		const line = oneLine(text);
+		return line.length > TITLE_CHARS ? `${line.slice(0, TITLE_CHARS).trimEnd()}…` : line;
+	};
 
 	const theirs = await SessionManager.list(env.cwd, env.sessionDir);
 	const index = new SessionIndex(piSessionDirs(env.agentDir));
@@ -116,8 +121,7 @@ test("title, times, cwd and parent agree with SessionManager.list for every kind
 			id: info.id,
 			cwd: info.cwd,
 			name: info.name,
-			prompt:
-				info.firstMessage === "(no messages)" ? undefined : oneLine(info.firstMessage).slice(0, 1_024) || undefined,
+			prompt: info.firstMessage === "(no messages)" ? undefined : title(info.firstMessage) || undefined,
 			createdAt: Number.isNaN(info.created.getTime()) ? undefined : info.created.getTime(),
 			updatedAt: info.modified.getTime(),
 			parent: info.parentSessionPath,

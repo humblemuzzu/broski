@@ -80,8 +80,14 @@ struct GitScreen: View {
                     .foregroundStyle(.secondary)
             }
             if !model.commits.isEmpty {
-                Section("Recent Commits") {
+                Section("Commits") {
                     ForEach(model.commits, id: \.hash) { CommitRow(commit: $0) }
+                    if model.olderCommits != nil {
+                        ProgressView()
+                            .frame(maxWidth: .infinity)
+                            .accessibilityLabel("Loading older commits")
+                            .task(id: model.commits.count) { await model.loadOlderCommits() }
+                    }
                 }
             }
         }
@@ -149,7 +155,7 @@ private struct GitSectionHeader: View {
                 if section.area == .staged {
                     await model.unstage(["."])
                 } else {
-                    await model.stage(section.rows.prefix(1000).map(\.path))
+                    await model.stage(section.rows.map(\.path))
                 }
             }
         }

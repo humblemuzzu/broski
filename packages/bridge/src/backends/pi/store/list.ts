@@ -3,16 +3,18 @@
  * first by `(updatedAt desc, sessionId desc)`, paged with a keyset cursor.
  */
 
-import type {
-	JsonValue,
-	PageRequest,
-	Rejected,
-	SessionGetResult,
-	SessionId,
-	SessionQuery,
-	SessionSummary,
-	SessionsListResult,
-	SessionTitle,
+import {
+	type JsonValue,
+	type PageRequest,
+	type Rejected,
+	type SessionGetResult,
+	type SessionId,
+	type SessionQuery,
+	type SessionSummary,
+	type SessionsListResult,
+	type SessionTitle,
+	searchWords,
+	sessionMatches,
 } from "../../../contract";
 import { cursorScope, decodeCursor, encodeCursor } from "../cursor";
 import { parseChildSessionId } from "../ids";
@@ -29,6 +31,8 @@ import type { ToolChildren } from "./tool-children";
 export const NO_LIVE: LiveOverlay = { row: () => undefined };
 
 const SUMMARY_CONCURRENCY = 8;
+/** Rows one page of a search reads at most; past them it ends early with a cursor, so a rare word never stalls a request. */
+const SEARCH_SCAN_ROWS = 2_000;
 
 /** A row as the contract shows it; `parentId` is the parent session's id when the index found it. */
 export function summaryOf(row: IndexedSession, parentId: SessionId | undefined, live: LiveOverlay): SessionSummary {
@@ -93,7 +97,8 @@ export async function listSessions(
 	live: LiveOverlay,
 	toolChildren: ToolChildren,
 ): Promise<SessionsListResult> {
-	const scope = cursorScope(["sessions", query.cwd ?? "", query.parent?.sessionId ?? ""]);
+	const words = searchWords(query.search ?? "");
+	const scope = cursorScope(["sessions", query.cwd ?? "", query.parent?.sessionId ?? "", ...words]);
 	const after =
 		page.cursor === undefined ? undefined : decodeCursor(page.cursor, "sessions", scope, isSessionsPosition);
 	if (page.cursor !== undefined && after === undefined) {
@@ -106,6 +111,7 @@ export async function listSessions(
 	if ("rejection" in listed) return listed;
 	const rows = sortNewestFirst(listed);
 	const remaining = after === undefined ? rows : rows.filter((row) => isOlder(row, after));
+	if (words.length > 0) return searchPage(remaining, words, page.limit, scope);
 	const shown = remaining.slice(0, page.limit);
 	const last = shown.at(-1);
 	const items = await mapPool(shown, SUMMARY_CONCURRENCY, (row) => row.summary());
@@ -115,6 +121,37 @@ export async function listSessions(
 			items,
 			...(last !== undefined &&
 				remaining.length > shown.length && {
+					nextCursor: encodeCursor("sessions", scope, [last.updatedAt, last.sessionId]),
+				}),
+		},
+	};
+}
+
+/** The next `limit` rows that match, newest first; the cursor stands at the last row read, matched or not. */
+async function searchPage(
+	remaining: readonly ListedRow[],
+	words: readonly string[],
+	limit: number,
+	scope: string,
+): Promise<SessionsListResult> {
+	const items: SessionSummary[] = [];
+	let read = 0;
+	while (read < remaining.length && read < SEARCH_SCAN_ROWS && items.length < limit) {
+		const batch = remaining.slice(read, Math.min(remaining.length, read + SUMMARY_CONCURRENCY));
+		const summaries = await mapPool(batch, SUMMARY_CONCURRENCY, (row) => row.summary());
+		for (const summary of summaries) {
+			read += 1;
+			if (sessionMatches(words, summary.title?.text, summary.cwd)) items.push(summary);
+			if (items.length === limit) break;
+		}
+	}
+	const last = remaining[read - 1];
+	return {
+		status: "accepted",
+		page: {
+			items,
+			...(last !== undefined &&
+				read < remaining.length && {
 					nextCursor: encodeCursor("sessions", scope, [last.updatedAt, last.sessionId]),
 				}),
 		},

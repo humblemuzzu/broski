@@ -29,8 +29,12 @@ pub(crate) async fn run(shared: Arc<Shared>, mut stop: oneshot::Receiver<()>) {
             break;
         };
         shared.handle(event).await;
-        shared.hold_waiting(&mut shared.lock());
-        shared.poke_inbox();
+        let mut state = shared.lock();
+        if state.feed_changed() {
+            shared.hold_waiting(&mut state);
+            drop(state);
+            shared.poke_inbox();
+        }
     }
     let mut state = shared.lock();
     shared.end(&mut state, ClientError::Closed);
@@ -132,9 +136,13 @@ impl Shared {
     fn on_catalog(self: &Arc<Self>, state: &mut State, message: CatalogMessage) {
         let backend = message.backend;
         match message.event {
-            CatalogEvent::SessionUpdated(updated) => state.catalog.lists.updated(&updated.summary),
+            CatalogEvent::SessionUpdated(updated) => {
+                state.catalog.lists.updated(&updated.summary);
+                state.catalog.kept.updated(&updated.summary);
+            }
             CatalogEvent::SessionRemoved(removed) => {
                 state.catalog.lists.removed(&removed.session);
+                state.catalog.kept.removed(&removed.session);
                 state.streams.each(|stream| {
                     if stream.session() == &removed.session {
                         stream.end(ViewEnd::Removed);

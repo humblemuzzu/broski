@@ -6,6 +6,7 @@
 
 import { afterEach, describe, expect, test } from "bun:test";
 import { readdirSync } from "node:fs";
+import { defaultHostedSessions } from "../../backends/pi/live/host-capacity";
 import type { LiveSession } from "../../contract/testing/conformance-harness";
 import { LiveRig } from "./helpers/live-rig";
 import { useWatchdog } from "./helpers/use-watchdog";
@@ -20,6 +21,13 @@ afterEach(async () => {
 });
 
 const hosted = (rig: LiveRig, live: LiveSession) => rig.world.parts.hosts.host(live.ref.sessionId) !== undefined;
+
+test("the default room is a tenth of the memory at 250 MB a session, between 8 and 32", () => {
+	const gib = 1_073_741_824;
+	expect([8, 16, 32, 48, 64, 96, 128, 512].map((size) => defaultHostedSessions(size * gib))).toEqual([
+		8, 8, 13, 19, 26, 32, 32, 32,
+	]);
+});
 
 /** Starts a run that stays inside a tool until the session is stopped. */
 async function working(rig: LiveRig, live: LiveSession): Promise<void> {

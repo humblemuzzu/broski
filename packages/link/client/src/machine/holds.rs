@@ -9,8 +9,8 @@ use broski_contract::{SessionRef, SessionStatus};
 use super::state::{Shared, State};
 
 /// Sessions a machine keeps viewed for the inbox, newest first; the rest of its 32 views stay the
-/// app's.
-pub(crate) const MAX_HELD_SESSIONS: usize = 8;
+/// app's. Each costs a snapshot on attach and nothing while it waits.
+pub(crate) const MAX_HELD_SESSIONS: usize = 16;
 
 impl State {
     /// Every inbox list's first page is in.

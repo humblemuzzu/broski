@@ -53,6 +53,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.delay
 import com.muzammil.broski.R
 import com.muzammil.broski.app.SessionRoute
 import com.muzammil.broski.core.InboxFilter
@@ -62,6 +63,7 @@ import com.muzammil.broski.core.PhoneSession
 import com.muzammil.broski.design.GlassSurface
 import com.muzammil.broski.design.Grouped
 import com.muzammil.broski.design.Haptic
+import com.muzammil.broski.design.LoadingOrb
 import com.muzammil.broski.design.MachineStatusChip
 import com.muzammil.broski.design.SoftTopBar
 import com.muzammil.broski.design.perform
@@ -203,8 +205,29 @@ private fun InboxList(
             }
         }
         state.sections.forEach { section -> section(section, state, viewModel, idleShown, onToggleIdle, onOpenSession) }
+        // Older sessions are almost all idle: while Idle is folded they would load out of sight.
+        val idleListed = state.sections.any { it.group == InboxGroup.IDLE }
+        if (state.hasMore && (idleShown || !idleListed)) {
+            item(key = "more", contentType = "more") { LoadingMore(state.rows.size, viewModel::loadMore) }
+        }
     }
 }
+
+/** The end of the rows while older sessions load: a page at a time for as long as it is in view. */
+@Composable
+private fun LoadingMore(rows: Int, loadMore: () -> Unit) {
+    LaunchedEffect(rows) {
+        while (true) {
+            loadMore()
+            delay(LOAD_MORE_PAUSE_MS)
+        }
+    }
+    Box(Modifier.fillMaxWidth().padding(vertical = 16.dp), contentAlignment = Alignment.Center) {
+        LoadingOrb(size = 32.dp, label = stringResource(R.string.inbox_loading_more))
+    }
+}
+
+private const val LOAD_MORE_PAUSE_MS = 300L
 
 private fun LazyListScope.section(
     section: InboxSection,

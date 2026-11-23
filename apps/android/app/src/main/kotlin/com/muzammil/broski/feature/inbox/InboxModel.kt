@@ -44,6 +44,8 @@ data class InboxUiState(
     /** Rows whose answer is on its way ([key]); their actions wait for it. */
     val answering: Set<String> = emptySet(),
     val marks: SessionMarks = SessionMarks(),
+    /** Older sessions are still to load as the person scrolls down. */
+    val hasMore: Boolean = false,
 ) {
     val isEmpty: Boolean get() = sections.isEmpty()
 
@@ -65,6 +67,7 @@ fun inboxUiState(
     refreshing: Boolean,
     answering: Set<String> = emptySet(),
     marks: SessionMarks = SessionMarks(),
+    hasMore: Boolean = false,
 ): InboxUiState = InboxUiState(
     sections = sections(rows, marks.pinned, filter, query),
     health = machines.associate { it.id to it.health },
@@ -78,6 +81,7 @@ fun inboxUiState(
     connecting = machines.any { it.health.settling },
     answering = answering,
     marks = marks,
+    hasMore = hasMore,
 )
 
 /**

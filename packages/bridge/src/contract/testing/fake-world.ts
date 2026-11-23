@@ -14,13 +14,15 @@ import type { ModeAxis } from "../modes";
 import type { SessionGetResult } from "../read-results";
 import type { Rejected } from "../rejection";
 import { emptySnapshot } from "../session-reducer";
-import type {
-	ForkPoint,
-	NewSessionOptions,
-	NewSessionResult,
-	ParentKind,
-	SessionQuery,
-	SessionSummary,
+import {
+	type ForkPoint,
+	type NewSessionOptions,
+	type NewSessionResult,
+	type ParentKind,
+	type SessionQuery,
+	type SessionSummary,
+	searchWords,
+	sessionMatches,
 } from "../sessions";
 import type { SessionSnapshot } from "../snapshot";
 import type { TranscriptItem } from "../transcript";
@@ -119,10 +121,14 @@ export class FakeWorld implements FakeEnvironment {
 	}
 
 	rows(query: SessionQuery): SessionSummary[] {
+		const words = searchWords(query.search ?? "");
 		return [...this.sessions.values()]
 			.map((session) => session.summary)
 			.filter(
-				(row) => (query.cwd === undefined || row.cwd === query.cwd) && sameRef(row.parent?.session, query.parent),
+				(row) =>
+					(query.cwd === undefined || row.cwd === query.cwd) &&
+					sameRef(row.parent?.session, query.parent) &&
+					sessionMatches(words, row.title?.text, row.cwd),
 			);
 	}
 

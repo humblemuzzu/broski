@@ -22,6 +22,8 @@ data class GitUiState(
     val status: GitStatusRead? = null,
     val sections: List<ChangeSection> = emptyList(),
     val log: List<GitCommit> = emptyList(),
+    /** Where the history reads on; null once it reached the first commit. */
+    val olderCommits: String? = null,
     val loading: Boolean = true,
     val failure: WorkspaceFailure? = null,
     /** A stage, unstage, commit or checkout is on its way; another waits for it. */
@@ -86,6 +88,27 @@ class GitViewModel(private val client: WorkspaceClient, val cwd: String) : ViewM
         }
     }
 
+    private var loadingCommits = false
+
+    /** The next page of older commits, one page at a time. */
+    fun loadOlderCommits() {
+        val cursor = state.value.olderCommits ?: return
+        if (loadingCommits) return
+        loadingCommits = true
+        viewModelScope.launch {
+            try {
+                val page = (client.log(cwd, LOG_LIMIT, cursor) as? Answer.Done)?.value ?: return@launch
+                mutableState.update { current ->
+                    if (current.olderCommits != cursor) return@update current
+                    val known = current.log.mapTo(HashSet()) { it.hash }
+                    current.copy(log = current.log + page.commits.filter { it.hash !in known }, olderCommits = page.nextCursor)
+                }
+            } finally {
+                loadingCommits = false
+            }
+        }
+    }
+
     fun loadBranches() {
         mutableState.update { if (it.branchesFailure != null) it.copy(branches = null, branchesFailure = null) else it }
         viewModelScope.launch {
@@ -133,12 +156,15 @@ class GitViewModel(private val client: WorkspaceClient, val cwd: String) : ViewM
             }
             is Answer.Failed -> mutableState.update { it.copy(loading = false, failure = status.failure) }
         }
-        (log.await() as? Answer.Done)?.let { answer -> mutableState.update { it.copy(log = answer.value.commits) } }
+        (log.await() as? Answer.Done)?.let { answer ->
+            mutableState.update { it.copy(log = answer.value.commits, olderCommits = answer.value.nextCursor) }
+        }
     }
 
     private fun Answer<Unit>.failure(): WorkspaceFailure? = (this as? Answer.Failed)?.failure
 
     private companion object {
-        const val LOG_LIMIT = 10L
+        /** Commits a page of the history holds; the next page loads as the end of the list comes into view. */
+        const val LOG_LIMIT = 30L
     }
 }

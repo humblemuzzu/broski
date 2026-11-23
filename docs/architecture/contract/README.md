@@ -286,7 +286,7 @@ SinkRecord    = EventEnvelope without seq and session      // what an adapter em
 
 **Transcript vs live: the merge rule.** A phone attaching mid-run must render the run's finished part, its open part and the history before it, with no duplicate and no gap. Transcript ids cannot be the key: Pi names no entry in its events, only once it has persisted one (pi §5). So the contract splits the two by run instead of by id:
 
-1. **The snapshot carries the active run whole.** `run.items` holds every item the run has finished, oldest first, in the live stream's ids, exactly as `applyEvent` builds them from the events (`run-items.ts`): its user messages, finished blocks, tool calls as they start (completed with their final input and child session when they finish) and tool results (`<toolCallId>:result`). Notices, compaction markers and model changes stay out; the live state already shows them. A retraction removes the retracted messages' items; `session_replaced` empties the list, because what came before belongs to the old session. Past 1,000 items the oldest leave and `run.droppedItems` counts them.
+1. **The snapshot carries the active run whole.** `run.items` holds every item the run has finished, oldest first, in the live stream's ids, exactly as `applyEvent` builds them from the events (`run-items.ts`): its user messages, finished blocks, tool calls as they start (completed with their final input and child session when they finish) and tool results (`<toolCallId>:result`). Notices, compaction markers and model changes stay out; the live state already shows them. A retraction removes the retracted messages' items; `session_replaced` empties the list, because what came before belongs to the old session. Past `MAX_RUN_ITEMS` (2,000) items the oldest leave and `run.droppedItems` counts them; real Pi runs have reached 1,379.
 2. **The transcript holds finished runs only.** While a session open in this bridge has an active run, `readTranscript` ends just before that run's first item. Each backend knows where its run starts: CC the first chain entry after the send (CC D26), Pi the leaf at run start (pi §4).
 3. **At `run_finished` the phone re-reads the transcript's newest page** and replaces the run's live rendering with it.
 
@@ -406,7 +406,9 @@ Rejection { code: busy|not_steerable|no_model|auth|invalid_input|unsupported|not
 
 ### 11.1 Sessions
 
-`SessionSummary { session, title?{text, source: user|generated|first_prompt}, cwd?, createdAt?, updatedAt, parent?{kind: fork|subagent, session}, modelId?, status, origin: broski|external, source? }`, listed newest-updated first by `listSessions(SessionQuery{cwd?, parent?}, PageRequest)`. `status` is `idle | running | waiting_for_user | unknown`.
+`SessionSummary { session, title?{text, source: user|generated|first_prompt}, cwd?, createdAt?, updatedAt, parent?{kind: fork|subagent, session}, modelId?, status, origin: broski|external, source? }`, listed newest-updated first by `listSessions(SessionQuery{cwd?, parent?, search?}, PageRequest)`. `status` is `idle | running | waiting_for_user | unknown`.
+
+`search` (1–`MAX_SEARCH_QUERY_CHARS`) narrows the listing to the sessions with every word of it, ignoring case, in the title or in the last component of `cwd`: `searchWords` and `sessionMatches` in `sessions.ts` are the one definition, which the phone core ports. A search reads rows until its page is full or it has read a bound of them (2,000 in both adapters), so a page of a search may hold fewer rows than asked, none at all, and still carry a `nextCursor`; a client reads on while there is one. A cursor belongs to its search: another search refuses it `invalid_input`. Conformance: `sessionSearchNarrowsTheListing`.
 
 | Field | Claude Code (CC D23) | Pi (pi §3) |
 |---|---|---|
@@ -651,7 +653,6 @@ The brief names proposals and says to refine them. These are the places the cont
 - **Background-task control**: backgrounding a running tool, a task's stop affordance.
 - **Catalogs** beyond models, commands and modes: Pi's global vs project scope (pi §13), auth and login flows (CC D7).
 - **Taking over a session another client runs** (resuming a terminal-owned CC or Pi session interleaves writers, CC D28, pi §11): such a session stays watch-only.
-- **Title search** in `SessionQuery`: CC and Pi would need the bridge index. An additive field later.
 
 ## 18. Open questions
 
@@ -709,7 +710,7 @@ Every answer is `{type: "<type>.result", requestId, result}` with `result` an ac
 | `git.commit{cwd, message}` | `GitCommitted{commit{hash, subject, author, authoredAt}}`: commits what is staged |
 | `git.branches{cwd}` | `GitBranchesListed{branches[{name, remote, current, upstream?}], truncated}`: local branches first, a remote one named with its remote (`origin/main`) |
 | `git.checkout{cwd, branch}` | `GitCheckedOut{branch}`: a local branch, or a remote branch's name without its remote, which makes the local branch tracking it |
-| `git.log{cwd, limit?}` | `GitLogRead{commits[]}`: the current branch's newest, 1–200, 200 when absent |
+| `git.log{cwd, cursor?, limit?}` | `GitLogRead{commits[], nextCursor?}`: the current branch's commits newest first, 1–200 a page, 200 when absent. The cursor holds the head the first page read and how many commits are behind, so later pages walk the same history while new commits land; `nextCursor` is absent at the first commit |
 | `term.list{}` | `TerminalsListed{terminals[TerminalSummary]}`, newest first; `TerminalSummary{id, cwd, cols, rows, createdAt, status: running\|exited, exitCode?, signal?}` |
 | `term.open{cwd, cols, rows, cellWidth?, cellHeight?}` | `TerminalOpened{terminal}`: the user's login shell in `cwd`, sized in cells and, when the cell size is given, in pixels (programs read both, image protocols the pixels) |
 | `term.attach{id, since?}` | `TerminalAttached{terminal, seq, data}`, then live `term_output` (§20.2) |
@@ -737,7 +738,7 @@ Every git request names a directory inside the repository; the bridge runs git i
 | One `fs.read` | `MAX_FILE_READ_BYTES` 3 MiB; `content` at most `MAX_IMAGE_CHARS` (base64 of it) |
 | A search query | `MAX_SEARCH_QUERY_CHARS`, 256 |
 | A diff | `MAX_DIFF_LINES` (20,000) lines, `MAX_TEXT_CHARS` characters of line text, `MAX_LIST_ITEMS` files; cut at a whole line, with `truncated` |
-| Status lists, branches | `MAX_LIST_ITEMS` each, with `truncated` |
+| Status lists, branches | `MAX_GIT_ENTRIES` (10,000) each, with `truncated`; an answer past the link's frame is read again smaller (core README §22) |
 | Paths a request names, `git.stage`/`git.unstage` | `MAX_PATH_CHARS` each; 1–1,000 of them |
 | Terminals | `MAX_TERMINALS` 20; columns, rows and cell pixels 1–`MAX_TERMINAL_DIMENSION` (500) |
 | Terminal output | `MAX_TERMINAL_OUTPUT_BYTES` 512 KiB a replay (`MAX_TERMINAL_OUTPUT_CHARS` of base64); a `term_output` carries at most 64 KiB |

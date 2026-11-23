@@ -13,11 +13,15 @@ final class GitModel {
         case failed(WorkspaceProblem)
     }
 
-    static let logLimit: Int64 = 10
+    /// Commits a page of the history holds; the next page loads as the end of the list comes into view.
+    static let logLimit: Int64 = 30
 
     let cwd: String
     private(set) var phase: Phase = .loading
     private(set) var commits: [GitCommit] = []
+    /// Where the history reads on; nil once it reached the first commit.
+    private(set) var olderCommits: String?
+    @ObservationIgnored private var loadingCommits = false
     private(set) var isChanging = false
     /// What the last change could not do, in git's words.
     private(set) var problem: WorkspaceProblem?
@@ -47,12 +51,28 @@ final class GitModel {
         do throws(WorkspaceProblem) {
             let status = try await requests.status(cwd: cwd)
             phase = .loaded(status)
-            commits = (try? await requests.log(cwd: cwd, limit: Self.logLimit)) ?? commits
+            if let page = try? await requests.log(cwd: cwd, limit: Self.logLimit) {
+                commits = page.commits
+                olderCommits = page.nextCursor
+            }
         } catch let problem where problem.isNotRepository {
             phase = .notRepository
         } catch {
             phase = .failed(error)
         }
+    }
+
+    /// The next page of older commits, one page at a time.
+    func loadOlderCommits() async {
+        guard let cursor = olderCommits, !loadingCommits else { return }
+        loadingCommits = true
+        defer { loadingCommits = false }
+        guard let page = try? await requests.log(cwd: cwd, cursor: cursor, limit: Self.logLimit),
+            olderCommits == cursor
+        else { return }
+        let known = Set(commits.map(\.hash))
+        commits += page.commits.filter { !known.contains($0.hash) }
+        olderCommits = page.nextCursor
     }
 
     func stage(_ paths: [String]) async {

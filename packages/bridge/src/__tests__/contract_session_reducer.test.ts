@@ -4,7 +4,7 @@ import {
 	applyEvent,
 	emptySnapshot,
 	type Interaction,
-	MAX_LIST_ITEMS,
+	MAX_RUN_ITEMS,
 	MAX_TEXT_CHARS,
 	SessionSnapshot,
 	sessionStatus,
@@ -168,14 +168,14 @@ describe("applyEvent", () => {
 	});
 
 	test("the active run drops its oldest items past the bound and counts them", () => {
-		const messages: AgentEvent[] = Array.from({ length: MAX_LIST_ITEMS + 2 }, (_, index) => ({
+		const messages: AgentEvent[] = Array.from({ length: MAX_RUN_ITEMS + 2 }, (_, index) => ({
 			type: "user_message",
 			messageId: `u${index}`,
 			text: "more",
 			attachments: [],
 		}));
 		const state = reduce([{ type: "run_started", runId: "r1", trigger: "prompt" }, ...messages]);
-		expect(state.run?.items.length).toBe(MAX_LIST_ITEMS);
+		expect(state.run?.items.length).toBe(MAX_RUN_ITEMS);
 		expect(state.run?.droppedItems).toBe(2);
 		expect(state.run?.items[0]).toMatchObject({ id: "u2" });
 	});

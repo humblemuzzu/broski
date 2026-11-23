@@ -37,6 +37,7 @@ import uniffi.broski_contract.GitStageResponse
 import uniffi.broski_contract.GitStatusRead
 import uniffi.broski_contract.GitStatusResponse
 import uniffi.broski_contract.GitStatusResult
+import uniffi.broski_contract.GitUnstageResponse
 import uniffi.broski_contract.RejectionCode
 import uniffi.broski_contract.ServerMessage
 
@@ -48,13 +49,24 @@ class GitViewModelTest {
     private var unstaged = listOf(GitFileChange("README.md", null, GitChange.MODIFIED, 2L, 1L))
     private var untracked = listOf("notes/todo.txt")
     private val commit = GitCommit("0e7307d1c2", "first commit", "Broski", 0L)
+    private var history = listOf(commit)
 
     private val bridge = FakeBridge { message ->
         when (message) {
             is ClientMessage.GitStatus -> ServerMessage.GitStatusResult(
                 GitStatusResponse("1", GitStatusResult.Accepted(GitStatusRead("/repo", "main", "0e7307d", null, staged, unstaged, untracked, false))),
             )
-            is ClientMessage.GitLog -> ServerMessage.GitLogResult(GitLogResponse("1", GitLogResult.Accepted(GitLogRead(listOf(commit)))))
+            is ClientMessage.GitLog -> {
+                val start = message.v1.cursor?.removePrefix("at-")?.toInt() ?: 0
+                val end = minOf(history.size, start + (message.v1.limit ?: 30L).toInt())
+                val next = if (end < history.size) "at-$end" else null
+                ServerMessage.GitLogResult(GitLogResponse("1", GitLogResult.Accepted(GitLogRead(history.subList(start, end), next))))
+            }
+            is ClientMessage.GitUnstage -> {
+                unstaged = unstaged + staged.filter { it.path in message.v1.paths }
+                staged = staged.filterNot { it.path in message.v1.paths }
+                ServerMessage.GitUnstageResult(GitUnstageResponse("1", ActionResult.Accepted(ActionAccepted())))
+            }
             is ClientMessage.GitStage -> {
                 staged = staged + unstaged.filter { it.path in message.v1.paths }
                 unstaged = unstaged.filterNot { it.path in message.v1.paths }
@@ -103,6 +115,34 @@ class GitViewModelTest {
         assertEquals(listOf("README.md"), bridge.requests.filterIsInstance<ClientMessage.GitStage>().single().v1.paths)
         assertEquals(listOf(Area.Staged, Area.Untracked), git.state.value.sections.map { it.area })
         assertFalse(git.state.value.busy)
+    }
+
+    @Test
+    fun stagingMoreThanARequestCarriesSendsThemInBatches() = runTest(dispatcher) {
+        unstaged = (0 until 2_500).map { GitFileChange("file$it.txt", null, GitChange.MODIFIED, 1L, 0L) }
+        val git = GitViewModel(WorkspaceClient(bridge), "/repo/src")
+        advanceUntilIdle()
+        git.stage(unstaged.map { it.path })
+        advanceUntilIdle()
+        val batches = bridge.requests.filterIsInstance<ClientMessage.GitStage>().map { it.v1.paths.size }
+        assertEquals(listOf(1_000, 1_000, 500), batches)
+        assertEquals(2_500, git.state.value.status?.staged?.size)
+    }
+
+    @Test
+    fun olderCommitsLoadAPageAtATimeToTheFirstCommit() = runTest(dispatcher) {
+        history = (0 until 70).map { GitCommit("%040x".format(it), "commit $it", "Broski", 0L) }
+        val git = GitViewModel(WorkspaceClient(bridge), "/repo/src")
+        advanceUntilIdle()
+        assertEquals(30, git.state.value.log.size)
+        git.loadOlderCommits()
+        git.loadOlderCommits()
+        advanceUntilIdle()
+        assertEquals(60, git.state.value.log.size)
+        git.loadOlderCommits()
+        advanceUntilIdle()
+        assertEquals(history.map { it.subject }, git.state.value.log.map { it.subject })
+        assertEquals(null, git.state.value.olderCommits)
     }
 
     @Test

@@ -7,6 +7,8 @@ import com.muzammil.broski.core.InboxFilters
 import com.muzammil.broski.core.PhoneSession
 import com.muzammil.broski.core.SessionMark
 import com.muzammil.broski.core.sessionKey
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -32,9 +34,9 @@ class InboxViewModel(private val phone: PhoneSession, private val filters: Inbox
     private val view = combine(filters.filter, query, refreshing, ::Triple)
 
     val state: StateFlow<InboxUiState> =
-        combine(phone.inboxRows, phone.machines, view, combine(answering, marks, ::Pair)) {
-                rows, machines, (filter, searched, pulling), (sending, marked) ->
-            inboxUiState(rows, machines, filter, searched, pulling, sending, marked)
+        combine(phone.inboxRows, phone.machines, view, combine(answering, marks, phone.inboxHasMore, ::Triple)) {
+                rows, machines, (filter, searched, pulling), (sending, marked, hasMore) ->
+            inboxUiState(rows, machines, filter, searched, pulling, sending, marked, hasMore)
         }.stateIn(
             viewModelScope,
             SharingStarted.WhileSubscribed(5_000),
@@ -62,8 +64,34 @@ class InboxViewModel(private val phone: PhoneSession, private val filters: Inbox
         }
     }
 
+    private var searching: Job? = null
+    private var loadingMore = false
+
+    /** Filters the rows at once, and searches every Mac's sessions a moment after the person stops typing. */
     fun search(text: String) {
         query.value = text
+        searching?.cancel()
+        if (text.isBlank()) {
+            phone.searchInbox("")
+            return
+        }
+        searching = viewModelScope.launch {
+            delay(SEARCH_PAUSE_MS)
+            phone.searchInbox(text.trim())
+        }
+    }
+
+    /** The next page of older sessions, one at a time. */
+    fun loadMore() {
+        if (loadingMore || !phone.inboxHasMore.value) return
+        loadingMore = true
+        viewModelScope.launch {
+            try {
+                phone.loadMore()
+            } finally {
+                loadingMore = false
+            }
+        }
     }
 
     fun setFilter(filter: InboxFilter) = filters.set(filter)
@@ -108,5 +136,9 @@ class InboxViewModel(private val phone: PhoneSession, private val filters: Inbox
             }
             answerEvents.emit(answer)
         }
+    }
+
+    private companion object {
+        const val SEARCH_PAUSE_MS = 250L
     }
 }

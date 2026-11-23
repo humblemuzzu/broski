@@ -49,6 +49,7 @@ pub(crate) struct StreamState {
 }
 
 /// What the inbox reads from a session this phone views.
+#[derive(Clone, PartialEq)]
 pub(crate) struct LiveInfo {
     pub(crate) ask: Option<String>,
     pub(crate) command: Option<String>,

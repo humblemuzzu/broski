@@ -11,8 +11,11 @@ const BLOCK_BYTES = 1 << 20;
 /** How many leading bytes of a line a visitor sees: an entry's type, ids and role all sit in the first 200. */
 const HEAD_BYTES = 512;
 
-/** A line longer than this is never read whole, so a corrupt or hostile file cannot make the bridge allocate its size. */
-const MAX_LINE_BYTES = 16 * 1024 * 1024;
+/**
+ * A line longer than this is never read whole, so a corrupt or hostile file cannot make the bridge allocate its size.
+ * Real tool results reach tens of megabytes (36 MB has been seen), and one that size parses in about 40 ms.
+ */
+export const MAX_LINE_BYTES = 64 * 1024 * 1024;
 
 export interface ScannedLine {
 	readonly offset: number;

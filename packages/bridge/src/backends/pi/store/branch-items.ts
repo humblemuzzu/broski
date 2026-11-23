@@ -4,11 +4,12 @@
  */
 
 import type { SessionRef, ToolCallId, TranscriptItem } from "../../../contract";
-import { childSessionId, storedToolCallId } from "../ids";
+import { childSessionId, entryItemId, isUsableEntryId, storedToolCallId } from "../ids";
 import type { EntryContext } from "../mapping/message-items";
 import { subRunsOf } from "../mapping/sub-runs";
 import type { SessionEntry } from "./entries";
 import { type EntrySpan, readEntries, type SessionFileIndex } from "./jsonl-reader";
+import { MAX_LINE_BYTES } from "./line-scanner";
 
 interface AnsweredCall {
 	readonly toolCallId: ToolCallId;
@@ -21,6 +22,16 @@ const PREFETCH_ENTRIES = 16;
 const PREFETCH_BYTES = 4 * 1024 * 1024;
 const CACHE_BYTES = 2 * PREFETCH_BYTES;
 const RESULTS_LOOK_AHEAD = 8;
+
+function tooLarge(span: EntrySpan): TranscriptItem {
+	const megabytes = Math.ceil(span.length / 1_048_576);
+	return {
+		kind: "notice",
+		id: entryItemId(span.entryId, 0),
+		level: "warning",
+		text: `An entry of ${megabytes} MB is too large to show here; it is in the session file.`,
+	};
+}
 
 export class BranchItems {
 	/** Entries read so far, oldest use first, at most `CACHE_BYTES` of their lines: a page reads each entry once. */
@@ -38,10 +49,12 @@ export class BranchItems {
 		return this.branch.findIndex((span) => span.entryId === entryId);
 	}
 
-	/** The items of the entry at `position`, oldest first; none for an entry that cannot be read. */
+	/** The items of the entry at `position`, oldest first; none for an entry that cannot be read, a notice for one too large to. */
 	async itemsAt(position: number): Promise<TranscriptItem[]> {
 		const entry = await this.entryAt(position, true);
-		return entry === undefined ? [] : this.itemsOf(entry, await this.contextOf(position, entry));
+		if (entry !== undefined) return this.itemsOf(entry, await this.contextOf(position, entry));
+		const span = this.branch[position];
+		return span !== undefined && span.length > MAX_LINE_BYTES && isUsableEntryId(span.entryId) ? [tooLarge(span)] : [];
 	}
 
 	/** With `prefetch`, the entries just below `position` are read with it, as a page walking down will want them next. */

@@ -26,7 +26,7 @@ import { CLOSED, rejected } from "../rejections";
 import { sessionName } from "../session-name";
 import type { TerminalRegistry } from "../terminal/registry";
 import { BusyReport } from "./busy-report";
-import { MAX_HOSTED_SESSIONS, makeRoom } from "./host-capacity";
+import { defaultHostedSessions, makeRoom } from "./host-capacity";
 import type { HostEnvironment, HostStart } from "./host-environment";
 import { adoptedStart, adoptLeftHolders, attachHolder, launchedStart, type Target } from "./host-starts";
 import { factsOf } from "./hosted-session";
@@ -48,7 +48,7 @@ export interface SessionHostsDeps {
 	readonly store: SessionStore;
 	readonly catalog: CatalogFeed;
 	readonly now: () => number;
-	/** How many `pi` processes may be hosted at once; `MAX_HOSTED_SESSIONS` when not given. */
+	/** How many `pi` processes may be hosted at once; `defaultHostedSessions()` when not given. */
 	readonly maxHosted?: number;
 	/** `isBusy(sessionId)` changed, for a terminal that has the session open (`terminal/`). */
 	readonly busyChanged?: (sessionId: SessionId, busy: boolean) => void;
@@ -300,7 +300,7 @@ export class SessionHosts implements LiveOverlay {
 		const adopted = await this.adoptHolder(target.sessionId);
 		if (adopted !== undefined) return adopted;
 		if (!this.deps.install.cli.found) return rejected("backend_error", this.deps.install.cli.reason);
-		const crowded = await makeRoom(this.hosts, this.locks, this.deps.maxHosted ?? MAX_HOSTED_SESSIONS);
+		const crowded = await makeRoom(this.hosts, this.locks, this.deps.maxHosted ?? defaultHostedSessions());
 		if (crowded !== undefined) return crowded;
 		if (this.disposing) return CLOSED;
 		const start = await launchedStart(this.deps, target, { permissions, facts });

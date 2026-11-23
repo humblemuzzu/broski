@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
 use broski_client as client;
-use broski_client::{AnswerOutcome, ClientError, InboxRow, InboxUpdate, PendingAsk, SeenState};
+use broski_client::{
+    AnswerOutcome, ClientError, InboxRow, InboxUpdate, KeptSession, PendingAsk, SeenState,
+};
 use broski_contract::{
     InteractionId, InteractionKind, PermissionOption, RejectionCode, SessionRef,
 };
@@ -27,6 +29,23 @@ impl Inbox {
     /// dial dial now; returns once the reloads are answered.
     pub async fn refresh(&self) {
         self.0.refresh().await;
+    }
+
+    /// The next page of older sessions, as the person nears the end of the rows; returns once it is
+    /// in. `InboxUpdate.has_more` says whether any remain.
+    pub async fn load_more(&self) {
+        self.0.load_more().await;
+    }
+
+    /// Searches every machine's sessions, every word in a session's title or folder; the matches join
+    /// the rows as each machine answers. An empty query ends the search.
+    pub fn search(&self, query: String) {
+        self.0.search(query);
+    }
+
+    /// The sessions the person pinned: each shows whether or not the loaded rows reach it.
+    pub fn keep(&self, sessions: Vec<KeptSession>) {
+        self.0.keep(sessions);
     }
 
     /// The person opened or left the session: it is not `Done` again until something happens.

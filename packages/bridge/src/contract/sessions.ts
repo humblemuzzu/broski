@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ModelId, SessionRef, Timestamp, TranscriptItemId } from "./ids";
-import { MAX_LIST_ITEMS, MAX_NAME_CHARS, MAX_PATH_CHARS } from "./limits";
+import { MAX_LIST_ITEMS, MAX_NAME_CHARS, MAX_PATH_CHARS, MAX_SEARCH_QUERY_CHARS } from "./limits";
 import { ModeSetting } from "./modes";
 import { MAX_PAGE_LIMIT, PageCursor } from "./paging";
 import { Rejected } from "./rejection";
@@ -46,12 +46,39 @@ export const SessionSummary = z.strictObject({
 });
 export type SessionSummary = z.infer<typeof SessionSummary>;
 
-/** Newest updated first. `parent` lists that session's children. */
+/**
+ * Newest updated first. `parent` lists that session's children. `search` keeps the sessions every word
+ * of which appears in their title or the name of their working directory, ignoring case (`sessionMatches`).
+ */
 export const SessionQuery = z.strictObject({
 	cwd: WorkingDirectory.optional(),
 	parent: SessionRef.optional(),
+	search: z.string().min(1).max(MAX_SEARCH_QUERY_CHARS).optional(),
 });
 export type SessionQuery = z.infer<typeof SessionQuery>;
+
+/** The words of a `search`, lowercased; none for a search of only whitespace. */
+export function searchWords(search: string): string[] {
+	return search
+		.toLowerCase()
+		.split(/\s+/u)
+		.filter((word) => word.length > 0);
+}
+
+/**
+ * Whether every word appears in the title or the working directory's name (its last component), ignoring
+ * case: a search for a project finds its sessions, and one for `users` does not find every session.
+ */
+export function sessionMatches(words: readonly string[], title: string | undefined, cwd: string | undefined): boolean {
+	if (words.length === 0) return true;
+	const folder =
+		cwd
+			?.split("/")
+			.filter((part) => part !== "")
+			.at(-1) ?? "";
+	const haystack = `${title ?? ""}\n${folder}`.toLowerCase();
+	return words.every((word) => haystack.includes(word));
+}
 
 export const SessionPage = z.strictObject({
 	items: z.array(SessionSummary).max(MAX_PAGE_LIMIT),

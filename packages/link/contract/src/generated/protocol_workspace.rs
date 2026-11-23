@@ -250,6 +250,9 @@ pub struct GitLogRequest {
     pub cwd: WorkingDirectory,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "crate::codec::present")]
+    pub cursor: Option<PageCursor>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "crate::codec::present")]
     pub limit: Option<i64>,
 }
 

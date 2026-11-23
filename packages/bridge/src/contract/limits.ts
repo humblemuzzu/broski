@@ -21,6 +21,10 @@ export const MAX_TERMINAL_OUTPUT_CHARS = 4 * Math.ceil(MAX_TERMINAL_OUTPUT_BYTES
 export const MAX_TERMINAL_INPUT_BYTES = 65_536;
 export const MAX_TERMINAL_INPUT_CHARS = 4 * Math.ceil(MAX_TERMINAL_INPUT_BYTES / 3);
 export const MAX_LIST_ITEMS = 1_000;
+/** Items an active run keeps; older ones are counted in `droppedItems` and return with the transcript. */
+export const MAX_RUN_ITEMS = 2_000;
+/** Paths of one git status list, and branches: a large refactor or monorepo goes past `MAX_LIST_ITEMS`. */
+export const MAX_GIT_ENTRIES = 10_000;
 /** Nesting of free JSON such as tool input: deeper than any real input, far shallower than a stack. */
 export const MAX_JSON_DEPTH = 64;
 export const MAX_CATALOG_ITEMS = 10_000;

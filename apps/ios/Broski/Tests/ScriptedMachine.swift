@@ -50,7 +50,7 @@ final class ScriptedMachine {
                     untracked: [], truncated: false)
                 return .gitStatusResult(GitStatusResponse(requestId: request.requestId, result: .accepted(status)))
             case .gitLog(let request):
-                return .gitLogResult(GitLogResponse(requestId: request.requestId, result: .accepted(GitLogRead(commits: log))))
+                return .gitLogResult(GitLogResponse(requestId: request.requestId, result: .accepted(GitLogRead(commits: log, nextCursor: nil))))
             case .gitStage(let request):
                 staged = true
                 return .gitStageResult(GitStageResponse(requestId: request.requestId, result: .accepted(ActionAccepted())))

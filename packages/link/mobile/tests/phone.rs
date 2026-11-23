@@ -292,6 +292,7 @@ async fn an_app_pairs_chats_and_finds_it_all_again_after_a_restart() {
     let query = SessionQuery {
         cwd: Some(mac.root_text()),
         parent: None,
+        search: None,
     };
     let list = machine
         .session_list("pi".to_owned(), query)

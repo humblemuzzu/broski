@@ -145,6 +145,16 @@ class VtTerminalTest {
     }
 
     @Test
+    fun theScrollbackHoldsWhatAReattachReplaysAtAPhonesWidth() {
+        VtTerminal(cols = 50, rows = 30).use { phone ->
+            phone.write((0 until 9_000).joinToString("") { "line $it ${"x".repeat(30)}\r\n" }.toByteArray())
+            val kept = phone.text().lines().filter { it.startsWith("line ") }
+            assertEquals("line 0 ${"x".repeat(30)}", kept.first())
+            assertEquals(9_000, kept.size)
+        }
+    }
+
+    @Test
     fun aResetClearsTheScreen() {
         write("gone")
         terminal.reset()

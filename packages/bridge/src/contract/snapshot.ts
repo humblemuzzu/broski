@@ -5,7 +5,7 @@ import { BlockKind, FileChange } from "./content";
 import { BlockId, MessageId, ModelId, RunId, SessionRef, Timestamp, ToolCallId } from "./ids";
 import { Interaction } from "./interactions";
 import { JsonValue } from "./json";
-import { MAX_LIST_ITEMS, MAX_NAME_CHARS, MAX_TEXT_CHARS } from "./limits";
+import { MAX_LIST_ITEMS, MAX_NAME_CHARS, MAX_RUN_ITEMS, MAX_TEXT_CHARS } from "./limits";
 import { ModeSetting } from "./modes";
 import { QueueItem } from "./queue";
 import { RunOutcome, RunTrigger } from "./runs";
@@ -21,7 +21,7 @@ export const ActiveRun = z.strictObject({
 	runId: RunId,
 	trigger: RunTrigger,
 	startedAt: Timestamp,
-	items: z.array(TranscriptItem).max(MAX_LIST_ITEMS),
+	items: z.array(TranscriptItem).max(MAX_RUN_ITEMS),
 	droppedItems: z.int().nonnegative(),
 });
 export type ActiveRun = z.infer<typeof ActiveRun>;

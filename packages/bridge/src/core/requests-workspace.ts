@@ -11,7 +11,7 @@ import {
 	type GitLogResult,
 	type GitStatusResult,
 	MAX_FILE_READ_BYTES,
-	MAX_LIST_ITEMS,
+	MAX_GIT_ENTRIES,
 	MAX_PAGE_LIMIT,
 	MAX_TEXT_CHARS,
 	type WorkspaceInfoResult,
@@ -48,7 +48,7 @@ export const fsSearch = fitted<"fs.search", FsSearchResult>(
 
 export const gitStatus = fitted<"git.status", GitStatusResult>(
 	(request, result) => ({ type: "git.status.result", requestId: request.requestId, result }),
-	() => MAX_LIST_ITEMS,
+	() => MAX_GIT_ENTRIES,
 	({ workspace, request }, limit) => workspace.git.status(request, limit),
 );
 
@@ -75,7 +75,7 @@ export const gitCommit = served<"git.commit", GitCommitResult>(
 
 export const gitBranches = fitted<"git.branches", GitBranchesResult>(
 	(request, result) => ({ type: "git.branches.result", requestId: request.requestId, result }),
-	() => MAX_LIST_ITEMS,
+	() => MAX_GIT_ENTRIES,
 	({ workspace, request }, limit) => workspace.git.branches(request, limit),
 );
 

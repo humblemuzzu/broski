@@ -33,7 +33,11 @@ impl Shared {
             let Some(shared) = shared.upgrade().filter(|_| listed) else {
                 return;
             };
-            let lists = shared.lock().catalog.lists.ids();
+            let lists = {
+                let mut state = shared.lock();
+                state.catalog.kept.forget_reads();
+                state.catalog.lists.ids()
+            };
             for list in lists {
                 shared.spawn_page(list, true);
             }

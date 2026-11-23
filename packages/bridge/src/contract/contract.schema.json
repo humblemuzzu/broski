@@ -95,7 +95,7 @@
           "$ref": "#/$defs/Timestamp"
         },
         "items": {
-          "maxItems": 1000,
+          "maxItems": 2000,
           "type": "array",
           "items": {
             "$ref": "#/$defs/TranscriptItem"
@@ -2906,7 +2906,7 @@
           "const": "accepted"
         },
         "branches": {
-          "maxItems": 1000,
+          "maxItems": 10000,
           "type": "array",
           "items": {
             "$ref": "#/$defs/GitBranch"
@@ -3455,6 +3455,9 @@
           "items": {
             "$ref": "#/$defs/GitCommit"
           }
+        },
+        "nextCursor": {
+          "$ref": "#/$defs/PageCursor"
         }
       },
       "required": [
@@ -3477,6 +3480,9 @@
         },
         "cwd": {
           "$ref": "#/$defs/WorkingDirectory"
+        },
+        "cursor": {
+          "$ref": "#/$defs/PageCursor"
         },
         "limit": {
           "type": "integer",
@@ -3607,21 +3613,21 @@
           "$ref": "#/$defs/GitUpstream"
         },
         "staged": {
-          "maxItems": 1000,
+          "maxItems": 10000,
           "type": "array",
           "items": {
             "$ref": "#/$defs/GitFileChange"
           }
         },
         "unstaged": {
-          "maxItems": 1000,
+          "maxItems": 10000,
           "type": "array",
           "items": {
             "$ref": "#/$defs/GitFileChange"
           }
         },
         "untracked": {
-          "maxItems": 1000,
+          "maxItems": 10000,
           "type": "array",
           "items": {
             "$ref": "#/$defs/FilePath"
@@ -7200,6 +7206,11 @@
         },
         "parent": {
           "$ref": "#/$defs/SessionRef"
+        },
+        "search": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
         }
       },
       "additionalProperties": false

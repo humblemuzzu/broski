@@ -213,6 +213,9 @@ pub struct GitFileChange {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct GitLogRead {
     pub commits: Vec<GitCommit>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "crate::codec::present")]
+    pub next_cursor: Option<PageCursor>,
 }
 
 impl crate::Tagged for GitLogRead {

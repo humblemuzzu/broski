@@ -62,17 +62,31 @@ struct WorkspaceRequests {
         }
     }
 
+    /// The contract's `MAX_LIST_ITEMS`: the bridge refuses a request carrying a longer list.
+    static let pathsPerRequest = 1000
+
+    /// Stages `paths`, as many requests as the bound on one request's paths takes, stopping at the first refused.
     func stage(cwd: String, paths: [String]) async throws(WorkspaceProblem) {
-        _ = try await ask(.gitStage(GitStageRequest(requestId: "", cwd: cwd, paths: paths))) {
-            (answer) -> ActionResult? in
-            if case .gitStageResult(let answer) = answer { answer.result } else { nil }
+        for batch in Self.batches(paths) {
+            _ = try await ask(.gitStage(GitStageRequest(requestId: "", cwd: cwd, paths: batch))) {
+                (answer) -> ActionResult? in
+                if case .gitStageResult(let answer) = answer { answer.result } else { nil }
+            }
         }
     }
 
     func unstage(cwd: String, paths: [String]) async throws(WorkspaceProblem) {
-        _ = try await ask(.gitUnstage(GitUnstageRequest(requestId: "", cwd: cwd, paths: paths))) {
-            (answer) -> ActionResult? in
-            if case .gitUnstageResult(let answer) = answer { answer.result } else { nil }
+        for batch in Self.batches(paths) {
+            _ = try await ask(.gitUnstage(GitUnstageRequest(requestId: "", cwd: cwd, paths: batch))) {
+                (answer) -> ActionResult? in
+                if case .gitUnstageResult(let answer) = answer { answer.result } else { nil }
+            }
+        }
+    }
+
+    private static func batches(_ paths: [String]) -> [[String]] {
+        stride(from: 0, to: paths.count, by: pathsPerRequest).map {
+            Array(paths[$0..<min($0 + pathsPerRequest, paths.count)])
         }
     }
 
@@ -96,10 +110,12 @@ struct WorkspaceRequests {
         }.branch
     }
 
-    func log(cwd: String, limit: Int64) async throws(WorkspaceProblem) -> [GitCommit] {
-        try await ask(.gitLog(GitLogRequest(requestId: "", cwd: cwd, limit: limit))) { (answer) -> GitLogResult? in
+    /// A page of the current branch's commits, newest first; `cursor` is the page before's `nextCursor`.
+    func log(cwd: String, cursor: String? = nil, limit: Int64) async throws(WorkspaceProblem) -> GitLogRead {
+        try await ask(.gitLog(GitLogRequest(requestId: "", cwd: cwd, cursor: cursor, limit: limit))) {
+            (answer) -> GitLogResult? in
             if case .gitLogResult(let answer) = answer { answer.result } else { nil }
-        }.commits
+        }
     }
 
     func terminals() async throws(WorkspaceProblem) -> [TerminalSummary] {

@@ -54,12 +54,17 @@ import uniffi.broski_core.InboxRow
 @Immutable
 data class Project(val path: String, val updatedAt: Long)
 
-/** The folders of the sessions on [machineId], the most recently used first, each once. */
-fun projects(rows: List<InboxRow>, machineId: String?): List<Project> = rows
-    .filter { it.machineId == machineId }
-    .sortedByDescending { it.updatedAt }
-    .mapNotNull { row -> row.cwd?.let { Project(it, row.updatedAt) } }
-    .distinctBy { it.path }
+/** The folders of the sessions on [machineId], the most recently used first, each once: one pass over the rows. */
+fun projects(rows: List<InboxRow>, machineId: String?): List<Project> {
+    val newest = HashMap<String, Long>()
+    for (row in rows) {
+        if (row.machineId != machineId) continue
+        val cwd = row.cwd ?: continue
+        newest[cwd] = maxOf(newest[cwd] ?: Long.MIN_VALUE, row.updatedAt)
+    }
+    return newest.map { (path, updatedAt) -> Project(path, updatedAt) }
+        .sortedWith(compareByDescending<Project> { it.updatedAt }.thenBy { it.path })
+}
 
 /** What the person has chosen for the session so far; [agentPicked] says the agent was theirs, not a default. */
 @Immutable

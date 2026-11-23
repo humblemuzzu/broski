@@ -24,7 +24,7 @@ The bridge finds `pi` from the config key `pi.cliPath`, else `pi` on the login s
 
 | Directory | What lives there |
 |---|---|
-| `rpc/` | The wire: `JsonlSplitter` (LF-only records, CR stripped, 32 MiB cap), zod frames for responses, events and UI requests, `RpcClient` (request ids, deadlines, ordered delivery, backpressure), `PiProcess` (spawn in its own process group, stderr tail, the stop ladder). |
+| `rpc/` | The wire: `JsonlSplitter` (LF-only records, CR stripped, 64 MiB cap), zod frames for responses, events and UI requests, `RpcClient` (request ids, deadlines, ordered delivery, backpressure), `PiProcess` (spawn in its own process group, stderr tail, the stop ladder). |
 | `holder/` | The holder of a hosted session's `pi` (§1.1): the process itself (`holder.ts`, `main.ts`), what it keeps for the next bridge (`replay-log.ts`), how long it keeps an unattached `pi` (`orphan-policy.ts`), the socket protocol (`protocol.ts`) and the bridge's end of it (`link.ts`, `holders.ts`). The holder process loads only `node:` built-ins, `rpc/child.ts`, `rpc/jsonl.ts` and `contract/clip.ts`. |
 | `live/` | A hosted session: `SessionHost` driving the parts `host-parts.ts` wires (a `PiChild`, the run tracker, prompt desk, queue mirror, settings, usage feed, the event bridge, the entry cursor), and `SessionHosts` (the registry with its locks, revive, idle end and the bound on hosts). |
 | `host/` | The bridge's own extension (`extension/{index,ask}.ts`), written into `~/.broski/pi/` and loaded with `-e`: the permission gate, the fallback `broski_ask` tool (registered `defaultActive: false`, additively enabled in new phone sessions unless a cooperating extension claims `broski:ask-tool`/`broski:probe-ask-tool`) and the `broski.*` records. `extension/` is agent code, read by the rest of the adapter only as text. |
@@ -100,7 +100,7 @@ environment, which holds secrets: never argv, never a file) and closes it. The h
 - **The protocol** is JSON lines. Pi's records pass through as Pi wrote them; the holder's start with `{"holder":`:
   `hello` (`version`, `sessionId`, `extension`, `replayed`, `truncated`), then the replay, then `live`, then Pi's
   records as they come; `exit` (`code`, `signal`, `error`, `stderr`) when `pi` ends; `replaced` to a bridge another
-  one displaced (one bridge at a time, the newest wins); `oversized` for a record past the 32 MiB cap. From the bridge,
+  one displaced (one bridge at a time, the newest wins); `oversized` for a record past the 64 MiB cap. From the bridge,
   complete lines go to `pi`'s stdin through one writer queue; a half line from a bridge that went is dropped, so the
   next bridge's first command is not glued to it; `{"holder":"stop"}` answers every dialog still open with Pi's
   default (`cancelled`, as a bridge's own stop does) and runs the stop ladder (§1) in the holder. A socket
@@ -113,10 +113,11 @@ environment, which holds secrets: never argv, never a file) and closes it. The h
   the bridge was reconnecting to it"); when the attempts run out it ends saying the run may still be going on, and
   the next action takes the holder over. A takeover that fails lets the holder go: it never stops its `pi`.
 - **`pi` is never made to wait.** The holder reads its stdout without pause (`holder/backlog.ts`). A backlog alone is
-  no stall: one tool's progress record may be as large as the 32 MiB cap (a subagent tool that reports its whole
-  conversation sends tens of MB each time), and a burst of them outruns any reader for a moment. A bridge is dropped
-  when its backlog, beyond what is left of its replay, stays past 32 MiB for 5 s without the socket draining, or passes
-  128 MiB at all; it then takes the session over again with a replay.
+  no stall: one tool's progress record may be as large as the 64 MiB cap (a subagent tool that reports its whole
+  conversation sends tens of MB each time; real session files hold tool results of 17 and 36 MB), and a burst of them
+  outruns any reader for a moment. A bridge is dropped when its backlog, beyond what is left of its replay, stays past
+  64 MiB for 5 s without the socket draining, or passes 256 MiB at all; it then takes the session over again with a
+  replay.
 - **The bridge's reading** (`rpc/client.ts`): a tool's progress that a later one of the same call supersedes before it
   is delivered is dropped (the adapter reads each as the whole output so far, `output_replaced`, as the replay does).
   Past 16 MiB waiting for delivery the transport is paused, but never while a lookup is pending: a delivery awaits
@@ -160,6 +161,13 @@ paging by keyset cursor, the watch, and v1/v2 files migrated in memory as `sessi
 compaction's `firstKeptEntryIndex` becomes `firstKeptEntryId` and is dropped). Rename appends a `session_info` line;
 fork writes a new v3 file; delete goes through `trash`.
 
+A title from the first prompt is its first 200 characters on one line, with `…` when cut (`mapping/prompt-title.ts`):
+every listing page carries one per row, and whole prompts made a page of 200 rows 176 KB. A search
+(`SessionQuery.search`) reads the rows newest first until its page is full or it has read 2,000 of them, and its
+cursor stands at the last row read (`store/list.ts`). A line of a session file is read whole up to 64 MiB
+(`store/line-scanner.ts`); an entry past that shows in the transcript as a warning notice naming its size, and the
+entries around it read as usual.
+
 ## 4. Transcript
 
 Read from the file, newest first; a hosted run cuts the transcript at the entry it started after. A user message's
@@ -174,8 +182,8 @@ are minted by the adapter. A run starts on `agent_start` or a `started` prompt, 
 a compaction run's end, as a session opens, and when Pi's built-in idle cache warmer appends a `usage` entry
 (`entry_appended`). `Usage.cache` reads the model's `promptCache` (`short` / `long` with `cacheWrite1h`, falling back
 to Anthropic 5m/1h only on `provider === "anthropic"` without `promptCache`), labelling explicit writes `exact` and
-read-only refreshes `estimated`. Oversized (>32 MiB) `agent_end` dumps are dropped silently in both `rpc/client.ts`
-and `holder/holder.ts`. An extension's `sendMessage` with no turn starts no run.
+read-only refreshes `estimated`. Oversized `agent_end` dumps are dropped silently in both `rpc/client.ts`
+and `holder/holder.ts` (>64 MiB). An extension's `sendMessage` with no turn starts no run.
 
 ## 6. Input
 
@@ -339,7 +347,9 @@ with SIGKILL and has the next one take its sessions over.
   when idle.
 - launchd is relied on to kill only the job's process group, which a holder leaves with `setsid`; this was reasoned
   from launchd's documented `AbandonProcessGroup` behaviour, not tried against a live LaunchAgent.
-- About 110 MB per hosted session, so 8 hosts are about 0.9 GB; with every host busy a ninth session cannot be opened
-  until one finishes (§1). The bound is a constant: a machine that wants more hosts needs a change here.
+- A hosted session costs about 140 MB (25 MB holder and 113 MB `pi`, median of real sessions; up to 240 MB with the
+  user's extensions). The bound on hosts is a tenth of the machine's memory at 250 MB each, between 8 and 32
+  (`live/host-capacity.ts`: 8 at 16 GB, 19 at 48 GB, 32 from 80 GB), or `pi.maxSessions` (1–128) in the bridge's
+  config. With every host busy another session is refused `busy`, and the message names the setting.
 - A Pi release that changes an RPC shape fails the frame schemas, which reports a fault instead of guessing.
 - The permission gate rides on `ctx.ui.input`; a Pi that changes how `input` titles reach RPC breaks it.

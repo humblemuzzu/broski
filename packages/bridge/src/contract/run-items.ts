@@ -1,6 +1,6 @@
 import type { SinkRecord } from "./backend";
 import type { ToolCallId } from "./ids";
-import { MAX_LIST_ITEMS } from "./limits";
+import { MAX_RUN_ITEMS } from "./limits";
 import type { ActiveRun, SessionSnapshot } from "./snapshot";
 import type { ToolCallItem, TranscriptItem } from "./transcript";
 
@@ -99,7 +99,7 @@ export function nextRun(run: ActiveRun, before: SessionSnapshot, record: Pick<Si
 }
 
 function bounded(run: ActiveRun): ActiveRun {
-	const excess = run.items.length - MAX_LIST_ITEMS;
+	const excess = run.items.length - MAX_RUN_ITEMS;
 	if (excess <= 0) return run;
 	return { ...run, items: run.items.slice(excess), droppedItems: run.droppedItems + excess };
 }

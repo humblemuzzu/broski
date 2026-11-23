@@ -2,13 +2,14 @@
 
 mod answer;
 mod cache;
+mod compute;
+mod feed;
 mod pending;
 mod rows;
 mod seen;
 
-use std::cmp::Reverse;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError, Weak};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 use broski_contract::{SessionRef, WorkingDirectory};
 use broski_link_session::LinkRuntime;
@@ -19,13 +20,15 @@ use tokio::time::Instant;
 
 pub use self::answer::AnswerOutcome;
 use self::cache::{Cache, CacheDue};
+use self::compute::Computed;
+pub use self::feed::KeptSession;
 pub use self::pending::PendingAsk;
 pub(crate) use self::pending::{ask_command, pending_ask};
-use self::rows::{cached_row, is_settled, live_row, MachineName};
+use self::rows::is_settled;
 use self::seen::Seen;
 pub use self::seen::{SeenMarker, SeenState, UnreadSession};
 use crate::error::ClientError;
-use crate::machine::{InboxSource, Machine};
+use crate::machine::Machine;
 use crate::view::queue::BATCH_INTERVAL;
 use crate::wait;
 
@@ -71,6 +74,8 @@ pub struct InboxRow {
 pub struct InboxUpdate {
     /// Needs you, then working, then done, then idle; newest first within each.
     pub rows: Vec<InboxRow>,
+    /// Older sessions are still to load: `load_more` reads the next page as the person nears the end.
+    pub has_more: bool,
     /// What the person has seen, when it changed since the last update: the app persists it and hands
     /// it back to `restore_seen` at its next start.
     pub seen: Option<SeenState>,
@@ -85,8 +90,12 @@ struct Tracker {
     /// A machine has joined since the phone opened: before that the rows are empty only because
     /// nothing started yet, and a cache of them would overwrite the app's stored one.
     joined: bool,
-    delivered: Option<Vec<InboxRow>>,
+    delivered: Option<Computed>,
     last_batch: Option<Instant>,
+    /// What the inbox searches for, given to every machine that joins.
+    search: Option<String>,
+    /// The pinned sessions, each machine's given to it as it joins.
+    kept: Vec<KeptSession>,
 }
 
 /// Every paired machine's sessions in one list. Machines join it as the phone starts or pairs them.
@@ -136,6 +145,8 @@ impl Inbox {
                 joined: false,
                 delivered: None,
                 last_batch: None,
+                search: None,
+                kept: Vec::new(),
             }),
         })
     }
@@ -148,9 +159,15 @@ impl Inbox {
     pub(crate) fn add(&self, machine: Arc<Machine>) {
         let mut machines = locked(&self.machines);
         machines.retain(|known| known.id() != machine.id());
-        machines.push(machine);
+        machines.push(Arc::clone(&machine));
         drop(machines);
-        locked(&self.tracker).joined = true;
+        let mut tracker = locked(&self.tracker);
+        tracker.joined = true;
+        let search = tracker.search.clone();
+        let kept = feed::kept_on(&tracker.kept, &machine.id());
+        drop(tracker);
+        machine.shared().set_search(search);
+        machine.shared().set_kept(kept);
         self.wake.notify_one();
     }
 
@@ -198,7 +215,7 @@ impl Inbox {
     pub fn mark_seen(&self, machine_id: String, session: SessionRef) {
         let listed = (self.sources().into_iter()).find(|(machine, _)| machine.id == machine_id);
         let loaded = listed.as_ref().is_some_and(|(machine, _)| machine.loaded);
-        let source = (listed.into_iter().flat_map(|(_, sources)| sources))
+        let source = (listed.into_iter().flat_map(|(_, feed)| feed.sources))
             .find(|source| source.row.session == session);
         let mut tracker = locked(&self.tracker);
         let cached = (!loaded).then(|| tracker.cache.settled_at(&machine_id, &session));
@@ -220,9 +237,9 @@ impl Inbox {
     /// Marks every settled session in the inbox as seen at its current `updatedAt`, leaving
     /// working and waiting sessions untouched so their completion is still reported.
     pub fn mark_all_seen(&self) {
-        let sources = self.sources();
+        let feeds = self.sources();
         let mut tracker = locked(&self.tracker);
-        for (machine, sources) in &sources {
+        for (machine, feed) in &feeds {
             if !machine.loaded {
                 let cached: Vec<_> = tracker
                     .cache
@@ -236,7 +253,7 @@ impl Inbox {
                 }
                 continue;
             }
-            for source in sources {
+            for source in &feed.sources {
                 if is_settled(&source.row, source.live.as_ref()) {
                     tracker
                         .seen
@@ -252,7 +269,7 @@ impl Inbox {
     }
 
     pub fn rows(&self) -> Vec<InboxRow> {
-        self.compute()
+        self.compute().rows
     }
 
     /// Pull to refresh: every machine whose bridge is ready reloads its sessions from the first
@@ -272,16 +289,19 @@ impl Inbox {
     /// cache when they changed.
     pub async fn next_change(&self) -> InboxUpdate {
         loop {
-            let rows = self.compute();
+            let computed = self.compute();
             let now = Instant::now();
+            let now_ms = rows::wall_ms();
+            let settles = rows::next_settle_ms(&computed.rows, now_ms)
+                .map(|at| now + Duration::from_millis(at.saturating_sub(now_ms) as u64));
             let wait = {
                 let mut tracker = locked(&self.tracker);
                 let due = match tracker.joined {
-                    true => tracker.cache.check(&rows, now),
+                    true => tracker.cache.check(&computed.rows, now),
                     false => CacheDue::Unchanged,
                 };
                 let changed = tracker.seen.changed
-                    || tracker.delivered.as_ref() != Some(&rows)
+                    || tracker.delivered.as_ref() != Some(&computed)
                     || matches!(due, CacheDue::Now(_));
                 match tracker.last_batch.map(|last| last + BATCH_INTERVAL) {
                     _ if !changed => match due {
@@ -289,88 +309,30 @@ impl Inbox {
                         _ => None,
                     },
                     Some(next) if now < next => Some(next),
-                    _ => return tracker.deliver(rows, due, now),
+                    _ => return tracker.deliver(computed, due, now),
                 }
             };
+            let wait = wait.into_iter().chain(settles).min();
             wait::notified(&self.runtime, &self.changed, wait).await;
         }
-    }
-
-    fn sources(&self) -> Vec<(MachineName, Vec<InboxSource>)> {
-        locked(&self.machines)
-            .iter()
-            .map(|machine| {
-                let state = machine.shared().lock();
-                let (loaded, rows) = state.inbox_rows();
-                let name = MachineName {
-                    id: machine.id(),
-                    name: state.record.name.clone(),
-                    loaded,
-                };
-                (name, rows)
-            })
-            .collect()
-    }
-
-    /// The sources, after the history of every machine whose rows are all in for the first time
-    /// has been marked seen, and its cached rows let go.
-    fn settle(&self) -> Vec<(MachineName, Vec<InboxSource>)> {
-        let sources = self.sources();
-        let mut tracker = locked(&self.tracker);
-        for (machine, rows) in &sources {
-            if machine.loaded {
-                tracker.seen.first_read(&machine.id, rows);
-                tracker.seen.resolve(&machine.id, rows);
-                tracker.cache.drop_machine(&machine.id);
-            }
-        }
-        drop(tracker);
-        sources
-    }
-
-    /// A machine whose lists have not loaded shows its cached rows, when the app restored any.
-    fn compute(&self) -> Vec<InboxRow> {
-        let sources = self.settle();
-        let now_ms = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_or(0, |elapsed| elapsed.as_millis() as i64);
-        let tracker = locked(&self.tracker);
-        let mut rows: Vec<InboxRow> = Vec::new();
-        for (machine, sources) in sources {
-            let cached = tracker.cache.rows_of(&machine.id);
-            if !machine.loaded && !cached.is_empty() {
-                for row in cached {
-                    let mark = tracker.seen.get(&machine.id, &row.session);
-                    rows.push(cached_row(row, mark, now_ms));
-                }
-                continue;
-            }
-            for source in sources {
-                let mark = tracker.seen.get(&machine.id, &source.row.session);
-                rows.push(live_row(&machine, source, mark, now_ms));
-            }
-        }
-        rows.sort_by(|a, b| {
-            let order = |row: &InboxRow| {
-                let id = (row.machine_id.clone(), row.session.session_id.clone());
-                (row.state, Reverse(row.updated_at), id)
-            };
-            order(a).cmp(&order(b))
-        });
-        rows
     }
 }
 
 impl Tracker {
-    fn deliver(&mut self, rows: Vec<InboxRow>, due: CacheDue, now: Instant) -> InboxUpdate {
+    fn deliver(&mut self, computed: Computed, due: CacheDue, now: Instant) -> InboxUpdate {
         self.last_batch = Some(now);
-        self.delivered = Some(rows.clone());
+        self.delivered = Some(computed.clone());
         let seen = std::mem::take(&mut self.seen.changed).then(|| self.seen.state());
         let cache = match due {
             CacheDue::Now(kept) => Some(self.cache.emit(kept, now)),
             _ => None,
         };
-        InboxUpdate { rows, seen, cache }
+        InboxUpdate {
+            rows: computed.rows,
+            has_more: computed.has_more,
+            seen,
+            cache,
+        }
     }
 }
 

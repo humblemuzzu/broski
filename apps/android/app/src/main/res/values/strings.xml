@@ -64,6 +64,7 @@
     <string name="inbox_section_done">Done</string>
     <string name="inbox_section_idle">Idle</string>
     <string name="inbox_mark_all_read">Mark All Read</string>
+    <string name="inbox_loading_more">Loading older sessions</string>
     <string name="inbox_untitled">Untitled session</string>
     <string name="inbox_waiting_for_you">Waiting for you</string>
     <string name="inbox_empty_title">No sessions yet</string>

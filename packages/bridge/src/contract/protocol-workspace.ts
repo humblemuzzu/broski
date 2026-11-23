@@ -82,7 +82,11 @@ export const GitCheckoutRequest = request("git.checkout", {
 	cwd: WorkingDirectory,
 	branch: z.string().min(1).max(MAX_NAME_CHARS),
 });
-export const GitLogRequest = request("git.log", { cwd: WorkingDirectory, limit: pageLimit() });
+export const GitLogRequest = request("git.log", {
+	cwd: WorkingDirectory,
+	cursor: PageCursor.optional(),
+	limit: pageLimit(),
+});
 export const TermListRequest = request("term.list", {});
 export const TermOpenRequest = request("term.open", {
 	cwd: WorkingDirectory,

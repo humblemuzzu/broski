@@ -1,5 +1,7 @@
 //! One inbox row from what a machine knows of a session, or from the cache the app restored.
 
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use broski_contract::{SessionStatus, SessionSummary};
 
 use super::cache::CachedRow;
@@ -25,7 +27,7 @@ pub(super) fn live_row(
     mark: Mark,
     now_ms: i64,
 ) -> InboxRow {
-    let InboxSource { row, live } = source;
+    let InboxSource { row, live, .. } = source;
     let state = state_of(&row, live.as_ref(), mark, now_ms);
     let active = matches!(state, InboxState::NeedsYou | InboxState::Working);
     let (ask, command, pending, live_started_at) = match live {
@@ -101,6 +103,23 @@ fn state_of(row: &SessionSummary, live: Option<&LiveInfo>, mark: Mark, now_ms: i
     }
 }
 
+/// The wall clock in milliseconds, which `DONE_WINDOW_MS` is measured on.
+pub(crate) fn wall_ms() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |elapsed| elapsed.as_millis() as i64)
+}
+
+/// When the next row that is `Done` for being recent settles as `Idle`; nothing else in the rows
+/// changes with time alone.
+pub(crate) fn next_settle_ms(rows: &[InboxRow], now_ms: i64) -> Option<i64> {
+    rows.iter()
+        .filter(|row| matches!(row.state, InboxState::Done))
+        .map(|row| row.updated_at.saturating_add(DONE_WINDOW_MS + 1))
+        .filter(|at| *at > now_ms)
+        .min()
+}
+
 /// Done when the person marked the session unread, or something happened within `DONE_WINDOW_MS`
 /// since their marker or with no marker.
 fn settled(updated_at: i64, mark: Mark, now_ms: i64) -> InboxState {
@@ -133,6 +152,48 @@ mod tests {
             InboxState::Idle
         );
         assert_eq!(settled(within, Mark::SeenAt(within), now), InboxState::Idle);
+    }
+
+    #[test]
+    fn the_next_settle_is_when_the_oldest_recent_done_row_leaves_the_window() {
+        let now = 1_800_000_000_000;
+        let row = |state, updated_at| InboxRow {
+            machine_id: "m".to_owned(),
+            machine_name: "Mac".to_owned(),
+            session: broski_contract::SessionRef {
+                backend: "pi".to_owned(),
+                session_id: format!("{updated_at}"),
+            },
+            title: None,
+            cwd: None,
+            state,
+            updated_at,
+            run_started_at: None,
+            ask: None,
+            command: None,
+            pending: None,
+            cached: false,
+        };
+        let rows = [
+            row(InboxState::Done, now - 1_000),
+            row(InboxState::Done, now - 5_000),
+            row(InboxState::Done, now - 5 * DONE_WINDOW_MS),
+            row(InboxState::Working, now - DONE_WINDOW_MS),
+            row(InboxState::Idle, now - 10_000),
+        ];
+        let at = next_settle_ms(&rows, now).expect("a done row settles");
+        assert_eq!(at, now - 5_000 + DONE_WINDOW_MS + 1);
+        assert_eq!(
+            settled(now - 5_000, Mark::Unseen, at),
+            InboxState::Idle,
+            "idle at that moment"
+        );
+        assert_eq!(settled(now - 5_000, Mark::Unseen, at - 1), InboxState::Done);
+        assert_eq!(
+            next_settle_ms(&rows[2..], now),
+            None,
+            "an old row marked unread never settles"
+        );
     }
 
     #[test]

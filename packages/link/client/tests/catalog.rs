@@ -78,6 +78,7 @@ fn list_in(machine: &Arc<broski_client::Machine>, cwd: &std::path::Path) -> Arc<
     let query = SessionQuery {
         cwd: Some(cwd.to_string_lossy().into_owned()),
         parent: None,
+        search: None,
     };
     let list = Arc::clone(machine).session_list("pi".to_owned(), query);
     list.expect("a list")

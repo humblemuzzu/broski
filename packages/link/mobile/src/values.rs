@@ -2,8 +2,8 @@
 //! `broski-client`, so they cannot drift.
 
 use broski_client::{
-    ClientError, ContractState, InboxRow, InboxState, InboxUpdate, LinkFailure, MachineEvent,
-    MachineStatus, PendingAsk, PhoneConfig, SeenMarker, SeenState, SessionChange,
+    ClientError, ContractState, InboxRow, InboxState, InboxUpdate, KeptSession, LinkFailure,
+    MachineEvent, MachineStatus, PendingAsk, PhoneConfig, SeenMarker, SeenState, SessionChange,
     SessionListUpdate, SessionUpdate, TerminalUpdate, UnreadSession, ViewEnd,
 };
 use broski_contract::{
@@ -218,8 +218,15 @@ pub struct InboxRow {
 #[uniffi::remote(Record)]
 pub struct InboxUpdate {
     pub rows: Vec<InboxRow>,
+    pub has_more: bool,
     pub seen: Option<SeenState>,
     pub cache: Option<Vec<u8>>,
+}
+
+#[uniffi::remote(Record)]
+pub struct KeptSession {
+    pub machine_id: String,
+    pub session: SessionRef,
 }
 
 #[uniffi::remote(Record)]

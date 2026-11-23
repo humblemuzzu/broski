@@ -8,8 +8,8 @@ struct InboxFilterMenu: View {
     @Environment(AppModel.self) private var model
     @State private var steps = 0
 
-    /// The most folders the menu offers, newest first.
-    static let folders = 8
+    /// The most recent folders the menu offers first, newest first; the rest are under More Projects.
+    static let recentFolders = 8
 
     private var filter: InboxFilter { model.inbox.filter }
 
@@ -20,14 +20,23 @@ struct InboxFilterMenu: View {
         }
     }
 
-    private var recentFolders: [String] {
-        var seen = Set<String>()
-        let folders = model.inbox.rows.sorted { $0.updatedAt > $1.updatedAt }.compactMap { row in
-            row.cwd.flatMap { seen.insert($0).inserted ? $0 : nil }
+    /// The folders the rows ran in: the most recent first, the chosen one among them, and the rest by
+    /// name. One pass over the rows, which may be thousands.
+    static func folderChoices(_ rows: [InboxRow], chosen: String?) -> (recent: [String], others: [String]) {
+        var newest: [String: Int64] = [:]
+        for row in rows {
+            if let cwd = row.cwd { newest[cwd] = max(newest[cwd] ?? .min, row.updatedAt) }
         }
-        let shown = Array(folders.prefix(Self.folders))
-        guard let chosen = filter.folder, !shown.contains(chosen) else { return shown }
-        return [chosen] + shown
+        let byRecency = newest.sorted { $0.value != $1.value ? $0.value > $1.value : $0.key < $1.key }.map(\.key)
+        var recent = Array(byRecency.prefix(recentFolders))
+        if let chosen, !recent.contains(chosen) { recent.insert(chosen, at: 0) }
+        let others = byRecency.dropFirst(recentFolders).filter { $0 != chosen }
+            .sorted { name($0).localizedStandardCompare(name($1)) == .orderedAscending }
+        return (recent, others)
+    }
+
+    private static func name(_ folder: String) -> String {
+        URL(fileURLWithPath: folder).lastPathComponent
     }
 
     var body: some View {
@@ -45,11 +54,19 @@ struct InboxFilterMenu: View {
                 }
                 .pickerStyle(.menu)
             }
+            let folders = Self.folderChoices(model.inbox.rows, chosen: filter.folder)
             Picker("Project", selection: binding(\.folder)) {
                 Text("All Projects").tag(String?.none)
-                ForEach(recentFolders, id: \.self) { Text(URL(fileURLWithPath: $0).lastPathComponent).tag(Optional($0)) }
+                ForEach(folders.recent, id: \.self) { Text(Self.name($0)).tag(Optional($0)) }
             }
             .pickerStyle(.menu)
+            if !folders.others.isEmpty {
+                Menu("More Projects") {
+                    Picker("More Projects", selection: binding(\.folder)) {
+                        ForEach(folders.others, id: \.self) { Text(Self.name($0)).tag(Optional($0)) }
+                    }
+                }
+            }
             if model.machines.count > 1 {
                 Picker("Mac", selection: binding(\.machineId)) {
                     Text("All Macs").tag(String?.none)

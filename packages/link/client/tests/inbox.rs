@@ -252,6 +252,7 @@ async fn a_session_that_appears_before_the_ui_reads_the_inbox_is_still_done() {
     let query = SessionQuery {
         cwd: None,
         parent: None,
+        search: None,
     };
     let list = Arc::clone(&machine)
         .session_list("pi".to_owned(), query)

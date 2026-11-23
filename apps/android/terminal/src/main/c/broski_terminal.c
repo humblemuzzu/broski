@@ -6,6 +6,8 @@
 #include <string.h>
 #include "broski_terminal.h"
 
+#define SCROLLBACK_BYTES ((size_t)8 * 1024 * 1024)
+
 enum { CELL_INTS = 4, META_INTS = 16, CLUSTER_MAX = 32, CLUSTER_CAP = 256 };
 
 // Bits of a cell's attribute word above the style flags, mirrored by Cell in Kotlin.
@@ -94,6 +96,10 @@ JNIEXPORT jlong JNICALL FN(create)(JNIEnv *env, jclass cls, jint cols, jint rows
   GhosttyTerminalModeConfig graphemes = {.mode = GHOSTTY_MODE_GRAPHEME_CLUSTER, .value = true};
   ghostty_terminal_set(v->terminal, GHOSTTY_TERMINAL_OPT_MODE_DEFAULT, &graphemes);
   ghostty_terminal_set(v->terminal, GHOSTTY_TERMINAL_OPT_MODE, &graphemes);
+  // libghostty-vt keeps 10,000 bytes (one ~400 KB page, about a thousand lines) by default: less than
+  // the bridge replays. 8 MB holds about ten thousand phone-width lines, all of a reattach's replay.
+  size_t scrollback = SCROLLBACK_BYTES;
+  ghostty_terminal_set(v->terminal, GHOSTTY_TERMINAL_OPT_SCROLLBACK_MAX_BYTES, &scrollback);
   return (jlong)(intptr_t)v;
 }
 

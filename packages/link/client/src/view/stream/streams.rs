@@ -148,6 +148,17 @@ impl Streams {
             .and_then(StreamState::live_info)
     }
 
+    /// What every view knows live, by its session, in the views' order: what the inbox shows of the
+    /// sessions viewed.
+    pub(crate) fn live_fingerprint(&self) -> Vec<(SessionRef, Option<LiveInfo>)> {
+        let mut ids: Vec<u64> = self.streams.keys().copied().collect();
+        ids.sort_unstable();
+        ids.iter()
+            .filter_map(|id| self.streams.get(id))
+            .map(|stream| (stream.session.clone(), stream.live_info()))
+            .collect()
+    }
+
     pub(crate) fn each(&mut self, mut act: impl FnMut(&mut StreamState)) {
         self.streams.values_mut().for_each(&mut act);
     }

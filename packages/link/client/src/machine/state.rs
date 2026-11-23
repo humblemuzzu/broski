@@ -4,14 +4,13 @@
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 
-use broski_contract::{
-    ClientInfo, ClientMessage, ProtocolErrorCode, ServerMessage, MAX_PAGE_LIMIT,
-};
+use broski_contract::{ClientInfo, ClientMessage, ProtocolErrorCode, ServerMessage};
 use broski_link_session::{BridgeStatus, LinkRuntime, MachineRecord, SendFailure, Session, Status};
 use tokio::sync::{oneshot, Notify};
 use tokio::time::Instant;
 
 use super::events::{ContractState, MachineEvents, MachineStatus};
+use super::feed::FeedStamp;
 use crate::attach::RATE_LIMIT_PAUSE;
 use crate::catalog::state::Catalog;
 use crate::error::ClientError;
@@ -74,6 +73,8 @@ pub(crate) struct State {
     pub(crate) terminals: Terminals,
     pub(crate) catalog: Catalog,
     pub(crate) events: MachineEvents,
+    /// What the inbox read of this machine last (`feed.rs`).
+    pub(crate) feed_seen: Option<FeedStamp>,
 }
 
 impl State {
@@ -94,25 +95,6 @@ impl State {
                 },
             },
         }
-    }
-
-    /// The sessions the inbox shows: each backend's newest, with what a view of each knows live.
-    /// `loaded` once every backend's first page arrived.
-    pub(crate) fn inbox_rows(&self) -> (bool, Vec<super::InboxSource>) {
-        let lists = &self.catalog.lists;
-        let rows = self
-            .catalog
-            .inbox
-            .iter()
-            .filter_map(|(_, id)| lists.get(*id))
-            .flat_map(|list| list.rows())
-            .take(MAX_PAGE_LIMIT * self.catalog.inbox.len())
-            .map(|row| super::InboxSource {
-                live: self.streams.live_info(&row.session),
-                row: row.clone(),
-            })
-            .collect();
-        (self.inbox_loaded(), rows)
     }
 }
 
@@ -143,6 +125,7 @@ impl Shared {
             terminals: Terminals::default(),
             catalog: Catalog::default(),
             events: MachineEvents::default(),
+            feed_seen: None,
         };
         Shared {
             session,

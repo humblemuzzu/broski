@@ -126,6 +126,50 @@ struct WorkspaceTests {
         #expect(git.commits.map(\.subject) == ["Update the notes"])
     }
 
+    @Test func stagingMoreThanARequestCarriesSendsThemInBatches() async throws {
+        let machine = ScriptedMachine { message in
+            guard case .gitStage(let request) = message else { return nil }
+            return .gitStageResult(GitStageResponse(requestId: request.requestId, result: .accepted(ActionAccepted())))
+        }
+        let paths = (0..<2_500).map { "file\($0).txt" }
+        try await machine.requests.stage(cwd: "/w", paths: paths)
+        let batches = machine.messages.compactMap { if case .gitStage(let request) = $0 { request.paths } else { nil } }
+        #expect(batches.map(\.count) == [1_000, 1_000, 500])
+        #expect(batches.flatMap { $0 } == paths)
+    }
+
+    @Test func olderCommitsLoadAPageAtATimeToTheFirstCommit() async {
+        let history = (0..<70).map {
+            GitCommit(hash: String(format: "%040x", $0), subject: "commit \($0)", author: "Test", authoredAt: 0)
+        }
+        let machine = ScriptedMachine { message in
+            switch message {
+            case .gitStatus(let request):
+                let status = GitStatusRead(
+                    root: "/w", branch: "main", head: "abc1234", upstream: nil, staged: [], unstaged: [], untracked: [],
+                    truncated: false)
+                return .gitStatusResult(GitStatusResponse(requestId: request.requestId, result: .accepted(status)))
+            case .gitLog(let request):
+                let start = request.cursor.flatMap { Int($0.dropFirst(3)) } ?? 0
+                let end = min(history.count, start + Int(request.limit ?? 30))
+                let page = GitLogRead(
+                    commits: Array(history[start..<end]), nextCursor: end < history.count ? "at-\(end)" : nil)
+                return .gitLogResult(GitLogResponse(requestId: request.requestId, result: .accepted(page)))
+            default:
+                return nil
+            }
+        }
+        let git = GitModel(cwd: "/w", requests: machine.requests)
+        await git.load()
+        #expect(git.commits.count == 30)
+        await git.loadOlderCommits()
+        await git.loadOlderCommits()
+        #expect(git.commits.map(\.subject) == history.map(\.subject))
+        #expect(git.olderCommits == nil)
+        await git.loadOlderCommits()
+        #expect(git.commits.count == 70)
+    }
+
     @Test func aFolderInNoRepositoryIsSaidAsSuchNotAsAFailure() async {
         let machine = ScriptedMachine { message in
             guard case .gitStatus(let request) = message else { return nil }

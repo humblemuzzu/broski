@@ -15,13 +15,12 @@ nonisolated struct Project: Hashable, Identifiable {
 
     /// The folders of the sessions on `machineId`, the most recently used first, each once.
     static func recent(_ rows: [InboxRow], machineId: String?) -> [Project] {
-        var seen = Set<String>()
-        return rows.filter { $0.machineId == machineId }
-            .sorted { $0.updatedAt > $1.updatedAt }
-            .compactMap { row in
-                guard let cwd = row.cwd, seen.insert(cwd).inserted else { return nil }
-                return Project(path: cwd, updatedAt: row.updatedAt)
-            }
+        var newest: [String: Int64] = [:]
+        for row in rows where row.machineId == machineId {
+            if let cwd = row.cwd { newest[cwd] = max(newest[cwd] ?? .min, row.updatedAt) }
+        }
+        return newest.map { Project(path: $0.key, updatedAt: $0.value) }
+            .sorted { ($0.updatedAt, $1.path) > ($1.updatedAt, $0.path) }
     }
 }
 

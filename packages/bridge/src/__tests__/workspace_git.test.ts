@@ -76,6 +76,14 @@ describe("reading a repository", () => {
 		expect(log.commits[0]?.authoredAt).toBeGreaterThan(1_600_000_000_000);
 	});
 
+	test("a status past a thousand changes comes whole", async () => {
+		const repo = repository("many");
+		for (let n = 0; n < 1_500; n += 1) writeFileSync(join(repo, `new-${n}.txt`), "x\n");
+		const many = accepted(await status(repo));
+		expect(many.untracked).toHaveLength(1_500);
+		expect(many.truncated).toBe(false);
+	});
+
 	test("before the first commit there is no head and no history", async () => {
 		const repo = tempDirectory("broski-git-unborn-");
 		dirs.push(repo);
@@ -92,6 +100,31 @@ describe("reading a repository", () => {
 		]);
 		accepted((await phone.ok("git.unstage", { cwd: repo, paths: ["x.txt"] })).result);
 		expect(accepted(await status(repo)).untracked).toEqual(["x.txt"]);
+	});
+});
+
+describe("the history", () => {
+	const log = async (cwd: string, limit: number, cursor?: string) =>
+		accepted((await phone.ok("git.log", { cwd, limit, ...(cursor !== undefined && { cursor }) })).result);
+
+	test("pages walk every commit to the first, and a commit made meanwhile does not shift them", async () => {
+		const repo = repository("history");
+		for (const n of [2, 3, 4, 5]) run(repo, "commit", "-q", "--allow-empty", "-m", `c${n}`);
+		const first = await log(repo, 2);
+		expect(first.commits.map((entry) => entry.subject)).toEqual(["c5", "c4"]);
+		run(repo, "commit", "-q", "--allow-empty", "-m", "meanwhile");
+		const second = await log(repo, 2, first.nextCursor);
+		expect(second.commits.map((entry) => entry.subject)).toEqual(["c3", "c2"]);
+		const last = await log(repo, 2, second.nextCursor);
+		expect(last.commits.map((entry) => entry.subject)).toEqual(["first"]);
+		expect(last.nextCursor).toBeUndefined();
+		expect((await log(repo, 6)).nextCursor).toBeUndefined();
+	});
+
+	test("a cursor git.log did not mint is refused", async () => {
+		const repo = repository("history-cursor");
+		const answer = (await phone.ok("git.log", { cwd: repo, cursor: "--output=/tmp/x:0" })).result;
+		expect(rejectionCode(answer)).toBe("invalid_input");
 	});
 });
 

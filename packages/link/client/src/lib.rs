@@ -35,8 +35,8 @@ pub use broski_link_session::{
 pub use crate::catalog::{SessionList, SessionListUpdate};
 pub use crate::error::{ClientError, LinkFailure};
 pub use crate::inbox::{
-    AnswerOutcome, Inbox, InboxRow, InboxState, InboxUpdate, PendingAsk, SeenMarker, SeenState,
-    UnreadSession,
+    AnswerOutcome, Inbox, InboxRow, InboxState, InboxUpdate, KeptSession, PendingAsk, SeenMarker,
+    SeenState, UnreadSession,
 };
 pub use crate::machine::{ContractState, Machine, MachineEvent, MachineStatus};
 pub use crate::phone::{new_identity_secret, Phone, PhoneConfig};

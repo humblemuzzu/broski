@@ -124,11 +124,24 @@ class WorkspaceClient(private val requester: Requester) {
             }
         }
 
-    suspend fun stage(cwd: String, paths: List<String>): Answer<Unit> =
-        ask(ClientMessage.GitStage(GitStageRequest("", cwd, paths))) { action((it as? ServerMessage.GitStageResult)?.v1?.result) }
+    /** Stages [paths], as many requests as the contract's bound on one request's paths takes. */
+    suspend fun stage(cwd: String, paths: List<String>): Answer<Unit> = inBatches(paths) { batch ->
+        ask(ClientMessage.GitStage(GitStageRequest("", cwd, batch))) { action((it as? ServerMessage.GitStageResult)?.v1?.result) }
+    }
 
-    suspend fun unstage(cwd: String, paths: List<String>): Answer<Unit> =
-        ask(ClientMessage.GitUnstage(GitUnstageRequest("", cwd, paths))) { action((it as? ServerMessage.GitUnstageResult)?.v1?.result) }
+    suspend fun unstage(cwd: String, paths: List<String>): Answer<Unit> = inBatches(paths) { batch ->
+        ask(ClientMessage.GitUnstage(GitUnstageRequest("", cwd, batch))) { action((it as? ServerMessage.GitUnstageResult)?.v1?.result) }
+    }
+
+    /** One request a batch of [PATHS_PER_REQUEST], in order, stopping at the first that fails. */
+    private suspend fun inBatches(paths: List<String>, send: suspend (List<String>) -> Answer<Unit>): Answer<Unit> {
+        var last: Answer<Unit> = Answer.Done(Unit)
+        for (batch in paths.chunked(PATHS_PER_REQUEST)) {
+            last = send(batch)
+            if (last is Answer.Failed) return last
+        }
+        return last
+    }
 
     suspend fun commit(cwd: String, message: String): Answer<GitCommitted> =
         ask(ClientMessage.GitCommit(GitCommitRequest("", cwd, message))) {
@@ -156,7 +169,9 @@ class WorkspaceClient(private val requester: Requester) {
             }
         }
 
-    suspend fun log(cwd: String, limit: Long): Answer<GitLogRead> = ask(ClientMessage.GitLog(GitLogRequest("", cwd, limit))) {
+    /** A page of the current branch's commits, newest first; [cursor] is the page before's `nextCursor`. */
+    suspend fun log(cwd: String, limit: Long, cursor: String? = null): Answer<GitLogRead> =
+        ask(ClientMessage.GitLog(GitLogRequest("", cwd, cursor, limit))) {
         when (val result = (it as? ServerMessage.GitLogResult)?.v1?.result) {
             is GitLogResult.Accepted -> Answer.Done(result.v1)
             is GitLogResult.Rejected -> failed(result.v1)
@@ -196,5 +211,10 @@ class WorkspaceClient(private val requester: Requester) {
         read(requester.request(message)) ?: Answer.Failed(WorkspaceFailure.Unexpected)
     } catch (error: ClientException) {
         Answer.Failed(WorkspaceFailure.of(error))
+    }
+
+    private companion object {
+        /** The contract's `MAX_LIST_ITEMS`: the bridge refuses a request carrying a longer list. */
+        const val PATHS_PER_REQUEST = 1000
     }
 }

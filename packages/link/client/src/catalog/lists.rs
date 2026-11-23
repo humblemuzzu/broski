@@ -1,7 +1,7 @@
 //! Session lists by (backend, query), paged from the bridge and kept current by the rows its catalog
 //! sends: a list is never sent whole (contract README §5, §11.1).
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use broski_contract::{
@@ -10,20 +10,30 @@ use broski_contract::{
 };
 use tokio::sync::Notify;
 
+use super::search::{search_words, session_matches};
+
 /// One list: its rows newest first, one per session, and where its next page starts.
 pub(crate) struct ListState {
     backend: BackendId,
     query: SessionQuery,
+    /// `query.search` as `session_matches` reads it.
+    words: Vec<String>,
     limit: i64,
-    /// Rows past it go, oldest first.
+    /// Rows past it go, oldest first, and the list asks for no more pages.
     capacity: usize,
+    /// The first page of a reload replaces the rows it covers and keeps the older ones loaded.
+    keeps_older: bool,
     rows: Vec<SessionSummary>,
     cursor: Option<PageCursor>,
     loaded: bool,
     loading: bool,
+    /// Its last page failed: the inbox stops paging it until a reload or a page goes through.
+    failed: bool,
     /// Bumped by a reload, so a page asked for before it is not merged after it.
     generation: u64,
     changed: bool,
+    /// Bumped by every change of the rows or of where the next page starts.
+    version: u64,
     pub(crate) notify: Arc<Notify>,
 }
 
@@ -33,19 +43,33 @@ pub(crate) struct PageAsk {
     pub(crate) generation: u64,
 }
 
+/// What a list holds and how: its query, its page size, how many rows it keeps, and whether a reload keeps the
+/// older rows it loaded.
+pub(crate) struct ListSpec {
+    pub(crate) backend: BackendId,
+    pub(crate) query: SessionQuery,
+    pub(crate) limit: i64,
+    pub(crate) capacity: usize,
+    pub(crate) keeps_older: bool,
+}
+
 impl ListState {
-    fn new(backend: BackendId, query: SessionQuery, limit: i64, capacity: usize) -> ListState {
+    fn new(spec: ListSpec) -> ListState {
         ListState {
-            backend,
-            query,
-            limit,
-            capacity,
+            words: search_words(spec.query.search.as_deref().unwrap_or("")),
+            backend: spec.backend,
+            query: spec.query,
+            limit: spec.limit,
+            capacity: spec.capacity,
+            keeps_older: spec.keeps_older,
             rows: Vec::new(),
             cursor: None,
             loaded: false,
             loading: false,
+            failed: false,
             generation: 0,
             changed: false,
+            version: 0,
             notify: Arc::new(Notify::new()),
         }
     }
@@ -56,6 +80,18 @@ impl ListState {
 
     pub(crate) fn loaded(&self) -> bool {
         self.loaded
+    }
+
+    pub(crate) fn loading(&self) -> bool {
+        self.loading
+    }
+
+    pub(crate) fn failed(&self) -> bool {
+        self.failed
+    }
+
+    pub(crate) fn version(&self) -> u64 {
+        self.version
     }
 
     /// More rows than those loaded exist.
@@ -98,6 +134,7 @@ impl ListState {
     fn reload(&mut self) -> PageAsk {
         self.generation += 1;
         self.loading = true;
+        self.failed = false;
         PageAsk {
             cursor: None,
             generation: self.generation,
@@ -107,24 +144,61 @@ impl ListState {
     pub(crate) fn page_failed(&mut self, generation: u64) {
         if generation == self.generation {
             self.loading = false;
+            self.failed = true;
+            self.version += 1;
         }
     }
 
-    /// Merges a page; the first page of a reload replaces the rows.
+    /// Merges a page. The first page of a reload replaces every row, or, in a list that keeps the
+    /// older rows it loaded, the rows down to the page's oldest; the older rows' cursor stays theirs.
     pub(crate) fn page(&mut self, ask: &PageAsk, page: SessionPage) {
         if ask.generation != self.generation {
             return;
         }
-        if ask.cursor.is_none() {
-            self.rows.clear();
-        }
         self.loading = false;
-        self.loaded = true;
-        self.cursor = page.next_cursor;
-        for row in page.items {
-            self.upsert(row);
+        self.failed = false;
+        let next = page.next_cursor;
+        match page.items.last() {
+            Some(oldest)
+                if ask.cursor.is_none() && self.keeps_older && self.loaded && next.is_some() =>
+            {
+                self.rows.retain(|row| newer(oldest, row));
+                if self.rows.is_empty() {
+                    self.cursor = next;
+                }
+            }
+            _ if ask.cursor.is_none() => {
+                self.rows.clear();
+                self.cursor = next;
+            }
+            _ => self.cursor = next,
         }
+        self.loaded = true;
+        self.merge(page.items);
         self.touch();
+    }
+
+    /// The page's rows into the list, each once, in one pass over both: a reload's page lands in front of
+    /// thousands of kept rows.
+    fn merge(&mut self, mut items: Vec<SessionSummary>) {
+        let incoming: HashSet<(&str, &str)> = items.iter().map(|row| key(&row.session)).collect();
+        self.rows
+            .retain(|known| !incoming.contains(&key(&known.session)));
+        items.sort_by(order);
+        let mut kept = std::mem::take(&mut self.rows).into_iter().peekable();
+        let mut added = items.into_iter().peekable();
+        let mut rows = Vec::with_capacity(kept.len() + added.len());
+        loop {
+            let next = match (kept.peek(), added.peek()) {
+                (Some(known), Some(row)) if newer(row, known) => added.next(),
+                (Some(_), _) => kept.next(),
+                (None, _) => added.next(),
+            };
+            let Some(row) = next else { break };
+            rows.push(row);
+        }
+        self.rows = rows;
+        self.bound();
     }
 
     fn matches(&self, row: &SessionSummary) -> bool {
@@ -135,16 +209,31 @@ impl ListState {
                 .as_ref()
                 .is_none_or(|cwd| row.cwd.as_ref() == Some(cwd))
             && row.parent.as_ref().map(|parent| &parent.session) == self.query.parent.as_ref()
+            && session_matches(
+                &self.words,
+                row.title.as_ref().map(|title| title.text.as_str()),
+                row.cwd.as_deref(),
+            )
     }
 
     fn upsert(&mut self, row: SessionSummary) {
         self.rows.retain(|known| known.session != row.session);
         let at = self.rows.partition_point(|known| newer(known, &row));
         self.rows.insert(at, row);
-        self.rows.truncate(self.capacity);
+        self.bound();
+    }
+
+    /// Past the capacity the oldest rows go, and the list is full: a next page would land behind rows
+    /// it no longer holds.
+    fn bound(&mut self) {
+        if self.rows.len() > self.capacity {
+            self.rows.truncate(self.capacity);
+            self.cursor = None;
+        }
     }
 
     fn touch(&mut self) {
+        self.version += 1;
         self.changed = true;
         self.notify.notify_one();
     }
@@ -155,9 +244,18 @@ impl ListState {
     }
 }
 
+/// A session as a set holds it: its backend and id.
+pub(crate) fn key(session: &SessionRef) -> (&str, &str) {
+    (&session.backend, &session.session_id)
+}
+
 /// Newest first; one moment's rows by session id, so the order is total.
-fn newer(a: &SessionSummary, b: &SessionSummary) -> bool {
+pub(crate) fn newer(a: &SessionSummary, b: &SessionSummary) -> bool {
     (a.updated_at, &b.session.session_id) > (b.updated_at, &a.session.session_id)
+}
+
+fn order(a: &SessionSummary, b: &SessionSummary) -> std::cmp::Ordering {
+    (b.updated_at, &a.session.session_id).cmp(&(a.updated_at, &b.session.session_id))
 }
 
 #[derive(Default)]
@@ -168,19 +266,18 @@ pub(crate) struct Lists {
 
 impl Lists {
     pub(crate) fn create(&mut self, backend: BackendId, query: SessionQuery, limit: i64) -> u64 {
-        self.create_bounded(backend, query, limit, MAX_CATALOG_ITEMS)
+        self.create_with(ListSpec {
+            backend,
+            query,
+            limit,
+            capacity: MAX_CATALOG_ITEMS,
+            keeps_older: false,
+        })
     }
 
-    pub(crate) fn create_bounded(
-        &mut self,
-        backend: BackendId,
-        query: SessionQuery,
-        limit: i64,
-        capacity: usize,
-    ) -> u64 {
+    pub(crate) fn create_with(&mut self, spec: ListSpec) -> u64 {
         self.next += 1;
-        self.lists
-            .insert(self.next, ListState::new(backend, query, limit, capacity));
+        self.lists.insert(self.next, ListState::new(spec));
         self.next
     }
 
@@ -235,152 +332,5 @@ impl Lists {
 }
 
 #[cfg(test)]
-mod tests {
-    use broski_contract::{ParentKind, SessionOrigin, SessionParent, SessionStatus};
-
-    use super::*;
-
-    fn row(id: &str, updated_at: i64, cwd: &str) -> SessionSummary {
-        SessionSummary {
-            session: SessionRef {
-                backend: "pi".to_owned(),
-                session_id: id.to_owned(),
-            },
-            title: None,
-            cwd: Some(cwd.to_owned()),
-            created_at: None,
-            updated_at,
-            run_started_at: None,
-            parent: None,
-            model_id: None,
-            status: SessionStatus::Idle,
-            origin: SessionOrigin::Broski,
-            source: None,
-        }
-    }
-
-    fn ids(list: &ListState) -> Vec<&str> {
-        list.rows()
-            .iter()
-            .map(|row| row.session.session_id.as_str())
-            .collect()
-    }
-
-    fn list_in(lists: &mut Lists, cwd: Option<&str>) -> u64 {
-        let query = SessionQuery {
-            cwd: cwd.map(str::to_owned),
-            parent: None,
-        };
-        lists.create("pi".to_owned(), query, 50)
-    }
-
-    #[test]
-    fn pages_merge_newest_first_with_one_row_per_session_and_a_reload_replaces_them() {
-        let mut lists = Lists::default();
-        let id = list_in(&mut lists, None);
-        let list = lists.get_mut(id).expect("list");
-        let first = list.next_page().expect("a first page");
-        assert!(list.next_page().is_none(), "one page at a time");
-        list.page(
-            &first,
-            SessionPage {
-                items: vec![row("c", 30, "/w"), row("b", 20, "/w")],
-                next_cursor: Some("p2".to_owned()),
-            },
-        );
-        let second = list.next_page().expect("a second page");
-        assert_eq!(second.cursor.as_deref(), Some("p2"));
-        list.page(
-            &second,
-            SessionPage {
-                items: vec![row("b", 20, "/w"), row("a", 10, "/w")],
-                next_cursor: None,
-            },
-        );
-        assert_eq!(ids(list), ["c", "b", "a"]);
-        assert!(!list.has_more());
-        assert!(list.next_page().is_none());
-
-        let reload = list.reload();
-        let stale = PageAsk {
-            cursor: None,
-            generation: reload.generation - 1,
-        };
-        list.page(
-            &stale,
-            SessionPage {
-                items: vec![row("x", 99, "/w")],
-                next_cursor: None,
-            },
-        );
-        assert_eq!(
-            ids(list),
-            ["c", "b", "a"],
-            "a page from before the reload is dropped"
-        );
-        list.page(
-            &reload,
-            SessionPage {
-                items: vec![row("d", 40, "/w")],
-                next_cursor: None,
-            },
-        );
-        assert_eq!(ids(list), ["d"]);
-    }
-
-    #[test]
-    fn catalog_rows_go_into_the_lists_they_match_and_out_of_the_others() {
-        let mut lists = Lists::default();
-        let all = list_in(&mut lists, None);
-        let here = list_in(&mut lists, Some("/here"));
-        lists.updated(&row("s", 10, "/here"));
-        lists.updated(&row("t", 20, "/there"));
-        assert_eq!(ids(lists.get(all).expect("all")), ["t", "s"]);
-        assert_eq!(ids(lists.get(here).expect("here")), ["s"]);
-
-        lists.updated(&row("s", 30, "/there"));
-        assert_eq!(
-            ids(lists.get(all).expect("all")),
-            ["s", "t"],
-            "moved to the top"
-        );
-        assert!(
-            ids(lists.get(here).expect("here")).is_empty(),
-            "moved out of /here"
-        );
-
-        let mut child = row("child", 40, "/there");
-        child.parent = Some(SessionParent {
-            kind: ParentKind::Subagent,
-            session: row("s", 0, "").session,
-        });
-        lists.updated(&child);
-        assert_eq!(
-            ids(lists.get(all).expect("all")),
-            ["s", "t"],
-            "a child is not a top-level row"
-        );
-
-        lists.removed(&row("t", 0, "").session);
-        assert_eq!(ids(lists.get(all).expect("all")), ["s"]);
-        assert!(lists.get_mut(all).expect("all").take_change());
-    }
-
-    #[test]
-    fn a_bounded_list_keeps_its_newest_rows() {
-        let mut lists = Lists::default();
-        let id = lists.create_bounded(
-            "pi".to_owned(),
-            SessionQuery {
-                cwd: None,
-                parent: None,
-            },
-            2,
-            2,
-        );
-        for (index, updated_at) in [10, 30, 20].into_iter().enumerate() {
-            lists.updated(&row(&index.to_string(), updated_at, "/w"));
-        }
-        assert_eq!(ids(lists.get(id).expect("list")), ["1", "2"]);
-    }
-}
+#[path = "lists_tests.rs"]
+mod tests;

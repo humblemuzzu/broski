@@ -51,7 +51,7 @@ and a machine ends through `Phone.forget`).
 | `view.next_update() -> SessionUpdate`, `snapshot()`, `session()`, `capabilities()`, `close()` | a chat screen's data |
 | `terminal.next_update() -> TerminalUpdate`, `input(bytes)`, `resize(cols, rows, cell_w?, cell_h?)`, `summary()`, `close()` | a terminal screen's data |
 | `list.rows()`, `next_change()`, `load_more()`, `refresh()`, `close()` | one session list |
-| `inbox.rows()`, `next_change() -> InboxUpdate`, `refresh()`, `mark_seen(machine_id, session)`, `mark_unread(machine_id, session)`, `mark_all_seen()`, `seen()`, `restore_seen(state)`, `restore_cache(bytes)`, `answer(machine_id, session, interaction_id, option_id) -> AnswerOutcome` | the home screen |
+| `inbox.rows()`, `next_change() -> InboxUpdate`, `refresh()`, `load_more()`, `search(query)`, `keep(sessions)`, `mark_seen(machine_id, session)`, `mark_unread(machine_id, session)`, `mark_all_seen()`, `seen()`, `restore_seen(state)`, `restore_cache(bytes)`, `answer(machine_id, session, interaction_id, option_id) -> AnswerOutcome` | the home screen |
 
 Every failure is a `ClientError`: `Refused{code, detail}` (the bridge's `error{…}`), `Rejected{code,
 detail}` (a result's `Rejected`, from the helpers that return nothing on success; every other helper
@@ -192,9 +192,32 @@ the first is records, not a snapshot. The integration tests hold the same equali
 
 ## Inbox
 
-Each machine keeps, per backend, a list of its newest `MAX_PAGE_LIMIT` top-level sessions; the inbox
-joins every machine's. A row is `{machine_id, machine_name, session, title, cwd, state, updated_at,
-ask, command, pending, cached}`, the backend being the session's.
+Each machine keeps, per backend, a list of its top-level sessions, newest first; the inbox joins every
+machine's. A row is `{machine_id, machine_name, session, title, cwd, state, updated_at, ask, command,
+pending, cached}`, the backend being the session's.
+
+**Paging, search and pins** (`catalog/inbox_feed.rs`, `inbox/feed.rs`). Each inbox list loads its first
+`MAX_PAGE_LIMIT` rows; `inbox.load_more()` reads the next page of the list loaded least far down, on
+whichever machine holds it and can answer now, and `InboxUpdate.has_more` says whether any such list has
+more. A list whose page failed is paged no more until a reload (pull to refresh, a new bridge socket) or a
+retry goes through, so the apps never spin on an answer that will not come. A list keeps up
+to `MAX_CATALOG_ITEMS` rows (`INBOX_CAPACITY`) and stops paging there; a search reaches older ones. A
+reload (pull to refresh, a new bridge socket) reads the first page again and keeps the older rows it
+did not cover, so a refresh never takes away what the person scrolled to. A settled (`Done` or `Idle`),
+unpinned row older than where the paged lists have loaded to (the newest of their oldest rows, among
+those with more on a machine that can answer a page now) waits until they reach it, so rows never appear
+above where the person reads, and a machine that is away holds back no other machine's rows.
+`inbox.search(query)` gives each backend a second list, `SessionQuery.search`, whose matches join the
+rows and whose pages `load_more` reads while it searches; spaces alone end it, and a query past
+`MAX_SEARCH_QUERY_CHARS` is cut to it. `inbox.keep(sessions)`
+names the pinned sessions: each shows however far down its lists it lies, read with `session.get` when
+no list holds it and kept current by the catalog's rows after that.
+
+**What wakes the inbox.** A machine pokes the inbox only when what the inbox reads of it changed: its
+lists' versions, its pins, its name, whether it ended, and per viewed session the live facts a row shows
+(`machine/feed.rs`, `FeedStamp`). A chat that streams costs the inbox nothing per event; rebuilding the
+rows on every event cost a phone a share of a core per thousand rows. The one change time alone makes, a
+`Done` row passing `DONE_WINDOW_MS`, wakes it at that moment (`inbox/rows.rs`, `next_settle_ms`).
 
 | State | When |
 |---|---|
@@ -206,8 +229,8 @@ ask, command, pending, cached}`, the backend being the session's.
 Rows sort by state in that order, then newest first.
 
 **Views the inbox holds.** The bridge's rows carry a status, not the interactions, so each machine keeps
-a view open, for the inbox, on its newest sessions whose row is `waiting_for_user`: at most 8
-(`MAX_HELD_SESSIONS`, newest `updatedAt` first), which leaves the app at least 24 of the bridge's 32.
+a view open, for the inbox, on its newest sessions whose row is `waiting_for_user`: at most 16
+(`MAX_HELD_SESSIONS`, newest `updatedAt` first), which leaves the app at least 16 of the bridge's 32.
 A held view is a stream like a screen's (one attachment per session; a screen and the inbox share
 it) with no subscriber queue: it costs the snapshot and nothing per event. It goes when its row stops
 waiting, when a newer waiting session takes its place, or when the machine ends; a stream a screen
@@ -315,11 +338,11 @@ however long it goes unread.
 | Sessions viewed | 32 |
 | Records one subscriber leaves untaken | `MAX_LIST_ITEMS`, then a snapshot |
 | Batches | 30 a second |
-| A session list | `MAX_CATALOG_ITEMS` rows; the inbox's lists `MAX_PAGE_LIMIT` |
+| A session list | `MAX_CATALOG_ITEMS` rows; the inbox's lists page `MAX_PAGE_LIMIT` at a time |
 | Catalog caches | 64 entries each |
 | Terminal views | `MAX_TERMINALS`; untaken output `MAX_TERMINAL_OUTPUT_BYTES` |
 | Seen markers | the inbox's rows |
-| Views the inbox holds | 8 per machine |
+| Views the inbox holds | 16 per machine |
 | The inbox cache | 100 rows, 64 KiB, one every 2 s |
 
 ## What the UI does, and does not
@@ -389,19 +412,25 @@ of the seen state, which is state and not an update.
 - `inbox_asks.rs` — a permission a terminal-started run asks (the fake bridge's `run`, no phone
   prompting) makes its row need you with the ask, the command and the backend's allow-once and deny,
   with no view the test opened; an option the row does not offer is refused; two answers at once are
-  one `Accepted` and one `Stale`; the run finishes and a late answer is `Stale`. Ten waiting sessions:
-  the eight newest have their ask, the inbox holds 8 of the 32 views (the app's 25th attach fails), each
-  answered from its row lets the next one in, and once none waits the app attaches 32.
+  one `Accepted` and one `Stale`; the run finishes and a late answer is `Stale`. Eighteen waiting
+  sessions: the sixteen newest have their ask, the inbox holds 16 of the 32 views (the app's 17th attach
+  fails), each answered from its row lets the next one in, and once none waits the app attaches 32.
+- `inbox_paging.rs` — 450 sessions: `load_more` pages the inbox to every one with `has_more` false at the
+  end, and a refresh reads the newest again while keeping the older rows; a search reaches a session no
+  page loaded and ends with spaces; a pinned session past the first page shows, and goes when unpinned;
+  one machine's older rows wait for another machine with more to load, and show once it is away.
 - `inbox_cache.rs` — over the relay, a phone restarted with its machine offline shows the cached rows
   (the waiting one `NeedsYou` with its ask and command and no `pending`), the machine's own rows
   replace them once it is back, and `forget` drops them; a forgotten machine takes its cached rows,
   bytes of another version are refused and leave the restored rows in place.
 
-Unit tests: which sessions are held (newest 8, the next one in when one stops waiting, a refused one
+Unit tests: which sessions are held (the newest `MAX_HELD_SESSIONS`, the next one in when one stops waiting, a refused one
 not attached again, all let go; a screen's view outliving the hold; `machine/holds_tests.rs`), what a
 row offers (`inbox/pending.rs`), an ask offered only while attached (`view/stream_tests.rs`), the cache's
-round trip, bounds, interval and version (`inbox/cache.rs`), and no cache before a machine joins
-(`inbox/mod.rs`).
+round trip, bounds, interval and version (`inbox/cache.rs`), no cache before a machine joins
+(`inbox/mod.rs`), when the next `Done` row settles (`inbox/rows.rs`), list paging, capacity, reloads that
+keep older rows and search lists (`catalog/lists_tests.rs`), search words (`catalog/search.rs`) and pins
+(`catalog/kept.rs`).
 - `workspace.rs` — `workspace.info`, `fs.list`, `fs.read` and `git.status` on a temp repository; a terminal
   echoes input and takes a resize; across a machine restart a terminal's view gets exactly the bytes it
   missed, each line once, equal to the bridge's own replay; a program that writes three times what the
@@ -411,8 +440,10 @@ round trip, bounds, interval and version (`inbox/cache.rs`), and no cache before
 
 ## Limits
 
-- The inbox shows each backend's newest `MAX_PAGE_LIMIT` top-level sessions. A session never marked is
-  `Done` once idle (unless its machine's first read marked it).
+- The inbox pages each backend's top-level sessions down to `MAX_CATALOG_ITEMS`; older ones are found by
+  searching. A session never marked is `Done` once idle (unless its machine's first read marked it).
+- Search matches every word of a title or the last component of a folder, case-insensitively, the way
+  the apps filter rows they hold; it does not search transcripts.
 - `Done` means a row's `updatedAt` moved past the marker, and `updatedAt` is the backend's last-modified
   time, not the end of a run. Pi's is the newest user or assistant message
   (`backends/pi/store/session-head.ts`), which a rename does not move (`live/host-row.ts`). Claude Code's

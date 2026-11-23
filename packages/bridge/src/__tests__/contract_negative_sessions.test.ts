@@ -7,6 +7,7 @@ import type { SessionSummary } from "../contract/sessions";
 import {
 	aSessionCanBeRead,
 	sessionPagesConcatenate,
+	sessionSearchNarrowsTheListing,
 	transcriptPagesConcatenate,
 } from "../contract/testing/rules-sessions";
 import type { TranscriptItem } from "../contract/transcript";
@@ -138,6 +139,49 @@ describe("the session paging rule fails", () => {
 			})),
 			sessionPagesConcatenate,
 			/did not mint must be rejected/,
+		));
+});
+
+describe("the session search rule fails", () => {
+	test("for a listing that ignores the search", () =>
+		fails(
+			breakBackend((backend) => ({
+				listSessions: ({ search: _search, ...query }, page) => backend.listSessions(query, page),
+			})),
+			sessionSearchNarrowsTheListing,
+			/a listed row does not match the search/,
+		));
+
+	test("for a search that compares case", () =>
+		fails(
+			breakBackend((backend) => ({
+				listSessions: async (query, page) => {
+					const listed = await backend.listSessions(query, page);
+					if (listed.status === "rejected" || query.search === undefined) return listed;
+					const search = query.search;
+					const items = listed.page.items.filter((row) => (row.cwd ?? "").includes(search));
+					return { ...listed, page: { ...listed.page, items } };
+				},
+			})),
+			sessionSearchNarrowsTheListing,
+			/misses its sessions/,
+		));
+
+	test("for a search that lists a row having any one word", () =>
+		fails(
+			breakBackend((backend) => ({
+				listSessions: ({ search, ...query }, page) =>
+					backend.listSessions(search === undefined ? query : { ...query, search: search.split(" ")[0] }, page),
+			})),
+			sessionSearchNarrowsTheListing,
+			/only some of its words/,
+		));
+
+	test("for search pages that differ from one listing", () =>
+		fails(
+			rows((items, page) => (page.limit === 1 && page.cursor !== undefined ? [] : items)),
+			sessionSearchNarrowsTheListing,
+			/pages of a search differ/,
 		));
 });
 

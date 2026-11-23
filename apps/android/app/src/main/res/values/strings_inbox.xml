@@ -12,6 +12,8 @@
     <string name="inbox_filter_all_agents">All Agents</string>
     <string name="inbox_filter_project">Project</string>
     <string name="inbox_filter_all_projects">All Projects</string>
+    <string name="inbox_filter_more_projects">More Projects</string>
+    <string name="inbox_filter_fewer_projects">Fewer Projects</string>
     <string name="inbox_filter_mac">Mac</string>
     <string name="inbox_filter_all_macs">All Macs</string>
     <string name="inbox_filter_clear">Clear Filters</string>

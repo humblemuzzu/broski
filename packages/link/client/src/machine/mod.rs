@@ -2,6 +2,7 @@
 //! terminals the app opens on it.
 
 mod events;
+pub(crate) mod feed;
 mod holds;
 #[cfg(test)]
 mod holds_tests;
@@ -33,6 +34,8 @@ use crate::wait;
 pub(crate) struct InboxSource {
     pub(crate) row: SessionSummary,
     pub(crate) live: Option<LiveInfo>,
+    /// Pinned on this machine: shown however far down the lists it lies.
+    pub(crate) pinned: bool,
 }
 
 /// A paired machine. Dropping the last handle (views and lists hold one) stops it quietly: the

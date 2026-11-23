@@ -45,6 +45,8 @@ export const BroskiConfigSchema = z.object({
 			cliPath: z.string().optional(),
 			/** `false`: the contract's Pi installs no extension in the agent dir and takes the Broski link's out. */
 			terminalLink: z.boolean().optional(),
+			/** How many sessions the bridge runs a `pi` for at once; by the Mac's memory when absent (`live/host-capacity.ts`). */
+			maxSessions: z.number().int().min(1).max(128).optional(),
 		})
 		.default({}),
 	/** Tell every agent the bridge starts that its answers are read on a phone (`server/phone-writing.ts`). */

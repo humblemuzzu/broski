@@ -41,6 +41,7 @@ const piBackend: ReturnType<typeof piBackendFactory> = async (host) => {
 		hostDir: join(homedir(), ".broski", "pi"),
 		holders: { root: defaultHoldersRoot(), command: holderCommand() },
 		link: { enabled: config.pi.terminalLink !== false, directory: defaultLinkDirectory() },
+		...(config.pi.maxSessions !== undefined && { maxHosted: config.pi.maxSessions }),
 		fitImage: fitImageBase64,
 	})(host);
 };

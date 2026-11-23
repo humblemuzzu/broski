@@ -102,10 +102,13 @@ async fn a_permission_is_answered_from_its_row_once() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn eight_waiting_sessions_hold_views_until_they_stop_waiting() {
+async fn the_newest_waiting_sessions_hold_views_until_they_stop_waiting() {
+    const HELD: usize = 16;
+    const VIEWS: usize = 32;
+    const WAITING: usize = HELD + 2;
     let mut mac = Mac::on_lan().await;
     let mut waiting = Vec::new();
-    for index in 0..10 {
+    for index in 0..WAITING {
         waiting.push(
             mac.bridge
                 .seed(&mac.root(), &format!("Waiting {index}"))
@@ -113,20 +116,24 @@ async fn eight_waiting_sessions_hold_views_until_they_stop_waiting() {
         );
     }
     let mut idle = Vec::new();
-    for index in 0..32 {
+    for index in 0..VIEWS {
         idle.push(mac.bridge.seed(&mac.root(), &format!("Idle {index}")).await);
     }
     let phone = phone();
     let machine = paired(&phone, &mac).await;
-    inbox_until(&phone, "every row", |rows| rows.len() == 42).await;
+    inbox_until(&phone, "every row", |rows| rows.len() == WAITING + VIEWS).await;
     for session in &waiting {
         mac.bridge.run(session, "permission").await;
     }
-    let rows = inbox_until(&phone, "ten waiting, eight with their ask", |rows| {
-        let needs_you = rows.iter().filter(|row| row.state == InboxState::NeedsYou);
-        let held = rows.iter().filter(|row| row.pending.is_some()).count();
-        needs_you.count() == 10 && held == 8
-    })
+    let rows = inbox_until(
+        &phone,
+        "every one waiting, the newest with their ask",
+        |rows| {
+            let needs_you = rows.iter().filter(|row| row.state == InboxState::NeedsYou);
+            let held = rows.iter().filter(|row| row.pending.is_some()).count();
+            needs_you.count() == WAITING && held == HELD
+        },
+    )
     .await;
     let mut by_age: Vec<&InboxRow> = rows
         .iter()
@@ -138,7 +145,7 @@ async fn eight_waiting_sessions_hold_views_until_they_stop_waiting() {
         "the two oldest wait without a view"
     );
 
-    let views: Vec<_> = idle[..24]
+    let views: Vec<_> = idle[..VIEWS - HELD]
         .iter()
         .map(|session| {
             Arc::clone(&machine)
@@ -146,11 +153,11 @@ async fn eight_waiting_sessions_hold_views_until_they_stop_waiting() {
                 .expect("a view")
         })
         .collect();
-    let refused = Arc::clone(&machine).attach(idle[24].clone());
-    assert!(refused.is_err(), "the inbox holds 8 of the 32 views");
+    let refused = Arc::clone(&machine).attach(idle[VIEWS - HELD].clone());
+    assert!(refused.is_err(), "the inbox holds its share of the views");
     drop(views);
 
-    for _ in 0..10 {
+    for _ in 0..WAITING {
         let rows = inbox_until(&phone, "a held ask", |rows| {
             rows.iter().any(|row| row.pending.is_some())
         })

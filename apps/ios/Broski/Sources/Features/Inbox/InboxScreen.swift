@@ -60,6 +60,8 @@ struct InboxScreen: View {
             model.startsNewSession = false
             if path.last != .newSession { path = [.newSession] }
         }
+        .onChange(of: query) { _, query in model.inbox.search(query) }
+        .onChange(of: model.sessionPreferences.pinned, initial: true) { _, pinned in model.inbox.keep(pinned) }
     }
 
     private func openSearch() {
@@ -88,6 +90,11 @@ struct InboxScreen: View {
 
     private func onlyIdle(_ sections: [InboxSection]) -> Bool {
         !sections.isEmpty && sections.allSatisfy { $0.kind == .state(.idle) }
+    }
+
+    /// Older sessions load as the end of the list comes into view; folded idle sessions would hide them.
+    private func loadsMore(_ sections: [InboxSection], idleShown: Bool) -> Bool {
+        model.inbox.hasMore && (idleShown || !sections.contains { $0.kind == .state(.idle) })
     }
 
     private var list: some View {
@@ -135,6 +142,14 @@ struct InboxScreen: View {
                             markAllSeen: section.kind == .state(.done) ? { model.inbox.markAllSeen() } : nil)
                     }
                 }
+            }
+            if loadsMore(sections, idleShown: idleShown) {
+                LoadingMoreRow()
+                    .task(id: model.inbox.rows.count) {
+                        while !Task.isCancelled && model.inbox.hasMore {
+                            await model.inbox.loadMore()
+                        }
+                    }
             }
         }
         .listStyle(.insetGrouped)
@@ -270,6 +285,17 @@ private struct SectionLabel: View {
         .font(.subheadline.weight(.medium))
         .foregroundStyle(inboxTone)
         .textCase(nil)
+    }
+}
+
+/// The end of the rows while older sessions load into them.
+private struct LoadingMoreRow: View {
+    var body: some View {
+        ProgressView()
+            .frame(maxWidth: .infinity)
+            .listRowBackground(Color.clear)
+            .accessibilityLabel("Loading older sessions")
+            .accessibilityIdentifier("inbox.more")
     }
 }
 

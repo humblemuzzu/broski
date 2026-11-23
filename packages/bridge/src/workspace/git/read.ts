@@ -3,18 +3,11 @@
  * past the path policy (`repositoryRoot`); a path a person typed is checked here before git sees it.
  */
 
-import type {
-	GitBranchesResult,
-	GitDiffResult,
-	GitFileChange,
-	GitLogResult,
-	GitStatusResult,
-	Rejected,
-} from "../../contract";
+import type { GitBranchesResult, GitDiffResult, GitFileChange, GitStatusResult, Rejected } from "../../contract";
 import { rejected } from "../results";
 import { type GitOutput, git } from "./command";
 import { parseDiff } from "./diff-parse";
-import { type LineCounts, LOG_FORMAT, parseLog, parseNumstat, parseRefs, parseStatus, REF_FORMAT } from "./parse";
+import { type LineCounts, parseNumstat, parseRefs, parseStatus, REF_FORMAT } from "./parse";
 import { isSafePathSpec } from "./security";
 
 /** Enough for a status of every list full of long paths; more is cut and says so. */
@@ -81,12 +74,4 @@ export async function gitBranches(root: string, limit: number): Promise<GitBranc
 	if (out.status === "rejected") return out;
 	const branches = parseRefs(out.stdout);
 	return { status: "accepted", branches: branches.slice(0, limit), truncated: branches.length > limit };
-}
-
-/** A branch with no commit yet has an empty history, which git reports as a failure. */
-export async function gitLog(root: string, limit: number): Promise<GitLogResult> {
-	const out = await git(["log", LOG_FORMAT, "-n", String(limit)], root, "git log failed");
-	if (out.status === "ok") return { status: "accepted", commits: parseLog(out.stdout) };
-	const head = await git(["rev-parse", "--verify", "--quiet", "HEAD"], root, "");
-	return head.status === "rejected" ? { status: "accepted", commits: [] } : out;
 }

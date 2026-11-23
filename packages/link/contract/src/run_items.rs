@@ -5,7 +5,7 @@ use std::collections::HashSet;
 use crate::{
     ActiveRun, ActivityItem, AgentEvent, BlockItem, JsonValue, MessageId, SessionRef,
     SessionSnapshot, Timestamp, ToolCallId, ToolCallItem, ToolResultItem, TranscriptItem,
-    UserMessageItem, MAX_LIST_ITEMS,
+    UserMessageItem, MAX_RUN_ITEMS,
 };
 
 /// What an event does to the active run's items, read from the live state before the event: the
@@ -172,7 +172,7 @@ fn remove_retracted(items: &mut Vec<TranscriptItem>, message_ids: &[MessageId]) 
 /// Past the bound the oldest items leave and `dropped_items` counts them.
 fn append_bounded(run: &mut ActiveRun, item: Option<TranscriptItem>) {
     run.items.extend(item);
-    let excess = run.items.len().saturating_sub(MAX_LIST_ITEMS);
+    let excess = run.items.len().saturating_sub(MAX_RUN_ITEMS);
     if excess > 0 {
         run.items.drain(..excess);
         run.dropped_items += excess as i64;

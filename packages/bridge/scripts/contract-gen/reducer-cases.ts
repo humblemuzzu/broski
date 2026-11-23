@@ -2,7 +2,7 @@ import {
 	type AgentEvent,
 	emptySnapshot,
 	type Interaction,
-	MAX_LIST_ITEMS,
+	MAX_RUN_ITEMS,
 	MAX_TEXT_CHARS,
 	type SessionSnapshot,
 	type ToolResult,
@@ -157,7 +157,7 @@ function retractionCase(): ReducerCase {
 }
 
 function droppedItemsCase(): ReducerCase {
-	const messages: AgentEvent[] = Array.from({ length: MAX_LIST_ITEMS + 3 }, (_, index) => ({
+	const messages: AgentEvent[] = Array.from({ length: MAX_RUN_ITEMS + 3 }, (_, index) => ({
 		type: "user_message",
 		messageId: `u${index}`,
 		text: "",
@@ -172,7 +172,7 @@ function droppedItemsCase(): ReducerCase {
 			...messages,
 			{ type: "tool_updated", toolCallId: "t1", update: { kind: "input", input: { s: 1 } } },
 			{ type: "tool_finished", toolCallId: "t1", outcome: "completed", result: NO_RESULT },
-			{ type: "messages_retracted", messageIds: ["u1002"] },
+			{ type: "messages_retracted", messageIds: [`u${MAX_RUN_ITEMS + 2}`] },
 			{ type: "session_replaced", session: { backend: "claude-code", sessionId: "next" } },
 			{ type: "user_message", messageId: "u-next", text: "again", attachments: [] },
 		],
