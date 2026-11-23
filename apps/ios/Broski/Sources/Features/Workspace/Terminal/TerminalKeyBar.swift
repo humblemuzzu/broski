@@ -91,6 +91,8 @@ private struct KeyCap: ViewModifier {
 
     func body(content: Content) -> some View {
         content
+            .lineLimit(1)
+            .fixedSize()
             .foregroundStyle(active ? Color.white : Color.primary)
             .frame(minWidth: 44, minHeight: max(height, 36))
             .padding(.horizontal, Spacing.xs)

@@ -129,8 +129,9 @@ Broski/
     NotificationService/  opens each push with the core (Shared without LiveActivity/, BroskiCore)
     Widgets/              the Live Activity: Lock Screen and Dynamic Island (Shared/LiveActivity only)
   Sources/
-    App/           BroskiApp, AppDelegate (the APNs token), RootView, AppTabs, Route,
-                   IdentityProblemView
+    App/           BroskiApp, AppDelegate (the APNs token), RootView (the soft top scroll edge every
+                   screen inherits; iOS 27 draws the automatic one as a hard band), AppTabs,
+                   Route, IdentityProblemView
     Core/          AppModel, MachineModel, InboxModel, PhoneStorage, MachineSummary, LanDiscovery,
                    PathWatcher, NotificationAccess, PushNotifications, LiveRuns, WorkspaceRequests,
                    WorkspaceProblem, SessionState, ChatRequests, ChatProblem, Preferences, Logging;
@@ -286,13 +287,15 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
   action) pushes the new-session screen; a tapped notification's `sessionToOpen` opens its chat.
   Sections Needs you / Pinned / Working / Done / Idle from the core's order under quiet headers,
   Idle folded under its header while anything else is listed (open while searching or when it is
-  all there is), machine status chips; one filter button in the bar (`InboxFilterMenu`: Working Only,
-  agent, project from the recent folders, Mac once two are paired; the agent, Mac and folder kept in
-  `inbox.*` defaults) said under the title while on; a search pulled down from the top matching titles
-  and folders; rows one title line high (agent mark, title, what the agent wants ("Claude Code wants
-  to run npm test" from the row's `command`, else its `ask`) or machine · folder or the machine's
-  status and relative time, a pin and a muted bell when set, state mark; an idle row a single line of
-  a small mark, the title and a short age),
+  all there is), machine status chips; no drawn title, the filter said at the bar's leading edge
+  while on; one filter button in the bar (`InboxFilterMenu`: Working Only, agent, project from the
+  recent folders, Mac once two are paired; the agent, Mac and folder kept in `inbox.*` defaults) and
+  a search button beside it that turns the bar into the inbox's own field and close button
+  (`InboxSearchField`, not `searchable`: the system's minimized search in a top bar draws a close
+  button that never dismisses it) matching titles and folders; every row alike (agent mark, one line
+  of title, a pin and a muted bell when set, a short age, the state mark in a column of its own),
+  one that needs the person saying what the agent wants on a second line ("Claude Code wants to run
+  npm test" from the row's `command`, else its `ask`), or the machine's status when it is away,
   rows of an unreachable machine or from the cached inbox dimmed; Approve and Deny
   (`InboxRowActions`: trailing swipe without full swipe, context menu, VoiceOver actions) only for a
   row whose `pending` carries the backend's allow or deny, sent with `Inbox.answer` on the tap and
@@ -375,17 +378,19 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
   them, loads held, actions off). **Files**: a repository row when the folder is in one, the
   terminals opened in it or below (`FolderTerminals`, read again each time the folder shows; swipe
   to close with a confirm), `fs.list` a page at a time (the next page loads as the list ends), hidden
-  files on request, search by name under the folder (`fs.search`), Open Terminal Here; the viewer (`FileTextView`: numbered monospaced lines coloured by the language
+  files on request, search by name under the folder (`fs.search`) in a field that stays at the top (one list through loading, entries and matches, so the field never shows then folds away), Open Terminal Here; the viewer (`FileTextView`: numbered monospaced lines coloured by the language
   the name says; images inline; "Binary file · size"; how much a truncated read shows), Copy Path,
   Copy Text, Share. **Git**: branch and ahead/behind, Staged / Changes / Untracked with letters and
   +/− counts, swipe or menu to stage and unstage, Stage All / Unstage All, tap for the diff
   (`DiffTextView` over the shared `DiffView`: a file header with counts, hunk headers, old and new
   numbers, signed and tinted lines with changed words tinted harder, side by side on a regular
   width) or the untracked file, the newest ten
-  commits, a commit field with **Commit** (`.glassProminent`) in a glass capsule; Branches with a
+  commits, a commit field with **Commit** inside one glass capsule, built like the composer (a 36 pt ink
+  pill 8 pt in, so field and button share one height); Branches with a
   confirmed checkout whose refusal shows git's words. **Terminal**: the emulator with a glass key row (esc, sticky
   ctrl and tab fixed, then arrows that repeat while held, `|`, `~`, `/`, the system Paste button,
-  scrolling under a fading edge when the row is narrow); pinch zoom is
+  scrolling under a fading edge when the row is narrow), a clear bar over the terminal's own
+  background (`TerminalModel.background`); pinch zoom is
   Ghostty's and the size is kept for the next terminal.
 
 ## Design system
@@ -397,7 +402,7 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
 | `Metrics` | `Spacing` (4-pt grid), `Radius` |
 | `Motion` | `Motion.spring/snappy/crossfade`, `(reduceMotion:)` variants, `AnyTransition.rise`, `.springAnimation(value:)` |
 | `Haptics` | `HapticMoment` (the design table) and `.haptic(_:trigger:)` / `.haptic(_:trigger:when:)` |
-| `GlassControls` | `.primaryActionStyle()` (`.glassProminent`), `.secondaryActionStyle()` (`.glass`), `.glassCard()`, `WideLabel`, `GlassCapsuleBar` (the composer's capsule and its send/stop accessory in one container) |
+| `GlassControls` | `.primaryActionStyle()` (`.glassProminent`), `.secondaryActionStyle()` (`.glass`), `.glassCard()`, `WideLabel` |
 | `AgentMark`, `BroskiMark` | an agent's mark from its bridge's `BackendDescriptor` (`MachineModel.brand(for:)`): Claude Code's and Pi's logos, any other agent its initials on its `accentHex` (slate without one), drawn by `AgentBrand`/`AgentLogo` in `Shared/LiveActivity`; the app's mark |
 | `Indicators` | `StateIndicator`, `RelativeTime`, `Date(unixMilliseconds:)` |
 | `Orb` | `Orb` and `LoadingOrb`: ThinkingOrbsKit's thinking orb, the only "under way" mark (agents working, thinking, connecting, loading; no `ProgressView` or animated symbol), sized with its text, still outside an active scene and under Reduce Motion |

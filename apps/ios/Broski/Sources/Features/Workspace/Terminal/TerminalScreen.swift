@@ -32,7 +32,7 @@ struct TerminalScreen: View {
             }
             .navigationTitle(title.isEmpty ? "Terminal" : title)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.visible, for: .navigationBar)
+            .background(TerminalModel.background.ignoresSafeArea())
             .toolbar(.hidden, for: .tabBar)
             .task(id: active) {
                 if active { await model.show() } else { model.hide() }
@@ -90,6 +90,5 @@ private struct TerminalNote: View {
             .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, Spacing.s)
-            .background(.bar)
     }
 }

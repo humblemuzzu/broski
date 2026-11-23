@@ -48,24 +48,3 @@ struct WideLabel: View {
     }
 }
 
-/// A floating capsule of controls with an optional control beside it (a composer: the field and
-/// its buttons in the capsule, send or stop beside it), both in one container so they blend and
-/// morph as the accessory comes and goes.
-struct GlassCapsuleBar<Bar: View, Accessory: View>: View {
-    var spacing: CGFloat = Spacing.s
-    @ViewBuilder var bar: () -> Bar
-    @ViewBuilder var accessory: () -> Accessory
-
-    var body: some View {
-        GlassEffectContainer(spacing: spacing) {
-            HStack(alignment: .bottom, spacing: spacing) {
-                bar()
-                    .padding(.horizontal, Spacing.m)
-                    .padding(.vertical, Spacing.s)
-                    .frame(minHeight: 44)
-                    .glassEffect(.regular.interactive(), in: .capsule)
-                accessory()
-            }
-        }
-    }
-}

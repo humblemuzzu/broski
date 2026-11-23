@@ -72,17 +72,26 @@ final class TerminalModel {
         state.controller.setColorScheme(scheme == .dark ? .dark : .light)
     }
 
+    private static let lightBackground: UInt32 = 0xFFFFFF
+    private static let darkBackground: UInt32 = 0x111114
+
+    /// The terminal's own background, which the screen around the surface takes too, so the bar
+    /// over it and the terminal read as one surface.
+    static let background = Color(light: lightBackground, dark: darkBackground)
+
     private static let terminalTheme = TerminalTheme(
         light: TerminalConfiguration {
-            $0.withBackground("#FFFFFF")
+            $0.withBackground(hex(lightBackground))
             $0.withForeground("#1C1C1E")
             $0.withCursorColor("#5B5FC7")
         },
         dark: TerminalConfiguration {
-            $0.withBackground("#111114")
+            $0.withBackground(hex(darkBackground))
             $0.withForeground("#F2F2F7")
             $0.withCursorColor("#C0C1FF")
         })
+
+    private static func hex(_ rgb: UInt32) -> String { String(format: "#%06X", rgb) }
 
     /// Opens the terminal when this screen made it, then attaches; a call while attached or
     /// opening does nothing.

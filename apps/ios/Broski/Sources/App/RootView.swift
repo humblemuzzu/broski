@@ -23,6 +23,8 @@ struct RootView: View {
                     .transition(.opacity)
             }
         }
+        // iOS 27 resolves the automatic edge to a hard band under every titled bar.
+        .scrollEdgeEffectStyle(.soft, for: .top)
         .animation(Motion.spring(reduceMotion: reduceMotion), value: model.isPaired)
         .environment(\.startPairing, PairAction { pairing = $0 })
         .sheet(item: $pairing) { start in

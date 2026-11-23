@@ -129,7 +129,9 @@ struct FolderPicker: View {
                     Button("Select") { select(folder.path) }
                 }
             }
-            .searchable(text: $query, prompt: "Search folders in \(folder.path.lastPathComponent)")
+            .searchable(
+                text: $query, placement: .navigationBarDrawer(displayMode: .always),
+                prompt: "Search folders in \(folder.path.lastPathComponent)")
             .task {
                 guard folder.phase != .loaded else { return }
                 await folder.load()
@@ -141,15 +143,10 @@ struct FolderPicker: View {
             }
     }
 
-    @ViewBuilder
+    /// One list through loading and failure too, so the search field above it never folds away.
     private var content: some View {
-        switch folder.phase {
-        case .loading:
-            LoadingOrb(side: 64).frame(maxWidth: .infinity, maxHeight: .infinity)
-        case .failed(let problem):
-            ProblemView(problem: problem) { await folder.load() }
-        case .loaded:
-            List {
+        List {
+            if folder.phase == .loaded {
                 if searching {
                     matches
                 } else {
@@ -176,7 +173,14 @@ struct FolderPicker: View {
                     }
                 }
             }
-            .overlay {
+        }
+        .overlay {
+            switch folder.phase {
+            case .loading:
+                LoadingOrb(side: 64)
+            case .failed(let problem):
+                ProblemView(problem: problem) { await folder.load() }
+            case .loaded:
                 if !searching, folders.isEmpty, !folder.hasMore {
                     ContentUnavailableView(
                         "No folders in here", systemImage: "folder",

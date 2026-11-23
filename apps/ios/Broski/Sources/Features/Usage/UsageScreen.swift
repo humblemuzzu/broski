@@ -51,7 +51,6 @@ struct UsageScreen: View {
                 .padding(.bottom, Spacing.xxl)
             }
             .background(Palette.screen)
-            .scrollEdgeEffectStyle(.soft, for: .top)
             .navigationTitle("Usage")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(removing: .title)

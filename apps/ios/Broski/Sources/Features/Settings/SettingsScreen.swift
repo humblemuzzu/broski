@@ -48,7 +48,6 @@ struct SettingsScreen: View {
                 }
             }
             .listStyle(.insetGrouped)
-            .scrollEdgeEffectStyle(.soft, for: .top)
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(removing: .title)

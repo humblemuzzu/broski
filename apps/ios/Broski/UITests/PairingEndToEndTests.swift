@@ -45,7 +45,7 @@ final class PairingEndToEndTests: XCTestCase {
         turnOn.tap()
         allowSystemPrompt("Allow")
 
-        XCTAssertTrue(app.navigationBars["Inbox"].waitForExistence(timeout: timeout))
+        XCTAssertTrue(app.buttons["inbox.search"].waitForExistence(timeout: timeout))
         XCTAssertTrue(app.staticTexts["Rename the settings screen"].waitForExistence(timeout: timeout))
         XCTAssertTrue(app.staticTexts["Fix the flaky login test"].exists)
 
@@ -69,7 +69,7 @@ final class PairingEndToEndTests: XCTestCase {
     func test2ShowsTheMachineSettingsAndDarkInbox() throws {
         let app = XCUIApplication()
         app.launch()
-        XCTAssertTrue(app.navigationBars["Inbox"].waitForExistence(timeout: timeout))
+        XCTAssertTrue(app.buttons["inbox.search"].waitForExistence(timeout: timeout))
         try screenshot("inbox-light")
 
         tab("Settings", in: app)
@@ -110,6 +110,29 @@ final class PairingEndToEndTests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Machines"].waitForExistence(timeout: timeout))
         try screenshot("machines-largest-text")
         app.buttons["BackButton"].tap()
+    }
+
+    /// Search narrows the inbox, and its close button puts the bar and every row back, every time.
+    @MainActor
+    func test3SearchesTheInboxAndClosesTheSearch() throws {
+        let app = XCUIApplication()
+        app.launch()
+        let done = app.staticTexts["Add dark mode to the dashboard"]
+        XCTAssertTrue(done.waitForExistence(timeout: timeout))
+        let field = app.textFields["Search sessions"]
+        for round in 1...3 {
+            app.buttons["inbox.search"].tap()
+            XCTAssertTrue(field.waitForExistence(timeout: timeout))
+            field.typeText("Rename")
+            XCTAssertTrue(app.staticTexts["Rename the settings screen"].waitForExistence(timeout: timeout))
+            XCTAssertTrue(done.waitForNonExistence(timeout: timeout), "search narrows the list")
+            if round == 1 { try screenshot("inbox-search") }
+            app.buttons["Close Search"].tap()
+            XCTAssertTrue(field.waitForNonExistence(timeout: timeout), "close dismisses the search, round \(round)")
+            XCTAssertTrue(app.buttons["inbox.search"].waitForExistence(timeout: timeout))
+            XCTAssertFalse(app.keyboards.firstMatch.exists)
+            XCTAssertTrue(done.waitForExistence(timeout: timeout), "every row comes back")
+        }
     }
 
     /// No phone prompts the run: the row learns the ask by itself, offers the backend's allow and

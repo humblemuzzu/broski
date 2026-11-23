@@ -15,6 +15,7 @@ struct InboxScreen: View {
     /// Whether idle sessions show: the person's choice, or set open when Idle was all there was, so
     /// they never fold away on their own from under the person's eyes. Nil, they start folded.
     @State private var idleOpen: Bool?
+    @State private var searching = false
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -28,9 +29,20 @@ struct InboxScreen: View {
                     }
                     .sharedBackgroundVisibility(.hidden)
                     ToolbarItem(placement: .topBarTrailing) { InboxFilterMenu() }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Search", systemImage: "magnifyingglass", action: openSearch)
+                            .accessibilityIdentifier("inbox.search")
+                    }
                 }
-                .searchable(text: $query, placement: .toolbar, prompt: "Search sessions")
-                .searchToolbarBehavior(.minimize)
+                .toolbarVisibility(searching ? .hidden : .automatic, for: .navigationBar)
+                .safeAreaBar(edge: .top) {
+                    if searching {
+                        InboxSearchField(query: $query, close: closeSearch)
+                            .padding(.horizontal, Spacing.l)
+                            .padding(.bottom, Spacing.s)
+                            .transition(.opacity)
+                    }
+                }
                 .routeDestinations()
         }
         .environment(\.openSession, OpenSessionAction { open($0) })
@@ -47,6 +59,17 @@ struct InboxScreen: View {
             guard starts else { return }
             model.startsNewSession = false
             if path.last != .newSession { path = [.newSession] }
+        }
+    }
+
+    private func openSearch() {
+        withAnimation(Motion.snappy(reduceMotion: reduceMotion)) { searching = true }
+    }
+
+    private func closeSearch() {
+        withAnimation(Motion.snappy(reduceMotion: reduceMotion)) {
+            query = ""
+            searching = false
         }
     }
 
@@ -115,7 +138,6 @@ struct InboxScreen: View {
             }
         }
         .listStyle(.insetGrouped)
-        .scrollEdgeEffectStyle(.soft, for: .top)
         .overlay {
             if sections.isEmpty {
                 if !query.isEmpty {

@@ -3,7 +3,8 @@ import SwiftUI
 import UIKit
 
 /// Session Info, from the chat's overflow: the session and where it runs, its model and settings,
-/// how full its context is with what it used, and its prompt cache counting down.
+/// its folder and id to copy, how full its context is with what it used, and its prompt cache
+/// counting down. Every row is a label and a value on one line.
 struct SessionInfoSheet: View {
     let chat: ChatModel
     let machine: MachineModel
@@ -11,6 +12,7 @@ struct SessionInfoSheet: View {
     let cwd: String?
     let catalog: ComposerCatalog
     @State private var nowMs = Date.now.unixMilliseconds
+    @State private var home: String?
     @Environment(\.dismiss) private var dismiss
 
     private var snapshot: SessionSnapshot { chat.snapshot }
@@ -18,59 +20,48 @@ struct SessionInfoSheet: View {
     private var modelId: String? { snapshot.modelId ?? chat.summary?.modelId }
 
     var body: some View {
-        NavigationStack {
-            Form {
-                sessionSection
-                if modelId != nil || snapshot.thinking != nil || !snapshot.modes.isEmpty {
-                    settingsSection
-                }
-                if let usage = snapshot.usage {
-                    UsageSection(usage: usage)
-                }
-                if let cache = snapshot.usage?.cache {
-                    CacheSection(cache: cache, nowMs: nowMs)
-                }
+        Form {
+            if let usage = snapshot.usage {
+                UsageSection(usage: usage)
             }
-            .task(id: snapshot.usage?.cache) { await countDown(snapshot.usage?.cache) }
-            .navigationTitle("Session Info")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(role: .close) { dismiss() }
-                }
+            if modelId != nil || snapshot.thinking != nil || !snapshot.modes.isEmpty {
+                settingsSection
+            }
+            detailsSection
+            if let cache = snapshot.usage?.cache {
+                CacheSection(cache: cache, nowMs: nowMs)
             }
         }
+        .contentMargins(.top, Spacing.xs, for: .scrollContent)
+        .safeAreaBar(edge: .top) {
+            SessionInfoHeader(title: title, brand: brand, machineName: machine.name) { dismiss() }
+                .padding(.horizontal, Spacing.l)
+                .padding(.top, Spacing.l)
+                .padding(.bottom, Spacing.s)
+        }
+        .task(id: snapshot.usage?.cache) { await countDown(snapshot.usage?.cache) }
+        .task { home = try? await WorkspaceRequests(machine: machine.machine).info().roots.first }
         .presentationDetents([.medium, .large])
     }
 
-    private var sessionSection: some View {
-        Section("Session") {
-            LabeledContent("Title", value: title)
-            LabeledContent("Agent") {
-                HStack(spacing: Spacing.s) {
-                    AgentLogo(brand: brand, side: 20)
-                    Text(brand.name)
-                }
-            }
-            LabeledContent("Machine", value: machine.name)
-            CopyableRow(label: "Session ID", value: chat.session.sessionId)
+    private var detailsSection: some View {
+        Section {
             if let cwd {
-                CopyableRow(label: "Folder", value: cwd)
+                CopyRow(label: "Folder", value: cwd, shown: cwd.abbreviatingHome(home))
             }
+            CopyRow(label: "Session ID", value: chat.session.sessionId)
+        } header: {
+            SessionInfoSectionTitle("Details")
         }
     }
 
     private var settingsSection: some View {
-        Section("Model & Settings") {
+        Section {
             if let modelId {
-                let name = catalog.model(modelId)?.displayName ?? modelId
-                LabeledContent("Model") {
-                    VStack(alignment: .trailing, spacing: Spacing.xxs) {
-                        Text(name)
-                        if name != modelId {
-                            Text(modelId).font(.caption.monospaced())
-                        }
-                    }
+                let model = catalog.model(modelId)
+                LabeledContent("Model", value: model?.displayName ?? modelId)
+                if let provider = model?.provider {
+                    LabeledContent("Provider", value: provider)
                 }
             }
             if let thinking = snapshot.thinking {
@@ -81,6 +72,8 @@ struct SessionInfoSheet: View {
                 let value = axis?.options.first { $0.value == setting.value }?.label ?? setting.value
                 LabeledContent(axis?.label ?? setting.axis, value: value)
             }
+        } header: {
+            SessionInfoSectionTitle("Model")
         }
     }
 
@@ -105,7 +98,7 @@ private struct UsageSection: View {
     let usage: Usage
 
     var body: some View {
-        Section("Context & Usage") {
+        Section {
             if let context = usage.contextLine {
                 let fraction = usage.contextFraction(window: nil)
                 VStack(alignment: .leading, spacing: Spacing.s) {
@@ -125,6 +118,8 @@ private struct UsageSection: View {
             if let cost = usage.costLine() {
                 LabeledContent("Cost") { Text(cost).monospacedDigit() }
             }
+        } header: {
+            SessionInfoSectionTitle("Context & Usage")
         }
     }
 }
@@ -135,7 +130,7 @@ private struct CacheSection: View {
     let nowMs: Int64
 
     var body: some View {
-        Section("Prompt Cache") {
+        Section {
             if let remaining = cache.remainingLine(nowMs: nowMs) {
                 LabeledContent("Warm") {
                     Text(remaining)
@@ -147,41 +142,8 @@ private struct CacheSection: View {
             ForEach(cache.infoLines(nowMs: nowMs), id: \.self) { line in
                 LabeledContent(line.label) { Text(line.value).monospacedDigit() }
             }
-        }
-    }
-}
-
-/// A value to copy in one tap, which says "Copied" for a moment after.
-private struct CopyableRow: View {
-    let label: String
-    let value: String
-    @State private var copies = 0
-    @State private var copied = false
-
-    var body: some View {
-        HStack(spacing: Spacing.m) {
-            VStack(alignment: .leading, spacing: Spacing.xxs) {
-                Text(label).font(.subheadline).foregroundStyle(.secondary)
-                Text(value).font(.callout.monospaced()).textSelection(.enabled)
-            }
-            Spacer(minLength: 0)
-            Button(copied ? "Copied" : "Copy", systemImage: copied ? "checkmark" : "doc.on.doc") {
-                UIPasteboard.general.string = value
-                copied = true
-                copies += 1
-            }
-            .labelStyle(.titleAndIcon)
-            .font(.footnote.weight(.medium))
-            .buttonStyle(.glass)
-            .contentTransition(.symbolEffect(.replace))
-            .accessibilityLabel(copied ? "Copied" : "Copy \(label)")
-        }
-        .haptic(.confirmed, trigger: copies)
-        .task(id: copies) {
-            guard copies > 0 else { return }
-            try? await Task.sleep(for: .seconds(1.5))
-            guard !Task.isCancelled else { return }
-            copied = false
+        } header: {
+            SessionInfoSectionTitle("Prompt Cache")
         }
     }
 }

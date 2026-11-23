@@ -30,7 +30,7 @@ struct WorkspaceDestination: View {
     var body: some View {
         if let machine = model.machine(id: machineId) {
             screen(machine.machine)
-                .safeAreaInset(edge: .top, spacing: 0) {
+                .safeAreaBar(edge: .top) {
                     if !machine.summary.isReady {
                         MachineStatusStrip(summary: machine.summary)
                     }
@@ -65,7 +65,7 @@ struct WorkspaceDestination: View {
     }
 }
 
-/// The machine's status in a strip under the navigation bar.
+/// The machine's status, a chip floating under the navigation bar over the content's soft edge.
 struct MachineStatusStrip: View {
     let summary: MachineSummary
 
@@ -73,6 +73,5 @@ struct MachineStatusStrip: View {
         StatusChip(text: summary.line, tone: summary.health.tone)
             .frame(maxWidth: .infinity)
             .padding(.vertical, Spacing.s)
-            .background(.bar)
     }
 }

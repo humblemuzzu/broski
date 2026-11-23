@@ -17,7 +17,7 @@ final class VoiceEndToEndTests: XCTestCase {
     func test1KeepsWordsAndAKeyInVoiceSettings() throws {
         let app = XCUIApplication()
         app.launch()
-        XCTAssertTrue(app.navigationBars["Inbox"].waitForExistence(timeout: timeout))
+        XCTAssertTrue(app.buttons["inbox.search"].waitForExistence(timeout: timeout))
         tab("Settings", in: app)
         app.buttons["Voice"].tap()
         XCTAssertTrue(app.navigationBars["Voice"].waitForExistence(timeout: timeout))
@@ -51,7 +51,7 @@ final class VoiceEndToEndTests: XCTestCase {
         try XCTSkipIf((environment["BROSKI_E2E_XAI_KEY"] ?? "").isEmpty, "needs BROSKI_E2E_XAI_KEY")
         let app = XCUIApplication()
         app.launch()
-        XCTAssertTrue(app.navigationBars["Inbox"].waitForExistence(timeout: timeout))
+        XCTAssertTrue(app.buttons["inbox.search"].waitForExistence(timeout: timeout))
         showIdle(in: app)
         app.staticTexts[session].firstMatch.tap()
         let composer = app.descendants(matching: .any)["composer"].firstMatch

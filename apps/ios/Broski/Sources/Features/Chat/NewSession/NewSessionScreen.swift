@@ -49,7 +49,7 @@ private struct NewSessionContent: View {
                 .onTapGesture { composing = false }
             bottomBar
         }
-        .safeAreaInset(edge: .top, spacing: 0) {
+        .safeAreaBar(edge: .top) {
             if let machine, !machine.summary.isReady {
                 MachineStatusStrip(summary: machine.summary)
             }

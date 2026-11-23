@@ -151,7 +151,7 @@ final class SessionEndToEndTests: XCTestCase {
     func test6LaysOutDarkAndAtTheLargestTextSize() throws {
         let app = XCUIApplication()
         app.launch()
-        XCTAssertTrue(app.navigationBars["Inbox"].waitForExistence(timeout: timeout))
+        XCTAssertTrue(app.buttons["inbox.search"].waitForExistence(timeout: timeout))
         setAppearance("Dark", in: app)
         tab("Inbox", in: app)
         showIdle(in: app)
@@ -204,7 +204,7 @@ final class SessionEndToEndTests: XCTestCase {
         let rootName = URL(fileURLWithPath: try XCTUnwrap(environment["BROSKI_E2E_ROOT"])).lastPathComponent
         let app = XCUIApplication()
         app.launch()
-        XCTAssertTrue(app.navigationBars["Inbox"].waitForExistence(timeout: timeout))
+        XCTAssertTrue(app.buttons["inbox.search"].waitForExistence(timeout: timeout))
         app.buttons["New Session"].tap()
         XCTAssertTrue(app.staticTexts["What should we build?"].waitForExistence(timeout: timeout))
         let recent = app.buttons["Folder, \(rootName)"]
@@ -368,7 +368,7 @@ final class SessionEndToEndTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments += arguments
         app.launch()
-        XCTAssertTrue(app.navigationBars["Inbox"].waitForExistence(timeout: timeout))
+        XCTAssertTrue(app.buttons["inbox.search"].waitForExistence(timeout: timeout))
         showIdle(in: app)
         let row = app.staticTexts[title].firstMatch
         let renamed = app.staticTexts["Release notes, tidied"].firstMatch

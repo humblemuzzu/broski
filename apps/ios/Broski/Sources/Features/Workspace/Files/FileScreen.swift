@@ -46,7 +46,7 @@ struct FileScreen: View {
             ProblemView(problem: problem) { await model.load() }
         case .loaded(.text(let file)):
             FileTextView(file: file, path: model.path, line: line)
-                .safeAreaInset(edge: .top, spacing: 0) {
+                .safeAreaBar(edge: .top) {
                     if file.truncated { TruncationNote(file: file) }
                 }
         case .loaded(.image(let payload)):
@@ -141,6 +141,5 @@ private struct TruncationNote: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, Spacing.l)
             .padding(.vertical, Spacing.s)
-            .background(.bar)
     }
 }
