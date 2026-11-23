@@ -129,7 +129,27 @@ private fun AnnotatedString.Builder.appendStyled(span: FormatSpan, look: SpanLoo
         fontFamily = if (mono) MonoFamily else null,
         fontSize = if (span.code || span.math) look.codeSize else TextUnit.Unspecified,
     )
-    withStyle(style) { append(span.text) }
+    val display = if (span.code) breakableCode(span.text) else span.text
+    withStyle(style) { append(display) }
+}
+
+/** Display-only break opportunities inside long inline code/path tokens so lines fill cleanly. */
+internal fun breakableCode(text: String): String {
+    if (text.length <= 16) return text
+    val lastAllowed = text.length - 3
+    if (lastAllowed <= 3) return text
+    val out = StringBuilder(text.length + 8)
+    for (index in text.indices) {
+        val ch = text[index]
+        out.append(ch)
+        if (index < 2 || index >= lastAllowed) continue
+        val next = text[index + 1]
+        if (next == ' ' || next == '\n' || next == ch) continue
+        if (ch == '/' || ch == '.' || ch == '(' || ch == '_' || ch == '-' || ch == ':') {
+            out.append('\u200B')
+        }
+    }
+    return out.toString()
 }
 
 private fun annotation(link: FormatLink, look: SpanLook, open: (FormatLink) -> Unit): LinkAnnotation {

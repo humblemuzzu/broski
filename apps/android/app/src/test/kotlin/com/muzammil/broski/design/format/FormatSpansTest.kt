@@ -33,4 +33,18 @@ class FormatSpansTest {
     fun whereTheTextBelongsToNoMachineAPathIsPlainCode() {
         assertEquals(listOf("the spec", "https://example.com"), linked(opensFiles = false))
     }
+
+    @Test
+    fun longCodeTokensGetDisplayBreakHintsWhileShortOnesStayUntouched() {
+        assertEquals("set_model", breakableCode("set_model"))
+        assertEquals("route_race.rs:42", breakableCode("route_race.rs:42"))
+        assertEquals(
+            "packages/\u200Bbridge/\u200Bsrc/\u200Bprotocol.ts",
+            breakableCode("packages/bridge/src/protocol.ts"),
+        )
+        assertEquals(
+            "FormatContainers.\u200Bswift",
+            breakableCode("FormatContainers.swift"),
+        )
+    }
 }

@@ -48,7 +48,8 @@ enum FormatSpans {
     }
 
     private static func piece(_ span: FormatSpan, style: SpanStyle) -> AttributedString {
-        var piece = AttributedString(span.text)
+        let display = span.code ? Self.breakableCode(span.text) : span.text
+        var piece = AttributedString(display)
         let isCodeLike = span.code || span.math || span.html
         let base = isCodeLike ? style.codeFont : style.font
         piece.font = font(span, base: base)
@@ -67,6 +68,28 @@ enum FormatSpans {
         }
         apply(span.link, to: &piece, style: style)
         return piece
+    }
+
+    /// Inserts display-only break opportunities inside long inline code/path tokens so CoreText
+    /// wraps near the right edge instead of stranding half a line empty before a long identifier.
+    static func breakableCode(_ text: String) -> String {
+        guard text.count > 16 else { return text }
+        let chars = Array(text)
+        let lastAllowed = chars.count - 3
+        guard lastAllowed > 3 else { return text }
+        var out = ""
+        out.reserveCapacity(text.count + 8)
+        for index in chars.indices {
+            let ch = chars[index]
+            out.append(ch)
+            guard index >= 2 && index < lastAllowed else { continue }
+            let next = chars[index + 1]
+            if next == " " || next == "\n" || next == ch { continue }
+            if ch == "/" || ch == "." || ch == "(" || ch == "_" || ch == "-" || ch == ":" {
+                out.append("\u{200B}")
+            }
+        }
+        return out
     }
 
     private static func font(_ span: FormatSpan, base: Font) -> Font {

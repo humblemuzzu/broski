@@ -51,7 +51,7 @@ struct TranscriptView: View {
             }
     }
 
-    static let sideMargin: CGFloat = Spacing.l + 2
+    static let sideMargin: CGFloat = Spacing.l
 
     private var insets: EdgeInsets {
         guard fullFrame.height > 0, safeFrame.height > 0 else { return EdgeInsets() }
