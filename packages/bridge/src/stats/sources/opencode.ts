@@ -152,7 +152,7 @@ function streamMessageTable(
 	ctx: OpencodeScanContext,
 ): void {
 	const query = v2
-		? `SELECT id, session_id,
+		? `SELECT rowid AS row_id, id, session_id,
 			COALESCE(json_extract(data, '$.model.providerID'), '') AS provider,
 			COALESCE(json_extract(data, '$.model.id'), '') AS model,
 			COALESCE(json_extract(data, '$.tokens.input'), 0) AS input,
@@ -166,8 +166,8 @@ function streamMessageTable(
 			COALESCE(json_extract(data, '$.model.variant'), '') AS variant,
 			COALESCE(json_extract(data, '$.error.name'), '') AS error_name,
 			COALESCE(json_extract(data, '$.agent'), '') AS agent
-		   FROM session_message WHERE type = 'assistant' ORDER BY rowid LIMIT ? OFFSET ?`
-		: `SELECT id, session_id,
+		   FROM session_message WHERE type = 'assistant' AND rowid > ? ORDER BY rowid LIMIT ?`
+		: `SELECT rowid AS row_id, id, session_id,
 			COALESCE(json_extract(data, '$.providerID'), '') AS provider,
 			COALESCE(json_extract(data, '$.modelID'), '') AS model,
 			COALESCE(json_extract(data, '$.tokens.input'), 0) AS input,
@@ -181,13 +181,17 @@ function streamMessageTable(
 			COALESCE(json_extract(data, '$.variant'), '') AS variant,
 			COALESCE(json_extract(data, '$.error.name'), '') AS error_name,
 			COALESCE(json_extract(data, '$.agent'), '') AS agent
-		   FROM message WHERE json_extract(data, '$.role') = 'assistant' ORDER BY rowid LIMIT ? OFFSET ?`;
+		   FROM message WHERE json_extract(data, '$.role') = 'assistant' AND rowid > ? ORDER BY rowid LIMIT ?`;
 
 	const stmt = db.prepare(query);
-	let offset = 0;
+	let afterRowId = 0;
 	for (;;) {
-		const rows = stmt.all(PAGE_SIZE, offset) as Array<Omit<RawMessageRow, "parent_id" | "directory">>;
-		if (rows.length === 0) break;
+		const rows = stmt.all(afterRowId, PAGE_SIZE) as Array<
+			Omit<RawMessageRow, "parent_id" | "directory"> & { row_id: number }
+		>;
+		const last = rows.at(-1);
+		if (!last) break;
+		afterRowId = last.row_id;
 		for (const row of rows) {
 			const meta = sessions.get(row.session_id);
 			const rootId = resolveRootSession(row.session_id, sessions);
@@ -205,7 +209,6 @@ function streamMessageTable(
 		}
 		if (rows.length < PAGE_SIZE) break;
 		ctx.flush?.();
-		offset += PAGE_SIZE;
 	}
 	ctx.flush?.();
 }

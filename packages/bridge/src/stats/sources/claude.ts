@@ -30,7 +30,7 @@ export function initClaudeState(sourcePath: string): ClaudeParserState {
 }
 
 export function claudeLineMatches(buf: Buffer): boolean {
-	return buf.includes('"assistant"') || buf.includes('"compact_boundary"') || buf.includes('"sessionId"');
+	return buf.includes('"type":"assistant"') || buf.includes('"compact_boundary"');
 }
 
 export function parseClaudeLine(state: ClaudeParserState, buf: Buffer, ctx: ClaudeLineContext): void {

@@ -287,11 +287,13 @@ export class PriceBook {
 		const p = canonicalProvider(provider);
 		const m = model.trim();
 		if (!p || !m) return;
-		this.byProvider.set(`${p}/${m}`, card);
+		const key = `${p}/${m}`;
+		const merged = keepSpeedMultipliers(card, this.byProvider.get(key));
+		this.byProvider.set(key, merged);
 		const list = this.byModel.get(m) ?? [];
 		const idx = list.findIndex(([prov]) => prov === p);
-		if (idx >= 0) list[idx] = [p, card];
-		else list.push([p, card]);
+		if (idx >= 0) list[idx] = [p, merged];
+		else list.push([p, merged]);
 		this.byModel.set(m, list);
 	}
 
@@ -317,6 +319,18 @@ export class PriceBook {
 		}
 		return undefined;
 	}
+}
+
+/** The public catalogs carry no fast-mode multipliers for most vendors, so a refreshed card keeps the known ones. */
+function keepSpeedMultipliers(card: ModelRateCard, prev: ModelRateCard | undefined): ModelRateCard {
+	if (!prev) return card;
+	const { fastMultiplier, ultrafastMultiplier, flexMultiplier } = prev;
+	return {
+		...(fastMultiplier !== undefined && { fastMultiplier }),
+		...(ultrafastMultiplier !== undefined && { ultrafastMultiplier }),
+		...(flexMultiplier !== undefined && { flexMultiplier }),
+		...card,
+	};
 }
 
 export function rateSignature(card: ModelRateCard): string {

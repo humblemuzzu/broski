@@ -2,12 +2,13 @@ import { Database } from "bun:sqlite";
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { StatsSummary } from "../contract";
 import { StatsEngine } from "../stats/engine";
 import { PriceBook } from "../stats/pricing";
 import { machineStats } from "../stats/service";
 import { decodeMetadataBlob } from "../stats/sources/antigravity";
+import { StatsStore } from "../stats/store";
 import type { StatsPaths } from "../stats/types";
 
 const tempDirs: string[] = [];
@@ -116,6 +117,46 @@ describe("PriceBook", () => {
 		);
 		expect(fast.speedPremiumUsd).toBeGreaterThan(0);
 		expect(fast.totalUsd).toBeCloseTo(fast.speedPremiumUsd * 2, 6);
+	});
+
+	test("bills Claude 4.6 and later at base rates across the 1M window", () => {
+		const book = new PriceBook();
+		const tokens = {
+			uncachedInput: 100_000,
+			cachedInput: 400_000,
+			cacheCreation: 0,
+			cacheCreation1h: 0,
+			output: 10_000,
+			reasoning: 0,
+		};
+		const opus = book.priceTurn("anthropic", "claude-opus-5-5", tokens, "standard", undefined);
+		expect(opus.contextTier).toBe("base");
+		// 100k * $4/M + 400k * $0.20/M + 10k * $20/M
+		expect(opus.totalUsd).toBeCloseTo(0.4 + 0.08 + 0.2, 6);
+		expect(book.priceTurn("anthropic", "claude-sonnet-4-6", tokens, "standard", undefined).contextTier).toBe("base");
+	});
+
+	test("keeps a bundled fast-mode multiplier when a refreshed catalog card has none", () => {
+		const { root } = makeTempEnv();
+		const cachePath = join(root, "pricing-cache.json");
+		writeFileSync(
+			cachePath,
+			JSON.stringify({
+				version: 1,
+				fetchedAt: Date.now(),
+				rates: { "anthropic/claude-opus-4-6": { input: 5, output: 25, cacheRead: 0.5, cacheWrite: 6.25 } },
+			}),
+		);
+		const book = new PriceBook({ cachePath, disableRemote: true });
+		const tokens = {
+			uncachedInput: 1_000_000,
+			cachedInput: 0,
+			cacheCreation: 0,
+			cacheCreation1h: 0,
+			output: 0,
+			reasoning: 0,
+		};
+		expect(book.priceTurn("anthropic", "claude-opus-4-6", tokens, "fast", undefined).totalUsd).toBeCloseTo(30, 6);
 	});
 
 	test("marks unknown models as unpriced rather than $0 free", () => {
@@ -386,6 +427,22 @@ describe("StatsEngine parsers and deduplication", () => {
 					runs: [{ agent: "chad", status: "done", usage: { input: 500, output: 200, turns: 3, cost: 0.01 } }],
 				},
 			}),
+			// The same run's own record and the background launch's tool result: neither may count again.
+			JSON.stringify({
+				type: "custom",
+				customType: "agent-run",
+				timestamp: new Date(t1 + 1900).toISOString(),
+				data: { agent: "chad", status: "done", usage: { input: 500, output: 200, turns: 3, cost: 0.01 } },
+			}),
+			JSON.stringify({
+				type: "message",
+				timestamp: new Date(t1 + 1500).toISOString(),
+				message: {
+					role: "toolResult",
+					toolName: "chad",
+					details: { agent: "chad", background: true, continueId: "chad-1" },
+				},
+			}),
 		];
 		writeFileSync(parentPath, `${parentLines.join("\n")}\n`);
 
@@ -427,6 +484,7 @@ describe("StatsEngine parsers and deduplication", () => {
 			expect(summary.subagents[0]?.name).toBe("chad");
 			expect(summary.subagents[0]?.runs).toBe(1);
 			expect(summary.subagents[0]?.turns).toBe(3);
+			expect(summary.subagents[0]?.costUsd).toBeCloseTo(0.01, 9);
 		} finally {
 			engine.dispose();
 		}
@@ -446,18 +504,22 @@ describe("StatsEngine parsers and deduplication", () => {
 			"CREATE TABLE message (id TEXT PRIMARY KEY, session_id TEXT, time_created INTEGER, time_updated INTEGER, data TEXT)",
 		);
 		ocDb.run("INSERT INTO session VALUES ('oc-1', '', '/tmp/oc', 'test', ?, ?)", [now, now]);
-		ocDb.run("INSERT INTO message VALUES ('oc-m1', 'oc-1', ?, ?, ?)", [
-			now,
-			now,
-			JSON.stringify({
-				role: "assistant",
-				providerID: "openai",
-				modelID: "gpt-5",
-				tokens: { input: 4000, output: 1000, reasoning: 200, cache: { read: 1000, write: 0 } },
-				cost: 0,
-				time: { created: now, completed: now + 500 },
-			}),
-		]);
+		// More rows than one read page, so every page boundary is crossed.
+		for (let i = 0; i < 150; i++) {
+			ocDb.run("INSERT INTO message VALUES (?, 'oc-1', ?, ?, ?)", [
+				`oc-m${i}`,
+				now,
+				now,
+				JSON.stringify({
+					role: "assistant",
+					providerID: "openai",
+					modelID: "gpt-5",
+					tokens: { input: 4000, output: 1000, reasoning: 200, cache: { read: 1000, write: 0 } },
+					cost: 0,
+					time: { created: now - i, completed: now + 500 - i },
+				}),
+			]);
+		}
 		ocDb.close(false);
 
 		// Grok Build updates.jsonl
@@ -526,6 +588,12 @@ describe("StatsEngine parsers and deduplication", () => {
 			expect(summary.series.length).toBe(24);
 			const harnesses = summary.harnesses.map((h) => h.harness).sort();
 			expect(harnesses).toEqual(["gemini", "grok", "opencode"]);
+			expect(summary.harnesses.find((h) => h.harness === "opencode")?.turns).toBe(150);
+			// Gemini bills thoughts as output on top of the candidates, and its prompt count holds the cached share.
+			const gemini = summary.harnesses.find((h) => h.harness === "gemini")?.tokens;
+			expect(gemini?.output).toBe(500);
+			expect(gemini?.uncachedInput).toBe(1500);
+			expect(gemini?.cachedInput).toBe(500);
 		} finally {
 			engine.dispose();
 		}
@@ -563,6 +631,60 @@ describe("StatsEngine parsers and deduplication", () => {
 			}
 		} finally {
 			await service.dispose();
+		}
+	});
+
+	test("active time counts only the gaps between turns inside the window", async () => {
+		const { paths } = makeTempEnv();
+		const start = Date.now() - 10 * 86_400_000;
+		const recent = Date.now() - 2 * 3_600_000;
+		const turn = (ms: number) =>
+			JSON.stringify({
+				type: "message",
+				timestamp: new Date(ms).toISOString(),
+				message: {
+					role: "assistant",
+					provider: "anthropic",
+					model: "claude-sonnet-4-6",
+					usage: { input: 100, output: 10, cacheRead: 0, cacheWrite: 0, cost: { total: 0.001 } },
+				},
+			});
+		writeFileSync(
+			join(paths.piSessionsDir, "long.jsonl"),
+			`${[
+				JSON.stringify({ type: "session", id: "long-1", cwd: "/tmp/l", timestamp: new Date(start).toISOString() }),
+				turn(start + 60_000),
+				turn(start + 6 * 60_000),
+				turn(recent),
+				turn(recent + 4 * 60_000),
+			].join("\n")}\n`,
+		);
+		const engine = new StatsEngine(paths, { disableRemotePricing: true });
+		try {
+			await engine.scan();
+			expect(engine.summary({ range: "week" }).totals.activeMs).toBe(4 * 60_000);
+			expect(engine.summary({ range: "month" }).totals.activeMs).toBe(9 * 60_000);
+		} finally {
+			engine.dispose();
+		}
+	});
+
+	test("a ledger written by another schema version is rebuilt, not reused", () => {
+		const { paths } = makeTempEnv();
+		mkdirSync(dirname(paths.dbPath), { recursive: true });
+		const old = new Database(paths.dbPath, { create: true });
+		old.run("CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)");
+		old.run("INSERT INTO meta VALUES ('schema_version', '2')");
+		old.run("CREATE TABLE turns_daily (day TEXT, harness TEXT, cost_total REAL)");
+		old.run("INSERT INTO turns_daily VALUES ('2026-11-01', 'pi', 9999)");
+		old.close(false);
+
+		const store = new StatsStore(paths.dbPath);
+		try {
+			expect(store.db.query("SELECT COUNT(*) AS n FROM turns_daily").get()).toEqual({ n: 0 });
+			expect(store.db.query("SELECT value FROM meta WHERE key = 'schema_version'").get()).toEqual({ value: "3" });
+		} finally {
+			store.close();
 		}
 	});
 
