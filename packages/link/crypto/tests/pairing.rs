@@ -253,12 +253,20 @@ fn rejects_malformed_lan_entries() {
         "host:12a",
         "ho st:1234",
         "host:1234:",
+        "[::1]",
+        "[not-an-ip]:1234",
+        "[::1]:0",
     ] {
         assert!(
             PairingOffer::parse(&patch(&uri, "l", entry)).is_err(),
             "accepted lan entry {entry:?}"
         );
     }
+    let v6_uri = patch(&uri, "l", "[2409:40c1:102d:a1ed::1]:18275,10.0.0.1:18275");
+    assert_eq!(
+        PairingOffer::parse(&v6_uri).expect("ipv6 offer").lan,
+        ["[2409:40c1:102d:a1ed::1]:18275", "10.0.0.1:18275"]
+    );
 }
 
 #[test]

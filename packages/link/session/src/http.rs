@@ -8,25 +8,25 @@ use hyper_util::rt::TokioIo;
 use rustls::pki_types::ServerName;
 use rustls::ClientConfig;
 use tokio::io::{AsyncRead, AsyncWrite};
-use tokio::net::TcpStream;
 use tokio_rustls::TlsConnector;
-use url::{Host, Url};
+use url::Url;
 
-/// The body of a `200` answer to one HTTP/1.1 GET, at most `limit` bytes; `None` for anything
-/// else. The caller bounds the time.
-pub(crate) async fn get(url: &Url, tls: Arc<ClientConfig>, limit: usize) -> Option<Vec<u8>> {
+use crate::transport;
+
+pub(crate) async fn get(
+    url: &Url,
+    zone: Option<&str>,
+    lan: bool,
+    tls: Arc<ClientConfig>,
+    limit: usize,
+) -> Option<Vec<u8>> {
     let port = url.port_or_known_default()?;
-    let tcp = match url.host()? {
-        Host::Domain(name) => TcpStream::connect((name, port)).await,
-        Host::Ipv4(address) => TcpStream::connect((address, port)).await,
-        Host::Ipv6(address) => TcpStream::connect((address, port)).await,
-    }
-    .ok()?;
+    let host = url.host_str()?.trim_matches(['[', ']']);
+    let tcp = transport::connect_tcp(host, port, zone, lan).await.ok()?;
     match url.scheme() {
         "http" => request(tcp, url, limit).await,
         "https" => {
-            let name =
-                ServerName::try_from(url.host_str()?.trim_matches(['[', ']']).to_owned()).ok()?;
+            let name = ServerName::try_from(host.to_owned()).ok()?;
             let stream = TlsConnector::from(tls).connect(name, tcp).await.ok()?;
             request(stream, url, limit).await
         }

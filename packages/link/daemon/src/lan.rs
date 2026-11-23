@@ -159,9 +159,41 @@ struct Identity {
 }
 
 pub async fn bind(port: u16) -> std::io::Result<(TcpListener, u16)> {
-    let listener = TcpListener::bind(("0.0.0.0", port)).await?;
+    let listener = match bind_dual_stack(port) {
+        Ok(listener) => listener,
+        Err(_) => TcpListener::bind(("0.0.0.0", port)).await?,
+    };
     let bound = listener.local_addr()?.port();
     Ok((listener, bound))
+}
+
+fn bind_dual_stack(port: u16) -> std::io::Result<TcpListener> {
+    use std::net::{Ipv6Addr, SocketAddrV6};
+    use std::os::fd::AsRawFd;
+
+    let socket = tokio::net::TcpSocket::new_v6()?;
+    socket.set_reuseaddr(true)?;
+    let off: libc::c_int = 0;
+    // SAFETY: `socket` is a live AF_INET6 fd and `off` is a valid c_int for IPV6_V6ONLY.
+    let rc = unsafe {
+        libc::setsockopt(
+            socket.as_raw_fd(),
+            libc::IPPROTO_IPV6,
+            libc::IPV6_V6ONLY,
+            (&raw const off).cast::<libc::c_void>(),
+            std::mem::size_of::<libc::c_int>() as libc::socklen_t,
+        )
+    };
+    if rc != 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+    socket.bind(SocketAddr::V6(SocketAddrV6::new(
+        Ipv6Addr::UNSPECIFIED,
+        port,
+        0,
+        0,
+    )))?;
+    socket.listen(128)
 }
 
 pub async fn serve(
@@ -194,7 +226,7 @@ async fn link(
     ConnectInfo(peer): ConnectInfo<SocketAddr>,
     upgrade: WebSocketUpgrade,
 ) -> Response {
-    let Some(admission) = lan.admit(peer.ip()) else {
+    let Some(admission) = lan.admit(peer.ip().to_canonical()) else {
         return (StatusCode::TOO_MANY_REQUESTS, "rate limited").into_response();
     };
     upgrade
@@ -285,5 +317,25 @@ async fn read(
             Ok(Message::Text(_)) | Ok(Message::Close(_)) | Err(_) => return,
             Ok(Message::Ping(_)) | Ok(Message::Pong(_)) => {}
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::net::TcpStream;
+
+    #[tokio::test]
+    async fn lan_listener_accepts_both_ipv4_and_ipv6_on_one_port() {
+        let (listener, port) = bind(0).await.expect("bind");
+        let (c4, a4) = tokio::join!(TcpStream::connect(("127.0.0.1", port)), listener.accept());
+        assert!(c4.is_ok(), "ipv4 connects to dual-stack listener");
+        let (_, peer4) = a4.expect("accept v4");
+        assert!(peer4.ip().to_canonical().is_ipv4());
+
+        let (c6, a6) = tokio::join!(TcpStream::connect(("::1", port)), listener.accept());
+        assert!(c6.is_ok(), "ipv6 connects to dual-stack listener");
+        let (_, peer6) = a6.expect("accept v6");
+        assert!(peer6.ip().to_canonical().is_ipv6());
     }
 }

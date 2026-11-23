@@ -73,7 +73,7 @@ impl PairingOffer {
             None => None,
         };
         let lan = match raw.lan {
-            Some(value) => lan_hosts(value)?,
+            Some(value) => lan_hosts(&uri::percent_decode(value)?)?,
             None => Vec::new(),
         };
 
@@ -167,18 +167,26 @@ fn lan_hosts(value: &str) -> Result<Vec<String>> {
     entries.iter().map(|entry| lan_host(entry)).collect()
 }
 
-/// `host:port` with a hostname or IPv4 literal; IPv6 literals are not part of the grammar.
+/// `host:port` with a hostname, IPv4 literal, or bracketed IPv6 literal (`[addr]:port`).
 fn lan_host(value: &str) -> Result<String> {
-    let (host, port) = value
-        .rsplit_once(':')
-        .ok_or(Error::Malformed("lan entry"))?;
-    let host_ok = !host.is_empty()
-        && host
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-' | b'_'));
-    if !host_ok {
-        return Err(Error::Malformed("lan host"));
-    }
+    let (host, port) = if let Some(rest) = value.strip_prefix('[') {
+        let (ip, port) = rest.split_once("]:").ok_or(Error::Malformed("lan entry"))?;
+        let _: std::net::Ipv6Addr = ip.parse().map_err(|_| Error::Malformed("lan host"))?;
+        (ip, port)
+    } else {
+        let (host, port) = value
+            .rsplit_once(':')
+            .ok_or(Error::Malformed("lan entry"))?;
+        let host_ok = !host.is_empty()
+            && host
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-' | b'_'));
+        if !host_ok {
+            return Err(Error::Malformed("lan host"));
+        }
+        (host, port)
+    };
+    let _ = host;
     let port: u16 = port.parse().map_err(|_| Error::Malformed("lan port"))?;
     if port == 0 {
         return Err(Error::Malformed("lan port"));

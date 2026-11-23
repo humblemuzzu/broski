@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 import Network
 import Observation
@@ -6,22 +7,18 @@ import os
 
 /// Browses the local network for paired machines' `_broski-link._tcp` advertisements
 /// (`packages/link/daemon/src/discovery.rs`: TXT `id` is the machine id, `v` the version) and
-/// reports each one's IPv4 `host:port` for `Machine.lanDiscovered(routes:)`.
-///
-/// Browsing needs the Local Network permission, which iOS asks for the first time a browse starts;
-/// the app starts one only once a pairing exists. Without it the relay carries every link.
+/// reports each one's IPv4 or IPv6 `host:port` (including scoped link-local `[fe80::...%if]:port`
+/// for iOS Personal Hotspot) to `Machine.lanDiscovered(routes:)`.
 @Observable
 final class LanDiscovery {
     static let serviceType = "_broski-link._tcp"
     private static let version = "1"
     private static let resolveTimeout: Duration = .seconds(5)
 
-    /// The person turned Local Network off for Broski.
     private(set) var denied = false
 
     @ObservationIgnored private var browser: NWBrowser?
     @ObservationIgnored private var resolving: [NWEndpoint: NWConnection] = [:]
-    /// Takes each machine id and `host:port` found.
     @ObservationIgnored var found: (_ machineId: String, _ route: String) -> Void = { _, _ in }
 
     var isRunning: Bool { browser != nil }
@@ -49,9 +46,9 @@ final class LanDiscovery {
         resolving.removeAll()
     }
 
-    /// A failed browse starts again on the next network change.
+    /// Restarts an active browse when the phone moves between Wi-Fi, Cellular, or Personal Hotspot.
     func networkChanged() {
-        guard let browser, case .failed = browser.state else { return }
+        guard browser != nil else { return }
         stop()
         start()
     }
@@ -88,15 +85,12 @@ final class LanDiscovery {
         return id
     }
 
-    /// Network framework resolves a service by connecting to it; the address it connected to is the
-    /// route, and the connection closes at once. IPv4 only: the core's routes carry no IPv6 zone.
+    /// Network framework resolves a service via Happy Eyeballs across both IPv4 and IPv6 (including
+    /// hotspot link-local and delegated `/64` IPv6); once connected, the winning route is reported
+    /// and this probe connection closes immediately.
     private func resolve(_ endpoint: NWEndpoint, machineId: String) {
         guard resolving[endpoint] == nil else { return }
-        let parameters = NWParameters.tcp
-        if let ip = parameters.defaultProtocolStack.internetProtocol as? NWProtocolIP.Options {
-            ip.version = .v4
-        }
-        let connection = NWConnection(to: endpoint, using: parameters)
+        let connection = NWConnection(to: endpoint, using: .tcp)
         resolving[endpoint] = connection
         connection.stateUpdateHandler = { [weak self] state in
             MainActor.assumeIsolated { self?.resolution(by: connection, machineId: machineId, changed: state) }
@@ -111,8 +105,7 @@ final class LanDiscovery {
     private func resolution(by connection: NWConnection, machineId: String, changed state: NWConnection.State) {
         switch state {
         case .ready:
-            if case .hostPort(.ipv4(let address), let port) = connection.currentPath?.remoteEndpoint {
-                let route = "\(address.rawValue.map(String.init).joined(separator: ".")):\(port.rawValue)"
+            if let route = Self.route(from: connection.currentPath) {
                 Logger.core.info("machine \(machineId, privacy: .public) found on the LAN at \(route, privacy: .public)")
                 found(machineId, route)
             }
@@ -126,8 +119,40 @@ final class LanDiscovery {
         }
     }
 
-    /// Ends this connection only: a later resolve of the same endpoint has its own, which the
-    /// timer of an earlier one must not cancel.
+    private static func route(from path: NWPath?) -> String? {
+        guard case .hostPort(let host, let port) = path?.remoteEndpoint else { return nil }
+        switch host {
+        case .ipv4(let address):
+            let bytes = Array(address.rawValue)
+            guard bytes.count == 4, !(bytes[0] == 192 && bytes[1] == 0 && bytes[2] == 0 && bytes[3] <= 7) else {
+                return nil
+            }
+            return "\(bytes.map(String.init).joined(separator: ".")):\(port.rawValue)"
+        case .ipv6(let address):
+            guard let text = formatIPv6(address.rawValue) else { return nil }
+            if address.isLinkLocal {
+                guard let zone = address.interface?.name ?? path?.availableInterfaces.first?.name, !zone.isEmpty else {
+                    return nil
+                }
+                return "[\(text)%\(zone)]:\(port.rawValue)"
+            }
+            return "[\(text)]:\(port.rawValue)"
+        default:
+            return nil
+        }
+    }
+
+    private static func formatIPv6(_ raw: Data) -> String? {
+        guard raw.count == MemoryLayout<in6_addr>.size else { return nil }
+        var addr = in6_addr()
+        _ = withUnsafeMutableBytes(of: &addr) { raw.copyBytes(to: $0) }
+        var buffer = [CChar](repeating: 0, count: Int(INET6_ADDRSTRLEN))
+        guard inet_ntop(AF_INET6, &addr, &buffer, socklen_t(INET6_ADDRSTRLEN)) != nil else { return nil }
+        return buffer.withUnsafeBufferPointer { ptr in
+            ptr.baseAddress.map { String(cString: $0) }
+        }
+    }
+
     private func finishResolving(_ connection: NWConnection, of endpoint: NWEndpoint) {
         if resolving[endpoint] === connection { resolving[endpoint] = nil }
         connection.cancel()

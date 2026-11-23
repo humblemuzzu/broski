@@ -10,8 +10,25 @@ pub(crate) struct Target {
     pub(crate) route: Route,
     pub(crate) url: String,
     pub(crate) headers: Vec<(&'static str, String)>,
-    /// `host:port` for a LAN candidate, the host for the relay.
+    /// `host:port` for a LAN candidate (including `%zone` for link-local IPv6), the host for the relay.
     pub(crate) detail: String,
+    /// Interface name or numeric scope id for a link-local IPv6 LAN target.
+    pub(crate) zone: Option<String>,
+}
+
+impl Target {
+    pub(crate) fn http_url(&self, path: &str) -> Option<Url> {
+        let mut url = Url::parse(&self.url).ok()?;
+        let scheme = match url.scheme() {
+            "wss" => "https",
+            "ws" => "http",
+            _ => return None,
+        };
+        url.set_scheme(scheme).ok()?;
+        url.set_path(path);
+        url.set_query(None);
+        Some(url)
+    }
 }
 
 /// The relay credentials a device socket authenticates with.
@@ -22,10 +39,13 @@ pub(crate) struct RelayAuth<'a> {
 }
 
 /// `ws://<host:port>/v1/link` for one LAN candidate, or `None` when the candidate is not a
-/// `host:port` on a private network. The Noise handshake authenticates whatever answers, so the
-/// rule is not about trust: it keeps a spoofed advert or a tampered offer from making the phone
-/// dial an arbitrary host on the internet.
+/// `host:port` on a local network (private IPv4/IPv6, scoped link-local IPv6, `.local`, or an IPv6
+/// address sharing a `/64` prefix with one of this device's active interfaces, such as an iPhone
+/// Personal Hotspot).
 pub(crate) fn lan_target(candidate: &str) -> Option<Target> {
+    if let Some(scoped) = parse_scoped_ipv6(candidate) {
+        return Some(scoped);
+    }
     let url = Url::parse(&format!("ws://{candidate}/v1/link")).ok()?;
     let plain = url.username().is_empty()
         && url.password().is_none()
@@ -34,7 +54,9 @@ pub(crate) fn lan_target(candidate: &str) -> Option<Target> {
     // `port()` hides a scheme's default port, and a candidate must name its port either way.
     let port = url.port_or_known_default()?;
     let host = url.host()?;
-    if !plain || !candidate.ends_with(&format!(":{port}")) || !is_private_host(&host) {
+    let allowed = is_private_host(&host)
+        || matches!(host, Host::Ipv6(address) if is_on_local_ipv6_prefix(address));
+    if !plain || !candidate.ends_with(&format!(":{port}")) || !allowed {
         return None;
     }
     let detail = format!("{host}:{port}");
@@ -43,6 +65,32 @@ pub(crate) fn lan_target(candidate: &str) -> Option<Target> {
         url: format!("ws://{detail}/v1/link"),
         headers: Vec::new(),
         detail,
+        zone: None,
+    })
+}
+
+/// Parses `[fe80::...%zone]:port`, keeping the HTTP/WS URL zone-free per RFC 6874 while carrying
+/// the zone for the TCP socket's `sin6_scope_id`.
+fn parse_scoped_ipv6(candidate: &str) -> Option<Target> {
+    let rest = candidate.strip_prefix('[')?;
+    let (host_zone, port_str) = rest.split_once("]:")?;
+    let (ip_str, zone) = host_zone.split_once('%')?;
+    let ip: Ipv6Addr = ip_str.parse().ok()?;
+    let port: u16 = port_str.parse().ok()?;
+    let valid_zone = !zone.is_empty()
+        && zone.len() <= 32
+        && zone
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.'));
+    if port == 0 || !is_link_local_v6(ip) || !valid_zone {
+        return None;
+    }
+    Some(Target {
+        route: Route::Lan,
+        url: format!("ws://[{ip}]:{port}/v1/link"),
+        headers: Vec::new(),
+        detail: format!("[{ip}%{zone}]:{port}"),
+        zone: Some(zone.to_owned()),
     })
 }
 
@@ -60,6 +108,7 @@ pub(crate) fn relay_target(relay: &str, auth: &RelayAuth<'_>) -> Option<Target> 
             ("x-broski-device", auth.device_id.to_owned()),
             ("authorization", format!("Bearer {}", auth.token)),
         ],
+        zone: None,
     })
 }
 
@@ -112,7 +161,63 @@ fn private_v4(address: Ipv4Addr) -> bool {
 
 fn private_v6(address: Ipv6Addr) -> bool {
     let first = address.segments()[0];
-    address.is_loopback() || first & 0xfe00 == 0xfc00 || first & 0xffc0 == 0xfe80
+    address.is_loopback() || first & 0xfe00 == 0xfc00 || is_link_local_v6(address)
+}
+
+fn is_link_local_v6(address: Ipv6Addr) -> bool {
+    address.segments()[0] & 0xffc0 == 0xfe80
+}
+
+fn is_on_local_ipv6_prefix(address: Ipv6Addr) -> bool {
+    if address.segments()[0] & 0xe000 != 0x2000 {
+        return false;
+    }
+    let prefix = ipv6_prefix64(address);
+    local_ipv6_prefixes()
+        .into_iter()
+        .any(|local| local == prefix)
+}
+
+fn ipv6_prefix64(address: Ipv6Addr) -> [u16; 4] {
+    let s = address.segments();
+    [s[0], s[1], s[2], s[3]]
+}
+
+#[cfg(unix)]
+fn local_ipv6_prefixes() -> Vec<[u16; 4]> {
+    let mut addrs: *mut libc::ifaddrs = std::ptr::null_mut();
+    // SAFETY: `getifaddrs` allocates a linked list of interface addresses, freed below.
+    if unsafe { libc::getifaddrs(&raw mut addrs) } != 0 {
+        return Vec::new();
+    }
+    let mut prefixes = Vec::new();
+    let mut cur = addrs;
+    while !cur.is_null() {
+        // SAFETY: `cur` is a non-null node from `getifaddrs`.
+        let ifa = unsafe { &*cur };
+        let up = (ifa.ifa_flags as i32 & libc::IFF_UP) != 0;
+        let loopback = (ifa.ifa_flags as i32 & libc::IFF_LOOPBACK) != 0;
+        if up && !loopback && !ifa.ifa_addr.is_null() {
+            // SAFETY: `ifa_addr` is non-null; check `sa_family` before casting to `sockaddr_in6`.
+            let family = unsafe { (*ifa.ifa_addr).sa_family as i32 };
+            if family == libc::AF_INET6 {
+                let sin6 = unsafe { &*ifa.ifa_addr.cast::<libc::sockaddr_in6>() };
+                let ip = Ipv6Addr::from(sin6.sin6_addr.s6_addr);
+                if ip.segments()[0] & 0xe000 == 0x2000 {
+                    prefixes.push(ipv6_prefix64(ip));
+                }
+            }
+        }
+        cur = ifa.ifa_next;
+    }
+    // SAFETY: `addrs` was allocated by `getifaddrs` above.
+    unsafe { libc::freeifaddrs(addrs) };
+    prefixes
+}
+
+#[cfg(not(unix))]
+fn local_ipv6_prefixes() -> Vec<[u16; 4]> {
+    Vec::new()
 }
 
 #[cfg(test)]
@@ -138,6 +243,14 @@ mod tests {
             lan_target("[fe80::1]:7").expect("link-local").url,
             "ws://[fe80::1]:7/v1/link"
         );
+        let scoped = lan_target("[fe80::c5a:4234:ce1d:55c1%bridge100]:18275").expect("scoped");
+        assert_eq!(scoped.url, "ws://[fe80::c5a:4234:ce1d:55c1]:18275/v1/link");
+        assert_eq!(scoped.detail, "[fe80::c5a:4234:ce1d:55c1%bridge100]:18275");
+        assert_eq!(scoped.zone.as_deref(), Some("bridge100"));
+        assert_eq!(
+            scoped.http_url("/v1/identity").map(String::from).as_deref(),
+            Some("http://[fe80::c5a:4234:ce1d:55c1]:18275/v1/identity")
+        );
         assert_eq!(
             lan_target("studio.local:1").expect("mdns").detail,
             "studio.local:1"
@@ -148,10 +261,14 @@ mod tests {
     fn a_lan_candidate_off_the_private_network_or_malformed_is_not_dialled() {
         for candidate in [
             "8.8.8.8:80",
+            "192.0.0.2:18275",
             "relay.example:1",
             "10.0.0.4",
             "a@10.0.0.4:1",
             "10.0.0.4:1/x",
+            "[2001:db8::1%en0]:18275",
+            "[fe80::1%]:18275",
+            "[fe80::1%bad/zone]:18275",
         ] {
             assert_eq!(lan_target(candidate), None, "{candidate}");
         }

@@ -31,11 +31,17 @@ pub(crate) async fn fetch(
         return Err(Error::MachineUnreachable);
     }
     let mut answers = JoinSet::new();
-    for url in candidates {
+    for candidate in candidates {
         answers.spawn(async move {
             let body = timeout(
                 within,
-                http::get(&url, tls::client_config(), IDENTITY_LIMIT),
+                http::get(
+                    &candidate.url,
+                    candidate.zone.as_deref(),
+                    candidate.lan,
+                    tls::client_config(),
+                    IDENTITY_LIMIT,
+                ),
             )
             .await;
             body.ok().flatten().and_then(|body| bundle(&body))
@@ -58,17 +64,35 @@ pub(crate) async fn fetch(
     })
 }
 
+struct Candidate {
+    url: Url,
+    zone: Option<String>,
+    lan: bool,
+}
+
 /// The daemon's `/v1/identity` on every LAN candidate, and the relay's `/v1/identity/<id>`.
-fn candidates(offer: &PairingOffer, machine_id: &str) -> Vec<Url> {
+fn candidates(offer: &PairingOffer, machine_id: &str) -> Vec<Candidate> {
     let lan = offer
         .lan
         .iter()
         .filter_map(|route| lan_target(route))
-        .filter_map(|target| Url::parse(&format!("http://{}/v1/identity", target.detail)).ok());
+        .filter_map(|target| {
+            let url = target.http_url("/v1/identity")?;
+            Some(Candidate {
+                url,
+                zone: target.zone,
+                lan: true,
+            })
+        });
     let relay = offer
         .relay
         .as_deref()
-        .and_then(|relay| relay_http(relay, &format!("/v1/identity/{machine_id}")));
+        .and_then(|relay| relay_http(relay, &format!("/v1/identity/{machine_id}")))
+        .map(|url| Candidate {
+            url,
+            zone: None,
+            lan: false,
+        });
     lan.chain(relay).collect()
 }
 

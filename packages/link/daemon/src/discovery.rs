@@ -63,6 +63,11 @@ impl Advertisement {
         Some(Arc::new(Advertisement { daemon, info }))
     }
 
+    /// The `.local` mDNS hostname this machine advertises (without its trailing dot).
+    pub fn hostname(&self) -> String {
+        self.info.get_hostname().trim_end_matches('.').to_owned()
+    }
+
     /// Re-announces after an address scan saw the interface set change.
     pub fn refresh(&self) {
         if let Err(error) = self.daemon.register(self.info.clone()) {

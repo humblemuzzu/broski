@@ -1,4 +1,5 @@
 use std::fmt;
+use std::net::{IpAddr, Ipv6Addr, SocketAddr, SocketAddrV6};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -8,7 +9,7 @@ use rustls::ClientConfig;
 use serde_json::Value;
 use tokio::net::{TcpSocket, TcpStream};
 use tokio::sync::mpsc;
-use tokio::task::JoinHandle;
+use tokio::task::{JoinHandle, JoinSet};
 use tokio::time::timeout;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::tungstenite::http::{HeaderName, HeaderValue, StatusCode};
@@ -72,7 +73,7 @@ pub(crate) async fn dial(
         .max_message_size(Some(MAX_WIRE_MESSAGE))
         .max_frame_size(Some(MAX_WIRE_MESSAGE));
     let connect = async {
-        let socket = open_tcp(&request).await?;
+        let socket = open_tcp(target, &request).await?;
         client_async_tls_with_config(request, socket, Some(config), Some(Connector::Rustls(tls)))
             .await
             .map_err(|error| match error {
@@ -87,9 +88,8 @@ pub(crate) async fn dial(
     }
 }
 
-/// The TCP socket a websocket runs over, with Nagle off (a frame is a message, not a stream to
-/// batch) and its segments capped (`segments.rs`) before the first byte goes out.
 async fn open_tcp(
+    target: &Target,
     request: &tokio_tungstenite::tungstenite::handshake::client::Request,
 ) -> Result<TcpStream, DialError> {
     let uri = request.uri();
@@ -106,20 +106,92 @@ async fn open_tcp(
         (None, Some("ws")) => 80,
         _ => return Err(DialError::failed("the address is not ws or wss")),
     };
-    let addresses = tokio::net::lookup_host((host, port))
+    connect_tcp(
+        host,
+        port,
+        target.zone.as_deref(),
+        target.route == Route::Lan,
+    )
+    .await
+}
+
+/// Connects TCP to `host:port`, resolving an IPv6 link-local `zone` via `if_nametoindex`,
+/// skipping non-routable CLAT46 (`192.0.0.0/29`) on LAN lookups, and racing multiple resolved
+/// addresses concurrently so one blackholed address never stalls a working IPv6/IPv4 path.
+pub(crate) async fn connect_tcp(
+    host: &str,
+    port: u16,
+    zone: Option<&str>,
+    lan: bool,
+) -> Result<TcpStream, DialError> {
+    if let Some(zone) = zone {
+        if let Ok(ip) = host.parse::<Ipv6Addr>() {
+            let scope_id = resolve_scope_id(zone)
+                .ok_or_else(|| DialError::failed(format!("unknown interface {zone}")))?;
+            return connect_capped(SocketAddr::V6(SocketAddrV6::new(ip, port, 0, scope_id)))
+                .await
+                .map_err(DialError::failed);
+        }
+    }
+    let resolved: Vec<SocketAddr> = tokio::net::lookup_host((host, port))
         .await
-        .map_err(DialError::failed)?;
-    let mut failure = DialError::failed("the address did not resolve");
-    for address in addresses {
-        match connect_capped(address).await {
-            Ok(stream) => return Ok(stream),
-            Err(error) => failure = DialError::failed(error),
+        .map_err(DialError::failed)?
+        .filter(|addr| !(lan && is_clat46(addr.ip())))
+        .collect();
+    match resolved.as_slice() {
+        [] => Err(DialError::failed("the address did not resolve")),
+        [only] => connect_capped(*only).await.map_err(DialError::failed),
+        many => race_connect(many).await,
+    }
+}
+
+async fn race_connect(addresses: &[SocketAddr]) -> Result<TcpStream, DialError> {
+    let mut dials = JoinSet::new();
+    for &address in addresses {
+        dials.spawn(connect_capped(address));
+    }
+    let mut failure = DialError::failed("connection failed");
+    while let Some(result) = dials.join_next().await {
+        match result {
+            Ok(Ok(stream)) => {
+                dials.abort_all();
+                return Ok(stream);
+            }
+            Ok(Err(error)) => failure = DialError::failed(error),
+            Err(_) => {}
         }
     }
     Err(failure)
 }
 
-async fn connect_capped(address: std::net::SocketAddr) -> std::io::Result<TcpStream> {
+fn is_clat46(ip: IpAddr) -> bool {
+    match ip {
+        IpAddr::V4(addr) => {
+            let [a, b, c, d] = addr.octets();
+            a == 192 && b == 0 && c == 0 && d <= 7
+        }
+        IpAddr::V6(_) => false,
+    }
+}
+
+fn resolve_scope_id(zone: &str) -> Option<u32> {
+    if let Ok(index) = zone.parse::<u32>() {
+        return (index > 0).then_some(index);
+    }
+    #[cfg(unix)]
+    {
+        let c_name = std::ffi::CString::new(zone).ok()?;
+        // SAFETY: `c_name` is a valid NUL-terminated C string.
+        let index = unsafe { libc::if_nametoindex(c_name.as_ptr()) };
+        (index > 0).then_some(index)
+    }
+    #[cfg(not(unix))]
+    {
+        None
+    }
+}
+
+async fn connect_capped(address: SocketAddr) -> std::io::Result<TcpStream> {
     let socket = if address.is_ipv4() {
         TcpSocket::new_v4()?
     } else {
@@ -347,6 +419,7 @@ mod tests {
                 ),
             ],
             detail: addr.ip().to_string(),
+            zone: None,
         }
     }
 
@@ -397,6 +470,7 @@ mod tests {
                 ("authorization", "Bearer unknown".to_owned()),
             ],
             detail: addr.ip().to_string(),
+            zone: None,
         };
         let trusted = tls::with_roots(roots);
         let deadline = Instant::now() + Duration::from_secs(10);
@@ -420,9 +494,17 @@ mod tests {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
             .await
             .expect("bind");
-        let url = format!("ws://{}/", listener.local_addr().expect("addr"));
+        let addr = listener.local_addr().expect("addr");
+        let url = format!("ws://{addr}/");
+        let target = Target {
+            route: Route::Lan,
+            url: url.clone(),
+            headers: Vec::new(),
+            detail: addr.to_string(),
+            zone: None,
+        };
         let request = url.as_str().into_client_request().expect("request");
-        let (socket, accepted) = tokio::join!(open_tcp(&request), listener.accept());
+        let (socket, accepted) = tokio::join!(open_tcp(&target, &request), listener.accept());
         let (socket, _) = (socket.expect("connected"), accepted.expect("accepted"));
         assert!(socket.nodelay().expect("nodelay"));
         assert!(segments::max_segment(&socket) <= segments::MAX_SEGMENT);

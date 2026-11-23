@@ -162,13 +162,33 @@ class LanDiscovery(context: Context, private val onRoutes: (machineId: String, r
 }
 
 /**
- * The `host:port` routes the link dials, IPv4 first. Link-local IPv6 is left out: it needs a zone,
- * which the link's URL parser (`session/src/endpoint.rs`) does not accept.
+ * The `host:port` routes the link dials, IPv4 first, skipping RFC 7335 CLAT46 (`192.0.0.0/29`) and
+ * link-local IPv4. Link-local IPv6 is included when scoped to an interface (`[fe80::...%zone]:port`)
+ * so Android hotspots and IPv6-only networks work alongside regular Wi-Fi.
  */
 internal fun lanRoutes(addresses: List<InetAddress>, port: Int): List<String> {
-    val v4 = addresses.filterIsInstance<Inet4Address>().map { "${it.hostAddress}:$port" }
-    val v6 = addresses.filterIsInstance<Inet6Address>()
-        .filterNot { it.isLinkLocalAddress }
-        .map { "[${it.hostAddress}]:$port" }
+    val v4 = addresses.filterIsInstance<Inet4Address>()
+        .filterNot { addr ->
+            val b = addr.address
+            val a0 = b[0].toInt() and 0xFF
+            val a1 = b[1].toInt() and 0xFF
+            val a2 = b[2].toInt() and 0xFF
+            val a3 = b[3].toInt() and 0xFF
+            addr.isLinkLocalAddress || (a0 == 192 && a1 == 0 && a2 == 0 && a3 <= 7)
+        }
+        .map { "${it.hostAddress}:$port" }
+    val v6 = addresses.filterIsInstance<Inet6Address>().mapNotNull { addr ->
+        val raw = addr.hostAddress ?: return@mapNotNull null
+        if (addr.isLinkLocalAddress) {
+            val clean = raw.substringBefore('%')
+            val zone = addr.scopedInterface?.name
+                ?: raw.substringAfter('%', "").takeIf { it.isNotEmpty() }
+                ?: addr.scopeId.takeIf { it > 0 }?.toString()
+                ?: return@mapNotNull null
+            "[$clean%$zone]:$port"
+        } else {
+            "[${raw.substringBefore('%')}]:$port"
+        }
+    }
     return (v4 + v6).distinct()
 }

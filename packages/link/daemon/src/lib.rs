@@ -153,6 +153,7 @@ async fn parts(
     } else {
         None
     };
+    let mdns_host = advertisement.as_ref().map(|ad| ad.hostname());
     let parts = Parts {
         identity,
         link_key,
@@ -161,7 +162,7 @@ async fn parts(
         monitor: bridge_status::BridgeMonitor::new(),
         registry: registry::Registry::new(),
         relay: relay::handle(),
-        routes: routes::Routes::new(options.relay.clone(), options.scan_interfaces),
+        routes: routes::Routes::new(options.relay.clone(), options.scan_interfaces, mdns_host),
         busy,
         commands,
         seen,
