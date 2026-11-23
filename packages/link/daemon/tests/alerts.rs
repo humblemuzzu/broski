@@ -20,7 +20,7 @@ const SILENCE: Duration = Duration::from_millis(600);
 const NOTIFY_LABEL: &[u8] = b"broski-notify-v1";
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn a_disconnected_phone_is_woken_and_a_connected_one_is_not() {
+async fn a_phone_is_pushed_whether_its_link_is_attached_or_not() {
     let apns = ApnsMock::start().await;
     let relay = TestRelay::start_with(apns.push_config().await, Limits::default()).await;
     let mut scenario = Scenario::start(relay, quick_durations()).await;
@@ -33,7 +33,7 @@ async fn a_disconnected_phone_is_woken_and_a_connected_one_is_not() {
     scenario.phone.disconnect().await;
     scenario.await_session(false).await;
     assert_detached_pushes(&scenario, &apns, &machine_id, &machine_name).await;
-    assert_attached_silence(&mut scenario, &apns).await;
+    assert_attached_pushed(&mut scenario, &apns).await;
     assert_feed_liveness(&scenario);
 
     scenario.stop().await;
@@ -135,8 +135,8 @@ async fn assert_duplicate_suppressed(scenario: &Scenario, apns: &ApnsMock) {
     );
 }
 
-/// An attached phone is skipped: it already has the event on its link.
-async fn assert_attached_silence(scenario: &mut Scenario, apns: &ApnsMock) {
+/// An attached phone is pushed too: its app shows the alert unless that session is on its screen.
+async fn assert_attached_pushed(scenario: &mut Scenario, apns: &ApnsMock) {
     assert_eq!(
         scenario.phone.connect_lan(scenario.address(), WAIT).await,
         Some(true),
@@ -145,9 +145,9 @@ async fn assert_attached_silence(scenario: &mut Scenario, apns: &ApnsMock) {
     scenario.await_session(true).await;
     scenario.feed.send(event("approval", "s-3", Some("req-3")));
     assert_eq!(
-        apns.sent.quiet(SILENCE).await,
-        3,
-        "an attached phone is not pushed"
+        apns.sent.wait(4, WAIT).await.len(),
+        4,
+        "an attached phone is pushed"
     );
 }
 

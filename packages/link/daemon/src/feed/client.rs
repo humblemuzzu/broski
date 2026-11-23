@@ -184,7 +184,7 @@ async fn alert(deps: &Deps, value: &Value, debounce: &mut policy::Debounce) {
         return;
     };
     let devices = deps.store.devices().await;
-    let targets = policy::targets(devices, |id| deps.registry.is_connected(id));
+    let targets = policy::targets(devices);
     if targets.is_empty() || !debounce.allow(event.debounce(), Instant::now()) {
         return;
     }

@@ -30,10 +30,13 @@ impl Debounce {
     }
 }
 
-/// The devices that must be woken: registered for push, and with no phone attached right now.
-pub fn targets(devices: Vec<DeviceRecord>, connected: impl Fn(&str) -> bool) -> Vec<DeviceRecord> {
+/// The devices an alert goes to: every one registered for push, attached or not. An attached
+/// phone's app hides the alert of the session on its screen; for any other session the alert is the
+/// only word the person gets, and a link that looks attached may belong to an app that just went
+/// to the background.
+pub fn targets(devices: Vec<DeviceRecord>) -> Vec<DeviceRecord> {
     devices
         .into_iter()
-        .filter(|device| device.push.is_some() && !connected(&device.id))
+        .filter(|device| device.push.is_some())
         .collect()
 }

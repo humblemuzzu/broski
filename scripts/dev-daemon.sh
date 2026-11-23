@@ -31,6 +31,15 @@ RELAY_LOG="/tmp/broski-relay-debug.log"
 MAX_LOG_BYTES=$((10 * 1024 * 1024))
 LINK_HOME="${BROSKI_LINK_HOME:-$HOME/.broski/link}"
 
+# The port of the local relay the daemon's config names (`ws://127.0.0.1:<port>`), or nothing for a remote one.
+local_relay_port() {
+  /usr/bin/python3 -c 'import json,re,sys; m=re.fullmatch(r"wss?://127\.0\.0\.1:(\d+)/?", json.load(open(sys.argv[1])).get("relay", "")); print(m.group(1) if m else "")' "$1"
+}
+
+relay_healthy() {
+  [[ $(curl -fsS --max-time 2 "http://127.0.0.1:$1/healthz" 2>/dev/null || true) == ok ]]
+}
+
 cmd=restart
 force_build=0
 stop_all=0
@@ -168,6 +177,13 @@ print_status() {
     echo "broski-link release binary not built ($DAEMON_BIN)"
   fi
 
+  local cfg="$LINK_HOME/config.json" port
+  port="$([[ -f $cfg ]] && local_relay_port "$cfg" || true)"
+  if [[ -n $port ]]; then
+    echo ""
+    if relay_healthy "$port"; then echo "local relay  127.0.0.1:$port up"; else echo "local relay  127.0.0.1:$port DOWN: no push notification can be sent"; fi
+  fi
+
   echo ""
   echo "=== Broski processes ==="
   ps -ax -o pid=,ppid=,etime=,command= | grep -E 'broski-link run|broski-relay|packages/bridge/bin/broski\.ts|packages/bridge/src/index\.ts|__pi-holder|test-machine|dev-fake-bridge|phone-install-server' | grep -v grep || echo "(none)"
@@ -206,18 +222,27 @@ if [[ $cmd == stop ]]; then
   exit 0
 fi
 
+# The relay sends every push; a daemon whose relay cannot start must not look healthy.
 ensure_local_relay() {
   local cfg="$LINK_HOME/config.json"
   local apns_key="$LINK_HOME/apns.p8"
   local apns_meta="$LINK_HOME/apns.json"
   [[ -f $cfg && -f $apns_key && -f $apns_meta ]] || return 0
-  grep -q '127\.0\.0\.1:8765' "$cfg" || return 0
+  local port
+  port="$(local_relay_port "$cfg")"
+  [[ -n $port ]] || return 0
   if [[ ! -x $RELAY_BIN ]]; then
     echo "==> Building broski-relay (release)"
     (cd "$LINK_DIR" && cargo build --release --locked -p broski-relay)
   fi
-  if tmux has-session -t "$RELAY_SESSION" 2>/dev/null; then
-    return 0
+  relay_healthy "$port" && return 0
+  tmux kill-session -t "$RELAY_SESSION" 2>/dev/null || true
+  local holder
+  holder="$({ lsof -nP -iTCP:"$port" -sTCP:LISTEN 2>/dev/null || true; } | awk 'NR > 1 { print $1 " (pid " $2 ")"; exit }')"
+  if [[ -n $holder ]]; then
+    echo "error: 127.0.0.1:$port, where the relay belongs, is held by $holder, so no push notification can be sent." >&2
+    echo "       Stop it, or point \"relay\" in $cfg at a free port (ws://127.0.0.1:<port>)." >&2
+    exit 1
   fi
   local key_id team_id topic sandbox_flag=""
   key_id="$(/usr/bin/python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["keyId"])' "$apns_meta")"
@@ -226,9 +251,16 @@ ensure_local_relay() {
   if /usr/bin/python3 -c 'import json,sys; sys.exit(0 if json.load(open(sys.argv[1])).get("sandbox") else 1)' "$apns_meta"; then
     sandbox_flag="--apns-sandbox"
   fi
-  echo "==> Starting local $RELAY_SESSION (127.0.0.1:8765)"
+  echo "==> Starting local $RELAY_SESSION (127.0.0.1:$port)"
   tmux new-session -d -s "$RELAY_SESSION" -c "$HOME" \
-    "exec env RUST_LOG='info,broski_relay=debug' '$RELAY_BIN' --listen 127.0.0.1:8765 --db '$LINK_HOME/relay.db' --apns-key '$apns_key' --apns-key-id '$key_id' --apns-team-id '$team_id' --apns-topic '$topic' $sandbox_flag >> '$RELAY_LOG' 2>&1"
+    "exec env RUST_LOG='info,broski_relay=debug' '$RELAY_BIN' --listen 127.0.0.1:$port --db '$LINK_HOME/relay.db' --apns-key '$apns_key' --apns-key-id '$key_id' --apns-team-id '$team_id' --apns-topic '$topic' $sandbox_flag >> '$RELAY_LOG' 2>&1"
+  for _ in $(seq 20); do
+    relay_healthy "$port" && return 0
+    sleep 0.25
+  done
+  echo "error: the local relay did not come up on 127.0.0.1:$port; recent log:" >&2
+  tail -n 10 "$RELAY_LOG" >&2 || true
+  exit 1
 }
 
 if ((force_build == 1)) || daemon_is_stale; then

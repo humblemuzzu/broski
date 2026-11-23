@@ -1,6 +1,6 @@
 # push — the daemon's alerts, letters and keep-awake
 
-How `broski-link` wakes a phone that is not attached, takes a lock-screen decision while the bridge
+How `broski-link` tells a phone what needs it, takes a lock-screen decision while the bridge
 is idle, and holds the machine awake while an agent works. All of it hangs off two device control
 messages and the bridge feed; the crypto is RustCrypto (`chacha20poly1305`, `hmac`, `sha2`) and
 nothing here needs a provider key on the daemon.
@@ -107,8 +107,10 @@ senders left is not a reason to drop the socket the bridge reports on.
 
 ## Policy
 
-`link_event` pushes to every paired device that has a registration **and** whose session is not
-attached right now — an attached phone already saw the event on its link. The same
+`link_event` pushes to every paired device that has a registration, attached or not. An attached
+phone's app hides the push of the session on its screen and shows any other: a session the person
+is not looking at gets no other word, and a link that still looks attached may belong to an app that
+just went to the background. The same
 `(kind, request|session)` pair is never pushed twice inside 60 s, including across a feed reconnect,
 so a bridge that repeats itself cannot wake a phone twice.
 
@@ -182,7 +184,7 @@ warnings` and `cargo test --workspace` are clean.
 - `daemon/tests/alerts.rs` (1) — the real relay with a local HTTP/2 APNs mock (throwaway P-256 key)
   and a daemon whose feed is driven by the test: a detached registered phone gets exactly one push
   whose `data` opens with the key it registered and equals the documented JSON; a second identical
-  event inside the window, and an event while the phone is attached, produce none; `done` is normal
+  event inside the window produces none, and an attached phone is pushed too; `done` is normal
   priority and silent; the registration is in `devices.json` at `0600` and reaches the relay as an
   alert target; both edges of `watch` reach the relay; the feed keeps its one connection across its
   pings.
