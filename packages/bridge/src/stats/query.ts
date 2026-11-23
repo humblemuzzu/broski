@@ -81,7 +81,8 @@ export interface QueryInput {
 export function querySummary(store: StatsStore, priceBook: PriceBook, input: QueryInput): StatsSummary {
 	const now = input.now ?? Date.now();
 	const timeZone = validTimeZone(input.timeZone);
-	const today = localDayKey(now, timeZone);
+	// The store keys day buckets in this machine's zone, so the day window must be cut in it too.
+	const today = localDayKey(now);
 	const resolution: StatsResolution = input.range === "day" ? "hour" : "day";
 
 	const window = computeWindow(store, input.range, today, now);
@@ -217,18 +218,13 @@ function queryDailyTotals(store: StatsStore, sinceDay: string, untilDay: string,
 		)
 		.get(...args);
 	const sessRow = store.db
-		.query<{ n: number }, string[]>(
-			`SELECT COUNT(DISTINCT session_key) AS n FROM session_days WHERE day >= ? AND day <= ?${filter}`,
-		)
-		.get(...args);
-	const activeMsRow = store.db
-		.query<{ ms: number }, string[]>(
-			`SELECT COALESCE(SUM(s.active_ms), 0) AS ms FROM sessions s
-			 WHERE s.session_key IN (SELECT DISTINCT session_key FROM session_days WHERE day >= ? AND day <= ?${filter})`,
+		.query<{ n: number; ms: number }, string[]>(
+			`SELECT COUNT(DISTINCT session_key) AS n, COALESCE(SUM(active_ms), 0) AS ms
+			 FROM session_days WHERE day >= ? AND day <= ?${filter}`,
 		)
 		.get(...args);
 
-	return buildTotals(row, sessRow?.n ?? 0, activeDaysRow?.n ?? 0, activeMsRow?.ms ?? 0);
+	return buildTotals(row, sessRow?.n ?? 0, activeDaysRow?.n ?? 0, sessRow?.ms ?? 0);
 }
 
 function queryHourlyTotals(
@@ -272,18 +268,13 @@ function queryHourlyTotals(
 		.get(...args);
 
 	const sessRow = store.db
-		.query<{ n: number }, string[]>(
-			`SELECT COUNT(DISTINCT session_key) AS n FROM session_days WHERE hour_key >= ? AND hour_key <= ?${filter}`,
-		)
-		.get(...args);
-	const activeMsRow = store.db
-		.query<{ ms: number }, string[]>(
-			`SELECT COALESCE(SUM(s.active_ms), 0) AS ms FROM sessions s
-			 WHERE s.session_key IN (SELECT DISTINCT session_key FROM session_days WHERE hour_key >= ? AND hour_key <= ?${filter})`,
+		.query<{ n: number; ms: number }, string[]>(
+			`SELECT COUNT(DISTINCT session_key) AS n, COALESCE(SUM(active_ms), 0) AS ms
+			 FROM session_days WHERE hour_key >= ? AND hour_key <= ?${filter}`,
 		)
 		.get(...args);
 	const activeDays = row && (row.turns > 0 || row.output > 0) ? 1 : 0;
-	return buildTotals(row, sessRow?.n ?? 0, activeDays, activeMsRow?.ms ?? 0);
+	return buildTotals(row, sessRow?.n ?? 0, activeDays, sessRow?.ms ?? 0);
 }
 
 function buildTotals(row: AggRow | null, sessions: number, activeDays: number, activeMs: number): StatsTotals {

@@ -38,12 +38,12 @@ export function parseGeminiSessionFile(ctx: GeminiFileContext): void {
 		if (ctx.hasDedup(dedupKey)) continue;
 		ctx.setDedup(dedupKey);
 
+		// Gemini's prompt count includes the cached share; tool-use prompt and thought tokens are counted apart.
 		const rawInput = safeNum(tokens.input);
 		const cached = Math.min(rawInput, safeNum(tokens.cached));
-		const uncachedInput = Math.max(0, rawInput - cached);
+		const uncachedInput = rawInput - cached + safeNum(tokens.tool);
 		const thoughts = safeNum(tokens.thoughts);
-		const rawOut = safeNum(tokens.output);
-		const output = rawOut + (rawOut > 0 && thoughts > rawOut ? thoughts : 0);
+		const output = safeNum(tokens.output) + thoughts;
 		if (uncachedInput + cached + output === 0) continue;
 
 		const rawModel = typeof msg.model === "string" ? msg.model : "gemini-2.5-pro";

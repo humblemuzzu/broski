@@ -4,24 +4,27 @@ import type { StatsHarness } from "../../contract";
 import { normalizeModelName, parseMs, safeNum, type TurnEvent } from "../types";
 
 const IMPORTED_RE = /^\[(opencode|claude|codex)\] /;
-const PREFILTER_MARKERS = [
+const STATE_MARKERS = [
 	'"type":"session"',
 	'"type":"model_change"',
 	'"type":"thinking_level_change"',
 	'"type":"session_info"',
 	'"type":"compaction"',
-	'"type":"custom"',
-	'"type":"custom_message"',
 	'"role":"assistant"',
-	'"role":"toolResult"',
 	'"type": "session"',
 	'"type": "model_change"',
 	'"type": "thinking_level_change"',
 	'"type": "session_info"',
 	'"type": "compaction"',
+	'"role": "assistant"',
+];
+/** Entries that only matter when they carry a sub-agent's or a cache ping's usage. */
+const USAGE_MARKERS = [
+	'"type":"custom"',
+	'"type":"custom_message"',
+	'"role":"toolResult"',
 	'"type": "custom"',
 	'"type": "custom_message"',
-	'"role": "assistant"',
 	'"role": "toolResult"',
 ];
 
@@ -46,10 +49,8 @@ export interface PiLineContext {
 
 export function piLineMatches(buf: Buffer): boolean {
 	const head = buf.subarray(0, Math.min(buf.length, 512)).toString("latin1");
-	for (const marker of PREFILTER_MARKERS) {
-		if (head.includes(marker)) return true;
-	}
-	return false;
+	if (STATE_MARKERS.some((marker) => head.includes(marker))) return true;
+	return USAGE_MARKERS.some((marker) => head.includes(marker)) && buf.includes('"usage"');
 }
 
 export function parsePiLine(state: PiParserState, buf: Buffer, ctx: PiLineContext): void {

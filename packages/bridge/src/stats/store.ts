@@ -16,8 +16,18 @@ import {
 	utcHourKey,
 } from "./types";
 
-const SCHEMA_VERSION = "2";
-const MAX_SPANS_PER_SESSION = 64;
+const SCHEMA_VERSION = "3";
+const TABLES = [
+	"meta",
+	"sources",
+	"dedup",
+	"turns_daily",
+	"turns_hourly",
+	"sessions",
+	"session_days",
+	"project_daily",
+	"subagents_daily",
+] as const;
 const IDLE_GAP_MS = 10 * 60_000;
 const HOURLY_RETENTION_MS = 72 * 3_600_000;
 
@@ -142,7 +152,8 @@ export class StatsStore {
 				unpriced_tokens = unpriced_tokens + excluded.unpriced_tokens`,
 		);
 		this.upsertSessionDay = this.db.prepare(
-			`INSERT OR IGNORE INTO session_days (day, hour_key, harness, session_key, project_id) VALUES (?, ?, ?, ?, ?)`,
+			`INSERT INTO session_days (day, hour_key, harness, session_key, project_id, active_ms) VALUES (?, ?, ?, ?, ?, ?)
+			 ON CONFLICT(day, hour_key, harness, session_key) DO UPDATE SET active_ms = active_ms + excluded.active_ms`,
 		);
 		this.upsertProjectDaily = this.db.prepare(
 			`INSERT INTO project_daily (day, harness, project_id, project_name, turns, total_tokens, cost_usd, last_ms)
@@ -164,20 +175,18 @@ export class StatsStore {
 			   cost_usd = cost_usd + excluded.cost_usd,
 			   failures = failures + excluded.failures`,
 		);
-		this.getSession = this.db.prepare("SELECT first_ms, last_ms, spans_json FROM sessions WHERE session_key = ?");
+		this.getSession = this.db.prepare("SELECT last_ms FROM sessions WHERE session_key = ?");
 		this.upsertSession = this.db.prepare(
-			`INSERT INTO sessions (session_key, harness, session_id, project_id, project_name, first_ms, last_ms, active_ms, turns, total_tokens, cost_usd, spans_json)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			`INSERT INTO sessions (session_key, harness, session_id, project_id, project_name, first_ms, last_ms, turns, total_tokens, cost_usd)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			 ON CONFLICT(session_key) DO UPDATE SET
 			   project_id = CASE WHEN excluded.project_id != 'unknown' THEN excluded.project_id ELSE project_id END,
 			   project_name = CASE WHEN excluded.project_name != 'Unknown' THEN excluded.project_name ELSE project_name END,
 			   first_ms = MIN(first_ms, excluded.first_ms),
 			   last_ms = MAX(last_ms, excluded.last_ms),
-			   active_ms = excluded.active_ms,
 			   turns = turns + excluded.turns,
 			   total_tokens = total_tokens + excluded.total_tokens,
-			   cost_usd = cost_usd + excluded.cost_usd,
-			   spans_json = excluded.spans_json`,
+			   cost_usd = cost_usd + excluded.cost_usd`,
 		);
 	}
 
@@ -276,7 +285,7 @@ export class StatsStore {
 			upsertSession,
 		} = this;
 		const hourlyCutoff = now - HOURLY_RETENTION_MS;
-		const sessionSpansCache = new Map<string, Array<[number, number]>>();
+		const sessionLastMs = new Map<string, number>();
 
 		const tx = this.db.transaction(() => {
 			for (const c of batch.cursors) {
@@ -372,14 +381,18 @@ export class StatsStore {
 				}
 
 				if (turn.sessionKey) {
-					upsertSessionDay.run(day, hourKey, turn.harness, turn.sessionKey, projectId);
-					let spans = sessionSpansCache.get(turn.sessionKey);
-					if (!spans) {
-						const existing = getSession.get(turn.sessionKey) as { spans_json: string } | null;
-						spans = existing?.spans_json ? parseSpans(existing.spans_json) : [];
-						sessionSpansCache.set(turn.sessionKey, spans);
-					}
-					const activeMs = touchSpans(spans, turn.ms);
+					const lastMs =
+						sessionLastMs.get(turn.sessionKey) ??
+						(getSession.get(turn.sessionKey) as { last_ms: number } | null)?.last_ms;
+					sessionLastMs.set(turn.sessionKey, lastMs === undefined ? turn.ms : Math.max(lastMs, turn.ms));
+					upsertSessionDay.run(
+						day,
+						hourKey,
+						turn.harness,
+						turn.sessionKey,
+						projectId,
+						lastMs === undefined ? 0 : activeGapMs(turn.ms - lastMs),
+					);
 					upsertSession.run(
 						turn.sessionKey,
 						turn.harness,
@@ -388,11 +401,9 @@ export class StatsStore {
 						projectName,
 						turn.ms,
 						turn.ms,
-						activeMs,
 						turnCount,
 						totalTokens,
 						priced.totalUsd,
-						JSON.stringify(spans),
 					);
 				}
 
@@ -640,6 +651,15 @@ export class StatsStore {
 	}
 
 	private migrate(): void {
+		const hasMeta = this.db.query("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'meta'").get();
+		const stored = hasMeta
+			? this.db.query<{ value: string }, []>("SELECT value FROM meta WHERE key = 'schema_version'").get()?.value
+			: undefined;
+		if (stored !== SCHEMA_VERSION) {
+			this.db.transaction(() => {
+				for (const table of TABLES) this.db.run(`DROP TABLE IF EXISTS ${table}`);
+			})();
+		}
 		this.db.run(`
 			CREATE TABLE IF NOT EXISTS meta (
 				key TEXT PRIMARY KEY,
@@ -736,11 +756,9 @@ export class StatsStore {
 				project_name TEXT NOT NULL,
 				first_ms INTEGER NOT NULL,
 				last_ms INTEGER NOT NULL,
-				active_ms INTEGER NOT NULL,
 				turns INTEGER NOT NULL,
 				total_tokens INTEGER NOT NULL,
-				cost_usd REAL NOT NULL,
-				spans_json TEXT NOT NULL
+				cost_usd REAL NOT NULL
 			);
 			CREATE TABLE IF NOT EXISTS session_days (
 				day TEXT NOT NULL,
@@ -748,9 +766,10 @@ export class StatsStore {
 				harness TEXT NOT NULL,
 				session_key TEXT NOT NULL,
 				project_id TEXT NOT NULL,
+				active_ms INTEGER NOT NULL,
 				PRIMARY KEY (day, hour_key, harness, session_key)
 			);
-			CREATE INDEX IF NOT EXISTS idx_session_days_day ON session_days(day, harness);
+			CREATE INDEX IF NOT EXISTS idx_session_days_hour ON session_days(hour_key);
 			CREATE TABLE IF NOT EXISTS project_daily (
 				day TEXT NOT NULL,
 				harness TEXT NOT NULL,
@@ -778,27 +797,7 @@ export class StatsStore {
 	}
 }
 
-function parseSpans(json: string): Array<[number, number]> {
-	try {
-		const raw = JSON.parse(json) as unknown;
-		if (!Array.isArray(raw)) return [];
-		return raw.filter((s): s is [number, number] => Array.isArray(s) && s.length === 2);
-	} catch {
-		return [];
-	}
-}
-
-function touchSpans(spans: Array<[number, number]>, ms: number): number {
-	const open = spans.at(-1);
-	if (open && ms >= open[0] && ms - open[1] <= IDLE_GAP_MS) {
-		open[1] = Math.max(open[1], ms);
-	} else {
-		spans.push([ms, ms]);
-		if (spans.length > MAX_SPANS_PER_SESSION) {
-			spans.splice(0, spans.length - MAX_SPANS_PER_SESSION);
-		}
-	}
-	let total = 0;
-	for (const [a, b] of spans) total += Math.max(0, b - a);
-	return total;
+/** Time between two turns of a session counts as active unless it is an idle gap or goes backwards. */
+function activeGapMs(gapMs: number): number {
+	return gapMs > 0 && gapMs <= IDLE_GAP_MS ? gapMs : 0;
 }

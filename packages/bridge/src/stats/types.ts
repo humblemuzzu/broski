@@ -211,21 +211,9 @@ export function isUnpriceableModel(model: string): boolean {
 	);
 }
 
-export function localDayKey(ms: number, timeZone?: string): string {
-	if (!timeZone) {
-		const d = new Date(ms);
-		return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-	}
-	const parts = new Intl.DateTimeFormat("en-CA", {
-		timeZone,
-		year: "numeric",
-		month: "2-digit",
-		day: "2-digit",
-	}).formatToParts(new Date(ms));
-	const y = parts.find((p) => p.type === "year")?.value ?? "1970";
-	const m = parts.find((p) => p.type === "month")?.value ?? "01";
-	const d = parts.find((p) => p.type === "day")?.value ?? "01";
-	return `${y}-${m}-${d}`;
+export function localDayKey(ms: number): string {
+	const d = new Date(ms);
+	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 export function utcHourKey(ms: number): string {
