@@ -6,6 +6,7 @@ import { runDaemonChecks } from "./daemon";
 import { runDependencyChecks } from "./dependencies";
 import { runLinkServiceChecks } from "./link-service";
 import { runLinkStatusChecks } from "./link-status";
+import { runMacosHygieneChecks } from "./macos-hygiene";
 import { runNetworkChecks } from "./network";
 import { runSecurityChecks } from "./security";
 import { runShellEnvChecks } from "./shell-env";
@@ -35,6 +36,7 @@ export async function runAllChecks(
 		...(await runConnectivityChecks(ctx, { deep: opts.deep })),
 		...(await runLinkServiceChecks(ctx)),
 		...(await runLinkStatusChecks(ctx)),
+		...(await runMacosHygieneChecks()),
 	];
 
 	const profile = opts.profile ?? "all";

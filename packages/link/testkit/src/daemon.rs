@@ -42,6 +42,15 @@ pub struct TestDaemon {
 
 impl TestDaemon {
     pub async fn start(home: &Home, relay: Option<&str>, lan: bool) -> TestDaemon {
+        Self::start_with_screen_port(home, relay, lan, 5900).await
+    }
+
+    pub async fn start_with_screen_port(
+        home: &Home,
+        relay: Option<&str>,
+        lan: bool,
+        screen_port: u16,
+    ) -> TestDaemon {
         let handle = run(RunOptions {
             home: home.path.clone(),
             relay: relay.map(str::to_owned),
@@ -51,6 +60,8 @@ impl TestDaemon {
             bridge_cmd: None,
             advertise: false,
             scan_interfaces: false,
+            screen_port,
+            watch_dialogs: false,
             durations: Durations::default(),
         })
         .await

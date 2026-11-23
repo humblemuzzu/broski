@@ -181,6 +181,7 @@ class PhoneSession internal constructor(
                 health = MachineHealth.Connecting,
                 lastSeenMs = null,
                 bridgeVersion = null,
+                macDialogs = machine.macDialogs(),
             ).with(machine.status())
         }
         machineStates.update { list ->
@@ -201,6 +202,7 @@ class PhoneSession internal constructor(
                 }
                 is MachineEvent.BackendStatusChanged -> setAgent(id, event.backend, event.status)
                 is MachineEvent.CatalogInvalidated -> catalog.tryEmit(CatalogChange(id, event.backend))
+                is MachineEvent.MacDialogsChanged -> updateMachine(id) { it.copy(macDialogs = event.dialogs) }
             }
         }
         updateMachine(id) { it.with(machine.status()) }

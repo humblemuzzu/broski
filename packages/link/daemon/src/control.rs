@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::dialogs::MacDialog;
+
 #[derive(Serialize)]
 pub struct MachineInfo<'a> {
     pub id: &'a str,
@@ -26,6 +28,8 @@ pub enum ToDevice<'a> {
         conn: u64,
         detail: Option<&'a str>,
     },
+    #[serde(rename = "mac_dialogs")]
+    MacDialogs { dialogs: &'a [MacDialog] },
 }
 
 #[derive(Deserialize)]

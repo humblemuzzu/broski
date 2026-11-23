@@ -16,6 +16,7 @@ use crate::device::{short, DeviceRecord};
 use crate::registry::SessionState;
 
 use super::bridge::BridgePump;
+use super::screen::{ScreenIn, ScreenPump};
 use super::{close_codes, machine_info, wire, Actor, Input, SessionCommand, SessionDeps};
 
 /// How long the session keeps trying to hand its CLOSE frame to a connection whose out queue is
@@ -36,7 +37,9 @@ impl Actor {
     ) -> Actor {
         let status_rx = deps.monitor.subscribe();
         let routes_rx = deps.routes.subscribe();
+        let dialogs_rx = deps.dialogs.clone();
         let shutdown = deps.shutdown.clone();
+        let screen = ScreenPump::new(deps.screen_port);
         let bridge = BridgePump::new(
             deps.bridge_socket.clone(),
             deps.link_key.clone(),
@@ -52,6 +55,7 @@ impl Actor {
             commands,
             status_rx,
             routes_rx,
+            dialogs_rx,
             shutdown,
             link: Link::client(CONFIG),
             sender: None,
@@ -59,10 +63,13 @@ impl Actor {
             pairing_revoke: None,
             pending_revoke: None,
             bridge,
+            screen,
             last_bridge: None,
             pending_device: None,
+            pending_screen: None,
             pending_control: VecDeque::new(),
             read_open: true,
+            screen_read_open: true,
             pending_out: None,
             detached_at: Some(Instant::now()),
             close: None,
@@ -85,8 +92,11 @@ impl Actor {
                 Input::Bridge(BridgeIn::Ready) => self.bridge_ready(),
                 Input::Bridge(BridgeIn::Message(bytes)) => self.queue_for_device(bytes),
                 Input::Bridge(BridgeIn::Closed { unsent }) => self.bridge_closed(unsent),
+                Input::Screen(ScreenIn::Message(bytes)) => self.queue_screen_for_device(bytes),
+                Input::Screen(ScreenIn::Ended(id)) => self.screen.ended(id),
                 Input::BridgeStatus => self.send_bridge_status(false),
                 Input::Routes => self.send_routes(),
+                Input::Dialogs => self.send_dialogs(),
                 Input::Revoked => {
                     self.revoked();
                     break;
@@ -183,25 +193,28 @@ impl Actor {
     async fn next(&mut self) -> Input {
         let deadline = self.deadline();
         let read_open = self.gate_open();
+        let screen_open = self.screen_gate_open();
         // Shutdown is the one arm that keeps its priority; the rest are polled in a random order,
         // so a phone that never stops sending cannot starve the bridge's direction.
         let mut shutdown = self.shutdown.clone();
         tokio::select! {
             biased;
             _ = shutdown.wait_for(|stopped| *stopped) => Input::Shutdown,
-            input = self.wait(deadline, read_open) => input,
+            input = self.wait(deadline, read_open, screen_open) => input,
         }
     }
 
-    async fn wait(&mut self, deadline: Instant, read_open: bool) -> Input {
+    async fn wait(&mut self, deadline: Instant, read_open: bool, screen_open: bool) -> Input {
         tokio::select! {
             command = self.commands.recv() => match command {
                 Some(command) => Input::Command(command),
                 None => Input::Shutdown,
             },
             incoming = super::bridge::input(&mut self.bridge, read_open) => incoming,
+            screen = super::screen::input(&mut self.screen, screen_open) => screen,
             _ = self.status_rx.changed() => Input::BridgeStatus,
             _ = self.routes_rx.changed() => Input::Routes,
+            _ = watch_changed(&mut self.dialogs_rx) => Input::Dialogs,
             _ = self.state.revoked() => Input::Revoked,
             _ = tokio::time::sleep_until(deadline) => Input::Timer,
         }
@@ -251,6 +264,7 @@ impl Actor {
             self.pending_revoke = self.pairing_revoke.take();
         }
         self.send_routes();
+        self.send_dialogs();
         // A connection that has just attached knows nothing about this session's bridge socket, so
         // it is told where that socket stands even when nothing changed.
         self.send_bridge_status(true);
@@ -353,9 +367,11 @@ impl Actor {
                     if replaced {
                         self.bridge.start_over();
                     }
+                    self.screen.close();
                     // A new session has seen none of this phone's session: nothing queued for the
                     // old one may reach it, and the new one owes the phone a fresh bridge status.
                     self.pending_device = None;
+                    self.pending_screen = None;
                     self.pending_control.clear();
                     self.last_bridge = None;
                 }
@@ -386,5 +402,11 @@ impl Actor {
             }
         };
         Some((link, msg2))
+    }
+}
+
+async fn watch_changed<T>(rx: &mut tokio::sync::watch::Receiver<T>) {
+    if rx.changed().await.is_err() {
+        std::future::pending::<()>().await;
     }
 }

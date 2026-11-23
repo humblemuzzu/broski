@@ -33,6 +33,8 @@ data class Alert(
     val session: SessionTarget?,
     /** The pending request Allow and Deny answer: only for an approval that names one. */
     val request: String?,
+    /** Machine to open in Remote Screen when tapping a macOS system-dialog notification. */
+    val screenMachineId: String? = null,
 ) {
     val group: String get() = session?.let { "${it.machineId}/${it.backend}/${it.sessionId}" } ?: tag
 
@@ -41,6 +43,18 @@ data class Alert(
 
     companion object {
         fun of(machineId: String, kind: PushKind, push: PushNotification, namesMachine: Boolean = true): Alert {
+            if (push.kind == "mac_dialog") {
+                return Alert(
+                    tag = "$machineId/mac_dialog",
+                    channel = Channel.NeedsYou,
+                    title = push.title,
+                    text = push.body,
+                    machineName = MachineName.display(push.machine).takeIf { namesMachine },
+                    session = null,
+                    request = null,
+                    screenMachineId = machineId,
+                )
+            }
             val session = SessionTarget(machineId, push.backend, push.session)
             return Alert(
                 tag = "${session.machineId}/${session.backend}/${session.sessionId}/${push.request ?: kind.wire}",

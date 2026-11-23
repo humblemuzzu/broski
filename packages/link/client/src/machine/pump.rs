@@ -54,6 +54,25 @@ impl Shared {
                     self.on_message(&mut self.lock(), message);
                 }
             }
+            Event::Screen(bytes) => {
+                let outbound = self.lock().screen.on_tunnel_bytes(&bytes);
+                for frame in outbound {
+                    if let Err(failure) = self.session().send_screen(frame) {
+                        self.lock().screen.fail_all(
+                            broski_screen::ScreenCloseReason::ProtocolError,
+                            failure.to_string(),
+                        );
+                        break;
+                    }
+                }
+            }
+            Event::MacDialogs(dialogs) => {
+                let mut state = self.lock();
+                if state.mac_dialogs != dialogs {
+                    state.mac_dialogs = dialogs;
+                    state.events.dialogs();
+                }
+            }
             Event::Status(status) => self.on_status(&mut self.lock(), status),
             Event::BridgeStatus(bridge) => self.on_bridge(&mut self.lock(), bridge),
             Event::RecordChanged(record) => {

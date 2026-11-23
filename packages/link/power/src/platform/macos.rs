@@ -14,9 +14,10 @@ use objc2_io_kit::{
     io_connect_t, io_object_t, io_service_t, kIOMessageCanSystemSleep,
     kIOMessageSystemHasPoweredOn, kIOMessageSystemWillSleep, kIOPMAssertionLevelOn,
     kIOReturnSuccess, IOAllowPowerChange, IODeregisterForSystemPower, IONotificationPort,
-    IONotificationPortRef, IOPMAssertionCreateWithName, IOPMAssertionID, IOPMAssertionRelease,
-    IOPSCopyPowerSourcesInfo, IOPSCopyPowerSourcesList, IOPSGetPowerSourceDescription,
-    IORegisterForSystemPower, IOServiceClose,
+    IONotificationPortRef, IOPMAssertionCreateWithName, IOPMAssertionDeclareUserActivity,
+    IOPMAssertionID, IOPMAssertionRelease, IOPMUserActiveType, IOPSCopyPowerSourcesInfo,
+    IOPSCopyPowerSourcesList, IOPSGetPowerSourceDescription, IORegisterForSystemPower,
+    IOServiceClose,
 };
 
 use crate::event_worker::{self, Notification};
@@ -275,6 +276,22 @@ impl Drop for AwakeAssertion {
     fn drop(&mut self) {
         IOPMAssertionRelease(self.id);
     }
+}
+
+/// Lights a sleeping display without requiring elevated privileges (equivalent to `caffeinate -u`).
+pub fn wake_display(reason: &str) -> Result<(), Error> {
+    let name = CFString::from_str(reason);
+    let mut id: IOPMAssertionID = 0;
+    // SAFETY: `name` outlives the call, and `id` is written only on success.
+    let status = unsafe {
+        IOPMAssertionDeclareUserActivity(Some(&name), IOPMUserActiveType::Local, &mut id)
+    };
+    if status != kIOReturnSuccess {
+        return Err(Error::Os(format!(
+            "IOPMAssertionDeclareUserActivity reported {status}"
+        )));
+    }
+    Ok(())
 }
 
 pub fn power_status() -> PowerStatus {

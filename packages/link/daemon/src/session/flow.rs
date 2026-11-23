@@ -1,9 +1,9 @@
-use broski_link_core::{Error, STREAM_BRIDGE, STREAM_CONTROL};
+use broski_link_core::{Error, STREAM_BRIDGE, STREAM_CONTROL, STREAM_SCREEN};
 use tracing::{debug, warn};
 
 use crate::clock;
 use crate::device::short;
-use crate::limits::{BRIDGE_READ_HIGH, BRIDGE_READ_LOW};
+use crate::limits::{BRIDGE_READ_HIGH, BRIDGE_READ_LOW, SCREEN_READ_HIGH, SCREEN_READ_LOW};
 
 use super::{close_codes, Actor};
 
@@ -30,9 +30,25 @@ impl Actor {
         self.read_open && self.pending_device.is_none()
     }
 
+    pub(super) fn screen_gate_open(&mut self) -> bool {
+        let unacked = self.link.unacked_bytes();
+        if self.screen_read_open && unacked >= SCREEN_READ_HIGH {
+            self.screen_read_open = false;
+        } else if !self.screen_read_open && unacked < SCREEN_READ_LOW {
+            self.screen_read_open = true;
+        }
+        self.screen_read_open && self.pending_screen.is_none()
+    }
+
     pub(super) fn queue_for_device(&mut self, bytes: Vec<u8>) {
         if let Err(bytes) = self.try_send(STREAM_BRIDGE, bytes) {
             self.pending_device = Some(bytes);
+        }
+    }
+
+    pub(super) fn queue_screen_for_device(&mut self, bytes: Vec<u8>) {
+        if let Err(bytes) = self.try_send(STREAM_SCREEN, bytes) {
+            self.pending_screen = Some(bytes);
         }
     }
 
@@ -56,11 +72,15 @@ impl Actor {
                 break;
             }
         }
-        let Some(bytes) = self.pending_device.take() else {
-            return;
-        };
-        if let Err(bytes) = self.try_send(STREAM_BRIDGE, bytes) {
-            self.pending_device = Some(bytes);
+        if let Some(bytes) = self.pending_device.take() {
+            if let Err(bytes) = self.try_send(STREAM_BRIDGE, bytes) {
+                self.pending_device = Some(bytes);
+            }
+        }
+        if let Some(bytes) = self.pending_screen.take() {
+            if let Err(bytes) = self.try_send(STREAM_SCREEN, bytes) {
+                self.pending_screen = Some(bytes);
+            }
         }
     }
 

@@ -30,7 +30,12 @@ import com.muzammil.broski.design.MachineStatusChip
 import com.muzammil.broski.design.relativeTime
 
 @Composable
-internal fun MachineCard(machine: MachineState, onRestartBridge: () -> Unit, onForget: () -> Unit) {
+internal fun MachineCard(
+    machine: MachineState,
+    onOpenScreen: () -> Unit,
+    onRestartBridge: () -> Unit,
+    onForget: () -> Unit,
+) {
     Surface(
         shape = MaterialTheme.shapes.extraLarge,
         color = MaterialTheme.colorScheme.surfaceContainer,
@@ -46,8 +51,28 @@ internal fun MachineCard(machine: MachineState, onRestartBridge: () -> Unit, onF
                 )
             }
             MachineStatusChip(machine.health, machine.name)
+            if (machine.macDialogs.isNotEmpty()) {
+                val summary = if (machine.macDialogs.size == 1) {
+                    machine.macDialogs.first().title
+                } else {
+                    stringResource(R.string.screen_dialogs_count, machine.macDialogs.size)
+                }
+                FilledTonalButton(onClick = onOpenScreen, shapes = ButtonDefaults.shapes()) {
+                    Icon(painterResource(R.drawable.ic_warning), contentDescription = null)
+                    Text(
+                        stringResource(R.string.screen_dialog_action, summary),
+                        Modifier.padding(start = 8.dp),
+                    )
+                }
+            }
             MachineFacts(machine)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (machine.health.isOnline) {
+                    FilledTonalButton(onClick = onOpenScreen, shapes = ButtonDefaults.shapes()) {
+                        Icon(painterResource(R.drawable.ic_laptop_mac), contentDescription = null)
+                        Text(stringResource(R.string.screen_open_button), Modifier.padding(start = 8.dp))
+                    }
+                }
                 if (machine.health is MachineHealth.BridgeDown) {
                     FilledTonalButton(onClick = onRestartBridge, shapes = ButtonDefaults.shapes()) {
                         Icon(painterResource(R.drawable.ic_restart_alt), contentDescription = null)

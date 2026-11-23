@@ -2,8 +2,8 @@
 //! `broski-client`, so they cannot drift.
 
 use broski_client::{
-    ClientError, ContractState, InboxRow, InboxState, InboxUpdate, LinkFailure, MachineEvent,
-    MachineStatus, PendingAsk, PhoneConfig, SeenMarker, SeenState, SessionChange,
+    ClientError, ContractState, InboxRow, InboxState, InboxUpdate, LinkFailure, MacDialog,
+    MachineEvent, MachineStatus, PendingAsk, PhoneConfig, SeenMarker, SeenState, SessionChange,
     SessionListUpdate, SessionUpdate, TerminalUpdate, UnreadSession, ViewEnd,
 };
 use broski_contract::{
@@ -56,6 +56,9 @@ pub enum MachineEvent {
     CatalogInvalidated {
         backend: BackendId,
         scope: CatalogScope,
+    },
+    MacDialogsChanged {
+        dialogs: Vec<MacDialog>,
     },
 }
 

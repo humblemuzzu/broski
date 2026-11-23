@@ -41,7 +41,12 @@ import com.muzammil.broski.design.perform
 
 /** Each paired Mac with its status, and the actions on it: restart its bridge, forget it, pair another. */
 @Composable
-fun MachinesScreen(phone: PhoneSession, onBack: () -> Unit, onPairAnother: () -> Unit) {
+fun MachinesScreen(
+    phone: PhoneSession,
+    onBack: () -> Unit,
+    onPairAnother: () -> Unit,
+    onOpenScreen: (String) -> Unit,
+) {
     val viewModel = viewModel { MachinesViewModel(phone) }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val haptics = LocalHapticFeedback.current
@@ -76,7 +81,13 @@ fun MachinesScreen(phone: PhoneSession, onBack: () -> Unit, onPairAnother: () ->
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
-        MachinesList(state, padding, onRestartBridge = viewModel::restartBridge, onForget = { forgetting = it })
+        MachinesList(
+            state,
+            padding,
+            onOpenScreen = onOpenScreen,
+            onRestartBridge = viewModel::restartBridge,
+            onForget = { forgetting = it },
+        )
     }
 
     forgetting?.let { id ->
@@ -97,6 +108,7 @@ fun MachinesScreen(phone: PhoneSession, onBack: () -> Unit, onPairAnother: () ->
 private fun MachinesList(
     state: MachinesUiState,
     padding: PaddingValues,
+    onOpenScreen: (String) -> Unit,
     onRestartBridge: (String) -> Unit,
     onForget: (String) -> Unit,
 ) {
@@ -121,6 +133,7 @@ private fun MachinesList(
         items(state.machines, key = { it.id }) { machine ->
             MachineCard(
                 machine = machine,
+                onOpenScreen = { onOpenScreen(machine.id) },
                 onRestartBridge = { onRestartBridge(machine.id) },
                 onForget = { onForget(machine.id) },
             )

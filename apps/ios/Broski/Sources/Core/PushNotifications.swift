@@ -19,6 +19,8 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
     var tokenChanged: (String) -> Void = { _ in }
     /// A tapped push's session.
     var opened: (SessionTarget) -> Void = { _ in }
+    /// A tapped macOS system-dialog push's machine id.
+    var openedScreen: (String) -> Void = { _ in }
     /// The session on screen, whose pushes do not banner.
     var visibleSession: () -> SessionTarget? = { nil }
 
@@ -74,7 +76,12 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
         switch action {
         case Action.allow: await decide(.allow, on: push)
         case Action.deny: await decide(.deny, on: push)
-        case UNNotificationDefaultActionIdentifier: push.session.map(opened)
+        case UNNotificationDefaultActionIdentifier:
+            if push.kind == "mac_dialog", let machineId = push.machineId {
+                openedScreen(machineId)
+            } else {
+                push.session.map(opened)
+            }
         default: break
         }
     }
@@ -107,12 +114,14 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
 /// `userInfo` (the relay's `m` names the machine when nothing opened).
 nonisolated struct PushTarget: Sendable {
     let machineId: String?
+    let kind: String?
     let backend: String?
     let sessionId: String?
     let request: String?
 
     init(_ userInfo: [AnyHashable: Any]) {
         machineId = userInfo["machine"] as? String ?? userInfo["m"] as? String
+        kind = userInfo["kind"] as? String
         backend = userInfo["backend"] as? String
         sessionId = userInfo["session"] as? String
         request = userInfo["request"] as? String

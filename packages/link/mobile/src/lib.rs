@@ -22,6 +22,7 @@ mod phone;
 mod push;
 mod record;
 mod render;
+mod screen;
 mod stats;
 mod values;
 mod version;
@@ -47,6 +48,7 @@ pub use render::{
     file_change_diff, git_diff_file, highlight, language_for_path, normalize_language,
     parse_unified_diff, side_by_side,
 };
+pub use screen::ScreenView;
 pub use stats::merge_stats_summaries;
 pub use version::{core_version, CoreVersion};
 pub use views::{SessionList, SessionView, TerminalView};

@@ -27,6 +27,8 @@ final class AppModel {
     let discovery = LanDiscovery()
     /// Set to show a session; the Inbox tab opens it and sets this back to `nil`.
     var sessionToOpen: SessionTarget?
+    /// Set to open a machine's Remote Screen from a macOS dialog push; the Inbox tab clears it.
+    var screenMachineToOpen: String?
     /// Set by the tab bar's New Session button; the Inbox tab opens New Session and clears it.
     var startsNewSession = false
     /// Set by the usage widgets' link; the tab shell shows Usage and clears it.
@@ -65,6 +67,7 @@ final class AppModel {
             self?.machines.forEach { $0.registerPush(self?.push.token) }
         }
         push.opened = { [weak self] in self?.sessionToOpen = $0 }
+        push.openedScreen = { [weak self] in self?.screenMachineToOpen = $0 }
         push.visibleSession = { [weak self] in self?.visibleSession }
     }
 

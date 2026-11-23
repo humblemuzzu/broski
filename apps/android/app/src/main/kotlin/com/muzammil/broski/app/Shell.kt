@@ -26,6 +26,7 @@ import com.muzammil.broski.core.isOnline
 import com.muzammil.broski.feature.inbox.InboxScreen
 import com.muzammil.broski.feature.machines.MachinesScreen
 import com.muzammil.broski.feature.pairing.PairScreen
+import com.muzammil.broski.feature.screen.ScreenScreen
 import com.muzammil.broski.feature.settings.AboutScreen
 import com.muzammil.broski.feature.settings.AppearanceScreen
 import com.muzammil.broski.feature.settings.DeveloperScreen
@@ -55,7 +56,7 @@ fun Shell(core: AppCore, phone: PhoneSession, features: Features, openRequests: 
     // The chat's composer is its bottom edge, a new session's too: no navigation bar under it.
     val suite = rememberNavigationSuiteScaffoldState()
     val top = navigator.entries.lastOrNull()
-    val inChat = top is SessionRoute || top == NewSessionRoute
+    val inChat = top is SessionRoute || top == NewSessionRoute || top is ScreenRoute
     LaunchedEffect(inChat) { if (inChat) suite.hide() else suite.show() }
 
     NavigationSuiteScaffold(
@@ -116,6 +117,9 @@ private fun OpenRequested(openRequests: OpenRequests, phone: PhoneSession, featu
                 if (navigator.tab != TopLevel.Inbox) navigator.select(TopLevel.Inbox)
                 if (features.session != null && phone.machine(route.machineId) != null) navigator.open(route)
             }
+            is ScreenRoute -> {
+                if (phone.machine(route.machineId) != null) navigator.open(route)
+            }
             UsageRoute -> if (navigator.tab != TopLevel.Usage) navigator.select(TopLevel.Usage)
             else -> Unit
         }
@@ -135,11 +139,20 @@ private fun EntryProviderScope<Route>.shellEntries(
             phone = phone,
             onOpenSession = features.session?.let { { route -> navigator.open(route) } },
             onNewSession = features.newSession?.let { { navigator.open(NewSessionRoute) } },
+            onOpenScreen = { machineId -> navigator.open(ScreenRoute(machineId)) },
         )
     }
     entry<UsageRoute> { UsageScreen(core = core, phone = phone) }
     entry<MachinesRoute> {
-        MachinesScreen(phone = phone, onBack = navigator::back, onPairAnother = { navigator.open(PairRoute) })
+        MachinesScreen(
+            phone = phone,
+            onBack = navigator::back,
+            onPairAnother = { navigator.open(PairRoute) },
+            onOpenScreen = { machineId -> navigator.open(ScreenRoute(machineId)) },
+        )
+    }
+    entry<ScreenRoute> { route ->
+        ScreenScreen(phone = phone, machineId = route.machineId, onBack = navigator::back)
     }
     entry<PairRoute> { PairScreen(phone = phone, onBack = navigator::back, onPaired = navigator::back) }
     entry<SettingsRoute> { SettingsScreen(core = core, phone = phone, open = navigator::open) }

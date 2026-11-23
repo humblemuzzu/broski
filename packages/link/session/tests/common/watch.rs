@@ -56,6 +56,7 @@ impl Watch {
             Event::BridgeStatus(status) => self.bridge_statuses.push(status),
             Event::RecordChanged(record) => self.records.push(record),
             Event::SendFailed { tag, reason } => self.failures.push((tag, reason)),
+            Event::Screen(_) | Event::MacDialogs(_) => {}
         }
     }
 

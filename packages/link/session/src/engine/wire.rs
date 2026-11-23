@@ -1,7 +1,7 @@
 //! Driving the `Link`: wire units in, sealed frames and outbound messages out, link events to the
 //! app (`link_session_io.dart`).
 
-use broski_link_core::{LinkEvent, STREAM_BRIDGE, STREAM_CONTROL};
+use broski_link_core::{LinkEvent, STREAM_BRIDGE, STREAM_CONTROL, STREAM_SCREEN};
 use tokio::sync::mpsc::error::TrySendError;
 use tracing::debug;
 
@@ -97,11 +97,15 @@ impl Engine {
     fn deliver(&mut self, stream: u32, bytes: Vec<u8>) {
         match stream {
             STREAM_BRIDGE => self.shared.emit(Event::Bridge(bytes)),
+            STREAM_SCREEN => self.shared.emit(Event::Screen(bytes)),
             STREAM_CONTROL => match control::parse(&bytes) {
                 Ok(Some(FromMachine::Paired(paired))) => self.on_paired(paired),
                 Ok(Some(FromMachine::Routes(routes))) => self.on_routes(routes),
                 Ok(Some(FromMachine::Bridge(status))) => {
                     self.shared.emit(Event::BridgeStatus(status))
+                }
+                Ok(Some(FromMachine::MacDialogs(dialogs))) => {
+                    self.shared.emit(Event::MacDialogs(dialogs))
                 }
                 Ok(None) => {}
                 Err(Malformed(reason)) => debug!(reason, "control message refused"),

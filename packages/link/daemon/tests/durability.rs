@@ -19,6 +19,8 @@ fn options(home: &Path, bridge_socket: PathBuf) -> RunOptions {
         bridge_cmd: None,
         advertise: false,
         scan_interfaces: false,
+        screen_port: 5900,
+        watch_dialogs: false,
         durations: broski_link_daemon::durations::Durations::default(),
     }
 }

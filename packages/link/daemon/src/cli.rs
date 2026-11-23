@@ -93,6 +93,8 @@ impl RunArgs {
             lan: !self.no_lan && config.lan.unwrap_or(true),
             advertise: !self.no_advertise,
             scan_interfaces: true,
+            screen_port: broski_screen::DEFAULT_SCREEN_PORT,
+            watch_dialogs: true,
             bridge_cmd: self.bridge_cmd,
             home,
             durations: Durations::default(),

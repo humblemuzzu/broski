@@ -5,7 +5,7 @@
 use std::sync::Arc;
 
 use broski_contract::{BackendDescriptor, BackendId, BackendStatus, CatalogScope};
-use broski_link_session::{BridgeStatus, Status};
+use broski_link_session::{BridgeStatus, MacDialog, Status};
 use tokio::sync::Notify;
 
 use super::state::State;
@@ -30,6 +30,10 @@ pub enum MachineEvent {
     CatalogInvalidated {
         backend: BackendId,
         scope: CatalogScope,
+    },
+    /// Active on-screen macOS system dialogs (`SecurityAgent`, `Problem Reporter`, etc.) changed.
+    MacDialogsChanged {
+        dialogs: Vec<MacDialog>,
     },
 }
 
@@ -74,6 +78,7 @@ pub(crate) struct MachineEvents {
     status: bool,
     record: bool,
     backends: bool,
+    dialogs: bool,
     statuses: Vec<BackendId>,
     invalidated: Vec<(BackendId, CatalogScope)>,
     closed: bool,
@@ -92,6 +97,11 @@ impl MachineEvents {
 
     pub(crate) fn backends(&mut self) {
         self.backends = true;
+        self.notify.notify_one();
+    }
+
+    pub(crate) fn dialogs(&mut self) {
+        self.dialogs = true;
         self.notify.notify_one();
     }
 
@@ -133,6 +143,11 @@ pub(crate) fn take(state: &mut State) -> Taken {
         if let Some(backends) = state.catalog.backends() {
             return Taken::Event(MachineEvent::BackendsChanged { backends });
         }
+    }
+    if std::mem::take(&mut state.events.dialogs) {
+        return Taken::Event(MachineEvent::MacDialogsChanged {
+            dialogs: state.mac_dialogs.clone(),
+        });
     }
     while let Some(backend) = state.events.statuses.pop() {
         if let Some(status) = state.catalog.status_of(&backend) {

@@ -21,6 +21,7 @@ mod control;
 mod control_socket;
 mod device;
 mod dial;
+mod dialogs;
 mod discovery;
 pub mod durations;
 mod error;
@@ -70,6 +71,10 @@ pub struct RunOptions {
     /// Advertise the machine's interface addresses as LAN routes. Off for daemons that must not
     /// hand a phone the addresses of the network they happen to run on.
     pub scan_interfaces: bool,
+    /// Loopback TCP port for Apple Screen Sharing (`screensharingd`), default 5900.
+    pub screen_port: u16,
+    /// Watch for on-screen macOS system dialogs (`SecurityAgent`, `Problem Reporter`, etc.).
+    pub watch_dialogs: bool,
     pub durations: Durations,
 }
 
@@ -146,6 +151,7 @@ async fn parts(
     let link_key = Arc::new(link_key::LinkKey::create(&options.home)?);
     let store = Store::open(&options.home).await?;
     let (busy, busy_signal) = watch::channel(false);
+    let (dialogs_tx, _dialogs_rx) = watch::channel(Vec::new());
     let (commands, command_rx) = mpsc::channel(RELAY_COMMANDS);
     let seen = letters::replay::Seen::open(&options.home, options.durations.letter_ttl).await?;
     let advertisement = if options.advertise {
@@ -164,6 +170,7 @@ async fn parts(
         relay: relay::handle(),
         routes: routes::Routes::new(options.relay.clone(), options.scan_interfaces, mdns_host),
         busy,
+        dialogs: dialogs_tx,
         commands,
         seen,
         advertisement,

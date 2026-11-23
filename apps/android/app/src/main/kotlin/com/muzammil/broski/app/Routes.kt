@@ -20,6 +20,10 @@ data object SettingsRoute : Route
 @Serializable
 data object MachinesRoute : Route
 
+/** Remote Mac screen view for one paired machine. */
+@Serializable
+data class ScreenRoute(val machineId: String) : Route
+
 @Serializable
 data object PairRoute : Route
 

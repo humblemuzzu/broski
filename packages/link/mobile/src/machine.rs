@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use broski_client as client;
-use broski_client::{ClientError, MachineEvent, MachineStatus};
+use broski_client::{ClientError, MacDialog, MachineEvent, MachineStatus};
 use broski_contract::{
     BackendDescriptor, BackendId, BackendStatus, ClientMessage, CommandsListResult,
     ModelsListResult, ModesListResult, ServerMessage, SessionQuery, SessionRef, TerminalId,
@@ -9,6 +9,7 @@ use broski_contract::{
 use broski_link_session::PushPlatform;
 
 use crate::record::MachineRecord;
+use crate::screen::{ScreenCredentials, ScreenView};
 use crate::views::{SessionList, SessionView, TerminalView};
 
 /// One paired machine: the contract over its link, its catalog, and the views opened on it.
@@ -60,6 +61,21 @@ impl Machine {
         Arc::clone(&self.0)
             .terminal(id)
             .map(|view| Arc::new(TerminalView(view)))
+    }
+
+    /// Opens a live remote screen view of this Mac over Broski Link.
+    pub fn open_screen(
+        &self,
+        credentials: Option<ScreenCredentials>,
+    ) -> Result<Arc<ScreenView>, ClientError> {
+        Arc::clone(&self.0)
+            .open_screen(credentials.map(ScreenCredentials::into_core))
+            .map(|view| Arc::new(ScreenView(view)))
+    }
+
+    /// Active on-screen macOS system dialogs reported by this machine's daemon.
+    pub fn mac_dialogs(&self) -> Vec<MacDialog> {
+        self.0.mac_dialogs()
     }
 
     /// `backend`'s sessions newest first, kept current; `query.cwd` spelled as the bridge spells

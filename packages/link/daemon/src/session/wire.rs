@@ -1,4 +1,4 @@
-use broski_link_core::{LinkEvent, STREAM_BRIDGE, STREAM_CONTROL};
+use broski_link_core::{LinkEvent, STREAM_BRIDGE, STREAM_CONTROL, STREAM_SCREEN};
 use serde::Serialize;
 use tokio::time::Instant;
 use tracing::{debug, warn};
@@ -24,6 +24,14 @@ impl Actor {
             relay: adverts.relay.as_deref(),
             lan: &adverts.lan,
         };
+        if let Some(bytes) = encode(&message) {
+            self.push_control(bytes);
+        }
+    }
+
+    pub(super) fn send_dialogs(&mut self) {
+        let dialogs = self.dialogs_rx.borrow().clone();
+        let message = ToDevice::MacDialogs { dialogs: &dialogs };
         if let Some(bytes) = encode(&message) {
             self.push_control(bytes);
         }
@@ -70,6 +78,10 @@ impl Actor {
                         self.queue_for_bridge(bytes);
                     } else if stream == STREAM_CONTROL {
                         self.control(&bytes).await;
+                    } else if stream == STREAM_SCREEN {
+                        if let Some(close) = self.screen.handle_client(&bytes) {
+                            self.queue_screen_for_device(close);
+                        }
                     }
                 }
                 LinkEvent::PeerClosed(code) => {

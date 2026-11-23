@@ -3,7 +3,7 @@ use std::sync::{Mutex, MutexGuard, PoisonError};
 
 use tokio::sync::Notify;
 
-use crate::control::BridgeStatus;
+use crate::control::{BridgeStatus, MacDialog};
 use crate::outbound::{OutboundQueue, SendFailure};
 use crate::record::MachineRecord;
 use crate::status::Status;
@@ -16,6 +16,10 @@ pub enum Event {
     Status(Status),
     /// One message on the bridge stream: a contract frame, opaque to the session.
     Bridge(Vec<u8>),
+    /// One message on the screen stream (`STREAM_SCREEN`): RFB loopback tunnel framing.
+    Screen(Vec<u8>),
+    /// Active macOS system prompt/crash dialogs reported by the daemon.
+    MacDialogs(Vec<MacDialog>),
     /// The daemon's report on this session's bridge socket.
     BridgeStatus(BridgeStatus),
     /// The machine's routes changed; persist the record.
@@ -74,7 +78,7 @@ impl Shared {
 
     pub(crate) fn emit(&self, event: Event) {
         let mut events = locked(&self.events);
-        if let Event::Bridge(bytes) = &event {
+        if let Event::Bridge(bytes) | Event::Screen(bytes) = &event {
             events.bridge_bytes += bytes.len();
         }
         if let Event::Status(status) = &event {
@@ -124,7 +128,7 @@ impl Shared {
         let Some(event) = events.queue.pop_front() else {
             return events.closed.then_some(None);
         };
-        if let Event::Bridge(bytes) = &event {
+        if let Event::Bridge(bytes) | Event::Screen(bytes) = &event {
             events.bridge_bytes -= bytes.len();
         }
         if !events.over(2) {

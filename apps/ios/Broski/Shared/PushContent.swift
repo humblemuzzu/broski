@@ -43,8 +43,12 @@ nonisolated enum PushContent {
         } else if let notification = try? openNotification(record: record, data: payload) {
             let pairedMacs = (try? records.all().count) ?? 1
             describe(content, notification, machineId: machineId, namesMachine: pairedMacs > 1)
-            let allowed = preferences.allows(
-                kind: kind, machineId: machineId, backend: notification.backend, sessionId: notification.session)
+            let allowed = if notification.kind == "mac_dialog" {
+                preferences.allows(kind: kind)
+            } else {
+                preferences.allows(
+                    kind: kind, machineId: machineId, backend: notification.backend, sessionId: notification.session)
+            }
             if !allowed { quiet(content) }
         }
     }
@@ -62,6 +66,12 @@ nonisolated enum PushContent {
         content.title = notification.title
         content.body = notification.body
         content.subtitle = namesMachine ? MachineName.display(notification.machine) : ""
+        content.userInfo["kind"] = notification.kind
+        if notification.kind == "mac_dialog" {
+            content.threadIdentifier = "\(machineId)/screen"
+            content.categoryIdentifier = Category.attention
+            return
+        }
         content.threadIdentifier = "\(machineId)/\(notification.session)"
         switch notification.kind {
         case "approval" where notification.request != nil: content.categoryIdentifier = Category.approval

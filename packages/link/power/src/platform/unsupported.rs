@@ -24,3 +24,7 @@ impl AwakeAssertion {
 pub fn power_status() -> PowerStatus {
     PowerStatus::default()
 }
+
+pub fn wake_display(_reason: &str) -> Result<(), Error> {
+    Err(Error::Unsupported)
+}

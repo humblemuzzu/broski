@@ -77,6 +77,7 @@ class Notifier(private val context: Context) {
     private fun open(alert: Alert): PendingIntent {
         val intent = Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
         alert.session?.let { OpenSession.put(intent, it) }
+        alert.screenMachineId?.let { OpenScreen.put(intent, it) }
         return PendingIntent.getActivity(context, alert.tag.hashCode(), intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
     }
 

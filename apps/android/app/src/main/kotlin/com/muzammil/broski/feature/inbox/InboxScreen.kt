@@ -45,8 +45,10 @@ import com.muzammil.broski.app.SessionRoute
 import com.muzammil.broski.core.PhoneSession
 import com.muzammil.broski.design.EmptyState
 import com.muzammil.broski.design.MachineStatusChip
+import com.muzammil.broski.design.Notice
 import com.muzammil.broski.design.Orb
 import com.muzammil.broski.design.PrimaryButton
+import com.muzammil.broski.design.QuietButton
 import com.muzammil.broski.design.SectionHeader
 import com.muzammil.broski.design.orb.OrbState
 import com.muzammil.broski.design.perform
@@ -61,6 +63,7 @@ fun InboxScreen(
     phone: PhoneSession,
     onOpenSession: ((SessionRoute) -> Unit)?,
     onNewSession: (() -> Unit)?,
+    onOpenScreen: ((String) -> Unit)? = null,
 ) {
     val viewModel = viewModel { InboxViewModel(phone) }
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -92,7 +95,7 @@ fun InboxScreen(
                 )
             },
         ) {
-            InboxList(state, viewModel, onOpenSession, onNewSession)
+            InboxList(state, viewModel, onOpenSession, onNewSession, onOpenScreen)
         }
     }
 }
@@ -121,6 +124,7 @@ private fun InboxList(
     viewModel: InboxViewModel,
     onOpenSession: ((SessionRoute) -> Unit)?,
     onNewSession: (() -> Unit)?,
+    onOpenScreen: ((String) -> Unit)?,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -128,6 +132,24 @@ private fun InboxList(
     ) {
         if (state.mentions.isNotEmpty() || state.working > 0) {
             item(key = "status", contentType = "status") { StatusHeader(state, viewModel::showWorkingOnly) }
+        }
+        state.machines.filter { it.macDialogs.isNotEmpty() }.forEach { machine ->
+            item(key = "mac-dialogs:${machine.id}", contentType = "notice") {
+                val body = if (machine.macDialogs.size == 1) {
+                    machine.macDialogs.first().title
+                } else {
+                    stringResource(R.string.screen_dialogs_count, machine.macDialogs.size)
+                }
+                Notice(
+                    icon = R.drawable.ic_warning,
+                    title = stringResource(R.string.screen_dialog_banner_title, machine.name),
+                    body = body,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                    action = onOpenScreen?.let { open ->
+                        { QuietButton(stringResource(R.string.screen_open_button), { open(machine.id) }) }
+                    },
+                )
+            }
         }
         if (state.isEmpty) {
             item(key = "empty", contentType = "empty") {

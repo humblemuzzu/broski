@@ -17,13 +17,15 @@ use std::sync::{Arc, Mutex, PoisonError};
 use broski_contract::{
     ClientInfo, ClientMessage, ServerMessage, SessionRef, SessionSummary, TerminalId,
 };
-use broski_link_session::{LinkRuntime, MachineRecord, PushPlatform, Session};
+use broski_link_session::{LinkRuntime, MacDialog, MachineRecord, PushPlatform, Session};
+use broski_screen::ScreenCredentials;
 use tokio::sync::{oneshot, Notify};
 
 use self::events::Taken;
 pub use self::events::{ContractState, MachineEvent, MachineStatus};
 pub(crate) use self::state::Shared;
 use crate::error::ClientError;
+use crate::screen::ScreenView;
 use crate::terminal::TerminalView;
 use crate::view::stream::LiveInfo;
 use crate::view::SessionView;
@@ -126,6 +128,33 @@ impl Machine {
             key
         };
         Ok(Arc::new(TerminalView::new(self, key, id)))
+    }
+
+    /// Opens a live remote screen view over `STREAM_SCREEN` (replaces any prior screen view).
+    pub fn open_screen(
+        self: Arc<Self>,
+        credentials: Option<ScreenCredentials>,
+    ) -> Result<Arc<ScreenView>, ClientError> {
+        let (session_id, open_frame, prev_close) = {
+            let mut state = self.shared.lock();
+            if let Some(error) = &state.ended {
+                return Err(error.clone());
+            }
+            state.screen.open(credentials)
+        };
+        if let Some(close_frame) = prev_close {
+            let _ = self.shared.session().send_screen(close_frame);
+        }
+        self.shared
+            .session()
+            .send_screen(open_frame)
+            .map_err(|failure| ClientError::NotSent { failure })?;
+        Ok(Arc::new(ScreenView::new(self, session_id)))
+    }
+
+    /// Active on-screen macOS system dialogs reported by this machine's daemon.
+    pub fn mac_dialogs(&self) -> Vec<MacDialog> {
+        self.shared.lock().mac_dialogs.clone()
     }
 
     pub(crate) fn leave_view(&self, subscriber: u64) {

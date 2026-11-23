@@ -1,0 +1,28 @@
+[package]
+name = "broski-screen"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "Shared RFB 3.8 + Apple Screen Sharing (003.889) client engine for Broski iOS and Android"
+
+[lib]
+doctest = false
+
+[features]
+test-server = []
+
+[dependencies]
+# aes 0.8.4 + cipher 0.4.4 — AES-128-ECB for Apple Remote Desktop (type 30) authentication.
+aes = "0.8.4"
+cipher = "0.4.4"
+# getrandom 0.3.4 — ephemeral Diffie-Hellman exponents and credential padding.
+getrandom = "0.3.4"
+# miniz_oxide 0.9.1 — pure-Rust streaming zlib decompression for Zlib (6) and ZRLE (16) encodings.
+miniz_oxide = "0.9.1"
+# num-bigint 0.4.8 — arbitrary-precision modular exponentiation for Apple DH (type 30).
+num-bigint = "0.4.8"
+# thiserror 2.0.21 — workspace-standard error enum derivation.
+thiserror = "2.0.21"
+# zeroize 1.9.2 — wipes authentication credentials and Diffie-Hellman secrets from memory.
+zeroize = "1.9.2"

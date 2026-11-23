@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use broski_link_core::crypto::PublicBundle;
-use broski_link_core::{STREAM_BRIDGE, STREAM_CONTROL};
+use broski_link_core::{STREAM_BRIDGE, STREAM_CONTROL, STREAM_SCREEN};
 use tokio::sync::mpsc;
 
 use crate::control::{self, PushPlatform};
@@ -93,6 +93,11 @@ impl Session {
     /// `Event::SendFailed` with `tag`.
     pub fn send_bridge(&self, frame: Vec<u8>, tag: Option<String>) -> Result<(), SendFailure> {
         self.queue(STREAM_BRIDGE, frame, tag)
+    }
+
+    /// Queues one screen tunnel frame on `STREAM_SCREEN`.
+    pub fn send_screen(&self, frame: Vec<u8>) -> Result<(), SendFailure> {
+        self.queue(STREAM_SCREEN, frame, None)
     }
 
     /// Asks the machine to restart its bridge.
