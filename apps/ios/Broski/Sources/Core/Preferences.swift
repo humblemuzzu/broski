@@ -14,6 +14,9 @@ enum Preference {
     static let readingUnderlinesLinks = "reading.underlinesLinks"
     static let modelPins = "models.pinned"
     static let modelLevels = "models.levels"
+    static let inboxAgent = "inbox.agent"
+    static let inboxMachine = "inbox.machine"
+    static let inboxFolder = "inbox.folder"
 }
 
 enum KeepScreenAwake: String, CaseIterable, Identifiable {

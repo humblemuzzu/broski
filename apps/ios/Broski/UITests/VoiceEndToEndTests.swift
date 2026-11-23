@@ -52,6 +52,7 @@ final class VoiceEndToEndTests: XCTestCase {
         let app = XCUIApplication()
         app.launch()
         XCTAssertTrue(app.navigationBars["Inbox"].waitForExistence(timeout: timeout))
+        showIdle(in: app)
         app.staticTexts[session].firstMatch.tap()
         let composer = app.descendants(matching: .any)["composer"].firstMatch
         XCTAssertTrue(composer.waitForExistence(timeout: timeout), "the chat opens")

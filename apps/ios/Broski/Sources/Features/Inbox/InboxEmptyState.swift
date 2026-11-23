@@ -2,20 +2,29 @@ import BroskiCore
 import SwiftUI
 import ThinkingOrbsKit
 
-/// What an empty inbox says: nothing working under the working filter, the machines still on their
-/// way, every machine unreachable, or simply no sessions yet.
+/// What an empty inbox says: nothing working under the working filter, nothing matching the other
+/// filters, the machines still on their way, every machine unreachable, or simply no sessions yet.
 struct InboxEmptyState: View {
-    let filter: InboxState?
+    let filter: InboxFilter
     let machines: [MachineModel]
-    let showAll: () -> Void
+    let clear: () -> Void
+    let showAllStates: () -> Void
     let startSession: () -> Void
 
     var body: some View {
-        if filter != nil {
+        if filter.state == .working {
             ContentUnavailableView {
                 Label("Nothing is working right now", systemImage: "checkmark.circle")
             } actions: {
-                Button("Show All", action: showAll)
+                Button("Show All", action: showAllStates)
+            }
+        } else if filter.isActive {
+            ContentUnavailableView {
+                Label("No sessions match", systemImage: "line.3.horizontal.decrease")
+            } description: {
+                Text("Nothing in your inbox fits \(filter.summary(machines: machines) ?? "these filters").")
+            } actions: {
+                Button("Clear Filters", action: clear)
             }
         } else if let settling = machines.first(where: { $0.summary.health == .settling }),
             !machines.contains(where: { $0.summary.isReady })

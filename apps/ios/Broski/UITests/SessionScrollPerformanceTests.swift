@@ -59,6 +59,7 @@ final class SessionScrollPerformanceTests: XCTestCase {
     private func openLongChat() throws -> XCUIApplication {
         let app = XCUIApplication()
         app.launch()
+        showIdle(in: app)
         let row = app.staticTexts[title].firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: timeout))
         row.tap()

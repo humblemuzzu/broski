@@ -48,7 +48,19 @@ struct SettingsScreen: View {
                 }
             }
             .listStyle(.insetGrouped)
+            .scrollEdgeEffectStyle(.soft, for: .top)
             .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar(removing: .title)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Text("Settings")
+                        .font(.title3.weight(.bold))
+                        .fixedSize()
+                        .accessibilityAddTraits(.isHeader)
+                }
+                .sharedBackgroundVisibility(.hidden)
+            }
             .onAppear { hasVoiceKey = VoiceKeyStore().key() != nil }
         }
     }

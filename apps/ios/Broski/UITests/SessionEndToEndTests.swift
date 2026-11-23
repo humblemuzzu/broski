@@ -154,6 +154,7 @@ final class SessionEndToEndTests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Inbox"].waitForExistence(timeout: timeout))
         setAppearance("Dark", in: app)
         tab("Inbox", in: app)
+        showIdle(in: app)
         app.staticTexts[title].firstMatch.tap()
         XCTAssertTrue(composer(in: app).waitForExistence(timeout: timeout))
         try screenshot("chat-dark")
@@ -326,6 +327,7 @@ final class SessionEndToEndTests: XCTestCase {
         app.buttons["BackButton"].tap()
         setAppearance("Dark", in: app)
         tab("Inbox", in: app)
+        showIdle(in: app)
         app.staticTexts[title].firstMatch.tap()
         let field = composer(in: app)
         XCTAssertTrue(field.waitForExistence(timeout: timeout))
@@ -367,6 +369,7 @@ final class SessionEndToEndTests: XCTestCase {
         app.launchArguments += arguments
         app.launch()
         XCTAssertTrue(app.navigationBars["Inbox"].waitForExistence(timeout: timeout))
+        showIdle(in: app)
         let row = app.staticTexts[title].firstMatch
         let renamed = app.staticTexts["Release notes, tidied"].firstMatch
         for _ in 0..<12 where !(row.waitForExistence(timeout: 2) || renamed.exists) {

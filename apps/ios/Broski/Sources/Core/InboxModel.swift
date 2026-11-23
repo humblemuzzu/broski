@@ -8,8 +8,10 @@ import os
 @Observable
 final class InboxModel {
     private(set) var rows: [InboxRow] = []
-    /// Set by the "n agents working" accessory; the inbox then shows only that section.
-    var filter: InboxState?
+    /// What the inbox narrows to; the agent, Mac and folder outlive the app.
+    var filter = InboxFilter.stored() {
+        didSet { if filter != oldValue { filter.store() } }
+    }
     /// The newest answer given from a row.
     private(set) var lastAnswer: RowAnswer?
     /// Rows whose answer is on its way; their actions wait for it.
@@ -18,8 +20,8 @@ final class InboxModel {
     @ObservationIgnored private var inbox: Inbox?
     @ObservationIgnored private var changes: Task<Void, Never>?
 
-    func sections(pinned: Set<SessionTarget>) -> [InboxSection] {
-        InboxSection.group(rows, pinned: pinned, showing: filter)
+    func sections(pinned: Set<SessionTarget>, query: String = "") -> [InboxSection] {
+        InboxSection.group(rows, pinned: pinned, filter: filter, query: query)
     }
 
     var workingCount: Int { rows.count { $0.state == .working } }
@@ -33,7 +35,7 @@ final class InboxModel {
             while true {
                 let update = await inbox.nextChange()
                 rows = update.rows
-                if filter == .working && workingCount == 0 { filter = nil }
+                if filter.state == .working && workingCount == 0 { filter.state = nil }
                 persist(update, in: storage)
             }
         }
@@ -107,14 +109,17 @@ struct InboxSection: Identifiable, Equatable {
 
     static let order: [InboxState] = [.needsYou, .working, .done, .idle]
 
-    /// Needs you, then the pinned rows that do not need the person, then working, done, idle; empty
-    /// sections left out. A filter shows its state alone, pinned rows in it.
+    /// The rows the filter and the search admit: needs you, then the pinned rows that do not need the
+    /// person, then working, done, idle; empty sections left out. A filter on a state shows that state
+    /// alone, pinned rows in it.
     static func group(
-        _ rows: [InboxRow], pinned: Set<SessionTarget> = [], showing filter: InboxState? = nil
+        _ rows: [InboxRow], pinned: Set<SessionTarget> = [], filter: InboxFilter = InboxFilter(), query: String = ""
     ) -> [InboxSection] {
-        if let filter {
-            let shown = rows.filter { $0.state == filter }
-            return shown.isEmpty ? [] : [InboxSection(kind: .state(filter), rows: shown)]
+        let words = query.lowercased().split(separator: " ").map(String.init)
+        let rows = rows.filter { filter.admits($0) && $0.matches(words) }
+        if let state = filter.state {
+            let shown = rows.filter { $0.state == state }
+            return shown.isEmpty ? [] : [InboxSection(kind: .state(state), rows: shown)]
         }
         let isPinned = { (row: InboxRow) in row.state != .needsYou && pinned.contains(row.target) }
         let byState = Dictionary(grouping: rows.filter { !isPinned($0) }, by: \.state)
@@ -137,4 +142,41 @@ extension InboxRow {
     var key: Key { Key(machineId: machineId, session: session) }
 
     var target: SessionTarget { SessionTarget(machineId: machineId, session: session) }
+
+    /// Whether its title or folder holds every word searched for.
+    func matches(_ words: [String]) -> Bool {
+        guard !words.isEmpty else { return true }
+        let haystack = [title, cwd.map { URL(fileURLWithPath: $0).lastPathComponent }].compactMap(\.self).joined(separator: " ").lowercased()
+        return words.allSatisfy(haystack.contains)
+    }
+}
+
+/// What the inbox narrows to: one state (the working accessory's), one agent, one Mac, one folder.
+/// The agent, Mac and folder are kept on the phone; the state is not.
+struct InboxFilter: Equatable {
+    var state: InboxState?
+    var backend: String?
+    var machineId: String?
+    var folder: String?
+
+    var isActive: Bool { state != nil || backend != nil || machineId != nil || folder != nil }
+
+    func admits(_ row: InboxRow) -> Bool {
+        (backend.map { $0 == row.session.backend } ?? true)
+            && (machineId.map { $0 == row.machineId } ?? true)
+            && (folder.map { $0 == row.cwd } ?? true)
+    }
+
+    static func stored(in defaults: UserDefaults = .standard) -> InboxFilter {
+        InboxFilter(
+            backend: defaults.string(forKey: Preference.inboxAgent),
+            machineId: defaults.string(forKey: Preference.inboxMachine),
+            folder: defaults.string(forKey: Preference.inboxFolder))
+    }
+
+    func store(in defaults: UserDefaults = .standard) {
+        defaults.set(backend, forKey: Preference.inboxAgent)
+        defaults.set(machineId, forKey: Preference.inboxMachine)
+        defaults.set(folder, forKey: Preference.inboxFolder)
+    }
 }

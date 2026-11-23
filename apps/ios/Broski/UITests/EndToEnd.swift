@@ -25,6 +25,13 @@ extension XCTestCase {
         (inBar.exists ? inBar : app.buttons[name].firstMatch).tap()
     }
 
+    /// The inbox's idle sessions, which fold under their header while anything else is listed.
+    @MainActor
+    func showIdle(in app: XCUIApplication) {
+        let idle = app.buttons["inbox.idle"]
+        if idle.waitForExistence(timeout: 3), idle.value as? String == "Folded" { idle.tap() }
+    }
+
     /// Settings › Appearance's theme (`System`, `Light`, `Dark`), back on Settings after.
     @MainActor
     func setAppearance(_ name: String, in app: XCUIApplication) {

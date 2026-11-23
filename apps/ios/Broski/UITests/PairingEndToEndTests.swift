@@ -52,7 +52,7 @@ final class PairingEndToEndTests: XCTestCase {
         try seed("Add dark mode to the dashboard")
         XCTAssertTrue(app.staticTexts["Add dark mode to the dashboard"].waitForExistence(timeout: timeout))
         XCTAssertTrue(app.staticTexts["Done"].exists, "a session after the history read is done")
-        XCTAssertTrue(app.staticTexts["Idle"].exists, "the history read at pairing is seen")
+        XCTAssertTrue(app.buttons["inbox.idle"].exists, "the history read at pairing is seen, folded under Idle")
         try screenshot("inbox-light")
 
         let list = app.collectionViews.firstMatch

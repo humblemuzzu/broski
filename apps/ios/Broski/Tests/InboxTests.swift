@@ -48,10 +48,20 @@ struct InboxTests {
     }
 
     @Test func theWorkingFilterShowsOnlyWorking() {
-        let sections = InboxSection.group(rows, showing: .working)
+        let sections = InboxSection.group(rows, filter: InboxFilter(state: .working))
         #expect(sections.map(\.kind) == [.state(.working)])
         #expect(sections.first?.rows.count == 2)
-        #expect(InboxSection.group(rows.filter { $0.state != .working }, showing: .working).isEmpty)
+        #expect(InboxSection.group(rows.filter { $0.state != .working }, filter: InboxFilter(state: .working)).isEmpty)
+    }
+
+    @Test func aFilterOnAMacAnAgentOrAFolderAndASearchNarrowEverySection() {
+        let onTwo = InboxSection.group(rows, filter: InboxFilter(machineId: "m2"))
+        #expect(onTwo.map { $0.rows.map(\.session.sessionId) } == [["run-new"], ["idle-new"]])
+        #expect(InboxSection.group(rows, filter: InboxFilter(backend: "pi")).isEmpty)
+        #expect(InboxSection.group(rows, filter: InboxFilter(folder: "/Users/me/broski")).flatMap(\.rows) == rows)
+        #expect(InboxSection.group(rows, filter: InboxFilter(folder: "/Users/me/other")).isEmpty)
+        let searched = InboxSection.group(rows, query: "IDLE broski")
+        #expect(searched.flatMap(\.rows).map(\.session.sessionId) == ["idle-new", "idle-old"], "every word, in the title or the folder")
     }
 
     private func pin(_ ids: String..., machine: String = "m1") -> Set<SessionTarget> {
@@ -82,7 +92,7 @@ struct InboxTests {
     }
 
     @Test func aFilterShowsItsStateWithItsPinnedRowsInIt() {
-        let sections = InboxSection.group(rows, pinned: pin("run-old"), showing: .working)
+        let sections = InboxSection.group(rows, pinned: pin("run-old"), filter: InboxFilter(state: .working))
         #expect(sections.map(\.kind) == [.state(.working)])
         #expect(sections[0].rows.map(\.session.sessionId) == ["run-new", "run-old"])
     }

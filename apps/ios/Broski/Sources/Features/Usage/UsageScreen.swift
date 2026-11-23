@@ -51,7 +51,10 @@ struct UsageScreen: View {
                 .padding(.bottom, Spacing.xxl)
             }
             .background(Palette.screen)
+            .scrollEdgeEffectStyle(.soft, for: .top)
             .navigationTitle("Usage")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar(removing: .title)
             .refreshable {
                 if tab == .stats {
                     await model.stats.refresh(from: model.machines, force: true)
@@ -60,6 +63,13 @@ struct UsageScreen: View {
                 }
             }
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Text("Usage")
+                        .font(.title3.weight(.bold))
+                        .fixedSize()
+                        .accessibilityAddTraits(.isHeader)
+                }
+                .sharedBackgroundVisibility(.hidden)
                 if isReading {
                     ToolbarItem(placement: .primaryAction) { LoadingOrb(state: .working, label: "Reading usage") }
                 }

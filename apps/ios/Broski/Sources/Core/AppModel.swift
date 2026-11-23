@@ -34,6 +34,9 @@ final class AppModel {
     /// The session on screen, set by the chat while it shows one and cleared when it leaves: its
     /// pushes do not banner while the app is in front.
     var visibleSession: SessionTarget?
+    /// The inbox shows its list rather than a screen pushed over it (a chat, New Session, a session's
+    /// files): the tab bar, and the "n agents working" accessory with it, belong to the list alone.
+    var inboxAtRoot = true
     /// What the person was writing in each chat, kept when they leave it.
     let drafts = DraftStore()
     let dictation = Dictation()

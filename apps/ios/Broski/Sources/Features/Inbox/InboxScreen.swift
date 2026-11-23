@@ -2,18 +2,35 @@ import BroskiCore
 import SwiftUI
 
 /// Home: every session on every paired Mac, needs you → pinned → working → done → idle, under the
-/// status of any machine that is not fine. A row opens its chat; the tab bar's New Session button
-/// opens an empty one here.
+/// status of any machine that is not fine. Idle sessions fold under their header whenever anything
+/// else is listed, so what needs a look comes first. One filter button narrows the list by agent,
+/// project or Mac, said under the title while on; a search button beside it opens a search of the
+/// titles and folders. A row opens its chat;
+/// the tab bar's New Session button opens an empty one here.
 struct InboxScreen: View {
     @Environment(AppModel.self) private var model
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var path: [Route] = []
+    @State private var query = ""
+    /// Whether idle sessions show: the person's choice, or set open when Idle was all there was, so
+    /// they never fold away on their own from under the person's eyes. Nil, they start folded.
+    @State private var idleOpen: Bool?
 
     var body: some View {
         NavigationStack(path: $path) {
             list
-                .navigationTitle(model.inbox.filter.map(\.title) ?? "Inbox")
-                .toolbar { toolbar }
+                .navigationTitle("Inbox")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar(removing: .title)
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        InboxTitle(filter: model.inbox.filter.summary(machines: model.machines))
+                    }
+                    .sharedBackgroundVisibility(.hidden)
+                    ToolbarItem(placement: .topBarTrailing) { InboxFilterMenu() }
+                }
+                .searchable(text: $query, placement: .toolbar, prompt: "Search sessions")
+                .searchToolbarBehavior(.minimize)
                 .routeDestinations()
         }
         .environment(\.openSession, OpenSessionAction { open($0) })
@@ -22,6 +39,9 @@ struct InboxScreen: View {
             guard let target else { return }
             path = [.session(machineId: target.machineId, session: target.session)]
             model.sessionToOpen = nil
+        }
+        .onChange(of: path.isEmpty, initial: true) { _, atRoot in
+            model.inboxAtRoot = atRoot
         }
         .onChange(of: model.startsNewSession, initial: true) { _, starts in
             guard starts else { return }
@@ -34,12 +54,26 @@ struct InboxScreen: View {
         path.append(.session(machineId: target.machineId, session: target.session))
     }
 
-    private var sections: [InboxSection] { model.inbox.sections(pinned: model.sessionPreferences.pinned) }
+    private var sections: [InboxSection] {
+        model.inbox.sections(pinned: model.sessionPreferences.pinned, query: query)
+    }
 
-    private var rowKeys: [InboxRow.Key] { sections.flatMap { $0.rows.map(\.key) } }
+    /// Idle shows when it was opened, by the person or by being all there was, and while searching.
+    private func showsIdle(in sections: [InboxSection]) -> Bool {
+        idleOpen ?? !query.isEmpty
+    }
+
+    private func onlyIdle(_ sections: [InboxSection]) -> Bool {
+        !sections.isEmpty && sections.allSatisfy { $0.kind == .state(.idle) }
+    }
 
     private var list: some View {
-        List {
+        let sections = sections
+        let idleShown = showsIdle(in: sections)
+        let rowKeys = sections.flatMap { section in
+            section.kind == .state(.idle) && !idleShown ? [] : section.rows.map(\.key)
+        }
+        return List {
             if !chips.isEmpty {
                 MachineChips(chips: chips)
             }
@@ -51,49 +85,61 @@ struct InboxScreen: View {
                 .listRowBackground(Color.clear)
             }
             ForEach(sections) { section in
+                let isIdle = section.kind == .state(.idle)
                 Section {
-                    ForEach(section.rows, id: \.key) { row in
-                        NavigationLink(value: Route.session(machineId: row.machineId, session: row.session)) {
-                            InboxRowView(
-                                row: row, brand: model.brand(of: row.session, on: row.machineId),
-                                machine: model.machine(id: row.machineId)?.summary,
-                                showsMachine: model.machines.count > 1,
-                                pinned: model.sessionPreferences.pinned.contains(row.target),
-                                muted: model.sessionPreferences.muted.contains(row.target))
+                    if !isIdle || idleShown {
+                        ForEach(section.rows, id: \.key) { row in
+                            NavigationLink(value: Route.session(machineId: row.machineId, session: row.session)) {
+                                InboxRowView(
+                                    row: row, brand: model.brand(of: row.session, on: row.machineId),
+                                    machine: model.machine(id: row.machineId)?.summary,
+                                    showsMachine: model.machines.count > 1,
+                                    pinned: model.sessionPreferences.pinned.contains(row.target),
+                                    muted: model.sessionPreferences.muted.contains(row.target))
+                            }
+                            .navigationLinkIndicatorVisibility(.hidden)
+                            .inboxRowActions(row, inbox: model.inbox, preferences: model.sessionPreferences)
                         }
-                        .inboxRowActions(row, inbox: model.inbox, preferences: model.sessionPreferences)
                     }
                 } header: {
-                    InboxSectionHeader(
-                        kind: section.kind, count: section.rows.count,
-                        markAllSeen: section.kind == .state(.done) ? { model.inbox.markAllSeen() } : nil)
+                    if isIdle {
+                        IdleHeader(count: section.rows.count, isOpen: idleShown) {
+                            withAnimation(Motion.snappy(reduceMotion: reduceMotion)) { idleOpen = !idleShown }
+                        }
+                    } else {
+                        InboxSectionHeader(
+                            kind: section.kind, count: section.rows.count,
+                            markAllSeen: section.kind == .state(.done) ? { model.inbox.markAllSeen() } : nil)
+                    }
                 }
             }
         }
         .listStyle(.insetGrouped)
+        .scrollEdgeEffectStyle(.soft, for: .top)
         .overlay {
             if sections.isEmpty {
-                InboxEmptyState(filter: model.inbox.filter, machines: model.machines, showAll: {
-                    model.inbox.filter = nil
-                }, startSession: { path.append(.newSession) })
+                if !query.isEmpty {
+                    ContentUnavailableView.search(text: query)
+                } else {
+                    InboxEmptyState(
+                        filter: model.inbox.filter, machines: model.machines,
+                        clear: { model.inbox.filter = InboxFilter() },
+                        showAllStates: { model.inbox.filter.state = nil },
+                        startSession: { path.append(.newSession) })
+                }
             }
+        }
+        .onChange(of: onlyIdle(sections), initial: true) { _, only in
+            if only && idleOpen == nil { idleOpen = true }
         }
         .refreshable { await model.inbox.refresh() }
         // Rows move, appear and leave with an animation, but a row's own text changing does not
         // animate the list, and nothing animates under a pushed chat.
         .animation(path.isEmpty ? Motion.snappy(reduceMotion: reduceMotion) : nil, value: rowKeys)
         .animation(path.isEmpty ? Motion.snappy(reduceMotion: reduceMotion) : nil, value: chips)
+        .animation(Motion.snappy(reduceMotion: reduceMotion), value: model.inbox.filter)
         .haptic(.failed, trigger: lostMachines, when: { $1 > $0 })
         .sensoryFeedback(trigger: model.inbox.lastAnswer) { _, answer in answer?.haptic.feedback }
-    }
-
-    @ToolbarContentBuilder
-    private var toolbar: some ToolbarContent {
-        if model.inbox.filter != nil {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("Show All") { model.inbox.filter = nil }
-            }
-        }
     }
 
     private var chips: [MachineChips.Chip] {
@@ -109,6 +155,32 @@ struct InboxScreen: View {
     }
 }
 
+/// The plain white the inbox says its own words in: the filter under the title, the section headers
+/// and their counts, Mark All Read. Readable at a glance, a step below the rows' titles.
+private let inboxTone = Color.primary.opacity(0.8)
+
+/// What the filter narrows the inbox to, in the bar level with its buttons; nothing while no filter is
+/// on. The screen draws no name of its own.
+private struct InboxTitle: View {
+    let filter: String?
+
+    var body: some View {
+        Group {
+            if let filter {
+                Text(filter)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(inboxTone)
+                    .lineLimit(1)
+                    .fixedSize()
+                    .transition(.opacity)
+                    .accessibilityLabel("Showing \(filter)")
+            }
+        }
+        .animation(.snappy(duration: 0.2), value: filter)
+    }
+}
+
+/// A section's name and how many it holds.
 private struct InboxSectionHeader: View {
     let kind: InboxSection.Kind
     let count: Int
@@ -123,21 +195,59 @@ private struct InboxSectionHeader: View {
 
     var body: some View {
         HStack(spacing: Spacing.s) {
-            HStack(spacing: Spacing.s) {
-                Text(title)
-                Text(count, format: .number)
-                    .foregroundStyle(.secondary)
-            }
-            .font(.subheadline.weight(.semibold))
-            .accessibilityElement(children: .combine)
-            .accessibilityAddTraits(.isHeader)
+            SectionLabel(title: title, count: count)
+                .accessibilityElement(children: .combine)
+                .accessibilityAddTraits(.isHeader)
             if let markAllSeen {
                 Spacer()
                 Button("Mark All Read", action: markAllSeen)
-                    .font(.subheadline)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(inboxTone)
                     .textCase(nil)
             }
         }
+    }
+}
+
+/// Idle's header, which folds the idle sessions away and opens them again.
+private struct IdleHeader: View {
+    let count: Int
+    let isOpen: Bool
+    let toggle: () -> Void
+
+    var body: some View {
+        Button(action: toggle) {
+            HStack(spacing: Spacing.s) {
+                SectionLabel(title: InboxState.idle.title, count: count)
+                Spacer(minLength: Spacing.s)
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(inboxTone)
+                    .rotationEffect(.degrees(isOpen ? 90 : 0))
+            }
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .sensoryFeedback(.selection, trigger: isOpen)
+        .accessibilityLabel("Idle, \(count) sessions")
+        .accessibilityValue(isOpen ? "Shown" : "Folded")
+        .accessibilityHint(isOpen ? "Folds the idle sessions" : "Shows the idle sessions")
+        .accessibilityIdentifier("inbox.idle")
+    }
+}
+
+private struct SectionLabel: View {
+    let title: String
+    let count: Int
+
+    var body: some View {
+        HStack(spacing: Spacing.s) {
+            Text(title)
+            Text(count, format: .number)
+        }
+        .font(.subheadline.weight(.medium))
+        .foregroundStyle(inboxTone)
+        .textCase(nil)
     }
 }
 

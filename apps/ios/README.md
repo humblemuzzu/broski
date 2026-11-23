@@ -284,10 +284,15 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
   next step; success haptic; the notification permission ask with its one-line why.
 - **Inbox**: a row opens its chat; **New Session** (`.glassProminent`, and the empty state's
   action) pushes the new-session screen; a tapped notification's `sessionToOpen` opens its chat.
-  Sections Needs you / Pinned / Working / Done / Idle from the core's order, machine status chips,
-  rows (agent mark, title, what the agent wants ("Claude Code wants to run npm test" from the row's
-  `command`, else its `ask`), machine · folder or the machine's status, relative time, a pin and a
-  muted bell when set, state mark),
+  Sections Needs you / Pinned / Working / Done / Idle from the core's order under quiet headers,
+  Idle folded under its header while anything else is listed (open while searching or when it is
+  all there is), machine status chips; one filter button in the bar (`InboxFilterMenu`: Working Only,
+  agent, project from the recent folders, Mac once two are paired; the agent, Mac and folder kept in
+  `inbox.*` defaults) said under the title while on; a search pulled down from the top matching titles
+  and folders; rows one title line high (agent mark, title, what the agent wants ("Claude Code wants
+  to run npm test" from the row's `command`, else its `ask`) or machine · folder or the machine's
+  status and relative time, a pin and a muted bell when set, state mark; an idle row a single line of
+  a small mark, the title and a short age),
   rows of an unreachable machine or from the cached inbox dimmed; Approve and Deny
   (`InboxRowActions`: trailing swipe without full swipe, context menu, VoiceOver actions) only for a
   row whose `pending` carries the backend's allow or deny, sent with `Inbox.answer` on the tap and

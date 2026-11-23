@@ -15,6 +15,7 @@ final class RunEndToEndTests: XCTestCase {
     func testTheLiveActivityFollowsARunAndStopEndsIt() throws {
         let app = XCUIApplication()
         app.launch()
+        showIdle(in: app)
         let row = app.staticTexts[title].firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: timeout))
         row.tap()

@@ -37,6 +37,31 @@ struct RelativeTime: View {
     }
 }
 
+/// A row's age in as few characters as read: "now", "5m", "2h", "3d", then the day itself.
+struct ShortAge: View {
+    let date: Date
+
+    var body: some View {
+        TimelineView(.everyMinute) { context in
+            Text(Self.text(date, now: context.date))
+                .monospacedDigit()
+        }
+    }
+
+    static func text(_ date: Date, now: Date) -> String {
+        let seconds = max(0, now.timeIntervalSince(date))
+        switch seconds {
+        case ..<60: return "now"
+        case ..<3_600: return "\(Int(seconds / 60))m"
+        case ..<86_400: return "\(Int(seconds / 3_600))h"
+        case ..<(30 * 86_400): return "\(Int(seconds / 86_400))d"
+        default:
+            let sameYear = Calendar.current.isDate(date, equalTo: now, toGranularity: .year)
+            return date.formatted(sameYear ? .dateTime.month(.abbreviated).day() : .dateTime.month(.abbreviated).year())
+        }
+    }
+}
+
 nonisolated extension Date {
     init(unixMilliseconds: Int64) {
         self.init(timeIntervalSince1970: TimeInterval(unixMilliseconds) / 1000)

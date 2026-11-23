@@ -1,9 +1,11 @@
 import BroskiCore
 import SwiftUI
 
-/// One session: agent mark, title, what it asks (needs you), folder (and the Mac, once more than
-/// one is paired), time, whether it is pinned or muted, state. A session on a machine that is not reachable, or known only from the cached inbox, stays
-/// listed, dimmed, with the machine's status.
+/// One session, every one alike: the agent's mark, the title on one line, whether it is pinned or
+/// muted, how long ago, and its state in a column of its own (a dot for needs you and done, the orb
+/// while working), so the ages line up down the list. One that needs the person says what it asks on
+/// a short second line. A session on a machine that is not reachable, or known only from the cached
+/// inbox, stays listed, dimmed, with the machine's status in place of the ask.
 struct InboxRowView: View {
     let row: InboxRow
     let brand: AgentBrand
@@ -12,6 +14,7 @@ struct InboxRowView: View {
     var pinned = false
     var muted = false
     @Environment(\.dynamicTypeSize) private var typeSize
+    @ScaledMetric(relativeTo: .body) private var markSide: CGFloat = 22
 
     private var title: String { row.title ?? "Untitled session" }
     private var folder: String? { row.cwd.map { URL(fileURLWithPath: $0).lastPathComponent } }
@@ -23,35 +26,38 @@ struct InboxRowView: View {
             if typeSize.isAccessibilitySize {
                 stacked
             } else {
-                compact
+                line
             }
         }
-        .padding(.vertical, Spacing.xxs)
         .dimmed(!reachable)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(spokenLabel)
     }
 
-    /// The title on up to two lines, then the ask, then the place with the time at its end, which
-    /// the place's own length never cuts off.
-    private var compact: some View {
-        HStack(alignment: .top, spacing: Spacing.m) {
-            AgentMark(brand: brand)
+    private var line: some View {
+        HStack(spacing: Spacing.m) {
+            AgentLogo(brand: brand, side: min(markSide, 30))
             VStack(alignment: .leading, spacing: Spacing.xxs) {
-                Text(title).font(.rowTitle).lineLimit(2)
-                askText?.lineLimit(1)
-                HStack(spacing: 0) {
-                    if !place.isEmpty {
-                        placeText.lineLimit(1)
-                        Text(" · ").font(.footnote).foregroundStyle(.secondary).layoutPriority(1)
-                    }
-                    timeText.layoutPriority(1)
-                    if pinned || muted { marks.padding(.leading, Spacing.xs).layoutPriority(1) }
+                Text(title).lineLimit(1)
+                if let detail {
+                    detail.font(.footnote).lineLimit(1)
                 }
             }
+            Spacer(minLength: Spacing.s)
+            if pinned || muted { marks }
+            ShortAge(date: updated)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
             StateIndicator(state: row.state)
-                .frame(minHeight: 22)
         }
+        .frame(minHeight: 30)
+    }
+
+    /// What the agent asks, or why its Mac cannot be reached.
+    private var detail: Text? {
+        if let askText { return askText }
+        guard !reachable, let machine else { return nil }
+        return Text(machine.line).foregroundStyle(.secondary)
     }
 
     /// At the accessibility sizes the mark and state sit above the text, which takes the whole
@@ -64,13 +70,14 @@ struct InboxRowView: View {
                 StateIndicator(state: row.state)
             }
             Text(title).font(.rowTitle)
-            askText
+            askText?.font(.subheadline)
             HStack(spacing: Spacing.xs) {
                 timeText
                 if pinned || muted { marks }
             }
             if !place.isEmpty { placeText }
         }
+        .padding(.vertical, Spacing.xxs)
     }
 
     private var marks: some View {
@@ -84,7 +91,7 @@ struct InboxRowView: View {
 
     private var askText: Text? {
         guard let ask = row.askLine(agent: brand.name) else { return nil }
-        return Text(ask).font(.subheadline).foregroundStyle(Palette.needsYou)
+        return Text(ask).foregroundStyle(Palette.needsYou)
     }
 
     private var placeText: some View {
