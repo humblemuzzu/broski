@@ -5,6 +5,8 @@ use crate::push::Kind;
 
 /// How many muted sessions a device may ask the machine to remember.
 pub const MAX_MUTED: usize = 512;
+/// Longest backend or session id accepted in `NotifyPrefs` (matches contract `MAX_ID_CHARS`).
+pub const MAX_ID_LEN: usize = 256;
 
 pub const ROLE_OWNER: &str = "owner";
 
@@ -86,8 +88,16 @@ impl NotifyPrefs {
         kind_on && !self.mutes(backend, session)
     }
 
-    /// Keeps the machine's record bounded however long a phone's list is.
+    /// Keeps the machine's record bounded however long a phone's list or ids are.
     pub fn bounded(mut self) -> NotifyPrefs {
+        let mut seen = std::collections::HashSet::new();
+        self.muted.retain(|m| {
+            !m.backend.is_empty()
+                && !m.session.is_empty()
+                && m.backend.len() <= MAX_ID_LEN
+                && m.session.len() <= MAX_ID_LEN
+                && seen.insert((m.backend.clone(), m.session.clone()))
+        });
         self.muted.truncate(MAX_MUTED);
         self
     }
@@ -224,5 +234,35 @@ mod tests {
         }
         .bounded();
         assert_eq!(prefs.muted.len(), MAX_MUTED);
+
+        let oversized = NotifyPrefs {
+            muted: vec![
+                MutedSession {
+                    backend: "x".repeat(MAX_ID_LEN + 1),
+                    session: "ok".into(),
+                },
+                MutedSession {
+                    backend: "pi".into(),
+                    session: "y".repeat(MAX_ID_LEN + 1),
+                },
+                MutedSession {
+                    backend: "pi".into(),
+                    session: "ok".into(),
+                },
+                MutedSession {
+                    backend: "pi".into(),
+                    session: "ok".into(),
+                },
+            ],
+            ..NotifyPrefs::default()
+        }
+        .bounded();
+        assert_eq!(
+            oversized.muted,
+            vec![MutedSession {
+                backend: "pi".into(),
+                session: "ok".into(),
+            }]
+        );
     }
 }

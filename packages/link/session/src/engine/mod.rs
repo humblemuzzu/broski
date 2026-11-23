@@ -23,10 +23,11 @@ use tokio::time::{sleep_until, Instant};
 
 use crate::backoff::{Backoff, RouteRetry};
 use crate::close::PeerClosePolicy;
-use crate::control::{NotifyPrefs, PushPlatform};
+use crate::control::PushPlatform;
 use crate::endpoint::Target;
 use crate::events::Shared;
 use crate::identity::DeviceIdentity;
+use crate::notify::NotifyPrefs;
 use crate::options::{SessionOptions, Timings};
 use crate::pause::AppPause;
 use crate::probe::LanProbePolicy;

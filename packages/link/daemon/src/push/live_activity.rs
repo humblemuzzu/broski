@@ -88,47 +88,72 @@ impl LiveActivityFeed {
                 self.shown.remove(&device.id);
                 continue;
             };
-            if deps.registry.is_connected(&device.id) {
-                continue;
-            }
             let visible: Vec<&RunEntry> = frame
                 .runs
                 .iter()
                 .filter(|run| !device.notify.mutes(&run.backend, &run.session_id))
                 .collect();
-            let Some((ending, payload)) =
-                self.payload(&device.id, &visible, &names, frame.at, now_secs)
-            else {
-                continue;
-            };
-            if !queue(deps, &device.id, token, &payload) {
+            if deps.registry.is_connected(&device.id) {
+                self.observe_connected(&device.id, &visible, &names);
                 continue;
             }
-            if ending {
+            let Some(planned) = self.plan(&device.id, &visible, &names, frame.at, now_secs) else {
+                continue;
+            };
+            if !queue(deps, &device.id, token, &planned.payload) {
+                continue;
+            }
+            self.commit(&device.id, planned.next);
+            if planned.ending {
                 let _ = deps.store.set_live_activity(&device.id, None).await;
             }
         }
     }
 
+    /// A connected phone updates its own Live Activity locally; mirror that state in `shown` so
+    /// disconnecting mid-run still knows whether an `end` or state change push is needed later.
+    fn observe_connected(&mut self, device: &str, visible: &[&RunEntry], names: &Names<'_>) {
+        match visible.first() {
+            Some(focused) => {
+                if let Ok(state) = serde_json::to_string(&names.running(focused, visible)) {
+                    self.shown.insert(
+                        device.to_owned(),
+                        Shown {
+                            focused: (*focused).clone(),
+                            state,
+                        },
+                    );
+                }
+            }
+            None => {
+                self.shown.remove(device);
+            }
+        }
+    }
+
     /// The push this device needs now, or `None` when it already shows exactly this or has
-    /// nothing to end.
-    fn payload(
-        &mut self,
+    /// nothing to end. Does not mutate `shown` until the caller queues the push.
+    fn plan(
+        &self,
         device: &str,
         visible: &[&RunEntry],
         names: &Names<'_>,
         at: i64,
         now_secs: u64,
-    ) -> Option<(bool, Value)> {
+    ) -> Option<Planned> {
         let Some(focused) = visible.first() else {
-            let previous = self.shown.remove(device)?;
+            let previous = self.shown.get(device)?;
             let ended_at_ms = if at > 0 {
                 at
             } else {
                 (now_secs as i64).saturating_mul(1_000)
             };
-            let state = names.ended(previous.focused, ended_at_ms);
-            return Some((true, aps("end", now_secs, &state, DISMISS_AFTER_SECS)));
+            let state = names.ended(previous.focused.clone(), ended_at_ms);
+            return Some(Planned {
+                ending: true,
+                payload: aps("end", now_secs, &state, DISMISS_AFTER_SECS),
+                next: None,
+            });
         };
         let state = names.running(focused, visible);
         let encoded = serde_json::to_string(&state).ok()?;
@@ -139,15 +164,32 @@ impl LiveActivityFeed {
         {
             return None;
         }
-        self.shown.insert(
-            device.to_owned(),
-            Shown {
+        Some(Planned {
+            ending: false,
+            payload: aps("update", now_secs, &state, STALE_AFTER_SECS),
+            next: Some(Shown {
                 focused: (*focused).clone(),
                 state: encoded,
-            },
-        );
-        Some((false, aps("update", now_secs, &state, STALE_AFTER_SECS)))
+            }),
+        })
     }
+
+    fn commit(&mut self, device: &str, next: Option<Shown>) {
+        match next {
+            Some(shown) => {
+                self.shown.insert(device.to_owned(), shown);
+            }
+            None => {
+                self.shown.remove(device);
+            }
+        }
+    }
+}
+
+struct Planned {
+    ending: bool,
+    payload: Value,
+    next: Option<Shown>,
 }
 
 struct Names<'a> {
@@ -294,29 +336,62 @@ mod tests {
     fn a_device_is_told_what_it_shows_once_and_ended_when_nothing_is_left_for_it() {
         let mut feed = LiveActivityFeed::default();
         let (a, b) = (run("a", "needsYou"), run("b", "working"));
-        let (ending, update) = feed
-            .payload("d1", &[&a, &b], &names(), 0, 100)
+        let first = feed
+            .plan("d1", &[&a, &b], &names(), 0, 100)
             .expect("the first sight is pushed");
-        assert!(!ending);
-        let state = &update["aps"]["content-state"];
+        assert!(!first.ending);
+        let state = &first.payload["aps"]["content-state"];
         assert_eq!(state["liveCount"], 2);
         assert_eq!(state["needsYouCount"], 1);
-        assert_eq!(update["aps"]["event"], "update");
-        assert!(feed.payload("d1", &[&a, &b], &names(), 0, 101).is_none());
+        assert_eq!(first.payload["aps"]["event"], "update");
+        feed.commit("d1", first.next);
+        assert!(feed.plan("d1", &[&a, &b], &names(), 0, 101).is_none());
 
-        let (_, narrowed) = feed
-            .payload("d1", &[&b], &names(), 0, 102)
+        let narrowed = feed
+            .plan("d1", &[&b], &names(), 0, 102)
             .expect("a run the device muted leaves its activity");
-        assert_eq!(narrowed["aps"]["content-state"]["liveCount"], 1);
-        assert_eq!(narrowed["aps"]["content-state"]["sessionId"], "b");
+        assert_eq!(narrowed.payload["aps"]["content-state"]["liveCount"], 1);
+        assert_eq!(narrowed.payload["aps"]["content-state"]["sessionId"], "b");
+        feed.commit("d1", narrowed.next);
 
-        let (ending, end) = feed
-            .payload("d1", &[], &names(), 5_000, 103)
+        let end = feed
+            .plan("d1", &[], &names(), 5_000, 103)
             .expect("nothing left to show ends the activity");
-        assert!(ending);
-        assert_eq!(end["aps"]["event"], "end");
-        assert_eq!(end["aps"]["content-state"]["phase"], "done");
-        assert_eq!(end["aps"]["content-state"]["endedAtMs"], 5_000);
-        assert!(feed.payload("d1", &[], &names(), 0, 104).is_none());
+        assert!(end.ending);
+        assert_eq!(end.payload["aps"]["event"], "end");
+        assert_eq!(end.payload["aps"]["content-state"]["phase"], "done");
+        assert_eq!(end.payload["aps"]["content-state"]["endedAtMs"], 5_000);
+        feed.commit("d1", end.next);
+        assert!(feed.plan("d1", &[], &names(), 0, 104).is_none());
+    }
+
+    #[test]
+    fn a_run_started_while_connected_still_ends_and_updates_after_disconnect() {
+        let mut feed = LiveActivityFeed::default();
+        let working = run("s1", "working");
+        let waiting = run("s1", "needsYou");
+
+        // Started while connected, then phone locks, then run finishes: must send `end`.
+        feed.observe_connected("d1", &[&working], &names());
+        let end = feed
+            .plan("d1", &[], &names(), 9_000, 200)
+            .expect("disconnecting mid-run must still emit an end push");
+        assert!(end.ending);
+        assert_eq!(end.payload["aps"]["event"], "end");
+        assert_eq!(end.payload["aps"]["content-state"]["sessionId"], "s1");
+        // Without commit (simulated queue failure), the end is retried on the next snapshot.
+        assert!(feed.plan("d1", &[], &names(), 9_000, 201).is_some());
+        feed.commit("d1", end.next);
+
+        // Working disconnected → reconnects and shows needsYou → disconnects → resumes working.
+        let pushed = feed
+            .plan("d1", &[&working], &names(), 0, 210)
+            .expect("push");
+        feed.commit("d1", pushed.next);
+        feed.observe_connected("d1", &[&waiting], &names());
+        let resumed = feed
+            .plan("d1", &[&working], &names(), 0, 220)
+            .expect("returning to working after connected needsYou must push");
+        assert_eq!(resumed.payload["aps"]["content-state"]["phase"], "working");
     }
 }

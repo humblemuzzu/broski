@@ -173,49 +173,7 @@ pub enum PushPlatform {
     Fcm,
 }
 
-/// One session the person muted, by the machine's own ids.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct MutedSession {
-    pub backend: String,
-    pub session: String,
-}
-
-/// Which alerts the person wants from a machine. The machine keeps this and sends only those, so a
-/// phone that is closed never has to hide what it should not have been sent.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct NotifyPrefs {
-    pub needs_you: bool,
-    pub done: bool,
-    pub failures: bool,
-    pub muted: Vec<MutedSession>,
-}
-
-impl Default for NotifyPrefs {
-    fn default() -> NotifyPrefs {
-        NotifyPrefs {
-            needs_you: true,
-            done: true,
-            failures: true,
-            muted: Vec::new(),
-        }
-    }
-}
-
-pub(crate) fn notify_prefs(prefs: &NotifyPrefs) -> Vec<u8> {
-    json!({
-        "t": "notify_prefs",
-        "needs_you": prefs.needs_you,
-        "done": prefs.done,
-        "failures": prefs.failures,
-        "muted": prefs
-            .muted
-            .iter()
-            .map(|muted| json!({"backend": muted.backend, "session": muted.session}))
-            .collect::<Vec<_>>(),
-    })
-    .to_string()
-    .into_bytes()
-}
+pub(crate) use crate::notify::notify_prefs;
 
 pub(crate) fn hello(name: &str, platform: Platform) -> Vec<u8> {
     let platform = match platform {
@@ -410,24 +368,6 @@ mod tests {
             json!({"t": "push_register", "platform": "fcm", "token": "tok", "key": TOKEN})
         );
         assert_eq!(decode(push_unregister()), json!({"t": "push_unregister"}));
-        let prefs = NotifyPrefs {
-            done: false,
-            muted: vec![MutedSession {
-                backend: "pi".into(),
-                session: "s-1".into(),
-            }],
-            ..NotifyPrefs::default()
-        };
-        assert_eq!(
-            decode(notify_prefs(&prefs)),
-            json!({
-                "t": "notify_prefs",
-                "needs_you": true,
-                "done": false,
-                "failures": true,
-                "muted": [{"backend": "pi", "session": "s-1"}],
-            })
-        );
         assert_eq!(decode(bridge_restart()), json!({"t": "bridge_restart"}));
     }
 }

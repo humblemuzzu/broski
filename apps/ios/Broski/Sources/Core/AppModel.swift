@@ -23,7 +23,7 @@ final class AppModel {
     let sessionPreferences = SessionPreferences()
     let modelPreferences = ModelPreferences()
     let notifications = NotificationAccess()
-    @ObservationIgnored private let notificationPreferences = NotificationPreferences()
+    @ObservationIgnored let notificationPreferences = NotificationPreferences()
     let push: PushNotifications
     let discovery = LanDiscovery()
     /// Set to show a session; the Inbox tab opens it and sets this back to `nil`.
@@ -58,7 +58,7 @@ final class AppModel {
     @ObservationIgnored private let storage: PhoneStorage
     @ObservationIgnored private var phone: Phone?
     @ObservationIgnored private var pathWatcher: PathWatcher?
-    @ObservationIgnored private var liveRuns: LiveRuns?
+    @ObservationIgnored var liveRuns: LiveRuns?
     @ObservationIgnored private var delivery = UIBackgroundTaskIdentifier.invalid
 
     init(storage: PhoneStorage = PhoneStorage()) {
@@ -262,11 +262,11 @@ final class AppModel {
         }
     }
 
-    private var reachableMachineIds: Set<String> {
+    var reachableMachineIds: Set<String> {
         Set(machines.filter { $0.summary.isReady }.map(\.id))
     }
 
-    private var settlingMachineIds: Set<String> {
+    var settlingMachineIds: Set<String> {
         Set(machines.filter { $0.summary.health == .settling }.map(\.id))
     }
 
@@ -377,61 +377,6 @@ final class AppModel {
             self?.discovery.networkChanged()
         }
         updateDiscovery()
-    }
-
-    /// The Live Activity follows the inbox and each machine's state for the life of the phone.
-    private func followLiveRuns() {
-        let liveRuns = LiveRuns()
-        liveRuns.setForeground(isActive)
-        liveRuns.onPushToken = { [weak self] token in
-            self?.machines.forEach { $0.registerLiveActivity(token) }
-        }
-        if let token = liveRuns.currentPushToken {
-            machines.forEach { $0.registerLiveActivity(token) }
-        }
-        liveRuns.setEnabled(notificationPreferences.liveActivity)
-        self.liveRuns = liveRuns
-        Task { [weak self] in
-            guard let self else { return }
-            for await (rows, brands, ready, settling, muted) in Observations({
-                (
-                    self.inbox.rows, self.brands, self.reachableMachineIds, self.settlingMachineIds,
-                    self.sessionPreferences.muted
-                )
-            }) {
-                liveRuns.follow(rows, brands: brands, readyMachines: ready, settlingMachines: settling, muted: muted)
-            }
-        }
-    }
-
-    /// Settings › Notifications and a session's mute reach every Mac, which then sends only what the
-    /// person wants, and the Live Activity follows its own switch. Called when a choice changes.
-    func syncNotifications() {
-        machines.forEach { $0.syncNotifications(notificationPreferences) }
-        liveRuns?.setEnabled(notificationPreferences.liveActivity)
-    }
-
-    /// A mute is a choice made outside Settings: the Macs hear of it too.
-    private func followNotificationPreferences() {
-        Task { [weak self] in
-            guard let self else { return }
-            for await _ in Observations({ self.sessionPreferences.muted }) {
-                syncNotifications()
-            }
-        }
-    }
-
-    /// Approvals and questions left on the lock screen come down once their session stops waiting.
-    private func followAnsweredAlerts() {
-        Task { [weak self] in
-            guard let self else { return }
-            for await (rows, ready) in Observations({ (self.inbox.rows, self.reachableMachineIds) }) {
-                let known = rows.filter { !$0.cached && ready.contains($0.machineId) }
-                await push.clearAnswered(
-                    waiting: Set(known.filter { $0.state == .needsYou }.map(\.target)),
-                    known: Set(known.map(\.target)))
-            }
-        }
     }
 
     /// Single owner of `UIApplication.shared.isIdleTimerDisabled`: keeps the display awake during

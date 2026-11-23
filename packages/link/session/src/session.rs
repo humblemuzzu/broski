@@ -4,11 +4,12 @@ use broski_link_core::crypto::PublicBundle;
 use broski_link_core::{STREAM_BRIDGE, STREAM_CONTROL};
 use tokio::sync::mpsc;
 
-use crate::control::{self, NotifyPrefs, PushPlatform};
+use crate::control::{self, PushPlatform};
 use crate::engine::{Command, Engine, LiveActivityIntent, Pairing, Parts, PushIntent};
 use crate::error::Error;
 use crate::events::{locked, Event, Shared};
 use crate::identity::DeviceIdentity;
+use crate::notify::NotifyPrefs;
 use crate::options::SessionOptions;
 use crate::outbound::SendFailure;
 use crate::record::MachineRecord;
