@@ -5,9 +5,10 @@ import UIKit
 
 /// The person's message: the transcript's only container, trailing and as wide as its words (a
 /// message with code takes the width, its code scrolling), images above it; long-press copies it.
-/// A long one shows its first lines fading out at the bottom, with Show more under them (kept by
-/// `Disclosure` under `id`). Whether it folds is settled in the same layout pass that measures it,
-/// so it never draws whole and then shrinks. A prompt still on its way shows dimmed.
+/// A long one shows its first lines fading out, a chevron in the corner; a tap anywhere on it opens it
+/// and another folds it (kept by `Disclosure` under `id`). Whether it folds is settled in the same
+/// layout pass that measures it, so it never draws whole and then shrinks. A prompt still on its way
+/// shows dimmed.
 struct UserBubble: View {
     let id: String
     let text: String
@@ -17,9 +18,9 @@ struct UserBubble: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ScaledMetric(relativeTo: .body) private var line: CGFloat = 22.5
 
-    /// Six lines show while folded; only a message well past that folds at all.
-    private var foldedHeight: CGFloat { line * 6 }
-    private var foldsPast: CGFloat { line * 10 }
+    /// Five lines show while folded; a message up to seven lines shows whole.
+    private var foldedHeight: CGFloat { line * 5 }
+    private var foldsPast: CGFloat { line * 7 }
     private var isOpen: Bool { disclosure.isOpen(id) }
 
     var body: some View {
@@ -30,21 +31,21 @@ struct UserBubble: View {
             if !text.isEmpty {
                 Group {
                     if isOpen {
-                        VStack(alignment: .trailing, spacing: Spacing.xs) {
+                        VStack(alignment: .trailing, spacing: 0) {
                             message
-                            foldButton("Show less")
+                            chevron
                         }
+                        .modifier(FoldToggle(title: "Show less", toggle: toggle))
                     } else {
                         ProposingHeight(height: foldsPast) {
                             ViewThatFits(in: .vertical) {
                                 message
-                                VStack(alignment: .trailing, spacing: Spacing.xs) {
-                                    message
-                                        .frame(height: foldedHeight, alignment: .top)
-                                        .clipped()
-                                        .mask { bottomFade }
-                                    foldButton("Show more")
-                                }
+                                message
+                                    .frame(height: foldedHeight, alignment: .top)
+                                    .clipped()
+                                    .mask { bottomFade }
+                                    .overlay(alignment: .bottomTrailing) { chevron.background { chevronFade } }
+                                    .modifier(FoldToggle(title: "Show more", toggle: toggle))
                             }
                         }
                     }
@@ -64,6 +65,7 @@ struct UserBubble: View {
         .frame(maxWidth: .infinity, alignment: .trailing)
         .opacity(isPending ? 0.55 : 1)
         .accessibilityElement(children: .contain)
+        .haptic(.toggled(expanded: isOpen), trigger: isOpen)
         .contextMenu {
             if !text.isEmpty { AnswerMenuItems { text } }
         }
@@ -74,15 +76,22 @@ struct UserBubble: View {
             .fixedSize(horizontal: false, vertical: true)
     }
 
-    private func foldButton(_ title: String) -> some View {
-        Button(title) {
-            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.22)) { disclosure.toggle(id) }
-        }
-        .buttonStyle(.plain)
-        .font(.footnote.weight(.semibold))
-        .foregroundStyle(.secondary)
-        .frame(minHeight: 32)
-        .contentShape(.rect)
+    private func toggle() {
+        withAnimation(reduceMotion ? nil : .snappy(duration: 0.28)) { disclosure.toggle(id) }
+    }
+
+    private var chevron: some View {
+        Image(systemName: isOpen ? "chevron.up" : "chevron.down")
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .frame(width: 24, height: line)
+            .accessibilityHidden(true)
+    }
+
+    /// Under the folded chevron, the last line fading out from its left, so no word runs under it.
+    private var chevronFade: some View {
+        LinearGradient(colors: [Palette.userBubble.opacity(0), Palette.userBubble, Palette.userBubble], startPoint: .leading, endPoint: .trailing)
+            .padding(.leading, -Spacing.xl)
     }
 
     /// The folded text whole down to its last line and a half, which fade out.
@@ -101,6 +110,20 @@ struct UserBubble: View {
             default: false
             }
         }
+    }
+}
+
+/// A folding message as one tap target that opens or folds it, and the same as an action for
+/// VoiceOver.
+private struct FoldToggle: ViewModifier {
+    let title: String
+    let toggle: () -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .contentShape(.rect)
+            .onTapGesture(perform: toggle)
+            .accessibilityAction(named: title, toggle)
     }
 }
 

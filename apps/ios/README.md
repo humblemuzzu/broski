@@ -304,8 +304,8 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
   Info (a sheet: the session, its model and settings, context and token use, cost, the prompt
   cache counting down); Delete with a confirm. The
   transcript, full bleed under the bar and the composer (`safeAreaBar`), a `UICollectionView`
-  (`TranscriptController`) whose cells host the SwiftUI rows: the person's bubble (past ten lines it
-  folds to six, fading, with Show more) with its time and copy, the agent's text one formatted block per row through `Sources/Formatting`
+  (`TranscriptController`) whose cells host the SwiftUI rows: the person's bubble (past seven lines it
+  folds to five, fading under a chevron, a tap anywhere opening or folding it) with its time and copy, the agent's text one formatted block per row through `Sources/Formatting`
   ([formatting.md](../../docs/architecture/formatting.md)), one fold per stretch of work
   (`Worked for 2m · Ran 2 commands · 1 failed`, opening in place to 28 pt rows capped at 256 pt with
   faded edges, each opening to the command, its output and exit, its files and their diffs, a

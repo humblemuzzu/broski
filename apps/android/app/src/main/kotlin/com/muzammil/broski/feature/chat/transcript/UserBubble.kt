@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -13,12 +14,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Icon
@@ -42,11 +41,15 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
@@ -54,6 +57,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.muzammil.broski.R
+import com.muzammil.broski.design.Haptic
+import com.muzammil.broski.design.perform
 import com.muzammil.broski.design.LoadingOrb
 import com.muzammil.broski.design.format.FormatCache
 import com.muzammil.broski.design.format.FormattedMessage
@@ -69,16 +74,16 @@ private val BubbleShape = RoundedCornerShape(20.dp)
 
 /** A message's line in the bubble, as the formatter sets the page's body. */
 private val LINE = 24.sp
-private const val FOLDED_LINES = 6
+private const val FOLDED_LINES = 5
 
 /** A message up to this many lines is shown whole; a longer one folds to [FOLDED_LINES]. */
-private const val FOLD_PAST_LINES = 10
+private const val FOLD_PAST_LINES = 7
 
 /**
  * The person's message, the transcript's only container: trailing, as wide as its words up to 80 % of
  * the page (a message with code takes the width, its code scrolling), images in an adaptive gallery
- * over it; a long press copies it. A long one shows its first lines fading out, with Show more under
- * them. Dimmed, with "Sending…" under it, while it is on its way.
+ * over it; a long press copies it. A long one shows its first lines fading out, a chevron in the corner,
+ * and a tap anywhere on it opens or folds it. Dimmed, with "Sending…" under it, while it is on its way.
  */
 @Composable
 fun UserBubble(
@@ -107,8 +112,28 @@ private fun Bubble(text: String) {
     val color = MaterialTheme.colorScheme.surfaceContainer
     val hugs = remember(text) { FormatCache.message(text).none { it.content is FormatContent.Code || it.content is FormatContent.Table } }
     var open by rememberSaveable(text) { mutableStateOf(false) }
-    Surface(shape = BubbleShape, color = color, modifier = if (hugs) Modifier.width(IntrinsicSize.Max) else Modifier) {
-        FoldingMessage(text, open, color, Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) { open = !open }
+    var folds by remember(text) { mutableStateOf(false) }
+    val haptics = LocalHapticFeedback.current
+    val toggle = {
+        open = !open
+        haptics.perform(if (open) Haptic.Expand else Haptic.Collapse)
+    }
+    val toggleLabel = stringResource(if (open) R.string.chat_bubble_fold else R.string.chat_bubble_unfold)
+    Surface(
+        shape = BubbleShape,
+        color = color,
+        modifier = (if (hugs) Modifier.width(IntrinsicSize.Max) else Modifier)
+            .then(
+                if (folds) {
+                    Modifier
+                        .pointerInput(Unit) { detectTapGestures { toggle() } }
+                        .semantics { customActions = listOf(CustomAccessibilityAction(toggleLabel) { toggle(); true }) }
+                } else {
+                    Modifier
+                },
+            ),
+    ) {
+        FoldingMessage(text, open, color, Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) { folds = it }
     }
 }
 
@@ -119,16 +144,15 @@ private class FoldProbe {
 
 /**
  * The message, folded past [FOLD_PAST_LINES] lines to [FOLDED_LINES] with its last line and a half
- * fading out, and Show more or Show less under it. Whether it folds is decided in the pass that measures
- * it, so it never draws whole first and shrinks after.
+ * fading out and a chevron in the corner, or open with the chevron under it. Whether it folds is decided
+ * in the pass that measures it, so it never draws whole first and shrinks after; [onFolds] hears it.
  */
 @Composable
-private fun FoldingMessage(text: String, open: Boolean, color: Color, modifier: Modifier, onToggle: () -> Unit) {
+private fun FoldingMessage(text: String, open: Boolean, color: Color, modifier: Modifier, onFolds: (Boolean) -> Unit) {
     val density = LocalDensity.current
     val foldedPx = with(density) { (LINE * FOLDED_LINES).roundToPx() }
     val pastPx = with(density) { (LINE * FOLD_PAST_LINES).roundToPx() }
     val fadePx = with(density) { (LINE * 1.5f).toPx() }
-    val gapPx = with(density) { 4.dp.roundToPx() }
     val probe = remember { FoldProbe() }
     val folded = { probe.fullHeight > pastPx && !open }
     Layout(
@@ -153,29 +177,47 @@ private fun FoldingMessage(text: String, open: Boolean, color: Color, modifier: 
                         },
                 )
             }
-            FoldButton(open, onToggle)
+            Chevron(open, color)
         },
     ) { measurables, constraints ->
         val loose = constraints.copy(minWidth = 0, minHeight = 0)
         val message = measurables[0].measure(loose)
-        if (probe.fullHeight <= pastPx) return@Layout layout(message.width, message.height) { message.place(0, 0) }
-        val button = measurables[1].measure(loose)
-        val width = maxOf(message.width, button.width)
-        layout(width, message.height + gapPx + button.height) {
-            message.place(0, 0)
-            button.place(width - button.width, message.height + gapPx)
+        val folds = probe.fullHeight > pastPx
+        onFolds(folds)
+        if (!folds) return@Layout layout(message.width, message.height) { message.place(0, 0) }
+        val chevron = measurables[1].measure(loose)
+        val width = maxOf(message.width, chevron.width)
+        if (open) {
+            layout(width, message.height + chevron.height) {
+                message.place(0, 0)
+                chevron.place(width - chevron.width, message.height)
+            }
+        } else {
+            layout(width, message.height) {
+                message.place(0, 0)
+                chevron.place(width - chevron.width, message.height - chevron.height)
+            }
         }
     }
 }
 
+/** The fold's chevron; folded, the last line fades out from its left so no word runs under it. */
 @Composable
-private fun FoldButton(open: Boolean, onClick: () -> Unit) {
-    Text(
-        stringResource(if (open) R.string.chat_bubble_fold else R.string.chat_bubble_unfold),
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.clickable(role = Role.Button, onClick = onClick).heightIn(min = 32.dp).wrapContentHeight(Alignment.CenterVertically),
-    )
+private fun Chevron(open: Boolean, color: Color) {
+    val line = with(LocalDensity.current) { LINE.toDp() }
+    Box(
+        Modifier
+            .size(width = 48.dp, height = line)
+            .then(if (open) Modifier else Modifier.background(Brush.horizontalGradient(listOf(color.copy(alpha = 0f), color, color)))),
+        contentAlignment = Alignment.CenterEnd,
+    ) {
+        Icon(
+            painterResource(if (open) R.drawable.ic_keyboard_arrow_up else R.drawable.ic_keyboard_arrow_down),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(20.dp),
+        )
+    }
 }
 
 @Composable

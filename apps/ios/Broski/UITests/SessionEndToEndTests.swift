@@ -338,6 +338,29 @@ final class SessionEndToEndTests: XCTestCase {
         setAppearance("System", in: app)
     }
 
+    /// A long prompt folds to its first lines under a chevron; a tap on it opens it whole, another
+    /// folds it again.
+    @MainActor
+    func test11FoldsALongPromptAndOpensItOnATap() throws {
+        let app = try openChat()
+        let lines = (1...12).map { "Line \($0) of the long prompt" }
+        send(lines.joined(separator: "\n"), in: app)
+        let first = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Line 1 of")).firstMatch
+        XCTAssertTrue(first.waitForExistence(timeout: timeout))
+        XCTAssertTrue(first.label.contains("Line 12"), "the bubble holds the whole prompt")
+        let folded = first.frame.height
+        try screenshot("prompt-folded")
+        first.tap()
+        let opened = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Line 1 of")).firstMatch
+        XCTAssertTrue(opened.waitForExistence(timeout: timeout))
+        Thread.sleep(forTimeInterval: 0.5)
+        try screenshot("prompt-open")
+        XCTAssertGreaterThan(opened.frame.height, folded, "a tap opens it")
+        opened.tap()
+        Thread.sleep(forTimeInterval: 0.5)
+        XCTAssertEqual(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Line 1 of")).firstMatch.frame.height, folded, accuracy: 2, "another folds it")
+    }
+
     @MainActor
     private func openChat(arguments: [String] = []) throws -> XCUIApplication {
         let app = XCUIApplication()

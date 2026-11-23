@@ -41,8 +41,8 @@ enum TranscriptEstimate {
         let lineHeight = measuredLineHeight(font: bodyFont(), lineSpacing: FormatRole.page.lineSpacing)
         let bubbleWidth = max(120, width - 56 - 32)
         let measured = textHeight(text, font: bodyFont(), lineSpacing: FormatRole.page.lineSpacing, width: bubbleWidth)
-        if measured > lineHeight * 10 {
-            total += ceil(lineHeight * 6 + 4 + 32 + 20)
+        if measured > lineHeight * 7 {
+            total += ceil(lineHeight * 5 + 20)
         } else {
             total += ceil(measured + 20)
         }
