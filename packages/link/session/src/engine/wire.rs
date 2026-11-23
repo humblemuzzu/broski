@@ -80,9 +80,13 @@ impl Engine {
             Some(LiveActivityIntent::Unregister) => Some(control::live_activity_unregister()),
             None => None,
         };
+        let notify = self.notify.as_ref().map(control::notify_prefs);
         let hello = control::hello(&self.options.device_name, self.options.platform);
         let mut outbound = locked(&self.shared.outbound);
         let dropped = if reset { outbound.reset() } else { Vec::new() };
+        if let Some(notify) = notify {
+            outbound.push_front(STREAM_CONTROL, notify);
+        }
         if let Some(live_activity) = live_activity {
             outbound.push_front(STREAM_CONTROL, live_activity);
         }

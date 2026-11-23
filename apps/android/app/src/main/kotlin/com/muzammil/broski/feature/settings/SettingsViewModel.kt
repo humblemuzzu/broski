@@ -39,6 +39,10 @@ class SettingsViewModel(private val store: SettingsStore, settings: StateFlow<Ap
         viewModelScope.launch { store.setNotification(kind, enabled) }
     }
 
+    fun setLiveUpdates(enabled: Boolean) {
+        viewModelScope.launch { store.setLiveUpdates(enabled) }
+    }
+
     fun setReading(reading: ReadingSettings) {
         viewModelScope.launch { store.setReading(reading) }
     }

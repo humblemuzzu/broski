@@ -45,12 +45,13 @@ impl Sync {
         true
     }
 
-    /// Replaces the relay's offline-alert targets with the devices that have a push registration.
+    /// Replaces the relay's offline-alert targets with the devices that have a push registration
+    /// and have not turned Failures off: the relay's offline alert is the one failure it reports.
     async fn targets(&mut self, session: &mut Session, devices: &[DeviceRecord]) -> bool {
         let targets: Vec<Value> = devices
             .iter()
             .filter_map(|device| {
-                let push = device.push.as_ref()?;
+                let push = device.push.as_ref().filter(|_| device.notify.failures)?;
                 Some(json!({
                     "device": &device.id,
                     "platform": &push.platform,

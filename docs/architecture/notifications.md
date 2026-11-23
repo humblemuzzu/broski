@@ -2,15 +2,50 @@
 
 Two things can notify the user about an agent, and they follow one policy: **one notification per finished
 run, "needs you" only for a real request, never per tool call or model round trip, and nothing for the chat
-the user is looking at.**
+the user is looking at.** What the person turned off in Settings › Notifications is held by the Mac, which never sends
+it, so it works with the app killed ([push.md](connectivity-v2/push.md) § Policy).
 
 | Source | Where | Raises |
 |---|---|---|
-| Daemon push (APNs / FCM, needs the relay) | `server/link-feed/contract-tap.ts` ← the core's observer → `broski-link` | `approval` and `attention` per request id, `done` after a session's run ends and the session stays idle 5 s; from a run's start and end (`run_finished` `completed`, `error`, `limit`; not `aborted`) and from pending interactions (`tool_permission` → `approval`, every other kind → `attention`) ([bridge-feed.md](connectivity-v2/bridge-feed.md), [push.md](connectivity-v2/push.md)) |
+| Daemon push (APNs / FCM, needs the relay) | `server/link-feed/contract-tap.ts` ← the core's observer → `broski-link` | `approval` and `attention` per request id, `done` or `failed` after a session's run ends and the session stays idle 5 s; from a run's start and end (`run_finished` `completed` → `done`, `error` and `limit` → `failed`; not `aborted`) and from pending interactions (a `tool_permission` with a plain Allow and Deny → `approval`, every other kind → `attention`) ([bridge-feed.md](connectivity-v2/bridge-feed.md), [push.md](connectivity-v2/push.md)) |
 | Local notification while the app is alive | the phone app, from the catalog's session rows | one "completed" notification on a row's busy → idle edge, except for a subagent's child session (its run is inside its parent's, which is told) and for the chat on screen with the app in front |
 
 A run's end raises the `done` push and the local notification alike; when the run wrote no text, the push body names
 its newest top-level call and a failing exit code instead of an answer line (`server/link-feed/contract-format.ts`).
+
+## What the words say
+
+A notification is `<session name> — <state>` over one plain line (`server/link-feed/contract-format.ts`, `words.ts`):
+`Fix the build — needs approval` / `Claude Code wants to run npm test`; `Fix the build — has a question` / `Which
+library? date-fns · luxon`; `Fix the build — plan ready` / `Refactor timers: Replace setTimeout`; `Fix the build —
+finished` / the first line of the answer; `Fix the build — failed` / `Sign-in was refused. Check the agent's login on your
+Mac.`. The session's name is its title, else its folder's, else its agent's. Markdown never shows (no `##`, `**`, bullets,
+backticks or fences), a command is its first line, a path inside the session's folder is relative to it, and an MCP
+tool reads `github create_issue`, not `mcp__github__create_issue`. Allow and Deny are on an `approval` only: a request
+that needs a closer look is an `attention` that opens the app.
+
+## What the person can switch off
+
+Settings › Notifications has three alert kinds and the Live Activity (iOS) or Live Update (Android):
+
+| Switch | Covers |
+|---|---|
+| Needs you | `approval`, `attention` |
+| Finished | `done` |
+| Failed | `failed` (an error or a limit), and the relay's "Mac offline or asleep" |
+| Live Activity / Live Update | the ongoing activity of agents at work; off ends it at once and none starts |
+
+A session's mute silences all of them and leaves it out of the Live Activity. The choices live on the phone (the iOS app
+group, the Android settings store) and are sent to every Mac as `notify_prefs`, which is what holds them with the app
+closed. The Live Activity and the Live Update follow their own switch in the app itself.
+
+## Taking an alert down
+
+When the person opens a session in the app its notifications come down. When a request stops waiting (answered in the
+app or on the Mac), the app takes its approval or question down on both platforms; an Android phone is also told by a
+`resolved` push, which cancels it with no sound or banner, even with the app closed. An iPhone is not: Apple shows every
+alert push, so a request answered on the Mac while the iPhone's app is closed stays on its lock screen until the app next
+reads that session.
 
 Right after the app goes to the background a run's end can raise both a local notification (the app is still alive)
 and the daemon's push (the phone is no longer in the foreground). The two are not deduplicated, since the app cannot

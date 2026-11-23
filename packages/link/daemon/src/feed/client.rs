@@ -14,7 +14,7 @@ use tokio_tungstenite::WebSocketStream;
 use tracing::warn;
 
 use crate::backoff::{self, Backoff};
-use crate::device::short;
+use crate::device::{short, DeviceRecord};
 use crate::push::{self, keys, live_activity::LiveActivityFeed, policy, seal};
 use crate::relay::{PushRequest, RelayCommand};
 
@@ -48,7 +48,7 @@ async fn run(
     mut shutdown: watch::Receiver<bool>,
 ) {
     let mut backoff = Backoff::new(deps.durations.feed_retry_min, deps.durations.feed_retry_max);
-    let mut debounce = policy::Debounce::new(deps.durations.push_debounce);
+    let mut debounce = policy::Debounce::default();
     let mut live_activity = LiveActivityFeed::default();
     loop {
         if let Some(socket) = dial(&deps).await {
@@ -165,6 +165,7 @@ async fn handle(
             });
         }
         Some("link_event") => alert(deps, &value, debounce).await,
+        Some("link_resolved") => resolved(deps, &value).await,
         Some("link_runs") => live_activity.handle(deps, &value).await,
         Some("link_decision_result") => {
             let group = match value.get("request") {
@@ -183,9 +184,9 @@ async fn alert(deps: &Deps, value: &Value, debounce: &mut policy::Debounce) {
     let Some(event) = push::event(value) else {
         return;
     };
-    let devices = deps.store.devices().await;
-    let targets = policy::targets(devices);
-    if targets.is_empty() || !debounce.allow(event.debounce(), Instant::now()) {
+    let targets = policy::targets(deps.store.devices().await, &event);
+    let (key, window) = event.debounce(deps.durations.push_debounce);
+    if targets.is_empty() || !debounce.allow(key, window, Instant::now()) {
         return;
     }
     let machine = deps.store.name().to_owned();
@@ -193,7 +194,43 @@ async fn alert(deps: &Deps, value: &Value, debounce: &mut policy::Debounce) {
         warn!(kind = event.kind.as_str(), "push payload does not fit");
         return;
     };
-    let collapse = event.collapse();
+    let alert = Alert {
+        kind: event.kind.relay_kind(),
+        collapse: event.collapse(),
+        priority: event.kind.priority(),
+    };
+    send_sealed(deps, targets, &plaintext, &alert);
+}
+
+/// A request that is over: the phones that can drop its notification quietly are told to.
+async fn resolved(deps: &Deps, value: &Value) {
+    let Some(resolved) = push::resolved(value) else {
+        return;
+    };
+    let targets = policy::resolved_targets(deps.store.devices().await);
+    if targets.is_empty() {
+        return;
+    }
+    let machine = deps.store.name().to_owned();
+    let Some(plaintext) = seal::encode(&resolved.notification(&machine)) else {
+        return;
+    };
+    let alert = Alert {
+        kind: "done",
+        collapse: resolved.collapse(),
+        priority: "high",
+    };
+    send_sealed(deps, targets, &plaintext, &alert);
+}
+
+/// How a push is labelled for the relay.
+struct Alert {
+    kind: &'static str,
+    collapse: String,
+    priority: &'static str,
+}
+
+fn send_sealed(deps: &Deps, targets: Vec<DeviceRecord>, plaintext: &[u8], alert: &Alert) {
     for device in targets {
         let Some(registration) = device.push.as_ref() else {
             continue;
@@ -203,16 +240,16 @@ async fn alert(deps: &Deps, value: &Value, debounce: &mut policy::Debounce) {
             continue;
         };
         let notify = keys::notify(&secret);
-        let Some(data) = seal::seal(&notify, deps.machine_id.as_bytes(), &plaintext) else {
+        let Some(data) = seal::seal(&notify, deps.machine_id.as_bytes(), plaintext) else {
             continue;
         };
         let request = RelayCommand::Push(PushRequest {
             platform: registration.platform.clone(),
             token: registration.token.clone(),
-            kind: event.kind.as_str(),
+            kind: alert.kind,
             data: crate::codec::b64url(&data),
-            collapse: Some(collapse.clone()),
-            priority: event.kind.priority(),
+            collapse: Some(alert.collapse.clone()),
+            priority: alert.priority,
         });
         if deps.relay.try_send(request).is_err() {
             warn!(device = short(&device.id), "push not queued");

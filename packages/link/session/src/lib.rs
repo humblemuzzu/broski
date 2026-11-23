@@ -36,7 +36,7 @@ mod status;
 mod tls;
 mod transport;
 
-pub use control::{BridgeState, BridgeStatus, Platform, PushPlatform};
+pub use control::{BridgeState, BridgeStatus, MutedSession, NotifyPrefs, Platform, PushPlatform};
 pub use error::Error;
 pub use events::Event;
 pub use identity::DeviceIdentity;

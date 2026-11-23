@@ -2,7 +2,8 @@
 <resources>
     <!-- Channels, as Android's notification settings list them -->
     <string name="channel_needs_you">Needs you</string>
-    <string name="channel_done">Done</string>
+    <string name="channel_done">Finished</string>
+    <string name="channel_failed">Failed</string>
     <string name="channel_offline">Mac offline</string>
     <string name="channel_live">Agents working</string>
 

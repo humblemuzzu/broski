@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tracing::warn;
@@ -9,7 +11,7 @@ use crate::relay::{PushRequest, RelayCommand};
 
 const LISTED_RUNS: usize = 4;
 const STALE_AFTER_SECS: u64 = 2 * 60 * 60;
-const DONE_DISMISS_SECS: u64 = 15;
+const DISMISS_AFTER_SECS: u64 = 15;
 const MAX_PAYLOAD_BYTES: usize = 3_800;
 
 #[derive(Deserialize, Clone, Debug)]
@@ -55,11 +57,19 @@ struct ContentState {
     needs_you_count: usize,
 }
 
+/// What one device's Live Activity was last told.
+struct Shown {
+    focused: RunEntry,
+    state: String,
+}
+
 /// Follows `link_runs` snapshots from the bridge feed and pushes iOS Live Activity updates/ends
-/// through the relay to disconnected devices that have registered an active ActivityKit token.
+/// through the relay to disconnected devices that have registered an active ActivityKit token. Each
+/// device is told about the sessions it has not muted, so its lock screen shows what its own app
+/// would.
 #[derive(Default)]
 pub struct LiveActivityFeed {
-    last_focused: Option<RunEntry>,
+    shown: HashMap<String, Shown>,
 }
 
 impl LiveActivityFeed {
@@ -69,108 +79,29 @@ impl LiveActivityFeed {
         };
         let now_secs = clock::unix_secs();
         let machine_name = deps.store.name().to_owned();
-        let (ending, payload) = if let Some(focused) = frame.runs.first().cloned() {
-            let needs_you_count = frame
-                .runs
-                .iter()
-                .filter(|run| run.phase == "needsYou")
-                .count();
-            let runs = frame
-                .runs
-                .iter()
-                .take(LISTED_RUNS)
-                .map(|run| ActivityRun {
-                    title: run.title.clone(),
-                    machine_name: machine_name.clone(),
-                    phase: run.phase.clone(),
-                })
-                .collect();
-            let state = ContentState {
-                phase: focused.phase.clone(),
-                title: focused.title.clone(),
-                machine_id: deps.machine_id.clone(),
-                machine_name,
-                backend: focused.backend.clone(),
-                session_id: focused.session_id.clone(),
-                started_at_ms: focused.started_at,
-                ended_at_ms: None,
-                runs,
-                live_count: frame.runs.len(),
-                needs_you_count,
-            };
-            self.last_focused = Some(focused);
-            (
-                false,
-                json!({
-                    "aps": {
-                        "timestamp": now_secs,
-                        "event": "update",
-                        "stale-date": now_secs.saturating_add(STALE_AFTER_SECS),
-                        "content-state": state,
-                    }
-                }),
-            )
-        } else {
-            let Some(previous) = self.last_focused.take() else {
-                return;
-            };
-            let ended_at_ms = if frame.at > 0 {
-                frame.at
-            } else {
-                (now_secs as i64).saturating_mul(1_000)
-            };
-            let state = ContentState {
-                phase: "done".to_owned(),
-                title: previous.title,
-                machine_id: deps.machine_id.clone(),
-                machine_name,
-                backend: previous.backend,
-                session_id: previous.session_id,
-                started_at_ms: previous.started_at,
-                ended_at_ms: Some(ended_at_ms),
-                runs: Vec::new(),
-                live_count: 0,
-                needs_you_count: 0,
-            };
-            (
-                true,
-                json!({
-                    "aps": {
-                        "timestamp": now_secs,
-                        "event": "end",
-                        "dismissal-date": now_secs.saturating_add(DONE_DISMISS_SECS),
-                        "content-state": state,
-                    }
-                }),
-            )
+        let names = Names {
+            machine_id: &deps.machine_id,
+            machine_name: &machine_name,
         };
-
-        let Ok(bytes) = serde_json::to_vec(&payload) else {
-            return;
-        };
-        if bytes.len() > MAX_PAYLOAD_BYTES {
-            warn!(bytes = bytes.len(), "live activity payload does not fit");
-            return;
-        }
-        let encoded = crate::codec::b64url(&bytes);
-        let devices = deps.store.devices().await;
-        for device in devices {
+        for device in deps.store.devices().await {
+            let Some(token) = device.live_activity_token.clone() else {
+                self.shown.remove(&device.id);
+                continue;
+            };
             if deps.registry.is_connected(&device.id) {
                 continue;
             }
-            let Some(token) = device.live_activity_token else {
+            let visible: Vec<&RunEntry> = frame
+                .runs
+                .iter()
+                .filter(|run| !device.notify.mutes(&run.backend, &run.session_id))
+                .collect();
+            let Some((ending, payload)) =
+                self.payload(&device.id, &visible, &names, frame.at, now_secs)
+            else {
                 continue;
             };
-            let request = RelayCommand::Push(PushRequest {
-                platform: "apns_live_activity".to_owned(),
-                token,
-                kind: "live_activity",
-                data: encoded.clone(),
-                collapse: None,
-                priority: "high",
-            });
-            if deps.relay.try_send(request).is_err() {
-                warn!(device = short(&device.id), "live activity push not queued");
+            if !queue(deps, &device.id, token, &payload) {
                 continue;
             }
             if ending {
@@ -178,6 +109,133 @@ impl LiveActivityFeed {
             }
         }
     }
+
+    /// The push this device needs now, or `None` when it already shows exactly this or has
+    /// nothing to end.
+    fn payload(
+        &mut self,
+        device: &str,
+        visible: &[&RunEntry],
+        names: &Names<'_>,
+        at: i64,
+        now_secs: u64,
+    ) -> Option<(bool, Value)> {
+        let Some(focused) = visible.first() else {
+            let previous = self.shown.remove(device)?;
+            let ended_at_ms = if at > 0 {
+                at
+            } else {
+                (now_secs as i64).saturating_mul(1_000)
+            };
+            let state = names.ended(previous.focused, ended_at_ms);
+            return Some((true, aps("end", now_secs, &state, DISMISS_AFTER_SECS)));
+        };
+        let state = names.running(focused, visible);
+        let encoded = serde_json::to_string(&state).ok()?;
+        if self
+            .shown
+            .get(device)
+            .is_some_and(|shown| shown.state == encoded)
+        {
+            return None;
+        }
+        self.shown.insert(
+            device.to_owned(),
+            Shown {
+                focused: (*focused).clone(),
+                state: encoded,
+            },
+        );
+        Some((false, aps("update", now_secs, &state, STALE_AFTER_SECS)))
+    }
+}
+
+struct Names<'a> {
+    machine_id: &'a str,
+    machine_name: &'a str,
+}
+
+impl Names<'_> {
+    fn running(&self, focused: &RunEntry, visible: &[&RunEntry]) -> ContentState {
+        ContentState {
+            phase: focused.phase.clone(),
+            title: focused.title.clone(),
+            machine_id: self.machine_id.to_owned(),
+            machine_name: self.machine_name.to_owned(),
+            backend: focused.backend.clone(),
+            session_id: focused.session_id.clone(),
+            started_at_ms: focused.started_at,
+            ended_at_ms: None,
+            runs: visible
+                .iter()
+                .take(LISTED_RUNS)
+                .map(|run| ActivityRun {
+                    title: run.title.clone(),
+                    machine_name: self.machine_name.to_owned(),
+                    phase: run.phase.clone(),
+                })
+                .collect(),
+            live_count: visible.len(),
+            needs_you_count: visible.iter().filter(|run| run.phase == "needsYou").count(),
+        }
+    }
+
+    fn ended(&self, previous: RunEntry, ended_at_ms: i64) -> ContentState {
+        ContentState {
+            phase: "done".to_owned(),
+            title: previous.title,
+            machine_id: self.machine_id.to_owned(),
+            machine_name: self.machine_name.to_owned(),
+            backend: previous.backend,
+            session_id: previous.session_id,
+            started_at_ms: previous.started_at,
+            ended_at_ms: Some(ended_at_ms),
+            runs: Vec::new(),
+            live_count: 0,
+            needs_you_count: 0,
+        }
+    }
+}
+
+/// An ActivityKit push: `update` goes stale after `date_secs` without another, `end` leaves the
+/// activity on screen for `date_secs` more.
+fn aps(event: &str, now_secs: u64, state: &ContentState, date_secs: u64) -> Value {
+    let date_key = if event == "end" {
+        "dismissal-date"
+    } else {
+        "stale-date"
+    };
+    json!({
+        "aps": {
+            "timestamp": now_secs,
+            "event": event,
+            date_key: now_secs.saturating_add(date_secs),
+            "content-state": state,
+        }
+    })
+}
+
+fn queue(deps: &Deps, device: &str, token: String, payload: &Value) -> bool {
+    let Ok(bytes) = serde_json::to_vec(payload) else {
+        return false;
+    };
+    if bytes.len() > MAX_PAYLOAD_BYTES {
+        warn!(bytes = bytes.len(), "live activity payload does not fit");
+        return false;
+    }
+    let request = RelayCommand::Push(PushRequest {
+        platform: "apns_live_activity".to_owned(),
+        token,
+        kind: "live_activity",
+        data: crate::codec::b64url(&bytes),
+        collapse: None,
+        priority: "high",
+    });
+    if deps.relay.try_send(request).is_err() {
+        warn!(device = short(device), "live activity push not queued");
+        return false;
+    }
+    true
 }
 
 #[cfg(test)]
@@ -213,5 +271,52 @@ mod tests {
         assert_eq!(value["liveCount"], 1);
         assert_eq!(value["needsYouCount"], 0);
         assert_eq!(value["runs"][0]["machineName"], "Studio Mac");
+    }
+
+    fn run(session: &str, phase: &str) -> RunEntry {
+        RunEntry {
+            backend: "pi".to_owned(),
+            session_id: session.to_owned(),
+            title: format!("Session {session}"),
+            phase: phase.to_owned(),
+            started_at: 1_760_000_000_000,
+        }
+    }
+
+    fn names() -> Names<'static> {
+        Names {
+            machine_id: "00112233445566778899aabbccddeeff",
+            machine_name: "Studio Mac",
+        }
+    }
+
+    #[test]
+    fn a_device_is_told_what_it_shows_once_and_ended_when_nothing_is_left_for_it() {
+        let mut feed = LiveActivityFeed::default();
+        let (a, b) = (run("a", "needsYou"), run("b", "working"));
+        let (ending, update) = feed
+            .payload("d1", &[&a, &b], &names(), 0, 100)
+            .expect("the first sight is pushed");
+        assert!(!ending);
+        let state = &update["aps"]["content-state"];
+        assert_eq!(state["liveCount"], 2);
+        assert_eq!(state["needsYouCount"], 1);
+        assert_eq!(update["aps"]["event"], "update");
+        assert!(feed.payload("d1", &[&a, &b], &names(), 0, 101).is_none());
+
+        let (_, narrowed) = feed
+            .payload("d1", &[&b], &names(), 0, 102)
+            .expect("a run the device muted leaves its activity");
+        assert_eq!(narrowed["aps"]["content-state"]["liveCount"], 1);
+        assert_eq!(narrowed["aps"]["content-state"]["sessionId"], "b");
+
+        let (ending, end) = feed
+            .payload("d1", &[], &names(), 5_000, 103)
+            .expect("nothing left to show ends the activity");
+        assert!(ending);
+        assert_eq!(end["aps"]["event"], "end");
+        assert_eq!(end["aps"]["content-state"]["phase"], "done");
+        assert_eq!(end["aps"]["content-state"]["endedAtMs"], 5_000);
+        assert!(feed.payload("d1", &[], &names(), 0, 104).is_none());
     }
 }

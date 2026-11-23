@@ -2,12 +2,15 @@ import Foundation
 
 /// Which notifications the person wants, kept in the app group's defaults so the notification
 /// service extension reads what Settings writes. Every kind is on until turned off, and every
-/// session until muted.
+/// session until muted. The app also hands the same choices to each Mac, which then never sends
+/// what is off: the extension's own check only quiets a push that arrived anyway (Apple lets an
+/// extension drop one only with an entitlement granted on request).
 nonisolated struct NotificationPreferences {
     static let appGroup = "group.com.muzammil.broski"
     static let needsYou = "notifications.needsYou"
     static let done = "notifications.done"
     static let failures = "notifications.failures"
+    static let liveActivity = "notifications.liveActivity"
     /// The muted sessions, each `[machineId, backend, sessionId]`.
     static let muted = "notifications.mutedSessions"
 
@@ -20,17 +23,24 @@ nonisolated struct NotificationPreferences {
         self.defaults = defaults
     }
 
-    /// Whether a push of `kind` (push.md: `approval`, `attention`, `done`; the relay's own
-    /// `offline`) should alert. No push says a run failed, so Failures governs the relay's alert
-    /// that a machine went offline or to sleep, the one failure a push reports.
+    /// Whether a push of `kind` (push.md: `approval`, `attention`, `done`, `failed`; the relay's own
+    /// `offline`) should alert. Failures covers a run that stopped with an error or at a limit, and
+    /// the relay's alert that a machine went offline or to sleep.
     func allows(kind: String) -> Bool {
         switch kind {
         case "approval", "attention": isOn(Self.needsYou)
         case "done": isOn(Self.done)
-        case "offline": isOn(Self.failures)
+        case "failed", "offline": isOn(Self.failures)
         default: true
         }
     }
+
+    var needsYou: Bool { isOn(Self.needsYou) }
+    var done: Bool { isOn(Self.done) }
+    var failures: Bool { isOn(Self.failures) }
+
+    /// Whether the Live Activity may show agents at work.
+    var liveActivity: Bool { isOn(Self.liveActivity) }
 
     /// `allows(kind:)`, and never for a session the person muted.
     func allows(kind: String, machineId: String?, backend: String?, sessionId: String?) -> Bool {

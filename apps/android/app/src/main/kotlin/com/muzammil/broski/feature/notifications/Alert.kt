@@ -8,6 +8,7 @@ import uniffi.broski_core.PushNotification
 enum class Channel(val id: String) {
     NeedsYou("needs_you"),
     Done("done"),
+    Failed("failed"),
     MachineOffline("machine_offline"),
     LiveStatus("live_status"),
 }
@@ -40,15 +41,15 @@ data class Alert(
     fun mutedBy(muted: Set<SessionKey>): Boolean = session?.key in muted
 
     companion object {
+        /** The notification a push about `push.request` (else the session's last run) lives in; a failure takes a finish's place. */
+        fun tag(machineId: String, kind: PushKind, push: PushNotification): String =
+            "$machineId/${push.backend}/${push.session}/${push.request ?: if (kind == PushKind.Failed) PushKind.Done.wire else kind.wire}"
+
         fun of(machineId: String, kind: PushKind, push: PushNotification, namesMachine: Boolean = true): Alert {
             val session = SessionTarget(machineId, push.backend, push.session)
             return Alert(
-                tag = "${session.machineId}/${session.backend}/${session.sessionId}/${push.request ?: kind.wire}",
-                channel = when (kind) {
-                    PushKind.Approval, PushKind.Attention -> Channel.NeedsYou
-                    PushKind.Done -> Channel.Done
-                    PushKind.Offline -> Channel.MachineOffline
-                },
+                tag = tag(machineId, kind, push),
+                channel = checkNotNull(kind.channel) { "a ${kind.wire} push is no alert" },
                 title = push.title,
                 text = push.body,
                 machineName = MachineName.display(push.machine).takeIf { namesMachine },

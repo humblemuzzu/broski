@@ -4,7 +4,7 @@ use broski_link_core::crypto::PublicBundle;
 use broski_link_core::{STREAM_BRIDGE, STREAM_CONTROL};
 use tokio::sync::mpsc;
 
-use crate::control::{self, PushPlatform};
+use crate::control::{self, NotifyPrefs, PushPlatform};
 use crate::engine::{Command, Engine, LiveActivityIntent, Pairing, Parts, PushIntent};
 use crate::error::Error;
 use crate::events::{locked, Event, Shared};
@@ -111,6 +111,12 @@ impl Session {
 
     pub fn unregister_push(&self) {
         self.command(Command::Push(Some(PushIntent::Unregister)));
+    }
+
+    /// Tells the machine which alerts to send this phone; repeated on every connect, so a machine
+    /// that restarted has it again.
+    pub fn set_notify_prefs(&self, prefs: NotifyPrefs) {
+        self.command(Command::Notify(prefs));
     }
 
     /// Registers the active iOS Live Activity push token with the machine; repeated on connect.

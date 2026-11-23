@@ -17,7 +17,10 @@ enum class Appearance { System, Light, Dark }
 
 enum class KeepScreenAwake { DictationOnly, WhileWorking, Always }
 
-/** The kinds of notification the person can turn off; local preferences, never sent anywhere. */
+/**
+ * The kinds of notification the person can turn off. They are kept on this phone and handed to each
+ * Mac, which then never sends what is off, so they hold with the app closed.
+ */
 enum class NotificationKind { NeedsYou, Done, Failures }
 
 data class AppSettings(
@@ -25,6 +28,8 @@ data class AppSettings(
     val dynamicColor: Boolean = false,
     val keepScreenAwake: KeepScreenAwake = KeepScreenAwake.DictationOnly,
     val notifications: Set<NotificationKind> = NotificationKind.entries.toSet(),
+    /** Whether agents at work may show as a Live Update. */
+    val liveUpdates: Boolean = true,
     val voice: VoiceSettings = VoiceSettings(),
     val reading: ReadingSettings = ReadingSettings(),
     val models: ModelPreferences = ModelPreferences(),
@@ -90,6 +95,7 @@ class SettingsStore(private val store: DataStore<Preferences>) {
                 ?.let { stored -> KeepScreenAwake.entries.firstOrNull { it.name == stored } }
                 ?: KeepScreenAwake.DictationOnly,
             notifications = NotificationKind.entries.filterTo(mutableSetOf()) { preferences[notifyKey(it)] ?: true },
+            liveUpdates = preferences[LIVE_UPDATES] ?: true,
             voice = VoiceSettings(
                 language = preferences[VOICE_LANGUAGE].let { stored ->
                     when (stored) {
@@ -137,6 +143,10 @@ class SettingsStore(private val store: DataStore<Preferences>) {
 
     suspend fun setNotification(kind: NotificationKind, enabled: Boolean) {
         store.edit { it[notifyKey(kind)] = enabled }
+    }
+
+    suspend fun setLiveUpdates(enabled: Boolean) {
+        store.edit { it[LIVE_UPDATES] = enabled }
     }
 
     /** `null` lets xAI detect the language. */
@@ -216,6 +226,8 @@ class SettingsStore(private val store: DataStore<Preferences>) {
         val INBOX_FOLDER = stringPreferencesKey("inbox.folder")
 
         fun words(stored: String) = stored.split('\n').map { it.trim() }.filter { it.isNotEmpty() }
+
+        val LIVE_UPDATES = booleanPreferencesKey("notify.liveUpdates")
 
         fun notifyKey(kind: NotificationKind) = booleanPreferencesKey("notify.${kind.name}")
     }

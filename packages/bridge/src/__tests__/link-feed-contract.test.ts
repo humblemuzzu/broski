@@ -108,6 +108,11 @@ function interactionOf(alert: LinkFrame): InteractionId {
 	return alert.request;
 }
 
+/** The `link_resolved` frames the feed has seen since it was last cleared. */
+function resolutions(current: Scene): LinkFrame[] {
+	return current.feed.frames().filter((frame) => frame.type === "link_resolved");
+}
+
 async function waitForResolution(current: Scene): Promise<void> {
 	await current.phone.waitForEvent(
 		current.session,
@@ -153,9 +158,9 @@ describe("busy and done for a contract session", () => {
 		await prompt(current);
 		const [done] = await alertsOf(current.feed, 1);
 		expect(done).toMatchObject({
-			kind: "done",
-			title: "Fix the build — stopped with an error",
-			body: "Run failed: rate_limit",
+			kind: "failed",
+			title: "Fix the build — failed",
+			body: "The model provider is rate limiting this account.",
 		});
 		expect(JSON.stringify(done)).not.toContain("sk-secret");
 	});
@@ -206,6 +211,7 @@ describe("approvals", () => {
 
 		const [done] = await alertsOf(current.feed, 1);
 		expect(done).toMatchObject({ kind: "done", body: "Cleaned the build." });
+		expect(resolutions(current)).toEqual([]);
 	});
 
 	test("an approval another client's run raised in a watched session is answered from the lock screen", async () => {
@@ -236,6 +242,10 @@ describe("approvals", () => {
 		const request = interactionOf((await alertsOf(current.feed, 1))[0] as LinkFrame);
 		current.rig.fake.fake.answerElsewhere(current.session, request);
 		await waitForResolution(current);
+		await current.feed.waitForWhere(
+			(frame) => frame.type === "link_resolved" && frame.request === request,
+			"the resolved frame that tells phones to drop the alert",
+		);
 		expect(await decide(current, request, "allow")).toMatchObject({ ok: false, error: "no longer pending" });
 		expect(current.answers).toEqual([]);
 	});
@@ -249,7 +259,10 @@ describe("approvals", () => {
 			reply: { kind: "tool_permission", optionId: "deny", grantIds: [] },
 		};
 		await current.phone.ok("interaction.answer", { session: current.session, answer });
-		await waitForResolution(current);
+		await current.feed.waitForWhere(
+			(frame) => frame.type === "link_resolved" && frame.request === request,
+			"the resolved frame that tells phones to drop the alert",
+		);
 		expect(await decide(current, request, "allow")).toMatchObject({ ok: false, error: "no longer pending" });
 		expect(current.answers).toEqual([answer]);
 	});
@@ -319,6 +332,15 @@ describe("approvals", () => {
 describe("questions", () => {
 	const KINDS = ["confirm", "choice", "text", "form", "questions", "plan_approval"] as const;
 
+	const WORDS = {
+		confirm: { title: "needs confirmation", body: "A confirm question" },
+		choice: { title: "needs a choice", body: "A choice question: Retry · Edit the prompt" },
+		text: { title: "needs input", body: "A text question" },
+		form: { title: "needs input", body: "deploy is asking for details" },
+		questions: { title: "has questions", body: "Which library? date-fns · luxon (+1 more)" },
+		plan_approval: { title: "plan ready", body: "Plan: Read" },
+	} as const;
+
 	test("each interaction that needs an answer is an attention alert a verdict cannot answer", async () => {
 		for (const kind of KINDS) {
 			resetLinkFeed();
@@ -333,8 +355,8 @@ describe("questions", () => {
 				expect.objectContaining({
 					kind: "attention",
 					backend: "pi",
-					title: "Fix the build — needs input",
-					body: `A ${kind} question`,
+					title: `Fix the build — ${WORDS[kind].title}`,
+					body: WORDS[kind].body,
 				}),
 			]);
 			const request = interactionOf(alert as LinkFrame);
@@ -350,17 +372,18 @@ describe("questions", () => {
 });
 
 describe("a permission that asks for a closer look", () => {
-	test("a deliberate request can be denied from a lock screen but not allowed", async () => {
+	test("a deliberate request is an attention alert: a lock screen offers no verdict on it, the app does", async () => {
 		const permission = permissionRequest({ deliberate: true });
 		const current = await startScene([
 			{ kind: "ask", title: "Allow rm?", request: permission },
 			{ kind: "text", text: "Done." },
 		]);
 		await prompt(current);
-		const request = interactionOf((await alertsOf(current.feed, 1))[0] as LinkFrame);
+		const [alert] = await alertsOf(current.feed, 1);
+		expect(alert).toMatchObject({ kind: "attention", title: "Fix the build — needs approval" });
+		const request = interactionOf(alert as LinkFrame);
 		expect(await decide(current, request, "allow")).toMatchObject({ ok: false, error: "unsupported" });
+		expect(await decide(current, request, "deny")).toMatchObject({ ok: false, error: "unsupported" });
 		expect(current.answers).toEqual([]);
-		expect(await decide(current, request, "deny")).toMatchObject({ ok: true });
-		expect(current.answers).toHaveLength(1);
 	});
 });

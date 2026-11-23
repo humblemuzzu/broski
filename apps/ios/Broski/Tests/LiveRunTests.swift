@@ -96,6 +96,36 @@ struct LiveRunTests {
         #expect(again.startedAtMs == 1_050_000)
     }
 
+    @Test func aMutedSessionIsLeftOutAndAnActivityOfNothingButMutedSessionsEnds() throws {
+        var tracker = LiveRunTracker()
+        let machine = "00112233445566778899aabbccddeeff"
+        let quiet = SessionTarget(machineId: machine, session: SessionRef(backend: "claude-code", sessionId: "quiet"))
+        let rows = [row("quiet", .needsYou, at: 9), row("loud", .working, at: 1)]
+        guard case .show(let state) = tracker.state(for: rows, muted: [quiet], now: .now) else {
+            Issue.record("expected .show")
+            return
+        }
+        #expect(state.sessionId == "loud" && state.liveCount == 1 && state.needsYouCount == 0)
+        #expect(!state.isMany, "one that is left is shown as itself")
+        let now = Date(timeIntervalSince1970: 1_760_000_000)
+        #expect(
+            tracker.state(for: [row("quiet", .working, at: 9)], muted: [quiet], now: now)
+                == .none(endedAtMs: 1_760_000_000_000))
+    }
+
+    @Test func aSessionWithoutATitleIsNamedByItsFolder() {
+        let untitled = InboxRow(
+            machineId: "m", machineName: "Studio Mac", session: SessionRef(backend: "pi", sessionId: "s"), title: nil,
+            cwd: "/Users/dev/broski", state: .working, updatedAt: 1, runStartedAt: nil, ask: nil, command: nil,
+            pending: nil, cached: false)
+        var tracker = LiveRunTracker()
+        guard case .show(let state) = tracker.state(for: [untitled], now: .now) else {
+            Issue.record("expected .show")
+            return
+        }
+        #expect(state.title == "broski")
+    }
+
     @Test func daemonApnsContentStateJsonDecodesIdentically() throws {
         let json = """
         {

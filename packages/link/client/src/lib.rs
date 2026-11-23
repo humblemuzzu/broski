@@ -28,8 +28,8 @@ mod wire;
 
 pub use broski_contract;
 pub use broski_link_session::{
-    BridgeState, BridgeStatus, LinkState, MachineRecord, Platform, PushPlatform, Route,
-    SendFailure, Status, Timings, WaitReason,
+    BridgeState, BridgeStatus, LinkState, MachineRecord, MutedSession, NotifyPrefs, Platform,
+    PushPlatform, Route, SendFailure, Status, Timings, WaitReason,
 };
 
 pub use crate::catalog::{SessionList, SessionListUpdate};

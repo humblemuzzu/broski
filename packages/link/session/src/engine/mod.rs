@@ -23,7 +23,7 @@ use tokio::time::{sleep_until, Instant};
 
 use crate::backoff::{Backoff, RouteRetry};
 use crate::close::PeerClosePolicy;
-use crate::control::PushPlatform;
+use crate::control::{NotifyPrefs, PushPlatform};
 use crate::endpoint::Target;
 use crate::events::Shared;
 use crate::identity::DeviceIdentity;
@@ -51,6 +51,7 @@ pub(crate) enum Command {
     LanDiscovered(Vec<String>),
     Push(Option<PushIntent>),
     LiveActivity(Option<LiveActivityIntent>),
+    Notify(NotifyPrefs),
     Close,
 }
 
@@ -162,6 +163,7 @@ pub(crate) struct Engine {
     pending_wire: Option<Vec<u8>>,
     push: Option<PushIntent>,
     live_activity: Option<LiveActivityIntent>,
+    notify: Option<NotifyPrefs>,
     lan_seen: Vec<(String, Instant)>,
     next_id: u64,
     reading_paused: bool,
@@ -206,6 +208,7 @@ impl Engine {
             pending_wire: None,
             push: None,
             live_activity: None,
+            notify: None,
             lan_seen: Vec::new(),
             next_id: 0,
             reading_paused: false,

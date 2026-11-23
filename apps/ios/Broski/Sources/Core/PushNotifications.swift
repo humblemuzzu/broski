@@ -41,6 +41,7 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
             UNNotificationCategory(identifier: PushContent.Category.approval, actions: [allow, deny], intentIdentifiers: []),
             UNNotificationCategory(identifier: PushContent.Category.attention, actions: [], intentIdentifiers: []),
             UNNotificationCategory(identifier: PushContent.Category.done, actions: [], intentIdentifiers: []),
+            UNNotificationCategory(identifier: PushContent.Category.failed, actions: [], intentIdentifiers: []),
             UNNotificationCategory(identifier: PushContent.Category.offline, actions: [], intentIdentifiers: []),
         ])
     }
@@ -50,6 +51,34 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
         guard hex != token else { return }
         token = hex
         tokenChanged(hex)
+    }
+
+    /// Takes the notifications of `session` off the lock screen and out of Notification Center: the
+    /// person is looking at it, so they have been told.
+    func clearDelivered(for session: SessionTarget) async {
+        await removeDelivered { push, _ in push.session == session }
+    }
+
+    /// Takes down the approvals and questions of sessions that no longer wait on the person (answered
+    /// in the app or on the Mac), so Allow and Deny are never left on the lock screen for a request
+    /// that is gone. `waiting` are the sessions that still do, `known` every session whose state this
+    /// phone has just read; a notification for any other is left alone.
+    func clearAnswered(waiting: Set<SessionTarget>, known: Set<SessionTarget>) async {
+        await removeDelivered { push, category in
+            guard category == PushContent.Category.approval || category == PushContent.Category.attention,
+                let session = push.session
+            else { return false }
+            return known.contains(session) && !waiting.contains(session)
+        }
+    }
+
+    private func removeDelivered(where matches: (PushTarget, String) -> Bool) async {
+        let center = UNUserNotificationCenter.current()
+        let ids = await center.deliveredNotifications().filter {
+            let content = $0.request.content
+            return matches(PushTarget(content.userInfo), content.categoryIdentifier)
+        }.map(\.request.identifier)
+        if !ids.isEmpty { center.removeDeliveredNotifications(withIdentifiers: ids) }
     }
 
     // On the main actor, so the completion handler UIKit wraps around these runs on the main

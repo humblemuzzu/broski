@@ -84,30 +84,83 @@ describe("the approval alert of a contract session", () => {
 		expect(alert.body.isWellFormed()).toBe(true);
 	});
 
-	test("paths, hosts and changed files are quoted by name, never by content", () => {
+	test("a file, a host or a change is said as what the call does, by name and never by content", () => {
 		const bodies = [
-			permission({ previews: [{ kind: "paths", paths: ["a.txt", "b.txt"] }] }),
-			permission({ previews: [{ kind: "network", host: "example.com" }] }),
-			permission({
-				previews: [
-					{ kind: "file_changes", changes: [{ path: "src/a.ts", change: "modified", diff: "+ password = hunter2" }] },
-				],
+			asked(permission({ previews: [{ kind: "paths", paths: ["/Users/dev/project/a.txt", "b.txt"] }] }), {
+				origin: { toolName: "Read" },
 			}),
-		].map((request) => contractApproval(SOURCE, row(), asked(request), request, 1).body);
-		expect(bodies).toEqual(["a.txt b.txt", "example.com", "src/a.ts"]);
+			asked(permission({ previews: [{ kind: "network", host: "example.com" }] })),
+			asked(
+				permission({
+					previews: [
+						{ kind: "file_changes", changes: [{ path: "src/a.ts", change: "modified", diff: "+ password = hunter2" }] },
+					],
+				}),
+			),
+			asked(
+				permission({
+					previews: [{ kind: "file_changes", changes: [{ path: "src/new.ts", change: "added" }] }],
+				}),
+			),
+		].map(
+			(interaction) =>
+				contractApproval(SOURCE, row(), interaction, interaction.request as ToolPermissionRequest, 1).body,
+		);
+		expect(bodies).toEqual([
+			"Pi wants to read a.txt and 1 more",
+			"Pi wants to open example.com",
+			"Pi wants to edit src/a.ts",
+			"Pi wants to create src/new.ts",
+		]);
+	});
+
+	test("a file tool with no preview, as the terminal's hook asks, is still said as reading or editing the file", () => {
+		const said = (tool: string, input: Record<string, string>) => {
+			const request = permission({ input });
+			return contractApproval(SOURCE, row(), asked(request, { origin: { toolName: tool } }), request, 1).body;
+		};
+		expect(said("Read", { file_path: "/Users/dev/project/src/a.ts" })).toBe("Pi wants to read src/a.ts");
+		expect(said("Edit", { file_path: "/elsewhere/b.ts" })).toBe("Pi wants to edit /elsewhere/b.ts");
+		expect(said("Grep", { pattern: "TODO" })).toBe("Pi wants to use Grep: TODO");
+	});
+
+	test("a command is run by whichever key a replacement bash tool keeps it in", () => {
+		for (const key of ["command", "cmd", "script"]) {
+			const request = permission({ input: { [key]: "npm test\n--watch=false" } });
+			const interaction = asked(request, { origin: { toolName: "my_bash" } });
+			expect([key, contractApproval(SOURCE, row(), interaction, request, 1).body]).toEqual([
+				key,
+				"Pi wants to run npm test …",
+			]);
+		}
+	});
+
+	test("an MCP tool is named by its server and tool, not by its raw id", () => {
+		const request = permission({ input: { query: "is:open label:bug" } });
+		const interaction = asked(request, { origin: { toolName: "mcp__github__search_issues" } });
+		expect(contractApproval(SOURCE, row(), interaction, request, 1).body).toBe(
+			"Pi wants to use github search_issues: is:open label:bug",
+		);
 	});
 
 	test("without a preview only the keys a body may quote are read from the input", () => {
 		const quoted = permission({ input: { path: "notes.md", content: "api key sk-123" } });
 		const hidden = permission({ input: { content: "api key sk-123" } });
-		expect(contractApproval(SOURCE, row(), asked(quoted), quoted, 1).body).toBe("notes.md");
-		expect(contractApproval(SOURCE, row(), asked(hidden), hidden, 1).body).toBe("Allow bash?");
+		const tool = { origin: { toolName: "Notes" } };
+		expect(contractApproval(SOURCE, row(), asked(quoted, tool), quoted, 1).body).toBe(
+			"Pi wants to use Notes: notes.md",
+		);
+		const alert = contractApproval(SOURCE, row(), asked(hidden, tool), hidden, 1);
+		expect(alert.body).toBe("Pi wants to use Notes");
+		expect(JSON.stringify(alert)).not.toContain("sk-123");
 	});
 
-	test("an untitled session is named by its backend, a long name is cut, and a missing row leaves the cwd empty", () => {
+	test("an untitled session is named by its folder, then its backend; a long name is cut; no row leaves the cwd empty", () => {
 		const request = permission();
 		const untitled = contractApproval(SOURCE, row({ title: undefined }), asked(request), request, 1);
-		expect(untitled.title).toBe("Pi — needs approval");
+		expect(untitled.title).toBe("project — needs approval");
+		const bare = contractApproval(SOURCE, row({ title: undefined, cwd: undefined }), asked(request), request, 1);
+		expect(bare.title).toBe("Pi — needs approval");
 		const long = contractApproval(
 			SOURCE,
 			row({ title: { text: "w".repeat(200), source: "user" } }),
@@ -122,19 +175,76 @@ describe("the approval alert of a contract session", () => {
 });
 
 describe("the attention alert of a contract session", () => {
-	test("it carries the question's title, then its body", () => {
-		const request = { kind: "confirm" as const };
-		expect(contractAttention(SOURCE, row(), asked(permission(), { request, title: "Go on?" }), 3)).toMatchObject({
+	const words = (request: Interaction["request"], overrides: Partial<Interaction> = {}) =>
+		contractAttention(SOURCE, row(), asked(permission(), { request, ...overrides }), 3);
+
+	test("a confirmation or text ask carries its own title, then its body", () => {
+		expect(words({ kind: "confirm" }, { title: "Go on?" })).toMatchObject({
 			kind: "attention",
-			title: "Fix the build — needs input",
+			title: "Fix the build — needs confirmation",
 			body: "Go on?",
 			request: "i-1",
 		});
-		const untitled = asked(permission(), { request, title: "", body: "Pick a branch" });
-		expect(contractAttention(SOURCE, row(), untitled, 3).body).toBe("Pick a branch");
-		expect(contractAttention(SOURCE, row(), asked(permission(), { request, title: "" }), 3).body).toBe(
-			"input required",
+		expect(words({ kind: "text", multiline: false }, { title: "", body: "Pick a branch" }).body).toBe("Pick a branch");
+		expect(words({ kind: "confirm" }, { title: "" }).body).toBe("Open Broski to answer");
+	});
+
+	test("a question says its text and the choices it offers, but never a secret's", () => {
+		const question = (text: string, options: string[], secret = false) => ({
+			id: "q",
+			text,
+			options: options.map((label) => ({ label })),
+			multiSelect: false,
+			allowCustom: true,
+			secret,
+			required: true,
+		});
+		const one = words({ kind: "questions", questions: [question("Which library?", ["date-fns", "luxon"])] });
+		expect(one).toMatchObject({ title: "Fix the build — has a question", body: "Which library? date-fns · luxon" });
+		const many = words({
+			kind: "questions",
+			questions: [question("Which?", ["a", "b", "c", "d", "e"]), question("Token?", ["x"], true)],
+		});
+		expect(many).toMatchObject({ title: "Fix the build — has questions", body: "Which? a · b · c · d … (+1 more)" });
+		const secret = words({ kind: "questions", questions: [question("Your token?", ["hunter2"], true)] });
+		expect(secret.body).toBe("Your token?");
+	});
+
+	test("a plan is named by its heading and how it starts, and a choice lists its options", () => {
+		const plan = words({
+			kind: "plan_approval",
+			plan: "# Refactor timers\n\n1. **Replace** `setTimeout`\n2. Test",
+			editable: true,
+		});
+		expect(plan).toMatchObject({ title: "Fix the build — plan ready", body: "Refactor timers: Replace setTimeout" });
+		const choice = words(
+			{
+				kind: "choice",
+				options: [
+					{ value: "r", label: "Retry" },
+					{ value: "e", label: "Edit the prompt" },
+				],
+			},
+			{ title: "The build failed" },
 		);
+		expect(choice).toMatchObject({
+			title: "Fix the build — needs a choice",
+			body: "The build failed: Retry · Edit the prompt",
+		});
+	});
+
+	test("an MCP form names the server that asks", () => {
+		const form = words({ kind: "form", server: "deploy", fields: [] as never });
+		expect(form).toMatchObject({ title: "Fix the build — needs input", body: "deploy is asking for details" });
+	});
+
+	test("a tool permission a lock screen cannot answer still says what it wants", () => {
+		const request = permission({ previews: [{ kind: "command", command: "rm -rf build" }], deliberate: true });
+		expect(contractAttention(SOURCE, row(), asked(request, { origin: { toolName: "bash" } }), 3)).toMatchObject({
+			kind: "attention",
+			title: "Fix the build — needs approval",
+			body: "Pi wants to run rm -rf build",
+		});
 	});
 });
 
@@ -188,8 +298,23 @@ describe("the done alert of a contract session", () => {
 		);
 	});
 
+	test("markdown never reaches a lock screen: no heading marks, bullets, emphasis, links, code or fences", () => {
+		const bodies = [
+			"## Summary\nI **fixed** the `timer` leak, see [the PR](https://x.dev/1).",
+			"```ts\nconst a = 1;\n```\n- Removed the dead _branch_",
+			"> Quoted\nrest",
+			"# Only a heading",
+		].map((answer) => contractDone(SOURCE, row(), completed, ended([], [text("a", answer)]), 9)?.body);
+		expect(bodies).toEqual([
+			"I fixed the timer leak, see the PR.",
+			"Removed the dead branch",
+			"Quoted",
+			"Only a heading",
+		]);
+	});
+
 	test("a run that said nothing still finished", () => {
-		expect(contractDone(SOURCE, row(), completed, ended(), 9)?.body).toBe("Turn finished");
+		expect(contractDone(SOURCE, row(), completed, ended(), 9)?.body).toBe("The run finished");
 	});
 
 	test("a run that only ran a call, as a command typed for the shell does, names the call and a failing exit code", () => {
@@ -208,12 +333,12 @@ describe("the done alert of a contract session", () => {
 			result: { content: [], fileChanges: [], exitCode },
 		});
 		const passed = ended([], [call("t1", "npm test\n--watch=false"), result("t1", 0)]);
-		expect(contractDone(SOURCE, row(), completed, passed, 9)?.body).toBe("bash: npm test");
+		expect(contractDone(SOURCE, row(), completed, passed, 9)?.body).toBe("Ran: npm test …");
 		const failed = ended([], [call("t1", "make"), result("t1", 2)]);
-		expect(contractDone(SOURCE, row(), completed, failed, 9)?.body).toBe("bash: make (exit code 2)");
+		expect(contractDone(SOURCE, row(), completed, failed, 9)?.body).toBe("Ran: make (exit code 2)");
 	});
 
-	test("a failed or limited run is told by its code, never by the backend's message", () => {
+	test("a failed or limited run is a failed alert, told in words by its code and never by the backend's message", () => {
 		const failed = contractDone(
 			SOURCE,
 			row(),
@@ -221,11 +346,17 @@ describe("the done alert of a contract session", () => {
 			ended(),
 			9,
 		);
-		expect(failed).toMatchObject({ title: "Fix the build — stopped with an error", body: "Run failed: auth" });
+		expect(failed).toMatchObject({
+			kind: "failed",
+			title: "Fix the build — failed",
+			body: "Sign-in was refused. Check the agent's login on your Mac.",
+		});
+		expect(JSON.stringify(failed)).not.toContain("sk-1");
 		const limited = contractDone(SOURCE, row(), { kind: "limit", limit: "max_turns" }, ended(), 9);
 		expect(limited).toMatchObject({
+			kind: "failed",
 			title: "Fix the build — stopped at a limit",
-			body: "Run stopped at its max turns limit",
+			body: "It used all the turns it was allowed.",
 		});
 	});
 

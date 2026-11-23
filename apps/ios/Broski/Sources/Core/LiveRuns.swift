@@ -10,9 +10,9 @@ enum LiveRunDecision: Equatable {
     case none(endedAtMs: Int64)
 }
 
-/// Picks what the Live Activity shows from the inbox's rows: every live session, those that need
-/// the person first and then the most recently updated, the first of them focused, its agent as
-/// `brands` (machine id, then backend id) describes it.
+/// Picks what the Live Activity shows from the inbox's rows: every live session the person has not
+/// muted, those that need them first and then the most recently updated, the first of them focused,
+/// its agent as `brands` (machine id, then backend id) describes it.
 struct LiveRunTracker {
     /// Fallback start times used only when connected to an older bridge that omits `runStartedAt`.
     private(set) var fallbackStarts: [InboxRow.Key: Int64] = [:]
@@ -26,11 +26,12 @@ struct LiveRunTracker {
         brands: [String: [String: AgentBrand]] = [:],
         readyMachines: Set<String>? = nil,
         settlingMachines: Set<String> = [],
+        muted: Set<SessionTarget> = [],
         now: Date
     ) -> LiveRunDecision {
         let nowMs = Int64(now.timeIntervalSince1970 * 1000)
         let ready = rows.filter {
-            !$0.cached && (readyMachines?.contains($0.machineId) ?? true)
+            !$0.cached && (readyMachines?.contains($0.machineId) ?? true) && !muted.contains($0.target)
         }
         for row in ready where row.state == .done || row.state == .idle {
             fallbackStarts.removeValue(forKey: row.key)
@@ -71,14 +72,19 @@ struct LiveRunTracker {
 private extension InboxRow {
     var phase: RunActivityAttributes.ContentState.Phase { state == .needsYou ? .needsYou : .working }
 
-    /// Short enough that four of them keep the activity's state far inside ActivityKit's 4 KB.
-    var displayTitle: String { String((title ?? "Untitled session").prefix(80)) }
+    /// The session's name, else its folder's, as the Mac's own pushes name it. Short enough that four of
+    /// them keep the activity's state far inside ActivityKit's 4 KB.
+    var displayTitle: String {
+        let folder = cwd.map { URL(fileURLWithPath: $0).lastPathComponent }
+        return String((title ?? folder ?? "Untitled session").prefix(80))
+    }
 }
 
 /// Keeps one Live Activity in step with the inbox while any session is live, starts it immediately
 /// when foregrounded, spaces repeated updates at least a second apart, observes system/user
 /// dismissals, and publishes ActivityKit push tokens so the Mac daemon can update or end it while
-/// the app is suspended in the background.
+/// the app is suspended in the background. While Settings has it off it shows nothing: an activity
+/// on screen ends at once, with no "Done" left behind, and none starts.
 final class LiveRuns {
     static let minimumGap: Duration = .seconds(1)
     static let doneLingers: TimeInterval = 12
@@ -89,6 +95,8 @@ final class LiveRuns {
 
     private var tracker = LiveRunTracker()
     private var isForeground = false
+    private var isEnabled = true
+    private var latest: Inputs?
     /// Held by id because `Activity` is not `Sendable`.
     private var activityId: String?
     private var shown: RunActivityAttributes.ContentState?
@@ -126,6 +134,27 @@ final class LiveRuns {
 
     var isShowing: Bool { activityId != nil }
 
+    private struct Inputs {
+        let rows: [InboxRow]
+        let brands: [String: [String: AgentBrand]]
+        let readyMachines: Set<String>?
+        let settlingMachines: Set<String>
+        let muted: Set<SessionTarget>
+    }
+
+    /// Settings › Notifications › Live Activity. Off ends whatever is showing at once.
+    func setEnabled(_ enabled: Bool) {
+        guard isEnabled != enabled else { return }
+        isEnabled = enabled
+        if enabled {
+            if let latest { decide(latest) }
+        } else {
+            desired = .none(endedAtMs: Int64(Date.now.timeIntervalSince1970 * 1000))
+            dirty = true
+            scheduleDrain()
+        }
+    }
+
     /// Waits, at most `limit`, until the activity no longer shows `key`'s run as live and nothing is
     /// left to apply, so a Stop that woke the app in the background ends the activity before the
     /// app pauses its link again (no push reaches it once paused).
@@ -152,10 +181,19 @@ final class LiveRuns {
         _ rows: [InboxRow],
         brands: [String: [String: AgentBrand]],
         readyMachines: Set<String>? = nil,
-        settlingMachines: Set<String> = []
+        settlingMachines: Set<String> = [],
+        muted: Set<SessionTarget> = []
     ) {
+        let inputs = Inputs(
+            rows: rows, brands: brands, readyMachines: readyMachines, settlingMachines: settlingMachines, muted: muted)
+        latest = inputs
+        if isEnabled { decide(inputs) }
+    }
+
+    private func decide(_ inputs: Inputs) {
         let decision = tracker.state(
-            for: rows, brands: brands, readyMachines: readyMachines, settlingMachines: settlingMachines, now: .now)
+            for: inputs.rows, brands: inputs.brands, readyMachines: inputs.readyMachines,
+            settlingMachines: inputs.settlingMachines, muted: inputs.muted, now: .now)
         guard decision != .keep else { return }
         desired = decision
         dirty = true
@@ -197,13 +235,17 @@ final class LiveRuns {
             case (let id?, .none(let endedAtMs)):
                 let previous = shown
                 clearTracked()
+                lastUpdate = .now
+                guard isEnabled else {
+                    await Self.end(id, with: nil, dismissal: .immediate)
+                    break
+                }
                 var done = previous
                 done?.phase = .done
                 done?.endedAtMs = endedAtMs
                 done?.runs = []
                 done?.liveCount = 0
                 done?.needsYouCount = 0
-                lastUpdate = .now
                 await Self.end(id, with: done, dismissal: .after(.now.addingTimeInterval(Self.doneLingers)))
             case (nil, .none):
                 return

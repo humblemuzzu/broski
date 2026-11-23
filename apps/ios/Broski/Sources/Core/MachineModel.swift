@@ -90,6 +90,13 @@ final class MachineModel: Identifiable {
         machine.registerPush(platform: .apns, token: token)
     }
 
+    /// Hands the machine what this phone wants pushed and which of its sessions are muted. The
+    /// machine keeps it and sends only that, so it holds when the app is closed; the link session
+    /// sends it again at every connect.
+    func syncNotifications(_ preferences: NotificationPreferences) {
+        machine.setNotifyPrefs(prefs: preferences.notifyPrefs(forMachine: id))
+    }
+
     /// Registers or clears the active iOS Live Activity push token on this machine.
     func registerLiveActivity(_ token: String?) {
         if let token {

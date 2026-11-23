@@ -115,9 +115,13 @@ export class LinkFeedTracker {
 		this.sessions.delete(key);
 	}
 
-	/** The backend took a request back: no decision can reach it and a reconnecting feed is not told of it. */
-	withdrawRequest(backend: string, sessionId: string, requestId: string): void {
-		this.requests.withdraw(backend, sessionId, requestId);
+	/**
+	 * The request is over: no decision can reach it and a reconnecting feed is not told of it. Phones still showing
+	 * its alert are told to drop it, unless a decision from one of them is what ended it.
+	 */
+	withdrawRequest(backend: BackendId, sessionId: string, requestId: string, at: number): void {
+		if (!this.requests.withdraw(backend, sessionId, requestId)) return;
+		this.deliver({ type: "link_resolved", backend, session: sessionId, request: requestId, at });
 	}
 
 	private setWorking(key: string, track: SessionTrack, working: boolean): void {

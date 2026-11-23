@@ -7,7 +7,7 @@ use tokio::time::Instant;
 
 use tracing::debug;
 
-use super::{millis, Command, Engine, Handshake, LiveActivityIntent, PushIntent};
+use super::{millis, Command, Engine, Handshake, LiveActivityIntent, NotifyPrefs, PushIntent};
 use crate::backoff::jitter;
 use crate::close;
 use crate::error::Error;
@@ -27,6 +27,7 @@ impl Engine {
             Some(Command::LanDiscovered(routes)) => self.lan_discovered(&routes),
             Some(Command::Push(intent)) => self.set_push(intent),
             Some(Command::LiveActivity(intent)) => self.set_live_activity(intent),
+            Some(Command::Notify(prefs)) => self.set_notify(prefs),
             Some(Command::Close) => self.close_session().await,
             // Every handle is gone: nobody is left to hear about the session, so it just stops and
             // the machine keeps it for a later resume.
@@ -202,6 +203,18 @@ impl Engine {
             None => return,
         };
         self.queue_control(message);
+    }
+
+    fn set_notify(&mut self, prefs: NotifyPrefs) {
+        if self.notify.as_ref() == Some(&prefs) {
+            return;
+        }
+        let connected = matches!(self.reporter.state(), LinkState::Connected { .. });
+        let message = crate::control::notify_prefs(&prefs);
+        self.notify = Some(prefs);
+        if connected {
+            self.queue_control(message);
+        }
     }
 
     fn queue_control(&mut self, message: Vec<u8>) {

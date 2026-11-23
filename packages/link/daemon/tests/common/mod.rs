@@ -9,6 +9,7 @@ pub mod relay;
 pub mod relay_http;
 pub mod scenario;
 pub mod scripted;
+pub mod sealed;
 pub mod silent;
 
 use std::sync::Once;

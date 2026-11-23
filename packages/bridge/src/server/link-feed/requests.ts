@@ -3,7 +3,8 @@ import { BoundedMap, registerSweepable } from "../../state/bounded-map";
 import type { LinkFeedAlertKind, LinkFeedEventMessage } from "./format";
 
 const MAX_TRACKED_REQUESTS = 512;
-const REQUEST_TTL_MS = 10 * 60 * 1000;
+/** A request lives until its interaction closes; this only bounds one that never does. A person may be hours from a lock screen. */
+const REQUEST_TTL_MS = 24 * 60 * 60 * 1000;
 
 /** What a decision on an alert answers, and with what. */
 export type LinkFeedContractTarget = {
@@ -90,11 +91,16 @@ export class LinkFeedRequests {
 		if (record) this.entries.set(key, { ...record, answered: false });
 	}
 
-	/** The request is gone: no decision can reach it and a reconnecting feed is not told of it again. */
-	withdraw(backend: string, session: string, request: string): void {
+	/**
+	 * The request is gone: no decision can reach it and a reconnecting feed is not told of it again. True when it was
+	 * still waiting on a person, so phones holding its alert should drop it; false when a lock-screen answer ended it.
+	 */
+	withdraw(backend: string, session: string, request: string): boolean {
 		const key = requestKey(backend, session, request);
 		const record = this.entries.get(key);
-		if (record) this.entries.set(key, { ...record, withdrawn: true });
+		if (!record) return false;
+		this.entries.set(key, { ...record, withdrawn: true });
+		return !record.answered && !record.withdrawn;
 	}
 
 	reset(): void {

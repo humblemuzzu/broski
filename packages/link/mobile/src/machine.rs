@@ -6,7 +6,7 @@ use broski_contract::{
     BackendDescriptor, BackendId, BackendStatus, ClientMessage, CommandsListResult,
     ModelsListResult, ModesListResult, ServerMessage, SessionQuery, SessionRef, TerminalId,
 };
-use broski_link_session::PushPlatform;
+use broski_link_session::{NotifyPrefs, PushPlatform};
 
 use crate::record::MachineRecord;
 use crate::views::{SessionList, SessionView, TerminalView};
@@ -115,6 +115,12 @@ impl Machine {
 
     pub fn unregister_push(&self) {
         self.0.unregister_push();
+    }
+
+    /// Tells the machine which alerts to send this phone (and which sessions are muted), on every
+    /// connect until replaced: a push the person turned off is never sent.
+    pub fn set_notify_prefs(&self, prefs: NotifyPrefs) {
+        self.0.set_notify_prefs(prefs);
     }
 
     /// Registers the active iOS Live Activity push token so the machine can update it while the app
