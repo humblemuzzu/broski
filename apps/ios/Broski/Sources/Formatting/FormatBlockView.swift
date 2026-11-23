@@ -2,22 +2,14 @@ import BroskiCore
 import SwiftUI
 
 extension EnvironmentValues {
-    /// The side margin of the screen the text is on: a code block or a table at the top level of an
-    /// answer reaches across it to the screen's edges. Zero where the text sits inside something else.
     @Entry var formatBleed: CGFloat = 0
-    /// The width a top-level block is laid out at, where the screen knows it before layout: a table
-    /// then fits its columns once rather than first at a guess.
     @Entry var formatWidthHint: CGFloat?
 }
 
-/// One block of formatted text with the containers around it and the space above it. Equatable, so
-/// a finished block is never drawn again while the open one streams below it. `next` is the block
-/// after it, whose containers say where a quote's bar or a callout's card ends.
 struct FormatBlockView: View, Equatable {
     let block: FormatBlock
     var role: FormatRole = .page
     var next: [UInt32] = []
-    /// The text is still arriving: a table's columns only grow, code is coloured line by line.
     var streaming = false
     @Environment(\.reading) private var reading
 
@@ -37,7 +29,6 @@ struct FormatBlockView: View, Equatable {
         .formatLinkHandling()
     }
 
-    /// Prose keeps a readable width; code and tables may use all of it.
     private var maxWidth: CGFloat {
         switch block.content {
         case .code, .table: .infinity
@@ -46,7 +37,6 @@ struct FormatBlockView: View, Equatable {
     }
 }
 
-/// What a block holds, drawn by its kind.
 struct FormatContentView: View {
     let block: FormatBlock
     let role: FormatRole
@@ -54,8 +44,9 @@ struct FormatContentView: View {
     @Environment(\.reading) private var reading
     @Environment(\.formatContext) private var context
     @Environment(\.formatBleed) private var screenBleed
-    @ScaledMetric(relativeTo: .body) private var pageCode: CGFloat = 17 * FormatTokens.inlineCodeScale
-    @ScaledMetric(relativeTo: .subheadline) private var quietCode: CGFloat = 15 * FormatTokens.inlineCodeScale
+    @Environment(\.inQuote) private var inQuote
+    @ScaledMetric(relativeTo: .body) private var pageSize: CGFloat = FormatRole.page.baseSize
+    @ScaledMetric(relativeTo: .subheadline) private var quietSize: CGFloat = FormatRole.quiet.baseSize
     @ScaledMetric(relativeTo: .body) private var pageLines: CGFloat = FormatRole.page.lineSpacing
     @ScaledMetric(relativeTo: .subheadline) private var quietLines: CGFloat = FormatRole.quiet.lineSpacing
     @ScaledMetric(relativeTo: .title2) private var h1: CGFloat = FormatRole.page.heading(1).size
@@ -68,14 +59,24 @@ struct FormatContentView: View {
     var body: some View {
         switch block.content {
         case .paragraph(let spans):
-            prose(spans, font: .system(role.textStyle), color: role == .page ? FormatTokens.bodyText : Color.secondary, strong: role == .page ? FormatTokens.boldText : nil)
+            let bodyColor: Color = role == .quiet ? .secondary : (inQuote ? FormatTokens.quoteText : FormatTokens.bodyText)
+            let strongColor: Color? = role == .page && !inQuote ? FormatTokens.boldText : nil
+            let lines = (role == .page ? pageLines : quietLines) * (reading.compact ? 0.65 : 1)
+            prose(spans, font: bodyFont, codeSize: bodySize * FormatTokens.inlineCodeScale, color: bodyColor, strong: strongColor, lineSpacing: lines, tracking: 0)
         case .heading(let level, let spans):
-            prose(spans, font: headingFont(level), color: level >= 4 || role == .quiet ? Color.secondary : Color.primary, strong: nil)
-                .accessibilityAddTraits(.isHeader)
+            let spec = role.heading(level)
+            let size = headingSize(level)
+            prose(
+                spans, font: .system(size: size, weight: spec.weight),
+                codeSize: size * FormatTokens.inlineCodeScale,
+                color: level >= 4 || role == .quiet ? Color.secondary : Color.primary,
+                strong: nil, lineSpacing: spec.lineSpacing, tracking: spec.tracking
+            )
+            .accessibilityAddTraits(.isHeader)
         case .code(let code):
-            FormatCodeBlock(code: code, streaming: streaming, bleed: bleed)
+            FormatCodeBlock(code: code, streaming: streaming)
         case .table(let table):
-            FormatTableView(table: table, streaming: streaming, bleed: bleed)
+            FormatTableView(table: table, streaming: streaming, bleed: tableBleed)
         case .math(let tex):
             MathBlock(tex: tex)
         case .html(let text):
@@ -85,22 +86,27 @@ struct FormatContentView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(Spacing.s + Spacing.xxs)
                 .background(Palette.codeBackground, in: .rect(cornerRadius: Radius.small, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: Radius.small, style: .continuous)
+                        .strokeBorder(FormatTokens.cardBorder, lineWidth: 0.5)
+                }
         case .rule:
-            Color.clear
-                .frame(height: 0)
+            Rectangle()
+                .fill(FormatTokens.ruleColor)
+                .frame(height: 0.5)
                 .accessibilityHidden(true)
         }
     }
 
-    /// A block at the top level of an answer reaches the screen's edges; inside a list, a quote or
-    /// a quiet row it keeps to its column.
-    private var bleed: CGFloat {
+    private var bodySize: CGFloat { role == .page ? pageSize : quietSize }
+    private var bodyFont: Font { .system(size: bodySize) }
+
+    private var tableBleed: CGFloat {
         role == .page && block.containers.isEmpty ? screenBleed : 0
     }
 
-    private func headingFont(_ level: UInt8) -> Font {
-        let weight = role.heading(level).weight
-        let size: CGFloat = switch (role, level) {
+    private func headingSize(_ level: UInt8) -> CGFloat {
+        switch (role, level) {
         case (.page, 1): h1
         case (.page, 2): h2
         case (.page, 3): h3
@@ -108,19 +114,20 @@ struct FormatContentView: View {
         case (.quiet, 1): quietH1
         case (.quiet, _): quietH2
         }
-        return .system(size: size, weight: weight)
     }
 
-    private func prose(_ spans: [FormatSpan], font: Font, color: Color, strong: Color?) -> some View {
-        let code = role == .page ? pageCode : quietCode
+    private func prose(
+        _ spans: [FormatSpan], font: Font, codeSize: CGFloat, color: Color,
+        strong: Color?, lineSpacing: CGFloat, tracking: CGFloat
+    ) -> some View {
         let spanStyle = SpanStyle(
-            font: font, codeFont: .system(size: code, weight: .medium, design: .monospaced),
+            font: font, codeFont: .system(size: codeSize, weight: .medium, design: .monospaced),
             underlinesLinks: reading.underlinesLinks, opensFiles: context != nil, strongColor: strong)
-        let lines = (role == .page ? pageLines : quietLines) * (reading.compact ? 0.6 : 1)
         return (spans.isEmpty ? Text(verbatim: " ") : FormatSpans.text(spans, style: spanStyle))
             .font(font)
+            .tracking(tracking)
             .foregroundStyle(color)
-            .lineSpacing(lines)
+            .lineSpacing(lineSpacing)
             .tint(FormatTokens.link)
             .textRenderer(ChipRenderer())
             .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
@@ -129,18 +136,21 @@ struct FormatContentView: View {
     }
 }
 
-/// Display math, as its TeX: centred, italic, monospaced. No math library draws it.
 private struct MathBlock: View {
     let tex: String
 
     var body: some View {
         Text(tex)
-            .font(.system(.body, design: .monospaced).italic())
+            .font(.system(.callout, design: .monospaced).italic())
             .multilineTextAlignment(.center)
-            .padding(.vertical, Spacing.s + Spacing.xxs)
+            .padding(.vertical, Spacing.m)
             .padding(.horizontal, Spacing.m)
             .frame(maxWidth: .infinity)
-            .background(Palette.codeBackground.opacity(0.6), in: .rect(cornerRadius: Radius.small, style: .continuous))
+            .background(Palette.codeBackground, in: .rect(cornerRadius: FormatTokens.tableRadius, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: FormatTokens.tableRadius, style: .continuous)
+                    .strokeBorder(FormatTokens.cardBorder, lineWidth: 0.5)
+            }
             .accessibilityLabel("Math: \(tex)")
     }
 }

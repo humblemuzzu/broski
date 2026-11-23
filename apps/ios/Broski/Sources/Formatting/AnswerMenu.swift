@@ -146,6 +146,7 @@ private struct SelectableText: UIViewRepresentable {
         view.isSelectable = true
         view.adjustsFontForContentSizeCategory = true
         view.font = .preferredFont(forTextStyle: .body)
+        view.backgroundColor = UIColor(Palette.chatCanvas)
         view.textContainerInset = UIEdgeInsets(top: 16, left: 16, bottom: 32, right: 16)
         view.dataDetectorTypes = [.link]
         return view

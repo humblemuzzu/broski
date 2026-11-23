@@ -81,29 +81,43 @@ impl Walk<'_> {
     fn gap(&self, parent: usize, before: usize, after: usize) -> FormatSpacing {
         let blank = self.node(before).end_line + 1 < self.node(after).start_line;
         let previous = &self.node(before).kind;
+        let next = &self.node(after).kind;
         match self.node(parent).kind {
             Kind::List(_) if blank => FormatSpacing::Loose,
-            Kind::List(_) if self.roomy(before) => FormatSpacing::AfterGroup,
+            Kind::List(_) if self.has_nested_blocks(before) => FormatSpacing::AfterGroup,
             Kind::List(_) => FormatSpacing::Tight,
             Kind::Item(_) | Kind::Footnote(_) if blank => FormatSpacing::Paragraph,
-            Kind::Item(_) | Kind::Footnote(_) => FormatSpacing::Tight,
-            _ if matches!(self.node(after).kind, Kind::Heading(_)) => FormatSpacing::Section,
-            _ if matches!(previous, Kind::Heading(_)) => FormatSpacing::AfterHeading,
-            _ if matches!(previous, Kind::Rule | Kind::Code(_) | Kind::Table(_)) => {
-                FormatSpacing::Section
+            Kind::Item(_) | Kind::Footnote(_) if is_framed(previous) || is_framed(next) => {
+                FormatSpacing::AfterGroup
             }
+            Kind::Item(_) | Kind::Footnote(_) => FormatSpacing::Tight,
+            _ if matches!(previous, Kind::Rule) || matches!(next, Kind::Rule) => {
+                FormatSpacing::Rule
+            }
+            _ if matches!(previous, Kind::Heading(_))
+                && (matches!(next, Kind::Heading(_)) || is_framed(next)) =>
+            {
+                FormatSpacing::StackedHeading
+            }
+            _ if matches!(previous, Kind::Heading(_)) => FormatSpacing::AfterHeading,
+            _ if matches!(next, Kind::Heading(1 | 2)) => FormatSpacing::Section,
+            _ if matches!(next, Kind::Heading(_)) => FormatSpacing::SubSection,
+            _ if matches!(previous, Kind::Paragraph) && matches!(next, Kind::List(_)) => {
+                if blank {
+                    FormatSpacing::Loose
+                } else {
+                    FormatSpacing::LeadIn
+                }
+            }
+            _ if is_framed(previous) || is_framed(next) => FormatSpacing::Block,
             _ => FormatSpacing::Paragraph,
         }
     }
 
-    /// An item that holds more than one block, or whose text runs past about two lines of a phone:
-    /// the item after it is set apart, so long points read as points and not as one wall of text.
-    fn roomy(&self, item: usize) -> bool {
-        let children = &self.node(item).children;
-        children.len() > 1
-            || children
-                .first()
-                .is_some_and(|&first| self.node(first).text.chars().count() > ROOMY_ITEM_CHARS)
+    /// An item that holds nested structure (a sub-list, a second paragraph, a code block): the next
+    /// sibling item is set apart so groups read clearly without erratic single-line spacing jumps.
+    fn has_nested_blocks(&self, item: usize) -> bool {
+        self.node(item).children.len() > 1
     }
 
     fn visit(&mut self, node: usize, spacing: FormatSpacing) {
@@ -222,8 +236,18 @@ impl Walk<'_> {
     }
 }
 
-/// About two lines of body text on a phone.
-const ROOMY_ITEM_CHARS: usize = 90;
+fn is_framed(kind: &Kind) -> bool {
+    matches!(
+        kind,
+        Kind::Code(_)
+            | Kind::Table(_)
+            | Kind::Quote
+            | Kind::Callout(_)
+            | Kind::Insight
+            | Kind::Math(_)
+            | Kind::Html(_)
+    )
+}
 
 /// A list's widest marker in characters: one for bullets and tasks, at least `00.` for numbers.
 fn marker_width(data: &ListData, items: usize) -> u32 {

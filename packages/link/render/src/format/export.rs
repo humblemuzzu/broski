@@ -16,10 +16,12 @@ pub fn format_plain_text(text: &str) -> String {
 /// The blocks' words; `addresses` writes each written link's address after its label.
 pub(crate) fn plain_text(blocks: &[FormatBlock], addresses: bool) -> String {
     let mut out = String::new();
-    for block in blocks {
+    for (index, block) in blocks.iter().enumerate() {
         if !out.is_empty() {
+            let same_list = index > 0 && same_item_list(&blocks[index - 1], block);
             out.push_str(match block.spacing {
-                FormatSpacing::Tight | FormatSpacing::Loose => "\n",
+                FormatSpacing::Tight | FormatSpacing::LeadIn => "\n",
+                FormatSpacing::Loose | FormatSpacing::AfterGroup if same_list => "\n",
                 _ => "\n\n",
             });
         }
@@ -34,6 +36,16 @@ pub(crate) fn plain_text(blocks: &[FormatBlock], addresses: bool) -> String {
         }
     }
     out
+}
+
+fn same_item_list(a: &FormatBlock, b: &FormatBlock) -> bool {
+    let list_id = |block: &FormatBlock| {
+        block.containers.last().and_then(|c| match c.kind {
+            ContainerKind::Item { list, .. } => Some(list),
+            _ => None,
+        })
+    };
+    list_id(a).is_some() && list_id(a) == list_id(b)
 }
 
 /// The text before a block's first line (a callout's title line, a list marker) and before its

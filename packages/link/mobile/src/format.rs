@@ -130,10 +130,15 @@ pub enum ListMarker {
 pub enum FormatSpacing {
     None,
     Tight,
+    AfterHeading,
+    LeadIn,
+    StackedHeading,
     Loose,
     AfterGroup,
-    AfterHeading,
     Paragraph,
+    Block,
+    Rule,
+    SubSection,
     Section,
 }
 

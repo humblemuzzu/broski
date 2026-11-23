@@ -23,6 +23,7 @@ struct TableViewer: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(\.dismiss) private var dismiss
     @Environment(\.reading) private var reading
+    @Environment(\.formatContext) private var context
 
     private static let zoomRange: ClosedRange<CGFloat> = 0.6...2.2
     private var livePinch: CGFloat { min(max(zoom * pinch, Self.zoomRange.lowerBound), Self.zoomRange.upperBound) / zoom }
@@ -43,7 +44,9 @@ struct TableViewer: View {
     private var grid: some View {
         let fonts = TableFonts(typeSize: typeSize, scale: zoom)
         let layout = TableLayoutCache.whole(table, maxColumn: Self.maxColumn * zoom, fonts: fonts)
-        let style = fonts.spanStyle(underlinesLinks: reading.underlinesLinks)
+        var style = fonts.spanStyle(underlinesLinks: reading.underlinesLinks)
+        style.opensFiles = context != nil
+        style.strongColor = FormatTokens.boldText
         return ScrollView(.vertical) {
             HStack(alignment: .top, spacing: 0) {
                 pinnedColumns([0], layout: layout, style: style)
@@ -93,8 +96,16 @@ struct TableViewer: View {
                         Text(TableLayout.plain(table.header[column].spans))
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
-                        FormatSpans.text(table.rows[index][column].spans, style: SpanStyle(font: .body, codeFont: .system(.callout, design: .monospaced).weight(.medium)))
-                            .font(.body)
+                        FormatSpans.text(
+                            table.rows[index][column].spans,
+                            style: SpanStyle(
+                                font: .system(size: FormatRole.page.baseSize),
+                                codeFont: .system(size: FormatRole.page.baseSize * FormatTokens.inlineCodeScale, weight: .medium, design: .monospaced),
+                                underlinesLinks: reading.underlinesLinks, opensFiles: context != nil, strongColor: FormatTokens.boldText
+                            )
+                        )
+                            .font(.system(size: FormatRole.page.baseSize))
+                            .foregroundStyle(FormatTokens.bodyText)
                             .tint(FormatTokens.link)
                             .textRenderer(ChipRenderer())
                     }

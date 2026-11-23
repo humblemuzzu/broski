@@ -54,39 +54,65 @@ enum TranscriptEstimate {
         let indent = containerIndent(block.containers)
         let extra = containerVerticalExtra(block.containers)
         let proseWidth = max(120, min(width, FormatTokens.readableWidth) - indent)
-        let lineSpacing = FormatRole.page.lineSpacing * (compact ? 0.6 : 1)
+        let lineSpacing = FormatRole.page.lineSpacing * (compact ? 0.65 : 1)
         switch block.content {
         case .paragraph(let spans):
             return gap + extra + spansHeight(spans, font: bodyFont(), lineSpacing: lineSpacing, width: proseWidth)
         case .heading(let level, let spans):
+            let spec = FormatRole.page.heading(level)
             let font = headingFont(level)
-            return gap + extra + spansHeight(spans, font: font, lineSpacing: lineSpacing, width: proseWidth)
+            return gap + extra + spansHeight(spans, font: font, lineSpacing: spec.lineSpacing, width: proseWidth)
         case .code(let code):
             let count = code.text.reduce(1) { $1 == "\n" ? $0 + 1 : $0 }
             let folded = count > FormatTokens.codeFoldLines
             let shown = min(count, FormatTokens.codeFoldLines)
-            return gap + extra + 40 + CGFloat(shown) * 19 + (folded ? 40 : 12)
+            return gap + extra + 35 + CGFloat(shown) * 20 + (folded ? 40 : 22)
         case .table(let table):
             let rows = table.rows.count > FormatTokens.tableFoldRows ? FormatTokens.tableShownRows : table.rows.count
-            return gap + extra + CGFloat(rows + 1) * 44 + 36
+            let controls: CGFloat = table.shape == .grid ? 26 : 0
+            let fold: CGFloat = table.rows.count > FormatTokens.tableFoldRows ? 36 : 0
+            return gap + extra + controls + CGFloat(rows + 1) * 40 + fold
         case .math, .html:
             return gap + extra + 56
         case .rule:
-            return gap + extra
+            return gap + extra + 1
         }
     }
 
     private static func containerIndent(_ containers: [FormatContainer]) -> CGFloat {
         var indent: CGFloat = 0
+        var runCount = 0
+        var lastMarker: ListMarker?
+        func flushRun() {
+            guard runCount > 0, let marker = lastMarker else { return }
+            indent += FormatTokens.listBaseIndent(depth: runCount - 1)
+            switch marker {
+            case .bullet: indent += FormatTokens.bulletBoxWidth + FormatTokens.bulletGap
+            case .number(let value, _):
+                let digits = value >= 100 ? 3 : (value >= 10 ? 2 : 1)
+                indent += max(15, CGFloat(digits) * 9 + 4) + FormatTokens.numberGap
+            case .task: indent += FormatTokens.taskGutter + FormatTokens.taskGap
+            }
+            runCount = 0
+            lastMarker = nil
+        }
         for container in containers {
             switch container.kind {
-            case .quote: indent += FormatTokens.quoteBarWidth + FormatTokens.quoteGap
-            case .callout: indent += FormatTokens.calloutPadding * 2
-            case .item(_, _, let depth, _):
-                indent += depth < FormatTokens.maxListIndent ? (FormatTokens.bulletGutter + FormatTokens.markerGap) : 0
-            case .footnote: indent += 22
+            case .item(_, let marker, _, _):
+                runCount += 1
+                lastMarker = marker
+            case .quote:
+                flushRun()
+                indent += FormatTokens.quoteBarWidth + FormatTokens.quoteGap
+            case .callout:
+                flushRun()
+                indent += FormatTokens.calloutPadding * 2 + FormatTokens.calloutBarWidth
+            case .footnote:
+                flushRun()
+                indent += 22
             }
         }
+        flushRun()
         return indent
     }
 
@@ -126,12 +152,13 @@ enum TranscriptEstimate {
     }
 
     private static func headingFont(_ level: UInt8) -> UIFont {
-        let (size, style, weight): (CGFloat, UIFont.TextStyle, UIFont.Weight) = switch level {
-        case 1: (24, .title2, .bold)
-        case 2: (21, .title3, .semibold)
-        case 3: (18, .headline, .semibold)
-        default: (17, .body, .semibold)
+        let spec = FormatRole.page.heading(level)
+        let style: UIFont.TextStyle = switch level {
+        case 1: .title2
+        case 2: .title3
+        case 3: .headline
+        default: .body
         }
-        return UIFontMetrics(forTextStyle: style).scaledFont(for: .systemFont(ofSize: size, weight: weight))
+        return UIFontMetrics(forTextStyle: style).scaledFont(for: .systemFont(ofSize: spec.size, weight: .semibold))
     }
 }

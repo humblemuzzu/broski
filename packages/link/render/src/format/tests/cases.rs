@@ -109,7 +109,7 @@ fn list_markers_number_from_the_start_and_the_gutter_fits_the_widest() {
 }
 
 #[test]
-fn groups_of_a_tight_list_and_the_blocks_after_code_tables_and_rules_get_room() {
+fn groups_of_a_tight_list_and_blocks_around_code_tables_and_rules_get_balanced_room() {
     let text = "- **Tables:**\n  - wrap\n  - scroll\n- **Code:**\n  - fold\n- plain\n- items\n\n```sh\nls\n```\nAfter code.\n\n---\n\nAfter a rule.";
     let steps: Vec<FormatSpacing> = format_markdown(text, false)
         .iter()
@@ -118,15 +118,12 @@ fn groups_of_a_tight_list_and_the_blocks_after_code_tables_and_rules_get_room() 
     use FormatSpacing::*;
     assert_eq!(
         steps,
-        [
-            None, Tight, Tight, AfterGroup, Tight, AfterGroup, Tight, Paragraph, Section,
-            Paragraph, Section
-        ]
+        [None, Tight, Tight, AfterGroup, Tight, AfterGroup, Tight, Block, Block, Rule, Rule]
     );
 }
 
 #[test]
-fn the_point_after_a_long_one_is_set_apart_and_short_points_stay_together() {
+fn sibling_items_in_a_tight_list_keep_uniform_rhythm_regardless_of_line_length() {
     let long = "**Reciprocity of liking.** We like people who like us; someone who moves from cool to warm is liked more.";
     let text = format!("- {long}\n- short\n- also short\n- {long}\n- last");
     let steps: Vec<FormatSpacing> = format_markdown(&text, false)
@@ -134,13 +131,12 @@ fn the_point_after_a_long_one_is_set_apart_and_short_points_stay_together() {
         .map(|block| block.spacing)
         .collect();
     use FormatSpacing::*;
-    assert_eq!(steps, [None, AfterGroup, Tight, Tight, AfterGroup]);
+    assert_eq!(steps, [None, Tight, Tight, Tight, Tight]);
 }
 
 #[test]
-fn spacing_steps_follow_what_each_block_comes_after() {
-    let text =
-        "Intro.\n\n## Heading\n\nUnder it.\n\n- tight\n- items\n\n- then\n\n  loose\n\nLast.";
+fn spacing_steps_follow_editorial_hierarchy_and_proximity() {
+    let text = "Intro:\n- lead in\n- second\n\n## Heading\n\n### Subheading\n\nUnder it.\n\n- tight\n- items\n\n- then\n\n  loose\n\nLast.\n\n### Next sub\n\n```rs\nfn main() {}\n```";
     let steps: Vec<FormatSpacing> = format_markdown(text, false)
         .iter()
         .map(|block| block.spacing)
@@ -150,13 +146,18 @@ fn spacing_steps_follow_what_each_block_comes_after() {
         steps,
         [
             None,
+            LeadIn,
+            Tight,
             Section,
+            StackedHeading,
             AfterHeading,
-            Paragraph,
+            Loose,
             Tight,
             Loose,
             Paragraph,
-            Paragraph
+            Paragraph,
+            SubSection,
+            StackedHeading,
         ]
     );
 }

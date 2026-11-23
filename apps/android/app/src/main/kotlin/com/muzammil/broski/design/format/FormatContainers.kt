@@ -1,5 +1,6 @@
 package com.muzammil.broski.design.format
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,10 +9,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,6 +27,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -31,7 +35,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -42,11 +45,6 @@ import uniffi.broski_core.ContainerKind
 import uniffi.broski_core.FormatContainer
 import uniffi.broski_core.ListMarker
 
-/**
- * A block inside its quotes, callouts, list items and footnotes, outermost first. A container the
- * previous block shares draws up through the gap above this block, and one the next block shares
- * leaves its bottom open, so a quote's bar and a callout's card run on unbroken across blocks.
- */
 @Composable
 fun FormatContainers(
     containers: List<FormatContainer>,
@@ -56,49 +54,107 @@ fun FormatContainers(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    Box(modifier) { Wrapped(containers, 0, next, gap, role, content) }
+    val segments = remember(containers) { groupSegments(containers) }
+    Box(modifier) { WrappedSegments(segments, 0, next, gap, role, content) }
+}
+
+private sealed interface ContainerSegment {
+    data class Quote(val container: FormatContainer) : ContainerSegment
+    data class Callout(val container: FormatContainer, val kind: CalloutKind) : ContainerSegment
+    data class ListRun(val items: List<FormatContainer>) : ContainerSegment
+    data class Footnote(val container: FormatContainer, val label: String) : ContainerSegment
+}
+
+private fun groupSegments(containers: List<FormatContainer>): List<ContainerSegment> {
+    val result = mutableListOf<ContainerSegment>()
+    val items = mutableListOf<FormatContainer>()
+    fun flush() {
+        if (items.isNotEmpty()) {
+            result += ContainerSegment.ListRun(items.toList())
+            items.clear()
+        }
+    }
+    for (container in containers) {
+        when (val kind = container.kind) {
+            is ContainerKind.Item -> items += container
+            ContainerKind.Quote -> {
+                flush()
+                result += ContainerSegment.Quote(container)
+            }
+            is ContainerKind.Callout -> {
+                flush()
+                result += ContainerSegment.Callout(container, kind.kind)
+            }
+            is ContainerKind.Footnote -> {
+                flush()
+                result += ContainerSegment.Footnote(container, kind.label)
+            }
+        }
+    }
+    flush()
+    return result
 }
 
 @Composable
-private fun Wrapped(containers: List<FormatContainer>, index: Int, next: List<UInt>, gap: Dp, role: FormatRole, content: @Composable () -> Unit) {
-    val outer = containers.getOrNull(index) ?: return content()
-    val inner: @Composable () -> Unit = { Wrapped(containers, index + 1, next, gap, role, content) }
-    val above = if (outer.first) 0.dp else gap
-    when (val kind = outer.kind) {
-        ContainerKind.Quote -> QuoteFrame(above, inner)
-        is ContainerKind.Callout -> CalloutFrame(kind.kind, outer.first, outer.id in next, above, inner)
-        is ContainerKind.Item -> ListItemFrame(kind.marker, kind.depth, kind.width, outer.first, role, inner)
-        is ContainerKind.Footnote -> FootnoteFrame(kind.label, outer.first, inner)
+private fun WrappedSegments(
+    segments: List<ContainerSegment>,
+    index: Int,
+    next: List<UInt>,
+    gap: Dp,
+    role: FormatRole,
+    content: @Composable () -> Unit,
+) {
+    val segment = segments.getOrNull(index) ?: return content()
+    val inner: @Composable () -> Unit = { WrappedSegments(segments, index + 1, next, gap, role, content) }
+    when (segment) {
+        is ContainerSegment.Quote -> QuoteFrame(if (segment.container.first) 0.dp else gap, inner)
+        is ContainerSegment.Callout -> CalloutFrame(
+            segment.kind,
+            segment.container.first,
+            segment.container.id in next,
+            if (segment.container.first) 0.dp else gap,
+            inner,
+        )
+        is ContainerSegment.ListRun -> FlatListFrame(segment.items, gap, role, inner)
+        is ContainerSegment.Footnote -> FootnoteFrame(segment.label, segment.container.first, inner)
     }
 }
 
 @Composable
 private fun QuoteFrame(above: Dp, content: @Composable () -> Unit) {
-    val bar = MaterialTheme.colorScheme.outlineVariant
-    Box(
-        Modifier.fillMaxWidth()
-            .drawBehind {
-                val width = FormatTokens.quoteBarWidth.toPx()
-                val top = -above.toPx()
-                drawRoundRect(bar, Offset(0f, top), Size(width, size.height - top), CornerRadius(width / 2))
-            }
-            .padding(start = FormatTokens.quoteBarWidth + FormatTokens.quoteGap),
-    ) { content() }
+    val bar = formatMarkerColor.copy(alpha = 0.55f)
+    CompositionLocalProvider(LocalInQuote provides true) {
+        Box(
+            Modifier.fillMaxWidth()
+                .drawBehind {
+                    val width = FormatTokens.quoteBarWidth.toPx()
+                    val top = -above.toPx()
+                    drawRoundRect(bar, Offset(0f, top), Size(width, size.height - top), CornerRadius(width / 2))
+                }
+                .padding(start = FormatTokens.quoteBarWidth + FormatTokens.quoteGap),
+        ) { content() }
+    }
 }
 
 @Composable
 private fun CalloutFrame(kind: CalloutKind, first: Boolean, continues: Boolean, above: Dp, content: @Composable () -> Unit) {
     val tint = kind.tint()
     val pad = FormatTokens.calloutPadding
+    val barWidth = FormatTokens.calloutBarWidth
     Column(
         Modifier.fillMaxWidth()
-            .drawBehind { callout(tint.copy(alpha = 0.1f), first, continues, above.toPx()) }
-            .padding(start = pad, end = pad, top = if (first) pad - 2.dp else 0.dp, bottom = if (continues) 0.dp else pad - 2.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+            .drawBehind { callout(tint, first, continues, above.toPx(), barWidth.toPx()) }
+            .padding(
+                start = pad + barWidth,
+                end = pad,
+                top = if (first) pad - 1.dp else 0.dp,
+                bottom = if (continues) 0.dp else pad - 1.dp,
+            ),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         if (first) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.semantics { heading() }) {
-                Icon(painterResource(kind.icon), contentDescription = null, tint = tint, modifier = Modifier.size(18.dp))
+                Icon(painterResource(kind.icon), contentDescription = null, tint = tint, modifier = Modifier.size(17.dp))
                 Text(stringResource(kind.title), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold), color = tint)
             }
         }
@@ -106,85 +162,140 @@ private fun CalloutFrame(kind: CalloutKind, first: Boolean, continues: Boolean, 
     }
 }
 
-/** The callout's card: rounded where it starts and ends, drawn up through the gap above it. */
-private fun DrawScope.callout(fill: Color, first: Boolean, continues: Boolean, above: Float) {
+private fun DrawScope.callout(tint: Color, first: Boolean, continues: Boolean, above: Float, barWidth: Float) {
     val radius = FormatTokens.calloutRadius.toPx()
     val top = if (first) 0f else -above
     val topRadius = if (first) radius else 0f
     val bottomRadius = if (continues) 0f else radius
-    val path = Path().apply {
-        addRoundRect(
-            RoundRect(
-                left = 0f, top = top, right = size.width, bottom = size.height,
-                topLeftCornerRadius = CornerRadius(topRadius), topRightCornerRadius = CornerRadius(topRadius),
-                bottomRightCornerRadius = CornerRadius(bottomRadius), bottomLeftCornerRadius = CornerRadius(bottomRadius),
-            ),
-        )
-    }
-    drawPath(path, fill)
+    val rect = RoundRect(
+        left = 0f, top = top, right = size.width, bottom = size.height,
+        topLeftCornerRadius = CornerRadius(topRadius), topRightCornerRadius = CornerRadius(topRadius),
+        bottomRightCornerRadius = CornerRadius(bottomRadius), bottomLeftCornerRadius = CornerRadius(bottomRadius),
+    )
+    val path = Path().apply { addRoundRect(rect) }
+    drawPath(path, tint.copy(alpha = 0.085f))
+    drawRoundRect(
+        tint.copy(alpha = 0.75f),
+        Offset(0f, top),
+        Size(barWidth, size.height - top),
+        CornerRadius(topRadius.coerceAtMost(barWidth)),
+    )
 }
 
-/**
- * A list item: its marker in a gutter as wide as the list's widest (so `9.` and `10.` line up), the
- * text beside it; past four levels the indent stops growing and the marker sits inline.
- */
 @Composable
-private fun ListItemFrame(marker: ListMarker, depth: UInt, width: UInt, first: Boolean, role: FormatRole, content: @Composable () -> Unit) {
+private fun FlatListFrame(items: List<FormatContainer>, gap: Dp, role: FormatRole, content: @Composable () -> Unit) {
+    val leaf = items.last()
+    val itemKind = leaf.kind as ContainerKind.Item
+    val marker = itemKind.marker
+    val visualDepth = items.size - 1
+    val fontScale = LocalDensity.current.fontScale
+    val baseIndent = FormatTokens.listBaseIndentDp(visualDepth, fontScale)
+    val bulletBox = (FormatTokens.bulletBoxWidth.value * fontScale.coerceIn(0.85f, 1.35f)).dp
     val done = marker is ListMarker.Task && marker.checked
-    Row(horizontalArrangement = Arrangement.spacedBy(FormatTokens.markerGap), modifier = Modifier.fillMaxWidth()) {
-        if (depth < FormatTokens.MAX_LIST_INDENT) {
-            Box(Modifier.width(gutter(marker, width, role)), contentAlignment = Alignment.TopEnd) {
-                if (first) Marker(marker, depth, role)
+    val guideColor = formatListGuide
+    val spacing = when (marker) {
+        ListMarker.Bullet -> FormatTokens.bulletGap
+        is ListMarker.Number -> FormatTokens.numberGap
+        is ListMarker.Task -> FormatTokens.taskGap
+    }
+    val guideLevels = visualDepth.coerceAtMost(FormatTokens.listIndentSteps.size)
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(spacing),
+        modifier = Modifier.fillMaxWidth()
+            .drawBehind {
+                if (guideLevels > 0) {
+                    val stroke = 1.dp.toPx()
+                    val halfBox = bulletBox.toPx() * 0.5f
+                    val halfTask = (FormatTokens.taskGutter.value * fontScale.coerceIn(0.85f, 1.4f)).dp.toPx() * 0.5f
+                    val gapPx = gap.toPx()
+                    for (level in 0 until guideLevels) {
+                        val ancestor = items[level]
+                        val top = if (ancestor.first) 0f else -gapPx
+                        val center = if ((ancestor.kind as? ContainerKind.Item)?.marker is ListMarker.Task) halfTask else halfBox
+                        val x = FormatTokens.listBaseIndentDp(level, fontScale).toPx() + center
+                        drawLine(guideColor, Offset(x, top), Offset(x, size.height), strokeWidth = stroke)
+                    }
+                }
             }
-        } else if (first) {
-            Marker(marker, depth, role)
+            .padding(start = baseIndent),
+    ) {
+        val markerMod = when (marker) {
+            is ListMarker.Number -> Modifier.widthIn(min = (15f * fontScale.coerceIn(0.85f, 1.4f)).dp)
+            else -> Modifier.width(gutter(marker, bulletBox))
+        }
+        Box(markerMod, contentAlignment = Alignment.TopStart) {
+            if (leaf.first) {
+                Marker(marker, visualDepth, role, bulletBox)
+            } else if (marker is ListMarker.Number) {
+                Box(Modifier.alpha(0f)) { Marker(marker, visualDepth, role, bulletBox) }
+            }
         }
         Box(Modifier.weight(1f).alpha(if (done) 0.55f else 1f)) { content() }
     }
 }
 
-/** A numbered list's gutter: its widest marker (`width` characters, the dot included) measured in the marker's own style. */
 @Composable
-private fun gutter(marker: ListMarker, width: UInt, role: FormatRole): Dp {
-    if (marker !is ListMarker.Number) return FormatTokens.bulletGutter
-    val measurer = rememberTextMeasurer()
-    val style = role.textStyle().copy(fontFeatureSettings = "tnum")
-    val widest = "0".repeat(width.toInt().coerceAtLeast(2) - 1) + "."
-    val pixels = remember(widest, style, measurer) { measurer.measure(widest, style).size.width }
-    return with(LocalDensity.current) { pixels.toDp() }
-}
-
-@Composable
-private fun Marker(marker: ListMarker, depth: UInt, role: FormatRole) {
-    val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    val style = role.textStyle()
-    when (marker) {
-        ListMarker.Bullet -> {
-            val bullet = stringResource(R.string.format_bullet)
-            Text(BULLETS[(depth % BULLETS.size.toUInt()).toInt()], style = style, color = muted, modifier = Modifier.semantics { contentDescription = bullet })
-        }
-        is ListMarker.Number -> Text(
-            "${marker.value}${if (marker.paren) ")" else "."}",
-            style = style.copy(fontFeatureSettings = "tnum", textAlign = TextAlign.End),
-            color = muted,
-        )
-        is ListMarker.Task -> Icon(
-            painterResource(if (marker.checked) R.drawable.ic_check_circle else R.drawable.ic_radio_unchecked),
-            contentDescription = stringResource(if (marker.checked) R.string.format_task_done else R.string.format_task_todo),
-            tint = if (marker.checked) BroskiTheme.semantic.done else muted,
-            modifier = Modifier.padding(top = 3.dp).size(with(LocalDensity.current) { style.fontSize.toDp() } + 2.dp),
-        )
+private fun gutter(marker: ListMarker, bulletBox: Dp): Dp {
+    val density = LocalDensity.current
+    return when (marker) {
+        ListMarker.Bullet -> bulletBox
+        is ListMarker.Task -> (FormatTokens.taskGutter.value * density.fontScale.coerceIn(0.85f, 1.4f)).dp
+        is ListMarker.Number -> (15f * density.fontScale.coerceIn(0.85f, 1.4f)).dp
     }
 }
 
-private val BULLETS = listOf("•", "◦", "▪")
+@Composable
+private fun Marker(marker: ListMarker, visualDepth: Int, role: FormatRole, bulletBox: Dp) {
+    val muted = formatMarkerColor
+    val style = role.textStyle()
+    val density = LocalDensity.current
+    val lineHeightDp = with(density) { style.lineHeight.toDp() }
+    when (marker) {
+        ListMarker.Bullet -> {
+            val bulletDesc = stringResource(R.string.format_bullet)
+            val dotDp = with(density) { (style.fontSize * 0.31f).toDp() }.coerceAtLeast(4.5.dp)
+            Box(
+                Modifier.size(width = bulletBox, height = lineHeightDp).semantics { contentDescription = bulletDesc },
+                contentAlignment = Alignment.Center,
+            ) {
+                Canvas(Modifier.size(dotDp)) {
+                    when (visualDepth % 3) {
+                        0 -> drawCircle(muted)
+                        1 -> drawCircle(muted, style = Stroke(width = 1.25.dp.toPx()))
+                        else -> {
+                            val side = size.minDimension * 0.88f
+                            val inset = (size.minDimension - side) / 2f
+                            drawRoundRect(muted, Offset(inset, inset), Size(side, side), CornerRadius(1.dp.toPx()))
+                        }
+                    }
+                }
+            }
+        }
+        is ListMarker.Number -> Text(
+            "${marker.value}${if (marker.paren) ")" else "."}",
+            style = style.copy(fontSize = style.fontSize * 0.94f, fontFeatureSettings = "tnum", textAlign = TextAlign.Start),
+            color = muted,
+        )
+        is ListMarker.Task -> {
+            val iconSize = with(density) { (style.fontSize * 0.95f).toDp() }
+            Box(Modifier.size(width = iconSize, height = lineHeightDp), contentAlignment = Alignment.Center) {
+                Icon(
+                    painterResource(if (marker.checked) R.drawable.ic_check_circle else R.drawable.ic_radio_unchecked),
+                    contentDescription = stringResource(if (marker.checked) R.string.format_task_done else R.string.format_task_todo),
+                    tint = if (marker.checked) BroskiTheme.semantic.done else muted,
+                    modifier = Modifier.size(iconSize),
+                )
+            }
+        }
+    }
+}
 
 @Composable
 private fun FootnoteFrame(label: String, first: Boolean, content: @Composable () -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(FormatTokens.markerGap), modifier = Modifier.fillMaxWidth()) {
+    Row(horizontalArrangement = Arrangement.spacedBy(FormatTokens.numberGap), modifier = Modifier.fillMaxWidth()) {
         Text(
             if (first) label else "",
-            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold, textAlign = TextAlign.End),
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Start),
             color = formatLink,
             modifier = Modifier.width(16.dp).padding(top = 2.dp),
         )

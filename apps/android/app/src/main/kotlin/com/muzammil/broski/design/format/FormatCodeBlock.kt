@@ -1,12 +1,15 @@
 package com.muzammil.broski.design.format
 
 import android.content.ClipData
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -29,7 +32,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalDensity
@@ -45,6 +47,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
+import com.muzammil.broski.design.BroskiTheme
 import com.muzammil.broski.design.MonoFamily
 import com.muzammil.broski.design.code.CodeColors
 import com.muzammil.broski.design.code.accent
@@ -58,26 +61,23 @@ import uniffi.broski_core.FormatCode
 import uniffi.broski_core.languageLabel
 import uniffi.broski_core.parseUnifiedDiff
 
-/**
- * A fenced block: a quiet header with the language's name, the fence's file name and the line count,
- * Wrap, Copy and Expand; the code scrolls sideways (text-like fences wrap), folds past 30 lines, is
- * coloured line by line as it arrives, a `diff` fence draws as a diff, and a shell fence dims the
- * `$` prompt that copying leaves out. Its text can be selected, so its actions stay in the header
- * rather than behind a long-press. At the top level of an answer it runs to the screen's edges
- * ([bleed]), its code still in line with the prose.
- */
 @Composable
-fun FormatCodeBlock(code: FormatCode, streaming: Boolean, bleed: Dp = 0.dp) {
+fun FormatCodeBlock(code: FormatCode, streaming: Boolean) {
     val kind = remember(code.language) { CodeKind.of(code.language) }
     var expanded by remember { mutableStateOf(false) }
     val diff = remember(code.text, kind, code.closed) {
         if (kind == CodeKind.Diff && code.closed) parseUnifiedDiff(code.text).files.firstOrNull() else null
     }
-    val inset = if (bleed > 0.dp) bleed else 12.dp
-    val shape = if (bleed > 0.dp) RectangleShape else RoundedCornerShape(FormatTokens.codeRadius)
-    Surface(Modifier.fillMaxWidth().bleed(bleed), shape = shape, color = MaterialTheme.colorScheme.surfaceContainer) {
+    val inset = 14.dp
+    Surface(
+        Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(FormatTokens.codeRadius),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        border = BorderStroke(0.5.dp, formatCardBorder),
+    ) {
         Column {
             CodeHeader(code, kind, inset) { expanded = true }
+            Box(Modifier.fillMaxWidth().height(0.5.dp).background(formatCardBorder))
             if (diff != null) InlineDiff(diff, inset) else CodeBody(code, kind, streaming, inset)
         }
     }
@@ -94,7 +94,7 @@ private fun title(code: FormatCode, kind: CodeKind): String = when {
 private fun CodeHeader(code: FormatCode, kind: CodeKind, inset: Dp, onExpand: () -> Unit) {
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
-    val muted = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val lines = remember(code.text) { code.text.count { it == '\n' } + 1 }
     val reading = LocalReading.current
     val setReading = LocalSetReading.current
@@ -105,34 +105,44 @@ private fun CodeHeader(code: FormatCode, kind: CodeKind, inset: Dp, onExpand: ()
             copied = false
         }
     }
-    Row(Modifier.fillMaxWidth().padding(start = inset, end = (inset - 12.dp).coerceAtLeast(0.dp)), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(
+        Modifier.fillMaxWidth().padding(start = inset, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         Text(title(code, kind), style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium), color = muted)
-        code.file?.let { Text(it, style = MaterialTheme.typography.labelSmall.mono(), color = muted, maxLines = 1, overflow = TextOverflow.StartEllipsis, modifier = Modifier.weight(1f, fill = false)) }
-        if (lines > FormatTokens.CODE_COUNT_LINES) Text(pluralStringResource(R.plurals.format_code_lines, lines, lines), style = MaterialTheme.typography.labelSmall, color = muted.copy(alpha = 0.7f))
+        code.file?.let {
+            Text(it, style = MaterialTheme.typography.labelSmall.mono(), color = muted, maxLines = 1, overflow = TextOverflow.StartEllipsis, modifier = Modifier.weight(1f, fill = false))
+        }
+        if (lines > FormatTokens.CODE_COUNT_LINES) {
+            Text(pluralStringResource(R.plurals.format_code_lines, lines, lines), style = MaterialTheme.typography.labelSmall, color = muted.copy(alpha = 0.7f))
+        }
         Row(Modifier.weight(1f), horizontalArrangement = Arrangement.End) {
             if (!code.prose && kind != CodeKind.Diff) {
-                HeaderButton(R.drawable.ic_wrap_text, if (reading.wrapsCode) R.string.format_code_scroll else R.string.format_code_wrap, on = reading.wrapsCode) {
+                HeaderButton(R.drawable.ic_wrap_text, if (reading.wrapsCode) R.string.format_code_scroll else R.string.format_code_wrap, tint = if (reading.wrapsCode) formatLink else muted) {
                     setReading(reading.copy(wrapsCode = !reading.wrapsCode))
                 }
             }
-            HeaderButton(if (copied) R.drawable.ic_check else R.drawable.ic_content_copy, R.string.format_copy_code) {
+            HeaderButton(
+                if (copied) R.drawable.ic_check else R.drawable.ic_content_copy,
+                R.string.format_copy_code,
+                tint = if (copied) BroskiTheme.semantic.done else muted,
+            ) {
                 scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(code.language ?: "code", copyText(code.text, kind)))) }
                 copied = true
             }
-            HeaderButton(R.drawable.ic_open_in_full, R.string.format_expand, onClick = onExpand)
+            HeaderButton(R.drawable.ic_open_in_full, R.string.format_expand, tint = muted, onClick = onExpand)
         }
     }
 }
 
-/** A header button; [on] tints it in the link colour while its setting is on. */
 @Composable
-private fun HeaderButton(icon: Int, label: Int, on: Boolean = false, onClick: () -> Unit) {
-    IconButton(onClick = onClick, modifier = Modifier.size(40.dp)) {
-        Icon(painterResource(icon), contentDescription = stringResource(label), modifier = Modifier.size(18.dp), tint = if (on) formatLink else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f))
+private fun HeaderButton(icon: Int, label: Int, tint: Color, onClick: () -> Unit) {
+    IconButton(onClick = onClick, modifier = Modifier.size(36.dp)) {
+        Icon(painterResource(icon), contentDescription = stringResource(label), modifier = Modifier.size(16.dp), tint = tint)
     }
 }
 
-/** How long Copy shows its check. */
 private const val COPIED_MS = 1_500L
 
 @Composable
@@ -157,14 +167,23 @@ private fun CodeBody(code: FormatCode, kind: CodeKind, streaming: Boolean, inset
         }
     }
     val wraps = code.prose || LocalReading.current.wrapsCode || LocalDensity.current.fontScale >= LARGE_FONT_SCALE
-    val style = MaterialTheme.typography.bodySmall.copy(fontFamily = MonoFamily, fontSize = FormatTokens.codeSize, lineHeight = FormatTokens.codeSize * 1.45f)
+    val style = MaterialTheme.typography.bodySmall.copy(fontFamily = MonoFamily, fontSize = FormatTokens.codeSize, lineHeight = FormatTokens.codeSize * 1.48f)
     Column {
-        val padding = Modifier.padding(start = inset, end = inset, bottom = if (folds) 4.dp else 12.dp)
+        val padding = Modifier.padding(start = inset, end = inset, top = 10.dp, bottom = if (folds) 4.dp else 12.dp)
         SelectionContainer {
             if (wraps) {
                 Text(text, style = style, color = colors.plain, modifier = padding.fillMaxWidth().fadeFoot(folds))
             } else {
-                Row(Modifier.horizontalScroll(rememberScrollState()).then(padding).fadeFoot(folds)) { Text(text, style = style, color = colors.plain, softWrap = false) }
+                val scroll = rememberScrollState()
+                Row(
+                    Modifier
+                        .fadeEnd(scroll.maxValue > 0 && scroll.value < scroll.maxValue, 22.dp)
+                        .horizontalScroll(scroll)
+                        .then(padding)
+                        .fadeFoot(folds),
+                ) {
+                    Text(text, style = style, color = colors.plain, softWrap = false)
+                }
             }
         }
         if (folds) {
@@ -184,17 +203,15 @@ private fun AnnotatedString.Builder.appendLine(line: AnnotatedString, shell: Boo
     }
 }
 
-/** What Copy puts on the clipboard: a shell block without its prompts. */
 private fun copyText(text: String, kind: CodeKind): String =
     if (kind != CodeKind.Shell) text else text.split('\n').joinToString("\n") { it.removePrefix("$ ") }
 
-/** A `diff` fence as the diff view's lines: added and removed tinted, the changed words more. */
 @Composable
 private fun InlineDiff(file: uniffi.broski_core.DiffFile, inset: Dp) {
     val colors = CodeColors.current
     val rows = remember(file) { diffRows(file) }
     val style = MaterialTheme.typography.bodySmall.mono()
-    Column(Modifier.fillMaxWidth().padding(bottom = 8.dp).horizontalScroll(rememberScrollState())) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp).horizontalScroll(rememberScrollState())) {
         rows.forEach { row ->
             val accent = row.kind.accent(colors)
             Row(Modifier.background(accent?.let(colors::lineTint) ?: Color.Transparent).padding(horizontal = inset)) {
@@ -205,10 +222,8 @@ private fun InlineDiff(file: uniffi.broski_core.DiffFile, inset: Dp) {
     }
 }
 
-/** From this font scale code wraps, so the largest text never needs sideways scrolling. */
 private const val LARGE_FONT_SCALE = 1.7f
 
-/** What a fence's language makes of the block beyond its colours. */
 enum class CodeKind {
     Code,
     Diff,

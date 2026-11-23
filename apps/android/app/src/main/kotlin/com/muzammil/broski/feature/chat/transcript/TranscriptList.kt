@@ -41,7 +41,7 @@ class TranscriptCallbacks(
 private const val OLDER_AHEAD = 4
 
 /** The transcript's side margin, which a top-level code block or table reaches across. */
-val SIDE_MARGIN = 20.dp
+val SIDE_MARGIN = 16.dp
 
 /**
  * The conversation, full bleed under the top bar and the composer, laid out from the bottom so a

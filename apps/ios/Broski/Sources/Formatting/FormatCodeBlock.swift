@@ -2,15 +2,9 @@ import BroskiCore
 import SwiftUI
 import UIKit
 
-/// A fenced block: a quiet header with the language's name, the fence's file name and the line
-/// count, Copy and Expand (Wrap is in its long-press menu); the code scrolls sideways (text-like
-/// fences wrap), folds past 30 lines, is coloured line by line as it arrives, a `diff` fence draws
-/// as a diff, and a shell fence dims the `$` prompt that copying leaves out. At the top level of an
-/// answer it runs to the screen's edges (`bleed`), its text still in line with the prose.
 struct FormatCodeBlock: View {
     let code: FormatCode
     let streaming: Bool
-    var bleed: CGFloat = 0
     @Environment(\.reading) private var reading
     @Environment(\.dynamicTypeSize) private var typeSize
     @AppStorage(Preference.readingWrapsCode) private var wrapsByDefault = false
@@ -20,8 +14,9 @@ struct FormatCodeBlock: View {
     @State private var coloured: [CodeLine]?
     @State private var unfoldedHere = false
     @State private var copied = 0
+    @State private var showCopied = false
+    @State private var moreToTheRight = false
 
-    /// Kept by the chat in a transcript row, which a reused cell would otherwise fold again.
     private var unfolded: Bool {
         if let disclosure, let key = disclosureKey.map({ $0 + "/code" }) { disclosure.isOpen(key) } else { unfoldedHere }
     }
@@ -37,12 +32,11 @@ struct FormatCodeBlock: View {
     private var kind: CodeKind { CodeKind(language: code.language) }
     private var plainLines: [Substring] { code.text.split(separator: "\n", omittingEmptySubsequences: false) }
     private var wraps: Bool { code.prose || reading.wrapsCode || typeSize.isAccessibilitySize }
-    /// Where the code starts: in line with the prose when the block runs to the screen's edges.
-    private var inset: CGFloat { bleed > 0 ? bleed : Spacing.m }
+    private let inset: CGFloat = Spacing.m + 2
 
     var body: some View {
         if kind == .diff, code.closed, let file = parseUnifiedDiff(text: code.text).files.first {
-            card { DiffBody(file: file, showsHeader: false).padding(.horizontal, bleed).padding(.bottom, Spacing.xs) }
+            card { DiffBody(file: file, showsHeader: false).padding(.vertical, Spacing.xs) }
         } else {
             card { lines }
                 .task(id: completedText) { await colour() }
@@ -50,15 +44,26 @@ struct FormatCodeBlock: View {
     }
 
     private func card<Body: View>(@ViewBuilder _ content: () -> Body) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
+        let shape = RoundedRectangle(cornerRadius: FormatTokens.codeRadius, style: .continuous)
+        return VStack(alignment: .leading, spacing: 0) {
             header
+            Rectangle()
+                .fill(FormatTokens.cardBorder)
+                .frame(height: 0.5)
+                .accessibilityHidden(true)
             content()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Palette.codeBackground, in: .rect(cornerRadius: bleed > 0 ? 0 : FormatTokens.codeRadius, style: .continuous))
-        .padding(.horizontal, -bleed)
+        .background(Palette.codeBackground, in: shape)
+        .overlay { shape.strokeBorder(FormatTokens.cardBorder, lineWidth: 0.5) }
         .contextMenu { menu }
         .haptic(.confirmed, trigger: copied)
+        .task(id: copied) {
+            guard copied > 0 else { return }
+            showCopied = true
+            try? await Task.sleep(for: .milliseconds(1500))
+            showCopied = false
+        }
         .accessibilityElement(children: .contain)
     }
 
@@ -66,11 +71,11 @@ struct FormatCodeBlock: View {
         HStack(spacing: Spacing.s) {
             Text(title)
                 .font(.caption.weight(.medium))
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(.secondary)
             if let file = code.file {
                 Text(file)
                     .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .truncationMode(.head)
             }
@@ -81,24 +86,24 @@ struct FormatCodeBlock: View {
                     .fixedSize()
             }
             Spacer(minLength: Spacing.xs)
-            headerButton(copied > 0 ? "checkmark" : "doc.on.doc", label: "Copy code") { copy() }
+            headerButton(showCopied ? "checkmark" : "doc.on.doc", label: "Copy code", accent: showCopied) { copy() }
             headerButton("arrow.up.left.and.arrow.down.right", label: "Expand") { expand() }
         }
         .padding(.leading, inset)
-        .padding(.trailing, max(inset - Spacing.m, Spacing.xxs))
-        .padding(.vertical, Spacing.xxs)
+        .padding(.trailing, Spacing.xs)
+        .frame(minHeight: 34)
     }
 
-    private func headerButton(_ symbol: String, label: String, action: @escaping () -> Void) -> some View {
+    private func headerButton(_ symbol: String, label: String, accent: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
                 .contentTransition(.symbolEffect(.replace))
                 .font(.caption.weight(.medium))
-                .frame(minWidth: 36, minHeight: 32)
+                .frame(minWidth: 34, minHeight: 30)
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        .foregroundStyle(.tertiary)
+        .foregroundStyle(accent ? Palette.done : Color(uiColor: .secondaryLabel))
         .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
         .accessibilityLabel(label)
     }
@@ -113,9 +118,9 @@ struct FormatCodeBlock: View {
         let folds = plainLines.count > FormatTokens.codeFoldLines && !unfolded
         let text = Text(attributed(limit: folds ? FormatTokens.codeFoldLines : nil))
             .font(.system(size: codeSize, design: .monospaced))
-            .lineSpacing(2)
+            .lineSpacing(3.5)
             .padding(.horizontal, inset)
-            .padding(.top, Spacing.xxs)
+            .padding(.top, Spacing.m - 2)
             .padding(.bottom, folds ? Spacing.xs : Spacing.m)
         VStack(alignment: .leading, spacing: 0) {
             Group {
@@ -125,6 +130,18 @@ struct FormatCodeBlock: View {
                     ScrollView(.horizontal) { text.fixedSize(horizontal: true, vertical: false) }
                         .scrollIndicators(.hidden)
                         .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
+                        .onScrollGeometryChange(for: Bool.self) { geometry in
+                            geometry.contentOffset.x + geometry.containerSize.width < geometry.contentSize.width - 1
+                        } action: { _, more in
+                            moreToTheRight = more
+                        }
+                        .mask {
+                            HStack(spacing: 0) {
+                                Rectangle()
+                                LinearGradient(colors: [.black, .black.opacity(0.15)], startPoint: .leading, endPoint: .trailing)
+                                    .frame(width: moreToTheRight ? 22 : 0)
+                            }
+                        }
                 }
             }
             .mask(alignment: .top) {
@@ -151,7 +168,6 @@ struct FormatCodeBlock: View {
         .foregroundStyle(FormatTokens.link)
     }
 
-    /// The lines to draw, coloured as far as the highlighter has got, the rest plain.
     private func attributed(limit: Int?) -> AttributedString {
         let plain = plainLines
         let count = limit.map { min($0, plain.count) } ?? plain.count
@@ -174,7 +190,6 @@ struct FormatCodeBlock: View {
         return text
     }
 
-    /// The text up to its last complete line while it streams: colour a line once it has ended.
     private var completedText: String {
         if code.closed || !streaming { return code.text }
         guard let end = code.text.lastIndex(of: "\n") else { return "" }
@@ -187,7 +202,6 @@ struct FormatCodeBlock: View {
         coloured = await Highlighter.shared.highlight(text, language: code.language)
     }
 
-    /// What Copy puts on the pasteboard: a shell block without its prompts.
     private var copyText: String {
         guard kind == .shell else { return code.text }
         return plainLines.map { $0.hasPrefix("$ ") ? String($0.dropFirst(2)) : String($0) }.joined(separator: "\n")
@@ -219,7 +233,6 @@ struct FormatCodeBlock: View {
     }
 }
 
-/// What a fence's language makes of the block beyond its colours.
 nonisolated enum CodeKind: Equatable {
     case code
     case diff

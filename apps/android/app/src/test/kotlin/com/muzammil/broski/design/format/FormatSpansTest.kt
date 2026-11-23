@@ -8,7 +8,6 @@ import org.junit.Test
 import uniffi.broski_core.FormatContent
 import uniffi.broski_core.formatMarkdown
 
-/** An answer's spans as the app styles them, from the real core's parse. */
 class FormatSpansTest {
     private val text = "See [the spec](https://spec.commonmark.org), `src/a.ts:3`, `/api/v1/x` and https://example.com."
 
@@ -19,26 +18,28 @@ class FormatSpansTest {
 
     private fun linked(opensFiles: Boolean): List<String> {
         val built = styled(opensFiles)
-        return built.getLinkAnnotations(0, built.length).map { built.text.substring(it.start, it.end) }
+        return built.getLinkAnnotations(0, built.length).map { built.text.substring(it.start, it.end).trim('\u202F') }
     }
 
-    private fun chips(opensFiles: Boolean): List<String> {
+    private fun chips(opensFiles: Boolean): List<Pair<String, String>> {
         val built = styled(opensFiles)
-        return built.getStringAnnotations("chip", 0, built.length).map { built.text.substring(it.start, it.end).trim('\u202F') }
+        return built.getStringAnnotations(CHIP, 0, built.length).map {
+            built.text.substring(it.start, it.end).trim('\u202F') to it.item
+        }
     }
 
     @Test
-    fun aTitledPageGetsItsGlobeAPathInCodeOpensItsFileAndARouteIsPlainCode() {
+    fun linksHaveNoInlineGlobeClutterPathsGetPathChipsAndRoutesStayCodeChips() {
         val built = styled(opensFiles = true)
-        assertEquals(1, built.getStringAnnotations("androidx.compose.foundation.text.inlineContent", 0, built.length).size)
+        assertEquals(0, built.getStringAnnotations("androidx.compose.foundation.text.inlineContent", 0, built.length).size)
         assertEquals(listOf("the spec", "src/a.ts:3", "https://example.com"), linked(opensFiles = true))
-        assertEquals(listOf("/api/v1/x"), chips(opensFiles = true))
+        assertEquals(listOf("src/a.ts:3" to CHIP_PATH, "/api/v1/x" to CHIP_CODE), chips(opensFiles = true))
         assertEquals(LinkAnnotation.Clickable::class, built.getLinkAnnotations(0, built.length).first().item::class)
     }
 
     @Test
     fun whereTheTextBelongsToNoMachineAPathIsTheCodeItIs() {
         assertEquals(listOf("the spec", "https://example.com"), linked(opensFiles = false))
-        assertEquals(listOf("src/a.ts:3", "/api/v1/x"), chips(opensFiles = false))
+        assertEquals(listOf("src/a.ts:3" to CHIP_CODE, "/api/v1/x" to CHIP_CODE), chips(opensFiles = false))
     }
 }

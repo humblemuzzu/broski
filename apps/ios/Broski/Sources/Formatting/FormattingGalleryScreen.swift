@@ -60,6 +60,7 @@ private struct FormattingSampleScreen: View {
             .padding(.horizontal, TranscriptView.sideMargin)
             .padding(.vertical, Spacing.m)
         }
+        .background(Palette.chatCanvas.ignoresSafeArea())
         .environment(\.formatBleed, TranscriptView.sideMargin)
         .accessibilityIdentifier("gallery-sample-scroll")
         .navigationTitle(sample.title)

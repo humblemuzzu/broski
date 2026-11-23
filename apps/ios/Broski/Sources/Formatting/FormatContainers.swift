@@ -1,9 +1,10 @@
 import BroskiCore
 import SwiftUI
 
-/// A block inside its quotes, callouts, list items and footnotes, outermost first. A container the
-/// previous block shares draws up through the gap above this block, and one the next block shares
-/// leaves its bottom open, so a quote's bar and a callout's card run on unbroken across blocks.
+extension EnvironmentValues {
+    @Entry var inQuote = false
+}
+
 struct FormatContainersView<Content: View>: View {
     let containers: [FormatContainer]
     let next: [UInt32]
@@ -12,60 +13,79 @@ struct FormatContainersView<Content: View>: View {
     @ViewBuilder let content: Content
 
     var body: some View {
-        switch containers.count {
-        case 0:
-            content
-        case 1:
-            ContainerLayer(container: containers[0], next: next, gap: gap, role: role) { content }
-        case 2:
-            ContainerLayer(container: containers[0], next: next, gap: gap, role: role) {
-                ContainerLayer(container: containers[1], next: next, gap: gap, role: role) { content }
-            }
-        case 3:
-            ContainerLayer(container: containers[0], next: next, gap: gap, role: role) {
-                ContainerLayer(container: containers[1], next: next, gap: gap, role: role) {
-                    ContainerLayer(container: containers[2], next: next, gap: gap, role: role) { content }
-                }
-            }
-        case 4:
-            ContainerLayer(container: containers[0], next: next, gap: gap, role: role) {
-                ContainerLayer(container: containers[1], next: next, gap: gap, role: role) {
-                    ContainerLayer(container: containers[2], next: next, gap: gap, role: role) {
-                        ContainerLayer(container: containers[3], next: next, gap: gap, role: role) { content }
-                    }
-                }
-            }
-        default:
-            deepWrapped(containers[...])
-        }
-    }
-
-    private func deepWrapped(_ rest: ArraySlice<FormatContainer>) -> AnyView {
-        guard let outer = rest.first else { return AnyView(content) }
-        let inner = deepWrapped(rest.dropFirst())
-        return AnyView(ContainerLayer(container: outer, next: next, gap: gap, role: role) { inner })
+        let segments = ContainerSegment.group(containers)
+        SegmentStack(segments: segments[...], next: next, gap: gap, role: role) { content }
     }
 }
 
-private struct ContainerLayer<Content: View>: View {
-    let container: FormatContainer
+private enum ContainerSegment {
+    case quote(FormatContainer)
+    case callout(FormatContainer, CalloutKind)
+    case listRun([FormatContainer])
+    case footnote(FormatContainer, String)
+
+    static func group(_ containers: [FormatContainer]) -> [ContainerSegment] {
+        var result: [ContainerSegment] = []
+        var items: [FormatContainer] = []
+        func flushItems() {
+            if !items.isEmpty {
+                result.append(.listRun(items))
+                items.removeAll(keepingCapacity: true)
+            }
+        }
+        for container in containers {
+            switch container.kind {
+            case .item:
+                items.append(container)
+            case .quote:
+                flushItems()
+                result.append(.quote(container))
+            case .callout(let kind):
+                flushItems()
+                result.append(.callout(container, kind))
+            case .footnote(let label):
+                flushItems()
+                result.append(.footnote(container, label))
+            }
+        }
+        flushItems()
+        return result
+    }
+}
+
+private struct SegmentStack<Content: View>: View {
+    let segments: ArraySlice<ContainerSegment>
     let next: [UInt32]
     let gap: CGFloat
     let role: FormatRole
     @ViewBuilder let content: Content
 
     var body: some View {
-        let continues = next.contains(container.id)
-        let above = container.first ? 0 : gap
-        switch container.kind {
-        case .quote:
-            QuoteFrame(above: above) { content }
-        case .callout(let kind):
-            CalloutFrame(kind: kind, first: container.first, continues: continues, above: above) { content }
-        case .item(_, let marker, let depth, let width):
-            ListItemFrame(marker: marker, depth: depth, width: width, first: container.first, role: role) { content }
-        case .footnote(let label):
-            FootnoteFrame(label: label, first: container.first) { content }
+        if let first = segments.first {
+            let tail = segments.dropFirst()
+            switch first {
+            case .quote(let container):
+                QuoteFrame(above: container.first ? 0 : gap) {
+                    SegmentStack(segments: tail, next: next, gap: gap, role: role) { content }
+                }
+            case .callout(let container, let kind):
+                CalloutFrame(
+                    kind: kind, first: container.first, continues: next.contains(container.id),
+                    above: container.first ? 0 : gap
+                ) {
+                    SegmentStack(segments: tail, next: next, gap: gap, role: role) { content }
+                }
+            case .listRun(let items):
+                FlatListFrame(items: items, next: next, gap: gap, role: role) {
+                    SegmentStack(segments: tail, next: next, gap: gap, role: role) { content }
+                }
+            case .footnote(let container, let label):
+                FootnoteFrame(label: label, first: container.first) {
+                    SegmentStack(segments: tail, next: next, gap: gap, role: role) { content }
+                }
+            }
+        } else {
+            content
         }
     }
 }
@@ -76,10 +96,11 @@ private struct QuoteFrame<Content: View>: View {
 
     var body: some View {
         content
+            .environment(\.inQuote, true)
             .padding(.leading, FormatTokens.quoteBarWidth + FormatTokens.quoteGap)
             .background(alignment: .leading) {
                 Capsule()
-                    .fill(.tertiary)
+                    .fill(FormatTokens.markerColor.opacity(0.55))
                     .frame(width: FormatTokens.quoteBarWidth)
                     .padding(.top, -above)
                     .accessibilityHidden(true)
@@ -96,7 +117,7 @@ private struct CalloutFrame<Content: View>: View {
     private let pad = FormatTokens.calloutPadding
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.s) {
+        VStack(alignment: .leading, spacing: Spacing.xs + 2) {
             if first {
                 Label(kind.title, systemImage: kind.symbol)
                     .font(.subheadline.weight(.semibold))
@@ -105,92 +126,164 @@ private struct CalloutFrame<Content: View>: View {
             }
             content
         }
-        .padding(.horizontal, pad)
-        .padding(.top, first ? pad - 2 : 0)
-        .padding(.bottom, continues ? 0 : pad - 2)
+        .padding(.leading, pad + FormatTokens.calloutBarWidth)
+        .padding(.trailing, pad)
+        .padding(.top, first ? pad - 1 : 0)
+        .padding(.bottom, continues ? 0 : pad - 1)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(alignment: .top) {
-            let radius = FormatTokens.calloutRadius
-            UnevenRoundedRectangle(
-                topLeadingRadius: first ? radius : 0, bottomLeadingRadius: continues ? 0 : radius,
-                bottomTrailingRadius: continues ? 0 : radius, topTrailingRadius: first ? radius : 0, style: .continuous
-            )
-            .fill(kind.tint.opacity(0.1))
-            .padding(.top, -above)
+        .background(alignment: .top) { backgroundShape }
+    }
+
+    private var backgroundShape: some View {
+        let radius = FormatTokens.calloutRadius
+        let shape = UnevenRoundedRectangle(
+            topLeadingRadius: first ? radius : 0, bottomLeadingRadius: continues ? 0 : radius,
+            bottomTrailingRadius: continues ? 0 : radius, topTrailingRadius: first ? radius : 0,
+            style: .continuous)
+        return ZStack(alignment: .leading) {
+            shape.fill(kind.tint.opacity(0.085))
+            Rectangle()
+                .fill(kind.tint.opacity(0.75))
+                .frame(width: FormatTokens.calloutBarWidth)
+        }
+        .clipShape(shape)
+        .padding(.top, -above)
+        .accessibilityHidden(true)
+    }
+}
+
+private struct FlatListFrame<Content: View>: View {
+    let items: [FormatContainer]
+    let next: [UInt32]
+    let gap: CGFloat
+    let role: FormatRole
+    @ViewBuilder let content: Content
+
+    @ScaledMetric(relativeTo: .body) private var step1: CGFloat = FormatTokens.listIndentSteps[0]
+    @ScaledMetric(relativeTo: .body) private var step2: CGFloat = FormatTokens.listIndentSteps[1]
+    @ScaledMetric(relativeTo: .body) private var step3: CGFloat = FormatTokens.listIndentSteps[2]
+    @ScaledMetric(relativeTo: .body) private var bulletBox: CGFloat = FormatTokens.bulletBoxWidth
+    @ScaledMetric(relativeTo: .body) private var bulletGap: CGFloat = FormatTokens.bulletGap
+    @ScaledMetric(relativeTo: .body) private var numberMinGutter: CGFloat = 15
+    @ScaledMetric(relativeTo: .body) private var taskGutter: CGFloat = FormatTokens.taskGutter
+    @ScaledMetric(relativeTo: .body) private var pageSize: CGFloat = FormatRole.page.baseSize
+    @ScaledMetric(relativeTo: .subheadline) private var quietSize: CGFloat = FormatRole.quiet.baseSize
+
+    private var leaf: FormatContainer { items[items.count - 1] }
+    private var visualDepth: Int { items.count - 1 }
+    private var fontSize: CGFloat { role == .page ? pageSize : quietSize }
+
+    private var leafMarker: ListMarker {
+        if case .item(_, let marker, _, _) = leaf.kind { return marker }
+        return .bullet
+    }
+
+    private func indentFor(level: Int) -> CGFloat {
+        switch level {
+        case ...0: 0
+        case 1: step1
+        case 2: step1 + step2
+        default: step1 + step2 + step3
+        }
+    }
+
+    var body: some View {
+        let marker = leafMarker
+        let baseIndent = indentFor(level: visualDepth)
+        let isDone = if case .task(true) = marker { true } else { false }
+        let markerSpacing: CGFloat = switch marker {
+        case .bullet: bulletGap
+        case .number: FormatTokens.numberGap
+        case .task: FormatTokens.taskGap
+        }
+        HStack(alignment: .firstTextBaseline, spacing: markerSpacing) {
+            markerSlot(marker: marker, show: leaf.first)
+                .accessibilityHidden(!leaf.first)
+            content.opacity(isDone ? 0.55 : 1)
+        }
+        .padding(.leading, baseIndent)
+        .background(alignment: .topLeading) { nestingGuides }
+    }
+
+    @ViewBuilder
+    private var nestingGuides: some View {
+        let levels = min(visualDepth, FormatTokens.listIndentSteps.count)
+        if levels > 0 {
+            GeometryReader { geo in
+                ForEach(0..<levels, id: \.self) { level in
+                    let ancestor = items[level]
+                    let topExtend: CGFloat = ancestor.first ? 0 : gap
+                    let x = indentFor(level: level) + guideCenter(for: ancestor)
+                    Rectangle()
+                        .fill(FormatTokens.listGuide)
+                        .frame(width: 1, height: geo.size.height + topExtend)
+                        .offset(x: x - 0.5, y: -topExtend)
+                }
+            }
+            .allowsHitTesting(false)
             .accessibilityHidden(true)
         }
     }
-}
 
-/// A list item: its marker in a gutter as wide as the list's widest (so `9.` and `10.` line up),
-/// the text beside it; past four levels the indent stops growing and the marker sits inline.
-private struct ListItemFrame<Content: View>: View {
-    let marker: ListMarker
-    let depth: UInt32
-    let width: UInt32
-    let first: Bool
-    let role: FormatRole
-    @ViewBuilder let content: Content
-    @ScaledMetric(relativeTo: .body) private var bulletGutter = FormatTokens.bulletGutter
-
-    var body: some View {
-        if depth >= FormatTokens.maxListIndent {
-            HStack(alignment: .firstTextBaseline, spacing: FormatTokens.markerGap) {
-                if first { markerView }
-                content
-            }
-        } else {
-            HStack(alignment: .firstTextBaseline, spacing: FormatTokens.markerGap) {
-                ZStack(alignment: .trailing) {
-                    gutterPlaceholder.hidden()
-                    if first { markerView }
-                }
-                .accessibilityHidden(!first)
-                content.opacity(isDone ? 0.55 : 1)
-            }
-        }
-    }
-
-    private var isDone: Bool {
-        if case .task(true) = marker { true } else { false }
+    private func guideCenter(for container: FormatContainer) -> CGFloat {
+        if case .item(_, .task, _, _) = container.kind { return taskGutter * 0.5 }
+        return bulletBox * 0.5
     }
 
     @ViewBuilder
-    private var gutterPlaceholder: some View {
-        switch marker {
-        case .number:
-            Text(String(repeating: "0", count: Int(max(width, 2)) - 1) + ".").monospacedDigit()
-                .font(.system(role.textStyle))
-        case .bullet, .task:
-            Color.clear.frame(width: bulletGutter, height: 1)
-        }
-    }
-
-    @ViewBuilder
-    private var markerView: some View {
+    private func markerSlot(marker: ListMarker, show: Bool) -> some View {
         switch marker {
         case .bullet:
-            Text(listBullets[Int(depth) % listBullets.count])
-                .font(.system(role.textStyle))
-                .foregroundStyle(.secondary)
-                .accessibilityLabel("Bullet")
+            // Baseline anchor matches the first line of prose so the geometric dot centers on x-height.
+            Text(verbatim: "\u{200B}")
+                .font(.system(size: fontSize))
+                .frame(width: bulletBox, alignment: .center)
+                .overlay(alignment: .center) {
+                    if show { bulletShape }
+                }
+                .accessibilityLabel(show ? "Bullet" : "")
         case .number(let value, let paren):
+            let markerFont = Font.system(size: fontSize * 0.94).monospacedDigit()
             Text("\(value)\(paren ? ")" : ".")")
-                .font(.system(role.textStyle))
-                .monospacedDigit()
-                .foregroundStyle(.secondary)
+                .font(markerFont)
+                .foregroundStyle(FormatTokens.markerColor)
+                .opacity(show ? 1 : 0)
+                .frame(minWidth: numberMinGutter, alignment: .leading)
+                .fixedSize()
         case .task(let checked):
-            Image(systemName: checked ? "checkmark.circle.fill" : "circle")
-                .font(.system(role.textStyle))
-                .imageScale(.medium)
-                .foregroundStyle(checked ? Palette.done : Color.secondary)
-                .accessibilityLabel(checked ? "Done" : "To do")
+            Text(verbatim: "\u{200B}")
+                .font(.system(size: fontSize))
+                .frame(width: taskGutter, alignment: .center)
+                .overlay(alignment: .center) {
+                    if show {
+                        Image(systemName: checked ? "checkmark.circle.fill" : "circle")
+                            .font(.system(size: fontSize * 0.92))
+                            .foregroundStyle(checked ? Palette.done : FormatTokens.markerColor)
+                    }
+                }
+                .accessibilityLabel(show ? (checked ? "Done" : "To do") : "")
+        }
+    }
+
+    @ViewBuilder
+    private var bulletShape: some View {
+        let dot = max(4.5, fontSize * 0.31)
+        switch visualDepth % 3 {
+        case 0:
+            Circle()
+                .fill(FormatTokens.markerColor)
+                .frame(width: dot, height: dot)
+        case 1:
+            Circle()
+                .strokeBorder(FormatTokens.markerColor, lineWidth: 1.25)
+                .frame(width: dot, height: dot)
+        default:
+            RoundedRectangle(cornerRadius: 1, style: .continuous)
+                .fill(FormatTokens.markerColor)
+                .frame(width: dot * 0.88, height: dot * 0.88)
         }
     }
 }
-
-/// A bullet list's marks by depth.
-private let listBullets = ["•", "◦", "▪"]
 
 private struct FootnoteFrame<Content: View>: View {
     let label: String
@@ -198,11 +291,11 @@ private struct FootnoteFrame<Content: View>: View {
     @ViewBuilder let content: Content
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: FormatTokens.markerGap) {
+        HStack(alignment: .firstTextBaseline, spacing: FormatTokens.numberGap) {
             Text(first ? label : "")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(FormatTokens.link)
-                .frame(minWidth: 16, alignment: .trailing)
+                .frame(minWidth: 16, alignment: .leading)
                 .accessibilityLabel("Footnote \(label)")
             content
         }

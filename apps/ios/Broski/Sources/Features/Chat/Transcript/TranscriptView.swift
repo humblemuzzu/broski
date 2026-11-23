@@ -28,6 +28,7 @@ struct TranscriptView: View {
                 )
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { fullFrame = $0 }
                 .ignoresSafeArea()
+                .background(Palette.chatCanvas.ignoresSafeArea())
                 .opacity(chat.isRevealed ? 1 : 0)
                 .animation(.easeOut(duration: 0.2), value: chat.isRevealed)
             }
@@ -49,7 +50,7 @@ struct TranscriptView: View {
             }
     }
 
-    static let sideMargin = Spacing.l + Spacing.xs
+    static let sideMargin = Spacing.l
 
     private var insets: EdgeInsets {
         guard fullFrame.height > 0, safeFrame.height > 0 else { return EdgeInsets() }

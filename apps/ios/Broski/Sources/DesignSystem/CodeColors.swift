@@ -21,8 +21,7 @@ extension TokenKind {
 }
 
 extension Palette {
-    /// Behind code blocks and diffs in the transcript: a step off the screen in either appearance.
-    static let codeBackground = Color(uiColor: .secondarySystemBackground)
+    static let codeBackground = Color(light: 0xF6F6F8, dark: 0x1A1A1E)
 }
 
 extension CodeLine {

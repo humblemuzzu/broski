@@ -169,10 +169,10 @@ private fun ViewerRow(table: FormatTable, cells: List<TableCell>, widths: List<D
     val fill = if (header) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surface
     Column(Modifier.background(fill)) {
         Row(Modifier.fillMaxWidth()) {
-            Box(Modifier.background(fill)) { TableCellText(cells[0], table.columns[0], widths[0], style) }
+            Box(Modifier.background(fill)) { TableCellText(cells[0], table.columns[0], widths[0], style, header = header) }
             Box(Modifier.weight(1f).clipToBounds()) {
                 Row(Modifier.wrapContentWidth(Alignment.Start, unbounded = true).graphicsLayer { translationX = -offset() }) {
-                    for (column in 1 until cells.size) TableCellText(cells[column], table.columns[column], widths[column], style)
+                    for (column in 1 until cells.size) TableCellText(cells[column], table.columns[column], widths[column], style, header = header)
                 }
             }
         }

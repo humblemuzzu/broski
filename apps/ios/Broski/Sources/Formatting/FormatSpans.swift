@@ -1,44 +1,33 @@
 import BroskiCore
 import SwiftUI
 
-/// How spans are styled in one text: its font, the inline code font (about 0.9 of it), and the
-/// reader's choice of underlined links.
 struct SpanStyle: Equatable {
     var font: Font
     var codeFont: Font
     var underlinesLinks = false
-    /// A fixed size in points, where the text is zoomed rather than sized by Dynamic Type.
     var size: CGFloat?
-    /// A path can be opened: the text belongs to a machine (`FormatContext`). Where it does not, a
-    /// path is drawn as the code it is.
     var opensFiles = true
-    /// The colour of bold runs, where it differs from the text around them.
     var strongColor: Color?
 }
 
 enum FormatSpans {
-    /// Spans as one text. Inline code, math and images are marked as chips, which `ChipRenderer`
-    /// draws on a rounded fill; the text needs `.textRenderer(ChipRenderer())` to show them.
     static func text(_ spans: [FormatSpan], style: SpanStyle) -> Text {
         var text = Text(verbatim: "")
         var run = AttributedString()
         for span in spans {
-            if let chip = chip(span, style: style) {
-                text = Text("\(text)\(Text(run))\(Text(chip).customAttribute(ChipAttribute()))")
+            if let (chip, kind) = chip(span, style: style) {
+                text = Text("\(text)\(Text(run))\(Text(chip).customAttribute(ChipAttribute(kind: kind)))")
                 run = AttributedString()
             } else {
-                if let icon = linkIcon(span) { text = Text("\(text)\(Text(run))\(icon)"); run = AttributedString() }
                 run += piece(span, style: style)
             }
         }
         return Text("\(text)\(Text(run))")
     }
 
-    /// Spans as styled text for a log, which holds no inline code: its links, its paths and its plain
-    /// words.
     static func attributed(_ spans: [FormatSpan], style: SpanStyle) -> AttributedString {
         spans.reduce(into: AttributedString()) { text, span in
-            text += chip(span, style: style) ?? piece(span, style: style)
+            text += chip(span, style: style)?.0 ?? piece(span, style: style)
         }
     }
 
@@ -67,10 +56,18 @@ enum FormatSpans {
         }
     }
 
-    /// Inline code and math with nothing to open, and images: a thin space of air inside each end,
-    /// for the fill to sit around. Code that opens something is drawn as what it opens.
-    private static func chip(_ span: FormatSpan, style: SpanStyle) -> AttributedString? {
-        if let link = span.link, link.image { return image(span, link: link, style: style) }
+    private static func chip(_ span: FormatSpan, style: SpanStyle) -> (AttributedString, ChipKind)? {
+        if let link = span.link, link.image { return (image(span, link: link, style: style), .code) }
+        if span.code, let link = span.link, case .file = link.kind, opens(link, style: style) {
+            var piece = AttributedString("\u{202F}\(span.text)\u{202F}")
+            var font = style.codeFont
+            if span.strong { font = font.weight(.semibold) }
+            if span.emphasis { font = font.italic() }
+            piece.font = font
+            if span.strike { piece.strikethroughStyle = .single }
+            apply(link, to: &piece, style: style)
+            return (piece, .path)
+        }
         guard span.code || span.math, !opens(span.link, style: style) else { return nil }
         var piece = AttributedString("\u{202F}\(span.text)\u{202F}")
         var font = style.codeFont
@@ -78,11 +75,9 @@ enum FormatSpans {
         if span.math || span.emphasis { font = font.italic() }
         piece.font = font
         if span.strike { piece.strikethroughStyle = .single }
-        return piece
+        return (piece, .code)
     }
 
-    /// An image link is never auto-loaded: a chip naming it and where it lives; local image paths
-    /// open in the image viewer, web images open in the browser.
     private static func image(_ span: FormatSpan, link: FormatLink, style: SpanStyle) -> AttributedString {
         let detail = link.kind == .web ? (URL(string: link.target)?.host() ?? link.target) : (link.target as NSString).lastPathComponent
         let name = span.text.isEmpty ? detail : span.text
@@ -97,13 +92,6 @@ enum FormatSpans {
         guard let link, FormatLinkTarget(link) != nil else { return false }
         if case .file = link.kind { return style.opensFiles }
         return true
-    }
-
-    /// A page the agent named by a title, not by its address, gets a globe so it reads as a link to
-    /// leave by; a bare address already says where it goes.
-    private static func linkIcon(_ span: FormatSpan) -> Text? {
-        guard let link = span.link, link.kind == .web, !link.bare, !link.image, span.text != link.target else { return nil }
-        return Text("\(Image(systemName: "globe"))\u{2009}").font(.footnote).foregroundStyle(FormatTokens.link)
     }
 
     private static func apply(_ link: FormatLink?, to piece: inout AttributedString, style: SpanStyle) {
@@ -125,21 +113,28 @@ enum FormatSpans {
     }
 }
 
-/// Marks a run of text as a chip: inline code, math or an image's name.
-nonisolated struct ChipAttribute: TextAttribute {}
+nonisolated enum ChipKind: Hashable {
+    case code
+    case path
+}
 
-/// Draws the text with a rounded fill behind each chip, under all the glyphs so a chip's fill never
-/// covers a neighbouring letter. A chip's thin spaces come from a fallback font, which makes them
-/// runs of their own: touching chip runs on a line are one fill.
+nonisolated struct ChipAttribute: TextAttribute {
+    let kind: ChipKind
+}
+
+/// Draws rounded hairline-bordered chips behind inline code and file-path runs. Thin spaces can
+/// split into fallback-font runs on a line, so touching runs of the same kind merge into one pill.
 nonisolated struct ChipRenderer: TextRenderer {
-    var fill = FormatTokens.inlineCodeFill
-
-    var displayPadding: EdgeInsets { EdgeInsets(top: 2, leading: 2, bottom: 2, trailing: 2) }
+    var displayPadding: EdgeInsets { EdgeInsets(top: 2, leading: 3, bottom: 2, trailing: 3) }
 
     func draw(layout: Text.Layout, in context: inout GraphicsContext) {
         for line in layout {
-            for rect in chipRects(line) {
-                context.fill(Path(roundedRect: rect, cornerRadius: FormatTokens.inlineCodeRadius, style: .continuous), with: .color(fill))
+            for item in chipRects(line) {
+                let path = Path(roundedRect: item.rect, cornerRadius: FormatTokens.inlineCodeRadius, style: .continuous)
+                let fill = item.kind == .path ? FormatTokens.pathFill : FormatTokens.inlineCodeFill
+                let stroke = item.kind == .path ? FormatTokens.pathBorder : FormatTokens.inlineCodeBorder
+                context.fill(path, with: .color(fill))
+                context.stroke(path, with: .color(stroke), lineWidth: 0.5)
             }
         }
         for line in layout {
@@ -147,22 +142,23 @@ nonisolated struct ChipRenderer: TextRenderer {
         }
     }
 
-    private func chipRects(_ line: Text.Layout.Line) -> [CGRect] {
-        var rects: [CGRect] = []
-        for run in line where run[ChipAttribute.self] != nil {
-            let bounds = run.typographicBounds.rect.insetBy(dx: 0, dy: -1)
-            if let last = rects.last, abs(last.maxX - bounds.minX) < 1 || abs(bounds.maxX - last.minX) < 1 {
-                rects[rects.count - 1] = last.union(bounds)
+    private func chipRects(_ line: Text.Layout.Line) -> [(rect: CGRect, kind: ChipKind)] {
+        var raw: [(rect: CGRect, kind: ChipKind)] = []
+        for run in line {
+            guard let attr = run[ChipAttribute.self] else { continue }
+            let bounds = run.typographicBounds.rect
+            if let last = raw.last, last.kind == attr.kind,
+               abs(last.rect.maxX - bounds.minX) < 0.5 || abs(bounds.maxX - last.rect.minX) < 0.5
+            {
+                raw[raw.count - 1].rect = last.rect.union(bounds)
             } else {
-                rects.append(bounds)
+                raw.append((bounds, attr.kind))
             }
         }
-        return rects
+        return raw.map { ($0.rect.insetBy(dx: -1, dy: -1), $0.kind) }
     }
 }
 
-/// What a link opens, carried in the drawn text as a URL: the page or address itself, or an
-/// internal `broski-file:` URL naming a path and its line.
 nonisolated enum FormatLinkTarget: Equatable {
     case web(URL)
     case mail(URL)

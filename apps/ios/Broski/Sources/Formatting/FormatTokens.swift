@@ -1,62 +1,77 @@
 import BroskiCore
 import SwiftUI
 
-/// Every measure the formatter draws with, in one place; Android's `FormatTokens.kt` holds the same
-/// table so the two apps cannot drift.
 nonisolated enum FormatTokens {
-    /// Prose wider than this reads badly; in landscape and on iPad it is centred at this width.
     static let readableWidth: CGFloat = 680
-    static let quoteBarWidth: CGFloat = 3
-    static let quoteGap: CGFloat = 12
-    static let calloutRadius: CGFloat = 12
-    static let calloutPadding: CGFloat = 14
-    /// Lists indent no deeper than this, so a phone keeps its width.
-    static let maxListIndent: UInt32 = 4
-    static let bulletGutter: CGFloat = 14
-    static let markerGap: CGFloat = 6
-    static let codeSize: CGFloat = 14
-    static let inlineCodeScale: CGFloat = 0.88
-    static let inlineCodeRadius: CGFloat = 4
-    /// The text's own colour, faint: inline code reads as part of its sentence.
-    static let inlineCodeFill = Color(light: UIColor(white: 0, alpha: 0.06), dark: UIColor(white: 1, alpha: 0.11))
+    static let quoteBarWidth: CGFloat = 2.5
+    static let quoteGap: CGFloat = 10
+    static let calloutRadius: CGFloat = 10
+    static let calloutBarWidth: CGFloat = 3
+    static let calloutPadding: CGFloat = 12
+    /// Diminishing per-level list indents (depths 1, 2, 3+); capped at 36 pt so nested lists never
+    /// starve a phone screen.
+    static let listIndentSteps: [CGFloat] = [14, 12, 10]
+    static let bulletBoxWidth: CGFloat = 8
+    static let bulletGap: CGFloat = 8
+    static let numberGap: CGFloat = 6
+    static let taskGutter: CGFloat = 16
+    static let taskGap: CGFloat = 7
+    static let codeSize: CGFloat = 13.5
+    static let inlineCodeScale: CGFloat = 0.87
+    static let inlineCodeRadius: CGFloat = 5
+    static let inlineCodeFill = Color(light: UIColor(white: 0, alpha: 0.055), dark: UIColor(white: 1, alpha: 0.09))
+    static let inlineCodeBorder = Color(light: UIColor(white: 0, alpha: 0.075), dark: UIColor(white: 1, alpha: 0.11))
+    static let pathFill = Color(light: UIColor(red: 0.06, green: 0.46, blue: 0.43, alpha: 0.09), dark: UIColor(red: 0.49, green: 0.78, blue: 0.74, alpha: 0.13))
+    static let pathBorder = Color(light: UIColor(red: 0.06, green: 0.46, blue: 0.43, alpha: 0.18), dark: UIColor(red: 0.49, green: 0.78, blue: 0.74, alpha: 0.22))
+    static let cardBorder = Color(light: UIColor(white: 0, alpha: 0.08), dark: UIColor(white: 1, alpha: 0.10))
+    static let ruleColor = Color(light: UIColor(white: 0, alpha: 0.10), dark: UIColor(white: 1, alpha: 0.12))
+    static let listGuide = Color(light: UIColor(white: 0, alpha: 0.08), dark: UIColor(white: 1, alpha: 0.10))
+    static let markerColor = Color(light: UIColor(white: 0, alpha: 0.45), dark: UIColor(white: 1, alpha: 0.48))
     static let codeRadius: CGFloat = 12
-    /// A code block past this many lines folds; its header counts lines past `codeCountLines`.
     static let codeFoldLines = 30
     static let codeCountLines = 10
-    static let tableRadius: CGFloat = 12
-    static let tableCellPadding = EdgeInsets(top: 10, leading: 10, bottom: 10, trailing: 10)
+    static let tableRadius: CGFloat = 10
+    static let tableCellPadding = EdgeInsets(top: 8.5, leading: 10, bottom: 8.5, trailing: 10)
     static let tableMinColumn: CGFloat = 56
-    static let tableMaxMinColumn: CGFloat = 200
-    static let tableScrollColumn: CGFloat = 240
-    /// Links a long-pressed block offers by name.
+    static let tableMaxMinColumn: CGFloat = 192
+    static let tableScrollColumn: CGFloat = 236
     static let menuLinks = 5
-    /// The width over which a sideways-scrolling table fades while more of it is to the right.
     static let tableEdgeFade: CGFloat = 28
-    /// A table past `tableFoldRows` rows shows `tableShownRows` and a button for the rest.
     static let tableFoldRows = 12
     static let tableShownRows = 10
-    /// A key/value table's labels take at most this share of the width.
     static let keyColumnShare: CGFloat = 0.4
-    /// How long a new block takes to fade in while an answer streams.
     static let arrival: Double = 0.15
 
-    /// The space before a block, by its step, for the answer's size; quiet text is tighter.
+    static func listBaseIndent(depth: Int) -> CGFloat {
+        let clamped = min(max(depth, 0), listIndentSteps.count)
+        return listIndentSteps.prefix(clamped).reduce(0, +)
+    }
+
     static func spacing(_ step: FormatSpacing, quiet: Bool = false, compact: Bool = false) -> CGFloat {
         let points: CGFloat = switch step {
         case .none: 0
-        case .tight: 8
-        case .loose, .afterGroup: 14
-        case .afterHeading: 10
-        case .paragraph: 16
-        case .section: 28
+        case .tight: 6
+        case .afterHeading: 7
+        case .leadIn: 8
+        case .stackedHeading: 10
+        case .loose, .afterGroup: 12
+        case .paragraph: 14
+        case .block: 16
+        case .rule: 18
+        case .subSection: 20
+        case .section: 26
         }
-        return points * (quiet ? 0.75 : 1) * (compact ? 0.75 : 1)
+        return points * (quiet ? 0.75 : 1) * (compact ? 0.78 : 1)
     }
 }
 
-/// Where agent-authored text is drawn, which sets its size and emphasis: `page` for the answer the
-/// person reads (the transcript, a plan, a report opened whole), `quiet` for what sits under a row
-/// (thinking, a subagent's or an activity's text, a tool's report).
+nonisolated struct HeadingSpec: Equatable {
+    let size: CGFloat
+    let weight: Font.Weight
+    let lineSpacing: CGFloat
+    let tracking: CGFloat
+}
+
 nonisolated enum FormatRole: Equatable {
     case page
     case quiet
@@ -68,19 +83,17 @@ nonisolated enum FormatRole: Equatable {
         }
     }
 
-    /// The text size at the default Dynamic Type size: what scaled measures start from.
     var baseSize: CGFloat {
         switch self {
-        case .page: 17
-        case .quiet: 15
+        case .page: 16
+        case .quiet: 14.5
         }
     }
 
-    /// Extra space between lines, so body text reads at about 1.45 times its size.
     var lineSpacing: CGFloat {
         switch self {
-        case .page: 4.5
-        case .quiet: 3
+        case .page: 4.2
+        case .quiet: 3.0
         }
     }
 
@@ -91,32 +104,27 @@ nonisolated enum FormatRole: Equatable {
         }
     }
 
-    /// The size of a heading at the default Dynamic Type size, and the text style it scales with:
-    /// H1 24, H2 21, H3 18, H4–H6 at body size in the secondary colour.
-    func heading(_ level: UInt8) -> (size: CGFloat, weight: Font.Weight) {
+    func heading(_ level: UInt8) -> HeadingSpec {
         switch (self, level) {
-        case (.page, 1): (24, .bold)
-        case (.page, 2): (21, .semibold)
-        case (.page, 3): (18, .semibold)
-        case (.page, _): (17, .semibold)
-        case (.quiet, 1): (16, .semibold)
-        case (.quiet, _): (15, .semibold)
+        case (.page, 1): HeadingSpec(size: 22, weight: .semibold, lineSpacing: 1.5, tracking: -0.35)
+        case (.page, 2): HeadingSpec(size: 19, weight: .semibold, lineSpacing: 1.5, tracking: -0.25)
+        case (.page, 3): HeadingSpec(size: 17, weight: .semibold, lineSpacing: 2.0, tracking: -0.15)
+        case (.page, _): HeadingSpec(size: 16, weight: .semibold, lineSpacing: 2.5, tracking: 0)
+        case (.quiet, 1): HeadingSpec(size: 15.5, weight: .semibold, lineSpacing: 1.5, tracking: -0.1)
+        case (.quiet, _): HeadingSpec(size: 14.5, weight: .semibold, lineSpacing: 2.0, tracking: 0)
         }
     }
 }
 
 extension FormatTokens {
-    /// Links in one blue, never the accent or the wallpaper's colour, AA on either background.
     @MainActor static let link = Color(light: 0x1D4ED8, dark: 0x60A5FA)
-    /// An answer's running text: a step softer than the full text colour, so long reading does not
-    /// glare. Bold is a little brighter than it (`boldText`) and headings are at full strength.
-    static let bodyText = Color(light: UIColor(white: 0, alpha: 0.86), dark: UIColor(white: 1, alpha: 0.86))
-    /// Bold in running text: just above the body, so a point's opening is found when scanning
-    /// without pulling the eye while reading.
-    static let boldText = Color(light: UIColor(white: 0, alpha: 0.94), dark: UIColor(white: 1, alpha: 0.94))
-    /// A path the agent named in code: it opens the file, so it is not drawn as plain code, and it
-    /// is not a page, so it is not link blue.
+    static let bodyText = Color(light: UIColor(white: 0.08, alpha: 0.90), dark: UIColor(white: 0.95, alpha: 0.88))
+    static let boldText = Color(light: UIColor(white: 0.05, alpha: 0.98), dark: UIColor(white: 0.98, alpha: 0.97))
+    static let quoteText = Color(light: UIColor(white: 0.12, alpha: 0.72), dark: UIColor(white: 0.92, alpha: 0.72))
     @MainActor static let path = Color(light: 0x0F766E, dark: 0x7CC7BC)
+    static let tableHeaderFill = Color(light: UIColor(white: 0, alpha: 0.03), dark: UIColor(white: 1, alpha: 0.045))
+    static let tableRowHairline = Color(light: UIColor(white: 0, alpha: 0.08), dark: UIColor(white: 1, alpha: 0.09))
+    static let tableHeaderHairline = Color(light: UIColor(white: 0, alpha: 0.16), dark: UIColor(white: 1, alpha: 0.18))
     @MainActor static let hairline = Color(uiColor: .separator)
 }
 

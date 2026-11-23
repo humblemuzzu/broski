@@ -3,7 +3,6 @@ package com.muzammil.broski.design.format
 import android.content.ClipData
 import android.content.Intent
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.rememberScrollableState
@@ -19,7 +18,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -28,6 +26,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -37,7 +36,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.ClipEntry
@@ -56,24 +54,19 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
+import com.muzammil.broski.design.BroskiTheme
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import uniffi.broski_core.ColumnAlign
 import uniffi.broski_core.FormatTable
 import uniffi.broski_core.TableCell
 import uniffi.broski_core.TableColumn
+import uniffi.broski_core.TableShape
 import uniffi.broski_core.tableCsv
 import uniffi.broski_core.tableHtml
 import uniffi.broski_core.tableMarkdown
 import uniffi.broski_core.tableTsv
 
-/**
- * A table drawn open, without a card: the header in the secondary colour, a hairline above and below
- * it and under every row, cells top-aligned and numbers right-aligned in tabular digits. At the top
- * level of an answer ([bleed]) its lines run to the screen's edges and its first column's text is in
- * line with the prose. Its columns fit the width as [TableLayout] decides; past twelve rows it shows
- * ten and a button for the rest; Expand opens it whole; a long-press copies it as TSV and HTML at
- * once, so a paste keeps it a table.
- */
 @Composable
 fun FormatTable(table: FormatTable, streaming: Boolean, bleed: Dp = 0.dp) {
     var showsAll by remember { mutableStateOf(false) }
@@ -90,7 +83,8 @@ fun FormatTable(table: FormatTable, streaming: Boolean, bleed: Dp = 0.dp) {
         val fitted = remember(table, width, styles) { TableLayout.fit(table, width, measure) }
         val layout = if (streaming && grown.size == fitted.widths.size) fitted.copy(widths = fitted.widths.zip(grown) { a, b -> maxOf(a, b) }) else fitted
         SideEffect { if (streaming) grown = layout.widths }
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            if (table.shape == TableShape.GRID) TableTopBar(table) { viewing = true }
             Box(
                 Modifier
                     .bleed(bleed)
@@ -99,30 +93,65 @@ fun FormatTable(table: FormatTable, streaming: Boolean, bleed: Dp = 0.dp) {
                 TableGrid(table, layout, rows, styles, edge = edge)
                 TableMenu(table, menu, onDismiss = { menu = false }, onExpand = { viewing = true })
             }
-            TableFooter(table, showsAll, onToggle = { showsAll = !showsAll }, onExpand = { viewing = true })
+            if (table.rows.size > FormatTokens.TABLE_FOLD_ROWS) {
+                TextButton(onClick = { showsAll = !showsAll }) {
+                    Text(
+                        if (showsAll) stringResource(R.string.format_table_show_fewer) else stringResource(R.string.format_table_show_all, table.rows.size),
+                        color = formatLink,
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                }
+            }
         }
     }
     if (viewing) TableViewer(table) { viewing = false }
 }
 
-/** The cell and header styles, 14 sp, the header semibold. */
+@Composable
+private fun TableTopBar(table: FormatTable, onExpand: () -> Unit) {
+    val clipboard = LocalClipboard.current
+    val scope = rememberCoroutineScope()
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+    var copied by remember { mutableStateOf(false) }
+    LaunchedEffect(copied) {
+        if (copied) {
+            delay(1_500L)
+            copied = false
+        }
+    }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+        IconButton(
+            onClick = {
+                scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newHtmlText("table", tableTsv(table), tableHtml(table)))) }
+                copied = true
+            },
+            modifier = Modifier.size(30.dp),
+        ) {
+            Icon(
+                painterResource(if (copied) R.drawable.ic_check else R.drawable.ic_content_copy),
+                contentDescription = stringResource(R.string.format_copy_table),
+                modifier = Modifier.size(15.dp),
+                tint = if (copied) BroskiTheme.semantic.done else muted,
+            )
+        }
+        IconButton(onClick = onExpand, modifier = Modifier.size(30.dp)) {
+            Icon(painterResource(R.drawable.ic_open_in_full), contentDescription = stringResource(R.string.format_expand), modifier = Modifier.size(15.dp), tint = muted)
+        }
+    }
+}
+
 @Composable
 fun tableStyles(scale: Float = 1f): Pair<TextStyle, TextStyle> {
     val base = MaterialTheme.typography.bodyMedium
     val cell = base.copy(
-        color = MaterialTheme.colorScheme.onSurface,
+        color = FormatRole.Page.bodyColor(),
         fontSize = base.fontSize * scale,
         lineHeight = base.lineHeight * scale,
         fontFeatureSettings = "tnum",
     )
-    return cell to cell.copy(fontWeight = FontWeight.SemiBold)
+    return cell to cell.copy(fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
-/**
- * The cells at the layout's widths, [edge] in from the sides, with hairlines across the whole width. A
- * scrolling table moves its columns together by one offset, the first held still when the layout says
- * so, so every row keeps one height; it scrolls to the trailing edge.
- */
 @Composable
 fun TableGrid(table: FormatTable, layout: TableLayout, rows: Int, styles: Pair<TextStyle, TextStyle>, modifier: Modifier = Modifier, edge: Dp = 0.dp) {
     val density = LocalDensity.current
@@ -139,15 +168,17 @@ fun TableGrid(table: FormatTable, layout: TableLayout, rows: Int, styles: Pair<T
             used
         }
         val scrolling = if (layout.scrolls) Modifier.scrollable(scroll, Orientation.Horizontal) else Modifier
-        val line = MaterialTheme.colorScheme.outlineVariant
+        val rowLine = formatTableRowHairline
+        val headerLine = formatTableHeaderHairline
+        val headerFill = formatTableHeaderFill
         Column(scrolling.fadeEnd(layout.scrolls && offset < reach, FormatTokens.tableEdgeFade)) {
-            Box(Modifier.fillMaxWidth().height(0.5.dp).background(line))
-            TableRow(table, table.header, 0, layout, held, { offset }, styles.second.copy(color = MaterialTheme.colorScheme.onSurfaceVariant), Modifier.padding(start = edge))
+            Box(Modifier.fillMaxWidth().height(0.5.dp).background(rowLine))
+            TableRow(table, table.header, 0, layout, held, { offset }, styles.second, Modifier.background(headerFill).padding(start = edge))
+            Box(Modifier.fillMaxWidth().height(1.dp).background(headerLine))
             for (index in 0 until minOf(rows, table.rows.size)) {
-                Box(Modifier.fillMaxWidth().height(0.5.dp).background(line))
                 TableRow(table, table.rows[index], index + 1, layout, held, { offset }, styles.first, Modifier.padding(start = edge))
+                Box(Modifier.fillMaxWidth().height(0.5.dp).background(rowLine))
             }
-            Box(Modifier.fillMaxWidth().height(0.5.dp).background(line))
         }
     }
 }
@@ -165,18 +196,19 @@ private fun TableRow(
 ) {
     val spoken = spokenRow(table, cells, index)
     Row(modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = spoken; if (index == 0) heading() }) {
-        for (column in 0 until held) TableCellText(cells[column], table.columns[column], layout.widths[column], style)
+        val header = index == 0
+        for (column in 0 until held) TableCellText(cells[column], table.columns[column], layout.widths[column], style, header = header)
         Box(Modifier.weight(1f).clipToBounds()) {
             Row(Modifier.wrapContentWidth(Alignment.Start, unbounded = true).graphicsLayer { translationX = -offset() }) {
-                for (column in held until cells.size) TableCellText(cells[column], table.columns[column], layout.widths[column], style)
+                for (column in held until cells.size) TableCellText(cells[column], table.columns[column], layout.widths[column], style, header = header)
             }
         }
     }
 }
 
 @Composable
-fun TableCellText(cell: TableCell, column: TableColumn, width: Dp, style: TextStyle) {
-    val look = spanLook(style)
+fun TableCellText(cell: TableCell, column: TableColumn, width: Dp, style: TextStyle, header: Boolean = false) {
+    val look = spanLook(style).copy(strong = if (header) androidx.compose.ui.graphics.Color.Unspecified else FormatRole.Page.boldColor())
     val text = rememberSpans(cell.spans, look)
     val align = when (column.align) {
         ColumnAlign.CENTER -> TextAlign.Center
@@ -195,26 +227,6 @@ private fun spokenRow(table: FormatTable, cells: List<TableCell>, index: Int): S
     return stringResource(R.string.format_table_row, index, table.rows.size, named)
 }
 
-@Composable
-private fun TableFooter(table: FormatTable, showsAll: Boolean, onToggle: () -> Unit, onExpand: () -> Unit) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        if (table.rows.size > FormatTokens.TABLE_FOLD_ROWS) {
-            TextButton(onClick = onToggle) {
-                Text(
-                    if (showsAll) stringResource(R.string.format_table_show_fewer) else stringResource(R.string.format_table_show_all, table.rows.size),
-                    color = formatLink,
-                    style = MaterialTheme.typography.labelLarge,
-                )
-            }
-        }
-        Box(Modifier.weight(1f))
-        IconButton(onClick = onExpand, modifier = Modifier.size(36.dp)) {
-            Icon(painterResource(R.drawable.ic_open_in_full), stringResource(R.string.format_expand), Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}
-
-/** Copy as TSV and HTML together, or as Markdown or CSV; Expand; Share. */
 @Composable
 fun TableMenu(table: FormatTable, open: Boolean, onDismiss: () -> Unit, onExpand: () -> Unit) {
     val clipboard = LocalClipboard.current

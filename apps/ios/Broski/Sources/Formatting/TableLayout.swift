@@ -104,7 +104,11 @@ struct TableLayout: Equatable {
     }
 
     private static func height(of text: NSAttributedString, width: CGFloat) -> CGFloat {
-        text.boundingRect(with: CGSize(width: max(width, 1), height: .greatestFiniteMagnitude), options: [.usesLineFragmentOrigin], context: nil).height
+        text.boundingRect(
+            with: CGSize(width: max(width, 1), height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            context: nil
+        ).height
     }
 }
 
@@ -157,27 +161,31 @@ struct TableFonts: Hashable {
 
     init(typeSize: DynamicTypeSize, scale: CGFloat = 1) {
         let traits = UITraitCollection(preferredContentSizeCategory: UIContentSizeCategory(typeSize))
-        let size = UIFont.preferredFont(forTextStyle: .subheadline, compatibleWith: traits).pointSize * scale
+        let size = (UIFont.preferredFont(forTextStyle: .subheadline, compatibleWith: traits).pointSize - 0.5) * scale
         cell = .monospacedDigitSystemFont(ofSize: size, weight: .regular)
         header = .monospacedDigitSystemFont(ofSize: size, weight: .semibold)
-        code = .monospacedSystemFont(ofSize: size * FormatTokens.inlineCodeScale, weight: .regular)
+        code = .monospacedSystemFont(ofSize: size * FormatTokens.inlineCodeScale, weight: .medium)
     }
 
     func spanStyle(underlinesLinks: Bool) -> SpanStyle {
         SpanStyle(
-            font: .system(size: cell.pointSize).monospacedDigit(), codeFont: .system(size: code.pointSize, design: .monospaced),
+            font: .system(size: cell.pointSize).monospacedDigit(),
+            codeFont: .system(size: code.pointSize, weight: .medium, design: .monospaced),
             underlinesLinks: underlinesLinks, size: cell.pointSize)
     }
 
-    /// Spans as `FormatSpans` draws them, in these fonts, for measuring.
     func measurable(_ spans: [FormatSpan], header isHeader: Bool) -> NSAttributedString {
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.lineSpacing = 2
         let text = NSMutableAttributedString()
         for span in spans {
             let chip = span.code || span.math
             let font = chip || span.html ? code : (span.strong || isHeader ? header : cell)
             let string = chip ? "\u{202F}\(span.text)\u{202F}" : span.text
-            text.append(NSAttributedString(string: string, attributes: [.font: font]))
+            text.append(NSAttributedString(string: string, attributes: [.font: font, .paragraphStyle: paragraph]))
         }
-        return text.length == 0 ? NSAttributedString(string: " ", attributes: [.font: isHeader ? header : cell]) : text
+        return text.length == 0
+            ? NSAttributedString(string: " ", attributes: [.font: isHeader ? header : cell, .paragraphStyle: paragraph])
+            : text
     }
 }

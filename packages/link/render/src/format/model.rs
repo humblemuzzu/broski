@@ -70,23 +70,19 @@ pub enum ListMarker {
     },
 }
 
-/// The space before a block, by what it follows; each app maps steps to points from one table.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum FormatSpacing {
-    /// The text's first block.
     None,
-    /// Items of a tight list, and blocks of one item with no blank line between them.
     Tight,
-    /// Items of a list with blank lines between them.
-    Loose,
-    /// The item after one that holds more than one block (a nested list, a second paragraph) or
-    /// runs past about two lines, in a list written without blank lines: its points still read
-    /// apart.
-    AfterGroup,
-    /// The block under a heading.
     AfterHeading,
+    LeadIn,
+    StackedHeading,
+    Loose,
+    AfterGroup,
     Paragraph,
-    /// Before a heading, and after a rule, a code block or a table.
+    Block,
+    Rule,
+    SubSection,
     Section,
 }
 

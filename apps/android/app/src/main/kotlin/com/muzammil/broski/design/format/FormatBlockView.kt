@@ -1,10 +1,13 @@
 package com.muzammil.broski.design.format
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -33,12 +36,6 @@ import uniffi.broski_core.FormatContent
 import uniffi.broski_core.FormatSpan
 import uniffi.broski_core.TextDirection
 
-/**
- * One block of formatted text with the containers around it and the space above it. [next] is the
- * containers of the block after it, which say where a quote's bar or a callout's card ends;
- * [streaming] while the text is still arriving (a table's columns only grow, code is coloured line
- * by line).
- */
 @Composable
 fun FormatBlockView(
     block: FormatBlock,
@@ -64,12 +61,18 @@ fun FormatBlockView(
     }
 }
 
-/** What a block holds, drawn by its kind. */
 @Composable
 fun FormatContentView(block: FormatBlock, role: FormatRole, streaming: Boolean) {
-    val bleed = if (role == FormatRole.Page && block.containers.isEmpty()) LocalFormatBleed.current else 0.dp
+    val tableBleed = if (role == FormatRole.Page && block.containers.isEmpty()) LocalFormatBleed.current else 0.dp
+    val inQuote = LocalInQuote.current
     when (val content = block.content) {
-        is FormatContent.Paragraph -> Prose(content.spans, role.textStyle(), role.bodyColor(), block.direction, strong = role.boldColor())
+        is FormatContent.Paragraph -> {
+            val baseStyle = role.textStyle()
+            val style = if (LocalReading.current.compact) baseStyle.copy(lineHeight = baseStyle.lineHeight * 0.92f) else baseStyle
+            val color = if (inQuote) role.quoteColor() else role.bodyColor()
+            val strong = if (inQuote) Color.Unspecified else role.boldColor()
+            Prose(content.spans, style, color, block.direction, strong = strong)
+        }
         is FormatContent.Heading -> Prose(
             content.spans,
             role.headingStyle(content.level),
@@ -77,17 +80,21 @@ fun FormatContentView(block: FormatBlock, role: FormatRole, streaming: Boolean) 
             block.direction,
             Modifier.semantics { heading() },
         )
-        is FormatContent.Code -> FormatCodeBlock(content.code, streaming, bleed)
-        is FormatContent.Table -> FormatTable(content.table, streaming, bleed)
+        is FormatContent.Code -> FormatCodeBlock(content.code, streaming)
+        is FormatContent.Table -> FormatTable(content.table, streaming, tableBleed)
         is FormatContent.Math -> MathBlock(content.tex)
-        is FormatContent.Html -> Surface(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+        is FormatContent.Html -> Surface(
+            Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.small,
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            border = BorderStroke(0.5.dp, formatCardBorder),
+        ) {
             Text(content.text, style = MaterialTheme.typography.bodySmall.mono(), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(10.dp))
         }
-        FormatContent.Rule -> Box(Modifier.fillMaxWidth().height(0.dp))
+        FormatContent.Rule -> Box(Modifier.fillMaxWidth().height(0.5.dp).background(formatRuleColor))
     }
 }
 
-/** Lays the content out [bleed] wider on each side than its column, so it reaches the screen's edges. */
 fun Modifier.bleed(bleed: Dp): Modifier = if (bleed == 0.dp) this else layout { measurable, constraints ->
     val extra = bleed.roundToPx()
     val wide = constraints.copy(minWidth = constraints.minWidth + 2 * extra, maxWidth = constraints.maxWidth + 2 * extra)
@@ -95,7 +102,6 @@ fun Modifier.bleed(bleed: Dp): Modifier = if (bleed == 0.dp) this else layout { 
     layout(constraints.maxWidth, placeable.height) { placeable.place(-extra, 0) }
 }
 
-/** A paragraph or a heading: its spans styled, laid out in the block's own direction. */
 @Composable
 fun Prose(spans: List<FormatSpan>, style: TextStyle, color: Color, direction: TextDirection, modifier: Modifier = Modifier, strong: Color = Color.Unspecified) {
     val look = spanLook(style).copy(strong = strong)
@@ -106,7 +112,6 @@ fun Prose(spans: List<FormatSpan>, style: TextStyle, color: Color, direction: Te
     }
 }
 
-/** How spans look in text of [style]. */
 @Composable
 fun spanLook(style: TextStyle): SpanLook = SpanLook(
     codeSize = inlineCodeSize(style.fontSize),
@@ -116,19 +121,19 @@ fun spanLook(style: TextStyle): SpanLook = SpanLook(
     underlinesLinks = LocalReading.current.underlinesLinks,
 )
 
-/** Display math as its TeX: centred, italic, monospaced. No math library draws it. */
 @Composable
 private fun MathBlock(tex: String) {
     val description = stringResource(R.string.format_math, tex)
     Surface(
         Modifier.fillMaxWidth().semantics { contentDescription = description },
-        shape = MaterialTheme.shapes.small,
+        shape = RoundedCornerShape(FormatTokens.tableRadius),
         color = MaterialTheme.colorScheme.surfaceContainer,
+        border = BorderStroke(0.5.dp, formatCardBorder),
     ) {
         Text(
             tex,
-            style = MaterialTheme.typography.bodyLarge.mono().copy(fontStyle = FontStyle.Italic, textAlign = TextAlign.Center),
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            style = MaterialTheme.typography.bodyMedium.mono().copy(fontStyle = FontStyle.Italic, textAlign = TextAlign.Center),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
         )
     }
 }

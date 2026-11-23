@@ -15,8 +15,7 @@ struct UserBubble: View {
     var isPending = false
     @Environment(Disclosure.self) private var disclosure
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    /// One line of the message as the formatter sets body text (17 pt with 4.5 pt between lines).
-    @ScaledMetric(relativeTo: .body) private var line: CGFloat = 26.5
+    @ScaledMetric(relativeTo: .body) private var line: CGFloat = 24.5
 
     /// Six lines show while folded; only a message well past that folds at all.
     private var foldedHeight: CGFloat { line * 6 }
@@ -50,9 +49,9 @@ struct UserBubble: View {
                         }
                     }
                 }
-                .padding(.horizontal, Spacing.l)
+                .padding(.horizontal, Spacing.m + 2)
                 .padding(.vertical, Spacing.m - 2)
-                .background(Color(uiColor: .secondarySystemBackground), in: .rect(cornerRadius: Radius.card, style: .continuous))
+                .background(Palette.userBubble, in: .rect(cornerRadius: Radius.card, style: .continuous))
             }
             if isPending {
                 Text("Sending…")

@@ -1,23 +1,22 @@
 package com.muzammil.broski.design.format
 
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.muzammil.broski.design.MonoFamily
 import uniffi.broski_core.FormatSpan
 import uniffi.broski_core.FormatTable
 import uniffi.broski_core.TableShape
 
-/**
- * How a table's columns fit a width, the automatic layout of formatting-plan.md §5.6: natural
- * widths when they fit; else each column at least its longest word (56–200 dp) with the rest of the
- * width shared out and cells wrapping; else columns capped near 240 dp and the table scrolls
- * sideways, its first column held still when it is short. A key/value table always fits.
- */
 data class TableLayout(val widths: List<Dp>, val scrolls: Boolean, val sticky: Boolean) {
     companion object {
-        /** Rows measured for widths: past these, columns are as wide as their first rows need. */
         private const val MEASURED_ROWS = 200
 
         fun fit(table: FormatTable, width: Dp, measure: TableMeasure): TableLayout {
@@ -36,18 +35,18 @@ data class TableLayout(val widths: List<Dp>, val scrolls: Boolean, val sticky: B
             return TableLayout(capped, scrolls = true, sticky = sticky)
         }
 
-        /** Each column's width on one line, and its narrowest without breaking a word (56–200 dp). */
         fun columnWidths(table: FormatTable, measure: TableMeasure): Pair<List<Dp>, List<Dp>> {
             val padding = FormatTokens.cellHorizontal * 2
             val natural = mutableListOf<Dp>()
             val minimum = mutableListOf<Dp>()
             table.columns.indices.forEach { column ->
-                var line = measure.line(plain(table.header[column].spans), header = true)
-                var word = measure.longestWord(plain(table.header[column].spans), header = true)
+                val headerCell = measure.cell(table.header[column].spans, header = true)
+                var line = headerCell.first
+                var word = headerCell.second
                 table.rows.take(MEASURED_ROWS).forEach { row ->
-                    val text = plain(row[column].spans)
-                    line = maxOf(line, measure.line(text, header = false))
-                    word = maxOf(word, measure.longestWord(text, header = false))
+                    val measured = measure.cell(row[column].spans, header = false)
+                    line = maxOf(line, measured.first)
+                    word = maxOf(word, measured.second)
                 }
                 natural += line + padding
                 minimum += (word + padding).coerceIn(FormatTokens.tableMinColumn, FormatTokens.tableMaxMinColumn)
@@ -55,7 +54,6 @@ data class TableLayout(val widths: List<Dp>, val scrolls: Boolean, val sticky: B
             return natural to minimum
         }
 
-        /** [base] widened to fill [width], the extra shared by [weights]. */
         private fun share(width: Dp, base: List<Dp>, weights: List<Dp>): List<Dp> {
             val extra = (width - base.sum()).coerceAtLeast(0.dp)
             val total = weights.sum()
@@ -66,17 +64,50 @@ data class TableLayout(val widths: List<Dp>, val scrolls: Boolean, val sticky: B
     }
 }
 
-/** Measures cell text in the table's fonts. */
 class TableMeasure(private val measurer: TextMeasurer, private val cell: TextStyle, private val header: TextStyle, private val density: Density) {
-    fun line(text: String, header: Boolean): Dp {
-        val style = if (header) this.header else cell
-        val widest = text.split('\n').maxOfOrNull { measurer.measure(it, style, softWrap = false, maxLines = 1).size.width } ?: 0
-        return with(density) { widest.toDp() }
+    fun cell(spans: List<FormatSpan>, header: Boolean): Pair<Dp, Dp> {
+        val base = if (header) this.header else cell
+        val styled = buildMeasurable(spans, base, header)
+        if (styled.isEmpty()) return 0.dp to 0.dp
+        val raw = styled.text
+        var widestLine = 0
+        var lineStart = 0
+        for (i in 0..raw.length) {
+            if (i == raw.length || raw[i] == '\n') {
+                if (i > lineStart) {
+                    val w = measurer.measure(styled.subSequence(lineStart, i), base, softWrap = false, maxLines = 1).size.width
+                    if (w > widestLine) widestLine = w
+                }
+                lineStart = i + 1
+            }
+        }
+        var widestWord = 0
+        var wordStart = 0
+        for (i in 0..raw.length) {
+            if (i == raw.length || raw[i] == ' ' || raw[i] == '\n' || raw[i] == '\t') {
+                if (i > wordStart) {
+                    val w = measurer.measure(styled.subSequence(wordStart, i), base, softWrap = false, maxLines = 1).size.width
+                    if (w > widestWord) widestWord = w
+                }
+                wordStart = i + 1
+            }
+        }
+        return with(density) { widestLine.toDp() to widestWord.toDp() }
     }
 
-    fun longestWord(text: String, header: Boolean): Dp {
-        val word = text.split(' ', '\n', '\t').maxByOrNull { it.length } ?: return 0.dp
-        return line(word, header)
+    private fun buildMeasurable(spans: List<FormatSpan>, base: TextStyle, isHeader: Boolean): AnnotatedString = buildAnnotatedString {
+        val codeSize = inlineCodeSize(base.fontSize)
+        for (span in spans) {
+            val chip = span.code || span.math
+            val style = SpanStyle(
+                fontFamily = if (chip || span.html) MonoFamily else null,
+                fontSize = if (chip) codeSize else base.fontSize,
+                fontWeight = if (span.strong || isHeader) FontWeight.SemiBold else if (span.code) FontWeight.Medium else null,
+            )
+            withStyle(style) {
+                append(if (chip) "\u202F${span.text}\u202F" else span.text)
+            }
+        }
     }
 }
 
