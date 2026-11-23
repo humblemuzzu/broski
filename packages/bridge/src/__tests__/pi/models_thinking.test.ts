@@ -53,6 +53,19 @@ describe("thinkingSpec", () => {
 		expect(supportedLevel(model(true, onlyHigh), "high")).toBeUndefined();
 	});
 
+	test("names each level in words", () => {
+		const spec = thinkingSpec(model(true, { xhigh: "x", max: "m" }), undefined);
+		expect(spec.options.map((option) => option.label)).toEqual([
+			"Off",
+			"Minimal",
+			"Low",
+			"Medium",
+			"High",
+			"Extra high",
+			"Max",
+		]);
+	});
+
 	test("offers `xhigh` and `max` only where the model maps them", () => {
 		expect(values(thinkingSpec(model(true, { xhigh: "x", max: "m" }), undefined))).toEqual([
 			"off",

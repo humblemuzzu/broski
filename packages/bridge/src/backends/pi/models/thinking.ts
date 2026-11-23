@@ -4,6 +4,17 @@ import type { PiModel } from "../rpc/replies";
 /** Pi's levels, lowest first (`EXTENDED_THINKING_LEVELS`, pi-ai 1.5.2 `dist/models.js:701`). */
 const LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
 
+/** What the phone shows for each level; Pi's own values are not words (`xhigh`). */
+const LABELS: Record<(typeof LEVELS)[number], string> = {
+	off: "Off",
+	minimal: "Minimal",
+	low: "Low",
+	medium: "Medium",
+	high: "High",
+	xhigh: "Extra high",
+	max: "Max",
+};
+
 /**
  * The levels a model offers, as Pi's `getSupportedThinkingLevels` reads them from the model (pi-ai 1.5.2
  * `dist/models.js:702-713`): only `off` without `reasoning`; a level its `thinkingLevelMap` maps to `null` is not
@@ -26,7 +37,7 @@ export function thinkingSpec(model: Pick<PiModel, "reasoning" | "thinkingLevelMa
 	const levels = supportedLevels(model);
 	if (levels.length <= 1) return { options: [] };
 	return {
-		options: levels.map((value) => ({ value })),
+		options: LEVELS.filter((level) => levels.includes(level)).map((value) => ({ value, label: LABELS[value] })),
 		...(current !== undefined && levels.includes(current) && { defaultValue: current }),
 	};
 }
