@@ -55,12 +55,12 @@ class ChatActions(
 
     fun send(mode: PromptMode) = deliver(model.composer.take(mode))
 
-    /** Sends a prompt, shown at once and dimmed until the agent shows it as its own. */
+    /** Sends a prompt, shown at once and dimmed until the agent shows it as its own; a steer or a queued one waits in the queue instead. */
     fun deliver(outgoing: Outgoing) {
         val id = outgoing.input.clientRequestId
         model.images.rememberOutgoing(id, outgoing.images)
         val localTargets = outgoing.images.map { ImageTarget.Local(it.id, name = null) }
-        if (outgoing.input.mode != PromptMode.QUEUE) {
+        if (outgoing.input.mode == PromptMode.START) {
             model.feed.sent(PendingSend(id, outgoing.input.text, System.currentTimeMillis(), localTargets))
         }
         model.requestJump()

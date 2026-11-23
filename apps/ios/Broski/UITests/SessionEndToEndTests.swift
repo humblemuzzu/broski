@@ -138,8 +138,11 @@ final class SessionEndToEndTests: XCTestCase {
         let field = composer(in: app)
         field.tap()
         field.typeText("And then this")
-        let queue = app.buttons["Queue"]
-        XCTAssertTrue(queue.waitForExistence(timeout: timeout))
+        let steer = app.buttons["Steer"]
+        XCTAssertTrue(steer.waitForExistence(timeout: timeout), "running with a message typed, the button steers")
+        steer.press(forDuration: 1)
+        let queue = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Queue'")).firstMatch
+        XCTAssertTrue(queue.waitForExistence(timeout: timeout), "a long press offers the queue")
         queue.tap()
         XCTAssertTrue(app.staticTexts["Queued"].waitForExistence(timeout: timeout))
         try screenshot("chat-queued")

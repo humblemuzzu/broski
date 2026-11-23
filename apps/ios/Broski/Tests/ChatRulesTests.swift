@@ -15,16 +15,20 @@ struct ChatRulesTests {
         #expect(SendAction.resolve(running: false, hasContent: true, modes: all) == .send)
         #expect(SendAction.resolve(running: false, hasContent: false, modes: all) == .send)
         #expect(SendAction.resolve(running: true, hasContent: false, modes: all) == .stop)
-        #expect(SendAction.resolve(running: true, hasContent: true, modes: all) == .queue, "queue is the default")
+        #expect(SendAction.resolve(running: true, hasContent: true, modes: all) == .steer, "Enter steers in the agent's own terminal")
         #expect(SendAction.resolve(running: true, hasContent: true, modes: [.start, .steer]) == .steer)
+        #expect(SendAction.resolve(running: true, hasContent: true, modes: [.start, .queue]) == .queue)
         #expect(SendAction.resolve(running: true, hasContent: true, modes: [.start]) == .wait)
         #expect(SendAction.alternative(to: .queue, modes: all) == .steer)
         #expect(SendAction.alternative(to: .steer, modes: all) == .queue)
         #expect(SendAction.alternative(to: .queue, modes: [.start, .queue]) == nil)
         #expect(SendAction.alternative(to: .send, modes: all) == nil)
         #expect([SendAction.send, .queue, .steer, .stop, .wait].map(\.mode) == [.start, .queue, .steer, nil, nil])
-        #expect(SendAction.queue.explanation == "Run after the current turn")
-        #expect(SendAction.steer.explanation == "Interrupt what the agent is doing")
+        #expect(SendAction.resolve(running: true, hasContent: false, modes: all).invitation == nil)
+        #expect(SendAction.steer.invitation == "Steer the agent")
+        #expect(SendAction.queue.invitation == "Queue a message")
+        #expect(SendAction.queue.explanation == "Waits until the agent finishes")
+        #expect(SendAction.steer.explanation == "Joins the run at the agent's next step")
     }
 
     @Test func followingEndsOnlyWhenAFingerMovesAwayAndResumesNearTheEndOrOnAJump() {

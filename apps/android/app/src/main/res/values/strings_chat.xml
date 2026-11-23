@@ -223,13 +223,14 @@
     <!-- Composer -->
     <string name="composer_placeholder">Chat with Broski</string>
     <string name="composer_placeholder_resting">Type or hold to talk</string>
+    <string name="composer_placeholder_steer">Steer the agent</string>
     <string name="composer_placeholder_queue">Queue a message</string>
     <string name="composer_send">Send</string>
     <string name="composer_queue">Queue</string>
     <string name="composer_steer">Steer</string>
     <string name="composer_stop">Stop</string>
-    <string name="composer_queue_explained">Run after the current turn</string>
-    <string name="composer_steer_explained">Interrupt what the agent is doing</string>
+    <string name="composer_queue_explained">Waits until the agent finishes</string>
+    <string name="composer_steer_explained">Joins the run at the agent\'s next step</string>
     <string name="composer_attach">Attach</string>
     <string name="composer_attach_photos">Photo Library</string>
     <string name="composer_attach_camera">Camera</string>
