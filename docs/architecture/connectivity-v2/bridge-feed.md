@@ -27,6 +27,7 @@ feed closes the old with **4001**.
 ```json
 {"type":"link_busy","busy":true}
 {"type":"link_event","kind":"approval","backend":"pi","session":"<id>","cwd":"<basename>","title":"<≤80>","body":"<≤200>","at":<unix ms>,"request":"<id>"}
+{"type":"link_resolved","backend":"pi","session":"<id>","request":"<id>","at":<unix ms>}
 ```
 
 A frame the feed cannot take is never held: Bun reports a dropped send (`0`) or one over the
@@ -39,11 +40,16 @@ outstanding. An approval the phone may not have seen before the socket dropped r
 again instead of being forgotten; one that was answered is not repeated.
 
 `link_busy` goes out on connect with the current value, then on every change: `true` immediately,
-`false` after a 3 s debounce so a handover between sessions does not flap. `kind` is `approval`
-(pending permission request), `attention` (user input requested) or `done` (busy → idle for 5 s, body
-= first line of the final answer). Once per request id; `cwd` is the basename, title and body are
-single-line, truncated, with no secrets or file contents. `request` is on `approval` and `attention`
-only: it is the id a decision on this alert must echo.
+`false` after a 3 s debounce so a handover between sessions does not flap. `kind` is `approval` (a
+tool permission a lock screen can answer: it has a plain Allow and a plain Deny), `attention` (anything else that needs
+the person, answered in the app: a question, a plan, a form, a permission that must be looked at closely), `done` (busy →
+idle for 5 s, body = the first line of the final answer, as plain text) or `failed` (the run ended with an error or at a
+limit). Once per request id; `cwd` is the basename, title and body are single-line, truncated, with no secrets or file
+contents. `request` is on `approval` and `attention` only: it is the id a decision on this alert must echo.
+
+`link_resolved` follows an `approval` or `attention` whose interaction ended without a decision from the feed (answered
+in the app or on the Mac, taken back, expired): the daemon tells the phones that can drop a notification quietly to
+take it down. An interaction a feed decision answered sends none — that phone already cleared it.
 
 ## Busy
 
@@ -64,18 +70,20 @@ tap finds the conversation.
 | What the core observed | The feed says |
 |---|---|
 | a run is active (`after.run`) | `link_busy true` (idempotent per event, so a session whose track was forgotten, or whose snapshot was replaced by a `resynced`, is busy again) |
-| `run_finished` with outcome `completed` | busy clears (3 s debounce); after 5 s idle one `done`, body = first line of the newest top-level `text` block of the run (an open block is newer than a finished one; thinking and subagent blocks never); a run with no text is told by its newest top-level call (`bash: npm test`, with `(exit code N)` when that was not 0); `Turn finished` when there is neither. The alert's `at` is the time the core observed the run end |
-| `run_finished` `error` / `limit` | `done` with `Run failed: <code>` / `Run stopped at its <limit> limit` — the backend's message is never quoted |
+| `run_finished` with outcome `completed` | busy clears (3 s debounce); after 5 s idle one `done`, body = the first line that says something in the newest top-level `text` block of the run, as plain text (an open block is newer than a finished one; thinking and subagent blocks never; headings, bullets, emphasis, links, inline code and fenced code are stripped, prose is preferred to a heading); a run with no text is told by its newest top-level call (`Ran: npm test`, `Ran: make (exit code 2)`, `read: README.md`); `The run finished` when there is neither. The alert's `at` is the time the core observed the run end |
+| `run_finished` `error` / `limit` | `failed`, title `<name> — failed` / `<name> — stopped at a limit`, body a sentence for the error code (`Sign-in was refused. Check the agent's login on your Mac.`) or limit (`It used all the turns it was allowed.`) — the backend's message is never quoted |
 | `run_finished` `aborted` / `deferred`, or a `resynced` that drops the run | busy clears, no `done`: the person stopped it, or it will resume |
 | a new run within the 5 s | no `done` (the timer is cleared by the run) |
-| a pending interaction of kind `tool_permission` | `approval`, `request` = the interaction id; body = `<tool>: <command, paths or host from the preview>`, else the input's quotable keys, else the reason/title. File changes are named by path, never by diff |
-| any other pending interaction (`questions`, `form`, `plan_approval`, `choice`, `confirm`, `text`) | `attention`, `request` = the interaction id; body = its title, else its body |
-| the interaction ends for any reason (`answered`, `withdrawn`, `expired`, `cancelled`), seen as `interaction_resolved` or as a `resynced` that no longer holds it | the alert's record is closed: no decision reaches it (`no longer pending`) and a redialing feed is not told of it again |
+| a pending interaction of kind `tool_permission` with a plain Allow and Deny | `approval`, `request` = the interaction id; body = `<agent> wants to <what the call does>`: `run <command>` (the command from the preview, or the `command`, `cmd` or `script` of the input, first line only), `edit`/`create`/`delete`/`rename` `<paths>` for file changes, `read`/`edit`/`access` `<paths>` (paths inside the session's folder shown relative to it), `open <host>`, else `use <tool>: <the input's quotable keys>` with an MCP tool as `<server> <tool>`. Never any file content or diff |
+| a `tool_permission` with no plain Allow (`deliberate`, or only wider grants) | `attention` with the same words: the app shows it, a lock screen offers no verdict |
+| any other pending interaction | `attention`, `request` = the interaction id; body = a `questions` ask's first question and the choices it offers (never a secret question's), a `plan_approval`'s heading and first line, a `choice`'s title and options, a `form` MCP server's name, else the ask's title or body |
+| the interaction ends for any reason (`answered`, `withdrawn`, `expired`, `cancelled`), seen as `interaction_resolved` or as a `resynced` that no longer holds it | the alert's record is closed: no decision reaches it (`no longer pending`), a redialing feed is not told of it again, and unless a feed decision ended it, a `link_resolved` goes out |
 
-`title` is `<session title, or the backend's name> — <what happened>` (`finished`, `needs approval`, `needs input`,
-`stopped with an error`, `stopped at a limit`), the name cut to 50 characters; `cwd` is the basename of the session's cwd.
-The daemon's push carries `title`, `body`, `backend`, `session` and `request` but not `cwd`, so the title is what tells two
-sessions of one backend apart.
+`title` is `<session title, else its folder's name, else the backend's name> — <what happened>` (`finished`, `failed`,
+`stopped at a limit`, `needs approval`, `has a question`, `plan ready`, `needs a choice`, `needs confirmation`,
+`needs input`), the name cut to 50 characters; `cwd` is the basename of the session's cwd. The daemon's push carries
+`title`, `body`, `backend`, `session` and `request` but not `cwd`, so the title is what tells two sessions of one backend
+apart.
 
 A new interaction is announced once its session's row has been read (`describe()` is asynchronous); one that ends in that
 time is never announced.
@@ -130,7 +138,7 @@ answered elsewhere), `unsupported` (an `attention` alert, or a verdict without a
 the feed was never told of a request for is `unknown request`.
 
 A request is answerable only while its alert is outstanding: the feed holds one record per announced
-id (10 min, 512 ids) and closes it on the first decision, so a repeated tap can never answer twice.
+id (24 h, 512 ids; a person may be hours from a lock screen) and closes it on the first decision, so a repeated tap can never answer twice.
 `error` is `unknown backend`, `unknown request`, `already answered`, `unsupported`, `no longer
 pending` (the backend had already dropped it), or the handler's own message.
 
@@ -149,5 +157,7 @@ Contract sessions: `contractFeedObserver` (`server/link-feed/feed.ts`), handed t
   a session the bridge has not opened produces no alert until the core opens the session.
 - **A replaced session's open alerts are not followed.** After `session_replaced` the pending interactions live on under the
   new session id, but the feed's records name the old one: a decision on them is `no longer pending`.
-- **The alert is closed on the bridge only.** The daemon is not told that an approval was taken back: a notification already
-  on a lock screen stays until the person acts on it, and then gets `no longer pending`.
+- **An iPhone's alert is not taken down by the Mac.** `link_resolved` reaches Android through a data message that drops the
+  notification silently; the relay has no background push for APNs and an alert push always shows, so the app takes an
+  iPhone's alert down itself when it next reads the session as no longer waiting. Until then a lock-screen Allow on it
+  gets `no longer pending`.

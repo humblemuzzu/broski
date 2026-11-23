@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::device::NotifyPrefs;
+
 #[derive(Serialize)]
 pub struct MachineInfo<'a> {
     pub id: &'a str,
@@ -59,6 +61,8 @@ pub enum FromDevice {
     PushUnregister,
     LiveActivityRegister(LiveActivityRegister),
     LiveActivityUnregister,
+    /// The phone's notification settings, sent whole at every connect and at every change.
+    NotifyPrefs(NotifyPrefs),
     Unknown,
 }
 
@@ -83,6 +87,10 @@ pub fn parse_device(bytes: &[u8]) -> FromDevice {
             Err(_) => FromDevice::Unknown,
         },
         Some("live_activity_unregister") => FromDevice::LiveActivityUnregister,
+        Some("notify_prefs") => match serde_json::from_value(value) {
+            Ok(prefs) => FromDevice::NotifyPrefs(prefs),
+            Err(_) => FromDevice::Unknown,
+        },
         _ => FromDevice::Unknown,
     }
 }

@@ -3,7 +3,11 @@ import { type BackendId, clip } from "../../contract";
 const TITLE_MAX = 80;
 const BODY_MAX = 200;
 
-export type LinkFeedAlertKind = "approval" | "attention" | "done";
+/**
+ * `approval` can be answered from a lock screen, `attention` needs the app, `done` is a finished run and `failed` one
+ * that ended in an error or a limit.
+ */
+export type LinkFeedAlertKind = "approval" | "attention" | "done" | "failed";
 
 export type LinkFeedBusyMessage = { type: "link_busy"; busy: boolean };
 
@@ -34,23 +38,41 @@ export type LinkFeedEventMessage = {
 	request?: string;
 };
 
-export type LinkFeedMessage = LinkFeedBusyMessage | LinkFeedEventMessage | LinkFeedRunsMessage;
+/** A request the person no longer has to answer: it was answered elsewhere or the backend took it back. */
+export type LinkFeedResolvedMessage = {
+	type: "link_resolved";
+	backend: BackendId;
+	session: string;
+	request: string;
+	at: number;
+};
+
+export type LinkFeedMessage =
+	| LinkFeedBusyMessage
+	| LinkFeedEventMessage
+	| LinkFeedRunsMessage
+	| LinkFeedResolvedMessage;
 
 export const LINK_FEED_PONG = { type: "link_feed_pong" } as const;
 
+/** Where a tool keeps what it runs: Pi's `bash` says `command`; tools that replace it say `cmd` or `script`. */
+const COMMAND_KEYS = ["command", "cmd", "script"];
+
 /** The only tool-input keys a body may quote; anything else in the input stays on the machine. */
-const SUMMARY_KEYS = ["command", "cmd", "path", "filePath", "file_path", "blockedPath", "url", "pattern", "patterns"];
+const SUMMARY_KEYS = [
+	...COMMAND_KEYS,
+	"path",
+	"filePath",
+	"file_path",
+	"blockedPath",
+	"url",
+	"pattern",
+	"patterns",
+	"query",
+];
 
 export function busyMessage(busy: boolean): LinkFeedBusyMessage {
 	return { type: "link_busy", busy };
-}
-
-export function firstLine(text: string): string | undefined {
-	for (const line of text.split("\n")) {
-		const trimmed = line.trim();
-		if (trimmed) return trimmed;
-	}
-	return undefined;
 }
 
 export function alertEvent(
@@ -76,7 +98,8 @@ export function alertEvent(
 	};
 }
 
-function cwdBase(cwd: string | undefined): string {
+/** The folder a session works in, by its own name. */
+export function cwdBase(cwd: string | undefined): string {
 	const trimmed = (cwd ?? "").trim().replace(/[/\\]+$/, "");
 	const index = Math.max(trimmed.lastIndexOf("/"), trimmed.lastIndexOf("\\"));
 	return index === -1 ? trimmed : trimmed.slice(index + 1);
@@ -93,9 +116,18 @@ export function stringOf(value: unknown): string | undefined {
 }
 
 export function summarize(source: unknown): string | undefined {
+	return quoted(source, SUMMARY_KEYS);
+}
+
+/** What the call would run, when its input names a command. */
+export function commandOf(source: unknown): string | undefined {
+	return quoted(source, COMMAND_KEYS);
+}
+
+function quoted(source: unknown, keys: readonly string[]): string | undefined {
 	if (typeof source !== "object" || source === null) return undefined;
 	const record = source as Record<string, unknown>;
-	for (const key of SUMMARY_KEYS) {
+	for (const key of keys) {
 		const value = record[key];
 		const direct = stringOf(value);
 		if (direct) return direct;

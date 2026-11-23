@@ -1,10 +1,11 @@
 package com.muzammil.broski.feature.notifications
 
+import com.muzammil.broski.core.SessionKey
 import uniffi.broski_core.InboxRow
 import uniffi.broski_core.InboxState
 
 /**
- * What the one Live Update says while any agent is live: how many work and how many need the
+ * What the one Live Update says while any agent is live and not muted: how many work and how many need the
  * person, and the focused session (needs-you first, then most recently updated), with the bridge's
  * authoritative `runStartedAt` (or the first sighting as fallback for older bridges).
  */
@@ -23,8 +24,11 @@ data class LiveStatus(
             since: MutableMap<SessionTarget, Long>,
             nowMs: Long,
             reachableMachines: Set<String>? = null,
+            muted: Set<SessionKey> = emptySet(),
         ): LiveStatus? {
-            val reachable = rows.filter { !it.cached && (reachableMachines == null || it.machineId in reachableMachines) }
+            val reachable = rows.filter {
+                !it.cached && (reachableMachines == null || it.machineId in reachableMachines) && it.target.key !in muted
+            }
             reachable
                 .filter { it.state == InboxState.DONE || it.state == InboxState.IDLE }
                 .forEach { since.remove(it.target) }

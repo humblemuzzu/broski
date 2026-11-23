@@ -63,6 +63,22 @@ struct PushTests {
         #expect(content.title == "Approve Bash", "a quiet push still says what happened")
     }
 
+    @Test func aFailedRunFollowsFailuresAndNotDone() throws {
+        let test = try RecordStore()
+        defer { test.remove() }
+        let preferences = test.preferences
+        test.defaults.set(false, forKey: NotificationPreferences.done)
+        #expect(preferences.allows(kind: "failed") && preferences.allows(kind: "offline"))
+        #expect(!preferences.allows(kind: "done"))
+        test.defaults.set(true, forKey: NotificationPreferences.done)
+        test.defaults.set(false, forKey: NotificationPreferences.failures)
+        #expect(!preferences.allows(kind: "failed") && !preferences.allows(kind: "offline"))
+        #expect(preferences.allows(kind: "done"))
+        #expect(preferences.liveActivity, "the Live Activity has a switch of its own")
+        test.defaults.set(false, forKey: NotificationPreferences.liveActivity)
+        #expect(!preferences.liveActivity)
+    }
+
     @Test func aMutedSessionArrivesQuietlyAndNoOtherDoes() throws {
         let test = try RecordStore()
         defer { test.remove() }

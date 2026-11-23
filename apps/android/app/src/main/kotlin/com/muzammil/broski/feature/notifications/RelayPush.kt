@@ -5,12 +5,24 @@ import java.util.Base64
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
-/** What a push is about, as the relay names it in `k`, and the local preference that can silence it. */
-enum class PushKind(val wire: String, val preference: NotificationKind) {
-    Approval("approval", NotificationKind.NeedsYou),
-    Attention("attention", NotificationKind.NeedsYou),
-    Done("done", NotificationKind.Done),
-    Offline("offline", NotificationKind.Failures),
+/**
+ * What a push is about, as the relay names it in `k` or the machine's sealed payload names it, the
+ * channel it alerts on and the local preference that can silence it. The relay knows a failed run
+ * as `done`, so the sealed kind is the one that counts. `Resolved` is no alert: it takes a request's
+ * notification down.
+ */
+enum class PushKind(val wire: String, val preference: NotificationKind?, val channel: Channel?) {
+    Approval("approval", NotificationKind.NeedsYou, Channel.NeedsYou),
+    Attention("attention", NotificationKind.NeedsYou, Channel.NeedsYou),
+    Done("done", NotificationKind.Done, Channel.Done),
+    Failed("failed", NotificationKind.Failures, Channel.Failed),
+    Resolved("resolved", null, null),
+    Offline("offline", NotificationKind.Failures, Channel.MachineOffline),
+    ;
+
+    companion object {
+        fun of(wire: String?): PushKind? = entries.firstOrNull { it.wire == wire }
+    }
 }
 
 /**
@@ -22,7 +34,7 @@ data class RelayPush(val machineId: String, val kind: PushKind, val payload: Str
     companion object {
         fun of(data: Map<String, String>): RelayPush? {
             val machine = data["m"] ?: return null
-            val kind = PushKind.entries.firstOrNull { it.wire == data["k"] } ?: return null
+            val kind = PushKind.of(data["k"]) ?: return null
             val payload = data["e"] ?: return null
             return RelayPush(machine, kind, payload)
         }

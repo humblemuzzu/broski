@@ -1,6 +1,11 @@
 use broski_link_core::crypto::MAX_NAME_LEN;
 use serde::{Deserialize, Serialize};
 
+use crate::push::Kind;
+
+/// How many muted sessions a device may ask the machine to remember.
+pub const MAX_MUTED: usize = 512;
+
 pub const ROLE_OWNER: &str = "owner";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -19,6 +24,73 @@ pub struct DeviceRecord {
     pub push: Option<PushRegistration>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub live_activity_token: Option<String>,
+    #[serde(default, skip_serializing_if = "NotifyPrefs::is_default")]
+    pub notify: NotifyPrefs,
+}
+
+/// One session the person muted on a device; the machine is the one holding this record.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub struct MutedSession {
+    pub backend: String,
+    pub session: String,
+}
+
+/// What a device wants pushed, as the phone's settings say. Everything is on until turned off,
+/// and the machine keeps it so an alert the person turned off is never sent: a phone that is
+/// asleep or closed cannot be asked to hide it afterwards.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct NotifyPrefs {
+    #[serde(default = "yes")]
+    pub needs_you: bool,
+    #[serde(default = "yes")]
+    pub done: bool,
+    #[serde(default = "yes")]
+    pub failures: bool,
+    #[serde(default)]
+    pub muted: Vec<MutedSession>,
+}
+
+fn yes() -> bool {
+    true
+}
+
+impl Default for NotifyPrefs {
+    fn default() -> NotifyPrefs {
+        NotifyPrefs {
+            needs_you: true,
+            done: true,
+            failures: true,
+            muted: Vec::new(),
+        }
+    }
+}
+
+impl NotifyPrefs {
+    pub fn is_default(&self) -> bool {
+        *self == NotifyPrefs::default()
+    }
+
+    pub fn mutes(&self, backend: &str, session: &str) -> bool {
+        self.muted
+            .iter()
+            .any(|muted| muted.backend == backend && muted.session == session)
+    }
+
+    /// Whether an alert of `kind` about this session is wanted.
+    pub fn wants(&self, kind: Kind, backend: &str, session: &str) -> bool {
+        let kind_on = match kind {
+            Kind::Approval | Kind::Attention => self.needs_you,
+            Kind::Done => self.done,
+            Kind::Failed => self.failures,
+        };
+        kind_on && !self.mutes(backend, session)
+    }
+
+    /// Keeps the machine's record bounded however long a phone's list is.
+    pub fn bounded(mut self) -> NotifyPrefs {
+        self.muted.truncate(MAX_MUTED);
+        self
+    }
 }
 
 /// A device's push registration: where to send, and the key its payloads are sealed with.
@@ -101,5 +173,56 @@ pub fn hostname() -> String {
     match String::from_utf8(bytes) {
         Ok(name) if !name.trim().is_empty() => name,
         _ => "broski-machine".to_owned(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_choice_turns_off_its_kind_and_a_muted_session_turns_off_every_kind() {
+        let mut prefs = NotifyPrefs {
+            done: false,
+            ..NotifyPrefs::default()
+        };
+        assert!(prefs.wants(Kind::Approval, "pi", "s-1"));
+        assert!(prefs.wants(Kind::Attention, "pi", "s-1"));
+        assert!(!prefs.wants(Kind::Done, "pi", "s-1"));
+        assert!(prefs.wants(Kind::Failed, "pi", "s-1"));
+        prefs.muted.push(MutedSession {
+            backend: "pi".to_owned(),
+            session: "s-1".to_owned(),
+        });
+        assert!(!prefs.wants(Kind::Approval, "pi", "s-1"));
+        assert!(prefs.wants(Kind::Approval, "pi", "s-2"));
+        assert!(prefs.wants(Kind::Approval, "claude-code", "s-1"));
+    }
+
+    #[test]
+    fn a_record_without_settings_wants_everything_and_stays_out_of_the_file() {
+        let device: DeviceRecord = serde_json::from_str(
+            r#"{"id":"d","public":"","pub":"p","role":"owner","relay_token_hash":"h","paired_at":1}"#,
+        )
+        .expect("an older record reads");
+        assert!(device.notify.is_default());
+        let written = serde_json::to_value(&device).expect("json");
+        assert!(written.get("notify").is_none());
+    }
+
+    #[test]
+    fn a_phone_cannot_make_the_machine_remember_more_than_the_bound() {
+        let muted = (0..MAX_MUTED + 10)
+            .map(|index| MutedSession {
+                backend: "pi".to_owned(),
+                session: index.to_string(),
+            })
+            .collect();
+        let prefs = NotifyPrefs {
+            muted,
+            ..NotifyPrefs::default()
+        }
+        .bounded();
+        assert_eq!(prefs.muted.len(), MAX_MUTED);
     }
 }

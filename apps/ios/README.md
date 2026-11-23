@@ -215,18 +215,23 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
   `<machine>/<session>`, category `approval` only for an approval with a `request`, and copies
   `machine`, `backend`, `session`, `request` into `userInfo`; the relay's own `offline` alert (plain
   JSON) reads "<Mac> is offline/asleep". A push that does not open keeps the relay's text and no
-  actions. **Preferences** (Settings' Needs you / Done / Failures) live in the app group
-  `group.com.muzammil.broski` (`NotificationPreferences`), which the extension reads; no push says a
-  run failed (push.md), so Failures governs the offline alert. A session muted from its chat or its
-  row (`notifications.mutedSessions`) is checked once the push opens. A kind turned off or a muted
-  session still arrives, as
-  `.passive` without sound: dropping a push needs `com.apple.developer.usernotifications.filtering`,
-  which Apple grants on request.
+  actions. **Preferences** (Settings' Needs you / Finished / Failed, and Live Activity) live in the app
+  group `group.com.muzammil.broski` (`NotificationPreferences`); Failed covers a run that stopped with
+  an error or at a limit (the sealed kind `failed`; the relay sends it as `done`) and the offline alert. A
+  session muted from its chat or its row (`notifications.mutedSessions`) is checked once the push opens.
+  **They are enforced by the Mac, not the extension:** `AppModel.syncNotifications` hands every machine
+  the choices and its muted sessions (`notify_prefs`, repeated at every connect), and the machine never
+  sends what is off, so they hold with the app killed. The extension's own check is the fallback for a
+  push sent before the machine heard of them: it arrives `.passive` without sound, because dropping a
+  push needs `com.apple.developer.usernotifications.filtering`, which Apple grants on request. The app
+  takes an approval or question off the lock screen once the session stops waiting (`followAnsweredAlerts`)
+  and a session's notifications when its chat opens.
 - **Live Activity** (`LiveRuns`, following `inbox.rows` through `Observations` for the life of the
   phone): one activity while any session is live, focused on a session that needs the person, else
   the most recently updated working one, with the others summarised ("3 live agents · 1 needs
   you", up to four rows); the elapsed time counts from when the app first saw the session live.
-  When nothing is live it ends as Done and is dismissed after 8 s. Updates are at least 1 s apart
+  Sessions the person muted are left out, and Settings' Live Activity switch ends it at once with no
+  Done left behind (`LiveRuns.setEnabled`). When nothing is live it ends as Done and is dismissed after 12 s. Updates are at least 1 s apart
   and only when the state changes. Stop is `StopRunIntent` (`LiveActivityIntent`, run in the app's
   process), which sends `abort` through the core (`AppModel.stopRun`, resuming a paused link for
   it). Updates stop while the app is suspended: the relay sends no ActivityKit pushes yet, so the

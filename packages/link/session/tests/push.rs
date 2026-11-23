@@ -9,7 +9,7 @@ use base64::Engine;
 use broski_link_daemon::letters::open::{open, Body, Decision as DaemonDecision};
 use broski_link_daemon::push::{keys, seal};
 use broski_link_session::push::{decision_letter, open_notification, Decision, LetterRequest};
-use broski_link_session::{MachineRecord, Paired, PushPlatform, Route};
+use broski_link_session::{MachineRecord, MutedSession, NotifyPrefs, Paired, PushPlatform, Route};
 use broski_link_testkit::await_identity;
 use broski_link_testkit::daemon::{Home, TestDaemon};
 use broski_link_testkit::relay::TestRelay;
@@ -202,4 +202,76 @@ async fn post(relay: SocketAddr, letter: &LetterRequest) -> (u16, Value) {
         status,
         serde_json::from_str(body.trim()).unwrap_or(Value::Null),
     )
+}
+
+/// Waits until the daemon stored these notification settings for the device.
+async fn await_notify(home: &Path, record: &MachineRecord, expected: Value) {
+    let deadline = Instant::now() + WAIT;
+    loop {
+        let devices: Value = std::fs::read(home.join("devices.json"))
+            .ok()
+            .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+            .unwrap_or(Value::Null);
+        let stored = devices.as_array().and_then(|devices| {
+            devices
+                .iter()
+                .find(|device| device["id"] == record.device_id.as_str())
+        });
+        if stored.is_some_and(|device| device["notify"] == expected) {
+            return;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "the notification settings never reached devices.json: {devices}"
+        );
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn the_phones_notification_settings_reach_the_machine_and_follow_every_change() {
+    let relay = TestRelay::start().await;
+    let home = Home::new();
+    let daemon = TestDaemon::start(&home, Some(&relay.url), true).await;
+    let bridge = BridgeStandIn::start(&home.bridge_socket());
+    await_identity(&relay, &daemon).await;
+    let phone = Phone::new();
+    let Paired { session, record } = phone
+        .pair(&daemon, vec![daemon.lan().to_string()], quick())
+        .await;
+    let mut watch = Watch::new(session);
+    watch.connected_on(0, Route::Lan).await;
+
+    let mut prefs = NotifyPrefs {
+        done: false,
+        muted: vec![MutedSession {
+            backend: "pi".into(),
+            session: "s-1".into(),
+        }],
+        ..NotifyPrefs::default()
+    };
+    watch.session.set_notify_prefs(prefs.clone());
+    await_notify(
+        &home.path,
+        &record,
+        json!({
+            "needs_you": true,
+            "done": false,
+            "failures": true,
+            "muted": [{"backend": "pi", "session": "s-1"}],
+        }),
+    )
+    .await;
+
+    prefs.muted.clear();
+    prefs.failures = false;
+    watch.session.set_notify_prefs(prefs);
+    await_notify(
+        &home.path,
+        &record,
+        json!({"needs_you": true, "done": false, "failures": false, "muted": []}),
+    )
+    .await;
+    bridge.stop();
+    daemon.stop().await;
 }

@@ -2,7 +2,8 @@
 
 use broski_link_session as link;
 use broski_link_session::{
-    BridgeState, BridgeStatus, LinkState, Platform, PushPlatform, SendFailure, WaitReason,
+    BridgeState, BridgeStatus, LinkState, MutedSession, NotifyPrefs, Platform, PushPlatform,
+    SendFailure, WaitReason,
 };
 
 pub type LinkStatus = link::Status;
@@ -77,4 +78,18 @@ pub enum Platform {
 pub enum PushPlatform {
     Apns,
     Fcm,
+}
+
+#[uniffi::remote(Record)]
+pub struct NotifyPrefs {
+    pub needs_you: bool,
+    pub done: bool,
+    pub failures: bool,
+    pub muted: Vec<MutedSession>,
+}
+
+#[uniffi::remote(Record)]
+pub struct MutedSession {
+    pub backend: String,
+    pub session: String,
 }

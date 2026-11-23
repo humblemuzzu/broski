@@ -1,16 +1,16 @@
 import type { Interaction, InteractionId, SessionRef } from "../../contract";
 import type { ObservedEvent } from "../../core/observer";
 import { contractApproval, contractAttention, contractDone } from "./contract-format";
-import { permissionVerdicts } from "./contract-replies";
+import { type PermissionVerdicts, permissionVerdicts } from "./contract-replies";
 import type { DoneAlert, LinkFeedTracker } from "./tracker";
 
 const NO_ALERT: DoneAlert = async () => undefined;
 
 /**
  * Turns what the core observes of its open sessions into the feed's busy state and alerts: a run
- * is work, its end is a `done`, a pending interaction is an `approval` (a tool permission) or an
- * `attention` (anything that needs an answer rather than a verdict), and an interaction that
- * ends closes its alert.
+ * is work, its end is a `done` (or a `failed`), a pending interaction is an `approval` when a lock screen can give
+ * the verdict (a tool permission with a plain Allow and Deny) or an `attention` (anything that needs the app), and an
+ * interaction that ends closes its alert.
  */
 export class ContractFeedTap {
 	/** Interactions announced but not yet delivered, because the session's row is still being read. */
@@ -55,7 +55,7 @@ export class ContractFeedTap {
 			if (!before.has(interaction.id)) this.announce(observed, interaction);
 		}
 		for (const id of before) {
-			if (!after.has(id)) this.close(observed.session, id);
+			if (!after.has(id)) this.close(observed.session, id, observed.at);
 		}
 	}
 
@@ -67,12 +67,13 @@ export class ContractFeedTap {
 			if (!this.describing.delete(key)) return;
 			const { request } = interaction;
 			const target = { session, interaction: interaction.id };
-			if (request.kind === "tool_permission") {
+			const replies: PermissionVerdicts = request.kind === "tool_permission" ? permissionVerdicts(request) : {};
+			if (request.kind === "tool_permission" && replies.allow && replies.deny) {
 				this.tracker.announce(
 					session.backend,
 					session.sessionId,
 					interaction.id,
-					{ kind: "approval", contract: { ...target, replies: permissionVerdicts(request) } },
+					{ kind: "approval", contract: { ...target, replies } },
 					contractApproval(observed, summary, interaction, request, at),
 				);
 				return;
@@ -87,9 +88,9 @@ export class ContractFeedTap {
 		});
 	}
 
-	private close(session: SessionRef, id: InteractionId): void {
+	private close(session: SessionRef, id: InteractionId, at: number): void {
 		if (this.describing.delete(interactionKey(session, id))) return;
-		this.tracker.withdrawRequest(session.backend, session.sessionId, id);
+		this.tracker.withdrawRequest(session.backend, session.sessionId, id, at);
 	}
 }
 

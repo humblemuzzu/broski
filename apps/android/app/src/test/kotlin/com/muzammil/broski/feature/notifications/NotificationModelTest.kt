@@ -129,6 +129,39 @@ class NotificationModelTest {
     }
 
     @Test
+    fun aMutedSessionIsLeftOutOfTheLiveUpdate() {
+        val muted = setOf(SessionKey(machine, BackendIds.PI, "q"))
+        val status = LiveStatus.of(
+            listOf(row("q", InboxState.NEEDS_YOU, 9), row("w", InboxState.WORKING, 1)),
+            mutableMapOf(),
+            nowMs = 1_000,
+            muted = muted,
+        )!!
+        assertEquals(Triple(1, 0, "w"), Triple(status.working, status.needsYou, status.focused.session.sessionId))
+        assertNull(LiveStatus.of(listOf(row("q", InboxState.WORKING, 9)), mutableMapOf(), nowMs = 1_000, muted = muted))
+    }
+
+    private fun note(kind: String, request: String?) = PushNotification(
+        kind = kind, title = "t", body = "b", machine = "studio", backend = "pi", session = "s-1", request = request, atMs = 1UL,
+    )
+
+    @Test
+    fun aFailedRunIsTheSessionsFinishOnItsOwnChannelAndAResolvedPushNamesTheRequestItTakesDown() {
+        assertEquals(NotificationKind.Failures, PushKind.Failed.preference)
+        val finished = Alert.of(machine, PushKind.Done, note("done", null))
+        val failed = Alert.of(machine, PushKind.Failed, note("failed", null))
+        assertEquals(Channel.Failed, failed.channel)
+        assertEquals("a failure replaces the finish of the same session", finished.tag, failed.tag)
+        assertNull("a resolved push is no alert and no preference silences it", PushKind.Resolved.preference)
+        assertEquals(
+            Alert.of(machine, PushKind.Approval, note("approval", "req-1")).tag,
+            Alert.tag(machine, PushKind.Resolved, note("resolved", "req-1")),
+        )
+        assertEquals(PushKind.Failed, PushKind.of("failed"))
+        assertNull(PushKind.of("something new"))
+    }
+
+    @Test
     fun pushDedupSuppressesDuplicatesAndEvictsOldestBeyondCapacity() {
         val dedup = PushDedup(capacity = 3)
         assertTrue(dedup.record("a"))

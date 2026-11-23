@@ -3,21 +3,15 @@ mod common;
 use std::os::unix::fs::PermissionsExt;
 use std::time::Duration;
 
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-use base64::Engine;
 use broski_relay::limits::Limits;
-use chacha20poly1305::aead::{Aead, Payload};
-use chacha20poly1305::{ChaCha20Poly1305, KeyInit, Nonce};
 use common::apns::{ApnsMock, Sent, APNS_TOPIC};
 use common::relay::TestRelay;
 use common::scenario::{quick_durations, Scenario, APNS_TOKEN, KEY_B64, WAIT};
-use hmac::{Hmac, Mac};
+use common::sealed::open_notification;
 use serde_json::{json, Value};
-use sha2::Sha256;
 
 const AT: u64 = 1_725_000_000_000;
 const SILENCE: Duration = Duration::from_millis(600);
-const NOTIFY_LABEL: &[u8] = b"broski-notify-v1";
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn a_phone_is_pushed_whether_its_link_is_attached_or_not() {
@@ -115,7 +109,7 @@ async fn assert_detached_pushes(
         &sent[2],
         "done",
         "d-s-9",
-        "5",
+        "10",
         machine_id,
         notification("done", machine_name, "s-9", None),
     );
@@ -229,34 +223,5 @@ fn assert_push(
     assert_eq!(sent.body()["aps"]["mutable-content"], 1);
     assert_eq!(sent.body()["m"], machine_id);
     assert_eq!(sent.body()["k"], kind);
-    let decoded: Value = serde_json::from_slice(&decrypt(NOTIFY_LABEL, machine_id, &sent.data()))
-        .expect("the push body is json");
-    assert_eq!(decoded, expected);
-}
-
-/// Opens the push data with the key the phone registered, not with the daemon's own helpers.
-fn decrypt(label: &[u8], aad: &str, data: &[u8]) -> Vec<u8> {
-    let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(&registered_key())
-        .expect("a 32-byte key is never rejected");
-    mac.update(label);
-    let key: [u8; 32] = mac.finalize().into_bytes().into();
-    let cipher = ChaCha20Poly1305::new_from_slice(&key).expect("a 256-bit key");
-    let (nonce, ciphertext) = data.split_at(12);
-    cipher
-        .decrypt(
-            Nonce::from_slice(nonce),
-            Payload {
-                msg: ciphertext,
-                aad: aad.as_bytes(),
-            },
-        )
-        .expect("the payload opens with the registered key")
-}
-
-fn registered_key() -> [u8; 32] {
-    URL_SAFE_NO_PAD
-        .decode(KEY_B64)
-        .expect("the registered key is b64url")
-        .try_into()
-        .expect("32 bytes")
+    assert_eq!(open_notification(&sent.data(), machine_id), expected);
 }

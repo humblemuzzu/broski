@@ -7,7 +7,7 @@ use tokio::sync::Mutex;
 use zeroize::{Zeroize, Zeroizing};
 
 use crate::codec;
-use crate::device::{machine_name, DeviceRecord, PushRegistration, ROLE_OWNER};
+use crate::device::{machine_name, DeviceRecord, NotifyPrefs, PushRegistration, ROLE_OWNER};
 use crate::error::{Error, Result};
 use crate::fsx;
 
@@ -127,7 +127,10 @@ impl Store {
             relay_token_hash: codec::token_hash(&token),
             paired_at: crate::clock::unix_secs(),
             push: known.as_ref().and_then(|device| device.push.clone()),
-            live_activity_token: known.and_then(|device| device.live_activity_token),
+            live_activity_token: known
+                .as_ref()
+                .and_then(|device| device.live_activity_token.clone()),
+            notify: known.map(|device| device.notify).unwrap_or_default(),
         };
 
         match data.devices.iter().position(|device| device.id == id) {
@@ -166,6 +169,22 @@ impl Store {
         let updated = data.devices[index].clone();
         self.persist(&data.devices).await?;
         Ok(Some(updated))
+    }
+
+    /// Replaces what the device wants pushed. `None` when the device is unknown; `Some(true)` when
+    /// the choice changed.
+    pub async fn set_notify(&self, id: &str, notify: NotifyPrefs) -> Result<Option<bool>> {
+        let mut data = self.data.lock().await;
+        let Some(index) = data.devices.iter().position(|device| device.id == id) else {
+            return Ok(None);
+        };
+        let notify = notify.bounded();
+        if data.devices[index].notify == notify {
+            return Ok(Some(false));
+        }
+        data.devices[index].notify = notify;
+        self.persist(&data.devices).await?;
+        Ok(Some(true))
     }
 
     /// Replaces the device's active iOS Live Activity push token, or clears it.

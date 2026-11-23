@@ -23,6 +23,7 @@ final class AppModel {
     let sessionPreferences = SessionPreferences()
     let modelPreferences = ModelPreferences()
     let notifications = NotificationAccess()
+    @ObservationIgnored private let notificationPreferences = NotificationPreferences()
     let push: PushNotifications
     let discovery = LanDiscovery()
     /// Set to show a session; the Inbox tab opens it and sets this back to `nil`.
@@ -33,7 +34,12 @@ final class AppModel {
     var opensUsage = false
     /// The session on screen, set by the chat while it shows one and cleared when it leaves: its
     /// pushes do not banner while the app is in front.
-    var visibleSession: SessionTarget?
+    var visibleSession: SessionTarget? {
+        didSet {
+            guard let visibleSession, visibleSession != oldValue else { return }
+            Task { await push.clearDelivered(for: visibleSession) }
+        }
+    }
     /// The inbox shows its list rather than a screen pushed over it (a chat, New Session, a session's
     /// files): the tab bar, and the "n agents working" accessory with it, belong to the list alone.
     var inboxAtRoot = true
@@ -362,6 +368,8 @@ final class AppModel {
         }
         inbox.start(core, storage: storage)
         followLiveRuns()
+        followNotificationPreferences()
+        followAnsweredAlerts()
         followIdleTimer()
         followUsage()
         pathWatcher = PathWatcher { [weak self] in
@@ -381,13 +389,47 @@ final class AppModel {
         if let token = liveRuns.currentPushToken {
             machines.forEach { $0.registerLiveActivity(token) }
         }
+        liveRuns.setEnabled(notificationPreferences.liveActivity)
         self.liveRuns = liveRuns
         Task { [weak self] in
             guard let self else { return }
-            for await (rows, brands, ready, settling) in Observations({
-                (self.inbox.rows, self.brands, self.reachableMachineIds, self.settlingMachineIds)
+            for await (rows, brands, ready, settling, muted) in Observations({
+                (
+                    self.inbox.rows, self.brands, self.reachableMachineIds, self.settlingMachineIds,
+                    self.sessionPreferences.muted
+                )
             }) {
-                liveRuns.follow(rows, brands: brands, readyMachines: ready, settlingMachines: settling)
+                liveRuns.follow(rows, brands: brands, readyMachines: ready, settlingMachines: settling, muted: muted)
+            }
+        }
+    }
+
+    /// Settings › Notifications and a session's mute reach every Mac, which then sends only what the
+    /// person wants, and the Live Activity follows its own switch. Called when a choice changes.
+    func syncNotifications() {
+        machines.forEach { $0.syncNotifications(notificationPreferences) }
+        liveRuns?.setEnabled(notificationPreferences.liveActivity)
+    }
+
+    /// A mute is a choice made outside Settings: the Macs hear of it too.
+    private func followNotificationPreferences() {
+        Task { [weak self] in
+            guard let self else { return }
+            for await _ in Observations({ self.sessionPreferences.muted }) {
+                syncNotifications()
+            }
+        }
+    }
+
+    /// Approvals and questions left on the lock screen come down once their session stops waiting.
+    private func followAnsweredAlerts() {
+        Task { [weak self] in
+            guard let self else { return }
+            for await (rows, ready) in Observations({ (self.inbox.rows, self.reachableMachineIds) }) {
+                let known = rows.filter { !$0.cached && ready.contains($0.machineId) }
+                await push.clearAnswered(
+                    waiting: Set(known.filter { $0.state == .needsYou }.map(\.target)),
+                    known: Set(known.map(\.target)))
             }
         }
     }
@@ -442,6 +484,7 @@ final class AppModel {
         machines.append(model)
         machines.sort { $0.pairedAt < $1.pairedAt }
         model.start()
+        model.syncNotifications(notificationPreferences)
     }
 
     private func removeRecord(id: String) {

@@ -36,8 +36,8 @@ private val NotificationRows = listOf(
 )
 
 /**
- * Settings › Notifications: whether Android lets Broski notify, which kinds the person wants (kept on
- * this phone), and on Android 16 a way to let running agents show as a Live Update.
+ * Settings › Notifications: whether Android lets Broski notify, which kinds the person wants, the Live
+ * Update, and on Android 16 a way to let the system promote it.
  */
 @Composable
 fun NotificationSettingsScreen(core: AppCore, onBack: () -> Unit) {
@@ -76,6 +76,15 @@ fun NotificationSettingsScreen(core: AppCore, onBack: () -> Unit) {
             }
         }
         item(key = "footer") { FormFooter(stringResource(R.string.settings_notify_footer)) }
+        item(key = "live-updates") {
+            FormToggle(
+                0, 1, stringResource(R.string.settings_notify_live_updates),
+                checked = state.settings.liveUpdates,
+                onChange = viewModel::setLiveUpdates,
+                enabled = status != NotificationStatus.Denied,
+            )
+        }
+        item(key = "live-updates-footer") { FormFooter(stringResource(R.string.settings_live_updates_footer)) }
         if (Build.VERSION.SDK_INT >= 36) {
             item(key = "live-promotion") { LiveUpdatePromotion() }
         }

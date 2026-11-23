@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Bundle
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -47,12 +48,39 @@ class Notifier(private val context: Context) {
             .setContentText(words)
             .setStyle(NotificationCompat.BigTextStyle().bigText("${alert.text}\n$words"))
             .setOnlyAlertOnce(true)
+            .addExtras(Bundle().apply { putBoolean(DECIDED, true) })
             .setTimeoutAfter(if (state == DecisionState.Sent) SENT_TIMEOUT_MS else 0)
             .build()
         notify(alert.tag, notification)
     }
 
     fun cancel(tag: String) = manager.cancel(tag, ID)
+
+    /** Takes down what the person was told of this session: they are looking at it now. */
+    fun cancelSession(session: SessionTarget) {
+        val group = "${session.machineId}/${session.backend}/${session.sessionId}"
+        for (tag in alertTags()) {
+            if (tag.startsWith("$group/") || tag == SUMMARY_PREFIX + group) cancel(tag)
+        }
+    }
+
+    /**
+     * Takes down the approvals and questions of sessions that no longer wait on the person (answered
+     * in the app or on the Mac), so Allow and Deny are never left for a request that is gone. `waiting`
+     * still do, `known` is every session the phone has just read; any other is left alone.
+     */
+    fun cancelAnswered(waiting: Set<SessionTarget>, known: Set<SessionTarget>) {
+        for (active in manager.activeNotifications) {
+            val tag = active.tag ?: continue
+            if (active.id != ID || active.notification.channelId != Channel.NeedsYou.id) continue
+            if (active.notification.extras.getBoolean(DECIDED)) continue
+            val (machine, backend, session) = tag.split('/').takeIf { it.size == 4 } ?: continue
+            val target = SessionTarget(machine, backend, session)
+            if (target in known && target !in waiting) cancel(tag)
+        }
+    }
+
+    private fun alertTags(): List<String> = manager.activeNotifications.filter { it.id == ID }.mapNotNull { it.tag }
 
     private fun base(alert: Alert): NotificationCompat.Builder = NotificationCompat.Builder(context, alert.channel.id)
         .setSmallIcon(R.drawable.ic_notification)
@@ -104,6 +132,7 @@ class Notifier(private val context: Context) {
         val channels = listOf(
             NotificationChannel(Channel.NeedsYou.id, context.getString(R.string.channel_needs_you), NotificationManager.IMPORTANCE_HIGH),
             NotificationChannel(Channel.Done.id, context.getString(R.string.channel_done), NotificationManager.IMPORTANCE_DEFAULT),
+            NotificationChannel(Channel.Failed.id, context.getString(R.string.channel_failed), NotificationManager.IMPORTANCE_DEFAULT),
             NotificationChannel(Channel.MachineOffline.id, context.getString(R.string.channel_offline), NotificationManager.IMPORTANCE_DEFAULT),
             NotificationChannel(Channel.LiveStatus.id, context.getString(R.string.channel_live), NotificationManager.IMPORTANCE_LOW),
         )
@@ -114,5 +143,8 @@ class Notifier(private val context: Context) {
         const val ID = 1
         private const val SUMMARY_PREFIX = "group:"
         private const val SENT_TIMEOUT_MS = 8_000L
+
+        /** Marks the notification that says how an Allow or Deny went: it is the answer, not a request, and stays its few seconds. */
+        private const val DECIDED = "broski.decided"
     }
 }

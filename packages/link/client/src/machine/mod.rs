@@ -18,7 +18,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 use broski_contract::{
     ClientInfo, ClientMessage, ServerMessage, SessionRef, SessionSummary, TerminalId,
 };
-use broski_link_session::{LinkRuntime, MachineRecord, PushPlatform, Session};
+use broski_link_session::{LinkRuntime, MachineRecord, NotifyPrefs, PushPlatform, Session};
 use tokio::sync::{oneshot, Notify};
 
 use self::events::Taken;
@@ -154,6 +154,11 @@ impl Machine {
 
     pub fn unregister_push(&self) {
         self.shared.session().unregister_push();
+    }
+
+    /// Tells the machine which alerts to send this phone.
+    pub fn set_notify_prefs(&self, prefs: NotifyPrefs) {
+        self.shared.session().set_notify_prefs(prefs);
     }
 
     /// Registers the active iOS Live Activity push token with the machine.

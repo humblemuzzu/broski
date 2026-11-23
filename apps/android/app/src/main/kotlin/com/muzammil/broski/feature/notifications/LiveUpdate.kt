@@ -14,9 +14,11 @@ import com.muzammil.broski.R
 import com.muzammil.broski.app.MainActivity
 import com.muzammil.broski.core.PhoneSession
 import com.muzammil.broski.core.isOnline
+import java.io.File
 import uniffi.broski_core.InboxState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -35,6 +37,8 @@ import kotlinx.coroutines.withContext
 class LiveUpdate(
     private val context: Context,
     private val phone: PhoneSession,
+    /** Settings › Notifications › Live Update: off, nothing shows and what shows goes at once. */
+    private val enabled: Flow<Boolean>,
     private val hold: (Boolean) -> Unit,
 ) {
     private val notifier = Notifier(context)
@@ -43,15 +47,19 @@ class LiveUpdate(
     suspend fun run() {
         manager.cancel(ID)
         val since = mutableMapOf<SessionTarget, Long>()
-        combine(phone.inboxRows, phone.machines) { rows, machines ->
+        combine(phone.inboxRows, phone.machines, phone.muted, enabled) { rows, machines, muted, enabled ->
             val reachable = machines.filter { it.health.isOnline }.map { it.id }.toSet()
-            LiveStatus.of(rows, since, System.currentTimeMillis(), reachable)
+            if (enabled) LiveStatus.of(rows, since, System.currentTimeMillis(), reachable, muted) else null
         }
             .distinctUntilChanged()
             .conflate()
             .collect { live ->
-                if (live == null) end() else show(build(live))
-                delay(UPDATE_EVERY_MS)
+                if (live == null) {
+                    end()
+                } else {
+                    show(build(live))
+                    delay(UPDATE_EVERY_MS)
+                }
             }
     }
 
@@ -83,7 +91,7 @@ class LiveUpdate(
     fun build(status: LiveStatus): Notification {
         val row = status.focused
         val live = status.working + status.needsYou
-        val session = row.title ?: context.getString(R.string.inbox_untitled)
+        val session = row.title ?: row.cwd?.let { File(it).name } ?: context.getString(R.string.inbox_untitled)
         val isWorking = row.state == InboxState.WORKING
         val needsYou = context.resources.getQuantityString(R.plurals.live_needs_you, status.needsYou, status.needsYou)
         val (title, text) = if (live > 1) {

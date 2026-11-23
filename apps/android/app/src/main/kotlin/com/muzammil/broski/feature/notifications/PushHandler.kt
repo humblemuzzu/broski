@@ -17,7 +17,9 @@ import uniffi.broski_core.openNotification
 /**
  * Turns a relay push into a notification: finds the machine's stored record, opens the sealed
  * payload with it (the relay never sees the words), keeps to the person's local choices, and posts.
- * Needs no `Phone` and no network, so it fits in the seconds a data message gets.
+ * The machine already leaves out what the person turned off, so the choices here only cover a push
+ * that was sent before it heard of them. Needs no `Phone` and no network, so it fits in the seconds
+ * a data message gets.
  */
 class PushHandler(
     private val context: Context,
@@ -28,10 +30,12 @@ class PushHandler(
     private val nowMs: () -> Long = System::currentTimeMillis,
     private val seen: PushDedup = SharedDedup,
 ) {
-    /** The alert that was posted, or null when the push was dropped (unknown machine, turned off, muted, stale, duplicate, foreground, unreadable). */
+    /** What a push became once opened: its real kind, the notification it concerns, and the alert if it is one. */
+    private class Opened(val kind: PushKind, val tag: String, val alert: Alert?, val atMs: Long?)
+
+    /** The alert that was posted, or null when the push was dropped (unknown machine, turned off, muted, stale, duplicate, foreground, unreadable) or took a notification down. */
     suspend fun handle(data: Map<String, String>): Alert? {
         val push = RelayPush.of(data) ?: return dropped("not a relay push: ${data.keys}")
-        if (push.kind.preference !in enabled()) return null
         val records = try {
             vault.records().readable
         } catch (error: IOException) {
@@ -39,24 +43,21 @@ class PushHandler(
             emptyMap()
         }
         val record = records[push.machineId] ?: return dropped("no stored record for the machine the push names")
-        val decoded = try {
-            MachineRecord.fromBytes(record).use { stored ->
-                if (push.kind == PushKind.Offline) {
-                    offline(stored, push)?.let { it to null }
-                } else {
-                    val note = openNotification(stored, push.payload)
-                    Alert.of(push.machineId, push.kind, note, namesMachine = records.size > 1) to note.atMs.toLong()
-                }
-            }
+        val opened = try {
+            MachineRecord.fromBytes(record).use { open(it, push, namesMachine = records.size > 1) }
         } catch (error: ClientException) {
             Log.w(TAG, "the push does not open with the stored record", error)
             null
         } ?: return null
-        val (alert, atMs) = decoded
+        if (opened.kind == PushKind.Resolved) {
+            notifier.cancel(opened.tag)
+            return null
+        }
+        if (opened.kind.preference?.let { it !in enabled() } == true) return null
+        val alert = opened.alert ?: return null
         if (alert.mutedBy(muted())) return dropped("session is muted")
-        val dedupKey = "${alert.tag}:${atMs ?: push.payload.hashCode()}"
-        if (!seen.record(dedupKey)) return dropped("duplicate push")
-        if (push.kind == PushKind.Done && atMs != null && nowMs() - atMs > DONE_STALE_MS) {
+        if (!seen.record("${alert.tag}:${opened.atMs ?: push.payload.hashCode()}")) return dropped("duplicate push")
+        if (opened.kind in FINISHES && opened.atMs != null && nowMs() - opened.atMs > DONE_STALE_MS) {
             return dropped("stale done push")
         }
         if (alert.session != null && alert.session == visibleSession()) {
@@ -64,6 +65,17 @@ class PushHandler(
         }
         notifier.post(alert)
         return alert
+    }
+
+    private fun open(stored: MachineRecord, push: RelayPush, namesMachine: Boolean): Opened? {
+        if (push.kind == PushKind.Offline) {
+            return offline(stored, push)?.let { Opened(PushKind.Offline, it.tag, it, null) }
+        }
+        val note = openNotification(stored, push.payload)
+        val kind = PushKind.of(note.kind) ?: return dropped("a ${note.kind} push is of no kind this app knows")
+        val tag = Alert.tag(push.machineId, kind, note)
+        val alert = if (kind == PushKind.Resolved) null else Alert.of(push.machineId, kind, note, namesMachine)
+        return Opened(kind, tag, alert, note.atMs.toLong())
     }
 
     private suspend fun muted(): Set<SessionKey> = try {
@@ -95,6 +107,7 @@ class PushHandler(
     private companion object {
         const val TAG = "Push"
         const val DONE_STALE_MS = 5L * 60 * 1_000
+        val FINISHES = setOf(PushKind.Done, PushKind.Failed)
         val SharedDedup = PushDedup()
     }
 }

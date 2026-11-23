@@ -1,3 +1,4 @@
+import ActivityKit
 import Observation
 import UIKit
 import UserNotifications
@@ -8,12 +9,15 @@ import UserNotifications
 @Observable
 final class NotificationAccess {
     private(set) var status: UNAuthorizationStatus?
+    /// Whether iOS Settings lets Broski show Live Activities.
+    private(set) var liveActivitiesAllowed = true
 
     var canAsk: Bool { status == .notDetermined }
     var isAllowed: Bool { status == .authorized || status == .provisional || status == .ephemeral }
 
     func refresh() async {
         status = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
+        liveActivitiesAllowed = ActivityAuthorizationInfo().areActivitiesEnabled
         if isAllowed { UIApplication.shared.registerForRemoteNotifications() }
     }
 

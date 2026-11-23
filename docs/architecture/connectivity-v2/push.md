@@ -13,6 +13,8 @@ Device control stream (`STREAM_CONTROL`), phone to machine:
 |---|---|
 | `{"t":"push_register","platform":"apns"\|"fcm","token":"<push token>","key":"<b64url 32 B K>"}` | replaces this device's previous registration |
 | `{"t":"push_unregister"}` | forgets it |
+| `{"t":"notify_prefs","needs_you":true,"done":true,"failures":true,"muted":[{"backend":"pi","session":"<id>"}]}` | what this device wants pushed; sent whole at every connect and at every change, stored on the device as `notify` (`0600`, left out of the file while every choice is on, at most 512 muted sessions) |
+| `{"t":"live_activity_register","token":"<hex>"}` / `{"t":"live_activity_unregister"}` | the iOS Live Activity's ActivityKit push token |
 
 A registration with an unknown platform, a token that is empty, longer than 512 bytes or not
 printable ASCII, or a `key` that is not the b64url of exactly 32 bytes is ignored (debug log, no
@@ -47,14 +49,21 @@ nonce(12 random bytes) || ChaCha20-Poly1305-IETF(key = notify_key, nonce, plaint
 The sealed payload is at most 3072 bytes because `body` is shortened on a character boundary until
 it fits; a payload that cannot be made to fit at all is not sent.
 
-| kind | when | priority | collapse |
-|---|---|---|---|
-| `approval` | a pending permission request | `high` | `a-` + the group |
-| `attention` | a pending user-input request | `high` | `a-` + the group |
-| `done` | a turn went from working to idle | `normal` | `d-` + the group |
+| kind | when | relay kind | priority | collapse |
+|---|---|---|---|---|
+| `approval` | a permission request a lock screen can answer (Allow and Deny) | `approval` | `high` | `a-` + the request |
+| `attention` | anything else that needs the person | `attention` | `high` | `a-` + the request |
+| `done` | a turn went from working to idle | `done` | `high` | `d-` + the session |
+| `failed` | a run ended with an error or at a limit | `done` (the relay has no word for it) | `high` | `d-` + the session |
+| `resolved` | a request ended without a lock-screen answer; Android phones only | `done` | `high` | `a-` + the request, so it replaces the alert still waiting at the provider |
 
-The group is the bridge feed's `request` when it has one and the `session` otherwise, cut to its
-first 40 printable-ASCII bytes — at most 42 characters, inside the relay's 64.
+Every kind is `high`: an Android phone in Doze holds a normal-priority message back until a maintenance window, so a
+finished run's notification would arrive minutes late. The phone reads the real kind from the sealed payload; the
+relay's `k` is only what it knows. A `resolved` push carries the `request` it takes down and no alert: an Android
+handler cancels that notification and shows nothing. An iPhone is never sent one, because an APNs alert push always shows.
+
+The request id (or the session) is cut to its first 40 printable-ASCII bytes — at most 42 characters with the
+prefix, inside the relay's 64.
 
 ## Letters
 
@@ -100,6 +109,7 @@ liveness check fails. Every 30 s it sends `{"type":"link_feed_ping"}` and expect
 ```json
 {"type":"link_busy","busy":true}
 {"type":"link_event","kind":"approval","backend":"claude-code","session":"<id>","cwd":"<basename>","title":"…","body":"…","at":ms,"request":"<id>"}
+{"type":"link_resolved","backend":"claude-code","session":"<id>","request":"<id>","at":ms}
 ```
 
 The feed stays up whether or not anything is asking it for something: a feed request inbox with no
@@ -107,12 +117,31 @@ senders left is not a reason to drop the socket the bridge reports on.
 
 ## Policy
 
-`link_event` pushes to every paired device that has a registration, attached or not. An attached
-phone's app hides the push of the session on its screen and shows any other: a session the person
-is not looking at gets no other word, and a link that still looks attached may belong to an app that
-just went to the background. The same
-`(kind, request|session)` pair is never pushed twice inside 60 s, including across a feed reconnect,
-so a bridge that repeats itself cannot wake a phone twice.
+`link_event` pushes to every paired device that has a registration, attached or not, **and wants that alert**. An
+attached phone's app hides the push of the session on its screen and shows any other: a session the person is not
+looking at gets no other word, and a link that still looks attached may belong to an app that just went to the
+background.
+
+What a device wants is its `notify_prefs`: Needs you (`approval`, `attention`), Finished (`done`), Failed (`failed`), and
+the sessions it muted. The machine drops an alert the device does not want *before* it is sealed, so a switch holds with
+the app killed or the phone asleep. The phone cannot do this itself: an iOS notification service extension may only
+change a push, never drop it, without an entitlement Apple grants on request, and Android's data message handler runs
+only when the system lets it. The extension and the Android handler still quiet or drop what arrives against the
+settings (a push sent before the machine heard of them), but the machine is where it is enforced. Failed also decides
+whether the machine lists the device as an alert target for the relay's own "Mac offline or asleep" push, the one
+failure the relay reports.
+
+Nothing is pushed twice: a request by its id for 12 h (a feed that redials replays what is still pending), a finished or
+failed run by session and the moment it ended for 60 s. Two runs of one session that end close together are two pushes,
+and the second replaces the first on the lock screen.
+
+## Live Activity
+
+`link_runs` snapshots from the bridge (the live sessions, those that need the person first) become ActivityKit pushes to
+every device that is detached and holds a Live Activity token. Each device is told only about the sessions it has not
+muted, so its lock screen shows what its own app would; a device whose sessions are all muted, or that has none left, is
+sent an `end` and its token is forgotten. A device that turns the Live Activity off ends it in the app, which clears the
+token the same way, so nothing starts or updates it afterwards.
 
 ## Watch and keep-awake
 

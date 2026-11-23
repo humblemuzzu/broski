@@ -1,7 +1,7 @@
 use tracing::{debug, warn};
 
 use crate::control::{self, FromDevice, Hello, LiveActivityRegister, PushRegister};
-use crate::device::{clamp_name, short, PushRegistration};
+use crate::device::{clamp_name, short, NotifyPrefs, PushRegistration};
 use crate::push::{keys, platform, valid_token};
 
 use super::Actor;
@@ -22,6 +22,7 @@ impl Actor {
             FromDevice::PushUnregister => self.push_unregister().await,
             FromDevice::LiveActivityRegister(register) => self.live_activity(register).await,
             FromDevice::LiveActivityUnregister => self.store_live_activity(None).await,
+            FromDevice::NotifyPrefs(prefs) => self.notify_prefs(prefs).await,
             FromDevice::Unknown => {}
         }
     }
@@ -69,6 +70,20 @@ impl Actor {
             return;
         }
         self.store_live_activity(Some(register.token)).await;
+    }
+
+    async fn notify_prefs(&mut self, prefs: NotifyPrefs) {
+        match self.deps.store.set_notify(&self.device.id, prefs).await {
+            Ok(Some(true)) => self.deps.relay.refresh(),
+            Ok(Some(false)) => {}
+            Ok(None) => debug!(
+                device = short(&self.device.id),
+                "notification settings for an unknown device"
+            ),
+            Err(error) => {
+                warn!(device = short(&self.device.id), error = %error, "notification settings not stored")
+            }
+        }
     }
 
     async fn store_live_activity(&mut self, token: Option<String>) {

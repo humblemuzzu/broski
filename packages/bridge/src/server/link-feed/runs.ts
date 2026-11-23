@@ -1,6 +1,6 @@
 import { type BackendId, type CatalogEvent, clip, type SessionSummary } from "../../contract";
 import type { ObservedEvent } from "../../core/observer";
-import type { LinkFeedRunsMessage, LinkRunEntry } from "./format";
+import { cwdBase, type LinkFeedRunsMessage, type LinkRunEntry } from "./format";
 
 const TITLE_MAX = 80;
 const MAX_TRACKED = 64;
@@ -153,7 +153,7 @@ function runKey(backend: BackendId, sessionId: string): string {
 }
 
 function formatTitle(summary: SessionSummary): string {
-	const raw = summary.title?.text?.replace(/\s+/g, " ").trim();
+	const raw = summary.title?.text?.replace(/\s+/g, " ").trim() || cwdBase(summary.cwd);
 	if (!raw) return "Untitled session";
 	return raw.length <= TITLE_MAX ? raw : `${clip(raw, TITLE_MAX - 1)}…`;
 }
