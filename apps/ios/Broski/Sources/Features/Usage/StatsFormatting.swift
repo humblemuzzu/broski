@@ -14,6 +14,18 @@ extension StatsRange {
         case .all: "All"
         }
     }
+
+    /// The period a change is measured against: "the previous 30 days"; nil where there is no before.
+    var previousPeriod: String? {
+        switch self {
+        case .day: "the day before"
+        case .week: "the week before"
+        case .month: "the previous 30 days"
+        case .quarter: "the previous 90 days"
+        case .year: "the year before"
+        case .all: nil
+        }
+    }
 }
 
 extension StatsHarness {
@@ -78,6 +90,18 @@ enum StatsFormat {
         return String(format: absVal >= 0.01 ? "$%.2f" : "$%.3f", value)
     }
 
+    /// The headline figure, whole dollars once there are a hundred: "$10,742", "$84.20".
+    static func usdFigure(_ value: Double) -> String {
+        value >= 100
+            ? value.formatted(.currency(code: "USD").precision(.fractionLength(0)))
+            : value.formatted(.currency(code: "USD").precision(.fractionLength(2)))
+    }
+
+    /// A figure as short as it reads: "$358", "$1.2K", "1.6B".
+    static func compact(_ value: Double, metric: StatsMetric) -> String {
+        metric == .cost ? usd(value) : tokens(Int64(value))
+    }
+
     static func tokens(_ count: Int64) -> String {
         let value = Double(count)
         let absVal = abs(value)
@@ -114,20 +138,12 @@ enum StatsFormat {
         return abs(rounded) > 999 ? "\(prefix)999%+" : "\(prefix)\(clamped)%"
     }
 
-    static func duration(_ ms: Int64) -> String {
-        let totalMinutes = Int(ms / 60_000)
-        if totalMinutes < 60 { return "\(totalMinutes)m" }
-        let hours = totalMinutes / 60
-        let minutes = totalMinutes % 60
-        return minutes == 0 ? "\(hours)h" : "\(hours)h \(minutes)m"
-    }
-
-    static func costSourceCaption(_ source: StatsCostSource) -> String {
+    /// Where the money figures come from, in a sentence.
+    static func costNote(_ source: StatsCostSource) -> String? {
         switch source {
-        case .providerReported: "Provider reported"
-        case .apiEstimate: "API estimate"
-        case .mixed: "API estimate"
-        case .unpriced: "Unpriced"
+        case .providerReported: "Costs are what each provider reported."
+        case .apiEstimate, .mixed: "Costs are what the same use would cost at API prices."
+        case .unpriced: nil
         }
     }
 }

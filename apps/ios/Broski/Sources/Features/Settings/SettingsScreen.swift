@@ -53,15 +53,16 @@ struct SettingsScreen: View {
         }
     }
 
-    /// Each Mac with how it is connected, opening Machines; then pairing another.
+    /// Each Mac as its live link, opening Machines; then pairing another.
     private var machines: some View {
         Section {
             ForEach(model.machines) { machine in
                 NavigationLink {
                     MachinesScreen()
                 } label: {
-                    MachineCardRow(machine: machine)
+                    LinkCard(machine: machine)
                 }
+                .navigationLinkIndicatorVisibility(.hidden)
                 .accessibilityIdentifier("Machines")
             }
             Menu {
@@ -78,40 +79,6 @@ struct SettingsScreen: View {
         case .denied, .notDetermined: "Off"
         default: "On"
         }
-    }
-}
-
-/// A paired Mac at the top of Settings: its name, and how it is connected beside a dot of its
-/// health.
-private struct MachineCardRow: View {
-    let machine: MachineModel
-    @ScaledMetric(relativeTo: .body) private var side: CGFloat = 44
-
-    private var summary: MachineSummary { machine.summary }
-
-    var body: some View {
-        HStack(spacing: Spacing.m) {
-            Image(systemName: "laptopcomputer")
-                .font(.system(size: side * 0.42, weight: .medium))
-                .foregroundStyle(.primary)
-                .frame(width: side, height: side)
-                .background(Color(uiColor: .tertiarySystemFill), in: .rect(cornerRadius: side * 0.26, style: .continuous))
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: Spacing.xxs) {
-                Text(machine.name)
-                    .font(.headline)
-                    .lineLimit(1)
-                HStack(spacing: Spacing.xs + Spacing.xxs) {
-                    Circle().fill(summary.health.dot).frame(width: 7, height: 7)
-                    Text(summary.line)
-                        .lineLimit(1)
-                }
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            }
-        }
-        .padding(.vertical, Spacing.xs)
-        .accessibilityElement(children: .combine)
     }
 }
 

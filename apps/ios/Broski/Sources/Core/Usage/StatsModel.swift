@@ -3,7 +3,7 @@ import Foundation
 import Observation
 import os
 
-enum StatsMetric: String, CaseIterable, Identifiable {
+nonisolated enum StatsMetric: String, CaseIterable, Identifiable {
     case cost
     case tokens
 
