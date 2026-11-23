@@ -24,23 +24,30 @@ export function contractApproval(
 	request: ToolPermissionRequest,
 	at: number,
 ): LinkFeedEventMessage {
-	const tool = stringOf(interaction.origin?.toolName);
-	const detail =
-		previewDetail(request.previews) ??
-		summarize(request.input) ??
-		stringOf(request.reason) ??
-		stringOf(interaction.title) ??
-		"approval required";
 	return alertEvent(
 		"approval",
 		source.session.backend,
 		source.session.sessionId,
 		summary?.cwd,
 		titled(source, summary, "needs approval"),
-		tool ? `${tool}: ${detail}` : detail,
+		whatItWants(source.backendName, interaction, request),
 		at,
 		interaction.id,
 	);
+}
+
+/** "Pi wants to run ls apps", "Claude Code wants to use edit: src/a.ts": who asks and for what, read on a lock screen. */
+function whatItWants(agent: string, interaction: Interaction, request: ToolPermissionRequest): string {
+	const tool = stringOf(interaction.origin?.toolName);
+	const command = request.previews.find((preview) => preview.kind === "command");
+	if (command?.kind === "command" && stringOf(command.command)) return `${agent} wants to run ${command.command}`;
+	const detail =
+		previewDetail(request.previews) ??
+		summarize(request.input) ??
+		stringOf(request.reason) ??
+		stringOf(interaction.title) ??
+		"approval required";
+	return tool ? `${agent} wants to use ${tool}: ${detail}` : detail;
 }
 
 export function contractAttention(

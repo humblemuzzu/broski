@@ -190,7 +190,7 @@ describe("approvals", () => {
 			session: current.session.sessionId,
 			cwd: "project",
 			title: "Fix the build — needs approval",
-			body: "bash: rm -rf build",
+			body: "Fake wants to run rm -rf build",
 		});
 		const request = interactionOf(approval as LinkFrame);
 

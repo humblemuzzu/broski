@@ -53,7 +53,7 @@ function option(overrides: Partial<PermissionOption>): PermissionOption {
 }
 
 describe("the approval alert of a contract session", () => {
-	test("its body names the tool and what it will do, from the preview", () => {
+	test("its body says who wants to run what, from the preview", () => {
 		const alert = contractApproval(
 			SOURCE,
 			row(),
@@ -70,7 +70,7 @@ describe("the approval alert of a contract session", () => {
 			session: "s-1",
 			cwd: "project",
 			title: "Fix the build — needs approval",
-			body: "bash: rm -rf build",
+			body: "Pi wants to run rm -rf build",
 			at: 5,
 			request: "i-1",
 		});
@@ -79,7 +79,8 @@ describe("the approval alert of a contract session", () => {
 	test("a cut never splits a character in two", () => {
 		const request = permission({ previews: [{ kind: "command", command: `${"a".repeat(192)}😀 more` }] });
 		const alert = contractApproval(SOURCE, row(), asked(request, { origin: { toolName: "bash" } }), request, 1);
-		expect(alert.body).toBe(`bash: ${"a".repeat(192)}…`);
+		expect(alert.body.startsWith("Pi wants to run aaa")).toBe(true);
+		expect(alert.body.endsWith("a…")).toBe(true);
 		expect(alert.body.isWellFormed()).toBe(true);
 	});
 
