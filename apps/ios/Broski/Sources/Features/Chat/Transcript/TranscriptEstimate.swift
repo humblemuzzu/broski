@@ -23,7 +23,7 @@ enum TranscriptEstimate {
         case .text(let piece):
             let planHeader: CGFloat = (piece.kind == .plan && piece.isFirst) ? 20 : 0
             return planHeader + block(piece.block, width: width, compact: compact)
-        case .work, .activity, .marker: return 32
+        case .work, .group, .activity, .marker: return 32
         case .notice: return 44
         case .answerEnd(let end):
             return end.sources.isEmpty ? 36 : 36 + 44 * CGFloat(min(end.sources.count, SourcesList.shown))

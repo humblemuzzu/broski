@@ -317,7 +317,10 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
   ([formatting.md](../../docs/architecture/formatting.md)), one fold per stretch of work
   (`Worked for 2m · Ran 2 commands · 1 failed`, opening in place to 28 pt rows capped at 256 pt with
   faded edges, each opening to the command, its output and exit, its files and their diffs, a
-  subagent's session), notices, compaction and how a run ended as quiet lines, and one status lane
+  subagent's session; a turn that worked in more than one stretch folds all of it, the stretches and the
+  agent's notes between them, under one `Worked for 40m · Edited 3 files · Ran 12 commands` line above
+  its answer, which opens to the rows as a live run draws them, and Settings › Appearance › Collapse
+  Agent Work, on by default, turns that off), notices, compaction and how a run ended as quiet lines, and one status lane
   (`Working`, `Waiting for your approval`, `Agent is working` / `New output will appear here`,
   `Compacting context…`, `Retrying in 8 s`) shimmering only on screen, in an active scene and
   without Reduce Motion. Every layout pass either holds the end (following, no finger down) or holds

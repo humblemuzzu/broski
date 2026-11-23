@@ -2,14 +2,15 @@ import BroskiCore
 import CoreGraphics
 
 /// One row of the transcript's lazy stack, keyed so a row keeps its identity while text streams:
-/// the person's message, a work fold, one formatted block of the agent's text, the quiet line under
-/// a finished answer, a notice, an activity, a marker (compaction, model change, how a run ended),
-/// or a prompt still on its way.
+/// the person's message, a work fold, the line a turn's whole work folds into, one formatted block
+/// of the agent's text, the quiet line under a finished answer, a notice, an activity, a marker
+/// (compaction, model change, how a run ended), or a prompt still on its way.
 nonisolated struct ChatRow: Identifiable, Equatable {
     enum Content: Equatable {
         case user(UserTurn)
         case pending(PendingPrompt)
         case work(WorkFold)
+        case group(WorkGroup)
         case text(TextPiece)
         case answerEnd(AnswerEnd)
         case notice(NoticeItem)
@@ -26,7 +27,7 @@ nonisolated struct ChatRow: Identifiable, Equatable {
     /// text fades in (`ChatRowView`), the line under an answer just appears.
     var risesIn: Bool {
         switch content {
-        case .user, .pending, .work, .notice, .activity, .marker, .text: true
+        case .user, .pending, .work, .group, .notice, .activity, .marker, .text: true
         case .answerEnd: false
         }
     }
@@ -65,6 +66,14 @@ nonisolated struct AnswerEnd: Equatable {
     let text: String
     let at: Int64?
     var sources: [LinkItem] = []
+}
+
+/// The line a turn's work folds into once its answer is below it: `Worked for 40m · Edited 3 files ·
+/// Ran 12 commands`. The `members` rows that follow it (the stretches of work and the words the
+/// agent wrote between them) are drawn only while it is open (`WorkGroups.shown`).
+nonisolated struct WorkGroup: Equatable {
+    let members: Int
+    let summary: WorkSummary
 }
 
 nonisolated enum Marker: Equatable {

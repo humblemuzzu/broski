@@ -18,13 +18,15 @@ struct TranscriptView: View {
     @Environment(\.modelNames) private var modelNames
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.reading) private var reading
+    @AppStorage(Preference.collapsesWork) private var collapsesWork = true
 
     var body: some View {
+        let shown = self.shown
         Color.clear
             .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { safeFrame = $0 }
             .overlay {
                 TranscriptList(
-                    entries: entries, freshIDs: chat.freshRowIDs, insets: insets, following: chat.follow.isFollowing,
+                    entries: shown.entries, freshIDs: chat.freshRowIDs.union(shown.revealed), insets: insets, following: chat.follow.isFollowing,
                     jumpRequest: chat.jumpRequest, cellContext: cellContext, callbacks: callbacks
                 )
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { fullFrame = $0 }
@@ -60,20 +62,20 @@ struct TranscriptView: View {
             bottom: max(0, fullFrame.maxY - safeFrame.maxY), trailing: 0)
     }
 
-    private var entries: [(id: String, entry: TranscriptEntry)] {
+    /// What the list draws, and the rows of work groups the person has just opened, which come in
+    /// as new rows do.
+    private var shown: (entries: [(id: String, entry: TranscriptEntry)], revealed: Set<String>) {
+        let rows = WorkGroups.shown(chat.historyRows + chat.liveRows, collapsing: collapsesWork, isOpen: disclosure.isOpen)
         var items: [(id: String, entry: TranscriptEntry)] = []
-        items.reserveCapacity(chat.historyRows.count + chat.liveRows.count + 2)
+        items.reserveCapacity(rows.rows.count + 2)
         if chat.history.hasOlder || chat.historyProblem != nil {
             items.append((TranscriptEntry.olderID, .older(problem: chat.historyProblem?.message)))
         }
-        for row in chat.historyRows {
-            items.append((row.id, .row(row)))
-        }
-        for row in chat.liveRows {
+        for row in rows.rows {
             items.append((row.id, .row(row)))
         }
         items.append((TranscriptEntry.laneID, .lane(LaneStatus(chat.snapshot), startedAt: chat.snapshot.run?.startedAt)))
-        return items
+        return (items, rows.revealed)
     }
 
     private var cellContext: TranscriptCellContext {

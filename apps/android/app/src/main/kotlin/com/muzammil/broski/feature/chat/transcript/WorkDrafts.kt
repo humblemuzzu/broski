@@ -73,6 +73,8 @@ internal class FoldDraft(val lead: FoldLead, val turnStart: Long?) {
             counts = counts,
             failed = failed,
             live = live,
+            turnStartedAt = turnStart,
+            endedAt = end,
         )
         return ChatRow.Work("w:${entries.first().id}", firstAt(), fold)
     }

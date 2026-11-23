@@ -61,31 +61,8 @@ fun WorkFoldRow(
     actions: WorkActions,
     modifier: Modifier = Modifier,
 ) {
-    val haptics = LocalHapticFeedback.current
-    val parts = foldParts(fold)
-    val sentence = parts.joinToString(" · ") { it.text }
-    val stateWords = stringResource(if (expanded) R.string.chat_work_expanded else R.string.chat_work_collapsed)
     Column(modifier.fillMaxWidth()) {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .heightIn(min = 28.dp)
-                .clickable {
-                    haptics.perform(if (expanded) Haptic.Collapse else Haptic.Expand)
-                    onToggle()
-                }
-                .clearAndSetSemantics {
-                    contentDescription = sentence
-                    stateDescription = stateWords
-                    role = Role.Button
-                    onClick { onToggle(); true }
-                },
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            FoldSentence(parts, Modifier.weight(1f, fill = false))
-            Disclosure(expanded)
-        }
+        WorkSummaryLine(fold, expanded, onToggle)
         AnimatedVisibility(
             visible = expanded,
             enter = expandVertically(tween(DISCLOSURE_MS)) + fadeIn(tween(DISCLOSURE_MS)),
@@ -93,6 +70,41 @@ fun WorkFoldRow(
         ) {
             WorkEntries(fold.entries, entryExpanded, onToggleEntry, actions)
         }
+    }
+}
+
+/** A turn's work as one muted line above its answer; a tap shows the rows it holds (`WorkGroups`). */
+@Composable
+fun WorkGroupRow(summary: WorkFold, expanded: Boolean, onToggle: () -> Unit, modifier: Modifier = Modifier) {
+    WorkSummaryLine(summary, expanded, onToggle, modifier)
+}
+
+/** The one muted line of a fold or a group: its sentence and a chevron that turns; a tap opens it. */
+@Composable
+private fun WorkSummaryLine(fold: WorkFold, expanded: Boolean, onToggle: () -> Unit, modifier: Modifier = Modifier) {
+    val haptics = LocalHapticFeedback.current
+    val parts = foldParts(fold)
+    val sentence = parts.joinToString(" · ") { it.text }
+    val stateWords = stringResource(if (expanded) R.string.chat_work_expanded else R.string.chat_work_collapsed)
+    Row(
+        modifier
+            .fillMaxWidth()
+            .heightIn(min = 28.dp)
+            .clickable {
+                haptics.perform(if (expanded) Haptic.Collapse else Haptic.Expand)
+                onToggle()
+            }
+            .clearAndSetSemantics {
+                contentDescription = sentence
+                stateDescription = stateWords
+                role = Role.Button
+                onClick { onToggle(); true }
+            },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        FoldSentence(parts, Modifier.weight(1f, fill = false))
+        Disclosure(expanded)
     }
 }
 

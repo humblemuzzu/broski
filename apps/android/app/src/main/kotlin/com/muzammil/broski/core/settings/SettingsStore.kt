@@ -27,6 +27,8 @@ data class AppSettings(
     val notifications: Set<NotificationKind> = NotificationKind.entries.toSet(),
     val voice: VoiceSettings = VoiceSettings(),
     val reading: ReadingSettings = ReadingSettings(),
+    /** A turn's reasoning, calls and notes folded under "Worked for 2m", so a reply opens on its answer. */
+    val collapsesWork: Boolean = true,
     val models: ModelPreferences = ModelPreferences(),
     /** The inbox's agent, Mac and folder filter; never its state. */
     val inbox: InboxFilter = InboxFilter(),
@@ -103,6 +105,7 @@ class SettingsStore(private val store: DataStore<Preferences>) {
                 dictionary = words(preferences[VOICE_DICTIONARY].orEmpty()),
             ),
             reading = reading(preferences),
+            collapsesWork = preferences[COLLAPSES_WORK] ?: true,
             models = ModelPreferences.decoded(preferences[MODELS]),
             inbox = InboxFilter(
                 backend = preferences[INBOX_AGENT],
@@ -156,6 +159,10 @@ class SettingsStore(private val store: DataStore<Preferences>) {
         store.edit { it[VOICE_DICTIONARY] = words.joinToString("\n") }
     }
 
+    suspend fun setCollapsesWork(enabled: Boolean) {
+        store.edit { it[COLLAPSES_WORK] = enabled }
+    }
+
     suspend fun setReading(reading: ReadingSettings) {
         store.edit {
             it[READING_SIZE] = reading.sizeSteps.coerceIn(ReadingSettings.SIZE_STEPS)
@@ -170,6 +177,7 @@ class SettingsStore(private val store: DataStore<Preferences>) {
     }
 
     private companion object {
+        val COLLAPSES_WORK = booleanPreferencesKey("chat.collapsesWork")
         val READING_SIZE = intPreferencesKey("reading.size")
         val READING_COMPACT = booleanPreferencesKey("reading.compact")
         val READING_DENSITY = stringPreferencesKey("reading.density")

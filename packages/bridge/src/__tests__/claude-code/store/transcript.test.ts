@@ -95,6 +95,14 @@ describe("the transcript mapping", () => {
 		expect(items.every((item) => item.at !== undefined)).toBe(true);
 	});
 
+	test("stamps each item with the time of its own line, so a turn's span is the first prompt's to the last answer's", async () => {
+		const { built } = rich();
+		const items = await pages(built.sessionId, 200);
+		const oldestFirst = items.map((item) => item.at).reverse();
+		const start = Date.UTC(2026, 10, 1);
+		expect(oldestFirst).toEqual(Array.from({ length: 8 }, (_, line) => start + (line + 1) * 1000));
+	});
+
 	test("pages of one item concatenate to the same list as a single page", async () => {
 		const { built } = rich();
 		const whole = await pages(built.sessionId, 200);

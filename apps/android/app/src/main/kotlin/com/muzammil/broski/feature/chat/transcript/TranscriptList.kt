@@ -10,6 +10,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
@@ -25,6 +27,7 @@ import com.muzammil.broski.design.format.LocalFormatBleed
 import com.muzammil.broski.feature.chat.activity.ActivityRow
 import com.muzammil.broski.feature.chat.work.WorkActions
 import com.muzammil.broski.feature.chat.work.WorkFoldRow
+import com.muzammil.broski.feature.chat.work.WorkGroupRow
 import com.muzammil.broski.feature.images.ChatImageStore
 import com.muzammil.broski.feature.images.ImageTarget
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -61,8 +64,11 @@ fun TranscriptList(
     modifier: Modifier = Modifier,
 ) {
     val focus = LocalFocusManager.current
-    TrackFollow(state, rows)
+    val collapsing = LocalCollapsesWork.current
+    val shown by remember(rows, collapsing) { derivedStateOf { WorkGroups.shown(rows, collapsing) { it in state.openFolds } } }
+    TrackFollow(state, remember(rows) { WorkGroups.shown(rows, collapsing = true) { false }.rows })
     LoadOlder(state, rows, callbacks.loadOlder)
+    val drawn = shown.rows
     LazyColumn(
         state = state.list,
         reverseLayout = true,
@@ -72,8 +78,9 @@ fun TranscriptList(
         item(key = "lane", contentType = "lane") {
             StatusLaneView(lane, runStartedAt, Modifier.padding(start = SIDE_MARGIN, end = SIDE_MARGIN, top = 8.dp))
         }
-        itemsIndexed(rows, key = { _, row -> row.key }, contentType = { _, row -> row::class }) { index, row ->
-            Row(row, gap(rows.getOrNull(index + 1), row), imageStore, state, callbacks) { answerOf(rows, row) }
+        itemsIndexed(drawn, key = { _, row -> row.key }, contentType = { _, row -> row::class }) { index, row ->
+            val opened = if (row.key in shown.revealed) Modifier.animateItem(placementSpec = null, fadeOutSpec = null) else Modifier
+            Row(row, gap(drawn.getOrNull(index + 1), row), imageStore, state, callbacks, opened) { answerOf(drawn, row) }
         }
     }
 }
@@ -89,15 +96,23 @@ private fun gap(older: ChatRow?, row: ChatRow): Dp = when {
     row is ChatRow.CopyAnswer -> 6.dp
     row.isWork && older.isWork -> 2.dp
     older is ChatRow.User -> 18.dp
-    older is ChatRow.Work && row is ChatRow.Text -> 10.dp
+    (older is ChatRow.Work || older is ChatRow.WorkGroup) && row is ChatRow.Text -> 10.dp
     else -> 14.dp
 }
 
-private val ChatRow.isWork: Boolean get() = this is ChatRow.Work || this is ChatRow.Activity
+private val ChatRow.isWork: Boolean get() = this is ChatRow.Work || this is ChatRow.WorkGroup || this is ChatRow.Activity
 
 @Composable
-private fun Row(row: ChatRow, gap: Dp, imageStore: ChatImageStore, state: TranscriptState, callbacks: TranscriptCallbacks, answer: () -> String?) {
-    val padded = Modifier.padding(top = gap).padding(horizontal = SIDE_MARGIN).entrance(row.at)
+private fun Row(
+    row: ChatRow,
+    gap: Dp,
+    imageStore: ChatImageStore,
+    state: TranscriptState,
+    callbacks: TranscriptCallbacks,
+    item: Modifier,
+    answer: () -> String?,
+) {
+    val padded = item.padding(top = gap).padding(horizontal = SIDE_MARGIN).entrance(row.at)
     when (row) {
         is ChatRow.User -> UserBubble(row, imageStore, callbacks.openImages, padded)
         is ChatRow.Text -> AnswerMenu(answer, padded, links = remember(row.block) { row.block.menuLinks() }) {
@@ -116,6 +131,12 @@ private fun Row(row: ChatRow, gap: Dp, imageStore: ChatImageStore, state: Transc
             entryExpanded = { it in state.openEntries },
             onToggleEntry = { state.openEntries.toggle(it) },
             actions = callbacks.work,
+            modifier = padded,
+        )
+        is ChatRow.WorkGroup -> WorkGroupRow(
+            summary = row.summary,
+            expanded = row.key in state.openFolds,
+            onToggle = { state.openFolds.toggle(row.key) },
             modifier = padded,
         )
         is ChatRow.Note -> NoteRow(row.note, padded)

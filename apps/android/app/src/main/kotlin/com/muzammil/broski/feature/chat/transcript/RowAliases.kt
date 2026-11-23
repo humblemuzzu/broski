@@ -8,7 +8,7 @@ package com.muzammil.broski.feature.chat.transcript
  */
 object RowAliases {
     private enum class Kind {
-        Message, Work, Text, CopyAnswer, Note, Activity, Older;
+        Message, Work, Group, Text, CopyAnswer, Note, Activity, Older;
 
         val isTranscriptOnly: Boolean get() = this == Note
     }
@@ -49,6 +49,7 @@ object RowAliases {
     private fun ChatRow.kind(): Kind = when (this) {
         is ChatRow.User -> Kind.Message
         is ChatRow.Work -> Kind.Work
+        is ChatRow.WorkGroup -> Kind.Group
         is ChatRow.Text -> Kind.Text
         is ChatRow.CopyAnswer -> Kind.CopyAnswer
         is ChatRow.Note -> Kind.Note
@@ -61,6 +62,7 @@ object RowAliases {
         is ChatRow.Text -> copy(key = newKey)
         is ChatRow.CopyAnswer -> copy(key = newKey)
         is ChatRow.Work -> copy(key = newKey)
+        is ChatRow.WorkGroup -> copy(key = newKey)
         is ChatRow.Note -> copy(key = newKey)
         is ChatRow.Activity -> copy(key = newKey)
         is ChatRow.Older -> copy(key = newKey)

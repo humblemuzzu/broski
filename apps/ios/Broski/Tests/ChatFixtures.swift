@@ -32,8 +32,8 @@ enum Item {
             result: ToolResult(content: output.isEmpty ? [] : [.text(TextContent(text: output))], fileChanges: changes, error: nil, exitCode: exitCode, display: display)))
     }
 
-    static func notice(_ id: String, _ text: String) -> TranscriptItem {
-        .notice(NoticeItem(id: id, at: nil, level: .info, text: text))
+    static func notice(_ id: String, _ text: String, at: Int64? = nil) -> TranscriptItem {
+        .notice(NoticeItem(id: id, at: at, level: .info, text: text))
     }
 
     static func activity(_ id: String, _ title: String, kind: ActivityKind = .task) -> TranscriptItem {
@@ -72,6 +72,7 @@ extension ChatRow {
         case .user(let turn): "user:\(turn.text)"
         case .pending(let prompt): "pending:\(prompt.draft.text)"
         case .work(let fold): "work:\(fold.summary.text)\(fold.summary.failedText.map { " · \($0)" } ?? "")"
+        case .group(let group): "group:\(group.members):\(group.summary.text)"
         case .text: "text"
         case .answerEnd: "end"
         case .notice(let notice): "notice:\(notice.text)"
