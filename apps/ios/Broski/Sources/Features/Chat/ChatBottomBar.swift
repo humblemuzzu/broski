@@ -4,7 +4,8 @@ import SwiftUI
 /// Everything under the transcript: the pinned panel, then the composer, in one glass container.
 /// The composer is there from the first frame, typing included, whatever the link is doing; only
 /// sending waits for a session this phone may drive. A session a terminal on the Mac runs says so
-/// in its place.
+/// in its place. An ask takes the composer's place, its answers where the thumb is; folded, it
+/// becomes a pill over the composer.
 struct ChatBottomBar: View {
     let chat: ChatModel
     let catalog: ComposerCatalog
@@ -14,6 +15,9 @@ struct ChatBottomBar: View {
     let dictation: DictationTarget
     var fileSearch: FileSearchSource? = nil
     @Binding var composing: Bool
+    /// The ask the person folded away, so the composer shows under its pill.
+    @State private var folded: String?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var modes: [PromptMode] { capabilities?.promptModes ?? [.start] }
 
@@ -28,15 +32,34 @@ struct ChatBottomBar: View {
         GlassEffectContainer(spacing: Spacing.m) {
             VStack(alignment: .trailing, spacing: Spacing.s) {
                 PinnedPanel(chat: chat, agent: agent)
-                if watchesOnly {
-                    WatchingBar(canAnswer: chat.canAnswer)
+                if let ask = chat.interactions.first, folded != ask.id {
+                    InteractionPanel(chat: chat, interaction: ask, agent: agent) { folded = ask.id }
+                        .id(ask.id)
+                        .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
                 } else {
-                    composer
+                    if let ask = chat.interactions.first {
+                        AskPill(interaction: ask, waiting: chat.interactions.count - 1) { folded = nil }
+                            .transition(.opacity)
+                    }
+                    if watchesOnly {
+                        WatchingBar(canAnswer: chat.canAnswer)
+                    } else {
+                        composer
+                    }
                 }
             }
         }
         .padding(.horizontal, Spacing.m)
         .padding(.bottom, Spacing.xs)
+        .animation(reduceMotion ? .easeOut(duration: 0.14) : .spring(duration: 0.32, bounce: 0.12), value: shownAsk)
+        .onChange(of: shownAsk) { _, ask in
+            if ask != nil { composing = false }
+        }
+    }
+
+    /// The ask on screen in the composer's place, if one is.
+    private var shownAsk: String? {
+        chat.interactions.first.map(\.id).flatMap { $0 == folded ? nil : $0 }
     }
 
     private var composer: some View {

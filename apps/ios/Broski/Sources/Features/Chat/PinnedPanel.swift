@@ -2,18 +2,17 @@ import BroskiCore
 import SwiftUI
 
 /// What sits pinned above the composer, never in the scroll: what runs in the background, the
-/// notices, the queued messages and the first ask, each as one quiet card that springs in.
+/// notices and the queued messages, each as one quiet card that springs in. An ask has its own place
+/// (`ChatBottomBar`).
 struct PinnedPanel: View {
     let chat: ChatModel
     let agent: String
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var hasCards: Bool {
         !chat.snapshot.backgroundTasks.isEmpty
             || chat.viewEnd != nil
             || !chat.notices.isEmpty
             || !chat.snapshot.queue.isEmpty
-            || !chat.interactions.isEmpty
     }
 
     var body: some View {
@@ -48,13 +47,7 @@ struct PinnedPanel: View {
                 }
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
-            if let interaction = chat.interactions.first {
-                InteractionPanel(chat: chat, interaction: interaction, agent: agent)
-                    .id(interaction.id)
-                    .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
-            }
         }
-        .animation(reduceMotion ? .easeOut(duration: 0.14) : .spring(duration: 0.22, bounce: 0.1), value: chat.interactions.first?.id)
         .animation(.easeOut(duration: 0.2), value: chat.snapshot.queue)
         .animation(.easeOut(duration: 0.2), value: chat.snapshot.backgroundTasks.isEmpty)
         .animation(.easeOut(duration: 0.2), value: chat.notices)

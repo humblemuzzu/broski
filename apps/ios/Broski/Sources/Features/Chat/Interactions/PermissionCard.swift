@@ -1,10 +1,10 @@
 import BroskiCore
 import SwiftUI
 
-/// A tool permission: what the agent wants to do, exactly (the command, the files with their diffs,
-/// the host, the paths, its arguments), why, and the backend's options in its order: the plain
-/// allow-once as the one prominent button, wider allows beside it, and Deny with a field to tell the
-/// agent what to do instead (sent as the reply's `message`). A deliberate request confirms first.
+/// A tool permission: exactly what the agent wants to do (the command with its arguments and
+/// folder in one block, the files with their diffs, the host, the paths), why, and the answers
+/// pinned under it: Deny and Allow side by side, the wider allows and Reply beneath. Reply turns the
+/// buttons into a field whose words go to the agent with the deny. A deliberate request confirms first.
 struct PermissionCard: View {
     let interaction: Interaction
     let request: ToolPermissionRequest
@@ -12,6 +12,7 @@ struct PermissionCard: View {
     let isSending: Bool
     let send: (InteractionReply) -> Void
     @State private var instead = ""
+    @State private var replying = false
     @State private var grants: Set<String>
     @State private var confirming: PermissionOption?
 
@@ -27,15 +28,17 @@ struct PermissionCard: View {
     private var answer: PermissionAnswer { PermissionAnswer(request: request) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.m) {
-            Text(headline).font(.headline)
+        AskBody {
             PermissionPreviews(request: request, toolName: interaction.origin?.toolName)
-            if let reason = request.reason ?? interaction.body {
+            if let reason = request.reason {
                 FormattedMessage(text: reason, role: .quiet)
             }
             if !request.grants.isEmpty { grantToggles }
+        } actions: {
             actions
         }
+        .disabled(isSending)
+        .animation(.spring(duration: 0.28, bounce: 0.12), value: replying)
         .confirmationDialog(
             confirming?.label ?? "", isPresented: Binding { confirming != nil } set: { if !$0 { confirming = nil } },
             titleVisibility: .visible, presenting: confirming
@@ -46,13 +49,42 @@ struct PermissionCard: View {
         }
     }
 
-    private var headline: String {
-        switch request.previews.first {
-        case .command: "\(agent) wants to run"
-        case .fileChanges: "\(agent) wants to change files"
-        case .network(let host): "\(agent) wants to reach \(host.host)"
-        case .paths: "\(agent) wants to use these paths"
-        case nil: interaction.title
+    @ViewBuilder
+    private var actions: some View {
+        if replying, let deny = answer.denyWithMessage {
+            AskReplyBar(
+                placeholder: "Tell \(agent) what to do instead", text: $instead, sendLabel: "Deny with this reply",
+                canSend: answer.canSend(deny, message: instead, grants: grants),
+                cancel: { replying = false }, send: { choose(deny, confirmed: false) })
+            .transition(.opacity.combined(with: .scale(scale: 0.98)))
+        } else {
+            VStack(spacing: Spacing.m) {
+                GlassEffectContainer(spacing: Spacing.s) {
+                    HStack(spacing: Spacing.s) {
+                        if let deny = answer.plainDeny {
+                            AskButton(title: agentLine(deny.label), look: .destructive) { pick(deny) }
+                        }
+                        if let allow = answer.primary {
+                            AskButton(title: agentLine(allow.label), look: .primary) { choose(allow, confirmed: false) }
+                                .disabled(!answer.canSend(allow, message: "", grants: grants))
+                        }
+                    }
+                }
+                let wider = answer.otherAllows
+                if !wider.isEmpty || answer.denyWithMessage != nil {
+                    AskLinks {
+                        ForEach(wider, id: \.id) { option in
+                            Button(agentLine(option.label)) { choose(option, confirmed: false) }
+                                .disabled(!answer.canSend(option, message: "", grants: grants))
+                        }
+                        if answer.denyWithMessage != nil {
+                            Button("Reply…") { replying = true }
+                                .accessibilityLabel("Reply to \(agent) instead")
+                        }
+                    }
+                }
+            }
+            .transition(.opacity)
         }
     }
 
@@ -68,49 +100,13 @@ struct PermissionCard: View {
         }
     }
 
-    private var actions: some View {
-        GlassEffectContainer(spacing: Spacing.s) {
-            VStack(spacing: Spacing.s) {
-                if let primary = answer.primary {
-                    optionButton(primary).prominentStyle()
-                }
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: Spacing.s) { otherAllows }
-                    VStack(spacing: Spacing.s) { otherAllows }
-                }
-                if let deny = answer.denyWithMessage {
-                    HStack(spacing: Spacing.s) {
-                        TextField("Tell \(agent) what to do instead", text: $instead, axis: .vertical)
-                            .lineLimit(1...3)
-                            .font(.subheadline)
-                            .padding(.horizontal, Spacing.m)
-                            .padding(.vertical, Spacing.s)
-                            .background(Color(uiColor: .tertiarySystemFill), in: .rect(cornerRadius: 18, style: .continuous))
-                        optionButton(deny, wide: false).buttonStyle(.glass).tint(Palette.failed).controlSize(.regular)
-                    }
-                }
-                ForEach(answer.otherDenies, id: \.id) { option in
-                    optionButton(option).buttonStyle(.borderless).tint(Palette.failed)
-                }
-            }
+    /// The Deny beside Allow: one that needs words opens the reply field first.
+    private func pick(_ deny: PermissionOption) {
+        if deny.message == .required {
+            replying = true
+        } else {
+            choose(deny, confirmed: false)
         }
-        .controlSize(.large)
-        .disabled(isSending)
-    }
-
-    private var otherAllows: some View {
-        ForEach(answer.otherAllows, id: \.id) { option in
-            optionButton(option).buttonStyle(.glass).controlSize(.regular)
-        }
-    }
-
-    private func optionButton(_ option: PermissionOption, wide: Bool = true) -> some View {
-        Button { choose(option, confirmed: false) } label: {
-            Text(agentLine(option.label))
-                .font(.subheadline.weight(.semibold))
-                .frame(maxWidth: wide ? .infinity : nil)
-        }
-        .disabled(!answer.canSend(option, message: instead, grants: grants))
     }
 
     private func choose(_ option: PermissionOption, confirmed: Bool) {
@@ -118,46 +114,68 @@ struct PermissionCard: View {
             confirming = option
             return
         }
-        send(answer.reply(option, message: instead, grants: grants))
+        send(answer.reply(option, message: replying ? instead : "", grants: grants))
     }
 }
 
-/// The exact thing being approved: never truncated, scrolling when long; the call's arguments as
-/// the work fold shows them.
+/// The exact thing being approved, never truncated: a command with its arguments and folder in one
+/// block; files that open to their diffs; a host or paths.
 private struct PermissionPreviews: View {
     let request: ToolPermissionRequest
     let toolName: String?
 
+    private var arguments: [ToolArgument] {
+        let facts = ToolFacts(name: toolName ?? "", title: nil, input: request.input, hasChildSession: false, changedPaths: [])
+        return toolArguments(facts: facts)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.s) {
             ForEach(request.previews.indices, id: \.self) { index in
-                preview(request.previews[index])
+                preview(request.previews[index], arguments: index == 0 ? arguments : [])
             }
-            let facts = ToolFacts(name: toolName ?? "", title: nil, input: request.input, hasChildSession: false, changedPaths: [])
-            let arguments = toolArguments(facts: facts)
-            if !arguments.isEmpty {
-                ToolArgumentsView(rows: arguments)
-                    .padding(Spacing.m)
-                    .background(Palette.codeBackground, in: .rect(cornerRadius: Radius.small + 4, style: .continuous))
+            if request.previews.isEmpty && !arguments.isEmpty {
+                CodeBlock { ToolArgumentsView(rows: arguments) }
             }
         }
     }
 
     @ViewBuilder
-    private func preview(_ preview: PermissionPreview) -> some View {
+    private func preview(_ preview: PermissionPreview, arguments: [ToolArgument]) -> some View {
         switch preview {
         case .command(let command):
-            CodeLines(text: command.command, caption: command.cwd, isCommand: true)
+            CodeBlock {
+                ScrollView { CommandLineView(command: command.command) }
+                    .frame(maxHeight: 160)
+                    .fixedSize(horizontal: false, vertical: true)
+                if !arguments.isEmpty { ToolArgumentsView(rows: arguments) }
+                if let cwd = command.cwd {
+                    Text("in \(cwd)").font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.head)
+                }
+            }
         case .fileChanges(let files):
             ForEach(files.changes, id: \.path) { change in
                 RouteLink(value: Route.toolDiff(change)) { FileChangeRow(change: change) }
                     .buttonStyle(.plain)
             }
+            if !arguments.isEmpty { CodeBlock { ToolArgumentsView(rows: arguments) } }
         case .network(let network):
             CodeLines(text: [network.protocol, network.host].compactMap(\.self).joined(separator: "://"))
         case .paths(let paths):
             CodeLines(text: paths.paths.joined(separator: "\n"))
         }
+    }
+}
+
+/// Code on the code background, as one block.
+private struct CodeBlock<Content: View>: View {
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.s) { content() }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(Spacing.m)
+            .background(Color.primary.opacity(0.06), in: .rect(cornerRadius: 14, style: .continuous))
     }
 }
 
@@ -186,8 +204,9 @@ struct CodeLines: View {
                 Text("in \(caption)").font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.head)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(Spacing.m)
-        .background(Palette.codeBackground, in: .rect(cornerRadius: Radius.small + 4, style: .continuous))
+        .background(Color.primary.opacity(0.06), in: .rect(cornerRadius: 14, style: .continuous))
     }
 }
 

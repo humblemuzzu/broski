@@ -17,21 +17,16 @@ struct FormCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.m) {
+        AskBody {
             if let server = request.server {
                 Text("From \(server)").font(.caption).foregroundStyle(.secondary)
             }
             ForEach(draft.shown(request), id: \.key) { field in
                 FormFieldView(field: field, value: $draft[field.key])
             }
-            Button {
-                send(draft.reply(request))
-            } label: {
-                Text("Submit").font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity)
-            }
-            .prominentStyle()
-            .controlSize(.large)
-            .disabled(isSending || !draft.missing(request).isEmpty)
+        } actions: {
+            AskButton(title: "Submit", look: .primary) { send(draft.reply(request)) }
+                .disabled(isSending || !draft.missing(request).isEmpty)
         }
         .animation(.easeOut(duration: 0.2), value: draft.shown(request).map(\.key))
     }
@@ -111,15 +106,5 @@ private struct FormFieldView: View {
             if on { chosen.append(option) }
             value = chosen.isEmpty ? nil : .choices(ChoicesValue(values: chosen))
         }
-    }
-}
-
-extension View {
-    /// A text field's quiet fill inside a card.
-    func fieldBackground() -> some View {
-        font(.subheadline)
-            .padding(.horizontal, Spacing.m)
-            .padding(.vertical, Spacing.s)
-            .background(Color(uiColor: .tertiarySystemFill), in: .rect(cornerRadius: 14, style: .continuous))
     }
 }

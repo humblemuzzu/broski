@@ -27,6 +27,16 @@ struct PermissionAnswer: Equatable {
         request.options.filter { $0.effect == .deny && $0.id != denyWithMessage?.id }
     }
 
+    /// The Deny beside Allow: the deny that lets the run go on, else the first deny.
+    var plainDeny: PermissionOption? {
+        request.options.first { $0.effect == .deny && !$0.stopsRun } ?? request.options.first { $0.effect == .deny }
+    }
+
+    /// The denies kept in the card's menu: every one but the Deny beside Allow (Deny and Stop).
+    var menuDenies: [PermissionOption] {
+        request.options.filter { $0.effect == .deny && $0.id != plainDeny?.id }
+    }
+
     /// Whether `option` can go now: words it requires are typed, and an allow chooses a grant
     /// when grants were asked for.
     func canSend(_ option: PermissionOption, message: String, grants: Set<String>) -> Bool {

@@ -1,14 +1,15 @@
 import BroskiCore
 import SwiftUI
 
-/// A plan to approve: the plan, the mode to go on in when the request offers a choice,
-/// Approve, and Reject with a note for the agent.
+/// A plan to approve: the plan, the mode to go on in when the request offers a choice, then Reject
+/// and Approve pinned under it, and Suggest Changes, which sends the person's note with the rejection.
 struct PlanCard: View {
     let request: PlanApprovalRequest
     let isSending: Bool
     let send: (InteractionReply) -> Void
     @State private var modeAfter: String
     @State private var feedback = ""
+    @State private var replying = false
 
     init(request: PlanApprovalRequest, isSending: Bool, send: @escaping (InteractionReply) -> Void) {
         self.request = request
@@ -18,12 +19,8 @@ struct PlanCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.m) {
-            ScrollView {
-                FormattedText(text: request.plan)
-            }
-            .frame(maxHeight: 260)
-            .fixedSize(horizontal: false, vertical: true)
+        AskBody {
+            FormattedText(text: request.plan)
             if let modes = request.modeOptions {
                 Picker("Then", selection: $modeAfter) {
                     ForEach(modes.options, id: \.value) { Text($0.label).tag($0.value) }
@@ -31,29 +28,25 @@ struct PlanCard: View {
                 .pickerStyle(.menu)
                 .font(.subheadline)
             }
-            GlassEffectContainer(spacing: Spacing.s) {
-                VStack(spacing: Spacing.s) {
-                    Button {
-                        send(PlanAnswer.approve(request, modeAfter: modeAfter))
-                    } label: {
-                        Text("Approve Plan").font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity)
-                    }
-                    .prominentStyle()
-                    HStack(spacing: Spacing.s) {
-                        TextField("What to change", text: $feedback, axis: .vertical).lineLimit(1...3).fieldBackground()
-                        Button {
-                            send(PlanAnswer.reject(feedback: feedback))
-                        } label: {
-                            Text("Reject").font(.subheadline.weight(.semibold))
+        } actions: {
+            if replying {
+                AskReplyBar(
+                    placeholder: "What to change", text: $feedback, sendLabel: "Reject with this note",
+                    cancel: { replying = false }, send: { send(PlanAnswer.reject(feedback: feedback)) })
+            } else {
+                VStack(spacing: Spacing.m) {
+                    GlassEffectContainer(spacing: Spacing.s) {
+                        HStack(spacing: Spacing.s) {
+                            AskButton(title: "Reject", look: .destructive) { send(PlanAnswer.reject(feedback: "")) }
+                            AskButton(title: "Approve Plan", look: .primary) { send(PlanAnswer.approve(request, modeAfter: modeAfter)) }
                         }
-                        .buttonStyle(.glass)
-                        .tint(Palette.failed)
                     }
+                    AskLinks { Button("Suggest Changes…") { replying = true } }
                 }
             }
-            .controlSize(.large)
-            .disabled(isSending)
         }
+        .disabled(isSending)
+        .animation(.spring(duration: 0.28, bounce: 0.12), value: replying)
     }
 }
 
@@ -86,55 +79,54 @@ struct DialogCard: View {
     @State private var text = ""
 
     var body: some View {
-        GlassEffectContainer(spacing: Spacing.s) {
-            content
-        }
-        .controlSize(.large)
-        .disabled(isSending)
-        .onAppear {
-            if case .text(let ask) = request, text.isEmpty { text = ask.initialText ?? "" }
-        }
+        content
+            .disabled(isSending)
+            .onAppear {
+                if case .text(let ask) = request, text.isEmpty { text = ask.initialText ?? "" }
+            }
     }
 
     @ViewBuilder
     private var content: some View {
         switch request {
         case .choice(let choice):
-            VStack(spacing: Spacing.s) {
-                ForEach(choice.options, id: \.value) { option in
-                    Button { send(.choice(ChoiceReply(value: option.value))) } label: {
-                        VStack(spacing: Spacing.xxs) {
-                            Text(agentLine(option.label)).font(.subheadline.weight(.semibold))
-                            if let description = option.description { FormattedMessage(text: description, role: .quiet) }
+            AskBody {
+                GlassEffectContainer(spacing: Spacing.s) {
+                    VStack(spacing: Spacing.s) {
+                        ForEach(choice.options, id: \.value) { option in
+                            Button { send(.choice(ChoiceReply(value: option.value))) } label: {
+                                VStack(spacing: Spacing.xxs) {
+                                    Text(agentLine(option.label)).font(.body.weight(.semibold))
+                                    if let description = option.description { FormattedMessage(text: description, role: .quiet) }
+                                }
+                                .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.glass)
+                            .controlSize(.large)
                         }
-                        .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.glass)
                 }
+            } actions: {
+                EmptyView()
             }
         case .confirm(let ask):
-            VStack(spacing: Spacing.s) {
+            AskBody {
                 if let url = ask.url.flatMap(URL.init(string:)) { LinkButton(url: url) }
-                HStack(spacing: Spacing.s) {
-                    Button { send(.confirm(ConfirmReply(confirmed: false))) } label: {
-                        Text(ask.url == nil ? "No" : "Decline").font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity)
+            } actions: {
+                GlassEffectContainer(spacing: Spacing.s) {
+                    HStack(spacing: Spacing.s) {
+                        AskButton(title: ask.url == nil ? "No" : "Decline") { send(.confirm(ConfirmReply(confirmed: false))) }
+                        AskButton(title: ask.url == nil ? "Yes" : "Done", look: .primary) { send(.confirm(ConfirmReply(confirmed: true))) }
                     }
-                    .buttonStyle(.glass)
-                    Button { send(.confirm(ConfirmReply(confirmed: true))) } label: {
-                        Text(ask.url == nil ? "Yes" : "Done").font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity)
-                    }
-                    .prominentStyle()
                 }
             }
         case .text(let ask):
-            VStack(spacing: Spacing.s) {
+            AskBody {
                 TextField(ask.placeholder ?? "Your answer", text: $text, axis: ask.multiline ? .vertical : .horizontal)
                     .lineLimit(ask.multiline ? 2...8 : 1...1)
                     .fieldBackground()
-                Button { send(DialogAnswer.text(text, for: ask)) } label: {
-                    Text("Send").font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity)
-                }
-                .prominentStyle()
+            } actions: {
+                AskButton(title: "Send", look: .primary) { send(DialogAnswer.text(text, for: ask)) }
             }
         default:
             EmptyView()

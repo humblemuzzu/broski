@@ -14,7 +14,7 @@ struct QuestionsCard: View {
     private var question: Question { request.questions[min(tab, request.questions.count - 1)] }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.m) {
+        AskBody {
             if request.questions.count > 1 {
                 Picker("Question", selection: $tab) {
                     ForEach(request.questions.indices, id: \.self) { index in
@@ -25,17 +25,13 @@ struct QuestionsCard: View {
             }
             QuestionView(question: question, draft: $draft)
                 .id(question.id)
-            Button {
+        } actions: {
+            AskButton(title: request.questions.count > 1 ? "Send Answers" : "Send Answer", look: .primary) {
                 send(draft.reply(request))
-            } label: {
-                Text(request.questions.count > 1 ? "Send Answers" : "Send Answer")
-                    .font(.subheadline.weight(.semibold))
-                    .frame(maxWidth: .infinity)
             }
-            .prominentStyle()
-            .controlSize(.large)
             .disabled(isSending || !draft.isComplete(request))
         }
+        .haptic(.pickerStep, trigger: draft.selected)
     }
 }
 
@@ -48,11 +44,15 @@ private struct QuestionView: View {
             FormattedMessage(text: question.text)
             if !question.options.isEmpty {
                 Text(question.multiSelect ? "Pick any" : "Pick one")
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
-                ForEach(question.options, id: \.label) { option in
-                    optionRow(option)
+                VStack(spacing: 0) {
+                    ForEach(question.options.indices, id: \.self) { index in
+                        if index > 0 { Divider().padding(.leading, 44) }
+                        optionRow(question.options[index])
+                    }
                 }
+                .background(Color(uiColor: .tertiarySystemFill).opacity(0.5), in: .rect(cornerRadius: 18, style: .continuous))
             }
             if question.allowCustom {
                 customField
@@ -65,18 +65,22 @@ private struct QuestionView: View {
         return Button {
             draft.toggle(option.label, in: question)
         } label: {
-            HStack(alignment: .firstTextBaseline, spacing: Spacing.s) {
+            HStack(alignment: .firstTextBaseline, spacing: Spacing.m) {
                 Image(systemName: symbol(picked: picked))
+                    .font(.body)
                     .foregroundStyle(picked ? Palette.accent : .secondary)
+                    .frame(width: 20)
                 VStack(alignment: .leading, spacing: Spacing.xxs) {
-                    Text(agentLine(option.label)).font(.subheadline.weight(.medium))
+                    Text(agentLine(option.label)).font(.body.weight(.medium))
                     if let description = option.description {
                         FormattedMessage(text: description, role: .quiet)
                     }
                 }
                 Spacer(minLength: 0)
             }
-            .padding(.vertical, Spacing.xs)
+            .padding(.horizontal, Spacing.m)
+            .padding(.vertical, 12)
+            .frame(minHeight: 48)
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
@@ -99,9 +103,6 @@ private struct QuestionView: View {
                 TextField(prompt, text: text, axis: .vertical).lineLimit(1...4)
             }
         }
-        .font(.subheadline)
-        .padding(.horizontal, Spacing.m)
-        .padding(.vertical, Spacing.s)
-        .background(Color(uiColor: .tertiarySystemFill), in: .rect(cornerRadius: 14, style: .continuous))
+        .fieldBackground()
     }
 }

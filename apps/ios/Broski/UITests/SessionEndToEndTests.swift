@@ -64,14 +64,18 @@ final class SessionEndToEndTests: XCTestCase {
         let app = try openChat()
         try script("permission")
         send("Clean the build", in: app)
-        let instead = app.textFields["Tell Fake what to do instead"].firstMatch
-        XCTAssertTrue(instead.waitForExistence(timeout: timeout), "the ask is pinned above the composer")
+        let reply = app.buttons["Reply to Fake instead"]
+        XCTAssertTrue(reply.waitForExistence(timeout: timeout), "the ask takes the composer's place")
+        XCTAssertTrue(app.buttons["Allow"].isHittable, "its answers sit where the thumb is")
         try screenshot("chat-permission")
         XCTAssertTrue(app.staticTexts["Fake wants to run"].exists)
         XCTAssertTrue(app.staticTexts["Waiting for your approval"].waitForExistence(timeout: timeout))
-        instead.tap()
+        reply.tap()
+        let instead = app.textFields["Tell Fake what to do instead"].firstMatch
+        XCTAssertTrue(instead.waitForExistence(timeout: timeout), "Reply turns the answers into a field")
         instead.typeText("Keep the build folder")
-        app.buttons["Deny"].tap()
+        try screenshot("chat-permission-reply")
+        app.buttons["Deny with this reply"].tap()
         XCTAssertTrue(instead.waitForNonExistence(timeout: timeout), "the card goes once the bridge resolves the ask")
         XCTAssertTrue(app.staticTexts["Cleaned."].waitForExistence(timeout: timeout))
         try screenshot("chat-denied")
