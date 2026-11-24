@@ -21,13 +21,15 @@ use tracing::debug;
 
 use crate::codec;
 use crate::conn::{self, ConnOut, Route};
+use crate::lan_peers;
 use crate::responder::Responder;
 use crate::segments;
 
 pub const MAX_MESSAGE_BYTES: usize = 128 * 1024;
 
-/// Sockets the whole daemon serves at once, and how many of them one address may hold: a single
-/// host can never take every slot, so the owner can still reach their own machine.
+/// Sockets the whole daemon serves at once, and how many of them one address may hold. Only peers
+/// on the Mac's own networks get this far (`lan_peers.rs`); when the slots are taken anyway, the
+/// phone still reaches the Mac through the relay.
 const MAX_CONNECTIONS: usize = 64;
 const MAX_CONNECTIONS_PER_IP: usize = 8;
 const RATE_PER_SECOND: f64 = 20.0;
@@ -66,6 +68,10 @@ impl Lan {
     }
 
     fn admit(self: &Arc<Self>, ip: IpAddr) -> Option<Admission> {
+        if !lan_peers::is_local_peer(ip, &lan_peers::local_v6_prefixes()) {
+            debug!("lan peer outside the local networks refused");
+            return None;
+        }
         if !self.allow(ip) {
             debug!("lan handshake rate limited");
             return None;
@@ -223,7 +229,11 @@ async fn identity(
     State(lan): State<Arc<Lan>>,
     ConnectInfo(peer): ConnectInfo<SocketAddr>,
 ) -> Response {
-    if !lan.allow(peer.ip().to_canonical()) {
+    let ip = peer.ip().to_canonical();
+    if !lan_peers::is_local_peer(ip, &lan_peers::local_v6_prefixes()) {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+    if !lan.allow(ip) {
         return (StatusCode::TOO_MANY_REQUESTS, "rate limited").into_response();
     }
     Json(Identity {

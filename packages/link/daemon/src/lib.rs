@@ -29,6 +29,7 @@ mod feed;
 mod fsx;
 mod identity;
 mod lan;
+mod lan_peers;
 pub mod letters;
 mod limits;
 mod link_key;
