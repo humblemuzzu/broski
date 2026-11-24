@@ -62,6 +62,7 @@ struct SettingsScreen: View {
                 .sharedBackgroundVisibility(.hidden)
             }
             .onAppear { hasVoiceKey = VoiceKeyStore().key() != nil }
+            .routeDestinations()
         }
     }
 

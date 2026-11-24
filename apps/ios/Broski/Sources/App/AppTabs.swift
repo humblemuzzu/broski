@@ -49,6 +49,9 @@ struct AppTabs: View {
         .onChange(of: model.sessionToOpen) { _, target in
             if target != nil { tab = .inbox }
         }
+        .onChange(of: model.screenMachineToOpen) { _, machineId in
+            if machineId != nil { tab = .inbox }
+        }
         .onChange(of: model.startsNewSession) { _, starts in
             if starts { tab = .inbox }
         }
