@@ -6094,6 +6094,9 @@
         },
         "clientRequestId": {
           "$ref": "#/$defs/ClientRequestId"
+        },
+        "cancellable": {
+          "type": "boolean"
         }
       },
       "required": [

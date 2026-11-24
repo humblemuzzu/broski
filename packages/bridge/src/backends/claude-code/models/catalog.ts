@@ -15,6 +15,7 @@ import type {
 } from "../../../contract";
 import { commandsOf } from "../commands";
 import { permissionsAxis } from "../modes";
+import { defaultPermissionMode } from "../permission-modes";
 import type { CatalogueAccess } from "../ports/catalogue";
 import type { CatalogueDeps } from "../ports/deps";
 import { type ProbeOutcome, probeInitialize } from "../process/probe";
@@ -90,10 +91,16 @@ class Catalogue implements CatalogueAccess {
 
 	modes(cwd: string | undefined): Promise<ModesListResult> {
 		return this.read(async () => {
-			const entry = await this.entryFor(cwd, false);
+			const [entry, configuredDefault] = await Promise.all([
+				this.entryFor(cwd, false),
+				defaultPermissionMode(this.services.sdk, cwd, this.services.mayBypassPermissions),
+			]);
 			return isRejected(entry)
 				? entry
-				: { status: "accepted", modes: [permissionsAxis(entry.init.models, this.services.mayBypassPermissions)] };
+				: {
+						status: "accepted",
+						modes: [permissionsAxis(entry.init.models, this.services.mayBypassPermissions, configuredDefault)],
+					};
 		});
 	}
 

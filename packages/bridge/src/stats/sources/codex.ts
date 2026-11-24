@@ -218,6 +218,8 @@ function emitCodexUsage(
 	const reasoning = Math.min(output, safeNum(inc.reasoning_output_tokens));
 	if (uncachedInput + output + cacheRead + cacheWrite === 0) return;
 
+	ctx.setDedup(`${ms}:${uncachedInput}:${output}:${cacheRead}:${cacheWrite}`);
+
 	const { provider, model } = normalizeModelName(state.provider ?? "openai", state.model ?? "unknown");
 	const sessionId = state.parentId && state.isSubagent ? state.parentId : sessionIdOf(state, ctx.sourcePath);
 	const subagentRunStart = Boolean(state.isSubagent && !state.subagentRunCounted);

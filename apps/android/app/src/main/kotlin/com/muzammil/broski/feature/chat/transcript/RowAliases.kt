@@ -10,7 +10,7 @@ object RowAliases {
     private enum class Kind {
         Message, Work, Group, Text, CopyAnswer, Note, Activity, Older;
 
-        val isTranscriptOnly: Boolean get() = this == Note
+        val isTranscriptOnly: Boolean get() = this == Note || this == CopyAnswer
     }
 
     fun learn(live: List<ChatRow>, history: List<ChatRow>, aliases: MutableMap<String, String>) {

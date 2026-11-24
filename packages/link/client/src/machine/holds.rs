@@ -13,7 +13,7 @@ use super::state::{Shared, State};
 pub(crate) const MAX_HELD_SESSIONS: usize = 16;
 
 impl State {
-    /// Every inbox list's first page is in.
+    /// Every inbox list's first page is current on the active connection.
     pub(crate) fn inbox_loaded(&self) -> bool {
         let lists = &self.catalog.lists;
         self.catalog.backends().is_some()
@@ -21,7 +21,7 @@ impl State {
                 .catalog
                 .inbox
                 .iter()
-                .all(|(_, id)| lists.get(*id).is_some_and(|list| list.loaded()))
+                .all(|(_, id)| lists.get(*id).is_some_and(|list| list.current()))
     }
 
     /// The inbox's sessions waiting on the person, newest first, up to the bound.

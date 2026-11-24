@@ -37,6 +37,7 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, UI
     private var lastHistoryKey: HistoryKey?
     private var lastHistoryRange: Range<Int> = 0..<0
     private var readingCompact = UserDefaults.standard.bool(forKey: Preference.readingCompact)
+    private var defaultsTask: Task<Void, Never>?
     /// Rows that have already animated their first appearance (never animated a second time).
     private var animatedIDs: Set<String> = []
     /// Live rows eligible to animate on first appearance, supplied by `ChatModel`.
@@ -74,8 +75,19 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, UI
         }
         NotificationCenter.default.addObserver(
             self, selector: #selector(keyboardWillChange(_:)), name: UIResponder.keyboardWillChangeFrameNotification, object: nil)
-        NotificationCenter.default.addObserver(
-            self, selector: #selector(defaultsChanged), name: UserDefaults.didChangeNotification, object: nil)
+        defaultsTask = Task { [weak self] in
+            for await _ in NotificationCenter.default.notifications(named: UserDefaults.didChangeNotification) {
+                guard let self else { return }
+                let compact = UserDefaults.standard.bool(forKey: Preference.readingCompact)
+                guard compact != self.readingCompact else { continue }
+                self.readingCompact = compact
+                self.layout.invalidateLayout()
+            }
+        }
+    }
+
+    deinit {
+        defaultsTask?.cancel()
     }
 
     private var contentWidth: CGFloat { collectionView.bounds.width - 2 * TranscriptView.sideMargin }
@@ -307,10 +319,6 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, UI
         let duration = (info?[UIResponder.keyboardAnimationDurationUserInfoKey] as? NSNumber)?.doubleValue ?? 0.25
         let curve = (info?[UIResponder.keyboardAnimationCurveUserInfoKey] as? NSNumber)?.uintValue ?? 7
         keyboard = (duration, curve, .now)
-    }
-
-    @objc private func defaultsChanged() {
-        readingCompact = UserDefaults.standard.bool(forKey: Preference.readingCompact)
     }
 
     @objc private func tapped() {

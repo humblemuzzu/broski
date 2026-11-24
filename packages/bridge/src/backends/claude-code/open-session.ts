@@ -6,6 +6,7 @@
 import type { OpenResult, OpenTarget, Rejected, SessionId, SessionRef, SessionSink } from "../../contract";
 import type { ClaudeCodeParts } from "./backend";
 import { parseChildRef } from "./ids";
+import { defaultPermissionMode } from "./permission-modes";
 import type { StoredSession } from "./ports";
 import { isRejected, rejected } from "./rejections";
 import { dormantClaudeSnapshot, openPromotableWatch } from "./terminal/promotable-view";
@@ -73,11 +74,13 @@ async function locateWritten(parts: ClaudeCodeParts, sessionId: SessionId): Prom
 async function dormantSnapshot(parts: ClaudeCodeParts, stored: StoredSession) {
 	const found = await parts.store.get(stored.sessionId, parts.overlay);
 	const recorded = found.status === "accepted" ? found.summary.modelId : undefined;
-	const listed =
+	const [listed, mode] = await Promise.all([
 		recorded !== undefined && stored.cwd !== undefined
-			? await parts.catalogue.listedModelId(stored.cwd, recorded)
-			: undefined;
-	return dormantClaudeSnapshot(listed ?? recorded);
+			? parts.catalogue.listedModelId(stored.cwd, recorded)
+			: Promise.resolve(undefined),
+		defaultPermissionMode(parts.services.sdk, stored.cwd, parts.services.mayBypassPermissions),
+	]);
+	return dormantClaudeSnapshot(listed ?? recorded, mode);
 }
 
 async function trackStored(parts: ClaudeCodeParts, sessionId: SessionId): Promise<void> {

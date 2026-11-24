@@ -37,6 +37,7 @@ pub(super) fn live_row(
     let run_started_at = active
         .then(|| live_started_at.or(row.run_started_at))
         .flatten();
+    let stale = !machine.loaded;
     InboxRow {
         machine_id: machine.id.clone(),
         machine_name: machine.name.clone(),
@@ -48,8 +49,8 @@ pub(super) fn live_row(
         run_started_at,
         ask,
         command,
-        pending,
-        cached: false,
+        pending: if stale { None } else { pending },
+        cached: stale,
     }
 }
 

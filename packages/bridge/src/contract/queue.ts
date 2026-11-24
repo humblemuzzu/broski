@@ -11,5 +11,6 @@ export const QueueItem = z.strictObject({
 	delivery: QueuedDelivery,
 	preview: z.string().max(MAX_TEXT_CHARS),
 	clientRequestId: ClientRequestId.optional(),
+	cancellable: z.boolean().optional(),
 });
 export type QueueItem = z.infer<typeof QueueItem>;

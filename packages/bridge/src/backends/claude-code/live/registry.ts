@@ -15,7 +15,7 @@ import {
 } from "../../../contract";
 import { clip } from "../bounds";
 import { type ChildPart, isUuid, parseChildRef } from "../ids";
-import { DEFAULT_PERMISSION_MODE, PERMISSIONS_AXIS } from "../permission-modes";
+import { defaultPermissionMode, PERMISSIONS_AXIS } from "../permission-modes";
 import type { LiveDeps } from "../ports/deps";
 import type { LiveSessions } from "../ports/live";
 import type { LiveOverlay, LiveRow, StoredSession } from "../ports/store";
@@ -160,14 +160,16 @@ class Registry implements LiveSessions, LiveOverlay {
 	private async existingSnapshot(stored: StoredSession): Promise<SessionSnapshot> {
 		const found = await this.deps.store.get(stored.sessionId, this);
 		const recorded = found.status === "accepted" ? found.summary.modelId : undefined;
-		const listed =
+		const [listed, mode] = await Promise.all([
 			recorded !== undefined && stored.cwd !== undefined
-				? await this.deps.catalogue.listedModelId(stored.cwd, recorded)
-				: undefined;
+				? this.deps.catalogue.listedModelId(stored.cwd, recorded)
+				: Promise.resolve(undefined),
+			defaultPermissionMode(this.deps.services.sdk, stored.cwd, this.deps.services.mayBypassPermissions),
+		]);
 		const modelId = listed ?? recorded;
 		return {
 			...emptySnapshot(),
-			modes: [{ axis: PERMISSIONS_AXIS, value: DEFAULT_PERMISSION_MODE }],
+			modes: [{ axis: PERMISSIONS_AXIS, value: mode }],
 			...(modelId !== undefined && { modelId }),
 		};
 	}

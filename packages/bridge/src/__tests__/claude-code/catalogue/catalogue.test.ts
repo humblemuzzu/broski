@@ -131,6 +131,36 @@ describe("the modes", () => {
 		expect(await valuesOf(0)).not.toContain("bypassPermissions");
 		expect(await valuesOf(501)).toContain("bypassPermissions");
 	});
+
+	test("inherits permissions.defaultMode from user settings and filters escalating project-tier defaults", async () => {
+		const userAccept = rigOf({
+			queries: scripted(1),
+			sdk: {
+				resolveSettings: async () => ({
+					effective: { permissions: { defaultMode: "acceptEdits" as const } },
+					provenance: {},
+					sources: [{ source: "user" as const, settings: { permissions: { defaultMode: "acceptEdits" as const } } }],
+				}),
+			},
+		});
+		const inherited = await userAccept.catalogue.modes("/project");
+		expect(inherited.status === "accepted" && inherited.modes[0]?.defaultValue).toBe("acceptEdits");
+
+		const repoEscalation = rigOf({
+			queries: scripted(1),
+			sdk: {
+				resolveSettings: async () => ({
+					effective: { permissions: { defaultMode: "bypassPermissions" as const } },
+					provenance: {},
+					sources: [
+						{ source: "project" as const, settings: { permissions: { defaultMode: "bypassPermissions" as const } } },
+					],
+				}),
+			},
+		});
+		const filtered = await repoEscalation.catalogue.modes("/project");
+		expect(filtered.status === "accepted" && filtered.modes[0]?.defaultValue).toBe("default");
+	});
 });
 
 describe("the cache", () => {

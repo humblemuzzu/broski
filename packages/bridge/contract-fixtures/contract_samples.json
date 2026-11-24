@@ -454,7 +454,8 @@
           "id": "x",
           "delivery": "steer",
           "preview": "x",
-          "clientRequestId": "00000000-0000-4000-8000-000000000000"
+          "clientRequestId": "00000000-0000-4000-8000-000000000000",
+          "cancellable": true
         }
       ]
     },
@@ -791,7 +792,8 @@
             "id": "x",
             "delivery": "steer",
             "preview": "x",
-            "clientRequestId": "00000000-0000-4000-8000-000000000000"
+            "clientRequestId": "00000000-0000-4000-8000-000000000000",
+            "cancellable": true
           }
         ],
         "backgroundTasks": [
@@ -1074,7 +1076,8 @@
             "id": "x",
             "delivery": "steer",
             "preview": "x",
-            "clientRequestId": "00000000-0000-4000-8000-000000000000"
+            "clientRequestId": "00000000-0000-4000-8000-000000000000",
+            "cancellable": true
           }
         ],
         "backgroundTasks": [
@@ -6912,7 +6915,8 @@
           "id": "x",
           "delivery": "steer",
           "preview": "x",
-          "clientRequestId": "00000000-0000-4000-8000-000000000000"
+          "clientRequestId": "00000000-0000-4000-8000-000000000000",
+          "cancellable": true
         }
       ]
     },
@@ -6932,7 +6936,8 @@
       "id": "x",
       "delivery": "steer",
       "preview": "x",
-      "clientRequestId": "00000000-0000-4000-8000-000000000000"
+      "clientRequestId": "00000000-0000-4000-8000-000000000000",
+      "cancellable": true
     },
     {
       "id": "x",
@@ -7156,7 +7161,8 @@
             "id": "x",
             "delivery": "steer",
             "preview": "x",
-            "clientRequestId": "00000000-0000-4000-8000-000000000000"
+            "clientRequestId": "00000000-0000-4000-8000-000000000000",
+            "cancellable": true
           }
         ],
         "backgroundTasks": [
@@ -9626,7 +9632,8 @@
           "id": "x",
           "delivery": "steer",
           "preview": "x",
-          "clientRequestId": "00000000-0000-4000-8000-000000000000"
+          "clientRequestId": "00000000-0000-4000-8000-000000000000",
+          "cancellable": true
         }
       ],
       "backgroundTasks": [
@@ -10186,7 +10193,8 @@
             "id": "x",
             "delivery": "steer",
             "preview": "x",
-            "clientRequestId": "00000000-0000-4000-8000-000000000000"
+            "clientRequestId": "00000000-0000-4000-8000-000000000000",
+            "cancellable": true
           }
         ],
         "backgroundTasks": [

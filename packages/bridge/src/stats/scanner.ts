@@ -346,9 +346,10 @@ export class StatsScanner {
 			getWatermark: (k) => this.store.getDedup("opencode", k),
 			setWatermark: (k, v) => batch.dedupUpdates.push({ harness: "opencode", key: k, state: v }),
 			hasDedup: (h, k) => localDedup.has(`${h}\0${k}`) || this.store.getDedup(h, k) !== undefined,
-			setDedup: (h, k) => {
-				localDedup.set(`${h}\0${k}`, "1");
-				batch.dedupUpdates.push({ harness: h, key: k, state: "1" });
+			getDedup: (h, k) => localDedup.get(`${h}\0${k}`) ?? this.store.getDedup(h, k),
+			setDedup: (h, k, s = "1") => {
+				localDedup.set(`${h}\0${k}`, s);
+				batch.dedupUpdates.push({ harness: h, key: k, state: s });
 			},
 			emitTurn: (t) => this.recordTurnIntoBatch(batch, t),
 			flush,

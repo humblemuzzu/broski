@@ -21,8 +21,8 @@ export interface NewSessionState {
 	readonly model: string | undefined;
 }
 
-function modeOf(options: NewSessionOptions): PermissionMode | Rejected {
-	let mode = DEFAULT_PERMISSION_MODE;
+function requestedMode(options: NewSessionOptions): PermissionMode | undefined | Rejected {
+	let mode: PermissionMode | undefined;
 	for (const setting of options.modes ?? []) {
 		if (setting.axis !== PERMISSIONS_AXIS) return rejected("invalid_input", `Claude Code has no mode ${setting.axis}`);
 		if (!isPermissionMode(setting.value))
@@ -32,18 +32,21 @@ function modeOf(options: NewSessionOptions): PermissionMode | Rejected {
 	return mode;
 }
 
-async function offeredMode(
+async function resolveMode(
 	catalogue: CatalogueAccess,
 	cwd: string,
-	mode: PermissionMode,
-): Promise<Rejected | undefined> {
+	requested: PermissionMode | undefined,
+): Promise<PermissionMode | Rejected> {
 	const listed = await catalogue.modes(cwd);
-	if (listed.status === "rejected") return undefined;
-	const axis = listed.modes.find((candidate) => candidate.id === PERMISSIONS_AXIS);
-	if (axis && !axis.options.some((option) => option.value === mode)) {
-		return rejected("invalid_input", `${PERMISSIONS_AXIS} has no value ${mode} here`);
+	const axis = listed.status === "accepted" ? listed.modes.find((c) => c.id === PERMISSIONS_AXIS) : undefined;
+	if (requested !== undefined) {
+		if (axis && !axis.options.some((option) => option.value === requested)) {
+			return rejected("invalid_input", `${PERMISSIONS_AXIS} has no value ${requested} here`);
+		}
+		return requested;
 	}
-	return undefined;
+	const configured = axis?.defaultValue;
+	return configured !== undefined && isPermissionMode(configured) ? configured : DEFAULT_PERMISSION_MODE;
 }
 
 async function chosenModel(
@@ -63,10 +66,10 @@ export async function newSessionState(
 	catalogue: CatalogueAccess,
 	options: NewSessionOptions,
 ): Promise<NewSessionState | Rejected> {
-	const mode = modeOf(options);
+	const requested = requestedMode(options);
+	if (requested !== undefined && typeof requested !== "string") return requested;
+	const mode = await resolveMode(catalogue, options.cwd, requested);
 	if (typeof mode !== "string") return mode;
-	const unoffered = await offeredMode(catalogue, options.cwd, mode);
-	if (unoffered) return unoffered;
 	const model = await chosenModel(catalogue, options);
 	if (model !== undefined && isRejected(model)) return model;
 	if (options.thinking !== undefined && !model?.thinking.options.some((option) => option.value === options.thinking)) {

@@ -12,7 +12,7 @@ use crate::machine::Shared;
 
 impl State {
     /// The bridge socket in use when it is ready, and the machine has not ended.
-    fn ready_conn(&self) -> Option<u64> {
+    pub(crate) fn ready_conn(&self) -> Option<u64> {
         match self.contract {
             Contract::Ready { conn, .. } if self.ended.is_none() => Some(conn),
             _ => None,
@@ -61,6 +61,10 @@ impl Shared {
     /// ready bridge until it is read. A bridge not ready yet is left to read it once it is.
     pub(crate) fn spawn_page(self: &Arc<Self>, list: u64, reload: bool) {
         let conn = self.lock().ready_conn();
+        self.spawn_page_on(list, reload, conn);
+    }
+
+    pub(crate) fn spawn_page_on(self: &Arc<Self>, list: u64, reload: bool, conn: Option<u64>) {
         let shared = Arc::downgrade(self);
         self.runtime().handle().spawn(async move {
             let read = |shared: Arc<Shared>| async move { shared.fetch_page(list, reload).await };

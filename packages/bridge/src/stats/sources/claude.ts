@@ -93,6 +93,7 @@ export function parseClaudeLine(state: ClaudeParserState, buf: Buffer, ctx: Clau
 	];
 	if (dedupKey) ctx.setDedup(dedupKey, highWater.join(","));
 	if (!isSidechain && msgId) ctx.setDedup(`main:${msgId}`, "1");
+	ctx.setDedup(`${ms}:${highWater[0]}:${highWater[1]}:${highWater[2]}:${highWater[3]}`, "1");
 
 	const sessionId =
 		state.sessionId ||

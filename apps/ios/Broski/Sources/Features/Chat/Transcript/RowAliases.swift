@@ -37,9 +37,9 @@ nonisolated extension ChatRow {
     enum Kind: Equatable {
         case message, work, group, text, answerEnd, notice, activity, marker
 
-        /// Rows only the transcript has: the live run carries no notices, compactions or model
-        /// changes (they show in the live state instead).
-        var isTranscriptOnly: Bool { self == .notice || self == .marker }
+        /// Rows only the transcript has: the live run carries no notices, compactions, model
+        /// changes or per-answer copy footers (they show in the live state or after the run ends).
+        var isTranscriptOnly: Bool { self == .notice || self == .marker || self == .answerEnd }
     }
 
     var kind: Kind {

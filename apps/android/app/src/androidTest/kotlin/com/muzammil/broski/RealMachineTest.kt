@@ -51,7 +51,7 @@ class RealMachineTest {
         val pairWith = context.getString(R.string.pairing_pair_with, name)
         compose.waitUntilExactlyOneExists(hasText(pairWith), TIMEOUT)
         compose.onNodeWithText(pairWith).performClick()
-        compose.waitUntilAtLeastOneExists(hasText(context.getString(R.string.nav_inbox)), PAIRING_TIMEOUT)
+        compose.waitUntilAtLeastOneExists(hasContentDescription(context.getString(R.string.nav_inbox)), PAIRING_TIMEOUT)
         // The system's clipboard preview stays over the next tests' screenshots until a real touch lands outside it.
         Shots.shell("input tap 1 1")
 

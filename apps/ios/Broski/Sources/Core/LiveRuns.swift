@@ -40,7 +40,8 @@ struct LiveRunTracker {
             ($0.state == .needsYou ? 0 : 1, -$0.updatedAt) < ($1.state == .needsYou ? 0 : 1, -$1.updatedAt)
         }
         guard let focused = live.first else {
-            return settlingMachines.isEmpty ? .none(endedAtMs: nowMs) : .keep
+            let refreshing = rows.contains { $0.cached && (readyMachines?.contains($0.machineId) ?? false) }
+            return (settlingMachines.isEmpty && !refreshing) ? .none(endedAtMs: nowMs) : .keep
         }
         for row in live {
             if let authoritative = row.runStartedAt {

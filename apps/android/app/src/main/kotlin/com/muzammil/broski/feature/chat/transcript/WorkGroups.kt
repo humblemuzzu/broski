@@ -47,7 +47,7 @@ object WorkGroups {
         val end = folds.mapNotNull { it.endedAt }.maxOrNull()
         val summary = WorkFold(
             entries = entries,
-            lead = folds.map { it.lead }.firstOrNull { it != FoldLead.None } ?: FoldLead.Worked,
+            lead = FoldLead.Worked,
             durationMs = if (live || start == null || end == null) null else (end - start).coerceAtLeast(0),
             counts = counts,
             failed = failed,

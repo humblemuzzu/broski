@@ -48,17 +48,28 @@ class LiveUpdate(
         manager.cancel(ID)
         val since = mutableMapOf<SessionTarget, Long>()
         combine(phone.inboxRows, phone.machines, phone.muted, enabled) { rows, machines, muted, enabled ->
-            val reachable = machines.filter { it.health.isOnline }.map { it.id }.toSet()
-            if (enabled) LiveStatus.of(rows, since, System.currentTimeMillis(), reachable, muted) else null
+            if (!enabled) {
+                LiveUpdateState.End
+            } else {
+                val reachable = machines.filter { it.health.isOnline }.map { it.id }.toSet()
+                val status = LiveStatus.of(rows, since, System.currentTimeMillis(), reachable, muted)
+                when {
+                    status != null -> LiveUpdateState.Show(status)
+                    rows.any { it.cached && it.machineId in reachable } -> LiveUpdateState.Keep
+                    else -> LiveUpdateState.End
+                }
+            }
         }
             .distinctUntilChanged()
             .conflate()
-            .collect { live ->
-                if (live == null) {
-                    end()
-                } else {
-                    show(build(live))
-                    delay(UPDATE_EVERY_MS)
+            .collect { state ->
+                when (state) {
+                    LiveUpdateState.Keep -> Unit
+                    LiveUpdateState.End -> end()
+                    is LiveUpdateState.Show -> {
+                        show(build(state.status))
+                        delay(UPDATE_EVERY_MS)
+                    }
                 }
             }
     }
@@ -145,4 +156,10 @@ class LiveUpdate(
         var current: Notification? = null
             private set
     }
+}
+
+private sealed interface LiveUpdateState {
+    data object Keep : LiveUpdateState
+    data object End : LiveUpdateState
+    data class Show(val status: LiveStatus) : LiveUpdateState
 }

@@ -2,7 +2,7 @@
 
 import type { ModelInfo, PermissionMode } from "@anthropic-ai/claude-agent-sdk";
 import type { ModeAxis, Option } from "../../contract";
-import { DEFAULT_PERMISSION_MODE, PERMISSION_MODES, PERMISSIONS_AXIS } from "./permission-modes";
+import { DEFAULT_PERMISSION_MODE, isPermissionMode, PERMISSION_MODES, PERMISSIONS_AXIS } from "./permission-modes";
 
 const TEXT: {
 	readonly [M in PermissionMode]: {
@@ -38,7 +38,11 @@ const TEXT: {
 };
 
 /** `auto` is a property of a model (`ModelInfo.supportsAutoMode`), and the axis is the backend's, so one model offering it is enough. */
-export function permissionsAxis(models: readonly ModelInfo[], mayBypass: boolean): ModeAxis {
+export function permissionsAxis(
+	models: readonly ModelInfo[],
+	mayBypass: boolean,
+	configuredDefault?: string,
+): ModeAxis {
 	const autoOffered = models.some((model) => model.supportsAutoMode === true);
 	const offered = (mode: PermissionMode) =>
 		(mode !== "auto" || autoOffered) && (mode !== "bypassPermissions" || mayBypass);
@@ -46,11 +50,15 @@ export function permissionsAxis(models: readonly ModelInfo[], mayBypass: boolean
 		value: mode,
 		...TEXT[mode],
 	}));
+	const defaultValue =
+		configuredDefault !== undefined && isPermissionMode(configuredDefault) && offered(configuredDefault)
+			? configuredDefault
+			: DEFAULT_PERMISSION_MODE;
 	return {
 		id: PERMISSIONS_AXIS,
 		label: "Permissions",
 		description: "What Claude may do without asking you first.",
 		options,
-		defaultValue: DEFAULT_PERMISSION_MODE,
+		defaultValue,
 	};
 }

@@ -73,11 +73,17 @@ export class SessionSettings {
 	planModeOptions(): PlanModeOptions | undefined {
 		const options = this.axis?.options.filter((option) => option.value !== "plan") ?? [];
 		if (!this.axis || options.length === 0) return undefined;
-		const hasDefault = options.some((option) => option.value === DEFAULT_PERMISSION_MODE);
+		const preferred = this.axis.defaultValue;
+		const fallback =
+			preferred !== undefined && options.some((option) => option.value === preferred)
+				? preferred
+				: options.some((option) => option.value === DEFAULT_PERMISSION_MODE)
+					? DEFAULT_PERMISSION_MODE
+					: undefined;
 		return {
 			axis: this.axis.id,
 			options,
-			...(hasDefault && { defaultValue: DEFAULT_PERMISSION_MODE }),
+			...(fallback !== undefined && { defaultValue: fallback }),
 		};
 	}
 

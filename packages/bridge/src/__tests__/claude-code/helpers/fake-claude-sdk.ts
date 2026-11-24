@@ -3,7 +3,7 @@
  * empty answer, and `query` hands out the `FakeQuery` a test scripts. Real-CLI tests use `createClaudeSdk` instead.
  */
 
-import type { ResolvedSettings } from "@anthropic-ai/claude-agent-sdk";
+import { filterEscalatingDefaultMode, type ResolvedSettings } from "@anthropic-ai/claude-agent-sdk";
 import type { ClaudeSdk, QueryParams, SessionFunctions } from "../../../backends/claude-code/ports";
 import { FakeQuery } from "./fake-query";
 
@@ -46,7 +46,7 @@ export function fakeClaudeSdk(options: FakeClaudeSdkOptions = {}): FakeClaudeSdk
 			started.push(params);
 			return queries.shift() ?? new FakeQuery();
 		},
-		filterEscalatingDefaultMode: (resolved) => resolved.effective,
+		filterEscalatingDefaultMode: (resolved) => filterEscalatingDefaultMode(resolved),
 		configRoot: () => options.configRoot ?? "/nonexistent/fake-claude-config",
 		dispose: async () => {
 			disposed = true;

@@ -4,6 +4,7 @@
  */
 
 import { statSync } from "node:fs";
+import type { PermissionMode } from "@anthropic-ai/claude-agent-sdk";
 import {
 	type ActionResult,
 	emptySnapshot,
@@ -237,10 +238,13 @@ class PromotableWatchView implements OpenSession {
 	}
 }
 
-export function dormantClaudeSnapshot(modelId: string | undefined): SessionSnapshot {
+export function dormantClaudeSnapshot(
+	modelId: string | undefined,
+	mode: PermissionMode = DEFAULT_PERMISSION_MODE,
+): SessionSnapshot {
 	return {
 		...emptySnapshot(),
-		modes: [{ axis: PERMISSIONS_AXIS, value: DEFAULT_PERMISSION_MODE }],
+		modes: [{ axis: PERMISSIONS_AXIS, value: mode }],
 		...(modelId !== undefined && { modelId }),
 	};
 }

@@ -137,3 +137,57 @@ async fn a_run_that_goes_on_while_the_app_is_away_reaches_the_view_on_resume_wit
     assert!(chat.replica.live, "the view never stopped being live");
     chat.assert_equal("after the resume");
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn paused_inbox_rows_are_marked_cached_until_reloaded_after_resume() {
+    let mac = Mac::on_lan().await;
+    let phone = phone();
+    let inbox = phone.inbox();
+    let machine = paired(&phone, &mac).await;
+    let session = create_session(&machine, &mac.root()).await;
+
+    let deadline = Instant::now() + WAIT;
+    loop {
+        if inbox
+            .rows()
+            .iter()
+            .any(|row| row.session == session && !row.cached)
+        {
+            break;
+        }
+        assert!(Instant::now() < deadline, "session never landed live");
+        let _ = timeout(Duration::from_millis(200), inbox.next_change()).await;
+    }
+
+    phone.pause();
+    timeout(WAIT, phone.paused())
+        .await
+        .expect("the pause settled");
+
+    let stale = inbox
+        .rows()
+        .into_iter()
+        .find(|row| row.session == session)
+        .expect("row stays visible while paused");
+    assert!(
+        stale.cached,
+        "pre-pause rows must stay cached so resume never clears live approvals before reload"
+    );
+
+    phone.resume();
+    let deadline = Instant::now() + WAIT;
+    loop {
+        if inbox
+            .rows()
+            .iter()
+            .any(|row| row.session == session && !row.cached)
+        {
+            break;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "reloaded row never flipped back to live"
+        );
+        let _ = timeout(Duration::from_millis(200), inbox.next_change()).await;
+    }
+}

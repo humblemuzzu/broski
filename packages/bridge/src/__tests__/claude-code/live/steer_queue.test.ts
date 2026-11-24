@@ -38,6 +38,8 @@ describe("steer on the real CLI", () => {
 				const events = live.events();
 				expect(events.filter((event) => event.type === "run_started")).toHaveLength(1);
 				expect(queueEvents(events)).toEqual([["steer"], []]);
+				const firstQueue = events.find((event) => event.type === "queue_changed");
+				expect(firstQueue?.type === "queue_changed" && firstQueue.items[0]?.cancellable).toBe(false);
 				const message = events.find(
 					(event) => event.type === "user_message" && event.clientRequestId === clientRequestId,
 				);

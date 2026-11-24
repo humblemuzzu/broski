@@ -159,16 +159,19 @@ private fun foldParts(fold: WorkFold): List<FoldPart> {
 
 @Composable
 private fun leadWords(fold: WorkFold): String? {
-    val duration = fold.durationMs?.let { duration(it) }
+    val duration = fold.durationMs?.takeIf { it >= 1_000L }?.let { duration(it) }
+    val hasSummary = fold.counts.isNotEmpty() || fold.failed > 0
     return when (fold.lead) {
         FoldLead.None -> null
         FoldLead.Worked -> when {
             fold.thoughtOnly -> duration?.let { stringResource(R.string.chat_work_thought_for, it) }
                 ?: stringResource(if (fold.live) R.string.chat_work_thinking else R.string.chat_work_thought)
-            fold.live -> stringResource(R.string.chat_work_working)
-            else -> duration?.let { stringResource(R.string.chat_work_worked_for, it) } ?: stringResource(R.string.chat_work_worked)
+            fold.live -> if (hasSummary) null else stringResource(R.string.chat_work_working)
+            else -> duration?.let { stringResource(R.string.chat_work_worked_for, it) }
+                ?: if (hasSummary) null else stringResource(R.string.chat_work_worked)
         }
-        FoldLead.Continued -> duration?.let { stringResource(R.string.chat_work_continued_for, it) } ?: stringResource(R.string.chat_work_continued)
+        FoldLead.Continued -> duration?.let { stringResource(R.string.chat_work_continued_for, it) }
+            ?: if (hasSummary) null else stringResource(R.string.chat_work_continued)
     }
 }
 

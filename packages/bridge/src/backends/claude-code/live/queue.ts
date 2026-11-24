@@ -99,6 +99,7 @@ export class InputQueue {
 			delivery,
 			preview: clip(send.text, MAX_TEXT_CHARS),
 			clientRequestId,
+			...(delivery === "steer" && { cancellable: false }),
 		};
 		return { item, send };
 	}

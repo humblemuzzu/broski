@@ -10,7 +10,8 @@ export interface OpencodeScanContext {
 	readonly getWatermark: (key: string) => string | undefined;
 	readonly setWatermark: (key: string, value: string) => void;
 	readonly hasDedup: (harness: StatsHarness, key: string) => boolean;
-	readonly setDedup: (harness: StatsHarness, key: string) => void;
+	readonly getDedup?: (harness: StatsHarness, key: string) => string | undefined;
+	readonly setDedup: (harness: StatsHarness, key: string, state?: string) => void;
 	readonly emitTurn: (turn: TurnEvent) => void;
 	readonly flush?: () => void;
 }
@@ -226,6 +227,14 @@ function resolveRootSession(
 	return cur;
 }
 
+function parseCsv5(raw: string): [number, number, number, number, number] | undefined {
+	const parts = raw.split(",");
+	if (parts.length !== 5) return undefined;
+	const nums = parts.map(Number);
+	if (nums.some((n) => !Number.isFinite(n))) return undefined;
+	return [nums[0] ?? 0, nums[1] ?? 0, nums[2] ?? 0, nums[3] ?? 0, nums[4] ?? 0];
+}
+
 function emitOpencodeRow(row: RawMessageRow, rootSessionId: string, ctx: OpencodeScanContext): void {
 	const input = safeNum(row.input);
 	const output = safeNum(row.output);
@@ -235,19 +244,49 @@ function emitOpencodeRow(row: RawMessageRow, rootSessionId: string, ctx: Opencod
 	const totalOutput = output + reasoning;
 	if (input + totalOutput + cacheRead + cacheWrite === 0) return;
 
+	const ms = safeNum(row.created_ms) || safeNum(row.completed_ms);
+	if (ms <= 0) return;
+
 	// Skip rows that were proxied through Claude Code when Claude's own logs already hold them.
 	if (row.provider === "claude-agent" && ctx.hasDedup("claude", `main:${row.id}`)) return;
 
 	const idKey = `id:${row.id}`;
-	const fpKey = `${row.completed_ms || row.created_ms}:${input}:${output}:${cacheRead}:${cacheWrite}`;
-	if (ctx.hasDedup("opencode", idKey) || ctx.hasDedup("opencode", fpKey)) return;
-	ctx.setDedup("opencode", idKey);
-	ctx.setDedup("opencode", fpKey);
+	const fpMs = safeNum(row.completed_ms) || ms;
+	const fpTotal = `${fpMs}:${input}:${totalOutput}:${cacheRead}:${cacheWrite}`;
+	const fpBase = `${fpMs}:${input}:${output}:${cacheRead}:${cacheWrite}`;
+	const priorRaw = ctx.getDedup ? ctx.getDedup("opencode", idKey) : ctx.hasDedup("opencode", idKey) ? "1" : undefined;
+
+	let deltaInput = input;
+	let deltaOutput = totalOutput;
+	let deltaReasoning = reasoning;
+	let deltaCacheRead = cacheRead;
+	let deltaCacheWrite = cacheWrite;
+	if (priorRaw !== undefined) {
+		const before = parseCsv5(priorRaw);
+		if (!before) return;
+		deltaInput = Math.max(0, input - before[0]);
+		deltaOutput = Math.max(0, totalOutput - before[1]);
+		deltaReasoning = Math.max(0, reasoning - before[2]);
+		deltaCacheRead = Math.max(0, cacheRead - before[3]);
+		deltaCacheWrite = Math.max(0, cacheWrite - before[4]);
+		if (deltaInput + deltaOutput + deltaCacheRead + deltaCacheWrite === 0) return;
+		const highWater = [
+			Math.max(input, before[0]),
+			Math.max(totalOutput, before[1]),
+			Math.max(reasoning, before[2]),
+			Math.max(cacheRead, before[3]),
+			Math.max(cacheWrite, before[4]),
+		];
+		ctx.setDedup("opencode", idKey, highWater.join(","));
+	} else {
+		if (ctx.hasDedup("opencode", fpTotal) || ctx.hasDedup("opencode", fpBase)) return;
+		ctx.setDedup("opencode", idKey, `${input},${totalOutput},${reasoning},${cacheRead},${cacheWrite}`);
+	}
+	ctx.setDedup("opencode", fpTotal);
+	if (fpBase !== fpTotal) ctx.setDedup("opencode", fpBase);
 
 	const { provider, model } = normalizeModelName(row.provider, row.model || "unknown");
-	const ms = safeNum(row.created_ms) || safeNum(row.completed_ms);
-	if (ms <= 0) return;
-	const reportedCost = safeNum(row.cost) > 0 ? safeNum(row.cost) : undefined;
+	const reportedCost = priorRaw === undefined && safeNum(row.cost) > 0 ? safeNum(row.cost) : undefined;
 	const isSubagent = Boolean(row.parent_id);
 	let subagentRunStart = false;
 	if (isSubagent) {
@@ -269,17 +308,17 @@ function emitOpencodeRow(row: RawMessageRow, rootSessionId: string, ctx: Opencod
 		thinking: row.variant && row.variant !== "default" ? row.variant : "unknown",
 		speedTier: "standard",
 		tokens: {
-			uncachedInput: input,
-			cachedInput: cacheRead,
-			cacheCreation: cacheWrite,
+			uncachedInput: deltaInput,
+			cachedInput: deltaCacheRead,
+			cacheCreation: deltaCacheWrite,
 			cacheCreation1h: 0,
-			output: totalOutput,
-			reasoning,
+			output: deltaOutput,
+			reasoning: Math.min(deltaReasoning, deltaOutput),
 		},
 		reportedCostUsd: reportedCost,
 		durationMs: 0,
 		error: Boolean(row.error_name && row.error_name !== "MessageAbortedError"),
-		extra: false,
+		extra: priorRaw !== undefined,
 		afterCompaction: false,
 		isSubagent,
 		subagentName: isSubagent ? (row.agent || "subagent").slice(0, 48) : undefined,

@@ -67,10 +67,14 @@ async fn await_assertion(expected: bool, budget: Duration) -> bool {
     }
 }
 
-/// `pmset` names the assertion type and the reason on one line.
+/// `pmset` names the owning pid, the assertion type and the reason on one line.
 fn listed(text: &str) -> bool {
-    text.lines()
-        .any(|line| line.contains(REASON) && line.contains("PreventUserIdleSystemSleep"))
+    let own_pid = format!("pid {}(", std::process::id());
+    text.lines().any(|line| {
+        line.contains(&own_pid)
+            && line.contains(REASON)
+            && line.contains("PreventUserIdleSystemSleep")
+    })
 }
 
 async fn assertions() -> String {

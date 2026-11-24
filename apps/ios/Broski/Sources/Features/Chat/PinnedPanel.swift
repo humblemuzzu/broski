@@ -156,7 +156,7 @@ private struct QueueCard: View {
                         Text(item.preview).font(.footnote).lineLimit(2)
                     }
                     Spacer(minLength: 0)
-                    if canCancel {
+                    if canCancel && (item.cancellable ?? true) {
                         Button { cancel(item) } label: {
                             Image(systemName: "xmark.circle.fill").font(.body).foregroundStyle(.tertiary)
                         }

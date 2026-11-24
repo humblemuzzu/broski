@@ -3,8 +3,18 @@
  * values a model offers) is `modes.ts`; this is what a value is checked against.
  */
 
-import type { PermissionMode } from "@anthropic-ai/claude-agent-sdk";
+import type {
+	PermissionMode,
+	ResolvedSettings,
+	ResolveSettingsOptions,
+	Settings,
+} from "@anthropic-ai/claude-agent-sdk";
 import type { ModeAxisId } from "../../contract";
+
+export interface SettingsReader {
+	resolveSettings(options?: ResolveSettingsOptions): Promise<ResolvedSettings>;
+	filterEscalatingDefaultMode(resolved: ResolvedSettings): Settings;
+}
 
 export const PERMISSIONS_AXIS: ModeAxisId = "permissions";
 
@@ -32,4 +42,22 @@ export const PERMISSION_MODES: readonly PermissionMode[] = [
 
 export function isPermissionMode(value: string): value is PermissionMode {
 	return Object.hasOwn(MODES, value);
+}
+
+/**
+ * Reads the user's configured `permissions.defaultMode` in-process (no CLI probe), applying the
+ * SDK's trust-tier filter so repo-committed escalating modes are ignored just as the CLI ignores them.
+ */
+export async function defaultPermissionMode(
+	sdk: SettingsReader,
+	cwd: string | undefined,
+	mayBypass: boolean,
+): Promise<PermissionMode> {
+	const resolved = await sdk
+		.resolveSettings(cwd !== undefined ? { cwd } : { settingSources: ["user"] })
+		.catch(() => undefined);
+	const configured = resolved ? sdk.filterEscalatingDefaultMode(resolved).permissions?.defaultMode : undefined;
+	if (configured === undefined || !isPermissionMode(configured)) return DEFAULT_PERMISSION_MODE;
+	if (configured === "bypassPermissions" && !mayBypass) return DEFAULT_PERMISSION_MODE;
+	return configured;
 }

@@ -5,7 +5,7 @@ import Foundation
 /// stop on `RunStopper`; the widget extension only draws the button.
 struct StopRunIntent: LiveActivityIntent {
     static let title: LocalizedStringResource = "Stop Run"
-    static let description = IntentDescription("Stops the agent's run on your Mac.")
+    static let description = IntentDescription("Stops the active agent run.")
     static let isDiscoverable = false
 
     @Parameter(title: "Mac") var machineId: String

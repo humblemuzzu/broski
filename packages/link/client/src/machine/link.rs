@@ -22,7 +22,9 @@ use crate::requests::Waiter;
 use crate::view::ViewEnd;
 
 impl Shared {
-    pub(crate) fn on_status(&self, state: &mut State, status: Status) {
+    pub(crate) fn on_status(self: &Arc<Self>, state: &mut State, status: Status) {
+        let was_connected = matches!(state.link.state, LinkState::Connected { .. });
+        let is_connected = matches!(status.state, LinkState::Connected { .. });
         let new_session = matches!(
             status.state,
             LinkState::Connected { resumed: false, .. }
@@ -38,8 +40,20 @@ impl Shared {
         };
         state.link = status;
         state.events.status();
+        if was_connected && !is_connected {
+            state.catalog.lists.mark_stale();
+        }
         if new_session {
             self.socket_lost(state);
+        } else if is_connected && !was_connected && state.contract.ready() {
+            state.catalog.lists.mark_stale();
+            state.catalog.kept.forget_reads();
+            self.read_kept(state);
+            let conn = state.ready_conn();
+            let lists = state.catalog.feed_lists();
+            for list in lists {
+                self.spawn_page_on(list, true, conn);
+            }
         }
         if let Some(error) = end {
             self.end(state, error);
@@ -184,6 +198,7 @@ impl Shared {
     /// The bridge socket in use is gone, with every answer still owed on it and every attachment.
     fn socket_lost(&self, state: &mut State) {
         state.contract = Contract::Waiting;
+        state.catalog.lists.mark_stale();
         for waiter in state.requests.drain_sent() {
             self.fail(state, waiter, ClientError::LinkReset);
         }

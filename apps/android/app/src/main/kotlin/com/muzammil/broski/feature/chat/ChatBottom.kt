@@ -91,7 +91,8 @@ fun ChatBottom(model: ChatViewModel, openDiff: (FileChange) -> Unit, openVoiceSe
                 bottom.ended?.let { end -> ViewEndCard(end, onRetry = model.feed::reattach) }
                 notices.forEach { notice -> NoticeCard(notice, onDismiss = { model.dismiss(notice) }) }
                 bottom.queue.forEach { item ->
-                    QueuedRow(item, onCancel = if (capabilities?.cancelQueued == true) ({ model.actions.cancelQueued(item.id) }) else null)
+                    val cancellable = capabilities?.cancelQueued == true && item.cancellable != false
+                    QueuedRow(item, onCancel = if (cancellable) ({ model.actions.cancelQueued(item.id) }) else null)
                 }
             }
         }

@@ -26,6 +26,7 @@ pub(crate) struct ListState {
     rows: Vec<SessionSummary>,
     cursor: Option<PageCursor>,
     loaded: bool,
+    current: bool,
     loading: bool,
     /// Its last page failed: the inbox stops paging it until a reload or a page goes through.
     failed: bool,
@@ -65,6 +66,7 @@ impl ListState {
             rows: Vec::new(),
             cursor: None,
             loaded: false,
+            current: false,
             loading: false,
             failed: false,
             generation: 0,
@@ -80,6 +82,10 @@ impl ListState {
 
     pub(crate) fn loaded(&self) -> bool {
         self.loaded
+    }
+
+    pub(crate) fn current(&self) -> bool {
+        self.current
     }
 
     pub(crate) fn loading(&self) -> bool {
@@ -174,6 +180,7 @@ impl ListState {
             _ => self.cursor = next,
         }
         self.loaded = true;
+        self.current = true;
         self.merge(page.items);
         self.touch();
     }
@@ -297,6 +304,13 @@ impl Lists {
 
     pub(crate) fn ids(&self) -> Vec<u64> {
         self.lists.keys().copied().collect()
+    }
+
+    /// A link pause, drop or new bridge socket means cached rows may lag behind the Mac until reloaded.
+    pub(crate) fn mark_stale(&mut self) {
+        for list in self.lists.values_mut() {
+            list.current = false;
+        }
     }
 
     /// Every reader of a list looks again: the machine ended.
