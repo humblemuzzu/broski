@@ -137,40 +137,69 @@ verify_sha256() {
 }
 
 curl_get() {
-  curl -fSL --retry 3 --retry-delay 2 --connect-timeout 30 --speed-time 60 --speed-limit 1024 "$1" -o "$2"
+  if [ -t 1 ]; then
+    curl -fL --progress-bar --retry 5 --retry-delay 2 --retry-connrefused --connect-timeout 30 --speed-time 60 --speed-limit 1024 -C - "$1" -o "$2"
+  else
+    curl -fsSL --retry 5 --retry-delay 2 --retry-connrefused --connect-timeout 30 --speed-time 60 --speed-limit 1024 -C - "$1" -o "$2"
+  fi
+}
+
+matches_installed() {
+  FILE="$1"
+  NAME="$2"
+  [ -f "$FILE" ] || return 1
+  EXPECTED=$(expected_sha256 "$NAME")
+  [ -n "$EXPECTED" ] || return 1
+  [ "$(sha256_of "$FILE")" = "$EXPECTED" ]
 }
 
 download_binary() {
   NAME="$1"
   DEST="$2"
   OPTIONAL="${3:-0}"
-  if [ -n "$(expected_sha256 "${NAME}.gz")" ] && command -v gzip >/dev/null 2>&1; then
-    TMP_GZ="${DEST}.gz.tmp"
+  if matches_installed "$DEST" "$NAME"; then
+    echo "  ✓ ${NAME} already up to date"
+    return 0
+  fi
+  GZ_SHA=$(expected_sha256 "${NAME}.gz")
+  if [ -n "$GZ_SHA" ] && command -v gzip >/dev/null 2>&1; then
+    SHORT_SHA=$(printf '%s' "$GZ_SHA" | cut -c1-12)
+    PART="${DEST}.${SHORT_SHA}.gz.part"
+    for old in "${DEST}".*.part; do
+      [ -f "$old" ] && [ "$old" != "$PART" ] && rm -f "$old"
+    done
+    STAGE="${DEST}.new"
     echo "  Downloading ${NAME}.gz..."
-    if curl_get "${BASE_URL}/${NAME}.gz" "$TMP_GZ"; then
-      verify_sha256 "$TMP_GZ" "${NAME}.gz"
-      gzip -dc "$TMP_GZ" > "$DEST"
-      rm -f "$TMP_GZ"
-      chmod +x "$DEST"
+    if curl_get "${BASE_URL}/${NAME}.gz" "$PART"; then
+      verify_sha256 "$PART" "${NAME}.gz"
+      gzip -dc "$PART" > "$STAGE"
+      rm -f "$PART"
+      chmod +x "$STAGE"
+      mv -f "$STAGE" "$DEST"
       return 0
     fi
-    rm -f "$TMP_GZ"
     [ "$OPTIONAL" = "1" ] && return 1
     exit 1
   fi
+  RAW_SHA=$(expected_sha256 "$NAME")
+  SHORT_SHA=$(printf '%s' "$RAW_SHA" | cut -c1-12)
+  PART="${DEST}.${SHORT_SHA}.part"
+  for old in "${DEST}".*.part; do
+    [ -f "$old" ] && [ "$old" != "$PART" ] && rm -f "$old"
+  done
   echo "  Downloading ${NAME}..."
-  if curl_get "${BASE_URL}/${NAME}" "$DEST"; then
-    chmod +x "$DEST"
-    verify_sha256 "$DEST" "$NAME"
+  if curl_get "${BASE_URL}/${NAME}" "$PART"; then
+    verify_sha256 "$PART" "$NAME"
+    chmod +x "$PART"
+    mv -f "$PART" "$DEST"
     return 0
   fi
-  rm -f "$DEST" 2>/dev/null
   [ "$OPTIONAL" = "1" ] && return 1
   exit 1
 }
 
 echo "  Downloading SHA256SUMS..."
-if ! curl_get "${BASE_URL}/SHA256SUMS" "${INSTALL_DIR}/SHA256SUMS"; then
+if ! curl -fsSL --retry 5 --retry-delay 2 --retry-connrefused --connect-timeout 30 --max-time 60 "${BASE_URL}/SHA256SUMS" -o "${INSTALL_DIR}/SHA256SUMS"; then
   echo "  Error: could not download ${BASE_URL}/SHA256SUMS"
   echo "  Refusing to install an unverified binary."
   exit 1
@@ -184,11 +213,18 @@ if ! download_binary "${LINK_NAME}" "${INSTALL_DIR}/broski-link" 1; then
 fi
 
 if [ -n "$(expected_sha256 "$PTY_LIB")" ]; then
-  if curl_get "${BASE_URL}/${PTY_LIB}" "${INSTALL_DIR}/${PTY_LIB}" 2>/dev/null; then
-    verify_sha256 "${INSTALL_DIR}/${PTY_LIB}" "${PTY_LIB}"
+  if matches_installed "${INSTALL_DIR}/${PTY_LIB}" "$PTY_LIB"; then
+    echo "  ✓ ${PTY_LIB} already up to date"
   else
-    echo "  ⚠ PTY library download failed (terminal sessions disabled)"
-    rm -f "${INSTALL_DIR}/${PTY_LIB}" 2>/dev/null
+    PTY_PART="${INSTALL_DIR}/${PTY_LIB}.part"
+    if curl_get "${BASE_URL}/${PTY_LIB}" "$PTY_PART" 2>/dev/null; then
+      verify_sha256 "$PTY_PART" "$PTY_LIB"
+      chmod 0755 "$PTY_PART"
+      mv -f "$PTY_PART" "${INSTALL_DIR}/${PTY_LIB}"
+    else
+      echo "  ⚠ PTY library download failed (terminal sessions disabled)"
+      rm -f "$PTY_PART" 2>/dev/null
+    fi
   fi
 fi
 

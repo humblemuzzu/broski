@@ -10,9 +10,17 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { CURRENT_PLATFORM, getDaemonStatus, isCompiledBinary, restartDaemon } from "./platform";
-import { atomicInstall, fetchAndExtract, pickReleaseAsset } from "./updater-download";
+import { installReleaseAsset, matchesInstalled, pickReleaseAsset } from "./updater-download";
 
-export { type DownloadOptions, downloadVerified, type PickedAsset, pickReleaseAsset } from "./updater-download";
+export {
+	type DownloadOptions,
+	downloadFileVerified,
+	fileSha256,
+	installReleaseAsset,
+	matchesInstalled,
+	type PickedAsset,
+	pickReleaseAsset,
+} from "./updater-download";
 
 const DEFAULT_REPO = "humblemuzzu/broski";
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -260,19 +268,26 @@ export async function performUpdate(
 		}
 
 		const binaryDir = dirname(process.execPath);
-		const bridgeBytes = await fetchAndExtract(downloadBase, bridgePick, logger);
-		await atomicInstall(process.execPath, bridgeBytes);
+		await installReleaseAsset(downloadBase, bridgePick, process.execPath, logger);
 
+		const linkTarget = resolve(binaryDir, "broski-link");
 		const linkPick = pickReleaseAsset(sums, linkAsset);
 		if (linkPick) {
-			const linkBytes = await fetchAndExtract(downloadBase, linkPick, logger);
-			await atomicInstall(resolve(binaryDir, "broski-link"), linkBytes);
+			if (await matchesInstalled(linkTarget, sums.get(linkAsset))) {
+				logger(`  ${linkAsset} already up to date.`);
+			} else {
+				await installReleaseAsset(downloadBase, linkPick, linkTarget, logger);
+			}
 		}
 
+		const ptyTarget = resolve(binaryDir, ptyAsset);
 		const ptyPick = CURRENT_PLATFORM === "darwin" ? pickReleaseAsset(sums, ptyAsset) : undefined;
 		if (ptyPick) {
-			const ptyBytes = await fetchAndExtract(downloadBase, ptyPick, logger);
-			await atomicInstall(resolve(binaryDir, ptyAsset), ptyBytes);
+			if (await matchesInstalled(ptyTarget, sums.get(ptyAsset))) {
+				logger(`  ${ptyAsset} already up to date.`);
+			} else {
+				await installReleaseAsset(downloadBase, ptyPick, ptyTarget, logger);
+			}
 		}
 
 		logger(`  Updated to v${latest.version}!`);
