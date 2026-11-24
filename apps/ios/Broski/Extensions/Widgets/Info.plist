@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>BroskiWidgetsKeychainGroup</key>
-	<string>$(DEVELOPMENT_TEAM).com.muzammil.broski.widgets</string>
+	<string>$(DEVELOPMENT_TEAM).$(BROSKI_BUNDLE_PREFIX).widgets</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>

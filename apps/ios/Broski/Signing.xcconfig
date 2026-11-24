@@ -1,0 +1,7 @@
+// Default signing settings for Broski on iOS.
+// Copy Local.xcconfig.example to Local.xcconfig (gitignored) to override with your own
+// Apple Developer Team ID and bundle identifier prefix without editing tracked files.
+DEVELOPMENT_TEAM = FGYQ983C57
+BROSKI_BUNDLE_PREFIX = com.muzammil.broski
+
+#include? "Local.xcconfig"

@@ -164,13 +164,15 @@ export async function runServe(cli: CliOptions, config: BroskiConfig): Promise<v
 		logDaemon("  Press Ctrl+C to shutdown");
 	}
 
-	void startupUpdateCheck(version, (msg) => logDaemon(msg));
+	const updateOptions = { enabled: config.updates.check };
+	void startupUpdateCheck(version, (msg) => logDaemon(msg), updateOptions);
 
 	if (cli.daemon) {
 		startPeriodicUpdateCheck(
 			version,
 			(result) => logDaemon(`[update] Bridge v${result.latestVersion} available (current: v${result.currentVersion})`),
 			(msg) => logDaemon(msg),
+			updateOptions,
 		);
 	}
 }

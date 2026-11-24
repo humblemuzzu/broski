@@ -33,9 +33,12 @@ packages:
     url: https://github.com/Jakubantalik/Libraries.dev
     revision: cd89f411ff257f0dfeab66a54f888db2de3b6c8c
 
+configFiles:
+  Debug: Signing.xcconfig
+  Release: Signing.xcconfig
+
 settings:
   base:
-    DEVELOPMENT_TEAM: FGYQ983C57
     CODE_SIGN_STYLE: Automatic
     SWIFT_VERSION: "6.0"
     SWIFT_APPROACHABLE_CONCURRENCY: YES
@@ -44,7 +47,7 @@ settings:
     GCC_TREAT_WARNINGS_AS_ERRORS: YES
     ENABLE_USER_SCRIPT_SANDBOXING: YES
     LOCALIZATION_PREFERS_STRING_CATALOGS: YES
-    MARKETING_VERSION: "1.0"
+    MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
 
 targets:
@@ -70,7 +73,7 @@ targets:
         embed: true
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.muzammil.broski
+        PRODUCT_BUNDLE_IDENTIFIER: $(BROSKI_BUNDLE_PREFIX)
         PRODUCT_NAME: Broski
         INFOPLIST_FILE: Resources/Info.plist
         CODE_SIGN_ENTITLEMENTS: Resources/Broski.entitlements
@@ -94,7 +97,7 @@ targets:
         product: BroskiPush
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.muzammil.broski.NotificationService
+        PRODUCT_BUNDLE_IDENTIFIER: $(BROSKI_BUNDLE_PREFIX).NotificationService
         INFOPLIST_FILE: Extensions/NotificationService/Info.plist
         CODE_SIGN_ENTITLEMENTS: Extensions/NotificationService/NotificationService.entitlements
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) PUSH_ONLY
@@ -118,7 +121,7 @@ targets:
         product: ThinkingOrbsKit
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.muzammil.broski.Widgets
+        PRODUCT_BUNDLE_IDENTIFIER: $(BROSKI_BUNDLE_PREFIX).Widgets
         INFOPLIST_FILE: Extensions/Widgets/Info.plist
         CODE_SIGN_ENTITLEMENTS: Extensions/Widgets/Widgets.entitlements
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
@@ -135,7 +138,7 @@ targets:
       - target: Broski
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.muzammil.broski.tests
+        PRODUCT_BUNDLE_IDENTIFIER: $(BROSKI_BUNDLE_PREFIX).tests
         GENERATE_INFOPLIST_FILE: YES
         SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
 
@@ -148,7 +151,7 @@ targets:
       - target: Broski
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.muzammil.broski.uitests
+        PRODUCT_BUNDLE_IDENTIFIER: $(BROSKI_BUNDLE_PREFIX).uitests
         GENERATE_INFOPLIST_FILE: YES
         TEST_TARGET_NAME: Broski
 

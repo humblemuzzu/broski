@@ -1,13 +1,9 @@
 /**
- * Version check and self-update module for Broski bridge.
+ * Version check and self-update for Broski bridge + broski-link daemon via GitHub Releases.
  *
- * Responsibilities:
- * 1. Check for new versions on startup and periodically (every 24h for daemons)
- * 2. Notify connected phone clients when an update is available
- * 3. Execute self-update: download new binary, replace, restart daemon
- *
- * The update manifest lives at: https://broskiapp.com/download/latest.json
- * Format: { version: "0.2.0", binaries: { "darwin-arm64": { url, sha256 }, ... } }
+ * Uses the web redirect at `https://github.com/<repo>/releases/latest` (no GitHub API rate
+ * limits, matching Pi's update check), with opt-out via `updates.check: false` in
+ * `~/.broski/config.json` or `BROSKI_NO_UPDATE_CHECK=1` / `BROSKI_OFFLINE=1`.
  */
 
 import { createHash } from "node:crypto";
@@ -17,52 +13,37 @@ import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { CURRENT_PLATFORM, getDaemonStatus, isCompiledBinary, restartDaemon } from "./platform";
 
-// ============================================================================
-// Constants
-// ============================================================================
-
-const MANIFEST_URL = "https://broskiapp.com/download/latest.json";
-const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
-const CHECK_TIMEOUT_MS = 10_000; // 10s timeout for HTTP requests
+const DEFAULT_REPO = "humblemuzzu/broski";
+const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const CHECK_TIMEOUT_MS = 10_000;
+const DOWNLOAD_TIMEOUT_MS = 120_000;
 const BROSKI_DIR = resolve(homedir(), ".broski");
 const LAST_CHECK_FILE = resolve(BROSKI_DIR, "last-update-check.json");
 
-// ============================================================================
-// Types
-// ============================================================================
-
-export type BinaryInfo = {
-	url: string;
-	sha256: string;
-	size?: number;
-};
-
-export type UpdateManifest = {
-	version: string;
-	releasedAt?: string;
-	releaseNotes?: string;
-	binaries: Record<string, BinaryInfo>;
+export type UpdateCheckOptions = {
+	readonly enabled?: boolean;
+	readonly repo?: string;
+	readonly baseUrl?: string;
+	readonly fetchImpl?: typeof fetch;
 };
 
 export type UpdateCheckResult = {
-	updateAvailable: boolean;
-	currentVersion: string;
-	latestVersion: string;
-	releaseNotes?: string;
-	binaryInfo?: BinaryInfo;
+	readonly updateAvailable: boolean;
+	readonly currentVersion: string;
+	readonly latestVersion: string;
+	readonly releaseUrl: string;
 };
 
-// ============================================================================
-// Version Comparison
-// ============================================================================
+export function isUpdateCheckDisabled(enabled = true): boolean {
+	if (!enabled) return true;
+	const noCheck = process.env.BROSKI_NO_UPDATE_CHECK;
+	const offline = process.env.BROSKI_OFFLINE;
+	return noCheck === "1" || noCheck === "true" || offline === "1" || offline === "true";
+}
 
-/**
- * Compare two semver strings. Returns:
- *  -1 if a < b, 0 if equal, 1 if a > b
- */
-function compareSemver(a: string, b: string): number {
-	const pa = a.replace(/^v/, "").split(".").map(Number);
-	const pb = b.replace(/^v/, "").split(".").map(Number);
+export function compareSemver(a: string, b: string): number {
+	const pa = a.replace(/^v/, "").split("-")[0]?.split(".").map(Number) ?? [];
+	const pb = b.replace(/^v/, "").split("-")[0]?.split(".").map(Number) ?? [];
 	for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
 		const va = pa[i] ?? 0;
 		const vb = pb[i] ?? 0;
@@ -72,108 +53,79 @@ function compareSemver(a: string, b: string): number {
 	return 0;
 }
 
-/**
- * Get the platform key for this machine (matches build script naming).
- * E.g. "darwin-arm64", "darwin-x64"
- */
+export function parseSha256Sums(text: string): ReadonlyMap<string, string> {
+	const map = new Map<string, string>();
+	for (const rawLine of text.split(/\r?\n/)) {
+		const line = rawLine.trim();
+		if (!line) continue;
+		const match = /^([0-9a-fA-F]{64})\s+\*?(.+)$/.exec(line);
+		if (match?.[1] && match[2]) {
+			map.set(match[2].trim(), match[1].toLowerCase());
+		}
+	}
+	return map;
+}
+
+function repoOf(options?: UpdateCheckOptions): string {
+	return options?.repo ?? process.env.BROSKI_REPO ?? DEFAULT_REPO;
+}
+
+function originOf(options?: UpdateCheckOptions): string {
+	return (options?.baseUrl ?? process.env.BROSKI_UPDATE_BASE_URL ?? "https://github.com").replace(/\/+$/, "");
+}
+
 function getPlatformKey(): string {
 	return `${CURRENT_PLATFORM}-${process.arch}`;
 }
 
-function getPtySidecarFilename(): string | null {
-	return CURRENT_PLATFORM === "darwin" ? "libbroski_pty.dylib" : null;
-}
-
-async function tryUpdatePtySidecar(binaryUrl: string, binaryDir: string, logger: (msg: string) => void): Promise<void> {
-	const sidecarName = getPtySidecarFilename();
-	if (!sidecarName) return;
-
-	let sidecarUrl = "";
+/**
+ * Resolves the latest release tag via `GET /<repo>/releases/latest` with `redirect: "manual"`.
+ * Avoids GitHub's 60 req/hr anonymous API quota.
+ */
+export async function fetchLatestVersion(
+	options?: UpdateCheckOptions,
+): Promise<{ version: string; tag: string } | null> {
+	const repo = repoOf(options);
+	const origin = originOf(options);
+	const doFetch = options?.fetchImpl ?? fetch;
+	const url = `${origin}/${repo}/releases/latest`;
 	try {
-		const base = new URL(binaryUrl);
-		base.pathname = base.pathname.replace(/\/[^/]*$/, `/${sidecarName}`);
-		sidecarUrl = base.toString();
-	} catch {
-		return;
-	}
-
-	const tmpPath = resolve(binaryDir, `.${sidecarName}.tmp`);
-	const finalPath = resolve(binaryDir, sidecarName);
-
-	try {
-		const res = await fetch(sidecarUrl, {
-			signal: AbortSignal.timeout(30_000),
-			headers: { "User-Agent": "broski-bridge" },
-		});
-		if (!res.ok || !res.body) return;
-
-		const bytes = Buffer.from(await res.arrayBuffer());
-		if (bytes.length < 1024) return;
-
-		const digest = createHash("sha256").update(bytes).digest("hex");
-		if (existsSync(finalPath)) {
-			try {
-				const current = createHash("sha256")
-					.update(await readFile(finalPath))
-					.digest("hex");
-				if (current === digest) return;
-			} catch {
-				// Unreadable sidecar: fall through and replace it.
-			}
-		}
-
-		await writeFile(tmpPath, bytes);
-		await chmod(tmpPath, 0o755);
-		await rename(tmpPath, finalPath);
-		logger(`  Updated PTY sidecar (${sidecarName}).`);
-	} catch {
-		// Best-effort only. Keep existing sidecar if download failed.
-	} finally {
-		try {
-			if (existsSync(tmpPath)) await unlink(tmpPath);
-		} catch {
-			// ignore
-		}
-	}
-}
-
-// ============================================================================
-// Manifest Fetch
-// ============================================================================
-
-async function fetchManifest(): Promise<UpdateManifest | null> {
-	try {
-		const res = await fetch(MANIFEST_URL, {
+		const res = await doFetch(url, {
+			method: "GET",
+			redirect: "manual",
 			signal: AbortSignal.timeout(CHECK_TIMEOUT_MS),
 			headers: { "User-Agent": "broski-bridge" },
 		});
-		if (!res.ok) return null;
-		const data = (await res.json()) as UpdateManifest;
-		if (!data.version || !data.binaries) return null;
-		return data;
+		try {
+			await res.body?.cancel();
+		} catch {
+			// Best-effort body discard so the connection can be reused.
+		}
+		const location = res.status >= 300 && res.status < 400 ? res.headers.get("location") : null;
+		if (!location?.includes("/releases/tag/")) return null;
+		const tag = new URL(location, origin).pathname.split("/").pop();
+		if (!tag) return null;
+		const decoded = decodeURIComponent(tag);
+		const version = decoded.replace(/^v/, "");
+		if (!/^\d+\.\d+\.\d+/.test(version)) return null;
+		return { version, tag: decoded };
 	} catch {
 		return null;
 	}
 }
 
-// ============================================================================
-// Check for Updates
-// ============================================================================
+export async function checkForUpdate(
+	currentVersion: string,
+	options?: UpdateCheckOptions,
+): Promise<UpdateCheckResult | null> {
+	if (isUpdateCheckDisabled(options?.enabled)) return null;
+	const latest = await fetchLatestVersion(options);
+	if (!latest) return null;
 
-/**
- * Check if a newer version is available.
- * Returns null if the check failed (network error, etc.).
- */
-export async function checkForUpdate(currentVersion: string): Promise<UpdateCheckResult | null> {
-	const manifest = await fetchManifest();
-	if (!manifest) return null;
+	const updateAvailable = compareSemver(currentVersion, latest.version) < 0;
+	const repo = repoOf(options);
+	const releaseUrl = `${originOf(options)}/${repo}/releases/tag/${latest.tag}`;
 
-	const platformKey = getPlatformKey();
-	const binaryInfo = manifest.binaries[platformKey];
-
-	const updateAvailable = compareSemver(currentVersion, manifest.version) < 0;
-
-	// Persist last check time
 	try {
 		await mkdir(BROSKI_DIR, { recursive: true });
 		await writeFile(
@@ -181,26 +133,17 @@ export async function checkForUpdate(currentVersion: string): Promise<UpdateChec
 			JSON.stringify({
 				checkedAt: new Date().toISOString(),
 				currentVersion,
-				latestVersion: manifest.version,
+				latestVersion: latest.version,
 				updateAvailable,
 			}),
 		);
 	} catch {
-		// Non-critical, ignore
+		// Non-critical cache write.
 	}
 
-	return {
-		updateAvailable,
-		currentVersion,
-		latestVersion: manifest.version,
-		releaseNotes: manifest.releaseNotes,
-		binaryInfo: binaryInfo ?? undefined,
-	};
+	return { updateAvailable, currentVersion, latestVersion: latest.version, releaseUrl };
 }
 
-/**
- * Read the last cached update check (for `broski status` display).
- */
 export async function getLastUpdateCheck(): Promise<{
 	checkedAt: string;
 	latestVersion: string;
@@ -214,77 +157,52 @@ export async function getLastUpdateCheck(): Promise<{
 	}
 }
 
-// ============================================================================
-// Startup Check (non-blocking)
-// ============================================================================
-
-/**
- * Run a non-blocking update check on startup. Logs if an update is available.
- * Returns the result so the caller can notify phone clients.
- */
 export async function startupUpdateCheck(
 	currentVersion: string,
 	logger: (msg: string) => void,
+	options?: UpdateCheckOptions,
 ): Promise<UpdateCheckResult | null> {
+	if (isUpdateCheckDisabled(options?.enabled)) return null;
 	try {
-		const result = await checkForUpdate(currentVersion);
-		if (!result) return null;
-
-		if (result.updateAvailable) {
-			logger("");
-			logger(`  Update available: v${result.latestVersion} (current: v${result.currentVersion})`);
-			if (result.releaseNotes) {
-				logger(`  ${result.releaseNotes}`);
-			}
-			logger(`  Run \`broski update\` to install the latest version.`);
-			logger("");
-		}
-
+		const result = await checkForUpdate(currentVersion, options);
+		if (!result?.updateAvailable) return result;
+		logger("");
+		logger(`  Update available: v${result.latestVersion} (current: v${result.currentVersion})`);
+		logger(`  Release: ${result.releaseUrl}`);
+		logger("  Run `broski update` to install, or disable checks with `updates.check: false` in ~/.broski/config.json.");
+		logger("");
 		return result;
 	} catch {
-		// Startup check is best-effort
 		return null;
 	}
 }
 
-// ============================================================================
-// Periodic Check (for daemon mode)
-// ============================================================================
-
 let periodicTimer: ReturnType<typeof setInterval> | null = null;
 
-/**
- * Start periodic update checks (every 24h). Designed for daemon mode.
- * Calls `onUpdateAvailable` when a new version is found.
- */
 export function startPeriodicUpdateCheck(
 	currentVersion: string,
 	onUpdateAvailable: (result: UpdateCheckResult) => void,
 	logger: (msg: string) => void,
+	options?: UpdateCheckOptions,
 ): void {
-	if (periodicTimer) return; // Already running
-
+	if (periodicTimer || isUpdateCheckDisabled(options?.enabled)) return;
 	periodicTimer = setInterval(async () => {
 		try {
-			const result = await checkForUpdate(currentVersion);
+			const result = await checkForUpdate(currentVersion, options);
 			if (result?.updateAvailable) {
-				logger(`[update] New version available: v${result.latestVersion}`);
+				logger(`[update] New version available: v${result.latestVersion} (${result.releaseUrl})`);
 				onUpdateAvailable(result);
 			}
 		} catch {
-			// Periodic check is best-effort
+			// Best-effort background check.
 		}
 	}, CHECK_INTERVAL_MS);
 
-	// Don't prevent process exit
 	if (periodicTimer && typeof periodicTimer === "object" && "unref" in periodicTimer) {
 		(periodicTimer as { unref: () => void }).unref();
 	}
 }
 
-/**
- * Stop periodic update checks.
- */
 export function stopPeriodicUpdateCheck(): void {
 	if (periodicTimer) {
 		clearInterval(periodicTimer);
@@ -292,125 +210,127 @@ export function stopPeriodicUpdateCheck(): void {
 	}
 }
 
-// ============================================================================
-// Self-Update (broski update)
-// ============================================================================
+async function downloadVerified(
+	url: string,
+	expectedSha256: string,
+	label: string,
+	logger: (msg: string) => void,
+): Promise<Buffer> {
+	logger(`  Downloading ${label}...`);
+	const res = await fetch(url, {
+		signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
+		headers: { "User-Agent": "broski-bridge" },
+	});
+	if (!res.ok || !res.body) throw new Error(`HTTP ${res.status} fetching ${label}`);
 
-/**
- * Download, verify, and replace the current binary with the new version.
- * If running as a daemon, restarts the daemon afterward.
- *
- * Returns true on success.
- */
-export async function performUpdate(currentVersion: string, logger: (msg: string) => void): Promise<boolean> {
-	// Step 1: Check for update
-	logger("Checking for updates...");
-	const result = await checkForUpdate(currentVersion);
+	const chunks: Uint8Array[] = [];
+	const reader = res.body.getReader();
+	for (;;) {
+		const { done, value } = await reader.read();
+		if (done) break;
+		chunks.push(value);
+	}
+	const bytes = Buffer.concat(chunks);
+	const actual = createHash("sha256").update(bytes).digest("hex");
+	if (actual !== expectedSha256) {
+		throw new Error(`Checksum mismatch for ${label}: expected ${expectedSha256}, got ${actual}`);
+	}
+	logger(`  Verified ${label} (${Math.max(1, Math.round(bytes.length / 1024 / 1024))} MB).`);
+	return bytes;
+}
 
-	if (!result) {
-		logger("  Could not reach update server. Check your internet connection.");
+async function atomicInstall(targetPath: string, bytes: Buffer): Promise<void> {
+	const dir = dirname(targetPath);
+	const stamp = Date.now();
+	const tmpPath = resolve(dir, `.broski-update-${stamp}-${Math.random().toString(16).slice(2, 8)}`);
+	const backupPath = resolve(dir, `.broski-backup-${stamp}-${Math.random().toString(16).slice(2, 8)}`);
+	const hadTarget = existsSync(targetPath);
+	try {
+		await writeFile(tmpPath, bytes);
+		await chmod(tmpPath, 0o755);
+		if (hadTarget) await rename(targetPath, backupPath);
+		try {
+			await rename(tmpPath, targetPath);
+		} catch (err) {
+			if (hadTarget && existsSync(backupPath)) await rename(backupPath, targetPath);
+			throw err;
+		}
+		if (hadTarget) {
+			await unlink(backupPath).catch(() => undefined);
+		}
+	} catch (err) {
+		await unlink(tmpPath).catch(() => undefined);
+		throw err;
+	}
+}
+
+export async function performUpdate(
+	currentVersion: string,
+	logger: (msg: string) => void,
+	options?: UpdateCheckOptions,
+): Promise<boolean> {
+	logger("Checking GitHub Releases for updates...");
+	const latest = await fetchLatestVersion(options);
+	if (!latest) {
+		logger("  Could not reach GitHub Releases. Check your internet connection.");
 		return false;
 	}
 
-	if (!result.updateAvailable) {
+	if (compareSemver(currentVersion, latest.version) >= 0) {
 		logger(`  Already on the latest version (v${currentVersion}).`);
 		return false;
 	}
 
-	logger(`  New version available: v${result.latestVersion} (current: v${result.currentVersion})`);
+	const repo = repoOf(options);
+	const origin = originOf(options);
+	const downloadBase = `${origin}/${repo}/releases/download/${latest.tag}`;
+	logger(`  New version available: v${latest.version} (current: v${currentVersion})`);
 
-	if (!result.binaryInfo) {
-		const key = getPlatformKey();
-		logger(`  No binary available for your platform (${key}).`);
-		logger(`  Visit https://broskiapp.com/download for manual installation.`);
-		return false;
-	}
-
-	// Step 2: Only compiled binaries can self-update
 	if (!isCompiledBinary()) {
 		logger("  Self-update is only available for compiled binaries.");
-		logger("  In dev mode, pull the latest code and rebuild.");
+		logger(`  Pull the latest code or download v${latest.version} from ${origin}/${repo}/releases/tag/${latest.tag}`);
 		return false;
 	}
 
-	const currentBinaryPath = process.execPath;
-	const binaryDir = dirname(currentBinaryPath);
-	const tempPath = resolve(binaryDir, `.broski-update-${Date.now()}`);
-	const backupPath = resolve(binaryDir, `.broski-backup-${Date.now()}`);
+	const platform = getPlatformKey();
+	const bridgeAsset = `broski-${platform}`;
+	const linkAsset = `broski-link-${platform}`;
+	const ptyAsset = "libbroski_pty.dylib";
 
 	try {
-		// Step 3: Download new binary
-		logger(`  Downloading v${result.latestVersion}...`);
-		const downloadRes = await fetch(result.binaryInfo.url, {
-			signal: AbortSignal.timeout(120_000), // 2 min timeout for large binaries
+		const sumsRes = await fetch(`${downloadBase}/SHA256SUMS`, {
+			signal: AbortSignal.timeout(CHECK_TIMEOUT_MS),
 			headers: { "User-Agent": "broski-bridge" },
 		});
-
-		if (!downloadRes.ok || !downloadRes.body) {
-			logger(`  Download failed: HTTP ${downloadRes.status}`);
+		if (!sumsRes.ok) {
+			logger(`  Could not fetch SHA256SUMS (HTTP ${sumsRes.status}). Aborting update.`);
+			return false;
+		}
+		const sums = parseSha256Sums(await sumsRes.text());
+		const bridgeSha = sums.get(bridgeAsset);
+		if (!bridgeSha) {
+			logger(`  No binary for ${platform} in v${latest.version} SHA256SUMS.`);
 			return false;
 		}
 
-		// Stream to temp file
-		const chunks: Uint8Array[] = [];
-		let downloaded = 0;
-		const reader = downloadRes.body.getReader();
-		for (;;) {
-			const { done, value } = await reader.read();
-			if (done) break;
-			chunks.push(value);
-			downloaded += value.length;
-			// Progress indicator every 10MB
-			if (downloaded % (10 * 1024 * 1024) < value.length) {
-				const mb = Math.round(downloaded / 1024 / 1024);
-				logger(`  Downloaded ${mb} MB...`);
-			}
+		const binaryDir = dirname(process.execPath);
+		const bridgeBytes = await downloadVerified(`${downloadBase}/${bridgeAsset}`, bridgeSha, bridgeAsset, logger);
+		await atomicInstall(process.execPath, bridgeBytes);
+
+		const linkSha = sums.get(linkAsset);
+		if (linkSha) {
+			const linkBytes = await downloadVerified(`${downloadBase}/${linkAsset}`, linkSha, linkAsset, logger);
+			await atomicInstall(resolve(binaryDir, "broski-link"), linkBytes);
 		}
 
-		const binary = Buffer.concat(chunks);
-		logger(`  Downloaded ${Math.round(binary.length / 1024 / 1024)} MB`);
-
-		// Step 4: Verify SHA-256 checksum
-		if (result.binaryInfo.sha256) {
-			logger("  Verifying checksum...");
-			const hash = createHash("sha256").update(binary).digest("hex");
-			if (hash !== result.binaryInfo.sha256) {
-				logger(`  Checksum mismatch! Expected ${result.binaryInfo.sha256}, got ${hash}`);
-				logger("  Update aborted for safety. Please try again or download manually.");
-				return false;
-			}
-			logger("  Checksum verified.");
+		const ptySha = CURRENT_PLATFORM === "darwin" ? sums.get(ptyAsset) : undefined;
+		if (ptySha) {
+			const ptyBytes = await downloadVerified(`${downloadBase}/${ptyAsset}`, ptySha, ptyAsset, logger);
+			await atomicInstall(resolve(binaryDir, ptyAsset), ptyBytes);
 		}
 
-		// Step 5: Write temp file
-		await writeFile(tempPath, binary);
-		await chmod(tempPath, 0o755);
+		logger(`  Updated to v${latest.version}!`);
 
-		// Step 6: Atomic swap — backup current, rename new
-		logger("  Installing...");
-		await rename(currentBinaryPath, backupPath);
-		try {
-			await rename(tempPath, currentBinaryPath);
-		} catch (err) {
-			// Rollback: restore backup
-			logger("  Failed to install new binary. Rolling back...");
-			await rename(backupPath, currentBinaryPath);
-			throw err;
-		}
-
-		// Step 7: Best-effort sidecar update (native PTY helper)
-		await tryUpdatePtySidecar(result.binaryInfo.url, binaryDir, logger);
-
-		// Step 8: Clean up backup (best-effort)
-		try {
-			await unlink(backupPath);
-		} catch {
-			// Old binary may still be in use on some OSes
-		}
-
-		logger(`  Updated to v${result.latestVersion}!`);
-
-		// Step 9: Restart daemon if running as a service
 		const status = await getDaemonStatus();
 		if (status.installed && status.running) {
 			logger("  Restarting daemon...");
@@ -418,27 +338,16 @@ export async function performUpdate(currentVersion: string, logger: (msg: string
 				await restartDaemon();
 				logger("  Daemon restarted with new version.");
 			} catch {
-				logger("  Could not restart daemon automatically.");
-				logger("  Run `broski restart` to apply the update.");
+				logger("  Could not restart daemon automatically. Run `broski restart` to apply.");
 			}
 		} else if (status.installed) {
-			logger("  Daemon is installed but not running.");
-			logger("  The new version will be used next time it starts.");
+			logger("  Daemon is installed but not running. The new version will run on next start.");
 		} else {
 			logger("  Restart the bridge to use the new version.");
 		}
-
 		return true;
 	} catch (err) {
-		logger(`  Update failed: ${err}`);
-
-		// Clean up temp file if it exists
-		try {
-			if (existsSync(tempPath)) await unlink(tempPath);
-		} catch {
-			// ignore
-		}
-
+		logger(`  Update failed: ${err instanceof Error ? err.message : String(err)}`);
 		return false;
 	}
 }

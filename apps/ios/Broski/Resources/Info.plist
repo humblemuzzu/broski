@@ -2,8 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>BroskiAppGroup</key>
+	<string>group.$(BROSKI_BUNDLE_PREFIX)</string>
 	<key>BroskiKeychainGroup</key>
-	<string>$(DEVELOPMENT_TEAM).com.muzammil.broski.push</string>
+	<string>$(DEVELOPMENT_TEAM).$(BROSKI_BUNDLE_PREFIX).push</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
@@ -22,7 +24,7 @@
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>com.muzammil.broski.pair</string>
+			<string>$(BROSKI_BUNDLE_PREFIX).pair</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>broski</string>
@@ -50,10 +52,10 @@
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Without an xAI key, or offline, Broski turns your recording into text on this iPhone.</string>
 	<key>BroskiWidgetsKeychainGroup</key>
-	<string>$(DEVELOPMENT_TEAM).com.muzammil.broski.widgets</string>
+	<string>$(DEVELOPMENT_TEAM).$(BROSKI_BUNDLE_PREFIX).widgets</string>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
-		<string>com.muzammil.broski.usage-refresh</string>
+		<string>$(BROSKI_BUNDLE_PREFIX).usage-refresh</string>
 	</array>
 	<key>UIBackgroundModes</key>
 	<array>

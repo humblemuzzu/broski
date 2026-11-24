@@ -6,7 +6,8 @@ import Foundation
 /// what is off: the extension's own check only quiets a push that arrived anyway (Apple lets an
 /// extension drop one only with an entitlement granted on request).
 nonisolated struct NotificationPreferences {
-    static let appGroup = "group.com.muzammil.broski"
+    static let appGroup =
+        (Bundle.main.object(forInfoDictionaryKey: "BroskiAppGroup") as? String) ?? "group.com.muzammil.broski"
     static let needsYou = "notifications.needsYou"
     static let done = "notifications.done"
     static let failures = "notifications.failures"

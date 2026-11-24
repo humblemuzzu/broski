@@ -88,8 +88,13 @@ build_pty_helper() {
   case "$PLATFORM" in
     darwin-*)
       OUTPUT="${DIST}/libbroski_pty.dylib"
-      if cc -dynamiclib -o "$OUTPUT" "$PTY_SRC" 2>/dev/null; then
-        echo "    ✓ Built libbroski_pty.dylib"
+      if [ -f "$OUTPUT" ]; then
+        return 0
+      fi
+      if cc -dynamiclib -arch arm64 -arch x86_64 -o "$OUTPUT" "$PTY_SRC" 2>/dev/null; then
+        echo "    ✓ Built universal libbroski_pty.dylib (arm64 + x86_64)"
+      elif cc -dynamiclib -o "$OUTPUT" "$PTY_SRC" 2>/dev/null; then
+        echo "    ✓ Built libbroski_pty.dylib (${HOST_PLATFORM})"
       else
         echo "    ⚠ Failed to build libbroski_pty.dylib"
       fi

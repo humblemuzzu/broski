@@ -4,11 +4,11 @@
 <dict>
 	<key>com.apple.security.application-groups</key>
 	<array>
-		<string>group.com.muzammil.broski</string>
+		<string>group.$(BROSKI_BUNDLE_PREFIX)</string>
 	</array>
 	<key>keychain-access-groups</key>
 	<array>
-		<string>$(AppIdentifierPrefix)com.muzammil.broski.push</string>
+		<string>$(AppIdentifierPrefix)$(BROSKI_BUNDLE_PREFIX).push</string>
 	</array>
 </dict>
 </plist>

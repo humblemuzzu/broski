@@ -25,12 +25,43 @@ android {
         }
     }
 
+    val releaseStoreFile = providers.gradleProperty("broski.signing.storeFile")
+        .orElse(providers.environmentVariable("BROSKI_ANDROID_KEYSTORE"))
+        .orNull
+    val releaseStorePassword = providers.gradleProperty("broski.signing.storePassword")
+        .orElse(providers.environmentVariable("BROSKI_ANDROID_KEYSTORE_PASSWORD"))
+        .orNull
+    val releaseKeyAlias = providers.gradleProperty("broski.signing.keyAlias")
+        .orElse(providers.environmentVariable("BROSKI_ANDROID_KEY_ALIAS"))
+        .orNull
+    val releaseKeyPassword = providers.gradleProperty("broski.signing.keyPassword")
+        .orElse(providers.environmentVariable("BROSKI_ANDROID_KEY_PASSWORD"))
+        .orNull
+    val hasReleaseSigning = !releaseStoreFile.isNullOrBlank() &&
+        !releaseStorePassword.isNullOrBlank() &&
+        !releaseKeyAlias.isNullOrBlank() &&
+        !releaseKeyPassword.isNullOrBlank()
+
+    if (hasReleaseSigning) {
+        signingConfigs {
+            create("release") {
+                storeFile = file(releaseStoreFile!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         debug {
             ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
         }
         release {
             ndk { abiFilters += listOf("arm64-v8a") }
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))

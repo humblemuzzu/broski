@@ -4,7 +4,7 @@
 <dict>
 	<key>keychain-access-groups</key>
 	<array>
-		<string>$(AppIdentifierPrefix)com.muzammil.broski.widgets</string>
+		<string>$(AppIdentifierPrefix)$(BROSKI_BUNDLE_PREFIX).widgets</string>
 	</array>
 </dict>
 </plist>

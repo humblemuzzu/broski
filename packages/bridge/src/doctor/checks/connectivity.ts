@@ -6,7 +6,8 @@ export async function runConnectivityChecks(ctx: DoctorContext, opts: { deep?: b
 	const results: CheckResult[] = [];
 
 	try {
-		const res = await fetch("https://broskiapp.com", {
+		const res = await fetch("https://github.com", {
+			method: "HEAD",
 			signal: AbortSignal.timeout(5000),
 			headers: { "User-Agent": "broski-doctor" },
 		});
@@ -15,7 +16,7 @@ export async function runConnectivityChecks(ctx: DoctorContext, opts: { deep?: b
 				id: "internet",
 				category: "connectivity",
 				status: "ok",
-				message: "Internet reachable (broskiapp.com)",
+				message: "Internet reachable (github.com)",
 			});
 		} else {
 			results.push({
@@ -30,7 +31,7 @@ export async function runConnectivityChecks(ctx: DoctorContext, opts: { deep?: b
 			id: "internet",
 			category: "connectivity",
 			status: "warning",
-			message: "Cannot reach broskiapp.com",
+			message: "Cannot reach github.com",
 			fix: "Check internet connection",
 		});
 	}

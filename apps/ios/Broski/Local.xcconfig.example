@@ -1,0 +1,4 @@
+// Copy this file to Local.xcconfig (gitignored) and set your own Apple Developer Team ID
+// and bundle identifier prefix, then run `scripts/build-ios-app.sh`.
+DEVELOPMENT_TEAM = YOUR_APPLE_TEAM_ID
+BROSKI_BUNDLE_PREFIX = com.yourname.broski

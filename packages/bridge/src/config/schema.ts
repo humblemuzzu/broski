@@ -53,6 +53,8 @@ export const BroskiConfigSchema = z.object({
 	phoneWriting: z.boolean().default(true),
 	/** The bridge's own MCP tools offered to agents (`mcp/`): `notify` is `broski_notify`. */
 	bridgeTools: z.object({ notify: z.boolean().default(true) }).default({ notify: true }),
+	/** Check GitHub Releases on startup and daily for newer bridge versions (`updater.ts`). */
+	updates: z.object({ check: z.boolean().default(true) }).default({ check: true }),
 	adapters: Adapters,
 	daemon: z
 		.object({

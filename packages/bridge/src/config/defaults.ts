@@ -27,6 +27,7 @@ export function getDefaultConfig(): BroskiConfig {
 		pi: {},
 		phoneWriting: true,
 		bridgeTools: { notify: true },
+		updates: { check: true },
 		adapters: [],
 		daemon: {
 			installed: false,

@@ -36,8 +36,15 @@ archive_ios_for_phone() {
 }
 
 export_ios_phone_ipa() {
-  local team
-  team="$(sed -n 's/^ *DEVELOPMENT_TEAM: *//p' "$ROOT/apps/ios/Broski/project.yml" | head -1)"
+  local team=""
+  for cfg in "$ROOT/apps/ios/Broski/Local.xcconfig" "$ROOT/apps/ios/Broski/Signing.xcconfig"; do
+    [[ -f $cfg ]] || continue
+    team="$(sed -n 's/^ *DEVELOPMENT_TEAM *= *//p' "$cfg" | tail -1 | tr -d '[:space:]')"
+    [[ -n $team ]] && break
+  done
+  if [[ -z $team ]]; then
+    team="$(sed -n 's/^ *DEVELOPMENT_TEAM: *//p' "$ROOT/apps/ios/Broski/project.yml" | head -1)"
+  fi
   cat >"$PHONE_OUT/ExportOptions.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

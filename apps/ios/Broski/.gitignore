@@ -1,3 +1,5 @@
 # Written by `xcodegen generate` and by scripts/build-ios-app.sh.
 /Broski.xcodeproj/
 /build/
+# Local Apple Developer Team ID and bundle prefix overrides (see Local.xcconfig.example).
+/Local.xcconfig

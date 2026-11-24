@@ -1,26 +1,37 @@
 #!/bin/sh
 set -e
 
-# ──────────────────────────────────────────────
-# Broski Bridge — One-Line Installer
-# ──────────────────────────────────────────────
-# Usage:
-#   curl -fsSL https://broskiapp.com/install.sh | sh
-#   curl -fsSL https://broskiapp.com/install.sh | sh -s -- --install-service
+# Broski — macOS Bridge & Daemon Installer (GitHub Releases)
 #
-# BROSKI_BASE_URL overrides the download directory (used to install from a
-# locally built release).
+# Usage:
+#   curl -fsSL https://raw.githubusercontent.com/humblemuzzu/broski/main/packages/bridge/scripts/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/humblemuzzu/broski/main/packages/bridge/scripts/install.sh | sh -s -- --install-service
+#   sh install.sh --uninstall
+#
+# Environment overrides:
+#   BROSKI_REPO      GitHub owner/repo (default: humblemuzzu/broski)
+#   BROSKI_VERSION   Specific release tag, e.g. v0.1.0 (default: latest)
+#   BROSKI_BASE_URL  Override download directory (for local release testing)
 
-VERSION="0.1.0"
-BASE_URL="${BROSKI_BASE_URL:-https://broskiapp.com/download}"
+REPO="${BROSKI_REPO:-humblemuzzu/broski}"
 INSTALL_DIR="$HOME/.broski/bin"
 
+if [ -n "${BROSKI_BASE_URL:-}" ]; then
+  BASE_URL="${BROSKI_BASE_URL%/}"
+elif [ -n "${BROSKI_VERSION:-}" ]; then
+  BASE_URL="https://github.com/${REPO}/releases/download/${BROSKI_VERSION}"
+else
+  BASE_URL="https://github.com/${REPO}/releases/latest/download"
+fi
+
 INSTALL_SERVICE=0
+UNINSTALL=0
 for arg in "$@"; do
   case "$arg" in
     --install-service) INSTALL_SERVICE=1 ;;
+    --uninstall) UNINSTALL=1 ;;
     --help|-h)
-      echo "Usage: install.sh [--install-service]"
+      echo "Usage: install.sh [--install-service | --uninstall]"
       exit 0
       ;;
     *)
@@ -30,35 +41,58 @@ for arg in "$@"; do
   esac
 done
 
+remove_path_block() {
+  RC_FILE="$1"
+  [ -f "$RC_FILE" ] || return 0
+  if grep -q "$INSTALL_DIR" "$RC_FILE" 2>/dev/null; then
+    TMP_RC="${RC_FILE}.broski.tmp"
+    awk -v dir="$INSTALL_DIR" '
+      $0 == "# Broski" { skip = 1; next }
+      skip && index($0, dir) > 0 { skip = 0; next }
+      { skip = 0; print }
+    ' "$RC_FILE" > "$TMP_RC"
+    mv "$TMP_RC" "$RC_FILE"
+    echo "  ✓ Removed PATH entry from ${RC_FILE}"
+  fi
+}
+
+if [ "$UNINSTALL" = "1" ]; then
+  echo ""
+  echo "  Uninstalling Broski..."
+  if [ -x "${INSTALL_DIR}/broski" ]; then
+    "${INSTALL_DIR}/broski" uninstall >/dev/null 2>&1 || true
+  fi
+  rm -rf "$INSTALL_DIR"
+  remove_path_block "$HOME/.zshrc"
+  remove_path_block "$HOME/.bashrc"
+  remove_path_block "$HOME/.profile"
+  echo "  ✓ Removed ${INSTALL_DIR}"
+  echo "  Config and pairings remain in ~/.broski (delete manually if you want a full wipe)."
+  echo ""
+  exit 0
+fi
+
 echo ""
-echo "  ____                _    _ "
-echo " | __ ) _ __ ___  ___| | _(_)"
-echo " |  _ \\| '__/ _ \\/ __| |/ / |"
-echo " | |_) | | | (_) \\__ \\   <| |"
-echo " |____/|_|  \\___/|___/_|\\_\\_|"
-echo ""
-echo "  Installing Broski v${VERSION}..."
+echo "  Installing Broski (macOS)..."
 echo ""
 
-# ── Detect OS ────────────────────────────────
 OS_RAW=$(uname -s)
 case "$OS_RAW" in
-  Darwin)  OS="darwin" ;;
+  Darwin) OS="darwin" ;;
   *)
     echo "  Error: Unsupported operating system '${OS_RAW}'."
-    echo "  Broski supports macOS."
+    echo "  Broski's desktop host supports macOS only."
     exit 1
     ;;
 esac
 
-# ── Detect Architecture ─────────────────────
 ARCH_RAW=$(uname -m)
 case "$ARCH_RAW" in
   arm64|aarch64) ARCH="arm64" ;;
   x86_64|amd64)  ARCH="x64" ;;
   *)
     echo "  Error: Unsupported architecture '${ARCH_RAW}'."
-    echo "  Broski supports arm64 and x86_64."
+    echo "  Broski supports Apple Silicon (arm64) and Intel (x86_64) Macs."
     exit 1
     ;;
 esac
@@ -66,17 +100,13 @@ esac
 TARGET="${OS}-${ARCH}"
 BINARY_NAME="broski-${TARGET}"
 LINK_NAME="broski-link-${TARGET}"
+PTY_LIB="libbroski_pty.dylib"
 
 echo "  Platform: ${TARGET}"
+echo "  Source:   ${BASE_URL}"
 echo ""
 
-# ── Create install directory ─────────────────
 mkdir -p "$INSTALL_DIR"
-
-# ── Checksum helpers ─────────────────────────
-# The release publishes SHA256SUMS (one "<hash>  <filename>" line per artifact);
-# there is no published public key for the .sig files, so hashes are the
-# verification mechanism.
 
 sha256_of() {
   shasum -a 256 "$1" | awk '{print $1}'
@@ -92,9 +122,9 @@ verify_sha256() {
   EXPECTED=$(expected_sha256 "$NAME")
   if [ -z "$EXPECTED" ]; then
     echo "  Error: ${NAME} is not listed in SHA256SUMS"
+    rm -f "$FILE"
     exit 1
   fi
-
   ACTUAL=$(sha256_of "$FILE")
   if [ "$ACTUAL" != "$EXPECTED" ]; then
     echo "  Error: checksum mismatch for ${NAME}"
@@ -106,7 +136,6 @@ verify_sha256() {
   echo "  ✓ ${NAME} verified"
 }
 
-# ── Download checksums ───────────────────────
 echo "  Downloading SHA256SUMS..."
 if ! curl -fSL "${BASE_URL}/SHA256SUMS" -o "${INSTALL_DIR}/SHA256SUMS"; then
   echo "  Error: could not download ${BASE_URL}/SHA256SUMS"
@@ -114,14 +143,11 @@ if ! curl -fSL "${BASE_URL}/SHA256SUMS" -o "${INSTALL_DIR}/SHA256SUMS"; then
   exit 1
 fi
 
-# ── Download binary ──────────────────────────
 echo "  Downloading ${BINARY_NAME}..."
 curl -fSL "${BASE_URL}/${BINARY_NAME}" -o "${INSTALL_DIR}/broski"
 chmod +x "${INSTALL_DIR}/broski"
 verify_sha256 "${INSTALL_DIR}/broski" "${BINARY_NAME}"
 
-# ── Download broski-link (always-on service supervisor) ──
-# broski-link owns the always-on service: it spawns the bridge and restarts it.
 echo "  Downloading ${LINK_NAME}..."
 if curl -fSL "${BASE_URL}/${LINK_NAME}" -o "${INSTALL_DIR}/broski-link"; then
   chmod +x "${INSTALL_DIR}/broski-link"
@@ -129,27 +155,20 @@ if curl -fSL "${BASE_URL}/${LINK_NAME}" -o "${INSTALL_DIR}/broski-link"; then
 else
   rm -f "${INSTALL_DIR}/broski-link" 2>/dev/null
   echo "  ⚠ broski-link is not published for ${TARGET}"
-  echo "    Always On (broski install) needs it: build with 'cd packages/link && cargo build --release'"
+  echo "    Build from source with: cd packages/link && cargo build --release -p broski-link-daemon"
 fi
 
-# ── Download native PTY library ──────────────
-# Enables terminal sessions from the app.
-PTY_LIB="libbroski_pty.dylib"
-
-if curl -fSL "${BASE_URL}/${PTY_LIB}" -o "${INSTALL_DIR}/${PTY_LIB}" 2>/dev/null; then
-  if [ -n "$(expected_sha256 "$PTY_LIB")" ]; then
+if [ -n "$(expected_sha256 "$PTY_LIB")" ]; then
+  if curl -fSL "${BASE_URL}/${PTY_LIB}" -o "${INSTALL_DIR}/${PTY_LIB}" 2>/dev/null; then
     verify_sha256 "${INSTALL_DIR}/${PTY_LIB}" "${PTY_LIB}"
   else
-    echo "  ✓ PTY library installed (not listed in SHA256SUMS)"
+    echo "  ⚠ PTY library download failed (terminal sessions disabled)"
+    rm -f "${INSTALL_DIR}/${PTY_LIB}" 2>/dev/null
   fi
-else
-  echo "  ⚠ PTY library not available (terminal sessions disabled)"
-  rm -f "${INSTALL_DIR}/${PTY_LIB}" 2>/dev/null
 fi
 
 echo ""
 
-# ── Add to PATH ──────────────────────────────
 CURRENT_SHELL=$(basename "${SHELL:-/bin/sh}")
 PROFILE_FILE=""
 
@@ -179,30 +198,23 @@ case ":$PATH:" in
     ;;
 esac
 
-# ── Source PATH immediately ──────────────────
-# So `broski` works right now without restarting the terminal
 export PATH="${INSTALL_DIR}:$PATH"
 
-# ── Background service ───────────────────────
 if [ "$INSTALL_SERVICE" = "1" ]; then
   echo ""
   echo "  Installing the Broski Link background service..."
-  echo ""
   "${INSTALL_DIR}/broski" install
   echo ""
 else
   echo ""
-  echo "  Keep Broski running in the background:"
-  echo ""
-  echo "    broski install"
+  echo "  Run \`broski install\` to keep Broski running as a macOS login service."
   echo ""
 fi
 
-# ── Done ─────────────────────────────────────
+INSTALLED_VERSION=$("${INSTALL_DIR}/broski" --version 2>/dev/null | head -1 || echo "installed")
+echo "  ✓ Broski ready (${INSTALLED_VERSION})"
 echo ""
-echo "  ✅ Broski v${VERSION} installed!"
-echo ""
-echo "  Run this now:"
-echo ""
-echo "    source ~/.${CURRENT_SHELL}rc && broski setup"
+echo "  Next steps:"
+echo "    broski install       # start the background daemon + bridge"
+echo "    broski-link pair     # show the QR code to pair your phone"
 echo ""
