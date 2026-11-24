@@ -13,6 +13,7 @@ fn options(home: &Path, bridge_socket: PathBuf) -> RunOptions {
     RunOptions {
         home: home.to_path_buf(),
         relay: None,
+        relay_register_token: None,
         lan_port: 0,
         lan: true,
         bridge_socket,

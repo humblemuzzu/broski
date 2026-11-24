@@ -52,6 +52,8 @@ pub struct FromMachine {
     pub priority: Option<String>,
     #[serde(default)]
     pub targets: Option<Vec<AlertTarget>>,
+    #[serde(default)]
+    pub devices: Option<Vec<String>>,
 }
 
 #[derive(Deserialize)]

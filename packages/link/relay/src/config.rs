@@ -15,6 +15,11 @@ pub struct Args {
     #[arg(long)]
     pub db: PathBuf,
 
+    /// File holding a token (16+ characters) a machine must present to register here; without it
+    /// any machine may register. Machines already registered are unaffected.
+    #[arg(long, value_name = "PATH")]
+    pub register_token_file: Option<PathBuf>,
+
     /// PEM certificate chain; enables TLS when given together with --tls-key
     #[arg(long, requires = "tls_key")]
     pub tls_cert: Option<PathBuf>,

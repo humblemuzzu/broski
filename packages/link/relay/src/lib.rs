@@ -33,15 +33,23 @@ pub struct Options {
     pub rate: RateLimit,
     pub limits: Limits,
     pub push: PushConfig,
+    /// When set, a machine the relay has never seen registers only with this token; machines
+    /// already registered are unaffected.
+    pub register_token: Option<String>,
 }
 
 pub async fn open(options: Options) -> Result<Arc<Hub>, DbError> {
     let db = db::Db::open(&options.db_path).await?;
+    let register = options
+        .register_token
+        .as_deref()
+        .map(|token| auth::sha256(token.as_bytes()));
     let hub = Arc::new(Hub::new(
         db,
         options.rate,
         options.limits,
         PushSender::new(options.push),
+        register,
     ));
     letters::spawn_sweeper(hub.clone());
     Ok(hub)

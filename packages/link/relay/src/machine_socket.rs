@@ -9,7 +9,7 @@ use crate::auth::{self, public_identity, truncated};
 use crate::db::PutDevice;
 use crate::hub::Hub;
 use crate::letters;
-use crate::limits::{MACHINE_QUEUE_BYTES, MAX_ALERT_TARGETS};
+use crate::limits::{MACHINE_QUEUE_BYTES, MAX_ALERT_TARGETS, MAX_ALLOWED_DEVICES};
 use crate::protocol::{encode, now_ms, FromMachine, ToMachine};
 use crate::push::{self, PushError};
 use crate::room::Room;
@@ -17,7 +17,7 @@ use crate::socket::{Event, Session, CLOSE_POLICY};
 
 pub async fn run(hub: Arc<Hub>, machine_id: String, last_seen: Option<i64>, socket: WebSocket) {
     let mut session = Session::new(socket, MACHINE_QUEUE_BYTES);
-    let room = hub.room_or_create(&machine_id, last_seen);
+    let room = hub.lease(&machine_id, last_seen);
     let generation = room.attach_machine(session.handle.clone(), last_seen);
     info!(machine = truncated(&machine_id), "machine attached");
     deliver_letters(&hub, &room, &machine_id).await;
@@ -44,7 +44,7 @@ pub async fn run(hub: Arc<Hub>, machine_id: String, last_seen: Option<i64>, sock
     }
     if let Some(ts) = room.detach_machine(generation) {
         let _ = hub.db().touch_last_seen(&machine_id, ts).await;
-        alerts::arm(&hub, &room, &machine_id, Arming::Gone);
+        alerts::arm(&hub, &machine_id, Arming::Gone);
     }
     info!(machine = truncated(&machine_id), "machine detached");
     session.finish().await;
@@ -92,13 +92,14 @@ async fn control(
         "identity" => identity(hub, session, machine_id, &message).await,
         "allow" => allow(hub, session, machine_id, &message).await,
         "revoke" => revoke(hub, room, session, machine_id, &message).await,
+        "keep" => keep(hub, room, session, machine_id, &message).await,
         "close" => {
             room.close_channel(message.ch.ok_or(Malformed)?);
             Ok(())
         }
         "sleep" => {
             room.sleep();
-            alerts::arm(hub, room, machine_id, Arming::Asleep);
+            alerts::arm(hub, machine_id, Arming::Asleep);
             Ok(())
         }
         "push" => request_push(hub, session, machine_id, &message),
@@ -275,6 +276,44 @@ async fn revoke(
         "device revoked"
     );
     ok(session, req)
+}
+
+/// The machine names every device it authorises; the relay forgets the rest. A device revoked
+/// while the machine was away from the relay loses its token here, at the machine's next connect.
+async fn keep(
+    hub: &Hub,
+    room: &Room,
+    session: &Session,
+    machine_id: &str,
+    message: &FromMachine,
+) -> Control {
+    let devices = message.devices.as_deref().ok_or(Malformed)?;
+    // The machine's paired devices, plus an open offer's pairing device.
+    let bound = MAX_ALLOWED_DEVICES as usize + 1;
+    if devices.len() > bound || !devices.iter().all(|id| auth::valid_id(id)) {
+        return match message.req {
+            Some(req) => err(session, req, "bad_device"),
+            None => Ok(()),
+        };
+    }
+    let Ok(gone) = hub.db().keep_devices(machine_id, devices.to_vec()).await else {
+        return match message.req {
+            Some(req) => err(session, req, "db_error"),
+            None => Ok(()),
+        };
+    };
+    for device in &gone {
+        room.revoke_device(device);
+        info!(
+            machine = truncated(machine_id),
+            device = truncated(device),
+            "device revoked (no longer kept)"
+        );
+    }
+    match message.req {
+        Some(req) => ok(session, req),
+        None => Ok(()),
+    }
 }
 
 fn ok(session: &Session, req: u64) -> Control {

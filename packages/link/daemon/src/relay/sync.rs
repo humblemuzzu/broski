@@ -13,12 +13,14 @@ use super::session::Session;
 /// plus the pairing device of an open offer.
 pub(super) struct Sync {
     allowed: HashMap<String, String>,
+    kept: bool,
 }
 
 impl Sync {
     pub(super) fn new() -> Sync {
         Sync {
             allowed: HashMap::new(),
+            kept: false,
         }
     }
 
@@ -37,6 +39,12 @@ impl Sync {
         }
         if !self.withdraw(session, &desired, &retired).await {
             return false;
+        }
+        if !self.kept {
+            if !self.keep(session, &desired).await {
+                return false;
+            }
+            self.kept = true;
         }
         if !self.targets(session, &devices).await {
             return false;
@@ -62,6 +70,14 @@ impl Sync {
         session
             .request(json!({"t": "alert_targets", "targets": targets}))
             .await
+    }
+
+    /// Once per connection, names every device this machine authorises so the relay forgets the
+    /// rest, including devices revoked while the machine was away from it. Sent without a request
+    /// id: a relay that predates `keep` ignores it.
+    async fn keep(&mut self, session: &mut Session, desired: &HashMap<String, String>) -> bool {
+        let devices: Vec<&String> = desired.keys().collect();
+        session.send(json!({"t": "keep", "devices": devices})).await
     }
 
     async fn grant(&mut self, session: &mut Session, desired: &HashMap<String, String>) -> bool {

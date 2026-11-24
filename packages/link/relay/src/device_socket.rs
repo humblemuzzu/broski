@@ -16,7 +16,7 @@ pub async fn run(
     socket: WebSocket,
 ) {
     let mut session = Session::new(socket, DEVICE_QUEUE_BYTES);
-    let room = hub.room_or_create(&machine_id, last_seen);
+    let room = hub.lease(&machine_id, last_seen);
     let generation = room.attach_device(&device_id, session.handle.clone());
     info!(
         machine = truncated(&machine_id),

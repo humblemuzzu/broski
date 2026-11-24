@@ -63,6 +63,7 @@ const RELAY_COMMANDS: usize = 64;
 pub struct RunOptions {
     pub home: PathBuf,
     pub relay: Option<String>,
+    pub relay_register_token: Option<String>,
     pub lan_port: u16,
     pub lan: bool,
     pub bridge_socket: PathBuf,

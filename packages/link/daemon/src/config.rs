@@ -13,6 +13,10 @@ pub const DEFAULT_BRIDGE_SOCKET: &str = "bridge.sock";
 pub struct Config {
     #[serde(default)]
     pub relay: Option<String>,
+    /// What a self-hosted relay started with `--register-token-file` asks of a machine it has
+    /// never seen.
+    #[serde(default)]
+    pub relay_register_token: Option<String>,
     #[serde(default)]
     pub lan_port: Option<u16>,
     #[serde(default)]

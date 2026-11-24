@@ -36,6 +36,7 @@ impl TestRelay {
             rate: RateLimit::default(),
             limits,
             push,
+            register_token: None,
         })
         .await
         .expect("open the relay");

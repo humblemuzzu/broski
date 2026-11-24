@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
+use std::net::SocketAddr;
+
 use axum::body::Bytes;
-use axum::extract::State;
+use axum::extract::{ConnectInfo, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::Json;
@@ -36,7 +38,15 @@ struct Full {
     error: &'static str,
 }
 
-pub async fn post(State(hub): State<Arc<Hub>>, headers: HeaderMap, body: Bytes) -> Response {
+pub async fn post(
+    State(hub): State<Arc<Hub>>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    if !hub.allow_http(peer.ip()) {
+        return (StatusCode::TOO_MANY_REQUESTS, "rate limited").into_response();
+    }
     let Some(auth) = authorized_device(&hub, &headers).await else {
         return unauthorized();
     };

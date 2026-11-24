@@ -52,7 +52,8 @@ Check it: `curl http://127.0.0.1:8765/healthz` answers `ok`.
 | `--apns-key <p8>` `--apns-key-id <kid>` `--apns-team-id <team>` `--apns-topic <bundle id>` | Push to iOS through APNs; all four together |
 | `--apns-sandbox` | Use the APNs sandbox host (development builds of the app) |
 | `--fcm-service-account <json>` | Push to Android through FCM |
-| `--push-upstream <url>` | Forward pushes for any platform this relay has no provider keys for to another relay's `/v1/push` |
+| `--push-upstream <url>` | Forward pushes for any platform this relay has no provider keys for to another relay's `/v1/push`; `https://` unless it is on loopback |
+| `--register-token-file <path>` | Only machines that present the token in this file (16+ characters) may register; machines already registered are unaffected |
 
 `broski-relay --help` prints the same list.
 
@@ -100,13 +101,29 @@ broski-relay --listen 0.0.0.0:443 --db /var/lib/broski/relay.db \
 
 The certificate is read once at start: restart the relay after each renewal.
 
+## Keep strangers off your relay
+
+Without a register token, any machine on the internet may register with a relay it can reach and use it as its own.
+For a relay that serves only your Macs, write a long random token to a file only the relay's user can read and start
+the relay with it:
+
+```bash
+openssl rand -hex 32 > /var/lib/broski/register-token && chmod 600 /var/lib/broski/register-token
+broski-relay --listen 0.0.0.0:8765 --db /var/lib/broski/relay.db --register-token-file /var/lib/broski/register-token
+```
+
+Then give each Mac the same token (below). A Mac registered before the token was set keeps working without it.
+
 ## Point the Mac at it
 
 The daemon reads the relay URL from `~/.broski/link/config.json` at start:
 
 ```json
-{ "relay": "wss://relay.example.com" }
+{ "relay": "wss://relay.example.com", "relay_register_token": "<the token, if the relay has one>" }
 ```
+
+With a token in it, keep the file private: `chmod 600 ~/.broski/link/config.json`. The daemon refuses a `ws://` relay
+URL that is not on loopback: the machine's relay secret would cross the network in the clear.
 
 Restart the daemon (`broski restart`, or `bun bin/broski.ts restart` in `packages/bridge` when running from source;
 a daemon started by hand takes `broski-link run --relay wss://relay.example.com`). `broski-link status` shows whether

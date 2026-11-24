@@ -42,6 +42,12 @@ pub const PUSH_IP_RATE: RateLimit = RateLimit {
     burst: 120.0,
     per_second: 2.0,
 };
+/// Per address, for the HTTP routes that read the database before anything else can refuse them
+/// (`/v1/identity`, `/v1/status`, `/v1/letters`).
+pub const HTTP_IP_RATE: RateLimit = RateLimit {
+    burst: 300.0,
+    per_second: 5.0,
+};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Limits {

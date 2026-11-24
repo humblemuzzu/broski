@@ -201,6 +201,9 @@ pub(super) async fn connect(config: &Config) -> Result<Session, Fail> {
     let bearer = HeaderValue::from_str(&token)?;
     headers.insert("x-broski-machine", machine);
     headers.insert("authorization", bearer);
+    if let Some(token) = &config.register_token {
+        headers.insert("x-broski-register-token", HeaderValue::from_str(token)?);
+    }
 
     let (socket, _) = timeout(CONNECT_TIMEOUT, connect_async(request))
         .await

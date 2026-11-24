@@ -37,6 +37,7 @@ impl TestRelay {
                 ..Limits::default()
             },
             push: PushConfig::default(),
+            register_token: None,
         })
         .await
         .expect("open the relay");

@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::{Mutex, MutexGuard};
 
 use bytes::{BufMut, Bytes, BytesMut};
+use tokio::time::Instant;
 
 use crate::alerts::Arming;
 use crate::limits::LAST_SEEN_FLUSH_MS;
@@ -22,7 +23,15 @@ struct RoomState {
     channels: HashMap<u32, String>,
     next_channel: u32,
     watch: bool,
-    alert_seq: u64,
+    leases: usize,
+    alert: Option<PendingAlert>,
+    alert_timer: bool,
+}
+
+/// The offline alert waiting out its grace: the latest arming wins and moves the deadline.
+struct PendingAlert {
+    arming: Arming,
+    due: Instant,
 }
 
 struct DeviceEntry {
@@ -55,9 +64,22 @@ impl Room {
                 channels: HashMap::new(),
                 next_channel: 0,
                 watch: false,
-                alert_seq: 0,
+                leases: 0,
+                alert: None,
+                alert_timer: false,
             }),
         }
+    }
+
+    pub fn hold(&self) {
+        self.state().leases += 1;
+    }
+
+    /// True when the last lease went and nobody is attached, so the hub may forget the room.
+    pub fn release(&self) -> bool {
+        let mut state = self.state();
+        state.leases = state.leases.saturating_sub(1);
+        state.leases == 0 && state.machine.is_none() && state.devices.is_empty()
     }
 
     fn state(&self) -> MutexGuard<'_, RoomState> {
@@ -173,29 +195,48 @@ impl Room {
         self.state().watch = on;
     }
 
-    pub fn arm_alert(&self) -> Option<u64> {
-        let mut state = self.state();
-        if !state.watch {
-            return None;
-        }
-        state.alert_seq = state.alert_seq.wrapping_add(1);
-        Some(state.alert_seq)
+    pub fn watching(&self) -> bool {
+        self.state().watch
     }
 
-    pub fn claim_alert(&self, seq: u64, arming: Arming) -> bool {
+    /// Arms the offline alert for `due`. True when no timer is running for the room, so the caller
+    /// starts one; a running timer picks up the new deadline itself.
+    pub fn arm_alert(&self, arming: Arming, due: Instant) -> bool {
         let mut state = self.state();
-        if state.alert_seq != seq || !state.watch {
+        if !state.watch {
             return false;
         }
+        state.alert = Some(PendingAlert { arming, due });
+        !std::mem::replace(&mut state.alert_timer, true)
+    }
+
+    /// The deadline the timer waits for next; `None` ends the timer, atomically with arming.
+    pub fn alert_due(&self) -> Option<Instant> {
+        let mut state = self.state();
+        let due = state.alert.as_ref().map(|alert| alert.due);
+        if due.is_none() {
+            state.alert_timer = false;
+        }
+        due
+    }
+
+    /// The alert due at `due`, when the machine is still gone or asleep and watched. An alert
+    /// re-armed since is left for the timer's next wait.
+    pub fn claim_alert(&self, due: Instant) -> Option<Arming> {
+        let mut state = self.state();
+        if state.alert.as_ref().map(|alert| alert.due) != Some(due) {
+            return None;
+        }
+        let arming = state.alert.take()?.arming;
         let gone = match arming {
             Arming::Gone => state.machine.is_none(),
             Arming::Asleep => state.machine.is_some() && state.asleep,
         };
-        if !gone {
-            return false;
+        if !state.watch || !gone {
+            return None;
         }
         state.watch = false;
-        true
+        Some(arming)
     }
 
     pub fn deliver_letter(&self, text: &str) -> bool {

@@ -19,6 +19,7 @@ async fn tls_relay(dir: &std::path::Path) -> (SocketAddr, RootCertStore) {
         rate: broski_relay::limits::RateLimit::default(),
         limits: broski_relay::limits::Limits::default(),
         push: broski_relay::push::PushConfig::default(),
+        register_token: None,
     })
     .await
     .expect("relay");

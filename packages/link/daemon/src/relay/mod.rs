@@ -72,6 +72,7 @@ pub fn handle() -> RelayHandle {
 
 pub struct Config {
     pub url: String,
+    pub register_token: Option<Zeroizing<String>>,
     pub machine_id: String,
     pub secret: Zeroizing<Vec<u8>>,
     pub public: String,

@@ -8,6 +8,8 @@ use subtle::ConstantTimeEq;
 
 pub const MACHINE_HEADER: &str = "x-broski-machine";
 pub const DEVICE_HEADER: &str = "x-broski-device";
+/// The token a relay started with `--register-token-file` asks of a machine it has never seen.
+pub const REGISTER_HEADER: &str = "x-broski-register-token";
 
 pub fn sha256(data: &[u8]) -> [u8; 32] {
     Sha256::digest(data).into()

@@ -86,6 +86,7 @@ impl RunArgs {
                 .bridge_socket
                 .unwrap_or_else(|| home.join(DEFAULT_BRIDGE_SOCKET)),
             relay: self.relay.or(config.relay),
+            relay_register_token: config.relay_register_token,
             lan_port: self
                 .lan_port
                 .or(config.lan_port)

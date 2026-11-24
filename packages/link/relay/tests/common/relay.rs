@@ -19,6 +19,7 @@ pub struct Relay {
     rate: RateLimit,
     limits: Limits,
     push: PushConfig,
+    register_token: Option<String>,
     stop: Option<oneshot::Sender<()>>,
     task: Option<tokio::task::JoinHandle<std::io::Result<()>>>,
 }
@@ -35,7 +36,15 @@ impl Relay {
     pub async fn start_configured(rate: RateLimit, limits: Limits, push: PushConfig) -> Relay {
         let dir = tempfile::tempdir().expect("temp dir");
         let db = dir.path().join("relay.db");
-        Self::boot(Some(dir), db, rate, limits, push).await
+        Self::boot(Some(dir), db, rate, limits, push, None).await
+    }
+
+    pub async fn start_registering_with(token: &str) -> Relay {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let db = dir.path().join("relay.db");
+        let push = PushConfig::default();
+        let (rate, limits) = (RateLimit::default(), Limits::default());
+        Self::boot(Some(dir), db, rate, limits, push, Some(token.to_owned())).await
     }
 
     async fn boot(
@@ -44,12 +53,14 @@ impl Relay {
         rate: RateLimit,
         limits: Limits,
         push: PushConfig,
+        register_token: Option<String>,
     ) -> Relay {
         let hub = broski_relay::open(Options {
             db_path: db.clone(),
             rate,
             limits,
             push: push.clone(),
+            register_token: register_token.clone(),
         })
         .await
         .expect("open relay");
@@ -68,6 +79,7 @@ impl Relay {
             rate,
             limits,
             push,
+            register_token,
             stop: Some(stop),
             task: Some(task),
         }
@@ -75,6 +87,25 @@ impl Relay {
 
     pub fn hub(&self) -> Arc<Hub> {
         self.hub.clone()
+    }
+
+    pub async fn machine_registering(
+        &self,
+        id: &str,
+        secret: &str,
+        token: &str,
+    ) -> Result<Client, u16> {
+        let authorization = format!("Bearer {secret}");
+        Client::connect(
+            self.addr,
+            "/v1/machine",
+            &[
+                (MACHINE_HEADER, id),
+                ("authorization", &authorization),
+                ("x-broski-register-token", token),
+            ],
+        )
+        .await
     }
 
     pub async fn machine(&self, id: &str, secret: &str) -> Result<Client, u16> {
@@ -133,7 +164,8 @@ impl Relay {
         let rate = self.rate;
         let limits = self.limits;
         let push = self.push.clone();
+        let register_token = self.register_token.clone();
         drop(self);
-        Self::boot(dir, db, rate, limits, push).await
+        Self::boot(dir, db, rate, limits, push, register_token).await
     }
 }

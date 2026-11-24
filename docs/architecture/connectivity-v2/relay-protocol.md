@@ -17,6 +17,10 @@ count) and watch state (that a machine is working, when it went away, whether it
 **What it cannot see:** plaintext, Noise keys, agent traffic, message history. Letter bodies and push
 bodies are opaque blobs it only moves and stores; the phone decrypts push bodies in its Notification
 Service Extension. It never logs headers, tokens, payload bytes or payload lengths.
+**The one exception, by Apple's design:** an iOS Live Activity update (`kind` `live_activity`) is JSON
+that ActivityKit renders itself, so it cannot be sealed. It carries the agent's name (`Claude Code`,
+`Pi`), its phase, counts, the session id and the Mac's name, and never a prompt, title or any agent
+text.
 
 ## Endpoints
 
@@ -34,7 +38,10 @@ Ids are 32 lowercase hex characters. Secrets and tokens are base64url-no-pad of 
 are hashed with sha256 before storage or comparison (constant-time). A machine id is the lowercase hex
 of the first 16 bytes of `sha256(public_bundle)`, so the identity message is self-certifying against
 the id the machine registered with. First connect of an unknown `machine_id` registers it; a known id
-requires a matching secret. 429 means the per-IP upgrade bucket is empty.
+requires a matching secret. A relay started with `--register-token-file` registers an unknown machine
+only when its upgrade also carries `x-broski-register-token: <token>`, and answers 403 otherwise. 429
+means the per-IP bucket is empty: one for upgrades, one shared by `/v1/identity`, `/v1/status` and
+`/v1/letters`.
 
 ## Frames
 
@@ -62,6 +69,7 @@ Machine → relay:
 | `{"t":"identity","req":N,"pub":"<b64url>"}` | publish the machine's public identity bundle |
 | `{"t":"allow","req":N,"device":"<id>","token_hash":"<64 hex>"}` | authorise a device by sha256 of its token |
 | `{"t":"revoke","req":N,"device":"<id>"}` | drop the device; a live device socket is closed with 4003 |
+| `{"t":"keep","devices":["<id>",…]}` | every device the machine authorises (max 33); the relay drops the rest as `revoke` does. Sent once per connection, so a device revoked while the machine was away loses its token at the next connect |
 | `{"t":"close","ch":N}` | close the device socket bound to channel N (4000) |
 | `{"t":"sleep"}` | the machine is going away; devices are told `asleep`. Cleared by any later machine frame or reconnect |
 | `{"t":"letter_ack","id":N}` | the letter with that id was handled; the relay deletes it |

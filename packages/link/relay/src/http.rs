@@ -57,12 +57,18 @@ async fn machine_upgrade(
         return (StatusCode::UNAUTHORIZED, "missing token").into_response();
     };
     let hash = sha256(secret.as_bytes());
+    let may_register = hub.may_register(&headers);
     match hub
         .db()
-        .authenticate_machine(&machine_id, &hash, now_ms())
+        .authenticate_machine(&machine_id, &hash, now_ms(), may_register)
         .await
     {
         Ok((MachineAuth::BadSecret, _)) => (StatusCode::UNAUTHORIZED, "bad secret").into_response(),
+        Ok((MachineAuth::Closed, _)) => (
+            StatusCode::FORBIDDEN,
+            "registration needs this relay's token",
+        )
+            .into_response(),
         Ok((_, last_seen)) => {
             let hub = hub.clone();
             upgrade
@@ -96,7 +102,14 @@ async fn device_upgrade(
         .into_response()
 }
 
-async fn identity(State(hub): State<Arc<Hub>>, Path(machine_id): Path<String>) -> Response {
+async fn identity(
+    State(hub): State<Arc<Hub>>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    Path(machine_id): Path<String>,
+) -> Response {
+    if !hub.allow_http(peer.ip()) {
+        return (StatusCode::TOO_MANY_REQUESTS, "rate limited").into_response();
+    }
     if !valid_id(&machine_id) {
         return StatusCode::NOT_FOUND.into_response();
     }
@@ -112,9 +125,13 @@ async fn identity(State(hub): State<Arc<Hub>>, Path(machine_id): Path<String>) -
 
 async fn status(
     State(hub): State<Arc<Hub>>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
     Path(machine_id): Path<String>,
     headers: HeaderMap,
 ) -> Response {
+    if !hub.allow_http(peer.ip()) {
+        return (StatusCode::TOO_MANY_REQUESTS, "rate limited").into_response();
+    }
     match authorized_device(&hub, &headers).await {
         Some(auth) if auth.machine == machine_id => {}
         _ => return unauthorized(),

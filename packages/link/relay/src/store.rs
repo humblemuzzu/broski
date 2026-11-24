@@ -43,9 +43,10 @@ impl Store {
                 id,
                 hash,
                 now,
+                may_register,
                 reply,
             } => reply_with(
-                self.authenticate_machine(&id, &hash, now),
+                self.authenticate_machine(&id, &hash, now, may_register),
                 (MachineAuth::BadSecret, None),
                 reply,
             ),
@@ -69,6 +70,11 @@ impl Store {
             Request::DeleteDevice { machine, device } => {
                 log_failure(self.delete_device(&machine, &device));
             }
+            Request::KeepDevices {
+                machine,
+                keep,
+                reply,
+            } => reply_with(self.keep_devices(&machine, &keep), Vec::new(), reply),
             Request::SetPub {
                 id,
                 pub_bytes,
@@ -123,6 +129,7 @@ impl Store {
         id: &str,
         hash: &[u8; 32],
         now: i64,
+        may_register: bool,
     ) -> Result<(MachineAuth, Option<i64>), DbError> {
         let stored: Option<(Vec<u8>, Option<i64>)> = self
             .conn
@@ -138,6 +145,7 @@ impl Store {
                 };
                 Ok((auth, last_seen))
             }
+            None if !may_register => Ok((MachineAuth::Closed, None)),
             None => {
                 self.conn
                     .prepare_cached(
@@ -203,6 +211,19 @@ impl Store {
             .prepare_cached("DELETE FROM devices WHERE machine_id = ?1 AND device_id = ?2")?
             .execute((machine, device))?;
         Ok(())
+    }
+
+    fn keep_devices(&mut self, machine: &str, keep: &[String]) -> Result<Vec<String>, DbError> {
+        let known: Vec<String> = self
+            .conn
+            .prepare_cached("SELECT device_id FROM devices WHERE machine_id = ?1")?
+            .query_map([machine], |row| row.get(0))?
+            .collect::<Result<_, _>>()?;
+        let gone: Vec<String> = known.into_iter().filter(|id| !keep.contains(id)).collect();
+        for device in &gone {
+            self.delete_device(machine, device)?;
+        }
+        Ok(gone)
     }
 
     fn set_pub(&mut self, id: &str, pub_bytes: &[u8]) -> Result<bool, DbError> {

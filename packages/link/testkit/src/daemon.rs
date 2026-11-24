@@ -54,6 +54,7 @@ impl TestDaemon {
         let handle = run(RunOptions {
             home: home.path.clone(),
             relay: relay.map(str::to_owned),
+            relay_register_token: None,
             lan_port: 0,
             lan,
             bridge_socket: home.bridge_socket(),

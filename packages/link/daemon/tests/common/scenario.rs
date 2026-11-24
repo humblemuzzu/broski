@@ -155,13 +155,12 @@ impl Scenario {
         }
     }
 
-    /// True when the relay has this machine watched: `arm_alert` answers `None` exactly while the
-    /// daemon's `watch` is off.
+    /// True when the relay has this machine watched.
     pub fn watched(&self) -> bool {
         self.relay
             .hub
             .room(&self.machine)
-            .is_some_and(|room| room.arm_alert().is_some())
+            .is_some_and(|room| room.watching())
     }
 
     pub async fn await_watched(&self, watched: bool) {

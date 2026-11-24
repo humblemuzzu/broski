@@ -32,6 +32,8 @@ pub enum MachineAuth {
     Registered,
     Ok,
     BadSecret,
+    /// An unknown machine on a relay that registers only with its token, which was not given.
+    Closed,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -51,6 +53,7 @@ pub(crate) enum Request {
         id: String,
         hash: [u8; 32],
         now: i64,
+        may_register: bool,
         reply: oneshot::Sender<(MachineAuth, Option<i64>)>,
     },
     AuthorizeDevice {
@@ -69,6 +72,11 @@ pub(crate) enum Request {
     DeleteDevice {
         machine: String,
         device: String,
+    },
+    KeepDevices {
+        machine: String,
+        keep: Vec<String>,
+        reply: oneshot::Sender<Vec<String>>,
     },
     SetPub {
         id: String,
@@ -149,11 +157,13 @@ impl Db {
         id: &str,
         hash: &[u8; 32],
         now: i64,
+        may_register: bool,
     ) -> Result<(MachineAuth, Option<i64>), DbError> {
         self.request(|reply| Request::AuthenticateMachine {
             id: id.to_owned(),
             hash: *hash,
             now,
+            may_register,
             reply,
         })
         .await
@@ -199,6 +209,20 @@ impl Db {
             })
             .await
             .map_err(|_| db_stopped())
+    }
+
+    /// Deletes every device of `machine` that `keep` does not name; returns the deleted ids.
+    pub async fn keep_devices(
+        &self,
+        machine: &str,
+        keep: Vec<String>,
+    ) -> Result<Vec<String>, DbError> {
+        self.request(|reply| Request::KeepDevices {
+            machine: machine.to_owned(),
+            keep,
+            reply,
+        })
+        .await
     }
 
     pub async fn set_pub(&self, id: &str, pub_bytes: Vec<u8>) -> Result<bool, DbError> {

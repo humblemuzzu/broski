@@ -7,7 +7,6 @@ use crate::auth::truncated;
 use crate::hub::Hub;
 use crate::protocol::now_ms;
 use crate::push::{Kind, Platform, Priority, PushRequest};
-use crate::room::Room;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Arming {
@@ -38,23 +37,28 @@ struct Alert<'a> {
     since: i64,
 }
 
-pub fn arm(hub: &Arc<Hub>, room: &Arc<Room>, machine_id: &str, arming: Arming) {
+/// Raises the offline alert once the grace has passed with the machine still gone or asleep. One
+/// timer per room, holding the room, however often the machine arms it.
+pub fn arm(hub: &Arc<Hub>, machine_id: &str, arming: Arming) {
     if !hub.push().configured() {
         if hub.note_alert_gap() {
             info!("offline alerts unavailable: push is not configured");
         }
         return;
     }
-    let Some(seq) = room.arm_alert() else {
+    let room = hub.lease(machine_id, None);
+    let due = tokio::time::Instant::now() + hub.limits().alert_grace;
+    if !room.arm_alert(arming, due) {
         return;
-    };
+    }
     let hub = hub.clone();
-    let room = room.clone();
     let machine_id = machine_id.to_owned();
     tokio::spawn(async move {
-        tokio::time::sleep(hub.limits().alert_grace).await;
-        if room.claim_alert(seq, arming) {
-            raise(&hub, &machine_id, arming.state()).await;
+        while let Some(due) = room.alert_due() {
+            tokio::time::sleep_until(due).await;
+            if let Some(arming) = room.claim_alert(due) {
+                raise(&hub, &machine_id, arming.state()).await;
+            }
         }
     });
 }

@@ -299,6 +299,7 @@ fn spawn_relay(
     let url = options.relay.clone()?;
     let config = relay::Config {
         url,
+        register_token: options.relay_register_token.clone().map(Zeroizing::new),
         machine_id: parts.identity.public().id(),
         secret: Zeroizing::new(parts.store.secret().to_vec()),
         public: crate::codec::b64url(&parts.identity.public().to_bytes()),
