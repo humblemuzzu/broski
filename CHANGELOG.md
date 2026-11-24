@@ -2,6 +2,32 @@
 
 All notable changes to Broski are documented here.
 
+## Unreleased
+
+### Updates that always finish
+
+- **`broski update` runs the new release's own installer.** The update code no longer lives in the installed binary,
+  where an old bug could never be fixed: `broski update` checks for a new version, then runs the `install.sh`
+  published with it. A fix to the installer now reaches every installed version on its next update.
+- **Downloads resume.** A dropped connection resumes at the byte it reached, up to six tries; a download stopped with
+  Ctrl-C, a closed lid or a lost network continues on the next `broski update` or one-line install. There is no time
+  limit, only a stall limit (under 1 KB/s for a minute), so a slow connection finishes.
+- **A third smaller.** Releases add `.tar.xz` copies (the Apple Silicon bridge: 29.5 MB, against 46 MB as `.gz` and
+  102 MB raw); the installer uses them when the Mac's `tar` reads xz, else `.gz`, else the raw file.
+- **Nothing is replaced until everything is ready.** Every file is checked against `SHA256SUMS` after download and
+  again after unpacking, the new `broski` and `broski-link` must start on the Mac, and only then are all files swapped
+  in together. A failed update leaves the installed version untouched.
+- **The installer restarts Broski.** When the background service runs from `~/.broski/bin`, the installer restarts it
+  and waits for the bridge, so the one-line install also updates a running Mac. Pairings are kept.
+- **Clearer edge cases**: one install at a time (the lock of a run that crashed is taken over), `sudo` refused,
+  Rosetta terminals get the Apple Silicon build, Ctrl-C during `broski update` stops cleanly and resumes next time,
+  and `broski update` exits non-zero when it fails.
+- **Installer fixes**: a one-line install whose script download is cut short now does nothing instead of running
+  half a script, and bash users get Broski on their PATH in `~/.bash_profile`, which Terminal's bash reads.
+
+> **On Broski v0.1.1 or older:** those versions update with their own built-in updater, which stops after two minutes.
+> On a slow connection, run the one-line install once instead; it keeps your pairing and restarts Broski.
+
 ## v0.1.2 — Remote Mac Screen (Experimental) & Security Hardening (2026-11-24)
 
 > **Android: uninstall Broski once before installing this APK.** Releases are now signed with a new key, so Android

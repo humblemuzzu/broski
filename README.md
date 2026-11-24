@@ -106,8 +106,15 @@ broski-link devices   # lists paired phones (revoke any lost phone with `broski-
 The bridge checks GitHub Releases once on startup (and daily in daemon mode) using a lightweight `/releases/latest` redirect — no GitHub API token or rate limits. It **only notifies you** when a new version is available and never auto-updates.
 
 ```bash
-broski update         # downloads, verifies SHA256SUMS, updates broski + broski-link, and restarts
+broski update         # runs the new release's own installer: verified, resumable, and restarts Broski
 ```
+
+`broski update` downloads nothing itself: it runs the `install.sh` published with the new release, the same script as
+the one-line install. That script downloads with resume (a dropped or stopped download continues where it left off
+when you run it again), checks every file against `SHA256SUMS`, makes sure the new binaries start on your Mac before
+replacing anything, then restarts the background service. Your pairing is kept. Running the one-line install again
+does the same and also repairs a broken install. Broski v0.1.1 and earlier have their own updater with a two-minute
+limit; on a slow connection, update those once with the one-line install above.
 
 To turn off update checks completely, set `"updates": { "check": false }` in `~/.broski/config.json` or export `BROSKI_NO_UPDATE_CHECK=1`.
 

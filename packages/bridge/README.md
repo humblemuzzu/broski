@@ -25,8 +25,11 @@ bun bin/broski.ts <command>   # the `broski` command below
 The bridge checks GitHub Releases on startup (and daily in daemon mode) via a lightweight `/releases/latest` redirect:
 
 ```bash
-broski update   # downloads, verifies SHA256SUMS, updates broski + broski-link, and restarts
+broski update   # runs the new release's install.sh: resumable, verified, and restarts Broski
 ```
+
+`scripts/install.sh` is the only code that downloads and replaces Broski; `broski update` runs the copy published
+with the release it installs, so installer fixes reach every installed version.
 
 Disable update checks with `"updates": { "check": false }` in `~/.broski/config.json` or `BROSKI_NO_UPDATE_CHECK=1`.
 

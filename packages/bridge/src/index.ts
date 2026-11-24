@@ -39,7 +39,8 @@ async function main(): Promise<void> {
 
 	if (cli.subCommand === "update") {
 		const { performUpdate } = await import("./updater");
-		await performUpdate(packageMeta.version ?? "0.1.0", (msg) => console.log(msg));
+		const ok = await performUpdate(packageMeta.version ?? "0.1.0", (msg) => console.log(msg));
+		if (!ok) process.exitCode = 1;
 		return;
 	}
 

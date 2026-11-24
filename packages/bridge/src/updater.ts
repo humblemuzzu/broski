@@ -6,23 +6,16 @@
  * `~/.broski/config.json` or `BROSKI_NO_UPDATE_CHECK=1` / `BROSKI_OFFLINE=1`.
  */
 
+import { realpathSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, resolve } from "node:path";
-import { CURRENT_PLATFORM, getDaemonStatus, isCompiledBinary, restartDaemon } from "./platform";
-import { installReleaseAsset, matchesInstalled, pickReleaseAsset } from "./updater-download";
-
-export {
-	type DownloadOptions,
-	downloadFileVerified,
-	fileSha256,
-	installReleaseAsset,
-	matchesInstalled,
-	type PickedAsset,
-	pickReleaseAsset,
-} from "./updater-download";
+import { resolve } from "node:path";
+import { isCompiledBinary } from "./platform";
+import { fetchInstaller, runInstaller } from "./updater-installer";
 
 const DEFAULT_REPO = "humblemuzzu/broski";
+const RAW_ORIGIN = "https://raw.githubusercontent.com";
+const INSTALLED_BINARY = resolve(homedir(), ".broski", "bin", "broski");
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const CHECK_TIMEOUT_MS = 10_000;
 const BROSKI_DIR = resolve(homedir(), ".broski");
@@ -61,19 +54,6 @@ export function compareSemver(a: string, b: string): number {
 	return 0;
 }
 
-export function parseSha256Sums(text: string): ReadonlyMap<string, string> {
-	const map = new Map<string, string>();
-	for (const rawLine of text.split(/\r?\n/)) {
-		const line = rawLine.trim();
-		if (!line) continue;
-		const match = /^([0-9a-fA-F]{64})\s+\*?(.+)$/.exec(line);
-		if (match?.[1] && match[2]) {
-			map.set(match[2].trim(), match[1].toLowerCase());
-		}
-	}
-	return map;
-}
-
 function repoOf(options?: UpdateCheckOptions): string {
 	if (options?.repo) return options.repo;
 	return isCompiledBinary() ? DEFAULT_REPO : (process.env.BROSKI_REPO ?? DEFAULT_REPO);
@@ -83,10 +63,6 @@ function originOf(options?: UpdateCheckOptions): string {
 	if (options?.baseUrl) return options.baseUrl.replace(/\/+$/, "");
 	const base = isCompiledBinary() ? "https://github.com" : (process.env.BROSKI_UPDATE_BASE_URL ?? "https://github.com");
 	return base.replace(/\/+$/, "");
-}
-
-function getPlatformKey(): string {
-	return `${CURRENT_PLATFORM}-${process.arch}`;
 }
 
 /**
@@ -221,10 +197,19 @@ export function stopPeriodicUpdateCheck(): void {
 	}
 }
 
+export type UpdateOptions = UpdateCheckOptions & {
+	readonly rawOrigin?: string;
+	readonly compiled?: boolean;
+};
+
+/**
+ * Installs the latest release by running that release's own `install.sh`, which downloads, verifies, swaps and
+ * restarts. Nothing here downloads binaries, so no bug in an installed version can stop the next update.
+ */
 export async function performUpdate(
 	currentVersion: string,
 	logger: (msg: string) => void,
-	options?: UpdateCheckOptions,
+	options?: UpdateOptions,
 ): Promise<boolean> {
 	logger("Checking GitHub Releases for updates...");
 	const latest = await fetchLatestVersion(options);
@@ -235,7 +220,7 @@ export async function performUpdate(
 
 	if (compareSemver(currentVersion, latest.version) >= 0) {
 		logger(`  Already on the latest version (v${currentVersion}).`);
-		return false;
+		return true;
 	}
 
 	const repo = repoOf(options);
@@ -243,75 +228,40 @@ export async function performUpdate(
 	const downloadBase = `${origin}/${repo}/releases/download/${latest.tag}`;
 	logger(`  New version available: v${latest.version} (current: v${currentVersion})`);
 
-	if (!isCompiledBinary()) {
+	if (!(options?.compiled ?? isCompiledBinary())) {
 		logger("  Self-update is only available for compiled binaries.");
 		logger(`  Pull the latest code or download v${latest.version} from ${origin}/${repo}/releases/tag/${latest.tag}`);
 		return false;
 	}
 
-	const platform = getPlatformKey();
-	const bridgeAsset = `broski-${platform}`;
-	const linkAsset = `broski-link-${platform}`;
-	const ptyAsset = "libbroski_pty.dylib";
-
-	try {
-		const sumsRes = await fetch(`${downloadBase}/SHA256SUMS`, {
-			signal: AbortSignal.timeout(CHECK_TIMEOUT_MS),
-			headers: { "User-Agent": "broski-bridge" },
-		});
-		if (!sumsRes.ok) {
-			logger(`  Could not fetch SHA256SUMS (HTTP ${sumsRes.status}). Aborting update.`);
-			return false;
-		}
-		const sums = parseSha256Sums(await sumsRes.text());
-		const bridgePick = pickReleaseAsset(sums, bridgeAsset);
-		if (!bridgePick) {
-			logger(`  No binary for ${platform} in v${latest.version} SHA256SUMS.`);
-			return false;
-		}
-
-		const binaryDir = dirname(process.execPath);
-		await installReleaseAsset(downloadBase, bridgePick, process.execPath, logger);
-
-		const linkTarget = resolve(binaryDir, "broski-link");
-		const linkPick = pickReleaseAsset(sums, linkAsset);
-		if (linkPick) {
-			if (await matchesInstalled(linkTarget, sums.get(linkAsset))) {
-				logger(`  ${linkAsset} already up to date.`);
-			} else {
-				await installReleaseAsset(downloadBase, linkPick, linkTarget, logger);
-			}
-		}
-
-		const ptyTarget = resolve(binaryDir, ptyAsset);
-		const ptyPick = CURRENT_PLATFORM === "darwin" ? pickReleaseAsset(sums, ptyAsset) : undefined;
-		if (ptyPick) {
-			if (await matchesInstalled(ptyTarget, sums.get(ptyAsset))) {
-				logger(`  ${ptyAsset} already up to date.`);
-			} else {
-				await installReleaseAsset(downloadBase, ptyPick, ptyTarget, logger);
-			}
-		}
-
-		logger(`  Updated to v${latest.version}!`);
-
-		const status = await getDaemonStatus();
-		if (status.installed && status.running) {
-			logger("  Restarting daemon...");
-			try {
-				await restartDaemon();
-				logger("  Daemon restarted with new version.");
-			} catch {
-				logger("  Could not restart daemon automatically. Run `broski restart` to apply.");
-			}
-		} else if (status.installed) {
-			logger("  Daemon is installed but not running. The new version will run on next start.");
-		} else {
-			logger("  Restart the bridge to use the new version.");
-		}
-		return true;
-	} catch (err) {
-		logger(`  Update failed: ${err instanceof Error ? err.message : String(err)}`);
+	const rawOrigin = (options?.rawOrigin ?? RAW_ORIGIN).replace(/\/+$/, "");
+	const fetchImpl = options?.fetchImpl;
+	const script = await fetchInstaller({ repo, tag: latest.tag, downloadBase, rawOrigin, fetchImpl }, logger);
+	if (!script) {
+		logger(
+			`  Could not download the v${latest.version} installer. Check your connection and run \`broski update\` again.`,
+		);
 		return false;
+	}
+
+	warnIfNotInstalledCopy(logger);
+	const env = { ...process.env, BROSKI_REPO: repo, BROSKI_VERSION: latest.tag, BROSKI_BASE_URL: downloadBase };
+	const code = await runInstaller(script, env);
+	if (code !== 0) logger("  The update did not finish. Run `broski update` again: it resumes where it stopped.");
+	return code === 0;
+}
+
+function realPathOr(path: string): string {
+	try {
+		return realpathSync(path);
+	} catch {
+		return path;
+	}
+}
+
+function warnIfNotInstalledCopy(logger: (msg: string) => void): void {
+	const running = realPathOr(process.execPath);
+	if (running !== realPathOr(INSTALLED_BINARY)) {
+		logger(`  Note: this broski runs from ${running}; the update installs to ${INSTALLED_BINARY}.`);
 	}
 }

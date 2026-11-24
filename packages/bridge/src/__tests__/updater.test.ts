@@ -1,20 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { createHash } from "node:crypto";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { gzipSync } from "node:zlib";
-import {
-	checkForUpdate,
-	compareSemver,
-	downloadFileVerified,
-	fetchLatestVersion,
-	installReleaseAsset,
-	isUpdateCheckDisabled,
-	matchesInstalled,
-	parseSha256Sums,
-	pickReleaseAsset,
-} from "../updater";
+import { checkForUpdate, compareSemver, fetchLatestVersion, isUpdateCheckDisabled, performUpdate } from "../updater";
 
 const servers: Array<ReturnType<typeof Bun.serve>> = [];
 const dirs: string[] = [];
@@ -38,21 +26,57 @@ afterEach(() => {
 	else process.env.BROSKI_OFFLINE = savedEnv.offline;
 });
 
-describe("updater (GitHub Releases redirect & resumable download)", () => {
+type ReleaseRoutes = { readonly asset?: Response; readonly atTag?: Response };
+
+/**
+ * GitHub as `broski update` sees it: the latest-release redirect to v9.9.9, the installer published with the
+ * release, and the installer committed at the tag.
+ */
+function serveGithub(routes: () => ReleaseRoutes): { base: string; paths: string[] } {
+	const paths: string[] = [];
+	const server = Bun.serve({
+		port: 0,
+		fetch(req) {
+			const path = new URL(req.url).pathname;
+			paths.push(path);
+			if (path === "/owner/repo/releases/latest") {
+				return new Response(null, { status: 302, headers: { location: "/owner/repo/releases/tag/v9.9.9" } });
+			}
+			if (path === "/owner/repo/releases/download/v9.9.9/install.sh") return routes().asset ?? notFound();
+			if (path === "/raw/owner/repo/v9.9.9/packages/bridge/scripts/install.sh") return routes().atTag ?? notFound();
+			return notFound();
+		},
+	});
+	servers.push(server);
+	return { base: `http://127.0.0.1:${server.port}`, paths };
+}
+
+const notFound = () => new Response("Not Found", { status: 404 });
+
+/** An installer that records the environment `broski update` gives it, then exits with `code`. */
+function recordingInstaller(envFile: string, code = 0): Response {
+	return new Response(
+		`#!/bin/sh\nprintf '%s\\n' "$BROSKI_REPO" "$BROSKI_VERSION" "$BROSKI_BASE_URL" > '${envFile}'\nexit ${code}\n`,
+	);
+}
+
+async function update(base: string, current = "1.0.0"): Promise<{ ok: boolean; log: string[] }> {
+	const log: string[] = [];
+	const ok = await performUpdate(current, (line) => log.push(line), {
+		repo: "owner/repo",
+		baseUrl: base,
+		rawOrigin: `${base}/raw`,
+		compiled: true,
+	});
+	return { ok, log };
+}
+
+describe("updater: release check and `broski update`", () => {
 	test("compareSemver handles leading v, prerelease suffixes, and patch/minor/major bumps", () => {
 		expect(compareSemver("0.1.0", "0.2.0")).toBe(-1);
 		expect(compareSemver("v0.2.0", "0.2.0")).toBe(0);
 		expect(compareSemver("1.0.0", "0.9.9")).toBe(1);
 		expect(compareSemver("0.1.0", "0.1.1-beta.1")).toBe(-1);
-	});
-
-	test("parseSha256Sums parses both plain and binary-mode checksum lines", () => {
-		const a = "a".repeat(64);
-		const b = "B".repeat(64);
-		const sums = parseSha256Sums(`${a}  broski-darwin-arm64\n${b} *broski-link-darwin-arm64\ninvalid line\n`);
-		expect(sums.get("broski-darwin-arm64")).toBe(a);
-		expect(sums.get("broski-link-darwin-arm64")).toBe("b".repeat(64));
-		expect(sums.size).toBe(2);
 	});
 
 	test("respects config opt-out and BROSKI_NO_UPDATE_CHECK / BROSKI_OFFLINE", () => {
@@ -99,131 +123,49 @@ describe("updater (GitHub Releases redirect & resumable download)", () => {
 		expect(disabled).toBeNull();
 	});
 
-	test("pickReleaseAsset prefers .gz when listed and falls back to uncompressed", () => {
-		const raw = "a".repeat(64);
-		const gz = "b".repeat(64);
-		const withGz = parseSha256Sums(`${raw}  broski-darwin-arm64\n${gz}  broski-darwin-arm64.gz\n`);
-		expect(pickReleaseAsset(withGz, "broski-darwin-arm64")).toEqual({
-			asset: "broski-darwin-arm64.gz",
-			sha256: gz,
-			gzipped: true,
-		});
-		const rawOnly = parseSha256Sums(`${raw}  broski-darwin-arm64\n`);
-		expect(pickReleaseAsset(rawOnly, "broski-darwin-arm64")).toEqual({
-			asset: "broski-darwin-arm64",
-			sha256: raw,
-			gzipped: false,
-		});
+	test("broski update runs the installer published with the new release, pointed at that release", async () => {
+		const envFile = join(tempDir(), "env");
+		const { base, paths } = serveGithub(() => ({ asset: recordingInstaller(envFile) }));
+		const { ok } = await update(base);
+		expect(ok).toBe(true);
+		expect(readFileSync(envFile, "utf8").split("\n").slice(0, 3)).toEqual([
+			"owner/repo",
+			"v9.9.9",
+			`${base}/owner/repo/releases/download/v9.9.9`,
+		]);
+		expect(paths).not.toContain("/raw/owner/repo/v9.9.9/packages/bridge/scripts/install.sh");
 	});
 
-	test("resumes a dropped mid-stream download via HTTP Range 206, extracts .gz atomically, and skips unchanged binaries", async () => {
-		const rawPayload = Buffer.from("broski-real-binary-content-".repeat(200));
-		const gzPayload = gzipSync(rawPayload);
-		const rawSha = createHash("sha256").update(rawPayload).digest("hex");
-		const gzSha = createHash("sha256").update(gzPayload).digest("hex");
-		const splitAt = Math.floor(gzPayload.length / 2);
-		const seenRanges: Array<string | null> = [];
-		let calls = 0;
-
-		const server = Bun.serve({
-			port: 0,
-			fetch(req) {
-				const path = new URL(req.url).pathname;
-				if (path !== "/broski-darwin-arm64.gz") return new Response("not found", { status: 404 });
-				calls++;
-				const range = req.headers.get("range");
-				seenRanges.push(range);
-				if (calls === 1) {
-					const stream = new ReadableStream<Uint8Array>({
-						start(controller) {
-							controller.enqueue(gzPayload.subarray(0, splitAt));
-							// Stall deliberately after half the payload so the stall timeout triggers resume.
-						},
-					});
-					return new Response(stream, { headers: { "content-length": String(gzPayload.length) } });
-				}
-				const match = /^bytes=(\d+)-$/.exec(range ?? "");
-				const start = match ? Number(match[1]) : 0;
-				const slice = gzPayload.subarray(start);
-				return new Response(slice, {
-					status: start > 0 ? 206 : 200,
-					headers: {
-						"content-length": String(slice.length),
-						...(start > 0 && { "content-range": `bytes ${start}-${gzPayload.length - 1}/${gzPayload.length}` }),
-					},
-				});
-			},
-		});
-		servers.push(server);
-
-		const dir = tempDir();
-		const target = join(dir, "broski");
-		writeFileSync(target, "old-binary");
-
-		await installReleaseAsset(
-			`http://127.0.0.1:${server.port}`,
-			{ asset: "broski-darwin-arm64.gz", sha256: gzSha, gzipped: true },
-			target,
-			() => {},
-			{ stallTimeoutMs: 80, retryBaseMs: 20, attempts: 3 },
-		);
-
-		expect(calls).toBe(2);
-		expect(seenRanges).toEqual([null, `bytes=${splitAt}-`]);
-		expect(readFileSync(target).equals(rawPayload)).toBe(true);
-		expect(await matchesInstalled(target, rawSha)).toBe(true);
-		expect(await matchesInstalled(target, "0".repeat(64))).toBe(false);
+	test("a release without the installer asset uses the installer committed at its tag", async () => {
+		const envFile = join(tempDir(), "env");
+		const { base } = serveGithub(() => ({ atTag: recordingInstaller(envFile) }));
+		const { ok, log } = await update(base);
+		expect(ok).toBe(true);
+		expect(log.join("\n")).toContain("No installer at");
+		expect(readFileSync(envFile, "utf8")).toContain("v9.9.9");
 	});
 
-	test("downloadFileVerified allows slow active streams past stallTimeoutMs and aborts genuine stalls", async () => {
-		const payload = Buffer.from("slow-stream-payload-".repeat(20));
-		const sha = createHash("sha256").update(payload).digest("hex");
-		const server = Bun.serve({
-			port: 0,
-			fetch(req) {
-				const path = new URL(req.url).pathname;
-				if (path === "/slow") {
-					const stream = new ReadableStream<Uint8Array>({
-						async start(controller) {
-							const step = Math.max(1, Math.ceil(payload.length / 5));
-							for (let i = 0; i < payload.length; i += step) {
-								controller.enqueue(payload.subarray(i, i + step));
-								await Bun.sleep(40);
-							}
-							controller.close();
-						},
-					});
-					return new Response(stream, { headers: { "content-length": String(payload.length) } });
-				}
-				if (path === "/stall") {
-					const stream = new ReadableStream<Uint8Array>({
-						start(controller) {
-							controller.enqueue(payload.subarray(0, 4));
-						},
-					});
-					return new Response(stream);
-				}
-				return new Response("not found", { status: 404 });
-			},
-		});
-		servers.push(server);
-		const base = `http://127.0.0.1:${server.port}`;
-		const dir = tempDir();
+	test("an error page instead of a script is never run", async () => {
+		const page = () => new Response("<!DOCTYPE html><title>Rate limited</title>", { status: 200 });
+		const { base } = serveGithub(() => ({ asset: page(), atTag: page() }));
+		const { ok, log } = await update(base);
+		expect(ok).toBe(false);
+		expect(log.join("\n")).toContain("Could not download the v9.9.9 installer");
+	});
 
-		const slowPart = join(dir, "slow.part");
-		await downloadFileVerified(`${base}/slow`, sha, slowPart, "slow", () => {}, {
-			stallTimeoutMs: 120,
-			maxDownloadMs: 5_000,
-			attempts: 1,
-		});
-		expect(readFileSync(slowPart).equals(payload)).toBe(true);
+	test("an installer that fails makes the update fail and says how to resume", async () => {
+		const envFile = join(tempDir(), "env");
+		const { base } = serveGithub(() => ({ asset: recordingInstaller(envFile, 3) }));
+		const { ok, log } = await update(base);
+		expect(ok).toBe(false);
+		expect(log.join("\n")).toContain("Run `broski update` again: it resumes where it stopped.");
+	});
 
-		await expect(
-			downloadFileVerified(`${base}/stall`, sha, join(dir, "stall.part"), "stall", () => {}, {
-				stallTimeoutMs: 80,
-				maxDownloadMs: 5_000,
-				attempts: 1,
-			}),
-		).rejects.toThrow();
+	test("on the latest version nothing is downloaded and the update succeeds", async () => {
+		const { base, paths } = serveGithub(() => ({}));
+		const { ok, log } = await update(base, "9.9.9");
+		expect(ok).toBe(true);
+		expect(log.join("\n")).toContain("Already on the latest version (v9.9.9)");
+		expect(paths).toEqual(["/owner/repo/releases/latest"]);
 	});
 });

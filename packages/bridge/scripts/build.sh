@@ -283,20 +283,27 @@ for binary in "$DIST"/broski-*darwin*; do
 done
 
 # ──────────────────────────────────────────────
-# Compressed release copies (.gz)
+# Compressed release copies (.tar.xz, .gz)
 # ──────────────────────────────────────────────
-# Cut download sizes by >50% while keeping raw binaries for older updaters.
+# install.sh takes .tar.xz (a third smaller than .gz; macOS tar reads it). The .gz copies are what
+# v0.1.2's in-binary updater downloads, and the raw files are what v0.1.0 and v0.1.1 download.
 
-if command -v gzip >/dev/null 2>&1; then
-  echo ""
-  echo "  Compressing macOS binaries (.gz)..."
-  for binary in "$DIST"/broski-*darwin*; do
-    [ -f "$binary" ] || continue
-    case "$binary" in *.dylib|*.gz) continue ;; esac
-    gzip -6 -c "$binary" > "${binary}.gz"
-    echo "    ✓ $(basename "$binary").gz ($(du -h "${binary}.gz" | awk '{print $1}'))"
-  done
-fi
+echo ""
+echo "  Compressing macOS binaries (.tar.xz, .gz)..."
+for binary in "$DIST"/broski-*darwin*; do
+  [ -f "$binary" ] || continue
+  case "$binary" in *.dylib|*.gz|*.xz) continue ;; esac
+  name=$(basename "$binary")
+  ( cd "$DIST" && tar --no-mac-metadata --no-xattrs --options xz:compression-level=9 -cJf "${name}.tar.xz" "$name" )
+  gzip -6 -n -c "$binary" > "${binary}.gz"
+  raw_sha=$(shasum -a 256 "$binary" | awk '{print $1}')
+  if [ "$(tar -xOf "${binary}.tar.xz" | shasum -a 256 | awk '{print $1}')" != "$raw_sha" ] ||
+    [ "$(gzip -dc "${binary}.gz" | shasum -a 256 | awk '{print $1}')" != "$raw_sha" ]; then
+    echo "    ✗ ${name}: a compressed copy does not unpack to the binary"
+    exit 1
+  fi
+  echo "    ✓ ${name}.tar.xz ($(du -h "${binary}.tar.xz" | awk '{print $1}')), ${name}.gz ($(du -h "${binary}.gz" | awk '{print $1}'))"
+done
 
 # ──────────────────────────────────────────────
 # SHA256SUMS (release artifact verification)

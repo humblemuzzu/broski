@@ -41,12 +41,16 @@ jobs:
           path: |
             packages/bridge/dist/broski-darwin-arm64
             packages/bridge/dist/broski-darwin-arm64.gz
+            packages/bridge/dist/broski-darwin-arm64.tar.xz
             packages/bridge/dist/broski-darwin-x64
             packages/bridge/dist/broski-darwin-x64.gz
+            packages/bridge/dist/broski-darwin-x64.tar.xz
             packages/bridge/dist/broski-link-darwin-arm64
             packages/bridge/dist/broski-link-darwin-arm64.gz
+            packages/bridge/dist/broski-link-darwin-arm64.tar.xz
             packages/bridge/dist/broski-link-darwin-x64
             packages/bridge/dist/broski-link-darwin-x64.gz
+            packages/bridge/dist/broski-link-darwin-x64.tar.xz
             packages/bridge/dist/libbroski_pty.dylib
           if-no-files-found: error
 
@@ -126,6 +130,8 @@ jobs:
         with:
           name: android-dist
           path: release-assets
+      - name: Add the installer `broski update` runs
+        run: cp packages/bridge/scripts/install.sh release-assets/install.sh
       - name: Generate SHA256SUMS
         working-directory: release-assets
         run: sha256sum * > SHA256SUMS
@@ -157,8 +163,12 @@ jobs:
             if [ "${{ steps.notes.outputs.has_notes }}" = "true" ]; then
               gh release edit "$TAG" --notes-file release-notes.md
             fi
-          elif [ "${{ steps.notes.outputs.has_notes }}" = "true" ]; then
-            gh release create "$TAG" release-assets/* --title "Broski $TAG" --notes-file release-notes.md
           else
-            gh release create "$TAG" release-assets/* --title "Broski $TAG" --generate-notes
+            # Published only once every asset is up: installers and updaters follow releases/latest at once.
+            if [ "${{ steps.notes.outputs.has_notes }}" = "true" ]; then
+              gh release create "$TAG" release-assets/* --draft --title "Broski $TAG" --notes-file release-notes.md
+            else
+              gh release create "$TAG" release-assets/* --draft --title "Broski $TAG" --generate-notes
+            fi
+            gh release edit "$TAG" --draft=false --latest
           fi
