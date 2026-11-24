@@ -25,6 +25,7 @@ class PushHandler(
     private val context: Context,
     private val vault: Vault,
     private val enabled: suspend () -> Set<NotificationKind>,
+    private val remoteScreenEnabled: suspend () -> Boolean = { false },
     private val notifier: Notifier = Notifier(context),
     private val visibleSession: () -> SessionTarget? = { null },
     private val nowMs: () -> Long = System::currentTimeMillis,
@@ -53,6 +54,7 @@ class PushHandler(
             notifier.cancel(opened.tag)
             return null
         }
+        if (opened.kind == PushKind.MacDialog && !remoteScreenEnabled()) return dropped("remote screen is off")
         if (opened.kind.preference?.let { it !in enabled() } == true) return null
         val alert = opened.alert ?: return null
         if (alert.mutedBy(muted())) return dropped("session is muted")

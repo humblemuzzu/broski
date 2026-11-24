@@ -29,6 +29,11 @@ struct SettingsScreen: View {
                     } label: {
                         SettingsRow(title: "Voice", symbol: "waveform", tint: .orange, value: hasVoiceKey ? "Grok" : "On device")
                     }
+                    NavigationLink {
+                        ExperimentalSettingsScreen()
+                    } label: {
+                        SettingsRow(title: "Experimental", symbol: "flask.fill", tint: .purple, value: model.remoteScreenEnabled ? "On" : "Off")
+                    }
                 }
                 Section {
                     NavigationLink {
@@ -57,6 +62,7 @@ struct SettingsScreen: View {
             }
             .onAppear { hasVoiceKey = VoiceKeyStore().key() != nil }
             .backSwipeHaptic()
+            .routeDestinations()
         }
     }
 
@@ -64,9 +70,7 @@ struct SettingsScreen: View {
     private var machines: some View {
         Section {
             ForEach(model.machines) { machine in
-                NavigationLink {
-                    MachinesScreen()
-                } label: {
+                NavigationLink(value: Route.machines) {
                     LinkCard(machine: machine)
                 }
                 .navigationLinkIndicatorVisibility(.hidden)

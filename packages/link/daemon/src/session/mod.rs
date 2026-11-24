@@ -13,6 +13,7 @@ use crate::bridge_status::{BridgeMonitor, BridgeStatus};
 use crate::conn::ConnSender;
 use crate::control::MachineInfo;
 use crate::device::DeviceRecord;
+use crate::dialogs::MacDialog;
 use crate::link_key::LinkKey;
 use crate::offers::Offers;
 use crate::registry::{Registry, SessionState};
@@ -26,10 +27,12 @@ mod bridge;
 mod close_codes;
 mod flow;
 mod peer;
+mod screen;
 mod status;
 mod wire;
 
 use bridge::BridgePump;
+use screen::{ScreenIn, ScreenPump};
 use status::SessionBridge;
 
 pub struct SessionDeps {
@@ -43,6 +46,9 @@ pub struct SessionDeps {
     pub routes: Routes,
     pub offers: Arc<Offers>,
     pub relay: RelayHandle,
+    pub dialogs: watch::Receiver<Vec<MacDialog>>,
+    pub screen_enabled: watch::Sender<bool>,
+    pub screen_port: u16,
     pub shutdown: watch::Receiver<bool>,
     /// How long a session with no phone attached survives.
     pub idle_limit: Duration,
@@ -92,8 +98,10 @@ pub fn spawn(
 enum Input {
     Command(SessionCommand),
     Bridge(BridgeIn),
+    Screen(ScreenIn),
     BridgeStatus,
     Routes,
+    Dialogs,
     Revoked,
     Timer,
     Shutdown,
@@ -107,6 +115,7 @@ struct Actor {
     commands: mpsc::Receiver<SessionCommand>,
     status_rx: watch::Receiver<BridgeStatus>,
     routes_rx: watch::Receiver<Adverts>,
+    dialogs_rx: watch::Receiver<Vec<MacDialog>>,
     shutdown: watch::Receiver<bool>,
     link: Link,
     sender: Option<ConnSender>,
@@ -114,14 +123,19 @@ struct Actor {
     pairing_revoke: Option<String>,
     pending_revoke: Option<String>,
     bridge: BridgePump,
+    screen: ScreenPump,
     last_bridge: Option<SessionBridge>,
     /// The one bridge message the link would not take yet, oldest first. Nothing else is read off
     /// the bridge socket while it waits, so the two stay in order.
     pending_device: Option<Vec<u8>>,
+    /// The one screen message the link would not take yet, oldest first.
+    pending_screen: Option<Vec<u8>>,
     /// Control messages the link would not take yet, in the order they were produced.
     pending_control: VecDeque<Vec<u8>>,
     /// Hysteresis state of the bridge read gate (see `flow::gate_open`).
     read_open: bool,
+    /// Hysteresis state of the screen read gate (see `flow::screen_gate_open`).
+    screen_read_open: bool,
     pending_out: Option<Vec<u8>>,
     detached_at: Option<Instant>,
     /// The close code the session is ending with; `None` while it is still running.

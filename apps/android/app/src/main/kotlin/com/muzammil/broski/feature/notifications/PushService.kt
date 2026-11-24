@@ -20,6 +20,7 @@ class PushService : FirebaseMessagingService() {
             context = this,
             vault = core.vault,
             enabled = { core.settings.filterNotNull().first().notifications },
+            remoteScreenEnabled = { core.settings.filterNotNull().first().remoteScreen },
             visibleSession = Notifications::visibleForegroundSession,
         )
         runBlocking { handler.handle(message.data) }

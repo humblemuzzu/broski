@@ -28,6 +28,9 @@ impl Engine {
             Some(Command::Push(intent)) => self.set_push(intent),
             Some(Command::LiveActivity(intent)) => self.set_live_activity(intent),
             Some(Command::Notify(prefs)) => self.set_notify(prefs),
+            Some(Command::RemoteScreen { enabled, queued }) => {
+                self.set_remote_screen(enabled, queued)
+            }
             Some(Command::Close) => self.close_session().await,
             // Every handle is gone: nobody is left to hear about the session, so it just stops and
             // the machine keeps it for a later resume.
@@ -214,6 +217,17 @@ impl Engine {
         self.notify = Some(prefs);
         if connected {
             self.queue_control(message);
+        }
+    }
+
+    fn set_remote_screen(&mut self, enabled: bool, queued: bool) {
+        if self.remote_screen == Some(enabled) {
+            return;
+        }
+        let connected = matches!(self.reporter.state(), LinkState::Connected { .. });
+        self.remote_screen = Some(enabled);
+        if connected && !queued {
+            self.queue_control(crate::control::screen_pref(enabled));
         }
     }
 

@@ -1,23 +1,33 @@
+use std::collections::{HashSet, VecDeque};
 use std::sync::Arc;
 
 use broski_link_core::crypto::{HandshakeModeKind, PairingOffer, StaticIdentity};
 use broski_link_core::{Accepted, Link};
+use sha2::{Digest, Sha256};
 use tokio::sync::{watch, Mutex};
 
 use crate::device::clamp_name;
-use crate::error::Result;
+use crate::error::{Error, Result};
 use crate::pairing::{Pairing, PairingDevice};
 
 pub const TTL_SECS: u64 = 600;
+const SEEN_MSG1_CAP: usize = 512;
 
 struct Active {
     secret: [u8; 32],
     expires_at: u64,
 }
 
+#[derive(Default)]
+struct State {
+    active: Option<Active>,
+    seen_order: VecDeque<[u8; 32]>,
+    seen_set: HashSet<[u8; 32]>,
+}
+
 /// One pairing offer at a time: opening a new one replaces the previous.
 pub struct Offers {
-    slot: Mutex<Option<Active>>,
+    state: Mutex<State>,
     pairing: watch::Sender<Pairing>,
 }
 
@@ -25,7 +35,7 @@ impl Offers {
     pub fn new() -> Arc<Offers> {
         let (pairing, _) = watch::channel(Pairing::None);
         Arc::new(Offers {
-            slot: Mutex::new(None),
+            state: Mutex::new(State::default()),
             pairing,
         })
     }
@@ -75,31 +85,46 @@ impl Offers {
             expires_at,
         };
         let uri = offer.to_uri();
-        *self.slot.lock().await = Some(Active { secret, expires_at });
+        self.state.lock().await.active = Some(Active { secret, expires_at });
         self.pairing
             .send_replace(Pairing::Allowed(PairingDevice::derive(&secret, expires_at)));
         Ok((uri, expires_at))
     }
 
     /// Answers an accepted msg1. Pair mode consumes the offer, Connect mode never
-    /// reads it; the lock spans the handshake so two Pair attempts cannot both win.
+    /// reads it; the lock spans the handshake so two Pair attempts cannot both win,
+    /// and recently accepted msg1 digests are rejected so a captured msg1 cannot be
+    /// replayed to displace a live session.
     pub async fn accept(
         &self,
         identity: &StaticIdentity,
         msg1: &[u8],
         now_secs: u64,
     ) -> Result<Accepted> {
-        let mut slot = self.slot.lock().await;
-        if slot
+        let digest: [u8; 32] = Sha256::digest(msg1).into();
+        let mut state = self.state.lock().await;
+        if state.seen_set.contains(&digest) {
+            return Err(Error::message("replayed handshake message"));
+        }
+        if state
+            .active
             .as_ref()
             .is_some_and(|active| active.expires_at <= now_secs)
         {
-            *slot = None;
+            state.active = None;
         }
-        let secret = slot.as_ref().map(|active| active.secret);
+        let secret = state.active.as_ref().map(|active| active.secret);
         let accepted = Link::accept(identity, msg1, || secret)?;
         if accepted.mode == HandshakeModeKind::Pair {
-            *slot = None;
+            state.active = None;
+        }
+        if state.seen_set.insert(digest) {
+            state.seen_order.push_back(digest);
+            if state.seen_order.len() > SEEN_MSG1_CAP {
+                if let Some(old) = state.seen_order.pop_front() {
+                    state.seen_set.remove(&old);
+                }
+            }
         }
         Ok(accepted)
     }

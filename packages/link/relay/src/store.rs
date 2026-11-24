@@ -20,6 +20,11 @@ pub(crate) struct Store {
 impl Store {
     pub(crate) fn open(path: &Path) -> Result<Store, DbError> {
         let conn = Connection::open(path)?;
+        #[cfg(unix)]
+        if path != Path::new(":memory:") {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600));
+        }
         conn.pragma_update(None, "journal_mode", "WAL")?;
         conn.pragma_update(None, "synchronous", "NORMAL")?;
         conn.execute_batch(SCHEMA)?;

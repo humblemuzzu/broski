@@ -40,6 +40,7 @@ pub struct Control {
     pub monitor: Arc<BridgeMonitor>,
     pub registry: Arc<Registry>,
     pub relay: RelayHandle,
+    pub screen_enabled: watch::Sender<bool>,
 }
 
 #[derive(Deserialize)]
@@ -216,6 +217,15 @@ async fn revoke(control: &Arc<Control>, prefix: &str) -> Result<Value> {
     control.store.remove_device(&device.id).await?;
     control.registry.stop(&device.id);
     control.relay.refresh();
+    let any = control.store.any_remote_screen().await;
+    control.screen_enabled.send_if_modified(|current| {
+        if *current == any {
+            false
+        } else {
+            *current = any;
+            true
+        }
+    });
     info!(device = short(&device.id), "device revoked");
     Ok(json!({"ok": true, "device": device.id}))
 }

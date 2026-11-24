@@ -75,11 +75,14 @@ export function parseSha256Sums(text: string): ReadonlyMap<string, string> {
 }
 
 function repoOf(options?: UpdateCheckOptions): string {
-	return options?.repo ?? process.env.BROSKI_REPO ?? DEFAULT_REPO;
+	if (options?.repo) return options.repo;
+	return isCompiledBinary() ? DEFAULT_REPO : (process.env.BROSKI_REPO ?? DEFAULT_REPO);
 }
 
 function originOf(options?: UpdateCheckOptions): string {
-	return (options?.baseUrl ?? process.env.BROSKI_UPDATE_BASE_URL ?? "https://github.com").replace(/\/+$/, "");
+	if (options?.baseUrl) return options.baseUrl.replace(/\/+$/, "");
+	const base = isCompiledBinary() ? "https://github.com" : (process.env.BROSKI_UPDATE_BASE_URL ?? "https://github.com");
+	return base.replace(/\/+$/, "");
 }
 
 function getPlatformKey(): string {

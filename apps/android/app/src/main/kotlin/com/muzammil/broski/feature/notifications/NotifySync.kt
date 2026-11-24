@@ -19,7 +19,9 @@ class NotifySync(private val phone: PhoneSession, private val settings: Flow<App
     suspend fun run() {
         combine(settings.filterNotNull(), phone.muted, phone.machines) { settings, muted, machines ->
             machines.forEach { machine ->
-                phone.machine(machine.id)?.setNotifyPrefs(prefs(settings.notifications, muted, machine.id))
+                val handle = phone.machine(machine.id) ?: return@forEach
+                handle.setNotifyPrefs(prefs(settings.notifications, muted, machine.id))
+                handle.setRemoteScreen(settings.remoteScreen)
             }
         }.collect {}
     }

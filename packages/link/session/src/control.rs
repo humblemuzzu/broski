@@ -46,10 +46,19 @@ pub(crate) struct Paired {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MacDialog {
+    pub id: String,
+    pub kind: String,
+    pub owner: String,
+    pub title: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum FromMachine {
     Paired(Paired),
     Routes(Routes),
     Bridge(BridgeStatus),
+    MacDialogs(Vec<MacDialog>),
 }
 
 /// A known message whose fields are not the contract's; it is refused, never defaulted.
@@ -66,6 +75,7 @@ pub(crate) fn parse(bytes: &[u8]) -> Result<Option<FromMachine>, Malformed> {
         Some("paired") => FromMachine::Paired(paired(&message)?),
         Some("routes") => FromMachine::Routes(routes(&message)?),
         Some("bridge") => FromMachine::Bridge(bridge(&message)?),
+        Some("mac_dialogs") => FromMachine::MacDialogs(mac_dialogs(&message)?),
         _ => return Ok(None),
     };
     Ok(Some(parsed))
@@ -94,6 +104,31 @@ fn bridge(message: &Map<String, Value>) -> Result<BridgeStatus, Malformed> {
         conn,
         detail,
     })
+}
+
+fn mac_dialogs(message: &Map<String, Value>) -> Result<Vec<MacDialog>, Malformed> {
+    let Some(Value::Array(entries)) = message.get("dialogs") else {
+        return Err(Malformed("mac_dialogs has no dialogs list"));
+    };
+    let mut out = Vec::with_capacity(entries.len().min(32));
+    for entry in entries.iter().take(32) {
+        let Some(obj) = entry.as_object() else {
+            return Err(Malformed("mac_dialogs entry is not an object"));
+        };
+        let field = |k: &str| {
+            obj.get(k)
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+                .ok_or(Malformed("mac_dialogs field is not a string"))
+        };
+        out.push(MacDialog {
+            id: field("id")?,
+            kind: field("kind")?,
+            owner: field("owner")?,
+            title: field("title")?,
+        });
+    }
+    Ok(out)
 }
 
 fn routes(message: &Map<String, Value>) -> Result<Routes, Malformed> {
@@ -174,6 +209,12 @@ pub enum PushPlatform {
 }
 
 pub(crate) use crate::notify::notify_prefs;
+
+pub(crate) fn screen_pref(enabled: bool) -> Vec<u8> {
+    json!({"t": "screen_pref", "enabled": enabled})
+        .to_string()
+        .into_bytes()
+}
 
 pub(crate) fn hello(name: &str, platform: Platform) -> Vec<u8> {
     let platform = match platform {

@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::device::NotifyPrefs;
+use crate::dialogs::MacDialog;
 
 #[derive(Serialize)]
 pub struct MachineInfo<'a> {
@@ -28,6 +29,8 @@ pub enum ToDevice<'a> {
         conn: u64,
         detail: Option<&'a str>,
     },
+    #[serde(rename = "mac_dialogs")]
+    MacDialogs { dialogs: &'a [MacDialog] },
 }
 
 #[derive(Deserialize)]
@@ -63,6 +66,10 @@ pub enum FromDevice {
     LiveActivityUnregister,
     /// The phone's notification settings, sent whole at every connect and at every change.
     NotifyPrefs(NotifyPrefs),
+    /// Whether this phone has opted into experimental Remote Mac Screen.
+    ScreenPref {
+        enabled: bool,
+    },
     Unknown,
 }
 
@@ -90,6 +97,10 @@ pub fn parse_device(bytes: &[u8]) -> FromDevice {
         Some("notify_prefs") => match serde_json::from_value(value) {
             Ok(prefs) => FromDevice::NotifyPrefs(prefs),
             Err(_) => FromDevice::Unknown,
+        },
+        Some("screen_pref") => match value.get("enabled").and_then(|v| v.as_bool()) {
+            Some(enabled) => FromDevice::ScreenPref { enabled },
+            None => FromDevice::Unknown,
         },
         _ => FromDevice::Unknown,
     }

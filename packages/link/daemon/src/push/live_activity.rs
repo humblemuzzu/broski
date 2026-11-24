@@ -12,14 +12,13 @@ use crate::relay::{PushRequest, RelayCommand};
 const LISTED_RUNS: usize = 4;
 const STALE_AFTER_SECS: u64 = 2 * 60 * 60;
 const DISMISS_AFTER_SECS: u64 = 15;
-const MAX_PAYLOAD_BYTES: usize = 3_800;
+const MAX_PAYLOAD_BYTES: usize = 3_072;
 
 #[derive(Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 struct RunEntry {
     backend: String,
     session_id: String,
-    title: String,
     phase: String,
     started_at: i64,
 }
@@ -197,11 +196,21 @@ struct Names<'a> {
     machine_name: &'a str,
 }
 
+fn safe_activity_title(backend: &str) -> String {
+    match backend {
+        "claude-code" => "Claude Code".to_owned(),
+        "pi" => "Pi".to_owned(),
+        _ => "Coding agent".to_owned(),
+    }
+}
+
 impl Names<'_> {
     fn running(&self, focused: &RunEntry, visible: &[&RunEntry]) -> ContentState {
+        // ActivityKit remote pushes are plaintext JSON to APNs via the relay, so never
+        // include user prompt / session titles here — only non-sensitive agent + phase state.
         ContentState {
             phase: focused.phase.clone(),
-            title: focused.title.clone(),
+            title: safe_activity_title(&focused.backend),
             machine_id: self.machine_id.to_owned(),
             machine_name: self.machine_name.to_owned(),
             backend: focused.backend.clone(),
@@ -212,7 +221,7 @@ impl Names<'_> {
                 .iter()
                 .take(LISTED_RUNS)
                 .map(|run| ActivityRun {
-                    title: run.title.clone(),
+                    title: safe_activity_title(&run.backend),
                     machine_name: self.machine_name.to_owned(),
                     phase: run.phase.clone(),
                 })
@@ -225,7 +234,7 @@ impl Names<'_> {
     fn ended(&self, previous: RunEntry, ended_at_ms: i64) -> ContentState {
         ContentState {
             phase: "done".to_owned(),
-            title: previous.title,
+            title: safe_activity_title(&previous.backend),
             machine_id: self.machine_id.to_owned(),
             machine_name: self.machine_name.to_owned(),
             backend: previous.backend,
@@ -319,7 +328,6 @@ mod tests {
         RunEntry {
             backend: "pi".to_owned(),
             session_id: session.to_owned(),
-            title: format!("Session {session}"),
             phase: phase.to_owned(),
             started_at: 1_760_000_000_000,
         }

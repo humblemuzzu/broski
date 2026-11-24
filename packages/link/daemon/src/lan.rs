@@ -33,6 +33,7 @@ const MAX_CONNECTIONS_PER_IP: usize = 8;
 const RATE_PER_SECOND: f64 = 20.0;
 const RATE_BURST: f64 = 40.0;
 const BUCKET_TTL: Duration = Duration::from_secs(60);
+const MAX_BUCKETS: usize = 4096;
 /// How long the session is given to notice a connection ended once its socket is gone, how long
 /// the writer gets to hand over what the session queued before it ended, and how long the socket
 /// is then read so the phone's last frames are not still unread when it closes.
@@ -91,6 +92,9 @@ impl Lan {
         let now = Instant::now();
         let mut buckets = self.buckets();
         buckets.retain(|_, bucket| bucket.live > 0 || now.duration_since(bucket.seen) < BUCKET_TTL);
+        if !buckets.contains_key(&ip) && buckets.len() >= MAX_BUCKETS {
+            return false;
+        }
         let bucket = buckets.entry(ip).or_insert(Bucket {
             tokens: RATE_BURST,
             seen: now,
@@ -215,10 +219,17 @@ pub async fn serve(
     .await
 }
 
-async fn identity(State(lan): State<Arc<Lan>>) -> Json<Identity> {
+async fn identity(
+    State(lan): State<Arc<Lan>>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
+) -> Response {
+    if !lan.allow(peer.ip().to_canonical()) {
+        return (StatusCode::TOO_MANY_REQUESTS, "rate limited").into_response();
+    }
     Json(Identity {
         public: lan.public.clone(),
     })
+    .into_response()
 }
 
 async fn link(
@@ -231,6 +242,7 @@ async fn link(
     };
     upgrade
         .max_message_size(MAX_MESSAGE_BYTES)
+        .max_frame_size(MAX_MESSAGE_BYTES)
         .on_upgrade(move |socket| serve_socket(socket, lan, admission))
         .into_response()
 }

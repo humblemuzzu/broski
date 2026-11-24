@@ -73,8 +73,20 @@ export function isAllowedOrigin(origin: string | null): boolean {
 	return false;
 }
 
+export function isLoopbackHostHeader(host: string | null): boolean {
+	if (!host) return true;
+	const trimmed = host.trim().toLowerCase();
+	if (trimmed.startsWith("[::1]")) {
+		return trimmed === "[::1]" || /^\[::1\]:\d+$/.test(trimmed);
+	}
+	const hostname = trimmed.includes(":") ? trimmed.slice(0, trimmed.lastIndexOf(":")) : trimmed;
+	return hostname === "127.0.0.1" || hostname === "localhost";
+}
+
 export function isAllowedBrowserRequest(request: Request): boolean {
 	try {
+		if (!isLoopbackHostHeader(request.headers.get("host"))) return false;
+
 		const site = (request.headers.get("sec-fetch-site") ?? "").toLowerCase().trim();
 		if (site && site !== "same-origin" && site !== "none") return false;
 

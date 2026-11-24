@@ -33,6 +33,22 @@ struct MachineSection: View {
             ForEach(machine.backends, id: \.id) { backend in
                 LabeledContent(AgentBrand(backend).name, value: agentStatus(backend.id))
             }
+            if model.remoteScreenEnabled, !machine.macDialogs.isEmpty {
+                NavigationLink(value: Route.screen(machineId: machine.id)) {
+                    Label(
+                        machine.macDialogs.count == 1
+                            ? "\(machine.macDialogs[0].title) — Open Screen"
+                            : "\(machine.macDialogs.count) macOS prompts waiting — Open Screen",
+                        systemImage: "exclamationmark.triangle.fill"
+                    )
+                    .foregroundStyle(Palette.caution)
+                }
+            }
+            if model.remoteScreenEnabled, case .connected = machine.status.link.state {
+                NavigationLink(value: Route.screen(machineId: machine.id)) {
+                    Label("Remote Screen", systemImage: "display")
+                }
+            }
             if summary.canRestartBridge {
                 Button("Restart Bridge", systemImage: "arrow.clockwise") {
                     do {

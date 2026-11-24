@@ -50,4 +50,8 @@ class SettingsViewModel(private val store: SettingsStore, settings: StateFlow<Ap
     fun setReading(reading: ReadingSettings) {
         viewModelScope.launch { store.setReading(reading) }
     }
+
+    fun setRemoteScreen(enabled: Boolean) {
+        viewModelScope.launch { store.setRemoteScreen(enabled) }
+    }
 }

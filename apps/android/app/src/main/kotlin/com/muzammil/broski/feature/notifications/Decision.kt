@@ -44,3 +44,12 @@ object OpenSession {
         return SessionTarget(machine, backend, session)
     }
 }
+
+/** The machine to open in Remote Screen when tapping a macOS system-dialog notification. */
+object OpenScreen {
+    private const val SCREEN_MACHINE = "broski.open.screen.machine"
+
+    fun put(intent: Intent, machineId: String): Intent = intent.putExtra(SCREEN_MACHINE, machineId)
+
+    fun from(intent: Intent?): String? = intent?.getStringExtra(SCREEN_MACHINE)?.takeIf { it.isNotBlank() }
+}

@@ -13,7 +13,7 @@ mod platform;
 #[path = "platform/unsupported.rs"]
 mod platform;
 
-pub use platform::{power_status, AwakeAssertion};
+pub use platform::{power_status, wake_display, AwakeAssertion};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PowerEvent {

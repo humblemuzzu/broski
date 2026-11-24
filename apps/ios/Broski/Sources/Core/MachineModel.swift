@@ -14,6 +14,7 @@ final class MachineModel: Identifiable {
     private(set) var status: MachineStatus
     private(set) var backends: [BackendDescriptor] = []
     private(set) var backendStatuses: [String: BackendStatus] = [:]
+    private(set) var macDialogs: [MacDialog] = []
     /// Counts the catalog's invalidations: a screen that shows models, commands or modes reads
     /// them again when it changes.
     private(set) var catalogChanges = 0
@@ -31,6 +32,7 @@ final class MachineModel: Identifiable {
         name = MachineName.display(record.name())
         pairedAt = Date(timeIntervalSince1970: TimeInterval(record.pairedAtMs()) / 1000)
         status = machine.status()
+        macDialogs = machine.macDialogs()
         self.records = records
     }
 
@@ -97,6 +99,14 @@ final class MachineModel: Identifiable {
         machine.setNotifyPrefs(prefs: preferences.notifyPrefs(forMachine: id))
     }
 
+    /// Tells the machine whether this phone has opted into experimental Remote Mac Screen.
+    func syncRemoteScreen(_ enabled: Bool) {
+        if !enabled {
+            macDialogs = []
+        }
+        machine.setRemoteScreen(enabled: enabled)
+    }
+
     /// Registers or clears the active iOS Live Activity push token on this machine.
     func registerLiveActivity(_ token: String?) {
         if let token {
@@ -123,6 +133,8 @@ final class MachineModel: Identifiable {
             backendStatuses[backend] = status
         case .catalogInvalidated:
             catalogChanges += 1
+        case .macDialogsChanged(let dialogs):
+            macDialogs = dialogs
         }
     }
 

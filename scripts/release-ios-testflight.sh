@@ -18,7 +18,7 @@ upload=1
 wait_processing=0
 submit_review=0
 groups=""
-test_notes="Broski 0.1.1: continue idle terminal-open Claude Code sessions directly from your phone (auto-promoting as soon as an active turn finishes), new 3D model wheel and thinking-level slider with haptics, Model picker in the chat overflow menu, and fixes for changing model/thinking after the first message."
+test_notes="Broski 0.1.2: faster resumable updates and opt-in Experimental Remote Mac Screen (off by default in Settings → Experimental)."
 
 while (($# > 0)); do
   case $1 in

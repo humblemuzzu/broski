@@ -33,6 +33,14 @@ impl Shared {
                     ..
                 }
         );
+        let session_reset = matches!(
+            status.state,
+            LinkState::Connected {
+                session_reset: true,
+                ..
+            }
+        );
+        let disconnected = !matches!(status.state, LinkState::Connected { .. });
         let end = match status.state {
             LinkState::Revoked => Some(ClientError::Revoked),
             LinkState::Closed => Some(ClientError::Closed),
@@ -42,6 +50,10 @@ impl Shared {
         state.events.status();
         if was_connected && !is_connected {
             state.catalog.lists.mark_stale();
+        }
+        if disconnected && !state.mac_dialogs.is_empty() {
+            state.mac_dialogs.clear();
+            state.events.dialogs();
         }
         if new_session {
             self.socket_lost(state);
@@ -54,6 +66,12 @@ impl Shared {
             for list in lists {
                 self.spawn_page_on(list, true, conn);
             }
+        }
+        if session_reset {
+            state.screen.fail_all(
+                broski_screen::ScreenCloseReason::LinkReset,
+                "Connection reset".to_owned(),
+            );
         }
         if let Some(error) = end {
             self.end(state, error);
@@ -277,6 +295,13 @@ impl Shared {
         state
             .terminals
             .each(|terminal| terminal.fail(error.to_string()));
+        state
+            .screen
+            .fail_all(broski_screen::ScreenCloseReason::Normal, error.to_string());
+        if !state.mac_dialogs.is_empty() {
+            state.mac_dialogs.clear();
+            state.events.dialogs();
+        }
         state.catalog.lists.wake_all();
         state.events.close();
     }

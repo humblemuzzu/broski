@@ -1,7 +1,8 @@
+use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::Arc;
 
 use broski_link_core::crypto::PublicBundle;
-use broski_link_core::{STREAM_BRIDGE, STREAM_CONTROL};
+use broski_link_core::{STREAM_BRIDGE, STREAM_CONTROL, STREAM_SCREEN};
 use tokio::sync::mpsc;
 
 use crate::control::{self, PushPlatform};
@@ -25,6 +26,7 @@ pub struct Session {
     shared: Arc<Shared>,
     commands: mpsc::UnboundedSender<Command>,
     machine_id: String,
+    remote_screen: AtomicU8,
     _runtime: LinkRuntime,
 }
 
@@ -72,6 +74,7 @@ impl Session {
             shared,
             commands,
             machine_id,
+            remote_screen: AtomicU8::new(0),
             _runtime: runtime.clone(),
         }
     }
@@ -96,6 +99,11 @@ impl Session {
         self.queue(STREAM_BRIDGE, frame, tag)
     }
 
+    /// Queues one screen tunnel frame on `STREAM_SCREEN`.
+    pub fn send_screen(&self, frame: Vec<u8>) -> Result<(), SendFailure> {
+        self.queue(STREAM_SCREEN, frame, None)
+    }
+
     /// Asks the machine to restart its bridge.
     pub fn restart_bridge(&self) -> Result<(), SendFailure> {
         self.queue(STREAM_CONTROL, control::bridge_restart(), None)
@@ -118,6 +126,19 @@ impl Session {
     /// that restarted has it again.
     pub fn set_notify_prefs(&self, prefs: NotifyPrefs) {
         self.command(Command::Notify(prefs));
+    }
+
+    /// Tells the machine whether this phone has opted into experimental Remote Mac Screen.
+    pub fn set_remote_screen(&self, enabled: bool) {
+        let next = if enabled { 2 } else { 1 };
+        if self.remote_screen.swap(next, Ordering::AcqRel) == next {
+            return;
+        }
+        let queued = matches!(self.status().state, crate::LinkState::Connected { .. })
+            && self
+                .queue(STREAM_CONTROL, control::screen_pref(enabled), None)
+                .is_ok();
+        self.command(Command::RemoteScreen { enabled, queued });
     }
 
     /// Registers the active iOS Live Activity push token with the machine; repeated on connect.

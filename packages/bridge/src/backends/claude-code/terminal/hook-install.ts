@@ -54,8 +54,8 @@ async function editFile(path: string, change: Change, done: "installed" | "remov
 		if (JSON.stringify(edited.settings) === JSON.stringify(before.settings)) return { status: "unchanged", path };
 		const text = jsonFileText(edited.settings, before.indent);
 		const unchangedMeanwhile = async () => (await readOrNothing(path)) === before.text;
-		if (await writeAtomic(path, text, { mode: before.mode, stillWanted: unchangedMeanwhile }))
-			return { status: done, path };
+		const mode = done === "installed" ? NEW_FILE_MODE : before.mode;
+		if (await writeAtomic(path, text, { mode, stillWanted: unchangedMeanwhile })) return { status: done, path };
 	}
 	return { status: "refused", path, reason: "the settings file keeps changing under the bridge" };
 }

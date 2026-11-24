@@ -23,6 +23,7 @@ impl Actor {
             FromDevice::LiveActivityRegister(register) => self.live_activity(register).await,
             FromDevice::LiveActivityUnregister => self.store_live_activity(None).await,
             FromDevice::NotifyPrefs(prefs) => self.notify_prefs(prefs).await,
+            FromDevice::ScreenPref { enabled } => self.screen_pref(enabled).await,
             FromDevice::Unknown => {}
         }
     }
@@ -70,6 +71,33 @@ impl Actor {
             return;
         }
         self.store_live_activity(Some(register.token)).await;
+    }
+
+    async fn screen_pref(&mut self, enabled: bool) {
+        self.device.remote_screen = enabled;
+        if let Err(error) = self
+            .deps
+            .store
+            .set_remote_screen(&self.device.id, enabled)
+            .await
+        {
+            warn!(device = short(&self.device.id), error = %error, "remote screen setting not stored");
+        }
+        let any = self.deps.store.any_remote_screen().await;
+        self.deps.screen_enabled.send_if_modified(|current| {
+            if *current == any {
+                false
+            } else {
+                *current = any;
+                true
+            }
+        });
+        if enabled {
+            self.send_dialogs();
+        } else {
+            self.screen.close();
+            self.send_empty_dialogs();
+        }
     }
 
     async fn notify_prefs(&mut self, prefs: NotifyPrefs) {

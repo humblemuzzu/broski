@@ -18,6 +18,7 @@ import com.muzammil.broski.BuildConfig
 import com.muzammil.broski.R
 import com.muzammil.broski.app.AboutRoute
 import com.muzammil.broski.app.AppearanceRoute
+import com.muzammil.broski.app.ExperimentalRoute
 import com.muzammil.broski.app.MachinesRoute
 import com.muzammil.broski.app.NotificationSettingsRoute
 import com.muzammil.broski.app.PairRoute
@@ -57,19 +58,24 @@ fun SettingsScreen(core: AppCore, phone: PhoneSession, open: (Route) -> Unit) {
         item(key = "phone") {
             Spacer(Modifier.height(20.dp))
             SettingsLink(
-                0, 3, stringResource(R.string.settings_notifications), R.drawable.ic_notifications, TileTint.Notifications,
+                0, 4, stringResource(R.string.settings_notifications), R.drawable.ic_notifications, TileTint.Notifications,
                 onClick = { open(NotificationSettingsRoute) },
                 value = stringResource(if (notificationsOn) R.string.settings_on else R.string.settings_off),
             )
             SettingsLink(
-                1, 3, stringResource(R.string.settings_appearance), R.drawable.ic_palette, TileTint.Appearance,
+                1, 4, stringResource(R.string.settings_appearance), R.drawable.ic_palette, TileTint.Appearance,
                 onClick = { open(AppearanceRoute) },
                 value = stringResource(appearance.label),
             )
             SettingsLink(
-                2, 3, stringResource(R.string.voice_title), R.drawable.ic_graphic_eq, TileTint.Voice,
+                2, 4, stringResource(R.string.voice_title), R.drawable.ic_graphic_eq, TileTint.Voice,
                 onClick = { open(VoiceRoute) },
                 value = stringResource(if (voiceKey != null) R.string.settings_voice_grok else R.string.settings_voice_device),
+            )
+            SettingsLink(
+                3, 4, stringResource(R.string.settings_experimental), R.drawable.ic_build, TileTint.Neutral,
+                onClick = { open(ExperimentalRoute) },
+                value = stringResource(if (settings?.remoteScreen == true) R.string.settings_on else R.string.settings_off),
             )
         }
         item(key = "about") {

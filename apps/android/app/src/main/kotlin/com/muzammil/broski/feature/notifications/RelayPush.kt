@@ -14,6 +14,7 @@ import kotlinx.serialization.json.Json
 enum class PushKind(val wire: String, val preference: NotificationKind?, val channel: Channel?) {
     Approval("approval", NotificationKind.NeedsYou, Channel.NeedsYou),
     Attention("attention", NotificationKind.NeedsYou, Channel.NeedsYou),
+    MacDialog("mac_dialog", NotificationKind.NeedsYou, Channel.NeedsYou),
     Done("done", NotificationKind.Done, Channel.Done),
     Failed("failed", NotificationKind.Failures, Channel.Failed),
     Resolved("resolved", null, null),

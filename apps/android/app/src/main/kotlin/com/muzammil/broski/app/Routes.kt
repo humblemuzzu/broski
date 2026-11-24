@@ -20,6 +20,10 @@ data object SettingsRoute : Route
 @Serializable
 data object MachinesRoute : Route
 
+/** Remote Mac screen view for one paired machine. */
+@Serializable
+data class ScreenRoute(val machineId: String) : Route
+
 @Serializable
 data object PairRoute : Route
 
@@ -38,6 +42,10 @@ data object NotificationSettingsRoute : Route
 /** Settings › Appearance: light or dark, wallpaper colours, keeping the screen awake, and reading. */
 @Serializable
 data object AppearanceRoute : Route
+
+/** Settings › Experimental: opt-in features that stay off on both phone and Mac until turned on. */
+@Serializable
+data object ExperimentalRoute : Route
 
 /** Settings › About: the version, the source, the licence, and protocol versions. */
 @Serializable

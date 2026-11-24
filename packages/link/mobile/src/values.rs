@@ -3,8 +3,9 @@
 
 use broski_client::{
     ClientError, ContractState, InboxRow, InboxState, InboxUpdate, KeptSession, LinkFailure,
-    MachineEvent, MachineHistory, MachineStatus, PendingAsk, PhoneConfig, SeenMarker, SeenState,
-    SessionChange, SessionListUpdate, SessionUpdate, TerminalUpdate, UnreadSession, ViewEnd,
+    MacDialog, MachineEvent, MachineHistory, MachineStatus, PendingAsk, PhoneConfig, SeenMarker,
+    SeenState, SessionChange, SessionListUpdate, SessionUpdate, TerminalUpdate, UnreadSession,
+    ViewEnd,
 };
 use broski_contract::{
     ActiveRun, ActivityItem, BackendDescriptor, BackendExtension, BackendId, BackendStatus,
@@ -56,6 +57,9 @@ pub enum MachineEvent {
     CatalogInvalidated {
         backend: BackendId,
         scope: CatalogScope,
+    },
+    MacDialogsChanged {
+        dialogs: Vec<MacDialog>,
     },
 }
 

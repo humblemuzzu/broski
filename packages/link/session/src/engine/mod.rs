@@ -53,6 +53,7 @@ pub(crate) enum Command {
     Push(Option<PushIntent>),
     LiveActivity(Option<LiveActivityIntent>),
     Notify(NotifyPrefs),
+    RemoteScreen { enabled: bool, queued: bool },
     Close,
 }
 
@@ -165,6 +166,7 @@ pub(crate) struct Engine {
     push: Option<PushIntent>,
     live_activity: Option<LiveActivityIntent>,
     notify: Option<NotifyPrefs>,
+    remote_screen: Option<bool>,
     lan_seen: Vec<(String, Instant)>,
     next_id: u64,
     reading_paused: bool,
@@ -210,6 +212,7 @@ impl Engine {
             push: None,
             live_activity: None,
             notify: None,
+            remote_screen: None,
             lan_seen: Vec::new(),
             next_id: 0,
             reading_paused: false,

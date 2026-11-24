@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.runtime.staticCompositionLocalOf
 import com.muzammil.broski.core.BackendIds
+import com.muzammil.broski.feature.notifications.OpenScreen
 import com.muzammil.broski.feature.notifications.OpenSession
 import com.muzammil.broski.feature.usage.widget.UsageWidgetProvider
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,6 +33,10 @@ class OpenRequests {
         }
         if (intent?.getBooleanExtra(UsageWidgetProvider.EXTRA_OPEN_USAGE, false) == true) {
             pending.value = UsageRoute
+            return
+        }
+        OpenScreen.from(intent)?.let { machineId ->
+            pending.value = ScreenRoute(machineId)
             return
         }
         val target = OpenSession.from(intent) ?: return

@@ -28,8 +28,12 @@ final class AppModel {
     let discovery = LanDiscovery()
     /// Set to show a session; the Inbox tab opens it and sets this back to `nil`.
     var sessionToOpen: SessionTarget?
+    /// Set to open a machine's Remote Screen from a macOS dialog push; the Inbox tab clears it.
+    var screenMachineToOpen: String?
     /// Set by the tab bar's New Session button; the Inbox tab opens New Session and clears it.
     var startsNewSession = false
+    /// Experimental Remote Mac Screen opt-in; off by default on both phone and Mac.
+    private(set) var remoteScreenEnabled: Bool = UserDefaults.standard.bool(forKey: Preference.remoteScreen)
     /// Set by the usage widgets' link; the tab shell shows Usage and clears it.
     var opensUsage = false
     /// The session on screen, set by the chat while it shows one and cleared when it leaves: its
@@ -71,6 +75,7 @@ final class AppModel {
             self?.machines.forEach { $0.registerPush(self?.push.token) }
         }
         push.opened = { [weak self] in self?.sessionToOpen = $0 }
+        push.openedScreen = { [weak self] in self?.screenMachineToOpen = $0 }
         push.visibleSession = { [weak self] in self?.visibleSession }
     }
 
@@ -131,10 +136,21 @@ final class AppModel {
         return adopt(try await phone.pair(offer: offer))
     }
 
+    func setRemoteScreenEnabled(_ enabled: Bool) {
+        guard remoteScreenEnabled != enabled else { return }
+        remoteScreenEnabled = enabled
+        UserDefaults.standard.set(enabled, forKey: Preference.remoteScreen)
+        notificationPreferences.setRemoteScreen(enabled)
+        for machine in machines {
+            machine.syncRemoteScreen(enabled)
+        }
+    }
+
     func forget(_ model: MachineModel) {
         model.retire()
         phone?.forget(id: model.id)
         removeRecord(id: model.id)
+        ScreenCredentialStore().remove(for: model.id)
         sessionPreferences.forgetMachine(model.id)
         machines.removeAll { $0.id == model.id }
         updateDiscovery()
@@ -142,6 +158,7 @@ final class AppModel {
 
     func forgetUnreadablePairing(id: String) {
         removeRecord(id: id)
+        ScreenCredentialStore().remove(for: id)
         sessionPreferences.forgetMachine(id)
         unreadablePairings.removeAll { $0 == id }
     }
@@ -296,6 +313,7 @@ final class AppModel {
         machines.sort { $0.pairedAt < $1.pairedAt }
         model.start()
         model.syncNotifications(notificationPreferences)
+        model.syncRemoteScreen(remoteScreenEnabled)
     }
 
     private func removeRecord(id: String) {

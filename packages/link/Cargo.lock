@@ -385,6 +385,7 @@ dependencies = [
  "broski-contract",
  "broski-link-session",
  "broski-link-testkit",
+ "broski-screen",
  "serde",
  "serde_json",
  "thiserror",
@@ -435,6 +436,7 @@ dependencies = [
  "broski-link-power",
  "broski-link-proto",
  "broski-relay",
+ "broski-screen",
  "chacha20poly1305",
  "clap",
  "futures-util",
@@ -443,6 +445,7 @@ dependencies = [
  "if-addrs",
  "libc",
  "mdns-sd",
+ "objc2-core-foundation",
  "qrcode",
  "serde",
  "serde_json",
@@ -577,6 +580,19 @@ dependencies = [
  "serde_json",
  "similar",
  "unicode-ident",
+]
+
+[[package]]
+name = "broski-screen"
+version = "0.1.0"
+dependencies = [
+ "aes",
+ "cipher",
+ "getrandom 0.3.4",
+ "miniz_oxide",
+ "num-bigint",
+ "thiserror",
+ "zeroize",
 ]
 
 [[package]]

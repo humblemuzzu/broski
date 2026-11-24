@@ -53,6 +53,13 @@ struct InboxScreen: View {
             path = [.session(machineId: target.machineId, session: target.session)]
             model.sessionToOpen = nil
         }
+        .onChange(of: model.screenMachineToOpen, initial: true) { _, machineId in
+            guard let machineId else { return }
+            if model.remoteScreenEnabled, model.machine(id: machineId) != nil {
+                path = [.screen(machineId: machineId)]
+            }
+            model.screenMachineToOpen = nil
+        }
         .onChange(of: path.isEmpty, initial: true) { _, atRoot in
             model.inboxAtRoot = atRoot
         }
@@ -107,6 +114,20 @@ struct InboxScreen: View {
         return List {
             if !chips.isEmpty {
                 MachineChips(chips: chips)
+            }
+            if model.remoteScreenEnabled {
+                ForEach(model.machines.filter { !$0.macDialogs.isEmpty }) { machine in
+                    Banner(
+                        style: .warning,
+                        message: macDialogSummary(for: machine)
+                    ) {
+                        Button("Open Screen") {
+                            path.append(.screen(machineId: machine.id))
+                        }
+                    }
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+                }
             }
             if let answer = model.inbox.lastAnswer, let notice = answer.notice {
                 Banner(style: .warning, message: notice) {
@@ -190,6 +211,13 @@ struct InboxScreen: View {
     /// Machines whose link was lost or refused; a rise plays the failure haptic.
     private var lostMachines: Int {
         model.machines.count { [.attention, .revoked].contains($0.summary.health) }
+    }
+
+    private func macDialogSummary(for machine: MachineModel) -> String {
+        if machine.macDialogs.count == 1, let first = machine.macDialogs.first {
+            return "\(machine.name): \(first.title)"
+        }
+        return "\(machine.name): \(machine.macDialogs.count) macOS prompts waiting"
     }
 }
 

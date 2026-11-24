@@ -8,6 +8,7 @@ use zeroize::Zeroizing;
 
 use crate::bridge_status::BridgeMonitor;
 use crate::control_socket::{self, Control};
+use crate::dialogs::{self, MacDialog};
 use crate::discovery::Advertisement;
 use crate::feed;
 use crate::lan::Lan;
@@ -36,6 +37,8 @@ pub struct Parts {
     pub relay: RelayHandle,
     pub routes: Routes,
     pub busy: watch::Sender<bool>,
+    pub dialogs: watch::Sender<Vec<MacDialog>>,
+    pub screen_enabled: watch::Sender<bool>,
     pub commands: mpsc::Sender<RelayCommand>,
     pub seen: Arc<letters::replay::Seen>,
     pub advertisement: Option<Arc<Advertisement>>,
@@ -83,6 +86,18 @@ impl Tasks {
         let feed = spawn_feed(options, &parts, shutdown.clone(), &mut joined_set);
         let letters = spawn_letters(options, &parts, feed, shutdown.clone(), &mut joined_set);
         joined_set.spawn(joined(spawn_power(options, &parts, shutdown.clone())));
+        if options.watch_dialogs {
+            joined_set.spawn(joined(dialogs::watcher::spawn(
+                dialogs::watcher::Deps {
+                    machine_id: parts.identity.public().id(),
+                    store: parts.store.clone(),
+                    relay: parts.commands.clone(),
+                    tx: parts.dialogs.clone(),
+                    enabled: parts.screen_enabled.subscribe(),
+                },
+                shutdown.clone(),
+            )));
+        }
         joined_set.spawn(joined(
             spawn_control(options, &parts, shutdown.clone()).await?,
         ));
@@ -123,6 +138,9 @@ fn session_deps(
         routes: parts.routes.clone(),
         offers: parts.offers.clone(),
         relay: parts.relay.clone(),
+        dialogs: parts.dialogs.subscribe(),
+        screen_enabled: parts.screen_enabled.clone(),
+        screen_port: options.screen_port,
         shutdown,
         idle_limit: options.durations.session_idle,
         dial_timeout: options.durations.dial_timeout,
@@ -249,6 +267,7 @@ async fn spawn_control(
         monitor: parts.monitor.clone(),
         registry: parts.registry.clone(),
         relay: parts.relay.clone(),
+        screen_enabled: parts.screen_enabled.clone(),
     });
     control_socket::spawn(control, shutdown)
 }

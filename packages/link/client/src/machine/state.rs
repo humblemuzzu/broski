@@ -5,7 +5,9 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 
 use broski_contract::{ClientInfo, ClientMessage, ProtocolErrorCode, ServerMessage};
-use broski_link_session::{BridgeStatus, LinkRuntime, MachineRecord, SendFailure, Session, Status};
+use broski_link_session::{
+    BridgeStatus, LinkRuntime, MacDialog, MachineRecord, SendFailure, Session, Status,
+};
 use tokio::sync::{oneshot, Notify};
 use tokio::time::Instant;
 
@@ -15,6 +17,7 @@ use crate::attach::RATE_LIMIT_PAUSE;
 use crate::catalog::state::Catalog;
 use crate::error::ClientError;
 use crate::requests::{self, Answer, Requests, Waiter, MAX_PENDING_REQUESTS};
+use crate::screen::state::ScreenSlot;
 use crate::terminal::state::Terminals;
 use crate::view::stream::Streams;
 use crate::{wait, wire};
@@ -71,6 +74,8 @@ pub(crate) struct State {
     pub(crate) requests: Requests,
     pub(crate) streams: Streams,
     pub(crate) terminals: Terminals,
+    pub(crate) screen: ScreenSlot,
+    pub(crate) mac_dialogs: Vec<MacDialog>,
     pub(crate) catalog: Catalog,
     pub(crate) events: MachineEvents,
     /// What the inbox read of this machine last (`feed.rs`).
@@ -123,6 +128,8 @@ impl Shared {
             requests: Requests::default(),
             streams: Streams::default(),
             terminals: Terminals::default(),
+            screen: ScreenSlot::default(),
+            mac_dialogs: Vec::new(),
             catalog: Catalog::default(),
             events: MachineEvents::default(),
             feed_seen: None,

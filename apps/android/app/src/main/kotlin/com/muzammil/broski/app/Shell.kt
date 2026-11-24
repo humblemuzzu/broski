@@ -35,8 +35,10 @@ import com.muzammil.broski.design.perform
 import com.muzammil.broski.feature.inbox.InboxScreen
 import com.muzammil.broski.feature.machines.MachinesScreen
 import com.muzammil.broski.feature.pairing.PairScreen
+import com.muzammil.broski.feature.screen.ScreenScreen
 import com.muzammil.broski.feature.settings.AboutScreen
 import com.muzammil.broski.feature.settings.AppearanceScreen
+import com.muzammil.broski.feature.settings.ExperimentalSettingsScreen
 import com.muzammil.broski.feature.settings.NotificationSettingsScreen
 import com.muzammil.broski.feature.settings.SettingsScreen
 import com.muzammil.broski.feature.settings.VoiceSettingsScreen
@@ -53,7 +55,9 @@ import uniffi.broski_core.InboxState
 @Composable
 fun Shell(core: AppCore, phone: PhoneSession, features: Features, openRequests: OpenRequests) {
     val navigator = rememberNavigator()
-    OpenRequested(openRequests, phone, features, navigator)
+    val settings by core.settings.collectAsStateWithLifecycle()
+    val remoteScreen = settings?.remoteScreen == true
+    OpenRequested(openRequests, phone, features, settings?.remoteScreen, navigator)
     val machines by phone.machines.collectAsStateWithLifecycle()
     val rows by phone.inboxRows.collectAsStateWithLifecycle(initialValue = emptyList())
     val needsYou = rows.count { it.state == InboxState.NEEDS_YOU }
@@ -82,7 +86,7 @@ fun Shell(core: AppCore, phone: PhoneSession, features: Features, openRequests: 
                     rememberSaveableStateHolderNavEntryDecorator(),
                     rememberViewModelStoreNavEntryDecorator(),
                 ),
-                entryProvider = entryProvider { shellEntries(core, context, features, navigator) },
+                entryProvider = entryProvider { shellEntries(core, context, features, remoteScreen, navigator) },
             )
         }
         AnimatedVisibility(
@@ -125,26 +129,36 @@ private fun backWithHaptic(navigator: Navigator): () -> Unit {
 
 /** The chat and what it opens draw their own bottom edge (a composer, a key row): no tab bar there. */
 private val Route.hidesTabBar: Boolean
-    get() = this is SessionRoute || this == NewSessionRoute || this is FilesRoute || this is FileRoute ||
-        this is GitRoute || this is DiffRoute || this is TerminalRoute
+    get() = this is SessionRoute || this == NewSessionRoute || this is ScreenRoute || this is FilesRoute ||
+        this is FileRoute || this is GitRoute || this is DiffRoute || this is TerminalRoute
 
 /**
  * What a notification or a widget asked for: a session's chat once it exists and the machine is
  * still paired, else the inbox it is listed in; the Usage tab.
  */
 @Composable
-private fun OpenRequested(openRequests: OpenRequests, phone: PhoneSession, features: Features, navigator: Navigator) {
+private fun OpenRequested(
+    openRequests: OpenRequests,
+    phone: PhoneSession,
+    features: Features,
+    remoteScreen: Boolean?,
+    navigator: Navigator,
+) {
     val requested by openRequests.next.collectAsStateWithLifecycle()
     val pairLink by openRequests.pairLink.collectAsStateWithLifecycle()
     LaunchedEffect(pairLink) {
         if (pairLink != null && navigator.entries.lastOrNull() != PairRoute) navigator.open(PairRoute)
     }
-    LaunchedEffect(requested) {
+    LaunchedEffect(requested, remoteScreen) {
         val route = requested ?: return@LaunchedEffect
+        if (route is ScreenRoute && remoteScreen == null) return@LaunchedEffect
         when (route) {
             is SessionRoute -> {
                 if (navigator.tab != TopLevel.Inbox) navigator.select(TopLevel.Inbox)
                 if (features.session != null && phone.machine(route.machineId) != null) navigator.open(route)
+            }
+            is ScreenRoute -> {
+                if (remoteScreen == true && phone.machine(route.machineId) != null) navigator.open(route)
             }
             UsageRoute -> if (navigator.tab != TopLevel.Usage) navigator.select(TopLevel.Usage)
             else -> Unit
@@ -157,25 +171,37 @@ private fun EntryProviderScope<Route>.shellEntries(
     core: AppCore,
     context: FeatureContext,
     features: Features,
+    remoteScreen: Boolean,
     navigator: Navigator,
 ) {
     val phone = context.phone
+    val openScreen: ((String) -> Unit)? = if (remoteScreen) ({ machineId -> navigator.open(ScreenRoute(machineId)) }) else null
     entry<InboxRoute> {
         InboxScreen(
             phone = phone,
             filters = core.inboxFilters,
             onOpenSession = features.session?.let { { route -> navigator.open(route) } },
             onNewSession = features.newSession?.let { { navigator.open(NewSessionRoute) } },
+            onOpenScreen = openScreen,
         )
     }
     entry<UsageRoute> { UsageScreen(core = core, phone = phone) }
     entry<MachinesRoute> {
-        MachinesScreen(phone = phone, onBack = navigator::back, onPairAnother = { navigator.open(PairRoute) })
+        MachinesScreen(
+            phone = phone,
+            onBack = navigator::back,
+            onPairAnother = { navigator.open(PairRoute) },
+            onOpenScreen = openScreen,
+        )
+    }
+    entry<ScreenRoute> { route ->
+        ScreenScreen(phone = phone, machineId = route.machineId, onBack = navigator::back)
     }
     entry<PairRoute> { PairScreen(phone = phone, onBack = navigator::back, onPaired = navigator::back) }
     entry<SettingsRoute> { SettingsScreen(core = core, phone = phone, open = navigator::open) }
     entry<NotificationSettingsRoute> { NotificationSettingsScreen(core = core, onBack = navigator::back) }
     entry<AppearanceRoute> { AppearanceScreen(core = core, onBack = navigator::back) }
+    entry<ExperimentalRoute> { ExperimentalSettingsScreen(core = core, onBack = navigator::back) }
     entry<AboutRoute> { AboutScreen(phone = phone, onBack = navigator::back) }
     entry<VoiceRoute> { VoiceSettingsScreen(core = core, onBack = navigator::back) }
     features.session?.let { session -> entry<SessionRoute> { route -> context.session(route) } }

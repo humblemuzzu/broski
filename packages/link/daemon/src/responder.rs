@@ -57,6 +57,12 @@ impl Responder {
         };
 
         let commands = self.registry.get_or_spawn(&device, self.deps.clone());
+        // Close the revoke TOCTOU: if a concurrent revoke removed this device between
+        // resolve() and get_or_spawn(), stop the freshly spawned actor immediately.
+        if self.store.device(&device.id).await.is_none() {
+            self.registry.stop(&device.id);
+            return;
+        }
         let (reply, attached) = oneshot::channel();
         let command = SessionCommand::Accept {
             accepted: Box::new(accepted),

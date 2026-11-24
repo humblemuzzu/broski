@@ -13,3 +13,8 @@ pub(crate) const LINK_MAX_MESSAGE_BYTES: usize = BRIDGE_READ_HIGH;
 
 /// What a session holds for a bridge that is down before it ends the session with 4002.
 pub(crate) const BRIDGE_PENDING_BYTES: usize = CONFIG.max_unacked_bytes;
+
+/// The screen tunnel stops reading loopback TCP above this unacked backlog, so live screen frames
+/// never starve `STREAM_BRIDGE` (8 MiB) or trip the relay's 4 MiB slow-device limit.
+pub(crate) const SCREEN_READ_HIGH: usize = 2 * 1024 * 1024;
+pub(crate) const SCREEN_READ_LOW: usize = 1024 * 1024;

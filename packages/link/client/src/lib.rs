@@ -20,6 +20,7 @@ mod inbox;
 mod machine;
 mod phone;
 mod requests;
+mod screen;
 mod stats;
 mod terminal;
 mod view;
@@ -28,9 +29,10 @@ mod wire;
 
 pub use broski_contract;
 pub use broski_link_session::{
-    BridgeState, BridgeStatus, LinkState, MachineRecord, MutedSession, NotifyPrefs, Platform,
-    PushPlatform, Route, SendFailure, Status, Timings, WaitReason,
+    BridgeState, BridgeStatus, LinkState, MacDialog, MachineRecord, MutedSession, NotifyPrefs,
+    Platform, PushPlatform, Route, SendFailure, Status, Timings, WaitReason,
 };
+pub use broski_screen::{AuthScheme, ScreenCloseReason, ScreenCredentials, ScreenShortcut};
 
 pub use crate::catalog::{SessionList, SessionListUpdate};
 pub use crate::error::{ClientError, LinkFailure};
@@ -40,6 +42,7 @@ pub use crate::inbox::{
 };
 pub use crate::machine::{ContractState, Machine, MachineEvent, MachineStatus};
 pub use crate::phone::{new_identity_secret, Phone, PhoneConfig};
+pub use crate::screen::{ScreenUpdate, ScreenView};
 pub use crate::stats::merge_stats_summaries;
 pub use crate::terminal::{TerminalUpdate, TerminalView};
 pub use crate::view::{SessionChange, SessionUpdate, SessionView, ViewEnd};

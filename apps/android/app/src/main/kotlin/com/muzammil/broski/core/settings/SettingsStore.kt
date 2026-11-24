@@ -37,6 +37,8 @@ data class AppSettings(
     val models: ModelPreferences = ModelPreferences(),
     /** The inbox's agent, Mac and folder filter; never its state. */
     val inbox: InboxFilter = InboxFilter(),
+    /** Experimental Remote Mac Screen opt-in; off by default on both phone and Mac. */
+    val remoteScreen: Boolean = false,
 )
 
 enum class ReadingDensity { Compact, Balanced, Airy }
@@ -118,6 +120,7 @@ class SettingsStore(private val store: DataStore<Preferences>) {
                 machineId = preferences[INBOX_MACHINE],
                 folder = preferences[INBOX_FOLDER],
             ),
+            remoteScreen = preferences[REMOTE_SCREEN] ?: false,
         )
     }
 
@@ -171,6 +174,10 @@ class SettingsStore(private val store: DataStore<Preferences>) {
 
     suspend fun setCollapsesWork(enabled: Boolean) {
         store.edit { it[COLLAPSES_WORK] = enabled }
+    }
+
+    suspend fun setRemoteScreen(enabled: Boolean) {
+        store.edit { it[REMOTE_SCREEN] = enabled }
     }
 
     suspend fun setReading(reading: ReadingSettings) {
@@ -232,6 +239,7 @@ class SettingsStore(private val store: DataStore<Preferences>) {
         val INBOX_AGENT = stringPreferencesKey("inbox.agent")
         val INBOX_MACHINE = stringPreferencesKey("inbox.machine")
         val INBOX_FOLDER = stringPreferencesKey("inbox.folder")
+        val REMOTE_SCREEN = booleanPreferencesKey("experimental.remoteScreen")
 
         fun words(stored: String) = stored.split('\n').map { it.trim() }.filter { it.isNotEmpty() }
 

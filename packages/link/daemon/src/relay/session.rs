@@ -190,7 +190,11 @@ impl Session {
 }
 
 pub(super) async fn connect(config: &Config) -> Result<Session, Fail> {
-    let mut request = endpoint(&config.url).into_client_request()?;
+    let url = endpoint(&config.url);
+    if !is_safe_relay_url(&url) {
+        return Err(Fail::InsecureUrl);
+    }
+    let mut request = url.into_client_request()?;
     let headers = request.headers_mut();
     let machine = HeaderValue::from_str(&config.machine_id)?;
     let token = Zeroizing::new(format!("Bearer {}", codec::b64url(&config.secret)));
@@ -265,6 +269,7 @@ async fn forward(
 pub(super) enum Fail {
     Ws(WsError),
     Header,
+    InsecureUrl,
     Timeout,
     Closed,
 }
@@ -286,6 +291,9 @@ impl std::fmt::Display for Fail {
         match self {
             Fail::Ws(error) => write!(formatter, "{error}"),
             Fail::Header => formatter.write_str("relay credentials are not valid header values"),
+            Fail::InsecureUrl => {
+                formatter.write_str("refusing cleartext ws:// relay url for a non-loopback host")
+            }
             Fail::Timeout => formatter.write_str("relay handshake timed out"),
             Fail::Closed => formatter.write_str("relay socket closed during the handshake"),
         }
@@ -316,6 +324,29 @@ fn endpoint(base: &str) -> String {
     } else {
         format!("{base}{PATH}")
     }
+}
+
+/// Refuses plaintext `ws://` (and `http://`) to non-loopback hosts so the machine's
+/// 32-byte relay bearer secret is never transmitted unencrypted over a network.
+fn is_safe_relay_url(url: &str) -> bool {
+    let lower = url.to_ascii_lowercase();
+    if lower.starts_with("wss://") {
+        return true;
+    }
+    let Some(rest) = lower.strip_prefix("ws://") else {
+        return false;
+    };
+    let authority = rest.split('/').next().unwrap_or("");
+    let host = if authority.starts_with('[') {
+        authority
+            .split(']')
+            .next()
+            .unwrap_or("")
+            .trim_start_matches('[')
+    } else {
+        authority.split(':').next().unwrap_or("")
+    };
+    matches!(host, "localhost" | "127.0.0.1" | "::1")
 }
 
 #[cfg(test)]

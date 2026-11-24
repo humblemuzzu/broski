@@ -67,6 +67,7 @@ async fn machine_upgrade(
             let hub = hub.clone();
             upgrade
                 .max_message_size(MAX_MESSAGE_BYTES)
+                .max_frame_size(MAX_MESSAGE_BYTES)
                 .on_upgrade(move |socket| machine_socket::run(hub, machine_id, last_seen, socket))
                 .into_response()
         }
@@ -88,6 +89,7 @@ async fn device_upgrade(
     };
     upgrade
         .max_message_size(MAX_MESSAGE_BYTES)
+        .max_frame_size(MAX_MESSAGE_BYTES)
         .on_upgrade(move |socket| {
             device_socket::run(hub, auth.machine, auth.device, auth.last_seen, socket)
         })

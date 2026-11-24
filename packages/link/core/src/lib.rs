@@ -12,6 +12,7 @@ pub use link::{Accepted, Link, LinkEvent};
 
 pub const STREAM_CONTROL: u32 = 0;
 pub const STREAM_BRIDGE: u32 = 1;
+pub const STREAM_SCREEN: u32 = 2;
 
 /// Pins `max_frame` to the largest plaintext one Noise record carries.
 pub const CONFIG: proto::Config = proto::Config::new(crypto::MAX_PLAINTEXT);

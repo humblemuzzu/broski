@@ -40,10 +40,11 @@ export async function handleHttpRequest(request: Request, deps: HandleHttpDeps):
 		const slashIdx = rest.indexOf("/");
 		const portRaw = (slashIdx === -1 ? rest : rest.slice(0, slashIdx)).trim();
 		const port = Number(portRaw);
+		const selfPort = Number(url.port || (url.protocol === "https:" ? 443 : 80));
 		if (!Number.isFinite(port) || port < 1 || port > 65535) {
 			return publicJson({ error: "Invalid proxy port" }, 400);
 		}
-		if (!isAllowedProxyPort(port, deps.allowedProxyPorts)) {
+		if (port === selfPort || !isAllowedProxyPort(port, deps.allowedProxyPorts)) {
 			deps.logUser(`[Security] Proxy blocked: port ${port} not in allowlist`);
 			return publicJson({ error: "Port not allowed for proxy" }, 403);
 		}
@@ -205,10 +206,11 @@ export function createFetchHandler(deps: FetchHandlerDeps) {
 			const slashIdx = rest.indexOf("/");
 			const portRaw = (slashIdx === -1 ? rest : rest.slice(0, slashIdx)).trim();
 			const port = Number(portRaw);
+			const selfPort = Number(url.port || (url.protocol === "https:" ? 443 : 80));
 			if (!Number.isFinite(port) || port < 1 || port > 65535) {
 				return new Response("Invalid proxy port", { status: 400 });
 			}
-			if (!isAllowedProxyPort(port, deps.allowedProxyPorts)) {
+			if (port === selfPort || !isAllowedProxyPort(port, deps.allowedProxyPorts)) {
 				deps.logUser(`[Security] WS Proxy blocked: port ${port} not in allowlist`);
 				return new Response("Port not allowed for proxy", { status: 403 });
 			}

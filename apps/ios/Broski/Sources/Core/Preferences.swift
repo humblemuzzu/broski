@@ -18,6 +18,7 @@ enum Preference {
     static let inboxAgent = "inbox.agent"
     static let inboxMachine = "inbox.machine"
     static let inboxFolder = "inbox.folder"
+    static let remoteScreen = "experimental.remoteScreen"
 }
 
 enum KeepScreenAwake: String, CaseIterable, Identifiable {

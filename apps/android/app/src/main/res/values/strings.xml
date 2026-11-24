@@ -192,4 +192,43 @@
     <string name="settings_notify_footer">Needs you is an approval, a question or a plan. Failed is a run that stopped with an error or at a limit, or a Mac that went offline. A muted session never alerts.</string>
     <string name="settings_live_updates_footer">Shows the agents that are working on your status bar and lock screen.</string>
     <string name="settings_privacy">Everything between this phone and your Mac is end-to-end encrypted. The relay can\'t read it.</string>
+
+    <!-- Experimental -->
+    <string name="settings_experimental">Experimental</string>
+    <string name="settings_remote_screen_title">Remote Mac Screen</string>
+    <string name="settings_remote_screen_footer">Off by default on both your phone and Mac. Requires macOS Screen Sharing enabled in System Settings → General → Sharing and your Mac login.</string>
+
+    <!-- Remote Screen -->
+    <string name="screen_default_title">Mac Screen</string>
+    <string name="screen_open_button">Remote Screen</string>
+    <string name="screen_dialog_banner_title">macOS prompt on %1$s</string>
+    <string name="screen_dialog_action">%1$s — Open Screen</string>
+    <string name="screen_dialogs_count">%1$d macOS prompts waiting</string>
+    <string name="screen_mode_trackpad">Trackpad</string>
+    <string name="screen_mode_touch">Touch</string>
+    <string name="screen_action_password">Password</string>
+    <string name="screen_action_type">Type</string>
+    <string name="screen_action_right_click">Right click</string>
+    <string name="screen_action_paste">Paste</string>
+    <string name="screen_action_send">Send</string>
+    <string name="screen_space_left">Space ←</string>
+    <string name="screen_space_right">Space →</string>
+    <string name="screen_mission_control">Mission</string>
+    <string name="screen_toggle_controls">Toggle controls</string>
+    <string name="screen_refresh">Refresh screen</string>
+    <string name="screen_disabled_title">Screen Sharing is off</string>
+    <string name="screen_disabled_body">On %1$s, open System Settings → General → Sharing and turn on Screen Sharing once.\n\n%2$s</string>
+    <string name="screen_try_again">Try again</string>
+    <string name="screen_disconnected_title">Screen disconnected</string>
+    <string name="screen_reconnect">Reconnect</string>
+    <string name="screen_auth_title">Sign in to %1$s</string>
+    <string name="screen_auth_username">Mac username</string>
+    <string name="screen_auth_password">Mac password</string>
+    <string name="screen_auth_remember">Remember on this phone</string>
+    <string name="screen_auth_connect">Connect</string>
+    <string name="screen_forget_login">Forget saved login</string>
+    <string name="screen_type_password_title">Type password</string>
+    <string name="screen_type_text_title">Type text</string>
+    <string name="screen_type_text_hint">Text to type on Mac</string>
+    <string name="screen_press_return">Press Return after typing</string>
 </resources>

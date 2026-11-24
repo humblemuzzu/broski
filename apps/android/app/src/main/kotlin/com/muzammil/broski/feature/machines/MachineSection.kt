@@ -41,11 +41,19 @@ import uniffi.broski_core.LinkRoute
  * not, when it was last seen, its bridge and each agent, a restart for a bridge that is down, and
  * forgetting it; the day it was paired under the card.
  */
-fun LazyListScope.machineSection(machine: MachineState, onRestartBridge: () -> Unit, onForget: () -> Unit) {
+fun LazyListScope.machineSection(
+    machine: MachineState,
+    onOpenScreen: (() -> Unit)?,
+    onRestartBridge: () -> Unit,
+    onForget: () -> Unit,
+) {
     item(key = machine.id) {
         val lastSeen = machine.lastSeenMs.takeIf { !machine.health.isOnline }
         val restart = machine.health is MachineHealth.BridgeDown
-        val count = 2 + listOfNotNull(lastSeen, machine.bridgeVersion).size + machine.agents.size + if (restart) 1 else 0
+        val showScreen = onOpenScreen != null && machine.health.isOnline
+        val showDialogs = onOpenScreen != null && machine.macDialogs.isNotEmpty()
+        val count = 2 + listOfNotNull(lastSeen, machine.bridgeVersion).size + machine.agents.size +
+            (if (showDialogs) 1 else 0) + (if (showScreen) 1 else 0) + (if (restart) 1 else 0)
         var index = 0
         FormHeader(machine.name)
         FormRow(index++, count) {
@@ -55,6 +63,21 @@ fun LazyListScope.machineSection(machine: MachineState, onRestartBridge: () -> U
         lastSeen?.let { FormValueRow(index++, count, stringResource(R.string.machines_last_seen_label), relativeTime(it)) }
         machine.bridgeVersion?.let { FormValueRow(index++, count, stringResource(R.string.machines_bridge), it) }
         machine.agents.forEach { FormValueRow(index++, count, it.agent.name, agentStatus(it)) }
+        if (showDialogs && onOpenScreen != null) {
+            val label = if (machine.macDialogs.size == 1) {
+                stringResource(R.string.screen_dialog_action, machine.macDialogs.first().title)
+            } else {
+                stringResource(R.string.screen_dialogs_count, machine.macDialogs.size)
+            }
+            FormButtonRow(index++, count, label, onOpenScreen, leading = {
+                Icon(painterResource(R.drawable.ic_warning), contentDescription = null, tint = BroskiTheme.semantic.caution, modifier = Modifier.size(20.dp))
+            })
+        }
+        if (showScreen && onOpenScreen != null) {
+            FormButtonRow(index++, count, stringResource(R.string.screen_open_button), onOpenScreen, leading = {
+                Icon(painterResource(R.drawable.ic_laptop_mac), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+            })
+        }
         if (restart) {
             FormButtonRow(index++, count, stringResource(R.string.machines_restart_bridge), onRestartBridge, leading = {
                 Icon(painterResource(R.drawable.ic_restart_alt), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))

@@ -150,11 +150,11 @@ describe("installing the terminal ask hook", () => {
 		expect(readdirSync(elsewhere)).toEqual(["settings.json"]);
 	});
 
-	test("an existing file keeps its mode, and no temporary file is left behind", async () => {
+	test("installing the hook bearer token tightens an existing file to 0600, and no temporary file is left behind", async () => {
 		write(USER_SETTINGS);
 		Bun.spawnSync(["chmod", "640", settingsPath]);
 		await installTerminalHook(root, SPEC);
-		expect(statSync(settingsPath).mode & 0o777).toBe(0o640);
+		expect(statSync(settingsPath).mode & 0o777).toBe(0o600);
 		expect(readdirSync(root)).toEqual(["settings.json"]);
 	});
 

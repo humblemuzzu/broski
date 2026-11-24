@@ -4,6 +4,7 @@ import SwiftUI
 /// Every screen pushed onto the app's navigation stacks, and the view each one shows.
 enum Route: Hashable {
     case machines
+    case screen(machineId: String)
     case workspace(machineId: String, place: WorkspacePlace)
     case session(machineId: String, session: SessionRef)
     /// A session yet to be made; it becomes the session's chat once sent.
@@ -21,6 +22,8 @@ struct RouteDestination: View {
         switch route {
         case .machines:
             MachinesScreen()
+        case .screen(let machineId):
+            ScreenFeatureView(machineId: machineId)
         case .workspace(let machineId, let place):
             WorkspaceDestination(machineId: machineId, place: place)
         // A plain push: a zoom out of an inbox row froze mid-transition on a device when the row

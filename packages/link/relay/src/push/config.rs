@@ -66,7 +66,18 @@ struct ServiceAccount {
 
 pub async fn load(args: PushArgs) -> Result<PushConfig, String> {
     let upstream = match args.upstream.as_deref() {
-        Some(url) => Some(parse_url(url).map_err(|error| format!("--push-upstream {error}"))?),
+        Some(url) => {
+            let parsed = parse_url(url).map_err(|error| format!("--push-upstream {error}"))?;
+            let is_loopback =
+                matches!(parsed.host_str(), Some("localhost" | "127.0.0.1" | "[::1]"));
+            if parsed.scheme() != "https" && !is_loopback {
+                return Err(
+                    "--push-upstream must use https:// (http:// is allowed for loopback only)"
+                        .to_owned(),
+                );
+            }
+            Some(parsed)
+        }
         None => None,
     };
     let apns = match args.apns {

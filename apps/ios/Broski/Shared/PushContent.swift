@@ -30,13 +30,13 @@ nonisolated enum PushContent {
     static func describe(
         _ content: UNMutableNotificationContent, records: MachineRecordStore, preferences: NotificationPreferences
     ) {
+        // The relay names the category after the kind; Allow and Deny only go on a push that
+        // opened with a request to answer. Clear first so malformed payloads never render actions.
+        content.categoryIdentifier = ""
         let push = content.userInfo
         guard let machineId = push["m"] as? String, let kind = push["k"] as? String,
             let payload = push["e"] as? String
         else { return }
-        // The relay names the category after the kind; Allow and Deny only go on a push that
-        // opened with a request to answer.
-        content.categoryIdentifier = ""
         guard let bytes = try? records.record(id: machineId), let record = try? MachineRecord.fromBytes(bytes: bytes)
         else {
             if !preferences.allows(kind: kind) { quiet(content) }
@@ -49,9 +49,13 @@ nonisolated enum PushContent {
         } else if let notification = try? openNotification(record: record, data: payload) {
             let pairedMacs = (try? records.all().count) ?? 1
             describe(content, notification, machineId: machineId, namesMachine: pairedMacs > 1)
-            let allowed = preferences.allows(
-                kind: notification.kind, machineId: machineId, backend: notification.backend,
-                sessionId: notification.session)
+            let allowed = if notification.kind == "mac_dialog" {
+                preferences.remoteScreen && preferences.allows(kind: "attention")
+            } else {
+                preferences.allows(
+                    kind: notification.kind, machineId: machineId, backend: notification.backend,
+                    sessionId: notification.session)
+            }
             if !allowed { quiet(content) }
         } else if !preferences.allows(kind: kind) {
             quiet(content)
@@ -71,6 +75,12 @@ nonisolated enum PushContent {
         content.title = notification.title
         content.body = notification.body
         content.subtitle = namesMachine ? MachineName.display(notification.machine) : ""
+        content.userInfo["kind"] = notification.kind
+        if notification.kind == "mac_dialog" {
+            content.threadIdentifier = "\(machineId)/screen"
+            content.categoryIdentifier = Category.attention
+            return
+        }
         content.threadIdentifier = "\(machineId)/\(notification.session)"
         switch notification.kind {
         case "approval" where notification.request != nil: content.categoryIdentifier = Category.approval

@@ -12,6 +12,7 @@ doctest = false
 [dependencies]
 broski-contract = { path = "../contract" }
 broski-link-session = { path = "../session" }
+broski-screen = { path = "../screen" }
 # tokio 1.54.1 — the session crate's pin: channels, Notify and timers on its LinkRuntime.
 tokio = { version = "1.54.1", features = ["rt", "time", "sync", "macros"] }
 # base64 0.22.1 — the session crate's pin; terminal input and output travel as base64.
@@ -31,6 +32,8 @@ zeroize = "1.9.2"
 [dev-dependencies]
 # broski-link-testkit — the real daemon, relay and bridge, and a LAN path the tests cut.
 broski-link-testkit = { path = "../testkit" }
+# broski-screen test-server — real RFB 3.8 + Apple 003.889 loopback server for e2e tests.
+broski-screen = { path = "../screen", features = ["test-server"] }
 # tokio 1.54.1 — the tests' own runtime.
 tokio = { version = "1.54.1", features = ["rt-multi-thread", "macros"] }
 # tracing-subscriber 0.3.23 — RUST_LOG for a failing test; the pin the daemon uses.

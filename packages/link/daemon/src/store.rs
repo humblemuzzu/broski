@@ -130,7 +130,11 @@ impl Store {
             live_activity_token: known
                 .as_ref()
                 .and_then(|device| device.live_activity_token.clone()),
-            notify: known.map(|device| device.notify).unwrap_or_default(),
+            notify: known
+                .as_ref()
+                .map(|device| device.notify.clone())
+                .unwrap_or_default(),
+            remote_screen: false,
         };
 
         match data.devices.iter().position(|device| device.id == id) {
@@ -185,6 +189,29 @@ impl Store {
         data.devices[index].notify = notify;
         self.persist(&data.devices).await?;
         Ok(Some(true))
+    }
+
+    /// Persists whether `id` opted into experimental Remote Mac Screen. `Some(true)` when changed.
+    pub async fn set_remote_screen(&self, id: &str, enabled: bool) -> Result<Option<bool>> {
+        let mut data = self.data.lock().await;
+        let Some(index) = data.devices.iter().position(|device| device.id == id) else {
+            return Ok(None);
+        };
+        if data.devices[index].remote_screen == enabled {
+            return Ok(Some(false));
+        }
+        data.devices[index].remote_screen = enabled;
+        self.persist(&data.devices).await?;
+        Ok(Some(true))
+    }
+
+    pub async fn any_remote_screen(&self) -> bool {
+        self.data
+            .lock()
+            .await
+            .devices
+            .iter()
+            .any(|device| device.remote_screen)
     }
 
     /// Replaces the device's active iOS Live Activity push token, or clears it.

@@ -28,6 +28,12 @@ pub struct DeviceRecord {
     pub live_activity_token: Option<String>,
     #[serde(default, skip_serializing_if = "NotifyPrefs::is_default")]
     pub notify: NotifyPrefs,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub remote_screen: bool,
+}
+
+fn is_false(value: &bool) -> bool {
+    !*value
 }
 
 /// One session the person muted on a device; the machine is the one holding this record.

@@ -29,7 +29,12 @@ import com.muzammil.broski.feature.settings.SettingsPage
 
 /** Every paired Mac with its link, bridge and agents; pair another, restart a bridge that is down, forget a Mac. */
 @Composable
-fun MachinesScreen(phone: PhoneSession, onBack: () -> Unit, onPairAnother: () -> Unit) {
+fun MachinesScreen(
+    phone: PhoneSession,
+    onBack: () -> Unit,
+    onPairAnother: () -> Unit,
+    onOpenScreen: ((String) -> Unit)? = null,
+) {
     val viewModel = viewModel { MachinesViewModel(phone) }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val haptics = LocalHapticFeedback.current
@@ -56,7 +61,12 @@ fun MachinesScreen(phone: PhoneSession, onBack: () -> Unit, onPairAnother: () ->
         },
     ) {
         state.machines.forEach { machine ->
-            machineSection(machine, onRestartBridge = { viewModel.restartBridge(machine.id) }, onForget = { forgetting = machine.id })
+            machineSection(
+                machine,
+                onOpenScreen = onOpenScreen?.let { open -> { open(machine.id) } },
+                onRestartBridge = { viewModel.restartBridge(machine.id) },
+                onForget = { forgetting = machine.id },
+            )
         }
         if (state.unreadable.isNotEmpty()) unreadableSection(state.unreadable) { forgetting = it }
     }

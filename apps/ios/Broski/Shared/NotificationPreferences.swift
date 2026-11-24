@@ -12,6 +12,7 @@ nonisolated struct NotificationPreferences {
     static let done = "notifications.done"
     static let failures = "notifications.failures"
     static let liveActivity = "notifications.liveActivity"
+    static let remoteScreen = "experimental.remoteScreen"
     /// The muted sessions, each `[machineId, backend, sessionId]`.
     static let muted = "notifications.mutedSessions"
 
@@ -42,6 +43,13 @@ nonisolated struct NotificationPreferences {
 
     /// Whether the Live Activity may show agents at work.
     var liveActivity: Bool { isOn(Self.liveActivity) }
+
+    /// Experimental Remote Mac Screen opt-in; off by default.
+    var remoteScreen: Bool { defaults?.bool(forKey: Self.remoteScreen) ?? false }
+
+    func setRemoteScreen(_ enabled: Bool) {
+        defaults?.set(enabled, forKey: Self.remoteScreen)
+    }
 
     /// `allows(kind:)`, and never for a session the person muted.
     func allows(kind: String, machineId: String?, backend: String?, sessionId: String?) -> Bool {

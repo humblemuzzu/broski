@@ -112,8 +112,27 @@ class PhoneSession internal constructor(
         machineStates.update { list -> list.filterNot { it.id == id } }
         unreadable.update { it - id }
         vault.deleteRecord(id)
+        vault.deleteScreenCredentials(id)
         vault.deleteDrafts(id)
         vault.unmark { it.machineId == id }
+    }
+
+    suspend fun screenCredentials(machineId: String): Pair<String, String>? = vault.screenCredentials(machineId)
+
+    suspend fun saveScreenCredentials(machineId: String, username: String, password: String) {
+        try {
+            vault.saveScreenCredentials(machineId, username, password)
+        } catch (error: IOException) {
+            Log.e(TAG, "screen credentials could not be stored", error)
+        }
+    }
+
+    suspend fun deleteScreenCredentials(machineId: String) {
+        try {
+            vault.deleteScreenCredentials(machineId)
+        } catch (error: IOException) {
+            Log.e(TAG, "screen credentials could not be removed", error)
+        }
     }
 
     fun setMarked(mark: SessionMark, session: SessionKey, marked: Boolean) = editMarks { vault.mark(mark) { if (marked) it + session else it - session } }
@@ -197,6 +216,7 @@ class PhoneSession internal constructor(
                 health = MachineHealth.Connecting,
                 lastSeenMs = null,
                 bridgeVersion = null,
+                macDialogs = machine.macDialogs(),
             ).with(machine.status())
         }
         machineStates.update { list ->
@@ -217,6 +237,7 @@ class PhoneSession internal constructor(
                 }
                 is MachineEvent.BackendStatusChanged -> setAgent(id, event.backend, event.status)
                 is MachineEvent.CatalogInvalidated -> catalog.tryEmit(CatalogChange(id, event.backend))
+                is MachineEvent.MacDialogsChanged -> updateMachine(id) { it.copy(macDialogs = event.dialogs) }
             }
         }
         updateMachine(id) { it.with(machine.status()) }

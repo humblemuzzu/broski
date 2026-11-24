@@ -11,6 +11,7 @@ members = [
     "session",
     "testkit",
     "client",
+    "screen",
     "render",
     "voice",
     "mobile",

@@ -64,6 +64,8 @@ impl TestDaemon {
             bridge_cmd: options.bridge_cmd,
             advertise: options.advertise,
             scan_interfaces: options.scan_interfaces,
+            screen_port: 5900,
+            watch_dialogs: false,
             durations: options.durations,
         })
         .await

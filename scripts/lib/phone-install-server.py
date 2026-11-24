@@ -8,6 +8,7 @@ LAN address is this Mac's tailnet address, so a phone off the LAN pairs through 
 that runs `broski-link pair`, empty when there is none; <bundle-id> is the app's, for the manifest.
 """
 
+import hmac
 import html
 import subprocess
 import sys
@@ -60,22 +61,28 @@ def pairing_link():
 
 
 class Handler(BaseHTTPRequestHandler):
+    def log_message(self, fmt, *args):
+        msg = fmt % args
+        sys.stderr.write(f"[broski-phone] {msg.replace(TOKEN, '<redacted>')}\n")
+
     def send(self, code, ctype, body):
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Content-Security-Policy", "frame-ancestors 'none'")
         self.end_headers()
         if self.command == "GET":
             self.wfile.write(body)
 
     def route(self):
-        prefix = f"/{TOKEN}/"
         path = urllib.parse.urlsplit(self.path).path
-        if not path.startswith(prefix):
+        segments = path.split("/", 2)
+        if len(segments) < 3 or segments[0] != "" or not hmac.compare_digest(segments[1], TOKEN):
             return self.send(404, "text/plain", b"not found")
-        name = path[len(prefix):]
-        host = self.headers.get("X-Forwarded-Host") or self.headers.get("Host")
+        name = segments[2]
+        host = self.headers.get("X-Forwarded-Host") or self.headers.get("Host") or ""
         base = f"https://{host}/{TOKEN}"
         if name == "":
             manifest = urllib.parse.quote(f"{base}/manifest.plist", safe="")
@@ -83,7 +90,11 @@ class Handler(BaseHTTPRequestHandler):
             built = html.escape((ROOT / "built.txt").read_text().strip()) if (ROOT / "built.txt").exists() else ""
             return self.send(200, "text/html", INSTALL.format(style=STYLE, built=built, link=html.escape(link)).encode())
         if name == "manifest.plist":
-            return self.send(200, "text/xml", MANIFEST.format(base=base, bundle=html.escape(BUNDLE_ID)).encode())
+            return self.send(
+                200,
+                "text/xml",
+                MANIFEST.format(base=html.escape(base, quote=True), bundle=html.escape(BUNDLE_ID, quote=True)).encode(),
+            )
         if name == "pair":
             if not BROSKI_LINK:
                 return self.send(503, "text/plain", b"no broski-link binary on this Mac")

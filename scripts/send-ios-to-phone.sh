@@ -38,9 +38,23 @@ if [[ ! -x $TAILSCALE ]]; then
   echo "       over Wi-Fi or USB with scripts/install-ios-wifi.sh" >&2
   exit 1
 fi
-if [[ -n ${BROSKI_OTA_PREFIX:-} && ! $BROSKI_OTA_PREFIX =~ ^[A-Za-z0-9_-]+$ ]]; then
-  echo "error: BROSKI_OTA_PREFIX must be one path segment of letters, digits, '-' or '_'" >&2
+if [[ -n ${BROSKI_OTA_PREFIX:-} && ! $BROSKI_OTA_PREFIX =~ ^[A-Za-z0-9_-]{16,128}$ ]]; then
+  echo "error: BROSKI_OTA_PREFIX must be 16–128 chars of letters, digits, '-' or '_'" >&2
   exit 64
+fi
+funnel_on="$("$TAILSCALE" serve status --json 2>/dev/null | python3 -c '
+import json, sys
+try:
+    cfg = json.load(sys.stdin) or {}
+except ValueError:
+    cfg = {}
+allow = cfg.get("AllowFunnel") or {}
+print("1" if any(bool(v) for v in allow.values()) else "0")')" || funnel_on="0"
+if [[ $funnel_on == 1 ]]; then
+  echo "error: Tailscale Funnel (public internet exposure) is enabled on this Mac." >&2
+  echo "       Refusing to publish the OTA install and /pair endpoints publicly." >&2
+  echo "       Disable Funnel first (tailscale funnel reset), then retry." >&2
+  exit 1
 fi
 IFS='|' read -r ts_state ts_name < <("$TAILSCALE" status --json 2>/dev/null | python3 -c '
 import json, sys
@@ -83,12 +97,21 @@ echo "Build $PHONE_BUILD, $(git -C "$ROOT" log -1 --format='%h %s' | cut -c1-60)
 bundle_id="$(unzip -p "$WWW/Broski.ipa" Payload/Broski.app/Info.plist | plutil -extract CFBundleIdentifier raw -o - -)"
 
 TOKEN_FILE="$PHONE_OUT/token"
+umask 077
 if [[ -n ${BROSKI_OTA_PREFIX:-} ]]; then
   printf '%s\n' "$BROSKI_OTA_PREFIX" >"$TOKEN_FILE"
 fi
-[[ -f $TOKEN_FILE ]] || openssl rand -hex 6 >"$TOKEN_FILE"
-TOKEN="$(cat "$TOKEN_FILE")"
-server_cmd="exec python3 '$ROOT/scripts/lib/phone-install-server.py' '$WWW' '$TOKEN' '$PORT' '$tailnet_ip' '$link_bin' '$bundle_id'"
+if [[ ! -f $TOKEN_FILE ]] || [[ $(tr -d '\r\n' <"$TOKEN_FILE" | wc -c) -lt 32 ]]; then
+  openssl rand -hex 16 >"$TOKEN_FILE"
+fi
+chmod 600 "$TOKEN_FILE"
+TOKEN="$(tr -d '\r\n' <"$TOKEN_FILE")"
+if [[ ! $TOKEN =~ ^[A-Za-z0-9_-]{16,128}$ ]]; then
+  echo "error: invalid token in $TOKEN_FILE" >&2
+  exit 1
+fi
+printf -v server_cmd 'exec python3 %q %q %q %q %q %q %q' \
+  "$ROOT/scripts/lib/phone-install-server.py" "$WWW" "$TOKEN" "$PORT" "$tailnet_ip" "$link_bin" "$bundle_id"
 if [[ $(cat "$PHONE_OUT/server-cmd" 2>/dev/null) != "$server_cmd" ]]; then
   # A running server started with other arguments (prefix, broski-link, bundle id) serves stale pages.
   tmux kill-session -t broski-phone 2>/dev/null || true
@@ -100,6 +123,7 @@ if ! tmux has-session -t broski-phone 2>/dev/null; then
   fi
   tmux new-session -d -s broski-phone "$server_cmd"
   printf '%s\n' "$server_cmd" >"$PHONE_OUT/server-cmd"
+  chmod 600 "$PHONE_OUT/server-cmd"
   sleep 1
 fi
 "$TAILSCALE" serve --bg "http://127.0.0.1:$PORT" >/dev/null

@@ -138,9 +138,9 @@ verify_sha256() {
 
 curl_get() {
   if [ -t 1 ]; then
-    curl -fL --progress-bar --retry 5 --retry-delay 2 --retry-connrefused --connect-timeout 30 --speed-time 60 --speed-limit 1024 -C - "$1" -o "$2"
+    curl -fL --proto-redir =https --progress-bar --retry 5 --retry-delay 2 --retry-connrefused --connect-timeout 30 --speed-time 60 --speed-limit 1024 -C - "$1" -o "$2"
   else
-    curl -fsSL --retry 5 --retry-delay 2 --retry-connrefused --connect-timeout 30 --speed-time 60 --speed-limit 1024 -C - "$1" -o "$2"
+    curl -fsSL --proto-redir =https --retry 5 --retry-delay 2 --retry-connrefused --connect-timeout 30 --speed-time 60 --speed-limit 1024 -C - "$1" -o "$2"
   fi
 }
 
@@ -199,7 +199,7 @@ download_binary() {
 }
 
 echo "  Downloading SHA256SUMS..."
-if ! curl -fsSL --retry 5 --retry-delay 2 --retry-connrefused --connect-timeout 30 --max-time 60 "${BASE_URL}/SHA256SUMS" -o "${INSTALL_DIR}/SHA256SUMS"; then
+if ! curl -fsSL --proto-redir =https --retry 5 --retry-delay 2 --retry-connrefused --connect-timeout 30 --max-time 60 "${BASE_URL}/SHA256SUMS" -o "${INSTALL_DIR}/SHA256SUMS"; then
   echo "  Error: could not download ${BASE_URL}/SHA256SUMS"
   echo "  Refusing to install an unverified binary."
   exit 1

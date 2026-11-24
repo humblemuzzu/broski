@@ -65,6 +65,8 @@ import com.muzammil.broski.design.Grouped
 import com.muzammil.broski.design.Haptic
 import com.muzammil.broski.design.LoadingOrb
 import com.muzammil.broski.design.MachineStatusChip
+import com.muzammil.broski.design.Notice
+import com.muzammil.broski.design.QuietButton
 import com.muzammil.broski.design.SoftTopBar
 import com.muzammil.broski.design.perform
 
@@ -86,6 +88,7 @@ fun InboxScreen(
     filters: InboxFilters,
     onOpenSession: ((SessionRoute) -> Unit)?,
     onNewSession: (() -> Unit)?,
+    onOpenScreen: ((String) -> Unit)? = null,
 ) {
     val viewModel = viewModel { InboxViewModel(phone, filters) }
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -122,7 +125,7 @@ fun InboxScreen(
                 )
             },
         ) {
-            InboxList(state, viewModel, idleShown, { idleOpen = !idleShown }, onOpenSession, PaddingValues(top = top, bottom = TabBarClearance))
+            InboxList(state, viewModel, idleShown, { idleOpen = !idleShown }, onOpenSession, onOpenScreen, PaddingValues(top = top, bottom = TabBarClearance))
             if (state.isEmpty) {
                 InboxEmptyState(
                     state = state,
@@ -194,6 +197,7 @@ private fun InboxList(
     idleShown: Boolean,
     onToggleIdle: () -> Unit,
     onOpenSession: ((SessionRoute) -> Unit)?,
+    onOpenScreen: ((String) -> Unit)?,
     padding: PaddingValues,
 ) {
     LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = padding) {
@@ -205,6 +209,24 @@ private fun InboxList(
                     modifier = Modifier.padding(top = 4.dp),
                 ) {
                     items(state.mentions, key = { it.id }) { MachineStatusChip(it.health, it.name) }
+                }
+            }
+        }
+        if (onOpenScreen != null) {
+            state.machines.filter { it.macDialogs.isNotEmpty() }.forEach { machine ->
+                item(key = "mac-dialogs:${machine.id}", contentType = "notice") {
+                    val body = if (machine.macDialogs.size == 1) {
+                        machine.macDialogs.first().title
+                    } else {
+                        stringResource(R.string.screen_dialogs_count, machine.macDialogs.size)
+                    }
+                    Notice(
+                        icon = R.drawable.ic_warning,
+                        title = stringResource(R.string.screen_dialog_banner_title, machine.name),
+                        body = body,
+                        modifier = Modifier.padding(horizontal = Grouped.margin, vertical = 6.dp),
+                        action = { QuietButton(stringResource(R.string.screen_open_button), { onOpenScreen(machine.id) }) },
+                    )
                 }
             }
         }

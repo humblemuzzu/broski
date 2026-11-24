@@ -1,7 +1,7 @@
 //! Driving the `Link`: wire units in, sealed frames and outbound messages out, link events to the
 //! app (`link_session_io.dart`).
 
-use broski_link_core::{LinkEvent, STREAM_BRIDGE, STREAM_CONTROL};
+use broski_link_core::{LinkEvent, STREAM_BRIDGE, STREAM_CONTROL, STREAM_SCREEN};
 use tokio::sync::mpsc::error::TrySendError;
 use tracing::debug;
 
@@ -81,9 +81,13 @@ impl Engine {
             None => None,
         };
         let notify = self.notify.as_ref().map(control::notify_prefs);
+        let screen_pref = self.remote_screen.map(control::screen_pref);
         let hello = control::hello(&self.options.device_name, self.options.platform);
         let mut outbound = locked(&self.shared.outbound);
         let dropped = if reset { outbound.reset() } else { Vec::new() };
+        if let Some(screen_pref) = screen_pref {
+            outbound.push_front(STREAM_CONTROL, screen_pref);
+        }
         if let Some(notify) = notify {
             outbound.push_front(STREAM_CONTROL, notify);
         }
@@ -101,11 +105,15 @@ impl Engine {
     fn deliver(&mut self, stream: u32, bytes: Vec<u8>) {
         match stream {
             STREAM_BRIDGE => self.shared.emit(Event::Bridge(bytes)),
+            STREAM_SCREEN => self.shared.emit(Event::Screen(bytes)),
             STREAM_CONTROL => match control::parse(&bytes) {
                 Ok(Some(FromMachine::Paired(paired))) => self.on_paired(paired),
                 Ok(Some(FromMachine::Routes(routes))) => self.on_routes(routes),
                 Ok(Some(FromMachine::Bridge(status))) => {
                     self.shared.emit(Event::BridgeStatus(status))
+                }
+                Ok(Some(FromMachine::MacDialogs(dialogs))) => {
+                    self.shared.emit(Event::MacDialogs(dialogs))
                 }
                 Ok(None) => {}
                 Err(Malformed(reason)) => debug!(reason, "control message refused"),

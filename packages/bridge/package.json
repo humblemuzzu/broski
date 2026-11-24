@@ -1,6 +1,6 @@
 {
   "name": "broski-bridge",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Bridge server connecting Broski mobile app to AI coding agents (Claude Code, Pi)",
   "author": "humblemuzzu <broskiappp@gmail.com>",
   "license": "MIT",

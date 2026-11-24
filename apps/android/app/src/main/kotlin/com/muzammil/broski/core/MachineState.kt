@@ -3,6 +3,7 @@ package com.muzammil.broski.core
 import androidx.compose.runtime.Immutable
 import uniffi.broski_contract.BackendStatus
 import uniffi.broski_core.ContractState
+import uniffi.broski_core.MacDialog
 import uniffi.broski_core.MachineStatus
 
 /** An agent backend on a machine, and whether its CLI is installed there, once the bridge said. */
@@ -22,6 +23,7 @@ data class MachineState(
     val lastSeenMs: Long?,
     val bridgeVersion: String?,
     val agents: List<AgentInstall> = emptyList(),
+    val macDialogs: List<MacDialog> = emptyList(),
 ) {
     fun with(status: MachineStatus) = copy(
         health = status.health(),
