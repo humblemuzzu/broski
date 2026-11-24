@@ -1,0 +1,18 @@
+name: Feature request
+description: Suggest an improvement or a new agent adapter
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: What are you trying to do that Broski does not handle well today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How should it behave? If proposing a new agent, note whether it speaks ACP, RPC, or has an SDK.
+    validations:
+      required: true

@@ -91,52 +91,41 @@ reports and clears build caches.
 
 ## Adding a coding agent
 
-The plan for this is Part III of
-[`docs/architecture/open-source-blueprint.md`](docs/architecture/open-source-blueprint.md#4-part-iii--complete-guide-to-adding-any-new-agent-later).
-It sorts agents into tiers by how they can be driven:
+See [`docs/adding-an-agent.md`](docs/adding-an-agent.md) for the complete guide, integration tiers, plugin contract, and conformance checklist, and [`docs/bridge-mcp.md`](docs/bridge-mcp.md) for how adapters use Broski's loopback `/mcp` tools.
 
-- **Tier 0, ACP preset**: an agent that speaks the Agent Client Protocol, as a preset of one shared ACP adapter. That
-  adapter (`backends/acp/`) does not exist yet; writing it is the first step.
-- **Tier 1, minimal native adapter**: chat, streaming and tools over the agent's SDK, JSON-RPC or HTTP API, every
-  optional capability off. The bridge's fallbacks give it a queue, steering and forks.
-- **Tier 2, full native adapter**: permissions, fork, compaction, usage and the rest the agent has natively.
-- **Tier 3, deep host adapter**: also follows sessions started in the Mac's terminal. Claude Code and Pi are this tier.
+Short summary of what every adapter does:
 
-What every adapter does today, whatever its tier:
-
-1. Write `packages/bridge/src/backends/<id>/` (`<id>` a lowercase slug) exporting a `BackendFactory` that builds an
-   `AgentBackend`. Import only the contract, `adapter-kit/`, `zod`, `node:` built-ins and your agent's SDK; list the
-   SDK in `BACKEND_SDKS` in `scripts/contract-gen/layers.ts` so `bun run check:layers` allows it.
-2. Drive the user's installed agent; never bundle its binary.
+1. Write `packages/bridge/src/backends/<id>/` (`<id>` a lowercase slug) exporting a `BackendFactory` that builds an `AgentBackend`. Import only `contract/` (not `testing/`), `adapter-kit/`, `zod`, `node:` built-ins, and your agent's SDK (listed in `BACKEND_SDKS` in `scripts/contract-gen/layers.ts`).
+2. Drive the user's installed agent and inherit their own setup; never bundle its binary.
 3. Return expected failures as `Rejected` values, and keep every string and list within `src/contract/limits.ts`.
-4. Pass `runConformance` (`src/contract/testing/`) against the real agent and a scripted model, as
-   `src/__tests__/pi/conformance.test.ts` and `src/__tests__/claude-code/conformance/conformance.test.ts` do.
-5. Register it in `packages/bridge/src/server/contract-backends.ts` (for built-in adapters), or ship it as a standalone
-   plugin exporting `createBroskiAdapter` (`broski-bridge/plugin`) and list it under `adapters` in
-   `~/.broski/config.json` (bare package names resolve strictly from `~/.broski/adapters/node_modules`, e.g.
-   `bun add --cwd ~/.broski/adapters broski-adapter-example`; absolute paths also work). The core and apps need no
-   change.
+4. Pass `runConformance` (`src/contract/testing/`) against the real agent and a scripted model, as `src/__tests__/pi/conformance.test.ts` and `src/__tests__/claude-code/conformance/conformance.test.ts` do.
+5. Register it in `packages/bridge/src/server/contract-backends.ts` (built-in), or ship it as a standalone plugin exporting `createBroskiAdapter` (`broski-bridge/plugin`) and list it under `adapters` in `~/.broski/config.json`. The core and mobile apps need no change.
 
-## App identifiers & iOS signing
+## App identifiers & signing
 
-Both native apps use the following identifiers:
+Both native apps default to the `com.muzammil.broski` namespace and Bonjour service `_broski-link._tcp`.
 
-- **iOS:** bundle id `com.muzammil.broski`, notification extension `com.muzammil.broski.NotificationService`,
-  keychain access groups `$(AppIdentifierPrefix)com.muzammil.broski` and `$(AppIdentifierPrefix)com.muzammil.broski.push`,
-  app group `group.com.muzammil.broski`, Bonjour service `_broski-link._tcp`.
-- **Android:** `applicationId` and `namespace` `com.muzammil.broski` (with cleartext LAN traffic permitted in
-  `network_security_config.xml` for Noise-encrypted LAN sessions to `broski-link`; relay traffic uses `wss://`).
+### iOS
 
-The XcodeGen project currently signs as team `FGYQ983C57`. Simulator builds and `scripts/build-ios-app.sh device
---unsigned` need no Apple account; CI runs both.
+Simulator builds (`scripts/build-ios-app.sh`) and unsigned device builds (`scripts/build-ios-app.sh device --unsigned`) need no Apple account.
 
-To run the app on your own iPhone, change these locally (paths under `apps/ios/Broski`) and do not commit them:
+To sign and install on your own iPhone without editing tracked files:
 
-- `DEVELOPMENT_TEAM` and the five `PRODUCT_BUNDLE_IDENTIFIER`s in `project.yml`;
-- an app group id belongs to one team, so for `scripts/build-ios-app.sh device` also the app group in
-  `Resources/Broski.entitlements`, `Extensions/NotificationService/NotificationService.entitlements` and
-  `Shared/NotificationPreferences.swift`. `scripts/install-ios-wifi.sh` removes the app group from the copy it builds,
-  so it needs only the team and the bundle ids.
+```bash
+cp apps/ios/Broski/Local.xcconfig.example apps/ios/Broski/Local.xcconfig
+```
 
-Push needs an APNs key of your team on a relay you run ([`packages/link/relay/README.md`](packages/link/relay/README.md#push)).
-Overriding the team and ids from an untracked file is not supported yet.
+Set your own `DEVELOPMENT_TEAM` and `BROSKI_BUNDLE_PREFIX` (for example `com.yourname.broski`) in `apps/ios/Broski/Local.xcconfig`. `Signing.xcconfig` includes `Local.xcconfig` automatically, and `project.yml`, all three `Info.plist` files, all three `.entitlements` files, and the Swift app-group/background-task lookups read `$(BROSKI_BUNDLE_PREFIX)`.
+
+Push notifications require an APNs key from your Apple Developer team on a relay you run ([`packages/link/relay/README.md`](packages/link/relay/README.md#push)). For TestFlight uploads via the `asc` CLI, see `scripts/release-ios-testflight.sh`.
+
+### Android
+
+Debug builds sign automatically with the Android debug keystore. Release builds (`./gradlew :app:assembleRelease`) produce an unsigned APK unless you provide signing credentials via Gradle properties or environment variables:
+
+- `BROSKI_ANDROID_KEYSTORE` (or `-Pbroski.signing.storeFile=...`)
+- `BROSKI_ANDROID_KEYSTORE_PASSWORD` (or `-Pbroski.signing.storePassword=...`)
+- `BROSKI_ANDROID_KEY_ALIAS` (or `-Pbroski.signing.keyAlias=...`)
+- `BROSKI_ANDROID_KEY_PASSWORD` (or `-Pbroski.signing.keyPassword=...`)
+
+Cleartext LAN traffic is permitted in `network_security_config.xml` for Noise-encrypted LAN sessions to `broski-link`; relay traffic always uses `wss://`.

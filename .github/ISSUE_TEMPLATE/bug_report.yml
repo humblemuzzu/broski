@@ -1,0 +1,44 @@
+name: Bug report
+description: Report something broken in the bridge, daemon, relay, iOS app, or Android app
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Bridge (packages/bridge)
+        - Daemon / Link / Relay (packages/link)
+        - iOS app (apps/ios)
+        - Android app (apps/android)
+        - Installer / Updater
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the bug clearly, including what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: macOS version, iOS/Android version, agent (Claude Code / Pi + version), and Broski version (`broski --version`).
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Output from `broski-link status`, `broski doctor`, or `~/.broski/logs/bridge.log` (remove any sensitive paths or tokens).

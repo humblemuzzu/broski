@@ -203,8 +203,8 @@ packages/bridge/src/
                  bridge, so a run goes on through a restart; no Pi package imported)
   backends/claude-code/  the Claude Code adapter (Claude Agent SDK driving the user's `claude`)
   server/        wiring: listeners, the contract seam, the link feed, the Claude Code hook receiver
-  mcp/           the bridge's MCP server (broski_ask, broski_notify, broski_propose_plan) over the core's external asks;
-                 not mounted on a listener yet
+  mcp/           the bridge's loopback HTTP MCP server at `/mcp` (`broski_ask`, `broski_notify`,
+                 `broski_propose_plan`), mounted on the loopback listener (`server.ts`, `docs/bridge-mcp.md`)
   workspace/     files, git and terminals over the contract, behind the core's WorkspaceHost port (workspace-host.ts)
   usage/         plan usage readers and sampling (Claude and Antigravity) behind the core's UsageReader port
   transport/     send queue and frame limits
@@ -219,8 +219,8 @@ apps/android/    the Gradle build: :core, BroskiCore's Android library (bindings
 scripts/         dev-daemon.sh, clean-workspace.sh, install-ios-wifi.sh, send-ios-to-phone.sh, build-ios-core.sh,
                  build-ios-app.sh, e2e-ios-app.sh, build-android-core.sh, build-android-terminal.sh,
                  test-android-real-machine.sh, check-android-alignment.sh, check-agent-text.sh; lib/ (what they share)
-docs/architecture/   contract, core, backends, connectivity-v2, mobile-core, mobile-packaging, rendering, formatting,
-                     dictation, notifications
+docs/                adding-an-agent.md, bridge-mcp.md, architecture/ (contract, core, backends, connectivity-v2,
+                     mobile-core, mobile-packaging, rendering, formatting, dictation, notifications)
 ```
 
 Keep files under 400 lines and functions under 50; a new concern gets a new file, not a branch in an old one.

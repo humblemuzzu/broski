@@ -1,0 +1,20 @@
+Broski
+Copyright (c) 2025-2026 humblemuzzu
+
+Licensed under the MIT License (see LICENSE).
+
+This project bundles or links the following third-party components:
+
+- @pierre/highlights (vendored under packages/link/render/vendor/highlights/):
+  See packages/link/render/vendor/highlights/LICENSE.md and NOTICE.md.
+- Ghostty / libghostty-vt (terminal emulator on iOS via libghostty-spm and on Android
+  via scripts/build-android-terminal.sh):
+  Ghostty is licensed under the MIT License (with some optional components/build assets
+  under their respective licenses — see https://github.com/ghostty-org/ghostty).
+- Libraries.dev (ThinkingOrbsKit and VoiceGlowKit on iOS):
+  See https://github.com/Jakubantalik/Libraries.dev.
+- Fonts and Android design assets:
+  See apps/android/app/src/main/assets/licenses/ and component LICENSE files under
+  apps/android/app/src/main/kotlin/com/muzammil/broski/design/.
+- Claude Agent SDK (@anthropic-ai/claude-agent-sdk) and Pi (@earendil-works/pi-coding-agent):
+  Broski is an independent client and is not affiliated with Anthropic or the Pi authors.

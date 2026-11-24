@@ -60,7 +60,8 @@ it fits; a payload that cannot be made to fit at all is not sent.
 Every kind is `high`: an Android phone in Doze holds a normal-priority message back until a maintenance window, so a
 finished run's notification would arrive minutes late. The phone reads the real kind from the sealed payload; the
 relay's `k` is only what it knows. A `resolved` push carries the `request` it takes down and no alert: an Android
-handler cancels that notification and shows nothing. An iPhone is never sent one, because an APNs alert push always shows.
+handler cancels that notification and shows nothing. An iPhone is not sent `resolved` pushes yet because the relay
+currently sends APNs `alert` and `liveactivity` push types only (not silent `background` pushes).
 
 The request id (or the session) is cut to its first 40 printable-ASCII bytes — at most 42 characters with the
 prefix, inside the relay's 64.

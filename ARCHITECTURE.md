@@ -70,4 +70,5 @@ Neither app branches on the agent: only on capabilities and the shape of the dat
 | Mobile core and packaging | [`docs/architecture/mobile-core.md`](docs/architecture/mobile-core.md), [`docs/architecture/mobile-packaging.md`](docs/architecture/mobile-packaging.md) |
 | Rendering and formatting | [`docs/architecture/rendering.md`](docs/architecture/rendering.md), [`docs/architecture/formatting.md`](docs/architecture/formatting.md) |
 | Dictation, notifications | [`docs/architecture/dictation.md`](docs/architecture/dictation.md), [`docs/architecture/notifications.md`](docs/architecture/notifications.md) |
-| Adding an agent | [`docs/architecture/open-source-blueprint.md`](docs/architecture/open-source-blueprint.md) Part III |
+| Bridge MCP tools | [`docs/bridge-mcp.md`](docs/bridge-mcp.md) |
+| Adding an agent | [`docs/adding-an-agent.md`](docs/adding-an-agent.md) |

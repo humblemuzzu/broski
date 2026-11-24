@@ -6,14 +6,29 @@ Bridge server connecting your phone, through [Broski](https://github.com/humblem
 
 ## Installation
 
-Not published yet. From a checkout of this repository the CLI runs from source; `scripts/build.sh` builds the
-release binaries that `scripts/install.sh` installs.
+Install the prebuilt macOS binaries (`broski`, `broski-link`, and `libbroski_pty.dylib`) from GitHub Releases (verifies `SHA256SUMS`):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/humblemuzzu/broski/main/packages/bridge/scripts/install.sh | sh
+```
+
+Or run from a local checkout of this repository:
 
 ```bash
 cd packages/bridge
 bun install
 bun bin/broski.ts <command>   # the `broski` command below
 ```
+
+### Updates
+
+The bridge checks GitHub Releases on startup (and daily in daemon mode) via a lightweight `/releases/latest` redirect:
+
+```bash
+broski update   # downloads, verifies SHA256SUMS, updates broski + broski-link, and restarts
+```
+
+Disable update checks with `"updates": { "check": false }` in `~/.broski/config.json` or `BROSKI_NO_UPDATE_CHECK=1`.
 
 ## Quick Start
 
@@ -92,11 +107,11 @@ The relay is blind: it forwards encrypted frames and cannot read them. See `docs
 
 ## Requirements
 
-- [Bun](https://bun.sh) 1.4.2+
-- macOS
+- [Bun](https://bun.sh) 1.4.4+ (for running from source; prebuilt binaries embed Bun)
+- macOS (Apple Silicon or Intel; Windows and Linux are not supported)
 - One of:
   - [Claude Code](https://github.com/anthropics/claude-code)
-  - [Pi](https://github.com/mariozechner/pi-coding-agent)
+  - [Pi](https://github.com/earendil-works/pi)
 
 ## Security
 

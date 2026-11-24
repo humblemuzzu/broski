@@ -200,7 +200,9 @@ request. The model a turn runs on is read from `init.model` and shown by its lis
 The SDK's `PermissionMode`s, in this order: `default`, `acceptEdits`, `plan`, `auto` (only when a listed model
 `supportsAutoMode`), `dontAsk`, `bypassPermissions` (`modes.ts`, labels and descriptions there; the description of
 bypass warns). `setMode` is `setPermissionMode`; a mode the CLI reports (`init`, `status.permissionMode`, a plan
-approval's `setMode`) is shown as `mode_changed`. A new session starts in the mode asked for, else `default`.
+approval's `setMode`) is shown as `mode_changed`. When the phone does not specify a mode, new and resumed sessions
+inherit the user's configured `permissions.defaultMode` resolved via `sdk.resolveSettings` +
+`sdk.filterEscalatingDefaultMode` (falling back to `default` when unset or filtered out).
 
 Bypass is offered, and `allowDangerouslySkipPermissions` passed, only outside the case where the CLI exits at
 startup: uid 0 without `IS_SANDBOX=1` or `CLAUDE_CODE_BUBBLEWRAP` (read in the 2.1.325 binary: `bypass_root`;

@@ -8,10 +8,8 @@ it, so it works with the app killed ([push.md](connectivity-v2/push.md) § Polic
 | Source | Where | Raises |
 |---|---|---|
 | Daemon push (APNs / FCM, needs the relay) | `server/link-feed/contract-tap.ts` ← the core's observer → `broski-link` | `approval` and `attention` per request id, `done` or `failed` after a session's run ends and the session stays idle 5 s; from a run's start and end (`run_finished` `completed` → `done`, `error` and `limit` → `failed`; not `aborted`) and from pending interactions (a `tool_permission` with a plain Allow and Deny → `approval`, every other kind → `attention`) ([bridge-feed.md](connectivity-v2/bridge-feed.md), [push.md](connectivity-v2/push.md)) |
-| Local notification while the app is alive | the phone app, from the catalog's session rows | one "completed" notification on a row's busy → idle edge, except for a subagent's child session (its run is inside its parent's, which is told) and for the chat on screen with the app in front |
 
-A run's end raises the `done` push and the local notification alike; when the run wrote no text, the push body names
-its newest top-level call and a failing exit code instead of an answer line (`server/link-feed/contract-format.ts`).
+When a run wrote no text, the push body names its newest top-level call and a failing exit code instead of an answer line (`server/link-feed/contract-format.ts`).
 
 ## What the words say
 
@@ -42,15 +40,11 @@ closed. The Live Activity and the Live Update follow their own switch in the app
 ## Taking an alert down
 
 When the person opens a session in the app its notifications come down. When a request stops waiting (answered in the
-app or on the Mac), the app takes its approval or question down on both platforms; an Android phone is also told by a
-`resolved` push, which cancels it with no sound or banner, even with the app closed. An iPhone is not: Apple shows every
-alert push, so a request answered on the Mac while the iPhone's app is closed stays on its lock screen until the app next
-reads that session.
-
-Right after the app goes to the background a run's end can raise both a local notification (the app is still alive)
-and the daemon's push (the phone is no longer in the foreground). The two are not deduplicated, since the app cannot
-know whether the push will be delivered (the relay may be unreachable), and dropping either would lose the only one in
-some cases.
+app or on the Mac), the app takes its approval or question down on both platforms once the machine's refreshed inbox
+rows arrive (stale pre-pause rows never clear an active alert). An Android phone is also told by a data-only FCM
+`resolved` push, which cancels it silently even while the app is closed. On iOS, silent background pushes are not yet
+wired in the relay/app, so an approval answered on the Mac while the iPhone app is closed stays on the lock screen until
+the app opens and reads that session.
 
 ## Why a run is the unit
 

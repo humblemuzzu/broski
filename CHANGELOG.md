@@ -1,0 +1,90 @@
+# Changelog
+
+All notable changes to Broski are documented here.
+
+## v0.1.0 — Initial Open-Source Release (2026-11-24)
+
+Broski is a native iOS and Android remote and inbox for the AI coding agents already running on your Mac. It drives your own installed **Claude Code** and **Pi** with your real config, permissions, models, and extensions — over an end-to-end encrypted link on your local network or a self-hosted blind relay.
+
+### Highlights
+
+- **Native iOS and Android Apps**: Built natively in SwiftUI (iOS 26+) and Jetpack Compose (Android 8+) with full feature parity across both phones, no WebViews, and no accounts to create.
+- **Unified Multi-Mac Inbox**: See every session across every paired Mac sorted by what needs you right now (`Needs you`, `Working`, `Done`, `Idle`), with one-tap **Approve** and **Deny** directly on inbox rows.
+- **Steer by Default, Queue on Long-Press**: Tap Send while an agent is working to steer the live run at its next step (matching `Enter` in Pi); long-press Send to queue a follow-up for after the turn finishes.
+- **Collapsible "Worked for" Turn Summaries**: Long stretches of thinking, file reads, edits, and shell commands fold into one expandable line (`Worked for 4m · Edited 3 files · Ran 12 commands`) right above the final answer.
+- **Zero-Friction Agent Setup Inheritance**: Broski runs your installed `claude` and `pi` with your login-shell environment, hooks, MCP servers, extensions, `steeringMode`, and Claude Code `permissions.defaultMode` — never bundling an agent binary or inventing parallel configs.
+- **Full Project Workspace on Your Phone**: Browse and search files, read syntax-highlighted code, stage files by swipe, review word-level git diffs, switch branches, commit changes, and open a native `libghostty` terminal inside the session folder.
+- **Notifications That Actually Hold When Closed**: Toggle Needs you, Finished, Failed, and per-session mutes on your phone; your Mac enforces them before sending any push. Includes lock-screen Allow/Deny, iOS Live Activity & Dynamic Island, and Android Live Updates.
+- **Usage Limits, Home Screen Widgets & Local Cost Analytics**: Track live Claude and Antigravity plan limits on your phone and Home Screen widgets, plus cross-agent token and API-equivalent cost stats across Claude Code, Pi, Codex, OpenCode, Grok, Gemini CLI, and Antigravity.
+- **End-to-End Encrypted Over LAN or Self-Hosted Relay**: Pair with a one-time QR code, connect directly over Wi-Fi, IPv6, or Personal Hotspot when nearby, or run your own blind relay (`broski-relay`) that only ever sees ciphertext.
+
+### Inbox & Multi-Mac Control
+
+- **Action-First Grouping**: Sessions are grouped into `Needs you`, `Working`, `Done`, and `Idle` across all paired Macs, newest first within each group.
+- **Approve or Deny from the Row**: Standard tool permission prompts show plain-English descriptions (`Claude Code wants to run npm test`) and Allow/Deny buttons right in the inbox without opening the chat.
+- **Search, Paging & Pinning**: Search sessions across all backends by title or folder, load older history page by page as you scroll, and pin important sessions so they stay accessible no matter how old they get.
+- **Read State That Stays Tidy**: Finished sessions automatically settle from `Done` to `Idle` after 24 hours; swipe or open the menu to **Mark Unread**, **Pin**, **Mute**, or **Mark All Read**.
+- **Instant Cold Start**: The last known inbox and read markers restore immediately on launch while your Macs reconnect in the background, without ever wiping active lock-screen alerts during reconnect.
+- **Multi-Mac Pairing & Management**: Pair as many Macs as you want via QR code or `broski://pair?...` link, see live LAN/relay route status and bridge versions, and revoke any device individually with `broski-link revoke`.
+
+### Chat, Streaming & Composer
+
+- **Live Streaming & 60 Hz Smooth Scrolling**: Watch answers, thinking blocks, and tool calls stream in real time with prefix-cached transcript rendering so long thousand-item sessions stay smooth.
+- **Interactive Prompts at Thumb Height**: Permission approvals, multi-question pickers, plan reviews (with inline Markdown editing and feedback), and confirmation prompts replace the composer right where your thumb rests, or fold into a pill above it so you can read the transcript first.
+- **Resting Pill Composer**: Stays compact while reading and expands cleanly when typing, with `@file` mention autocomplete, slash commands and skills, and multi-image attachments (camera or photo library) with automatic size fitting and zoomable full-screen image viewers.
+- **Model, Thinking & Permission Pickers**: Switch models, pin favorite models to the top of the sheet, change thinking/effort levels, and switch Claude Code permission modes mid-session.
+- **Prompt Cache Timer**: See the remaining lifetime on your agent's prompt cache (when reported by the provider) and the latest request's cache hit ratio right in the chat header and model picker.
+- **Session Actions**: Start new sessions in any browsed folder on any paired Mac, fork a session from any turn, rename, compact context, inspect session info, export/share full conversations, or delete sessions.
+- **Long-Prompt Folding**: Very long user prompts collapse neatly under a chevron so they do not push the agent's reply off screen.
+
+### Reading, Typography & Formatting
+
+- **Purpose-Built Mobile Markdown Renderer**: Clean headings, airy nested lists, blockquotes, GitHub-style callouts (Note, Tip, Important, Warning, Caution, Insight), inline and display math, and tappable `path/to/file.ts:42` links that open straight to that line in the file viewer.
+- **Syntax Highlighting & Word-Level Diffs**: Powered by `@pierre/highlights`, with copy-code buttons, line counts, expandable long blocks, and side-by-side / inline diffs with word-level emphasis on every file change.
+- **Readable Mobile Tables**: Wide Markdown tables render cleanly with both scrollable grid and stacked-row views, plus one-tap copy as plain text, Markdown, CSV, or TSV.
+- **Appearance & Reading Controls**: Choose System / Light / Dark theme, **True Black** (`#000000` OLED) or Charcoal dark canvas, Text Size stepper, Spacing (Compact / Balanced / Airy), Font (Sans / Serif / Mono), Inline Code style, Wrap Code Blocks, Underline Links, Collapse Agent Work toggle, and Keep Screen Awake policy — with a live preview right in Appearance settings.
+
+### Workspace: Files, Git & Terminal
+
+- **Project File Browser**: Open the session's folder directly from any chat, browse directories, toggle hidden files, search filenames, and read syntax-highlighted files and images.
+- **Full Git Client**: Inspect staged, unstaged, and untracked changes, stage or unstage files with a swipe, inspect diffs hunk by hunk, write commit messages and commit, view commit history, and list or check out branches.
+- **Native `libghostty` Terminal**: Open, list, and reattach to real PTY terminals inside the session folder on both iOS and Android, with a mobile key bar (Ctrl, Esc, Tab, arrows) and hardware keyboard support.
+
+### Voice Dictation
+
+- **Code-Aware Transcription**: Hold or tap the mic in the composer to record and transcribe directly through xAI's Grok Voice Transcribe 2.0 (`api.x.ai/v1/stt`) using your own API key, automatically seeded with up to 100 relevant terms from your current conversation, git diff, and project folder.
+- **Private & Keyless Fallback**: Without an xAI key (or offline), Broski seamlessly falls back to on-device speech recognition. Includes language selection and a custom personal dictionary in Settings › Voice.
+
+### Notifications, Live Activity & Live Updates
+
+- **Plain-English Alerts**: Notifications say what is actually happening (`Fix the build — needs approval` / `Claude Code wants to run npm test`) with Markdown stripped, relative file paths, and readable MCP tool names.
+- **Daemon-Side Preference Sync**: Turning off **Needs you**, **Finished**, or **Failed** — or muting an individual session — syncs straight to every paired Mac so unwanted pushes are dropped before they are ever sent.
+- **Lock-Screen Decisions & Auto-Clear**: Allow or Deny straightforward tool approvals from the lock screen without opening the app. Answered approvals clear automatically when the session settles (and silently in the background on Android).
+- **Live Activity (iOS) & Live Updates (Android)**: Track active agents, elapsed run time, and pending approvals on your lock screen and Dynamic Island, with a Stop button right on the activity and a Settings toggle that stops active displays immediately.
+- **Keep Mac Awake While Working**: `broski-link` automatically holds a macOS idle-sleep assertion while an agent is actively running (respecting battery level) and releases it as soon as work finishes.
+
+### Usage Limits, Stats & Widgets
+
+- **Plan Usage Tracking**: View live session and weekly usage limits for Claude and Antigravity across your paired Macs, with automatic refresh on connect and native Home Screen widgets on both iOS and Android.
+- **Cross-Agent Token & Cost Analytics**: Local SQLite-backed stats engine scanning Claude Code, Pi, Codex, OpenCode, Grok Build, Gemini CLI, and Antigravity logs for day / week / month / quarter / year / all-time windows — showing total tokens, cache savings, API-equivalent cost, active coding time, model breakdowns, and trends.
+
+### Agents, Terminal Handoff & Extensibility
+
+- **Claude Code**: Drives your installed `claude` through `@anthropic-ai/claude-agent-sdk`, inheriting your settings, hooks, MCP servers, and `permissions.defaultMode`, forwarding terminal permission prompts via `PermissionRequest` hooks, and attaching Broski's loopback `broski_notify` MCP tool.
+- **Pi**: Drives your installed `pi` over `pi --mode rpc` inside a detached holder so active runs and pending questions survive bridge restarts, respecting your `steeringMode`, models, and extensions, and providing `broski_ask` when no user extension already claims phone questions.
+- **Watch-Only Terminal Mirroring**: Follow sessions started in your Mac's terminal live on your phone and answer their permission prompts without risking concurrent writes.
+- **Open Backend Contract & Plugins**: Add new coding agents as built-in adapters or external plugins (`broski-bridge/plugin`) in `~/.broski/config.json` with zero changes to the mobile apps (`docs/adding-an-agent.md`).
+
+### Connectivity, Security & Privacy
+
+- **Hybrid Post-Quantum Encryption**: Every phone-to-Mac link uses Noise IK with hybrid X25519 + ML-KEM-768 and pins the Mac's key fingerprint from the pairing QR.
+- **Smart Route Selection**: Connects directly over LAN (Bonjour/mDNS, IPv4, dual-stack IPv6, and Personal Hotspot) with automatic make-before-break migration when switching between Wi-Fi and cellular, falling back to your self-hosted blind relay when away.
+- **No Public Bridge Port**: The bridge listens only on a key-guarded Unix socket and loopback `127.0.0.1` (with TLS and bearer tokens). No VPN, tunnel, or port forwarding required.
+- **Zero Accounts, Zero Telemetry**: No login, no cloud sync, no analytics servers. Everything stays between your Mac and your phone.
+
+### Installation, Updates & Platform Support
+
+- **Platforms**: macOS desktop host (Apple Silicon and Intel; Windows and Linux are not supported), iOS 26+, and Android 8.0+ (API 26+).
+- **One-Line macOS Installer**: Install verified `broski`, `broski-link`, and universal `libbroski_pty.dylib` binaries straight from GitHub Releases with `SHA256SUMS` verification (`install.sh`, plus `--uninstall`).
+- **Non-Intrusive Update Checks**: Checks GitHub Releases on startup and daily via a lightweight `/releases/latest` redirect (no API rate limits, never auto-installs, opt-out via `updates.check: false` or `BROSKI_NO_UPDATE_CHECK=1`). Run `broski update` whenever you want to upgrade both `broski` and `broski-link`.
+- **Easy Mobile Builds & TestFlight**: Public iOS TestFlight beta, gitignored `Local.xcconfig` for effortless personal Xcode signing, and signed `arm64-v8a` Android APKs (16 KB page aligned) attached to GitHub Releases.
