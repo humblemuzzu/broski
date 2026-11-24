@@ -277,7 +277,7 @@ SinkRecord    = EventEnvelope without seq and session      // what an adapter em
 
 `SessionSnapshot` is the live state: the active run with everything it has finished so far (`run.items`), open blocks with the newest `MAX_TEXT_CHARS` characters of their text, running tools with the newest `MAX_TEXT_CHARS` characters of their output, pending interactions, the queue, model, thinking and modes, usage, a compaction or retry in progress, and `lastOutcome`. Finished runs are read from the transcript.
 
-`applyEvent(snapshot, {at, event})` in `session-reducer.ts` is the executable meaning of every event. Adapters, the core, and the phone core's Rust port (`packages/link/contract`, held equal by `reducer_trace.json`, §3) all agree with it. `sessionStatus(snapshot)` derives `idle | running | waiting_for_user`: waiting while a pending interaction blocks the run.
+`applyEvent(snapshot, {at, event})` in `session-reducer.ts` is the executable meaning of every event. Adapters, the core, and the phone core's Rust port (`packages/link/contract`, held equal by `reducer_trace.json`, §3) all agree with it. `sessionStatus(snapshot)` derives `idle | running | waiting_for_user`: waiting while a pending interaction blocks the run, and running while a run is active or background tasks are still at work after it.
 
 **Reconnect is two-sided.**
 

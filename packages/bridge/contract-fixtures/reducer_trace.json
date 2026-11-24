@@ -52683,7 +52683,7 @@
               ]
             }
           },
-          "status": "idle",
+          "status": "running",
           "expected": {
             "blocks": [],
             "tools": [],

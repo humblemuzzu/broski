@@ -286,13 +286,25 @@ impl StreamState {
             needs_you: !snapshot.interactions.is_empty(),
             working: snapshot.run.is_some()
                 || snapshot.compaction.is_some()
-                || snapshot.retry.is_some(),
-            run_started_at: snapshot.run.as_ref().map(|run| run.started_at).or_else(|| {
-                snapshot
-                    .compaction
-                    .as_ref()
-                    .map(|compaction| compaction.started_at)
-            }),
+                || snapshot.retry.is_some()
+                || !snapshot.background_tasks.is_empty(),
+            run_started_at: snapshot
+                .run
+                .as_ref()
+                .map(|run| run.started_at)
+                .or_else(|| {
+                    snapshot
+                        .compaction
+                        .as_ref()
+                        .map(|compaction| compaction.started_at)
+                })
+                .or_else(|| {
+                    snapshot
+                        .background_tasks
+                        .iter()
+                        .filter_map(|task| task.started_at)
+                        .min()
+                }),
         })
     }
 }

@@ -1,4 +1,4 @@
-import { type BackendId, type CatalogEvent, clip, type SessionSummary } from "../../contract";
+import { type BackendId, type CatalogEvent, clip, type SessionSnapshot, type SessionSummary } from "../../contract";
 import type { ObservedEvent } from "../../core/observer";
 import { cwdBase, type LinkFeedRunsMessage, type LinkRunEntry } from "./format";
 
@@ -43,7 +43,8 @@ export class LinkRunsTracker {
 		}
 		const needsYou = after.interactions.some((interaction) => interaction.blocksRun);
 		const runStart = after.run?.startedAt ?? after.compaction?.startedAt;
-		if (!needsYou && runStart === undefined) {
+		const backgroundWork = after.backgroundTasks.length > 0;
+		if (!needsYou && runStart === undefined && !backgroundWork) {
 			if (this.runs.delete(key)) this.emit(at);
 			return;
 		}
@@ -62,7 +63,7 @@ export class LinkRunsTracker {
 			sessionId: session.sessionId,
 			title: "Untitled session",
 			phase,
-			startedAt: runStart ?? at,
+			startedAt: runStart ?? earliestTaskStart(after) ?? at,
 			updatedAt: at,
 		});
 		this.emit(at);
@@ -93,8 +94,8 @@ export class LinkRunsTracker {
 		}
 		const phase: "working" | "needsYou" = summary.status === "waiting_for_user" ? "needsYou" : "working";
 		const title = formatTitle(summary);
-		const startedAt = summary.runStartedAt ?? summary.updatedAt;
 		const existing = this.runs.get(key);
+		const startedAt = summary.runStartedAt ?? existing?.startedAt ?? summary.updatedAt;
 		if (existing) {
 			const changed = existing.phase !== phase || existing.title !== title || existing.startedAt !== startedAt;
 			existing.phase = phase;
@@ -146,6 +147,11 @@ export class LinkRunsTracker {
 		this.lastKey = key;
 		this.deliver({ type: "link_runs", runs, at });
 	}
+}
+
+function earliestTaskStart(snapshot: SessionSnapshot): number | undefined {
+	const starts = snapshot.backgroundTasks.flatMap((task) => (task.startedAt === undefined ? [] : [task.startedAt]));
+	return starts.length > 0 ? Math.min(...starts) : undefined;
 }
 
 function runKey(backend: BackendId, sessionId: string): string {

@@ -40,7 +40,7 @@ export class RunClock {
 		const start = snapshotRunStart(snapshot);
 		if (start !== undefined) {
 			this.started.set(key, start);
-		} else {
+		} else if (snapshot.backgroundTasks.length === 0) {
 			this.started.delete(key);
 		}
 	}

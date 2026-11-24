@@ -25,6 +25,16 @@ All notable changes to Broski are documented here.
 - **Installer fixes**: a one-line install whose script download is cut short now does nothing instead of running
   half a script, and bash users get Broski on their PATH in `~/.bash_profile`, which Terminal's bash reads.
 
+### Fixes
+
+- **A session is done only when its background work is**: a session whose agent finished its reply but left jobs or
+  agents running in the background showed as idle in the inbox and sent its "done" alert at once. It now stays
+  working in the inbox, the session list and the Live Activity until that work ends, the "done" alert waits for it,
+  and the Mac stays awake for it.
+- **`broski restart` and `broski stop` end only Broski**: they used to force-quit every process whose command line
+  contained "broski", such as `tail -f ~/.broski/logs/bridge.log`, an editor, or an Xcode build of this repository.
+  They now end only the bridge server and the `broski-link run` daemon of the install, and still never a Pi session.
+
 > **On Broski v0.1.1 or older:** those versions update with their own built-in updater, which stops after two minutes.
 > On a slow connection, run the one-line install once instead; it keeps your pairing and restarts Broski.
 

@@ -97,13 +97,28 @@ export class LinkFeedTracker {
 		this.setWorking(key, track, true);
 	}
 
-	/** A session's run ended; `doneAlert` speaks once the session has stayed idle for `doneIdleMs`. */
-	runEnded(backend: BackendId, sessionId: string, doneAlert: DoneAlert): void {
+	/**
+	 * A session's run ended; `doneAlert` speaks once the session has stayed idle for `doneIdleMs`. With background
+	 * work still going (`stillWorking`) the session stays working, and the alert waits for that work to end.
+	 */
+	runEnded(backend: BackendId, sessionId: string, doneAlert: DoneAlert, stillWorking = false): void {
 		const key = sessionKey(backend, sessionId);
 		const track = this.sessions.get(key);
 		if (!track) return;
 		track.doneAlert = doneAlert;
-		this.setWorking(key, track, false);
+		this.setWorking(key, track, stillWorking);
+	}
+
+	/** Background work began or ended outside a run; a `done` still waiting for it is kept for when it ends. */
+	backgroundChanged(backend: BackendId, sessionId: string, working: boolean): void {
+		const key = sessionKey(backend, sessionId);
+		let track = this.sessions.get(key);
+		if (!track) {
+			if (!working) return;
+			track = { busy: false, doneTimer: null };
+			this.sessions.set(key, track);
+		}
+		this.setWorking(key, track, working);
 	}
 
 	/** A session is no longer watched as one: no `done` follows, and it counts as idle. */

@@ -10,10 +10,13 @@ export function emptySnapshot(): SessionSnapshot {
 	return { blocks: [], tools: [], interactions: [], queue: [], backgroundTasks: [], modes: [] };
 }
 
-/** What a session is doing, as the snapshot says; never `unknown` for a session open in this bridge. */
+/**
+ * What a session is doing, as the snapshot says; never `unknown` for a session open in this bridge. Work the agent
+ * left running in the background keeps it `running` after its turn ends: the session is not done until that is.
+ */
 export function sessionStatus(snapshot: SessionSnapshot): SessionStatus {
 	if (snapshot.interactions.some((interaction) => interaction.blocksRun)) return "waiting_for_user";
-	return snapshot.run ? "running" : "idle";
+	return snapshot.run || snapshot.backgroundTasks.length > 0 ? "running" : "idle";
 }
 
 /** The live state after `record`. This is the meaning of every event; adapters and clients agree with it. */

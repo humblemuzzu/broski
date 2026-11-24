@@ -7,8 +7,8 @@ import type { DoneAlert, LinkFeedTracker } from "./tracker";
 const NO_ALERT: DoneAlert = async () => undefined;
 
 /**
- * Turns what the core observes of its open sessions into the feed's busy state and alerts: a run
- * is work, its end is a `done` (or a `failed`), a pending interaction is an `approval` when a lock screen can give
+ * Turns what the core observes of its open sessions into the feed's busy state and alerts: a run, and background
+ * work left running after it, is work; the end of both is a `done` (or a `failed`), a pending interaction is an `approval` when a lock screen can give
  * the verdict (a tool permission with a plain Allow and Deny) or an `attention` (anything that needs the app), and an
  * interaction that ends closes its alert.
  */
@@ -37,15 +37,20 @@ export class ContractFeedTap {
 			this.tracker.runStarted(backend, sessionId);
 			return;
 		}
-		if (!before.run) return;
-		this.tracker.runStarted(backend, sessionId);
-		if (event.type !== "run_finished") {
-			this.tracker.runEnded(backend, sessionId, NO_ALERT);
+		const stillWorking = after.backgroundTasks.length > 0;
+		if (!before.run) {
+			if (stillWorking !== before.backgroundTasks.length > 0) {
+				this.tracker.backgroundChanged(backend, sessionId, stillWorking);
+			}
 			return;
 		}
-		this.tracker.runEnded(backend, sessionId, async () =>
-			contractDone(observed, await describe(), event.outcome, before, at),
-		);
+		this.tracker.runStarted(backend, sessionId);
+		if (event.type !== "run_finished") {
+			this.tracker.runEnded(backend, sessionId, NO_ALERT, stillWorking);
+			return;
+		}
+		const done: DoneAlert = async () => contractDone(observed, await describe(), event.outcome, before, at);
+		this.tracker.runEnded(backend, sessionId, done, stillWorking);
 	}
 
 	private followInteractions(observed: ObservedEvent): void {

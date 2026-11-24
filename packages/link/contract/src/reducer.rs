@@ -31,6 +31,7 @@ pub fn empty_snapshot() -> SessionSnapshot {
 }
 
 /// What a session is doing, as the snapshot says; never `Unknown` for a session open in a bridge.
+/// Work left running in the background keeps it `Running` after its turn ends.
 pub fn session_status(snapshot: &SessionSnapshot) -> SessionStatus {
     if snapshot
         .interactions
@@ -38,7 +39,7 @@ pub fn session_status(snapshot: &SessionSnapshot) -> SessionStatus {
         .any(|interaction| interaction.blocks_run)
     {
         SessionStatus::WaitingForUser
-    } else if snapshot.run.is_some() {
+    } else if snapshot.run.is_some() || !snapshot.background_tasks.is_empty() {
         SessionStatus::Running
     } else {
         SessionStatus::Idle
