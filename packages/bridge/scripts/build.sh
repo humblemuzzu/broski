@@ -12,6 +12,9 @@ ENTRY="./src/bootstrap.ts"
 DIST="./dist"
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 LINK_DIR="${SCRIPT_DIR}/../../link"
+# shellcheck source=../../../scripts/lib/rust-remap.sh
+. "${SCRIPT_DIR}/../../../scripts/lib/rust-remap.sh"
+broski_rust_remap "$LINK_DIR"
 
 # Read version from package.json
 VERSION=$(grep '"version"' package.json | head -1 | sed 's/.*"version": *"\([^"]*\)".*/\1/')

@@ -3,6 +3,9 @@
 
 LINK_DIR="$ROOT/packages/link"
 CORE_PROFILE=mobile
+# shellcheck source=scripts/lib/rust-remap.sh
+source "$ROOT/scripts/lib/rust-remap.sh"
+broski_rust_remap "$LINK_DIR"
 # Cargo runs in $LINK_DIR, so a relative CARGO_TARGET_DIR is relative to it.
 case "${CARGO_TARGET_DIR:-}" in
   "") LINK_TARGET="$LINK_DIR/target" ;;
