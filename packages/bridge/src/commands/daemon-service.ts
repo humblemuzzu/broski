@@ -7,7 +7,7 @@ import {
 	checkPortInUse,
 	type DaemonConfig,
 	type DaemonStatus,
-	findProcessByPattern,
+	findBroskiServers,
 	getBroskiBinaryPath,
 	getDaemonStatus,
 	getKillPortHint,
@@ -165,7 +165,7 @@ function printServiceState(status: DaemonStatus): void {
 }
 
 function printActiveProcesses(): void {
-	const pids = findProcessByPattern("broski");
+	const pids = findBroskiServers();
 	if (pids.length === 0) return;
 
 	console.log(`\nActive processes:   ${pids.length} found`);
@@ -220,7 +220,7 @@ export async function runStop(): Promise<void> {
 		killProcess(portProc.pid);
 		console.log(`\n  Stopped bridge process (PID ${portProc.pid})`);
 	} else {
-		const pids = findProcessByPattern("broski").filter((p) => p !== process.pid);
+		const pids = findBroskiServers();
 		if (pids.length > 0) {
 			for (const pid of pids) {
 				killProcess(pid);
@@ -254,7 +254,7 @@ export async function runRestart(): Promise<void> {
 	}
 
 	const held = holderPids(defaultHoldersRoot());
-	const orphans = findProcessByPattern("broski").filter((pid) => !held.has(pid));
+	const orphans = findBroskiServers().filter((pid) => !held.has(pid));
 	for (const pid of orphans) {
 		killProcess(pid);
 	}

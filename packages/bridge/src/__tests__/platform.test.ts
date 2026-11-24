@@ -3,7 +3,6 @@ import {
 	CURRENT_PLATFORM,
 	checkPortInUse,
 	findBinary,
-	findProcessByPattern,
 	getBroskiBinaryPath,
 	getDaemonConfigPath,
 	getDaemonType,
@@ -109,11 +108,5 @@ describe("Process Management", () => {
 		// Test with an unlikely-to-be-used port
 		const result = await getProcessOnPort(64999);
 		expect(result === null || (typeof result === "object" && "pid" in result && "name" in result)).toBe(true);
-	});
-
-	test("findProcessByPattern returns array of numbers", () => {
-		const result = findProcessByPattern("nonexistent-process-xyz");
-		expect(Array.isArray(result)).toBe(true);
-		expect(result.every((pid) => typeof pid === "number" && Number.isFinite(pid))).toBe(true);
 	});
 });

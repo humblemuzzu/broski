@@ -17,6 +17,7 @@ import { mkdir, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { isCompiledBinary } from "./compiled-binary";
+import { broskiServerPids } from "./platform/broski-processes";
 import { runCommand } from "./platform/command";
 import { defaultServiceHost } from "./platform/service/host";
 import * as launchd from "./platform/service/launchd";
@@ -139,17 +140,11 @@ export function killProcess(pid: number): boolean {
 	return res.ok;
 }
 
-/**
- * Find processes matching a pattern.
- */
-export function findProcessByPattern(pattern: string): number[] {
-	const res = runCommand("pgrep", ["-f", pattern]);
-	if (!res.ok || !res.stdout) return [];
-
-	return res.stdout
-		.split("\n")
-		.map((s) => Number(s.trim()))
-		.filter((n) => Number.isFinite(n) && n > 0 && n !== process.pid);
+/** The running bridge servers and `broski-link run` daemons of this install (`platform/broski-processes.ts`). */
+export function findBroskiServers(): number[] {
+	const ps = runCommand("ps", ["-ax", "-ww", "-o", "pid=,command="]);
+	if (!ps.ok) return [];
+	return broskiServerPids(ps.stdout, getBroskiBinaryPath(), process.pid);
 }
 
 // ============================================================================
