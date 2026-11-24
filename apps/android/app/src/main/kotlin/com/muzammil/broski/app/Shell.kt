@@ -6,6 +6,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.tappableElement
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -14,6 +16,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
@@ -24,7 +29,9 @@ import androidx.navigation3.ui.NavDisplay
 import com.muzammil.broski.core.AppCore
 import com.muzammil.broski.core.PhoneSession
 import com.muzammil.broski.core.isOnline
+import com.muzammil.broski.design.Haptic
 import com.muzammil.broski.design.LocalTabBarClearance
+import com.muzammil.broski.design.perform
 import com.muzammil.broski.feature.inbox.InboxScreen
 import com.muzammil.broski.feature.machines.MachinesScreen
 import com.muzammil.broski.feature.pairing.PairScreen
@@ -70,7 +77,7 @@ fun Shell(core: AppCore, phone: PhoneSession, features: Features, openRequests: 
         CompositionLocalProvider(LocalTabBarClearance provides clearance) {
             NavDisplay(
                 backStack = navigator.entries,
-                onBack = navigator::back,
+                onBack = backWithHaptic(navigator),
                 entryDecorators = listOf(
                     rememberSaveableStateHolderNavEntryDecorator(),
                     rememberViewModelStoreNavEntryDecorator(),
@@ -96,6 +103,23 @@ fun Shell(core: AppCore, phone: PhoneSession, features: Features, openRequests: 
                 onNewSession = newSession,
             )
         }
+    }
+}
+
+/**
+ * System back, with a light tap when it is a swipe that pops a screen. The three-button bar's Back taps
+ * on its own, and it is the one system navigation that takes room at the bottom.
+ */
+@Composable
+private fun backWithHaptic(navigator: Navigator): () -> Unit {
+    val haptics = LocalHapticFeedback.current
+    val density = LocalDensity.current
+    val buttons = WindowInsets.tappableElement
+    return {
+        val swiped = buttons.getBottom(density) == 0 &&
+            buttons.getLeft(density, LayoutDirection.Ltr) == 0 && buttons.getRight(density, LayoutDirection.Ltr) == 0
+        if (swiped && navigator.shown.size > 1) haptics.perform(Haptic.Back)
+        navigator.back()
     }
 }
 

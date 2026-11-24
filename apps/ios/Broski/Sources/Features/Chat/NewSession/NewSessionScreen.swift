@@ -33,6 +33,8 @@ private struct NewSessionContent: View {
     /// A folder came from the sheet: the keyboard comes up once the sheet has gone, over this screen.
     @State private var focusAfterSheet = false
     @State private var picks = 0
+    @State private var sends = 0
+    @State private var failures = 0
 
     private var machine: MachineModel? { model.machineId.flatMap(app.machine(id:)) }
     private var projects: [Project] { Project.recent(app.inbox.rows, machineId: model.machineId) }
@@ -70,6 +72,8 @@ private struct NewSessionContent: View {
             }
         }
         .haptic(.pickerStep, trigger: picks)
+        .haptic(.sent, trigger: sends)
+        .haptic(.failed, trigger: failures)
         .onChange(of: settleKey, initial: true) {
             model.settle(machines: app.machines, rows: app.inbox.rows)
         }
@@ -160,8 +164,13 @@ private struct NewSessionContent: View {
             showsProjects = true
             return
         }
+        guard model.canCreate else { return }
+        sends += 1
         Task {
-            guard let target = await model.create(on: machine.machine, drafts: app.drafts) else { return }
+            guard let target = await model.create(on: machine.machine, drafts: app.drafts) else {
+                failures += 1
+                return
+            }
             composing = false
             created(target)
         }

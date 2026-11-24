@@ -92,7 +92,7 @@ struct GitScreen: View {
             }
         }
         .listStyle(.insetGrouped)
-        .refreshable { await model.load() }
+        .pullToRefresh { await model.load() }
         .animation(Motion.snappy(reduceMotion: reduceMotion), value: model.sections)
     }
 

@@ -54,7 +54,7 @@ struct UsageScreen: View {
             .navigationTitle("Usage")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(removing: .title)
-            .refreshable {
+            .pullToRefresh {
                 if tab == .stats {
                     await model.stats.refresh(from: model.machines, force: true)
                 } else {

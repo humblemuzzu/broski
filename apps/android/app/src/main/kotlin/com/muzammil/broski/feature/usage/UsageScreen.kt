@@ -23,6 +23,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -31,6 +32,8 @@ import com.muzammil.broski.core.AppCore
 import com.muzammil.broski.core.PhoneSession
 import com.muzammil.broski.core.isOnline
 import com.muzammil.broski.design.Grouped
+import com.muzammil.broski.design.Haptic
+import com.muzammil.broski.design.perform
 import com.muzammil.broski.design.LoadingOrb
 import com.muzammil.broski.design.LocalTabBarClearance
 import com.muzammil.broski.design.SoftTopBar
@@ -75,10 +78,12 @@ fun UsageScreen(core: AppCore, phone: PhoneSession) {
     val isReading = if (activeTab == UsageSectionTab.STATS) isReadingStats else isReadingLimits
     val top = titleBarInset()
     val pullState = rememberPullToRefreshState()
+    val haptics = LocalHapticFeedback.current
     Box(Modifier.fillMaxSize().background(Grouped.screen)) {
         PullToRefreshBox(
             isRefreshing = pulling,
             onRefresh = {
+                haptics.perform(Haptic.Refresh)
                 pulling = true
                 scope.launch {
                     if (activeTab == UsageSectionTab.STATS) core.stats.refresh(phone, force = true)

@@ -14,6 +14,7 @@ struct CodeViewer: View {
     /// as that line at any size: lines that do not wrap are then never cut or centred.
     @State private var widestPerPoint: CGFloat = 0
     @State private var zoom: CGFloat = 1
+    @State private var copies = 0
     @GestureState private var pinch: CGFloat = 1
     @ScaledMetric(relativeTo: .body) private var codeSize = FormatTokens.codeSize
     @Environment(\.dismiss) private var dismiss
@@ -37,6 +38,7 @@ struct CodeViewer: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbar }
         }
+        .haptic(.confirmed, trigger: copies)
         .task {
             lines = Highlighter.plainLines(code)
             widestPerPoint = Self.widestLine(code)
@@ -83,7 +85,10 @@ struct CodeViewer: View {
             Button(wraps ? "Scroll Sideways" : "Wrap Lines", systemImage: wraps ? "arrow.left.and.right.text.vertical" : "text.word.spacing") {
                 wraps.toggle()
             }
-            Button("Copy", systemImage: "doc.on.doc") { UIPasteboard.general.string = code }
+            Button("Copy", systemImage: "doc.on.doc") {
+                UIPasteboard.general.string = code
+                copies += 1
+            }
         }
     }
 }

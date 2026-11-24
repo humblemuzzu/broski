@@ -14,6 +14,12 @@ enum class Haptic(internal val type: HapticFeedbackType) {
     Stop(HapticFeedbackType.GestureEnd),
     PickerStep(HapticFeedbackType.SegmentTick),
     SnapToLatest(HapticFeedbackType.GestureThresholdActivate),
+
+    /** A back swipe let go past the point where the screen goes back. */
+    Back(HapticFeedbackType.GestureEnd),
+
+    /** A pull far enough to refresh. */
+    Refresh(HapticFeedbackType.GestureThresholdActivate),
     KeyPress(HapticFeedbackType.KeyboardTap),
 }
 

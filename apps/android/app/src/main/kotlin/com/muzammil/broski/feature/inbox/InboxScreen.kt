@@ -103,11 +103,15 @@ fun InboxScreen(
     val idleShown = idleOpen ?: state.query.isNotEmpty()
     val top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + BarHeight
     val pullState = rememberPullToRefreshState()
+    val haptics = LocalHapticFeedback.current
 
     Box(Modifier.fillMaxSize().background(Grouped.screen)) {
         PullToRefreshBox(
             isRefreshing = state.refreshing,
-            onRefresh = viewModel::refresh,
+            onRefresh = {
+                haptics.perform(Haptic.Refresh)
+                viewModel.refresh()
+            },
             state = pullState,
             modifier = Modifier.fillMaxSize(),
             indicator = {

@@ -108,6 +108,7 @@ private struct KeyCapStyle: ButtonStyle {
         configuration.label
             .modifier(KeyCap(active: active))
             .opacity(configuration.isPressed ? 0.7 : 1)
+            .haptic(.keyPressed, trigger: configuration.isPressed) { !$0 && $1 }
     }
 }
 
@@ -127,6 +128,7 @@ private struct RepeatingKey: View {
             .modifier(KeyCap(active: false))
             .opacity(pressed ? 0.7 : 1)
             .onLongPressGesture(minimumDuration: .infinity, maximumDistance: 44, perform: {}) { pressed = $0 }
+            .haptic(.keyPressed, trigger: pressed) { !$0 && $1 }
             .task(id: pressed) {
                 guard pressed else { return }
                 configuration.trigger()

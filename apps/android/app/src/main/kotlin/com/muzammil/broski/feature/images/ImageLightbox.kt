@@ -46,6 +46,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -55,7 +56,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.muzammil.broski.R
+import com.muzammil.broski.design.Haptic
 import com.muzammil.broski.design.LoadingOrb
+import com.muzammil.broski.design.perform
 import com.muzammil.broski.design.orb.OrbState
 import com.muzammil.broski.design.orb.OrbTheme
 import kotlin.math.abs
@@ -94,8 +97,10 @@ fun ImageLightbox(request: LightboxRequest, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val resources = LocalResources.current
     val clipboard = LocalClipboard.current
+    val haptics = LocalHapticFeedback.current
 
-    fun notify(message: String) {
+    fun notify(message: String, haptic: Haptic = Haptic.Success) {
+        haptics.perform(haptic)
         toast = message
         scope.launch {
             delay(1_800L)
@@ -227,7 +232,10 @@ fun ImageLightbox(request: LightboxRequest, onDismiss: () -> Unit) {
                             {
                                 scope.launch {
                                     val saved = ImageSaver.saveToGallery(context, payload, current.displayName)
-                                    notify(resources.getString(if (saved) R.string.image_saved else R.string.image_save_failed))
+                                    notify(
+                                        resources.getString(if (saved) R.string.image_saved else R.string.image_save_failed),
+                                        if (saved) Haptic.Success else Haptic.Failure,
+                                    )
                                 }
                             }
                         },

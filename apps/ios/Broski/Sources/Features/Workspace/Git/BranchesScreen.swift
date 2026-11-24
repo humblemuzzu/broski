@@ -59,7 +59,7 @@ struct BranchesScreen: View {
                 }
             }
             .listStyle(.insetGrouped)
-            .refreshable { await model.load() }
+            .pullToRefresh { await model.load() }
         }
     }
 

@@ -26,12 +26,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.Dialog
 import com.muzammil.broski.R
+import com.muzammil.broski.design.Haptic
 import com.muzammil.broski.design.MonoFamily
+import com.muzammil.broski.design.perform
 import com.muzammil.broski.design.code.CodeColors
 import com.muzammil.broski.design.code.CodeLines
 import com.muzammil.broski.design.code.ViewerLine
@@ -46,6 +49,7 @@ fun CodeViewer(code: String, language: String?, title: String, onDone: () -> Uni
     var zoom by remember { mutableFloatStateOf(1f) }
     val transform = rememberTransformableState { _: Offset, change: Float, _: Offset, _: Float -> zoom = (zoom * change).coerceIn(MIN_ZOOM, MAX_ZOOM) }
     val clipboard = LocalClipboard.current
+    val haptics = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
     val coloured = highlightedLines(code, language, CodeColors.current)
     val lines = remember(coloured) { coloured.mapIndexed { index, line -> ViewerLine(line, (index + 1).toString()) } }
@@ -60,7 +64,12 @@ fun CodeViewer(code: String, language: String?, title: String, onDone: () -> Uni
                         IconButton(onClick = { wrap = !wrap }) {
                             Icon(painterResource(R.drawable.ic_wrap_text), stringResource(if (wrap) R.string.format_code_scroll else R.string.format_code_wrap))
                         }
-                        IconButton(onClick = { scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(title, code))) } }) {
+                        IconButton(
+                            onClick = {
+                                scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(title, code))) }
+                                haptics.perform(Haptic.Success)
+                            },
+                        ) {
                             Icon(painterResource(R.drawable.ic_content_copy), stringResource(R.string.format_copy_code))
                         }
                     },

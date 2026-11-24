@@ -44,6 +44,7 @@ struct InboxScreen: View {
                     }
                 }
                 .routeDestinations()
+                .backSwipeHaptic()
         }
         .environment(\.openSession, OpenSessionAction { open($0) })
         .environment(\.openRoute, OpenRouteAction { path.append($0) })
@@ -169,7 +170,7 @@ struct InboxScreen: View {
         .onChange(of: onlyIdle(sections), initial: true) { _, only in
             if only && idleOpen == nil { idleOpen = true }
         }
-        .refreshable { await model.inbox.refresh() }
+        .pullToRefresh { await model.inbox.refresh() }
         // Rows move, appear and leave with an animation, but a row's own text changing does not
         // animate the list, and nothing animates under a pushed chat.
         .animation(path.isEmpty ? Motion.snappy(reduceMotion: reduceMotion) : nil, value: rowKeys)

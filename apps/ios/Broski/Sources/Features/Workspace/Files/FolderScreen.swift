@@ -74,7 +74,7 @@ struct FolderScreen: View {
         }
         .listStyle(.insetGrouped)
         .overlay { placeholder }
-        .refreshable {
+        .pullToRefresh {
             async let listed: Void = model.load()
             async let checked: Void = repository.check()
             async let opened: Void = terminals.load()

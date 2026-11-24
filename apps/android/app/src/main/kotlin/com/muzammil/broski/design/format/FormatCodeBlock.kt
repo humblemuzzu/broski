@@ -35,6 +35,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -48,6 +49,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
 import com.muzammil.broski.design.BroskiTheme
+import com.muzammil.broski.design.Haptic
+import com.muzammil.broski.design.perform
 import com.muzammil.broski.design.MonoFamily
 import com.muzammil.broski.design.code.CodeColors
 import com.muzammil.broski.design.code.accent
@@ -92,6 +95,7 @@ private fun title(code: FormatCode, kind: CodeKind): String = when {
 
 @Composable
 private fun CodeHeader(code: FormatCode, kind: CodeKind, inset: Dp, onExpand: () -> Unit) {
+    val haptics = LocalHapticFeedback.current
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
@@ -129,6 +133,7 @@ private fun CodeHeader(code: FormatCode, kind: CodeKind, inset: Dp, onExpand: ()
                 tint = if (copied) BroskiTheme.semantic.done else muted,
             ) {
                 scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(code.language ?: "code", copyText(code.text, kind)))) }
+                haptics.perform(Haptic.Success)
                 copied = true
             }
             HeaderButton(R.drawable.ic_open_in_full, R.string.format_expand, tint = muted, onClick = onExpand)
