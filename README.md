@@ -1,19 +1,19 @@
 <div align="center">
 
-```
-   ██████╗ ██████╗  ██████╗ ███████╗██╗  ██╗██╗
-   ██╔══██╗██╔══██╗██╔═══██╗██╔════╝██║ ██╔╝██║
-   ██████╔╝██████╔╝██║   ██║███████╗█████╔╝ ██║
-   ██╔══██╗██╔══██╗██║   ██║╚════██║██╔═██╗ ██║
-   ██████╔╝██║  ██║╚██████╔╝███████║██║  ██╗██║
-   ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝╚═╝
-```
+<img src="apps/android/app/src/main/res/drawable-nodpi/broski_icon.png" alt="Broski" width="84" height="84" />
+
+<h1>Broski</h1>
 
 **Your AI coding agents, in your pocket.**
 
 *Native iOS and Android remote for [Claude Code](https://claude.ai/code) and [Pi](https://github.com/earendil-works/pi) running on your Mac.*
 
-[![License](https://img.shields.io/github/license/humblemuzzu/broski?style=flat)](LICENSE)
+<p>
+  <a href="https://broskiapp.com"><img src="https://img.shields.io/badge/web-broskiapp.com-111216?style=flat" alt="Website" /></a>
+  <a href="https://testflight.apple.com/join/ZXT9kAPK"><img src="https://img.shields.io/badge/iOS-TestFlight-111216?style=flat&logo=apple&logoColor=white" alt="iOS TestFlight" /></a>
+  <a href="https://github.com/humblemuzzu/broski/releases/latest"><img src="https://img.shields.io/badge/releases-macOS%20%26%20Android-111216?style=flat" alt="GitHub Releases" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-111216?style=flat" alt="MIT License" /></a>
+</p>
 
 </div>
 
