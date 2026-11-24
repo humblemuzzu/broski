@@ -101,7 +101,7 @@ describe("SendQueue on a network socket", () => {
 		const shed: string[] = [];
 		const queue = newQueue({ onDeadSocket: (_ws, reason) => shed.push(reason) });
 		socket.status = 0;
-		expect(queue.sendRaw(socket, "{}")).toBe("dropped");
+		queue.sendPayload(socket, "{}");
 		expect(shed).toEqual(["dropped"]);
 	});
 
@@ -120,7 +120,7 @@ describe("SendQueue on a link socket", () => {
 		const queue = newQueue({ onTooLarge: (_ws, detail) => refused.push(detail) });
 
 		queue.sendPayload(socket, frame(0, limits.linkMessageLimitBytes));
-		expect(queue.sendRaw(socket, "x".repeat(limits.linkMessageLimitBytes + 1))).toBe("dropped");
+		queue.sendPayload(socket, "x".repeat(limits.linkMessageLimitBytes + 1));
 
 		expect(socket.sent).toEqual([]);
 		expect(refused).toHaveLength(2);

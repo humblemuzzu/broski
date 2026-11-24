@@ -1,8 +1,8 @@
 /**
  * HTTP utility functions extracted from server.ts.
  *
- * Pure helpers for JSON responses, error sanitization, origin validation,
- * auth token extraction, and proxy port allowlisting.
+ * Pure helpers for JSON responses, error sanitization, origin validation
+ * and auth token extraction.
  */
 // ── JSON Response Helpers ──────────────────────────────────────────────
 
@@ -73,6 +73,7 @@ export function isAllowedOrigin(origin: string | null): boolean {
 	return false;
 }
 
+/** A DNS-rebinding page sends its own name as `Host`; only loopback names reach the loopback-only routes. */
 export function isLoopbackHostHeader(host: string | null): boolean {
 	if (!host) return true;
 	const trimmed = host.trim().toLowerCase();
@@ -120,104 +121,4 @@ export function extractTokenFromRequest(_url: URL, request: Request): string | n
 	const tokenFromHeader = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
 	const tokenFromProtocol = extractProtocolToken(request.headers.get("sec-websocket-protocol"));
 	return tokenFromHeader || tokenFromProtocol;
-}
-
-// ── Proxy Port Allowlist ───────────────────────────────────────────────
-
-const DEFAULT_ALLOWED_PROXY_PORTS = new Set([
-	3000,
-	3001,
-	3002,
-	3003, // React, Next.js, Remix
-	4000,
-	4001,
-	4200,
-	4321, // Angular, Astro
-	5000,
-	5001,
-	5173,
-	5174,
-	5175, // Flask, Vite
-	8000,
-	8001,
-	8080,
-	8081,
-	8888, // Django, generic
-	9000,
-	9001, // PHP, misc
-]);
-
-export function buildProxyPortAllowlist(): Set<number> {
-	const extraProxyPorts = (process.env.BROSKI_ALLOWED_PROXY_PORTS ?? "")
-		.split(",")
-		.map((p) => Number(p.trim()))
-		.filter((p) => Number.isFinite(p) && p > 0 && p < 65536);
-	return new Set([...DEFAULT_ALLOWED_PROXY_PORTS, ...extraProxyPorts]);
-}
-
-export function isAllowedProxyPort(port: number, allowedPorts: Set<number>): boolean {
-	if (allowedPorts.has(port)) return true;
-	if (port >= 10000 && port <= 65535) return true;
-	return false;
-}
-
-// ── Proxy Helpers ──────────────────────────────────────────────────────
-
-export function buildProxyForwardHeaders(request: Request): Headers {
-	const h = new Headers();
-	const allow = new Set([
-		"accept",
-		"accept-language",
-		"content-type",
-		"cache-control",
-		"pragma",
-		"if-none-match",
-		"if-modified-since",
-		"user-agent",
-		"cookie",
-	]);
-	for (const [k, v] of request.headers.entries()) {
-		const key = k.toLowerCase();
-		if (!allow.has(key)) continue;
-		h.set(key, v);
-	}
-	if (!h.has("user-agent")) h.set("user-agent", "broski-bridge-proxy");
-	return h;
-}
-
-export function rewriteProxyCookies(upstreamRes: Response, headers: Headers, port: number): void {
-	try {
-		const setCookies = (upstreamRes.headers as unknown as { getSetCookie?: () => string[] }).getSetCookie?.();
-		if (Array.isArray(setCookies) && setCookies.length > 0) {
-			headers.delete("set-cookie");
-			for (const sc of setCookies) {
-				const parts = sc.split(";").map((p) => p.trim());
-				const base = parts.shift() ?? "";
-				const attrs = parts.filter((p) => !/^domain=/i.test(p) && !/^path=/i.test(p));
-				attrs.push(`Path=/proxy/${port}/`);
-				headers.append("set-cookie", [base, ...attrs].join("; "));
-			}
-		}
-	} catch {
-		// ignore
-	}
-}
-
-export function rewriteProxyRedirects(headers: Headers, upstreamUrl: URL, port: number): void {
-	const location = headers.get("location");
-	if (location) {
-		try {
-			const locUrl = new URL(location, upstreamUrl);
-			if ((locUrl.hostname === "127.0.0.1" || locUrl.hostname === "localhost") && Number(locUrl.port) === port) {
-				const rewritten = `/proxy/${port}${locUrl.pathname}${locUrl.search}${locUrl.hash}`;
-				headers.set("location", rewritten);
-			}
-		} catch {
-			// ignore
-		}
-	}
-}
-
-export function buildProxyShim(prefix: string, wsPrefix: string): string {
-	return `<script>(function(){try{var P=${JSON.stringify(prefix)};var W=${JSON.stringify(wsPrefix)};window.__BROSKI_PROXY_PREFIX__=P;function abs(u){try{if(typeof u!=='string')return u;if(u.startsWith(P+'/')||u===P)return u;if(u.startsWith('/'))return P+u;return u}catch{return u}};var of=window.fetch;if(of)window.fetch=function(input,init){try{if(typeof input==='string'){input=abs(input)}else if(input&&typeof input.url==='string'){var nu=abs(input.url);if(nu!==input.url)input=new Request(nu,input)} }catch{}return of.call(this,input,init)};var xo=XMLHttpRequest&&XMLHttpRequest.prototype&&XMLHttpRequest.prototype.open;if(xo)XMLHttpRequest.prototype.open=function(m,u){try{u=abs(u)}catch{}return xo.apply(this,arguments)};var oe=window.EventSource;if(oe)window.EventSource=function(u,c){try{u=abs(u)}catch{}return new oe(u,c)};var OWS=window.WebSocket;if(OWS){window.WebSocket=function(u,p){try{if(typeof u==='string'){if(u.startsWith('ws://localhost:')||u.startsWith('wss://localhost:')||u.startsWith('ws://127.0.0.1:')||u.startsWith('wss://127.0.0.1:')){var pu=new URL(u);u=location.protocol.replace('http','ws')+'//'+location.host+W+'/'+pu.port+pu.pathname+pu.search}}else if(u instanceof URL){u=u.toString()}}catch{}return new OWS(u,p)};window.WebSocket.CONNECTING=OWS.CONNECTING;window.WebSocket.OPEN=OWS.OPEN;window.WebSocket.CLOSING=OWS.CLOSING;window.WebSocket.CLOSED=OWS.CLOSED;window.WebSocket.prototype=OWS.prototype}}catch{}})()</script>`;
 }

@@ -16,10 +16,7 @@ export interface RemoteRoutes {
 export function fetchFrom(address: string, routes: RemoteRoutes): (request: Request) => Promise<Response | undefined> {
 	const handler = createFetchHandler({
 		httpDeps: {
-			tlsEnabled: true,
 			version: "0.0.0-test",
-			allowedProxyPorts: new Set(),
-			logUser: () => undefined,
 			hookIngress: routes.hookIngress,
 		},
 		allowTokenInUrl: false,
@@ -30,7 +27,6 @@ export function fetchFrom(address: string, routes: RemoteRoutes): (request: Requ
 		maxClients: 4,
 		tlsEnabled: true,
 		isLoopbackAddress,
-		allowedProxyPorts: new Set(),
 		log: () => undefined,
 		logUser: () => undefined,
 		...(routes.handleMcp && { handleMcp: routes.handleMcp }),

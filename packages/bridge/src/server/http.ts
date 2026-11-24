@@ -1,6 +1,5 @@
 import { validateAuthToken } from "../auth-token";
 import { createFetchHandler, type FetchHandlerDeps } from "../http-handler";
-import { buildProxyPortAllowlist } from "../http-utils";
 import { isLoopbackAddress } from "../security";
 import type { HookIngress } from "./hook-ingress";
 import type { BridgeLimits } from "./limits";
@@ -18,16 +17,12 @@ export type HttpWiringDeps = {
 	handleMcp?: (request: Request) => Promise<Response>;
 };
 
-/** The loopback listener's fetch handler: auth, TLS enforcement, the dev-server proxy, the hooks and `/mcp`. */
+/** The loopback listener's fetch handler: auth, TLS enforcement, the hooks and `/mcp`. */
 export function createHttpFetch(deps: HttpWiringDeps): ReturnType<typeof createFetchHandler> {
 	const { state } = deps;
-	const allowedProxyPorts = buildProxyPortAllowlist();
 	const fetchHandlerDeps: FetchHandlerDeps = {
 		httpDeps: {
-			tlsEnabled: state.tlsEnabled,
 			version: deps.version,
-			allowedProxyPorts,
-			logUser: deps.log.logUser,
 			hookIngress: deps.hookIngress,
 		},
 		allowTokenInUrl: state.allowTokenInUrl,
@@ -38,7 +33,6 @@ export function createHttpFetch(deps: HttpWiringDeps): ReturnType<typeof createF
 		maxClients: deps.limits.maxClients,
 		tlsEnabled: state.tlsEnabled,
 		isLoopbackAddress,
-		allowedProxyPorts,
 		log: deps.log.logInfo,
 		logUser: deps.log.logUser,
 		...(deps.handleMcp && { handleMcp: deps.handleMcp }),

@@ -56,14 +56,6 @@ export class SendQueue {
 		this.hold(ws, frame);
 	}
 
-	/** A frame relayed as it came (the dev-server proxy): nothing is held, and the caller gets the outcome. */
-	sendRaw(ws: ServerWebSocket<unknown>, payload: string | Uint8Array): SendStatus {
-		if (this.shed.has(ws)) return "dropped";
-		const frame: Frame = { payload, bytes: frameBytes(payload) };
-		if (this.refusedForSize(ws, frame)) return "dropped";
-		return this.write(ws, frame);
-	}
-
 	/** Bun's `drain` callback: the socket took data again, write whatever was held back. */
 	onDrain(ws: ServerWebSocket<unknown>): void {
 		this.sender.drain(ws);

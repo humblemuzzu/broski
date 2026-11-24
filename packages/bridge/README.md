@@ -92,7 +92,7 @@ broski doctor
 2. Hosts the AI agents: Claude Code through its SDK driving your installed `claude`, Pi over `pi --mode rpc` as your installed `pi`
 3. Streams their sessions to your phone, and relays permission prompts, questions and answers both ways
 4. Watches the sessions you start in a terminal, and relays their permission prompts to your phone
-5. Listens on `127.0.0.1` only, for the Claude Code permission hook, the dev-server preview proxy (`/proxy/<port>`) and a status probe at `/`
+5. Listens on `127.0.0.1` only, for the Claude Code permission hook, the bridge's MCP server (`/mcp`) and a status probe at `/`
 
 ## Architecture
 
