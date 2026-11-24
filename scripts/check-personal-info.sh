@@ -66,7 +66,8 @@ case "${1:---staged}" in
   --files)
     shift
     # strings fails on some members of an archive (a malformed fat file); what it read still counts.
-    # Apple's signing profiles name the developer account by design and are skipped: see .private/PRIVACY.md.
+    # Apple's signing profiles name the developer account by design and are skipped, as is an IPA's Symbols/
+    # (crash symbols App Store Connect keeps for the developer; no phone receives them): see .private/PRIVACY.md.
     for file in "$@"; do
       case "$file" in
         */embedded.mobileprovision | embedded.mobileprovision)
@@ -75,8 +76,9 @@ case "${1:---staged}" in
         *.apk | *.ipa | *.zip | *.aab)
           unpacked="$(mktemp -d "$work/unzip.XXXXXX")"
           unzip -q -o "$file" -d "$unpacked"
-          { find "$unpacked" -type f ! -name embedded.mobileprovision -exec strings -a {} + 2>/dev/null || true; } |
-            scan "$file" || status=1
+          [[ -d $unpacked/Symbols ]] && echo "  (skipped the crash symbols in $file, which only Apple receives)"
+          { find "$unpacked" -type f ! -name embedded.mobileprovision ! -path "$unpacked/Symbols/*" \
+            -exec strings -a {} + 2>/dev/null || true; } | scan "$file" || status=1
           ;;
         *.gz) { gzip -dc "$file" | strings -a 2>/dev/null || true; } | scan "$file" || status=1 ;;
         *) { strings -a "$file" 2>/dev/null || true; } | scan "$file" || status=1 ;;
