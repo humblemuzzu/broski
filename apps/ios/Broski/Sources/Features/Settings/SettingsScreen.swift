@@ -70,9 +70,7 @@ struct SettingsScreen: View {
     private var machines: some View {
         Section {
             ForEach(model.machines) { machine in
-                NavigationLink {
-                    MachinesScreen()
-                } label: {
+                NavigationLink(value: Route.machines) {
                     LinkCard(machine: machine)
                 }
                 .navigationLinkIndicatorVisibility(.hidden)

@@ -102,8 +102,27 @@ class PhoneSession internal constructor(
         machineStates.update { list -> list.filterNot { it.id == id } }
         unreadable.update { it - id }
         vault.deleteRecord(id)
+        vault.deleteScreenCredentials(id)
         vault.deleteDrafts(id)
         vault.unmark { it.machineId == id }
+    }
+
+    suspend fun screenCredentials(machineId: String): Pair<String, String>? = vault.screenCredentials(machineId)
+
+    suspend fun saveScreenCredentials(machineId: String, username: String, password: String) {
+        try {
+            vault.saveScreenCredentials(machineId, username, password)
+        } catch (error: IOException) {
+            Log.e(TAG, "screen credentials could not be stored", error)
+        }
+    }
+
+    suspend fun deleteScreenCredentials(machineId: String) {
+        try {
+            vault.deleteScreenCredentials(machineId)
+        } catch (error: IOException) {
+            Log.e(TAG, "screen credentials could not be removed", error)
+        }
     }
 
     fun setMarked(mark: SessionMark, session: SessionKey, marked: Boolean) = editMarks { vault.mark(mark) { if (marked) it + session else it - session } }

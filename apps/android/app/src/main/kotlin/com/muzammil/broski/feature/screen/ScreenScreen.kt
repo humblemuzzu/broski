@@ -65,9 +65,11 @@ fun ScreenScreen(
             ScreenTopBar(
                 title = state.desktopName.ifBlank { machineName },
                 isLive = state.phase == ScreenPhase.Live,
+                hasSavedCredentials = state.hasSavedCredentials,
                 onBack = onBack,
                 onToggleToolbar = { showToolbar = !showToolbar },
                 onRefresh = viewModel::refresh,
+                onForgetLogin = viewModel::forgetSavedCredentials,
             )
         },
     ) { padding ->
@@ -85,6 +87,7 @@ fun ScreenScreen(
     ScreenDialogs(
         phase = state.phase,
         machineName = machineName,
+        initialUsername = state.savedUsername,
         textDialogMode = textDialogMode,
         onSubmitAuth = viewModel::submitCredentials,
         onCancelAuth = onBack,
@@ -114,9 +117,11 @@ private fun readPhoneClipboard(context: Context): String? {
 private fun ScreenTopBar(
     title: String,
     isLive: Boolean,
+    hasSavedCredentials: Boolean,
     onBack: () -> Unit,
     onToggleToolbar: () -> Unit,
     onRefresh: () -> Unit,
+    onForgetLogin: () -> Unit,
 ) {
     TopAppBar(
         title = { Text(title) },
@@ -132,6 +137,11 @@ private fun ScreenTopBar(
                 }
                 IconButton(onClick = onRefresh) {
                     Icon(painterResource(R.drawable.ic_restart_alt), contentDescription = stringResource(R.string.screen_refresh))
+                }
+                if (hasSavedCredentials) {
+                    IconButton(onClick = onForgetLogin) {
+                        Icon(painterResource(R.drawable.ic_lock), contentDescription = stringResource(R.string.screen_forget_login))
+                    }
                 }
             }
         },
@@ -153,12 +163,12 @@ private fun ScreenBody(
             is ScreenPhase.Disabled -> EmptyState(
                 title = stringResource(R.string.screen_disabled_title),
                 body = stringResource(R.string.screen_disabled_body, machineName, phase.detail),
-                action = { PrimaryButton(stringResource(R.string.screen_try_again), { viewModel.connect(null) }) },
+                action = { PrimaryButton(stringResource(R.string.screen_try_again), viewModel::connectSaved) },
             )
             is ScreenPhase.Closed -> EmptyState(
                 title = stringResource(R.string.screen_disconnected_title),
                 body = phase.detail,
-                action = { PrimaryButton(stringResource(R.string.screen_reconnect), { viewModel.connect(null) }) },
+                action = { PrimaryButton(stringResource(R.string.screen_reconnect), viewModel::connectSaved) },
             )
             else -> {
                 ScreenCanvas(
@@ -190,8 +200,9 @@ private fun ScreenBody(
 private fun ScreenDialogs(
     phase: ScreenPhase,
     machineName: String,
+    initialUsername: String,
     textDialogMode: Boolean?,
-    onSubmitAuth: (String, String) -> Unit,
+    onSubmitAuth: (String, String, Boolean) -> Unit,
     onCancelAuth: () -> Unit,
     onSendText: (String, Boolean) -> Unit,
     onDismissText: () -> Unit,
@@ -199,6 +210,7 @@ private fun ScreenDialogs(
     if (phase is ScreenPhase.AuthRequired) {
         ScreenAuthDialog(
             machineName = machineName,
+            initialUsername = initialUsername,
             needsUsername = AuthScheme.APPLE_CREDENTIALS in phase.schemes,
             errorMessage = phase.errorMessage,
             onSubmit = onSubmitAuth,
@@ -213,13 +225,15 @@ private fun ScreenDialogs(
 @Composable
 private fun ScreenAuthDialog(
     machineName: String,
+    initialUsername: String,
     needsUsername: Boolean,
     errorMessage: String?,
-    onSubmit: (String, String) -> Unit,
+    onSubmit: (String, String, Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var username by remember { mutableStateOf("") }
+    var username by remember(initialUsername) { mutableStateOf(initialUsername) }
     var password by remember { mutableStateOf("") }
+    var rememberLogin by remember { mutableStateOf(true) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.screen_auth_title, machineName)) },
@@ -249,6 +263,10 @@ private fun ScreenAuthDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = rememberLogin, onCheckedChange = { rememberLogin = it })
+                    Text(stringResource(R.string.screen_auth_remember))
+                }
             }
         },
         confirmButton = {
@@ -257,7 +275,7 @@ private fun ScreenAuthDialog(
                     val u = username.trim()
                     val p = password
                     password = ""
-                    onSubmit(u, p)
+                    onSubmit(u, p, rememberLogin)
                 },
                 enabled = password.isNotEmpty() && (!needsUsername || username.isNotBlank()),
             ) { Text(stringResource(R.string.screen_auth_connect)) }

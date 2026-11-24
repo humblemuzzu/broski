@@ -115,6 +115,27 @@ class Vault(private val store: DataStore<Preferences>, private val cipher: Secre
         store.edit { it.remove(XAI_KEY) }
     }
 
+    /** Saved Screen Sharing credentials for [machineId], sealed like everything else; `null` when none. */
+    suspend fun screenCredentials(machineId: String): Pair<String, String>? {
+        val raw = try {
+            read(screenCredsKey(machineId))?.decodeToString() ?: return null
+        } catch (_: UnreadableSecretException) {
+            return null
+        }
+        val sep = raw.indexOf('\u0000')
+        if (sep < 0) return null
+        val user = raw.substring(0, sep)
+        val pass = raw.substring(sep + 1)
+        return if (pass.isEmpty()) null else user to pass
+    }
+
+    suspend fun saveScreenCredentials(machineId: String, username: String, password: String) =
+        write(screenCredsKey(machineId), "$username\u0000$password".encodeToByteArray())
+
+    suspend fun deleteScreenCredentials(machineId: String) {
+        store.edit { it.remove(screenCredsKey(machineId)) }
+    }
+
     /** The sessions marked [mark], again after each change; a stored set that does not open reads as none. */
     fun marked(mark: SessionMark): Flow<Set<SessionKey>> = store.data.map { marks(it, mark) }.distinctUntilChanged()
 
@@ -178,6 +199,8 @@ class Vault(private val store: DataStore<Preferences>, private val cipher: Secre
         fun markKey(mark: SessionMark) = byteArrayPreferencesKey("marks:${mark.name.lowercase()}")
 
         fun recordKey(machineId: String) = byteArrayPreferencesKey(RECORD_PREFIX + machineId)
+
+        fun screenCredsKey(machineId: String) = byteArrayPreferencesKey("screen-creds:$machineId")
 
         fun draftKey(name: String) = byteArrayPreferencesKey(DRAFT_PREFIX + name)
     }

@@ -32,7 +32,7 @@ struct ScreenFeatureView: View {
         }
         .navigationTitle(model.desktopName.isEmpty ? (machine?.name ?? "Mac Screen") : model.desktopName)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.hidden, for: .tabBar)
+        .toolbarVisibility(.hidden, for: .tabBar)
         .toolbar { toolbarItems }
         .onAppear(perform: connectOnAppear)
         .onDisappear { model.disconnect() }
@@ -55,6 +55,15 @@ struct ScreenFeatureView: View {
                 } label: {
                     Image(systemName: "arrow.clockwise")
                 }
+                if model.hasSavedCredentials {
+                    Menu {
+                        Button("Forget Saved Login", systemImage: "key.slash", role: .destructive) {
+                            model.forgetSavedCredentials()
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
+                }
             }
         }
     }
@@ -65,8 +74,9 @@ struct ScreenFeatureView: View {
             ScreenAuthSheet(
                 machineName: machine?.name ?? "your Mac",
                 schemes: schemes,
+                initialUsername: model.savedUsername,
                 errorMessage: errorMessage,
-                onSubmit: { user, pass in model.submitCredentials(username: user, password: pass) },
+                onSubmit: { user, pass, remember in model.submitCredentials(username: user, password: pass, remember: remember) },
                 onCancel: { dismiss() }
             )
             .presentationDetents([.medium])

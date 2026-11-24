@@ -53,6 +53,8 @@ data class ScreenUiState(
     val pointerMode: PointerMode = PointerMode.Trackpad,
     val activeModifiers: Set<ModifierKey> = emptySet(),
     val clipboardFromMac: String? = null,
+    val savedUsername: String = "",
+    val hasSavedCredentials: Boolean = false,
 )
 
 class ScreenViewModel(
@@ -67,18 +69,34 @@ class ScreenViewModel(
     private var backingBitmap: Bitmap? = null
     private var backingImageBitmap: ImageBitmap? = null
     private var lastSchemes: List<AuthScheme> = listOf(AuthScheme.APPLE_CREDENTIALS, AuthScheme.VNC_PASSWORD)
+    private var pendingCredentials: ScreenCredentials? = null
+    private var rememberPending = true
+    private var usingSavedCredentials = false
 
     init {
-        connect(null)
+        connectSaved()
     }
 
-    fun connect(credentials: ScreenCredentials? = null) {
+    fun connectSaved() {
+        viewModelScope.launch {
+            val saved = phone.screenCredentials(machineId)
+            val creds = saved?.let { (u, p) -> ScreenCredentials(username = u, password = p) }
+            usingSavedCredentials = creds != null
+            if (saved != null) {
+                mutable.update { it.copy(savedUsername = saved.first, hasSavedCredentials = true) }
+            }
+            connect(creds, fromStore = creds != null)
+        }
+    }
+
+    fun connect(credentials: ScreenCredentials? = null, fromStore: Boolean = false) {
         disconnect()
         val machine = phone.machine(machineId)
         if (machine == null) {
             mutable.update { it.copy(phase = ScreenPhase.Closed("Machine not connected")) }
             return
         }
+        usingSavedCredentials = fromStore && credentials != null
         mutable.update { it.copy(phase = ScreenPhase.Connecting, activeModifiers = emptySet()) }
         try {
             val screenView = machine.openScreen(credentials)
@@ -101,8 +119,12 @@ class ScreenViewModel(
         }
     }
 
-    fun submitCredentials(username: String, password: String) {
+    fun submitCredentials(username: String, password: String, remember: Boolean) {
         val creds = ScreenCredentials(username = username, password = password)
+        pendingCredentials = creds
+        rememberPending = remember
+        usingSavedCredentials = false
+        mutable.update { it.copy(savedUsername = username) }
         val currentView = view
         if (currentView != null && mutable.value.phase is ScreenPhase.AuthRequired) {
             try {
@@ -112,7 +134,14 @@ class ScreenViewModel(
             } catch (_: Exception) {
             }
         }
-        connect(creds)
+        connect(creds, fromStore = false)
+    }
+
+    fun forgetSavedCredentials() {
+        pendingCredentials = null
+        usingSavedCredentials = false
+        mutable.update { it.copy(hasSavedCredentials = false) }
+        viewModelScope.launch { phone.deleteScreenCredentials(machineId) }
     }
 
     fun togglePointerMode() {
@@ -225,6 +254,18 @@ class ScreenViewModel(
     }
 
     private suspend fun onReady(width: Int, height: Int, desktopName: String) {
+        val toSave = pendingCredentials
+        if (toSave != null) {
+            pendingCredentials = null
+            if (rememberPending) {
+                phone.saveScreenCredentials(machineId, toSave.username, toSave.password)
+                mutable.update { it.copy(hasSavedCredentials = true) }
+            } else {
+                phone.deleteScreenCredentials(machineId)
+                mutable.update { it.copy(hasSavedCredentials = false) }
+            }
+        }
+        usingSavedCredentials = false
         withContext(Dispatchers.Main.immediate) {
             val img = ensureBitmap(width, height)?.second
             mutable.update {
@@ -294,11 +335,18 @@ class ScreenViewModel(
         val next = when (reason) {
             ScreenCloseReason.SCREEN_SHARING_DISABLED ->
                 ScreenPhase.Disabled(detail.ifBlank { "Turn on Screen Sharing on your Mac." })
-            ScreenCloseReason.AUTH_FAILED ->
-                ScreenPhase.AuthRequired(
-                    lastSchemes,
-                    errorMessage = detail.ifBlank { "Wrong username or password. Try again." },
-                )
+            ScreenCloseReason.AUTH_FAILED -> {
+                pendingCredentials = null
+                val msg = if (usingSavedCredentials) {
+                    usingSavedCredentials = false
+                    mutable.update { it.copy(hasSavedCredentials = false) }
+                    viewModelScope.launch { phone.deleteScreenCredentials(machineId) }
+                    "Your saved Mac password was rejected. Enter your current password."
+                } else {
+                    detail.ifBlank { "Wrong username or password. Try again." }
+                }
+                ScreenPhase.AuthRequired(lastSchemes, errorMessage = msg)
+            }
             ScreenCloseReason.NORMAL -> ScreenPhase.Closed("Session ended")
             else -> ScreenPhase.Closed(detail.ifBlank { "Disconnected" })
         }

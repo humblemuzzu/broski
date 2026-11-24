@@ -36,6 +36,8 @@ final class ScreenModel {
     private(set) var cursorImage: CGImage?
     private(set) var cursorHotspot = CGPoint.zero
     private(set) var cursorPos = CGPoint.zero
+    private(set) var savedUsername = ""
+    private(set) var hasSavedCredentials = false
 
     var pointerMode: PointerMode = .trackpad
     var activeModifiers: ModifierKeys = []
@@ -45,9 +47,18 @@ final class ScreenModel {
     @ObservationIgnored private var rgbaBuffer = Data()
     @ObservationIgnored private var lastSchemes: [AuthScheme] = [.appleCredentials, .vncPassword]
     @ObservationIgnored private weak var machine: MachineModel?
+    @ObservationIgnored private let credentialsStore: ScreenCredentialStore
+    @ObservationIgnored private var pendingCredentials: ScreenCredentials?
+    @ObservationIgnored private var rememberPending = true
+    @ObservationIgnored private var usingSavedCredentials = false
 
-    init(machineId: String) {
+    init(machineId: String, credentialsStore: ScreenCredentialStore = ScreenCredentialStore()) {
         self.machineId = machineId
+        self.credentialsStore = credentialsStore
+        if let saved = credentialsStore.load(for: machineId) {
+            savedUsername = saved.username
+            hasSavedCredentials = true
+        }
     }
 
     func connect(using machine: MachineModel, credentials: ScreenCredentials? = nil) {
@@ -55,8 +66,21 @@ final class ScreenModel {
         self.machine = machine
         activeModifiers = []
         phase = .connecting
+        let effective: ScreenCredentials?
+        if let credentials {
+            effective = credentials
+            usingSavedCredentials = false
+        } else if let saved = credentialsStore.load(for: machineId) {
+            effective = saved
+            savedUsername = saved.username
+            hasSavedCredentials = true
+            usingSavedCredentials = true
+        } else {
+            effective = nil
+            usingSavedCredentials = false
+        }
         do {
-            let screenView = try machine.machine.openScreen(credentials: credentials)
+            let screenView = try machine.machine.openScreen(credentials: effective)
             view = screenView
             pump = Task { [weak self] in
                 while let update = await screenView.nextUpdate() {
@@ -76,8 +100,12 @@ final class ScreenModel {
         phase = .closed("This Mac is no longer paired.")
     }
 
-    func submitCredentials(username: String, password: String) {
+    func submitCredentials(username: String, password: String, remember: Bool) {
         let creds = ScreenCredentials(username: username, password: password)
+        savedUsername = username
+        pendingCredentials = creds
+        rememberPending = remember
+        usingSavedCredentials = false
         if let view, case .authRequired = phase {
             do {
                 try view.provideCredentials(credentials: creds)
@@ -88,6 +116,13 @@ final class ScreenModel {
         if let machine {
             connect(using: machine, credentials: creds)
         }
+    }
+
+    func forgetSavedCredentials() {
+        credentialsStore.remove(for: machineId)
+        pendingCredentials = nil
+        hasSavedCredentials = false
+        usingSavedCredentials = false
     }
 
     func retry() {
@@ -178,6 +213,17 @@ final class ScreenModel {
             lastSchemes = schemes
             phase = .authRequired(schemes, errorMessage: nil)
         case .ready(let width, let height, let name, _):
+            if let creds = pendingCredentials {
+                if rememberPending {
+                    credentialsStore.save(creds, for: machineId)
+                    hasSavedCredentials = true
+                } else {
+                    credentialsStore.remove(for: machineId)
+                    hasSavedCredentials = false
+                }
+                pendingCredentials = nil
+            }
+            usingSavedCredentials = false
             desktopName = name
             resizeBuffer(width: Int(width), height: Int(height))
             cursorPos = CGPoint(x: CGFloat(width) / 2, y: CGFloat(height) / 2)
@@ -205,7 +251,16 @@ final class ScreenModel {
             case .screenSharingDisabled:
                 phase = .disabled(detail.isEmpty ? "Turn on Screen Sharing on your Mac." : detail)
             case .authFailed:
-                let message = detail.isEmpty ? "Wrong username or password. Try again." : detail
+                pendingCredentials = nil
+                let message: String
+                if usingSavedCredentials {
+                    credentialsStore.remove(for: machineId)
+                    hasSavedCredentials = false
+                    usingSavedCredentials = false
+                    message = "Your saved Mac password was rejected. Enter your current password."
+                } else {
+                    message = detail.isEmpty ? "Wrong username or password. Try again." : detail
+                }
                 phase = .authRequired(lastSchemes, errorMessage: message)
             case .normal:
                 phase = .closed("Session ended")

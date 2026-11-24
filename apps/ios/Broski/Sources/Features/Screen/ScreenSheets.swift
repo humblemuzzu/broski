@@ -4,12 +4,31 @@ import SwiftUI
 struct ScreenAuthSheet: View {
     let machineName: String
     let schemes: [AuthScheme]
+    let initialUsername: String
     let errorMessage: String?
-    let onSubmit: (String, String) -> Void
+    let onSubmit: (String, String, Bool) -> Void
     let onCancel: () -> Void
 
-    @State private var username = ""
+    @State private var username: String
     @State private var password = ""
+    @State private var remember = true
+
+    init(
+        machineName: String,
+        schemes: [AuthScheme],
+        initialUsername: String = "",
+        errorMessage: String?,
+        onSubmit: @escaping (String, String, Bool) -> Void,
+        onCancel: @escaping () -> Void
+    ) {
+        self.machineName = machineName
+        self.schemes = schemes
+        self.initialUsername = initialUsername
+        self.errorMessage = errorMessage
+        self.onSubmit = onSubmit
+        self.onCancel = onCancel
+        _username = State(initialValue: initialUsername)
+    }
 
     private var needsUsername: Bool {
         schemes.contains(.appleCredentials)
@@ -32,10 +51,11 @@ struct ScreenAuthSheet: View {
                     }
                     SecureField("Mac password", text: $password)
                         .textContentType(.password)
+                    Toggle("Remember on this iPhone", isOn: $remember)
                 } header: {
                     Text("Sign in to \(machineName)")
                 } footer: {
-                    Text("Sent end-to-end encrypted through Broski Link directly to macOS Screen Sharing. Not stored on any server.")
+                    Text("Sent end-to-end encrypted through Broski Link directly to macOS Screen Sharing. Saved only in this iPhone's Keychain when remembered.")
                 }
             }
             .navigationTitle("Mac Login")
@@ -46,7 +66,7 @@ struct ScreenAuthSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Connect") {
-                        onSubmit(username.trimmingCharacters(in: .whitespacesAndNewlines), password)
+                        onSubmit(username.trimmingCharacters(in: .whitespacesAndNewlines), password, remember)
                         password = ""
                     }
                     .disabled(password.isEmpty || (needsUsername && username.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))

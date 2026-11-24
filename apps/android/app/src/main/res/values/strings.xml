@@ -203,7 +203,9 @@
     <string name="screen_auth_title">Sign in to %1$s</string>
     <string name="screen_auth_username">Mac username</string>
     <string name="screen_auth_password">Mac password</string>
+    <string name="screen_auth_remember">Remember on this phone</string>
     <string name="screen_auth_connect">Connect</string>
+    <string name="screen_forget_login">Forget saved login</string>
     <string name="screen_type_password_title">Type password</string>
     <string name="screen_type_text_title">Type text</string>
     <string name="screen_type_text_hint">Text to type on Mac</string>

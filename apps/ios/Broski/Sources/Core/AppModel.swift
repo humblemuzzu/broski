@@ -132,6 +132,7 @@ final class AppModel {
         model.retire()
         phone?.forget(id: model.id)
         removeRecord(id: model.id)
+        ScreenCredentialStore().remove(for: model.id)
         sessionPreferences.forgetMachine(model.id)
         machines.removeAll { $0.id == model.id }
         updateDiscovery()
@@ -139,6 +140,7 @@ final class AppModel {
 
     func forgetUnreadablePairing(id: String) {
         removeRecord(id: id)
+        ScreenCredentialStore().remove(for: id)
         sessionPreferences.forgetMachine(id)
         unreadablePairings.removeAll { $0 == id }
     }
