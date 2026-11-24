@@ -11,6 +11,8 @@ xcuserdata/
 .env
 .env.*
 !.env.example
+# The maintainer's own names, addresses and ids that scripts/check-personal-info.sh refuses
+.private/
 
 # Bun and TypeScript (packages/bridge)
 node_modules/

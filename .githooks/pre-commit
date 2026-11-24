@@ -8,6 +8,11 @@ ROOT=$(git rev-parse --show-toplevel)
 
 echo "🔍 Pre-commit checks..."
 
+# ── Personal details (always) ─────────────────────────────────────────────────
+
+echo "  → personal details"
+"$ROOT/scripts/check-personal-info.sh" --staged
+
 # ── Bridge (only if bridge files staged) ──────────────────────────────────────
 
 if [ -n "$(git diff --cached --name-only -- packages/bridge/ | head -1)" ]; then

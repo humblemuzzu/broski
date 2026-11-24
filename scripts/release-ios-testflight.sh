@@ -114,6 +114,8 @@ if [[ -z $IPA ]]; then
   exit 1
 fi
 echo "==> Exported: $IPA"
+echo "==> Checking the IPA for personal details"
+"$ROOT/scripts/check-personal-info.sh" --files "$IPA"
 
 if ((upload == 0)); then
   exit 0

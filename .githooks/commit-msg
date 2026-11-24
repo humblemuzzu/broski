@@ -1,0 +1,5 @@
+#!/bin/sh
+# Commit-msg hook: a commit message carries no personal details either.
+# Install: git config core.hooksPath .githooks
+
+exec "$(git rev-parse --show-toplevel)/scripts/check-personal-info.sh" --message "$1"

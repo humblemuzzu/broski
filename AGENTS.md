@@ -337,6 +337,18 @@ Follow these rules in every session so background servers never pile up and buil
 - **Bound long scripts over real data** with a memory watchdog.
 - Delete tests whose subject was deleted; write tests that prove behaviour at a real seam, not to raise a count.
 
+## Personal details
+
+This repository is public. Never write a real person's name, a real Mac or iPhone name, a home directory, a LAN or
+Tailscale address, a tailnet name, a machine or device id, a pairing link, a token or an email into code, tests,
+fixtures, docs, commit messages or release notes, even when copying from a log or `broski-link status`. Use neutral
+examples: `Studio Mac`, `Studio-MacBook-Pro-5.local`, `Sam's iPhone`, user `sam`, `/Users/me`, `192.168.1.20`,
+`100.101.102.103`, `my-mac.example.ts.net`, `tester@example.com`. Do not name other products in code, comments or
+commits. `scripts/check-personal-info.sh` refuses them: on every commit (`.githooks/pre-commit`, `commit-msg`), on
+the IPA before a TestFlight upload, and by hand with `--tree`, `--history` or `--files <release assets>` before
+anything ships. It reads the maintainer's own list from the gitignored `.private/` and also checks the current
+machine's home directory, host names and git email on its own.
+
 ## Coding conventions
 
 - 2-space indentation in docs and shell scripts, tabs in TypeScript (biome), 4 spaces in Swift and Kotlin,
