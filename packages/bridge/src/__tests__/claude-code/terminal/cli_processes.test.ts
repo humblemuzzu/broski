@@ -79,22 +79,30 @@ async function until(done: () => boolean, what: string): Promise<void> {
 }
 
 describe("a session a terminal claude holds", () => {
-	test("reads as the terminal's however quiet its transcript, and as nobody's once the process is gone", async () => {
+	test("reads as writing while busy or waiting, as an idle terminal when idle, and as nobody's once gone", async () => {
 		home = createClaudeHome();
 		rig = terminalRig(home);
 		const sessionId = quietSession(home);
 		expect(await rig.watch.writing(sessionId)).toBe(false);
+		expect(await rig.watch.hasIdleTerminal(sessionId)).toBe(false);
 
 		const pid = running();
-		await register(home, pid, sessionId, { status: "idle" });
+		await register(home, pid, sessionId, { status: "busy" });
 		expect(await rig.watch.writing(sessionId)).toBe(true);
+		expect(await rig.watch.hasIdleTerminal(sessionId)).toBe(false);
+
+		await register(home, pid, sessionId, { status: "idle" });
+		expect(await rig.watch.writing(sessionId)).toBe(false);
+		expect(await rig.watch.hasIdleTerminal(sessionId)).toBe(true);
 
 		rig.hosted.add(sessionId);
 		expect(await rig.watch.writing(sessionId)).toBe(false);
+		expect(await rig.watch.hasIdleTerminal(sessionId)).toBe(false);
 		rig.hosted.delete(sessionId);
 
 		rmSync(registerFile(home, pid));
 		expect(await rig.watch.writing(sessionId)).toBe(false);
+		expect(await rig.watch.hasIdleTerminal(sessionId)).toBe(false);
 	});
 
 	test("an entry a dead process left, one whose pid now names another process, and an SDK's own are no terminal", async () => {
@@ -148,7 +156,7 @@ describe("a session a terminal claude holds", () => {
 		expect(announced.length).toBeGreaterThan(announcedBeforeExit);
 	});
 
-	test("a terminal that just exited clears writing() at once even when the transcript was written moments ago", async () => {
+	test("a terminal that just finished a turn clears writing() at once even when the transcript was written moments ago", async () => {
 		home = createClaudeHome();
 		rig = terminalRig(home);
 		const watch = rig.watch;
@@ -163,6 +171,11 @@ describe("a session a terminal claude holds", () => {
 
 		const now = new Date();
 		utimesSync(path, now, now);
+		await register(home, pid, sessionId, { status: "idle" });
+		await until(() => watch.row(sessionId)?.status === "idle", "the process to go idle");
+		expect(await watch.writing(sessionId)).toBe(false);
+		expect(await watch.hasIdleTerminal(sessionId)).toBe(true);
+
 		rmSync(registerFile(home, pid));
 		await until(() => watch.row(sessionId) === undefined, "the process to exit");
 		expect(await watch.writing(sessionId)).toBe(false);

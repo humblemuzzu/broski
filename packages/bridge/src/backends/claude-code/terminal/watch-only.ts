@@ -25,38 +25,80 @@ export function createTerminalWatch(deps: TerminalDeps): TerminalWatch {
 	const takesAsks = services.terminal.hookAsks !== undefined;
 	const sessions = new TerminalSessions(services.clock);
 	const paths = new TranscriptPaths(deps.locate);
-	/** When a tracked terminal process last exited each session, so its own final flush does not re-trigger `WRITING_MS`. */
-	const exitedAt = new Map<SessionId, number>();
+	/** When a tracked terminal last finished a turn or exited each session, so its final flush does not re-trigger `WRITING_MS`. */
+	const settledAt = new Map<SessionId, number>();
+	const active = new Set<SessionId>();
+	const quietChecks = new Map<SessionId, () => void>();
 	const presenceWatchers = new Map<SessionId, Set<(event: TerminalPresenceEvent) => void>>();
+	let disposed = false;
+	const cancelQuietCheck = (sessionId: SessionId): void => {
+		quietChecks.get(sessionId)?.();
+		quietChecks.delete(sessionId);
+	};
 	const notifyPresence = (sessionId: SessionId, event: TerminalPresenceEvent): void => {
 		const listeners = presenceWatchers.get(sessionId);
 		if (listeners === undefined) return;
 		for (const listener of [...listeners]) listener(event);
+	};
+	const armQuietCheck = (sessionId: SessionId): void => {
+		if (
+			disposed ||
+			quietChecks.has(sessionId) ||
+			active.has(sessionId) ||
+			sessions.isAsked(sessionId) ||
+			presenceWatchers.get(sessionId)?.size === undefined
+		) {
+			return;
+		}
+		const cancel = services.clock.after(WRITING_MS + 100, () => {
+			quietChecks.delete(sessionId);
+			if (disposed || presenceWatchers.get(sessionId)?.size === undefined || active.has(sessionId)) return;
+			void writing(deps, sessions, paths, processes, settledAt, sessionId).then((stillWriting) => {
+				if (disposed) return;
+				if (stillWriting) armQuietCheck(sessionId);
+				else notifyPresence(sessionId, "idle");
+			});
+		});
+		quietChecks.set(sessionId, cancel);
+	};
+	const noteSettled = (sessionId: SessionId): void => {
+		if (settledAt.size >= MAX_KNOWN_PATHS) {
+			const oldest = settledAt.keys().next();
+			if (!oldest.done) settledAt.delete(oldest.value);
+		}
+		settledAt.set(sessionId, services.clock.now());
 	};
 	const processes = new CliProcesses(
 		join(services.sdk.configRoot(), "sessions"),
 		services.clock,
 		(sessionId, transition) => {
 			const status = processes.row(sessionId)?.status;
-			if (transition === "entered") {
-				exitedAt.delete(sessionId);
-				notifyPresence(sessionId, "entered");
+			const nowActive = transition !== "exited" && (status === "running" || status === "waiting_for_user");
+			const wasActive = active.has(sessionId);
+			if (!wasActive && nowActive) {
+				active.add(sessionId);
+				cancelQuietCheck(sessionId);
+				settledAt.delete(sessionId);
+				notifyPresence(sessionId, "active");
+			} else if (wasActive && !nowActive) {
+				active.delete(sessionId);
+				noteSettled(sessionId);
+				sessions.terminalIdle(sessionId);
+				notifyPresence(sessionId, "idle");
 			} else if (transition === "exited") {
-				if (exitedAt.size >= MAX_KNOWN_PATHS) {
-					const oldest = exitedAt.keys().next();
-					if (!oldest.done) exitedAt.delete(oldest.value);
-				}
-				exitedAt.set(sessionId, services.clock.now());
+				noteSettled(sessionId);
 				sessions.terminalIdle(sessionId);
-				notifyPresence(sessionId, "exited");
-			} else if (status === undefined || status === "idle") {
-				sessions.terminalIdle(sessionId);
+				notifyPresence(sessionId, "idle");
 			}
 			deps.announce(sessionId);
 		},
 	);
 	return {
-		writing: (sessionId) => writing(deps, sessions, paths, processes, exitedAt, sessionId),
+		writing: (sessionId) => writing(deps, sessions, paths, processes, settledAt, sessionId),
+		hasIdleTerminal: async (sessionId) => {
+			if (deps.hosted(sessionId) || sessions.isAsked(sessionId)) return false;
+			return (await processes.holder(sessionId))?.status === "idle";
+		},
 		row: (sessionId) => {
 			if (deps.hosted(sessionId)) return undefined;
 			const row = processes.row(sessionId);
@@ -70,7 +112,11 @@ export function createTerminalWatch(deps: TerminalDeps): TerminalWatch {
 			const activeProcess = status === "running" || status === "waiting_for_user";
 			const session = await sessions.acquire(ref.sessionId, stored.path, sink, activeProcess).catch(() => undefined);
 			if (session === undefined) return rejected("backend_error", "the terminal session could not be followed");
-			const open = watchOnlySession(ref, session, takesAsks, () => sessions.release(ref.sessionId, sink));
+			const open = watchOnlySession(ref, session, takesAsks, () => {
+				sessions.release(ref.sessionId, sink);
+				if (presenceWatchers.get(ref.sessionId)?.size === undefined) cancelQuietCheck(ref.sessionId);
+			});
+			armQuietCheck(ref.sessionId);
 			return { status: "accepted", snapshot: session.live.snapshot(), session: open };
 		},
 		watchPresence: (sessionId, listener) => {
@@ -79,7 +125,10 @@ export function createTerminalWatch(deps: TerminalDeps): TerminalWatch {
 			presenceWatchers.set(sessionId, set);
 			return () => {
 				set.delete(listener);
-				if (set.size === 0 && presenceWatchers.get(sessionId) === set) presenceWatchers.delete(sessionId);
+				if (set.size === 0 && presenceWatchers.get(sessionId) === set) {
+					presenceWatchers.delete(sessionId);
+					cancelQuietCheck(sessionId);
+				}
 			};
 		},
 		finishExited: (sessionId) => sessions.finishExited(sessionId),
@@ -88,10 +137,14 @@ export function createTerminalWatch(deps: TerminalDeps): TerminalWatch {
 			processes.start();
 		},
 		dispose: async () => {
+			disposed = true;
 			processes.dispose();
 			sessions.dispose();
 			paths.clear();
-			exitedAt.clear();
+			settledAt.clear();
+			active.clear();
+			for (const cancel of quietChecks.values()) cancel();
+			quietChecks.clear();
 			presenceWatchers.clear();
 		},
 	};
@@ -127,28 +180,33 @@ class TranscriptPaths {
 }
 
 /**
- * Whether a terminal has the session now: it has an ask raised, a terminal `claude` holds it, however quiet, or its
- * file was written lately and not by us.
+ * Whether a terminal is actively running or writing the session now: it has an ask raised, a tracked terminal
+ * `claude` reports `busy` or `waiting`, or (when no tracked process reports `idle`) its file was written lately
+ * and not by us.
  */
 async function writing(
 	deps: TerminalDeps,
 	sessions: TerminalSessions,
 	paths: TranscriptPaths,
 	processes: CliProcesses,
-	exitedAt: ReadonlyMap<SessionId, number>,
+	settledAt: ReadonlyMap<SessionId, number>,
 	sessionId: SessionId,
 ): Promise<boolean> {
 	if (deps.hosted(sessionId)) return false;
 	if (sessions.isAsked(sessionId)) return true;
-	if ((await processes.holder(sessionId)) !== undefined) return true;
+	const holder = await processes.holder(sessionId);
+	if (holder !== undefined) {
+		if (holder.status === "running" || holder.status === "waiting_for_user") return true;
+		if (holder.status === "idle") return false;
+	}
 	const path = await paths.of(sessionId);
 	if (path === undefined) return false;
 	try {
 		const written = (await stat(path)).mtimeMs;
 		const own = deps.ownWriteAt(sessionId);
 		if (own !== undefined && written <= own + OWN_FLUSH_MS) return false;
-		const exited = exitedAt.get(sessionId);
-		if (exited !== undefined && written <= exited + OWN_FLUSH_MS) return false;
+		const settled = settledAt.get(sessionId);
+		if (settled !== undefined && written <= settled + OWN_FLUSH_MS) return false;
 		return deps.services.clock.now() - written <= WRITING_MS;
 	} catch {
 		paths.forget(sessionId);

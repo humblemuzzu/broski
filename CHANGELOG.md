@@ -2,6 +2,30 @@
 
 All notable changes to Broski are documented here.
 
+## v0.1.1 — Seamless Terminal Handoff, Model Wheel & Switching Fixes (2026-11-24)
+
+### Highlights
+
+- **Continue Any Idle Terminal Session from Your Phone**: Claude Code sessions left open at the prompt in a Mac terminal tab or tmux pane now open immediately controllable on iOS and Android instead of locking you into watch-only mode. When a terminal is actively mid-turn, the phone streams it live, lets you answer prompts, and automatically unlocks the composer the moment that turn finishes (no need to close the terminal on your Mac).
+- **Model Wheel & Thinking Slider**: Pinned models now roll on a tactile drum wheel and thinking/effort levels slide across an interactive track with native haptics on both iOS and Android.
+- **Reliable Mid-Chat Model & Thinking Switching**: Fixed catalog races and state clobbering that could leave the model/thinking sheet blank or unresponsive right after starting a new Claude Code chat, and added direct **Model** access in the chat `...` menu on both apps.
+
+### Bridge (Claude Code & Pi)
+
+- **Claude Code Idle-Terminal Dormant Control**: `watch-only.ts` and `open-session.ts` now distinguish actively running terminal turns (`busy` / `waiting`, pending hook asks, or untracked recent writes) from idle terminal tabs (`idle` / `shell`). Idle terminal sessions open controllable in dormant mode (spawning no extra `claude` process until you act) and seamlessly switch to live watch if you start typing on your Mac.
+- **Instant Post-Turn Auto-Promotion**: `PromotableWatchView` now promotes from watch-only to controllable as soon as an active terminal turn goes idle (clearing the 10 s mtime window immediately) or when an untracked write window expires.
+- **New-Session Metadata Before First Flush**: Newly created Claude Code sessions now serve live `getSession` summaries and `listCommands` using the live host's `cwd` before turn 1 writes a `.jsonl` file, eliminating the initial `not_found` race when transitioning from New Session to Chat.
+- **Wire Model ID Matching**: `listedModelIdOf` now maps dated (`-YYYYMMDD`) and context-suffixed (`[1m]`) Claude wire model IDs back to their listed catalog row.
+- **Pi Dormant Thinking Level**: `rereadSession` now reads the latest `thinking_level_change` entry on the active branch so dormant and reopened Pi sessions show their current thinking level right away.
+
+### iOS & Android Apps
+
+- **Model Wheel & Thinking Slider**: Replaced the flat model list with a drum wheel for pinned/short model lists and a continuous slider for thinking levels, keeping the opened-on model and pinned order stable while the sheet is open.
+- **Faster, Failure-Tolerant Catalog Loading**: Android `CatalogReader` and iOS `ComposerCatalog` now load models, modes, and slash commands independently so a slow commands probe never blocks the model picker, and keep existing models across transient reloads. Fixed iOS `ComposerCatalog.model(_:)` falling back to `nil` for unlisted wire IDs.
+- **Merged & Serialized Setting Changes**: Rapid model → thinking → mode selections now merge pending state cleanly (clearing stale thinking when switching to a different model) and execute RPCs in strict order without waiting on the 1 s UI settle grace.
+- **Model Entry in Chat Menu**: Added **Model** directly to the chat `...` overflow menu on both iOS and Android so you can switch models, thinking, or permission modes without expanding the composer first.
+- **Native Haptics & Cleaner Usage Cards**: Added tactile haptics across swipe back, pull to refresh, new-session send, copies, and terminal keys, and removed the pace line and pace labels from usage cards while keeping "Runs out" when it applies.
+
 ## v0.1.0 — Initial Open-Source Release (2026-11-24)
 
 Broski is a native iOS and Android remote and inbox for the AI coding agents already running on your Mac. It drives your own installed **Claude Code** and **Pi** with your real config, permissions, models, and extensions — over an end-to-end encrypted link on your local network or a self-hosted blind relay.

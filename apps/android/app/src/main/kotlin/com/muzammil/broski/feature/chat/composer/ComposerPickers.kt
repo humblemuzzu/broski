@@ -60,7 +60,8 @@ data class ComposerSettings(
     val modes: Map<String, String> = emptyMap(),
     val cache: CacheWindow? = null,
 ) {
-    val model: ModelSummary? get() = models.firstOrNull { it.id == modelId } ?: models.firstOrNull { it.isDefault }
+    val model: ModelSummary? get() =
+        models.firstOrNull { it.id == modelId } ?: models.firstOrNull { it.isDefault } ?: models.firstOrNull()
 
     /** What the person just [picked], shown before the session reports it. */
     fun showing(picked: Picked?): ComposerSettings = if (picked == null) this else copy(
@@ -72,7 +73,16 @@ data class ComposerSettings(
 
 /** A model, level or mode the person picked that the session has not reported yet. */
 @Immutable
-data class Picked(val modelId: String? = null, val thinking: String? = null, val modes: Map<String, String> = emptyMap())
+data class Picked(val modelId: String? = null, val thinking: String? = null, val modes: Map<String, String> = emptyMap()) {
+    fun merge(next: Picked): Picked {
+        val switched = next.modelId != null && next.modelId != modelId
+        return Picked(
+            modelId = next.modelId ?: modelId,
+            thinking = if (switched) next.thinking else next.thinking ?: thinking,
+            modes = modes + next.modes,
+        )
+    }
+}
 
 /** A model comes with the level last chosen on it, when it offers that level, applied after the model. */
 @Immutable

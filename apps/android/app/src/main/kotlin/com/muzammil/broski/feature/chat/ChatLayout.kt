@@ -61,6 +61,9 @@ import com.muzammil.broski.design.format.LocalFormatLinks
 import com.muzammil.broski.design.label
 import com.muzammil.broski.design.orb.OrbState
 import com.muzammil.broski.design.perform
+import com.muzammil.broski.feature.chat.composer.ComposerSettings
+import com.muzammil.broski.feature.chat.composer.ModelSheet
+import com.muzammil.broski.feature.chat.composer.SettingActions
 import com.muzammil.broski.feature.chat.header.ChatTopBar
 import com.muzammil.broski.feature.chat.header.SessionMenu
 import com.muzammil.broski.feature.chat.header.SessionInfoSheet
@@ -196,9 +199,10 @@ private fun Header(model: ChatViewModel, context: FeatureContext, dialogs: ChatD
     val header by model.header.collectAsStateWithLifecycle()
     val percent by model.contextPercent.collectAsStateWithLifecycle()
     var menuOpen by remember { mutableStateOf(false) }
+    var modelOpen by rememberSaveable { mutableStateOf(false) }
     var infoOpen by rememberSaveable { mutableStateOf(false) }
     val copier = rememberChatCopier(snackbar)
-    val actions = sessionMenuActions(model, dialogs, snackbar, copier, folderLinks(model, context, header.cwd, snackbar)) { infoOpen = true }
+    val actions = sessionMenuActions(model, dialogs, snackbar, copier, folderLinks(model, context, header.cwd, snackbar), { modelOpen = true }) { infoOpen = true }
     ChatTopBar(
         header = header,
         contextPercent = percent,
@@ -208,6 +212,29 @@ private fun Header(model: ChatViewModel, context: FeatureContext, dialogs: ChatD
         onMenu = { menuOpen = it },
         modifier = modifier,
     )
+    if (modelOpen) {
+        val bottom by model.bottom.collectAsStateWithLifecycle()
+        LaunchedEffect(bottom.capabilities?.controllable) {
+            if (bottom.capabilities?.controllable == false) modelOpen = false
+        }
+        if (bottom.capabilities?.controllable != false) {
+            val catalog by model.catalog.catalog.collectAsStateWithLifecycle()
+            val picked by model.actions.picked.collectAsStateWithLifecycle()
+            val settings = remember(model.sessionKey.backend, catalog.models, catalog.modes, bottom.modelId, bottom.thinking, bottom.modes, bottom.cache, picked) {
+                ComposerSettings(
+                    backend = model.sessionKey.backend,
+                    models = catalog.models,
+                    modelId = bottom.modelId,
+                    thinking = bottom.thinking,
+                    axes = catalog.modes,
+                    modes = bottom.modes.associate { it.axis to it.value },
+                    cache = bottom.cache,
+                ).showing(picked)
+            }
+            val settingActions = remember(model) { SettingActions(model.actions::setModel, model.actions::setThinking, model.actions::setMode) }
+            ModelSheet(settings, settingActions) { modelOpen = false }
+        }
+    }
     if (infoOpen) {
         val live by model.live.collectAsStateWithLifecycle()
         val catalog by model.catalog.catalog.collectAsStateWithLifecycle()

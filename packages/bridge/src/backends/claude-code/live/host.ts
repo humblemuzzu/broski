@@ -9,6 +9,7 @@ import {
 	type SessionRef,
 	type SessionSink,
 	type SessionSnapshot,
+	type SessionSummary,
 	sessionStatus,
 } from "../../../contract";
 import { clip } from "../bounds";
@@ -42,6 +43,8 @@ import { SessionSettings } from "./settings";
 
 export class SessionHost {
 	readonly cwd: string;
+	private readonly createdAt: number;
+	private updatedAt: number;
 	private id: SessionId;
 	private readonly state: LiveState;
 	readonly live: HostEmitter;
@@ -72,6 +75,8 @@ export class SessionHost {
 		this.id = start.sessionId;
 		this.persisted = start.resume;
 		const now = () => deps.services.clock.now();
+		this.createdAt = now();
+		this.updatedAt = this.createdAt;
 		this.watch = new IdleWatch(
 			deps.services.clock,
 			() => !this.finished && !this.state.attached && this.idle(),
@@ -191,6 +196,21 @@ export class SessionHost {
 			...(snapshot.modelId !== undefined && { modelId: snapshot.modelId }),
 			...(runStartedAt !== undefined && { runStartedAt }),
 			...(cut !== undefined && { cut }),
+		};
+	}
+
+	summary(): SessionSummary {
+		const snapshot = this.state.snapshot();
+		const runStartedAt = snapshot.run?.startedAt ?? snapshot.compaction?.startedAt;
+		return {
+			session: this.ref,
+			cwd: this.cwd,
+			createdAt: this.createdAt,
+			updatedAt: this.updatedAt,
+			status: sessionStatus(snapshot),
+			origin: "broski",
+			...(snapshot.modelId !== undefined && { modelId: snapshot.modelId }),
+			...(runStartedAt !== undefined && { runStartedAt }),
 		};
 	}
 
@@ -328,6 +348,7 @@ export class SessionHost {
 	}
 
 	rowChanged(): void {
+		this.updatedAt = this.deps.services.clock.now();
 		const { store } = this.deps;
 		try {
 			store.invalidate(this.id);

@@ -124,7 +124,7 @@ fun ChatBottom(model: ChatViewModel, openDiff: (FileChange) -> Unit, openVoiceSe
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     ask?.let { AskPill(it, bottom.interactions.size) { folded = null } }
                     if (capabilities?.controllable == false) {
-                        WatchOnly()
+                        WatchOnly(canAnswer = capabilities.answer)
                     } else {
                         ChatComposer(model, bottom = bottom, openVoiceSettings = openVoiceSettings)
                     }
@@ -228,10 +228,10 @@ private fun ChatComposer(model: ChatViewModel, bottom: ChatBottomSlice, openVoic
 }
 
 @Composable
-private fun WatchOnly() {
+private fun WatchOnly(canAnswer: Boolean) {
     Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth()) {
         Text(
-            stringResource(R.string.chat_watch_only),
+            stringResource(if (canAnswer) R.string.chat_watch_only else R.string.chat_watch_only_no_answer),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(16.dp),

@@ -89,8 +89,11 @@ describe("listedModelIdOf", () => {
 		expect(listedModelIdOf(FIVE_MODELS, "claude-opus-5-5")).toBe("default");
 	});
 
-	test("is undefined for a model nothing resolves to, such as a retired id", () => {
+	test("maps dated and context-suffixed wire ids to their listed row, and leaves retired ids undefined", () => {
+		expect(listedModelIdOf(FIVE_MODELS, "claude-sonnet-5-5-20260101")).toBe("sonnet");
+		expect(listedModelIdOf(FIVE_MODELS, "claude-opus-5-5[1m]")).toBe("default");
 		expect(listedModelIdOf(FIVE_MODELS, "claude-opus-4-1")).toBeUndefined();
+		expect(listedModelIdOf(FIVE_MODELS, "claude-opus-4-1-20250805")).toBeUndefined();
 		expect(listedModelIdOf([], "claude-opus-5-5")).toBeUndefined();
 	});
 });

@@ -66,11 +66,28 @@ private struct ChatContent: View {
             .toolbar {
                 ChatToolbar(
                     chat: chat, machine: machine, title: title, cwd: cwd, capabilities: capabilities,
+                    canPickModel: chat.canControl && (!catalog.models.isEmpty || !catalog.modes.isEmpty),
                     markUnread: unreadAction, dialog: $dialog)
             }
             .chatDialogs(chat, agent: agent, machineName: machine.name, title: title, dialog: $dialog)
             .sheet(isPresented: showingInfo) {
                 SessionInfoSheet(chat: chat, machine: machine, title: title, cwd: cwd, catalog: catalog)
+            }
+            .sheet(isPresented: showingModel) {
+                ModelSheet(
+                    backend: chat.session.backend, catalog: catalog,
+                    choices: ComposerChoices(chat.snapshot, pending: chat.pendingChoice),
+                    cache: chat.snapshot.usage?.cache
+                ) { choice in
+                    chat.play(.pickerStep)
+                    Task {
+                        switch choice {
+                        case .model(let id, let thinking): await chat.setModel(id, thinking: thinking)
+                        case .thinking(let value): await chat.setThinking(value)
+                        case .mode(let axis, let value): await chat.setMode(axis: axis, value: value)
+                        }
+                    }
+                }
             }
             .cacheExpiryClock(chat.snapshot.usage?.cache)
             .toolbarVisibility(.hidden, for: .tabBar)
@@ -116,6 +133,10 @@ private struct ChatContent: View {
 
     private var showingInfo: Binding<Bool> {
         Binding { dialog == .info } set: { if !$0 { dialog = nil } }
+    }
+
+    private var showingModel: Binding<Bool> {
+        Binding { dialog == .model } set: { if !$0 { dialog = nil } }
     }
 
     /// Offered while the session is settled; leaves the chat once marked.

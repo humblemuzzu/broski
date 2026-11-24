@@ -64,11 +64,18 @@ class ModelPickingTest {
 
     @Test
     fun whatThePersonPickedShowsUntilTheSessionReportsIt() {
-        val settings = ComposerSettings(modelId = "fake-large", thinking = "high", modes = mapOf("permissions" to "default"))
-            .showing(Picked(modelId = "fake-small", modes = mapOf("permissions" to "plan")))
+        val merged = Picked(modelId = "fake-small").merge(Picked(thinking = "low", modes = mapOf("permissions" to "plan")))
+        val settings = ComposerSettings(
+            models = listOf(summary("fake-large"), summary("fake-small")),
+            modelId = "fake-large",
+            thinking = "high",
+            modes = mapOf("permissions" to "default"),
+        ).showing(merged)
         assertEquals("fake-small", settings.modelId)
-        assertEquals("high", settings.thinking)
+        assertEquals("low", settings.thinking)
         assertEquals("plan", settings.modes["permissions"])
+        assertNull(merged.merge(Picked(modelId = "fake-other")).thinking)
+        assertEquals("fake-large", ComposerSettings(models = listOf(summary("fake-large")), modelId = "unlisted-wire-id").model?.id)
     }
 
     @Test

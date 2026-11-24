@@ -53,19 +53,30 @@ extension ChatModel {
         }
     }
 
-    /// Shows `choice` at once. The bridge's answer and the session's own report of the change come
-    /// on separate paths, so the choice is kept a moment past the answer rather than letting the
-    /// old value flash back in between.
-    private func change(_ choice: ComposerChoices, _ request: () async throws(ChatProblem) -> Void) async {
-        pendingChoice = choice
-        do throws(ChatProblem) {
-            try await request()
-            settlePendingChoice()
-            try? await Task.sleep(for: .seconds(1))
-        } catch {
-            report(error)
+    /// Shows `choice` at once and serializes setting requests so a thinking change after a model
+    /// switch always lands after the model switch, without delaying the next request by the settle
+    /// grace period.
+    private func change(_ choice: ComposerChoices, _ request: @escaping () async throws(ChatProblem) -> Void) async {
+        settingSeq &+= 1
+        let seq = settingSeq
+        pendingChoice = pendingChoice?.merged(with: choice) ?? choice
+        let previous = settingTail
+        let rpc = Task<Bool, Never> { @MainActor [weak self] in
+            await previous?.value
+            guard let self else { return false }
+            do throws(ChatProblem) {
+                try await request()
+                self.settlePendingChoice()
+                return true
+            } catch {
+                self.report(error)
+                return false
+            }
         }
-        if pendingChoice == choice { pendingChoice = nil }
+        settingTail = Task { _ = await rpc.value }
+        let accepted = await rpc.value
+        if accepted { try? await Task.sleep(for: .seconds(1)) }
+        if settingSeq == seq { pendingChoice = nil }
     }
 
     /// Drops the shown choice once the session reports all of it.

@@ -110,13 +110,14 @@ function rowOf(w: World, status: string) {
 
 describe("a session a terminal claude holds", () => {
 	test(
-		"opens watch-only during a quiet stretch, starts no second claude, and lists with the terminal's status",
+		"opens watch-only while busy, promotes to controllable as soon as the terminal goes idle, and lists with the terminal's status",
 		async () => {
 			const w = await world();
 			const setStatus = await terminalClaude(w, "busy");
 			const ref = { backend: "claude-code" as const, sessionId: w.sessionId };
+			const recorder = new SessionRecorder(WAIT_MS);
 
-			const opened = await w.backend.open({ kind: "existing", session: ref }, new SessionRecorder(WAIT_MS));
+			const opened = await w.backend.open({ kind: "existing", session: ref }, recorder);
 			expect(opened.status).toBe("accepted");
 			if (opened.status !== "accepted") return;
 			expect(opened.session.control).toBeUndefined();
@@ -130,6 +131,61 @@ describe("a session a terminal claude holds", () => {
 			expect(Date.now() - changedAt).toBeLessThan(SWEEP_MS);
 			await setStatus("idle");
 			await w.catalog.waitFor(rowOf(w, "idle"), "the row to go idle");
+			await recorder.waitFor(
+				(records) => records.find((record) => record.event.type === "session_replaced"),
+				"promotion to controllable",
+			);
+			expect(opened.session.control).toBeDefined();
+			expect(w.started).toEqual([]);
+			await opened.session.close();
+		},
+		CLI_TEST_MS,
+	);
+
+	test(
+		"an idle terminal session opens controllable right away without spawning claude until the phone acts",
+		async () => {
+			const w = await world();
+			await terminalClaude(w, "idle");
+			const ref = { backend: "claude-code" as const, sessionId: w.sessionId };
+			const recorder = new SessionRecorder(WAIT_MS);
+
+			const opened = await w.backend.open({ kind: "existing", session: ref }, recorder);
+			expect(opened.status).toBe("accepted");
+			if (opened.status !== "accepted") return;
+			expect(opened.session.control).toBeDefined();
+			expect(w.started).toEqual([]);
+
+			const prompt = await opened.session.control?.prompt({
+				clientRequestId: crypto.randomUUID(),
+				mode: "start",
+				text: "continue from phone",
+				attachments: [],
+			});
+			expect(prompt).toEqual({ status: "accepted", disposition: "started" });
+			expect(w.started).toHaveLength(1);
+			await recorder.waitFor(
+				(records) => records.find((record) => record.event.type === "run_finished"),
+				"resumed turn to finish",
+			);
+			await opened.session.close();
+		},
+		CLI_TEST_MS,
+	);
+
+	test(
+		"a newly created session serves getSession and listCommands before its first turn writes a file",
+		async () => {
+			const w = await world();
+			const recorder = new SessionRecorder(WAIT_MS);
+			const opened = await w.backend.open({ kind: "new", options: { cwd: w.home.projectDir } }, recorder);
+			expect(opened.status).toBe("accepted");
+			if (opened.status !== "accepted") return;
+			const got = await w.backend.getSession(opened.session.session);
+			expect(got.status).toBe("accepted");
+			if (got.status === "accepted") expect(got.summary.cwd).toBe(w.home.projectDir);
+			const commands = await w.backend.listCommands({ session: opened.session.session });
+			expect(commands.status).toBe("accepted");
 			await opened.session.close();
 		},
 		CLI_TEST_MS,

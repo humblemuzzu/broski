@@ -70,6 +70,7 @@ export interface StoredFacts {
 	readonly lastEntryId: string | null;
 	readonly permissions: PermissionsRecord;
 	readonly summary: SessionSummary | undefined;
+	readonly thinking?: string;
 }
 
 /** The newest of a file's entries, for a host that takes over a `pi` whose messages are already in it. */

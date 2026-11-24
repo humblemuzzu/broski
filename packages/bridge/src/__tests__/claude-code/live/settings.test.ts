@@ -160,4 +160,37 @@ describe("settings on the real CLI", () => {
 		},
 		CLI_TEST_MS,
 	);
+
+	test(
+		"model and thinking level can both be changed after a completed turn and apply to the next turn",
+		async () => {
+			const rig = realRig(
+				[
+					{ text: ["first"], echoModel: true },
+					{ text: ["second"], echoModel: true },
+				],
+				{
+					catalogue: standInCatalogue({ "claude-sonnet-5-5": "sonnet", "claude-opus-5-5": "default" }),
+				},
+			);
+			try {
+				const live = await rig.openNew(rig.home.projectDir, { modelId: "sonnet", thinking: "low" });
+				await live.run("turn one");
+				expect((await live.control.setModel("default")).status).toBe("accepted");
+				expect((await live.control.setThinking("high")).status).toBe("accepted");
+				await live.run("turn two");
+				const first = bodyOf(rig.server.mainRequests()[0]);
+				const second = bodyOf(rig.server.mainRequests()[1]);
+				expect(first.model).toBe("claude-sonnet-5-5");
+				expect(first.output_config).toEqual({ effort: "low" });
+				expect(second.model).toBe("claude-opus-5-5");
+				expect(second.output_config).toEqual({ effort: "high" });
+				expect(live.reduced()).toMatchObject({ modelId: "default", thinking: "high" });
+				live.assertSettled();
+			} finally {
+				await rig.dispose();
+			}
+		},
+		CLI_TEST_MS,
+	);
 });

@@ -18,7 +18,7 @@ upload=1
 wait_processing=0
 submit_review=0
 groups=""
-test_notes="Broski 0.1.0 beta: native SwiftUI remote for Claude Code and Pi on macOS. Includes Steer-by-default mid-run messaging, collapsible Worked-for turn summaries, daemon-synced notification switches, Live Activity tracking, workspace files/git/libghostty terminal, voice dictation, and local stats."
+test_notes="Broski 0.1.1: continue idle terminal-open Claude Code sessions directly from your phone (auto-promoting as soon as an active turn finishes), new 3D model wheel and thinking-level slider with haptics, Model picker in the chat overflow menu, and fixes for changing model/thinking after the first message."
 
 while (($# > 0)); do
   case $1 in

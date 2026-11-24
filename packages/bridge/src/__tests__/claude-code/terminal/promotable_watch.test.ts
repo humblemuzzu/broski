@@ -119,7 +119,7 @@ describe("PromotableWatchView", () => {
 		expect(opened.session.control).toBeUndefined();
 
 		terminalActive = false;
-		listener?.("exited");
+		listener?.("idle");
 		await Bun.sleep(20);
 
 		expect(flushed).toBe(1);
@@ -202,21 +202,110 @@ describe("PromotableWatchView", () => {
 		if (opened.status !== "accepted") throw new Error("open failed");
 
 		terminalActive = false;
-		listener?.("exited");
+		listener?.("idle");
 		await Bun.sleep(20);
 		expect(sessionCapabilities(opened.session).controllable).toBe(true);
 
 		terminalActive = true;
-		listener?.("entered");
+		listener?.("active");
 		await Bun.sleep(20);
 		expect(sessionCapabilities(opened.session).controllable).toBe(false);
 		expect(opened.session.answer).toBeDefined();
 
 		rmSync(subdir, { recursive: true, force: true });
 		terminalActive = false;
-		listener?.("exited");
+		listener?.("idle");
 		await Bun.sleep(20);
 		expect(sessionCapabilities(opened.session).controllable).toBe(false);
+		await opened.session.close();
+	});
+
+	test("starts controllable in dormant mode for an idle terminal, watches when active, and promotes back on idle", async () => {
+		home = createClaudeHome();
+		const ref: SessionRef = { backend: "claude-code", sessionId: crypto.randomUUID() };
+		const stored = {
+			sessionId: ref.sessionId,
+			cwd: home.projectDir,
+			path: join(home.configDir, "projects", "p", `${ref.sessionId}.jsonl`),
+			origin: "external" as const,
+			lastModified: Date.now(),
+		};
+		let listener: ((event: TerminalPresenceEvent) => void) | undefined;
+		let terminalActive = false;
+		let watchOpens = 0;
+		let hostedOpens = 0;
+		const prompts: string[] = [];
+		const records: SinkRecord[] = [];
+
+		const opened = await openPromotableWatch(
+			{
+				ref,
+				watchPresence: (cb) => {
+					listener = cb;
+					return () => {
+						listener = undefined;
+					};
+				},
+				finishExited: async () => {},
+				isTerminalActive: async () => terminalActive,
+				locate: async () => stored,
+				dormantSnapshot: async () => dormantClaudeSnapshot("sonnet"),
+				openWatch: async () => {
+					watchOpens += 1;
+					return {
+						status: "accepted",
+						snapshot: emptySnapshot(),
+						session: {
+							session: ref,
+							snapshot: emptySnapshot,
+							answer: async () => ({ status: "accepted" }),
+							close: async () => {},
+						},
+					};
+				},
+				openHosted: async () => {
+					hostedOpens += 1;
+					const hosted: OpenSession = {
+						session: ref,
+						snapshot: () => dormantClaudeSnapshot("sonnet"),
+						control: fakeControl(prompts),
+						close: async () => {},
+					};
+					return { status: "accepted", session: hosted, snapshot: hosted.snapshot() };
+				},
+				now: () => 3_000,
+			},
+			stored,
+			{ emit: (record) => records.push(record) },
+			"dormant",
+		);
+		expect(opened.status).toBe("accepted");
+		if (opened.status !== "accepted") return;
+
+		expect(sessionCapabilities(opened.session).controllable).toBe(true);
+		expect(watchOpens).toBe(0);
+		expect(hostedOpens).toBe(0);
+
+		terminalActive = true;
+		listener?.("active");
+		await Bun.sleep(20);
+		expect(sessionCapabilities(opened.session).controllable).toBe(false);
+		expect(watchOpens).toBe(1);
+
+		terminalActive = false;
+		listener?.("idle");
+		await Bun.sleep(20);
+		expect(sessionCapabilities(opened.session).controllable).toBe(true);
+
+		const sent = await opened.session.control?.prompt({
+			clientRequestId: crypto.randomUUID(),
+			mode: "start",
+			text: "pick up after idle terminal",
+			attachments: [],
+		});
+		expect(sent).toEqual({ status: "accepted", disposition: "started" });
+		expect(hostedOpens).toBe(1);
+		expect(prompts).toEqual(["pick up after idle terminal"]);
 		await opened.session.close();
 	});
 });

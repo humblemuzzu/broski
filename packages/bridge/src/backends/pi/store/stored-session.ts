@@ -1,6 +1,6 @@
 /** What a host starts from: where a session's file is, and what the file says (`SessionStore.locate`, `facts`). */
 
-import type { Rejected, SessionId } from "../../../contract";
+import { MAX_NAME_CHARS, type Rejected, type SessionId } from "../../../contract";
 import { type PermissionsRecord, readPermissionsRecord } from "../broski-entries";
 import type { RecentEntries, StoredFacts, StoredSession } from "../ports";
 import { rejected } from "../rejections";
@@ -21,11 +21,30 @@ export async function storedFacts(index: SessionIndex, session: StoredSession): 
 	const file = await openFileIndex(index, session.path);
 	if (isRejection(file)) return file;
 	const found = await getSession(index, session.sessionId, NO_LIVE);
+	const thinking = await lastThinking(file);
 	return {
 		lastEntryId: hasStableIds(file.version) ? lastEntryId(file) : null,
 		permissions: await lastPermissions(file),
 		summary: found.status === "accepted" ? found.summary : undefined,
+		...(thinking !== undefined && { thinking }),
 	};
+}
+
+/** The newest `thinking_level_change` on the active branch, so a dormant view shows the session's level immediately. */
+async function lastThinking(file: SessionFileIndex): Promise<string | undefined> {
+	const spans = hasStableIds(file.version) ? branchTo(file, lastEntryId(file)) : file.entries;
+	const changes = spans.filter((span) => span.type === "thinking_level_change").reverse();
+	for (const span of changes) {
+		const [entry] = await readEntries(file, [span]);
+		if (
+			entry?.type === "thinking_level_change" &&
+			entry.thinkingLevel.length > 0 &&
+			entry.thinkingLevel.length <= MAX_NAME_CHARS
+		) {
+			return entry.thinkingLevel;
+		}
+	}
+	return undefined;
 }
 
 /** The newest `broski.permissions` entry anywhere in the file: a guard that was on stays on across a branch change. */

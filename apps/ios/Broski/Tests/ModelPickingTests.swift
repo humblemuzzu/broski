@@ -71,14 +71,15 @@ struct ModelPickingTests {
     }
 
     @Test func whatThePersonPickedShowsUntilTheSessionReportsIt() {
-        let pending = ComposerChoices(modelId: "fake-small", modes: ["permissions": "plan"])
+        let pending = ComposerChoices(modelId: "fake-small").merged(with: ComposerChoices(thinking: "low", modes: ["permissions": "plan"]))
         var snapshot = SessionSnapshot.empty
         snapshot.modelId = "fake-large"
         snapshot.thinking = "high"
         let shown = ComposerChoices(snapshot, pending: pending)
         #expect(shown.modelId == "fake-small")
-        #expect(shown.thinking == "high")
+        #expect(shown.thinking == "low")
         #expect(shown.modes["permissions"] == "plan")
+        #expect(pending.merged(with: ComposerChoices(modelId: "fake-other")).thinking == nil)
     }
 
     @Test func theWheelKeepsTheModelItOpenedOnAheadOfThePinsAndPinnedOnesInTheirPlace() {

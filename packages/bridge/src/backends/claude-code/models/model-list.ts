@@ -47,8 +47,15 @@ export function modelSummaries(models: readonly ModelInfo[]): ModelSummary[] {
 	return boundList(listedRows(models).map(modelSummary), MAX_CATALOG_ITEMS).items;
 }
 
+function canonicalWire(wireModel: string): string {
+	return wireModel.replace(/\[[^\]]+\]$/u, "").replace(/-\d{8}$/u, "");
+}
+
 /** The listed id a wire model runs as; a wire id several rows share goes to the first of them in listed order. */
 export function listedModelIdOf(models: readonly ModelInfo[], wireModel: string): ModelId | undefined {
 	const rows = listedRows(models);
-	return (rows.find((row) => row.value === wireModel) ?? rows.find((row) => row.resolvedModel === wireModel))?.value;
+	const exact = rows.find((row) => row.value === wireModel) ?? rows.find((row) => row.resolvedModel === wireModel);
+	if (exact !== undefined) return exact.value;
+	const normalized = canonicalWire(wireModel);
+	return rows.find((row) => row.resolvedModel !== undefined && canonicalWire(row.resolvedModel) === normalized)?.value;
 }

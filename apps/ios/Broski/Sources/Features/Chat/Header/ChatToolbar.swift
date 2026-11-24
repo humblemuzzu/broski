@@ -7,6 +7,7 @@ enum ChatDialog: Identifiable {
     case rename
     case delete
     case info
+    case model
 
     var id: Self { self }
 }
@@ -21,6 +22,7 @@ struct ChatToolbar: ToolbarContent {
     let title: String
     let cwd: String?
     let capabilities: Capabilities?
+    let canPickModel: Bool
     /// Set while the session is settled: marks it unread and leaves the chat.
     let markUnread: (() -> Void)?
     @Binding var dialog: ChatDialog?
@@ -97,6 +99,9 @@ struct ChatToolbar: ToolbarContent {
 
     private var actions: some View {
         Section {
+            if canPickModel {
+                Button("Model", systemImage: "slider.horizontal.3") { dialog = .model }
+            }
             if chat.state.capabilities?.compact ?? false {
                 Button("Compact", systemImage: "rectangle.compress.vertical") { Task { await chat.compact() } }
             }

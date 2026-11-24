@@ -33,6 +33,7 @@ class SessionMenuActions(
     val openFiles: (() -> Unit)?,
     val openChanges: (() -> Unit)?,
     val openTerminal: (() -> Unit)?,
+    val openModel: (() -> Unit)?,
     val pinned: Boolean,
     val togglePin: () -> Unit,
     val rename: (() -> Unit)?,
@@ -88,6 +89,7 @@ fun SessionMenu(expanded: Boolean, actions: SessionMenuActions, contextPercent: 
         }
         MenuItem(R.string.session_mark_unread, R.drawable.ic_mark_chat_unread, actions.markUnread, onDismiss)
         HorizontalDivider()
+        MenuItem(R.string.composer_model, R.drawable.ic_psychology, actions.openModel, onDismiss)
         MenuItem(R.string.chat_compact, R.drawable.ic_compress, actions.compact, onDismiss)
         MenuItem(R.string.chat_fork, R.drawable.ic_call_split, actions.fork, onDismiss)
         DropdownMenuItem(

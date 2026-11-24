@@ -4,11 +4,10 @@ import android.util.Log
 import androidx.compose.runtime.Immutable
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import uniffi.broski_contract.Capabilities
 import uniffi.broski_contract.CommandSummary
@@ -29,29 +28,46 @@ data class Catalog(
     val modes: List<ModeAxis> = emptyList(),
     val commands: List<CommandSummary> = emptyList(),
 ) {
-    fun model(id: String?): ModelSummary? = models.firstOrNull { it.id == id } ?: models.firstOrNull { it.isDefault }
+    fun model(id: String?): ModelSummary? =
+        models.firstOrNull { it.id == id } ?: models.firstOrNull { it.isDefault } ?: models.firstOrNull()
 }
 
 /**
  * Reads [Catalog]s from a machine's cached catalog (the core keeps each list until the bridge says it
  * changed), again whenever [load] is called: on a new folder and on the machine's catalog changes.
+ * Each list updates independently as soon as it arrives and keeps its previous value across transient
+ * failures for the same backend, so a slow commands probe never blocks the model picker.
  */
 class CatalogReader(private val machine: Machine, private val scope: CoroutineScope) {
     private val mutable = MutableStateFlow(Catalog())
     val catalog: StateFlow<Catalog> = mutable.asStateFlow()
+    private var loadedBackend: String? = null
     private var reading: Job? = null
 
     fun load(backend: String, cwd: String?, session: SessionRef?) {
         reading?.cancel()
-        reading = scope.launch { mutable.value = read(backend, cwd, session) }
-    }
-
-    private suspend fun read(backend: String, cwd: String?, session: SessionRef?): Catalog = coroutineScope {
-        val capabilities = async { quietly { machine.backends().firstOrNull { it.id == backend }?.capabilities } }
-        val models = async { quietly { (machine.models(backend, cwd, false) as? ModelsListResult.Accepted)?.v1?.models } }
-        val modes = async { quietly { (machine.modes(backend, cwd) as? ModesListResult.Accepted)?.v1?.modes } }
-        val commands = async { quietly { (machine.commands(backend, cwd, session) as? CommandsListResult.Accepted)?.v1?.commands } }
-        Catalog(capabilities.await(), models.await().orEmpty(), modes.await().orEmpty(), commands.await().orEmpty())
+        if (loadedBackend != backend) {
+            loadedBackend = backend
+            mutable.value = Catalog()
+        }
+        reading = scope.launch {
+            launch {
+                quietly { machine.backends().firstOrNull { it.id == backend }?.capabilities }
+                    ?.let { caps -> mutable.update { it.copy(capabilities = caps) } }
+            }
+            launch {
+                quietly { (machine.models(backend, cwd, false) as? ModelsListResult.Accepted)?.v1?.models }
+                    ?.let { list -> mutable.update { it.copy(models = list) } }
+            }
+            launch {
+                quietly { (machine.modes(backend, cwd) as? ModesListResult.Accepted)?.v1?.modes }
+                    ?.let { list -> mutable.update { it.copy(modes = list) } }
+            }
+            launch {
+                quietly { (machine.commands(backend, cwd, session) as? CommandsListResult.Accepted)?.v1?.commands }
+                    ?.let { list -> mutable.update { it.copy(commands = list) } }
+            }
+        }
     }
 
     private suspend fun <T> quietly(read: suspend () -> T?): T? = try {

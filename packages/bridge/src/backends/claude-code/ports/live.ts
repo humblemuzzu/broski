@@ -9,6 +9,7 @@ import type {
 	SessionRef,
 	SessionSink,
 	SessionSnapshot,
+	SessionSummary,
 } from "../../../contract";
 import type { ChildPart } from "../ids";
 import type { LiveOverlay } from "./store";
@@ -30,6 +31,10 @@ export interface LiveSessions extends LiveOverlay {
 	openChild(ref: SessionRef, child: ChildPart, sink: SessionSink): Promise<OpenResult>;
 	/** A host runs the session, or one that ended has not yet noted its own last write (D25). */
 	isHosted(sessionId: SessionId): boolean;
+	/** The working directory of a live hosted session, even before its first turn writes a transcript file. */
+	cwdOf(sessionId: SessionId): string | undefined;
+	/** A live hosted session's summary, used before the CLI has flushed the session's first transcript entry. */
+	summary(sessionId: SessionId): SessionSummary | undefined;
 	/** Ends the session's host, if any, before its file goes (D27). */
 	end(sessionId: SessionId): Promise<void>;
 	/** Ends every host; nothing is emitted afterwards. */

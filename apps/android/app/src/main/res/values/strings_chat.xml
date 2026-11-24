@@ -101,7 +101,8 @@
     <string name="chat_view_closed">This Mac isn\'t paired anymore.</string>
     <string name="chat_view_revoked">This phone was removed from your Mac. Pair again to follow this session.</string>
     <string name="chat_view_retry">Try again</string>
-    <string name="chat_watch_only">This session runs in your Mac\'s terminal. You can watch it and answer its questions here.</string>
+    <string name="chat_watch_only">Running in your Mac\'s terminal. You can answer here and reply once this turn finishes.</string>
+    <string name="chat_watch_only_no_answer">Running in your Mac\'s terminal. You can reply once this turn finishes.</string>
     <string name="chat_refused">Your Mac refused that: %1$s</string>
     <string name="chat_failed_offline">Couldn\'t reach your Mac. Try again once it\'s connected.</string>
     <string name="chat_failed_timeout">Your Mac didn\'t answer in time. Try again.</string>

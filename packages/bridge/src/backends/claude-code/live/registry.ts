@@ -79,6 +79,16 @@ class Registry implements LiveSessions, LiveOverlay {
 		return (host !== undefined && !host.ended) || this.ending.has(sessionId);
 	}
 
+	cwdOf(sessionId: SessionId): string | undefined {
+		const host = this.hosts.get(sessionId);
+		return host !== undefined && !host.ended ? host.cwd : undefined;
+	}
+
+	summary(sessionId: SessionId) {
+		const host = this.hosts.get(sessionId);
+		return host !== undefined && !host.ended ? host.summary() : undefined;
+	}
+
 	open(target: OpenTarget, sink: SessionSink): Promise<OpenResult> {
 		if (target.kind === "new") return this.openNew(target.options, sink);
 		const { sessionId } = target.session;

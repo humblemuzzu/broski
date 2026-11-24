@@ -31,6 +31,8 @@ final class ChatModel {
     private(set) var feedback: ChatFeedback?
     /// A model, level or mode the person picked that the session has not reported yet.
     var pendingChoice: ComposerChoices?
+    @ObservationIgnored var settingSeq: UInt64 = 0
+    @ObservationIgnored var settingTail: Task<Void, Never>?
 
     @ObservationIgnored let requests: ChatRequests
     @ObservationIgnored let imageStore: ChatImageStore

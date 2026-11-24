@@ -44,6 +44,8 @@ class ChatActions(
     private val client get() = model.feed.client
     private val mutableAnswers = MutableStateFlow<Map<String, AnswerState>>(emptyMap())
     private val imageLock = Mutex()
+    private val settingLock = Mutex()
+    private var settingSeq = 0L
 
     /** Interactions whose answer is on its way, or was too late; a card's buttons wait on it. */
     val answers: StateFlow<Map<String, AnswerState>> = mutableAnswers.asStateFlow()
@@ -151,19 +153,21 @@ class ChatActions(
     }
 
     /**
-     * Shows [choice] at once. The bridge's answer and the session's own report of the change come on
-     * separate paths, so the choice is kept a moment past the answer rather than letting the old value
-     * flash back in between.
+     * Shows [choice] at once and serializes setting requests so a thinking change after a model
+     * switch always lands after the model switch. Earlier pending fields stay merged until the
+     * latest change settles.
      */
     private fun change(choice: Picked, send: suspend () -> ActionResult) {
-        mutablePicked.value = choice
+        val seq = ++settingSeq
+        mutablePicked.update { it?.merge(choice) ?: choice }
         scope.launch {
-            when (val result = request(send)) {
+            val result = settingLock.withLock { request(send) }
+            when (result) {
                 is ActionResult.Accepted -> delay(SETTLE_MS)
                 is ActionResult.Rejected -> events.emit(ChatEvent.Refused(result.v1.rejection.code, result.v1.rejection.message))
                 null -> Unit
             }
-            mutablePicked.compareAndSet(choice, null)
+            if (settingSeq == seq) mutablePicked.value = null
         }
     }
 

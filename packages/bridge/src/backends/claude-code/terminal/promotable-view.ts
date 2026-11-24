@@ -53,6 +53,7 @@ export async function openPromotableWatch(
 	deps: PromotableWatchDeps,
 	stored: StoredSession,
 	sink: SessionSink,
+	start: "watching" | "dormant" = "watching",
 ): Promise<OpenResult> {
 	let view: PromotableWatchView | undefined;
 	let pendingEvent: TerminalPresenceEvent | undefined;
@@ -60,17 +61,28 @@ export async function openPromotableWatch(
 		if (view !== undefined) view.presenceChanged(event);
 		else pendingEvent = event;
 	});
-	const watchSink: SessionSink = {
-		emit: (record) => view?.emitFrom("watching", record),
-	};
-	const opened = await deps.openWatch(stored, watchSink);
-	if (isRejected(opened)) {
+	const initial = await initialMode(deps, stored, start, () => view);
+	if (isRejected(initial)) {
 		stopWatching();
-		return opened;
+		return initial;
 	}
-	view = new PromotableWatchView(deps, sink, opened.session, stopWatching);
+	view = new PromotableWatchView(deps, sink, initial, stopWatching);
 	if (pendingEvent !== undefined) view.presenceChanged(pendingEvent);
 	return { status: "accepted", session: view, snapshot: view.snapshot() };
+}
+
+async function initialMode(
+	deps: PromotableWatchDeps,
+	stored: StoredSession,
+	start: "watching" | "dormant",
+	viewOf: () => PromotableWatchView | undefined,
+): Promise<Mode | Rejected> {
+	if (start === "dormant") {
+		const snapshot = await deps.dormantSnapshot(stored);
+		if (!(await deps.isTerminalActive())) return { kind: "dormant", snapshot };
+	}
+	const opened = await deps.openWatch(stored, { emit: (record) => viewOf()?.emitFrom("watching", record) });
+	return isRejected(opened) ? opened : { kind: "watching", view: opened.session };
 }
 
 class PromotableWatchView implements OpenSession {
@@ -93,10 +105,10 @@ class PromotableWatchView implements OpenSession {
 	constructor(
 		private readonly deps: PromotableWatchDeps,
 		private readonly sink: SessionSink,
-		initialWatch: OpenSession,
+		initialMode: Mode,
 		private readonly stopWatching: () => void,
 	) {
-		this.mode = { kind: "watching", view: initialWatch };
+		this.mode = initialMode;
 	}
 
 	get session(): SessionRef {
@@ -132,8 +144,8 @@ class PromotableWatchView implements OpenSession {
 
 	presenceChanged(event: TerminalPresenceEvent): void {
 		if (this.closed) return;
-		if (event === "exited" && this.mode.kind === "watching") void this.promote(this.mode);
-		else if (event === "entered" && this.mode.kind === "dormant") void this.reenterWatch(this.mode);
+		if (event === "idle" && this.mode.kind === "watching") void this.promote(this.mode);
+		else if (event === "active" && this.mode.kind === "dormant") void this.reenterWatch(this.mode);
 	}
 
 	private async promote(watching: Extract<Mode, { kind: "watching" }>): Promise<void> {

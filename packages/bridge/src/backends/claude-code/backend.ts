@@ -75,7 +75,7 @@ export function claudeCodeBackendOf(parts: ClaudeCodeParts): AgentBackend {
 		traits: CLAUDE_CODE_TRAITS,
 		status: () => catalogue.status(),
 		listSessions: (query, page) => store.list(query, page, overlay),
-		getSession: async (ref) => (mine(ref) ? store.get(ref.sessionId, overlay) : notFound(ref)),
+		getSession: (ref) => getSession(parts, ref),
 		readTranscript: async (ref, page) => (mine(ref) ? store.transcript(ref.sessionId, page, overlay) : notFound(ref)),
 		readAttachment: async (ref, id, variant) => {
 			if (!mine(ref)) return notFound(ref);
@@ -110,12 +110,22 @@ export function claudeCodeBackendOf(parts: ClaudeCodeParts): AgentBackend {
 	};
 }
 
+async function getSession(parts: ClaudeCodeParts, ref: SessionRef) {
+	if (!mine(ref)) return notFound(ref);
+	const found = await parts.store.get(ref.sessionId, parts.overlay);
+	if (found.status === "accepted") return found;
+	const live = parts.live.summary(ref.sessionId);
+	return live !== undefined ? { status: "accepted" as const, summary: live } : found;
+}
+
 async function listCommands(
 	parts: ClaudeCodeParts,
 	scope: { cwd?: string; session?: SessionRef },
 ): Promise<CommandsListResult> {
 	if (scope.session === undefined) return parts.catalogue.commands(scope.cwd);
 	if (!mine(scope.session)) return notFound(scope.session);
+	const liveCwd = parts.live.cwdOf(scope.session.sessionId);
+	if (liveCwd !== undefined) return parts.catalogue.commands(liveCwd);
 	const stored = await parts.store.locate(scope.session.sessionId);
 	return isRejected(stored) ? stored : parts.catalogue.commands(stored.cwd);
 }

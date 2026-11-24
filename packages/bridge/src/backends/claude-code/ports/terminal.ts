@@ -12,12 +12,14 @@ export interface TerminalPresence {
 	writing(sessionId: SessionId): Promise<boolean>;
 }
 
-export type TerminalPresenceEvent = "entered" | "exited";
+export type TerminalPresenceEvent = "active" | "idle";
 
 export interface TerminalWatch extends TerminalPresence {
+	/** True when a tracked terminal `claude` holds `sessionId` idle at its prompt (not actively running a turn). */
+	hasIdleTerminal(sessionId: SessionId): Promise<boolean>;
 	/** An `OpenSession` without `control`, fed by the live tail. */
 	openWatchOnly(ref: SessionRef, stored: StoredSession, sink: SessionSink): Promise<OpenResult>;
-	/** Notifies `listener` when a tracked terminal `claude` enters or exits `sessionId`. */
+	/** Notifies `listener` when a tracked terminal `claude` starts or finishes a turn on `sessionId`. */
 	watchPresence(sessionId: SessionId, listener: (event: TerminalPresenceEvent) => void): () => void;
 	/** Flushes any final bytes written before the terminal holding `sessionId` exited and closes any open run. */
 	finishExited(sessionId: SessionId): Promise<void>;

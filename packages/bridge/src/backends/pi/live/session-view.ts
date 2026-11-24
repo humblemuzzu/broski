@@ -310,11 +310,13 @@ export async function rereadSession(sessionId: string, store: SessionStore): Pro
 	const hostable = stored.cwd !== undefined && isDirectory(stored.cwd);
 	const facts = await store.facts(stored);
 	const modelId = "status" in facts ? undefined : facts.summary?.modelId;
+	const thinking = "status" in facts ? undefined : facts.thinking;
 	const mode = "status" in facts ? "off" : facts.permissions.mode;
 	return {
 		snapshot: {
 			...emptySnapshot(),
 			...(modelId !== undefined && { modelId }),
+			...(thinking !== undefined && { thinking }),
 			modes: [permissionsSetting(mode)],
 		},
 		hostable,

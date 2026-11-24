@@ -75,6 +75,7 @@ fun sessionMenuActions(
     snackbar: SnackbarHostState,
     copier: ChatCopier,
     folder: FolderLinks?,
+    openModel: () -> Unit,
     openInfo: () -> Unit,
 ): SessionMenuActions {
     val header by model.header.collectAsStateWithLifecycle()
@@ -88,10 +89,12 @@ fun sessionMenuActions(
     val key = model.sessionKey
     val backend = catalog.capabilities
     val title = header.title ?: resources.getString(R.string.inbox_untitled)
+    val canPickModel = live.capabilities?.controllable == true && (catalog.models.isNotEmpty() || catalog.modes.isNotEmpty())
     return SessionMenuActions(
         openFiles = folder?.files,
         openChanges = folder?.changes,
         openTerminal = folder?.terminal,
+        openModel = openModel.takeIf { canPickModel },
         pinned = key in pinned,
         togglePin = { model.phone.setMarked(SessionMark.Pinned, key, key !in pinned) },
         rename = dialogs.rename.takeIf { backend?.rename == true },

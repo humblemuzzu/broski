@@ -99,7 +99,9 @@ private struct WatchingBar: View {
 
     var body: some View {
         Label(
-            canAnswer ? "Running in your Mac's terminal. You can answer its questions here." : "Running in your Mac's terminal.",
+            canAnswer
+                ? "Running in your Mac's terminal. You can answer here and reply once this turn finishes."
+                : "Running in your Mac's terminal. You can reply once this turn finishes.",
             systemImage: "terminal")
             .font(.footnote)
             .foregroundStyle(.secondary)
