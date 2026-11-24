@@ -30,7 +30,6 @@ import com.muzammil.broski.feature.machines.MachinesScreen
 import com.muzammil.broski.feature.pairing.PairScreen
 import com.muzammil.broski.feature.settings.AboutScreen
 import com.muzammil.broski.feature.settings.AppearanceScreen
-import com.muzammil.broski.feature.settings.DeveloperScreen
 import com.muzammil.broski.feature.settings.NotificationSettingsScreen
 import com.muzammil.broski.feature.settings.SettingsScreen
 import com.muzammil.broski.feature.settings.VoiceSettingsScreen
@@ -153,8 +152,7 @@ private fun EntryProviderScope<Route>.shellEntries(
     entry<SettingsRoute> { SettingsScreen(core = core, phone = phone, open = navigator::open) }
     entry<NotificationSettingsRoute> { NotificationSettingsScreen(core = core, onBack = navigator::back) }
     entry<AppearanceRoute> { AppearanceScreen(core = core, onBack = navigator::back) }
-    entry<AboutRoute> { AboutScreen(onBack = navigator::back) }
-    entry<DeveloperRoute> { DeveloperScreen(phone = phone, onBack = navigator::back) }
+    entry<AboutRoute> { AboutScreen(phone = phone, onBack = navigator::back) }
     entry<VoiceRoute> { VoiceSettingsScreen(core = core, onBack = navigator::back) }
     features.session?.let { session -> entry<SessionRoute> { route -> context.session(route) } }
     features.newSession?.let { newSession -> entry<NewSessionRoute> { context.newSession() } }

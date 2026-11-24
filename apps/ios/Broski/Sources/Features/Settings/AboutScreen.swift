@@ -1,10 +1,11 @@
 import BroskiCore
 import SwiftUI
 
-/// Settings › About: the version, where the source lives, its licence, and how the link is kept
-/// private.
+/// Settings › About: the version, where the source lives, its licence, protocol versions, and how
+/// the link is kept private.
 struct AboutScreen: View {
     private static let source = URL(string: "https://github.com/humblemuzzu/broski")!
+    @Environment(AppModel.self) private var model
 
     var body: some View {
         Form {
@@ -37,24 +38,6 @@ struct AboutScreen: View {
                 )
                 .padding(.top, Spacing.xs)
             }
-        }
-        .navigationTitle("About")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-}
-
-/// Settings › Developer: every kind of text an agent writes as the chat draws it, and the versions
-/// the phone and each Mac speak.
-struct DeveloperScreen: View {
-    @Environment(AppModel.self) private var model
-
-    var body: some View {
-        Form {
-            Section {
-                NavigationLink("Formatting") { FormattingGalleryScreen() }
-            } footer: {
-                Text("Every kind of text an agent writes, drawn the way the chat draws it.")
-            }
             Section("Versions") {
                 LabeledContent("Core", value: coreDescription)
                 ForEach(model.machines) { machine in
@@ -62,7 +45,7 @@ struct DeveloperScreen: View {
                 }
             }
         }
-        .navigationTitle("Developer")
+        .navigationTitle("About")
         .navigationBarTitleDisplayMode(.inline)
     }
 

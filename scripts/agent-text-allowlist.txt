@@ -6,7 +6,6 @@ apps/ios/Broski/Sources/Features/Chat/PinnedPanel.swift | Text(item.preview) | t
 apps/ios/Broski/Sources/Features/Chat/Work/WorkFoldView.swift | Text(summary.text) | "Worked for 2m · Ran 2 commands", made by WorkFold.summary
 apps/ios/Broski/Sources/Features/Workspace/Git/GitScreen.swift | Text(upstream.summary) | "2 ahead, 1 behind origin/main", made by GitUpstream.summary
 apps/ios/Broski/Sources/Features/Workspace/Git/BranchesScreen.swift | Text(upstream.summary) | "2 ahead, 1 behind origin/main", made by GitUpstream.summary
-apps/android/app/src/main/kotlin/com/muzammil/broski/feature/settings/FormattingGallery.kt | Text(sample.text, | the gallery's Source view: a sample's markdown as written, beside how it is drawn
 apps/ios/Broski/Sources/DesignSystem/DiffView.swift | Text("@@ | a hunk's line numbers from git, drawn as git writes them
 apps/ios/Broski/Sources/Features/Settings/AppearanceSettingsScreen.swift | Text(option.title) | the app's own appearance and keep-awake names
 apps/ios/Broski/Sources/Features/Chat/Composer/ComposerButtons.swift | Text(way.title) | the app's own Send, Queue and Steer
@@ -26,5 +25,4 @@ apps/ios/Broski/Extensions/Widgets/RunActivityViews.swift | Text(run.title) | a 
 apps/ios/Broski/Extensions/Widgets/RunActivityViews.swift | Text(run.phase.title) | the app's own run phase names
 apps/ios/Broski/Extensions/Widgets/RunActivityViews.swift | Text(phase.title) | the app's own run phase names
 apps/ios/Broski/Extensions/Widgets/RunActivityViews.swift | Text(state.phase.title) | the app's own run phase names
-apps/android/app/src/main/kotlin/com/muzammil/broski/feature/settings/FormattingGallery.kt | Text(sample.title, | the gallery's own sample names
 apps/android/app/src/main/kotlin/com/muzammil/broski/feature/chat/work/TextSheet.kt | Text(page.title, | the core's row label of the call or activity the sheet opened from

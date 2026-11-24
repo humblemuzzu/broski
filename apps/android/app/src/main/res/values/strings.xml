@@ -187,7 +187,6 @@
     <string name="settings_off">Off</string>
     <string name="settings_voice_grok">Grok</string>
     <string name="settings_voice_device">On device</string>
-    <string name="settings_developer">Developer</string>
     <string name="settings_source">Source Code</string>
     <string name="settings_license">License</string>
     <string name="settings_license_mit">MIT</string>

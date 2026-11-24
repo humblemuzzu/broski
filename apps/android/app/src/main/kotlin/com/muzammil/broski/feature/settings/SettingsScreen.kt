@@ -18,7 +18,6 @@ import com.muzammil.broski.BuildConfig
 import com.muzammil.broski.R
 import com.muzammil.broski.app.AboutRoute
 import com.muzammil.broski.app.AppearanceRoute
-import com.muzammil.broski.app.DeveloperRoute
 import com.muzammil.broski.app.MachinesRoute
 import com.muzammil.broski.app.NotificationSettingsRoute
 import com.muzammil.broski.app.PairRoute
@@ -31,7 +30,7 @@ import com.muzammil.broski.feature.notifications.NotificationStatus
 import com.muzammil.broski.feature.notifications.rememberNotificationStatus
 import com.muzammil.broski.design.IosText
 
-/** Settings: the paired Macs on top, then what the phone does, then about and the developer's tools, the version under all. */
+/** Settings: the paired Macs on top, then what the phone does, then about, with the version under all. */
 @Composable
 fun SettingsScreen(core: AppCore, phone: PhoneSession, open: (Route) -> Unit) {
     val machines by phone.machines.collectAsStateWithLifecycle()
@@ -75,8 +74,7 @@ fun SettingsScreen(core: AppCore, phone: PhoneSession, open: (Route) -> Unit) {
         }
         item(key = "about") {
             Spacer(Modifier.height(20.dp))
-            SettingsLink(0, 2, stringResource(R.string.settings_about), R.drawable.ic_info, TileTint.Neutral, onClick = { open(AboutRoute) })
-            SettingsLink(1, 2, stringResource(R.string.settings_developer), R.drawable.ic_code, TileTint.Neutral, onClick = { open(DeveloperRoute) })
+            SettingsLink(0, 1, stringResource(R.string.settings_about), R.drawable.ic_info, TileTint.Neutral, onClick = { open(AboutRoute) })
         }
         item(key = "version") {
             Text(

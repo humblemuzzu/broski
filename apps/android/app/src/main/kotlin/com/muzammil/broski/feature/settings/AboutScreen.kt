@@ -13,10 +13,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,10 +32,13 @@ import uniffi.broski_core.coreVersion
 
 private const val SOURCE_URL = "https://github.com/humblemuzzu/broski"
 
-/** Settings › About: the version, where the source lives, its licence, and how the link is kept private. */
+/** Settings › About: the version, where the source lives, its licence, protocol versions, and how the link is kept private. */
 @Composable
-fun AboutScreen(onBack: () -> Unit) {
+fun AboutScreen(phone: PhoneSession, onBack: () -> Unit) {
     val uri = LocalUriHandler.current
+    val machines by phone.machines.collectAsStateWithLifecycle()
+    val core = remember { coreVersion() }
+    val coreDescription = stringResource(R.string.settings_core_version, core.library, core.protocol.major, core.protocol.minor)
     SettingsPage(stringResource(R.string.settings_about), onBack) {
         item(key = "app") { AppMark() }
         item(key = "source") {
@@ -59,6 +59,19 @@ fun AboutScreen(onBack: () -> Unit) {
                     modifier = Modifier.padding(top = 2.dp).size(14.dp),
                 )
                 Text(stringResource(R.string.settings_privacy), style = IosText.footnote, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        item(key = "versions") {
+            val count = 1 + machines.size
+            FormHeader(stringResource(R.string.settings_versions))
+            FormValueRow(0, count, stringResource(R.string.settings_version_core), coreDescription)
+            machines.forEachIndexed { index, machine ->
+                FormValueRow(
+                    index + 1,
+                    count,
+                    machine.name,
+                    machine.bridgeVersion?.let { stringResource(R.string.machines_bridge_version, it) } ?: stringResource(R.string.settings_bridge_unknown),
+                )
             }
         }
     }
@@ -88,40 +101,5 @@ private fun AppMark() {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 2.dp),
         )
-    }
-}
-
-/** Settings › Developer: every kind of text an agent writes as the chat draws it, and the versions the phone and each Mac speak. */
-@Composable
-fun DeveloperScreen(phone: PhoneSession, onBack: () -> Unit) {
-    val machines by phone.machines.collectAsStateWithLifecycle()
-    var gallery by rememberSaveable { mutableStateOf(false) }
-    if (gallery) FormattingGallery(onDismiss = { gallery = false })
-    val core = remember { coreVersion() }
-    val coreDescription = stringResource(R.string.settings_core_version, core.library, core.protocol.major, core.protocol.minor)
-    SettingsPage(stringResource(R.string.settings_developer), onBack) {
-        item(key = "gallery") {
-            FormValueRow(0, 1, stringResource(R.string.format_gallery), "", onClick = { gallery = true }) {
-                Icon(
-                    painterResource(R.drawable.ic_chevron_right),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                )
-            }
-            FormFooter(stringResource(R.string.format_gallery_body))
-        }
-        item(key = "versions") {
-            val count = 1 + machines.size
-            FormHeader(stringResource(R.string.settings_versions))
-            FormValueRow(0, count, stringResource(R.string.settings_version_core), coreDescription)
-            machines.forEachIndexed { index, machine ->
-                FormValueRow(
-                    index + 1,
-                    count,
-                    machine.name,
-                    machine.bridgeVersion?.let { stringResource(R.string.machines_bridge_version, it) } ?: stringResource(R.string.settings_bridge_unknown),
-                )
-            }
-        }
     }
 }

@@ -39,13 +39,9 @@ data object NotificationSettingsRoute : Route
 @Serializable
 data object AppearanceRoute : Route
 
-/** Settings › About: the version, the source, the licence. */
+/** Settings › About: the version, the source, the licence, and protocol versions. */
 @Serializable
 data object AboutRoute : Route
-
-/** Settings › Developer: the formatting gallery and the versions each side speaks. */
-@Serializable
-data object DeveloperRoute : Route
 
 /** A session yet to be made: the chat it becomes once sent, on whichever Mac and in whichever folder the person picks. */
 @Serializable

@@ -1,13 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="format_copy_code">Copy code</string>
-    <string name="format_gallery">Formatting</string>
-    <string name="format_gallery_body">Every kind of text an agent writes, drawn the way the chat draws it.</string>
-    <string name="format_style_answer">Answer</string>
-    <string name="format_style_quiet">Quiet</string>
-    <string name="format_source">Source</string>
-    <string name="format_replay">Replay</string>
-    <string name="format_back">Back to the samples</string>
     <string name="format_callout_note">Note</string>
     <string name="format_callout_tip">Tip</string>
     <string name="format_callout_important">Important</string>

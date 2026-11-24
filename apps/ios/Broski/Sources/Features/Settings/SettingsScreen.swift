@@ -2,7 +2,7 @@ import BroskiCore
 import SwiftUI
 
 /// Settings: the paired Macs on top, then what the phone does (notifications, appearance, voice),
-/// then about and the developer's tools, with the version beneath.
+/// then about, with the version beneath.
 struct SettingsScreen: View {
     @Environment(AppModel.self) private var model
     @Environment(\.startPairing) private var startPairing
@@ -35,11 +35,6 @@ struct SettingsScreen: View {
                         AboutScreen()
                     } label: {
                         SettingsRow(title: "About", symbol: "info", tint: .gray)
-                    }
-                    NavigationLink {
-                        DeveloperScreen()
-                    } label: {
-                        SettingsRow(title: "Developer", symbol: "hammer.fill", tint: .gray)
                     }
                 } footer: {
                     Text("Broski \(Bundle.main.appVersion) (\(Bundle.main.buildNumber))")
