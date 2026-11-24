@@ -2,6 +2,45 @@
 
 All notable changes to Broski are documented here.
 
+## v0.1.2 — Remote Mac Screen (Experimental) & Security Hardening (2026-11-24)
+
+> **Android: uninstall Broski once before installing this APK.** Releases are now signed with a new key, so Android
+> will not install this version over an older APK. Uninstall Broski, install `broski-android-arm64.apk`, then run
+> `broski-link pair` on your Mac and scan the code again. Later updates install over this one normally.
+
+### Highlights
+
+- **Remote Mac Screen (Experimental, off by default)**: See and control your Mac's screen from your phone over the
+  same end-to-end encrypted Broski link, and answer macOS password and permission prompts when you are away. Turn it
+  on in **Settings › Experimental › Remote Mac Screen** on iOS or Android. While it is off, your Mac does not watch
+  for system dialogs, sends no dialog alerts, and refuses screen connections.
+- **Mac code when pairing**: `broski-link pair` prints a short code under the QR (like `7F3A 91C2 0E5D B846`) and the
+  app shows the same code before you tap Pair, so a pairing link that names your Mac but came from somewhere else is
+  easy to spot.
+- **Security hardening across the link, relay, bridge and installer** (below).
+
+### Security
+
+- **Wi-Fi port answers only your own networks**: the Mac's direct port now refuses peers outside its local networks,
+  Tailscale and Personal Hotspot before any handshake; anywhere else the phone uses the relay as before.
+- **Lock-screen Live Activity carries no session titles**: Live Activity updates (which iOS cannot encrypt) show the
+  agent and its state only, never a prompt or title.
+- **Handshake replay and revoke races closed**: a captured handshake can no longer be replayed to knock a phone
+  offline, and a phone revoked at the moment it connects is stopped at once.
+- **Self-hosted relay**: optional `--register-token-file` so only your Macs can register; a phone revoked while the
+  Mac was offline loses relay access at the Mac's next connect; idle rooms are freed; per-address limits on the
+  HTTP routes; one offline-alert timer per machine; 256 KiB WebSocket frame cap; the database is created owner-only.
+- **Installer and updater**: downloads never follow an HTTPS-to-HTTP redirect, and a compiled `broski` ignores
+  update-source overrides from the environment.
+- **Bridge**: the unused loopback dev-server proxy (`/proxy`) is removed; loopback routes check the `Host` header;
+  the Claude Code hook token is written to an owner-only `settings.json`.
+- **Builds**: shipped binaries no longer contain the build machine's file paths.
+
+### Fixes
+
+- Android Remote Screen no longer crashes when a screen session closes; macOS dialog alerts reach Android.
+- iOS quiets macOS dialog alerts when Remote Mac Screen is off, even while the app is closed.
+
 ## v0.1.1 — Seamless Terminal Handoff, Model Wheel & Switching Fixes (2026-11-24)
 
 ### Highlights
