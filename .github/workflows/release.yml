@@ -40,9 +40,13 @@ jobs:
           name: macos-dist
           path: |
             packages/bridge/dist/broski-darwin-arm64
+            packages/bridge/dist/broski-darwin-arm64.gz
             packages/bridge/dist/broski-darwin-x64
+            packages/bridge/dist/broski-darwin-x64.gz
             packages/bridge/dist/broski-link-darwin-arm64
+            packages/bridge/dist/broski-link-darwin-arm64.gz
             packages/bridge/dist/broski-link-darwin-x64
+            packages/bridge/dist/broski-link-darwin-x64.gz
             packages/bridge/dist/libbroski_pty.dylib
           if-no-files-found: error
 

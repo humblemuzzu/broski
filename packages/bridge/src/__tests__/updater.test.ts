@@ -1,5 +1,15 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { checkForUpdate, compareSemver, fetchLatestVersion, isUpdateCheckDisabled, parseSha256Sums } from "../updater";
+import { createHash } from "node:crypto";
+import { gzipSync } from "node:zlib";
+import {
+	checkForUpdate,
+	compareSemver,
+	downloadVerified,
+	fetchLatestVersion,
+	isUpdateCheckDisabled,
+	parseSha256Sums,
+	pickReleaseAsset,
+} from "../updater";
 
 const servers: Array<ReturnType<typeof Bun.serve>> = [];
 const savedEnv = {
@@ -74,5 +84,72 @@ describe("updater (GitHub Releases redirect)", () => {
 
 		const disabled = await checkForUpdate("0.1.0", { enabled: false, repo: "owner/repo", baseUrl });
 		expect(disabled).toBeNull();
+	});
+
+	test("pickReleaseAsset prefers .gz when listed and falls back to uncompressed", () => {
+		const raw = "a".repeat(64);
+		const gz = "b".repeat(64);
+		const withGz = parseSha256Sums(`${raw}  broski-darwin-arm64\n${gz}  broski-darwin-arm64.gz\n`);
+		expect(pickReleaseAsset(withGz, "broski-darwin-arm64")).toEqual({
+			asset: "broski-darwin-arm64.gz",
+			sha256: gz,
+			gzipped: true,
+		});
+		const rawOnly = parseSha256Sums(`${raw}  broski-darwin-arm64\n`);
+		expect(pickReleaseAsset(rawOnly, "broski-darwin-arm64")).toEqual({
+			asset: "broski-darwin-arm64",
+			sha256: raw,
+			gzipped: false,
+		});
+	});
+
+	test("downloadVerified allows slow active streams past stallTimeoutMs and aborts genuine stalls", async () => {
+		const payload = gzipSync(Buffer.from("broski-binary-payload"));
+		const sha = createHash("sha256").update(payload).digest("hex");
+		const server = Bun.serve({
+			port: 0,
+			fetch(req) {
+				const path = new URL(req.url).pathname;
+				if (path === "/slow") {
+					const stream = new ReadableStream<Uint8Array>({
+						async start(controller) {
+							const step = Math.max(1, Math.ceil(payload.length / 5));
+							for (let i = 0; i < payload.length; i += step) {
+								controller.enqueue(payload.subarray(i, i + step));
+								await Bun.sleep(40);
+							}
+							controller.close();
+						},
+					});
+					return new Response(stream, { headers: { "content-length": String(payload.length) } });
+				}
+				if (path === "/stall") {
+					const stream = new ReadableStream<Uint8Array>({
+						start(controller) {
+							controller.enqueue(payload.subarray(0, 4));
+						},
+					});
+					return new Response(stream);
+				}
+				return new Response("not found", { status: 404 });
+			},
+		});
+		servers.push(server);
+		const base = `http://127.0.0.1:${server.port}`;
+
+		const got = await downloadVerified(`${base}/slow`, sha, "slow.gz", () => {}, {
+			stallTimeoutMs: 120,
+			maxDownloadMs: 5_000,
+			attempts: 1,
+		});
+		expect(got.equals(payload)).toBe(true);
+
+		await expect(
+			downloadVerified(`${base}/stall`, sha, "stall.gz", () => {}, {
+				stallTimeoutMs: 100,
+				maxDownloadMs: 5_000,
+				attempts: 1,
+			}),
+		).rejects.toThrow();
 	});
 });

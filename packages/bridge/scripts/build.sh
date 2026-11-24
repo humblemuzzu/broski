@@ -280,6 +280,22 @@ for binary in "$DIST"/broski-*darwin*; do
 done
 
 # ──────────────────────────────────────────────
+# Compressed release copies (.gz)
+# ──────────────────────────────────────────────
+# Cut download sizes by >50% while keeping raw binaries for older updaters.
+
+if command -v gzip >/dev/null 2>&1; then
+  echo ""
+  echo "  Compressing macOS binaries (.gz)..."
+  for binary in "$DIST"/broski-*darwin*; do
+    [ -f "$binary" ] || continue
+    case "$binary" in *.dylib|*.gz) continue ;; esac
+    gzip -6 -c "$binary" > "${binary}.gz"
+    echo "    ✓ $(basename "$binary").gz ($(du -h "${binary}.gz" | awk '{print $1}'))"
+  done
+fi
+
+# ──────────────────────────────────────────────
 # SHA256SUMS (release artifact verification)
 # ──────────────────────────────────────────────
 # Generated after signing: codesign rewrites the binary, so hashes taken

@@ -136,30 +136,55 @@ verify_sha256() {
   echo "  ✓ ${NAME} verified"
 }
 
+curl_get() {
+  curl -fSL --retry 3 --retry-delay 2 --connect-timeout 30 --speed-time 60 --speed-limit 1024 "$1" -o "$2"
+}
+
+download_binary() {
+  NAME="$1"
+  DEST="$2"
+  OPTIONAL="${3:-0}"
+  if [ -n "$(expected_sha256 "${NAME}.gz")" ] && command -v gzip >/dev/null 2>&1; then
+    TMP_GZ="${DEST}.gz.tmp"
+    echo "  Downloading ${NAME}.gz..."
+    if curl_get "${BASE_URL}/${NAME}.gz" "$TMP_GZ"; then
+      verify_sha256 "$TMP_GZ" "${NAME}.gz"
+      gzip -dc "$TMP_GZ" > "$DEST"
+      rm -f "$TMP_GZ"
+      chmod +x "$DEST"
+      return 0
+    fi
+    rm -f "$TMP_GZ"
+    [ "$OPTIONAL" = "1" ] && return 1
+    exit 1
+  fi
+  echo "  Downloading ${NAME}..."
+  if curl_get "${BASE_URL}/${NAME}" "$DEST"; then
+    chmod +x "$DEST"
+    verify_sha256 "$DEST" "$NAME"
+    return 0
+  fi
+  rm -f "$DEST" 2>/dev/null
+  [ "$OPTIONAL" = "1" ] && return 1
+  exit 1
+}
+
 echo "  Downloading SHA256SUMS..."
-if ! curl -fSL "${BASE_URL}/SHA256SUMS" -o "${INSTALL_DIR}/SHA256SUMS"; then
+if ! curl_get "${BASE_URL}/SHA256SUMS" "${INSTALL_DIR}/SHA256SUMS"; then
   echo "  Error: could not download ${BASE_URL}/SHA256SUMS"
   echo "  Refusing to install an unverified binary."
   exit 1
 fi
 
-echo "  Downloading ${BINARY_NAME}..."
-curl -fSL "${BASE_URL}/${BINARY_NAME}" -o "${INSTALL_DIR}/broski"
-chmod +x "${INSTALL_DIR}/broski"
-verify_sha256 "${INSTALL_DIR}/broski" "${BINARY_NAME}"
+download_binary "${BINARY_NAME}" "${INSTALL_DIR}/broski" 0
 
-echo "  Downloading ${LINK_NAME}..."
-if curl -fSL "${BASE_URL}/${LINK_NAME}" -o "${INSTALL_DIR}/broski-link"; then
-  chmod +x "${INSTALL_DIR}/broski-link"
-  verify_sha256 "${INSTALL_DIR}/broski-link" "${LINK_NAME}"
-else
-  rm -f "${INSTALL_DIR}/broski-link" 2>/dev/null
+if ! download_binary "${LINK_NAME}" "${INSTALL_DIR}/broski-link" 1; then
   echo "  ⚠ broski-link is not published for ${TARGET}"
   echo "    Build from source with: cd packages/link && cargo build --release -p broski-link-daemon"
 fi
 
 if [ -n "$(expected_sha256 "$PTY_LIB")" ]; then
-  if curl -fSL "${BASE_URL}/${PTY_LIB}" -o "${INSTALL_DIR}/${PTY_LIB}" 2>/dev/null; then
+  if curl_get "${BASE_URL}/${PTY_LIB}" "${INSTALL_DIR}/${PTY_LIB}" 2>/dev/null; then
     verify_sha256 "${INSTALL_DIR}/${PTY_LIB}" "${PTY_LIB}"
   else
     echo "  ⚠ PTY library download failed (terminal sessions disabled)"

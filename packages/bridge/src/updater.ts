@@ -6,17 +6,17 @@
  * `~/.broski/config.json` or `BROSKI_NO_UPDATE_CHECK=1` / `BROSKI_OFFLINE=1`.
  */
 
-import { createHash } from "node:crypto";
-import { existsSync } from "node:fs";
-import { chmod, mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { CURRENT_PLATFORM, getDaemonStatus, isCompiledBinary, restartDaemon } from "./platform";
+import { atomicInstall, fetchAndExtract, pickReleaseAsset } from "./updater-download";
+
+export { type DownloadOptions, downloadVerified, type PickedAsset, pickReleaseAsset } from "./updater-download";
 
 const DEFAULT_REPO = "humblemuzzu/broski";
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const CHECK_TIMEOUT_MS = 10_000;
-const DOWNLOAD_TIMEOUT_MS = 120_000;
 const BROSKI_DIR = resolve(homedir(), ".broski");
 const LAST_CHECK_FILE = resolve(BROSKI_DIR, "last-update-check.json");
 
@@ -210,60 +210,6 @@ export function stopPeriodicUpdateCheck(): void {
 	}
 }
 
-async function downloadVerified(
-	url: string,
-	expectedSha256: string,
-	label: string,
-	logger: (msg: string) => void,
-): Promise<Buffer> {
-	logger(`  Downloading ${label}...`);
-	const res = await fetch(url, {
-		signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
-		headers: { "User-Agent": "broski-bridge" },
-	});
-	if (!res.ok || !res.body) throw new Error(`HTTP ${res.status} fetching ${label}`);
-
-	const chunks: Uint8Array[] = [];
-	const reader = res.body.getReader();
-	for (;;) {
-		const { done, value } = await reader.read();
-		if (done) break;
-		chunks.push(value);
-	}
-	const bytes = Buffer.concat(chunks);
-	const actual = createHash("sha256").update(bytes).digest("hex");
-	if (actual !== expectedSha256) {
-		throw new Error(`Checksum mismatch for ${label}: expected ${expectedSha256}, got ${actual}`);
-	}
-	logger(`  Verified ${label} (${Math.max(1, Math.round(bytes.length / 1024 / 1024))} MB).`);
-	return bytes;
-}
-
-async function atomicInstall(targetPath: string, bytes: Buffer): Promise<void> {
-	const dir = dirname(targetPath);
-	const stamp = Date.now();
-	const tmpPath = resolve(dir, `.broski-update-${stamp}-${Math.random().toString(16).slice(2, 8)}`);
-	const backupPath = resolve(dir, `.broski-backup-${stamp}-${Math.random().toString(16).slice(2, 8)}`);
-	const hadTarget = existsSync(targetPath);
-	try {
-		await writeFile(tmpPath, bytes);
-		await chmod(tmpPath, 0o755);
-		if (hadTarget) await rename(targetPath, backupPath);
-		try {
-			await rename(tmpPath, targetPath);
-		} catch (err) {
-			if (hadTarget && existsSync(backupPath)) await rename(backupPath, targetPath);
-			throw err;
-		}
-		if (hadTarget) {
-			await unlink(backupPath).catch(() => undefined);
-		}
-	} catch (err) {
-		await unlink(tmpPath).catch(() => undefined);
-		throw err;
-	}
-}
-
 export async function performUpdate(
 	currentVersion: string,
 	logger: (msg: string) => void,
@@ -307,25 +253,25 @@ export async function performUpdate(
 			return false;
 		}
 		const sums = parseSha256Sums(await sumsRes.text());
-		const bridgeSha = sums.get(bridgeAsset);
-		if (!bridgeSha) {
+		const bridgePick = pickReleaseAsset(sums, bridgeAsset);
+		if (!bridgePick) {
 			logger(`  No binary for ${platform} in v${latest.version} SHA256SUMS.`);
 			return false;
 		}
 
 		const binaryDir = dirname(process.execPath);
-		const bridgeBytes = await downloadVerified(`${downloadBase}/${bridgeAsset}`, bridgeSha, bridgeAsset, logger);
+		const bridgeBytes = await fetchAndExtract(downloadBase, bridgePick, logger);
 		await atomicInstall(process.execPath, bridgeBytes);
 
-		const linkSha = sums.get(linkAsset);
-		if (linkSha) {
-			const linkBytes = await downloadVerified(`${downloadBase}/${linkAsset}`, linkSha, linkAsset, logger);
+		const linkPick = pickReleaseAsset(sums, linkAsset);
+		if (linkPick) {
+			const linkBytes = await fetchAndExtract(downloadBase, linkPick, logger);
 			await atomicInstall(resolve(binaryDir, "broski-link"), linkBytes);
 		}
 
-		const ptySha = CURRENT_PLATFORM === "darwin" ? sums.get(ptyAsset) : undefined;
-		if (ptySha) {
-			const ptyBytes = await downloadVerified(`${downloadBase}/${ptyAsset}`, ptySha, ptyAsset, logger);
+		const ptyPick = CURRENT_PLATFORM === "darwin" ? pickReleaseAsset(sums, ptyAsset) : undefined;
+		if (ptyPick) {
+			const ptyBytes = await fetchAndExtract(downloadBase, ptyPick, logger);
 			await atomicInstall(resolve(binaryDir, ptyAsset), ptyBytes);
 		}
 
