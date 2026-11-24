@@ -71,5 +71,42 @@ class ModelPickingTest {
         assertEquals("plan", settings.modes["permissions"])
     }
 
+    @Test
+    fun theWheelKeepsTheModelItOpenedOnAheadOfThePinsAndPinnedOnesInTheirPlace() {
+        val models = listOf(summary("a"), summary("b"), summary("c"), summary("d"))
+        assertEquals(listOf("c", "a", "b"), wheelModels(models, listOf("a", "b", "gone"), "c", listsAll = false).map { it.id })
+        assertEquals(listOf("a", "b"), wheelModels(models, listOf("a", "b"), "b", listsAll = false).map { it.id })
+        assertEquals(listOf("a", "b", "c", "d"), wheelModels(models, emptyList(), "c", listsAll = true).map { it.id })
+    }
+
+    @Test
+    fun theDrumTurnsRowsAwayAndATapFindsTheRowItShows() {
+        assertEquals(0f, Drum.shown(0f), 0.0001f)
+        assertEquals(0.96f, Drum.shown(1f), 0.01f)
+        assertEquals(1.70f, Drum.shown(2f), 0.01f)
+        for (d in listOf(-2f, -1.3f, 0f, 0.4f, 1f, 2f)) assertEquals(d, Drum.under(Drum.shown(d)), 0.001f)
+        assertEquals(1f, Drum.alpha(0f), 0f)
+        assertEquals(0f, Drum.alpha(3f), 0f)
+        assertEquals(0f, Drum.detailAlpha(0.5f), 0f)
+        assertEquals(-0.3f, Drum.dragged(0f, -1f, 4), 0.0001f)
+        assertEquals(2.5f, Drum.dragged(2f, 0.5f, 4), 0.0001f)
+        assertEquals(4.6f, Drum.dragged(4.5f, 3f, 4), 0.0001f)
+    }
+
+    @Test
+    fun theTrackSpacesLevelsEvenlyAndSnapsToTheNearest() {
+        val track = LevelTrack(count = 5, width = 366f, lead = 44f, trail = 22f)
+        assertEquals(44f, track.x(0), 0f)
+        assertEquals(344f, track.x(4), 0.001f)
+        assertEquals(119f, track.x(1), 0.001f)
+        assertEquals(0, track.nearest(-50f))
+        assertEquals(1, track.nearest(150f))
+        assertEquals(2, track.nearest(160f))
+        assertEquals(4, track.nearest(1000f))
+        assertEquals(0, LevelTrack(count = 1, width = 300f, lead = 44f, trail = 22f).nearest(200f))
+    }
+
+    private fun summary(id: String) = ModelSummary(id, id, null, null, null, null, null, ThinkingSpec(emptyList(), null), false, null)
+
     private fun model(name: String) = ModelSummary("m", name, null, null, null, null, null, ThinkingSpec(emptyList(), null), false, null)
 }

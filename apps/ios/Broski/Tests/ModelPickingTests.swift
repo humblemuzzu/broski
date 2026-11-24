@@ -81,9 +81,26 @@ struct ModelPickingTests {
         #expect(shown.modes["permissions"] == "plan")
     }
 
-    private func model(_ name: String) -> ModelSummary {
+    @Test func theWheelKeepsTheModelItOpenedOnAheadOfThePinsAndPinnedOnesInTheirPlace() {
+        let models = ["a", "b", "c", "d"].map { model($0, id: $0) }
+        #expect(ModelSheet.wheel(models, pinned: ["a", "b", "gone"], openedOn: "c", listsAll: false).map(\.id) == ["c", "a", "b"])
+        #expect(ModelSheet.wheel(models, pinned: ["a", "b"], openedOn: "b", listsAll: false).map(\.id) == ["a", "b"])
+        #expect(ModelSheet.wheel(models, pinned: [], openedOn: "c", listsAll: true).map(\.id) == ["a", "b", "c", "d"])
+    }
+
+    @Test func theDrumTurnsRowsAwayAndTheTrackSnapsToTheNearestLevel() {
+        #expect(abs(Drum.shown(1) - 0.96) < 0.01)
+        #expect(abs(Drum.shown(2) - 1.70) < 0.01)
+        #expect(Drum.alpha(0) == 1 && Drum.alpha(3) == 0 && Drum.detailAlpha(0.5) == 0)
+        let track = LevelTrack(count: 5, width: 366, lead: 44, trail: 22)
+        #expect(track.x(0) == 44 && track.x(4) == 344 && track.x(1) == 119)
+        #expect(track.nearest(-50) == 0 && track.nearest(150) == 1 && track.nearest(160) == 2 && track.nearest(1000) == 4)
+        #expect(LevelTrack(count: 1, width: 300, lead: 44, trail: 22).nearest(200) == 0)
+    }
+
+    private func model(_ name: String, id: String = "m") -> ModelSummary {
         ModelSummary(
-            id: "m", displayName: name, description: nil, providerId: nil, providerName: nil, contextWindow: nil,
+            id: id, displayName: name, description: nil, providerId: nil, providerName: nil, contextWindow: nil,
             inputModalities: nil, thinking: ThinkingSpec(options: [], defaultValue: nil), isDefault: false, unavailableReason: nil)
     }
 

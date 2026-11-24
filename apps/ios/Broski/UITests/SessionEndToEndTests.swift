@@ -305,8 +305,9 @@ final class SessionEndToEndTests: XCTestCase {
     }
 
     /// The composer rests as a capsule and opens into the card when touched; its model pill opens the
-    /// model sheet, whose Thinking list sets the level the pill then names. In dark, Send is an ink
-    /// circle whose arrow reads on it.
+    /// model sheet. A tap on the model in the wheel's band opens its Thinking slider, which sets the
+    /// level the pill then names; turning the wheel to another model and back keeps that level. In
+    /// dark, Send is an ink circle whose arrow reads on it.
     @MainActor
     func test10ChoosesTheModelAndItsThinkingFromTheComposer() throws {
         let app = try openChat()
@@ -323,13 +324,30 @@ final class SessionEndToEndTests: XCTestCase {
         model.tap()
         XCTAssertTrue(app.navigationBars["Model"].waitForExistence(timeout: timeout))
         try screenshot("model-sheet")
-        app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Thinking")).firstMatch.tap()
-        XCTAssertTrue(app.navigationBars["Thinking"].waitForExistence(timeout: timeout))
+        let large = app.buttons["Fake Large"].firstMatch
+        XCTAssertTrue(large.waitForExistence(timeout: timeout) && large.isSelected, "the wheel opens on the session's model")
+        large.tap()
+        XCTAssertTrue(app.navigationBars["Thinking"].waitForExistence(timeout: timeout), "the band's model opens its level")
+        let level = app.descendants(matching: .any).matching(NSPredicate(format: "label == 'Thinking' AND value == 'Medium'")).firstMatch
+        XCTAssertTrue(level.waitForExistence(timeout: timeout), "the slider rests on the model's default")
         try screenshot("model-sheet-thinking")
-        app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "High")).firstMatch.tap()
-        XCTAssertTrue(app.navigationBars["Model"].waitForExistence(timeout: timeout), "a level goes back to the sheet")
+        level.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
+        let high = app.descendants(matching: .any).matching(NSPredicate(format: "label == 'Thinking' AND value == 'High'")).firstMatch
+        XCTAssertTrue(high.waitForExistence(timeout: timeout), "a touch at the track's end takes the top level")
+        try screenshot("model-sheet-thinking-high")
+        app.navigationBars["Thinking"].buttons.firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["Model"].waitForExistence(timeout: timeout))
+        XCTAssertEqual(large.value as? String, "Thinking High", "the band names the level")
+
+        app.buttons["Fake Small"].firstMatch.tap()
+        XCTAssertTrue(
+            app.buttons["Fake Small"].firstMatch.wait(for: \.isSelected, toEqual: true, timeout: timeout), "a tap turns the wheel to the row")
+        try screenshot("model-sheet-turned")
+        large.tap()
+        XCTAssertTrue(large.wait(for: \.isSelected, toEqual: true, timeout: timeout))
         app.buttons["Close"].firstMatch.tap()
-        XCTAssertTrue(app.buttons["Model, Fake Large, High"].waitForExistence(timeout: timeout), "the pill names the level")
+        XCTAssertTrue(
+            app.buttons["Model, Fake Large, High"].waitForExistence(timeout: timeout), "the model comes back at the level last chosen on it")
 
         app.buttons["BackButton"].tap()
         setAppearance("Dark", in: app)

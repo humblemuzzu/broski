@@ -149,7 +149,7 @@ private fun detail(model: ModelSummary): String? {
     return listOfNotNull(id.takeIf { it != model.displayName }, context).joinToString(" · ").ifEmpty { null }
 }
 
-private fun tokens(count: Long): String = when {
+internal fun tokens(count: Long): String = when {
     count < 1_000 -> "$count"
     count < 1_000_000 -> "${count / 1_000}k"
     else -> "%.1fM".format(count / 1_000_000.0)

@@ -43,6 +43,7 @@ import uniffi.broski_contract.CacheWindow
 import uniffi.broski_contract.ContractOption
 import uniffi.broski_contract.ModeAxis
 import uniffi.broski_contract.ModelSummary
+import uniffi.broski_contract.ThinkingOption
 import uniffi.broski_contract.ThinkingSpec
 
 /**
@@ -179,8 +180,10 @@ val ModelSummary.provider: String? get() = providerName ?: providerId
 /** The level's title, the model's default standing in for none; `null` when neither is one of its levels. */
 fun ThinkingSpec.title(value: String?): String? {
     val chosen = value ?: defaultValue ?: return null
-    return options.firstOrNull { it.value == chosen }?.let { it.label ?: it.value.replaceFirstChar(Char::uppercase) }
+    return options.firstOrNull { it.value == chosen }?.title
 }
+
+val ThinkingOption.title: String get() = label ?: value.replaceFirstChar(Char::uppercase)
 
 /** What a session runs under unless told otherwise: the axis's default, else its first option. */
 val ModeAxis.usualValue: String? get() = defaultValue ?: options.firstOrNull()?.value

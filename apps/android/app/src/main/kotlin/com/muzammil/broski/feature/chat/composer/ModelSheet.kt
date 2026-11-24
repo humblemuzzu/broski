@@ -64,10 +64,11 @@ private sealed interface Page {
 }
 
 /**
- * The model sheet, from the composer's pill. On top, the models to pick from: every one when the agent
- * lists a few, else the session's and the pinned ones (a long press unpins). Under them Thinking and
- * each mode, each opening its list; then All Models, searchable, where models are pinned. A model is
- * picked with the level last chosen on it.
+ * The model sheet, from the composer's pill. On top, the models on a wheel: every one when the agent
+ * lists a few, else the one the sheet opened on and the pinned ones (a long press unpins). The model in
+ * the band is chosen once the wheel rests, with the level last chosen on it, and a tap on it opens its
+ * thinking level's slider. Under the wheel each mode, opening its list; then All Models, searchable,
+ * where models are pinned.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -77,15 +78,19 @@ fun ModelSheet(settings: ComposerSettings, actions: SettingActions, onDismiss: (
     val backend = settings.backend.orEmpty()
     var page by remember { mutableStateOf<Page>(Page.Models) }
     val current = settings.model
+    val openedOn = remember { current?.id }
 
-    fun pick(model: ModelSummary) {
+    fun select(model: ModelSummary): Boolean {
         val now = settings.thinking
         if (current != null && now != null) preferences.update { it.remembering(now, current.id, backend) }
         val level = preferences.value.level(model.id, backend)?.takeIf { remembered -> model.thinking.options.any { it.value == remembered } }
-        if (model.id != current?.id || (level != null && level != settings.thinking)) {
-            haptics.perform(Haptic.PickerStep)
-            actions.model(model.id, level)
-        }
+        if (model.id == current?.id && (level == null || level == settings.thinking)) return false
+        actions.model(model.id, level)
+        return true
+    }
+
+    fun pick(model: ModelSummary) {
+        if (select(model)) haptics.perform(Haptic.PickerStep)
         onDismiss()
     }
 
@@ -108,16 +113,17 @@ fun ModelSheet(settings: ComposerSettings, actions: SettingActions, onDismiss: (
             )
             AnimatedContent(page, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "model sheet") { shown ->
                 when (shown) {
-                    Page.Models -> LazyColumn { modelsPage(settings, preferences, backend, ::pick) { page = it } }
+                    Page.Models -> LazyColumn {
+                        modelsPage(
+                            settings, preferences, backend, openedOn,
+                            select = { select(it) },
+                            tapCentered = { model -> if (model.thinking.options.isEmpty()) onDismiss() else page = Page.Thinking },
+                        ) { page = it }
+                    }
                     Page.Thinking -> current?.let { model ->
-                        OptionPage(
-                            model.thinking.options.map { Choice(it.value, it.label ?: it.value.replaceFirstChar(Char::uppercase), it.description) },
-                            chosen = settings.thinking ?: model.thinking.defaultValue,
-                        ) { value ->
-                            haptics.perform(Haptic.PickerStep)
+                        ThinkingPage(model, settings.thinking) { value ->
                             preferences.update { it.remembering(value, model.id, backend) }
                             actions.thinking(value)
-                            page = Page.Models
                         }
                     }
                     is Page.Mode -> settings.axes.firstOrNull { it.id == shown.axis }?.let { axis ->
@@ -138,49 +144,36 @@ private fun LazyListScope.modelsPage(
     settings: ComposerSettings,
     preferences: ModelPreferencesHook,
     backend: String,
-    pick: (ModelSummary) -> Unit,
+    openedOn: String?,
+    select: (ModelSummary) -> Unit,
+    tapCentered: (ModelSummary) -> Unit,
     open: (Page) -> Unit,
 ) {
     val current = settings.model
     val listsAll = settings.models.size <= LISTS_ALL_UP_TO
-    val pinned = preferences.value.pinned(backend).mapNotNull { id -> settings.models.firstOrNull { it.id == id } }
-    val shown = when {
-        listsAll -> settings.models
-        current == null || pinned.any { it.id == current.id } -> pinned
-        else -> listOf(current) + pinned
-    }
+    val shown = wheelModels(settings.models, preferences.value.pinned(backend), openedOn, listsAll)
     item { CacheSwitchNotice(settings.cache, Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) }
-    shown.forEachIndexed { index, model ->
-        item(key = model.id) {
-            val level = if (model.id == current?.id) settings.thinking else preferences.value.level(model.id, backend)
-            val detail = model.description?.takeIf { it.isNotBlank() }
-                ?: listOfNotNull(model.provider, model.thinking.title(level)).joinToString(" · ").ifEmpty { null }
-            val isPinned = preferences.value.isPinned(model.id, backend)
-            GroupedRow(
-                index, shown.size,
-                onClick = { pick(model) },
-                onLongClick = if (isPinned) ({ preferences.update { it.pinning(false, model.id, backend) } }) else null,
-                supporting = detail?.let { { Text(it, maxLines = 2) } },
-                trailing = if (model.id == current?.id) ({ Check() }) else null,
-            ) { Text(model.displayName) }
+    if (shown.isNotEmpty()) {
+        item(key = "wheel") {
+            ModelWheel(
+                models = shown,
+                chosen = current?.id,
+                level = { model -> if (model.id == current?.id) settings.thinking else preferences.value.level(model.id, backend) },
+                settle = select,
+                tapCentered = tapCentered,
+                longPress = { model ->
+                    if (preferences.value.isPinned(model.id, backend)) preferences.update { it.pinning(false, model.id, backend) }
+                },
+            )
         }
     }
-    if (!listsAll && pinned.isEmpty()) {
+    if (!listsAll && preferences.value.pinned(backend).none { id -> settings.models.any { it.id == id } }) {
         item { Hint(stringResource(R.string.composer_pins_hint)) }
     }
-    val levels = current?.thinking?.options.orEmpty()
-    val rows = (if (levels.isNotEmpty()) 1 else 0) + settings.axes.size
-    if (rows > 0) item { Spacer(Modifier.height(16.dp)) }
-    if (levels.isNotEmpty()) {
-        item {
-            SettingRow(0, rows, stringResource(R.string.composer_thinking), current?.thinking?.title(settings.thinking) ?: stringResource(R.string.composer_thinking_default)) {
-                open(Page.Thinking)
-            }
-        }
-    }
+    if (settings.axes.isNotEmpty()) item { Spacer(Modifier.height(16.dp)) }
     settings.axes.forEachIndexed { index, axis ->
         item(key = "axis:${axis.id}") {
-            SettingRow(index + rows - settings.axes.size, rows, axis.label, axis.title(settings.modes[axis.id])) { open(Page.Mode(axis.id)) }
+            SettingRow(index, settings.axes.size, axis.label, axis.title(settings.modes[axis.id])) { open(Page.Mode(axis.id)) }
         }
     }
     if (!listsAll) {
@@ -188,6 +181,17 @@ private fun LazyListScope.modelsPage(
         item { SettingRow(0, 1, stringResource(R.string.composer_all_models), settings.models.size.toString()) { open(Page.AllModels) } }
     }
     item { Spacer(Modifier.height(24.dp)) }
+}
+
+/**
+ * The wheel's models: every one when the agent lists a few, else the pinned ones in the order pinned,
+ * after the model the sheet opened on when that one is not pinned. Keyed to the model the sheet opened
+ * on, not the one chosen now, so choosing a pinned model does not drop a row from under the wheel.
+ */
+internal fun wheelModels(models: List<ModelSummary>, pinned: List<String>, openedOn: String?, listsAll: Boolean): List<ModelSummary> {
+    if (listsAll) return models
+    val ids = if (openedOn == null || openedOn in pinned) pinned else listOf(openedOn) + pinned
+    return ids.mapNotNull { id -> models.firstOrNull { it.id == id } }
 }
 
 @Immutable

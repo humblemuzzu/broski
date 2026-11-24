@@ -1,10 +1,11 @@
 import BroskiCore
 import SwiftUI
 
-/// The model sheet, from the composer's pill. On top, the models to pick from: every one when the
-/// agent lists a few, else the session's and the pinned ones. Under them Thinking and each mode,
-/// each opening its list; then All Models, searchable, where models are pinned. A model is picked
-/// with the level last chosen on it.
+/// The model sheet, from the composer's pill. On top, the models on a wheel: every one when the
+/// agent lists a few, else the one the sheet opened on and the pinned ones. The model in the band is
+/// chosen once the wheel rests, with the level last chosen on it, and a tap on it opens its thinking
+/// level's slider. Under the wheel each mode, opening its list; then All Models, searchable, where
+/// models are pinned.
 struct ModelSheet: View {
     let backend: String
     let catalog: ComposerCatalog
@@ -14,6 +15,23 @@ struct ModelSheet: View {
     @Environment(AppModel.self) private var app
     @Environment(\.dismiss) private var dismiss
     @State private var path: [Page] = []
+    @State private var centered: String?
+    /// Kept on the wheel while the sheet is open, so choosing a pinned model drops no row from it.
+    @State private var openedOn: String?
+
+    init(
+        backend: String, catalog: ComposerCatalog, choices: ComposerChoices, cache: CacheWindow?,
+        choose: @escaping (ComposerChoice) -> Void
+    ) {
+        self.backend = backend
+        self.catalog = catalog
+        self.choices = choices
+        self.cache = cache
+        self.choose = choose
+        let current = catalog.model(choices.modelId)?.id
+        _centered = State(initialValue: current)
+        _openedOn = State(initialValue: current)
+    }
 
     enum Page: Hashable {
         case thinking
@@ -33,9 +51,15 @@ struct ModelSheet: View {
     }
 
     private var shown: [ModelSummary] {
-        if listsAll { return catalog.models }
-        guard let current, !pinned.contains(where: { $0.id == current.id }) else { return pinned }
-        return [current] + pinned
+        ModelSheet.wheel(catalog.models, pinned: preferences.pinned(backend: backend), openedOn: openedOn, listsAll: listsAll)
+    }
+
+    /// The wheel's models: every one when the agent lists a few, else the pinned ones in the order
+    /// pinned, after the model the sheet opened on when that one is not pinned.
+    static func wheel(_ models: [ModelSummary], pinned: [String], openedOn: String?, listsAll: Bool) -> [ModelSummary] {
+        if listsAll { return models }
+        let ids = openedOn.map { pinned.contains($0) ? pinned : [$0] + pinned } ?? pinned
+        return ids.compactMap { id in models.first { $0.id == id } }
     }
 
     var body: some View {
@@ -64,17 +88,19 @@ struct ModelSheet: View {
 
     private var models: some View {
         Section {
-            ForEach(shown, id: \.id) { model in
-                Button { pick(model) } label: {
-                    PickRow(title: model.displayName, detail: detail(model), isChosen: model.id == current?.id)
-                }
-                .buttonStyle(.plain)
-                .swipeActions {
-                    if preferences.isPinned(model.id, backend: backend) {
-                        Button("Unpin") { preferences.setPinned(false, model.id, backend: backend) }
-                    }
-                }
-            }
+            ModelWheel(
+                models: shown, centered: $centered,
+                level: { model in model.id == current?.id ? choices.thinking : preferences.level(of: model.id, backend: backend) },
+                settle: { select($0) },
+                tapCentered: { model in
+                    if model.thinking.options.isEmpty { dismiss() } else { path.append(.thinking) }
+                },
+                isPinned: { preferences.isPinned($0.id, backend: backend) },
+                unpin: { preferences.setPinned(false, $0.id, backend: backend) }
+            )
+            .listRowInsets(EdgeInsets(top: Spacing.xs, leading: 0, bottom: Spacing.s, trailing: 0))
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
         } header: {
             if let cache, cache.warnsOnModelSwitch { CacheSwitchNotice(cache: cache) }
         } footer: {
@@ -86,14 +112,8 @@ struct ModelSheet: View {
 
     @ViewBuilder
     private var settings: some View {
-        let thinking = current?.thinking
-        if (thinking?.options.isEmpty == false) || !catalog.modes.isEmpty {
+        if !catalog.modes.isEmpty {
             Section {
-                if let thinking, !thinking.options.isEmpty {
-                    NavigationLink(value: Page.thinking) {
-                        LabeledContent("Thinking", value: thinking.title(of: choices.thinking) ?? "Default")
-                    }
-                }
                 ForEach(catalog.modes, id: \.id) { axis in
                     NavigationLink(value: Page.mode(axis.id)) {
                         LabeledContent(axis.label, value: axis.title(of: choices.modes[axis.id]))
@@ -108,13 +128,9 @@ struct ModelSheet: View {
         switch page {
         case .thinking:
             if let current {
-                OptionList(
-                    title: "Thinking", options: current.thinking.options.map { ($0.value, $0.title, $0.description) },
-                    chosen: choices.thinking ?? current.thinking.defaultValue
-                ) { value in
+                ThinkingPage(model: current, chosen: choices.thinking) { value in
                     preferences.remember(level: value, of: current.id, backend: backend)
                     choose(.thinking(value))
-                    path.removeLast()
                 }
             }
         case .mode(let id):
@@ -132,15 +148,8 @@ struct ModelSheet: View {
         }
     }
 
-    /// The agent's own line about the model when it has one, else where it comes from and the
-    /// level it runs at.
-    private func detail(_ model: ModelSummary) -> String? {
-        if let description = model.description, !description.isEmpty { return description }
-        let level = model.id == current?.id ? choices.thinking : preferences.level(of: model.id, backend: backend)
-        return [model.provider, model.thinking.title(of: level)].compactMap(\.self).joined(separator: " · ").nilIfEmpty
-    }
-
-    private func pick(_ model: ModelSummary) {
+    /// Chooses `model` with the level last chosen on it, keeping the level of the one it replaces.
+    private func select(_ model: ModelSummary) {
         if let current, let level = choices.thinking {
             preferences.remember(level: level, of: current.id, backend: backend)
         }
@@ -149,6 +158,10 @@ struct ModelSheet: View {
         if model.id != current?.id || (level != nil && level != choices.thinking) {
             choose(.model(model.id, thinking: level))
         }
+    }
+
+    private func pick(_ model: ModelSummary) {
+        select(model)
         dismiss()
     }
 }
@@ -210,8 +223,4 @@ struct PickRow: View {
 extension ModelSummary {
     /// Who serves the model, as the agent names them.
     var provider: String? { providerName ?? providerId }
-}
-
-private extension String {
-    var nilIfEmpty: String? { isEmpty ? nil : self }
 }

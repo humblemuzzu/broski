@@ -242,6 +242,7 @@
     <string name="composer_model">Model</string>
     <string name="composer_thinking">Thinking</string>
     <string name="composer_thinking_default">Default</string>
+    <string name="composer_thinking_about">Higher levels think longer for more thorough answers, but take more time and use more of your limits.</string>
     <plurals name="composer_search_models">
         <item quantity="one">Search %1$d model</item>
         <item quantity="other">Search %1$d models</item>

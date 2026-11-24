@@ -349,11 +349,15 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
   edits…), the mic and the send button, an ink circle: Send, Steer while a run is live, as Enter does in
   the agent's own terminal (with Queue, which waits for the agent to finish, on a long press), or Stop; it appears with the first character, the mic ending the row before. Above the field: the
   slash commands while the text starts with `/`, `@` file matches, attached images with remove. The
-  pill opens the model sheet: every model when the agent lists six or fewer, else the session's and
-  the pinned ones (up to ten per agent, `ModelPreferences`, kept on the phone); Thinking and each
-  mode as rows opening their lists; All Models, searchable by name, id and provider, a folding section
-  per provider, a pin on each row. A model is picked with the level last chosen on it, model then
-  level, and the pill shows the pick until the session reports it. The keyboard goes down after a
+  pill opens the model sheet: the models on a wheel (`ModelWheel`, a drum whose rows turn away from
+  the band, a selection tick per row), every model when the agent lists six or fewer, else the one
+  the sheet opened on and the pinned ones (up to ten per agent, `ModelPreferences`, kept on the phone;
+  a long press unpins). The model in the band is chosen when the wheel rests, with the level last
+  chosen on it, model then level; the band shows its level as dots and a name, and a tap opens
+  Thinking, a slider (`ThinkingSlider`) that ticks at each level and chooses where it comes to rest.
+  Under the wheel what the model is, each mode as a row opening its list, and All Models, searchable
+  by name, id and provider, a folding section per provider, a pin on each row. The pill shows the
+  pick until the session reports it. The keyboard goes down after a
   send and when the transcript is tapped, and the composer rests again.
 - **New session** (`Route.newSession`, laid out as the chat it becomes): the agent's mark and "What
   should we build?" where the transcript will be; above the composer, in one glass container, the
