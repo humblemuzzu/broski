@@ -91,6 +91,7 @@ class BroskiCoreTest {
         val record = MachineRecord.fromBytes(fixture("record.json"))
         assertEquals(record.id(), offer.machineId)
         assertEquals("Studio Mac", offer.name)
+        assertEquals(record.id().take(16).uppercase().chunked(4).joinToString(" "), offer.verificationCode)
         assertEquals(4_102_444_800uL, offer.expiresAt)
         assertEquals("macos", record.os())
         assertArrayEquals(fixture("record.json"), record.toBytes())

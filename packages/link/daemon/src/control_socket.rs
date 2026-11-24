@@ -144,7 +144,9 @@ async fn pair(control: &Arc<Control>) -> Result<Value> {
             clock::unix_secs(),
         )
         .await?;
-    Ok(json!({"uri": uri, "expires_at": expires_at}))
+    let code =
+        broski_link_core::crypto::verification_code(&control.identity.public().fingerprint());
+    Ok(json!({"uri": uri, "expires_at": expires_at, "code": code}))
 }
 
 fn status(control: &Arc<Control>) -> Value {

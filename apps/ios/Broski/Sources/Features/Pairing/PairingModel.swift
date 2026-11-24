@@ -9,6 +9,8 @@ final class PairingModel {
         let uri: String
         let machineId: String
         let name: String
+        /// The code `broski-link pair` prints under its QR; a link can carry any name but not this.
+        let verificationCode: String
         let expiresAt: Date
         let alreadyPaired: Bool
         let source: PairingProblem.Source
@@ -108,6 +110,7 @@ final class PairingModel {
             step = .preview(
                 Offer(
                     uri: text, machineId: parsed.machineId, name: parsed.name,
+                    verificationCode: parsed.verificationCode,
                     expiresAt: Date(timeIntervalSince1970: TimeInterval(parsed.expiresAt)),
                     alreadyPaired: app.machine(id: parsed.machineId) != nil, source: source))
         } catch {

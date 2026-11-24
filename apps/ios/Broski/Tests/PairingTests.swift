@@ -70,7 +70,8 @@ struct PairingTests {
     @Test func theCountdownRunsFromTheInstantTheViewChecksAndEndsAtTheExpiry() {
         let expiresAt = Date(timeIntervalSince1970: 1_000)
         let offer = PairingModel.Offer(
-            uri: "broski://pair", machineId: "m", name: "Studio Mac", expiresAt: expiresAt, alreadyPaired: false, source: .scanned)
+            uri: "broski://pair", machineId: "m", name: "Studio Mac", verificationCode: "7F3A 91C2 0E5D B846",
+            expiresAt: expiresAt, alreadyPaired: false, source: .scanned)
 
         let justBefore = expiresAt.addingTimeInterval(-0.001)
         #expect(offer.countdown(at: justBefore) == justBefore...expiresAt)

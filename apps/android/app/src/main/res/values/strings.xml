@@ -39,6 +39,8 @@
     <string name="pairing_title">Pair a Mac</string>
     <string name="pairing_intro">Run broski-link pair on the Mac, then scan the code it shows or copy the link it prints.</string>
     <string name="pairing_offer_from">Pairing code from</string>
+    <string name="pairing_mac_code">Mac code</string>
+    <string name="pairing_mac_code_hint">Check it matches the code under the QR on your Mac.</string>
     <string name="pairing_expires_in">Expires in %1$s</string>
     <string name="pairing_already_paired">Already paired. Pairing again replaces the old pairing.</string>
     <string name="pairing_pair_with">Pair with %1$s</string>

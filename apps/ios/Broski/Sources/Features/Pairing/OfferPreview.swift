@@ -46,6 +46,18 @@ struct OfferPreview: View {
             Text(offer.name)
                 .font(.title.bold())
                 .multilineTextAlignment(.center)
+            VStack(spacing: Spacing.xs) {
+                Text("Mac code")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                Text(offer.verificationCode)
+                    .font(.title3.monospaced().weight(.semibold))
+                    .textSelection(.enabled)
+                Text("Check it matches the code under the QR on your Mac.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            .accessibilityElement(children: .combine)
             if let countdown {
                 HStack(spacing: Spacing.xs) {
                     Text("Code expires in")

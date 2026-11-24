@@ -12,6 +12,17 @@ const URI_PREFIX: &str = "broski://pair?";
 const URI_VERSION: u8 = 2;
 const RELAY_SCHEMES: [&str; 2] = ["wss://", "ws://"];
 
+/// The Mac code a person compares between `broski-link pair` and the phone before pairing: the
+/// first 8 bytes of the pinned fingerprint as four groups of four upper-case hex digits. A link
+/// can carry any name, but not another machine's fingerprint.
+pub fn verification_code(fingerprint: &[u8; 32]) -> String {
+    fingerprint[..8]
+        .chunks(2)
+        .map(|pair| format!("{:02X}{:02X}", pair[0], pair[1]))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 pub struct PairingOffer {
     pub fingerprint: [u8; 32],
     pub secret: [u8; 32],

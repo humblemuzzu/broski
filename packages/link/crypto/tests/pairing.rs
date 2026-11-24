@@ -1,4 +1,4 @@
-use broski_link_crypto::{Error, PairingOffer, MAX_LAN_ENTRIES, MAX_NAME_LEN};
+use broski_link_crypto::{verification_code, Error, PairingOffer, MAX_LAN_ENTRIES, MAX_NAME_LEN};
 
 fn offer() -> PairingOffer {
     PairingOffer {
@@ -9,13 +9,21 @@ fn offer() -> PairingOffer {
             "192.168.1.20:8443".to_string(),
             "mac-mini.local:8443".to_string(),
         ],
-        name: "Sam's Mac / caf\u{e9}".to_string(),
+        name: "Studio Mac / caf\u{e9}".to_string(),
         expires_at: 1_800_000_000,
     }
 }
 
 fn minimal() -> PairingOffer {
     with_relay(None)
+}
+
+#[test]
+fn the_mac_code_is_the_fingerprints_first_eight_bytes_in_four_groups() {
+    let mut fingerprint = [0u8; 32];
+    fingerprint[..8].copy_from_slice(&[0x7f, 0x3a, 0x91, 0xc2, 0x0e, 0x5d, 0xb8, 0x46]);
+    fingerprint[8] = 0xff;
+    assert_eq!(verification_code(&fingerprint), "7F3A 91C2 0E5D B846");
 }
 
 fn with_relay(relay: Option<String>) -> PairingOffer {

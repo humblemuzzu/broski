@@ -20,6 +20,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.muzammil.broski.R
 import com.muzammil.broski.design.PrimaryButton
@@ -57,6 +58,25 @@ internal fun OfferPreview(
                 style = MaterialTheme.typography.headlineMediumEmphasized,
                 modifier = Modifier.semantics { heading() },
             )
+            Column(
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.semantics(mergeDescendants = true) {},
+            ) {
+                Text(
+                    stringResource(R.string.pairing_mac_code),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    preview.offer.verificationCode,
+                    style = MaterialTheme.typography.titleLarge.copy(fontFamily = FontFamily.Monospace),
+                )
+                Text(
+                    stringResource(R.string.pairing_mac_code_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             Fact(R.drawable.ic_schedule, stringResource(R.string.pairing_expires_in, countdown(remainingMs)))
             if (preview.alreadyPaired) {
                 Fact(R.drawable.ic_check_circle, stringResource(R.string.pairing_already_paired))

@@ -41,6 +41,11 @@ impl Offer {
             .collect()
     }
 
+    /// The code `broski-link pair` prints beside its QR (`verification_code`).
+    pub fn verification_code(&self) -> String {
+        broski_link_core::crypto::verification_code(&self.offer.fingerprint)
+    }
+
     pub fn name(&self) -> &str {
         &self.offer.name
     }

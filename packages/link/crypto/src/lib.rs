@@ -20,6 +20,6 @@ pub use handshake::{
     HandshakeMode, HandshakeModeKind, Initiator, Responder, MAX_HANDSHAKE_PAYLOAD, PROTOCOL_VERSION,
 };
 pub use identity::{PublicBundle, StaticIdentity, PUBLIC_BUNDLE_LEN, SECRET_BYTES_LEN};
-pub use pairing::{PairingOffer, MAX_LAN_ENTRIES, MAX_NAME_LEN};
+pub use pairing::{verification_code, PairingOffer, MAX_LAN_ENTRIES, MAX_NAME_LEN};
 pub use suite::SUITE;
 pub use transport::{Transport, MAX_PLAINTEXT};

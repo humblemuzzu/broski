@@ -22,6 +22,11 @@ pub fn pair(args: HomeArgs) -> Result<String, String> {
     }
     out.push_str(uri);
     out.push('\n');
+    if let Some(code) = reply.get("code").and_then(Value::as_str) {
+        out.push_str(&format!(
+            "Mac code  {code}  (check your phone shows the same)\n"
+        ));
+    }
     if let Some(expires_at) = reply.get("expires_at").and_then(Value::as_u64) {
         let remaining = expires_at.saturating_sub(clock::unix_secs());
         out.push_str(&format!("valid for {remaining}s\n"));
