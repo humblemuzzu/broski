@@ -143,12 +143,6 @@ class UsageWidgetProvider : AppWidgetProvider() {
                 paint.color = withAlpha(tint(plan), 0.6f)
                 canvas.drawRoundRect(RectF(0f, top, (widthPx * left).coerceAtLeast(barHeight), top + barHeight), radius, radius, paint)
             }
-            window.elapsed(nowMs)?.let { elapsed ->
-                val mark = (barHeight * 0.25f).coerceAtLeast(2f * (heightPx / BAR_HEIGHT_DP))
-                val x = (widthPx * (1f - elapsed.toFloat()) - mark / 2f).coerceIn(0f, widthPx - mark)
-                paint.color = primary
-                canvas.drawRoundRect(RectF(x, 0f, x + mark, heightPx.toFloat()), mark / 2f, mark / 2f, paint)
-            }
             return bitmap
         }
 

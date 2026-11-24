@@ -51,13 +51,6 @@ enum class LimitSpan(val durationMs: Long, val title: String, val shortTitle: St
 @Serializable
 data class UsagePoint(val atMs: Long, val usedPercent: Double)
 
-sealed interface UsagePace {
-    data object Under : UsagePace
-    data object Steady : UsagePace
-    data object Over : UsagePace
-    data class RunsOut(val atMs: Long) : UsagePace
-}
-
 @Serializable
 data class LimitWindow(
     val id: String,
@@ -86,7 +79,10 @@ data class LimitWindow(
         return (1.0 - (reset - nowMs).toDouble() / span.durationMs.toDouble()).coerceIn(0.0, 1.0)
     }
 
-    /** Projected exhaustion timestamp if current pace runs out before reset; `null` otherwise. */
+    /**
+     * When the limit runs out if use goes on at its rate so far, when that is before it resets; `null`
+     * otherwise, and while too little of the window has passed or too little is used to say.
+     */
     fun runsOutMs(nowMs: Long): Long? {
         val reset = resetsAtMs ?: return null
         val elapsed = elapsed(nowMs) ?: return null
@@ -95,18 +91,6 @@ data class LimitWindow(
         val ratePerMs = used / (elapsed * span.durationMs.toDouble())
         val outMs = nowMs + ((1.0 - used) / ratePerMs).roundToLong()
         return outMs.takeIf { it < reset }
-    }
-
-    fun pace(nowMs: Long): UsagePace? {
-        val elapsed = elapsed(nowMs) ?: return null
-        if (elapsed < 0.05) return null
-        runsOutMs(nowMs)?.let { return UsagePace.RunsOut(it) }
-        val ahead = used(nowMs) - elapsed
-        return when {
-            ahead > 0.05 -> UsagePace.Over
-            ahead < -0.05 -> UsagePace.Under
-            else -> UsagePace.Steady
-        }
     }
 
     companion object {

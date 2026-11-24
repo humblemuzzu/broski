@@ -4,7 +4,6 @@ import android.content.res.Resources
 import android.text.format.DateFormat
 import com.muzammil.broski.R
 import com.muzammil.broski.core.usage.LimitWindow
-import com.muzammil.broski.core.usage.UsagePace
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -17,14 +16,9 @@ fun LimitWindow.left(nowMs: Long): Double = 1.0 - used(nowMs)
 /** "83%". */
 fun LimitWindow.leftPercent(nowMs: Long): String = "${(left(nowMs) * 100).roundToInt()}%"
 
-/** "On pace", "Runs out Thu 12 PM"; null while too little of the window has passed to say. */
-fun LimitWindow.paceWords(resources: Resources, nowMs: Long): String? = when (val pace = pace(nowMs)) {
-    UsagePace.Under -> resources.getString(R.string.usage_pace_under)
-    UsagePace.Steady -> resources.getString(R.string.usage_pace_steady)
-    UsagePace.Over -> resources.getString(R.string.usage_pace_over)
-    is UsagePace.RunsOut -> resources.getString(R.string.usage_pace_runs_out, moment(pace.atMs, nowMs))
-    null -> null
-}
+/** "Runs out Thu 12 PM" when the limit will run out before it resets at its rate so far; else null. */
+fun LimitWindow.runsOutWords(resources: Resources, nowMs: Long): String? =
+    runsOutMs(nowMs)?.let { resources.getString(R.string.usage_runs_out, moment(it, nowMs)) }
 
 /**
  * "Resets 9:47 PM" today, "Resets Sun 2:30 AM" beyond: a time, not a countdown, so a widget never

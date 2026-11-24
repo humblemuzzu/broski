@@ -18,7 +18,7 @@ class UsageReportTest {
     val temp = TemporaryFolder()
 
     @Test
-    fun usedDropsToZeroPastResetAndPaceDetectsRunsOut() {
+    fun usedDropsToZeroPastResetAndAFastRateRunsOutBeforeTheReset() {
         val now = 10_000_000L
         val fiveHour = LimitSpan.FiveHour.durationMs
         // Halfway through the 5h window (elapsed = 0.5), already at 80% -> will run out before reset.
@@ -30,8 +30,10 @@ class UsageReportTest {
         )
         assertEquals(0.80, fast.used(now), 0.001)
         assertEquals(0.50, fast.elapsed(now)!!, 0.001)
-        val pace = fast.pace(now)
-        assertTrue("expected RunsOut pace, got $pace", pace is UsagePace.RunsOut)
+        val runsOut = fast.runsOutMs(now)
+        assertTrue("expected it to run out before the reset, got $runsOut", runsOut != null && runsOut < fast.resetsAtMs!!)
+        val slow = fast.copy(usedPercent = 30.0)
+        assertNull("a slow rate lasts to the reset", slow.runsOutMs(now))
 
         // Past reset -> 0% used, null elapsed.
         val pastReset = fast.resetsAtMs!! + 1_000L

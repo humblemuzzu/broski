@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -61,53 +60,41 @@ fun PlanGlyph(plan: String, name: String, size: Dp = 20.dp) {
     }
 }
 
-/**
- * What is left of a limit as a filled capsule in the plan's muted colour, and a thin mark where an
- * even pace would leave it: fill past the mark means room to spare.
- */
+/** What is left of a limit as a filled capsule in the plan's muted colour. */
 @Composable
 fun UsageBar(plan: String, window: LimitWindow, nowMs: Long, modifier: Modifier = Modifier, height: Dp = 10.dp) {
     val left = window.left(nowMs).toFloat()
-    val evenPace = window.elapsed(nowMs)?.let { 1f - it.toFloat() }
     val track = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
     val fill = planTint(plan).copy(alpha = 0.6f)
-    val mark = MaterialTheme.colorScheme.onSurface
-    BoxWithConstraints(modifier.fillMaxWidth().height(height * 1.9f).clearAndSetSemantics {}, contentAlignment = Alignment.CenterStart) {
+    BoxWithConstraints(modifier.fillMaxWidth().height(height).clearAndSetSemantics {}, contentAlignment = Alignment.CenterStart) {
         val width = maxWidth
         Box(Modifier.fillMaxWidth().height(height).background(track, CircleShape))
         if (left > 0f) {
             Box(Modifier.width((width * left).coerceAtLeast(height)).height(height).background(fill, CircleShape))
         }
-        if (evenPace != null) {
-            val markWidth = maxOf(2.dp, height * 0.25f)
-            Box(
-                Modifier
-                    .offset(x = (width * evenPace - markWidth / 2).coerceIn(0.dp, width - markWidth))
-                    .width(markWidth)
-                    .height(height * 1.9f)
-                    .background(mark, CircleShape),
-            )
-        }
     }
 }
 
-/** One limit: what it covers and where its pace stands, how much is left as the figure to read, the bar, when it starts over. */
+/**
+ * One limit: what it covers, when it runs out if it will before it resets, how much is left as the
+ * figure to read, the bar, when it starts over.
+ */
 @Composable
 fun LimitCard(plan: String, window: LimitWindow, nowMs: Long, modifier: Modifier = Modifier) {
     val resources = LocalResources.current
-    val pace = window.paceWords(resources, nowMs)
+    val runsOut = window.runsOutWords(resources, nowMs)
     val reset = window.resetWords(resources, nowMs)
     val left = window.leftPercent(nowMs)
     val secondary = MaterialTheme.colorScheme.onSurfaceVariant
     StatsCard(
         modifier.semantics(mergeDescendants = true) {
-            contentDescription = listOfNotNull(window.label, resources.getString(R.string.usage_left_spoken, left), pace, reset).joinToString(", ")
+            contentDescription = listOfNotNull(window.label, resources.getString(R.string.usage_left_spoken, left), runsOut, reset).joinToString(", ")
         },
         Arrangement.spacedBy(12.dp),
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(window.label, style = IosText.subheadline, fontWeight = FontWeight.Medium, color = secondary, maxLines = 1, modifier = Modifier.weight(1f).alignByBaseline())
-            pace?.let { Text(it, style = IosText.footnote, fontWeight = FontWeight.Medium, color = secondary, maxLines = 1, modifier = Modifier.alignByBaseline()) }
+            runsOut?.let { Text(it, style = IosText.footnote, fontWeight = FontWeight.Medium, color = secondary, maxLines = 1, modifier = Modifier.alignByBaseline()) }
         }
         Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             NumericText(left, IosText.figure)

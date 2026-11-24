@@ -166,10 +166,7 @@
     <string name="usage_empty_title">No plans read yet</string>
     <string name="usage_empty_offline">Broski reads your plans from your Mac once it\'s connected.</string>
     <string name="usage_empty_ready">Your Mac reads the Claude and Antigravity sign-ins of Claude Code, agy and Pi. Sign in to one there, then pull to refresh.</string>
-    <string name="usage_pace_under">Under pace</string>
-    <string name="usage_pace_steady">On pace</string>
-    <string name="usage_pace_over">Ahead of pace</string>
-    <string name="usage_pace_runs_out">Runs out %1$s</string>
+    <string name="usage_runs_out">Runs out %1$s</string>
     <string name="usage_widget_description">What\'s left of each plan.</string>
     <string name="usage_widget_empty">Open Broski to read plan usage</string>
     <string name="settings_keep_awake">Keep Screen Awake</string>

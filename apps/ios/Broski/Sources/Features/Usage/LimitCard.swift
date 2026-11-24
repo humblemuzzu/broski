@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// One limit: what it covers and where its pace stands, how much is left as the figure to read, the
-/// bar of what is left, and when it starts over.
+/// One limit: what it covers, when it runs out if it will before it resets, how much is left as the
+/// figure to read, the bar of what is left, and when it starts over.
 struct LimitCard: View {
     let plan: UsagePlan
     let window: LimitWindow
@@ -14,8 +14,8 @@ struct LimitCard: View {
                     .font(.subheadline.weight(.medium))
                     .lineLimit(1)
                 Spacer(minLength: Spacing.s)
-                if let pace = window.paceWords(at: now) {
-                    Text(pace).font(.footnote.weight(.medium)).lineLimit(1)
+                if let runsOut = window.runsOutWords(at: now) {
+                    Text(runsOut).font(.footnote.weight(.medium)).lineLimit(1)
                 }
             }
             .foregroundStyle(.secondary)

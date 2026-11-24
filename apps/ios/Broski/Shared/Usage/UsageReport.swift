@@ -120,14 +120,6 @@ nonisolated struct LimitWindow: Codable, Equatable, Sendable, Identifiable {
     var resetsAt: Date?
     var history: [UsagePoint] = []
 
-    /// Where use stands against an even spread across the window.
-    enum Pace: Equatable, Sendable {
-        case under
-        case steady
-        case over
-        case runsOut(Date)
-    }
-
     var start: Date? { resetsAt?.addingTimeInterval(-span.duration) }
 
     /// The scope as a label holds it: "Claude and GPT" reads "Claude + GPT".
@@ -157,14 +149,6 @@ nonisolated struct LimitWindow: Codable, Equatable, Sendable, Identifiable {
         let rate = used / (elapsed * span.duration)
         let out = now.addingTimeInterval((1 - used) / rate)
         return out < resetsAt ? out : nil
-    }
-
-    /// Nil while too little of the window has passed to say.
-    func pace(at now: Date) -> Pace? {
-        guard let elapsed = elapsed(at: now), elapsed >= 0.05 else { return nil }
-        if let out = runsOut(at: now) { return .runsOut(out) }
-        let ahead = used(at: now) - elapsed
-        return ahead > 0.05 ? .over : ahead < -0.05 ? .under : .steady
     }
 
 }
