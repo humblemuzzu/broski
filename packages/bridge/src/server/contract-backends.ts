@@ -51,7 +51,7 @@ const piBackend: ReturnType<typeof piBackendFactory> = async (host) => {
  * The user's `agy`, with the bridge's environment, started in an empty folder the bridge owns (`antigravity/install.ts`),
  * the sessions the bridge made kept beside it.
  */
-function antigravityBackend(log: (message: string) => void): BackendFactory {
+function antigravityBackend(log: (message: string) => void, planSeen: (plan: string) => void): BackendFactory {
 	return async (host) => {
 		const config = await readConfig();
 		const env = bridgeEnv();
@@ -69,6 +69,7 @@ function antigravityBackend(log: (message: string) => void): BackendFactory {
 			journal: journalsIn(join(homedir(), ".broski", "antigravity"), agyLog),
 			...(config.antigravity.maxSessions !== undefined && { maxSessions: config.antigravity.maxSessions }),
 			log: agyLog,
+			planSeen,
 		})(host);
 	};
 }
@@ -85,10 +86,11 @@ export interface ContractBackendsDeps {
  * usage of the plans they run on.
  */
 export function contractOptions(deps: ContractBackendsDeps): ContractOptions {
+	let antigravityPlan: string | undefined;
 	const builtIn: ReadonlyArray<readonly [BackendId, BackendFactory]> = [
 		["pi", piBackend],
 		["claude-code", deps.claudeCode.backend],
-		["antigravity", antigravityBackend(deps.log)],
+		["antigravity", antigravityBackend(deps.log, (plan) => (antigravityPlan = plan))],
 	];
 	const plugins = loadConfiguredAdapters(
 		deps.config.adapters,
@@ -104,7 +106,8 @@ export function contractOptions(deps: ContractBackendsDeps): ContractOptions {
 	);
 	return {
 		backends: [...builtIn, ...plugins],
-		usage: (log) => machineUsage(machineSystem(agentDirOf(process.env)), join(homedir(), ".broski"), log),
+		usage: (log) =>
+			machineUsage(machineSystem(agentDirOf(process.env)), join(homedir(), ".broski"), log, () => antigravityPlan),
 		stats: (log) => machineStats(agentDirOf(process.env), join(homedir(), ".broski"), log),
 	};
 }

@@ -17,9 +17,11 @@ nonisolated struct UsageReport: Codable, Equatable, Sendable {
     }
 }
 
-/// A plan by the contract's id: `claude`, or any other a bridge meters. Stored as the bare id.
+/// A plan by the contract's id: `claude`, `antigravity`, or any other a bridge meters. Stored as
+/// the bare id.
 nonisolated struct UsagePlan: Codable, Hashable, Sendable, Identifiable {
     static let claude = UsagePlan(id: "claude")
+    static let antigravity = UsagePlan(id: "antigravity")
 
     let id: String
 
@@ -183,6 +185,15 @@ nonisolated extension UsageReport {
                         LimitWindow(id: "session", span: .fiveHour, usedPercent: 38, resetsAt: hours(2.6)),
                         LimitWindow(id: "weekly_all", span: .week, usedPercent: 55, resetsAt: hours(75)),
                         LimitWindow(id: "weekly_scoped:Fable", span: .week, scope: "Fable", usedPercent: 12, resetsAt: hours(75)),
+                    ].map(traced),
+                    readAt: now, machineName: "Mac"),
+                PlanReport(
+                    plan: .antigravity, tier: "Google AI Ultra",
+                    windows: [
+                        LimitWindow(id: "gemini-5h", span: .fiveHour, scope: "Gemini", usedPercent: 10, resetsAt: hours(1.1)),
+                        LimitWindow(id: "gemini-weekly", span: .week, scope: "Gemini", usedPercent: 4, resetsAt: hours(159)),
+                        LimitWindow(id: "3p-5h", span: .fiveHour, scope: "Claude and GPT", usedPercent: 0, resetsAt: hours(5)),
+                        LimitWindow(id: "3p-weekly", span: .week, scope: "Claude and GPT", usedPercent: 1, resetsAt: hours(159)),
                     ].map(traced),
                     readAt: now, machineName: "Mac"),
             ],

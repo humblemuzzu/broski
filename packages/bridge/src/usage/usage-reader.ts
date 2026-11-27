@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { MAX_NAME_CHARS, type PlanId, type PlanMeter, type PlanUsageResult, type UsageWindow } from "../contract";
 import { clip } from "../contract/clip";
 import type { UsageReader } from "../core/ports";
+import { antigravitySource } from "./antigravity-usage";
 import { claudeSource } from "./claude-usage";
 import type { PlanReading, PlanSource } from "./plan-source";
 import type { UsageSystem } from "./system";
@@ -21,19 +22,21 @@ export interface SampledUsage extends UsageReader {
 }
 
 /**
- * The plans signed in on this machine, Claude and any `extraSources` beside it, with their history in
- * `<broskiDir>/usage/history.json`. An extra source whose plan id is taken already is left out. Antigravity's plan is
- * not read: its usage is only behind Google's internal endpoints and agy's own sign-in, which no third-party client may
- * use (antigravity README, "Google's rules").
+ * The plans signed in on this machine, Claude, Antigravity and any `extraSources` beside them, with their history in
+ * `<broskiDir>/usage/history.json`. An extra source whose plan id is taken already is left out. Antigravity's limits
+ * are those agy last gave its own status line (`antigravity-usage.ts`); `antigravityPlan` is the plan's name agy last
+ * said over ACP.
  */
 export function machineUsage(
 	system: UsageSystem,
 	broskiDir: string,
 	log: (message: string) => void,
+	antigravityPlan: () => string | undefined,
 	extraSources: readonly PlanSource[] = [],
 ): SampledUsage {
 	const history = new UsageHistory(fileHistoryStore(join(broskiDir, "usage", "history.json"), log));
-	const sources = distinctPlans([claudeSource(system), ...extraSources], log);
+	const antigravity = antigravitySource(system, broskiDir, antigravityPlan);
+	const sources = distinctPlans([claudeSource(system), antigravity, ...extraSources], log);
 	const reader = usageReader(sources, () => system.now(), history);
 	return {
 		read: () => reader.read(),
@@ -74,8 +77,9 @@ export function usageReader(
 		const tier = reading.tier ?? earlier?.tier;
 		const named = tier === undefined ? {} : { tier: clip(tier, MAX_NAME_CHARS) };
 		if ("windows" in reading) {
-			const windows = history.record(source.plan, reading.windows.map(fitted), at);
-			return { plan: source.plan, displayName: source.displayName, ...named, windows, readAt: at };
+			const measured = reading.readAt ?? at;
+			const windows = history.record(source.plan, reading.windows.map(fitted), measured);
+			return { plan: source.plan, displayName: source.displayName, ...named, windows, readAt: measured };
 		}
 		return {
 			plan: source.plan,

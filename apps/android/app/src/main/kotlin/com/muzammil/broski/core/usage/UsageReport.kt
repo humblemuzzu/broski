@@ -15,8 +15,9 @@ import kotlin.math.roundToLong
 /** The plans the app has its own look for, by their wire ids; any other is drawn in the theme's colours. */
 object PlanIds {
     const val CLAUDE = "claude"
+    const val ANTIGRAVITY = "antigravity"
 
-    private val known = listOf(CLAUDE)
+    private val known = listOf(CLAUDE, ANTIGRAVITY)
 
     internal fun rank(plan: String): Int = known.indexOf(plan).takeIf { it >= 0 } ?: known.size
 }
@@ -29,7 +30,7 @@ internal object PlanIdSerializer : KSerializer<String> {
 
     override fun deserialize(decoder: Decoder): String = when (val stored = decoder.decodeString()) {
         "Claude" -> PlanIds.CLAUDE
-        "Antigravity" -> "antigravity"
+        "Antigravity" -> PlanIds.ANTIGRAVITY
         else -> stored
     }
 }
@@ -159,7 +160,7 @@ data class UsageReport(
     val savedAtMs: Long,
 ) {
     companion object {
-        /** One report per plan: when multiple Macs read the same plan, keep the newer reading. Claude, then the rest by id. */
+        /** One report per plan: when multiple Macs read the same plan, keep the newer reading. Claude, Antigravity, then the rest by id. */
         fun merged(plans: List<PlanReport>): List<PlanReport> = plans
             .groupBy { it.plan }
             .values

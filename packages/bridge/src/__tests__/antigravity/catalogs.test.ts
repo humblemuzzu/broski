@@ -2,7 +2,7 @@
 
 import { describe, expect, test } from "bun:test";
 import type { RpcResult } from "../../backends/antigravity/acp/rpc";
-import { AgyCatalogs } from "../../backends/antigravity/catalog/catalogs";
+import { AgyCatalogs, signInOf } from "../../backends/antigravity/catalog/catalogs";
 import type { CatalogProbes, CommandFacts, ProbeFacts } from "../../backends/antigravity/catalog/probe";
 import type { CommandSummary } from "../../contract";
 
@@ -38,6 +38,7 @@ function rig() {
 		"/void",
 		async () => clock.stamp,
 		() => clock.now,
+		() => undefined,
 	);
 	return { probes, clock, catalogs };
 }
@@ -82,5 +83,17 @@ describe("the Antigravity catalog", () => {
 		await catalogs.offered("/b");
 		await catalogs.commands("/c");
 		expect(probes.asked.slice(4)).toEqual(["catalog /b", "commands /c"]);
+	});
+
+	test("a sign-in names the plan agy says the account is on, as session/new's _meta.antigravity.tier gives it", () => {
+		const tier = {
+			name: "Google AI Ultra",
+			id: "g1-ultra-lite-tier",
+			upgradeUri: "https://antigravity.google/g1-upgrade",
+		};
+		const signedIn = (meta: Record<string, unknown>) => signInOf({ ok: true, result: { meta } });
+		expect(signedIn({ antigravity: { tier } })).toEqual({ kind: "signed_in", plan: "Google AI Ultra" });
+		expect(signedIn({ antigravity: { tier: { id: "g1-ultra-lite-tier" } } })).toEqual({ kind: "signed_in" });
+		expect(signedIn({ antigravity: {} })).toEqual({ kind: "unknown" });
 	});
 });

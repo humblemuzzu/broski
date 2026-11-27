@@ -42,6 +42,8 @@ export interface AntigravityBackendOptions {
 	/** Where what `agy` sends that breaks the protocol is reported. */
 	readonly log: (message: string) => void;
 	readonly clock?: Clock;
+	/** Told the name of the plan agy says the account is on, each time the catalog reads it. */
+	readonly planSeen?: (plan: string) => void;
 }
 
 interface Parts {
@@ -87,7 +89,13 @@ function partsOf(options: AntigravityBackendOptions, host: BackendHost): Parts {
 	const clock = options.clock ?? SYSTEM_CLOCK;
 	const now = () => clock.now();
 	const stamp = async () => (cli.found ? executableStamp(cli.path) : "-");
-	const catalogs = new AgyCatalogs(catalogProbes(jobs), install.voidDir, stamp, now);
+	const catalogs = new AgyCatalogs(
+		catalogProbes(jobs),
+		install.voidDir,
+		stamp,
+		now,
+		options.planSeen ?? (() => undefined),
+	);
 	const made = new MadeSessions(options.journal);
 	const sessions = new AgySessions(jobs, install.voidDir, made);
 	const prompts = new PhonePrompts(options.fitImage);

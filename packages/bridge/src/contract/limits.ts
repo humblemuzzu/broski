@@ -32,7 +32,7 @@ export const MAX_CATALOG_ITEMS = 10_000;
 export const MAX_BACKENDS = 32;
 /** Plans one machine meters. */
 export const MAX_PLAN_METERS = 32;
-/** Windows of one plan's usage: Claude reports its five hours and week, and a week per scoped model. */
+/** Windows of one plan's usage: Antigravity reports two per model group, Claude one per scoped model. */
 export const MAX_USAGE_WINDOWS = 16;
 /** Readings of one window's history: one per 1/120th of its span, the latest kept within each. */
 export const MAX_USAGE_POINTS = 128;

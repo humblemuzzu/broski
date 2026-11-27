@@ -24,7 +24,8 @@ All notable changes to Broski are documented here.
 - **Inside Google's rules for third-party ACP clients**: you drive every session on your own agy sign-in and plan;
   agy gets only your own prompts, images and commands, with no system prompt, replayed history or text of Broski's own.
   Broski opens a session you did not only to read what you asked for (models, modes, a folder's commands), and never
-  prompts one. It no longer reads Antigravity's plan usage, which only Google's internal endpoints serve.
+  prompts one. Antigravity's plan limits come from agy's own status line, kept by your status-line command, never
+  from Google's internal endpoints or your sign-in (backend README, Usage).
   Broski's phone-writing note is not sent to agy; put it in your own `~/.gemini/GEMINI.md` if you want it.
 
 ### Updates that always finish

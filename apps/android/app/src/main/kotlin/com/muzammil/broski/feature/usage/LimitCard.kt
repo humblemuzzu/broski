@@ -1,5 +1,6 @@
 package com.muzammil.broski.feature.usage
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -38,21 +39,23 @@ import com.muzammil.broski.design.IosText
 import com.muzammil.broski.core.usage.LimitWindow
 import com.muzammil.broski.core.usage.PlanIds
 
-/** A plan's own colour: Claude's coral, any other a neutral slate. */
+/** A plan's own colour: Claude's coral, Antigravity's blue, any other a neutral slate. */
 @Composable
 fun planTint(plan: String): Color {
     val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     return when (plan) {
         PlanIds.CLAUDE -> if (dark) Color(0xFFD97757) else Color(0xFFC15F3C)
+        PlanIds.ANTIGRAVITY -> if (dark) Color(0xFF5B9DFF) else Color(0xFF1A73E8)
         else -> if (dark) Color(0xFF94A3B8) else Color(0xFF5B6577)
     }
 }
 
-/** The plan's mark in its own colours: Claude's spark, else its initial. */
+/** The plan's mark in its own colours: Claude's spark, Antigravity's arch, else its initial. */
 @Composable
 fun PlanGlyph(plan: String, name: String, size: Dp = 20.dp) {
     when (plan) {
         PlanIds.CLAUDE -> Icon(painterResource(R.drawable.ic_agent_claude), contentDescription = null, tint = Color(0xFFD97757), modifier = Modifier.size(size))
+        PlanIds.ANTIGRAVITY -> Image(painterResource(R.drawable.ic_agent_antigravity), contentDescription = null, modifier = Modifier.size(size * 0.9f))
         else -> Text(name.take(1).uppercase(), fontSize = (size.value * 0.8f).sp, fontWeight = FontWeight.Bold, color = planTint(plan))
     }
 }

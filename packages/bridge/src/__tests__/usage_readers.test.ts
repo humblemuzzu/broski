@@ -242,7 +242,13 @@ describe("the usage reader", () => {
 			const codex = scripted("codex", "Codex", [{ windows: [window], tier: "Plus" }]);
 			const shadow = scripted("claude", "Not Claude", [{ windows: [] }]);
 			const logged: string[] = [];
-			const usage = machineUsage(system, broskiDir, (line) => void logged.push(line), [codex.source, shadow.source]);
+			const usage = machineUsage(
+				system,
+				broskiDir,
+				(line) => void logged.push(line),
+				() => undefined,
+				[codex.source, shadow.source],
+			);
 			const stop = usage.sample();
 			const result = await usage.read();
 			stop();

@@ -1,8 +1,11 @@
 import type { PlanId, UsageWindow } from "../contract";
 
-/** What one read of a plan found: its windows, or why there are none this time. */
+/**
+ * What one read of a plan found: its windows, or why there are none this time. `readAt` is when the windows were
+ * measured, for a source that hands on a reading taken earlier; the read's own time when absent.
+ */
 export type PlanReading =
-	| { readonly windows: readonly UsageWindow[]; readonly tier?: string }
+	| { readonly windows: readonly UsageWindow[]; readonly tier?: string; readonly readAt?: number }
 	| { readonly problem: string; readonly tier?: string };
 
 /** One plan's service. `read` answers undefined when the plan has no sign-in on this machine. */

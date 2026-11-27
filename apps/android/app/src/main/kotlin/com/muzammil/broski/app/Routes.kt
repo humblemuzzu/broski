@@ -31,7 +31,7 @@ data object PairRoute : Route
 @Serializable
 data object VoiceRoute : Route
 
-/** The Usage tab: every plan's limits (Claude, …) across paired Macs. */
+/** The Usage tab: every plan's limits (Claude, Antigravity, …) across paired Macs. */
 @Serializable
 data object UsageRoute : Route
 

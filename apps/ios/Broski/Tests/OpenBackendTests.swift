@@ -93,7 +93,8 @@ struct OpenBackendTests {
             PlanMeter(plan: "open-router", displayName: nil, tier: nil, windows: [], readAt: nil, problem: nil),
             machineName: "Mac")
         #expect(unnamed.name == "Open Router")
-        #expect(UsagePlan.claude.name == "Claude" && UsagePlan.claude.logo == .claude)
+        #expect(UsagePlan.claude.name == "Claude" && UsagePlan.antigravity.name == "Antigravity")
+        #expect(UsagePlan.claude.logo == .claude && UsagePlan.antigravity.logo == .antigravity)
     }
 
     @Test func aStoredReportFromAnEarlierBuildStillReadsAndKeepsItsShape() throws {

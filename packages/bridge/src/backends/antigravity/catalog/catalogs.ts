@@ -6,10 +6,12 @@
  * probe's session was offered in the folder it ran in, else a commands probe's in the folder asked, kept as long, or
  * until a hosted session there is announced others (`announced`). Callers asking while a probe runs share it; a failed
  * probe is not kept, nor is a wait in which agy announced no commands, which reads nothing and is answered as a failure.
- * Each probe also says whether agy is signed in, which `status()` reports and never finds out itself.
+ * Each probe also says whether agy is signed in, which `status()` reports and never finds out itself, and the name of
+ * the plan agy says the account is on, which the bridge's Usage tab shows.
  */
 
 import { isRecord } from "../../../adapter-kit/bounded-json";
+import { phoneName } from "../../../adapter-kit/phone-text";
 import type { CommandSummary, ModeAxis, ModelSummary } from "../../../contract";
 import { AUTH_REQUIRED } from "../acp/frames";
 import type { RpcFailure, RpcResult } from "../acp/rpc";
@@ -25,7 +27,7 @@ export interface Offered {
 
 export type SignIn =
 	| { readonly kind: "unknown" }
-	| { readonly kind: "signed_in" }
+	| { readonly kind: "signed_in"; readonly plan?: string }
 	| { readonly kind: "signed_out"; readonly text: string }
 	| { readonly kind: "failed"; readonly text: string };
 
@@ -58,6 +60,8 @@ export class AgyCatalogs {
 		/** The `agy` binary's file stamp: another one is another `agy`, which may offer otherwise. */
 		private readonly stamp: () => Promise<string>,
 		private readonly now: () => number,
+		/** Told the plan's name each time a probe reads it. */
+		private readonly planSeen: (plan: string) => void,
 	) {}
 
 	async offered(cwd: string | undefined): Promise<RpcResult<Offered>> {
@@ -73,7 +77,7 @@ export class AgyCatalogs {
 		if (this.fresh(known, stamp)) return known.read;
 		if (!this.fresh(this.offers, stamp)) return this.probe(directory, stamp).commands.read;
 		const read = this.probes.commands(directory).then((probed) => {
-			this.signIn = signInOf(probed);
+			this.note(signInOf(probed));
 			return commandsOf(probed);
 		});
 		return this.keepCommands(directory, this.kept(stamp, read)).read;
@@ -94,10 +98,15 @@ export class AgyCatalogs {
 		return this.signIn;
 	}
 
+	private note(signIn: SignIn): void {
+		this.signIn = signIn;
+		if (signIn.kind === "signed_in" && signIn.plan !== undefined) this.planSeen(signIn.plan);
+	}
+
 	/** One catalog probe in `directory`: the models and modes, and that folder's commands. */
 	private probe(directory: string, stamp: string): { offers: Kept<Offered>; commands: Kept<Commands> } {
 		const probed = this.probes.catalog(directory).then((read) => {
-			this.signIn = signInOf(read);
+			this.note(signInOf(read));
 			return read;
 		});
 		const offers = this.kept(
@@ -145,7 +154,7 @@ function commandsOf(probed: RpcResult<CommandFacts>): RpcResult<Commands> {
 		: { ok: true, result: commandSummaries(commands) };
 }
 
-/** `_meta.antigravity.tier` names the plan of the account agy runs on, and comes only with a sign-in. */
+/** `_meta.antigravity.tier` is the plan of the account agy runs on (`{name, id, upgradeUri}`), and comes only with a sign-in. */
 export function signInOf(probed: RpcResult<SessionFacts>): SignIn {
 	if (!probed.ok) {
 		const { failure } = probed;
@@ -155,7 +164,9 @@ export function signInOf(probed: RpcResult<SessionFacts>): SignIn {
 	}
 	const antigravity = probed.result.meta?.antigravity;
 	const tier = isRecord(antigravity) ? antigravity.tier : undefined;
-	return tier === undefined || tier === null ? { kind: "unknown" } : { kind: "signed_in" };
+	if (tier === undefined || tier === null) return { kind: "unknown" };
+	const name = isRecord(tier) && typeof tier.name === "string" ? phoneName(tier.name) : "";
+	return name === "" ? { kind: "signed_in" } : { kind: "signed_in", plan: name };
 }
 
 function isAuthFailure(failure: RpcFailure): boolean {

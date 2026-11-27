@@ -71,7 +71,7 @@ and agy is the agent.
 | No replayed history and no prompt text of the bridge's own: the backend declares `verbatimPrompts`, so the core offers no portable fork (its `<broski_context_handoff>` would open a new session's first prompt with the old conversation). The core's queue and steer send the person's input as it came, only its mode changed. agy owns its history; a reopened session is `session/load`. | `traits.ts:37`, `core/fallbacks.ts:144`, `contract/backend.ts:60` |
 | No tool definitions injected: every session opens with `mcpServers: []`, and the client offers agy no file system and no terminal. | `live/hosts.ts:131,203`, `store/transcript.ts:126`, `acp/connection.ts:50` |
 | No `agy -p`: agy is only ever started as `agy acp` or `agy acp --process-per-session` (and `agy --version` for the status). | `jobs.ts:65`, `live/front.ts:41` |
-| No Google internal API and no reading of agy's sign-in: the bridge calls no `cloudcode-pa` or `v1internal:*` endpoint, reads no OAuth token of agy's and never calls `authenticate`; Antigravity's plan usage is not metered (only Claude's is). | `usage/usage-reader.ts:36` |
+| No Google internal API and no reading of agy's sign-in: the bridge calls no `cloudcode-pa` or `v1internal:*` endpoint, reads no OAuth token of agy's and never calls `authenticate`; Antigravity's plan usage comes only from agy's own status line (below). | `usage/antigravity-usage.ts` |
 | An honest client: `clientInfo {name: "broski", version: <bridge version>}`. | `backend.ts:81`, `acp/connection.ts:55` |
 | The user's own sign-in, one user, no account rotation: agy runs with its own sign-in and config; the bridge chooses no account. | `agy-process.ts` |
 | No automatic sessions beyond the reads the person asks for (below), no timer that opens one, and never a prompt the person did not send. | `catalog/catalogs.ts:63,69` |
@@ -100,6 +100,46 @@ Listing and history (`session/list`, `session/load` on a short job) open no new 
 - a call to a Google endpoint (`cloudcode-pa`, `v1internal:*`, OAuth) or a read of agy's tokens, keychain or settings;
 - a live test, recording or conformance run on a Google sign-in: those automated suites run only on a Gemini API key
   (§16), while Broski itself runs on the user's own sign-in.
+
+## Usage
+
+The Usage tab's Antigravity card shows the plan's five-hour and weekly limits for its Gemini models and for its
+third-party (Claude) models, with when they were read and the plan's name.
+
+- **The limits** come from agy's documented status line
+  ([antigravity.google/docs/cli/statusline](https://antigravity.google/docs/cli/statusline/)): agy's terminal UI pipes
+  its state as JSON to the `statusLine` command in `~/.gemini/antigravity-cli/settings.json`, including `quota`, which
+  maps bucket ids (`gemini-5h`, `gemini-weekly`, `3p-5h`, `3p-weekly` on 1.5.18) to `{remaining_fraction |
+  remaining_amount, reset_time, reset_in_seconds, disabled}`. A status line set up for Broski writes the latest of
+  them to `~/.broski/antigravity/quota.json` as `{"captured_at_ms": …, "quota": …}`, and the bridge reads that file
+  on each usage read (`usage/antigravity-usage.ts`). A bucket with only `remaining_amount` has no share to draw and is
+  left out; a disabled one too.
+- **Freshness**: agy runs the status line only in its terminal UI, never during an `agy acp` session (measured on
+  1.5.18), so the card is as fresh as the person's last terminal agy; `readAt` is when agy wrote it, and the apps show
+  it. agy refreshes quota while it streams, so a terminal turn brings it up to date.
+- **The plan's name** is what agy last said over ACP: `session/new`'s `_meta.antigravity.tier.name` ("Google AI
+  Ultra"), kept by the catalog (`catalog/catalogs.ts` `signInOf`) and handed to the usage reader
+  (`server/contract-backends.ts`).
+- **Why not more**: ACP carries no limits (only the tier and the context fill), and Google told another ACP client
+  that "Antigravity supports only ACP for external clients" and that calling its internal APIs can get an account
+  flagged. So the bridge never calls Google, never reads agy's sign-in, never runs `agy -p /usage` and never calls
+  agy's local language server. When agy carries limits over ACP, the card reads them there.
+
+To set the status line up, add this to the `statusLine` command agy runs (it never changes what the status line
+prints; Broski never edits agy's settings itself):
+
+```python
+import json, os, sys, time
+
+data = json.load(sys.stdin)
+if data.get("quota"):
+    folder = os.path.expanduser("~/.broski/antigravity")
+    os.makedirs(folder, mode=0o700, exist_ok=True)
+    path = os.path.join(folder, "quota.json")
+    with open(f"{path}.tmp", "w") as out:
+        json.dump({"captured_at_ms": int(time.time() * 1000), "quota": data["quota"]}, out)
+    os.replace(f"{path}.tmp", path)
+```
 
 ## Run it, and check again after an agy update
 

@@ -81,6 +81,11 @@ class UsageWidgetProvider : AppWidgetProvider() {
                 views.setInt(column.glyph, "setColorFilter", CLAUDE_MARK)
                 views.setViewVisibility(column.glyph, View.VISIBLE)
             }
+            PlanIds.ANTIGRAVITY -> {
+                views.setImageViewResource(column.glyph, R.drawable.ic_agent_antigravity)
+                views.setInt(column.glyph, "setColorFilter", Color.TRANSPARENT)
+                views.setViewVisibility(column.glyph, View.VISIBLE)
+            }
             else -> views.setViewVisibility(column.glyph, View.GONE)
         }
         views.setTextViewText(column.name, plan.name)
@@ -143,6 +148,7 @@ class UsageWidgetProvider : AppWidgetProvider() {
 
         private fun tint(plan: String): Int = when (plan) {
             PlanIds.CLAUDE -> if (dark) 0xFFD97757.toInt() else 0xFFC15F3C.toInt()
+            PlanIds.ANTIGRAVITY -> if (dark) 0xFF5B9DFF.toInt() else 0xFF1A73E8.toInt()
             else -> if (dark) 0xFF94A3B8.toInt() else 0xFF5B6577.toInt()
         }
 

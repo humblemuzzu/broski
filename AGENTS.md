@@ -212,7 +212,7 @@ packages/bridge/src/
   mcp/           the bridge's loopback HTTP MCP server at `/mcp` (`broski_ask`, `broski_notify`,
                  `broski_propose_plan`), mounted on the loopback listener (`server.ts`, `docs/bridge-mcp.md`)
   workspace/     files, git and terminals over the contract, behind the core's WorkspaceHost port (workspace-host.ts)
-  usage/         plan usage readers and sampling (Claude) behind the core's UsageReader port
+  usage/         plan usage readers and sampling (Claude; Antigravity from agy's own status line) behind the core's UsageReader port
   transport/     send queue and frame limits
   platform/ config/ doctor/ wizard/ commands/ lifecycle/ logging/  the CLI and service around the bridge
 packages/link/   the Rust link stack: crypto, proto, core, daemon, power, relay; contract (the phone core's models and reducer); session (the phone side of the link); client (the mobile core over it); render (highlighting via @pierre/highlights wasm2c, diffs and tool rows for both apps); voice (dictation's names, xAI request and answer); testkit (the daemon, relay, LAN and bridge harness the phone crates' tests share); mobile (BroskiCore, the UniFFI facade); push-mobile (BroskiPush, minimal push-only facade for the iOS NotificationService extension); uniffi-bindgen
