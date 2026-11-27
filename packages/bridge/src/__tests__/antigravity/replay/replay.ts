@@ -13,7 +13,7 @@ import type { z } from "zod";
 import { isRecord } from "../../../adapter-kit/bounded-json";
 import { JsonlSplitter } from "../../../adapter-kit/jsonl";
 import type { InitializeResult } from "../../../backends/antigravity/acp/frames";
-import { JsonRpc, type RpcResult } from "../../../backends/antigravity/acp/rpc";
+import { JsonRpc } from "../../../backends/antigravity/acp/rpc";
 import type { AgyProcess } from "../../../backends/antigravity/agy-process";
 import type { Frame } from "../live/wire-log";
 import type { RecordedAgy } from "../record/scrub";
@@ -92,15 +92,20 @@ export class Replay {
 
 	/** The recorded request of `method` the bridge sent next, sent now with its recorded params; agy's answer to it. */
 	async request<T>(method: string, schema: z.ZodType<T>): Promise<T> {
-		expect(this.nextSent()?.method).toBe(method);
-		let answer: Promise<RpcResult<T>> | undefined;
-		await this.play((message) => {
-			answer = this.rpc.request(method, message.params, schema);
-		}, this.answerOf(method));
-		const result = await answer;
-		if (result === undefined) throw new Error(`the code under test sent ${method} itself, before the replay did`);
+		const result = await this.sent(method, (params) => this.rpc.request(method, params, schema));
 		if (!result.ok) throw new Error(`agy's recorded answer to ${method} did not read: ${result.failure.message}`);
 		return result.result;
+	}
+
+	/** The recorded request of `method` the bridge sent next, sent now by `send` from its recorded params. */
+	async sent<T>(method: string, send: (params: unknown) => Promise<T>): Promise<T> {
+		expect(this.nextSent()?.method).toBe(method);
+		let sending: Promise<T> | undefined;
+		await this.play((message) => {
+			sending = send(message.params);
+		}, this.answerOf(method));
+		if (sending === undefined) throw new Error(`the code under test sent ${method} itself, before the replay did`);
+		return sending;
 	}
 
 	private wrote(record: string): void {

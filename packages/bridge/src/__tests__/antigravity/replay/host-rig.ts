@@ -2,16 +2,19 @@
  * A session the production host (`live/host.ts`) hosts on the live front of a recording. It opens on the recorded
  * `initialize` and `session/new` or `session/load`, sent through the rpc as `acp/connection.ts` and `live/hosts.ts` send
  * them. Then, wherever the recording shows the bridge speaking, the phone does what made the bridge say it: chooses the
- * setting, sends the prompt or the compaction, answers the ask, stops the turn. A load's replay waits in the rpc for the
- * host's route, as agy wrote it before the host existed: its facts (the context fill, the commands, the title) reach
- * the host as they do through `live/hosts.ts`, and its chunks reach a host with no turn, which shows none of them.
+ * setting, sends the prompt or the compaction, answers the ask, stops the turn. A load goes as `live/hosts.ts` sends it
+ * (`live/load.ts`): its replay's facts (the context fill, the commands, the title) reach the host, its history not. The
+ * host of a loaded session holds its first prompt for agy to settle the load (`live/settle.ts`) only when given
+ * `settle`; without it the prompt goes where the recording shows it.
  */
 
 import { expect } from "bun:test";
 import { z } from "zod";
-import { InitializeResult, LoadSessionResult, NewSessionResult } from "../../../backends/antigravity/acp/frames";
+import { InitializeResult, NewSessionResult } from "../../../backends/antigravity/acp/frames";
 import { AgyHost, type HostDeps } from "../../../backends/antigravity/live/host";
+import { loadSession } from "../../../backends/antigravity/live/load";
 import { PhonePrompts } from "../../../backends/antigravity/live/phone-prompts";
+import type { SettleBounds } from "../../../backends/antigravity/live/settle";
 import { ANTIGRAVITY_TRAITS } from "../../../backends/antigravity/traits";
 import type {
 	ActionResult,
@@ -42,7 +45,7 @@ const otherDeps = () =>
 		catalogChanged: () => undefined,
 		now: () => NOW,
 		ran: () => undefined,
-		idle: () => undefined,
+		prompted: () => undefined,
 		ended: () => undefined,
 	}) satisfies Partial<HostDeps>;
 
@@ -65,11 +68,11 @@ const Prompt = z.object({
 	),
 });
 
-export async function hostedReplay(scenario: string, phone: Phone = {}) {
+export async function hostedReplay(scenario: string, phone: Phone = {}, settle?: SettleBounds) {
 	const front = frontOf(recording(scenario));
 	const replay = new Replay(front);
 	const agent = await replay.request("initialize", InitializeResult);
-	const opened = await opening(replay);
+	const { facts, ...opened } = await opening(replay);
 	const catalog: CatalogEvent[] = [];
 	const commands: string[][] = [];
 	const host = new AgyHost(
@@ -79,9 +82,11 @@ export async function hostedReplay(scenario: string, phone: Phone = {}) {
 			catalog: { emit: (event) => catalog.push(event) },
 			commandsAnnounced: (_cwd, announced) => commands.push(announced.map((command) => command.name)),
 			log: (message) => replay.faults.push(message),
+			...(facts !== undefined && settle !== undefined && { settle }),
 		},
 		{ ...opened, origin: "broski", title: undefined, updatedAt: NOW },
 	);
+	for (const update of facts ?? []) host.replayed(update);
 	const initial = host.snapshot();
 	const records: SinkRecord[] = [];
 	host.attach({ emit: (record) => records.push(record) });
@@ -93,6 +98,8 @@ export async function hostedReplay(scenario: string, phone: Phone = {}) {
 		catalog,
 		commands,
 		play: (until?: Parameters<Replay["play"]>[1]) => replay.play(act, until),
+		/** What the host has written to agy that the replay has not yet held to the recording. */
+		unmatched: () => replay.unrecorded(),
 		events: () => records.map((record) => record.event),
 		/**
 		 * The recording played to its end: the host sent agy what the bridge did and nothing more, met no fault, kept the
@@ -112,12 +119,15 @@ async function opening(replay: Replay) {
 	const sent = replay.nextSent();
 	if (sent?.method === "session/load") {
 		const { sessionId, cwd } = LoadParams.parse(sent.params);
-		const loaded = await replay.request("session/load", LoadSessionResult);
-		return { sessionId, cwd, options: loaded.configOptions ?? [] };
+		const { loaded, facts } = await replay.sent("session/load", () =>
+			loadSession(replay.rpc, { sessionId, cwd, mcpServers: [] }),
+		);
+		if (!loaded.ok) throw new Error(`agy's recorded answer to session/load did not read: ${loaded.failure.message}`);
+		return { sessionId, cwd, options: loaded.result.configOptions ?? [], facts };
 	}
 	const { cwd } = NewParams.parse(sent?.params);
 	const made = await replay.request("session/new", NewSessionResult);
-	return { sessionId: made.sessionId, cwd, options: made.configOptions ?? [] };
+	return { sessionId: made.sessionId, cwd, options: made.configOptions ?? [], facts: undefined };
 }
 
 function phoneAction(

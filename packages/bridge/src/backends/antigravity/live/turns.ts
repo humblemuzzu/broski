@@ -66,8 +66,8 @@ export interface TurnsDeps {
 	readonly turnUsage: (usage: TurnUsage) => void;
 	/** A turn ended: what was read of the session is stale. Called before its end is emitted. */
 	readonly ran: () => void;
-	/** A turn ended and its end is out. */
-	readonly settled: () => void;
+	/** The person's prompt, as the transcript shows it, has started a run. */
+	readonly sent: (text: string) => void;
 }
 
 export class Turns {
@@ -232,6 +232,7 @@ export class Turns {
 			clientRequestId: input.clientRequestId,
 		});
 		const prompt = [...(sent === "" ? [] : [{ type: "text", text: sent }]), ...images.blocks];
+		this.deps.sent(text);
 		void this.deps.request(prompt).then((result) => this.answered(run, result));
 	}
 
@@ -260,7 +261,6 @@ export class Turns {
 		this.turn = undefined;
 		this.deps.ran();
 		this.deps.emit({ type: "run_finished", runId: run.runId, outcome: ended.outcome });
-		this.deps.settled();
 	}
 
 	private endCompaction(turn: Compaction, outcome: CompactionOutcome): void {
@@ -281,6 +281,5 @@ export class Turns {
 				},
 			});
 		}
-		this.deps.settled();
 	}
 }

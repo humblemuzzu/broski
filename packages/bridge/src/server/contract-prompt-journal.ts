@@ -8,5 +8,11 @@ const JournalLine = z.strictObject({ session: SessionRef, clientRequestId: Clien
 
 /** The core's prompt journal: one accepted prompt per line, the newest `PROMPT_MEMORY` kept. */
 export function openPromptJournal(path: string, log: CoreLog): PromptJournal {
-	return openJsonLinesJournal({ path, what: "prompt journal", entry: JournalLine, keep: PROMPT_MEMORY, log });
+	return openJsonLinesJournal({
+		path,
+		what: "prompt journal",
+		entry: JournalLine,
+		keep: PROMPT_MEMORY,
+		log: (message) => log.error(`[core] ${message}`),
+	});
 }

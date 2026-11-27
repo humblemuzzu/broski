@@ -2,7 +2,8 @@
  * One session this bridge hosts in `agy`: a worker of the live front, its presence lock held for as long as it is
  * hosted, and its live state. Every event is applied to that state, whether or not a view is attached, so the snapshot
  * the next view gets is the state those events built. A host ends once: lost (its worker or the front went; its turn
- * ends failed), closed (`session/close` frees the worker), or shut down with the bridge.
+ * ends failed), closed (`session/close` frees the worker), or shut down with the bridge. One agy has just loaded holds
+ * its first prompt until agy has settled the load (`settle.ts`).
  */
 
 import type { z } from "zod";
@@ -37,6 +38,7 @@ import { NO_DEADLINE, type RpcResult, type SessionRoute } from "../acp/rpc";
 import type { AgyProcess } from "../agy-process";
 import { commandSummaries } from "../catalog/commands";
 import { MODE_AXIS_ID } from "../catalog/modes";
+import type { ChosenSettings } from "../store/made";
 import { AgyAsks } from "./asks";
 import type { Evictable } from "./cap";
 import { HostRow, type RowFacts } from "./host-row";
@@ -53,6 +55,7 @@ import {
 	snapshotOf,
 	thinkingChoice,
 } from "./settings";
+import { LoadSettle, type SettleBounds } from "./settle";
 import { Turns } from "./turns";
 import { withContext, withTurnCache } from "./usage";
 
@@ -73,11 +76,16 @@ export interface HostDeps {
 	readonly log: (message: string) => void;
 	/** A turn of this host's ended: the session's row and history changed. */
 	readonly ran: (host: AgyHost) => void;
-	/** The host has nothing in flight. */
-	readonly idle: (host: AgyHost) => void;
+	/** The person's prompt, as the transcript shows it, started a run. */
+	readonly prompted: (host: AgyHost, text: string) => void;
 	/** The host ended; it hosts nothing any more. */
 	readonly ended: (host: AgyHost) => void;
+	/** agy has just loaded the session (`settle.ts`); absent for one it made. */
+	readonly settle?: SettleBounds;
 }
+
+/** A prompt held for a load that the person stopped before it went: agy was sent nothing. */
+const STOPPED_UNSENT: RpcResult<z.infer<typeof PromptAnswer>> = { ok: true, result: { stopReason: "cancelled" } };
 
 export class AgyHost implements Evictable {
 	readonly sessionId: string;
@@ -87,6 +95,7 @@ export class AgyHost implements Evictable {
 	private readonly row: HostRow;
 	private readonly asks: AgyAsks;
 	private readonly turns: Turns;
+	private readonly load: LoadSettle;
 	private options: readonly ConfigOption[];
 	private commands: readonly AvailableCommand[] | undefined;
 	private calls = 0;
@@ -100,6 +109,7 @@ export class AgyHost implements Evictable {
 		this.sessionId = facts.sessionId;
 		this.cwd = facts.cwd;
 		this.options = facts.options;
+		this.load = new LoadSettle(deps.settle);
 		this.lastUsedAt = deps.now();
 		this.live = new LiveState(snapshotOf(settingsOf(facts.options)), deps.now);
 		this.row = new HostRow(facts, () => this.live.snapshot(), deps.catalog, deps.now);
@@ -131,6 +141,12 @@ export class AgyHost implements Evictable {
 
 	snapshot(): SessionSnapshot {
 		return this.live.snapshot();
+	}
+
+	/** The model, thinking level and modes the session runs with now. */
+	settings(): ChosenSettings {
+		const { modelId, thinking, modes } = this.live.snapshot();
+		return { ...(modelId !== undefined && { modelId }), ...(thinking !== undefined && { thinking }), modes };
 	}
 
 	/** Events reach `sink` from now on, and the session's row is announced. */
@@ -191,6 +207,7 @@ export class AgyHost implements Evictable {
 	lose(reason: string): void {
 		if (this.done) return;
 		this.done = true;
+		this.load.end();
 		this.turns.lose(reason);
 		this.asks.withdrawAll();
 		this.release();
@@ -200,6 +217,7 @@ export class AgyHost implements Evictable {
 	async close(): Promise<void> {
 		if (this.done) return;
 		this.done = true;
+		this.load.end();
 		if (isOffered(this.deps.agy.agent.agentCapabilities?.sessionCapabilities?.close)) {
 			await this.deps.agy.acp.rpc.request("session/close", { sessionId: this.sessionId }, AnyResult);
 		}
@@ -210,6 +228,7 @@ export class AgyHost implements Evictable {
 	shutDown(): void {
 		if (this.done) return;
 		this.done = true;
+		this.load.end();
 		this.asks.expireAll();
 		this.detachRoute();
 		this.deps.ended(this);
@@ -234,15 +253,21 @@ export class AgyHost implements Evictable {
 			prompts: this.deps.prompts,
 			emit: (event) => this.emit(event),
 			snapshot: () => this.live.snapshot(),
-			request: (prompt) => this.request("session/prompt", { sessionId, prompt }, PromptAnswer, NO_DEADLINE),
-			cancel: () => this.deps.agy.acp.rpc.notify("session/cancel", { sessionId }),
+			request: (prompt) =>
+				this.load.send(
+					() => this.request("session/prompt", { sessionId, prompt }, PromptAnswer, NO_DEADLINE),
+					STOPPED_UNSENT,
+				),
+			cancel: () => {
+				if (!this.load.stop()) this.deps.agy.acp.rpc.notify("session/cancel", { sessionId });
+			},
 			commands: () => (this.commands === undefined ? undefined : new Set(this.commands.map((command) => command.name))),
 			turnUsage: (usage) => this.turnUsage(usage),
 			ran: () => {
 				this.row.ran();
 				this.deps.ran(this);
 			},
-			settled: () => this.settled(),
+			sent: (text) => this.deps.prompted(this, text),
 		});
 	}
 
@@ -258,6 +283,7 @@ export class AgyHost implements Evictable {
 	}
 
 	private update(update: SessionUpdate): void {
+		if (this.load.own(update)) return;
 		switch (update.sessionUpdate) {
 			case "usage_update":
 				this.contextReported(update.used, update.size);
@@ -304,7 +330,6 @@ export class AgyHost implements Evictable {
 		const result: RpcResult<T> = await this.deps.agy.acp.rpc.request(method, params, schema, deadline);
 		this.calls -= 1;
 		if (!result.ok && (isWorkerLoss(result.failure) || !this.deps.agy.acp.running)) this.lose(result.failure.message);
-		else this.settled();
 		return result;
 	}
 
@@ -345,10 +370,6 @@ export class AgyHost implements Evictable {
 		if (next !== snapshot.usage && next !== undefined) this.emit({ type: "usage_updated", usage: next });
 	}
 
-	private settled(): void {
-		if (this.idle()) this.deps.idle(this);
-	}
-
 	private emit(event: AgentEvent): void {
 		this.live.emit(event);
 		this.row.touched();
@@ -358,6 +379,5 @@ export class AgyHost implements Evictable {
 	private record(record: SinkRecord): void {
 		this.live.emit(record.event, record.native, record.at);
 		this.row.touched();
-		if (record.event.type === "interaction_resolved") this.settled();
 	}
 }

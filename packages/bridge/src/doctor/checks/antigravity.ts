@@ -1,5 +1,6 @@
 import packageMeta from "../../../package.json";
 import { type CliVersionRead, readCliVersion } from "../../adapter-kit/cli-version";
+import { installedAgy } from "../../backends/antigravity/agy-process";
 import { type SignIn, signInOf } from "../../backends/antigravity/catalog/catalogs";
 import { probeSession } from "../../backends/antigravity/catalog/probe";
 import {
@@ -81,7 +82,7 @@ async function readSignIn(cli: FoundAgy): Promise<AgySignInRead> {
 	const voidDir = voidDirOf();
 	const faults: string[] = [];
 	const jobs = new ShortJobs(
-		{ cli, env, voidDir, presenceDir: presenceDirOf(env) },
+		installedAgy({ cli, env, voidDir, presenceDir: presenceDirOf(env) }),
 		{ name: "broski", version: packageMeta.version },
 		(message) => faults.push(message),
 	);

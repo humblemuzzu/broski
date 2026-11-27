@@ -137,7 +137,7 @@ export function session() {
 		ran: () => {
 			counts.ran += 1;
 		},
-		settled: () => undefined,
+		sent: () => undefined,
 	});
 	rpc.attach(SESSION, {
 		update: (body) => turns.update(body),

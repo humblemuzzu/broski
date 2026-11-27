@@ -6,8 +6,7 @@
  */
 
 import type { RpcResult } from "../acp/rpc";
-import { type AgyProcess, SHUT_DOWN, startAgy } from "../agy-process";
-import type { AgyInstall } from "../install";
+import { type AgyLauncher, type AgyProcess, SHUT_DOWN } from "../agy-process";
 
 export interface FrontOptions {
 	readonly client: { readonly name: string; readonly version: string };
@@ -21,7 +20,7 @@ export class AgyFront {
 	private current: Promise<RpcResult<AgyProcess>> | undefined;
 
 	constructor(
-		private readonly install: AgyInstall,
+		private readonly launch: AgyLauncher,
 		private readonly options: FrontOptions,
 	) {}
 
@@ -39,7 +38,7 @@ export class AgyFront {
 
 	private async start(): Promise<RpcResult<AgyProcess>> {
 		const { client, log, signal } = this.options;
-		const started = await startAgy(this.install, { args: ["acp", "--process-per-session"], client, log, signal });
+		const started = await this.launch({ args: ["acp", "--process-per-session"], client, log, signal });
 		const mine = this.current;
 		if (!started.ok) {
 			if (this.current === mine) this.current = undefined;

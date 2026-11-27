@@ -1,7 +1,7 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { dirname, join } from "node:path";
 import type { z } from "zod";
-import type { CoreLog } from "../core/ports";
+import type { JournalOpener } from "../adapter-kit/ports";
 import { assertNotRealHome } from "../safety/real-home-guard";
 
 export interface JsonLinesJournalOptions<T> {
@@ -12,13 +12,16 @@ export interface JsonLinesJournalOptions<T> {
 	readonly entry: z.ZodType<T>;
 	/** The newest entries kept: past twice that many lines the file is rewritten with them. */
 	readonly keep: number;
-	readonly log: CoreLog;
+	/** Where an I/O failure is told. */
+	readonly log: (message: string) => void;
 }
 
 export interface JsonLinesJournal<T> {
 	/** The entries kept by earlier runs, oldest first. */
 	load(): T[];
 	append(entry: T): void;
+	/** The file holds `entries` alone from now on. */
+	rewrite(entries: readonly T[]): void;
 }
 
 /**
@@ -33,7 +36,7 @@ export function openJsonLinesJournal<T>(options: JsonLinesJournalOptions<T>): Js
 	let lines = 0;
 	let torn = false;
 	const failed = (action: string, error: unknown): void => {
-		log.error(`[core] the ${what} at ${path} could not be ${action}: ${String(error)}`);
+		log(`the ${what} at ${path} could not be ${action}: ${String(error)}`);
 	};
 	const parseLine = (line: string): T[] => {
 		try {
@@ -45,6 +48,7 @@ export function openJsonLinesJournal<T>(options: JsonLinesJournalOptions<T>): Js
 	};
 	const compact = (entries: readonly T[]): void => {
 		try {
+			mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
 			const temporary = `${path}.tmp`;
 			writeFileSync(temporary, entries.map((kept) => `${JSON.stringify(kept)}\n`).join(""), { mode: 0o600 });
 			renameSync(temporary, path);
@@ -91,5 +95,12 @@ export function openJsonLinesJournal<T>(options: JsonLinesJournalOptions<T>): Js
 				failed("read", error);
 			}
 		},
+		rewrite: compact,
 	};
+}
+
+/** An adapter's journals as `<name>.jsonl` files in `directory`. */
+export function journalsIn(directory: string, log: (message: string) => void): JournalOpener {
+	return (name, entry, keep) =>
+		openJsonLinesJournal({ path: join(directory, `${name}.jsonl`), what: `${name} journal`, entry, keep, log });
 }

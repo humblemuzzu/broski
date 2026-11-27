@@ -7,8 +7,7 @@
 
 import type { SessionUpdate } from "./acp/frames";
 import { INTERNAL_ERROR, type RpcResult, type SessionRoute } from "./acp/rpc";
-import { type AgyProcess, SHUT_DOWN, startAgy } from "./agy-process";
-import type { AgyInstall } from "./install";
+import { type AgyLauncher, type AgyProcess, SHUT_DOWN } from "./agy-process";
 
 /**
  * A phone screen asks for several reads at once (the models, modes and commands of New Session, then the list), and a
@@ -27,7 +26,7 @@ export class ShortJobs {
 	private readonly shutdown = new AbortController();
 
 	constructor(
-		private readonly install: AgyInstall,
+		private readonly launch: AgyLauncher,
 		private readonly client: { readonly name: string; readonly version: string },
 		/** Where what `agy` sends that breaks the protocol is reported. */
 		private readonly log: (message: string) => void,
@@ -62,7 +61,7 @@ export class ShortJobs {
 
 	private async connection(): Promise<RpcResult<JobContext>> {
 		if (this.open?.acp.running) return { ok: true, result: this.open };
-		const started = await startAgy(this.install, {
+		const started = await this.launch({
 			args: ["acp"],
 			client: this.client,
 			log: this.log,

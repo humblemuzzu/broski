@@ -1,8 +1,9 @@
 /**
  * The sessions this bridge hosts in `agy`, by id, all on one live front (`front.ts`). A session opens hosted when no
- * terminal `agy` holds its presence lock, watch-only when one does (`watch.ts`). Room for a new host is made by closing
- * the least recently used idle one (`cap.ts`); a host whose view closes is closed once it is idle, which frees its worker
- * and its lock for a terminal. The front's exit loses every host, and the next action starts another front.
+ * terminal `agy` holds its presence lock, watch-only when one does (`watch.ts`). A host outlives its view: each reload
+ * costs agy a restart notice, a model step and a race (`settle.ts`), so a host is closed only to make room, the least
+ * recently used idle one (`cap.ts`), which frees its worker and its lock. The front's exit loses every host, and the
+ * next action starts another front. A session the bridge made that agy never stored is made again in its place.
  */
 
 import type { FileLock, LockFile } from "../../../adapter-kit/ports";
@@ -16,12 +17,12 @@ import type {
 	SessionSummary,
 	TranscriptItem,
 } from "../../../contract";
-import { AnyResult, AUTH_REQUIRED, LoadSessionResult, NewSessionResult, type SessionUpdate } from "../acp/frames";
+import { AnyResult, AUTH_REQUIRED, NewSessionResult, RESOURCE_NOT_FOUND } from "../acp/frames";
 import type { RpcFailure } from "../acp/rpc";
-import type { AgyProcess } from "../agy-process";
+import type { AgyLauncher, AgyProcess } from "../agy-process";
 import type { AgyCatalogs } from "../catalog/catalogs";
 import type { AgyInstall } from "../install";
-import { jobRoute } from "../jobs";
+import { firstPromptTitle, titleOf } from "../store/list";
 import type { MadeSessions } from "../store/made";
 import type { AgySessions } from "../store/sessions";
 import type { AgyTranscripts } from "../store/transcript";
@@ -29,13 +30,16 @@ import { capacityRefusal, evictionCandidate } from "./cap";
 import { AgyFront } from "./front";
 import { AgyHost, type HostFacts } from "./host";
 import type { RowFacts } from "./host-row";
+import { loadSession } from "./load";
 import { isLockableId, POLL_MS, PresenceLocks } from "./lock";
 import type { PhonePrompts } from "./phone-prompts";
-import { AgyView } from "./view";
+import { LOAD_SETTLE, type SettleBounds } from "./settle";
+import { AgyView, type Reopened } from "./view";
 import { openWatched, WATCHING_NOTICE, type WatchDeps } from "./watch";
 
 export interface HostsDeps {
 	readonly install: AgyInstall;
+	readonly launch: AgyLauncher;
 	readonly client: { readonly name: string; readonly version: string };
 	readonly fileLock: FileLock;
 	readonly maxSessions: number;
@@ -49,16 +53,12 @@ export interface HostsDeps {
 	readonly log: (message: string) => void;
 }
 
-/** What a load replays besides history that the live session keeps. */
-const SESSION_FACTS = new Set(["usage_update", "available_commands_update", "session_info_update"]);
-
 type Loaded = AgyHost | Rejected | "held";
+type Hosted = Reopened | Rejected | "held";
 
 export class AgyHosts {
 	private readonly hosts = new Map<string, AgyHost>();
 	private readonly closing = new Map<string, Promise<void>>();
-	/** Hosts whose view closed while they had work in flight: closed once idle. */
-	private readonly released = new Set<AgyHost>();
 	private readonly locks: PresenceLocks;
 	private readonly front: AgyFront;
 	private readonly shutdown = new AbortController();
@@ -66,7 +66,7 @@ export class AgyHosts {
 
 	constructor(private readonly deps: HostsDeps) {
 		this.locks = new PresenceLocks(deps.install.presenceDir, deps.fileLock);
-		this.front = new AgyFront(deps.install, {
+		this.front = new AgyFront(deps.launch, {
 			client: deps.client,
 			log: deps.log,
 			signal: this.shutdown.signal,
@@ -78,14 +78,14 @@ export class AgyHosts {
 
 	async openNew(options: NewSessionOptions, sink: SessionSink): Promise<OpenResult> {
 		const made = await this.withRoom(() => this.created(options));
-		return isRejected(made) ? made : this.viewOf(made, sink);
+		return isRejected(made) ? made : this.viewOf({ host: made }, sink);
 	}
 
 	async openExisting(sessionId: string, sink: SessionSink): Promise<OpenResult> {
 		if (!isLockableId(sessionId)) return rejected("not_found", `no Antigravity session ${sessionId}`);
 		if (!this.locks.heldElsewhere(sessionId)) {
-			const host = await this.loaded(sessionId);
-			if (host !== "held") return isRejected(host) ? host : this.viewOf(host, sink);
+			const hosted = await this.hosted(sessionId);
+			if (hosted !== "held") return isRejected(hosted) ? hosted : this.viewOf(hosted, sink);
 		}
 		const found = await this.located(sessionId);
 		return isRejected(found) ? found : openWatched(this.watchDeps(sessionId), found, sink);
@@ -124,7 +124,8 @@ export class AgyHosts {
 		for (const host of hosts) host.releaseLock();
 	}
 
-	private async created(options: NewSessionOptions): Promise<AgyHost | Rejected> {
+	/** A new session, made in place of `replaces` when agy lost that one. */
+	private async created(options: NewSessionOptions, replaces?: string): Promise<AgyHost | Rejected> {
 		const front = await this.front.connection();
 		if (!front.ok) return rejected("backend_error", `Antigravity could not start: ${front.failure.message}`);
 		const params = { cwd: options.cwd, mcpServers: [] };
@@ -139,19 +140,43 @@ export class AgyHosts {
 			return rejected("backend_error", why);
 		}
 		const at = this.deps.now();
-		this.deps.made.note(sessionId, { cwd: options.cwd, at });
+		const handedBack = replaces === undefined ? undefined : this.deps.made.get(replaces)?.firstPrompt;
 		const host = this.hostOf(front.result, lock, {
 			sessionId,
 			cwd: options.cwd,
-			origin: this.deps.made.origin(sessionId),
-			title: undefined,
+			origin: "broski",
+			title: firstPromptTitle(handedBack),
 			updatedAt: at,
 			options: made.result.configOptions ?? [],
 		});
 		const chosen = await chosenSettings(host, options);
-		if (chosen === undefined) return host;
-		await host.close();
-		return chosen;
+		if (chosen !== undefined) {
+			await host.close();
+			return chosen;
+		}
+		this.deps.made.note(sessionId, options, at, replaces);
+		return host;
+	}
+
+	/** The session hosted, or made again in its place when agy lost it before storing it; `held` when a terminal has it. */
+	private async hosted(sessionId: string): Promise<Hosted> {
+		const host = await this.loaded(sessionId);
+		if (host instanceof AgyHost) return { host };
+		if (host === "held" || host.rejection.code !== "not_found") return host;
+		return (await this.replaced(sessionId)) ?? host;
+	}
+
+	/**
+	 * A session this bridge made that agy never stored (its first turn was cut off, by a restart of the bridge or of agy,
+	 * before the model had it): a new one in its folder, with its settings, takes its place and its record, and what the
+	 * person wrote in it goes back to them, never to agy.
+	 */
+	private async replaced(lost: string): Promise<Reopened | Rejected | undefined> {
+		const made = this.deps.made.get(lost);
+		if (made === undefined || made.stored) return undefined;
+		const host = await this.withRoom(() => this.created(made.options, lost));
+		if (isRejected(host)) return host;
+		return { host, returned: made.firstPrompt === undefined ? [] : [made.firstPrompt] };
 	}
 
 	/** The session hosted, loaded in a new host when none runs it; `held` when a terminal has it. */
@@ -164,7 +189,7 @@ export class AgyHosts {
 		return this.withRoom<AgyHost | "held">(() => this.load(found));
 	}
 
-	/** `session/load` of a session whose lock is ours; its replay is history, which the transcript reads. */
+	/** `session/load` of a session whose lock is ours. */
 	private async load(facts: RowFacts): Promise<Loaded> {
 		const { sessionId } = facts;
 		const taken = this.locks.take(sessionId);
@@ -174,19 +199,10 @@ export class AgyHosts {
 			taken.lock.release();
 			return rejected("backend_error", `Antigravity could not start: ${front.failure.message}`);
 		}
-		const { rpc } = front.result.acp;
-		const replayed: SessionUpdate[] = [];
-		const detach = rpc.attach(
-			sessionId,
-			jobRoute((update) => {
-				if (SESSION_FACTS.has(update.sessionUpdate)) replayed.push(update);
-			}),
-		);
 		// No folder only for a session agy lists without one, which agy reports in the folder it runs in: the void one.
-		const params = { sessionId, cwd: facts.cwd ?? this.deps.install.voidDir, mcpServers: [] };
-		const loaded = await rpc.request("session/load", params, LoadSessionResult);
-		detach();
-		if (!loaded.ok && /not found/i.test(loaded.failure.message)) {
+		const params = { sessionId, cwd: facts.cwd ?? this.deps.install.voidDir, mcpServers: [] } as const;
+		const { loaded, facts: replayed } = await loadSession(front.result.acp.rpc, params);
+		if (!loaded.ok && (loaded.failure.code === RESOURCE_NOT_FOUND || /not found/i.test(loaded.failure.message))) {
 			taken.discard();
 			return rejected("not_found", `no Antigravity session ${sessionId}`);
 		}
@@ -194,7 +210,8 @@ export class AgyHosts {
 			taken.lock.release();
 			return refusalOf("could not load the session", loaded.failure);
 		}
-		const host = this.hostOf(front.result, taken.lock, { ...facts, options: loaded.result.configOptions ?? [] });
+		const options = loaded.result.configOptions ?? [];
+		const host = this.hostOf(front.result, taken.lock, { ...facts, options }, LOAD_SETTLE);
 		for (const update of replayed) host.replayed(update);
 		return host;
 	}
@@ -240,11 +257,12 @@ export class AgyHosts {
 		return done;
 	}
 
-	private hostOf(agy: AgyProcess, lock: LockFile, facts: HostFacts): AgyHost {
+	private hostOf(agy: AgyProcess, lock: LockFile, facts: HostFacts, settle?: SettleBounds): AgyHost {
 		return new AgyHost(
 			{
 				agy,
 				lock,
+				...(settle !== undefined && { settle }),
 				prompts: this.deps.prompts,
 				catalog: this.deps.catalog,
 				catalogChanged: () => this.deps.catalogs.invalidate(),
@@ -255,65 +273,42 @@ export class AgyHosts {
 					this.deps.sessions.invalidate();
 					this.deps.transcripts.invalidate(host.sessionId);
 				},
-				idle: (host) => {
-					if (this.released.has(host) && !host.viewed) void this.closeHost(host);
-				},
+				prompted: (host, text) => this.deps.made.prompted(host.sessionId, text, host.settings()),
 				ended: (host) => this.forget(host),
 			},
 			facts,
 		);
 	}
 
-	private viewOf(host: AgyHost, sink: SessionSink): OpenResult {
-		this.released.delete(host);
-		const view = new AgyView(
-			{
-				reopen: () => this.reopened(host.sessionId),
-				closed: (closed) => this.viewClosed(closed),
-				now: this.deps.now,
-			},
-			host,
-			sink,
-		);
+	private viewOf({ host, returned }: Reopened, sink: SessionSink): OpenResult {
+		const view = new AgyView({ reopen: (sessionId) => this.reopened(sessionId), now: this.deps.now }, host, sink);
+		if (returned !== undefined) view.replacedOnOpen(returned);
 		return { status: "accepted", session: view, snapshot: view.snapshot() };
 	}
 
-	private async reopened(sessionId: string): Promise<AgyHost | Rejected> {
-		const host = await this.loaded(sessionId);
-		return host === "held" ? rejected("busy", WATCHING_NOTICE) : host;
-	}
-
-	private viewClosed(host: AgyHost): void {
-		if (host.ended || host.viewed) return;
-		if (host.idle()) void this.closeHost(host);
-		else this.released.add(host);
+	private async reopened(sessionId: string): Promise<Reopened | Rejected> {
+		const hosted = await this.hosted(sessionId);
+		return hosted === "held" ? rejected("busy", WATCHING_NOTICE) : hosted;
 	}
 
 	private forget(host: AgyHost): void {
-		this.released.delete(host);
 		if (this.hosts.get(host.sessionId) === host) this.hosts.delete(host.sessionId);
 	}
 
 	/**
-	 * The session as its host starts it: agy's row, listed afresh when the kept listing lacks it, or how this bridge made
-	 * it when agy lists none of it yet (it lists a session from its first prompt). Where it runs is the folder agy keeps,
-	 * else the one the bridge made it in; one that is neither the bridge's nor listed is none agy has.
+	 * The session as its host starts it: agy's row, listed afresh when the kept listing lacks it, or the bridge's own
+	 * record of one it made that agy has not stored. Where it runs is the folder agy keeps, else the one the bridge made
+	 * it in; one that is neither the bridge's nor listed is none agy has.
 	 */
 	private async located(sessionId: string): Promise<RowFacts | Rejected> {
-		const made = this.deps.made.get(sessionId);
-		const found = await (made === undefined
-			? this.deps.sessions.locate(sessionId)
-			: this.deps.sessions.find(sessionId));
+		const found = await this.deps.sessions.locate(sessionId);
 		if (!found.ok)
 			return rejected("backend_error", `Antigravity could not list its sessions: ${found.failure.message}`);
-		const listed = found.result;
+		if (found.result === undefined) return rejected("not_found", `no Antigravity session ${sessionId}`);
+		const { cwd, updatedAt } = found.result;
 		const origin = this.deps.made.origin(sessionId);
-		if (listed !== undefined) {
-			const { title, updatedAt } = listed;
-			return { sessionId, cwd: listed.cwd ?? made?.cwd, origin, title, updatedAt };
-		}
-		if (made === undefined) return rejected("not_found", `no Antigravity session ${sessionId}`);
-		return { sessionId, cwd: made.cwd, origin, title: undefined, updatedAt: made.at };
+		const title = titleOf(found.result);
+		return { sessionId, cwd: cwd ?? this.deps.made.get(sessionId)?.options.cwd, origin, title, updatedAt };
 	}
 
 	private watchDeps(sessionId: string): WatchDeps {
@@ -322,8 +317,8 @@ export class AgyHosts {
 			terminalHolds: () => this.locks.heldElsewhere(sessionId),
 			locate: () => this.located(sessionId),
 			openHosted: async (sink) => {
-				const host = await this.reopened(sessionId);
-				return isRejected(host) ? host : this.viewOf(host, sink);
+				const hosted = await this.reopened(sessionId);
+				return isRejected(hosted) ? hosted : this.viewOf(hosted, sink);
 			},
 			pollMs: POLL_MS,
 			now: this.deps.now,

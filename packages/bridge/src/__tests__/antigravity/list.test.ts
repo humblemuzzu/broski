@@ -9,9 +9,10 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync } from "node:
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { HostRow } from "../../backends/antigravity/live/host-row";
-import { listedSessions, sessionsPage } from "../../backends/antigravity/store/list";
+import { listedSessions, sessionsPage, titleOf } from "../../backends/antigravity/store/list";
 import { MadeSessions } from "../../backends/antigravity/store/made";
 import { emptySnapshot, type SessionSummary } from "../../contract";
+import { journalsIn } from "../../server/json-lines-journal";
 
 const roots: string[] = [];
 
@@ -33,8 +34,11 @@ function tree() {
 }
 
 const at = (minute: number) => new Date(Date.UTC(2026, 10, 27, 9, minute)).toISOString();
-const noneMade = new MadeSessions();
-const origin = (sessionId: string) => noneMade.origin(sessionId);
+const origin = () => "external" as const;
+
+function fail(message: string): never {
+	throw new Error(message);
+}
 
 function ids(page: ReturnType<typeof sessionsPage>): string[] {
 	if (page.status !== "accepted") throw new Error(page.rejection.message);
@@ -122,9 +126,9 @@ describe("agy's session rows", () => {
 	});
 
 	test("of a session this bridge made are Broski's, and its host's row keeps agy's time until a turn of its own ends", () => {
-		const { project, voidDir } = tree();
-		const made = new MadeSessions();
-		made.note("mine", { cwd: project, at: Date.parse(at(1)) });
+		const { root, project, voidDir } = tree();
+		const made = new MadeSessions(journalsIn(join(root, "journals"), fail));
+		made.note("mine", { cwd: project }, Date.parse(at(1)));
 		const listed = listedSessions(
 			[
 				{ sessionId: "mine", cwd: project, title: "Mine", updatedAt: at(4) },
@@ -142,8 +146,8 @@ describe("agy's session rows", () => {
 		const [mineListed] = rows;
 		if (mine === undefined || mineListed === undefined) throw new Error("nothing listed");
 		let clock = Date.parse(at(30));
-		const { sessionId, cwd, title, updatedAt } = mine;
-		const facts = { sessionId, cwd, title, updatedAt, origin: made.origin(sessionId) };
+		const { sessionId, cwd, updatedAt } = mine;
+		const facts = { sessionId, cwd, title: titleOf(mine), updatedAt, origin: made.origin(sessionId) };
 		const hosted = new HostRow(facts, emptySnapshot, { emit: () => undefined }, () => clock);
 		expect(hosted.summary()).toEqual({ ...mineListed, status: "idle" });
 		hosted.touched();

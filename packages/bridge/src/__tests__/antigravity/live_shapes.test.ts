@@ -1,11 +1,13 @@
 /**
- * The live layer's own decisions, apart from agy: which session closes to make room, what a turn's token counts say of
- * the prompt cache, what a permission's diff previews, and which replayed message a prompt the phone sent is.
- * The diffs are ACP's own example (protocol/v1/draft/tool-calls, "Diffs": `oldText` is null for a new file).
+ * The live layer's own decisions, apart from agy: which session closes to make room, when a prompt to a session agy has
+ * just loaded goes, what a turn's token counts say of the prompt cache, what a permission's diff previews, and which
+ * replayed message a prompt the phone sent is. The diffs are ACP's own example (protocol/v1/draft/tool-calls, "Diffs":
+ * `oldText` is null for a new file), and agy's own step is ACP's documented updates (`live-rig.ts`'s `CHUNK`;
+ * protocol/v1/prompt-turn, "Session usage updates").
  */
 
 import { describe, expect, test } from "bun:test";
-import { type ConfigOption, PermissionRequest } from "../../backends/antigravity/acp/frames";
+import { type ConfigOption, PermissionRequest, SessionUpdate } from "../../backends/antigravity/acp/frames";
 import { capacityRefusal, evictionCandidate } from "../../backends/antigravity/live/cap";
 import { permissionAsk } from "../../backends/antigravity/live/permissions";
 import { PhonePrompts } from "../../backends/antigravity/live/phone-prompts";
@@ -17,18 +19,80 @@ import {
 	settingsOf,
 	snapshotOf,
 } from "../../backends/antigravity/live/settings";
+import { LoadSettle } from "../../backends/antigravity/live/settle";
 import { withContext, withTurnCache } from "../../backends/antigravity/live/usage";
 import { toolState } from "../../backends/antigravity/mapping/tools";
 import type { PromptInput, TranscriptItem } from "../../contract";
+import { CHUNK } from "./live-rig";
 
 describe("making room for a session", () => {
-	const host = (name: string, lastUsedAt: number, idle: boolean) => ({ name, lastUsedAt, idle: () => idle });
+	const host = (name: string, lastUsedAt: number, idle: boolean, viewed = false) => ({
+		name,
+		lastUsedAt,
+		viewed,
+		idle: () => idle,
+	});
 
 	test("closes the least recently used session with nothing in flight, and never a busy one", () => {
 		const hosts = [host("busy-oldest", 1, false), host("idle-newer", 3, true), host("idle-older", 2, true)];
 		expect(evictionCandidate(hosts)?.name).toBe("idle-older");
 		expect(evictionCandidate([host("a", 1, false), host("b", 2, false)])).toBeUndefined();
 		expect(capacityRefusal(8).rejection.code).toBe("busy");
+	});
+
+	test("closes one no phone views before one a phone has open, however recently that was used", () => {
+		const hosts = [host("viewed-oldest", 1, true, true), host("unviewed-newest", 9, true), host("unviewed", 5, true)];
+		expect(evictionCandidate(hosts)?.name).toBe("unviewed");
+		expect(evictionCandidate([host("viewed-newer", 4, true, true), host("viewed-older", 2, true, true)])?.name).toBe(
+			"viewed-older",
+		);
+	});
+});
+
+describe("a prompt to a session agy has just loaded", () => {
+	const chunk = SessionUpdate.parse(CHUNK.params.update);
+	const usage = SessionUpdate.parse({ sessionUpdate: "usage_update", used: 53000, size: 200000 });
+	const sent = () => Promise.resolve("sent");
+
+	test("waits for agy's own step to end, which no run shows, and goes at its usage update", async () => {
+		const settle = new LoadSettle({ quietMs: 20, longestMs: 5_000 });
+		const outcome = { at: "held" };
+		void settle.send(sent, "stopped").then((at) => {
+			outcome.at = at;
+		});
+		expect(settle.own(chunk)).toBe(true);
+		await Bun.sleep(40);
+		expect(outcome.at).toBe("held");
+		expect(settle.own(usage)).toBe(false);
+		await Bun.sleep(0);
+		expect(outcome.at).toBe("sent");
+		expect(settle.own(chunk)).toBe(false);
+	});
+
+	test("goes once agy has shown nothing of its own for a while, or once its own step has run too long", async () => {
+		expect(await new LoadSettle({ quietMs: 20, longestMs: 5_000 }).send(sent, "stopped")).toBe("sent");
+		const endless = new LoadSettle({ quietMs: 20, longestMs: 60 });
+		endless.own(chunk);
+		const started = performance.now();
+		expect(await endless.send(sent, "stopped")).toBe("sent");
+		expect(performance.now() - started).toBeGreaterThanOrEqual(50);
+	});
+
+	test("a stop drops the held prompt unsent; a session agy did not just load holds nothing", async () => {
+		const settle = new LoadSettle({ quietMs: 5_000, longestMs: 10_000 });
+		let sends = 0;
+		const held = settle.send(async () => {
+			sends += 1;
+			return "sent";
+		}, "stopped");
+		expect(settle.stop()).toBe(true);
+		expect(await held).toBe("stopped");
+		settle.end();
+		expect(sends).toBe(0);
+		const made = new LoadSettle(undefined);
+		expect(made.stop()).toBe(false);
+		expect(made.own(chunk)).toBe(false);
+		expect(await made.send(sent, "stopped")).toBe("sent");
 	});
 });
 

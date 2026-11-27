@@ -3,8 +3,9 @@
  * it runs in (`profile.ts`: its own `~/.gemini` and app data, on the developer's Gemini API key), the wire tap the
  * backend runs as its `agy`, and the production Antigravity backends it starts over them, each behind the account's
  * guard (`guard.ts`). The backend gets what the bridge gives it in production (`server/contract-backends.ts`) except
- * that its folder for `agy` and its presence folder are the world's, its environment carries `GEMINI_API_KEY`, and its
- * `agy` is the tap over the real one (`BROSKI_TEST_AGY_CLI`, else the one on `PATH`). Nothing here reads or writes the
+ * that its folder for `agy`, its presence folder and its journal folder are the world's (the backends a world starts
+ * share one, as a bridge restarting does), its environment carries `GEMINI_API_KEY`, and its `agy` is the tap over the
+ * real one (`BROSKI_TEST_AGY_CLI`, else the one on `PATH`). Nothing here reads or writes the
  * user's `~/.gemini`, `~/.broski`, `~/.pi` or `~/.claude`. Until it is disposed a world is open, and a failed live test
  * shows the wire and agy's own logs of every open world and ends its turns (`live-test.ts`).
  */
@@ -26,6 +27,7 @@ import { fileLock } from "../../../platform/file-lock";
 import { fitImageBase64 } from "../../../platform/image-fit";
 import { bridgeEnv } from "../../../platform/shell-env";
 import { resolveAgyCli } from "../../../server/antigravity-cli-path";
+import { journalsIn } from "../../../server/json-lines-journal";
 import { tempDirectory } from "../../helpers/workspace-rig";
 import { account } from "./account";
 import { TURN_MS } from "./gate";
@@ -201,6 +203,7 @@ export class AgyWorld {
 			bridgeVersion: packageMeta.version,
 			fileLock,
 			fitImage: fitImageBase64,
+			journal: journalsIn(join(this.root, "journals"), (message) => this.faults.push(message)),
 			...(options.maxSessions !== undefined && { maxSessions: options.maxSessions }),
 			log: (message) => this.faults.push(message),
 		})({ catalog: sink });

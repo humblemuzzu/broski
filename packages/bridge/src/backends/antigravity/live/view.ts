@@ -2,11 +2,14 @@
  * The `OpenSession` the core holds for a session this bridge hosts. `close()` detaches the sink and makes every control
  * answer `closed`; the host and its turn go on (contract README §5, rule 3). When the host ends under the view (its
  * worker or the front stopped, or it was closed to make room), the view keeps what it last showed, and the phone's next
- * action loads the session in a new host, whose state replaces it (`resynced`).
+ * action loads the session in a new host, whose state replaces it (`resynced`). A session agy lost before it stored it
+ * goes on as the one made in its place: `input_returned` hands the person back what agy never kept, and
+ * `session_replaced` names the new session, last under the old one.
  */
 
 import { ACCEPTED, CLOSED, isRejected } from "../../../adapter-kit/rejections";
 import type {
+	AgentEvent,
 	OpenSession,
 	Rejected,
 	SessionControl,
@@ -16,11 +19,16 @@ import type {
 } from "../../../contract";
 import type { AgyHost } from "./host";
 
+/** A session hosted again; `returned` when agy had lost it and `host` is a new session made in its place. */
+export interface Reopened {
+	readonly host: AgyHost;
+	/** What the person wrote in the lost session that agy never kept, for their composer. */
+	readonly returned?: readonly string[];
+}
+
 export interface ViewDeps {
-	/** A new host of the session, its sink not attached yet. */
-	readonly reopen: () => Promise<AgyHost | Rejected>;
-	/** The view let its host go. */
-	readonly closed: (host: AgyHost) => void;
+	/** The session hosted anew, its sink not attached yet. */
+	readonly reopen: (sessionId: string) => Promise<Reopened | Rejected>;
 	readonly now: () => number;
 }
 
@@ -54,11 +62,20 @@ export class AgyView implements OpenSession {
 		return this.host.snapshot();
 	}
 
+	/**
+	 * The view was opened under the lost session's id. The replacement goes out once the core holds the view, whose
+	 * attach is answered within the microtasks after `open` resolves, so the phone that attached sees it.
+	 */
+	replacedOnOpen(returned: readonly string[]): void {
+		setTimeout(() => {
+			if (!this.closed) this.replaced(returned);
+		}, 0);
+	}
+
 	async close(): Promise<void> {
 		if (this.closed) return;
 		this.closed = true;
 		this.host.detach(this.sink);
-		this.deps.closed(this.host);
 	}
 
 	private whileOpen<T>(call: () => Promise<T>): Promise<T | Rejected> {
@@ -81,16 +98,25 @@ export class AgyView implements OpenSession {
 	}
 
 	private async revive(): Promise<Rejected | undefined> {
-		const host = await this.deps.reopen();
-		if (isRejected(host)) return host;
-		if (this.closed) {
-			this.deps.closed(host);
-			return CLOSED;
-		}
+		const reopened = await this.deps.reopen(this.host.sessionId);
+		if (isRejected(reopened)) return reopened;
+		if (this.closed) return CLOSED;
+		const { host, returned } = reopened;
 		this.host.detach(this.sink);
 		this.host = host;
-		this.sink.emit({ at: this.deps.now(), event: { type: "resynced", snapshot: host.snapshot() } });
+		this.emit({ type: "resynced", snapshot: host.snapshot() });
 		host.attach(this.sink);
+		if (returned !== undefined) this.replaced(returned);
 		return undefined;
+	}
+
+	private replaced(returned: readonly string[]): void {
+		const texts = returned.filter((text) => text !== "");
+		if (texts.length > 0) this.emit({ type: "input_returned", texts });
+		this.emit({ type: "session_replaced", session: this.session });
+	}
+
+	private emit(event: AgentEvent): void {
+		this.sink.emit({ at: this.deps.now(), event });
 	}
 }

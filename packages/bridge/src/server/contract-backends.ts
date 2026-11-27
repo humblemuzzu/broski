@@ -19,6 +19,7 @@ import { resolveAgyCli } from "./antigravity-cli-path";
 import type { BridgeMcp } from "./bridge-mcp";
 import type { ClaudeCodeWiring } from "./claude-code-wiring";
 import type { ContractOptions } from "./contract-seam";
+import { journalsIn } from "./json-lines-journal";
 import { phoneWriting } from "./phone-writing";
 import { resolvePiCli } from "./pi-cli-path";
 import { holderCommand } from "./pi-holder-command";
@@ -46,11 +47,15 @@ const piBackend: ReturnType<typeof piBackendFactory> = async (host) => {
 	})(host);
 };
 
-/** The user's `agy`, with the bridge's environment, started in an empty folder the bridge owns (`antigravity/install.ts`). */
+/**
+ * The user's `agy`, with the bridge's environment, started in an empty folder the bridge owns (`antigravity/install.ts`),
+ * the sessions the bridge made kept beside it.
+ */
 function antigravityBackend(log: (message: string) => void): BackendFactory {
 	return async (host) => {
 		const config = await readConfig();
 		const env = bridgeEnv();
+		const agyLog = (message: string) => log(`[antigravity] ${message}`);
 		return antigravityBackendFactory({
 			install: {
 				cli: resolveAgyCli(config.antigravity.cliPath),
@@ -61,8 +66,9 @@ function antigravityBackend(log: (message: string) => void): BackendFactory {
 			bridgeVersion: packageMeta.version,
 			fileLock,
 			fitImage: fitImageBase64,
+			journal: journalsIn(join(homedir(), ".broski", "antigravity"), agyLog),
 			...(config.antigravity.maxSessions !== undefined && { maxSessions: config.antigravity.maxSessions }),
-			log: (message) => log(`[antigravity] ${message}`),
+			log: agyLog,
 		})(host);
 	};
 }

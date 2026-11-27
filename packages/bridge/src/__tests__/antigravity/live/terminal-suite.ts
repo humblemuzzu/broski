@@ -1,6 +1,7 @@
 /**
  * A terminal `agy` and the phone on one conversation (`BROSKI_TEST_AGY_TERMINAL=1` as well): a session the bridge made
- * is opened by `agy -r <id>` in the world's agy profile (`profile.ts`: `HOME` its root, the folder trusted there, the
+ * stays hosted, agy's presence lock held, after its view closes, until the bridge needs its room for another session (a
+ * bridge with room for one); it is then opened by `agy -r <id>` in the world's agy profile (`profile.ts`: `HOME` its root, the folder trusted there, the
  * Gemini API key from the environment) and folder, in a tmux server of the test's own (`-L broski-agy-live`, none of
  * the user's tmux config), so neither the user's agy nor their tmux is touched. Nothing is typed into the terminal, so
  * before any prompt `agy` alone is started there and must come up asking nothing: one that exits or asks to trust the
@@ -75,12 +76,14 @@ export function terminalSuite(): void {
 		liveTest(
 			"watched while the terminal has it, promoted when it quits, watched again when it reopens, hosted on a prompt",
 			async () => {
-				const backend = await world.start();
+				const backend = await world.start({ maxSessions: 1 });
 				const made = await backend.openNew();
 				expect((await run(made, OK_PROMPT)).outcome).toEqual({ kind: "completed" });
 				const { sessionId } = made.ref;
 				const locks = new PresenceLocks(world.presenceDir, fileLock);
 				await made.close();
+				expect(locks.heldElsewhere(sessionId)).toBe(true);
+				await (await backend.openNew()).close();
 				await eventually(() => !locks.heldElsewhere(sessionId), "the bridge to let the session go", VIEW_FOLLOWS_MS);
 
 				const agy = new Terminal(world, join(world.root, "tmux.conf"));

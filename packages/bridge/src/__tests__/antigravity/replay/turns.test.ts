@@ -9,6 +9,7 @@
 import { describe, expect, test } from "bun:test";
 import { basename } from "node:path";
 import type { AgentEvent } from "../../../contract";
+import { eventually } from "../../helpers/workspace-rig";
 import { OK_PROMPT } from "../live/runs";
 import { updateOf } from "../live/wire-log";
 import { hostedReplay, type Phone } from "./host-rig";
@@ -204,6 +205,26 @@ describe("agy's recorded turns, on the bridge's host", () => {
 		await rig.asRecorded();
 		expect(blocks(rig.events()).map((block) => block.text)).toEqual([chunkText(rig.front, "agent_message_chunk")]);
 		expect(rig.host.snapshot().lastOutcome).toEqual({ kind: "completed" });
+	});
+
+	test("a prompt sent as agy has just loaded the session waits for agy to settle the load, then goes as recorded", async () => {
+		const quietMs = 150;
+		const rig = await hostedReplay("compact", { compacts: true }, { quietMs, longestMs: 5_000 });
+		const frames = rig.front.frames;
+		const prompt = frames.findIndex((frame) => frame.from === "client" && frame.message.method === "session/prompt");
+		await rig.play((frame) => frame === frames[prompt - 1]);
+		expect(rig.unmatched()).toEqual([]);
+		const started = performance.now();
+		expect(rig.host.compact(undefined)).toEqual({ status: "accepted" });
+		expect(rig.events().at(-1)).toEqual({ type: "compaction_started", trigger: "manual" });
+		await Bun.sleep(0);
+		expect(rig.unmatched()).toEqual([]);
+		const { id: _recordedId, ...sent } = frames[prompt]?.message ?? {};
+		await eventually(() => rig.unmatched()[0], "the held prompt to go", 2_000);
+		expect(performance.now() - started).toBeGreaterThanOrEqual(quietMs - 5);
+		expect(rig.unmatched()).toEqual([{ ...sent, id: expect.any(Number) }]);
+		await rig.asRecorded();
+		expect(rig.events().at(-1)).toMatchObject({ type: "compaction_finished", outcome: { kind: "completed" } });
 	});
 
 	test("the phone's compaction of a loaded session is agy's /compact turn, shown as a compaction from the fill before it", async () => {

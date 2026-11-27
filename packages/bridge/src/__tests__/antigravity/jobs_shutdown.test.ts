@@ -8,6 +8,7 @@ import { existsSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "no
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { STOP_BUDGET_MS } from "../../adapter-kit/stdio-child";
+import { installedAgy } from "../../backends/antigravity/agy-process";
 import { ShortJobs } from "../../backends/antigravity/jobs";
 import { eventually } from "../helpers/workspace-rig";
 
@@ -33,7 +34,7 @@ function hungJobs(log: (message: string) => void) {
 		voidDir: join(root, "void"),
 		presenceDir: join(root, "presence"),
 	};
-	jobs = new ShortJobs(install, { name: "broski", version: "0.0.0-test" }, log);
+	jobs = new ShortJobs(installedAgy(install), { name: "broski", version: "0.0.0-test" }, log);
 	return { jobs, started: () => existsSync(`${script}.started`) };
 }
 

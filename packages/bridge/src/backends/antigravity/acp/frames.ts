@@ -12,6 +12,9 @@ export const ACP_PROTOCOL_VERSION = 1;
 /** ACP's `auth_required` error, which agy answers when it holds no sign-in. */
 export const AUTH_REQUIRED = -32000;
 
+/** ACP's answer to a `session/load` of a session the agent does not have (protocol/v1/error, "Unknown sessions"). */
+export const RESOURCE_NOT_FOUND = -32002;
+
 function optional<T extends z.ZodType>(field: T) {
 	return field
 		.nullish()

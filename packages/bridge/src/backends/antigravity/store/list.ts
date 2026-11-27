@@ -18,6 +18,7 @@ import {
 	type SessionQuery,
 	type SessionSummary,
 	type SessionsListResult,
+	type SessionTitle,
 	searchWords,
 	sessionMatches,
 	WorkingDirectory,
@@ -30,6 +31,8 @@ export interface ListedSession {
 	readonly cwd?: string;
 	readonly title?: string;
 	readonly updatedAt: number;
+	/** agy has not stored the session, which the bridge made (`made.ts`): what the bridge kept of it. */
+	readonly unstored?: { readonly firstPrompt?: string };
 }
 
 /** The rows as the bridge lists them, newest first; `voidDir` is the folder the lister ran in. */
@@ -48,9 +51,11 @@ export function listedSessions(rows: readonly SessionInfo[], voidDir: string): L
 			},
 		];
 	});
-	return listed.sort(
-		(a, b) => b.updatedAt - a.updatedAt || (a.sessionId < b.sessionId ? 1 : a.sessionId > b.sessionId ? -1 : 0),
-	);
+	return listed.sort(newestFirst);
+}
+
+export function newestFirst(a: ListedSession, b: ListedSession): number {
+	return b.updatedAt - a.updatedAt || (a.sessionId < b.sessionId ? 1 : a.sessionId > b.sessionId ? -1 : 0);
 }
 
 /**
@@ -64,15 +69,30 @@ export function canonicalPath(path: string): string {
 
 export type OriginOf = (sessionId: string) => SessionOrigin;
 
+/**
+ * A session agy has not stored is idle (no client can be running what agy does not have) and titled by the person's
+ * first prompt, if they sent one; agy's own sessions may be running in a terminal.
+ */
 export function summaryOf(session: ListedSession, origin: OriginOf): SessionSummary {
+	const title = titleOf(session);
 	return {
 		session: { backend: "antigravity", sessionId: session.sessionId },
-		...(session.title !== undefined && { title: { text: session.title, source: "generated" } }),
+		...(title !== undefined && { title }),
 		...(session.cwd !== undefined && { cwd: session.cwd }),
 		updatedAt: session.updatedAt,
-		status: "unknown",
+		status: session.unstored === undefined ? "unknown" : "idle",
 		origin: origin(session.sessionId),
 	};
+}
+
+export function titleOf({ title, unstored }: ListedSession): SessionTitle | undefined {
+	return title !== undefined ? { text: title, source: "generated" } : firstPromptTitle(unstored?.firstPrompt);
+}
+
+/** A session agy has not titled stands under the person's first prompt in it. */
+export function firstPromptTitle(prompt: string | undefined): SessionTitle | undefined {
+	const text = phoneName(prompt ?? "");
+	return text === "" ? undefined : { text, source: "first_prompt" };
 }
 
 type Position = [number, string];
@@ -105,7 +125,7 @@ export function sessionsPage(
 	const remaining = sessions.filter(
 		(session) =>
 			(cwd === undefined || session.cwd === cwd) &&
-			sessionMatches(words, session.title, session.cwd) &&
+			sessionMatches(words, titleOf(session)?.text, session.cwd) &&
 			(after === undefined || isOlder(session, after)),
 	);
 	const shown = remaining.slice(0, page.limit);

@@ -66,15 +66,16 @@ and agy is the agent.
 
 | Rule | Where it holds |
 |---|---|
-| Only the person's own words reach agy: their prompt text and images, a slash command they chose (`/<name> <text>`), and `/compact` when they press Compact. One `session/prompt` call site in the bridge. | `live/host.ts:236`, `live/turns.ts:206,225,117` |
-| No system prompt and no identity change: `session/new` is `{cwd, mcpServers: []}`, with no `_meta` anywhere. The phone-writing note Claude Code and Pi get is not sent (`server/phone-writing.ts`); a person who wants it puts the text of `PHONE_WRITING` in `packages/bridge/src/server/phone-writing.ts` into their own `~/.gemini/GEMINI.md`. | `live/hosts.ts:130`, `catalog/probe.ts:116` |
+| Only the person's own words reach agy: their prompt text and images, a slash command they chose (`/<name> <text>`), and `/compact` when they press Compact. One `session/prompt` call site in the bridge. | `live/host.ts:258`, `live/turns.ts:234,215,117` |
+| No system prompt and no identity change: `session/new` is `{cwd, mcpServers: []}`, with no `_meta` anywhere. The phone-writing note Claude Code and Pi get is not sent (`server/phone-writing.ts`); a person who wants it puts the text of `PHONE_WRITING` in `packages/bridge/src/server/phone-writing.ts` into their own `~/.gemini/GEMINI.md`. | `live/hosts.ts:131`, `catalog/probe.ts:116` |
 | No replayed history and no prompt text of the bridge's own: the backend declares `verbatimPrompts`, so the core offers no portable fork (its `<broski_context_handoff>` would open a new session's first prompt with the old conversation). The core's queue and steer send the person's input as it came, only its mode changed. agy owns its history; a reopened session is `session/load`. | `traits.ts:37`, `core/fallbacks.ts:144`, `contract/backend.ts:60` |
-| No tool definitions injected: every session opens with `mcpServers: []`, and the client offers agy no file system and no terminal. | `live/hosts.ts:130,186`, `store/transcript.ts:124`, `acp/connection.ts:50` |
-| No `agy -p`: agy is only ever started as `agy acp` or `agy acp --process-per-session` (and `agy --version` for the status). | `jobs.ts:66`, `live/front.ts:42` |
+| No tool definitions injected: every session opens with `mcpServers: []`, and the client offers agy no file system and no terminal. | `live/hosts.ts:131,203`, `store/transcript.ts:126`, `acp/connection.ts:50` |
+| No `agy -p`: agy is only ever started as `agy acp` or `agy acp --process-per-session` (and `agy --version` for the status). | `jobs.ts:65`, `live/front.ts:41` |
 | No Google internal API and no reading of agy's sign-in: the bridge calls no `cloudcode-pa` or `v1internal:*` endpoint, reads no OAuth token of agy's and never calls `authenticate`; Antigravity's plan usage is not metered (only Claude's is). | `usage/usage-reader.ts:36` |
-| An honest client: `clientInfo {name: "broski", version: <bridge version>}`. | `backend.ts:84`, `acp/connection.ts:55` |
+| An honest client: `clientInfo {name: "broski", version: <bridge version>}`. | `backend.ts:81`, `acp/connection.ts:55` |
 | The user's own sign-in, one user, no account rotation: agy runs with its own sign-in and config; the bridge chooses no account. | `agy-process.ts` |
 | No automatic sessions beyond the reads the person asks for (below), no timer that opens one, and never a prompt the person did not send. | `catalog/catalogs.ts:63,69` |
+| A chat agy lost before it stored it (a restart under its first turn) is made again only when the person opens it, in its folder with its settings; their first prompt goes back to their composer and reaches agy only if they send it again. | `live/hosts.ts` `replaced`, `live/view.ts` `replaced` |
 
 **When Broski opens a session the person did not.** Only to answer a read they asked for, and each is closed at once
 with no prompt (agy lists no session that never had a prompt):
@@ -171,18 +172,23 @@ backends/antigravity/
   store/
     sessions.ts       one `session/list` on a short job, kept 15 s: list, get, find, locate
     list.ts           rows decoded and realpathed, the void rule, and the bridge's own filter, order and pages
-    made.ts           the sessions this bridge made while it runs: their folder, their time, `origin: broski`
+    made.ts           the sessions this bridge made (`origin: broski`), journaled across restarts: folder, settings,
+                      time, and the person's first prompt until agy stores the session
     transcript.ts     readTranscript from a short job's `session/load` replay, kept per `updatedAt`, paged by position
     transcript-items.ts  the replay's updates as transcript items
   mapping/
     tools.ts          an agy tool call (its `tool_call` with each update laid over it) as the contract's row and result
   live/
-    hosts.ts          AgyHosts: hosted sessions by id on one front; open new and existing, room, watch-only
+    hosts.ts          AgyHosts: hosted sessions by id on one front; open new and existing, room, watch-only, a chat agy
+                      lost made again in its place
     front.ts          the live front, `agy acp --process-per-session`
     cap.ts            the bound on hosted sessions and which idle one to close
     host.ts           AgyHost: one hosted session, its worker, its presence lock, its live state
+    load.ts           `session/load` on the front: the replay's facts for the host, its history not
+    settle.ts         the first prompt to a session agy has just loaded, held until agy has settled the load
     host-row.ts       a hosted session's list row, announced as `session_updated`
-    view.ts           AgyView, a hosted session's OpenSession; loads an ended host again on the next action
+    view.ts           AgyView, a hosted session's OpenSession; loads an ended host again on the next action, and follows
+                      a chat agy lost to the one made in its place
     turns.ts          one `session/prompt` in flight: a run, or the phone's compaction
     updates.ts        a run's stream: blocks and tool events
     settings.ts       model, thinking level and mode from config options; a choice as `set_config_option`
@@ -198,6 +204,7 @@ backends/antigravity/
 src/server/
   antigravity-cli-path.ts  which `agy` the bridge runs, through `cli-path.ts` (shared with Pi)
   contract-backends.ts     the factory's options in production
+  json-lines-journal.ts    the journal the backend's `journal` opens: `~/.broski/antigravity/<name>.jsonl`
 src/platform/file-lock.ts  the FileLock port: `flock(2)` from libSystem through `bun:ffi`
 src/doctor/checks/antigravity.ts  the doctor's check: path, version, sign-in
 ```
@@ -281,13 +288,26 @@ like any backend; its mark is iOS `AgentBrand`/`AgentMark` and Android `AgentMar
 - `session/list` returns every session at once, with no paging, and ignores `cwd`.
 - A session that stored no `cwd` reports the lister's own folder. Paths come percent-encoded (23 of 59 in one
   listing) or realpathed (`/private/var/…`).
-- A session with no prompt yet is not listed.
+- A session with no prompt yet is not listed. Nor is one whose first turn was cut off before the model had it: a
+  new session's first `session/prompt`, in flight as the bridge restarted, was answered `-32603` "The Antigravity
+  process serving this session exited unexpectedly" within milliseconds, and the next bridge's `session/list` lacked
+  the session (the conformance rule "sessions survive a restart").
 - `session/load` replays the user's text, the agent's text and the tool calls with their answers before it answers,
   about 2.5 s cold: no ids, times, thinking or images.
 - Loading a session that is already open is accepted, so a short job can read a session the front hosts.
 - After `session/load` agy adds a server restart notice of its own to the conversation, so the next turn takes two
   model steps: the model acknowledges the notice, then answers the prompt (measured on 1.5.18, on a Gemini API key
   and a Google sign-in).
+- On the front, the load's answer is followed at once (the same millisecond) by `available_commands_update`,
+  `usage_update` and, for a titled session, `session_info_update`.
+- A `session/prompt` that reaches a session just after its `session/load` answer may never be answered: in 10 runs
+  of the live capacity test, which prompts a reloaded session the moment the load answers (36 ms after agy's front
+  logged `session … served by worker 5` in one), 3 prompts were never answered (the runs gave up at 120 s and
+  300 s). Each time agy streamed one model step without the person's input, its notice's answer, and its worker
+  logged `Session …: IDLE while 1 of the turn's 1 user inputs are still to arrive; waiting for the turn's run`. The
+  facts above had reached the bridge before each of those prompts went, so they are no sign agy is ready. In 8 runs
+  of the reopen test, which prompts 3 s after the load, none stalled. The race is inside agy and its fix belongs
+  there; §7 says how Broski stays out of it.
 - A worker lost while agy's `ask_question` waited leaves that call `failed` in the replay. The reloaded conversation
   may take the ask up again: on the next prompt ("Reply with exactly: ok") the model asked the same question anew, a
   new `elicitation/create` (seen on 1.5.18, on a Gemini API key).
@@ -313,10 +333,12 @@ like any backend; its mark is iOS `AgentBrand`/`AgentMark` and Android `AgentMar
   again. A session a job opens refuses any ask agy raises in it (`-32603`): nobody would see it.
 - **The bound** (`live/cap.ts`): at most 8 hosted sessions (`antigravity.maxSessions`, 1–32). An open counts from
   the moment it starts. Room is made by `session/close` of the least recently used session with no run, ask,
-  compaction or request in flight, even one a phone views; that view keeps what it showed, and its next action loads
-  the session again (`resynced`). When every session has work in flight, the open is refused `busy`, naming the key.
-- **Closing**: a hosted session whose view closes is closed once it is idle (`session/close`, which ends its worker
-  and frees its lock for a terminal).
+  compaction or request in flight, one no phone views before one a phone views; that view keeps what it showed, and
+  its next action loads the session again (`resynced`). When every session has work in flight, the open is refused
+  `busy`, naming the key.
+- **Closing**: a hosted session stays hosted when its view closes, its worker running and its presence lock held: a
+  reload costs agy a restart notice and a model step, and races a prompt sent right after it (§1). It is closed
+  (`session/close`, which ends its worker and frees its lock for a terminal) only to make room, or with the bridge.
 - **The stop ladder** (`adapter-kit/stdio-child.ts`): stdin's end, 1.5 s; SIGTERM to the process group, 0.75 s;
   SIGKILL, 0.25 s. Each `agy` leads a process group of its own. `dispose` expires every ask, stops the front and the
   short jobs' `agy`, then lets every lock go once the workers are gone.
@@ -396,8 +418,15 @@ lacks the session. `store/list.ts` makes agy's rows the contract's:
 
 A row's title is agy's (`source: "generated"`); `status` is `unknown`, except that a hosted session's row is the
 host's (`live/host-row.ts`): status, model, run start, title, and `updatedAt` when one of its turns last ended.
-`origin` is `broski` for a session this bridge made while it runs (`store/made.ts`, 10,000 kept in memory), else
-`external`: agy keeps no record of the client that made a session.
+`origin` is `broski` for a session this bridge made, else `external`: agy keeps no record of the client that made a
+session. The bridge keeps its own (`store/made.ts`): 10,000 sessions, each with its folder, its settings and when it
+was made, in a journal across restarts (`~/.broski/antigravity/sessions.jsonl`, `0600`, one line per change, opened
+through the bridge's `journal` option, `server/json-lines-journal.ts`). A session it made that agy does not list
+(agy has not stored it: no prompt yet, or a first turn cut off, §1) is found by `getSession`, `idle`, in its folder
+from the journal; once the person has written in it, it is listed too, titled by their first prompt
+(`source: "first_prompt"`). The journal keeps that prompt only until a listing names the session; a load that reads
+more lines than sessions writes the journal again with one line each, so the person's words leave the disk at the
+next start after agy stored them.
 
 ## 6. Transcript
 
@@ -411,18 +440,33 @@ hosted turn ends.
 
 For a session the bridge hosts (`live/hosts.ts` `shown`): while a run is on, the items stop before its prompt's user
 message, which agy may already have stored; and the user messages this bridge sent get back their `clientRequestId`
-and their images while kept (§9), paired from the newest by text. A hosted session agy does not list yet (it has had
-no prompt) has an empty transcript.
+and their images while kept (§9), paired from the newest by text. A session agy has not stored has an empty
+transcript.
 
 ## 7. Opening a session
 
 - **New** (`live/hosts.ts` `created`): on the front, `session/new {cwd, mcpServers: []}` and nothing else. Then the
   session's presence lock is taken (§10); then the phone's model, thinking level and modes, in that order, each a
   `set_config_option` (a model has levels of its own). A refused setting closes the session and refuses the open. The
-  snapshot carries agy's model, level and mode from its config options.
-- **Existing**, when no terminal holds its lock: the lock, then `session/load` on the front. The replay's history is
-  dropped (the transcript reads it); its `usage_update`, `available_commands_update` and `session_info_update` set
-  the host's context fill, commands and title. agy answering that the session does not exist is `not_found`, and the lock file the bridge made for it is removed.
+  snapshot carries agy's model, level and mode from its config options. The session is journaled (§5) once its
+  settings are taken, and the person's first prompt in it with the settings it is sent under.
+- **Existing**, when no terminal holds its lock: the lock, then `session/load` on the front (`live/load.ts`). The
+  replay's history is dropped (the transcript reads it); its `usage_update`, `available_commands_update` and
+  `session_info_update` set the host's context fill, commands and title. agy answering that the session does not
+  exist is `not_found`, and the lock file the bridge made for it is removed.
+- **A chat agy lost** (`live/hosts.ts` `replaced`): when agy answers that a session the bridge made and agy never
+  stored does not exist, a new session is made in its folder with its settings, as New is, and takes its place in the
+  journal. The view is the new session's, and once `open` has resolved it sends `input_returned` with the person's
+  first prompt, for their composer, then `session_replaced` naming the new session (the core's replacement journal
+  sends a phone that resumes the old stream there, core README §5). agy is sent `session/new` and the settings only:
+  the prompt reaches agy only if the person sends it again. A view whose host ended does the same on its next action,
+  after `resynced`.
+- **A prompt right after a load** (`live/settle.ts`): the first prompt or compaction to a session agy has just loaded
+  is held, its `run_started` and `user_message` out at once, until agy has settled the load: the `usage_update` that
+  ends a model step of agy's own (after output of agy's own, which no run shows), or 3 s in which agy shows nothing
+  of its own, or 60 s while a step of its own goes on. A stop while it is held ends the run `aborted` with nothing
+  sent. No prompt to a session agy made is held, nor one sent once the load has settled. This keeps Broski out of
+  agy's race (§1), which only agy can fix.
 - **Existing, held by a terminal `agy`**: watch-only (§10).
 
 A session is known when agy lists it (listed afresh when the kept listing lacks it) or this bridge made it; any other
@@ -542,8 +586,9 @@ messages. The images of a prompt sent elsewhere, or before the bridge started, c
 agy's terminal lock is the one thing of agy's the adapter touches (`live/lock.ts`). The bridge takes
 `presence/<sessionId>.lock` under `$HOME/.gemini/antigravity-cli/` for every session it hosts, through the
 `FileLock` port (`platform/file-lock.ts`: `flock(LOCK_EX | LOCK_NB)`, the file made `0600`, the folder `0700`), and
-holds it until the host ends. The kernel drops it when the bridge exits, however it exits. So a terminal `agy` that
-opens a session the phone has warns "Conversation already open … Use /fork".
+holds it until the host ends, which is not when the phone's view closes (§2). The kernel drops it when the bridge
+exits, however it exits. So a terminal `agy` that opens a session the bridge hosts, one the phone has open or had
+open until the bridge needs its room, warns "Conversation already open … Use /fork".
 
 - `flock` refuses a second descriptor of the same process as it refuses another process, so the bridge keeps the
   locks it took and counts those as its own.
@@ -568,7 +613,8 @@ takes the lock again before that, the view goes back to watching; an action that
   is any internal error or bad parameter), or met while the front no longer runs, loses its host (`live/host.ts`). Its
   run ends `backend_unavailable` ("the session's agy process stopped: " and agy's words) or its compaction failed,
   its asks are withdrawn, and its lock is let go. The view keeps what it showed; the phone's next action loads the
-  session in a new host (`session/load`) and sends `resynced` once.
+  session in a new host (`session/load`, its prompt held for the load, §7) and sends `resynced` once, or, for a chat
+  agy lost before it stored it, follows the session made in its place (§7).
 - **Front exit**: every hosted session is lost the same way; the next action starts a new front.
 - **A turn agy fails**: agy's own words, clipped, and never retried (§8).
 - **Faults**: a record that is not JSON-RPC, a known update or answer that does not read, an oversized record: each is
@@ -632,7 +678,8 @@ hosted session, and `cancelQueued` from the core's queue; none of them, and no `
 - **Show a terminal's run live**, or answer a terminal's asks: ACP gives no feed of either, and agy has no permission
   hook. Such a session is watch-only until the terminal lets go.
 - **Keep a run through a bridge restart**: the front is the bridge's child and ends on its stdin's end, so a running
-  turn ends with the bridge; the session reopens from agy's history.
+  turn ends with the bridge; the session reopens from agy's history. A new chat whose first turn the restart cut off
+  is one agy never stored: it opens as a new session in its place, the person's words back in their composer (§7).
 - **Bridge MCP**: every session opens with `mcpServers: []`. agy advertises no HTTP MCP, and its own `ask_question`
   already asks the phone's questions.
 - **Exact times in history**: agy replays none, so every item carries the session's `updatedAt`.
@@ -652,14 +699,23 @@ In CI (`bun test`), no `agy` is started:
     fixture read by the bridge's readers, as its kind, with no fault and no list item or named field dropped.
   - `turns.test.ts`: text, thinking and image turns (blocks, settings, usage, title, commands), a command's row with
     its output and exit code, a denied command, a written and an edited file with their diffs, a second prompt refused
-    `busy` with one `session/prompt` sent, and a loaded session's compaction.
+    `busy` with one `session/prompt` sent, a loaded session's compaction, and the same compaction held until agy has
+    settled the load, then sent as recorded.
   - `asks.test.ts`: command and file permissions (agy's options, the command, the diffs, the reason), one-pick,
     several-pick and declined questions, each reply sent as agy got it, and a stop with a question pending.
-  - `store.test.ts`: the listing through the bridge's listing job (real folders, filter, order, pages) and a session's
-    history from its `session/load` replay, `session/close` included.
+  - `store.test.ts`: the listing through the bridge's listing job (real folders, filter, order, pages), a session's
+    history from its `session/load` replay, `session/close` included, and the sessions the bridge made read back from
+    its journal after a restart: one agy never stored listed by its first prompt, and one agy lists kept without it.
 - `acp_spec.test.ts`: the JSON-RPC layer on the records ACP's documentation shows.
+- `lost_chat.test.ts`, `host_lifetime.test.ts`: the production backend with every `agy` it starts answering each
+  request with agy's recorded answer to that method, or ACP's documented one where no recording has it
+  (`answering-agy.ts`): a real bridge and phone after a restart, a chat agy never stored listed, opened as a new
+  session in its place with `input_returned` then `session_replaced` and only `session/load` and `session/new` sent,
+  a phone resuming the old stream sent on, and the person's own prompt sent at once; and a session whose view closed
+  hosted, its lock held, until another needs the room.
 - `live_turns.test.ts`, `live_asks.test.ts` (over `live-rig.ts`), `live_shapes.test.ts`: turns, stops and an ask
-  after one, worker loss, stop reasons, compaction, asks and the unshowable ones, eviction, the cache window, diff
+  after one, worker loss, stop reasons, compaction, asks and the unshowable ones, eviction (an unviewed session
+  first), when a prompt held for a load goes and that a stop drops it unsent, the cache window, diff
   previews, and a report or choice of what the session already holds, on ACP's documented records, every stream held
   to the contract's stream rules.
 - `list.test.ts`: listing on real folders (percent-encoded and symlinked paths, the void rule, pages, hosted rows).
@@ -698,7 +754,8 @@ naming why.
   conversations, trust list, presence locks) is read or written. The key reaches agy only through its environment and
   is replaced in every log, screen and fixture.
 - **The world** (`live/world.ts`): temp folders, the profile, and the production backend with what production gives it,
-  except a temp void folder, the profile's presence folder, `GEMINI_API_KEY` in its environment and, as its `agy`, a
+  except a temp void folder, the profile's presence folder, a journal folder of the world's (its backends share it, as
+  a restarting bridge does), `GEMINI_API_KEY` in its environment and, as its `agy`, a
   wire tap (`live/wire-tap.ts`) that starts the real one in the profile and logs every frame, both ways, before it
   passes the frame on, so whatever the backend has received the log holds; on the front it notes agy's children around
   each `session/new` and `session/load`. Once agy answers `initialize`, the tap sends its own

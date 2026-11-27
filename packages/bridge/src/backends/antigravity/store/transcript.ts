@@ -2,7 +2,7 @@
  * `readTranscript`: a session's history as agy replays it to a `session/load` (`transcript-items.ts`), newest first and
  * paged by position. A replay is kept while the session's `updatedAt` stays the same, or until the bridge knows it
  * changed. `live` is what the live layer makes of the items of a session it hosts: for one whose run is still active
- * they stop before the run, whose own items are in its snapshot.
+ * they stop before the run, whose own items are in its snapshot. A session agy has not stored has no history.
  */
 
 import { cursorScope, decodeCursor, encodeCursor } from "../../../adapter-kit/cursor";
@@ -59,6 +59,8 @@ export class AgyTranscripts {
 		const found = await this.sessions.find(sessionId);
 		if (!found.ok) return rejected("backend_error", `Antigravity could not find the session: ${found.failure.message}`);
 		if (found.result === undefined) return notFound(sessionId);
+		if (found.result.unstored !== undefined)
+			return { status: "accepted", page: { items: [], idStability: "positional" } };
 		const replayed = await this.items(found.result);
 		if (!replayed.ok)
 			return rejected("backend_error", `Antigravity could not load the session: ${replayed.failure.message}`);

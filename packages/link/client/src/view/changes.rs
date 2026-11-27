@@ -109,7 +109,8 @@ pub enum SessionChange {
     ExtensionReceived {
         extension: BackendExtension,
     },
-    /// Input the backend took back out of its queue: the UI puts it where the person types,
+    /// Input the backend handed back (queued input a stop took back, or a prompt it lost before
+    /// its agent stored it): the UI puts it where the person types,
     /// joined by blank lines, in front of what is there (contract README §10).
     InputReturned {
         texts: Vec<String>,

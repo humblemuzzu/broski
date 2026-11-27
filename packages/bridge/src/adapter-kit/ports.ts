@@ -1,5 +1,6 @@
 /** What an adapter asks the bridge for that only the bridge's platform code can do. */
 
+import type { z } from "zod";
 import type { ImageVariant } from "../contract";
 
 export type FittedImage =
@@ -32,3 +33,15 @@ export interface FileLock {
 	/** The file at `path`, made `0600` when it is not there yet. Throws when it cannot be opened. */
 	open(path: string): LockFile;
 }
+
+/** Entries an adapter keeps across bridge restarts, one appended at a time; an I/O failure is the bridge's to log. */
+export interface Journal<T> {
+	/** What earlier runs kept, oldest first: the newest `keep` entries. */
+	load(): T[];
+	append(entry: T): void;
+	/** The journal holds `entries` alone from now on. */
+	rewrite(entries: readonly T[]): void;
+}
+
+/** The adapter's journal `name`, in a folder of the bridge's own; each entry is read back only if it parses as `entry`. */
+export type JournalOpener = <T>(name: string, entry: z.ZodType<T>, keep: number) => Journal<T>;

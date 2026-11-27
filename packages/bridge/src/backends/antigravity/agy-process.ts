@@ -22,7 +22,15 @@ export interface AgyStart {
 	readonly signal: AbortSignal;
 }
 
+/** How each `agy acp` the adapter needs is started. */
+export type AgyLauncher = (start: AgyStart) => Promise<RpcResult<AgyProcess>>;
+
 export const SHUT_DOWN = { ok: false, failure: { message: "the Antigravity backend has shut down" } } as const;
+
+/** The user's own `agy` from `install`, started by `startAgy`. */
+export function installedAgy(install: AgyInstall): AgyLauncher {
+	return (start) => startAgy(install, start);
+}
 
 /** In the void folder, which is made first; the process leads a group of its own (`adapter-kit/stdio-child.ts`). */
 export async function startAgy(install: AgyInstall, start: AgyStart): Promise<RpcResult<AgyProcess>> {

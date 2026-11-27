@@ -222,7 +222,7 @@ SinkRecord    = EventEnvelope without seq and session      // what an adapter em
 4. `tool_updated`/`tool_finished` name a running tool. A nested call's `parentToolCallId` names a tool of the run.
 5. Every `interaction_requested` id is new and is resolved exactly once. A blocking interaction names the active run. When a run finishes, none of its interactions is pending.
 6. `retry_finished` follows a `retry_scheduled`; `compaction_finished` follows a `compaction_started`, and a compaction does not start while one is under way. No retry or compaction is under way at `run_finished`. A stream at rest has none open either.
-7. Declared traits gate events: thinking deltas need `streamThinking`, text deltas `streamText`, plan blocks `planProposals`, `queue_changed` and `input_returned` `queue` (item ids unique), `usage_updated` `usage`, child sessions `children`, extensions their declared kind, interactions their declared kind.
+7. Declared traits gate events: thinking deltas need `streamThinking`, text deltas `streamText`, plan blocks `planProposals`, `queue_changed` `queue` (item ids unique), `usage_updated` `usage`, child sessions `children`, extensions their declared kind, interactions their declared kind.
 8. `resynced` resets what is open to its snapshot; the ids seen so far stay seen.
 
 **The events and their sources.** "synth." means the adapter synthesizes the event.
@@ -248,7 +248,7 @@ SinkRecord    = EventEnvelope without seq and session      // what an adapter em
 | `error{error, retryable}` | A failure outside a run's outcome | process exit, transport error (CC D1) | a fault in the adapter's own part |
 | `extension{extension}` | Typed per-backend extra (§13) | `rate_limit_event` | — |
 | `session_replaced{session}` | The live session goes on under a new id; this event is the last under the old one. A phone away when it happened is told at its next attach (§12.2). `session` may also name the same session: what it allows changed (Pi: a terminal began or ended running it), and the only way to hand viewers the new `SessionCapabilities` is a new stream | `conversation_reset` (`/clear`, plan-exit context clear) (CC §5) | a terminal began or ended running the session |
-| `input_returned{texts}` | Input the backend took back out of its queue because the run was stopped, in the order the backend's own interface would restore it; the client puts it back where the human types. Not state: the reducer ignores it. Needs `queue` | Stop with `cancelQueued` hands what was queued back | `abort` after `clearQueue()` (pi §7) |
+| `input_returned{texts}` | Input the backend hands back: what it took out of its queue because the run was stopped, in the order the backend's own interface would restore it, or a prompt it lost before its agent stored it (Antigravity: a new chat's first prompt cut off by a bridge restart, antigravity §7). The client puts it back where the human types; nothing sends it again but the human. Not state: the reducer ignores it | Stop with `cancelQueued` hands what was queued back | `abort` after `clearQueue()` (pi §7) |
 | `resynced{snapshot}` | The live state is replaced | the CLI child restarted; the core's own reconcile (core README §6) | the core's own reconcile |
 
 **Run triggers.** `prompt` (input through this bridge, including an action the backend runs as a run), `queue` (a queued prompt dispatched as the previous run ended), `system` (goal, wakeup, background task, restart recovery: CC D8), `external` (another client, such as a terminal run).

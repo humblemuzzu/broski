@@ -5,18 +5,11 @@
  */
 
 import { CliVersion, executableStamp } from "../../adapter-kit/cli-version";
-import type { FileLock, ImageFitter } from "../../adapter-kit/ports";
+import type { FileLock, ImageFitter, JournalOpener } from "../../adapter-kit/ports";
 import { rejected } from "../../adapter-kit/rejections";
-import type {
-	AgentBackend,
-	BackendHost,
-	PageRequest,
-	Rejected,
-	SessionRef,
-	SessionSummary,
-	TranscriptReadResult,
-} from "../../contract";
+import type { AgentBackend, BackendHost, Rejected, SessionRef, SessionSummary } from "../../contract";
 import type { RpcResult } from "./acp/rpc";
+import { type AgyLauncher, installedAgy } from "./agy-process";
 import { AgyCatalogs } from "./catalog/catalogs";
 import { listedModels } from "./catalog/models";
 import { catalogProbes } from "./catalog/probe";
@@ -38,6 +31,10 @@ export interface AntigravityBackendOptions {
 	/** Takes `agy`'s presence lock for a conversation the phone controls. */
 	readonly fileLock: FileLock;
 	readonly fitImage: ImageFitter;
+	/** Where the sessions this bridge made are kept across restarts (`store/made.ts`): `~/.broski/antigravity`. */
+	readonly journal: JournalOpener;
+	/** How each `agy acp` starts; the user's own `agy` from `install` when not given. */
+	readonly launch?: AgyLauncher;
 	/** How many sessions may be open in `agy` at once. */
 	readonly maxSessions?: number;
 	/** Where what `agy` sends that breaks the protocol is reported. */
@@ -82,17 +79,19 @@ export function antigravityBackendOf(options: AntigravityBackendOptions, host: B
 function partsOf(options: AntigravityBackendOptions, host: BackendHost): Parts {
 	const { install } = options;
 	const client = { name: "broski", version: options.bridgeVersion };
-	const jobs = new ShortJobs(install, client, options.log);
+	const launch = options.launch ?? installedAgy(install);
+	const jobs = new ShortJobs(launch, client, options.log);
 	const { cli } = install;
 	const now = options.now ?? Date.now;
 	const stamp = async () => (cli.found ? executableStamp(cli.path) : "-");
 	const catalogs = new AgyCatalogs(catalogProbes(jobs), install.voidDir, stamp, now);
-	const made = new MadeSessions();
+	const made = new MadeSessions(options.journal);
 	const sessions = new AgySessions(jobs, install.voidDir, made);
 	const transcripts = new AgyTranscripts(jobs, sessions, install.voidDir);
 	const prompts = new PhonePrompts(options.fitImage);
 	const hosts = new AgyHosts({
 		install,
+		launch,
 		client,
 		fileLock: options.fileLock,
 		maxSessions: options.maxSessions ?? DEFAULT_MAX_SESSIONS,
@@ -112,7 +111,7 @@ function partsOf(options: AntigravityBackendOptions, host: BackendHost): Parts {
 function sessionReads(
 	parts: Parts,
 ): Pick<AgentBackend, "listSessions" | "getSession" | "readTranscript" | "readAttachment"> {
-	const { sessions, hosts, prompts } = parts;
+	const { sessions, transcripts, hosts, prompts } = parts;
 	const live = (summary: SessionSummary) => hosts.row(summary.session.sessionId) ?? summary;
 	return {
 		listSessions: async (query, page) => {
@@ -126,19 +125,10 @@ function sessionReads(
 			return row !== undefined ? { status: "accepted", summary: row } : sessions.get(ref.sessionId);
 		},
 		readTranscript: async (ref, page) =>
-			isOurs(ref) ? transcriptOf(parts, ref.sessionId, page) : notFound(ref.sessionId),
+			isOurs(ref) ? transcripts.read(ref.sessionId, page, hosts.shown(ref.sessionId)) : notFound(ref.sessionId),
 		readAttachment: async (ref, attachment, variant) =>
 			isOurs(ref) ? prompts.read(ref.sessionId, attachment, variant ?? "full") : notFound(ref.sessionId),
 	};
-}
-
-/** A session the bridge made that agy does not list yet (it lists none before its first prompt) has no history. */
-async function transcriptOf(parts: Parts, sessionId: string, page: PageRequest): Promise<TranscriptReadResult> {
-	const read = await parts.transcripts.read(sessionId, page, parts.hosts.shown(sessionId));
-	const unlisted = read.status === "rejected" && read.rejection.code === "not_found";
-	return unlisted && parts.hosts.row(sessionId) !== undefined
-		? { status: "accepted", page: { items: [], idStability: "positional" } }
-		: read;
 }
 
 function catalogReads(parts: Parts): Pick<AgentBackend, "listModels" | "listModes" | "listCommands"> {

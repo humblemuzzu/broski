@@ -12,6 +12,7 @@ import { antigravityBackendFactory } from "../../backends/antigravity/factory";
 import { AGY_INSTALL_FIX } from "../../backends/antigravity/install";
 import { fileLock } from "../../platform/file-lock";
 import { fitImageBase64 } from "../../platform/image-fit";
+import { journalsIn } from "../../server/json-lines-journal";
 import { E2E_TEST_TIMEOUT_MS, startBridge } from "../e2e/harness";
 import { connectPhone } from "../helpers/link-contract-client";
 
@@ -38,6 +39,7 @@ describe("a bridge with Antigravity and no agy", () => {
 				bridgeVersion: "0.0.0-test",
 				fileLock,
 				fitImage: fitImageBase64,
+				journal: journalsIn(join(root, "journals"), () => undefined),
 				log: () => undefined,
 			});
 			const socketPath = join(root, "link.sock");

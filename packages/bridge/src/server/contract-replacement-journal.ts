@@ -13,5 +13,11 @@ const JournalLine = z.strictObject({
 
 /** The core's memory of replaced sessions: one record per line, the newest `REPLACEMENT_MEMORY` kept. */
 export function openReplacementJournal(path: string, log: CoreLog): ReplacementJournal {
-	return openJsonLinesJournal({ path, what: "replacement journal", entry: JournalLine, keep: REPLACEMENT_MEMORY, log });
+	return openJsonLinesJournal({
+		path,
+		what: "replacement journal",
+		entry: JournalLine,
+		keep: REPLACEMENT_MEMORY,
+		log: (message) => log.error(`[core] ${message}`),
+	});
 }

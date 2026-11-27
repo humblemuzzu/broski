@@ -163,9 +163,10 @@ export const MessagesRetractedEvent = z.strictObject({
 export type MessagesRetractedEvent = z.infer<typeof MessagesRetractedEvent>;
 
 /**
- * Queued input the backend took back out of its queue, to be put into the composer of the session: the person
- * stopped the run, and what they had queued behind it was not sent. In queue order, steering input first. The
- * queue itself is `queue_changed`; this event only says what to give back, and is not state.
+ * Input the backend hands back, to be put into the composer of the session and sent again only by the person: what
+ * they had queued behind a run they stopped, in queue order, steering input first (the queue itself is
+ * `queue_changed`), or a prompt the backend lost before its agent stored it. It only says what to give back, and is not
+ * state.
  */
 export const InputReturnedEvent = z.strictObject({
 	type: z.literal("input_returned"),

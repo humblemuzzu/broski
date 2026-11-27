@@ -11,6 +11,7 @@ import {
 	type SessionOrigin,
 	type SessionSnapshot,
 	type SessionSummary,
+	type SessionTitle,
 	sessionStatus,
 } from "../../../contract";
 
@@ -18,12 +19,12 @@ export interface RowFacts {
 	readonly sessionId: string;
 	readonly cwd: string | undefined;
 	readonly origin: SessionOrigin;
-	readonly title: string | undefined;
+	readonly title: SessionTitle | undefined;
 	readonly updatedAt: number;
 }
 
 export class HostRow {
-	private title: string | undefined;
+	private title: SessionTitle | undefined;
 	private updatedAt: number;
 	private key = "";
 	private announcing = false;
@@ -43,7 +44,7 @@ export class HostRow {
 		const runStartedAt = snapshot.run?.startedAt ?? snapshot.compaction?.startedAt;
 		return {
 			session: { backend: "antigravity", sessionId: this.facts.sessionId },
-			...(this.title !== undefined && { title: { text: this.title, source: "generated" } }),
+			...(this.title !== undefined && { title: this.title }),
 			...(this.facts.cwd !== undefined && { cwd: this.facts.cwd }),
 			updatedAt: this.updatedAt,
 			...(runStartedAt !== undefined && { runStartedAt }),
@@ -73,14 +74,14 @@ export class HostRow {
 	/** agy titled the session (`session_info_update`). */
 	titled(title: string | undefined): void {
 		const text = phoneName(title ?? "");
-		if (text === "" || text === this.title) return;
-		this.title = text;
+		if (text === "" || text === this.title?.text) return;
+		this.title = { text, source: "generated" };
 		this.announce();
 	}
 
 	private keyNow(): string {
 		const snapshot = this.snapshot();
-		return `${sessionStatus(snapshot)}|${snapshot.modelId ?? ""}|${this.title ?? ""}`;
+		return `${sessionStatus(snapshot)}|${snapshot.modelId ?? ""}|${this.title?.text ?? ""}`;
 	}
 
 	private announce(): void {
