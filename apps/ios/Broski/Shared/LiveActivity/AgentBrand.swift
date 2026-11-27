@@ -1,17 +1,19 @@
 import SwiftUI
 
-/// An agent as Broski draws it everywhere, in the app and in the Live Activity: Claude Code's and
-/// Pi's own logos white on their makers' colours, any other agent its initials on the accent its
-/// bridge names, slate when it names none.
+/// An agent as Broski draws it everywhere, in the app and in the Live Activity: Claude Code's, Pi's
+/// and Antigravity's own logos white on their makers' colours, any other agent its initials on the
+/// accent its bridge names, slate when it names none.
 nonisolated struct AgentBrand: Codable, Hashable, Sendable {
     enum Logo: String, Codable, Sendable {
         case claude
         case pi
+        case antigravity
 
         init?(backend: String) {
             switch backend {
             case "claude-code": self = .claude
             case "pi": self = .pi
+            case "antigravity": self = .antigravity
             default: return nil
             }
         }
@@ -24,7 +26,7 @@ nonisolated struct AgentBrand: Codable, Hashable, Sendable {
     let accentHex: String?
 
     /// What the phone knows of an agent its bridge has not described: a name read from its id, and
-    /// Claude Code's and Pi's logos.
+    /// the logo of an agent that has one here.
     init(backend: String) {
         self.init(backend: backend, name: nil, accentHex: nil, logo: Logo(backend: backend))
     }
@@ -64,18 +66,15 @@ nonisolated struct AgentBrand: Codable, Hashable, Sendable {
     }
 
     /// The figure's own colour, for the glyph drawn on black without its tile.
-    var ink: Color {
-        switch logo {
-        case .claude: Color(red: 0.851, green: 0.467, blue: 0.341)
-        case .pi: .white
-        case nil: (accent.luminance < 0.35 ? accent.mixed(with: .white, 0.45) : accent).color
-        }
+    var ink: AnyShapeStyle {
+        logo?.ink ?? AnyShapeStyle((accent.luminance < 0.35 ? accent.mixed(with: .white, 0.45) : accent).color)
     }
 
     var fill: LinearGradient {
         let (top, bottom): (Color, Color) = switch logo {
         case .claude: (Color(red: 0.890, green: 0.545, blue: 0.424), Color(red: 0.776, green: 0.384, blue: 0.259))
         case .pi: (Color(red: 0.200, green: 0.212, blue: 0.333), Color(red: 0.086, green: 0.098, blue: 0.165))
+        case .antigravity: (Color(red: 0.259, green: 0.522, blue: 0.957), Color(red: 0.098, green: 0.404, blue: 0.824))
         case nil: (accent.mixed(with: .white, 0.16).color, accent.mixed(with: .black, 0.14).color)
         }
         return LinearGradient(colors: [top, bottom], startPoint: .top, endPoint: .bottom)
@@ -87,15 +86,37 @@ nonisolated extension AgentBrand.Logo {
         switch self {
         case .claude: "AgentClaude"
         case .pi: "AgentPi"
+        case .antigravity: "AgentAntigravity"
         }
     }
 
-    /// Claude's spark is round and thin, Pi's blocks are square and heavy, so the spark takes more
-    /// of the tile for the two to weigh the same.
+    /// Claude's spark is round and thin, Pi's blocks are square and heavy, Antigravity's arch is wide
+    /// and solid: each takes the share of the tile that makes the three weigh the same.
     var glyphShare: CGFloat {
         switch self {
         case .claude: 0.66
         case .pi: 0.46
+        case .antigravity: 0.58
+        }
+    }
+
+    /// The figure in its maker's own colours, where it stands without its tile: Claude's coral, Pi's
+    /// white, Antigravity's red, yellow, green and blue.
+    var ink: AnyShapeStyle {
+        switch self {
+        case .claude:
+            AnyShapeStyle(Color(red: 0.851, green: 0.467, blue: 0.341))
+        case .pi:
+            AnyShapeStyle(Color.white)
+        case .antigravity:
+            AnyShapeStyle(LinearGradient(
+                stops: [
+                    .init(color: Color(red: 0.988, green: 0.255, blue: 0.239), location: 0.05),
+                    .init(color: Color(red: 0.984, green: 0.737, blue: 0.016), location: 0.32),
+                    .init(color: Color(red: 0, green: 0.725, blue: 0.361), location: 0.55),
+                    .init(color: Color(red: 0.192, green: 0.525, blue: 1), location: 0.85),
+                ],
+                startPoint: .topTrailing, endPoint: .bottomLeading))
         }
     }
 }

@@ -1,12 +1,12 @@
 package com.muzammil.broski.design
 
 import androidx.annotation.DrawableRes
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,9 +32,11 @@ private class AgentBrand(@param:DrawableRes val glyph: Int, val glyphShare: Floa
 
 private val Agent.brand: AgentBrand?
     get() = when (icon) {
-        // Claude's spark is round and thin, Pi's blocks square and heavy: the spark takes more of the tile.
+        // Claude's spark is round and thin, Pi's blocks square and heavy, Antigravity's arch wide and solid:
+        // each takes the share of the tile that makes the three weigh the same.
         BackendIconHint.CLAUDE -> AgentBrand(R.drawable.ic_agent_claude, 0.66f, Color(0xFFE38B6C), Color(0xFFC66242))
         BackendIconHint.PI -> AgentBrand(R.drawable.ic_agent_pi, 0.46f, Color(0xFF333655), Color(0xFF16192A))
+        BackendIconHint.ANTIGRAVITY -> AgentBrand(R.drawable.ic_agent_antigravity, 0.58f, Color(0xFF4285F4), Color(0xFF1967D2))
         else -> null
     }
 
@@ -55,9 +57,10 @@ fun AgentMark(agent: Agent, modifier: Modifier = Modifier, size: Dp = 40.dp) {
             .border(0.5.dp, Color.White.copy(alpha = 0.14f), TileShape),
         contentAlignment = Alignment.Center,
     ) {
-        Image(
+        Icon(
             painterResource(brand.glyph),
             contentDescription = null,
+            tint = Color.White,
             modifier = Modifier.size(size * brand.glyphShare),
         )
     }

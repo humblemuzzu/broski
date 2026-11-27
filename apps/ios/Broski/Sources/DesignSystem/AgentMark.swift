@@ -15,12 +15,13 @@ struct AgentMark: View {
 }
 
 extension AgentBrand {
-    /// The descriptor's `iconHint` picks the logo when it gives one; only `claude` and `pi` have
-    /// theirs, every other hint draws the monogram.
+    /// The descriptor's `iconHint` picks the logo when it gives one; only `claude`, `pi` and
+    /// `antigravity` have theirs, every other hint draws the monogram.
     init(_ descriptor: BackendDescriptor) {
         let logo: Logo? = switch descriptor.iconHint {
         case .claude: .claude
         case .pi: .pi
+        case .antigravity: .antigravity
         case nil: Logo(backend: descriptor.id)
         default: nil
         }

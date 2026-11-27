@@ -55,7 +55,7 @@ fun planTint(plan: String): Color {
 fun PlanGlyph(plan: String, name: String, size: Dp = 20.dp) {
     when (plan) {
         PlanIds.CLAUDE -> Icon(painterResource(R.drawable.ic_agent_claude), contentDescription = null, tint = Color(0xFFD97757), modifier = Modifier.size(size))
-        PlanIds.ANTIGRAVITY -> Image(painterResource(R.drawable.ic_plan_antigravity), contentDescription = null, modifier = Modifier.size(size * 0.9f))
+        PlanIds.ANTIGRAVITY -> Image(painterResource(R.drawable.ic_agent_antigravity), contentDescription = null, modifier = Modifier.size(size * 0.9f))
         else -> Text(name.take(1).uppercase(), fontSize = (size.value * 0.8f).sp, fontWeight = FontWeight.Bold, color = planTint(plan))
     }
 }

@@ -415,7 +415,7 @@ terminal emulator is [libghostty-spm](https://github.com/Lakr233/libghostty-spm)
 | `Motion` | `Motion.spring/snappy/crossfade`, `(reduceMotion:)` variants, `AnyTransition.rise`, `.springAnimation(value:)` |
 | `Haptics` | `HapticMoment` (the design table) and `.haptic(_:trigger:)` / `.haptic(_:trigger:when:)` |
 | `GlassControls` | `.primaryActionStyle()` (`.glassProminent`), `.secondaryActionStyle()` (`.glass`), `.glassCard()`, `WideLabel` |
-| `AgentMark`, `BroskiMark` | an agent's mark from its bridge's `BackendDescriptor` (`MachineModel.brand(for:)`): Claude Code's and Pi's logos, any other agent its initials on its `accentHex` (slate without one), drawn by `AgentBrand`/`AgentLogo` in `Shared/LiveActivity`; the app's mark |
+| `AgentMark`, `BroskiMark` | an agent's mark from its bridge's `BackendDescriptor` (`MachineModel.brand(for:)`): Claude Code's, Pi's and Antigravity's logos, any other agent its initials on its `accentHex` (slate without one), drawn by `AgentBrand`/`AgentLogo` in `Shared/LiveActivity`; the app's mark |
 | `Indicators` | `StateIndicator`, `RelativeTime`, `Date(unixMilliseconds:)` |
 | `Orb` | `Orb` and `LoadingOrb`: ThinkingOrbsKit's thinking orb, the only "under way" mark (agents working, thinking, connecting, loading; no `ProgressView` or animated symbol), sized with its text, still outside an active scene and under Reduce Motion |
 | `StatusChip`, `Banner` | status capsules with tone and symbol (the connecting orb in progress); inline notices with one action; `.dimmed(_:)` |

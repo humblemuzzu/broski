@@ -82,7 +82,7 @@ class UsageWidgetProvider : AppWidgetProvider() {
                 views.setViewVisibility(column.glyph, View.VISIBLE)
             }
             PlanIds.ANTIGRAVITY -> {
-                views.setImageViewResource(column.glyph, R.drawable.ic_plan_antigravity)
+                views.setImageViewResource(column.glyph, R.drawable.ic_agent_antigravity)
                 views.setInt(column.glyph, "setColorFilter", Color.TRANSPARENT)
                 views.setViewVisibility(column.glyph, View.VISIBLE)
             }

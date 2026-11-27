@@ -25,6 +25,10 @@ struct OpenBackendTests {
         #expect(AgentBrand(descriptor("pi", "Pi")).logo == .pi, "no hint: the id picks the logo")
         #expect(AgentBrand(backend: "claude-code") == AgentBrand(backend: "claude-code", name: "Claude Code", accentHex: nil, logo: .claude))
         #expect(AgentBrand(backend: "pi").name == "Pi")
+        #expect(AgentBrand(descriptor("antigravity", "Antigravity", accent: "#1A73E8", hint: .antigravity)).logo == .antigravity)
+        #expect(
+            AgentBrand(backend: "antigravity") == AgentBrand(backend: "antigravity", name: "Antigravity", accentHex: nil, logo: .antigravity),
+            "a Live Activity the daemon started names only the backend")
     }
 
     @Test func anyOtherAgentIsItsInitialsOnItsAccent() {
@@ -84,13 +88,13 @@ struct OpenBackendTests {
             PlanMeter(plan: "codex", displayName: "ChatGPT Pro", tier: nil, windows: [], readAt: nil, problem: nil),
             machineName: "Mac")
         #expect(named.plan == UsagePlan(id: "codex") && named.name == "ChatGPT Pro")
-        #expect(named.plan.glyph == nil)
+        #expect(named.plan.logo == nil)
         let unnamed = PlanReport(
             PlanMeter(plan: "open-router", displayName: nil, tier: nil, windows: [], readAt: nil, problem: nil),
             machineName: "Mac")
         #expect(unnamed.name == "Open Router")
         #expect(UsagePlan.claude.name == "Claude" && UsagePlan.antigravity.name == "Antigravity")
-        #expect(UsagePlan.claude.glyph == "AgentClaude" && UsagePlan.antigravity.glyph == "PlanAntigravity")
+        #expect(UsagePlan.claude.logo == .claude && UsagePlan.antigravity.logo == .antigravity)
     }
 
     @Test func aStoredReportFromAnEarlierBuildStillReadsAndKeepsItsShape() throws {

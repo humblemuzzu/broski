@@ -8,6 +8,7 @@ import uniffi.broski_contract.BackendIconHint
 object BackendIds {
     const val CLAUDE_CODE = "claude-code"
     const val PI = "pi"
+    const val ANTIGRAVITY = "antigravity"
 
     private val wire = Regex("[a-z0-9][a-z0-9-]{0,63}")
 
@@ -23,8 +24,8 @@ object BackendIds {
 
 /**
  * What the app shows of an agent backend: the machine's descriptor of it, or, for a cached row or a
- * machine that has not listed its backends yet, what its id alone says. Claude Code and Pi always
- * keep their own art.
+ * machine that has not listed its backends yet, what its id alone says. Claude Code, Pi and
+ * Antigravity always keep their own art.
  */
 @Immutable
 data class Agent(val id: String, val name: String, val accentHex: String? = null, val icon: BackendIconHint? = null) {
@@ -39,6 +40,7 @@ data class Agent(val id: String, val name: String, val accentHex: String? = null
         fun known(id: String): Agent = when (id) {
             BackendIds.CLAUDE_CODE -> Agent(id, "Claude Code", icon = BackendIconHint.CLAUDE)
             BackendIds.PI -> Agent(id, "Pi", icon = BackendIconHint.PI)
+            BackendIds.ANTIGRAVITY -> Agent(id, "Antigravity", icon = BackendIconHint.ANTIGRAVITY)
             else -> Agent(id, titled(id))
         }
     }

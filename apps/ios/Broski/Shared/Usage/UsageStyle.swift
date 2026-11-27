@@ -22,11 +22,12 @@ extension UsagePlan {
         }
     }
 
-    /// Nil for a plan with no mark of its own, which draws its initial.
-    var glyph: String? {
+    /// The maker's agent, whose mark the plan wears; nil for a plan with no mark of its own, which
+    /// draws its initial.
+    var logo: AgentBrand.Logo? {
         switch self {
-        case .claude: "AgentClaude"
-        case .antigravity: "PlanAntigravity"
+        case .claude: .claude
+        case .antigravity: .antigravity
         default: nil
         }
     }
@@ -41,21 +42,7 @@ extension UsagePlan {
     }
 
     var glyphStyle: AnyShapeStyle {
-        switch self {
-        case .claude:
-            AnyShapeStyle(Color(red: 0.851, green: 0.467, blue: 0.341))
-        case .antigravity:
-            AnyShapeStyle(LinearGradient(
-                stops: [
-                    .init(color: Color(red: 0.988, green: 0.255, blue: 0.239), location: 0.05),
-                    .init(color: Color(red: 0.984, green: 0.737, blue: 0.016), location: 0.32),
-                    .init(color: Color(red: 0, green: 0.725, blue: 0.361), location: 0.55),
-                    .init(color: Color(red: 0.192, green: 0.525, blue: 1), location: 0.85),
-                ],
-                startPoint: .topTrailing, endPoint: .bottomLeading))
-        default:
-            AnyShapeStyle(bright)
-        }
+        logo?.ink ?? AnyShapeStyle(bright)
     }
 }
 
@@ -76,8 +63,8 @@ struct PlanGlyph: View {
     }
 
     @ViewBuilder private var figure: some View {
-        if let glyph = plan.glyph {
-            Image(glyph)
+        if let logo = plan.logo {
+            Image(logo.glyph)
                 .resizable()
                 .renderingMode(.template)
                 .scaledToFit()
