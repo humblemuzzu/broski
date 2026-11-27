@@ -10,7 +10,7 @@
  * prompt after the terminal quits again. Two prompts.
  */
 
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect } from "bun:test";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { PresenceLocks } from "../../../backends/antigravity/live/lock";
@@ -19,6 +19,7 @@ import { sessionCapabilities } from "../../../contract";
 import { fileLock } from "../../../platform/file-lock";
 import { eventually } from "../../helpers/workspace-rig";
 import { TEST_MS } from "./gate";
+import { liveTest } from "./live-test";
 import { trustFolder, withoutApiKey } from "./profile";
 import { OK_PROMPT, run } from "./runs";
 import { AgyWorld } from "./world";
@@ -66,7 +67,7 @@ export function terminalSuite(): void {
 			expect(world?.faults ?? []).toEqual([]);
 		});
 
-		test(
+		liveTest(
 			"watched while the terminal has it, promoted when it quits, watched again when it reopens, hosted on a prompt",
 			async () => {
 				const backend = await world.start();

@@ -1,11 +1,11 @@
 /**
  * A live session's turns, over the bridge's JSON-RPC layer with ACP's documented records (`live-rig.ts`): one prompt in
- * flight, a stop, the session's process going, ACP's stop reasons, and the phone's compaction.
+ * flight, a stop and an ask after it, the session's process going, ACP's stop reasons, and the phone's compaction.
  */
 
 import { describe, expect, test } from "bun:test";
 import { isWorkerLoss, runEnded } from "../../backends/antigravity/live/outcomes";
-import { CHUNK, PERMISSION, session, start, TOOL_CALL, TOOL_PROGRESS } from "./live-rig";
+import { CHUNK, PERMISSION, QUESTIONS, session, start, TOOL_CALL, TOOL_PROGRESS } from "./live-rig";
 
 /** What agy 1.5.18 answered the `session/prompt` in flight when that session's worker was killed. */
 const WORKER_EXITED = { code: -32603, message: "The Antigravity process serving this session exited unexpectedly" };
@@ -64,6 +64,24 @@ describe("a live session's turns", () => {
 		expect(live.snapshot().blocks).toEqual([]);
 		expect(live.snapshot().tools).toEqual([]);
 		expect(counts.ran).toBe(1);
+		expect(violations()).toEqual([]);
+	});
+
+	test("an ask agy sends after the stop is answered as the stop answered the others, and the stop is sent again", async () => {
+		const { turns, live, sent, counts, agy, ends, types, violations } = session();
+		turns.prompt(start("Ask me first"));
+		expect(turns.abort()).toEqual({ status: "accepted" });
+		agy(QUESTIONS);
+		agy(PERMISSION);
+		expect(sent).toEqual([
+			{ jsonrpc: "2.0", id: 44, result: { action: "cancel" } },
+			{ jsonrpc: "2.0", id: 5, result: { outcome: { outcome: "cancelled" } } },
+		]);
+		expect(counts.cancels).toBe(3);
+		expect(live.snapshot().interactions).toEqual([]);
+		await ends("cancelled");
+		expect(types()).toEqual(["run_started", "user_message", "run_finished"]);
+		expect(live.snapshot().lastOutcome).toEqual({ kind: "aborted" });
 		expect(violations()).toEqual([]);
 	});
 

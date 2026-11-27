@@ -12,12 +12,13 @@
  *   GEMINI_API_KEY=… BROSKI_AGY_RECORD=1 bun test src/__tests__/antigravity/record/record_frames.test.ts
  */
 
-import { afterAll, beforeAll, describe, test } from "bun:test";
+import { afterAll, beforeAll, describe } from "bun:test";
 import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { SessionRef } from "../../../contract";
 import { account } from "../live/account";
 import { gated, RECORD, TEST_MS } from "../live/gate";
+import { liveTest } from "../live/live-test";
 import { apiKey } from "../live/profile";
 import { resultOf, type TappedAgy } from "../live/wire-log";
 import { AgyWorld } from "../live/world";
@@ -42,7 +43,7 @@ describe.skipIf(!RECORD.runs)(gated("agy's frames, recorded through the producti
 	});
 
 	for (const scenario of SCENARIOS) {
-		test(
+		liveTest(
 			scenario.name,
 			async () => {
 				const since = Date.now();

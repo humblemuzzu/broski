@@ -33,7 +33,7 @@ export class AgySessions {
 	}
 
 	async get(sessionId: string): Promise<SessionGetResult> {
-		const found = await this.find(sessionId);
+		const found = await this.locate(sessionId);
 		if (!found.ok) return listingFailed(found.failure.message);
 		return found.result === undefined
 			? notFound(sessionId)

@@ -8,7 +8,7 @@
  * run in order on one session, each on what the one before left. Four prompts.
  */
 
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect } from "bun:test";
 import { statSync } from "node:fs";
 import { join } from "node:path";
 import { STOP_BUDGET_MS } from "../../../adapter-kit/stdio-child";
@@ -19,6 +19,7 @@ import { allTranscript } from "../../../contract/testing/conformance-reads";
 import { fileLock } from "../../../platform/file-lock";
 import { eventually } from "../../helpers/workspace-rig";
 import { TEST_MS } from "./gate";
+import { liveTest } from "./live-test";
 import { childrenOf, describeProcesses, isAlive } from "./processes";
 import { answerText, contextOf, OK_PROMPT, run } from "./runs";
 import { paramsOf, resultOf } from "./wire-log";
@@ -46,7 +47,7 @@ export function sessionsSuite(): void {
 			expect(world.faults).toEqual([]);
 		});
 
-		test(
+		liveTest(
 			"a new session runs on a per-session front with nothing of the bridge's, the phone's settings and agy's lock held",
 			async () => {
 				first = await world.start();
@@ -96,7 +97,7 @@ export function sessionsSuite(): void {
 			TEST_MS,
 		);
 
-		test(
+		liveTest(
 			"dispose stops the front and its workers within the stop ladder, then lets the lock go",
 			async () => {
 				const ref = made();
@@ -116,7 +117,7 @@ export function sessionsSuite(): void {
 			TEST_MS,
 		);
 
-		test(
+		liveTest(
 			"a new backend reopens the session through session/load, keeps its history out of the live stream and agy's own",
 			async () => {
 				const ref = made();
@@ -154,7 +155,7 @@ export function sessionsSuite(): void {
 			TEST_MS,
 		);
 
-		test(
+		liveTest(
 			"after a turn, a short job reads the session the front hosts afresh, and the session then still compacts",
 			async () => {
 				const ref = made();

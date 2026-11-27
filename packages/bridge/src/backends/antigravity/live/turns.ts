@@ -145,8 +145,17 @@ export class Turns {
 		}
 	}
 
-	/** An ask of agy's: in the run it blocks, with the tool call it is for as agy reported it so far. */
+	/**
+	 * An ask of agy's: in the run it blocks, with the tool call it is for as agy reported it so far. One asked after the
+	 * person stopped the turn means agy has not taken the stop: it is answered as the stop answered the others, and the
+	 * stop is sent again.
+	 */
 	call(call: AgentCall): void {
+		if (this.turn?.aborting === true) {
+			this.deps.asks.answerStopped(call);
+			this.deps.cancel();
+			return;
+		}
 		const run = this.turn?.kind === "run" ? this.turn : undefined;
 		const runId = run?.runId;
 		if (call.method === "elicitation/create") {

@@ -10,11 +10,15 @@
 import type { Usage } from "../../../contract";
 import type { TurnUsage } from "../acp/frames";
 
-export function withContext(usage: Usage | undefined, used: number, size: number): Usage {
+/** `usage` with the context fill agy reported: `usage` itself when that is what it already holds. */
+export function withContext(usage: Usage | undefined, used: number, size: number): Usage | undefined {
+	const contextTokens = Number.isSafeInteger(used) && used >= 0 ? used : usage?.contextTokens;
+	const contextWindow = Number.isSafeInteger(size) && size > 0 ? size : usage?.contextWindow;
+	if (contextTokens === usage?.contextTokens && contextWindow === usage?.contextWindow) return usage;
 	return {
 		...usage,
-		...(Number.isSafeInteger(used) && used >= 0 && { contextTokens: used }),
-		...(Number.isSafeInteger(size) && size > 0 && { contextWindow: size }),
+		...(contextTokens !== undefined && { contextTokens }),
+		...(contextWindow !== undefined && { contextWindow }),
 	};
 }
 

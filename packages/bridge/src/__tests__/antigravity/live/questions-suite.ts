@@ -4,11 +4,12 @@
  * while the transcript is read (it stops before the running prompt), then cancelled with the run. Three prompts.
  */
 
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect } from "bun:test";
 import type { Interaction, InteractionReply, Question, QuestionAnswer } from "../../../contract";
 import type { LiveSession } from "../../../contract/testing/conformance-harness";
 import { allTranscript } from "../../../contract/testing/conformance-reads";
 import { TEST_MS } from "./gate";
+import { liveTest } from "./live-test";
 import { answerText, input, runAnswering } from "./runs";
 import { resultOf } from "./wire-log";
 import { AgyWorld, type LiveBackend } from "./world";
@@ -42,7 +43,7 @@ export function questionsSuite(): void {
 			expect(world?.faults ?? []).toEqual([]);
 		});
 
-		test(
+		liveTest(
 			"one form takes a single pick, several picks and the person's own words",
 			async () => {
 				const turn = await runAnswering(live, input(FORM_PROMPT), formAnswer);
@@ -70,7 +71,7 @@ export function questionsSuite(): void {
 			TEST_MS,
 		);
 
-		test(
+		liveTest(
 			"a declined question lets the turn go on",
 			async () => {
 				const turn = await runAnswering(live, input(DECLINE_PROMPT), () => ({ kind: "cancel", stopRun: false }));
@@ -83,7 +84,7 @@ export function questionsSuite(): void {
 			TEST_MS,
 		);
 
-		test(
+		liveTest(
 			"while a question waits the transcript stops before the running prompt; cancelling it stops the run",
 			async () => {
 				const mark = live.recorder.items.length;

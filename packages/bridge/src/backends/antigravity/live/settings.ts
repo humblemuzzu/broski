@@ -69,6 +69,18 @@ export function settingEvents(snapshot: SessionSnapshot, after: Settings): Agent
 	return events;
 }
 
+/** A choice of what the session already has changes nothing, and still shows as the event of that setting. */
+export function chosenAgain(snapshot: SessionSnapshot, options: readonly ConfigOption[], choice: Choice): AgentEvent {
+	if (configOption(options, MODE_AXIS_ID)?.id === choice.configId) {
+		return { type: "mode_changed", axis: MODE_AXIS_ID, value: choice.value };
+	}
+	return {
+		type: "model_changed",
+		...(snapshot.modelId !== undefined && { modelId: snapshot.modelId }),
+		...(snapshot.thinking !== undefined && { thinking: snapshot.thinking }),
+	};
+}
+
 export function modelChoice(options: readonly ConfigOption[], modelId: string): Choice | Rejected {
 	const choice = choiceOf(options, "model", modelId);
 	return choice ?? rejected("not_found", `Antigravity offers no model ${modelId} in this session`);

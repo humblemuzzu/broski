@@ -5,10 +5,18 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { PermissionRequest } from "../../backends/antigravity/acp/frames";
+import { type ConfigOption, PermissionRequest } from "../../backends/antigravity/acp/frames";
 import { capacityRefusal, evictionCandidate } from "../../backends/antigravity/live/cap";
 import { permissionAsk } from "../../backends/antigravity/live/permissions";
 import { PhonePrompts } from "../../backends/antigravity/live/phone-prompts";
+import {
+	chosenAgain,
+	modeChoice,
+	modelChoice,
+	settingEvents,
+	settingsOf,
+	snapshotOf,
+} from "../../backends/antigravity/live/settings";
 import { withContext, withTurnCache } from "../../backends/antigravity/live/usage";
 import { toolState } from "../../backends/antigravity/mapping/tools";
 import type { PromptInput, TranscriptItem } from "../../contract";
@@ -54,7 +62,52 @@ describe("a turn's token counts", () => {
 		expect(withTurnCache(context, { inputTokens: 900, outputTokens: 20 }, at)).toBe(context);
 		const cached = withTurnCache(context, { inputTokens: 900, cachedReadTokens: 100 }, at);
 		expect(Object.keys(cached ?? {}).sort()).toEqual(["cache", "contextTokens", "contextWindow"]);
-		expect(withContext(cached, 60_000, 200_000).cache).toEqual(cached?.cache);
+		expect(withContext(cached, 60_000, 200_000)?.cache).toEqual(cached?.cache);
+	});
+});
+
+describe("a report or a choice of what the session already holds", () => {
+	/** protocol/v1/draft/session-config-options, "Initial State" */
+	const options: ConfigOption[] = [
+		{
+			id: "mode",
+			name: "Session Mode",
+			category: "mode",
+			type: "select",
+			currentValue: "ask",
+			options: [
+				{ value: "ask", name: "Ask" },
+				{ value: "code", name: "Code" },
+			],
+		},
+		{
+			id: "model",
+			name: "Model",
+			category: "model",
+			type: "select",
+			currentValue: "model-1",
+			options: [
+				{ value: "model-1", name: "Model 1" },
+				{ value: "model-2", name: "Model 2" },
+			],
+		},
+	];
+
+	test("a context fill the session already shows is the same usage, so it emits nothing", () => {
+		const usage = withContext(undefined, 0, 200_000);
+		expect(withContext(usage, 0, 200_000)).toBe(usage);
+		expect(withContext(usage, 1_200, 200_000)).toEqual({ contextTokens: 1_200, contextWindow: 200_000 });
+		expect(withContext(undefined, -1, 0)).toBeUndefined();
+	});
+
+	test("choosing the model or mode the session has still shows as that setting's event", () => {
+		const snapshot = snapshotOf(settingsOf(options));
+		const model = modelChoice(options, "model-1");
+		const mode = modeChoice(options, "mode", "ask");
+		if ("status" in model || "status" in mode) throw new Error("the session offers both");
+		expect(chosenAgain(snapshot, options, model)).toEqual({ type: "model_changed", modelId: "model-1" });
+		expect(chosenAgain(snapshot, options, mode)).toEqual({ type: "mode_changed", axis: "mode", value: "ask" });
+		expect(settingEvents(snapshot, settingsOf(options))).toEqual([]);
 	});
 });
 

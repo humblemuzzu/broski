@@ -8,7 +8,7 @@
  * `session/load` replay (the transcript), and the images, which agy does not replay, from the `session/prompt` agy was
  * sent, named as the transcript names them. No other client can run in an agy session live (`externalLive` is false),
  * none asks in a session it owns that the bridge could answer, and a run ends with the bridge, since the bridge's
- * front is its child.
+ * front is its child. A session the backend answers `not_found` is explained from the wire (`unlistedWhy`).
  */
 
 import { isRecord } from "../../../adapter-kit/bounded-json";
@@ -32,9 +32,9 @@ import type {
 import { validReply } from "../../../contract/testing/example-replies";
 import { Activity } from "../../claude-code/conformance/observed-backend";
 import { eventually } from "../../helpers/workspace-rig";
-import { permissionsAsked, ranUnasked } from "../live/policy";
+import { describeTool, permissionsAsked, ranUnasked } from "../live/policy";
 import { HARMLESS_COMMANDS } from "../live/safety";
-import { paramsOf, type WireLog } from "../live/wire-log";
+import { paramsOf, resultOf, type WireLog } from "../live/wire-log";
 import { AgyWorld, type LiveBackend } from "../live/world";
 import { instructionFor, REPLY } from "./scenarios";
 
@@ -98,7 +98,7 @@ export class AntigravityConformanceDriver implements ConformanceDriver {
 		if (kind !== "tool_permission" || permissionsAsked(tap, session.sessionId).length > 0) return undefined;
 		const ran = ranUnasked(tap, session.sessionId);
 		if (ran.length === 0) return "agy sent no session/request_permission and ran no tool";
-		return `agy sent no session/request_permission: its own permission policy approved ${ran.join("; ")}. On an agy whose policy asks before it runs a command, this rule runs`;
+		return `agy sent no session/request_permission: its own permission policy approved ${ran.map(describeTool).join("; ")}. On an agy whose policy asks before it runs a command, this rule runs`;
 	}
 
 	/** Answers the question the session's hold waits on, once agy has asked it. */
@@ -125,7 +125,7 @@ export class AntigravityConformanceDriver implements ConformanceDriver {
 	async restart(host: BackendHost): Promise<AgentBackend> {
 		await this.live.backend.dispose();
 		this.live = await this.shared.start(host);
-		return harmlessCommandsFirst(this.live.backend);
+		return ruleBackend(this.live.backend, this.shared.world.tap);
 	}
 
 	private async seedOne(cwd: string): Promise<void> {
@@ -149,10 +149,11 @@ export class AntigravityConformanceDriver implements ConformanceDriver {
 }
 
 /**
- * The commands as the backend lists them, those known harmless to run on the account first: the rule that runs a
- * command runs the first one listed that starts a run, and the guard refuses to send any other (`live/safety.ts`).
+ * The backend as the rules reach it: its commands listed with those known harmless to run on the account first (the
+ * rule that runs a command runs the first one listed that starts a run, and the guard refuses to send any other,
+ * `live/safety.ts`), and a session it does not find explained from the wire.
  */
-function harmlessCommandsFirst(backend: AgentBackend): AgentBackend {
+function ruleBackend(backend: AgentBackend, tap: WireLog): AgentBackend {
 	const harmless = (id: string) => (HARMLESS_COMMANDS.has(id) ? 0 : 1);
 	return {
 		...backend,
@@ -161,7 +162,31 @@ function harmlessCommandsFirst(backend: AgentBackend): AgentBackend {
 			if (listed.status === "rejected") return listed;
 			return { ...listed, commands: [...listed.commands].sort((a, b) => harmless(a.id) - harmless(b.id)) };
 		},
+		getSession: async (ref) => {
+			const found = await backend.getSession(ref);
+			if (found.status === "rejected" && found.rejection.code === "not_found") {
+				console.log(unlistedWhy(tap, ref.sessionId));
+			}
+			return found;
+		},
 	};
+}
+
+/** Why agy's newest listing lacks a session, as far as the wire shows: agy lists a conversation from its first prompt. */
+function unlistedWhy(tap: WireLog, sessionId: string): string {
+	const answer = resultOf(tap.exchanges("session/list").at(-1)?.answer);
+	const rows: readonly unknown[] = Array.isArray(answer?.sessions) ? answer.sessions : [];
+	if (rows.some((row) => isRecord(row) && row.sessionId === sessionId)) {
+		return `agy's newest session/list names ${sessionId}, yet the backend found no such session`;
+	}
+	const prompts = tap.exchanges("session/prompt", sessionId);
+	const finished = prompts.filter((prompt) => prompt.answer !== undefined).length;
+	const unlisted = `agy's newest session/list (${rows.length} sessions) does not name ${sessionId}`;
+	if (prompts.length === 0) return `${unlisted}, which the bridge never prompted`;
+	if (finished === 0) {
+		return `${unlisted}: agy answered none of its ${prompts.length} prompts, the restart having stopped agy mid-turn, so agy kept no conversation whose every turn was cut off`;
+	}
+	return `${unlisted}, though agy answered ${finished} of its ${prompts.length} prompts`;
 }
 
 async function deliveredInput(
@@ -222,7 +247,7 @@ export function antigravityConformanceKit(timeoutMs: number): AntigravityConform
 			const parts = sharedWorld();
 			const live = await parts.start(host);
 			return {
-				backend: harmlessCommandsFirst(live.backend),
+				backend: ruleBackend(live.backend, parts.world.tap),
 				driver: new AntigravityConformanceDriver(parts, live, timeoutMs),
 			};
 		},

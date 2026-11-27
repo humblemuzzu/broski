@@ -24,10 +24,15 @@ const LEVELS = ["none", "off", "minimal", "lowest", "low", "medium", "high", "xh
 
 let chosen: Promise<CheapChoice> | undefined;
 
-/** Chosen once per process from the first backend that asks. */
+/** Chosen once per process from the first backend that asks; a choice that failed is made afresh by the next. */
 export function cheapChoice(backend: AgentBackend, cwd: string): Promise<CheapChoice> {
-	chosen ??= choose(backend, cwd);
-	return chosen;
+	if (chosen !== undefined) return chosen;
+	const choosing = choose(backend, cwd);
+	chosen = choosing;
+	choosing.catch(() => {
+		if (chosen === choosing) chosen = undefined;
+	});
+	return choosing;
 }
 
 async function choose(backend: AgentBackend, cwd: string): Promise<CheapChoice> {

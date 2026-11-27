@@ -21,6 +21,8 @@ export interface Frame {
 	readonly from: "client" | "agent" | "tap";
 	/** The JSON-RPC message, parsed. */
 	readonly message: Fields;
+	/** On the live front, the pids of agy's children as the tap passed on a session open or its answer. */
+	readonly children?: readonly number[];
 }
 
 export interface TappedAgy {
@@ -29,6 +31,7 @@ export interface TappedAgy {
 	/** The real `agy`'s pid. */
 	readonly pid: number;
 	readonly args: readonly string[];
+	/** When the tap started, in ms since the epoch: a frame was passed `at` ms later. */
 	readonly startedAt: number;
 	readonly frames: readonly Frame[];
 	readonly exit?: { readonly code: number | null; readonly signal: string | null };
@@ -69,12 +72,15 @@ export class WireLog {
 
 	/** The live front the backend runs now: the newest `agy acp --process-per-session` that has not exited. */
 	front(): TappedAgy | undefined {
-		return this.processes().findLast((agy) => agy.args.includes("--process-per-session") && agy.exit === undefined);
+		return this.processes().findLast((agy) => isFront(agy) && agy.exit === undefined);
 	}
 
-	/** The requests of `method` that `asker` sent (about `sessionId`, when named) across every `agy`, oldest first. */
+	/**
+	 * The requests of `method` that `asker` sent (about `sessionId`, when named), oldest first across every `agy`: a
+	 * short job that outlived a front started after it may well send the newest.
+	 */
 	exchanges(method: string, sessionId?: string, asker: Frame["from"] = "client"): Exchange[] {
-		return this.processes().flatMap((agy) =>
+		const exchanges = this.processes().flatMap((agy) =>
 			agy.frames.flatMap((request): Exchange[] => {
 				if (request.from !== asker || request.message.method !== method || request.message.id === undefined) return [];
 				if (sessionId !== undefined && paramsOf(request).sessionId !== sessionId) return [];
@@ -85,17 +91,49 @@ export class WireLog {
 				return [{ agy, request, ...(answer !== undefined && { answer }) }];
 			}),
 		);
+		return exchanges.sort((a, b) => timeOf(a.agy, a.request) - timeOf(b.agy, b.request));
 	}
 
-	/** The notifications of `method` either side sent about `sessionId`, across every `agy`, oldest first. */
+	/** The notifications of `method` either side sent about `sessionId`, oldest first across every `agy`. */
 	notifications(method: string, sessionId: string): Array<{ readonly agy: TappedAgy; readonly frame: Frame }> {
-		return this.processes().flatMap((agy) =>
-			agy.frames
-				.filter((frame) => frame.message.method === method && frame.message.id === undefined)
-				.filter((frame) => paramsOf(frame).sessionId === sessionId)
-				.map((frame) => ({ agy, frame })),
-		);
+		return this.processes()
+			.flatMap((agy) =>
+				agy.frames
+					.filter((frame) => frame.message.method === method && frame.message.id === undefined)
+					.filter((frame) => paramsOf(frame).sessionId === sessionId)
+					.map((frame) => ({ agy, frame })),
+			)
+			.sort((a, b) => timeOf(a.agy, a.frame) - timeOf(b.agy, b.frame));
 	}
+
+	/** The exchange in which a front last made or loaded `sessionId`: its newest `session/new` or `session/load` there. */
+	hosting(sessionId: string): Exchange | undefined {
+		const made = this.exchanges("session/new").filter((exchange) => resultOf(exchange.answer)?.sessionId === sessionId);
+		const loaded = this.exchanges("session/load", sessionId);
+		return [...made, ...loaded]
+			.filter((exchange) => isFront(exchange.agy))
+			.sort((a, b) => timeOf(a.agy, a.request) - timeOf(b.agy, b.request))
+			.at(-1);
+	}
+}
+
+/** When the tap passed `frame` on, in ms since the epoch. */
+export function timeOf(agy: TappedAgy, frame: Frame): number {
+	return agy.startedAt + frame.at;
+}
+
+export function isFront(agy: TappedAgy): boolean {
+	return agy.args.includes("--process-per-session");
+}
+
+/** The pids that joined the front's children while it opened a session: the session's own worker. */
+export function appeared(open: Exchange): number[] {
+	const before = open.request.children;
+	const after = open.answer?.children;
+	if (before === undefined || after === undefined) {
+		throw new Error(`the tap noted no children of agy ${open.agy.pid} around its ${open.request.message.method}`);
+	}
+	return after.filter((pid) => !before.includes(pid));
 }
 
 /** The frames the exchange's `agy` passed after its request and before its answer (all since, while it has none). */
@@ -150,13 +188,14 @@ function tappedAgy(tapPid: number, text: string): TappedAgy[] {
 }
 
 function frameOf(record: Fields): Frame[] {
-	const { at, from, line } = record;
+	const { at, from, line, children } = record;
 	if (typeof at !== "number" || (from !== "client" && from !== "agent" && from !== "tap") || typeof line !== "string") {
 		return [];
 	}
+	const pids = Array.isArray(children) ? children.filter((pid): pid is number => typeof pid === "number") : undefined;
 	try {
 		const message: unknown = JSON.parse(line);
-		return isRecord(message) ? [{ at, from, message }] : [];
+		return isRecord(message) ? [{ at, from, message, ...(pids !== undefined && { children: pids }) }] : [];
 	} catch {
 		return [];
 	}

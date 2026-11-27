@@ -209,7 +209,9 @@ like any backend; its mark is iOS `AgentBrand`/`AgentMark` and Android `AgentMar
 
 **Process** (`jobs.ts`, `live/front.ts`, `live/cap.ts`)
 
-- `agy acp --process-per-session` is a front of about 128 MB and one worker of about 190 MB per session.
+- `agy acp --process-per-session` is a front of about 128 MB and one worker of about 190 MB per session. On a Gemini
+  API key the front had one child more than it had sessions, so the live tests know a session's worker as the child
+  that joined the front while it opened that session.
 - Killing a worker leaves the other sessions working. A request of its session in flight as it exits (a
   `session/prompt` held on a question, say) is answered within milliseconds `-32603` "The Antigravity process serving
   this session exited unexpectedly", and every later one `-32602 Session not found`.
@@ -364,7 +366,8 @@ modes and emits `catalog_invalidated`.
 ## 5. Sessions and listing
 
 `store/sessions.ts` reads `session/list` on a short job (following `nextCursor`, 100 pages at most, though agy sends
-one) and keeps it 15 s; every turn a hosted session ends drops it. `store/list.ts` makes agy's rows the contract's:
+one) and keeps it 15 s; every turn a hosted session ends drops it, and `getSession` lists afresh when the kept listing
+lacks the session. `store/list.ts` makes agy's rows the contract's:
 
 1. Each `cwd` percent-decoded, then realpathed (the decoded path when it exists, else the path as written).
 2. A row reporting the void folder has no `cwd`: agy stored none.
@@ -422,11 +425,11 @@ running ends `aborted`.
 | `agent_message_chunk` | a text block: `block_started`, `block_delta`, `block_finished` |
 | `agent_thought_chunk` | a thinking block |
 | `tool_call`, `tool_call_update` | `tool_started`; `tool_updated` (`input`, `output_replaced`, `file_changes`); `tool_finished` at `completed` or `failed` |
-| `usage_update {used, size}` | `usage_updated`: `contextTokens`, `contextWindow` |
+| `usage_update {used, size}` | `usage_updated`: `contextTokens`, `contextWindow`; nothing when the snapshot already holds them |
 | the prompt result's `usage` | `usage_updated`: `cache` |
 | `session_info_update` | the row's title, announced as `session_updated` |
 | `available_commands_update` | the session's commands; `catalog_invalidated` (commands) |
-| `config_option_update`, a `set_config_option` answer | `model_changed`, `mode_changed`; the catalog dropped when what is offered changed |
+| `config_option_update`, a `set_config_option` answer | `model_changed`, `mode_changed` when a setting changed; the catalog dropped when what is offered changed. A choice of the value the session already has sends agy nothing and still shows as its event |
 | `current_mode_update` | `mode_changed` |
 | `user_message_chunk` | nothing live (the bridge sent the message itself) |
 | `session/request_permission` | `interaction_requested` `tool_permission` (§9) |
@@ -502,8 +505,9 @@ is `{action: "accept", content}` with each choice's `const` (an array for severa
   `decline`, or `cancel` when the turn is stopped.
 
 **Stop** (`control.abort`): `session/cancel`, and every open request answered as a stopped turn's (a permission
-`cancelled`, a question `cancel`), its ask withdrawn. The run ends when agy answers the prompt, the chunks it still
-sends before then included.
+`cancelled`, a question `cancel`), its ask withdrawn. A request agy sends in the turn after the stop is answered the
+same way, raising no ask, and `session/cancel` is sent again: agy has not taken the stop. The run ends when agy
+answers the prompt, the chunks it still sends before then included.
 
 **Images** (`live/phone-prompts.ts`): sent as `{type: "image", mimeType, data}` blocks. Since `session/load` replays no
 image, the bridge keeps each prompt's images in the kit's image cache as `<sessionId>/<uuid>` (32 images, 32 MiB of
@@ -615,9 +619,10 @@ hosted session, and `cancelQueued` from the core's queue; none of them, and no `
 In CI (`bun test`), no `agy` is started:
 
 - `acp_spec.test.ts`: the JSON-RPC layer on the records ACP's documentation shows.
-- `live_turns.test.ts`, `live_asks.test.ts` (over `live-rig.ts`), `live_shapes.test.ts`: turns, stops, worker loss,
-  stop reasons, compaction, asks and the unshowable ones, eviction, the cache window and diff previews, on ACP's
-  documented records, every stream held to the contract's stream rules.
+- `live_turns.test.ts`, `live_asks.test.ts` (over `live-rig.ts`), `live_shapes.test.ts`: turns, stops and an ask
+  after one, worker loss, stop reasons, compaction, asks and the unshowable ones, eviction, the cache window, diff
+  previews, and a report or choice of what the session already holds, on ACP's documented records, every stream held
+  to the contract's stream rules.
 - `list.test.ts`: listing on real folders (percent-encoded and symlinked paths, the void rule, pages, hosted rows).
 - `watch_lock.test.ts`: watch-only, promotion and going back, against another process holding a real `flock`.
 - `jobs_shutdown.test.ts`: the short jobs and `dispose` against a stand-in process that hangs and speaks no ACP.
@@ -652,8 +657,11 @@ naming why.
   is replaced in every log, screen and fixture.
 - **The world** (`live/world.ts`): temp folders, the profile, and the production backend with what production gives
   it, except a temp void folder, the profile's presence folder, `GEMINI_API_KEY` in its environment and, as its `agy`,
-  a wire tap (`live/wire-tap.ts`) that starts the real one in the profile and copies every frame both ways. Once agy
-  answers `initialize`, the tap sends its own `authenticate {"methodId": "gemini-api-key"}` (id `broski-tap-auth`,
+  a wire tap (`live/wire-tap.ts`) that starts the real one in the profile and logs every frame, both ways, before it
+  passes the frame on, so whatever the backend has received the log holds; on the front it notes agy's children
+  around each `session/new` and `session/load`. A test that fails, or is about to time out, prints the wire of every
+  open world since it began (`live/live-test.ts`, `live/wire-summary.ts`), since the world's folders go with it. Once
+  agy answers `initialize`, the tap sends its own `authenticate {"methodId": "gemini-api-key"}` (id `broski-tap-auth`,
   logged as the tap's) and hands the backend agy's answer only after agy has answered it; the backend never
   authenticates.
 - **The proof before anything else reaches agy** (`wire-tap.ts`, `profile.ts` `assertApiKey`): the tap stops agy,
@@ -677,11 +685,12 @@ naming why.
   profile, in a tmux server of the test's own (`-L broski-agy-live`, no config of the user's). Nothing is typed into
   the terminal, so before any prompt `agy` alone is started there and must come up asking nothing: one that exits or
   asks to trust the folder or to sign in fails the suite with its screen.
-- **Conformance** (`conformance/`): `runConformance` with a driver over one shared world; scenarios are instructions
-  to the real model, a hold is agy's question, what reached the model is read back from agy's replay and the tapped
+- **Conformance** (`conformance/`): every conformance rule as a live test, with a driver over one shared world;
+  scenarios are instructions to the real model, a hold is agy's question, what reached the model is read back from agy's replay and the tapped
   `session/prompt`, `runExternally` is false and runs do not survive a restart. A permission rule whose run ended
   unasked fails with what the wire showed (`unasked`). `echo_model` is declined, since a model does not know agy's id
-  for it, so the model rule checks a choice made mid-run at a hold, without which model each request ran with.
+  for it, so the model rule checks a choice made mid-run at a hold, without which model each request ran with. A
+  session the backend does not find is explained from the wire (agy's newest listing, the session's prompts).
 - **The recorder** (`record/`): fourteen scenarios, twelve prompts, each scenario on a backend of its own, its frames
   scrubbed of paths, names, the key, the plan and every session id (`record/scrub.ts`). A scenario about a permission
   that agy ran unasked is recorded as `<name>-unasked`.

@@ -1,13 +1,15 @@
 /**
  * What the backend does with agy's processes: with room for two sessions, a third closes the least recently used idle
- * one (`session/close`, which ends its worker) and that one reloads on its next prompt; a session whose worker is
- * killed mid-turn fails its run in agy's own words and reloads on the next prompt; when the front itself is killed,
- * every session it hosted is lost the same way and the next prompt starts another front. A turn is held mid-way on
- * agy's question, which it asks on any permission policy. Only processes traced to the tap's own `agy` are killed
- * (`processes.ts`), and each test's backend is disposed at its end. Three prompts each, nine in all.
+ * one (`session/close`, which ends its worker and no other process) and that one reloads on its next prompt; a session
+ * whose worker is killed mid-turn fails its run in agy's own words and reloads on the next prompt; when the front itself
+ * is killed, every session it hosted is lost the same way and the next prompt starts another front. A turn is held
+ * mid-way on agy's question, which it asks on any permission policy. A session's worker is the child that joined the
+ * front while it made or loaded the session (the tap notes the front's children around each), since the front may have
+ * children of its own: on a Gemini API key it had one more than it had sessions. Only processes traced to the tap's own
+ * `agy` are killed (`processes.ts`), and each test's backend is disposed at its end. Three prompts each, nine in all.
  */
 
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect } from "bun:test";
 import { isRecord } from "../../../adapter-kit/bounded-json";
 import { PresenceLocks } from "../../../backends/antigravity/live/lock";
 import { WORKER_STOPPED } from "../../../backends/antigravity/live/outcomes";
@@ -15,9 +17,10 @@ import type { LiveSession } from "../../../contract/testing/conformance-harness"
 import { fileLock } from "../../../platform/file-lock";
 import { eventually } from "../../helpers/workspace-rig";
 import { TEST_MS } from "./gate";
+import { liveTest } from "./live-test";
 import { childrenOf, describeProcesses, isAlive, killFront, killWorker } from "./processes";
 import { HOLD_PROMPT, input, OK_PROMPT, run } from "./runs";
-import { type Frame, resultOf, type TappedAgy } from "./wire-log";
+import { appeared, type Frame, type TappedAgy } from "./wire-log";
 import { AgyWorld } from "./world";
 
 export function capacitySuite(): void {
@@ -32,7 +35,7 @@ export function capacitySuite(): void {
 			expect(world?.faults ?? []).toEqual([]);
 		});
 
-		test(
+		liveTest(
 			"a third session closes the least recently used idle one, whose worker ends, and it reloads on its next prompt",
 			async () => {
 				const backend = await world.start({ maxSessions: 2 });
@@ -40,18 +43,19 @@ export function capacitySuite(): void {
 				expect((await run(a, OK_PROMPT)).outcome).toEqual({ kind: "completed" });
 				const b = await backend.openNew();
 				expect((await run(b, OK_PROMPT)).outcome).toEqual({ kind: "completed" });
-				const front = frontOf(world, a);
+				const { front, worker: aWorker } = workerOf(world, a);
+				const { worker: bWorker } = workerOf(world, b);
 				const before = childrenOf(front.pid);
-				console.log(`workers with two sessions: ${describeProcesses(before)}`);
-				expect(before.length).toBe(2);
+				console.log(
+					`front ${front.pid} with two sessions: ${describeProcesses(before)}; a's worker ${aWorker}, b's ${bWorker}`,
+				);
+				expect(before.map((child) => child.pid)).toEqual(expect.arrayContaining([aWorker, bWorker]));
 
 				await backend.openNew();
 				expect(closes(world, a)).toBe(1);
-				await eventually(
-					() => before.filter((worker) => !isAlive(worker.pid)).length === 1,
-					"one worker to end",
-					10_000,
-				);
+				await eventually(() => !isAlive(aWorker), "a's worker to end", 10_000);
+				const others = before.filter((child) => child.pid !== aWorker);
+				expect(others.filter((child) => !isAlive(child.pid))).toEqual([]);
 				expect(new PresenceLocks(world.presenceDir, fileLock).heldElsewhere(a.ref.sessionId)).toBe(false);
 
 				const mark = a.recorder.items.length;
@@ -67,16 +71,14 @@ export function capacitySuite(): void {
 			TEST_MS,
 		);
 
-		test(
+		liveTest(
 			"a killed worker fails its session's run, and the next prompt reloads the session",
 			async () => {
 				const backend = await world.start();
 				const live = await backend.openNew();
 				expect((await run(live, OK_PROMPT)).outcome).toEqual({ kind: "completed" });
-				const front = frontOf(world, live);
-				const [worker, ...others] = childrenOf(front.pid);
-				expect(others).toEqual([]);
-				const lost = await lostMidTurn(live, () => killWorker(front, worker?.pid ?? expect.unreachable("no worker")));
+				const { front, worker } = workerOf(world, live);
+				const lost = await lostMidTurn(live, () => killWorker(front, worker));
 				const said = await eventually(
 					() => errorOf(world.tap.exchanges("session/prompt", live.ref.sessionId).at(-1)?.answer),
 					"agy's error answering the held prompt",
@@ -90,19 +92,23 @@ export function capacitySuite(): void {
 			TEST_MS,
 		);
 
-		test(
+		liveTest(
 			"a killed front fails the running turn and loses every session it hosted; the next prompt starts another front",
 			async () => {
 				const backend = await world.start();
 				const idle = await backend.openNew();
 				expect((await run(idle, OK_PROMPT)).outcome).toEqual({ kind: "completed" });
 				const busy = await backend.openNew();
-				const front = frontOf(world, busy);
-				expect(childrenOf(front.pid).length).toBe(2);
+				const { front, worker: busyWorker } = workerOf(world, busy);
+				const { worker: idleWorker } = workerOf(world, idle);
+				expect(idleWorker).not.toBe(busyWorker);
+				expect(childrenOf(front.pid).map((child) => child.pid)).toEqual(
+					expect.arrayContaining([idleWorker, busyWorker]),
+				);
 				await lostMidTurn(busy, () => killFront(front));
 				await eventually(() => !isAlive(front.pid), "the killed front to be gone", 5_000);
 				await reloads(idle);
-				expect(frontOf(world, idle).pid).not.toBe(front.pid);
+				expect(workerOf(world, idle).front.pid).not.toBe(front.pid);
 				await backend.backend.dispose();
 			},
 			TEST_MS,
@@ -110,17 +116,18 @@ export function capacitySuite(): void {
 	});
 }
 
-/** The front that made the session or last loaded it. */
-function frontOf(world: AgyWorld, live: LiveSession): TappedAgy {
+/** The front that made the session or last loaded it, and the one worker that joined it then. */
+function workerOf(world: AgyWorld, live: LiveSession): { readonly front: TappedAgy; readonly worker: number } {
 	const { sessionId } = live.ref;
-	const made = world.tap
-		.exchanges("session/new")
-		.filter((exchange) => resultOf(exchange.answer)?.sessionId === sessionId);
-	const loaded = world.tap
-		.exchanges("session/load", sessionId)
-		.filter((exchange) => exchange.agy.args.includes("--process-per-session"));
-	const latest = [...made, ...loaded].sort((x, y) => x.agy.startedAt - y.agy.startedAt).at(-1);
-	return latest?.agy ?? expect.unreachable(`no front hosts ${sessionId}`);
+	const open = world.tap.hosting(sessionId) ?? expect.unreachable(`no front hosts ${sessionId}`);
+	const joined = appeared(open);
+	const [worker] = joined;
+	if (worker === undefined || joined.length > 1) {
+		throw new Error(
+			`${joined.length} children joined front ${open.agy.pid} while it opened ${sessionId} ([${joined.join(", ")}]), not one worker`,
+		);
+	}
+	return { front: open.agy, worker };
 }
 
 function errorOf(answer: Frame | undefined): { readonly code: unknown; readonly message: string } | undefined {

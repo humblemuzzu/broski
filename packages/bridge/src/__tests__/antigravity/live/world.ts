@@ -5,7 +5,8 @@
  * guard (`guard.ts`). The backend gets what the bridge gives it in production (`server/contract-backends.ts`) except
  * that its folder for `agy` and its presence folder are the world's, its environment carries `GEMINI_API_KEY`, and its
  * `agy` is the tap over the real one (`BROSKI_TEST_AGY_CLI`, else the one on `PATH`). Nothing here reads or writes the
- * user's `~/.gemini`, `~/.broski`, `~/.pi` or `~/.claude`.
+ * user's `~/.gemini`, `~/.broski`, `~/.pi` or `~/.claude`. Until it is disposed a world is open, and a failed live test
+ * shows the wire of every open world (`live-test.ts`).
  */
 
 import { rmSync, writeFileSync } from "node:fs";
@@ -32,8 +33,11 @@ import { type Guarded, type GuardOptions, guardBackend } from "./guard";
 import { type CheapChoice, cheapChoice } from "./model";
 import { type AgyProfile, apiKey, assertApiKey, madeProfile } from "./profile";
 import { WireLog } from "./wire-log";
+import { wireSummary } from "./wire-summary";
 
 const README = "The magic word is pelican.\n";
+
+const open = new Set<AgyWorld>();
 
 export interface WorldOptions {
 	/** What the world's prompts are counted under. */
@@ -108,7 +112,27 @@ export class AgyWorld {
 		const otherCwd = tempDirectory("broski-agy-live-other-");
 		const profile = madeProfile(join(root, "profile"));
 		const { log, cliPath } = WireLog.install(root, cli.path, profile);
-		return new AgyWorld(options, cli.path, root, cwd, otherCwd, log, profile, cliPath, options.cwd === undefined);
+		const world = new AgyWorld(
+			options,
+			cli.path,
+			root,
+			cwd,
+			otherCwd,
+			log,
+			profile,
+			cliPath,
+			options.cwd === undefined,
+		);
+		open.add(world);
+		return world;
+	}
+
+	/** The wire since `since` (ms since the epoch) of each world not yet disposed, one text per world. */
+	static wiresSince(since: number): string[] {
+		return [...open].map((world) => {
+			const folders = { root: world.root, cwd: world.cwd, other: world.otherCwd };
+			return `the wire of the "${world.options.label}" world: ${wireSummary(world.tap, since, folders)}`;
+		});
 	}
 
 	get voidDir(): string {
@@ -174,6 +198,7 @@ export class AgyWorld {
 
 	/** Every backend disposed (each `dispose` is idempotent), then the temp folders removed. */
 	async dispose(): Promise<void> {
+		open.delete(this);
 		for (const live of this.started.splice(0)) await live.backend.dispose();
 		for (const dir of this.roots) rmSync(dir, { recursive: true, force: true });
 	}

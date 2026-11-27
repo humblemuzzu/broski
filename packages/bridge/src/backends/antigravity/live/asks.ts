@@ -3,7 +3,8 @@
  * by the person, one the phone cannot show included (as an ask the person can only refuse). An ask ends without an
  * answer only when agy ends it: its tool call ends, its turn ends, it takes the request back (`$/cancel_request`), or
  * its process goes (all `withdrawn`); the bridge shutting down expires it. When the person stops the turn, every open
- * request is answered as ACP's cancellation requires: a permission `cancelled`, a question `cancel`.
+ * request is answered as ACP's cancellation requires: a permission `cancelled`, a question `cancel`; so is a request
+ * agy sends in that turn after the stop, which the person has already answered by stopping.
  */
 
 import { type AskDesk, createAskDesk } from "../../../adapter-kit/ask-desk";
@@ -76,6 +77,11 @@ export class AgyAsks {
 			open.cancel();
 			this.end(open);
 		}
+	}
+
+	/** A request agy sent in a turn the person had already stopped: answered as the stop answered the others. */
+	answerStopped(call: AgentCall): void {
+		call.answer.result(call.method === "elicitation/create" ? ELICITATION_CANCELLED : PERMISSION_CANCELLED);
 	}
 
 	/** agy ended the tool call `agyToolCallId`: what it asked for that call is moot. */

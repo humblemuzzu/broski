@@ -44,6 +44,7 @@ import { isWorkerLoss } from "./outcomes";
 import type { PhonePrompts } from "./phone-prompts";
 import {
 	type Choice,
+	chosenAgain,
 	modeChoice,
 	modelChoice,
 	offeredKey,
@@ -259,7 +260,7 @@ export class AgyHost implements Evictable {
 	private update(update: SessionUpdate): void {
 		switch (update.sessionUpdate) {
 			case "usage_update":
-				this.emit({ type: "usage_updated", usage: withContext(this.live.snapshot().usage, update.used, update.size) });
+				this.contextReported(update.used, update.size);
 				return;
 			case "session_info_update":
 				this.row.titled(update.title);
@@ -286,6 +287,7 @@ export class AgyHost implements Evictable {
 	private async choose(choice: Choice | ActionResult): Promise<ActionResult> {
 		if ("status" in choice) return choice;
 		if (this.options.some((option) => option.id === choice.configId && option.currentValue === choice.value)) {
+			this.emit(chosenAgain(this.live.snapshot(), this.options, choice));
 			return ACCEPTED;
 		}
 		const { sessionId } = this;
@@ -328,6 +330,13 @@ export class AgyHost implements Evictable {
 		const current = this.live.snapshot().modes.find((setting) => setting.axis === MODE_AXIS_ID)?.value;
 		if (value === current || value === "" || value.length > MAX_NAME_CHARS) return;
 		this.emit({ type: "mode_changed", axis: MODE_AXIS_ID, value });
+	}
+
+	/** An update that says what the snapshot already holds changes nothing, so nothing is emitted. */
+	private contextReported(used: number, size: number): void {
+		const before = this.live.snapshot().usage;
+		const next = withContext(before, used, size);
+		if (next !== before && next !== undefined) this.emit({ type: "usage_updated", usage: next });
 	}
 
 	private turnUsage(usage: TurnUsage): void {

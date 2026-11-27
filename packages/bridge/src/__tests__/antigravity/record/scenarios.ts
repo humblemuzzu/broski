@@ -10,7 +10,7 @@ import { expect } from "bun:test";
 import type { SessionRef } from "../../../contract";
 import { allTranscript } from "../../../contract/testing/conformance-reads";
 import { pngAttachment } from "../live/png";
-import { HOLD_PROMPT, input, OK_PROMPT, permissionReply, run, runAnswering } from "../live/runs";
+import { HOLD_PROMPT, input, OK_PROMPT, permissionReply, run, runAnswering, THINK_PROMPT } from "../live/runs";
 import type { LiveBackend } from "../live/world";
 
 export interface Recording {
@@ -52,10 +52,7 @@ export const SCENARIOS: readonly Scenario[] = [
 		run: async ({ backend }) => {
 			const live = await backend.openNew();
 			backend.guarded.thinkDeeply(live.ref.sessionId);
-			const turn = await run(
-				live,
-				"Think it through step by step, then reply with only the number: what is 17 times 23?",
-			);
+			const turn = await run(live, THINK_PROMPT);
 			expect(turn.outcome).toEqual({ kind: "completed" });
 		},
 	},

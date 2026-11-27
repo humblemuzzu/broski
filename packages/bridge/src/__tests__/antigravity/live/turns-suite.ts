@@ -8,7 +8,7 @@
  * each went. Seven prompts.
  */
 
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { AgentEvent, Interaction, PermissionPreview, ToolResult } from "../../../contract";
@@ -16,9 +16,21 @@ import type { LiveSession } from "../../../contract/testing/conformance-harness"
 import { allTranscript } from "../../../contract/testing/conformance-reads";
 import { eventually } from "../../helpers/workspace-rig";
 import { TEST_MS } from "./gate";
+import { liveTest } from "./live-test";
 import { pngAttachment } from "./png";
-import { permissionsAsked, ranUnasked } from "./policy";
-import { answerText, blockTexts, commandOf, input, OK_PROMPT, permissionReply, run, runAnswering } from "./runs";
+import { changedFile, describeTool, permissionsAsked, ranUnasked, type WireTool } from "./policy";
+import {
+	answerText,
+	blockTexts,
+	commandOf,
+	input,
+	OK_PROMPT,
+	permissionReply,
+	run,
+	runAnswering,
+	THINK_ANSWER,
+	THINK_PROMPT,
+} from "./runs";
 import { usageReport } from "./usage-report";
 import { type Frame, paramsOf, updateOf } from "./wire-log";
 import { AgyWorld, type LiveBackend } from "./world";
@@ -34,7 +46,6 @@ const TOOLS_PROMPT = [
 	"Then reply with exactly: done",
 ].join("\n");
 const COUNT_PROMPT = "Write every whole number from 1 to 400, one per line, and nothing else.";
-const THINK_PROMPT = "Think it through step by step, then reply with only the number: what is 17 times 23?";
 const IMAGE_PROMPT = "What colour is this image? Reply with one word.";
 const ABORT_WITHIN_MS = 3_000;
 
@@ -54,7 +65,7 @@ export function turnsSuite(): void {
 			expect(world?.faults ?? []).toEqual([]);
 		});
 
-		test(
+		liveTest(
 			"a turn of tools shows each call and asks for what agy's own policy asks about; a second prompt is refused meanwhile",
 			async () => {
 				const { sessionId } = live.ref;
@@ -94,7 +105,7 @@ export function turnsSuite(): void {
 			TEST_MS,
 		);
 
-		test(
+		liveTest(
 			"a stopped turn ends aborted at once with what agy streamed after the cancel, and the next turn runs",
 			async () => {
 				const mark = live.recorder.items.length;
@@ -126,7 +137,7 @@ export function turnsSuite(): void {
 			TEST_MS,
 		);
 
-		test(
+		liveTest(
 			"two like turns report agy's token counts, read into the context fill and the cache window",
 			async () => {
 				for (let turn = 0; turn < 2; turn += 1)
@@ -150,7 +161,7 @@ export function turnsSuite(): void {
 			TEST_MS,
 		);
 
-		test(
+		liveTest(
 			"a thinking turn at the cheap model's highest level streams its thinking before the answer",
 			async () => {
 				backend.guarded.thinkDeeply(live.ref.sessionId);
@@ -158,14 +169,14 @@ export function turnsSuite(): void {
 				expect(turn.outcome).toEqual({ kind: "completed" });
 				expect(live.session.snapshot().thinking).toBe(backend.choice.deepThinking);
 				expect(blockTexts(turn.events, "thinking").join("").length).toBeGreaterThan(0);
-				expect(answerText(turn.events)).toContain("391");
+				expect(answerText(turn.events).replaceAll(/[\s,]/g, "")).toContain(THINK_ANSWER);
 				const kinds = turn.events.flatMap((event) => (event.type === "block_started" ? [event.kind] : []));
 				expect(kinds.indexOf("thinking")).toBeLessThan(kinds.lastIndexOf("text"));
 			},
 			TEST_MS,
 		);
 
-		test(
+		liveTest(
 			"an image reaches the model, reads back byte for byte and is named in the transcript",
 			async () => {
 				const image = pngAttachment([220, 30, 30], "red.png");
@@ -193,7 +204,7 @@ export function turnsSuite(): void {
 			TEST_MS,
 		);
 
-		test(
+		liveTest(
 			"the session's model, thinking level and mode change and show as events, then go back",
 			async () => {
 				const { choice } = backend;
@@ -257,11 +268,14 @@ function expectPermissions(world: AgyWorld, sessionId: string, asks: readonly In
 	const permissions = asks.filter((ask) => ask.request.kind === "tool_permission");
 	expect(permissionsAsked(world.tap, sessionId)).toHaveLength(permissions.length);
 	const unasked = ranUnasked(world.tap, sessionId);
-	console.log(`agy ran unasked: ${unasked.join("; ") || "nothing"}`);
-	const ranUnaskedAs = (pattern: RegExp) => expect(unasked.some((tool) => pattern.test(tool))).toBe(true);
+	console.log(`agy ran unasked: ${unasked.map(describeTool).join("; ") || "nothing"}`);
+	const ranUnaskedAs = (what: string, did: (tool: WireTool) => boolean) => {
+		if (!unasked.some(did)) throw new Error(`agy neither asked for ${what} nor ran it unasked`);
+	};
+	const ran = (command: string) => (tool: WireTool) => tool.command?.includes(command) === true;
 
 	const echo = permissions.find((ask) => commandOf(ask)?.includes("echo broski"));
-	if (echo === undefined) ranUnaskedAs(/echo broski/);
+	if (echo === undefined) ranUnaskedAs("echo broski", ran("echo broski"));
 	else {
 		expect(echo.request).toMatchObject({ kind: "tool_permission", inputEditable: false, deliberate: false });
 		expect(
@@ -271,12 +285,12 @@ function expectPermissions(world: AgyWorld, sessionId: string, asks: readonly In
 		).toEqual(["allow", "deny"]);
 	}
 	const denied = permissions.find((ask) => commandOf(ask)?.includes("denied.txt"));
-	if (denied === undefined) ranUnaskedAs(/touch denied\.txt/);
+	if (denied === undefined) ranUnaskedAs("touch denied.txt", ran("touch denied.txt"));
 	expect(existsSync(join(world.cwd, "denied.txt"))).toBe(denied === undefined);
 	const write = permissions.find(
 		(ask) => ask.request.kind === "tool_permission" && ask.request.previews.some(isNotesChange),
 	);
-	if (write === undefined) ranUnaskedAs(/^(write|edit)\w* .*notes\.txt/);
+	if (write === undefined) ranUnaskedAs("a change to notes.txt", (tool) => changedFile(tool, "notes.txt"));
 	const ways = [branch("echo broski", echo), branch("touch denied.txt", denied), branch("writing notes.txt", write)];
 	console.log(`permissions: ${ways.join("; ")}`);
 }
