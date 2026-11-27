@@ -1,6 +1,6 @@
 # The Broski bridge core
 
-Status: the core of the rebuild. It speaks the [contract](../contract/README.md) (protocol **1.0**) to phones and the `AgentBackend` interface to adapters. Production registers Pi and Claude Code (`server/contract-backends.ts`); the contract is the only protocol.
+Status: the core of the rebuild. It speaks the [contract](../contract/README.md) (protocol **1.0**) to phones and the `AgentBackend` interface to adapters. Production registers Pi, Claude Code and Antigravity (`server/contract-backends.ts`); the contract is the only protocol.
 
 Code: `packages/bridge/src/core/` (one concept per file), wired into the existing connection layer by `packages/bridge/src/server/contract-seam.ts`.
 

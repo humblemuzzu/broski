@@ -4,6 +4,25 @@ All notable changes to Broski are documented here.
 
 ## Unreleased
 
+### Antigravity on your phone
+
+- **A third agent**: Broski drives your own `agy` the way it drives `claude` and `pi`, over `agy acp`, with your
+  sign-in, plan, models and config. It bundles nothing and changes none of agy's settings. Set
+  `"antigravity": {"cliPath": "/path/to/agy"}` in `~/.broski/config.json` when `agy` is not on your login shell's
+  `PATH`; `broski doctor` shows the `agy` it found, its version and whether it is signed in.
+- **The whole conversation**: streamed answers and thinking, tool rows with their diffs, every model agy offers with
+  its own thinking levels, agy's modes (default, accept-edits, auto, plan), its slash commands, `/compact`, and images
+  in your prompts.
+- **Permissions and questions wait for you**: Allow or Deny each command or edit agy asks about, with the diff, and
+  answer its questions with one choice, several, or your own words. Nothing is answered for you, not even an ask the
+  app cannot draw: that one waits for you to refuse it.
+- **Terminal and phone take turns**: a conversation open in a terminal `agy` is watch-only on the phone until you quit
+  it there, then the phone can send again. While the phone has a conversation open, a terminal `agy` that opens it
+  warns and offers `/fork`.
+- **Limits**: conversations cannot be renamed or deleted from the phone (agy offers neither), fork is Broski's own,
+  sub-agents show as tool rows, a run started in the terminal is not shown live, and restarting the bridge ends a
+  running turn.
+
 ### Updates that always finish
 
 - **`broski update` runs the new release's own installer.** The update code no longer lives in the installed binary,

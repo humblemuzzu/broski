@@ -12,7 +12,7 @@ apps/ios (SwiftUI)        apps/android (Compose)        native shells: screens, 
          broski-link daemon (packages/link/daemon)
                    │  ~/.broski/link/bridge.sock + link key
          bridge (packages/bridge, Bun/TypeScript)
-           server/ ─ core/ ─ contract/ ─ backends/<id>/ ─ the user's claude, pi
+           server/ ─ core/ ─ contract/ ─ backends/<id>/ ─ the user's claude, pi, agy
 ```
 
 ## The bridge: four layers
@@ -24,8 +24,8 @@ apps/ios (SwiftUI)        apps/android (Compose)        native shells: screens, 
 |---|---|---|
 | `contract/` | The backend contract, protocol 1.0: zod schemas, the session reducer, `answerProblem`, the conformance kit (`testing/`) | `zod`, itself (`testing/` also `bun:test`) |
 | `core/` | `BridgeCore`: the registry, one live stream per open session, replay, keep-open, the interactions desk, wire fitting, the bridge's own asks, fallbacks and clocks | the contract (not `testing/`), `zod`, `state/bounded-map`, `transport/send-limits`, itself |
-| `adapter-kit/` | What adapters share: an asks ledger, page cursors, phone-safe text, a trash move, an image cache | the contract (not `testing/`), `zod`, `node:` built-ins, itself |
-| `backends/<id>/` | One adapter per agent (`claude-code/`, `pi/`), reached only as an `AgentBackend` | the contract (not `testing/`), `adapter-kit/`, `zod`, `node:` built-ins, its own SDK, itself |
+| `adapter-kit/` | What adapters share: an asks ledger, page cursors, phone-safe text, a trash move, an image cache, a JSONL stdio child, a session's live state, the promotable watch-only view, the file-lock and image-fit ports | the contract (not `testing/`), `zod`, `node:` built-ins, itself |
+| `backends/<id>/` | One adapter per agent (`claude-code/`, `pi/`, `antigravity/`), reached only as an `AgentBackend` | the contract (not `testing/`), `adapter-kit/`, `zod`, `node:` built-ins, its own SDK, itself |
 
 Around them, outside the layer rules: `server/` wires listeners, the contract seam (`server/contract-seam.ts`), the
 daemon feed, the plugin loader (`server/plugin-loader.ts`) and the `/hook/<backend>` hook ingress (including Claude
@@ -65,7 +65,7 @@ Neither app branches on the agent: only on capabilities and the shape of the dat
 |---|---|
 | The contract | [`docs/architecture/contract/README.md`](docs/architecture/contract/README.md) |
 | The bridge core | [`docs/architecture/core/README.md`](docs/architecture/core/README.md) |
-| Claude Code and Pi adapters | [`docs/architecture/backends/`](docs/architecture/backends/) |
+| Claude Code, Pi and Antigravity adapters | [`docs/architecture/backends/`](docs/architecture/backends/) |
 | Link, daemon, relay, push | [`docs/architecture/connectivity-v2/`](docs/architecture/connectivity-v2/) |
 | Mobile core and packaging | [`docs/architecture/mobile-core.md`](docs/architecture/mobile-core.md), [`docs/architecture/mobile-packaging.md`](docs/architecture/mobile-packaging.md) |
 | Rendering and formatting | [`docs/architecture/rendering.md`](docs/architecture/rendering.md), [`docs/architecture/formatting.md`](docs/architecture/formatting.md) |

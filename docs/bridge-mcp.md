@@ -20,6 +20,7 @@ Broski avoids giving an agent two tools that do the same thing:
 
 - **Claude Code** receives `broski_notify` only (`packages/bridge/src/server/claude-code-mcp.ts`), delivered through the SDK `initialize` handshake (`mcpServersDelivery: "initialize"`) and pre-allowed via `allowedTools: ["mcp__broski__broski_notify"]`. Claude Code already has native `AskUserQuestion` and `ExitPlanMode`, so `ask` and `plan` are kept off to prevent tool duplication.
 - **Pi** handles `broski_ask` natively inside its host extension (`packages/bridge/src/backends/pi/host/extension/ask.ts`), rather than over HTTP MCP, so it works inside Pi's detached holder across bridge restarts. If one of your own Pi extensions already announces a phone-capable question tool (`broski:ask-tool`), Broski suppresses `broski_ask` automatically so the model never sees two competing ask tools.
+- **Antigravity** receives none: every session opens with `mcpServers: []`. `agy` advertises no HTTP MCP, and its own `ask_question` tool already brings its questions to the phone (`packages/bridge/src/backends/antigravity/live/questions.ts`).
 - **Plugin and future adapters** receive a `BroskiMcpIssuer` in `BroskiPluginContext.mcp` and can grant any combination of `{ ask, plan, notify }` that their agent lacks natively.
 
 ## Configuration

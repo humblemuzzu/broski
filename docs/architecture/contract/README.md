@@ -1,6 +1,6 @@
 # The Broski backend contract
 
-Status: protocol **1.0** (§12.4). The bridge core speaks it to every attached phone, and each backend has one adapter: Pi and Claude Code, both registered in every bridge (`server/contract-backends.ts`).
+Status: protocol **1.0** (§12.4). The bridge core speaks it to every attached phone, and each backend has one adapter: Pi, Claude Code and Antigravity, all registered in every bridge (`server/contract-backends.ts`).
 
 This document is the spec. The code is the definition: `packages/bridge/src/contract/` (zod schemas, interfaces, reducer, answer checker) and `packages/bridge/src/contract/testing/` (fake backend, conformance suite). Every backend fact below cites its source:
 
@@ -104,7 +104,7 @@ The emitter fails, naming the type, on a member tagged twice (serde reads one di
 
 | Id | Type | Minted by | Rule |
 |---|---|---|---|
-| `BackendId` | slug `^[a-z0-9][a-z0-9-]{0,63}$` | adapter | `claude-code`, `pi`, or any other agent an adapter brings; the app shows a backend by its `BackendDescriptor` (`displayName`, `accentHex?`, `iconHint?`), never by its id. |
+| `BackendId` | slug `^[a-z0-9][a-z0-9-]{0,63}$` | adapter | `claude-code`, `pi`, `antigravity`, or any other agent an adapter brings; the app shows a backend by its `BackendDescriptor` (`displayName`, `accentHex?`, `iconHint?`), never by its id. |
 | `SessionRef` | `{backend, sessionId}` | adapter | `sessionId` is the backend's own durable session id: CC UUID (CC D2), Pi header UUIDv7 (pi §3). Stable for the session's life. |
 | `RunId` | string | adapter | Unique per session for good (a UUID is the safe choice); CC and Pi have no native run id (CC D21, pi §13). A run ends with the bridge. |
 | `MessageId`, `BlockId` | string | adapter | Unique per session. Derive from native identity where it exists, so live ids match transcript ids: CC `message.id` + block index (CC D21). Pi has no message id mid-stream, so the adapter mints one (pi §5). |
@@ -408,7 +408,7 @@ Rejection { code: busy|not_steerable|no_model|auth|invalid_input|unsupported|not
 
 `SessionSummary { session, title?{text, source: user|generated|first_prompt}, cwd?, createdAt?, updatedAt, parent?{kind: fork|subagent, session}, modelId?, status, origin: broski|external, source? }`, listed newest-updated first by `listSessions(SessionQuery{cwd?, parent?, search?}, PageRequest)`. `status` is `idle | running | waiting_for_user | unknown`.
 
-`search` (1–`MAX_SEARCH_QUERY_CHARS`) narrows the listing to the sessions with every word of it, ignoring case, in the title or in the last component of `cwd`: `searchWords` and `sessionMatches` in `sessions.ts` are the one definition, which the phone core ports. A search reads rows until its page is full or it has read a bound of them (2,000 in both adapters), so a page of a search may hold fewer rows than asked, none at all, and still carry a `nextCursor`; a client reads on while there is one. A cursor belongs to its search: another search refuses it `invalid_input`. Conformance: `sessionSearchNarrowsTheListing`.
+`search` (1–`MAX_SEARCH_QUERY_CHARS`) narrows the listing to the sessions with every word of it, ignoring case, in the title or in the last component of `cwd`: `searchWords` and `sessionMatches` in `sessions.ts` are the one definition, which the phone core ports. A search reads rows until its page is full or it has read a bound of them (2,000 in the Claude Code and Pi adapters; Antigravity's covers the whole listing agy returns at once), so a page of a search may hold fewer rows than asked, none at all, and still carry a `nextCursor`; a client reads on while there is one. A cursor belongs to its search: another search refuses it `invalid_input`. Conformance: `sessionSearchNarrowsTheListing`.
 
 | Field | Claude Code (CC D23) | Pi (pi §3) |
 |---|---|---|
@@ -588,7 +588,7 @@ A backend's extras are typed `extension{extension}` events, declared in `Capabil
 27. Sessions survive a restart, and runs end with it or go on under a new `RunId`: after a restart of the bridge the session is still there. Without `runsSurviveRestart` its run is not. With it, the reopened snapshot has a run under another `RunId` that carries the original prompt's `clientRequestId` and can be aborted, and an ask pending before the restart is in its session's reopened snapshot (same kind and title) and can be answered there, after which its run finishes.
 28. A watched session that takes answers checks them and resolves its ask once: a session with `control` has no `answer` of its own; with `watchedAsk`, the watched session opens without `control` and with `answer`, its ask is pending (in the open snapshot or raised after), invalid answers are `invalid_input` and leave it pending, a valid one resolves it `answered`, a repeat is `stale`, and an answer after `close` is `closed`.
 
-Every scenario's stream also passes the stream rules (§7), and every catalog event is validated as it arrives. `src/__tests__/contract_conformance.test.ts` runs the suite against the fake with every capability, with none optional, and with runs that survive a restart; the Pi and Claude Code adapters run it in their own test directories.
+Every scenario's stream also passes the stream rules (§7), and every catalog event is validated as it arrives. `src/__tests__/contract_conformance.test.ts` runs the suite against the fake with every capability, with none optional, and with runs that survive a restart; the Pi and Claude Code adapters run it in their own test directories, and the Antigravity adapter on the user's own `agy`, opt-in (`BROSKI_TEST_AGY=1`, [Antigravity README](../backends/antigravity/README.md) §16).
 
 **The suite can fail.** The `contract_negative_*.test.ts` files run deliberately broken adapters (one change each to the honest fake or its driver): every assertion of every rule, and every stream rule a rule relies on, fails at least one of them, for the reason it names. `fails()` (`src/__tests__/helpers/broken-adapters.ts`) requires the rule to reject with that reason, so a rule that lets its broken adapter through, or catches it only by accident, fails its negative test.
 

@@ -2,7 +2,7 @@
 
 > **Purpose:** This document records Broski's open-source architecture and serves as the permanent engineering handbook for adding new coding agents cleanly.
 >
-> **Status:** All core architecture waves (**open `BackendId`/`PlanId`, `BackendDescriptor`, `CacheWindow` + `CacheClock`, shared `adapter-kit/`, bridge core fallbacks, loopback `/mcp` server, vanilla Pi `broski_ask` + terminal handoff, third-party plugin loader, generic `/hook/<backend>` ingress, and Session Info / Pin / Unread / Mute on iOS & Android**) are **implemented on `main`**. Part III below is the live handbook for adding Codex, Gemini CLI, Cursor, Grok Build, OpenCode, Antigravity, ACP agents, or standalone npm plugins.
+> **Status:** All core architecture waves (**open `BackendId`/`PlanId`, `BackendDescriptor`, `CacheWindow` + `CacheClock`, shared `adapter-kit/`, bridge core fallbacks, loopback `/mcp` server, vanilla Pi `broski_ask` + terminal handoff, third-party plugin loader, generic `/hook/<backend>` ingress, and Session Info / Pin / Unread / Mute on iOS & Android**) are **implemented on `main`**. Antigravity is a built-in backend over ACP (`backends/antigravity/`, [notes](backends/antigravity/README.md)). Part III below is the live handbook for adding Codex, Gemini CLI, Cursor, Grok Build, OpenCode, other ACP agents, or standalone npm plugins.
 
 ---
 
@@ -51,7 +51,7 @@ iOS (SwiftUI, Liquid Glass)      Android (Compose, Material 3 Expressive)
                  ├─ Bridge Tools (loopback HTTP MCP + generic terminal hook ingress)
                  ├─ Workspace (files, git, native PTY terminals — 100% backend-agnostic)
                  ├─ Usage (pluggable subscription plan meters — 100% backend-agnostic)
-                 └─ Adapters (Claude Code, Pi, future ACP & native plugins)
+                 └─ Adapters (Claude Code, Pi, Antigravity over ACP, future ACP & native plugins)
 ```
 
 Broski is **not** a desktop IDE, **not** an agent runtime (it never bundles `claude`, `pi`, or any LLM harness), and **not** a cloud enterprise orchestration cluster (no Kafka streams, no multi-tenant cloud POSIX filesystem, no server-side SQLite event store).
@@ -573,7 +573,7 @@ Does the agent speak ACP (Agent Client Protocol, e.g. --acp or agent stdio)?
 
 | Tier | Target Agents | Estimated Effort | Conformance Rules Required |
 |---|---|---:|---|
-| **Tier 0 (ACP Preset)** | Gemini CLI, Cursor CLI, Grok Build, OpenCode, Antigravity, Codex-ACP, Kiro, Goose, Copilot CLI, 40+ ACP Registry agents | ~15 lines config (once `backends/acp/` exists) | Covered automatically by `backends/acp/` conformance suite |
+| **Tier 0 (ACP Preset)** | Gemini CLI, Cursor CLI, Grok Build, OpenCode, Codex-ACP, Kiro, Goose, Copilot CLI, 40+ ACP Registry agents (Antigravity is built in) | ~15 lines config (once `backends/acp/` exists) | Covered automatically by `backends/acp/` conformance suite |
 | **Tier 1 (Minimal Native)** | Custom/niche CLIs, Aider-style tools, internal company agents | ~400–800 LOC | Core subset (auto-gated by `traits` — all optional capabilities off) |
 | **Tier 2 (Full Native)** | OpenAI Codex (`codex app-server`), OpenCode (`opencode serve`), Cursor (`@cursor/sdk`) | ~1,500–3,000 LOC | Full `runConformance` for every declared trait |
 | **Tier 3 (Deep Host)** | Claude Code (done), Pi (done) | Existing reference | All 28 rules incl. `externalLive` / `watchedAsk` / `runsSurviveRestart` |
@@ -582,7 +582,9 @@ Does the agent speak ACP (Agent Client Protocol, e.g. --acp or agent stdio)?
 
 ### 4.2 Tier 0: Building the Shared ACP v1/v2 Adapter
 
-When you are ready to unlock Gemini CLI, Cursor CLI, Grok Build, OpenCode, Antigravity, Codex-ACP, and 40+ ACP Registry agents in one move, build **one** adapter at `packages/bridge/src/backends/acp/`.
+**What exists:** Antigravity is a built-in backend that runs `agy acp` (`packages/bridge/src/backends/antigravity/`, [notes](backends/antigravity/README.md)). Its `acp/` folder is an agent-neutral ACP v1 client (connection, JSON-RPC both ways, the payload readers); it moves to `adapter-kit/` when a second ACP agent arrives, and the shared adapter below starts from it. agy 1.5.18 speaks ACP v1 only: the client asks for v1 and refuses an agent that answers another version, so the v2 rows below do not apply to it.
+
+When you are ready to unlock Gemini CLI, Cursor CLI, Grok Build, OpenCode, Codex-ACP, and 40+ ACP Registry agents in one move, build **one** adapter at `packages/bridge/src/backends/acp/`.
 
 #### Directory Layout (~12–15 small files, <1,500 LOC total)
 
@@ -591,7 +593,7 @@ packages/bridge/src/backends/acp/
   factory.ts           acpBackendFactory(preset, services) → BackendFactory
   backend.ts           AgentBackend implementation over ACP process pool
   traits.ts            Capabilities derived dynamically from ACP initialize response
-  presets.ts           Built-in presets (gemini, cursor, grok, opencode, codex-acp, antigravity)
+  presets.ts           Built-in presets (gemini, cursor, grok, opencode, codex-acp)
   protocol/
     transport.ts       Newline-delimited JSON-RPC 2.0 over stdio (uses adapter-kit/ + bounded 32 MiB frames)
     schemas.ts         Strict Zod schemas for ACP v1 & v2 methods/notifications
@@ -611,9 +613,9 @@ packages/bridge/src/backends/acp/
 | ACP Method / Notification | Broski Contract Equivalent | Notes |
 |---|---|---|
 | `initialize` → `capabilities` | `BackendTraits` + `BackendStatus` | Negotiate v2 first, fallback to v1; never spawn sessions during `status()` probe |
-| `session/new({ cwd, mcpServers, configOptions })` | `open({ kind: "new" })` | **Inject Broski's `/mcp` server directly in `mcpServers`!** (Must use absolute path if stdio, or HTTP URL + bearer header if agent advertises HTTP MCP) |
+| `session/new({ cwd, mcpServers, configOptions })` | `open({ kind: "new" })` | **Inject Broski's `/mcp` server directly in `mcpServers`!** (Must use absolute path if stdio, or HTTP URL + bearer header if agent advertises HTTP MCP.) agy advertises no HTTP MCP, so Antigravity opens every session with `mcpServers: []` |
 | `session/list` | `listSessions(query, page)` | Paginate via `adapter-kit/cursor.ts`; filter by canonical `cwd` |
-| `session/resume` / `session/load` | `open({ kind: "existing" })` + `readTranscript` | Wait for ACP v2 `replay_complete` before resolving `open()` snapshot |
+| `session/resume` / `session/load` | `open({ kind: "existing" })` + `readTranscript` | Wait for ACP v2 `replay_complete` before resolving `open()` snapshot; over v1, agy replays the history before it answers `session/load` |
 | `session/fork` (when advertised) | `fork(ref, at?)` | Omit `backend.fork` when agent doesn't advertise `session.fork` → `BridgeCore` portable fork kicks in automatically! |
 | `session/prompt` | `control.prompt({ mode: "start" })` | Map `ImageContent` attachments; `BridgeCore` handles `queue` & `steer` fallbacks |
 | `session/cancel` | `control.abort()` | Settle all open blocks, running tools, and pending asks before `run_finished(aborted)` |
@@ -621,7 +623,7 @@ packages/bridge/src/backends/acp/
 | `session/update: agent_thought_chunk` | `block_started` / `block_delta` / `block_finished` (`kind: "thinking"`) | Declare `streamThinking: true` |
 | `session/update: tool_call` / `tool_call_update` | `tool_started` / `tool_updated` / `tool_finished` | Extract file diffs into `fileChanges`; sanitize titles/outputs with `adapter-kit/phone-text.ts` |
 | `session/request_permission` (v1 & v2) | `interaction_requested` (`kind: "tool_permission"`) | Preserve agent's native `optionId`s verbatim! Never invent fake option IDs. Handle cancel → `{ outcome: { outcome: "cancelled" } }` |
-| `session/elicitation` (v2) | `interaction_requested` (`kind: "form"` or `"confirm"`) | Map form schema to `FormFieldSpec[]`; URL elicitation → `confirm{ url }` |
+| `session/elicitation` (v2) | `interaction_requested` (`kind: "form"` or `"confirm"`) | Map form schema to `FormFieldSpec[]`; URL elicitation → `confirm{ url }`. Over v1, agy asks its questions as a form `elicitation/create`, which Antigravity reads as `questions` |
 | `session/update: usage_update` | `usage_updated` | Map context window, tokens, cumulative cost; `CacheClock` automatically stamps `lastTouchAt` |
 | `session/update: compaction_update` | `compaction_started` / `compaction_finished` | Handle `in_progress`, `completed`, `failed`, `cancelled` |
 | `session/update: available_commands_update` | `listCommands` + `catalog_invalidated("commands")` | Expose slash commands & skills cleanly |
@@ -636,7 +638,8 @@ packages/bridge/src/backends/acp/
 | `grok` | `Grok Build` | `grok agent stdio` | `grok` | Optional tiny flavor for xAI custom question extension, else uses Bridge MCP `broski_ask` |
 | `opencode` | `OpenCode` | `opencode acp` | `opencode` | Must pass session's `cwd` on load/resume/fork; emits built-in `compact` |
 | `codex` | `Codex` | `codex-acp` | `codex` | Great Day-1 Tier 0 path; can be swapped to native `codex app-server` (Tier 2) seamlessly using the same `BackendId: "codex"` |
-| `antigravity` | `Antigravity` | `agy --acp` | `antigravity` | Separate profile auth env; no ambient Google creds |
+
+Antigravity is not a preset: it is the built-in `antigravity` backend, which runs `agy acp`.
 
 #### User-Defined Custom ACP Agents in `~/.broski/config.json`
 

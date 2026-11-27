@@ -102,7 +102,7 @@ FormatTable     { columns: [TableColumn{align, numeric, short}], header, rows, s
 | `formatSamples()` | the gallery's corpus, each with `arriving` when it stops mid-message |
 
 The bridge fills two typed displays beside `todos`, `links` and `files`: `markdown` (subagent reports,
-fetched pages) and `file_text { path, firstLine, text, note? }` (reads, by both agents). `toolBody`'s
+fetched pages) and `file_text { path, firstLine, text, note? }` (reads, by Claude Code and Pi). `toolBody`'s
 sniffing is only the fallback for MCP and unknown tools.
 
 ## The apps

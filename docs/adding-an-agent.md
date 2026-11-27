@@ -10,7 +10,7 @@ Pick the simplest tier that matches what the agent exposes:
 
 | Tier | Best for | What you build |
 |---|---|---|
-| **Tier 0 — ACP preset** | Agents speaking the Agent Client Protocol (`gemini --acp`, `agent acp`, `opencode acp`, `codex-acp`, etc.) | Once the shared `backends/acp/` adapter is built, a small command preset — no custom session engine |
+| **Tier 0 — ACP agent** | Agents speaking the Agent Client Protocol (`agy acp`, `gemini --acp`, `agent acp`, `opencode acp`, `codex-acp`, etc.) | An adapter on the agent-neutral ACP v1 client in `backends/antigravity/acp/` (it moves to `adapter-kit/` when a second ACP agent arrives), plus the agent's own processes, catalog, asks and quirks — see Antigravity |
 | **Tier 1 — Minimal native adapter** | Custom CLIs, SDKs, or HTTP/JSON-RPC agents | Chat, streaming text, and tools with optional traits off; `BridgeCore` automatically supplies queue, steering, and portable fork fallbacks |
 | **Tier 2 — Full native adapter** | Agents with rich native APIs (e.g. `codex app-server`, `opencode serve`) | Native approvals, models, thinking levels, modes, compaction, usage, and session fork |
 | **Tier 3 — Deep host adapter** | Full terminal-to-phone handoff (like the built-in Claude Code and Pi adapters) | Watch-only terminal mirroring, `/hook/<backend>` permission forwarding, and detached restart-surviving processes |
@@ -37,7 +37,7 @@ Layer boundaries are enforced by `bun run check:layers` (`packages/bridge/script
 
 ## Minimal `AgentBackend` skeleton
 
-Use `adapter-kit/` for shared plumbing (`phoneText`, page cursors, asks ledger, image cache, trash helpers, a JSONL stdio child with its stop ladder, `--version` reading, bounded JSON, unified diffs, a session's live state, and a watch-only view that promotes itself once a terminal lets go of a session) and let `BridgeCore` supply fallbacks for any capability you leave off:
+Use `adapter-kit/` for shared plumbing (`phoneText`, page cursors, asks ledger, image cache and image reads, trash helpers, a JSONL stdio child with its stop ladder, `--version` reading, bounded JSON, unified diffs, rejections, a session's live state, the `FileLock` and `ImageFitter` ports, and a watch-only view that promotes itself once a terminal lets go of a session) and let `BridgeCore` supply fallbacks for any capability you leave off:
 
 ```ts
 import type { AgentBackend, BackendFactory, BackendTraits } from "../../contract";
@@ -139,10 +139,13 @@ Bare package names resolve strictly from `~/.broski/adapters/node_modules` (`bun
 
 Every adapter must pass the 28-rule conformance suite (`packages/bridge/src/contract/testing/run-conformance.ts`) against a **real local agent process and scripted model endpoint** — never a mock of the core or the agent.
 
+Antigravity is the exception: `agy` could be put on a scripted model only with a fake API key, so it is tested against the user's real `agy` alone. CI runs its frame-level tests on ACP's documented records, and the conformance run, the live suite and the frame recorder are opt-in on the developer's own sign-in (`BROSKI_TEST_AGY=1`, `BROSKI_AGY_RECORD=1`).
+
 Use the built-in adapters as reference implementations:
 
 - `packages/bridge/src/backends/claude-code/` and `packages/bridge/src/__tests__/claude-code/conformance/conformance.test.ts`
 - `packages/bridge/src/backends/pi/` and `packages/bridge/src/__tests__/pi/conformance.test.ts`
+- `packages/bridge/src/backends/antigravity/` (an ACP agent) and `packages/bridge/src/__tests__/antigravity/conformance/conformance.test.ts`; notes in [`docs/architecture/backends/antigravity/README.md`](architecture/backends/antigravity/README.md)
 
 Before opening a PR or publishing a plugin, verify:
 

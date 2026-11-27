@@ -2,12 +2,12 @@
 
 ## What Broski Is
 
-Broski is a **native phone remote for the AI coding agents on your computer**. Broski currently ships with **Claude Code**
-and **Pi**, driving the user's own installed agents, config and extensions, and is architected around an open backend
-contract so additional agents can be added without rewriting the mobile UI.
+Broski is a **native phone remote for the AI coding agents on your computer**. Broski currently ships with
+**Claude Code**, **Pi** and **Antigravity**, driving the user's own installed agents, config and extensions, and is
+architected around an open backend contract so additional agents can be added without rewriting the mobile UI.
 
 ```
-Phone (iOS / Android app) ←Broski Link (Noise e2e; LAN or relay)→ broski-link daemon (Rust, your Mac) ←unix socket→ Bridge (Bun/TS) ←SDK / RPC→ {Claude Code, Pi, …}
+Phone (iOS / Android app) ←Broski Link (Noise e2e; LAN or relay)→ broski-link daemon (Rust, your Mac) ←unix socket→ Bridge (Bun/TS) ←SDK / RPC / ACP→ {Claude Code, Pi, Antigravity, …}
 ```
 
 What is here: the bridge, the link stack, the shared phone core packaged for both native apps, and the iOS and Android
@@ -94,10 +94,10 @@ apps. See [`ARCHITECTURE.md`](ARCHITECTURE.md) and [`docs/architecture/`](docs/a
   Noise end-to-end encryption (hybrid X25519 + ML-KEM-768) with the machine fingerprint pinned from the QR,
   per-device revocable authorisation on the daemon, and the bridge link key. Design docs:
   `docs/architecture/connectivity-v2/`.
-- **Agents:** Extensible through the backend contract; v1 supports **Claude Code** and **Pi**. The bridge drives
-  the user's own installed `claude` and `pi` (never bundles an agent binary), so the phone inherits the exact agent
-  version, extensions and config the user runs locally. New agents implement `AgentBackend` and pass `runConformance`
-  without adding backend-specific branches to the apps.
+- **Agents:** Extensible through the backend contract; v1 supports **Claude Code**, **Pi** and **Antigravity**. The
+  bridge drives the user's own installed `claude`, `pi` and `agy` (never bundles an agent binary), so the phone
+  inherits the exact agent version, extensions and config the user runs locally. New agents implement `AgentBackend`
+  and pass `runConformance` without adding backend-specific branches to the apps.
 
 ### Security context for audits
 
@@ -146,11 +146,13 @@ The wire shape between bridge and phone is the backend contract in `packages/bri
 - **Every adapter passes the conformance suite** (`runConformance` in `src/contract/testing/`, each rule proven to
   fail by the broken adapters in `src/__tests__/contract_negative_*.test.ts`), and every answer goes through
   `answerProblem` before it reaches a backend.
-- **Pi** (`src/backends/pi/`) and **Claude Code** (`src/backends/claude-code/`) are both registered in every bridge
-  (`server/contract-backends.ts`). Claude Code's terminal permission prompts reach the phone through its
-  `PermissionRequest` hook (`claudeCode.terminalAsks`, default true; `server/claude-code-*.ts`). Notes:
-  [`docs/architecture/backends/pi/README.md`](docs/architecture/backends/pi/README.md),
-  [`docs/architecture/backends/claude-code/README.md`](docs/architecture/backends/claude-code/README.md).
+- **Pi** (`src/backends/pi/`), **Claude Code** (`src/backends/claude-code/`) and **Antigravity**
+  (`src/backends/antigravity/`) are all registered in every bridge (`server/contract-backends.ts`). Claude Code's
+  terminal permission prompts reach the phone through its `PermissionRequest` hook (`claudeCode.terminalAsks`, default
+  true; `server/claude-code-*.ts`); a conversation a terminal `agy` holds (agy's presence lock) opens watch-only.
+  Notes: [`docs/architecture/backends/pi/README.md`](docs/architecture/backends/pi/README.md),
+  [`docs/architecture/backends/claude-code/README.md`](docs/architecture/backends/claude-code/README.md),
+  [`docs/architecture/backends/antigravity/README.md`](docs/architecture/backends/antigravity/README.md).
 
 ## Formatting agent text
 
@@ -204,6 +206,8 @@ packages/bridge/src/
   backends/pi/   the Pi adapter (one `pi --mode rpc` per hosted session, kept by a holder process that outlives the
                  bridge, so a run goes on through a restart; no Pi package imported)
   backends/claude-code/  the Claude Code adapter (Claude Agent SDK driving the user's `claude`)
+  backends/antigravity/  the Antigravity adapter (the user's `agy` over `agy acp`: one `--process-per-session` front for
+                 live sessions, short jobs for reads; `acp/` is an agent-neutral ACP v1 client)
   server/        wiring: listeners, the contract seam, the link feed, the Claude Code hook receiver
   mcp/           the bridge's loopback HTTP MCP server at `/mcp` (`broski_ask`, `broski_notify`,
                  `broski_propose_plan`), mounted on the loopback listener (`server.ts`, `docs/bridge-mcp.md`)
@@ -242,8 +246,15 @@ Keep files under 400 lines and functions under 50; a new concern gets a new file
   come from Pi itself (`get_available_models`, `get_commands`, `get_state`). `@earendil-works/pi-coding-agent` 1.6.0 is
   an exact devDependency: the tests run its `pi`, and the docs and `dist/` of that version are where Pi facts are checked
   ([`docs/architecture/backends/pi/README.md`](docs/architecture/backends/pi/README.md)).
-- Use the SDK's exported types (Pi's RPC frames: the zod schemas in `backends/pi/rpc/`); never `as any`. Do not keep
-  fallbacks for an agent's old response shapes.
+- **Antigravity** runs as the user's own `agy` (config `antigravity.cliPath`, else `PATH`;
+  `server/antigravity-cli-path.ts`), driven over `agy acp` (ACP v1, JSON-RPC over stdio); production code imports no
+  package of agy's (`BACKEND_SDKS` has no `antigravity` entry, so `check:layers` proves it). Models, thinking levels,
+  modes and commands come from agy itself (its config options and `available_commands_update`). Its facts were checked
+  on agy 1.5.18; after an update, re-record the frames (`BROSKI_AGY_RECORD=1`) and run the live suite
+  (`BROSKI_TEST_AGY=1`;
+  [`docs/architecture/backends/antigravity/README.md`](docs/architecture/backends/antigravity/README.md)).
+- Use the SDK's exported types (Pi's RPC frames: the zod schemas in `backends/pi/rpc/`; Antigravity's ACP payloads:
+  `backends/antigravity/acp/frames.ts`); never `as any`. Do not keep fallbacks for an agent's old response shapes.
 
 ## Build and test
 
@@ -336,6 +347,10 @@ Follow these rules in every session so background servers never pile up and buil
 - **Drive a real agent with a scripted model, not a mock of it**: the scripted OpenAI- and Anthropic-compatible
   endpoints in `__tests__/helpers/`; for Pi, the devDependency's real `pi` against the OpenAI-compatible one, registered in
   a throwaway agent dir's `models.json`.
+- **Antigravity is tested against the real `agy` only**, since `agy` could be put on a scripted model only with a fake
+  API key: CI runs its frame-level tests on ACP's documented records with no `agy` started, and the live suite, the
+  conformance run and the frame recorder are opt-in on the developer's own sign-in (`BROSKI_TEST_AGY=1`,
+  `BROSKI_AGY_RECORD=1`), spending its quota and using agy's real presence folder by design.
 - **Bound long scripts over real data** with a memory watchdog.
 - Delete tests whose subject was deleted; write tests that prove behaviour at a real seam, not to raise a count.
 

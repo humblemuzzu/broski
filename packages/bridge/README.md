@@ -1,6 +1,6 @@
 # broski
 
-Bridge server connecting your phone, through [Broski](https://github.com/humblemuzzu/broski), to the AI coding agents on your computer (Claude Code, Pi).
+Bridge server connecting your phone, through [Broski](https://github.com/humblemuzzu/broski), to the AI coding agents on your computer (Claude Code, Pi, Antigravity).
 
 **Vibe code from anywhere.** Control your AI coding agents from your phone - even with your Mac lid closed.
 
@@ -131,7 +131,7 @@ The bridge reads `~/.broski/config.json`. See `src/config/schema.ts` for the ful
 
 A bridge started by the service inherits almost nothing: launchd hands it a `PATH` and a `HOME`, and
 nothing from `~/.zshrc`. So at startup the bridge asks your login shell for its environment once (one interactive
-`env -0` through `zsh`/`bash`/`fish`, 10 s timeout) and runs every agent with it — Claude Code and Pi.
+`env -0` through `zsh`/`bash`/`fish`, 10 s timeout) and runs every agent with it — Claude Code, Pi and Antigravity.
 
 That means provider keys, `~/.local/bin` and version-manager shims exported in your shell profile work from the
 phone exactly as they do in your terminal.

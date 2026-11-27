@@ -6,7 +6,7 @@
 
 **Your AI coding agents, in your pocket.**
 
-*Native iOS and Android remote for [Claude Code](https://claude.ai/code) and [Pi](https://github.com/earendil-works/pi) running on your Mac.*
+*Native iOS and Android remote for [Claude Code](https://claude.ai/code), [Pi](https://github.com/earendil-works/pi) and [Antigravity](https://antigravity.google) running on your Mac.*
 
 <p>
   <a href="https://broskiapp.com">broskiapp.com</a> ·
@@ -17,13 +17,13 @@
 
 </div>
 
-> Independent open-source project. Not affiliated with Anthropic or the Pi authors.
+> Independent open-source project. Not affiliated with Anthropic, Google or the Pi authors.
 
 ## What Broski is
 
 Broski is a native phone remote and inbox for the AI coding agents already installed on your Mac. The iOS app (SwiftUI) and Android app (Jetpack Compose) share one Rust core (`BroskiCore`) and talk to your Mac over an end-to-end encrypted Noise link (hybrid X25519 + ML-KEM-768) — directly over your LAN when on the same network, or through a self-hosted blind relay when away.
 
-On your Mac, Broski drives the exact `claude` and `pi` binaries you already use, inheriting your own config, permissions, models, and extensions. It bundles no agent and locks you into no vendor workflow. Every agent plugs in through an open backend contract, so adding new agents requires zero changes to the mobile apps.
+On your Mac, Broski drives the exact `claude`, `pi` and `agy` binaries you already use, inheriting your own config, permissions, models, and extensions. It bundles no agent and locks you into no vendor workflow. Every agent plugs in through an open backend contract, so adding new agents requires zero changes to the mobile apps.
 
 ```text
    iOS app (SwiftUI)                 Android app (Compose)
@@ -33,8 +33,8 @@ On your Mac, Broski drives the exact `claude` and `pi` binaries you already use,
               broski-link daemon (Rust, launchd)
                         │  Unix socket ~/.broski/link/bridge.sock
                  bridge (Bun / TypeScript)
-                        │  SDK / RPC
-          Claude Code · Pi · any AgentBackend
+                        │  SDK / RPC / ACP
+     Claude Code · Pi · Antigravity · any AgentBackend
 ```
 
 ## Platform support
@@ -96,7 +96,7 @@ Scan the QR code (or paste the `broski://pair?...` link) in the app. On the same
 Broski ships with built-in diagnostics on your Mac:
 
 ```bash
-broski doctor         # checks Bun, login-shell env & provider keys (names only), Claude/Pi CLIs, TLS, launchd service, and connectivity
+broski doctor         # checks Bun, login-shell env & provider keys (names only), Claude/Pi/Antigravity CLIs, TLS, launchd service, and connectivity
 broski-link status    # shows paired machine id, relay state, LAN/Tailscale addresses, bridge health, and live phone sessions
 broski-link devices   # lists paired phones (revoke any lost phone with `broski-link revoke <id prefix>`)
 ```
@@ -138,6 +138,7 @@ curl -fsSL https://raw.githubusercontent.com/humblemuzzu/broski/main/packages/br
 
 - **Claude Code** — drives your installed `claude` through `@anthropic-ai/claude-agent-sdk`, inheriting your settings, permissions (`permissions.defaultMode`), hooks, and MCP servers.
 - **Pi** — drives your installed `pi` over `pi --mode rpc` inside a detached holder so runs survive bridge restarts, inheriting your models, extensions, and `steeringMode`.
+- **Antigravity** — drives your installed `agy` over `agy acp` (the Agent Client Protocol), inheriting your sign-in, plan, models, thinking levels, and modes; a conversation open in a terminal `agy` is watch-only on the phone until you quit it there.
 
 Want to add Codex, OpenCode, Gemini CLI, Cursor, or your own agent? See [`docs/adding-an-agent.md`](docs/adding-an-agent.md).
 
@@ -145,7 +146,7 @@ Want to add Codex, OpenCode, Gemini CLI, Cursor, or your own agent? See [`docs/a
 
 ```text
 packages/
-  bridge/        TypeScript/Bun bridge, backend contract, Claude Code & Pi adapters, MCP server, stats, workspace
+  bridge/        TypeScript/Bun bridge, backend contract, Claude Code, Pi & Antigravity adapters, MCP server, stats, workspace
   link/          Rust workspace: Noise crypto, protocol, daemon (broski-link), blind relay (broski-relay),
                  mobile client (broski-client), markdown/code/diff renderer, dictation, UniFFI facades
 apps/
