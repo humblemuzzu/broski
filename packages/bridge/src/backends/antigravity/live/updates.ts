@@ -127,10 +127,12 @@ export class TurnStream {
 		this.finishIfEnded(tool);
 	}
 
+	/** agy 1.5.18 sends a call's arguments again with each update: only new ones are an `input` change. */
 	private updateTool(tool: Tool, update: ToolUpdateFrame): void {
 		const before = tool.state;
 		tool.state = toolState(update, before);
-		for (const change of toolChanges(before, tool.state, update.rawInput !== undefined)) {
+		const input = update.rawInput !== undefined && JSON.stringify(update.rawInput) !== JSON.stringify(before.rawInput);
+		for (const change of toolChanges(before, tool.state, input)) {
 			this.emit({ type: "tool_updated", toolCallId: tool.id, update: change });
 		}
 		this.finishIfEnded(tool);
@@ -144,7 +146,7 @@ export class TurnStream {
 	}
 }
 
-/** What changed between two reports of a call; `input`: the later one gave the arguments again. */
+/** What changed between two reports of a call; `input`: the later one gave other arguments. */
 function toolChanges(before: ToolState, after: ToolState, input: boolean): ToolUpdate[] {
 	const changes: ToolUpdate[] = [];
 	if (input) changes.push({ kind: "input", input: boundedJson(after.rawInput) });

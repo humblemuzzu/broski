@@ -104,7 +104,7 @@ Listing and history (`session/list`, `session/load` on a short job) open no new 
 
 ```bash
 cd packages/bridge
-bun test src/__tests__/antigravity     # CI: starts no agy; the opt-in suites below skip themselves
+bun test src/__tests__/antigravity     # CI: starts no agy, replays agy's recorded frames; the suites below skip
 GEMINI_API_KEY=… BROSKI_TEST_AGY=1 bun test src/__tests__/antigravity/live/live.test.ts
 GEMINI_API_KEY=… BROSKI_TEST_AGY=1 BROSKI_TEST_AGY_TERMINAL=1 bun test src/__tests__/antigravity/live/live.test.ts
 GEMINI_API_KEY=… BROSKI_TEST_AGY=1 bun test src/__tests__/antigravity/conformance/conformance.test.ts
@@ -120,12 +120,14 @@ saying so. They spend the key's quota. Each prompt is taken from one budget per 
 
 After an `agy` update, with the key set:
 
-1. Run the recorder, and read what changed since the last recording. It writes each scenario's frames, both ways and
-   timed, scrubbed and checked by `scripts/check-personal-info.sh --files`, to
-   `src/__tests__/antigravity/fixtures/frames/<scenario>.json`, each naming the `agy` it was recorded on. The fixtures
-   are for a person to read: none is in the tree, and no test reads one.
-2. Run the live file (with `BROSKI_TEST_AGY_TERMINAL=1` when tmux is installed) and the conformance run.
-3. Update §1 and the version above to what they showed.
+1. Run the recorder. It writes each scenario's frames, both ways and timed, scrubbed and checked by
+   `scripts/check-personal-info.sh --files`, to `src/__tests__/antigravity/fixtures/frames/<scenario>.json`, each
+   naming the `agy` it was recorded on. Read the diff of `fixtures/frames/`: it is what agy now does differently. A
+   fixture is agy's own frames: never edit one by hand, record it again.
+2. Run `bun test src/__tests__/antigravity/replay`, which replays the new frames through the backend as CI does (§15). A
+   failure there is a change of agy's the adapter has to follow; fix the adapter, never the fixture.
+3. Run the live file (with `BROSKI_TEST_AGY_TERMINAL=1` when tmux is installed) and the conformance run.
+4. Update §1 and the version above to what they showed.
 
 What agy asks before a tool is its permission policy's to say (§1), and the tests never read it. The test profile has
 no policy of its own, so agy asks before commands and writes there and the permission rules run. On an agy whose
@@ -246,6 +248,18 @@ like any backend; its mark is iOS `AgentBrand`/`AgentMark` and Android `AgentMar
 - After `session/cancel`, up to 5 buffered chunks arrive before the `cancelled` result.
 - `/compact` sent as a prompt compacts and keeps the conversation's memory. `/plan` writes a plan file and ends the
   turn: no approval is asked.
+
+**Tools** (`mapping/tools.ts`, `live/updates.ts`; recorded in `fixtures/frames/`)
+
+- Every `tool_call_update` repeats the call whole: its `name`, `kind`, `title`, `rawInput` and `locations`.
+- A `run_command` that ran ends `completed` with `rawOutput: {output, exit_code}`; `output`, also its text content,
+  is agy's `Created At …`, `Completed At …` and `Command exited with code N.` lines, then the command's output. A
+  command whose permission was refused ends `failed`, with agy's refusal as its `rawOutput` and content.
+- `write_file` (`{Path, Content}`) and `edit_file` (`{Path, Target, Replacement}`) name their file in `locations` and,
+  once done, in `diff` content. agy titles them by the path from its own folder (`File ../../…/notes.txt`), which is
+  the void one.
+- `ask_question` is a tool call of kind `other` around its `elicitation/create`; it ends `failed` when the turn is
+  stopped.
 
 **Asks** (`live/permissions.ts`, `live/questions.ts`)
 
@@ -450,14 +464,16 @@ the session with a `#n` suffix. A call agy first names in a `tool_call_update` s
 | agy tool | Row title |
 |---|---|
 | `run_command` | the first line of `CommandLine` |
-| `read_file`, `write_file`, `write_to_file`, `edit_file` | the file's name: the `diff` path, else the first location, else `TargetFile` or `Path` |
+| `read_file`, `write_file`, `edit_file` | the file's name: the `diff` path, else the first location, else `Path` |
 | `ask_question` | "Question" |
 | `invoke_subagent` | "Subagent: `Role`" |
 | any other | agy's `title` |
 
-A call's result is its text content (a command's `rawOutput.output`, with `rawOutput.exitCode`) and `fileChanges`
-from its `diff` content: no `oldText` is an `added` file, else `modified`, with a unified diff
-(`adapter-kit/unified-diff.ts`). A `failed` call's text is its error.
+The recordings hold `run_command`, `write_file`, `edit_file` and `ask_question`; `read_file` was seen live, and
+`invoke_subagent`'s `Role` was not seen at all. An `input` update goes out only when agy sends other arguments, since
+every update repeats them (§1). A call's result is its text content (a command's `rawOutput.output`, with
+`rawOutput.exit_code` as its `exitCode`) and `fileChanges` from its `diff` content: no `oldText` is an `added` file,
+else `modified`, with a unified diff (`adapter-kit/unified-diff.ts`). A `failed` call's text is its error.
 
 **Outcomes** (`live/outcomes.ts`): `end_turn` completed; `cancelled` aborted; `max_tokens` the `output_tokens` limit;
 `max_turn_requests` the `max_turns` limit; `refusal` an error (`content_filter`) with a warning notice that the
@@ -487,7 +503,8 @@ agy ends it: its tool call ends, its turn ends, agy takes the request back (`$/c
 **Permissions** (`live/permissions.ts`). Each of agy's options keeps its `optionId` and name; its `kind` gives the
 effect and scope (`allow_once`, `allow_always`, `reject_once`, `reject_always`). No option is the default, none stops
 the run (a rejection lets agy go on without the tool), `deliberate` is false, the input is not editable and there are
-no grants. `reason` is the call's `toolSummary` argument. Previews: `command` for `run_command`, else `file_changes`
+no grants. `reason` is the call's `toolSummary` argument, and the title the call's row title (§8), not agy's, which
+names a file by its path from the void folder. Previews: `command` for `run_command`, else `file_changes`
 from the request's `diff` content, else `paths` from its locations. The answer is
 `{outcome: {outcome: "selected", optionId}}`; a dismissal is `{outcome: {outcome: "cancelled"}}`, which leaves the
 tool unrun. A request is read with the call as agy reported it so far, since a request may name only its id.
@@ -621,6 +638,20 @@ hosted session, and `cancelQueued` from the core's queue; none of them, and no `
 
 In CI (`bun test`), no `agy` is started:
 
+- `replay/`: agy's own frames (`fixtures/frames/`, written by the recorder, §16; `recordings.ts`) played back to the
+  bridge's JSON-RPC layer in the recorded order (`replay.ts`), every record the code under test sends agy held to the
+  one the bridge sent in the recording, ids aside, and none more. Where the recording shows the bridge speaking, the
+  phone does what made it speak: the setting, the prompt or compaction, the answer, the stop (`host-rig.ts`, on the
+  production `AgyHost`).
+  - `acp_frames.test.ts`: the JSONL framing cut anywhere, and every answer, update and request of agy's in every
+    fixture read by the bridge's readers, as its kind, with no fault and no list item or named field dropped.
+  - `turns.test.ts`: text, thinking and image turns (blocks, settings, usage, title, commands), a command's row with
+    its output and exit code, a denied command, a written and an edited file with their diffs, a second prompt refused
+    `busy` with one `session/prompt` sent, and a loaded session's compaction.
+  - `asks.test.ts`: command and file permissions (agy's options, the command, the diffs, the reason), one-pick,
+    several-pick and declined questions, each reply sent as agy got it, and a stop with a question pending.
+  - `store.test.ts`: the listing through the bridge's listing job (real folders, filter, order, pages) and a session's
+    history from its `session/load` replay, `session/close` included.
 - `acp_spec.test.ts`: the JSON-RPC layer on the records ACP's documentation shows.
 - `live_turns.test.ts`, `live_asks.test.ts` (over `live-rig.ts`), `live_shapes.test.ts`: turns, stops and an ask
   after one, worker loss, stop reasons, compaction, asks and the unshowable ones, eviction, the cache window, diff
@@ -707,5 +738,5 @@ naming why.
   for it, so the model rule checks a choice made mid-run at a hold, without which model each request ran with. A
   session the backend does not find is explained from the wire (agy's newest listing, the session's prompts).
 - **The recorder** (`record/`): fourteen scenarios, twelve prompts, each scenario on a backend of its own, its frames
-  scrubbed of paths, names, the key, the plan and every session id (`record/scrub.ts`). A scenario about a permission
-  that agy ran unasked is recorded as `<name>-unasked`.
+  scrubbed of paths, names, the key, the plan and every session id (`record/scrub.ts`), which CI replays (§15). A
+  scenario about a permission that agy ran unasked is recorded as `<name>-unasked`.

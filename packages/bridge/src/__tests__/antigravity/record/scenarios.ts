@@ -127,7 +127,10 @@ export const SCENARIOS: readonly Scenario[] = [
 			"A second prompt while a turn streams, refused busy by the backend: agy is sent the first session/prompt only.",
 		run: async ({ backend }) => {
 			const live = await backend.openNew();
-			const turn = run(live, "Write every whole number from 1 to 60, one per line, and nothing else.");
+			const turn = run(
+				live,
+				"Without using any tools, write every whole number from 1 to 60, one per line, and nothing else.",
+			);
 			await live.waitFor("block_delta");
 			expect(await live.control.prompt(input(OK_PROMPT))).toMatchObject({
 				status: "rejected",

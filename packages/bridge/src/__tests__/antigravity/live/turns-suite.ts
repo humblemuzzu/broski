@@ -44,7 +44,7 @@ const TOOLS_PROMPT = [
 	"6. Run the shell command `touch denied.txt`.",
 	"Then reply with exactly: done",
 ].join("\n");
-const COUNT_PROMPT = "Write every whole number from 1 to 400, one per line, and nothing else.";
+const COUNT_PROMPT = "Without using any tools, write every whole number from 1 to 400, one per line, and nothing else.";
 const IMAGE_PROMPT = "What colour is this image? Reply with one word.";
 const ABORT_WITHIN_MS = 3_000;
 

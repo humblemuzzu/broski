@@ -139,9 +139,9 @@ Bare package names resolve strictly from `~/.broski/adapters/node_modules` (`bun
 
 ## Conformance testing and verification
 
-Every adapter must pass the 28-rule conformance suite (`packages/bridge/src/contract/testing/run-conformance.ts`) against a **real local agent process and scripted model endpoint** — never a mock of the core or the agent.
+Every adapter must pass the 29-rule conformance suite (`packages/bridge/src/contract/testing/run-conformance.ts`) against a **real local agent process and scripted model endpoint** — never a mock of the core or the agent.
 
-Antigravity is the exception: `agy` could be put on a scripted model only with a fake API key, so its conformance run, live suite and frame recorder run on the real `agy` alone, opt-in (`BROSKI_TEST_AGY=1`, `BROSKI_AGY_RECORD=1`) and only on the developer's own Gemini API key (`GEMINI_API_KEY`) in a temp agy profile, never on a Google sign-in: Google does not permit a program driving agy on a consumer plan ([its rules](architecture/backends/antigravity/README.md)). CI starts no `agy`: its frame-level tests run on ACP's documented records, and `jobs_shutdown` on a stand-in process that hangs and speaks no ACP.
+Antigravity is the exception: `agy` could be put on a scripted model only with a fake API key, so its conformance run, live suite and frame recorder run on the real `agy` alone, opt-in (`BROSKI_TEST_AGY=1`, `BROSKI_AGY_RECORD=1`) and only on the developer's own Gemini API key (`GEMINI_API_KEY`) in a temp agy profile, never on a Google sign-in: Google does not permit a program driving agy on a consumer plan ([its rules](architecture/backends/antigravity/README.md)). CI starts no `agy`: it replays agy's own frames, which the recorder wrote (`src/__tests__/antigravity/fixtures/frames/`, played back by `src/__tests__/antigravity/replay/`), and ACP's documented records through the backend, and runs `jobs_shutdown` on a stand-in process that hangs and speaks no ACP. An agent tested this way records its frames again after each update of its own and fixes the adapter to what they show, never the fixtures.
 
 Use the built-in adapters as reference implementations:
 

@@ -21,11 +21,11 @@ export const HOLD_PROMPT =
 	'Use your ask_question tool to ask me one question, "Shall I go on?", with the options Yes and No. Then reply with exactly: done';
 
 /**
- * A turn the model has to reason through, told to: a product too long to answer from memory, so a model at its highest
- * thinking level thinks before it answers.
+ * A turn the model has to reason through itself, told to: a product too long to answer from memory, so a model at its
+ * highest thinking level thinks before it answers.
  */
 export const THINK_PROMPT =
-	"Think it through step by step, working out each partial product, then reply with only the number: what is 4567 times 89?";
+	"Without using any tools, think it through step by step, working out each partial product, then reply with only the number: what is 4567 times 89?";
 export const THINK_ANSWER = "406463";
 
 export interface FinishedRun {

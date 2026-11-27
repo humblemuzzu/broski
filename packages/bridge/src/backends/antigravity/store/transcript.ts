@@ -87,7 +87,7 @@ export class AgyTranscripts {
 	private items(session: ListedSession): Promise<RpcResult<TranscriptItem[]>> {
 		const known = this.kept.get(session.sessionId);
 		if (known?.updatedAt === session.updatedAt) return known.items;
-		const items = this.jobs.run((context) => replay(context, session, session.cwd ?? this.voidDir));
+		const items = this.jobs.run((context) => replayedTranscript(context, session, session.cwd ?? this.voidDir));
 		const kept = { updatedAt: session.updatedAt, items };
 		this.kept.delete(session.sessionId);
 		this.kept.set(session.sessionId, kept);
@@ -103,7 +103,7 @@ export class AgyTranscripts {
 }
 
 /** agy replays the history as `session/update`s before it answers the load, so every item has arrived by then. */
-async function replay(
+export async function replayedTranscript(
 	{ acp, agent }: JobContext,
 	session: ListedSession,
 	cwd: string,

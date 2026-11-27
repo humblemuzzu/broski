@@ -7,9 +7,10 @@
  * it.
  *
  * Re-record after an `agy` update with `GEMINI_API_KEY` set (twelve prompts), then read the diff of `fixtures/frames/`
- * (each fixture names the `agy` it was recorded on) and run the tests that replay them:
+ * (each fixture names the `agy` it was recorded on) and run the tests that replay them, as CI does (`replay/`):
  *
  *   GEMINI_API_KEY=… BROSKI_AGY_RECORD=1 bun test src/__tests__/antigravity/record/record_frames.test.ts
+ *   bun test src/__tests__/antigravity/replay
  */
 
 import { afterAll, beforeAll, describe } from "bun:test";

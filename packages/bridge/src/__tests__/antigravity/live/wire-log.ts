@@ -122,7 +122,7 @@ export function timeOf(agy: TappedAgy, frame: Frame): number {
 	return agy.startedAt + frame.at;
 }
 
-export function isFront(agy: TappedAgy): boolean {
+export function isFront(agy: Pick<TappedAgy, "args">): boolean {
 	return agy.args.includes("--process-per-session");
 }
 

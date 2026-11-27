@@ -75,7 +75,7 @@ export class AgySessions {
 	}
 }
 
-async function listAll({ acp, agent }: JobContext, voidDir: string): Promise<RpcResult<ListedSession[]>> {
+export async function listAll({ acp, agent }: JobContext, voidDir: string): Promise<RpcResult<ListedSession[]>> {
 	if (!isOffered(agent.agentCapabilities?.sessionCapabilities?.list)) {
 		return { ok: false, failure: { message: "this agy does not list its sessions over ACP" } };
 	}

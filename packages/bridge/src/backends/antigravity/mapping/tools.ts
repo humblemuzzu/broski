@@ -37,9 +37,7 @@ export interface ToolLook {
 	readonly input?: JsonValue;
 }
 
-const FILE_TOOLS = new Set(["read_file", "write_file", "write_to_file", "edit_file"]);
-/** The argument agy's file tools name their file by. */
-const FILE_ARGUMENTS = ["TargetFile", "Path"];
+const FILE_TOOLS = new Set(["read_file", "write_file", "edit_file"]);
 
 /**
  * The call as first reported, or with an update laid over `before`: an absent field leaves its value, and a
@@ -80,12 +78,15 @@ export interface ToolEnd {
 	readonly result: ToolResult;
 }
 
-/** How the call ended, once agy says it has; undefined while it runs. */
+/**
+ * How the call ended, once agy says it has; undefined while it runs. agy 1.5.18 sends a command's exit code as
+ * `rawOutput.exit_code`.
+ */
 export function toolEnd(state: ToolState): ToolEnd | undefined {
 	if (state.status !== "completed" && state.status !== "failed") return undefined;
 	const failed = state.status === "failed";
 	const text = toolOutput(state);
-	const exitCode = isRecord(state.rawOutput) ? state.rawOutput.exitCode : undefined;
+	const exitCode = isRecord(state.rawOutput) ? state.rawOutput.exit_code : undefined;
 	return {
 		outcome: failed ? "failed" : "completed",
 		result: {
@@ -115,7 +116,7 @@ function titleOf(state: ToolState): string | undefined {
 function filePathOf(state: ToolState): string | undefined {
 	const diff = state.content.find((item) => item.type === "diff");
 	if (diff?.type === "diff") return diff.path;
-	return state.locations[0]?.path ?? FILE_ARGUMENTS.map((key) => textField(state.rawInput, key)).find(Boolean);
+	return state.locations[0]?.path ?? textField(state.rawInput, "Path");
 }
 
 /** A command's output is `rawOutput.output`; any other tool's is the text it sent as content. */

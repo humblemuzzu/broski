@@ -71,7 +71,6 @@ function laidOver(tool: WireTool, update: Readonly<Record<string, unknown>>): Wi
 		content.map((item) => (isRecord(item) && item.type === "diff" ? text(item.path) : undefined)),
 	);
 	const named = present([
-		text(input.TargetFile),
 		text(input.Path),
 		...locations.map((location) => (isRecord(location) ? text(location.path) : undefined)),
 	]);

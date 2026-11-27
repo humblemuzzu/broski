@@ -576,7 +576,7 @@ Does the agent speak ACP (Agent Client Protocol, e.g. --acp or agent stdio)?
 | **Tier 0 (ACP Preset)** | Gemini CLI, Cursor CLI, Grok Build, OpenCode, Codex-ACP, Kiro, Goose, Copilot CLI, 40+ ACP Registry agents (Antigravity is built in) | ~15 lines config (once `backends/acp/` exists) | Covered automatically by `backends/acp/` conformance suite |
 | **Tier 1 (Minimal Native)** | Custom/niche CLIs, Aider-style tools, internal company agents | ~400–800 LOC | Core subset (auto-gated by `traits` — all optional capabilities off) |
 | **Tier 2 (Full Native)** | OpenAI Codex (`codex app-server`), OpenCode (`opencode serve`), Cursor (`@cursor/sdk`) | ~1,500–3,000 LOC | Full `runConformance` for every declared trait |
-| **Tier 3 (Deep Host)** | Claude Code (done), Pi (done) | Existing reference | All 28 rules incl. `externalLive` / `watchedAsk` / `runsSurviveRestart` |
+| **Tier 3 (Deep Host)** | Claude Code (done), Pi (done) | Existing reference | All 29 rules incl. `externalLive` / `watchedAsk` / `runsSurviveRestart` |
 
 ---
 
@@ -771,11 +771,11 @@ export function myAgentBackendFactory(deps: MyAgentDeps): BackendFactory {
         // 3. Build initial SessionSnapshot BEFORE emitting anything to sink (Rule 1!)
         // 4. Maintain snapshot by passing EVERY emitted SinkRecord through applyEvent() (Rule 2!)
         // 5. On close(): detach sink immediately, reject subsequent control calls with "closed",
-        //    do NOT abort an active run (Rule 24!)
+        //    do NOT abort an active run (Rule 25!)
       },
 
       async dispose() {
-        // Close all open sessions, revoke MCP tokens, silence catalog sink (Rule 25!)
+        // Close all open sessions, revoke MCP tokens, silence catalog sink (Rule 26!)
       },
     };
 
@@ -787,10 +787,10 @@ export function myAgentBackendFactory(deps: MyAgentDeps): BackendFactory {
 #### The 5 Mandatory Contract Invariants Every Tier 1 Adapter Must Satisfy
 
 1. **Snapshot-before-events (Rule 1 & Rule 2):** Nothing enters `sink.emit()` until `open()` has resolved with its initial `snapshot`. After `open()` resolves, `session.snapshot()` must *always* equal the open snapshot with every emitted event folded through `applyEvent()`. Easiest way: keep a single `liveState` object whose only `emit(record)` method updates `snapshot = applyEvent(snapshot, record)` and then calls `sink?.emit(record)`.
-2. **Idempotent `prompt` by `clientRequestId` (Rule 14):** Remember accepted `clientRequestId`s in the open session and return the original `PromptResult` on duplicates. Never remember rejections (`busy`, `invalid_input`). Echo `clientRequestId` on the emitted `user_message` event AND persist/attach it in `readTranscript`.
+2. **Idempotent `prompt` by `clientRequestId` (Rule 15):** Remember accepted `clientRequestId`s in the open session and return the original `PromptResult` on duplicates. Never remember rejections (`busy`, `invalid_input`). Echo `clientRequestId` on the emitted `user_message` event AND persist/attach it in `readTranscript`.
 3. **Balanced stream lifecycle (Stream Rules 1–6):** Every `run_started` ends with exactly one `run_finished`. Every open `block_started` and `tool_started` closes before `run_finished` (even on crash or abort!). Never reuse a `runId`, `blockId`, `toolCallId`, or `interactionId` within a session.
-4. **No overlap between live snapshot and transcript (Rule 23):** While a run is active, `readTranscript` stops strictly before that run's first item. Once `run_finished` fires, the finished run appears in `readTranscript`.
-5. **Non-destructive `close()` (Rule 24):** Calling `OpenSession.close()` detaches the sink so nothing more is emitted and subsequent `control.*` calls reject `closed` — it must **never** abort an active run or auto-deny a pending interaction.
+4. **No overlap between live snapshot and transcript (Rule 24):** While a run is active, `readTranscript` stops strictly before that run's first item. Once `run_finished` fires, the finished run appears in `readTranscript`.
+5. **Non-destructive `close()` (Rule 25):** Calling `OpenSession.close()` detaches the sink so nothing more is emitted and subsequent `control.*` calls reject `closed` — it must **never** abort an active run or auto-deny a pending interaction.
 
 ---
 
@@ -887,7 +887,7 @@ export function createBroskiAdapter(ctx: BroskiPluginContext): BackendFactory {
 
 ### 4.7 Conformance Testing, Verification & Merge Checklist
 
-Every adapter (built-in or third-party) proves correctness against **Broski's 28-rule conformance suite** (`packages/bridge/src/contract/testing/run-conformance.ts`).
+Every adapter (built-in or third-party) proves correctness against **Broski's 29-rule conformance suite** (`packages/bridge/src/contract/testing/run-conformance.ts`).
 
 #### How to Write a Conformance Driver
 Implement `ConformanceDriver` (`src/contract/testing/conformance-types.ts`) against a **real local process + scripted model endpoint** (never mock the agent's core behavior):
@@ -927,7 +927,7 @@ If you remember only ten rules while maintaining or reviewing open-source PRs fo
 
 ---
 
-## Appendix A — All 28 Conformance Rules by Adapter Tier
+## Appendix A — All 29 Conformance Rules by Adapter Tier
 
 Broski's conformance suite (`packages/bridge/src/contract/testing/conformance.ts`) runs each rule against a fresh backend instance. Rules for optional capabilities automatically verify clean `unsupported` rejections when a trait is `false`. Use this table when building or reviewing any new adapter.
 
@@ -938,29 +938,30 @@ Broski's conformance suite (`packages/bridge/src/contract/testing/conformance.ts
 | **3** | Commands list uniquely when `commands: true`, or reject/empty when `false` | Required | Auto-gated | Required | Required | Declaring `commands: true` while listing 0 commands in test workspace |
 | **4** | Mode axes & options have unique IDs/values and valid defaults | Required | Auto-gated | Required | Required | Passing mode default value not present in `options[]` |
 | **5** | `listSessions` pages newest-first inside canonical `cwd`, concatenates cleanly, rejects foreign cursors | Required | Required | Required | Required | Returning sessions from parent git repo instead of requested worktree `cwd` |
-| **6** | `getSession` returns accurate ref, cwd, origin, status; `not_found` for unknown | Required | Required | Required | Required | Returning `backend_error` instead of `not_found` for missing session |
-| **7** | `readTranscript` pages newest-first, concatenates without gaps/dupes, preserves `clientRequestId`, rejects foreign cursors | Required | Required | Required | Required | Splitting a multi-block assistant message incorrectly or dropping `clientRequestId` |
-| **8** | `rename`, `fork` (whole + `before`/`through`), `delete` update summaries & emit catalog events | Auto-gated | Auto-gated | Required | Required | Forgetting `catalog.emit(session_updated / session_removed)` after mutation |
-| **9** | Single run streams text (`streamText`), echoes `clientRequestId` on `user_message`, ends once `completed` | Required | Required | Required | Required | Missing `clientRequestId` echo or emitting `block_finished.text` ≠ joined deltas |
-| **10** | Tool call starts and finishes inside active run with valid IDs | Required | Required | Required | Required | Leaving a `RunningTool` open when `run_finished` fires |
-| **11** | Every declared feature (`thinking`, `usage`, `planProposals`, `children`) emits its contract event | Auto-gated | Auto-gated | Required | Required | Declaring `usage: true` without emitting `usage_updated` during/after a run |
-| **12** | Declared attachment kinds & commands reach the model; undeclared ones reject `unsupported` | Auto-gated | Auto-gated | Required | Required | Silently ignoring an unsupported `FileContent` attachment instead of rejecting |
-| **13** | Images come back as `ImageRef` live & in transcript and `readAttachment` returns exact bytes | Auto-gated | Auto-gated | Required | Required | Returning inline base64 in transcript or forgetting `not_found` on unknown ID |
-| **14** | Repeat accepted `clientRequestId` runs once with same result; rejected `busy` prompt can retry with same ID | Required | Required | Required | Required | Caching a `busy` rejection so the user's retry after the run ends is still rejected |
-| **15** | `prompt(mode: "start")` while a run is active rejects `busy` | Required | Required | Required | Required | Silently queueing a `start` prompt instead of rejecting `busy` |
-| **16** | `prompt(mode: "steer")` joins active run (`steered`) or rejects `unsupported` when undeclared | Auto-gated | Auto-gated | Required | Required | Accepting `steer` without declaring `"steer"` in `traits.promptModes` |
-| **17** | `queue` shows in `queue_changed`, cancellable via `cancelQueued` (second cancel rejects), else `unsupported` | Auto-gated | Auto-gated | Required | Required | Reusing queue item IDs or accepting duplicate cancels |
-| **18** | `abort()` with no run is accepted & silent; during a run ends it `aborted` | Required | Required | Required | Required | Emitting `run_finished(error)` instead of `run_finished(aborted)` on user Stop |
-| **19** | `setModel` / `setThinking` emit `model_changed`, refuse invalid values, apply to next run | Auto-gated | Auto-gated | Required | Required | Sending `"default"` sentinel raw to provider or accepting unlisted model ID |
-| **20** | `NewSessionOptions.modes` and `setMode` emit `mode_changed`, reject unknown axis/value with `invalid_input` | Auto-gated | Auto-gated | Required | Required | Writing mode before ACP agent advertises `configOptions` |
-| **21** | `compact()` runs as one `compaction_started` → `compaction_finished` cycle when supported | Auto-gated | Auto-gated | Required | Required | Starting compaction while another compaction is already open |
-| **22** | Every declared interaction kind validates (`invalid_input`), resolves once (`answered`), repeats `stale`, obeys `cancel{stopRun}`, withdraws on `abort` | Required | Auto-gated | Required | Required | Leaving pending ask open after `abort()` or throwing on malformed reply |
-| **23** | Mid-run `snapshot()` equals open snapshot + emitted events; `run.items` holds active run while transcript holds none of it; reopen matches | Required | Required | Required | Required | Overlapping active run items in both `readTranscript` and `snapshot.run.items` |
-| **24** | `close()` is idempotent, silent afterward, rejects control with `closed`, aborts nothing, preserves pending asks for next `open()` | Required | Required | Required | Required | Killing the running child process inside `OpenSession.close()` |
-| **25** | `dispose()` closes every open session and silences catalog sink | Required | Required | Required | Required | Emitting a stray `session_updated` from a file watcher after `dispose()` |
-| **26** | With `externalLive: true`, a run started by another client reports live with `trigger: "external"` | Optional | Optional | Optional | Required | Failing to distinguish bridge-sent prompts from external terminal prompts |
-| **27** | Sessions survive bridge restart; runs either end cleanly or continue under a fresh `RunId` (`runsSurviveRestart`) | Required | Required | Required | Required | Reusing pre-restart `RunId` or losing the session file on restart |
-| **28** | Watched session with `answer` (no `control`) validates, resolves once, repeats `stale`, rejects `closed` after close | Optional | Optional | Optional | Required | Exposing both `control` and `OpenSession.answer` on the same open session |
+| **6** | `listSessions({search})` keeps the rows whose title or folder has every word, in any case, and pages them as one listing | Required | Required | Required | Required | Matching a row that has only some of the words |
+| **7** | `getSession` returns accurate ref, cwd, origin, status; `not_found` for unknown | Required | Required | Required | Required | Returning `backend_error` instead of `not_found` for missing session |
+| **8** | `readTranscript` pages newest-first, concatenates without gaps/dupes, preserves `clientRequestId`, rejects foreign cursors | Required | Required | Required | Required | Splitting a multi-block assistant message incorrectly or dropping `clientRequestId` |
+| **9** | `rename`, `fork` (whole + `before`/`through`), `delete` update summaries & emit catalog events | Auto-gated | Auto-gated | Required | Required | Forgetting `catalog.emit(session_updated / session_removed)` after mutation |
+| **10** | Single run streams text (`streamText`), echoes `clientRequestId` on `user_message`, ends once `completed` | Required | Required | Required | Required | Missing `clientRequestId` echo or emitting `block_finished.text` ≠ joined deltas |
+| **11** | Tool call starts and finishes inside active run with valid IDs | Required | Required | Required | Required | Leaving a `RunningTool` open when `run_finished` fires |
+| **12** | Every declared feature (`thinking`, `usage`, `planProposals`, `children`) emits its contract event | Auto-gated | Auto-gated | Required | Required | Declaring `usage: true` without emitting `usage_updated` during/after a run |
+| **13** | Declared attachment kinds & commands reach the model; undeclared ones reject `unsupported` | Auto-gated | Auto-gated | Required | Required | Silently ignoring an unsupported `FileContent` attachment instead of rejecting |
+| **14** | Images come back as `ImageRef` live & in transcript and `readAttachment` returns exact bytes | Auto-gated | Auto-gated | Required | Required | Returning inline base64 in transcript or forgetting `not_found` on unknown ID |
+| **15** | Repeat accepted `clientRequestId` runs once with same result; rejected `busy` prompt can retry with same ID | Required | Required | Required | Required | Caching a `busy` rejection so the user's retry after the run ends is still rejected |
+| **16** | `prompt(mode: "start")` while a run is active rejects `busy` | Required | Required | Required | Required | Silently queueing a `start` prompt instead of rejecting `busy` |
+| **17** | `prompt(mode: "steer")` joins active run (`steered`) or rejects `unsupported` when undeclared | Auto-gated | Auto-gated | Required | Required | Accepting `steer` without declaring `"steer"` in `traits.promptModes` |
+| **18** | `queue` shows in `queue_changed`, cancellable via `cancelQueued` (second cancel rejects), else `unsupported` | Auto-gated | Auto-gated | Required | Required | Reusing queue item IDs or accepting duplicate cancels |
+| **19** | `abort()` with no run is accepted & silent; during a run ends it `aborted` | Required | Required | Required | Required | Emitting `run_finished(error)` instead of `run_finished(aborted)` on user Stop |
+| **20** | `setModel` / `setThinking` emit `model_changed`, refuse invalid values, apply to next run | Auto-gated | Auto-gated | Required | Required | Sending `"default"` sentinel raw to provider or accepting unlisted model ID |
+| **21** | `NewSessionOptions.modes` and `setMode` emit `mode_changed`, reject unknown axis/value with `invalid_input` | Auto-gated | Auto-gated | Required | Required | Writing mode before ACP agent advertises `configOptions` |
+| **22** | `compact()` runs as one `compaction_started` → `compaction_finished` cycle when supported | Auto-gated | Auto-gated | Required | Required | Starting compaction while another compaction is already open |
+| **23** | Every declared interaction kind validates (`invalid_input`), resolves once (`answered`), repeats `stale`, obeys `cancel{stopRun}`, withdraws on `abort` | Required | Auto-gated | Required | Required | Leaving pending ask open after `abort()` or throwing on malformed reply |
+| **24** | Mid-run `snapshot()` equals open snapshot + emitted events; `run.items` holds active run while transcript holds none of it; reopen matches | Required | Required | Required | Required | Overlapping active run items in both `readTranscript` and `snapshot.run.items` |
+| **25** | `close()` is idempotent, silent afterward, rejects control with `closed`, aborts nothing, preserves pending asks for next `open()` | Required | Required | Required | Required | Killing the running child process inside `OpenSession.close()` |
+| **26** | `dispose()` closes every open session and silences catalog sink | Required | Required | Required | Required | Emitting a stray `session_updated` from a file watcher after `dispose()` |
+| **27** | With `externalLive: true`, a run started by another client reports live with `trigger: "external"` | Optional | Optional | Optional | Required | Failing to distinguish bridge-sent prompts from external terminal prompts |
+| **28** | Sessions survive bridge restart; runs either end cleanly or continue under a fresh `RunId` (`runsSurviveRestart`) | Required | Required | Required | Required | Reusing pre-restart `RunId` or losing the session file on restart |
+| **29** | Watched session with `answer` (no `control`) validates, resolves once, repeats `stale`, rejects `closed` after close | Optional | Optional | Optional | Required | Exposing both `control` and `OpenSession.answer` on the same open session |
 
 ---
 

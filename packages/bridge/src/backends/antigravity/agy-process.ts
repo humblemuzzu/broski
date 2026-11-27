@@ -8,7 +8,7 @@ import type { RpcResult } from "./acp/rpc";
 import type { AgyInstall } from "./install";
 
 export interface AgyProcess {
-	readonly acp: AcpConnection;
+	readonly acp: Pick<AcpConnection, "rpc" | "running" | "ended" | "stop">;
 	readonly agent: InitializeResult;
 }
 

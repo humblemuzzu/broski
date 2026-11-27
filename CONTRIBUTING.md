@@ -76,8 +76,9 @@ reports and clears build caches.
   `scripted-openai-server.ts`); Pi runs as the devDependency's real `pi` against the OpenAI-compatible one.
   Antigravity's live suite, conformance run and frame recorder run on the real `agy` only, opt-in and only on your own
   Gemini API key in a temp agy profile, never on a Google sign-in, where Google does not permit a program driving agy;
-  CI starts no `agy`: its frame-level tests run on ACP's documented records, and `jobs_shutdown` on a stand-in process
-  that hangs and speaks no ACP ([its notes](docs/architecture/backends/antigravity/README.md)).
+  CI starts no `agy`: it replays agy's own frames, which the recorder wrote (`fixtures/frames/`, never edited by hand),
+  and ACP's documented records through the backend, and runs `jobs_shutdown` on a stand-in process that hangs and
+  speaks no ACP ([its notes](docs/architecture/backends/antigravity/README.md)).
 - **Never mock the core.** Core tests drive the contract's fake backend (`helpers/core-rig.ts`, `helpers/core-bridge.ts`)
   and break adapters by wrapping it (`helpers/core-adapters.ts`).
 - **Prove behaviour at a real seam.** Delete tests whose subject was deleted; do not write tests to raise a count.

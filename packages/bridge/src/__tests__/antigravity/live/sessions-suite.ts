@@ -25,9 +25,13 @@ import { answerText, contextOf, OK_PROMPT, run } from "./runs";
 import { paramsOf, resultOf } from "./wire-log";
 import { AgyWorld, type LiveBackend } from "./world";
 
-/** Told in the first turn only, so a later answer that names it proves the model has agy's own history. */
-const REMEMBER_PROMPT = "Remember this code word for later: heron. Reply with ok only.";
-const RECALL_PROMPT = "What code word did I ask you to remember? Reply with the code word only.";
+/**
+ * Told in the first turn only and kept in no tool, so a later answer that names it proves the model has agy's own
+ * history.
+ */
+const REMEMBER_PROMPT = "Without using any tools, remember this code word for later: heron. Reply with ok only.";
+const RECALL_PROMPT =
+	"Without using any tools, tell me the code word I asked you to remember. Reply with the code word only.";
 const QUIET_MS = 3_000;
 
 export function sessionsSuite(): void {

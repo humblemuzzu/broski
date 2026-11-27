@@ -4,7 +4,8 @@
  * long (agy 1.5.18 offers `allow_once` and `reject_once` alone). No option is the default and none stops the run: a
  * rejection lets agy go on without the tool. A request none of whose options says what it does still goes to the
  * person, who can only refuse it (ACP's `cancelled` outcome), since there is nothing honest to allow. The request's
- * tool call is read as agy reported it so far, since a request may name only the call's id.
+ * tool call is read as agy reported it so far, since a request may name only the call's id. The ask is titled as the
+ * call's row is: agy 1.5.18 titles a file call by its path from agy's own folder, the void one (`File ../../x.txt`).
  */
 
 import { boundedJson } from "../../../adapter-kit/bounded-json";
@@ -65,7 +66,7 @@ export function permissionAsk(params: PermissionRequest, tool: ToolState): Permi
 		grants: [],
 		deliberate: false,
 	};
-	const title = phoneName(tool.title ?? look.title ?? "") || `Antigravity asks to use ${look.name}`;
+	const title = look.title ?? `Antigravity asks to use ${look.name}`;
 	if (options.length === 0) return { title, body: UNREADABLE, request, result: () => PERMISSION_CANCELLED };
 	return {
 		title,

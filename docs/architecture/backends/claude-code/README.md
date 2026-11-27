@@ -4,7 +4,7 @@ The contract backend for Claude Code (`packages/bridge/src/backends/claude-code/
 (`src/contract/backend.ts`, [contract README](../../contract/README.md) §5) on `@anthropic-ai/claude-agent-sdk`
 **0.3.330** (exact pin), whose package names the CLI it was released with: `claudeCodeVersion` **2.1.330**. It drives
 the `claude` the user installed; the bridge carries no Claude Code binary. It is registered in every bridge
-(`server/contract-backends.ts`) and passes all 28 conformance rules against the real CLI
+(`server/contract-backends.ts`) and passes all 29 conformance rules against the real CLI
 (`src/__tests__/claude-code/conformance/`).
 
 It serves no ops, custom tools, hook activities or prompt suggestions: the phone is not where those are managed.
@@ -55,7 +55,7 @@ src/doctor/checks/claude-cli.ts   the doctor's check of the same binary
 
 A host (`live/host.ts`) owns one `query()` whose prompt is an `AsyncIterable` inbox that stays open between runs
 (`process/inbox.ts`; a string prompt would close stdin at the end of the first run), and one consumer loop over its
-frames (`live/consumer.ts`). `OpenSession.close()` detaches the sink only: contract rule 24 (close aborts nothing, an
+frames (`live/consumer.ts`). `OpenSession.close()` detaches the sink only: contract rule 25 (close aborts nothing, an
 ask pending at close is in the next open's snapshot). The process ends when the host is idle (no run, ask,
 compaction, retry or queued input) **and** detached, after a 30 s grace (`live/shutdown.ts` `IDLE_GRACE_MS`), and at
 `dispose()`. A process that ended while the host lives is started again on the next need, resuming the session.
@@ -392,7 +392,7 @@ sidecar, is `user`; otherwise `first_prompt` when the shown text is the first pr
 with its image names (D10), and when the last writes to a session's file were its own: a host ending, a rename, a
 fork. Bounded; compacted past twice its capacity. A file last written at or before that time plus 1 s (the CLI's
 batched flush) is not a terminal writing it, so a session reopened after a bridge restart is resumed, not watched
-(conformance rule 27, `integration/own_writes.test.ts`). An ending host counts as hosted until its process ended and
+(conformance rule 28, `integration/own_writes.test.ts`). An ending host counts as hosted until its process ended and
 its write was noted.
 
 ### D26. History
@@ -515,7 +515,7 @@ none. No test reads or writes the real `~/.claude`. The CLI is the SDK's own pla
 pin was released with; `BROSKI_TEST_CLAUDE_CLI` points the suite at another, such as the user's. Unit tests drive a
 scripted `Query` (`helpers/fake-query.ts`).
 
-- `conformance/`: the 28 rules on the real CLI, one script per session routed by its `X-Claude-Code-Session-Id`;
+- `conformance/`: the 29 rules on the real CLI, one script per session routed by its `X-Claude-Code-Session-Id`;
   the watched-ask rule runs a second real `claude` whose Write asks through the installed hook over TLS.
 - `integration/core_smoke.test.ts`: a phone through the core end to end; `children_real.test.ts`,
   `hosted_hook.test.ts`, `own_writes.test.ts`, `ids_three_ways.test.ts`.
