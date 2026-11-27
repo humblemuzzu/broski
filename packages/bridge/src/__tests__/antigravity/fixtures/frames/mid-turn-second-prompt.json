@@ -36,7 +36,7 @@
 					}
 				},
 				{
-					"at": 55,
+					"at": 51,
 					"from": "tap",
 					"message": {
 						"jsonrpc": "2.0",
@@ -48,7 +48,7 @@
 					}
 				},
 				{
-					"at": 147,
+					"at": 138,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -57,7 +57,7 @@
 					}
 				},
 				{
-					"at": 147,
+					"at": 138,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -132,7 +132,7 @@
 					}
 				},
 				{
-					"at": 177,
+					"at": 167,
 					"from": "client",
 					"message": {
 						"jsonrpc": "2.0",
@@ -145,7 +145,7 @@
 					}
 				},
 				{
-					"at": 297,
+					"at": 285,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -365,7 +365,7 @@
 					}
 				},
 				{
-					"at": 297,
+					"at": 286,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -425,7 +425,7 @@
 					}
 				},
 				{
-					"at": 298,
+					"at": 286,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -441,7 +441,7 @@
 					}
 				},
 				{
-					"at": 298,
+					"at": 286,
 					"from": "client",
 					"message": {
 						"jsonrpc": "2.0",
@@ -455,7 +455,7 @@
 					}
 				},
 				{
-					"at": 299,
+					"at": 287,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -553,7 +553,7 @@
 					}
 				},
 				{
-					"at": 299,
+					"at": 287,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -655,7 +655,7 @@
 					}
 				},
 				{
-					"at": 301,
+					"at": 289,
 					"from": "client",
 					"message": {
 						"jsonrpc": "2.0",
@@ -666,14 +666,14 @@
 							"prompt": [
 								{
 									"type": "text",
-									"text": "Write every whole number from 1 to 60, one per line, and nothing else."
+									"text": "Without using any tools, write every whole number from 1 to 60, one per line, and nothing else."
 								}
 							]
 						}
 					}
 				},
 				{
-					"at": 302,
+					"at": 290,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -733,22 +733,7 @@
 					}
 				},
 				{
-					"at": 2239,
-					"from": "agent",
-					"message": {
-						"jsonrpc": "2.0",
-						"method": "session/update",
-						"params": {
-							"sessionId": "00000000-0000-4000-8000-000000000001",
-							"update": {
-								"sessionUpdate": "session_info_update",
-								"title": "Numbers One Through Sixty"
-							}
-						}
-					}
-				},
-				{
-					"at": 2753,
+					"at": 2712,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -759,32 +744,14 @@
 								"sessionUpdate": "agent_message_chunk",
 								"content": {
 									"type": "text",
-									"text": "1\n"
+									"text": "1\n2\n3\n4\n5\n6\n7\n8\n9\n1"
 								}
 							}
 						}
 					}
 				},
 				{
-					"at": 2754,
-					"from": "agent",
-					"message": {
-						"jsonrpc": "2.0",
-						"method": "session/update",
-						"params": {
-							"sessionId": "00000000-0000-4000-8000-000000000001",
-							"update": {
-								"sessionUpdate": "agent_message_chunk",
-								"content": {
-									"type": "text",
-									"text": "2\n3\n4\n5\n6\n7\n8\n9\n1"
-								}
-							}
-						}
-					}
-				},
-				{
-					"at": 2754,
+					"at": 2724,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -802,7 +769,7 @@
 					}
 				},
 				{
-					"at": 2757,
+					"at": 2846,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -820,7 +787,7 @@
 					}
 				},
 				{
-					"at": 2758,
+					"at": 2984,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -838,7 +805,7 @@
 					}
 				},
 				{
-					"at": 2821,
+					"at": 3139,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -856,7 +823,22 @@
 					}
 				},
 				{
-					"at": 2973,
+					"at": 3226,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"method": "session/update",
+						"params": {
+							"sessionId": "00000000-0000-4000-8000-000000000001",
+							"update": {
+								"sessionUpdate": "session_info_update",
+								"title": "List Whole Numbers 1-60"
+							}
+						}
+					}
+				},
+				{
+					"at": 3257,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -874,7 +856,7 @@
 					}
 				},
 				{
-					"at": 3102,
+					"at": 3400,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -892,7 +874,7 @@
 					}
 				},
 				{
-					"at": 3156,
+					"at": 3458,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -910,7 +892,7 @@
 					}
 				},
 				{
-					"at": 3169,
+					"at": 3493,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -919,26 +901,26 @@
 							"sessionId": "00000000-0000-4000-8000-000000000001",
 							"update": {
 								"sessionUpdate": "usage_update",
-								"used": 10156,
+								"used": 10203,
 								"size": 1048576
 							}
 						}
 					}
 				},
 				{
-					"at": 3178,
+					"at": 3504,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
 						"result": {
 							"stopReason": "end_turn",
 							"usage": {
-								"inputTokens": 9986,
-								"outputTokens": 170,
+								"inputTokens": 9976,
+								"outputTokens": 227,
 								"cachedReadTokens": 0,
 								"cachedWriteTokens": 0,
-								"thoughtTokens": 0,
-								"totalTokens": 10156
+								"thoughtTokens": 57,
+								"totalTokens": 10203
 							}
 						},
 						"id": 4

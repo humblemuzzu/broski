@@ -36,7 +36,7 @@
 					}
 				},
 				{
-					"at": 51,
+					"at": 49,
 					"from": "tap",
 					"message": {
 						"jsonrpc": "2.0",
@@ -48,7 +48,7 @@
 					}
 				},
 				{
-					"at": 140,
+					"at": 137,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -57,7 +57,7 @@
 					}
 				},
 				{
-					"at": 140,
+					"at": 137,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -132,7 +132,7 @@
 					}
 				},
 				{
-					"at": 171,
+					"at": 164,
 					"from": "client",
 					"message": {
 						"jsonrpc": "2.0",
@@ -145,7 +145,7 @@
 					}
 				},
 				{
-					"at": 294,
+					"at": 282,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -365,7 +365,7 @@
 					}
 				},
 				{
-					"at": 294,
+					"at": 283,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -425,7 +425,7 @@
 					}
 				},
 				{
-					"at": 294,
+					"at": 283,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -441,7 +441,7 @@
 					}
 				},
 				{
-					"at": 294,
+					"at": 283,
 					"from": "client",
 					"message": {
 						"jsonrpc": "2.0",
@@ -455,7 +455,7 @@
 					}
 				},
 				{
-					"at": 295,
+					"at": 284,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -553,7 +553,7 @@
 					}
 				},
 				{
-					"at": 295,
+					"at": 284,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -655,7 +655,7 @@
 					}
 				},
 				{
-					"at": 297,
+					"at": 286,
 					"from": "client",
 					"message": {
 						"jsonrpc": "2.0",
@@ -673,7 +673,7 @@
 					}
 				},
 				{
-					"at": 299,
+					"at": 287,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -733,22 +733,7 @@
 					}
 				},
 				{
-					"at": 3233,
-					"from": "agent",
-					"message": {
-						"jsonrpc": "2.0",
-						"method": "session/update",
-						"params": {
-							"sessionId": "00000000-0000-4000-8000-000000000001",
-							"update": {
-								"sessionUpdate": "session_info_update",
-								"title": "Ask Question Tool Usage"
-							}
-						}
-					}
-				},
-				{
-					"at": 3893,
+					"at": 2723,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -757,14 +742,14 @@
 							"sessionId": "00000000-0000-4000-8000-000000000001",
 							"update": {
 								"sessionUpdate": "usage_update",
-								"used": 10049,
+								"used": 10030,
 								"size": 1048576
 							}
 						}
 					}
 				},
 				{
-					"at": 3901,
+					"at": 2730,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -773,14 +758,14 @@
 							"sessionId": "00000000-0000-4000-8000-000000000001",
 							"update": {
 								"sessionUpdate": "tool_call",
-								"toolCallId": "call_9619200601240859259",
+								"toolCallId": "call_16833432495726417813",
 								"name": "ask_question",
 								"args": {
 									"questions": [
 										{
 											"is_multi_select": true,
 											"options": [
-												"Yes",
+												"(Recommended) Yes",
 												"No"
 											],
 											"question": "Which ones?"
@@ -795,7 +780,7 @@
 										{
 											"is_multi_select": true,
 											"options": [
-												"Yes",
+												"(Recommended) Yes",
 												"No"
 											],
 											"question": "Which ones?"
@@ -807,7 +792,7 @@
 					}
 				},
 				{
-					"at": 3902,
+					"at": 2732,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -816,14 +801,14 @@
 							"sessionId": "00000000-0000-4000-8000-000000000001",
 							"update": {
 								"sessionUpdate": "tool_call_update",
-								"toolCallId": "call_9619200601240859259",
+								"toolCallId": "call_16833432495726417813",
 								"name": "ask_question",
 								"args": {
 									"questions": [
 										{
 											"is_multi_select": true,
 											"options": [
-												"Yes",
+												"(Recommended) Yes",
 												"No"
 											],
 											"question": "Which ones?"
@@ -838,7 +823,7 @@
 										{
 											"is_multi_select": true,
 											"options": [
-												"Yes",
+												"(Recommended) Yes",
 												"No"
 											],
 											"question": "Which ones?"
@@ -850,7 +835,7 @@
 					}
 				},
 				{
-					"at": 3902,
+					"at": 2733,
 					"from": "agent",
 					"message": {
 						"id": "jetski-acp-front:4",
@@ -858,7 +843,7 @@
 						"method": "elicitation/create",
 						"params": {
 							"sessionId": "00000000-0000-4000-8000-000000000001",
-							"toolCallId": "call_9619200601240859259",
+							"toolCallId": "call_16833432495726417813",
 							"mode": "form",
 							"message": "The agent has a question.",
 							"requestedSchema": {
@@ -871,7 +856,7 @@
 											"anyOf": [
 												{
 													"const": "1",
-													"title": "Yes"
+													"title": "(Recommended) Yes"
 												},
 												{
 													"const": "2",
@@ -891,7 +876,7 @@
 					}
 				},
 				{
-					"at": 3904,
+					"at": 2734,
 					"from": "client",
 					"message": {
 						"jsonrpc": "2.0",
@@ -902,7 +887,7 @@
 					}
 				},
 				{
-					"at": 3905,
+					"at": 2736,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -911,14 +896,14 @@
 							"sessionId": "00000000-0000-4000-8000-000000000001",
 							"update": {
 								"sessionUpdate": "tool_call_update",
-								"toolCallId": "call_9619200601240859259",
+								"toolCallId": "call_16833432495726417813",
 								"name": "ask_question",
 								"args": {
 									"questions": [
 										{
 											"is_multi_select": true,
 											"options": [
-												"Yes",
+												"(Recommended) Yes",
 												"No"
 											],
 											"question": "Which ones?"
@@ -933,7 +918,7 @@
 										{
 											"is_multi_select": true,
 											"options": [
-												"Yes",
+												"(Recommended) Yes",
 												"No"
 											],
 											"question": "Which ones?"
@@ -945,7 +930,7 @@
 					}
 				},
 				{
-					"at": 3907,
+					"at": 2737,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -954,14 +939,14 @@
 							"sessionId": "00000000-0000-4000-8000-000000000001",
 							"update": {
 								"sessionUpdate": "tool_call_update",
-								"toolCallId": "call_9619200601240859259",
+								"toolCallId": "call_16833432495726417813",
 								"name": "ask_question",
 								"args": {
 									"questions": [
 										{
 											"is_multi_select": true,
 											"options": [
-												"Yes",
+												"(Recommended) Yes",
 												"No"
 											],
 											"question": "Which ones?"
@@ -976,7 +961,7 @@
 										{
 											"is_multi_select": true,
 											"options": [
-												"Yes",
+												"(Recommended) Yes",
 												"No"
 											],
 											"question": "Which ones?"
@@ -988,7 +973,22 @@
 					}
 				},
 				{
-					"at": 5866,
+					"at": 3225,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"method": "session/update",
+						"params": {
+							"sessionId": "00000000-0000-4000-8000-000000000001",
+							"update": {
+								"sessionUpdate": "session_info_update",
+								"title": "Interactive Tool Question Request"
+							}
+						}
+					}
+				},
+				{
+					"at": 5982,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -1006,7 +1006,7 @@
 					}
 				},
 				{
-					"at": 5871,
+					"at": 5993,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -1015,26 +1015,26 @@
 							"sessionId": "00000000-0000-4000-8000-000000000001",
 							"update": {
 								"sessionUpdate": "usage_update",
-								"used": 10129,
+								"used": 10110,
 								"size": 1048576
 							}
 						}
 					}
 				},
 				{
-					"at": 5880,
+					"at": 6003,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
 						"result": {
 							"stopReason": "end_turn",
 							"usage": {
-								"inputTokens": 12171,
-								"outputTokens": 40,
-								"cachedReadTokens": 7967,
+								"inputTokens": 12152,
+								"outputTokens": 43,
+								"cachedReadTokens": 7945,
 								"cachedWriteTokens": 0,
 								"thoughtTokens": 0,
-								"totalTokens": 20178
+								"totalTokens": 20140
 							}
 						},
 						"id": 4

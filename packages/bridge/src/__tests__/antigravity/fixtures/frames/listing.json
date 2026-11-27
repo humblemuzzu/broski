@@ -35,7 +35,7 @@
 					}
 				},
 				{
-					"at": 51,
+					"at": 49,
 					"from": "tap",
 					"message": {
 						"jsonrpc": "2.0",
@@ -47,7 +47,7 @@
 					}
 				},
 				{
-					"at": 88,
+					"at": 85,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -56,7 +56,7 @@
 					}
 				},
 				{
-					"at": 88,
+					"at": 85,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -125,7 +125,7 @@
 					}
 				},
 				{
-					"at": 89,
+					"at": 87,
 					"from": "client",
 					"message": {
 						"jsonrpc": "2.0",
@@ -135,7 +135,7 @@
 					}
 				},
 				{
-					"at": 95,
+					"at": 93,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -144,50 +144,50 @@
 								{
 									"sessionId": "00000000-0000-4000-8000-000000000001",
 									"cwd": "<WORKSPACE>",
-									"title": "Ask Question Tool Usage",
-									"updatedAt": "2026-11-27T11:45:56Z"
+									"title": "Interactive Tool Question Request",
+									"updatedAt": "2026-11-27T13:00:44Z"
 								},
 								{
 									"sessionId": "00000000-0000-4000-8000-000000000002",
 									"cwd": "<WORKSPACE>",
-									"title": "Fruit Selection Query",
-									"updatedAt": "2026-11-27T11:45:50Z"
+									"title": "Fruit Selection Interaction Request",
+									"updatedAt": "2026-11-27T13:00:39Z"
 								},
 								{
 									"sessionId": "00000000-0000-4000-8000-000000000003",
 									"cwd": "<WORKSPACE>",
-									"title": "Requesting Red Or Blue Choice",
-									"updatedAt": "2026-11-27T11:45:44Z"
+									"title": "Red Or Blue Choice Task",
+									"updatedAt": "2026-11-27T13:00:33Z"
 								},
 								{
 									"sessionId": "00000000-0000-4000-8000-000000000004",
 									"cwd": "<WORKSPACE>",
-									"title": "Requesting Ask Question Tool",
-									"updatedAt": "2026-11-27T11:45:41Z"
+									"title": "Request To Ask Question",
+									"updatedAt": "2026-11-27T13:00:28Z"
 								},
 								{
 									"sessionId": "00000000-0000-4000-8000-000000000005",
 									"cwd": "<WORKSPACE>",
-									"title": "Execute Touch Shell Command",
-									"updatedAt": "2026-11-27T11:45:37Z"
+									"title": "Create Denied.txt Via Shell",
+									"updatedAt": "2026-11-27T13:00:25Z"
 								},
 								{
 									"sessionId": "00000000-0000-4000-8000-000000000006",
 									"cwd": "<WORKSPACE>",
-									"title": "Create File Allowed.txt",
-									"updatedAt": "2026-11-27T11:45:30Z"
+									"title": "Create Allowed.txt File",
+									"updatedAt": "2026-11-27T13:00:18Z"
 								},
 								{
 									"sessionId": "00000000-0000-4000-8000-000000000007",
 									"cwd": "<WORKSPACE>",
 									"title": "Calculate 4567 Times 89",
-									"updatedAt": "2026-11-27T11:45:18Z"
+									"updatedAt": "2026-11-27T13:00:05Z"
 								},
 								{
 									"sessionId": "00000000-0000-4000-8000-000000000008",
 									"cwd": "<WORKSPACE>",
-									"title": "Request To Reply Ok",
-									"updatedAt": "2026-11-27T11:45:15Z"
+									"title": "Request For Specific Reply",
+									"updatedAt": "2026-11-27T13:00:03Z"
 								}
 							]
 						},

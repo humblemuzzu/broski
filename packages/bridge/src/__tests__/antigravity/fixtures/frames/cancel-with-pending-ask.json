@@ -36,7 +36,7 @@
 					}
 				},
 				{
-					"at": 50,
+					"at": 49,
 					"from": "tap",
 					"message": {
 						"jsonrpc": "2.0",
@@ -48,7 +48,7 @@
 					}
 				},
 				{
-					"at": 134,
+					"at": 135,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -132,7 +132,7 @@
 					}
 				},
 				{
-					"at": 163,
+					"at": 164,
 					"from": "client",
 					"message": {
 						"jsonrpc": "2.0",
@@ -145,7 +145,7 @@
 					}
 				},
 				{
-					"at": 281,
+					"at": 280,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -365,7 +365,7 @@
 					}
 				},
 				{
-					"at": 282,
+					"at": 280,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -425,7 +425,7 @@
 					}
 				},
 				{
-					"at": 282,
+					"at": 280,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -441,7 +441,7 @@
 					}
 				},
 				{
-					"at": 282,
+					"at": 281,
 					"from": "client",
 					"message": {
 						"jsonrpc": "2.0",
@@ -455,7 +455,7 @@
 					}
 				},
 				{
-					"at": 283,
+					"at": 282,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -553,7 +553,7 @@
 					}
 				},
 				{
-					"at": 283,
+					"at": 282,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -655,7 +655,7 @@
 					}
 				},
 				{
-					"at": 284,
+					"at": 283,
 					"from": "client",
 					"message": {
 						"jsonrpc": "2.0",
@@ -673,7 +673,7 @@
 					}
 				},
 				{
-					"at": 286,
+					"at": 285,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -733,7 +733,7 @@
 					}
 				},
 				{
-					"at": 3223,
+					"at": 2221,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -742,13 +742,13 @@
 							"sessionId": "00000000-0000-4000-8000-000000000001",
 							"update": {
 								"sessionUpdate": "session_info_update",
-								"title": "Requesting Ask Question Tool"
+								"title": "Request To Ask Question"
 							}
 						}
 					}
 				},
 				{
-					"at": 3550,
+					"at": 3618,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -757,14 +757,14 @@
 							"sessionId": "00000000-0000-4000-8000-000000000001",
 							"update": {
 								"sessionUpdate": "usage_update",
-								"used": 10039,
+								"used": 10019,
 								"size": 1048576
 							}
 						}
 					}
 				},
 				{
-					"at": 3559,
+					"at": 3626,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -773,7 +773,7 @@
 							"sessionId": "00000000-0000-4000-8000-000000000001",
 							"update": {
 								"sessionUpdate": "tool_call",
-								"toolCallId": "call_10933497411678244817",
+								"toolCallId": "call_9645462879285185274",
 								"name": "ask_question",
 								"args": {
 									"questions": [
@@ -807,7 +807,7 @@
 					}
 				},
 				{
-					"at": 3559,
+					"at": 3627,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -816,7 +816,7 @@
 							"sessionId": "00000000-0000-4000-8000-000000000001",
 							"update": {
 								"sessionUpdate": "tool_call_update",
-								"toolCallId": "call_10933497411678244817",
+								"toolCallId": "call_9645462879285185274",
 								"name": "ask_question",
 								"args": {
 									"questions": [
@@ -850,7 +850,7 @@
 					}
 				},
 				{
-					"at": 3559,
+					"at": 3628,
 					"from": "agent",
 					"message": {
 						"id": "jetski-acp-front:4",
@@ -858,7 +858,7 @@
 						"method": "elicitation/create",
 						"params": {
 							"sessionId": "00000000-0000-4000-8000-000000000001",
-							"toolCallId": "call_10933497411678244817",
+							"toolCallId": "call_9645462879285185274",
 							"mode": "form",
 							"message": "The agent has a question.",
 							"requestedSchema": {
@@ -889,7 +889,7 @@
 					}
 				},
 				{
-					"at": 3567,
+					"at": 3634,
 					"from": "client",
 					"message": {
 						"jsonrpc": "2.0",
@@ -900,7 +900,7 @@
 					}
 				},
 				{
-					"at": 3568,
+					"at": 3634,
 					"from": "client",
 					"message": {
 						"jsonrpc": "2.0",
@@ -911,7 +911,7 @@
 					}
 				},
 				{
-					"at": 3569,
+					"at": 3635,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -920,7 +920,7 @@
 							"sessionId": "00000000-0000-4000-8000-000000000001",
 							"update": {
 								"sessionUpdate": "tool_call_update",
-								"toolCallId": "call_10933497411678244817",
+								"toolCallId": "call_9645462879285185274",
 								"name": "ask_question",
 								"args": {
 									"questions": [
@@ -954,7 +954,7 @@
 					}
 				},
 				{
-					"at": 3570,
+					"at": 3636,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -963,7 +963,7 @@
 							"sessionId": "00000000-0000-4000-8000-000000000001",
 							"update": {
 								"sessionUpdate": "tool_call_update",
-								"toolCallId": "call_10933497411678244817",
+								"toolCallId": "call_9645462879285185274",
 								"name": "ask_question",
 								"args": {
 									"questions": [
@@ -997,19 +997,19 @@
 					}
 				},
 				{
-					"at": 3571,
+					"at": 3638,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
 						"result": {
 							"stopReason": "cancelled",
 							"usage": {
-								"inputTokens": 9998,
+								"inputTokens": 9978,
 								"outputTokens": 41,
 								"cachedReadTokens": 0,
 								"cachedWriteTokens": 0,
 								"thoughtTokens": 0,
-								"totalTokens": 10039
+								"totalTokens": 10019
 							}
 						},
 						"id": 4

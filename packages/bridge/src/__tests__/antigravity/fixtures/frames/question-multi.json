@@ -36,7 +36,7 @@
 					}
 				},
 				{
-					"at": 52,
+					"at": 49,
 					"from": "tap",
 					"message": {
 						"jsonrpc": "2.0",
@@ -48,7 +48,7 @@
 					}
 				},
 				{
-					"at": 140,
+					"at": 135,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -57,7 +57,7 @@
 					}
 				},
 				{
-					"at": 140,
+					"at": 135,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -132,7 +132,7 @@
 					}
 				},
 				{
-					"at": 170,
+					"at": 163,
 					"from": "client",
 					"message": {
 						"jsonrpc": "2.0",
@@ -145,7 +145,7 @@
 					}
 				},
 				{
-					"at": 294,
+					"at": 282,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -365,7 +365,7 @@
 					}
 				},
 				{
-					"at": 294,
+					"at": 282,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -425,7 +425,7 @@
 					}
 				},
 				{
-					"at": 294,
+					"at": 283,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -441,7 +441,7 @@
 					}
 				},
 				{
-					"at": 295,
+					"at": 283,
 					"from": "client",
 					"message": {
 						"jsonrpc": "2.0",
@@ -455,7 +455,7 @@
 					}
 				},
 				{
-					"at": 295,
+					"at": 284,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -553,7 +553,7 @@
 					}
 				},
 				{
-					"at": 295,
+					"at": 284,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -655,7 +655,7 @@
 					}
 				},
 				{
-					"at": 297,
+					"at": 286,
 					"from": "client",
 					"message": {
 						"jsonrpc": "2.0",
@@ -673,7 +673,7 @@
 					}
 				},
 				{
-					"at": 299,
+					"at": 288,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -733,7 +733,7 @@
 					}
 				},
 				{
-					"at": 3233,
+					"at": 3224,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -742,13 +742,13 @@
 							"sessionId": "00000000-0000-4000-8000-000000000001",
 							"update": {
 								"sessionUpdate": "session_info_update",
-								"title": "Fruit Selection Query"
+								"title": "Fruit Selection Interaction Request"
 							}
 						}
 					}
 				},
 				{
-					"at": 3251,
+					"at": 3382,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -757,14 +757,14 @@
 							"sessionId": "00000000-0000-4000-8000-000000000001",
 							"update": {
 								"sessionUpdate": "usage_update",
-								"used": 10060,
+								"used": 10048,
 								"size": 1048576
 							}
 						}
 					}
 				},
 				{
-					"at": 3255,
+					"at": 3388,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -773,7 +773,7 @@
 							"sessionId": "00000000-0000-4000-8000-000000000001",
 							"update": {
 								"sessionUpdate": "tool_call",
-								"toolCallId": "call_12127183187803583675",
+								"toolCallId": "call_7974461376289089684",
 								"name": "ask_question",
 								"args": {
 									"questions": [
@@ -809,7 +809,7 @@
 					}
 				},
 				{
-					"at": 3256,
+					"at": 3390,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -818,7 +818,7 @@
 							"sessionId": "00000000-0000-4000-8000-000000000001",
 							"update": {
 								"sessionUpdate": "tool_call_update",
-								"toolCallId": "call_12127183187803583675",
+								"toolCallId": "call_7974461376289089684",
 								"name": "ask_question",
 								"args": {
 									"questions": [
@@ -854,7 +854,7 @@
 					}
 				},
 				{
-					"at": 3257,
+					"at": 3390,
 					"from": "agent",
 					"message": {
 						"id": "jetski-acp-front:4",
@@ -862,7 +862,7 @@
 						"method": "elicitation/create",
 						"params": {
 							"sessionId": "00000000-0000-4000-8000-000000000001",
-							"toolCallId": "call_12127183187803583675",
+							"toolCallId": "call_7974461376289089684",
 							"mode": "form",
 							"message": "The agent has a question.",
 							"requestedSchema": {
@@ -899,7 +899,7 @@
 					}
 				},
 				{
-					"at": 3258,
+					"at": 3392,
 					"from": "client",
 					"message": {
 						"jsonrpc": "2.0",
@@ -916,7 +916,7 @@
 					}
 				},
 				{
-					"at": 3259,
+					"at": 3394,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -925,7 +925,7 @@
 							"sessionId": "00000000-0000-4000-8000-000000000001",
 							"update": {
 								"sessionUpdate": "tool_call_update",
-								"toolCallId": "call_12127183187803583675",
+								"toolCallId": "call_7974461376289089684",
 								"name": "ask_question",
 								"args": {
 									"questions": [
@@ -961,7 +961,7 @@
 					}
 				},
 				{
-					"at": 3261,
+					"at": 3395,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -970,7 +970,7 @@
 							"sessionId": "00000000-0000-4000-8000-000000000001",
 							"update": {
 								"sessionUpdate": "tool_call_update",
-								"toolCallId": "call_12127183187803583675",
+								"toolCallId": "call_7974461376289089684",
 								"name": "ask_question",
 								"args": {
 									"questions": [
@@ -1006,7 +1006,7 @@
 					}
 				},
 				{
-					"at": 5591,
+					"at": 6284,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -1017,14 +1017,14 @@
 								"sessionUpdate": "agent_message_chunk",
 								"content": {
 									"type": "text",
-									"text": "You"
+									"text": "Apple,"
 								}
 							}
 						}
 					}
 				},
 				{
-					"at": 5591,
+					"at": 6284,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -1035,14 +1035,14 @@
 								"sessionUpdate": "agent_message_chunk",
 								"content": {
 									"type": "text",
-									"text": " chose Apple and Pear."
+									"text": " Pear"
 								}
 							}
 						}
 					}
 				},
 				{
-					"at": 5594,
+					"at": 6287,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -1051,26 +1051,26 @@
 							"sessionId": "00000000-0000-4000-8000-000000000001",
 							"update": {
 								"sessionUpdate": "usage_update",
-								"used": 10148,
+								"used": 10133,
 								"size": 1048576
 							}
 						}
 					}
 				},
 				{
-					"at": 5611,
+					"at": 6295,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
 						"result": {
 							"stopReason": "end_turn",
 							"usage": {
-								"inputTokens": 12185,
-								"outputTokens": 53,
-								"cachedReadTokens": 7970,
+								"inputTokens": 12173,
+								"outputTokens": 50,
+								"cachedReadTokens": 7958,
 								"cachedWriteTokens": 0,
 								"thoughtTokens": 0,
-								"totalTokens": 20208
+								"totalTokens": 20181
 							}
 						},
 						"id": 4

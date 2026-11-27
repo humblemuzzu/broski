@@ -36,7 +36,7 @@
 					}
 				},
 				{
-					"at": 51,
+					"at": 49,
 					"from": "tap",
 					"message": {
 						"jsonrpc": "2.0",
@@ -48,7 +48,7 @@
 					}
 				},
 				{
-					"at": 138,
+					"at": 135,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -57,7 +57,7 @@
 					}
 				},
 				{
-					"at": 138,
+					"at": 135,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -132,7 +132,7 @@
 					}
 				},
 				{
-					"at": 168,
+					"at": 162,
 					"from": "client",
 					"message": {
 						"jsonrpc": "2.0",
@@ -145,7 +145,7 @@
 					}
 				},
 				{
-					"at": 290,
+					"at": 278,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -365,7 +365,7 @@
 					}
 				},
 				{
-					"at": 290,
+					"at": 278,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -425,7 +425,7 @@
 					}
 				},
 				{
-					"at": 290,
+					"at": 278,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -441,7 +441,7 @@
 					}
 				},
 				{
-					"at": 290,
+					"at": 278,
 					"from": "client",
 					"message": {
 						"jsonrpc": "2.0",
@@ -455,7 +455,7 @@
 					}
 				},
 				{
-					"at": 291,
+					"at": 279,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -553,7 +553,7 @@
 					}
 				},
 				{
-					"at": 291,
+					"at": 279,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -655,7 +655,7 @@
 					}
 				},
 				{
-					"at": 294,
+					"at": 282,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -715,7 +715,7 @@
 					}
 				},
 				{
-					"at": 295,
+					"at": 283,
 					"from": "client",
 					"message": {
 						"jsonrpc": "2.0",
@@ -738,7 +738,7 @@
 					}
 				},
 				{
-					"at": 3228,
+					"at": 3222,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -753,7 +753,7 @@
 					}
 				},
 				{
-					"at": 3279,
+					"at": 3548,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -771,7 +771,7 @@
 					}
 				},
 				{
-					"at": 3281,
+					"at": 3552,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
@@ -780,26 +780,26 @@
 							"sessionId": "00000000-0000-4000-8000-000000000001",
 							"update": {
 								"sessionUpdate": "usage_update",
-								"used": 11245,
+								"used": 11234,
 								"size": 1048576
 							}
 						}
 					}
 				},
 				{
-					"at": 3286,
+					"at": 3559,
 					"from": "agent",
 					"message": {
 						"jsonrpc": "2.0",
 						"result": {
 							"stopReason": "end_turn",
 							"usage": {
-								"inputTokens": 11215,
-								"outputTokens": 30,
+								"inputTokens": 11199,
+								"outputTokens": 35,
 								"cachedReadTokens": 0,
 								"cachedWriteTokens": 0,
-								"thoughtTokens": 29,
-								"totalTokens": 11245
+								"thoughtTokens": 34,
+								"totalTokens": 11234
 							}
 						},
 						"id": 4
